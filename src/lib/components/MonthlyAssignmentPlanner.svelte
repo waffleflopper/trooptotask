@@ -1,0 +1,544 @@
+<script lang="ts">
+	import type { Personnel } from '../types';
+	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
+	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '../utils/dates';
+
+	interface GroupData {
+		group: string;
+		personnel: Personnel[];
+	}
+
+	interface Props {
+		currentDate: Date;
+		assignmentTypes: AssignmentType[];
+		assignments: DailyAssignment[];
+		personnelByGroup: GroupData[];
+		groups: string[];
+		onSetAssignment: (date: string, typeId: string, assigneeId: string) => Promise<boolean>;
+		onClose: () => void;
+	}
+
+	let { currentDate, assignmentTypes, assignments, personnelByGroup, groups, onSetAssignment, onClose }: Props = $props();
+
+	// State for selected month
+	let viewDate = $state(new Date(currentDate));
+
+	const year = $derived(viewDate.getFullYear());
+	const month = $derived(viewDate.getMonth());
+	const monthName = $derived(getMonthName(month));
+	const dates = $derived(getMonthDates(year, month));
+
+	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
+
+	// MOD-eligible MOS codes
+	const MOD_ELIGIBLE_MOS = ['PA', 'MD'];
+
+	// Filter only personnel-type assignments (MOD, etc.)
+	const personnelAssignmentTypes = $derived(
+		assignmentTypes.filter(t => t.assignTo === 'personnel')
+	);
+
+	const groupAssignmentTypes = $derived(
+		assignmentTypes.filter(t => t.assignTo === 'group')
+	);
+
+	// Get eligible personnel for a given assignment type
+	function getEligiblePersonnel(type: AssignmentType): Personnel[] {
+		if (type.shortName === 'MOD') {
+			// Only PA/MD can be MOD
+			return allPersonnel.filter(p =>
+				MOD_ELIGIBLE_MOS.some(mos => p.mos.toUpperCase().includes(mos))
+			);
+		}
+		return allPersonnel;
+	}
+
+	// Get eligible personnel grouped
+	function getEligiblePersonnelByGroup(type: AssignmentType): GroupData[] {
+		if (type.shortName === 'MOD') {
+			return personnelByGroup
+				.map(g => ({
+					...g,
+					personnel: g.personnel.filter(p =>
+						MOD_ELIGIBLE_MOS.some(mos => p.mos.toUpperCase().includes(mos))
+					)
+				}))
+				.filter(g => g.personnel.length > 0);
+		}
+		return personnelByGroup;
+	}
+
+	// Get the current assignment for a date and type
+	function getAssignment(date: Date, typeId: string): DailyAssignment | undefined {
+		const dateStr = formatDate(date);
+		return assignments.find(a => a.date === dateStr && a.assignmentTypeId === typeId);
+	}
+
+	function getAssigneeDisplay(assignment: DailyAssignment | undefined, type: AssignmentType): string {
+		if (!assignment) return '';
+		if (type.assignTo === 'personnel') {
+			const person = allPersonnel.find(p => p.id === assignment.assigneeId);
+			return person ? `${person.rank} ${person.lastName}` : '';
+		}
+		return assignment.assigneeId;
+	}
+
+	async function handleChange(date: Date, typeId: string, value: string) {
+		const dateStr = formatDate(date);
+		await onSetAssignment(dateStr, typeId, value);
+	}
+
+	function prevMonth() {
+		viewDate = addMonths(viewDate, -1);
+	}
+
+	function nextMonth() {
+		viewDate = addMonths(viewDate, 1);
+	}
+
+	function goToCurrentMonth() {
+		viewDate = new Date();
+	}
+
+	// Quick fill functions
+	let quickFillType = $state('');
+	let quickFillPerson = $state('');
+	let quickFillGroup = $state('');
+	let quickFillDays = $state<('weekdays' | 'weekends' | 'all')>('weekdays');
+	let isApplying = $state(false);
+
+	async function applyQuickFill() {
+		if (!quickFillType) return;
+
+		const type = assignmentTypes.find(t => t.id === quickFillType);
+		if (!type) return;
+
+		const assigneeId = type.assignTo === 'personnel' ? quickFillPerson : quickFillGroup;
+		if (!assigneeId) return;
+
+		isApplying = true;
+		try {
+			for (const date of dates) {
+				const weekend = isWeekend(date);
+				const shouldApply =
+					quickFillDays === 'all' ||
+					(quickFillDays === 'weekdays' && !weekend) ||
+					(quickFillDays === 'weekends' && weekend);
+
+				if (shouldApply) {
+					await onSetAssignment(formatDate(date), quickFillType, assigneeId);
+				}
+			}
+		} finally {
+			isApplying = false;
+		}
+	}
+
+	async function clearAll(typeId: string) {
+		if (!confirm('Clear all assignments for this type for the entire month?')) return;
+
+		isApplying = true;
+		try {
+			for (const date of dates) {
+				await onSetAssignment(formatDate(date), typeId, '');
+			}
+		} finally {
+			isApplying = false;
+		}
+	}
+
+	const selectedType = $derived(assignmentTypes.find(t => t.id === quickFillType));
+</script>
+
+<div class="modal-overlay" role="dialog" aria-modal="true" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()}>
+	<div class="modal planner-modal" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-header">
+			<h2>Monthly Assignment Planner</h2>
+			<button class="btn btn-secondary btn-sm close-btn" onclick={onClose} aria-label="Close">&times;</button>
+		</div>
+
+		<div class="modal-body">
+			<!-- Month Navigation -->
+			<div class="month-nav">
+				<button class="btn btn-secondary btn-sm" onclick={prevMonth}>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+						<path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+					</svg>
+				</button>
+				<h3>{monthName} {year}</h3>
+				<button class="btn btn-secondary btn-sm" onclick={nextMonth}>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+						<path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+					</svg>
+				</button>
+				<button class="btn btn-secondary btn-sm" onclick={goToCurrentMonth}>Today</button>
+			</div>
+
+			<!-- Quick Fill Section -->
+			<div class="quick-fill">
+				<h4>Quick Fill</h4>
+				<div class="quick-fill-row">
+					<select class="select" bind:value={quickFillType}>
+						<option value="">Select assignment type...</option>
+						{#each assignmentTypes as type}
+							<option value={type.id}>{type.shortName} - {type.name}</option>
+						{/each}
+					</select>
+
+					{#if selectedType?.assignTo === 'personnel'}
+						{@const eligibleGroups = getEligiblePersonnelByGroup(selectedType)}
+						<select class="select" bind:value={quickFillPerson}>
+							<option value="">Select person...</option>
+							{#each eligibleGroups as grp}
+								{#if grp.personnel.length > 0}
+									<optgroup label={grp.group || 'Unassigned'}>
+										{#each grp.personnel as person}
+											<option value={person.id}>{person.rank} {person.lastName}</option>
+										{/each}
+									</optgroup>
+								{/if}
+							{/each}
+						</select>
+					{:else if selectedType?.assignTo === 'group'}
+						<select class="select" bind:value={quickFillGroup}>
+							<option value="">Select group...</option>
+							{#each groups as group}
+								<option value={group}>{group}</option>
+							{/each}
+						</select>
+					{/if}
+
+					<select class="select days-select" bind:value={quickFillDays}>
+						<option value="weekdays">Weekdays only</option>
+						<option value="weekends">Weekends only</option>
+						<option value="all">All days</option>
+					</select>
+
+					<button
+						class="btn btn-primary btn-sm"
+						onclick={applyQuickFill}
+						disabled={!quickFillType || (!quickFillPerson && !quickFillGroup) || isApplying}
+					>
+						{isApplying ? 'Applying...' : 'Apply'}
+					</button>
+				</div>
+				{#if selectedType?.shortName === 'MOD'}
+					<p class="filter-hint">Only personnel with MOS of PA or MD are eligible for MOD.</p>
+				{/if}
+			</div>
+
+			<!-- Assignment Grid -->
+			<div class="grid-container">
+				<table class="assignment-grid">
+					<thead>
+						<tr>
+							<th class="date-col">Date</th>
+							<th class="day-col">Day</th>
+							{#each assignmentTypes as type}
+								<th class="type-col">
+									<div class="type-header">
+										<span class="type-badge" style="background-color: {type.color}">{type.shortName}</span>
+										<button
+											class="clear-btn"
+											onclick={() => clearAll(type.id)}
+											title="Clear all {type.name}"
+										>
+											<svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+												<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9z" clip-rule="evenodd" />
+											</svg>
+										</button>
+									</div>
+								</th>
+							{/each}
+						</tr>
+					</thead>
+					<tbody>
+						{#each dates as date}
+							{@const dateStr = formatDate(date)}
+							{@const weekend = isWeekend(date)}
+							{@const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })}
+							{@const isToday = formatDate(new Date()) === dateStr}
+							<tr class:weekend class:today={isToday}>
+								<td class="date-col">
+									<span class="date-num">{date.getDate()}</span>
+								</td>
+								<td class="day-col">
+									<span class="day-name">{dayName}</span>
+								</td>
+								{#each assignmentTypes as type}
+									{@const assignment = getAssignment(date, type.id)}
+									{@const eligibleGroups = getEligiblePersonnelByGroup(type)}
+									<td class="assignment-cell">
+										{#if type.assignTo === 'personnel'}
+											<select
+												class="cell-select"
+												value={assignment?.assigneeId ?? ''}
+												onchange={(e) => handleChange(date, type.id, e.currentTarget.value)}
+											>
+												<option value="">-</option>
+												{#each eligibleGroups as grp}
+													{#if grp.personnel.length > 0}
+														<optgroup label={grp.group || 'Unassigned'}>
+															{#each grp.personnel as person}
+																<option value={person.id}>{person.rank} {person.lastName}</option>
+															{/each}
+														</optgroup>
+													{/if}
+												{/each}
+											</select>
+										{:else}
+											<select
+												class="cell-select"
+												value={assignment?.assigneeId ?? ''}
+												onchange={(e) => handleChange(date, type.id, e.currentTarget.value)}
+											>
+												<option value="">-</option>
+												{#each groups as group}
+													<option value={group}>{group}</option>
+												{/each}
+											</select>
+										{/if}
+									</td>
+								{/each}
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<div class="modal-footer">
+			<div class="footer-info">
+				{dates.length} days in {monthName}
+			</div>
+			<button class="btn btn-primary" onclick={onClose}>Done</button>
+		</div>
+	</div>
+</div>
+
+<style>
+	.planner-modal {
+		width: 900px;
+		max-width: 95vw;
+		max-height: 90vh;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.close-btn {
+		font-size: 1.25rem;
+		line-height: 1;
+		padding: var(--spacing-xs) var(--spacing-sm);
+	}
+
+	.modal-body {
+		flex: 1;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		padding: 0;
+	}
+
+	/* Month Navigation */
+	.month-nav {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-md);
+		padding: var(--spacing-md) var(--spacing-lg);
+		background: var(--color-primary);
+		color: white;
+	}
+
+	.month-nav h3 {
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		min-width: 180px;
+		text-align: center;
+	}
+
+	.month-nav .btn-secondary {
+		background: rgba(255, 255, 255, 0.1);
+		border-color: rgba(255, 255, 255, 0.2);
+		color: white;
+	}
+
+	.month-nav .btn-secondary:hover {
+		background: rgba(255, 255, 255, 0.2);
+	}
+
+	/* Quick Fill */
+	.quick-fill {
+		padding: var(--spacing-md) var(--spacing-lg);
+		background: var(--color-bg);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.quick-fill h4 {
+		font-size: var(--font-size-sm);
+		font-weight: 600;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		margin-bottom: var(--spacing-sm);
+	}
+
+	.quick-fill-row {
+		display: flex;
+		gap: var(--spacing-sm);
+		align-items: center;
+		flex-wrap: wrap;
+	}
+
+	.quick-fill-row .select {
+		flex: 1;
+		min-width: 150px;
+	}
+
+	.days-select {
+		max-width: 140px;
+	}
+
+	.filter-hint {
+		margin-top: var(--spacing-sm);
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+		font-style: italic;
+	}
+
+	/* Grid Container */
+	.grid-container {
+		flex: 1;
+		overflow: auto;
+		padding: var(--spacing-md) var(--spacing-lg);
+	}
+
+	.assignment-grid {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: var(--font-size-sm);
+	}
+
+	.assignment-grid th,
+	.assignment-grid td {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border: 1px solid var(--color-border);
+		text-align: left;
+	}
+
+	.assignment-grid th {
+		background: var(--color-surface);
+		font-weight: 600;
+		position: sticky;
+		top: 0;
+		z-index: 1;
+	}
+
+	.date-col {
+		width: 50px;
+		text-align: center !important;
+	}
+
+	.day-col {
+		width: 50px;
+	}
+
+	.type-col {
+		min-width: 150px;
+	}
+
+	.type-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-xs);
+	}
+
+	.type-badge {
+		padding: 2px 6px;
+		border-radius: var(--radius-sm);
+		font-size: 10px;
+		font-weight: 700;
+		color: white;
+	}
+
+	.clear-btn {
+		padding: 2px;
+		color: var(--color-text-muted);
+		border-radius: var(--radius-sm);
+		opacity: 0.5;
+		transition: opacity 0.15s ease;
+	}
+
+	.clear-btn:hover {
+		opacity: 1;
+		color: #dc2626;
+	}
+
+	.date-num {
+		font-weight: 600;
+		color: var(--color-primary);
+	}
+
+	.day-name {
+		color: var(--color-text-muted);
+	}
+
+	.assignment-grid tr.weekend {
+		background: var(--color-weekend);
+	}
+
+	.assignment-grid tr.weekend .day-name {
+		color: var(--color-primary);
+		font-weight: 500;
+	}
+
+	.assignment-grid tr.today {
+		background: var(--color-today-bg);
+	}
+
+	.assignment-grid tr.today td {
+		border-color: var(--color-today-border);
+	}
+
+	.assignment-cell {
+		padding: 2px !important;
+	}
+
+	.cell-select {
+		width: 100%;
+		padding: var(--spacing-xs);
+		border: 1px solid transparent;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		font-size: var(--font-size-sm);
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+
+	.cell-select:hover {
+		background: var(--color-surface);
+		border-color: var(--color-border);
+	}
+
+	.cell-select:focus {
+		outline: none;
+		border-color: var(--color-primary);
+		background: var(--color-surface);
+	}
+
+	/* Footer */
+	.modal-footer {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--spacing-md) var(--spacing-lg);
+		border-top: 1px solid var(--color-border);
+		background: var(--color-surface);
+	}
+
+	.footer-info {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
+	}
+</style>

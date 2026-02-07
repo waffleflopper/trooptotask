@@ -25,6 +25,7 @@
 
 		<form
 			method="POST"
+			action="?/login"
 			use:enhance={() => {
 				loading = true;
 				return async ({ update }) => {

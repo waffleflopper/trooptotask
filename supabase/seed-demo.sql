@@ -12,7 +12,7 @@
 -- You can create the user via the Supabase dashboard: Authentication > Users > Add User
 DO $$
 DECLARE
-  demo_user_id uuid := '00000000-0000-0000-0000-000000000000'; -- REPLACE THIS
+  demo_user_id uuid := '0e008df8-3564-42c9-a506-42e6833d47c1'; -- REPLACE THIS
   demo_clinic_id uuid;
 
   -- Group IDs

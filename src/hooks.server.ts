@@ -40,10 +40,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.session = session;
 	event.locals.user = user;
 
+	// Define public routes that don't require authentication
+	const publicRoutes = ['/', '/auth'];
+	const isPublicRoute = publicRoutes.some(route =>
+		event.url.pathname === route || event.url.pathname.startsWith(route + '/')
+	);
+
 	// Protect routes - redirect unauthenticated users to login
-	const isAuthRoute = event.url.pathname.startsWith('/auth');
-	if (!session && !isAuthRoute) {
-		throw redirect(303, '/auth/login');
+	if (!session && !isPublicRoute) {
+		redirect(303, '/auth/login');
 	}
 
 	return resolve(event, {

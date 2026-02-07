@@ -6,7 +6,7 @@ const DEMO_PASSWORD = 'demo1234';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.session) {
-		redirect(303, '/');
+		redirect(303, '/dashboard');
 	}
 };
 
@@ -27,7 +27,7 @@ export const actions: Actions = {
 				return fail(400, { error: error.message, email });
 			}
 
-			redirect(303, '/');
+			redirect(303, '/dashboard');
 		} catch (err) {
 			if (isRedirect(err)) {
 				throw err;
@@ -49,7 +49,7 @@ export const actions: Actions = {
 				return fail(400, { error: 'Demo account is not available. Please try again later.' });
 			}
 
-			redirect(303, '/');
+			redirect(303, '/dashboard');
 		} catch (err) {
 			if (isRedirect(err)) {
 				throw err;

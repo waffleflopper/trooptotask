@@ -3,6 +3,7 @@
 
 	let { form } = $props();
 	let loading = $state(false);
+	let demoLoading = $state(false);
 </script>
 
 <svelte:head>
@@ -82,8 +83,39 @@
 			<span>or</span>
 		</div>
 
+		<form
+			method="POST"
+			action="?/demo"
+			use:enhance={() => {
+				demoLoading = true;
+				return async ({ update }) => {
+					demoLoading = false;
+					await update();
+				};
+			}}
+		>
+			<button type="submit" class="btn btn-demo btn-full" disabled={demoLoading || loading}>
+				{#if demoLoading}
+					<span class="spinner demo-spinner"></span>
+					Loading demo...
+				{:else}
+					<svg viewBox="0 0 20 20" fill="currentColor" class="demo-icon">
+						<path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+						<path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+					</svg>
+					Try Demo
+				{/if}
+			</button>
+		</form>
+
+		<p class="demo-hint">Explore with sample data - no account needed</p>
+
+		<div class="divider">
+			<span>new here?</span>
+		</div>
+
 		<p class="auth-link">
-			New to Troop to Task? <a href="/auth/register">Create an account</a>
+			Have an invite code? <a href="/auth/register">Create an account</a>
 		</p>
 	</div>
 
@@ -219,6 +251,38 @@
 
 	.auth-link a:hover {
 		text-decoration: underline;
+	}
+
+	.btn-demo {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-sm);
+		background: linear-gradient(135deg, #059669 0%, #047857 100%);
+		border: none;
+		color: white;
+		font-weight: 600;
+	}
+
+	.btn-demo:hover:not(:disabled) {
+		background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+	}
+
+	.demo-icon {
+		width: 18px;
+		height: 18px;
+	}
+
+	.demo-spinner {
+		border-color: rgba(255, 255, 255, 0.3);
+		border-top-color: white;
+	}
+
+	.demo-hint {
+		text-align: center;
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+		margin-top: var(--spacing-sm);
 	}
 
 	.auth-footer {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { themeStore } from '$lib/stores/theme.svelte';
 
 	let { form } = $props();
 	let loading = $state(false);
@@ -11,6 +12,17 @@
 </svelte:head>
 
 <div class="auth-page">
+	<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
+		{#if themeStore.isDark}
+			<svg viewBox="0 0 24 24" fill="currentColor">
+				<path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+			</svg>
+		{:else}
+			<svg viewBox="0 0 24 24" fill="currentColor">
+				<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+			</svg>
+		{/if}
+	</button>
 	<div class="auth-card">
 		<div class="brand">
 			<div class="logo">
@@ -291,5 +303,44 @@
 		text-align: center;
 		color: rgba(255, 255, 255, 0.7);
 		font-size: var(--font-size-sm);
+	}
+
+	.theme-toggle {
+		position: fixed;
+		top: var(--spacing-lg);
+		right: var(--spacing-lg);
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.2);
+		backdrop-filter: blur(10px);
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		color: white;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.theme-toggle:hover {
+		background: rgba(255, 255, 255, 0.3);
+		transform: scale(1.05);
+	}
+
+	.theme-toggle svg {
+		width: 20px;
+		height: 20px;
+	}
+
+	/* Dark mode specific styles */
+	:global([data-theme='dark']) .auth-page {
+		background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+	}
+
+	:global([data-theme='dark']) .error-message {
+		background: #450a0a;
+		border-color: #7f1d1d;
+		color: #fca5a5;
 	}
 </style>

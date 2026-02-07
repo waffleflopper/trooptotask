@@ -33,7 +33,7 @@ export const actions: Actions = {
 				throw err;
 			}
 			console.error('Login error:', err);
-			return fail(500, { error: 'An unexpected error occurred. Please try again.' });
+			return fail(500, { error: 'An unexpected error occurred. Please try again.', email: '' });
 		}
 	},
 
@@ -46,7 +46,7 @@ export const actions: Actions = {
 
 			if (error) {
 				console.error('Demo login error:', error);
-				return fail(400, { error: 'Demo account is not available. Please try again later.' });
+				return fail(400, { error: 'Demo account is not available. Please try again later.', email: '' });
 			}
 
 			redirect(303, '/dashboard');
@@ -55,7 +55,7 @@ export const actions: Actions = {
 				throw err;
 			}
 			console.error('Demo error:', err);
-			return fail(500, { error: 'An unexpected error occurred. Please try again.' });
+			return fail(500, { error: 'An unexpected error occurred. Please try again.', email: '' });
 		}
 	}
 };

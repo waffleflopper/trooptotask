@@ -8,6 +8,7 @@
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { dailyAssignmentsStore } from '$lib/stores/dailyAssignments.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
+	import { themeStore } from '$lib/stores/theme.svelte';
 	import Calendar from '$lib/components/Calendar.svelte';
 	import AvailabilityModal from '$lib/components/AvailabilityModal.svelte';
 	import StatusTypeManager from '$lib/components/StatusTypeManager.svelte';
@@ -170,6 +171,25 @@
 		<div class="header-actions">
 			<button class="btn btn-primary btn-sm today-btn" onclick={() => (showTodayBreakdown = true)}>
 				Today's Breakdown
+			</button>
+			<button class="theme-toggle-btn" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
+				{#if themeStore.isDark}
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="5"/>
+						<line x1="12" y1="1" x2="12" y2="3"/>
+						<line x1="12" y1="21" x2="12" y2="23"/>
+						<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+						<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+						<line x1="1" y1="12" x2="3" y2="12"/>
+						<line x1="21" y1="12" x2="23" y2="12"/>
+						<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+						<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+					</svg>
+				{:else}
+					<svg viewBox="0 0 24 24" fill="currentColor">
+						<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+					</svg>
+				{/if}
 			</button>
 			<div class="dropdown">
 				<button class="btn btn-secondary btn-sm dropdown-toggle" onclick={() => (showSettingsMenu = !showSettingsMenu)}>
@@ -477,5 +497,28 @@
 		flex-direction: column;
 		gap: var(--spacing-sm);
 		overflow: hidden;
+	}
+
+	.theme-toggle-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		border-radius: var(--radius-md);
+		background: rgba(255, 255, 255, 0.1);
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		color: white;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.theme-toggle-btn:hover {
+		background: rgba(255, 255, 255, 0.2);
+	}
+
+	.theme-toggle-btn svg {
+		width: 18px;
+		height: 18px;
 	}
 </style>

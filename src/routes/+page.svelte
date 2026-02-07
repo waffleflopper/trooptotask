@@ -346,6 +346,7 @@
 		--bg: #ffffff;
 		--bg-alt: #f8fafc;
 		--surface: #ffffff;
+		--surface-raised: #ffffff;
 		--text: #0f172a;
 		--text-muted: #64748b;
 		--border: #e2e8f0;
@@ -359,7 +360,8 @@
 	.landing[data-theme='dark'] {
 		--bg: #0f172a;
 		--bg-alt: #1e293b;
-		--surface: #1e293b;
+		--surface: #0f172a;
+		--surface-raised: #1e293b;
 		--text: #f1f5f9;
 		--text-muted: #94a3b8;
 		--border: #334155;
@@ -572,7 +574,7 @@
 	}
 
 	.hero-mockup {
-		background: var(--surface);
+		background: var(--surface-raised);
 		border: 1px solid var(--border);
 		border-radius: 12px;
 		box-shadow: 0 20px 40px var(--shadow);
@@ -693,7 +695,7 @@
 	}
 
 	.feature-card {
-		background: var(--surface);
+		background: var(--surface-raised);
 		border: 1px solid var(--border);
 		border-radius: 12px;
 		padding: 2rem;
@@ -737,6 +739,7 @@
 	/* Benefits */
 	.benefits {
 		padding: 6rem 0;
+		background: var(--bg);
 	}
 
 	.benefits-grid {
@@ -860,6 +863,7 @@
 	/* Footer */
 	.footer {
 		padding: 2rem 0;
+		background: var(--bg);
 		border-top: 1px solid var(--border);
 	}
 

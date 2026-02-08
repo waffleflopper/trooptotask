@@ -94,9 +94,11 @@
 
 <style>
 	.date-cell {
-		flex: 1;
+		flex: 1 1 0;
+		width: 0; /* Force flex-basis behavior */
 		height: var(--cell-height);
 		min-width: var(--cell-width);
+		overflow: hidden;
 		border: 1px solid var(--color-border);
 		border-left: none;
 		cursor: pointer;

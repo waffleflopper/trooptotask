@@ -150,8 +150,11 @@
 	}
 
 	.date-header {
-		flex: 1;
+		flex: 1 1 0;
 		min-width: var(--cell-width);
+		max-width: none;
+		width: 0; /* Force flex-basis behavior */
+		overflow: hidden;
 		padding: var(--spacing-xs) 0;
 		text-align: center;
 		border: 1px solid var(--color-border);

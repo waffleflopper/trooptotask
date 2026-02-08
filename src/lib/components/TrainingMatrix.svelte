@@ -107,6 +107,7 @@
 		text-align: left;
 		min-width: 180px;
 		border-right: 2px solid var(--color-border);
+		color: var(--color-text);
 	}
 
 	.name-header {

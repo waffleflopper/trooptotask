@@ -8,6 +8,7 @@
 	import TrainingRecordModal from '$lib/components/TrainingRecordModal.svelte';
 	import TrainingTypeManager from '$lib/components/TrainingTypeManager.svelte';
 	import TrainingReports from '$lib/components/TrainingReports.svelte';
+	import BulkTrainingImporter from '$lib/components/BulkTrainingImporter.svelte';
 
 	let { data } = $props();
 
@@ -19,6 +20,7 @@
 
 	let showTypeManager = $state(false);
 	let showReports = $state(false);
+	let showBulkImporter = $state(false);
 	let selectedGroupId = $state<string>('');
 
 	let selectedPerson = $state<Personnel | null>(null);
@@ -91,6 +93,13 @@
 		await trainingTypesStore.remove(id);
 		personnelTrainingsStore.removeByTrainingTypeLocal(id);
 	}
+
+	async function handleBulkAddTrainings(trainings: Omit<PersonnelTraining, 'id'>[]) {
+		for (const training of trainings) {
+			await personnelTrainingsStore.add(training);
+		}
+		showBulkImporter = false;
+	}
 </script>
 
 <svelte:head>
@@ -104,6 +113,9 @@
 			<h1>Training & Certifications</h1>
 		</div>
 		<div class="header-actions">
+			<button class="btn btn-secondary btn-sm" onclick={() => (showBulkImporter = true)}>
+				Bulk Import
+			</button>
 			<button class="btn btn-secondary btn-sm" onclick={() => (showReports = true)}>
 				Reports
 			</button>
@@ -220,6 +232,15 @@
 		trainings={personnelTrainingsStore.list}
 		groups={data.groups}
 		onClose={() => (showReports = false)}
+	/>
+{/if}
+
+{#if showBulkImporter}
+	<BulkTrainingImporter
+		personnel={data.personnel}
+		trainingTypes={trainingTypesStore.list}
+		onBulkAdd={handleBulkAddTrainings}
+		onClose={() => (showBulkImporter = false)}
 	/>
 {/if}
 

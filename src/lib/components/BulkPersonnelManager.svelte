@@ -2,6 +2,7 @@
 	import type { Personnel } from '../types';
 	import type { Group } from '../stores/groups.svelte';
 	import { ALL_RANKS } from '../types';
+	import * as XLSX from 'xlsx';
 
 	interface GroupData {
 		group: string;
@@ -25,6 +26,8 @@
 	let importText = $state('');
 	let importErrors = $state<string[]>([]);
 	let parsedPersonnel = $state<Omit<Personnel, 'id'>[]>([]);
+	let fileInput: HTMLInputElement;
+	let uploadedFileName = $state('');
 
 	// Delete state
 	let selectedIds = $state<Set<string>>(new Set());
@@ -98,7 +101,92 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 			importText = '';
 			parsedPersonnel = [];
 			importErrors = [];
+			uploadedFileName = '';
 		}
+	}
+
+	function handleFileUpload(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		uploadedFileName = file.name;
+		const reader = new FileReader();
+
+		reader.onload = (e) => {
+			try {
+				const data = e.target?.result;
+				const workbook = XLSX.read(data, { type: 'array' });
+				const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+				const rows = XLSX.utils.sheet_to_json<string[]>(firstSheet, { header: 1 });
+
+				// Skip header row if it looks like a header
+				let startRow = 0;
+				if (rows.length > 0) {
+					const firstCell = String(rows[0][0] || '').toLowerCase();
+					if (firstCell === 'rank' || firstCell === 'grade' || firstCell.includes('rank')) {
+						startRow = 1;
+					}
+				}
+
+				// Parse rows into personnel
+				const parsed: Omit<Personnel, 'id'>[] = [];
+				const errors: string[] = [];
+
+				for (let i = startRow; i < rows.length; i++) {
+					const row = rows[i];
+					if (!row || row.length === 0 || !row[0]) continue;
+
+					const rank = String(row[0] || '').trim();
+					const lastName = String(row[1] || '').trim();
+					const firstName = String(row[2] || '').trim();
+					const mos = String(row[3] || '').trim();
+					const clinicRole = String(row[4] || '').trim();
+					const groupName = String(row[5] || '').trim();
+
+					if (!rank || !lastName || !firstName) {
+						errors.push(`Row ${i + 1}: Need at least Rank, Last Name, First Name`);
+						continue;
+					}
+
+					if (!ALL_RANKS.includes(rank as any)) {
+						errors.push(`Row ${i + 1}: Invalid rank "${rank}"`);
+						continue;
+					}
+
+					const matchedGroup = groups.find(g => g.name.toLowerCase() === groupName.toLowerCase());
+					if (groupName && !matchedGroup) {
+						errors.push(`Row ${i + 1}: Unknown group "${groupName}" - will be unassigned`);
+					}
+
+					parsed.push({
+						rank,
+						lastName,
+						firstName,
+						mos,
+						clinicRole,
+						groupId: matchedGroup?.id ?? null,
+						groupName: matchedGroup?.name ?? ''
+					});
+				}
+
+				importErrors = errors;
+				parsedPersonnel = parsed;
+				importText = ''; // Clear text area since we're using file
+			} catch (err) {
+				importErrors = [`Failed to parse file: ${err instanceof Error ? err.message : 'Unknown error'}`];
+				parsedPersonnel = [];
+			}
+		};
+
+		reader.readAsArrayBuffer(file);
+	}
+
+	function clearFileUpload() {
+		uploadedFileName = '';
+		parsedPersonnel = [];
+		importErrors = [];
+		if (fileInput) fileInput.value = '';
 	}
 
 	function toggleSelect(id: string) {
@@ -180,9 +268,40 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 		<div class="modal-body">
 			{#if activeTab === 'import'}
 				<div class="import-section">
+					<!-- File Upload -->
+					<div class="upload-section">
+						<h4>Upload File</h4>
+						<p class="hint">Upload an Excel (.xlsx, .xls) or CSV file</p>
+						<div class="upload-row">
+							<input
+								type="file"
+								accept=".xlsx,.xls,.csv"
+								onchange={handleFileUpload}
+								bind:this={fileInput}
+								class="file-input"
+								id="fileUpload"
+							/>
+							<label for="fileUpload" class="btn btn-secondary upload-btn">
+								<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+									<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+								</svg>
+								Choose File
+							</label>
+							{#if uploadedFileName}
+								<span class="file-name">{uploadedFileName}</span>
+								<button class="btn btn-secondary btn-sm" onclick={clearFileUpload}>Clear</button>
+							{/if}
+						</div>
+						<p class="format-hint">Columns: Rank, Last Name, First Name, MOS, Role, Group</p>
+					</div>
+
+					<div class="divider">
+						<span>or paste text</span>
+					</div>
+
 					<div class="format-info">
-						<h4>Import Format</h4>
-						<p>Paste personnel data with one person per line:</p>
+						<h4>Paste Data</h4>
+						<p>One person per line, comma-separated:</p>
 						<code>Rank, Last Name, First Name, MOS, Role, Group</code>
 						<p class="hint">MOS, Role, and Group are optional</p>
 					</div>
@@ -190,7 +309,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 					<div class="example-box">
 						<div class="example-header">
 							<span>Example</span>
-							<button class="btn btn-secondary btn-sm" onclick={() => importText = exampleFormat}>
+							<button class="btn btn-secondary btn-sm" onclick={() => { importText = exampleFormat; uploadedFileName = ''; }}>
 								Use Example
 							</button>
 						</div>
@@ -204,7 +323,8 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 							class="input import-textarea"
 							bind:value={importText}
 							placeholder="Paste personnel data here..."
-							rows="8"
+							rows="6"
+							disabled={!!uploadedFileName}
 						></textarea>
 					</div>
 
@@ -388,6 +508,77 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 	}
 
 	/* Import Section */
+	.upload-section {
+		margin-bottom: var(--spacing-md);
+		padding: var(--spacing-md);
+		background: var(--color-bg);
+		border-radius: var(--radius-md);
+		border: 2px dashed var(--color-border);
+	}
+
+	.upload-section h4 {
+		font-size: var(--font-size-sm);
+		font-weight: 600;
+		color: var(--color-text);
+		margin-bottom: var(--spacing-xs);
+	}
+
+	.upload-row {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		margin: var(--spacing-sm) 0;
+	}
+
+	.file-input {
+		display: none;
+	}
+
+	.upload-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		cursor: pointer;
+	}
+
+	.file-name {
+		font-size: var(--font-size-sm);
+		color: var(--color-text);
+		padding: var(--spacing-xs) var(--spacing-sm);
+		background: var(--color-surface);
+		border-radius: var(--radius-sm);
+		max-width: 200px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.format-hint {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+		margin: 0;
+	}
+
+	.divider {
+		display: flex;
+		align-items: center;
+		margin: var(--spacing-lg) 0;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+	}
+
+	.divider::before,
+	.divider::after {
+		content: '';
+		flex: 1;
+		height: 1px;
+		background: var(--color-border);
+	}
+
+	.divider span {
+		padding: 0 var(--spacing-md);
+	}
+
 	.format-info {
 		margin-bottom: var(--spacing-md);
 	}

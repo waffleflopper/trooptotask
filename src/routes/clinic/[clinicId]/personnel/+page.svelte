@@ -476,6 +476,7 @@
 
 	.name {
 		font-weight: 500;
+		color: var(--color-text);
 	}
 
 	.mos {

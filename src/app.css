@@ -51,20 +51,20 @@
 /* Dark mode overrides */
 [data-theme='dark'] {
 	/* Colors */
-	--color-primary: #3b82f6;
-	--color-primary-light: #60a5fa;
-	--color-secondary: #d4af37;
+	--color-primary: #60a5fa;
+	--color-primary-light: #93c5fd;
+	--color-secondary: #fbbf24;
 	--color-bg: #0f172a;
 	--color-surface: #1e293b;
 	--color-text: #f1f5f9;
-	--color-text-muted: #94a3b8;
+	--color-text-muted: #cbd5e1;
 	--color-border: #334155;
 	--color-border-dark: #475569;
 
 	/* Calendar specific */
 	--color-weekend: #1e293b;
-	--color-holiday: #422006;
-	--color-today-border: #3b82f6;
+	--color-holiday: #78350f;
+	--color-today-border: #60a5fa;
 	--color-today-bg: #1e3a5f;
 
 	/* Shadows - darker for dark mode */
@@ -315,4 +315,32 @@ input, select, textarea {
 
 [data-theme='dark'] .input::placeholder {
 	color: var(--color-text-muted);
+}
+
+/* Dark mode: All native form elements */
+[data-theme='dark'] input,
+[data-theme='dark'] select,
+[data-theme='dark'] textarea {
+	color: var(--color-text);
+	background-color: var(--color-surface);
+}
+
+[data-theme='dark'] select option {
+	background-color: var(--color-surface);
+	color: var(--color-text);
+}
+
+[data-theme='dark'] select optgroup {
+	background-color: var(--color-bg);
+	color: var(--color-text);
+}
+
+/* Dark mode: Table elements */
+[data-theme='dark'] table {
+	color: var(--color-text);
+}
+
+[data-theme='dark'] th,
+[data-theme='dark'] td {
+	color: var(--color-text);
 }

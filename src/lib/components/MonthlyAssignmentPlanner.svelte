@@ -477,11 +477,11 @@
 
 	.date-num {
 		font-weight: 600;
-		color: var(--color-primary);
+		color: var(--color-text);
 	}
 
 	.day-name {
-		color: var(--color-text-muted);
+		color: var(--color-text);
 	}
 
 	.assignment-grid tr.weekend {
@@ -514,6 +514,7 @@
 		font-size: var(--font-size-sm);
 		cursor: pointer;
 		transition: all 0.15s ease;
+		color: var(--color-text);
 	}
 
 	.cell-select:hover {

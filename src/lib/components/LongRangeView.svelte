@@ -367,7 +367,7 @@
 
 	.day-num {
 		font-weight: 500;
-		color: var(--color-text-muted);
+		color: var(--color-text);
 	}
 
 	.day-badges {
@@ -427,6 +427,7 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		color: var(--color-text);
 	}
 
 	.status-cell {

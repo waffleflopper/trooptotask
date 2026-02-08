@@ -126,6 +126,7 @@
 		position: sticky;
 		left: 0;
 		z-index: 3;
+		color: var(--color-text);
 	}
 
 	.date-columns {
@@ -164,6 +165,7 @@
 	.day-number {
 		display: block;
 		font-weight: 600;
+		color: var(--color-text);
 	}
 
 	.weekend {

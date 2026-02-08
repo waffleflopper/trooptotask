@@ -155,4 +155,38 @@
 		display: flex;
 		flex: 1;
 	}
+
+	/* Mobile Responsive Styles */
+	@media (max-width: 640px) {
+		.personnel-info {
+			width: var(--personnel-column-width);
+			min-width: var(--personnel-column-width);
+			padding: var(--spacing-xs);
+		}
+
+		.rank {
+			font-size: var(--font-size-xs);
+			min-width: 28px;
+		}
+
+		.name {
+			font-size: var(--font-size-xs);
+		}
+
+		.role {
+			display: none; /* Hide on mobile to save space */
+		}
+	}
+
+	/* Tablet Responsive Styles */
+	@media (min-width: 641px) and (max-width: 1024px) {
+		.personnel-info {
+			width: var(--personnel-column-width);
+			min-width: var(--personnel-column-width);
+		}
+
+		.role {
+			font-size: 9px;
+		}
+	}
 </style>

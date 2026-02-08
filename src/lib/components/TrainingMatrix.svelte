@@ -171,4 +171,56 @@
 	tr:hover .name-cell {
 		background-color: var(--color-bg);
 	}
+
+	/* Mobile Responsive Styles */
+	@media (max-width: 640px) {
+		.name-header,
+		.name-cell {
+			min-width: 100px;
+			max-width: 100px;
+			width: 100px;
+			font-size: var(--font-size-xs);
+			padding: var(--spacing-xs);
+		}
+
+		.type-header {
+			min-width: 60px;
+		}
+
+		.type-name {
+			font-size: 9px;
+			padding: 2px 4px;
+		}
+
+		.person-rank {
+			min-width: 28px;
+			font-size: var(--font-size-xs);
+		}
+
+		.status-cell {
+			min-width: 60px;
+			min-height: 44px; /* Touch target */
+		}
+
+		.status-badge {
+			font-size: var(--font-size-xs);
+			padding: var(--spacing-xs);
+		}
+
+		.completion-date {
+			font-size: 9px;
+		}
+	}
+
+	/* Tablet Responsive Styles */
+	@media (min-width: 641px) and (max-width: 1024px) {
+		.name-header,
+		.name-cell {
+			min-width: 140px;
+		}
+
+		.type-header {
+			min-width: 80px;
+		}
+	}
 </style>

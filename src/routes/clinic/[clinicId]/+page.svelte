@@ -19,8 +19,10 @@
 	import BulkStatusModal from '$lib/components/BulkStatusModal.svelte';
 	import MonthlyAssignmentPlanner from '$lib/components/MonthlyAssignmentPlanner.svelte';
 	import LongRangeView from '$lib/components/LongRangeView.svelte';
+	import MobileNav from '$lib/components/MobileNav.svelte';
 
 	let { data } = $props();
+	let showMobileNav = $state(false);
 
 	// Hydrate stores with server data
 	$effect(() => {
@@ -160,6 +162,13 @@
 			<span class="header-divider"></span>
 			<p class="subtitle">{data.clinicName}</p>
 		</div>
+		<button class="mobile-menu-btn" onclick={() => (showMobileNav = true)} aria-label="Open menu">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<line x1="3" y1="12" x2="21" y2="12" />
+				<line x1="3" y1="6" x2="21" y2="6" />
+				<line x1="3" y1="18" x2="21" y2="18" />
+			</svg>
+		</button>
 		<nav class="header-nav">
 			<a href="/clinic/{data.clinicId}/personnel" class="nav-link">Personnel</a>
 			<a href="/clinic/{data.clinicId}/training" class="nav-link">Training</a>
@@ -331,6 +340,21 @@
 	/>
 {/if}
 
+{#if showMobileNav}
+	<MobileNav
+		clinicId={data.clinicId}
+		onClose={() => (showMobileNav = false)}
+		onShowLongRangeView={() => (showLongRangeView = true)}
+		onShowAssignmentPlanner={() => (showAssignmentPlanner = true)}
+		onShowBulkStatus={() => (showBulkStatusModal = true)}
+		onShowTodayBreakdown={() => (showTodayBreakdown = true)}
+		onShowStatusManager={() => (showStatusManager = true)}
+		onShowSpecialDayManager={() => (showSpecialDayManager = true)}
+		onToggleTheme={() => themeStore.toggle()}
+		isDarkTheme={themeStore.isDark}
+	/>
+{/if}
+
 <style>
 	.page {
 		height: 100%;
@@ -346,6 +370,7 @@
 		padding: var(--spacing-sm) var(--spacing-lg);
 		background: var(--color-primary);
 		color: white;
+		flex-wrap: wrap;
 	}
 
 	.header-left {
@@ -368,6 +393,28 @@
 	.subtitle {
 		font-size: var(--font-size-sm);
 		opacity: 0.8;
+	}
+
+	/* Mobile menu button - hidden on desktop */
+	.mobile-menu-btn {
+		display: none;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: var(--radius-md);
+		background: rgba(255, 255, 255, 0.1);
+		color: white;
+		margin-left: auto;
+	}
+
+	.mobile-menu-btn:hover {
+		background: rgba(255, 255, 255, 0.2);
+	}
+
+	.mobile-menu-btn svg {
+		width: 24px;
+		height: 24px;
 	}
 
 	.header-nav {
@@ -520,5 +567,66 @@
 	.theme-toggle-btn svg {
 		width: 18px;
 		height: 18px;
+	}
+
+	/* Mobile Responsive Styles */
+	@media (max-width: 640px) {
+		.page-header {
+			padding: var(--spacing-xs) var(--spacing-sm);
+		}
+
+		.header-left h1 {
+			font-size: var(--font-size-base);
+		}
+
+		.header-divider {
+			display: none;
+		}
+
+		.subtitle {
+			display: none;
+		}
+
+		.header-nav {
+			display: none;
+		}
+
+		.mobile-menu-btn {
+			display: flex;
+		}
+
+		.header-actions {
+			display: none;
+		}
+
+		.page-content {
+			padding: var(--spacing-sm);
+		}
+	}
+
+	/* Tablet Responsive Styles */
+	@media (min-width: 641px) and (max-width: 1024px) {
+		.page-header {
+			padding: var(--spacing-sm) var(--spacing-md);
+		}
+
+		.header-nav {
+			gap: var(--spacing-xs);
+		}
+
+		.nav-link {
+			padding: var(--spacing-xs);
+			font-size: var(--font-size-xs);
+		}
+
+		.today-btn {
+			display: none;
+		}
+	}
+
+	@media (min-width: 641px) {
+		.mobile-menu-btn {
+			display: none;
+		}
 	}
 </style>

@@ -542,4 +542,96 @@
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 	}
+
+	/* Mobile Responsive Styles */
+	@media (max-width: 640px) {
+		.planner-modal {
+			width: 100vw;
+			max-width: 100vw;
+			height: 100vh;
+			max-height: 100vh;
+			border-radius: 0;
+		}
+
+		.month-nav {
+			padding: var(--spacing-sm) var(--spacing-md);
+		}
+
+		.month-nav h3 {
+			font-size: var(--font-size-base);
+			min-width: unset;
+		}
+
+		.quick-fill {
+			padding: var(--spacing-sm) var(--spacing-md);
+		}
+
+		.quick-fill-row {
+			flex-direction: column;
+		}
+
+		.quick-fill-row .select {
+			width: 100%;
+			min-width: unset;
+		}
+
+		.days-select {
+			max-width: unset;
+		}
+
+		.grid-container {
+			padding: var(--spacing-sm);
+		}
+
+		.assignment-grid th,
+		.assignment-grid td {
+			padding: 2px var(--spacing-xs);
+		}
+
+		.date-col {
+			width: 35px;
+		}
+
+		.day-col {
+			width: 35px;
+		}
+
+		.type-col {
+			min-width: 80px;
+		}
+
+		.type-header {
+			flex-direction: column;
+			gap: 2px;
+		}
+
+		.type-badge {
+			font-size: 8px;
+		}
+
+		.cell-select {
+			font-size: var(--font-size-xs);
+			padding: 2px;
+		}
+
+		.modal-footer {
+			padding: var(--spacing-sm) var(--spacing-md);
+		}
+
+		.footer-info {
+			font-size: var(--font-size-xs);
+		}
+	}
+
+	/* Tablet Responsive Styles */
+	@media (min-width: 641px) and (max-width: 1024px) {
+		.planner-modal {
+			width: 95vw;
+			max-width: 95vw;
+		}
+
+		.type-col {
+			min-width: 120px;
+		}
+	}
 </style>

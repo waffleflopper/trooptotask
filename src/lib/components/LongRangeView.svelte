@@ -505,4 +505,99 @@
 		height: 12px;
 		border-radius: 2px;
 	}
+
+	/* Mobile Responsive Styles */
+	@media (max-width: 640px) {
+		.long-range-modal {
+			width: 100vw;
+			max-width: 100vw;
+			height: 100vh;
+			max-height: 100vh;
+			border-radius: 0;
+		}
+
+		.nav-bar {
+			flex-wrap: wrap;
+			gap: var(--spacing-sm);
+			padding: var(--spacing-sm) var(--spacing-md);
+		}
+
+		.date-range {
+			font-size: var(--font-size-base);
+			min-width: unset;
+			order: -1;
+			width: 100%;
+		}
+
+		.name-cell {
+			width: 100px;
+			min-width: 100px;
+			max-width: 100px;
+			font-size: var(--font-size-xs);
+		}
+
+		.day-cell {
+			width: 28px;
+			min-width: 28px;
+			max-width: 28px;
+			height: 36px;
+		}
+
+		.day-num {
+			font-size: 9px;
+		}
+
+		.status-cell {
+			width: 28px;
+			min-width: 28px;
+			max-width: 28px;
+			height: 32px;
+		}
+
+		.group-cell {
+			width: 28px;
+			min-width: 28px;
+			max-width: 28px;
+		}
+
+		.month-header {
+			font-size: var(--font-size-xs);
+		}
+
+		.person-name .rank {
+			font-size: var(--font-size-xs);
+		}
+
+		.person-name .name {
+			font-size: var(--font-size-xs);
+		}
+
+		.legend {
+			display: none; /* Too crowded on mobile */
+		}
+
+		.modal-footer {
+			justify-content: flex-end;
+			padding: var(--spacing-sm) var(--spacing-md);
+		}
+	}
+
+	/* Tablet Responsive Styles */
+	@media (min-width: 641px) and (max-width: 1024px) {
+		.long-range-modal {
+			width: 98vw;
+			max-width: 98vw;
+		}
+
+		.name-cell {
+			width: 120px;
+			min-width: 120px;
+			max-width: 120px;
+		}
+
+		.legend {
+			flex-wrap: wrap;
+			gap: var(--spacing-sm);
+		}
+	}
 </style>

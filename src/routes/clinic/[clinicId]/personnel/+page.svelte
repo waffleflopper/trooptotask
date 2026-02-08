@@ -515,4 +515,84 @@
 		width: 18px;
 		height: 18px;
 	}
+
+	/* Mobile Responsive Styles */
+	@media (max-width: 640px) {
+		.page-header {
+			flex-wrap: wrap;
+			gap: var(--spacing-sm);
+			padding: var(--spacing-sm) var(--spacing-md);
+		}
+
+		.header-left {
+			width: 100%;
+			gap: var(--spacing-sm);
+		}
+
+		.page-header h1 {
+			font-size: var(--font-size-lg);
+		}
+
+		.count {
+			font-size: var(--font-size-sm);
+		}
+
+		.header-actions {
+			width: 100%;
+			justify-content: space-between;
+			flex-wrap: wrap;
+			gap: var(--spacing-xs);
+		}
+
+		.header-actions .btn {
+			flex: 1;
+			min-width: fit-content;
+		}
+
+		.toolbar {
+			flex-wrap: wrap;
+			padding: var(--spacing-sm) var(--spacing-md);
+		}
+
+		.search-input {
+			max-width: unset;
+			width: 100%;
+		}
+
+		.page-content {
+			padding: var(--spacing-sm);
+		}
+
+		.group-toggle {
+			padding: var(--spacing-sm);
+		}
+
+		.person-info {
+			flex-wrap: wrap;
+			gap: var(--spacing-sm);
+		}
+
+		.rank {
+			min-width: 35px;
+		}
+
+		.mos {
+			display: none; /* Hide MOS on mobile to save space */
+		}
+
+		.role {
+			font-size: var(--font-size-xs);
+		}
+	}
+
+	/* Tablet Responsive Styles */
+	@media (min-width: 641px) and (max-width: 1024px) {
+		.header-actions {
+			flex-wrap: wrap;
+		}
+
+		.search-input {
+			max-width: 300px;
+		}
+	}
 </style>

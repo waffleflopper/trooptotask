@@ -161,4 +161,22 @@
 		padding: 0 3px;
 		line-height: 1.2;
 	}
+
+	/* Mobile Responsive Styles */
+	@media (max-width: 640px) {
+		.date-cell {
+			min-width: var(--cell-width);
+			min-height: var(--cell-height);
+		}
+
+		.assignment-badge {
+			font-size: 6px;
+			padding: 0 1px;
+		}
+
+		.multi-indicator {
+			font-size: 8px;
+			padding: 0 2px;
+		}
+	}
 </style>

@@ -195,4 +195,56 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+
+	/* Mobile Responsive Styles */
+	@media (max-width: 640px) {
+		.navigation {
+			flex-wrap: wrap;
+			gap: var(--spacing-sm);
+			padding: var(--spacing-sm);
+		}
+
+		.month-nav {
+			width: 100%;
+			justify-content: space-between;
+		}
+
+		.month-title {
+			font-size: var(--font-size-lg);
+			min-width: unset;
+		}
+
+		.date-header {
+			min-width: var(--cell-width);
+			min-height: 44px; /* Touch target */
+		}
+
+		.personnel-header-spacer {
+			width: var(--personnel-column-width);
+			min-width: var(--personnel-column-width);
+			font-size: var(--font-size-xs);
+			padding: var(--spacing-xs);
+		}
+
+		.day-name {
+			font-size: 8px;
+		}
+
+		.day-number {
+			font-size: var(--font-size-xs);
+		}
+
+		.front-desk-group {
+			font-size: 6px;
+			padding: 0 2px;
+		}
+	}
+
+	/* Tablet Responsive Styles */
+	@media (min-width: 641px) and (max-width: 1024px) {
+		.personnel-header-spacer {
+			width: var(--personnel-column-width);
+			min-width: var(--personnel-column-width);
+		}
+	}
 </style>

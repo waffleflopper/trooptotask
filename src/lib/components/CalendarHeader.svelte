@@ -14,10 +14,19 @@
 		onNextMonth: () => void;
 		onGoToToday: () => void;
 		onDateClick?: (date: Date) => void;
+		scrollLeft?: number;
 	}
 
-	let { year, monthName, dates, specialDays, assignmentTypes, assignments, onPrevMonth, onNextMonth, onGoToToday, onDateClick }: Props =
+	let { year, monthName, dates, specialDays, assignmentTypes, assignments, onPrevMonth, onNextMonth, onGoToToday, onDateClick, scrollLeft = 0 }: Props =
 		$props();
+
+	let dateHeadersEl: HTMLDivElement;
+
+	$effect(() => {
+		if (dateHeadersEl && dateHeadersEl.scrollLeft !== scrollLeft) {
+			dateHeadersEl.scrollLeft = scrollLeft;
+		}
+	});
 
 	function isHoliday(date: Date): boolean {
 		const dateStr = formatDate(date);
@@ -55,7 +64,7 @@
 		<button class="btn btn-primary btn-sm" onclick={onGoToToday}>Today</button>
 	</div>
 
-	<div class="date-headers">
+	<div class="date-headers" bind:this={dateHeadersEl}>
 		<div class="personnel-header-spacer">Personnel</div>
 		<div class="date-columns">
 			{#each dates as date (formatDate(date))}
@@ -113,6 +122,13 @@
 	.date-headers {
 		display: flex;
 		padding-right: 8px; /* Match scrollbar width */
+		overflow-x: auto;
+		scrollbar-width: none; /* Firefox */
+		-ms-overflow-style: none; /* IE/Edge */
+	}
+
+	.date-headers::-webkit-scrollbar {
+		display: none; /* Chrome/Safari */
 	}
 
 	.personnel-header-spacer {

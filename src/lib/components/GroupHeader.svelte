@@ -97,6 +97,7 @@
 
 	.group-header-spacer {
 		flex: 1;
+		min-width: calc(var(--cell-width) * var(--dates-count, 31));
 		background: var(--color-primary);
 	}
 </style>

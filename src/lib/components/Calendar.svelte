@@ -51,6 +51,14 @@
 	}: Props = $props();
 
 	let collapsedGroups = $state<Set<string>>(new Set());
+	let scrollLeft = $state(0);
+	let calendarBodyEl: HTMLDivElement;
+
+	function handleScroll() {
+		if (calendarBodyEl) {
+			scrollLeft = calendarBodyEl.scrollLeft;
+		}
+	}
 
 	function toggleGroup(group: string) {
 		const newSet = new Set(collapsedGroups);
@@ -79,9 +87,10 @@
 		{onNextMonth}
 		{onGoToToday}
 		{onDateClick}
+		{scrollLeft}
 	/>
 
-	<div class="calendar-body">
+	<div class="calendar-body" style="--dates-count: {dates.length};" bind:this={calendarBodyEl} onscroll={handleScroll}>
 		{#if totalPersonnel === 0}
 			<div class="empty-state">
 				<p>No personnel added yet.</p>

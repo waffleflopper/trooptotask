@@ -181,6 +181,9 @@
 			width: 100px;
 			font-size: var(--font-size-xs);
 			padding: var(--spacing-xs);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
 		}
 
 		.type-header {
@@ -190,11 +193,13 @@
 		.type-name {
 			font-size: 9px;
 			padding: 2px 4px;
+			white-space: nowrap;
 		}
 
 		.person-rank {
-			min-width: 28px;
+			min-width: 24px;
 			font-size: var(--font-size-xs);
+			margin-right: 2px;
 		}
 
 		.status-cell {

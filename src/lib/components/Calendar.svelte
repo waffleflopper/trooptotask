@@ -139,7 +139,6 @@
 	.calendar-body {
 		flex: 1;
 		overflow: auto;
-		scrollbar-gutter: stable;
 	}
 
 	.empty-state {

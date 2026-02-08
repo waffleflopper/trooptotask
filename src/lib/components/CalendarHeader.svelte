@@ -121,7 +121,6 @@
 
 	.date-headers {
 		display: flex;
-		padding-right: 8px; /* Match scrollbar width */
 		overflow-x: auto;
 		scrollbar-width: none; /* Firefox */
 		-ms-overflow-style: none; /* IE/Edge */
@@ -155,17 +154,14 @@
 		min-width: var(--cell-width);
 		padding: var(--spacing-xs) 0;
 		text-align: center;
-		border-left: 1px solid var(--color-border);
+		border: 1px solid var(--color-border);
+		border-left: none;
 		font-size: var(--font-size-sm);
 		cursor: pointer;
 		transition: background-color 0.1s ease;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-	}
-
-	.date-header:first-child {
-		border-left: none;
 	}
 
 	.date-header:hover {

@@ -19,10 +19,10 @@
 	import BulkStatusModal from '$lib/components/BulkStatusModal.svelte';
 	import MonthlyAssignmentPlanner from '$lib/components/MonthlyAssignmentPlanner.svelte';
 	import LongRangeView from '$lib/components/LongRangeView.svelte';
-	import MobileNav from '$lib/components/MobileNav.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
 
 	let { data } = $props();
-	let showMobileNav = $state(false);
+	let showSidebar = $state(false);
 
 	// Hydrate stores with server data
 	$effect(() => {
@@ -41,7 +41,6 @@
 	let showBulkStatusModal = $state(false);
 	let showAssignmentPlanner = $state(false);
 	let showLongRangeView = $state(false);
-	let showSettingsMenu = $state(false);
 	let selectedPerson = $state<Personnel | null>(null);
 	let selectedDate = $state<Date | null>(null);
 	let assignmentDate = $state<Date | null>(null);
@@ -155,69 +154,31 @@
 	<title>{data.clinicName} - Troop to Task</title>
 </svelte:head>
 
+<Sidebar
+	clinicId={data.clinicId}
+	clinicName={data.clinicName}
+	isOpen={showSidebar}
+	onClose={() => (showSidebar = false)}
+	onToggleTheme={() => themeStore.toggle()}
+	isDarkTheme={themeStore.isDark}
+	onShowLongRangeView={() => (showLongRangeView = true)}
+	onShowAssignmentPlanner={() => (showAssignmentPlanner = true)}
+	onShowBulkStatus={() => (showBulkStatusModal = true)}
+	onShowTodayBreakdown={() => (showTodayBreakdown = true)}
+	onShowStatusManager={() => (showStatusManager = true)}
+	onShowSpecialDayManager={() => (showSpecialDayManager = true)}
+/>
+
 <div class="page">
-	<header class="page-header">
-		<div class="header-left">
-			<h1>Troop to Task</h1>
-			<span class="header-divider"></span>
-			<p class="subtitle">{data.clinicName}</p>
-		</div>
-		<button class="mobile-menu-btn" onclick={() => (showMobileNav = true)} aria-label="Open menu">
+	<header class="page-header mobile-only">
+		<h1>Troop to Task</h1>
+		<button class="mobile-menu-btn" onclick={() => (showSidebar = true)} aria-label="Open menu">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<line x1="3" y1="12" x2="21" y2="12" />
 				<line x1="3" y1="6" x2="21" y2="6" />
 				<line x1="3" y1="18" x2="21" y2="18" />
 			</svg>
 		</button>
-		<nav class="header-nav">
-			<a href="/clinic/{data.clinicId}/personnel" class="nav-link">Personnel</a>
-			<a href="/clinic/{data.clinicId}/training" class="nav-link">Training</a>
-			<span class="nav-divider"></span>
-			<button class="nav-link" onclick={() => (showLongRangeView = true)}>3-Month View</button>
-			<button class="nav-link" onclick={() => (showAssignmentPlanner = true)}>Assignments</button>
-			<button class="nav-link" onclick={() => (showBulkStatusModal = true)}>Bulk Status</button>
-		</nav>
-		<div class="header-actions">
-			<button class="btn btn-primary btn-sm today-btn" onclick={() => (showTodayBreakdown = true)}>
-				Today's Breakdown
-			</button>
-			<button class="theme-toggle-btn" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
-				{#if themeStore.isDark}
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<circle cx="12" cy="12" r="5"/>
-						<line x1="12" y1="1" x2="12" y2="3"/>
-						<line x1="12" y1="21" x2="12" y2="23"/>
-						<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-						<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-						<line x1="1" y1="12" x2="3" y2="12"/>
-						<line x1="21" y1="12" x2="23" y2="12"/>
-						<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-						<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-					</svg>
-				{:else}
-					<svg viewBox="0 0 24 24" fill="currentColor">
-						<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-					</svg>
-				{/if}
-			</button>
-			<div class="dropdown">
-				<button class="btn btn-secondary btn-sm dropdown-toggle" onclick={() => (showSettingsMenu = !showSettingsMenu)}>
-					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-						<path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-					</svg>
-				</button>
-				{#if showSettingsMenu}
-					<button class="dropdown-backdrop" onclick={() => (showSettingsMenu = false)} aria-label="Close menu"></button>
-					<div class="dropdown-menu">
-						<button class="dropdown-item" onclick={() => { showSettingsMenu = false; showStatusManager = true; }}>Status Types</button>
-						<button class="dropdown-item" onclick={() => { showSettingsMenu = false; showSpecialDayManager = true; }}>Holidays</button>
-						<a href="/clinic/{data.clinicId}/settings" class="dropdown-item">Settings</a>
-						<div class="dropdown-divider"></div>
-						<a href="/auth/logout" class="dropdown-item">Sign Out</a>
-					</div>
-				{/if}
-			</div>
-		</div>
 	</header>
 
 	<main class="page-content">
@@ -340,20 +301,6 @@
 	/>
 {/if}
 
-{#if showMobileNav}
-	<MobileNav
-		clinicId={data.clinicId}
-		onClose={() => (showMobileNav = false)}
-		onShowLongRangeView={() => (showLongRangeView = true)}
-		onShowAssignmentPlanner={() => (showAssignmentPlanner = true)}
-		onShowBulkStatus={() => (showBulkStatusModal = true)}
-		onShowTodayBreakdown={() => (showTodayBreakdown = true)}
-		onShowStatusManager={() => (showStatusManager = true)}
-		onShowSpecialDayManager={() => (showSpecialDayManager = true)}
-		onToggleTheme={() => themeStore.toggle()}
-		isDarkTheme={themeStore.isDark}
-	/>
-{/if}
 
 <style>
 	.page {
@@ -361,22 +308,21 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg);
+		margin-left: var(--sidebar-width);
+	}
+
+	/* Mobile header - only visible on mobile */
+	.page-header.mobile-only {
+		display: none;
 	}
 
 	.page-header {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
-		padding: var(--spacing-sm) var(--spacing-lg);
+		justify-content: space-between;
+		padding: var(--spacing-sm) var(--spacing-md);
 		background: var(--color-primary);
 		color: white;
-		flex-wrap: wrap;
-	}
-
-	.header-left {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
 	}
 
 	.page-header h1 {
@@ -384,20 +330,8 @@
 		font-weight: 700;
 	}
 
-	.header-divider {
-		width: 1px;
-		height: 20px;
-		background: rgba(255, 255, 255, 0.3);
-	}
-
-	.subtitle {
-		font-size: var(--font-size-sm);
-		opacity: 0.8;
-	}
-
-	/* Mobile menu button - hidden on desktop */
 	.mobile-menu-btn {
-		display: none;
+		display: flex;
 		align-items: center;
 		justify-content: center;
 		width: 40px;
@@ -405,7 +339,6 @@
 		border-radius: var(--radius-md);
 		background: rgba(255, 255, 255, 0.1);
 		color: white;
-		margin-left: auto;
 	}
 
 	.mobile-menu-btn:hover {
@@ -415,121 +348,6 @@
 	.mobile-menu-btn svg {
 		width: 24px;
 		height: 24px;
-	}
-
-	.header-nav {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		margin-left: var(--spacing-lg);
-	}
-
-	.nav-link {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		color: rgba(255, 255, 255, 0.8);
-		font-size: var(--font-size-sm);
-		text-decoration: none;
-		border-radius: var(--radius-sm);
-		transition: all 0.15s ease;
-		background: none;
-		border: none;
-		cursor: pointer;
-	}
-
-	.nav-link:hover {
-		color: white;
-		background: rgba(255, 255, 255, 0.1);
-	}
-
-	.nav-divider {
-		width: 1px;
-		height: 16px;
-		background: rgba(255, 255, 255, 0.2);
-		margin: 0 var(--spacing-xs);
-	}
-
-	.header-actions {
-		margin-left: auto;
-		display: flex;
-		gap: var(--spacing-sm);
-		align-items: center;
-	}
-
-	.header-actions .btn-secondary {
-		background: rgba(255, 255, 255, 0.1);
-		border-color: rgba(255, 255, 255, 0.2);
-		color: white;
-	}
-
-	.header-actions .btn-secondary:hover {
-		background: rgba(255, 255, 255, 0.2);
-	}
-
-	.today-btn {
-		background: var(--color-secondary);
-		border-color: var(--color-secondary);
-	}
-
-	.today-btn:hover {
-		background: #b8922f;
-		border-color: #b8922f;
-	}
-
-	/* Dropdown */
-	.dropdown {
-		position: relative;
-	}
-
-	.dropdown-toggle {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-xs) var(--spacing-sm);
-	}
-
-	.dropdown-backdrop {
-		position: fixed;
-		inset: 0;
-		background: transparent;
-		z-index: 99;
-	}
-
-	.dropdown-menu {
-		position: absolute;
-		top: 100%;
-		right: 0;
-		margin-top: var(--spacing-xs);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-lg);
-		min-width: 160px;
-		z-index: 100;
-		overflow: hidden;
-	}
-
-	.dropdown-item {
-		display: block;
-		width: 100%;
-		padding: var(--spacing-sm) var(--spacing-md);
-		text-align: left;
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
-		text-decoration: none;
-		background: none;
-		border: none;
-		cursor: pointer;
-		transition: background 0.15s ease;
-	}
-
-	.dropdown-item:hover {
-		background: var(--color-bg);
-	}
-
-	.dropdown-divider {
-		height: 1px;
-		background: var(--color-border);
-		margin: var(--spacing-xs) 0;
 	}
 
 	.page-content {
@@ -546,57 +364,14 @@
 		overflow: hidden;
 	}
 
-	.theme-toggle-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		border-radius: var(--radius-md);
-		background: rgba(255, 255, 255, 0.1);
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		color: white;
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.theme-toggle-btn:hover {
-		background: rgba(255, 255, 255, 0.2);
-	}
-
-	.theme-toggle-btn svg {
-		width: 18px;
-		height: 18px;
-	}
-
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
-		.page-header {
-			padding: var(--spacing-xs) var(--spacing-sm);
+		.page {
+			margin-left: 0;
 		}
 
-		.header-left h1 {
-			font-size: var(--font-size-base);
-		}
-
-		.header-divider {
-			display: none;
-		}
-
-		.subtitle {
-			display: none;
-		}
-
-		.header-nav {
-			display: none;
-		}
-
-		.mobile-menu-btn {
+		.page-header.mobile-only {
 			display: flex;
-		}
-
-		.header-actions {
-			display: none;
 		}
 
 		.page-content {
@@ -606,27 +381,8 @@
 
 	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.page-header {
-			padding: var(--spacing-sm) var(--spacing-md);
-		}
-
-		.header-nav {
-			gap: var(--spacing-xs);
-		}
-
-		.nav-link {
-			padding: var(--spacing-xs);
-			font-size: var(--font-size-xs);
-		}
-
-		.today-btn {
-			display: none;
-		}
-	}
-
-	@media (min-width: 641px) {
-		.mobile-menu-btn {
-			display: none;
+		.page {
+			margin-left: var(--sidebar-width);
 		}
 	}
 </style>

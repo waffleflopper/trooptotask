@@ -7,8 +7,10 @@
 	import PersonnelModal from '$lib/components/PersonnelModal.svelte';
 	import GroupManager from '$lib/components/GroupManager.svelte';
 	import BulkPersonnelManager from '$lib/components/BulkPersonnelManager.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
 
 	let { data } = $props();
+	let showSidebar = $state(false);
 
 	$effect(() => {
 		personnelStore.load(data.personnel, data.clinicId);
@@ -149,42 +151,29 @@
 	<title>Personnel - Troop to Task</title>
 </svelte:head>
 
+<Sidebar
+	clinicId={data.clinicId}
+	isOpen={showSidebar}
+	onClose={() => (showSidebar = false)}
+	onToggleTheme={() => themeStore.toggle()}
+	isDarkTheme={themeStore.isDark}
+	onAddPerson={handleAdd}
+	onShowBulkImport={() => (showBulkManager = true)}
+	onShowGroupManager={() => (showGroupManager = true)}
+/>
+
 <div class="page">
 	<header class="page-header">
 		<div class="header-left">
-			<a href="/clinic/{data.clinicId}" class="back-link">&larr; Back to Calendar</a>
+			<button class="mobile-menu-btn" onclick={() => (showSidebar = true)} aria-label="Open menu">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<line x1="3" y1="12" x2="21" y2="12" />
+					<line x1="3" y1="6" x2="21" y2="6" />
+					<line x1="3" y1="18" x2="21" y2="18" />
+				</svg>
+			</button>
 			<h1>Personnel</h1>
 			<span class="count">({totalPersonnel})</span>
-		</div>
-		<div class="header-actions">
-			<button class="btn btn-secondary btn-sm" onclick={() => (showBulkManager = true)}>
-				Bulk Import
-			</button>
-			<button class="btn btn-secondary btn-sm" onclick={() => (showGroupManager = true)}>
-				Manage Groups
-			</button>
-			<button class="btn btn-primary btn-sm" onclick={handleAdd}>
-				+ Add Person
-			</button>
-			<button class="theme-toggle-btn" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
-				{#if themeStore.isDark}
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<circle cx="12" cy="12" r="5"/>
-						<line x1="12" y1="1" x2="12" y2="3"/>
-						<line x1="12" y1="21" x2="12" y2="23"/>
-						<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-						<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-						<line x1="1" y1="12" x2="3" y2="12"/>
-						<line x1="21" y1="12" x2="23" y2="12"/>
-						<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-						<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-					</svg>
-				{:else}
-					<svg viewBox="0 0 24 24" fill="currentColor">
-						<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-					</svg>
-				{/if}
-			</button>
 		</div>
 	</header>
 
@@ -204,7 +193,7 @@
 		{#if totalPersonnel === 0}
 			<div class="empty-state">
 				<p>No personnel added yet.</p>
-				<p>Click "Add Person" or use "Bulk Import" to get started.</p>
+				<p>Use the sidebar to add personnel or bulk import.</p>
 			</div>
 		{:else}
 			<div class="personnel-grid">
@@ -286,6 +275,7 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg);
+		margin-left: var(--sidebar-width);
 	}
 
 	.page-header {
@@ -300,17 +290,27 @@
 	.header-left {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-lg);
+		gap: var(--spacing-md);
 	}
 
-	.back-link {
-		color: rgba(255, 255, 255, 0.8);
-		text-decoration: none;
-		font-size: var(--font-size-sm);
-	}
-
-	.back-link:hover {
+	.mobile-menu-btn {
+		display: none;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: var(--radius-md);
+		background: rgba(255, 255, 255, 0.1);
 		color: white;
+	}
+
+	.mobile-menu-btn:hover {
+		background: rgba(255, 255, 255, 0.2);
+	}
+
+	.mobile-menu-btn svg {
+		width: 24px;
+		height: 24px;
 	}
 
 	.page-header h1 {
@@ -321,21 +321,6 @@
 	.count {
 		font-size: var(--font-size-base);
 		opacity: 0.8;
-	}
-
-	.header-actions {
-		display: flex;
-		gap: var(--spacing-sm);
-	}
-
-	.header-actions .btn-secondary {
-		background: rgba(255, 255, 255, 0.1);
-		border-color: rgba(255, 255, 255, 0.2);
-		color: white;
-	}
-
-	.header-actions .btn-secondary:hover {
-		background: rgba(255, 255, 255, 0.2);
 	}
 
 	.toolbar {
@@ -493,31 +478,16 @@
 		border-radius: var(--radius-sm);
 	}
 
-	.theme-toggle-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		border-radius: var(--radius-md);
-		background: rgba(255, 255, 255, 0.1);
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		color: white;
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.theme-toggle-btn:hover {
-		background: rgba(255, 255, 255, 0.2);
-	}
-
-	.theme-toggle-btn svg {
-		width: 18px;
-		height: 18px;
-	}
-
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
+		.page {
+			margin-left: 0;
+		}
+
+		.mobile-menu-btn {
+			display: flex;
+		}
+
 		.page-header {
 			flex-wrap: wrap;
 			gap: var(--spacing-sm);
@@ -535,18 +505,6 @@
 
 		.count {
 			font-size: var(--font-size-sm);
-		}
-
-		.header-actions {
-			width: 100%;
-			justify-content: space-between;
-			flex-wrap: wrap;
-			gap: var(--spacing-xs);
-		}
-
-		.header-actions .btn {
-			flex: 1;
-			min-width: fit-content;
 		}
 
 		.toolbar {
@@ -587,8 +545,8 @@
 
 	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.header-actions {
-			flex-wrap: wrap;
+		.page {
+			margin-left: var(--sidebar-width);
 		}
 
 		.search-input {

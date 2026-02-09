@@ -147,6 +147,15 @@
 		{#if hasCalendarTools}
 			<div class="nav-section">
 				<h3>Calendar Tools</h3>
+				{#if onShowTodayBreakdown}
+					<button class="nav-item highlight" onclick={() => handleNavClick(onShowTodayBreakdown)}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<circle cx="12" cy="12" r="10" />
+							<polyline points="12 6 12 12 16 14" />
+						</svg>
+						Today's Breakdown
+					</button>
+				{/if}
 				{#if onShowLongRangeView}
 					<button class="nav-item" onclick={() => handleNavClick(onShowLongRangeView)}>
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -174,15 +183,6 @@
 							<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
 						</svg>
 						Bulk Status
-					</button>
-				{/if}
-				{#if onShowTodayBreakdown}
-					<button class="nav-item highlight" onclick={() => handleNavClick(onShowTodayBreakdown)}>
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<circle cx="12" cy="12" r="10" />
-							<polyline points="12 6 12 12 16 14" />
-						</svg>
-						Today's Breakdown
 					</button>
 				{/if}
 			</div>

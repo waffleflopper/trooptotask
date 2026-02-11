@@ -133,7 +133,7 @@
 	}
 
 	.has-assignment {
-		border: 2px solid;
+		box-shadow: inset 0 0 0 2px var(--color-primary);
 	}
 
 	.assignment-badges {

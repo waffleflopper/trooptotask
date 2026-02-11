@@ -20,6 +20,7 @@
 	import MonthlyAssignmentPlanner from '$lib/components/MonthlyAssignmentPlanner.svelte';
 	import LongRangeView from '$lib/components/LongRangeView.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
 
 	let { data } = $props();
 	let showSidebar = $state(false);
@@ -148,6 +149,28 @@
 			});
 		}
 	}
+
+	function handleExportCSV() {
+		exportMonthToCSV(calendarStore.year, calendarStore.month, {
+			personnelByGroup: personnelByGroup(),
+			availabilityEntries: availabilityStore.list,
+			statusTypes: statusTypesStore.list,
+			specialDays: specialDaysStore.list,
+			assignmentTypes: dailyAssignmentsStore.types,
+			assignments: dailyAssignmentsStore.assignments
+		});
+	}
+
+	function handleExportPDF() {
+		printMonthCalendar(calendarStore.year, calendarStore.month, {
+			personnelByGroup: personnelByGroup(),
+			availabilityEntries: availabilityStore.list,
+			statusTypes: statusTypesStore.list,
+			specialDays: specialDaysStore.list,
+			assignmentTypes: dailyAssignmentsStore.types,
+			assignments: dailyAssignmentsStore.assignments
+		});
+	}
 </script>
 
 <svelte:head>
@@ -167,6 +190,8 @@
 	onShowTodayBreakdown={() => (showTodayBreakdown = true)}
 	onShowStatusManager={() => (showStatusManager = true)}
 	onShowSpecialDayManager={() => (showSpecialDayManager = true)}
+	onExportCalendarCSV={handleExportCSV}
+	onExportCalendarPDF={handleExportPDF}
 />
 
 <div class="page">

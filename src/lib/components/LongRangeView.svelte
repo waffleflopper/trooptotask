@@ -2,6 +2,7 @@
 	import type { Personnel, AvailabilityEntry, StatusType, SpecialDay } from '../types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, isToday } from '../utils/dates';
+	import { exportQuarterToCSV, printQuarterCalendar } from '../utils/calendarExport';
 
 	interface GroupData {
 		group: string;
@@ -82,6 +83,28 @@
 
 	// Stats
 	const totalDays = $derived(months().reduce((sum, m) => sum + m.dates.length, 0));
+
+	function handleExportCSV() {
+		exportQuarterToCSV(viewStartDate, {
+			personnelByGroup,
+			availabilityEntries,
+			statusTypes,
+			specialDays,
+			assignmentTypes,
+			assignments
+		});
+	}
+
+	function handleExportPDF() {
+		printQuarterCalendar(viewStartDate, {
+			personnelByGroup,
+			availabilityEntries,
+			statusTypes,
+			specialDays,
+			assignmentTypes,
+			assignments
+		});
+	}
 </script>
 
 <div class="modal-overlay" role="dialog" aria-modal="true" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()}>
@@ -108,6 +131,23 @@
 					<path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
 				</svg>
 			</button>
+			<div class="export-buttons">
+				<button class="btn btn-secondary btn-sm" onclick={handleExportCSV} title="Export to Excel">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+						<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+						<polyline points="14 2 14 8 20 8" />
+					</svg>
+					Excel
+				</button>
+				<button class="btn btn-secondary btn-sm" onclick={handleExportPDF} title="Print / PDF">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+						<path d="M6 9V2h12v7" />
+						<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+						<rect x="6" y="14" width="12" height="8" />
+					</svg>
+					PDF
+				</button>
+			</div>
 		</div>
 
 		<div class="modal-body">
@@ -256,6 +296,14 @@
 		font-weight: 600;
 		min-width: 300px;
 		text-align: center;
+	}
+
+	.export-buttons {
+		display: flex;
+		gap: var(--spacing-xs);
+		margin-left: var(--spacing-md);
+		padding-left: var(--spacing-md);
+		border-left: 1px solid rgba(255, 255, 255, 0.2);
 	}
 
 	.modal-body {
@@ -527,6 +575,12 @@
 			min-width: unset;
 			order: -1;
 			width: 100%;
+		}
+
+		.export-buttons {
+			margin-left: 0;
+			padding-left: 0;
+			border-left: none;
 		}
 
 		.name-cell {

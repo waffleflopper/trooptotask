@@ -1,5 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import type { ClinicMemberPermissions } from '$lib/types';
+
+	interface ClinicInfo {
+		id: string;
+		name: string;
+		role: string;
+	}
 
 	interface Props {
 		clinicId: string;
@@ -8,6 +16,10 @@
 		onClose?: () => void;
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
+		// Permissions for visibility control
+		permissions?: ClinicMemberPermissions;
+		// All clinics user belongs to (for switcher)
+		allClinics?: ClinicInfo[];
 		// Calendar-specific callbacks (only shown on calendar page)
 		onShowLongRangeView?: () => void;
 		onShowAssignmentPlanner?: () => void;
@@ -35,6 +47,8 @@
 		onClose,
 		onToggleTheme,
 		isDarkTheme,
+		permissions,
+		allClinics = [],
 		onShowLongRangeView,
 		onShowAssignmentPlanner,
 		onShowBulkStatus,
@@ -51,21 +65,56 @@
 		onShowTrainingBulkImport
 	}: Props = $props();
 
-	const hasCalendarTools = $derived(
-		onShowLongRangeView || onShowAssignmentPlanner || onShowBulkStatus || onShowTodayBreakdown
+	let showClinicSwitcher = $state(false);
+
+	function handleClinicSwitch(newClinicId: string) {
+		showClinicSwitcher = false;
+		if (newClinicId !== clinicId) {
+			// Navigate to same page type on the new clinic
+			const currentPath = $page.url.pathname;
+			const pathSuffix = currentPath.replace(`/clinic/${clinicId}`, '');
+			goto(`/clinic/${newClinicId}${pathSuffix}`);
+		}
+	}
+
+	// Default permissions (full access) if not provided
+	const perms = $derived(
+		permissions ?? {
+			canViewCalendar: true,
+			canEditCalendar: true,
+			canViewPersonnel: true,
+			canEditPersonnel: true,
+			canViewTraining: true,
+			canEditTraining: true,
+			canManageMembers: true
+		}
 	);
+
+	// Calendar tools: show view-only tools always, edit tools only with permission
+	const hasCalendarViewTools = $derived(onShowLongRangeView || onShowTodayBreakdown);
+	const hasCalendarEditTools = $derived(
+		perms.canEditCalendar && (onShowAssignmentPlanner || onShowBulkStatus)
+	);
+	const hasCalendarTools = $derived(hasCalendarViewTools || hasCalendarEditTools);
 
 	const hasCalendarExport = $derived(onExportCalendarCSV || onExportCalendarPDF);
 
+	// Personnel tools: only show if can edit
 	const hasPersonnelTools = $derived(
-		onAddPerson || onShowBulkImport || onShowGroupManager
+		perms.canEditPersonnel && (onAddPerson || onShowBulkImport || onShowGroupManager)
 	);
 
-	const hasTrainingTools = $derived(
-		onShowTrainingReports || onShowTrainingTypeManager || onShowTrainingBulkImport
+	// Training tools: reports for view, type manager and bulk import for edit
+	const hasTrainingViewTools = $derived(onShowTrainingReports);
+	const hasTrainingEditTools = $derived(
+		perms.canEditTraining && (onShowTrainingTypeManager || onShowTrainingBulkImport)
 	);
+	const hasTrainingTools = $derived(hasTrainingViewTools || hasTrainingEditTools);
 
-	const hasSettingsTools = $derived(onShowStatusManager || onShowSpecialDayManager);
+	// Settings tools: only show if can edit calendar
+	const hasSettingsTools = $derived(
+		perms.canEditCalendar && (onShowStatusManager || onShowSpecialDayManager)
+	);
 
 	function handleNavClick(action?: () => void) {
 		action?.();
@@ -103,52 +152,94 @@
 	</div>
 
 	{#if clinicName}
-		<div class="clinic-name">{clinicName}</div>
+		<div class="clinic-switcher">
+			{#if allClinics.length > 1}
+				<button
+					class="clinic-switcher-btn"
+					onclick={() => (showClinicSwitcher = !showClinicSwitcher)}
+					aria-expanded={showClinicSwitcher}
+				>
+					<span class="clinic-name-text">{clinicName}</span>
+					<svg class="chevron" class:open={showClinicSwitcher} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<polyline points="6 9 12 15 18 9" />
+					</svg>
+				</button>
+				{#if showClinicSwitcher}
+					<div class="clinic-dropdown">
+						{#each allClinics as c (c.id)}
+							<button
+								class="clinic-option"
+								class:active={c.id === clinicId}
+								onclick={() => handleClinicSwitch(c.id)}
+							>
+								<span class="clinic-option-name">{c.name}</span>
+								<span class="clinic-option-role">{c.role}</span>
+							</button>
+						{/each}
+						<a href="/dashboard?show=all" class="clinic-option manage-link" onclick={() => onClose?.()}>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<circle cx="12" cy="12" r="3" />
+								<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+							</svg>
+							Manage Clinics
+						</a>
+					</div>
+				{/if}
+			{:else}
+				<div class="clinic-name-static">{clinicName}</div>
+			{/if}
+		</div>
 	{/if}
 
 	<nav class="sidebar-nav">
 		<div class="nav-section">
 			<h3>Navigation</h3>
-			<a
-				href="/clinic/{clinicId}"
-				class="nav-item"
-				class:active={$page.url.pathname === `/clinic/${clinicId}`}
-				onclick={() => onClose?.()}
-			>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-					<line x1="16" y1="2" x2="16" y2="6" />
-					<line x1="8" y1="2" x2="8" y2="6" />
-					<line x1="3" y1="10" x2="21" y2="10" />
-				</svg>
-				Calendar
-			</a>
-			<a
-				href="/clinic/{clinicId}/personnel"
-				class="nav-item"
-				class:active={isActive(`/clinic/${clinicId}/personnel`)}
-				onclick={() => onClose?.()}
-			>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-					<circle cx="9" cy="7" r="4" />
-					<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-					<path d="M16 3.13a4 4 0 0 1 0 7.75" />
-				</svg>
-				Personnel
-			</a>
-			<a
-				href="/clinic/{clinicId}/training"
-				class="nav-item"
-				class:active={isActive(`/clinic/${clinicId}/training`)}
-				onclick={() => onClose?.()}
-			>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-					<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-				</svg>
-				Training
-			</a>
+			{#if perms.canViewCalendar}
+				<a
+					href="/clinic/{clinicId}"
+					class="nav-item"
+					class:active={$page.url.pathname === `/clinic/${clinicId}`}
+					onclick={() => onClose?.()}
+				>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+						<line x1="16" y1="2" x2="16" y2="6" />
+						<line x1="8" y1="2" x2="8" y2="6" />
+						<line x1="3" y1="10" x2="21" y2="10" />
+					</svg>
+					Calendar
+				</a>
+			{/if}
+			{#if perms.canViewPersonnel}
+				<a
+					href="/clinic/{clinicId}/personnel"
+					class="nav-item"
+					class:active={isActive(`/clinic/${clinicId}/personnel`)}
+					onclick={() => onClose?.()}
+				>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+						<circle cx="9" cy="7" r="4" />
+						<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+						<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+					</svg>
+					Personnel
+				</a>
+			{/if}
+			{#if perms.canViewTraining}
+				<a
+					href="/clinic/{clinicId}/training"
+					class="nav-item"
+					class:active={isActive(`/clinic/${clinicId}/training`)}
+					onclick={() => onClose?.()}
+				>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+						<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+					</svg>
+					Training
+				</a>
+			{/if}
 		</div>
 
 		{#if hasCalendarTools}
@@ -174,7 +265,7 @@
 						3-Month View
 					</button>
 				{/if}
-				{#if onShowAssignmentPlanner}
+				{#if perms.canEditCalendar && onShowAssignmentPlanner}
 					<button class="nav-item" onclick={() => handleNavClick(onShowAssignmentPlanner)}>
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -183,7 +274,7 @@
 						Assignments
 					</button>
 				{/if}
-				{#if onShowBulkStatus}
+				{#if perms.canEditCalendar && onShowBulkStatus}
 					<button class="nav-item" onclick={() => handleNavClick(onShowBulkStatus)}>
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<polyline points="9 11 12 14 22 4" />
@@ -225,7 +316,7 @@
 		{#if hasPersonnelTools}
 			<div class="nav-section">
 				<h3>Personnel Tools</h3>
-				{#if onAddPerson}
+				{#if perms.canEditPersonnel && onAddPerson}
 					<button class="nav-item highlight" onclick={() => handleNavClick(onAddPerson)}>
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -236,7 +327,7 @@
 						Add Person
 					</button>
 				{/if}
-				{#if onShowBulkImport}
+				{#if perms.canEditPersonnel && onShowBulkImport}
 					<button class="nav-item" onclick={() => handleNavClick(onShowBulkImport)}>
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -246,7 +337,7 @@
 						Bulk Import
 					</button>
 				{/if}
-				{#if onShowGroupManager}
+				{#if perms.canEditPersonnel && onShowGroupManager}
 					<button class="nav-item" onclick={() => handleNavClick(onShowGroupManager)}>
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -263,7 +354,7 @@
 		{#if hasTrainingTools}
 			<div class="nav-section">
 				<h3>Training Tools</h3>
-				{#if onShowTrainingBulkImport}
+				{#if perms.canEditTraining && onShowTrainingBulkImport}
 					<button class="nav-item" onclick={() => handleNavClick(onShowTrainingBulkImport)}>
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -285,7 +376,7 @@
 						Reports
 					</button>
 				{/if}
-				{#if onShowTrainingTypeManager}
+				{#if perms.canEditTraining && onShowTrainingTypeManager}
 					<button class="nav-item" onclick={() => handleNavClick(onShowTrainingTypeManager)}>
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<circle cx="12" cy="12" r="3" />
@@ -299,7 +390,7 @@
 
 		<div class="nav-section">
 			<h3>Settings</h3>
-			{#if onShowStatusManager}
+			{#if perms.canEditCalendar && onShowStatusManager}
 				<button class="nav-item" onclick={() => handleNavClick(onShowStatusManager)}>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<circle cx="12" cy="12" r="3" />
@@ -308,7 +399,7 @@
 					Status Types
 				</button>
 			{/if}
-			{#if onShowSpecialDayManager}
+			{#if perms.canEditCalendar && onShowSpecialDayManager}
 				<button class="nav-item" onclick={() => handleNavClick(onShowSpecialDayManager)}>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -348,6 +439,15 @@
 	</nav>
 
 	<div class="sidebar-footer">
+		<a href="/dashboard?show=all" class="nav-item" onclick={() => onClose?.()}>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<rect x="3" y="3" width="7" height="7" />
+				<rect x="14" y="3" width="7" height="7" />
+				<rect x="14" y="14" width="7" height="7" />
+				<rect x="3" y="14" width="7" height="7" />
+			</svg>
+			Dashboard
+		</a>
 		<a href="/auth/logout" class="nav-item logout">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -423,12 +523,119 @@
 		height: 20px;
 	}
 
-	.clinic-name {
+	.clinic-switcher {
+		position: relative;
+		border-bottom: 1px solid var(--color-border);
+		background: var(--color-bg);
+	}
+
+	.clinic-switcher-btn {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
 		padding: var(--spacing-sm) var(--spacing-lg);
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
-		border-bottom: 1px solid var(--color-border);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		text-align: left;
+		transition: background 0.15s ease;
+	}
+
+	.clinic-switcher-btn:hover {
+		background: var(--color-surface);
+		color: var(--color-text);
+	}
+
+	.clinic-name-text {
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.clinic-switcher-btn .chevron {
+		width: 16px;
+		height: 16px;
+		flex-shrink: 0;
+		transition: transform 0.2s ease;
+	}
+
+	.clinic-switcher-btn .chevron.open {
+		transform: rotate(180deg);
+	}
+
+	.clinic-name-static {
+		padding: var(--spacing-sm) var(--spacing-lg);
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
+	}
+
+	.clinic-dropdown {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		right: 0;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-top: none;
+		box-shadow: var(--shadow-lg);
+		z-index: 200;
+		max-height: 300px;
+		overflow-y: auto;
+	}
+
+	.clinic-option {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: var(--spacing-sm) var(--spacing-lg);
+		font-size: var(--font-size-sm);
+		color: var(--color-text);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		text-align: left;
+		text-decoration: none;
+		transition: background 0.15s ease;
+	}
+
+	.clinic-option:hover {
 		background: var(--color-bg);
+	}
+
+	.clinic-option.active {
+		background: var(--color-bg);
+		font-weight: 600;
+		color: var(--color-primary);
+	}
+
+	.clinic-option-name {
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.clinic-option-role {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+		text-transform: capitalize;
+		margin-left: var(--spacing-sm);
+	}
+
+	.clinic-option.manage-link {
+		border-top: 1px solid var(--color-border);
+		color: var(--color-primary);
+		gap: var(--spacing-sm);
+	}
+
+	.clinic-option.manage-link svg {
+		width: 16px;
+		height: 16px;
 	}
 
 	.sidebar-nav {
@@ -590,7 +797,8 @@
 			font-size: var(--font-size-xl);
 		}
 
-		.clinic-name {
+		.clinic-switcher-btn,
+		.clinic-name-static {
 			padding: var(--spacing-xs) var(--spacing-md);
 			font-size: var(--font-size-xs);
 		}

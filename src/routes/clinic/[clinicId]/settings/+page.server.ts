@@ -1,8 +1,9 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { PERMISSION_PRESETS, type ClinicMember, type PermissionPreset } from '$lib/types';
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
-	const { clinicId, userRole } = await parent();
+	const { clinicId, userRole, permissions } = await parent();
 
 	// Get clinic details
 	const { data: clinic } = await locals.supabase
@@ -11,38 +12,65 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		.eq('id', clinicId)
 		.single();
 
-	// Get members
+	// Get members with full permission data
 	const { data: memberships } = await locals.supabase
 		.from('clinic_memberships')
-		.select('id, user_id, role, created_at')
+		.select(
+			'id, user_id, email, role, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
+		)
 		.eq('clinic_id', clinicId);
 
-	// Get user emails from auth (we need to use a workaround since we can't directly query auth.users)
-	// For now, we'll display user IDs - in production you'd use a user profile table
-	const members = (memberships ?? []).map((m: any) => ({
+	// Map to ClinicMember type
+	const members: ClinicMember[] = (memberships ?? []).map((m: any) => ({
 		id: m.id,
+		clinicId: clinicId,
 		userId: m.user_id,
+		email: m.email,
 		role: m.role,
-		createdAt: m.created_at
+		createdAt: m.created_at,
+		canViewCalendar: m.can_view_calendar,
+		canEditCalendar: m.can_edit_calendar,
+		canViewPersonnel: m.can_view_personnel,
+		canEditPersonnel: m.can_edit_personnel,
+		canViewTraining: m.can_view_training,
+		canEditTraining: m.can_edit_training,
+		canManageMembers: m.can_manage_members
 	}));
 
-	// Get pending invitations
+	// Get pending invitations with permissions
 	const { data: invitations } = await locals.supabase
 		.from('clinic_invitations')
-		.select('id, email, status, created_at')
+		.select(
+			'id, email, status, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
+		)
 		.eq('clinic_id', clinicId)
 		.eq('status', 'pending');
+
+	const mappedInvitations = (invitations ?? []).map((inv: any) => ({
+		id: inv.id,
+		email: inv.email,
+		status: inv.status,
+		createdAt: inv.created_at,
+		canViewCalendar: inv.can_view_calendar,
+		canEditCalendar: inv.can_edit_calendar,
+		canViewPersonnel: inv.can_view_personnel,
+		canEditPersonnel: inv.can_edit_personnel,
+		canViewTraining: inv.can_view_training,
+		canEditTraining: inv.can_edit_training,
+		canManageMembers: inv.can_manage_members
+	}));
 
 	return {
 		clinic,
 		members,
-		invitations: invitations ?? [],
-		isOwner: userRole === 'owner'
+		invitations: mappedInvitations,
+		isOwner: userRole === 'owner',
+		canManageMembers: permissions.canManageMembers
 	};
 };
 
 export const actions: Actions = {
-	updateName: async ({ params, request, locals, url }) => {
+	updateName: async ({ params, request, locals }) => {
 		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
@@ -73,6 +101,7 @@ export const actions: Actions = {
 		const { clinicId } = params;
 		const formData = await request.formData();
 		const email = (formData.get('email') as string)?.trim().toLowerCase();
+		const preset = formData.get('preset') as Exclude<PermissionPreset, 'owner' | 'custom'>;
 
 		if (!email) {
 			return fail(400, { inviteError: 'Email is required' });
@@ -92,19 +121,31 @@ export const actions: Actions = {
 			return fail(400, { inviteError: 'An invitation for this email is already pending' });
 		}
 
-		const { error } = await locals.supabase
-			.from('clinic_invitations')
-			.insert({
-				clinic_id: clinicId,
-				email,
-				invited_by: user.id
-			});
+		// Get permissions from preset
+		const permissions = PERMISSION_PRESETS[preset] || PERMISSION_PRESETS['full-editor'];
+
+		const { error } = await locals.supabase.from('clinic_invitations').insert({
+			clinic_id: clinicId,
+			email,
+			invited_by: user.id,
+			can_view_calendar: permissions.canViewCalendar,
+			can_edit_calendar: permissions.canEditCalendar,
+			can_view_personnel: permissions.canViewPersonnel,
+			can_edit_personnel: permissions.canEditPersonnel,
+			can_view_training: permissions.canViewTraining,
+			can_edit_training: permissions.canEditTraining,
+			can_manage_members: permissions.canManageMembers
+		});
 
 		if (error) {
 			return fail(500, { inviteError: error.message });
 		}
 
-		return { inviteSuccess: true };
+		return {
+			inviteSuccess: true,
+			inviteEmail: email,
+			inviteMessage: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
+		};
 	},
 
 	revokeInvite: async ({ params, request, locals }) => {
@@ -135,12 +176,17 @@ export const actions: Actions = {
 		// Don't allow removing self
 		const { data: membership } = await locals.supabase
 			.from('clinic_memberships')
-			.select('user_id')
+			.select('user_id, role')
 			.eq('id', membershipId)
 			.single();
 
 		if (membership?.user_id === user.id) {
 			return fail(400, { memberError: 'You cannot remove yourself from the clinic' });
+		}
+
+		// Don't allow removing owner
+		if (membership?.role === 'owner') {
+			return fail(400, { memberError: 'Cannot remove the clinic owner' });
 		}
 
 		await locals.supabase
@@ -150,5 +196,128 @@ export const actions: Actions = {
 			.eq('clinic_id', clinicId);
 
 		return { success: true };
+	},
+
+	updatePermissions: async ({ params, request, locals }) => {
+		const user = locals.user;
+		if (!user) throw redirect(303, '/auth/login');
+
+		const { clinicId } = params;
+		const formData = await request.formData();
+		const membershipId = formData.get('membershipId') as string;
+		const preset = formData.get('preset') as PermissionPreset;
+
+		// Check target membership is not owner
+		const { data: targetMembership } = await locals.supabase
+			.from('clinic_memberships')
+			.select('role')
+			.eq('id', membershipId)
+			.single();
+
+		if (targetMembership?.role === 'owner') {
+			return fail(400, { permissionError: 'Cannot modify owner permissions' });
+		}
+
+		let permissions: {
+			can_view_calendar: boolean;
+			can_edit_calendar: boolean;
+			can_view_personnel: boolean;
+			can_edit_personnel: boolean;
+			can_view_training: boolean;
+			can_edit_training: boolean;
+			can_manage_members: boolean;
+		};
+
+		if (preset === 'custom') {
+			// Use individual checkboxes
+			permissions = {
+				can_view_calendar: formData.get('canViewCalendar') === 'on',
+				can_edit_calendar: formData.get('canEditCalendar') === 'on',
+				can_view_personnel: formData.get('canViewPersonnel') === 'on',
+				can_edit_personnel: formData.get('canEditPersonnel') === 'on',
+				can_view_training: formData.get('canViewTraining') === 'on',
+				can_edit_training: formData.get('canEditTraining') === 'on',
+				can_manage_members: formData.get('canManageMembers') === 'on'
+			};
+		} else {
+			// Use preset
+			const presetPermissions =
+				PERMISSION_PRESETS[preset as Exclude<PermissionPreset, 'owner' | 'custom'>] ||
+				PERMISSION_PRESETS['full-editor'];
+			permissions = {
+				can_view_calendar: presetPermissions.canViewCalendar,
+				can_edit_calendar: presetPermissions.canEditCalendar,
+				can_view_personnel: presetPermissions.canViewPersonnel,
+				can_edit_personnel: presetPermissions.canEditPersonnel,
+				can_view_training: presetPermissions.canViewTraining,
+				can_edit_training: presetPermissions.canEditTraining,
+				can_manage_members: presetPermissions.canManageMembers
+			};
+		}
+
+		const { error } = await locals.supabase
+			.from('clinic_memberships')
+			.update(permissions)
+			.eq('id', membershipId)
+			.eq('clinic_id', clinicId);
+
+		if (error) {
+			return fail(500, { permissionError: error.message });
+		}
+
+		return { permissionSuccess: true };
+	},
+
+	transferOwnership: async ({ params, request, locals }) => {
+		const user = locals.user;
+		if (!user) throw redirect(303, '/auth/login');
+
+		const { clinicId } = params;
+		const formData = await request.formData();
+		const newOwnerId = formData.get('newOwnerId') as string;
+
+		// Call the RPC function
+		const { error } = await locals.supabase.rpc('transfer_clinic_ownership', {
+			p_clinic_id: clinicId,
+			p_new_owner_id: newOwnerId
+		});
+
+		if (error) {
+			return fail(500, { transferError: error.message });
+		}
+
+		return { transferSuccess: true };
+	},
+
+	deleteClinic: async ({ params, locals }) => {
+		const user = locals.user;
+		if (!user) throw redirect(303, '/auth/login');
+
+		const { clinicId } = params;
+
+		// Verify user is the owner
+		const { data: membership } = await locals.supabase
+			.from('clinic_memberships')
+			.select('role')
+			.eq('clinic_id', clinicId)
+			.eq('user_id', user.id)
+			.single();
+
+		if (membership?.role !== 'owner') {
+			return fail(403, { deleteError: 'Only the owner can delete the clinic' });
+		}
+
+		// Delete the clinic (cascades to all related data)
+		const { error } = await locals.supabase
+			.from('clinics')
+			.delete()
+			.eq('id', clinicId);
+
+		if (error) {
+			return fail(500, { deleteError: error.message });
+		}
+
+		// Redirect to dashboard after deletion
+		throw redirect(303, '/dashboard?show=all');
 	}
 };

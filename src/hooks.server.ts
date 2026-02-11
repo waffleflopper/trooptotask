@@ -15,24 +15,23 @@ export const handle: Handle = async ({ event, resolve }) => {
 	});
 
 	event.locals.safeGetSession = async () => {
-		const {
-			data: { session }
-		} = await event.locals.supabase.auth.getSession();
-
-		if (!session) {
-			return { session: null, user: null };
-		}
-
+		// Use getUser() to securely verify the user from the auth server
+		// This avoids the insecure session warning from getSession()
 		const {
 			data: { user },
 			error
 		} = await event.locals.supabase.auth.getUser();
 
-		if (error) {
+		if (error || !user) {
 			return { session: null, user: null };
 		}
 
-		return { session, user };
+		// Return a minimal session object to indicate authenticated state
+		// We don't need the full session since user is verified via getUser()
+		return {
+			session: { user } as any,
+			user
+		};
 	};
 
 	// Get session for route protection - this also refreshes the session if needed

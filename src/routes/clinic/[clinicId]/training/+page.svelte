@@ -120,10 +120,13 @@
 
 <Sidebar
 	clinicId={data.clinicId}
+	clinicName={data.clinicName}
 	isOpen={showSidebar}
 	onClose={() => (showSidebar = false)}
 	onToggleTheme={() => themeStore.toggle()}
 	isDarkTheme={themeStore.isDark}
+	permissions={data.permissions}
+	allClinics={data.allClinics}
 	onShowTrainingBulkImport={() => (showBulkImporter = true)}
 	onShowTrainingReports={() => (showReports = true)}
 	onShowTrainingTypeManager={() => (showTypeManager = true)}
@@ -194,8 +197,8 @@
 				personnel={filteredPersonnel()}
 				trainingTypes={trainingTypesStore.list}
 				trainings={personnelTrainingsStore.list}
-				onCellClick={handleCellClick}
-				onPersonClick={handlePersonClick}
+				onCellClick={data.permissions.canEditTraining ? handleCellClick : undefined}
+				onPersonClick={data.permissions.canEditTraining ? handlePersonClick : undefined}
 			/>
 		{/if}
 	</main>

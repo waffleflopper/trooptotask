@@ -153,10 +153,13 @@
 
 <Sidebar
 	clinicId={data.clinicId}
+	clinicName={data.clinicName}
 	isOpen={showSidebar}
 	onClose={() => (showSidebar = false)}
 	onToggleTheme={() => themeStore.toggle()}
 	isDarkTheme={themeStore.isDark}
+	permissions={data.permissions}
+	allClinics={data.allClinics}
 	onAddPerson={handleAdd}
 	onShowBulkImport={() => (showBulkManager = true)}
 	onShowGroupManager={() => (showGroupManager = true)}
@@ -217,18 +220,33 @@
 						{#if !collapsedGroups.has(grp.group)}
 							<div class="group-personnel">
 								{#each grp.personnel as person (person.id)}
-									<button class="person-row" onclick={() => handleEdit(person)}>
-										<div class="person-info">
-											<span class="rank">{person.rank}</span>
-											<span class="name">{person.lastName}, {person.firstName}</span>
-											{#if person.mos}
-												<span class="mos">{person.mos}</span>
-											{/if}
-											{#if person.clinicRole}
-												<span class="role">{person.clinicRole}</span>
-											{/if}
+									{#if data.permissions.canEditPersonnel}
+										<button class="person-row" onclick={() => handleEdit(person)}>
+											<div class="person-info">
+												<span class="rank">{person.rank}</span>
+												<span class="name">{person.lastName}, {person.firstName}</span>
+												{#if person.mos}
+													<span class="mos">{person.mos}</span>
+												{/if}
+												{#if person.clinicRole}
+													<span class="role">{person.clinicRole}</span>
+												{/if}
+											</div>
+										</button>
+									{:else}
+										<div class="person-row readonly">
+											<div class="person-info">
+												<span class="rank">{person.rank}</span>
+												<span class="name">{person.lastName}, {person.firstName}</span>
+												{#if person.mos}
+													<span class="mos">{person.mos}</span>
+												{/if}
+												{#if person.clinicRole}
+													<span class="role">{person.clinicRole}</span>
+												{/if}
+											</div>
 										</div>
-									</button>
+									{/if}
 								{/each}
 							</div>
 						{/if}
@@ -445,6 +463,14 @@
 
 	.person-row:hover {
 		background-color: var(--color-bg);
+	}
+
+	.person-row.readonly {
+		cursor: default;
+	}
+
+	.person-row.readonly:hover {
+		background-color: transparent;
 	}
 
 	.person-info {

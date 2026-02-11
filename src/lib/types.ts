@@ -9,6 +9,124 @@ export interface Personnel {
 	groupName: string;
 }
 
+// ============================================================
+// Clinic Member Permissions
+// ============================================================
+
+export interface ClinicMemberPermissions {
+	canViewCalendar: boolean;
+	canEditCalendar: boolean;
+	canViewPersonnel: boolean;
+	canEditPersonnel: boolean;
+	canViewTraining: boolean;
+	canEditTraining: boolean;
+	canManageMembers: boolean;
+}
+
+export interface ClinicMember extends ClinicMemberPermissions {
+	id: string;
+	clinicId: string;
+	userId: string;
+	email?: string; // From user lookup or invitation
+	role: 'owner' | 'member';
+	createdAt: string;
+}
+
+export interface ClinicInvitation {
+	id: string;
+	clinicId: string;
+	email: string;
+	status: 'pending' | 'accepted' | 'revoked';
+	permissions: ClinicMemberPermissions;
+	createdAt: string;
+}
+
+// Preset permission templates for easy assignment
+export type PermissionPreset =
+	| 'owner'
+	| 'admin'
+	| 'full-editor'
+	| 'calendar-only'
+	| 'personnel-only'
+	| 'training-only'
+	| 'viewer'
+	| 'custom';
+
+export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'custom'>, ClinicMemberPermissions> = {
+	admin: {
+		canViewCalendar: true,
+		canEditCalendar: true,
+		canViewPersonnel: true,
+		canEditPersonnel: true,
+		canViewTraining: true,
+		canEditTraining: true,
+		canManageMembers: true
+	},
+	'full-editor': {
+		canViewCalendar: true,
+		canEditCalendar: true,
+		canViewPersonnel: true,
+		canEditPersonnel: true,
+		canViewTraining: true,
+		canEditTraining: true,
+		canManageMembers: false
+	},
+	'calendar-only': {
+		canViewCalendar: true,
+		canEditCalendar: true,
+		canViewPersonnel: true,
+		canEditPersonnel: false,
+		canViewTraining: true,
+		canEditTraining: false,
+		canManageMembers: false
+	},
+	'personnel-only': {
+		canViewCalendar: true,
+		canEditCalendar: false,
+		canViewPersonnel: true,
+		canEditPersonnel: true,
+		canViewTraining: true,
+		canEditTraining: false,
+		canManageMembers: false
+	},
+	'training-only': {
+		canViewCalendar: true,
+		canEditCalendar: false,
+		canViewPersonnel: true,
+		canEditPersonnel: false,
+		canViewTraining: true,
+		canEditTraining: true,
+		canManageMembers: false
+	},
+	viewer: {
+		canViewCalendar: true,
+		canEditCalendar: false,
+		canViewPersonnel: true,
+		canEditPersonnel: false,
+		canViewTraining: true,
+		canEditTraining: false,
+		canManageMembers: false
+	}
+};
+
+export function getPermissionPreset(permissions: ClinicMemberPermissions): PermissionPreset {
+	// Check each preset
+	for (const [preset, presetPermissions] of Object.entries(PERMISSION_PRESETS)) {
+		if (
+			permissions.canViewCalendar === presetPermissions.canViewCalendar &&
+			permissions.canEditCalendar === presetPermissions.canEditCalendar &&
+			permissions.canViewPersonnel === presetPermissions.canViewPersonnel &&
+			permissions.canEditPersonnel === presetPermissions.canEditPersonnel &&
+			permissions.canViewTraining === presetPermissions.canViewTraining &&
+			permissions.canEditTraining === presetPermissions.canEditTraining &&
+			permissions.canManageMembers === presetPermissions.canManageMembers
+		) {
+			return preset as PermissionPreset;
+		}
+	}
+	return 'custom';
+}
+
 export interface StatusType {
 	id: string;
 	name: string;

@@ -184,6 +184,8 @@
 	onClose={() => (showSidebar = false)}
 	onToggleTheme={() => themeStore.toggle()}
 	isDarkTheme={themeStore.isDark}
+	permissions={data.permissions}
+	allClinics={data.allClinics}
 	onShowLongRangeView={() => (showLongRangeView = true)}
 	onShowAssignmentPlanner={() => (showAssignmentPlanner = true)}
 	onShowBulkStatus={() => (showBulkStatusModal = true)}
@@ -219,6 +221,7 @@
 				pinnedGroups={pinnedGroupsStore.list}
 				assignmentTypes={dailyAssignmentsStore.types}
 				assignments={dailyAssignmentsStore.assignments}
+				canEdit={data.permissions.canEditCalendar}
 				onPrevMonth={() => calendarStore.prevMonth()}
 				onNextMonth={() => calendarStore.nextMonth()}
 				onGoToToday={() => calendarStore.goToToday()}

@@ -22,6 +22,146 @@ returns boolean language sql security definer stable as $$
 $$;
 
 -- ============================================================
+-- Page-level permission helper functions
+-- ============================================================
+
+-- Calendar permissions (availability, assignments, special_days, status_types, assignment_types)
+create or replace function public.can_view_calendar(p_clinic_id uuid)
+returns boolean language plpgsql security definer stable as $$
+begin
+  return exists (
+    select 1 from public.clinic_memberships
+    where clinic_id = p_clinic_id
+    and user_id = auth.uid()
+    and (role = 'owner' or can_view_calendar = true)
+  );
+end;
+$$;
+
+create or replace function public.can_edit_calendar(p_clinic_id uuid)
+returns boolean language plpgsql security definer stable as $$
+begin
+  return exists (
+    select 1 from public.clinic_memberships
+    where clinic_id = p_clinic_id
+    and user_id = auth.uid()
+    and (role = 'owner' or can_edit_calendar = true)
+  );
+end;
+$$;
+
+-- Personnel permissions (personnel, groups)
+create or replace function public.can_view_personnel(p_clinic_id uuid)
+returns boolean language plpgsql security definer stable as $$
+begin
+  return exists (
+    select 1 from public.clinic_memberships
+    where clinic_id = p_clinic_id
+    and user_id = auth.uid()
+    and (role = 'owner' or can_view_personnel = true)
+  );
+end;
+$$;
+
+create or replace function public.can_edit_personnel(p_clinic_id uuid)
+returns boolean language plpgsql security definer stable as $$
+begin
+  return exists (
+    select 1 from public.clinic_memberships
+    where clinic_id = p_clinic_id
+    and user_id = auth.uid()
+    and (role = 'owner' or can_edit_personnel = true)
+  );
+end;
+$$;
+
+-- Training permissions (training_types, personnel_trainings)
+create or replace function public.can_view_training(p_clinic_id uuid)
+returns boolean language plpgsql security definer stable as $$
+begin
+  return exists (
+    select 1 from public.clinic_memberships
+    where clinic_id = p_clinic_id
+    and user_id = auth.uid()
+    and (role = 'owner' or can_view_training = true)
+  );
+end;
+$$;
+
+create or replace function public.can_edit_training(p_clinic_id uuid)
+returns boolean language plpgsql security definer stable as $$
+begin
+  return exists (
+    select 1 from public.clinic_memberships
+    where clinic_id = p_clinic_id
+    and user_id = auth.uid()
+    and (role = 'owner' or can_edit_training = true)
+  );
+end;
+$$;
+
+-- Member management permission
+create or replace function public.can_manage_clinic_members(p_clinic_id uuid)
+returns boolean language plpgsql security definer stable as $$
+begin
+  return exists (
+    select 1 from public.clinic_memberships
+    where clinic_id = p_clinic_id
+    and user_id = auth.uid()
+    and (role = 'owner' or can_manage_members = true)
+  );
+end;
+$$;
+
+-- ============================================================
+-- Ownership transfer function
+-- ============================================================
+
+create or replace function public.transfer_clinic_ownership(
+  p_clinic_id uuid,
+  p_new_owner_id uuid
+) returns void language plpgsql security definer as $$
+begin
+  -- Verify caller is current owner
+  if not public.is_clinic_owner(p_clinic_id) then
+    raise exception 'Only the owner can transfer ownership';
+  end if;
+
+  -- Verify new owner is a member
+  if not exists (
+    select 1 from public.clinic_memberships
+    where clinic_id = p_clinic_id and user_id = p_new_owner_id
+  ) then
+    raise exception 'New owner must be an existing member';
+  end if;
+
+  -- Demote current owner to admin member (keeps full permissions)
+  update public.clinic_memberships
+  set role = 'member',
+      can_view_calendar = true,
+      can_edit_calendar = true,
+      can_view_personnel = true,
+      can_edit_personnel = true,
+      can_view_training = true,
+      can_edit_training = true,
+      can_manage_members = true
+  where clinic_id = p_clinic_id and user_id = auth.uid();
+
+  -- Promote new owner
+  update public.clinic_memberships
+  set role = 'owner',
+      can_view_calendar = true,
+      can_edit_calendar = true,
+      can_view_personnel = true,
+      can_edit_personnel = true,
+      can_view_training = true,
+      can_edit_training = true,
+      can_manage_members = true
+  where clinic_id = p_clinic_id and user_id = p_new_owner_id;
+end;
+$$;
+
+-- ============================================================
 -- Enable RLS on all tables
 -- ============================================================
 
@@ -94,9 +234,13 @@ create policy "Creators and owners can insert memberships"
     )
   );
 
-create policy "Owners can delete memberships"
+create policy "Admins can delete memberships"
   on public.clinic_memberships for delete
-  using (public.is_clinic_owner(clinic_id));
+  using (public.can_manage_clinic_members(clinic_id));
+
+create policy "Admins can update memberships"
+  on public.clinic_memberships for update
+  using (public.can_manage_clinic_members(clinic_id));
 
 -- ============================================================
 -- Clinic Invitations
@@ -106,13 +250,13 @@ create policy "Members can view invitations for their clinics"
   on public.clinic_invitations for select
   using (public.is_clinic_member(clinic_id));
 
-create policy "Owners can create invitations"
+create policy "Admins can create invitations"
   on public.clinic_invitations for insert
-  with check (public.is_clinic_owner(clinic_id));
+  with check (public.can_manage_clinic_members(clinic_id));
 
-create policy "Owners can update invitations"
+create policy "Admins can update invitations"
   on public.clinic_invitations for update
-  using (public.is_clinic_owner(clinic_id));
+  using (public.can_manage_clinic_members(clinic_id));
 
 -- ============================================================
 -- Clinic-scoped tables - Creator can also insert during clinic setup

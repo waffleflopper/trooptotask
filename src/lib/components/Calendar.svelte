@@ -21,6 +21,7 @@
 		pinnedGroups: string[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		canEdit?: boolean;
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;
@@ -41,6 +42,7 @@
 		pinnedGroups,
 		assignmentTypes,
 		assignments,
+		canEdit = true,
 		onPrevMonth,
 		onNextMonth,
 		onGoToToday,
@@ -86,7 +88,7 @@
 		{onPrevMonth}
 		{onNextMonth}
 		{onGoToToday}
-		{onDateClick}
+		onDateClick={canEdit ? onDateClick : undefined}
 		{scrollLeft}
 	/>
 
@@ -115,7 +117,7 @@
 							{specialDays}
 							{assignmentTypes}
 							{assignments}
-							{onCellClick}
+							onCellClick={canEdit ? onCellClick : undefined}
 							{onPersonClick}
 						/>
 					{/each}

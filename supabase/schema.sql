@@ -24,6 +24,14 @@ create table public.clinic_memberships (
   user_id     uuid not null references auth.users(id) on delete cascade,
   role        public.clinic_role not null default 'member',
   invited_by  uuid references auth.users(id),
+  -- Granular permissions (owners always have full access regardless of these values)
+  can_view_calendar boolean not null default true,
+  can_edit_calendar boolean not null default true,
+  can_view_personnel boolean not null default true,
+  can_edit_personnel boolean not null default true,
+  can_view_training boolean not null default true,
+  can_edit_training boolean not null default true,
+  can_manage_members boolean not null default false,
   created_at  timestamptz not null default now(),
   unique(clinic_id, user_id)
 );
@@ -37,6 +45,14 @@ create table public.clinic_invitations (
   email       text not null,
   invited_by  uuid not null references auth.users(id),
   status      public.invitation_status not null default 'pending',
+  -- Default permissions for invited member
+  can_view_calendar boolean not null default true,
+  can_edit_calendar boolean not null default true,
+  can_view_personnel boolean not null default true,
+  can_edit_personnel boolean not null default true,
+  can_view_training boolean not null default true,
+  can_edit_training boolean not null default true,
+  can_manage_members boolean not null default false,
   created_at  timestamptz not null default now(),
   unique(clinic_id, email)
 );

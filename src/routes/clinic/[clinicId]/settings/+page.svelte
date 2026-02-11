@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import ClinicMemberManager from '$lib/components/ClinicMemberManager.svelte';
 
 	let { data, form } = $props();
 	let loading = $state(false);
+	let showDeleteConfirm = $state(false);
+	let deleteConfirmText = $state('');
 </script>
 
 <svelte:head>
@@ -62,98 +65,85 @@
 			{/if}
 		</div>
 
-		<div class="settings-card">
-			<h2>Members</h2>
-
-			<div class="member-list">
-				{#each data.members as member}
-					<div class="member-item">
-						<div class="member-info">
-							<span class="member-id">{member.userId.slice(0, 8)}...</span>
-							<span class="member-role {member.role}">{member.role}</span>
-						</div>
-						{#if data.isOwner && member.role !== 'owner'}
-							<form method="POST" action="?/removeMember" use:enhance>
-								<input type="hidden" name="membershipId" value={member.id} />
-								<button
-									type="submit"
-									class="btn btn-danger btn-sm"
-									onclick={(e) => {
-										if (!confirm('Remove this member from the clinic?')) {
-											e.preventDefault();
-										}
-									}}
-								>
-									Remove
-								</button>
-							</form>
-						{/if}
-					</div>
-				{/each}
-			</div>
-
-			{#if form?.memberError}
-				<div class="error-message">{form.memberError}</div>
-			{/if}
-		</div>
-
-		{#if data.isOwner}
-			<div class="settings-card">
-				<h2>Invite Members</h2>
-				<p class="hint">Invite team members by email. They'll gain access after registering or logging in.</p>
-
-				<form
-					method="POST"
-					action="?/invite"
-					use:enhance={() => {
-						return async ({ update }) => {
-							await update();
-						};
-					}}
-				>
-					{#if form?.inviteError}
-						<div class="error-message">{form.inviteError}</div>
-					{/if}
-					{#if form?.inviteSuccess}
-						<div class="success-message">Invitation sent!</div>
-					{/if}
-
-					<div class="invite-form">
-						<input
-							name="email"
-							type="email"
-							class="input"
-							placeholder="colleague@example.com"
-							required
-						/>
-						<button type="submit" class="btn btn-primary">Invite</button>
-					</div>
-				</form>
-
-				{#if data.invitations.length > 0}
-					<h3>Pending Invitations</h3>
-					<div class="invitation-list">
-						{#each data.invitations as invite}
-							<div class="invitation-item">
-								<span class="invite-email">{invite.email}</span>
-								<form method="POST" action="?/revokeInvite" use:enhance>
-									<input type="hidden" name="inviteId" value={invite.id} />
-									<button type="submit" class="btn btn-secondary btn-sm">Revoke</button>
-								</form>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		{/if}
+		<ClinicMemberManager
+			clinicId={data.clinicId}
+			members={data.members}
+			invitations={data.invitations}
+			isOwner={data.isOwner}
+			canManageMembers={data.canManageMembers}
+			{form}
+		/>
 
 		<div class="settings-card">
 			<h2>Your Account</h2>
 			<a href="/auth/logout" class="btn btn-secondary">Sign Out</a>
-			<a href="/" class="btn btn-secondary">Switch Clinic</a>
+			<a href="/dashboard?show=all" class="btn btn-secondary">Switch Clinic</a>
 		</div>
+
+		{#if data.isOwner}
+			<div class="settings-card danger-zone">
+				<h2>Danger Zone</h2>
+				<p class="danger-warning">
+					Deleting a clinic is permanent and cannot be undone. All personnel, calendar data, training records, and settings will be permanently deleted.
+				</p>
+				{#if form?.deleteError}
+					<div class="error-message">{form.deleteError}</div>
+				{/if}
+				<button type="button" class="btn btn-danger" onclick={() => (showDeleteConfirm = true)}>
+					Delete Clinic
+				</button>
+			</div>
+		{/if}
 	</main>
 </div>
+
+{#if showDeleteConfirm}
+	<div class="modal-overlay" onclick={() => (showDeleteConfirm = false)} role="presentation">
+		<div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+			<h3>Delete Clinic</h3>
+			<p>This will permanently delete <strong>{data.clinic?.name}</strong> and all associated data.</p>
+			<p class="danger-warning">This action cannot be undone.</p>
+
+			<div class="form-group">
+				<label class="label" for="confirmDelete">
+					Type <strong>{data.clinic?.name}</strong> to confirm:
+				</label>
+				<input
+					id="confirmDelete"
+					type="text"
+					class="input"
+					bind:value={deleteConfirmText}
+					placeholder="Enter clinic name"
+				/>
+			</div>
+
+			<form
+				method="POST"
+				action="?/deleteClinic"
+				use:enhance={() => {
+					loading = true;
+					return async ({ update }) => {
+						loading = false;
+						await update();
+					};
+				}}
+			>
+				<div class="modal-actions">
+					<button type="button" class="btn btn-secondary" onclick={() => (showDeleteConfirm = false)}>
+						Cancel
+					</button>
+					<button
+						type="submit"
+						class="btn btn-danger"
+						disabled={loading || deleteConfirmText !== data.clinic?.name}
+					>
+						{loading ? 'Deleting...' : 'Delete Permanently'}
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
 
 <style>
 	.settings-page {
@@ -210,13 +200,6 @@
 		margin-bottom: var(--spacing-md);
 	}
 
-	.settings-card h3 {
-		font-size: var(--font-size-base);
-		font-weight: 600;
-		margin-top: var(--spacing-lg);
-		margin-bottom: var(--spacing-sm);
-	}
-
 	.hint {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
@@ -248,79 +231,76 @@
 		margin-bottom: var(--spacing-md);
 	}
 
-	.member-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
+	.settings-card .btn + .btn {
+		margin-left: var(--spacing-sm);
 	}
 
-	.member-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
+	.danger-zone {
+		border-color: #fecaca;
 	}
 
-	.member-info {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
+	.danger-zone h2 {
+		color: #dc2626;
 	}
 
-	.member-id {
-		font-family: monospace;
+	.danger-warning {
+		color: #dc2626;
 		font-size: var(--font-size-sm);
+		margin-bottom: var(--spacing-md);
 	}
 
-	.member-role {
-		font-size: var(--font-size-sm);
-		padding: 2px 8px;
-		border-radius: var(--radius-sm);
-		font-weight: 500;
-		text-transform: capitalize;
-	}
-
-	.member-role.owner {
-		background: var(--color-primary);
+	.btn-danger {
+		background: #dc2626;
 		color: white;
+		border: none;
 	}
 
-	.member-role.member {
-		background: var(--color-border);
+	.btn-danger:hover:not(:disabled) {
+		background: #b91c1c;
+	}
+
+	.btn-danger:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.modal-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.modal {
+		background: var(--color-surface);
+		border-radius: var(--radius-lg);
+		padding: var(--spacing-lg);
+		max-width: 450px;
+		width: 90%;
+	}
+
+	.modal h3 {
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		margin-bottom: var(--spacing-md);
+		color: #dc2626;
+	}
+
+	.modal p {
+		margin-bottom: var(--spacing-md);
 		color: var(--color-text);
 	}
 
-	.invite-form {
+	.modal .form-group {
+		margin-bottom: var(--spacing-md);
+	}
+
+	.modal-actions {
 		display: flex;
 		gap: var(--spacing-sm);
-	}
-
-	.invite-form .input {
-		flex: 1;
-	}
-
-	.invitation-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-xs);
-	}
-
-	.invitation-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
-	}
-
-	.invite-email {
-		font-size: var(--font-size-sm);
-	}
-
-	.settings-card .btn + .btn {
-		margin-left: var(--spacing-sm);
+		justify-content: flex-end;
 	}
 </style>

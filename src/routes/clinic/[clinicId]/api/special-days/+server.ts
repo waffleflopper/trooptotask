@@ -1,12 +1,15 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDefaultFederalHolidays } from '$lib/utils/federalHolidays';
+import { requireEditPermission } from '$lib/server/permissions';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const user = locals.user;
 	if (!user) throw error(401, 'Unauthorized');
 
 	const { clinicId } = params;
+	await requireEditPermission(locals.supabase, clinicId, user.id, 'calendar');
+
 	const body = await request.json();
 
 	// Handle bulk reset of federal holidays
@@ -74,6 +77,8 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 	if (!user) throw error(401, 'Unauthorized');
 
 	const { clinicId } = params;
+	await requireEditPermission(locals.supabase, clinicId, user.id, 'calendar');
+
 	const body = await request.json();
 	const { id } = body;
 

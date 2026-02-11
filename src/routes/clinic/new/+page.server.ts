@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 const DEFAULT_GROUPS = [
-	'Leadership', 'BSB', '1-24', '5-1', '1-5', '2-8', '1-25', '1-52', 'Ancillary'
+	'Leadership', 'Alpha', 'Bravo'
 ];
 
 const DEFAULT_STATUS_TYPES = [
@@ -44,6 +44,13 @@ export const actions: Actions = {
 			console.error('Clinic creation error:', clinicError);
 			return fail(500, { error: clinicError?.message ?? 'Failed to create clinic' });
 		}
+
+		// Update the owner's membership with their email
+		await locals.supabase
+			.from('clinic_memberships')
+			.update({ email: user.email?.toLowerCase() })
+			.eq('clinic_id', clinicId)
+			.eq('user_id', user.id);
 
 		// Seed default groups
 		const groupRows = DEFAULT_GROUPS.map((name, i) => ({

@@ -83,6 +83,7 @@ export const actions: Actions = {
 					await locals.supabase.from('clinic_memberships').insert({
 						clinic_id: inv.clinic_id,
 						user_id: user.id,
+						email: email.toLowerCase(),
 						role: 'member'
 					});
 				}

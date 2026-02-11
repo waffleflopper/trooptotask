@@ -1,11 +1,14 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireEditPermission } from '$lib/server/permissions';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const user = locals.user;
 	if (!user) throw error(401, 'Unauthorized');
 
 	const { clinicId } = params;
+	await requireEditPermission(locals.supabase, clinicId, user.id, 'personnel');
+
 	const body = await request.json();
 
 	const row = {
@@ -43,6 +46,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (!user) throw error(401, 'Unauthorized');
 
 	const { clinicId } = params;
+	await requireEditPermission(locals.supabase, clinicId, user.id, 'personnel');
+
 	const body = await request.json();
 	const { id, ...fields } = body;
 
@@ -83,6 +88,8 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 	if (!user) throw error(401, 'Unauthorized');
 
 	const { clinicId } = params;
+	await requireEditPermission(locals.supabase, clinicId, user.id, 'personnel');
+
 	const body = await request.json();
 	const { id } = body;
 

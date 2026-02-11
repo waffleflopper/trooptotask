@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireEditPermission } from '$lib/server/permissions';
 
 function calculateExpirationDate(completionDate: string, expirationMonths: number | null): string | null {
 	if (expirationMonths === null) return null;
@@ -13,6 +14,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!user) throw error(401, 'Unauthorized');
 
 	const { clinicId } = params;
+	await requireEditPermission(locals.supabase, clinicId, user.id, 'training');
+
 	const body = await request.json();
 
 	// Fetch the training type to get expiration_months
@@ -90,6 +93,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (!user) throw error(401, 'Unauthorized');
 
 	const { clinicId } = params;
+	await requireEditPermission(locals.supabase, clinicId, user.id, 'training');
+
 	const body = await request.json();
 	const { id, ...fields } = body;
 
@@ -150,6 +155,8 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 	if (!user) throw error(401, 'Unauthorized');
 
 	const { clinicId } = params;
+	await requireEditPermission(locals.supabase, clinicId, user.id, 'training');
+
 	const body = await request.json();
 	const { id } = body;
 

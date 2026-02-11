@@ -22,6 +22,7 @@
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		canEdit?: boolean;
+		showStatusText?: boolean;
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;
@@ -43,6 +44,7 @@
 		assignmentTypes,
 		assignments,
 		canEdit = true,
+		showStatusText = false,
 		onPrevMonth,
 		onNextMonth,
 		onGoToToday,
@@ -117,6 +119,7 @@
 							{specialDays}
 							{assignmentTypes}
 							{assignments}
+							{showStatusText}
 							onCellClick={canEdit ? onCellClick : undefined}
 							{onPersonClick}
 						/>

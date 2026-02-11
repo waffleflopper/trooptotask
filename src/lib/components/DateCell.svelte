@@ -11,6 +11,7 @@
 		entries: AvailabilityEntry[];
 		statusTypes: StatusType[];
 		assignments?: { type: AssignmentType; assignment: DailyAssignment }[];
+		showStatusText?: boolean;
 		onclick?: () => void;
 	}
 
@@ -23,6 +24,7 @@
 		entries,
 		statusTypes,
 		assignments = [],
+		showStatusText = false,
 		onclick
 	}: Props = $props();
 
@@ -30,9 +32,9 @@
 		entries
 			.map((entry) => {
 				const status = statusTypes.find((s) => s.id === entry.statusTypeId);
-				return status ? { color: status.color, name: status.name } : null;
+				return status ? { color: status.color, name: status.name, textColor: status.textColor } : null;
 			})
-			.filter((s): s is { color: string; name: string } => s !== null)
+			.filter((s): s is { color: string; name: string; textColor: string } => s !== null)
 	);
 
 	const tooltipText = $derived(() => {
@@ -87,7 +89,9 @@
 			{/each}
 		</div>
 	{/if}
-	{#if statusColors.length > 1}
+	{#if showStatusText && statusColors.length > 0}
+		<span class="status-text" style="color: {statusColors[0].textColor}">{statusColors.map(s => s.name).join(', ')}</span>
+	{:else if statusColors.length > 1}
 		<span class="multi-indicator">{statusColors.length}</span>
 	{/if}
 </button>
@@ -162,6 +166,17 @@
 		border-radius: 2px;
 		padding: 0 3px;
 		line-height: 1.2;
+	}
+
+	.status-text {
+		font-size: 8px;
+		font-weight: 600;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 100%;
+		padding: 0 2px;
+		line-height: 1.1;
 	}
 
 	/* Mobile Responsive Styles */

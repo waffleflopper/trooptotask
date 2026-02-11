@@ -42,6 +42,7 @@
 	let showBulkStatusModal = $state(false);
 	let showAssignmentPlanner = $state(false);
 	let showLongRangeView = $state(false);
+	let showStatusText = $state(false);
 	let selectedPerson = $state<Personnel | null>(null);
 	let selectedDate = $state<Date | null>(null);
 	let assignmentDate = $state<Date | null>(null);
@@ -194,6 +195,8 @@
 	onShowSpecialDayManager={() => (showSpecialDayManager = true)}
 	onExportCalendarCSV={handleExportCSV}
 	onExportCalendarPDF={handleExportPDF}
+	{showStatusText}
+	onToggleStatusText={() => (showStatusText = !showStatusText)}
 />
 
 <div class="page">
@@ -222,6 +225,7 @@
 				assignmentTypes={dailyAssignmentsStore.types}
 				assignments={dailyAssignmentsStore.assignments}
 				canEdit={data.permissions.canEditCalendar}
+				{showStatusText}
 				onPrevMonth={() => calendarStore.prevMonth()}
 				onNextMonth={() => calendarStore.nextMonth()}
 				onGoToToday={() => calendarStore.goToToday()}

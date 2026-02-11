@@ -30,6 +30,9 @@
 		// Calendar export callbacks
 		onExportCalendarCSV?: () => void;
 		onExportCalendarPDF?: () => void;
+		// Calendar display options
+		showStatusText?: boolean;
+		onToggleStatusText?: () => void;
 		// Personnel-specific callbacks
 		onAddPerson?: () => void;
 		onShowBulkImport?: () => void;
@@ -57,6 +60,8 @@
 		onShowSpecialDayManager,
 		onExportCalendarCSV,
 		onExportCalendarPDF,
+		showStatusText = false,
+		onToggleStatusText,
 		onAddPerson,
 		onShowBulkImport,
 		onShowGroupManager,
@@ -98,6 +103,7 @@
 	const hasCalendarTools = $derived(hasCalendarViewTools || hasCalendarEditTools);
 
 	const hasCalendarExport = $derived(onExportCalendarCSV || onExportCalendarPDF);
+	const hasCalendarDisplayOptions = $derived(!!onToggleStatusText);
 
 	// Personnel tools: only show if can edit
 	const hasPersonnelTools = $derived(
@@ -281,6 +287,21 @@
 							<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
 						</svg>
 						Bulk Status
+					</button>
+				{/if}
+			</div>
+		{/if}
+
+		{#if hasCalendarDisplayOptions}
+			<div class="nav-section">
+				<h3>Display Options</h3>
+				{#if onToggleStatusText}
+					<button class="nav-item toggle-item" onclick={onToggleStatusText}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+						</svg>
+						Show Status Text
+						<span class="toggle-indicator" class:active={showStatusText}></span>
 					</button>
 				{/if}
 			</div>
@@ -714,6 +735,40 @@
 	.nav-item.highlight:hover {
 		filter: brightness(1.1);
 		background: var(--color-secondary);
+	}
+
+	.nav-item.toggle-item {
+		justify-content: flex-start;
+	}
+
+	.toggle-indicator {
+		margin-left: auto;
+		width: 36px;
+		height: 20px;
+		background: var(--color-border);
+		border-radius: 10px;
+		position: relative;
+		transition: background 0.2s ease;
+	}
+
+	.toggle-indicator::after {
+		content: '';
+		position: absolute;
+		top: 2px;
+		left: 2px;
+		width: 16px;
+		height: 16px;
+		background: white;
+		border-radius: 50%;
+		transition: transform 0.2s ease;
+	}
+
+	.toggle-indicator.active {
+		background: var(--color-primary);
+	}
+
+	.toggle-indicator.active::after {
+		transform: translateX(16px);
 	}
 
 	.sidebar-footer {

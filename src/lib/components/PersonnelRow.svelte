@@ -12,6 +12,7 @@
 		specialDays: SpecialDay[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		showStatusText?: boolean;
 		onCellClick?: (person: Personnel, date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
 	}
@@ -24,6 +25,7 @@
 		specialDays,
 		assignmentTypes,
 		assignments,
+		showStatusText = false,
 		onCellClick,
 		onPersonClick
 	}: Props = $props();
@@ -83,6 +85,7 @@
 				entries={getEntriesForDate(date)}
 				{statusTypes}
 				assignments={dateAssignments}
+				{showStatusText}
 				onclick={() => handleCellClick(date)}
 			/>
 		{/each}

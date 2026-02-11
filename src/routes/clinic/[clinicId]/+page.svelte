@@ -9,6 +9,7 @@
 	import { dailyAssignmentsStore } from '$lib/stores/dailyAssignments.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { calendarPrefsStore } from '$lib/stores/calendarPrefs.svelte';
 	import Calendar from '$lib/components/Calendar.svelte';
 	import AvailabilityModal from '$lib/components/AvailabilityModal.svelte';
 	import StatusTypeManager from '$lib/components/StatusTypeManager.svelte';
@@ -42,7 +43,6 @@
 	let showBulkStatusModal = $state(false);
 	let showAssignmentPlanner = $state(false);
 	let showLongRangeView = $state(false);
-	let showStatusText = $state(false);
 	let selectedPerson = $state<Personnel | null>(null);
 	let selectedDate = $state<Date | null>(null);
 	let assignmentDate = $state<Date | null>(null);
@@ -195,8 +195,8 @@
 	onShowSpecialDayManager={() => (showSpecialDayManager = true)}
 	onExportCalendarCSV={handleExportCSV}
 	onExportCalendarPDF={handleExportPDF}
-	{showStatusText}
-	onToggleStatusText={() => (showStatusText = !showStatusText)}
+	showStatusText={calendarPrefsStore.showStatusText}
+	onToggleStatusText={() => calendarPrefsStore.toggleShowStatusText()}
 />
 
 <div class="page">
@@ -225,7 +225,7 @@
 				assignmentTypes={dailyAssignmentsStore.types}
 				assignments={dailyAssignmentsStore.assignments}
 				canEdit={data.permissions.canEditCalendar}
-				{showStatusText}
+				showStatusText={calendarPrefsStore.showStatusText}
 				onPrevMonth={() => calendarStore.prevMonth()}
 				onNextMonth={() => calendarStore.nextMonth()}
 				onGoToToday={() => calendarStore.goToToday()}

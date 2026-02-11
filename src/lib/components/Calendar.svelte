@@ -56,13 +56,26 @@
 
 	let collapsedGroups = $state<Set<string>>(new Set());
 	let scrollLeft = $state(0);
+	let scrollbarWidth = $state(0);
 	let calendarBodyEl: HTMLDivElement;
 
 	function handleScroll() {
 		if (calendarBodyEl) {
 			scrollLeft = calendarBodyEl.scrollLeft;
+			// Calculate scrollbar width (difference between outer and inner width)
+			const newScrollbarWidth = calendarBodyEl.offsetWidth - calendarBodyEl.clientWidth;
+			if (newScrollbarWidth !== scrollbarWidth) {
+				scrollbarWidth = newScrollbarWidth;
+			}
 		}
 	}
+
+	// Initial measurement after mount
+	$effect(() => {
+		if (calendarBodyEl) {
+			scrollbarWidth = calendarBodyEl.offsetWidth - calendarBodyEl.clientWidth;
+		}
+	});
 
 	function toggleGroup(group: string) {
 		const newSet = new Set(collapsedGroups);
@@ -92,6 +105,7 @@
 		{onGoToToday}
 		onDateClick={canEdit ? onDateClick : undefined}
 		{scrollLeft}
+		{scrollbarWidth}
 	/>
 
 	<div class="calendar-body" style="--dates-count: {dates.length};" bind:this={calendarBodyEl} onscroll={handleScroll}>

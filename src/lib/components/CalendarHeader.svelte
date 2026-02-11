@@ -15,9 +15,10 @@
 		onGoToToday: () => void;
 		onDateClick?: (date: Date) => void;
 		scrollLeft?: number;
+		scrollbarWidth?: number;
 	}
 
-	let { year, monthName, dates, specialDays, assignmentTypes, assignments, onPrevMonth, onNextMonth, onGoToToday, onDateClick, scrollLeft = 0 }: Props =
+	let { year, monthName, dates, specialDays, assignmentTypes, assignments, onPrevMonth, onNextMonth, onGoToToday, onDateClick, scrollLeft = 0, scrollbarWidth = 0 }: Props =
 		$props();
 
 	let dateHeadersEl: HTMLDivElement;
@@ -64,7 +65,7 @@
 		<button class="btn btn-primary btn-sm" onclick={onGoToToday}>Today</button>
 	</div>
 
-	<div class="date-headers" bind:this={dateHeadersEl}>
+	<div class="date-headers" bind:this={dateHeadersEl} style="padding-right: {scrollbarWidth}px">
 		<div class="personnel-header-spacer">Personnel</div>
 		<div class="date-columns">
 			{#each dates as date (formatDate(date))}

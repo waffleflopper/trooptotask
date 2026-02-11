@@ -61,65 +61,108 @@ function escapeCSV(value: string): string {
 }
 
 /**
- * Export single month calendar to CSV
+ * Export single month calendar to Excel-compatible HTML with colors
  */
 export function exportMonthToCSV(
 	year: number,
 	month: number,
 	options: ExportOptions
 ): void {
-	const { personnelByGroup, availabilityEntries, statusTypes, assignmentTypes, assignments } = options;
+	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
 	const dates = getMonthDates(year, month);
 	const monthName = getMonthName(month);
 
-	const rows: string[][] = [];
+	let html = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head>
+<meta charset="UTF-8">
+<style>
+	table { border-collapse: collapse; }
+	th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: center; font-family: Arial, sans-serif; font-size: 10pt; }
+	th { background: #1e40af; color: white; font-weight: bold; }
+	.name-cell { text-align: left; min-width: 150px; }
+	.group-row { background: #1e40af; color: white; font-weight: bold; }
+	.weekend { background: #f3f4f6; }
+	.holiday { background: #fef3c7; }
+</style>
+</head>
+<body>
+<table>
+	<tr>
+		<th class="name-cell">Personnel</th>`;
 
-	// Header row: Name, then each date
-	const headerRow = ['Group', 'Rank', 'Name'];
+	// Header row with dates
 	for (const date of dates) {
-		const dayNum = date.getDate();
 		const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-		headerRow.push(`${dayName} ${dayNum}`);
+		const dayNum = date.getDate();
+		const isWknd = isWeekend(date);
+		const special = specialDays.find((s) => s.date === formatDate(date));
+		const isHoliday = special?.type === 'federal-holiday';
+		const bgClass = isHoliday ? 'holiday' : isWknd ? 'weekend' : '';
+		html += `<th class="${bgClass}">${dayName}<br>${dayNum}</th>`;
 	}
-	rows.push(headerRow);
+	html += '</tr>';
 
 	// Personnel rows
 	for (const grp of personnelByGroup) {
-		for (const person of grp.personnel) {
-			const row = [grp.group || 'Unassigned', person.rank, `${person.lastName}, ${person.firstName}`];
+		if (grp.personnel.length > 0) {
+			// Group header row
+			html += `<tr class="group-row"><td colspan="${dates.length + 1}">${grp.group || 'Unassigned'}</td></tr>`;
 
-			for (const date of dates) {
-				const status = getStatusForDate(person.id, date, availabilityEntries, statusTypes);
-				const personAssignments = getAssignmentsForDate(date, person.id, assignments, assignmentTypes);
+			for (const person of grp.personnel) {
+				html += `<tr><td class="name-cell"><b style="color:#666">${person.rank}</b> ${person.lastName}, ${person.firstName}</td>`;
 
-				let cellValue = '';
-				if (status) {
-					cellValue = status.name;
+				for (const date of dates) {
+					const status = getStatusForDate(person.id, date, availabilityEntries, statusTypes);
+					const personAssignments = getAssignmentsForDate(date, person.id, assignments, assignmentTypes);
+					const isWknd = isWeekend(date);
+					const special = specialDays.find((s) => s.date === formatDate(date));
+					const isHoliday = special?.type === 'federal-holiday';
+
+					let cellContent = '';
+					let bgColor = '';
+					let textColor = '';
+
+					if (status) {
+						cellContent = status.name;
+						bgColor = status.color;
+						textColor = 'white';
+					}
+					if (personAssignments.length > 0) {
+						const assignmentText = personAssignments.join(', ');
+						cellContent = cellContent ? `${cellContent} (${assignmentText})` : assignmentText;
+					}
+
+					let style = '';
+					if (bgColor) {
+						style = `background-color: ${bgColor}; color: ${textColor};`;
+					} else if (isHoliday) {
+						style = 'background-color: #fef3c7;';
+					} else if (isWknd) {
+						style = 'background-color: #f3f4f6;';
+					}
+
+					html += `<td style="${style}">${cellContent}</td>`;
 				}
-				if (personAssignments.length > 0) {
-					cellValue = cellValue
-						? `${cellValue} (${personAssignments.join(', ')})`
-						: personAssignments.join(', ');
-				}
-				row.push(cellValue);
+
+				html += '</tr>';
 			}
-
-			rows.push(row);
 		}
 	}
 
-	const csvContent = rows.map((row) => row.map(escapeCSV).join(',')).join('\n');
-	downloadFile(csvContent, `calendar-${monthName}-${year}.csv`, 'text/csv');
+	html += '</table></body></html>';
+
+	downloadFile(html, `calendar-${monthName}-${year}.xls`, 'application/vnd.ms-excel');
 }
 
 /**
- * Export 3-month view to CSV
+ * Export 3-month view to Excel-compatible HTML with colors (same format as single month)
  */
 export function exportQuarterToCSV(
 	startDate: Date,
 	options: ExportOptions
 ): void {
-	const { personnelByGroup, availabilityEntries, statusTypes, assignmentTypes, assignments } = options;
+	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
 
 	// Get 3 months of data
 	const months: MonthData[] = [];
@@ -133,61 +176,104 @@ export function exportQuarterToCSV(
 		});
 	}
 
-	const rows: string[][] = [];
+	const allDates = months.flatMap((m) => m.dates);
+	const totalDays = allDates.length;
+	const startMonth = months[0];
+	const endMonth = months[2];
 
-	// Header row 1: Month names spanning their dates
-	const monthHeaderRow = ['', '', ''];
+	let html = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head>
+<meta charset="UTF-8">
+<style>
+	table { border-collapse: collapse; }
+	th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: center; font-family: Arial, sans-serif; font-size: 10pt; }
+	th { background: #1e40af; color: white; font-weight: bold; }
+	.name-cell { text-align: left; min-width: 150px; }
+	.group-row { background: #1e40af; color: white; font-weight: bold; }
+	.weekend { background: #f3f4f6; }
+	.holiday { background: #fef3c7; }
+	.month-header { background: #1e40af; color: white; font-weight: bold; font-size: 11pt; }
+</style>
+</head>
+<body>
+<table>
+	<tr>
+		<th class="name-cell" rowspan="2">Personnel</th>`;
+
+	// Month header row
 	for (const month of months) {
-		monthHeaderRow.push(`${month.name} ${month.year}`);
-		// Add empty cells for remaining days in month
-		for (let i = 1; i < month.dates.length; i++) {
-			monthHeaderRow.push('');
-		}
+		html += `<th class="month-header" colspan="${month.dates.length}">${month.name} ${month.year}</th>`;
 	}
-	rows.push(monthHeaderRow);
+	html += '</tr><tr>';
 
-	// Header row 2: Day numbers
-	const dayHeaderRow = ['Group', 'Rank', 'Name'];
+	// Day header row with day names and numbers
 	for (const month of months) {
 		for (const date of month.dates) {
-			dayHeaderRow.push(date.getDate().toString());
+			const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+			const dayNum = date.getDate();
+			const isWknd = isWeekend(date);
+			const special = specialDays.find((s) => s.date === formatDate(date));
+			const isHoliday = special?.type === 'federal-holiday';
+			const bgClass = isHoliday ? 'holiday' : isWknd ? 'weekend' : '';
+			html += `<th class="${bgClass}">${dayName}<br>${dayNum}</th>`;
 		}
 	}
-	rows.push(dayHeaderRow);
+	html += '</tr>';
 
 	// Personnel rows
 	for (const grp of personnelByGroup) {
-		for (const person of grp.personnel) {
-			const row = [grp.group || 'Unassigned', person.rank, `${person.lastName}, ${person.firstName}`];
+		if (grp.personnel.length > 0) {
+			// Group header row
+			html += `<tr class="group-row"><td colspan="${totalDays + 1}">${grp.group || 'Unassigned'}</td></tr>`;
 
-			for (const month of months) {
-				for (const date of month.dates) {
-					const status = getStatusForDate(person.id, date, availabilityEntries, statusTypes);
-					const personAssignments = getAssignmentsForDate(date, person.id, assignments, assignmentTypes);
+			for (const person of grp.personnel) {
+				html += `<tr><td class="name-cell"><b style="color:#666">${person.rank}</b> ${person.lastName}, ${person.firstName}</td>`;
 
-					let cellValue = '';
-					if (status) {
-						cellValue = status.name;
+				for (const month of months) {
+					for (const date of month.dates) {
+						const status = getStatusForDate(person.id, date, availabilityEntries, statusTypes);
+						const personAssignments = getAssignmentsForDate(date, person.id, assignments, assignmentTypes);
+						const isWknd = isWeekend(date);
+						const special = specialDays.find((s) => s.date === formatDate(date));
+						const isHoliday = special?.type === 'federal-holiday';
+
+						let cellContent = '';
+						let bgColor = '';
+						let textColor = '';
+
+						if (status) {
+							cellContent = status.name;
+							bgColor = status.color;
+							textColor = 'white';
+						}
+						if (personAssignments.length > 0) {
+							const assignmentText = personAssignments.join(', ');
+							cellContent = cellContent ? `${cellContent} (${assignmentText})` : assignmentText;
+						}
+
+						let style = '';
+						if (bgColor) {
+							style = `background-color: ${bgColor}; color: ${textColor};`;
+						} else if (isHoliday) {
+							style = 'background-color: #fef3c7;';
+						} else if (isWknd) {
+							style = 'background-color: #f3f4f6;';
+						}
+
+						html += `<td style="${style}">${cellContent}</td>`;
 					}
-					if (personAssignments.length > 0) {
-						cellValue = cellValue
-							? `${cellValue} (${personAssignments.join(', ')})`
-							: personAssignments.join(', ');
-					}
-					row.push(cellValue);
 				}
-			}
 
-			rows.push(row);
+				html += '</tr>';
+			}
 		}
 	}
 
-	const startMonth = months[0];
-	const endMonth = months[2];
-	const filename = `calendar-${startMonth.name}-${startMonth.year}-to-${endMonth.name}-${endMonth.year}.csv`;
+	html += '</table></body></html>';
 
-	const csvContent = rows.map((row) => row.map(escapeCSV).join(',')).join('\n');
-	downloadFile(csvContent, filename, 'text/csv');
+	const filename = `calendar-${startMonth.name}-${startMonth.year}-to-${endMonth.name}-${endMonth.year}.xls`;
+	downloadFile(html, filename, 'application/vnd.ms-excel');
 }
 
 /**

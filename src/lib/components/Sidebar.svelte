@@ -520,6 +520,7 @@
 			box-shadow: var(--shadow-lg);
 			border-right: none;
 			border-left: 1px solid var(--color-border);
+			z-index: 1000;
 		}
 
 		.sidebar.open {

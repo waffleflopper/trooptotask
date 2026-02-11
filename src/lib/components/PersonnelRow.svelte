@@ -95,6 +95,7 @@
 <style>
 	.personnel-row {
 		display: flex;
+		align-items: stretch;
 		border-bottom: 1px solid var(--color-border);
 	}
 
@@ -157,6 +158,7 @@
 	.date-cells {
 		display: flex;
 		flex: 1;
+		align-items: stretch;
 	}
 
 	/* Mobile Responsive Styles */

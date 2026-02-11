@@ -7,9 +7,10 @@
 		trainingTypes: TrainingType[];
 		trainings: PersonnelTraining[];
 		onCellClick: (person: Personnel, type: TrainingType, training: PersonnelTraining | undefined) => void;
+		onPersonClick?: (person: Personnel) => void;
 	}
 
-	let { personnel, trainingTypes, trainings, onCellClick }: Props = $props();
+	let { personnel, trainingTypes, trainings, onCellClick, onPersonClick }: Props = $props();
 
 	// Create a map for quick training lookup
 	const trainingMap = $derived(() => {
@@ -43,8 +44,15 @@
 			{#each personnel as person (person.id)}
 				<tr>
 					<td class="name-cell">
-						<span class="person-rank">{person.rank}</span>
-						{person.lastName}, {person.firstName}
+						{#if onPersonClick}
+							<button class="person-btn" onclick={() => onPersonClick(person)}>
+								<span class="person-rank">{person.rank}</span>
+								{person.lastName}, {person.firstName}
+							</button>
+						{:else}
+							<span class="person-rank">{person.rank}</span>
+							{person.lastName}, {person.firstName}
+						{/if}
 					</td>
 					{#each trainingTypes as type (type.id)}
 						{@const training = getTraining(person.id, type.id)}
@@ -126,6 +134,27 @@
 		color: white;
 		font-weight: 500;
 		font-size: var(--font-size-sm);
+	}
+
+	.person-btn {
+		display: flex;
+		align-items: center;
+		width: 100%;
+		padding: 0;
+		background: transparent;
+		border: none;
+		text-align: left;
+		cursor: pointer;
+		color: var(--color-text);
+		font-size: inherit;
+	}
+
+	.person-btn:hover {
+		color: var(--color-primary);
+	}
+
+	.person-btn:hover .person-rank {
+		color: var(--color-primary);
 	}
 
 	.person-rank {

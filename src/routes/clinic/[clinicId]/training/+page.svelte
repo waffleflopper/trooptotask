@@ -6,6 +6,7 @@
 	import { getTrainingStats } from '$lib/utils/trainingStatus';
 	import TrainingMatrix from '$lib/components/TrainingMatrix.svelte';
 	import TrainingRecordModal from '$lib/components/TrainingRecordModal.svelte';
+	import PersonTrainingEditor from '$lib/components/PersonTrainingEditor.svelte';
 	import TrainingTypeManager from '$lib/components/TrainingTypeManager.svelte';
 	import TrainingReports from '$lib/components/TrainingReports.svelte';
 	import BulkTrainingImporter from '$lib/components/BulkTrainingImporter.svelte';
@@ -28,6 +29,7 @@
 	let selectedPerson = $state<Personnel | null>(null);
 	let selectedType = $state<TrainingType | null>(null);
 	let selectedTraining = $state<PersonnelTraining | undefined>(undefined);
+	let editingPersonTraining = $state<Personnel | null>(null);
 
 	const RANK_ORDER = [
 		'GEN', 'LTG', 'MG', 'BG', 'COL', 'LTC', 'MAJ', 'CPT', '1LT', '2LT',
@@ -73,6 +75,14 @@
 		selectedPerson = null;
 		selectedType = null;
 		selectedTraining = undefined;
+	}
+
+	function handlePersonClick(person: Personnel) {
+		editingPersonTraining = person;
+	}
+
+	function closePersonEditor() {
+		editingPersonTraining = null;
 	}
 
 	async function handleSaveTraining(data: Omit<PersonnelTraining, 'id'>) {
@@ -185,6 +195,7 @@
 				trainingTypes={trainingTypesStore.list}
 				trainings={personnelTrainingsStore.list}
 				onCellClick={handleCellClick}
+				onPersonClick={handlePersonClick}
 			/>
 		{/if}
 	</main>
@@ -228,6 +239,17 @@
 		trainingTypes={trainingTypesStore.list}
 		onBulkAdd={handleBulkAddTrainings}
 		onClose={() => (showBulkImporter = false)}
+	/>
+{/if}
+
+{#if editingPersonTraining}
+	<PersonTrainingEditor
+		person={editingPersonTraining}
+		trainingTypes={trainingTypesStore.list}
+		trainings={personnelTrainingsStore.list}
+		onSave={handleSaveTraining}
+		onRemove={handleRemoveTraining}
+		onClose={closePersonEditor}
 	/>
 {/if}
 

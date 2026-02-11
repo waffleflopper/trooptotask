@@ -383,14 +383,14 @@
 	}
 
 	.group-row {
-		background: var(--color-bg);
+		background: var(--color-primary);
 	}
 
 	.group-name {
 		font-weight: 600;
 		font-size: var(--font-size-sm);
-		color: var(--color-primary);
-		background: var(--color-bg);
+		color: white;
+		background: var(--color-primary);
 	}
 
 	.group-cell {
@@ -399,8 +399,8 @@
 		max-width: 24px;
 		flex-shrink: 0;
 		height: 20px;
-		background: var(--color-bg);
-		border-left: 1px solid var(--color-border);
+		background: var(--color-primary);
+		border-left: 1px solid rgba(255, 255, 255, 0.2);
 	}
 
 	.person-row {

@@ -27,6 +27,7 @@
 		onShowTodayBreakdown?: () => void;
 		onShowStatusManager?: () => void;
 		onShowSpecialDayManager?: () => void;
+		onShowDutyRosterGenerator?: () => void;
 		// Calendar export callbacks
 		onExportCalendarCSV?: () => void;
 		onExportCalendarPDF?: () => void;
@@ -60,6 +61,7 @@
 		onShowTodayBreakdown,
 		onShowStatusManager,
 		onShowSpecialDayManager,
+		onShowDutyRosterGenerator,
 		onExportCalendarCSV,
 		onExportCalendarPDF,
 		showStatusText = false,
@@ -290,6 +292,16 @@
 							<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
 						</svg>
 						Bulk Status
+					</button>
+				{/if}
+				{#if perms.canEditCalendar && onShowDutyRosterGenerator}
+					<button class="nav-item" onclick={() => handleNavClick(onShowDutyRosterGenerator)}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+							<rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+							<path d="M9 14l2 2 4-4" />
+						</svg>
+						Duty Roster
 					</button>
 				{/if}
 			</div>

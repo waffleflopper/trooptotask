@@ -20,6 +20,7 @@
 	import BulkStatusModal from '$lib/components/BulkStatusModal.svelte';
 	import MonthlyAssignmentPlanner from '$lib/components/MonthlyAssignmentPlanner.svelte';
 	import AssignmentTypeManager from '$lib/components/AssignmentTypeManager.svelte';
+	import DutyRosterGenerator from '$lib/components/DutyRosterGenerator.svelte';
 	import LongRangeView from '$lib/components/LongRangeView.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
@@ -45,6 +46,7 @@
 	let showAssignmentPlanner = $state(false);
 	let showLongRangeView = $state(false);
 	let showAssignmentTypeManager = $state(false);
+	let showDutyRosterGenerator = $state(false);
 	let selectedPerson = $state<Personnel | null>(null);
 	let selectedDate = $state<Date | null>(null);
 	let assignmentDate = $state<Date | null>(null);
@@ -175,6 +177,12 @@
 			assignments: dailyAssignmentsStore.assignments
 		});
 	}
+
+	async function handleApplyRoster(assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]) {
+		for (const assignment of assignments) {
+			await dailyAssignmentsStore.setAssignment(assignment.date, assignment.assignmentTypeId, assignment.assigneeId);
+		}
+	}
 </script>
 
 <svelte:head>
@@ -196,6 +204,7 @@
 	onShowTodayBreakdown={() => (showTodayBreakdown = true)}
 	onShowStatusManager={() => (showStatusManager = true)}
 	onShowSpecialDayManager={() => (showSpecialDayManager = true)}
+	onShowDutyRosterGenerator={() => (showDutyRosterGenerator = true)}
 	onExportCalendarCSV={handleExportCSV}
 	onExportCalendarPDF={handleExportPDF}
 	showStatusText={calendarPrefsStore.showStatusText}
@@ -318,6 +327,19 @@
 		statusTypes={statusTypesStore.list}
 		onApply={handleBulkStatusApply}
 		onClose={() => (showBulkStatusModal = false)}
+	/>
+{/if}
+
+{#if showDutyRosterGenerator}
+	<DutyRosterGenerator
+		assignmentTypes={dailyAssignmentsStore.types}
+		assignments={dailyAssignmentsStore.assignments}
+		personnelByGroup={personnelByGroup()}
+		groups={groupsStore.names}
+		availabilityEntries={availabilityStore.list}
+		statusTypes={statusTypesStore.list}
+		onApplyRoster={handleApplyRoster}
+		onClose={() => (showDutyRosterGenerator = false)}
 	/>
 {/if}
 

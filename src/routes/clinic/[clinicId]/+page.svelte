@@ -115,7 +115,8 @@
 	}
 
 	function handlePersonClick(person: Personnel) {
-		// Could open person edit modal here
+		selectedPerson = person;
+		selectedDate = new Date();
 	}
 
 	async function handleAddAvailability(data: Omit<AvailabilityEntry, 'id'>) {

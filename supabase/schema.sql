@@ -204,7 +204,7 @@ create table public.personnel_trainings (
   clinic_id           uuid not null references public.clinics(id) on delete cascade,
   personnel_id        uuid not null references public.personnel(id) on delete cascade,
   training_type_id    uuid not null references public.training_types(id) on delete cascade,
-  completion_date     date not null,
+  completion_date     date,  -- NULL allowed for never-expires training when marked complete without date
   expiration_date     date,  -- calculated from completion + expiration_months
   notes               text,
   certificate_url     text,

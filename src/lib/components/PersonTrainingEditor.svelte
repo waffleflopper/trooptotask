@@ -26,6 +26,7 @@
 
 	// Track editing state for each training type
 	let editingStates = $state<Map<string, {
+		isComplete: boolean;
 		completionDate: string;
 		notes: string;
 		certificateUrl: string;
@@ -36,6 +37,7 @@
 	// Initialize editing states on mount
 	$effect(() => {
 		const states = new Map<string, {
+			isComplete: boolean;
 			completionDate: string;
 			notes: string;
 			certificateUrl: string;
@@ -45,8 +47,10 @@
 
 		for (const type of trainingTypes) {
 			const existing = trainingMap().get(type.id);
+			const neverExpires = type.expirationMonths === null;
 			states.set(type.id, {
-				completionDate: existing?.completionDate ?? new Date().toISOString().split('T')[0],
+				isComplete: !!existing,
+				completionDate: existing?.completionDate ?? (neverExpires ? '' : new Date().toISOString().split('T')[0]),
 				notes: existing?.notes ?? '',
 				certificateUrl: existing?.certificateUrl ?? '',
 				isEditing: false,
@@ -93,7 +97,7 @@
 		}
 	}
 
-	function updateField(typeId: string, field: 'completionDate' | 'notes' | 'certificateUrl', value: string) {
+	function updateField(typeId: string, field: 'completionDate' | 'notes' | 'certificateUrl' | 'isComplete', value: string | boolean) {
 		const state = editingStates.get(typeId);
 		if (state) {
 			const newStates = new Map(editingStates);
@@ -121,7 +125,35 @@
 		// Update local state
 		const newStates = new Map(editingStates);
 		newStates.set(typeId, {
+			isComplete: true,
 			completionDate: today,
+			notes: '',
+			certificateUrl: '',
+			isEditing: false,
+			isDirty: false
+		});
+		editingStates = newStates;
+	}
+
+	// Mark as complete without a date (for never-expires training)
+	async function markComplete(typeId: string) {
+		const type = trainingTypes.find(t => t.id === typeId);
+		if (!type || type.expirationMonths !== null) return;
+
+		await onSave({
+			personnelId: person.id,
+			trainingTypeId: typeId,
+			completionDate: null,
+			expirationDate: null,
+			notes: null,
+			certificateUrl: null
+		});
+
+		// Update local state
+		const newStates = new Map(editingStates);
+		newStates.set(typeId, {
+			isComplete: true,
+			completionDate: '',
 			notes: '',
 			certificateUrl: '',
 			isEditing: false,
@@ -135,12 +167,20 @@
 		const type = trainingTypes.find(t => t.id === typeId);
 		if (!state || !type) return;
 
-		const expirationDate = calculateExpirationDate(state.completionDate, type.expirationMonths);
+		const neverExpires = type.expirationMonths === null;
+
+		// For never-expires, date is optional. For expiring, date is required.
+		if (!neverExpires && !state.completionDate) {
+			return; // Don't save without date for expiring training
+		}
+
+		const completionDate = state.completionDate || null;
+		const expirationDate = calculateExpirationDate(completionDate, type.expirationMonths);
 
 		await onSave({
 			personnelId: person.id,
 			trainingTypeId: typeId,
-			completionDate: state.completionDate,
+			completionDate,
 			expirationDate,
 			notes: state.notes.trim() || null,
 			certificateUrl: state.certificateUrl.trim() || null
@@ -148,7 +188,7 @@
 
 		// Mark as saved
 		const newStates = new Map(editingStates);
-		newStates.set(typeId, { ...state, isEditing: false, isDirty: false });
+		newStates.set(typeId, { ...state, isComplete: true, isEditing: false, isDirty: false });
 		editingStates = newStates;
 	}
 
@@ -156,13 +196,17 @@
 		const existing = trainingMap().get(typeId);
 		if (!existing) return;
 
+		const type = trainingTypes.find(t => t.id === typeId);
+		const neverExpires = type?.expirationMonths === null;
+
 		if (confirm('Are you sure you want to remove this training record?')) {
 			await onRemove(existing.id);
 
 			// Reset local state
 			const newStates = new Map(editingStates);
 			newStates.set(typeId, {
-				completionDate: new Date().toISOString().split('T')[0],
+				isComplete: false,
+				completionDate: neverExpires ? '' : new Date().toISOString().split('T')[0],
 				notes: '',
 				certificateUrl: '',
 				isEditing: false,
@@ -191,6 +235,7 @@
 
 		// Update all local states
 		const newStates = new Map<string, {
+			isComplete: boolean;
 			completionDate: string;
 			notes: string;
 			certificateUrl: string;
@@ -200,6 +245,7 @@
 
 		for (const type of trainingTypes) {
 			newStates.set(type.id, {
+				isComplete: true,
 				completionDate: today,
 				notes: '',
 				certificateUrl: '',
@@ -212,9 +258,12 @@
 
 	function cancelEdit(typeId: string) {
 		const existing = trainingMap().get(typeId);
+		const type = trainingTypes.find(t => t.id === typeId);
+		const neverExpires = type?.expirationMonths === null;
 		const newStates = new Map(editingStates);
 		newStates.set(typeId, {
-			completionDate: existing?.completionDate ?? new Date().toISOString().split('T')[0],
+			isComplete: !!existing,
+			completionDate: existing?.completionDate ?? (neverExpires ? '' : new Date().toISOString().split('T')[0]),
 			notes: existing?.notes ?? '',
 			certificateUrl: existing?.certificateUrl ?? '',
 			isEditing: false,
@@ -284,13 +333,24 @@
 							</div>
 							<div class="training-actions">
 								{#if !state?.isEditing}
-									<button
-										class="btn btn-primary btn-sm"
-										onclick={() => markCompletedToday(type.id)}
-										title="Mark as completed today"
-									>
-										Today
-									</button>
+									{@const neverExpires = type.expirationMonths === null}
+									{#if neverExpires && !existing}
+										<button
+											class="btn btn-primary btn-sm"
+											onclick={() => markComplete(type.id)}
+											title="Mark as complete"
+										>
+											Complete
+										</button>
+									{:else}
+										<button
+											class="btn btn-primary btn-sm"
+											onclick={() => markCompletedToday(type.id)}
+											title="Mark as completed today"
+										>
+											Today
+										</button>
+									{/if}
 									<button
 										class="btn btn-secondary btn-sm"
 										onclick={() => toggleEdit(type.id)}
@@ -312,10 +372,17 @@
 
 						{#if existing && !state?.isEditing}
 							<div class="training-details">
-								<span class="detail-item">
-									<span class="detail-label">Completed:</span>
-									<span class="detail-value">{existing.completionDate}</span>
-								</span>
+								{#if existing.completionDate}
+									<span class="detail-item">
+										<span class="detail-label">Completed:</span>
+										<span class="detail-value">{existing.completionDate}</span>
+									</span>
+								{:else}
+									<span class="detail-item">
+										<span class="detail-label">Status:</span>
+										<span class="detail-value">Complete (no date)</span>
+									</span>
+								{/if}
 								{#if existing.expirationDate}
 									<span class="detail-item">
 										<span class="detail-label">Expires:</span>
@@ -332,25 +399,57 @@
 						{/if}
 
 						{#if state?.isEditing}
+							{@const neverExpires = type.expirationMonths === null}
 							<div class="edit-form">
-								<div class="form-row">
-									<div class="form-group">
-										<label class="label" for="date-{type.id}">Completion Date</label>
-										<input
-											type="date"
-											id="date-{type.id}"
-											class="input"
-											value={state.completionDate}
-											oninput={(e) => updateField(type.id, 'completionDate', e.currentTarget.value)}
-										/>
+								{#if neverExpires}
+									<div class="form-group checkbox-group">
+										<label class="checkbox-label">
+											<input
+												type="checkbox"
+												checked={state.isComplete}
+												onchange={(e) => updateField(type.id, 'isComplete', e.currentTarget.checked)}
+											/>
+											<span class="checkbox-text">Mark as Complete</span>
+										</label>
 									</div>
-									<div class="form-group expiration-preview">
-										<span class="label">Expires:</span>
-										<span class="preview-value">
-											{calculateExpirationDate(state.completionDate, type.expirationMonths) ?? 'Never'}
-										</span>
+									<div class="form-row">
+										<div class="form-group">
+											<label class="label" for="date-{type.id}">Completion Date (Optional)</label>
+											<input
+												type="date"
+												id="date-{type.id}"
+												class="input"
+												value={state.completionDate}
+												oninput={(e) => updateField(type.id, 'completionDate', e.currentTarget.value)}
+												disabled={!state.isComplete}
+											/>
+										</div>
+										<div class="form-group expiration-preview">
+											<span class="label">Expires:</span>
+											<span class="preview-value">Never</span>
+										</div>
 									</div>
-								</div>
+								{:else}
+									<div class="form-row">
+										<div class="form-group">
+											<label class="label" for="date-{type.id}">Completion Date</label>
+											<input
+												type="date"
+												id="date-{type.id}"
+												class="input"
+												value={state.completionDate}
+												oninput={(e) => updateField(type.id, 'completionDate', e.currentTarget.value)}
+												required
+											/>
+										</div>
+										<div class="form-group expiration-preview">
+											<span class="label">Expires:</span>
+											<span class="preview-value">
+												{calculateExpirationDate(state.completionDate, type.expirationMonths) ?? 'Set date'}
+											</span>
+										</div>
+									</div>
+								{/if}
 								<div class="form-group">
 									<label class="label" for="notes-{type.id}">Notes</label>
 									<input
@@ -377,7 +476,11 @@
 									<button class="btn btn-secondary btn-sm" onclick={() => cancelEdit(type.id)}>
 										Cancel
 									</button>
-									<button class="btn btn-primary btn-sm" onclick={() => saveTraining(type.id)}>
+									<button
+										class="btn btn-primary btn-sm"
+										onclick={() => saveTraining(type.id)}
+										disabled={neverExpires ? !state.isComplete : !state.completionDate}
+									>
 										Save
 									</button>
 								</div>
@@ -593,6 +696,36 @@
 		justify-content: flex-end;
 		gap: var(--spacing-sm);
 		margin-top: var(--spacing-md);
+	}
+
+	.checkbox-group {
+		margin-bottom: var(--spacing-sm);
+	}
+
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		cursor: pointer;
+		padding: var(--spacing-sm);
+		background: var(--color-bg);
+		border-radius: var(--radius-md);
+		border: 1px solid var(--color-border);
+	}
+
+	.checkbox-label:hover {
+		border-color: var(--color-primary);
+	}
+
+	.checkbox-label input[type="checkbox"] {
+		width: 18px;
+		height: 18px;
+		accent-color: var(--color-primary);
+		cursor: pointer;
+	}
+
+	.checkbox-text {
+		font-weight: 500;
 	}
 
 	.modal-footer {

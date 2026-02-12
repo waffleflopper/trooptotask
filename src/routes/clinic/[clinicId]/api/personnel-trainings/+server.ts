@@ -2,8 +2,8 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
 
-function calculateExpirationDate(completionDate: string, expirationMonths: number | null): string | null {
-	if (expirationMonths === null) return null;
+function calculateExpirationDate(completionDate: string | null, expirationMonths: number | null): string | null {
+	if (expirationMonths === null || !completionDate) return null;
 	const date = new Date(completionDate);
 	date.setMonth(date.getMonth() + expirationMonths);
 	return date.toISOString().split('T')[0];
@@ -28,7 +28,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	if (typeError) throw error(500, typeError.message);
 
-	const expirationDate = calculateExpirationDate(body.completionDate, trainingType.expiration_months);
+	// For never-expires training, completion date is optional
+	// For expiring training, completion date is required
+	const completionDate = body.completionDate || null;
+	if (trainingType.expiration_months !== null && !completionDate) {
+		throw error(400, 'Completion date is required for training that expires');
+	}
+
+	const expirationDate = calculateExpirationDate(completionDate, trainingType.expiration_months);
 
 	// Upsert: try to update existing, or insert new
 	const { data: existing } = await locals.supabase
@@ -45,7 +52,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		const { data: updated, error: updateError } = await locals.supabase
 			.from('personnel_trainings')
 			.update({
-				completion_date: body.completionDate,
+				completion_date: completionDate,
 				expiration_date: expirationDate,
 				notes: body.notes ?? null,
 				certificate_url: body.certificateUrl ?? null,
@@ -65,7 +72,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				clinic_id: clinicId,
 				personnel_id: body.personnelId,
 				training_type_id: body.trainingTypeId,
-				completion_date: body.completionDate,
+				completion_date: completionDate,
 				expiration_date: expirationDate,
 				notes: body.notes ?? null,
 				certificate_url: body.certificateUrl ?? null

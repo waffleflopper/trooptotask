@@ -71,7 +71,7 @@
 			invitations={data.invitations}
 			isOwner={data.isOwner}
 			canManageMembers={data.canManageMembers}
-			{form}
+			form={form ?? undefined}
 		/>
 
 		<div class="settings-card">

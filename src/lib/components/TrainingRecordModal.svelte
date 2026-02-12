@@ -13,31 +13,52 @@
 
 	let { person, trainingType, existingTraining, onSave, onRemove, onClose }: Props = $props();
 
-	let completionDate = $state(existingTraining?.completionDate ?? new Date().toISOString().split('T')[0]);
+	// For never-expires training, date is optional
+	const neverExpires = trainingType.expirationMonths === null;
+
+	// Initialize state - for never-expires, we might have a record without a date
+	let isComplete = $state(!!existingTraining);
+	let completionDate = $state(existingTraining?.completionDate ?? (neverExpires ? '' : new Date().toISOString().split('T')[0]));
 	let notes = $state(existingTraining?.notes ?? '');
 	let certificateUrl = $state(existingTraining?.certificateUrl ?? '');
 
 	const previewExpirationDate = $derived(
-		calculateExpirationDate(completionDate, trainingType.expirationMonths)
+		completionDate ? calculateExpirationDate(completionDate, trainingType.expirationMonths) : null
 	);
 
 	const previewTraining = $derived({
 		id: existingTraining?.id ?? '',
 		personnelId: person.id,
 		trainingTypeId: trainingType.id,
-		completionDate,
+		completionDate: completionDate || null,
 		expirationDate: previewExpirationDate,
 		notes,
 		certificateUrl
 	} as PersonnelTraining);
 
-	const previewStatus = $derived(getTrainingStatus(previewTraining, trainingType, person));
+	// For never-expires training, show "Current" if marked complete even without date
+	const previewStatus = $derived(() => {
+		if (neverExpires && isComplete) {
+			// Create a fake training record to simulate the complete state
+			return getTrainingStatus(previewTraining, trainingType, person);
+		}
+		if (!neverExpires && !completionDate) {
+			// For expiring training without date, show not completed
+			return getTrainingStatus(undefined, trainingType, person);
+		}
+		return getTrainingStatus(previewTraining, trainingType, person);
+	});
+
+	// Validation: can only save if complete checkbox is checked (for never-expires) or date is set (for expiring)
+	const canSave = $derived(neverExpires ? isComplete : !!completionDate);
 
 	function handleSave() {
+		if (!canSave) return;
+
 		onSave({
 			personnelId: person.id,
 			trainingTypeId: trainingType.id,
-			completionDate,
+			completionDate: completionDate || null,
 			expirationDate: previewExpirationDate,
 			notes: notes.trim() || null,
 			certificateUrl: certificateUrl.trim() || null
@@ -73,29 +94,63 @@
 				{#if trainingType.description}
 					<p class="training-description">{trainingType.description}</p>
 				{/if}
+				{#if neverExpires}
+					<span class="never-expires-badge">Never Expires</span>
+				{/if}
 			</div>
 
-			<div class="form-group">
-				<label class="label" for="completion-date">Completion Date</label>
-				<input
-					type="date"
-					id="completion-date"
-					class="input"
-					bind:value={completionDate}
-				/>
-			</div>
+			{#if neverExpires}
+				<!-- Never-expires training: checkbox to mark complete, date optional -->
+				<div class="form-group checkbox-group">
+					<label class="checkbox-label">
+						<input
+							type="checkbox"
+							bind:checked={isComplete}
+						/>
+						<span class="checkbox-text">Mark as Complete</span>
+					</label>
+				</div>
+
+				<div class="form-group">
+					<label class="label" for="completion-date">Completion Date (Optional)</label>
+					<input
+						type="date"
+						id="completion-date"
+						class="input"
+						bind:value={completionDate}
+						disabled={!isComplete}
+					/>
+					<span class="field-hint">Record when training was completed for your records</span>
+				</div>
+			{:else}
+				<!-- Expiring training: date required -->
+				<div class="form-group">
+					<label class="label" for="completion-date">Completion Date</label>
+					<input
+						type="date"
+						id="completion-date"
+						class="input"
+						bind:value={completionDate}
+						required
+					/>
+				</div>
+			{/if}
 
 			<div class="preview-row">
 				<div class="preview-item">
 					<span class="preview-label">Expiration:</span>
 					<span class="preview-value">
-						{previewExpirationDate ?? 'Never expires'}
+						{#if neverExpires}
+							Never expires
+						{:else}
+							{previewExpirationDate ?? 'Set completion date'}
+						{/if}
 					</span>
 				</div>
 				<div class="preview-item">
 					<span class="preview-label">Status:</span>
-					<span class="status-badge" style="background-color: {previewStatus.color}">
-						{previewStatus.label}
+					<span class="status-badge" style="background-color: {previewStatus().color}">
+						{previewStatus().label}
 					</span>
 				</div>
 			</div>
@@ -129,7 +184,7 @@
 			{/if}
 			<div class="spacer"></div>
 			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			<button class="btn btn-primary" onclick={handleSave}>Save</button>
+			<button class="btn btn-primary" onclick={handleSave} disabled={!canSave}>Save</button>
 		</div>
 	</div>
 </div>
@@ -217,5 +272,53 @@
 
 	.spacer {
 		flex: 1;
+	}
+
+	.never-expires-badge {
+		display: inline-block;
+		margin-left: var(--spacing-sm);
+		padding: 2px var(--spacing-xs);
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+	}
+
+	.checkbox-group {
+		margin-bottom: var(--spacing-md);
+	}
+
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		cursor: pointer;
+		padding: var(--spacing-sm);
+		background: var(--color-bg);
+		border-radius: var(--radius-md);
+		border: 1px solid var(--color-border);
+	}
+
+	.checkbox-label:hover {
+		border-color: var(--color-primary);
+	}
+
+	.checkbox-label input[type="checkbox"] {
+		width: 18px;
+		height: 18px;
+		accent-color: var(--color-primary);
+		cursor: pointer;
+	}
+
+	.checkbox-text {
+		font-weight: 500;
+	}
+
+	.field-hint {
+		display: block;
+		margin-top: var(--spacing-xs);
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
 	}
 </style>

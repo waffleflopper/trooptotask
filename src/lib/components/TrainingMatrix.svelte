@@ -6,7 +6,7 @@
 		personnel: Personnel[];
 		trainingTypes: TrainingType[];
 		trainings: PersonnelTraining[];
-		onCellClick: (person: Personnel, type: TrainingType, training: PersonnelTraining | undefined) => void;
+		onCellClick?: (person: Personnel, type: TrainingType, training: PersonnelTraining | undefined) => void;
 		onPersonClick?: (person: Personnel) => void;
 	}
 
@@ -58,14 +58,20 @@
 						{@const training = getTraining(person.id, type.id)}
 						{@const statusInfo = getTrainingStatus(training, type, person)}
 						<td class="status-cell">
-							<button
-								class="status-badge"
-								style="background-color: {statusInfo.color}"
-								onclick={() => onCellClick(person, type, training)}
-							>
-								{statusInfo.label}
-							</button>
-							{#if training}
+							{#if onCellClick}
+								<button
+									class="status-badge"
+									style="background-color: {statusInfo.color}"
+									onclick={() => onCellClick(person, type, training)}
+								>
+									{statusInfo.label}
+								</button>
+							{:else}
+								<span class="status-badge" style="background-color: {statusInfo.color}">
+									{statusInfo.label}
+								</span>
+							{/if}
+							{#if training?.completionDate}
 								<span class="completion-date">{training.completionDate}</span>
 							{/if}
 						</td>

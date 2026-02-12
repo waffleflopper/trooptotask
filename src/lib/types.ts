@@ -190,7 +190,7 @@ export interface PersonnelTraining {
 	id: string;
 	personnelId: string;
 	trainingTypeId: string;
-	completionDate: string; // YYYY-MM-DD
+	completionDate: string | null; // YYYY-MM-DD, null for never-expires when marked complete without date
 	expirationDate: string | null; // calculated or null if never expires
 	notes: string | null;
 	certificateUrl: string | null;

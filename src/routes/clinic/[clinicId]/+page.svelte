@@ -19,6 +19,7 @@
 	import StatusLegend from '$lib/components/StatusLegend.svelte';
 	import BulkStatusModal from '$lib/components/BulkStatusModal.svelte';
 	import MonthlyAssignmentPlanner from '$lib/components/MonthlyAssignmentPlanner.svelte';
+	import AssignmentTypeManager from '$lib/components/AssignmentTypeManager.svelte';
 	import LongRangeView from '$lib/components/LongRangeView.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
@@ -43,6 +44,7 @@
 	let showBulkStatusModal = $state(false);
 	let showAssignmentPlanner = $state(false);
 	let showLongRangeView = $state(false);
+	let showAssignmentTypeManager = $state(false);
 	let selectedPerson = $state<Personnel | null>(null);
 	let selectedDate = $state<Date | null>(null);
 	let assignmentDate = $state<Date | null>(null);
@@ -198,6 +200,7 @@
 	onExportCalendarPDF={handleExportPDF}
 	showStatusText={calendarPrefsStore.showStatusText}
 	onToggleStatusText={() => calendarPrefsStore.toggleShowStatusText()}
+	onShowAssignmentTypeManager={() => (showAssignmentTypeManager = true)}
 />
 
 <div class="page">
@@ -262,6 +265,16 @@
 			availabilityStore.removeByStatusTypeLocal(id);
 		}}
 		onClose={() => (showStatusManager = false)}
+	/>
+{/if}
+
+{#if showAssignmentTypeManager}
+	<AssignmentTypeManager
+		assignmentTypes={dailyAssignmentsStore.types}
+		onAdd={(data) => dailyAssignmentsStore.addType(data)}
+		onUpdate={(id, data) => dailyAssignmentsStore.updateType(id, data)}
+		onRemove={(id) => dailyAssignmentsStore.removeType(id)}
+		onClose={() => (showAssignmentTypeManager = false)}
 	/>
 {/if}
 

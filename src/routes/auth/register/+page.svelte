@@ -2,8 +2,12 @@
 	import { enhance } from '$app/forms';
 	import { themeStore } from '$lib/stores/theme.svelte';
 
-	let { form } = $props();
+	let { form, data } = $props();
 	let loading = $state(false);
+
+	// Use URL params for initial values, then form values on error
+	const initialInviteCode = form?.inviteCode ?? data.inviteCode ?? '';
+	const initialEmail = form?.email ?? data.email ?? '';
 </script>
 
 <svelte:head>
@@ -60,7 +64,7 @@
 					name="inviteCode"
 					type="text"
 					class="input"
-					value={form?.inviteCode ?? ''}
+					value={initialInviteCode}
 					required
 					autocomplete="off"
 					placeholder="Enter your invite code"
@@ -75,7 +79,7 @@
 					name="email"
 					type="email"
 					class="input"
-					value={form?.email ?? ''}
+					value={initialEmail}
 					required
 					autocomplete="email"
 					placeholder="you@example.com"

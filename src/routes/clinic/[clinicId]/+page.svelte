@@ -21,6 +21,7 @@
 	import MonthlyAssignmentPlanner from '$lib/components/MonthlyAssignmentPlanner.svelte';
 	import AssignmentTypeManager from '$lib/components/AssignmentTypeManager.svelte';
 	import DutyRosterGenerator from '$lib/components/DutyRosterGenerator.svelte';
+	import PlatformInviteManager from '$lib/components/PlatformInviteManager.svelte';
 	import LongRangeView from '$lib/components/LongRangeView.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
@@ -47,6 +48,7 @@
 	let showLongRangeView = $state(false);
 	let showAssignmentTypeManager = $state(false);
 	let showDutyRosterGenerator = $state(false);
+	let showPlatformInvite = $state(false);
 	let selectedPerson = $state<Personnel | null>(null);
 	let selectedDate = $state<Date | null>(null);
 	let assignmentDate = $state<Date | null>(null);
@@ -210,6 +212,7 @@
 	showStatusText={calendarPrefsStore.showStatusText}
 	onToggleStatusText={() => calendarPrefsStore.toggleShowStatusText()}
 	onShowAssignmentTypeManager={() => (showAssignmentTypeManager = true)}
+	onShowPlatformInvite={() => (showPlatformInvite = true)}
 />
 
 <div class="page">
@@ -367,6 +370,10 @@
 		onClose={() => (showLongRangeView = false)}
 		onCellClick={handleCellClick}
 	/>
+{/if}
+
+{#if showPlatformInvite}
+	<PlatformInviteManager onClose={() => (showPlatformInvite = false)} />
 {/if}
 
 

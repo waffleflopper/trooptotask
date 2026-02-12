@@ -1,10 +1,16 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.session) {
 		redirect(303, '/dashboard');
 	}
+
+	// Get prefill values from URL params
+	const inviteCode = url.searchParams.get('code') ?? '';
+	const email = url.searchParams.get('email') ?? '';
+
+	return { inviteCode, email };
 };
 
 export const actions: Actions = {

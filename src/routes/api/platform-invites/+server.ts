@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		.insert({
 			code,
 			email: email?.toLowerCase() || null,
-			invited_by: user.id,
+			created_by: user.id,
 			expires_at: expiresAt.toISOString()
 		})
 		.select()
@@ -69,7 +69,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 	const { data, error: dbError } = await locals.supabase
 		.from('registration_invites')
 		.select('id, code, email, created_at, expires_at, used_at, used_by')
-		.eq('invited_by', user.id)
+		.eq('created_by', user.id)
 		.order('created_at', { ascending: false })
 		.limit(50);
 
@@ -94,7 +94,7 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 		.from('registration_invites')
 		.delete()
 		.eq('id', id)
-		.eq('invited_by', user.id)
+		.eq('created_by', user.id)
 		.is('used_by', null);
 
 	if (dbError) {

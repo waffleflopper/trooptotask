@@ -117,6 +117,10 @@
 			<a href="/org/new" class="btn btn-primary">Create New Organization</a>
 			<a href="/auth/logout" class="btn btn-secondary">Sign Out</a>
 		</div>
+
+		<div class="help-link">
+			<a href="/help">Need help? View documentation</a>
+		</div>
 	</div>
 </div>
 
@@ -300,6 +304,22 @@
 	.theme-toggle svg {
 		width: 20px;
 		height: 20px;
+	}
+
+	.help-link {
+		margin-top: var(--spacing-lg);
+		text-align: center;
+	}
+
+	.help-link a {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
+		text-decoration: none;
+	}
+
+	.help-link a:hover {
+		color: var(--color-primary);
+		text-decoration: underline;
 	}
 
 	@media (max-width: 480px) {

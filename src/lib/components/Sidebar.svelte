@@ -500,6 +500,14 @@
 				Invite to Platform
 			</button>
 		{/if}
+		<a href="/help" class="nav-item" onclick={() => onClose?.()}>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<circle cx="12" cy="12" r="10" />
+				<path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+				<line x1="12" y1="17" x2="12.01" y2="17" />
+			</svg>
+			Help
+		</a>
 		<a href="/dashboard?show=all" class="nav-item" onclick={() => onClose?.()}>
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<rect x="3" y="3" width="7" height="7" />

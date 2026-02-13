@@ -114,6 +114,49 @@ end;
 $$;
 
 -- ============================================================
+-- Organization creation function (creates org + owner membership atomically)
+-- ============================================================
+
+create or replace function public.create_org_with_owner(p_name text)
+returns uuid language plpgsql security definer as $$
+declare
+  v_org_id uuid;
+begin
+  -- Create the organization
+  insert into public.organizations (name, created_by)
+  values (p_name, auth.uid())
+  returning id into v_org_id;
+
+  -- Create the owner membership
+  insert into public.organization_memberships (
+    organization_id,
+    user_id,
+    role,
+    can_view_calendar,
+    can_edit_calendar,
+    can_view_personnel,
+    can_edit_personnel,
+    can_view_training,
+    can_edit_training,
+    can_manage_members
+  ) values (
+    v_org_id,
+    auth.uid(),
+    'owner',
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+  );
+
+  return v_org_id;
+end;
+$$;
+
+-- ============================================================
 -- Ownership transfer function
 -- ============================================================
 

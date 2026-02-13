@@ -197,6 +197,11 @@ create policy "Anyone can mark invites as used"
   on public.registration_invites for update
   using (true);
 
+-- Users can delete their own unused invites
+create policy "Users can delete their own invites"
+  on public.registration_invites for delete
+  using (auth.uid() = created_by and used_by is null);
+
 -- ============================================================
 -- Clinics
 -- ============================================================

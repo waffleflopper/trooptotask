@@ -83,8 +83,8 @@
 
 	// Categorize personnel
 	const personnelBreakdown = $derived(() => {
-		const inClinic: { person: Personnel; assignments: string[] }[] = [];
-		const outClinic: { person: Personnel; statuses: { status: StatusType; entry: AvailabilityEntry }[] }[] = [];
+		const available: { person: Personnel; assignments: string[] }[] = [];
+		const unavailable: { person: Personnel; statuses: { status: StatusType; entry: AvailabilityEntry }[] }[] = [];
 
 		// Find who has assignments today
 		const personnelAssignments = new Map<string, string[]>();
@@ -101,20 +101,20 @@
 			const assignments = personnelAssignments.get(person.id) || [];
 
 			if (statuses.length === 0) {
-				inClinic.push({ person, assignments });
+				available.push({ person, assignments });
 			} else {
-				outClinic.push({ person, statuses });
+				unavailable.push({ person, statuses });
 			}
 		}
 
-		return { inClinic, outClinic };
+		return { available, unavailable };
 	});
 
-	// Group out-of-clinic personnel by status
+	// Group unavailable personnel by status
 	const outByStatus = $derived(() => {
 		const groups = new Map<string, { status: StatusType; personnel: Personnel[] }>();
 
-		for (const { person, statuses } of personnelBreakdown().outClinic) {
+		for (const { person, statuses } of personnelBreakdown().unavailable) {
 			for (const { status } of statuses) {
 				if (!groups.has(status.id)) {
 					groups.set(status.id, { status, personnel: [] });
@@ -140,11 +140,11 @@
 			<!-- Summary Stats -->
 			<div class="stats-row">
 				<div class="stat">
-					<span class="stat-value in-clinic">{personnelBreakdown().inClinic.length}</span>
-					<span class="stat-label">In Clinic</span>
+					<span class="stat-value available">{personnelBreakdown().available.length}</span>
+					<span class="stat-label">Available</span>
 				</div>
 				<div class="stat">
-					<span class="stat-value out-clinic">{personnelBreakdown().outClinic.length}</span>
+					<span class="stat-value unavailable">{personnelBreakdown().unavailable.length}</span>
 					<span class="stat-label">Out</span>
 				</div>
 				<div class="stat">
@@ -181,26 +181,26 @@
 					</section>
 				{/if}
 
-				<!-- In Clinic -->
-				<section class="section in-clinic-section">
+				<!-- Available -->
+				<section class="section available-section">
 					<h3>
 						<span class="section-icon in">&#10003;</span>
-						In Clinic
-						<span class="count">{personnelBreakdown().inClinic.length}</span>
+						Available
+						<span class="count">{personnelBreakdown().available.length}</span>
 					</h3>
-					{#if personnelBreakdown().inClinic.length === 0}
-						<div class="empty-message">No one is in clinic today</div>
+					{#if personnelBreakdown().available.length === 0}
+						<div class="empty-message">No one is available today</div>
 					{:else}
 						<div class="personnel-groups">
 							{#each personnelByGroup as grp}
-								{@const inClinicForGroup = personnelBreakdown().inClinic.filter(
+								{@const availableForGroup = personnelBreakdown().available.filter(
 									(p) => p.person.groupName === grp.group
 								)}
-								{#if inClinicForGroup.length > 0}
+								{#if availableForGroup.length > 0}
 									<div class="group-block">
 										<div class="group-label">{grp.group || 'Unassigned'}</div>
 										<div class="personnel-chips">
-											{#each inClinicForGroup as { person, assignments }}
+											{#each availableForGroup as { person, assignments }}
 												<div class="person-chip" class:has-assignment={assignments.length > 0}>
 													<span class="chip-rank">{person.rank}</span>
 													<span class="chip-name">{person.lastName}</span>
@@ -219,15 +219,15 @@
 					{/if}
 				</section>
 
-				<!-- Out of Clinic -->
-				<section class="section out-clinic-section">
+				<!-- Unavailable -->
+				<section class="section unavailable-section">
 					<h3>
 						<span class="section-icon out">&#10007;</span>
-						Out of Clinic
-						<span class="count">{personnelBreakdown().outClinic.length}</span>
+						Unavailable
+						<span class="count">{personnelBreakdown().unavailable.length}</span>
 					</h3>
-					{#if personnelBreakdown().outClinic.length === 0}
-						<div class="empty-message success">Everyone is in clinic today!</div>
+					{#if personnelBreakdown().unavailable.length === 0}
+						<div class="empty-message success">Everyone is available today!</div>
 					{:else}
 						<div class="status-groups">
 							{#each outByStatus() as { status, personnel }}
@@ -310,11 +310,11 @@
 		line-height: 1;
 	}
 
-	.stat-value.in-clinic {
+	.stat-value.available {
 		color: #22c55e;
 	}
 
-	.stat-value.out-clinic {
+	.stat-value.unavailable {
 		color: #ef4444;
 	}
 

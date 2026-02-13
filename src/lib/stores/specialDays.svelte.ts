@@ -3,19 +3,19 @@ import { formatDate } from '../utils/dates';
 
 class SpecialDaysStore {
 	#specialDays = $state<SpecialDay[]>([]);
-	#clinicId = '';
+	#orgId = '';
 
 	get list() {
 		return this.#specialDays;
 	}
 
-	load(specialDays: SpecialDay[], clinicId: string) {
+	load(specialDays: SpecialDay[], orgId: string) {
 		this.#specialDays = specialDays;
-		this.#clinicId = clinicId;
+		this.#orgId = orgId;
 	}
 
 	async add(data: Omit<SpecialDay, 'id'>): Promise<SpecialDay | null> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/special-days`, {
+		const res = await fetch(`/org/${this.#orgId}/api/special-days`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(data)
@@ -27,7 +27,7 @@ class SpecialDaysStore {
 	}
 
 	async remove(id: string): Promise<boolean> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/special-days`, {
+		const res = await fetch(`/org/${this.#orgId}/api/special-days`, {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id })
@@ -38,7 +38,7 @@ class SpecialDaysStore {
 	}
 
 	async resetFederalHolidays(): Promise<boolean> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/special-days`, {
+		const res = await fetch(`/org/${this.#orgId}/api/special-days`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ action: 'resetFederalHolidays' })

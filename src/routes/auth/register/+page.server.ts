@@ -74,25 +74,25 @@ export const actions: Actions = {
 				.eq('code', inviteCode);
 		}
 
-		// After signup, auto-accept any pending clinic invitations for this email
+		// After signup, auto-accept any pending organization invitations for this email
 		if (newUser) {
 			const { data: invitations } = await locals.supabase
-				.from('clinic_invitations')
-				.select('clinic_id')
+				.from('organization_invitations')
+				.select('organization_id')
 				.eq('email', email.toLowerCase())
 				.eq('status', 'pending');
 
 			if (invitations && invitations.length > 0) {
 				for (const inv of invitations) {
-					await locals.supabase.from('clinic_memberships').insert({
-						clinic_id: inv.clinic_id,
+					await locals.supabase.from('organization_memberships').insert({
+						organization_id: inv.organization_id,
 						user_id: newUser.id,
 						email: email.toLowerCase(),
 						role: 'member'
 					});
 				}
 				await locals.supabase
-					.from('clinic_invitations')
+					.from('organization_invitations')
 					.update({ status: 'accepted' })
 					.eq('email', email.toLowerCase())
 					.eq('status', 'pending');

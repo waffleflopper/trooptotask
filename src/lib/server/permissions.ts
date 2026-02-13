@@ -12,13 +12,13 @@ interface MembershipPermissions {
 
 async function getMembershipPermissions(
 	supabase: SupabaseClient,
-	clinicId: string,
+	orgId: string,
 	userId: string
 ): Promise<MembershipPermissions | null> {
 	const { data: membership } = await supabase
-		.from('clinic_memberships')
+		.from('organization_memberships')
 		.select('role, can_edit_calendar, can_edit_personnel, can_edit_training')
-		.eq('clinic_id', clinicId)
+		.eq('organization_id', orgId)
 		.eq('user_id', userId)
 		.single();
 
@@ -27,14 +27,14 @@ async function getMembershipPermissions(
 
 export async function requireEditPermission(
 	supabase: SupabaseClient,
-	clinicId: string,
+	orgId: string,
 	userId: string,
 	permissionType: PermissionType
 ): Promise<void> {
-	const membership = await getMembershipPermissions(supabase, clinicId, userId);
+	const membership = await getMembershipPermissions(supabase, orgId, userId);
 
 	if (!membership) {
-		throw error(403, 'Not a member of this clinic');
+		throw error(403, 'Not a member of this organization');
 	}
 
 	// Owners always have full access

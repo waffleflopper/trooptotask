@@ -16,7 +16,7 @@ export interface DailyAssignment {
 class DailyAssignmentsStore {
 	#types = $state<AssignmentType[]>([]);
 	#assignments = $state<DailyAssignment[]>([]);
-	#clinicId = '';
+	#orgId = '';
 
 	get types() {
 		return this.#types;
@@ -26,15 +26,15 @@ class DailyAssignmentsStore {
 		return this.#assignments;
 	}
 
-	load(types: AssignmentType[], assignments: DailyAssignment[], clinicId: string) {
+	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
 		this.#types = types;
 		this.#assignments = assignments;
-		this.#clinicId = clinicId;
+		this.#orgId = orgId;
 	}
 
 	// Assignment Type methods
 	async addType(data: Omit<AssignmentType, 'id'>): Promise<AssignmentType | null> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/assignment-types`, {
+		const res = await fetch(`/org/${this.#orgId}/api/assignment-types`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(data)
@@ -46,7 +46,7 @@ class DailyAssignmentsStore {
 	}
 
 	async updateType(id: string, data: Partial<Omit<AssignmentType, 'id'>>): Promise<boolean> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/assignment-types`, {
+		const res = await fetch(`/org/${this.#orgId}/api/assignment-types`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id, ...data })
@@ -58,7 +58,7 @@ class DailyAssignmentsStore {
 	}
 
 	async removeType(id: string): Promise<boolean> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/assignment-types`, {
+		const res = await fetch(`/org/${this.#orgId}/api/assignment-types`, {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id })
@@ -75,7 +75,7 @@ class DailyAssignmentsStore {
 
 	// Daily Assignment methods
 	async setAssignment(date: string, assignmentTypeId: string, assigneeId: string): Promise<boolean> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/daily-assignments`, {
+		const res = await fetch(`/org/${this.#orgId}/api/daily-assignments`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ date, assignmentTypeId, assigneeId })
@@ -99,7 +99,7 @@ class DailyAssignmentsStore {
 	}
 
 	async removeAssignment(date: string, assignmentTypeId: string): Promise<boolean> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/daily-assignments`, {
+		const res = await fetch(`/org/${this.#orgId}/api/daily-assignments`, {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ date, assignmentTypeId })

@@ -12,7 +12,7 @@
 		{
 			icon: 'users',
 			title: 'Personnel Management',
-			description: 'Organize by groups and sections. Track rank, MOS, and clinic roles. Bulk import from spreadsheets.'
+			description: 'Organize by groups and sections. Track rank, MOS, and roles. Bulk import from spreadsheets.'
 		},
 		{
 			icon: 'clipboard',
@@ -36,8 +36,8 @@
 		},
 		{
 			icon: 'building',
-			title: 'Multi-Clinic Support',
-			description: 'Manage multiple clinics from one account. Invite team members and control access levels.'
+			title: 'Multi-Organization Support',
+			description: 'Manage multiple organizations from one account. Invite team members and control access levels.'
 		},
 		{
 			icon: 'download',
@@ -328,7 +328,7 @@
 			<div class="steps-grid">
 				<div class="step">
 					<div class="step-number">1</div>
-					<h3>Create Your Clinic</h3>
+					<h3>Create Your Organization</h3>
 					<p>Sign up and create your unit's workspace. Invite team members with customizable permission levels.</p>
 				</div>
 				<div class="step">

@@ -14,7 +14,7 @@
 
 	let newDate = $state(formatDate(new Date()));
 	let newName = $state('');
-	let newType = $state<'federal-holiday' | 'clinic-closure'>('clinic-closure');
+	let newType = $state<'federal-holiday' | 'org-closure'>('org-closure');
 	let filterYear = $state(new Date().getFullYear());
 
 	const filteredDays = $derived(
@@ -46,7 +46,7 @@
 	}
 
 	function handleResetHolidays() {
-		if (confirm('Reset federal holidays to defaults? Custom clinic closures will be preserved.')) {
+		if (confirm('Reset federal holidays to defaults? Custom closures will be preserved.')) {
 			onResetHolidays();
 		}
 	}
@@ -79,7 +79,7 @@
 					style="flex: 1;"
 				/>
 				<select class="select" bind:value={newType} style="width: 140px;">
-					<option value="clinic-closure">Clinic Closure</option>
+					<option value="org-closure">Closure</option>
 					<option value="federal-holiday">Federal Holiday</option>
 				</select>
 				<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!newName.trim()}>

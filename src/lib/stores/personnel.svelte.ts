@@ -2,19 +2,19 @@ import type { Personnel } from '../types';
 
 class PersonnelStore {
 	#personnel = $state<Personnel[]>([]);
-	#clinicId = '';
+	#orgId = '';
 
 	get list() {
 		return this.#personnel;
 	}
 
-	load(personnel: Personnel[], clinicId: string) {
+	load(personnel: Personnel[], orgId: string) {
 		this.#personnel = personnel;
-		this.#clinicId = clinicId;
+		this.#orgId = orgId;
 	}
 
 	async add(data: Omit<Personnel, 'id'>): Promise<Personnel | null> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/personnel`, {
+		const res = await fetch(`/org/${this.#orgId}/api/personnel`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(data)
@@ -26,7 +26,7 @@ class PersonnelStore {
 	}
 
 	async update(id: string, data: Partial<Omit<Personnel, 'id'>>): Promise<boolean> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/personnel`, {
+		const res = await fetch(`/org/${this.#orgId}/api/personnel`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id, ...data })
@@ -38,7 +38,7 @@ class PersonnelStore {
 	}
 
 	async remove(id: string): Promise<boolean> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/personnel`, {
+		const res = await fetch(`/org/${this.#orgId}/api/personnel`, {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id })

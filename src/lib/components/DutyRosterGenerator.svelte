@@ -465,7 +465,7 @@
 
 					{#if allRoles().length > 0}
 						<div class="filter-group">
-							<label class="label">Clinic Roles</label>
+							<label class="label">Roles</label>
 							<div class="chip-list">
 								{#each allRoles() as role}
 									<button

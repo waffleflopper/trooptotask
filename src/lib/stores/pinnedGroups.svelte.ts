@@ -1,14 +1,14 @@
 class PinnedGroupsStore {
 	#pinnedGroups = $state<string[]>([]);
-	#clinicId = '';
+	#orgId = '';
 
 	get list() {
 		return this.#pinnedGroups;
 	}
 
-	load(pinnedGroups: string[], clinicId: string) {
+	load(pinnedGroups: string[], orgId: string) {
 		this.#pinnedGroups = pinnedGroups;
-		this.#clinicId = clinicId;
+		this.#orgId = orgId;
 	}
 
 	isPinned(group: string): boolean {
@@ -18,7 +18,7 @@ class PinnedGroupsStore {
 	async pin(group: string): Promise<boolean> {
 		if (this.#pinnedGroups.includes(group)) return true;
 
-		const res = await fetch(`/clinic/${this.#clinicId}/api/pinned-groups`, {
+		const res = await fetch(`/org/${this.#orgId}/api/pinned-groups`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ groupName: group, sortOrder: this.#pinnedGroups.length })
@@ -29,7 +29,7 @@ class PinnedGroupsStore {
 	}
 
 	async unpin(group: string): Promise<boolean> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/pinned-groups`, {
+		const res = await fetch(`/org/${this.#orgId}/api/pinned-groups`, {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ groupName: group })
@@ -54,7 +54,7 @@ class PinnedGroupsStore {
 		const newList = [...this.#pinnedGroups];
 		[newList[index - 1], newList[index]] = [newList[index], newList[index - 1]];
 
-		const res = await fetch(`/clinic/${this.#clinicId}/api/pinned-groups`, {
+		const res = await fetch(`/org/${this.#orgId}/api/pinned-groups`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ action: 'replace', groups: newList })
@@ -71,7 +71,7 @@ class PinnedGroupsStore {
 		const newList = [...this.#pinnedGroups];
 		[newList[index], newList[index + 1]] = [newList[index + 1], newList[index]];
 
-		const res = await fetch(`/clinic/${this.#clinicId}/api/pinned-groups`, {
+		const res = await fetch(`/org/${this.#orgId}/api/pinned-groups`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ action: 'replace', groups: newList })

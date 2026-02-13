@@ -1,25 +1,25 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import type { ClinicMemberPermissions } from '$lib/types';
+	import type { OrganizationMemberPermissions } from '$lib/types';
 
-	interface ClinicInfo {
+	interface OrgInfo {
 		id: string;
 		name: string;
 		role: string;
 	}
 
 	interface Props {
-		clinicId: string;
-		clinicName?: string;
+		orgId: string;
+		orgName?: string;
 		isOpen?: boolean;
 		onClose?: () => void;
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
 		// Permissions for visibility control
-		permissions?: ClinicMemberPermissions;
-		// All clinics user belongs to (for switcher)
-		allClinics?: ClinicInfo[];
+		permissions?: OrganizationMemberPermissions;
+		// All organizations user belongs to (for switcher)
+		allOrgs?: OrgInfo[];
 		// Calendar-specific callbacks (only shown on calendar page)
 		onShowLongRangeView?: () => void;
 		onShowAssignmentPlanner?: () => void;
@@ -49,14 +49,14 @@
 	}
 
 	let {
-		clinicId,
-		clinicName = 'Troop to Task',
+		orgId,
+		orgName = 'Troop to Task',
 		isOpen = false,
 		onClose,
 		onToggleTheme,
 		isDarkTheme,
 		permissions,
-		allClinics = [],
+		allOrgs = [],
 		onShowLongRangeView,
 		onShowAssignmentPlanner,
 		onShowBulkStatus,
@@ -78,15 +78,15 @@
 		onShowTrainingBulkImport
 	}: Props = $props();
 
-	let showClinicSwitcher = $state(false);
+	let showOrgSwitcher = $state(false);
 
-	function handleClinicSwitch(newClinicId: string) {
-		showClinicSwitcher = false;
-		if (newClinicId !== clinicId) {
-			// Navigate to same page type on the new clinic
+	function handleOrgSwitch(newOrgId: string) {
+		showOrgSwitcher = false;
+		if (newOrgId !== orgId) {
+			// Navigate to same page type on the new org
 			const currentPath = $page.url.pathname;
-			const pathSuffix = currentPath.replace(`/clinic/${clinicId}`, '');
-			goto(`/clinic/${newClinicId}${pathSuffix}`);
+			const pathSuffix = currentPath.replace(`/org/${orgId}`, '');
+			goto(`/org/${newOrgId}${pathSuffix}`);
 		}
 	}
 
@@ -154,7 +154,7 @@
 
 <aside class="sidebar" class:open={isOpen}>
 	<div class="sidebar-header">
-		<a href="/clinic/{clinicId}" class="logo-link" onclick={() => onClose?.()}>
+		<a href="/org/{orgId}" class="logo-link" onclick={() => onClose?.()}>
 			<h1>Troop to Task</h1>
 		</a>
 		<button class="close-btn" onclick={onClose} aria-label="Close sidebar">
@@ -165,42 +165,42 @@
 		</button>
 	</div>
 
-	{#if clinicName}
-		<div class="clinic-switcher">
-			{#if allClinics.length > 1}
+	{#if orgName}
+		<div class="org-switcher">
+			{#if allOrgs.length > 1}
 				<button
-					class="clinic-switcher-btn"
-					onclick={() => (showClinicSwitcher = !showClinicSwitcher)}
-					aria-expanded={showClinicSwitcher}
+					class="org-switcher-btn"
+					onclick={() => (showOrgSwitcher = !showOrgSwitcher)}
+					aria-expanded={showOrgSwitcher}
 				>
-					<span class="clinic-name-text">{clinicName}</span>
-					<svg class="chevron" class:open={showClinicSwitcher} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<span class="org-name-text">{orgName}</span>
+					<svg class="chevron" class:open={showOrgSwitcher} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<polyline points="6 9 12 15 18 9" />
 					</svg>
 				</button>
-				{#if showClinicSwitcher}
-					<div class="clinic-dropdown">
-						{#each allClinics as c (c.id)}
+				{#if showOrgSwitcher}
+					<div class="org-dropdown">
+						{#each allOrgs as o (o.id)}
 							<button
-								class="clinic-option"
-								class:active={c.id === clinicId}
-								onclick={() => handleClinicSwitch(c.id)}
+								class="org-option"
+								class:active={o.id === orgId}
+								onclick={() => handleOrgSwitch(o.id)}
 							>
-								<span class="clinic-option-name">{c.name}</span>
-								<span class="clinic-option-role">{c.role}</span>
+								<span class="org-option-name">{o.name}</span>
+								<span class="org-option-role">{o.role}</span>
 							</button>
 						{/each}
-						<a href="/dashboard?show=all" class="clinic-option manage-link" onclick={() => onClose?.()}>
+						<a href="/dashboard?show=all" class="org-option manage-link" onclick={() => onClose?.()}>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 								<circle cx="12" cy="12" r="3" />
 								<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
 							</svg>
-							Manage Clinics
+							Manage Organizations
 						</a>
 					</div>
 				{/if}
 			{:else}
-				<div class="clinic-name-static">{clinicName}</div>
+				<div class="org-name-static">{orgName}</div>
 			{/if}
 		</div>
 	{/if}
@@ -210,9 +210,9 @@
 			<h3>Navigation</h3>
 			{#if perms.canViewCalendar}
 				<a
-					href="/clinic/{clinicId}"
+					href="/org/{orgId}"
 					class="nav-item"
-					class:active={$page.url.pathname === `/clinic/${clinicId}`}
+					class:active={$page.url.pathname === `/org/${orgId}`}
 					onclick={() => onClose?.()}
 				>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -226,9 +226,9 @@
 			{/if}
 			{#if perms.canViewPersonnel}
 				<a
-					href="/clinic/{clinicId}/personnel"
+					href="/org/{orgId}/personnel"
 					class="nav-item"
-					class:active={isActive(`/clinic/${clinicId}/personnel`)}
+					class:active={isActive(`/org/${orgId}/personnel`)}
 					onclick={() => onClose?.()}
 				>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -242,9 +242,9 @@
 			{/if}
 			{#if perms.canViewTraining}
 				<a
-					href="/clinic/{clinicId}/training"
+					href="/org/{orgId}/training"
 					class="nav-item"
-					class:active={isActive(`/clinic/${clinicId}/training`)}
+					class:active={isActive(`/org/${orgId}/training`)}
 					onclick={() => onClose?.()}
 				>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -457,7 +457,7 @@
 					Holidays
 				</button>
 			{/if}
-			<a href="/clinic/{clinicId}/settings" class="nav-item" onclick={() => onClose?.()}>
+			<a href="/org/{orgId}/settings" class="nav-item" onclick={() => onClose?.()}>
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
 					<circle cx="12" cy="12" r="3" />
@@ -584,13 +584,13 @@
 		height: 20px;
 	}
 
-	.clinic-switcher {
+	.org-switcher {
 		position: relative;
 		border-bottom: 1px solid var(--color-border);
 		background: var(--color-bg);
 	}
 
-	.clinic-switcher-btn {
+	.org-switcher-btn {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -605,36 +605,36 @@
 		transition: background 0.15s ease;
 	}
 
-	.clinic-switcher-btn:hover {
+	.org-switcher-btn:hover {
 		background: var(--color-surface);
 		color: var(--color-text);
 	}
 
-	.clinic-name-text {
+	.org-name-text {
 		flex: 1;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
-	.clinic-switcher-btn .chevron {
+	.org-switcher-btn .chevron {
 		width: 16px;
 		height: 16px;
 		flex-shrink: 0;
 		transition: transform 0.2s ease;
 	}
 
-	.clinic-switcher-btn .chevron.open {
+	.org-switcher-btn .chevron.open {
 		transform: rotate(180deg);
 	}
 
-	.clinic-name-static {
+	.org-name-static {
 		padding: var(--spacing-sm) var(--spacing-lg);
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 	}
 
-	.clinic-dropdown {
+	.org-dropdown {
 		position: absolute;
 		top: 100%;
 		left: 0;
@@ -648,7 +648,7 @@
 		overflow-y: auto;
 	}
 
-	.clinic-option {
+	.org-option {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -664,37 +664,37 @@
 		transition: background 0.15s ease;
 	}
 
-	.clinic-option:hover {
+	.org-option:hover {
 		background: var(--color-bg);
 	}
 
-	.clinic-option.active {
+	.org-option.active {
 		background: var(--color-bg);
 		font-weight: 600;
 		color: var(--color-primary);
 	}
 
-	.clinic-option-name {
+	.org-option-name {
 		flex: 1;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
-	.clinic-option-role {
+	.org-option-role {
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
 		text-transform: capitalize;
 		margin-left: var(--spacing-sm);
 	}
 
-	.clinic-option.manage-link {
+	.org-option.manage-link {
 		border-top: 1px solid var(--color-border);
 		color: var(--color-primary);
 		gap: var(--spacing-sm);
 	}
 
-	.clinic-option.manage-link svg {
+	.org-option.manage-link svg {
 		width: 16px;
 		height: 16px;
 	}
@@ -892,8 +892,8 @@
 			font-size: var(--font-size-xl);
 		}
 
-		.clinic-switcher-btn,
-		.clinic-name-static {
+		.org-switcher-btn,
+		.org-name-static {
 			padding: var(--spacing-xs) var(--spacing-md);
 			font-size: var(--font-size-xs);
 		}

@@ -32,7 +32,7 @@
 				</svg>
 			</div>
 			<h1>Troop to Task</h1>
-			<p class="subtitle">Army Clinic Staff Scheduling</p>
+			<p class="subtitle">Unit Staff Scheduling</p>
 		</div>
 
 		<form

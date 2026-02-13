@@ -44,7 +44,7 @@
 	</button>
 	<div class="selector-card">
 		<h1>Troop to Task</h1>
-		<p class="subtitle">Select a clinic to manage</p>
+		<p class="subtitle">Select an organization to manage</p>
 
 		{#if form?.error}
 			<div class="error-message">{form.error}</div>
@@ -57,7 +57,7 @@
 					{#each data.pendingInvitations as invitation (invitation.id)}
 						<div class="invitation-item">
 							<div class="invitation-info">
-								<span class="invitation-clinic">{invitation.clinicName}</span>
+								<span class="invitation-org">{invitation.organizationName}</span>
 								<span class="invitation-meta">Invited {formatDate(invitation.createdAt)}</span>
 							</div>
 							<div class="invitation-actions">
@@ -100,21 +100,21 @@
 			</div>
 		{/if}
 
-		{#if data.clinics.length > 0}
-			<div class="clinic-list">
-				{#each data.clinics as clinic}
-					<a href="/clinic/{clinic.id}" class="clinic-item">
-						<span class="clinic-name">{clinic.name}</span>
-						<span class="clinic-role">{clinic.role}</span>
+		{#if data.organizations.length > 0}
+			<div class="org-list">
+				{#each data.organizations as org}
+					<a href="/org/{org.id}" class="org-item">
+						<span class="org-name">{org.name}</span>
+						<span class="org-role">{org.role}</span>
 					</a>
 				{/each}
 			</div>
 		{:else}
-			<p class="no-clinics">You are not a member of any clinics yet.</p>
+			<p class="no-orgs">You are not a member of any organizations yet.</p>
 		{/if}
 
 		<div class="actions">
-			<a href="/clinic/new" class="btn btn-primary">Create New Clinic</a>
+			<a href="/org/new" class="btn btn-primary">Create New Organization</a>
 			<a href="/auth/logout" class="btn btn-secondary">Sign Out</a>
 		</div>
 	</div>
@@ -206,7 +206,7 @@
 		gap: 2px;
 	}
 
-	.invitation-clinic {
+	.invitation-org {
 		font-weight: 600;
 		color: var(--color-text);
 	}
@@ -226,14 +226,14 @@
 		font-size: var(--font-size-sm);
 	}
 
-	.clinic-list {
+	.org-list {
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-sm);
 		margin-bottom: var(--spacing-lg);
 	}
 
-	.clinic-item {
+	.org-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -245,22 +245,22 @@
 		transition: all 0.15s ease;
 	}
 
-	.clinic-item:hover {
+	.org-item:hover {
 		border-color: var(--color-primary);
 		background: var(--color-bg);
 	}
 
-	.clinic-name {
+	.org-name {
 		font-weight: 600;
 	}
 
-	.clinic-role {
+	.org-role {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 		text-transform: capitalize;
 	}
 
-	.no-clinics {
+	.no-orgs {
 		text-align: center;
 		color: var(--color-text-muted);
 		font-size: var(--font-size-sm);

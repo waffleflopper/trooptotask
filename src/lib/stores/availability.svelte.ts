@@ -3,19 +3,19 @@ import { isDateInRange, formatDate } from '../utils/dates';
 
 class AvailabilityStore {
 	#entries = $state<AvailabilityEntry[]>([]);
-	#clinicId = '';
+	#orgId = '';
 
 	get list() {
 		return this.#entries;
 	}
 
-	load(entries: AvailabilityEntry[], clinicId: string) {
+	load(entries: AvailabilityEntry[], orgId: string) {
 		this.#entries = entries;
-		this.#clinicId = clinicId;
+		this.#orgId = orgId;
 	}
 
 	async add(data: Omit<AvailabilityEntry, 'id'>): Promise<AvailabilityEntry | null> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/availability`, {
+		const res = await fetch(`/org/${this.#orgId}/api/availability`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(data)
@@ -27,7 +27,7 @@ class AvailabilityStore {
 	}
 
 	async remove(id: string): Promise<boolean> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/availability`, {
+		const res = await fetch(`/org/${this.#orgId}/api/availability`, {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id })

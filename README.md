@@ -1,6 +1,6 @@
 # Troop to Task
 
-A personnel scheduling and availability tracking application designed for Army medical units. Built with SvelteKit and Supabase.
+A personnel scheduling and availability tracking application designed for Army units and organizations. Built with SvelteKit and Supabase.
 
 ## Features
 
@@ -13,7 +13,7 @@ A personnel scheduling and availability tracking application designed for Army m
 
 ### Personnel Management
 - Organize personnel by groups/sections
-- Track rank, MOS, and clinic roles
+- Track rank, MOS, and roles
 - Pin frequently accessed groups to the top
 - Bulk import via CSV or Excel file upload
 - Bulk delete functionality
@@ -41,7 +41,7 @@ A personnel scheduling and availability tracking application designed for Army m
 - Dark/Light mode support
 - Bulk status application for multiple personnel
 - Federal holiday management
-- Multi-clinic support with role-based access
+- Multi-organization support with role-based access
 - Invite-only registration system
 
 ## Tech Stack
@@ -101,12 +101,12 @@ src/
 │   └── utils/          # Utility functions
 ├── routes/
 │   ├── auth/           # Login, register, logout
-│   ├── clinic/[clinicId]/
+│   ├── org/[orgId]/
 │   │   ├── +page.svelte        # Main calendar view
 │   │   ├── personnel/          # Personnel management
 │   │   ├── training/           # Training tracker
-│   │   └── settings/           # Clinic settings
-│   └── dashboard/      # Clinic selector
+│   │   └── settings/           # Organization settings
+│   └── dashboard/      # Organization selector
 └── app.css             # Global styles and CSS variables
 ```
 

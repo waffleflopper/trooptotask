@@ -10,10 +10,10 @@ export interface Personnel {
 }
 
 // ============================================================
-// Clinic Member Permissions
+// Organization Member Permissions
 // ============================================================
 
-export interface ClinicMemberPermissions {
+export interface OrganizationMemberPermissions {
 	canViewCalendar: boolean;
 	canEditCalendar: boolean;
 	canViewPersonnel: boolean;
@@ -23,21 +23,21 @@ export interface ClinicMemberPermissions {
 	canManageMembers: boolean;
 }
 
-export interface ClinicMember extends ClinicMemberPermissions {
+export interface OrganizationMember extends OrganizationMemberPermissions {
 	id: string;
-	clinicId: string;
+	organizationId: string;
 	userId: string;
 	email?: string; // From user lookup or invitation
 	role: 'owner' | 'member';
 	createdAt: string;
 }
 
-export interface ClinicInvitation {
+export interface OrganizationInvitation {
 	id: string;
-	clinicId: string;
+	organizationId: string;
 	email: string;
 	status: 'pending' | 'accepted' | 'revoked';
-	permissions: ClinicMemberPermissions;
+	permissions: OrganizationMemberPermissions;
 	createdAt: string;
 }
 
@@ -52,7 +52,7 @@ export type PermissionPreset =
 	| 'viewer'
 	| 'custom';
 
-export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'custom'>, ClinicMemberPermissions> = {
+export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'custom'>, OrganizationMemberPermissions> = {
 	admin: {
 		canViewCalendar: true,
 		canEditCalendar: true,
@@ -109,7 +109,7 @@ export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'cus
 	}
 };
 
-export function getPermissionPreset(permissions: ClinicMemberPermissions): PermissionPreset {
+export function getPermissionPreset(permissions: OrganizationMemberPermissions): PermissionPreset {
 	// Check each preset
 	for (const [preset, presetPermissions] of Object.entries(PERMISSION_PRESETS)) {
 		if (
@@ -146,7 +146,7 @@ export interface SpecialDay {
 	id: string;
 	date: string;
 	name: string;
-	type: 'federal-holiday' | 'clinic-closure';
+	type: 'federal-holiday' | 'org-closure';
 }
 
 export const ARMY_RANKS = {

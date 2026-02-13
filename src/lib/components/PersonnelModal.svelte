@@ -128,7 +128,7 @@
 					/>
 				</div>
 				<div class="form-group">
-					<label class="label" for="clinicRole">Clinic Role</label>
+					<label class="label" for="clinicRole">Role</label>
 					<input
 						id="clinicRole"
 						type="text"

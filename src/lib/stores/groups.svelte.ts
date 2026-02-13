@@ -6,7 +6,7 @@ export interface Group {
 
 class GroupsStore {
 	#groups = $state<Group[]>([]);
-	#clinicId = '';
+	#orgId = '';
 
 	get list() {
 		return this.#groups;
@@ -16,9 +16,9 @@ class GroupsStore {
 		return this.#groups.map((g) => g.name);
 	}
 
-	load(groups: Group[], clinicId: string) {
+	load(groups: Group[], orgId: string) {
 		this.#groups = groups;
-		this.#clinicId = clinicId;
+		this.#orgId = orgId;
 	}
 
 	async add(name: string): Promise<Group | null> {
@@ -30,7 +30,7 @@ class GroupsStore {
 			return null;
 		}
 
-		const res = await fetch(`/clinic/${this.#clinicId}/api/groups`, {
+		const res = await fetch(`/org/${this.#orgId}/api/groups`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ name: trimmedName, sortOrder: this.#groups.length })
@@ -42,7 +42,7 @@ class GroupsStore {
 	}
 
 	async remove(id: string): Promise<boolean> {
-		const res = await fetch(`/clinic/${this.#clinicId}/api/groups`, {
+		const res = await fetch(`/org/${this.#orgId}/api/groups`, {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id })
@@ -54,7 +54,7 @@ class GroupsStore {
 
 	async rename(id: string, newName: string): Promise<boolean> {
 		if (!newName.trim()) return false;
-		const res = await fetch(`/clinic/${this.#clinicId}/api/groups`, {
+		const res = await fetch(`/org/${this.#orgId}/api/groups`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id, name: newName.trim() })

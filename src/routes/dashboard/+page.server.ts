@@ -9,49 +9,49 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// Allow forcing dashboard view with ?show=all
 	const forceShow = url.searchParams.get('show') === 'all';
 
-	// Get clinics the user belongs to
+	// Get organizations the user belongs to
 	const { data: memberships } = await locals.supabase
-		.from('clinic_memberships')
-		.select('clinic_id, role, clinics(id, name)')
+		.from('organization_memberships')
+		.select('organization_id, role, organizations(id, name)')
 		.eq('user_id', user.id);
 
-	const clinics = (memberships ?? [])
-		.filter((m: any) => m.clinics)
+	const organizations = (memberships ?? [])
+		.filter((m: any) => m.organizations)
 		.map((m: any) => ({
-			id: m.clinics.id,
-			name: m.clinics.name,
+			id: m.organizations.id,
+			name: m.organizations.name,
 			role: m.role
 		}));
 
 	// Get pending invitations for this user's email
 	const { data: invitations, error: inviteError } = await locals.supabase
-		.from('clinic_invitations')
-		.select('id, clinic_id, email, status, created_at, clinics(id, name)')
+		.from('organization_invitations')
+		.select('id, organization_id, email, status, created_at, organizations(id, name)')
 		.eq('email', user.email?.toLowerCase())
 		.eq('status', 'pending')
 		.order('created_at', { ascending: false });
 
 	const pendingInvitations = (invitations ?? [])
-		.filter((inv: any) => inv.clinics)
+		.filter((inv: any) => inv.organizations)
 		.map((inv: any) => ({
 			id: inv.id,
-			clinicId: inv.clinic_id,
-			clinicName: inv.clinics.name,
+			organizationId: inv.organization_id,
+			organizationName: inv.organizations.name,
 			createdAt: inv.created_at
 		}));
 
-	// If user has exactly one clinic AND no pending invitations, redirect directly
+	// If user has exactly one organization AND no pending invitations, redirect directly
 	// (unless forceShow is set)
-	if (!forceShow && clinics.length === 1 && pendingInvitations.length === 0) {
-		throw redirect(303, `/clinic/${clinics[0].id}`);
+	if (!forceShow && organizations.length === 1 && pendingInvitations.length === 0) {
+		throw redirect(303, `/org/${organizations[0].id}`);
 	}
 
-	// If user has no clinics and no pending invitations, redirect to create one
-	if (!forceShow && clinics.length === 0 && pendingInvitations.length === 0) {
-		throw redirect(303, '/clinic/new');
+	// If user has no organizations and no pending invitations, redirect to create one
+	if (!forceShow && organizations.length === 0 && pendingInvitations.length === 0) {
+		throw redirect(303, '/org/new');
 	}
 
-	return { clinics, pendingInvitations };
+	return { organizations, pendingInvitations };
 };
 
 export const actions: Actions = {
@@ -68,7 +68,7 @@ export const actions: Actions = {
 
 		// Get the invitation
 		const { data: invitation, error: fetchError } = await locals.supabase
-			.from('clinic_invitations')
+			.from('organization_invitations')
 			.select('*')
 			.eq('id', invitationId)
 			.eq('email', user.email?.toLowerCase())
@@ -80,26 +80,26 @@ export const actions: Actions = {
 
 		// Check if already a member
 		const { data: existing } = await locals.supabase
-			.from('clinic_memberships')
+			.from('organization_memberships')
 			.select('id')
-			.eq('clinic_id', invitation.clinic_id)
+			.eq('organization_id', invitation.organization_id)
 			.eq('user_id', user.id)
 			.single();
 
 		if (existing) {
 			// Already a member, just delete the invitation
 			await locals.supabase
-				.from('clinic_invitations')
+				.from('organization_invitations')
 				.delete()
 				.eq('id', invitationId);
-			return fail(400, { error: 'You are already a member of this clinic' });
+			return fail(400, { error: 'You are already a member of this organization' });
 		}
 
 		// Create membership with the invitation's permissions
 		const { error: memberError } = await locals.supabase
-			.from('clinic_memberships')
+			.from('organization_memberships')
 			.insert({
-				clinic_id: invitation.clinic_id,
+				organization_id: invitation.organization_id,
 				user_id: user.id,
 				email: user.email?.toLowerCase(),
 				role: 'member',
@@ -118,7 +118,7 @@ export const actions: Actions = {
 
 		// Delete the invitation
 		await locals.supabase
-			.from('clinic_invitations')
+			.from('organization_invitations')
 			.delete()
 			.eq('id', invitationId);
 
@@ -138,7 +138,7 @@ export const actions: Actions = {
 
 		// Delete the invitation
 		const { error } = await locals.supabase
-			.from('clinic_invitations')
+			.from('organization_invitations')
 			.delete()
 			.eq('id', invitationId)
 			.eq('email', user.email?.toLowerCase());

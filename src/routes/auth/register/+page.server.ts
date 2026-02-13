@@ -99,6 +99,12 @@ export const actions: Actions = {
 			}
 		}
 
+		// Check if email confirmation is required
+		// If there's a user but no session, email confirmation is pending
+		if (signUpData.user && !signUpData.session) {
+			return { success: true, confirmEmail: true, email };
+		}
+
 		redirect(303, '/dashboard');
 	}
 };

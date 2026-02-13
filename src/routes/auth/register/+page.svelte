@@ -35,102 +35,137 @@
 				</svg>
 			</div>
 			<h1>Troop to Task</h1>
-			<p class="subtitle">Create your account</p>
-		</div>
-
-		<form
-			method="POST"
-			use:enhance={() => {
-				loading = true;
-				return async ({ update }) => {
-					loading = false;
-					await update();
-				};
-			}}
-		>
-			{#if form?.error}
-				<div class="error-message">
-					<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-						<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-					</svg>
-					{form.error}
-				</div>
+			{#if form?.confirmEmail}
+				<p class="subtitle">Check your email</p>
+			{:else}
+				<p class="subtitle">Create your account</p>
 			{/if}
-
-			<div class="form-group">
-				<label class="label" for="inviteCode">Invite Code</label>
-				<input
-					id="inviteCode"
-					name="inviteCode"
-					type="text"
-					class="input"
-					value={initialInviteCode}
-					required
-					autocomplete="off"
-					placeholder="Enter your invite code"
-				/>
-				<span class="field-hint">Registration is by invitation only</span>
-			</div>
-
-			<div class="form-group">
-				<label class="label" for="email">Email Address</label>
-				<input
-					id="email"
-					name="email"
-					type="email"
-					class="input"
-					value={initialEmail}
-					required
-					autocomplete="email"
-					placeholder="you@example.com"
-				/>
-			</div>
-
-			<div class="form-group">
-				<label class="label" for="password">Password</label>
-				<input
-					id="password"
-					name="password"
-					type="password"
-					class="input"
-					required
-					minlength="6"
-					autocomplete="new-password"
-					placeholder="At least 6 characters"
-				/>
-			</div>
-
-			<div class="form-group">
-				<label class="label" for="confirmPassword">Confirm Password</label>
-				<input
-					id="confirmPassword"
-					name="confirmPassword"
-					type="password"
-					class="input"
-					required
-					minlength="6"
-					autocomplete="new-password"
-					placeholder="Re-enter your password"
-				/>
-			</div>
-
-			<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
-				{#if loading}
-					<span class="spinner"></span>
-					Creating account...
-				{:else}
-					Create Account
-				{/if}
-			</button>
-		</form>
-
-		<div class="divider">
-			<span>or</span>
 		</div>
 
-		<p class="auth-link">
-			Already have an account? <a href="/auth/login">Sign in</a>
-		</p>
+		{#if form?.confirmEmail}
+			<!-- Email confirmation message -->
+			<div class="confirm-email-section">
+				<div class="confirm-icon">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+						<polyline points="22,6 12,13 2,6" />
+					</svg>
+				</div>
+				<h2 class="confirm-title">Confirm your email</h2>
+				<p class="confirm-text">
+					We've sent a confirmation link to <strong>{form.email}</strong>
+				</p>
+				<p class="confirm-text">
+					Please check your email and click the link to activate your account.
+				</p>
+				<div class="confirm-hint">
+					<p>Didn't receive the email? Check your spam folder or</p>
+					<a href="/auth/register" class="btn btn-secondary">Try again</a>
+				</div>
+			</div>
+
+			<div class="divider">
+				<span>or</span>
+			</div>
+
+			<p class="auth-link">
+				Already confirmed? <a href="/auth/login">Sign in</a>
+			</p>
+		{:else}
+			<form
+				method="POST"
+				use:enhance={() => {
+					loading = true;
+					return async ({ update }) => {
+						loading = false;
+						await update();
+					};
+				}}
+			>
+				{#if form?.error}
+					<div class="error-message">
+						<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
+							<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+						</svg>
+						{form.error}
+					</div>
+				{/if}
+
+				<div class="form-group">
+					<label class="label" for="inviteCode">Invite Code</label>
+					<input
+						id="inviteCode"
+						name="inviteCode"
+						type="text"
+						class="input"
+						value={initialInviteCode}
+						required
+						autocomplete="off"
+						placeholder="Enter your invite code"
+					/>
+					<span class="field-hint">Registration is by invitation only</span>
+				</div>
+
+				<div class="form-group">
+					<label class="label" for="email">Email Address</label>
+					<input
+						id="email"
+						name="email"
+						type="email"
+						class="input"
+						value={initialEmail}
+						required
+						autocomplete="email"
+						placeholder="you@example.com"
+					/>
+				</div>
+
+				<div class="form-group">
+					<label class="label" for="password">Password</label>
+					<input
+						id="password"
+						name="password"
+						type="password"
+						class="input"
+						required
+						minlength="6"
+						autocomplete="new-password"
+						placeholder="At least 6 characters"
+					/>
+				</div>
+
+				<div class="form-group">
+					<label class="label" for="confirmPassword">Confirm Password</label>
+					<input
+						id="confirmPassword"
+						name="confirmPassword"
+						type="password"
+						class="input"
+						required
+						minlength="6"
+						autocomplete="new-password"
+						placeholder="Re-enter your password"
+					/>
+				</div>
+
+				<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
+					{#if loading}
+						<span class="spinner"></span>
+						Creating account...
+					{:else}
+						Create Account
+					{/if}
+				</button>
+			</form>
+
+			<div class="divider">
+				<span>or</span>
+			</div>
+
+			<p class="auth-link">
+				Already have an account? <a href="/auth/login">Sign in</a>
+			</p>
+		{/if}
 	</div>
 
 	<footer class="auth-footer">
@@ -216,6 +251,64 @@
 		margin-top: var(--spacing-xs);
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
+	}
+
+	/* Email confirmation styles */
+	.confirm-email-section {
+		text-align: center;
+		padding: var(--spacing-md) 0;
+	}
+
+	.confirm-icon {
+		width: 64px;
+		height: 64px;
+		margin: 0 auto var(--spacing-md);
+		background: #dcfce7;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #16a34a;
+	}
+
+	.confirm-icon svg {
+		width: 32px;
+		height: 32px;
+	}
+
+	.confirm-title {
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		margin-bottom: var(--spacing-md);
+		color: var(--color-text);
+	}
+
+	.confirm-text {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		margin-bottom: var(--spacing-sm);
+		line-height: 1.5;
+	}
+
+	.confirm-text strong {
+		color: var(--color-text);
+	}
+
+	.confirm-hint {
+		margin-top: var(--spacing-lg);
+		padding-top: var(--spacing-lg);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.confirm-hint p {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		margin-bottom: var(--spacing-sm);
+	}
+
+	:global([data-theme='dark']) .confirm-icon {
+		background: #14532d;
+		color: #4ade80;
 	}
 
 	.btn-full {

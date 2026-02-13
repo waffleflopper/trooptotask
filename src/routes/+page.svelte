@@ -103,6 +103,7 @@
 				</button>
 				{#if data.user}
 					<a href="/dashboard?show=all" class="btn btn-primary">Dashboard</a>
+					<a href="/auth/logout" class="btn btn-secondary">Sign Out</a>
 				{:else}
 					<a href="/auth/login" class="nav-link">Sign In</a>
 					<a href="/auth/login" class="btn btn-primary">Get Started</a>

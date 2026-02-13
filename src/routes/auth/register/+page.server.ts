@@ -59,36 +59,34 @@ export const actions: Actions = {
 			return fail(400, { error: 'This invite code is for a different email address', email, inviteCode });
 		}
 
-		const { error } = await locals.supabase.auth.signUp({ email, password });
+		const { data: signUpData, error } = await locals.supabase.auth.signUp({ email, password });
 
 		if (error) {
 			return fail(400, { error: error.message, email, inviteCode });
 		}
 
-		// Mark invite as used
-		const { data: { user } } = await locals.supabase.auth.getUser();
-		if (user) {
+		// Mark invite as used - use the user from signup response
+		const newUser = signUpData.user;
+		if (newUser) {
 			await locals.supabase
 				.from('registration_invites')
-				.update({ used_by: user.id, used_at: new Date().toISOString() })
+				.update({ used_by: newUser.id, used_at: new Date().toISOString() })
 				.eq('code', inviteCode);
 		}
 
-		// After signup, auto-accept any pending invitations for this email
-		const { data: invitations } = await locals.supabase
-			.from('clinic_invitations')
-			.select('clinic_id')
-			.eq('email', email.toLowerCase())
-			.eq('status', 'pending');
+		// After signup, auto-accept any pending clinic invitations for this email
+		if (newUser) {
+			const { data: invitations } = await locals.supabase
+				.from('clinic_invitations')
+				.select('clinic_id')
+				.eq('email', email.toLowerCase())
+				.eq('status', 'pending');
 
-		if (invitations && invitations.length > 0) {
-			// Get the newly created user
-			const { data: { user } } = await locals.supabase.auth.getUser();
-			if (user) {
+			if (invitations && invitations.length > 0) {
 				for (const inv of invitations) {
 					await locals.supabase.from('clinic_memberships').insert({
 						clinic_id: inv.clinic_id,
-						user_id: user.id,
+						user_id: newUser.id,
 						email: email.toLowerCase(),
 						role: 'member'
 					});

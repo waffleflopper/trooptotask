@@ -1,26 +1,48 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import OrganizationMemberManager from '$lib/components/OrganizationMemberManager.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
+	import { themeStore } from '$lib/stores/theme.svelte';
 
 	let { data, form } = $props();
 	let loading = $state(false);
 	let showDeleteConfirm = $state(false);
 	let deleteConfirmText = $state('');
+	let showSidebar = $state(false);
 </script>
 
 <svelte:head>
 	<title>Settings - {data.organization?.name} - Troop to Task</title>
 </svelte:head>
 
-<div class="settings-page">
-	<header class="settings-header">
-		<div class="header-content">
-			<a href="/org/{data.orgId}" class="back-link">&larr; Back to Calendar</a>
-			<h1>Organization Settings</h1>
-		</div>
+<Sidebar
+	orgId={data.orgId}
+	orgName={data.orgName}
+	isOpen={showSidebar}
+	onClose={() => (showSidebar = false)}
+	onToggleTheme={() => themeStore.toggle()}
+	isDarkTheme={themeStore.isDark}
+	permissions={data.permissions}
+	allOrgs={data.allOrgs}
+/>
+
+<div class="page">
+	<header class="page-header mobile-only">
+		<h1>Settings</h1>
+		<button class="mobile-menu-btn" onclick={() => (showSidebar = true)} aria-label="Open menu">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<line x1="3" y1="12" x2="21" y2="12" />
+				<line x1="3" y1="6" x2="21" y2="6" />
+				<line x1="3" y1="18" x2="21" y2="18" />
+			</svg>
+		</button>
 	</header>
 
-	<main class="settings-content">
+	<div class="toolbar-header">
+		<h2>Organization Settings</h2>
+	</div>
+
+	<main class="page-content">
 		<div class="settings-card">
 			<h2>Organization Information</h2>
 
@@ -146,45 +168,77 @@
 {/if}
 
 <style>
-	.settings-page {
-		min-height: 100%;
+	.page {
+		height: 100%;
+		display: flex;
+		flex-direction: column;
 		background: var(--color-bg);
+		margin-left: var(--sidebar-width);
 	}
 
-	.settings-header {
+	/* Mobile header - only visible on mobile */
+	.page-header.mobile-only {
+		display: none;
+	}
+
+	.page-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--spacing-sm) var(--spacing-md);
 		background: var(--color-primary);
 		color: white;
-		padding: var(--spacing-md) var(--spacing-lg);
 	}
 
-	.header-content {
-		max-width: 800px;
-		margin: 0 auto;
+	.page-header h1 {
+		font-size: var(--font-size-lg);
+		font-weight: 700;
 	}
 
-	.back-link {
-		color: rgba(255, 255, 255, 0.8);
-		text-decoration: none;
-		font-size: var(--font-size-sm);
-	}
-
-	.back-link:hover {
+	.mobile-menu-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: var(--radius-md);
+		background: rgba(255, 255, 255, 0.1);
 		color: white;
 	}
 
-	.settings-header h1 {
-		font-size: var(--font-size-xl);
-		font-weight: 700;
-		margin-top: var(--spacing-sm);
+	.mobile-menu-btn:hover {
+		background: rgba(255, 255, 255, 0.2);
 	}
 
-	.settings-content {
+	.mobile-menu-btn svg {
+		width: 24px;
+		height: 24px;
+	}
+
+	.toolbar-header {
+		display: flex;
+		align-items: center;
+		padding: var(--spacing-md) var(--spacing-lg);
+		background: var(--color-surface);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.toolbar-header h2 {
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		color: var(--color-text);
+		margin: 0;
+	}
+
+	.page-content {
+		flex: 1;
 		max-width: 800px;
 		margin: 0 auto;
 		padding: var(--spacing-lg);
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-lg);
+		width: 100%;
 	}
 
 	.settings-card {
@@ -302,5 +356,39 @@
 		display: flex;
 		gap: var(--spacing-sm);
 		justify-content: flex-end;
+	}
+
+	/* Mobile Responsive Styles */
+	@media (max-width: 640px) {
+		.page {
+			margin-left: 0;
+		}
+
+		.page-header.mobile-only {
+			display: flex;
+		}
+
+		.toolbar-header {
+			display: none;
+		}
+
+		.page-content {
+			padding: var(--spacing-md);
+		}
+
+		.settings-card {
+			padding: var(--spacing-md);
+		}
+	}
+
+	/* Tablet Responsive Styles */
+	@media (min-width: 641px) and (max-width: 1024px) {
+		.page {
+			margin-left: var(--sidebar-width);
+		}
+
+		.page-content {
+			padding: var(--spacing-md);
+		}
 	}
 </style>

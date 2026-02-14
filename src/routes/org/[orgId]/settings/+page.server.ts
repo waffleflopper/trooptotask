@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { PERMISSION_PRESETS, type OrganizationMember, type PermissionPreset } from '$lib/types';
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
-	const { orgId, userRole, permissions } = await parent();
+	const { orgId, orgName, userRole, permissions, allOrgs } = await parent();
 
 	// Get organization details
 	const { data: organization } = await locals.supabase
@@ -61,6 +61,10 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	}));
 
 	return {
+		orgId,
+		orgName,
+		permissions,
+		allOrgs,
 		organization,
 		members,
 		invitations: mappedInvitations,

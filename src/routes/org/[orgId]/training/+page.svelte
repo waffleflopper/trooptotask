@@ -192,10 +192,8 @@
 />
 
 <div class="page">
-	<header class="page-header">
-		<div class="header-left">
-			<h1>Training & Certifications</h1>
-		</div>
+	<header class="page-header mobile-only">
+		<h1>Training & Certifications</h1>
 		<button class="mobile-menu-btn" onclick={() => (showSidebar = true)} aria-label="Open menu">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<line x1="3" y1="12" x2="21" y2="12" />
@@ -204,6 +202,10 @@
 			</svg>
 		</button>
 	</header>
+
+	<div class="toolbar-header">
+		<h2>Training & Certifications</h2>
+	</div>
 
 	<div class="stats-bar">
 		<div class="stat current">
@@ -364,23 +366,27 @@
 		margin-left: var(--sidebar-width);
 	}
 
+	/* Mobile header - only visible on mobile */
+	.page-header.mobile-only {
+		display: none;
+	}
+
 	.page-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-md) var(--spacing-lg);
+		padding: var(--spacing-sm) var(--spacing-md);
 		background: var(--color-primary);
 		color: white;
 	}
 
-	.header-left {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
+	.page-header h1 {
+		font-size: var(--font-size-lg);
+		font-weight: 700;
 	}
 
 	.mobile-menu-btn {
-		display: none;
+		display: flex;
 		align-items: center;
 		justify-content: center;
 		width: 40px;
@@ -399,9 +405,19 @@
 		height: 24px;
 	}
 
-	.page-header h1 {
-		font-size: var(--font-size-xl);
-		font-weight: 700;
+	.toolbar-header {
+		display: flex;
+		align-items: center;
+		padding: var(--spacing-md) var(--spacing-lg);
+		background: var(--color-surface);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.toolbar-header h2 {
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		color: var(--color-text);
+		margin: 0;
 	}
 
 	.stats-bar {
@@ -593,23 +609,12 @@
 			margin-left: 0;
 		}
 
-		.mobile-menu-btn {
+		.page-header.mobile-only {
 			display: flex;
 		}
 
-		.page-header {
-			flex-wrap: wrap;
-			gap: var(--spacing-sm);
-			padding: var(--spacing-sm) var(--spacing-md);
-		}
-
-		.header-left {
-			width: 100%;
-			gap: var(--spacing-sm);
-		}
-
-		.page-header h1 {
-			font-size: var(--font-size-lg);
+		.toolbar-header {
+			display: none;
 		}
 
 		.stats-bar {

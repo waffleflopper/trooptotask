@@ -193,11 +193,8 @@
 />
 
 <div class="page">
-	<header class="page-header">
-		<div class="header-left">
-			<h1>Personnel</h1>
-			<span class="count">({totalPersonnel})</span>
-		</div>
+	<header class="page-header mobile-only">
+		<h1>Personnel</h1>
 		<button class="mobile-menu-btn" onclick={() => (showSidebar = true)} aria-label="Open menu">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<line x1="3" y1="12" x2="21" y2="12" />
@@ -208,6 +205,10 @@
 	</header>
 
 	<div class="toolbar">
+		<div class="toolbar-title">
+			<h2>Personnel</h2>
+			<span class="count">({totalPersonnel})</span>
+		</div>
 		<input
 			type="text"
 			class="input search-input"
@@ -378,23 +379,27 @@
 		margin-left: var(--sidebar-width);
 	}
 
+	/* Mobile header - only visible on mobile */
+	.page-header.mobile-only {
+		display: none;
+	}
+
 	.page-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-md) var(--spacing-lg);
+		padding: var(--spacing-sm) var(--spacing-md);
 		background: var(--color-primary);
 		color: white;
 	}
 
-	.header-left {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
+	.page-header h1 {
+		font-size: var(--font-size-lg);
+		font-weight: 700;
 	}
 
 	.mobile-menu-btn {
-		display: none;
+		display: flex;
 		align-items: center;
 		justify-content: center;
 		width: 40px;
@@ -413,16 +418,6 @@
 		height: 24px;
 	}
 
-	.page-header h1 {
-		font-size: var(--font-size-xl);
-		font-weight: 700;
-	}
-
-	.count {
-		font-size: var(--font-size-base);
-		opacity: 0.8;
-	}
-
 	.toolbar {
 		display: flex;
 		align-items: center;
@@ -432,7 +427,26 @@
 		border-bottom: 1px solid var(--color-border);
 	}
 
+	.toolbar-title {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+	}
+
+	.toolbar-title h2 {
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		color: var(--color-text);
+		margin: 0;
+	}
+
+	.count {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
+	}
+
 	.search-input {
+		flex: 1;
 		max-width: 400px;
 	}
 
@@ -648,27 +662,12 @@
 			margin-left: 0;
 		}
 
-		.mobile-menu-btn {
+		.page-header.mobile-only {
 			display: flex;
 		}
 
-		.page-header {
-			flex-wrap: wrap;
-			gap: var(--spacing-sm);
-			padding: var(--spacing-sm) var(--spacing-md);
-		}
-
-		.header-left {
-			width: 100%;
-			gap: var(--spacing-sm);
-		}
-
-		.page-header h1 {
-			font-size: var(--font-size-lg);
-		}
-
-		.count {
-			font-size: var(--font-size-sm);
+		.toolbar-title {
+			display: none;
 		}
 
 		.toolbar {

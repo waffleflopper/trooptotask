@@ -262,6 +262,10 @@ create policy "Organization owners can update their organizations"
   on public.organizations for update
   using (public.is_org_owner(id));
 
+create policy "Organization owners can delete their organizations"
+  on public.organizations for delete
+  using (public.is_org_owner(id));
+
 -- ============================================================
 -- Organization Memberships
 -- ============================================================

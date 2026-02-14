@@ -119,10 +119,14 @@
 	const hasCalendarEditTools = $derived(
 		perms.canEditCalendar && (onShowAssignmentPlanner || onShowBulkStatus)
 	);
-	const hasCalendarTools = $derived(hasCalendarViewTools || hasCalendarEditTools);
-
 	const hasCalendarExport = $derived(onExportCalendarCSV || onExportCalendarPDF);
 	const hasCalendarDisplayOptions = $derived(!!onToggleStatusText);
+	const hasCalendarTools = $derived(hasCalendarViewTools || hasCalendarEditTools || hasCalendarExport || hasCalendarDisplayOptions);
+
+	// Calendar configuration (status types, assignment types, holidays)
+	const hasCalendarConfig = $derived(
+		perms.canEditCalendar && (onShowStatusManager || onShowAssignmentTypeManager || onShowSpecialDayManager)
+	);
 
 	// Personnel tools: only show if can edit
 	const hasPersonnelTools = $derived(
@@ -324,50 +328,43 @@
 								Duty Roster
 							</button>
 						{/if}
-					</div>
-				{/if}
-			</div>
-		{/if}
 
-		{#if hasCalendarDisplayOptions || hasCalendarExport}
-			<div class="nav-section" class:collapsed={collapsedSections.has('calendar-options')}>
-				<button class="section-header" onclick={() => toggleSection('calendar-options')}>
-					<span class="section-title">Options & Export</span>
-					<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<polyline points="6 9 12 15 18 9" />
-					</svg>
-				</button>
-				{#if !collapsedSections.has('calendar-options')}
-					<div class="section-content">
-						{#if onToggleStatusText}
-							<button class="nav-item toggle-item" onclick={onToggleStatusText}>
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-								</svg>
-								Show Status Text
-								<span class="toggle-indicator" class:active={showStatusText}></span>
-							</button>
+						{#if hasCalendarDisplayOptions}
+							<div class="nav-divider"></div>
+							{#if onToggleStatusText}
+								<button class="nav-item toggle-item" onclick={onToggleStatusText}>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+										<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+									</svg>
+									Show Status Text
+									<span class="toggle-indicator" class:active={showStatusText}></span>
+								</button>
+							{/if}
 						{/if}
-						{#if onExportCalendarCSV}
-							<button class="nav-item" onclick={() => handleNavClick(onExportCalendarCSV)}>
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-									<polyline points="14 2 14 8 20 8" />
-									<line x1="16" y1="13" x2="8" y2="13" />
-									<line x1="16" y1="17" x2="8" y2="17" />
-								</svg>
-								Export to Excel
-							</button>
-						{/if}
-						{#if onExportCalendarPDF}
-							<button class="nav-item" onclick={() => handleNavClick(onExportCalendarPDF)}>
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M6 9V2h12v7" />
-									<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-									<rect x="6" y="14" width="12" height="8" />
-								</svg>
-								Print / PDF
-							</button>
+
+						{#if hasCalendarExport}
+							<div class="nav-divider"></div>
+							{#if onExportCalendarCSV}
+								<button class="nav-item" onclick={() => handleNavClick(onExportCalendarCSV)}>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+										<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+										<polyline points="14 2 14 8 20 8" />
+										<line x1="16" y1="13" x2="8" y2="13" />
+										<line x1="16" y1="17" x2="8" y2="17" />
+									</svg>
+									Export to Excel
+								</button>
+							{/if}
+							{#if onExportCalendarPDF}
+								<button class="nav-item" onclick={() => handleNavClick(onExportCalendarPDF)}>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+										<path d="M6 9V2h12v7" />
+										<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+										<rect x="6" y="14" width="12" height="8" />
+									</svg>
+									Print / PDF
+								</button>
+							{/if}
 						{/if}
 					</div>
 				{/if}
@@ -467,74 +464,48 @@
 			</div>
 		{/if}
 
-		<div class="nav-section" class:collapsed={collapsedSections.has('settings')}>
-			<button class="section-header" onclick={() => toggleSection('settings')}>
-				<span class="section-title">Settings</span>
-				<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<polyline points="6 9 12 15 18 9" />
-				</svg>
-			</button>
-			{#if !collapsedSections.has('settings')}
-				<div class="section-content">
-					{#if perms.canEditCalendar && onShowStatusManager}
-						<button class="nav-item" onclick={() => handleNavClick(onShowStatusManager)}>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<circle cx="12" cy="12" r="3" />
-								<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-							</svg>
-							Status Types
-						</button>
-					{/if}
-					{#if perms.canEditCalendar && onShowAssignmentTypeManager}
-						<button class="nav-item" onclick={() => handleNavClick(onShowAssignmentTypeManager)}>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-								<circle cx="8.5" cy="7" r="4" />
-								<line x1="20" y1="8" x2="20" y2="14" />
-								<line x1="23" y1="11" x2="17" y2="11" />
-							</svg>
-							Assignment Types
-						</button>
-					{/if}
-					{#if perms.canEditCalendar && onShowSpecialDayManager}
-						<button class="nav-item" onclick={() => handleNavClick(onShowSpecialDayManager)}>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-							</svg>
-							Holidays
-						</button>
-					{/if}
-					<a href="/org/{orgId}/settings" class="nav-item" onclick={() => onClose?.()}>
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-							<circle cx="12" cy="12" r="3" />
-						</svg>
-						Org Settings
-					</a>
-					<button class="nav-item" onclick={onToggleTheme}>
-						{#if isDarkTheme}
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<circle cx="12" cy="12" r="5" />
-								<line x1="12" y1="1" x2="12" y2="3" />
-								<line x1="12" y1="21" x2="12" y2="23" />
-								<line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-								<line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-								<line x1="1" y1="12" x2="3" y2="12" />
-								<line x1="21" y1="12" x2="23" y2="12" />
-								<line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-								<line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-							</svg>
-							Light Mode
-						{:else}
-							<svg viewBox="0 0 24 24" fill="currentColor">
-								<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-							</svg>
-							Dark Mode
+		{#if hasCalendarConfig}
+			<div class="nav-section" class:collapsed={collapsedSections.has('configure')}>
+				<button class="section-header" onclick={() => toggleSection('configure')}>
+					<span class="section-title">Configure</span>
+					<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<polyline points="6 9 12 15 18 9" />
+					</svg>
+				</button>
+				{#if !collapsedSections.has('configure')}
+					<div class="section-content">
+						{#if perms.canEditCalendar && onShowStatusManager}
+							<button class="nav-item" onclick={() => handleNavClick(onShowStatusManager)}>
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<rect x="3" y="3" width="18" height="18" rx="2" />
+									<path d="M3 9h18" />
+									<path d="M9 21V9" />
+								</svg>
+								Status Types
+							</button>
 						{/if}
-					</button>
-				</div>
-			{/if}
-		</div>
+						{#if perms.canEditCalendar && onShowAssignmentTypeManager}
+							<button class="nav-item" onclick={() => handleNavClick(onShowAssignmentTypeManager)}>
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+									<rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+								</svg>
+								Assignment Types
+							</button>
+						{/if}
+						{#if perms.canEditCalendar && onShowSpecialDayManager}
+							<button class="nav-item" onclick={() => handleNavClick(onShowSpecialDayManager)}>
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+								</svg>
+								Holidays
+							</button>
+						{/if}
+					</div>
+				{/if}
+			</div>
+		{/if}
+
 	</nav>
 
 	<div class="sidebar-footer">
@@ -549,6 +520,34 @@
 				Invite to Platform
 			</button>
 		{/if}
+		<a href="/org/{orgId}/settings" class="nav-item" onclick={() => onClose?.()}>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<circle cx="12" cy="12" r="3" />
+				<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+			</svg>
+			Org Settings
+		</a>
+		<button class="nav-item" onclick={onToggleTheme}>
+			{#if isDarkTheme}
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<circle cx="12" cy="12" r="5" />
+					<line x1="12" y1="1" x2="12" y2="3" />
+					<line x1="12" y1="21" x2="12" y2="23" />
+					<line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+					<line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+					<line x1="1" y1="12" x2="3" y2="12" />
+					<line x1="21" y1="12" x2="23" y2="12" />
+					<line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+					<line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+				</svg>
+				Light Mode
+			{:else}
+				<svg viewBox="0 0 24 24" fill="currentColor">
+					<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+				</svg>
+				Dark Mode
+			{/if}
+		</button>
 		<a href="/help" class="nav-item" onclick={() => onClose?.()}>
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<circle cx="12" cy="12" r="10" />
@@ -824,6 +823,12 @@
 
 	.section-content {
 		padding-top: 2px;
+	}
+
+	.nav-divider {
+		height: 1px;
+		background: var(--color-divider);
+		margin: var(--spacing-sm) var(--spacing-lg);
 	}
 
 	.nav-item {

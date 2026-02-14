@@ -531,7 +531,7 @@
 <style>
 	/* Sidebar width variable */
 	:global(:root) {
-		--sidebar-width: 240px;
+		--sidebar-width: 260px;
 	}
 
 	.sidebar-overlay {
@@ -545,7 +545,7 @@
 		width: var(--sidebar-width);
 		height: 100vh;
 		background: var(--color-surface);
-		border-right: 1px solid var(--color-border);
+		box-shadow: var(--shadow-2);
 		display: flex;
 		flex-direction: column;
 		z-index: 100;
@@ -556,9 +556,10 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-primary);
+		padding: var(--spacing-lg);
+		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
 		color: white;
+		min-height: 72px;
 	}
 
 	.logo-link {
@@ -568,23 +569,25 @@
 
 	.sidebar-header h1 {
 		font-size: var(--font-size-xl);
-		font-weight: 700;
+		font-weight: 600;
+		letter-spacing: -0.01em;
 	}
 
 	.close-btn {
 		display: none;
 		align-items: center;
 		justify-content: center;
-		width: 32px;
-		height: 32px;
-		border-radius: var(--radius-md);
-		background: rgba(255, 255, 255, 0.1);
+		width: 36px;
+		height: 36px;
+		border-radius: var(--radius-full);
+		background: rgba(255, 255, 255, 0.15);
 		color: white;
-		transition: background 0.15s ease;
+		transition: all var(--transition-fast);
 	}
 
 	.close-btn:hover {
-		background: rgba(255, 255, 255, 0.2);
+		background: rgba(255, 255, 255, 0.25);
+		transform: scale(1.05);
 	}
 
 	.close-btn svg {
@@ -594,8 +597,7 @@
 
 	.org-switcher {
 		position: relative;
-		border-bottom: 1px solid var(--color-border);
-		background: var(--color-bg);
+		background: var(--color-surface-variant);
 	}
 
 	.org-switcher-btn {
@@ -603,18 +605,19 @@
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
-		padding: var(--spacing-sm) var(--spacing-lg);
+		padding: var(--spacing-md) var(--spacing-lg);
 		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-weight: 500;
+		color: var(--color-text-secondary);
 		background: transparent;
 		border: none;
 		cursor: pointer;
 		text-align: left;
-		transition: background 0.15s ease;
+		transition: all var(--transition-fast);
 	}
 
 	.org-switcher-btn:hover {
-		background: var(--color-surface);
+		background: rgba(0, 0, 0, 0.04);
 		color: var(--color-text);
 	}
 
@@ -626,10 +629,11 @@
 	}
 
 	.org-switcher-btn .chevron {
-		width: 16px;
-		height: 16px;
+		width: 18px;
+		height: 18px;
 		flex-shrink: 0;
-		transition: transform 0.2s ease;
+		transition: transform var(--transition-normal);
+		opacity: 0.7;
 	}
 
 	.org-switcher-btn .chevron.open {
@@ -637,23 +641,24 @@
 	}
 
 	.org-name-static {
-		padding: var(--spacing-sm) var(--spacing-lg);
+		padding: var(--spacing-md) var(--spacing-lg);
 		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-weight: 500;
+		color: var(--color-text-secondary);
 	}
 
 	.org-dropdown {
 		position: absolute;
 		top: 100%;
-		left: 0;
-		right: 0;
+		left: var(--spacing-sm);
+		right: var(--spacing-sm);
 		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-top: none;
-		box-shadow: var(--shadow-lg);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-3);
 		z-index: 200;
 		max-height: 300px;
 		overflow-y: auto;
+		margin-top: var(--spacing-xs);
 	}
 
 	.org-option {
@@ -661,7 +666,7 @@
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
-		padding: var(--spacing-sm) var(--spacing-lg);
+		padding: var(--spacing-md) var(--spacing-md);
 		font-size: var(--font-size-sm);
 		color: var(--color-text);
 		background: transparent;
@@ -669,15 +674,18 @@
 		cursor: pointer;
 		text-align: left;
 		text-decoration: none;
-		transition: background 0.15s ease;
+		transition: background var(--transition-fast);
+		border-radius: var(--radius-sm);
+		margin: 2px var(--spacing-xs);
+		width: calc(100% - var(--spacing-sm));
 	}
 
 	.org-option:hover {
-		background: var(--color-bg);
+		background: rgba(var(--color-primary-rgb), 0.08);
 	}
 
 	.org-option.active {
-		background: var(--color-bg);
+		background: rgba(var(--color-primary-rgb), 0.12);
 		font-weight: 600;
 		color: var(--color-primary);
 	}
@@ -694,40 +702,40 @@
 		color: var(--color-text-muted);
 		text-transform: capitalize;
 		margin-left: var(--spacing-sm);
+		padding: 2px 8px;
+		background: var(--color-surface-variant);
+		border-radius: var(--radius-full);
 	}
 
 	.org-option.manage-link {
-		border-top: 1px solid var(--color-border);
+		border-top: 1px solid var(--color-divider);
 		color: var(--color-primary);
 		gap: var(--spacing-sm);
+		margin-top: var(--spacing-xs);
+		padding-top: var(--spacing-md);
 	}
 
 	.org-option.manage-link svg {
-		width: 16px;
-		height: 16px;
+		width: 18px;
+		height: 18px;
 	}
 
 	.sidebar-nav {
 		flex: 1;
 		overflow-y: auto;
+		padding: var(--spacing-sm) 0;
 	}
 
 	.nav-section {
-		padding: var(--spacing-md) 0;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.nav-section:last-child {
-		border-bottom: none;
+		padding: var(--spacing-sm) 0 var(--spacing-md);
 	}
 
 	.nav-section h3 {
-		padding: 0 var(--spacing-lg);
-		margin-bottom: var(--spacing-sm);
-		font-size: var(--font-size-xs);
+		padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-sm);
+		font-size: 11px;
 		font-weight: 600;
 		text-transform: uppercase;
-		letter-spacing: 0.5px;
+		letter-spacing: 0.08em;
 		color: var(--color-text-muted);
 	}
 
@@ -735,24 +743,28 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-md);
-		width: 100%;
-		padding: var(--spacing-sm) var(--spacing-lg);
+		width: calc(100% - var(--spacing-md));
+		margin: 2px var(--spacing-sm);
+		padding: 10px var(--spacing-md);
 		font-size: var(--font-size-sm);
-		color: var(--color-text);
+		font-weight: 500;
+		color: var(--color-text-secondary);
 		text-decoration: none;
 		background: none;
 		border: none;
 		cursor: pointer;
 		text-align: left;
-		transition: background 0.15s ease;
+		border-radius: var(--radius-md);
+		transition: all var(--transition-fast);
 	}
 
 	.nav-item:hover {
-		background: var(--color-bg);
+		background: rgba(var(--color-primary-rgb), 0.08);
+		color: var(--color-text);
 	}
 
 	.nav-item.active {
-		background: var(--color-bg);
+		background: rgba(var(--color-primary-rgb), 0.12);
 		color: var(--color-primary);
 		font-weight: 600;
 	}
@@ -762,18 +774,22 @@
 	}
 
 	.nav-item svg {
-		width: 18px;
-		height: 18px;
+		width: 20px;
+		height: 20px;
 		flex-shrink: 0;
 		color: var(--color-text-muted);
+		transition: color var(--transition-fast);
+	}
+
+	.nav-item:hover svg {
+		color: var(--color-text-secondary);
 	}
 
 	.nav-item.highlight {
-		background: var(--color-secondary);
+		background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
 		color: white;
-		margin: var(--spacing-xs) var(--spacing-md);
-		border-radius: var(--radius-md);
-		width: calc(100% - var(--spacing-lg));
+		margin: var(--spacing-sm) var(--spacing-sm);
+		box-shadow: var(--shadow-1);
 	}
 
 	.nav-item.highlight svg {
@@ -781,8 +797,9 @@
 	}
 
 	.nav-item.highlight:hover {
-		filter: brightness(1.1);
-		background: var(--color-secondary);
+		box-shadow: var(--shadow-2);
+		transform: translateY(-1px);
+		background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
 	}
 
 	.nav-item.toggle-item {
@@ -791,24 +808,25 @@
 
 	.toggle-indicator {
 		margin-left: auto;
-		width: 36px;
-		height: 20px;
+		width: 40px;
+		height: 22px;
 		background: var(--color-border);
-		border-radius: 10px;
+		border-radius: 11px;
 		position: relative;
-		transition: background 0.2s ease;
+		transition: background var(--transition-normal);
 	}
 
 	.toggle-indicator::after {
 		content: '';
 		position: absolute;
-		top: 2px;
-		left: 2px;
+		top: 3px;
+		left: 3px;
 		width: 16px;
 		height: 16px;
 		background: white;
 		border-radius: 50%;
-		transition: transform 0.2s ease;
+		box-shadow: var(--shadow-1);
+		transition: transform var(--transition-normal);
 	}
 
 	.toggle-indicator.active {
@@ -816,25 +834,26 @@
 	}
 
 	.toggle-indicator.active::after {
-		transform: translateX(16px);
+		transform: translateX(18px);
 	}
 
 	.sidebar-footer {
-		padding: var(--spacing-md) 0;
-		border-top: 1px solid var(--color-border);
+		padding: var(--spacing-md) var(--spacing-sm);
+		border-top: 1px solid var(--color-divider);
 		margin-top: auto;
+		background: var(--color-surface-variant);
 	}
 
 	.nav-item.logout {
-		color: #dc2626;
+		color: var(--color-error);
 	}
 
 	.nav-item.logout svg {
-		color: #dc2626;
+		color: var(--color-error);
 	}
 
 	.nav-item.logout:hover {
-		background: rgba(220, 38, 38, 0.1);
+		background: rgba(244, 67, 54, 0.08);
 	}
 
 	/* Mobile styles - sidebar becomes a drawer */
@@ -845,7 +864,7 @@
 			inset: 0;
 			background-color: rgba(0, 0, 0, 0.5);
 			z-index: 999;
-			animation: fadeIn 0.2s ease;
+			animation: fadeIn var(--transition-fast) ease-out;
 		}
 
 		@keyframes fadeIn {
@@ -857,13 +876,11 @@
 			position: fixed;
 			left: auto;
 			right: 0;
-			width: 280px;
+			width: 300px;
 			max-width: 85vw;
 			transform: translateX(100%);
-			transition: transform 0.2s ease;
-			box-shadow: var(--shadow-lg);
-			border-right: none;
-			border-left: 1px solid var(--color-border);
+			transition: transform var(--transition-normal);
+			box-shadow: var(--shadow-5);
 			z-index: 1000;
 		}
 
@@ -879,36 +896,37 @@
 	/* Tablet styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
 		:global(:root) {
-			--sidebar-width: 200px;
+			--sidebar-width: 220px;
 		}
 
 		.nav-item {
-			padding: var(--spacing-xs) var(--spacing-md);
+			padding: 8px var(--spacing-md);
 			font-size: var(--font-size-xs);
 		}
 
 		.nav-item svg {
-			width: 16px;
-			height: 16px;
+			width: 18px;
+			height: 18px;
 		}
 
 		.sidebar-header {
-			padding: var(--spacing-md) var(--spacing-md);
+			padding: var(--spacing-md);
+			min-height: 64px;
 		}
 
 		.sidebar-header h1 {
-			font-size: var(--font-size-xl);
+			font-size: var(--font-size-lg);
 		}
 
 		.org-switcher-btn,
 		.org-name-static {
-			padding: var(--spacing-xs) var(--spacing-md);
+			padding: var(--spacing-sm) var(--spacing-md);
 			font-size: var(--font-size-xs);
 		}
 
 		.nav-section h3 {
-			padding: 0 var(--spacing-md);
-			font-size: 9px;
+			padding: var(--spacing-xs) var(--spacing-md);
+			font-size: 10px;
 		}
 	}
 </style>

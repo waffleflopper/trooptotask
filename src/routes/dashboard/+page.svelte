@@ -132,54 +132,74 @@
 		justify-content: center;
 		background: var(--color-bg);
 		padding: var(--spacing-lg);
+		min-height: 100vh;
 	}
 
 	.selector-card {
 		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-xl);
+		border-radius: var(--radius-xl);
+		padding: var(--spacing-2xl);
 		width: 100%;
-		max-width: 500px;
+		max-width: 480px;
+		box-shadow: var(--shadow-3);
 	}
 
 	.selector-card h1 {
-		font-size: var(--font-size-xl);
-		font-weight: 700;
+		font-size: var(--font-size-2xl);
+		font-weight: 600;
 		color: var(--color-primary);
 		text-align: center;
 		margin-bottom: var(--spacing-xs);
+		letter-spacing: -0.02em;
 	}
 
 	.subtitle {
 		text-align: center;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-lg);
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-base);
+		margin-bottom: var(--spacing-xl);
 	}
 
 	.error-message {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
-		padding: var(--spacing-sm) var(--spacing-md);
+		background: rgba(244, 67, 54, 0.08);
+		border-left: 4px solid var(--color-error);
+		color: var(--color-error);
+		padding: var(--spacing-md);
 		border-radius: var(--radius-md);
 		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
-		text-align: center;
+		margin-bottom: var(--spacing-lg);
 	}
 
 	.invitations-section {
 		margin-bottom: var(--spacing-lg);
 		padding-bottom: var(--spacing-lg);
-		border-bottom: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-divider);
 	}
 
 	.invitations-section h2 {
-		font-size: var(--font-size-base);
+		font-size: var(--font-size-sm);
 		font-weight: 600;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-sm);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-success);
+		margin-bottom: var(--spacing-md);
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+	}
+
+	.invitations-section h2::before {
+		content: '';
+		width: 8px;
+		height: 8px;
+		background: var(--color-success);
+		border-radius: 50%;
+		animation: pulse 2s infinite;
+	}
+
+	@keyframes pulse {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.5; }
 	}
 
 	.invitation-list {
@@ -193,21 +213,28 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: var(--spacing-md);
-		background: #f0fdf4;
-		border: 1px solid #bbf7d0;
-		border-radius: var(--radius-md);
+		background: rgba(76, 175, 80, 0.08);
+		border-radius: var(--radius-lg);
 		gap: var(--spacing-md);
+		transition: all var(--transition-fast);
+	}
+
+	.invitation-item:hover {
+		background: rgba(76, 175, 80, 0.12);
 	}
 
 	:global([data-theme='dark']) .invitation-item {
-		background: rgba(34, 197, 94, 0.1);
-		border-color: rgba(34, 197, 94, 0.3);
+		background: rgba(76, 175, 80, 0.12);
+	}
+
+	:global([data-theme='dark']) .invitation-item:hover {
+		background: rgba(76, 175, 80, 0.18);
 	}
 
 	.invitation-info {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: 4px;
 	}
 
 	.invitation-org {
@@ -222,58 +249,63 @@
 
 	.invitation-actions {
 		display: flex;
-		gap: var(--spacing-xs);
-	}
-
-	.btn-sm {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
+		gap: var(--spacing-sm);
 	}
 
 	.org-list {
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-lg);
+		margin-bottom: var(--spacing-xl);
 	}
 
 	.org-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-md);
+		padding: var(--spacing-md) var(--spacing-lg);
+		background: var(--color-surface);
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-lg);
 		text-decoration: none;
 		color: var(--color-text);
-		transition: all 0.15s ease;
+		transition: all var(--transition-fast);
 	}
 
 	.org-item:hover {
 		border-color: var(--color-primary);
-		background: var(--color-bg);
+		background: rgba(var(--color-primary-rgb), 0.04);
+		box-shadow: var(--shadow-1);
+		transform: translateY(-1px);
 	}
 
 	.org-name {
 		font-weight: 600;
+		font-size: var(--font-size-base);
 	}
 
 	.org-role {
-		font-size: var(--font-size-sm);
+		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
 		text-transform: capitalize;
+		padding: 4px 12px;
+		background: var(--color-surface-variant);
+		border-radius: var(--radius-full);
 	}
 
 	.no-orgs {
 		text-align: center;
 		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-lg);
+		font-size: var(--font-size-base);
+		margin-bottom: var(--spacing-xl);
+		padding: var(--spacing-xl);
+		background: var(--color-surface-variant);
+		border-radius: var(--radius-lg);
 	}
 
 	.actions {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--spacing-md);
 		justify-content: center;
 	}
 
@@ -281,33 +313,34 @@
 		position: fixed;
 		top: var(--spacing-lg);
 		right: var(--spacing-lg);
-		width: 40px;
-		height: 40px;
-		border-radius: 50%;
+		width: 48px;
+		height: 48px;
+		border-radius: var(--radius-full);
 		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		color: var(--color-text);
+		border: none;
+		color: var(--color-text-secondary);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		transition: all 0.2s ease;
-		box-shadow: var(--shadow-md);
+		transition: all var(--transition-fast);
+		box-shadow: var(--shadow-2);
 	}
 
 	.theme-toggle:hover {
-		background: var(--color-bg);
-		border-color: var(--color-primary);
+		background: var(--color-surface);
 		color: var(--color-primary);
+		box-shadow: var(--shadow-3);
+		transform: scale(1.05);
 	}
 
 	.theme-toggle svg {
-		width: 20px;
-		height: 20px;
+		width: 22px;
+		height: 22px;
 	}
 
 	.help-link {
-		margin-top: var(--spacing-lg);
+		margin-top: var(--spacing-xl);
 		text-align: center;
 	}
 
@@ -315,14 +348,19 @@
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 		text-decoration: none;
+		transition: color var(--transition-fast);
 	}
 
 	.help-link a:hover {
 		color: var(--color-primary);
-		text-decoration: underline;
 	}
 
 	@media (max-width: 480px) {
+		.selector-card {
+			padding: var(--spacing-lg);
+			border-radius: var(--radius-lg);
+		}
+
 		.invitation-item {
 			flex-direction: column;
 			align-items: flex-start;
@@ -331,6 +369,14 @@
 		.invitation-actions {
 			width: 100%;
 			justify-content: flex-end;
+		}
+
+		.actions {
+			flex-direction: column;
+		}
+
+		.actions .btn {
+			width: 100%;
 		}
 	}
 </style>

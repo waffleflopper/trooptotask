@@ -7,7 +7,8 @@
 		{
 			icon: 'calendar',
 			title: 'Visual Calendar',
-			description: 'See your entire unit\'s availability at a glance. Color-coded statuses for leave, TDY, training, appointments, and more.'
+			description: 'See your entire unit\'s availability at a glance with color-coded statuses for leave, TDY, training, and more.',
+			highlight: true
 		},
 		{
 			icon: 'users',
@@ -20,6 +21,11 @@
 			description: 'Assign MOD, front desk support, and custom duties. Plan the entire month with the assignment planner.'
 		},
 		{
+			icon: 'roster',
+			title: 'Duty Roster Generator',
+			description: 'Auto-generate fair duty rosters based on availability, eligibility, and past assignment counts.'
+		},
+		{
 			icon: 'chart',
 			title: '3-Month View',
 			description: 'Long-range planning made easy. See coverage gaps before they become problems.'
@@ -27,41 +33,56 @@
 		{
 			icon: 'certificate',
 			title: 'Training Tracker',
-			description: 'Track certifications and requirements. Color-coded warnings at 60, 30, and 0 days before expiration.'
+			description: 'Track certifications with color-coded warnings at 60, 30, and 0 days before expiration.'
 		},
 		{
 			icon: 'shield',
-			title: 'Team Permissions',
-			description: 'Granular access control. Set view/edit permissions for calendar, personnel, and training per member.'
+			title: 'Granular Permissions',
+			description: 'Set view/edit permissions for calendar, personnel, and training per team member.'
 		},
 		{
 			icon: 'building',
-			title: 'Multi-Organization Support',
-			description: 'Manage multiple organizations from one account. Invite team members and control access levels.'
+			title: 'Multi-Organization',
+			description: 'Manage multiple units from one account. Invite members and control access levels.'
 		},
 		{
 			icon: 'download',
 			title: 'Export & Print',
-			description: 'Export calendars to Excel with color-coding intact. Print-ready PDF for posting on the board.'
+			description: 'Export to Excel with color-coding intact. Print-ready PDF for posting on the board.'
 		}
 	];
 
-	const comingSoon = [
-		{
-			icon: 'roster',
-			title: 'Duty Roster Generator',
-			description: 'Auto-generate fair duty rosters based on availability and past assignments.'
-		},
+	const roadmap = [
 		{
 			icon: 'book',
 			title: 'Digital Leaders Book',
-			description: 'Centralized soldier information, counseling records, and leader tools.'
+			description: 'Centralized soldier information, counseling records, and leader tools.',
+			status: 'In Development'
 		},
 		{
 			icon: 'signup',
 			title: 'Event Sign-ups',
-			description: 'Coordinate range days, ACFT, and unit events with built-in sign-up sheets.'
+			description: 'Coordinate range days, ACFT, and unit events with built-in sign-up sheets.',
+			status: 'Planned'
+		},
+		{
+			icon: 'bell',
+			title: 'Smart Notifications',
+			description: 'Get alerts for expiring training, coverage gaps, and assignment conflicts.',
+			status: 'Planned'
+		},
+		{
+			icon: 'mobile',
+			title: 'Mobile App',
+			description: 'Native iOS and Android apps for on-the-go access and push notifications.',
+			status: 'Exploring'
 		}
+	];
+
+	const stats = [
+		{ value: '100%', label: 'Free to Use' },
+		{ value: '< 5min', label: 'Setup Time' },
+		{ value: '24/7', label: 'Availability' }
 	];
 </script>
 
@@ -70,7 +91,7 @@
 	<meta name="description" content="The complete personnel management solution for Army units. Visual calendars, training tracking, duty assignments, and team coordination in one tool." />
 </svelte:head>
 
-<div class="landing" data-theme={themeStore.current}>
+<div class="landing">
 	<!-- Navigation -->
 	<nav class="nav">
 		<div class="nav-container">
@@ -88,7 +109,7 @@
 
 			<div class="nav-links">
 				<a href="#features" class="nav-link">Features</a>
-				<a href="#coming-soon" class="nav-link">Roadmap</a>
+				<a href="#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -103,135 +124,162 @@
 				</button>
 				{#if data.user}
 					<a href="/dashboard?show=all" class="btn btn-primary">Dashboard</a>
-					<a href="/auth/logout" class="btn btn-secondary" data-sveltekit-reload>Sign Out</a>
 				{:else}
-					<a href="/auth/login" class="nav-link">Sign In</a>
 					<a href="/auth/login" class="btn btn-primary">Get Started</a>
 				{/if}
 			</div>
 
 			<!-- Mobile menu button -->
-			<button class="mobile-menu-btn" aria-label="Menu">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<line x1="3" y1="12" x2="21" y2="12" />
-					<line x1="3" y1="6" x2="21" y2="6" />
-					<line x1="3" y1="18" x2="21" y2="18" />
-				</svg>
-			</button>
+			<div class="mobile-actions">
+				<button class="theme-toggle mobile" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
+					{#if themeStore.isDark}
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<circle cx="12" cy="12" r="5"/>
+						</svg>
+					{:else}
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+						</svg>
+					{/if}
+				</button>
+				{#if data.user}
+					<a href="/dashboard?show=all" class="btn btn-primary btn-sm">Dashboard</a>
+				{:else}
+					<a href="/auth/login" class="btn btn-primary btn-sm">Sign In</a>
+				{/if}
+			</div>
 		</div>
 	</nav>
 
 	<!-- Hero Section -->
 	<section class="hero">
-		<div class="hero-content">
-			<div class="hero-badge">Built for Army Units</div>
-			<h1 class="hero-title">
-				Personnel Management<br />
-				<span class="hero-highlight">That Actually Works</span>
-			</h1>
-			<p class="hero-subtitle">
-				Stop juggling spreadsheets, whiteboards, and group texts. Troop to Task gives you
-				a visual calendar, training tracker, and assignment planner — all in one place
-				your whole team can access.
-			</p>
-			<div class="hero-actions">
-				{#if data.user}
-					<a href="/dashboard?show=all" class="btn btn-primary btn-lg">
-						Go to Dashboard
-						<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
-							<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
-						</svg>
-					</a>
-				{:else}
-					<a href="/auth/login" class="btn btn-primary btn-lg">
-						Get Started Free
-						<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
-							<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
-						</svg>
-					</a>
-				{/if}
-				<a href="#features" class="btn btn-secondary btn-lg">See Features</a>
-			</div>
+		<div class="hero-bg">
+			<div class="hero-gradient"></div>
+			<div class="hero-grid"></div>
 		</div>
+		<div class="hero-container">
+			<div class="hero-content">
+				<div class="hero-badge">
+					<span class="badge-dot"></span>
+					Built for Army Units
+				</div>
+				<h1 class="hero-title">
+					Personnel Management
+					<span class="hero-highlight">That Actually Works</span>
+				</h1>
+				<p class="hero-subtitle">
+					Stop juggling spreadsheets, whiteboards, and group texts. Troop to Task gives you
+					a visual calendar, training tracker, and assignment planner — all in one place.
+				</p>
+				<div class="hero-actions">
+					{#if data.user}
+						<a href="/dashboard?show=all" class="btn btn-primary btn-lg">
+							Go to Dashboard
+							<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
+								<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+							</svg>
+						</a>
+					{:else}
+						<a href="/auth/login" class="btn btn-primary btn-lg">
+							Get Started Free
+							<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
+								<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+							</svg>
+						</a>
+					{/if}
+					<a href="#features" class="btn btn-glass btn-lg">
+						Explore Features
+					</a>
+				</div>
 
-		<!-- Hero Visual -->
-		<div class="hero-visual">
-			<div class="hero-mockup">
-				<div class="mockup-header">
-					<div class="mockup-dots">
-						<span></span><span></span><span></span>
-					</div>
-					<div class="mockup-title">February 2026</div>
-					<div class="mockup-nav">
-						<span class="mockup-nav-item active">Calendar</span>
-						<span class="mockup-nav-item">Personnel</span>
-						<span class="mockup-nav-item">Training</span>
-					</div>
-				</div>
-				<div class="mockup-calendar">
-					<div class="mockup-row mockup-header-row">
-						<div class="mockup-cell name">Personnel</div>
-						{#each ['M', 'T', 'W', 'T', 'F'] as day}
-							<div class="mockup-cell day">{day}</div>
-						{/each}
-					</div>
-					<div class="mockup-group-header">Alpha Company</div>
-					<div class="mockup-row">
-						<div class="mockup-cell name">CPT Rodriguez</div>
-						<div class="mockup-cell"></div>
-						<div class="mockup-cell status tdy"></div>
-						<div class="mockup-cell status tdy"></div>
-						<div class="mockup-cell status tdy"></div>
-						<div class="mockup-cell"></div>
-					</div>
-					<div class="mockup-row">
-						<div class="mockup-cell name">1SG Martinez</div>
-						<div class="mockup-cell"></div>
-						<div class="mockup-cell"></div>
-						<div class="mockup-cell"></div>
-						<div class="mockup-cell"></div>
-						<div class="mockup-cell"></div>
-					</div>
-					<div class="mockup-row">
-						<div class="mockup-cell name">SSG Thompson</div>
-						<div class="mockup-cell status leave"></div>
-						<div class="mockup-cell status leave"></div>
-						<div class="mockup-cell status leave"></div>
-						<div class="mockup-cell status leave"></div>
-						<div class="mockup-cell status leave"></div>
-					</div>
-					<div class="mockup-group-header">Bravo Company</div>
-					<div class="mockup-row">
-						<div class="mockup-cell name">SGT Williams</div>
-						<div class="mockup-cell"></div>
-						<div class="mockup-cell"></div>
-						<div class="mockup-cell status appt"></div>
-						<div class="mockup-cell"></div>
-						<div class="mockup-cell"></div>
-					</div>
-					<div class="mockup-row">
-						<div class="mockup-cell name">SPC Davis</div>
-						<div class="mockup-cell"></div>
-						<div class="mockup-cell status school"></div>
-						<div class="mockup-cell status school"></div>
-						<div class="mockup-cell status school"></div>
-						<div class="mockup-cell status school"></div>
-					</div>
-				</div>
-				<div class="mockup-legend">
-					<span class="legend-item"><span class="legend-dot leave"></span>Leave</span>
-					<span class="legend-item"><span class="legend-dot tdy"></span>TDY</span>
-					<span class="legend-item"><span class="legend-dot school"></span>School</span>
-					<span class="legend-item"><span class="legend-dot appt"></span>Appt</span>
+				<!-- Stats -->
+				<div class="hero-stats">
+					{#each stats as stat}
+						<div class="stat">
+							<span class="stat-value">{stat.value}</span>
+							<span class="stat-label">{stat.label}</span>
+						</div>
+					{/each}
 				</div>
 			</div>
-		</div>
-	</section>
 
-	<!-- Social Proof -->
-	<section class="social-proof">
-		<div class="section-container">
-			<p class="proof-text">Designed by Army leaders, for Army leaders</p>
+			<!-- Hero Visual - Bento Grid Preview -->
+			<div class="hero-visual">
+				<div class="bento-grid">
+					<div class="bento-card bento-calendar">
+						<div class="bento-header">
+							<span class="bento-title">Calendar</span>
+							<span class="bento-badge">Live</span>
+						</div>
+						<div class="mini-calendar">
+							<div class="cal-row cal-header">
+								<span>M</span><span>T</span><span>W</span><span>T</span><span>F</span>
+							</div>
+							<div class="cal-row">
+								<span></span><span class="status leave"></span><span class="status leave"></span><span></span><span></span>
+							</div>
+							<div class="cal-row">
+								<span class="status tdy"></span><span class="status tdy"></span><span></span><span></span><span class="status appt"></span>
+							</div>
+							<div class="cal-row">
+								<span></span><span></span><span class="status school"></span><span class="status school"></span><span class="status school"></span>
+							</div>
+						</div>
+					</div>
+					<div class="bento-card bento-training">
+						<div class="bento-header">
+							<span class="bento-title">Training</span>
+						</div>
+						<div class="training-bars">
+							<div class="training-item">
+								<span class="training-name">Weapons Qual</span>
+								<div class="training-bar">
+									<div class="training-fill green" style="width: 85%"></div>
+								</div>
+							</div>
+							<div class="training-item">
+								<span class="training-name">ACFT</span>
+								<div class="training-bar">
+									<div class="training-fill yellow" style="width: 60%"></div>
+								</div>
+							</div>
+							<div class="training-item">
+								<span class="training-name">First Aid</span>
+								<div class="training-bar">
+									<div class="training-fill red" style="width: 25%"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="bento-card bento-roster">
+						<div class="bento-header">
+							<span class="bento-title">Today's Duty</span>
+						</div>
+						<div class="roster-list">
+							<div class="roster-item">
+								<span class="roster-role">MOD</span>
+								<span class="roster-name">CPT Rodriguez</span>
+							</div>
+							<div class="roster-item">
+								<span class="roster-role">CQ</span>
+								<span class="roster-name">SSG Thompson</span>
+							</div>
+						</div>
+					</div>
+					<div class="bento-card bento-stats">
+						<div class="bento-header">
+							<span class="bento-title">Coverage</span>
+						</div>
+						<div class="coverage-ring">
+							<svg viewBox="0 0 36 36">
+								<path class="ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+								<path class="ring-fill" stroke-dasharray="78, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+							</svg>
+							<span class="coverage-value">78%</span>
+						</div>
+					</div>
+				</div>
+			</div>
 		</div>
 	</section>
 
@@ -239,15 +287,16 @@
 	<section id="features" class="features">
 		<div class="section-container">
 			<div class="section-header">
-				<h2 class="section-title">Everything You Need</h2>
+				<span class="section-badge">Features</span>
+				<h2 class="section-title">Everything Your Unit Needs</h2>
 				<p class="section-subtitle">
-					Purpose-built tools for military unit personnel management
+					Purpose-built tools designed by Army leaders, for Army leaders
 				</p>
 			</div>
 
 			<div class="features-grid">
-				{#each features as feature}
-					<div class="feature-card">
+				{#each features as feature, i}
+					<div class="feature-card" class:highlight={feature.highlight}>
 						<div class="feature-icon">
 							{#if feature.icon === 'calendar'}
 								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -268,6 +317,14 @@
 									<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
 									<rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
 									<path d="M9 14l2 2 4-4"/>
+								</svg>
+							{:else if feature.icon === 'roster'}
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+									<polyline points="14 2 14 8 20 8"/>
+									<line x1="16" y1="13" x2="8" y2="13"/>
+									<line x1="16" y1="17" x2="8" y2="17"/>
+									<polyline points="10 9 9 9 8 9"/>
 								</svg>
 							{:else if feature.icon === 'chart'}
 								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -297,9 +354,6 @@
 									<line x1="8" y1="10" x2="8" y2="10"/>
 									<line x1="12" y1="10" x2="12" y2="10"/>
 									<line x1="16" y1="10" x2="16" y2="10"/>
-									<line x1="8" y1="14" x2="8" y2="14"/>
-									<line x1="12" y1="14" x2="12" y2="14"/>
-									<line x1="16" y1="14" x2="16" y2="14"/>
 								</svg>
 							{:else if feature.icon === 'download'}
 								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -321,59 +375,60 @@
 	<section class="how-it-works">
 		<div class="section-container">
 			<div class="section-header">
-				<h2 class="section-title">How It Works</h2>
-				<p class="section-subtitle">Get your unit up and running in minutes</p>
+				<span class="section-badge">Getting Started</span>
+				<h2 class="section-title">Up and Running in Minutes</h2>
+				<p class="section-subtitle">No complex setup or training required</p>
 			</div>
 
-			<div class="steps-grid">
-				<div class="step">
-					<div class="step-number">1</div>
-					<h3>Create Your Organization</h3>
-					<p>Sign up and create your unit's workspace. Invite team members with customizable permission levels.</p>
-				</div>
-				<div class="step">
-					<div class="step-number">2</div>
-					<h3>Add Your Personnel</h3>
-					<p>Enter your roster manually or bulk import from a spreadsheet. Organize into groups and sections.</p>
-				</div>
-				<div class="step">
-					<div class="step-number">3</div>
-					<h3>Track Everything</h3>
-					<p>Log availability, assign duties, and monitor training. Your whole team sees updates in real-time.</p>
+			<div class="steps-container">
+				<div class="steps-line"></div>
+				<div class="steps-grid">
+					<div class="step">
+						<div class="step-number">1</div>
+						<div class="step-content">
+							<h3>Create Your Organization</h3>
+							<p>Sign up and create your unit's workspace. It takes less than a minute.</p>
+						</div>
+					</div>
+					<div class="step">
+						<div class="step-number">2</div>
+						<div class="step-content">
+							<h3>Add Your Personnel</h3>
+							<p>Enter your roster manually or bulk import from any spreadsheet.</p>
+						</div>
+					</div>
+					<div class="step">
+						<div class="step-number">3</div>
+						<div class="step-content">
+							<h3>Start Tracking</h3>
+							<p>Log availability, assign duties, and monitor training in real-time.</p>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
 	</section>
 
-	<!-- Coming Soon Section -->
-	<section id="coming-soon" class="coming-soon">
+	<!-- Roadmap Section -->
+	<section id="roadmap" class="roadmap">
 		<div class="section-container">
 			<div class="section-header">
-				<div class="coming-soon-badge">Roadmap</div>
-				<h2 class="section-title">Coming Soon</h2>
+				<span class="section-badge accent">Roadmap</span>
+				<h2 class="section-title">What's Coming Next</h2>
 				<p class="section-subtitle">
 					We're actively building new features based on leader feedback
 				</p>
 			</div>
 
-			<div class="coming-soon-grid">
-				{#each comingSoon as item}
-					<div class="coming-soon-card">
-						<div class="coming-soon-icon">
-							{#if item.icon === 'roster'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-									<polyline points="14 2 14 8 20 8"/>
-									<line x1="16" y1="13" x2="8" y2="13"/>
-									<line x1="16" y1="17" x2="8" y2="17"/>
-									<polyline points="10 9 9 9 8 9"/>
-								</svg>
-							{:else if item.icon === 'book'}
+			<div class="roadmap-grid">
+				{#each roadmap as item}
+					<div class="roadmap-card">
+						<div class="roadmap-status">{item.status}</div>
+						<div class="roadmap-icon">
+							{#if item.icon === 'book'}
 								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 									<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
 									<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-									<line x1="8" y1="7" x2="16" y2="7"/>
-									<line x1="8" y1="11" x2="14" y2="11"/>
 								</svg>
 							{:else if item.icon === 'signup'}
 								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -381,16 +436,21 @@
 									<line x1="16" y1="2" x2="16" y2="6"/>
 									<line x1="8" y1="2" x2="8" y2="6"/>
 									<line x1="3" y1="10" x2="21" y2="10"/>
-									<path d="M8 14h.01"/>
-									<path d="M12 14h.01"/>
-									<path d="M16 14h.01"/>
-									<path d="M8 18h.01"/>
-									<path d="M12 18h.01"/>
+								</svg>
+							{:else if item.icon === 'bell'}
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+									<path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+								</svg>
+							{:else if item.icon === 'mobile'}
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+									<line x1="12" y1="18" x2="12.01" y2="18"/>
 								</svg>
 							{/if}
 						</div>
-						<h3 class="coming-soon-title">{item.title}</h3>
-						<p class="coming-soon-description">{item.description}</p>
+						<h3 class="roadmap-title">{item.title}</h3>
+						<p class="roadmap-description">{item.description}</p>
 					</div>
 				{/each}
 			</div>
@@ -399,24 +459,28 @@
 
 	<!-- CTA Section -->
 	<section class="cta">
-		<div class="section-container">
-			<h2 class="cta-title">Ready to streamline your unit management?</h2>
-			<p class="cta-subtitle">Free to use. No credit card required.</p>
-			{#if data.user}
-				<a href="/dashboard?show=all" class="btn btn-primary btn-lg">
-					Go to Dashboard
-					<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
-						<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
-					</svg>
-				</a>
-			{:else}
-				<a href="/auth/login" class="btn btn-primary btn-lg">
-					Get Started Free
-					<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
-						<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
-					</svg>
-				</a>
-			{/if}
+		<div class="cta-container">
+			<div class="cta-content">
+				<h2 class="cta-title">Ready to streamline your unit?</h2>
+				<p class="cta-subtitle">Free to use. No credit card required. Get started in minutes.</p>
+				<div class="cta-actions">
+					{#if data.user}
+						<a href="/dashboard?show=all" class="btn btn-white btn-lg">
+							Go to Dashboard
+							<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
+								<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+							</svg>
+						</a>
+					{:else}
+						<a href="/auth/login" class="btn btn-white btn-lg">
+							Get Started Free
+							<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
+								<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+							</svg>
+						</a>
+					{/if}
+				</div>
+			</div>
 		</div>
 	</section>
 
@@ -434,47 +498,27 @@
 				</div>
 				<span>Troop to Task</span>
 			</div>
+			<div class="footer-links">
+				<a href="/help">Help</a>
+				<a href="#features">Features</a>
+				<a href="#roadmap">Roadmap</a>
+			</div>
 			<p class="footer-text">Built for Army Units</p>
 		</div>
 	</footer>
 </div>
 
 <style>
-	/* Theme Variables */
-	.landing {
-		--bg: #ffffff;
-		--bg-alt: #f8fafc;
-		--surface: #ffffff;
-		--surface-raised: #ffffff;
-		--text: #0f172a;
-		--text-muted: #64748b;
-		--border: #e2e8f0;
-		--primary: #1a365d;
-		--primary-light: #2c5282;
-		--accent: #c6a03b;
-		--success: #22c55e;
-		--shadow: rgba(0, 0, 0, 0.1);
-	}
-
-	.landing[data-theme='dark'] {
-		--bg: #0f172a;
-		--bg-alt: #1e293b;
-		--surface: #0f172a;
-		--surface-raised: #1e293b;
-		--text: #f1f5f9;
-		--text-muted: #94a3b8;
-		--border: #334155;
-		--primary: #3b82f6;
-		--primary-light: #60a5fa;
-		--accent: #fbbf24;
-		--shadow: rgba(0, 0, 0, 0.3);
-	}
+	/* ============================================
+	   Landing Page - Modern Material Design
+	   ============================================ */
 
 	.landing {
 		min-height: 100vh;
-		background: var(--bg);
-		color: var(--text);
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-family: var(--font-family);
+		overflow-x: hidden;
 	}
 
 	/* Navigation */
@@ -484,15 +528,20 @@
 		left: 0;
 		right: 0;
 		z-index: 100;
-		background: var(--bg);
-		border-bottom: 1px solid var(--border);
-		backdrop-filter: blur(8px);
+		background: rgba(250, 250, 250, 0.8);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		border-bottom: 1px solid var(--color-divider);
+	}
+
+	:global([data-theme='dark']) .nav {
+		background: rgba(18, 18, 18, 0.8);
 	}
 
 	.nav-container {
-		max-width: 1200px;
+		max-width: 1280px;
 		margin: 0 auto;
-		padding: 1rem 1.5rem;
+		padding: 0.875rem 1.5rem;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -502,26 +551,27 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		font-weight: 700;
+		font-weight: 600;
 		font-size: 1.25rem;
-		color: var(--text);
+		color: var(--color-text);
 		text-decoration: none;
 	}
 
 	.nav-logo {
-		width: 36px;
-		height: 36px;
-		background: var(--primary);
-		border-radius: 8px;
+		width: 40px;
+		height: 40px;
+		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+		border-radius: var(--radius-lg);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		color: white;
+		box-shadow: var(--shadow-1);
 	}
 
 	.nav-logo.small {
-		width: 28px;
-		height: 28px;
+		width: 32px;
+		height: 32px;
 	}
 
 	.nav-logo svg {
@@ -532,56 +582,46 @@
 	.nav-links {
 		display: flex;
 		align-items: center;
-		gap: 1.5rem;
+		gap: 2rem;
 	}
 
 	.nav-link {
-		color: var(--text-muted);
+		color: var(--color-text-secondary);
 		text-decoration: none;
 		font-size: 0.9375rem;
 		font-weight: 500;
-		transition: color 0.15s;
+		transition: color var(--transition-fast);
 	}
 
 	.nav-link:hover {
-		color: var(--text);
+		color: var(--color-text);
 	}
 
-	.mobile-menu-btn {
+	.mobile-actions {
 		display: none;
-		width: 40px;
-		height: 40px;
-		border-radius: 8px;
-		border: 1px solid var(--border);
-		background: var(--surface);
-		color: var(--text);
-		cursor: pointer;
 		align-items: center;
-		justify-content: center;
-	}
-
-	.mobile-menu-btn svg {
-		width: 20px;
-		height: 20px;
+		gap: 0.75rem;
 	}
 
 	.theme-toggle {
-		width: 40px;
-		height: 40px;
-		border-radius: 8px;
-		border: 1px solid var(--border);
-		background: var(--surface);
-		color: var(--text-muted);
+		width: 44px;
+		height: 44px;
+		border-radius: var(--radius-full);
+		border: none;
+		background: var(--color-surface);
+		color: var(--color-text-secondary);
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: all 0.15s;
+		transition: all var(--transition-fast);
+		box-shadow: var(--shadow-1);
 	}
 
 	.theme-toggle:hover {
-		color: var(--text);
-		border-color: var(--text-muted);
+		color: var(--color-text);
+		box-shadow: var(--shadow-2);
+		transform: scale(1.05);
 	}
 
 	.theme-toggle svg {
@@ -589,43 +629,69 @@
 		height: 20px;
 	}
 
+	.theme-toggle.mobile {
+		width: 40px;
+		height: 40px;
+	}
+
 	/* Buttons */
 	.btn {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0.625rem 1.25rem;
-		border-radius: 8px;
+		padding: 0.75rem 1.5rem;
+		border-radius: var(--radius-lg);
 		font-weight: 600;
 		font-size: 0.9375rem;
 		text-decoration: none;
-		transition: all 0.15s;
+		transition: all var(--transition-fast);
 		border: none;
 		cursor: pointer;
 	}
 
 	.btn-primary {
-		background: var(--primary);
+		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
 		color: white;
+		box-shadow: var(--shadow-1);
 	}
 
 	.btn-primary:hover {
-		background: var(--primary-light);
+		box-shadow: var(--shadow-2);
+		transform: translateY(-2px);
 	}
 
-	.btn-secondary {
-		background: var(--surface);
-		color: var(--text);
-		border: 1px solid var(--border);
+	.btn-glass {
+		background: rgba(255, 255, 255, 0.1);
+		backdrop-filter: blur(10px);
+		color: var(--color-text);
+		border: 1px solid var(--color-divider);
 	}
 
-	.btn-secondary:hover {
-		border-color: var(--text-muted);
+	.btn-glass:hover {
+		background: rgba(255, 255, 255, 0.15);
+		border-color: var(--color-border);
+	}
+
+	.btn-white {
+		background: white;
+		color: var(--color-primary);
+		box-shadow: var(--shadow-2);
+	}
+
+	.btn-white:hover {
+		box-shadow: var(--shadow-3);
+		transform: translateY(-2px);
 	}
 
 	.btn-lg {
-		padding: 0.875rem 1.75rem;
+		padding: 1rem 2rem;
 		font-size: 1rem;
+		border-radius: var(--radius-xl);
+	}
+
+	.btn-sm {
+		padding: 0.5rem 1rem;
+		font-size: 0.875rem;
 	}
 
 	.btn-icon {
@@ -635,36 +701,92 @@
 
 	/* Hero */
 	.hero {
-		padding: 8rem 1.5rem 4rem;
-		max-width: 1200px;
+		position: relative;
+		min-height: 100vh;
+		display: flex;
+		align-items: center;
+		padding: 6rem 1.5rem 4rem;
+	}
+
+	.hero-bg {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		z-index: 0;
+	}
+
+	.hero-gradient {
+		position: absolute;
+		top: -50%;
+		right: -20%;
+		width: 80%;
+		height: 100%;
+		background: radial-gradient(ellipse at center, rgba(var(--color-primary-rgb), 0.08) 0%, transparent 70%);
+		pointer-events: none;
+	}
+
+	.hero-grid {
+		position: absolute;
+		inset: 0;
+		background-image:
+			linear-gradient(var(--color-divider) 1px, transparent 1px),
+			linear-gradient(90deg, var(--color-divider) 1px, transparent 1px);
+		background-size: 60px 60px;
+		opacity: 0.4;
+		mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+		-webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+	}
+
+	.hero-container {
+		position: relative;
+		z-index: 1;
+		max-width: 1280px;
 		margin: 0 auto;
 		display: grid;
-		grid-template-columns: 1fr 1.1fr;
+		grid-template-columns: 1fr 1fr;
 		gap: 4rem;
 		align-items: center;
 	}
 
 	.hero-badge {
-		display: inline-block;
-		padding: 0.375rem 0.875rem;
-		background: var(--bg-alt);
-		border: 1px solid var(--border);
-		border-radius: 9999px;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-full);
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: var(--text-muted);
+		color: var(--color-text-secondary);
 		margin-bottom: 1.5rem;
+		box-shadow: var(--shadow-1);
+	}
+
+	.badge-dot {
+		width: 8px;
+		height: 8px;
+		background: var(--color-success);
+		border-radius: 50%;
+		animation: pulse 2s infinite;
+	}
+
+	@keyframes pulse {
+		0%, 100% { opacity: 1; transform: scale(1); }
+		50% { opacity: 0.5; transform: scale(0.9); }
 	}
 
 	.hero-title {
-		font-size: 3.25rem;
-		font-weight: 800;
+		font-size: 3.5rem;
+		font-weight: 700;
 		line-height: 1.1;
 		margin-bottom: 1.5rem;
+		letter-spacing: -0.02em;
 	}
 
 	.hero-highlight {
-		background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+		display: block;
+		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
 		background-clip: text;
@@ -672,175 +794,232 @@
 
 	.hero-subtitle {
 		font-size: 1.125rem;
-		color: var(--text-muted);
+		color: var(--color-text-secondary);
 		line-height: 1.7;
 		margin-bottom: 2rem;
-		max-width: 540px;
+		max-width: 520px;
 	}
 
 	.hero-actions {
 		display: flex;
 		gap: 1rem;
 		flex-wrap: wrap;
+		margin-bottom: 3rem;
 	}
 
-	/* Hero Mockup */
+	.hero-stats {
+		display: flex;
+		gap: 3rem;
+	}
+
+	.stat {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.stat-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--color-primary);
+	}
+
+	.stat-label {
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+	}
+
+	/* Bento Grid */
 	.hero-visual {
 		display: flex;
 		justify-content: center;
 	}
 
-	.hero-mockup {
-		background: var(--surface-raised);
-		border: 1px solid var(--border);
-		border-radius: 12px;
-		box-shadow: 0 20px 40px var(--shadow);
-		overflow: hidden;
-		width: 100%;
-		max-width: 520px;
+	.bento-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1rem;
+		max-width: 420px;
 	}
 
-	.mockup-header {
+	.bento-card {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-xl);
+		padding: 1.25rem;
+		box-shadow: var(--shadow-2);
+		transition: all var(--transition-normal);
+	}
+
+	.bento-card:hover {
+		transform: translateY(-4px);
+		box-shadow: var(--shadow-3);
+	}
+
+	.bento-calendar {
+		grid-column: span 2;
+	}
+
+	.bento-header {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
-		padding: 0.75rem 1rem;
-		background: var(--primary);
-		color: white;
+		justify-content: space-between;
+		margin-bottom: 1rem;
 	}
 
-	.mockup-dots {
-		display: flex;
-		gap: 6px;
-	}
-
-	.mockup-dots span {
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		background: rgba(255,255,255,0.3);
-	}
-
-	.mockup-title {
+	.bento-title {
 		font-weight: 600;
 		font-size: 0.875rem;
-		flex: 1;
+		color: var(--color-text);
 	}
 
-	.mockup-nav {
-		display: flex;
-		gap: 0.75rem;
-		font-size: 0.75rem;
-	}
-
-	.mockup-nav-item {
-		opacity: 0.7;
-	}
-
-	.mockup-nav-item.active {
-		opacity: 1;
+	.bento-badge {
+		font-size: 0.625rem;
 		font-weight: 600;
-	}
-
-	.mockup-calendar {
-		padding: 0.75rem;
-	}
-
-	.mockup-group-header {
-		font-size: 0.7rem;
-		font-weight: 600;
-		color: var(--primary);
-		padding: 0.5rem 0.25rem 0.25rem;
 		text-transform: uppercase;
-		letter-spacing: 0.5px;
+		padding: 0.25rem 0.5rem;
+		background: rgba(76, 175, 80, 0.12);
+		color: var(--color-success);
+		border-radius: var(--radius-full);
 	}
 
-	.mockup-row {
+	.mini-calendar {
 		display: flex;
-		gap: 2px;
-	}
-
-	.mockup-row.mockup-header-row {
-		margin-bottom: 2px;
-	}
-
-	.mockup-cell {
-		flex: 1;
-		height: 28px;
-		border-radius: 3px;
-		background: var(--bg-alt);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.7rem;
-		margin: 1px;
-	}
-
-	.mockup-cell.name {
-		flex: 2.5;
-		justify-content: flex-start;
-		padding-left: 6px;
-		font-weight: 500;
-		background: transparent;
-		font-size: 0.65rem;
-	}
-
-	.mockup-cell.day {
-		font-weight: 600;
-		color: var(--text-muted);
-		background: transparent;
-	}
-
-	.mockup-cell.status.leave { background: #22c55e; }
-	.mockup-cell.status.tdy { background: #8b5cf6; }
-	.mockup-cell.status.school { background: #3b82f6; }
-	.mockup-cell.status.appt { background: #f59e0b; }
-
-	.mockup-legend {
-		display: flex;
-		gap: 1rem;
-		padding: 0.5rem 0.75rem;
-		border-top: 1px solid var(--border);
-		font-size: 0.65rem;
-		color: var(--text-muted);
-	}
-
-	.legend-item {
-		display: flex;
-		align-items: center;
+		flex-direction: column;
 		gap: 4px;
 	}
 
-	.legend-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 2px;
+	.cal-row {
+		display: flex;
+		gap: 4px;
 	}
 
-	.legend-dot.leave { background: #22c55e; }
-	.legend-dot.tdy { background: #8b5cf6; }
-	.legend-dot.school { background: #3b82f6; }
-	.legend-dot.appt { background: #f59e0b; }
-
-	/* Social Proof */
-	.social-proof {
-		padding: 2rem 0;
-		background: var(--bg-alt);
-		border-top: 1px solid var(--border);
-		border-bottom: 1px solid var(--border);
+	.cal-row span {
+		flex: 1;
+		height: 24px;
+		border-radius: var(--radius-sm);
+		background: var(--color-surface-variant);
 	}
 
-	.proof-text {
-		text-align: center;
-		color: var(--text-muted);
-		font-size: 0.9375rem;
-		font-weight: 500;
-		margin: 0;
+	.cal-row.cal-header span {
+		background: transparent;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.625rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.cal-row span.status.leave { background: #4caf50; }
+	.cal-row span.status.tdy { background: #7c4dff; }
+	.cal-row span.status.school { background: #2196f3; }
+	.cal-row span.status.appt { background: #ff9800; }
+
+	.training-bars {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.training-item {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.training-name {
+		font-size: 0.6875rem;
+		color: var(--color-text-muted);
+	}
+
+	.training-bar {
+		height: 6px;
+		background: var(--color-surface-variant);
+		border-radius: 3px;
+		overflow: hidden;
+	}
+
+	.training-fill {
+		height: 100%;
+		border-radius: 3px;
+	}
+
+	.training-fill.green { background: #4caf50; }
+	.training-fill.yellow { background: #ff9800; }
+	.training-fill.red { background: #f44336; }
+
+	.roster-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.roster-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.roster-role {
+		font-size: 0.625rem;
+		font-weight: 600;
+		padding: 0.25rem 0.5rem;
+		background: var(--color-primary);
+		color: white;
+		border-radius: var(--radius-sm);
+	}
+
+	.roster-name {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+	}
+
+	.bento-stats {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.coverage-ring {
+		position: relative;
+		width: 80px;
+		height: 80px;
+	}
+
+	.coverage-ring svg {
+		transform: rotate(-90deg);
+		width: 100%;
+		height: 100%;
+	}
+
+	.ring-bg {
+		fill: none;
+		stroke: var(--color-surface-variant);
+		stroke-width: 3;
+	}
+
+	.ring-fill {
+		fill: none;
+		stroke: var(--color-success);
+		stroke-width: 3;
+		stroke-linecap: round;
+	}
+
+	.coverage-value {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1rem;
+		font-weight: 700;
+		color: var(--color-text);
 	}
 
 	/* Sections */
 	.section-container {
-		max-width: 1200px;
+		max-width: 1280px;
 		margin: 0 auto;
 		padding: 0 1.5rem;
 	}
@@ -850,15 +1029,34 @@
 		margin-bottom: 4rem;
 	}
 
+	.section-badge {
+		display: inline-block;
+		padding: 0.375rem 1rem;
+		background: rgba(var(--color-primary-rgb), 0.1);
+		color: var(--color-primary);
+		border-radius: var(--radius-full);
+		font-size: 0.75rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		margin-bottom: 1rem;
+	}
+
+	.section-badge.accent {
+		background: rgba(255, 152, 0, 0.12);
+		color: #e65100;
+	}
+
 	.section-title {
 		font-size: 2.5rem;
-		font-weight: 800;
+		font-weight: 700;
 		margin-bottom: 1rem;
+		letter-spacing: -0.02em;
 	}
 
 	.section-subtitle {
 		font-size: 1.125rem;
-		color: var(--text-muted);
+		color: var(--color-text-secondary);
 		max-width: 600px;
 		margin: 0 auto;
 	}
@@ -866,203 +1064,243 @@
 	/* Features */
 	.features {
 		padding: 6rem 0;
-		background: var(--bg);
+		background: var(--color-bg);
 	}
 
 	.features-grid {
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(3, 1fr);
 		gap: 1.5rem;
 	}
 
 	.feature-card {
-		background: var(--surface-raised);
-		border: 1px solid var(--border);
-		border-radius: 12px;
-		padding: 1.5rem;
-		transition: all 0.2s;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-xl);
+		padding: 1.75rem;
+		transition: all var(--transition-normal);
 	}
 
 	.feature-card:hover {
-		border-color: var(--primary);
-		box-shadow: 0 8px 24px var(--shadow);
+		border-color: var(--color-primary);
+		box-shadow: var(--shadow-2);
+		transform: translateY(-4px);
+	}
+
+	.feature-card.highlight {
+		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+		border-color: transparent;
+		color: white;
+	}
+
+	.feature-card.highlight .feature-icon {
+		background: rgba(255, 255, 255, 0.2);
+		color: white;
+	}
+
+	.feature-card.highlight .feature-description {
+		color: rgba(255, 255, 255, 0.85);
 	}
 
 	.feature-icon {
-		width: 44px;
-		height: 44px;
-		background: var(--bg-alt);
-		border-radius: 10px;
+		width: 48px;
+		height: 48px;
+		background: rgba(var(--color-primary-rgb), 0.1);
+		border-radius: var(--radius-lg);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		margin-bottom: 1rem;
-		color: var(--primary);
+		margin-bottom: 1.25rem;
+		color: var(--color-primary);
 	}
 
 	.feature-icon svg {
-		width: 22px;
-		height: 22px;
+		width: 24px;
+		height: 24px;
 	}
 
 	.feature-title {
-		font-size: 1rem;
-		font-weight: 700;
+		font-size: 1.125rem;
+		font-weight: 600;
 		margin-bottom: 0.5rem;
 	}
 
 	.feature-description {
-		color: var(--text-muted);
-		line-height: 1.5;
-		font-size: 0.875rem;
+		color: var(--color-text-secondary);
+		line-height: 1.6;
+		font-size: 0.9375rem;
 		margin: 0;
 	}
 
 	/* How It Works */
 	.how-it-works {
 		padding: 6rem 0;
-		background: var(--bg-alt);
+		background: var(--color-surface-variant);
+	}
+
+	.steps-container {
+		position: relative;
+		max-width: 800px;
+		margin: 0 auto;
+	}
+
+	.steps-line {
+		position: absolute;
+		top: 40px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 60%;
+		height: 2px;
+		background: var(--color-border);
 	}
 
 	.steps-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		gap: 2rem;
+		position: relative;
 	}
 
 	.step {
 		text-align: center;
-		padding: 2rem;
 	}
 
 	.step-number {
-		width: 48px;
-		height: 48px;
-		background: var(--primary);
+		width: 56px;
+		height: 56px;
+		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
 		color: white;
-		border-radius: 50%;
+		border-radius: var(--radius-full);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		font-size: 1.25rem;
 		font-weight: 700;
-		margin: 0 auto 1.25rem;
+		margin: 0 auto 1.5rem;
+		box-shadow: var(--shadow-2);
+		position: relative;
+		z-index: 1;
 	}
 
-	.step h3 {
+	.step-content h3 {
 		font-size: 1.125rem;
-		font-weight: 700;
-		margin-bottom: 0.75rem;
+		font-weight: 600;
+		margin-bottom: 0.5rem;
 	}
 
-	.step p {
-		color: var(--text-muted);
+	.step-content p {
+		color: var(--color-text-secondary);
 		line-height: 1.6;
 		margin: 0;
 		font-size: 0.9375rem;
 	}
 
-	/* Coming Soon */
-	.coming-soon {
+	/* Roadmap */
+	.roadmap {
 		padding: 6rem 0;
-		background: var(--bg);
+		background: var(--color-bg);
 	}
 
-	.coming-soon-badge {
+	.roadmap-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 1.5rem;
+	}
+
+	.roadmap-card {
+		background: var(--color-surface);
+		border: 2px dashed var(--color-border);
+		border-radius: var(--radius-xl);
+		padding: 1.75rem;
+		text-align: center;
+		transition: all var(--transition-normal);
+	}
+
+	.roadmap-card:hover {
+		border-style: solid;
+		border-color: var(--color-warning);
+		transform: translateY(-4px);
+	}
+
+	.roadmap-status {
 		display: inline-block;
-		padding: 0.375rem 0.875rem;
-		background: var(--accent);
-		color: #000;
-		border-radius: 9999px;
-		font-size: 0.75rem;
-		font-weight: 700;
+		font-size: 0.6875rem;
+		font-weight: 600;
 		text-transform: uppercase;
-		letter-spacing: 0.5px;
+		letter-spacing: 0.05em;
+		padding: 0.25rem 0.75rem;
+		background: rgba(255, 152, 0, 0.12);
+		color: #e65100;
+		border-radius: var(--radius-full);
 		margin-bottom: 1rem;
 	}
 
-	.coming-soon-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 2rem;
-	}
-
-	.coming-soon-card {
-		background: var(--surface-raised);
-		border: 2px dashed var(--border);
-		border-radius: 12px;
-		padding: 2rem;
-		text-align: center;
-	}
-
-	.coming-soon-icon {
+	.roadmap-icon {
 		width: 56px;
 		height: 56px;
-		background: var(--bg-alt);
-		border-radius: 12px;
+		background: var(--color-surface-variant);
+		border-radius: var(--radius-xl);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		margin: 0 auto 1.25rem;
-		color: var(--accent);
+		color: var(--color-warning);
 	}
 
-	.coming-soon-icon svg {
+	.roadmap-icon svg {
 		width: 28px;
 		height: 28px;
 	}
 
-	.coming-soon-title {
+	.roadmap-title {
 		font-size: 1.125rem;
-		font-weight: 700;
-		margin-bottom: 0.75rem;
+		font-weight: 600;
+		margin-bottom: 0.5rem;
 	}
 
-	.coming-soon-description {
-		color: var(--text-muted);
+	.roadmap-description {
+		color: var(--color-text-secondary);
 		line-height: 1.6;
-		font-size: 0.9375rem;
+		font-size: 0.875rem;
 		margin: 0;
 	}
 
 	/* CTA */
 	.cta {
 		padding: 6rem 0;
-		background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+	}
+
+	.cta-container {
+		max-width: 800px;
+		margin: 0 auto;
+		padding: 0 1.5rem;
 		text-align: center;
 	}
 
 	.cta-title {
-		font-size: 2.25rem;
-		font-weight: 800;
+		font-size: 2.5rem;
+		font-weight: 700;
 		color: white;
 		margin-bottom: 0.75rem;
+		letter-spacing: -0.02em;
 	}
 
 	.cta-subtitle {
 		font-size: 1.125rem;
-		color: rgba(255, 255, 255, 0.8);
+		color: rgba(255, 255, 255, 0.85);
 		margin-bottom: 2rem;
-	}
-
-	.cta .btn-primary {
-		background: white;
-		color: var(--primary);
-	}
-
-	.cta .btn-primary:hover {
-		background: rgba(255, 255, 255, 0.9);
 	}
 
 	/* Footer */
 	.footer {
 		padding: 2rem 0;
-		background: var(--bg);
-		border-top: 1px solid var(--border);
+		background: var(--color-bg);
+		border-top: 1px solid var(--color-divider);
 	}
 
 	.footer-container {
-		max-width: 1200px;
+		max-width: 1280px;
 		margin: 0 auto;
 		padding: 0 1.5rem;
 		display: flex;
@@ -1078,18 +1316,33 @@
 		font-size: 0.9375rem;
 	}
 
+	.footer-links {
+		display: flex;
+		gap: 2rem;
+	}
+
+	.footer-links a {
+		color: var(--color-text-secondary);
+		text-decoration: none;
+		font-size: 0.875rem;
+		transition: color var(--transition-fast);
+	}
+
+	.footer-links a:hover {
+		color: var(--color-primary);
+	}
+
 	.footer-text {
-		color: var(--text-muted);
+		color: var(--color-text-muted);
 		font-size: 0.875rem;
 		margin: 0;
 	}
 
 	/* Responsive */
 	@media (max-width: 1024px) {
-		.hero {
+		.hero-container {
 			grid-template-columns: 1fr;
 			text-align: center;
-			padding-top: 7rem;
 			gap: 3rem;
 		}
 
@@ -1101,25 +1354,31 @@
 			justify-content: center;
 		}
 
+		.hero-stats {
+			justify-content: center;
+		}
+
 		.hero-visual {
 			order: -1;
 		}
 
-		.hero-mockup {
-			max-width: 400px;
+		.bento-grid {
+			max-width: 360px;
 		}
 
 		.features-grid {
 			grid-template-columns: repeat(2, 1fr);
 		}
 
-		.steps-grid {
-			grid-template-columns: 1fr;
-			max-width: 400px;
-			margin: 0 auto;
+		.roadmap-grid {
+			grid-template-columns: repeat(2, 1fr);
 		}
 
-		.coming-soon-grid {
+		.steps-line {
+			display: none;
+		}
+
+		.steps-grid {
 			grid-template-columns: 1fr;
 			max-width: 400px;
 			margin: 0 auto;
@@ -1131,23 +1390,38 @@
 			display: none;
 		}
 
-		.mobile-menu-btn {
+		.mobile-actions {
 			display: flex;
+		}
+
+		.hero {
+			padding: 5rem 1rem 3rem;
 		}
 
 		.hero-title {
 			font-size: 2.25rem;
 		}
 
-		.hero-mockup {
-			max-width: 100%;
+		.hero-stats {
+			flex-direction: column;
+			gap: 1rem;
+			align-items: center;
 		}
 
-		.mockup-nav {
-			display: none;
+		.bento-grid {
+			grid-template-columns: 1fr;
+			max-width: 280px;
+		}
+
+		.bento-calendar {
+			grid-column: span 1;
 		}
 
 		.features-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.roadmap-grid {
 			grid-template-columns: 1fr;
 		}
 
@@ -1155,10 +1429,18 @@
 			font-size: 2rem;
 		}
 
+		.cta-title {
+			font-size: 1.75rem;
+		}
+
 		.footer-container {
 			flex-direction: column;
-			gap: 1rem;
+			gap: 1.5rem;
 			text-align: center;
+		}
+
+		.footer-links {
+			gap: 1.5rem;
 		}
 	}
 </style>

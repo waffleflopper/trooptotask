@@ -1338,12 +1338,17 @@
 		margin: 0;
 	}
 
-	/* Responsive */
+	/* Responsive - Tablet */
 	@media (max-width: 1024px) {
+		.hero {
+			min-height: auto;
+			padding: 5rem 1.5rem 3rem;
+		}
+
 		.hero-container {
 			grid-template-columns: 1fr;
 			text-align: center;
-			gap: 3rem;
+			gap: 2.5rem;
 		}
 
 		.hero-subtitle {
@@ -1358,12 +1363,17 @@
 			justify-content: center;
 		}
 
+		/* Content first, then bento grid */
 		.hero-visual {
-			order: -1;
+			order: 1;
+		}
+
+		.hero-content {
+			order: 0;
 		}
 
 		.bento-grid {
-			max-width: 360px;
+			max-width: 380px;
 		}
 
 		.features-grid {
@@ -1383,6 +1393,17 @@
 			max-width: 400px;
 			margin: 0 auto;
 		}
+
+		.section-header {
+			margin-bottom: 3rem;
+		}
+
+		.features,
+		.how-it-works,
+		.roadmap,
+		.cta {
+			padding: 5rem 0;
+		}
 	}
 
 	@media (max-width: 640px) {
@@ -1395,52 +1416,253 @@
 		}
 
 		.hero {
-			padding: 5rem 1rem 3rem;
+			padding: 5rem 1rem 2rem;
+			min-height: auto;
+		}
+
+		.hero-container {
+			gap: 2rem;
+		}
+
+		/* Show content BEFORE bento grid on mobile */
+		.hero-visual {
+			order: 0;
+		}
+
+		.hero-content {
+			order: -1;
+		}
+
+		.hero-badge {
+			margin-bottom: 1rem;
 		}
 
 		.hero-title {
-			font-size: 2.25rem;
+			font-size: 2rem;
+			margin-bottom: 1rem;
+		}
+
+		.hero-subtitle {
+			font-size: 1rem;
+			margin-bottom: 1.5rem;
+		}
+
+		.hero-actions {
+			margin-bottom: 1.5rem;
 		}
 
 		.hero-stats {
-			flex-direction: column;
-			gap: 1rem;
-			align-items: center;
+			flex-direction: row;
+			gap: 1.5rem;
+			justify-content: center;
 		}
 
+		.stat-value {
+			font-size: 1.25rem;
+		}
+
+		.stat-label {
+			font-size: 0.75rem;
+		}
+
+		/* Compact 2x2 bento grid on mobile */
 		.bento-grid {
-			grid-template-columns: 1fr;
-			max-width: 280px;
+			grid-template-columns: 1fr 1fr;
+			max-width: 320px;
+			gap: 0.75rem;
 		}
 
 		.bento-calendar {
-			grid-column: span 1;
+			grid-column: span 2;
+		}
+
+		.bento-card {
+			padding: 0.875rem;
+		}
+
+		.bento-header {
+			margin-bottom: 0.5rem;
+		}
+
+		.bento-title {
+			font-size: 0.75rem;
+		}
+
+		.bento-badge {
+			font-size: 0.5rem;
+			padding: 0.125rem 0.375rem;
+		}
+
+		/* Smaller calendar rows */
+		.cal-row span {
+			height: 18px;
+		}
+
+		.cal-row.cal-header span {
+			font-size: 0.5rem;
+		}
+
+		/* Smaller training bars */
+		.training-name {
+			font-size: 0.5625rem;
+		}
+
+		.training-item {
+			gap: 2px;
+		}
+
+		.training-bars {
+			gap: 0.5rem;
+		}
+
+		/* Smaller roster */
+		.roster-role {
+			font-size: 0.5rem;
+			padding: 0.125rem 0.375rem;
+		}
+
+		.roster-name {
+			font-size: 0.625rem;
+		}
+
+		.roster-list {
+			gap: 0.375rem;
+		}
+
+		/* Smaller coverage ring */
+		.coverage-ring {
+			width: 60px;
+			height: 60px;
+		}
+
+		.coverage-value {
+			font-size: 0.875rem;
+		}
+
+		/* Features section */
+		.features {
+			padding: 4rem 0;
+		}
+
+		.section-header {
+			margin-bottom: 2.5rem;
+		}
+
+		.section-badge {
+			font-size: 0.6875rem;
+		}
+
+		.section-title {
+			font-size: 1.75rem;
+		}
+
+		.section-subtitle {
+			font-size: 1rem;
 		}
 
 		.features-grid {
 			grid-template-columns: 1fr;
+			gap: 1rem;
+		}
+
+		.feature-card {
+			padding: 1.25rem;
+		}
+
+		.feature-icon {
+			width: 40px;
+			height: 40px;
+			margin-bottom: 1rem;
+		}
+
+		.feature-icon svg {
+			width: 20px;
+			height: 20px;
+		}
+
+		.feature-title {
+			font-size: 1rem;
+		}
+
+		.feature-description {
+			font-size: 0.875rem;
+		}
+
+		/* How it works */
+		.how-it-works {
+			padding: 4rem 0;
+		}
+
+		.step-number {
+			width: 48px;
+			height: 48px;
+			font-size: 1.125rem;
+			margin-bottom: 1rem;
+		}
+
+		.step-content h3 {
+			font-size: 1rem;
+		}
+
+		.step-content p {
+			font-size: 0.875rem;
+		}
+
+		/* Roadmap */
+		.roadmap {
+			padding: 4rem 0;
 		}
 
 		.roadmap-grid {
-			grid-template-columns: 1fr;
+			grid-template-columns: 1fr 1fr;
+			gap: 1rem;
 		}
 
-		.section-title {
-			font-size: 2rem;
+		.roadmap-card {
+			padding: 1.25rem;
+		}
+
+		.roadmap-icon {
+			width: 44px;
+			height: 44px;
+			margin-bottom: 1rem;
+		}
+
+		.roadmap-icon svg {
+			width: 22px;
+			height: 22px;
+		}
+
+		.roadmap-title {
+			font-size: 1rem;
+		}
+
+		.roadmap-description {
+			font-size: 0.8125rem;
+		}
+
+		/* CTA */
+		.cta {
+			padding: 4rem 0;
 		}
 
 		.cta-title {
-			font-size: 1.75rem;
+			font-size: 1.5rem;
 		}
 
+		.cta-subtitle {
+			font-size: 1rem;
+		}
+
+		/* Footer */
 		.footer-container {
 			flex-direction: column;
-			gap: 1.5rem;
+			gap: 1.25rem;
 			text-align: center;
 		}
 
 		.footer-links {
-			gap: 1.5rem;
+			gap: 1.25rem;
 		}
 	}
 </style>

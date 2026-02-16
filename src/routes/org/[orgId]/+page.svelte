@@ -24,6 +24,9 @@
 	import PlatformInviteManager from '$lib/components/PlatformInviteManager.svelte';
 	import LongRangeView from '$lib/components/LongRangeView.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import FeatureGate from '$lib/components/FeatureGate.svelte';
+	import PastDueBanner from '$lib/components/PastDueBanner.svelte';
+	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
 
 	let { data } = $props();
@@ -38,6 +41,15 @@
 		specialDaysStore.load(data.specialDays, data.orgId);
 		dailyAssignmentsStore.load(data.assignmentTypes, data.dailyAssignments, data.orgId);
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
+
+		// Load subscription limits if available
+		if (data.subscriptionLimits) {
+			subscriptionStore.load({
+				subscription: null, // Not needed for limits display
+				plan: { id: data.subscriptionLimits.planId, name: data.subscriptionLimits.planName } as any,
+				organizationCount: data.subscriptionLimits.currentOrganizations
+			});
+		}
 	});
 
 	let showStatusManager = $state(false);
@@ -334,16 +346,35 @@
 {/if}
 
 {#if showDutyRosterGenerator}
-	<DutyRosterGenerator
-		assignmentTypes={dailyAssignmentsStore.types}
-		assignments={dailyAssignmentsStore.assignments}
-		personnelByGroup={personnelByGroup()}
-		groups={groupsStore.names}
-		availabilityEntries={availabilityStore.list}
-		statusTypes={statusTypesStore.list}
-		onApplyRoster={handleApplyRoster}
-		onClose={() => (showDutyRosterGenerator = false)}
-	/>
+	{#if data.subscriptionLimits?.hasDutyRoster}
+		<DutyRosterGenerator
+			assignmentTypes={dailyAssignmentsStore.types}
+			assignments={dailyAssignmentsStore.assignments}
+			personnelByGroup={personnelByGroup()}
+			groups={groupsStore.names}
+			availabilityEntries={availabilityStore.list}
+			statusTypes={statusTypesStore.list}
+			onApplyRoster={handleApplyRoster}
+			onClose={() => (showDutyRosterGenerator = false)}
+		/>
+	{:else}
+		<div class="modal-overlay" onclick={() => (showDutyRosterGenerator = false)}>
+			<div class="modal-content feature-gate-modal" onclick={(e) => e.stopPropagation()}>
+				<button class="modal-close" onclick={() => (showDutyRosterGenerator = false)}>&times;</button>
+				<div class="feature-locked">
+					<div class="lock-icon">
+						<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+							<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+						</svg>
+					</div>
+					<h2>Duty Roster Generator</h2>
+					<p>This feature requires a Pro or Team subscription.</p>
+					<a href="/billing/upgrade" class="btn btn-primary">Upgrade Your Plan</a>
+				</div>
+			</div>
+		</div>
+	{/if}
 {/if}
 
 {#if showAssignmentPlanner}
@@ -459,5 +490,55 @@
 		.page {
 			margin-left: var(--sidebar-width);
 		}
+	}
+
+	/* Feature Gate Modal */
+	.feature-gate-modal {
+		max-width: 400px;
+		text-align: center;
+	}
+
+	.feature-locked {
+		padding: var(--spacing-xl);
+	}
+
+	.feature-locked .lock-icon {
+		width: 80px;
+		height: 80px;
+		margin: 0 auto var(--spacing-lg);
+		background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--color-primary);
+	}
+
+	.feature-locked h2 {
+		font-size: var(--font-size-xl);
+		font-weight: 600;
+		color: var(--color-text);
+		margin-bottom: var(--spacing-sm);
+	}
+
+	.feature-locked p {
+		color: var(--color-text-muted);
+		margin-bottom: var(--spacing-lg);
+	}
+
+	.feature-locked .btn-primary {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--spacing-sm) var(--spacing-xl);
+		background: var(--color-primary);
+		color: white;
+		font-weight: 500;
+		border-radius: var(--radius-md);
+		text-decoration: none;
+	}
+
+	.feature-locked .btn-primary:hover {
+		background: var(--color-primary-hover);
 	}
 </style>

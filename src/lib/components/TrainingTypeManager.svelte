@@ -111,10 +111,11 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<div class="modal" style="width: 600px; max-height: 90vh;" onclick={(e) => e.stopPropagation()}>
+<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="training-types-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
+	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
+	<div class="modal" style="width: 600px; max-height: 90vh;" role="document">
 		<div class="modal-header">
-			<h2>Manage Training Types</h2>
+			<h2 id="training-types-title">Manage Training Types</h2>
 			<button class="btn btn-secondary btn-sm" onclick={onClose}>&times;</button>
 		</div>
 

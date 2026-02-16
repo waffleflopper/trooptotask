@@ -61,10 +61,11 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<div class="modal" style="width: 550px;" onclick={(e) => e.stopPropagation()}>
+<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="special-day-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
+	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
+	<div class="modal" style="width: 550px;" role="document">
 		<div class="modal-header">
-			<h2>Manage Holidays & Closures</h2>
+			<h2 id="special-day-title">Manage Holidays & Closures</h2>
 			<button class="btn btn-secondary btn-sm" onclick={onClose}>&times;</button>
 		</div>
 

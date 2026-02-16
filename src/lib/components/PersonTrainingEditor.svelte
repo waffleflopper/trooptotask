@@ -273,11 +273,12 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<div class="modal person-training-modal" onclick={(e) => e.stopPropagation()}>
+<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="person-training-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
+	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
+	<div class="modal person-training-modal" role="document">
 		<div class="modal-header">
 			<div class="header-content">
-				<h2>Training Records</h2>
+				<h2 id="person-training-title">Training Records</h2>
 				<div class="person-badge">
 					<span class="person-rank">{person.rank}</span>
 					<span class="person-name">{person.lastName}, {person.firstName}</span>

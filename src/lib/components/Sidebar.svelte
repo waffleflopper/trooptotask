@@ -157,14 +157,11 @@
 
 <!-- Mobile overlay (only shown when isOpen on mobile) -->
 {#if isOpen}
-	<div
+	<button
 		class="sidebar-overlay"
 		onclick={onClose}
-		onkeydown={(e) => e.key === 'Escape' && onClose?.()}
-		role="button"
-		tabindex="-1"
 		aria-label="Close sidebar"
-	></div>
+	></button>
 {/if}
 
 <aside class="sidebar" class:open={isOpen}>
@@ -520,6 +517,13 @@
 				Invite to Platform
 			</button>
 		{/if}
+		<a href="/billing" class="nav-item" onclick={() => onClose?.()}>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+				<line x1="1" y1="10" x2="23" y2="10" />
+			</svg>
+			Billing
+		</a>
 		<a href="/org/{orgId}/settings" class="nav-item" onclick={() => onClose?.()}>
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<circle cx="12" cy="12" r="3" />
@@ -584,6 +588,9 @@
 
 	.sidebar-overlay {
 		display: none;
+		border: none;
+		padding: 0;
+		cursor: default;
 	}
 
 	.sidebar {

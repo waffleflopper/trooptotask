@@ -1,9 +1,27 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { getDefaultFederalHolidays } from "$lib/utils/federalHolidays";
+import {
+  ensureUserSubscription,
+  countUserOrganizations,
+  computeSubscriptionLimits,
+  checkOrganizationLimit
+} from "$lib/server/subscription";
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.user) throw redirect(303, "/auth/login");
+
+  // Load subscription limits to show upgrade prompt if needed
+  const { subscription, plan } = await ensureUserSubscription(locals.supabase, locals.user.id);
+  const organizationCount = await countUserOrganizations(locals.supabase, locals.user.id);
+  const limits = computeSubscriptionLimits(subscription, plan, organizationCount);
+
+  return {
+    canCreateOrganization: limits.canCreateOrganization,
+    maxOrganizations: limits.maxOrganizations,
+    currentOrganizations: limits.currentOrganizations,
+    planName: plan.name
+  };
 };
 
 const DEFAULT_GROUPS = ["Leadership", "Alpha", "Bravo"];
@@ -42,6 +60,13 @@ export const actions: Actions = {
   default: async ({ request, locals }) => {
     const user = locals.user;
     if (!user) throw redirect(303, "/auth/login");
+
+    // Check organization limit before allowing creation
+    try {
+      await checkOrganizationLimit(locals.supabase, user.id);
+    } catch (error: any) {
+      return fail(403, { error: error.body?.message || "Organization limit reached. Please upgrade your plan." });
+    }
 
     const formData = await request.formData();
     const name = (formData.get("name") as string)?.trim();

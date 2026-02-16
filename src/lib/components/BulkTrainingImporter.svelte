@@ -224,10 +224,11 @@ Williams, Robert, First Aid, 2024-03-10`;
 	});
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<div class="modal bulk-modal" onclick={(e) => e.stopPropagation()}>
+<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bulk-training-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
+	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
+	<div class="modal bulk-modal" role="document">
 		<div class="modal-header">
-			<h2>Bulk Training Import</h2>
+			<h2 id="bulk-training-title">Bulk Training Import</h2>
 			<button class="btn btn-secondary btn-sm close-btn" onclick={onClose} aria-label="Close">&times;</button>
 		</div>
 

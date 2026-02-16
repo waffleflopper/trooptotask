@@ -1,6 +1,12 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import type { OrganizationMemberPermissions } from '$lib/types';
+import {
+	ensureUserSubscription,
+	countUserOrganizations,
+	countOrganizationPersonnel,
+	computeSubscriptionLimits
+} from '$lib/server/subscription';
 
 export const load: LayoutServerLoad = async ({ params, locals }) => {
 	const user = locals.user;
@@ -60,12 +66,37 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 		canManageMembers: isOwner || membership.can_manage_members
 	};
 
+	// Get organization owner's subscription for feature limits
+	const { data: ownerMembership } = await locals.supabase
+		.from('organization_memberships')
+		.select('user_id')
+		.eq('organization_id', orgId)
+		.eq('role', 'owner')
+		.single();
+
+	let subscriptionLimits = null;
+	if (ownerMembership) {
+		const { subscription, plan } = await ensureUserSubscription(locals.supabase, ownerMembership.user_id);
+		const orgCount = await countUserOrganizations(locals.supabase, ownerMembership.user_id);
+		const personnelCount = await countOrganizationPersonnel(locals.supabase, orgId);
+		const limits = computeSubscriptionLimits(subscription, plan, orgCount);
+
+		subscriptionLimits = {
+			...limits,
+			currentPersonnel: personnelCount,
+			canAddPersonnel: limits.maxPersonnelPerOrg === null || personnelCount < limits.maxPersonnelPerOrg,
+			planId: plan.id,
+			planName: plan.name
+		};
+	}
+
 	return {
 		orgId,
 		orgName: org.name,
 		userRole: membership.role as 'owner' | 'member',
 		userId: user.id,
 		permissions,
-		allOrgs
+		allOrgs,
+		subscriptionLimits
 	};
 };

@@ -472,6 +472,14 @@ input[type="checkbox"] {
 	animation: fadeIn var(--transition-fast) ease-out;
 }
 
+.modal-backdrop {
+	position: absolute;
+	inset: 0;
+	background: transparent;
+	border: none;
+	cursor: default;
+}
+
 @keyframes fadeIn {
 	from { opacity: 0; }
 	to { opacity: 1; }

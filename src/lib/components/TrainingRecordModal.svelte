@@ -74,10 +74,11 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<div class="modal" style="width: 450px;" onclick={(e) => e.stopPropagation()}>
+<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="training-record-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
+	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
+	<div class="modal" style="width: 450px;" role="document">
 		<div class="modal-header">
-			<h2>{existingTraining ? 'Edit' : 'Add'} Training Record</h2>
+			<h2 id="training-record-title">{existingTraining ? 'Edit' : 'Add'} Training Record</h2>
 			<button class="btn btn-secondary btn-sm" onclick={onClose}>&times;</button>
 		</div>
 

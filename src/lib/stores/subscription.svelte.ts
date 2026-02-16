@@ -4,6 +4,7 @@ import type {
 	SubscriptionLimits,
 	BillingCycle
 } from '../types/subscription';
+import { isBillingEnabled } from '$lib/config/billing';
 
 interface SubscriptionData {
 	subscription: UserSubscription | null;
@@ -42,6 +43,26 @@ class SubscriptionStore {
 	// ============================================================
 
 	get limits(): SubscriptionLimits {
+		// When billing is disabled, give unlimited access to all features
+		if (!isBillingEnabled) {
+			return {
+				maxOrganizations: null, // unlimited
+				currentOrganizations: this.#organizationCount,
+				canCreateOrganization: true,
+				maxPersonnelPerOrg: null, // unlimited
+				hasDutyRoster: true,
+				hasBulkImport: true,
+				hasExcelExport: true,
+				hasPrioritySupport: true,
+				isActive: true,
+				isPastDue: false,
+				isTrialing: false,
+				isCanceled: false,
+				trialDaysRemaining: null,
+				daysUntilRenewal: null
+			};
+		}
+
 		const sub = this.#subscription;
 		const plan = this.#plan;
 

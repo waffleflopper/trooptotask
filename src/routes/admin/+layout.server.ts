@@ -2,8 +2,13 @@ import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { isPlatformAdmin, getAdminRole } from '$lib/server/subscription';
 import type { AdminRole } from '$lib/types/subscription';
+import { isBillingEnabled } from '$lib/config/billing';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
+	if (!isBillingEnabled) {
+		throw redirect(303, '/dashboard');
+	}
+
 	const user = locals.user;
 	if (!user) throw redirect(303, '/auth/login');
 

@@ -2,8 +2,13 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createPortalSession } from '$lib/server/stripe';
 import { getUserSubscription } from '$lib/server/subscription';
+import { isBillingEnabled } from '$lib/config/billing';
 
 export const POST: RequestHandler = async ({ locals, url }) => {
+	if (!isBillingEnabled) {
+		throw error(503, 'Billing is not enabled');
+	}
+
 	const user = locals.user;
 	if (!user) {
 		throw error(401, 'Unauthorized');

@@ -9,6 +9,7 @@ import type {
 	transformPlanRow,
 	transformSubscriptionRow
 } from '../types/subscription';
+import { isBillingEnabled } from '$lib/config/billing';
 
 // ============================================================
 // Get Subscription Plans
@@ -301,6 +302,11 @@ export async function checkOrganizationLimit(
 	supabase: SupabaseClient,
 	userId: string
 ): Promise<void> {
+	// Skip limit checks when billing is disabled
+	if (!isBillingEnabled) {
+		return;
+	}
+
 	const subData = await getUserSubscription(supabase, userId);
 
 	if (!subData) {
@@ -326,6 +332,11 @@ export async function checkPersonnelLimit(
 	userId: string,
 	orgId: string
 ): Promise<void> {
+	// Skip limit checks when billing is disabled
+	if (!isBillingEnabled) {
+		return;
+	}
+
 	const subData = await getUserSubscription(supabase, userId);
 
 	if (!subData) {
@@ -356,6 +367,11 @@ export async function checkFeatureAccess(
 	userId: string,
 	feature: 'dutyRoster' | 'bulkImport' | 'excelExport' | 'prioritySupport'
 ): Promise<void> {
+	// All features are available when billing is disabled
+	if (!isBillingEnabled) {
+		return;
+	}
+
 	const subData = await getUserSubscription(supabase, userId);
 
 	if (!subData) {

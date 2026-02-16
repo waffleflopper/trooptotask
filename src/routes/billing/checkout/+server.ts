@@ -3,8 +3,13 @@ import type { RequestHandler } from './$types';
 import { getOrCreateCustomer, createCheckoutSession, getPriceId } from '$lib/server/stripe';
 import { getSubscriptionPlan, getUserSubscription } from '$lib/server/subscription';
 import type { BillingCycle } from '$lib/types/subscription';
+import { isBillingEnabled } from '$lib/config/billing';
 
 export const POST: RequestHandler = async ({ request, locals, url }) => {
+	if (!isBillingEnabled) {
+		throw error(503, 'Billing is not enabled');
+	}
+
 	const user = locals.user;
 	if (!user) {
 		throw error(401, 'Unauthorized');

@@ -6,8 +6,13 @@ import {
 	countUserOrganizations,
 	computeSubscriptionLimits
 } from '$lib/server/subscription';
+import { isBillingEnabled } from '$lib/config/billing';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	if (!isBillingEnabled) {
+		throw redirect(303, '/dashboard');
+	}
+
 	const { user } = await locals.safeGetSession();
 	if (!user) throw redirect(303, '/auth/login');
 

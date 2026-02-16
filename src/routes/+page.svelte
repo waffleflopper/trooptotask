@@ -776,6 +776,11 @@
 		50% { opacity: 0.5; transform: scale(0.9); }
 	}
 
+	@keyframes float {
+		0%, 100% { transform: translateY(0px); }
+		50% { transform: translateY(-8px); }
+	}
+
 	.hero-title {
 		font-size: 3.5rem;
 		font-weight: 700;
@@ -847,16 +852,30 @@
 		border-radius: var(--radius-xl);
 		padding: 1.25rem;
 		box-shadow: var(--shadow-2);
-		transition: all var(--transition-normal);
+		transition: box-shadow var(--transition-normal);
+		animation: float 4s ease-in-out infinite;
 	}
 
 	.bento-card:hover {
-		transform: translateY(-4px);
 		box-shadow: var(--shadow-3);
+		animation-play-state: paused;
 	}
 
 	.bento-calendar {
 		grid-column: span 2;
+		animation-delay: 0s;
+	}
+
+	.bento-training {
+		animation-delay: -1s;
+	}
+
+	.bento-roster {
+		animation-delay: -2s;
+	}
+
+	.bento-stats {
+		animation-delay: -3s;
 	}
 
 	.bento-header {
@@ -1663,6 +1682,17 @@
 
 		.footer-links {
 			gap: 1.25rem;
+		}
+	}
+
+	/* Respect reduced motion preferences */
+	@media (prefers-reduced-motion: reduce) {
+		.bento-card {
+			animation: none;
+		}
+
+		.badge-dot {
+			animation: none;
 		}
 	}
 </style>

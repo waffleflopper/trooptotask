@@ -20,7 +20,20 @@
 
 	const exampleFormat = `Smith, John, CPR/BLS, 2024-01-15
 Johnson, Jane, ACLS, 2024-02-20
-Williams, Robert, First Aid, 2024-03-10`;
+Williams, Robert, First Aid, 2024-03-10
+Davis, Michael, Safety Brief, yes`;
+
+	// Check if a value indicates "yes/completed"
+	function isYesValue(value: string): boolean {
+		const normalized = value.toLowerCase().trim();
+		return ['yes', 'y', 'true', '1', 'complete', 'completed', 'done', 'x'].includes(normalized);
+	}
+
+	// Check if a value indicates "no/not completed"
+	function isNoValue(value: string): boolean {
+		const normalized = value.toLowerCase().trim();
+		return ['no', 'n', 'false', '0', 'incomplete', 'pending', ''].includes(normalized);
+	}
 
 	function parseDate(dateStr: string): string | null {
 		if (!dateStr) return null;
@@ -125,13 +138,40 @@ Williams, Robert, First Aid, 2024-03-10`;
 				continue;
 			}
 
-			const completionDate = parseDate(String(completionDateRaw || ''));
-			if (!completionDate) {
-				errors.push(`Row ${i + 1}: Invalid date format - ${completionDateRaw}`);
-				continue;
-			}
+			const dateValue = String(completionDateRaw || '').trim();
+			let completionDate: string | null = null;
+			let expirationDate: string | null = null;
 
-			const expirationDate = calculateExpirationDate(completionDate, trainingType.expirationMonths);
+			// Check if this training type doesn't require a date (never expires)
+			const isNonExpiringTraining = trainingType.expirationMonths === null;
+
+			if (isNonExpiringTraining) {
+				// For non-expiring trainings, accept yes/no values
+				if (isYesValue(dateValue)) {
+					// Use today's date as completion date
+					completionDate = new Date().toISOString().split('T')[0];
+					expirationDate = null;
+				} else if (isNoValue(dateValue)) {
+					// Skip this row - training not completed
+					continue;
+				} else {
+					// Try to parse as a date (user may still provide actual date)
+					completionDate = parseDate(dateValue);
+					if (!completionDate) {
+						errors.push(`Row ${i + 1}: For "${trainingType.name}", use "yes" for completed or a date (got: ${dateValue})`);
+						continue;
+					}
+					expirationDate = null;
+				}
+			} else {
+				// Regular expiring training - requires a valid date
+				completionDate = parseDate(dateValue);
+				if (!completionDate) {
+					errors.push(`Row ${i + 1}: Invalid date format - ${completionDateRaw}`);
+					continue;
+				}
+				expirationDate = calculateExpirationDate(completionDate, trainingType.expirationMonths);
+			}
 
 			parsed.push({
 				personnelId: person.id,
@@ -237,9 +277,12 @@ Williams, Robert, First Aid, 2024-03-10`;
 				<h4>Available Training Types</h4>
 				<div class="type-chips">
 					{#each trainingTypes as type}
-						<span class="type-chip" style="background-color: {type.color}">{type.name}</span>
+						<span class="type-chip" style="background-color: {type.color}" title={type.expirationMonths === null ? 'Accepts yes/no' : `Expires in ${type.expirationMonths} months`}>
+							{type.name}{type.expirationMonths === null ? ' *' : ''}
+						</span>
 					{/each}
 				</div>
+				<p class="type-hint">* = accepts "yes/no" instead of date (never expires)</p>
 				{#if trainingTypes.length === 0}
 					<p class="warning">No training types defined. Please add training types first.</p>
 				{/if}
@@ -269,7 +312,7 @@ Williams, Robert, First Aid, 2024-03-10`;
 						<button class="btn btn-secondary btn-sm" onclick={clearFileUpload}>Clear</button>
 					{/if}
 				</div>
-				<p class="format-hint">Columns: Last Name, First Name, Training Type, Completion Date, Notes (optional)</p>
+				<p class="format-hint">Columns: Last Name, First Name, Training Type, Completion Date or "yes" (for non-expiring trainings), Notes (optional)</p>
 			</div>
 
 			<div class="divider">
@@ -280,6 +323,7 @@ Williams, Robert, First Aid, 2024-03-10`;
 				<h4>Paste Data</h4>
 				<p>One training record per line, comma-separated:</p>
 				<code>Last Name, First Name, Training Type, Date (YYYY-MM-DD or MM/DD/YYYY)</code>
+				<p class="hint">For trainings that don't expire, use "yes" or "no" instead of a date</p>
 			</div>
 
 			<div class="example-box">
@@ -413,6 +457,13 @@ Williams, Robert, First Aid, 2024-03-10`;
 		color: #dc2626;
 		font-size: var(--font-size-sm);
 		margin: var(--spacing-sm) 0 0;
+	}
+
+	.type-hint {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+		margin: var(--spacing-sm) 0 0;
+		font-style: italic;
 	}
 
 	.upload-section {

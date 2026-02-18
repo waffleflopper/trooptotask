@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
 import { checkPersonnelLimit } from '$lib/server/subscription';
+import { getApiContext } from '$lib/server/supabase';
 
 // Get the organization owner's user ID for subscription checks
 async function getOrgOwnerUserId(supabase: any, orgId: string): Promise<string | null> {
@@ -14,17 +15,19 @@ async function getOrgOwnerUserId(supabase: any, orgId: string): Promise<string |
 	return data?.user_id ?? null;
 }
 
-export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'personnel');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
-	// Check personnel limit (based on org owner's subscription)
-	const ownerUserId = await getOrgOwnerUserId(locals.supabase, orgId);
-	if (ownerUserId) {
-		await checkPersonnelLimit(locals.supabase, ownerUserId, orgId);
+	// Skip permission check for sandbox mode
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'personnel');
+
+		// Check personnel limit (based on org owner's subscription)
+		const ownerUserId = await getOrgOwnerUserId(supabase, orgId);
+		if (ownerUserId) {
+			await checkPersonnelLimit(supabase, ownerUserId, orgId);
+		}
 	}
 
 	const body = await request.json();
@@ -39,7 +42,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		group_id: body.groupId || null
 	};
 
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('personnel')
 		.insert(row)
 		.select('*, groups(name)')
@@ -59,12 +62,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const PUT: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'personnel');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	// Skip permission check for sandbox mode
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'personnel');
+	}
 
 	const body = await request.json();
 	const { id, ...fields } = body;
@@ -79,7 +84,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (fields.clinicRole !== undefined) updates.clinic_role = fields.clinicRole;
 	if (fields.groupId !== undefined) updates.group_id = fields.groupId || null;
 
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('personnel')
 		.update(updates)
 		.eq('id', id)
@@ -101,19 +106,21 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'personnel');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	// Skip permission check for sandbox mode
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'personnel');
+	}
 
 	const body = await request.json();
 	const { id } = body;
 
 	if (!id) throw error(400, 'Missing id');
 
-	const { error: dbError } = await locals.supabase
+	const { error: dbError } = await supabase
 		.from('personnel')
 		.delete()
 		.eq('id', id)

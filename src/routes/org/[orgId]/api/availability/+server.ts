@@ -1,17 +1,19 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
+import { getApiContext } from '$lib/server/supabase';
 
-export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'calendar');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+	}
 
 	const body = await request.json();
 
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('availability_entries')
 		.insert({
 			organization_id: orgId,
@@ -34,19 +36,20 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'calendar');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+	}
 
 	const body = await request.json();
 	const { id } = body;
 
 	if (!id) throw error(400, 'Missing id');
 
-	const { error: dbError } = await locals.supabase
+	const { error: dbError } = await supabase
 		.from('availability_entries')
 		.delete()
 		.eq('id', id)

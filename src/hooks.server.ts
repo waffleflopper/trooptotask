@@ -40,13 +40,18 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.user = user;
 
 	// Define public routes that don't require authentication
-	const publicRoutes = ['/', '/auth', '/api/webhooks'];
+	const publicRoutes = ['/', '/auth', '/api/webhooks', '/demo', '/api/create-demo-sandbox'];
 	const isPublicRoute = publicRoutes.some(route =>
 		event.url.pathname === route || event.url.pathname.startsWith(route + '/')
 	);
 
+	// Check for demo mode - allow unauthenticated access to /org/* routes if in demo mode
+	const isDemoMode = event.cookies.get('demo_mode') === 'readonly' || event.cookies.get('demo_sandbox');
+	const isOrgRoute = event.url.pathname.startsWith('/org/');
+
 	// Protect routes - redirect unauthenticated users to login
-	if (!session && !isPublicRoute) {
+	// Exception: allow demo mode access to org routes
+	if (!session && !isPublicRoute && !(isDemoMode && isOrgRoute)) {
 		redirect(303, '/auth/login');
 	}
 

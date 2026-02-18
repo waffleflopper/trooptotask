@@ -1,14 +1,14 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { getApiContext } from '$lib/server/supabase';
 
-export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
+	const { supabase } = getApiContext(locals, cookies, orgId);
+
 	const body = await request.json();
 
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('units')
 		.insert({
 			organization_id: orgId,
@@ -27,11 +27,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const PUT: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
+	const { supabase } = getApiContext(locals, cookies, orgId);
+
 	const body = await request.json();
 	const { id, ...fields } = body;
 
@@ -41,7 +40,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (fields.name !== undefined) updates.name = fields.name;
 	if (fields.sortOrder !== undefined) updates.sort_order = fields.sortOrder;
 
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('units')
 		.update(updates)
 		.eq('id', id)
@@ -58,17 +57,16 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
+	const { supabase } = getApiContext(locals, cookies, orgId);
+
 	const body = await request.json();
 	const { id } = body;
 
 	if (!id) throw error(400, 'Missing id');
 
-	const { error: dbError } = await locals.supabase
+	const { error: dbError } = await supabase
 		.from('units')
 		.delete()
 		.eq('id', id)

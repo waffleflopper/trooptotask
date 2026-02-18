@@ -1,23 +1,26 @@
 import type { PageServerLoad } from './$types';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
+import { getSupabaseClient } from '$lib/server/supabase';
 
-export const load: PageServerLoad = async ({ params, locals }) => {
+export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const { orgId } = params;
+	const supabase = getSupabaseClient(locals, cookies);
+	const userId = locals.user?.id;
 
 	const [personnelRes, groupsRes, pinnedGroupsRes] = await Promise.all([
-		locals.supabase
+		supabase
 			.from('personnel')
 			.select('*, groups(name)')
 			.eq('organization_id', orgId)
 			.order('last_name'),
-		locals.supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
-		locals.supabase
+		supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
+		userId ? supabase
 			.from('user_pinned_groups')
 			.select('*')
 			.eq('organization_id', orgId)
-			.eq('user_id', locals.user?.id)
-			.order('sort_order')
+			.eq('user_id', userId)
+			.order('sort_order') : Promise.resolve({ data: [] })
 	]);
 
 	const personnel: Personnel[] = (personnelRes.data ?? []).map((p: any) => ({

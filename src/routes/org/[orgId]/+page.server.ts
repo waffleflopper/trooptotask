@@ -2,11 +2,13 @@ import type { PageServerLoad } from './$types';
 import type { Personnel, StatusType, AvailabilityEntry, SpecialDay } from '$lib/types';
 import type { AssignmentType, DailyAssignment } from '$lib/stores/dailyAssignments.svelte';
 import type { Group } from '$lib/stores/groups.svelte';
+import { getSupabaseClient } from '$lib/server/supabase';
 
-export const load: PageServerLoad = async ({ params, locals, parent }) => {
+export const load: PageServerLoad = async ({ params, locals, parent, cookies }) => {
 	const { orgId } = params;
 	const parentData = await parent();
 	const userId = parentData.userId;
+	const supabase = getSupabaseClient(locals, cookies);
 
 	// Load all data in parallel
 	const [
@@ -19,45 +21,45 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		dailyAssignmentsRes,
 		pinnedGroupsRes
 	] = await Promise.all([
-		locals.supabase
+		supabase
 			.from('personnel')
 			.select('*, groups(name)')
 			.eq('organization_id', orgId)
 			.order('last_name'),
-		locals.supabase
+		supabase
 			.from('groups')
 			.select('*')
 			.eq('organization_id', orgId)
 			.order('sort_order'),
-		locals.supabase
+		supabase
 			.from('status_types')
 			.select('*')
 			.eq('organization_id', orgId)
 			.order('sort_order'),
-		locals.supabase
+		supabase
 			.from('availability_entries')
 			.select('*')
 			.eq('organization_id', orgId),
-		locals.supabase
+		supabase
 			.from('special_days')
 			.select('*')
 			.eq('organization_id', orgId)
 			.order('date'),
-		locals.supabase
+		supabase
 			.from('assignment_types')
 			.select('*')
 			.eq('organization_id', orgId)
 			.order('sort_order'),
-		locals.supabase
+		supabase
 			.from('daily_assignments')
 			.select('*')
 			.eq('organization_id', orgId),
-		locals.supabase
+		userId ? supabase
 			.from('user_pinned_groups')
 			.select('*')
 			.eq('organization_id', orgId)
 			.eq('user_id', userId)
-			.order('sort_order')
+			.order('sort_order') : Promise.resolve({ data: [] })
 	]);
 
 	// Transform personnel data

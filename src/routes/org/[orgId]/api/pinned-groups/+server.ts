@@ -1,30 +1,35 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { getApiContext } from '$lib/server/supabase';
 
-export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	// Pinned groups require a user ID - skip for sandbox mode
+	if (isSandbox) {
+		return json({ success: true, groups: [] });
+	}
+
 	const body = await request.json();
 
 	if (body.action === 'replace') {
 		// Replace all pinned groups for this user/org
-		await locals.supabase
+		await supabase
 			.from('user_pinned_groups')
 			.delete()
-			.eq('user_id', user.id)
+			.eq('user_id', userId!)
 			.eq('organization_id', orgId);
 
 		if (body.groups && body.groups.length > 0) {
 			const rows = body.groups.map((groupName: string, i: number) => ({
-				user_id: user.id,
+				user_id: userId!,
 				organization_id: orgId,
 				group_name: groupName,
 				sort_order: i
 			}));
 
-			const { error: dbError } = await locals.supabase
+			const { error: dbError } = await supabase
 				.from('user_pinned_groups')
 				.insert(rows);
 
@@ -35,10 +40,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	// Single pin
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('user_pinned_groups')
 		.insert({
-			user_id: user.id,
+			user_id: userId!,
 			organization_id: orgId,
 			group_name: body.groupName,
 			sort_order: body.sortOrder ?? 0
@@ -55,17 +60,21 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	// Pinned groups require a user ID - skip for sandbox mode
+	if (isSandbox) {
+		return json({ success: true });
+	}
+
 	const body = await request.json();
 
-	const { error: dbError } = await locals.supabase
+	const { error: dbError } = await supabase
 		.from('user_pinned_groups')
 		.delete()
-		.eq('user_id', user.id)
+		.eq('user_id', userId!)
 		.eq('organization_id', orgId)
 		.eq('group_name', body.groupName);
 

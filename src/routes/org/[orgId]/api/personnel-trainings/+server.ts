@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
+import { getApiContext } from '$lib/server/supabase';
 
 function calculateExpirationDate(completionDate: string | null, expirationMonths: number | null): string | null {
 	if (expirationMonths === null || !completionDate) return null;
@@ -9,17 +10,18 @@ function calculateExpirationDate(completionDate: string | null, expirationMonths
 	return date.toISOString().split('T')[0];
 }
 
-export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'training');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'training');
+	}
 
 	const body = await request.json();
 
 	// Fetch the training type to get expiration_months
-	const { data: trainingType, error: typeError } = await locals.supabase
+	const { data: trainingType, error: typeError } = await supabase
 		.from('training_types')
 		.select('expiration_months')
 		.eq('id', body.trainingTypeId)
@@ -38,7 +40,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const expirationDate = calculateExpirationDate(completionDate, trainingType.expiration_months);
 
 	// Upsert: try to update existing, or insert new
-	const { data: existing } = await locals.supabase
+	const { data: existing } = await supabase
 		.from('personnel_trainings')
 		.select('id')
 		.eq('organization_id', orgId)
@@ -49,7 +51,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	let data;
 	if (existing) {
 		// Update existing
-		const { data: updated, error: updateError } = await locals.supabase
+		const { data: updated, error: updateError } = await supabase
 			.from('personnel_trainings')
 			.update({
 				completion_date: completionDate,
@@ -66,7 +68,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		data = updated;
 	} else {
 		// Insert new
-		const { data: inserted, error: insertError } = await locals.supabase
+		const { data: inserted, error: insertError } = await supabase
 			.from('personnel_trainings')
 			.insert({
 				organization_id: orgId,
@@ -95,12 +97,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const PUT: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'training');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'training');
+	}
 
 	const body = await request.json();
 	const { id, ...fields } = body;
@@ -114,14 +117,14 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		updates.completion_date = fields.completionDate;
 
 		// Fetch training type to get expiration_months
-		const { data: existing } = await locals.supabase
+		const { data: existing } = await supabase
 			.from('personnel_trainings')
 			.select('training_type_id')
 			.eq('id', id)
 			.single();
 
 		if (existing) {
-			const { data: trainingType } = await locals.supabase
+			const { data: trainingType } = await supabase
 				.from('training_types')
 				.select('expiration_months')
 				.eq('id', existing.training_type_id)
@@ -136,7 +139,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (fields.notes !== undefined) updates.notes = fields.notes;
 	if (fields.certificateUrl !== undefined) updates.certificate_url = fields.certificateUrl;
 
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('personnel_trainings')
 		.update(updates)
 		.eq('id', id)
@@ -157,19 +160,20 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'training');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'training');
+	}
 
 	const body = await request.json();
 	const { id } = body;
 
 	if (!id) throw error(400, 'Missing id');
 
-	const { error: dbError } = await locals.supabase
+	const { error: dbError } = await supabase
 		.from('personnel_trainings')
 		.delete()
 		.eq('id', id)

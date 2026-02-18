@@ -1,17 +1,19 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
+import { getApiContext } from '$lib/server/supabase';
 
-export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'training');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'training');
+	}
 
 	const body = await request.json();
 
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('training_types')
 		.insert({
 			organization_id: orgId,
@@ -42,12 +44,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const PUT: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'training');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'training');
+	}
 
 	const body = await request.json();
 	const { id, ...fields } = body;
@@ -64,7 +67,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (fields.color !== undefined) updates.color = fields.color;
 	if (fields.sortOrder !== undefined) updates.sort_order = fields.sortOrder;
 
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('training_types')
 		.update(updates)
 		.eq('id', id)
@@ -87,26 +90,27 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'training');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'training');
+	}
 
 	const body = await request.json();
 	const { id } = body;
 
 	if (!id) throw error(400, 'Missing id');
 
-	// Cascade: delete personnel trainings with this type (DB constraint will handle this, but explicit is clearer)
-	await locals.supabase
+	// Cascade: delete personnel trainings with this type
+	await supabase
 		.from('personnel_trainings')
 		.delete()
 		.eq('training_type_id', id)
 		.eq('organization_id', orgId);
 
-	const { error: dbError } = await locals.supabase
+	const { error: dbError } = await supabase
 		.from('training_types')
 		.delete()
 		.eq('id', id)

@@ -7,6 +7,7 @@ import {
 	countOrganizationPersonnel,
 	computeSubscriptionLimits
 } from '$lib/server/subscription';
+import { isBillingEnabled } from '$lib/config/billing';
 import { getSupabaseClient } from '$lib/server/supabase';
 
 export const load: LayoutServerLoad = async ({ params, locals, cookies }) => {
@@ -148,7 +149,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies }) => {
 		.single();
 
 	let subscriptionLimits = null;
-	if (ownerMembership) {
+	if (isBillingEnabled && ownerMembership) {
 		const { subscription, plan } = await ensureUserSubscription(locals.supabase, ownerMembership.user_id);
 		const orgCount = await countUserOrganizations(locals.supabase, ownerMembership.user_id);
 		const personnelCount = await countOrganizationPersonnel(locals.supabase, orgId);

@@ -2,8 +2,10 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { formatPrice, getStatusLabel, getStatusColor } from '$lib/types/subscription';
+	import PlatformInviteManager from '$lib/components/PlatformInviteManager.svelte';
 
 	let { data } = $props();
+	let showPlatformInvite = $state(false);
 
 	let searchInput = $state(data.search);
 
@@ -51,8 +53,21 @@
 
 <div class="users-page">
 	<header class="page-header">
-		<h1>Users</h1>
-		<p class="subtitle">{data.totalCount} total users</p>
+		<div class="header-content">
+			<div>
+				<h1>Users</h1>
+				<p class="subtitle">{data.totalCount} total users</p>
+			</div>
+			<button class="btn btn-primary" onclick={() => (showPlatformInvite = true)}>
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+					<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+					<circle cx="8.5" cy="7" r="4" />
+					<line x1="20" y1="8" x2="20" y2="14" />
+					<line x1="23" y1="11" x2="17" y2="11" />
+				</svg>
+				Invite User
+			</button>
+		</div>
 	</header>
 
 	<!-- Filters -->
@@ -167,6 +182,10 @@
 	{/if}
 </div>
 
+{#if showPlatformInvite}
+	<PlatformInviteManager onClose={() => (showPlatformInvite = false)} />
+{/if}
+
 <style>
 	.users-page {
 		max-width: 1200px;
@@ -175,6 +194,19 @@
 
 	.page-header {
 		margin-bottom: var(--spacing-xl);
+	}
+
+	.header-content {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: var(--spacing-md);
+	}
+
+	.header-content .btn {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
 	}
 
 	.page-header h1 {

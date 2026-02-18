@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		}));
 
 	// Get pending invitations for this user's email
-	const { data: invitations, error: inviteError } = await locals.supabase
+	const { data: invitations } = await locals.supabase
 		.from('organization_invitations')
 		.select('id, organization_id, email, status, created_at, organizations(id, name)')
 		.eq('email', user.email?.toLowerCase())

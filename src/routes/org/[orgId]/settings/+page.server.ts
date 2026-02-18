@@ -162,7 +162,7 @@ export const actions: Actions = {
 
 		await locals.supabase
 			.from('organization_invitations')
-			.update({ status: 'revoked' })
+			.delete()
 			.eq('id', inviteId)
 			.eq('organization_id', orgId);
 

@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { themeStore } from '$lib/stores/theme.svelte';
 
-	let { form } = $props();
+	let { form, data } = $props();
 	let loading = $state(false);
 	let demoLoading = $state(false);
 </script>
@@ -95,6 +95,15 @@
 		<div class="divider">
 			<span>or</span>
 		</div>
+
+		{#if data.demoError}
+			<div class="error-message">
+				<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
+					<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+				</svg>
+				{data.demoError}
+			</div>
+		{/if}
 
 		<form
 			method="POST"

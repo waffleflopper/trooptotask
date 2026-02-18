@@ -1,13 +1,18 @@
 import { fail, redirect, isRedirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-const DEMO_EMAIL = 'demo@trooptotask.app';
-const DEMO_PASSWORD = 'demo1234';
+export const load: PageServerLoad = async ({ locals, url }) => {
+	// Check for demo unavailable error from redirect
+	const demoError = url.searchParams.get('error');
+	if (demoError === 'demo_unavailable') {
+		return { demoError: 'Demo is not available. Please try again later.' };
+	}
 
-export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.session) {
 		redirect(303, '/dashboard');
 	}
+
+	return {};
 };
 
 export const actions: Actions = {
@@ -37,25 +42,8 @@ export const actions: Actions = {
 		}
 	},
 
-	demo: async ({ locals }) => {
-		try {
-			const { error } = await locals.supabase.auth.signInWithPassword({
-				email: DEMO_EMAIL,
-				password: DEMO_PASSWORD
-			});
-
-			if (error) {
-				console.error('Demo login error:', error);
-				return fail(400, { error: 'Demo account is not available. Please try again later.', email: '' });
-			}
-
-			redirect(303, '/dashboard');
-		} catch (err) {
-			if (isRedirect(err)) {
-				throw err;
-			}
-			console.error('Demo error:', err);
-			return fail(500, { error: 'An unexpected error occurred. Please try again.', email: '' });
-		}
+	demo: async () => {
+		// Redirect to the /demo route which sets up read-only demo mode
+		redirect(303, '/demo');
 	}
 };

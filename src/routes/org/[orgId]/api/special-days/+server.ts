@@ -2,20 +2,22 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDefaultFederalHolidays } from '$lib/utils/federalHolidays';
 import { requireEditPermission } from '$lib/server/permissions';
+import { getApiContext } from '$lib/server/supabase';
 
-export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'calendar');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+	}
 
 	const body = await request.json();
 
 	// Handle bulk reset of federal holidays
 	if (body.action === 'resetFederalHolidays') {
 		// Delete existing federal holidays
-		await locals.supabase
+		await supabase
 			.from('special_days')
 			.delete()
 			.eq('organization_id', orgId)
@@ -31,11 +33,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		}));
 
 		for (let i = 0; i < rows.length; i += 50) {
-			await locals.supabase.from('special_days').insert(rows.slice(i, i + 50));
+			await supabase.from('special_days').insert(rows.slice(i, i + 50));
 		}
 
 		// Return all special days
-		const { data: allDays } = await locals.supabase
+		const { data: allDays } = await supabase
 			.from('special_days')
 			.select()
 			.eq('organization_id', orgId)
@@ -51,7 +53,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		);
 	}
 
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('special_days')
 		.insert({
 			organization_id: orgId,
@@ -72,19 +74,20 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'calendar');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+	}
 
 	const body = await request.json();
 	const { id } = body;
 
 	if (!id) throw error(400, 'Missing id');
 
-	const { error: dbError } = await locals.supabase
+	const { error: dbError } = await supabase
 		.from('special_days')
 		.delete()
 		.eq('id', id)

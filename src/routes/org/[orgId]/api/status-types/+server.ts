@@ -1,17 +1,19 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
+import { getApiContext } from '$lib/server/supabase';
 
-export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'calendar');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+	}
 
 	const body = await request.json();
 
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('status_types')
 		.insert({
 			organization_id: orgId,
@@ -33,12 +35,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const PUT: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'calendar');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+	}
 
 	const body = await request.json();
 	const { id, ...fields } = body;
@@ -51,7 +54,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (fields.textColor !== undefined) updates.text_color = fields.textColor;
 	if (fields.sortOrder !== undefined) updates.sort_order = fields.sortOrder;
 
-	const { data, error: dbError } = await locals.supabase
+	const { data, error: dbError } = await supabase
 		.from('status_types')
 		.update(updates)
 		.eq('id', id)
@@ -69,12 +72,13 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
-export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'calendar');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+	}
 
 	const body = await request.json();
 	const { id } = body;
@@ -82,13 +86,13 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 	if (!id) throw error(400, 'Missing id');
 
 	// Cascade: delete availability entries with this status type
-	await locals.supabase
+	await supabase
 		.from('availability_entries')
 		.delete()
 		.eq('status_type_id', id)
 		.eq('organization_id', orgId);
 
-	const { error: dbError } = await locals.supabase
+	const { error: dbError } = await supabase
 		.from('status_types')
 		.delete()
 		.eq('id', id)

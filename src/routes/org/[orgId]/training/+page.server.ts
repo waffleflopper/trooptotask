@@ -1,24 +1,26 @@
 import type { PageServerLoad } from './$types';
 import type { Personnel, TrainingType, PersonnelTraining } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
+import { getSupabaseClient } from '$lib/server/supabase';
 
-export const load: PageServerLoad = async ({ params, locals }) => {
+export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const { orgId } = params;
+	const supabase = getSupabaseClient(locals, cookies);
 
 	// Load all data in parallel
 	const [personnelRes, groupsRes, trainingTypesRes, personnelTrainingsRes] = await Promise.all([
-		locals.supabase
+		supabase
 			.from('personnel')
 			.select('*, groups(name)')
 			.eq('organization_id', orgId)
 			.order('last_name'),
-		locals.supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
-		locals.supabase
+		supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
+		supabase
 			.from('training_types')
 			.select('*')
 			.eq('organization_id', orgId)
 			.order('sort_order'),
-		locals.supabase.from('personnel_trainings').select('*').eq('organization_id', orgId)
+		supabase.from('personnel_trainings').select('*').eq('organization_id', orgId)
 	]);
 
 	// Transform personnel data

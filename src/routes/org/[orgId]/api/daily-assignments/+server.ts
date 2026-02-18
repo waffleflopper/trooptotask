@@ -1,18 +1,20 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
+import { getApiContext } from '$lib/server/supabase';
 
-export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'calendar');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+	}
 
 	const body = await request.json();
 
 	// Upsert: delete existing then insert (using the unique constraint)
-	await locals.supabase
+	await supabase
 		.from('daily_assignments')
 		.delete()
 		.eq('organization_id', orgId)
@@ -20,7 +22,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		.eq('date', body.date);
 
 	if (body.assigneeId) {
-		const { data, error: dbError } = await locals.supabase
+		const { data, error: dbError } = await supabase
 			.from('daily_assignments')
 			.insert({
 				organization_id: orgId,
@@ -44,16 +46,17 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	return json({ success: true, removed: true });
 };
 
-export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Unauthorized');
-
+export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
-	await requireEditPermission(locals.supabase, orgId, user.id, 'calendar');
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+	}
 
 	const body = await request.json();
 
-	const { error: dbError } = await locals.supabase
+	const { error: dbError } = await supabase
 		.from('daily_assignments')
 		.delete()
 		.eq('organization_id', orgId)

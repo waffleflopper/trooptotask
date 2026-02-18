@@ -7,12 +7,92 @@ import {
 	countOrganizationPersonnel,
 	computeSubscriptionLimits
 } from '$lib/server/subscription';
+import { getSupabaseClient } from '$lib/server/supabase';
 
-export const load: LayoutServerLoad = async ({ params, locals }) => {
+export const load: LayoutServerLoad = async ({ params, locals, cookies }) => {
 	const user = locals.user;
-	if (!user) throw redirect(303, '/auth/login');
-
 	const { orgId } = params;
+
+	// Check for demo mode
+	const demoMode = cookies.get('demo_mode');
+	const demoSandboxCookie = cookies.get('demo_sandbox');
+	const isDemoReadOnly = demoMode === 'readonly';
+
+	// Get appropriate supabase client (service role for demo mode)
+	const supabase = getSupabaseClient(locals, cookies);
+
+	// Get organization info (including demo_type)
+	const { data: org } = await supabase
+		.from('organizations')
+		.select('id, name, demo_type')
+		.eq('id', orgId)
+		.single();
+
+	if (!org) {
+		throw error(404, 'Organization not found');
+	}
+
+	// Handle demo showcase access (no login required for read-only viewing)
+	if (org.demo_type === 'showcase' && isDemoReadOnly) {
+		// Allow anonymous read-only access to showcase org
+		const readOnlyPermissions: OrganizationMemberPermissions = {
+			canViewCalendar: true,
+			canEditCalendar: false,
+			canViewPersonnel: true,
+			canEditPersonnel: false,
+			canViewTraining: true,
+			canEditTraining: false,
+			canManageMembers: false
+		};
+
+		return {
+			orgId,
+			orgName: org.name,
+			userRole: 'member' as const,
+			userId: null,
+			permissions: readOnlyPermissions,
+			allOrgs: [],
+			subscriptionLimits: null,
+			isDemoReadOnly: true,
+			isDemoSandbox: false
+		};
+	}
+
+	// Handle demo sandbox access (no login required, full access to sandbox)
+	if (org.demo_type === 'sandbox' && demoSandboxCookie) {
+		try {
+			const sandboxInfo = JSON.parse(demoSandboxCookie);
+			if (sandboxInfo.orgId === orgId) {
+				// This is the user's sandbox - give them full access
+				const fullPermissions: OrganizationMemberPermissions = {
+					canViewCalendar: true,
+					canEditCalendar: true,
+					canViewPersonnel: true,
+					canEditPersonnel: true,
+					canViewTraining: true,
+					canEditTraining: true,
+					canManageMembers: true
+				};
+
+				return {
+					orgId,
+					orgName: org.name,
+					userRole: 'owner' as const,
+					userId: null,
+					permissions: fullPermissions,
+					allOrgs: [],
+					subscriptionLimits: null,
+					isDemoReadOnly: false,
+					isDemoSandbox: true
+				};
+			}
+		} catch {
+			// Invalid cookie, ignore
+		}
+	}
+
+	// For non-demo access, require login
+	if (!user) throw redirect(303, '/auth/login');
 
 	// Verify membership and get permissions
 	const { data: membership } = await locals.supabase
@@ -27,13 +107,6 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 	if (!membership) {
 		throw error(403, 'You are not a member of this organization');
 	}
-
-	// Get organization info
-	const { data: org } = await locals.supabase
-		.from('organizations')
-		.select('id, name')
-		.eq('id', orgId)
-		.single();
 
 	if (!org) {
 		throw error(404, 'Organization not found');
@@ -97,6 +170,8 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 		userId: user.id,
 		permissions,
 		allOrgs,
-		subscriptionLimits
+		subscriptionLimits,
+		isDemoReadOnly: false,
+		isDemoSandbox: false
 	};
 };

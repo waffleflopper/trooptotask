@@ -350,6 +350,7 @@
 									<path d="M9 14l2 2 4-4" />
 								</svg>
 								Duty Roster
+								<span class="beta-badge">Beta</span>
 							</button>
 						{/if}
 

@@ -289,6 +289,7 @@
 						<line x1="8" y1="15" x2="12" y2="15" />
 					</svg>
 					Leaders Book
+					<span class="beta-badge">Beta</span>
 				</a>
 			{/if}
 		</div>
@@ -934,6 +935,17 @@
 
 	.nav-item:hover svg {
 		color: var(--color-text-secondary);
+	}
+
+	.beta-badge {
+		font-size: 10px;
+		font-weight: 600;
+		text-transform: uppercase;
+		padding: 2px 6px;
+		background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+		color: white;
+		border-radius: var(--radius-sm);
+		margin-left: auto;
 	}
 
 	.nav-item.highlight {

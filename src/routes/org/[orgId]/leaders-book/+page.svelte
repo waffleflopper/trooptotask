@@ -10,6 +10,10 @@
 	import { counselingTypesStore } from '$lib/stores/counselingTypes.svelte';
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
 	import { developmentGoalsStore } from '$lib/stores/developmentGoals.svelte';
+	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
+	import { availabilityStore } from '$lib/stores/availability.svelte';
+	import { trainingTypesStore } from '$lib/stores/trainingTypes.svelte';
+	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import SoldierLeadersBookView from '$lib/components/SoldierLeadersBookView.svelte';
@@ -24,6 +28,10 @@
 		counselingTypesStore.load(data.counselingTypes, data.orgId);
 		counselingRecordsStore.load(data.counselingRecords, data.orgId);
 		developmentGoalsStore.load(data.developmentGoals, data.orgId);
+		statusTypesStore.load(data.statusTypes, data.orgId);
+		availabilityStore.load(data.availability, data.orgId);
+		trainingTypesStore.load(data.trainingTypes, data.orgId);
+		personnelTrainingsStore.load(data.personnelTrainings, data.orgId);
 	});
 
 	let showTypeManager = $state(false);

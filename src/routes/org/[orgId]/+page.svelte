@@ -27,6 +27,7 @@
 	import PastDueBanner from '$lib/components/PastDueBanner.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
+	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
 
 	let { data } = $props();
 	let showSidebar = $state(false);
@@ -63,63 +64,10 @@
 	let selectedDate = $state<Date | null>(null);
 	let assignmentDate = $state<Date | null>(null);
 
-	const RANK_ORDER = [
-		'GEN', 'LTG', 'MG', 'BG', 'COL', 'LTC', 'MAJ', 'CPT', '1LT', '2LT',
-		'CW5', 'CW4', 'CW3', 'CW2', 'WO1',
-		'CSM', 'SGM', '1SG', 'MSG', 'SFC', 'SSG', 'SGT',
-		'CPL', 'SPC', 'PFC', 'PV2', 'PV1',
-		'CIV'
-	];
-
-	const personnelByGroup = $derived(() => {
-		const personnel = personnelStore.list;
-		const pinned = pinnedGroupsStore.list;
-		const groupMap = new Map<string, Personnel[]>();
-
-		// Group by group
-		for (const person of personnel) {
-			const group = person.groupName || '';
-			if (!groupMap.has(group)) {
-				groupMap.set(group, []);
-			}
-			groupMap.get(group)!.push(person);
-		}
-
-		// Sort each group's personnel by rank (highest first) then alphabetically
-		for (const [, people] of groupMap) {
-			people.sort((a, b) => {
-				const rankDiff = RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
-				if (rankDiff !== 0) return rankDiff;
-				const lastNameDiff = a.lastName.localeCompare(b.lastName);
-				if (lastNameDiff !== 0) return lastNameDiff;
-				return a.firstName.localeCompare(b.firstName);
-			});
-		}
-
-		// Sort groups: pinned first (in pin order), then alphabetically, empty group last
-		const sortedGroups = [...groupMap.keys()].sort((a, b) => {
-			const aPinned = pinned.includes(a);
-			const bPinned = pinned.includes(b);
-
-			// Both pinned: sort by pin order
-			if (aPinned && bPinned) {
-				return pinned.indexOf(a) - pinned.indexOf(b);
-			}
-			// Only one pinned: pinned comes first
-			if (aPinned && !bPinned) return -1;
-			if (!aPinned && bPinned) return 1;
-
-			// Neither pinned: empty group last, then alphabetically
-			if (a === '' && b !== '') return 1;
-			if (a !== '' && b === '') return -1;
-			return a.localeCompare(b);
-		});
-
-		return sortedGroups.map((group) => ({
-			group,
-			personnel: groupMap.get(group)!
-		}));
-	});
+	// Use shared utility for personnel grouping (also used by other pages)
+	const personnelByGroup = $derived(
+		groupAndSortPersonnel(personnelStore.list, pinnedGroupsStore.list)
+	);
 
 	function handlePinToggle(group: string) {
 		pinnedGroupsStore.toggle(group);

@@ -4,16 +4,18 @@ import { env } from '$env/dynamic/private';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const cleanupSecret = env.CLEANUP_SECRET;
+	const cronSecret = env.CRON_SECRET; // Vercel Cron sends this automatically
 
 	// Verify authorization - either via secret header or admin user
 	const authHeader = request.headers.get('Authorization');
-	const isSecretValid = cleanupSecret && authHeader === `Bearer ${cleanupSecret}`;
+	const isCleanupSecretValid = cleanupSecret && authHeader === `Bearer ${cleanupSecret}`;
+	const isCronSecretValid = cronSecret && authHeader === `Bearer ${cronSecret}`;
 
 	// Also allow authenticated admin users
 	const user = locals.user;
 	const isAdmin = user?.email?.endsWith('@trooptotask.app');
 
-	if (!isSecretValid && !isAdmin) {
+	if (!isCleanupSecretValid && !isCronSecretValid && !isAdmin) {
 		throw error(403, 'Unauthorized');
 	}
 

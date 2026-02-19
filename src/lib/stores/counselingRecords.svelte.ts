@@ -22,38 +22,74 @@ class CounselingRecordsStore {
 	}
 
 	async add(data: Omit<CounselingRecord, 'id'>): Promise<CounselingRecord | null> {
-		const res = await fetch(`/org/${this.#orgId}/api/counseling-records`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(data)
-		});
-		if (!res.ok) return null;
-		const newRecord = await res.json();
-		this.#counselingRecords = [...this.#counselingRecords, newRecord];
-		return newRecord;
+		// Optimistic: add with temp ID
+		const tempId = `temp-${crypto.randomUUID()}`;
+		const optimisticRecord: CounselingRecord = { id: tempId, ...data };
+		this.#counselingRecords = [...this.#counselingRecords, optimisticRecord];
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/counseling-records`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(data)
+			});
+			if (!res.ok) throw new Error('Failed to add counseling record');
+			const newRecord = await res.json();
+			// Replace temp with real data
+			this.#counselingRecords = this.#counselingRecords.map((r) => (r.id === tempId ? newRecord : r));
+			return newRecord;
+		} catch {
+			// Rollback on failure
+			this.#counselingRecords = this.#counselingRecords.filter((r) => r.id !== tempId);
+			return null;
+		}
 	}
 
 	async update(id: string, data: Partial<Omit<CounselingRecord, 'id'>>): Promise<boolean> {
-		const res = await fetch(`/org/${this.#orgId}/api/counseling-records`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id, ...data })
-		});
-		if (!res.ok) return false;
-		const updated = await res.json();
-		this.#counselingRecords = this.#counselingRecords.map((r) => (r.id === id ? updated : r));
-		return true;
+		// Optimistic: update immediately
+		const original = this.#counselingRecords.find((r) => r.id === id);
+		if (!original) return false;
+
+		this.#counselingRecords = this.#counselingRecords.map((r) => (r.id === id ? { ...r, ...data } : r));
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/counseling-records`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, ...data })
+			});
+			if (!res.ok) throw new Error('Failed to update counseling record');
+			const updated = await res.json();
+			// Replace with server response
+			this.#counselingRecords = this.#counselingRecords.map((r) => (r.id === id ? updated : r));
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#counselingRecords = this.#counselingRecords.map((r) => (r.id === id ? original : r));
+			return false;
+		}
 	}
 
 	async remove(id: string): Promise<boolean> {
-		const res = await fetch(`/org/${this.#orgId}/api/counseling-records`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id })
-		});
-		if (!res.ok) return false;
+		// Optimistic: remove immediately
+		const original = this.#counselingRecords.find((r) => r.id === id);
+		if (!original) return false;
+
 		this.#counselingRecords = this.#counselingRecords.filter((r) => r.id !== id);
-		return true;
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/counseling-records`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+			if (!res.ok) throw new Error('Failed to delete counseling record');
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#counselingRecords = [...this.#counselingRecords, original];
+			return false;
+		}
 	}
 
 	// Remove records by type locally (used when a type is deleted)

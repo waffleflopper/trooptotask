@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
+	import Modal from './Modal.svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -38,94 +38,76 @@
 	}
 </script>
 
-<div
-	class="modal-overlay"
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="sandbox-modal-title"
-	tabindex="-1"
-	onkeydown={(e) => e.key === 'Escape' && !creating && onClose()}
+<Modal
+	title="Try Editing"
+	{onClose}
+	width="450px"
+	titleId="sandbox-modal-title"
+	canClose={!creating}
 >
-	<button
-		class="modal-backdrop"
-		onclick={() => !creating && onClose()}
-		tabindex="-1"
-		aria-label="Close dialog"
-	></button>
-	<div class="modal" style="width: 450px;" role="document">
-		<div class="modal-header">
-			<h2 id="sandbox-modal-title">Try Editing</h2>
-			{#if !creating}
-				<button class="btn btn-secondary btn-sm" onclick={onClose}>&times;</button>
-			{/if}
+	<div class="info-section">
+		<div class="icon">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<path d="M12 19l7-7 3 3-7 7-3-3z" />
+				<path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+				<path d="M2 2l7.586 7.586" />
+				<circle cx="11" cy="11" r="2" />
+			</svg>
 		</div>
+		<p>
+			You're viewing a <strong>read-only demo</strong>. To try editing, we'll create your own
+			private sandbox with sample data.
+		</p>
+	</div>
 
-		<div class="modal-body">
-			<div class="info-section">
-				<div class="icon">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M12 19l7-7 3 3-7 7-3-3z" />
-						<path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-						<path d="M2 2l7.586 7.586" />
-						<circle cx="11" cy="11" r="2" />
-					</svg>
-				</div>
-				<p>
-					You're viewing a <strong>read-only demo</strong>. To try editing, we'll create your own
-					private sandbox with sample data.
-				</p>
-			</div>
-
-			<div class="features">
-				<div class="feature">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<polyline points="20 6 9 17 4 12" />
-					</svg>
-					<span>Full editing access</span>
-				</div>
-				<div class="feature">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<polyline points="20 6 9 17 4 12" />
-					</svg>
-					<span>Pre-loaded with sample data</span>
-				</div>
-				<div class="feature">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<polyline points="20 6 9 17 4 12" />
-					</svg>
-					<span>No sign-up required</span>
-				</div>
-				<div class="feature warning">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<circle cx="12" cy="12" r="10" />
-						<polyline points="12 6 12 12 16 14" />
-					</svg>
-					<span>Expires after 1 hour</span>
-				</div>
-			</div>
-
-			{#if error}
-				<div class="error-message">
-					{error}
-				</div>
-			{/if}
+	<div class="features">
+		<div class="feature">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<polyline points="20 6 9 17 4 12" />
+			</svg>
+			<span>Full editing access</span>
 		</div>
-
-		<div class="modal-footer">
-			{#if !creating}
-				<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			{/if}
-			<button class="btn btn-primary" onclick={createSandbox} disabled={creating}>
-				{#if creating}
-					<span class="spinner"></span>
-					Creating your sandbox...
-				{:else}
-					Create My Sandbox
-				{/if}
-			</button>
+		<div class="feature">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<polyline points="20 6 9 17 4 12" />
+			</svg>
+			<span>Pre-loaded with sample data</span>
+		</div>
+		<div class="feature">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<polyline points="20 6 9 17 4 12" />
+			</svg>
+			<span>No sign-up required</span>
+		</div>
+		<div class="feature warning">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<circle cx="12" cy="12" r="10" />
+				<polyline points="12 6 12 12 16 14" />
+			</svg>
+			<span>Expires after 1 hour</span>
 		</div>
 	</div>
-</div>
+
+	{#if error}
+		<div class="error-message">
+			{error}
+		</div>
+	{/if}
+
+	{#snippet footer()}
+		{#if !creating}
+			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+		{/if}
+		<button class="btn btn-primary" onclick={createSandbox} disabled={creating}>
+			{#if creating}
+				<span class="spinner"></span>
+				Creating your sandbox...
+			{:else}
+				Create My Sandbox
+			{/if}
+		</button>
+	{/snippet}
+</Modal>
 
 <style>
 	.info-section {
@@ -196,12 +178,6 @@
 		border-radius: var(--radius-md);
 		color: #ef4444;
 		font-size: var(--font-size-sm);
-	}
-
-	.modal-footer {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--spacing-sm);
 	}
 
 	.spinner {

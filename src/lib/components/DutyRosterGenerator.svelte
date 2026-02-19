@@ -42,35 +42,35 @@
 	let isApplying = $state(false);
 	let showPreview = $state(false);
 
-	// Get all unique ranks from personnel
-	const allRanks = $derived(() => {
+	// Extract all unique values in single pass for efficiency (O(n) instead of O(4n))
+	const personnelData = $derived(() => {
 		const ranks = new Set<string>();
-		personnelByGroup.forEach(g => g.personnel.forEach(p => ranks.add(p.rank)));
-		return Array.from(ranks).sort();
-	});
-
-	// Get all unique MOS from personnel
-	const allMOS = $derived(() => {
 		const mos = new Set<string>();
-		personnelByGroup.forEach(g => g.personnel.forEach(p => {
-			if (p.mos) mos.add(p.mos);
-		}));
-		return Array.from(mos).sort();
-	});
-
-	// Get all unique clinic roles from personnel
-	const allRoles = $derived(() => {
 		const roles = new Set<string>();
-		personnelByGroup.forEach(g => g.personnel.forEach(p => {
-			if (p.clinicRole) roles.add(p.clinicRole);
-		}));
-		return Array.from(roles).sort();
+		const all: Personnel[] = [];
+
+		for (const group of personnelByGroup) {
+			for (const person of group.personnel) {
+				all.push(person);
+				ranks.add(person.rank);
+				if (person.mos) mos.add(person.mos);
+				if (person.clinicRole) roles.add(person.clinicRole);
+			}
+		}
+
+		return {
+			allPersonnel: all,
+			allRanks: Array.from(ranks).sort(),
+			allMOS: Array.from(mos).sort(),
+			allRoles: Array.from(roles).sort()
+		};
 	});
 
-	// Get all personnel flattened
-	const allPersonnel = $derived(() => {
-		return personnelByGroup.flatMap(g => g.personnel);
-	});
+	// Convenience accessors (use function calls for backwards compatibility with template)
+	const allPersonnel = $derived(() => personnelData().allPersonnel);
+	const allRanks = $derived(() => personnelData().allRanks);
+	const allMOS = $derived(() => personnelData().allMOS);
+	const allRoles = $derived(() => personnelData().allRoles);
 
 	// Filter personnel based on selection criteria
 	const eligiblePersonnel = $derived(() => {

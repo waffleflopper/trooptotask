@@ -8,6 +8,7 @@
 	import GroupManager from '$lib/components/GroupManager.svelte';
 	import BulkPersonnelManager from '$lib/components/BulkPersonnelManager.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import { groupAndSortPersonnel, RANK_ORDER } from '$lib/utils/personnelGrouping';
 
 	let { data } = $props();
 	let showSidebar = $state(false);
@@ -26,66 +27,22 @@
 	let searchQuery = $state('');
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 
-	const RANK_ORDER = [
-		'GEN', 'LTG', 'MG', 'BG', 'COL', 'LTC', 'MAJ', 'CPT', '1LT', '2LT',
-		'CW5', 'CW4', 'CW3', 'CW2', 'WO1',
-		'CSM', 'SGM', '1SG', 'MSG', 'SFC', 'SSG', 'SGT',
-		'CPL', 'SPC', 'PFC', 'PV2', 'PV1',
-		'CIV'
-	];
-
-	const personnelByGroup = $derived(() => {
-		const pinned = pinnedGroupsStore.list;
-		let personnel = personnelStore.list;
-
-		// Filter by search query
-		if (searchQuery.trim()) {
-			const query = searchQuery.toLowerCase();
-			personnel = personnel.filter(
-				(p) =>
-					p.lastName.toLowerCase().includes(query) ||
-					p.firstName.toLowerCase().includes(query) ||
-					p.rank.toLowerCase().includes(query) ||
-					p.clinicRole.toLowerCase().includes(query)
-			);
-		}
-
-		const groupMap = new Map<string, Personnel[]>();
-
-		for (const person of personnel) {
-			const group = person.groupName || '';
-			if (!groupMap.has(group)) {
-				groupMap.set(group, []);
-			}
-			groupMap.get(group)!.push(person);
-		}
-
-		for (const [, people] of groupMap) {
-			people.sort((a, b) => {
-				const rankDiff = RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
-				if (rankDiff !== 0) return rankDiff;
-				const lastNameDiff = a.lastName.localeCompare(b.lastName);
-				if (lastNameDiff !== 0) return lastNameDiff;
-				return a.firstName.localeCompare(b.firstName);
-			});
-		}
-
-		const sortedGroups = [...groupMap.keys()].sort((a, b) => {
-			const aPinned = pinned.includes(a);
-			const bPinned = pinned.includes(b);
-			if (aPinned && bPinned) return pinned.indexOf(a) - pinned.indexOf(b);
-			if (aPinned && !bPinned) return -1;
-			if (!aPinned && bPinned) return 1;
-			if (a === '' && b !== '') return 1;
-			if (a !== '' && b === '') return -1;
-			return a.localeCompare(b);
-		});
-
-		return sortedGroups.map((group) => ({
-			group,
-			personnel: groupMap.get(group)!
-		}));
+	// Filter personnel by search, then group using shared utility
+	const filteredPersonnel = $derived(() => {
+		if (!searchQuery.trim()) return personnelStore.list;
+		const query = searchQuery.toLowerCase();
+		return personnelStore.list.filter(
+			(p) =>
+				p.lastName.toLowerCase().includes(query) ||
+				p.firstName.toLowerCase().includes(query) ||
+				p.rank.toLowerCase().includes(query) ||
+				p.clinicRole.toLowerCase().includes(query)
+		);
 	});
+
+	const personnelByGroup = $derived(
+		groupAndSortPersonnel(filteredPersonnel(), pinnedGroupsStore.list)
+	);
 
 	// For alphabetical view
 	const alphabeticalPersonnel = $derived(() => {

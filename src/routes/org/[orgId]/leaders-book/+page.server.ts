@@ -13,6 +13,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const { orgId } = params;
 	const supabase = getSupabaseClient(locals, cookies);
 
+	// Date range for availability data (current/future status only)
+	const today = new Date().toISOString().split('T')[0];
+
 	// Load all data in parallel
 	const [
 		personnelRes,
@@ -57,7 +60,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		supabase
 			.from('availability_entries')
 			.select('*')
-			.eq('organization_id', orgId),
+			.eq('organization_id', orgId)
+			.gte('end_date', today),
 		supabase
 			.from('training_types')
 			.select('*')

@@ -35,23 +35,24 @@
 	let editingPersonTraining = $state<Personnel | null>(null);
 
 	// Filter personnel by selected group
-	const basePersonnel = $derived(() => {
-		if (!selectedGroupId) return data.personnel;
-		return data.personnel.filter((p) => p.groupId === selectedGroupId);
-	});
+	const basePersonnel = $derived(
+		selectedGroupId
+			? data.personnel.filter((p) => p.groupId === selectedGroupId)
+			: data.personnel
+	);
 
 	// Alphabetical view - sorted by name
-	const filteredPersonnel = $derived(() => {
-		return [...basePersonnel()].sort((a, b) => {
+	const filteredPersonnel = $derived(
+		[...basePersonnel].sort((a, b) => {
 			const lastNameDiff = a.lastName.localeCompare(b.lastName);
 			if (lastNameDiff !== 0) return lastNameDiff;
 			return a.firstName.localeCompare(b.firstName);
-		});
-	});
+		})
+	);
 
 	// Grouped view - use shared utility with explicit group order
 	const personnelByGroup = $derived(
-		groupAndSortPersonnel(basePersonnel(), {
+		groupAndSortPersonnel(basePersonnel, {
 			groupOrder: data.groups.map((g) => g.name)
 		})
 	);
@@ -67,7 +68,7 @@
 	}
 
 	const stats = $derived(
-		getTrainingStats(filteredPersonnel(), trainingTypesStore.list, personnelTrainingsStore.list)
+		getTrainingStats(filteredPersonnel, trainingTypesStore.list, personnelTrainingsStore.list)
 	);
 
 	function handleCellClick(
@@ -207,7 +208,7 @@
 				By Group
 			</button>
 		</div>
-		<span class="filter-count">{filteredPersonnel().length} personnel</span>
+		<span class="filter-count">{filteredPersonnel.length} personnel</span>
 	</div>
 
 	<main class="page-content">
@@ -216,13 +217,13 @@
 				<p>No training types defined yet.</p>
 				<p>Use the sidebar to add training types.</p>
 			</div>
-		{:else if filteredPersonnel().length === 0}
+		{:else if filteredPersonnel.length === 0}
 			<div class="empty-state">
 				<p>No personnel found.</p>
 			</div>
 		{:else if viewMode === 'alphabetical'}
 			<TrainingMatrix
-				personnel={filteredPersonnel()}
+				personnel={filteredPersonnel}
 				trainingTypes={trainingTypesStore.list}
 				trainings={personnelTrainingsStore.list}
 				onCellClick={data.permissions.canEditTraining ? handleCellClick : undefined}
@@ -230,7 +231,7 @@
 			/>
 		{:else}
 			<div class="grouped-training">
-				{#each personnelByGroup() as grp (grp.group)}
+				{#each personnelByGroup as grp (grp.group)}
 					<div class="group-section">
 						<button class="group-header" onclick={() => toggleGroup(grp.group)}>
 							<span class="toggle-icon">{collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
@@ -279,7 +280,7 @@
 
 {#if showReports}
 	<TrainingReports
-		personnel={filteredPersonnel()}
+		personnel={filteredPersonnel}
 		trainingTypes={trainingTypesStore.list}
 		trainings={personnelTrainingsStore.list}
 		groups={data.groups}

@@ -27,8 +27,8 @@
 	let searchQuery = $state('');
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 
-	// Filter personnel by search, then group using shared utility
-	const filteredPersonnel = $derived(() => {
+	// Filter personnel by search query
+	const filteredPersonnel = $derived.by(() => {
 		if (!searchQuery.trim()) return personnelStore.list;
 		const query = searchQuery.toLowerCase();
 		return personnelStore.list.filter(
@@ -40,39 +40,25 @@
 		);
 	});
 
+	// Group view - use shared utility
 	const personnelByGroup = $derived(
-		groupAndSortPersonnel(filteredPersonnel(), pinnedGroupsStore.list)
+		groupAndSortPersonnel(filteredPersonnel, pinnedGroupsStore.list)
 	);
 
-	// For alphabetical view
-	const alphabeticalPersonnel = $derived(() => {
-		let personnel = personnelStore.list;
-
-		// Filter by search query
-		if (searchQuery.trim()) {
-			const query = searchQuery.toLowerCase();
-			personnel = personnel.filter(
-				(p) =>
-					p.lastName.toLowerCase().includes(query) ||
-					p.firstName.toLowerCase().includes(query) ||
-					p.rank.toLowerCase().includes(query) ||
-					p.clinicRole.toLowerCase().includes(query)
-			);
-		}
-
-		// Sort alphabetically by last name, then first name
-		return [...personnel].sort((a, b) => {
+	// Alphabetical view - sorted by name
+	const alphabeticalPersonnel = $derived(
+		[...filteredPersonnel].sort((a, b) => {
 			const lastNameDiff = a.lastName.localeCompare(b.lastName);
 			if (lastNameDiff !== 0) return lastNameDiff;
 			return a.firstName.localeCompare(b.firstName);
-		});
-	});
+		})
+	);
 
 	const totalPersonnel = $derived(personnelStore.list.length);
 	const filteredCount = $derived(
 		viewMode === 'by-group'
-			? personnelByGroup().reduce((sum, g) => sum + g.personnel.length, 0)
-			: alphabeticalPersonnel().length
+			? personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0)
+			: alphabeticalPersonnel.length
 	);
 
 	function toggleGroup(group: string) {
@@ -202,7 +188,7 @@
 			</div>
 		{:else if viewMode === 'alphabetical'}
 			<div class="personnel-list">
-				{#each alphabeticalPersonnel() as person (person.id)}
+				{#each alphabeticalPersonnel as person (person.id)}
 					{#if data.permissions.canEditPersonnel}
 						<button class="person-row" onclick={() => handleEdit(person)}>
 							<div class="person-info">
@@ -240,7 +226,7 @@
 			</div>
 		{:else}
 			<div class="personnel-grid">
-				{#each personnelByGroup() as grp (grp.group)}
+				{#each personnelByGroup as grp (grp.group)}
 					<div class="group-card">
 						<div class="group-header">
 							<button class="group-toggle" onclick={() => toggleGroup(grp.group)}>
@@ -320,7 +306,7 @@
 {#if showBulkManager}
 	{#if data.subscriptionLimits?.hasBulkImport}
 		<BulkPersonnelManager
-			personnelByGroup={personnelByGroup()}
+			personnelByGroup={personnelByGroup}
 			groups={groupsStore.list}
 			onBulkAdd={handleBulkAdd}
 			onBulkDelete={handleBulkDelete}

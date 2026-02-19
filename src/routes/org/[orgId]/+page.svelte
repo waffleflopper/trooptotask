@@ -118,7 +118,7 @@
 
 	function handleExportCSV() {
 		exportMonthToCSV(calendarStore.year, calendarStore.month, {
-			personnelByGroup: personnelByGroup(),
+			personnelByGroup: personnelByGroup,
 			availabilityEntries: availabilityStore.list,
 			statusTypes: statusTypesStore.list,
 			specialDays: specialDaysStore.list,
@@ -129,7 +129,7 @@
 
 	function handleExportPDF() {
 		printMonthCalendar(calendarStore.year, calendarStore.month, {
-			personnelByGroup: personnelByGroup(),
+			personnelByGroup: personnelByGroup,
 			availabilityEntries: availabilityStore.list,
 			statusTypes: statusTypesStore.list,
 			specialDays: specialDaysStore.list,
@@ -190,7 +190,7 @@
 				year={calendarStore.year}
 				monthName={calendarStore.monthName}
 				dates={calendarStore.dates}
-				personnelByGroup={personnelByGroup()}
+				personnelByGroup={personnelByGroup}
 				availabilityEntries={availabilityStore.list}
 				statusTypes={statusTypesStore.list}
 				specialDays={specialDaysStore.list}
@@ -262,7 +262,7 @@
 		date={assignmentDate}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
-		personnelByGroup={personnelByGroup()}
+		personnelByGroup={personnelByGroup}
 		groups={groupsStore.names}
 		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
@@ -272,7 +272,7 @@
 
 {#if showTodayBreakdown}
 	<TodayBreakdown
-		personnelByGroup={personnelByGroup()}
+		personnelByGroup={personnelByGroup}
 		availabilityEntries={availabilityStore.list}
 		statusTypes={statusTypesStore.list}
 		assignmentTypes={dailyAssignmentsStore.types}
@@ -283,7 +283,7 @@
 
 {#if showBulkStatusModal}
 	<BulkStatusModal
-		personnelByGroup={personnelByGroup()}
+		personnelByGroup={personnelByGroup}
 		statusTypes={statusTypesStore.list}
 		onApply={handleBulkStatusApply}
 		onClose={() => (showBulkStatusModal = false)}
@@ -295,7 +295,7 @@
 		<DutyRosterGenerator
 			assignmentTypes={dailyAssignmentsStore.types}
 			assignments={dailyAssignmentsStore.assignments}
-			personnelByGroup={personnelByGroup()}
+			personnelByGroup={personnelByGroup}
 			groups={groupsStore.names}
 			availabilityEntries={availabilityStore.list}
 			statusTypes={statusTypesStore.list}
@@ -327,7 +327,7 @@
 		currentDate={calendarStore.currentDate}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
-		personnelByGroup={personnelByGroup()}
+		personnelByGroup={personnelByGroup}
 		groups={groupsStore.names}
 		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 		onClose={() => (showAssignmentPlanner = false)}
@@ -337,7 +337,7 @@
 {#if showLongRangeView}
 	<LongRangeView
 		startDate={calendarStore.currentDate}
-		personnelByGroup={personnelByGroup()}
+		personnelByGroup={personnelByGroup}
 		availabilityEntries={availabilityStore.list}
 		statusTypes={statusTypesStore.list}
 		specialDays={specialDaysStore.list}

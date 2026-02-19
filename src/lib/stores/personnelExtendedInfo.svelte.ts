@@ -18,30 +18,55 @@ class PersonnelExtendedInfoStore {
 	}
 
 	async add(data: Omit<PersonnelExtendedInfo, 'id'>): Promise<PersonnelExtendedInfo | null> {
-		const res = await fetch(`/org/${this.#orgId}/api/personnel-extended-info`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(data)
-		});
-		if (!res.ok) return null;
-		const newInfo = await res.json();
-		this.#extendedInfo = [...this.#extendedInfo, newInfo];
-		return newInfo;
+		// Optimistic: add with temp ID
+		const tempId = `temp-${crypto.randomUUID()}`;
+		const optimisticInfo: PersonnelExtendedInfo = { id: tempId, ...data };
+		this.#extendedInfo = [...this.#extendedInfo, optimisticInfo];
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/personnel-extended-info`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(data)
+			});
+			if (!res.ok) throw new Error('Failed to add personnel extended info');
+			const newInfo = await res.json();
+			// Replace temp with real data
+			this.#extendedInfo = this.#extendedInfo.map((e) => (e.id === tempId ? newInfo : e));
+			return newInfo;
+		} catch {
+			// Rollback on failure
+			this.#extendedInfo = this.#extendedInfo.filter((e) => e.id !== tempId);
+			return null;
+		}
 	}
 
 	async update(
 		id: string,
 		data: Partial<Omit<PersonnelExtendedInfo, 'id'>>
 	): Promise<boolean> {
-		const res = await fetch(`/org/${this.#orgId}/api/personnel-extended-info`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id, ...data })
-		});
-		if (!res.ok) return false;
-		const updated = await res.json();
-		this.#extendedInfo = this.#extendedInfo.map((e) => (e.id === id ? updated : e));
-		return true;
+		// Optimistic: update immediately
+		const original = this.#extendedInfo.find((e) => e.id === id);
+		if (!original) return false;
+
+		this.#extendedInfo = this.#extendedInfo.map((e) => (e.id === id ? { ...e, ...data } : e));
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/personnel-extended-info`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, ...data })
+			});
+			if (!res.ok) throw new Error('Failed to update personnel extended info');
+			const updated = await res.json();
+			// Replace with server response
+			this.#extendedInfo = this.#extendedInfo.map((e) => (e.id === id ? updated : e));
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#extendedInfo = this.#extendedInfo.map((e) => (e.id === id ? original : e));
+			return false;
+		}
 	}
 
 	async upsert(
@@ -58,14 +83,25 @@ class PersonnelExtendedInfoStore {
 	}
 
 	async remove(id: string): Promise<boolean> {
-		const res = await fetch(`/org/${this.#orgId}/api/personnel-extended-info`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id })
-		});
-		if (!res.ok) return false;
+		// Optimistic: remove immediately
+		const original = this.#extendedInfo.find((e) => e.id === id);
+		if (!original) return false;
+
 		this.#extendedInfo = this.#extendedInfo.filter((e) => e.id !== id);
-		return true;
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/personnel-extended-info`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+			if (!res.ok) throw new Error('Failed to delete personnel extended info');
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#extendedInfo = [...this.#extendedInfo, original];
+			return false;
+		}
 	}
 }
 

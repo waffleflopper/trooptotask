@@ -14,38 +14,74 @@ class PersonnelStore {
 	}
 
 	async add(data: Omit<Personnel, 'id'>): Promise<Personnel | null> {
-		const res = await fetch(`/org/${this.#orgId}/api/personnel`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(data)
-		});
-		if (!res.ok) return null;
-		const newPerson = await res.json();
-		this.#personnel = [...this.#personnel, newPerson];
-		return newPerson;
+		// Optimistic: add with temp ID
+		const tempId = `temp-${crypto.randomUUID()}`;
+		const optimisticPerson: Personnel = { id: tempId, ...data } as Personnel;
+		this.#personnel = [...this.#personnel, optimisticPerson];
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/personnel`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(data)
+			});
+			if (!res.ok) throw new Error('Failed to add personnel');
+			const newPerson = await res.json();
+			// Replace temp with real data
+			this.#personnel = this.#personnel.map((p) => (p.id === tempId ? newPerson : p));
+			return newPerson;
+		} catch {
+			// Rollback on failure
+			this.#personnel = this.#personnel.filter((p) => p.id !== tempId);
+			return null;
+		}
 	}
 
 	async update(id: string, data: Partial<Omit<Personnel, 'id'>>): Promise<boolean> {
-		const res = await fetch(`/org/${this.#orgId}/api/personnel`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id, ...data })
-		});
-		if (!res.ok) return false;
-		const updated = await res.json();
-		this.#personnel = this.#personnel.map((p) => (p.id === id ? updated : p));
-		return true;
+		// Optimistic: update immediately
+		const original = this.#personnel.find((p) => p.id === id);
+		if (!original) return false;
+
+		this.#personnel = this.#personnel.map((p) => (p.id === id ? { ...p, ...data } : p));
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/personnel`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, ...data })
+			});
+			if (!res.ok) throw new Error('Failed to update personnel');
+			const updated = await res.json();
+			// Replace with server response (may have computed fields)
+			this.#personnel = this.#personnel.map((p) => (p.id === id ? updated : p));
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#personnel = this.#personnel.map((p) => (p.id === id ? original : p));
+			return false;
+		}
 	}
 
 	async remove(id: string): Promise<boolean> {
-		const res = await fetch(`/org/${this.#orgId}/api/personnel`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id })
-		});
-		if (!res.ok) return false;
+		// Optimistic: remove immediately
+		const original = this.#personnel.find((p) => p.id === id);
+		if (!original) return false;
+
 		this.#personnel = this.#personnel.filter((p) => p.id !== id);
-		return true;
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/personnel`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+			if (!res.ok) throw new Error('Failed to delete personnel');
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#personnel = [...this.#personnel, original];
+			return false;
+		}
 	}
 
 	// For local-only removal (used after cascade deletes)

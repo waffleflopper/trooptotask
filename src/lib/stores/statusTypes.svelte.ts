@@ -14,38 +14,74 @@ class StatusTypesStore {
 	}
 
 	async add(data: Omit<StatusType, 'id'>): Promise<StatusType | null> {
-		const res = await fetch(`/org/${this.#orgId}/api/status-types`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(data)
-		});
-		if (!res.ok) return null;
-		const newType = await res.json();
-		this.#statusTypes = [...this.#statusTypes, newType];
-		return newType;
+		// Optimistic: add with temp ID
+		const tempId = `temp-${crypto.randomUUID()}`;
+		const optimisticType: StatusType = { id: tempId, ...data };
+		this.#statusTypes = [...this.#statusTypes, optimisticType];
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/status-types`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(data)
+			});
+			if (!res.ok) throw new Error('Failed to add status type');
+			const newType = await res.json();
+			// Replace temp with real data
+			this.#statusTypes = this.#statusTypes.map((t) => (t.id === tempId ? newType : t));
+			return newType;
+		} catch {
+			// Rollback on failure
+			this.#statusTypes = this.#statusTypes.filter((t) => t.id !== tempId);
+			return null;
+		}
 	}
 
 	async update(id: string, data: Partial<Omit<StatusType, 'id'>>): Promise<boolean> {
-		const res = await fetch(`/org/${this.#orgId}/api/status-types`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id, ...data })
-		});
-		if (!res.ok) return false;
-		const updated = await res.json();
-		this.#statusTypes = this.#statusTypes.map((t) => (t.id === id ? updated : t));
-		return true;
+		// Optimistic: update immediately
+		const original = this.#statusTypes.find((t) => t.id === id);
+		if (!original) return false;
+
+		this.#statusTypes = this.#statusTypes.map((t) => (t.id === id ? { ...t, ...data } : t));
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/status-types`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, ...data })
+			});
+			if (!res.ok) throw new Error('Failed to update status type');
+			const updated = await res.json();
+			// Replace with server response
+			this.#statusTypes = this.#statusTypes.map((t) => (t.id === id ? updated : t));
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#statusTypes = this.#statusTypes.map((t) => (t.id === id ? original : t));
+			return false;
+		}
 	}
 
 	async remove(id: string): Promise<boolean> {
-		const res = await fetch(`/org/${this.#orgId}/api/status-types`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id })
-		});
-		if (!res.ok) return false;
+		// Optimistic: remove immediately
+		const original = this.#statusTypes.find((t) => t.id === id);
+		if (!original) return false;
+
 		this.#statusTypes = this.#statusTypes.filter((t) => t.id !== id);
-		return true;
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/status-types`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+			if (!res.ok) throw new Error('Failed to delete status type');
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#statusTypes = [...this.#statusTypes, original];
+			return false;
+		}
 	}
 
 	getById(id: string) {

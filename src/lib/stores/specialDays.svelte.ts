@@ -15,26 +15,49 @@ class SpecialDaysStore {
 	}
 
 	async add(data: Omit<SpecialDay, 'id'>): Promise<SpecialDay | null> {
-		const res = await fetch(`/org/${this.#orgId}/api/special-days`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(data)
-		});
-		if (!res.ok) return null;
-		const newDay = await res.json();
-		this.#specialDays = [...this.#specialDays, newDay];
-		return newDay;
+		// Optimistic: add with temp ID
+		const tempId = `temp-${crypto.randomUUID()}`;
+		const optimisticDay: SpecialDay = { id: tempId, ...data };
+		this.#specialDays = [...this.#specialDays, optimisticDay];
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/special-days`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(data)
+			});
+			if (!res.ok) throw new Error('Failed to add special day');
+			const newDay = await res.json();
+			// Replace temp with real data
+			this.#specialDays = this.#specialDays.map((d) => (d.id === tempId ? newDay : d));
+			return newDay;
+		} catch {
+			// Rollback on failure
+			this.#specialDays = this.#specialDays.filter((d) => d.id !== tempId);
+			return null;
+		}
 	}
 
 	async remove(id: string): Promise<boolean> {
-		const res = await fetch(`/org/${this.#orgId}/api/special-days`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id })
-		});
-		if (!res.ok) return false;
+		// Optimistic: remove immediately
+		const original = this.#specialDays.find((d) => d.id === id);
+		if (!original) return false;
+
 		this.#specialDays = this.#specialDays.filter((d) => d.id !== id);
-		return true;
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/special-days`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+			if (!res.ok) throw new Error('Failed to delete special day');
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#specialDays = [...this.#specialDays, original];
+			return false;
+		}
 	}
 
 	async resetFederalHolidays(): Promise<boolean> {

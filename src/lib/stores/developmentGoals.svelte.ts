@@ -22,38 +22,74 @@ class DevelopmentGoalsStore {
 	}
 
 	async add(data: Omit<DevelopmentGoal, 'id'>): Promise<DevelopmentGoal | null> {
-		const res = await fetch(`/org/${this.#orgId}/api/development-goals`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(data)
-		});
-		if (!res.ok) return null;
-		const newGoal = await res.json();
-		this.#goals = [...this.#goals, newGoal];
-		return newGoal;
+		// Optimistic: add with temp ID
+		const tempId = `temp-${crypto.randomUUID()}`;
+		const optimisticGoal: DevelopmentGoal = { id: tempId, ...data };
+		this.#goals = [...this.#goals, optimisticGoal];
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/development-goals`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(data)
+			});
+			if (!res.ok) throw new Error('Failed to add development goal');
+			const newGoal = await res.json();
+			// Replace temp with real data
+			this.#goals = this.#goals.map((g) => (g.id === tempId ? newGoal : g));
+			return newGoal;
+		} catch {
+			// Rollback on failure
+			this.#goals = this.#goals.filter((g) => g.id !== tempId);
+			return null;
+		}
 	}
 
 	async update(id: string, data: Partial<Omit<DevelopmentGoal, 'id'>>): Promise<boolean> {
-		const res = await fetch(`/org/${this.#orgId}/api/development-goals`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id, ...data })
-		});
-		if (!res.ok) return false;
-		const updated = await res.json();
-		this.#goals = this.#goals.map((g) => (g.id === id ? updated : g));
-		return true;
+		// Optimistic: update immediately
+		const original = this.#goals.find((g) => g.id === id);
+		if (!original) return false;
+
+		this.#goals = this.#goals.map((g) => (g.id === id ? { ...g, ...data } : g));
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/development-goals`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, ...data })
+			});
+			if (!res.ok) throw new Error('Failed to update development goal');
+			const updated = await res.json();
+			// Replace with server response
+			this.#goals = this.#goals.map((g) => (g.id === id ? updated : g));
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#goals = this.#goals.map((g) => (g.id === id ? original : g));
+			return false;
+		}
 	}
 
 	async remove(id: string): Promise<boolean> {
-		const res = await fetch(`/org/${this.#orgId}/api/development-goals`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id })
-		});
-		if (!res.ok) return false;
+		// Optimistic: remove immediately
+		const original = this.#goals.find((g) => g.id === id);
+		if (!original) return false;
+
 		this.#goals = this.#goals.filter((g) => g.id !== id);
-		return true;
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/development-goals`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+			if (!res.ok) throw new Error('Failed to delete development goal');
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#goals = [...this.#goals, original];
+			return false;
+		}
 	}
 }
 

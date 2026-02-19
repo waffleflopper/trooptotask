@@ -4,6 +4,7 @@
 	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { getTrainingStats } from '$lib/utils/trainingStatus';
+	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
 	import TrainingMatrix from '$lib/components/TrainingMatrix.svelte';
 	import TrainingRecordModal from '$lib/components/TrainingRecordModal.svelte';
 	import PersonTrainingEditor from '$lib/components/PersonTrainingEditor.svelte';
@@ -33,78 +34,27 @@
 	let selectedTraining = $state<PersonnelTraining | undefined>(undefined);
 	let editingPersonTraining = $state<Personnel | null>(null);
 
-	const RANK_ORDER = [
-		'GEN', 'LTG', 'MG', 'BG', 'COL', 'LTC', 'MAJ', 'CPT', '1LT', '2LT',
-		'CW5', 'CW4', 'CW3', 'CW2', 'WO1',
-		'CSM', 'SGM', '1SG', 'MSG', 'SFC', 'SSG', 'SGT',
-		'CPL', 'SPC', 'PFC', 'PV2', 'PV1',
-		'CIV'
-	];
+	// Filter personnel by selected group
+	const basePersonnel = $derived(() => {
+		if (!selectedGroupId) return data.personnel;
+		return data.personnel.filter((p) => p.groupId === selectedGroupId);
+	});
 
+	// Alphabetical view - sorted by name
 	const filteredPersonnel = $derived(() => {
-		let personnel = data.personnel;
-
-		// Filter by group if selected
-		if (selectedGroupId) {
-			personnel = personnel.filter((p) => p.groupId === selectedGroupId);
-		}
-
-		// Sort alphabetically by last name then first name
-		return [...personnel].sort((a, b) => {
+		return [...basePersonnel()].sort((a, b) => {
 			const lastNameDiff = a.lastName.localeCompare(b.lastName);
 			if (lastNameDiff !== 0) return lastNameDiff;
 			return a.firstName.localeCompare(b.firstName);
 		});
 	});
 
-	// For grouped view, organize personnel by group
-	const personnelByGroup = $derived(() => {
-		let personnel = data.personnel;
-
-		// Filter by group if selected
-		if (selectedGroupId) {
-			personnel = personnel.filter((p) => p.groupId === selectedGroupId);
-		}
-
-		const groupMap = new Map<string, Personnel[]>();
-
-		for (const person of personnel) {
-			const group = person.groupName || '';
-			if (!groupMap.has(group)) {
-				groupMap.set(group, []);
-			}
-			groupMap.get(group)!.push(person);
-		}
-
-		// Sort personnel within each group by rank then name
-		for (const [, people] of groupMap) {
-			people.sort((a, b) => {
-				const rankDiff = RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
-				if (rankDiff !== 0) return rankDiff;
-				const lastNameDiff = a.lastName.localeCompare(b.lastName);
-				if (lastNameDiff !== 0) return lastNameDiff;
-				return a.firstName.localeCompare(b.firstName);
-			});
-		}
-
-		// Sort groups: use the order from data.groups
-		const groupOrder = data.groups.map(g => g.name);
-		const sortedGroups = [...groupMap.keys()].sort((a, b) => {
-			const aIdx = groupOrder.indexOf(a);
-			const bIdx = groupOrder.indexOf(b);
-			if (a === '' && b !== '') return 1;
-			if (a !== '' && b === '') return -1;
-			if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
-			if (aIdx === -1) return 1;
-			if (bIdx === -1) return -1;
-			return aIdx - bIdx;
-		});
-
-		return sortedGroups.map((group) => ({
-			group,
-			personnel: groupMap.get(group)!
-		}));
-	});
+	// Grouped view - use shared utility with explicit group order
+	const personnelByGroup = $derived(
+		groupAndSortPersonnel(basePersonnel(), {
+			groupOrder: data.groups.map((g) => g.name)
+		})
+	);
 
 	function toggleGroup(group: string) {
 		const newSet = new Set(collapsedGroups);

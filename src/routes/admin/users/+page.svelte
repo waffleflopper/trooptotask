@@ -113,7 +113,7 @@
 		<table class="users-table">
 			<thead>
 				<tr>
-					<th>User ID</th>
+					<th>User</th>
 					<th>Plan</th>
 					<th>Status</th>
 					<th>Organizations</th>
@@ -126,8 +126,9 @@
 			<tbody>
 				{#each data.users as user (user.id)}
 					<tr>
-						<td class="user-id">
-							<code>{user.id.slice(0, 8)}...</code>
+						<td class="user-cell">
+							<span class="user-email">{user.email || 'No email'}</span>
+							<code class="user-id">{user.id.slice(0, 8)}...</code>
 						</td>
 						<td>
 							<span class="plan-badge" class:free={user.planId === 'free'} class:pro={user.planId === 'pro'} class:team={user.planId === 'team'}>
@@ -317,11 +318,23 @@
 		background: var(--color-surface-variant);
 	}
 
-	.user-id code {
+	.user-cell {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.user-email {
+		font-weight: 500;
+	}
+
+	.user-id {
 		font-size: var(--font-size-xs);
 		padding: 2px 6px;
 		background: var(--color-surface-variant);
 		border-radius: var(--radius-sm);
+		color: var(--color-text-muted);
+		width: fit-content;
 	}
 
 	.plan-badge {

@@ -343,7 +343,7 @@
 {/if}
 
 {#if showDutyRosterGenerator}
-	{#if data.subscriptionLimits?.hasDutyRoster}
+	{#if !data.subscriptionLimits || data.subscriptionLimits.hasDutyRoster}
 		<DutyRosterGenerator
 			assignmentTypes={dailyAssignmentsStore.types}
 			assignments={dailyAssignmentsStore.assignments}
@@ -356,7 +356,7 @@
 		/>
 	{:else}
 		<div class="modal-overlay" onclick={() => (showDutyRosterGenerator = false)}>
-			<div class="modal-content feature-gate-modal" onclick={(e) => e.stopPropagation()}>
+			<div class="modal feature-gate-modal" onclick={(e) => e.stopPropagation()}>
 				<button class="modal-close" onclick={() => (showDutyRosterGenerator = false)}>&times;</button>
 				<div class="feature-locked">
 					<div class="lock-icon">
@@ -488,6 +488,30 @@
 	.feature-gate-modal {
 		max-width: 400px;
 		text-align: center;
+		position: relative;
+	}
+
+	.modal-close {
+		position: absolute;
+		top: var(--spacing-sm);
+		right: var(--spacing-sm);
+		width: 32px;
+		height: 32px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.5rem;
+		color: var(--color-text-muted);
+		background: transparent;
+		border: none;
+		border-radius: var(--radius-full);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.modal-close:hover {
+		background: var(--color-surface-variant);
+		color: var(--color-text);
 	}
 
 	.feature-locked {

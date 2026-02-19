@@ -304,7 +304,7 @@
 {/if}
 
 {#if showBulkManager}
-	{#if data.subscriptionLimits?.hasBulkImport}
+	{#if !data.subscriptionLimits || data.subscriptionLimits.hasBulkImport}
 		<BulkPersonnelManager
 			personnelByGroup={personnelByGroup}
 			groups={groupsStore.list}

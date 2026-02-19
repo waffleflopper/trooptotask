@@ -44,63 +44,69 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	const { data: subscriptions, count } = await query;
 
-	// Get user emails via auth.users lookup
-	// Note: In production, you'd want to join this or use a view
 	const userIds = (subscriptions ?? []).map((s: any) => s.user_id);
 
-	// Get organization counts for each user
-	const { data: orgCounts } = await supabase
-		.from('organization_memberships')
-		.select('user_id')
-		.eq('role', 'owner')
-		.in('user_id', userIds);
+	// Skip additional queries if no users
+	if (userIds.length === 0) {
+		return {
+			users: [],
+			totalCount: 0,
+			page,
+			limit,
+			search,
+			planFilter: plan,
+			statusFilter: status
+		};
+	}
 
+	// Run all supplementary queries in parallel
+	const [orgCountsResult, paymentsResult, authUsersResult] = await Promise.all([
+		// Organization counts (as owner)
+		supabase
+			.from('organization_memberships')
+			.select('user_id')
+			.eq('role', 'owner')
+			.in('user_id', userIds),
+
+		// Payment data: amount and date in single query
+		supabase
+			.from('payment_history')
+			.select('user_id, amount, created_at')
+			.in('user_id', userIds)
+			.eq('status', 'succeeded')
+			.order('created_at', { ascending: false }),
+
+		// User emails from auth (admin API limitation: can't filter by IDs)
+		adminClient.auth.admin.listUsers({ perPage: 1000 })
+	]);
+
+	// Build org count map
 	const orgCountMap: Record<string, number> = {};
-	(orgCounts ?? []).forEach((m: { user_id: string }) => {
+	(orgCountsResult.data ?? []).forEach((m: { user_id: string }) => {
 		orgCountMap[m.user_id] = (orgCountMap[m.user_id] || 0) + 1;
 	});
 
-	// Get total payments for each user
-	const { data: paymentTotals } = await supabase
-		.from('payment_history')
-		.select('user_id, amount')
-		.in('user_id', userIds)
-		.eq('status', 'succeeded');
-
+	// Build payment maps (total and last payment) from single query
 	const paymentMap: Record<string, number> = {};
-	(paymentTotals ?? []).forEach((p: { user_id: string; amount: number }) => {
-		paymentMap[p.user_id] = (paymentMap[p.user_id] || 0) + p.amount;
-	});
-
-	// Get user emails from auth.users using admin client
-	const emailMap: Record<string, string> = {};
-	if (userIds.length > 0) {
-		const { data: authUsers } = await adminClient.auth.admin.listUsers({
-			perPage: 1000
-		});
-		if (authUsers?.users) {
-			authUsers.users.forEach((u) => {
-				if (u.email) {
-					emailMap[u.id] = u.email;
-				}
-			});
-		}
-	}
-
-	// Get last payment dates
-	const { data: lastPayments } = await supabase
-		.from('payment_history')
-		.select('user_id, created_at')
-		.in('user_id', userIds)
-		.eq('status', 'succeeded')
-		.order('created_at', { ascending: false });
-
 	const lastPaymentMap: Record<string, string> = {};
-	(lastPayments ?? []).forEach((p: { user_id: string; created_at: string }) => {
+	(paymentsResult.data ?? []).forEach((p: { user_id: string; amount: number; created_at: string }) => {
+		paymentMap[p.user_id] = (paymentMap[p.user_id] || 0) + p.amount;
+		// First occurrence is most recent due to ORDER BY
 		if (!lastPaymentMap[p.user_id]) {
 			lastPaymentMap[p.user_id] = p.created_at;
 		}
 	});
+
+	// Build email map (filter to only users we need)
+	const emailMap: Record<string, string> = {};
+	const userIdSet = new Set(userIds);
+	if (authUsersResult.data?.users) {
+		authUsersResult.data.users.forEach((u) => {
+			if (u.email && userIdSet.has(u.id)) {
+				emailMap[u.id] = u.email;
+			}
+		});
+	}
 
 	// Transform data
 	const users = (subscriptions ?? []).map((sub: any) => ({

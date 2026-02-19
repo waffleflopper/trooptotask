@@ -21,15 +21,22 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.order('created_at', { ascending: false })
 		.range(offset, offset + limit - 1);
 
-	const { data: logs, count } = await query;
+	// Run both queries in parallel
+	const [logsResult, actionsResult] = await Promise.all([
+		query,
+		// Get distinct actions - limit to recent records for efficiency
+		// (action types are typically finite and appear in recent logs)
+		supabase
+			.from('admin_audit_log')
+			.select('action')
+			.order('created_at', { ascending: false })
+			.limit(1000)
+	]);
 
-	// Get distinct actions for filter dropdown
-	const { data: actions } = await supabase
-		.from('admin_audit_log')
-		.select('action')
-		.order('action');
+	const { data: logs, count } = logsResult;
 
-	const uniqueActions = [...new Set((actions ?? []).map((a: { action: string }) => a.action))];
+	// Extract unique actions from limited result set
+	const uniqueActions = [...new Set((actionsResult.data ?? []).map((a: { action: string }) => a.action))].sort();
 
 	return {
 		logs: (logs ?? []).map((log: any) => ({

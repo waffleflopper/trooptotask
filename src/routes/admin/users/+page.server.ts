@@ -1,7 +1,9 @@
 import type { PageServerLoad } from './$types';
+import { getAdminClient } from '$lib/server/supabase';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const supabase = locals.supabase;
+	const adminClient = getAdminClient();
 
 	// Get search params
 	const search = url.searchParams.get('search') || '';
@@ -70,6 +72,21 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		paymentMap[p.user_id] = (paymentMap[p.user_id] || 0) + p.amount;
 	});
 
+	// Get user emails from auth.users using admin client
+	const emailMap: Record<string, string> = {};
+	if (userIds.length > 0) {
+		const { data: authUsers } = await adminClient.auth.admin.listUsers({
+			perPage: 1000
+		});
+		if (authUsers?.users) {
+			authUsers.users.forEach((u) => {
+				if (u.email) {
+					emailMap[u.id] = u.email;
+				}
+			});
+		}
+	}
+
 	// Get last payment dates
 	const { data: lastPayments } = await supabase
 		.from('payment_history')
@@ -88,6 +105,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// Transform data
 	const users = (subscriptions ?? []).map((sub: any) => ({
 		id: sub.user_id,
+		email: emailMap[sub.user_id] || null,
 		planId: sub.plan_id,
 		planName: sub.subscription_plans?.name || sub.plan_id,
 		status: sub.status,

@@ -5,6 +5,16 @@ import type { Cookies } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 
 /**
+ * Returns a Supabase admin client with service role access.
+ * Use this for admin operations that need to bypass RLS or access auth.users.
+ */
+export function getAdminClient(): SupabaseClient {
+	return createClient(PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY || '', {
+		auth: { persistSession: false }
+	});
+}
+
+/**
  * Returns a Supabase client appropriate for the current context.
  * Uses service role client for demo mode to bypass RLS.
  */

@@ -3,6 +3,7 @@
 	import type { Group } from '../stores/groups.svelte';
 	import { ALL_RANKS } from '../types';
 	import * as XLSX from 'xlsx';
+	import Modal from './Modal.svelte';
 
 	interface GroupData {
 		group: string;
@@ -235,14 +236,14 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 	});
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bulk-personnel-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal bulk-modal" role="document">
-		<div class="modal-header">
-			<h2 id="bulk-personnel-title">Bulk Personnel Management</h2>
-			<button class="btn btn-secondary btn-sm close-btn" onclick={onClose} aria-label="Close">&times;</button>
-		</div>
-
+<Modal
+	title="Bulk Personnel Management"
+	{onClose}
+	width="600px"
+	titleId="bulk-personnel-title"
+	showCloseButton={false}
+>
+	<div class="bulk-content">
 		<div class="tabs">
 			<button
 				class="tab"
@@ -266,7 +267,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 			</button>
 		</div>
 
-		<div class="modal-body">
+		<div class="content-body">
 			{#if activeTab === 'import'}
 				<div class="import-section">
 					<!-- File Upload -->
@@ -435,43 +436,35 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 				</div>
 			{/if}
 		</div>
-
-		<div class="modal-footer">
-			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			{#if activeTab === 'import'}
-				<button
-					class="btn btn-primary"
-					onclick={handleImport}
-					disabled={parsedPersonnel.length === 0}
-				>
-					Import {parsedPersonnel.length} Personnel
-				</button>
-			{:else}
-				<button
-					class="btn btn-danger"
-					onclick={handleDelete}
-					disabled={selectedIds.size === 0}
-				>
-					Delete {selectedIds.size} Personnel
-				</button>
-			{/if}
-		</div>
 	</div>
-</div>
+
+	{#snippet footer()}
+		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+		{#if activeTab === 'import'}
+			<button
+				class="btn btn-primary"
+				onclick={handleImport}
+				disabled={parsedPersonnel.length === 0}
+			>
+				Import {parsedPersonnel.length} Personnel
+			</button>
+		{:else}
+			<button
+				class="btn btn-danger"
+				onclick={handleDelete}
+				disabled={selectedIds.size === 0}
+			>
+				Delete {selectedIds.size} Personnel
+			</button>
+		{/if}
+	{/snippet}
+</Modal>
 
 <style>
-	.bulk-modal {
-		width: 600px;
-		max-width: 95vw;
-		max-height: 90vh;
+	.bulk-content {
 		display: flex;
 		flex-direction: column;
-	}
-
-	.close-btn {
-		font-size: 1.25rem;
-		line-height: 1;
-		padding: var(--spacing-xs) var(--spacing-sm);
+		margin: calc(-1 * var(--spacing-lg));
 	}
 
 	.tabs {
@@ -502,10 +495,11 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 		border-bottom-color: var(--color-primary);
 	}
 
-	.modal-body {
+	.content-body {
 		flex: 1;
 		overflow-y: auto;
 		padding: var(--spacing-lg);
+		max-height: 50vh;
 	}
 
 	/* Import Section */

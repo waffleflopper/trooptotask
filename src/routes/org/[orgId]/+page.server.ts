@@ -10,6 +10,14 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 	const userId = parentData.userId;
 	const supabase = getSupabaseClient(locals, cookies);
 
+	// Date range for calendar data (3 months past, 6 months future)
+	// This prevents loading unbounded historical data
+	const now = new Date();
+	const rangeStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+	const rangeEnd = new Date(now.getFullYear(), now.getMonth() + 7, 0); // End of 6 months from now
+	const rangeStartStr = rangeStart.toISOString().split('T')[0];
+	const rangeEndStr = rangeEnd.toISOString().split('T')[0];
+
 	// Load all data in parallel
 	const [
 		personnelRes,
@@ -39,11 +47,15 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 		supabase
 			.from('availability_entries')
 			.select('*')
-			.eq('organization_id', orgId),
+			.eq('organization_id', orgId)
+			.gte('end_date', rangeStartStr)
+			.lte('start_date', rangeEndStr),
 		supabase
 			.from('special_days')
 			.select('*')
 			.eq('organization_id', orgId)
+			.gte('date', rangeStartStr)
+			.lte('date', rangeEndStr)
 			.order('date'),
 		supabase
 			.from('assignment_types')
@@ -53,7 +65,9 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 		supabase
 			.from('daily_assignments')
 			.select('*')
-			.eq('organization_id', orgId),
+			.eq('organization_id', orgId)
+			.gte('date', rangeStartStr)
+			.lte('date', rangeEndStr),
 		userId ? supabase
 			.from('user_pinned_groups')
 			.select('*')

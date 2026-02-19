@@ -2,6 +2,7 @@
 	import type { Personnel } from '../types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 	import { formatDate } from '../utils/dates';
+	import Modal from './Modal.svelte';
 
 	interface GroupData {
 		group: string;
@@ -19,7 +20,16 @@
 		onClose: () => void;
 	}
 
-	let { date, assignmentTypes, assignments, personnelByGroup, groups, onSetAssignment, onRemoveAssignment, onClose }: Props = $props();
+	let {
+		date,
+		assignmentTypes,
+		assignments,
+		personnelByGroup,
+		groups,
+		onSetAssignment,
+		onRemoveAssignment,
+		onClose
+	}: Props = $props();
 
 	const dateStr = $derived(formatDate(date));
 	const dateDisplay = $derived(
@@ -31,13 +41,9 @@
 		})
 	);
 
-	const assignmentsForDate = $derived(
-		assignments.filter((a) => a.date === dateStr)
-	);
+	const assignmentsForDate = $derived(assignments.filter((a) => a.date === dateStr));
 
-	const allPersonnel = $derived(
-		personnelByGroup.flatMap((g) => g.personnel)
-	);
+	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
 	// MOD-eligible MOS codes
 	const MOD_ELIGIBLE_MOS = ['PA', 'MD'];
@@ -46,13 +52,13 @@
 	function getEligiblePersonnelByGroup(type: AssignmentType): GroupData[] {
 		if (type.shortName === 'MOD') {
 			return personnelByGroup
-				.map(g => ({
+				.map((g) => ({
 					...g,
-					personnel: g.personnel.filter(p =>
-						MOD_ELIGIBLE_MOS.some(mos => p.mos.toUpperCase().includes(mos))
+					personnel: g.personnel.filter((p) =>
+						MOD_ELIGIBLE_MOS.some((mos) => p.mos.toUpperCase().includes(mos))
 					)
 				}))
-				.filter(g => g.personnel.length > 0);
+				.filter((g) => g.personnel.length > 0);
 		}
 		return personnelByGroup;
 	}
@@ -79,91 +85,86 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="daily-assign-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal" style="width: 450px;" role="document">
-		<div class="modal-header">
-			<h2 id="daily-assign-title">Daily Assignments</h2>
-			<button class="btn btn-secondary btn-sm" onclick={onClose}>&times;</button>
-		</div>
+<Modal title="Daily Assignments" {onClose} width="450px" titleId="daily-assign-title">
+	<div class="date-display">{dateDisplay}</div>
 
-		<div class="modal-body">
-			<div class="date-display">{dateDisplay}</div>
+	<div class="assignments-list">
+		{#each assignmentTypes as type (type.id)}
+			<div class="assignment-row">
+				<label class="assignment-label">
+					<span class="assignment-badge" style="background-color: {type.color}"
+						>{type.shortName}</span
+					>
+					<span class="assignment-name">{type.name}</span>
+				</label>
 
-			<div class="assignments-list">
-				{#each assignmentTypes as type (type.id)}
-					<div class="assignment-row">
-						<label class="assignment-label">
-							<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
-							<span class="assignment-name">{type.name}</span>
-						</label>
-
-						{#if type.assignTo === 'personnel'}
-							{@const eligibleGroups = getEligiblePersonnelByGroup(type)}
-							<select
-								class="select"
-								value={getCurrentAssignee(type.id)}
-								onchange={(e) => handleAssignmentChange(type.id, e.currentTarget.value)}
-							>
-								<option value="">-- Not Assigned --</option>
-								{#each eligibleGroups as grp}
-									{#if grp.personnel.length > 0}
-										<optgroup label={grp.group || 'Unassigned'}>
-											{#each grp.personnel as person}
-												<option value={person.id}>
-													{person.rank} {person.lastName}, {person.firstName}
-												</option>
-											{/each}
-										</optgroup>
-									{/if}
-								{/each}
-							</select>
-							{#if type.shortName === 'MOD'}
-								<span class="filter-hint">Only PA/MD personnel are eligible</span>
+				{#if type.assignTo === 'personnel'}
+					{@const eligibleGroups = getEligiblePersonnelByGroup(type)}
+					<select
+						class="select"
+						value={getCurrentAssignee(type.id)}
+						onchange={(e) => handleAssignmentChange(type.id, e.currentTarget.value)}
+					>
+						<option value="">-- Not Assigned --</option>
+						{#each eligibleGroups as grp}
+							{#if grp.personnel.length > 0}
+								<optgroup label={grp.group || 'Unassigned'}>
+									{#each grp.personnel as person}
+										<option value={person.id}>
+											{person.rank}
+											{person.lastName}, {person.firstName}
+										</option>
+									{/each}
+								</optgroup>
 							{/if}
-						{:else}
-							<select
-								class="select"
-								value={getCurrentAssignee(type.id)}
-								onchange={(e) => handleAssignmentChange(type.id, e.currentTarget.value)}
-							>
-								<option value="">-- Not Assigned --</option>
-								{#each groups as group}
-									<option value={group}>{group}</option>
-								{/each}
-							</select>
-						{/if}
-					</div>
-				{/each}
+						{/each}
+					</select>
+					{#if type.shortName === 'MOD'}
+						<span class="filter-hint">Only PA/MD personnel are eligible</span>
+					{/if}
+				{:else}
+					<select
+						class="select"
+						value={getCurrentAssignee(type.id)}
+						onchange={(e) => handleAssignmentChange(type.id, e.currentTarget.value)}
+					>
+						<option value="">-- Not Assigned --</option>
+						{#each groups as group}
+							<option value={group}>{group}</option>
+						{/each}
+					</select>
+				{/if}
 			</div>
-
-			{#if assignmentsForDate.length > 0}
-				<div class="current-assignments">
-					<h4>Current Assignments:</h4>
-					{#each assignmentsForDate as assignment}
-						{@const type = assignmentTypes.find((t) => t.id === assignment.assignmentTypeId)}
-						{#if type}
-							<div class="current-assignment">
-								<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
-								<span>
-									{#if type.assignTo === 'personnel'}
-										{getPersonnelDisplay(assignment.assigneeId)}
-									{:else}
-										{assignment.assigneeId}
-									{/if}
-								</span>
-							</div>
-						{/if}
-					{/each}
-				</div>
-			{/if}
-		</div>
-
-		<div class="modal-footer">
-			<button class="btn btn-primary" onclick={onClose}>Done</button>
-		</div>
+		{/each}
 	</div>
-</div>
+
+	{#if assignmentsForDate.length > 0}
+		<div class="current-assignments">
+			<h4>Current Assignments:</h4>
+			{#each assignmentsForDate as assignment}
+				{@const type = assignmentTypes.find((t) => t.id === assignment.assignmentTypeId)}
+				{#if type}
+					<div class="current-assignment">
+						<span class="assignment-badge" style="background-color: {type.color}"
+							>{type.shortName}</span
+						>
+						<span>
+							{#if type.assignTo === 'personnel'}
+								{getPersonnelDisplay(assignment.assigneeId)}
+							{:else}
+								{assignment.assigneeId}
+							{/if}
+						</span>
+					</div>
+				{/if}
+			{/each}
+		</div>
+	{/if}
+
+	{#snippet footer()}
+		<button class="btn btn-primary" onclick={onClose}>Done</button>
+	{/snippet}
+</Modal>
 
 <style>
 	.date-display {

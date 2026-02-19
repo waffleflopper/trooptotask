@@ -4,6 +4,7 @@
 	import { COUNSELING_STATUS_LABELS, COUNSELING_STATUS_COLORS } from '$lib/types/leadersBook';
 	import { counselingTypesStore } from '$lib/stores/counselingTypes.svelte';
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
+	import Modal from './Modal.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -28,16 +29,15 @@
 
 	let saving = $state(false);
 
-	const selectedType = $derived(() => {
+	const selectedType = $derived.by(() => {
 		if (!counselingTypeId) return null;
 		return counselingTypesStore.getById(counselingTypeId) ?? null;
 	});
 
 	// When a type is selected, apply its template if it has one
 	$effect(() => {
-		const type = selectedType();
-		if (type && type.templateContent && !isEdit && !keyPoints) {
-			keyPoints = type.templateContent;
+		if (selectedType && selectedType.templateContent && !isEdit && !keyPoints) {
+			keyPoints = selectedType.templateContent;
 		}
 	});
 
@@ -85,133 +85,121 @@
 	}
 </script>
 
-<div
-	class="modal-overlay"
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="counseling-record-title"
-	tabindex="-1"
-	onkeydown={(e) => e.key === 'Escape' && onClose()}
+<Modal
+	title="{isEdit ? 'Edit' : 'New'} Counseling"
+	{onClose}
+	width="650px"
+	titleId="counseling-record-title"
 >
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal" style="width: 650px; max-height: 90vh;" role="document">
-		<div class="modal-header">
-			<h2 id="counseling-record-title">{isEdit ? 'Edit' : 'New'} Counseling</h2>
-			<button class="btn btn-secondary btn-sm" onclick={onClose}>&times;</button>
+	<div class="person-info">
+		<span class="person-rank">{person.rank}</span>
+		<span class="person-name">{person.lastName}, {person.firstName}</span>
+	</div>
+
+	<div class="form-row">
+		<div class="form-group flex-1">
+			<label class="label">Counseling Type</label>
+			<select class="select" bind:value={counselingTypeId}>
+				<option value="">-- Select Type --</option>
+				{#each counselingTypesStore.list as type (type.id)}
+					<option value={type.id}>{type.name}</option>
+				{/each}
+			</select>
 		</div>
-
-		<div class="modal-body">
-			<div class="person-info">
-				<span class="person-rank">{person.rank}</span>
-				<span class="person-name">{person.lastName}, {person.firstName}</span>
-			</div>
-
-			<div class="form-row">
-				<div class="form-group flex-1">
-					<label class="label">Counseling Type</label>
-					<select class="select" bind:value={counselingTypeId}>
-						<option value="">-- Select Type --</option>
-						{#each counselingTypesStore.list as type (type.id)}
-							<option value={type.id}>{type.name}</option>
-						{/each}
-					</select>
-				</div>
-				<div class="form-group">
-					<label class="label">Date</label>
-					<input type="date" class="input" bind:value={dateConducted} required />
-				</div>
-			</div>
-
-			<div class="form-group">
-				<label class="label">Subject <span class="required">*</span></label>
-				<input
-					type="text"
-					class="input"
-					bind:value={subject}
-					placeholder="Subject of counseling..."
-					required
-				/>
-			</div>
-
-			<div class="form-group">
-				<label class="label">Key Points</label>
-				<textarea
-					class="input textarea"
-					bind:value={keyPoints}
-					placeholder="Key discussion points..."
-					rows="6"
-				></textarea>
-				{#if selectedType()?.templateContent && !isEdit}
-					<span class="field-hint">Template applied from selected type</span>
-				{/if}
-			</div>
-
-			<div class="form-group">
-				<label class="label">Plan of Action</label>
-				<textarea
-					class="input textarea"
-					bind:value={planOfAction}
-					placeholder="Action items and next steps..."
-					rows="4"
-				></textarea>
-			</div>
-
-			<div class="form-row">
-				<div class="form-group flex-1">
-					<label class="label">Follow-up Date</label>
-					<input type="date" class="input" bind:value={followUpDate} />
-				</div>
-				<div class="form-group flex-1">
-					<label class="label">Status</label>
-					<select class="select" bind:value={status}>
-						{#each Object.entries(COUNSELING_STATUS_LABELS) as [value, label]}
-							<option {value}>{label}</option>
-						{/each}
-					</select>
-				</div>
-			</div>
-
-			<div class="signatures-section">
-				<h3>Signatures</h3>
-				<div class="signature-row">
-					<label class="signature-checkbox">
-						<input type="checkbox" bind:checked={counselorSigned} />
-						<span class="signature-label">
-							Counselor Signed
-							{#if existingRecord?.counselorSignedAt}
-								<span class="signature-date">
-									({new Date(existingRecord.counselorSignedAt).toLocaleDateString()})
-								</span>
-							{/if}
-						</span>
-					</label>
-					<label class="signature-checkbox">
-						<input type="checkbox" bind:checked={soldierSigned} />
-						<span class="signature-label">
-							Soldier Signed
-							{#if existingRecord?.soldierSignedAt}
-								<span class="signature-date">
-									({new Date(existingRecord.soldierSignedAt).toLocaleDateString()})
-								</span>
-							{/if}
-						</span>
-					</label>
-				</div>
-			</div>
-		</div>
-
-		<div class="modal-footer">
-			{#if existingRecord}
-				<button class="btn btn-danger" onclick={handleRemove}>Delete</button>
-			{/if}
-			<div class="spacer"></div>
-			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			<button class="btn btn-primary" onclick={handleSave} disabled={!canSave || saving}>
-				{saving ? 'Saving...' : 'Save'}
-			</button>
+		<div class="form-group">
+			<label class="label">Date</label>
+			<input type="date" class="input" bind:value={dateConducted} required />
 		</div>
 	</div>
-</div>
+
+	<div class="form-group">
+		<label class="label">Subject <span class="required">*</span></label>
+		<input
+			type="text"
+			class="input"
+			bind:value={subject}
+			placeholder="Subject of counseling..."
+			required
+		/>
+	</div>
+
+	<div class="form-group">
+		<label class="label">Key Points</label>
+		<textarea
+			class="input textarea"
+			bind:value={keyPoints}
+			placeholder="Key discussion points..."
+			rows="6"
+		></textarea>
+		{#if selectedType?.templateContent && !isEdit}
+			<span class="field-hint">Template applied from selected type</span>
+		{/if}
+	</div>
+
+	<div class="form-group">
+		<label class="label">Plan of Action</label>
+		<textarea
+			class="input textarea"
+			bind:value={planOfAction}
+			placeholder="Action items and next steps..."
+			rows="4"
+		></textarea>
+	</div>
+
+	<div class="form-row">
+		<div class="form-group flex-1">
+			<label class="label">Follow-up Date</label>
+			<input type="date" class="input" bind:value={followUpDate} />
+		</div>
+		<div class="form-group flex-1">
+			<label class="label">Status</label>
+			<select class="select" bind:value={status}>
+				{#each Object.entries(COUNSELING_STATUS_LABELS) as [value, label]}
+					<option {value}>{label}</option>
+				{/each}
+			</select>
+		</div>
+	</div>
+
+	<div class="signatures-section">
+		<h3>Signatures</h3>
+		<div class="signature-row">
+			<label class="signature-checkbox">
+				<input type="checkbox" bind:checked={counselorSigned} />
+				<span class="signature-label">
+					Counselor Signed
+					{#if existingRecord?.counselorSignedAt}
+						<span class="signature-date">
+							({new Date(existingRecord.counselorSignedAt).toLocaleDateString()})
+						</span>
+					{/if}
+				</span>
+			</label>
+			<label class="signature-checkbox">
+				<input type="checkbox" bind:checked={soldierSigned} />
+				<span class="signature-label">
+					Soldier Signed
+					{#if existingRecord?.soldierSignedAt}
+						<span class="signature-date">
+							({new Date(existingRecord.soldierSignedAt).toLocaleDateString()})
+						</span>
+					{/if}
+				</span>
+			</label>
+		</div>
+	</div>
+
+	{#snippet footer()}
+		{#if existingRecord}
+			<button class="btn btn-danger" onclick={handleRemove}>Delete</button>
+		{/if}
+		<div class="spacer"></div>
+		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+		<button class="btn btn-primary" onclick={handleSave} disabled={!canSave || saving}>
+			{saving ? 'Saving...' : 'Save'}
+		</button>
+	{/snippet}
+</Modal>
 
 <style>
 	.person-info {
@@ -315,17 +303,7 @@
 		font-weight: 400;
 	}
 
-	.modal-footer {
-		display: flex;
-		gap: var(--spacing-sm);
-	}
-
 	.spacer {
 		flex: 1;
-	}
-
-	.modal-body {
-		max-height: 70vh;
-		overflow-y: auto;
 	}
 </style>

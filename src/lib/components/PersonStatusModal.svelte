@@ -1,7 +1,8 @@
 <script lang="ts">
-	import type { Personnel, StatusType, AvailabilityEntry } from '$lib/types';
+	import type { Personnel, AvailabilityEntry } from '$lib/types';
 	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
 	import { availabilityStore } from '$lib/stores/availability.svelte';
+	import Modal from './Modal.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -19,14 +20,14 @@
 	let isSubmitting = $state(false);
 	let isDeleting = $state(false);
 
-	const dateError = $derived(() => {
+	const dateError = $derived.by(() => {
 		if (startDate && endDate && startDate > endDate) {
 			return 'End date must be on or after start date';
 		}
 		return null;
 	});
 
-	const dayCount = $derived(() => {
+	const dayCount = $derived.by(() => {
 		if (!startDate || !endDate || startDate > endDate) return 0;
 		const start = new Date(startDate);
 		const end = new Date(endDate);
@@ -36,11 +37,6 @@
 	const isValid = $derived(selectedStatusId && startDate && endDate && startDate <= endDate);
 
 	const selectedStatus = $derived(statusTypesStore.list.find((s) => s.id === selectedStatusId));
-
-	function formatDateDisplay(dateStr: string): string {
-		const date = new Date(dateStr + 'T00:00:00');
-		return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-	}
 
 	async function handleSubmit() {
 		if (!isValid || isSubmitting) return;
@@ -77,117 +73,84 @@
 	}
 </script>
 
-<div
-	class="modal-overlay"
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="status-modal-title"
-	tabindex="-1"
-	onkeydown={(e) => e.key === 'Escape' && onClose()}
+<Modal
+	title={isEditing ? 'Edit Status' : 'Add Status'}
+	{onClose}
+	width="450px"
+	titleId="status-modal-title"
 >
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal status-modal" role="document">
-		<div class="modal-header">
-			<h2 id="status-modal-title">{isEditing ? 'Edit Status' : 'Add Status'}</h2>
-			<button class="btn btn-secondary btn-sm close-btn" onclick={onClose} aria-label="Close"
-				>&times;</button
-			>
-		</div>
-
-		<div class="modal-body">
-			<div class="person-info">
-				<span class="person-rank">{person.rank}</span>
-				<span class="person-name">{person.lastName}, {person.firstName}</span>
-			</div>
-
-			<div class="form-group">
-				<label class="label" for="statusType">Status Type</label>
-				<select id="statusType" class="select" bind:value={selectedStatusId}>
-					{#each statusTypesStore.list as status}
-						<option value={status.id}>{status.name}</option>
-					{/each}
-				</select>
-				{#if selectedStatus}
-					<div class="status-preview">
-						<span
-							class="status-badge"
-							style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-						>
-							{selectedStatus.name}
-						</span>
-					</div>
-				{/if}
-			</div>
-
-			<div class="dates-row">
-				<div class="form-group">
-					<label class="label" for="startDate">Start Date</label>
-					<input id="startDate" type="date" class="input" bind:value={startDate} />
-				</div>
-				<span class="date-arrow">→</span>
-				<div class="form-group">
-					<label class="label" for="endDate">End Date</label>
-					<input id="endDate" type="date" class="input" bind:value={endDate} />
-				</div>
-				{#if dayCount() > 0}
-					<div class="day-count">
-						<span class="day-count-number">{dayCount()}</span>
-						<span class="day-count-label">{dayCount() === 1 ? 'day' : 'days'}</span>
-					</div>
-				{/if}
-			</div>
-
-			{#if dateError()}
-				<div class="date-error">{dateError()}</div>
-			{/if}
-		</div>
-
-		<div class="modal-footer">
-			{#if isEditing}
-				<button
-					class="btn btn-danger"
-					onclick={handleDelete}
-					disabled={isDeleting || isSubmitting}
-				>
-					{#if isDeleting}
-						<span class="spinner"></span>
-						Deleting...
-					{:else}
-						Delete
-					{/if}
-				</button>
-			{/if}
-			<div class="footer-right">
-				<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-				<button
-					class="btn btn-primary"
-					disabled={!isValid || isSubmitting}
-					onclick={handleSubmit}
-				>
-					{#if isSubmitting}
-						<span class="spinner"></span>
-						{isEditing ? 'Saving...' : 'Adding...'}
-					{:else}
-						{isEditing ? 'Save Changes' : 'Add Status'}
-					{/if}
-				</button>
-			</div>
-		</div>
+	<div class="person-info">
+		<span class="person-rank">{person.rank}</span>
+		<span class="person-name">{person.lastName}, {person.firstName}</span>
 	</div>
-</div>
+
+	<div class="form-group">
+		<label class="label" for="statusType">Status Type</label>
+		<select id="statusType" class="select" bind:value={selectedStatusId}>
+			{#each statusTypesStore.list as status}
+				<option value={status.id}>{status.name}</option>
+			{/each}
+		</select>
+		{#if selectedStatus}
+			<div class="status-preview">
+				<span
+					class="status-badge"
+					style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
+				>
+					{selectedStatus.name}
+				</span>
+			</div>
+		{/if}
+	</div>
+
+	<div class="dates-row">
+		<div class="form-group">
+			<label class="label" for="startDate">Start Date</label>
+			<input id="startDate" type="date" class="input" bind:value={startDate} />
+		</div>
+		<span class="date-arrow">→</span>
+		<div class="form-group">
+			<label class="label" for="endDate">End Date</label>
+			<input id="endDate" type="date" class="input" bind:value={endDate} />
+		</div>
+		{#if dayCount > 0}
+			<div class="day-count">
+				<span class="day-count-number">{dayCount}</span>
+				<span class="day-count-label">{dayCount === 1 ? 'day' : 'days'}</span>
+			</div>
+		{/if}
+	</div>
+
+	{#if dateError}
+		<div class="date-error">{dateError}</div>
+	{/if}
+
+	{#snippet footer()}
+		{#if isEditing}
+			<button class="btn btn-danger" onclick={handleDelete} disabled={isDeleting || isSubmitting}>
+				{#if isDeleting}
+					<span class="spinner"></span>
+					Deleting...
+				{:else}
+					Delete
+				{/if}
+			</button>
+		{/if}
+		<div class="footer-right">
+			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+			<button class="btn btn-primary" disabled={!isValid || isSubmitting} onclick={handleSubmit}>
+				{#if isSubmitting}
+					<span class="spinner"></span>
+					{isEditing ? 'Saving...' : 'Adding...'}
+				{:else}
+					{isEditing ? 'Save Changes' : 'Add Status'}
+				{/if}
+			</button>
+		</div>
+	{/snippet}
+</Modal>
 
 <style>
-	.status-modal {
-		width: 450px;
-		max-width: 95vw;
-	}
-
-	.close-btn {
-		font-size: 1.25rem;
-		line-height: 1;
-		padding: var(--spacing-xs) var(--spacing-sm);
-	}
-
 	.person-info {
 		display: flex;
 		align-items: center;
@@ -268,12 +231,6 @@
 		padding: var(--spacing-xs) var(--spacing-sm);
 		background: #fef2f2;
 		border-radius: var(--radius-sm);
-	}
-
-	.modal-footer {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
 	}
 
 	.footer-right {

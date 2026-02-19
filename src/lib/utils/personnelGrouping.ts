@@ -15,7 +15,7 @@ export const RANK_ORDER = [
 ] as const;
 
 // Pre-compute rank index map for O(1) lookups during sorting
-const RANK_INDEX = new Map(RANK_ORDER.map((rank, index) => [rank, index]));
+const RANK_INDEX: Map<string, number> = new Map(RANK_ORDER.map((rank, index) => [rank, index]));
 
 export interface GroupSortOptions {
 	/** Groups that appear first (in order). Used for pinned groups. */

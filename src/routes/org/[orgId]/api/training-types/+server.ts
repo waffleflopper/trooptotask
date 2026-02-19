@@ -1,122 +1,32 @@
-import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { requireEditPermission } from '$lib/server/permissions';
-import { getApiContext } from '$lib/server/supabase';
+import { createCrudHandlers } from '$lib/server/crudFactory';
+import type { TrainingType } from '$lib/types';
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'training');
+const handlers = createCrudHandlers<TrainingType>({
+	table: 'training_types',
+	permission: 'training',
+	fields: {
+		expirationMonths: 'expiration_months',
+		warningDaysYellow: 'warning_days_yellow',
+		warningDaysOrange: 'warning_days_orange',
+		requiredForRoles: 'required_for_roles',
+		sortOrder: 'sort_order'
+	},
+	defaults: {
+		expiration_months: null,
+		warning_days_yellow: 60,
+		warning_days_orange: 30,
+		required_for_roles: [],
+		color: '#6b7280',
+		sort_order: 0
+	},
+	// Cascade delete: remove personnel trainings with this type
+	onDelete: async (supabase, orgId, id) => {
+		await supabase
+			.from('personnel_trainings')
+			.delete()
+			.eq('training_type_id', id)
+			.eq('organization_id', orgId);
 	}
+});
 
-	const body = await request.json();
-
-	const { data, error: dbError } = await supabase
-		.from('training_types')
-		.insert({
-			organization_id: orgId,
-			name: body.name,
-			description: body.description ?? null,
-			expiration_months: body.expirationMonths ?? null,
-			warning_days_yellow: body.warningDaysYellow ?? 60,
-			warning_days_orange: body.warningDaysOrange ?? 30,
-			required_for_roles: body.requiredForRoles ?? [],
-			color: body.color ?? '#6b7280',
-			sort_order: body.sortOrder ?? 0
-		})
-		.select()
-		.single();
-
-	if (dbError) throw error(500, dbError.message);
-
-	return json({
-		id: data.id,
-		name: data.name,
-		description: data.description,
-		expirationMonths: data.expiration_months,
-		warningDaysYellow: data.warning_days_yellow,
-		warningDaysOrange: data.warning_days_orange,
-		requiredForRoles: data.required_for_roles,
-		color: data.color,
-		sortOrder: data.sort_order
-	});
-};
-
-export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'training');
-	}
-
-	const body = await request.json();
-	const { id, ...fields } = body;
-
-	if (!id) throw error(400, 'Missing id');
-
-	const updates: Record<string, unknown> = {};
-	if (fields.name !== undefined) updates.name = fields.name;
-	if (fields.description !== undefined) updates.description = fields.description;
-	if (fields.expirationMonths !== undefined) updates.expiration_months = fields.expirationMonths;
-	if (fields.warningDaysYellow !== undefined) updates.warning_days_yellow = fields.warningDaysYellow;
-	if (fields.warningDaysOrange !== undefined) updates.warning_days_orange = fields.warningDaysOrange;
-	if (fields.requiredForRoles !== undefined) updates.required_for_roles = fields.requiredForRoles;
-	if (fields.color !== undefined) updates.color = fields.color;
-	if (fields.sortOrder !== undefined) updates.sort_order = fields.sortOrder;
-
-	const { data, error: dbError } = await supabase
-		.from('training_types')
-		.update(updates)
-		.eq('id', id)
-		.eq('organization_id', orgId)
-		.select()
-		.single();
-
-	if (dbError) throw error(500, dbError.message);
-
-	return json({
-		id: data.id,
-		name: data.name,
-		description: data.description,
-		expirationMonths: data.expiration_months,
-		warningDaysYellow: data.warning_days_yellow,
-		warningDaysOrange: data.warning_days_orange,
-		requiredForRoles: data.required_for_roles,
-		color: data.color,
-		sortOrder: data.sort_order
-	});
-};
-
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'training');
-	}
-
-	const body = await request.json();
-	const { id } = body;
-
-	if (!id) throw error(400, 'Missing id');
-
-	// Cascade: delete personnel trainings with this type
-	await supabase
-		.from('personnel_trainings')
-		.delete()
-		.eq('training_type_id', id)
-		.eq('organization_id', orgId);
-
-	const { error: dbError } = await supabase
-		.from('training_types')
-		.delete()
-		.eq('id', id)
-		.eq('organization_id', orgId);
-
-	if (dbError) throw error(500, dbError.message);
-
-	return json({ success: true });
-};
+export const { POST, PUT, DELETE } = handlers;

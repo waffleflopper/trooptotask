@@ -7,43 +7,62 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const limit = 50;
 	const offset = (page - 1) * limit;
 
-	// Get all payments with pagination
-	const { data: payments, count } = await supabase
-		.from('payment_history')
-		.select('*', { count: 'exact' })
-		.order('created_at', { ascending: false })
-		.range(offset, offset + limit - 1);
-
-	// Calculate totals
-	const { data: allPayments } = await supabase
-		.from('payment_history')
-		.select('amount, status, created_at');
-
-	let totalRevenue = 0;
-	let thisMonthRevenue = 0;
-	let lastMonthRevenue = 0;
-	let failedPayments = 0;
-
+	// Calculate date ranges for filtering
 	const now = new Date();
 	const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 	const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-	const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+	const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
-	(allPayments ?? []).forEach((p: any) => {
-		const paymentDate = new Date(p.created_at);
+	// Run queries in parallel for efficiency
+	const [
+		paymentsResult,
+		totalRevenueResult,
+		thisMonthResult,
+		lastMonthResult,
+		failedCountResult
+	] = await Promise.all([
+		// Paginated payments for display
+		supabase
+			.from('payment_history')
+			.select('*', { count: 'exact' })
+			.order('created_at', { ascending: false })
+			.range(offset, offset + limit - 1),
 
-		if (p.status === 'succeeded') {
-			totalRevenue += p.amount;
+		// Total revenue (all time, succeeded only) - just amounts
+		supabase
+			.from('payment_history')
+			.select('amount')
+			.eq('status', 'succeeded'),
 
-			if (paymentDate >= thisMonthStart) {
-				thisMonthRevenue += p.amount;
-			} else if (paymentDate >= lastMonthStart && paymentDate <= lastMonthEnd) {
-				lastMonthRevenue += p.amount;
-			}
-		} else if (p.status === 'failed') {
-			failedPayments++;
-		}
-	});
+		// This month revenue
+		supabase
+			.from('payment_history')
+			.select('amount')
+			.eq('status', 'succeeded')
+			.gte('created_at', thisMonthStart.toISOString()),
+
+		// Last month revenue
+		supabase
+			.from('payment_history')
+			.select('amount')
+			.eq('status', 'succeeded')
+			.gte('created_at', lastMonthStart.toISOString())
+			.lte('created_at', lastMonthEnd.toISOString()),
+
+		// Failed payments count
+		supabase
+			.from('payment_history')
+			.select('id', { count: 'exact', head: true })
+			.eq('status', 'failed')
+	]);
+
+	const { data: payments, count } = paymentsResult;
+
+	// Sum the amounts (much smaller data transfer than fetching all records)
+	const totalRevenue = (totalRevenueResult.data ?? []).reduce((sum, p) => sum + p.amount, 0);
+	const thisMonthRevenue = (thisMonthResult.data ?? []).reduce((sum, p) => sum + p.amount, 0);
+	const lastMonthRevenue = (lastMonthResult.data ?? []).reduce((sum, p) => sum + p.amount, 0);
+	const failedPayments = failedCountResult.count ?? 0;
 
 	// Revenue growth
 	const revenueGrowth = lastMonthRevenue > 0

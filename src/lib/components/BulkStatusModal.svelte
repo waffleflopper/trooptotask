@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Personnel, StatusType } from '../types';
+	import Modal from './Modal.svelte';
 
 	interface GroupData {
 		group: string;
@@ -27,7 +28,7 @@
 		personnelByGroup.flatMap((g) => g.personnel)
 	);
 
-	const filteredGroups = $derived(() => {
+	const filteredGroups = $derived.by(() => {
 		if (!searchQuery.trim()) return personnelByGroup;
 
 		const query = searchQuery.toLowerCase();
@@ -46,14 +47,14 @@
 			.filter((g) => g.personnel.length > 0);
 	});
 
-	const dateError = $derived(() => {
+	const dateError = $derived.by(() => {
 		if (startDate && endDate && startDate > endDate) {
 			return 'End date must be on or after start date';
 		}
 		return null;
 	});
 
-	const dayCount = $derived(() => {
+	const dayCount = $derived.by(() => {
 		if (!startDate || !endDate || startDate > endDate) return 0;
 		const start = new Date(startDate);
 		const end = new Date(endDate);
@@ -82,7 +83,7 @@
 	}
 
 	function selectAll() {
-		const visibleIds = filteredGroups().flatMap((g) => g.personnel.map((p) => p.id));
+		const visibleIds = filteredGroups.flatMap((g) => g.personnel.map((p) => p.id));
 		selectedIds = new Set(visibleIds);
 	}
 
@@ -148,15 +149,13 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bulk-status-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal bulk-status-modal" role="document">
-		<div class="modal-header">
-			<h2 id="bulk-status-title">Bulk Status Assignment</h2>
-			<button class="btn btn-secondary btn-sm close-btn" onclick={onClose} aria-label="Close">&times;</button>
-		</div>
-
-		<div class="modal-body">
+<Modal
+	title="Bulk Status Assignment"
+	{onClose}
+	width="600px"
+	titleId="bulk-status-title"
+>
+	<div class="modal-content">
 			<!-- Status & Date Configuration -->
 			<div class="config-section">
 				<div class="config-row">
@@ -190,16 +189,16 @@
 						<label class="label" for="endDate">End Date</label>
 						<input id="endDate" type="date" class="input" bind:value={endDate} />
 					</div>
-					{#if dayCount() > 0}
+					{#if dayCount > 0}
 						<div class="day-count">
-							<span class="day-count-number">{dayCount()}</span>
-							<span class="day-count-label">{dayCount() === 1 ? 'day' : 'days'}</span>
+							<span class="day-count-number">{dayCount}</span>
+							<span class="day-count-label">{dayCount === 1 ? 'day' : 'days'}</span>
 						</div>
 					{/if}
 				</div>
 
-				{#if dateError()}
-					<div class="date-error">{dateError()}</div>
+				{#if dateError}
+					<div class="date-error">{dateError}</div>
 				{/if}
 			</div>
 
@@ -238,7 +237,7 @@
 				</div>
 
 				<div class="personnel-list">
-					{#each filteredGroups() as grp (grp.group)}
+					{#each filteredGroups as grp (grp.group)}
 						{@const selectionState = getGroupSelectionState(grp.group)}
 						{@const isCollapsed = collapsedGroups.has(grp.group)}
 						<div class="group-section">
@@ -285,7 +284,7 @@
 						</div>
 					{/each}
 
-					{#if filteredGroups().length === 0}
+					{#if filteredGroups.length === 0}
 						<div class="empty-state">
 							{#if searchQuery}
 								<p>No personnel match "{searchQuery}"</p>
@@ -299,70 +298,55 @@
 			</div>
 		</div>
 
-		<div class="modal-footer">
-			<div class="footer-summary">
-				{#if selectedIds.size > 0 && selectedStatus && !dateError()}
-					<span
-						class="summary-badge"
-						style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-					>
-						{selectedStatus.name}
-					</span>
-					<span class="summary-text">
-						for <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? 'person' : 'people'}
-						&middot;
-						{#if startDate === endDate}
-							{formatDateDisplay(startDate)}
-						{:else}
-							{formatDateDisplay(startDate)} – {formatDateDisplay(endDate)}
-						{/if}
-					</span>
-				{:else if selectedIds.size === 0}
-					<span class="summary-hint">Select personnel to continue</span>
-				{:else if dateError()}
-					<span class="summary-error">{dateError()}</span>
-				{/if}
-			</div>
-			<div class="footer-actions">
-				<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-				<button
-					class="btn btn-primary"
-					disabled={!isValid || isSubmitting}
-					onclick={handleSubmit}
+	{#snippet footer()}
+		<div class="footer-summary">
+			{#if selectedIds.size > 0 && selectedStatus && !dateError}
+				<span
+					class="summary-badge"
+					style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
 				>
-					{#if isSubmitting}
-						<span class="spinner"></span>
-						Applying...
+					{selectedStatus.name}
+				</span>
+				<span class="summary-text">
+					for <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? 'person' : 'people'}
+					&middot;
+					{#if startDate === endDate}
+						{formatDateDisplay(startDate)}
 					{:else}
-						Apply Status
+						{formatDateDisplay(startDate)} – {formatDateDisplay(endDate)}
 					{/if}
-				</button>
-			</div>
+				</span>
+			{:else if selectedIds.size === 0}
+				<span class="summary-hint">Select personnel to continue</span>
+			{:else if dateError}
+				<span class="summary-error">{dateError}</span>
+			{/if}
 		</div>
-	</div>
-</div>
+		<div class="footer-actions">
+			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+			<button
+				class="btn btn-primary"
+				disabled={!isValid || isSubmitting}
+				onclick={handleSubmit}
+			>
+				{#if isSubmitting}
+					<span class="spinner"></span>
+					Applying...
+				{:else}
+					Apply Status
+				{/if}
+			</button>
+		</div>
+	{/snippet}
+</Modal>
 
 <style>
-	.bulk-status-modal {
-		width: 600px;
-		max-width: 95vw;
-		max-height: 90vh;
+	.modal-content {
 		display: flex;
 		flex-direction: column;
-	}
-
-	.close-btn {
-		font-size: 1.25rem;
-		line-height: 1;
-		padding: var(--spacing-xs) var(--spacing-sm);
-	}
-
-	.modal-body {
-		flex: 1;
+		max-height: 60vh;
 		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-		padding: 0;
+		margin: calc(-1 * var(--spacing-lg));
 	}
 
 	/* Config Section */
@@ -660,16 +644,6 @@
 	}
 
 	/* Footer */
-	.modal-footer {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--spacing-md);
-		padding: var(--spacing-md) var(--spacing-lg);
-		border-top: 1px solid var(--color-border);
-		background: var(--color-surface);
-	}
-
 	.footer-summary {
 		display: flex;
 		align-items: center;

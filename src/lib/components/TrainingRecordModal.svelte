@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Personnel, TrainingType, PersonnelTraining } from '../types';
 	import { calculateExpirationDate, getTrainingStatus } from '../utils/trainingStatus';
+	import Modal from './Modal.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -18,7 +19,9 @@
 
 	// Initialize state - for never-expires, we might have a record without a date
 	let isComplete = $state(!!existingTraining);
-	let completionDate = $state(existingTraining?.completionDate ?? (neverExpires ? '' : new Date().toISOString().split('T')[0]));
+	let completionDate = $state(
+		existingTraining?.completionDate ?? (neverExpires ? '' : new Date().toISOString().split('T')[0])
+	);
 	let notes = $state(existingTraining?.notes ?? '');
 	let certificateUrl = $state(existingTraining?.certificateUrl ?? '');
 
@@ -37,13 +40,11 @@
 	} as PersonnelTraining);
 
 	// For never-expires training, show "Current" if marked complete even without date
-	const previewStatus = $derived(() => {
+	const previewStatus = $derived.by(() => {
 		if (neverExpires && isComplete) {
-			// Create a fake training record to simulate the complete state
 			return getTrainingStatus(previewTraining, trainingType, person);
 		}
 		if (!neverExpires && !completionDate) {
-			// For expiring training without date, show not completed
 			return getTrainingStatus(undefined, trainingType, person);
 		}
 		return getTrainingStatus(previewTraining, trainingType, person);
@@ -74,121 +75,113 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="training-record-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal" style="width: 450px;" role="document">
-		<div class="modal-header">
-			<h2 id="training-record-title">{existingTraining ? 'Edit' : 'Add'} Training Record</h2>
-			<button class="btn btn-secondary btn-sm" onclick={onClose}>&times;</button>
+<Modal
+	title="{existingTraining ? 'Edit' : 'Add'} Training Record"
+	{onClose}
+	width="450px"
+	titleId="training-record-title"
+>
+	<div class="person-info">
+		<span class="person-rank">{person.rank}</span>
+		<span class="person-name">{person.lastName}, {person.firstName}</span>
+	</div>
+
+	<div class="training-info">
+		<span class="training-badge" style="background-color: {trainingType.color}">
+			{trainingType.name}
+		</span>
+		{#if trainingType.description}
+			<p class="training-description">{trainingType.description}</p>
+		{/if}
+		{#if neverExpires}
+			<span class="never-expires-badge">Never Expires</span>
+		{/if}
+	</div>
+
+	{#if neverExpires}
+		<!-- Never-expires training: checkbox to mark complete, date optional -->
+		<div class="form-group checkbox-group">
+			<label class="checkbox-label">
+				<input type="checkbox" bind:checked={isComplete} />
+				<span class="checkbox-text">Mark as Complete</span>
+			</label>
 		</div>
 
-		<div class="modal-body">
-			<div class="person-info">
-				<span class="person-rank">{person.rank}</span>
-				<span class="person-name">{person.lastName}, {person.firstName}</span>
-			</div>
+		<div class="form-group">
+			<label class="label" for="completion-date">Completion Date (Optional)</label>
+			<input
+				type="date"
+				id="completion-date"
+				class="input"
+				bind:value={completionDate}
+				disabled={!isComplete}
+			/>
+			<span class="field-hint">Record when training was completed for your records</span>
+		</div>
+	{:else}
+		<!-- Expiring training: date required -->
+		<div class="form-group">
+			<label class="label" for="completion-date">Completion Date</label>
+			<input
+				type="date"
+				id="completion-date"
+				class="input"
+				bind:value={completionDate}
+				required
+			/>
+		</div>
+	{/if}
 
-			<div class="training-info">
-				<span class="training-badge" style="background-color: {trainingType.color}">
-					{trainingType.name}
-				</span>
-				{#if trainingType.description}
-					<p class="training-description">{trainingType.description}</p>
-				{/if}
+	<div class="preview-row">
+		<div class="preview-item">
+			<span class="preview-label">Expiration:</span>
+			<span class="preview-value">
 				{#if neverExpires}
-					<span class="never-expires-badge">Never Expires</span>
+					Never expires
+				{:else}
+					{previewExpirationDate ?? 'Set completion date'}
 				{/if}
-			</div>
-
-			{#if neverExpires}
-				<!-- Never-expires training: checkbox to mark complete, date optional -->
-				<div class="form-group checkbox-group">
-					<label class="checkbox-label">
-						<input
-							type="checkbox"
-							bind:checked={isComplete}
-						/>
-						<span class="checkbox-text">Mark as Complete</span>
-					</label>
-				</div>
-
-				<div class="form-group">
-					<label class="label" for="completion-date">Completion Date (Optional)</label>
-					<input
-						type="date"
-						id="completion-date"
-						class="input"
-						bind:value={completionDate}
-						disabled={!isComplete}
-					/>
-					<span class="field-hint">Record when training was completed for your records</span>
-				</div>
-			{:else}
-				<!-- Expiring training: date required -->
-				<div class="form-group">
-					<label class="label" for="completion-date">Completion Date</label>
-					<input
-						type="date"
-						id="completion-date"
-						class="input"
-						bind:value={completionDate}
-						required
-					/>
-				</div>
-			{/if}
-
-			<div class="preview-row">
-				<div class="preview-item">
-					<span class="preview-label">Expiration:</span>
-					<span class="preview-value">
-						{#if neverExpires}
-							Never expires
-						{:else}
-							{previewExpirationDate ?? 'Set completion date'}
-						{/if}
-					</span>
-				</div>
-				<div class="preview-item">
-					<span class="preview-label">Status:</span>
-					<span class="status-badge" style="background-color: {previewStatus().color}">
-						{previewStatus().label}
-					</span>
-				</div>
-			</div>
-
-			<div class="form-group">
-				<label class="label" for="notes">Notes (optional)</label>
-				<textarea
-					id="notes"
-					class="input textarea"
-					bind:value={notes}
-					placeholder="Any additional notes..."
-					rows="2"
-				></textarea>
-			</div>
-
-			<div class="form-group">
-				<label class="label" for="certificate-url">Certificate URL (optional)</label>
-				<input
-					type="url"
-					id="certificate-url"
-					class="input"
-					bind:value={certificateUrl}
-					placeholder="https://..."
-				/>
-			</div>
+			</span>
 		</div>
-
-		<div class="modal-footer">
-			{#if existingTraining}
-				<button class="btn btn-danger" onclick={handleRemove}>Remove</button>
-			{/if}
-			<div class="spacer"></div>
-			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			<button class="btn btn-primary" onclick={handleSave} disabled={!canSave}>Save</button>
+		<div class="preview-item">
+			<span class="preview-label">Status:</span>
+			<span class="status-badge" style="background-color: {previewStatus.color}">
+				{previewStatus.label}
+			</span>
 		</div>
 	</div>
-</div>
+
+	<div class="form-group">
+		<label class="label" for="notes">Notes (optional)</label>
+		<textarea
+			id="notes"
+			class="input textarea"
+			bind:value={notes}
+			placeholder="Any additional notes..."
+			rows="2"
+		></textarea>
+	</div>
+
+	<div class="form-group">
+		<label class="label" for="certificate-url">Certificate URL (optional)</label>
+		<input
+			type="url"
+			id="certificate-url"
+			class="input"
+			bind:value={certificateUrl}
+			placeholder="https://..."
+		/>
+	</div>
+
+	{#snippet footer()}
+		{#if existingTraining}
+			<button class="btn btn-danger" onclick={handleRemove}>Remove</button>
+		{/if}
+		<div class="spacer"></div>
+		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+		<button class="btn btn-primary" onclick={handleSave} disabled={!canSave}>Save</button>
+	{/snippet}
+</Modal>
 
 <style>
 	.person-info {
@@ -266,11 +259,6 @@
 		min-height: 60px;
 	}
 
-	.modal-footer {
-		display: flex;
-		gap: var(--spacing-sm);
-	}
-
 	.spacer {
 		flex: 1;
 	}
@@ -305,7 +293,7 @@
 		border-color: var(--color-primary);
 	}
 
-	.checkbox-label input[type="checkbox"] {
+	.checkbox-label input[type='checkbox'] {
 		width: 18px;
 		height: 18px;
 		accent-color: var(--color-primary);

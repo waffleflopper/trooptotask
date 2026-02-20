@@ -2,12 +2,13 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
+import { formatDate } from '$lib/utils/dates';
 
 function calculateExpirationDate(completionDate: string | null, expirationMonths: number | null): string | null {
 	if (expirationMonths === null || !completionDate) return null;
 	const date = new Date(completionDate);
 	date.setMonth(date.getMonth() + expirationMonths);
-	return date.toISOString().split('T')[0];
+	return formatDate(date);
 }
 
 export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {

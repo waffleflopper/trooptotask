@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Personnel, TrainingType, PersonnelTraining } from '../types';
 	import { calculateExpirationDate, getTrainingStatus } from '../utils/trainingStatus';
+	import { formatDate } from '../utils/dates';
 
 	interface Props {
 		person: Personnel;
@@ -50,7 +51,7 @@
 			const neverExpires = type.expirationMonths === null;
 			states.set(type.id, {
 				isComplete: !!existing,
-				completionDate: existing?.completionDate ?? (neverExpires ? '' : new Date().toISOString().split('T')[0]),
+				completionDate: existing?.completionDate ?? (neverExpires ? '' : formatDate(new Date())),
 				notes: existing?.notes ?? '',
 				certificateUrl: existing?.certificateUrl ?? '',
 				isEditing: false,
@@ -110,7 +111,7 @@
 		const type = trainingTypes.find(t => t.id === typeId);
 		if (!type) return;
 
-		const today = new Date().toISOString().split('T')[0];
+		const today = formatDate(new Date());
 		const expirationDate = calculateExpirationDate(today, type.expirationMonths);
 
 		await onSave({
@@ -206,7 +207,7 @@
 			const newStates = new Map(editingStates);
 			newStates.set(typeId, {
 				isComplete: false,
-				completionDate: neverExpires ? '' : new Date().toISOString().split('T')[0],
+				completionDate: neverExpires ? '' : formatDate(new Date()),
 				notes: '',
 				certificateUrl: '',
 				isEditing: false,
@@ -219,7 +220,7 @@
 	async function markAllCompletedToday() {
 		if (!confirm(`Mark all ${trainingTypes.length} trainings as completed today?`)) return;
 
-		const today = new Date().toISOString().split('T')[0];
+		const today = formatDate(new Date());
 
 		for (const type of trainingTypes) {
 			const expirationDate = calculateExpirationDate(today, type.expirationMonths);
@@ -263,7 +264,7 @@
 		const newStates = new Map(editingStates);
 		newStates.set(typeId, {
 			isComplete: !!existing,
-			completionDate: existing?.completionDate ?? (neverExpires ? '' : new Date().toISOString().split('T')[0]),
+			completionDate: existing?.completionDate ?? (neverExpires ? '' : formatDate(new Date())),
 			notes: existing?.notes ?? '',
 			certificateUrl: existing?.certificateUrl ?? '',
 			isEditing: false,

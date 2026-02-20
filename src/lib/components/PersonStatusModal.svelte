@@ -2,6 +2,7 @@
 	import type { Personnel, AvailabilityEntry } from '$lib/types';
 	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
 	import { availabilityStore } from '$lib/stores/availability.svelte';
+	import { formatDate } from '$lib/utils/dates';
 	import Modal from './Modal.svelte';
 
 	interface Props {
@@ -13,10 +14,11 @@
 	let { person, existingEntry, onClose }: Props = $props();
 
 	const isEditing = !!existingEntry;
+	const todayStr = formatDate(new Date());
 
 	let selectedStatusId = $state(existingEntry?.statusTypeId ?? statusTypesStore.list[0]?.id ?? '');
-	let startDate = $state(existingEntry?.startDate ?? new Date().toISOString().split('T')[0]);
-	let endDate = $state(existingEntry?.endDate ?? new Date().toISOString().split('T')[0]);
+	let startDate = $state(existingEntry?.startDate ?? todayStr);
+	let endDate = $state(existingEntry?.endDate ?? todayStr);
 	let isSubmitting = $state(false);
 	let isDeleting = $state(false);
 

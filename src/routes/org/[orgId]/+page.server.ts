@@ -3,6 +3,7 @@ import type { Personnel, StatusType, AvailabilityEntry, SpecialDay } from '$lib/
 import type { AssignmentType, DailyAssignment } from '$lib/stores/dailyAssignments.svelte';
 import type { Group } from '$lib/stores/groups.svelte';
 import { getSupabaseClient } from '$lib/server/supabase';
+import { formatDate } from '$lib/utils/dates';
 
 export const load: PageServerLoad = async ({ params, locals, parent, cookies }) => {
 	const { orgId } = params;
@@ -15,8 +16,8 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 	const now = new Date();
 	const rangeStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
 	const rangeEnd = new Date(now.getFullYear(), now.getMonth() + 7, 0); // End of 6 months from now
-	const rangeStartStr = rangeStart.toISOString().split('T')[0];
-	const rangeEndStr = rangeEnd.toISOString().split('T')[0];
+	const rangeStartStr = formatDate(rangeStart);
+	const rangeEndStr = formatDate(rangeEnd);
 
 	// Load all data in parallel
 	const [

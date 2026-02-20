@@ -4,6 +4,7 @@
 	import { COUNSELING_STATUS_LABELS, COUNSELING_STATUS_COLORS } from '$lib/types/leadersBook';
 	import { counselingTypesStore } from '$lib/stores/counselingTypes.svelte';
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
+	import { formatDate } from '$lib/utils/dates';
 	import Modal from './Modal.svelte';
 
 	interface Props {
@@ -15,10 +16,11 @@
 	let { person, existingRecord, onClose }: Props = $props();
 
 	const isEdit = !!existingRecord;
+	const todayStr = formatDate(new Date());
 
 	// Form state
 	let counselingTypeId = $state(existingRecord?.counselingTypeId ?? '');
-	let dateConducted = $state(existingRecord?.dateConducted ?? new Date().toISOString().split('T')[0]);
+	let dateConducted = $state(existingRecord?.dateConducted ?? todayStr);
 	let subject = $state(existingRecord?.subject ?? '');
 	let keyPoints = $state(existingRecord?.keyPoints ?? '');
 	let planOfAction = $state(existingRecord?.planOfAction ?? '');

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Personnel, TrainingType, PersonnelTraining } from '../types';
+	import { formatDate } from '../utils/dates';
 	import * as XLSX from 'xlsx';
 
 	interface Props {
@@ -59,13 +60,13 @@ Davis, Michael, Safety Brief, yes`;
 			// Excel dates start from 1900-01-01 (but with a bug where 1900 is treated as leap year)
 			const excelEpoch = new Date(1899, 11, 30);
 			const date = new Date(excelEpoch.getTime() + serialDate * 24 * 60 * 60 * 1000);
-			return date.toISOString().split('T')[0];
+			return formatDate(date);
 		}
 
 		// Try parsing as Date
 		const parsed = new Date(str);
 		if (!isNaN(parsed.getTime())) {
-			return parsed.toISOString().split('T')[0];
+			return formatDate(parsed);
 		}
 
 		return null;
@@ -90,7 +91,7 @@ Davis, Michael, Safety Brief, yes`;
 		if (expirationMonths === null) return null;
 		const completion = new Date(completionDate);
 		completion.setMonth(completion.getMonth() + expirationMonths);
-		return completion.toISOString().split('T')[0];
+		return formatDate(completion);
 	}
 
 	function parseImportData(rows: (string | number | undefined)[][]) {
@@ -149,7 +150,7 @@ Davis, Michael, Safety Brief, yes`;
 				// For non-expiring trainings, accept yes/no values
 				if (isYesValue(dateValue)) {
 					// Use today's date as completion date
-					completionDate = new Date().toISOString().split('T')[0];
+					completionDate = formatDate(new Date());
 					expirationDate = null;
 				} else if (isNoValue(dateValue)) {
 					// Skip this row - training not completed

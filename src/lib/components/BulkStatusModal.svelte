@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Personnel, StatusType } from '../types';
+	import { formatDate } from '../utils/dates';
 	import Modal from './Modal.svelte';
 
 	interface GroupData {
@@ -16,9 +17,10 @@
 
 	let { personnelByGroup, statusTypes, onApply, onClose }: Props = $props();
 
+	const todayStr = formatDate(new Date());
 	let selectedStatusId = $state(statusTypes[0]?.id ?? '');
-	let startDate = $state(new Date().toISOString().split('T')[0]);
-	let endDate = $state(new Date().toISOString().split('T')[0]);
+	let startDate = $state(todayStr);
+	let endDate = $state(todayStr);
 	let selectedIds = $state<Set<string>>(new Set());
 	let searchQuery = $state('');
 	let isSubmitting = $state(false);

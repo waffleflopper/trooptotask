@@ -8,13 +8,14 @@ import type {
 	DevelopmentGoal
 } from '$lib/types/leadersBook';
 import { getSupabaseClient } from '$lib/server/supabase';
+import { formatDate } from '$lib/utils/dates';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const { orgId } = params;
 	const supabase = getSupabaseClient(locals, cookies);
 
 	// Date range for availability data (current/future status only)
-	const today = new Date().toISOString().split('T')[0];
+	const today = formatDate(new Date());
 
 	// Load all data in parallel
 	const [

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Personnel, TrainingType, PersonnelTraining } from '../types';
 	import { calculateExpirationDate, getTrainingStatus } from '../utils/trainingStatus';
+	import { formatDate } from '../utils/dates';
 	import Modal from './Modal.svelte';
 
 	interface Props {
@@ -16,11 +17,12 @@
 
 	// For never-expires training, date is optional
 	const neverExpires = trainingType.expirationMonths === null;
+	const todayStr = formatDate(new Date());
 
 	// Initialize state - for never-expires, we might have a record without a date
 	let isComplete = $state(!!existingTraining);
 	let completionDate = $state(
-		existingTraining?.completionDate ?? (neverExpires ? '' : new Date().toISOString().split('T')[0])
+		existingTraining?.completionDate ?? (neverExpires ? '' : todayStr)
 	);
 	let notes = $state(existingTraining?.notes ?? '');
 	let certificateUrl = $state(existingTraining?.certificateUrl ?? '');

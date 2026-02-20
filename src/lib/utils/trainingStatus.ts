@@ -1,5 +1,6 @@
 import type { Personnel, TrainingType, PersonnelTraining, TrainingStatus } from '../types';
 import { TRAINING_STATUS_COLORS } from '../types';
+import { formatDate } from './dates';
 
 export interface TrainingStatusInfo {
 	status: TrainingStatus;
@@ -12,7 +13,7 @@ export function calculateExpirationDate(completionDate: string | null, expiratio
 	if (expirationMonths === null || !completionDate) return null;
 	const date = new Date(completionDate);
 	date.setMonth(date.getMonth() + expirationMonths);
-	return date.toISOString().split('T')[0];
+	return formatDate(date);
 }
 
 export function getTrainingStatus(

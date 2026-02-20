@@ -14,6 +14,8 @@
 		canClose?: boolean;
 		/** Whether to show the close button in header (default: true) */
 		showCloseButton?: boolean;
+		/** Optional extra content rendered in the header between the title and close button */
+		headerActions?: Snippet;
 		/** Body content slot */
 		children: Snippet;
 		/** Footer content slot (buttons) */
@@ -27,6 +29,7 @@
 		titleId = 'modal-title',
 		canClose = true,
 		showCloseButton = true,
+		headerActions,
 		children,
 		footer
 	}: Props = $props();
@@ -55,10 +58,17 @@
 	<div class="modal" role="document" style:width={width} style:max-width="95vw">
 		<div class="modal-header">
 			<h2 id={titleId}>{title}</h2>
-			{#if showCloseButton && canClose}
-				<button class="btn btn-secondary btn-sm close-btn" onclick={handleClose} aria-label="Close"
-					>&times;</button
-				>
+			{#if headerActions || (showCloseButton && canClose)}
+				<div class="header-actions">
+					{#if headerActions}
+						{@render headerActions()}
+					{/if}
+					{#if showCloseButton && canClose}
+						<button class="btn btn-secondary btn-sm close-btn" onclick={handleClose} aria-label="Close"
+							>&times;</button
+						>
+					{/if}
+				</div>
 			{/if}
 		</div>
 
@@ -75,6 +85,12 @@
 </div>
 
 <style>
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+	}
+
 	.close-btn {
 		font-size: 1.25rem;
 		line-height: 1;

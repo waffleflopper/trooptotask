@@ -4,6 +4,7 @@ export interface AssignmentType {
 	shortName: string;
 	assignTo: 'personnel' | 'group';
 	color: string;
+	exemptPersonnelIds: string[];
 }
 
 export interface DailyAssignment {

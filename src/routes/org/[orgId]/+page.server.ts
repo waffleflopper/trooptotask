@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import type { Personnel, StatusType, AvailabilityEntry, SpecialDay } from '$lib/types';
 import type { AssignmentType, DailyAssignment } from '$lib/stores/dailyAssignments.svelte';
 import type { Group } from '$lib/stores/groups.svelte';
+import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { formatDate } from '$lib/utils/dates';
 
@@ -28,7 +29,8 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 		specialDaysRes,
 		assignmentTypesRes,
 		dailyAssignmentsRes,
-		pinnedGroupsRes
+		pinnedGroupsRes,
+		rosterHistoryRes
 	] = await Promise.all([
 		supabase
 			.from('personnel')
@@ -74,7 +76,12 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 			.select('*')
 			.eq('organization_id', orgId)
 			.eq('user_id', userId)
-			.order('sort_order') : Promise.resolve({ data: [] })
+			.order('sort_order') : Promise.resolve({ data: [] }),
+		supabase
+			.from('duty_roster_history')
+			.select('*')
+			.eq('organization_id', orgId)
+			.order('created_at', { ascending: false })
 	]);
 
 	// Transform personnel data
@@ -127,7 +134,8 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 		name: t.name,
 		shortName: t.short_name,
 		assignTo: t.assign_to,
-		color: t.color
+		color: t.color,
+		exemptPersonnelIds: t.exempt_personnel_ids ?? []
 	}));
 
 	// Transform daily assignments
@@ -141,6 +149,18 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 	// Transform pinned groups (just the group names in order)
 	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map((p: any) => p.group_name);
 
+	// Transform roster history
+	const rosterHistory: RosterHistoryItem[] = (rosterHistoryRes.data ?? []).map((r: any) => ({
+		id: r.id,
+		assignmentTypeId: r.assignment_type_id,
+		name: r.name,
+		startDate: r.start_date,
+		endDate: r.end_date,
+		roster: r.roster,
+		config: r.config ?? {},
+		createdAt: r.created_at
+	}));
+
 	return {
 		orgId,
 		personnel,
@@ -150,6 +170,7 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 		specialDays,
 		assignmentTypes,
 		dailyAssignments,
-		pinnedGroups
+		pinnedGroups,
+		rosterHistory
 	};
 };

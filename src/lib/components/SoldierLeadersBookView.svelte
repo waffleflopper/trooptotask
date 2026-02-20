@@ -12,7 +12,7 @@
 		GOAL_CATEGORY_COLORS
 	} from '$lib/types/leadersBook';
 	import { TRAINING_STATUS_COLORS } from '$lib/types';
-	import { formatDate } from '$lib/utils/dates';
+	import { formatDate as formatDateISO } from '$lib/utils/dates';
 	import { personnelExtendedInfoStore } from '$lib/stores/personnelExtendedInfo.svelte';
 	import { counselingTypesStore } from '$lib/stores/counselingTypes.svelte';
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
@@ -228,7 +228,7 @@
 	}
 
 	function isStatusActive(entry: AvailabilityEntry): boolean {
-		const today = formatDate(new Date());
+		const today = formatDateISO(new Date());
 		return entry.startDate <= today && entry.endDate >= today;
 	}
 </script>

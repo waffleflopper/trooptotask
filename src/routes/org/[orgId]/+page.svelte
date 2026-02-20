@@ -7,6 +7,8 @@
 	import { calendarStore } from '$lib/stores/calendar.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { dailyAssignmentsStore } from '$lib/stores/dailyAssignments.svelte';
+	import { dutyRosterHistoryStore } from '$lib/stores/dutyRosterHistory.svelte';
+	import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { calendarPrefsStore } from '$lib/stores/calendarPrefs.svelte';
@@ -41,6 +43,7 @@
 		specialDaysStore.load(data.specialDays, data.orgId);
 		dailyAssignmentsStore.load(data.assignmentTypes, data.dailyAssignments, data.orgId);
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
+		dutyRosterHistoryStore.load(data.rosterHistory);
 
 		// Load subscription limits if available
 		if (data.subscriptionLimits) {
@@ -142,6 +145,36 @@
 		for (const assignment of assignments) {
 			await dailyAssignmentsStore.setAssignment(assignment.date, assignment.assignmentTypeId, assignment.assigneeId);
 		}
+	}
+
+	async function handleSaveRoster(payload: Omit<RosterHistoryItem, 'id' | 'createdAt'>): Promise<RosterHistoryItem | null> {
+		try {
+			const res = await fetch(`/org/${data.orgId}/api/duty-roster-history`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			if (!res.ok) return null;
+			const item: RosterHistoryItem = await res.json();
+			dutyRosterHistoryStore.add(item);
+			return item;
+		} catch {
+			return null;
+		}
+	}
+
+	async function handleDeleteRoster(id: string): Promise<void> {
+		dutyRosterHistoryStore.remove(id); // optimistic
+		try {
+			await fetch(`/org/${data.orgId}/api/duty-roster-history/${id}`, { method: 'DELETE' });
+		} catch {
+			// Silently fail — history will re-sync on next page load
+		}
+	}
+
+	async function handleUpdateExemptions(assignmentTypeId: string, personnelIds: string[]): Promise<void> {
+		// updateType handles both optimistic UI update and persistence
+		await dailyAssignmentsStore.updateType(assignmentTypeId, { exemptPersonnelIds: personnelIds });
 	}
 </script>
 
@@ -299,7 +332,11 @@
 			groups={groupsStore.names}
 			availabilityEntries={availabilityStore.list}
 			statusTypes={statusTypesStore.list}
+			rosterHistory={dutyRosterHistoryStore.items}
 			onApplyRoster={handleApplyRoster}
+			onSaveRoster={handleSaveRoster}
+			onDeleteRoster={handleDeleteRoster}
+			onUpdateExemptions={handleUpdateExemptions}
 			onClose={() => (showDutyRosterGenerator = false)}
 		/>
 	{:else}

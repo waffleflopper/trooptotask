@@ -1,0 +1,23 @@
+import { json, error } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import { requireEditPermission } from '$lib/server/permissions';
+import { getApiContext } from '$lib/server/supabase';
+
+export const DELETE: RequestHandler = async ({ params, locals, cookies }) => {
+	const { orgId, rosterId } = params;
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+	}
+
+	const { error: dbError } = await supabase
+		.from('duty_roster_history')
+		.delete()
+		.eq('id', rosterId)
+		.eq('organization_id', orgId);
+
+	if (dbError) throw error(500, dbError.message);
+
+	return json({ success: true });
+};

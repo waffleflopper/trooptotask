@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { Personnel, AvailabilityEntry, StatusType } from '../types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
+	import type { RosterHistoryItem, RosterHistoryEntry } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '../utils/dates';
+	import Modal from './Modal.svelte';
 
 	interface Props {
 		assignmentTypes: AssignmentType[];
@@ -10,7 +12,11 @@
 		groups: string[];
 		availabilityEntries: AvailabilityEntry[];
 		statusTypes: StatusType[];
+		rosterHistory: RosterHistoryItem[];
 		onApplyRoster: (assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]) => Promise<void>;
+		onSaveRoster: (payload: Omit<RosterHistoryItem, 'id' | 'createdAt'>) => Promise<RosterHistoryItem | null>;
+		onDeleteRoster: (id: string) => Promise<void>;
+		onUpdateExemptions: (assignmentTypeId: string, personnelIds: string[]) => Promise<void>;
 		onClose: () => void;
 	}
 
@@ -21,15 +27,33 @@
 		groups,
 		availabilityEntries,
 		statusTypes,
+		rosterHistory,
 		onApplyRoster,
+		onSaveRoster,
+		onDeleteRoster,
+		onUpdateExemptions,
 		onClose
 	}: Props = $props();
+
+	// Default dates: first and last day of current month
+	function getMonthStart(): string {
+		const now = new Date();
+		return formatDate(new Date(now.getFullYear(), now.getMonth(), 1));
+	}
+
+	function getMonthEnd(): string {
+		const now = new Date();
+		return formatDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+	}
+
+	// View state: 'config' | 'preview' | 'history'
+	let view = $state<'config' | 'preview' | 'history'>('config');
 
 	// Configuration state
 	let selectedAssignmentTypeId = $state('');
 	let dutyDuration = $state<'daily' | 'weekly' | 'monthly'>('daily');
-	let startDate = $state(formatDate(new Date()));
-	let endDate = $state('');
+	let startDate = $state(getMonthStart());
+	let endDate = $state(getMonthEnd());
 	let selectedGroups = $state<string[]>([]);
 	let selectedRanks = $state<string[]>([]);
 	let selectedMOS = $state<string[]>([]);
@@ -40,7 +64,6 @@
 	let generatedRoster = $state<{ date: string; assignee: Personnel | null; reason?: string }[]>([]);
 	let isGenerating = $state(false);
 	let isApplying = $state(false);
-	let showPreview = $state(false);
 
 	// Extract all unique values in single pass for efficiency (O(n) instead of O(4n))
 	const personnelData = $derived(() => {
@@ -66,13 +89,23 @@
 		};
 	});
 
-	// Convenience accessors (use function calls for backwards compatibility with template)
+	// Convenience accessors
 	const allPersonnel = $derived(() => personnelData().allPersonnel);
 	const allRanks = $derived(() => personnelData().allRanks);
 	const allMOS = $derived(() => personnelData().allMOS);
 	const allRoles = $derived(() => personnelData().allRoles);
 
-	// Filter personnel based on selection criteria
+	// Get currently selected assignment type object
+	const selectedAssignmentType = $derived(() =>
+		assignmentTypes.find(t => t.id === selectedAssignmentTypeId) ?? null
+	);
+
+	// Exempt personnel IDs for the currently selected assignment type
+	const currentExemptIds = $derived(() =>
+		selectedAssignmentType()?.exemptPersonnelIds ?? []
+	);
+
+	// Filter personnel based on selection criteria (excluding exempt)
 	const eligiblePersonnel = $derived(() => {
 		let personnel = allPersonnel();
 
@@ -96,6 +129,12 @@
 			personnel = personnel.filter(p => p.clinicRole && selectedRoles.includes(p.clinicRole));
 		}
 
+		// Exclude exempt personnel
+		const exempt = currentExemptIds();
+		if (exempt.length > 0) {
+			personnel = personnel.filter(p => !exempt.includes(p.id));
+		}
+
 		return personnel;
 	});
 
@@ -117,15 +156,34 @@
 		return counts;
 	}
 
+	// Get last duty date per person for tiebreaker.
+	// Only considers assignments BEFORE the generation period start date so that
+	// future assignments (e.g. March already generated) don't corrupt a past period
+	// (e.g. generating February retroactively).
+	function getLastDutyDates(assignmentTypeId: string, beforeDate: string): Map<string, string | null> {
+		const lastDates = new Map<string, string | null>();
+		eligiblePersonnel().forEach(p => lastDates.set(p.id, null));
+
+		assignments
+			.filter(a => a.assignmentTypeId === assignmentTypeId && a.date < beforeDate)
+			.forEach(a => {
+				const current = lastDates.get(a.assigneeId) ?? null;
+				if (current === null || a.date > current) {
+					lastDates.set(a.assigneeId, a.date);
+				}
+			});
+
+		return lastDates;
+	}
+
 	// Check if person is available on a given date
 	function isPersonAvailable(person: Personnel, date: string): boolean {
 		const entries = availabilityEntries.filter(
 			e => e.personnelId === person.id && date >= e.startDate && date <= e.endDate
 		);
 
-		if (entries.length === 0) return true; // No status means available
+		if (entries.length === 0) return true;
 
-		// Check if any of their statuses are in the exclude list
 		for (const entry of entries) {
 			if (excludeStatuses.includes(entry.statusTypeId)) {
 				return false;
@@ -162,7 +220,7 @@
 		return dates;
 	}
 
-	// DA6-style roster generation algorithm
+	// DA6-style roster generation algorithm with last-duty tiebreaker
 	function generateRoster() {
 		if (!selectedAssignmentTypeId || !startDate || !endDate) return;
 
@@ -172,8 +230,11 @@
 		const dutyCounts = getDutyCounts(selectedAssignmentTypeId);
 		const roster: { date: string; assignee: Personnel | null; reason?: string }[] = [];
 
-		// Working copy of duty counts for this generation
+		// Working copies for this generation run.
+		// Pass startDate so only assignments BEFORE this period influence initial ordering.
 		const workingCounts = new Map(dutyCounts);
+		const initialLastDutyDates = getLastDutyDates(selectedAssignmentTypeId, startDate);
+		const workingLastDutyDates = new Map(initialLastDutyDates);
 
 		for (const date of dutyDates) {
 			// Get available personnel for this date
@@ -184,27 +245,33 @@
 				continue;
 			}
 
-			// Sort by duty count (lowest first), then by name for consistency
+			// DA Form 6 rule: whoever went longest since last duty goes next.
+			// Never done duty (null) → oldest last date → alphabetical tiebreaker.
 			available.sort((a, b) => {
-				const countDiff = (workingCounts.get(a.id) ?? 0) - (workingCounts.get(b.id) ?? 0);
-				if (countDiff !== 0) return countDiff;
+				const aLast = workingLastDutyDates.get(a.id) ?? null;
+				const bLast = workingLastDutyDates.get(b.id) ?? null;
+				if (aLast !== bLast) {
+					if (aLast === null) return -1; // never assigned → goes first
+					if (bLast === null) return 1;
+					return aLast.localeCompare(bLast); // older date first
+				}
 				return `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`);
 			});
 
-			// Assign to person with lowest count
 			const assigned = available[0];
+
 			roster.push({ date, assignee: assigned });
 
-			// Increment their working count
 			workingCounts.set(assigned.id, (workingCounts.get(assigned.id) ?? 0) + 1);
+			workingLastDutyDates.set(assigned.id, date);
 		}
 
 		generatedRoster = roster;
-		showPreview = true;
+		view = 'preview';
 		isGenerating = false;
 	}
 
-	// Apply roster to calendar
+	// Apply roster to calendar and save to history
 	async function applyRoster() {
 		if (generatedRoster.length === 0) return;
 
@@ -218,17 +285,51 @@
 				assigneeId: r.assignee!.id
 			}));
 
+		// Save to history first
+		const assignmentType = assignmentTypes.find(t => t.id === selectedAssignmentTypeId);
+		const typeName = assignmentType?.name ?? 'Duty';
+		const historyRoster: RosterHistoryEntry[] = generatedRoster.map(r => ({
+			date: r.date,
+			assigneeId: r.assignee?.id ?? null,
+			assigneeName: r.assignee ? `${r.assignee.lastName}, ${r.assignee.firstName}` : null,
+			assigneeRank: r.assignee?.rank ?? null,
+			assigneeGroup: r.assignee?.groupName ?? null,
+			reason: r.reason
+		}));
+
+		await onSaveRoster({
+			assignmentTypeId: selectedAssignmentTypeId,
+			name: `${typeName} – ${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}`,
+			startDate,
+			endDate,
+			roster: historyRoster,
+			config: {
+				dutyDuration,
+				assignmentTypeName: typeName,
+				selectedGroups,
+				selectedRanks,
+				selectedMOS,
+				selectedRoles,
+				excludeStatuses
+			}
+		});
+
 		await onApplyRoster(assignmentsToCreate);
 		isApplying = false;
 		onClose();
 	}
 
-	// Export to Excel (HTML table format)
-	function exportToExcel() {
-		if (generatedRoster.length === 0) return;
-
-		const assignmentType = assignmentTypes.find(t => t.id === selectedAssignmentTypeId);
-		const typeName = assignmentType?.name ?? 'Duty';
+	// Export to Excel (HTML table format) — accepts optional overrides for re-export from history
+	function exportToExcel(opts?: {
+		roster: RosterHistoryEntry[];
+		typeName: string;
+		startDate: string;
+		endDate: string;
+	}) {
+		const isHistory = !!opts;
+		const typeName = opts?.typeName ?? assignmentTypes.find(t => t.id === selectedAssignmentTypeId)?.name ?? 'Duty';
+		const sd = opts?.startDate ?? startDate;
+		const ed = opts?.endDate ?? endDate;
 
 		let html = `
 			<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
@@ -244,7 +345,7 @@
 			<body>
 				<h2>${typeName} Roster</h2>
 				<p>Generated: ${new Date().toLocaleDateString()}</p>
-				<p>Period: ${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}</p>
+				<p>Period: ${formatDisplayDate(sd)} - ${formatDisplayDate(ed)}</p>
 				<table>
 					<tr>
 						<th>Date</th>
@@ -256,31 +357,61 @@
 					</tr>
 		`;
 
-		for (const entry of generatedRoster) {
-			const date = new Date(entry.date + 'T00:00:00');
-			const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-			const displayDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+		if (isHistory && opts) {
+			for (const entry of opts.roster) {
+				const date = new Date(entry.date + 'T00:00:00');
+				const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+				const displayDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-			if (entry.assignee) {
-				html += `
-					<tr>
-						<td>${displayDate}</td>
-						<td>${dayName}</td>
-						<td>${entry.assignee.lastName}, ${entry.assignee.firstName}</td>
-						<td>${entry.assignee.rank}</td>
-						<td>${entry.assignee.groupName}</td>
-						<td></td>
-					</tr>
-				`;
-			} else {
-				html += `
-					<tr class="unavailable">
-						<td>${displayDate}</td>
-						<td>${dayName}</td>
-						<td colspan="3">UNFILLED</td>
-						<td>${entry.reason ?? ''}</td>
-					</tr>
-				`;
+				if (entry.assigneeId) {
+					html += `
+						<tr>
+							<td>${displayDate}</td>
+							<td>${dayName}</td>
+							<td>${entry.assigneeName ?? ''}</td>
+							<td>${entry.assigneeRank ?? ''}</td>
+							<td>${entry.assigneeGroup ?? ''}</td>
+							<td></td>
+						</tr>
+					`;
+				} else {
+					html += `
+						<tr class="unavailable">
+							<td>${displayDate}</td>
+							<td>${dayName}</td>
+							<td colspan="3">UNFILLED</td>
+							<td>${entry.reason ?? ''}</td>
+						</tr>
+					`;
+				}
+			}
+		} else {
+			for (const entry of generatedRoster) {
+				const date = new Date(entry.date + 'T00:00:00');
+				const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+				const displayDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+				if (entry.assignee) {
+					html += `
+						<tr>
+							<td>${displayDate}</td>
+							<td>${dayName}</td>
+							<td>${entry.assignee.lastName}, ${entry.assignee.firstName}</td>
+							<td>${entry.assignee.rank}</td>
+							<td>${entry.assignee.groupName}</td>
+							<td></td>
+						</tr>
+					`;
+				} else {
+					html += `
+						<tr class="unavailable">
+							<td>${displayDate}</td>
+							<td>${dayName}</td>
+							<td colspan="3">UNFILLED</td>
+							<td>${entry.reason ?? ''}</td>
+						</tr>
+					`;
+				}
 			}
 		}
 
@@ -290,14 +421,41 @@
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = `${typeName.replace(/\s+/g, '_')}_Roster_${startDate}_to_${endDate}.xls`;
+		a.download = `${typeName.replace(/\s+/g, '_')}_Roster_${sd}_to_${ed}.xls`;
 		a.click();
 		URL.revokeObjectURL(url);
+	}
+
+	// Re-apply a history roster to the calendar
+	async function reApplyHistoryRoster(item: RosterHistoryItem) {
+		if (!confirm(`Re-apply "${item.name}" to the calendar? This will overwrite any existing assignments for those dates.`)) {
+			return;
+		}
+
+		const assignmentsToCreate = item.roster
+			.filter(r => r.assigneeId !== null)
+			.map(r => ({
+				date: r.date,
+				assignmentTypeId: item.assignmentTypeId,
+				assigneeId: r.assigneeId!
+			}));
+
+		await onApplyRoster(assignmentsToCreate);
 	}
 
 	function formatDisplayDate(dateStr: string): string {
 		const date = new Date(dateStr + 'T00:00:00');
 		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+	}
+
+	function formatHistoryDate(isoString: string): string {
+		return new Date(isoString).toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit'
+		});
 	}
 
 	function toggleGroup(group: string) {
@@ -340,19 +498,17 @@
 		}
 	}
 
-	// Set default end date when start date changes
-	$effect(() => {
-		if (startDate && !endDate) {
-			const start = new Date(startDate + 'T00:00:00');
-			start.setMonth(start.getMonth() + 1);
-			endDate = formatDate(start);
-		}
-	});
+	function toggleExempt(personnelId: string) {
+		const current = currentExemptIds();
+		const next = current.includes(personnelId)
+			? current.filter(id => id !== personnelId)
+			: [...current, personnelId];
+		onUpdateExemptions(selectedAssignmentTypeId, next);
+	}
 
 	// Set default excluded statuses (common "unavailable" statuses)
 	$effect(() => {
 		if (excludeStatuses.length === 0 && statusTypes.length > 0) {
-			// Auto-select common unavailable status types
 			const unavailableNames = ['leave', 'tdy', 'school', 'sick', 'appointment'];
 			excludeStatuses = statusTypes
 				.filter(s => unavailableNames.some(n => s.name.toLowerCase().includes(n)))
@@ -364,18 +520,158 @@
 	const personnelAssignmentTypes = $derived(
 		assignmentTypes.filter(t => t.assignTo === 'personnel')
 	);
+
+	// Modal title derives from view
+	const modalTitle = $derived(
+		view === 'history' ? 'Roster History' :
+		view === 'preview' ? 'Generated Roster Preview' :
+		'Generate Duty Roster'
+	);
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="roster-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal roster-modal" role="document">
-		<div class="modal-header">
-			<h2 id="roster-title">Generate Duty Roster</h2>
-			<button class="btn btn-secondary btn-sm close-btn" onclick={onClose} aria-label="Close">&times;</button>
-		</div>
+<Modal
+	title={modalTitle}
+	{onClose}
+	width="640px"
+	canClose={!isApplying}
+>
+	{#snippet headerActions()}
+		{#if view === 'config'}
+			<button
+				class="btn btn-secondary btn-sm"
+				onclick={() => (view = 'history')}
+				title="View roster history"
+			>
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true">
+					<circle cx="12" cy="12" r="10" />
+					<polyline points="12 6 12 12 16 14" />
+				</svg>
+				History
+				{#if rosterHistory.length > 0}
+					<span class="history-badge">{rosterHistory.length}</span>
+				{/if}
+			</button>
+		{/if}
+	{/snippet}
 
-		<div class="modal-body">
-			{#if !showPreview}
+	<div>
+			{#if view === 'history'}
+				<!-- History View -->
+				<div class="history-section">
+					<div class="history-header">
+						<button class="btn btn-secondary btn-sm" onclick={() => (view = 'config')}>
+							&larr; Back
+						</button>
+						<p class="hint">Past rosters, most recent first.</p>
+					</div>
+
+					{#if rosterHistory.length === 0}
+						<div class="empty-state">
+							<p>No roster history yet. Generate and apply a roster to save it here.</p>
+						</div>
+					{:else}
+						<div class="history-list">
+							{#each rosterHistory as item (item.id)}
+								{@const filled = item.roster.filter(r => r.assigneeId).length}
+								{@const total = item.roster.length}
+								<div class="history-card">
+									<div class="history-card-info">
+										<div class="history-card-name">{item.name}</div>
+										<div class="history-card-meta">
+											{formatDisplayDate(item.startDate)} – {formatDisplayDate(item.endDate)}
+											&nbsp;·&nbsp;
+											{filled}/{total} filled
+											&nbsp;·&nbsp;
+											<span class="history-card-date">{formatHistoryDate(item.createdAt)}</span>
+										</div>
+									</div>
+									<div class="history-card-actions">
+										<button
+											class="btn btn-secondary btn-xs"
+											onclick={() => {
+												const typeName = assignmentTypes.find(t => t.id === item.assignmentTypeId)?.name ?? 'Duty';
+												exportToExcel({ roster: item.roster, typeName, startDate: item.startDate, endDate: item.endDate });
+											}}
+											title="Export to Excel"
+										>
+											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+												<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+												<polyline points="14 2 14 8 20 8" />
+											</svg>
+											Export
+										</button>
+										<button
+											class="btn btn-secondary btn-xs"
+											onclick={() => reApplyHistoryRoster(item)}
+											title="Re-apply to calendar"
+										>
+											Re-apply
+										</button>
+										<button
+											class="btn btn-danger btn-xs"
+											onclick={() => onDeleteRoster(item.id)}
+											title="Delete this roster"
+										>
+											Delete
+										</button>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+
+			{:else if view === 'preview'}
+				<!-- Preview Section -->
+				<div class="preview-section">
+					<div class="roster-stats">
+						<div class="stat">
+							<span class="stat-value">{generatedRoster.length}</span>
+							<span class="stat-label">Total Duties</span>
+						</div>
+						<div class="stat">
+							<span class="stat-value">{generatedRoster.filter(r => r.assignee).length}</span>
+							<span class="stat-label">Filled</span>
+						</div>
+						<div class="stat unfilled">
+							<span class="stat-value">{generatedRoster.filter(r => !r.assignee).length}</span>
+							<span class="stat-label">Unfilled</span>
+						</div>
+					</div>
+
+					<div class="roster-table-container">
+						<table class="roster-table">
+							<thead>
+								<tr>
+									<th>Date</th>
+									<th>Day</th>
+									<th>Assigned</th>
+									<th>Group</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each generatedRoster as entry}
+									{@const date = new Date(entry.date + 'T00:00:00')}
+									<tr class:unfilled={!entry.assignee}>
+										<td>{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
+										<td>{date.toLocaleDateString('en-US', { weekday: 'short' })}</td>
+										{#if entry.assignee}
+											<td>
+												<span class="assignee-rank">{entry.assignee.rank}</span>
+												{entry.assignee.lastName}, {entry.assignee.firstName}
+											</td>
+											<td>{entry.assignee.groupName}</td>
+										{:else}
+											<td class="unfilled-cell" colspan="2">{entry.reason ?? 'Unfilled'}</td>
+										{/if}
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+			{:else}
 				<!-- Configuration Section -->
 				<div class="config-section">
 					<h4>Duty Configuration</h4>
@@ -486,6 +782,31 @@
 					</div>
 				</div>
 
+				{#if selectedAssignmentTypeId}
+					<div class="config-section">
+						<h4>Exempt Personnel</h4>
+						<p class="hint">These individuals will never be assigned this duty type.</p>
+
+						<div class="chip-list">
+							{#each personnelByGroup as grp}
+								{#each grp.personnel as person}
+									<button
+										class="chip exempt-chip"
+										class:selected={currentExemptIds().includes(person.id)}
+										onclick={() => toggleExempt(person.id)}
+									>
+										{person.rank} {person.lastName}
+									</button>
+								{/each}
+							{/each}
+						</div>
+
+						{#if currentExemptIds().length > 0}
+							<div class="exempt-count">{currentExemptIds().length} exempted</div>
+						{/if}
+					</div>
+				{/if}
+
 				<div class="config-section">
 					<h4>Unavailable Statuses</h4>
 					<p class="hint">Personnel with these statuses will be skipped.</p>
@@ -503,118 +824,46 @@
 						{/each}
 					</div>
 				</div>
-
-			{:else}
-				<!-- Preview Section -->
-				<div class="preview-section">
-					<div class="preview-header">
-						<h4>Generated Roster Preview</h4>
-						<button class="btn btn-secondary btn-sm" onclick={() => (showPreview = false)}>
-							&larr; Back to Config
-						</button>
-					</div>
-
-					<div class="roster-stats">
-						<div class="stat">
-							<span class="stat-value">{generatedRoster.length}</span>
-							<span class="stat-label">Total Duties</span>
-						</div>
-						<div class="stat">
-							<span class="stat-value">{generatedRoster.filter(r => r.assignee).length}</span>
-							<span class="stat-label">Filled</span>
-						</div>
-						<div class="stat unfilled">
-							<span class="stat-value">{generatedRoster.filter(r => !r.assignee).length}</span>
-							<span class="stat-label">Unfilled</span>
-						</div>
-					</div>
-
-					<div class="roster-table-container">
-						<table class="roster-table">
-							<thead>
-								<tr>
-									<th>Date</th>
-									<th>Day</th>
-									<th>Assigned</th>
-									<th>Group</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each generatedRoster as entry}
-									{@const date = new Date(entry.date + 'T00:00:00')}
-									<tr class:unfilled={!entry.assignee}>
-										<td>{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
-										<td>{date.toLocaleDateString('en-US', { weekday: 'short' })}</td>
-										{#if entry.assignee}
-											<td>
-												<span class="assignee-rank">{entry.assignee.rank}</span>
-												{entry.assignee.lastName}, {entry.assignee.firstName}
-											</td>
-											<td>{entry.assignee.groupName}</td>
-										{:else}
-											<td class="unfilled-cell" colspan="2">{entry.reason ?? 'Unfilled'}</td>
-										{/if}
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-				</div>
 			{/if}
 		</div>
 
-		<div class="modal-footer">
-			{#if !showPreview}
-				<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-				<button
-					class="btn btn-primary"
-					onclick={generateRoster}
-					disabled={!selectedAssignmentTypeId || !startDate || !endDate || eligiblePersonnel().length === 0 || isGenerating}
-				>
-					{isGenerating ? 'Generating...' : 'Generate Roster'}
-				</button>
-			{:else}
-				<button class="btn btn-secondary" onclick={exportToExcel}>
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-						<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-						<polyline points="14 2 14 8 20 8" />
-						<line x1="16" y1="13" x2="8" y2="13" />
-						<line x1="16" y1="17" x2="8" y2="17" />
-					</svg>
-					Export to Excel
-				</button>
-				<button
-					class="btn btn-primary"
-					onclick={applyRoster}
-					disabled={isApplying || generatedRoster.filter(r => r.assignee).length === 0}
-				>
-					{isApplying ? 'Applying...' : 'Apply to Calendar'}
-				</button>
-			{/if}
-		</div>
-	</div>
-</div>
+	{#snippet footer()}
+		{#if view === 'history'}
+			<button class="btn btn-secondary" onclick={() => (view = 'config')}>Back to Config</button>
+		{:else if view === 'preview'}
+			<button class="btn btn-secondary" onclick={() => (view = 'config')}>
+				&larr; Back to Config
+			</button>
+			<button class="btn btn-secondary" onclick={() => exportToExcel()}>
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+					<polyline points="14 2 14 8 20 8" />
+					<line x1="16" y1="13" x2="8" y2="13" />
+					<line x1="16" y1="17" x2="8" y2="17" />
+				</svg>
+				Export to Excel
+			</button>
+			<button
+				class="btn btn-primary"
+				onclick={applyRoster}
+				disabled={isApplying || generatedRoster.filter(r => r.assignee).length === 0}
+			>
+				{isApplying ? 'Applying...' : 'Apply to Calendar'}
+			</button>
+		{:else}
+			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+			<button
+				class="btn btn-primary"
+				onclick={generateRoster}
+				disabled={!selectedAssignmentTypeId || !startDate || !endDate || eligiblePersonnel().length === 0 || isGenerating}
+			>
+				{isGenerating ? 'Generating...' : 'Generate Roster'}
+			</button>
+		{/if}
+	{/snippet}
+</Modal>
 
 <style>
-	.roster-modal {
-		width: 640px;
-		max-width: 95vw;
-		max-height: 90vh;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.close-btn {
-		font-size: 1.25rem;
-		line-height: 1;
-		padding: var(--spacing-xs) var(--spacing-sm);
-	}
-
-	.modal-body {
-		flex: 1;
-		overflow-y: auto;
-	}
-
 	h4 {
 		font-size: var(--font-size-sm);
 		font-weight: 600;
@@ -687,13 +936,126 @@
 		color: var(--chip-text);
 	}
 
-	.eligible-count {
+	.chip.exempt-chip.selected {
+		background: #dc2626;
+		border-color: #dc2626;
+		color: white;
+	}
+
+	.eligible-count,
+	.exempt-count {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 		padding: var(--spacing-sm);
 		background: var(--color-bg);
 		border-radius: var(--radius-md);
 		text-align: center;
+		margin-top: var(--spacing-xs);
+	}
+
+	/* History Section */
+	.history-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-md);
+	}
+
+	.history-header {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-md);
+	}
+
+	.history-header .hint {
+		margin-bottom: 0;
+	}
+
+	.history-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+	}
+
+	.history-card {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--spacing-md);
+		padding: var(--spacing-sm) var(--spacing-md);
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+
+	.history-card-info {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.history-card-name {
+		font-size: var(--font-size-sm);
+		font-weight: 600;
+		color: var(--color-text);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.history-card-meta {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+		margin-top: 2px;
+	}
+
+	.history-card-date {
+		color: var(--color-text-muted);
+	}
+
+	.history-card-actions {
+		display: flex;
+		gap: var(--spacing-xs);
+		flex-shrink: 0;
+	}
+
+	.btn-xs {
+		padding: 2px var(--spacing-xs);
+		font-size: var(--font-size-xs);
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.btn-danger {
+		background: #dc2626;
+		color: white;
+		border-color: #dc2626;
+	}
+
+	.btn-danger:hover {
+		background: #b91c1c;
+		border-color: #b91c1c;
+	}
+
+	.history-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 18px;
+		height: 18px;
+		padding: 0 4px;
+		background: var(--color-primary);
+		color: white;
+		border-radius: var(--radius-full);
+		font-size: 10px;
+		font-weight: 700;
+		margin-left: 2px;
+	}
+
+	.empty-state {
+		text-align: center;
+		padding: var(--spacing-xl);
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
 	}
 
 	/* Preview Section */
@@ -701,16 +1063,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
-	}
-
-	.preview-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.preview-header h4 {
-		margin-bottom: 0;
 	}
 
 	.roster-stats {
@@ -789,13 +1141,4 @@
 		margin-right: var(--spacing-xs);
 	}
 
-	.modal-footer {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--spacing-sm);
-	}
-
-	.modal-footer .btn svg {
-		margin-right: var(--spacing-xs);
-	}
 </style>

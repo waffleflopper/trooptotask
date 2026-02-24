@@ -15,21 +15,28 @@
 
 	let { person, date, statusTypes, existingEntries, onAdd, onRemove, onClose }: Props = $props();
 
-	const initialStatusId = $derived(statusTypes[0]?.id ?? '');
-	const initialDate = $derived(formatDate(date));
+	const dateStr = $derived(formatDate(date));
 
-	let selectedStatusId = $state('');
-	let startDate = $state('');
-	let endDate = $state('');
+	// Local state for the entries list — updated immediately on add/remove to avoid
+	// reactive prop propagation timing issues (notably in Firefox)
+	let localEntries = $state<AvailabilityEntry[]>(
+		existingEntries.filter(
+			(e) => e.personnelId === person.id && dateStr >= e.startDate && dateStr <= e.endDate
+		)
+	);
 
+	// Sync local entries when the prop changes (e.g. server replaces temp IDs)
 	$effect(() => {
-		if (!selectedStatusId) selectedStatusId = initialStatusId;
+		localEntries = existingEntries.filter(
+			(e) => e.personnelId === person.id && dateStr >= e.startDate && dateStr <= e.endDate
+		);
 	});
 
-	$effect(() => {
-		if (!startDate) startDate = initialDate;
-		if (!endDate) endDate = initialDate;
-	});
+	// Form state
+	let selectedStatusId = $state(statusTypes[0]?.id ?? '');
+	let startDate = $state(dateStr);
+	let endDate = $state(dateStr);
+	let editingEntry = $state<AvailabilityEntry | null>(null);
 
 	const dateDisplay = $derived(
 		date.toLocaleDateString('en-US', {
@@ -38,12 +45,6 @@
 			day: 'numeric',
 			year: 'numeric'
 		})
-	);
-
-	const entriesOnDate = $derived(
-		existingEntries.filter(
-			(e) => e.personnelId === person.id && formatDate(date) >= e.startDate && formatDate(date) <= e.endDate
-		)
 	);
 
 	const dateError = $derived.by(() => {
@@ -55,27 +56,58 @@
 
 	const dayCount = $derived.by(() => {
 		if (!startDate || !endDate || startDate > endDate) return 0;
-		const start = new Date(startDate);
-		const end = new Date(endDate);
+		const start = new Date(startDate + 'T00:00:00');
+		const end = new Date(endDate + 'T00:00:00');
 		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 	});
 
-	function handleAdd() {
-		if (selectedStatusId && startDate && endDate && startDate <= endDate) {
-			onAdd({
-				personnelId: person.id,
-				statusTypeId: selectedStatusId,
-				startDate,
-				endDate
-			});
-			// Reset to allow adding another
-			startDate = initialDate;
-			endDate = initialDate;
+	function startEdit(entry: AvailabilityEntry) {
+		editingEntry = entry;
+		selectedStatusId = entry.statusTypeId;
+		startDate = entry.startDate;
+		endDate = entry.endDate;
+	}
+
+	function cancelEdit() {
+		editingEntry = null;
+		selectedStatusId = statusTypes[0]?.id ?? '';
+		startDate = dateStr;
+		endDate = dateStr;
+	}
+
+	function handleSubmit() {
+		if (!selectedStatusId || !startDate || !endDate || startDate > endDate) return;
+
+		const newData = {
+			personnelId: person.id,
+			statusTypeId: selectedStatusId,
+			startDate,
+			endDate
+		};
+
+		if (editingEntry) {
+			// Remove the old entry from local state immediately
+			localEntries = localEntries.filter((e) => e.id !== editingEntry!.id);
+			onRemove(editingEntry.id);
+			editingEntry = null;
 		}
+
+		// Add to local state immediately so the list updates without waiting for prop
+		if (dateStr >= newData.startDate && dateStr <= newData.endDate) {
+			const tempEntry: AvailabilityEntry = { id: `temp-${crypto.randomUUID()}`, ...newData };
+			localEntries = [...localEntries, tempEntry];
+		}
+		onAdd(newData);
+
+		// Reset form
+		selectedStatusId = statusTypes[0]?.id ?? '';
+		startDate = dateStr;
+		endDate = dateStr;
 	}
 
 	function handleRemove(entryId: string) {
 		if (confirm('Remove this status entry?')) {
+			localEntries = localEntries.filter((e) => e.id !== entryId);
 			onRemove(entryId);
 		}
 	}
@@ -97,25 +129,18 @@
 		const end = new Date(entry.endDate + 'T00:00:00');
 		const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 		const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-		if (entry.startDate === entry.endDate) {
-			return startStr;
-		}
+		if (entry.startDate === entry.endDate) return startStr;
 		return `${startStr} – ${endStr}`;
 	}
 
 	function getDayCountForEntry(entry: AvailabilityEntry): number {
-		const start = new Date(entry.startDate);
-		const end = new Date(entry.endDate);
+		const start = new Date(entry.startDate + 'T00:00:00');
+		const end = new Date(entry.endDate + 'T00:00:00');
 		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 	}
 </script>
 
-<Modal
-	title="Set Status"
-	{onClose}
-	width="480px"
-	titleId="availability-title"
->
+<Modal title="Set Status" {onClose} width="480px" titleId="availability-title">
 	<!-- Person Info -->
 	<div class="person-info">
 		<div class="person-name">
@@ -126,11 +151,11 @@
 	</div>
 
 	<!-- Existing Entries -->
-	{#if entriesOnDate.length > 0}
+	{#if localEntries.length > 0}
 		<div class="existing-entries">
 			<h4>Current Status</h4>
-			{#each entriesOnDate as entry (entry.id)}
-				<div class="entry-item">
+			{#each localEntries as entry (entry.id)}
+				<div class="entry-item" class:is-editing={editingEntry?.id === entry.id}>
 					<span
 						class="status-badge"
 						style="background-color: {getStatusColor(entry.statusTypeId)}; color: {getStatusTextColor(entry.statusTypeId)}"
@@ -139,26 +164,45 @@
 					</span>
 					<div class="entry-details">
 						<span class="entry-dates">{formatEntryDates(entry)}</span>
-						<span class="entry-days">({getDayCountForEntry(entry)} {getDayCountForEntry(entry) === 1 ? 'day' : 'days'})</span>
+						<span class="entry-days">
+							({getDayCountForEntry(entry)}
+							{getDayCountForEntry(entry) === 1 ? 'day' : 'days'})
+						</span>
 					</div>
-					<button
-						class="btn btn-danger btn-sm remove-btn"
-						onclick={() => handleRemove(entry.id)}
-						title="Remove"
-						aria-label="Remove status"
-					>
-						<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
-							<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-						</svg>
-					</button>
+					{#if !entry.id.startsWith('temp-')}
+						<button
+							class="btn btn-secondary btn-sm icon-btn"
+							onclick={() => startEdit(entry)}
+							title="Edit"
+							aria-label="Edit status"
+						>
+							<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+								<path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+							</svg>
+						</button>
+						<button
+							class="btn btn-danger btn-sm icon-btn"
+							onclick={() => handleRemove(entry.id)}
+							title="Remove"
+							aria-label="Remove status"
+						>
+							<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+								<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+							</svg>
+						</button>
+					{/if}
 				</div>
 			{/each}
 		</div>
 	{/if}
 
-	<!-- Add New Status -->
+	<!-- Add/Edit Form -->
 	<div class="add-section">
-		<h4>{entriesOnDate.length > 0 ? 'Add Another Status' : 'Add Status'}</h4>
+		{#if editingEntry}
+			<h4>Edit Status</h4>
+		{:else}
+			<h4>{localEntries.length > 0 ? 'Add Another Status' : 'Add Status'}</h4>
+		{/if}
 
 		<div class="form-group">
 			<label class="label" for="statusType">Status Type</label>
@@ -206,13 +250,15 @@
 	</div>
 
 	{#snippet footer()}
-		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+		<button class="btn btn-secondary" onclick={editingEntry ? cancelEdit : onClose}>
+			{editingEntry ? 'Cancel Edit' : 'Cancel'}
+		</button>
 		<button
 			class="btn btn-primary"
-			onclick={handleAdd}
+			onclick={handleSubmit}
 			disabled={!selectedStatusId || !!dateError}
 		>
-			Add Status
+			{editingEntry ? 'Update Status' : 'Add Status'}
 		</button>
 	{/snippet}
 </Modal>
@@ -272,10 +318,17 @@
 		background: var(--color-bg);
 		border-radius: var(--radius-md);
 		margin-bottom: var(--spacing-xs);
+		border: 2px solid transparent;
+		transition: border-color 0.15s;
 	}
 
 	.entry-item:last-child {
 		margin-bottom: 0;
+	}
+
+	.entry-item.is-editing {
+		border-color: var(--color-primary);
+		background: var(--color-surface);
 	}
 
 	.entry-details {
@@ -295,8 +348,9 @@
 		color: var(--color-text-muted);
 	}
 
-	.remove-btn {
+	.icon-btn {
 		padding: var(--spacing-xs);
+		flex-shrink: 0;
 	}
 
 	.status-select-row {
@@ -369,5 +423,10 @@
 		border-radius: var(--radius-sm);
 		font-size: var(--font-size-sm);
 		font-weight: 500;
+		white-space: nowrap;
+	}
+
+	.add-section {
+		padding-top: var(--spacing-sm);
 	}
 </style>

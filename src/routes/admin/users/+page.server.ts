@@ -99,6 +99,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	// Build email map (filter to only users we need)
 	const emailMap: Record<string, string> = {};
+	if (authUsersResult.error) {
+		console.error('[admin/users] auth.admin.listUsers error:', authUsersResult.error);
+	}
 	const userIdSet = new Set(userIds);
 	if (authUsersResult.data?.users) {
 		authUsersResult.data.users.forEach((u) => {
@@ -106,6 +109,21 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 				emailMap[u.id] = u.email;
 			}
 		});
+	}
+
+	// If listUsers failed or returned no matches, fall back to fetching individually
+	const missingIds = userIds.filter((id) => !emailMap[id]);
+	if (missingIds.length > 0 && missingIds.length <= 20) {
+		await Promise.all(
+			missingIds.map(async (id) => {
+				const { data, error } = await adminClient.auth.admin.getUserById(id);
+				if (error) {
+					console.error(`[admin/users] getUserById error for ${id}:`, error);
+				} else if (data.user?.email) {
+					emailMap[id] = data.user.email;
+				}
+			})
+		);
 	}
 
 	// Transform data

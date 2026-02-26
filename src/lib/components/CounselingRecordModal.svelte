@@ -6,6 +6,7 @@
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import Modal from './Modal.svelte';
+	import Spinner from './ui/Spinner.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -198,6 +199,7 @@
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 		<button class="btn btn-primary" onclick={handleSave} disabled={!canSave || saving}>
+			{#if saving}<Spinner />{/if}
 			{saving ? 'Saving...' : 'Save'}
 		</button>
 	{/snippet}
@@ -305,7 +307,4 @@
 		font-weight: 400;
 	}
 
-	.spacer {
-		flex: 1;
-	}
 </style>

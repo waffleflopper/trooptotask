@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { AssignmentType } from '../stores/dailyAssignments.svelte';
+	import Badge from './ui/Badge.svelte';
+	import EmptyState from './ui/EmptyState.svelte';
 
 	interface Props {
 		assignmentTypes: AssignmentType[];
@@ -30,7 +32,8 @@
 				name: newName.trim(),
 				shortName: newShortName.trim().toUpperCase(),
 				assignTo: newAssignTo,
-				color: newColor
+				color: newColor,
+				exemptPersonnelIds: []
 			});
 			newName = '';
 			newShortName = '';
@@ -120,9 +123,7 @@
 							<input type="color" bind:value={newColor} />
 						</label>
 						{#if canAdd}
-							<span class="preview-badge" style="background-color: {newColor}; color: white">
-								{newShortName.toUpperCase() || '?'}
-							</span>
+							<Badge label={newShortName.toUpperCase() || '?'} color={newColor} bold={true} />
 						{/if}
 						<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!canAdd}>
 							Add
@@ -139,9 +140,7 @@
 			<div class="type-list-section">
 				<h4>Existing Assignment Types ({assignmentTypes.length})</h4>
 				{#if assignmentTypes.length === 0}
-					<div class="empty-state">
-						No assignment types yet. Add one above to get started.
-					</div>
+					<EmptyState message="No assignment types yet. Add one above to get started." />
 				{:else}
 					<div class="type-list">
 						{#each assignmentTypes as type (type.id)}
@@ -172,9 +171,7 @@
 												<span>Color</span>
 												<input type="color" bind:value={editColor} />
 											</label>
-											<span class="preview-badge" style="background-color: {editColor}; color: white">
-												{editShortName.toUpperCase() || '?'}
-											</span>
+											<Badge label={editShortName.toUpperCase() || '?'} color={editColor} bold={true} />
 											<div class="edit-actions">
 												<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
 												<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
@@ -183,9 +180,7 @@
 									</div>
 								{:else}
 									<div class="type-display">
-										<span class="type-badge" style="background-color: {type.color}; color: white">
-											{type.shortName}
-										</span>
+										<Badge label={type.shortName} color={type.color} bold={true} />
 										<div class="type-info">
 											<span class="type-name">{type.name}</span>
 											<span class="type-assign-to">
@@ -317,26 +312,9 @@
 		padding: 0;
 	}
 
-	.preview-badge,
-	.type-badge {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		font-size: var(--font-size-sm);
-		font-weight: 700;
-		white-space: nowrap;
-	}
-
 	/* Type List */
 	.type-list-section {
 		flex: 1;
-	}
-
-	.empty-state {
-		text-align: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-xl);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
 	}
 
 	.type-list {

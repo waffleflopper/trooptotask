@@ -9,7 +9,8 @@ const handlers = createCrudHandlers<TrainingType>({
 		warningDaysYellow: 'warning_days_yellow',
 		warningDaysOrange: 'warning_days_orange',
 		requiredForRoles: 'required_for_roles',
-		sortOrder: 'sort_order'
+		sortOrder: 'sort_order',
+		expirationDateOnly: 'expiration_date_only'
 	},
 	defaults: {
 		expiration_months: null,
@@ -17,7 +18,8 @@ const handlers = createCrudHandlers<TrainingType>({
 		warning_days_orange: 30,
 		required_for_roles: [],
 		color: '#6b7280',
-		sort_order: 0
+		sort_order: 0,
+		expiration_date_only: false
 	},
 	// Cascade delete: remove personnel trainings with this type
 	onDelete: async (supabase, orgId, id) => {

@@ -132,7 +132,8 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 		warningDaysOrange: t.warning_days_orange,
 		requiredForRoles: t.required_for_roles ?? [],
 		color: t.color,
-		sortOrder: t.sort_order
+		sortOrder: t.sort_order,
+		expirationDateOnly: t.expiration_date_only ?? false
 	}));
 
 	const personnelTrainings: PersonnelTraining[] = (personnelTrainingsRes.data ?? []).map(

@@ -19,6 +19,7 @@
 	let newWarningOrange = $state(30);
 	let newRequiredForRoles = $state<string[]>([]);
 	let newColor = $state('#6b7280');
+	let newExpirationDateOnly = $state(false);
 
 	let editingId = $state<string | null>(null);
 	let editName = $state('');
@@ -28,18 +29,20 @@
 	let editWarningOrange = $state(30);
 	let editRequiredForRoles = $state<string[]>([]);
 	let editColor = $state('');
+	let editExpirationDateOnly = $state(false);
 
 	function handleAdd() {
 		if (newName.trim()) {
 			onAdd({
 				name: newName.trim(),
 				description: newDescription.trim() || null,
-				expirationMonths: newExpirationMonths,
+				expirationMonths: newExpirationDateOnly ? null : newExpirationMonths,
 				warningDaysYellow: newWarningYellow,
 				warningDaysOrange: newWarningOrange,
 				requiredForRoles: newRequiredForRoles,
 				color: newColor,
-				sortOrder: trainingTypes.length
+				sortOrder: trainingTypes.length,
+				expirationDateOnly: newExpirationDateOnly
 			});
 			resetNewForm();
 		}
@@ -53,6 +56,7 @@
 		newWarningOrange = 30;
 		newRequiredForRoles = [];
 		newColor = '#6b7280';
+		newExpirationDateOnly = false;
 	}
 
 	function startEdit(type: TrainingType) {
@@ -64,6 +68,7 @@
 		editWarningOrange = type.warningDaysOrange;
 		editRequiredForRoles = [...type.requiredForRoles];
 		editColor = type.color;
+		editExpirationDateOnly = type.expirationDateOnly;
 	}
 
 	function saveEdit() {
@@ -71,11 +76,12 @@
 			onUpdate(editingId, {
 				name: editName.trim(),
 				description: editDescription.trim() || null,
-				expirationMonths: editExpirationMonths,
+				expirationMonths: editExpirationDateOnly ? null : editExpirationMonths,
 				warningDaysYellow: editWarningYellow,
 				warningDaysOrange: editWarningOrange,
 				requiredForRoles: editRequiredForRoles,
-				color: editColor
+				color: editColor,
+				expirationDateOnly: editExpirationDateOnly
 			});
 		}
 		cancelEdit();
@@ -141,24 +147,33 @@
 
 					<div class="form-row">
 						<div class="form-group">
-							<label class="label">Expires After (months)</label>
-							<div class="expiration-input">
-								<input
-									type="number"
-									class="input"
-									bind:value={newExpirationMonths}
-									min="1"
-									placeholder="e.g., 24"
-								/>
-								<label class="checkbox-label">
+							<label class="label">Expiration</label>
+							{#if newExpirationDateOnly}
+								<div class="expiration-date-only-note">Expiration date entered per person</div>
+							{:else}
+								<div class="expiration-input">
 									<input
-										type="checkbox"
-										checked={newExpirationMonths === null}
-										onchange={() => (newExpirationMonths = newExpirationMonths === null ? 12 : null)}
+										type="number"
+										class="input"
+										bind:value={newExpirationMonths}
+										min="1"
+										placeholder="e.g., 24"
+										disabled={newExpirationMonths === null}
 									/>
-									Never expires
-								</label>
-							</div>
+									<label class="checkbox-label">
+										<input
+											type="checkbox"
+											checked={newExpirationMonths === null}
+											onchange={() => (newExpirationMonths = newExpirationMonths === null ? 12 : null)}
+										/>
+										Never expires
+									</label>
+								</div>
+							{/if}
+							<label class="checkbox-label mode-toggle">
+								<input type="checkbox" bind:checked={newExpirationDateOnly} />
+								Expiration date only (variable per person)
+							</label>
 						</div>
 						<div class="form-group">
 							<label class="label">Warning Days</label>
@@ -232,23 +247,32 @@
 
 									<div class="form-row">
 										<div class="form-group">
-											<label class="label">Expires After (months)</label>
-											<div class="expiration-input">
-												<input
-													type="number"
-													class="input"
-													bind:value={editExpirationMonths}
-													min="1"
-												/>
-												<label class="checkbox-label">
+											<label class="label">Expiration</label>
+											{#if editExpirationDateOnly}
+												<div class="expiration-date-only-note">Expiration date entered per person</div>
+											{:else}
+												<div class="expiration-input">
 													<input
-														type="checkbox"
-														checked={editExpirationMonths === null}
-														onchange={() => (editExpirationMonths = editExpirationMonths === null ? 12 : null)}
+														type="number"
+														class="input"
+														bind:value={editExpirationMonths}
+														min="1"
+														disabled={editExpirationMonths === null}
 													/>
-													Never
-												</label>
-											</div>
+													<label class="checkbox-label">
+														<input
+															type="checkbox"
+															checked={editExpirationMonths === null}
+															onchange={() => (editExpirationMonths = editExpirationMonths === null ? 12 : null)}
+														/>
+														Never
+													</label>
+												</div>
+											{/if}
+											<label class="checkbox-label mode-toggle">
+												<input type="checkbox" bind:checked={editExpirationDateOnly} />
+												Expiration date only (variable per person)
+											</label>
 										</div>
 										<div class="form-group">
 											<label class="label">Warning Days</label>
@@ -301,7 +325,9 @@
 									<span class="type-badge" style="background-color: {type.color}">
 										{type.name}
 									</span>
-									{#if type.expirationMonths}
+									{#if type.expirationDateOnly}
+										<span class="type-meta">Exp. date per person</span>
+									{:else if type.expirationMonths}
 										<span class="type-meta">Expires: {type.expirationMonths}mo</span>
 									{:else}
 										<span class="type-meta">Never expires</span>
@@ -523,5 +549,21 @@
 		font-style: italic;
 		padding: var(--spacing-md);
 		text-align: center;
+	}
+
+	.expiration-date-only-note {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		font-style: italic;
+		margin-bottom: var(--spacing-xs);
+	}
+
+	.mode-toggle {
+		margin-top: var(--spacing-sm);
+		border: none;
+		background: none;
+		padding: 0;
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
 	}
 </style>

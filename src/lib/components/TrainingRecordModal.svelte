@@ -15,45 +15,52 @@
 
 	let { person, trainingType, existingTraining, onSave, onRemove, onClose }: Props = $props();
 
-	// For never-expires training, date is optional
-	const neverExpires = trainingType.expirationMonths === null;
+	const neverExpires = trainingType.expirationMonths === null && !trainingType.expirationDateOnly;
+	const expirationDateOnly = trainingType.expirationDateOnly;
 	const todayStr = formatDate(new Date());
 
-	// Initialize state - for never-expires, we might have a record without a date
+	// Initialize state
 	let isComplete = $state(!!existingTraining);
 	let completionDate = $state(
 		existingTraining?.completionDate ?? (neverExpires ? '' : todayStr)
 	);
+	// For expiration-date-only types, seed directly from the stored expiration date
+	let directExpirationDate = $state(existingTraining?.expirationDate ?? '');
 	let notes = $state(existingTraining?.notes ?? '');
 	let certificateUrl = $state(existingTraining?.certificateUrl ?? '');
 
 	const previewExpirationDate = $derived(
-		completionDate ? calculateExpirationDate(completionDate, trainingType.expirationMonths) : null
+		expirationDateOnly
+			? directExpirationDate || null
+			: completionDate ? calculateExpirationDate(completionDate, trainingType.expirationMonths) : null
 	);
 
 	const previewTraining = $derived({
 		id: existingTraining?.id ?? '',
 		personnelId: person.id,
 		trainingTypeId: trainingType.id,
-		completionDate: completionDate || null,
+		completionDate: expirationDateOnly ? null : (completionDate || null),
 		expirationDate: previewExpirationDate,
 		notes,
 		certificateUrl
 	} as PersonnelTraining);
 
-	// For never-expires training, show "Current" if marked complete even without date
 	const previewStatus = $derived.by(() => {
 		if (neverExpires && isComplete) {
 			return getTrainingStatus(previewTraining, trainingType, person);
 		}
-		if (!neverExpires && !completionDate) {
+		if (expirationDateOnly) {
+			return getTrainingStatus(directExpirationDate ? previewTraining : undefined, trainingType, person);
+		}
+		if (!completionDate) {
 			return getTrainingStatus(undefined, trainingType, person);
 		}
 		return getTrainingStatus(previewTraining, trainingType, person);
 	});
 
-	// Validation: can only save if complete checkbox is checked (for never-expires) or date is set (for expiring)
-	const canSave = $derived(neverExpires ? isComplete : !!completionDate);
+	const canSave = $derived(
+		expirationDateOnly ? !!directExpirationDate : neverExpires ? isComplete : !!completionDate
+	);
 
 	function handleSave() {
 		if (!canSave) return;
@@ -61,7 +68,7 @@
 		onSave({
 			personnelId: person.id,
 			trainingTypeId: trainingType.id,
-			completionDate: completionDate || null,
+			completionDate: expirationDateOnly ? null : (completionDate || null),
 			expirationDate: previewExpirationDate,
 			notes: notes.trim() || null,
 			certificateUrl: certificateUrl.trim() || null
@@ -97,10 +104,25 @@
 		{/if}
 		{#if neverExpires}
 			<span class="never-expires-badge">Never Expires</span>
+		{:else if expirationDateOnly}
+			<span class="never-expires-badge">Expiration date per person</span>
 		{/if}
 	</div>
 
-	{#if neverExpires}
+	{#if expirationDateOnly}
+		<!-- Expiration-date-only: enter the expiration date directly -->
+		<div class="form-group">
+			<label class="label" for="expiration-date">License / Certification Expiration Date</label>
+			<input
+				type="date"
+				id="expiration-date"
+				class="input"
+				bind:value={directExpirationDate}
+				required
+			/>
+			<span class="field-hint">Enter the expiration date shown on the license or certificate</span>
+		</div>
+	{:else if neverExpires}
 		<!-- Never-expires training: checkbox to mark complete, date optional -->
 		<div class="form-group checkbox-group">
 			<label class="checkbox-label">
@@ -121,7 +143,7 @@
 			<span class="field-hint">Record when training was completed for your records</span>
 		</div>
 	{:else}
-		<!-- Expiring training: date required -->
+		<!-- Expiring training: completion date required, expiration auto-calculated -->
 		<div class="form-group">
 			<label class="label" for="completion-date">Completion Date</label>
 			<input
@@ -141,7 +163,7 @@
 				{#if neverExpires}
 					Never expires
 				{:else}
-					{previewExpirationDate ?? 'Set completion date'}
+					{previewExpirationDate ?? (expirationDateOnly ? 'Enter expiration date' : 'Set completion date')}
 				{/if}
 			</span>
 		</div>

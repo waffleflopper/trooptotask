@@ -1,8 +1,7 @@
 import type { PageServerLoad } from './$types';
-import type { Personnel, StatusType, AvailabilityEntry, SpecialDay } from '$lib/types';
+import type { Personnel, StatusType, AvailabilityEntry, TrainingType, PersonnelTraining } from '$lib/types';
 import type { AssignmentType, DailyAssignment } from '$lib/stores/dailyAssignments.svelte';
 import type { Group } from '$lib/stores/groups.svelte';
-import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { formatDate } from '$lib/utils/dates';
 
@@ -12,25 +11,19 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 	const userId = parentData.userId;
 	const supabase = getSupabaseClient(locals, cookies);
 
-	// Date range for calendar data (3 months past, 6 months future)
-	// This prevents loading unbounded historical data
-	const now = new Date();
-	const rangeStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-	const rangeEnd = new Date(now.getFullYear(), now.getMonth() + 7, 0); // End of 6 months from now
-	const rangeStartStr = formatDate(rangeStart);
-	const rangeEndStr = formatDate(rangeEnd);
+	const today = formatDate(new Date());
+	const twoWeeksOut = formatDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
 
-	// Load all data in parallel
 	const [
 		personnelRes,
 		groupsRes,
 		statusTypesRes,
 		availabilityRes,
-		specialDaysRes,
 		assignmentTypesRes,
-		dailyAssignmentsRes,
-		pinnedGroupsRes,
-		rosterHistoryRes
+		todayAssignmentsRes,
+		trainingTypesRes,
+		personnelTrainingsRes,
+		pinnedGroupsRes
 	] = await Promise.all([
 		supabase
 			.from('personnel')
@@ -51,15 +44,8 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 			.from('availability_entries')
 			.select('*')
 			.eq('organization_id', orgId)
-			.gte('end_date', rangeStartStr)
-			.lte('start_date', rangeEndStr),
-		supabase
-			.from('special_days')
-			.select('*')
-			.eq('organization_id', orgId)
-			.gte('date', rangeStartStr)
-			.lte('date', rangeEndStr)
-			.order('date'),
+			.gte('end_date', today)
+			.lte('start_date', twoWeeksOut),
 		supabase
 			.from('assignment_types')
 			.select('*')
@@ -69,22 +55,26 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 			.from('daily_assignments')
 			.select('*')
 			.eq('organization_id', orgId)
-			.gte('date', rangeStartStr)
-			.lte('date', rangeEndStr),
-		userId ? supabase
-			.from('user_pinned_groups')
-			.select('*')
-			.eq('organization_id', orgId)
-			.eq('user_id', userId)
-			.order('sort_order') : Promise.resolve({ data: [] }),
+			.eq('date', today),
 		supabase
-			.from('duty_roster_history')
+			.from('training_types')
 			.select('*')
 			.eq('organization_id', orgId)
-			.order('created_at', { ascending: false })
+			.order('sort_order'),
+		supabase
+			.from('personnel_trainings')
+			.select('*')
+			.eq('organization_id', orgId),
+		userId
+			? supabase
+					.from('user_pinned_groups')
+					.select('*')
+					.eq('organization_id', orgId)
+					.eq('user_id', userId)
+					.order('sort_order')
+			: Promise.resolve({ data: [] })
 	]);
 
-	// Transform personnel data
 	const personnel: Personnel[] = (personnelRes.data ?? []).map((p: any) => ({
 		id: p.id,
 		rank: p.rank,
@@ -96,14 +86,12 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 		groupName: p.groups?.name ?? ''
 	}));
 
-	// Transform groups data
 	const groups: Group[] = (groupsRes.data ?? []).map((g: any) => ({
 		id: g.id,
 		name: g.name,
 		sortOrder: g.sort_order
 	}));
 
-	// Transform status types
 	const statusTypes: StatusType[] = (statusTypesRes.data ?? []).map((s: any) => ({
 		id: s.id,
 		name: s.name,
@@ -111,7 +99,6 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 		textColor: s.text_color
 	}));
 
-	// Transform availability entries
 	const availabilityEntries: AvailabilityEntry[] = (availabilityRes.data ?? []).map((a: any) => ({
 		id: a.id,
 		personnelId: a.personnel_id,
@@ -120,15 +107,6 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 		endDate: a.end_date
 	}));
 
-	// Transform special days
-	const specialDays: SpecialDay[] = (specialDaysRes.data ?? []).map((d: any) => ({
-		id: d.id,
-		date: d.date,
-		name: d.name,
-		type: d.type
-	}));
-
-	// Transform assignment types
 	const assignmentTypes: AssignmentType[] = (assignmentTypesRes.data ?? []).map((t: any) => ({
 		id: t.id,
 		name: t.name,
@@ -138,39 +116,50 @@ export const load: PageServerLoad = async ({ params, locals, parent, cookies }) 
 		exemptPersonnelIds: t.exempt_personnel_ids ?? []
 	}));
 
-	// Transform daily assignments
-	const dailyAssignments: DailyAssignment[] = (dailyAssignmentsRes.data ?? []).map((a: any) => ({
+	const todayAssignments: DailyAssignment[] = (todayAssignmentsRes.data ?? []).map((a: any) => ({
 		id: a.id,
 		date: a.date,
 		assignmentTypeId: a.assignment_type_id,
 		assigneeId: a.assignee_id
 	}));
 
-	// Transform pinned groups (just the group names in order)
-	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map((p: any) => p.group_name);
-
-	// Transform roster history
-	const rosterHistory: RosterHistoryItem[] = (rosterHistoryRes.data ?? []).map((r: any) => ({
-		id: r.id,
-		assignmentTypeId: r.assignment_type_id,
-		name: r.name,
-		startDate: r.start_date,
-		endDate: r.end_date,
-		roster: r.roster,
-		config: r.config ?? {},
-		createdAt: r.created_at
+	const trainingTypes: TrainingType[] = (trainingTypesRes.data ?? []).map((t: any) => ({
+		id: t.id,
+		name: t.name,
+		description: t.description,
+		expirationMonths: t.expiration_months,
+		warningDaysYellow: t.warning_days_yellow,
+		warningDaysOrange: t.warning_days_orange,
+		requiredForRoles: t.required_for_roles ?? [],
+		color: t.color,
+		sortOrder: t.sort_order
 	}));
+
+	const personnelTrainings: PersonnelTraining[] = (personnelTrainingsRes.data ?? []).map(
+		(t: any) => ({
+			id: t.id,
+			personnelId: t.personnel_id,
+			trainingTypeId: t.training_type_id,
+			completionDate: t.completion_date,
+			expirationDate: t.expiration_date,
+			notes: t.notes,
+			certificateUrl: t.certificate_url
+		})
+	);
+
+	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map((p: any) => p.group_name);
 
 	return {
 		orgId,
+		today,
 		personnel,
 		groups,
 		statusTypes,
 		availabilityEntries,
-		specialDays,
 		assignmentTypes,
-		dailyAssignments,
-		pinnedGroups,
-		rosterHistory
+		todayAssignments,
+		trainingTypes,
+		personnelTrainings,
+		pinnedGroups
 	};
 };

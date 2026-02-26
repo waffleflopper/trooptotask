@@ -9,6 +9,7 @@
 	import TrainingRecordModal from '$lib/components/TrainingRecordModal.svelte';
 	import PersonTrainingEditor from '$lib/components/PersonTrainingEditor.svelte';
 	import TrainingTypeManager from '$lib/components/TrainingTypeManager.svelte';
+	import TrainingTypeReorder from '$lib/components/TrainingTypeReorder.svelte';
 	import TrainingReports from '$lib/components/TrainingReports.svelte';
 	import BulkTrainingImporter from '$lib/components/BulkTrainingImporter.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
@@ -23,6 +24,7 @@
 	});
 
 	let showTypeManager = $state(false);
+	let showTypeReorder = $state(false);
 	let showReports = $state(false);
 	let showBulkImporter = $state(false);
 	let selectedGroupId = $state<string>('');
@@ -140,6 +142,7 @@
 	onShowTrainingBulkImport={() => (showBulkImporter = true)}
 	onShowTrainingReports={() => (showReports = true)}
 	onShowTrainingTypeManager={() => (showTypeManager = true)}
+	onShowTrainingTypeReorder={() => (showTypeReorder = true)}
 />
 
 <div class="page">
@@ -275,6 +278,14 @@
 		onUpdate={handleUpdateType}
 		onRemove={handleRemoveType}
 		onClose={() => (showTypeManager = false)}
+	/>
+{/if}
+
+{#if showTypeReorder}
+	<TrainingTypeReorder
+		trainingTypes={trainingTypesStore.list}
+		onUpdate={handleUpdateType}
+		onClose={() => (showTypeReorder = false)}
 	/>
 {/if}
 

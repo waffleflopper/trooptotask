@@ -44,6 +44,7 @@
 		// Training-specific callbacks
 		onShowTrainingReports?: () => void;
 		onShowTrainingTypeManager?: () => void;
+		onShowTrainingTypeReorder?: () => void;
 		onShowTrainingBulkImport?: () => void;
 		// Leaders Book callbacks
 		onShowCounselingTypeManager?: () => void;
@@ -75,6 +76,7 @@
 		onShowGroupManager,
 		onShowTrainingReports,
 		onShowTrainingTypeManager,
+		onShowTrainingTypeReorder,
 		onShowTrainingBulkImport,
 		onShowCounselingTypeManager
 	}: Props = $props();
@@ -137,7 +139,7 @@
 	// Training tools: reports for view, type manager and bulk import for edit
 	const hasTrainingViewTools = $derived(onShowTrainingReports);
 	const hasTrainingEditTools = $derived(
-		perms.canEditTraining && (onShowTrainingTypeManager || onShowTrainingBulkImport)
+		perms.canEditTraining && (onShowTrainingTypeManager || onShowTrainingTypeReorder || onShowTrainingBulkImport)
 	);
 	const hasTrainingTools = $derived(hasTrainingViewTools || hasTrainingEditTools);
 
@@ -493,6 +495,19 @@
 									<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
 								</svg>
 								Manage Types
+							</button>
+						{/if}
+						{#if perms.canEditTraining && onShowTrainingTypeReorder}
+							<button class="nav-item" onclick={() => handleNavClick(onShowTrainingTypeReorder)}>
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<line x1="8" y1="6" x2="21" y2="6" />
+									<line x1="8" y1="12" x2="21" y2="12" />
+									<line x1="8" y1="18" x2="21" y2="18" />
+									<polyline points="3 6 4 7 6 5" />
+									<polyline points="3 12 4 13 6 11" />
+									<polyline points="3 18 4 19 6 17" />
+								</svg>
+								Reorder Columns
 							</button>
 						{/if}
 					</div>

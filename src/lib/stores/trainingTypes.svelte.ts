@@ -5,7 +5,7 @@ class TrainingTypesStore {
 	#orgId = '';
 
 	get list() {
-		return this.#trainingTypes;
+		return [...this.#trainingTypes].sort((a, b) => a.sortOrder - b.sortOrder);
 	}
 
 	load(trainingTypes: TrainingType[], orgId: string) {

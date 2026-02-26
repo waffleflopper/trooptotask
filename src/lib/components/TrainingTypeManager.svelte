@@ -110,6 +110,35 @@
 		return [...newRoles, role];
 	}
 
+	// Local sorted copy for immediate visual feedback during reordering
+	let orderedTypes = $state<TrainingType[]>([]);
+
+	$effect(() => {
+		orderedTypes = [...trainingTypes].sort((a, b) => a.sortOrder - b.sortOrder);
+	});
+
+	function moveUp(index: number) {
+		if (index === 0) return;
+		const next = orderedTypes.map((t, i) => ({ ...t, sortOrder: i }));
+		[next[index], next[index - 1]] = [next[index - 1], next[index]];
+		next[index - 1].sortOrder = index - 1;
+		next[index].sortOrder = index;
+		orderedTypes = next;
+		onUpdate(next[index - 1].id, { sortOrder: index - 1 });
+		onUpdate(next[index].id, { sortOrder: index });
+	}
+
+	function moveDown(index: number) {
+		if (index === orderedTypes.length - 1) return;
+		const next = orderedTypes.map((t, i) => ({ ...t, sortOrder: i }));
+		[next[index], next[index + 1]] = [next[index + 1], next[index]];
+		next[index].sortOrder = index;
+		next[index + 1].sortOrder = index + 1;
+		orderedTypes = next;
+		onUpdate(next[index].id, { sortOrder: index });
+		onUpdate(next[index + 1].id, { sortOrder: index + 1 });
+	}
+
 	function formatRequiredRoles(roles: string[]): string {
 		if (roles.includes('*')) return 'All';
 		if (roles.length === 0) return '';
@@ -225,7 +254,7 @@
 			<div class="list-section">
 				<h3>Existing Training Types</h3>
 				<div class="type-list">
-					{#each trainingTypes as type (type.id)}
+					{#each orderedTypes as type, index (type.id)}
 						<div class="type-item">
 							{#if editingId === type.id}
 								<div class="edit-form">
@@ -337,6 +366,14 @@
 									{/if}
 								</div>
 								<div class="type-actions">
+									<div class="move-btns">
+										<button class="btn-move" onclick={() => moveUp(index)} disabled={index === 0} title="Move up">
+											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+										</button>
+										<button class="btn-move" onclick={() => moveDown(index)} disabled={index === orderedTypes.length - 1} title="Move down">
+											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+										</button>
+									</div>
 									<button class="btn btn-secondary btn-sm" onclick={() => startEdit(type)}>
 										Edit
 									</button>
@@ -351,7 +388,7 @@
 						</div>
 					{/each}
 
-					{#if trainingTypes.length === 0}
+					{#if orderedTypes.length === 0}
 						<p class="empty-message">No training types defined yet.</p>
 					{/if}
 				</div>
@@ -565,5 +602,43 @@
 		padding: 0;
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
+	}
+
+	.move-btns {
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+		margin-right: var(--spacing-xs);
+	}
+
+	.btn-move {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
+		padding: 0;
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.btn-move:hover:not(:disabled) {
+		background: var(--color-surface-variant);
+		border-color: var(--color-primary);
+		color: var(--color-primary);
+	}
+
+	.btn-move:disabled {
+		opacity: 0.25;
+		cursor: default;
+	}
+
+	.btn-move svg {
+		width: 12px;
+		height: 12px;
 	}
 </style>

@@ -1,185 +1,259 @@
 <script lang="ts">
-	import type { Personnel, AvailabilityEntry } from '$lib/types';
 	import { personnelStore } from '$lib/stores/personnel.svelte';
 	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
 	import { availabilityStore } from '$lib/stores/availability.svelte';
-	import { specialDaysStore } from '$lib/stores/specialDays.svelte';
-	import { calendarStore } from '$lib/stores/calendar.svelte';
-	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { dailyAssignmentsStore } from '$lib/stores/dailyAssignments.svelte';
-	import { dutyRosterHistoryStore } from '$lib/stores/dutyRosterHistory.svelte';
-	import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';
+	import { trainingTypesStore } from '$lib/stores/trainingTypes.svelte';
+	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
+	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
-	import { calendarPrefsStore } from '$lib/stores/calendarPrefs.svelte';
-	import Calendar from '$lib/components/Calendar.svelte';
-	import AvailabilityModal from '$lib/components/AvailabilityModal.svelte';
-	import StatusTypeManager from '$lib/components/StatusTypeManager.svelte';
-	import SpecialDayManager from '$lib/components/SpecialDayManager.svelte';
-	import DailyAssignmentModal from '$lib/components/DailyAssignmentModal.svelte';
-	import TodayBreakdown from '$lib/components/TodayBreakdown.svelte';
-	import StatusLegend from '$lib/components/StatusLegend.svelte';
-	import BulkStatusModal from '$lib/components/BulkStatusModal.svelte';
-	import MonthlyAssignmentPlanner from '$lib/components/MonthlyAssignmentPlanner.svelte';
-	import AssignmentTypeManager from '$lib/components/AssignmentTypeManager.svelte';
-	import DutyRosterGenerator from '$lib/components/DutyRosterGenerator.svelte';
-	import LongRangeView from '$lib/components/LongRangeView.svelte';
-	import Sidebar from '$lib/components/Sidebar.svelte';
-	import FeatureGate from '$lib/components/FeatureGate.svelte';
-	import PastDueBanner from '$lib/components/PastDueBanner.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
-	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
-	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
+	import Sidebar from '$lib/components/Sidebar.svelte';
+	import { getTrainingStatus, getTrainingStats } from '$lib/utils/trainingStatus';
+	import { parseDate } from '$lib/utils/dates';
 
 	let { data } = $props();
 	let showSidebar = $state(false);
 
-	// Hydrate stores with server data
 	$effect(() => {
 		personnelStore.load(data.personnel, data.orgId);
 		groupsStore.load(data.groups, data.orgId);
 		statusTypesStore.load(data.statusTypes, data.orgId);
 		availabilityStore.load(data.availabilityEntries, data.orgId);
-		specialDaysStore.load(data.specialDays, data.orgId);
-		dailyAssignmentsStore.load(data.assignmentTypes, data.dailyAssignments, data.orgId);
+		dailyAssignmentsStore.load(data.assignmentTypes, data.todayAssignments, data.orgId);
+		trainingTypesStore.load(data.trainingTypes, data.orgId);
+		personnelTrainingsStore.load(data.personnelTrainings, data.orgId);
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
-		dutyRosterHistoryStore.load(data.rosterHistory);
 
-		// Load subscription limits if available
 		if (data.subscriptionLimits) {
 			subscriptionStore.load({
-				subscription: null, // Not needed for limits display
+				subscription: null,
 				plan: { id: data.subscriptionLimits.planId, name: data.subscriptionLimits.planName } as any,
 				organizationCount: data.subscriptionLimits.currentOrganizations
 			});
 		}
 	});
 
-	let showStatusManager = $state(false);
-	let showSpecialDayManager = $state(false);
-	let showTodayBreakdown = $state(false);
-	let showBulkStatusModal = $state(false);
-	let showAssignmentPlanner = $state(false);
-	let showLongRangeView = $state(false);
-	let showAssignmentTypeManager = $state(false);
-	let showDutyRosterGenerator = $state(false);
-	let selectedPerson = $state<Personnel | null>(null);
-	let selectedDate = $state<Date | null>(null);
-	let assignmentDate = $state<Date | null>(null);
+	// Today's date string from server
+	const today = data.today;
 
-	// Use shared utility for personnel grouping (also used by other pages)
-	const personnelByGroup = $derived(
-		groupAndSortPersonnel(personnelStore.list, pinnedGroupsStore.list)
+	// Format today for display
+	const todayDisplay = $derived(() => {
+		const d = parseDate(today);
+		const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`;
+	});
+
+	// Availability entries covering today
+	const todayEntries = $derived(
+		availabilityStore.list.filter((e) => e.startDate <= today && e.endDate >= today)
 	);
 
-	function handlePinToggle(group: string) {
-		pinnedGroupsStore.toggle(group);
-	}
+	// Personnel on status today (set)
+	const unavailablePersonnelIds = $derived(new Set(todayEntries.map((e) => e.personnelId)));
 
-	function handleCellClick(person: Personnel, date: Date) {
-		selectedPerson = person;
-		selectedDate = date;
-	}
+	// Available count
+	const totalPersonnel = $derived(personnelStore.list.length);
+	const availableCount = $derived(totalPersonnel - unavailablePersonnelIds.size);
 
-	function handlePersonClick(person: Personnel) {
-		selectedPerson = person;
-		selectedDate = new Date();
-	}
+	// Status breakdown: Map<statusTypeId, {name, color, textColor, count}>
+	const statusBreakdown = $derived.by(() => {
+		const map = new Map<string, { name: string; color: string; textColor: string; count: number }>();
+		for (const entry of todayEntries) {
+			const st = statusTypesStore.list.find((s) => s.id === entry.statusTypeId);
+			if (!st) continue;
+			const existing = map.get(st.id);
+			if (existing) {
+				existing.count++;
+			} else {
+				map.set(st.id, { name: st.name, color: st.color, textColor: st.textColor, count: 1 });
+			}
+		}
+		return map;
+	});
 
-	async function handleAddAvailability(data: Omit<AvailabilityEntry, 'id'>) {
-		await availabilityStore.add(data);
-	}
-
-	async function handleRemoveAvailability(id: string) {
-		await availabilityStore.remove(id);
-	}
-
-	function closeAvailabilityModal() {
-		selectedPerson = null;
-		selectedDate = null;
-	}
-
-	function handleDateClick(date: Date) {
-		assignmentDate = date;
-	}
-
-	function closeAssignmentModal() {
-		assignmentDate = null;
-	}
-
-	async function handleBulkStatusApply(personnelIds: string[], statusTypeId: string, startDate: string, endDate: string) {
-		// Create an availability entry for each person with the date range
-		for (const personnelId of personnelIds) {
-			await availabilityStore.add({
-				personnelId,
-				statusTypeId,
-				startDate,
-				endDate
+	// Duty assignments for today: join with types + assignee names
+	const dutyAssignments = $derived.by(() => {
+		return dailyAssignmentsStore.assignments
+			.filter((a) => a.date === today)
+			.map((a) => {
+				const type = dailyAssignmentsStore.types.find((t) => t.id === a.assignmentTypeId);
+				let assigneeName = '';
+				if (type?.assignTo === 'personnel') {
+					const person = personnelStore.list.find((p) => p.id === a.assigneeId);
+					if (person) assigneeName = `${person.rank} ${person.lastName}`;
+				} else {
+					// Group assignments store the group name directly as assigneeId (not a UUID)
+					assigneeName = a.assigneeId;
+				}
+				return {
+					id: a.id,
+					typeName: type?.name ?? 'Unknown',
+					shortName: type?.shortName ?? '',
+					color: type?.color ?? '#9e9e9e',
+					assigneeName
+				};
 			});
-		}
-	}
+	});
 
-	function handleExportCSV() {
-		exportMonthToCSV(calendarStore.year, calendarStore.month, {
-			personnelByGroup: personnelByGroup,
-			availabilityEntries: availabilityStore.list,
-			statusTypes: statusTypesStore.list,
-			specialDays: specialDaysStore.list,
-			assignmentTypes: dailyAssignmentsStore.types,
-			assignments: dailyAssignmentsStore.assignments
+	// Training stats across all personnel
+	const trainingStats = $derived.by(() => {
+		if (trainingTypesStore.list.length === 0) return null;
+		return getTrainingStats(
+			personnelStore.list,
+			trainingTypesStore.list,
+			personnelTrainingsStore.list
+		);
+	});
+
+	// Top expired/warning personnel for training card
+	const topTrainingIssues = $derived.by(() => {
+		if (trainingTypesStore.list.length === 0) return [];
+		const issues: { personName: string; typeName: string; label: string; status: string }[] = [];
+		const trainingMap = new Map(
+			personnelTrainingsStore.list.map((t) => [`${t.personnelId}-${t.trainingTypeId}`, t])
+		);
+		for (const person of personnelStore.list) {
+			for (const type of trainingTypesStore.list) {
+				const training = trainingMap.get(`${person.id}-${type.id}`);
+				const info = getTrainingStatus(training, type, person);
+				if (info.status === 'expired' || info.status === 'warning-orange') {
+					issues.push({
+						personName: `${person.rank} ${person.lastName}`,
+						typeName: type.name,
+						label: info.label,
+						status: info.status
+					});
+				}
+			}
+		}
+		// Sort: expired first, then by label
+		issues.sort((a, b) => {
+			if (a.status === 'expired' && b.status !== 'expired') return -1;
+			if (b.status === 'expired' && a.status !== 'expired') return 1;
+			return 0;
 		});
+		return issues.slice(0, 5);
+	});
+
+	// Upcoming changes: entries starting OR ending in next 7 days
+	const upcomingChanges = $derived.by(() => {
+		const sevenDaysOut = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+		const twoWeeksStr = `${sevenDaysOut.getFullYear()}-${String(sevenDaysOut.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysOut.getDate()).padStart(2, '0')}`;
+
+		const changes: {
+			date: string;
+			personName: string;
+			statusName: string;
+			statusColor: string;
+			direction: 'departing' | 'returning';
+		}[] = [];
+
+		for (const entry of availabilityStore.list) {
+			const person = personnelStore.list.find((p) => p.id === entry.personnelId);
+			const st = statusTypesStore.list.find((s) => s.id === entry.statusTypeId);
+			if (!person || !st) continue;
+
+			// Starting soon (departing)
+			if (entry.startDate > today && entry.startDate <= twoWeeksStr) {
+				changes.push({
+					date: entry.startDate,
+					personName: `${person.rank} ${person.lastName}`,
+					statusName: st.name,
+					statusColor: st.color,
+					direction: 'departing'
+				});
+			}
+			// Ending soon (returning)
+			if (entry.endDate >= today && entry.endDate <= twoWeeksStr) {
+				// endDate + 1 day is when they return
+				const endD = parseDate(entry.endDate);
+				endD.setDate(endD.getDate() + 1);
+				const returnDate = `${endD.getFullYear()}-${String(endD.getMonth() + 1).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}`;
+				if (returnDate > today && returnDate <= twoWeeksStr) {
+					changes.push({
+						date: returnDate,
+						personName: `${person.rank} ${person.lastName}`,
+						statusName: st.name,
+						statusColor: st.color,
+						direction: 'returning'
+					});
+				}
+			}
+		}
+
+		changes.sort((a, b) => a.date.localeCompare(b.date));
+		return changes;
+	});
+
+	// Format a date string for display (e.g. "Feb 26")
+	function formatShortDate(dateStr: string): string {
+		const d = parseDate(dateStr);
+		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		return `${months[d.getMonth()]} ${d.getDate()}`;
 	}
 
-	function handleExportPDF() {
-		printMonthCalendar(calendarStore.year, calendarStore.month, {
-			personnelByGroup: personnelByGroup,
-			availabilityEntries: availabilityStore.list,
-			statusTypes: statusTypesStore.list,
-			specialDays: specialDaysStore.list,
-			assignmentTypes: dailyAssignmentsStore.types,
-			assignments: dailyAssignmentsStore.assignments
+	// Group upcomingChanges by date
+	const upcomingByDate = $derived.by(() => {
+		const map = new Map<string, typeof upcomingChanges>();
+		for (const change of upcomingChanges) {
+			const existing = map.get(change.date);
+			if (existing) existing.push(change);
+			else map.set(change.date, [change]);
+		}
+		return map;
+	});
+
+	// Per-group breakdown
+	const groupBreakdown = $derived.by(() => {
+		// Sort: pinned groups first, then by sort order
+		const pinnedSet = new Set(pinnedGroupsStore.list);
+		const sorted = [...groupsStore.list].sort((a, b) => {
+			const aPinned = pinnedSet.has(a.name);
+			const bPinned = pinnedSet.has(b.name);
+			if (aPinned && !bPinned) return -1;
+			if (!aPinned && bPinned) return 1;
+			return a.sortOrder - b.sortOrder;
 		});
-	}
 
-	async function handleApplyRoster(assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]) {
-		for (const assignment of assignments) {
-			await dailyAssignmentsStore.setAssignment(assignment.date, assignment.assignmentTypeId, assignment.assigneeId);
-		}
-	}
+		return sorted.map((group) => {
+			const groupPersonnel = personnelStore.list.filter((p) => p.groupId === group.id);
+			const total = groupPersonnel.length;
+			const unavailable = groupPersonnel.filter((p) => unavailablePersonnelIds.has(p.id)).length;
+			const available = total - unavailable;
+			const pct = total > 0 ? Math.round((available / total) * 100) : 100;
 
-	async function handleSaveRoster(payload: Omit<RosterHistoryItem, 'id' | 'createdAt'>): Promise<RosterHistoryItem | null> {
-		try {
-			const res = await fetch(`/org/${data.orgId}/api/duty-roster-history`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-			if (!res.ok) return null;
-			const item: RosterHistoryItem = await res.json();
-			dutyRosterHistoryStore.add(item);
-			return item;
-		} catch {
-			return null;
-		}
-	}
+			// Per-status counts
+			const statusCounts = new Map<string, number>();
+			for (const person of groupPersonnel) {
+				const entry = todayEntries.find((e) => e.personnelId === person.id);
+				if (entry) {
+					statusCounts.set(entry.statusTypeId, (statusCounts.get(entry.statusTypeId) ?? 0) + 1);
+				}
+			}
 
-	async function handleDeleteRoster(id: string): Promise<void> {
-		dutyRosterHistoryStore.remove(id); // optimistic
-		try {
-			await fetch(`/org/${data.orgId}/api/duty-roster-history/${id}`, { method: 'DELETE' });
-		} catch {
-			// Silently fail — history will re-sync on next page load
-		}
-	}
+			return {
+				id: group.id,
+				name: group.name,
+				total,
+				available,
+				pct,
+				statusCounts,
+				isPinned: pinnedSet.has(group.name)
+			};
+		});
+	});
 
-	async function handleUpdateExemptions(assignmentTypeId: string, personnelIds: string[]): Promise<void> {
-		// updateType handles both optimistic UI update and persistence
-		await dailyAssignmentsStore.updateType(assignmentTypeId, { exemptPersonnelIds: personnelIds });
-	}
+	// Duty strength percentage
+	const dutyStrengthPct = $derived(
+		totalPersonnel > 0 ? Math.round((availableCount / totalPersonnel) * 100) : 100
+	);
 </script>
 
 <svelte:head>
-	<title>{data.orgName} - Troop to Task</title>
+	<title>{data.orgName} - Dashboard - Troop to Task</title>
 </svelte:head>
 
 <Sidebar
@@ -191,18 +265,6 @@
 	isDarkTheme={themeStore.isDark}
 	permissions={data.permissions}
 	allOrgs={data.allOrgs}
-	onShowLongRangeView={() => (showLongRangeView = true)}
-	onShowAssignmentPlanner={() => (showAssignmentPlanner = true)}
-	onShowBulkStatus={() => (showBulkStatusModal = true)}
-	onShowTodayBreakdown={() => (showTodayBreakdown = true)}
-	onShowStatusManager={() => (showStatusManager = true)}
-	onShowSpecialDayManager={() => (showSpecialDayManager = true)}
-	onShowDutyRosterGenerator={() => (showDutyRosterGenerator = true)}
-	onExportCalendarCSV={handleExportCSV}
-	onExportCalendarPDF={handleExportPDF}
-	showStatusText={calendarPrefsStore.showStatusText}
-	onToggleStatusText={() => calendarPrefsStore.toggleShowStatusText()}
-	onShowAssignmentTypeManager={() => (showAssignmentTypeManager = true)}
 />
 
 <div class="page">
@@ -217,173 +279,317 @@
 		</button>
 	</header>
 
-	<main class="page-content">
-		<section class="calendar-section">
-			<Calendar
-				year={calendarStore.year}
-				monthName={calendarStore.monthName}
-				dates={calendarStore.dates}
-				personnelByGroup={personnelByGroup}
-				availabilityEntries={availabilityStore.list}
-				statusTypes={statusTypesStore.list}
-				specialDays={specialDaysStore.list}
-				pinnedGroups={pinnedGroupsStore.list}
-				assignmentTypes={dailyAssignmentsStore.types}
-				assignments={dailyAssignmentsStore.assignments}
-				canEdit={data.permissions.canEditCalendar}
-				showStatusText={calendarPrefsStore.showStatusText}
-				onPrevMonth={() => calendarStore.prevMonth()}
-				onNextMonth={() => calendarStore.nextMonth()}
-				onGoToToday={() => calendarStore.goToToday()}
-				onCellClick={handleCellClick}
-				onPersonClick={handlePersonClick}
-				onPinToggle={handlePinToggle}
-				onDateClick={handleDateClick}
-			/>
-			<StatusLegend statusTypes={statusTypesStore.list} />
-		</section>
-	</main>
-</div>
+	<main class="dashboard">
+		<!-- Header -->
+		<div class="dashboard-header">
+			<div class="dashboard-title">
+				<h2>{data.orgName}</h2>
+				<p class="greeting">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}</p>
+			</div>
+			<div class="dashboard-date">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="date-icon">
+					<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+					<line x1="16" y1="2" x2="16" y2="6" />
+					<line x1="8" y1="2" x2="8" y2="6" />
+					<line x1="3" y1="10" x2="21" y2="10" />
+				</svg>
+				<span>{todayDisplay()}</span>
+			</div>
+		</div>
 
-{#if selectedPerson && selectedDate}
-	<AvailabilityModal
-		person={selectedPerson}
-		date={selectedDate}
-		statusTypes={statusTypesStore.list}
-		existingEntries={availabilityStore.list}
-		onAdd={handleAddAvailability}
-		onRemove={handleRemoveAvailability}
-		onClose={closeAvailabilityModal}
-	/>
-{/if}
+		<!-- Quick Actions -->
+		<div class="quick-actions">
+			<a href="/org/{data.orgId}/calendar" class="quick-action">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+					<line x1="16" y1="2" x2="16" y2="6" />
+					<line x1="8" y1="2" x2="8" y2="6" />
+					<line x1="3" y1="10" x2="21" y2="10" />
+				</svg>
+				Calendar
+			</a>
+			{#if data.permissions?.canViewPersonnel}
+				<a href="/org/{data.orgId}/personnel" class="quick-action">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+						<circle cx="9" cy="7" r="4" />
+						<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+						<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+					</svg>
+					Personnel
+				</a>
+			{/if}
+			{#if data.permissions?.canViewTraining}
+				<a href="/org/{data.orgId}/training" class="quick-action">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+						<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+					</svg>
+					Training
+				</a>
+			{/if}
+			{#if data.permissions?.canViewPersonnel}
+				<a href="/org/{data.orgId}/leaders-book" class="quick-action">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+						<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+						<line x1="8" y1="7" x2="16" y2="7" />
+						<line x1="8" y1="11" x2="16" y2="11" />
+					</svg>
+					Leaders Book
+				</a>
+			{/if}
+		</div>
 
-{#if showStatusManager}
-	<StatusTypeManager
-		statusTypes={statusTypesStore.list}
-		onAdd={(data) => statusTypesStore.add(data)}
-		onUpdate={(id, data) => statusTypesStore.update(id, data)}
-		onRemove={async (id) => {
-			await statusTypesStore.remove(id);
-			availabilityStore.removeByStatusTypeLocal(id);
-		}}
-		onClose={() => (showStatusManager = false)}
-	/>
-{/if}
-
-{#if showAssignmentTypeManager}
-	<AssignmentTypeManager
-		assignmentTypes={dailyAssignmentsStore.types}
-		onAdd={(data) => dailyAssignmentsStore.addType(data)}
-		onUpdate={(id, data) => dailyAssignmentsStore.updateType(id, data)}
-		onRemove={(id) => dailyAssignmentsStore.removeType(id)}
-		onClose={() => (showAssignmentTypeManager = false)}
-	/>
-{/if}
-
-{#if showSpecialDayManager}
-	<SpecialDayManager
-		specialDays={specialDaysStore.list}
-		onAdd={(data) => specialDaysStore.add(data)}
-		onRemove={(id) => specialDaysStore.remove(id)}
-		onResetHolidays={() => specialDaysStore.resetFederalHolidays()}
-		onClose={() => (showSpecialDayManager = false)}
-	/>
-{/if}
-
-{#if assignmentDate}
-	<DailyAssignmentModal
-		date={assignmentDate}
-		assignmentTypes={dailyAssignmentsStore.types}
-		assignments={dailyAssignmentsStore.assignments}
-		personnelByGroup={personnelByGroup}
-		groups={groupsStore.names}
-		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
-		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
-		onClose={closeAssignmentModal}
-	/>
-{/if}
-
-{#if showTodayBreakdown}
-	<TodayBreakdown
-		personnelByGroup={personnelByGroup}
-		availabilityEntries={availabilityStore.list}
-		statusTypes={statusTypesStore.list}
-		assignmentTypes={dailyAssignmentsStore.types}
-		assignments={dailyAssignmentsStore.assignments}
-		onClose={() => (showTodayBreakdown = false)}
-	/>
-{/if}
-
-{#if showBulkStatusModal}
-	<BulkStatusModal
-		personnelByGroup={personnelByGroup}
-		statusTypes={statusTypesStore.list}
-		onApply={handleBulkStatusApply}
-		onClose={() => (showBulkStatusModal = false)}
-	/>
-{/if}
-
-{#if showDutyRosterGenerator}
-	{#if !data.subscriptionLimits || data.subscriptionLimits.hasDutyRoster}
-		<DutyRosterGenerator
-			assignmentTypes={dailyAssignmentsStore.types}
-			assignments={dailyAssignmentsStore.assignments}
-			personnelByGroup={personnelByGroup}
-			groups={groupsStore.names}
-			availabilityEntries={availabilityStore.list}
-			statusTypes={statusTypesStore.list}
-			rosterHistory={dutyRosterHistoryStore.items}
-			onApplyRoster={handleApplyRoster}
-			onSaveRoster={handleSaveRoster}
-			onDeleteRoster={handleDeleteRoster}
-			onUpdateExemptions={handleUpdateExemptions}
-			onClose={() => (showDutyRosterGenerator = false)}
-		/>
-	{:else}
-		<div class="modal-overlay" onclick={() => (showDutyRosterGenerator = false)}>
-			<div class="modal feature-gate-modal" onclick={(e) => e.stopPropagation()}>
-				<button class="modal-close" onclick={() => (showDutyRosterGenerator = false)}>&times;</button>
-				<div class="feature-locked">
-					<div class="lock-icon">
-						<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-							<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-						</svg>
+		<!-- Card Row 1: Strength + Duty -->
+		<div class="card-row">
+			<!-- Today's Strength -->
+			<div class="card">
+				<div class="card-header">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+						<circle cx="9" cy="7" r="4" />
+						<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+						<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+					</svg>
+					Today's Strength
+				</div>
+				<div class="card-body">
+					<div class="strength-numbers">
+						<div class="strength-main">
+							<span class="strength-value">{availableCount}</span>
+							<span class="strength-label">available</span>
+						</div>
+						<div class="strength-divider">/</div>
+						<div class="strength-total">
+							<span class="strength-value strength-value--muted">{totalPersonnel}</span>
+							<span class="strength-label">total</span>
+						</div>
 					</div>
-					<h2>Duty Roster Generator</h2>
-					<p>This feature requires a Pro or Team subscription.</p>
-					<a href="/billing/upgrade" class="btn btn-primary">Upgrade Your Plan</a>
+
+					<div class="strength-bar-wrap">
+						<div class="strength-bar">
+							<div
+								class="strength-bar-fill"
+								style="width: {dutyStrengthPct}%; background: {dutyStrengthPct >= 80 ? 'var(--color-success)' : dutyStrengthPct >= 60 ? 'var(--color-warning)' : 'var(--color-error)'}"
+							></div>
+						</div>
+						<span class="strength-pct">{dutyStrengthPct}% present</span>
+					</div>
+
+					{#if statusBreakdown.size > 0}
+						<div class="status-chips">
+							{#each [...statusBreakdown.entries()] as [, info]}
+								<span class="status-chip" style="background: {info.color}; color: {info.textColor}">
+									{info.count} {info.name}
+								</span>
+							{/each}
+						</div>
+					{:else}
+						<p class="empty-note">All personnel present</p>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Today's Duty Assignments -->
+			<div class="card">
+				<div class="card-header">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+						<rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+						<path d="M9 14l2 2 4-4" />
+					</svg>
+					Today's Duty Assignments
+				</div>
+				<div class="card-body">
+					{#if dutyAssignments.length > 0}
+						<div class="duty-list">
+							{#each dutyAssignments as assignment}
+								<div class="duty-item">
+									<span
+										class="duty-badge"
+										style="background: {assignment.color}"
+									>{assignment.shortName || assignment.typeName}</span>
+									<span class="duty-assignee">{assignment.assigneeName || 'Unassigned'}</span>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="empty-state">
+							<p>No assignments today</p>
+							<a href="/org/{data.orgId}/calendar" class="btn btn-text btn-sm">Manage in Calendar</a>
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>
-	{/if}
-{/if}
 
-{#if showAssignmentPlanner}
-	<MonthlyAssignmentPlanner
-		currentDate={calendarStore.currentDate}
-		assignmentTypes={dailyAssignmentsStore.types}
-		assignments={dailyAssignmentsStore.assignments}
-		personnelByGroup={personnelByGroup}
-		groups={groupsStore.names}
-		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
-		onClose={() => (showAssignmentPlanner = false)}
-	/>
-{/if}
+		<!-- Card Row 2: Training + Upcoming -->
+		<div class="card-row">
+			<!-- Training Status -->
+			<div class="card">
+				<div class="card-header">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+						<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+					</svg>
+					Training Status
+				</div>
+				<div class="card-body">
+					{#if trainingStats === null}
+						<div class="empty-state">
+							<p>No training types configured</p>
+							{#if data.permissions?.canEditTraining}
+								<a href="/org/{data.orgId}/training" class="btn btn-text btn-sm">Set Up Training</a>
+							{/if}
+						</div>
+					{:else}
+						<div class="training-stats">
+							<div class="training-stat training-stat--expired">
+								<span class="training-stat-value">{trainingStats.expired}</span>
+								<span class="training-stat-label">Expired</span>
+							</div>
+							<div class="training-stat training-stat--orange">
+								<span class="training-stat-value">{trainingStats.warningOrange}</span>
+								<span class="training-stat-label">Expiring Soon</span>
+							</div>
+							<div class="training-stat training-stat--yellow">
+								<span class="training-stat-value">{trainingStats.warningYellow}</span>
+								<span class="training-stat-label">Due Soon</span>
+							</div>
+							<div class="training-stat training-stat--current">
+								<span class="training-stat-value">{trainingStats.current}</span>
+								<span class="training-stat-label">Current</span>
+							</div>
+						</div>
 
-{#if showLongRangeView}
-	<LongRangeView
-		startDate={calendarStore.currentDate}
-		personnelByGroup={personnelByGroup}
-		availabilityEntries={availabilityStore.list}
-		statusTypes={statusTypesStore.list}
-		specialDays={specialDaysStore.list}
-		assignmentTypes={dailyAssignmentsStore.types}
-		assignments={dailyAssignmentsStore.assignments}
-		onClose={() => (showLongRangeView = false)}
-		onCellClick={handleCellClick}
-	/>
-{/if}
+						{#if topTrainingIssues.length > 0}
+							<div class="training-issues">
+								<p class="issues-label">Needs attention:</p>
+								{#each topTrainingIssues as issue}
+									<div class="issue-row">
+										<span class="issue-name">{issue.personName}</span>
+										<span class="issue-type">{issue.typeName}</span>
+										<span class="issue-badge" class:expired={issue.status === 'expired'} class:warning={issue.status === 'warning-orange'}>
+											{issue.label}
+										</span>
+									</div>
+								{/each}
+							</div>
+						{/if}
+
+						<div class="card-link">
+							<a href="/org/{data.orgId}/training" class="btn btn-text btn-sm">View Full Training Report</a>
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Upcoming Changes -->
+			<div class="card">
+				<div class="card-header">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="10" />
+						<polyline points="12 6 12 12 16 14" />
+					</svg>
+					Upcoming (Next 7 Days)
+				</div>
+				<div class="card-body">
+					{#if upcomingByDate.size === 0}
+						<div class="empty-state">
+							<p>No changes in the next 7 days</p>
+							<a href="/org/{data.orgId}/calendar" class="btn btn-text btn-sm">View Calendar</a>
+						</div>
+					{:else}
+						<div class="upcoming-list">
+							{#each [...upcomingByDate.entries()] as [date, changes]}
+								<div class="upcoming-group">
+									<div class="upcoming-date">{formatShortDate(date)}</div>
+									{#each changes as change}
+										<div class="upcoming-item">
+											<span
+												class="upcoming-dot"
+												style="background: {change.statusColor}"
+											></span>
+											<span class="upcoming-person">{change.personName}</span>
+											<span class="upcoming-direction" class:departing={change.direction === 'departing'} class:returning={change.direction === 'returning'}>
+												{change.direction === 'departing' ? 'starts' : 'returns'} — {change.statusName}
+											</span>
+										</div>
+									{/each}
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			</div>
+		</div>
+
+		<!-- Per-Group Breakdown -->
+		{#if groupBreakdown.length > 0}
+			<div class="card card--full">
+				<div class="card-header">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+						<circle cx="9" cy="7" r="4" />
+						<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+						<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+					</svg>
+					Per-Group Breakdown
+				</div>
+				<div class="card-body card-body--no-pad">
+					<div class="group-table-wrap">
+						<table class="group-table">
+							<thead>
+								<tr>
+									<th class="col-group">Group</th>
+									<th class="col-num">Total</th>
+									<th class="col-num">Present</th>
+									{#each statusTypesStore.list as st}
+										<th class="col-num col-status" style="color: {st.color}">{st.name}</th>
+									{/each}
+									<th class="col-num">%</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each groupBreakdown as group}
+									<tr class:pinned={group.isPinned}>
+										<td class="col-group">
+											{#if group.isPinned}
+												<svg class="pin-icon" viewBox="0 0 24 24" fill="currentColor">
+													<path d="M12 2C8.686 2 6 4.686 6 8c0 4.5 6 12 6 12s6-7.5 6-12c0-3.314-2.686-6-6-6zm0 8c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2z"/>
+												</svg>
+											{/if}
+											{group.name}
+										</td>
+										<td class="col-num">{group.total}</td>
+										<td class="col-num col-present">{group.available}</td>
+										{#each statusTypesStore.list as st}
+											<td class="col-num">
+												{#if (group.statusCounts.get(st.id) ?? 0) > 0}
+													<span class="table-chip" style="background: {st.color}; color: {st.textColor}">
+														{group.statusCounts.get(st.id)}
+													</span>
+												{:else}
+													<span class="col-zero">—</span>
+												{/if}
+											</td>
+										{/each}
+										<td class="col-num">
+											<span class="pct-badge" class:pct-high={group.pct >= 80} class:pct-mid={group.pct >= 60 && group.pct < 80} class:pct-low={group.pct < 60}>
+												{group.pct}%
+											</span>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		{/if}
+	</main>
+</div>
 
 <style>
 	.page {
@@ -394,7 +600,7 @@
 		margin-left: var(--sidebar-width);
 	}
 
-	/* Mobile header - only visible on mobile */
+	/* Mobile header */
 	.page-header.mobile-only {
 		display: none;
 	}
@@ -424,30 +630,519 @@
 		color: white;
 	}
 
-	.mobile-menu-btn:hover {
-		background: rgba(255, 255, 255, 0.2);
-	}
-
 	.mobile-menu-btn svg {
 		width: 24px;
 		height: 24px;
 	}
 
-	.page-content {
+	.dashboard {
 		flex: 1;
 		padding: var(--spacing-lg);
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-lg);
+	}
+
+	/* Dashboard Header */
+	.dashboard-header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--spacing-md);
+	}
+
+	.dashboard-title h2 {
+		font-size: var(--font-size-2xl);
+		font-weight: 700;
+		color: var(--color-text);
+		line-height: 1.2;
+	}
+
+	.greeting {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
+		margin-top: 2px;
+	}
+
+	.dashboard-date {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		white-space: nowrap;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		background: var(--color-surface);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-1);
+	}
+
+	.date-icon {
+		width: 16px;
+		height: 16px;
+		flex-shrink: 0;
+	}
+
+	/* Quick Actions */
+	.quick-actions {
+		display: flex;
+		gap: var(--spacing-sm);
+		flex-wrap: wrap;
+	}
+
+	.quick-action {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding: var(--spacing-sm) var(--spacing-md);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		color: var(--color-text-secondary);
+		text-decoration: none;
+		transition: all var(--transition-fast);
+		box-shadow: var(--shadow-1);
+	}
+
+	.quick-action:hover {
+		border-color: var(--color-primary);
+		color: var(--color-primary);
+		background: rgba(var(--color-primary-rgb), 0.04);
+		box-shadow: var(--shadow-2);
+	}
+
+	.quick-action svg {
+		width: 18px;
+		height: 18px;
+	}
+
+	/* Card Row */
+	.card-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--spacing-lg);
+	}
+
+	.card--full {
+		width: 100%;
+	}
+
+	/* Card Header Override */
+	.card-header {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		font-size: var(--font-size-base);
+		font-weight: 600;
+		color: var(--color-text);
+	}
+
+	.card-header svg {
+		width: 18px;
+		height: 18px;
+		color: var(--color-primary);
+		flex-shrink: 0;
+	}
+
+	/* Strength Card */
+	.strength-numbers {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		margin-bottom: var(--spacing-md);
+	}
+
+	.strength-main,
+	.strength-total {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.strength-value {
+		font-size: 2.5rem;
+		font-weight: 700;
+		color: var(--color-text);
+		line-height: 1;
+	}
+
+	.strength-value--muted {
+		color: var(--color-text-muted);
+		font-size: 2rem;
+	}
+
+	.strength-divider {
+		font-size: 2rem;
+		color: var(--color-text-muted);
+		line-height: 1;
+		padding-top: 2px;
+	}
+
+	.strength-label {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		margin-top: 2px;
+	}
+
+	.strength-bar-wrap {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		margin-bottom: var(--spacing-md);
+	}
+
+	.strength-bar {
+		flex: 1;
+		height: 8px;
+		background: var(--color-surface-variant);
+		border-radius: var(--radius-full);
 		overflow: hidden;
 	}
 
-	.calendar-section {
+	.strength-bar-fill {
 		height: 100%;
+		border-radius: var(--radius-full);
+		transition: width var(--transition-normal);
+	}
+
+	.strength-pct {
+		font-size: var(--font-size-sm);
+		font-weight: 600;
+		color: var(--color-text-secondary);
+		white-space: nowrap;
+	}
+
+	.status-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-xs);
+	}
+
+	.status-chip {
+		padding: 3px 10px;
+		border-radius: var(--radius-full);
+		font-size: var(--font-size-xs);
+		font-weight: 600;
+	}
+
+	.empty-note {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
+		font-style: italic;
+	}
+
+	/* Duty Card */
+	.duty-list {
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-sm);
-		overflow: hidden;
 	}
 
-	/* Mobile Responsive Styles */
+	.duty-item {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+	}
+
+	.duty-badge {
+		padding: 2px 10px;
+		border-radius: var(--radius-full);
+		font-size: var(--font-size-xs);
+		font-weight: 700;
+		color: white;
+		white-space: nowrap;
+	}
+
+	.duty-assignee {
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		color: var(--color-text);
+	}
+
+	/* Empty State */
+	.empty-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-md) 0;
+		text-align: center;
+	}
+
+	.empty-state p {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
+	}
+
+	/* Training Card */
+	.training-stats {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: var(--spacing-sm);
+		margin-bottom: var(--spacing-md);
+	}
+
+	.training-stat {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding: var(--spacing-sm);
+		border-radius: var(--radius-md);
+		background: var(--color-surface-variant);
+	}
+
+	.training-stat-value {
+		font-size: 1.75rem;
+		font-weight: 700;
+		line-height: 1;
+	}
+
+	.training-stat-label {
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-muted);
+		margin-top: 2px;
+		text-align: center;
+	}
+
+	.training-stat--expired .training-stat-value { color: var(--color-error); }
+	.training-stat--orange .training-stat-value { color: var(--color-warning); }
+	.training-stat--yellow .training-stat-value { color: #f59e0b; }
+	.training-stat--current .training-stat-value { color: var(--color-success); }
+
+	.training-issues {
+		margin-bottom: var(--spacing-sm);
+	}
+
+	.issues-label {
+		font-size: var(--font-size-xs);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-muted);
+		margin-bottom: var(--spacing-xs);
+	}
+
+	.issue-row {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding: 3px 0;
+		font-size: var(--font-size-sm);
+	}
+
+	.issue-name {
+		font-weight: 500;
+		color: var(--color-text);
+		min-width: 80px;
+	}
+
+	.issue-type {
+		flex: 1;
+		color: var(--color-text-secondary);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.issue-badge {
+		font-size: var(--font-size-xs);
+		font-weight: 600;
+		padding: 2px 8px;
+		border-radius: var(--radius-full);
+		white-space: nowrap;
+	}
+
+	.issue-badge.expired {
+		background: rgba(244, 67, 54, 0.12);
+		color: var(--color-error);
+	}
+
+	.issue-badge.warning {
+		background: rgba(255, 152, 0, 0.12);
+		color: var(--color-warning);
+	}
+
+	.card-link {
+		margin-top: var(--spacing-sm);
+	}
+
+	/* Upcoming Card */
+	.upcoming-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+		max-height: 260px;
+		overflow-y: auto;
+	}
+
+	.upcoming-group {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.upcoming-date {
+		font-size: var(--font-size-xs);
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-primary);
+		padding: 2px 0;
+		border-bottom: 1px solid var(--color-divider);
+		margin-bottom: 2px;
+	}
+
+	.upcoming-item {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding: 2px 0;
+		font-size: var(--font-size-sm);
+	}
+
+	.upcoming-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.upcoming-person {
+		font-weight: 500;
+		color: var(--color-text);
+		min-width: 100px;
+	}
+
+	.upcoming-direction {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+	}
+
+	.upcoming-direction.departing {
+		color: var(--color-warning);
+	}
+
+	.upcoming-direction.returning {
+		color: var(--color-success);
+	}
+
+	/* Group Breakdown Table */
+	.card-body--no-pad {
+		padding: 0;
+	}
+
+	.group-table-wrap {
+		overflow-x: auto;
+	}
+
+	.group-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: var(--font-size-sm);
+	}
+
+	.group-table thead tr {
+		border-bottom: 2px solid var(--color-divider);
+	}
+
+	.group-table th {
+		padding: var(--spacing-sm) var(--spacing-md);
+		text-align: left;
+		font-weight: 600;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+	}
+
+	.group-table td {
+		padding: var(--spacing-sm) var(--spacing-md);
+		border-bottom: 1px solid var(--color-divider);
+	}
+
+	.group-table tbody tr:last-child td {
+		border-bottom: none;
+	}
+
+	.group-table tbody tr:hover {
+		background: rgba(var(--color-primary-rgb), 0.04);
+	}
+
+	.group-table tbody tr.pinned {
+		background: rgba(var(--color-primary-rgb), 0.06);
+	}
+
+	.col-group {
+		min-width: 120px;
+		font-weight: 500;
+		color: var(--color-text);
+	}
+
+	.col-num {
+		text-align: center;
+		color: var(--color-text-secondary);
+	}
+
+	.col-present {
+		font-weight: 600;
+		color: var(--color-text);
+	}
+
+	.col-status {
+		font-weight: 600;
+	}
+
+	.col-zero {
+		color: var(--color-text-disabled);
+	}
+
+	.pin-icon {
+		width: 10px;
+		height: 10px;
+		color: var(--color-primary);
+		margin-right: 4px;
+		vertical-align: middle;
+	}
+
+	.table-chip {
+		display: inline-block;
+		padding: 1px 8px;
+		border-radius: var(--radius-full);
+		font-size: var(--font-size-xs);
+		font-weight: 600;
+	}
+
+	.pct-badge {
+		display: inline-block;
+		padding: 2px 8px;
+		border-radius: var(--radius-full);
+		font-size: var(--font-size-xs);
+		font-weight: 600;
+	}
+
+	.pct-badge.pct-high {
+		background: rgba(76, 175, 80, 0.15);
+		color: var(--color-success);
+	}
+
+	.pct-badge.pct-mid {
+		background: rgba(255, 152, 0, 0.15);
+		color: var(--color-warning);
+	}
+
+	.pct-badge.pct-low {
+		background: rgba(244, 67, 54, 0.15);
+		color: var(--color-error);
+	}
+
+	/* Mobile Responsive */
 	@media (max-width: 640px) {
 		.page {
 			margin-left: 0;
@@ -457,89 +1152,31 @@
 			display: flex;
 		}
 
-		.page-content {
-			padding: var(--spacing-sm);
+		.dashboard {
+			padding: var(--spacing-md);
+			gap: var(--spacing-md);
+		}
+
+		.dashboard-title h2 {
+			font-size: var(--font-size-xl);
+		}
+
+		.dashboard-date {
+			display: none;
+		}
+
+		.card-row {
+			grid-template-columns: 1fr;
+		}
+
+		.training-stats {
+			grid-template-columns: repeat(2, 1fr);
 		}
 	}
 
-	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
 		.page {
 			margin-left: var(--sidebar-width);
 		}
-	}
-
-	/* Feature Gate Modal */
-	.feature-gate-modal {
-		max-width: 400px;
-		text-align: center;
-		position: relative;
-	}
-
-	.modal-close {
-		position: absolute;
-		top: var(--spacing-sm);
-		right: var(--spacing-sm);
-		width: 32px;
-		height: 32px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 1.5rem;
-		color: var(--color-text-muted);
-		background: transparent;
-		border: none;
-		border-radius: var(--radius-full);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.modal-close:hover {
-		background: var(--color-surface-variant);
-		color: var(--color-text);
-	}
-
-	.feature-locked {
-		padding: var(--spacing-xl);
-	}
-
-	.feature-locked .lock-icon {
-		width: 80px;
-		height: 80px;
-		margin: 0 auto var(--spacing-lg);
-		background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: var(--color-primary);
-	}
-
-	.feature-locked h2 {
-		font-size: var(--font-size-xl);
-		font-weight: 600;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-sm);
-	}
-
-	.feature-locked p {
-		color: var(--color-text-muted);
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.feature-locked .btn-primary {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-sm) var(--spacing-xl);
-		background: var(--color-primary);
-		color: white;
-		font-weight: 500;
-		border-radius: var(--radius-md);
-		text-decoration: none;
-	}
-
-	.feature-locked .btn-primary:hover {
-		background: var(--color-primary-hover);
 	}
 </style>

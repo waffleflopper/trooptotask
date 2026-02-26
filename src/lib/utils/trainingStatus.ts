@@ -59,7 +59,7 @@ export function getTrainingStatus(
 
 	// Never-expires training: if record exists, it's current
 	// (record can exist without date for never-expires types)
-	if (type.expirationMonths === null) {
+	if (!type.expirationDateOnly && type.expirationMonths === null) {
 		return {
 			status: 'current',
 			color: TRAINING_STATUS_COLORS['current'],
@@ -68,24 +68,37 @@ export function getTrainingStatus(
 		};
 	}
 
-	// For expiring training without a completion date, it's not completed
-	if (!training.completionDate) {
-		return {
-			status: 'not-completed',
-			color: TRAINING_STATUS_COLORS['not-completed'],
-			label: 'Not Done',
-			daysUntilExpiration: null
-		};
-	}
+	if (type.expirationDateOnly) {
+		// Expiration-date-only: the record stores expiration date directly, no completion date needed
+		if (!training.expirationDate) {
+			return {
+				status: 'not-completed',
+				color: TRAINING_STATUS_COLORS['not-completed'],
+				label: 'Not Done',
+				daysUntilExpiration: null
+			};
+		}
+		// Fall through to expiration date check below
+	} else {
+		// Normal expiring training: requires completion date
+		if (!training.completionDate) {
+			return {
+				status: 'not-completed',
+				color: TRAINING_STATUS_COLORS['not-completed'],
+				label: 'Not Done',
+				daysUntilExpiration: null
+			};
+		}
 
-	// If no expiration date but has completion date, it's current
-	if (!training.expirationDate) {
-		return {
-			status: 'current',
-			color: TRAINING_STATUS_COLORS['current'],
-			label: 'Current',
-			daysUntilExpiration: null
-		};
+		// If no expiration date but has completion date, it's current
+		if (!training.expirationDate) {
+			return {
+				status: 'current',
+				color: TRAINING_STATUS_COLORS['current'],
+				label: 'Current',
+				daysUntilExpiration: null
+			};
+		}
 	}
 
 	const today = new Date();

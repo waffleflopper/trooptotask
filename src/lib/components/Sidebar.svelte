@@ -225,11 +225,25 @@
 
 	<nav class="sidebar-nav">
 		<div class="nav-section">
+			<a
+				href="/org/{orgId}"
+				class="nav-item"
+				class:active={$page.url.pathname === `/org/${orgId}`}
+				onclick={() => onClose?.()}
+			>
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="3" y="3" width="7" height="7" />
+					<rect x="14" y="3" width="7" height="7" />
+					<rect x="14" y="14" width="7" height="7" />
+					<rect x="3" y="14" width="7" height="7" />
+				</svg>
+				Dashboard
+			</a>
 			{#if perms.canViewCalendar}
 				<a
-					href="/org/{orgId}"
+					href="/org/{orgId}/calendar"
 					class="nav-item"
-					class:active={$page.url.pathname === `/org/${orgId}`}
+					class:active={isActive(`/org/${orgId}/calendar`)}
 					onclick={() => onClose?.()}
 				>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -607,7 +621,7 @@
 				<rect x="14" y="14" width="7" height="7" />
 				<rect x="3" y="14" width="7" height="7" />
 			</svg>
-			Dashboard
+			Switch Org
 		</a>
 		<a href="/auth/logout" class="nav-item logout">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

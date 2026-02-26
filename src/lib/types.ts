@@ -178,12 +178,13 @@ export interface TrainingType {
 	id: string;
 	name: string;
 	description: string | null;
-	expirationMonths: number | null; // null = never expires
+	expirationMonths: number | null; // null = never expires (ignored when expirationDateOnly is true)
 	warningDaysYellow: number; // default 60
 	warningDaysOrange: number; // default 30
 	requiredForRoles: string[]; // empty = optional for all
 	color: string;
 	sortOrder: number;
+	expirationDateOnly: boolean; // if true, record stores expiration date directly (no completion date)
 }
 
 export interface PersonnelTraining {

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { CounselingType, CounselingRecurrence } from '$lib/types/leadersBook';
+	import Badge from './ui/Badge.svelte';
+	import EmptyState from './ui/EmptyState.svelte';
 	import { COUNSELING_RECURRENCE_LABELS } from '$lib/types/leadersBook';
 
 	interface Props {
@@ -261,14 +263,12 @@
 								</div>
 							{:else}
 								<div class="type-info">
-									<span class="type-badge" style="background-color: {type.color}">
-										{type.name}
-									</span>
+									<Badge label={type.name} color={type.color} />
 									{#if type.recurrence !== 'none'}
 										<span class="type-meta">{COUNSELING_RECURRENCE_LABELS[type.recurrence]}</span>
 									{/if}
 									{#if type.isFreeform}
-										<span class="type-meta freeform">Freeform</span>
+										<Badge label="Freeform" variant="outlined" />
 									{/if}
 								</div>
 								<div class="type-actions">
@@ -287,7 +287,7 @@
 					{/each}
 
 					{#if counselingTypes.length === 0}
-						<p class="empty-message">No counseling types defined yet.</p>
+						<EmptyState message="No counseling types defined yet." variant="simple" />
 					{/if}
 				</div>
 			</div>
@@ -389,24 +389,9 @@
 		flex-wrap: wrap;
 	}
 
-	.type-badge {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		color: white;
-		font-weight: 500;
-		font-size: var(--font-size-sm);
-	}
-
 	.type-meta {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
-	}
-
-	.type-meta.freeform {
-		padding: 2px var(--spacing-xs);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
 	}
 
 	.type-actions {
@@ -422,13 +407,6 @@
 		display: flex;
 		gap: var(--spacing-xs);
 		margin-top: var(--spacing-sm);
-	}
-
-	.empty-message {
-		color: var(--color-text-muted);
-		font-style: italic;
-		padding: var(--spacing-md);
-		text-align: center;
 	}
 
 	.modal-body {

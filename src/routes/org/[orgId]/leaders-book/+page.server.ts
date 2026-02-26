@@ -185,7 +185,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		warningDaysOrange: t.warning_days_orange ?? 30,
 		requiredForRoles: t.required_for_roles ?? [],
 		color: t.color ?? '#6b7280',
-		sortOrder: t.sort_order ?? 0
+		sortOrder: t.sort_order ?? 0,
+		expirationDateOnly: t.expiration_date_only ?? false
 	}));
 
 	// Transform personnel trainings

@@ -68,13 +68,13 @@
 	}
 
 	// Get current status (active today)
-	const currentStatus = $derived(() => {
+	const currentStatus = $derived.by(() => {
 		const todayStr = getLocalDateStr();
 		return personStatuses.find((entry) => entry.startDate <= todayStr && entry.endDate >= todayStr);
 	});
 
 	// Get upcoming statuses for next 3 months (excluding current)
-	const upcomingStatuses = $derived(() => {
+	const upcomingStatuses = $derived.by(() => {
 		const today = new Date();
 		const threeMonthsOut = new Date(today);
 		threeMonthsOut.setMonth(threeMonthsOut.getMonth() + 3);
@@ -82,7 +82,7 @@
 		const todayStr = getLocalDateStr(today);
 		const futureStr = getLocalDateStr(threeMonthsOut);
 
-		const current = currentStatus();
+		const current = currentStatus;
 
 		return personStatuses
 			.filter((entry) => {
@@ -409,22 +409,21 @@
 						<!-- Current Status -->
 						<div class="current-status-section">
 							<h3>Current Status</h3>
-							{#if currentStatus()}
-								{@const current = currentStatus()}
+						{#if currentStatus}
 								<button
 									class="current-status-card"
-									onclick={() => canEdit && openEditStatus(current)}
+									onclick={() => canEdit && openEditStatus(currentStatus)}
 									disabled={!canEdit}
-									style="--status-color: {getStatusTypeColor(current.statusTypeId)}"
+									style="--status-color: {getStatusTypeColor(currentStatus.statusTypeId)}"
 								>
 									<span
 										class="current-status-badge"
-										style="background-color: {getStatusTypeColor(current.statusTypeId)}; color: {getStatusTypeTextColor(current.statusTypeId)}"
+										style="background-color: {getStatusTypeColor(currentStatus.statusTypeId)}; color: {getStatusTypeTextColor(currentStatus.statusTypeId)}"
 									>
-										{getStatusTypeName(current.statusTypeId)}
+										{getStatusTypeName(currentStatus.statusTypeId)}
 									</span>
 									<span class="current-status-dates">
-										{formatDateRange(current.startDate, current.endDate)}
+										{formatDateRange(currentStatus.startDate, currentStatus.endDate)}
 									</span>
 								</button>
 							{:else}
@@ -438,12 +437,12 @@
 						<div class="upcoming-statuses-section">
 							<div class="statuses-header">
 								<h3>Upcoming (Next 3 Months)</h3>
-								<span class="status-count">{upcomingStatuses().length} {upcomingStatuses().length === 1 ? 'status' : 'statuses'}</span>
+								<span class="status-count">{upcomingStatuses.length} {upcomingStatuses.length === 1 ? 'status' : 'statuses'}</span>
 							</div>
 
-							{#if upcomingStatuses().length > 0}
+							{#if upcomingStatuses.length > 0}
 								<div class="statuses-list">
-									{#each upcomingStatuses() as entry (entry.id)}
+									{#each upcomingStatuses as entry (entry.id)}
 										<button
 											class="status-card"
 											onclick={() => canEdit && openEditStatus(entry)}

@@ -3,6 +3,7 @@
 	import { calculateExpirationDate, getTrainingStatus } from '../utils/trainingStatus';
 	import { formatDate } from '../utils/dates';
 	import Modal from './Modal.svelte';
+	import Badge from './ui/Badge.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -96,9 +97,7 @@
 	</div>
 
 	<div class="training-info">
-		<span class="training-badge" style="background-color: {trainingType.color}">
-			{trainingType.name}
-		</span>
+		<Badge label={trainingType.name} color={trainingType.color} />
 		{#if trainingType.description}
 			<p class="training-description">{trainingType.description}</p>
 		{/if}
@@ -169,9 +168,7 @@
 		</div>
 		<div class="preview-item">
 			<span class="preview-label">Status:</span>
-			<span class="status-badge" style="background-color: {previewStatus.color}">
-				{previewStatus.label}
-			</span>
+			<Badge label={previewStatus.label} color={previewStatus.color} />
 		</div>
 	</div>
 
@@ -231,14 +228,6 @@
 		margin-bottom: var(--spacing-md);
 	}
 
-	.training-badge {
-		display: inline-block;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		color: white;
-		font-weight: 500;
-	}
-
 	.training-description {
 		margin-top: var(--spacing-xs);
 		font-size: var(--font-size-sm);
@@ -269,22 +258,9 @@
 		font-weight: 500;
 	}
 
-	.status-badge {
-		display: inline-block;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		color: white;
-		font-weight: 500;
-		font-size: var(--font-size-sm);
-	}
-
 	.textarea {
 		resize: vertical;
 		min-height: 60px;
-	}
-
-	.spacer {
-		flex: 1;
 	}
 
 	.never-expires-badge {

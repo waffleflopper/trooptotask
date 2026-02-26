@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { TrainingType } from '../types';
+	import Badge from './ui/Badge.svelte';
+	import EmptyState from './ui/EmptyState.svelte';
 
 	interface Props {
 		trainingTypes: TrainingType[];
@@ -351,9 +353,7 @@
 								</div>
 							{:else}
 								<div class="type-info">
-									<span class="type-badge" style="background-color: {type.color}">
-										{type.name}
-									</span>
+									<Badge label={type.name} color={type.color} />
 									{#if type.expirationDateOnly}
 										<span class="type-meta">Exp. date per person</span>
 									{:else if type.expirationMonths}
@@ -389,7 +389,7 @@
 					{/each}
 
 					{#if orderedTypes.length === 0}
-						<p class="empty-message">No training types defined yet.</p>
+						<EmptyState message="No training types defined yet." variant="simple" />
 					{/if}
 				</div>
 			</div>
@@ -553,14 +553,6 @@
 		flex-wrap: wrap;
 	}
 
-	.type-badge {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		color: white;
-		font-weight: 500;
-		font-size: var(--font-size-sm);
-	}
-
 	.type-meta {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
@@ -579,13 +571,6 @@
 		display: flex;
 		gap: var(--spacing-xs);
 		margin-top: var(--spacing-sm);
-	}
-
-	.empty-message {
-		color: var(--color-text-muted);
-		font-style: italic;
-		padding: var(--spacing-md);
-		text-align: center;
 	}
 
 	.expiration-date-only-note {

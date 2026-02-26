@@ -36,7 +36,6 @@
 
 	let { person, canEdit, onClose }: Props = $props();
 
-	let activeTab = $state<'info' | 'statuses' | 'training' | 'counselings' | 'goals'>('info');
 	let showExtendedInfoModal = $state(false);
 	let showCounselingModal = $state(false);
 	let showGoalModal = $state(false);
@@ -270,268 +269,219 @@
 			</div>
 		</header>
 
-		<nav class="tabs">
-			<button class="tab" class:active={activeTab === 'info'} onclick={() => (activeTab = 'info')}>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-					<circle cx="12" cy="7" r="4" />
-				</svg>
-				Information
-			</button>
-			<button
-				class="tab"
-				class:active={activeTab === 'statuses'}
-				onclick={() => (activeTab = 'statuses')}
-			>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-					<line x1="16" y1="2" x2="16" y2="6" />
-					<line x1="8" y1="2" x2="8" y2="6" />
-					<line x1="3" y1="10" x2="21" y2="10" />
-				</svg>
-				Statuses{#if currentStatus() || upcomingStatuses().length > 0} ({(currentStatus() ? 1 : 0) + upcomingStatuses().length}){/if}
-			</button>
-			<button
-				class="tab"
-				class:active={activeTab === 'training'}
-				onclick={() => (activeTab = 'training')}
-			>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-					<path d="M6 12v5c3 3 9 3 12 0v-5" />
-				</svg>
-				Training
-			</button>
-			<button
-				class="tab"
-				class:active={activeTab === 'counselings'}
-				onclick={() => (activeTab = 'counselings')}
-			>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-					<polyline points="14 2 14 8 20 8" />
-				</svg>
-				Counselings ({counselingRecords.length})
-			</button>
-			<button
-				class="tab"
-				class:active={activeTab === 'goals'}
-				onclick={() => (activeTab = 'goals')}
-			>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<circle cx="12" cy="12" r="10" />
-					<polyline points="12 6 12 12 16 14" />
-				</svg>
-				Goals ({developmentGoals.length})
-			</button>
-		</nav>
-
 		<main class="view-content">
-			{#if activeTab === 'info'}
-				<div class="info-tab">
-					{#if canEdit}
-						<div class="tab-actions">
-							<button class="btn btn-primary" onclick={() => (showExtendedInfoModal = true)}>
-								{extendedInfo ? 'Edit Information' : 'Add Information'}
+			<div class="dashboard-row top-row">
+				<!-- Info Card -->
+				<div class="card">
+					<div class="card-header">
+						<h3>Information</h3>
+						{#if canEdit}
+							<button class="btn btn-sm btn-primary" onclick={() => (showExtendedInfoModal = true)}>
+								{extendedInfo ? 'Edit' : '+ Add'}
 							</button>
-						</div>
-					{/if}
-
-					{#if extendedInfo}
-						<div class="info-sections">
-							<section class="info-section">
-								<h3>Emergency Contact</h3>
-								{#if extendedInfo.emergencyContactName}
-									<div class="info-row">
-										<span class="info-label">Name:</span>
-										<span class="info-value">{extendedInfo.emergencyContactName}</span>
-									</div>
-									{#if extendedInfo.emergencyContactRelationship}
+						{/if}
+					</div>
+					<div class="card-body">
+						{#if extendedInfo}
+							<div class="info-sections">
+								<section class="info-section">
+									<h3>Emergency Contact</h3>
+									{#if extendedInfo.emergencyContactName}
 										<div class="info-row">
-											<span class="info-label">Relationship:</span>
-											<span class="info-value">{extendedInfo.emergencyContactRelationship}</span>
+											<span class="info-label">Name:</span>
+											<span class="info-value">{extendedInfo.emergencyContactName}</span>
 										</div>
+										{#if extendedInfo.emergencyContactRelationship}
+											<div class="info-row">
+												<span class="info-label">Relationship:</span>
+												<span class="info-value">{extendedInfo.emergencyContactRelationship}</span>
+											</div>
+										{/if}
+										{#if extendedInfo.emergencyContactPhone}
+											<div class="info-row">
+												<span class="info-label">Phone:</span>
+												<span class="info-value">{extendedInfo.emergencyContactPhone}</span>
+											</div>
+										{/if}
+									{:else}
+										<p class="no-data">Not provided</p>
 									{/if}
-									{#if extendedInfo.emergencyContactPhone}
-										<div class="info-row">
-											<span class="info-label">Phone:</span>
-											<span class="info-value">{extendedInfo.emergencyContactPhone}</span>
-										</div>
-									{/if}
-								{:else}
-									<p class="no-data">Not provided</p>
-								{/if}
-							</section>
-
-							<section class="info-section">
-								<h3>Spouse</h3>
-								{#if extendedInfo.spouseName}
-									<div class="info-row">
-										<span class="info-label">Name:</span>
-										<span class="info-value">{extendedInfo.spouseName}</span>
-									</div>
-									{#if extendedInfo.spousePhone}
-										<div class="info-row">
-											<span class="info-label">Phone:</span>
-											<span class="info-value">{extendedInfo.spousePhone}</span>
-										</div>
-									{/if}
-								{:else}
-									<p class="no-data">Not provided</p>
-								{/if}
-							</section>
-
-							<section class="info-section">
-								<h3>Vehicle</h3>
-								{#if extendedInfo.vehicleMakeModel}
-									<div class="info-row">
-										<span class="info-label">Make/Model:</span>
-										<span class="info-value">{extendedInfo.vehicleMakeModel}</span>
-									</div>
-									{#if extendedInfo.vehicleColor}
-										<div class="info-row">
-											<span class="info-label">Color:</span>
-											<span class="info-value">{extendedInfo.vehicleColor}</span>
-										</div>
-									{/if}
-									{#if extendedInfo.vehiclePlate}
-										<div class="info-row">
-											<span class="info-label">Plate:</span>
-											<span class="info-value">{extendedInfo.vehiclePlate}</span>
-										</div>
-									{/if}
-								{:else}
-									<p class="no-data">Not provided</p>
-								{/if}
-							</section>
-
-							<section class="info-section">
-								<h3>Personal Contact</h3>
-								{#if extendedInfo.personalEmail || extendedInfo.personalPhone}
-									{#if extendedInfo.personalEmail}
-										<div class="info-row">
-											<span class="info-label">Email:</span>
-											<span class="info-value">{extendedInfo.personalEmail}</span>
-										</div>
-									{/if}
-									{#if extendedInfo.personalPhone}
-										<div class="info-row">
-											<span class="info-label">Phone:</span>
-											<span class="info-value">{extendedInfo.personalPhone}</span>
-										</div>
-									{/if}
-								{:else}
-									<p class="no-data">Not provided</p>
-								{/if}
-							</section>
-
-							<section class="info-section">
-								<h3>Home Address</h3>
-								{#if formatAddress()}
-									<p class="address">{formatAddress()}</p>
-								{:else}
-									<p class="no-data">Not provided</p>
-								{/if}
-							</section>
-
-							{#if extendedInfo.leaderNotes}
-								<section class="info-section full-width">
-									<h3>Leader Notes</h3>
-									<p class="notes">{extendedInfo.leaderNotes}</p>
 								</section>
-							{/if}
-						</div>
-					{:else}
-						<div class="empty-state">
-							<p>No extended information recorded yet.</p>
-							{#if canEdit}
-								<p>Click "Add Information" to add emergency contacts, vehicle info, and more.</p>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			{:else if activeTab === 'statuses'}
-				<div class="statuses-tab">
-					{#if canEdit}
-						<div class="tab-actions">
-							<button class="btn btn-primary" onclick={openNewStatus}>Add Status</button>
-						</div>
-					{/if}
 
-					<!-- Current Status -->
-					<div class="current-status-section">
-						<h3>Current Status</h3>
-						{#if currentStatus()}
-							{@const current = currentStatus()}
-							<button
-								class="current-status-card"
-								onclick={() => canEdit && openEditStatus(current)}
-								disabled={!canEdit}
-								style="--status-color: {getStatusTypeColor(current.statusTypeId)}"
-							>
-								<span
-									class="current-status-badge"
-									style="background-color: {getStatusTypeColor(current.statusTypeId)}; color: {getStatusTypeTextColor(current.statusTypeId)}"
+								<section class="info-section">
+									<h3>Spouse</h3>
+									{#if extendedInfo.spouseName}
+										<div class="info-row">
+											<span class="info-label">Name:</span>
+											<span class="info-value">{extendedInfo.spouseName}</span>
+										</div>
+										{#if extendedInfo.spousePhone}
+											<div class="info-row">
+												<span class="info-label">Phone:</span>
+												<span class="info-value">{extendedInfo.spousePhone}</span>
+											</div>
+										{/if}
+									{:else}
+										<p class="no-data">Not provided</p>
+									{/if}
+								</section>
+
+								<section class="info-section">
+									<h3>Vehicle</h3>
+									{#if extendedInfo.vehicleMakeModel}
+										<div class="info-row">
+											<span class="info-label">Make/Model:</span>
+											<span class="info-value">{extendedInfo.vehicleMakeModel}</span>
+										</div>
+										{#if extendedInfo.vehicleColor}
+											<div class="info-row">
+												<span class="info-label">Color:</span>
+												<span class="info-value">{extendedInfo.vehicleColor}</span>
+											</div>
+										{/if}
+										{#if extendedInfo.vehiclePlate}
+											<div class="info-row">
+												<span class="info-label">Plate:</span>
+												<span class="info-value">{extendedInfo.vehiclePlate}</span>
+											</div>
+										{/if}
+									{:else}
+										<p class="no-data">Not provided</p>
+									{/if}
+								</section>
+
+								<section class="info-section">
+									<h3>Personal Contact</h3>
+									{#if extendedInfo.personalEmail || extendedInfo.personalPhone}
+										{#if extendedInfo.personalEmail}
+											<div class="info-row">
+												<span class="info-label">Email:</span>
+												<span class="info-value">{extendedInfo.personalEmail}</span>
+											</div>
+										{/if}
+										{#if extendedInfo.personalPhone}
+											<div class="info-row">
+												<span class="info-label">Phone:</span>
+												<span class="info-value">{extendedInfo.personalPhone}</span>
+											</div>
+										{/if}
+									{:else}
+										<p class="no-data">Not provided</p>
+									{/if}
+								</section>
+
+								<section class="info-section">
+									<h3>Home Address</h3>
+									{#if formatAddress()}
+										<p class="address">{formatAddress()}</p>
+									{:else}
+										<p class="no-data">Not provided</p>
+									{/if}
+								</section>
+
+								{#if extendedInfo.leaderNotes}
+									<section class="info-section full-width">
+										<h3>Leader Notes</h3>
+										<p class="notes">{extendedInfo.leaderNotes}</p>
+									</section>
+								{/if}
+							</div>
+						{:else}
+							<div class="empty-state">
+								<p>No extended information recorded yet.</p>
+								{#if canEdit}
+									<p>Click "+ Add" to add emergency contacts, vehicle info, and more.</p>
+								{/if}
+							</div>
+						{/if}
+					</div>
+				</div>
+
+				<!-- Status Card -->
+				<div class="card">
+					<div class="card-header">
+						<h3>Status</h3>
+						{#if canEdit}
+							<button class="btn btn-sm btn-primary" onclick={openNewStatus}>+ Add</button>
+						{/if}
+					</div>
+					<div class="card-body">
+						<!-- Current Status -->
+						<div class="current-status-section">
+							<h3>Current Status</h3>
+							{#if currentStatus()}
+								{@const current = currentStatus()}
+								<button
+									class="current-status-card"
+									onclick={() => canEdit && openEditStatus(current)}
+									disabled={!canEdit}
+									style="--status-color: {getStatusTypeColor(current.statusTypeId)}"
 								>
-									{getStatusTypeName(current.statusTypeId)}
-								</span>
-								<span class="current-status-dates">
-									{formatDateRange(current.startDate, current.endDate)}
-								</span>
-							</button>
-						{:else}
-							<div class="no-current-status">
-								<span>Available / Present for Duty</span>
-							</div>
-						{/if}
-					</div>
-
-					<!-- Upcoming Statuses -->
-					<div class="upcoming-statuses-section">
-						<div class="statuses-header">
-							<h3>Upcoming (Next 3 Months)</h3>
-							<span class="status-count">{upcomingStatuses().length} {upcomingStatuses().length === 1 ? 'status' : 'statuses'}</span>
+									<span
+										class="current-status-badge"
+										style="background-color: {getStatusTypeColor(current.statusTypeId)}; color: {getStatusTypeTextColor(current.statusTypeId)}"
+									>
+										{getStatusTypeName(current.statusTypeId)}
+									</span>
+									<span class="current-status-dates">
+										{formatDateRange(current.startDate, current.endDate)}
+									</span>
+								</button>
+							{:else}
+								<div class="no-current-status">
+									<span>Available / Present for Duty</span>
+								</div>
+							{/if}
 						</div>
 
-						{#if upcomingStatuses().length > 0}
-							<div class="statuses-list">
-								{#each upcomingStatuses() as entry (entry.id)}
-									<button
-										class="status-card"
-										onclick={() => canEdit && openEditStatus(entry)}
-										disabled={!canEdit}
-									>
-										<div class="status-card-header">
-											<span
-												class="status-type-badge"
-												style="background-color: {getStatusTypeColor(entry.statusTypeId)}; color: {getStatusTypeTextColor(entry.statusTypeId)}"
-											>
-												{getStatusTypeName(entry.statusTypeId)}
-											</span>
-										</div>
-										<div class="status-dates">
-											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-												<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-												<line x1="16" y1="2" x2="16" y2="6" />
-												<line x1="8" y1="2" x2="8" y2="6" />
-												<line x1="3" y1="10" x2="21" y2="10" />
-											</svg>
-											{formatDateRange(entry.startDate, entry.endDate)}
-										</div>
-									</button>
-								{/each}
+						<!-- Upcoming Statuses -->
+						<div class="upcoming-statuses-section">
+							<div class="statuses-header">
+								<h3>Upcoming (Next 3 Months)</h3>
+								<span class="status-count">{upcomingStatuses().length} {upcomingStatuses().length === 1 ? 'status' : 'statuses'}</span>
 							</div>
-						{:else}
-							<div class="empty-state small">
-								<p>No upcoming statuses scheduled.</p>
-							</div>
-						{/if}
+
+							{#if upcomingStatuses().length > 0}
+								<div class="statuses-list">
+									{#each upcomingStatuses() as entry (entry.id)}
+										<button
+											class="status-card"
+											onclick={() => canEdit && openEditStatus(entry)}
+											disabled={!canEdit}
+										>
+											<div class="status-card-header">
+												<span
+													class="status-type-badge"
+													style="background-color: {getStatusTypeColor(entry.statusTypeId)}; color: {getStatusTypeTextColor(entry.statusTypeId)}"
+												>
+													{getStatusTypeName(entry.statusTypeId)}
+												</span>
+											</div>
+											<div class="status-dates">
+												<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+													<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+													<line x1="16" y1="2" x2="16" y2="6" />
+													<line x1="8" y1="2" x2="8" y2="6" />
+													<line x1="3" y1="10" x2="21" y2="10" />
+												</svg>
+												{formatDateRange(entry.startDate, entry.endDate)}
+											</div>
+										</button>
+									{/each}
+								</div>
+							{:else}
+								<div class="empty-state small">
+									<p>No upcoming statuses scheduled.</p>
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
-			{:else if activeTab === 'training'}
-				<div class="training-tab">
-					<div class="training-header">
-						<h3>Training Status</h3>
+
+				<!-- Training Card -->
+				<div class="card">
+					<div class="card-header">
+						<h3>Training</h3>
 						<div class="training-legend">
 							<span class="legend-item" style="--color: {TRAINING_STATUS_COLORS['current']}">Current</span>
 							<span class="legend-item" style="--color: {TRAINING_STATUS_COLORS['warning-yellow']}">Warning</span>
@@ -539,169 +489,178 @@
 							<span class="legend-item" style="--color: {TRAINING_STATUS_COLORS['not-completed']}">Not Done</span>
 						</div>
 					</div>
-
-					{#if trainingStatuses().length > 0}
-						<div class="training-grid">
-							{#each trainingStatuses() as item (item.type.id)}
-								<button
-									class="training-card"
-									onclick={() => canEdit && openEditTraining(item.type)}
-									disabled={!canEdit}
-									style="--status-color: {item.statusInfo.color}"
-								>
-									<div class="training-card-header">
-										<span class="training-name">{item.type.name}</span>
-										<span class="training-status-badge" style="background-color: {item.statusInfo.color}">
-											{item.statusInfo.label}
-										</span>
-									</div>
-									{#if item.training?.completionDate}
-										<div class="training-dates">
-											<span class="completion-date">
-												Completed: {formatDate(item.training.completionDate)}
+					<div class="card-body">
+						{#if trainingStatuses().length > 0}
+							<div class="training-grid">
+								{#each trainingStatuses() as item (item.type.id)}
+									<button
+										class="training-card"
+										onclick={() => canEdit && openEditTraining(item.type)}
+										disabled={!canEdit}
+										style="--status-color: {item.statusInfo.color}"
+									>
+										<div class="training-card-header">
+											<span class="training-name">{item.type.name}</span>
+											<span class="training-status-badge" style="background-color: {item.statusInfo.color}">
+												{item.statusInfo.label}
 											</span>
-											{#if item.training.expirationDate}
-												<span class="expiration-date">
-													Expires: {formatDate(item.training.expirationDate)}
+										</div>
+										{#if item.training?.completionDate}
+											<div class="training-dates">
+												<span class="completion-date">
+													Completed: {formatDate(item.training.completionDate)}
 												</span>
+												{#if item.training.expirationDate}
+													<span class="expiration-date">
+														Expires: {formatDate(item.training.expirationDate)}
+													</span>
+												{/if}
+											</div>
+										{:else if item.statusInfo.status !== 'not-required'}
+											<div class="training-dates">
+												<span class="no-completion">Not completed</span>
+											</div>
+										{/if}
+										{#if item.training?.notes}
+											<div class="training-notes">{item.training.notes}</div>
+										{/if}
+									</button>
+								{/each}
+							</div>
+						{:else}
+							<div class="empty-state">
+								<p>No training types configured.</p>
+								<p>Training types can be set up in the Training section.</p>
+							</div>
+						{/if}
+					</div>
+				</div>
+			</div>
+
+			<div class="dashboard-row bottom-row">
+				<!-- Counselings Card -->
+				<div class="card">
+					<div class="card-header">
+						<h3>Counselings ({counselingRecords.length})</h3>
+						{#if canEdit}
+							<button class="btn btn-sm btn-primary" onclick={openNewCounseling}>+ New</button>
+						{/if}
+					</div>
+					<div class="card-body">
+						{#if counselingRecords.length > 0}
+							<div class="records-list">
+								{#each counselingRecords as record (record.id)}
+									<button
+										class="record-card"
+										onclick={() => canEdit && openEditCounseling(record)}
+										disabled={!canEdit}
+									>
+										<div class="record-header">
+											<span
+												class="record-type"
+												style="background-color: {getCounselingTypeColor(record.counselingTypeId)}"
+											>
+												{getCounselingTypeName(record.counselingTypeId)}
+											</span>
+											<span class="record-date">{formatDate(record.dateConducted)}</span>
+											<span
+												class="record-status"
+												style="background-color: {COUNSELING_STATUS_COLORS[record.status]}"
+											>
+												{COUNSELING_STATUS_LABELS[record.status]}
+											</span>
+										</div>
+										<h4 class="record-subject">{record.subject}</h4>
+										{#if record.keyPoints}
+											<p class="record-preview">{record.keyPoints.slice(0, 150)}...</p>
+										{/if}
+										<div class="record-footer">
+											{#if record.followUpDate}
+												<span class="follow-up">Follow-up: {formatDate(record.followUpDate)}</span>
+											{/if}
+											<span class="signatures">
+												{#if record.counselorSigned}
+													<span class="signed">Counselor</span>
+												{/if}
+												{#if record.soldierSigned}
+													<span class="signed">Soldier</span>
+												{/if}
+											</span>
+										</div>
+									</button>
+								{/each}
+							</div>
+						{:else}
+							<div class="empty-state">
+								<p>No counseling records yet.</p>
+								{#if canEdit}
+									<p>Click "+ New" to add the first counseling record.</p>
+								{/if}
+							</div>
+						{/if}
+					</div>
+				</div>
+
+				<!-- Goals Card -->
+				<div class="card">
+					<div class="card-header">
+						<h3>Goals ({developmentGoals.length})</h3>
+						{#if canEdit}
+							<button class="btn btn-sm btn-primary" onclick={openNewGoal}>+ New</button>
+						{/if}
+					</div>
+					<div class="card-body">
+						{#if developmentGoals.length > 0}
+							<div class="goals-list">
+								{#each developmentGoals as goal (goal.id)}
+									<button
+										class="goal-card"
+										onclick={() => canEdit && openEditGoal(goal)}
+										disabled={!canEdit}
+									>
+										<div class="goal-header">
+											<span
+												class="goal-category"
+												style="background-color: {GOAL_CATEGORY_COLORS[goal.category]}"
+											>
+												{GOAL_CATEGORY_LABELS[goal.category]}
+											</span>
+											<span
+												class="goal-priority"
+												style="color: {GOAL_PRIORITY_COLORS[goal.priority]}"
+											>
+												{GOAL_PRIORITY_LABELS[goal.priority]}
+											</span>
+										</div>
+										<h4 class="goal-title">{goal.title}</h4>
+										{#if goal.description}
+											<p class="goal-description">{goal.description}</p>
+										{/if}
+										<div class="goal-footer">
+											<span
+												class="goal-status"
+												style="background-color: {GOAL_STATUS_COLORS[goal.status]}"
+											>
+												{GOAL_STATUS_LABELS[goal.status]}
+											</span>
+											{#if goal.targetDate}
+												<span class="goal-target">Target: {formatDate(goal.targetDate)}</span>
 											{/if}
 										</div>
-									{:else if item.statusInfo.status !== 'not-required'}
-										<div class="training-dates">
-											<span class="no-completion">Not completed</span>
-										</div>
-									{/if}
-									{#if item.training?.notes}
-										<div class="training-notes">{item.training.notes}</div>
-									{/if}
-								</button>
-							{/each}
-						</div>
-					{:else}
-						<div class="empty-state">
-							<p>No training types configured.</p>
-							<p>Training types can be set up in the Training section.</p>
-						</div>
-					{/if}
+									</button>
+								{/each}
+							</div>
+						{:else}
+							<div class="empty-state">
+								<p>No development goals yet.</p>
+								{#if canEdit}
+									<p>Click "+ New" to add career, education, or personal goals.</p>
+								{/if}
+							</div>
+						{/if}
+					</div>
 				</div>
-			{:else if activeTab === 'counselings'}
-				<div class="counselings-tab">
-					{#if canEdit}
-						<div class="tab-actions">
-							<button class="btn btn-primary" onclick={openNewCounseling}>New Counseling</button>
-						</div>
-					{/if}
-
-					{#if counselingRecords.length > 0}
-						<div class="records-list">
-							{#each counselingRecords as record (record.id)}
-								<button
-									class="record-card"
-									onclick={() => canEdit && openEditCounseling(record)}
-									disabled={!canEdit}
-								>
-									<div class="record-header">
-										<span
-											class="record-type"
-											style="background-color: {getCounselingTypeColor(record.counselingTypeId)}"
-										>
-											{getCounselingTypeName(record.counselingTypeId)}
-										</span>
-										<span class="record-date">{formatDate(record.dateConducted)}</span>
-										<span
-											class="record-status"
-											style="background-color: {COUNSELING_STATUS_COLORS[record.status]}"
-										>
-											{COUNSELING_STATUS_LABELS[record.status]}
-										</span>
-									</div>
-									<h4 class="record-subject">{record.subject}</h4>
-									{#if record.keyPoints}
-										<p class="record-preview">{record.keyPoints.slice(0, 150)}...</p>
-									{/if}
-									<div class="record-footer">
-										{#if record.followUpDate}
-											<span class="follow-up">Follow-up: {formatDate(record.followUpDate)}</span>
-										{/if}
-										<span class="signatures">
-											{#if record.counselorSigned}
-												<span class="signed">Counselor</span>
-											{/if}
-											{#if record.soldierSigned}
-												<span class="signed">Soldier</span>
-											{/if}
-										</span>
-									</div>
-								</button>
-							{/each}
-						</div>
-					{:else}
-						<div class="empty-state">
-							<p>No counseling records yet.</p>
-							{#if canEdit}
-								<p>Click "New Counseling" to add the first counseling record.</p>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			{:else if activeTab === 'goals'}
-				<div class="goals-tab">
-					{#if canEdit}
-						<div class="tab-actions">
-							<button class="btn btn-primary" onclick={openNewGoal}>New Goal</button>
-						</div>
-					{/if}
-
-					{#if developmentGoals.length > 0}
-						<div class="goals-list">
-							{#each developmentGoals as goal (goal.id)}
-								<button
-									class="goal-card"
-									onclick={() => canEdit && openEditGoal(goal)}
-									disabled={!canEdit}
-								>
-									<div class="goal-header">
-										<span
-											class="goal-category"
-											style="background-color: {GOAL_CATEGORY_COLORS[goal.category]}"
-										>
-											{GOAL_CATEGORY_LABELS[goal.category]}
-										</span>
-										<span
-											class="goal-priority"
-											style="color: {GOAL_PRIORITY_COLORS[goal.priority]}"
-										>
-											{GOAL_PRIORITY_LABELS[goal.priority]}
-										</span>
-									</div>
-									<h4 class="goal-title">{goal.title}</h4>
-									{#if goal.description}
-										<p class="goal-description">{goal.description}</p>
-									{/if}
-									<div class="goal-footer">
-										<span
-											class="goal-status"
-											style="background-color: {GOAL_STATUS_COLORS[goal.status]}"
-										>
-											{GOAL_STATUS_LABELS[goal.status]}
-										</span>
-										{#if goal.targetDate}
-											<span class="goal-target">Target: {formatDate(goal.targetDate)}</span>
-										{/if}
-									</div>
-								</button>
-							{/each}
-						</div>
-					{:else}
-						<div class="empty-state">
-							<p>No development goals yet.</p>
-							{#if canEdit}
-								<p>Click "New Goal" to add career, education, or personal goals.</p>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			{/if}
+			</div>
 		</main>
 	</div>
 </div>
@@ -806,55 +765,68 @@
 		font-size: var(--font-size-sm);
 	}
 
-	.tabs {
-		display: flex;
-		background: var(--color-surface);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.tab {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-md) var(--spacing-lg);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		color: var(--color-text-muted);
-		background: transparent;
-		border: none;
-		border-bottom: 2px solid transparent;
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.tab:hover {
-		color: var(--color-text);
-	}
-
-	.tab.active {
-		color: var(--color-primary);
-		border-bottom-color: var(--color-primary);
-	}
-
-	.tab svg {
-		width: 18px;
-		height: 18px;
-	}
-
-	.view-content {
+.view-content {
 		flex: 1;
 		overflow-y: auto;
 		padding: var(--spacing-lg);
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-lg);
 	}
 
-	.tab-actions {
-		margin-bottom: var(--spacing-lg);
+	.dashboard-row {
+		display: grid;
+		gap: var(--spacing-lg);
+	}
+
+	.top-row {
+		grid-template-columns: repeat(3, 1fr);
+	}
+
+	.bottom-row {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.card {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		max-height: 480px;
+	}
+
+	.card-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--spacing-md) var(--spacing-lg);
+		border-bottom: 1px solid var(--color-border);
+		flex-shrink: 0;
+	}
+
+	.card-header h3 {
+		font-size: var(--font-size-base);
+		font-weight: 600;
+		margin: 0;
+	}
+
+	.card-body {
+		overflow-y: auto;
+		padding: var(--spacing-md) var(--spacing-lg);
+		flex: 1;
+	}
+
+	.btn-sm {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-sm);
 	}
 
 	.info-sections {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-		gap: var(--spacing-lg);
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-md);
 	}
 
 	.info-section {
@@ -864,11 +836,7 @@
 		border: 1px solid var(--color-border);
 	}
 
-	.info-section.full-width {
-		grid-column: 1 / -1;
-	}
-
-	.info-section h3 {
+.info-section h3 {
 		font-size: var(--font-size-sm);
 		font-weight: 600;
 		color: var(--color-text-muted);
@@ -1189,22 +1157,6 @@
 		height: 16px;
 	}
 
-	/* Training Tab Styles */
-	.training-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: var(--spacing-lg);
-		flex-wrap: wrap;
-		gap: var(--spacing-sm);
-	}
-
-	.training-header h3 {
-		font-size: var(--font-size-base);
-		font-weight: 600;
-		margin: 0;
-	}
-
 	.training-legend {
 		display: flex;
 		gap: var(--spacing-md);
@@ -1306,6 +1258,12 @@
 		-webkit-box-orient: vertical;
 	}
 
+	@media (max-width: 1024px) {
+		.top-row {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
 	@media (max-width: 640px) {
 		.view-header {
 			padding: var(--spacing-sm) var(--spacing-md);
@@ -1315,21 +1273,18 @@
 			font-size: var(--font-size-lg);
 		}
 
-		.tabs {
-			overflow-x: auto;
-		}
-
-		.tab {
-			padding: var(--spacing-sm) var(--spacing-md);
-			white-space: nowrap;
-		}
-
 		.view-content {
 			padding: var(--spacing-md);
 		}
 
-		.info-sections {
+		.top-row,
+		.bottom-row {
 			grid-template-columns: 1fr;
 		}
+
+		.card {
+			max-height: none;
+		}
+
 	}
 </style>

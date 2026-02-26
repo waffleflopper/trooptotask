@@ -4,7 +4,7 @@
 
 	interface Props {
 		trainingTypes: TrainingType[];
-		onUpdate: (id: string, data: Partial<Omit<TrainingType, 'id'>>) => Promise<boolean>;
+		onUpdate: (id: string, data: Partial<Omit<TrainingType, 'id'>>) => Promise<void>;
 		onClose: () => void;
 	}
 

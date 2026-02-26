@@ -227,7 +227,4 @@
 		gap: var(--spacing-xs);
 	}
 
-	.spacer {
-		flex: 1;
-	}
 </style>

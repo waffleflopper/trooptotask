@@ -2,6 +2,7 @@
 	import type { Personnel, StatusType, AvailabilityEntry } from '../types';
 	import { formatDate } from '../utils/dates';
 	import Modal from './Modal.svelte';
+	import Badge from './ui/Badge.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -156,12 +157,7 @@
 			<h4>Current Status</h4>
 			{#each localEntries as entry (entry.id)}
 				<div class="entry-item" class:is-editing={editingEntry?.id === entry.id}>
-					<span
-						class="status-badge"
-						style="background-color: {getStatusColor(entry.statusTypeId)}; color: {getStatusTextColor(entry.statusTypeId)}"
-					>
-						{getStatusName(entry.statusTypeId)}
-					</span>
+					<Badge label={getStatusName(entry.statusTypeId)} color={getStatusColor(entry.statusTypeId)} textColor={getStatusTextColor(entry.statusTypeId)} />
 					<div class="entry-details">
 						<span class="entry-dates">{formatEntryDates(entry)}</span>
 						<span class="entry-days">
@@ -215,12 +211,7 @@
 				{#if selectedStatusId}
 					{@const selectedStatus = statusTypes.find((s) => s.id === selectedStatusId)}
 					{#if selectedStatus}
-						<span
-							class="status-badge preview-badge"
-							style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-						>
-							{selectedStatus.name}
-						</span>
+						<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
 					{/if}
 				{/if}
 			</div>
@@ -363,10 +354,6 @@
 		flex: 1;
 	}
 
-	.preview-badge {
-		flex-shrink: 0;
-	}
-
 	.date-range {
 		display: flex;
 		align-items: center;
@@ -416,14 +403,6 @@
 		padding: var(--spacing-xs) var(--spacing-sm);
 		background: #fef2f2;
 		border-radius: var(--radius-sm);
-	}
-
-	.status-badge {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		white-space: nowrap;
 	}
 
 	.add-section {

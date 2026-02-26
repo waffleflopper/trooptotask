@@ -4,6 +4,8 @@
 	import { availabilityStore } from '$lib/stores/availability.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import Modal from './Modal.svelte';
+	import Badge from './ui/Badge.svelte';
+	import Spinner from './ui/Spinner.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -95,12 +97,7 @@
 		</select>
 		{#if selectedStatus}
 			<div class="status-preview">
-				<span
-					class="status-badge"
-					style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-				>
-					{selectedStatus.name}
-				</span>
+				<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
 			</div>
 		{/if}
 	</div>
@@ -131,7 +128,7 @@
 		{#if isEditing}
 			<button class="btn btn-danger" onclick={handleDelete} disabled={isDeleting || isSubmitting}>
 				{#if isDeleting}
-					<span class="spinner"></span>
+					<Spinner />
 					Deleting...
 				{:else}
 					Delete
@@ -142,7 +139,7 @@
 			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 			<button class="btn btn-primary" disabled={!isValid || isSubmitting} onclick={handleSubmit}>
 				{#if isSubmitting}
-					<span class="spinner"></span>
+					<Spinner />
 					{isEditing ? 'Saving...' : 'Adding...'}
 				{:else}
 					{isEditing ? 'Save Changes' : 'Add Status'}
@@ -174,14 +171,6 @@
 
 	.status-preview {
 		margin-top: var(--spacing-sm);
-	}
-
-	.status-badge {
-		display: inline-block;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		font-weight: 500;
-		font-size: var(--font-size-sm);
 	}
 
 	.dates-row {
@@ -250,20 +239,4 @@
 		background: #b91c1c;
 	}
 
-	.spinner {
-		display: inline-block;
-		width: 14px;
-		height: 14px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		border-radius: 50%;
-		border-top-color: white;
-		animation: spin 0.8s linear infinite;
-		margin-right: var(--spacing-xs);
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
 </style>

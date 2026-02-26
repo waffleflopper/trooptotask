@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import Badge from './ui/Badge.svelte';
 	import type {
 		OrganizationMember,
 		OrganizationMemberPermissions,
@@ -159,7 +160,7 @@
 
 						<div class="member-actions">
 							{#if member.role === 'owner'}
-								<span class="role-badge owner">Owner</span>
+								<Badge label="Owner" color="var(--color-primary)" />
 							{:else if canManageMembers}
 								<form
 									method="POST"
@@ -220,7 +221,7 @@
 									</button>
 								</form>
 							{:else}
-								<span class="role-badge">{getPresetLabel(preset)}</span>
+								<Badge label={getPresetLabel(preset)} color="var(--color-border)" textColor="var(--color-text)" />
 							{/if}
 
 							{#if isOwner && member.role !== 'owner'}
@@ -542,20 +543,6 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
-	}
-
-	.role-badge {
-		font-size: var(--font-size-sm);
-		padding: 2px 8px;
-		border-radius: var(--radius-sm);
-		font-weight: 500;
-		background: var(--color-border);
-		color: var(--color-text);
-	}
-
-	.role-badge.owner {
-		background: var(--color-primary);
-		color: white;
 	}
 
 	.preset-form {

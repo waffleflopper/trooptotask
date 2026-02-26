@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { StatusType } from '../types';
+	import Badge from './ui/Badge.svelte';
+	import EmptyState from './ui/EmptyState.svelte';
 
 	interface Props {
 		statusTypes: StatusType[];
@@ -103,12 +105,7 @@
 						</label>
 					</div>
 					{#if canAdd}
-						<span
-							class="preview-badge"
-							style="background-color: {newColor}; color: {newTextColor}"
-						>
-							{newName}
-						</span>
+						<Badge label={newName} color={newColor} textColor={newTextColor} />
 					{/if}
 					<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!canAdd}>
 						Add
@@ -120,9 +117,7 @@
 			<div class="status-list-section">
 				<h4>Existing Status Types ({statusTypes.length})</h4>
 				{#if statusTypes.length === 0}
-					<div class="empty-state">
-						No status types yet. Add one above to get started.
-					</div>
+					<EmptyState message="No status types yet. Add one above to get started." />
 				{:else}
 					<div class="status-list">
 						{#each statusTypes as status (status.id)}
@@ -145,12 +140,7 @@
 												<input type="color" bind:value={editTextColor} />
 											</label>
 										</div>
-										<span
-											class="preview-badge"
-											style="background-color: {editColor}; color: {editTextColor}"
-										>
-											{editName || 'Preview'}
-										</span>
+										<Badge label={editName || 'Preview'} color={editColor} textColor={editTextColor} />
 										<div class="edit-actions">
 											<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
 											<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
@@ -158,12 +148,7 @@
 									</div>
 								{:else}
 									<div class="status-display">
-										<span
-											class="status-badge"
-											style="background-color: {status.color}; color: {status.textColor}"
-										>
-											{status.name}
-										</span>
+										<Badge label={status.name} color={status.color} textColor={status.textColor} />
 									</div>
 									<div class="status-actions">
 										<button
@@ -271,26 +256,9 @@
 		padding: 0;
 	}
 
-	.preview-badge,
-	.status-badge {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		white-space: nowrap;
-	}
-
 	/* Status List */
 	.status-list-section {
 		flex: 1;
-	}
-
-	.empty-state {
-		text-align: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-xl);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
 	}
 
 	.status-list {

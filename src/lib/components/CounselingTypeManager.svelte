@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import type { CounselingType, CounselingRecurrence } from '$lib/types/leadersBook';
 	import Badge from './ui/Badge.svelte';
 	import EmptyState from './ui/EmptyState.svelte';
+	import FileUpload from './ui/FileUpload.svelte';
 	import { COUNSELING_RECURRENCE_LABELS } from '$lib/types/leadersBook';
 
 	interface Props {
@@ -14,19 +16,24 @@
 
 	let { counselingTypes, onAdd, onUpdate, onRemove, onClose }: Props = $props();
 
+	const orgId = $page.params.orgId!;
+
 	// New type form
 	let newName = $state('');
 	let newDescription = $state('');
 	let newTemplateContent = $state('');
+	let newTemplateFilePath = $state<string | null>(null);
 	let newRecurrence = $state<CounselingRecurrence>('none');
 	let newColor = $state('#8b5cf6');
 	let newIsFreeform = $state(false);
+	let newUploadId = $state(crypto.randomUUID());
 
 	// Edit form
 	let editingId = $state<string | null>(null);
 	let editName = $state('');
 	let editDescription = $state('');
 	let editTemplateContent = $state('');
+	let editTemplateFilePath = $state<string | null>(null);
 	let editRecurrence = $state<CounselingRecurrence>('none');
 	let editColor = $state('');
 	let editIsFreeform = $state(false);
@@ -37,6 +44,7 @@
 				name: newName.trim(),
 				description: newDescription.trim() || null,
 				templateContent: newTemplateContent.trim() || null,
+				templateFilePath: newTemplateFilePath,
 				recurrence: newRecurrence,
 				color: newColor,
 				isFreeform: newIsFreeform,
@@ -50,6 +58,8 @@
 		newName = '';
 		newDescription = '';
 		newTemplateContent = '';
+		newTemplateFilePath = null;
+		newUploadId = crypto.randomUUID();
 		newRecurrence = 'none';
 		newColor = '#8b5cf6';
 		newIsFreeform = false;
@@ -60,6 +70,7 @@
 		editName = type.name;
 		editDescription = type.description ?? '';
 		editTemplateContent = type.templateContent ?? '';
+		editTemplateFilePath = type.templateFilePath ?? null;
 		editRecurrence = type.recurrence;
 		editColor = type.color;
 		editIsFreeform = type.isFreeform;
@@ -71,6 +82,7 @@
 				name: editName.trim(),
 				description: editDescription.trim() || null,
 				templateContent: editTemplateContent.trim() || null,
+				templateFilePath: editTemplateFilePath,
 				recurrence: editRecurrence,
 				color: editColor,
 				isFreeform: editIsFreeform
@@ -107,6 +119,7 @@
 				name: d.name,
 				description: d.description,
 				templateContent: null,
+				templateFilePath: null,
 				recurrence: d.recurrence,
 				color: d.color,
 				isFreeform: d.isFreeform ?? false,
@@ -189,6 +202,14 @@
 								rows="4"
 							></textarea>
 						</div>
+						<FileUpload
+							filePath={newTemplateFilePath}
+							{orgId}
+							storagePath="templates/{newUploadId}"
+							onUpload={(path: string) => (newTemplateFilePath = path)}
+							onRemove={() => (newTemplateFilePath = null)}
+							label="Template PDF (optional)"
+						/>
 					{/if}
 
 					<button class="btn btn-primary" onclick={handleAdd} disabled={!newName.trim()}>
@@ -254,6 +275,14 @@
 												rows="3"
 											></textarea>
 										</div>
+										<FileUpload
+											filePath={editTemplateFilePath}
+											{orgId}
+											storagePath="templates/{editingId}"
+											onUpload={(path) => (editTemplateFilePath = path)}
+											onRemove={() => (editTemplateFilePath = null)}
+											label="Template PDF (optional)"
+										/>
 									{/if}
 
 									<div class="edit-actions">
@@ -269,6 +298,9 @@
 									{/if}
 									{#if type.isFreeform}
 										<Badge label="Freeform" variant="outlined" />
+									{/if}
+									{#if type.templateContent || type.templateFilePath}
+										<span class="type-meta">Has template</span>
 									{/if}
 								</div>
 								<div class="type-actions">

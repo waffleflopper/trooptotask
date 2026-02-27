@@ -33,6 +33,7 @@ export interface CounselingType {
 	name: string;
 	description: string | null;
 	templateContent: string | null;
+	templateFilePath: string | null;
 	recurrence: CounselingRecurrence;
 	color: string;
 	isFreeform: boolean;
@@ -53,6 +54,8 @@ export interface CounselingRecord {
 	subject: string;
 	keyPoints: string | null;
 	planOfAction: string | null;
+	notes: string | null;
+	filePath: string | null;
 	followUpDate: string | null;
 	status: CounselingStatus;
 	counselorSigned: boolean;

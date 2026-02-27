@@ -570,8 +570,11 @@
 											</span>
 										</div>
 										<h4 class="record-subject">{record.subject}</h4>
-										{#if record.keyPoints}
-											<p class="record-preview">{record.keyPoints.slice(0, 150)}...</p>
+										{#if record.filePath}
+											<p class="record-preview file-indicator">PDF attached</p>
+										{/if}
+										{#if record.notes}
+											<p class="record-preview">{record.notes.slice(0, 100)}</p>
 										{/if}
 										<div class="record-footer">
 											{#if record.followUpDate}
@@ -975,6 +978,11 @@
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
 		-webkit-box-orient: vertical;
+	}
+
+	.file-indicator {
+		color: var(--color-primary);
+		font-weight: 500;
 	}
 
 	.record-footer,

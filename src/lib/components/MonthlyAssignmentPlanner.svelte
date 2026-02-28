@@ -367,8 +367,8 @@
 		justify-content: center;
 		gap: var(--spacing-md);
 		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-primary);
-		color: white;
+		background: #0F0F0F;
+		color: #F0EDE6;
 	}
 
 	.month-nav h3 {
@@ -381,7 +381,7 @@
 	.month-nav .btn-secondary {
 		background: rgba(255, 255, 255, 0.1);
 		border-color: rgba(255, 255, 255, 0.2);
-		color: white;
+		color: #F0EDE6;
 	}
 
 	.month-nav .btn-secondary:hover {

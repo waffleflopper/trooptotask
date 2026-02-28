@@ -610,24 +610,27 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-primary);
-		color: white;
+		background: #0F0F0F;
+		color: #F0EDE6;
+		border-bottom: 1px solid #2A2A2A;
 	}
 
 	.page-header h1 {
+		font-family: var(--font-display);
 		font-size: var(--font-size-lg);
-		font-weight: 700;
+		font-weight: 400;
 	}
 
 	.mobile-menu-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 40px;
-		height: 40px;
-		border-radius: var(--radius-md);
-		background: rgba(255, 255, 255, 0.1);
-		color: white;
+		width: 36px;
+		height: 36px;
+		border-radius: 6px;
+		background: transparent;
+		border: 1px solid #2A2A2A;
+		color: #8A8780;
 	}
 
 	.mobile-menu-btn svg {
@@ -653,8 +656,9 @@
 	}
 
 	.dashboard-title h2 {
+		font-family: var(--font-display);
 		font-size: var(--font-size-2xl);
-		font-weight: 700;
+		font-weight: 400;
 		color: var(--color-text);
 		line-height: 1.2;
 	}
@@ -669,13 +673,14 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-xs);
+		font-family: var(--font-mono);
 		font-size: var(--font-size-sm);
 		color: var(--color-text-secondary);
 		white-space: nowrap;
 		padding: var(--spacing-xs) var(--spacing-sm);
 		background: var(--color-surface);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-1);
+		border-radius: 6px;
+		border: 1px solid var(--color-border);
 	}
 
 	.date-icon {
@@ -708,9 +713,9 @@
 	}
 
 	.quick-action:hover {
-		border-color: var(--color-primary);
-		color: var(--color-primary);
-		background: rgba(var(--color-primary-rgb), 0.04);
+		border-color: #B8943E;
+		color: #B8943E;
+		background: rgba(184, 148, 62, 0.06);
 		box-shadow: var(--shadow-2);
 	}
 
@@ -735,15 +740,18 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
-		font-size: var(--font-size-base);
-		font-weight: 600;
-		color: var(--color-text);
+		font-family: var(--font-mono);
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-text-secondary);
 	}
 
 	.card-header svg {
 		width: 18px;
 		height: 18px;
-		color: var(--color-primary);
+		color: #B8943E;
 		flex-shrink: 0;
 	}
 
@@ -763,8 +771,9 @@
 	}
 
 	.strength-value {
+		font-family: var(--font-mono);
 		font-size: 2.5rem;
-		font-weight: 700;
+		font-weight: 500;
 		color: var(--color-text);
 		line-height: 1;
 	}
@@ -775,6 +784,7 @@
 	}
 
 	.strength-divider {
+		font-family: var(--font-mono);
 		font-size: 2rem;
 		color: var(--color-text-muted);
 		line-height: 1;
@@ -782,10 +792,11 @@
 	}
 
 	.strength-label {
+		font-family: var(--font-mono);
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: 0.06em;
 		margin-top: 2px;
 	}
 
@@ -811,8 +822,9 @@
 	}
 
 	.strength-pct {
+		font-family: var(--font-mono);
 		font-size: var(--font-size-sm);
-		font-weight: 600;
+		font-weight: 500;
 		color: var(--color-text-secondary);
 		white-space: nowrap;
 	}
@@ -824,10 +836,11 @@
 	}
 
 	.status-chip {
+		font-family: var(--font-mono);
 		padding: 3px 10px;
 		border-radius: var(--radius-full);
 		font-size: var(--font-size-xs);
-		font-weight: 600;
+		font-weight: 500;
 	}
 
 	.empty-note {
@@ -850,10 +863,11 @@
 	}
 
 	.duty-badge {
+		font-family: var(--font-mono);
 		padding: 2px 10px;
 		border-radius: var(--radius-full);
 		font-size: var(--font-size-xs);
-		font-weight: 700;
+		font-weight: 500;
 		color: white;
 		white-space: nowrap;
 	}
@@ -897,15 +911,17 @@
 	}
 
 	.training-stat-value {
+		font-family: var(--font-mono);
 		font-size: 1.75rem;
-		font-weight: 700;
+		font-weight: 500;
 		line-height: 1;
 	}
 
 	.training-stat-label {
+		font-family: var(--font-mono);
 		font-size: 10px;
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: 0.06em;
 		color: var(--color-text-muted);
 		margin-top: 2px;
 		text-align: center;
@@ -921,9 +937,10 @@
 	}
 
 	.issues-label {
+		font-family: var(--font-mono);
 		font-size: var(--font-size-xs);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: 0.06em;
 		color: var(--color-text-muted);
 		margin-bottom: var(--spacing-xs);
 	}
@@ -951,8 +968,9 @@
 	}
 
 	.issue-badge {
+		font-family: var(--font-mono);
 		font-size: var(--font-size-xs);
-		font-weight: 600;
+		font-weight: 500;
 		padding: 2px 8px;
 		border-radius: var(--radius-full);
 		white-space: nowrap;
@@ -988,11 +1006,12 @@
 	}
 
 	.upcoming-date {
+		font-family: var(--font-mono);
 		font-size: var(--font-size-xs);
-		font-weight: 600;
+		font-weight: 500;
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-primary);
+		letter-spacing: 0.06em;
+		color: #B8943E;
 		padding: 2px 0;
 		border-bottom: 1px solid var(--color-divider);
 		margin-bottom: 2px;
@@ -1054,11 +1073,12 @@
 	.group-table th {
 		padding: var(--spacing-sm) var(--spacing-md);
 		text-align: left;
-		font-weight: 600;
+		font-family: var(--font-mono);
+		font-weight: 500;
 		color: var(--color-text-muted);
 		font-size: var(--font-size-xs);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: 0.06em;
 		white-space: nowrap;
 	}
 
@@ -1072,11 +1092,11 @@
 	}
 
 	.group-table tbody tr:hover {
-		background: rgba(var(--color-primary-rgb), 0.04);
+		background: rgba(184, 148, 62, 0.04);
 	}
 
 	.group-table tbody tr.pinned {
-		background: rgba(var(--color-primary-rgb), 0.06);
+		background: rgba(184, 148, 62, 0.06);
 	}
 
 	.col-group {
@@ -1106,25 +1126,27 @@
 	.pin-icon {
 		width: 10px;
 		height: 10px;
-		color: var(--color-primary);
+		color: #B8943E;
 		margin-right: 4px;
 		vertical-align: middle;
 	}
 
 	.table-chip {
+		font-family: var(--font-mono);
 		display: inline-block;
 		padding: 1px 8px;
 		border-radius: var(--radius-full);
 		font-size: var(--font-size-xs);
-		font-weight: 600;
+		font-weight: 500;
 	}
 
 	.pct-badge {
+		font-family: var(--font-mono);
 		display: inline-block;
 		padding: 2px 8px;
 		border-radius: var(--radius-full);
 		font-size: var(--font-size-xs);
-		font-weight: 600;
+		font-weight: 500;
 	}
 
 	.pct-badge.pct-high {

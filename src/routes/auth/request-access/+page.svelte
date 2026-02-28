@@ -42,6 +42,7 @@
 </svelte:head>
 
 <div class="auth-page">
+	<div class="auth-noise"></div>
 	<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 		{#if themeStore.isDark}
 			<svg viewBox="0 0 24 24" fill="currentColor">
@@ -55,17 +56,12 @@
 	</button>
 	<div class="auth-card">
 		<div class="brand">
-			<div class="logo">
-				<svg viewBox="0 0 24 24" fill="currentColor">
-					<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/>
-					<path d="M12 8v4l3 3"/>
-				</svg>
-			</div>
+			<div class="brand-mark">T2T</div>
 			<h1>Troop to Task</h1>
 			{#if submitted}
 				<p class="subtitle">Request submitted</p>
 			{:else}
-				<p class="subtitle">Request access</p>
+				<p class="subtitle">Personnel Management System</p>
 			{/if}
 		</div>
 
@@ -162,7 +158,7 @@
 	</div>
 
 	<footer class="auth-footer">
-		<p>Designed for Army Medical Units</p>
+		<p>Built for Army leaders, by Army leaders.</p>
 	</footer>
 </div>
 
@@ -173,14 +169,23 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		background: linear-gradient(135deg, var(--color-primary) 0%, #2c5282 100%);
+		background: #0F0F0F;
 		padding: var(--spacing-lg);
+	}
+
+	.auth-noise {
+		position: absolute;
+		inset: 0;
+		opacity: 0.03;
+		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+		background-size: 256px 256px;
+		pointer-events: none;
 	}
 
 	.auth-card {
 		background: var(--color-surface);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-lg);
+		border-radius: 12px;
+		box-shadow: 0 20px 60px rgba(0,0,0,0.4);
 		padding: var(--spacing-xl);
 		width: 100%;
 		max-width: 400px;
@@ -191,33 +196,34 @@
 		margin-bottom: var(--spacing-xl);
 	}
 
-	.logo {
-		width: 56px;
-		height: 56px;
-		margin: 0 auto var(--spacing-sm);
-		background: var(--color-primary);
-		border-radius: var(--radius-lg);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: white;
-	}
-
-	.logo svg {
-		width: 32px;
-		height: 32px;
+	.brand-mark {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		background: #B8943E;
+		color: #0F0F0F;
+		padding: 0.35rem 0.625rem;
+		border-radius: 5px;
+		display: inline-block;
+		margin-bottom: var(--spacing-sm);
+		line-height: 1;
 	}
 
 	.brand h1 {
-		font-size: var(--font-size-xl);
-		font-weight: 700;
-		color: var(--color-primary);
+		font-family: var(--font-display);
+		font-size: 1.5rem;
+		font-weight: 400;
+		color: var(--color-text);
 		margin-bottom: var(--spacing-xs);
 	}
 
 	.subtitle {
 		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
+		font-size: 0.6875rem;
+		font-family: var(--font-mono);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	.error-message {
@@ -348,8 +354,9 @@
 	.auth-footer {
 		margin-top: var(--spacing-xl);
 		text-align: center;
-		color: rgba(255, 255, 255, 0.7);
-		font-size: var(--font-size-sm);
+		color: rgba(255, 255, 255, 0.2);
+		font-size: 0.75rem;
+		position: relative;
 	}
 
 	.theme-toggle {
@@ -358,11 +365,10 @@
 		right: var(--spacing-lg);
 		width: 40px;
 		height: 40px;
-		border-radius: 50%;
-		background: rgba(255, 255, 255, 0.2);
-		backdrop-filter: blur(10px);
-		border: 1px solid rgba(255, 255, 255, 0.3);
-		color: white;
+		border-radius: 6px;
+		background: transparent;
+		border: 1px solid #2A2A2A;
+		color: #8A8780;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -371,17 +377,13 @@
 	}
 
 	.theme-toggle:hover {
-		background: rgba(255, 255, 255, 0.3);
-		transform: scale(1.05);
+		color: #F0EDE6;
+		border-color: #8A8780;
 	}
 
 	.theme-toggle svg {
-		width: 20px;
-		height: 20px;
-	}
-
-	:global([data-theme='dark']) .auth-page {
-		background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+		width: 16px;
+		height: 16px;
 	}
 
 	:global([data-theme='dark']) .error-message {

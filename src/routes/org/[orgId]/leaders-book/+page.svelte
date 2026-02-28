@@ -293,28 +293,32 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-primary);
-		color: white;
+		background: #0F0F0F;
+		color: #F0EDE6;
+		border-bottom: 1px solid #2A2A2A;
 	}
 
 	.page-header h1 {
+		font-family: var(--font-display);
 		font-size: var(--font-size-lg);
-		font-weight: 700;
+		font-weight: 400;
 	}
 
 	.mobile-menu-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 40px;
-		height: 40px;
-		border-radius: var(--radius-md);
-		background: rgba(255, 255, 255, 0.1);
-		color: white;
+		width: 36px;
+		height: 36px;
+		border-radius: 6px;
+		background: transparent;
+		border: 1px solid #2A2A2A;
+		color: #8A8780;
 	}
 
 	.mobile-menu-btn:hover {
-		background: rgba(255, 255, 255, 0.2);
+		border-color: #8A8780;
+		color: #F0EDE6;
 	}
 
 	.mobile-menu-btn svg {
@@ -331,8 +335,9 @@
 	}
 
 	.toolbar-header h2 {
+		font-family: var(--font-display);
 		font-size: var(--font-size-lg);
-		font-weight: 600;
+		font-weight: 400;
 		color: var(--color-text);
 		margin: 0;
 	}
@@ -376,12 +381,16 @@
 
 	.stat-value {
 		display: block;
+		font-family: var(--font-mono);
 		font-size: var(--font-size-lg);
-		font-weight: 700;
+		font-weight: 500;
 	}
 
 	.stat-label {
-		font-size: var(--font-size-sm);
+		font-family: var(--font-mono);
+		font-size: var(--font-size-xs);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
 		color: var(--color-text-muted);
 	}
 
@@ -481,7 +490,7 @@
 	}
 
 	.person-card:hover {
-		border-color: var(--color-primary);
+		border-color: #B8943E;
 		box-shadow: var(--shadow-2);
 		transform: translateY(-2px);
 	}
@@ -495,7 +504,7 @@
 
 	.person-rank {
 		font-weight: 700;
-		color: var(--color-primary);
+		color: #B8943E;
 	}
 
 	.person-name {
@@ -541,11 +550,11 @@
 	}
 
 	.person-stat.has-data {
-		color: var(--color-primary);
+		color: #B8943E;
 	}
 
 	.person-stat.has-data svg {
-		color: var(--color-primary);
+		color: #B8943E;
 	}
 
 	@media (max-width: 640px) {

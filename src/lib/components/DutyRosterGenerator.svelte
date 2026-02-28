@@ -945,7 +945,7 @@
 	.chip.selected {
 		background: var(--color-primary);
 		border-color: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.chip.status-chip.selected {
@@ -1062,7 +1062,7 @@
 		height: 18px;
 		padding: 0 4px;
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 		border-radius: var(--radius-full);
 		font-size: 10px;
 		font-weight: 700;

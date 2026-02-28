@@ -538,12 +538,12 @@
 		display: flex;
 		align-items: center;
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.group-collapse-btn {
 		padding: var(--spacing-sm);
-		color: white;
+		color: #0F0F0F;
 		opacity: 0.8;
 		transition: opacity 0.15s ease;
 	}
@@ -576,7 +576,7 @@
 
 	.group-checkbox-label input[type='checkbox'] {
 		cursor: pointer;
-		accent-color: white;
+		accent-color: #0F0F0F;
 	}
 
 	.group-name {

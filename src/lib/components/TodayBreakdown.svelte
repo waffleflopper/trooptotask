@@ -286,7 +286,7 @@
 		text-align: center;
 		padding: var(--spacing-md) var(--spacing-lg);
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	/* Stats Row */
@@ -369,7 +369,7 @@
 
 	.count {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 		font-size: var(--font-size-sm);
 		padding: 2px 8px;
 		border-radius: 10px;
@@ -483,7 +483,7 @@
 
 	.assignment-badge {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 		font-size: 9px;
 		font-weight: 700;
 		padding: 1px 4px;

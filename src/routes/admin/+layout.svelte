@@ -157,7 +157,7 @@
 
 	.nav-item.active {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.nav-item svg {

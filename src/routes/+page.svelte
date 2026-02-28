@@ -8,7 +8,7 @@
 			icon: 'calendar',
 			title: 'Visual Calendar',
 			description: 'See your entire unit\'s availability at a glance with color-coded statuses for leave, TDY, training, and more.',
-			highlight: true
+			lead: true
 		},
 		{
 			icon: 'users',
@@ -54,57 +54,69 @@
 
 	const roadmap = [
 		{
-			icon: 'book',
 			title: 'Digital Leaders Book',
 			description: 'Centralized soldier information, counseling records, and leader tools.',
-			status: 'In Development'
+			status: 'In Development',
+			statusClass: 'active'
 		},
 		{
-			icon: 'signup',
 			title: 'Event Sign-ups',
 			description: 'Coordinate range days, ACFT, and unit events with built-in sign-up sheets.',
-			status: 'Planned'
+			status: 'Planned',
+			statusClass: 'planned'
 		},
 		{
-			icon: 'bell',
 			title: 'Smart Notifications',
 			description: 'Get alerts for expiring training, coverage gaps, and assignment conflicts.',
-			status: 'Planned'
+			status: 'Planned',
+			statusClass: 'planned'
 		},
 		{
-			icon: 'mobile',
 			title: 'Mobile App',
 			description: 'Native iOS and Android apps for on-the-go access and push notifications.',
-			status: 'Exploring'
+			status: 'Exploring',
+			statusClass: 'exploring'
 		}
 	];
 
-	const stats = [
-		{ value: '100%', label: 'Free to Use' },
-		{ value: '< 5min', label: 'Setup Time' },
-		{ value: '24/7', label: 'Availability' }
-	];
+	function getFeatureIcon(icon: string) {
+		const icons: Record<string, string> = {
+			calendar: 'M3 4h18a2 2 0 012 2v14a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2zm13-2v4M8 2v4M1 10h22',
+			users: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm14 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75',
+			clipboard: 'M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M8 2h8a1 1 0 011 1v2a1 1 0 01-1 1H8a1 1 0 01-1-1V3a1 1 0 011-1zM9 14l2 2 4-4',
+			roster: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+			chart: 'M3 4h18a2 2 0 012 2v14a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2zM9 4v18M15 4v18M3 10h18M3 16h18',
+			certificate: 'M12 15a7 7 0 100-14 7 7 0 000 14zM8.21 13.89L7 23l5-3 5 3-1.21-9.12',
+			shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4',
+			building: 'M4 2h16a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2zM9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01',
+			download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3'
+		};
+		return icons[icon] || '';
+	}
 </script>
 
 <svelte:head>
-	<title>Troop to Task - Army Unit Personnel Management</title>
+	<title>Troop to Task — Army Unit Personnel Management</title>
 	<meta name="description" content="The complete personnel management solution for Army units. Visual calendars, training tracking, duty assignments, and team coordination in one tool." />
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </svelte:head>
 
 <div class="landing">
+	<!-- Classification Bar -->
+	<div class="classification-bar">
+		<span>TROOP TO TASK</span>
+		<span class="classification-sep">//</span>
+		<span>PERSONNEL MANAGEMENT SYSTEM</span>
+	</div>
+
 	<!-- Navigation -->
 	<nav class="nav">
 		<div class="nav-container">
 			<a href="/" class="nav-brand">
-				<div class="nav-logo">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-						<line x1="16" y1="2" x2="16" y2="6"/>
-						<line x1="8" y1="2" x2="8" y2="6"/>
-						<line x1="3" y1="10" x2="21" y2="10"/>
-					</svg>
-				</div>
-				<span>Troop to Task</span>
+				<div class="nav-mark">T2T</div>
+				<span class="nav-wordmark">Troop to Task</span>
 			</a>
 
 			<div class="nav-links">
@@ -112,40 +124,34 @@
 				<a href="#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<circle cx="12" cy="12" r="5"/>
-							<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
 						</svg>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
 						</svg>
 					{/if}
 				</button>
 				{#if data.user}
-					<a href="/dashboard?show=all" class="btn btn-primary">Dashboard</a>
+					<a href="/dashboard?show=all" class="nav-cta">Dashboard</a>
 				{:else}
-					<a href="/auth/login" class="btn btn-primary">Get Started</a>
+					<a href="/auth/login" class="nav-cta">Get Started</a>
 				{/if}
 			</div>
 
-			<!-- Mobile menu button -->
 			<div class="mobile-actions">
-				<button class="theme-toggle mobile" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
+				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<circle cx="12" cy="12" r="5"/>
-						</svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-						</svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
 					{/if}
 				</button>
 				{#if data.user}
-					<a href="/dashboard?show=all" class="btn btn-primary btn-sm">Dashboard</a>
+					<a href="/dashboard?show=all" class="nav-cta">Dashboard</a>
 				{:else}
-					<a href="/auth/login" class="btn btn-primary btn-sm">Sign In</a>
+					<a href="/auth/login" class="nav-cta">Sign In</a>
 				{/if}
 			</div>
 		</div>
@@ -153,129 +159,126 @@
 
 	<!-- Hero Section -->
 	<section class="hero">
-		<div class="hero-bg">
-			<div class="hero-gradient"></div>
-			<div class="hero-grid"></div>
-		</div>
+		<div class="hero-noise"></div>
 		<div class="hero-container">
 			<div class="hero-content">
-				<div class="hero-badge">
-					<span class="badge-dot"></span>
-					Built for Army Units
-				</div>
+				<p class="hero-eyebrow">Replace the whiteboard. Retire the spreadsheet.</p>
 				<h1 class="hero-title">
-					Personnel Management
-					<span class="hero-highlight">That Actually Works</span>
+					Personnel management<br />
+					<em>that actually works.</em>
 				</h1>
 				<p class="hero-subtitle">
-					Stop juggling spreadsheets, whiteboards, and group texts. Troop to Task gives you
-					a visual calendar, training tracker, and assignment planner — all in one place.
+					Troop to Task gives Army leaders a visual calendar, training tracker, and
+					assignment planner — one tool instead of five. Free, instant setup.
 				</p>
 				<div class="hero-actions">
 					{#if data.user}
-						<a href="/dashboard?show=all" class="btn btn-primary btn-lg">
+						<a href="/dashboard?show=all" class="hero-btn-primary">
 							Go to Dashboard
-							<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
-								<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
-							</svg>
+							<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
 						</a>
 					{:else}
-						<a href="/auth/login" class="btn btn-primary btn-lg">
+						<a href="/auth/login" class="hero-btn-primary">
 							Get Started Free
-							<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
-								<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
-							</svg>
+							<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
 						</a>
 					{/if}
-					<a href="#features" class="btn btn-glass btn-lg">
-						Explore Features
-					</a>
+					<a href="#features" class="hero-btn-ghost">See what's included</a>
 				</div>
 
-				<!-- Stats -->
-				<div class="hero-stats">
-					{#each stats as stat}
-						<div class="stat">
-							<span class="stat-value">{stat.value}</span>
-							<span class="stat-label">{stat.label}</span>
-						</div>
-					{/each}
+				<div class="hero-proof">
+					<div class="proof-item">
+						<span class="proof-value">Free</span>
+						<span class="proof-label">No credit card</span>
+					</div>
+					<div class="proof-divider"></div>
+					<div class="proof-item">
+						<span class="proof-value">5 min</span>
+						<span class="proof-label">Setup time</span>
+					</div>
+					<div class="proof-divider"></div>
+					<div class="proof-item">
+						<span class="proof-value">24/7</span>
+						<span class="proof-label">Availability</span>
+					</div>
 				</div>
 			</div>
 
-			<!-- Hero Visual - Bento Grid Preview -->
+			<!-- Dashboard Preview -->
 			<div class="hero-visual">
-				<div class="bento-grid">
-					<div class="bento-card bento-calendar">
-						<div class="bento-header">
-							<span class="bento-title">Calendar</span>
-							<span class="bento-badge">Live</span>
+				<div class="dashboard-preview">
+					<div class="dash-chrome">
+						<div class="dash-dots">
+							<span></span><span></span><span></span>
 						</div>
-						<div class="mini-calendar">
-							<div class="cal-row cal-header">
-								<span>M</span><span>T</span><span>W</span><span>T</span><span>F</span>
-							</div>
-							<div class="cal-row">
-								<span></span><span class="status leave"></span><span class="status leave"></span><span></span><span></span>
-							</div>
-							<div class="cal-row">
-								<span class="status tdy"></span><span class="status tdy"></span><span></span><span></span><span class="status appt"></span>
-							</div>
-							<div class="cal-row">
-								<span></span><span></span><span class="status school"></span><span class="status school"></span><span class="status school"></span>
-							</div>
-						</div>
+						<span class="dash-url">app.trooptotask.com</span>
 					</div>
-					<div class="bento-card bento-training">
-						<div class="bento-header">
-							<span class="bento-title">Training</span>
-						</div>
-						<div class="training-bars">
-							<div class="training-item">
-								<span class="training-name">Weapons Qual</span>
-								<div class="training-bar">
-									<div class="training-fill green" style="width: 85%"></div>
+					<div class="dash-body">
+						<div class="dash-panel dash-calendar">
+							<div class="dash-panel-head">
+								<span class="dash-panel-title">Calendar</span>
+								<span class="dash-live">LIVE</span>
+							</div>
+							<div class="mini-calendar">
+								<div class="cal-row cal-header">
+									<span>M</span><span>T</span><span>W</span><span>T</span><span>F</span>
+								</div>
+								<div class="cal-row">
+									<span class="cal-empty"></span><span class="cal-leave"></span><span class="cal-leave"></span><span class="cal-empty"></span><span class="cal-empty"></span>
+								</div>
+								<div class="cal-row">
+									<span class="cal-tdy"></span><span class="cal-tdy"></span><span class="cal-empty"></span><span class="cal-empty"></span><span class="cal-appt"></span>
+								</div>
+								<div class="cal-row">
+									<span class="cal-empty"></span><span class="cal-empty"></span><span class="cal-school"></span><span class="cal-school"></span><span class="cal-school"></span>
 								</div>
 							</div>
-							<div class="training-item">
-								<span class="training-name">ACFT</span>
-								<div class="training-bar">
-									<div class="training-fill yellow" style="width: 60%"></div>
+							<div class="cal-legend">
+								<span class="legend-item"><span class="legend-dot cal-leave"></span>Leave</span>
+								<span class="legend-item"><span class="legend-dot cal-tdy"></span>TDY</span>
+								<span class="legend-item"><span class="legend-dot cal-school"></span>School</span>
+								<span class="legend-item"><span class="legend-dot cal-appt"></span>Appt</span>
+							</div>
+						</div>
+						<div class="dash-panel dash-training">
+							<div class="dash-panel-head">
+								<span class="dash-panel-title">Training</span>
+							</div>
+							<div class="training-bars">
+								<div class="training-item">
+									<div class="training-meta"><span class="training-name">Weapons Qual</span><span class="training-pct">85%</span></div>
+									<div class="training-bar"><div class="training-fill fill-good" style="width: 85%"></div></div>
+								</div>
+								<div class="training-item">
+									<div class="training-meta"><span class="training-name">ACFT</span><span class="training-pct">60%</span></div>
+									<div class="training-bar"><div class="training-fill fill-warn" style="width: 60%"></div></div>
+								</div>
+								<div class="training-item">
+									<div class="training-meta"><span class="training-name">First Aid</span><span class="training-pct">25%</span></div>
+									<div class="training-bar"><div class="training-fill fill-crit" style="width: 25%"></div></div>
 								</div>
 							</div>
-							<div class="training-item">
-								<span class="training-name">First Aid</span>
-								<div class="training-bar">
-									<div class="training-fill red" style="width: 25%"></div>
-								</div>
+						</div>
+						<div class="dash-panel dash-duty">
+							<div class="dash-panel-head">
+								<span class="dash-panel-title">Today's Duty</span>
+							</div>
+							<div class="duty-list">
+								<div class="duty-row"><span class="duty-role">MOD</span><span class="duty-name">CPT Rodriguez</span></div>
+								<div class="duty-row"><span class="duty-role">CQ</span><span class="duty-name">SSG Thompson</span></div>
 							</div>
 						</div>
-					</div>
-					<div class="bento-card bento-roster">
-						<div class="bento-header">
-							<span class="bento-title">Today's Duty</span>
-						</div>
-						<div class="roster-list">
-							<div class="roster-item">
-								<span class="roster-role">MOD</span>
-								<span class="roster-name">CPT Rodriguez</span>
+						<div class="dash-panel dash-coverage">
+							<div class="dash-panel-head">
+								<span class="dash-panel-title">Coverage</span>
 							</div>
-							<div class="roster-item">
-								<span class="roster-role">CQ</span>
-								<span class="roster-name">SSG Thompson</span>
+							<div class="coverage-ring">
+								<svg viewBox="0 0 36 36">
+									<path class="ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+									<path class="ring-fill" stroke-dasharray="78, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+								</svg>
+								<span class="coverage-value">78%</span>
 							</div>
-						</div>
-					</div>
-					<div class="bento-card bento-stats">
-						<div class="bento-header">
-							<span class="bento-title">Coverage</span>
-						</div>
-						<div class="coverage-ring">
-							<svg viewBox="0 0 36 36">
-								<path class="ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
-								<path class="ring-fill" stroke-dasharray="78, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
-							</svg>
-							<span class="coverage-value">78%</span>
 						</div>
 					</div>
 				</div>
@@ -286,123 +289,48 @@
 	<!-- Features Section -->
 	<section id="features" class="features">
 		<div class="section-container">
-			<div class="section-header">
-				<span class="section-badge">Features</span>
-				<h2 class="section-title">Everything Your Unit Needs</h2>
-				<p class="section-subtitle">
-					Purpose-built tools designed by Army leaders, for Army leaders
-				</p>
-			</div>
+			<div class="section-label">Capabilities</div>
+			<h2 class="section-title">Everything your unit needs,<br /><em>nothing it doesn't.</em></h2>
 
 			<div class="features-grid">
 				{#each features as feature, i}
-					<div class="feature-card" class:highlight={feature.highlight}>
-						<div class="feature-icon">
-							{#if feature.icon === 'calendar'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-									<line x1="16" y1="2" x2="16" y2="6"/>
-									<line x1="8" y1="2" x2="8" y2="6"/>
-									<line x1="3" y1="10" x2="21" y2="10"/>
-								</svg>
-							{:else if feature.icon === 'users'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-									<circle cx="9" cy="7" r="4"/>
-									<path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-									<path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-								</svg>
-							{:else if feature.icon === 'clipboard'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-									<rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-									<path d="M9 14l2 2 4-4"/>
-								</svg>
-							{:else if feature.icon === 'roster'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-									<polyline points="14 2 14 8 20 8"/>
-									<line x1="16" y1="13" x2="8" y2="13"/>
-									<line x1="16" y1="17" x2="8" y2="17"/>
-									<polyline points="10 9 9 9 8 9"/>
-								</svg>
-							{:else if feature.icon === 'chart'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-									<line x1="9" y1="4" x2="9" y2="22"/>
-									<line x1="15" y1="4" x2="15" y2="22"/>
-									<line x1="3" y1="10" x2="21" y2="10"/>
-									<line x1="3" y1="16" x2="21" y2="16"/>
-								</svg>
-							{:else if feature.icon === 'certificate'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<circle cx="12" cy="8" r="7"/>
-									<polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
-								</svg>
-							{:else if feature.icon === 'shield'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-									<path d="M9 12l2 2 4-4"/>
-								</svg>
-							{:else if feature.icon === 'building'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<rect x="4" y="2" width="16" height="20" rx="2" ry="2"/>
-									<path d="M9 22v-4h6v4"/>
-									<line x1="8" y1="6" x2="8" y2="6"/>
-									<line x1="12" y1="6" x2="12" y2="6"/>
-									<line x1="16" y1="6" x2="16" y2="6"/>
-									<line x1="8" y1="10" x2="8" y2="10"/>
-									<line x1="12" y1="10" x2="12" y2="10"/>
-									<line x1="16" y1="10" x2="16" y2="10"/>
-								</svg>
-							{:else if feature.icon === 'download'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-									<polyline points="7 10 12 15 17 10"/>
-									<line x1="12" y1="15" x2="12" y2="3"/>
-								</svg>
-							{/if}
+					<div class="feature-card" class:feature-lead={feature.lead}>
+						<div class="feature-number">{String(i + 1).padStart(2, '0')}</div>
+						<div class="feature-body">
+							<h3 class="feature-title">{feature.title}</h3>
+							<p class="feature-description">{feature.description}</p>
 						</div>
-						<h3 class="feature-title">{feature.title}</h3>
-						<p class="feature-description">{feature.description}</p>
 					</div>
 				{/each}
 			</div>
 		</div>
 	</section>
 
-	<!-- How It Works -->
-	<section class="how-it-works">
+	<!-- How It Works — compact inline -->
+	<section class="onboarding">
 		<div class="section-container">
-			<div class="section-header">
-				<span class="section-badge">Getting Started</span>
-				<h2 class="section-title">Up and Running in Minutes</h2>
-				<p class="section-subtitle">No complex setup or training required</p>
-			</div>
-
-			<div class="steps-container">
-				<div class="steps-line"></div>
-				<div class="steps-grid">
-					<div class="step">
-						<div class="step-number">1</div>
-						<div class="step-content">
-							<h3>Create Your Organization</h3>
-							<p>Sign up and create your unit's workspace. It takes less than a minute.</p>
-						</div>
+			<div class="onboarding-track">
+				<div class="onboarding-step">
+					<span class="onboarding-num">01</span>
+					<div>
+						<strong>Create Your Organization</strong>
+						<p>Sign up and create your unit's workspace in under a minute.</p>
 					</div>
-					<div class="step">
-						<div class="step-number">2</div>
-						<div class="step-content">
-							<h3>Add Your Personnel</h3>
-							<p>Enter your roster manually or bulk import from any spreadsheet.</p>
-						</div>
+				</div>
+				<div class="onboarding-connector"></div>
+				<div class="onboarding-step">
+					<span class="onboarding-num">02</span>
+					<div>
+						<strong>Add Your Personnel</strong>
+						<p>Enter your roster manually or bulk import from any spreadsheet.</p>
 					</div>
-					<div class="step">
-						<div class="step-number">3</div>
-						<div class="step-content">
-							<h3>Start Tracking</h3>
-							<p>Log availability, assign duties, and monitor training in real-time.</p>
-						</div>
+				</div>
+				<div class="onboarding-connector"></div>
+				<div class="onboarding-step">
+					<span class="onboarding-num">03</span>
+					<div>
+						<strong>Start Tracking</strong>
+						<p>Log availability, assign duties, and monitor training — live.</p>
 					</div>
 				</div>
 			</div>
@@ -412,45 +340,24 @@
 	<!-- Roadmap Section -->
 	<section id="roadmap" class="roadmap">
 		<div class="section-container">
-			<div class="section-header">
-				<span class="section-badge accent">Roadmap</span>
-				<h2 class="section-title">What's Coming Next</h2>
-				<p class="section-subtitle">
-					We're actively building new features based on leader feedback
-				</p>
-			</div>
+			<div class="section-label">Roadmap</div>
+			<h2 class="section-title">What's coming next.</h2>
+			<p class="section-subtitle">Active development driven by leader feedback.</p>
 
-			<div class="roadmap-grid">
-				{#each roadmap as item}
-					<div class="roadmap-card">
-						<div class="roadmap-status">{item.status}</div>
-						<div class="roadmap-icon">
-							{#if item.icon === 'book'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-									<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-								</svg>
-							{:else if item.icon === 'signup'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-									<line x1="16" y1="2" x2="16" y2="6"/>
-									<line x1="8" y1="2" x2="8" y2="6"/>
-									<line x1="3" y1="10" x2="21" y2="10"/>
-								</svg>
-							{:else if item.icon === 'bell'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-									<path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-								</svg>
-							{:else if item.icon === 'mobile'}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-									<line x1="12" y1="18" x2="12.01" y2="18"/>
-								</svg>
+			<div class="roadmap-timeline">
+				{#each roadmap as item, i}
+					<div class="roadmap-entry">
+						<div class="roadmap-marker">
+							<div class="marker-dot {item.statusClass}"></div>
+							{#if i < roadmap.length - 1}
+								<div class="marker-line"></div>
 							{/if}
 						</div>
-						<h3 class="roadmap-title">{item.title}</h3>
-						<p class="roadmap-description">{item.description}</p>
+						<div class="roadmap-content">
+							<div class="roadmap-status-badge {item.statusClass}">{item.status}</div>
+							<h3 class="roadmap-title">{item.title}</h3>
+							<p class="roadmap-description">{item.description}</p>
+						</div>
 					</div>
 				{/each}
 			</div>
@@ -460,27 +367,19 @@
 	<!-- CTA Section -->
 	<section class="cta">
 		<div class="cta-container">
-			<div class="cta-content">
-				<h2 class="cta-title">Ready to streamline your unit?</h2>
-				<p class="cta-subtitle">Free to use. No credit card required. Get started in minutes.</p>
-				<div class="cta-actions">
-					{#if data.user}
-						<a href="/dashboard?show=all" class="btn btn-white btn-lg">
-							Go to Dashboard
-							<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
-								<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
-							</svg>
-						</a>
-					{:else}
-						<a href="/auth/login" class="btn btn-white btn-lg">
-							Get Started Free
-							<svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
-								<path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
-							</svg>
-						</a>
-					{/if}
-				</div>
-			</div>
+			<h2 class="cta-title">Ready to streamline<br /><em>your unit?</em></h2>
+			<p class="cta-subtitle">Free to use. No credit card. Set up in minutes.</p>
+			{#if data.user}
+				<a href="/dashboard?show=all" class="cta-btn">
+					Go to Dashboard
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+				</a>
+			{:else}
+				<a href="/auth/login" class="cta-btn">
+					Get Started Free
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+				</a>
+			{/if}
 		</div>
 	</section>
 
@@ -488,14 +387,7 @@
 	<footer class="footer">
 		<div class="footer-container">
 			<div class="footer-brand">
-				<div class="nav-logo small">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-						<line x1="16" y1="2" x2="16" y2="6"/>
-						<line x1="8" y1="2" x2="8" y2="6"/>
-						<line x1="3" y1="10" x2="21" y2="10"/>
-					</svg>
-				</div>
+				<div class="footer-mark">T2T</div>
 				<span>Troop to Task</span>
 			</div>
 			<div class="footer-links">
@@ -503,45 +395,76 @@
 				<a href="#features">Features</a>
 				<a href="#roadmap">Roadmap</a>
 			</div>
-			<p class="footer-text">Built for Army Units</p>
+			<p class="footer-text">Built for Army leaders, by Army leaders.</p>
 		</div>
 	</footer>
 </div>
 
 <style>
 	/* ============================================
-	   Landing Page - Modern Material Design
+	   Landing Page — "Operations Directive"
+	   Typography: Instrument Serif + DM Sans + DM Mono
 	   ============================================ */
 
 	.landing {
+		--font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+		--font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+		--font-mono: 'DM Mono', 'Menlo', monospace;
+		--brass: #B8943E;
+		--brass-light: #D4B15A;
+		--brass-muted: rgba(184, 148, 62, 0.15);
+		--ink: #0F0F0F;
+		--ink-light: #1A1A1A;
+		--ink-border: #2A2A2A;
+		--paper: #FAFAF8;
+		--paper-warm: #F5F4F0;
+		--hero-bg: var(--ink);
+		--hero-text: #F0EDE6;
+		--hero-muted: #8A8780;
 		min-height: 100vh;
 		background: var(--color-bg);
 		color: var(--color-text);
-		font-family: var(--font-family);
+		font-family: var(--font-body);
 		overflow-x: hidden;
 	}
 
-	/* Navigation */
-	.nav {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		z-index: 100;
-		background: rgba(250, 250, 250, 0.8);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
-		border-bottom: 1px solid var(--color-divider);
+	:global([data-theme='dark']) .landing {
+		--paper: var(--color-bg);
+		--paper-warm: var(--color-surface);
 	}
 
-	:global([data-theme='dark']) .nav {
-		background: rgba(18, 18, 18, 0.8);
+	/* ---- Classification Bar ---- */
+	.classification-bar {
+		background: var(--ink);
+		color: var(--hero-muted);
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		text-align: center;
+		padding: 0.375rem 1rem;
+		border-bottom: 1px solid var(--ink-border);
+	}
+
+	.classification-sep {
+		color: var(--brass);
+		margin: 0 0.75rem;
+	}
+
+	/* ---- Navigation ---- */
+	.nav {
+		position: sticky;
+		top: 0;
+		z-index: 100;
+		background: var(--ink);
+		border-bottom: 1px solid var(--ink-border);
 	}
 
 	.nav-container {
-		max-width: 1280px;
+		max-width: 1200px;
 		margin: 0 auto;
-		padding: 0.875rem 1.5rem;
+		padding: 0 2rem;
+		height: 56px;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -551,32 +474,26 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		font-weight: 600;
-		font-size: 1.25rem;
-		color: var(--color-text);
 		text-decoration: none;
+		color: var(--hero-text);
 	}
 
-	.nav-logo {
-		width: 40px;
-		height: 40px;
-		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-		border-radius: var(--radius-lg);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: white;
-		box-shadow: var(--shadow-1);
+	.nav-mark {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		background: var(--brass);
+		color: var(--ink);
+		padding: 0.3rem 0.5rem;
+		border-radius: 4px;
+		line-height: 1;
 	}
 
-	.nav-logo.small {
-		width: 32px;
-		height: 32px;
-	}
-
-	.nav-logo svg {
-		width: 20px;
-		height: 20px;
+	.nav-wordmark {
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		letter-spacing: -0.01em;
 	}
 
 	.nav-links {
@@ -586,15 +503,57 @@
 	}
 
 	.nav-link {
-		color: var(--color-text-secondary);
+		color: var(--hero-muted);
 		text-decoration: none;
-		font-size: 0.9375rem;
-		font-weight: 500;
-		transition: color var(--transition-fast);
+		font-size: 0.875rem;
+		font-weight: 400;
+		transition: color 0.15s;
+		letter-spacing: 0.01em;
 	}
 
 	.nav-link:hover {
-		color: var(--color-text);
+		color: var(--hero-text);
+	}
+
+	.theme-toggle {
+		width: 36px;
+		height: 36px;
+		border-radius: 6px;
+		border: 1px solid var(--ink-border);
+		background: transparent;
+		color: var(--hero-muted);
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.15s;
+	}
+
+	.theme-toggle:hover {
+		color: var(--hero-text);
+		border-color: var(--hero-muted);
+	}
+
+	.theme-toggle svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	.nav-cta {
+		font-family: var(--font-body);
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--ink);
+		background: var(--brass);
+		padding: 0.4rem 1rem;
+		border-radius: 6px;
+		text-decoration: none;
+		letter-spacing: 0.02em;
+		transition: all 0.15s;
+	}
+
+	.nav-cta:hover {
+		background: var(--brass-light);
 	}
 
 	.mobile-actions {
@@ -603,320 +562,249 @@
 		gap: 0.75rem;
 	}
 
-	.theme-toggle {
-		width: 44px;
-		height: 44px;
-		border-radius: var(--radius-full);
-		border: none;
-		background: var(--color-surface);
-		color: var(--color-text-secondary);
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all var(--transition-fast);
-		box-shadow: var(--shadow-1);
-	}
-
-	.theme-toggle:hover {
-		color: var(--color-text);
-		box-shadow: var(--shadow-2);
-		transform: scale(1.05);
-	}
-
-	.theme-toggle svg {
-		width: 20px;
-		height: 20px;
-	}
-
-	.theme-toggle.mobile {
-		width: 40px;
-		height: 40px;
-	}
-
-	/* Buttons */
-	.btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1.5rem;
-		border-radius: var(--radius-lg);
-		font-weight: 600;
-		font-size: 0.9375rem;
-		text-decoration: none;
-		transition: all var(--transition-fast);
-		border: none;
-		cursor: pointer;
-	}
-
-	.btn-primary {
-		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-		color: white;
-		box-shadow: var(--shadow-1);
-	}
-
-	.btn-primary:hover {
-		box-shadow: var(--shadow-2);
-		transform: translateY(-2px);
-	}
-
-	.btn-glass {
-		background: rgba(255, 255, 255, 0.1);
-		backdrop-filter: blur(10px);
-		color: var(--color-text);
-		border: 1px solid var(--color-divider);
-	}
-
-	.btn-glass:hover {
-		background: rgba(255, 255, 255, 0.15);
-		border-color: var(--color-border);
-	}
-
-	.btn-white {
-		background: white;
-		color: var(--color-primary);
-		box-shadow: var(--shadow-2);
-	}
-
-	.btn-white:hover {
-		box-shadow: var(--shadow-3);
-		transform: translateY(-2px);
-	}
-
-	.btn-lg {
-		padding: 1rem 2rem;
-		font-size: 1rem;
-		border-radius: var(--radius-xl);
-	}
-
-	.btn-sm {
-		padding: 0.5rem 1rem;
-		font-size: 0.875rem;
-	}
-
-	.btn-icon {
-		width: 18px;
-		height: 18px;
-	}
-
-	/* Hero */
+	/* ---- Hero ---- */
 	.hero {
 		position: relative;
-		min-height: 100vh;
-		display: flex;
-		align-items: center;
-		padding: 6rem 1.5rem 4rem;
-	}
-
-	.hero-bg {
-		position: absolute;
-		inset: 0;
+		background: var(--hero-bg);
+		padding: 6rem 2rem 5rem;
 		overflow: hidden;
-		z-index: 0;
 	}
 
-	.hero-gradient {
-		position: absolute;
-		top: -50%;
-		right: -20%;
-		width: 80%;
-		height: 100%;
-		background: radial-gradient(ellipse at center, rgba(var(--color-primary-rgb), 0.08) 0%, transparent 70%);
-		pointer-events: none;
-	}
-
-	.hero-grid {
+	.hero-noise {
 		position: absolute;
 		inset: 0;
-		background-image:
-			linear-gradient(var(--color-divider) 1px, transparent 1px),
-			linear-gradient(90deg, var(--color-divider) 1px, transparent 1px);
-		background-size: 60px 60px;
-		opacity: 0.4;
-		mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
-		-webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+		opacity: 0.03;
+		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+		background-size: 256px 256px;
+		pointer-events: none;
 	}
 
 	.hero-container {
 		position: relative;
 		z-index: 1;
-		max-width: 1280px;
+		max-width: 1200px;
 		margin: 0 auto;
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 4rem;
+		gap: 5rem;
 		align-items: center;
 	}
 
-	.hero-badge {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 1rem;
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-full);
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--color-text-secondary);
+	.hero-eyebrow {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--brass);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 		margin-bottom: 1.5rem;
-		box-shadow: var(--shadow-1);
-	}
-
-	.badge-dot {
-		width: 8px;
-		height: 8px;
-		background: var(--color-success);
-		border-radius: 50%;
-		animation: pulse 2s infinite;
-	}
-
-	@keyframes pulse {
-		0%, 100% { opacity: 1; transform: scale(1); }
-		50% { opacity: 0.5; transform: scale(0.9); }
-	}
-
-	@keyframes float {
-		0%, 100% { transform: translateY(0px); }
-		50% { transform: translateY(-8px); }
 	}
 
 	.hero-title {
-		font-size: 3.5rem;
-		font-weight: 700;
-		line-height: 1.1;
-		margin-bottom: 1.5rem;
-		letter-spacing: -0.02em;
+		font-family: var(--font-display);
+		font-size: 3.75rem;
+		font-weight: 400;
+		line-height: 1.08;
+		color: var(--hero-text);
+		margin-bottom: 1.75rem;
+		letter-spacing: -0.01em;
 	}
 
-	.hero-highlight {
-		display: block;
-		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
+	.hero-title em {
+		font-style: italic;
+		color: var(--brass);
 	}
 
 	.hero-subtitle {
-		font-size: 1.125rem;
-		color: var(--color-text-secondary);
+		font-size: 1.0625rem;
+		color: var(--hero-muted);
 		line-height: 1.7;
-		margin-bottom: 2rem;
-		max-width: 520px;
+		margin-bottom: 2.5rem;
+		max-width: 480px;
 	}
 
 	.hero-actions {
 		display: flex;
-		gap: 1rem;
-		flex-wrap: wrap;
-		margin-bottom: 3rem;
+		align-items: center;
+		gap: 1.5rem;
+		margin-bottom: 3.5rem;
 	}
 
-	.hero-stats {
+	.hero-btn-primary {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-family: var(--font-body);
+		font-size: 0.9375rem;
+		font-weight: 500;
+		color: var(--ink);
+		background: var(--brass);
+		padding: 0.75rem 1.75rem;
+		border-radius: 8px;
+		text-decoration: none;
+		transition: all 0.2s;
+	}
+
+	.hero-btn-primary:hover {
+		background: var(--brass-light);
+		transform: translateY(-1px);
+	}
+
+	.hero-btn-primary svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	.hero-btn-ghost {
+		font-size: 0.9375rem;
+		color: var(--hero-muted);
+		text-decoration: none;
+		border-bottom: 1px solid var(--ink-border);
+		padding-bottom: 2px;
+		transition: all 0.15s;
+	}
+
+	.hero-btn-ghost:hover {
+		color: var(--hero-text);
+		border-color: var(--hero-text);
+	}
+
+	.hero-proof {
 		display: flex;
-		gap: 3rem;
+		align-items: center;
+		gap: 1.5rem;
 	}
 
-	.stat {
+	.proof-item {
 		display: flex;
 		flex-direction: column;
+		gap: 0.125rem;
 	}
 
-	.stat-value {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: var(--color-primary);
+	.proof-value {
+		font-family: var(--font-mono);
+		font-size: 1rem;
+		font-weight: 500;
+		color: var(--hero-text);
 	}
 
-	.stat-label {
-		font-size: 0.875rem;
-		color: var(--color-text-muted);
+	.proof-label {
+		font-size: 0.75rem;
+		color: var(--hero-muted);
 	}
 
-	/* Bento Grid */
+	.proof-divider {
+		width: 1px;
+		height: 28px;
+		background: var(--ink-border);
+	}
+
+	/* ---- Dashboard Preview ---- */
 	.hero-visual {
 		display: flex;
 		justify-content: center;
 	}
 
-	.bento-grid {
+	.dashboard-preview {
+		width: 100%;
+		max-width: 480px;
+		background: var(--ink-light);
+		border: 1px solid var(--ink-border);
+		border-radius: 12px;
+		overflow: hidden;
+		box-shadow:
+			0 0 0 1px rgba(255,255,255,0.03),
+			0 20px 60px rgba(0,0,0,0.4);
+	}
+
+	.dash-chrome {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.625rem 1rem;
+		border-bottom: 1px solid var(--ink-border);
+		background: rgba(255,255,255,0.02);
+	}
+
+	.dash-dots {
+		display: flex;
+		gap: 5px;
+	}
+
+	.dash-dots span {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--ink-border);
+	}
+
+	.dash-url {
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		color: var(--hero-muted);
+		letter-spacing: 0.02em;
+	}
+
+	.dash-body {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 1rem;
-		max-width: 420px;
+		gap: 0.625rem;
+		padding: 0.75rem;
 	}
 
-	.bento-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-xl);
-		padding: 1.25rem;
-		box-shadow: var(--shadow-2);
-		transition: box-shadow var(--transition-normal);
-		animation: float 4s ease-in-out infinite;
+	.dash-panel {
+		background: rgba(255,255,255,0.03);
+		border: 1px solid rgba(255,255,255,0.06);
+		border-radius: 8px;
+		padding: 0.875rem;
 	}
 
-	.bento-card:hover {
-		box-shadow: var(--shadow-3);
-		animation-play-state: paused;
-	}
-
-	.bento-calendar {
+	.dash-calendar {
 		grid-column: span 2;
-		animation-delay: 0s;
 	}
 
-	.bento-training {
-		animation-delay: -1s;
-	}
-
-	.bento-roster {
-		animation-delay: -2s;
-	}
-
-	.bento-stats {
-		animation-delay: -3s;
-	}
-
-	.bento-header {
+	.dash-panel-head {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-bottom: 1rem;
+		margin-bottom: 0.625rem;
 	}
 
-	.bento-title {
-		font-weight: 600;
-		font-size: 0.875rem;
-		color: var(--color-text);
-	}
-
-	.bento-badge {
-		font-size: 0.625rem;
-		font-weight: 600;
+	.dash-panel-title {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		color: var(--hero-muted);
 		text-transform: uppercase;
-		padding: 0.25rem 0.5rem;
-		background: rgba(76, 175, 80, 0.12);
-		color: var(--color-success);
-		border-radius: var(--radius-full);
+		letter-spacing: 0.08em;
 	}
 
+	.dash-live {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		font-weight: 500;
+		color: #4caf50;
+		letter-spacing: 0.1em;
+		padding: 0.125rem 0.375rem;
+		border: 1px solid rgba(76, 175, 80, 0.3);
+		border-radius: 3px;
+	}
+
+	/* Mini Calendar inside dashboard */
 	.mini-calendar {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: 3px;
 	}
 
 	.cal-row {
 		display: flex;
-		gap: 4px;
+		gap: 3px;
 	}
 
 	.cal-row span {
 		flex: 1;
-		height: 24px;
-		border-radius: var(--radius-sm);
-		background: var(--color-surface-variant);
+		height: 20px;
+		border-radius: 3px;
 	}
 
 	.cal-row.cal-header span {
@@ -924,86 +812,127 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 0.625rem;
-		font-weight: 600;
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
+		height: auto;
+		padding-bottom: 2px;
 	}
 
-	.cal-row span.status.leave { background: #4caf50; }
-	.cal-row span.status.tdy { background: #7c4dff; }
-	.cal-row span.status.school { background: #2196f3; }
-	.cal-row span.status.appt { background: #ff9800; }
+	.cal-empty { background: rgba(255,255,255,0.04); }
+	.cal-leave { background: #4caf50; }
+	.cal-tdy { background: #7c4dff; }
+	.cal-school { background: #2196f3; }
+	.cal-appt { background: #ff9800; }
 
+	.cal-legend {
+		display: flex;
+		gap: 0.75rem;
+		margin-top: 0.5rem;
+	}
+
+	.legend-item {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
+		font-family: var(--font-mono);
+	}
+
+	.legend-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 2px;
+		flex-shrink: 0;
+	}
+
+	/* Training Bars inside dashboard */
 	.training-bars {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.5rem;
 	}
 
 	.training-item {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: 3px;
+	}
+
+	.training-meta {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 	}
 
 	.training-name {
-		font-size: 0.6875rem;
-		color: var(--color-text-muted);
+		font-size: 0.625rem;
+		color: var(--hero-muted);
+	}
+
+	.training-pct {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
 	}
 
 	.training-bar {
-		height: 6px;
-		background: var(--color-surface-variant);
-		border-radius: 3px;
+		height: 4px;
+		background: rgba(255,255,255,0.06);
+		border-radius: 2px;
 		overflow: hidden;
 	}
 
 	.training-fill {
 		height: 100%;
-		border-radius: 3px;
+		border-radius: 2px;
 	}
 
-	.training-fill.green { background: #4caf50; }
-	.training-fill.yellow { background: #ff9800; }
-	.training-fill.red { background: #f44336; }
+	.fill-good { background: #4caf50; }
+	.fill-warn { background: #ff9800; }
+	.fill-crit { background: #f44336; }
 
-	.roster-list {
+	/* Duty inside dashboard */
+	.duty-list {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.375rem;
 	}
 
-	.roster-item {
+	.duty-row {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 	}
 
-	.roster-role {
-		font-size: 0.625rem;
-		font-weight: 600;
-		padding: 0.25rem 0.5rem;
+	.duty-role {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		font-weight: 500;
+		padding: 0.125rem 0.375rem;
 		background: var(--color-primary);
-		color: white;
-		border-radius: var(--radius-sm);
+		color: #0F0F0F;
+		border-radius: 3px;
+		letter-spacing: 0.05em;
 	}
 
-	.roster-name {
-		font-size: 0.75rem;
-		color: var(--color-text-secondary);
+	.duty-name {
+		font-size: 0.6875rem;
+		color: var(--hero-muted);
 	}
 
-	.bento-stats {
+	/* Coverage ring */
+	.dash-coverage {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
 	}
 
 	.coverage-ring {
 		position: relative;
-		width: 80px;
-		height: 80px;
+		width: 64px;
+		height: 64px;
 	}
 
 	.coverage-ring svg {
@@ -1014,13 +943,13 @@
 
 	.ring-bg {
 		fill: none;
-		stroke: var(--color-surface-variant);
+		stroke: rgba(255,255,255,0.06);
 		stroke-width: 3;
 	}
 
 	.ring-fill {
 		fill: none;
-		stroke: var(--color-success);
+		stroke: var(--brass);
 		stroke-width: 3;
 		stroke-linecap: round;
 	}
@@ -1031,117 +960,114 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 1rem;
-		font-weight: 700;
-		color: var(--color-text);
+		font-family: var(--font-mono);
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--hero-text);
 	}
 
-	/* Sections */
+	/* ---- Sections (shared) ---- */
 	.section-container {
-		max-width: 1280px;
+		max-width: 1200px;
 		margin: 0 auto;
-		padding: 0 1.5rem;
+		padding: 0 2rem;
 	}
 
-	.section-header {
-		text-align: center;
-		margin-bottom: 4rem;
-	}
-
-	.section-badge {
-		display: inline-block;
-		padding: 0.375rem 1rem;
-		background: rgba(var(--color-primary-rgb), 0.1);
-		color: var(--color-primary);
-		border-radius: var(--radius-full);
-		font-size: 0.75rem;
-		font-weight: 600;
+	.section-label {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		margin-bottom: 1rem;
-	}
-
-	.section-badge.accent {
-		background: rgba(255, 152, 0, 0.12);
-		color: #e65100;
+		color: var(--brass);
+		margin-bottom: 0.75rem;
 	}
 
 	.section-title {
-		font-size: 2.5rem;
-		font-weight: 700;
+		font-family: var(--font-display);
+		font-size: 2.75rem;
+		font-weight: 400;
+		line-height: 1.15;
+		letter-spacing: -0.01em;
 		margin-bottom: 1rem;
-		letter-spacing: -0.02em;
+	}
+
+	.section-title em {
+		font-style: italic;
 	}
 
 	.section-subtitle {
-		font-size: 1.125rem;
+		font-size: 1.0625rem;
 		color: var(--color-text-secondary);
-		max-width: 600px;
-		margin: 0 auto;
+		max-width: 520px;
+		line-height: 1.6;
+		margin: 0;
 	}
 
-	/* Features */
+	/* ---- Features ---- */
 	.features {
 		padding: 6rem 0;
+		background: var(--paper);
+	}
+
+	:global([data-theme='dark']) .features {
 		background: var(--color-bg);
 	}
 
 	.features-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 1.5rem;
+		gap: 1px;
+		background: var(--color-border);
+		border: 1px solid var(--color-border);
+		border-radius: 12px;
+		overflow: hidden;
+		margin-top: 3rem;
 	}
 
 	.feature-card {
 		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-xl);
-		padding: 1.75rem;
-		transition: all var(--transition-normal);
+		padding: 2rem;
+		display: flex;
+		gap: 1.25rem;
+		transition: background 0.2s;
 	}
 
 	.feature-card:hover {
-		border-color: var(--color-primary);
-		box-shadow: var(--shadow-2);
-		transform: translateY(-4px);
+		background: var(--paper-warm);
 	}
 
-	.feature-card.highlight {
-		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-		border-color: transparent;
-		color: white;
+	:global([data-theme='dark']) .feature-card:hover {
+		background: var(--color-surface-variant);
 	}
 
-	.feature-card.highlight .feature-icon {
-		background: rgba(255, 255, 255, 0.2);
-		color: white;
+	.feature-lead {
+		grid-column: span 3;
+		padding: 2.5rem;
 	}
 
-	.feature-card.highlight .feature-description {
-		color: rgba(255, 255, 255, 0.85);
+	.feature-number {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--brass);
+		flex-shrink: 0;
+		padding-top: 0.125rem;
+		letter-spacing: 0.02em;
 	}
 
-	.feature-icon {
-		width: 48px;
-		height: 48px;
-		background: rgba(var(--color-primary-rgb), 0.1);
-		border-radius: var(--radius-lg);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-bottom: 1.25rem;
-		color: var(--color-primary);
-	}
-
-	.feature-icon svg {
-		width: 24px;
-		height: 24px;
+	.feature-body {
+		min-width: 0;
 	}
 
 	.feature-title {
-		font-size: 1.125rem;
-		font-weight: 600;
-		margin-bottom: 0.5rem;
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		font-weight: 400;
+		margin-bottom: 0.375rem;
+		color: var(--color-text);
+	}
+
+	.feature-lead .feature-title {
+		font-size: 1.5rem;
 	}
 
 	.feature-description {
@@ -1151,177 +1077,258 @@
 		margin: 0;
 	}
 
-	/* How It Works */
-	.how-it-works {
-		padding: 6rem 0;
-		background: var(--color-surface-variant);
+	/* ---- Onboarding (How it works) ---- */
+	.onboarding {
+		padding: 4rem 0;
+		background: var(--paper-warm);
+		border-top: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-border);
 	}
 
-	.steps-container {
-		position: relative;
-		max-width: 800px;
+	:global([data-theme='dark']) .onboarding {
+		background: var(--color-surface);
+	}
+
+	.onboarding-track {
+		display: flex;
+		align-items: flex-start;
+		gap: 0;
+		max-width: 960px;
 		margin: 0 auto;
 	}
 
-	.steps-line {
-		position: absolute;
-		top: 40px;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 60%;
-		height: 2px;
+	.onboarding-step {
+		flex: 1;
+		display: flex;
+		gap: 1rem;
+		align-items: flex-start;
+	}
+
+	.onboarding-num {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--brass);
+		padding-top: 0.125rem;
+		flex-shrink: 0;
+	}
+
+	.onboarding-step strong {
+		display: block;
+		font-family: var(--font-display);
+		font-size: 1.125rem;
+		font-weight: 400;
+		margin-bottom: 0.25rem;
+	}
+
+	.onboarding-step p {
+		font-size: 0.875rem;
+		color: var(--color-text-secondary);
+		line-height: 1.5;
+		margin: 0;
+	}
+
+	.onboarding-connector {
+		width: 2rem;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding-top: 0.5rem;
+	}
+
+	.onboarding-connector::after {
+		content: '';
+		display: block;
+		width: 100%;
+		height: 1px;
 		background: var(--color-border);
 	}
 
-	.steps-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 2rem;
-		position: relative;
-	}
-
-	.step {
-		text-align: center;
-	}
-
-	.step-number {
-		width: 56px;
-		height: 56px;
-		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-		color: white;
-		border-radius: var(--radius-full);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 1.25rem;
-		font-weight: 700;
-		margin: 0 auto 1.5rem;
-		box-shadow: var(--shadow-2);
-		position: relative;
-		z-index: 1;
-	}
-
-	.step-content h3 {
-		font-size: 1.125rem;
-		font-weight: 600;
-		margin-bottom: 0.5rem;
-	}
-
-	.step-content p {
-		color: var(--color-text-secondary);
-		line-height: 1.6;
-		margin: 0;
-		font-size: 0.9375rem;
-	}
-
-	/* Roadmap */
+	/* ---- Roadmap ---- */
 	.roadmap {
 		padding: 6rem 0;
+		background: var(--paper);
+	}
+
+	:global([data-theme='dark']) .roadmap {
 		background: var(--color-bg);
 	}
 
-	.roadmap-grid {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+	.roadmap-timeline {
+		margin-top: 3rem;
+		max-width: 640px;
+	}
+
+	.roadmap-entry {
+		display: flex;
 		gap: 1.5rem;
 	}
 
-	.roadmap-card {
-		background: var(--color-surface);
-		border: 2px dashed var(--color-border);
-		border-radius: var(--radius-xl);
-		padding: 1.75rem;
-		text-align: center;
-		transition: all var(--transition-normal);
-	}
-
-	.roadmap-card:hover {
-		border-style: solid;
-		border-color: var(--color-warning);
-		transform: translateY(-4px);
-	}
-
-	.roadmap-status {
-		display: inline-block;
-		font-size: 0.6875rem;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		padding: 0.25rem 0.75rem;
-		background: rgba(255, 152, 0, 0.12);
-		color: #e65100;
-		border-radius: var(--radius-full);
-		margin-bottom: 1rem;
-	}
-
-	.roadmap-icon {
-		width: 56px;
-		height: 56px;
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-xl);
+	.roadmap-marker {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		margin: 0 auto 1.25rem;
-		color: var(--color-warning);
+		flex-shrink: 0;
+		width: 20px;
 	}
 
-	.roadmap-icon svg {
-		width: 28px;
-		height: 28px;
+	.marker-dot {
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		border: 2px solid var(--color-border);
+		background: var(--color-surface);
+		flex-shrink: 0;
+		margin-top: 0.375rem;
 	}
 
-	.roadmap-title {
-		font-size: 1.125rem;
-		font-weight: 600;
+	.marker-dot.active {
+		border-color: var(--brass);
+		background: var(--brass);
+	}
+
+	.marker-dot.planned {
+		border-color: var(--color-primary);
+	}
+
+	.marker-dot.exploring {
+		border-color: var(--color-text-muted);
+	}
+
+	.marker-line {
+		width: 1px;
+		flex: 1;
+		background: var(--color-border);
+		min-height: 2rem;
+	}
+
+	.roadmap-content {
+		padding-bottom: 2rem;
+	}
+
+	.roadmap-status-badge {
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		padding: 0.125rem 0.5rem;
+		border-radius: 3px;
+		display: inline-block;
 		margin-bottom: 0.5rem;
 	}
 
+	.roadmap-status-badge.active {
+		background: var(--brass-muted);
+		color: var(--brass);
+	}
+
+	.roadmap-status-badge.planned {
+		background: rgba(var(--color-primary-rgb), 0.1);
+		color: var(--color-primary);
+	}
+
+	.roadmap-status-badge.exploring {
+		background: var(--color-surface-variant);
+		color: var(--color-text-muted);
+	}
+
+	.roadmap-title {
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		font-weight: 400;
+		margin-bottom: 0.25rem;
+	}
+
 	.roadmap-description {
+		font-size: 0.9375rem;
 		color: var(--color-text-secondary);
 		line-height: 1.6;
-		font-size: 0.875rem;
 		margin: 0;
 	}
 
-	/* CTA */
+	/* ---- CTA ---- */
 	.cta {
 		padding: 6rem 0;
-		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+		background: var(--ink);
+		position: relative;
+		overflow: hidden;
+	}
+
+	.cta::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		opacity: 0.03;
+		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+		background-size: 256px 256px;
+		pointer-events: none;
 	}
 
 	.cta-container {
-		max-width: 800px;
+		max-width: 700px;
 		margin: 0 auto;
-		padding: 0 1.5rem;
+		padding: 0 2rem;
 		text-align: center;
+		position: relative;
 	}
 
 	.cta-title {
-		font-size: 2.5rem;
-		font-weight: 700;
-		color: white;
-		margin-bottom: 0.75rem;
-		letter-spacing: -0.02em;
+		font-family: var(--font-display);
+		font-size: 3rem;
+		font-weight: 400;
+		color: var(--hero-text);
+		margin-bottom: 1rem;
+		line-height: 1.1;
+	}
+
+	.cta-title em {
+		font-style: italic;
+		color: var(--brass);
 	}
 
 	.cta-subtitle {
-		font-size: 1.125rem;
-		color: rgba(255, 255, 255, 0.85);
-		margin-bottom: 2rem;
+		font-size: 1.0625rem;
+		color: var(--hero-muted);
+		margin-bottom: 2.5rem;
 	}
 
-	/* Footer */
+	.cta-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-family: var(--font-body);
+		font-size: 1rem;
+		font-weight: 500;
+		color: var(--ink);
+		background: var(--brass);
+		padding: 0.875rem 2rem;
+		border-radius: 8px;
+		text-decoration: none;
+		transition: all 0.2s;
+	}
+
+	.cta-btn:hover {
+		background: var(--brass-light);
+		transform: translateY(-1px);
+	}
+
+	.cta-btn svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	/* ---- Footer ---- */
 	.footer {
-		padding: 2rem 0;
-		background: var(--color-bg);
-		border-top: 1px solid var(--color-divider);
+		padding: 1.5rem 0;
+		background: var(--ink);
+		border-top: 1px solid var(--ink-border);
 	}
 
 	.footer-container {
-		max-width: 1280px;
+		max-width: 1200px;
 		margin: 0 auto;
-		padding: 0 1.5rem;
+		padding: 0 2rem;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -1330,59 +1337,62 @@
 	.footer-brand {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		font-weight: 600;
-		font-size: 0.9375rem;
+		gap: 0.625rem;
+		color: var(--hero-muted);
+		font-size: 0.875rem;
+	}
+
+	.footer-mark {
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		background: var(--ink-border);
+		color: var(--hero-muted);
+		padding: 0.2rem 0.375rem;
+		border-radius: 3px;
+		line-height: 1;
 	}
 
 	.footer-links {
 		display: flex;
-		gap: 2rem;
+		gap: 1.5rem;
 	}
 
 	.footer-links a {
-		color: var(--color-text-secondary);
+		color: var(--hero-muted);
 		text-decoration: none;
-		font-size: 0.875rem;
-		transition: color var(--transition-fast);
+		font-size: 0.8125rem;
+		transition: color 0.15s;
 	}
 
 	.footer-links a:hover {
-		color: var(--color-primary);
+		color: var(--hero-text);
 	}
 
 	.footer-text {
-		color: var(--color-text-muted);
-		font-size: 0.875rem;
+		color: rgba(255,255,255,0.2);
+		font-size: 0.75rem;
 		margin: 0;
 	}
 
-	/* Responsive - Tablet */
+	/* ============================================
+	   Responsive — Tablet
+	   ============================================ */
 	@media (max-width: 1024px) {
 		.hero {
-			min-height: auto;
-			padding: 5rem 1.5rem 3rem;
+			padding: 4rem 1.5rem 3.5rem;
 		}
 
 		.hero-container {
 			grid-template-columns: 1fr;
-			text-align: center;
-			gap: 2.5rem;
+			gap: 3rem;
 		}
 
-		.hero-subtitle {
-			margin: 0 auto 2rem;
+		.hero-title {
+			font-size: 2.75rem;
 		}
 
-		.hero-actions {
-			justify-content: center;
-		}
-
-		.hero-stats {
-			justify-content: center;
-		}
-
-		/* Content first, then bento grid */
 		.hero-visual {
 			order: 1;
 		}
@@ -1391,41 +1401,53 @@
 			order: 0;
 		}
 
-		.bento-grid {
-			max-width: 380px;
+		.dashboard-preview {
+			max-width: 440px;
+			margin: 0 auto;
 		}
 
 		.features-grid {
 			grid-template-columns: repeat(2, 1fr);
 		}
 
-		.roadmap-grid {
-			grid-template-columns: repeat(2, 1fr);
+		.feature-lead {
+			grid-column: span 2;
 		}
 
-		.steps-line {
+		.onboarding-track {
+			flex-direction: column;
+			gap: 1.5rem;
+		}
+
+		.onboarding-connector {
+			width: auto;
+			height: 0;
 			display: none;
 		}
 
-		.steps-grid {
-			grid-template-columns: 1fr;
-			max-width: 400px;
-			margin: 0 auto;
-		}
-
-		.section-header {
-			margin-bottom: 3rem;
-		}
-
-		.features,
-		.how-it-works,
-		.roadmap,
-		.cta {
-			padding: 5rem 0;
+		.section-title {
+			font-size: 2.25rem;
 		}
 	}
 
+	/* ============================================
+	   Responsive — Mobile
+	   ============================================ */
 	@media (max-width: 640px) {
+		.classification-bar {
+			font-size: 0.5625rem;
+			padding: 0.25rem 0.75rem;
+		}
+
+		.classification-sep {
+			margin: 0 0.375rem;
+		}
+
+		.nav-container {
+			padding: 0 1rem;
+			height: 48px;
+		}
+
 		.nav-links {
 			display: none;
 		}
@@ -1434,265 +1456,179 @@
 			display: flex;
 		}
 
+		.nav-wordmark {
+			font-size: 1.0625rem;
+		}
+
 		.hero {
-			padding: 5rem 1rem 2rem;
-			min-height: auto;
+			padding: 3rem 1rem 2.5rem;
 		}
 
 		.hero-container {
 			gap: 2rem;
 		}
 
-		/* Show content BEFORE bento grid on mobile */
-		.hero-visual {
-			order: 0;
-		}
-
 		.hero-content {
 			order: -1;
 		}
 
-		.hero-badge {
+		.hero-visual {
+			order: 0;
+		}
+
+		.hero-eyebrow {
+			font-size: 0.6875rem;
 			margin-bottom: 1rem;
 		}
 
 		.hero-title {
-			font-size: 2rem;
-			margin-bottom: 1rem;
+			font-size: 2.125rem;
+			margin-bottom: 1.25rem;
 		}
 
 		.hero-subtitle {
-			font-size: 1rem;
-			margin-bottom: 1.5rem;
+			font-size: 0.9375rem;
+			margin-bottom: 2rem;
 		}
 
 		.hero-actions {
-			margin-bottom: 1.5rem;
-		}
-
-		.hero-stats {
-			flex-direction: row;
-			gap: 1.5rem;
-			justify-content: center;
-		}
-
-		.stat-value {
-			font-size: 1.25rem;
-		}
-
-		.stat-label {
-			font-size: 0.75rem;
-		}
-
-		/* Compact 2x2 bento grid on mobile */
-		.bento-grid {
-			grid-template-columns: 1fr 1fr;
-			max-width: 320px;
-			gap: 0.75rem;
-		}
-
-		.bento-calendar {
-			grid-column: span 2;
-		}
-
-		.bento-card {
-			padding: 0.875rem;
-		}
-
-		.bento-header {
-			margin-bottom: 0.5rem;
-		}
-
-		.bento-title {
-			font-size: 0.75rem;
-		}
-
-		.bento-badge {
-			font-size: 0.5rem;
-			padding: 0.125rem 0.375rem;
-		}
-
-		/* Smaller calendar rows */
-		.cal-row span {
-			height: 18px;
-		}
-
-		.cal-row.cal-header span {
-			font-size: 0.5rem;
-		}
-
-		/* Smaller training bars */
-		.training-name {
-			font-size: 0.5625rem;
-		}
-
-		.training-item {
-			gap: 2px;
-		}
-
-		.training-bars {
-			gap: 0.5rem;
-		}
-
-		/* Smaller roster */
-		.roster-role {
-			font-size: 0.5rem;
-			padding: 0.125rem 0.375rem;
-		}
-
-		.roster-name {
-			font-size: 0.625rem;
-		}
-
-		.roster-list {
-			gap: 0.375rem;
-		}
-
-		/* Smaller coverage ring */
-		.coverage-ring {
-			width: 60px;
-			height: 60px;
-		}
-
-		.coverage-value {
-			font-size: 0.875rem;
-		}
-
-		/* Features section */
-		.features {
-			padding: 4rem 0;
-		}
-
-		.section-header {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 1rem;
 			margin-bottom: 2.5rem;
 		}
 
-		.section-badge {
+		.hero-proof {
+			gap: 1rem;
+		}
+
+		.proof-value {
+			font-size: 0.875rem;
+		}
+
+		.proof-label {
 			font-size: 0.6875rem;
+		}
+
+		.proof-divider {
+			height: 20px;
+		}
+
+		.dashboard-preview {
+			max-width: 100%;
+		}
+
+		.dash-body {
+			gap: 0.5rem;
+			padding: 0.5rem;
+		}
+
+		.dash-panel {
+			padding: 0.625rem;
+		}
+
+		.cal-row span {
+			height: 16px;
+		}
+
+		.cal-legend {
+			gap: 0.5rem;
+		}
+
+		.coverage-ring {
+			width: 52px;
+			height: 52px;
+		}
+
+		.coverage-value {
+			font-size: 0.75rem;
+		}
+
+		/* Sections */
+		.section-container {
+			padding: 0 1rem;
 		}
 
 		.section-title {
 			font-size: 1.75rem;
 		}
 
-		.section-subtitle {
-			font-size: 1rem;
+		.features,
+		.roadmap {
+			padding: 4rem 0;
 		}
 
 		.features-grid {
 			grid-template-columns: 1fr;
-			gap: 1rem;
+			margin-top: 2rem;
+		}
+
+		.feature-lead {
+			grid-column: span 1;
 		}
 
 		.feature-card {
 			padding: 1.25rem;
 		}
 
-		.feature-icon {
-			width: 40px;
-			height: 40px;
-			margin-bottom: 1rem;
-		}
-
-		.feature-icon svg {
-			width: 20px;
-			height: 20px;
-		}
-
 		.feature-title {
-			font-size: 1rem;
+			font-size: 1.0625rem;
+		}
+
+		.feature-lead .feature-title {
+			font-size: 1.25rem;
 		}
 
 		.feature-description {
 			font-size: 0.875rem;
 		}
 
-		/* How it works */
-		.how-it-works {
-			padding: 4rem 0;
+		.onboarding {
+			padding: 3rem 0;
 		}
 
-		.step-number {
-			width: 48px;
-			height: 48px;
-			font-size: 1.125rem;
-			margin-bottom: 1rem;
-		}
-
-		.step-content h3 {
-			font-size: 1rem;
-		}
-
-		.step-content p {
-			font-size: 0.875rem;
-		}
-
-		/* Roadmap */
-		.roadmap {
-			padding: 4rem 0;
-		}
-
-		.roadmap-grid {
-			grid-template-columns: 1fr 1fr;
-			gap: 1rem;
-		}
-
-		.roadmap-card {
-			padding: 1.25rem;
-		}
-
-		.roadmap-icon {
-			width: 44px;
-			height: 44px;
-			margin-bottom: 1rem;
-		}
-
-		.roadmap-icon svg {
-			width: 22px;
-			height: 22px;
+		.roadmap-timeline {
+			margin-top: 2rem;
 		}
 
 		.roadmap-title {
-			font-size: 1rem;
+			font-size: 1.0625rem;
 		}
 
 		.roadmap-description {
-			font-size: 0.8125rem;
+			font-size: 0.875rem;
 		}
 
-		/* CTA */
 		.cta {
 			padding: 4rem 0;
 		}
 
 		.cta-title {
-			font-size: 1.5rem;
+			font-size: 2rem;
 		}
 
 		.cta-subtitle {
-			font-size: 1rem;
+			font-size: 0.9375rem;
 		}
 
-		/* Footer */
 		.footer-container {
 			flex-direction: column;
-			gap: 1.25rem;
+			gap: 1rem;
 			text-align: center;
 		}
 
 		.footer-links {
-			gap: 1.25rem;
+			gap: 1rem;
 		}
 	}
 
-	/* Respect reduced motion preferences */
+	/* ============================================
+	   Reduced Motion
+	   ============================================ */
 	@media (prefers-reduced-motion: reduce) {
-		.bento-card {
-			animation: none;
-		}
-
-		.badge-dot {
-			animation: none;
+		.hero-btn-primary:hover,
+		.cta-btn:hover {
+			transform: none;
 		}
 	}
 </style>

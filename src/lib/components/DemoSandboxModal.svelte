@@ -124,9 +124,9 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+		background: #0F0F0F;
 		border-radius: var(--radius-lg);
-		color: white;
+		color: #F0EDE6;
 	}
 
 	.icon svg {

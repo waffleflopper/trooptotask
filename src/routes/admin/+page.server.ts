@@ -92,6 +92,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.order('created_at', { ascending: false })
 		.limit(5);
 
+	// Get pending access requests count
+	const { count: pendingAccessRequests } = await supabase
+		.from('access_requests')
+		.select('*', { count: 'exact', head: true })
+		.eq('status', 'pending');
+
 	const metrics: AdminMetrics = {
 		totalUsers: totalUsers ?? 0,
 		activeSubscriptions: activeSubscriptions ?? 0,
@@ -107,6 +113,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		metrics,
 		recentPayments: recentPayments ?? [],
-		recentActions: recentActions ?? []
+		recentActions: recentActions ?? [],
+		pendingAccessRequests: pendingAccessRequests ?? 0
 	};
 };

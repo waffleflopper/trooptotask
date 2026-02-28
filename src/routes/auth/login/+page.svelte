@@ -139,6 +139,9 @@
 		<p class="auth-link">
 			Have an invite code? <a href="/auth/register">Create an account</a>
 		</p>
+		<p class="auth-link" style="margin-top: var(--spacing-sm);">
+			No invite code? <a href="/auth/request-access">Request access</a>
+		</p>
 	</div>
 
 	<footer class="auth-footer">

@@ -21,24 +21,32 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 
 	const body = await request.json();
 
-	// Fetch the training type to get expiration_months
+	// Fetch the training type to get expiration_months and expiration_date_only
 	const { data: trainingType, error: typeError } = await supabase
 		.from('training_types')
-		.select('expiration_months')
+		.select('expiration_months, expiration_date_only')
 		.eq('id', body.trainingTypeId)
 		.eq('organization_id', orgId)
 		.single();
 
 	if (typeError) throw error(500, typeError.message);
 
-	// For never-expires training, completion date is optional
-	// For expiring training, completion date is required
+	const isExpirationDateOnly = trainingType.expiration_date_only ?? false;
 	const completionDate = body.completionDate || null;
-	if (trainingType.expiration_months !== null && !completionDate) {
+
+	// Validation: expiration-date-only needs an expirationDate, normal expiring needs completionDate
+	if (isExpirationDateOnly) {
+		if (!body.expirationDate) {
+			throw error(400, 'Expiration date is required for expiration-date-only training');
+		}
+	} else if (trainingType.expiration_months !== null && !completionDate) {
 		throw error(400, 'Completion date is required for training that expires');
 	}
 
-	const expirationDate = calculateExpirationDate(completionDate, trainingType.expiration_months);
+	// For expiration-date-only, use the client-provided date; otherwise auto-calculate
+	const expirationDate = isExpirationDateOnly
+		? body.expirationDate
+		: calculateExpirationDate(completionDate, trainingType.expiration_months);
 
 	// Upsert: try to update existing, or insert new
 	const { data: existing } = await supabase
@@ -113,28 +121,41 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 
 	const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-	// If completion_date is being updated, recalculate expiration_date
-	if (fields.completionDate !== undefined) {
-		updates.completion_date = fields.completionDate;
+	// Fetch training type to determine how to handle expiration
+	const { data: existing } = await supabase
+		.from('personnel_trainings')
+		.select('training_type_id')
+		.eq('id', id)
+		.single();
 
-		// Fetch training type to get expiration_months
-		const { data: existing } = await supabase
-			.from('personnel_trainings')
-			.select('training_type_id')
-			.eq('id', id)
+	let isExpirationDateOnly = false;
+	let expirationMonths: number | null = null;
+
+	if (existing) {
+		const { data: trainingType } = await supabase
+			.from('training_types')
+			.select('expiration_months, expiration_date_only')
+			.eq('id', existing.training_type_id)
 			.single();
 
-		if (existing) {
-			const { data: trainingType } = await supabase
-				.from('training_types')
-				.select('expiration_months')
-				.eq('id', existing.training_type_id)
-				.single();
-
-			if (trainingType) {
-				updates.expiration_date = calculateExpirationDate(fields.completionDate, trainingType.expiration_months);
-			}
+		if (trainingType) {
+			isExpirationDateOnly = trainingType.expiration_date_only ?? false;
+			expirationMonths = trainingType.expiration_months;
 		}
+	}
+
+	if (fields.completionDate !== undefined) {
+		updates.completion_date = fields.completionDate;
+	}
+
+	if (isExpirationDateOnly) {
+		// For expiration-date-only, use the client-provided expiration date directly
+		if (fields.expirationDate !== undefined) {
+			updates.expiration_date = fields.expirationDate;
+		}
+	} else if (fields.completionDate !== undefined) {
+		// For normal trainings, recalculate expiration from completion date
+		updates.expiration_date = calculateExpirationDate(fields.completionDate, expirationMonths);
 	}
 
 	if (fields.notes !== undefined) updates.notes = fields.notes;

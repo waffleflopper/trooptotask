@@ -3,9 +3,11 @@
 	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
 	import { availabilityStore } from '$lib/stores/availability.svelte';
 	import { formatDate } from '$lib/utils/dates';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import Modal from './Modal.svelte';
 	import Badge from './ui/Badge.svelte';
 	import Spinner from './ui/Spinner.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -58,19 +60,32 @@
 				startDate,
 				endDate
 			});
+			toastStore.success(isEditing ? 'Status updated' : 'Status added');
 			onClose();
+		} catch {
+			toastStore.error('Failed to save status');
 		} finally {
 			isSubmitting = false;
 		}
 	}
 
-	async function handleDelete() {
+	let showDeleteConfirm = $state(false);
+
+	function handleDelete() {
+		showDeleteConfirm = true;
+	}
+
+	async function doDelete() {
 		if (!existingEntry || isDeleting) return;
+		showDeleteConfirm = false;
 
 		isDeleting = true;
 		try {
 			await availabilityStore.remove(existingEntry.id);
+			toastStore.success('Status deleted');
 			onClose();
+		} catch {
+			toastStore.error('Failed to delete status');
 		} finally {
 			isDeleting = false;
 		}
@@ -89,7 +104,7 @@
 	</div>
 
 	<div class="form-group">
-		<label class="label" for="statusType">Status Type</label>
+		<label class="label" for="statusType">Status Type <span class="required">*</span></label>
 		<select id="statusType" class="select" bind:value={selectedStatusId}>
 			{#each statusTypesStore.list as status}
 				<option value={status.id}>{status.name}</option>
@@ -104,12 +119,12 @@
 
 	<div class="dates-row">
 		<div class="form-group">
-			<label class="label" for="startDate">Start Date</label>
+			<label class="label" for="startDate">Start Date <span class="required">*</span></label>
 			<input id="startDate" type="date" class="input" bind:value={startDate} />
 		</div>
 		<span class="date-arrow">→</span>
 		<div class="form-group">
-			<label class="label" for="endDate">End Date</label>
+			<label class="label" for="endDate">End Date <span class="required">*</span></label>
 			<input id="endDate" type="date" class="input" bind:value={endDate} />
 		</div>
 		{#if dayCount > 0}
@@ -121,7 +136,7 @@
 	</div>
 
 	{#if dateError}
-		<div class="date-error">{dateError}</div>
+		<div class="form-error">{dateError}</div>
 	{/if}
 
 	{#snippet footer()}
@@ -148,6 +163,17 @@
 		</div>
 	{/snippet}
 </Modal>
+
+{#if showDeleteConfirm}
+	<ConfirmDialog
+		title="Delete Status"
+		message="Are you sure you want to delete this status entry?"
+		confirmLabel="Delete"
+		variant="danger"
+		onConfirm={doDelete}
+		onCancel={() => (showDeleteConfirm = false)}
+	/>
+{/if}
 
 <style>
 	.person-info {
@@ -213,15 +239,6 @@
 		font-size: 10px;
 		color: var(--color-text-muted);
 		text-transform: uppercase;
-	}
-
-	.date-error {
-		color: #dc2626;
-		font-size: var(--font-size-sm);
-		margin-top: var(--spacing-sm);
-		padding: var(--spacing-xs) var(--spacing-sm);
-		background: #fef2f2;
-		border-radius: var(--radius-sm);
 	}
 
 	.footer-right {

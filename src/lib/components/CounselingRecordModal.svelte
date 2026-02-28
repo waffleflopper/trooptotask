@@ -7,9 +7,11 @@
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
 	import { supabase } from '$lib/supabase';
 	import { formatDate } from '$lib/utils/dates';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import Modal from './Modal.svelte';
 	import Spinner from './ui/Spinner.svelte';
 	import FileUpload from './ui/FileUpload.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -97,14 +99,25 @@
 			} else {
 				await counselingRecordsStore.add(data);
 			}
+			toastStore.success(isEdit ? 'Counseling record updated' : 'Counseling record created');
 			onClose();
+		} catch {
+			toastStore.error('Failed to save counseling record');
 		} finally {
 			saving = false;
 		}
 	}
 
-	async function handleRemove() {
-		if (existingRecord && confirm('Are you sure you want to delete this counseling record?')) {
+	let showRemoveConfirm = $state(false);
+
+	function handleRemove() {
+		showRemoveConfirm = true;
+	}
+
+	async function doRemove() {
+		showRemoveConfirm = false;
+		if (!existingRecord) return;
+		try {
 			// Clean up storage file if one exists
 			if (existingRecord.filePath) {
 				try {
@@ -114,7 +127,10 @@
 				}
 			}
 			await counselingRecordsStore.remove(existingRecord.id);
+			toastStore.success('Counseling record deleted');
 			onClose();
+		} catch {
+			toastStore.error('Failed to delete counseling record');
 		}
 	}
 </script>
@@ -132,7 +148,7 @@
 
 	<div class="form-row">
 		<div class="form-group flex-1">
-			<label class="label">Counseling Type</label>
+			<label class="label">Counseling Type <span class="required">*</span></label>
 			<select class="select" bind:value={counselingTypeId}>
 				<option value="">-- Select Type --</option>
 				{#each counselingTypesStore.list as type (type.id)}
@@ -146,7 +162,7 @@
 			{/if}
 		</div>
 		<div class="form-group">
-			<label class="label">Date</label>
+			<label class="label">Date <span class="required">*</span></label>
 			<input type="date" class="input" bind:value={dateConducted} required />
 		</div>
 	</div>
@@ -237,6 +253,17 @@
 	{/snippet}
 </Modal>
 
+{#if showRemoveConfirm}
+	<ConfirmDialog
+		title="Delete Counseling Record"
+		message="Are you sure you want to delete this counseling record?"
+		confirmLabel="Delete"
+		variant="danger"
+		onConfirm={doRemove}
+		onCancel={() => (showRemoveConfirm = false)}
+	/>
+{/if}
+
 <style>
 	.person-info {
 		display: flex;
@@ -268,10 +295,6 @@
 
 	.form-group.flex-1 {
 		flex: 1;
-	}
-
-	.required {
-		color: var(--color-error);
 	}
 
 	.template-link {

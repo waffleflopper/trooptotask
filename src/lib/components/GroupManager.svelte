@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Group } from '../stores/groups.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		groups: Group[];
@@ -39,9 +40,16 @@
 		editName = '';
 	}
 
+	let confirmRemove = $state<Group | null>(null);
+
 	function handleRemove(group: Group) {
-		if (confirm(`Are you sure you want to remove "${group.name}"? Personnel in this group will become unassigned.`)) {
-			onRemove(group.id);
+		confirmRemove = group;
+	}
+
+	function doRemove() {
+		if (confirmRemove) {
+			onRemove(confirmRemove.id);
+			confirmRemove = null;
 		}
 	}
 
@@ -109,6 +117,17 @@
 		</div>
 	</div>
 </div>
+
+{#if confirmRemove}
+	<ConfirmDialog
+		title="Remove Group"
+		message='Remove "{confirmRemove.name}"? Personnel in this group will become unassigned.'
+		confirmLabel="Remove"
+		variant="danger"
+		onConfirm={doRemove}
+		onCancel={() => (confirmRemove = null)}
+	/>
+{/if}
 
 <style>
 	.add-form {

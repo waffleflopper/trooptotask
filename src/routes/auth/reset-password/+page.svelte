@@ -1,14 +1,70 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { supabase } from '$lib/supabase';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 
-	let { form, data } = $props();
+	let password = $state('');
+	let confirmPassword = $state('');
 	let loading = $state(false);
-	let demoLoading = $state(false);
+	let error = $state('');
+	let success = $state(false);
+	let sessionReady = $state(false);
+
+	let authSubscription: { unsubscribe: () => void } | null = null;
+
+	onMount(() => {
+		// Check existing session first
+		supabase.auth.getSession().then(({ data: { session } }) => {
+			if (session) {
+				sessionReady = true;
+			}
+		});
+
+		// Listen for auth state change (token exchange happens async from URL hash)
+		const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+			if (event === 'PASSWORD_RECOVERY') {
+				sessionReady = true;
+			}
+		});
+		authSubscription = subscription;
+
+		return () => authSubscription?.unsubscribe();
+	});
+
+	async function handleSubmit(e: Event) {
+		e.preventDefault();
+		error = '';
+
+		if (password.length < 6) {
+			error = 'Password must be at least 6 characters';
+			return;
+		}
+
+		if (password !== confirmPassword) {
+			error = 'Passwords do not match';
+			return;
+		}
+
+		loading = true;
+		try {
+			const { error: updateError } = await supabase.auth.updateUser({ password });
+
+			if (updateError) {
+				error = updateError.message;
+				return;
+			}
+
+			success = true;
+			setTimeout(() => goto('/auth/login'), 3000);
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 <svelte:head>
-	<title>Sign In - Troop to Task</title>
+	<title>Reset Password - Troop to Task</title>
 </svelte:head>
 
 <div class="auth-page">
@@ -32,119 +88,82 @@
 				</svg>
 			</div>
 			<h1>Troop to Task</h1>
-			<p class="subtitle">Unit Staff Scheduling</p>
+			<p class="subtitle">Set a new password</p>
 		</div>
 
-		<form
-			method="POST"
-			action="?/login"
-			use:enhance={() => {
-				loading = true;
-				return async ({ update }) => {
-					loading = false;
-					await update();
-				};
-			}}
-		>
-			{#if form?.error}
-				<div class="error-message">
-					<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-						<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+		{#if success}
+			<div class="success-section">
+				<div class="success-icon">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M20 6L9 17l-5-5" />
 					</svg>
-					{form.error}
 				</div>
-			{/if}
-
-			<div class="form-group">
-				<label class="label" for="email">Email Address</label>
-				<input
-					id="email"
-					name="email"
-					type="email"
-					class="input"
-					value={form?.email ?? ''}
-					required
-					autocomplete="email"
-					placeholder="you@example.com"
-				/>
+				<h2 class="success-title">Password updated</h2>
+				<p class="success-text">
+					Your password has been reset successfully. Redirecting to sign in...
+				</p>
 			</div>
-
-			<div class="form-group">
-				<label class="label" for="password">Password</label>
-				<input
-					id="password"
-					name="password"
-					type="password"
-					class="input"
-					required
-					autocomplete="current-password"
-					placeholder="Enter your password"
-				/>
+		{:else if !sessionReady}
+			<div class="loading-section">
+				<span class="spinner"></span>
+				<p class="loading-text">Verifying reset link...</p>
 			</div>
-
-			<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
-				{#if loading}
-					<span class="spinner"></span>
-					Signing in...
-				{:else}
-					Sign In
+		{:else}
+			<form onsubmit={handleSubmit}>
+				{#if error}
+					<div class="error-message">
+						<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
+							<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+						</svg>
+						{error}
+					</div>
 				{/if}
-			</button>
-		</form>
 
-		<p class="forgot-link">
-			<a href="/auth/forgot-password">Forgot password?</a>
-		</p>
+				<div class="form-group">
+					<label class="label" for="password">New Password</label>
+					<input
+						id="password"
+						type="password"
+						class="input"
+						bind:value={password}
+						required
+						minlength="6"
+						autocomplete="new-password"
+						placeholder="At least 6 characters"
+					/>
+				</div>
+
+				<div class="form-group">
+					<label class="label" for="confirmPassword">Confirm New Password</label>
+					<input
+						id="confirmPassword"
+						type="password"
+						class="input"
+						bind:value={confirmPassword}
+						required
+						minlength="6"
+						autocomplete="new-password"
+						placeholder="Re-enter your password"
+					/>
+				</div>
+
+				<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
+					{#if loading}
+						<span class="spinner"></span>
+						Updating...
+					{:else}
+						Update Password
+					{/if}
+				</button>
+			</form>
+		{/if}
 
 		<div class="divider">
 			<span>or</span>
 		</div>
 
-		{#if data.demoError}
-			<div class="error-message">
-				<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-					<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-				</svg>
-				{data.demoError}
-			</div>
-		{/if}
-
-		<form
-			method="POST"
-			action="?/demo"
-			use:enhance={() => {
-				demoLoading = true;
-				return async ({ update }) => {
-					demoLoading = false;
-					await update();
-				};
-			}}
-		>
-			<button type="submit" class="btn btn-demo btn-full" disabled={demoLoading || loading}>
-				{#if demoLoading}
-					<span class="spinner demo-spinner"></span>
-					Loading demo...
-				{:else}
-					<svg viewBox="0 0 20 20" fill="currentColor" class="demo-icon">
-						<path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-						<path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
-					</svg>
-					Try Demo
-				{/if}
-			</button>
-		</form>
-
-		<p class="demo-hint">Explore with sample data - no account needed</p>
-
-		<div class="divider">
-			<span>new here?</span>
-		</div>
-
 		<p class="auth-link">
-			Have an invite code? <a href="/auth/register">Create an account</a>
-		</p>
-		<p class="auth-link" style="margin-top: var(--spacing-sm);">
-			No invite code? <a href="/auth/request-access">Request access</a>
+			<a href="/auth/login">Back to sign in</a>
 		</p>
 	</div>
 
@@ -226,6 +245,64 @@
 		flex-shrink: 0;
 	}
 
+	.success-section {
+		text-align: center;
+		padding: var(--spacing-md) 0;
+	}
+
+	.success-icon {
+		width: 64px;
+		height: 64px;
+		margin: 0 auto var(--spacing-md);
+		background: #dcfce7;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #16a34a;
+	}
+
+	.success-icon svg {
+		width: 32px;
+		height: 32px;
+	}
+
+	.success-title {
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		margin-bottom: var(--spacing-md);
+		color: var(--color-text);
+	}
+
+	.success-text {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		line-height: 1.5;
+	}
+
+	:global([data-theme='dark']) .success-icon {
+		background: #14532d;
+		color: #4ade80;
+	}
+
+	.loading-section {
+		text-align: center;
+		padding: var(--spacing-xl) 0;
+	}
+
+	.loading-section .spinner {
+		width: 24px;
+		height: 24px;
+		border-color: rgba(var(--color-primary-rgb), 0.2);
+		border-top-color: var(--color-primary);
+	}
+
+	.loading-text {
+		margin-top: var(--spacing-md);
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+	}
+
 	.btn-full {
 		width: 100%;
 		margin-top: var(--spacing-sm);
@@ -282,54 +359,6 @@
 		text-decoration: underline;
 	}
 
-	.forgot-link {
-		text-align: right;
-		margin-top: var(--spacing-sm);
-	}
-
-	.forgot-link a {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		text-decoration: none;
-	}
-
-	.forgot-link a:hover {
-		color: var(--color-primary);
-		text-decoration: underline;
-	}
-
-	.btn-demo {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--spacing-sm);
-		background: linear-gradient(135deg, #059669 0%, #047857 100%);
-		border: none;
-		color: white;
-		font-weight: 600;
-	}
-
-	.btn-demo:hover:not(:disabled) {
-		background: linear-gradient(135deg, #047857 0%, #065f46 100%);
-	}
-
-	.demo-icon {
-		width: 18px;
-		height: 18px;
-	}
-
-	.demo-spinner {
-		border-color: rgba(255, 255, 255, 0.3);
-		border-top-color: white;
-	}
-
-	.demo-hint {
-		text-align: center;
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		margin-top: var(--spacing-sm);
-	}
-
 	.auth-footer {
 		margin-top: var(--spacing-xl);
 		text-align: center;
@@ -365,7 +394,6 @@
 		height: 20px;
 	}
 
-	/* Dark mode specific styles */
 	:global([data-theme='dark']) .auth-page {
 		background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
 	}

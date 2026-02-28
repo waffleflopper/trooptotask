@@ -2,6 +2,7 @@
 	import type { Personnel, TrainingType, PersonnelTraining } from '../types';
 	import { calculateExpirationDate, getTrainingStatus } from '../utils/trainingStatus';
 	import { formatDate } from '../utils/dates';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -203,35 +204,48 @@
 		editingStates = newStates;
 	}
 
-	async function removeTraining(typeId: string) {
+	let confirmRemoveTypeId = $state<string | null>(null);
+	let showMarkAllConfirm = $state(false);
+
+	function removeTraining(typeId: string) {
+		confirmRemoveTypeId = typeId;
+	}
+
+	async function doRemoveTraining() {
+		const typeId = confirmRemoveTypeId;
+		if (!typeId) return;
+		confirmRemoveTypeId = null;
+
 		const existing = trainingMap().get(typeId);
 		if (!existing) return;
 
 		const type = trainingTypes.find(t => t.id === typeId);
 		const neverExpires = type?.expirationMonths === null && !type?.expirationDateOnly;
 
-		if (confirm('Are you sure you want to remove this training record?')) {
-			await onRemove(existing.id);
+		await onRemove(existing.id);
 
-			// Reset local state
-			const newStates = new Map(editingStates);
-			newStates.set(typeId, {
-				isComplete: false,
-				completionDate: neverExpires || type?.expirationDateOnly ? '' : formatDate(new Date()),
-				directExpirationDate: '',
-				notes: '',
-				certificateUrl: '',
-				isEditing: false,
-				isDirty: false
-			});
-			editingStates = newStates;
-		}
+		// Reset local state
+		const newStates = new Map(editingStates);
+		newStates.set(typeId, {
+			isComplete: false,
+			completionDate: neverExpires || type?.expirationDateOnly ? '' : formatDate(new Date()),
+			directExpirationDate: '',
+			notes: '',
+			certificateUrl: '',
+			isEditing: false,
+			isDirty: false
+		});
+		editingStates = newStates;
 	}
 
 	async function markAllCompletedToday() {
+		showMarkAllConfirm = true;
+	}
+
+	async function doMarkAllCompleted() {
+		showMarkAllConfirm = false;
 		// Skip expiration-date-only types — they need individual expiration dates
 		const applicableTypes = trainingTypes.filter(t => !t.expirationDateOnly);
-		if (!confirm(`Mark ${applicableTypes.length} trainings as completed today? (Expiration-date-only trainings must be set individually)`)) return;
 
 		const today = formatDate(new Date());
 
@@ -528,6 +542,29 @@
 		</div>
 	</div>
 </div>
+
+{#if confirmRemoveTypeId}
+	<ConfirmDialog
+		title="Remove Training Record"
+		message="Are you sure you want to remove this training record?"
+		confirmLabel="Delete"
+		variant="danger"
+		onConfirm={doRemoveTraining}
+		onCancel={() => (confirmRemoveTypeId = null)}
+	/>
+{/if}
+
+{#if showMarkAllConfirm}
+	{@const count = trainingTypes.filter(t => !t.expirationDateOnly).length}
+	<ConfirmDialog
+		title="Mark All Completed"
+		message="Mark {count} trainings as completed today? (Expiration-date-only trainings must be set individually)"
+		confirmLabel="Mark All"
+		variant="warning"
+		onConfirm={doMarkAllCompleted}
+		onCancel={() => (showMarkAllConfirm = false)}
+	/>
+{/if}
 
 <style>
 	.person-training-modal {

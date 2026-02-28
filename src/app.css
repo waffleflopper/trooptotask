@@ -713,6 +713,23 @@ input[type="checkbox"] {
 /* Layout */
 .spacer { flex: 1; }
 
+/* Required field marker */
+.required { color: var(--color-error); }
+
+/* Form validation error */
+.form-error {
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: rgba(244, 67, 54, 0.08);
+  border-radius: var(--radius-sm);
+}
+
+[data-theme='dark'] .form-error {
+  background: rgba(244, 67, 54, 0.15);
+}
+
 /* Loading spinner — also available as Spinner.svelte component */
 .spinner {
   display: inline-block;

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { SpecialDay } from '../types';
 	import { formatDate } from '../utils/dates';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		specialDays: SpecialDay[];
@@ -39,16 +40,27 @@
 		}
 	}
 
+	let confirmRemove = $state<SpecialDay | null>(null);
+	let showResetConfirm = $state(false);
+
 	function handleRemove(day: SpecialDay) {
-		if (confirm(`Are you sure you want to remove "${day.name}"?`)) {
-			onRemove(day.id);
+		confirmRemove = day;
+	}
+
+	function doRemove() {
+		if (confirmRemove) {
+			onRemove(confirmRemove.id);
+			confirmRemove = null;
 		}
 	}
 
 	function handleResetHolidays() {
-		if (confirm('Reset federal holidays to defaults? Custom closures will be preserved.')) {
-			onResetHolidays();
-		}
+		showResetConfirm = true;
+	}
+
+	function doReset() {
+		onResetHolidays();
+		showResetConfirm = false;
 	}
 
 	function formatDisplayDate(dateStr: string): string {
@@ -130,6 +142,28 @@
 		</div>
 	</div>
 </div>
+
+{#if confirmRemove}
+	<ConfirmDialog
+		title="Remove Special Day"
+		message='Remove "{confirmRemove.name}"?'
+		confirmLabel="Remove"
+		variant="danger"
+		onConfirm={doRemove}
+		onCancel={() => (confirmRemove = null)}
+	/>
+{/if}
+
+{#if showResetConfirm}
+	<ConfirmDialog
+		title="Reset Federal Holidays"
+		message="Reset federal holidays to defaults? Custom closures will be preserved."
+		confirmLabel="Reset"
+		variant="warning"
+		onConfirm={doReset}
+		onCancel={() => (showResetConfirm = false)}
+	/>
+{/if}
 
 <style>
 	.add-form {

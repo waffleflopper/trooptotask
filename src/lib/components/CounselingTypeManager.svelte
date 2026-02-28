@@ -4,6 +4,7 @@
 	import Badge from './ui/Badge.svelte';
 	import EmptyState from './ui/EmptyState.svelte';
 	import FileUpload from './ui/FileUpload.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 	import { COUNSELING_RECURRENCE_LABELS } from '$lib/types/leadersBook';
 
 	interface Props {
@@ -95,13 +96,16 @@
 		editingId = null;
 	}
 
+	let confirmRemove = $state<{ id: string; name: string } | null>(null);
+
 	function handleRemove(id: string, name: string) {
-		if (
-			confirm(
-				`Are you sure you want to remove "${name}"? Existing counseling records will keep their data but lose the type reference.`
-			)
-		) {
-			onRemove(id);
+		confirmRemove = { id, name };
+	}
+
+	function doRemove() {
+		if (confirmRemove) {
+			onRemove(confirmRemove.id);
+			confirmRemove = null;
 		}
 	}
 
@@ -330,6 +334,17 @@
 		</div>
 	</div>
 </div>
+
+{#if confirmRemove}
+	<ConfirmDialog
+		title="Remove Counseling Type"
+		message='Remove "{confirmRemove.name}"? Existing counseling records will keep their data but lose the type reference.'
+		confirmLabel="Remove"
+		variant="danger"
+		onConfirm={doRemove}
+		onCancel={() => (confirmRemove = null)}
+	/>
+{/if}
 
 <style>
 	.add-section,

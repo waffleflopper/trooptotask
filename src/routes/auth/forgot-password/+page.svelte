@@ -2,13 +2,12 @@
 	import { enhance } from '$app/forms';
 	import { themeStore } from '$lib/stores/theme.svelte';
 
-	let { form, data } = $props();
+	let { form } = $props();
 	let loading = $state(false);
-	let demoLoading = $state(false);
 </script>
 
 <svelte:head>
-	<title>Sign In - Troop to Task</title>
+	<title>Forgot Password - Troop to Task</title>
 </svelte:head>
 
 <div class="auth-page">
@@ -32,119 +31,80 @@
 				</svg>
 			</div>
 			<h1>Troop to Task</h1>
-			<p class="subtitle">Unit Staff Scheduling</p>
+			<p class="subtitle">Reset your password</p>
 		</div>
 
-		<form
-			method="POST"
-			action="?/login"
-			use:enhance={() => {
-				loading = true;
-				return async ({ update }) => {
-					loading = false;
-					await update();
-				};
-			}}
-		>
-			{#if form?.error}
-				<div class="error-message">
-					<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-						<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+		{#if form?.success}
+			<div class="success-section">
+				<div class="success-icon">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+						<polyline points="22,6 12,13 2,6" />
 					</svg>
-					{form.error}
 				</div>
-			{/if}
-
-			<div class="form-group">
-				<label class="label" for="email">Email Address</label>
-				<input
-					id="email"
-					name="email"
-					type="email"
-					class="input"
-					value={form?.email ?? ''}
-					required
-					autocomplete="email"
-					placeholder="you@example.com"
-				/>
+				<h2 class="success-title">Check your email</h2>
+				<p class="success-text">
+					We've sent a password reset link to <strong>{form.email}</strong>
+				</p>
+				<p class="success-text">
+					Click the link in the email to set a new password.
+				</p>
 			</div>
-
-			<div class="form-group">
-				<label class="label" for="password">Password</label>
-				<input
-					id="password"
-					name="password"
-					type="password"
-					class="input"
-					required
-					autocomplete="current-password"
-					placeholder="Enter your password"
-				/>
-			</div>
-
-			<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
-				{#if loading}
-					<span class="spinner"></span>
-					Signing in...
-				{:else}
-					Sign In
+		{:else}
+			<form
+				method="POST"
+				use:enhance={() => {
+					loading = true;
+					return async ({ update }) => {
+						loading = false;
+						await update();
+					};
+				}}
+			>
+				{#if form?.error}
+					<div class="error-message">
+						<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
+							<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+						</svg>
+						{form.error}
+					</div>
 				{/if}
-			</button>
-		</form>
 
-		<p class="forgot-link">
-			<a href="/auth/forgot-password">Forgot password?</a>
-		</p>
+				<p class="instructions">
+					Enter the email address associated with your account and we'll send you a link to reset your password.
+				</p>
+
+				<div class="form-group">
+					<label class="label" for="email">Email Address</label>
+					<input
+						id="email"
+						name="email"
+						type="email"
+						class="input"
+						value={form?.email ?? ''}
+						required
+						autocomplete="email"
+						placeholder="you@example.com"
+					/>
+				</div>
+
+				<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
+					{#if loading}
+						<span class="spinner"></span>
+						Sending...
+					{:else}
+						Send Reset Link
+					{/if}
+				</button>
+			</form>
+		{/if}
 
 		<div class="divider">
 			<span>or</span>
 		</div>
 
-		{#if data.demoError}
-			<div class="error-message">
-				<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-					<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-				</svg>
-				{data.demoError}
-			</div>
-		{/if}
-
-		<form
-			method="POST"
-			action="?/demo"
-			use:enhance={() => {
-				demoLoading = true;
-				return async ({ update }) => {
-					demoLoading = false;
-					await update();
-				};
-			}}
-		>
-			<button type="submit" class="btn btn-demo btn-full" disabled={demoLoading || loading}>
-				{#if demoLoading}
-					<span class="spinner demo-spinner"></span>
-					Loading demo...
-				{:else}
-					<svg viewBox="0 0 20 20" fill="currentColor" class="demo-icon">
-						<path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-						<path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
-					</svg>
-					Try Demo
-				{/if}
-			</button>
-		</form>
-
-		<p class="demo-hint">Explore with sample data - no account needed</p>
-
-		<div class="divider">
-			<span>new here?</span>
-		</div>
-
 		<p class="auth-link">
-			Have an invite code? <a href="/auth/register">Create an account</a>
-		</p>
-		<p class="auth-link" style="margin-top: var(--spacing-sm);">
-			No invite code? <a href="/auth/request-access">Request access</a>
+			Remember your password? <a href="/auth/login">Sign in</a>
 		</p>
 	</div>
 
@@ -207,6 +167,13 @@
 		font-size: var(--font-size-sm);
 	}
 
+	.instructions {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		margin-bottom: var(--spacing-lg);
+		line-height: 1.5;
+	}
+
 	.error-message {
 		display: flex;
 		align-items: center;
@@ -224,6 +191,51 @@
 		width: 18px;
 		height: 18px;
 		flex-shrink: 0;
+	}
+
+	.success-section {
+		text-align: center;
+		padding: var(--spacing-md) 0;
+	}
+
+	.success-icon {
+		width: 64px;
+		height: 64px;
+		margin: 0 auto var(--spacing-md);
+		background: #dcfce7;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #16a34a;
+	}
+
+	.success-icon svg {
+		width: 32px;
+		height: 32px;
+	}
+
+	.success-title {
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		margin-bottom: var(--spacing-md);
+		color: var(--color-text);
+	}
+
+	.success-text {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		margin-bottom: var(--spacing-sm);
+		line-height: 1.5;
+	}
+
+	.success-text strong {
+		color: var(--color-text);
+	}
+
+	:global([data-theme='dark']) .success-icon {
+		background: #14532d;
+		color: #4ade80;
 	}
 
 	.btn-full {
@@ -282,54 +294,6 @@
 		text-decoration: underline;
 	}
 
-	.forgot-link {
-		text-align: right;
-		margin-top: var(--spacing-sm);
-	}
-
-	.forgot-link a {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		text-decoration: none;
-	}
-
-	.forgot-link a:hover {
-		color: var(--color-primary);
-		text-decoration: underline;
-	}
-
-	.btn-demo {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--spacing-sm);
-		background: linear-gradient(135deg, #059669 0%, #047857 100%);
-		border: none;
-		color: white;
-		font-weight: 600;
-	}
-
-	.btn-demo:hover:not(:disabled) {
-		background: linear-gradient(135deg, #047857 0%, #065f46 100%);
-	}
-
-	.demo-icon {
-		width: 18px;
-		height: 18px;
-	}
-
-	.demo-spinner {
-		border-color: rgba(255, 255, 255, 0.3);
-		border-top-color: white;
-	}
-
-	.demo-hint {
-		text-align: center;
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		margin-top: var(--spacing-sm);
-	}
-
 	.auth-footer {
 		margin-top: var(--spacing-xl);
 		text-align: center;
@@ -365,7 +329,6 @@
 		height: 20px;
 	}
 
-	/* Dark mode specific styles */
 	:global([data-theme='dark']) .auth-page {
 		background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
 	}

@@ -2,6 +2,7 @@
 	import type { Personnel } from '../types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '../utils/dates';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface GroupData {
 		group: string;
@@ -134,8 +135,16 @@
 		}
 	}
 
-	async function clearAll(typeId: string) {
-		if (!confirm('Clear all assignments for this type for the entire month?')) return;
+	let clearTypeId = $state<string | null>(null);
+
+	function clearAll(typeId: string) {
+		clearTypeId = typeId;
+	}
+
+	async function doClearAll() {
+		const typeId = clearTypeId;
+		if (!typeId) return;
+		clearTypeId = null;
 
 		isApplying = true;
 		try {
@@ -316,6 +325,17 @@
 		</div>
 	</div>
 </div>
+
+{#if clearTypeId}
+	<ConfirmDialog
+		title="Clear Assignments"
+		message="Clear all assignments for this type for the entire month?"
+		confirmLabel="Clear All"
+		variant="warning"
+		onConfirm={doClearAll}
+		onCancel={() => (clearTypeId = null)}
+	/>
+{/if}
 
 <style>
 	.planner-modal {

@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { inject } from '@vercel/analytics';
 	import { injectSpeedInsights } from '@vercel/speed-insights';
+	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
 
 	let { children, data } = $props();
 
@@ -17,6 +18,7 @@
 <div class="app">
 	{@render children()}
 </div>
+<ToastContainer />
 
 <style>
 	.app {

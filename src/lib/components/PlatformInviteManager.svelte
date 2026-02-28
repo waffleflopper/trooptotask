@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -79,9 +80,17 @@
 		}
 	}
 
+	let deleteInviteId = $state<string | null>(null);
+
 	// Delete an invite
-	async function deleteInvite(id: string) {
-		if (!confirm('Delete this invite? It will no longer be usable.')) return;
+	function deleteInvite(id: string) {
+		deleteInviteId = id;
+	}
+
+	async function doDeleteInvite() {
+		const id = deleteInviteId;
+		if (!id) return;
+		deleteInviteId = null;
 
 		try {
 			await fetch('/api/platform-invites', {
@@ -289,6 +298,17 @@
 		</div>
 	</div>
 </div>
+
+{#if deleteInviteId}
+	<ConfirmDialog
+		title="Delete Invite"
+		message="Delete this invite? It will no longer be usable."
+		confirmLabel="Delete"
+		variant="danger"
+		onConfirm={doDeleteInvite}
+		onCancel={() => (deleteInviteId = null)}
+	/>
+{/if}
 
 <style>
 	.invite-modal {

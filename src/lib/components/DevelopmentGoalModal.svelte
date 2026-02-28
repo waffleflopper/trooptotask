@@ -13,7 +13,9 @@
 		GOAL_CATEGORY_COLORS
 	} from '$lib/types/leadersBook';
 	import { developmentGoalsStore } from '$lib/stores/developmentGoals.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import Modal from './Modal.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -58,16 +60,30 @@
 			} else {
 				await developmentGoalsStore.add(data);
 			}
+			toastStore.success(isEdit ? 'Goal updated' : 'Goal created');
 			onClose();
+		} catch {
+			toastStore.error('Failed to save goal');
 		} finally {
 			saving = false;
 		}
 	}
 
-	async function handleRemove() {
-		if (existingGoal && confirm('Are you sure you want to delete this goal?')) {
+	let showRemoveConfirm = $state(false);
+
+	function handleRemove() {
+		showRemoveConfirm = true;
+	}
+
+	async function doRemove() {
+		showRemoveConfirm = false;
+		if (!existingGoal) return;
+		try {
 			await developmentGoalsStore.remove(existingGoal.id);
+			toastStore.success('Goal deleted');
 			onClose();
+		} catch {
+			toastStore.error('Failed to delete goal');
 		}
 	}
 </script>
@@ -167,6 +183,17 @@
 	{/snippet}
 </Modal>
 
+{#if showRemoveConfirm}
+	<ConfirmDialog
+		title="Delete Goal"
+		message="Are you sure you want to delete this goal?"
+		confirmLabel="Delete"
+		variant="danger"
+		onConfirm={doRemove}
+		onCancel={() => (showRemoveConfirm = false)}
+	/>
+{/if}
+
 <style>
 	.person-info {
 		display: flex;
@@ -198,10 +225,6 @@
 
 	.form-group.flex-1 {
 		flex: 1;
-	}
-
-	.required {
-		color: var(--color-error);
 	}
 
 	.textarea {

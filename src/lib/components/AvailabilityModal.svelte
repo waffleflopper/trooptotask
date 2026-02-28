@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { Personnel, StatusType, AvailabilityEntry } from '../types';
 	import { formatDate } from '../utils/dates';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import Modal from './Modal.svelte';
 	import Badge from './ui/Badge.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -99,6 +101,7 @@
 			localEntries = [...localEntries, tempEntry];
 		}
 		onAdd(newData);
+		toastStore.success(editingEntry ? 'Status updated' : 'Status added');
 
 		// Reset form
 		selectedStatusId = statusTypes[0]?.id ?? '';
@@ -106,10 +109,18 @@
 		endDate = dateStr;
 	}
 
+	let removeEntryId = $state<string | null>(null);
+
 	function handleRemove(entryId: string) {
-		if (confirm('Remove this status entry?')) {
-			localEntries = localEntries.filter((e) => e.id !== entryId);
-			onRemove(entryId);
+		removeEntryId = entryId;
+	}
+
+	function doRemove() {
+		if (removeEntryId) {
+			localEntries = localEntries.filter((e) => e.id !== removeEntryId);
+			onRemove(removeEntryId);
+			toastStore.success('Status removed');
+			removeEntryId = null;
 		}
 	}
 
@@ -201,7 +212,7 @@
 		{/if}
 
 		<div class="form-group">
-			<label class="label" for="statusType">Status Type</label>
+			<label class="label" for="statusType">Status Type <span class="required">*</span></label>
 			<div class="status-select-row">
 				<select id="statusType" class="select" bind:value={selectedStatusId}>
 					{#each statusTypes as status}
@@ -219,12 +230,12 @@
 
 		<div class="date-range">
 			<div class="form-group">
-				<label class="label" for="startDate">Start Date</label>
+				<label class="label" for="startDate">Start Date <span class="required">*</span></label>
 				<input id="startDate" type="date" class="input" bind:value={startDate} />
 			</div>
 			<span class="date-arrow">→</span>
 			<div class="form-group">
-				<label class="label" for="endDate">End Date</label>
+				<label class="label" for="endDate">End Date <span class="required">*</span></label>
 				<input id="endDate" type="date" class="input" bind:value={endDate} />
 			</div>
 			{#if dayCount > 0}
@@ -236,7 +247,7 @@
 		</div>
 
 		{#if dateError}
-			<div class="date-error">{dateError}</div>
+			<div class="form-error">{dateError}</div>
 		{/if}
 	</div>
 
@@ -253,6 +264,17 @@
 		</button>
 	{/snippet}
 </Modal>
+
+{#if removeEntryId}
+	<ConfirmDialog
+		title="Remove Status"
+		message="Remove this status entry?"
+		confirmLabel="Remove"
+		variant="danger"
+		onConfirm={doRemove}
+		onCancel={() => (removeEntryId = null)}
+	/>
+{/if}
 
 <style>
 	.person-info {
@@ -394,15 +416,6 @@
 		font-size: 10px;
 		color: var(--color-text-muted);
 		text-transform: uppercase;
-	}
-
-	.date-error {
-		color: #dc2626;
-		font-size: var(--font-size-sm);
-		margin-top: var(--spacing-sm);
-		padding: var(--spacing-xs) var(--spacing-sm);
-		background: #fef2f2;
-		border-radius: var(--radius-sm);
 	}
 
 	.add-section {

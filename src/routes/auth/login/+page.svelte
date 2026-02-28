@@ -92,6 +92,10 @@
 			</button>
 		</form>
 
+		<p class="forgot-link">
+			<a href="/auth/forgot-password">Forgot password?</a>
+		</p>
+
 		<div class="divider">
 			<span>or</span>
 		</div>
@@ -275,6 +279,22 @@
 	}
 
 	.auth-link a:hover {
+		text-decoration: underline;
+	}
+
+	.forgot-link {
+		text-align: right;
+		margin-top: var(--spacing-sm);
+	}
+
+	.forgot-link a {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		text-decoration: none;
+	}
+
+	.forgot-link a:hover {
+		color: var(--color-primary);
 		text-decoration: underline;
 	}
 

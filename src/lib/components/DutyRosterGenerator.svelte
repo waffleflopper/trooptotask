@@ -3,6 +3,7 @@
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 	import type { RosterHistoryItem, RosterHistoryEntry } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '../utils/dates';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 	import Modal from './Modal.svelte';
 
 	interface Props {
@@ -426,11 +427,17 @@
 		URL.revokeObjectURL(url);
 	}
 
+	let reApplyItem = $state<RosterHistoryItem | null>(null);
+
 	// Re-apply a history roster to the calendar
-	async function reApplyHistoryRoster(item: RosterHistoryItem) {
-		if (!confirm(`Re-apply "${item.name}" to the calendar? This will overwrite any existing assignments for those dates.`)) {
-			return;
-		}
+	function reApplyHistoryRoster(item: RosterHistoryItem) {
+		reApplyItem = item;
+	}
+
+	async function doReApplyRoster() {
+		const item = reApplyItem;
+		if (!item) return;
+		reApplyItem = null;
 
 		const assignmentsToCreate = item.roster
 			.filter(r => r.assigneeId !== null)
@@ -862,6 +869,17 @@
 		{/if}
 	{/snippet}
 </Modal>
+
+{#if reApplyItem}
+	<ConfirmDialog
+		title="Re-apply Roster"
+		message='Re-apply "{reApplyItem.name}" to the calendar? This will overwrite any existing assignments for those dates.'
+		confirmLabel="Re-apply"
+		variant="warning"
+		onConfirm={doReApplyRoster}
+		onCancel={() => (reApplyItem = null)}
+	/>
+{/if}
 
 <style>
 	h4 {

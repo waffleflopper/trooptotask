@@ -2,6 +2,7 @@
 	import type { AssignmentType } from '../stores/dailyAssignments.svelte';
 	import Badge from './ui/Badge.svelte';
 	import EmptyState from './ui/EmptyState.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		assignmentTypes: AssignmentType[];
@@ -76,9 +77,16 @@
 		editColor = '';
 	}
 
+	let confirmRemove = $state<{ id: string; name: string } | null>(null);
+
 	function handleRemove(id: string, name: string) {
-		if (confirm(`Remove "${name}"?\n\nAll assignments using this type will also be removed. This cannot be undone.`)) {
-			onRemove(id);
+		confirmRemove = { id, name };
+	}
+
+	function doRemove() {
+		if (confirmRemove) {
+			onRemove(confirmRemove.id);
+			confirmRemove = null;
 		}
 	}
 </script>
@@ -221,6 +229,17 @@
 		</div>
 	</div>
 </div>
+
+{#if confirmRemove}
+	<ConfirmDialog
+		title="Remove Assignment Type"
+		message='Remove "{confirmRemove.name}"? All assignments using this type will also be removed. This cannot be undone.'
+		confirmLabel="Remove"
+		variant="danger"
+		onConfirm={doRemove}
+		onCancel={() => (confirmRemove = null)}
+	/>
+{/if}
 
 <style>
 	.assignment-manager-modal {

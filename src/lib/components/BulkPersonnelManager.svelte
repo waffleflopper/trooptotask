@@ -3,6 +3,7 @@
 	import type { Group } from '../stores/groups.svelte';
 	import { ALL_RANKS } from '../types';
 	import * as XLSX from 'xlsx';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 	import Modal from './Modal.svelte';
 
 	interface GroupData {
@@ -217,13 +218,18 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 		selectedIds = newSet;
 	}
 
+	let showDeleteConfirm = $state(false);
+
 	function handleDelete() {
 		if (selectedIds.size > 0) {
-			if (confirm(`Delete ${selectedIds.size} personnel?\n\nThis will also remove all their schedule entries. This action cannot be undone.`)) {
-				onBulkDelete([...selectedIds]);
-				selectedIds = new Set();
-			}
+			showDeleteConfirm = true;
 		}
+	}
+
+	function doDelete() {
+		onBulkDelete([...selectedIds]);
+		selectedIds = new Set();
+		showDeleteConfirm = false;
 	}
 
 	$effect(() => {
@@ -459,6 +465,17 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 		{/if}
 	{/snippet}
 </Modal>
+
+{#if showDeleteConfirm}
+	<ConfirmDialog
+		title="Delete Personnel"
+		message="Delete {selectedIds.size} personnel? This will also remove all their schedule entries. This action cannot be undone."
+		confirmLabel="Delete"
+		variant="danger"
+		onConfirm={doDelete}
+		onCancel={() => (showDeleteConfirm = false)}
+	/>
+{/if}
 
 <style>
 	.bulk-content {

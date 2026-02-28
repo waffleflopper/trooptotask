@@ -2,8 +2,10 @@
 	import type { Personnel, TrainingType, PersonnelTraining } from '../types';
 	import { calculateExpirationDate, getTrainingStatus } from '../utils/trainingStatus';
 	import { formatDate } from '../utils/dates';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import Modal from './Modal.svelte';
 	import Badge from './ui/Badge.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -74,12 +76,20 @@
 			notes: notes.trim() || null,
 			certificateUrl: certificateUrl.trim() || null
 		});
+		toastStore.success(existingTraining ? 'Training record updated' : 'Training record saved');
 		onClose();
 	}
 
+	let showRemoveConfirm = $state(false);
+
 	function handleRemove() {
-		if (existingTraining && confirm('Are you sure you want to remove this training record?')) {
+		showRemoveConfirm = true;
+	}
+
+	function doRemove() {
+		if (existingTraining) {
 			onRemove(existingTraining.id);
+			toastStore.success('Training record deleted');
 			onClose();
 		}
 	}
@@ -196,13 +206,24 @@
 
 	{#snippet footer()}
 		{#if existingTraining}
-			<button class="btn btn-danger" onclick={handleRemove}>Remove</button>
+			<button class="btn btn-danger" onclick={handleRemove}>Delete</button>
 		{/if}
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 		<button class="btn btn-primary" onclick={handleSave} disabled={!canSave}>Save</button>
 	{/snippet}
 </Modal>
+
+{#if showRemoveConfirm}
+	<ConfirmDialog
+		title="Delete Training Record"
+		message="Are you sure you want to delete this training record?"
+		confirmLabel="Delete"
+		variant="danger"
+		onConfirm={doRemove}
+		onCancel={() => (showRemoveConfirm = false)}
+	/>
+{/if}
 
 <style>
 	.person-info {

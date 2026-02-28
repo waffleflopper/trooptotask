@@ -1,14 +1,44 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { themeStore } from '$lib/stores/theme.svelte';
 
-	let { form, data } = $props();
+	let email = $state('');
+	let name = $state('');
+	let reason = $state('');
 	let loading = $state(false);
-	let demoLoading = $state(false);
+	let submitted = $state(false);
+	let errorMsg = $state('');
+
+	async function handleSubmit(e: SubmitEvent) {
+		e.preventDefault();
+		if (loading) return;
+
+		errorMsg = '';
+		loading = true;
+
+		try {
+			const res = await fetch('/api/access-requests', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ email, name, reason: reason || undefined })
+			});
+
+			if (!res.ok) {
+				const data = await res.json();
+				errorMsg = data.message || 'Something went wrong. Please try again.';
+				return;
+			}
+
+			submitted = true;
+		} catch {
+			errorMsg = 'Something went wrong. Please try again.';
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 <svelte:head>
-	<title>Sign In - Troop to Task</title>
+	<title>Request Access - Troop to Task</title>
 </svelte:head>
 
 <div class="auth-page">
@@ -32,116 +62,103 @@
 				</svg>
 			</div>
 			<h1>Troop to Task</h1>
-			<p class="subtitle">Unit Staff Scheduling</p>
-		</div>
-
-		<form
-			method="POST"
-			action="?/login"
-			use:enhance={() => {
-				loading = true;
-				return async ({ update }) => {
-					loading = false;
-					await update();
-				};
-			}}
-		>
-			{#if form?.error}
-				<div class="error-message">
-					<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-						<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-					</svg>
-					{form.error}
-				</div>
+			{#if submitted}
+				<p class="subtitle">Request submitted</p>
+			{:else}
+				<p class="subtitle">Request access</p>
 			{/if}
-
-			<div class="form-group">
-				<label class="label" for="email">Email Address</label>
-				<input
-					id="email"
-					name="email"
-					type="email"
-					class="input"
-					value={form?.email ?? ''}
-					required
-					autocomplete="email"
-					placeholder="you@example.com"
-				/>
-			</div>
-
-			<div class="form-group">
-				<label class="label" for="password">Password</label>
-				<input
-					id="password"
-					name="password"
-					type="password"
-					class="input"
-					required
-					autocomplete="current-password"
-					placeholder="Enter your password"
-				/>
-			</div>
-
-			<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
-				{#if loading}
-					<span class="spinner"></span>
-					Signing in...
-				{:else}
-					Sign In
-				{/if}
-			</button>
-		</form>
-
-		<div class="divider">
-			<span>or</span>
 		</div>
 
-		{#if data.demoError}
-			<div class="error-message">
-				<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-					<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-				</svg>
-				{data.demoError}
-			</div>
-		{/if}
-
-		<form
-			method="POST"
-			action="?/demo"
-			use:enhance={() => {
-				demoLoading = true;
-				return async ({ update }) => {
-					demoLoading = false;
-					await update();
-				};
-			}}
-		>
-			<button type="submit" class="btn btn-demo btn-full" disabled={demoLoading || loading}>
-				{#if demoLoading}
-					<span class="spinner demo-spinner"></span>
-					Loading demo...
-				{:else}
-					<svg viewBox="0 0 20 20" fill="currentColor" class="demo-icon">
-						<path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-						<path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+		{#if submitted}
+			<div class="confirm-section">
+				<div class="confirm-icon">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+						<polyline points="22 4 12 14.01 9 11.01"/>
 					</svg>
-					Try Demo
+				</div>
+				<h2 class="confirm-title">We've got your request!</h2>
+				<p class="confirm-text">
+					We'll review your request and email <strong>{email}</strong> when you're approved.
+				</p>
+			</div>
+
+			<div class="divider">
+				<span>or</span>
+			</div>
+
+			<p class="auth-link">
+				<a href="/auth/login">Back to sign in</a>
+			</p>
+		{:else}
+			<form onsubmit={handleSubmit}>
+				{#if errorMsg}
+					<div class="error-message">
+						<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
+							<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+						</svg>
+						{errorMsg}
+					</div>
 				{/if}
-			</button>
-		</form>
 
-		<p class="demo-hint">Explore with sample data - no account needed</p>
+				<div class="form-group">
+					<label class="label" for="name">Full Name</label>
+					<input
+						id="name"
+						type="text"
+						class="input"
+						bind:value={name}
+						required
+						autocomplete="name"
+						placeholder="Your full name"
+					/>
+				</div>
 
-		<div class="divider">
-			<span>new here?</span>
-		</div>
+				<div class="form-group">
+					<label class="label" for="email">Email Address</label>
+					<input
+						id="email"
+						type="email"
+						class="input"
+						bind:value={email}
+						required
+						autocomplete="email"
+						placeholder="you@example.com"
+					/>
+				</div>
 
-		<p class="auth-link">
-			Have an invite code? <a href="/auth/register">Create an account</a>
-		</p>
-		<p class="auth-link" style="margin-top: var(--spacing-sm);">
-			No invite code? <a href="/auth/request-access">Request access</a>
-		</p>
+				<div class="form-group">
+					<label class="label" for="reason">Reason <span class="optional">(optional)</span></label>
+					<textarea
+						id="reason"
+						class="input textarea"
+						bind:value={reason}
+						rows="3"
+						placeholder="Tell us about your unit or why you'd like access"
+					></textarea>
+				</div>
+
+				<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
+					{#if loading}
+						<span class="spinner"></span>
+						Submitting...
+					{:else}
+						Submit Request
+					{/if}
+				</button>
+			</form>
+
+			<div class="divider">
+				<span>or</span>
+			</div>
+
+			<p class="auth-link">
+				Have an invite code? <a href="/auth/register">Create an account</a>
+			</p>
+			<p class="auth-link" style="margin-top: var(--spacing-sm);">
+				Already have an account? <a href="/auth/login">Sign in</a>
+			</p>
+		{/if}
 	</div>
 
 	<footer class="auth-footer">
@@ -222,6 +239,16 @@
 		flex-shrink: 0;
 	}
 
+	.textarea {
+		resize: vertical;
+		min-height: 80px;
+	}
+
+	.optional {
+		font-weight: 400;
+		color: var(--color-text-muted);
+	}
+
 	.btn-full {
 		width: 100%;
 		margin-top: var(--spacing-sm);
@@ -278,36 +305,44 @@
 		text-decoration: underline;
 	}
 
-	.btn-demo {
+	/* Confirmation styles */
+	.confirm-section {
+		text-align: center;
+		padding: var(--spacing-md) 0;
+	}
+
+	.confirm-icon {
+		width: 64px;
+		height: 64px;
+		margin: 0 auto var(--spacing-md);
+		background: #dcfce7;
+		border-radius: 50%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: var(--spacing-sm);
-		background: linear-gradient(135deg, #059669 0%, #047857 100%);
-		border: none;
-		color: white;
+		color: #16a34a;
+	}
+
+	.confirm-icon svg {
+		width: 32px;
+		height: 32px;
+	}
+
+	.confirm-title {
+		font-size: var(--font-size-lg);
 		font-weight: 600;
+		margin-bottom: var(--spacing-md);
+		color: var(--color-text);
 	}
 
-	.btn-demo:hover:not(:disabled) {
-		background: linear-gradient(135deg, #047857 0%, #065f46 100%);
-	}
-
-	.demo-icon {
-		width: 18px;
-		height: 18px;
-	}
-
-	.demo-spinner {
-		border-color: rgba(255, 255, 255, 0.3);
-		border-top-color: white;
-	}
-
-	.demo-hint {
-		text-align: center;
-		font-size: var(--font-size-xs);
+	.confirm-text {
 		color: var(--color-text-muted);
-		margin-top: var(--spacing-sm);
+		font-size: var(--font-size-sm);
+		line-height: 1.5;
+	}
+
+	.confirm-text strong {
+		color: var(--color-text);
 	}
 
 	.auth-footer {
@@ -345,7 +380,6 @@
 		height: 20px;
 	}
 
-	/* Dark mode specific styles */
 	:global([data-theme='dark']) .auth-page {
 		background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
 	}
@@ -354,5 +388,10 @@
 		background: #450a0a;
 		border-color: #7f1d1d;
 		color: #fca5a5;
+	}
+
+	:global([data-theme='dark']) .confirm-icon {
+		background: #14532d;
+		color: #4ade80;
 	}
 </style>

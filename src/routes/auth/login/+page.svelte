@@ -8,31 +8,23 @@
 </script>
 
 <svelte:head>
-	<title>Sign In - Troop to Task</title>
+	<title>Sign In — Troop to Task</title>
 </svelte:head>
 
 <div class="auth-page">
+	<div class="auth-noise"></div>
 	<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 		{#if themeStore.isDark}
-			<svg viewBox="0 0 24 24" fill="currentColor">
-				<path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-			</svg>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg>
 		{:else}
-			<svg viewBox="0 0 24 24" fill="currentColor">
-				<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-			</svg>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
 		{/if}
 	</button>
 	<div class="auth-card">
 		<div class="brand">
-			<div class="logo">
-				<svg viewBox="0 0 24 24" fill="currentColor">
-					<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/>
-					<path d="M12 8v4l3 3"/>
-				</svg>
-			</div>
+			<div class="brand-mark">T2T</div>
 			<h1>Troop to Task</h1>
-			<p class="subtitle">Unit Staff Scheduling</p>
+			<p class="subtitle">Personnel Management System</p>
 		</div>
 
 		<form
@@ -82,7 +74,7 @@
 				/>
 			</div>
 
-			<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
+			<button type="submit" class="btn-sign-in" disabled={loading}>
 				{#if loading}
 					<span class="spinner"></span>
 					Signing in...
@@ -120,7 +112,7 @@
 				};
 			}}
 		>
-			<button type="submit" class="btn btn-demo btn-full" disabled={demoLoading || loading}>
+			<button type="submit" class="btn-demo" disabled={demoLoading || loading}>
 				{#if demoLoading}
 					<span class="spinner demo-spinner"></span>
 					Loading demo...
@@ -134,7 +126,7 @@
 			</button>
 		</form>
 
-		<p class="demo-hint">Explore with sample data - no account needed</p>
+		<p class="demo-hint">Explore with sample data — no account needed</p>
 
 		<div class="divider">
 			<span>new here?</span>
@@ -149,7 +141,7 @@
 	</div>
 
 	<footer class="auth-footer">
-		<p>Designed for Army Medical Units</p>
+		<p>Built for Army leaders, by Army leaders.</p>
 	</footer>
 </div>
 
@@ -160,17 +152,28 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		background: linear-gradient(135deg, var(--color-primary) 0%, #2c5282 100%);
+		background: #0F0F0F;
 		padding: var(--spacing-lg);
+		position: relative;
+	}
+
+	.auth-noise {
+		position: absolute;
+		inset: 0;
+		opacity: 0.03;
+		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+		background-size: 256px 256px;
+		pointer-events: none;
 	}
 
 	.auth-card {
 		background: var(--color-surface);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-lg);
+		border-radius: 12px;
+		box-shadow: 0 20px 60px rgba(0,0,0,0.4);
 		padding: var(--spacing-xl);
 		width: 100%;
 		max-width: 400px;
+		position: relative;
 	}
 
 	.brand {
@@ -178,33 +181,34 @@
 		margin-bottom: var(--spacing-xl);
 	}
 
-	.logo {
-		width: 56px;
-		height: 56px;
-		margin: 0 auto var(--spacing-sm);
-		background: var(--color-primary);
-		border-radius: var(--radius-lg);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: white;
-	}
-
-	.logo svg {
-		width: 32px;
-		height: 32px;
+	.brand-mark {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		background: #B8943E;
+		color: #0F0F0F;
+		padding: 0.35rem 0.625rem;
+		border-radius: 5px;
+		display: inline-block;
+		margin-bottom: var(--spacing-sm);
+		line-height: 1;
 	}
 
 	.brand h1 {
-		font-size: var(--font-size-xl);
-		font-weight: 700;
-		color: var(--color-primary);
+		font-family: var(--font-display);
+		font-size: 1.5rem;
+		font-weight: 400;
+		color: var(--color-text);
 		margin-bottom: var(--spacing-xs);
 	}
 
 	.subtitle {
+		font-family: var(--font-mono);
 		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
+		font-size: 0.6875rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	.error-message {
@@ -226,19 +230,41 @@
 		flex-shrink: 0;
 	}
 
-	.btn-full {
+	.btn-sign-in {
 		width: 100%;
 		margin-top: var(--spacing-sm);
-		padding: var(--spacing-md);
+		padding: 0.75rem var(--spacing-md);
+		font-family: var(--font-family);
+		font-size: var(--font-size-base);
+		font-weight: 500;
+		background: #B8943E;
+		color: #0F0F0F;
+		border: none;
+		border-radius: 8px;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-sm);
+		transition: all 0.15s;
+	}
+
+	.btn-sign-in:hover:not(:disabled) {
+		background: #D4B15A;
+	}
+
+	.btn-sign-in:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	.spinner {
 		display: inline-block;
 		width: 16px;
 		height: 16px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
+		border: 2px solid rgba(15, 15, 15, 0.3);
 		border-radius: 50%;
-		border-top-color: white;
+		border-top-color: #0F0F0F;
 		animation: spin 0.8s linear infinite;
 	}
 
@@ -273,8 +299,8 @@
 	}
 
 	.auth-link a {
-		color: var(--color-primary);
-		font-weight: 600;
+		color: #B8943E;
+		font-weight: 500;
 		text-decoration: none;
 	}
 
@@ -294,23 +320,37 @@
 	}
 
 	.forgot-link a:hover {
-		color: var(--color-primary);
+		color: #B8943E;
 		text-decoration: underline;
 	}
 
 	.btn-demo {
+		width: 100%;
+		margin-top: var(--spacing-sm);
+		padding: 0.75rem var(--spacing-md);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		gap: var(--spacing-sm);
-		background: linear-gradient(135deg, #059669 0%, #047857 100%);
-		border: none;
-		color: white;
-		font-weight: 600;
+		background: transparent;
+		border: 1px solid var(--color-border);
+		color: var(--color-text-secondary);
+		font-family: var(--font-family);
+		font-size: var(--font-size-base);
+		font-weight: 500;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 0.15s;
 	}
 
 	.btn-demo:hover:not(:disabled) {
-		background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+		border-color: var(--color-text-muted);
+		color: var(--color-text);
+	}
+
+	.btn-demo:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	.demo-icon {
@@ -319,8 +359,8 @@
 	}
 
 	.demo-spinner {
-		border-color: rgba(255, 255, 255, 0.3);
-		border-top-color: white;
+		border-color: rgba(0, 0, 0, 0.2);
+		border-top-color: var(--color-text);
 	}
 
 	.demo-hint {
@@ -333,41 +373,37 @@
 	.auth-footer {
 		margin-top: var(--spacing-xl);
 		text-align: center;
-		color: rgba(255, 255, 255, 0.7);
-		font-size: var(--font-size-sm);
+		color: rgba(255, 255, 255, 0.2);
+		font-size: 0.75rem;
+		position: relative;
 	}
 
 	.theme-toggle {
 		position: fixed;
 		top: var(--spacing-lg);
 		right: var(--spacing-lg);
-		width: 40px;
-		height: 40px;
-		border-radius: 50%;
-		background: rgba(255, 255, 255, 0.2);
-		backdrop-filter: blur(10px);
-		border: 1px solid rgba(255, 255, 255, 0.3);
-		color: white;
+		width: 36px;
+		height: 36px;
+		border-radius: 6px;
+		background: transparent;
+		border: 1px solid #2A2A2A;
+		color: #8A8780;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		transition: all 0.2s ease;
+		transition: all 0.15s;
+		z-index: 1;
 	}
 
 	.theme-toggle:hover {
-		background: rgba(255, 255, 255, 0.3);
-		transform: scale(1.05);
+		color: #F0EDE6;
+		border-color: #8A8780;
 	}
 
 	.theme-toggle svg {
-		width: 20px;
-		height: 20px;
-	}
-
-	/* Dark mode specific styles */
-	:global([data-theme='dark']) .auth-page {
-		background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+		width: 16px;
+		height: 16px;
 	}
 
 	:global([data-theme='dark']) .error-message {

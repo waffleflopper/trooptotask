@@ -271,7 +271,7 @@
 
 	.cycle-option.active {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.cycle-option:hover:not(.active) {
@@ -328,7 +328,7 @@
 		left: 50%;
 		transform: translateX(-50%);
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 		font-size: var(--font-size-xs);
 		font-weight: 600;
 		padding: 4px 12px;
@@ -436,7 +436,7 @@
 
 	.btn-primary {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.btn-primary:hover:not(:disabled) {

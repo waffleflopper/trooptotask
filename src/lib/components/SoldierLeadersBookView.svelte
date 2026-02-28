@@ -714,8 +714,8 @@
 	}
 
 	.view-header {
-		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-		color: white;
+		background: #0F0F0F;
+		color: #F0EDE6;
 		padding: var(--spacing-md) var(--spacing-lg);
 	}
 
@@ -1145,7 +1145,7 @@
 	.active-badge {
 		padding: 2px var(--spacing-sm);
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 		border-radius: var(--radius-sm);
 		font-size: var(--font-size-xs);
 		font-weight: 500;

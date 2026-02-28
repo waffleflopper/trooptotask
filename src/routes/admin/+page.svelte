@@ -260,7 +260,7 @@
 	.metric-card.highlight {
 		background: var(--color-primary);
 		border-color: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.metric-card.warning .metric-value {
@@ -275,7 +275,7 @@
 	}
 
 	.metric-card.highlight .metric-value {
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.metric-label {
@@ -487,7 +487,7 @@
 
 	.action-btn:hover {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.action-btn svg {

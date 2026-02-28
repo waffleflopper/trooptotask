@@ -31,8 +31,8 @@
 <style>
 	.group-header {
 		display: flex;
-		background: var(--color-primary);
-		color: white;
+		background: #0F0F0F;
+		color: #F0EDE6;
 		border-bottom: 1px solid var(--color-border);
 	}
 
@@ -41,8 +41,8 @@
 		min-width: var(--personnel-column-width);
 		display: flex;
 		align-items: center;
-		background: var(--color-primary);
-		border-right: 1px solid rgba(255, 255, 255, 0.2);
+		background: #0F0F0F;
+		border-right: 1px solid #2A2A2A;
 		position: sticky;
 		left: 0;
 		z-index: 2;
@@ -55,7 +55,7 @@
 		align-items: center;
 		gap: var(--spacing-sm);
 		background: transparent;
-		color: white;
+		color: #F0EDE6;
 		text-align: left;
 		cursor: pointer;
 		font-weight: 600;
@@ -63,7 +63,7 @@
 	}
 
 	.group-toggle:hover {
-		background: var(--color-primary-light);
+		background: #1A1A1A;
 	}
 
 	.toggle-icon {
@@ -98,6 +98,6 @@
 	.group-header-spacer {
 		flex: 1;
 		min-width: calc(var(--cell-width) * var(--dates-count, 31));
-		background: var(--color-primary);
+		background: #0F0F0F;
 	}
 </style>

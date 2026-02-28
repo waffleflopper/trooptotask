@@ -534,7 +534,7 @@
 
 	.role-chip.selected {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 		border-color: var(--color-primary);
 	}
 

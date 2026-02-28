@@ -15,7 +15,7 @@ src/
   app.css                    — global design system + utility classes
   lib/
     components/
-      ui/                    — shared primitives (Badge, Spinner, EmptyState)
+      ui/                    — shared primitives (Badge, Spinner, EmptyState, FileUpload)
       Modal.svelte            — base modal wrapper
       *Manager.svelte         — settings/type managers (rendered in modals)
       *Modal.svelte           — operation modals (add/edit records)
@@ -102,6 +102,23 @@ Empty list placeholder.
 ```
 Props: `message: string`, `variant?: 'box' | 'simple'` (default `'box'`)
 
+### `ui/FileUpload.svelte`
+File upload/download with drag-and-drop. Uses Supabase storage (`counseling-files` bucket).
+```svelte
+<FileUpload
+  {filePath}
+  {orgId}
+  storagePath={uploadId}
+  onUpload={(path) => (filePath = path)}
+  onRemove={() => (filePath = null)}
+  label="PDF Document"
+/>
+```
+Props: `filePath: string | null`, `orgId: string`, `storagePath: string`, `onUpload: (path: string) => void`, `onRemove: () => void`, `accept?: string` (default `'application/pdf'`), `label?: string` (default `'PDF Document'`), `disabled?: boolean`
+
+**States**: empty (dashed drop zone + "Choose PDF" button), uploading (Spinner + filename), file exists (download link + "Remove" button).
+**Storage path convention**: `{orgId}/{storagePath}/{sanitized-filename}`
+
 ---
 
 ## CSS Design System (`app.css`)
@@ -160,14 +177,14 @@ async function handleSave() {
 
 ## Component Usage Map
 
-| Component | Uses Badge | Uses Spinner | Uses EmptyState |
-|-----------|-----------|-------------|----------------|
-| TrainingTypeManager | ✓ | — | ✓ (simple) |
-| StatusTypeManager | ✓ | — | ✓ (box) |
-| AssignmentTypeManager | ✓ (bold) | — | ✓ (box) |
-| CounselingTypeManager | ✓ + outlined | — | ✓ (simple) |
-| PersonStatusModal | ✓ | ✓ | — |
-| CounselingRecordModal | — | ✓ | — |
-| TrainingRecordModal | ✓ | — | — |
-| AvailabilityModal | ✓ | — | — |
-| OrganizationMemberManager | ✓ | — | — |
+| Component | Uses Badge | Uses Spinner | Uses EmptyState | Uses FileUpload |
+|-----------|-----------|-------------|----------------|----------------|
+| TrainingTypeManager | ✓ | — | ✓ (simple) | — |
+| StatusTypeManager | ✓ | — | ✓ (box) | — |
+| AssignmentTypeManager | ✓ (bold) | — | ✓ (box) | — |
+| CounselingTypeManager | ✓ + outlined | — | ✓ (simple) | ✓ |
+| PersonStatusModal | ✓ | ✓ | — | — |
+| CounselingRecordModal | — | ✓ | — | ✓ |
+| TrainingRecordModal | ✓ | — | — | — |
+| AvailabilityModal | ✓ | — | — | — |
+| OrganizationMemberManager | ✓ | — | — | — |

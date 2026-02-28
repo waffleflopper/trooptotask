@@ -1,12 +1,15 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import type { Personnel } from '$lib/types';
 	import type { CounselingRecord, CounselingType, CounselingStatus } from '$lib/types/leadersBook';
 	import { COUNSELING_STATUS_LABELS, COUNSELING_STATUS_COLORS } from '$lib/types/leadersBook';
 	import { counselingTypesStore } from '$lib/stores/counselingTypes.svelte';
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
+	import { supabase } from '$lib/supabase';
 	import { formatDate } from '$lib/utils/dates';
 	import Modal from './Modal.svelte';
 	import Spinner from './ui/Spinner.svelte';
+	import FileUpload from './ui/FileUpload.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -18,13 +21,15 @@
 
 	const isEdit = !!existingRecord;
 	const todayStr = formatDate(new Date());
+	const orgId = $page.params.orgId!;
+	const uploadId = existingRecord?.id ?? crypto.randomUUID();
 
 	// Form state
 	let counselingTypeId = $state(existingRecord?.counselingTypeId ?? '');
 	let dateConducted = $state(existingRecord?.dateConducted ?? todayStr);
 	let subject = $state(existingRecord?.subject ?? '');
-	let keyPoints = $state(existingRecord?.keyPoints ?? '');
-	let planOfAction = $state(existingRecord?.planOfAction ?? '');
+	let notes = $state(existingRecord?.notes ?? '');
+	let filePath = $state<string | null>(existingRecord?.filePath ?? null);
 	let followUpDate = $state(existingRecord?.followUpDate ?? '');
 	let status = $state<CounselingStatus>(existingRecord?.status ?? 'draft');
 	let counselorSigned = $state(existingRecord?.counselorSigned ?? false);
@@ -37,14 +42,30 @@
 		return counselingTypesStore.getById(counselingTypeId) ?? null;
 	});
 
-	// When a type is selected, apply its template if it has one
-	$effect(() => {
-		if (selectedType && selectedType.templateContent && !isEdit && !keyPoints) {
-			keyPoints = selectedType.templateContent;
-		}
-	});
+	const hasTemplate = $derived(
+		selectedType && (selectedType.templateContent || selectedType.templateFilePath)
+	);
 
 	const canSave = $derived(subject.trim() && dateConducted);
+
+	async function handleViewTemplate() {
+		if (!selectedType) return;
+		if (selectedType.templateFilePath) {
+			const { data, error } = await supabase.storage
+				.from('counseling-files')
+				.createSignedUrl(selectedType.templateFilePath, 60);
+			if (data?.signedUrl) {
+				window.open(data.signedUrl, '_blank');
+			}
+		} else if (selectedType.templateContent) {
+			// Open template content in a new window as plain text
+			const win = window.open('', '_blank');
+			if (win) {
+				win.document.write(`<pre style="white-space:pre-wrap;font-family:sans-serif;padding:2em;">${selectedType.templateContent}</pre>`);
+				win.document.title = `${selectedType.name} Template`;
+			}
+		}
+	}
 
 	async function handleSave() {
 		if (!canSave) return;
@@ -55,8 +76,10 @@
 				counselingTypeId: counselingTypeId || null,
 				dateConducted,
 				subject: subject.trim(),
-				keyPoints: keyPoints.trim() || null,
-				planOfAction: planOfAction.trim() || null,
+				keyPoints: null,
+				planOfAction: null,
+				notes: notes.trim() || null,
+				filePath,
 				followUpDate: followUpDate || null,
 				status,
 				counselorSigned,
@@ -82,6 +105,14 @@
 
 	async function handleRemove() {
 		if (existingRecord && confirm('Are you sure you want to delete this counseling record?')) {
+			// Clean up storage file if one exists
+			if (existingRecord.filePath) {
+				try {
+					await supabase.storage.from('counseling-files').remove([existingRecord.filePath]);
+				} catch {
+					// Best effort
+				}
+			}
 			await counselingRecordsStore.remove(existingRecord.id);
 			onClose();
 		}
@@ -108,6 +139,11 @@
 					<option value={type.id}>{type.name}</option>
 				{/each}
 			</select>
+			{#if hasTemplate}
+				<button class="template-link" type="button" onclick={handleViewTemplate}>
+					View Template
+				</button>
+			{/if}
 		</div>
 		<div class="form-group">
 			<label class="label">Date</label>
@@ -126,28 +162,14 @@
 		/>
 	</div>
 
-	<div class="form-group">
-		<label class="label">Key Points</label>
-		<textarea
-			class="input textarea"
-			bind:value={keyPoints}
-			placeholder="Key discussion points..."
-			rows="6"
-		></textarea>
-		{#if selectedType?.templateContent && !isEdit}
-			<span class="field-hint">Template applied from selected type</span>
-		{/if}
-	</div>
-
-	<div class="form-group">
-		<label class="label">Plan of Action</label>
-		<textarea
-			class="input textarea"
-			bind:value={planOfAction}
-			placeholder="Action items and next steps..."
-			rows="4"
-		></textarea>
-	</div>
+	<FileUpload
+		{filePath}
+		{orgId}
+		storagePath={uploadId}
+		onUpload={(path) => (filePath = path)}
+		onRemove={() => (filePath = null)}
+		label="Counseling Document (PDF)"
+	/>
 
 	<div class="form-row">
 		<div class="form-group flex-1">
@@ -162,6 +184,16 @@
 				{/each}
 			</select>
 		</div>
+	</div>
+
+	<div class="form-group">
+		<label class="label">Notes (optional)</label>
+		<textarea
+			class="input textarea"
+			bind:value={notes}
+			placeholder="Brief notes or comments..."
+			rows="3"
+		></textarea>
 	</div>
 
 	<div class="signatures-section">
@@ -242,16 +274,25 @@
 		color: var(--color-error);
 	}
 
-	.textarea {
-		resize: vertical;
-		min-height: 80px;
-	}
-
-	.field-hint {
-		display: block;
+	.template-link {
+		display: inline-block;
 		margin-top: var(--spacing-xs);
 		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		color: var(--color-primary);
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		text-decoration: underline;
+	}
+
+	.template-link:hover {
+		color: var(--color-primary-dark);
+	}
+
+	.textarea {
+		resize: vertical;
+		min-height: 60px;
 	}
 
 	.signatures-section {
@@ -306,5 +347,4 @@
 		color: var(--color-text-muted);
 		font-weight: 400;
 	}
-
 </style>

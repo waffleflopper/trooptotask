@@ -13,6 +13,7 @@
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		showStatusText?: boolean;
+		isOnboarding?: boolean;
 		onCellClick?: (person: Personnel, date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
 	}
@@ -26,6 +27,7 @@
 		assignmentTypes,
 		assignments,
 		showStatusText = false,
+		isOnboarding = false,
 		onCellClick,
 		onPersonClick
 	}: Props = $props();
@@ -66,7 +68,12 @@
 	<button class="personnel-info" onclick={handlePersonClick}>
 		<span class="rank">{person.rank}</span>
 		<div class="name-block">
-			<span class="name">{person.lastName}, {person.firstName}</span>
+			<span class="name-line">
+				<span class="name">{person.lastName}, {person.firstName}</span>
+				{#if isOnboarding}
+					<span class="onboarding-dot" title="Active onboarding"></span>
+				{/if}
+			</span>
 			{#if person.clinicRole}
 				<span class="role">{person.clinicRole}</span>
 			{/if}
@@ -139,12 +146,27 @@
 		min-width: 0;
 	}
 
+	.name-line {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		min-width: 0;
+	}
+
 	.name {
 		font-size: var(--font-size-sm);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		color: var(--color-text);
+	}
+
+	.onboarding-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: #B8943E;
+		flex-shrink: 0;
 	}
 
 	.role {

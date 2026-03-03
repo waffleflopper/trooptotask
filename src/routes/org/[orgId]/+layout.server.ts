@@ -69,7 +69,7 @@ function transformPersonnelTrainings(data: any[]): PersonnelTraining[] {
 }
 
 async function fetchSharedData(supabase: any, orgId: string) {
-	const [personnelRes, groupsRes, statusTypesRes, trainingTypesRes, personnelTrainingsRes] =
+	const [personnelRes, groupsRes, statusTypesRes, trainingTypesRes, personnelTrainingsRes, activeOnboardingsRes] =
 		await Promise.all([
 			supabase
 				.from('personnel')
@@ -83,7 +83,12 @@ async function fetchSharedData(supabase: any, orgId: string) {
 				.select('*')
 				.eq('organization_id', orgId)
 				.order('sort_order'),
-			supabase.from('personnel_trainings').select('*').eq('organization_id', orgId)
+			supabase.from('personnel_trainings').select('*').eq('organization_id', orgId),
+			supabase
+				.from('personnel_onboardings')
+				.select('personnel_id')
+				.eq('organization_id', orgId)
+				.eq('status', 'in_progress')
 		]);
 
 	return {
@@ -91,7 +96,8 @@ async function fetchSharedData(supabase: any, orgId: string) {
 		groups: transformGroups(groupsRes.data ?? []),
 		statusTypes: transformStatusTypes(statusTypesRes.data ?? []),
 		trainingTypes: transformTrainingTypes(trainingTypesRes.data ?? []),
-		personnelTrainings: transformPersonnelTrainings(personnelTrainingsRes.data ?? [])
+		personnelTrainings: transformPersonnelTrainings(personnelTrainingsRes.data ?? []),
+		activeOnboardingPersonnelIds: (activeOnboardingsRes.data ?? []).map((r: any) => r.personnel_id) as string[]
 	};
 }
 

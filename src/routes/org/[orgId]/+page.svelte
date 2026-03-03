@@ -203,6 +203,38 @@
 		return map;
 	});
 
+	// Active onboardings with progress
+	const activeOnboardings = $derived.by(() => {
+		const onboardings = data.activeOnboardings ?? [];
+		return onboardings.map((o: any) => {
+			const person = personnelStore.list.find((p) => p.id === o.personnelId);
+			const personName = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';
+
+			// Check training-type steps for auto-completion from personnelTrainingsStore
+			const steps = (o.steps ?? []).map((step: any) => {
+				if (step.stepType === 'training' && step.trainingTypeId && !step.completed) {
+					const hasTraining = personnelTrainingsStore.list.some(
+						(t) => t.personnelId === o.personnelId && t.trainingTypeId === step.trainingTypeId
+					);
+					return { ...step, completed: hasTraining };
+				}
+				return step;
+			});
+
+			const totalSteps = steps.length;
+			const completedSteps = steps.filter((s: any) => s.completed).length;
+
+			return {
+				id: o.id,
+				personnelId: o.personnelId,
+				personName,
+				totalSteps,
+				completedSteps,
+				pct: totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
+			};
+		});
+	});
+
 	// Per-group breakdown
 	const groupBreakdown = $derived.by(() => {
 		// Sort: pinned groups first, then by sort order
@@ -271,50 +303,6 @@
 				</svg>
 				<span>{todayDisplay()}</span>
 			</div>
-		</div>
-
-		<!-- Quick Actions -->
-		<div class="quick-actions">
-			<a href="/org/{data.orgId}/calendar" class="quick-action">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-					<line x1="16" y1="2" x2="16" y2="6" />
-					<line x1="8" y1="2" x2="8" y2="6" />
-					<line x1="3" y1="10" x2="21" y2="10" />
-				</svg>
-				Calendar
-			</a>
-			{#if data.permissions?.canViewPersonnel}
-				<a href="/org/{data.orgId}/personnel" class="quick-action">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-						<circle cx="9" cy="7" r="4" />
-						<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-						<path d="M16 3.13a4 4 0 0 1 0 7.75" />
-					</svg>
-					Personnel
-				</a>
-			{/if}
-			{#if data.permissions?.canViewTraining}
-				<a href="/org/{data.orgId}/training" class="quick-action">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-						<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-					</svg>
-					Training
-				</a>
-			{/if}
-			{#if data.permissions?.canViewPersonnel}
-				<a href="/org/{data.orgId}/leaders-book" class="quick-action">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-						<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-						<line x1="8" y1="7" x2="16" y2="7" />
-						<line x1="8" y1="11" x2="16" y2="11" />
-					</svg>
-					Leaders Book
-				</a>
-			{/if}
 		</div>
 
 		<!-- Card Row 1: Strength + Duty -->
@@ -501,6 +489,51 @@
 			</div>
 		</div>
 
+		<!-- Active Onboardings -->
+		{#if data.permissions?.canViewPersonnel}
+			<div class="card card--full">
+				<div class="card-header">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+						<rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+						<line x1="9" y1="12" x2="15" y2="12" />
+						<line x1="9" y1="16" x2="15" y2="16" />
+					</svg>
+					Active Onboardings
+					{#if activeOnboardings.length > 0}
+						<span class="header-count">{activeOnboardings.length}</span>
+					{/if}
+					<div class="spacer"></div>
+					<a href="/org/{data.orgId}/onboarding" class="btn btn-text btn-sm">View All</a>
+				</div>
+				<div class="card-body">
+					{#if activeOnboardings.length > 0}
+						<div class="onboarding-list">
+							{#each activeOnboardings as ob}
+								<div class="onboarding-item">
+									<span class="onboarding-name">{ob.personName}</span>
+									<div class="onboarding-progress-wrap">
+										<div class="onboarding-bar">
+											<div
+												class="onboarding-bar-fill"
+												style="width: {ob.pct}%"
+											></div>
+										</div>
+										<span class="onboarding-steps">{ob.completedSteps}/{ob.totalSteps}</span>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="empty-state">
+							<p>No active onboardings</p>
+							<a href="/org/{data.orgId}/onboarding" class="btn btn-text btn-sm">Go to Onboarding</a>
+						</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
 		<!-- Per-Group Breakdown -->
 		{#if groupBreakdown.length > 0}
 			<div class="card card--full">
@@ -624,41 +657,6 @@
 		width: 16px;
 		height: 16px;
 		flex-shrink: 0;
-	}
-
-	/* Quick Actions */
-	.quick-actions {
-		display: flex;
-		gap: var(--spacing-sm);
-		flex-wrap: wrap;
-	}
-
-	.quick-action {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		color: var(--color-text-secondary);
-		text-decoration: none;
-		transition: all var(--transition-fast);
-		box-shadow: var(--shadow-1);
-	}
-
-	.quick-action:hover {
-		border-color: #B8943E;
-		color: #B8943E;
-		background: rgba(184, 148, 62, 0.06);
-		box-shadow: var(--shadow-2);
-	}
-
-	.quick-action svg {
-		width: 18px;
-		height: 18px;
 	}
 
 	/* Card Row */
@@ -1099,6 +1097,70 @@
 	.pct-badge.pct-low {
 		background: rgba(244, 67, 54, 0.15);
 		color: var(--color-error);
+	}
+
+	/* Onboarding Card */
+	.header-count {
+		font-family: var(--font-mono);
+		font-size: var(--font-size-xs);
+		font-weight: 600;
+		background: var(--color-primary);
+		color: white;
+		padding: 1px 7px;
+		border-radius: var(--radius-full);
+		line-height: 1.4;
+	}
+
+	.onboarding-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+	}
+
+	.onboarding-item {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-md);
+	}
+
+	.onboarding-name {
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		color: var(--color-text);
+		min-width: 160px;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.onboarding-progress-wrap {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+	}
+
+	.onboarding-bar {
+		flex: 1;
+		height: 8px;
+		background: var(--color-surface-variant);
+		border-radius: var(--radius-full);
+		overflow: hidden;
+	}
+
+	.onboarding-bar-fill {
+		height: 100%;
+		border-radius: var(--radius-full);
+		background: var(--color-primary);
+		transition: width var(--transition-normal);
+	}
+
+	.onboarding-steps {
+		font-family: var(--font-mono);
+		font-size: var(--font-size-xs);
+		font-weight: 500;
+		color: var(--color-text-secondary);
+		white-space: nowrap;
 	}
 
 	/* Mobile Responsive */

@@ -2,6 +2,7 @@
 	import type { Personnel, TrainingType, PersonnelTraining } from '../types';
 	import { calculateExpirationDate, getTrainingStatus } from '../utils/trainingStatus';
 	import { formatDate } from '../utils/dates';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -29,6 +30,7 @@
 	let editingStates = $state<Map<string, {
 		isComplete: boolean;
 		completionDate: string;
+		directExpirationDate: string;
 		notes: string;
 		certificateUrl: string;
 		isEditing: boolean;
@@ -40,6 +42,7 @@
 		const states = new Map<string, {
 			isComplete: boolean;
 			completionDate: string;
+			directExpirationDate: string;
 			notes: string;
 			certificateUrl: string;
 			isEditing: boolean;
@@ -48,10 +51,11 @@
 
 		for (const type of trainingTypes) {
 			const existing = trainingMap().get(type.id);
-			const neverExpires = type.expirationMonths === null;
+			const neverExpires = type.expirationMonths === null && !type.expirationDateOnly;
 			states.set(type.id, {
 				isComplete: !!existing,
-				completionDate: existing?.completionDate ?? (neverExpires ? '' : formatDate(new Date())),
+				completionDate: existing?.completionDate ?? (neverExpires || type.expirationDateOnly ? '' : formatDate(new Date())),
+				directExpirationDate: existing?.expirationDate ?? '',
 				notes: existing?.notes ?? '',
 				certificateUrl: existing?.certificateUrl ?? '',
 				isEditing: false,
@@ -98,7 +102,7 @@
 		}
 	}
 
-	function updateField(typeId: string, field: 'completionDate' | 'notes' | 'certificateUrl' | 'isComplete', value: string | boolean) {
+	function updateField(typeId: string, field: 'completionDate' | 'directExpirationDate' | 'notes' | 'certificateUrl' | 'isComplete', value: string | boolean) {
 		const state = editingStates.get(typeId);
 		if (state) {
 			const newStates = new Map(editingStates);
@@ -128,6 +132,7 @@
 		newStates.set(typeId, {
 			isComplete: true,
 			completionDate: today,
+			directExpirationDate: '',
 			notes: '',
 			certificateUrl: '',
 			isEditing: false,
@@ -155,6 +160,7 @@
 		newStates.set(typeId, {
 			isComplete: true,
 			completionDate: '',
+			directExpirationDate: '',
 			notes: '',
 			certificateUrl: '',
 			isEditing: false,
@@ -168,15 +174,20 @@
 		const type = trainingTypes.find(t => t.id === typeId);
 		if (!state || !type) return;
 
-		const neverExpires = type.expirationMonths === null;
+		const neverExpires = type.expirationMonths === null && !type.expirationDateOnly;
 
-		// For never-expires, date is optional. For expiring, date is required.
-		if (!neverExpires && !state.completionDate) {
-			return; // Don't save without date for expiring training
+		if (type.expirationDateOnly) {
+			// Expiration-date-only: require the expiration date, completionDate is null
+			if (!state.directExpirationDate) return;
+		} else if (!neverExpires && !state.completionDate) {
+			// For expiring training, date is required
+			return;
 		}
 
-		const completionDate = state.completionDate || null;
-		const expirationDate = calculateExpirationDate(completionDate, type.expirationMonths);
+		const completionDate = type.expirationDateOnly ? null : (state.completionDate || null);
+		const expirationDate = type.expirationDateOnly
+			? (state.directExpirationDate || null)
+			: calculateExpirationDate(completionDate, type.expirationMonths);
 
 		await onSave({
 			personnelId: person.id,
@@ -193,36 +204,52 @@
 		editingStates = newStates;
 	}
 
-	async function removeTraining(typeId: string) {
+	let confirmRemoveTypeId = $state<string | null>(null);
+	let showMarkAllConfirm = $state(false);
+
+	function removeTraining(typeId: string) {
+		confirmRemoveTypeId = typeId;
+	}
+
+	async function doRemoveTraining() {
+		const typeId = confirmRemoveTypeId;
+		if (!typeId) return;
+		confirmRemoveTypeId = null;
+
 		const existing = trainingMap().get(typeId);
 		if (!existing) return;
 
 		const type = trainingTypes.find(t => t.id === typeId);
-		const neverExpires = type?.expirationMonths === null;
+		const neverExpires = type?.expirationMonths === null && !type?.expirationDateOnly;
 
-		if (confirm('Are you sure you want to remove this training record?')) {
-			await onRemove(existing.id);
+		await onRemove(existing.id);
 
-			// Reset local state
-			const newStates = new Map(editingStates);
-			newStates.set(typeId, {
-				isComplete: false,
-				completionDate: neverExpires ? '' : formatDate(new Date()),
-				notes: '',
-				certificateUrl: '',
-				isEditing: false,
-				isDirty: false
-			});
-			editingStates = newStates;
-		}
+		// Reset local state
+		const newStates = new Map(editingStates);
+		newStates.set(typeId, {
+			isComplete: false,
+			completionDate: neverExpires || type?.expirationDateOnly ? '' : formatDate(new Date()),
+			directExpirationDate: '',
+			notes: '',
+			certificateUrl: '',
+			isEditing: false,
+			isDirty: false
+		});
+		editingStates = newStates;
 	}
 
 	async function markAllCompletedToday() {
-		if (!confirm(`Mark all ${trainingTypes.length} trainings as completed today?`)) return;
+		showMarkAllConfirm = true;
+	}
+
+	async function doMarkAllCompleted() {
+		showMarkAllConfirm = false;
+		// Skip expiration-date-only types — they need individual expiration dates
+		const applicableTypes = trainingTypes.filter(t => !t.expirationDateOnly);
 
 		const today = formatDate(new Date());
 
-		for (const type of trainingTypes) {
+		for (const type of applicableTypes) {
 			const expirationDate = calculateExpirationDate(today, type.expirationMonths);
 			await onSave({
 				personnelId: person.id,
@@ -234,20 +261,14 @@
 			});
 		}
 
-		// Update all local states
-		const newStates = new Map<string, {
-			isComplete: boolean;
-			completionDate: string;
-			notes: string;
-			certificateUrl: string;
-			isEditing: boolean;
-			isDirty: boolean;
-		}>();
+		// Update local states for applicable types, preserve expiration-date-only states
+		const newStates = new Map(editingStates);
 
-		for (const type of trainingTypes) {
+		for (const type of applicableTypes) {
 			newStates.set(type.id, {
 				isComplete: true,
 				completionDate: today,
+				directExpirationDate: '',
 				notes: '',
 				certificateUrl: '',
 				isEditing: false,
@@ -260,11 +281,12 @@
 	function cancelEdit(typeId: string) {
 		const existing = trainingMap().get(typeId);
 		const type = trainingTypes.find(t => t.id === typeId);
-		const neverExpires = type?.expirationMonths === null;
+		const neverExpires = type?.expirationMonths === null && !type?.expirationDateOnly;
 		const newStates = new Map(editingStates);
 		newStates.set(typeId, {
 			isComplete: !!existing,
-			completionDate: existing?.completionDate ?? (neverExpires ? '' : formatDate(new Date())),
+			completionDate: existing?.completionDate ?? (neverExpires || type?.expirationDateOnly ? '' : formatDate(new Date())),
+			directExpirationDate: existing?.expirationDate ?? '',
 			notes: existing?.notes ?? '',
 			certificateUrl: existing?.certificateUrl ?? '',
 			isEditing: false,
@@ -335,8 +357,10 @@
 							</div>
 							<div class="training-actions">
 								{#if !state?.isEditing}
-									{@const neverExpires = type.expirationMonths === null}
-									{#if neverExpires && !existing}
+									{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
+									{#if type.expirationDateOnly}
+										<!-- Expiration-date-only: no quick action, must use Edit -->
+									{:else if neverExpires && !existing}
 										<button
 											class="btn btn-primary btn-sm"
 											onclick={() => markComplete(type.id)}
@@ -401,9 +425,29 @@
 						{/if}
 
 						{#if state?.isEditing}
-							{@const neverExpires = type.expirationMonths === null}
+							{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
 							<div class="edit-form">
-								{#if neverExpires}
+								{#if type.expirationDateOnly}
+									<div class="form-row">
+										<div class="form-group">
+											<label class="label" for="date-{type.id}">Expiration Date</label>
+											<input
+												type="date"
+												id="date-{type.id}"
+												class="input"
+												value={state.directExpirationDate}
+												oninput={(e) => updateField(type.id, 'directExpirationDate', e.currentTarget.value)}
+												required
+											/>
+										</div>
+										<div class="form-group expiration-preview">
+											<span class="label">Status:</span>
+											<span class="preview-value">
+												{state.directExpirationDate ? (state.directExpirationDate >= formatDate(new Date()) ? 'Current' : 'Expired') : 'Set date'}
+											</span>
+										</div>
+									</div>
+								{:else if neverExpires}
 									<div class="form-group checkbox-group">
 										<label class="checkbox-label">
 											<input
@@ -481,7 +525,7 @@
 									<button
 										class="btn btn-primary btn-sm"
 										onclick={() => saveTraining(type.id)}
-										disabled={neverExpires ? !state.isComplete : !state.completionDate}
+										disabled={type.expirationDateOnly ? !state.directExpirationDate : neverExpires ? !state.isComplete : !state.completionDate}
 									>
 										Save
 									</button>
@@ -498,6 +542,29 @@
 		</div>
 	</div>
 </div>
+
+{#if confirmRemoveTypeId}
+	<ConfirmDialog
+		title="Remove Training Record"
+		message="Are you sure you want to remove this training record?"
+		confirmLabel="Delete"
+		variant="danger"
+		onConfirm={doRemoveTraining}
+		onCancel={() => (confirmRemoveTypeId = null)}
+	/>
+{/if}
+
+{#if showMarkAllConfirm}
+	{@const count = trainingTypes.filter(t => !t.expirationDateOnly).length}
+	<ConfirmDialog
+		title="Mark All Completed"
+		message="Mark {count} trainings as completed today? (Expiration-date-only trainings must be set individually)"
+		confirmLabel="Mark All"
+		variant="warning"
+		onConfirm={doMarkAllCompleted}
+		onCancel={() => (showMarkAllConfirm = false)}
+	/>
+{/if}
 
 <style>
 	.person-training-modal {

@@ -2,6 +2,7 @@
 	import type { StatusType } from '../types';
 	import Badge from './ui/Badge.svelte';
 	import EmptyState from './ui/EmptyState.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		statusTypes: StatusType[];
@@ -67,9 +68,16 @@
 		editTextColor = '';
 	}
 
+	let confirmRemove = $state<{ id: string; name: string } | null>(null);
+
 	function handleRemove(id: string, name: string) {
-		if (confirm(`Remove "${name}"?\n\nAll schedule entries using this status will also be removed. This cannot be undone.`)) {
-			onRemove(id);
+		confirmRemove = { id, name };
+	}
+
+	function doRemove() {
+		if (confirmRemove) {
+			onRemove(confirmRemove.id);
+			confirmRemove = null;
 		}
 	}
 </script>
@@ -183,6 +191,17 @@
 		</div>
 	</div>
 </div>
+
+{#if confirmRemove}
+	<ConfirmDialog
+		title="Remove Status Type"
+		message='Remove "{confirmRemove.name}"? All schedule entries using this status will also be removed. This cannot be undone.'
+		confirmLabel="Remove"
+		variant="danger"
+		onConfirm={doRemove}
+		onCancel={() => (confirmRemove = null)}
+	/>
+{/if}
 
 <style>
 	.status-manager-modal {

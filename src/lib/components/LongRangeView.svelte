@@ -275,8 +275,8 @@
 		justify-content: center;
 		gap: var(--spacing-md);
 		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-primary);
-		color: white;
+		background: #0F0F0F;
+		color: #F0EDE6;
 	}
 
 	.nav-bar .btn-secondary {
@@ -285,7 +285,7 @@
 		gap: var(--spacing-xs);
 		background: rgba(255, 255, 255, 0.1);
 		border-color: rgba(255, 255, 255, 0.2);
-		color: white;
+		color: #F0EDE6;
 	}
 
 	.nav-bar .btn-secondary:hover {
@@ -304,7 +304,7 @@
 		gap: var(--spacing-xs);
 		margin-left: var(--spacing-md);
 		padding-left: var(--spacing-md);
-		border-left: 1px solid rgba(255, 255, 255, 0.2);
+		border-left: 1px solid #2A2A2A;
 	}
 
 	.modal-body {
@@ -355,20 +355,20 @@
 
 	.header-cell {
 		font-weight: 600;
-		background: var(--color-primary);
-		color: white;
-		border-right-color: var(--color-primary);
+		background: #0F0F0F;
+		color: #F0EDE6;
+		border-right-color: #0F0F0F;
 		z-index: 11;
 	}
 
 	.month-header {
 		text-align: center;
 		padding: var(--spacing-xs);
-		background: var(--color-primary);
-		color: white;
+		background: #0F0F0F;
+		color: #F0EDE6;
 		font-weight: 600;
 		font-size: var(--font-size-sm);
-		border-left: 1px solid rgba(255, 255, 255, 0.2);
+		border-left: 1px solid #2A2A2A;
 		flex-shrink: 0;
 	}
 
@@ -432,14 +432,14 @@
 	}
 
 	.group-row {
-		background: var(--color-primary);
+		background: #0F0F0F;
 	}
 
 	.group-name {
 		font-weight: 600;
 		font-size: var(--font-size-sm);
-		color: white;
-		background: var(--color-primary);
+		color: #F0EDE6;
+		background: #0F0F0F;
 	}
 
 	.group-cell {
@@ -448,8 +448,8 @@
 		max-width: 24px;
 		flex-shrink: 0;
 		height: 20px;
-		background: var(--color-primary);
-		border-left: 1px solid rgba(255, 255, 255, 0.2);
+		background: #0F0F0F;
+		border-left: 1px solid #2A2A2A;
 	}
 
 	.person-row {

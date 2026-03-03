@@ -5,6 +5,7 @@
 
 	const navItems = [
 		{ href: '/admin', label: 'Dashboard', icon: 'dashboard' },
+		{ href: '/admin/access-requests', label: 'Requests', icon: 'requests' },
 		{ href: '/admin/users', label: 'Users', icon: 'users' },
 		{ href: '/admin/revenue', label: 'Revenue', icon: 'revenue' },
 		{ href: '/admin/audit', label: 'Audit Log', icon: 'audit' }
@@ -32,7 +33,12 @@
 					class="nav-item"
 					class:active={isActive(item.href)}
 				>
-					{#if item.icon === 'dashboard'}
+					{#if item.icon === 'requests'}
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+						<polyline points="22,6 12,13 2,6"></polyline>
+					</svg>
+				{:else if item.icon === 'dashboard'}
 						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<rect x="3" y="3" width="7" height="7"></rect>
 							<rect x="14" y="3" width="7" height="7"></rect>
@@ -151,7 +157,7 @@
 
 	.nav-item.active {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.nav-item svg {

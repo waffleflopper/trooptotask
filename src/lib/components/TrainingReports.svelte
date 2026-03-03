@@ -535,7 +535,7 @@
 
 	.tab-btn.active {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.filters-section {
@@ -649,8 +649,8 @@
 		align-items: center;
 		gap: var(--spacing-sm);
 		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-primary);
-		color: white;
+		background: #0F0F0F;
+		color: #F0EDE6;
 	}
 
 	.person-rank {

@@ -23,6 +23,17 @@
 		<p class="subtitle">Platform overview and key metrics</p>
 	</header>
 
+	{#if data.pendingAccessRequests > 0}
+		<a href="/admin/access-requests" class="alert-banner">
+			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+				<polyline points="22,6 12,13 2,6"></polyline>
+			</svg>
+			<span>{data.pendingAccessRequests} pending access request{data.pendingAccessRequests === 1 ? '' : 's'}</span>
+			<span class="alert-action">Review</span>
+		</a>
+	{/if}
+
 	<!-- Key Metrics -->
 	<div class="metrics-grid">
 		<div class="metric-card">
@@ -155,6 +166,13 @@
 				</svg>
 				Revenue Reports
 			</a>
+			<a href="/admin/access-requests" class="action-btn">
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+					<polyline points="22,6 12,13 2,6"></polyline>
+				</svg>
+				Access Requests
+			</a>
 			<a href="/admin/audit" class="action-btn">
 				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -187,6 +205,42 @@
 		color: var(--color-text-muted);
 	}
 
+	/* Alert Banner */
+	.alert-banner {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-md) var(--spacing-lg);
+		background: #fef3c7;
+		border: 1px solid #fcd34d;
+		border-radius: var(--radius-lg);
+		color: #92400e;
+		font-weight: 500;
+		text-decoration: none;
+		margin-bottom: var(--spacing-lg);
+		transition: all 0.15s;
+	}
+
+	.alert-banner:hover {
+		background: #fde68a;
+	}
+
+	.alert-action {
+		margin-left: auto;
+		font-weight: 600;
+		color: var(--color-primary);
+	}
+
+	:global([data-theme='dark']) .alert-banner {
+		background: #451a03;
+		border-color: #92400e;
+		color: #fcd34d;
+	}
+
+	:global([data-theme='dark']) .alert-banner:hover {
+		background: #5c2800;
+	}
+
 	/* Metrics Grid */
 	.metrics-grid {
 		display: grid;
@@ -206,7 +260,7 @@
 	.metric-card.highlight {
 		background: var(--color-primary);
 		border-color: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.metric-card.warning .metric-value {
@@ -221,7 +275,7 @@
 	}
 
 	.metric-card.highlight .metric-value {
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.metric-label {
@@ -433,7 +487,7 @@
 
 	.action-btn:hover {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.action-btn svg {

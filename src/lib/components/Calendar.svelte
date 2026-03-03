@@ -21,6 +21,7 @@
 		pinnedGroups: string[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		activeOnboardingPersonnelIds?: string[];
 		canEdit?: boolean;
 		showStatusText?: boolean;
 		onPrevMonth: () => void;
@@ -43,6 +44,7 @@
 		pinnedGroups,
 		assignmentTypes,
 		assignments,
+		activeOnboardingPersonnelIds = [],
 		canEdit = true,
 		showStatusText = false,
 		onPrevMonth,
@@ -86,6 +88,8 @@
 		}
 		collapsedGroups = newSet;
 	}
+
+	const onboardingSet = $derived(new Set(activeOnboardingPersonnelIds));
 
 	const totalPersonnel = $derived(
 		personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0)
@@ -134,6 +138,7 @@
 							{assignmentTypes}
 							{assignments}
 							{showStatusText}
+							isOnboarding={onboardingSet.has(person.id)}
 							onCellClick={canEdit ? onCellClick : undefined}
 							{onPersonClick}
 						/>

@@ -123,6 +123,11 @@
 		showStartModal = false;
 	}
 
+	async function handleAddPerson(data: Omit<Personnel, 'id'>): Promise<string | null> {
+		const newPerson = await personnelStore.add(data);
+		return newPerson?.id ?? null;
+	}
+
 	// Check if all steps are complete and auto-mark onboarding as completed
 	async function checkAutoComplete(onboardingId: string) {
 		const onboarding = onboardingStore.getById(onboardingId);
@@ -480,7 +485,9 @@
 	<StartOnboardingModal
 		personnel={personnelStore.list}
 		existingOnboardingPersonnelIds={existingOnboardingPersonnelIds}
+		groups={groupsStore.list}
 		onSubmit={handleStartOnboarding}
+		onAddPerson={handleAddPerson}
 		onClose={() => (showStartModal = false)}
 	/>
 {/if}

@@ -6,7 +6,7 @@
 	interface Props {
 		personnel: Personnel[];
 		existingOnboardingPersonnelIds: string[];
-		onSubmit: (personnelId: string, startedAt: string) => void;
+		onSubmit: (personnelId: string, startedAt: string) => void | Promise<void>;
 		onClose: () => void;
 	}
 
@@ -28,7 +28,7 @@
 		if (!canSave || saving) return;
 		saving = true;
 		try {
-			onSubmit(selectedPersonnelId, startDate);
+			await onSubmit(selectedPersonnelId, startDate);
 			onClose();
 		} finally {
 			saving = false;

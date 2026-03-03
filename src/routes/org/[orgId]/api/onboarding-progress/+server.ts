@@ -49,6 +49,6 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 		sortOrder: data.sort_order,
 		completed: data.completed,
 		currentStage: data.current_stage,
-		notes: data.notes ?? []
+		notes: Array.isArray(data.notes) ? data.notes : []
 	});
 };

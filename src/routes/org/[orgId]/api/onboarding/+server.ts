@@ -14,7 +14,7 @@ function transformStep(r: any) {
 		sortOrder: r.sort_order,
 		completed: r.completed,
 		currentStage: r.current_stage,
-		notes: r.notes ?? []
+		notes: Array.isArray(r.notes) ? r.notes : []
 	};
 }
 
@@ -73,7 +73,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			sort_order: t.sort_order,
 			completed: false,
 			current_stage: t.step_type === 'paperwork' && t.stages?.length ? t.stages[0] : null,
-			notes: '[]'
+			notes: []
 		}));
 
 		const { data: createdSteps, error: stepsError } = await supabase

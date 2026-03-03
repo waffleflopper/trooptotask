@@ -67,7 +67,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 				sortOrder: s.sort_order,
 				completed: s.completed,
 				currentStage: s.current_stage,
-				notes: s.notes ?? []
+				notes: Array.isArray(s.notes) ? s.notes : []
 			}))
 		}))
 	};

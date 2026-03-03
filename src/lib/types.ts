@@ -213,3 +213,47 @@ export const TRAINING_STATUS_COLORS: Record<TrainingStatus, string> = {
 	'not-completed': '#6b7280', // gray
 	'not-required': '#d1d5db' // light gray
 };
+
+// ============================================================
+// Onboarding
+// ============================================================
+
+export type OnboardingStepType = 'training' | 'paperwork' | 'checkbox';
+export type OnboardingStatus = 'in_progress' | 'completed' | 'cancelled';
+
+export interface OnboardingTemplateStep {
+	id: string;
+	name: string;
+	description: string | null;
+	stepType: OnboardingStepType;
+	trainingTypeId: string | null;
+	stages: string[] | null;
+	sortOrder: number;
+}
+
+export interface OnboardingStepNote {
+	text: string;
+	timestamp: string;
+}
+
+export interface OnboardingStepProgress {
+	id: string;
+	onboardingId: string;
+	stepName: string;
+	stepType: OnboardingStepType;
+	trainingTypeId: string | null;
+	stages: string[] | null;
+	sortOrder: number;
+	completed: boolean;
+	currentStage: string | null;
+	notes: OnboardingStepNote[];
+}
+
+export interface PersonnelOnboarding {
+	id: string;
+	personnelId: string;
+	startedAt: string;
+	completedAt: string | null;
+	status: OnboardingStatus;
+	steps: OnboardingStepProgress[];
+}

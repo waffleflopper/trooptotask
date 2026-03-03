@@ -3,15 +3,14 @@
 	import { personnelStore } from '$lib/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-	import { themeStore } from '$lib/stores/theme.svelte';
 	import PersonnelModal from '$lib/components/PersonnelModal.svelte';
 	import GroupManager from '$lib/components/GroupManager.svelte';
 	import BulkPersonnelManager from '$lib/components/BulkPersonnelManager.svelte';
-	import Sidebar from '$lib/components/Sidebar.svelte';
+	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import { groupAndSortPersonnel, RANK_ORDER } from '$lib/utils/personnelGrouping';
 
 	let { data } = $props();
-	let showSidebar = $state(false);
 
 	$effect(() => {
 		personnelStore.load(data.personnel, data.orgId);
@@ -76,6 +75,16 @@
 		showPersonnelModal = true;
 	}
 
+	const personnelOverflowItems = $derived.by<OverflowItem[]>(() => {
+		const items: OverflowItem[] = [];
+		if (data.permissions.canEditPersonnel) {
+			items.push({ label: 'Add Person', onclick: handleAdd });
+			items.push({ label: 'Bulk Import', onclick: () => (showBulkManager = true), divider: true });
+			items.push({ label: 'Manage Groups', onclick: () => (showGroupManager = true) });
+		}
+		return items;
+	});
+
 	function handleEdit(person: Personnel) {
 		editingPerson = person;
 		showPersonnelModal = true;
@@ -121,35 +130,17 @@
 	<title>Personnel - Troop to Task</title>
 </svelte:head>
 
-<Sidebar
-	orgId={data.orgId}
-	orgName={data.orgName}
-	isOpen={showSidebar}
-	onClose={() => (showSidebar = false)}
-	onToggleTheme={() => themeStore.toggle()}
-	isDarkTheme={themeStore.isDark}
-	permissions={data.permissions}
-	allOrgs={data.allOrgs}
-	onAddPerson={handleAdd}
-	onShowBulkImport={() => (showBulkManager = true)}
-	onShowGroupManager={() => (showGroupManager = true)}
-/>
-
 <div class="page">
-	<header class="page-header mobile-only">
-		<h1>Personnel</h1>
-		<button class="mobile-menu-btn" onclick={() => (showSidebar = true)} aria-label="Open menu">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<line x1="3" y1="12" x2="21" y2="12" />
-				<line x1="3" y1="6" x2="21" y2="6" />
-				<line x1="3" y1="18" x2="21" y2="18" />
-			</svg>
-		</button>
-	</header>
+	<PageToolbar title="Personnel" overflowItems={personnelOverflowItems}>
+		{#if data.permissions.canEditPersonnel}
+			<button class="btn btn-sm btn-primary" onclick={handleAdd}>
+				Add Person
+			</button>
+		{/if}
+	</PageToolbar>
 
 	<div class="toolbar">
 		<div class="toolbar-title">
-			<h2>Personnel</h2>
 			<span class="count">({totalPersonnel})</span>
 		</div>
 		<input
@@ -184,7 +175,7 @@
 		{#if totalPersonnel === 0}
 			<div class="empty-state">
 				<p>No personnel added yet.</p>
-				<p>Use the sidebar to add personnel or bulk import.</p>
+				<p>Use the toolbar to add personnel or bulk import.</p>
 			</div>
 		{:else if viewMode === 'alphabetical'}
 			<div class="personnel-list">
@@ -338,50 +329,6 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg);
-		margin-left: var(--sidebar-width);
-	}
-
-	/* Mobile header - only visible on mobile */
-	.page-header.mobile-only {
-		display: none;
-	}
-
-	.page-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: #0F0F0F;
-		color: #F0EDE6;
-		border-bottom: 1px solid #2A2A2A;
-	}
-
-	.page-header h1 {
-		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-	}
-
-	.mobile-menu-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border-radius: 6px;
-		background: transparent;
-		border: 1px solid #2A2A2A;
-		color: #8A8780;
-	}
-
-	.mobile-menu-btn:hover {
-		border-color: #8A8780;
-		color: #F0EDE6;
-	}
-
-	.mobile-menu-btn svg {
-		width: 24px;
-		height: 24px;
 	}
 
 	.toolbar {
@@ -397,14 +344,6 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
-	}
-
-	.toolbar-title h2 {
-		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-		color: var(--color-text);
-		margin: 0;
 	}
 
 	.count {
@@ -627,18 +566,6 @@
 
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
-		.page {
-			margin-left: 0;
-		}
-
-		.page-header.mobile-only {
-			display: flex;
-		}
-
-		.toolbar-title {
-			display: none;
-		}
-
 		.toolbar {
 			flex-wrap: wrap;
 			padding: var(--spacing-sm) var(--spacing-md);
@@ -686,10 +613,6 @@
 
 	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.page {
-			margin-left: var(--sidebar-width);
-		}
-
 		.search-input {
 			max-width: 300px;
 		}

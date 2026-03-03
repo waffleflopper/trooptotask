@@ -703,6 +703,7 @@
 		display: flex;
 		align-items: stretch;
 		justify-content: stretch;
+		top: var(--header-height, 56px);
 	}
 
 	.soldier-view {

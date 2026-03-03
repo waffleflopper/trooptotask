@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { Personnel } from '../types';
 	import type { Group } from '../stores/groups.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import Modal from './Modal.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		personnel?: Personnel | null;
@@ -38,18 +40,20 @@
 			groupId: groupId || null,
 			groupName: selectedGroupName
 		});
+		toastStore.success(isEditing ? 'Personnel updated' : 'Personnel added');
 		onClose();
 	}
 
+	let showRemoveConfirm = $state(false);
+
 	function handleRemove() {
-		if (
-			personnel &&
-			onRemove &&
-			confirm(
-				`Are you sure you want to remove ${personnel.rank} ${personnel.lastName}? This action cannot be undone.`
-			)
-		) {
+		showRemoveConfirm = true;
+	}
+
+	function doRemove() {
+		if (personnel && onRemove) {
 			onRemove(personnel.id);
+			toastStore.success('Personnel removed');
 			onClose();
 		}
 	}
@@ -173,15 +177,22 @@
 	{/snippet}
 </Modal>
 
+{#if showRemoveConfirm && personnel}
+	<ConfirmDialog
+		title="Remove Personnel"
+		message="Remove {personnel.rank} {personnel.lastName}? This action cannot be undone."
+		confirmLabel="Remove"
+		variant="danger"
+		onConfirm={doRemove}
+		onCancel={() => (showRemoveConfirm = false)}
+	/>
+{/if}
+
 <style>
 	.form-row {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: var(--spacing-md);
-	}
-
-	.required {
-		color: #dc2626;
 	}
 
 	.preview {

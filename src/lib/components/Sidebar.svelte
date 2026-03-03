@@ -175,6 +175,7 @@
 <aside class="sidebar" class:open={isOpen}>
 	<div class="sidebar-header">
 		<a href="/org/{orgId}" class="logo-link" onclick={() => onClose?.()}>
+			<span class="sidebar-mark">T2T</span>
 			<h1>Troop to Task</h1>
 		</a>
 		<button class="close-btn" onclick={onClose} aria-label="Close sidebar">
@@ -680,20 +681,37 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-lg);
-		background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-		color: white;
-		min-height: 72px;
+		padding: var(--spacing-md) var(--spacing-lg);
+		background: #0F0F0F;
+		color: #F0EDE6;
+		min-height: 56px;
+		border-bottom: 1px solid #2A2A2A;
 	}
 
 	.logo-link {
 		text-decoration: none;
-		color: white;
+		color: #F0EDE6;
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+	}
+
+	.sidebar-mark {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		background: #B8943E;
+		color: #0F0F0F;
+		padding: 0.2rem 0.4rem;
+		border-radius: 4px;
+		line-height: 1;
 	}
 
 	.sidebar-header h1 {
-		font-size: var(--font-size-xl);
-		font-weight: 600;
+		font-family: var(--font-display);
+		font-size: var(--font-size-lg);
+		font-weight: 400;
 		letter-spacing: -0.01em;
 	}
 
@@ -701,17 +719,18 @@
 		display: none;
 		align-items: center;
 		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border-radius: var(--radius-full);
-		background: rgba(255, 255, 255, 0.15);
-		color: white;
+		width: 32px;
+		height: 32px;
+		border-radius: 6px;
+		background: transparent;
+		border: 1px solid #2A2A2A;
+		color: #8A8780;
 		transition: all var(--transition-fast);
 	}
 
 	.close-btn:hover {
-		background: rgba(255, 255, 255, 0.25);
-		transform: scale(1.05);
+		color: #F0EDE6;
+		border-color: #8A8780;
 	}
 
 	.close-btn svg {
@@ -865,10 +884,11 @@
 		width: calc(100% - var(--spacing-md));
 		margin: 0 var(--spacing-sm);
 		padding: 6px var(--spacing-sm);
-		font-size: 11px;
-		font-weight: 600;
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: 500;
 		text-transform: uppercase;
-		letter-spacing: 0.08em;
+		letter-spacing: 0.1em;
 		color: var(--color-text-muted);
 		background: transparent;
 		border: none;
@@ -932,13 +952,13 @@
 	}
 
 	.nav-item.active {
-		background: rgba(var(--color-primary-rgb), 0.12);
-		color: var(--color-primary);
+		background: rgba(184, 148, 62, 0.1);
+		color: #B8943E;
 		font-weight: 600;
 	}
 
 	.nav-item.active svg {
-		color: var(--color-primary);
+		color: #B8943E;
 	}
 
 	.nav-item svg {
@@ -954,31 +974,32 @@
 	}
 
 	.beta-badge {
-		font-size: 10px;
-		font-weight: 600;
+		font-family: var(--font-mono);
+		font-size: 9px;
+		font-weight: 500;
 		text-transform: uppercase;
+		letter-spacing: 0.05em;
 		padding: 2px 6px;
-		background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-		color: white;
-		border-radius: var(--radius-sm);
+		background: rgba(184, 148, 62, 0.15);
+		color: #B8943E;
+		border-radius: 3px;
 		margin-left: auto;
 	}
 
 	.nav-item.highlight {
-		background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
-		color: white;
+		background: #B8943E;
+		color: #0F0F0F;
 		margin: var(--spacing-sm) var(--spacing-sm);
-		box-shadow: var(--shadow-1);
+		font-weight: 600;
 	}
 
 	.nav-item.highlight svg {
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.nav-item.highlight:hover {
-		box-shadow: var(--shadow-2);
-		transform: translateY(-1px);
-		background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
+		background: #D4B15A;
+		color: #0F0F0F;
 	}
 
 	.nav-item.toggle-item {
@@ -1020,7 +1041,6 @@
 		padding: var(--spacing-md) var(--spacing-sm);
 		border-top: 1px solid var(--color-divider);
 		margin-top: auto;
-		background: var(--color-surface-variant);
 	}
 
 	.nav-item.logout {
@@ -1089,12 +1109,12 @@
 		}
 
 		.sidebar-header {
-			padding: var(--spacing-md);
-			min-height: 64px;
+			padding: var(--spacing-sm) var(--spacing-md);
+			min-height: 48px;
 		}
 
 		.sidebar-header h1 {
-			font-size: var(--font-size-lg);
+			font-size: var(--font-size-base);
 		}
 
 		.org-switcher-btn,

@@ -542,7 +542,7 @@
 
 	.btn-primary {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 	}
 
 	.btn-primary:hover {

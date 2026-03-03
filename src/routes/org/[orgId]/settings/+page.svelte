@@ -186,28 +186,32 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-primary);
-		color: white;
+		background: #0F0F0F;
+		color: #F0EDE6;
+		border-bottom: 1px solid #2A2A2A;
 	}
 
 	.page-header h1 {
+		font-family: var(--font-display);
 		font-size: var(--font-size-lg);
-		font-weight: 700;
+		font-weight: 400;
 	}
 
 	.mobile-menu-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 40px;
-		height: 40px;
-		border-radius: var(--radius-md);
-		background: rgba(255, 255, 255, 0.1);
-		color: white;
+		width: 36px;
+		height: 36px;
+		border-radius: 6px;
+		background: transparent;
+		border: 1px solid #2A2A2A;
+		color: #8A8780;
 	}
 
 	.mobile-menu-btn:hover {
-		background: rgba(255, 255, 255, 0.2);
+		border-color: #8A8780;
+		color: #F0EDE6;
 	}
 
 	.mobile-menu-btn svg {
@@ -224,8 +228,9 @@
 	}
 
 	.toolbar-header h2 {
+		font-family: var(--font-display);
 		font-size: var(--font-size-lg);
-		font-weight: 600;
+		font-weight: 400;
 		color: var(--color-text);
 		margin: 0;
 	}
@@ -249,8 +254,9 @@
 	}
 
 	.settings-card h2 {
+		font-family: var(--font-display);
 		font-size: var(--font-size-lg);
-		font-weight: 600;
+		font-weight: 400;
 		margin-bottom: var(--spacing-md);
 	}
 

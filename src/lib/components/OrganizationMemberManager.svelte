@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Badge from './ui/Badge.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 	import type {
 		OrganizationMember,
 		OrganizationMemberPermissions,
@@ -58,6 +59,7 @@
 	let showTransferConfirm = $state(false);
 	let transferTargetId = $state<string | null>(null);
 	let loading = $state(false);
+	let pendingRemoveForm = $state<HTMLFormElement | null>(null);
 
 	const presetOptions: { value: Exclude<PermissionPreset, 'owner' | 'custom'>; label: string }[] = [
 		{ value: 'admin', label: 'Admin' },
@@ -209,12 +211,10 @@
 								<form method="POST" action="?/removeMember" use:enhance>
 									<input type="hidden" name="membershipId" value={member.id} />
 									<button
-										type="submit"
+										type="button"
 										class="btn btn-danger btn-sm"
 										onclick={(e) => {
-											if (!confirm('Remove this member from the organization?')) {
-												e.preventDefault();
-											}
+											pendingRemoveForm = (e.target as HTMLElement).closest('form');
 										}}
 									>
 										Remove
@@ -478,6 +478,20 @@
 		</div>
 	{/if}
 </div>
+
+{#if pendingRemoveForm}
+	<ConfirmDialog
+		title="Remove Member"
+		message="Remove this member from the organization?"
+		confirmLabel="Remove"
+		variant="danger"
+		onConfirm={() => {
+			pendingRemoveForm?.requestSubmit();
+			pendingRemoveForm = null;
+		}}
+		onCancel={() => (pendingRemoveForm = null)}
+	/>
+{/if}
 
 <style>
 	.member-manager {

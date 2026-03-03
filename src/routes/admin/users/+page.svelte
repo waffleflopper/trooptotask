@@ -254,7 +254,7 @@
 	.search-btn {
 		padding: var(--spacing-sm) var(--spacing-lg);
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 		border: none;
 		border-radius: var(--radius-md);
 		font-weight: 500;

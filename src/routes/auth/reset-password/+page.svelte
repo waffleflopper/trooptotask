@@ -1,17 +1,70 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { supabase } from '$lib/supabase';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 
-	let { form, data } = $props();
+	let password = $state('');
+	let confirmPassword = $state('');
 	let loading = $state(false);
+	let error = $state('');
+	let success = $state(false);
+	let sessionReady = $state(false);
 
-	// Use URL params for initial values, then form values on error
-	const initialInviteCode = form?.inviteCode ?? data.inviteCode ?? '';
-	const initialEmail = form?.email ?? data.email ?? '';
+	let authSubscription: { unsubscribe: () => void } | null = null;
+
+	onMount(() => {
+		// Check existing session first
+		supabase.auth.getSession().then(({ data: { session } }) => {
+			if (session) {
+				sessionReady = true;
+			}
+		});
+
+		// Listen for auth state change (token exchange happens async from URL hash)
+		const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+			if (event === 'PASSWORD_RECOVERY') {
+				sessionReady = true;
+			}
+		});
+		authSubscription = subscription;
+
+		return () => authSubscription?.unsubscribe();
+	});
+
+	async function handleSubmit(e: Event) {
+		e.preventDefault();
+		error = '';
+
+		if (password.length < 6) {
+			error = 'Password must be at least 6 characters';
+			return;
+		}
+
+		if (password !== confirmPassword) {
+			error = 'Passwords do not match';
+			return;
+		}
+
+		loading = true;
+		try {
+			const { error: updateError } = await supabase.auth.updateUser({ password });
+
+			if (updateError) {
+				error = updateError.message;
+				return;
+			}
+
+			success = true;
+			setTimeout(() => goto('/auth/login'), 3000);
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 <svelte:head>
-	<title>Create Account - Troop to Task</title>
+	<title>Reset Password - Troop to Task</title>
 </svelte:head>
 
 <div class="auth-page">
@@ -31,98 +84,44 @@
 		<div class="brand">
 			<div class="brand-mark">T2T</div>
 			<h1>Troop to Task</h1>
-			{#if form?.confirmEmail}
-				<p class="subtitle">Check your email</p>
-			{:else}
-				<p class="subtitle">Personnel Management System</p>
-			{/if}
+			<p class="subtitle">Personnel Management System</p>
 		</div>
 
-		{#if form?.confirmEmail}
-			<!-- Email confirmation message -->
-			<div class="confirm-email-section">
-				<div class="confirm-icon">
+		{#if success}
+			<div class="success-section">
+				<div class="success-icon">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-						<polyline points="22,6 12,13 2,6" />
+						<path d="M20 6L9 17l-5-5" />
 					</svg>
 				</div>
-				<h2 class="confirm-title">Confirm your email</h2>
-				<p class="confirm-text">
-					We've sent a confirmation link to <strong>{form.email}</strong>
+				<h2 class="success-title">Password updated</h2>
+				<p class="success-text">
+					Your password has been reset successfully. Redirecting to sign in...
 				</p>
-				<p class="confirm-text">
-					Please check your email and click the link to activate your account.
-				</p>
-				<div class="confirm-hint">
-					<p>Didn't receive the email? Check your spam folder or</p>
-					<a href="/auth/register" class="btn btn-secondary">Try again</a>
-				</div>
 			</div>
-
-			<div class="divider">
-				<span>or</span>
+		{:else if !sessionReady}
+			<div class="loading-section">
+				<span class="spinner"></span>
+				<p class="loading-text">Verifying reset link...</p>
 			</div>
-
-			<p class="auth-link">
-				Already confirmed? <a href="/auth/login">Sign in</a>
-			</p>
 		{:else}
-			<form
-				method="POST"
-				use:enhance={() => {
-					loading = true;
-					return async ({ update }) => {
-						loading = false;
-						await update();
-					};
-				}}
-			>
-				{#if form?.error}
+			<form onsubmit={handleSubmit}>
+				{#if error}
 					<div class="error-message">
 						<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
 							<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
 						</svg>
-						{form.error}
+						{error}
 					</div>
 				{/if}
 
 				<div class="form-group">
-					<label class="label" for="inviteCode">Invite Code</label>
-					<input
-						id="inviteCode"
-						name="inviteCode"
-						type="text"
-						class="input"
-						value={initialInviteCode}
-						required
-						autocomplete="off"
-						placeholder="Enter your invite code"
-					/>
-					<span class="field-hint">Registration is by invitation only</span>
-				</div>
-
-				<div class="form-group">
-					<label class="label" for="email">Email Address</label>
-					<input
-						id="email"
-						name="email"
-						type="email"
-						class="input"
-						value={initialEmail}
-						required
-						autocomplete="email"
-						placeholder="you@example.com"
-					/>
-				</div>
-
-				<div class="form-group">
-					<label class="label" for="password">Password</label>
+					<label class="label" for="password">New Password</label>
 					<input
 						id="password"
-						name="password"
 						type="password"
 						class="input"
+						bind:value={password}
 						required
 						minlength="6"
 						autocomplete="new-password"
@@ -131,12 +130,12 @@
 				</div>
 
 				<div class="form-group">
-					<label class="label" for="confirmPassword">Confirm Password</label>
+					<label class="label" for="confirmPassword">Confirm New Password</label>
 					<input
 						id="confirmPassword"
-						name="confirmPassword"
 						type="password"
 						class="input"
+						bind:value={confirmPassword}
 						required
 						minlength="6"
 						autocomplete="new-password"
@@ -147,21 +146,21 @@
 				<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
 					{#if loading}
 						<span class="spinner"></span>
-						Creating account...
+						Updating...
 					{:else}
-						Create Account
+						Update Password
 					{/if}
 				</button>
 			</form>
-
-			<div class="divider">
-				<span>or</span>
-			</div>
-
-			<p class="auth-link">
-				Already have an account? <a href="/auth/login">Sign in</a>
-			</p>
 		{/if}
+
+		<div class="divider">
+			<span>or</span>
+		</div>
+
+		<p class="auth-link">
+			<a href="/auth/login">Back to sign in</a>
+		</p>
 	</div>
 
 	<footer class="auth-footer">
@@ -227,10 +226,10 @@
 
 	.subtitle {
 		color: var(--color-text-muted);
-		font-size: 0.6875rem;
 		font-family: var(--font-mono);
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
+		font-size: 0.6875rem;
 	}
 
 	.error-message {
@@ -252,20 +251,12 @@
 		flex-shrink: 0;
 	}
 
-	.field-hint {
-		display: block;
-		margin-top: var(--spacing-xs);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-	}
-
-	/* Email confirmation styles */
-	.confirm-email-section {
+	.success-section {
 		text-align: center;
 		padding: var(--spacing-md) 0;
 	}
 
-	.confirm-icon {
+	.success-icon {
 		width: 64px;
 		height: 64px;
 		margin: 0 auto var(--spacing-md);
@@ -277,44 +268,45 @@
 		color: #16a34a;
 	}
 
-	.confirm-icon svg {
+	.success-icon svg {
 		width: 32px;
 		height: 32px;
 	}
 
-	.confirm-title {
+	.success-title {
 		font-size: var(--font-size-lg);
 		font-weight: 600;
 		margin-bottom: var(--spacing-md);
 		color: var(--color-text);
 	}
 
-	.confirm-text {
+	.success-text {
 		color: var(--color-text-muted);
 		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-sm);
 		line-height: 1.5;
 	}
 
-	.confirm-text strong {
-		color: var(--color-text);
-	}
-
-	.confirm-hint {
-		margin-top: var(--spacing-lg);
-		padding-top: var(--spacing-lg);
-		border-top: 1px solid var(--color-border);
-	}
-
-	.confirm-hint p {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-sm);
-	}
-
-	:global([data-theme='dark']) .confirm-icon {
+	:global([data-theme='dark']) .success-icon {
 		background: #14532d;
 		color: #4ade80;
+	}
+
+	.loading-section {
+		text-align: center;
+		padding: var(--spacing-xl) 0;
+	}
+
+	.loading-section .spinner {
+		width: 24px;
+		height: 24px;
+		border-color: rgba(var(--color-primary-rgb), 0.2);
+		border-top-color: var(--color-primary);
+	}
+
+	.loading-text {
+		margin-top: var(--spacing-md);
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
 	}
 
 	.btn-full {
@@ -399,16 +391,15 @@
 	}
 
 	.theme-toggle:hover {
-		color: #F0EDE6;
-		border-color: #8A8780;
+		background: rgba(255, 255, 255, 0.3);
+		transform: scale(1.05);
 	}
 
 	.theme-toggle svg {
-		width: 16px;
-		height: 16px;
+		width: 20px;
+		height: 20px;
 	}
 
-	/* Dark mode specific styles */
 	:global([data-theme='dark']) .error-message {
 		background: #450a0a;
 		border-color: #7f1d1d;

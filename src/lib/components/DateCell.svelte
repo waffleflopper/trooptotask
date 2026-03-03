@@ -115,8 +115,15 @@
 	}
 
 	.date-cell:hover {
-		opacity: 0.8;
 		box-shadow: inset 0 0 0 2px var(--color-primary);
+	}
+
+	.date-cell:not(.has-status):hover {
+		background-color: rgba(var(--color-primary-rgb), 0.06);
+	}
+
+	.date-cell.has-status:hover {
+		filter: brightness(0.92);
 	}
 
 	.weekend {

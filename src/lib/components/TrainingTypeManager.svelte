@@ -2,6 +2,7 @@
 	import type { TrainingType } from '../types';
 	import Badge from './ui/Badge.svelte';
 	import EmptyState from './ui/EmptyState.svelte';
+	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
 		trainingTypes: TrainingType[];
@@ -93,9 +94,16 @@
 		editingId = null;
 	}
 
+	let confirmRemove = $state<{ id: string; name: string } | null>(null);
+
 	function handleRemove(id: string, name: string) {
-		if (confirm(`Are you sure you want to remove "${name}"? All training records of this type will also be removed.`)) {
-			onRemove(id);
+		confirmRemove = { id, name };
+	}
+
+	function doRemove() {
+		if (confirmRemove) {
+			onRemove(confirmRemove.id);
+			confirmRemove = null;
 		}
 	}
 
@@ -401,6 +409,17 @@
 	</div>
 </div>
 
+{#if confirmRemove}
+	<ConfirmDialog
+		title="Remove Training Type"
+		message='Remove "{confirmRemove.name}"? All training records of this type will also be removed.'
+		confirmLabel="Remove"
+		variant="danger"
+		onConfirm={doRemove}
+		onCancel={() => (confirmRemove = null)}
+	/>
+{/if}
+
 <style>
 	.add-section,
 	.list-section {
@@ -515,7 +534,7 @@
 
 	.role-chip.selected {
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 		border-color: var(--color-primary);
 	}
 

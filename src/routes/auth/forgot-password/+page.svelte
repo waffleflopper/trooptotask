@@ -2,16 +2,12 @@
 	import { enhance } from '$app/forms';
 	import { themeStore } from '$lib/stores/theme.svelte';
 
-	let { form, data } = $props();
+	let { form } = $props();
 	let loading = $state(false);
-
-	// Use URL params for initial values, then form values on error
-	const initialInviteCode = form?.inviteCode ?? data.inviteCode ?? '';
-	const initialEmail = form?.email ?? data.email ?? '';
 </script>
 
 <svelte:head>
-	<title>Create Account - Troop to Task</title>
+	<title>Forgot Password - Troop to Task</title>
 </svelte:head>
 
 <div class="auth-page">
@@ -31,42 +27,25 @@
 		<div class="brand">
 			<div class="brand-mark">T2T</div>
 			<h1>Troop to Task</h1>
-			{#if form?.confirmEmail}
-				<p class="subtitle">Check your email</p>
-			{:else}
-				<p class="subtitle">Personnel Management System</p>
-			{/if}
+			<p class="subtitle">Personnel Management System</p>
 		</div>
 
-		{#if form?.confirmEmail}
-			<!-- Email confirmation message -->
-			<div class="confirm-email-section">
-				<div class="confirm-icon">
+		{#if form?.success}
+			<div class="success-section">
+				<div class="success-icon">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
 						<polyline points="22,6 12,13 2,6" />
 					</svg>
 				</div>
-				<h2 class="confirm-title">Confirm your email</h2>
-				<p class="confirm-text">
-					We've sent a confirmation link to <strong>{form.email}</strong>
+				<h2 class="success-title">Check your email</h2>
+				<p class="success-text">
+					We've sent a password reset link to <strong>{form.email}</strong>
 				</p>
-				<p class="confirm-text">
-					Please check your email and click the link to activate your account.
+				<p class="success-text">
+					Click the link in the email to set a new password.
 				</p>
-				<div class="confirm-hint">
-					<p>Didn't receive the email? Check your spam folder or</p>
-					<a href="/auth/register" class="btn btn-secondary">Try again</a>
-				</div>
 			</div>
-
-			<div class="divider">
-				<span>or</span>
-			</div>
-
-			<p class="auth-link">
-				Already confirmed? <a href="/auth/login">Sign in</a>
-			</p>
 		{:else}
 			<form
 				method="POST"
@@ -87,20 +66,9 @@
 					</div>
 				{/if}
 
-				<div class="form-group">
-					<label class="label" for="inviteCode">Invite Code</label>
-					<input
-						id="inviteCode"
-						name="inviteCode"
-						type="text"
-						class="input"
-						value={initialInviteCode}
-						required
-						autocomplete="off"
-						placeholder="Enter your invite code"
-					/>
-					<span class="field-hint">Registration is by invitation only</span>
-				</div>
+				<p class="instructions">
+					Enter the email address associated with your account and we'll send you a link to reset your password.
+				</p>
 
 				<div class="form-group">
 					<label class="label" for="email">Email Address</label>
@@ -109,59 +77,31 @@
 						name="email"
 						type="email"
 						class="input"
-						value={initialEmail}
+						value={form?.email ?? ''}
 						required
 						autocomplete="email"
 						placeholder="you@example.com"
 					/>
 				</div>
 
-				<div class="form-group">
-					<label class="label" for="password">Password</label>
-					<input
-						id="password"
-						name="password"
-						type="password"
-						class="input"
-						required
-						minlength="6"
-						autocomplete="new-password"
-						placeholder="At least 6 characters"
-					/>
-				</div>
-
-				<div class="form-group">
-					<label class="label" for="confirmPassword">Confirm Password</label>
-					<input
-						id="confirmPassword"
-						name="confirmPassword"
-						type="password"
-						class="input"
-						required
-						minlength="6"
-						autocomplete="new-password"
-						placeholder="Re-enter your password"
-					/>
-				</div>
-
 				<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
 					{#if loading}
 						<span class="spinner"></span>
-						Creating account...
+						Sending...
 					{:else}
-						Create Account
+						Send Reset Link
 					{/if}
 				</button>
 			</form>
-
-			<div class="divider">
-				<span>or</span>
-			</div>
-
-			<p class="auth-link">
-				Already have an account? <a href="/auth/login">Sign in</a>
-			</p>
 		{/if}
+
+		<div class="divider">
+			<span>or</span>
+		</div>
+
+		<p class="auth-link">
+			Remember your password? <a href="/auth/login">Sign in</a>
+		</p>
 	</div>
 
 	<footer class="auth-footer">
@@ -227,10 +167,17 @@
 
 	.subtitle {
 		color: var(--color-text-muted);
-		font-size: 0.6875rem;
 		font-family: var(--font-mono);
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
+		font-size: 0.6875rem;
+	}
+
+	.instructions {
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		margin-bottom: var(--spacing-lg);
+		line-height: 1.5;
 	}
 
 	.error-message {
@@ -252,20 +199,12 @@
 		flex-shrink: 0;
 	}
 
-	.field-hint {
-		display: block;
-		margin-top: var(--spacing-xs);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-	}
-
-	/* Email confirmation styles */
-	.confirm-email-section {
+	.success-section {
 		text-align: center;
 		padding: var(--spacing-md) 0;
 	}
 
-	.confirm-icon {
+	.success-icon {
 		width: 64px;
 		height: 64px;
 		margin: 0 auto var(--spacing-md);
@@ -277,42 +216,30 @@
 		color: #16a34a;
 	}
 
-	.confirm-icon svg {
+	.success-icon svg {
 		width: 32px;
 		height: 32px;
 	}
 
-	.confirm-title {
+	.success-title {
 		font-size: var(--font-size-lg);
 		font-weight: 600;
 		margin-bottom: var(--spacing-md);
 		color: var(--color-text);
 	}
 
-	.confirm-text {
+	.success-text {
 		color: var(--color-text-muted);
 		font-size: var(--font-size-sm);
 		margin-bottom: var(--spacing-sm);
 		line-height: 1.5;
 	}
 
-	.confirm-text strong {
+	.success-text strong {
 		color: var(--color-text);
 	}
 
-	.confirm-hint {
-		margin-top: var(--spacing-lg);
-		padding-top: var(--spacing-lg);
-		border-top: 1px solid var(--color-border);
-	}
-
-	.confirm-hint p {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-sm);
-	}
-
-	:global([data-theme='dark']) .confirm-icon {
+	:global([data-theme='dark']) .success-icon {
 		background: #14532d;
 		color: #4ade80;
 	}
@@ -399,16 +326,15 @@
 	}
 
 	.theme-toggle:hover {
-		color: #F0EDE6;
-		border-color: #8A8780;
+		background: rgba(255, 255, 255, 0.3);
+		transform: scale(1.05);
 	}
 
 	.theme-toggle svg {
-		width: 16px;
-		height: 16px;
+		width: 20px;
+		height: 20px;
 	}
 
-	/* Dark mode specific styles */
 	:global([data-theme='dark']) .error-message {
 		background: #450a0a;
 		border-color: #7f1d1d;

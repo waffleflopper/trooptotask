@@ -351,28 +351,32 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-primary);
-		color: white;
+		background: #0F0F0F;
+		color: #F0EDE6;
+		border-bottom: 1px solid #2A2A2A;
 	}
 
 	.page-header h1 {
+		font-family: var(--font-display);
 		font-size: var(--font-size-lg);
-		font-weight: 700;
+		font-weight: 400;
 	}
 
 	.mobile-menu-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 40px;
-		height: 40px;
-		border-radius: var(--radius-md);
-		background: rgba(255, 255, 255, 0.1);
-		color: white;
+		width: 36px;
+		height: 36px;
+		border-radius: 6px;
+		background: transparent;
+		border: 1px solid #2A2A2A;
+		color: #8A8780;
 	}
 
 	.mobile-menu-btn:hover {
-		background: rgba(255, 255, 255, 0.2);
+		border-color: #8A8780;
+		color: #F0EDE6;
 	}
 
 	.mobile-menu-btn svg {
@@ -396,13 +400,15 @@
 	}
 
 	.toolbar-title h2 {
+		font-family: var(--font-display);
 		font-size: var(--font-size-lg);
-		font-weight: 600;
+		font-weight: 400;
 		color: var(--color-text);
 		margin: 0;
 	}
 
 	.count {
+		font-family: var(--font-mono);
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 	}
@@ -452,9 +458,9 @@
 	}
 
 	.view-btn.active {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
-		color: white;
+		background: #B8943E;
+		border-color: #B8943E;
+		color: #0F0F0F;
 	}
 
 	.personnel-list {
@@ -465,9 +471,10 @@
 	}
 
 	.group-badge {
+		font-family: var(--font-mono);
 		font-size: var(--font-size-xs);
-		color: white;
-		background: var(--color-primary);
+		color: #0F0F0F;
+		background: #B8943E;
 		padding: 2px var(--spacing-sm);
 		border-radius: var(--radius-sm);
 		margin-left: auto;
@@ -505,8 +512,8 @@
 	.group-header {
 		display: flex;
 		align-items: center;
-		background: var(--color-primary);
-		color: white;
+		background: #0F0F0F;
+		color: #F0EDE6;
 	}
 
 	.group-toggle {
@@ -523,7 +530,7 @@
 	}
 
 	.group-toggle:hover {
-		background: var(--color-primary-light);
+		background: #1A1A1A;
 	}
 
 	.toggle-icon {
@@ -551,7 +558,7 @@
 
 	.pin-btn:hover {
 		opacity: 1;
-		background: var(--color-primary-light);
+		background: #1A1A1A;
 	}
 
 	.pin-btn.pinned {
@@ -595,7 +602,7 @@
 
 	.rank {
 		font-weight: 600;
-		color: var(--color-primary);
+		color: #B8943E;
 		min-width: 40px;
 	}
 
@@ -606,7 +613,7 @@
 
 	.mos {
 		font-size: var(--font-size-sm);
-		color: var(--color-primary);
+		color: #B8943E;
 		font-weight: 500;
 	}
 
@@ -702,12 +709,12 @@
 		width: 80px;
 		height: 80px;
 		margin: 0 auto var(--spacing-lg);
-		background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+		background: color-mix(in srgb, #B8943E 15%, transparent);
 		border-radius: 50%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: var(--color-primary);
+		color: #B8943E;
 	}
 
 	.feature-locked h2 {
@@ -728,7 +735,7 @@
 		justify-content: center;
 		padding: var(--spacing-sm) var(--spacing-xl);
 		background: var(--color-primary);
-		color: white;
+		color: #0F0F0F;
 		font-weight: 500;
 		border-radius: var(--radius-md);
 		text-decoration: none;

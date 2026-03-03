@@ -1,46 +1,20 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import OrganizationMemberManager from '$lib/components/OrganizationMemberManager.svelte';
-	import Sidebar from '$lib/components/Sidebar.svelte';
-	import { themeStore } from '$lib/stores/theme.svelte';
+	import PageToolbar from '$lib/components/PageToolbar.svelte';
 
 	let { data, form } = $props();
 	let loading = $state(false);
 	let showDeleteConfirm = $state(false);
 	let deleteConfirmText = $state('');
-	let showSidebar = $state(false);
 </script>
 
 <svelte:head>
 	<title>Settings - {data.organization?.name} - Troop to Task</title>
 </svelte:head>
 
-<Sidebar
-	orgId={data.orgId}
-	orgName={data.orgName}
-	isOpen={showSidebar}
-	onClose={() => (showSidebar = false)}
-	onToggleTheme={() => themeStore.toggle()}
-	isDarkTheme={themeStore.isDark}
-	permissions={data.permissions}
-	allOrgs={data.allOrgs}
-/>
-
 <div class="page">
-	<header class="page-header mobile-only">
-		<h1>Settings</h1>
-		<button class="mobile-menu-btn" onclick={() => (showSidebar = true)} aria-label="Open menu">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<line x1="3" y1="12" x2="21" y2="12" />
-				<line x1="3" y1="6" x2="21" y2="6" />
-				<line x1="3" y1="18" x2="21" y2="18" />
-			</svg>
-		</button>
-	</header>
-
-	<div class="toolbar-header">
-		<h2>Organization Settings</h2>
-	</div>
+	<PageToolbar title="Organization Settings" />
 
 	<main class="page-content">
 		<div class="settings-card">
@@ -173,66 +147,6 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg);
-		margin-left: var(--sidebar-width);
-	}
-
-	/* Mobile header - only visible on mobile */
-	.page-header.mobile-only {
-		display: none;
-	}
-
-	.page-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: #0F0F0F;
-		color: #F0EDE6;
-		border-bottom: 1px solid #2A2A2A;
-	}
-
-	.page-header h1 {
-		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-	}
-
-	.mobile-menu-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border-radius: 6px;
-		background: transparent;
-		border: 1px solid #2A2A2A;
-		color: #8A8780;
-	}
-
-	.mobile-menu-btn:hover {
-		border-color: #8A8780;
-		color: #F0EDE6;
-	}
-
-	.mobile-menu-btn svg {
-		width: 24px;
-		height: 24px;
-	}
-
-	.toolbar-header {
-		display: flex;
-		align-items: center;
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-surface);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.toolbar-header h2 {
-		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-		color: var(--color-text);
-		margin: 0;
 	}
 
 	.page-content {
@@ -366,18 +280,6 @@
 
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
-		.page {
-			margin-left: 0;
-		}
-
-		.page-header.mobile-only {
-			display: flex;
-		}
-
-		.toolbar-header {
-			display: none;
-		}
-
 		.page-content {
 			padding: var(--spacing-md);
 		}
@@ -389,10 +291,6 @@
 
 	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.page {
-			margin-left: var(--sidebar-width);
-		}
-
 		.page-content {
 			padding: var(--spacing-md);
 		}

@@ -7,15 +7,12 @@
 	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
-	import { themeStore } from '$lib/stores/theme.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
-	import Sidebar from '$lib/components/Sidebar.svelte';
+	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import { getTrainingStatus, getTrainingStats } from '$lib/utils/trainingStatus';
 	import { parseDate } from '$lib/utils/dates';
 
 	let { data } = $props();
-	let showSidebar = $state(false);
-
 	$effect(() => {
 		personnelStore.load(data.personnel, data.orgId);
 		groupsStore.load(data.groups, data.orgId);
@@ -256,29 +253,8 @@
 	<title>{data.orgName} - Dashboard - Troop to Task</title>
 </svelte:head>
 
-<Sidebar
-	orgId={data.orgId}
-	orgName={data.orgName}
-	isOpen={showSidebar}
-	onClose={() => (showSidebar = false)}
-	onToggleTheme={() => themeStore.toggle()}
-	isDarkTheme={themeStore.isDark}
-	permissions={data.permissions}
-	allOrgs={data.allOrgs}
-/>
-
 <div class="page">
-	<header class="page-header mobile-only">
-		<h1>Troop to Task</h1>
-		<button class="mobile-menu-btn" onclick={() => (showSidebar = true)} aria-label="Open menu">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<line x1="3" y1="12" x2="21" y2="12" />
-				<line x1="3" y1="6" x2="21" y2="6" />
-				<line x1="3" y1="18" x2="21" y2="18" />
-			</svg>
-		</button>
-	</header>
-
+	<PageToolbar title="Dashboard" />
 	<main class="dashboard">
 		<!-- Header -->
 		<div class="dashboard-header">
@@ -597,45 +573,6 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg);
-		margin-left: var(--sidebar-width);
-	}
-
-	/* Mobile header */
-	.page-header.mobile-only {
-		display: none;
-	}
-
-	.page-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: #0F0F0F;
-		color: #F0EDE6;
-		border-bottom: 1px solid #2A2A2A;
-	}
-
-	.page-header h1 {
-		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-	}
-
-	.mobile-menu-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border-radius: 6px;
-		background: transparent;
-		border: 1px solid #2A2A2A;
-		color: #8A8780;
-	}
-
-	.mobile-menu-btn svg {
-		width: 24px;
-		height: 24px;
 	}
 
 	.dashboard {
@@ -1166,14 +1103,6 @@
 
 	/* Mobile Responsive */
 	@media (max-width: 640px) {
-		.page {
-			margin-left: 0;
-		}
-
-		.page-header.mobile-only {
-			display: flex;
-		}
-
 		.dashboard {
 			padding: var(--spacing-md);
 			gap: var(--spacing-md);
@@ -1193,12 +1122,6 @@
 
 		.training-stats {
 			grid-template-columns: repeat(2, 1fr);
-		}
-	}
-
-	@media (min-width: 641px) and (max-width: 1024px) {
-		.page {
-			margin-left: var(--sidebar-width);
 		}
 	}
 </style>

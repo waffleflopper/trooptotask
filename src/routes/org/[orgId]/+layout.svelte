@@ -2,8 +2,11 @@
 	import { invalidate } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { demoModeStore } from '$lib/stores/demoMode.svelte';
+	import { themeStore } from '$lib/stores/theme.svelte';
 	import DemoBanner from '$lib/components/DemoBanner.svelte';
 	import DemoSandboxModal from '$lib/components/DemoSandboxModal.svelte';
+	import TopHeader from '$lib/components/TopHeader.svelte';
+	import BottomTabBar from '$lib/components/BottomTabBar.svelte';
 
 	let { children, data } = $props();
 
@@ -26,8 +29,38 @@
 
 <DemoBanner />
 
-{@render children()}
+<TopHeader
+	orgId={data.orgId}
+	orgName={data.orgName}
+	userRole={data.userRole}
+	permissions={data.permissions}
+	allOrgs={data.allOrgs}
+	onToggleTheme={() => themeStore.toggle()}
+	isDarkTheme={themeStore.isDark}
+/>
+
+<main class="app-content">
+	{@render children()}
+</main>
+
+<BottomTabBar
+	orgId={data.orgId}
+	permissions={data.permissions}
+/>
 
 {#if demoModeStore.showSandboxModal}
 	<DemoSandboxModal onClose={() => demoModeStore.closeSandboxModal()} />
 {/if}
+
+<style>
+	.app-content {
+		padding-top: var(--header-height, 56px);
+		min-height: 100vh;
+	}
+
+	@media (max-width: 640px) {
+		.app-content {
+			padding-bottom: 56px;
+		}
+	}
+</style>

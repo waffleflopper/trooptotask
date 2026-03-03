@@ -10,7 +10,6 @@
 	import { dutyRosterHistoryStore } from '$lib/stores/dutyRosterHistory.svelte';
 	import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
-	import { themeStore } from '$lib/stores/theme.svelte';
 	import { calendarPrefsStore } from '$lib/stores/calendarPrefs.svelte';
 	import Calendar from '$lib/components/Calendar.svelte';
 	import AvailabilityModal from '$lib/components/AvailabilityModal.svelte';
@@ -24,7 +23,8 @@
 	import AssignmentTypeManager from '$lib/components/AssignmentTypeManager.svelte';
 	import DutyRosterGenerator from '$lib/components/DutyRosterGenerator.svelte';
 	import LongRangeView from '$lib/components/LongRangeView.svelte';
-	import Sidebar from '$lib/components/Sidebar.svelte';
+	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import FeatureGate from '$lib/components/FeatureGate.svelte';
 	import PastDueBanner from '$lib/components/PastDueBanner.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
@@ -32,7 +32,6 @@
 	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
 
 	let { data } = $props();
-	let showSidebar = $state(false);
 
 	// Hydrate stores with server data
 	$effect(() => {
@@ -176,46 +175,59 @@
 		// updateType handles both optimistic UI update and persistence
 		await dailyAssignmentsStore.updateType(assignmentTypeId, { exemptPersonnelIds: personnelIds });
 	}
+
+	const calendarOverflowItems = $derived.by<OverflowItem[]>(() => {
+		const items: OverflowItem[] = [];
+
+		// Visible actions duplicated for mobile access
+		items.push({ label: "Today's Breakdown", onclick: () => (showTodayBreakdown = true) });
+		if (data.permissions.canEditCalendar) {
+			items.push({ label: 'Assignments', onclick: () => (showAssignmentPlanner = true) });
+		}
+		items.push({ label: '3-Month View', onclick: () => (showLongRangeView = true) });
+
+		// Additional tools
+		if (data.permissions.canEditCalendar) {
+			items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true });
+			items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true) });
+		}
+
+		// Export
+		items.push({ label: 'Export to Excel', onclick: handleExportCSV, divider: true });
+		items.push({ label: 'Print / PDF', onclick: handleExportPDF });
+
+		// Display toggle
+		items.push({ label: 'Show Status Text', toggle: true, active: calendarPrefsStore.showStatusText, onclick: () => calendarPrefsStore.toggleShowStatusText(), divider: true });
+
+		// Configure group
+		if (data.permissions.canEditCalendar) {
+			items.push({ label: 'Status Types', onclick: () => (showStatusManager = true), divider: true, group: 'Configure' });
+			items.push({ label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true) });
+			items.push({ label: 'Holidays', onclick: () => (showSpecialDayManager = true) });
+		}
+
+		return items;
+	});
 </script>
 
 <svelte:head>
 	<title>{data.orgName} - Troop to Task</title>
 </svelte:head>
 
-<Sidebar
-	orgId={data.orgId}
-	orgName={data.orgName}
-	isOpen={showSidebar}
-	onClose={() => (showSidebar = false)}
-	onToggleTheme={() => themeStore.toggle()}
-	isDarkTheme={themeStore.isDark}
-	permissions={data.permissions}
-	allOrgs={data.allOrgs}
-	onShowLongRangeView={() => (showLongRangeView = true)}
-	onShowAssignmentPlanner={() => (showAssignmentPlanner = true)}
-	onShowBulkStatus={() => (showBulkStatusModal = true)}
-	onShowTodayBreakdown={() => (showTodayBreakdown = true)}
-	onShowStatusManager={() => (showStatusManager = true)}
-	onShowSpecialDayManager={() => (showSpecialDayManager = true)}
-	onShowDutyRosterGenerator={() => (showDutyRosterGenerator = true)}
-	onExportCalendarCSV={handleExportCSV}
-	onExportCalendarPDF={handleExportPDF}
-	showStatusText={calendarPrefsStore.showStatusText}
-	onToggleStatusText={() => calendarPrefsStore.toggleShowStatusText()}
-	onShowAssignmentTypeManager={() => (showAssignmentTypeManager = true)}
-/>
-
 <div class="page">
-	<header class="page-header mobile-only">
-		<h1>Troop to Task</h1>
-		<button class="mobile-menu-btn" onclick={() => (showSidebar = true)} aria-label="Open menu">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<line x1="3" y1="12" x2="21" y2="12" />
-				<line x1="3" y1="6" x2="21" y2="6" />
-				<line x1="3" y1="18" x2="21" y2="18" />
-			</svg>
+	<PageToolbar title="Calendar" overflowItems={calendarOverflowItems}>
+		<button class="btn btn-sm" onclick={() => (showTodayBreakdown = true)}>
+			Today's Breakdown
 		</button>
-	</header>
+		{#if data.permissions.canEditCalendar}
+			<button class="btn btn-sm" onclick={() => (showAssignmentPlanner = true)}>
+				Assignments
+			</button>
+		{/if}
+		<button class="btn btn-sm" onclick={() => (showLongRangeView = true)}>
+			3-Month View
+		</button>
+	</PageToolbar>
 
 	<main class="page-content">
 		<section class="calendar-section">
@@ -391,50 +403,6 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg);
-		margin-left: var(--sidebar-width);
-	}
-
-	/* Mobile header - only visible on mobile */
-	.page-header.mobile-only {
-		display: none;
-	}
-
-	.page-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: #0F0F0F;
-		color: #F0EDE6;
-		border-bottom: 1px solid #2A2A2A;
-	}
-
-	.page-header h1 {
-		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-	}
-
-	.mobile-menu-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border-radius: 6px;
-		background: transparent;
-		border: 1px solid #2A2A2A;
-		color: #8A8780;
-	}
-
-	.mobile-menu-btn:hover {
-		border-color: #8A8780;
-		color: #F0EDE6;
-	}
-
-	.mobile-menu-btn svg {
-		width: 24px;
-		height: 24px;
 	}
 
 	.page-content {
@@ -453,23 +421,8 @@
 
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
-		.page {
-			margin-left: 0;
-		}
-
-		.page-header.mobile-only {
-			display: flex;
-		}
-
 		.page-content {
 			padding: var(--spacing-sm);
-		}
-	}
-
-	/* Tablet Responsive Styles */
-	@media (min-width: 641px) and (max-width: 1024px) {
-		.page {
-			margin-left: var(--sidebar-width);
 		}
 	}
 

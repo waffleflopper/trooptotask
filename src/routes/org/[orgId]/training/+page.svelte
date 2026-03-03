@@ -2,7 +2,6 @@
 	import type { Personnel, TrainingType, PersonnelTraining } from '$lib/types';
 	import { trainingTypesStore } from '$lib/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
-	import { themeStore } from '$lib/stores/theme.svelte';
 	import { getTrainingStats } from '$lib/utils/trainingStatus';
 	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
 	import TrainingMatrix from '$lib/components/TrainingMatrix.svelte';
@@ -12,10 +11,10 @@
 	import TrainingTypeReorder from '$lib/components/TrainingTypeReorder.svelte';
 	import TrainingReports from '$lib/components/TrainingReports.svelte';
 	import BulkTrainingImporter from '$lib/components/BulkTrainingImporter.svelte';
-	import Sidebar from '$lib/components/Sidebar.svelte';
+	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 
 	let { data } = $props();
-	let showSidebar = $state(false);
 
 	// Hydrate stores with server data
 	$effect(() => {
@@ -35,6 +34,18 @@
 	let selectedGroupId = $state<string>('');
 	let viewMode = $state<'alphabetical' | 'by-group'>('alphabetical');
 	let collapsedGroups = $state<Set<string>>(new Set());
+
+	const trainingOverflowItems = $derived.by<OverflowItem[]>(() => {
+		const items: OverflowItem[] = [];
+		// Include Reports for mobile access
+		items.push({ label: 'Reports', onclick: () => (showReports = true) });
+		if (data.permissions.canEditTraining) {
+			items.push({ label: 'Bulk Import', onclick: () => (showBulkImporter = true), divider: true });
+			items.push({ label: 'Manage Types', onclick: () => (showTypeManager = true) });
+			items.push({ label: 'Reorder Columns', onclick: () => (showTypeReorder = true) });
+		}
+		return items;
+	});
 
 	let selectedPerson = $state<Personnel | null>(null);
 	let selectedType = $state<TrainingType | null>(null);
@@ -135,36 +146,12 @@
 	<title>Training & Certifications - Troop to Task</title>
 </svelte:head>
 
-<Sidebar
-	orgId={data.orgId}
-	orgName={data.orgName}
-	isOpen={showSidebar}
-	onClose={() => (showSidebar = false)}
-	onToggleTheme={() => themeStore.toggle()}
-	isDarkTheme={themeStore.isDark}
-	permissions={data.permissions}
-	allOrgs={data.allOrgs}
-	onShowTrainingBulkImport={() => (showBulkImporter = true)}
-	onShowTrainingReports={() => (showReports = true)}
-	onShowTrainingTypeManager={() => (showTypeManager = true)}
-	onShowTrainingTypeReorder={() => (showTypeReorder = true)}
-/>
-
 <div class="page">
-	<header class="page-header mobile-only">
-		<h1>Training & Certifications</h1>
-		<button class="mobile-menu-btn" onclick={() => (showSidebar = true)} aria-label="Open menu">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<line x1="3" y1="12" x2="21" y2="12" />
-				<line x1="3" y1="6" x2="21" y2="6" />
-				<line x1="3" y1="18" x2="21" y2="18" />
-			</svg>
+	<PageToolbar title="Training & Certifications" overflowItems={trainingOverflowItems}>
+		<button class="btn btn-sm" onclick={() => (showReports = true)}>
+			Reports
 		</button>
-	</header>
-
-	<div class="toolbar-header">
-		<h2>Training & Certifications</h2>
-	</div>
+	</PageToolbar>
 
 	<div class="stats-bar">
 		<div class="stat current">
@@ -223,7 +210,7 @@
 		{#if trainingTypesStore.list.length === 0}
 			<div class="empty-state">
 				<p>No training types defined yet.</p>
-				<p>Use the sidebar to add training types.</p>
+				<p>Use Manage Types in the toolbar to add training types.</p>
 			</div>
 		{:else if filteredPersonnel.length === 0}
 			<div class="empty-state">
@@ -330,66 +317,6 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg);
-		margin-left: var(--sidebar-width);
-	}
-
-	/* Mobile header - only visible on mobile */
-	.page-header.mobile-only {
-		display: none;
-	}
-
-	.page-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: #0F0F0F;
-		color: #F0EDE6;
-		border-bottom: 1px solid #2A2A2A;
-	}
-
-	.page-header h1 {
-		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-	}
-
-	.mobile-menu-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border-radius: 6px;
-		background: transparent;
-		border: 1px solid #2A2A2A;
-		color: #8A8780;
-	}
-
-	.mobile-menu-btn:hover {
-		border-color: #8A8780;
-		color: #F0EDE6;
-	}
-
-	.mobile-menu-btn svg {
-		width: 24px;
-		height: 24px;
-	}
-
-	.toolbar-header {
-		display: flex;
-		align-items: center;
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-surface);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.toolbar-header h2 {
-		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-		color: var(--color-text);
-		margin: 0;
 	}
 
 	.stats-bar {
@@ -581,18 +508,6 @@
 
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
-		.page {
-			margin-left: 0;
-		}
-
-		.page-header.mobile-only {
-			display: flex;
-		}
-
-		.toolbar-header {
-			display: none;
-		}
-
 		.stats-bar {
 			flex-wrap: wrap;
 			justify-content: center;
@@ -649,10 +564,6 @@
 
 	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.page {
-			margin-left: var(--sidebar-width);
-		}
-
 		.stats-bar {
 			flex-wrap: wrap;
 			justify-content: flex-start;

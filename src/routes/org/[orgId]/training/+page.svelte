@@ -23,6 +23,11 @@
 		personnelTrainingsStore.load(data.personnelTrainings, data.orgId);
 	});
 
+	// Derive available roles client-side from personnel data
+	const availableRoles = $derived(
+		[...new Set(data.personnel.map((p: Personnel) => p.clinicRole))].filter(Boolean).sort()
+	);
+
 	let showTypeManager = $state(false);
 	let showTypeReorder = $state(false);
 	let showReports = $state(false);
@@ -273,7 +278,7 @@
 {#if showTypeManager}
 	<TrainingTypeManager
 		trainingTypes={trainingTypesStore.list}
-		availableRoles={data.availableRoles}
+		availableRoles={availableRoles}
 		onAdd={handleAddType}
 		onUpdate={handleUpdateType}
 		onRemove={handleRemoveType}

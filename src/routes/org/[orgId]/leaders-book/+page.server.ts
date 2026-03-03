@@ -1,6 +1,5 @@
 import type { PageServerLoad } from './$types';
-import type { Personnel, StatusType, AvailabilityEntry, TrainingType, PersonnelTraining } from '$lib/types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { AvailabilityEntry } from '$lib/types';
 import type {
 	PersonnelExtendedInfo,
 	CounselingType,
@@ -17,25 +16,13 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	// Date range for availability data (current/future status only)
 	const today = formatDate(new Date());
 
-	// Load all data in parallel
 	const [
-		personnelRes,
-		groupsRes,
 		extendedInfoRes,
 		counselingTypesRes,
 		counselingRecordsRes,
 		developmentGoalsRes,
-		statusTypesRes,
-		availabilityRes,
-		trainingTypesRes,
-		personnelTrainingsRes
+		availabilityRes
 	] = await Promise.all([
-		supabase
-			.from('personnel')
-			.select('*, groups(name)')
-			.eq('organization_id', orgId)
-			.order('last_name'),
-		supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
 		supabase
 			.from('personnel_extended_info')
 			.select('*')
@@ -55,45 +42,12 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 			.select('*')
 			.eq('organization_id', orgId),
 		supabase
-			.from('status_types')
-			.select('*')
-			.eq('organization_id', orgId),
-		supabase
 			.from('availability_entries')
 			.select('*')
 			.eq('organization_id', orgId)
-			.gte('end_date', today),
-		supabase
-			.from('training_types')
-			.select('*')
-			.eq('organization_id', orgId)
-			.order('sort_order'),
-		supabase
-			.from('personnel_trainings')
-			.select('*')
-			.eq('organization_id', orgId)
+			.gte('end_date', today)
 	]);
 
-	// Transform personnel data
-	const personnel: Personnel[] = (personnelRes.data ?? []).map((p: any) => ({
-		id: p.id,
-		rank: p.rank,
-		lastName: p.last_name,
-		firstName: p.first_name,
-		mos: p.mos ?? '',
-		clinicRole: p.clinic_role,
-		groupId: p.group_id,
-		groupName: p.groups?.name ?? ''
-	}));
-
-	// Transform groups data
-	const groups: Group[] = (groupsRes.data ?? []).map((g: any) => ({
-		id: g.id,
-		name: g.name,
-		sortOrder: g.sort_order
-	}));
-
-	// Transform extended info
 	const extendedInfo: PersonnelExtendedInfo[] = (extendedInfoRes.data ?? []).map((e: any) => ({
 		id: e.id,
 		personnelId: e.personnel_id,
@@ -114,7 +68,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		leaderNotes: e.leader_notes
 	}));
 
-	// Transform counseling types
 	const counselingTypes: CounselingType[] = (counselingTypesRes.data ?? []).map((t: any) => ({
 		id: t.id,
 		name: t.name,
@@ -127,7 +80,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		sortOrder: t.sort_order
 	}));
 
-	// Transform counseling records
 	const counselingRecords: CounselingRecord[] = (counselingRecordsRes.data ?? []).map(
 		(r: any) => ({
 			id: r.id,
@@ -148,7 +100,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		})
 	);
 
-	// Transform development goals
 	const developmentGoals: DevelopmentGoal[] = (developmentGoalsRes.data ?? []).map((g: any) => ({
 		id: g.id,
 		personnelId: g.personnel_id,
@@ -161,15 +112,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		progressNotes: g.progress_notes
 	}));
 
-	// Transform status types
-	const statusTypes: StatusType[] = (statusTypesRes.data ?? []).map((s: any) => ({
-		id: s.id,
-		name: s.name,
-		color: s.color,
-		textColor: s.text_color
-	}));
-
-	// Transform availability entries
 	const availability: AvailabilityEntry[] = (availabilityRes.data ?? []).map((a: any) => ({
 		id: a.id,
 		personnelId: a.personnel_id,
@@ -178,42 +120,12 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		endDate: a.end_date
 	}));
 
-	// Transform training types
-	const trainingTypes: TrainingType[] = (trainingTypesRes.data ?? []).map((t: any) => ({
-		id: t.id,
-		name: t.name,
-		description: t.description,
-		expirationMonths: t.expiration_months,
-		warningDaysYellow: t.warning_days_yellow ?? 60,
-		warningDaysOrange: t.warning_days_orange ?? 30,
-		requiredForRoles: t.required_for_roles ?? [],
-		color: t.color ?? '#6b7280',
-		sortOrder: t.sort_order ?? 0,
-		expirationDateOnly: t.expiration_date_only ?? false
-	}));
-
-	// Transform personnel trainings
-	const personnelTrainings: PersonnelTraining[] = (personnelTrainingsRes.data ?? []).map((pt: any) => ({
-		id: pt.id,
-		personnelId: pt.personnel_id,
-		trainingTypeId: pt.training_type_id,
-		completionDate: pt.completion_date,
-		expirationDate: pt.expiration_date,
-		notes: pt.notes,
-		certificateUrl: pt.certificate_url
-	}));
-
 	return {
 		orgId,
-		personnel,
-		groups,
 		extendedInfo,
 		counselingTypes,
 		counselingRecords,
 		developmentGoals,
-		statusTypes,
-		availability,
-		trainingTypes,
-		personnelTrainings
+		availability
 	};
 };

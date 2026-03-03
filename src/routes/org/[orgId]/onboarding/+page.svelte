@@ -7,9 +7,9 @@
 	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
-	import { themeStore } from '$lib/stores/theme.svelte';
-	import Sidebar from '$lib/components/Sidebar.svelte';
 	import OnboardingTemplateManager from '$lib/components/OnboardingTemplateManager.svelte';
+	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import StartOnboardingModal from '$lib/components/StartOnboardingModal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -17,7 +17,6 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	let { data } = $props();
-	let showSidebar = $state(false);
 
 	// Hydrate stores with server data
 	$effect(() => {
@@ -32,6 +31,14 @@
 
 	let showTemplateManager = $state(false);
 	let showStartModal = $state(false);
+
+	const onboardingOverflowItems = $derived.by<OverflowItem[]>(() => {
+		const items: OverflowItem[] = [];
+		if (data.permissions.canEditPersonnel) {
+			items.push({ label: 'Manage Template', onclick: () => (showTemplateManager = true) });
+		}
+		return items;
+	});
 	let expandedOnboardingId = $state<string | null>(null);
 	let showFilter = $state<'active' | 'all'>('active');
 	let cancellingId = $state<string | null>(null);
@@ -234,59 +241,30 @@
 	<title>Onboarding - Troop to Task</title>
 </svelte:head>
 
-<Sidebar
-	orgId={data.orgId}
-	orgName={data.orgName}
-	isOpen={showSidebar}
-	onClose={() => (showSidebar = false)}
-	onToggleTheme={() => themeStore.toggle()}
-	isDarkTheme={themeStore.isDark}
-	permissions={data.permissions}
-	allOrgs={data.allOrgs}
-	onShowOnboardingTemplateManager={() => (showTemplateManager = true)}
-/>
-
 <div class="page">
-	<header class="page-header mobile-only">
-		<h1>Onboarding</h1>
-		<button class="mobile-menu-btn" onclick={() => (showSidebar = true)} aria-label="Open menu">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<line x1="3" y1="12" x2="21" y2="12" />
-				<line x1="3" y1="6" x2="21" y2="6" />
-				<line x1="3" y1="18" x2="21" y2="18" />
-			</svg>
-		</button>
-	</header>
-
-	<div class="toolbar-header">
-		<h2>Onboarding</h2>
-		<div class="toolbar-actions">
-			<div class="filter-toggle">
-				<button
-					class="filter-btn"
-					class:active={showFilter === 'active'}
-					onclick={() => (showFilter = 'active')}
-				>
-					Active
-				</button>
-				<button
-					class="filter-btn"
-					class:active={showFilter === 'all'}
-					onclick={() => (showFilter = 'all')}
-				>
-					All
-				</button>
-			</div>
-			{#if data.permissions?.canEditPersonnel}
-				<button class="btn btn-secondary btn-sm" onclick={() => (showTemplateManager = true)}>
-					Manage Template
-				</button>
-				<button class="btn btn-primary btn-sm" onclick={() => (showStartModal = true)}>
-					Start Onboarding
-				</button>
-			{/if}
+	<PageToolbar title="Onboarding" overflowItems={onboardingOverflowItems}>
+		<div class="filter-toggle">
+			<button
+				class="filter-btn"
+				class:active={showFilter === 'active'}
+				onclick={() => (showFilter = 'active')}
+			>
+				Active
+			</button>
+			<button
+				class="filter-btn"
+				class:active={showFilter === 'all'}
+				onclick={() => (showFilter = 'all')}
+			>
+				All
+			</button>
 		</div>
-	</div>
+		{#if data.permissions?.canEditPersonnel}
+			<button class="btn btn-primary btn-sm" onclick={() => (showStartModal = true)}>
+				Start Onboarding
+			</button>
+		{/if}
+	</PageToolbar>
 
 	<main class="page-content">
 		{#if filteredOnboardings.length === 0}
@@ -524,74 +502,6 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg);
-		margin-left: var(--sidebar-width);
-	}
-
-	/* Mobile header - only visible on mobile */
-	.page-header.mobile-only {
-		display: none;
-	}
-
-	.page-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: #0F0F0F;
-		color: #F0EDE6;
-		border-bottom: 1px solid #2A2A2A;
-	}
-
-	.page-header h1 {
-		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-	}
-
-	.mobile-menu-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border-radius: 6px;
-		background: transparent;
-		border: 1px solid #2A2A2A;
-		color: #8A8780;
-	}
-
-	.mobile-menu-btn:hover {
-		border-color: #8A8780;
-		color: #F0EDE6;
-	}
-
-	.mobile-menu-btn svg {
-		width: 24px;
-		height: 24px;
-	}
-
-	/* Toolbar header */
-	.toolbar-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-surface);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.toolbar-header h2 {
-		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-		color: var(--color-text);
-		margin: 0;
-	}
-
-	.toolbar-actions {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
 	}
 
 	/* Filter toggle */
@@ -1059,10 +969,4 @@
 		}
 	}
 
-	/* Tablet Responsive Styles */
-	@media (min-width: 641px) and (max-width: 1024px) {
-		.page {
-			margin-left: var(--sidebar-width);
-		}
-	}
 </style>

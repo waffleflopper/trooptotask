@@ -27,6 +27,7 @@
 	const isCalendarActive = $derived(pathname.startsWith(`/org/${orgId}/calendar`));
 	const isPersonnelActive = $derived(pathname.startsWith(`/org/${orgId}/personnel`));
 	const isTrainingActive = $derived(pathname.startsWith(`/org/${orgId}/training`));
+	const isOnboardingActive = $derived(pathname.startsWith(`/org/${orgId}/onboarding`));
 	const isLeadersBookActive = $derived(pathname.startsWith(`/org/${orgId}/leaders-book`));
 </script>
 
@@ -72,6 +73,15 @@
 				class:active={isTrainingActive}
 			>
 				Training
+			</a>
+		{/if}
+		{#if permissions.canViewPersonnel}
+			<a
+				href="/org/{orgId}/onboarding"
+				class="nav-tab"
+				class:active={isOnboardingActive}
+			>
+				Onboarding
 			</a>
 		{/if}
 		{#if permissions.canViewPersonnel}

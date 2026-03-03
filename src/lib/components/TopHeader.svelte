@@ -13,14 +13,13 @@
 		orgId: string;
 		orgName: string;
 		userRole: string;
-		userId: string | null;
 		permissions: OrganizationMemberPermissions;
 		allOrgs: OrgInfo[];
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
 	}
 
-	let { orgId, orgName, userRole, userId, permissions, allOrgs, onToggleTheme, isDarkTheme }: Props = $props();
+	let { orgId, orgName, userRole, permissions, allOrgs, onToggleTheme, isDarkTheme }: Props = $props();
 
 	const pathname = $derived($page.url.pathname);
 

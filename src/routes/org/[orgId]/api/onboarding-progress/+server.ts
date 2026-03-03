@@ -14,6 +14,17 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	const body = await request.json();
 	const { id, ...fields } = body;
 
+	// Verify step belongs to an onboarding in this org
+	const { data: stepCheck } = await supabase
+		.from('onboarding_step_progress')
+		.select('id, onboarding_id, personnel_onboardings!inner(organization_id)')
+		.eq('id', id)
+		.single();
+
+	if (!stepCheck || (stepCheck as any).personnel_onboardings?.organization_id !== orgId) {
+		throw error(404, 'Step not found');
+	}
+
 	const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
 	if (fields.completed !== undefined) updateData.completed = fields.completed;
 	if (fields.currentStage !== undefined) updateData.current_stage = fields.currentStage;

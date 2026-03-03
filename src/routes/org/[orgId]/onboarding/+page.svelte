@@ -116,8 +116,21 @@
 		showStartModal = false;
 	}
 
+	// Check if all steps are complete and auto-mark onboarding as completed
+	async function checkAutoComplete(onboardingId: string) {
+		const onboarding = onboardingStore.getById(onboardingId);
+		if (!onboarding || onboarding.status !== 'in_progress') return;
+		const progress = getProgress(onboarding);
+		if (progress.total > 0 && progress.completed === progress.total) {
+			await onboardingStore.completeOnboarding(onboardingId);
+		}
+	}
+
 	async function handleToggleCheckbox(step: OnboardingStepProgress) {
 		await onboardingStore.updateStepProgress(step.id, { completed: !step.completed });
+		// Check auto-completion
+		const onboarding = onboardingStore.list.find((o) => o.steps.some((s) => s.id === step.id));
+		if (onboarding) await checkAutoComplete(onboarding.id);
 	}
 
 	async function handleAdvanceStage(step: OnboardingStepProgress) {
@@ -130,6 +143,11 @@
 				currentStage: nextStage,
 				completed: isLast
 			});
+			// Check auto-completion
+			if (isLast) {
+				const onboarding = onboardingStore.list.find((o) => o.steps.some((s) => s.id === step.id));
+				if (onboarding) await checkAutoComplete(onboarding.id);
+			}
 		}
 	}
 

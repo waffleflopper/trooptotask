@@ -242,6 +242,7 @@
 				pinnedGroups={pinnedGroupsStore.list}
 				assignmentTypes={dailyAssignmentsStore.types}
 				assignments={dailyAssignmentsStore.assignments}
+				activeOnboardingPersonnelIds={data.activeOnboardingPersonnelIds}
 				canEdit={data.permissions.canEditCalendar}
 				showStatusText={calendarPrefsStore.showStatusText}
 				onPrevMonth={() => calendarStore.prevMonth()}

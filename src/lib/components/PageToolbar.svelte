@@ -94,7 +94,7 @@
 		background: var(--color-surface-variant);
 	}
 
-	@media (max-width: 639px) {
+	@media (max-width: 640px) {
 		.page-toolbar {
 			padding: var(--spacing-sm) var(--spacing-md);
 		}

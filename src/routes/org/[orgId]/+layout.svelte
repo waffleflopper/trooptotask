@@ -33,7 +33,6 @@
 	orgId={data.orgId}
 	orgName={data.orgName}
 	userRole={data.userRole}
-	userId={data.userId}
 	permissions={data.permissions}
 	allOrgs={data.allOrgs}
 	onToggleTheme={() => themeStore.toggle()}

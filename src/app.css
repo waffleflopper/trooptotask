@@ -184,6 +184,7 @@ html, body {
 button {
 	font-family: inherit;
 	font-size: inherit;
+	color: inherit;
 	cursor: pointer;
 	border: none;
 	background: none;

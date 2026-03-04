@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Personnel, TrainingType, PersonnelTraining, PersonnelOnboarding, OnboardingStepProgress } from '$lib/types';
+	import { invalidate } from '$app/navigation';
 	import { onboardingTemplateStore } from '$lib/stores/onboardingTemplate.svelte';
 	import { onboardingStore } from '$lib/stores/onboarding.svelte';
 	import { personnelStore } from '$lib/stores/personnel.svelte';
@@ -15,6 +16,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import TrainingRecordModal from '$lib/components/TrainingRecordModal.svelte';
 
 	let { data } = $props();
 
@@ -31,6 +33,12 @@
 
 	let showTemplateManager = $state(false);
 	let showStartModal = $state(false);
+	let editingTrainingStep = $state<{
+		person: Personnel;
+		trainingType: TrainingType;
+		existingTraining: PersonnelTraining | undefined;
+		onboardingId: string;
+	} | null>(null);
 
 	const onboardingOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
@@ -89,11 +97,26 @@
 	// Check if a training step is complete (auto-detect from training records)
 	function isTrainingStepComplete(step: OnboardingStepProgress, personnelId: string): boolean {
 		if (!step.trainingTypeId) return false;
+
+		// Look up training type
+		const type = trainingTypesStore.getById(step.trainingTypeId);
+
+		// Exempt counts as complete for onboarding
+		if (type && type.canBeExempted && type.exemptPersonnelIds.includes(personnelId)) {
+			return true;
+		}
+
 		const training = personnelTrainingsStore.list.find(
 			(t) => t.personnelId === personnelId && t.trainingTypeId === step.trainingTypeId
 		);
 		if (!training) return false;
-		// Has a completion date or expiration date and not expired
+
+		// Never-expires: any record existing means complete
+		if (type && type.expirationMonths === null && !type.expirationDateOnly) {
+			return true;
+		}
+
+		// Has an expiration date — check if still valid
 		if (training.expirationDate) {
 			return new Date(training.expirationDate) >= new Date();
 		}
@@ -192,6 +215,43 @@
 		const updatedNotes = [newNote, ...step.notes];
 		await onboardingStore.updateStepProgress(step.id, { notes: updatedNotes });
 		noteInputs[step.id] = '';
+	}
+
+	function handleTrainingStepClick(step: OnboardingStepProgress, onboarding: PersonnelOnboarding) {
+		if (!step.trainingTypeId) return;
+		const person = personnelStore.getById(onboarding.personnelId);
+		const trainingType = trainingTypesStore.getById(step.trainingTypeId);
+		if (!person || !trainingType) return;
+		const existingTraining = personnelTrainingsStore.getByPersonnelAndType(person.id, trainingType.id);
+		editingTrainingStep = { person, trainingType, existingTraining, onboardingId: onboarding.id };
+	}
+
+	async function handleTrainingSave(trainingData: Omit<PersonnelTraining, 'id'>) {
+		await personnelTrainingsStore.add(trainingData);
+		if (editingTrainingStep) {
+			await checkAutoComplete(editingTrainingStep.onboardingId);
+		}
+		editingTrainingStep = null;
+		invalidate('app:shared-data');
+	}
+
+	async function handleTrainingRemove(id: string) {
+		await personnelTrainingsStore.remove(id);
+		editingTrainingStep = null;
+		invalidate('app:shared-data');
+	}
+
+	async function handleTrainingToggleExempt(exempt: boolean) {
+		if (!editingTrainingStep) return;
+		const type = editingTrainingStep.trainingType;
+		const personId = editingTrainingStep.person.id;
+		const updatedIds = exempt
+			? [...type.exemptPersonnelIds, personId]
+			: type.exemptPersonnelIds.filter((id) => id !== personId);
+		await trainingTypesStore.update(type.id, { exemptPersonnelIds: updatedIds });
+		await checkAutoComplete(editingTrainingStep.onboardingId);
+		editingTrainingStep = null;
+		invalidate('app:shared-data');
 	}
 
 	async function handleCancelOnboarding(id: string) {
@@ -373,9 +433,21 @@
 															</span>
 														{/if}
 													{:else if step.stepType === 'training'}
-														<span class="status-icon" class:complete={isTrainingComplete} class:incomplete={!isTrainingComplete}>
-															{isTrainingComplete ? '\u2713' : '\u2717'}
-														</span>
+														{#if data.permissions?.canEditPersonnel && onboarding.status === 'in_progress'}
+															<button
+																class="training-status-btn"
+																class:complete={isTrainingComplete}
+																class:incomplete={!isTrainingComplete}
+																onclick={() => handleTrainingStepClick(step, onboarding)}
+																aria-label="Edit training record"
+															>
+																{isTrainingComplete ? '\u2713' : '\u2717'}
+															</button>
+														{:else}
+															<span class="status-icon" class:complete={isTrainingComplete} class:incomplete={!isTrainingComplete}>
+																{isTrainingComplete ? '\u2713' : '\u2717'}
+															</span>
+														{/if}
 													{:else if step.stepType === 'paperwork'}
 														{@const stages = step.stages ?? []}
 														{@const stageIndex = getPaperworkStageIndex(step)}
@@ -500,6 +572,20 @@
 		variant="danger"
 		onConfirm={() => handleCancelOnboarding(cancellingId!)}
 		onCancel={() => (cancellingId = null)}
+	/>
+{/if}
+
+{#if editingTrainingStep}
+	<TrainingRecordModal
+		person={editingTrainingStep.person}
+		trainingType={editingTrainingStep.trainingType}
+		existingTraining={editingTrainingStep.existingTraining}
+		onSave={handleTrainingSave}
+		onRemove={handleTrainingRemove}
+		onClose={() => (editingTrainingStep = null)}
+		canBeExempted={editingTrainingStep.trainingType.canBeExempted}
+		isExempt={editingTrainingStep.trainingType.canBeExempted && editingTrainingStep.trainingType.exemptPersonnelIds.includes(editingTrainingStep.person.id)}
+		onToggleExempt={handleTrainingToggleExempt}
 	/>
 {/if}
 
@@ -765,6 +851,36 @@
 	}
 
 	.status-icon.incomplete {
+		color: var(--color-error);
+	}
+
+	/* Training status button (clickable in edit mode) */
+	.training-status-btn {
+		font-size: var(--font-size-base);
+		font-weight: 700;
+		color: var(--color-text-muted);
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		width: 28px;
+		height: 28px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+
+	.training-status-btn:hover {
+		border-color: #B8943E;
+		background: rgba(184, 148, 62, 0.08);
+	}
+
+	.training-status-btn.complete {
+		color: var(--color-success);
+	}
+
+	.training-status-btn.incomplete {
 		color: var(--color-error);
 	}
 

@@ -52,7 +52,9 @@ function transformTrainingTypes(data: any[]): TrainingType[] {
 		requiredForRoles: t.required_for_roles ?? [],
 		color: t.color,
 		sortOrder: t.sort_order,
-		expirationDateOnly: t.expiration_date_only ?? false
+		expirationDateOnly: t.expiration_date_only ?? false,
+		canBeExempted: t.can_be_exempted ?? false,
+		exemptPersonnelIds: t.exempt_personnel_ids ?? []
 	}));
 }
 

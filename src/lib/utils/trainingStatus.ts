@@ -26,6 +26,16 @@ export function getTrainingStatus(
 	const isRequired =
 		type.requiredForRoles.includes('*') || type.requiredForRoles.includes(person.clinicRole);
 
+	// Check exemption before other status checks
+	if (type.canBeExempted && type.exemptPersonnelIds.includes(person.id)) {
+		return {
+			status: 'exempt',
+			color: TRAINING_STATUS_COLORS['exempt'],
+			label: 'Exempt',
+			daysUntilExpiration: null
+		};
+	}
+
 	// For optional training: show N/A only if no training record exists
 	// If they have a record with a date, show normal status
 	if (!isRequired && !training) {
@@ -198,7 +208,8 @@ export function getDelinquentTrainings(
 		'warning-yellow': 2,
 		'not-completed': 3,
 		current: 4,
-		'not-required': 5
+		'not-required': 5,
+		exempt: 6
 	};
 
 	delinquent.sort((a, b) => {

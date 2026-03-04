@@ -14,9 +14,12 @@
 		onSave: (data: Omit<PersonnelTraining, 'id'>) => void;
 		onRemove: (id: string) => void;
 		onClose: () => void;
+		canBeExempted?: boolean;
+		isExempt?: boolean;
+		onToggleExempt?: (exempt: boolean) => void;
 	}
 
-	let { person, trainingType, existingTraining, onSave, onRemove, onClose }: Props = $props();
+	let { person, trainingType, existingTraining, onSave, onRemove, onClose, canBeExempted = false, isExempt = false, onToggleExempt }: Props = $props();
 
 	const neverExpires = trainingType.expirationMonths === null && !trainingType.expirationDateOnly;
 	const expirationDateOnly = trainingType.expirationDateOnly;
@@ -118,7 +121,25 @@
 		{/if}
 	</div>
 
-	{#if expirationDateOnly}
+	{#if canBeExempted && onToggleExempt}
+		<div class="exempt-toggle">
+			<button
+				class="btn {isExempt ? 'btn-danger' : 'btn-secondary'} btn-sm"
+				onclick={() => onToggleExempt(!isExempt)}
+			>
+				{isExempt ? 'Remove Exemption' : 'Mark as Exempt'}
+			</button>
+			{#if isExempt}
+				<Badge label="Exempt" color="#9ca3af" />
+			{/if}
+		</div>
+	{/if}
+
+	{#if isExempt}
+		<div class="exempt-notice">
+			<p>This person is exempt from this training requirement.</p>
+		</div>
+	{:else if expirationDateOnly}
 		<!-- Expiration-date-only: enter the expiration date directly -->
 		<div class="form-group">
 			<label class="label" for="expiration-date">License / Certification Expiration Date</label>
@@ -165,52 +186,56 @@
 		</div>
 	{/if}
 
-	<div class="preview-row">
-		<div class="preview-item">
-			<span class="preview-label">Expiration:</span>
-			<span class="preview-value">
-				{#if neverExpires}
-					Never expires
-				{:else}
-					{previewExpirationDate ?? (expirationDateOnly ? 'Enter expiration date' : 'Set completion date')}
-				{/if}
-			</span>
+	{#if !isExempt}
+		<div class="preview-row">
+			<div class="preview-item">
+				<span class="preview-label">Expiration:</span>
+				<span class="preview-value">
+					{#if neverExpires}
+						Never expires
+					{:else}
+						{previewExpirationDate ?? (expirationDateOnly ? 'Enter expiration date' : 'Set completion date')}
+					{/if}
+				</span>
+			</div>
+			<div class="preview-item">
+				<span class="preview-label">Status:</span>
+				<Badge label={previewStatus.label} color={previewStatus.color} />
+			</div>
 		</div>
-		<div class="preview-item">
-			<span class="preview-label">Status:</span>
-			<Badge label={previewStatus.label} color={previewStatus.color} />
+
+		<div class="form-group">
+			<label class="label" for="notes">Notes (optional)</label>
+			<textarea
+				id="notes"
+				class="input textarea"
+				bind:value={notes}
+				placeholder="Any additional notes..."
+				rows="2"
+			></textarea>
 		</div>
-	</div>
 
-	<div class="form-group">
-		<label class="label" for="notes">Notes (optional)</label>
-		<textarea
-			id="notes"
-			class="input textarea"
-			bind:value={notes}
-			placeholder="Any additional notes..."
-			rows="2"
-		></textarea>
-	</div>
-
-	<div class="form-group">
-		<label class="label" for="certificate-url">Certificate URL (optional)</label>
-		<input
-			type="url"
-			id="certificate-url"
-			class="input"
-			bind:value={certificateUrl}
-			placeholder="https://..."
-		/>
-	</div>
+		<div class="form-group">
+			<label class="label" for="certificate-url">Certificate URL (optional)</label>
+			<input
+				type="url"
+				id="certificate-url"
+				class="input"
+				bind:value={certificateUrl}
+				placeholder="https://..."
+			/>
+		</div>
+	{/if}
 
 	{#snippet footer()}
-		{#if existingTraining}
+		{#if !isExempt && existingTraining}
 			<button class="btn btn-danger" onclick={handleRemove}>Delete</button>
 		{/if}
 		<div class="spacer"></div>
-		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-		<button class="btn btn-primary" onclick={handleSave} disabled={!canSave}>Save</button>
+		<button class="btn btn-secondary" onclick={onClose}>{isExempt ? 'Close' : 'Cancel'}</button>
+		{#if !isExempt}
+			<button class="btn btn-primary" onclick={handleSave} disabled={!canSave}>Save</button>
+		{/if}
 	{/snippet}
 </Modal>
 
@@ -330,5 +355,30 @@
 		margin-top: var(--spacing-xs);
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
+	}
+
+	.exempt-toggle {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		margin-bottom: var(--spacing-md);
+		padding: var(--spacing-sm);
+		background: var(--color-bg);
+		border-radius: var(--radius-md);
+		border: 1px solid var(--color-border);
+	}
+
+	.exempt-notice {
+		padding: var(--spacing-md);
+		background: rgba(156, 163, 175, 0.1);
+		border: 1px solid #9ca3af;
+		border-radius: var(--radius-md);
+		margin-bottom: var(--spacing-md);
+	}
+
+	.exempt-notice p {
+		margin: 0;
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
 	}
 </style>

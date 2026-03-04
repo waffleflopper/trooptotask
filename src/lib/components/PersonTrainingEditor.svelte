@@ -11,9 +11,10 @@
 		onSave: (data: Omit<PersonnelTraining, 'id'>) => Promise<void>;
 		onRemove: (id: string) => Promise<void>;
 		onClose: () => void;
+		onToggleExempt?: (typeId: string, exempt: boolean) => void;
 	}
 
-	let { person, trainingTypes, trainings, onSave, onRemove, onClose }: Props = $props();
+	let { person, trainingTypes, trainings, onSave, onRemove, onClose, onToggleExempt }: Props = $props();
 
 	// Create a map of existing trainings for this person
 	const trainingMap = $derived(() => {
@@ -345,52 +346,64 @@
 					{@const existing = trainingMap().get(type.id)}
 					{@const status = getStatusInfo(type.id)}
 					{@const state = editingStates.get(type.id)}
+					{@const isExempt = type.canBeExempted && type.exemptPersonnelIds.includes(person.id)}
 					<div class="training-item" class:has-record={!!existing} class:editing={state?.isEditing}>
 						<div class="training-header">
 							<div class="training-info">
 								<span class="training-badge" style="background-color: {type.color}">
 									{type.name}
 								</span>
-								<span class="status-badge" style="background-color: {status.color}">
+								<span class="status-badge" style="background-color: {status.color}" data-status={status.status}>
 									{status.label}
 								</span>
 							</div>
 							<div class="training-actions">
 								{#if !state?.isEditing}
-									{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
-									{#if type.expirationDateOnly}
-										<!-- Expiration-date-only: no quick action, must use Edit -->
-									{:else if neverExpires && !existing}
+									{#if type.canBeExempted && onToggleExempt}
 										<button
-											class="btn btn-primary btn-sm"
-											onclick={() => markComplete(type.id)}
-											title="Mark as complete"
+											class="btn btn-sm {isExempt ? 'btn-danger' : 'btn-secondary'}"
+											onclick={() => onToggleExempt(type.id, !isExempt)}
+											title={isExempt ? 'Remove exemption' : 'Mark as exempt'}
 										>
-											Complete
-										</button>
-									{:else}
-										<button
-											class="btn btn-primary btn-sm"
-											onclick={() => markCompletedToday(type.id)}
-											title="Mark as completed today"
-										>
-											Today
+											{isExempt ? 'Unexempt' : 'Exempt'}
 										</button>
 									{/if}
-									<button
-										class="btn btn-secondary btn-sm"
-										onclick={() => toggleEdit(type.id)}
-									>
-										{existing ? 'Edit' : 'Add'}
-									</button>
-									{#if existing}
+									{#if !isExempt}
+										{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
+										{#if type.expirationDateOnly}
+											<!-- Expiration-date-only: no quick action, must use Edit -->
+										{:else if neverExpires && !existing}
+											<button
+												class="btn btn-primary btn-sm"
+												onclick={() => markComplete(type.id)}
+												title="Mark as complete"
+											>
+												Complete
+											</button>
+										{:else}
+											<button
+												class="btn btn-primary btn-sm"
+												onclick={() => markCompletedToday(type.id)}
+												title="Mark as completed today"
+											>
+												Today
+											</button>
+										{/if}
 										<button
-											class="btn btn-danger btn-sm"
-											onclick={() => removeTraining(type.id)}
-											title="Remove record"
+											class="btn btn-secondary btn-sm"
+											onclick={() => toggleEdit(type.id)}
 										>
-											&times;
+											{existing ? 'Edit' : 'Add'}
 										</button>
+										{#if existing}
+											<button
+												class="btn btn-danger btn-sm"
+												onclick={() => removeTraining(type.id)}
+												title="Remove record"
+											>
+												&times;
+											</button>
+										{/if}
 									{/if}
 								{/if}
 							</div>
@@ -847,5 +860,14 @@
 			flex-direction: column;
 			gap: var(--spacing-xs);
 		}
+	}
+
+	/* Dark mode overrides for light-colored status badges */
+	:global([data-theme='dark']) .status-badge[data-status='not-required'] {
+		background-color: #4b5563 !important;
+	}
+
+	:global([data-theme='dark']) .status-badge[data-status='exempt'] {
+		background-color: #6b7280 !important;
 	}
 </style>

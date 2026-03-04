@@ -62,12 +62,13 @@
 								<button
 									class="status-badge"
 									style="background-color: {statusInfo.color}"
+									data-status={statusInfo.status}
 									onclick={() => onCellClick(person, type, training)}
 								>
 									{statusInfo.label}
 								</button>
 							{:else}
-								<span class="status-badge" style="background-color: {statusInfo.color}">
+								<span class="status-badge" style="background-color: {statusInfo.color}" data-status={statusInfo.status}>
 									{statusInfo.label}
 								</span>
 							{/if}
@@ -262,5 +263,14 @@
 		.type-header {
 			min-width: 80px;
 		}
+	}
+
+	/* Dark mode overrides for light-colored status badges */
+	:global([data-theme='dark']) .status-badge[data-status='not-required'] {
+		background-color: #4b5563 !important;
+	}
+
+	:global([data-theme='dark']) .status-badge[data-status='exempt'] {
+		background-color: #6b7280 !important;
 	}
 </style>

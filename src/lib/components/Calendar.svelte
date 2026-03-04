@@ -94,6 +94,43 @@
 	const totalPersonnel = $derived(
 		personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0)
 	);
+
+	// Pre-index availability entries by personnel ID for O(1) lookup per person
+	const availabilityByPerson = $derived.by(() => {
+		const map = new Map<string, AvailabilityEntry[]>();
+		for (const e of availabilityEntries) {
+			let list = map.get(e.personnelId);
+			if (!list) {
+				list = [];
+				map.set(e.personnelId, list);
+			}
+			list.push(e);
+		}
+		return map;
+	});
+
+	// Pre-index assignments by assignee ID
+	const assignmentsByPerson = $derived.by(() => {
+		const map = new Map<string, DailyAssignment[]>();
+		for (const a of assignments) {
+			let list = map.get(a.assigneeId);
+			if (!list) {
+				list = [];
+				map.set(a.assigneeId, list);
+			}
+			list.push(a);
+		}
+		return map;
+	});
+
+	// Pre-index status types by ID for O(1) lookup
+	const statusTypeMap = $derived.by(() => {
+		const map = new Map<string, StatusType>();
+		for (const s of statusTypes) {
+			map.set(s.id, s);
+		}
+		return map;
+	});
 </script>
 
 <div class="calendar">
@@ -132,11 +169,11 @@
 						<PersonnelRow
 							{person}
 							{dates}
-							{availabilityEntries}
-							{statusTypes}
+							personAvailability={availabilityByPerson.get(person.id) ?? []}
+							{statusTypeMap}
 							{specialDays}
 							{assignmentTypes}
-							{assignments}
+							personAssignments={assignmentsByPerson.get(person.id) ?? []}
 							{showStatusText}
 							isOnboarding={onboardingSet.has(person.id)}
 							onCellClick={canEdit ? onCellClick : undefined}

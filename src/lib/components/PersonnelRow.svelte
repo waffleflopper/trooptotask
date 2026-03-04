@@ -7,11 +7,11 @@
 	interface Props {
 		person: Personnel;
 		dates: Date[];
-		availabilityEntries: AvailabilityEntry[];
-		statusTypes: StatusType[];
+		personAvailability: AvailabilityEntry[];
+		statusTypeMap: Map<string, StatusType>;
 		specialDays: SpecialDay[];
 		assignmentTypes: AssignmentType[];
-		assignments: DailyAssignment[];
+		personAssignments: DailyAssignment[];
 		showStatusText?: boolean;
 		isOnboarding?: boolean;
 		onCellClick?: (person: Personnel, date: Date) => void;
@@ -21,39 +21,61 @@
 	let {
 		person,
 		dates,
-		availabilityEntries,
-		statusTypes,
+		personAvailability,
+		statusTypeMap,
 		specialDays,
 		assignmentTypes,
-		assignments,
+		personAssignments,
 		showStatusText = false,
 		isOnboarding = false,
 		onCellClick,
 		onPersonClick
 	}: Props = $props();
 
-	function getEntriesForDate(date: Date): AvailabilityEntry[] {
-		const dateStr = formatDate(date);
-		return availabilityEntries.filter(
-			(e) => e.personnelId === person.id && dateStr >= e.startDate && dateStr <= e.endDate
-		);
-	}
+	// Build date-keyed index of availability entries for this person (once per render)
+	const availabilityByDate = $derived.by(() => {
+		const map = new Map<string, AvailabilityEntry[]>();
+		for (const entry of personAvailability) {
+			// Expand entry across its date range for the visible dates
+			for (const date of dates) {
+				const dateStr = formatDate(date);
+				if (dateStr >= entry.startDate && dateStr <= entry.endDate) {
+					let list = map.get(dateStr);
+					if (!list) {
+						list = [];
+						map.set(dateStr, list);
+					}
+					list.push(entry);
+				}
+			}
+		}
+		return map;
+	});
 
-	function getSpecialDay(date: Date): SpecialDay | undefined {
-		const dateStr = formatDate(date);
-		return specialDays.find((d) => d.date === dateStr);
-	}
+	// Build date-keyed index of assignments for this person
+	const assignmentsByDate = $derived.by(() => {
+		const map = new Map<string, { type: AssignmentType; assignment: DailyAssignment }[]>();
+		for (const a of personAssignments) {
+			const type = assignmentTypes.find((t) => t.id === a.assignmentTypeId && t.assignTo === 'personnel');
+			if (!type) continue;
+			let list = map.get(a.date);
+			if (!list) {
+				list = [];
+				map.set(a.date, list);
+			}
+			list.push({ type, assignment: a });
+		}
+		return map;
+	});
 
-	function getAssignmentsForDate(date: Date): { type: AssignmentType; assignment: DailyAssignment }[] {
-		const dateStr = formatDate(date);
-		return assignments
-			.filter((a) => a.date === dateStr && a.assigneeId === person.id)
-			.map((a) => {
-				const type = assignmentTypes.find((t) => t.id === a.assignmentTypeId && t.assignTo === 'personnel');
-				return type ? { type, assignment: a } : null;
-			})
-			.filter((a): a is { type: AssignmentType; assignment: DailyAssignment } => a !== null);
-	}
+	// Build date-keyed index of special days
+	const specialDayMap = $derived.by(() => {
+		const map = new Map<string, SpecialDay>();
+		for (const d of specialDays) {
+			map.set(d.date, d);
+		}
+		return map;
+	});
 
 	function handleCellClick(date: Date) {
 		onCellClick?.(person, date);
@@ -81,17 +103,17 @@
 	</button>
 	<div class="date-cells">
 		{#each dates as date (formatDate(date))}
-			{@const specialDay = getSpecialDay(date)}
-			{@const dateAssignments = getAssignmentsForDate(date)}
+			{@const dateStr = formatDate(date)}
+			{@const specialDay = specialDayMap.get(dateStr)}
 			<DateCell
 				{date}
 				isWeekend={isWeekend(date)}
 				isToday={isToday(date)}
 				isHoliday={!!specialDay}
 				holidayName={specialDay?.name}
-				entries={getEntriesForDate(date)}
-				{statusTypes}
-				assignments={dateAssignments}
+				entries={availabilityByDate.get(dateStr) ?? []}
+				{statusTypeMap}
+				assignments={assignmentsByDate.get(dateStr) ?? []}
 				{showStatusText}
 				onclick={() => handleCellClick(date)}
 			/>

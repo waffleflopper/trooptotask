@@ -704,6 +704,7 @@
 		align-items: stretch;
 		justify-content: stretch;
 		top: var(--header-height, 56px);
+		z-index: 90;
 	}
 
 	.soldier-view {

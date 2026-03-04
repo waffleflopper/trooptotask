@@ -26,3 +26,8 @@ npm-debug.log*
 
 # Vercel
 .vercel
+
+# Presentation
+presentation.html
+dashboard.jpg
+calendar.jpg

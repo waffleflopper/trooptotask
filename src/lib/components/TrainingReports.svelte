@@ -79,7 +79,7 @@
 				// Sort by urgency
 				personTrainings.sort((a, b) => {
 					const statusOrder: Record<TrainingStatus, number> = {
-						expired: 0, 'warning-orange': 1, 'warning-yellow': 2, 'not-completed': 3, current: 4, 'not-required': 5
+						expired: 0, 'warning-orange': 1, 'warning-yellow': 2, 'not-completed': 3, current: 4, 'not-required': 5, exempt: 6
 					};
 					return statusOrder[a.statusInfo.status] - statusOrder[b.statusInfo.status];
 				});
@@ -90,7 +90,7 @@
 		// Sort by most urgent person first
 		result.sort((a, b) => {
 			const statusOrder: Record<TrainingStatus, number> = {
-				expired: 0, 'warning-orange': 1, 'warning-yellow': 2, 'not-completed': 3, current: 4, 'not-required': 5
+				expired: 0, 'warning-orange': 1, 'warning-yellow': 2, 'not-completed': 3, current: 4, 'not-required': 5, exempt: 6
 			};
 			const aWorst = Math.min(...a.trainings.map(t => statusOrder[t.statusInfo.status]));
 			const bWorst = Math.min(...b.trainings.map(t => statusOrder[t.statusInfo.status]));
@@ -127,7 +127,7 @@
 		// Sort by urgency
 		result.sort((a, b) => {
 			const statusOrder: Record<TrainingStatus, number> = {
-				expired: 0, 'warning-orange': 1, 'warning-yellow': 2, 'not-completed': 3, current: 4, 'not-required': 5
+				expired: 0, 'warning-orange': 1, 'warning-yellow': 2, 'not-completed': 3, current: 4, 'not-required': 5, exempt: 6
 			};
 			const statusDiff = statusOrder[a.statusInfo.status] - statusOrder[b.statusInfo.status];
 			if (statusDiff !== 0) return statusDiff;

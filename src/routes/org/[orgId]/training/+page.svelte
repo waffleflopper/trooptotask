@@ -259,6 +259,19 @@
 		onSave={handleSaveTraining}
 		onRemove={handleRemoveTraining}
 		onClose={closeRecordModal}
+		canBeExempted={selectedType.canBeExempted}
+		isExempt={selectedType.canBeExempted && selectedType.exemptPersonnelIds.includes(selectedPerson.id)}
+		onToggleExempt={(exempt) => {
+			const person = selectedPerson;
+			const type = selectedType;
+			if (!person || !type) return;
+			const currentIds = type.exemptPersonnelIds;
+			const updatedIds = exempt
+				? [...currentIds, person.id]
+				: currentIds.filter((id) => id !== person.id);
+			trainingTypesStore.update(type.id, { exemptPersonnelIds: updatedIds });
+			closeRecordModal();
+		}}
 	/>
 {/if}
 
@@ -308,6 +321,15 @@
 		onSave={handleSaveTraining}
 		onRemove={handleRemoveTraining}
 		onClose={closePersonEditor}
+		onToggleExempt={(typeId, exempt) => {
+			const type = trainingTypesStore.list.find(t => t.id === typeId);
+			if (!type || !editingPersonTraining) return;
+			const currentIds = type.exemptPersonnelIds;
+			const updatedIds = exempt
+				? [...currentIds, editingPersonTraining.id]
+				: currentIds.filter((id) => id !== editingPersonTraining!.id);
+			trainingTypesStore.update(typeId, { exemptPersonnelIds: updatedIds });
+		}}
 	/>
 {/if}
 

@@ -23,6 +23,7 @@
 	let newRequiredForRoles = $state<string[]>([]);
 	let newColor = $state('#6b7280');
 	let newExpirationDateOnly = $state(false);
+	let newCanBeExempted = $state(false);
 
 	let editingId = $state<string | null>(null);
 	let editName = $state('');
@@ -33,6 +34,7 @@
 	let editRequiredForRoles = $state<string[]>([]);
 	let editColor = $state('');
 	let editExpirationDateOnly = $state(false);
+	let editCanBeExempted = $state(false);
 
 	function handleAdd() {
 		if (newName.trim()) {
@@ -45,7 +47,9 @@
 				requiredForRoles: newRequiredForRoles,
 				color: newColor,
 				sortOrder: trainingTypes.length,
-				expirationDateOnly: newExpirationDateOnly
+				expirationDateOnly: newExpirationDateOnly,
+				canBeExempted: newCanBeExempted,
+				exemptPersonnelIds: []
 			});
 			resetNewForm();
 		}
@@ -60,6 +64,7 @@
 		newRequiredForRoles = [];
 		newColor = '#6b7280';
 		newExpirationDateOnly = false;
+		newCanBeExempted = false;
 	}
 
 	function startEdit(type: TrainingType) {
@@ -72,6 +77,7 @@
 		editRequiredForRoles = [...type.requiredForRoles];
 		editColor = type.color;
 		editExpirationDateOnly = type.expirationDateOnly;
+		editCanBeExempted = type.canBeExempted;
 	}
 
 	function saveEdit() {
@@ -84,7 +90,8 @@
 				warningDaysOrange: editWarningOrange,
 				requiredForRoles: editRequiredForRoles,
 				color: editColor,
-				expirationDateOnly: editExpirationDateOnly
+				expirationDateOnly: editExpirationDateOnly,
+				canBeExempted: editCanBeExempted
 			});
 		}
 		cancelEdit();
@@ -255,6 +262,13 @@
 						</div>
 					</div>
 
+					<div class="form-group">
+						<label class="checkbox-label">
+							<input type="checkbox" bind:checked={newCanBeExempted} />
+							Can be exempted (allow marking individual personnel as exempt)
+						</label>
+					</div>
+
 					<button class="btn btn-primary" onclick={handleAdd} disabled={!newName.trim()}>
 						Add Training Type
 					</button>
@@ -354,10 +368,17 @@
 										</div>
 									</div>
 
-									<div class="edit-actions">
-										<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
-										<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
-									</div>
+									<div class="form-group">
+									<label class="checkbox-label">
+										<input type="checkbox" bind:checked={editCanBeExempted} />
+										Can be exempted
+									</label>
+								</div>
+
+								<div class="edit-actions">
+									<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
+									<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
+								</div>
 								</div>
 							{:else}
 								<div class="type-info">

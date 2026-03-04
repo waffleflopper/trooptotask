@@ -185,6 +185,8 @@ export interface TrainingType {
 	color: string;
 	sortOrder: number;
 	expirationDateOnly: boolean; // if true, record stores expiration date directly (no completion date)
+	canBeExempted: boolean;
+	exemptPersonnelIds: string[];
 }
 
 export interface PersonnelTraining {
@@ -203,7 +205,8 @@ export type TrainingStatus =
 	| 'warning-orange'
 	| 'expired'
 	| 'not-completed'
-	| 'not-required';
+	| 'not-required'
+	| 'exempt';
 
 export const TRAINING_STATUS_COLORS: Record<TrainingStatus, string> = {
 	current: '#22c55e', // green
@@ -211,7 +214,8 @@ export const TRAINING_STATUS_COLORS: Record<TrainingStatus, string> = {
 	'warning-orange': '#f97316', // orange
 	expired: '#ef4444', // red
 	'not-completed': '#6b7280', // gray
-	'not-required': '#d1d5db' // light gray
+	'not-required': '#d1d5db', // light gray
+	exempt: '#9ca3af' // grey
 };
 
 // ============================================================

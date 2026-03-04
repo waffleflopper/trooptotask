@@ -70,7 +70,7 @@
 	function getStatusInfo(typeId: string) {
 		const type = trainingTypes.find(t => t.id === typeId);
 		const training = trainingMap().get(typeId);
-		if (!type) return { label: 'N/A', color: '#6b7280' };
+		if (!type) return { status: 'not-required' as const, label: 'N/A', color: '#6b7280' };
 		return getTrainingStatus(training, type, person);
 	}
 

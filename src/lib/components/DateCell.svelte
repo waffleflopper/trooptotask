@@ -9,7 +9,7 @@
 		isHoliday: boolean;
 		holidayName?: string;
 		entries: AvailabilityEntry[];
-		statusTypes: StatusType[];
+		statusTypeMap: Map<string, StatusType>;
 		assignments?: { type: AssignmentType; assignment: DailyAssignment }[];
 		showStatusText?: boolean;
 		onclick?: () => void;
@@ -22,7 +22,7 @@
 		isHoliday,
 		holidayName,
 		entries,
-		statusTypes,
+		statusTypeMap,
 		assignments = [],
 		showStatusText = false,
 		onclick
@@ -31,7 +31,7 @@
 	const statusColors = $derived(
 		entries
 			.map((entry) => {
-				const status = statusTypes.find((s) => s.id === entry.statusTypeId);
+				const status = statusTypeMap.get(entry.statusTypeId);
 				return status ? { color: status.color, name: status.name, textColor: status.textColor } : null;
 			})
 			.filter((s): s is { color: string; name: string; textColor: string } => s !== null)

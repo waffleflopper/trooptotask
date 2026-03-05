@@ -1,14 +1,20 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
+	import type { Personnel, RatingSchemeEntry } from '$lib/types';
+	import { RATING_STATUS_COLORS } from '$lib/types';
 	import { personnelStore } from '$lib/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+	import { ratingSchemeStore } from '$lib/stores/ratingScheme.svelte';
 	import PersonnelModal from '$lib/components/PersonnelModal.svelte';
 	import GroupManager from '$lib/components/GroupManager.svelte';
 	import BulkPersonnelManager from '$lib/components/BulkPersonnelManager.svelte';
+	import RatingSchemeEntryModal from '$lib/components/RatingSchemeEntryModal.svelte';
+	import RatingSchemeTableView from '$lib/components/RatingSchemeTableView.svelte';
+	import RatingSchemeGroupedView from '$lib/components/RatingSchemeGroupedView.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import { groupAndSortPersonnel, RANK_ORDER } from '$lib/utils/personnelGrouping';
+	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
 
 	let { data } = $props();
 
@@ -16,6 +22,7 @@
 		personnelStore.load(data.personnel, data.orgId);
 		groupsStore.load(data.groups, data.orgId);
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
+		ratingSchemeStore.load(data.ratingSchemeEntries, data.orgId);
 	});
 
 	let showPersonnelModal = $state(false);
@@ -25,6 +32,12 @@
 	let collapsedGroups = $state<Set<string>>(new Set());
 	let searchQuery = $state('');
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
+
+	let pageView = $state<'roster' | 'rating-scheme'>('roster');
+	let ratingViewMode = $state<'grouped' | 'table'>('grouped');
+	let showRatingModal = $state(false);
+	let editingEntry = $state<RatingSchemeEntry | null>(null);
+	let ratingFilter = $state<'active' | 'completed' | 'change-of-rater' | 'all'>('active');
 
 	// Filter personnel by search query
 	const filteredPersonnel = $derived.by(() => {
@@ -59,6 +72,21 @@
 			? personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0)
 			: alphabeticalPersonnel.length
 	);
+
+	const filteredRatingEntries = $derived.by(() => {
+		const entries = ratingSchemeStore.list;
+		if (ratingFilter === 'all') return entries;
+		return entries.filter((e) => e.status === ratingFilter);
+	});
+
+	const ratingStats = $derived.by(() => {
+		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0, current: 0, completed: 0 };
+		for (const entry of ratingSchemeStore.list) {
+			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
+			counts[status]++;
+		}
+		return counts;
+	});
 
 	function toggleGroup(group: string) {
 		const newSet = new Set(collapsedGroups);
@@ -124,6 +152,28 @@
 		}
 		showBulkManager = false;
 	}
+
+	function handleAddRatingEntry() {
+		editingEntry = null;
+		showRatingModal = true;
+	}
+
+	function handleEditRatingEntry(entry: RatingSchemeEntry) {
+		editingEntry = entry;
+		showRatingModal = true;
+	}
+
+	async function handleSaveRatingEntry(entryData: Omit<RatingSchemeEntry, 'id'>) {
+		if (editingEntry) {
+			await ratingSchemeStore.update(editingEntry.id, entryData);
+		} else {
+			await ratingSchemeStore.add(entryData);
+		}
+	}
+
+	async function handleDeleteRatingEntry(id: string) {
+		await ratingSchemeStore.remove(id);
+	}
 </script>
 
 <svelte:head>
@@ -139,140 +189,239 @@
 		{/if}
 	</PageToolbar>
 
-	<div class="toolbar">
-		<div class="toolbar-title">
-			<span class="count">({totalPersonnel})</span>
-		</div>
-		<input
-			type="text"
-			class="input search-input"
-			placeholder="Search by name, rank, or role..."
-			bind:value={searchQuery}
-		/>
-		<div class="view-toggle">
-			<span class="view-label">View:</span>
-			<button
-				class="view-btn"
-				class:active={viewMode === 'alphabetical'}
-				onclick={() => (viewMode = 'alphabetical')}
-			>
-				A-Z
-			</button>
-			<button
-				class="view-btn"
-				class:active={viewMode === 'by-group'}
-				onclick={() => (viewMode = 'by-group')}
-			>
-				By Group
-			</button>
-		</div>
-		{#if searchQuery && filteredCount !== totalPersonnel}
-			<span class="filter-info">Showing {filteredCount} of {totalPersonnel}</span>
-		{/if}
+	<div class="page-view-toggle">
+		<button
+			class="page-view-btn"
+			class:active={pageView === 'roster'}
+			onclick={() => (pageView = 'roster')}
+		>
+			Roster
+		</button>
+		<button
+			class="page-view-btn"
+			class:active={pageView === 'rating-scheme'}
+			onclick={() => (pageView = 'rating-scheme')}
+		>
+			Rating Scheme
+		</button>
 	</div>
 
-	<main class="page-content">
-		{#if totalPersonnel === 0}
-			<div class="empty-state">
-				<p>No personnel added yet.</p>
-				<p>Use the toolbar to add personnel or bulk import.</p>
+	{#if pageView === 'roster'}
+		<div class="toolbar">
+			<div class="toolbar-title">
+				<span class="count">({totalPersonnel})</span>
 			</div>
-		{:else if viewMode === 'alphabetical'}
-			<div class="personnel-list">
-				{#each alphabeticalPersonnel as person (person.id)}
-					{#if data.permissions.canEditPersonnel}
-						<button class="person-row" onclick={() => handleEdit(person)}>
-							<div class="person-info">
-								<span class="rank">{person.rank}</span>
-								<span class="name">{person.lastName}, {person.firstName}</span>
-								{#if person.mos}
-									<span class="mos">{person.mos}</span>
-								{/if}
-								{#if person.clinicRole}
-									<span class="role">{person.clinicRole}</span>
-								{/if}
-								{#if person.groupName}
-									<span class="group-badge">{person.groupName}</span>
-								{/if}
-							</div>
-						</button>
-					{:else}
-						<div class="person-row readonly">
-							<div class="person-info">
-								<span class="rank">{person.rank}</span>
-								<span class="name">{person.lastName}, {person.firstName}</span>
-								{#if person.mos}
-									<span class="mos">{person.mos}</span>
-								{/if}
-								{#if person.clinicRole}
-									<span class="role">{person.clinicRole}</span>
-								{/if}
-								{#if person.groupName}
-									<span class="group-badge">{person.groupName}</span>
-								{/if}
-							</div>
-						</div>
-					{/if}
-				{/each}
+			<input
+				type="text"
+				class="input search-input"
+				placeholder="Search by name, rank, or role..."
+				bind:value={searchQuery}
+			/>
+			<div class="view-toggle">
+				<span class="view-label">View:</span>
+				<button
+					class="view-btn"
+					class:active={viewMode === 'alphabetical'}
+					onclick={() => (viewMode = 'alphabetical')}
+				>
+					A-Z
+				</button>
+				<button
+					class="view-btn"
+					class:active={viewMode === 'by-group'}
+					onclick={() => (viewMode = 'by-group')}
+				>
+					By Group
+				</button>
 			</div>
-		{:else}
-			<div class="personnel-grid">
-				{#each personnelByGroup as grp (grp.group)}
-					<div class="group-card">
-						<div class="group-header">
-							<button class="group-toggle" onclick={() => toggleGroup(grp.group)}>
-								<span class="toggle-icon">{collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
-								<span class="group-name">{grp.group || 'Unassigned'}</span>
-								<span class="group-count">({grp.personnel.length})</span>
-							</button>
-							<button
-								class="pin-btn"
-								class:pinned={pinnedGroupsStore.list.includes(grp.group)}
-								onclick={() => handlePinToggle(grp.group)}
-								title={pinnedGroupsStore.list.includes(grp.group) ? 'Unpin group' : 'Pin group to top'}
-							>
-								{pinnedGroupsStore.list.includes(grp.group) ? '📌' : '📍'}
-							</button>
-						</div>
-						{#if !collapsedGroups.has(grp.group)}
-							<div class="group-personnel">
-								{#each grp.personnel as person (person.id)}
-									{#if data.permissions.canEditPersonnel}
-										<button class="person-row" onclick={() => handleEdit(person)}>
-											<div class="person-info">
-												<span class="rank">{person.rank}</span>
-												<span class="name">{person.lastName}, {person.firstName}</span>
-												{#if person.mos}
-													<span class="mos">{person.mos}</span>
-												{/if}
-												{#if person.clinicRole}
-													<span class="role">{person.clinicRole}</span>
-												{/if}
-											</div>
-										</button>
-									{:else}
-										<div class="person-row readonly">
-											<div class="person-info">
-												<span class="rank">{person.rank}</span>
-												<span class="name">{person.lastName}, {person.firstName}</span>
-												{#if person.mos}
-													<span class="mos">{person.mos}</span>
-												{/if}
-												{#if person.clinicRole}
-													<span class="role">{person.clinicRole}</span>
-												{/if}
-											</div>
-										</div>
+			{#if searchQuery && filteredCount !== totalPersonnel}
+				<span class="filter-info">Showing {filteredCount} of {totalPersonnel}</span>
+			{/if}
+		</div>
+
+		<main class="page-content">
+			{#if totalPersonnel === 0}
+				<div class="empty-state">
+					<p>No personnel added yet.</p>
+					<p>Use the toolbar to add personnel or bulk import.</p>
+				</div>
+			{:else if viewMode === 'alphabetical'}
+				<div class="personnel-list">
+					{#each alphabeticalPersonnel as person (person.id)}
+						{#if data.permissions.canEditPersonnel}
+							<button class="person-row" onclick={() => handleEdit(person)}>
+								<div class="person-info">
+									<span class="rank">{person.rank}</span>
+									<span class="name">{person.lastName}, {person.firstName}</span>
+									{#if person.mos}
+										<span class="mos">{person.mos}</span>
 									{/if}
-								{/each}
+									{#if person.clinicRole}
+										<span class="role">{person.clinicRole}</span>
+									{/if}
+									{#if person.groupName}
+										<span class="group-badge">{person.groupName}</span>
+									{/if}
+								</div>
+							</button>
+						{:else}
+							<div class="person-row readonly">
+								<div class="person-info">
+									<span class="rank">{person.rank}</span>
+									<span class="name">{person.lastName}, {person.firstName}</span>
+									{#if person.mos}
+										<span class="mos">{person.mos}</span>
+									{/if}
+									{#if person.clinicRole}
+										<span class="role">{person.clinicRole}</span>
+									{/if}
+									{#if person.groupName}
+										<span class="group-badge">{person.groupName}</span>
+									{/if}
+								</div>
 							</div>
 						{/if}
-					</div>
-				{/each}
+					{/each}
+				</div>
+			{:else}
+				<div class="personnel-grid">
+					{#each personnelByGroup as grp (grp.group)}
+						<div class="group-card">
+							<div class="group-header">
+								<button class="group-toggle" onclick={() => toggleGroup(grp.group)}>
+									<span class="toggle-icon">{collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
+									<span class="group-name">{grp.group || 'Unassigned'}</span>
+									<span class="group-count">({grp.personnel.length})</span>
+								</button>
+								<button
+									class="pin-btn"
+									class:pinned={pinnedGroupsStore.list.includes(grp.group)}
+									onclick={() => handlePinToggle(grp.group)}
+									title={pinnedGroupsStore.list.includes(grp.group) ? 'Unpin group' : 'Pin group to top'}
+								>
+									{pinnedGroupsStore.list.includes(grp.group) ? '📌' : '📍'}
+								</button>
+							</div>
+							{#if !collapsedGroups.has(grp.group)}
+								<div class="group-personnel">
+									{#each grp.personnel as person (person.id)}
+										{#if data.permissions.canEditPersonnel}
+											<button class="person-row" onclick={() => handleEdit(person)}>
+												<div class="person-info">
+													<span class="rank">{person.rank}</span>
+													<span class="name">{person.lastName}, {person.firstName}</span>
+													{#if person.mos}
+														<span class="mos">{person.mos}</span>
+													{/if}
+													{#if person.clinicRole}
+														<span class="role">{person.clinicRole}</span>
+													{/if}
+												</div>
+											</button>
+										{:else}
+											<div class="person-row readonly">
+												<div class="person-info">
+													<span class="rank">{person.rank}</span>
+													<span class="name">{person.lastName}, {person.firstName}</span>
+													{#if person.mos}
+														<span class="mos">{person.mos}</span>
+													{/if}
+													{#if person.clinicRole}
+														<span class="role">{person.clinicRole}</span>
+													{/if}
+												</div>
+											</div>
+										{/if}
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</main>
+	{:else}
+		<div class="rating-stats-bar">
+			<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.overdue}">
+				<span class="stat-count">{ratingStats.overdue}</span>
+				<span class="stat-label">Overdue</span>
 			</div>
-		{/if}
-	</main>
+			<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS['due-30']}">
+				<span class="stat-count">{ratingStats['due-30']}</span>
+				<span class="stat-label">Due 30d</span>
+			</div>
+			<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS['due-60']}">
+				<span class="stat-count">{ratingStats['due-60']}</span>
+				<span class="stat-label">Due 60d</span>
+			</div>
+			<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.current}">
+				<span class="stat-count">{ratingStats.current}</span>
+				<span class="stat-label">Current</span>
+			</div>
+			<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.completed}">
+				<span class="stat-count">{ratingStats.completed}</span>
+				<span class="stat-label">Completed</span>
+			</div>
+		</div>
+
+		<div class="rating-toolbar">
+			{#if data.permissions.canEditPersonnel}
+				<button class="btn btn-sm btn-primary" onclick={handleAddRatingEntry}>
+					Add Entry
+				</button>
+			{/if}
+			<div class="spacer"></div>
+			<select class="select rating-filter" bind:value={ratingFilter}>
+				<option value="active">Active</option>
+				<option value="completed">Completed</option>
+				<option value="change-of-rater">Change of Rater</option>
+				<option value="all">All</option>
+			</select>
+			<div class="view-toggle">
+				<button
+					class="view-btn"
+					class:active={ratingViewMode === 'grouped'}
+					onclick={() => (ratingViewMode = 'grouped')}
+				>
+					Grouped
+				</button>
+				<button
+					class="view-btn"
+					class:active={ratingViewMode === 'table'}
+					onclick={() => (ratingViewMode = 'table')}
+				>
+					Table
+				</button>
+			</div>
+		</div>
+
+		<main class="page-content">
+			{#if ratingViewMode === 'grouped'}
+				<RatingSchemeGroupedView
+					entries={filteredRatingEntries}
+					personnel={personnelStore.list}
+					onEdit={handleEditRatingEntry}
+				/>
+			{:else}
+				<RatingSchemeTableView
+					entries={filteredRatingEntries}
+					personnel={personnelStore.list}
+					onEdit={handleEditRatingEntry}
+				/>
+			{/if}
+		</main>
+	{/if}
 </div>
+
+{#if showRatingModal}
+	<RatingSchemeEntryModal
+		entry={editingEntry}
+		personnel={personnelStore.list}
+		onSave={handleSaveRatingEntry}
+		onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
+		onClose={() => { showRatingModal = false; editingEntry = null; }}
+	/>
+{/if}
 
 {#if showPersonnelModal}
 	<PersonnelModal
@@ -329,6 +478,78 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg);
+	}
+
+	.page-view-toggle {
+		display: flex;
+		gap: 0;
+		padding: var(--spacing-sm) var(--spacing-lg);
+		border-bottom: 1px solid var(--color-border);
+		background: var(--color-surface);
+	}
+
+	.page-view-btn {
+		padding: var(--spacing-xs) var(--spacing-lg);
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		border: 1px solid var(--color-border);
+		background: transparent;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.page-view-btn:first-child {
+		border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+	}
+
+	.page-view-btn:last-child {
+		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+		border-left: none;
+	}
+
+	.page-view-btn.active {
+		background: var(--color-primary);
+		border-color: var(--color-primary);
+		color: white;
+	}
+
+	.rating-stats-bar {
+		display: flex;
+		gap: var(--spacing-md);
+		padding: var(--spacing-md) var(--spacing-lg);
+		border-bottom: 1px solid var(--color-border);
+		background: var(--color-surface);
+	}
+
+	.rating-stat {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		font-size: var(--font-size-sm);
+	}
+
+	.stat-count {
+		font-weight: 600;
+		color: var(--stat-color);
+	}
+
+	.stat-label {
+		color: var(--color-text-muted);
+	}
+
+	.rating-toolbar {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-sm) var(--spacing-lg);
+		border-bottom: 1px solid var(--color-border);
+		background: var(--color-surface);
+	}
+
+	.rating-filter {
+		width: auto;
+		font-size: var(--font-size-sm);
 	}
 
 	.toolbar {

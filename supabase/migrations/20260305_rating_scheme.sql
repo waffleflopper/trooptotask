@@ -24,9 +24,9 @@ create index rating_scheme_entries_org_idx on public.rating_scheme_entries(organ
 create index rating_scheme_entries_rated_idx on public.rating_scheme_entries(rated_person_id);
 
 -- Updated_at trigger
-create trigger set_updated_at
+create trigger update_rating_scheme_entries_updated_at
   before update on public.rating_scheme_entries
-  for each row execute function public.set_updated_at();
+  for each row execute function update_updated_at_column();
 
 -- RLS
 alter table public.rating_scheme_entries enable row level security;

@@ -261,3 +261,35 @@ export interface PersonnelOnboarding {
 	status: OnboardingStatus;
 	steps: OnboardingStepProgress[];
 }
+
+// ============================================================
+// Rating Scheme
+// ============================================================
+
+export interface RatingSchemeEntry {
+	id: string;
+	ratedPersonId: string;
+	evalType: 'OER' | 'NCOER' | 'WOER';
+	raterPersonId: string | null;
+	raterName: string | null;
+	seniorRaterPersonId: string | null;
+	seniorRaterName: string | null;
+	intermediateRaterPersonId: string | null;
+	intermediateRaterName: string | null;
+	reviewerPersonId: string | null;
+	reviewerName: string | null;
+	ratingPeriodStart: string;
+	ratingPeriodEnd: string;
+	status: 'active' | 'completed' | 'change-of-rater';
+	notes: string | null;
+}
+
+export type RatingDueStatus = 'current' | 'due-60' | 'due-30' | 'overdue' | 'completed';
+
+export const RATING_STATUS_COLORS: Record<RatingDueStatus, string> = {
+	current: '#22c55e',
+	'due-60': '#eab308',
+	'due-30': '#f97316',
+	overdue: '#ef4444',
+	completed: '#6b7280'
+};

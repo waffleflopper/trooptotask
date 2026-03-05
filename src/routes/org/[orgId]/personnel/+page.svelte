@@ -181,7 +181,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Personnel" helpTopic="personnel" overflowItems={personnelOverflowItems}>
+	<PageToolbar title="Personnel" helpTopic={pageView === 'rating-scheme' ? 'rating-scheme' : 'personnel'} overflowItems={personnelOverflowItems}>
 		{#if data.permissions.canEditPersonnel}
 			<button class="btn btn-sm btn-primary" onclick={handleAdd}>
 				Add Person

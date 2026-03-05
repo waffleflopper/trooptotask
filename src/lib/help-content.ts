@@ -167,6 +167,43 @@ export const helpContent: Record<string, HelpTopic> = {
 			<p>Open <strong>Manage Template</strong> from the overflow menu to add, edit, reorder, or remove onboarding steps. Changes to the template only affect new onboardings — existing ones keep their original steps.</p>
 		`
 	},
+	'rating-scheme': {
+		title: 'Rating Scheme',
+		content: `
+			<p>Maintain OER/NCOER/WOER rating chains and track evaluation timelines with due-date warnings, per AR 623-3. Only personnel who are rated (typically NCOs, officers, and warrant officers) need to be added.</p>
+
+			<h4>Views</h4>
+			<ul>
+				<li><strong>Grouped View</strong> — entries organized by senior rater, then by rater, for a quick read of the rating chain hierarchy</li>
+				<li><strong>Table View</strong> — flat sortable table showing all entries, ideal for initial setup and bulk editing</li>
+			</ul>
+			<p>Switch between views using the Grouped/Table toggle in the toolbar.</p>
+
+			<h4>Adding an Entry</h4>
+			<p>Click <strong>Add Entry</strong> to create a new rating scheme record. Select a rated individual — the eval type (OER, NCOER, or WOER) is auto-suggested based on rank but can be changed. Set the rater, senior rater, rating period dates, and optionally add an intermediate rater or reviewer.</p>
+
+			<h4>Internal vs. External Raters</h4>
+			<p>Each rater role can be filled by an internal person (selected from your organization's roster) or an external individual (entered as freetext with rank, name, and position). Use the Internal/External toggle on each rater field.</p>
+
+			<h4>Due-Date Status Colors</h4>
+			<ul>
+				<li><strong style="color:#22c55e;">Green (Current)</strong> — more than 60 days to thru date</li>
+				<li><strong style="color:#eab308;">Yellow (Due 60d)</strong> — 31–60 days until thru date</li>
+				<li><strong style="color:#f97316;">Orange (Due 30d)</strong> — 1–30 days until thru date</li>
+				<li><strong style="color:#ef4444;">Red (Overdue)</strong> — past thru date and still active</li>
+				<li><strong style="color:#6b7280;">Gray (Completed)</strong> — evaluation completed</li>
+			</ul>
+
+			<h4>Stats Bar</h4>
+			<p>The stats bar at the top shows counts for each due-date category across all active entries, so you can quickly identify evaluations needing attention.</p>
+
+			<h4>Filtering</h4>
+			<p>Use the filter dropdown to show Active (default), Completed, Change of Rater, or All entries.</p>
+
+			<h4>Editing & Deleting</h4>
+			<p>Click any entry (in either view) to open the edit modal. You can update all fields, change status to Completed or Change of Rater, or delete the entry entirely.</p>
+		`
+	},
 	'settings': {
 		title: 'Settings',
 		content: `

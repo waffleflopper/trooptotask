@@ -9,6 +9,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
 	import OnboardingTemplateManager from '$lib/components/OnboardingTemplateManager.svelte';
+	import OnboardingReportModal from '$lib/components/OnboardingReportModal.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import StartOnboardingModal from '$lib/components/StartOnboardingModal.svelte';
@@ -33,6 +34,7 @@
 
 	let showTemplateManager = $state(false);
 	let showStartModal = $state(false);
+	let showReport = $state(false);
 	let editingTrainingStep = $state<{
 		person: Personnel;
 		trainingType: TrainingType;
@@ -42,6 +44,7 @@
 
 	const onboardingOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
+		items.push({ label: 'View Report', onclick: () => (showReport = true) });
 		if (data.permissions.canEditPersonnel) {
 			items.push({ label: 'Manage Template', onclick: () => (showTemplateManager = true) });
 		}
@@ -541,6 +544,16 @@
 		{/if}
 	</main>
 </div>
+
+{#if showReport}
+	<OnboardingReportModal
+		onboardings={onboardingStore.list}
+		personnel={personnelStore.list}
+		trainingTypes={trainingTypesStore.list}
+		personnelTrainings={personnelTrainingsStore.list}
+		onClose={() => (showReport = false)}
+	/>
+{/if}
 
 {#if showTemplateManager}
 	<OnboardingTemplateManager

@@ -20,6 +20,11 @@
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
 		{/if}
 	</button>
+	<div class="beta-banner">
+		<p class="beta-headline">We're looking for beta testers!</p>
+		<p class="beta-sub">Help shape the future of Army personnel management.</p>
+		<a href="/auth/request-access" class="beta-cta">Request Access</a>
+	</div>
 	<div class="auth-card">
 		<div class="brand">
 			<div class="brand-mark">T2T</div>
@@ -368,6 +373,48 @@
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
 		margin-top: var(--spacing-sm);
+	}
+
+	.beta-banner {
+		text-align: center;
+		margin-bottom: var(--spacing-lg);
+		padding: var(--spacing-lg) var(--spacing-xl);
+		background: rgba(184, 148, 62, 0.08);
+		border: 1px solid rgba(184, 148, 62, 0.25);
+		border-radius: 12px;
+		width: 100%;
+		max-width: 400px;
+		position: relative;
+	}
+
+	.beta-headline {
+		font-family: var(--font-display);
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		color: #B8943E;
+		margin-bottom: var(--spacing-xs);
+	}
+
+	.beta-sub {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
+		margin-bottom: var(--spacing-md);
+	}
+
+	.beta-cta {
+		display: inline-block;
+		padding: 0.5rem 1.5rem;
+		background: #B8943E;
+		color: #0F0F0F;
+		font-weight: 600;
+		font-size: var(--font-size-sm);
+		border-radius: 8px;
+		text-decoration: none;
+		transition: background 0.15s;
+	}
+
+	.beta-cta:hover {
+		background: #D4B15A;
 	}
 
 	.auth-footer {

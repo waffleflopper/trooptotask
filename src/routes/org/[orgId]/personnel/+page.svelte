@@ -38,6 +38,7 @@
 	let showRatingModal = $state(false);
 	let editingEntry = $state<RatingSchemeEntry | null>(null);
 	let ratingFilter = $state<'active' | 'completed' | 'change-of-rater' | 'all'>('active');
+	let evalTypeFilter = $state<'all' | 'OER' | 'NCOER' | 'WOER'>('all');
 
 	// Filter personnel by search query
 	const filteredPersonnel = $derived.by(() => {
@@ -74,9 +75,10 @@
 	);
 
 	const filteredRatingEntries = $derived.by(() => {
-		const entries = ratingSchemeStore.list;
-		if (ratingFilter === 'all') return entries;
-		return entries.filter((e) => e.status === ratingFilter);
+		let entries = ratingSchemeStore.list;
+		if (ratingFilter !== 'all') entries = entries.filter((e) => e.status === ratingFilter);
+		if (evalTypeFilter !== 'all') entries = entries.filter((e) => e.evalType === evalTypeFilter);
+		return entries;
 	});
 
 	const ratingStats = $derived.by(() => {
@@ -371,11 +373,17 @@
 				</button>
 			{/if}
 			<div class="spacer"></div>
+			<select class="select rating-filter" bind:value={evalTypeFilter}>
+				<option value="all">All Types</option>
+				<option value="OER">OER</option>
+				<option value="NCOER">NCOER</option>
+				<option value="WOER">WOER</option>
+			</select>
 			<select class="select rating-filter" bind:value={ratingFilter}>
 				<option value="active">Active</option>
 				<option value="completed">Completed</option>
 				<option value="change-of-rater">Change of Rater</option>
-				<option value="all">All</option>
+				<option value="all">All Statuses</option>
 			</select>
 			<div class="view-toggle">
 				<button

@@ -138,7 +138,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Leaders Book" overflowItems={leadersBookOverflowItems} />
+	<PageToolbar title="Leaders Book" helpTopic="leaders-book" overflowItems={leadersBookOverflowItems} />
 
 	<div class="stats-bar">
 		<div class="stat">

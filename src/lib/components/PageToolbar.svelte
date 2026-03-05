@@ -1,20 +1,22 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import OverflowMenu, { type OverflowItem } from './ui/OverflowMenu.svelte';
+	import HelpButton from './ui/HelpButton.svelte';
 
 	interface Props {
 		title: string;
+		helpTopic?: string;
 		overflowItems?: OverflowItem[];
 		children?: Snippet;
 	}
 
-	let { title, overflowItems = [], children }: Props = $props();
+	let { title, helpTopic, overflowItems = [], children }: Props = $props();
 
 	let showOverflow = $state(false);
 </script>
 
 <div class="page-toolbar">
-	<h2 class="toolbar-title">{title}</h2>
+	<h2 class="toolbar-title">{title}{#if helpTopic}<HelpButton topic={helpTopic} />{/if}</h2>
 
 	{#if children}
 		<div class="toolbar-actions">

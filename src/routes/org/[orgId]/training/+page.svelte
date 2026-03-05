@@ -147,7 +147,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Training & Certifications" overflowItems={trainingOverflowItems}>
+	<PageToolbar title="Training & Certifications" helpTopic="training-records" overflowItems={trainingOverflowItems}>
 		<button class="btn btn-sm" onclick={() => (showReports = true)}>
 			Reports
 		</button>

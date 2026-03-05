@@ -39,7 +39,7 @@
 	isDarkTheme={themeStore.isDark}
 />
 
-<main class="app-content">
+<main class="app-content" class:has-demo-banner={demoModeStore.hasBanner}>
 	{@render children()}
 </main>
 
@@ -56,6 +56,10 @@
 	.app-content {
 		padding-top: var(--header-height, 56px);
 		min-height: 100vh;
+	}
+
+	.app-content.has-demo-banner {
+		padding-top: calc(var(--header-height, 56px) + 40px);
 	}
 
 	@media (max-width: 640px) {

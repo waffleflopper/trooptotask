@@ -5,6 +5,7 @@
 	import { inject } from '@vercel/analytics';
 	import { injectSpeedInsights } from '@vercel/speed-insights';
 	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
+	import HelpPanel from '$lib/components/ui/HelpPanel.svelte';
 
 	let { children, data } = $props();
 
@@ -25,6 +26,7 @@
 	{@render children()}
 </div>
 <ToastContainer />
+<HelpPanel />
 
 <style>
 	.app {

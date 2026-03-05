@@ -14,7 +14,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Organization Settings" />
+	<PageToolbar title="Organization Settings" helpTopic="settings" />
 
 	<main class="page-content">
 		<div class="settings-card">

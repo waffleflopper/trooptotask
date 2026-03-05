@@ -18,6 +18,10 @@ class DemoModeStore {
 		return this.#showSandboxModal;
 	}
 
+	get hasBanner() {
+		return this.#isReadOnly || this.#isSandbox;
+	}
+
 	load(isDemoReadOnly: boolean, isDemoSandbox: boolean = false) {
 		this.#isReadOnly = isDemoReadOnly;
 		this.#isSandbox = isDemoSandbox;

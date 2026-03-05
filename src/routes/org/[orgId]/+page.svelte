@@ -286,7 +286,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Dashboard" />
+	<PageToolbar title="Dashboard" helpTopic="dashboard" />
 	<main class="dashboard">
 		<!-- Header -->
 		<div class="dashboard-header">

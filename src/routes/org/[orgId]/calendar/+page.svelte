@@ -215,7 +215,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Calendar" overflowItems={calendarOverflowItems}>
+	<PageToolbar title="Calendar" helpTopic="calendar" overflowItems={calendarOverflowItems}>
 		<button class="btn btn-sm" onclick={() => (showTodayBreakdown = true)}>
 			Today's Breakdown
 		</button>

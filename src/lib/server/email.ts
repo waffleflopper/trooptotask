@@ -60,12 +60,16 @@ export async function sendInviteEmail(to: string, name: string, registrationUrl:
 </body>
 </html>`;
 
-	await resend.emails.send({
+	const { error } = await resend.emails.send({
 		from: env.RESEND_FROM_EMAIL || 'Troop to Task <onboarding@resend.dev>',
 		to,
 		subject: 'Your Troop to Task access has been approved',
 		html
 	});
+
+	if (error) {
+		throw new Error(`Failed to send email: ${JSON.stringify(error)}`);
+	}
 }
 
 function escapeHtml(str: string): string {

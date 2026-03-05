@@ -307,7 +307,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Onboarding" overflowItems={onboardingOverflowItems}>
+	<PageToolbar title="Onboarding" helpTopic="onboarding" overflowItems={onboardingOverflowItems}>
 		<div class="filter-toggle">
 			<button
 				class="filter-btn"

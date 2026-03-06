@@ -197,7 +197,7 @@
 					{#if grp.personnel.length > 0}
 						<!-- Group Header -->
 						<div class="group-row">
-							<div class="name-cell group-name">{grp.group || 'Unassigned'}</div>
+							<div class="name-cell group-name">{grp.group}</div>
 							{#each months() as month}
 								{#each month.dates as date}
 									<div class="group-cell"></div>

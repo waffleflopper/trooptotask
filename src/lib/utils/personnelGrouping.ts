@@ -22,6 +22,8 @@ export interface GroupSortOptions {
 	pinnedGroups?: string[];
 	/** Explicit group ordering. Groups not in list appear last alphabetically. */
 	groupOrder?: string[];
+	/** Label for ungrouped personnel when no groups are in use (e.g. org name). Defaults to 'Unassigned'. */
+	fallbackGroupName?: string;
 }
 
 /**
@@ -99,8 +101,12 @@ export function groupAndSortPersonnel(
 		return a.localeCompare(b);
 	});
 
+	// When ungrouped is the only group, use fallback name (org name) instead of empty string
+	const fallback = opts.fallbackGroupName ?? 'Unassigned';
+	const onlyUngrouped = sortedGroups.length === 1 && sortedGroups[0] === '';
+
 	return sortedGroups.map((group) => ({
-		group,
+		group: group === '' ? (onlyUngrouped ? fallback : 'Unassigned') : group,
 		personnel: groupMap.get(group)!
 	}));
 }

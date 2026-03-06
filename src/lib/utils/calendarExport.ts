@@ -107,7 +107,7 @@ export function exportMonthToCSV(
 	for (const grp of personnelByGroup) {
 		if (grp.personnel.length > 0) {
 			// Group header row
-			html += `<tr class="group-row"><td colspan="${dates.length + 1}">${grp.group || 'Unassigned'}</td></tr>`;
+			html += `<tr class="group-row"><td colspan="${dates.length + 1}">${grp.group}</td></tr>`;
 
 			for (const person of grp.personnel) {
 				html += `<tr><td class="name-cell"><b style="color:#666">${person.rank}</b> ${person.lastName}, ${person.firstName}</td>`;
@@ -225,7 +225,7 @@ export function exportQuarterToCSV(
 	for (const grp of personnelByGroup) {
 		if (grp.personnel.length > 0) {
 			// Group header row
-			html += `<tr class="group-row"><td colspan="${totalDays + 1}">${grp.group || 'Unassigned'}</td></tr>`;
+			html += `<tr class="group-row"><td colspan="${totalDays + 1}">${grp.group}</td></tr>`;
 
 			for (const person of grp.personnel) {
 				html += `<tr><td class="name-cell"><b style="color:#666">${person.rank}</b> ${person.lastName}, ${person.firstName}</td>`;
@@ -340,7 +340,7 @@ export function printMonthCalendar(
 
 	for (const grp of personnelByGroup) {
 		if (grp.personnel.length > 0) {
-			html += `<tr class="group-row"><td colspan="${dates.length + 1}">${grp.group || 'Unassigned'}</td></tr>`;
+			html += `<tr class="group-row"><td colspan="${dates.length + 1}">${grp.group}</td></tr>`;
 
 			for (const person of grp.personnel) {
 				html += `<tr><td class="name-cell"><span class="rank">${person.rank}</span>${person.lastName}, ${person.firstName}</td>`;
@@ -467,7 +467,7 @@ export function printQuarterCalendar(
 
 	for (const grp of personnelByGroup) {
 		if (grp.personnel.length > 0) {
-			html += `<tr class="group-row"><td colspan="${totalDays + 1}">${grp.group || 'Unassigned'}</td></tr>`;
+			html += `<tr class="group-row"><td colspan="${totalDays + 1}">${grp.group}</td></tr>`;
 
 			for (const person of grp.personnel) {
 				html += `<tr><td class="name-cell"><span class="rank">${person.rank}</span>${person.lastName}</td>`;

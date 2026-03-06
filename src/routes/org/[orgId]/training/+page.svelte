@@ -71,7 +71,8 @@
 	// Grouped view - use shared utility with explicit group order
 	const personnelByGroup = $derived(
 		groupAndSortPersonnel(basePersonnel, {
-			groupOrder: data.groups.map((g) => g.name)
+			groupOrder: data.groups.map((g) => g.name),
+			fallbackGroupName: data.orgName
 		})
 	);
 
@@ -230,7 +231,7 @@
 					<div class="group-section">
 						<button class="group-header" onclick={() => toggleGroup(grp.group)}>
 							<span class="toggle-icon">{collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
-							<span class="group-name">{grp.group || 'Unassigned'}</span>
+							<span class="group-name">{grp.group}</span>
 							<span class="group-count">({grp.personnel.length})</span>
 						</button>
 						{#if !collapsedGroups.has(grp.group)}

@@ -199,7 +199,7 @@
 								)}
 								{#if availableForGroup.length > 0}
 									<div class="group-block">
-										<div class="group-label">{grp.group || 'Unassigned'}</div>
+										<div class="group-label">{grp.group}</div>
 										<div class="personnel-chips">
 											{#each availableForGroup as { person, assignments }}
 												<div class="person-chip" class:has-assignment={assignments.length > 0}>

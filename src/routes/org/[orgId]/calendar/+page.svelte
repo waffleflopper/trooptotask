@@ -25,8 +25,6 @@
 	import LongRangeView from '$lib/components/LongRangeView.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
-	import FeatureGate from '$lib/components/FeatureGate.svelte';
-	import PastDueBanner from '$lib/components/PastDueBanner.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
 	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
@@ -407,8 +405,6 @@
 	}
 
 	.page-content {
-		flex: 1;
-		padding: var(--spacing-lg);
 		overflow: hidden;
 	}
 
@@ -420,12 +416,7 @@
 		overflow: hidden;
 	}
 
-	/* Mobile Responsive Styles */
-	@media (max-width: 640px) {
-		.page-content {
-			padding: var(--spacing-sm);
-		}
-	}
+	/* Mobile styles — .page-content mobile in app.css */
 
 	/* Feature Gate Modal */
 	.feature-gate-modal {

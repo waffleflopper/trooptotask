@@ -1,20 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data, form } = $props();
 	let activeTab = $state<'pending' | 'reviewed'>('pending');
 	let loadingId = $state<string | null>(null);
-
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
 
 	function statusColor(status: string): string {
 		switch (status) {
@@ -82,7 +73,7 @@
 							{#if req.reason}
 								<div class="request-reason">{req.reason}</div>
 							{/if}
-							<div class="request-date">Submitted {formatDate(req.created_at)}</div>
+							<div class="request-date">Submitted {formatDisplayDateTime(req.created_at)}</div>
 						</div>
 						<div class="request-actions">
 							<form
@@ -147,9 +138,9 @@
 								<div class="request-reason">{req.reason}</div>
 							{/if}
 							<div class="request-date">
-								Submitted {formatDate(req.created_at)}
+								Submitted {formatDisplayDateTime(req.created_at)}
 								{#if req.reviewed_at}
-									&middot; Reviewed {formatDate(req.reviewed_at)}
+									&middot; Reviewed {formatDisplayDateTime(req.reviewed_at)}
 								{/if}
 							</div>
 						</div>

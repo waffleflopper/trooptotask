@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Personnel, TrainingType, PersonnelTraining, PersonnelOnboarding, OnboardingStepProgress } from '$lib/types';
 	import { invalidate } from '$app/navigation';
+	import { formatDisplayDate } from '$lib/utils/dates';
 	import { onboardingTemplateStore } from '$lib/stores/onboardingTemplate.svelte';
 	import { onboardingStore } from '$lib/stores/onboarding.svelte';
 	import { personnelStore } from '$lib/stores/personnel.svelte';
@@ -281,12 +282,6 @@
 		expandedOnboardingId = expandedOnboardingId === id ? null : id;
 	}
 
-	function formatDate(dateStr: string): string {
-		const d = new Date(dateStr + 'T00:00:00');
-		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-		return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-	}
-
 	function formatTimestamp(isoStr: string): string {
 		const d = new Date(isoStr);
 		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -357,7 +352,7 @@
 								<span class="expand-icon">{isExpanded ? '\u25BC' : '\u25B6'}</span>
 								<div class="card-info">
 									<span class="person-name">{getPersonName(onboarding.personnelId)}</span>
-									<span class="started-date">Started {formatDate(onboarding.startedAt)}</span>
+									<span class="started-date">Started {formatDisplayDate(onboarding.startedAt)}</span>
 								</div>
 							</div>
 							<div class="card-progress">
@@ -645,12 +640,7 @@
 		color: #0F0F0F;
 	}
 
-	/* Page content */
-	.page-content {
-		flex: 1;
-		padding: var(--spacing-lg);
-		overflow-y: auto;
-	}
+	/* .page-content base + mobile in app.css */
 
 	/* Onboarding list */
 	.onboarding-list {
@@ -1066,10 +1056,6 @@
 		.toolbar-actions {
 			width: 100%;
 			flex-wrap: wrap;
-		}
-
-		.page-content {
-			padding: var(--spacing-sm);
 		}
 
 		.card-summary {

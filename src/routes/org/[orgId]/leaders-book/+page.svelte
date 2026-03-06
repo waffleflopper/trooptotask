@@ -378,11 +378,7 @@
 		margin-left: auto;
 	}
 
-	.page-content {
-		flex: 1;
-		padding: var(--spacing-lg);
-		overflow-y: auto;
-	}
+	/* .page-content base + mobile in app.css */
 
 	.empty-state {
 		display: flex;
@@ -522,10 +518,6 @@
 		.filter-count {
 			width: 100%;
 			margin-left: 0;
-		}
-
-		.page-content {
-			padding: var(--spacing-sm);
 		}
 
 		.personnel-grid {

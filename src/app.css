@@ -718,6 +718,28 @@ input[type="checkbox"] {
 /* Layout */
 .spacer { flex: 1; }
 
+/* Page content area — used by most org route pages */
+.page-content {
+  flex: 1;
+  padding: var(--spacing-lg);
+  overflow-y: auto;
+}
+
+@media (max-width: 640px) {
+  .page-content {
+    padding: var(--spacing-sm);
+  }
+}
+
+/* Checkbox label — inline flex label with checkbox */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
 /* Required field marker */
 .required { color: var(--color-error); }
 

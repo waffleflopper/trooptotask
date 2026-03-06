@@ -1,3 +1,37 @@
+/** "Jan 5, 2026" — for displaying date-only strings (YYYY-MM-DD) */
+export function formatDisplayDate(dateStr: string | null): string {
+	if (!dateStr) return '-';
+	// Append T00:00:00 so date-only strings parse as local time, not UTC
+	const d = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T00:00:00');
+	return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** "Jan 5, 2026, 2:30 PM" — for displaying timestamps */
+export function formatDisplayDateTime(dateStr: string | null): string {
+	if (!dateStr) return '-';
+	return new Date(dateStr).toLocaleDateString('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit'
+	});
+}
+
+/** "today", "yesterday", "3 days ago" — for relative timestamps */
+export function formatRelativeDate(dateStr: string): string {
+	const date = new Date(dateStr);
+	const now = new Date();
+	const diffMs = now.getTime() - date.getTime();
+	const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+	if (diffDays === 0) return 'today';
+	if (diffDays === 1) return 'yesterday';
+	if (diffDays < 7) return `${diffDays} days ago`;
+	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** "YYYY-MM-DD" — for form values and API data */
 export function formatDate(date: Date): string {
 	const year = date.getFullYear();
 	const month = String(date.getMonth() + 1).padStart(2, '0');

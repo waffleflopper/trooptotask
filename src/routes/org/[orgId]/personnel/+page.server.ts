@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import type { Personnel } from '$lib/types';
+import type { Personnel, RatingSchemeEntry } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import { getSupabaseClient } from '$lib/server/supabase';
 
@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const supabase = getSupabaseClient(locals, cookies);
 	const userId = locals.user?.id;
 
-	const [personnelRes, groupsRes, pinnedGroupsRes] = await Promise.all([
+	const [personnelRes, groupsRes, pinnedGroupsRes, ratingSchemeRes] = await Promise.all([
 		supabase
 			.from('personnel')
 			.select('*, groups(name)')
@@ -20,7 +20,12 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 			.select('*')
 			.eq('organization_id', orgId)
 			.eq('user_id', userId)
-			.order('sort_order') : Promise.resolve({ data: [] })
+			.order('sort_order') : Promise.resolve({ data: [] }),
+		supabase
+			.from('rating_scheme_entries')
+			.select('*')
+			.eq('organization_id', orgId)
+			.order('rating_period_end')
 	]);
 
 	const personnel: Personnel[] = (personnelRes.data ?? []).map((p: any) => ({
@@ -42,10 +47,31 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 
 	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map((p: any) => p.group_name);
 
+	const ratingSchemeEntries: RatingSchemeEntry[] = (ratingSchemeRes.data ?? []).map((r: any) => ({
+		id: r.id,
+		ratedPersonId: r.rated_person_id,
+		evalType: r.eval_type,
+		raterPersonId: r.rater_person_id,
+		raterName: r.rater_name,
+		seniorRaterPersonId: r.senior_rater_person_id,
+		seniorRaterName: r.senior_rater_name,
+		intermediateRaterPersonId: r.intermediate_rater_person_id,
+		intermediateRaterName: r.intermediate_rater_name,
+		reviewerPersonId: r.reviewer_person_id,
+		reviewerName: r.reviewer_name,
+		ratingPeriodStart: r.rating_period_start,
+		ratingPeriodEnd: r.rating_period_end,
+		status: r.status,
+		notes: r.notes,
+		reportType: r.report_type,
+		workflowStatus: r.workflow_status
+	}));
+
 	return {
 		orgId,
 		personnel,
 		groups,
-		pinnedGroups
+		pinnedGroups,
+		ratingSchemeEntries
 	};
 };

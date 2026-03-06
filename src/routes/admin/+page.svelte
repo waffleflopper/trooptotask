@@ -1,16 +1,8 @@
 <script lang="ts">
 	import { formatPrice } from '$lib/types/subscription';
+	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data } = $props();
-
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
 </script>
 
 <svelte:head>
@@ -137,7 +129,7 @@
 							<span class="activity-amount" class:succeeded={payment.status === 'succeeded'} class:failed={payment.status === 'failed'}>
 								{formatPrice(payment.amount)}
 							</span>
-							<span class="activity-time">{formatDate(payment.created_at)}</span>
+							<span class="activity-time">{formatDisplayDateTime(payment.created_at)}</span>
 						</div>
 					{/each}
 				</div>

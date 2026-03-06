@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { formatPrice, getStatusLabel, getStatusColor } from '$lib/types/subscription';
+	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data, form } = $props();
 
@@ -12,26 +13,6 @@
 	let adminNotes = $state(data.user.subscription.adminNotes || '');
 
 	let loading = $state<string | null>(null);
-
-	function formatDate(dateStr: string | null): string {
-		if (!dateStr) return '-';
-		return new Date(dateStr).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
-
-	function formatShortDate(dateStr: string | null): string {
-		if (!dateStr) return '-';
-		return new Date(dateStr).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
-	}
 </script>
 
 <svelte:head>
@@ -84,18 +65,18 @@
 				</div>
 				<div class="info-item">
 					<span class="label">Member Since</span>
-					<span class="value">{formatShortDate(data.user.subscription.createdAt)}</span>
+					<span class="value">{formatDisplayDate(data.user.subscription.createdAt)}</span>
 				</div>
 				{#if data.user.subscription.currentPeriodEnd}
 					<div class="info-item">
 						<span class="label">Current Period Ends</span>
-						<span class="value">{formatShortDate(data.user.subscription.currentPeriodEnd)}</span>
+						<span class="value">{formatDisplayDate(data.user.subscription.currentPeriodEnd)}</span>
 					</div>
 				{/if}
 				{#if data.user.subscription.trialEnd}
 					<div class="info-item">
 						<span class="label">Trial Ends</span>
-						<span class="value">{formatShortDate(data.user.subscription.trialEnd)}</span>
+						<span class="value">{formatDisplayDate(data.user.subscription.trialEnd)}</span>
 					</div>
 				{/if}
 				{#if data.user.subscription.stripeCustomerId}
@@ -115,7 +96,7 @@
 					{#if data.user.subscription.overrideMaxPersonnel}
 						Max Personnel: {data.user.subscription.overrideMaxPersonnel}
 					{/if}
-					<span class="expires">Expires: {formatShortDate(data.user.subscription.overrideExpiry)}</span>
+					<span class="expires">Expires: {formatDisplayDate(data.user.subscription.overrideExpiry)}</span>
 				</div>
 			{/if}
 		</section>
@@ -258,7 +239,7 @@
 						<tbody>
 							{#each data.payments as payment (payment.id)}
 								<tr>
-									<td>{formatShortDate(payment.createdAt)}</td>
+									<td>{formatDisplayDate(payment.createdAt)}</td>
 									<td>{formatPrice(payment.amount)}</td>
 									<td>
 										<span class="payment-status" class:succeeded={payment.status === 'succeeded'} class:failed={payment.status === 'failed'}>
@@ -287,7 +268,7 @@
 							{#if log.details}
 								<code class="audit-details">{JSON.stringify(log.details)}</code>
 							{/if}
-							<span class="audit-time">{formatDate(log.createdAt)}</span>
+							<span class="audit-time">{formatDisplayDateTime(log.createdAt)}</span>
 						</li>
 					{/each}
 				</ul>

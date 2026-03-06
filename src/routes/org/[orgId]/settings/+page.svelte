@@ -10,7 +10,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings - {data.organization?.name} - Troop to Task</title>
+	<title>Settings - {data.orgName} - Troop to Task</title>
 </svelte:head>
 
 <div class="page">
@@ -46,7 +46,7 @@
 							name="name"
 							type="text"
 							class="input"
-							value={data.organization?.name ?? ''}
+							value={data.orgName ?? ''}
 							required
 						/>
 					</div>
@@ -56,7 +56,7 @@
 					</button>
 				</form>
 			{:else}
-				<p class="org-name-display">{data.organization?.name}</p>
+				<p class="org-name-display">{data.orgName}</p>
 				<p class="hint">Only the organization owner can edit the name.</p>
 			{/if}
 		</div>
@@ -97,7 +97,7 @@
 	<div class="modal-overlay" onclick={() => (showDeleteConfirm = false)} role="presentation">
 		<div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
 			<h3>Delete Organization</h3>
-			<p>This will permanently delete <strong>{data.organization?.name}</strong> and all associated data.</p>
+			<p>This will permanently delete <strong>{data.orgName}</strong> and all associated data.</p>
 			<p class="danger-warning">This action cannot be undone.</p>
 
 			<form
@@ -110,11 +110,11 @@
 						await update();
 					};
 				}}
-				onsubmit={(e) => { if (deleteConfirmText !== data.organization?.name) e.preventDefault(); }}
+				onsubmit={(e) => { if (deleteConfirmText !== data.orgName) e.preventDefault(); }}
 			>
 				<div class="form-group">
 					<label class="label" for="confirmDelete">
-						Type <strong>{data.organization?.name}</strong> to confirm:
+						Type <strong>{data.orgName}</strong> to confirm:
 					</label>
 					<input
 						id="confirmDelete"
@@ -132,7 +132,7 @@
 					<button
 						type="submit"
 						class="btn btn-danger"
-						disabled={loading || deleteConfirmText !== data.organization?.name}
+						disabled={loading || deleteConfirmText !== data.orgName}
 					>
 						{loading ? 'Deleting...' : 'Delete Permanently'}
 					</button>

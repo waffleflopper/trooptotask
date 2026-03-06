@@ -3,20 +3,12 @@
 	import { page } from '$app/stores';
 	import { formatPrice, getStatusLabel, getStatusColor } from '$lib/types/subscription';
 	import PlatformInviteManager from '$lib/components/PlatformInviteManager.svelte';
+	import { formatDisplayDate } from '$lib/utils/dates';
 
 	let { data } = $props();
 	let showPlatformInvite = $state(false);
 
 	let searchInput = $state(data.search);
-
-	function formatDate(dateStr: string | null): string {
-		if (!dateStr) return '-';
-		return new Date(dateStr).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
-	}
 
 	function applyFilters() {
 		const params = new URLSearchParams();
@@ -142,8 +134,8 @@
 						</td>
 						<td>{user.organizationCount}</td>
 						<td>{formatPrice(user.totalPaid)}</td>
-						<td>{formatDate(user.lastPaymentAt)}</td>
-						<td>{formatDate(user.createdAt)}</td>
+						<td>{formatDisplayDate(user.lastPaymentAt)}</td>
+						<td>{formatDisplayDate(user.createdAt)}</td>
 						<td>
 							<a href="/admin/users/{user.id}" class="view-btn">View</a>
 						</td>

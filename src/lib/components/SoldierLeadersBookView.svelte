@@ -12,7 +12,7 @@
 		GOAL_CATEGORY_COLORS
 	} from '$lib/types/leadersBook';
 	import { TRAINING_STATUS_COLORS } from '$lib/types';
-	import { formatDate as formatDateISO } from '$lib/utils/dates';
+	import { formatDate as formatDateISO, formatDisplayDate } from '$lib/utils/dates';
 	import { personnelExtendedInfoStore } from '$lib/stores/personnelExtendedInfo.svelte';
 	import { counselingTypesStore } from '$lib/stores/counselingTypes.svelte';
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
@@ -117,11 +117,6 @@
 		if (!typeId) return '#6b7280';
 		const type = counselingTypesStore.getById(typeId);
 		return type?.color ?? '#6b7280';
-	}
-
-	function formatDate(dateStr: string | null): string {
-		if (!dateStr) return '-';
-		return new Date(dateStr).toLocaleDateString();
 	}
 
 	function formatAddress(): string {
@@ -507,11 +502,11 @@
 										{#if item.training?.completionDate}
 											<div class="training-dates">
 												<span class="completion-date">
-													Completed: {formatDate(item.training.completionDate)}
+													Completed: {formatDisplayDate(item.training.completionDate)}
 												</span>
 												{#if item.training.expirationDate}
 													<span class="expiration-date">
-														Expires: {formatDate(item.training.expirationDate)}
+														Expires: {formatDisplayDate(item.training.expirationDate)}
 													</span>
 												{/if}
 											</div>
@@ -561,7 +556,7 @@
 											>
 												{getCounselingTypeName(record.counselingTypeId)}
 											</span>
-											<span class="record-date">{formatDate(record.dateConducted)}</span>
+											<span class="record-date">{formatDisplayDate(record.dateConducted)}</span>
 											<span
 												class="record-status"
 												style="background-color: {COUNSELING_STATUS_COLORS[record.status]}"
@@ -578,7 +573,7 @@
 										{/if}
 										<div class="record-footer">
 											{#if record.followUpDate}
-												<span class="follow-up">Follow-up: {formatDate(record.followUpDate)}</span>
+												<span class="follow-up">Follow-up: {formatDisplayDate(record.followUpDate)}</span>
 											{/if}
 											<span class="signatures">
 												{#if record.counselorSigned}
@@ -646,7 +641,7 @@
 												{GOAL_STATUS_LABELS[goal.status]}
 											</span>
 											{#if goal.targetDate}
-												<span class="goal-target">Target: {formatDate(goal.targetDate)}</span>
+												<span class="goal-target">Target: {formatDisplayDate(goal.targetDate)}</span>
 											{/if}
 										</div>
 									</button>

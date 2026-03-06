@@ -398,11 +398,6 @@
 	}
 
 	.checkbox-label {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		font-size: var(--font-size-sm);
-		cursor: pointer;
 		padding: var(--spacing-xs) 0;
 	}
 

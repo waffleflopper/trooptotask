@@ -6,6 +6,7 @@
 		getStatusColor,
 		getBillingCycleLabel
 	} from '$lib/types/subscription';
+	import { formatDisplayDate } from '$lib/utils/dates';
 
 	let { data } = $props();
 
@@ -27,15 +28,6 @@
 		} finally {
 			portalLoading = false;
 		}
-	}
-
-	function formatDate(dateStr: string | null): string {
-		if (!dateStr) return '-';
-		return new Date(dateStr).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric'
-		});
 	}
 </script>
 
@@ -91,14 +83,14 @@
 				{#if data.subscription.currentPeriodEnd && data.subscription.status === 'active'}
 					<div class="detail-item">
 						<span class="label">Next billing date</span>
-						<span class="value">{formatDate(data.subscription.currentPeriodEnd)}</span>
+						<span class="value">{formatDisplayDate(data.subscription.currentPeriodEnd)}</span>
 					</div>
 				{/if}
 
 				{#if data.subscription.canceledAt}
 					<div class="detail-item warning">
 						<span class="label">Cancels on</span>
-						<span class="value">{formatDate(data.subscription.currentPeriodEnd)}</span>
+						<span class="value">{formatDisplayDate(data.subscription.currentPeriodEnd)}</span>
 					</div>
 				{/if}
 			</div>
@@ -200,7 +192,7 @@
 						<tbody>
 							{#each data.paymentHistory as payment (payment.id)}
 								<tr>
-									<td>{formatDate(payment.createdAt)}</td>
+									<td>{formatDisplayDate(payment.createdAt)}</td>
 									<td>{payment.description || 'Subscription payment'}</td>
 									<td>{formatPrice(payment.amount)}</td>
 									<td>

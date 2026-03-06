@@ -2,18 +2,9 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { formatPrice } from '$lib/types/subscription';
+	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data } = $props();
-
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
 
 	function goToPage(pageNum: number) {
 		const params = new URLSearchParams($page.url.searchParams);
@@ -80,7 +71,7 @@
 				<tbody>
 					{#each data.payments as payment (payment.id)}
 						<tr>
-							<td>{formatDate(payment.createdAt)}</td>
+							<td>{formatDisplayDateTime(payment.createdAt)}</td>
 							<td>
 								<a href="/admin/users/{payment.userId}" class="user-link">
 									{payment.userId.slice(0, 8)}...

@@ -1,5 +1,4 @@
 import type { PageServerLoad } from './$types';
-import type { AvailabilityEntry } from '$lib/types';
 import type {
 	PersonnelExtendedInfo,
 	CounselingType,
@@ -8,6 +7,7 @@ import type {
 } from '$lib/types/leadersBook';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { formatDate } from '$lib/utils/dates';
+import { transformAvailabilityEntries } from '$lib/server/transforms';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const { orgId } = params;
@@ -112,13 +112,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		progressNotes: g.progress_notes
 	}));
 
-	const availability: AvailabilityEntry[] = (availabilityRes.data ?? []).map((a: any) => ({
-		id: a.id,
-		personnelId: a.personnel_id,
-		statusTypeId: a.status_type_id,
-		startDate: a.start_date,
-		endDate: a.end_date
-	}));
+	const availability = transformAvailabilityEntries(availabilityRes.data ?? []);
 
 	return {
 		orgId,

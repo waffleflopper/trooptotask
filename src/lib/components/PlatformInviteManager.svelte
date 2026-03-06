@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { formatDisplayDate } from '$lib/utils/dates';
 	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
 	interface Props {
@@ -129,14 +130,6 @@
 		window.open(mailto, '_blank');
 	}
 
-	// Format date for display
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
-	}
 
 	// Check if invite is expired
 	function isExpired(expiresAt: string): boolean {
@@ -266,11 +259,11 @@
 										{/if}
 										<span class="invite-date">
 											{#if invite.used_at}
-												Used {formatDate(invite.used_at)}
+												Used {formatDisplayDate(invite.used_at)}
 											{:else if isExpired(invite.expires_at)}
-												Expired {formatDate(invite.expires_at)}
+												Expired {formatDisplayDate(invite.expires_at)}
 											{:else}
-												Expires {formatDate(invite.expires_at)}
+												Expires {formatDisplayDate(invite.expires_at)}
 											{/if}
 										</span>
 									</div>

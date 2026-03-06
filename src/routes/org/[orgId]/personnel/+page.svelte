@@ -685,11 +685,7 @@
 		margin-left: auto;
 	}
 
-	.page-content {
-		flex: 1;
-		padding: var(--spacing-lg);
-		overflow-y: auto;
-	}
+	/* .page-content base + mobile in app.css */
 
 	.empty-state {
 		display: flex;
@@ -845,10 +841,6 @@
 		.view-toggle {
 			width: 100%;
 			justify-content: flex-start;
-		}
-
-		.page-content {
-			padding: var(--spacing-sm);
 		}
 
 		.group-badge {

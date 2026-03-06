@@ -175,12 +175,18 @@ export const helpContent: Record<string, HelpTopic> = {
 			<h4>Views</h4>
 			<ul>
 				<li><strong>Grouped View</strong> — entries organized by senior rater, then by rater, for a quick read of the rating chain hierarchy</li>
-				<li><strong>Table View</strong> — flat sortable table showing all entries, ideal for initial setup and bulk editing</li>
+				<li><strong>Table View</strong> — flat sortable table showing all entries with report type and workflow status columns</li>
 			</ul>
 			<p>Switch between views using the Grouped/Table toggle in the toolbar.</p>
 
 			<h4>Adding an Entry</h4>
 			<p>Click <strong>Add Entry</strong> to create a new rating scheme record. Select a rated individual — the eval type (OER, NCOER, or WOER) is auto-suggested based on rank but can be changed. Set the rater, senior rater, rating period dates, and optionally add an intermediate rater or reviewer.</p>
+
+			<h4>Report Types</h4>
+			<p>Optionally select a report type (Annual, Change of Rater, Extended Annual, etc.) per AR 623-3. Available options change based on eval type. When "Annual" is selected and you set a start date, the thru date auto-populates to start + 12 months - 1 day. Extended Annual reports show a warning if the period exceeds 15 months (NCOER) or 16 months (OER/WOER).</p>
+
+			<h4>Workflow Tracking</h4>
+			<p>Click <strong>+ Track Workflow</strong> in the entry modal to enable granular tracking of where the evaluation is in the signature process — from Drafting through With Rater, SR Signed, With Rated Soldier, and finally Submitted to S1. Workflow steps for intermediate rater and reviewer only appear when those roles are populated. Workflow tracking is optional and can be removed at any time.</p>
 
 			<h4>Internal vs. External Raters</h4>
 			<p>Each rater role can be filled by an internal person (selected from your organization's roster) or an external individual (entered as freetext with rank, name, and position). Use the Internal/External toggle on each rater field.</p>
@@ -198,7 +204,10 @@ export const helpContent: Record<string, HelpTopic> = {
 			<p>The stats bar at the top shows counts for each due-date category across all active entries, so you can quickly identify evaluations needing attention.</p>
 
 			<h4>Filtering</h4>
-			<p>Use the filter dropdown to show Active (default), Completed, Change of Rater, or All entries.</p>
+			<p>Use the filter dropdowns to show by status (Active, Completed, Change of Rater, All), eval type (OER, NCOER, WOER), or workflow status. The workflow filter only appears when at least one entry has workflow tracking enabled.</p>
+
+			<h4>Excel Export</h4>
+			<p>Click <strong>Export</strong> in the toolbar to download the current filtered view as an Excel spreadsheet. The export includes all visible columns: eval type, report type, rated individual, raters, dates, due status, workflow status, and notes.</p>
 
 			<h4>Editing & Deleting</h4>
 			<p>Click any entry (in either view) to open the edit modal. You can update all fields, change status to Completed or Change of Rater, or delete the entry entirely.</p>

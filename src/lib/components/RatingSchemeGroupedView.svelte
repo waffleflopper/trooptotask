@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel, RatingSchemeEntry } from '$lib/types';
-	import { RATING_STATUS_COLORS } from '$lib/types';
+	import { RATING_STATUS_COLORS, WORKFLOW_STATUS_OPTIONS, WORKFLOW_STATUS_COLORS } from '$lib/types';
 	import { getRatingDueStatus, getDaysUntilDue } from '$lib/utils/ratingScheme';
 	import Badge from './ui/Badge.svelte';
 	import EmptyState from './ui/EmptyState.svelte';
@@ -88,6 +88,10 @@
 		const d = new Date(dateStr + 'T00:00:00');
 		return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
 	}
+
+	function getWorkflowLabel(status: string): string {
+		return WORKFLOW_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
+	}
 </script>
 
 {#if entries.length === 0}
@@ -108,7 +112,10 @@
 							{@const due = formatDueStatus(entry)}
 							<button class="entry-row" onclick={() => onEdit(entry)}>
 								<span class="rated-name">{getRatedPersonLabel(entry.ratedPersonId)}</span>
-								<Badge label={entry.evalType} color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'} />
+								<Badge label={entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType} color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'} />
+								{#if entry.workflowStatus}
+									<Badge label={getWorkflowLabel(entry.workflowStatus)} color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]} />
+								{/if}
 								<span class="period">{formatDate(entry.ratingPeriodStart)}–{formatDate(entry.ratingPeriodEnd)}</span>
 								<Badge label={due.label} color={due.color} />
 							</button>

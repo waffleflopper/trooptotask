@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Personnel, RatingSchemeEntry, RatingDueStatus } from '$lib/types';
-	import { RATING_STATUS_COLORS } from '$lib/types';
-	import { getRatingDueStatus, getDaysUntilDue } from '$lib/utils/ratingScheme';
+	import { RATING_STATUS_COLORS, WORKFLOW_STATUS_OPTIONS, WORKFLOW_STATUS_COLORS } from '$lib/types';
+	import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from '$lib/utils/ratingScheme';
 	import Badge from './ui/Badge.svelte';
 	import EmptyState from './ui/EmptyState.svelte';
 
@@ -41,6 +41,10 @@
 		const d = new Date(dateStr + 'T00:00:00');
 		return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: '2-digit' });
 	}
+
+	function getWorkflowLabel(status: string): string {
+		return WORKFLOW_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
+	}
 </script>
 
 {#if entries.length === 0}
@@ -51,6 +55,7 @@
 			<thead>
 				<tr>
 					<th>Type</th>
+					<th>Report</th>
 					<th>Rated Individual</th>
 					<th>Rater</th>
 					<th>Senior Rater</th>
@@ -64,6 +69,7 @@
 					{@const due = formatDueStatus(entry)}
 					<tr class="clickable" onclick={() => onEdit(entry)}>
 						<td><Badge label={entry.evalType} color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'} /></td>
+						<td class="report-cell">{entry.reportType ? getReportTypeLabel(entry.reportType, entry.evalType) : '—'}</td>
 						<td class="person-cell">
 							{#if rated}
 								<span class="rank">{rated.rank}</span> {rated.lastName}, {rated.firstName}
@@ -74,7 +80,12 @@
 						<td class="rater-cell">{getPersonName(entry.raterPersonId, entry.raterName)}</td>
 						<td class="rater-cell">{getPersonName(entry.seniorRaterPersonId, entry.seniorRaterName)}</td>
 						<td>{formatDate(entry.ratingPeriodEnd)}</td>
-						<td><Badge label={due.label} color={due.color} /></td>
+						<td class="status-cell">
+							<Badge label={due.label} color={due.color} />
+							{#if entry.workflowStatus}
+								<Badge label={getWorkflowLabel(entry.workflowStatus)} color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]} />
+							{/if}
+						</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -127,6 +138,18 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.report-cell {
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+		white-space: nowrap;
+	}
+
+	.status-cell {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
 	}
 
 	.unknown {

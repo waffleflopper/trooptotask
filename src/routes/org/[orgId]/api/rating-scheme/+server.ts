@@ -19,7 +19,9 @@ function toClient(row: any) {
 		ratingPeriodStart: row.rating_period_start,
 		ratingPeriodEnd: row.rating_period_end,
 		status: row.status,
-		notes: row.notes
+		notes: row.notes,
+		reportType: row.report_type,
+		workflowStatus: row.workflow_status
 	};
 }
 
@@ -48,7 +50,9 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		rating_period_start: body.ratingPeriodStart,
 		rating_period_end: body.ratingPeriodEnd,
 		status: body.status || 'active',
-		notes: body.notes || null
+		notes: body.notes || null,
+		report_type: body.reportType || null,
+		workflow_status: body.workflowStatus || null
 	};
 
 	const { data, error: dbError } = await supabase
@@ -90,6 +94,8 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	if (fields.ratingPeriodEnd !== undefined) updates.rating_period_end = fields.ratingPeriodEnd;
 	if (fields.status !== undefined) updates.status = fields.status;
 	if (fields.notes !== undefined) updates.notes = fields.notes || null;
+	if (fields.reportType !== undefined) updates.report_type = fields.reportType || null;
+	if (fields.workflowStatus !== undefined) updates.workflow_status = fields.workflowStatus || null;
 
 	const { data, error: dbError } = await supabase
 		.from('rating_scheme_entries')

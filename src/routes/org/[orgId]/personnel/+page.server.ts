@@ -62,7 +62,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		ratingPeriodStart: r.rating_period_start,
 		ratingPeriodEnd: r.rating_period_end,
 		status: r.status,
-		notes: r.notes
+		notes: r.notes,
+		reportType: r.report_type,
+		workflowStatus: r.workflow_status
 	}));
 
 	return {

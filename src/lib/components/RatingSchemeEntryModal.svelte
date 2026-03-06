@@ -1,8 +1,10 @@
 <script lang="ts">
-	import type { Personnel, RatingSchemeEntry } from '$lib/types';
-	import { getEvalTypeForRank } from '$lib/utils/ratingScheme';
+	import type { Personnel, RatingSchemeEntry, ReportType, WorkflowStatus } from '$lib/types';
+	import { WORKFLOW_STATUS_OPTIONS, WORKFLOW_STATUS_COLORS } from '$lib/types';
+	import { getEvalTypeForRank, getReportTypesForEvalType, calculateThruDate, getExtendedAnnualWarning } from '$lib/utils/ratingScheme';
 	import Modal from './Modal.svelte';
 	import Spinner from './ui/Spinner.svelte';
+	import SearchSelect from './ui/SearchSelect.svelte';
 
 	interface Props {
 		entry: RatingSchemeEntry | null;
@@ -20,9 +22,14 @@
 		)
 	);
 
+	const personnelOptions = $derived(
+		sortedPersonnel.map((p) => ({ value: p.id, label: formatPersonLabel(p) }))
+	);
+
 	// Form state
 	let ratedPersonId = $state(entry?.ratedPersonId ?? '');
 	let evalType = $state<'OER' | 'NCOER' | 'WOER'>(entry?.evalType ?? 'NCOER');
+	let reportType = $state<ReportType | ''>(entry?.reportType ?? '');
 	let raterMode = $state<'internal' | 'external'>(entry?.raterPersonId ? 'internal' : entry?.raterName ? 'external' : 'internal');
 	let raterPersonId = $state(entry?.raterPersonId ?? '');
 	let raterName = $state(entry?.raterName ?? '');
@@ -40,9 +47,21 @@
 	let ratingPeriodStart = $state(entry?.ratingPeriodStart ?? '');
 	let ratingPeriodEnd = $state(entry?.ratingPeriodEnd ?? '');
 	let status = $state(entry?.status ?? 'active');
+	let workflowStatus = $state<WorkflowStatus | ''>(entry?.workflowStatus ?? '');
+	let showWorkflow = $state(!!entry?.workflowStatus);
 	let notes = $state(entry?.notes ?? '');
 	let saving = $state(false);
 	let showDeleteConfirm = $state(false);
+
+	const reportTypeOptions = $derived(getReportTypesForEvalType(evalType));
+
+	// Reset report type if eval type changes and current selection is invalid
+	$effect(() => {
+		if (reportType) {
+			const valid = reportTypeOptions.some((o) => o.value === reportType);
+			if (!valid) reportType = '';
+		}
+	});
 
 	// Auto-suggest eval type when rated person changes
 	$effect(() => {
@@ -52,6 +71,37 @@
 				evalType = getEvalTypeForRank(person.rank);
 			}
 		}
+	});
+
+	// Auto-fill thru date for Annual reports (new entries only)
+	let autoFilledEnd = $state(false);
+	$effect(() => {
+		if (!entry && reportType === 'AN' && ratingPeriodStart && (!ratingPeriodEnd || autoFilledEnd)) {
+			const calculated = calculateThruDate('AN', ratingPeriodStart);
+			if (calculated) {
+				ratingPeriodEnd = calculated;
+				autoFilledEnd = true;
+			}
+		}
+		if (reportType !== 'AN') {
+			autoFilledEnd = false;
+		}
+	});
+
+	// Extended Annual warning
+	const eaWarning = $derived(
+		getExtendedAnnualWarning(reportType || null, evalType, ratingPeriodStart, ratingPeriodEnd)
+	);
+
+	// Filter workflow steps: hide IR/reviewer if those roles aren't populated
+	const filteredWorkflowOptions = $derived.by(() => {
+		const hasIR = showIntermediate && (intermediateRaterPersonId || intermediateRaterName.trim());
+		const hasReviewer = showReviewer && (reviewerPersonId || reviewerName.trim());
+		return WORKFLOW_STATUS_OPTIONS.filter((opt) => {
+			if (opt.value === 'with-intermediate-rater' || opt.value === 'ir-signed') return !!hasIR;
+			if (opt.value === 'with-reviewer' || opt.value === 'reviewer-signed') return !!hasReviewer;
+			return true;
+		});
 	});
 
 	const canSave = $derived(
@@ -80,7 +130,9 @@
 				ratingPeriodStart,
 				ratingPeriodEnd,
 				status,
-				notes: notes.trim() || null
+				notes: notes.trim() || null,
+				reportType: reportType || null,
+				workflowStatus: (showWorkflow && workflowStatus) ? workflowStatus as WorkflowStatus : null
 			});
 			onClose();
 		} finally {
@@ -106,22 +158,28 @@
 
 <Modal title={entry ? 'Edit Rating Entry' : 'Add Rating Entry'} {onClose} width="550px" titleId="rating-entry-title">
 	<div class="form-group">
-		<label class="label" for="rated-person">Rated Individual</label>
-		<select id="rated-person" class="select" bind:value={ratedPersonId} disabled={!!entry}>
-			<option value="">Select a person...</option>
-			{#each sortedPersonnel as p (p.id)}
-				<option value={p.id}>{formatPersonLabel(p)}</option>
-			{/each}
-		</select>
+		<label class="label">Rated Individual</label>
+		<SearchSelect options={personnelOptions} bind:value={ratedPersonId} placeholder="Search personnel..." disabled={!!entry} />
 	</div>
 
-	<div class="form-group">
-		<label class="label" for="eval-type">Evaluation Type</label>
-		<select id="eval-type" class="select" bind:value={evalType}>
-			<option value="OER">OER (Officer)</option>
-			<option value="NCOER">NCOER (NCO)</option>
-			<option value="WOER">WOER (Warrant Officer)</option>
-		</select>
+	<div class="form-row">
+		<div class="form-group">
+			<label class="label" for="eval-type">Evaluation Type</label>
+			<select id="eval-type" class="select" bind:value={evalType}>
+				<option value="OER">OER (Officer)</option>
+				<option value="NCOER">NCOER (NCO)</option>
+				<option value="WOER">WOER (Warrant Officer)</option>
+			</select>
+		</div>
+		<div class="form-group">
+			<label class="label" for="report-type">Report Type</label>
+			<select id="report-type" class="select" bind:value={reportType}>
+				<option value="">Select report type...</option>
+				{#each reportTypeOptions as opt (opt.value)}
+					<option value={opt.value}>{opt.value} — {opt.label}</option>
+				{/each}
+			</select>
+		</div>
 	</div>
 
 	<fieldset class="rater-section">
@@ -131,12 +189,7 @@
 			<button class="toggle-btn" class:active={raterMode === 'external'} onclick={() => (raterMode = 'external')}>External</button>
 		</div>
 		{#if raterMode === 'internal'}
-			<select class="select" bind:value={raterPersonId}>
-				<option value="">Select rater...</option>
-				{#each sortedPersonnel as p (p.id)}
-					<option value={p.id}>{formatPersonLabel(p)}</option>
-				{/each}
-			</select>
+			<SearchSelect options={personnelOptions} bind:value={raterPersonId} placeholder="Search rater..." />
 		{:else}
 			<input class="input" type="text" bind:value={raterName} placeholder="Rank, Name, Position (e.g., MAJ Smith, S3)" />
 		{/if}
@@ -149,12 +202,7 @@
 			<button class="toggle-btn" class:active={srMode === 'external'} onclick={() => (srMode = 'external')}>External</button>
 		</div>
 		{#if srMode === 'internal'}
-			<select class="select" bind:value={seniorRaterPersonId}>
-				<option value="">Select senior rater...</option>
-				{#each sortedPersonnel as p (p.id)}
-					<option value={p.id}>{formatPersonLabel(p)}</option>
-				{/each}
-			</select>
+			<SearchSelect options={personnelOptions} bind:value={seniorRaterPersonId} placeholder="Search senior rater..." />
 		{:else}
 			<input class="input" type="text" bind:value={seniorRaterName} placeholder="Rank, Name, Position (e.g., COL Jones, BDE CDR)" />
 		{/if}
@@ -173,12 +221,7 @@
 				<button class="toggle-btn" class:active={irMode === 'external'} onclick={() => (irMode = 'external')}>External</button>
 			</div>
 			{#if irMode === 'internal'}
-				<select class="select" bind:value={intermediateRaterPersonId}>
-					<option value="">Select intermediate rater...</option>
-					{#each sortedPersonnel as p (p.id)}
-						<option value={p.id}>{formatPersonLabel(p)}</option>
-					{/each}
-				</select>
+				<SearchSelect options={personnelOptions} bind:value={intermediateRaterPersonId} placeholder="Search intermediate rater..." />
 			{:else}
 				<input class="input" type="text" bind:value={intermediateRaterName} placeholder="Rank, Name, Position" />
 			{/if}
@@ -198,12 +241,7 @@
 				<button class="toggle-btn" class:active={rvMode === 'external'} onclick={() => (rvMode = 'external')}>External</button>
 			</div>
 			{#if rvMode === 'internal'}
-				<select class="select" bind:value={reviewerPersonId}>
-					<option value="">Select reviewer...</option>
-					{#each sortedPersonnel as p (p.id)}
-						<option value={p.id}>{formatPersonLabel(p)}</option>
-					{/each}
-				</select>
+				<SearchSelect options={personnelOptions} bind:value={reviewerPersonId} placeholder="Search reviewer..." />
 			{:else}
 				<input class="input" type="text" bind:value={reviewerName} placeholder="Rank, Name, Position" />
 			{/if}
@@ -221,6 +259,10 @@
 		</div>
 	</div>
 
+	{#if eaWarning}
+		<div class="warning-banner">{eaWarning}</div>
+	{/if}
+
 	<div class="form-group">
 		<label class="label" for="entry-status">Status</label>
 		<select id="entry-status" class="select" bind:value={status}>
@@ -229,6 +271,23 @@
 			<option value="change-of-rater">Change of Rater</option>
 		</select>
 	</div>
+
+	{#if !showWorkflow}
+		<button class="btn-link" onclick={() => (showWorkflow = true)}>+ Track Workflow</button>
+	{:else}
+		<div class="form-group workflow-group">
+			<div class="workflow-header">
+				<label class="label" for="workflow-status">Workflow Status</label>
+				<button class="btn-remove-section" onclick={() => { showWorkflow = false; workflowStatus = ''; }}>Remove</button>
+			</div>
+			<select id="workflow-status" class="select" bind:value={workflowStatus}>
+				<option value="">Select workflow step...</option>
+				{#each filteredWorkflowOptions as opt (opt.value)}
+					<option value={opt.value}>{opt.label}</option>
+				{/each}
+			</select>
+		</div>
+	{/if}
 
 	<div class="form-group">
 		<label class="label" for="entry-notes">Notes</label>
@@ -337,5 +396,31 @@
 	.delete-confirm-text {
 		font-size: var(--font-size-sm);
 		color: var(--color-error);
+	}
+
+	.warning-banner {
+		background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+		border: 1px solid var(--color-warning);
+		border-radius: var(--radius-md);
+		padding: var(--spacing-sm) var(--spacing-md);
+		font-size: var(--font-size-sm);
+		color: var(--color-warning);
+		margin-bottom: var(--spacing-md);
+	}
+
+	.workflow-group {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: var(--spacing-md);
+	}
+
+	.workflow-header {
+		display: flex;
+		align-items: center;
+		margin-bottom: var(--spacing-sm);
+	}
+
+	.workflow-header .label {
+		margin-bottom: 0;
 	}
 </style>

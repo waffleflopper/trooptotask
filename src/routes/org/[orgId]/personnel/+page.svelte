@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Personnel, RatingSchemeEntry } from '$lib/types';
-	import { RATING_STATUS_COLORS } from '$lib/types';
+	import type { Personnel, RatingSchemeEntry, WorkflowStatus } from '$lib/types';
+	import { RATING_STATUS_COLORS, WORKFLOW_STATUS_OPTIONS } from '$lib/types';
 	import { personnelStore } from '$lib/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
@@ -15,6 +15,7 @@
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import { groupAndSortPersonnel, RANK_ORDER } from '$lib/utils/personnelGrouping';
 	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
+	import { exportRatingScheme } from '$lib/utils/ratingSchemeExport';
 
 	let { data } = $props();
 
@@ -39,6 +40,7 @@
 	let editingEntry = $state<RatingSchemeEntry | null>(null);
 	let ratingFilter = $state<'active' | 'completed' | 'change-of-rater' | 'all'>('active');
 	let evalTypeFilter = $state<'all' | 'OER' | 'NCOER' | 'WOER'>('all');
+	let workflowFilter = $state<WorkflowStatus | 'all'>('all');
 
 	// Filter personnel by search query
 	const filteredPersonnel = $derived.by(() => {
@@ -74,10 +76,13 @@
 			: alphabeticalPersonnel.length
 	);
 
+	const hasAnyWorkflowStatus = $derived(ratingSchemeStore.list.some((e) => !!e.workflowStatus));
+
 	const filteredRatingEntries = $derived.by(() => {
 		let entries = ratingSchemeStore.list;
 		if (ratingFilter !== 'all') entries = entries.filter((e) => e.status === ratingFilter);
 		if (evalTypeFilter !== 'all') entries = entries.filter((e) => e.evalType === evalTypeFilter);
+		if (workflowFilter !== 'all') entries = entries.filter((e) => e.workflowStatus === workflowFilter);
 		return entries;
 	});
 
@@ -372,6 +377,9 @@
 					Add Entry
 				</button>
 			{/if}
+			<button class="btn btn-sm btn-secondary" onclick={() => exportRatingScheme(filteredRatingEntries, personnelStore.list)}>
+				Export
+			</button>
 			<div class="spacer"></div>
 			<select class="select rating-filter" bind:value={evalTypeFilter}>
 				<option value="all">All Types</option>
@@ -385,6 +393,14 @@
 				<option value="change-of-rater">Change of Rater</option>
 				<option value="all">All Statuses</option>
 			</select>
+			{#if hasAnyWorkflowStatus}
+				<select class="select rating-filter" bind:value={workflowFilter}>
+					<option value="all">All Workflow</option>
+					{#each WORKFLOW_STATUS_OPTIONS as opt (opt.value)}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+			{/if}
 			<div class="view-toggle">
 				<button
 					class="view-btn"

@@ -514,8 +514,6 @@
 	}
 
 	.page-content {
-		flex: 1;
-		padding: var(--spacing-lg);
 		overflow: hidden;
 	}
 
@@ -574,10 +572,6 @@
 		.filter-count {
 			width: 100%;
 			margin-left: 0;
-		}
-
-		.page-content {
-			padding: var(--spacing-sm);
 		}
 
 		.group-content {

@@ -314,6 +314,12 @@
 </Modal>
 
 <style>
+	.form-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--spacing-md);
+	}
+
 	.rater-section {
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);

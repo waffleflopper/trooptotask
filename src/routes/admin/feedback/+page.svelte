@@ -1,21 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data, form } = $props();
 	let activeTab = $state<'new' | 'reviewed' | 'resolved'>('new');
 	let expandedId = $state<string | null>(null);
 	let savingId = $state<string | null>(null);
-
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
 
 	function categoryColor(category: string): string {
 		switch (category) {
@@ -100,7 +91,7 @@
 								{item.message.length > 120 ? item.message.slice(0, 120) + '...' : item.message}
 							</div>
 							<div class="feedback-meta">
-								{formatDate(item.created_at)}
+								{formatDisplayDateTime(item.created_at)}
 								{#if item.organization_name}
 									<span class="meta-separator">&middot;</span>
 									<span>{item.organization_name}</span>

@@ -1,7 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import type { OrganizationMemberPermissions, Personnel, StatusType, TrainingType, PersonnelTraining } from '$lib/types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { OrganizationMemberPermissions } from '$lib/types';
 import {
 	ensureUserSubscription,
 	countUserOrganizations,
@@ -10,65 +9,13 @@ import {
 } from '$lib/server/subscription';
 import { isBillingEnabled } from '$lib/config/billing';
 import { getSupabaseClient } from '$lib/server/supabase';
-
-function transformPersonnel(data: any[]): Personnel[] {
-	return data.map((p: any) => ({
-		id: p.id,
-		rank: p.rank,
-		lastName: p.last_name,
-		firstName: p.first_name,
-		mos: p.mos ?? '',
-		clinicRole: p.clinic_role,
-		groupId: p.group_id,
-		groupName: p.groups?.name ?? ''
-	}));
-}
-
-function transformGroups(data: any[]): Group[] {
-	return data.map((g: any) => ({
-		id: g.id,
-		name: g.name,
-		sortOrder: g.sort_order
-	}));
-}
-
-function transformStatusTypes(data: any[]): StatusType[] {
-	return data.map((s: any) => ({
-		id: s.id,
-		name: s.name,
-		color: s.color,
-		textColor: s.text_color
-	}));
-}
-
-function transformTrainingTypes(data: any[]): TrainingType[] {
-	return data.map((t: any) => ({
-		id: t.id,
-		name: t.name,
-		description: t.description,
-		expirationMonths: t.expiration_months,
-		warningDaysYellow: t.warning_days_yellow,
-		warningDaysOrange: t.warning_days_orange,
-		requiredForRoles: t.required_for_roles ?? [],
-		color: t.color,
-		sortOrder: t.sort_order,
-		expirationDateOnly: t.expiration_date_only ?? false,
-		canBeExempted: t.can_be_exempted ?? false,
-		exemptPersonnelIds: t.exempt_personnel_ids ?? []
-	}));
-}
-
-function transformPersonnelTrainings(data: any[]): PersonnelTraining[] {
-	return data.map((t: any) => ({
-		id: t.id,
-		personnelId: t.personnel_id,
-		trainingTypeId: t.training_type_id,
-		completionDate: t.completion_date,
-		expirationDate: t.expiration_date,
-		notes: t.notes,
-		certificateUrl: t.certificate_url
-	}));
-}
+import {
+	transformPersonnel,
+	transformGroups,
+	transformStatusTypes,
+	transformTrainingTypes,
+	transformPersonnelTrainings
+} from '$lib/server/transforms';
 
 async function fetchSharedData(supabase: any, orgId: string) {
 	const [personnelRes, groupsRes, statusTypesRes, trainingTypesRes, personnelTrainingsRes, activeOnboardingsRes] =

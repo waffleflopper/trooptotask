@@ -30,7 +30,7 @@
 	const uniqueRoles = $derived([...new Set(personnel.map(p => p.clinicRole).filter(Boolean))].sort());
 
 	// Filter personnel based on selections
-	const filteredPersonnel = $derived(() => {
+	const filteredPersonnel = $derived.by(() => {
 		return personnel.filter(p => {
 			if (selectedGroupId && p.groupId !== selectedGroupId) return false;
 			if (selectedMos && p.mos !== selectedMos) return false;
@@ -40,7 +40,7 @@
 	});
 
 	// Create training map for quick lookup
-	const trainingMap = $derived(() => {
+	const trainingMap = $derived.by(() => {
 		const map = new Map<string, PersonnelTraining>();
 		for (const t of trainings) {
 			map.set(`${t.personnelId}-${t.trainingTypeId}`, t);
@@ -58,14 +58,14 @@
 		}[];
 	}
 
-	const personnelReportData = $derived(() => {
+	const personnelReportData = $derived.by(() => {
 		const result: PersonnelReportItem[] = [];
 
-		for (const person of filteredPersonnel()) {
+		for (const person of filteredPersonnel) {
 			const personTrainings: PersonnelReportItem['trainings'] = [];
 
 			for (const type of trainingTypes) {
-				const training = trainingMap().get(`${person.id}-${type.id}`);
+				const training = trainingMap.get(`${person.id}-${type.id}`);
 				const statusInfo = getTrainingStatus(training, type, person);
 
 				// Only include if status is selected and not "not-required"
@@ -107,7 +107,7 @@
 		statusInfo: TrainingStatusInfo;
 	}
 
-	const trainingReportData = $derived(() => {
+	const trainingReportData = $derived.by(() => {
 		if (!selectedTrainingTypeId) return [];
 
 		const type = trainingTypes.find(t => t.id === selectedTrainingTypeId);
@@ -115,8 +115,8 @@
 
 		const result: TrainingReportItem[] = [];
 
-		for (const person of filteredPersonnel()) {
-			const training = trainingMap().get(`${person.id}-${type.id}`);
+		for (const person of filteredPersonnel) {
+			const training = trainingMap.get(`${person.id}-${type.id}`);
 			const statusInfo = getTrainingStatus(training, type, person);
 
 			if (statusInfo.status !== 'not-required' && selectedStatuses.has(statusInfo.status)) {
@@ -140,12 +140,12 @@
 	});
 
 	// Stats for selected filters
-	const stats = $derived(() => {
+	const stats = $derived.by(() => {
 		const counts = { current: 0, warningYellow: 0, warningOrange: 0, expired: 0, notCompleted: 0 };
 
-		for (const person of filteredPersonnel()) {
+		for (const person of filteredPersonnel) {
 			for (const type of trainingTypes) {
-				const training = trainingMap().get(`${person.id}-${type.id}`);
+				const training = trainingMap.get(`${person.id}-${type.id}`);
 				const statusInfo = getTrainingStatus(training, type, person);
 
 				switch (statusInfo.status) {
@@ -190,7 +190,7 @@
 		// Header
 		rows.push(['Rank', 'Last Name', 'First Name', 'Group', 'MOS', 'Role', 'Training', 'Status', 'Days Until Expiration', 'Completion Date', 'Expiration Date']);
 
-		for (const item of personnelReportData()) {
+		for (const item of personnelReportData) {
 			const person = item.person;
 			for (const t of item.trainings) {
 				rows.push([
@@ -223,7 +223,7 @@
 		// Header
 		rows.push(['Rank', 'Last Name', 'First Name', 'Group', 'MOS', 'Role', 'Status', 'Days Until Expiration', 'Completion Date', 'Expiration Date']);
 
-		for (const item of trainingReportData()) {
+		for (const item of trainingReportData) {
 			const person = item.person;
 			rows.push([
 				person.rank,
@@ -348,7 +348,7 @@
 						style="--toggle-color: {TRAINING_STATUS_COLORS['expired']}"
 						onclick={() => toggleStatus('expired')}
 					>
-						Expired ({stats().expired})
+						Expired ({stats.expired})
 					</button>
 					<button
 						class="status-toggle"
@@ -356,7 +356,7 @@
 						style="--toggle-color: {TRAINING_STATUS_COLORS['warning-orange']}"
 						onclick={() => toggleStatus('warning-orange')}
 					>
-						Under 30d ({stats().warningOrange})
+						Under 30d ({stats.warningOrange})
 					</button>
 					<button
 						class="status-toggle"
@@ -364,7 +364,7 @@
 						style="--toggle-color: {TRAINING_STATUS_COLORS['warning-yellow']}"
 						onclick={() => toggleStatus('warning-yellow')}
 					>
-						Under 60d ({stats().warningYellow})
+						Under 60d ({stats.warningYellow})
 					</button>
 					<button
 						class="status-toggle"
@@ -372,7 +372,7 @@
 						style="--toggle-color: {TRAINING_STATUS_COLORS['not-completed']}"
 						onclick={() => toggleStatus('not-completed')}
 					>
-						Not Done ({stats().notCompleted})
+						Not Done ({stats.notCompleted})
 					</button>
 					<button
 						class="status-toggle"
@@ -380,7 +380,7 @@
 						style="--toggle-color: {TRAINING_STATUS_COLORS['current']}"
 						onclick={() => toggleStatus('current')}
 					>
-						Current ({stats().current})
+						Current ({stats.current})
 					</button>
 				</div>
 			</div>
@@ -389,11 +389,11 @@
 			<div class="report-content">
 				{#if activeReport === 'personnel'}
 					<!-- Personnel Report -->
-					{#if personnelReportData().length === 0}
+					{#if personnelReportData.length === 0}
 						<p class="empty-message">No personnel match the selected filters.</p>
 					{:else}
 						<div class="report-list">
-							{#each personnelReportData() as item (item.person.id)}
+							{#each personnelReportData as item (item.person.id)}
 								<div class="person-card">
 									<div class="person-header">
 										<span class="person-rank">{item.person.rank}</span>
@@ -427,7 +427,7 @@
 					<!-- Training Report -->
 					{#if !selectedTrainingTypeId}
 						<p class="empty-message">Select a training type to view the report.</p>
-					{:else if trainingReportData().length === 0}
+					{:else if trainingReportData.length === 0}
 						<p class="empty-message">No personnel match the selected filters for this training.</p>
 					{:else}
 						<div class="report-table-container">
@@ -444,7 +444,7 @@
 									</tr>
 								</thead>
 								<tbody>
-									{#each trainingReportData() as item (item.person.id)}
+									{#each trainingReportData as item (item.person.id)}
 										<tr>
 											<td class="rank-cell">{item.person.rank}</td>
 											<td>{item.person.lastName}, {item.person.firstName}</td>
@@ -472,20 +472,20 @@
 		<div class="modal-footer">
 			<div class="footer-info">
 				{#if activeReport === 'personnel'}
-					{personnelReportData().length} personnel
+					{personnelReportData.length} personnel
 				{:else if selectedTrainingTypeId}
-					{trainingReportData().length} personnel
+					{trainingReportData.length} personnel
 				{/if}
 			</div>
 			<div class="footer-actions">
-				{#if activeReport === 'personnel' && personnelReportData().length > 0}
+				{#if activeReport === 'personnel' && personnelReportData.length > 0}
 					<button class="btn btn-secondary" onclick={exportPersonnelReport}>
 						<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
 							<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
 						</svg>
 						Export to Excel
 					</button>
-				{:else if activeReport === 'training' && selectedTrainingTypeId && trainingReportData().length > 0}
+				{:else if activeReport === 'training' && selectedTrainingTypeId && trainingReportData.length > 0}
 					<button class="btn btn-secondary" onclick={exportTrainingReport}>
 						<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
 							<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />

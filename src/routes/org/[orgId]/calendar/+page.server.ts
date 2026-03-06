@@ -1,9 +1,13 @@
 import type { PageServerLoad } from './$types';
-import type { AvailabilityEntry, SpecialDay } from '$lib/types';
-import type { AssignmentType, DailyAssignment } from '$lib/stores/dailyAssignments.svelte';
-import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { formatDate } from '$lib/utils/dates';
+import {
+	transformAvailabilityEntries,
+	transformSpecialDays,
+	transformAssignmentTypes,
+	transformDailyAssignments,
+	transformRosterHistory
+} from '$lib/server/transforms';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const { orgId } = params;
@@ -65,49 +69,14 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 			.limit(50)
 	]);
 
-	const availabilityEntries: AvailabilityEntry[] = (availabilityRes.data ?? []).map((a: any) => ({
-		id: a.id,
-		personnelId: a.personnel_id,
-		statusTypeId: a.status_type_id,
-		startDate: a.start_date,
-		endDate: a.end_date
-	}));
-
-	const specialDays: SpecialDay[] = (specialDaysRes.data ?? []).map((d: any) => ({
-		id: d.id,
-		date: d.date,
-		name: d.name,
-		type: d.type
-	}));
-
-	const assignmentTypes: AssignmentType[] = (assignmentTypesRes.data ?? []).map((t: any) => ({
-		id: t.id,
-		name: t.name,
-		shortName: t.short_name,
-		assignTo: t.assign_to,
-		color: t.color,
-		exemptPersonnelIds: t.exempt_personnel_ids ?? []
-	}));
-
-	const dailyAssignments: DailyAssignment[] = (dailyAssignmentsRes.data ?? []).map((a: any) => ({
-		id: a.id,
-		date: a.date,
-		assignmentTypeId: a.assignment_type_id,
-		assigneeId: a.assignee_id
-	}));
+	const availabilityEntries = transformAvailabilityEntries(availabilityRes.data ?? []);
+	const specialDays = transformSpecialDays(specialDaysRes.data ?? []);
+	const assignmentTypes = transformAssignmentTypes(assignmentTypesRes.data ?? []);
+	const dailyAssignments = transformDailyAssignments(dailyAssignmentsRes.data ?? []);
 
 	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map((p: any) => p.group_name);
 
-	const rosterHistory: RosterHistoryItem[] = (rosterHistoryRes.data ?? []).map((r: any) => ({
-		id: r.id,
-		assignmentTypeId: r.assignment_type_id,
-		name: r.name,
-		startDate: r.start_date,
-		endDate: r.end_date,
-		roster: r.roster,
-		config: r.config ?? {},
-		createdAt: r.created_at
-	}));
+	const rosterHistory = transformRosterHistory(rosterHistoryRes.data ?? []);
 
 	return {
 		orgId,

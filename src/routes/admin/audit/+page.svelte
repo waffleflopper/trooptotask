@@ -1,19 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data } = $props();
-
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit'
-		});
-	}
 
 	function formatAction(action: string): string {
 		return action.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
@@ -80,7 +70,7 @@
 			<tbody>
 				{#each data.logs as log (log.id)}
 					<tr>
-						<td class="timestamp">{formatDate(log.createdAt)}</td>
+						<td class="timestamp">{formatDisplayDateTime(log.createdAt)}</td>
 						<td>
 							<code class="user-id">{log.adminUserId.slice(0, 8)}...</code>
 						</td>

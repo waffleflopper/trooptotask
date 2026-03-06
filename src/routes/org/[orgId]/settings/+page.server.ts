@@ -5,23 +5,24 @@ import { PERMISSION_PRESETS, type OrganizationMember, type PermissionPreset } fr
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	const { orgId, orgName, userRole, permissions, allOrgs } = await parent();
 
-	// Get organization details
-	const { data: organization } = await locals.supabase
-		.from('organizations')
-		.select('id, name')
-		.eq('id', orgId)
-		.single();
+	// Parallelize members + invitations queries
+	const [membershipsRes, invitationsRes] = await Promise.all([
+		locals.supabase
+			.from('organization_memberships')
+			.select(
+				'id, user_id, email, role, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
+			)
+			.eq('organization_id', orgId),
+		locals.supabase
+			.from('organization_invitations')
+			.select(
+				'id, email, status, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
+			)
+			.eq('organization_id', orgId)
+			.eq('status', 'pending')
+	]);
 
-	// Get members with full permission data
-	const { data: memberships } = await locals.supabase
-		.from('organization_memberships')
-		.select(
-			'id, user_id, email, role, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
-		)
-		.eq('organization_id', orgId);
-
-	// Map to OrganizationMember type
-	const members: OrganizationMember[] = (memberships ?? []).map((m: any) => ({
+	const members: OrganizationMember[] = (membershipsRes.data ?? []).map((m: any) => ({
 		id: m.id,
 		organizationId: orgId,
 		userId: m.user_id,
@@ -37,16 +38,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		canManageMembers: m.can_manage_members
 	}));
 
-	// Get pending invitations with permissions
-	const { data: invitations } = await locals.supabase
-		.from('organization_invitations')
-		.select(
-			'id, email, status, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
-		)
-		.eq('organization_id', orgId)
-		.eq('status', 'pending');
-
-	const mappedInvitations = (invitations ?? []).map((inv: any) => ({
+	const invitations = (invitationsRes.data ?? []).map((inv: any) => ({
 		id: inv.id,
 		email: inv.email,
 		status: inv.status,
@@ -65,9 +57,8 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		orgName,
 		permissions,
 		allOrgs,
-		organization,
 		members,
-		invitations: mappedInvitations,
+		invitations,
 		isOwner: userRole === 'owner',
 		canManageMembers: permissions.canManageMembers
 	};

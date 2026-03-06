@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { formatRelativeDate } from '$lib/utils/dates';
 	import Badge from './ui/Badge.svelte';
 	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 	import type {
@@ -112,17 +113,6 @@
 		}
 	}
 
-	function formatDate(dateString: string): string {
-		const date = new Date(dateString);
-		const now = new Date();
-		const diffMs = now.getTime() - date.getTime();
-		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-		if (diffDays === 0) return 'Today';
-		if (diffDays === 1) return 'Yesterday';
-		if (diffDays < 7) return `${diffDays} days ago`;
-		return date.toLocaleDateString();
-	}
 
 	function getInvitePreset(invite: Invitation): PermissionPreset {
 		return getPermissionPreset({
@@ -420,7 +410,7 @@
 							<div class="invite-info">
 								<span class="invite-email">{invite.email}</span>
 								<span class="invite-meta">
-									{getPresetLabel(invitePreset)} - Sent {formatDate(invite.createdAt)}
+									{getPresetLabel(invitePreset)} - Sent {formatRelativeDate(invite.createdAt)}
 								</span>
 							</div>
 							<form method="POST" action="?/revokeInvite" use:enhance>
@@ -607,13 +597,7 @@
 		color: var(--color-text);
 	}
 
-	.checkbox-label {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		font-size: var(--font-size-sm);
-		cursor: pointer;
-	}
+	/* .checkbox-label base in app.css */
 
 	.checkbox-label input {
 		cursor: pointer;

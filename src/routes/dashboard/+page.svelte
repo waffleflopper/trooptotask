@@ -1,21 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { formatRelativeDate } from '$lib/utils/dates';
 
 	let { data, form } = $props();
 	let loading = $state<string | null>(null);
-
-	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		const now = new Date();
-		const diffMs = now.getTime() - date.getTime();
-		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-		if (diffDays === 0) return 'today';
-		if (diffDays === 1) return 'yesterday';
-		if (diffDays < 7) return `${diffDays} days ago`;
-		return date.toLocaleDateString();
-	}
 </script>
 
 <svelte:head>
@@ -58,7 +47,7 @@
 						<div class="invitation-item">
 							<div class="invitation-info">
 								<span class="invitation-org">{invitation.organizationName}</span>
-								<span class="invitation-meta">Invited {formatDate(invitation.createdAt)}</span>
+								<span class="invitation-meta">Invited {formatRelativeDate(invitation.createdAt)}</span>
 							</div>
 							<div class="invitation-actions">
 								<form

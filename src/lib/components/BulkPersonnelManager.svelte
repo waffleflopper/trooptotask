@@ -397,7 +397,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 									class="group-chip"
 									onclick={() => selectGroup(grp.group)}
 								>
-									{grp.group || 'Unassigned'}
+									{grp.group}
 									<span class="chip-count">{grp.personnel.length}</span>
 								</button>
 							{/if}
@@ -408,7 +408,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 						{#each personnelByGroup as grp}
 							{#if grp.personnel.length > 0}
 								<div class="checklist-group">
-									<div class="checklist-header">{grp.group || 'Unassigned'}</div>
+									<div class="checklist-header">{grp.group}</div>
 									<div class="checklist-items">
 										{#each grp.personnel as person}
 											{@const isSelected = selectedIds.has(person.id)}

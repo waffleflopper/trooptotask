@@ -108,7 +108,7 @@
 						<option value="">-- Not Assigned --</option>
 						{#each eligibleGroups as grp}
 							{#if grp.personnel.length > 0}
-								<optgroup label={grp.group || 'Unassigned'}>
+								<optgroup label={grp.group}>
 									{#each grp.personnel as person}
 										<option value={person.id}>
 											{person.rank}

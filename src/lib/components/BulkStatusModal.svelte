@@ -260,7 +260,7 @@
 										indeterminate={selectionState === 'some'}
 										onchange={() => toggleGroup(grp.group)}
 									/>
-									<span class="group-name">{grp.group || 'Unassigned'}</span>
+									<span class="group-name">{grp.group}</span>
 									<span class="group-count">({grp.personnel.length})</span>
 								</label>
 							</div>

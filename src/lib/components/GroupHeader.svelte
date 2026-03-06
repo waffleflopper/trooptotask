@@ -14,7 +14,7 @@
 	<div class="group-info">
 		<button class="group-toggle" onclick={onToggle}>
 			<span class="toggle-icon">{isCollapsed ? '▶' : '▼'}</span>
-			<span class="group-name">{groupName || 'Unassigned'}</span>
+			<span class="group-name">{groupName}</span>
 		</button>
 		<button
 			class="pin-btn"

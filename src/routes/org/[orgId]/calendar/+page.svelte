@@ -68,7 +68,7 @@
 
 	// Use shared utility for personnel grouping (also used by other pages)
 	const personnelByGroup = $derived(
-		groupAndSortPersonnel(personnelStore.list, pinnedGroupsStore.list)
+		groupAndSortPersonnel(personnelStore.list, { pinnedGroups: pinnedGroupsStore.list, fallbackGroupName: data.orgName })
 	);
 
 	function handlePinToggle(group: string) {

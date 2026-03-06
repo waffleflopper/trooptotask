@@ -57,7 +57,7 @@
 
 	// Group view - use shared utility
 	const personnelByGroup = $derived(
-		groupAndSortPersonnel(filteredPersonnel, pinnedGroupsStore.list)
+		groupAndSortPersonnel(filteredPersonnel, { pinnedGroups: pinnedGroupsStore.list, fallbackGroupName: data.orgName })
 	);
 
 	// Alphabetical view - sorted by name
@@ -297,7 +297,7 @@
 							<div class="group-header">
 								<button class="group-toggle" onclick={() => toggleGroup(grp.group)}>
 									<span class="toggle-icon">{collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
-									<span class="group-name">{grp.group || 'Unassigned'}</span>
+									<span class="group-name">{grp.group}</span>
 									<span class="group-count">({grp.personnel.length})</span>
 								</button>
 								<button

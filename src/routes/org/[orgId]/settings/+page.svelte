@@ -100,19 +100,6 @@
 			<p>This will permanently delete <strong>{data.organization?.name}</strong> and all associated data.</p>
 			<p class="danger-warning">This action cannot be undone.</p>
 
-			<div class="form-group">
-				<label class="label" for="confirmDelete">
-					Type <strong>{data.organization?.name}</strong> to confirm:
-				</label>
-				<input
-					id="confirmDelete"
-					type="text"
-					class="input"
-					bind:value={deleteConfirmText}
-					placeholder="Enter organization name"
-				/>
-			</div>
-
 			<form
 				method="POST"
 				action="?/deleteOrganization"
@@ -123,7 +110,21 @@
 						await update();
 					};
 				}}
+				onsubmit={(e) => { if (deleteConfirmText !== data.organization?.name) e.preventDefault(); }}
 			>
+				<div class="form-group">
+					<label class="label" for="confirmDelete">
+						Type <strong>{data.organization?.name}</strong> to confirm:
+					</label>
+					<input
+						id="confirmDelete"
+						type="text"
+						class="input"
+						bind:value={deleteConfirmText}
+						placeholder="Enter organization name"
+						autocomplete="off"
+					/>
+				</div>
 				<div class="modal-actions">
 					<button type="button" class="btn btn-secondary" onclick={() => (showDeleteConfirm = false)}>
 						Cancel

@@ -114,8 +114,8 @@
 		const items: OverflowItem[] = [];
 		if (data.permissions.canEditPersonnel) {
 			items.push({ label: 'Add Person', onclick: handleAdd });
-			items.push({ label: 'Bulk Import', onclick: () => (showBulkManager = true), divider: true });
 			items.push({ label: 'Manage Groups', onclick: () => (showGroupManager = true) });
+			items.push({ label: 'Bulk Import', onclick: () => (showBulkManager = true), divider: true });
 		}
 		return items;
 	});
@@ -190,6 +190,9 @@
 <div class="page">
 	<PageToolbar title="Personnel" helpTopic={pageView === 'rating-scheme' ? 'rating-scheme' : 'personnel'} overflowItems={personnelOverflowItems}>
 		{#if data.permissions.canEditPersonnel}
+			<button class="btn-ghost" onclick={() => (showGroupManager = true)}>
+				Manage Groups
+			</button>
 			<button class="btn btn-sm btn-primary" onclick={handleAdd}>
 				Add Person
 			</button>
@@ -506,10 +509,28 @@
 
 	.page-view-toggle {
 		display: flex;
+		justify-content: center;
 		gap: 0;
 		padding: var(--spacing-sm) var(--spacing-lg);
 		border-bottom: 1px solid var(--color-border);
 		background: var(--color-surface);
+	}
+
+	.btn-ghost {
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.btn-ghost:hover {
+		color: var(--color-text);
+		background: var(--color-surface-variant);
 	}
 
 	.page-view-btn {

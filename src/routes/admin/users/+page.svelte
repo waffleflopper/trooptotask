@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { formatPrice, getStatusLabel, getStatusColor } from '$lib/types/subscription';
 	import PlatformInviteManager from '$lib/components/PlatformInviteManager.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
 
@@ -13,19 +12,6 @@
 	function applyFilters() {
 		const params = new URLSearchParams();
 		if (searchInput) params.set('search', searchInput);
-		if (data.planFilter) params.set('plan', data.planFilter);
-		if (data.statusFilter) params.set('status', data.statusFilter);
-		params.set('page', '1');
-		goto(`/admin/users?${params.toString()}`);
-	}
-
-	function setFilter(type: 'plan' | 'status', value: string) {
-		const params = new URLSearchParams($page.url.searchParams);
-		if (value) {
-			params.set(type, value);
-		} else {
-			params.delete(type);
-		}
 		params.set('page', '1');
 		goto(`/admin/users?${params.toString()}`);
 	}
@@ -73,31 +59,6 @@
 			/>
 			<button type="submit" class="search-btn">Search</button>
 		</form>
-
-		<div class="filter-group">
-			<select
-				value={data.planFilter}
-				onchange={(e) => setFilter('plan', e.currentTarget.value)}
-				class="filter-select"
-			>
-				<option value="">All Plans</option>
-				<option value="free">Free</option>
-				<option value="pro">Pro</option>
-				<option value="team">Team</option>
-			</select>
-
-			<select
-				value={data.statusFilter}
-				onchange={(e) => setFilter('status', e.currentTarget.value)}
-				class="filter-select"
-			>
-				<option value="">All Statuses</option>
-				<option value="active">Active</option>
-				<option value="trialing">Trialing</option>
-				<option value="past_due">Past Due</option>
-				<option value="canceled">Canceled</option>
-			</select>
-		</div>
 	</div>
 
 	<!-- Users Table -->
@@ -106,11 +67,7 @@
 			<thead>
 				<tr>
 					<th>User</th>
-					<th>Plan</th>
-					<th>Status</th>
 					<th>Organizations</th>
-					<th>Total Paid</th>
-					<th>Last Payment</th>
 					<th>Joined</th>
 					<th></th>
 				</tr>
@@ -122,19 +79,7 @@
 							<span class="user-email">{user.email || 'No email'}</span>
 							<code class="user-id">{user.id.slice(0, 8)}...</code>
 						</td>
-						<td>
-							<span class="plan-badge" class:free={user.planId === 'free'} class:pro={user.planId === 'pro'} class:team={user.planId === 'team'}>
-								{user.planName}
-							</span>
-						</td>
-						<td>
-							<span class="status-badge" style="--status-color: {getStatusColor(user.status)}">
-								{getStatusLabel(user.status)}
-							</span>
-						</td>
 						<td>{user.organizationCount}</td>
-						<td>{formatPrice(user.totalPaid)}</td>
-						<td>{formatDisplayDate(user.lastPaymentAt)}</td>
 						<td>{formatDisplayDate(user.createdAt)}</td>
 						<td>
 							<a href="/admin/users/{user.id}" class="view-btn">View</a>
@@ -142,7 +87,7 @@
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="8" class="empty-state">No users found</td>
+						<td colspan="4" class="empty-state">No users found</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -257,21 +202,6 @@
 		background: var(--color-primary-hover);
 	}
 
-	.filter-group {
-		display: flex;
-		gap: var(--spacing-sm);
-	}
-
-	.filter-select {
-		padding: var(--spacing-sm) var(--spacing-md);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
-		cursor: pointer;
-	}
-
 	/* Table */
 	.users-table-container {
 		background: var(--color-surface);
@@ -327,39 +257,6 @@
 		border-radius: var(--radius-sm);
 		color: var(--color-text-muted);
 		width: fit-content;
-	}
-
-	.plan-badge {
-		display: inline-block;
-		font-size: var(--font-size-xs);
-		font-weight: 500;
-		padding: 2px 8px;
-		border-radius: var(--radius-full);
-	}
-
-	.plan-badge.free {
-		background: var(--color-surface-variant);
-		color: var(--color-text-muted);
-	}
-
-	.plan-badge.pro {
-		background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-		color: var(--color-primary);
-	}
-
-	.plan-badge.team {
-		background: color-mix(in srgb, var(--color-success) 15%, transparent);
-		color: var(--color-success);
-	}
-
-	.status-badge {
-		display: inline-block;
-		font-size: var(--font-size-xs);
-		font-weight: 500;
-		padding: 2px 8px;
-		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--status-color) 15%, transparent);
-		color: var(--status-color);
 	}
 
 	.view-btn {

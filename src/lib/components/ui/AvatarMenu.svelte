@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { isBillingEnabled } from '$lib/config/billing';
 	import OverflowMenu from './OverflowMenu.svelte';
 	import type { OverflowItem } from './OverflowMenu.svelte';
 
@@ -69,12 +68,7 @@
 		// 6. Org Settings
 		result.push({ label: 'Org Settings', href: `/org/${orgId}/settings` });
 
-		// 7. Billing (only if enabled)
-		if (isBillingEnabled) {
-			result.push({ label: 'Billing', href: '/billing' });
-		}
-
-		// 8. Theme toggle
+		// 7. Theme toggle
 		result.push({
 			label: isDarkTheme ? 'Light Mode' : 'Dark Mode',
 			toggle: true,

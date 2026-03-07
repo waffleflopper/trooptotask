@@ -1,10 +1,16 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { getDefaultFederalHolidays } from "$lib/utils/federalHolidays";
+import { canCreateOrg } from "$lib/server/subscription";
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.user) throw redirect(303, "/auth/login");
-  return {};
+
+  const canCreate = await canCreateOrg(locals.supabase, locals.user.id);
+  return {
+    canCreate: canCreate.allowed,
+    canCreateMessage: canCreate.message
+  };
 };
 
 const DEFAULT_GROUPS = ["Leadership", "Alpha", "Bravo"];
@@ -49,6 +55,12 @@ export const actions: Actions = {
 
     if (!name) {
       return fail(400, { error: "Organization name is required" });
+    }
+
+    // Enforce org creation limit
+    const canCreate = await canCreateOrg(locals.supabase, user.id);
+    if (!canCreate.allowed) {
+      return fail(403, { error: canCreate.message });
     }
 
     // Use the database function to create organization and membership atomically

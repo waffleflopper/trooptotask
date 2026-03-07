@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET } from '$env/static/private';
+import { TIER_CONFIG } from '$lib/types/subscription';
 
 function getStripe(): Stripe {
 	if (!STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not set');
@@ -17,7 +18,6 @@ export async function createCheckoutSession(options: {
 }): Promise<string> {
 	const stripe = getStripe();
 
-	const { TIER_CONFIG } = await import('$lib/types/subscription');
 	const priceId = TIER_CONFIG[options.tier].stripePriceId;
 	if (!priceId) throw new Error(`No Stripe price ID configured for tier: ${options.tier}`);
 
@@ -42,7 +42,8 @@ export async function createCheckoutSession(options: {
 		}
 	});
 
-	return session.url!;
+	if (!session.url) throw new Error('Stripe checkout session URL is null');
+	return session.url;
 }
 
 export async function createPortalSession(

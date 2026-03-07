@@ -695,6 +695,82 @@ $$;
 
 ALTER FUNCTION "public"."update_updated_at_column"() OWNER TO "postgres";
 
+
+CREATE OR REPLACE FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+DECLARE
+  v_org record;
+  v_tier text;
+  v_source text;
+  v_personnel_count integer;
+  v_cap integer;
+  v_is_read_only boolean;
+BEGIN
+  SELECT * INTO v_org FROM organizations WHERE id = p_org_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'org_not_found');
+  END IF;
+
+  -- Priority: active Stripe > active gift > free
+  IF v_org.stripe_subscription_id IS NOT NULL
+     AND v_org.subscription_status = 'active'
+     AND v_org.tier != 'free' THEN
+    -- Check if gift overrides (gift >= sub tier)
+    IF v_org.gift_tier IS NOT NULL
+       AND v_org.gift_expires_at > now() THEN
+      -- Compare tiers: unit > team > free
+      IF (CASE v_org.gift_tier WHEN 'unit' THEN 3 WHEN 'team' THEN 2 ELSE 1 END)
+         >= (CASE v_org.tier WHEN 'unit' THEN 3 WHEN 'team' THEN 2 ELSE 1 END) THEN
+        v_tier := v_org.gift_tier;
+        v_source := 'gift';
+      ELSE
+        v_tier := v_org.tier;
+        v_source := 'subscription';
+      END IF;
+    ELSE
+      v_tier := v_org.tier;
+      v_source := 'subscription';
+    END IF;
+  ELSIF v_org.gift_tier IS NOT NULL
+        AND v_org.gift_expires_at > now() THEN
+    v_tier := v_org.gift_tier;
+    v_source := 'gift';
+  ELSE
+    v_tier := 'free';
+    v_source := 'default';
+  END IF;
+
+  -- Get personnel count
+  SELECT count(*) INTO v_personnel_count
+  FROM personnel WHERE organization_id = p_org_id;
+
+  -- Determine cap
+  v_cap := CASE v_tier
+    WHEN 'free' THEN 15
+    WHEN 'team' THEN 80
+    WHEN 'unit' THEN 999999
+    ELSE 15
+  END;
+
+  v_is_read_only := v_personnel_count > v_cap;
+
+  RETURN jsonb_build_object(
+    'tier', v_tier,
+    'source', v_source,
+    'personnelCount', v_personnel_count,
+    'personnelCap', v_cap,
+    'isReadOnly', v_is_read_only,
+    'giftExpiresAt', v_org.gift_expires_at,
+    'giftTier', v_org.gift_tier
+  );
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") OWNER TO "postgres";
+
 SET default_tablespace = '';
 
 SET default_table_access_method = "heap";
@@ -965,7 +1041,18 @@ CREATE TABLE IF NOT EXISTS "public"."organizations" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "demo_type" "text",
     "demo_expires_at" timestamp with time zone,
-    CONSTRAINT "organizations_demo_type_check" CHECK (("demo_type" = ANY (ARRAY['showcase'::"text", 'sandbox'::"text"])))
+    "tier" "text" DEFAULT 'free'::"text" NOT NULL,
+    "stripe_customer_id" "text",
+    "stripe_subscription_id" "text",
+    "subscription_status" "text" DEFAULT 'active'::"text",
+    "current_period_end" timestamp with time zone,
+    "gift_tier" "text",
+    "gift_expires_at" timestamp with time zone,
+    "gifted_by" "uuid",
+    CONSTRAINT "organizations_demo_type_check" CHECK (("demo_type" = ANY (ARRAY['showcase'::"text", 'sandbox'::"text"]))),
+    CONSTRAINT "organizations_tier_check" CHECK (("tier" = ANY (ARRAY['free'::"text", 'team'::"text", 'unit'::"text"]))),
+    CONSTRAINT "organizations_subscription_status_check" CHECK (("subscription_status" = ANY (ARRAY['active'::"text", 'canceled'::"text", 'past_due'::"text", 'paused'::"text"]))),
+    CONSTRAINT "organizations_gift_tier_check" CHECK ((("gift_tier" IS NULL) OR ("gift_tier" = ANY (ARRAY['team'::"text", 'unit'::"text"]))))
 );
 
 
@@ -1174,6 +1261,36 @@ CREATE TABLE IF NOT EXISTS "public"."user_pinned_groups" (
 ALTER TABLE "public"."user_pinned_groups" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."data_exports" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "org_id" "uuid" NOT NULL,
+    "requested_by" "uuid" NOT NULL,
+    "status" "text" DEFAULT 'pending'::"text" NOT NULL,
+    "file_path" "text",
+    "file_size_bytes" bigint,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "completed_at" timestamp with time zone,
+    CONSTRAINT "data_exports_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'processing'::"text", 'completed'::"text", 'failed'::"text"])))
+);
+
+
+ALTER TABLE "public"."data_exports" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."stripe_webhook_events" (
+    "id" "text" NOT NULL,
+    "type" "text" NOT NULL,
+    "data" "jsonb" NOT NULL,
+    "processed" boolean DEFAULT false NOT NULL,
+    "processed_at" timestamp with time zone,
+    "error" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."stripe_webhook_events" OWNER TO "postgres";
+
+
 
 ALTER TABLE ONLY "public"."access_requests"
     ADD CONSTRAINT "access_requests_pkey" PRIMARY KEY ("id");
@@ -1358,6 +1475,16 @@ ALTER TABLE ONLY "public"."user_pinned_groups"
 
 
 
+ALTER TABLE ONLY "public"."data_exports"
+    ADD CONSTRAINT "data_exports_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."stripe_webhook_events"
+    ADD CONSTRAINT "stripe_webhook_events_pkey" PRIMARY KEY ("id");
+
+
+
 
 CREATE UNIQUE INDEX "access_requests_pending_email_idx" ON "public"."access_requests" USING "btree" ("lower"("email")) WHERE ("status" = 'pending'::"text");
 
@@ -1532,6 +1659,10 @@ CREATE INDEX "rating_scheme_entries_org_idx" ON "public"."rating_scheme_entries"
 
 
 CREATE INDEX "rating_scheme_entries_rated_idx" ON "public"."rating_scheme_entries" USING "btree" ("rated_person_id");
+
+
+
+CREATE INDEX "idx_data_exports_org_created" ON "public"."data_exports" USING "btree" ("org_id", "created_at" DESC);
 
 
 
@@ -1824,6 +1955,21 @@ ALTER TABLE ONLY "public"."user_pinned_groups"
 
 ALTER TABLE ONLY "public"."user_pinned_groups"
     ADD CONSTRAINT "user_pinned_groups_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."organizations"
+    ADD CONSTRAINT "organizations_gifted_by_fkey" FOREIGN KEY ("gifted_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."data_exports"
+    ADD CONSTRAINT "data_exports_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."data_exports"
+    ADD CONSTRAINT "data_exports_requested_by_fkey" FOREIGN KEY ("requested_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -2274,6 +2420,22 @@ CREATE POLICY "org_members_can_select_roster_history" ON "public"."duty_roster_h
 
 
 
+CREATE POLICY "Org members can read exports" ON "public"."data_exports" FOR SELECT USING (("org_id" IN ( SELECT "organization_memberships"."organization_id"
+   FROM "public"."organization_memberships"
+  WHERE ("organization_memberships"."user_id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "Org owner can create exports" ON "public"."data_exports" FOR INSERT WITH CHECK (("org_id" IN ( SELECT "organizations"."id"
+   FROM "public"."organizations"
+  WHERE ("organizations"."created_by" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "Service role only for webhooks" ON "public"."stripe_webhook_events" FOR ALL USING (false);
+
+
+
 ALTER TABLE "public"."organization_invitations" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2317,6 +2479,11 @@ ALTER TABLE "public"."training_types" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE "public"."user_pinned_groups" ENABLE ROW LEVEL SECURITY;
 
+
+ALTER TABLE "public"."data_exports" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."stripe_webhook_events" ENABLE ROW LEVEL SECURITY;
 
 
 
@@ -2803,6 +2970,15 @@ GRANT ALL ON TABLE "public"."user_pinned_groups" TO "anon";
 GRANT ALL ON TABLE "public"."user_pinned_groups" TO "authenticated";
 GRANT ALL ON TABLE "public"."user_pinned_groups" TO "service_role";
 
+
+GRANT ALL ON TABLE "public"."data_exports" TO "anon";
+GRANT ALL ON TABLE "public"."data_exports" TO "authenticated";
+GRANT ALL ON TABLE "public"."data_exports" TO "service_role";
+
+
+GRANT ALL ON TABLE "public"."stripe_webhook_events" TO "anon";
+GRANT ALL ON TABLE "public"."stripe_webhook_events" TO "authenticated";
+GRANT ALL ON TABLE "public"."stripe_webhook_events" TO "service_role";
 
 
 

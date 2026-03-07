@@ -18,7 +18,6 @@ export interface TierConfig {
 	maxOrgsOwned: number;
 	bulkExportsPerMonth: number;
 	priceMonthly: number;
-	stripePriceId: string | null;
 }
 
 export const TIER_CONFIG: Record<Tier, TierConfig> = {
@@ -27,23 +26,20 @@ export const TIER_CONFIG: Record<Tier, TierConfig> = {
 		personnelCap: 15,
 		maxOrgsOwned: 1,
 		bulkExportsPerMonth: 3,
-		priceMonthly: 0,
-		stripePriceId: null
+		priceMonthly: 0
 	},
 	team: {
 		name: 'Team',
 		personnelCap: 80,
 		maxOrgsOwned: 1,
 		bulkExportsPerMonth: Infinity,
-		priceMonthly: 1500, // cents
-		stripePriceId: null // set via env or config when ready
+		priceMonthly: 1500 // cents
 	},
 	unit: {
 		name: 'Unit',
 		personnelCap: Infinity,
 		maxOrgsOwned: Infinity,
 		bulkExportsPerMonth: Infinity,
-		priceMonthly: 3000, // cents
-		stripePriceId: null
+		priceMonthly: 3000 // cents
 	}
 };

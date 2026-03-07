@@ -62,13 +62,22 @@
 		}
 	];
 
-	const roadmap = [
+	const shipped = [
 		{
 			title: 'Digital Leaders Book',
-			description: 'Centralized soldier information, counseling records, and leader tools.',
-			status: 'In Development',
-			statusClass: 'active'
+			description: 'Centralized soldier information, counseling records, and development tracking.',
 		},
+		{
+			title: 'Rating Scheme Tracker',
+			description: 'OER, NCOER, and WOER evaluation tracking with due-status alerts and Excel export.',
+		},
+		{
+			title: 'In-Processing Checklist',
+			description: 'Custom onboarding templates with step-by-step progress tracking per person.',
+		}
+	];
+
+	const roadmap = [
 		{
 			title: 'Event Sign-ups',
 			description: 'Coordinate range days, ACFT, and unit events with built-in sign-up sheets.',
@@ -360,10 +369,27 @@
 	<section id="roadmap" class="roadmap">
 		<div class="section-container">
 			<div class="section-label">Roadmap</div>
-			<h2 class="section-title">What's coming next.</h2>
-			<p class="section-subtitle">Active development driven by leader feedback.</p>
+			<h2 class="section-title">What we've built,<br /><em>and what's next.</em></h2>
+
+			<div class="roadmap-shipped">
+				<h3 class="roadmap-group-title">Recently Shipped</h3>
+				{#each shipped as item}
+					<div class="shipped-entry">
+						<div class="shipped-check">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+						</div>
+						<div>
+							<h4 class="shipped-title">{item.title}</h4>
+							<p class="shipped-description">{item.description}</p>
+						</div>
+					</div>
+				{/each}
+			</div>
 
 			<div class="roadmap-timeline">
+				<h3 class="roadmap-group-title">Coming Next</h3>
 				{#each roadmap as item, i}
 					<div class="roadmap-entry">
 						<div class="roadmap-marker">
@@ -1289,6 +1315,56 @@
 		font-size: 0.9375rem;
 		color: var(--color-text-secondary);
 		line-height: 1.6;
+		margin: 0;
+	}
+
+	.roadmap-group-title {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--color-text-secondary);
+		margin-bottom: 1.25rem;
+	}
+
+	.roadmap-shipped {
+		margin-top: 3rem;
+		margin-bottom: 3rem;
+		max-width: 640px;
+	}
+
+	.shipped-entry {
+		display: flex;
+		gap: 1rem;
+		align-items: flex-start;
+		margin-bottom: 1.25rem;
+	}
+
+	.shipped-check {
+		flex-shrink: 0;
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		background: rgba(76, 175, 80, 0.15);
+		color: #4caf50;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-top: 0.125rem;
+	}
+
+	.shipped-title {
+		font-family: var(--font-display);
+		font-size: 1.125rem;
+		font-weight: 400;
+		margin-bottom: 0.125rem;
+	}
+
+	.shipped-description {
+		font-size: 0.875rem;
+		color: var(--color-text-secondary);
+		line-height: 1.5;
 		margin: 0;
 	}
 

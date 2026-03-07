@@ -49,16 +49,35 @@
 			icon: 'download',
 			title: 'Export & Print',
 			description: 'Export to Excel with color-coding intact. Print-ready PDF for posting on the board.'
+		},
+		{
+			icon: 'star',
+			title: 'Rating Scheme Tracker',
+			description: 'Track OER, NCOER, and WOER evaluations. See who\'s overdue, due in 30/60 days, and export to Excel.'
+		},
+		{
+			icon: 'checklist',
+			title: 'In-Processing Checklist',
+			description: 'Custom onboarding templates with step-by-step tracking. See progress by person or pivot by step to find gaps.'
+		}
+	];
+
+	const shipped = [
+		{
+			title: 'Digital Leaders Book',
+			description: 'Centralized soldier information, counseling records, and development tracking.',
+		},
+		{
+			title: 'Rating Scheme Tracker',
+			description: 'OER, NCOER, and WOER evaluation tracking with due-status alerts and Excel export.',
+		},
+		{
+			title: 'In-Processing Checklist',
+			description: 'Custom onboarding templates with step-by-step progress tracking per person.',
 		}
 	];
 
 	const roadmap = [
-		{
-			title: 'Digital Leaders Book',
-			description: 'Centralized soldier information, counseling records, and leader tools.',
-			status: 'In Development',
-			statusClass: 'active'
-		},
 		{
 			title: 'Event Sign-ups',
 			description: 'Coordinate range days, ACFT, and unit events with built-in sign-up sheets.',
@@ -89,7 +108,9 @@
 			certificate: 'M12 15a7 7 0 100-14 7 7 0 000 14zM8.21 13.89L7 23l5-3 5 3-1.21-9.12',
 			shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4',
 			building: 'M4 2h16a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2zM9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01',
-			download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3'
+			download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
+			star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+			checklist: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5h6M9 14l2 2 4-4M9 11h.01'
 		};
 		return icons[icon] || '';
 	}
@@ -120,7 +141,7 @@
 			</a>
 
 			<div class="nav-links">
-				<a href="#features" class="nav-link">Features</a>
+				<a href="/features" class="nav-link">Features</a>
 				<a href="#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
@@ -303,6 +324,13 @@
 					</div>
 				{/each}
 			</div>
+
+			<div class="features-cta">
+				<a href="/features" class="features-link">
+					See all features
+					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+				</a>
+			</div>
 		</div>
 	</section>
 
@@ -341,10 +369,27 @@
 	<section id="roadmap" class="roadmap">
 		<div class="section-container">
 			<div class="section-label">Roadmap</div>
-			<h2 class="section-title">What's coming next.</h2>
-			<p class="section-subtitle">Active development driven by leader feedback.</p>
+			<h2 class="section-title">What we've built,<br /><em>and what's next.</em></h2>
+
+			<div class="roadmap-shipped">
+				<h3 class="roadmap-group-title">Recently Shipped</h3>
+				{#each shipped as item}
+					<div class="shipped-entry">
+						<div class="shipped-check">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true">
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+						</div>
+						<div>
+							<h4 class="shipped-title">{item.title}</h4>
+							<p class="shipped-description">{item.description}</p>
+						</div>
+					</div>
+				{/each}
+			</div>
 
 			<div class="roadmap-timeline">
+				<h3 class="roadmap-group-title">Coming Next</h3>
 				{#each roadmap as item, i}
 					<div class="roadmap-entry">
 						<div class="roadmap-marker">
@@ -392,7 +437,7 @@
 			</div>
 			<div class="footer-links">
 				<a href="/help">Help</a>
-				<a href="#features">Features</a>
+				<a href="/features">Features</a>
 				<a href="#roadmap">Roadmap</a>
 			</div>
 			<p class="footer-text">Built for Army leaders, by Army leaders.</p>
@@ -1077,6 +1122,32 @@
 		margin: 0;
 	}
 
+	.features-cta {
+		margin-top: 2rem;
+		text-align: center;
+	}
+
+	.features-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-family: var(--font-mono);
+		font-size: 0.875rem;
+		color: var(--brass);
+		text-decoration: none;
+		letter-spacing: 0.02em;
+		transition: color 0.15s;
+	}
+
+	.features-link:hover {
+		color: var(--brass-light);
+	}
+
+	.features-link svg {
+		width: 14px;
+		height: 14px;
+	}
+
 	/* ---- Onboarding (How it works) ---- */
 	.onboarding {
 		padding: 4rem 0;
@@ -1244,6 +1315,56 @@
 		font-size: 0.9375rem;
 		color: var(--color-text-secondary);
 		line-height: 1.6;
+		margin: 0;
+	}
+
+	.roadmap-group-title {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--color-text-secondary);
+		margin-bottom: 1.25rem;
+	}
+
+	.roadmap-shipped {
+		margin-top: 3rem;
+		margin-bottom: 3rem;
+		max-width: 640px;
+	}
+
+	.shipped-entry {
+		display: flex;
+		gap: 1rem;
+		align-items: flex-start;
+		margin-bottom: 1.25rem;
+	}
+
+	.shipped-check {
+		flex-shrink: 0;
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		background: rgba(76, 175, 80, 0.15);
+		color: #4caf50;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-top: 0.125rem;
+	}
+
+	.shipped-title {
+		font-family: var(--font-display);
+		font-size: 1.125rem;
+		font-weight: 400;
+		margin-bottom: 0.125rem;
+	}
+
+	.shipped-description {
+		font-size: 0.875rem;
+		color: var(--color-text-secondary);
+		line-height: 1.5;
 		margin: 0;
 	}
 

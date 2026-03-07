@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
+import { canAddPersonnel } from '$lib/server/subscription';
 
 export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
@@ -10,6 +11,12 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	// Skip permission check for sandbox mode
 	if (!isSandbox) {
 		await requireEditPermission(supabase, orgId, userId!, 'personnel');
+	}
+
+	// Enforce personnel cap
+	const capCheck = await canAddPersonnel(supabase, orgId);
+	if (!capCheck.allowed) {
+		return json({ error: capCheck.message }, { status: 403 });
 	}
 
 	const body = await request.json();

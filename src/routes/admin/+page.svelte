@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { formatPrice } from '$lib/types/subscription';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data } = $props();
@@ -33,110 +32,15 @@
 			<div class="metric-label">Total Users</div>
 		</div>
 
-		<div class="metric-card highlight">
-			<div class="metric-value">{formatPrice(data.metrics.mrr)}</div>
-			<div class="metric-label">Monthly Recurring Revenue</div>
+		<div class="metric-card">
+			<div class="metric-value">{data.metrics.totalOrganizations}</div>
+			<div class="metric-label">Organizations</div>
 		</div>
 
 		<div class="metric-card">
-			<div class="metric-value">{data.metrics.activeSubscriptions}</div>
-			<div class="metric-label">Paid Subscriptions</div>
+			<div class="metric-value">+{data.metrics.newUsersThisMonth}</div>
+			<div class="metric-label">New This Month</div>
 		</div>
-
-		<div class="metric-card" class:warning={data.metrics.pastDueUsers > 0}>
-			<div class="metric-value">{data.metrics.pastDueUsers}</div>
-			<div class="metric-label">Past Due</div>
-		</div>
-	</div>
-
-	<!-- Plan Distribution -->
-	<section class="card">
-		<h2>Plan Distribution</h2>
-		<div class="plan-bars">
-			<div class="plan-bar">
-				<div class="plan-info">
-					<span class="plan-name">Free</span>
-					<span class="plan-count">{data.metrics.freeUsers}</span>
-				</div>
-				<div class="bar-track">
-					<div
-						class="bar-fill free"
-						style="width: {data.metrics.totalUsers > 0 ? (data.metrics.freeUsers / data.metrics.totalUsers) * 100 : 0}%"
-					></div>
-				</div>
-			</div>
-
-			<div class="plan-bar">
-				<div class="plan-info">
-					<span class="plan-name">Pro</span>
-					<span class="plan-count">{data.metrics.proUsers}</span>
-				</div>
-				<div class="bar-track">
-					<div
-						class="bar-fill pro"
-						style="width: {data.metrics.totalUsers > 0 ? (data.metrics.proUsers / data.metrics.totalUsers) * 100 : 0}%"
-					></div>
-				</div>
-			</div>
-
-			<div class="plan-bar">
-				<div class="plan-info">
-					<span class="plan-name">Team</span>
-					<span class="plan-count">{data.metrics.teamUsers}</span>
-				</div>
-				<div class="bar-track">
-					<div
-						class="bar-fill team"
-						style="width: {data.metrics.totalUsers > 0 ? (data.metrics.teamUsers / data.metrics.totalUsers) * 100 : 0}%"
-					></div>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<div class="two-column">
-		<!-- Growth -->
-		<section class="card">
-			<h2>This Month</h2>
-			<div class="stats-list">
-				<div class="stat-item">
-					<span class="stat-label">New Users</span>
-					<span class="stat-value positive">+{data.metrics.newUsersThisMonth}</span>
-				</div>
-				<div class="stat-item">
-					<span class="stat-label">Churned</span>
-					<span class="stat-value negative">-{data.metrics.churnedThisMonth}</span>
-				</div>
-				<div class="stat-item">
-					<span class="stat-label">Net Growth</span>
-					<span class="stat-value" class:positive={data.metrics.newUsersThisMonth > data.metrics.churnedThisMonth} class:negative={data.metrics.newUsersThisMonth < data.metrics.churnedThisMonth}>
-						{data.metrics.newUsersThisMonth - data.metrics.churnedThisMonth >= 0 ? '+' : ''}{data.metrics.newUsersThisMonth - data.metrics.churnedThisMonth}
-					</span>
-				</div>
-			</div>
-		</section>
-
-		<!-- Recent Payments -->
-		<section class="card">
-			<div class="card-header">
-				<h2>Recent Payments</h2>
-				<a href="/admin/revenue" class="view-all">View All</a>
-			</div>
-			{#if data.recentPayments.length > 0}
-				<div class="activity-list">
-					{#each data.recentPayments as payment (payment.id)}
-						<div class="activity-item">
-							<span class="activity-amount" class:succeeded={payment.status === 'succeeded'} class:failed={payment.status === 'failed'}>
-								{formatPrice(payment.amount)}
-							</span>
-							<span class="activity-time">{formatDisplayDateTime(payment.created_at)}</span>
-						</div>
-					{/each}
-				</div>
-			{:else}
-				<p class="empty-state">No recent payments</p>
-			{/if}
-		</section>
 	</div>
 
 	<!-- Quick Actions -->
@@ -150,20 +54,18 @@
 				</svg>
 				Search Users
 			</a>
-			<a href="/admin/revenue" class="action-btn">
-				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<line x1="18" y1="20" x2="18" y2="10"></line>
-					<line x1="12" y1="20" x2="12" y2="4"></line>
-					<line x1="6" y1="20" x2="6" y2="14"></line>
-				</svg>
-				Revenue Reports
-			</a>
 			<a href="/admin/access-requests" class="action-btn">
 				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
 					<polyline points="22,6 12,13 2,6"></polyline>
 				</svg>
 				Access Requests
+			</a>
+			<a href="/admin/feedback" class="action-btn">
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+				</svg>
+				Feedback
 			</a>
 			<a href="/admin/audit" class="action-btn">
 				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -249,16 +151,6 @@
 		text-align: center;
 	}
 
-	.metric-card.highlight {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
-		color: #0F0F0F;
-	}
-
-	.metric-card.warning .metric-value {
-		color: var(--color-warning);
-	}
-
 	.metric-value {
 		font-size: var(--font-size-3xl);
 		font-weight: 700;
@@ -266,18 +158,10 @@
 		line-height: 1.2;
 	}
 
-	.metric-card.highlight .metric-value {
-		color: #0F0F0F;
-	}
-
 	.metric-label {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 		margin-top: var(--spacing-xs);
-	}
-
-	.metric-card.highlight .metric-label {
-		color: rgba(255, 255, 255, 0.85);
 	}
 
 	/* Cards */
@@ -294,166 +178,6 @@
 		font-weight: 600;
 		color: var(--color-text);
 		margin-bottom: var(--spacing-md);
-	}
-
-	.card-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: var(--spacing-md);
-	}
-
-	.card-header h2 {
-		margin: 0;
-	}
-
-	.view-all {
-		font-size: var(--font-size-sm);
-		color: var(--color-primary);
-		text-decoration: none;
-	}
-
-	.view-all:hover {
-		text-decoration: underline;
-	}
-
-	/* Plan Distribution */
-	.plan-bars {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-md);
-	}
-
-	.plan-bar {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-xs);
-	}
-
-	.plan-info {
-		display: flex;
-		justify-content: space-between;
-		font-size: var(--font-size-sm);
-	}
-
-	.plan-name {
-		font-weight: 500;
-		color: var(--color-text);
-	}
-
-	.plan-count {
-		color: var(--color-text-muted);
-	}
-
-	.bar-track {
-		height: 8px;
-		background: var(--color-border);
-		border-radius: var(--radius-full);
-		overflow: hidden;
-	}
-
-	.bar-fill {
-		height: 100%;
-		border-radius: var(--radius-full);
-		transition: width 0.3s ease;
-	}
-
-	.bar-fill.free {
-		background: var(--color-text-muted);
-	}
-
-	.bar-fill.pro {
-		background: var(--color-primary);
-	}
-
-	.bar-fill.team {
-		background: var(--color-success);
-	}
-
-	/* Two Column */
-	.two-column {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-		gap: var(--spacing-lg);
-	}
-
-	.two-column .card {
-		margin-bottom: 0;
-	}
-
-	/* Stats List */
-	.stats-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-md);
-	}
-
-	.stat-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-sm) 0;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.stat-item:last-child {
-		border-bottom: none;
-	}
-
-	.stat-label {
-		color: var(--color-text-muted);
-	}
-
-	.stat-value {
-		font-weight: 600;
-		font-size: var(--font-size-lg);
-	}
-
-	.stat-value.positive {
-		color: var(--color-success);
-	}
-
-	.stat-value.negative {
-		color: var(--color-error);
-	}
-
-	/* Activity List */
-	.activity-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-	}
-
-	.activity-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-sm);
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-md);
-	}
-
-	.activity-amount {
-		font-weight: 600;
-	}
-
-	.activity-amount.succeeded {
-		color: var(--color-success);
-	}
-
-	.activity-amount.failed {
-		color: var(--color-error);
-	}
-
-	.activity-time {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-	}
-
-	.empty-state {
-		text-align: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-lg);
 	}
 
 	/* Quick Actions */

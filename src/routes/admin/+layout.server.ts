@@ -1,7 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { isPlatformAdmin, getAdminRole } from '$lib/server/subscription';
-import type { AdminRole } from '$lib/types/subscription';
+import { isPlatformAdmin, getAdminRole } from '$lib/server/admin';
+import type { AdminRole } from '$lib/server/admin';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
 	const user = locals.user;

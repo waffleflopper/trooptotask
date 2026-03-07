@@ -12,6 +12,7 @@
 	import RatingSchemeTableView from '$lib/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$lib/components/RatingSchemeGroupedView.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import { groupAndSortPersonnel, RANK_ORDER } from '$lib/utils/personnelGrouping';
 	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
@@ -251,10 +252,11 @@
 
 		<main class="page-content">
 			{#if totalPersonnel === 0}
-				<div class="empty-state">
-					<p>No personnel added yet.</p>
-					<p>Use the toolbar to add personnel or bulk import.</p>
-				</div>
+				<EmptyState
+					message="No personnel added yet."
+					actionLabel={data.permissions.canEditPersonnel ? 'Add Person' : undefined}
+					onAction={data.permissions.canEditPersonnel ? handleAdd : undefined}
+				/>
 			{:else if viewMode === 'alphabetical'}
 				<div class="personnel-list">
 					{#each alphabeticalPersonnel as person (person.id)}
@@ -471,32 +473,13 @@
 {/if}
 
 {#if showBulkManager}
-	{#if !data.subscriptionLimits || data.subscriptionLimits.hasBulkImport}
-		<BulkPersonnelManager
-			personnelByGroup={personnelByGroup}
-			groups={groupsStore.list}
-			onBulkAdd={handleBulkAdd}
-			onBulkDelete={handleBulkDelete}
-			onClose={() => (showBulkManager = false)}
-		/>
-	{:else}
-		<div class="modal-overlay" onclick={() => (showBulkManager = false)}>
-			<div class="modal-content feature-gate-modal" onclick={(e) => e.stopPropagation()}>
-				<button class="modal-close" onclick={() => (showBulkManager = false)}>&times;</button>
-				<div class="feature-locked">
-					<div class="lock-icon">
-						<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-							<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-						</svg>
-					</div>
-					<h2>Bulk Import</h2>
-					<p>This feature requires a Pro or Team subscription.</p>
-					<a href="/billing/upgrade" class="btn btn-primary">Upgrade Your Plan</a>
-				</div>
-			</div>
-		</div>
-	{/if}
+	<BulkPersonnelManager
+		personnelByGroup={personnelByGroup}
+		groups={groupsStore.list}
+		onBulkAdd={handleBulkAdd}
+		onBulkDelete={handleBulkDelete}
+		onClose={() => (showBulkManager = false)}
+	/>
 {/if}
 
 <style>
@@ -687,16 +670,6 @@
 
 	/* .page-content base + mobile in app.css */
 
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-		gap: var(--spacing-sm);
-		color: var(--color-text-muted);
-	}
-
 	.personnel-grid {
 		display: flex;
 		flex-direction: column;
@@ -876,53 +849,4 @@
 		}
 	}
 
-	/* Feature Gate Modal */
-	.feature-gate-modal {
-		max-width: 400px;
-		text-align: center;
-	}
-
-	.feature-locked {
-		padding: var(--spacing-xl);
-	}
-
-	.feature-locked .lock-icon {
-		width: 80px;
-		height: 80px;
-		margin: 0 auto var(--spacing-lg);
-		background: color-mix(in srgb, #B8943E 15%, transparent);
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: #B8943E;
-	}
-
-	.feature-locked h2 {
-		font-size: var(--font-size-xl);
-		font-weight: 600;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-sm);
-	}
-
-	.feature-locked p {
-		color: var(--color-text-muted);
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.feature-locked .btn-primary {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-sm) var(--spacing-xl);
-		background: var(--color-primary);
-		color: #0F0F0F;
-		font-weight: 500;
-		border-radius: var(--radius-md);
-		text-decoration: none;
-	}
-
-	.feature-locked .btn-primary:hover {
-		background: var(--color-primary-hover);
-	}
 </style>

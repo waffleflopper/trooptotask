@@ -1,19 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
-import { checkPersonnelLimit } from '$lib/server/subscription';
 import { getApiContext } from '$lib/server/supabase';
-
-// Get the organization owner's user ID for subscription checks
-async function getOrgOwnerUserId(supabase: any, orgId: string): Promise<string | null> {
-	const { data } = await supabase
-		.from('organization_memberships')
-		.select('user_id')
-		.eq('organization_id', orgId)
-		.eq('role', 'owner')
-		.single();
-	return data?.user_id ?? null;
-}
 
 export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
@@ -22,12 +10,6 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	// Skip permission check for sandbox mode
 	if (!isSandbox) {
 		await requireEditPermission(supabase, orgId, userId!, 'personnel');
-
-		// Check personnel limit (based on org owner's subscription)
-		const ownerUserId = await getOrgOwnerUserId(supabase, orgId);
-		if (ownerUserId) {
-			await checkPersonnelLimit(supabase, ownerUserId, orgId);
-		}
 	}
 
 	const body = await request.json();

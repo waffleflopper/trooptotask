@@ -8,9 +8,17 @@
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
+	import { dashboardPrefsStore, type CardId } from '$lib/stores/dashboardPrefs.svelte';
+	import { RATING_STATUS_COLORS } from '$lib/types';
+	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import DashboardCustomizeModal from '$lib/components/DashboardCustomizeModal.svelte';
 	import { getTrainingStatus, getTrainingStats } from '$lib/utils/trainingStatus';
 	import { parseDate } from '$lib/utils/dates';
+
+	const HALF_SIZE_CARDS: CardId[] = ['strength', 'duty', 'training', 'upcoming', 'ratings'];
+
+	let showCustomizeModal = $state(false);
 
 	let { data } = $props();
 	$effect(() => {
@@ -279,6 +287,47 @@
 	const dutyStrengthPct = $derived(
 		totalPersonnel > 0 ? Math.round((availableCount / totalPersonnel) * 100) : 100
 	);
+
+	// Rating scheme stats
+	const ratingStats = $derived.by(() => {
+		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0, current: 0 };
+		for (const entry of data.ratingSchemeEntries ?? []) {
+			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
+			if (status !== 'completed') {
+				counts[status]++;
+			}
+		}
+		return counts;
+	});
+
+	const ratingTotal = $derived(ratingStats.overdue + ratingStats['due-30'] + ratingStats['due-60'] + ratingStats.current);
+
+	// Dynamic card rows: pair consecutive half-size visible cards into rows
+	const cardRows = $derived.by(() => {
+		const visible = dashboardPrefsStore.visibleCards;
+		const rows: CardId[][] = [];
+		let pending: CardId | null = null;
+
+		for (const id of visible) {
+			if (HALF_SIZE_CARDS.includes(id)) {
+				if (pending) {
+					rows.push([pending, id]);
+					pending = null;
+				} else {
+					pending = id;
+				}
+			} else {
+				// Full-size card — flush any pending half first
+				if (pending) {
+					rows.push([pending]);
+					pending = null;
+				}
+				rows.push([id]);
+			}
+		}
+		if (pending) rows.push([pending]);
+		return rows;
+	});
 </script>
 
 <svelte:head>
@@ -286,7 +335,9 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Dashboard" helpTopic="dashboard" />
+	<PageToolbar title="Dashboard" helpTopic="dashboard">
+		<button class="btn-ghost" onclick={() => (showCustomizeModal = true)}>Customize</button>
+	</PageToolbar>
 	<main class="dashboard">
 		<!-- Header -->
 		<div class="dashboard-header">
@@ -305,190 +356,251 @@
 			</div>
 		</div>
 
-		<!-- Card Row 1: Strength + Duty -->
-		<div class="card-row">
-			<!-- Today's Strength -->
-			<div class="card">
-				<div class="card-header">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-						<circle cx="9" cy="7" r="4" />
-						<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-						<path d="M16 3.13a4 4 0 0 1 0 7.75" />
-					</svg>
-					Today's Strength
+		<!-- Dynamic card layout -->
+		{#each cardRows as row (row.join('-'))}
+			{#if row.length === 2}
+				<div class="card-row">
+					{#each row as cardId (cardId)}
+						{@render cardContent(cardId)}
+					{/each}
 				</div>
-				<div class="card-body">
-					<div class="strength-numbers">
-						<div class="strength-main">
-							<span class="strength-value">{availableCount}</span>
-							<span class="strength-label">available</span>
-						</div>
-						<div class="strength-divider">/</div>
-						<div class="strength-total">
-							<span class="strength-value strength-value--muted">{totalPersonnel}</span>
-							<span class="strength-label">total</span>
-						</div>
-					</div>
-
-					<div class="strength-bar-wrap">
-						<div class="strength-bar">
-							<div
-								class="strength-bar-fill"
-								style="width: {dutyStrengthPct}%; background: {dutyStrengthPct >= 80 ? 'var(--color-success)' : dutyStrengthPct >= 60 ? 'var(--color-warning)' : 'var(--color-error)'}"
-							></div>
-						</div>
-						<span class="strength-pct">{dutyStrengthPct}% present</span>
-					</div>
-
-					{#if statusBreakdown.size > 0}
-						<div class="status-chips">
-							{#each [...statusBreakdown.entries()] as [, info]}
-								<span class="status-chip" style="background: {info.color}; color: {info.textColor}">
-									{info.count} {info.name}
-								</span>
-							{/each}
-						</div>
-					{:else}
-						<p class="empty-note">All personnel present</p>
-					{/if}
+			{:else if HALF_SIZE_CARDS.includes(row[0])}
+				<div class="card-row card-row--single">
+					{@render cardContent(row[0])}
 				</div>
+			{:else}
+				{@render cardContent(row[0])}
+			{/if}
+		{/each}
+	</main>
+</div>
+
+{#if showCustomizeModal}
+	<DashboardCustomizeModal onClose={() => (showCustomizeModal = false)} />
+{/if}
+
+{#snippet cardContent(cardId: CardId)}
+	{#if cardId === 'strength'}
+		<!-- Today's Strength -->
+		<div class="card">
+			<div class="card-header">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+					<circle cx="9" cy="7" r="4" />
+					<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+					<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+				</svg>
+				Today's Strength
 			</div>
-
-			<!-- Today's Duty Assignments -->
-			<div class="card">
-				<div class="card-header">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-						<rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-						<path d="M9 14l2 2 4-4" />
-					</svg>
-					Today's Duty Assignments
+			<div class="card-body">
+				<div class="strength-numbers">
+					<div class="strength-main">
+						<span class="strength-value">{availableCount}</span>
+						<span class="strength-label">available</span>
+					</div>
+					<div class="strength-divider">/</div>
+					<div class="strength-total">
+						<span class="strength-value strength-value--muted">{totalPersonnel}</span>
+						<span class="strength-label">total</span>
+					</div>
 				</div>
-				<div class="card-body">
-					{#if dutyAssignments.length > 0}
-						<div class="duty-list">
-							{#each dutyAssignments as assignment}
-								<div class="duty-item">
-									<span
-										class="duty-badge"
-										style="background: {assignment.color}"
-									>{assignment.shortName || assignment.typeName}</span>
-									<span class="duty-assignee">{assignment.assigneeName || 'Unassigned'}</span>
+
+				<div class="strength-bar-wrap">
+					<div class="strength-bar">
+						<div
+							class="strength-bar-fill"
+							style="width: {dutyStrengthPct}%; background: {dutyStrengthPct >= 80 ? 'var(--color-success)' : dutyStrengthPct >= 60 ? 'var(--color-warning)' : 'var(--color-error)'}"
+						></div>
+					</div>
+					<span class="strength-pct">{dutyStrengthPct}% present</span>
+				</div>
+
+				{#if statusBreakdown.size > 0}
+					<div class="status-chips">
+						{#each [...statusBreakdown.entries()] as [, info]}
+							<span class="status-chip" style="background: {info.color}; color: {info.textColor}">
+								{info.count} {info.name}
+							</span>
+						{/each}
+					</div>
+				{:else}
+					<p class="empty-note">All personnel present</p>
+				{/if}
+			</div>
+		</div>
+	{:else if cardId === 'duty'}
+		<!-- Today's Duty Assignments -->
+		<div class="card">
+			<div class="card-header">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+					<rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+					<path d="M9 14l2 2 4-4" />
+				</svg>
+				Today's Duty Assignments
+			</div>
+			<div class="card-body">
+				{#if dutyAssignments.length > 0}
+					<div class="duty-list">
+						{#each dutyAssignments as assignment}
+							<div class="duty-item">
+								<span
+									class="duty-badge"
+									style="background: {assignment.color}"
+								>{assignment.shortName || assignment.typeName}</span>
+								<span class="duty-assignee">{assignment.assigneeName || 'Unassigned'}</span>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<div class="empty-state">
+						<p>No assignments today</p>
+						<a href="/org/{data.orgId}/calendar" class="btn btn-text btn-sm">Manage in Calendar</a>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{:else if cardId === 'training'}
+		<!-- Training Status -->
+		<div class="card">
+			<div class="card-header">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+					<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+				</svg>
+				Training Status
+			</div>
+			<div class="card-body">
+				{#if trainingStats === null}
+					<div class="empty-state">
+						<p>No training types configured</p>
+						{#if data.permissions?.canEditTraining}
+							<a href="/org/{data.orgId}/training" class="btn btn-text btn-sm">Set Up Training</a>
+						{/if}
+					</div>
+				{:else}
+					<div class="training-stats">
+						<div class="training-stat training-stat--expired">
+							<span class="training-stat-value">{trainingStats.expired}</span>
+							<span class="training-stat-label">Expired</span>
+						</div>
+						<div class="training-stat training-stat--orange">
+							<span class="training-stat-value">{trainingStats.warningOrange}</span>
+							<span class="training-stat-label">Expiring Soon</span>
+						</div>
+						<div class="training-stat training-stat--yellow">
+							<span class="training-stat-value">{trainingStats.warningYellow}</span>
+							<span class="training-stat-label">Due Soon</span>
+						</div>
+						<div class="training-stat training-stat--current">
+							<span class="training-stat-value">{trainingStats.current}</span>
+							<span class="training-stat-label">Current</span>
+						</div>
+					</div>
+
+					{#if topTrainingIssues.length > 0}
+						<div class="training-issues">
+							<p class="issues-label">Needs attention:</p>
+							{#each topTrainingIssues as issue}
+								<div class="issue-row">
+									<span class="issue-name">{issue.personName}</span>
+									<span class="issue-type">{issue.typeName}</span>
+									<span class="issue-badge" class:expired={issue.status === 'expired'} class:warning={issue.status === 'warning-orange'}>
+										{issue.label}
+									</span>
 								</div>
 							{/each}
 						</div>
-					{:else}
-						<div class="empty-state">
-							<p>No assignments today</p>
-							<a href="/org/{data.orgId}/calendar" class="btn btn-text btn-sm">Manage in Calendar</a>
-						</div>
 					{/if}
-				</div>
+
+					<div class="card-link">
+						<a href="/org/{data.orgId}/training" class="btn btn-text btn-sm">View Full Training Report</a>
+					</div>
+				{/if}
 			</div>
 		</div>
-
-		<!-- Card Row 2: Training + Upcoming -->
-		<div class="card-row">
-			<!-- Training Status -->
-			<div class="card">
-				<div class="card-header">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-						<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-					</svg>
-					Training Status
-				</div>
-				<div class="card-body">
-					{#if trainingStats === null}
-						<div class="empty-state">
-							<p>No training types configured</p>
-							{#if data.permissions?.canEditTraining}
-								<a href="/org/{data.orgId}/training" class="btn btn-text btn-sm">Set Up Training</a>
-							{/if}
-						</div>
-					{:else}
-						<div class="training-stats">
-							<div class="training-stat training-stat--expired">
-								<span class="training-stat-value">{trainingStats.expired}</span>
-								<span class="training-stat-label">Expired</span>
-							</div>
-							<div class="training-stat training-stat--orange">
-								<span class="training-stat-value">{trainingStats.warningOrange}</span>
-								<span class="training-stat-label">Expiring Soon</span>
-							</div>
-							<div class="training-stat training-stat--yellow">
-								<span class="training-stat-value">{trainingStats.warningYellow}</span>
-								<span class="training-stat-label">Due Soon</span>
-							</div>
-							<div class="training-stat training-stat--current">
-								<span class="training-stat-value">{trainingStats.current}</span>
-								<span class="training-stat-label">Current</span>
-							</div>
-						</div>
-
-						{#if topTrainingIssues.length > 0}
-							<div class="training-issues">
-								<p class="issues-label">Needs attention:</p>
-								{#each topTrainingIssues as issue}
-									<div class="issue-row">
-										<span class="issue-name">{issue.personName}</span>
-										<span class="issue-type">{issue.typeName}</span>
-										<span class="issue-badge" class:expired={issue.status === 'expired'} class:warning={issue.status === 'warning-orange'}>
-											{issue.label}
+	{:else if cardId === 'upcoming'}
+		<!-- Upcoming Changes -->
+		<div class="card">
+			<div class="card-header">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<circle cx="12" cy="12" r="10" />
+					<polyline points="12 6 12 12 16 14" />
+				</svg>
+				Upcoming (Next 7 Days)
+			</div>
+			<div class="card-body">
+				{#if upcomingByDate.size === 0}
+					<div class="empty-state">
+						<p>No changes in the next 7 days</p>
+						<a href="/org/{data.orgId}/calendar" class="btn btn-text btn-sm">View Calendar</a>
+					</div>
+				{:else}
+					<div class="upcoming-list">
+						{#each [...upcomingByDate.entries()] as [date, changes]}
+							<div class="upcoming-group">
+								<div class="upcoming-date">{formatShortDate(date)}</div>
+								{#each changes as change}
+									<div class="upcoming-item">
+										<span
+											class="upcoming-dot"
+											style="background: {change.statusColor}"
+										></span>
+										<span class="upcoming-person">{change.personName}</span>
+										<span class="upcoming-direction" class:departing={change.direction === 'departing'} class:returning={change.direction === 'returning'}>
+											{change.direction === 'departing' ? 'starts' : 'returns'} — {change.statusName}
 										</span>
 									</div>
 								{/each}
 							</div>
-						{/if}
-
-						<div class="card-link">
-							<a href="/org/{data.orgId}/training" class="btn btn-text btn-sm">View Full Training Report</a>
-						</div>
-					{/if}
-				</div>
-			</div>
-
-			<!-- Upcoming Changes -->
-			<div class="card">
-				<div class="card-header">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<circle cx="12" cy="12" r="10" />
-						<polyline points="12 6 12 12 16 14" />
-					</svg>
-					Upcoming (Next 7 Days)
-				</div>
-				<div class="card-body">
-					{#if upcomingByDate.size === 0}
-						<div class="empty-state">
-							<p>No changes in the next 7 days</p>
-							<a href="/org/{data.orgId}/calendar" class="btn btn-text btn-sm">View Calendar</a>
-						</div>
-					{:else}
-						<div class="upcoming-list">
-							{#each [...upcomingByDate.entries()] as [date, changes]}
-								<div class="upcoming-group">
-									<div class="upcoming-date">{formatShortDate(date)}</div>
-									{#each changes as change}
-										<div class="upcoming-item">
-											<span
-												class="upcoming-dot"
-												style="background: {change.statusColor}"
-											></span>
-											<span class="upcoming-person">{change.personName}</span>
-											<span class="upcoming-direction" class:departing={change.direction === 'departing'} class:returning={change.direction === 'returning'}>
-												{change.direction === 'departing' ? 'starts' : 'returns'} — {change.statusName}
-											</span>
-										</div>
-									{/each}
-								</div>
-							{/each}
-						</div>
-					{/if}
-				</div>
+						{/each}
+					</div>
+				{/if}
 			</div>
 		</div>
+	{:else if cardId === 'ratings'}
+		<!-- Rating Scheme -->
+		<div class="card">
+			<div class="card-header">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M12 20h9" />
+					<path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+				</svg>
+				Rating Scheme
+			</div>
+			<div class="card-body">
+				{#if ratingTotal === 0}
+					<div class="empty-state">
+						<p>No active rating entries</p>
+						<a href="/org/{data.orgId}/personnel" class="btn btn-text btn-sm">Go to Personnel</a>
+					</div>
+				{:else}
+					<div class="rating-stats">
+						<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.overdue}">
+							<span class="rating-stat-value">{ratingStats.overdue}</span>
+							<span class="rating-stat-label">Overdue</span>
+						</div>
+						<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS['due-30']}">
+							<span class="rating-stat-value">{ratingStats['due-30']}</span>
+							<span class="rating-stat-label">Due 30d</span>
+						</div>
+						<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS['due-60']}">
+							<span class="rating-stat-value">{ratingStats['due-60']}</span>
+							<span class="rating-stat-label">Due 60d</span>
+						</div>
+						<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.current}">
+							<span class="rating-stat-value">{ratingStats.current}</span>
+							<span class="rating-stat-label">Current</span>
+						</div>
+					</div>
 
+					<div class="card-link">
+						<a href="/org/{data.orgId}/personnel" class="btn btn-text btn-sm">View Rating Scheme</a>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{:else if cardId === 'onboardings'}
 		<!-- Active Onboardings -->
 		{#if data.permissions?.canViewPersonnel}
 			<div class="card card--full">
@@ -533,7 +645,7 @@
 				</div>
 			</div>
 		{/if}
-
+	{:else if cardId === 'groups'}
 		<!-- Per-Group Breakdown -->
 		{#if groupBreakdown.length > 0}
 			<div class="card card--full">
@@ -597,8 +709,8 @@
 				</div>
 			</div>
 		{/if}
-	</main>
-</div>
+	{/if}
+{/snippet}
 
 <style>
 	.page {
@@ -668,6 +780,10 @@
 
 	.card--full {
 		width: 100%;
+	}
+
+	.card-row--single {
+		grid-template-columns: 1fr;
 	}
 
 	/* Card Header Override */
@@ -1163,6 +1279,58 @@
 		white-space: nowrap;
 	}
 
+	/* Rating Card */
+	.rating-stats {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: var(--spacing-sm);
+		margin-bottom: var(--spacing-md);
+	}
+
+	.rating-stat {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding: var(--spacing-sm);
+		border-radius: var(--radius-md);
+		background: var(--color-surface-variant);
+	}
+
+	.rating-stat-value {
+		font-family: var(--font-mono);
+		font-size: 1.75rem;
+		font-weight: 500;
+		line-height: 1;
+		color: var(--stat-color);
+	}
+
+	.rating-stat-label {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-text-muted);
+		margin-top: 2px;
+		text-align: center;
+	}
+
+	/* Customize Button */
+	.btn-ghost {
+		background: none;
+		border: none;
+		font-family: var(--font-mono);
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-radius: var(--radius-sm);
+	}
+
+	.btn-ghost:hover {
+		color: var(--color-text);
+		background: var(--color-surface-variant);
+	}
+
 	/* Mobile Responsive */
 	@media (max-width: 640px) {
 		.dashboard {
@@ -1182,7 +1350,8 @@
 			grid-template-columns: 1fr;
 		}
 
-		.training-stats {
+		.training-stats,
+		.rating-stats {
 			grid-template-columns: repeat(2, 1fr);
 		}
 	}

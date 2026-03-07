@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const today = formatDate(new Date());
 	const twoWeeksOut = formatDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
 
-	const [availabilityRes, assignmentTypesRes, todayAssignmentsRes, pinnedGroupsRes, onboardingsRes] =
+	const [availabilityRes, assignmentTypesRes, todayAssignmentsRes, pinnedGroupsRes, onboardingsRes, ratingSchemeRes] =
 		await Promise.all([
 			supabase
 				.from('availability_entries')
@@ -46,7 +46,13 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 				.select('*')
 				.eq('organization_id', orgId)
 				.eq('status', 'in_progress')
-				.order('created_at', { ascending: false })
+				.order('created_at', { ascending: false }),
+			supabase
+				.from('rating_scheme_entries')
+				.select('id, rated_person_id, eval_type, rating_period_end, status')
+				.eq('organization_id', orgId)
+				.neq('status', 'completed')
+				.order('rating_period_end')
 		]);
 
 	const availabilityEntries = transformAvailabilityEntries(availabilityRes.data ?? []);
@@ -54,6 +60,14 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const todayAssignments = transformDailyAssignments(todayAssignmentsRes.data ?? []);
 
 	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map((p: any) => p.group_name);
+
+	const ratingSchemeEntries = (ratingSchemeRes.data ?? []).map((r: any) => ({
+		id: r.id,
+		ratedPersonId: r.rated_person_id,
+		evalType: r.eval_type,
+		ratingPeriodEnd: r.rating_period_end,
+		status: r.status
+	}));
 
 	// Fetch step progress for active onboardings
 	const onboardings = onboardingsRes.data ?? [];
@@ -98,6 +112,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		assignmentTypes,
 		todayAssignments,
 		pinnedGroups,
-		activeOnboardings
+		activeOnboardings,
+		ratingSchemeEntries
 	};
 };

@@ -1,6 +1,10 @@
 import Stripe from 'stripe';
-import { STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET } from '$env/static/private';
-import { TIER_CONFIG } from '$lib/types/subscription';
+import {
+	STRIPE_SECRET_KEY,
+	STRIPE_WEBHOOK_SECRET,
+	STRIPE_TEAM_PRICE_ID,
+	STRIPE_UNIT_PRICE_ID
+} from '$env/static/private';
 
 function getStripe(): Stripe {
 	if (!STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not set');
@@ -18,7 +22,11 @@ export async function createCheckoutSession(options: {
 }): Promise<{ url: string; customerId: string }> {
 	const stripe = getStripe();
 
-	const priceId = TIER_CONFIG[options.tier].stripePriceId;
+	const PRICE_IDS: Record<string, string | undefined> = {
+		team: STRIPE_TEAM_PRICE_ID,
+		unit: STRIPE_UNIT_PRICE_ID
+	};
+	const priceId = PRICE_IDS[options.tier];
 	if (!priceId) throw new Error(`No Stripe price ID configured for tier: ${options.tier}`);
 
 	let customerId = options.existingCustomerId;

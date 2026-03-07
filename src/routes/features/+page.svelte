@@ -427,7 +427,110 @@
 		</div>
 	</section>
 
-	<!-- Feature sections for Task 7 will be added after these -->
+	<!-- Section 06 — Rating Scheme (reversed) -->
+	<section class="feature-section reverse">
+		<div class="feature-section-inner">
+			<div class="feature-text">
+				<div class="feature-label">06 // Rating Scheme</div>
+				<h2>Stay ahead of <em>every evaluation.</em></h2>
+				<p class="feature-desc">Track OER, NCOER, and WOER evaluations across your unit. Color-coded due-status alerts make it impossible to miss an upcoming report.</p>
+				<ul>
+					<li>OER, NCOER, and WOER evaluation support</li>
+					<li>Due-status alerts: overdue, due in 30, and due in 60 days</li>
+					<li>Dashboard summary card with at-a-glance counts</li>
+					<li>Export to Excel for reporting and filing</li>
+				</ul>
+			</div>
+			<div class="feature-demo">
+				<div class="demo-panel">
+					<div class="demo-chrome">
+						<div class="demo-dots"><span></span><span></span><span></span></div>
+						<span class="demo-label">Rating Scheme</span>
+					</div>
+					<div class="demo-body">
+						<div class="demo-eval-table">
+							<div class="demo-eval-header">
+								<span class="demo-eval-col-name">Name</span>
+								<span class="demo-eval-col-type">Type</span>
+								<span class="demo-eval-col-due">Due</span>
+								<span class="demo-eval-col-status">Status</span>
+							</div>
+							<div class="demo-eval-row">
+								<span class="demo-eval-name">CPT Rodriguez</span>
+								<span class="demo-eval-type oer">OER</span>
+								<span class="demo-eval-due">15 Apr 26</span>
+								<span class="demo-eval-status current"><span>Current</span></span>
+							</div>
+							<div class="demo-eval-row">
+								<span class="demo-eval-name">SSG Thompson</span>
+								<span class="demo-eval-type ncoer">NCOER</span>
+								<span class="demo-eval-due">28 Mar 26</span>
+								<span class="demo-eval-status due-30"><span>Due 30</span></span>
+							</div>
+							<div class="demo-eval-row">
+								<span class="demo-eval-name">SFC Williams</span>
+								<span class="demo-eval-type ncoer">NCOER</span>
+								<span class="demo-eval-due">12 Mar 26</span>
+								<span class="demo-eval-status overdue"><span>Overdue</span></span>
+							</div>
+							<div class="demo-eval-row">
+								<span class="demo-eval-name">CW2 Baker</span>
+								<span class="demo-eval-type woer">WOER</span>
+								<span class="demo-eval-due">20 May 26</span>
+								<span class="demo-eval-status due-60"><span>Due 60</span></span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Section 07 — Daily Assignments -->
+	<section class="feature-section">
+		<div class="feature-section-inner">
+			<div class="feature-text">
+				<div class="feature-label">07 // Daily Assignments</div>
+				<h2>Plan the duty roster <em>in minutes.</em></h2>
+				<p class="feature-desc">Assign MOD, CQ, staff duty, and custom roles. Auto-generate fair rosters based on availability and past assignment counts.</p>
+				<ul>
+					<li>Custom assignment types (MOD, CQ, Staff Duty, and more)</li>
+					<li>Auto-generate rosters based on availability and eligibility</li>
+					<li>Month-at-a-glance assignment planner</li>
+					<li>Fair distribution tracking with assignment counts</li>
+				</ul>
+			</div>
+			<div class="feature-demo">
+				<div class="demo-panel">
+					<div class="demo-chrome">
+						<div class="demo-dots"><span></span><span></span><span></span></div>
+						<span class="demo-label">Daily Assignments</span>
+					</div>
+					<div class="demo-body">
+						<div class="demo-duty-date">Monday, 10 Mar 2026</div>
+						<div class="demo-duty-list">
+							<div class="demo-duty-row">
+								<span class="demo-duty-badge mod">MOD</span>
+								<span class="demo-duty-name">CPT Rodriguez</span>
+							</div>
+							<div class="demo-duty-row">
+								<span class="demo-duty-badge cq">CQ</span>
+								<span class="demo-duty-name">SSG Thompson</span>
+							</div>
+							<div class="demo-duty-row">
+								<span class="demo-duty-badge staff">Staff Duty</span>
+								<span class="demo-duty-name">SGT Park</span>
+							</div>
+							<div class="demo-duty-row">
+								<span class="demo-duty-badge front-desk">Front Desk</span>
+								<span class="demo-duty-name">SPC Nguyen</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
 
 	<!-- CTA Section — same as landing -->
 	<section class="cta">
@@ -1362,6 +1465,174 @@
 	}
 
 	.demo-checklist-item.completed .demo-checklist-label {
+		color: var(--hero-text);
+	}
+
+	/* ---- Rating Scheme Demo ---- */
+	.demo-eval-table {
+		width: 100%;
+	}
+
+	.demo-eval-header {
+		display: flex;
+		gap: 0.5rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 1px solid rgba(255,255,255,0.06);
+		margin-bottom: 0.625rem;
+	}
+
+	.demo-eval-header span {
+		font-family: var(--font-mono);
+		font-size: 0.5rem;
+		color: var(--hero-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+	}
+
+	.demo-eval-col-name { flex: 2; }
+	.demo-eval-col-type { flex: 1; }
+	.demo-eval-col-due { flex: 1.2; }
+	.demo-eval-col-status { flex: 1; text-align: right; }
+
+	.demo-eval-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.375rem 0;
+	}
+
+	.demo-eval-name {
+		font-size: 0.6875rem;
+		color: var(--hero-text);
+		flex: 2;
+	}
+
+	.demo-eval-type {
+		font-family: var(--font-mono);
+		font-size: 0.5rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
+		flex: 1;
+	}
+
+	.demo-eval-type.oer {
+		background: rgba(33, 150, 243, 0.15);
+		color: #2196f3;
+	}
+
+	.demo-eval-type.ncoer {
+		background: rgba(156, 39, 176, 0.15);
+		color: #ab47bc;
+	}
+
+	.demo-eval-type.woer {
+		background: rgba(0, 150, 136, 0.15);
+		color: #26a69a;
+	}
+
+	.demo-eval-due {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
+		flex: 1.2;
+	}
+
+	.demo-eval-status {
+		font-family: var(--font-mono);
+		font-size: 0.5rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
+		flex: 1;
+		text-align: right;
+	}
+
+	.demo-eval-status span {
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
+	}
+
+	.demo-eval-status.current span {
+		background: rgba(76, 175, 80, 0.15);
+		color: #4caf50;
+	}
+
+	.demo-eval-status.due-30 span {
+		background: rgba(255, 152, 0, 0.15);
+		color: #ff9800;
+	}
+
+	.demo-eval-status.overdue span {
+		background: rgba(244, 67, 54, 0.15);
+		color: #f44336;
+	}
+
+	.demo-eval-status.due-60 span {
+		background: rgba(33, 150, 243, 0.15);
+		color: #2196f3;
+	}
+
+	/* ---- Daily Assignments Demo ---- */
+	.demo-duty-date {
+		font-family: var(--font-display);
+		font-size: 1rem;
+		color: var(--hero-text);
+		margin-bottom: 1rem;
+		padding-bottom: 0.625rem;
+		border-bottom: 1px solid rgba(255,255,255,0.06);
+	}
+
+	.demo-duty-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+	}
+
+	.demo-duty-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.demo-duty-badge {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		min-width: 72px;
+		text-align: center;
+	}
+
+	.demo-duty-badge.mod {
+		background: var(--brass-muted);
+		color: var(--brass);
+	}
+
+	.demo-duty-badge.cq {
+		background: rgba(33, 150, 243, 0.15);
+		color: #2196f3;
+	}
+
+	.demo-duty-badge.staff {
+		background: rgba(156, 39, 176, 0.15);
+		color: #ab47bc;
+	}
+
+	.demo-duty-badge.front-desk {
+		background: rgba(255,255,255,0.06);
+		color: var(--hero-muted);
+	}
+
+	.demo-duty-name {
+		font-size: 0.75rem;
 		color: var(--hero-text);
 	}
 

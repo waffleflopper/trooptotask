@@ -75,7 +75,213 @@
 		</div>
 	</section>
 
-	<!-- Feature sections will be added in Tasks 5-7 -->
+	<!-- Section 01 — Calendar -->
+	<section class="feature-section">
+		<div class="feature-section-inner">
+			<div class="feature-text">
+				<div class="feature-label">01 // Calendar</div>
+				<h2>See your entire unit at a glance.</h2>
+				<p class="feature-desc">A visual calendar that replaces the whiteboard. Color-coded statuses make it instant to see who's available, who's on leave, and where the gaps are.</p>
+				<ul>
+					<li>Color-coded statuses: leave, TDY, school, appointments, and custom types</li>
+					<li>Month and 3-month views for long-range planning</li>
+					<li>Coverage analytics show strength percentages per day</li>
+					<li>Print-ready exports for posting on the board</li>
+				</ul>
+			</div>
+			<div class="feature-demo">
+				<div class="demo-panel">
+					<div class="demo-chrome">
+						<div class="demo-dots"><span></span><span></span><span></span></div>
+						<span class="demo-label">Calendar</span>
+						<span class="demo-live-badge">LIVE</span>
+					</div>
+					<div class="demo-body">
+						<div class="cal-month-label">March 2026</div>
+						<div class="cal-grid">
+							<div class="cal-header">M</div>
+							<div class="cal-header">T</div>
+							<div class="cal-header">W</div>
+							<div class="cal-header">T</div>
+							<div class="cal-header">F</div>
+							<!-- Week 1 -->
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-leave"></div>
+							<div class="cal-cell cal-leave"></div>
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-tdy"></div>
+							<!-- Week 2 -->
+							<div class="cal-cell cal-school"></div>
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-appt"></div>
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-empty"></div>
+							<!-- Week 3 -->
+							<div class="cal-cell cal-tdy"></div>
+							<div class="cal-cell cal-tdy"></div>
+							<div class="cal-cell cal-tdy"></div>
+							<div class="cal-cell cal-leave"></div>
+							<div class="cal-cell cal-empty"></div>
+							<!-- Week 4 -->
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-appt"></div>
+							<div class="cal-cell cal-school"></div>
+							<div class="cal-cell cal-school"></div>
+							<div class="cal-cell cal-empty"></div>
+						</div>
+						<div class="cal-legend">
+							<div class="cal-legend-item"><span class="cal-legend-dot cal-leave"></span>Leave</div>
+							<div class="cal-legend-item"><span class="cal-legend-dot cal-tdy"></span>TDY</div>
+							<div class="cal-legend-item"><span class="cal-legend-dot cal-school"></span>School</div>
+							<div class="cal-legend-item"><span class="cal-legend-dot cal-appt"></span>Appt</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Section 02 — Personnel (reversed) -->
+	<section class="feature-section reverse">
+		<div class="feature-section-inner">
+			<div class="feature-text">
+				<div class="feature-label">02 // Personnel</div>
+				<h2>Organize your roster, <em>your way.</em></h2>
+				<p class="feature-desc">Build your unit's roster with groups and sections. Track rank, MOS, role, and contact info. Bulk import from any spreadsheet to get started fast.</p>
+				<ul>
+					<li>Organize by platoon, section, or custom groups</li>
+					<li>Bulk import from spreadsheets — paste or upload</li>
+					<li>Track rank, MOS, role, and contact information</li>
+					<li>Pin frequently-used groups for quick access</li>
+				</ul>
+			</div>
+			<div class="feature-demo">
+				<div class="demo-panel">
+					<div class="demo-chrome">
+						<div class="demo-dots"><span></span><span></span><span></span></div>
+						<span class="demo-label">Personnel</span>
+					</div>
+					<div class="demo-body">
+						<div class="demo-search">
+							<svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+							</svg>
+							<span class="demo-search-text">Search personnel...</span>
+						</div>
+						<div class="demo-group-header">
+							<span class="demo-group-name">1st Platoon</span>
+							<span class="demo-group-count">4</span>
+						</div>
+						<div class="demo-roster">
+							<div class="demo-roster-row">
+								<span class="demo-rank">SSG</span>
+								<span class="demo-name">Martinez, Carlos J.</span>
+								<span class="demo-mos">11B</span>
+							</div>
+							<div class="demo-roster-row">
+								<span class="demo-rank">SGT</span>
+								<span class="demo-name">Thompson, Alyssa R.</span>
+								<span class="demo-mos">25U</span>
+							</div>
+							<div class="demo-roster-row">
+								<span class="demo-rank">SPC</span>
+								<span class="demo-name">Nguyen, David K.</span>
+								<span class="demo-mos">68W</span>
+							</div>
+							<div class="demo-roster-row">
+								<span class="demo-rank">PFC</span>
+								<span class="demo-name">Davis, Jordan L.</span>
+								<span class="demo-mos">11B</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Section 03 — Training -->
+	<section class="feature-section">
+		<div class="feature-section-inner">
+			<div class="feature-text">
+				<div class="feature-label">03 // Training</div>
+				<h2>Never miss an expiration <em>again.</em></h2>
+				<p class="feature-desc">Track every certification across your unit with color-coded warnings. Know at a glance who's current, who's expiring soon, and who needs retraining.</p>
+				<ul>
+					<li>Color-coded warnings at 60, 30, and 0 days before expiration</li>
+					<li>Organization-wide training completion view</li>
+					<li>Custom training types with optional expiration tracking</li>
+					<li>Export to Excel with color-coding intact</li>
+				</ul>
+			</div>
+			<div class="feature-demo">
+				<div class="demo-panel">
+					<div class="demo-chrome">
+						<div class="demo-dots"><span></span><span></span><span></span></div>
+						<span class="demo-label">Training</span>
+					</div>
+					<div class="demo-body">
+						<div class="demo-training-list">
+							<div class="demo-training-row">
+								<div class="demo-training-header">
+									<span class="demo-training-name">CPR / BLS Certification</span>
+									<span class="demo-training-status current">Current</span>
+								</div>
+								<div class="demo-training-bar">
+									<div class="demo-training-fill" style="width: 85%; background: #4caf50;"></div>
+								</div>
+								<div class="demo-training-meta">
+									<span class="demo-training-date">Exp: 14 Aug 2026</span>
+									<span class="demo-training-date">164 days</span>
+								</div>
+							</div>
+							<div class="demo-training-row">
+								<div class="demo-training-header">
+									<span class="demo-training-name">Weapons Qualification</span>
+									<span class="demo-training-status expiring">Due 60</span>
+								</div>
+								<div class="demo-training-bar">
+									<div class="demo-training-fill" style="width: 42%; background: #2196f3;"></div>
+								</div>
+								<div class="demo-training-meta">
+									<span class="demo-training-date">Exp: 02 May 2026</span>
+									<span class="demo-training-date">57 days</span>
+								</div>
+							</div>
+							<div class="demo-training-row">
+								<div class="demo-training-header">
+									<span class="demo-training-name">SHARP Training</span>
+									<span class="demo-training-status warn">Due 30</span>
+								</div>
+								<div class="demo-training-bar">
+									<div class="demo-training-fill" style="width: 22%; background: #ff9800;"></div>
+								</div>
+								<div class="demo-training-meta">
+									<span class="demo-training-date">Exp: 01 Apr 2026</span>
+									<span class="demo-training-date">26 days</span>
+								</div>
+							</div>
+							<div class="demo-training-row">
+								<div class="demo-training-header">
+									<span class="demo-training-name">PHA / Dental Readiness</span>
+									<span class="demo-training-status expired">Expired</span>
+								</div>
+								<div class="demo-training-bar">
+									<div class="demo-training-fill" style="width: 0%; background: #f44336;"></div>
+								</div>
+								<div class="demo-training-meta">
+									<span class="demo-training-date">Exp: 15 Feb 2026</span>
+									<span class="demo-training-date">19 days ago</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Feature sections for Tasks 6-7 will be added after these -->
 
 	<!-- CTA Section — same as landing -->
 	<section class="cta">
@@ -469,6 +675,384 @@
 		margin: 0;
 	}
 
+	/* ---- Feature Sections (alternating layout) ---- */
+	.feature-section {
+		padding: 6rem 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.feature-section:nth-child(even of .feature-section) {
+		background: var(--paper-warm);
+	}
+
+	:global([data-theme='dark']) .feature-section:nth-child(even of .feature-section) {
+		background: var(--color-surface);
+	}
+
+	.feature-section-inner {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0 2rem;
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 5rem;
+		align-items: center;
+	}
+
+	.feature-section.reverse .feature-section-inner {
+		direction: rtl;
+	}
+
+	.feature-section.reverse .feature-section-inner > * {
+		direction: ltr;
+	}
+
+	.feature-text .feature-label {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--brass);
+		margin-bottom: 0.75rem;
+	}
+
+	.feature-text h2 {
+		font-family: var(--font-display);
+		font-size: 2.25rem;
+		font-weight: 400;
+		line-height: 1.15;
+		margin-bottom: 1rem;
+	}
+
+	.feature-text h2 em {
+		font-style: italic;
+	}
+
+	.feature-text .feature-desc {
+		font-size: 1rem;
+		color: var(--color-text-secondary);
+		line-height: 1.7;
+		margin-bottom: 1.5rem;
+	}
+
+	.feature-text ul {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+	}
+
+	.feature-text li {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.625rem;
+		font-size: 0.9375rem;
+		color: var(--color-text-secondary);
+		line-height: 1.5;
+	}
+
+	.feature-text li::before {
+		content: '';
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--brass);
+		flex-shrink: 0;
+		margin-top: 0.5rem;
+	}
+
+	/* ---- Shared Demo Panel ---- */
+	.demo-panel {
+		background: var(--ink-light);
+		border: 1px solid var(--ink-border);
+		border-radius: 12px;
+		overflow: hidden;
+		box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 20px 60px rgba(0,0,0,0.3);
+	}
+
+	.demo-chrome {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.625rem 1rem;
+		border-bottom: 1px solid var(--ink-border);
+		background: rgba(255,255,255,0.02);
+	}
+
+	.demo-dots {
+		display: flex;
+		gap: 5px;
+	}
+
+	.demo-dots span {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--ink-border);
+	}
+
+	.demo-label {
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		color: var(--hero-muted);
+		letter-spacing: 0.02em;
+	}
+
+	.demo-live-badge {
+		font-family: var(--font-mono);
+		font-size: 0.5rem;
+		font-weight: 500;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: #4caf50;
+		background: rgba(76, 175, 80, 0.12);
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
+		margin-left: auto;
+	}
+
+	.demo-body {
+		padding: 1.25rem;
+	}
+
+	/* ---- Calendar Demo ---- */
+	.cal-month-label {
+		font-family: var(--font-mono);
+		font-size: 0.625rem;
+		color: var(--hero-muted);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		margin-bottom: 0.75rem;
+	}
+
+	.cal-grid {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: 4px;
+		margin-bottom: 1rem;
+	}
+
+	.cal-header {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
+		text-align: center;
+		padding-bottom: 0.375rem;
+	}
+
+	.cal-cell {
+		aspect-ratio: 1;
+		border-radius: 4px;
+		min-height: 28px;
+	}
+
+	.cal-empty {
+		background: rgba(255,255,255,0.04);
+	}
+
+	.cal-leave {
+		background: #4caf50;
+	}
+
+	.cal-tdy {
+		background: #7c4dff;
+	}
+
+	.cal-school {
+		background: #2196f3;
+	}
+
+	.cal-appt {
+		background: #ff9800;
+	}
+
+	.cal-legend {
+		display: flex;
+		gap: 1rem;
+		justify-content: center;
+	}
+
+	.cal-legend-item {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
+	}
+
+	.cal-legend-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 2px;
+		display: inline-block;
+	}
+
+	/* ---- Personnel Demo ---- */
+	.demo-search {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 6px;
+		border: 1px solid rgba(255,255,255,0.1);
+		background: rgba(255,255,255,0.03);
+		margin-bottom: 1rem;
+	}
+
+	.demo-search-text {
+		font-size: 0.6875rem;
+		color: var(--hero-muted);
+	}
+
+	.demo-search-icon {
+		width: 12px;
+		height: 12px;
+		color: var(--hero-muted);
+	}
+
+	.demo-group-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 0.625rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 1px solid rgba(255,255,255,0.06);
+	}
+
+	.demo-group-name {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		color: var(--hero-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+	}
+
+	.demo-group-count {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
+		background: rgba(255,255,255,0.06);
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
+	}
+
+	.demo-roster {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.demo-roster-row {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+		padding: 0.375rem 0;
+	}
+
+	.demo-rank {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		font-weight: 500;
+		padding: 0.125rem 0.375rem;
+		background: var(--brass-muted);
+		color: var(--brass);
+		border-radius: 3px;
+		letter-spacing: 0.05em;
+		flex-shrink: 0;
+	}
+
+	.demo-name {
+		font-size: 0.75rem;
+		color: var(--hero-text);
+		flex: 1;
+	}
+
+	.demo-mos {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
+	}
+
+	/* ---- Training Demo ---- */
+	.demo-training-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.demo-training-row {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.demo-training-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.demo-training-name {
+		font-size: 0.6875rem;
+		color: var(--hero-text);
+	}
+
+	.demo-training-status {
+		font-family: var(--font-mono);
+		font-size: 0.5rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
+	}
+
+	.demo-training-status.current {
+		background: rgba(76, 175, 80, 0.15);
+		color: #4caf50;
+	}
+
+	.demo-training-status.warn {
+		background: rgba(255, 152, 0, 0.15);
+		color: #ff9800;
+	}
+
+	.demo-training-status.expiring {
+		background: rgba(33, 150, 243, 0.15);
+		color: #2196f3;
+	}
+
+	.demo-training-status.expired {
+		background: rgba(244, 67, 54, 0.15);
+		color: #f44336;
+	}
+
+	.demo-training-bar {
+		height: 4px;
+		background: rgba(255,255,255,0.06);
+		border-radius: 2px;
+		overflow: hidden;
+	}
+
+	.demo-training-fill {
+		height: 100%;
+		border-radius: 2px;
+	}
+
+	.demo-training-meta {
+		display: flex;
+		justify-content: space-between;
+	}
+
+	.demo-training-date {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
+	}
+
 	/* ============================================
 	   Responsive — Tablet
 	   ============================================ */
@@ -479,6 +1063,18 @@
 
 		.page-header h1 {
 			font-size: 2.5rem;
+		}
+
+		.feature-section {
+			padding: 4rem 0;
+		}
+
+		.feature-section-inner {
+			gap: 3rem;
+		}
+
+		.feature-text h2 {
+			font-size: 1.875rem;
 		}
 	}
 
@@ -522,6 +1118,24 @@
 
 		.page-header p {
 			font-size: 0.9375rem;
+		}
+
+		.feature-section {
+			padding: 3rem 0;
+		}
+
+		.feature-section-inner {
+			grid-template-columns: 1fr;
+			gap: 2rem;
+			padding: 0 1rem;
+		}
+
+		.feature-section.reverse .feature-section-inner {
+			direction: ltr;
+		}
+
+		.feature-text h2 {
+			font-size: 1.75rem;
 		}
 
 		.cta {

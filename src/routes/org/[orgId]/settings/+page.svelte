@@ -2,11 +2,58 @@
 	import { enhance } from '$app/forms';
 	import OrganizationMemberManager from '$lib/components/OrganizationMemberManager.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	let { data, form } = $props();
 	let loading = $state(false);
 	let showDeleteConfirm = $state(false);
 	let deleteConfirmText = $state('');
+
+	let exporting = $state(false);
+	let exportError = $state('');
+	let exportSuccess = $state(false);
+
+	async function handleExport() {
+		if (exporting) return;
+		exporting = true;
+		exportError = '';
+		exportSuccess = false;
+
+		try {
+			const res = await fetch(`/org/${data.orgId}/api/export`, { method: 'POST' });
+
+			if (!res.ok) {
+				if (res.headers.get('Content-Type')?.includes('application/json')) {
+					const body = await res.json();
+					exportError = body.error || 'Export failed. Please try again.';
+				} else {
+					exportError = 'Export failed. Please try again.';
+				}
+				return;
+			}
+
+			// Trigger file download
+			const blob = await res.blob();
+			const disposition = res.headers.get('Content-Disposition');
+			const filenameMatch = disposition?.match(/filename="(.+)"/);
+			const filename = filenameMatch?.[1] ?? `org-export-${data.orgId}.json`;
+
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+
+			exportSuccess = true;
+		} catch {
+			exportError = 'Export failed. Please try again.';
+		} finally {
+			exporting = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -75,6 +122,44 @@
 			<a href="/auth/logout" class="btn btn-secondary">Sign Out</a>
 			<a href="/dashboard?show=all" class="btn btn-secondary">Switch Organization</a>
 		</div>
+
+		{#if data.isOwner || data.canManageMembers}
+			<div class="settings-card">
+				<h2>Data Export</h2>
+				<p class="export-description">
+					Download all organization data as a JSON file. This includes personnel, groups,
+					training records, availability, counseling records, assignments, onboarding data,
+					and rating scheme entries.
+				</p>
+
+				{#if data.exportInfo.isLimited}
+					<p class="export-usage">
+						Exports this month: {data.exportInfo.exportsUsed} / {data.exportInfo.exportsLimit}
+					</p>
+					{#if data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit}
+						<p class="export-limit-warning">
+							Export limit reached. Upgrade your plan for unlimited exports.
+						</p>
+					{/if}
+				{/if}
+
+				{#if exportError}
+					<div class="error-message">{exportError}</div>
+				{/if}
+				{#if exportSuccess}
+					<div class="success-message">Export downloaded successfully!</div>
+				{/if}
+
+				<button
+					class="btn btn-primary"
+					onclick={handleExport}
+					disabled={exporting || (data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit)}
+				>
+					{#if exporting}<Spinner />{/if}
+					{exporting ? 'Generating Export...' : 'Export All Org Data'}
+				</button>
+			</div>
+		{/if}
 
 		{#if data.isOwner}
 			<div class="settings-card danger-zone">
@@ -208,6 +293,25 @@
 
 	.settings-card .btn + .btn {
 		margin-left: var(--spacing-sm);
+	}
+
+	.export-description {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		margin-bottom: var(--spacing-md);
+		line-height: 1.5;
+	}
+
+	.export-usage {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		margin-bottom: var(--spacing-sm);
+	}
+
+	.export-limit-warning {
+		font-size: var(--font-size-sm);
+		color: var(--color-warning, #d97706);
+		margin-bottom: var(--spacing-md);
 	}
 
 	.danger-zone {

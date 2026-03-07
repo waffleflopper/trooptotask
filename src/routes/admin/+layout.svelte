@@ -8,6 +8,7 @@
 		{ href: '/admin/access-requests', label: 'Requests', icon: 'requests' },
 		{ href: '/admin/feedback', label: 'Feedback', icon: 'feedback' },
 		{ href: '/admin/users', label: 'Users', icon: 'users' },
+		{ href: '/admin/gifting', label: 'Gifting', icon: 'gifting' },
 		{ href: '/admin/audit', label: 'Audit Log', icon: 'audit' }
 	];
 
@@ -55,6 +56,14 @@
 							<circle cx="9" cy="7" r="4"></circle>
 							<path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
 							<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+						</svg>
+					{:else if item.icon === 'gifting'}
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<polyline points="20 12 20 22 4 22 4 12"></polyline>
+							<rect x="2" y="7" width="20" height="5"></rect>
+							<line x1="12" y1="22" x2="12" y2="7"></line>
+							<path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+							<path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
 						</svg>
 					{:else if item.icon === 'audit'}
 						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

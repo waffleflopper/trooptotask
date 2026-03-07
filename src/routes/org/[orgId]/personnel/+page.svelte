@@ -5,6 +5,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { ratingSchemeStore } from '$lib/stores/ratingScheme.svelte';
+	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import PersonnelModal from '$lib/components/PersonnelModal.svelte';
 	import GroupManager from '$lib/components/GroupManager.svelte';
 	import BulkPersonnelManager from '$lib/components/BulkPersonnelManager.svelte';
@@ -17,6 +18,8 @@
 	import { groupAndSortPersonnel, RANK_ORDER } from '$lib/utils/personnelGrouping';
 	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
 	import { exportRatingScheme } from '$lib/utils/ratingSchemeExport';
+
+	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 
 	let { data } = $props();
 
@@ -114,9 +117,9 @@
 	const personnelOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
 		if (data.permissions.canEditPersonnel) {
-			items.push({ label: 'Add Person', onclick: handleAdd });
-			items.push({ label: 'Manage Groups', onclick: () => (showGroupManager = true) });
-			items.push({ label: 'Bulk Import', onclick: () => (showBulkManager = true), divider: true });
+			items.push({ label: 'Add Person', onclick: handleAdd, disabled: readOnly });
+			items.push({ label: 'Manage Groups', onclick: () => (showGroupManager = true), disabled: readOnly });
+			items.push({ label: 'Bulk Import', onclick: () => (showBulkManager = true), divider: true, disabled: readOnly });
 		}
 		return items;
 	});
@@ -191,12 +194,15 @@
 <div class="page">
 	<PageToolbar title="Personnel" helpTopic={pageView === 'rating-scheme' ? 'rating-scheme' : 'personnel'} overflowItems={personnelOverflowItems}>
 		{#if data.permissions.canEditPersonnel}
-			<button class="btn-ghost" onclick={() => (showGroupManager = true)}>
+			<button class="btn-ghost" onclick={() => (showGroupManager = true)} disabled={readOnly}>
 				Manage Groups
 			</button>
-			<button class="btn btn-sm btn-primary" onclick={handleAdd}>
+			<button class="btn btn-sm btn-primary" onclick={handleAdd} disabled={readOnly}>
 				Add Person
 			</button>
+			{#if readOnly}
+				<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+			{/if}
 		{/if}
 	</PageToolbar>
 
@@ -378,9 +384,12 @@
 
 		<div class="rating-toolbar">
 			{#if data.permissions.canEditPersonnel}
-				<button class="btn btn-sm btn-primary" onclick={handleAddRatingEntry}>
+				<button class="btn btn-sm btn-primary" onclick={handleAddRatingEntry} disabled={readOnly}>
 					Add Entry
 				</button>
+				{#if readOnly}
+					<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+				{/if}
 			{/if}
 			<button class="btn btn-sm btn-secondary" onclick={() => exportRatingScheme(filteredRatingEntries, personnelStore.list)}>
 				Export

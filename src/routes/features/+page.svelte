@@ -281,7 +281,153 @@
 		</div>
 	</section>
 
-	<!-- Feature sections for Tasks 6-7 will be added after these -->
+	<!-- Section 04 — Leaders Book (reversed) -->
+	<section class="feature-section reverse">
+		<div class="feature-section-inner">
+			<div class="feature-text">
+				<div class="feature-label">04 // Leaders Book</div>
+				<h2>Your digital counseling <em>packet.</em></h2>
+				<p class="feature-desc">Centralize soldier information, counseling records, and development goals. Upload supporting documents and track follow-ups — all in one place.</p>
+				<ul>
+					<li>Counseling records with PDF upload and download</li>
+					<li>Development goal tracking and follow-ups</li>
+					<li>Chronological timeline per soldier</li>
+					<li>Custom counseling types (initial, quarterly, event-based)</li>
+				</ul>
+			</div>
+			<div class="feature-demo">
+				<div class="demo-panel">
+					<div class="demo-chrome">
+						<div class="demo-dots"><span></span><span></span><span></span></div>
+						<span class="demo-label">Leaders Book</span>
+					</div>
+					<div class="demo-body">
+						<div class="demo-soldier-header">
+							<div>
+								<div class="demo-soldier-name">SSG Martinez, Carlos J.</div>
+								<div class="demo-soldier-info">11B — 1st Platoon, Alpha Co</div>
+							</div>
+						</div>
+						<div class="demo-timeline">
+							<div class="demo-timeline-entry">
+								<div class="demo-timeline-date">06 Mar 26</div>
+								<div class="demo-timeline-content">
+									<div class="demo-timeline-top">
+										<span class="demo-counseling-type event">Event</span>
+										<svg class="demo-file-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+											<path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.49"/>
+										</svg>
+									</div>
+									<div class="demo-timeline-summary">Excellence during FTX — led squad through night land nav with zero incidents</div>
+								</div>
+							</div>
+							<div class="demo-timeline-entry">
+								<div class="demo-timeline-date">15 Jan 26</div>
+								<div class="demo-timeline-content">
+									<div class="demo-timeline-top">
+										<span class="demo-counseling-type quarterly">Quarterly</span>
+									</div>
+									<div class="demo-timeline-summary">On track for promotion; recommended for BLC next quarter</div>
+								</div>
+							</div>
+							<div class="demo-timeline-entry">
+								<div class="demo-timeline-date">02 Oct 25</div>
+								<div class="demo-timeline-content">
+									<div class="demo-timeline-top">
+										<span class="demo-counseling-type initial">Initial</span>
+										<svg class="demo-file-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+											<path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.49"/>
+										</svg>
+									</div>
+									<div class="demo-timeline-summary">Initial counseling — duties, expectations, and development plan</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Section 05 — In-Processing -->
+	<section class="feature-section">
+		<div class="feature-section-inner">
+			<div class="feature-text">
+				<div class="feature-label">05 // In-Processing</div>
+				<h2>Onboard new personnel <em>with confidence.</em></h2>
+				<p class="feature-desc">Create custom in-processing templates and track each step per soldier. Pivot by step to see which personnel still need a specific action.</p>
+				<ul>
+					<li>Customizable step templates per organization</li>
+					<li>Per-person progress tracking with completion dates</li>
+					<li>Pivot-by-step report shows gaps across the unit</li>
+					<li>Track multiple new arrivals simultaneously</li>
+				</ul>
+			</div>
+			<div class="feature-demo">
+				<div class="demo-panel">
+					<div class="demo-chrome">
+						<div class="demo-dots"><span></span><span></span><span></span></div>
+						<span class="demo-label">In-Processing</span>
+					</div>
+					<div class="demo-body">
+						<div class="demo-progress-header">
+							<div class="demo-progress-names">SPC Davis, Jordan L. &nbsp;&bull;&nbsp; PFC Chen, Michael W.</div>
+							<div class="demo-progress-bar-container">
+								<div class="demo-progress-bar">
+									<div class="demo-progress-fill" style="width: 67%;"></div>
+								</div>
+							</div>
+							<div class="demo-progress-text">4 of 6 steps complete</div>
+						</div>
+						<div class="demo-checklist">
+							<div class="demo-checklist-item completed">
+								<div class="demo-checkbox checked">
+									<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+										<polyline points="20 6 9 17 4 12"/>
+									</svg>
+								</div>
+								<span class="demo-checklist-label">DEERS Enrollment</span>
+							</div>
+							<div class="demo-checklist-item completed">
+								<div class="demo-checkbox checked">
+									<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+										<polyline points="20 6 9 17 4 12"/>
+									</svg>
+								</div>
+								<span class="demo-checklist-label">CAC Card Pickup</span>
+							</div>
+							<div class="demo-checklist-item completed">
+								<div class="demo-checkbox checked">
+									<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+										<polyline points="20 6 9 17 4 12"/>
+									</svg>
+								</div>
+								<span class="demo-checklist-label">Unit Welcome Brief</span>
+							</div>
+							<div class="demo-checklist-item completed">
+								<div class="demo-checkbox checked">
+									<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+										<polyline points="20 6 9 17 4 12"/>
+									</svg>
+								</div>
+								<span class="demo-checklist-label">Key Card Issue</span>
+							</div>
+							<div class="demo-checklist-item">
+								<div class="demo-checkbox"></div>
+								<span class="demo-checklist-label">Arms Room Inventory</span>
+							</div>
+							<div class="demo-checklist-item">
+								<div class="demo-checkbox"></div>
+								<span class="demo-checklist-label">Barracks Assignment</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Feature sections for Task 7 will be added after these -->
 
 	<!-- CTA Section — same as landing -->
 	<section class="cta">
@@ -1051,6 +1197,172 @@
 		font-family: var(--font-mono);
 		font-size: 0.5625rem;
 		color: var(--hero-muted);
+	}
+
+	/* ---- Leaders Book Demo ---- */
+	.demo-soldier-header {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+		padding-bottom: 0.75rem;
+		border-bottom: 1px solid rgba(255,255,255,0.06);
+	}
+
+	.demo-soldier-name {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--hero-text);
+	}
+
+	.demo-soldier-info {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
+	}
+
+	.demo-timeline {
+		display: flex;
+		flex-direction: column;
+		gap: 0.875rem;
+	}
+
+	.demo-timeline-entry {
+		display: flex;
+		gap: 0.75rem;
+		align-items: flex-start;
+	}
+
+	.demo-timeline-date {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
+		min-width: 52px;
+		padding-top: 0.125rem;
+		flex-shrink: 0;
+	}
+
+	.demo-timeline-content {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.demo-timeline-top {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.25rem;
+	}
+
+	.demo-counseling-type {
+		font-family: var(--font-mono);
+		font-size: 0.5rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
+	}
+
+	.demo-counseling-type.initial {
+		background: rgba(33, 150, 243, 0.15);
+		color: #2196f3;
+	}
+
+	.demo-counseling-type.quarterly {
+		background: rgba(76, 175, 80, 0.15);
+		color: #4caf50;
+	}
+
+	.demo-counseling-type.event {
+		background: rgba(255, 152, 0, 0.15);
+		color: #ff9800;
+	}
+
+	.demo-file-icon {
+		color: var(--hero-muted);
+		flex-shrink: 0;
+	}
+
+	.demo-timeline-summary {
+		font-size: 0.6875rem;
+		color: var(--hero-muted);
+		line-height: 1.4;
+	}
+
+	/* ---- In-Processing Demo ---- */
+	.demo-progress-header {
+		margin-bottom: 1rem;
+	}
+
+	.demo-progress-names {
+		font-size: 0.6875rem;
+		color: var(--hero-text);
+		margin-bottom: 0.5rem;
+	}
+
+	.demo-progress-bar-container {
+		margin-bottom: 0.375rem;
+	}
+
+	.demo-progress-bar {
+		height: 6px;
+		background: rgba(255,255,255,0.06);
+		border-radius: 3px;
+		overflow: hidden;
+	}
+
+	.demo-progress-fill {
+		height: 100%;
+		background: var(--brass);
+		border-radius: 3px;
+	}
+
+	.demo-progress-text {
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		color: var(--hero-muted);
+		margin-top: 0.25rem;
+	}
+
+	.demo-checklist {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.demo-checklist-item {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+		padding: 0.375rem 0;
+	}
+
+	.demo-checkbox {
+		width: 16px;
+		height: 16px;
+		border-radius: 4px;
+		border: 1.5px solid rgba(255,255,255,0.15);
+		background: transparent;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.demo-checkbox.checked {
+		background: rgba(76, 175, 80, 0.15);
+		border-color: #4caf50;
+		color: #4caf50;
+	}
+
+	.demo-checklist-label {
+		font-size: 0.6875rem;
+		color: var(--hero-muted);
+	}
+
+	.demo-checklist-item.completed .demo-checklist-label {
+		color: var(--hero-text);
 	}
 
 	/* ============================================

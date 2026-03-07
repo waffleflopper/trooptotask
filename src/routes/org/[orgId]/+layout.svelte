@@ -6,6 +6,7 @@
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import DemoBanner from '$lib/components/DemoBanner.svelte';
+	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
 	import DemoSandboxModal from '$lib/components/DemoSandboxModal.svelte';
 	import TopHeader from '$lib/components/TopHeader.svelte';
 	import BottomTabBar from '$lib/components/BottomTabBar.svelte';
@@ -40,6 +41,7 @@
 </script>
 
 <DemoBanner />
+<SubscriptionBanner orgId={data.orgId} />
 
 <TopHeader
 	orgId={data.orgId}
@@ -51,7 +53,7 @@
 	isDarkTheme={themeStore.isDark}
 />
 
-<main class="app-content" class:has-demo-banner={demoModeStore.hasBanner}>
+<main class="app-content" class:has-demo-banner={demoModeStore.hasBanner} class:has-sub-banner={subscriptionStore.hasBanner}>
 	{@render children()}
 </main>
 
@@ -90,6 +92,14 @@
 
 	.app-content.has-demo-banner {
 		padding-top: calc(var(--header-height, 56px) + 40px);
+	}
+
+	.app-content.has-sub-banner {
+		padding-top: calc(var(--header-height, 56px) + 40px);
+	}
+
+	.app-content.has-demo-banner.has-sub-banner {
+		padding-top: calc(var(--header-height, 56px) + 80px);
 	}
 
 	@media (max-width: 640px) {

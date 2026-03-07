@@ -45,7 +45,7 @@ async function checkGiftPause(
 	supabase: SupabaseClient,
 	orgId: string,
 	orgTier: string,
-	subscriptionId: string
+	subscription: Stripe.Subscription
 ): Promise<void> {
 	const { data: org } = await supabase
 		.from('organizations')
@@ -57,11 +57,13 @@ async function checkGiftPause(
 
 	const giftActive =
 		org.gift_tier && org.gift_expires_at && new Date(org.gift_expires_at) > new Date();
+	const shouldPause =
+		giftActive && (TIER_RANK[org.gift_tier] ?? 0) >= (TIER_RANK[orgTier] ?? 0);
 
-	if (giftActive && (TIER_RANK[org.gift_tier] ?? 0) >= (TIER_RANK[orgTier] ?? 0)) {
-		await pauseSubscription(subscriptionId);
-	} else {
-		await resumeSubscription(subscriptionId);
+	if (shouldPause && !subscription.pause_collection) {
+		await pauseSubscription(subscription.id);
+	} else if (!shouldPause && subscription.pause_collection) {
+		await resumeSubscription(subscription.id);
 	}
 }
 
@@ -123,14 +125,18 @@ async function handleSubscriptionUpdated(
 		return;
 	}
 
-	const status =
-		subscription.status === 'active'
-			? 'active'
-			: subscription.status === 'past_due'
-				? 'past_due'
-				: subscription.status === 'canceled'
-					? 'canceled'
-					: 'active';
+	const STATUS_MAP: Record<string, string | null> = {
+		active: 'active',
+		past_due: 'past_due',
+		canceled: 'canceled',
+		paused: 'active',
+		trialing: 'active',
+		incomplete: null,
+		incomplete_expired: null,
+		unpaid: 'past_due'
+	};
+	const status = STATUS_MAP[subscription.status];
+	if (!status) return; // Don't update for incomplete/expired states
 
 	// current_period_end was removed from Stripe SDK v20 types but is
 	// still present in the webhook payload.
@@ -153,9 +159,7 @@ async function handleSubscriptionUpdated(
 	}
 
 	// Check if a gift should pause/resume this subscription
-	if (subscription.id) {
-		await checkGiftPause(supabase, orgId, tier, subscription.id);
-	}
+	await checkGiftPause(supabase, orgId, tier, subscription);
 }
 
 async function handleSubscriptionDeleted(
@@ -298,13 +302,15 @@ export const POST: RequestHandler = async ({ request }) => {
 	} catch (err) {
 		console.error(`Error processing webhook ${event.id} (${event.type}):`, err);
 
-		// Record the error but return 200 so Stripe doesn't keep retrying a known event
 		await supabase
 			.from('stripe_webhook_events')
 			.update({
 				error: err instanceof Error ? err.message : 'Unknown error'
 			})
 			.eq('id', event.id);
+
+		// Return 500 so Stripe retries on infrastructure failures
+		return new Response('Processing error', { status: 500 });
 	}
 
 	return new Response('OK', { status: 200 });

@@ -85,13 +85,14 @@
 			const result = await res.json();
 			if (!res.ok) {
 				errorMessage = result.error || 'Failed to create checkout session';
+				subscribingTier = null;
 				return;
 			}
 
 			window.location.href = result.url;
+			// Don't reset subscribingTier — keep button disabled until navigation completes
 		} catch {
 			errorMessage = 'An unexpected error occurred. Please try again.';
-		} finally {
 			subscribingTier = null;
 		}
 	}

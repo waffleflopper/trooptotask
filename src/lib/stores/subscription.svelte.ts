@@ -34,6 +34,21 @@ function createSubscriptionStore() {
 			const diff = new Date(effectiveTier.giftExpiresAt).getTime() - Date.now();
 			return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 		},
+		get hasBanner() {
+			if (!isBillingEnabled) return false;
+			const isGifted = effectiveTier?.source === 'gift';
+			const giftExpiring =
+				isGifted &&
+				effectiveTier?.giftExpiresAt != null &&
+				Math.max(
+					0,
+					Math.ceil(
+						(new Date(effectiveTier.giftExpiresAt).getTime() - Date.now()) /
+							(1000 * 60 * 60 * 24)
+					)
+				) <= 14;
+			return giftExpiring || (effectiveTier?.isReadOnly ?? false);
+		},
 		get billingEnabled() {
 			return isBillingEnabled;
 		},

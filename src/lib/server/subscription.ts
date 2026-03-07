@@ -14,7 +14,7 @@ export async function getEffectiveTier(
 		return {
 			tier: 'unit',
 			source: 'default',
-			personnelCount: 0,
+			personnelCount: 0, // Not fetched when billing disabled — UI hidden in this mode
 			personnelCap: Infinity,
 			isReadOnly: false,
 			giftExpiresAt: null,
@@ -120,9 +120,8 @@ export async function getMonthlyExportCount(
 	supabase: SupabaseClient,
 	orgId: string
 ): Promise<number> {
-	const startOfMonth = new Date();
-	startOfMonth.setDate(1);
-	startOfMonth.setHours(0, 0, 0, 0);
+	const now = new Date();
+	const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
 	const { count, error } = await supabase
 		.from('data_exports')

@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { demoModeStore } from '$lib/stores/demoMode.svelte';
+	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import DemoBanner from '$lib/components/DemoBanner.svelte';
 	import DemoSandboxModal from '$lib/components/DemoSandboxModal.svelte';
@@ -17,6 +18,13 @@
 	// Initialize demo mode store with server data
 	$effect(() => {
 		demoModeStore.load(data.isDemoReadOnly, data.isDemoSandbox);
+	});
+
+	// Load subscription tier into store (reacts to org navigation changes)
+	$effect(() => {
+		if (data.effectiveTier) {
+			subscriptionStore.load(data.effectiveTier);
+		}
 	});
 
 	// Re-fetch shared data when tab regains focus (handles idle tabs + multi-user changes)

@@ -2,6 +2,7 @@ import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import { getSupabaseClient } from '$lib/server/supabase';
+import { getEffectiveTier } from '$lib/server/subscription';
 import {
 	transformPersonnel,
 	transformGroups,
@@ -80,7 +81,10 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			canManageMembers: false
 		};
 
-		const shared = await fetchSharedData(supabase, orgId);
+		const [shared, effectiveTier] = await Promise.all([
+			fetchSharedData(supabase, orgId),
+			getEffectiveTier(supabase, orgId)
+		]);
 
 		return {
 			orgId,
@@ -89,6 +93,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			userId: null,
 			permissions: readOnlyPermissions,
 			allOrgs: [],
+			effectiveTier,
 
 			isDemoReadOnly: true,
 			isDemoSandbox: false,
@@ -111,7 +116,10 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					canManageMembers: true
 				};
 
-				const shared = await fetchSharedData(supabase, orgId);
+				const [shared, effectiveTier] = await Promise.all([
+					fetchSharedData(supabase, orgId),
+					getEffectiveTier(supabase, orgId)
+				]);
 
 				return {
 					orgId,
@@ -120,7 +128,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					userId: null,
 					permissions: fullPermissions,
 					allOrgs: [],
-		
+					effectiveTier,
+
 					isDemoReadOnly: false,
 					isDemoSandbox: true,
 					...shared
@@ -134,8 +143,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	// For non-demo access, require login
 	if (!user) throw redirect(303, '/auth/login');
 
-	// Parallelize: membership check, allOrgs, ownerMembership, and shared entity data
-	const [membershipRes, membershipsRes, shared] = await Promise.all([
+	// Parallelize: membership check, allOrgs, ownerMembership, shared entity data, and tier
+	const [membershipRes, membershipsRes, shared, effectiveTier] = await Promise.all([
 		locals.supabase
 			.from('organization_memberships')
 			.select(
@@ -148,7 +157,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			.from('organization_memberships')
 			.select('organization_id, role, organizations(id, name)')
 			.eq('user_id', user.id),
-		fetchSharedData(supabase, orgId)
+		fetchSharedData(supabase, orgId),
+		getEffectiveTier(supabase, orgId)
 	]);
 
 	const membership = membershipRes.data;
@@ -184,6 +194,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		userId: user.id,
 		permissions,
 		allOrgs,
+		effectiveTier,
 		isDemoReadOnly: false,
 		isDemoSandbox: false,
 		...shared

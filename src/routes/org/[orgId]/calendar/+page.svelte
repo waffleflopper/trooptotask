@@ -11,6 +11,7 @@
 	import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { calendarPrefsStore } from '$lib/stores/calendarPrefs.svelte';
+	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import Calendar from '$lib/components/Calendar.svelte';
 	import AvailabilityModal from '$lib/components/AvailabilityModal.svelte';
 	import StatusTypeManager from '$lib/components/StatusTypeManager.svelte';
@@ -41,6 +42,8 @@
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
 		dutyRosterHistoryStore.load(data.rosterHistory);
 	});
+
+	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 
 	let showStatusManager = $state(false);
 	let showSpecialDayManager = $state(false);
@@ -170,14 +173,14 @@
 		// Visible actions duplicated for mobile access
 		items.push({ label: "Today's Breakdown", onclick: () => (showTodayBreakdown = true) });
 		if (data.permissions.canEditCalendar) {
-			items.push({ label: 'Assignments', onclick: () => (showAssignmentPlanner = true) });
+			items.push({ label: 'Assignments', onclick: () => (showAssignmentPlanner = true), disabled: readOnly });
 		}
 		items.push({ label: '3-Month View', onclick: () => (showLongRangeView = true) });
 
 		// Additional tools
 		if (data.permissions.canEditCalendar) {
-			items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true });
-			items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true) });
+			items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true, disabled: readOnly });
+			items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true), disabled: readOnly });
 		}
 
 		// Export
@@ -189,9 +192,9 @@
 
 		// Configure group
 		if (data.permissions.canEditCalendar) {
-			items.push({ label: 'Status Types', onclick: () => (showStatusManager = true), divider: true, group: 'Configure' });
-			items.push({ label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true) });
-			items.push({ label: 'Holidays', onclick: () => (showSpecialDayManager = true) });
+			items.push({ label: 'Status Types', onclick: () => (showStatusManager = true), divider: true, group: 'Configure', disabled: readOnly });
+			items.push({ label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true), disabled: readOnly });
+			items.push({ label: 'Holidays', onclick: () => (showSpecialDayManager = true), disabled: readOnly });
 		}
 
 		return items;
@@ -208,13 +211,16 @@
 			Today's Breakdown
 		</button>
 		{#if data.permissions.canEditCalendar}
-			<button class="btn btn-sm" onclick={() => (showAssignmentPlanner = true)}>
+			<button class="btn btn-sm" onclick={() => (showAssignmentPlanner = true)} disabled={readOnly}>
 				Assignments
 			</button>
 		{/if}
 		<button class="btn btn-sm" onclick={() => (showLongRangeView = true)}>
 			3-Month View
 		</button>
+		{#if readOnly}
+			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+		{/if}
 	</PageToolbar>
 
 	<main class="page-content">

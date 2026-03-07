@@ -2,6 +2,7 @@
 	import type { Personnel, TrainingType, PersonnelTraining } from '$lib/types';
 	import { trainingTypesStore } from '$lib/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
+	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { getTrainingStats } from '$lib/utils/trainingStatus';
 	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
 	import TrainingMatrix from '$lib/components/TrainingMatrix.svelte';
@@ -12,6 +13,7 @@
 	import TrainingReports from '$lib/components/TrainingReports.svelte';
 	import BulkTrainingImporter from '$lib/components/BulkTrainingImporter.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 
 	let { data } = $props();
@@ -27,6 +29,8 @@
 		[...new Set(data.personnel.map((p: Personnel) => p.clinicRole))].filter(Boolean).sort()
 	);
 
+	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+
 	let showTypeManager = $state(false);
 	let showTypeReorder = $state(false);
 	let showReports = $state(false);
@@ -40,9 +44,9 @@
 		// Include Reports for mobile access
 		items.push({ label: 'Reports', onclick: () => (showReports = true) });
 		if (data.permissions.canEditTraining) {
-			items.push({ label: 'Bulk Import', onclick: () => (showBulkImporter = true), divider: true });
-			items.push({ label: 'Manage Types', onclick: () => (showTypeManager = true) });
-			items.push({ label: 'Reorder Columns', onclick: () => (showTypeReorder = true) });
+			items.push({ label: 'Bulk Import', onclick: () => (showBulkImporter = true), divider: true, disabled: readOnly });
+			items.push({ label: 'Manage Types', onclick: () => (showTypeManager = true), disabled: readOnly });
+			items.push({ label: 'Reorder Columns', onclick: () => (showTypeReorder = true), disabled: readOnly });
 		}
 		return items;
 	});
@@ -152,6 +156,9 @@
 		<button class="btn btn-sm" onclick={() => (showReports = true)}>
 			Reports
 		</button>
+		{#if readOnly}
+			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+		{/if}
 	</PageToolbar>
 
 	<div class="stats-bar">
@@ -209,14 +216,13 @@
 
 	<main class="page-content">
 		{#if trainingTypesStore.list.length === 0}
-			<div class="empty-state">
-				<p>No training types defined yet.</p>
-				<p>Use Manage Types in the toolbar to add training types.</p>
-			</div>
+			<EmptyState
+				message="No training types defined yet."
+				actionLabel={data.permissions.canEditTraining ? 'Manage Types' : undefined}
+				onAction={data.permissions.canEditTraining ? () => (showTypeManager = true) : undefined}
+			/>
 		{:else if filteredPersonnel.length === 0}
-			<div class="empty-state">
-				<p>No personnel found.</p>
-			</div>
+			<EmptyState message="No personnel found." />
 		{:else if viewMode === 'alphabetical'}
 			<TrainingMatrix
 				personnel={filteredPersonnel}
@@ -515,16 +521,6 @@
 
 	.page-content {
 		overflow: hidden;
-	}
-
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-		gap: var(--spacing-md);
-		color: var(--color-text-muted);
 	}
 
 	/* Mobile Responsive Styles */

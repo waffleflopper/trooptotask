@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getApiContext } from '$lib/server/supabase';
+import { checkReadOnly } from '$lib/server/read-only-guard';
 
 export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
@@ -10,6 +11,9 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	if (isSandbox) {
 		return json({ success: true, groups: [] });
 	}
+
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
 
 	const body = await request.json();
 
@@ -68,6 +72,9 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	if (isSandbox) {
 		return json({ success: true });
 	}
+
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
 
 	const body = await request.json();
 

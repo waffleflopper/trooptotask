@@ -3,6 +3,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requireEditPermission, type PermissionType } from './permissions';
 import { getApiContext } from './supabase';
+import { checkReadOnly } from './read-only-guard';
 
 /**
  * Field mapping configuration for camelCase <-> snake_case conversion
@@ -157,6 +158,9 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 			await requireEditPermission(supabase, orgId, userId!, permission);
 		}
 
+		const blocked = await checkReadOnly(supabase, orgId);
+		if (blocked) return blocked;
+
 		const body = await request.json();
 
 		const insertData = toInsert
@@ -185,6 +189,9 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		if (!isSandbox) {
 			await requireEditPermission(supabase, orgId, userId!, permission);
 		}
+
+		const blocked = await checkReadOnly(supabase, orgId);
+		if (blocked) return blocked;
 
 		const body = await request.json();
 		const { id } = body;
@@ -221,6 +228,9 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		if (!isSandbox) {
 			await requireEditPermission(supabase, orgId, userId!, permission);
 		}
+
+		const blocked = await checkReadOnly(supabase, orgId);
+		if (blocked) return blocked;
 
 		const body = await request.json();
 		const { id } = body;

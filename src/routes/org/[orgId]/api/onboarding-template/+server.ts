@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
+import { checkReadOnly } from '$lib/server/read-only-guard';
 
 function transformRow(r: any) {
 	return {
@@ -22,6 +23,9 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	if (!isSandbox) {
 		await requireEditPermission(supabase, orgId, userId!, 'personnel');
 	}
+
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
 
 	const body = await request.json();
 
@@ -50,6 +54,9 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	if (!isSandbox) {
 		await requireEditPermission(supabase, orgId, userId!, 'personnel');
 	}
+
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
 
 	const body = await request.json();
 	const { id, ...fields } = body;
@@ -81,6 +88,9 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	if (!isSandbox) {
 		await requireEditPermission(supabase, orgId, userId!, 'personnel');
 	}
+
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
 
 	const { id } = await request.json();
 

@@ -32,10 +32,9 @@
 				aria-label="More actions"
 				onclick={() => (showOverflow = !showOverflow)}
 			>
-				<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-					<circle cx="8" cy="3" r="1.5" />
-					<circle cx="8" cy="8" r="1.5" />
-					<circle cx="8" cy="13" r="1.5" />
+				<span>More</span>
+				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<polyline points="6 9 12 15 18 9" />
 				</svg>
 			</button>
 			<OverflowMenu
@@ -81,14 +80,17 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 32px;
+		gap: 4px;
+		width: auto;
 		height: 32px;
+		padding: var(--spacing-xs) var(--spacing-sm);
 		background: transparent;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--font-size-sm);
 		cursor: pointer;
-		padding: 0;
 		transition: background var(--transition-fast);
 	}
 

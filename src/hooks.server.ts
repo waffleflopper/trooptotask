@@ -40,7 +40,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.user = user;
 
 	// Define public routes that don't require authentication
-	const publicRoutes = ['/', '/auth', '/api/webhooks', '/demo', '/api/create-demo-sandbox', '/api/access-requests'];
+	const publicRoutes = ['/', '/auth', '/api/webhooks', '/demo', '/api/create-demo-sandbox', '/api/access-requests', '/features'];
 	const isPublicRoute = publicRoutes.some(route =>
 		event.url.pathname === route || event.url.pathname.startsWith(route + '/')
 	);

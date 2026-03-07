@@ -51,7 +51,7 @@ export const POST: RequestHandler = async ({ params, request, locals, url }) => 
 	}
 
 	try {
-		const checkoutUrl = await createCheckoutSession({
+		const { url: checkoutUrl, customerId } = await createCheckoutSession({
 			orgId,
 			orgName: org.name,
 			tier,
@@ -60,6 +60,14 @@ export const POST: RequestHandler = async ({ params, request, locals, url }) => 
 			successUrl: `${url.origin}/org/${orgId}/billing/success`,
 			cancelUrl: `${url.origin}/org/${orgId}/billing/canceled`
 		});
+
+		// Persist customer ID immediately to prevent duplicate customers on retry
+		if (!org.stripe_customer_id) {
+			await locals.supabase
+				.from('organizations')
+				.update({ stripe_customer_id: customerId })
+				.eq('id', orgId);
+		}
 
 		return json({ url: checkoutUrl });
 	} catch (err) {

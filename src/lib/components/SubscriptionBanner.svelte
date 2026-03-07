@@ -59,8 +59,7 @@
 					{#if isUrgent}
 						Your complimentary <strong>{tierName}</strong> plan expires in
 						<strong>{daysRemaining}</strong> {daysRemaining === 1 ? 'day' : 'days'}.
-						Subscribe now or your org will be limited to
-						<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong> personnel.
+						Subscribe now to maintain full access.
 					{:else}
 						Your complimentary <strong>{tierName}</strong> plan expires in
 						<strong>{daysRemaining}</strong> {daysRemaining === 1 ? 'day' : 'days'}.

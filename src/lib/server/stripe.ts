@@ -15,7 +15,7 @@ export async function createCheckoutSession(options: {
 	existingCustomerId?: string;
 	successUrl: string;
 	cancelUrl: string;
-}): Promise<string> {
+}): Promise<{ url: string; customerId: string }> {
 	const stripe = getStripe();
 
 	const priceId = TIER_CONFIG[options.tier].stripePriceId;
@@ -43,7 +43,7 @@ export async function createCheckoutSession(options: {
 	});
 
 	if (!session.url) throw new Error('Stripe checkout session URL is null');
-	return session.url;
+	return { url: session.url, customerId };
 }
 
 export async function createPortalSession(

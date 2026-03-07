@@ -104,30 +104,42 @@
 							<div class="cal-header">W</div>
 							<div class="cal-header">T</div>
 							<div class="cal-header">F</div>
-							<!-- Week 1 -->
+							<!-- SGT Park -->
 							<div class="cal-cell cal-empty"></div>
 							<div class="cal-cell cal-leave"></div>
 							<div class="cal-cell cal-leave"></div>
+							<div class="cal-cell cal-leave"></div>
 							<div class="cal-cell cal-empty"></div>
+							<!-- SPC Nguyen -->
 							<div class="cal-cell cal-tdy"></div>
-							<!-- Week 2 -->
-							<div class="cal-cell cal-school"></div>
+							<div class="cal-cell cal-tdy"></div>
 							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-appt"></div>
+							<!-- SSG Martinez -->
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-school"></div>
+							<div class="cal-cell cal-school"></div>
+							<div class="cal-cell cal-school"></div>
+							<!-- CPT Rodriguez -->
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-empty"></div>
+							<!-- SGT Thompson -->
 							<div class="cal-cell cal-appt"></div>
 							<div class="cal-cell cal-empty"></div>
 							<div class="cal-cell cal-empty"></div>
-							<!-- Week 3 -->
-							<div class="cal-cell cal-tdy"></div>
-							<div class="cal-cell cal-tdy"></div>
-							<div class="cal-cell cal-tdy"></div>
 							<div class="cal-cell cal-leave"></div>
+							<div class="cal-cell cal-leave"></div>
+							<!-- SPC Davis -->
 							<div class="cal-cell cal-empty"></div>
-							<!-- Week 4 -->
 							<div class="cal-cell cal-empty"></div>
-							<div class="cal-cell cal-appt"></div>
-							<div class="cal-cell cal-school"></div>
-							<div class="cal-cell cal-school"></div>
-							<div class="cal-cell cal-empty"></div>
+							<div class="cal-cell cal-tdy"></div>
+							<div class="cal-cell cal-tdy"></div>
+							<div class="cal-cell cal-tdy"></div>
 						</div>
 						<div class="cal-legend">
 							<div class="cal-legend-item"><span class="cal-legend-dot cal-leave"></span>Leave</div>
@@ -374,10 +386,10 @@
 							<div class="demo-progress-names">SPC Davis, Jordan L. &nbsp;&bull;&nbsp; PFC Chen, Michael W.</div>
 							<div class="demo-progress-bar-container">
 								<div class="demo-progress-bar">
-									<div class="demo-progress-fill" style="width: 67%;"></div>
+									<div class="demo-progress-fill" style="width: 80%;"></div>
 								</div>
 							</div>
-							<div class="demo-progress-text">4 of 6 steps complete</div>
+							<div class="demo-progress-text">4 of 5 steps complete</div>
 						</div>
 						<div class="demo-checklist">
 							<div class="demo-checklist-item completed">
@@ -410,15 +422,11 @@
 										<polyline points="20 6 9 17 4 12"/>
 									</svg>
 								</div>
-								<span class="demo-checklist-label">Key Card Issue</span>
-							</div>
-							<div class="demo-checklist-item">
-								<div class="demo-checkbox"></div>
-								<span class="demo-checklist-label">Arms Room Inventory</span>
-							</div>
-							<div class="demo-checklist-item">
-								<div class="demo-checkbox"></div>
 								<span class="demo-checklist-label">Barracks Assignment</span>
+							</div>
+							<div class="demo-checklist-item">
+								<div class="demo-checkbox"></div>
+								<span class="demo-checklist-label">Personnel Data Sheet</span>
 							</div>
 						</div>
 					</div>
@@ -1092,9 +1100,8 @@
 	}
 
 	.cal-cell {
-		aspect-ratio: 1;
 		border-radius: 4px;
-		min-height: 28px;
+		height: 18px;
 	}
 
 	.cal-empty {

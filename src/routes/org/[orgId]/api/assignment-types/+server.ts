@@ -13,7 +13,8 @@ const handlers = createCrudHandlers<AssignmentType>({
 		color: '#6b7280',
 		sort_order: 0
 	},
-	auditResourceType: 'assignment_type'
+	auditResourceType: 'assignment_type',
+	auditDetailFields: ['name', 'short_name']
 });
 
 export const { POST, PUT, DELETE } = handlers;

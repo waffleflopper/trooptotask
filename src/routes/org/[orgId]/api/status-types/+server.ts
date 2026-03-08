@@ -14,6 +14,7 @@ const handlers = createCrudHandlers<StatusType>({
 		sort_order: 0
 	},
 	auditResourceType: 'status_type',
+	auditDetailFields: ['name'],
 	// Cascade delete: remove availability entries with this status type
 	onDelete: async (supabase, orgId, id) => {
 		await supabase

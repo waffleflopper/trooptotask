@@ -56,6 +56,9 @@ export interface CrudConfig<T> {
 
 	/** If set, audit log mutations with this resource type */
 	auditResourceType?: string;
+
+	/** DB column names to capture in audit details (e.g. ['name', 'color']) */
+	auditDetailFields?: string[];
 }
 
 /**
@@ -182,8 +185,14 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (config.auditResourceType) {
 			const { auditLog } = await import('./auditLog');
+			const details: Record<string, unknown> = { actor: locals.user?.email ?? userId };
+			if (config.auditDetailFields) {
+				for (const col of config.auditDetailFields) {
+					if ((data as any)[col] !== undefined) details[col] = (data as any)[col];
+				}
+			}
 			auditLog(
-				{ action: `${config.auditResourceType}.created`, resourceType: config.auditResourceType, resourceId: (data as any).id, orgId },
+				{ action: `${config.auditResourceType}.created`, resourceType: config.auditResourceType, resourceId: (data as any).id, orgId, details },
 				{ userId }
 			);
 		}
@@ -231,8 +240,14 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (config.auditResourceType) {
 			const { auditLog } = await import('./auditLog');
+			const details: Record<string, unknown> = { actor: locals.user?.email ?? userId };
+			if (config.auditDetailFields) {
+				for (const col of config.auditDetailFields) {
+					if ((data as any)[col] !== undefined) details[col] = (data as any)[col];
+				}
+			}
 			auditLog(
-				{ action: `${config.auditResourceType}.updated`, resourceType: config.auditResourceType, resourceId: id, orgId },
+				{ action: `${config.auditResourceType}.updated`, resourceType: config.auditResourceType, resourceId: id, orgId, details },
 				{ userId }
 			);
 		}
@@ -262,6 +277,18 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		if (!id) throw error(400, 'Missing id');
 		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 
+		// Capture record details before deletion for audit log
+		let deletedDetails: Record<string, unknown> | null = null;
+		if (config.auditResourceType && config.auditDetailFields?.length) {
+			const { data: existing } = await supabase
+				.from(table)
+				.select(config.auditDetailFields.join(', '))
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.single();
+			if (existing) deletedDetails = existing as unknown as Record<string, unknown>;
+		}
+
 		// Run cascade delete if configured
 		if (onDelete) {
 			await onDelete(supabase, orgId, id);
@@ -277,8 +304,12 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (config.auditResourceType) {
 			const { auditLog } = await import('./auditLog');
+			const details: Record<string, unknown> = { actor: locals.user?.email ?? userId };
+			if (deletedDetails) {
+				Object.assign(details, deletedDetails);
+			}
 			auditLog(
-				{ action: `${config.auditResourceType}.deleted`, resourceType: config.auditResourceType, resourceId: id, orgId },
+				{ action: `${config.auditResourceType}.deleted`, resourceType: config.auditResourceType, resourceId: id, orgId, details },
 				{ userId }
 			);
 		}

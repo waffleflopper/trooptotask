@@ -9,6 +9,20 @@
 		return action.replace(/\./g, ' > ').replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 	}
 
+	/** Extract a human-readable description from log details, excluding actor */
+	function getSummary(details: Record<string, unknown> | null): string {
+		if (!details) return '';
+		const parts: string[] = [];
+		if (details.name) parts.push(String(details.name));
+		// Show remaining non-id, non-actor fields as key=value
+		for (const [k, v] of Object.entries(details)) {
+			if (['actor', 'name'].includes(k)) continue;
+			if (v === null || v === undefined) continue;
+			parts.push(`${k.replace(/_/g, ' ')}: ${v}`);
+		}
+		return parts.join(' · ');
+	}
+
 	function setParam(key: string, value: string) {
 		const params = new URLSearchParams($page.url.searchParams);
 		if (value) {
@@ -61,34 +75,34 @@
 			<thead>
 				<tr>
 					<th>Timestamp</th>
+					<th>User</th>
 					<th>Action</th>
-					<th>Resource</th>
-					<th>Details</th>
+					<th>Description</th>
 				</tr>
 			</thead>
 			<tbody>
 				{#each data.logs as log (log.id)}
+					{@const summary = getSummary(log.details)}
 					<tr>
 						<td class="timestamp">{formatDisplayDateTime(log.createdAt)}</td>
-						<td>
-							<span class="action-badge">{formatAction(log.action)}</span>
-						</td>
-						<td>
-							{#if log.resourceType}
-								<span class="resource-type">{log.resourceType.replace(/_/g, ' ')}</span>
-								{#if log.resourceId}
-									<code class="resource-id">{log.resourceId.slice(0, 8)}</code>
-								{/if}
+						<td class="actor-cell">
+							{#if log.details?.actor}
+								<span class="actor">{log.details.actor}</span>
 							{:else}
 								<span class="no-target">-</span>
 							{/if}
 						</td>
-						<td class="details-cell">
-							{#if log.details && Object.keys(log.details).length > 0}
-								<details class="details-expand">
-									<summary>View</summary>
-									<pre class="details-json">{JSON.stringify(log.details, null, 2)}</pre>
-								</details>
+						<td>
+							<span class="action-badge">{formatAction(log.action)}</span>
+						</td>
+						<td class="description-cell">
+							{#if summary}
+								<span class="description">{summary}</span>
+							{:else if log.resourceType}
+								<span class="resource-type">{log.resourceType.replace(/_/g, ' ')}</span>
+								{#if log.resourceId}
+									<code class="resource-id">{log.resourceId.slice(0, 8)}</code>
+								{/if}
 							{:else}
 								<span class="no-details">-</span>
 							{/if}
@@ -243,33 +257,26 @@
 		margin-left: 4px;
 	}
 
+	.actor-cell {
+		white-space: nowrap;
+	}
+
+	.actor {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-secondary);
+	}
+
+	.description-cell {
+		max-width: 400px;
+	}
+
+	.description {
+		font-size: var(--font-size-sm);
+	}
+
 	.no-target,
 	.no-details {
 		color: var(--color-text-muted);
-	}
-
-	.details-cell {
-		max-width: 300px;
-	}
-
-	.details-expand summary {
-		cursor: pointer;
-		color: var(--color-primary);
-		font-size: var(--font-size-xs);
-	}
-
-	.details-expand summary:hover {
-		text-decoration: underline;
-	}
-
-	.details-json {
-		margin-top: var(--spacing-sm);
-		padding: var(--spacing-sm);
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-xs);
-		overflow-x: auto;
-		max-width: 300px;
 	}
 
 	.empty-state {

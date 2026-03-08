@@ -101,7 +101,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}
 
 	auditLog(
-		{ action: existing ? 'training_record.updated' : 'training_record.created', resourceType: 'training_record', resourceId: data.id, orgId },
+		{ action: existing ? 'training_record.updated' : 'training_record.created', resourceType: 'training_record', resourceId: data.id, orgId, details: { actor: locals.user?.email ?? userId, personnel_id: data.personnel_id, training_type_id: data.training_type_id, completion_date: data.completion_date } },
 		{ userId }
 	);
 
@@ -185,7 +185,7 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	if (dbError) throw error(500, dbError.message);
 
 	auditLog(
-		{ action: 'training_record.updated', resourceType: 'training_record', resourceId: id, orgId },
+		{ action: 'training_record.updated', resourceType: 'training_record', resourceId: id, orgId, details: { actor: locals.user?.email ?? userId, personnel_id: data.personnel_id, training_type_id: data.training_type_id, completion_date: data.completion_date } },
 		{ userId }
 	);
 
@@ -225,7 +225,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	if (dbError) throw error(500, dbError.message);
 
 	auditLog(
-		{ action: 'training_record.deleted', resourceType: 'training_record', resourceId: id, orgId },
+		{ action: 'training_record.deleted', resourceType: 'training_record', resourceId: id, orgId, details: { actor: locals.user?.email ?? userId } },
 		{ userId }
 	);
 

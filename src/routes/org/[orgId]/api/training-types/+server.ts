@@ -26,6 +26,7 @@ const handlers = createCrudHandlers<TrainingType>({
 		exempt_personnel_ids: []
 	},
 	auditResourceType: 'training_type',
+	auditDetailFields: ['name'],
 	// Cascade delete: remove personnel trainings with this type
 	onDelete: async (supabase, orgId, id) => {
 		await supabase

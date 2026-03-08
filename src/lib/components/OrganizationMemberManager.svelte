@@ -22,6 +22,10 @@
 		canEditPersonnel: boolean;
 		canViewTraining: boolean;
 		canEditTraining: boolean;
+		canViewOnboarding: boolean;
+		canEditOnboarding: boolean;
+		canViewLeadersBook: boolean;
+		canEditLeadersBook: boolean;
 		canManageMembers: boolean;
 	}
 
@@ -69,13 +73,12 @@
 
 	let inviteScopedGroupId = $state('');
 
+	let memberSelectedPreset = $state<Record<string, string>>({});
+
 	const presetOptions: { value: Exclude<PermissionPreset, 'owner' | 'custom'>; label: string }[] = [
 		{ value: 'admin', label: 'Admin' },
 		{ value: 'full-editor', label: 'Full Editor' },
 		{ value: 'team-leader', label: 'Team Leader' },
-		{ value: 'calendar-only', label: 'Calendar Only' },
-		{ value: 'personnel-only', label: 'Personnel Only' },
-		{ value: 'training-only', label: 'Training Only' },
 		{ value: 'viewer', label: 'Viewer' }
 	];
 
@@ -92,18 +95,14 @@
 				return 'Admin';
 			case 'full-editor':
 				return 'Full Editor';
-			case 'calendar-only':
-				return 'Calendar Only';
-			case 'personnel-only':
-				return 'Personnel Only';
-			case 'training-only':
-				return 'Training Only';
 			case 'viewer':
 				return 'Viewer';
 			case 'team-leader':
 				return 'Team Leader';
 			case 'custom':
 				return 'Custom';
+			default:
+				return preset;
 		}
 	}
 
@@ -116,6 +115,10 @@
 			canEditPersonnel: member.canEditPersonnel,
 			canViewTraining: member.canViewTraining,
 			canEditTraining: member.canEditTraining,
+			canViewOnboarding: member.canViewOnboarding,
+			canEditOnboarding: member.canEditOnboarding,
+			canViewLeadersBook: member.canViewLeadersBook,
+			canEditLeadersBook: member.canEditLeadersBook,
 			canManageMembers: member.canManageMembers
 		});
 	}
@@ -137,6 +140,10 @@
 			canEditPersonnel: invite.canEditPersonnel,
 			canViewTraining: invite.canViewTraining,
 			canEditTraining: invite.canEditTraining,
+			canViewOnboarding: invite.canViewOnboarding,
+			canEditOnboarding: invite.canEditOnboarding,
+			canViewLeadersBook: invite.canViewLeadersBook,
+			canEditLeadersBook: invite.canEditLeadersBook,
 			canManageMembers: invite.canManageMembers
 		});
 	}
@@ -200,6 +207,7 @@
 										value={preset === 'custom' ? 'custom' : preset}
 										onchange={(e) => {
 											const val = e.currentTarget.value;
+											memberSelectedPreset = { ...memberSelectedPreset, [member.id]: val };
 											handlePresetChange(member.id, val);
 											if (val === 'custom' || val === 'team-leader') {
 												expandedMemberId = member.id;
@@ -215,7 +223,7 @@
 											<option value="custom">Custom</option>
 										{/if}
 									</select>
-									{#if preset === 'team-leader' && expandedMemberId === member.id}
+									{#if (memberSelectedPreset[member.id] === 'team-leader' || (preset === 'team-leader' && !memberSelectedPreset[member.id])) && expandedMemberId === member.id}
 										<select name="scopedGroupId" class="preset-select" value={member.scopedGroupId ?? ''}>
 											<option value="">Select group...</option>
 											{#each groups as group}
@@ -340,6 +348,30 @@
 											name="canEditTraining"
 											checked={member.canEditTraining}
 										/>
+										Edit
+									</label>
+								</div>
+
+								<div class="permission-section">
+									<h4>Onboarding</h4>
+									<label class="checkbox-label">
+										<input type="checkbox" name="canViewOnboarding" checked={member.canViewOnboarding} />
+										View
+									</label>
+									<label class="checkbox-label">
+										<input type="checkbox" name="canEditOnboarding" checked={member.canEditOnboarding} />
+										Edit
+									</label>
+								</div>
+
+								<div class="permission-section">
+									<h4>Leader's Book</h4>
+									<label class="checkbox-label">
+										<input type="checkbox" name="canViewLeadersBook" checked={member.canViewLeadersBook} />
+										View
+									</label>
+									<label class="checkbox-label">
+										<input type="checkbox" name="canEditLeadersBook" checked={member.canEditLeadersBook} />
 										Edit
 									</label>
 								</div>

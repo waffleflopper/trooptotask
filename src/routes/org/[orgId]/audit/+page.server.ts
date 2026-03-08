@@ -13,8 +13,8 @@ const EXCLUDED_ACTIONS = [
 export const load: PageServerLoad = async ({ params, url, parent }) => {
 	const { userRole } = await parent();
 
-	if (userRole !== 'owner') {
-		throw error(403, 'Only organization owners can view audit logs');
+	if (userRole !== 'owner' && userRole !== 'admin') {
+		throw error(403, 'Only organization owners and admins can view audit logs');
 	}
 
 	const { orgId } = params;

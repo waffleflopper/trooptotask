@@ -15,6 +15,7 @@
 		email: string;
 		status: string;
 		createdAt: string;
+		scopedGroupId?: string | null;
 		canViewCalendar: boolean;
 		canEditCalendar: boolean;
 		canViewPersonnel: boolean;
@@ -29,7 +30,9 @@
 		members: OrganizationMember[];
 		invitations: Invitation[];
 		isOwner: boolean;
+		isAdmin: boolean;
 		canManageMembers: boolean;
+		groups: Array<{ id: string; name: string }>;
 		form?: {
 			error?: string;
 			success?: boolean;
@@ -50,7 +53,9 @@
 		members,
 		invitations,
 		isOwner,
+		isAdmin,
 		canManageMembers,
+		groups,
 		form
 	}: Props = $props();
 
@@ -62,14 +67,22 @@
 	let loading = $state(false);
 	let pendingRemoveForm = $state<HTMLFormElement | null>(null);
 
+	let inviteScopedGroupId = $state('');
+
 	const presetOptions: { value: Exclude<PermissionPreset, 'owner' | 'custom'>; label: string }[] = [
 		{ value: 'admin', label: 'Admin' },
 		{ value: 'full-editor', label: 'Full Editor' },
+		{ value: 'team-leader', label: 'Team Leader' },
 		{ value: 'calendar-only', label: 'Calendar Only' },
 		{ value: 'personnel-only', label: 'Personnel Only' },
 		{ value: 'training-only', label: 'Training Only' },
 		{ value: 'viewer', label: 'Viewer' }
 	];
+
+	// Filter preset options: only owners can assign/change admin
+	const availablePresetOptions = $derived(
+		isOwner ? presetOptions : presetOptions.filter(o => o.value !== 'admin')
+	);
 
 	function getPresetLabel(preset: PermissionPreset): string {
 		switch (preset) {
@@ -145,17 +158,29 @@
 				<div class="member-card" class:expanded={expandedMemberId === member.id}>
 					<div class="member-row">
 						<div class="member-info">
-							{#if member.email}
-								<span class="member-email">{member.email}</span>
-							{:else}
-								<span class="member-id">{member.userId.slice(0, 8)}...</span>
-							{/if}
+							<div class="member-name-row">
+								{#if member.email}
+									<span class="member-email">{member.email}</span>
+								{:else}
+									<span class="member-id">{member.userId.slice(0, 8)}...</span>
+								{/if}
+								{#if member.role === 'owner'}
+									<Badge label="OWNER" color="#d4a017" />
+								{:else if member.role === 'admin'}
+									<Badge label="ADMIN" color="#3b82f6" bold={true} />
+								{:else}
+									<Badge label="MEMBER" color="#6b7280" />
+								{/if}
+								{#if member.scopedGroupId}
+									<span class="scope-label">({groups.find(g => g.id === member.scopedGroupId)?.name ?? 'Unknown group'})</span>
+								{/if}
+							</div>
 						</div>
 
 						<div class="member-actions">
 							{#if member.role === 'owner'}
-								<Badge label="Owner" color="var(--color-primary)" />
-							{:else if canManageMembers}
+								<!-- Owner: no actions -->
+							{:else if canManageMembers && (member.role !== 'admin' || isOwner)}
 								<form
 									method="POST"
 									action="?/updatePermissions"
@@ -174,21 +199,31 @@
 										class="preset-select"
 										value={preset === 'custom' ? 'custom' : preset}
 										onchange={(e) => {
-											handlePresetChange(member.id, e.currentTarget.value);
-											if (e.currentTarget.value !== 'custom') {
-												e.currentTarget.form?.requestSubmit();
-											} else {
+											const val = e.currentTarget.value;
+											handlePresetChange(member.id, val);
+											if (val === 'custom' || val === 'team-leader') {
 												expandedMemberId = member.id;
+											} else {
+												e.currentTarget.form?.requestSubmit();
 											}
 										}}
 									>
-										{#each presetOptions as option}
+										{#each availablePresetOptions as option}
 											<option value={option.value}>{option.label}</option>
 										{/each}
 										{#if preset === 'custom'}
 											<option value="custom">Custom</option>
 										{/if}
 									</select>
+									{#if preset === 'team-leader' && expandedMemberId === member.id}
+										<select name="scopedGroupId" class="preset-select" value={member.scopedGroupId ?? ''}>
+											<option value="">Select group...</option>
+											{#each groups as group}
+												<option value={group.id}>{group.name}</option>
+											{/each}
+										</select>
+										<button type="submit" class="btn btn-primary btn-sm">Apply</button>
+									{/if}
 								</form>
 
 								<button
@@ -391,10 +426,18 @@
 						required
 					/>
 					<select name="preset" class="preset-select" bind:value={invitePreset}>
-						{#each presetOptions as option}
+						{#each availablePresetOptions as option}
 							<option value={option.value}>{option.label}</option>
 						{/each}
 					</select>
+					{#if invitePreset === 'team-leader'}
+						<select name="scopedGroupId" class="preset-select" bind:value={inviteScopedGroupId}>
+							<option value="">Select group...</option>
+							{#each groups as group}
+								<option value={group.id}>{group.name}</option>
+							{/each}
+						</select>
+					{/if}
 					<button type="submit" class="btn btn-primary" disabled={loading}>
 						{loading ? 'Sending...' : 'Invite'}
 					</button>
@@ -533,6 +576,18 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
+	}
+
+	.member-name-row {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+	}
+
+	.scope-label {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+		margin-left: 4px;
 	}
 
 	.member-id {

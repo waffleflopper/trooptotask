@@ -42,6 +42,7 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 const handlers = createCrudHandlers<PersonnelExtendedInfo>({
 	table: 'personnel_extended_info',
 	permission: 'personnel',
+	personnelIdField: 'personnel_id',
 	auditResourceType: 'personnel_extended_info',
 	auditDetailFields: ['personnel_id'],
 	fields: {

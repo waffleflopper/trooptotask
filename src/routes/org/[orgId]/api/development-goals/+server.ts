@@ -4,6 +4,7 @@ import type { DevelopmentGoal } from '$lib/types/leadersBook';
 const handlers = createCrudHandlers<DevelopmentGoal>({
 	table: 'development_goals',
 	permission: 'personnel',
+	personnelIdField: 'personnel_id',
 	fields: {
 		personnelId: 'personnel_id',
 		targetDate: 'target_date',

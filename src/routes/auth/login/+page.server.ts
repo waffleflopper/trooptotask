@@ -1,5 +1,6 @@
 import { fail, redirect, isRedirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { sanitizeString } from '$lib/server/validation';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	// Check for demo unavailable error from redirect
@@ -19,7 +20,7 @@ export const actions: Actions = {
 	login: async ({ request, locals }) => {
 		try {
 			const formData = await request.formData();
-			const email = formData.get('email') as string;
+			const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
 			const password = formData.get('password') as string;
 
 			if (!email || !password) {

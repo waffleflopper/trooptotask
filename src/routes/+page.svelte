@@ -191,7 +191,7 @@
 				</h1>
 				<p class="hero-subtitle">
 					Troop to Task gives Army leaders a visual calendar, training tracker, and
-					assignment planner — one tool instead of five. Free, instant setup.
+					assignment planner — one tool instead of five. Free during beta.
 				</p>
 				<div class="hero-actions">
 					{#if data.user}
@@ -210,7 +210,7 @@
 
 				<div class="hero-proof">
 					<div class="proof-item">
-						<span class="proof-value">Free</span>
+						<span class="proof-value">Free Beta</span>
 						<span class="proof-label">No credit card</span>
 					</div>
 					<div class="proof-divider"></div>
@@ -414,7 +414,7 @@
 	<section class="cta">
 		<div class="cta-container">
 			<h2 class="cta-title">Ready to streamline<br /><em>your unit?</em></h2>
-			<p class="cta-subtitle">Free to use. No credit card. Set up in minutes.</p>
+			<p class="cta-subtitle">Currently free during beta — no credit card required. Beta testers will receive a generous grace period before any subscription is needed.</p>
 			{#if data.user}
 				<a href="/dashboard?show=all" class="cta-btn">
 					Go to Dashboard

@@ -6,6 +6,7 @@ const handlers = createCrudHandlers<CounselingRecord>({
 	permission: 'leaders-book',
 	personnelIdField: 'personnel_id',
 	auditResourceType: 'counseling_record',
+	requireDeletionApproval: true,
 	auditDetailFields: ['personnel_id', 'date_conducted'],
 	fields: {
 		personnelId: 'personnel_id',

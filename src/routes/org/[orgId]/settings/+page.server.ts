@@ -9,7 +9,7 @@ import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validat
 import { auditLog } from '$lib/server/auditLog';
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
-	const { orgId, orgName, userRole, permissions, allOrgs } = await parent();
+	const { orgId, orgName, userRole, permissions, allOrgs, isAdmin, groups } = await parent();
 
 	// Parallelize members + invitations queries
 	const [membershipsRes, invitationsRes] = await Promise.all([
@@ -22,7 +22,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		locals.supabase
 			.from('organization_invitations')
 			.select(
-				'id, email, status, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
+				'id, email, status, created_at, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
 			)
 			.eq('organization_id', orgId)
 			.eq('status', 'pending')
@@ -50,6 +50,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		email: inv.email,
 		status: inv.status,
 		createdAt: inv.created_at,
+		scopedGroupId: inv.scoped_group_id,
 		canViewCalendar: inv.can_view_calendar,
 		canEditCalendar: inv.can_edit_calendar,
 		canViewPersonnel: inv.can_view_personnel,
@@ -87,7 +88,9 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		members,
 		invitations,
 		isOwner: userRole === 'owner',
+		isAdmin,
 		canManageMembers: permissions.canManageMembers,
+		groups: groups.map((g) => ({ id: g.id, name: g.name })),
 		exportInfo
 	};
 };
@@ -149,10 +152,14 @@ export const actions: Actions = {
 		// Get permissions from preset
 		const permissions = PERMISSION_PRESETS[preset] || PERMISSION_PRESETS['full-editor'];
 
+		// Read scoped group ID for team-leader preset
+		const scopedGroupId = formData.get('scopedGroupId') as string || null;
+
 		const { error } = await locals.supabase.from('organization_invitations').insert({
 			organization_id: orgId,
 			email,
 			invited_by: user.id,
+			scoped_group_id: preset === 'team-leader' ? scopedGroupId : null,
 			can_view_calendar: permissions.canViewCalendar,
 			can_edit_calendar: permissions.canEditCalendar,
 			can_view_personnel: permissions.canViewPersonnel,
@@ -271,6 +278,13 @@ export const actions: Actions = {
 			return fail(400, { permissionError: 'Cannot modify owner permissions' });
 		}
 
+		// Only owners can change admin roles
+		if (preset === 'admin' || targetMembership?.role === 'admin') {
+			await requireOwnerRole(locals.supabase, orgId, user.id);
+		} else {
+			await requireManageMembersPermission(locals.supabase, orgId, user.id);
+		}
+
 		let permissions: {
 			can_view_calendar: boolean;
 			can_edit_calendar: boolean;
@@ -308,9 +322,15 @@ export const actions: Actions = {
 			};
 		}
 
+		// Determine role and scoped_group_id based on preset
+		const role = preset === 'admin' ? 'admin' : 'member';
+		const scopedGroupId = preset === 'team-leader'
+			? (formData.get('scopedGroupId') as string || null)
+			: null;
+
 		const { error } = await locals.supabase
 			.from('organization_memberships')
-			.update(permissions)
+			.update({ ...permissions, role, scoped_group_id: scopedGroupId })
 			.eq('id', membershipId)
 			.eq('organization_id', orgId);
 

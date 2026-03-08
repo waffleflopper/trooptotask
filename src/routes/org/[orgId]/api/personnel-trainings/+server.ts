@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireEditPermission } from '$lib/server/permissions';
+import { requireEditPermission, requireGroupAccess } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { formatDate } from '$lib/utils/dates';
@@ -25,6 +25,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	if (blocked) return blocked;
 
 	const body = await request.json();
+
+	if (!isSandbox && userId && body.personnelId) {
+		await requireGroupAccess(supabase, orgId, userId, body.personnelId);
+	}
 
 	// Fetch the training type to get expiration_months and expiration_date_only
 	const { data: trainingType, error: typeError } = await supabase
@@ -137,9 +141,13 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	// Fetch training type to determine how to handle expiration
 	const { data: existing } = await supabase
 		.from('personnel_trainings')
-		.select('training_type_id')
+		.select('training_type_id, personnel_id')
 		.eq('id', id)
 		.single();
+
+	if (!isSandbox && userId && existing?.personnel_id) {
+		await requireGroupAccess(supabase, orgId, userId, existing.personnel_id);
+	}
 
 	let isExpirationDateOnly = false;
 	let expirationMonths: number | null = null;
@@ -215,6 +223,18 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	const { id } = body;
 
 	if (!id) throw error(400, 'Missing id');
+
+	if (!isSandbox && userId) {
+		const { data: existingRecord } = await supabase
+			.from('personnel_trainings')
+			.select('personnel_id')
+			.eq('id', id)
+			.eq('organization_id', orgId)
+			.single();
+		if (existingRecord?.personnel_id) {
+			await requireGroupAccess(supabase, orgId, userId, existingRecord.personnel_id);
+		}
+	}
 
 	const { error: dbError } = await supabase
 		.from('personnel_trainings')

@@ -54,6 +54,9 @@ export interface CrudConfig<T> {
 	 */
 	toInsert?: (body: Record<string, unknown>, orgId: string) => Record<string, unknown>;
 
+	/** DB column containing personnel_id for group scope enforcement */
+	personnelIdField?: string;
+
 	/** If set, audit log mutations with this resource type */
 	auditResourceType?: string;
 
@@ -171,6 +174,24 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		const body = await request.json();
 
+		if (config.personnelIdField && !isSandbox && userId) {
+			const { getScopedGroupId } = await import('./permissions');
+			const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
+			if (scopedGroupId) {
+				const personnelId = body[snakeToCamel(config.personnelIdField)] ?? body[config.personnelIdField];
+				if (personnelId) {
+					const { data: person } = await supabase
+						.from('personnel')
+						.select('group_id')
+						.eq('id', personnelId)
+						.single();
+					if (person && person.group_id !== scopedGroupId) {
+						throw error(403, 'You do not have access to personnel outside your group');
+					}
+				}
+			}
+		}
+
 		const insertData = toInsert
 			? toInsert(body, orgId)
 			: apiToDb(body, fields, orgId, defaults);
@@ -221,6 +242,31 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (!id) throw error(400, 'Missing id');
 		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
+
+		if (config.personnelIdField && !isSandbox && userId) {
+			const { getScopedGroupId } = await import('./permissions');
+			const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
+			if (scopedGroupId) {
+				// Look up personnel_id from existing record
+				const { data: existing } = await supabase
+					.from(table)
+					.select(config.personnelIdField)
+					.eq('id', id)
+					.eq('organization_id', orgId)
+					.single();
+				const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
+				if (personnelId) {
+					const { data: person } = await supabase
+						.from('personnel')
+						.select('group_id')
+						.eq('id', personnelId)
+						.single();
+					if (person && person.group_id !== scopedGroupId) {
+						throw error(403, 'You do not have access to personnel outside your group');
+					}
+				}
+			}
+		}
 
 		const updates = apiToDbUpdates(body, fields);
 
@@ -276,6 +322,30 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (!id) throw error(400, 'Missing id');
 		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
+
+		if (config.personnelIdField && !isSandbox && userId) {
+			const { getScopedGroupId } = await import('./permissions');
+			const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
+			if (scopedGroupId) {
+				const { data: existing } = await supabase
+					.from(table)
+					.select(config.personnelIdField)
+					.eq('id', id)
+					.eq('organization_id', orgId)
+					.single();
+				const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
+				if (personnelId) {
+					const { data: person } = await supabase
+						.from('personnel')
+						.select('group_id')
+						.eq('id', personnelId)
+						.single();
+					if (person && person.group_id !== scopedGroupId) {
+						throw error(403, 'You do not have access to personnel outside your group');
+					}
+				}
+			}
+		}
 
 		// Capture record details before deletion for audit log
 		let deletedDetails: Record<string, unknown> | null = null;

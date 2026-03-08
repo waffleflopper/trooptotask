@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireEditPermission } from '$lib/server/permissions';
+import { requireEditPermission, requireGroupAccess, getScopedGroupId } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { canAddPersonnel } from '$lib/server/subscription';
 import { checkReadOnly } from '$lib/server/read-only-guard';
@@ -25,6 +25,13 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}
 
 	const body = await request.json();
+
+	if (!isSandbox && userId) {
+		const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
+		if (scopedGroupId && body.groupId !== scopedGroupId) {
+			return json({ error: 'You can only add personnel to your assigned group' }, { status: 403 });
+		}
+	}
 
 	const row = {
 		organization_id: orgId,
@@ -78,6 +85,11 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 
 	if (!id) throw error(400, 'Missing id');
 
+	if (!isSandbox && userId) {
+		const { data: person } = await supabase.from('personnel').select('group_id').eq('id', id).single();
+		await requireGroupAccess(supabase, orgId, userId, person?.group_id ?? null);
+	}
+
 	const updates: Record<string, unknown> = {};
 	if (fields.rank !== undefined) updates.rank = fields.rank;
 	if (fields.lastName !== undefined) updates.last_name = fields.lastName;
@@ -130,10 +142,14 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	// Capture name before deletion for audit log
 	const { data: existing } = await supabase
 		.from('personnel')
-		.select('rank, first_name, last_name')
+		.select('rank, first_name, last_name, group_id')
 		.eq('id', id)
 		.eq('organization_id', orgId)
 		.single();
+
+	if (!isSandbox && userId) {
+		await requireGroupAccess(supabase, orgId, userId, existing?.group_id ?? null);
+	}
 
 	const { error: dbError } = await supabase
 		.from('personnel')

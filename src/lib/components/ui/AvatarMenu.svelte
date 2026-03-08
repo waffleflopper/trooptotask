@@ -68,8 +68,8 @@
 		// 6. Org Settings
 		result.push({ label: 'Org Settings', href: `/org/${orgId}/settings` });
 
-		// 6b. Audit Log (owner only)
-		if (userRole === 'owner') {
+		// 6b. Audit Log (owner and admin)
+		if (userRole === 'owner' || userRole === 'admin') {
 			result.push({ label: 'Audit Log', href: `/org/${orgId}/audit` });
 		}
 

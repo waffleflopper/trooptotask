@@ -110,7 +110,7 @@
 		<div class="settings-card">
 			<h2>Organization Information</h2>
 
-			{#if data.isOwner}
+			{#if data.isOwner || data.isAdmin}
 				<form
 					method="POST"
 					action="?/updateName"
@@ -147,7 +147,7 @@
 				</form>
 			{:else}
 				<p class="org-name-display">{data.orgName}</p>
-				<p class="hint">Only the organization owner can edit the name.</p>
+				<p class="hint">Only the organization owner or admin can edit the name.</p>
 			{/if}
 		</div>
 
@@ -156,7 +156,9 @@
 			members={data.members}
 			invitations={data.invitations}
 			isOwner={data.isOwner}
+			isAdmin={data.isAdmin}
 			canManageMembers={data.canManageMembers}
+			groups={data.groups}
 			form={form ?? undefined}
 		/>
 
@@ -166,7 +168,7 @@
 			<a href="/dashboard?show=all" class="btn btn-secondary">Switch Organization</a>
 		</div>
 
-		{#if data.isOwner && isBillingEnabled}
+		{#if (data.isOwner || data.isAdmin) && isBillingEnabled}
 			<div class="settings-card">
 				<h2>Billing & Subscription</h2>
 				<p class="billing-description">
@@ -176,7 +178,7 @@
 			</div>
 		{/if}
 
-		{#if data.isOwner || data.canManageMembers}
+		{#if data.isOwner || data.isAdmin || data.permissions.canManageMembers}
 			<div class="settings-card">
 				<h2>Data Export</h2>
 				<p class="export-description">

@@ -53,6 +53,9 @@ export interface CrudConfig<T> {
 	 * If not provided, uses automatic field mapping with defaults.
 	 */
 	toInsert?: (body: Record<string, unknown>, orgId: string) => Record<string, unknown>;
+
+	/** If set, audit log mutations with this resource type */
+	auditResourceType?: string;
 }
 
 /**
@@ -177,6 +180,14 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (dbError) throw error(500, dbError.message);
 
+		if (config.auditResourceType) {
+			const { auditLog } = await import('./auditLog');
+			auditLog(
+				{ action: `${config.auditResourceType}.created`, resourceType: config.auditResourceType, resourceId: (data as any).id, orgId },
+				{ userId }
+			);
+		}
+
 		const row = data as unknown as Record<string, unknown>;
 		const response = toResponse ? toResponse(row) : dbToApi<T>(row, fields);
 		return json(response);
@@ -218,6 +229,14 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (dbError) throw error(500, dbError.message);
 
+		if (config.auditResourceType) {
+			const { auditLog } = await import('./auditLog');
+			auditLog(
+				{ action: `${config.auditResourceType}.updated`, resourceType: config.auditResourceType, resourceId: id, orgId },
+				{ userId }
+			);
+		}
+
 		const row = data as unknown as Record<string, unknown>;
 		const response = toResponse ? toResponse(row) : dbToApi<T>(row, fields);
 		return json(response);
@@ -255,6 +274,14 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 			.eq('organization_id', orgId);
 
 		if (dbError) throw error(500, dbError.message);
+
+		if (config.auditResourceType) {
+			const { auditLog } = await import('./auditLog');
+			auditLog(
+				{ action: `${config.auditResourceType}.deleted`, resourceType: config.auditResourceType, resourceId: id, orgId },
+				{ userId }
+			);
+		}
 
 		return json({ success: true });
 	};

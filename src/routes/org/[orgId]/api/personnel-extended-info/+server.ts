@@ -4,6 +4,7 @@ import type { PersonnelExtendedInfo } from '$lib/types/leadersBook';
 const handlers = createCrudHandlers<PersonnelExtendedInfo>({
 	table: 'personnel_extended_info',
 	permission: 'personnel',
+	auditResourceType: 'personnel_extended_info',
 	fields: {
 		personnelId: 'personnel_id',
 		emergencyContactName: 'emergency_contact_name',

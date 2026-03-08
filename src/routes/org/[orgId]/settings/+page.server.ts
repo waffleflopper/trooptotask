@@ -6,6 +6,7 @@ import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscriptio
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { requireManageMembersPermission, requireOwnerRole } from '$lib/server/permissions';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
+import { auditLog } from '$lib/server/auditLog';
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	const { orgId, orgName, userRole, permissions, allOrgs } = await parent();
@@ -164,6 +165,11 @@ export const actions: Actions = {
 			return fail(500, { inviteError: error.message });
 		}
 
+		auditLog(
+			{ action: 'member.invite', resourceType: 'organization', orgId, details: { email } },
+			{ userId: user.id }
+		);
+
 		return {
 			inviteSuccess: true,
 			inviteEmail: email,
@@ -189,6 +195,11 @@ export const actions: Actions = {
 			.delete()
 			.eq('id', inviteId)
 			.eq('organization_id', orgId);
+
+		auditLog(
+			{ action: 'member.invite_revoked', resourceType: 'organization', orgId, details: { inviteId } },
+			{ userId: user.id }
+		);
 
 		return { success: true };
 	},
@@ -226,6 +237,11 @@ export const actions: Actions = {
 			.delete()
 			.eq('id', membershipId)
 			.eq('organization_id', orgId);
+
+		auditLog(
+			{ action: 'member.removed', resourceType: 'organization', orgId, details: { membershipId } },
+			{ userId: user.id }
+		);
 
 		return { success: true };
 	},
@@ -301,6 +317,11 @@ export const actions: Actions = {
 			return fail(500, { permissionError: error.message });
 		}
 
+		auditLog(
+			{ action: 'member.permissions_changed', resourceType: 'organization', orgId, severity: 'warning', details: { membershipId, preset } },
+			{ userId: user.id }
+		);
+
 		return { permissionSuccess: true };
 	},
 
@@ -326,6 +347,11 @@ export const actions: Actions = {
 		if (error) {
 			return fail(500, { transferError: error.message });
 		}
+
+		auditLog(
+			{ action: 'org.ownership_transferred', resourceType: 'organization', orgId, severity: 'critical', details: { newOwnerId } },
+			{ userId: user.id }
+		);
 
 		return { transferSuccess: true };
 	},
@@ -357,6 +383,11 @@ export const actions: Actions = {
 		if (error) {
 			return fail(500, { deleteError: error.message });
 		}
+
+		auditLog(
+			{ action: 'org.deleted', resourceType: 'organization', orgId, severity: 'critical' },
+			{ userId: user.id }
+		);
 
 		// Redirect to dashboard after deletion
 		throw redirect(303, '/dashboard?show=all');

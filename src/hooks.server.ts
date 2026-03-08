@@ -69,6 +69,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.session = session;
 	event.locals.user = user;
 
+	// Enforce 24-hour absolute session timeout
+	if (user && user.last_sign_in_at) {
+		const sessionCreated = new Date(user.last_sign_in_at).getTime();
+		const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
+		if (Date.now() - sessionCreated > maxSessionAge) {
+			await event.locals.supabase.auth.signOut();
+			event.locals.session = null;
+			event.locals.user = null;
+		}
+	}
+
 	// Define public routes that don't require authentication
 	const publicRoutes = ['/', '/auth', '/api/webhooks', '/demo', '/api/create-demo-sandbox', '/api/access-requests', '/features', '/pricing'];
 	const isPublicRoute = publicRoutes.some(route =>

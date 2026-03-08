@@ -33,6 +33,7 @@ DROP POLICY IF EXISTS "Admins can read audit log" ON admin_audit_log;
 
 -- Trigger that auto-creates a user_subscription on signup
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP TRIGGER IF EXISTS on_auth_user_created_subscription ON auth.users;
 
 -- Trigger that updates updated_at on user_subscriptions
 DROP TRIGGER IF EXISTS user_subscriptions_updated_at ON user_subscriptions;

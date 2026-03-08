@@ -15,13 +15,13 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 	if (!isSandbox && userId) {
 		const { data: membership } = await supabase
 			.from('organization_memberships')
-			.select('role, can_edit_personnel')
+			.select('role, can_edit_personnel, can_edit_leaders_book')
 			.eq('organization_id', orgId)
 			.eq('user_id', userId)
 			.single();
 
 		if (!membership) throw error(403, 'Not a member of this organization');
-		canEdit = membership.role === 'owner' || membership.can_edit_personnel;
+		canEdit = membership.role === 'owner' || membership.can_edit_personnel || membership.can_edit_leaders_book;
 	}
 
 	const { data, error: dbError } = await supabase
@@ -41,7 +41,7 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 
 const handlers = createCrudHandlers<PersonnelExtendedInfo>({
 	table: 'personnel_extended_info',
-	permission: 'personnel',
+	permission: 'leaders-book',
 	personnelIdField: 'personnel_id',
 	auditResourceType: 'personnel_extended_info',
 	auditDetailFields: ['personnel_id'],

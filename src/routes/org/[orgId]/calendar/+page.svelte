@@ -223,6 +223,12 @@
 		{/if}
 	</PageToolbar>
 
+	{#if !data.permissions.canViewCalendar}
+		<div class="no-permission">
+			<h2>Access Restricted</h2>
+			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
+		</div>
+	{:else}
 	<main class="page-content">
 		<section class="calendar-section">
 			<Calendar
@@ -251,6 +257,7 @@
 			<StatusLegend statusTypes={statusTypesStore.list} />
 		</section>
 	</main>
+	{/if}
 </div>
 
 {#if selectedPerson && selectedDate}
@@ -392,6 +399,21 @@
 		flex-direction: column;
 		gap: var(--spacing-sm);
 		overflow: hidden;
+	}
+
+	.no-permission {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 300px;
+		text-align: center;
+		color: var(--color-text-muted);
+	}
+	.no-permission h2 {
+		font-size: var(--font-size-lg);
+		margin-bottom: var(--spacing-sm);
+		color: var(--color-text);
 	}
 
 	/* Mobile styles — .page-content mobile in app.css */

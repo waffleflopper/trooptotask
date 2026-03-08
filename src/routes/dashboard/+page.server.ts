@@ -100,6 +100,8 @@ export const actions: Actions = {
 			invitation.can_view_calendar && invitation.can_edit_calendar &&
 			invitation.can_view_personnel && invitation.can_edit_personnel &&
 			invitation.can_view_training && invitation.can_edit_training &&
+			invitation.can_view_onboarding && invitation.can_edit_onboarding &&
+			invitation.can_view_leaders_book && invitation.can_edit_leaders_book &&
 			invitation.can_manage_members;
 
 		// Create membership with the invitation's permissions
@@ -116,6 +118,10 @@ export const actions: Actions = {
 				can_edit_personnel: invitation.can_edit_personnel ?? true,
 				can_view_training: invitation.can_view_training ?? true,
 				can_edit_training: invitation.can_edit_training ?? true,
+				can_view_onboarding: invitation.can_view_onboarding ?? true,
+				can_edit_onboarding: invitation.can_edit_onboarding ?? true,
+				can_view_leaders_book: invitation.can_view_leaders_book ?? true,
+				can_edit_leaders_book: invitation.can_edit_leaders_book ?? true,
 				can_manage_members: invitation.can_manage_members ?? false,
 				scoped_group_id: invitation.scoped_group_id ?? null
 			});

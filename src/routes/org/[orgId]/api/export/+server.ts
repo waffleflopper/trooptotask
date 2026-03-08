@@ -4,6 +4,7 @@ import { isBillingEnabled } from '$lib/config/billing';
 import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscription';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { getAdminClient } from '$lib/server/supabase';
+import { auditLog } from '$lib/server/auditLog';
 
 export const POST: RequestHandler = async ({ params, locals }) => {
 	const { orgId } = params;
@@ -140,6 +141,11 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 				file_size_bytes: new TextEncoder().encode(jsonStr).length
 			})
 			.eq('id', exportRecord.id);
+
+		auditLog(
+			{ action: 'export.created', resourceType: 'data_export', orgId },
+			{ userId: locals.user!.id }
+		);
 
 		// Return as downloadable JSON
 		return new Response(jsonStr, {

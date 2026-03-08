@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { type Handle, redirect } from '@sveltejs/kit';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { checkRateLimit } from '$lib/server/rateLimit';
+import { auditLog } from '$lib/server/auditLog';
 
 const securityHeaders: Record<string, string> = {
 	'Content-Security-Policy':
@@ -19,6 +20,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const clientIp = event.getClientAddress();
 	const rateCheck = checkRateLimit(clientIp, event.url.pathname, event.request.method);
 	if (rateCheck.limited) {
+		auditLog(
+			{ action: 'security.rate_limit_exceeded', resourceType: 'request', severity: 'warning', details: { pathname: event.url.pathname, method: event.request.method } },
+			{ userId: null, ip: clientIp }
+		);
 		return new Response(JSON.stringify({ error: 'Too many requests' }), {
 			status: 429,
 			headers: {

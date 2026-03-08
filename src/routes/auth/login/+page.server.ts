@@ -1,6 +1,7 @@
 import { fail, redirect, isRedirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { sanitizeString } from '$lib/server/validation';
+import { auditLog } from '$lib/server/auditLog';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	// Check for demo unavailable error from redirect
@@ -30,8 +31,17 @@ export const actions: Actions = {
 			const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
 
 			if (error) {
+				auditLog(
+					{ action: 'auth.login_failure', resourceType: 'user', severity: 'warning', details: { email } },
+					{ userId: null }
+				);
 				return fail(400, { error: error.message, email });
 			}
+
+			auditLog(
+				{ action: 'auth.login_success', resourceType: 'user', details: { email } },
+				{ userId: null }
+			);
 
 			redirect(303, '/dashboard');
 		} catch (err) {

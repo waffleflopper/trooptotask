@@ -148,9 +148,11 @@
 		});
 	}
 
+	let memberSelectedGroupId = $state<Record<string, string>>({});
+
 	function handlePresetChange(memberId: string, preset: string) {
-		// Close expanded view when selecting a preset
-		if (preset !== 'custom') {
+		// Close expanded view when selecting a non-expandable preset
+		if (preset !== 'custom' && preset !== 'team-leader') {
 			expandedMemberId = null;
 		}
 	}
@@ -196,6 +198,8 @@
 										loading = true;
 										return async ({ update }) => {
 											loading = false;
+											delete memberSelectedPreset[member.id];
+											delete memberSelectedGroupId[member.id];
 											await update();
 										};
 									}}
@@ -204,7 +208,7 @@
 									<select
 										name="preset"
 										class="preset-select"
-										value={preset === 'custom' ? 'custom' : preset}
+										value={memberSelectedPreset[member.id] ?? (preset === 'custom' ? 'custom' : preset)}
 										onchange={(e) => {
 											const val = e.currentTarget.value;
 											memberSelectedPreset = { ...memberSelectedPreset, [member.id]: val };
@@ -224,7 +228,14 @@
 										{/if}
 									</select>
 									{#if (memberSelectedPreset[member.id] === 'team-leader' || (preset === 'team-leader' && !memberSelectedPreset[member.id])) && expandedMemberId === member.id}
-										<select name="scopedGroupId" class="preset-select" value={member.scopedGroupId ?? ''}>
+										<select
+											name="scopedGroupId"
+											class="preset-select"
+											value={memberSelectedGroupId[member.id] ?? member.scopedGroupId ?? ''}
+											onchange={(e) => {
+												memberSelectedGroupId = { ...memberSelectedGroupId, [member.id]: e.currentTarget.value };
+											}}
+										>
 											<option value="">Select group...</option>
 											{#each groups as group}
 												<option value={group.id}>{group.name}</option>

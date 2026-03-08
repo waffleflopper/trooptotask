@@ -68,6 +68,11 @@
 		// 6. Org Settings
 		result.push({ label: 'Org Settings', href: `/org/${orgId}/settings` });
 
+		// 6b. Audit Log (owner only)
+		if (userRole === 'owner') {
+			result.push({ label: 'Audit Log', href: `/org/${orgId}/audit` });
+		}
+
 		// 7. Theme toggle
 		result.push({
 			label: isDarkTheme ? 'Light Mode' : 'Dark Mode',

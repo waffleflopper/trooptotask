@@ -73,6 +73,10 @@
 			<div class="section-label">Pricing</div>
 			<h1>Simple, transparent <em>pricing.</em></h1>
 			<p>No feature gating. Every plan gets the full platform. Pick the size that fits your formation.</p>
+		<div class="beta-banner">
+			<span class="beta-badge">BETA</span>
+			<span>All features are <strong>completely free</strong> during the beta period. When pricing goes live, beta testers will receive a generous grace period before any subscription is required.</span>
+		</div>
 		</div>
 	</section>
 
@@ -176,6 +180,10 @@
 
 			<div class="faq-grid">
 				<div class="faq-item">
+					<h3>Is the beta really free?</h3>
+					<p>Yes. During the beta testing phase, all features and tiers are completely free with no credit card required. When pricing goes live, every beta tester will receive a generous grace period to decide on a plan — you won't be charged without notice.</p>
+				</div>
+				<div class="faq-item">
 					<h3>What happens if I exceed my personnel cap?</h3>
 					<p>Your organization enters read-only mode. You can still view and export all data, but you won't be able to add or edit records until you upgrade or remove personnel.</p>
 				</div>
@@ -195,7 +203,7 @@
 	<section class="cta">
 		<div class="cta-container">
 			<h2 class="cta-title">Ready to get <em>organized?</em></h2>
-			<p class="cta-subtitle">Start free. Upgrade when your team grows.</p>
+			<p class="cta-subtitle">Free during beta — no strings attached. Beta testers get a generous grace period before any subscription is needed.</p>
 			{#if data.user}
 				<a href="/dashboard?show=all" class="cta-btn">
 					Go to Dashboard
@@ -434,6 +442,35 @@
 
 	.page-header .section-label {
 		margin-bottom: 1rem;
+	}
+
+	.beta-banner {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		max-width: 620px;
+		margin: 1.5rem auto 0;
+		padding: 0.875rem 1.25rem;
+		background: rgba(184, 148, 62, 0.1);
+		border: 1px solid rgba(184, 148, 62, 0.3);
+		border-radius: 8px;
+		font-size: 0.9375rem;
+		color: var(--hero-text);
+		line-height: 1.6;
+		text-align: left;
+	}
+
+	.beta-badge {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		background: var(--brass);
+		color: var(--ink);
+		padding: 0.2rem 0.625rem;
+		border-radius: 4px;
+		white-space: nowrap;
+		flex-shrink: 0;
 	}
 
 	.hero-noise {

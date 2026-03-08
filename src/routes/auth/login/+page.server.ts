@@ -43,6 +43,12 @@ export const actions: Actions = {
 				{ userId: null }
 			);
 
+			// Check if user has MFA enabled and needs to complete verification
+			const { data: aalData } = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+			if (aalData?.nextLevel === 'aal2' && aalData?.currentLevel === 'aal1') {
+				redirect(303, '/auth/mfa-verify');
+			}
+
 			redirect(303, '/dashboard');
 		} catch (err) {
 			if (isRedirect(err)) {

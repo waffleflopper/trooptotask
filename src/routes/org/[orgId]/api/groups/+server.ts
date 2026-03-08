@@ -9,7 +9,8 @@ const handlers = createCrudHandlers<Group>({
 	},
 	defaults: {
 		sort_order: 0
-	}
+	},
+	auditResourceType: 'group'
 });
 
 export const { POST, PUT, DELETE } = handlers;

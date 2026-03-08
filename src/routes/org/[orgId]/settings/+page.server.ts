@@ -16,13 +16,13 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		locals.supabase
 			.from('organization_memberships')
 			.select(
-				'id, user_id, email, role, scoped_group_id, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
+				'id, user_id, email, role, scoped_group_id, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
 			)
 			.eq('organization_id', orgId),
 		locals.supabase
 			.from('organization_invitations')
 			.select(
-				'id, email, status, created_at, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
+				'id, email, status, created_at, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
 			)
 			.eq('organization_id', orgId)
 			.eq('status', 'pending')
@@ -42,6 +42,10 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		canEditPersonnel: m.can_edit_personnel,
 		canViewTraining: m.can_view_training,
 		canEditTraining: m.can_edit_training,
+		canViewOnboarding: m.can_view_onboarding,
+		canEditOnboarding: m.can_edit_onboarding,
+		canViewLeadersBook: m.can_view_leaders_book,
+		canEditLeadersBook: m.can_edit_leaders_book,
 		canManageMembers: m.can_manage_members
 	}));
 
@@ -57,6 +61,10 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		canEditPersonnel: inv.can_edit_personnel,
 		canViewTraining: inv.can_view_training,
 		canEditTraining: inv.can_edit_training,
+		canViewOnboarding: inv.can_view_onboarding,
+		canEditOnboarding: inv.can_edit_onboarding,
+		canViewLeadersBook: inv.can_view_leaders_book,
+		canEditLeadersBook: inv.can_edit_leaders_book,
 		canManageMembers: inv.can_manage_members
 	}));
 
@@ -166,6 +174,10 @@ export const actions: Actions = {
 			can_edit_personnel: permissions.canEditPersonnel,
 			can_view_training: permissions.canViewTraining,
 			can_edit_training: permissions.canEditTraining,
+			can_view_onboarding: permissions.canViewOnboarding,
+			can_edit_onboarding: permissions.canEditOnboarding,
+			can_view_leaders_book: permissions.canViewLeadersBook,
+			can_edit_leaders_book: permissions.canEditLeadersBook,
 			can_manage_members: permissions.canManageMembers
 		});
 
@@ -292,6 +304,10 @@ export const actions: Actions = {
 			can_edit_personnel: boolean;
 			can_view_training: boolean;
 			can_edit_training: boolean;
+			can_view_onboarding: boolean;
+			can_edit_onboarding: boolean;
+			can_view_leaders_book: boolean;
+			can_edit_leaders_book: boolean;
 			can_manage_members: boolean;
 		};
 
@@ -304,6 +320,10 @@ export const actions: Actions = {
 				can_edit_personnel: formData.get('canEditPersonnel') === 'on',
 				can_view_training: formData.get('canViewTraining') === 'on',
 				can_edit_training: formData.get('canEditTraining') === 'on',
+				can_view_onboarding: formData.get('canViewOnboarding') === 'on',
+				can_edit_onboarding: formData.get('canEditOnboarding') === 'on',
+				can_view_leaders_book: formData.get('canViewLeadersBook') === 'on',
+				can_edit_leaders_book: formData.get('canEditLeadersBook') === 'on',
 				can_manage_members: formData.get('canManageMembers') === 'on'
 			};
 		} else {
@@ -318,6 +338,10 @@ export const actions: Actions = {
 				can_edit_personnel: presetPermissions.canEditPersonnel,
 				can_view_training: presetPermissions.canViewTraining,
 				can_edit_training: presetPermissions.canEditTraining,
+				can_view_onboarding: presetPermissions.canViewOnboarding,
+				can_edit_onboarding: presetPermissions.canEditOnboarding,
+				can_view_leaders_book: presetPermissions.canViewLeadersBook,
+				can_edit_leaders_book: presetPermissions.canEditLeadersBook,
 				can_manage_members: presetPermissions.canManageMembers
 			};
 		}

@@ -19,7 +19,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	// Fetch org details for Stripe customer ID
 	const { data: org } = await locals.supabase
 		.from('organizations')
-		.select('id, name, stripe_customer_id, subscription_status')
+		.select('id, name, stripe_customer_id, subscription_status, stripe_subscription_id')
 		.eq('id', orgId)
 		.single();
 
@@ -51,6 +51,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		effectiveTier,
 		orgName: org.name,
 		stripeCustomerId: org.stripe_customer_id as string | null,
+		subscriptionStripeId: org.stripe_subscription_id as string | null,
 		canManageSubscription,
 		tierComparison
 	};

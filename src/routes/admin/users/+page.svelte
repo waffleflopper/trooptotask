@@ -48,6 +48,12 @@
 		</div>
 	</header>
 
+	{#if data.authError}
+		<div class="auth-error">
+			<strong>Failed to load users:</strong> {data.authError}
+		</div>
+	{/if}
+
 	<!-- Filters -->
 	<div class="filters">
 		<form class="search-form" onsubmit={(e) => { e.preventDefault(); applyFilters(); }}>
@@ -156,6 +162,16 @@
 
 	.subtitle {
 		color: var(--color-text-muted);
+	}
+
+	.auth-error {
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		color: #dc2626;
+		padding: var(--spacing-sm) var(--spacing-md);
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-sm);
+		margin-bottom: var(--spacing-md);
 	}
 
 	/* Filters */

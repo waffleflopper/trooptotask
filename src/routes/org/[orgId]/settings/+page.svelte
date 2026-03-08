@@ -3,6 +3,7 @@
 	import OrganizationMemberManager from '$lib/components/OrganizationMemberManager.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { isBillingEnabled } from '$lib/config/billing';
 
 	let { data, form } = $props();
 	let loading = $state(false);
@@ -10,6 +11,7 @@
 	let deleteConfirmText = $state('');
 
 	let exporting = $state(false);
+	let exportingExcel = $state(false);
 	let exportError = $state('');
 	let exportSuccess = $state(false);
 
@@ -52,6 +54,47 @@
 			exportError = 'Export failed. Please try again.';
 		} finally {
 			exporting = false;
+		}
+	}
+
+	async function handleExportExcel() {
+		if (exportingExcel) return;
+		exportingExcel = true;
+		exportError = '';
+		exportSuccess = false;
+
+		try {
+			const res = await fetch(`/org/${data.orgId}/api/export-excel`, { method: 'POST' });
+
+			if (!res.ok) {
+				if (res.headers.get('Content-Type')?.includes('application/json')) {
+					const body = await res.json();
+					exportError = body.error || 'Export failed. Please try again.';
+				} else {
+					exportError = 'Export failed. Please try again.';
+				}
+				return;
+			}
+
+			const blob = await res.blob();
+			const disposition = res.headers.get('Content-Disposition');
+			const filenameMatch = disposition?.match(/filename="(.+)"/);
+			const filename = filenameMatch?.[1] ?? `org-export-${data.orgId}.xlsx`;
+
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+
+			exportSuccess = true;
+		} catch {
+			exportError = 'Export failed. Please try again.';
+		} finally {
+			exportingExcel = false;
 		}
 	}
 </script>
@@ -123,13 +166,22 @@
 			<a href="/dashboard?show=all" class="btn btn-secondary">Switch Organization</a>
 		</div>
 
+		{#if data.isOwner && isBillingEnabled}
+			<div class="settings-card">
+				<h2>Billing & Subscription</h2>
+				<p class="billing-description">
+					Manage your subscription plan, view usage, and update payment information.
+				</p>
+				<a href="/org/{data.orgId}/billing" class="btn btn-primary">Manage Billing</a>
+			</div>
+		{/if}
+
 		{#if data.isOwner || data.canManageMembers}
 			<div class="settings-card">
 				<h2>Data Export</h2>
 				<p class="export-description">
-					Download all organization data as a JSON file. This includes personnel, groups,
-					training records, availability, counseling records, assignments, onboarding data,
-					and rating scheme entries.
+					Download all organization data. JSON for backups and integrations, or Excel for
+					a human-readable workbook with named sheets.
 				</p>
 
 				{#if data.exportInfo.isLimited}
@@ -150,14 +202,24 @@
 					<div class="success-message">Export downloaded successfully!</div>
 				{/if}
 
-				<button
-					class="btn btn-primary"
-					onclick={handleExport}
-					disabled={exporting || (data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit)}
-				>
-					{#if exporting}<Spinner />{/if}
-					{exporting ? 'Generating Export...' : 'Export All Org Data'}
-				</button>
+				<div class="export-buttons">
+					<button
+						class="btn btn-primary"
+						onclick={handleExport}
+						disabled={exporting || exportingExcel || (data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit)}
+					>
+						{#if exporting}<Spinner />{/if}
+						{exporting ? 'Generating...' : 'Export as JSON'}
+					</button>
+					<button
+						class="btn btn-primary"
+						onclick={handleExportExcel}
+						disabled={exporting || exportingExcel || (data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit)}
+					>
+						{#if exportingExcel}<Spinner />{/if}
+						{exportingExcel ? 'Generating...' : 'Export as Excel'}
+					</button>
+				</div>
 			</div>
 		{/if}
 
@@ -295,6 +357,13 @@
 		margin-left: var(--spacing-sm);
 	}
 
+	.billing-description {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		margin-bottom: var(--spacing-md);
+		line-height: 1.5;
+	}
+
 	.export-description {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-secondary);
@@ -306,6 +375,12 @@
 		font-size: var(--font-size-sm);
 		color: var(--color-text-secondary);
 		margin-bottom: var(--spacing-sm);
+	}
+
+	.export-buttons {
+		display: flex;
+		gap: var(--spacing-sm);
+		flex-wrap: wrap;
 	}
 
 	.export-limit-warning {

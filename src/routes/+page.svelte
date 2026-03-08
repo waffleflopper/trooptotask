@@ -59,6 +59,11 @@
 			icon: 'checklist',
 			title: 'In-Processing Checklist',
 			description: 'Custom onboarding templates with step-by-step tracking. See progress by person or pivot by step to find gaps.'
+		},
+		{
+			icon: 'lock',
+			title: 'Security & Compliance',
+			description: 'NIST 800-171 aligned. Your personnel data is encrypted, access-controlled, and audit-logged. Built for the standards military leaders expect.'
 		}
 	];
 
@@ -110,7 +115,8 @@
 			building: 'M4 2h16a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2zM9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01',
 			download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
 			star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
-			checklist: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5h6M9 14l2 2 4-4M9 11h.01'
+			checklist: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5h6M9 14l2 2 4-4M9 11h.01',
+			lock: 'M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4M12 16v2'
 		};
 		return icons[icon] || '';
 	}
@@ -143,6 +149,7 @@
 			<div class="nav-links">
 				<a href="/features" class="nav-link">Features</a>
 				<a href="/pricing" class="nav-link">Pricing</a>
+				<a href="/security" class="nav-link">Security</a>
 				<a href="#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
@@ -229,6 +236,7 @@
 			<!-- Dashboard Preview -->
 			<div class="hero-visual">
 				<div class="dashboard-preview">
+					<div class="compliance-sash">NIST 800-171</div>
 					<div class="dash-chrome">
 						<div class="dash-dots">
 							<span></span><span></span><span></span>
@@ -441,6 +449,7 @@
 				<a href="/features">Features</a>
 				<a href="/pricing">Pricing</a>
 				<a href="#roadmap">Roadmap</a>
+				<a href="/security">Security</a>
 			</div>
 			<p class="footer-text">Built for Army leaders, by Army leaders.</p>
 		</div>
@@ -752,6 +761,7 @@
 	}
 
 	.dashboard-preview {
+		position: relative;
 		width: 100%;
 		max-width: 480px;
 		background: var(--ink-light);
@@ -761,6 +771,24 @@
 		box-shadow:
 			0 0 0 1px rgba(255,255,255,0.03),
 			0 20px 60px rgba(0,0,0,0.4);
+	}
+
+	.compliance-sash {
+		position: absolute;
+		top: 18px;
+		right: -34px;
+		z-index: 10;
+		width: 160px;
+		text-align: center;
+		padding: 4px 0;
+		background: var(--brass);
+		color: var(--ink);
+		font-family: var(--font-mono);
+		font-size: 0.5625rem;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		transform: rotate(45deg);
+		box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 	}
 
 	.dash-chrome {

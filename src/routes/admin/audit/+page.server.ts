@@ -1,35 +1,43 @@
 import type { PageServerLoad } from './$types';
+import { getAdminClient } from '$lib/server/supabase';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
-	const supabase = locals.supabase;
+export const load: PageServerLoad = async ({ url }) => {
+	// Use admin client to read audit_logs (RLS only allows org owners / platform admins)
+	const supabase = getAdminClient();
 
 	const page = parseInt(url.searchParams.get('page') || '1');
 	const action = url.searchParams.get('action') || '';
+	const severity = url.searchParams.get('severity') || '';
+	const orgId = url.searchParams.get('org') || '';
 	const limit = 50;
 	const offset = (page - 1) * limit;
 
 	// Build query
 	let query = supabase
-		.from('admin_audit_log')
+		.from('audit_logs')
 		.select('*', { count: 'exact' });
 
 	if (action) {
 		query = query.eq('action', action);
 	}
+	if (severity) {
+		query = query.eq('severity', severity);
+	}
+	if (orgId) {
+		query = query.eq('org_id', orgId);
+	}
 
 	query = query
-		.order('created_at', { ascending: false })
+		.order('timestamp', { ascending: false })
 		.range(offset, offset + limit - 1);
 
 	// Run both queries in parallel
 	const [logsResult, actionsResult] = await Promise.all([
 		query,
-		// Get distinct actions - limit to recent records for efficiency
-		// (action types are typically finite and appear in recent logs)
 		supabase
-			.from('admin_audit_log')
+			.from('audit_logs')
 			.select('action')
-			.order('created_at', { ascending: false })
+			.order('timestamp', { ascending: false })
 			.limit(1000)
 	]);
 
@@ -41,16 +49,22 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	return {
 		logs: (logs ?? []).map((log: any) => ({
 			id: log.id,
-			adminUserId: log.admin_user_id,
-			targetUserId: log.target_user_id,
+			userId: log.user_id,
+			orgId: log.org_id,
 			action: log.action,
+			resourceType: log.resource_type,
+			resourceId: log.resource_id,
+			ipAddress: log.ip_address,
 			details: log.details,
-			createdAt: log.created_at
+			severity: log.severity,
+			createdAt: log.timestamp
 		})),
 		totalCount: count ?? 0,
 		page,
 		limit,
 		actionFilter: action,
+		severityFilter: severity,
+		orgFilter: orgId,
 		availableActions: uniqueActions
 	};
 };

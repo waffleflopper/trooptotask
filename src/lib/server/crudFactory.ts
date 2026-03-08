@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { requireEditPermission, type PermissionType } from './permissions';
 import { getApiContext } from './supabase';
 import { checkReadOnly } from './read-only-guard';
+import { validateUUID } from './validation';
 
 /**
  * Field mapping configuration for camelCase <-> snake_case conversion
@@ -52,6 +53,12 @@ export interface CrudConfig<T> {
 	 * If not provided, uses automatic field mapping with defaults.
 	 */
 	toInsert?: (body: Record<string, unknown>, orgId: string) => Record<string, unknown>;
+
+	/** If set, audit log mutations with this resource type */
+	auditResourceType?: string;
+
+	/** DB column names to capture in audit details (e.g. ['name', 'color']) */
+	auditDetailFields?: string[];
 }
 
 /**
@@ -151,6 +158,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 	const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 		const { orgId } = params;
 		if (!orgId) throw error(400, 'Missing orgId');
+		if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
@@ -175,6 +183,20 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (dbError) throw error(500, dbError.message);
 
+		if (config.auditResourceType) {
+			const { auditLog } = await import('./auditLog');
+			const details: Record<string, unknown> = { actor: locals.user?.email ?? userId };
+			if (config.auditDetailFields) {
+				for (const col of config.auditDetailFields) {
+					if ((data as any)[col] !== undefined) details[col] = (data as any)[col];
+				}
+			}
+			auditLog(
+				{ action: `${config.auditResourceType}.created`, resourceType: config.auditResourceType, resourceId: (data as any).id, orgId, details },
+				{ userId }
+			);
+		}
+
 		const row = data as unknown as Record<string, unknown>;
 		const response = toResponse ? toResponse(row) : dbToApi<T>(row, fields);
 		return json(response);
@@ -183,6 +205,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 	const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
 		const { orgId } = params;
 		if (!orgId) throw error(400, 'Missing orgId');
+		if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
@@ -197,6 +220,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		const { id } = body;
 
 		if (!id) throw error(400, 'Missing id');
+		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 
 		const updates = apiToDbUpdates(body, fields);
 
@@ -214,6 +238,20 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (dbError) throw error(500, dbError.message);
 
+		if (config.auditResourceType) {
+			const { auditLog } = await import('./auditLog');
+			const details: Record<string, unknown> = { actor: locals.user?.email ?? userId };
+			if (config.auditDetailFields) {
+				for (const col of config.auditDetailFields) {
+					if ((data as any)[col] !== undefined) details[col] = (data as any)[col];
+				}
+			}
+			auditLog(
+				{ action: `${config.auditResourceType}.updated`, resourceType: config.auditResourceType, resourceId: id, orgId, details },
+				{ userId }
+			);
+		}
+
 		const row = data as unknown as Record<string, unknown>;
 		const response = toResponse ? toResponse(row) : dbToApi<T>(row, fields);
 		return json(response);
@@ -222,6 +260,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 	const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 		const { orgId } = params;
 		if (!orgId) throw error(400, 'Missing orgId');
+		if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
@@ -236,6 +275,19 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		const { id } = body;
 
 		if (!id) throw error(400, 'Missing id');
+		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
+
+		// Capture record details before deletion for audit log
+		let deletedDetails: Record<string, unknown> | null = null;
+		if (config.auditResourceType && config.auditDetailFields?.length) {
+			const { data: existing } = await supabase
+				.from(table)
+				.select(config.auditDetailFields.join(', '))
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.single();
+			if (existing) deletedDetails = existing as unknown as Record<string, unknown>;
+		}
 
 		// Run cascade delete if configured
 		if (onDelete) {
@@ -249,6 +301,18 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 			.eq('organization_id', orgId);
 
 		if (dbError) throw error(500, dbError.message);
+
+		if (config.auditResourceType) {
+			const { auditLog } = await import('./auditLog');
+			const details: Record<string, unknown> = { actor: locals.user?.email ?? userId };
+			if (deletedDetails) {
+				Object.assign(details, deletedDetails);
+			}
+			auditLog(
+				{ action: `${config.auditResourceType}.deleted`, resourceType: config.auditResourceType, resourceId: id, orgId, details },
+				{ userId }
+			);
+		}
 
 		return json({ success: true });
 	};

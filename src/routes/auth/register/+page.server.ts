@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { sanitizeString, validateEmail } from '$lib/server/validation';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.session) {
@@ -16,8 +17,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 export const actions: Actions = {
 	default: async ({ request, locals }) => {
 		const formData = await request.formData();
-		const inviteCode = (formData.get('inviteCode') as string)?.trim();
-		const email = formData.get('email') as string;
+		const inviteCode = sanitizeString(formData.get('inviteCode') as string, 50);
+		const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
 		const password = formData.get('password') as string;
 		const confirmPassword = formData.get('confirmPassword') as string;
 
@@ -25,12 +26,16 @@ export const actions: Actions = {
 			return fail(400, { error: 'Invite code is required', email, inviteCode });
 		}
 
-		if (!email || !password) {
-			return fail(400, { error: 'Email and password are required', email, inviteCode });
+		if (!validateEmail(email)) {
+			return fail(400, { error: 'Please enter a valid email address', email, inviteCode });
 		}
 
-		if (password.length < 6) {
-			return fail(400, { error: 'Password must be at least 6 characters', email, inviteCode });
+		if (!password || password.length < 12) {
+			return fail(400, { error: 'Password must be at least 12 characters', email, inviteCode });
+		}
+
+		if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+			return fail(400, { error: 'Password must include uppercase, lowercase, and a number', email, inviteCode });
 		}
 
 		if (password !== confirmPassword) {

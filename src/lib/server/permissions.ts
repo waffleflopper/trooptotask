@@ -61,3 +61,41 @@ export async function requireEditPermission(
 			break;
 	}
 }
+
+export async function requireManageMembersPermission(
+	supabase: SupabaseClient,
+	orgId: string,
+	userId: string
+): Promise<void> {
+	const { data: membership } = await supabase
+		.from('organization_memberships')
+		.select('role, can_manage_members')
+		.eq('organization_id', orgId)
+		.eq('user_id', userId)
+		.single();
+
+	if (!membership) {
+		throw error(403, 'Not a member of this organization');
+	}
+
+	if (membership.role !== 'owner' && !membership.can_manage_members) {
+		throw error(403, 'You do not have permission to manage this organization');
+	}
+}
+
+export async function requireOwnerRole(
+	supabase: SupabaseClient,
+	orgId: string,
+	userId: string
+): Promise<void> {
+	const { data: membership } = await supabase
+		.from('organization_memberships')
+		.select('role')
+		.eq('organization_id', orgId)
+		.eq('user_id', userId)
+		.single();
+
+	if (!membership || membership.role !== 'owner') {
+		throw error(403, 'Only the organization owner can perform this action');
+	}
+}

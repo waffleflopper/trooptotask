@@ -20,6 +20,10 @@ export interface OrganizationMemberPermissions {
 	canEditPersonnel: boolean;
 	canViewTraining: boolean;
 	canEditTraining: boolean;
+	canViewOnboarding: boolean;
+	canEditOnboarding: boolean;
+	canViewLeadersBook: boolean;
+	canEditLeadersBook: boolean;
 	canManageMembers: boolean;
 }
 
@@ -49,9 +53,6 @@ export type PermissionPreset =
 	| 'admin'
 	| 'full-editor'
 	| 'team-leader'
-	| 'calendar-only'
-	| 'personnel-only'
-	| 'training-only'
 	| 'viewer'
 	| 'custom';
 
@@ -63,6 +64,10 @@ export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'cus
 		canEditPersonnel: true,
 		canViewTraining: true,
 		canEditTraining: true,
+		canViewOnboarding: true,
+		canEditOnboarding: true,
+		canViewLeadersBook: true,
+		canEditLeadersBook: true,
 		canManageMembers: true
 	},
 	'full-editor': {
@@ -72,6 +77,10 @@ export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'cus
 		canEditPersonnel: true,
 		canViewTraining: true,
 		canEditTraining: true,
+		canViewOnboarding: true,
+		canEditOnboarding: true,
+		canViewLeadersBook: true,
+		canEditLeadersBook: true,
 		canManageMembers: false
 	},
 	'team-leader': {
@@ -81,33 +90,10 @@ export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'cus
 		canEditPersonnel: true,
 		canViewTraining: true,
 		canEditTraining: true,
-		canManageMembers: false
-	},
-	'calendar-only': {
-		canViewCalendar: true,
-		canEditCalendar: true,
-		canViewPersonnel: true,
-		canEditPersonnel: false,
-		canViewTraining: true,
-		canEditTraining: false,
-		canManageMembers: false
-	},
-	'personnel-only': {
-		canViewCalendar: true,
-		canEditCalendar: false,
-		canViewPersonnel: true,
-		canEditPersonnel: true,
-		canViewTraining: true,
-		canEditTraining: false,
-		canManageMembers: false
-	},
-	'training-only': {
-		canViewCalendar: true,
-		canEditCalendar: false,
-		canViewPersonnel: true,
-		canEditPersonnel: false,
-		canViewTraining: true,
-		canEditTraining: true,
+		canViewOnboarding: true,
+		canEditOnboarding: true,
+		canViewLeadersBook: true,
+		canEditLeadersBook: true,
 		canManageMembers: false
 	},
 	viewer: {
@@ -117,6 +103,10 @@ export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'cus
 		canEditPersonnel: false,
 		canViewTraining: true,
 		canEditTraining: false,
+		canViewOnboarding: true,
+		canEditOnboarding: false,
+		canViewLeadersBook: true,
+		canEditLeadersBook: false,
 		canManageMembers: false
 	}
 };
@@ -131,12 +121,27 @@ export function getPermissionPreset(permissions: OrganizationMemberPermissions):
 			permissions.canEditPersonnel === presetPermissions.canEditPersonnel &&
 			permissions.canViewTraining === presetPermissions.canViewTraining &&
 			permissions.canEditTraining === presetPermissions.canEditTraining &&
+			permissions.canViewOnboarding === presetPermissions.canViewOnboarding &&
+			permissions.canEditOnboarding === presetPermissions.canEditOnboarding &&
+			permissions.canViewLeadersBook === presetPermissions.canViewLeadersBook &&
+			permissions.canEditLeadersBook === presetPermissions.canEditLeadersBook &&
 			permissions.canManageMembers === presetPermissions.canManageMembers
 		) {
 			return preset as PermissionPreset;
 		}
 	}
 	return 'custom';
+}
+
+export function isFullEditor(permissions: OrganizationMemberPermissions): boolean {
+	return (
+		permissions.canViewCalendar && permissions.canEditCalendar &&
+		permissions.canViewPersonnel && permissions.canEditPersonnel &&
+		permissions.canViewTraining && permissions.canEditTraining &&
+		permissions.canViewOnboarding && permissions.canEditOnboarding &&
+		permissions.canViewLeadersBook && permissions.canEditLeadersBook &&
+		permissions.canManageMembers
+	);
 }
 
 export interface StatusType {

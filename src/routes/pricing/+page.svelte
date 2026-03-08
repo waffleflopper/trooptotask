@@ -30,6 +30,7 @@
 			<div class="nav-links">
 				<a href="/features" class="nav-link">Features</a>
 				<a href="/pricing" class="nav-link active">Pricing</a>
+				<a href="/security" class="nav-link">Security</a>
 				<a href="/#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}

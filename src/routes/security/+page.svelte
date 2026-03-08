@@ -30,8 +30,8 @@
 			<div class="nav-links">
 				<a href="/features" class="nav-link">Features</a>
 				<a href="/pricing" class="nav-link">Pricing</a>
-				<a href="/#roadmap" class="nav-link">Roadmap</a>
 				<a href="/security" class="nav-link active">Security</a>
+				<a href="/#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
 						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

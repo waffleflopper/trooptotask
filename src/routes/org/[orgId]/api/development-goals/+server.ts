@@ -18,6 +18,7 @@ const handlers = createCrudHandlers<DevelopmentGoal>({
 		target_date: null,
 		progress_notes: null
 	},
+	requireDeletionApproval: true,
 	auditResourceType: 'development_goal',
 	auditDetailFields: ['personnel_id', 'category', 'status']
 });

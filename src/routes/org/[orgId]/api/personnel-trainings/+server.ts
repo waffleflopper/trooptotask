@@ -236,6 +236,28 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 		}
 	}
 
+	if (!isSandbox && userId) {
+		const { data: mem } = await supabase
+			.from('organization_memberships')
+			.select('role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members')
+			.eq('organization_id', orgId)
+			.eq('user_id', userId)
+			.single();
+
+		if (mem && mem.role === 'member') {
+			const allPerms = mem.can_view_calendar && mem.can_edit_calendar &&
+				mem.can_view_personnel && mem.can_edit_personnel &&
+				mem.can_view_training && mem.can_edit_training &&
+				mem.can_view_onboarding && mem.can_edit_onboarding &&
+				mem.can_view_leaders_book && mem.can_edit_leaders_book &&
+				mem.can_manage_members;
+
+			if (!allPerms) {
+				return json({ requiresApproval: true }, { status: 202 });
+			}
+		}
+	}
+
 	const { error: dbError } = await supabase
 		.from('personnel_trainings')
 		.delete()

@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import type { OrganizationMemberPermissions } from '$lib/types';
+import { isFullEditor, type OrganizationMemberPermissions } from '$lib/types';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { getEffectiveTier } from '$lib/server/subscription';
 import {
@@ -78,6 +78,10 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			canEditPersonnel: false,
 			canViewTraining: true,
 			canEditTraining: false,
+			canViewOnboarding: true,
+			canEditOnboarding: false,
+			canViewLeadersBook: true,
+			canEditLeadersBook: false,
 			canManageMembers: false
 		};
 
@@ -92,6 +96,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			userRole: 'member' as const,
 			userId: null,
 			permissions: readOnlyPermissions,
+			isFullEditor: false,
+			unreadNotificationCount: 0,
 			scopedGroupId: null,
 			isOwner: false,
 			isAdmin: false,
@@ -116,6 +122,10 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					canEditPersonnel: true,
 					canViewTraining: true,
 					canEditTraining: true,
+					canViewOnboarding: true,
+					canEditOnboarding: true,
+					canViewLeadersBook: true,
+					canEditLeadersBook: true,
 					canManageMembers: true
 				};
 
@@ -130,6 +140,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					userRole: 'owner' as const,
 					userId: null,
 					permissions: fullPermissions,
+					isFullEditor: true,
+					unreadNotificationCount: 0,
 					scopedGroupId: null,
 					isOwner: true,
 					isAdmin: false,
@@ -154,7 +166,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		locals.supabase
 			.from('organization_memberships')
 			.select(
-				'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members, scoped_group_id'
+				'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
 			)
 			.eq('organization_id', orgId)
 			.eq('user_id', user.id)
@@ -192,8 +204,21 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		canEditPersonnel: isPrivileged || membership.can_edit_personnel,
 		canViewTraining: isPrivileged || membership.can_view_training,
 		canEditTraining: isPrivileged || membership.can_edit_training,
+		canViewOnboarding: isPrivileged || membership.can_view_onboarding,
+		canEditOnboarding: isPrivileged || membership.can_edit_onboarding,
+		canViewLeadersBook: isPrivileged || membership.can_view_leaders_book,
+		canEditLeadersBook: isPrivileged || membership.can_edit_leaders_book,
 		canManageMembers: isPrivileged || membership.can_manage_members
 	};
+
+	const fullEditor = !isPrivileged && isFullEditor(permissions);
+
+	const { count: unreadNotificationCount } = await locals.supabase
+		.from('notifications')
+		.select('id', { count: 'exact', head: true })
+		.eq('user_id', user.id)
+		.eq('organization_id', orgId)
+		.eq('read', false);
 
 	const scopedGroupId: string | null =
 		isPrivileged ? null : (membership.scoped_group_id ?? null);
@@ -216,6 +241,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		userRole: membership.role as 'owner' | 'admin' | 'member',
 		userId: user.id,
 		permissions,
+		isFullEditor: fullEditor,
+		unreadNotificationCount: unreadNotificationCount ?? 0,
 		scopedGroupId,
 		isOwner,
 		isAdmin,

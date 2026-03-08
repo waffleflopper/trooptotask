@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
+import { checkReadOnly } from '$lib/server/read-only-guard';
 
 export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
@@ -10,6 +11,9 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	if (!isSandbox) {
 		await requireEditPermission(supabase, orgId, userId!, 'calendar');
 	}
+
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
 
 	const body = await request.json();
 	const { assignmentTypeId, personnelIds } = body as {

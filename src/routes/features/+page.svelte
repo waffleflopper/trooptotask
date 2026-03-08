@@ -29,6 +29,7 @@
 
 			<div class="nav-links">
 				<a href="/features" class="nav-link active">Features</a>
+				<a href="/pricing" class="nav-link">Pricing</a>
 				<a href="/#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
@@ -569,6 +570,7 @@
 			<div class="footer-links">
 				<a href="/help">Help</a>
 				<a href="/features">Features</a>
+				<a href="/pricing">Pricing</a>
 				<a href="/#roadmap">Roadmap</a>
 			</div>
 			<p class="footer-text">Built for Army leaders, by Army leaders.</p>

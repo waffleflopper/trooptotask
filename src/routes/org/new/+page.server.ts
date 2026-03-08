@@ -1,26 +1,15 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { getDefaultFederalHolidays } from "$lib/utils/federalHolidays";
-import {
-  ensureUserSubscription,
-  countUserOrganizations,
-  computeSubscriptionLimits,
-  checkOrganizationLimit
-} from "$lib/server/subscription";
+import { canCreateOrg } from "$lib/server/subscription";
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.user) throw redirect(303, "/auth/login");
 
-  // Load subscription limits to show upgrade prompt if needed
-  const { subscription, plan } = await ensureUserSubscription(locals.supabase, locals.user.id);
-  const organizationCount = await countUserOrganizations(locals.supabase, locals.user.id);
-  const limits = computeSubscriptionLimits(subscription, plan, organizationCount);
-
+  const canCreate = await canCreateOrg(locals.supabase, locals.user.id);
   return {
-    canCreateOrganization: limits.canCreateOrganization,
-    maxOrganizations: limits.maxOrganizations,
-    currentOrganizations: limits.currentOrganizations,
-    planName: plan.name
+    canCreate: canCreate.allowed,
+    canCreateMessage: canCreate.message
   };
 };
 
@@ -61,18 +50,17 @@ export const actions: Actions = {
     const user = locals.user;
     if (!user) throw redirect(303, "/auth/login");
 
-    // Check organization limit before allowing creation
-    try {
-      await checkOrganizationLimit(locals.supabase, user.id);
-    } catch (error: any) {
-      return fail(403, { error: error.body?.message || "Organization limit reached. Please upgrade your plan." });
-    }
-
     const formData = await request.formData();
     const name = (formData.get("name") as string)?.trim();
 
     if (!name) {
       return fail(400, { error: "Organization name is required" });
+    }
+
+    // Enforce org creation limit
+    const canCreate = await canCreateOrg(locals.supabase, user.id);
+    if (!canCreate.allowed) {
+      return fail(403, { error: canCreate.message });
     }
 
     // Use the database function to create organization and membership atomically

@@ -14,7 +14,9 @@
 	import { availabilityStore } from '$lib/stores/availability.svelte';
 	import { trainingTypesStore } from '$lib/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
+	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import SoldierLeadersBookView from '$lib/components/SoldierLeadersBookView.svelte';
 	import CounselingTypeManager from '$lib/components/CounselingTypeManager.svelte';
@@ -33,6 +35,8 @@
 		personnelTrainingsStore.load(data.personnelTrainings, data.orgId);
 	});
 
+	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+
 	let showTypeManager = $state(false);
 	let selectedGroupId = $state<string>('');
 	let searchQuery = $state('');
@@ -41,7 +45,7 @@
 	const leadersBookOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
 		if (data.permissions.canEditPersonnel) {
-			items.push({ label: 'Counseling Types', onclick: () => (showTypeManager = true) });
+			items.push({ label: 'Counseling Types', onclick: () => (showTypeManager = true), disabled: readOnly });
 		}
 		return items;
 	});
@@ -138,7 +142,11 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Leaders Book" helpTopic="leaders-book" overflowItems={leadersBookOverflowItems} />
+	<PageToolbar title="Leaders Book" helpTopic="leaders-book" overflowItems={leadersBookOverflowItems}>
+		{#if readOnly}
+			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+		{/if}
+	</PageToolbar>
 
 	<div class="stats-bar">
 		<div class="stat">
@@ -190,9 +198,15 @@
 
 	<main class="page-content">
 		{#if filteredPersonnel().length === 0}
-			<div class="empty-state">
-				<p>No personnel found.</p>
-			</div>
+			{#if data.personnel.length === 0}
+				<EmptyState
+					message="No personnel added yet."
+					actionLabel="Go to Personnel"
+					actionHref={`/org/${data.orgId}/personnel`}
+				/>
+			{:else}
+				<EmptyState message="No personnel match your search." />
+			{/if}
 		{:else}
 			<div class="personnel-grid">
 				{#each filteredPersonnel() as person (person.id)}
@@ -379,16 +393,6 @@
 	}
 
 	/* .page-content base + mobile in app.css */
-
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-		gap: var(--spacing-md);
-		color: var(--color-text-muted);
-	}
 
 	.personnel-grid {
 		display: grid;

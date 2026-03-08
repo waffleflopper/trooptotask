@@ -78,56 +78,6 @@ CREATE TYPE "public"."organization_role" AS ENUM (
 ALTER TYPE "public"."organization_role" OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."can_add_personnel"("p_org_id" "uuid", "p_user_id" "uuid" DEFAULT "auth"."uid"()) RETURNS boolean
-    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
-    AS $$
-DECLARE
-  v_max_personnel integer;
-  v_current_personnel integer;
-BEGIN
-  SELECT max_personnel_per_org INTO v_max_personnel
-  FROM public.get_user_subscription(p_user_id);
-
-  -- null means unlimited
-  IF v_max_personnel IS NULL THEN
-    RETURN true;
-  END IF;
-
-  SELECT public.count_org_personnel(p_org_id) INTO v_current_personnel;
-
-  RETURN v_current_personnel < v_max_personnel;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."can_add_personnel"("p_org_id" "uuid", "p_user_id" "uuid") OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."can_create_organization"("p_user_id" "uuid" DEFAULT "auth"."uid"()) RETURNS boolean
-    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
-    AS $$
-DECLARE
-  v_max_orgs integer;
-  v_current_orgs integer;
-BEGIN
-  SELECT max_organizations INTO v_max_orgs
-  FROM public.get_user_subscription(p_user_id);
-
-  -- null means unlimited
-  IF v_max_orgs IS NULL THEN
-    RETURN true;
-  END IF;
-
-  SELECT public.count_user_organizations(p_user_id) INTO v_current_orgs;
-
-  RETURN v_current_orgs < v_max_orgs;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."can_create_organization"("p_user_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."can_edit_calendar"("p_organization_id" "uuid") RETURNS boolean
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     AS $$
@@ -294,17 +244,6 @@ $$;
 ALTER FUNCTION "public"."count_org_personnel"("p_org_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."count_user_organizations"("p_user_id" "uuid" DEFAULT "auth"."uid"()) RETURNS integer
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    AS $$
-  SELECT COUNT(*)::integer
-  FROM public.organization_memberships
-  WHERE user_id = p_user_id AND role = 'owner';
-$$;
-
-
-ALTER FUNCTION "public"."count_user_organizations"("p_user_id" "uuid") OWNER TO "postgres";
-
 
 CREATE OR REPLACE FUNCTION "public"."create_clinic_with_owner"("p_name" "text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
@@ -337,20 +276,6 @@ CREATE OR REPLACE FUNCTION "public"."create_clinic_with_owner"("p_name" "text") 
 
 ALTER FUNCTION "public"."create_clinic_with_owner"("p_name" "text") OWNER TO "postgres";
 
-
-CREATE OR REPLACE FUNCTION "public"."create_default_subscription"() RETURNS "trigger"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-BEGIN
-  INSERT INTO public.user_subscriptions (user_id, plan_id, status)
-  VALUES (NEW.id, 'free', 'active')
-  ON CONFLICT (user_id) DO NOTHING;
-  RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."create_default_subscription"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."create_demo_sandbox"("p_session_id" "text") RETURNS "uuid"
@@ -641,101 +566,7 @@ $$;
 ALTER FUNCTION "public"."create_org_with_owner"("p_name" "text") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."extend_user_trial"("p_user_id" "uuid", "p_days" integer) RETURNS "void"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-BEGIN
-  IF NOT public.is_platform_admin() THEN
-    RAISE EXCEPTION 'Only platform admins can extend trials';
-  END IF;
 
-  UPDATE public.user_subscriptions
-  SET
-    trial_end = COALESCE(trial_end, now()) + (p_days || ' days')::interval,
-    status = 'trialing',
-    updated_at = now()
-  WHERE user_id = p_user_id;
-
-  PERFORM public.log_admin_action(
-    p_user_id,
-    'extend_trial',
-    jsonb_build_object('days', p_days)
-  );
-END;
-$$;
-
-
-ALTER FUNCTION "public"."extend_user_trial"("p_user_id" "uuid", "p_days" integer) OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."get_user_subscription"("p_user_id" "uuid" DEFAULT "auth"."uid"()) RETURNS TABLE("subscription_id" "uuid", "plan_id" "text", "plan_name" "text", "billing_cycle" "text", "status" "text", "max_organizations" integer, "max_personnel_per_org" integer, "has_duty_roster" boolean, "has_bulk_import" boolean, "has_excel_export" boolean, "has_priority_support" boolean, "override_max_orgs" integer, "override_max_personnel" integer, "override_expiry" timestamp with time zone, "current_period_end" timestamp with time zone, "trial_end" timestamp with time zone)
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    AS $$
-  SELECT
-    us.id as subscription_id,
-    us.plan_id,
-    sp.name as plan_name,
-    us.billing_cycle,
-    us.status,
-    COALESCE(
-      CASE WHEN us.override_expiry IS NULL OR us.override_expiry > now() THEN us.override_max_orgs END,
-      sp.max_organizations
-    ) as max_organizations,
-    COALESCE(
-      CASE WHEN us.override_expiry IS NULL OR us.override_expiry > now() THEN us.override_max_personnel END,
-      sp.max_personnel_per_org
-    ) as max_personnel_per_org,
-    sp.has_duty_roster,
-    sp.has_bulk_import,
-    sp.has_excel_export,
-    sp.has_priority_support,
-    us.override_max_orgs,
-    us.override_max_personnel,
-    us.override_expiry,
-    us.current_period_end,
-    us.trial_end
-  FROM public.user_subscriptions us
-  JOIN public.subscription_plans sp ON sp.id = us.plan_id
-  WHERE us.user_id = p_user_id;
-$$;
-
-
-ALTER FUNCTION "public"."get_user_subscription"("p_user_id" "uuid") OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."grant_subscription"("p_user_id" "uuid", "p_plan_id" "text", "p_duration_days" integer, "p_max_orgs" integer DEFAULT NULL::integer, "p_max_personnel" integer DEFAULT NULL::integer) RETURNS "void"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-BEGIN
-  IF NOT public.is_platform_admin() THEN
-    RAISE EXCEPTION 'Only platform admins can grant subscriptions';
-  END IF;
-
-  UPDATE public.user_subscriptions
-  SET
-    plan_id = p_plan_id,
-    status = 'active',
-    override_max_orgs = p_max_orgs,
-    override_max_personnel = p_max_personnel,
-    override_expiry = CASE WHEN p_duration_days IS NOT NULL THEN now() + (p_duration_days || ' days')::interval ELSE NULL END,
-    updated_at = now()
-  WHERE user_id = p_user_id;
-
-  PERFORM public.log_admin_action(
-    p_user_id,
-    'grant_subscription',
-    jsonb_build_object(
-      'plan_id', p_plan_id,
-      'duration_days', p_duration_days,
-      'max_orgs', p_max_orgs,
-      'max_personnel', p_max_personnel
-    )
-  );
-END;
-$$;
-
-
-ALTER FUNCTION "public"."grant_subscription"("p_user_id" "uuid", "p_plan_id" "text", "p_duration_days" integer, "p_max_orgs" integer, "p_max_personnel" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."is_org_member"("p_organization_id" "uuid") RETURNS boolean
@@ -790,27 +621,6 @@ $$;
 ALTER FUNCTION "public"."is_super_admin"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."log_admin_action"("p_target_user_id" "uuid", "p_action" "text", "p_details" "jsonb" DEFAULT NULL::"jsonb") RETURNS "uuid"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-DECLARE
-  v_log_id uuid;
-BEGIN
-  IF NOT public.is_platform_admin() THEN
-    RAISE EXCEPTION 'Only platform admins can log admin actions';
-  END IF;
-
-  INSERT INTO public.admin_audit_log (admin_user_id, target_user_id, action, details)
-  VALUES (auth.uid(), p_target_user_id, p_action, p_details)
-  RETURNING id INTO v_log_id;
-
-  RETURN v_log_id;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."log_admin_action"("p_target_user_id" "uuid", "p_action" "text", "p_details" "jsonb") OWNER TO "postgres";
-
 
 CREATE OR REPLACE FUNCTION "public"."transfer_org_ownership"("p_organization_id" "uuid", "p_new_owner_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
@@ -859,29 +669,6 @@ $$;
 ALTER FUNCTION "public"."transfer_org_ownership"("p_organization_id" "uuid", "p_new_owner_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."update_admin_notes"("p_user_id" "uuid", "p_notes" "text") RETURNS "void"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    AS $$
-BEGIN
-  IF NOT public.is_platform_admin() THEN
-    RAISE EXCEPTION 'Only platform admins can update admin notes';
-  END IF;
-
-  UPDATE public.user_subscriptions
-  SET admin_notes = p_notes, updated_at = now()
-  WHERE user_id = p_user_id;
-
-  PERFORM public.log_admin_action(
-    p_user_id,
-    'update_notes',
-    jsonb_build_object('notes', p_notes)
-  );
-END;
-$$;
-
-
-ALTER FUNCTION "public"."update_admin_notes"("p_user_id" "uuid", "p_notes" "text") OWNER TO "postgres";
-
 
 CREATE OR REPLACE FUNCTION "public"."update_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
@@ -908,6 +695,82 @@ $$;
 
 ALTER FUNCTION "public"."update_updated_at_column"() OWNER TO "postgres";
 
+
+CREATE OR REPLACE FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+DECLARE
+  v_org record;
+  v_tier text;
+  v_source text;
+  v_personnel_count integer;
+  v_cap integer;
+  v_is_read_only boolean;
+BEGIN
+  SELECT * INTO v_org FROM organizations WHERE id = p_org_id;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'org_not_found');
+  END IF;
+
+  -- Priority: active Stripe > active gift > free
+  IF v_org.stripe_subscription_id IS NOT NULL
+     AND v_org.subscription_status = 'active'
+     AND v_org.tier != 'free' THEN
+    -- Check if gift overrides (gift >= sub tier)
+    IF v_org.gift_tier IS NOT NULL
+       AND v_org.gift_expires_at > now() THEN
+      -- Compare tiers: unit > team > free
+      IF (CASE v_org.gift_tier WHEN 'unit' THEN 3 WHEN 'team' THEN 2 ELSE 1 END)
+         >= (CASE v_org.tier WHEN 'unit' THEN 3 WHEN 'team' THEN 2 ELSE 1 END) THEN
+        v_tier := v_org.gift_tier;
+        v_source := 'gift';
+      ELSE
+        v_tier := v_org.tier;
+        v_source := 'subscription';
+      END IF;
+    ELSE
+      v_tier := v_org.tier;
+      v_source := 'subscription';
+    END IF;
+  ELSIF v_org.gift_tier IS NOT NULL
+        AND v_org.gift_expires_at > now() THEN
+    v_tier := v_org.gift_tier;
+    v_source := 'gift';
+  ELSE
+    v_tier := 'free';
+    v_source := 'default';
+  END IF;
+
+  -- Get personnel count
+  SELECT count(*) INTO v_personnel_count
+  FROM personnel WHERE organization_id = p_org_id;
+
+  -- Determine cap
+  v_cap := CASE v_tier
+    WHEN 'free' THEN 15
+    WHEN 'team' THEN 80
+    WHEN 'unit' THEN 999999
+    ELSE 15
+  END;
+
+  v_is_read_only := v_personnel_count > v_cap;
+
+  RETURN jsonb_build_object(
+    'tier', v_tier,
+    'source', v_source,
+    'personnelCount', v_personnel_count,
+    'personnelCap', v_cap,
+    'isReadOnly', v_is_read_only,
+    'giftExpiresAt', v_org.gift_expires_at,
+    'giftTier', v_org.gift_tier
+  );
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") OWNER TO "postgres";
+
 SET default_tablespace = '';
 
 SET default_table_access_method = "heap";
@@ -929,18 +792,6 @@ CREATE TABLE IF NOT EXISTS "public"."access_requests" (
 
 ALTER TABLE "public"."access_requests" OWNER TO "postgres";
 
-
-CREATE TABLE IF NOT EXISTS "public"."admin_audit_log" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "admin_user_id" "uuid" NOT NULL,
-    "target_user_id" "uuid",
-    "action" "text" NOT NULL,
-    "details" "jsonb",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."admin_audit_log" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."assignment_types" (
@@ -1190,30 +1041,23 @@ CREATE TABLE IF NOT EXISTS "public"."organizations" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "demo_type" "text",
     "demo_expires_at" timestamp with time zone,
-    CONSTRAINT "organizations_demo_type_check" CHECK (("demo_type" = ANY (ARRAY['showcase'::"text", 'sandbox'::"text"])))
+    "tier" "text" DEFAULT 'free'::"text" NOT NULL,
+    "stripe_customer_id" "text",
+    "stripe_subscription_id" "text",
+    "subscription_status" "text" DEFAULT 'active'::"text",
+    "current_period_end" timestamp with time zone,
+    "gift_tier" "text",
+    "gift_expires_at" timestamp with time zone,
+    "gifted_by" "uuid",
+    CONSTRAINT "organizations_demo_type_check" CHECK (("demo_type" = ANY (ARRAY['showcase'::"text", 'sandbox'::"text"]))),
+    CONSTRAINT "organizations_tier_check" CHECK (("tier" = ANY (ARRAY['free'::"text", 'team'::"text", 'unit'::"text"]))),
+    CONSTRAINT "organizations_subscription_status_check" CHECK (("subscription_status" = ANY (ARRAY['active'::"text", 'canceled'::"text", 'past_due'::"text", 'paused'::"text"]))),
+    CONSTRAINT "organizations_gift_tier_check" CHECK ((("gift_tier" IS NULL) OR ("gift_tier" = ANY (ARRAY['team'::"text", 'unit'::"text"]))))
 );
 
 
 ALTER TABLE "public"."organizations" OWNER TO "postgres";
 
-
-CREATE TABLE IF NOT EXISTS "public"."payment_history" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "user_id" "uuid" NOT NULL,
-    "subscription_id" "uuid",
-    "stripe_invoice_id" "text",
-    "stripe_payment_intent_id" "text",
-    "amount" integer NOT NULL,
-    "currency" "text" DEFAULT 'usd'::"text" NOT NULL,
-    "status" "text" NOT NULL,
-    "description" "text",
-    "receipt_url" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "payment_history_status_check" CHECK (("status" = ANY (ARRAY['succeeded'::"text", 'failed'::"text", 'refunded'::"text", 'pending'::"text"])))
-);
-
-
-ALTER TABLE "public"."payment_history" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."personnel" (
@@ -1381,44 +1225,6 @@ CREATE TABLE IF NOT EXISTS "public"."status_types" (
 ALTER TABLE "public"."status_types" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."stripe_webhook_events" (
-    "id" "text" NOT NULL,
-    "type" "text" NOT NULL,
-    "data" "jsonb" NOT NULL,
-    "processed" boolean DEFAULT false NOT NULL,
-    "processed_at" timestamp with time zone,
-    "error" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."stripe_webhook_events" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."subscription_plans" (
-    "id" "text" NOT NULL,
-    "name" "text" NOT NULL,
-    "description" "text",
-    "max_organizations" integer,
-    "max_personnel_per_org" integer,
-    "has_duty_roster" boolean DEFAULT false NOT NULL,
-    "has_bulk_import" boolean DEFAULT false NOT NULL,
-    "has_excel_export" boolean DEFAULT false NOT NULL,
-    "has_priority_support" boolean DEFAULT false NOT NULL,
-    "price_monthly" integer DEFAULT 0 NOT NULL,
-    "price_quarterly" integer DEFAULT 0 NOT NULL,
-    "price_semiannual" integer DEFAULT 0 NOT NULL,
-    "stripe_product_id" "text",
-    "stripe_price_monthly_id" "text",
-    "stripe_price_quarterly_id" "text",
-    "stripe_price_semiannual_id" "text",
-    "is_active" boolean DEFAULT true NOT NULL,
-    "sort_order" integer DEFAULT 0 NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."subscription_plans" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."training_types" (
@@ -1455,39 +1261,40 @@ CREATE TABLE IF NOT EXISTS "public"."user_pinned_groups" (
 ALTER TABLE "public"."user_pinned_groups" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."user_subscriptions" (
+CREATE TABLE IF NOT EXISTS "public"."data_exports" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "user_id" "uuid" NOT NULL,
-    "plan_id" "text" DEFAULT 'free'::"text" NOT NULL,
-    "billing_cycle" "text" DEFAULT 'monthly'::"text" NOT NULL,
-    "status" "text" DEFAULT 'active'::"text" NOT NULL,
-    "stripe_customer_id" "text",
-    "stripe_subscription_id" "text",
-    "current_period_start" timestamp with time zone,
-    "current_period_end" timestamp with time zone,
-    "trial_end" timestamp with time zone,
-    "canceled_at" timestamp with time zone,
-    "override_max_orgs" integer,
-    "override_max_personnel" integer,
-    "override_expiry" timestamp with time zone,
-    "admin_notes" "text",
+    "org_id" "uuid" NOT NULL,
+    "requested_by" "uuid" NOT NULL,
+    "status" "text" DEFAULT 'pending'::"text" NOT NULL,
+    "file_path" "text",
+    "file_size_bytes" bigint,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "user_subscriptions_billing_cycle_check" CHECK (("billing_cycle" = ANY (ARRAY['monthly'::"text", 'quarterly'::"text", 'semiannual'::"text"]))),
-    CONSTRAINT "user_subscriptions_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'trialing'::"text", 'past_due'::"text", 'canceled'::"text"])))
+    "completed_at" timestamp with time zone,
+    CONSTRAINT "data_exports_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'processing'::"text", 'completed'::"text", 'failed'::"text"])))
 );
 
 
-ALTER TABLE "public"."user_subscriptions" OWNER TO "postgres";
+ALTER TABLE "public"."data_exports" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."stripe_webhook_events" (
+    "id" "text" NOT NULL,
+    "type" "text" NOT NULL,
+    "data" "jsonb" NOT NULL,
+    "processed" boolean DEFAULT false NOT NULL,
+    "processed_at" timestamp with time zone,
+    "error" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."stripe_webhook_events" OWNER TO "postgres";
+
 
 
 ALTER TABLE ONLY "public"."access_requests"
     ADD CONSTRAINT "access_requests_pkey" PRIMARY KEY ("id");
 
-
-
-ALTER TABLE ONLY "public"."admin_audit_log"
-    ADD CONSTRAINT "admin_audit_log_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1581,10 +1388,6 @@ ALTER TABLE ONLY "public"."onboarding_template_steps"
 
 
 
-ALTER TABLE ONLY "public"."payment_history"
-    ADD CONSTRAINT "payment_history_pkey" PRIMARY KEY ("id");
-
-
 
 ALTER TABLE ONLY "public"."personnel_extended_info"
     ADD CONSTRAINT "personnel_extended_info_personnel_id_key" UNIQUE ("personnel_id");
@@ -1651,15 +1454,6 @@ ALTER TABLE ONLY "public"."status_types"
 
 
 
-ALTER TABLE ONLY "public"."stripe_webhook_events"
-    ADD CONSTRAINT "stripe_webhook_events_pkey" PRIMARY KEY ("id");
-
-
-
-ALTER TABLE ONLY "public"."subscription_plans"
-    ADD CONSTRAINT "subscription_plans_pkey" PRIMARY KEY ("id");
-
-
 
 ALTER TABLE ONLY "public"."training_types"
     ADD CONSTRAINT "training_types_clinic_id_name_key" UNIQUE ("organization_id", "name");
@@ -1681,33 +1475,19 @@ ALTER TABLE ONLY "public"."user_pinned_groups"
 
 
 
-ALTER TABLE ONLY "public"."user_subscriptions"
-    ADD CONSTRAINT "user_subscriptions_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "public"."data_exports"
+    ADD CONSTRAINT "data_exports_pkey" PRIMARY KEY ("id");
 
 
 
-ALTER TABLE ONLY "public"."user_subscriptions"
-    ADD CONSTRAINT "user_subscriptions_user_id_key" UNIQUE ("user_id");
+ALTER TABLE ONLY "public"."stripe_webhook_events"
+    ADD CONSTRAINT "stripe_webhook_events_pkey" PRIMARY KEY ("id");
+
 
 
 
 CREATE UNIQUE INDEX "access_requests_pending_email_idx" ON "public"."access_requests" USING "btree" ("lower"("email")) WHERE ("status" = 'pending'::"text");
 
-
-
-CREATE INDEX "idx_admin_audit_log_action" ON "public"."admin_audit_log" USING "btree" ("action");
-
-
-
-CREATE INDEX "idx_admin_audit_log_admin_user_id" ON "public"."admin_audit_log" USING "btree" ("admin_user_id");
-
-
-
-CREATE INDEX "idx_admin_audit_log_created_at" ON "public"."admin_audit_log" USING "btree" ("created_at" DESC);
-
-
-
-CREATE INDEX "idx_admin_audit_log_target_user_id" ON "public"."admin_audit_log" USING "btree" ("target_user_id");
 
 
 
@@ -1799,21 +1579,6 @@ CREATE INDEX "idx_organizations_demo_expires" ON "public"."organizations" USING 
 
 
 
-CREATE INDEX "idx_payment_history_created_at" ON "public"."payment_history" USING "btree" ("created_at" DESC);
-
-
-
-CREATE INDEX "idx_payment_history_stripe_invoice_id" ON "public"."payment_history" USING "btree" ("stripe_invoice_id");
-
-
-
-CREATE INDEX "idx_payment_history_subscription_id" ON "public"."payment_history" USING "btree" ("subscription_id");
-
-
-
-CREATE INDEX "idx_payment_history_user_id" ON "public"."payment_history" USING "btree" ("user_id");
-
-
 
 CREATE INDEX "idx_personnel_extended_info_org" ON "public"."personnel_extended_info" USING "btree" ("organization_id");
 
@@ -1863,13 +1628,6 @@ CREATE INDEX "idx_status_types_org" ON "public"."status_types" USING "btree" ("o
 
 
 
-CREATE INDEX "idx_stripe_webhook_events_created_at" ON "public"."stripe_webhook_events" USING "btree" ("created_at" DESC);
-
-
-
-CREATE INDEX "idx_stripe_webhook_events_processed" ON "public"."stripe_webhook_events" USING "btree" ("processed") WHERE ("processed" = false);
-
-
 
 CREATE INDEX "idx_training_types_org" ON "public"."training_types" USING "btree" ("organization_id");
 
@@ -1877,21 +1635,6 @@ CREATE INDEX "idx_training_types_org" ON "public"."training_types" USING "btree"
 
 CREATE INDEX "idx_user_pinned_groups_user_org" ON "public"."user_pinned_groups" USING "btree" ("user_id", "organization_id");
 
-
-
-CREATE INDEX "idx_user_subscriptions_status" ON "public"."user_subscriptions" USING "btree" ("status");
-
-
-
-CREATE INDEX "idx_user_subscriptions_stripe_customer_id" ON "public"."user_subscriptions" USING "btree" ("stripe_customer_id");
-
-
-
-CREATE INDEX "idx_user_subscriptions_stripe_subscription_id" ON "public"."user_subscriptions" USING "btree" ("stripe_subscription_id");
-
-
-
-CREATE INDEX "idx_user_subscriptions_user_id" ON "public"."user_subscriptions" USING "btree" ("user_id");
 
 
 
@@ -1919,6 +1662,10 @@ CREATE INDEX "rating_scheme_entries_rated_idx" ON "public"."rating_scheme_entrie
 
 
 
+CREATE INDEX "idx_data_exports_org_created" ON "public"."data_exports" USING "btree" ("org_id", "created_at" DESC);
+
+
+
 CREATE OR REPLACE TRIGGER "set_beta_feedback_updated_at" BEFORE UPDATE ON "public"."beta_feedback" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
 
 
@@ -1943,9 +1690,6 @@ CREATE OR REPLACE TRIGGER "update_rating_scheme_entries_updated_at" BEFORE UPDAT
 
 
 
-CREATE OR REPLACE TRIGGER "user_subscriptions_updated_at" BEFORE UPDATE ON "public"."user_subscriptions" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at"();
-
-
 
 ALTER TABLE ONLY "public"."access_requests"
     ADD CONSTRAINT "access_requests_invite_id_fkey" FOREIGN KEY ("invite_id") REFERENCES "public"."registration_invites"("id");
@@ -1955,15 +1699,6 @@ ALTER TABLE ONLY "public"."access_requests"
 ALTER TABLE ONLY "public"."access_requests"
     ADD CONSTRAINT "access_requests_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "auth"."users"("id");
 
-
-
-ALTER TABLE ONLY "public"."admin_audit_log"
-    ADD CONSTRAINT "admin_audit_log_admin_user_id_fkey" FOREIGN KEY ("admin_user_id") REFERENCES "auth"."users"("id");
-
-
-
-ALTER TABLE ONLY "public"."admin_audit_log"
-    ADD CONSTRAINT "admin_audit_log_target_user_id_fkey" FOREIGN KEY ("target_user_id") REFERENCES "auth"."users"("id");
 
 
 
@@ -2107,15 +1842,6 @@ ALTER TABLE ONLY "public"."onboarding_template_steps"
 
 
 
-ALTER TABLE ONLY "public"."payment_history"
-    ADD CONSTRAINT "payment_history_subscription_id_fkey" FOREIGN KEY ("subscription_id") REFERENCES "public"."user_subscriptions"("id");
-
-
-
-ALTER TABLE ONLY "public"."payment_history"
-    ADD CONSTRAINT "payment_history_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
-
-
 
 ALTER TABLE ONLY "public"."personnel"
     ADD CONSTRAINT "personnel_clinic_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
@@ -2232,13 +1958,19 @@ ALTER TABLE ONLY "public"."user_pinned_groups"
 
 
 
-ALTER TABLE ONLY "public"."user_subscriptions"
-    ADD CONSTRAINT "user_subscriptions_plan_id_fkey" FOREIGN KEY ("plan_id") REFERENCES "public"."subscription_plans"("id");
+ALTER TABLE ONLY "public"."organizations"
+    ADD CONSTRAINT "organizations_gifted_by_fkey" FOREIGN KEY ("gifted_by") REFERENCES "auth"."users"("id");
 
 
 
-ALTER TABLE ONLY "public"."user_subscriptions"
-    ADD CONSTRAINT "user_subscriptions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+ALTER TABLE ONLY "public"."data_exports"
+    ADD CONSTRAINT "data_exports_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."data_exports"
+    ADD CONSTRAINT "data_exports_requested_by_fkey" FOREIGN KEY ("requested_by") REFERENCES "auth"."users"("id");
+
 
 
 
@@ -2252,13 +1984,6 @@ CREATE POLICY "Admins can delete invitations" ON "public"."organization_invitati
 
 CREATE POLICY "Admins can delete memberships" ON "public"."organization_memberships" FOR DELETE USING ("public"."can_manage_org_members"("organization_id"));
 
-
-
-CREATE POLICY "Admins can insert audit log" ON "public"."admin_audit_log" FOR INSERT WITH CHECK ("public"."is_platform_admin"());
-
-
-
-CREATE POLICY "Admins can read audit log" ON "public"."admin_audit_log" FOR SELECT USING ("public"."is_platform_admin"());
 
 
 
@@ -2280,9 +2005,6 @@ CREATE POLICY "Admins full access" ON "public"."beta_feedback" TO "authenticated
 
 CREATE POLICY "Anyone can mark invites as used" ON "public"."registration_invites" FOR UPDATE USING (true);
 
-
-
-CREATE POLICY "Anyone can read active subscription plans" ON "public"."subscription_plans" FOR SELECT USING (("is_active" = true));
 
 
 
@@ -2472,9 +2194,6 @@ CREATE POLICY "Members can view training types" ON "public"."training_types" FOR
 
 
 
-CREATE POLICY "Only admins can read webhook events" ON "public"."stripe_webhook_events" FOR SELECT USING ("public"."is_platform_admin"());
-
-
 
 CREATE POLICY "Org editors can manage onboarding template steps" ON "public"."onboarding_template_steps" USING ("public"."can_edit_personnel"("organization_id"));
 
@@ -2528,25 +2247,6 @@ CREATE POLICY "Super admins can manage platform_admins" ON "public"."platform_ad
    FROM "public"."platform_admins" "platform_admins_1"
   WHERE (("platform_admins_1"."user_id" = "auth"."uid"()) AND ("platform_admins_1"."is_active" = true) AND ("platform_admins_1"."role" = 'super_admin'::"text")))));
 
-
-
-CREATE POLICY "System can insert payment history" ON "public"."payment_history" FOR INSERT WITH CHECK (("public"."is_platform_admin"() OR ("auth"."uid"() = "user_id")));
-
-
-
-CREATE POLICY "System can insert subscriptions" ON "public"."user_subscriptions" FOR INSERT WITH CHECK ((("auth"."uid"() = "user_id") OR "public"."is_platform_admin"()));
-
-
-
-CREATE POLICY "System can insert webhook events" ON "public"."stripe_webhook_events" FOR INSERT WITH CHECK (true);
-
-
-
-CREATE POLICY "System can update subscriptions" ON "public"."user_subscriptions" FOR UPDATE USING ((("auth"."uid"() = "user_id") OR "public"."is_platform_admin"()));
-
-
-
-CREATE POLICY "System can update webhook events" ON "public"."stripe_webhook_events" FOR UPDATE USING (true);
 
 
 
@@ -2604,13 +2304,6 @@ CREATE POLICY "Users can insert own feedback" ON "public"."beta_feedback" FOR IN
 
 CREATE POLICY "Users can insert their own pinned groups" ON "public"."user_pinned_groups" FOR INSERT WITH CHECK ((("auth"."uid"() = "user_id") AND "public"."is_org_member"("organization_id")));
 
-
-
-CREATE POLICY "Users can read their own payment history" ON "public"."payment_history" FOR SELECT USING ((("auth"."uid"() = "user_id") OR "public"."is_platform_admin"()));
-
-
-
-CREATE POLICY "Users can read their own subscription" ON "public"."user_subscriptions" FOR SELECT USING ((("auth"."uid"() = "user_id") OR "public"."is_platform_admin"()));
 
 
 
@@ -2675,8 +2368,6 @@ CREATE POLICY "Users can view their own pinned groups" ON "public"."user_pinned_
 ALTER TABLE "public"."access_requests" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."admin_audit_log" ENABLE ROW LEVEL SECURITY;
-
 
 ALTER TABLE "public"."assignment_types" ENABLE ROW LEVEL SECURITY;
 
@@ -2729,6 +2420,22 @@ CREATE POLICY "org_members_can_select_roster_history" ON "public"."duty_roster_h
 
 
 
+CREATE POLICY "Org members can read exports" ON "public"."data_exports" FOR SELECT USING (("org_id" IN ( SELECT "organization_memberships"."organization_id"
+   FROM "public"."organization_memberships"
+  WHERE ("organization_memberships"."user_id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "Org owner can create exports" ON "public"."data_exports" FOR INSERT WITH CHECK (("org_id" IN ( SELECT "organizations"."id"
+   FROM "public"."organizations"
+  WHERE ("organizations"."created_by" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "Service role only for webhooks" ON "public"."stripe_webhook_events" FOR ALL USING (false);
+
+
+
 ALTER TABLE "public"."organization_invitations" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2737,8 +2444,6 @@ ALTER TABLE "public"."organization_memberships" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE "public"."organizations" ENABLE ROW LEVEL SECURITY;
 
-
-ALTER TABLE "public"."payment_history" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."personnel" ENABLE ROW LEVEL SECURITY;
@@ -2768,11 +2473,6 @@ ALTER TABLE "public"."special_days" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."status_types" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."stripe_webhook_events" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."subscription_plans" ENABLE ROW LEVEL SECURITY;
-
 
 ALTER TABLE "public"."training_types" ENABLE ROW LEVEL SECURITY;
 
@@ -2780,7 +2480,10 @@ ALTER TABLE "public"."training_types" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."user_pinned_groups" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."user_subscriptions" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."data_exports" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."stripe_webhook_events" ENABLE ROW LEVEL SECURITY;
 
 
 
@@ -2969,17 +2672,6 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."can_add_personnel"("p_org_id" "uuid", "p_user_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."can_add_personnel"("p_org_id" "uuid", "p_user_id" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."can_add_personnel"("p_org_id" "uuid", "p_user_id" "uuid") TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."can_create_organization"("p_user_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."can_create_organization"("p_user_id" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."can_create_organization"("p_user_id" "uuid") TO "service_role";
-
-
 
 GRANT ALL ON FUNCTION "public"."can_edit_calendar"("p_organization_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."can_edit_calendar"("p_organization_id" "uuid") TO "authenticated";
@@ -3035,21 +2727,11 @@ GRANT ALL ON FUNCTION "public"."count_org_personnel"("p_org_id" "uuid") TO "serv
 
 
 
-GRANT ALL ON FUNCTION "public"."count_user_organizations"("p_user_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."count_user_organizations"("p_user_id" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."count_user_organizations"("p_user_id" "uuid") TO "service_role";
-
-
 
 GRANT ALL ON FUNCTION "public"."create_clinic_with_owner"("p_name" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."create_clinic_with_owner"("p_name" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."create_clinic_with_owner"("p_name" "text") TO "service_role";
 
-
-
-GRANT ALL ON FUNCTION "public"."create_default_subscription"() TO "anon";
-GRANT ALL ON FUNCTION "public"."create_default_subscription"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."create_default_subscription"() TO "service_role";
 
 
 
@@ -3063,23 +2745,6 @@ GRANT ALL ON FUNCTION "public"."create_org_with_owner"("p_name" "text") TO "anon
 GRANT ALL ON FUNCTION "public"."create_org_with_owner"("p_name" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."create_org_with_owner"("p_name" "text") TO "service_role";
 
-
-
-GRANT ALL ON FUNCTION "public"."extend_user_trial"("p_user_id" "uuid", "p_days" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."extend_user_trial"("p_user_id" "uuid", "p_days" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."extend_user_trial"("p_user_id" "uuid", "p_days" integer) TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."get_user_subscription"("p_user_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."get_user_subscription"("p_user_id" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_user_subscription"("p_user_id" "uuid") TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."grant_subscription"("p_user_id" "uuid", "p_plan_id" "text", "p_duration_days" integer, "p_max_orgs" integer, "p_max_personnel" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."grant_subscription"("p_user_id" "uuid", "p_plan_id" "text", "p_duration_days" integer, "p_max_orgs" integer, "p_max_personnel" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."grant_subscription"("p_user_id" "uuid", "p_plan_id" "text", "p_duration_days" integer, "p_max_orgs" integer, "p_max_personnel" integer) TO "service_role";
 
 
 
@@ -3107,21 +2772,11 @@ GRANT ALL ON FUNCTION "public"."is_super_admin"() TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."log_admin_action"("p_target_user_id" "uuid", "p_action" "text", "p_details" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."log_admin_action"("p_target_user_id" "uuid", "p_action" "text", "p_details" "jsonb") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."log_admin_action"("p_target_user_id" "uuid", "p_action" "text", "p_details" "jsonb") TO "service_role";
-
-
 
 GRANT ALL ON FUNCTION "public"."transfer_org_ownership"("p_organization_id" "uuid", "p_new_owner_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."transfer_org_ownership"("p_organization_id" "uuid", "p_new_owner_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."transfer_org_ownership"("p_organization_id" "uuid", "p_new_owner_id" "uuid") TO "service_role";
 
-
-
-GRANT ALL ON FUNCTION "public"."update_admin_notes"("p_user_id" "uuid", "p_notes" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."update_admin_notes"("p_user_id" "uuid", "p_notes" "text") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."update_admin_notes"("p_user_id" "uuid", "p_notes" "text") TO "service_role";
 
 
 
@@ -3162,11 +2817,6 @@ GRANT ALL ON TABLE "public"."access_requests" TO "anon";
 GRANT ALL ON TABLE "public"."access_requests" TO "authenticated";
 GRANT ALL ON TABLE "public"."access_requests" TO "service_role";
 
-
-
-GRANT ALL ON TABLE "public"."admin_audit_log" TO "anon";
-GRANT ALL ON TABLE "public"."admin_audit_log" TO "authenticated";
-GRANT ALL ON TABLE "public"."admin_audit_log" TO "service_role";
 
 
 
@@ -3254,11 +2904,6 @@ GRANT ALL ON TABLE "public"."organizations" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."payment_history" TO "anon";
-GRANT ALL ON TABLE "public"."payment_history" TO "authenticated";
-GRANT ALL ON TABLE "public"."payment_history" TO "service_role";
-
-
 
 GRANT ALL ON TABLE "public"."personnel" TO "anon";
 GRANT ALL ON TABLE "public"."personnel" TO "authenticated";
@@ -3314,17 +2959,6 @@ GRANT ALL ON TABLE "public"."status_types" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."stripe_webhook_events" TO "anon";
-GRANT ALL ON TABLE "public"."stripe_webhook_events" TO "authenticated";
-GRANT ALL ON TABLE "public"."stripe_webhook_events" TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."subscription_plans" TO "anon";
-GRANT ALL ON TABLE "public"."subscription_plans" TO "authenticated";
-GRANT ALL ON TABLE "public"."subscription_plans" TO "service_role";
-
-
 
 GRANT ALL ON TABLE "public"."training_types" TO "anon";
 GRANT ALL ON TABLE "public"."training_types" TO "authenticated";
@@ -3337,10 +2971,14 @@ GRANT ALL ON TABLE "public"."user_pinned_groups" TO "authenticated";
 GRANT ALL ON TABLE "public"."user_pinned_groups" TO "service_role";
 
 
+GRANT ALL ON TABLE "public"."data_exports" TO "anon";
+GRANT ALL ON TABLE "public"."data_exports" TO "authenticated";
+GRANT ALL ON TABLE "public"."data_exports" TO "service_role";
 
-GRANT ALL ON TABLE "public"."user_subscriptions" TO "anon";
-GRANT ALL ON TABLE "public"."user_subscriptions" TO "authenticated";
-GRANT ALL ON TABLE "public"."user_subscriptions" TO "service_role";
+
+GRANT ALL ON TABLE "public"."stripe_webhook_events" TO "anon";
+GRANT ALL ON TABLE "public"."stripe_webhook_events" TO "authenticated";
+GRANT ALL ON TABLE "public"."stripe_webhook_events" TO "service_role";
 
 
 

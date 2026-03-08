@@ -2,151 +2,86 @@ import type { PageServerLoad } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	const supabase = locals.supabase;
 	const adminClient = getAdminClient();
 
 	// Get search params
 	const search = url.searchParams.get('search') || '';
-	const plan = url.searchParams.get('plan') || '';
-	const status = url.searchParams.get('status') || '';
 	const page = parseInt(url.searchParams.get('page') || '1');
 	const limit = 20;
+
+	// Get all auth users (admin API)
+	// Fetch multiple pages to handle > 1000 users
+	let allUsers: { id: string; email?: string; created_at: string }[] = [];
+	let fetchPage = 1;
+	let hasMore = true;
+
+	while (hasMore) {
+		const { data: authResult, error: authError } = await adminClient.auth.admin.listUsers({
+			page: fetchPage,
+			perPage: 1000
+		});
+
+		if (authError) {
+			console.error('[admin/users] auth.admin.listUsers error:', authError);
+			return {
+				users: [],
+				totalCount: 0,
+				page,
+				limit,
+				search,
+				authError: authError.message
+			};
+		}
+
+		const users = authResult?.users ?? [];
+		allUsers = allUsers.concat(users);
+
+		// If we got fewer than perPage results, we've reached the end
+		if (users.length < 1000) {
+			hasMore = false;
+		} else {
+			fetchPage++;
+		}
+	}
+
+	// Apply search filter
+	if (search) {
+		const lowerSearch = search.toLowerCase();
+		allUsers = allUsers.filter((u) => u.email?.toLowerCase().includes(lowerSearch));
+	}
+
+	// Sort by creation date (newest first)
+	allUsers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+	const totalCount = allUsers.length;
 	const offset = (page - 1) * limit;
+	const pagedUsers = allUsers.slice(offset, offset + limit);
 
-	// Build query
-	let query = supabase
-		.from('user_subscriptions')
-		.select(`
-			id,
-			user_id,
-			plan_id,
-			status,
-			billing_cycle,
-			stripe_customer_id,
-			created_at,
-			updated_at,
-			subscription_plans (name)
-		`, { count: 'exact' });
+	// Get organization counts for paged users
+	const userIds = pagedUsers.map((u) => u.id);
+	const { data: orgMemberships } = await adminClient
+		.from('organization_memberships')
+		.select('user_id')
+		.in('user_id', userIds);
 
-	// Apply filters
-	if (plan) {
-		query = query.eq('plan_id', plan);
-	}
-
-	if (status) {
-		query = query.eq('status', status);
-	}
-
-	// Order and paginate
-	query = query
-		.order('created_at', { ascending: false })
-		.range(offset, offset + limit - 1);
-
-	const { data: subscriptions, count } = await query;
-
-	const userIds = (subscriptions ?? []).map((s: any) => s.user_id);
-
-	// Skip additional queries if no users
-	if (userIds.length === 0) {
-		return {
-			users: [],
-			totalCount: 0,
-			page,
-			limit,
-			search,
-			planFilter: plan,
-			statusFilter: status
-		};
-	}
-
-	// Run all supplementary queries in parallel
-	const [orgCountsResult, paymentsResult, authUsersResult] = await Promise.all([
-		// Organization counts (as owner)
-		supabase
-			.from('organization_memberships')
-			.select('user_id')
-			.eq('role', 'owner')
-			.in('user_id', userIds),
-
-		// Payment data: amount and date in single query
-		supabase
-			.from('payment_history')
-			.select('user_id, amount, created_at')
-			.in('user_id', userIds)
-			.eq('status', 'succeeded')
-			.order('created_at', { ascending: false }),
-
-		// User emails from auth (admin API limitation: can't filter by IDs)
-		adminClient.auth.admin.listUsers({ perPage: 1000 })
-	]);
-
-	// Build org count map
 	const orgCountMap: Record<string, number> = {};
-	(orgCountsResult.data ?? []).forEach((m: { user_id: string }) => {
+	(orgMemberships ?? []).forEach((m: { user_id: string }) => {
 		orgCountMap[m.user_id] = (orgCountMap[m.user_id] || 0) + 1;
 	});
 
-	// Build payment maps (total and last payment) from single query
-	const paymentMap: Record<string, number> = {};
-	const lastPaymentMap: Record<string, string> = {};
-	(paymentsResult.data ?? []).forEach((p: { user_id: string; amount: number; created_at: string }) => {
-		paymentMap[p.user_id] = (paymentMap[p.user_id] || 0) + p.amount;
-		// First occurrence is most recent due to ORDER BY
-		if (!lastPaymentMap[p.user_id]) {
-			lastPaymentMap[p.user_id] = p.created_at;
-		}
-	});
-
-	// Build email map (filter to only users we need)
-	const emailMap: Record<string, string> = {};
-	if (authUsersResult.error) {
-		console.error('[admin/users] auth.admin.listUsers error:', authUsersResult.error);
-	}
-	const userIdSet = new Set(userIds);
-	if (authUsersResult.data?.users) {
-		authUsersResult.data.users.forEach((u) => {
-			if (u.email && userIdSet.has(u.id)) {
-				emailMap[u.id] = u.email;
-			}
-		});
-	}
-
-	// If listUsers failed or returned no matches, fall back to fetching individually
-	const missingIds = userIds.filter((id) => !emailMap[id]);
-	if (missingIds.length > 0 && missingIds.length <= 20) {
-		await Promise.all(
-			missingIds.map(async (id) => {
-				const { data, error } = await adminClient.auth.admin.getUserById(id);
-				if (error) {
-					console.error(`[admin/users] getUserById error for ${id}:`, error);
-				} else if (data.user?.email) {
-					emailMap[id] = data.user.email;
-				}
-			})
-		);
-	}
-
-	// Transform data
-	const users = (subscriptions ?? []).map((sub: any) => ({
-		id: sub.user_id,
-		email: emailMap[sub.user_id] || null,
-		planId: sub.plan_id,
-		planName: sub.subscription_plans?.name || sub.plan_id,
-		status: sub.status,
-		billingCycle: sub.billing_cycle,
-		organizationCount: orgCountMap[sub.user_id] || 0,
-		totalPaid: paymentMap[sub.user_id] || 0,
-		lastPaymentAt: lastPaymentMap[sub.user_id] || null,
-		createdAt: sub.created_at
+	const users = pagedUsers.map((u) => ({
+		id: u.id,
+		email: u.email || null,
+		organizationCount: orgCountMap[u.id] || 0,
+		createdAt: u.created_at
 	}));
 
 	return {
 		users,
-		totalCount: count ?? 0,
+		totalCount,
 		page,
 		limit,
 		search,
-		planFilter: plan,
-		statusFilter: status
+		authError: null as string | null
 	};
 };

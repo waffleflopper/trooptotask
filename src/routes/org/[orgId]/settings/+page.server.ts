@@ -5,6 +5,7 @@ import { isBillingEnabled } from '$lib/config/billing';
 import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscription';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { requireManageMembersPermission, requireOwnerRole } from '$lib/server/permissions';
+import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	const { orgId, orgName, userRole, permissions, allOrgs } = await parent();
@@ -97,7 +98,7 @@ export const actions: Actions = {
 		const { orgId } = params;
 		await requireManageMembersPermission(locals.supabase, orgId, user.id);
 		const formData = await request.formData();
-		const name = (formData.get('name') as string)?.trim();
+		const name = sanitizeString(formData.get('name') as string, 100);
 
 		if (!name) {
 			return fail(400, { error: 'Organization name is required' });
@@ -122,11 +123,11 @@ export const actions: Actions = {
 		const { orgId } = params;
 		await requireManageMembersPermission(locals.supabase, orgId, user.id);
 		const formData = await request.formData();
-		const email = (formData.get('email') as string)?.trim().toLowerCase();
+		const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
 		const preset = formData.get('preset') as Exclude<PermissionPreset, 'owner' | 'custom'>;
 
-		if (!email) {
-			return fail(400, { inviteError: 'Email is required' });
+		if (!validateEmail(email)) {
+			return fail(400, { inviteError: 'Please enter a valid email address' });
 		}
 
 		// Check if already a member (would need user profile table to check by email)
@@ -179,6 +180,10 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const inviteId = formData.get('inviteId') as string;
 
+		if (!validateUUID(inviteId)) {
+			return fail(400, { error: 'Invalid invitation ID' });
+		}
+
 		await locals.supabase
 			.from('organization_invitations')
 			.delete()
@@ -195,6 +200,10 @@ export const actions: Actions = {
 		const { orgId } = params;
 		const formData = await request.formData();
 		const membershipId = formData.get('membershipId') as string;
+
+		if (!validateUUID(membershipId)) {
+			return fail(400, { memberError: 'Invalid membership ID' });
+		}
 
 		// Don't allow removing self
 		const { data: membership } = await locals.supabase
@@ -229,6 +238,10 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const membershipId = formData.get('membershipId') as string;
 		const preset = formData.get('preset') as PermissionPreset;
+
+		if (!validateUUID(membershipId)) {
+			return fail(400, { permissionError: 'Invalid membership ID' });
+		}
 
 		// Check target membership is not owner
 		const { data: targetMembership } = await locals.supabase
@@ -299,6 +312,10 @@ export const actions: Actions = {
 		await requireOwnerRole(locals.supabase, orgId, user.id);
 		const formData = await request.formData();
 		const newOwnerId = formData.get('newOwnerId') as string;
+
+		if (!validateUUID(newOwnerId)) {
+			return fail(400, { transferError: 'Invalid user ID' });
+		}
 
 		// Call the RPC function
 		const { error } = await locals.supabase.rpc('transfer_org_ownership', {

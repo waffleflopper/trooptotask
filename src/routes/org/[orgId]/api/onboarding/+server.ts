@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
 	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'personnel');
+		await requireEditPermission(supabase, orgId, userId!, 'onboarding');
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);
@@ -97,7 +97,7 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
 	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'personnel');
+		await requireEditPermission(supabase, orgId, userId!, 'onboarding');
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);
@@ -135,7 +135,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
 	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'personnel');
+		await requireEditPermission(supabase, orgId, userId!, 'onboarding');
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);

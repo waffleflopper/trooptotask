@@ -3,7 +3,7 @@ import type { CounselingRecord } from '$lib/types/leadersBook';
 
 const handlers = createCrudHandlers<CounselingRecord>({
 	table: 'counseling_records',
-	permission: 'personnel',
+	permission: 'leaders-book',
 	personnelIdField: 'personnel_id',
 	auditResourceType: 'counseling_record',
 	auditDetailFields: ['personnel_id', 'date_conducted'],

@@ -51,7 +51,7 @@
 	const onboardingOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
 		items.push({ label: 'View Report', onclick: () => (showReport = true) });
-		if (data.permissions.canEditPersonnel) {
+		if (data.permissions.canEditOnboarding) {
 			items.push({ label: 'Manage Template', onclick: () => (showTemplateManager = true), disabled: readOnly });
 		}
 		return items;
@@ -327,7 +327,7 @@
 				All
 			</button>
 		</div>
-		{#if data.permissions?.canEditPersonnel}
+		{#if data.permissions?.canEditOnboarding}
 			<button class="btn-ghost" onclick={() => (showTemplateManager = true)} disabled={readOnly}>
 				Manage Template
 			</button>
@@ -345,11 +345,17 @@
 		{/if}
 	</PageToolbar>
 
+	{#if !data.permissions.canViewOnboarding}
+		<div class="no-permission">
+			<h2>Access Restricted</h2>
+			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
+		</div>
+	{:else}
 	<main class="page-content">
 		{#if !hasTemplateSteps && onboardingStore.list.length > 0}
 			<div class="warning-banner">
 				<span>No template steps defined — new onboardings cannot be started until steps are added.</span>
-				{#if data.permissions?.canEditPersonnel}
+				{#if data.permissions?.canEditOnboarding}
 					<button class="btn btn-sm btn-secondary" onclick={() => (showTemplateManager = true)}>
 						Manage Template
 					</button>
@@ -359,7 +365,7 @@
 
 		{#if filteredOnboardings.length === 0}
 			{#if !hasTemplateSteps && onboardingStore.list.length === 0}
-				{#if data.permissions?.canEditPersonnel}
+				{#if data.permissions?.canEditOnboarding}
 					<EmptyState
 						message="Set up your onboarding template to get started. Define the steps new members need to complete."
 						actionLabel="Set Up Template"
@@ -413,7 +419,7 @@
 
 						{#if isExpanded}
 							<div class="card-detail">
-								{#if data.permissions?.canEditPersonnel && onboarding.status === 'in_progress'}
+								{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
 									<div class="detail-actions">
 										{#if pct === 100}
 											<button
@@ -451,7 +457,7 @@
 
 												<div class="step-status">
 													{#if step.stepType === 'checkbox'}
-														{#if data.permissions?.canEditPersonnel && onboarding.status === 'in_progress'}
+														{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
 															<button
 																class="checkbox-toggle"
 																class:checked={step.completed}
@@ -470,7 +476,7 @@
 															</span>
 														{/if}
 													{:else if step.stepType === 'training'}
-														{#if data.permissions?.canEditPersonnel && onboarding.status === 'in_progress'}
+														{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
 															<button
 																class="training-status-btn"
 																class:complete={isTrainingComplete}
@@ -489,7 +495,7 @@
 														{@const stages = step.stages ?? []}
 														{@const stageIndex = getPaperworkStageIndex(step)}
 														<div class="stage-indicator">
-															{#if data.permissions?.canEditPersonnel && onboarding.status === 'in_progress'}
+															{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
 																<button
 																	class="stage-arrow"
 																	onclick={() => handleRetreatStage(step)}
@@ -503,7 +509,7 @@
 																{step.currentStage ?? stages[0] ?? 'N/A'}
 																<span class="stage-count">({stageIndex + 1}/{stages.length})</span>
 															</span>
-															{#if data.permissions?.canEditPersonnel && onboarding.status === 'in_progress'}
+															{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
 																<button
 																	class="stage-arrow"
 																	onclick={() => handleAdvanceStage(step)}
@@ -533,7 +539,7 @@
 
 											{#if expandedNotes.has(step.id)}
 												<div class="step-notes">
-													{#if data.permissions?.canEditPersonnel && onboarding.status === 'in_progress'}
+													{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
 														<div class="note-input-row">
 															<input
 																type="text"
@@ -577,6 +583,7 @@
 			</div>
 		{/if}
 	</main>
+	{/if}
 </div>
 
 {#if showReport}
@@ -643,6 +650,21 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg);
+	}
+
+	.no-permission {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 300px;
+		text-align: center;
+		color: var(--color-text-muted);
+	}
+	.no-permission h2 {
+		font-size: var(--font-size-lg);
+		margin-bottom: var(--spacing-sm);
+		color: var(--color-text);
 	}
 
 	/* Filter toggle */

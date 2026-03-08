@@ -161,6 +161,12 @@
 		{/if}
 	</PageToolbar>
 
+	{#if !data.permissions.canViewTraining}
+		<div class="no-permission">
+			<h2>Access Restricted</h2>
+			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
+		</div>
+	{:else}
 	<div class="stats-bar">
 		<div class="stat current">
 			<span class="stat-value">{stats.current}</span>
@@ -256,6 +262,7 @@
 			</div>
 		{/if}
 	</main>
+	{/if}
 </div>
 
 {#if selectedPerson && selectedType}
@@ -517,6 +524,21 @@
 	.group-content {
 		padding: var(--spacing-md);
 		overflow-x: auto;
+	}
+
+	.no-permission {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 300px;
+		text-align: center;
+		color: var(--color-text-muted);
+	}
+	.no-permission h2 {
+		font-size: var(--font-size-lg);
+		margin-bottom: var(--spacing-sm);
+		color: var(--color-text);
 	}
 
 	.page-content {

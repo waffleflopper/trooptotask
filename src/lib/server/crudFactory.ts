@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { requireEditPermission, type PermissionType } from './permissions';
+import { requireEditPermission, requirePrivilegedOrFullEditor, type PermissionType } from './permissions';
 import { getApiContext } from './supabase';
 import { checkReadOnly } from './read-only-guard';
 import { validateUUID } from './validation';
@@ -62,6 +62,9 @@ export interface CrudConfig<T> {
 
 	/** DB column names to capture in audit details (e.g. ['name', 'color']) */
 	auditDetailFields?: string[];
+
+	/** When true, require full-editor/admin/owner instead of basic edit permission */
+	requireFullEditor?: boolean;
 }
 
 /**
@@ -166,7 +169,11 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
 		if (!isSandbox) {
-			await requireEditPermission(supabase, orgId, userId!, permission);
+			if (config.requireFullEditor) {
+				await requirePrivilegedOrFullEditor(supabase, orgId, userId!);
+			} else {
+				await requireEditPermission(supabase, orgId, userId!, permission);
+			}
 		}
 
 		const blocked = await checkReadOnly(supabase, orgId);
@@ -231,7 +238,11 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
 		if (!isSandbox) {
-			await requireEditPermission(supabase, orgId, userId!, permission);
+			if (config.requireFullEditor) {
+				await requirePrivilegedOrFullEditor(supabase, orgId, userId!);
+			} else {
+				await requireEditPermission(supabase, orgId, userId!, permission);
+			}
 		}
 
 		const blocked = await checkReadOnly(supabase, orgId);
@@ -311,7 +322,11 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
 		if (!isSandbox) {
-			await requireEditPermission(supabase, orgId, userId!, permission);
+			if (config.requireFullEditor) {
+				await requirePrivilegedOrFullEditor(supabase, orgId, userId!);
+			} else {
+				await requireEditPermission(supabase, orgId, userId!, permission);
+			}
 		}
 
 		const blocked = await checkReadOnly(supabase, orgId);

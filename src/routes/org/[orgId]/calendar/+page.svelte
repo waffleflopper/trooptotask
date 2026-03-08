@@ -44,6 +44,7 @@
 	});
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
 
 	let showStatusManager = $state(false);
 	let showSpecialDayManager = $state(false);
@@ -173,14 +174,18 @@
 		// Visible actions duplicated for mobile access
 		items.push({ label: "Today's Breakdown", onclick: () => (showTodayBreakdown = true) });
 		if (data.permissions.canEditCalendar) {
-			items.push({ label: 'Assignments', onclick: () => (showAssignmentPlanner = true), disabled: readOnly });
+			if (canManageConfig) {
+				items.push({ label: 'Assignments', onclick: () => (showAssignmentPlanner = true), disabled: readOnly });
+			}
 		}
 		items.push({ label: '3-Month View', onclick: () => (showLongRangeView = true) });
 
 		// Additional tools
 		if (data.permissions.canEditCalendar) {
-			items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true, disabled: readOnly });
-			items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true), disabled: readOnly });
+			if (canManageConfig) {
+				items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true, disabled: readOnly });
+				items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true), disabled: readOnly });
+			}
 		}
 
 		// Export
@@ -191,7 +196,7 @@
 		items.push({ label: 'Show Status Text', toggle: true, active: calendarPrefsStore.showStatusText, onclick: () => calendarPrefsStore.toggleShowStatusText(), divider: true });
 
 		// Configure group
-		if (data.permissions.canEditCalendar) {
+		if (canManageConfig) {
 			items.push({ label: 'Status Types', onclick: () => (showStatusManager = true), divider: true, group: 'Configure', disabled: readOnly });
 			items.push({ label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true), disabled: readOnly });
 			items.push({ label: 'Holidays', onclick: () => (showSpecialDayManager = true), disabled: readOnly });
@@ -210,7 +215,7 @@
 		<button class="btn btn-sm" onclick={() => (showTodayBreakdown = true)}>
 			Today's Breakdown
 		</button>
-		{#if data.permissions.canEditCalendar}
+		{#if data.permissions.canEditCalendar && canManageConfig}
 			<button class="btn btn-sm" onclick={() => (showAssignmentPlanner = true)} disabled={readOnly}>
 				Assignments
 			</button>

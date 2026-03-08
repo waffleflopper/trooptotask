@@ -36,6 +36,7 @@
 	});
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
 
 	let showTypeManager = $state(false);
 	let selectedGroupId = $state<string>('');
@@ -44,7 +45,7 @@
 
 	const leadersBookOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
-		if (data.permissions.canEditLeadersBook) {
+		if (canManageConfig) {
 			items.push({ label: 'Counseling Types', onclick: () => (showTypeManager = true), disabled: readOnly });
 		}
 		return items;

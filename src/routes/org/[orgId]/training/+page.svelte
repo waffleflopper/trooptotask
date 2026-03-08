@@ -30,6 +30,7 @@
 	);
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
 
 	let showTypeManager = $state(false);
 	let showTypeReorder = $state(false);
@@ -43,7 +44,7 @@
 		const items: OverflowItem[] = [];
 		// Include Reports for mobile access
 		items.push({ label: 'Reports', onclick: () => (showReports = true) });
-		if (data.permissions.canEditTraining) {
+		if (canManageConfig) {
 			items.push({ label: 'Bulk Import', onclick: () => (showBulkImporter = true), divider: true, disabled: readOnly });
 			items.push({ label: 'Manage Types', onclick: () => (showTypeManager = true), disabled: readOnly });
 			items.push({ label: 'Reorder Columns', onclick: () => (showTypeReorder = true), disabled: readOnly });

@@ -4,6 +4,7 @@ import type { StatusType } from '$lib/types';
 const handlers = createCrudHandlers<StatusType>({
 	table: 'status_types',
 	permission: 'calendar',
+	requireFullEditor: true,
 	fields: {
 		textColor: 'text_color',
 		sortOrder: 'sort_order'

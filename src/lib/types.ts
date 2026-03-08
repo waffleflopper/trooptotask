@@ -28,7 +28,8 @@ export interface OrganizationMember extends OrganizationMemberPermissions {
 	organizationId: string;
 	userId: string;
 	email?: string; // From user lookup or invitation
-	role: 'owner' | 'member';
+	role: 'owner' | 'admin' | 'member';
+	scopedGroupId: string | null;
 	createdAt: string;
 }
 
@@ -38,6 +39,7 @@ export interface OrganizationInvitation {
 	email: string;
 	status: 'pending' | 'accepted' | 'revoked';
 	permissions: OrganizationMemberPermissions;
+	scopedGroupId: string | null;
 	createdAt: string;
 }
 
@@ -46,6 +48,7 @@ export type PermissionPreset =
 	| 'owner'
 	| 'admin'
 	| 'full-editor'
+	| 'team-leader'
 	| 'calendar-only'
 	| 'personnel-only'
 	| 'training-only'
@@ -63,6 +66,15 @@ export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'cus
 		canManageMembers: true
 	},
 	'full-editor': {
+		canViewCalendar: true,
+		canEditCalendar: true,
+		canViewPersonnel: true,
+		canEditPersonnel: true,
+		canViewTraining: true,
+		canEditTraining: true,
+		canManageMembers: false
+	},
+	'team-leader': {
 		canViewCalendar: true,
 		canEditCalendar: true,
 		canViewPersonnel: true,

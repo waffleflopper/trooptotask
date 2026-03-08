@@ -87,6 +87,8 @@
 				return 'Training Only';
 			case 'viewer':
 				return 'Viewer';
+			case 'team-leader':
+				return 'Team Leader';
 			case 'custom':
 				return 'Custom';
 		}

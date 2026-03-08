@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		locals.supabase
 			.from('organization_memberships')
 			.select(
-				'id, user_id, email, role, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
+				'id, user_id, email, role, scoped_group_id, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
 			)
 			.eq('organization_id', orgId),
 		locals.supabase
@@ -34,6 +34,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		userId: m.user_id,
 		email: m.email,
 		role: m.role,
+		scopedGroupId: m.scoped_group_id,
 		createdAt: m.created_at,
 		canViewCalendar: m.can_view_calendar,
 		canEditCalendar: m.can_edit_calendar,

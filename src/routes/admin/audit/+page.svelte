@@ -6,15 +6,15 @@
 	let { data } = $props();
 
 	function formatAction(action: string): string {
-		return action.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+		return action.replace(/\./g, ' > ').replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 	}
 
-	function setFilter(action: string) {
+	function setParam(key: string, value: string) {
 		const params = new URLSearchParams($page.url.searchParams);
-		if (action) {
-			params.set('action', action);
+		if (value) {
+			params.set(key, value);
 		} else {
-			params.delete('action');
+			params.delete(key);
 		}
 		params.set('page', '1');
 		goto(`/admin/audit?${params.toString()}`);
@@ -36,20 +36,31 @@
 <div class="audit-page">
 	<header class="page-header">
 		<h1>Audit Log</h1>
-		<p class="subtitle">Track all admin actions for accountability</p>
+		<p class="subtitle">Security event log — all authentication, data access, and administrative actions</p>
 	</header>
 
 	<!-- Filters -->
 	<div class="filters">
 		<select
 			value={data.actionFilter}
-			onchange={(e) => setFilter(e.currentTarget.value)}
+			onchange={(e) => setParam('action', e.currentTarget.value)}
 			class="filter-select"
 		>
 			<option value="">All Actions</option>
 			{#each data.availableActions as action}
 				<option value={action}>{formatAction(action)}</option>
 			{/each}
+		</select>
+
+		<select
+			value={data.severityFilter}
+			onchange={(e) => setParam('severity', e.currentTarget.value)}
+			class="filter-select"
+		>
+			<option value="">All Severities</option>
+			<option value="info">Info</option>
+			<option value="warning">Warning</option>
+			<option value="critical">Critical</option>
 		</select>
 
 		<span class="count">{data.totalCount} entries</span>
@@ -61,9 +72,11 @@
 			<thead>
 				<tr>
 					<th>Timestamp</th>
-					<th>Admin</th>
+					<th>Severity</th>
 					<th>Action</th>
-					<th>Target User</th>
+					<th>User</th>
+					<th>Resource</th>
+					<th>IP</th>
 					<th>Details</th>
 				</tr>
 			</thead>
@@ -72,24 +85,41 @@
 					<tr>
 						<td class="timestamp">{formatDisplayDateTime(log.createdAt)}</td>
 						<td>
-							<code class="user-id">{log.adminUserId.slice(0, 8)}...</code>
+							<span class="severity-badge {log.severity}">{log.severity}</span>
 						</td>
 						<td>
 							<span class="action-badge">{formatAction(log.action)}</span>
 						</td>
 						<td>
-							{#if log.targetUserId}
-								<a href="/admin/users/{log.targetUserId}" class="user-link">
-									{log.targetUserId.slice(0, 8)}...
+							{#if log.userId}
+								<a href="/admin/users/{log.userId}" class="user-link">
+									{log.userId.slice(0, 8)}...
 								</a>
 							{:else}
 								<span class="no-target">-</span>
 							{/if}
 						</td>
+						<td>
+							{#if log.resourceType}
+								<span class="resource-type">{log.resourceType}</span>
+								{#if log.resourceId}
+									<code class="resource-id">{log.resourceId.slice(0, 8)}</code>
+								{/if}
+							{:else}
+								<span class="no-target">-</span>
+							{/if}
+						</td>
+						<td class="ip-cell">
+							{#if log.ipAddress}
+								<code class="ip-address">{log.ipAddress}</code>
+							{:else}
+								<span class="no-target">-</span>
+							{/if}
+						</td>
 						<td class="details-cell">
-							{#if log.details}
+							{#if log.details && Object.keys(log.details).length > 0}
 								<details class="details-expand">
-									<summary>View details</summary>
+									<summary>View</summary>
 									<pre class="details-json">{JSON.stringify(log.details, null, 2)}</pre>
 								</details>
 							{:else}
@@ -99,7 +129,7 @@
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="5" class="empty-state">No audit log entries</td>
+						<td colspan="7" class="empty-state">No audit log entries</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -248,6 +278,54 @@
 
 	.user-link:hover {
 		text-decoration: underline;
+	}
+
+	/* Severity badges */
+	.severity-badge {
+		display: inline-block;
+		font-size: var(--font-size-xs);
+		font-weight: 600;
+		padding: 2px 8px;
+		border-radius: var(--radius-full);
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+	}
+
+	.severity-badge.info {
+		background: color-mix(in srgb, var(--color-info) 15%, transparent);
+		color: var(--color-info);
+	}
+
+	.severity-badge.warning {
+		background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+		color: var(--color-warning);
+	}
+
+	.severity-badge.critical {
+		background: color-mix(in srgb, var(--color-error) 15%, transparent);
+		color: var(--color-error);
+	}
+
+	.resource-type {
+		font-size: var(--font-size-xs);
+		font-weight: 500;
+		text-transform: capitalize;
+	}
+
+	.resource-id {
+		font-size: var(--font-size-xs);
+		padding: 1px 4px;
+		background: var(--color-surface-variant);
+		border-radius: var(--radius-sm);
+		margin-left: 4px;
+	}
+
+	.ip-cell {
+		white-space: nowrap;
+	}
+
+	.ip-address {
+		font-size: var(--font-size-xs);
 	}
 
 	.no-target,

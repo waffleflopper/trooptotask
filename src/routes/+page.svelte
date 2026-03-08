@@ -59,6 +59,11 @@
 			icon: 'checklist',
 			title: 'In-Processing Checklist',
 			description: 'Custom onboarding templates with step-by-step tracking. See progress by person or pivot by step to find gaps.'
+		},
+		{
+			icon: 'lock',
+			title: 'Security & Compliance',
+			description: 'NIST 800-171 aligned. Your personnel data is encrypted, access-controlled, and audit-logged. Built for the standards military leaders expect.'
 		}
 	];
 

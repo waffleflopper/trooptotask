@@ -172,6 +172,27 @@
 		</div>
 	</section>
 
+	<div class="trust-badges">
+		<div class="trust-badge">
+			<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+				<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+			</svg>
+			<span>NIST 800-171 Aligned</span>
+		</div>
+		<div class="trust-badge">
+			<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+				<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+			</svg>
+			<span>256-bit Encryption</span>
+		</div>
+		<div class="trust-badge">
+			<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+				<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+			</svg>
+			<span>Audit Logged</span>
+		</div>
+	</div>
+
 	<!-- FAQ Section -->
 	<section class="faq-section">
 		<div class="faq-container">
@@ -638,6 +659,31 @@
 	.card-cta-secondary:hover {
 		border-color: var(--brass);
 		color: var(--brass);
+	}
+
+	/* ---- Trust Badges ---- */
+	.trust-badges {
+		display: flex;
+		justify-content: center;
+		gap: 40px;
+		padding: 24px 0;
+		margin-top: 24px;
+	}
+
+	.trust-badge {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		color: var(--color-text-secondary);
+		font-size: 12px;
+		font-family: var(--font-mono);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+	}
+
+	.trust-badge svg {
+		color: var(--brass);
+		flex-shrink: 0;
 	}
 
 	/* ---- FAQ Section ---- */

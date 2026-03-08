@@ -9,6 +9,7 @@
 	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
+	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import OnboardingTemplateManager from '$lib/components/OnboardingTemplateManager.svelte';
 	import OnboardingReportModal from '$lib/components/OnboardingReportModal.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
@@ -33,6 +34,8 @@
 		onboardingStore.load(data.onboardings, data.orgId);
 	});
 
+	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+
 	let showTemplateManager = $state(false);
 	let showStartModal = $state(false);
 	let showReport = $state(false);
@@ -43,11 +46,13 @@
 		onboardingId: string;
 	} | null>(null);
 
+	const hasTemplateSteps = $derived(onboardingTemplateStore.list.length > 0);
+
 	const onboardingOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
 		items.push({ label: 'View Report', onclick: () => (showReport = true) });
 		if (data.permissions.canEditPersonnel) {
-			items.push({ label: 'Manage Template', onclick: () => (showTemplateManager = true) });
+			items.push({ label: 'Manage Template', onclick: () => (showTemplateManager = true), disabled: readOnly });
 		}
 		return items;
 	});
@@ -323,19 +328,53 @@
 			</button>
 		</div>
 		{#if data.permissions?.canEditPersonnel}
-			<button class="btn btn-primary btn-sm" onclick={() => (showStartModal = true)}>
+			<button class="btn-ghost" onclick={() => (showTemplateManager = true)} disabled={readOnly}>
+				Manage Template
+			</button>
+			<button
+				class="btn btn-primary btn-sm"
+				onclick={() => (showStartModal = true)}
+				disabled={!hasTemplateSteps || readOnly}
+				title={!hasTemplateSteps ? 'Set up template steps before starting an onboarding' : ''}
+			>
 				Start Onboarding
 			</button>
+			{#if readOnly}
+				<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+			{/if}
 		{/if}
 	</PageToolbar>
 
 	<main class="page-content">
+		{#if !hasTemplateSteps && onboardingStore.list.length > 0}
+			<div class="warning-banner">
+				<span>No template steps defined — new onboardings cannot be started until steps are added.</span>
+				{#if data.permissions?.canEditPersonnel}
+					<button class="btn btn-sm btn-secondary" onclick={() => (showTemplateManager = true)}>
+						Manage Template
+					</button>
+				{/if}
+			</div>
+		{/if}
+
 		{#if filteredOnboardings.length === 0}
-			<EmptyState
-				message={showFilter === 'active'
-					? 'No active onboardings. Start one to begin tracking a new member.'
-					: 'No onboardings found.'}
-			/>
+			{#if !hasTemplateSteps && onboardingStore.list.length === 0}
+				{#if data.permissions?.canEditPersonnel}
+					<EmptyState
+						message="Set up your onboarding template to get started. Define the steps new members need to complete."
+						actionLabel="Set Up Template"
+						onAction={() => (showTemplateManager = true)}
+					/>
+				{:else}
+					<EmptyState message="Onboarding has not been configured yet." />
+				{/if}
+			{:else}
+				<EmptyState
+					message={showFilter === 'active'
+						? 'No active onboardings. Start one to begin tracking a new member.'
+						: 'No onboardings found.'}
+				/>
+			{/if}
 		{:else}
 			<div class="onboarding-list">
 				{#each filteredOnboardings as onboarding (onboarding.id)}
@@ -566,6 +605,7 @@
 		personnel={personnelStore.list}
 		existingOnboardingPersonnelIds={existingOnboardingPersonnelIds}
 		groups={groupsStore.list}
+		{hasTemplateSteps}
 		onSubmit={handleStartOnboarding}
 		onAddPerson={handleAddPerson}
 		onClose={() => (showStartModal = false)}
@@ -638,6 +678,40 @@
 		background: #B8943E;
 		border-color: #B8943E;
 		color: #0F0F0F;
+	}
+
+	.btn-ghost {
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.btn-ghost:hover {
+		color: var(--color-text);
+		background: var(--color-surface-variant);
+	}
+
+	.warning-banner {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-md);
+		padding: var(--spacing-sm) var(--spacing-lg);
+		background: rgba(245, 158, 11, 0.1);
+		border: 1px solid #f59e0b;
+		border-radius: var(--radius-md);
+		color: #f59e0b;
+		font-size: var(--font-size-sm);
+		margin-bottom: var(--spacing-md);
+	}
+
+	.warning-banner span {
+		flex: 1;
 	}
 
 	/* .page-content base + mobile in app.css */

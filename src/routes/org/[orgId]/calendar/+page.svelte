@@ -11,6 +11,7 @@
 	import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { calendarPrefsStore } from '$lib/stores/calendarPrefs.svelte';
+	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import Calendar from '$lib/components/Calendar.svelte';
 	import AvailabilityModal from '$lib/components/AvailabilityModal.svelte';
 	import StatusTypeManager from '$lib/components/StatusTypeManager.svelte';
@@ -25,7 +26,6 @@
 	import LongRangeView from '$lib/components/LongRangeView.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
-	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
 	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
 
@@ -41,16 +41,9 @@
 		dailyAssignmentsStore.load(data.assignmentTypes, data.dailyAssignments, data.orgId);
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
 		dutyRosterHistoryStore.load(data.rosterHistory);
-
-		// Load subscription limits if available
-		if (data.subscriptionLimits) {
-			subscriptionStore.load({
-				subscription: null, // Not needed for limits display
-				plan: { id: data.subscriptionLimits.planId, name: data.subscriptionLimits.planName } as any,
-				organizationCount: data.subscriptionLimits.currentOrganizations
-			});
-		}
 	});
+
+	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 
 	let showStatusManager = $state(false);
 	let showSpecialDayManager = $state(false);
@@ -180,14 +173,14 @@
 		// Visible actions duplicated for mobile access
 		items.push({ label: "Today's Breakdown", onclick: () => (showTodayBreakdown = true) });
 		if (data.permissions.canEditCalendar) {
-			items.push({ label: 'Assignments', onclick: () => (showAssignmentPlanner = true) });
+			items.push({ label: 'Assignments', onclick: () => (showAssignmentPlanner = true), disabled: readOnly });
 		}
 		items.push({ label: '3-Month View', onclick: () => (showLongRangeView = true) });
 
 		// Additional tools
 		if (data.permissions.canEditCalendar) {
-			items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true });
-			items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true) });
+			items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true, disabled: readOnly });
+			items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true), disabled: readOnly });
 		}
 
 		// Export
@@ -199,9 +192,9 @@
 
 		// Configure group
 		if (data.permissions.canEditCalendar) {
-			items.push({ label: 'Status Types', onclick: () => (showStatusManager = true), divider: true, group: 'Configure' });
-			items.push({ label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true) });
-			items.push({ label: 'Holidays', onclick: () => (showSpecialDayManager = true) });
+			items.push({ label: 'Status Types', onclick: () => (showStatusManager = true), divider: true, group: 'Configure', disabled: readOnly });
+			items.push({ label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true), disabled: readOnly });
+			items.push({ label: 'Holidays', onclick: () => (showSpecialDayManager = true), disabled: readOnly });
 		}
 
 		return items;
@@ -218,13 +211,16 @@
 			Today's Breakdown
 		</button>
 		{#if data.permissions.canEditCalendar}
-			<button class="btn btn-sm" onclick={() => (showAssignmentPlanner = true)}>
+			<button class="btn btn-sm" onclick={() => (showAssignmentPlanner = true)} disabled={readOnly}>
 				Assignments
 			</button>
 		{/if}
 		<button class="btn btn-sm" onclick={() => (showLongRangeView = true)}>
 			3-Month View
 		</button>
+		{#if readOnly}
+			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+		{/if}
 	</PageToolbar>
 
 	<main class="page-content">
@@ -243,6 +239,7 @@
 				activeOnboardingPersonnelIds={data.activeOnboardingPersonnelIds}
 				canEdit={data.permissions.canEditCalendar}
 				showStatusText={calendarPrefsStore.showStatusText}
+				personnelHref={`/org/${data.orgId}/personnel`}
 				onPrevMonth={() => calendarStore.prevMonth()}
 				onNextMonth={() => calendarStore.nextMonth()}
 				onGoToToday={() => calendarStore.goToToday()}
@@ -335,39 +332,20 @@
 {/if}
 
 {#if showDutyRosterGenerator}
-	{#if !data.subscriptionLimits || data.subscriptionLimits.hasDutyRoster}
-		<DutyRosterGenerator
-			assignmentTypes={dailyAssignmentsStore.types}
-			assignments={dailyAssignmentsStore.assignments}
-			personnelByGroup={personnelByGroup}
-			groups={groupsStore.names}
-			availabilityEntries={availabilityStore.list}
-			statusTypes={statusTypesStore.list}
-			rosterHistory={dutyRosterHistoryStore.items}
-			onApplyRoster={handleApplyRoster}
-			onSaveRoster={handleSaveRoster}
-			onDeleteRoster={handleDeleteRoster}
-			onUpdateExemptions={handleUpdateExemptions}
-			onClose={() => (showDutyRosterGenerator = false)}
-		/>
-	{:else}
-		<div class="modal-overlay" onclick={() => (showDutyRosterGenerator = false)}>
-			<div class="modal feature-gate-modal" onclick={(e) => e.stopPropagation()}>
-				<button class="modal-close" onclick={() => (showDutyRosterGenerator = false)}>&times;</button>
-				<div class="feature-locked">
-					<div class="lock-icon">
-						<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-							<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-						</svg>
-					</div>
-					<h2>Duty Roster Generator</h2>
-					<p>This feature requires a Pro or Team subscription.</p>
-					<a href="/billing/upgrade" class="btn btn-primary">Upgrade Your Plan</a>
-				</div>
-			</div>
-		</div>
-	{/if}
+	<DutyRosterGenerator
+		assignmentTypes={dailyAssignmentsStore.types}
+		assignments={dailyAssignmentsStore.assignments}
+		personnelByGroup={personnelByGroup}
+		groups={groupsStore.names}
+		availabilityEntries={availabilityStore.list}
+		statusTypes={statusTypesStore.list}
+		rosterHistory={dutyRosterHistoryStore.items}
+		onApplyRoster={handleApplyRoster}
+		onSaveRoster={handleSaveRoster}
+		onDeleteRoster={handleDeleteRoster}
+		onUpdateExemptions={handleUpdateExemptions}
+		onClose={() => (showDutyRosterGenerator = false)}
+	/>
 {/if}
 
 {#if showAssignmentPlanner}
@@ -417,78 +395,4 @@
 	}
 
 	/* Mobile styles — .page-content mobile in app.css */
-
-	/* Feature Gate Modal */
-	.feature-gate-modal {
-		max-width: 400px;
-		text-align: center;
-		position: relative;
-	}
-
-	.modal-close {
-		position: absolute;
-		top: var(--spacing-sm);
-		right: var(--spacing-sm);
-		width: 32px;
-		height: 32px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 1.5rem;
-		color: var(--color-text-muted);
-		background: transparent;
-		border: none;
-		border-radius: var(--radius-full);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.modal-close:hover {
-		background: var(--color-surface-variant);
-		color: var(--color-text);
-	}
-
-	.feature-locked {
-		padding: var(--spacing-xl);
-	}
-
-	.feature-locked .lock-icon {
-		width: 80px;
-		height: 80px;
-		margin: 0 auto var(--spacing-lg);
-		background: rgba(184, 148, 62, 0.15);
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: #B8943E;
-	}
-
-	.feature-locked h2 {
-		font-size: var(--font-size-xl);
-		font-weight: 600;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-sm);
-	}
-
-	.feature-locked p {
-		color: var(--color-text-muted);
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.feature-locked .btn-primary {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-sm) var(--spacing-xl);
-		background: var(--color-primary);
-		color: #0F0F0F;
-		font-weight: 500;
-		border-radius: var(--radius-md);
-		text-decoration: none;
-	}
-
-	.feature-locked .btn-primary:hover {
-		background: var(--color-primary-hover);
-	}
 </style>

@@ -1,6 +1,9 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { PERMISSION_PRESETS, type OrganizationMember, type PermissionPreset } from '$lib/types';
+import { isBillingEnabled } from '$lib/config/billing';
+import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscription';
+import { TIER_CONFIG } from '$lib/types/subscription';
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	const { orgId, orgName, userRole, permissions, allOrgs } = await parent();
@@ -52,6 +55,26 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		canManageMembers: inv.can_manage_members
 	}));
 
+	// Load export rate limit info
+	let exportInfo: { exportsUsed: number; exportsLimit: number; isLimited: boolean } = {
+		exportsUsed: 0,
+		exportsLimit: Infinity,
+		isLimited: false
+	};
+
+	if (isBillingEnabled) {
+		const [tier, exportCount] = await Promise.all([
+			getEffectiveTier(locals.supabase, orgId),
+			getMonthlyExportCount(locals.supabase, orgId)
+		]);
+		const config = TIER_CONFIG[tier.tier];
+		exportInfo = {
+			exportsUsed: exportCount,
+			exportsLimit: config.bulkExportsPerMonth,
+			isLimited: config.bulkExportsPerMonth !== Infinity
+		};
+	}
+
 	return {
 		orgId,
 		orgName,
@@ -60,7 +83,8 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		members,
 		invitations,
 		isOwner: userRole === 'owner',
-		canManageMembers: permissions.canManageMembers
+		canManageMembers: permissions.canManageMembers,
+		exportInfo
 	};
 };
 

@@ -7,7 +7,6 @@
 	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
-	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { dashboardPrefsStore, type CardId } from '$lib/stores/dashboardPrefs.svelte';
 	import { RATING_STATUS_COLORS } from '$lib/types';
 	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
@@ -30,14 +29,6 @@
 		trainingTypesStore.load(data.trainingTypes, data.orgId);
 		personnelTrainingsStore.load(data.personnelTrainings, data.orgId);
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
-
-		if (data.subscriptionLimits) {
-			subscriptionStore.load({
-				subscription: null,
-				plan: { id: data.subscriptionLimits.planId, name: data.subscriptionLimits.planName } as any,
-				organizationCount: data.subscriptionLimits.currentOrganizations
-			});
-		}
 	});
 
 	// Today's date string from server

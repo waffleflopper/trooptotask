@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
+import { checkReadOnly } from '$lib/server/read-only-guard';
 
 export const DELETE: RequestHandler = async ({ params, locals, cookies }) => {
 	const { orgId, rosterId } = params;
@@ -10,6 +11,9 @@ export const DELETE: RequestHandler = async ({ params, locals, cookies }) => {
 	if (!isSandbox) {
 		await requireEditPermission(supabase, orgId, userId!, 'calendar');
 	}
+
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
 
 	const { error: dbError } = await supabase
 		.from('duty_roster_history')

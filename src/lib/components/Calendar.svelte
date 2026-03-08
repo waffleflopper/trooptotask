@@ -31,6 +31,7 @@
 		onPersonClick?: (person: Personnel) => void;
 		onPinToggle?: (group: string) => void;
 		onDateClick?: (date: Date) => void;
+		personnelHref?: string;
 	}
 
 	let {
@@ -53,7 +54,8 @@
 		onCellClick,
 		onPersonClick,
 		onPinToggle,
-		onDateClick
+		onDateClick,
+		personnelHref
 	}: Props = $props();
 
 	let collapsedGroups = $state<Set<string>>(new Set());
@@ -153,7 +155,11 @@
 		{#if totalPersonnel === 0}
 			<div class="empty-state">
 				<p>No personnel added yet.</p>
-				<p>Go to Personnel to add people to your roster.</p>
+				{#if personnelHref}
+					<a class="btn btn-primary btn-sm" href={personnelHref}>Go to Personnel</a>
+				{:else}
+					<p>Go to Personnel to add people to your roster.</p>
+				{/if}
 			</div>
 		{:else}
 			{#each personnelByGroup as grp (grp.group)}

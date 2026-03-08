@@ -27,6 +27,9 @@ npm-debug.log*
 # Vercel
 .vercel
 
+# Supabase seed data
+supabase/seed.sql
+
 # Presentation
 presentation.html
 dashboard.jpg

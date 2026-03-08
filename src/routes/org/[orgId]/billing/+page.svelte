@@ -6,8 +6,11 @@
 
 	let { data } = $props();
 
+	import { invalidateAll } from '$app/navigation';
+
 	let subscribingTier = $state<string | null>(null);
 	let portalLoading = $state(false);
+	let cancelLoading = $state(false);
 	let errorMessage = $state('');
 
 	const tier = $derived(data.effectiveTier);
@@ -94,6 +97,34 @@
 		} catch {
 			errorMessage = 'An unexpected error occurred. Please try again.';
 			subscribingTier = null;
+		}
+	}
+
+	async function handleCancelSubscription() {
+		if (cancelLoading) return;
+		if (!confirm('Are you sure you want to cancel your subscription immediately? Your organization will revert to the Free tier.')) {
+			return;
+		}
+		cancelLoading = true;
+		errorMessage = '';
+
+		try {
+			const res = await fetch(`/org/${data.orgId}/billing/cancel`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' }
+			});
+
+			const result = await res.json();
+			if (!res.ok) {
+				errorMessage = result.error || 'Failed to cancel subscription';
+				return;
+			}
+
+			await invalidateAll();
+		} catch {
+			errorMessage = 'An unexpected error occurred. Please try again.';
+		} finally {
+			cancelLoading = false;
 		}
 	}
 
@@ -196,10 +227,16 @@
 				{/if}
 
 				{#if data.canManageSubscription}
-					<button class="btn btn-secondary" onclick={handleManageSubscription} disabled={portalLoading}>
-						{#if portalLoading}<Spinner />{/if}
-						{portalLoading ? 'Opening...' : 'Manage Subscription'}
-					</button>
+					<div class="plan-actions">
+						<button class="btn btn-secondary" onclick={handleManageSubscription} disabled={portalLoading}>
+							{#if portalLoading}<Spinner />{/if}
+							{portalLoading ? 'Opening...' : 'Manage Subscription'}
+						</button>
+						<button class="btn btn-danger" onclick={handleCancelSubscription} disabled={cancelLoading}>
+							{#if cancelLoading}<Spinner />{/if}
+							{cancelLoading ? 'Canceling...' : 'Cancel Subscription'}
+						</button>
+					</div>
 				{/if}
 			</div>
 		</div>
@@ -393,6 +430,27 @@
 		font-size: var(--font-size-lg);
 		font-weight: 500;
 		color: var(--color-text);
+	}
+
+	.plan-actions {
+		display: flex;
+		gap: var(--spacing-sm);
+		flex-wrap: wrap;
+	}
+
+	.btn-danger {
+		background: #dc2626;
+		color: white;
+		border: none;
+	}
+
+	.btn-danger:hover:not(:disabled) {
+		background: #b91c1c;
+	}
+
+	.btn-danger:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	.text-error {

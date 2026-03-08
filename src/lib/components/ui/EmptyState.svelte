@@ -4,24 +4,33 @@
 		variant?: 'box' | 'simple';
 		actionLabel?: string;
 		onAction?: () => void;
+		actionHref?: string;
 	}
 
-	let { message, variant = 'box', actionLabel, onAction }: Props = $props();
+	let { message, variant = 'box', actionLabel, onAction, actionHref }: Props = $props();
 </script>
 
 {#if variant === 'simple'}
 	<p class="empty-simple">{message}</p>
-	{#if actionLabel && onAction}
+	{#if actionLabel && (onAction || actionHref)}
 		<div class="empty-action simple">
-			<button class="btn btn-primary btn-sm" onclick={onAction}>{actionLabel}</button>
+			{#if actionHref}
+				<a class="btn btn-primary btn-sm" href={actionHref}>{actionLabel}</a>
+			{:else}
+				<button class="btn btn-primary btn-sm" onclick={onAction}>{actionLabel}</button>
+			{/if}
 		</div>
 	{/if}
 {:else}
 	<div class="empty-box">
 		{message}
-		{#if actionLabel && onAction}
+		{#if actionLabel && (onAction || actionHref)}
 			<div class="empty-action">
-				<button class="btn btn-primary btn-sm" onclick={onAction}>{actionLabel}</button>
+				{#if actionHref}
+					<a class="btn btn-primary btn-sm" href={actionHref}>{actionLabel}</a>
+				{:else}
+					<button class="btn btn-primary btn-sm" onclick={onAction}>{actionLabel}</button>
+				{/if}
 			</div>
 		{/if}
 	</div>

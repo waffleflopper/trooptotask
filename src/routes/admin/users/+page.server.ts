@@ -2,7 +2,6 @@ import type { PageServerLoad } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	const supabase = locals.supabase;
 	const adminClient = getAdminClient();
 
 	// Get search params
@@ -11,20 +10,39 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const limit = 20;
 
 	// Get all auth users (admin API)
-	const { data: authResult, error: authError } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+	// Fetch multiple pages to handle > 1000 users
+	let allUsers: { id: string; email?: string; created_at: string }[] = [];
+	let fetchPage = 1;
+	let hasMore = true;
 
-	if (authError) {
-		console.error('[admin/users] auth.admin.listUsers error:', authError);
-		return {
-			users: [],
-			totalCount: 0,
-			page,
-			limit,
-			search
-		};
+	while (hasMore) {
+		const { data: authResult, error: authError } = await adminClient.auth.admin.listUsers({
+			page: fetchPage,
+			perPage: 1000
+		});
+
+		if (authError) {
+			console.error('[admin/users] auth.admin.listUsers error:', authError);
+			return {
+				users: [],
+				totalCount: 0,
+				page,
+				limit,
+				search,
+				authError: authError.message
+			};
+		}
+
+		const users = authResult?.users ?? [];
+		allUsers = allUsers.concat(users);
+
+		// If we got fewer than perPage results, we've reached the end
+		if (users.length < 1000) {
+			hasMore = false;
+		} else {
+			fetchPage++;
+		}
 	}
-
-	let allUsers = authResult?.users ?? [];
 
 	// Apply search filter
 	if (search) {
@@ -41,7 +59,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	// Get organization counts for paged users
 	const userIds = pagedUsers.map((u) => u.id);
-	const { data: orgMemberships } = await supabase
+	const { data: orgMemberships } = await adminClient
 		.from('organization_memberships')
 		.select('user_id')
 		.in('user_id', userIds);
@@ -63,6 +81,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		totalCount,
 		page,
 		limit,
-		search
+		search,
+		authError: null as string | null
 	};
 };

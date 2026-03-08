@@ -80,6 +80,11 @@ export async function resumeSubscription(subscriptionId: string): Promise<void> 
 	});
 }
 
+export async function cancelSubscription(subscriptionId: string): Promise<void> {
+	const stripe = getStripe();
+	await stripe.subscriptions.cancel(subscriptionId);
+}
+
 export function verifyWebhookSignature(payload: string, signature: string): Stripe.Event {
 	const stripe = getStripe();
 	return stripe.webhooks.constructEvent(payload, signature, STRIPE_WEBHOOK_SECRET);

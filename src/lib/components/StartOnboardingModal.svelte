@@ -9,12 +9,13 @@
 		personnel: Personnel[];
 		existingOnboardingPersonnelIds: string[];
 		groups: Group[];
+		hasTemplateSteps?: boolean;
 		onSubmit: (personnelId: string, startedAt: string) => void | Promise<void>;
 		onAddPerson: (data: Omit<Personnel, 'id'>) => Promise<string | null>;
 		onClose: () => void;
 	}
 
-	let { personnel, existingOnboardingPersonnelIds, groups, onSubmit, onAddPerson, onClose }: Props = $props();
+	let { personnel, existingOnboardingPersonnelIds, groups, hasTemplateSteps = true, onSubmit, onAddPerson, onClose }: Props = $props();
 
 	let selectedPersonnelId = $state('');
 	let startDate = $state(new Date().toISOString().split('T')[0]);
@@ -27,7 +28,7 @@
 			.sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
 	);
 
-	const canSave = $derived(!!selectedPersonnelId && !!startDate);
+	const canSave = $derived(!!selectedPersonnelId && !!startDate && hasTemplateSteps);
 
 	async function handleSave() {
 		if (!canSave || saving) return;
@@ -65,6 +66,9 @@
 		<label class="label" for="start-date">Start Date</label>
 		<input type="date" id="start-date" class="input" bind:value={startDate} />
 	</div>
+	{#if !hasTemplateSteps}
+		<p class="warning-text">No template steps defined. Set up your onboarding template before starting.</p>
+	{/if}
 	{#snippet footer()}
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
@@ -89,5 +93,11 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
+	}
+
+	.warning-text {
+		color: var(--color-warning);
+		font-size: var(--font-size-sm);
+		margin-top: var(--spacing-sm);
 	}
 </style>

@@ -1,17 +1,19 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
+import { sanitizeString, validateEmail } from '$lib/server/validation';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
-	const { email, name, reason } = body;
+	const email = sanitizeString(body.email, 254);
+	const name = sanitizeString(body.name);
+	const reason = sanitizeString(body.reason, 1000);
 
 	if (!email || !name) {
 		throw error(400, 'Email and name are required');
 	}
 
-	// Basic email format check
-	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+	if (!validateEmail(email)) {
 		throw error(400, 'Invalid email format');
 	}
 
@@ -33,8 +35,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		.from('access_requests')
 		.insert({
 			email: email.toLowerCase(),
-			name: name.trim(),
-			reason: reason?.trim() || null
+			name,
+			reason: reason || null
 		});
 
 	if (insertError) {

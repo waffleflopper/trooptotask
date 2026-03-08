@@ -1,15 +1,17 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
+import { sanitizeString } from '$lib/server/validation';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const user = locals.user;
 	if (!user) throw error(401, 'Authentication required');
 
 	const body = await request.json();
-	const { category, message, pageUrl, organizationId, organizationName } = body;
+	const { category, pageUrl, organizationId, organizationName } = body;
+	const message = sanitizeString(body.message, 5000);
 
-	if (!message?.trim()) {
+	if (!message) {
 		throw error(400, 'Message is required');
 	}
 
@@ -25,7 +27,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		organization_id: organizationId || null,
 		organization_name: organizationName || null,
 		category: category || 'general',
-		message: message.trim(),
+		message,
 		page_url: pageUrl || null
 	});
 

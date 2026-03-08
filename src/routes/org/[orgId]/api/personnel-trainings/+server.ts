@@ -4,6 +4,7 @@ import { requireEditPermission } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { formatDate } from '$lib/utils/dates';
+import { auditLog } from '$lib/server/auditLog';
 
 function calculateExpirationDate(completionDate: string | null, expirationMonths: number | null): string | null {
 	if (expirationMonths === null || !completionDate) return null;
@@ -99,6 +100,11 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		data = inserted;
 	}
 
+	auditLog(
+		{ action: existing ? 'training_record.updated' : 'training_record.created', resourceType: 'training_record', resourceId: data.id, orgId, details: { actor: locals.user?.email ?? userId, personnel_id: data.personnel_id, training_type_id: data.training_type_id, completion_date: data.completion_date } },
+		{ userId }
+	);
+
 	return json({
 		id: data.id,
 		personnelId: data.personnel_id,
@@ -178,6 +184,11 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 
 	if (dbError) throw error(500, dbError.message);
 
+	auditLog(
+		{ action: 'training_record.updated', resourceType: 'training_record', resourceId: id, orgId, details: { actor: locals.user?.email ?? userId, personnel_id: data.personnel_id, training_type_id: data.training_type_id, completion_date: data.completion_date } },
+		{ userId }
+	);
+
 	return json({
 		id: data.id,
 		personnelId: data.personnel_id,
@@ -212,6 +223,11 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 		.eq('organization_id', orgId);
 
 	if (dbError) throw error(500, dbError.message);
+
+	auditLog(
+		{ action: 'training_record.deleted', resourceType: 'training_record', resourceId: id, orgId, details: { actor: locals.user?.email ?? userId } },
+		{ userId }
+	);
 
 	return json({ success: true });
 };

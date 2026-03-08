@@ -1,5 +1,7 @@
 import { fail, redirect, isRedirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { sanitizeString } from '$lib/server/validation';
+import { auditLog } from '$lib/server/auditLog';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	// Check for demo unavailable error from redirect
@@ -19,7 +21,7 @@ export const actions: Actions = {
 	login: async ({ request, locals }) => {
 		try {
 			const formData = await request.formData();
-			const email = formData.get('email') as string;
+			const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
 			const password = formData.get('password') as string;
 
 			if (!email || !password) {
@@ -29,7 +31,22 @@ export const actions: Actions = {
 			const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
 
 			if (error) {
+				auditLog(
+					{ action: 'auth.login_failure', resourceType: 'user', severity: 'warning', details: { email } },
+					{ userId: null }
+				);
 				return fail(400, { error: error.message, email });
+			}
+
+			auditLog(
+				{ action: 'auth.login_success', resourceType: 'user', details: { email } },
+				{ userId: null }
+			);
+
+			// Check if user has MFA enabled and needs to complete verification
+			const { data: aalData } = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+			if (aalData?.nextLevel === 'aal2' && aalData?.currentLevel === 'aal1') {
+				redirect(303, '/auth/mfa-verify');
 			}
 
 			redirect(303, '/dashboard');

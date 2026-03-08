@@ -1,9 +1,49 @@
+import { json, error } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 import { createCrudHandlers } from '$lib/server/crudFactory';
 import type { PersonnelExtendedInfo } from '$lib/types/leadersBook';
+import { getApiContext } from '$lib/server/supabase';
+import { redactSensitiveFields } from '$lib/server/piiFilter';
+
+export const GET: RequestHandler = async ({ params, locals, cookies }) => {
+	const { orgId } = params;
+	if (!orgId) throw error(400, 'Missing orgId');
+
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	let canEdit = isSandbox;
+	if (!isSandbox && userId) {
+		const { data: membership } = await supabase
+			.from('organization_memberships')
+			.select('role, can_edit_personnel')
+			.eq('organization_id', orgId)
+			.eq('user_id', userId)
+			.single();
+
+		if (!membership) throw error(403, 'Not a member of this organization');
+		canEdit = membership.role === 'owner' || membership.can_edit_personnel;
+	}
+
+	const { data, error: dbError } = await supabase
+		.from('personnel_extended_info')
+		.select('*')
+		.eq('organization_id', orgId);
+
+	if (dbError) throw error(500, dbError.message);
+
+	const rows = data ?? [];
+	if (canEdit) {
+		return json(rows);
+	}
+
+	return json(rows.map(redactSensitiveFields));
+};
 
 const handlers = createCrudHandlers<PersonnelExtendedInfo>({
 	table: 'personnel_extended_info',
 	permission: 'personnel',
+	auditResourceType: 'personnel_extended_info',
+	auditDetailFields: ['personnel_id'],
 	fields: {
 		personnelId: 'personnel_id',
 		emergencyContactName: 'emergency_contact_name',

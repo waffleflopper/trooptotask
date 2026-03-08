@@ -9,6 +9,20 @@
 		return action.replace(/\./g, ' > ').replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 	}
 
+	/** Extract a human-readable description from log details, excluding actor */
+	function getSummary(details: Record<string, unknown> | null): string {
+		if (!details) return '';
+		const parts: string[] = [];
+		if (details.name) parts.push(String(details.name));
+		// Show remaining non-id, non-actor fields as key=value
+		for (const [k, v] of Object.entries(details)) {
+			if (['actor', 'name'].includes(k)) continue;
+			if (v === null || v === undefined) continue;
+			parts.push(`${k.replace(/_/g, ' ')}: ${v}`);
+		}
+		return parts.join(' · ');
+	}
+
 	function setParam(key: string, value: string) {
 		const params = new URLSearchParams($page.url.searchParams);
 		if (value) {
@@ -17,26 +31,26 @@
 			params.delete(key);
 		}
 		params.set('page', '1');
-		goto(`/admin/audit?${params.toString()}`);
+		goto(`${$page.url.pathname}?${params.toString()}`);
 	}
 
 	function goToPage(pageNum: number) {
 		const params = new URLSearchParams($page.url.searchParams);
 		params.set('page', pageNum.toString());
-		goto(`/admin/audit?${params.toString()}`);
+		goto(`${$page.url.pathname}?${params.toString()}`);
 	}
 
 	const totalPages = $derived(Math.ceil(data.totalCount / data.limit));
 </script>
 
 <svelte:head>
-	<title>Audit Log - Admin - Troop to Task</title>
+	<title>Audit Log - Troop to Task</title>
 </svelte:head>
 
 <div class="audit-page">
 	<header class="page-header">
 		<h1>Audit Log</h1>
-		<p class="subtitle">Security event log — all authentication, data access, and administrative actions</p>
+		<p class="subtitle">Activity log for your organization</p>
 	</header>
 
 	<!-- Filters -->
@@ -52,17 +66,6 @@
 			{/each}
 		</select>
 
-		<select
-			value={data.severityFilter}
-			onchange={(e) => setParam('severity', e.currentTarget.value)}
-			class="filter-select"
-		>
-			<option value="">All Severities</option>
-			<option value="info">Info</option>
-			<option value="warning">Warning</option>
-			<option value="critical">Critical</option>
-		</select>
-
 		<span class="count">{data.totalCount} entries</span>
 	</div>
 
@@ -72,56 +75,34 @@
 			<thead>
 				<tr>
 					<th>Timestamp</th>
-					<th>Severity</th>
-					<th>Action</th>
 					<th>User</th>
-					<th>Resource</th>
-					<th>IP</th>
-					<th>Details</th>
+					<th>Action</th>
+					<th>Description</th>
 				</tr>
 			</thead>
 			<tbody>
 				{#each data.logs as log (log.id)}
+					{@const summary = getSummary(log.details)}
 					<tr>
 						<td class="timestamp">{formatDisplayDateTime(log.createdAt)}</td>
-						<td>
-							<span class="severity-badge {log.severity}">{log.severity}</span>
+						<td class="actor-cell">
+							{#if log.details?.actor}
+								<span class="actor">{log.details.actor}</span>
+							{:else}
+								<span class="no-target">-</span>
+							{/if}
 						</td>
 						<td>
 							<span class="action-badge">{formatAction(log.action)}</span>
 						</td>
-						<td>
-							{#if log.userId}
-								<a href="/admin/users/{log.userId}" class="user-link">
-									{log.userId.slice(0, 8)}...
-								</a>
-							{:else}
-								<span class="no-target">-</span>
-							{/if}
-						</td>
-						<td>
-							{#if log.resourceType}
-								<span class="resource-type">{log.resourceType}</span>
+						<td class="description-cell">
+							{#if summary}
+								<span class="description">{summary}</span>
+							{:else if log.resourceType}
+								<span class="resource-type">{log.resourceType.replace(/_/g, ' ')}</span>
 								{#if log.resourceId}
 									<code class="resource-id">{log.resourceId.slice(0, 8)}</code>
 								{/if}
-							{:else}
-								<span class="no-target">-</span>
-							{/if}
-						</td>
-						<td class="ip-cell">
-							{#if log.ipAddress}
-								<code class="ip-address">{log.ipAddress}</code>
-							{:else}
-								<span class="no-target">-</span>
-							{/if}
-						</td>
-						<td class="details-cell">
-							{#if log.details && Object.keys(log.details).length > 0}
-								<details class="details-expand">
-									<summary>View</summary>
-									<pre class="details-json">{JSON.stringify(log.details, null, 2)}</pre>
-								</details>
 							{:else}
 								<span class="no-details">-</span>
 							{/if}
@@ -129,7 +110,7 @@
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="7" class="empty-state">No audit log entries</td>
+						<td colspan="4" class="empty-state">No audit log entries yet</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -164,7 +145,7 @@
 
 <style>
 	.audit-page {
-		max-width: 1200px;
+		max-width: 900px;
 		margin: 0 auto;
 	}
 
@@ -251,13 +232,6 @@
 		color: var(--color-text-muted);
 	}
 
-	.user-id {
-		font-size: var(--font-size-xs);
-		padding: 2px 6px;
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-sm);
-	}
-
 	.action-badge {
 		display: inline-block;
 		font-size: var(--font-size-xs);
@@ -267,43 +241,6 @@
 		color: var(--color-primary);
 		border-radius: var(--radius-full);
 		text-transform: capitalize;
-	}
-
-	.user-link {
-		color: var(--color-primary);
-		text-decoration: none;
-		font-family: monospace;
-		font-size: var(--font-size-xs);
-	}
-
-	.user-link:hover {
-		text-decoration: underline;
-	}
-
-	/* Severity badges */
-	.severity-badge {
-		display: inline-block;
-		font-size: var(--font-size-xs);
-		font-weight: 600;
-		padding: 2px 8px;
-		border-radius: var(--radius-full);
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-	}
-
-	.severity-badge.info {
-		background: color-mix(in srgb, var(--color-info) 15%, transparent);
-		color: var(--color-info);
-	}
-
-	.severity-badge.warning {
-		background: color-mix(in srgb, var(--color-warning) 15%, transparent);
-		color: var(--color-warning);
-	}
-
-	.severity-badge.critical {
-		background: color-mix(in srgb, var(--color-error) 15%, transparent);
-		color: var(--color-error);
 	}
 
 	.resource-type {
@@ -320,41 +257,26 @@
 		margin-left: 4px;
 	}
 
-	.ip-cell {
+	.actor-cell {
 		white-space: nowrap;
 	}
 
-	.ip-address {
+	.actor {
 		font-size: var(--font-size-xs);
+		color: var(--color-text-secondary);
+	}
+
+	.description-cell {
+		max-width: 400px;
+	}
+
+	.description {
+		font-size: var(--font-size-sm);
 	}
 
 	.no-target,
 	.no-details {
 		color: var(--color-text-muted);
-	}
-
-	.details-cell {
-		max-width: 300px;
-	}
-
-	.details-expand summary {
-		cursor: pointer;
-		color: var(--color-primary);
-		font-size: var(--font-size-xs);
-	}
-
-	.details-expand summary:hover {
-		text-decoration: underline;
-	}
-
-	.details-json {
-		margin-top: var(--spacing-sm);
-		padding: var(--spacing-sm);
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-xs);
-		overflow-x: auto;
-		max-width: 300px;
 	}
 
 	.empty-state {

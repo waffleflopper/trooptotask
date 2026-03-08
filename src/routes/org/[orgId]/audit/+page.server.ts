@@ -1,70 +1,80 @@
+import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
 
-export const load: PageServerLoad = async ({ url }) => {
-	// Use admin client to read audit_logs (RLS only allows org owners / platform admins)
+/** Actions that are site-wide (auth, rate-limit, etc.) — excluded from org audit view */
+const EXCLUDED_ACTIONS = [
+	'auth.login_success',
+	'auth.login_failure',
+	'auth.mfa_verify',
+	'security.rate_limit_violation'
+];
+
+export const load: PageServerLoad = async ({ params, url, parent }) => {
+	const { userRole } = await parent();
+
+	if (userRole !== 'owner') {
+		throw error(403, 'Only organization owners can view audit logs');
+	}
+
+	const { orgId } = params;
 	const supabase = getAdminClient();
 
 	const page = parseInt(url.searchParams.get('page') || '1');
 	const action = url.searchParams.get('action') || '';
-	const severity = url.searchParams.get('severity') || '';
-	const orgId = url.searchParams.get('org') || '';
 	const limit = 50;
 	const offset = (page - 1) * limit;
 
-	// Build query
+	// Build query — scoped to this org, excluding site-wide auth events
 	let query = supabase
 		.from('audit_logs')
-		.select('*', { count: 'exact' });
+		.select('*', { count: 'exact' })
+		.eq('org_id', orgId);
+
+	for (const excluded of EXCLUDED_ACTIONS) {
+		query = query.neq('action', excluded);
+	}
 
 	if (action) {
 		query = query.eq('action', action);
-	}
-	if (severity) {
-		query = query.eq('severity', severity);
-	}
-	if (orgId) {
-		query = query.eq('org_id', orgId);
 	}
 
 	query = query
 		.order('timestamp', { ascending: false })
 		.range(offset, offset + limit - 1);
 
-	// Run both queries in parallel
+	// Get available actions for filter dropdown (scoped to org)
 	const [logsResult, actionsResult] = await Promise.all([
 		query,
 		supabase
 			.from('audit_logs')
 			.select('action')
+			.eq('org_id', orgId)
+			.not('action', 'in', `(${EXCLUDED_ACTIONS.join(',')})`)
 			.order('timestamp', { ascending: false })
 			.limit(1000)
 	]);
 
 	const { data: logs, count } = logsResult;
 
-	// Extract unique actions from limited result set
-	const uniqueActions = [...new Set((actionsResult.data ?? []).map((a: { action: string }) => a.action))].sort();
+	const uniqueActions = [
+		...new Set((actionsResult.data ?? []).map((a: { action: string }) => a.action))
+	].sort();
 
 	return {
 		logs: (logs ?? []).map((log: any) => ({
 			id: log.id,
 			userId: log.user_id,
-			orgId: log.org_id,
 			action: log.action,
 			resourceType: log.resource_type,
 			resourceId: log.resource_id,
-			ipAddress: log.ip_address,
 			details: log.details,
-			severity: log.severity,
 			createdAt: log.timestamp
 		})),
 		totalCount: count ?? 0,
 		page,
 		limit,
 		actionFilter: action,
-		severityFilter: severity,
-		orgFilter: orgId,
 		availableActions: uniqueActions
 	};
 };

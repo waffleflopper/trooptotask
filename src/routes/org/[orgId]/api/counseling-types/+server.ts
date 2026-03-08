@@ -18,7 +18,9 @@ const handlers = createCrudHandlers<CounselingType>({
 		color: '#6b7280',
 		is_freeform: false,
 		sort_order: 0
-	}
+	},
+	auditResourceType: 'counseling_type',
+	auditDetailFields: ['name']
 });
 
 export const { POST, PUT, DELETE } = handlers;

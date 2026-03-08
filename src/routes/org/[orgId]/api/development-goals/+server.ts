@@ -16,7 +16,9 @@ const handlers = createCrudHandlers<DevelopmentGoal>({
 		status: 'not-started',
 		target_date: null,
 		progress_notes: null
-	}
+	},
+	auditResourceType: 'development_goal',
+	auditDetailFields: ['personnel_id', 'category', 'status']
 });
 
 export const { POST, PUT, DELETE } = handlers;

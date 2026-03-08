@@ -4,6 +4,7 @@ import { requireEditPermission } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { canAddPersonnel } from '$lib/server/subscription';
 import { checkReadOnly } from '$lib/server/read-only-guard';
+import { auditLog } from '$lib/server/auditLog';
 
 export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
@@ -42,6 +43,11 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		.single();
 
 	if (dbError) throw error(500, dbError.message);
+
+	auditLog(
+		{ action: 'personnel.created', resourceType: 'personnel', resourceId: data.id, orgId, details: { actor: locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` } },
+		{ userId }
+	);
 
 	return json({
 		id: data.id,
@@ -90,6 +96,11 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 
 	if (dbError) throw error(500, dbError.message);
 
+	auditLog(
+		{ action: 'personnel.updated', resourceType: 'personnel', resourceId: id, orgId, details: { actor: locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` } },
+		{ userId }
+	);
+
 	return json({
 		id: data.id,
 		rank: data.rank,
@@ -116,6 +127,14 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 
 	if (!id) throw error(400, 'Missing id');
 
+	// Capture name before deletion for audit log
+	const { data: existing } = await supabase
+		.from('personnel')
+		.select('rank, first_name, last_name')
+		.eq('id', id)
+		.eq('organization_id', orgId)
+		.single();
+
 	const { error: dbError } = await supabase
 		.from('personnel')
 		.delete()
@@ -123,6 +142,11 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 		.eq('organization_id', orgId);
 
 	if (dbError) throw error(500, dbError.message);
+
+	auditLog(
+		{ action: 'personnel.deleted', resourceType: 'personnel', resourceId: id, orgId, details: { actor: locals.user?.email ?? userId, name: existing ? `${existing.rank} ${existing.last_name}, ${existing.first_name}` : id } },
+		{ userId }
+	);
 
 	return json({ success: true });
 };

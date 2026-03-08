@@ -541,6 +541,57 @@
 		</div>
 	</section>
 
+	<!-- 08 // Security & Compliance -->
+	<section class="feature-section reverse">
+		<div class="feature-text">
+			<span class="feature-label">08 // Security & Compliance</span>
+			<h2>Built for military-grade <em>data protection.</em></h2>
+			<p>Your personnel data deserves the same standard of protection you bring to your mission. TroopToTask aligns with NIST SP 800-171 controls for Controlled Unclassified Information.</p>
+			<ul>
+				<li>NIST SP 800-171 aligned for CUI protection</li>
+				<li>End-to-end encryption in transit and at rest</li>
+				<li>Row-level data isolation between organizations</li>
+				<li>Comprehensive audit logging of all data access</li>
+				<li>Role-based access controls with least-privilege defaults</li>
+				<li>Multi-factor authentication support</li>
+			</ul>
+		</div>
+		<div class="feature-demo">
+			<div class="demo-browser">
+				<div class="demo-browser-bar">
+					<span class="demo-dot"></span><span class="demo-dot"></span><span class="demo-dot"></span>
+				</div>
+				<div class="demo-content" style="padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+					<div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: rgba(56, 189, 108, 0.08); border: 1px solid rgba(56, 189, 108, 0.2); border-radius: 8px;">
+						<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bd6c" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+						<span style="font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--color-text);">NIST 800-171 CONTROLS</span>
+						<span style="margin-left: auto; font-size: 11px; color: #38bd6c; font-weight: 600;">ACTIVE</span>
+					</div>
+					<div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: rgba(56, 189, 108, 0.08); border: 1px solid rgba(56, 189, 108, 0.2); border-radius: 8px;">
+						<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bd6c" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+						<span style="font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--color-text);">AES-256 ENCRYPTION</span>
+						<span style="margin-left: auto; font-size: 11px; color: #38bd6c; font-weight: 600;">ACTIVE</span>
+					</div>
+					<div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: rgba(56, 189, 108, 0.08); border: 1px solid rgba(56, 189, 108, 0.2); border-radius: 8px;">
+						<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bd6c" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>
+						<span style="font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--color-text);">ROW-LEVEL ISOLATION</span>
+						<span style="margin-left: auto; font-size: 11px; color: #38bd6c; font-weight: 600;">ACTIVE</span>
+					</div>
+					<div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: rgba(56, 189, 108, 0.08); border: 1px solid rgba(56, 189, 108, 0.2); border-radius: 8px;">
+						<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bd6c" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+						<span style="font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--color-text);">AUDIT LOGGING</span>
+						<span style="margin-left: auto; font-size: 11px; color: #38bd6c; font-weight: 600;">ACTIVE</span>
+					</div>
+					<div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: rgba(56, 189, 108, 0.08); border: 1px solid rgba(56, 189, 108, 0.2); border-radius: 8px;">
+						<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bd6c" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+						<span style="font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--color-text);">RATE LIMITING</span>
+						<span style="margin-left: auto; font-size: 11px; color: #38bd6c; font-weight: 600;">ACTIVE</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
 	<!-- CTA Section — same as landing -->
 	<section class="cta">
 		<div class="cta-container">

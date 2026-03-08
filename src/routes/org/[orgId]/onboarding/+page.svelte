@@ -35,6 +35,7 @@
 	});
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
 
 	let showTemplateManager = $state(false);
 	let showStartModal = $state(false);
@@ -51,7 +52,7 @@
 	const onboardingOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
 		items.push({ label: 'View Report', onclick: () => (showReport = true) });
-		if (data.permissions.canEditOnboarding) {
+		if (canManageConfig) {
 			items.push({ label: 'Manage Template', onclick: () => (showTemplateManager = true), disabled: readOnly });
 		}
 		return items;
@@ -328,9 +329,11 @@
 			</button>
 		</div>
 		{#if data.permissions?.canEditOnboarding}
+			{#if canManageConfig}
 			<button class="btn-ghost" onclick={() => (showTemplateManager = true)} disabled={readOnly}>
 				Manage Template
 			</button>
+			{/if}
 			<button
 				class="btn btn-primary btn-sm"
 				onclick={() => (showStartModal = true)}

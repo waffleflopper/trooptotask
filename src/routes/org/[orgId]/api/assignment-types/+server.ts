@@ -4,6 +4,7 @@ import type { AssignmentType } from '$lib/stores/dailyAssignments.svelte';
 const handlers = createCrudHandlers<AssignmentType>({
 	table: 'assignment_types',
 	permission: 'calendar',
+	requireFullEditor: true,
 	fields: {
 		shortName: 'short_name',
 		assignTo: 'assign_to',

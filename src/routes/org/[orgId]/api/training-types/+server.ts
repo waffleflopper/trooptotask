@@ -4,6 +4,7 @@ import type { TrainingType } from '$lib/types';
 const handlers = createCrudHandlers<TrainingType>({
 	table: 'training_types',
 	permission: 'training',
+	requireFullEditor: true,
 	fields: {
 		expirationMonths: 'expiration_months',
 		warningDaysYellow: 'warning_days_yellow',

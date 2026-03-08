@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { requireEditPermission, type PermissionType } from './permissions';
 import { getApiContext } from './supabase';
 import { checkReadOnly } from './read-only-guard';
+import { validateUUID } from './validation';
 
 /**
  * Field mapping configuration for camelCase <-> snake_case conversion
@@ -151,6 +152,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 	const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 		const { orgId } = params;
 		if (!orgId) throw error(400, 'Missing orgId');
+		if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
@@ -183,6 +185,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 	const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
 		const { orgId } = params;
 		if (!orgId) throw error(400, 'Missing orgId');
+		if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
@@ -197,6 +200,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		const { id } = body;
 
 		if (!id) throw error(400, 'Missing id');
+		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 
 		const updates = apiToDbUpdates(body, fields);
 
@@ -222,6 +226,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 	const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 		const { orgId } = params;
 		if (!orgId) throw error(400, 'Missing orgId');
+		if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
@@ -236,6 +241,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		const { id } = body;
 
 		if (!id) throw error(400, 'Missing id');
+		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 
 		// Run cascade delete if configured
 		if (onDelete) {

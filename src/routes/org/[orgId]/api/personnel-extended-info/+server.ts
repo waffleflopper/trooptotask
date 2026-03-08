@@ -43,6 +43,7 @@ const handlers = createCrudHandlers<PersonnelExtendedInfo>({
 	table: 'personnel_extended_info',
 	permission: 'personnel',
 	auditResourceType: 'personnel_extended_info',
+	auditDetailFields: ['personnel_id'],
 	fields: {
 		personnelId: 'personnel_id',
 		emergencyContactName: 'emergency_contact_name',

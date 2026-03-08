@@ -623,6 +623,7 @@
 				<a href="/features">Features</a>
 				<a href="/pricing">Pricing</a>
 				<a href="/#roadmap">Roadmap</a>
+				<a href="/security">Security</a>
 			</div>
 			<p class="footer-text">Built for Army leaders, by Army leaders.</p>
 		</div>

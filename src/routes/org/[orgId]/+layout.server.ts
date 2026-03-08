@@ -92,6 +92,9 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			userRole: 'member' as const,
 			userId: null,
 			permissions: readOnlyPermissions,
+			scopedGroupId: null,
+			isOwner: false,
+			isAdmin: false,
 			allOrgs: [],
 			effectiveTier,
 
@@ -127,6 +130,9 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					userRole: 'owner' as const,
 					userId: null,
 					permissions: fullPermissions,
+					scopedGroupId: null,
+					isOwner: true,
+					isAdmin: false,
 					allOrgs: [],
 					effectiveTier,
 
@@ -148,7 +154,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		locals.supabase
 			.from('organization_memberships')
 			.select(
-				'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
+				'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members, scoped_group_id'
 			)
 			.eq('organization_id', orgId)
 			.eq('user_id', user.id)
@@ -175,28 +181,53 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		}));
 
 	const isOwner = membership.role === 'owner';
+	const isAdmin = membership.role === 'admin';
+	const isPrivileged = isOwner || isAdmin;
 
-	// Build permissions object - owners always have full access
+	// Build permissions object - owners and admins always have full access
 	const permissions: OrganizationMemberPermissions = {
-		canViewCalendar: isOwner || membership.can_view_calendar,
-		canEditCalendar: isOwner || membership.can_edit_calendar,
-		canViewPersonnel: isOwner || membership.can_view_personnel,
-		canEditPersonnel: isOwner || membership.can_edit_personnel,
-		canViewTraining: isOwner || membership.can_view_training,
-		canEditTraining: isOwner || membership.can_edit_training,
-		canManageMembers: isOwner || membership.can_manage_members
+		canViewCalendar: isPrivileged || membership.can_view_calendar,
+		canEditCalendar: isPrivileged || membership.can_edit_calendar,
+		canViewPersonnel: isPrivileged || membership.can_view_personnel,
+		canEditPersonnel: isPrivileged || membership.can_edit_personnel,
+		canViewTraining: isPrivileged || membership.can_view_training,
+		canEditTraining: isPrivileged || membership.can_edit_training,
+		canManageMembers: isPrivileged || membership.can_manage_members
 	};
+
+	const scopedGroupId: string | null =
+		isPrivileged ? null : (membership.scoped_group_id ?? null);
+
+	// Filter personnel data for group-scoped members
+	let { personnel, groups, statusTypes, trainingTypes, personnelTrainings, activeOnboardingPersonnelIds } = shared;
+
+	if (scopedGroupId) {
+		const scopedPersonnelIds = new Set(
+			personnel.filter((p: any) => p.groupId === scopedGroupId).map((p: any) => p.id)
+		);
+		personnel = personnel.filter((p: any) => p.groupId === scopedGroupId);
+		personnelTrainings = personnelTrainings.filter((pt: any) => scopedPersonnelIds.has(pt.personnelId));
+		activeOnboardingPersonnelIds = activeOnboardingPersonnelIds.filter((id: string) => scopedPersonnelIds.has(id));
+	}
 
 	return {
 		orgId,
 		orgName: org.name,
-		userRole: membership.role as 'owner' | 'member',
+		userRole: membership.role as 'owner' | 'admin' | 'member',
 		userId: user.id,
 		permissions,
+		scopedGroupId,
+		isOwner,
+		isAdmin,
 		allOrgs,
 		effectiveTier,
 		isDemoReadOnly: false,
 		isDemoSandbox: false,
-		...shared
+		personnel,
+		groups,
+		statusTypes,
+		trainingTypes,
+		personnelTrainings,
+		activeOnboardingPersonnelIds
 	};
 };

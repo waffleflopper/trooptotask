@@ -4,6 +4,7 @@ import { PERMISSION_PRESETS, type OrganizationMember, type PermissionPreset } fr
 import { isBillingEnabled } from '$lib/config/billing';
 import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscription';
 import { TIER_CONFIG } from '$lib/types/subscription';
+import { requireManageMembersPermission, requireOwnerRole } from '$lib/server/permissions';
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	const { orgId, orgName, userRole, permissions, allOrgs } = await parent();
@@ -94,6 +95,7 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const { orgId } = params;
+		await requireManageMembersPermission(locals.supabase, orgId, user.id);
 		const formData = await request.formData();
 		const name = (formData.get('name') as string)?.trim();
 
@@ -118,6 +120,7 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const { orgId } = params;
+		await requireManageMembersPermission(locals.supabase, orgId, user.id);
 		const formData = await request.formData();
 		const email = (formData.get('email') as string)?.trim().toLowerCase();
 		const preset = formData.get('preset') as Exclude<PermissionPreset, 'owner' | 'custom'>;
@@ -172,6 +175,7 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const { orgId } = params;
+		await requireManageMembersPermission(locals.supabase, orgId, user.id);
 		const formData = await request.formData();
 		const inviteId = formData.get('inviteId') as string;
 
@@ -292,6 +296,7 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const { orgId } = params;
+		await requireOwnerRole(locals.supabase, orgId, user.id);
 		const formData = await request.formData();
 		const newOwnerId = formData.get('newOwnerId') as string;
 

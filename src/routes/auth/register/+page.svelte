@@ -124,10 +124,11 @@
 						type="password"
 						class="input"
 						required
-						minlength="6"
+						minlength="12"
 						autocomplete="new-password"
-						placeholder="At least 6 characters"
+						placeholder="At least 12 characters"
 					/>
+					<span class="field-hint">Must include uppercase, lowercase, and a number</span>
 				</div>
 
 				<div class="form-group">
@@ -138,7 +139,7 @@
 						type="password"
 						class="input"
 						required
-						minlength="6"
+						minlength="12"
 						autocomplete="new-password"
 						placeholder="Re-enter your password"
 					/>

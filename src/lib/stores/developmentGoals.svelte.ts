@@ -1,4 +1,5 @@
 import type { DevelopmentGoal } from '../types/leadersBook';
+import type { DeleteResult } from '../utils/deletionRequests';
 
 class DevelopmentGoalsStore {
 	#goals = $state<DevelopmentGoal[]>([]);
@@ -70,10 +71,10 @@ class DevelopmentGoalsStore {
 		}
 	}
 
-	async remove(id: string): Promise<boolean> {
+	async remove(id: string): Promise<DeleteResult> {
 		// Optimistic: remove immediately
 		const original = this.#goals.find((g) => g.id === id);
-		if (!original) return false;
+		if (!original) return 'error';
 
 		this.#goals = this.#goals.filter((g) => g.id !== id);
 
@@ -83,12 +84,21 @@ class DevelopmentGoalsStore {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
 			});
+
+			if (res.status === 202) {
+				const data = await res.json();
+				if (data.requiresApproval) {
+					this.#goals = [...this.#goals, original];
+					return 'approval_required';
+				}
+			}
+
 			if (!res.ok) throw new Error('Failed to delete development goal');
-			return true;
+			return 'deleted';
 		} catch {
 			// Rollback on failure
 			this.#goals = [...this.#goals, original];
-			return false;
+			return 'error';
 		}
 	}
 }

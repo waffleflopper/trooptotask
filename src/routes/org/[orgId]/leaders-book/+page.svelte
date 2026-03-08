@@ -18,6 +18,7 @@
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
+	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import SoldierLeadersBookView from '$lib/components/SoldierLeadersBookView.svelte';
 	import CounselingTypeManager from '$lib/components/CounselingTypeManager.svelte';
 
@@ -133,8 +134,19 @@
 	}
 
 	async function handleRemoveCounselingType(id: string) {
-		await counselingTypesStore.remove(id);
-		counselingRecordsStore.removeByTypeLocal(id);
+		const type = counselingTypesStore.getById(id);
+		const result = await counselingTypesStore.remove(id);
+		if (result === 'approval_required' && type) {
+			await submitDeletionRequest(
+				data.orgId,
+				'counseling_type',
+				id,
+				`Counseling type: ${type.name}`,
+				`/org/${data.orgId}/leaders-book`
+			);
+		} else if (result === 'deleted') {
+			counselingRecordsStore.removeByTypeLocal(id);
+		}
 	}
 </script>
 

@@ -18,6 +18,7 @@
 	import { groupAndSortPersonnel, RANK_ORDER } from '$lib/utils/personnelGrouping';
 	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
 	import { exportRatingScheme } from '$lib/utils/ratingSchemeExport';
+	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 
@@ -143,7 +144,17 @@
 	}
 
 	async function handleRemove(id: string) {
-		await personnelStore.remove(id);
+		const person = personnelStore.getById(id);
+		const result = await personnelStore.remove(id);
+		if (result === 'approval_required' && person) {
+			await submitDeletionRequest(
+				data.orgId,
+				'personnel',
+				id,
+				`${person.rank} ${person.lastName}, ${person.firstName}`,
+				`/org/${data.orgId}/personnel`
+			);
+		}
 	}
 
 	function handlePinToggle(group: string) {
@@ -159,7 +170,17 @@
 
 	async function handleBulkDelete(ids: string[]) {
 		for (const id of ids) {
-			await personnelStore.remove(id);
+			const person = personnelStore.getById(id);
+			const result = await personnelStore.remove(id);
+			if (result === 'approval_required' && person) {
+				await submitDeletionRequest(
+					data.orgId,
+					'personnel',
+					id,
+					`${person.rank} ${person.lastName}, ${person.firstName}`,
+					`/org/${data.orgId}/personnel`
+				);
+			}
 		}
 		showBulkManager = false;
 	}
@@ -183,7 +204,21 @@
 	}
 
 	async function handleDeleteRatingEntry(id: string) {
-		await ratingSchemeStore.remove(id);
+		const entry = ratingSchemeStore.list.find((e) => e.id === id);
+		const result = await ratingSchemeStore.remove(id);
+		if (result === 'approval_required' && entry) {
+			const person = personnelStore.getById(entry.ratedPersonId);
+			const desc = person
+				? `Rating scheme entry for ${person.rank} ${person.lastName}`
+				: 'Rating scheme entry';
+			await submitDeletionRequest(
+				data.orgId,
+				'rating_scheme_entry',
+				id,
+				desc,
+				`/org/${data.orgId}/personnel`
+			);
+		}
 	}
 </script>
 

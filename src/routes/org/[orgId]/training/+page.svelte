@@ -15,6 +15,7 @@
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
+	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 
 	let { data } = $props();
 
@@ -124,7 +125,20 @@
 	}
 
 	async function handleRemoveTraining(id: string) {
-		await personnelTrainingsStore.remove(id);
+		const training = personnelTrainingsStore.getById(id);
+		const result = await personnelTrainingsStore.remove(id);
+		if (result === 'approval_required' && training) {
+			const person = data.personnel.find((p: Personnel) => p.id === training.personnelId);
+			const type = trainingTypesStore.list.find((t) => t.id === training.trainingTypeId);
+			const desc = `${type?.name ?? 'Training'} record for ${person ? `${person.rank} ${person.lastName}` : 'unknown'}`;
+			await submitDeletionRequest(
+				data.orgId,
+				'personnel_training',
+				id,
+				desc,
+				`/org/${data.orgId}/training`
+			);
+		}
 	}
 
 	async function handleAddType(data: Omit<TrainingType, 'id'>) {
@@ -136,8 +150,19 @@
 	}
 
 	async function handleRemoveType(id: string) {
-		await trainingTypesStore.remove(id);
-		personnelTrainingsStore.removeByTrainingTypeLocal(id);
+		const type = trainingTypesStore.list.find((t) => t.id === id);
+		const result = await trainingTypesStore.remove(id);
+		if (result === 'approval_required' && type) {
+			await submitDeletionRequest(
+				data.orgId,
+				'training_type',
+				id,
+				`Training type: ${type.name}`,
+				`/org/${data.orgId}/training`
+			);
+		} else if (result === 'deleted') {
+			personnelTrainingsStore.removeByTrainingTypeLocal(id);
+		}
 	}
 
 	async function handleBulkAddTrainings(trainings: Omit<PersonnelTraining, 'id'>[]) {

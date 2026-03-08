@@ -1,4 +1,5 @@
 import type { CounselingType } from '../types/leadersBook';
+import type { DeleteResult } from '../utils/deletionRequests';
 
 class CounselingTypesStore {
 	#counselingTypes = $state<CounselingType[]>([]);
@@ -66,10 +67,10 @@ class CounselingTypesStore {
 		}
 	}
 
-	async remove(id: string): Promise<boolean> {
+	async remove(id: string): Promise<DeleteResult> {
 		// Optimistic: remove immediately
 		const original = this.#counselingTypes.find((t) => t.id === id);
-		if (!original) return false;
+		if (!original) return 'error';
 
 		this.#counselingTypes = this.#counselingTypes.filter((t) => t.id !== id);
 
@@ -79,12 +80,21 @@ class CounselingTypesStore {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
 			});
+
+			if (res.status === 202) {
+				const data = await res.json();
+				if (data.requiresApproval) {
+					this.#counselingTypes = [...this.#counselingTypes, original];
+					return 'approval_required';
+				}
+			}
+
 			if (!res.ok) throw new Error('Failed to delete counseling type');
-			return true;
+			return 'deleted';
 		} catch {
 			// Rollback on failure
 			this.#counselingTypes = [...this.#counselingTypes, original];
-			return false;
+			return 'error';
 		}
 	}
 }

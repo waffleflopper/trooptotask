@@ -1,7 +1,7 @@
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../types';
 
 class OnboardingStore {
-	#onboardings = $state<PersonnelOnboarding[]>([]);
+	#onboardings = $state.raw<PersonnelOnboarding[]>([]);
 	#orgId = '';
 
 	get list() {

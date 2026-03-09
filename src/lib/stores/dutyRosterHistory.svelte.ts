@@ -19,7 +19,7 @@ export interface RosterHistoryItem {
 }
 
 class DutyRosterHistoryStore {
-	#items = $state<RosterHistoryItem[]>([]);
+	#items = $state.raw<RosterHistoryItem[]>([]);
 
 	get items() {
 		return this.#items;

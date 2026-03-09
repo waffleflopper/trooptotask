@@ -1,5 +1,5 @@
 class PinnedGroupsStore {
-	#pinnedGroups = $state<string[]>([]);
+	#pinnedGroups = $state.raw<string[]>([]);
 	#orgId = '';
 
 	get list() {

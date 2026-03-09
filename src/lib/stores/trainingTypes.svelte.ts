@@ -2,7 +2,7 @@ import type { TrainingType } from '../types';
 import type { DeleteResult } from '../utils/deletionRequests';
 
 class TrainingTypesStore {
-	#trainingTypes = $state<TrainingType[]>([]);
+	#trainingTypes = $state.raw<TrainingType[]>([]);
 	#orgId = '';
 
 	get list() {

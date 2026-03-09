@@ -2,7 +2,7 @@ import type { RatingSchemeEntry } from '../types';
 import type { DeleteResult } from '../utils/deletionRequests';
 
 class RatingSchemeStore {
-	#entries = $state<RatingSchemeEntry[]>([]);
+	#entries = $state.raw<RatingSchemeEntry[]>([]);
 	#orgId = '';
 
 	get list() {

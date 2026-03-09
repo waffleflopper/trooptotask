@@ -2,7 +2,7 @@ import type { DevelopmentGoal } from '../types/leadersBook';
 import type { DeleteResult } from '../utils/deletionRequests';
 
 class DevelopmentGoalsStore {
-	#goals = $state<DevelopmentGoal[]>([]);
+	#goals = $state.raw<DevelopmentGoal[]>([]);
 	#orgId = '';
 
 	get list() {

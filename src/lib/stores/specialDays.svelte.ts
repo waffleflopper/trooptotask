@@ -2,7 +2,7 @@ import type { SpecialDay } from '../types';
 import { formatDate } from '../utils/dates';
 
 class SpecialDaysStore {
-	#specialDays = $state<SpecialDay[]>([]);
+	#specialDays = $state.raw<SpecialDay[]>([]);
 	#orgId = '';
 
 	get list() {

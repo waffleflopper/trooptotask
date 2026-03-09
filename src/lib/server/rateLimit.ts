@@ -23,7 +23,7 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 const rules: RateLimitRule[] = [
-	{ pattern: /^\/auth\//, windowMs: 15 * 60 * 1000, maxRequests: 10 },
+	{ pattern: /^\/auth\//, windowMs: 15 * 60 * 1000, maxRequests: 10, methods: ['POST'] },
 	{ pattern: /^\/api\/access-requests/, windowMs: 60 * 60 * 1000, maxRequests: 5 },
 	{ pattern: /^\/api\/create-demo-sandbox/, windowMs: 60 * 60 * 1000, maxRequests: 3 },
 	{

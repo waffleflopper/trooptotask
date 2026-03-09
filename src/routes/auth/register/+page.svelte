@@ -145,6 +145,13 @@
 					/>
 				</div>
 
+					<div class="terms-group">
+					<label class="checkbox-label">
+						<input type="checkbox" name="agreeTerms" required />
+						<span>I have read and agree to the <a href="/terms" target="_blank">Terms of Use</a> and <a href="/privacy" target="_blank">Privacy Policy</a></span>
+					</label>
+				</div>
+
 				<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
 					{#if loading}
 						<span class="spinner"></span>
@@ -316,6 +323,35 @@
 	:global([data-theme='dark']) .confirm-icon {
 		background: #14532d;
 		color: #4ade80;
+	}
+
+	.terms-group {
+		margin-top: var(--spacing-md);
+	}
+
+	.checkbox-label {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--spacing-sm);
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
+		cursor: pointer;
+		line-height: 1.4;
+	}
+
+	.checkbox-label input[type='checkbox'] {
+		margin-top: 2px;
+		flex-shrink: 0;
+		accent-color: var(--color-primary);
+	}
+
+	.checkbox-label a {
+		color: var(--color-primary);
+		text-decoration: none;
+	}
+
+	.checkbox-label a:hover {
+		text-decoration: underline;
 	}
 
 	.btn-full {

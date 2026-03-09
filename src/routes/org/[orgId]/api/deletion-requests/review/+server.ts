@@ -69,18 +69,32 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 
 	if (updateError) throw error(500, updateError.message);
 
-	// If approved, perform the actual deletion
+	// If approved, perform the actual deletion (or archive for personnel)
 	if (action === 'approve') {
 		const tableName = RESOURCE_TYPE_TABLE_MAP[request_record.resource_type];
 		if (tableName) {
-			const { error: deleteError } = await adminClient
-				.from(tableName)
-				.delete()
-				.eq('id', request_record.resource_id)
-				.eq('organization_id', orgId);
+			if (request_record.resource_type === 'personnel') {
+				// Archive instead of hard-delete for personnel
+				const { error: archiveError } = await adminClient
+					.from('personnel')
+					.update({ archived_at: new Date().toISOString() })
+					.eq('id', request_record.resource_id)
+					.eq('organization_id', orgId);
 
-			if (deleteError) {
-				console.error('Failed to delete resource:', deleteError.message);
+				if (archiveError) {
+					console.error('Failed to archive personnel:', archiveError.message);
+				}
+			} else {
+				// Hard-delete for other resource types
+				const { error: deleteError } = await adminClient
+					.from(tableName)
+					.delete()
+					.eq('id', request_record.resource_id)
+					.eq('organization_id', orgId);
+
+				if (deleteError) {
+					console.error('Failed to delete resource:', deleteError.message);
+				}
 			}
 		}
 	}
@@ -90,7 +104,9 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const notificationTitle = action === 'approve' ? 'Deletion Approved' : 'Deletion Denied';
 	const notificationMessage =
 		action === 'approve'
-			? `Your request to delete "${request_record.resource_description}" has been approved.`
+			? request_record.resource_type === 'personnel'
+				? `Your request to archive "${request_record.resource_description}" has been approved.`
+				: `Your request to delete "${request_record.resource_description}" has been approved.`
 			: `Your request to delete "${request_record.resource_description}" has been denied.${denialReason ? ` Reason: ${denialReason}` : ''}`;
 
 	await adminClient.from('notifications').insert({

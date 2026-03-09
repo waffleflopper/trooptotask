@@ -115,9 +115,11 @@
 		showPersonnelModal = true;
 	}
 
+	const canAddPersonnel = $derived(data.permissions.canEditPersonnel && !data.scopedGroupId);
+
 	const personnelOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
-		if (data.permissions.canEditPersonnel) {
+		if (canAddPersonnel) {
 			items.push({ label: 'Add Person', onclick: handleAdd, disabled: readOnly });
 			items.push({ label: 'Manage Groups', onclick: () => (showGroupManager = true), disabled: readOnly });
 			items.push({ label: 'Bulk Import', onclick: () => (showBulkManager = true), divider: true, disabled: readOnly });
@@ -207,7 +209,8 @@
 		const entry = ratingSchemeStore.list.find((e) => e.id === id);
 		const result = await ratingSchemeStore.remove(id);
 		if (result === 'approval_required' && entry) {
-			const person = personnelStore.getById(entry.ratedPersonId);
+			const allPeople = data.allPersonnel ?? data.personnel;
+			const person = allPeople.find((p: Personnel) => p.id === entry.ratedPersonId);
 			const desc = person
 				? `Rating scheme entry for ${person.rank} ${person.lastName}`
 				: 'Rating scheme entry';
@@ -228,7 +231,7 @@
 
 <div class="page">
 	<PageToolbar title="Personnel" helpTopic={pageView === 'rating-scheme' ? 'rating-scheme' : 'personnel'} overflowItems={personnelOverflowItems}>
-		{#if data.permissions.canEditPersonnel}
+		{#if canAddPersonnel}
 			<button class="btn-ghost" onclick={() => (showGroupManager = true)} disabled={readOnly}>
 				Manage Groups
 			</button>
@@ -478,13 +481,13 @@
 			{#if ratingViewMode === 'grouped'}
 				<RatingSchemeGroupedView
 					entries={filteredRatingEntries}
-					personnel={personnelStore.list}
+					personnel={data.allPersonnel ?? data.personnel}
 					onEdit={handleEditRatingEntry}
 				/>
 			{:else}
 				<RatingSchemeTableView
 					entries={filteredRatingEntries}
-					personnel={personnelStore.list}
+					personnel={data.allPersonnel ?? data.personnel}
 					onEdit={handleEditRatingEntry}
 				/>
 			{/if}
@@ -496,7 +499,7 @@
 {#if showRatingModal}
 	<RatingSchemeEntryModal
 		entry={editingEntry}
-		personnel={personnelStore.list}
+		personnel={data.allPersonnel ?? data.personnel}
 		onSave={handleSaveRatingEntry}
 		onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
 		onClose={() => { showRatingModal = false; editingEntry = null; }}

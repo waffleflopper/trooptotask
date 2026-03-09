@@ -77,7 +77,7 @@
 				Training
 			</a>
 		{/if}
-		{#if permissions.canViewPersonnel}
+		{#if permissions.canViewOnboarding}
 			<a
 				href="/org/{orgId}/onboarding"
 				class="nav-tab"
@@ -86,7 +86,7 @@
 				Onboarding
 			</a>
 		{/if}
-		{#if permissions.canViewPersonnel}
+		{#if permissions.canViewLeadersBook}
 			<a
 				href="/org/{orgId}/leaders-book"
 				class="nav-tab"

@@ -71,11 +71,15 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		return json({ error: 'A pending deletion request already exists for this resource' }, { status: 409 });
 	}
 
+	// Get user email for the request
+	const userEmail = locals.user?.email ?? 'unknown';
+
 	const { data, error: dbError } = await supabase
 		.from('deletion_requests')
 		.insert({
 			organization_id: orgId,
 			requested_by: userId,
+			requested_by_email: userEmail,
 			resource_type: resourceType,
 			resource_id: resourceId,
 			resource_description: resourceDescription,

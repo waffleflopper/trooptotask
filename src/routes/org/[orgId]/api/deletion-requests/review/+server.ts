@@ -7,8 +7,11 @@ import { auditLog } from '$lib/server/auditLog';
 const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {
 	personnel: 'personnel',
 	counseling_record: 'counseling_records',
-	training_record: 'personnel_trainings',
-	development_goal: 'development_goals'
+	personnel_training: 'personnel_trainings',
+	development_goal: 'development_goals',
+	training_type: 'training_types',
+	counseling_type: 'counseling_types',
+	rating_scheme_entry: 'rating_scheme_entries'
 };
 
 export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
@@ -73,7 +76,8 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			const { error: deleteError } = await adminClient
 				.from(tableName)
 				.delete()
-				.eq('id', request_record.resource_id);
+				.eq('id', request_record.resource_id)
+				.eq('organization_id', orgId);
 
 			if (deleteError) {
 				console.error('Failed to delete resource:', deleteError.message);

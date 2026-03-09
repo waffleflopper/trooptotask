@@ -31,6 +31,11 @@
 
 	let { data } = $props();
 
+	// Use allPersonnel for calendar display (shows all org members regardless of group scope)
+	// but scoped personnel for editing checks
+	const calendarPersonnel = $derived(data.allPersonnel ?? data.personnel);
+	const scopedPersonnelIds = $derived(new Set(data.personnel.map((p: Personnel) => p.id)));
+
 	// Hydrate stores with server data
 	$effect(() => {
 		personnelStore.load(data.personnel, data.orgId);
@@ -58,9 +63,9 @@
 	let selectedDate = $state<Date | null>(null);
 	let assignmentDate = $state<Date | null>(null);
 
-	// Use shared utility for personnel grouping (also used by other pages)
+	// Use shared utility for personnel grouping — use ALL personnel for calendar display
 	const personnelByGroup = $derived(
-		groupAndSortPersonnel(personnelStore.list, { pinnedGroups: pinnedGroupsStore.list, fallbackGroupName: data.orgName })
+		groupAndSortPersonnel(calendarPersonnel, { pinnedGroups: pinnedGroupsStore.list, fallbackGroupName: data.orgName })
 	);
 
 	function handlePinToggle(group: string) {
@@ -68,11 +73,15 @@
 	}
 
 	function handleCellClick(person: Personnel, date: Date) {
+		if (!data.permissions.canEditCalendar) return;
+		if (data.scopedGroupId && !scopedPersonnelIds.has(person.id)) return;
 		selectedPerson = person;
 		selectedDate = date;
 	}
 
 	function handlePersonClick(person: Personnel) {
+		if (!data.permissions.canEditCalendar) return;
+		if (data.scopedGroupId && !scopedPersonnelIds.has(person.id)) return;
 		selectedPerson = person;
 		selectedDate = new Date();
 	}

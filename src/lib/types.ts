@@ -111,7 +111,7 @@ export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'cus
 	}
 };
 
-export function getPermissionPreset(permissions: OrganizationMemberPermissions): PermissionPreset {
+export function getPermissionPreset(permissions: OrganizationMemberPermissions, scopedGroupId?: string | null): PermissionPreset {
 	// Check each preset
 	for (const [preset, presetPermissions] of Object.entries(PERMISSION_PRESETS)) {
 		if (
@@ -127,6 +127,14 @@ export function getPermissionPreset(permissions: OrganizationMemberPermissions):
 			permissions.canEditLeadersBook === presetPermissions.canEditLeadersBook &&
 			permissions.canManageMembers === presetPermissions.canManageMembers
 		) {
+			// Distinguish team-leader from full-editor: if member has a scoped group, it's team-leader
+			if (preset === 'full-editor' && scopedGroupId) {
+				return 'team-leader';
+			}
+			// Skip team-leader match if no scoped group (it's actually full-editor)
+			if (preset === 'team-leader' && !scopedGroupId) {
+				continue;
+			}
 			return preset as PermissionPreset;
 		}
 	}
@@ -139,8 +147,7 @@ export function isFullEditor(permissions: OrganizationMemberPermissions): boolea
 		permissions.canViewPersonnel && permissions.canEditPersonnel &&
 		permissions.canViewTraining && permissions.canEditTraining &&
 		permissions.canViewOnboarding && permissions.canEditOnboarding &&
-		permissions.canViewLeadersBook && permissions.canEditLeadersBook &&
-		permissions.canManageMembers
+		permissions.canViewLeadersBook && permissions.canEditLeadersBook
 	);
 }
 

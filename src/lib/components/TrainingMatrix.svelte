@@ -13,7 +13,7 @@
 	let { personnel, trainingTypes, trainings, onCellClick, onPersonClick }: Props = $props();
 
 	// Create a map for quick training lookup
-	const trainingMap = $derived(() => {
+	const trainingMap = $derived.by(() => {
 		const map = new Map<string, PersonnelTraining>();
 		for (const t of trainings) {
 			map.set(`${t.personnelId}-${t.trainingTypeId}`, t);
@@ -22,7 +22,7 @@
 	});
 
 	function getTraining(personnelId: string, typeId: string) {
-		return trainingMap().get(`${personnelId}-${typeId}`);
+		return trainingMap.get(`${personnelId}-${typeId}`);
 	}
 </script>
 

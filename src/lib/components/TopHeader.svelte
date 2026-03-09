@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import type { OrganizationMemberPermissions } from '$lib/types';
 	import AvatarMenu from './ui/AvatarMenu.svelte';
+	import NotificationBell from './ui/NotificationBell.svelte';
 
 	interface OrgInfo {
 		id: string;
@@ -17,9 +18,10 @@
 		allOrgs: OrgInfo[];
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
+		unreadNotificationCount?: number;
 	}
 
-	let { orgId, orgName, userRole, permissions, allOrgs, onToggleTheme, isDarkTheme }: Props = $props();
+	let { orgId, orgName, userRole, permissions, allOrgs, onToggleTheme, isDarkTheme, unreadNotificationCount = 0 }: Props = $props();
 
 	const pathname = $derived($page.url.pathname);
 
@@ -75,7 +77,7 @@
 				Training
 			</a>
 		{/if}
-		{#if permissions.canViewPersonnel}
+		{#if permissions.canViewOnboarding}
 			<a
 				href="/org/{orgId}/onboarding"
 				class="nav-tab"
@@ -84,7 +86,7 @@
 				Onboarding
 			</a>
 		{/if}
-		{#if permissions.canViewPersonnel}
+		{#if permissions.canViewLeadersBook}
 			<a
 				href="/org/{orgId}/leaders-book"
 				class="nav-tab"
@@ -97,6 +99,7 @@
 	</nav>
 
 	<div class="header-right">
+		<NotificationBell {orgId} unreadCount={unreadNotificationCount} />
 		<AvatarMenu
 			{orgId}
 			{orgName}
@@ -219,6 +222,7 @@
 	.header-right {
 		display: flex;
 		align-items: center;
+		gap: var(--spacing-sm);
 		flex-shrink: 0;
 	}
 

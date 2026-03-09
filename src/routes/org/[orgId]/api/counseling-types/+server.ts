@@ -4,6 +4,7 @@ import type { CounselingType } from '$lib/types/leadersBook';
 const handlers = createCrudHandlers<CounselingType>({
 	table: 'counseling_types',
 	permission: 'personnel',
+	requireFullEditor: true,
 	fields: {
 		templateContent: 'template_content',
 		templateFilePath: 'template_file_path',

@@ -50,14 +50,14 @@
 			href: `/org/${orgId}/onboarding`,
 			label: 'Onboard',
 			icon: 'onboarding',
-			visible: permissions.canViewPersonnel,
+			visible: permissions.canViewOnboarding,
 			exactMatch: false
 		},
 		{
 			href: `/org/${orgId}/leaders-book`,
 			label: 'LB',
 			icon: 'leaders-book',
-			visible: permissions.canViewPersonnel,
+			visible: permissions.canViewLeadersBook,
 			exactMatch: false
 		}
 	]);

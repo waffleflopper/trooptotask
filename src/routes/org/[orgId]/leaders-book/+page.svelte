@@ -18,6 +18,7 @@
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
+	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import SoldierLeadersBookView from '$lib/components/SoldierLeadersBookView.svelte';
 	import CounselingTypeManager from '$lib/components/CounselingTypeManager.svelte';
 
@@ -36,6 +37,7 @@
 	});
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
 
 	let showTypeManager = $state(false);
 	let selectedGroupId = $state<string>('');
@@ -44,7 +46,7 @@
 
 	const leadersBookOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
-		if (data.permissions.canEditPersonnel) {
+		if (canManageConfig) {
 			items.push({ label: 'Counseling Types', onclick: () => (showTypeManager = true), disabled: readOnly });
 		}
 		return items;
@@ -132,8 +134,19 @@
 	}
 
 	async function handleRemoveCounselingType(id: string) {
-		await counselingTypesStore.remove(id);
-		counselingRecordsStore.removeByTypeLocal(id);
+		const type = counselingTypesStore.getById(id);
+		const result = await counselingTypesStore.remove(id);
+		if (result === 'approval_required' && type) {
+			await submitDeletionRequest(
+				data.orgId,
+				'counseling_type',
+				id,
+				`Counseling type: ${type.name}`,
+				`/org/${data.orgId}/leaders-book`
+			);
+		} else if (result === 'deleted') {
+			counselingRecordsStore.removeByTypeLocal(id);
+		}
 	}
 </script>
 
@@ -148,6 +161,12 @@
 		{/if}
 	</PageToolbar>
 
+	{#if !data.permissions.canViewLeadersBook}
+		<div class="no-permission">
+			<h2>Access Restricted</h2>
+			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
+		</div>
+	{:else}
 	<div class="stats-bar">
 		<div class="stat">
 			<span class="stat-value">{stats().totalPersonnel}</span>
@@ -251,12 +270,13 @@
 			</div>
 		{/if}
 	</main>
+	{/if}
 </div>
 
 {#if selectedPerson}
 	<SoldierLeadersBookView
 		person={selectedPerson}
-		canEdit={data.permissions.canEditPersonnel}
+		canEdit={data.permissions.canEditLeadersBook}
 		onClose={closeSoldierView}
 	/>
 {/if}
@@ -390,6 +410,21 @@
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 		margin-left: auto;
+	}
+
+	.no-permission {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 300px;
+		text-align: center;
+		color: var(--color-text-muted);
+	}
+	.no-permission h2 {
+		font-size: var(--font-size-lg);
+		margin-bottom: var(--spacing-sm);
+		color: var(--color-text);
 	}
 
 	/* .page-content base + mobile in app.css */

@@ -1,4 +1,5 @@
 import type { Personnel } from '../types';
+import type { DeleteResult } from '../utils/deletionRequests';
 
 class PersonnelStore {
 	#personnel = $state<Personnel[]>([]);
@@ -62,10 +63,10 @@ class PersonnelStore {
 		}
 	}
 
-	async remove(id: string): Promise<boolean> {
+	async remove(id: string): Promise<DeleteResult> {
 		// Optimistic: remove immediately
 		const original = this.#personnel.find((p) => p.id === id);
-		if (!original) return false;
+		if (!original) return 'error';
 
 		this.#personnel = this.#personnel.filter((p) => p.id !== id);
 
@@ -75,12 +76,22 @@ class PersonnelStore {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
 			});
+
+			if (res.status === 202) {
+				const data = await res.json();
+				if (data.requiresApproval) {
+					// Rollback — item not actually deleted
+					this.#personnel = [...this.#personnel, original];
+					return 'approval_required';
+				}
+			}
+
 			if (!res.ok) throw new Error('Failed to delete personnel');
-			return true;
+			return 'deleted';
 		} catch {
 			// Rollback on failure
 			this.#personnel = [...this.#personnel, original];
-			return false;
+			return 'error';
 		}
 	}
 

@@ -12,8 +12,10 @@
 		GOAL_CATEGORY_LABELS,
 		GOAL_CATEGORY_COLORS
 	} from '$lib/types/leadersBook';
+	import { page } from '$app/stores';
 	import { developmentGoalsStore } from '$lib/stores/developmentGoals.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import Modal from './Modal.svelte';
 	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 
@@ -26,6 +28,7 @@
 	let { person, existingGoal, onClose }: Props = $props();
 
 	const isEdit = !!existingGoal;
+	const orgId = $page.params.orgId!;
 
 	// Form state
 	let title = $state(existingGoal?.title ?? '');
@@ -79,7 +82,18 @@
 		showRemoveConfirm = false;
 		if (!existingGoal) return;
 		try {
-			await developmentGoalsStore.remove(existingGoal.id);
+			const result = await developmentGoalsStore.remove(existingGoal.id);
+			if (result === 'approval_required') {
+				await submitDeletionRequest(
+					orgId,
+					'development_goal',
+					existingGoal.id,
+					`Goal "${existingGoal.title}" for ${person.rank} ${person.lastName}`,
+					`/org/${orgId}/leaders-book`
+				);
+				onClose();
+				return;
+			}
 			toastStore.success('Goal deleted');
 			onClose();
 		} catch {

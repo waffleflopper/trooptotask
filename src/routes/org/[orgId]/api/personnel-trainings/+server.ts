@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireEditPermission } from '$lib/server/permissions';
+import { requireEditPermission, requireGroupAccess } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { formatDate } from '$lib/utils/dates';
@@ -25,6 +25,15 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	if (blocked) return blocked;
 
 	const body = await request.json();
+
+	if (!isSandbox && userId && body.personnelId) {
+		const { data: person } = await supabase
+			.from('personnel')
+			.select('group_id')
+			.eq('id', body.personnelId)
+			.single();
+		await requireGroupAccess(supabase, orgId, userId, person?.group_id ?? null);
+	}
 
 	// Fetch the training type to get expiration_months and expiration_date_only
 	const { data: trainingType, error: typeError } = await supabase
@@ -137,9 +146,18 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	// Fetch training type to determine how to handle expiration
 	const { data: existing } = await supabase
 		.from('personnel_trainings')
-		.select('training_type_id')
+		.select('training_type_id, personnel_id')
 		.eq('id', id)
 		.single();
+
+	if (!isSandbox && userId && existing?.personnel_id) {
+		const { data: person } = await supabase
+			.from('personnel')
+			.select('group_id')
+			.eq('id', existing.personnel_id)
+			.single();
+		await requireGroupAccess(supabase, orgId, userId, person?.group_id ?? null);
+	}
 
 	let isExpirationDateOnly = false;
 	let expirationMonths: number | null = null;
@@ -215,6 +233,45 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	const { id } = body;
 
 	if (!id) throw error(400, 'Missing id');
+
+	if (!isSandbox && userId) {
+		const { data: existingRecord } = await supabase
+			.from('personnel_trainings')
+			.select('personnel_id')
+			.eq('id', id)
+			.eq('organization_id', orgId)
+			.single();
+		if (existingRecord?.personnel_id) {
+			const { data: person } = await supabase
+				.from('personnel')
+				.select('group_id')
+				.eq('id', existingRecord.personnel_id)
+				.single();
+			await requireGroupAccess(supabase, orgId, userId, person?.group_id ?? null);
+		}
+	}
+
+	if (!isSandbox && userId) {
+		const { data: mem } = await supabase
+			.from('organization_memberships')
+			.select('role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book')
+			.eq('organization_id', orgId)
+			.eq('user_id', userId)
+			.single();
+
+		if (mem && mem.role === 'member') {
+			const isFullEd = !mem.scoped_group_id &&
+				mem.can_view_calendar && mem.can_edit_calendar &&
+				mem.can_view_personnel && mem.can_edit_personnel &&
+				mem.can_view_training && mem.can_edit_training &&
+				mem.can_view_onboarding && mem.can_edit_onboarding &&
+				mem.can_view_leaders_book && mem.can_edit_leaders_book;
+
+			if (!isFullEd) {
+				return json({ requiresApproval: true }, { status: 202 });
+			}
+		}
+	}
 
 	const { error: dbError } = await supabase
 		.from('personnel_trainings')

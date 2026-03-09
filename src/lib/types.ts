@@ -20,6 +20,10 @@ export interface OrganizationMemberPermissions {
 	canEditPersonnel: boolean;
 	canViewTraining: boolean;
 	canEditTraining: boolean;
+	canViewOnboarding: boolean;
+	canEditOnboarding: boolean;
+	canViewLeadersBook: boolean;
+	canEditLeadersBook: boolean;
 	canManageMembers: boolean;
 }
 
@@ -28,7 +32,8 @@ export interface OrganizationMember extends OrganizationMemberPermissions {
 	organizationId: string;
 	userId: string;
 	email?: string; // From user lookup or invitation
-	role: 'owner' | 'member';
+	role: 'owner' | 'admin' | 'member';
+	scopedGroupId: string | null;
 	createdAt: string;
 }
 
@@ -38,6 +43,7 @@ export interface OrganizationInvitation {
 	email: string;
 	status: 'pending' | 'accepted' | 'revoked';
 	permissions: OrganizationMemberPermissions;
+	scopedGroupId: string | null;
 	createdAt: string;
 }
 
@@ -46,9 +52,7 @@ export type PermissionPreset =
 	| 'owner'
 	| 'admin'
 	| 'full-editor'
-	| 'calendar-only'
-	| 'personnel-only'
-	| 'training-only'
+	| 'team-leader'
 	| 'viewer'
 	| 'custom';
 
@@ -60,6 +64,10 @@ export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'cus
 		canEditPersonnel: true,
 		canViewTraining: true,
 		canEditTraining: true,
+		canViewOnboarding: true,
+		canEditOnboarding: true,
+		canViewLeadersBook: true,
+		canEditLeadersBook: true,
 		canManageMembers: true
 	},
 	'full-editor': {
@@ -69,33 +77,23 @@ export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'cus
 		canEditPersonnel: true,
 		canViewTraining: true,
 		canEditTraining: true,
+		canViewOnboarding: true,
+		canEditOnboarding: true,
+		canViewLeadersBook: true,
+		canEditLeadersBook: true,
 		canManageMembers: false
 	},
-	'calendar-only': {
+	'team-leader': {
 		canViewCalendar: true,
 		canEditCalendar: true,
 		canViewPersonnel: true,
-		canEditPersonnel: false,
-		canViewTraining: true,
-		canEditTraining: false,
-		canManageMembers: false
-	},
-	'personnel-only': {
-		canViewCalendar: true,
-		canEditCalendar: false,
-		canViewPersonnel: true,
 		canEditPersonnel: true,
 		canViewTraining: true,
-		canEditTraining: false,
-		canManageMembers: false
-	},
-	'training-only': {
-		canViewCalendar: true,
-		canEditCalendar: false,
-		canViewPersonnel: true,
-		canEditPersonnel: false,
-		canViewTraining: true,
 		canEditTraining: true,
+		canViewOnboarding: true,
+		canEditOnboarding: true,
+		canViewLeadersBook: true,
+		canEditLeadersBook: true,
 		canManageMembers: false
 	},
 	viewer: {
@@ -105,11 +103,15 @@ export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'cus
 		canEditPersonnel: false,
 		canViewTraining: true,
 		canEditTraining: false,
+		canViewOnboarding: true,
+		canEditOnboarding: false,
+		canViewLeadersBook: true,
+		canEditLeadersBook: false,
 		canManageMembers: false
 	}
 };
 
-export function getPermissionPreset(permissions: OrganizationMemberPermissions): PermissionPreset {
+export function getPermissionPreset(permissions: OrganizationMemberPermissions, scopedGroupId?: string | null): PermissionPreset {
 	// Check each preset
 	for (const [preset, presetPermissions] of Object.entries(PERMISSION_PRESETS)) {
 		if (
@@ -119,12 +121,34 @@ export function getPermissionPreset(permissions: OrganizationMemberPermissions):
 			permissions.canEditPersonnel === presetPermissions.canEditPersonnel &&
 			permissions.canViewTraining === presetPermissions.canViewTraining &&
 			permissions.canEditTraining === presetPermissions.canEditTraining &&
+			permissions.canViewOnboarding === presetPermissions.canViewOnboarding &&
+			permissions.canEditOnboarding === presetPermissions.canEditOnboarding &&
+			permissions.canViewLeadersBook === presetPermissions.canViewLeadersBook &&
+			permissions.canEditLeadersBook === presetPermissions.canEditLeadersBook &&
 			permissions.canManageMembers === presetPermissions.canManageMembers
 		) {
+			// Distinguish team-leader from full-editor: if member has a scoped group, it's team-leader
+			if (preset === 'full-editor' && scopedGroupId) {
+				return 'team-leader';
+			}
+			// Skip team-leader match if no scoped group (it's actually full-editor)
+			if (preset === 'team-leader' && !scopedGroupId) {
+				continue;
+			}
 			return preset as PermissionPreset;
 		}
 	}
 	return 'custom';
+}
+
+export function isFullEditor(permissions: OrganizationMemberPermissions): boolean {
+	return (
+		permissions.canViewCalendar && permissions.canEditCalendar &&
+		permissions.canViewPersonnel && permissions.canEditPersonnel &&
+		permissions.canViewTraining && permissions.canEditTraining &&
+		permissions.canViewOnboarding && permissions.canEditOnboarding &&
+		permissions.canViewLeadersBook && permissions.canEditLeadersBook
+	);
 }
 
 export interface StatusType {

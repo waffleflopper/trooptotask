@@ -42,9 +42,12 @@
 		return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`;
 	});
 
-	// Availability entries covering today
+	// Scope availability entries to only personnel in the store (respects group scoping)
+	const personnelIds = $derived(new Set(personnelStore.list.map((p) => p.id)));
+
+	// Availability entries covering today, filtered to scoped personnel
 	const todayEntries = $derived(
-		availabilityStore.list.filter((e) => e.startDate <= today && e.endDate >= today)
+		availabilityStore.list.filter((e) => e.startDate <= today && e.endDate >= today && personnelIds.has(e.personnelId))
 	);
 
 	// Personnel on status today (set)
@@ -202,9 +205,11 @@
 		return map;
 	});
 
-	// Active onboardings with progress
+	// Active onboardings with progress (filtered to scoped personnel)
 	const activeOnboardings = $derived.by(() => {
-		const onboardings = data.activeOnboardings ?? [];
+		const onboardings = (data.activeOnboardings ?? []).filter(
+			(o: any) => personnelIds.has(o.personnelId)
+		);
 		return onboardings.map((o: any) => {
 			const person = personnelStore.list.find((p) => p.id === o.personnelId);
 			const personName = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';

@@ -3,7 +3,8 @@ import type { DevelopmentGoal } from '$lib/types/leadersBook';
 
 const handlers = createCrudHandlers<DevelopmentGoal>({
 	table: 'development_goals',
-	permission: 'personnel',
+	permission: 'leaders-book',
+	personnelIdField: 'personnel_id',
 	fields: {
 		personnelId: 'personnel_id',
 		targetDate: 'target_date',
@@ -17,6 +18,7 @@ const handlers = createCrudHandlers<DevelopmentGoal>({
 		target_date: null,
 		progress_notes: null
 	},
+	requireDeletionApproval: true,
 	auditResourceType: 'development_goal',
 	auditDetailFields: ['personnel_id', 'category', 'status']
 });

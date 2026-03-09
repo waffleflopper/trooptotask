@@ -9,20 +9,20 @@ import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validat
 import { auditLog } from '$lib/server/auditLog';
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
-	const { orgId, orgName, userRole, permissions, allOrgs } = await parent();
+	const { orgId, orgName, userRole, permissions, allOrgs, isAdmin, groups } = await parent();
 
 	// Parallelize members + invitations queries
 	const [membershipsRes, invitationsRes] = await Promise.all([
 		locals.supabase
 			.from('organization_memberships')
 			.select(
-				'id, user_id, email, role, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
+				'id, user_id, email, role, scoped_group_id, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
 			)
 			.eq('organization_id', orgId),
 		locals.supabase
 			.from('organization_invitations')
 			.select(
-				'id, email, status, created_at, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_manage_members'
+				'id, email, status, created_at, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
 			)
 			.eq('organization_id', orgId)
 			.eq('status', 'pending')
@@ -34,6 +34,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		userId: m.user_id,
 		email: m.email,
 		role: m.role,
+		scopedGroupId: m.scoped_group_id,
 		createdAt: m.created_at,
 		canViewCalendar: m.can_view_calendar,
 		canEditCalendar: m.can_edit_calendar,
@@ -41,6 +42,10 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		canEditPersonnel: m.can_edit_personnel,
 		canViewTraining: m.can_view_training,
 		canEditTraining: m.can_edit_training,
+		canViewOnboarding: m.can_view_onboarding,
+		canEditOnboarding: m.can_edit_onboarding,
+		canViewLeadersBook: m.can_view_leaders_book,
+		canEditLeadersBook: m.can_edit_leaders_book,
 		canManageMembers: m.can_manage_members
 	}));
 
@@ -49,12 +54,17 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		email: inv.email,
 		status: inv.status,
 		createdAt: inv.created_at,
+		scopedGroupId: inv.scoped_group_id,
 		canViewCalendar: inv.can_view_calendar,
 		canEditCalendar: inv.can_edit_calendar,
 		canViewPersonnel: inv.can_view_personnel,
 		canEditPersonnel: inv.can_edit_personnel,
 		canViewTraining: inv.can_view_training,
 		canEditTraining: inv.can_edit_training,
+		canViewOnboarding: inv.can_view_onboarding,
+		canEditOnboarding: inv.can_edit_onboarding,
+		canViewLeadersBook: inv.can_view_leaders_book,
+		canEditLeadersBook: inv.can_edit_leaders_book,
 		canManageMembers: inv.can_manage_members
 	}));
 
@@ -86,7 +96,9 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		members,
 		invitations,
 		isOwner: userRole === 'owner',
+		isAdmin,
 		canManageMembers: permissions.canManageMembers,
+		groups: groups.map((g) => ({ id: g.id, name: g.name })),
 		exportInfo
 	};
 };
@@ -148,16 +160,24 @@ export const actions: Actions = {
 		// Get permissions from preset
 		const permissions = PERMISSION_PRESETS[preset] || PERMISSION_PRESETS['full-editor'];
 
+		// Read scoped group ID for team-leader preset
+		const scopedGroupId = formData.get('scopedGroupId') as string || null;
+
 		const { error } = await locals.supabase.from('organization_invitations').insert({
 			organization_id: orgId,
 			email,
 			invited_by: user.id,
+			scoped_group_id: preset === 'team-leader' ? scopedGroupId : null,
 			can_view_calendar: permissions.canViewCalendar,
 			can_edit_calendar: permissions.canEditCalendar,
 			can_view_personnel: permissions.canViewPersonnel,
 			can_edit_personnel: permissions.canEditPersonnel,
 			can_view_training: permissions.canViewTraining,
 			can_edit_training: permissions.canEditTraining,
+			can_view_onboarding: permissions.canViewOnboarding,
+			can_edit_onboarding: permissions.canEditOnboarding,
+			can_view_leaders_book: permissions.canViewLeadersBook,
+			can_edit_leaders_book: permissions.canEditLeadersBook,
 			can_manage_members: permissions.canManageMembers
 		});
 
@@ -270,6 +290,13 @@ export const actions: Actions = {
 			return fail(400, { permissionError: 'Cannot modify owner permissions' });
 		}
 
+		// Only owners can change admin roles
+		if (preset === 'admin' || targetMembership?.role === 'admin') {
+			await requireOwnerRole(locals.supabase, orgId, user.id);
+		} else {
+			await requireManageMembersPermission(locals.supabase, orgId, user.id);
+		}
+
 		let permissions: {
 			can_view_calendar: boolean;
 			can_edit_calendar: boolean;
@@ -277,6 +304,10 @@ export const actions: Actions = {
 			can_edit_personnel: boolean;
 			can_view_training: boolean;
 			can_edit_training: boolean;
+			can_view_onboarding: boolean;
+			can_edit_onboarding: boolean;
+			can_view_leaders_book: boolean;
+			can_edit_leaders_book: boolean;
 			can_manage_members: boolean;
 		};
 
@@ -289,6 +320,10 @@ export const actions: Actions = {
 				can_edit_personnel: formData.get('canEditPersonnel') === 'on',
 				can_view_training: formData.get('canViewTraining') === 'on',
 				can_edit_training: formData.get('canEditTraining') === 'on',
+				can_view_onboarding: formData.get('canViewOnboarding') === 'on',
+				can_edit_onboarding: formData.get('canEditOnboarding') === 'on',
+				can_view_leaders_book: formData.get('canViewLeadersBook') === 'on',
+				can_edit_leaders_book: formData.get('canEditLeadersBook') === 'on',
 				can_manage_members: formData.get('canManageMembers') === 'on'
 			};
 		} else {
@@ -303,13 +338,23 @@ export const actions: Actions = {
 				can_edit_personnel: presetPermissions.canEditPersonnel,
 				can_view_training: presetPermissions.canViewTraining,
 				can_edit_training: presetPermissions.canEditTraining,
+				can_view_onboarding: presetPermissions.canViewOnboarding,
+				can_edit_onboarding: presetPermissions.canEditOnboarding,
+				can_view_leaders_book: presetPermissions.canViewLeadersBook,
+				can_edit_leaders_book: presetPermissions.canEditLeadersBook,
 				can_manage_members: presetPermissions.canManageMembers
 			};
 		}
 
+		// Determine role and scoped_group_id based on preset
+		const role = preset === 'admin' ? 'admin' : 'member';
+		const scopedGroupId = preset === 'team-leader'
+			? (formData.get('scopedGroupId') as string || null)
+			: null;
+
 		const { error } = await locals.supabase
 			.from('organization_memberships')
-			.update(permissions)
+			.update({ ...permissions, role, scoped_group_id: scopedGroupId })
 			.eq('id', membershipId)
 			.eq('organization_id', orgId);
 

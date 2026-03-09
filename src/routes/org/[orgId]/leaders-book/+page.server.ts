@@ -9,7 +9,7 @@ import { getSupabaseClient } from '$lib/server/supabase';
 import { formatDate } from '$lib/utils/dates';
 import { transformAvailabilityEntries } from '$lib/server/transforms';
 
-export const load: PageServerLoad = async ({ params, locals, cookies }) => {
+export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
 	const supabase = getSupabaseClient(locals, cookies);
 
@@ -48,7 +48,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 			.gte('end_date', today)
 	]);
 
-	const extendedInfo: PersonnelExtendedInfo[] = (extendedInfoRes.data ?? []).map((e: any) => ({
+	let extendedInfo: PersonnelExtendedInfo[] = (extendedInfoRes.data ?? []).map((e: any) => ({
 		id: e.id,
 		personnelId: e.personnel_id,
 		emergencyContactName: e.emergency_contact_name,
@@ -80,7 +80,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		sortOrder: t.sort_order
 	}));
 
-	const counselingRecords: CounselingRecord[] = (counselingRecordsRes.data ?? []).map(
+	let counselingRecords: CounselingRecord[] = (counselingRecordsRes.data ?? []).map(
 		(r: any) => ({
 			id: r.id,
 			personnelId: r.personnel_id,
@@ -100,7 +100,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		})
 	);
 
-	const developmentGoals: DevelopmentGoal[] = (developmentGoalsRes.data ?? []).map((g: any) => ({
+	let developmentGoals: DevelopmentGoal[] = (developmentGoalsRes.data ?? []).map((g: any) => ({
 		id: g.id,
 		personnelId: g.personnel_id,
 		title: g.title,
@@ -112,7 +112,18 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		progressNotes: g.progress_notes
 	}));
 
-	const availability = transformAvailabilityEntries(availabilityRes.data ?? []);
+	let availability = transformAvailabilityEntries(availabilityRes.data ?? []);
+
+	const { scopedGroupId, personnel } = await parent();
+
+	// If group-scoped, filter to only personnel in scope
+	if (scopedGroupId) {
+		const scopedPersonnelIds = new Set(personnel.map((p: any) => p.id));
+		extendedInfo = extendedInfo.filter(e => scopedPersonnelIds.has(e.personnelId));
+		counselingRecords = counselingRecords.filter(r => scopedPersonnelIds.has(r.personnelId));
+		developmentGoals = developmentGoals.filter(g => scopedPersonnelIds.has(g.personnelId));
+		availability = availability.filter(a => scopedPersonnelIds.has(a.personnelId));
+	}
 
 	return {
 		orgId,

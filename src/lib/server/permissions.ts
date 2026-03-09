@@ -1,13 +1,20 @@
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type PermissionType = 'calendar' | 'personnel' | 'training';
+export type PermissionType = 'calendar' | 'personnel' | 'training' | 'onboarding' | 'leaders-book';
 
 interface MembershipPermissions {
-	role: 'owner' | 'member';
+	role: 'owner' | 'admin' | 'member';
 	can_edit_calendar: boolean;
 	can_edit_personnel: boolean;
 	can_edit_training: boolean;
+	can_edit_onboarding: boolean;
+	can_edit_leaders_book: boolean;
+	scoped_group_id: string | null;
+}
+
+export function isPrivilegedRole(role: string): boolean {
+	return role === 'owner' || role === 'admin';
 }
 
 async function getMembershipPermissions(
@@ -17,7 +24,7 @@ async function getMembershipPermissions(
 ): Promise<MembershipPermissions | null> {
 	const { data: membership } = await supabase
 		.from('organization_memberships')
-		.select('role, can_edit_calendar, can_edit_personnel, can_edit_training')
+		.select('role, can_edit_calendar, can_edit_personnel, can_edit_training, can_edit_onboarding, can_edit_leaders_book, scoped_group_id')
 		.eq('organization_id', orgId)
 		.eq('user_id', userId)
 		.single();
@@ -37,8 +44,8 @@ export async function requireEditPermission(
 		throw error(403, 'Not a member of this organization');
 	}
 
-	// Owners always have full access
-	if (membership.role === 'owner') {
+	// Owners and admins always have full access
+	if (isPrivilegedRole(membership.role)) {
 		return;
 	}
 
@@ -57,6 +64,16 @@ export async function requireEditPermission(
 		case 'training':
 			if (!membership.can_edit_training) {
 				throw error(403, 'You do not have permission to edit training data');
+			}
+			break;
+		case 'onboarding':
+			if (!membership.can_edit_onboarding) {
+				throw error(403, 'You do not have permission to edit onboarding data');
+			}
+			break;
+		case 'leaders-book':
+			if (!membership.can_edit_leaders_book) {
+				throw error(403, 'You do not have permission to edit leaders book data');
 			}
 			break;
 	}
@@ -78,7 +95,7 @@ export async function requireManageMembersPermission(
 		throw error(403, 'Not a member of this organization');
 	}
 
-	if (membership.role !== 'owner' && !membership.can_manage_members) {
+	if (!isPrivilegedRole(membership.role) && !membership.can_manage_members) {
 		throw error(403, 'You do not have permission to manage this organization');
 	}
 }
@@ -97,5 +114,60 @@ export async function requireOwnerRole(
 
 	if (!membership || membership.role !== 'owner') {
 		throw error(403, 'Only the organization owner can perform this action');
+	}
+}
+
+export async function getScopedGroupId(
+	supabase: SupabaseClient,
+	orgId: string,
+	userId: string
+): Promise<string | null> {
+	const membership = await getMembershipPermissions(supabase, orgId, userId);
+	if (!membership) return null;
+	if (isPrivilegedRole(membership.role)) return null;
+	return membership.scoped_group_id;
+}
+
+export async function requireGroupAccess(
+	supabase: SupabaseClient,
+	orgId: string,
+	userId: string,
+	personnelGroupId: string | null
+): Promise<void> {
+	const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
+	if (!scopedGroupId) return;
+	if (personnelGroupId !== scopedGroupId) {
+		throw error(403, 'You do not have access to personnel outside your group');
+	}
+}
+
+export async function requirePrivilegedOrFullEditor(
+	supabase: SupabaseClient,
+	orgId: string,
+	userId: string
+): Promise<void> {
+	const { data: membership } = await supabase
+		.from('organization_memberships')
+		.select('role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members')
+		.eq('organization_id', orgId)
+		.eq('user_id', userId)
+		.single();
+
+	if (!membership) {
+		throw error(403, 'Not a member of this organization');
+	}
+
+	if (isPrivilegedRole(membership.role)) return;
+
+	// Team leaders (scoped to a group) are not full editors even with all permissions
+	const isFullEd = !membership.scoped_group_id &&
+		membership.can_view_calendar && membership.can_edit_calendar &&
+		membership.can_view_personnel && membership.can_edit_personnel &&
+		membership.can_view_training && membership.can_edit_training &&
+		membership.can_view_onboarding && membership.can_edit_onboarding &&
+		membership.can_view_leaders_book && membership.can_edit_leaders_book;
+
+	if (!isFullEd) {
+		throw error(403, 'This action requires full editor, admin, or owner permissions');
 	}
 }

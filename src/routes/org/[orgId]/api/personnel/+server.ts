@@ -175,14 +175,14 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 
 	const { error: dbError } = await supabase
 		.from('personnel')
-		.delete()
+		.update({ archived_at: new Date().toISOString() })
 		.eq('id', id)
 		.eq('organization_id', orgId);
 
 	if (dbError) throw error(500, dbError.message);
 
 	auditLog(
-		{ action: 'personnel.deleted', resourceType: 'personnel', resourceId: id, orgId, details: { actor: locals.user?.email ?? userId, name: existing ? `${existing.rank} ${existing.last_name}, ${existing.first_name}` : id } },
+		{ action: 'personnel.archived', resourceType: 'personnel', resourceId: id, orgId, details: { actor: locals.user?.email ?? userId, name: existing ? `${existing.rank} ${existing.last_name}, ${existing.first_name}` : id } },
 		{ userId }
 	);
 

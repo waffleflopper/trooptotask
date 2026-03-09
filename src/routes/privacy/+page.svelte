@@ -4,14 +4,14 @@
 </script>
 
 <svelte:head>
-	<title>Security — Troop to Task</title>
-	<meta name="description" content="Learn how TroopToTask protects your data with encryption, access controls, audit logging, and alignment with NIST SP 800-171." />
+	<title>Privacy Policy — Troop to Task</title>
+	<meta name="description" content="Learn how TroopToTask collects, uses, and protects your data. We respect your privacy and handle all information with care." />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </svelte:head>
 
-<div class="security-page">
+<div class="legal-page">
 	<!-- Classification Bar -->
 	<div class="classification-bar">
 		<span>TROOP TO TASK</span>
@@ -30,7 +30,7 @@
 			<div class="nav-links">
 				<a href="/features" class="nav-link">Features</a>
 				<a href="/pricing" class="nav-link">Pricing</a>
-				<a href="/security" class="nav-link active">Security</a>
+				<a href="/security" class="nav-link">Security</a>
 				<a href="/#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
@@ -71,98 +71,106 @@
 	<section class="page-header">
 		<div class="hero-noise"></div>
 		<div class="page-header-content">
-			<div class="section-label">SECURITY</div>
-			<h1>Your data, <em>protected.</em></h1>
-			<p>TroopToTask aligns with NIST SP 800-171 for the protection of Controlled Unclassified Information.</p>
+			<div class="section-label">PRIVACY POLICY</div>
+			<h1>Your privacy, <em>respected.</em></h1>
+			<p>TroopToTask is committed to protecting your personal information and the personnel data you entrust to us.</p>
+			<p class="effective-date">Effective date: March 8, 2026</p>
 		</div>
 	</section>
 
-	<!-- Section 01 — Data Classification -->
+	<!-- Section 01 — Information We Collect -->
 	<section class="content-section">
 		<div class="content-inner">
-			<div class="content-label">01 // Data Classification</div>
-			<h2>What we handle, and how we treat it.</h2>
-			<p>TroopToTask manages personnel readiness data that may include Controlled Unclassified Information (CUI). This includes names, ranks, unit assignments, training records, counseling notes, and availability statuses. We treat all customer data as CUI-equivalent and apply protections accordingly.</p>
-			<p>We do not process, store, or transmit classified information at any level. TroopToTask is designed exclusively for unclassified environments.</p>
+			<div class="content-label">01 // Information We Collect</div>
+			<h2>What we collect, and why.</h2>
+			<p>We collect information you provide directly: account info (email, name), organization data, and personnel records you enter (names, ranks, unit assignments, contact information, training records, counseling notes, availability statuses). We also collect usage data automatically: IP addresses, browser type, pages visited, and timestamps for security and audit purposes.</p>
 		</div>
 	</section>
 
-	<!-- Section 02 — Encryption -->
+	<!-- Section 02 — How We Use Your Information -->
 	<section class="content-section alt">
 		<div class="content-inner">
-			<div class="content-label">02 // Encryption</div>
-			<h2>Encrypted in transit and at rest.</h2>
-			<p>All data transmitted between your browser and our servers is encrypted with TLS 1.2 or higher, enforced via HTTP Strict Transport Security (HSTS) headers. Downgrade attacks and cleartext connections are blocked.</p>
-			<p>Data at rest is encrypted with AES-256 by our infrastructure providers. Database backups, file storage, and all persistent data stores use server-side encryption with managed keys.</p>
+			<div class="content-label">02 // How We Use Your Information</div>
+			<h2>Purpose-driven, nothing more.</h2>
+			<p>We use your information to: provide and maintain the TroopToTask service; authenticate your identity and manage access; generate audit logs for compliance; send service-related notifications; improve the service based on aggregate usage patterns. We do not use your data for advertising, profiling, or any purpose unrelated to delivering the service.</p>
 		</div>
 	</section>
 
-	<!-- Section 03 — Access Control -->
+	<!-- Section 03 — Data Storage & Security -->
 	<section class="content-section">
 		<div class="content-inner">
-			<div class="content-label">03 // Access Control</div>
-			<h2>Every request is authorized.</h2>
-			<p>Authentication is handled via Supabase Auth with support for email/password and multi-factor authentication (TOTP). Sessions are enforced with a 24-hour absolute timeout and secure, HttpOnly cookies.</p>
-			<p>Authorization uses a layered approach: role-based access control (RBAC) at the application level with admin, editor, and viewer roles, combined with PostgreSQL Row-Level Security (RLS) policies that enforce tenant isolation at the database layer. Every API endpoint validates organization membership and role permissions server-side before processing requests.</p>
+			<div class="content-label">03 // Data Storage &amp; Security</div>
+			<h2>Protected at every layer.</h2>
+			<p>All data is encrypted at rest (AES-256) and in transit (TLS 1.2+). Data is stored on Supabase infrastructure hosted in the United States. We implement role-based access controls, audit logging, and security headers aligned with NIST SP 800-171. See our <a href="/security">Security page</a> for comprehensive details.</p>
 		</div>
 	</section>
 
-	<!-- Section 04 — Audit Logging -->
+	<!-- Section 04 — Data Sharing -->
 	<section class="content-section alt">
 		<div class="content-inner">
-			<div class="content-label">04 // Audit Logging</div>
-			<h2>Every action leaves a trail.</h2>
-			<p>TroopToTask maintains structured audit logs for security-relevant events including authentication attempts, permission changes, data modifications, and administrative actions. Logs capture the actor, action, resource, timestamp, and contextual metadata.</p>
-			<p>Audit records are retained for 90 days, with automated cleanup of expired entries. Personally identifiable information is filtered from log details to maintain data minimization principles.</p>
+			<div class="content-label">04 // Data Sharing</div>
+			<h2>Your data stays yours.</h2>
+			<p>We do not sell, rent, or share your personal information or personnel data with third parties. We may disclose information only when required by law, to enforce our terms, or to protect rights and safety. Our infrastructure providers (Supabase, Vercel) process data solely to deliver the service under strict data processing agreements.</p>
 		</div>
 	</section>
 
-	<!-- Section 05 — Infrastructure -->
+	<!-- Section 05 — Data Retention -->
 	<section class="content-section">
 		<div class="content-inner">
-			<div class="content-label">05 // Infrastructure</div>
-			<h2>Built on proven platforms.</h2>
-			<p>TroopToTask runs on infrastructure from providers with established security programs:</p>
-			<ul>
-				<li><strong>Vercel</strong> — Application hosting and edge delivery. SOC 2 Type II certified.</li>
-				<li><strong>Supabase</strong> — PostgreSQL database, authentication, and file storage. SOC 2 Type II certified. Hosted on AWS with isolated tenancy.</li>
-				<li><strong>Stripe</strong> — Payment processing. PCI DSS Level 1 certified. TroopToTask never stores credit card numbers or payment credentials.</li>
-			</ul>
-			<p>All infrastructure is hosted within the United States.</p>
+			<div class="content-label">05 // Data Retention</div>
+			<h2>Kept only as long as needed.</h2>
+			<p>We retain your data for as long as your account is active. When you delete personnel records, counseling records, or other data, it is permanently removed from our database. If you delete your account, all associated data is deleted. Audit logs may be retained for compliance purposes for up to 1 year after account deletion.</p>
 		</div>
 	</section>
 
-	<!-- Section 06 — Compliance Alignment -->
+	<!-- Section 06 — Your Rights -->
 	<section class="content-section alt">
 		<div class="content-inner">
-			<div class="content-label">06 // Compliance Alignment</div>
-			<h2>Aligned with NIST SP 800-171.</h2>
-			<p>TroopToTask's security controls align with the following NIST SP 800-171 Rev 2 control families:</p>
-			<ul>
-				<li><strong>Access Control (3.1)</strong> — RBAC, RLS, session management, least privilege</li>
-				<li><strong>Audit &amp; Accountability (3.3)</strong> — Structured logging, retention policies, PII filtering</li>
-				<li><strong>Identification &amp; Authentication (3.5)</strong> — MFA support, password policies, session timeouts</li>
-				<li><strong>System &amp; Communications Protection (3.13)</strong> — TLS 1.2+, AES-256, security headers, CSP</li>
-				<li><strong>System &amp; Information Integrity (3.14)</strong> — Input validation, rate limiting, error handling</li>
-				<li><strong>Incident Response (3.6)</strong> — Documented response procedures, contact channels</li>
-			</ul>
-			<p>While we are not FedRAMP authorized, we continuously improve our posture to support organizations that handle CUI.</p>
+			<div class="content-label">06 // Your Rights</div>
+			<h2>You are in control.</h2>
+			<p>You have the right to: access all data stored about you and your organization; export your data at any time via our export features; correct inaccurate information; delete your data and account; request information about how your data is processed. Organization owners can manage these rights for their organization's data through the application.</p>
 		</div>
 	</section>
 
-	<!-- Section 07 — Responsible Disclosure -->
+	<!-- Section 07 — Cookies & Tracking -->
 	<section class="content-section">
 		<div class="content-inner">
-			<div class="content-label">07 // Responsible Disclosure</div>
-			<h2>Report a vulnerability.</h2>
-			<p>If you discover a security vulnerability in TroopToTask, we encourage responsible disclosure. Please report findings to:</p>
-			<div class="disclosure-contact">
+			<div class="content-label">07 // Cookies &amp; Tracking</div>
+			<h2>Essential only, no surveillance.</h2>
+			<p>We use only essential cookies required for authentication and session management. We do not use tracking cookies, analytics beacons, or third-party advertising pixels. We do not participate in cross-site tracking or data broker networks.</p>
+		</div>
+	</section>
+
+	<!-- Section 08 — Children's Privacy -->
+	<section class="content-section alt">
+		<div class="content-inner">
+			<div class="content-label">08 // Children's Privacy</div>
+			<h2>Not designed for minors.</h2>
+			<p>TroopToTask is designed for use by military personnel and unit leaders. We do not knowingly collect information from children under 13. If we become aware that we have collected such information, we will delete it immediately.</p>
+		</div>
+	</section>
+
+	<!-- Section 09 — Changes to This Policy -->
+	<section class="content-section">
+		<div class="content-inner">
+			<div class="content-label">09 // Changes to This Policy</div>
+			<h2>Transparent updates.</h2>
+			<p>We may update this policy to reflect changes in our practices or legal requirements. We will notify users of material changes via the application. Continued use after changes constitutes acceptance.</p>
+		</div>
+	</section>
+
+	<!-- Section 10 — Contact -->
+	<section class="content-section alt">
+		<div class="content-inner">
+			<div class="content-label">10 // Contact</div>
+			<h2>Get in touch.</h2>
+			<p>For privacy-related inquiries, contact us at:</p>
+			<div class="contact-box">
 				<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
 				</svg>
-				<a href="mailto:security@trooptotask.app">security@trooptotask.app</a>
+				<a href="mailto:privacy@trooptotask.com">privacy@trooptotask.com</a>
 			</div>
-			<p>We ask that you provide a reasonable amount of time for us to address reported issues before public disclosure. We will acknowledge receipt within 48 hours and aim to provide a resolution timeline within 5 business days.</p>
 		</div>
 	</section>
 
@@ -211,11 +219,11 @@
 
 <style>
 	/* ============================================
-	   Security Page — reuses "Operations Directive" design system
+	   Privacy Policy Page — reuses "Operations Directive" design system
 	   Typography: Instrument Serif + DM Sans + DM Mono
 	   ============================================ */
 
-	.security-page {
+	.legal-page {
 		--font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
 		--font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 		--font-mono: 'DM Mono', 'Menlo', monospace;
@@ -237,7 +245,7 @@
 		overflow-x: hidden;
 	}
 
-	:global([data-theme='dark']) .security-page {
+	:global([data-theme='dark']) .legal-page {
 		--paper: var(--color-bg);
 		--paper-warm: var(--color-surface);
 	}
@@ -417,6 +425,14 @@
 		margin-bottom: 1rem;
 	}
 
+	.effective-date {
+		font-family: var(--font-mono);
+		font-size: 0.75rem !important;
+		letter-spacing: 0.05em;
+		margin-top: 1.25rem !important;
+		opacity: 0.7;
+	}
+
 	.hero-noise {
 		position: absolute;
 		inset: 0;
@@ -487,39 +503,18 @@
 		margin-bottom: 0;
 	}
 
-	.content-inner ul {
-		list-style: none;
-		padding: 0;
-		margin: 0 0 1rem 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.625rem;
+	.content-inner a {
+		color: var(--brass);
+		text-decoration: none;
+		transition: color 0.15s;
 	}
 
-	.content-inner li {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.625rem;
-		font-size: 0.9375rem;
-		color: var(--color-text-secondary);
-		line-height: 1.6;
+	.content-inner a:hover {
+		color: var(--brass-light);
+		text-decoration: underline;
 	}
 
-	.content-inner li::before {
-		content: '';
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: var(--brass);
-		flex-shrink: 0;
-		margin-top: 0.55rem;
-	}
-
-	.content-inner li strong {
-		color: var(--color-text);
-	}
-
-	.disclosure-contact {
+	.contact-box {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.75rem;
@@ -530,12 +525,12 @@
 		margin-bottom: 1.25rem;
 	}
 
-	.disclosure-contact svg {
+	.contact-box svg {
 		color: var(--brass);
 		flex-shrink: 0;
 	}
 
-	.disclosure-contact a {
+	.contact-box a {
 		font-family: var(--font-mono);
 		font-size: 0.9375rem;
 		color: var(--brass);
@@ -543,7 +538,7 @@
 		letter-spacing: 0.02em;
 	}
 
-	.disclosure-contact a:hover {
+	.contact-box a:hover {
 		color: var(--brass-light);
 		text-decoration: underline;
 	}
@@ -671,12 +666,6 @@
 		color: var(--hero-text);
 	}
 
-	.footer-text {
-		color: rgba(255,255,255,0.2);
-		font-size: 0.75rem;
-		margin: 0;
-	}
-
 	.footer-legal {
 		display: flex;
 		align-items: center;
@@ -697,6 +686,12 @@
 	.footer-legal-sep {
 		color: rgba(255,255,255,0.15);
 		font-size: 0.75rem;
+	}
+
+	.footer-text {
+		color: rgba(255,255,255,0.2);
+		font-size: 0.75rem;
+		margin: 0;
 	}
 
 	/* ============================================

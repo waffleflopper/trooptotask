@@ -2,7 +2,7 @@ import type { PersonnelTraining } from '../types';
 import type { DeleteResult } from '../utils/deletionRequests';
 
 class PersonnelTrainingsStore {
-	#trainings = $state<PersonnelTraining[]>([]);
+	#trainings = $state.raw<PersonnelTraining[]>([]);
 	#orgId = '';
 
 	get list() {

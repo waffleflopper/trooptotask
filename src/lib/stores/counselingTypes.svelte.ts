@@ -2,7 +2,7 @@ import type { CounselingType } from '../types/leadersBook';
 import type { DeleteResult } from '../utils/deletionRequests';
 
 class CounselingTypesStore {
-	#counselingTypes = $state<CounselingType[]>([]);
+	#counselingTypes = $state.raw<CounselingType[]>([]);
 	#orgId = '';
 
 	get list() {

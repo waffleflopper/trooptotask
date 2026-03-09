@@ -11,7 +11,7 @@
 		person: Personnel;
 		trainingType: TrainingType;
 		existingTraining: PersonnelTraining | undefined;
-		onSave: (data: Omit<PersonnelTraining, 'id'>) => void;
+		onSave: (data: Omit<PersonnelTraining, 'id'>) => void | Promise<void>;
 		onRemove: (id: string) => void | Promise<void>;
 		onClose: () => void;
 		canBeExempted?: boolean;
@@ -68,19 +68,25 @@
 		expirationDateOnly ? !!directExpirationDate : neverExpires ? isComplete : !!completionDate
 	);
 
-	function handleSave() {
-		if (!canSave) return;
+	let saving = $state(false);
 
-		onSave({
-			personnelId: person.id,
-			trainingTypeId: trainingType.id,
-			completionDate: expirationDateOnly ? null : (completionDate || null),
-			expirationDate: previewExpirationDate,
-			notes: notes.trim() || null,
-			certificateUrl: certificateUrl.trim() || null
-		});
-		toastStore.success(existingTraining ? 'Training record updated' : 'Training record saved');
-		onClose();
+	async function handleSave() {
+		if (!canSave || saving) return;
+		saving = true;
+		try {
+			await onSave({
+				personnelId: person.id,
+				trainingTypeId: trainingType.id,
+				completionDate: expirationDateOnly ? null : (completionDate || null),
+				expirationDate: previewExpirationDate,
+				notes: notes.trim() || null,
+				certificateUrl: certificateUrl.trim() || null
+			});
+			toastStore.success(existingTraining ? 'Training record updated' : 'Training record saved');
+			onClose();
+		} finally {
+			saving = false;
+		}
 	}
 
 	let showRemoveConfirm = $state(false);
@@ -237,7 +243,9 @@
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>{isExempt ? 'Close' : 'Cancel'}</button>
 		{#if !isExempt}
-			<button class="btn btn-primary" onclick={handleSave} disabled={!canSave}>Save</button>
+			<button class="btn btn-primary" onclick={handleSave} disabled={!canSave || saving}>
+				{saving ? 'Saving...' : 'Save'}
+			</button>
 		{/if}
 	{/snippet}
 </Modal>

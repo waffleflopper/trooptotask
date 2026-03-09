@@ -15,8 +15,8 @@ export interface DailyAssignment {
 }
 
 class DailyAssignmentsStore {
-	#types = $state<AssignmentType[]>([]);
-	#assignments = $state<DailyAssignment[]>([]);
+	#types = $state.raw<AssignmentType[]>([]);
+	#assignments = $state.raw<DailyAssignment[]>([]);
 	#orgId = '';
 
 	get types() {

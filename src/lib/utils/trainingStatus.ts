@@ -47,16 +47,6 @@ export function getTrainingStatus(
 		};
 	}
 
-	// For optional training without a completion date, still show N/A
-	if (!isRequired && training && !training.completionDate) {
-		return {
-			status: 'not-required',
-			color: TRAINING_STATUS_COLORS['not-required'],
-			label: 'N/A',
-			daysUntilExpiration: null
-		};
-	}
-
 	// No training record for required training
 	if (!training) {
 		return {
@@ -69,11 +59,24 @@ export function getTrainingStatus(
 
 	// Never-expires training: if record exists, it's current
 	// (record can exist without date for never-expires types)
+	// Must be checked BEFORE the optional-without-completionDate check below,
+	// since never-expires training is validly complete with null completionDate
 	if (!type.expirationDateOnly && type.expirationMonths === null) {
 		return {
 			status: 'current',
 			color: TRAINING_STATUS_COLORS['current'],
 			label: 'Current',
+			daysUntilExpiration: null
+		};
+	}
+
+	// For optional training without a completion date, show N/A
+	// (never-expires is already handled above)
+	if (!isRequired && !training.completionDate) {
+		return {
+			status: 'not-required',
+			color: TRAINING_STATUS_COLORS['not-required'],
+			label: 'N/A',
 			daysUntilExpiration: null
 		};
 	}

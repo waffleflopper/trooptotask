@@ -52,7 +52,7 @@
 		return items;
 	});
 
-	const filteredPersonnel = $derived(() => {
+	const filteredPersonnel = $derived.by(() => {
 		let personnel = data.personnel;
 
 		// Filter by group if selected
@@ -80,7 +80,7 @@
 	});
 
 	// Statistics
-	const stats = $derived(() => {
+	const stats = $derived.by(() => {
 		const totalPersonnel = data.personnel.length;
 		const withExtendedInfo = personnelExtendedInfoStore.list.length;
 		const totalCounselings = counselingRecordsStore.list.length;
@@ -169,23 +169,23 @@
 	{:else}
 	<div class="stats-bar">
 		<div class="stat">
-			<span class="stat-value">{stats().totalPersonnel}</span>
+			<span class="stat-value">{stats.totalPersonnel}</span>
 			<span class="stat-label">Personnel</span>
 		</div>
 		<div class="stat info">
-			<span class="stat-value">{stats().withExtendedInfo}</span>
+			<span class="stat-value">{stats.withExtendedInfo}</span>
 			<span class="stat-label">With Info</span>
 		</div>
 		<div class="stat counseling">
-			<span class="stat-value">{stats().totalCounselings}</span>
+			<span class="stat-value">{stats.totalCounselings}</span>
 			<span class="stat-label">Counselings</span>
 		</div>
 		<div class="stat pending">
-			<span class="stat-value">{stats().pendingCounselings}</span>
+			<span class="stat-value">{stats.pendingCounselings}</span>
 			<span class="stat-label">Pending</span>
 		</div>
 		<div class="stat goals">
-			<span class="stat-value">{stats().completedGoals}/{stats().totalGoals}</span>
+			<span class="stat-value">{stats.completedGoals}/{stats.totalGoals}</span>
 			<span class="stat-label">Goals Done</span>
 		</div>
 	</div>
@@ -212,11 +212,11 @@
 				bind:value={searchQuery}
 			/>
 		</div>
-		<span class="filter-count">{filteredPersonnel().length} personnel</span>
+		<span class="filter-count">{filteredPersonnel.length} personnel</span>
 	</div>
 
 	<main class="page-content">
-		{#if filteredPersonnel().length === 0}
+		{#if filteredPersonnel.length === 0}
 			{#if data.personnel.length === 0}
 				<EmptyState
 					message="No personnel added yet."
@@ -228,7 +228,7 @@
 			{/if}
 		{:else}
 			<div class="personnel-grid">
-				{#each filteredPersonnel() as person (person.id)}
+				{#each filteredPersonnel as person (person.id)}
 					<button class="person-card" onclick={() => handlePersonClick(person)}>
 						<div class="person-header">
 							<span class="person-rank">{person.rank}</span>

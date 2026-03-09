@@ -67,7 +67,7 @@
 	let isApplying = $state(false);
 
 	// Extract all unique values in single pass for efficiency (O(n) instead of O(4n))
-	const personnelData = $derived(() => {
+	const personnelData = $derived.by(() => {
 		const ranks = new Set<string>();
 		const mos = new Set<string>();
 		const roles = new Set<string>();
@@ -91,24 +91,24 @@
 	});
 
 	// Convenience accessors
-	const allPersonnel = $derived(() => personnelData().allPersonnel);
-	const allRanks = $derived(() => personnelData().allRanks);
-	const allMOS = $derived(() => personnelData().allMOS);
-	const allRoles = $derived(() => personnelData().allRoles);
+	const allPersonnel = $derived(personnelData.allPersonnel);
+	const allRanks = $derived(personnelData.allRanks);
+	const allMOS = $derived(personnelData.allMOS);
+	const allRoles = $derived(personnelData.allRoles);
 
 	// Get currently selected assignment type object
-	const selectedAssignmentType = $derived(() =>
+	const selectedAssignmentType = $derived.by(() =>
 		assignmentTypes.find(t => t.id === selectedAssignmentTypeId) ?? null
 	);
 
 	// Exempt personnel IDs for the currently selected assignment type
-	const currentExemptIds = $derived(() =>
-		selectedAssignmentType()?.exemptPersonnelIds ?? []
+	const currentExemptIds = $derived.by(() =>
+		selectedAssignmentType?.exemptPersonnelIds ?? []
 	);
 
 	// Filter personnel based on selection criteria (excluding exempt)
-	const eligiblePersonnel = $derived(() => {
-		let personnel = allPersonnel();
+	const eligiblePersonnel = $derived.by(() => {
+		let personnel = allPersonnel;
 
 		// Filter by groups if any selected
 		if (selectedGroups.length > 0) {
@@ -131,7 +131,7 @@
 		}
 
 		// Exclude exempt personnel
-		const exempt = currentExemptIds();
+		const exempt = currentExemptIds;
 		if (exempt.length > 0) {
 			personnel = personnel.filter(p => !exempt.includes(p.id));
 		}
@@ -144,7 +144,7 @@
 		const counts = new Map<string, number>();
 
 		// Initialize all eligible personnel with 0
-		eligiblePersonnel().forEach(p => counts.set(p.id, 0));
+		eligiblePersonnel.forEach(p => counts.set(p.id, 0));
 
 		// Count existing assignments of this type
 		assignments
@@ -163,7 +163,7 @@
 	// (e.g. generating February retroactively).
 	function getLastDutyDates(assignmentTypeId: string, beforeDate: string): Map<string, string | null> {
 		const lastDates = new Map<string, string | null>();
-		eligiblePersonnel().forEach(p => lastDates.set(p.id, null));
+		eligiblePersonnel.forEach(p => lastDates.set(p.id, null));
 
 		assignments
 			.filter(a => a.assignmentTypeId === assignmentTypeId && a.date < beforeDate)
@@ -239,7 +239,7 @@
 
 		for (const date of dutyDates) {
 			// Get available personnel for this date
-			const available = eligiblePersonnel().filter(p => isPersonAvailable(p, date));
+			const available = eligiblePersonnel.filter(p => isPersonAvailable(p, date));
 
 			if (available.length === 0) {
 				roster.push({ date, assignee: null, reason: 'No eligible personnel available' });
@@ -506,7 +506,7 @@
 	}
 
 	function toggleExempt(personnelId: string) {
-		const current = currentExemptIds();
+		const current = currentExemptIds;
 		const next = current.includes(personnelId)
 			? current.filter(id => id !== personnelId)
 			: [...current, personnelId];
@@ -738,7 +738,7 @@
 					<div class="filter-group">
 						<label class="label">Ranks</label>
 						<div class="chip-list">
-							{#each allRanks() as rank}
+							{#each allRanks as rank}
 								<button
 									class="chip"
 									class:selected={selectedRanks.includes(rank)}
@@ -750,11 +750,11 @@
 						</div>
 					</div>
 
-					{#if allMOS().length > 0}
+					{#if allMOS.length > 0}
 						<div class="filter-group">
 							<label class="label">MOS</label>
 							<div class="chip-list">
-								{#each allMOS() as mos}
+								{#each allMOS as mos}
 									<button
 										class="chip"
 										class:selected={selectedMOS.includes(mos)}
@@ -767,11 +767,11 @@
 						</div>
 					{/if}
 
-					{#if allRoles().length > 0}
+					{#if allRoles.length > 0}
 						<div class="filter-group">
 							<label class="label">Roles</label>
 							<div class="chip-list">
-								{#each allRoles() as role}
+								{#each allRoles as role}
 									<button
 										class="chip"
 										class:selected={selectedRoles.includes(role)}
@@ -785,7 +785,7 @@
 					{/if}
 
 					<div class="eligible-count">
-						{eligiblePersonnel().length} personnel eligible
+						{eligiblePersonnel.length} personnel eligible
 					</div>
 				</div>
 
@@ -799,7 +799,7 @@
 								{#each grp.personnel as person}
 									<button
 										class="chip exempt-chip"
-										class:selected={currentExemptIds().includes(person.id)}
+										class:selected={currentExemptIds.includes(person.id)}
 										onclick={() => toggleExempt(person.id)}
 									>
 										{person.rank} {person.lastName}
@@ -808,8 +808,8 @@
 							{/each}
 						</div>
 
-						{#if currentExemptIds().length > 0}
-							<div class="exempt-count">{currentExemptIds().length} exempted</div>
+						{#if currentExemptIds.length > 0}
+							<div class="exempt-count">{currentExemptIds.length} exempted</div>
 						{/if}
 					</div>
 				{/if}
@@ -862,7 +862,7 @@
 			<button
 				class="btn btn-primary"
 				onclick={generateRoster}
-				disabled={!selectedAssignmentTypeId || !startDate || !endDate || eligiblePersonnel().length === 0 || isGenerating}
+				disabled={!selectedAssignmentTypeId || !startDate || !endDate || eligiblePersonnel.length === 0 || isGenerating}
 			>
 				{isGenerating ? 'Generating...' : 'Generate Roster'}
 			</button>

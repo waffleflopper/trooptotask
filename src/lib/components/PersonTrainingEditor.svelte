@@ -17,7 +17,7 @@
 	let { person, trainingTypes, trainings, onSave, onRemove, onClose, onToggleExempt }: Props = $props();
 
 	// Create a map of existing trainings for this person
-	const trainingMap = $derived(() => {
+	const trainingMap = $derived.by(() => {
 		const map = new Map<string, PersonnelTraining>();
 		for (const t of trainings) {
 			if (t.personnelId === person.id) {
@@ -51,7 +51,7 @@
 		}>();
 
 		for (const type of trainingTypes) {
-			const existing = trainingMap().get(type.id);
+			const existing = trainingMap.get(type.id);
 			const neverExpires = type.expirationMonths === null && !type.expirationDateOnly;
 			states.set(type.id, {
 				isComplete: !!existing,
@@ -69,13 +69,13 @@
 	// Get training status for display
 	function getStatusInfo(typeId: string) {
 		const type = trainingTypes.find(t => t.id === typeId);
-		const training = trainingMap().get(typeId);
+		const training = trainingMap.get(typeId);
 		if (!type) return { status: 'not-required' as const, label: 'N/A', color: '#6b7280' };
 		return getTrainingStatus(training, type, person);
 	}
 
 	// Calculate summary stats
-	const stats = $derived(() => {
+	const stats = $derived.by(() => {
 		let current = 0, warningYellow = 0, warningOrange = 0, expired = 0, notCompleted = 0;
 
 		for (const type of trainingTypes) {
@@ -217,7 +217,7 @@
 		if (!typeId) return;
 		confirmRemoveTypeId = null;
 
-		const existing = trainingMap().get(typeId);
+		const existing = trainingMap.get(typeId);
 		if (!existing) return;
 
 		const type = trainingTypes.find(t => t.id === typeId);
@@ -280,7 +280,7 @@
 	}
 
 	function cancelEdit(typeId: string) {
-		const existing = trainingMap().get(typeId);
+		const existing = trainingMap.get(typeId);
 		const type = trainingTypes.find(t => t.id === typeId);
 		const neverExpires = type?.expirationMonths === null && !type?.expirationDateOnly;
 		const newStates = new Map(editingStates);
@@ -313,23 +313,23 @@
 
 		<div class="stats-summary">
 			<div class="stat current">
-				<span class="stat-value">{stats().current}</span>
+				<span class="stat-value">{stats.current}</span>
 				<span class="stat-label">Current</span>
 			</div>
 			<div class="stat warning-yellow">
-				<span class="stat-value">{stats().warningYellow}</span>
+				<span class="stat-value">{stats.warningYellow}</span>
 				<span class="stat-label">&lt;60d</span>
 			</div>
 			<div class="stat warning-orange">
-				<span class="stat-value">{stats().warningOrange}</span>
+				<span class="stat-value">{stats.warningOrange}</span>
 				<span class="stat-label">&lt;30d</span>
 			</div>
 			<div class="stat expired">
-				<span class="stat-value">{stats().expired}</span>
+				<span class="stat-value">{stats.expired}</span>
 				<span class="stat-label">Expired</span>
 			</div>
 			<div class="stat not-done">
-				<span class="stat-value">{stats().notCompleted}</span>
+				<span class="stat-value">{stats.notCompleted}</span>
 				<span class="stat-label">Not Done</span>
 			</div>
 		</div>
@@ -343,7 +343,7 @@
 		<div class="modal-body">
 			<div class="training-list">
 				{#each trainingTypes as type (type.id)}
-					{@const existing = trainingMap().get(type.id)}
+					{@const existing = trainingMap.get(type.id)}
 					{@const status = getStatusInfo(type.id)}
 					{@const state = editingStates.get(type.id)}
 					{@const isExempt = type.canBeExempted && type.exemptPersonnelIds.includes(person.id)}

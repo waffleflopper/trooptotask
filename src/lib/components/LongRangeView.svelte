@@ -26,7 +26,7 @@
 	let viewStartDate = $state(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
 
 	// Get 3 months of data
-	const months = $derived(() => {
+	const months = $derived.by(() => {
 		const result = [];
 		for (let i = 0; i < 3; i++) {
 			const monthDate = addMonths(viewStartDate, i);
@@ -82,7 +82,7 @@
 	}
 
 	// Stats
-	const totalDays = $derived(months().reduce((sum, m) => sum + m.dates.length, 0));
+	const totalDays = $derived(months.reduce((sum, m) => sum + m.dates.length, 0));
 
 	function handleExportCSV() {
 		exportQuarterToCSV(viewStartDate, {
@@ -123,7 +123,7 @@
 				Prev 3 Months
 			</button>
 			<div class="date-range">
-				{months()[0].name} {months()[0].year} – {months()[2].name} {months()[2].year}
+				{months[0].name} {months[0].year} – {months[2].name} {months[2].year}
 			</div>
 			<button class="btn btn-secondary btn-sm" onclick={goToToday}>Today</button>
 			<button class="btn btn-secondary btn-sm" onclick={nextQuarter}>
@@ -156,7 +156,7 @@
 				<!-- Header Row with Months and Days -->
 				<div class="grid-header">
 					<div class="name-cell header-cell">Personnel</div>
-					{#each months() as month}
+					{#each months as month}
 						<div class="month-header" style="width: {month.dates.length * 24}px; min-width: {month.dates.length * 24}px;">
 							{month.name} {month.year}
 						</div>
@@ -166,7 +166,7 @@
 				<!-- Day Numbers Row -->
 				<div class="day-row">
 					<div class="name-cell day-header-cell"></div>
-					{#each months() as month}
+					{#each months as month}
 						{#each month.dates as date}
 							{@const weekend = isWeekend(date)}
 							{@const today = isToday(date)}
@@ -198,7 +198,7 @@
 						<!-- Group Header -->
 						<div class="group-row">
 							<div class="name-cell group-name">{grp.group}</div>
-							{#each months() as month}
+							{#each months as month}
 								{#each month.dates as date}
 									<div class="group-cell"></div>
 								{/each}
@@ -212,7 +212,7 @@
 									<span class="rank">{person.rank}</span>
 									<span class="name">{person.lastName}</span>
 								</div>
-								{#each months() as month}
+								{#each months as month}
 									{#each month.dates as date}
 										{@const status = getStatusForDate(person.id, date)}
 										{@const weekend = isWeekend(date)}

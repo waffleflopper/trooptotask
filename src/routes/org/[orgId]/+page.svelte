@@ -15,6 +15,8 @@
 	import { getTrainingStatus, getTrainingStats } from '$lib/utils/trainingStatus';
 	import { formatDate, parseDate } from '$lib/utils/dates';
 	import { browser } from '$app/environment';
+	import { changelog } from '$lib/data/changelog';
+	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 
 	const HALF_SIZE_CARDS: CardId[] = ['strength', 'duty', 'training', 'upcoming', 'ratings'];
 
@@ -29,6 +31,16 @@
 	$effect(() => {
 		if (browser) {
 			bannerDismissed = localStorage.getItem(bannerKey) === 'true';
+		}
+	});
+
+	// Auto-show What's New if user hasn't seen the latest entry
+	$effect(() => {
+		if (browser && changelog.length > 0 && data.userId) {
+			const lastSeen = localStorage.getItem(`changelog-last-seen-${data.userId}`);
+			if (lastSeen !== changelog[0].id) {
+				whatsNewStore.show();
+			}
 		}
 	});
 

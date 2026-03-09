@@ -17,9 +17,10 @@
 		allOrgs?: OrgInfo[];
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
+		onWhatsNew?: () => void;
 	}
 
-	let { orgId, orgName, userRole, allOrgs = [], onToggleTheme, isDarkTheme }: Props = $props();
+	let { orgId, orgName, userRole, allOrgs = [], onToggleTheme, isDarkTheme, onWhatsNew }: Props = $props();
 
 	let menuOpen = $state(false);
 
@@ -81,7 +82,12 @@
 			onclick: onToggleTheme
 		});
 
-		// 9. Help
+		// 9. What's New
+		if (onWhatsNew) {
+			result.push({ label: "What's New", onclick: onWhatsNew });
+		}
+
+		// 10. Help
 		result.push({ label: 'Help', href: '/help' });
 
 		// 10. Divider

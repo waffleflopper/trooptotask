@@ -34,11 +34,13 @@
 		}
 	});
 
-	// Auto-show What's New if user hasn't seen the latest entry
+	// Auto-show What's New if user hasn't seen the latest entry (once per session)
+	let hasAutoShownWhatsNew = false;
 	$effect(() => {
-		if (browser && changelog.length > 0 && data.userId) {
+		if (browser && !hasAutoShownWhatsNew && changelog.length > 0 && data.userId) {
 			const lastSeen = localStorage.getItem(`changelog-last-seen-${data.userId}`);
 			if (lastSeen !== changelog[0].id) {
+				hasAutoShownWhatsNew = true;
 				whatsNewStore.show();
 			}
 		}

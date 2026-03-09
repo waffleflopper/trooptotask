@@ -90,10 +90,10 @@
 		// 10. Help
 		result.push({ label: 'Help', href: '/help' });
 
-		// 10. Divider
+		// 11. Divider
 		result.push({ label: '', divider: true });
 
-		// 11. Sign Out
+		// 12. Sign Out
 		result.push({ label: 'Sign Out', href: '/auth/logout', danger: true });
 
 		return result;

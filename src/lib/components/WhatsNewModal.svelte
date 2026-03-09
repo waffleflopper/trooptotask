@@ -1,19 +1,9 @@
 <script lang="ts">
 	import Modal from './Modal.svelte';
 	import { changelog } from '$lib/data/changelog';
-	import { parseDate } from '$lib/utils/dates';
+	import { formatDisplayDate } from '$lib/utils/dates';
 
 	let { onClose }: { onClose: () => void } = $props();
-
-	// Format date for display (e.g. "March 8, 2026")
-	function formatDisplayDate(dateStr: string): string {
-		const d = parseDate(dateStr);
-		const months = [
-			'January', 'February', 'March', 'April', 'May', 'June',
-			'July', 'August', 'September', 'October', 'November', 'December'
-		];
-		return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-	}
 
 	const latest = changelog[0];
 	const older = changelog.slice(1, 10);

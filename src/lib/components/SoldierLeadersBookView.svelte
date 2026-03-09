@@ -21,7 +21,9 @@
 	import { availabilityStore } from '$lib/stores/availability.svelte';
 	import { trainingTypesStore } from '$lib/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
+	import { page } from '$app/stores';
 	import { getTrainingStatus } from '$lib/utils/trainingStatus';
+	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import ExtendedInfoModal from './ExtendedInfoModal.svelte';
 	import CounselingRecordModal from './CounselingRecordModal.svelte';
 	import DevelopmentGoalModal from './DevelopmentGoalModal.svelte';
@@ -35,6 +37,7 @@
 	}
 
 	let { person, canEdit, onClose }: Props = $props();
+	const orgId = $page.params.orgId!;
 
 	let showExtendedInfoModal = $state(false);
 	let showCounselingModal = $state(false);
@@ -191,7 +194,18 @@
 	}
 
 	async function handleTrainingRemove(id: string) {
-		await personnelTrainingsStore.remove(id);
+		const training = personnelTrainingsStore.getById(id);
+		const result = await personnelTrainingsStore.remove(id);
+		if (result === 'approval_required' && training) {
+			const type = trainingTypesStore.list.find((t) => t.id === training.trainingTypeId);
+			await submitDeletionRequest(
+				orgId,
+				'personnel_training',
+				id,
+				`${type?.name ?? 'Training'} record for ${person.rank} ${person.lastName}`,
+				`/org/${orgId}/leaders-book`
+			);
+		}
 	}
 
 	function getStatusTypeName(statusTypeId: string): string {

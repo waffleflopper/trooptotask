@@ -8,6 +8,7 @@
 	import { supabase } from '$lib/supabase';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import Modal from './Modal.svelte';
 	import Spinner from './ui/Spinner.svelte';
 	import FileUpload from './ui/FileUpload.svelte';
@@ -118,7 +119,20 @@
 		showRemoveConfirm = false;
 		if (!existingRecord) return;
 		try {
-			// Clean up storage file if one exists
+			const result = await counselingRecordsStore.remove(existingRecord.id);
+			if (result === 'approval_required') {
+				const typeName = (existingRecord.counselingTypeId ? counselingTypesStore.getById(existingRecord.counselingTypeId)?.name : null) ?? 'Counseling';
+				await submitDeletionRequest(
+					orgId,
+					'counseling_record',
+					existingRecord.id,
+					`${typeName} record for ${person.rank} ${person.lastName}`,
+					`/org/${orgId}/leaders-book`
+				);
+				onClose();
+				return;
+			}
+			// Clean up storage file if one exists (only after confirmed deletion)
 			if (existingRecord.filePath) {
 				try {
 					await supabase.storage.from('counseling-files').remove([existingRecord.filePath]);
@@ -126,7 +140,6 @@
 					// Best effort
 				}
 			}
-			await counselingRecordsStore.remove(existingRecord.id);
 			toastStore.success('Counseling record deleted');
 			onClose();
 		} catch {

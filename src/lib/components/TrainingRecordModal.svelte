@@ -12,7 +12,7 @@
 		trainingType: TrainingType;
 		existingTraining: PersonnelTraining | undefined;
 		onSave: (data: Omit<PersonnelTraining, 'id'>) => void;
-		onRemove: (id: string) => void;
+		onRemove: (id: string) => void | Promise<void>;
 		onClose: () => void;
 		canBeExempted?: boolean;
 		isExempt?: boolean;
@@ -89,10 +89,13 @@
 		showRemoveConfirm = true;
 	}
 
-	function doRemove() {
+	async function doRemove() {
 		if (existingTraining) {
-			onRemove(existingTraining.id);
-			toastStore.success('Training record deleted');
+			try {
+				await onRemove(existingTraining.id);
+			} catch (err) {
+				console.error('Training record removal failed:', err);
+			}
 			onClose();
 		}
 	}

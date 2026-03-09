@@ -18,6 +18,7 @@
 	import { groupAndSortPersonnel, RANK_ORDER } from '$lib/utils/personnelGrouping';
 	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
 	import { exportRatingScheme } from '$lib/utils/ratingSchemeExport';
+	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 
@@ -114,9 +115,11 @@
 		showPersonnelModal = true;
 	}
 
+	const canAddPersonnel = $derived(data.permissions.canEditPersonnel && !data.scopedGroupId);
+
 	const personnelOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
-		if (data.permissions.canEditPersonnel) {
+		if (canAddPersonnel) {
 			items.push({ label: 'Add Person', onclick: handleAdd, disabled: readOnly });
 			items.push({ label: 'Manage Groups', onclick: () => (showGroupManager = true), disabled: readOnly });
 			items.push({ label: 'Bulk Import', onclick: () => (showBulkManager = true), divider: true, disabled: readOnly });
@@ -143,7 +146,17 @@
 	}
 
 	async function handleRemove(id: string) {
-		await personnelStore.remove(id);
+		const person = personnelStore.getById(id);
+		const result = await personnelStore.remove(id);
+		if (result === 'approval_required' && person) {
+			await submitDeletionRequest(
+				data.orgId,
+				'personnel',
+				id,
+				`${person.rank} ${person.lastName}, ${person.firstName}`,
+				`/org/${data.orgId}/personnel`
+			);
+		}
 	}
 
 	function handlePinToggle(group: string) {
@@ -159,7 +172,17 @@
 
 	async function handleBulkDelete(ids: string[]) {
 		for (const id of ids) {
-			await personnelStore.remove(id);
+			const person = personnelStore.getById(id);
+			const result = await personnelStore.remove(id);
+			if (result === 'approval_required' && person) {
+				await submitDeletionRequest(
+					data.orgId,
+					'personnel',
+					id,
+					`${person.rank} ${person.lastName}, ${person.firstName}`,
+					`/org/${data.orgId}/personnel`
+				);
+			}
 		}
 		showBulkManager = false;
 	}
@@ -183,7 +206,22 @@
 	}
 
 	async function handleDeleteRatingEntry(id: string) {
-		await ratingSchemeStore.remove(id);
+		const entry = ratingSchemeStore.list.find((e) => e.id === id);
+		const result = await ratingSchemeStore.remove(id);
+		if (result === 'approval_required' && entry) {
+			const allPeople = data.allPersonnel ?? data.personnel;
+			const person = allPeople.find((p: Personnel) => p.id === entry.ratedPersonId);
+			const desc = person
+				? `Rating scheme entry for ${person.rank} ${person.lastName}`
+				: 'Rating scheme entry';
+			await submitDeletionRequest(
+				data.orgId,
+				'rating_scheme_entry',
+				id,
+				desc,
+				`/org/${data.orgId}/personnel`
+			);
+		}
 	}
 </script>
 
@@ -193,7 +231,7 @@
 
 <div class="page">
 	<PageToolbar title="Personnel" helpTopic={pageView === 'rating-scheme' ? 'rating-scheme' : 'personnel'} overflowItems={personnelOverflowItems}>
-		{#if data.permissions.canEditPersonnel}
+		{#if canAddPersonnel}
 			<button class="btn-ghost" onclick={() => (showGroupManager = true)} disabled={readOnly}>
 				Manage Groups
 			</button>
@@ -206,6 +244,12 @@
 		{/if}
 	</PageToolbar>
 
+	{#if !data.permissions.canViewPersonnel}
+		<div class="no-permission">
+			<h2>Access Restricted</h2>
+			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
+		</div>
+	{:else}
 	<div class="page-view-toggle">
 		<button
 			class="page-view-btn"
@@ -437,24 +481,25 @@
 			{#if ratingViewMode === 'grouped'}
 				<RatingSchemeGroupedView
 					entries={filteredRatingEntries}
-					personnel={personnelStore.list}
+					personnel={data.allPersonnel ?? data.personnel}
 					onEdit={handleEditRatingEntry}
 				/>
 			{:else}
 				<RatingSchemeTableView
 					entries={filteredRatingEntries}
-					personnel={personnelStore.list}
+					personnel={data.allPersonnel ?? data.personnel}
 					onEdit={handleEditRatingEntry}
 				/>
 			{/if}
 		</main>
+	{/if}
 	{/if}
 </div>
 
 {#if showRatingModal}
 	<RatingSchemeEntryModal
 		entry={editingEntry}
-		personnel={personnelStore.list}
+		personnel={data.allPersonnel ?? data.personnel}
 		onSave={handleSaveRatingEntry}
 		onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
 		onClose={() => { showRatingModal = false; editingEntry = null; }}
@@ -675,6 +720,21 @@
 		padding: 2px var(--spacing-sm);
 		border-radius: var(--radius-sm);
 		margin-left: auto;
+	}
+
+	.no-permission {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 300px;
+		text-align: center;
+		color: var(--color-text-muted);
+	}
+	.no-permission h2 {
+		font-size: var(--font-size-lg);
+		margin-bottom: var(--spacing-sm);
+		color: var(--color-text);
 	}
 
 	/* .page-content base + mobile in app.css */

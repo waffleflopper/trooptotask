@@ -1,4 +1,5 @@
 import type { TrainingType } from '../types';
+import type { DeleteResult } from '../utils/deletionRequests';
 
 class TrainingTypesStore {
 	#trainingTypes = $state<TrainingType[]>([]);
@@ -62,10 +63,10 @@ class TrainingTypesStore {
 		}
 	}
 
-	async remove(id: string): Promise<boolean> {
+	async remove(id: string): Promise<DeleteResult> {
 		// Optimistic: remove immediately
 		const original = this.#trainingTypes.find((t) => t.id === id);
-		if (!original) return false;
+		if (!original) return 'error';
 
 		this.#trainingTypes = this.#trainingTypes.filter((t) => t.id !== id);
 
@@ -75,12 +76,21 @@ class TrainingTypesStore {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
 			});
+
+			if (res.status === 202) {
+				const data = await res.json();
+				if (data.requiresApproval) {
+					this.#trainingTypes = [...this.#trainingTypes, original];
+					return 'approval_required';
+				}
+			}
+
 			if (!res.ok) throw new Error('Failed to delete training type');
-			return true;
+			return 'deleted';
 		} catch {
 			// Rollback on failure
 			this.#trainingTypes = [...this.#trainingTypes, original];
-			return false;
+			return 'error';
 		}
 	}
 

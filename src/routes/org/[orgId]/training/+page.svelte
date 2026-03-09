@@ -15,6 +15,7 @@
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
+	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 
 	let { data } = $props();
 
@@ -30,6 +31,7 @@
 	);
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
 
 	let showTypeManager = $state(false);
 	let showTypeReorder = $state(false);
@@ -43,7 +45,7 @@
 		const items: OverflowItem[] = [];
 		// Include Reports for mobile access
 		items.push({ label: 'Reports', onclick: () => (showReports = true) });
-		if (data.permissions.canEditTraining) {
+		if (canManageConfig) {
 			items.push({ label: 'Bulk Import', onclick: () => (showBulkImporter = true), divider: true, disabled: readOnly });
 			items.push({ label: 'Manage Types', onclick: () => (showTypeManager = true), disabled: readOnly });
 			items.push({ label: 'Reorder Columns', onclick: () => (showTypeReorder = true), disabled: readOnly });
@@ -123,7 +125,20 @@
 	}
 
 	async function handleRemoveTraining(id: string) {
-		await personnelTrainingsStore.remove(id);
+		const training = personnelTrainingsStore.getById(id);
+		const result = await personnelTrainingsStore.remove(id);
+		if (result === 'approval_required' && training) {
+			const person = data.personnel.find((p: Personnel) => p.id === training.personnelId);
+			const type = trainingTypesStore.list.find((t) => t.id === training.trainingTypeId);
+			const desc = `${type?.name ?? 'Training'} record for ${person ? `${person.rank} ${person.lastName}` : 'unknown'}`;
+			await submitDeletionRequest(
+				data.orgId,
+				'personnel_training',
+				id,
+				desc,
+				`/org/${data.orgId}/training`
+			);
+		}
 	}
 
 	async function handleAddType(data: Omit<TrainingType, 'id'>) {
@@ -135,8 +150,19 @@
 	}
 
 	async function handleRemoveType(id: string) {
-		await trainingTypesStore.remove(id);
-		personnelTrainingsStore.removeByTrainingTypeLocal(id);
+		const type = trainingTypesStore.list.find((t) => t.id === id);
+		const result = await trainingTypesStore.remove(id);
+		if (result === 'approval_required' && type) {
+			await submitDeletionRequest(
+				data.orgId,
+				'training_type',
+				id,
+				`Training type: ${type.name}`,
+				`/org/${data.orgId}/training`
+			);
+		} else if (result === 'deleted') {
+			personnelTrainingsStore.removeByTrainingTypeLocal(id);
+		}
 	}
 
 	async function handleBulkAddTrainings(trainings: Omit<PersonnelTraining, 'id'>[]) {
@@ -161,6 +187,12 @@
 		{/if}
 	</PageToolbar>
 
+	{#if !data.permissions.canViewTraining}
+		<div class="no-permission">
+			<h2>Access Restricted</h2>
+			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
+		</div>
+	{:else}
 	<div class="stats-bar">
 		<div class="stat current">
 			<span class="stat-value">{stats.current}</span>
@@ -256,6 +288,7 @@
 			</div>
 		{/if}
 	</main>
+	{/if}
 </div>
 
 {#if selectedPerson && selectedType}
@@ -517,6 +550,21 @@
 	.group-content {
 		padding: var(--spacing-md);
 		overflow-x: auto;
+	}
+
+	.no-permission {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 300px;
+		text-align: center;
+		color: var(--color-text-muted);
+	}
+	.no-permission h2 {
+		font-size: var(--font-size-lg);
+		margin-bottom: var(--spacing-sm);
+		color: var(--color-text);
 	}
 
 	.page-content {

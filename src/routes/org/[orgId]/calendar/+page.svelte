@@ -31,6 +31,11 @@
 
 	let { data } = $props();
 
+	// Use allPersonnel for calendar display (shows all org members regardless of group scope)
+	// but scoped personnel for editing checks
+	const calendarPersonnel = $derived(data.allPersonnel ?? data.personnel);
+	const scopedPersonnelIds = $derived(new Set(data.personnel.map((p: Personnel) => p.id)));
+
 	// Hydrate stores with server data
 	$effect(() => {
 		personnelStore.load(data.personnel, data.orgId);
@@ -44,6 +49,7 @@
 	});
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
+	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
 
 	let showStatusManager = $state(false);
 	let showSpecialDayManager = $state(false);
@@ -57,9 +63,9 @@
 	let selectedDate = $state<Date | null>(null);
 	let assignmentDate = $state<Date | null>(null);
 
-	// Use shared utility for personnel grouping (also used by other pages)
+	// Use shared utility for personnel grouping — use ALL personnel for calendar display
 	const personnelByGroup = $derived(
-		groupAndSortPersonnel(personnelStore.list, { pinnedGroups: pinnedGroupsStore.list, fallbackGroupName: data.orgName })
+		groupAndSortPersonnel(calendarPersonnel, { pinnedGroups: pinnedGroupsStore.list, fallbackGroupName: data.orgName })
 	);
 
 	function handlePinToggle(group: string) {
@@ -67,11 +73,15 @@
 	}
 
 	function handleCellClick(person: Personnel, date: Date) {
+		if (!data.permissions.canEditCalendar) return;
+		if (data.scopedGroupId && !scopedPersonnelIds.has(person.id)) return;
 		selectedPerson = person;
 		selectedDate = date;
 	}
 
 	function handlePersonClick(person: Personnel) {
+		if (!data.permissions.canEditCalendar) return;
+		if (data.scopedGroupId && !scopedPersonnelIds.has(person.id)) return;
 		selectedPerson = person;
 		selectedDate = new Date();
 	}
@@ -173,14 +183,18 @@
 		// Visible actions duplicated for mobile access
 		items.push({ label: "Today's Breakdown", onclick: () => (showTodayBreakdown = true) });
 		if (data.permissions.canEditCalendar) {
-			items.push({ label: 'Assignments', onclick: () => (showAssignmentPlanner = true), disabled: readOnly });
+			if (canManageConfig) {
+				items.push({ label: 'Assignments', onclick: () => (showAssignmentPlanner = true), disabled: readOnly });
+			}
 		}
 		items.push({ label: '3-Month View', onclick: () => (showLongRangeView = true) });
 
 		// Additional tools
 		if (data.permissions.canEditCalendar) {
-			items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true, disabled: readOnly });
-			items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true), disabled: readOnly });
+			if (canManageConfig) {
+				items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true, disabled: readOnly });
+				items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true), disabled: readOnly });
+			}
 		}
 
 		// Export
@@ -191,7 +205,7 @@
 		items.push({ label: 'Show Status Text', toggle: true, active: calendarPrefsStore.showStatusText, onclick: () => calendarPrefsStore.toggleShowStatusText(), divider: true });
 
 		// Configure group
-		if (data.permissions.canEditCalendar) {
+		if (canManageConfig) {
 			items.push({ label: 'Status Types', onclick: () => (showStatusManager = true), divider: true, group: 'Configure', disabled: readOnly });
 			items.push({ label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true), disabled: readOnly });
 			items.push({ label: 'Holidays', onclick: () => (showSpecialDayManager = true), disabled: readOnly });
@@ -210,7 +224,7 @@
 		<button class="btn btn-sm" onclick={() => (showTodayBreakdown = true)}>
 			Today's Breakdown
 		</button>
-		{#if data.permissions.canEditCalendar}
+		{#if data.permissions.canEditCalendar && canManageConfig}
 			<button class="btn btn-sm" onclick={() => (showAssignmentPlanner = true)} disabled={readOnly}>
 				Assignments
 			</button>
@@ -223,6 +237,12 @@
 		{/if}
 	</PageToolbar>
 
+	{#if !data.permissions.canViewCalendar}
+		<div class="no-permission">
+			<h2>Access Restricted</h2>
+			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
+		</div>
+	{:else}
 	<main class="page-content">
 		<section class="calendar-section">
 			<Calendar
@@ -251,6 +271,7 @@
 			<StatusLegend statusTypes={statusTypesStore.list} />
 		</section>
 	</main>
+	{/if}
 </div>
 
 {#if selectedPerson && selectedDate}
@@ -392,6 +413,21 @@
 		flex-direction: column;
 		gap: var(--spacing-sm);
 		overflow: hidden;
+	}
+
+	.no-permission {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 300px;
+		text-align: center;
+		color: var(--color-text-muted);
+	}
+	.no-permission h2 {
+		font-size: var(--font-size-lg);
+		margin-bottom: var(--spacing-sm);
+		color: var(--color-text);
 	}
 
 	/* Mobile styles — .page-content mobile in app.css */

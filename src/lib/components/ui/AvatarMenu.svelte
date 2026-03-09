@@ -68,9 +68,9 @@
 		// 6. Org Settings
 		result.push({ label: 'Org Settings', href: `/org/${orgId}/settings` });
 
-		// 6b. Audit Log (owner only)
-		if (userRole === 'owner') {
-			result.push({ label: 'Audit Log', href: `/org/${orgId}/audit` });
+		// 6b. Admin hub (owner and admin)
+		if (userRole === 'owner' || userRole === 'admin') {
+			result.push({ label: 'Admin', href: `/org/${orgId}/admin` });
 		}
 
 		// 7. Theme toggle

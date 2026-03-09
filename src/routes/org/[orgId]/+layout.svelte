@@ -51,6 +51,7 @@
 	allOrgs={data.allOrgs}
 	onToggleTheme={() => themeStore.toggle()}
 	isDarkTheme={themeStore.isDark}
+	unreadNotificationCount={data.unreadNotificationCount}
 />
 
 <main class="app-content" class:has-demo-banner={demoModeStore.hasBanner} class:has-sub-banner={subscriptionStore.hasBanner}>

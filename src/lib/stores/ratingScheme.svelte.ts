@@ -1,4 +1,5 @@
 import type { RatingSchemeEntry } from '../types';
+import type { DeleteResult } from '../utils/deletionRequests';
 
 class RatingSchemeStore {
 	#entries = $state<RatingSchemeEntry[]>([]);
@@ -56,9 +57,9 @@ class RatingSchemeStore {
 		}
 	}
 
-	async remove(id: string): Promise<boolean> {
+	async remove(id: string): Promise<DeleteResult> {
 		const original = this.#entries.find((e) => e.id === id);
-		if (!original) return false;
+		if (!original) return 'error';
 
 		this.#entries = this.#entries.filter((e) => e.id !== id);
 
@@ -68,11 +69,20 @@ class RatingSchemeStore {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
 			});
+
+			if (res.status === 202) {
+				const data = await res.json();
+				if (data.requiresApproval) {
+					this.#entries = [...this.#entries, original];
+					return 'approval_required';
+				}
+			}
+
 			if (!res.ok) throw new Error('Failed to delete rating scheme entry');
-			return true;
+			return 'deleted';
 		} catch {
 			this.#entries = [...this.#entries, original];
-			return false;
+			return 'error';
 		}
 	}
 }

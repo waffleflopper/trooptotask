@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireEditPermission } from '$lib/server/permissions';
+import { requireEditPermission, getScopedGroupId } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 
@@ -38,6 +38,21 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	if (blocked) return blocked;
 
 	const body = await request.json();
+
+	// Enforce group scoping on the rated person
+	if (!isSandbox && userId && body.ratedPersonId) {
+		const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
+		if (scopedGroupId) {
+			const { data: person } = await supabase
+				.from('personnel')
+				.select('group_id')
+				.eq('id', body.ratedPersonId)
+				.single();
+			if (person && person.group_id !== scopedGroupId) {
+				throw error(403, 'You can only manage rating scheme entries for personnel in your group');
+			}
+		}
+	}
 
 	const row = {
 		organization_id: orgId,
@@ -86,6 +101,29 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 
 	if (!id) throw error(400, 'Missing id');
 
+	// Enforce group scoping on the rated person
+	if (!isSandbox && userId) {
+		const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
+		if (scopedGroupId) {
+			const { data: entry } = await supabase
+				.from('rating_scheme_entries')
+				.select('rated_person_id')
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.single();
+			if (entry) {
+				const { data: person } = await supabase
+					.from('personnel')
+					.select('group_id')
+					.eq('id', entry.rated_person_id)
+					.single();
+				if (person && person.group_id !== scopedGroupId) {
+					throw error(403, 'You can only manage rating scheme entries for personnel in your group');
+				}
+			}
+		}
+	}
+
 	const updates: Record<string, unknown> = {};
 	if (fields.ratedPersonId !== undefined) updates.rated_person_id = fields.ratedPersonId;
 	if (fields.evalType !== undefined) updates.eval_type = fields.evalType;
@@ -132,6 +170,52 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	const { id } = body;
 
 	if (!id) throw error(400, 'Missing id');
+
+	// Enforce group scoping
+	if (!isSandbox && userId) {
+		const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
+		if (scopedGroupId) {
+			const { data: entry } = await supabase
+				.from('rating_scheme_entries')
+				.select('rated_person_id')
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.single();
+			if (entry) {
+				const { data: person } = await supabase
+					.from('personnel')
+					.select('group_id')
+					.eq('id', entry.rated_person_id)
+					.single();
+				if (person && person.group_id !== scopedGroupId) {
+					throw error(403, 'You can only manage rating scheme entries for personnel in your group');
+				}
+			}
+		}
+	}
+
+	// Deletion approval for non-full-editors
+	if (!isSandbox && userId) {
+		const { data: mem } = await supabase
+			.from('organization_memberships')
+			.select('role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book')
+			.eq('organization_id', orgId)
+			.eq('user_id', userId)
+			.single();
+
+		if (mem && mem.role === 'member') {
+			const isFullEd = !mem.scoped_group_id &&
+				mem.can_view_calendar && mem.can_edit_calendar &&
+				mem.can_view_personnel && mem.can_edit_personnel &&
+				mem.can_view_training && mem.can_edit_training &&
+				mem.can_view_onboarding && mem.can_edit_onboarding &&
+				mem.can_view_leaders_book && mem.can_edit_leaders_book;
+
+			if (!isFullEd) {
+				return json({ requiresApproval: true }, { status: 202 });
+			}
+		}
+	}
 
 	const { error: dbError } = await supabase
 		.from('rating_scheme_entries')

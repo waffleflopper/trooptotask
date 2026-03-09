@@ -95,6 +95,15 @@ export const actions: Actions = {
 			return fail(400, { error: 'You are already a member of this organization' });
 		}
 
+		// Determine role: if all permissions + manage members = admin
+		const isAdminInvite =
+			invitation.can_view_calendar && invitation.can_edit_calendar &&
+			invitation.can_view_personnel && invitation.can_edit_personnel &&
+			invitation.can_view_training && invitation.can_edit_training &&
+			invitation.can_view_onboarding && invitation.can_edit_onboarding &&
+			invitation.can_view_leaders_book && invitation.can_edit_leaders_book &&
+			invitation.can_manage_members;
+
 		// Create membership with the invitation's permissions
 		const { error: memberError } = await locals.supabase
 			.from('organization_memberships')
@@ -102,14 +111,19 @@ export const actions: Actions = {
 				organization_id: invitation.organization_id,
 				user_id: user.id,
 				email: user.email?.toLowerCase(),
-				role: 'member',
+				role: isAdminInvite ? 'admin' : 'member',
 				can_view_calendar: invitation.can_view_calendar ?? true,
 				can_edit_calendar: invitation.can_edit_calendar ?? true,
 				can_view_personnel: invitation.can_view_personnel ?? true,
 				can_edit_personnel: invitation.can_edit_personnel ?? true,
 				can_view_training: invitation.can_view_training ?? true,
 				can_edit_training: invitation.can_edit_training ?? true,
-				can_manage_members: invitation.can_manage_members ?? false
+				can_view_onboarding: invitation.can_view_onboarding ?? true,
+				can_edit_onboarding: invitation.can_edit_onboarding ?? true,
+				can_view_leaders_book: invitation.can_view_leaders_book ?? true,
+				can_edit_leaders_book: invitation.can_edit_leaders_book ?? true,
+				can_manage_members: invitation.can_manage_members ?? false,
+				scoped_group_id: invitation.scoped_group_id ?? null
 			});
 
 		if (memberError) {

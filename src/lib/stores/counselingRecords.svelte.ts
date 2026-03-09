@@ -1,4 +1,5 @@
 import type { CounselingRecord } from '../types/leadersBook';
+import type { DeleteResult } from '../utils/deletionRequests';
 
 class CounselingRecordsStore {
 	#counselingRecords = $state<CounselingRecord[]>([]);
@@ -70,10 +71,10 @@ class CounselingRecordsStore {
 		}
 	}
 
-	async remove(id: string): Promise<boolean> {
+	async remove(id: string): Promise<DeleteResult> {
 		// Optimistic: remove immediately
 		const original = this.#counselingRecords.find((r) => r.id === id);
-		if (!original) return false;
+		if (!original) return 'error';
 
 		this.#counselingRecords = this.#counselingRecords.filter((r) => r.id !== id);
 
@@ -83,12 +84,21 @@ class CounselingRecordsStore {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
 			});
+
+			if (res.status === 202) {
+				const data = await res.json();
+				if (data.requiresApproval) {
+					this.#counselingRecords = [...this.#counselingRecords, original];
+					return 'approval_required';
+				}
+			}
+
 			if (!res.ok) throw new Error('Failed to delete counseling record');
-			return true;
+			return 'deleted';
 		} catch {
 			// Rollback on failure
 			this.#counselingRecords = [...this.#counselingRecords, original];
-			return false;
+			return 'error';
 		}
 	}
 

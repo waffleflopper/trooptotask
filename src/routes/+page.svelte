@@ -5,10 +5,15 @@
 
 	const features = [
 		{
+			icon: 'lock',
+			title: 'Security & Compliance',
+			description: 'NIST 800-171 aligned. Your personnel data is encrypted at rest and in transit, access-controlled with role-based permissions, and every action is audit-logged. Built for the standards military leaders expect.',
+			lead: true
+		},
+		{
 			icon: 'calendar',
 			title: 'Visual Calendar',
-			description: 'See your entire unit\'s availability at a glance with color-coded statuses for leave, TDY, training, and more.',
-			lead: true
+			description: 'See your entire unit\'s availability at a glance with color-coded statuses for leave, TDY, training, and more.'
 		},
 		{
 			icon: 'users',
@@ -16,14 +21,24 @@
 			description: 'Organize by groups and sections. Track rank, MOS, and roles. Bulk import from spreadsheets.'
 		},
 		{
-			icon: 'clipboard',
-			title: 'Daily Assignments',
-			description: 'Assign MOD, front desk support, and custom duties. Plan the entire month with the assignment planner.'
+			icon: 'star',
+			title: 'Rating Scheme Tracker',
+			description: 'Track OER, NCOER, and WOER evaluations. See who\'s overdue, due in 30/60 days, and export to Excel.'
+		},
+		{
+			icon: 'checklist',
+			title: 'In-Processing Checklist',
+			description: 'Custom onboarding templates with step-by-step tracking. See progress by person or pivot by step to find gaps.'
 		},
 		{
 			icon: 'roster',
 			title: 'Duty Roster Generator',
 			description: 'Auto-generate fair duty rosters based on availability, eligibility, and past assignment counts.'
+		},
+		{
+			icon: 'clipboard',
+			title: 'Daily Assignments',
+			description: 'Assign MOD, front desk support, and custom duties. Plan the entire month with the assignment planner.'
 		},
 		{
 			icon: 'chart',
@@ -38,7 +53,7 @@
 		{
 			icon: 'shield',
 			title: 'Granular Permissions',
-			description: 'Set view/edit permissions for calendar, personnel, and training per team member.'
+			description: 'Owner, admin, and member roles with 11 permission toggles. Scope team leaders to specific groups. Approval workflows for deletions.'
 		},
 		{
 			icon: 'building',
@@ -49,21 +64,6 @@
 			icon: 'download',
 			title: 'Export & Print',
 			description: 'Export to Excel with color-coding intact. Print-ready PDF for posting on the board.'
-		},
-		{
-			icon: 'star',
-			title: 'Rating Scheme Tracker',
-			description: 'Track OER, NCOER, and WOER evaluations. See who\'s overdue, due in 30/60 days, and export to Excel.'
-		},
-		{
-			icon: 'checklist',
-			title: 'In-Processing Checklist',
-			description: 'Custom onboarding templates with step-by-step tracking. See progress by person or pivot by step to find gaps.'
-		},
-		{
-			icon: 'lock',
-			title: 'Security & Compliance',
-			description: 'NIST 800-171 aligned. Your personnel data is encrypted, access-controlled, and audit-logged. Built for the standards military leaders expect.'
 		}
 	];
 
@@ -316,6 +316,58 @@
 		</div>
 	</section>
 
+	<!-- Security Trust Strip -->
+	<section class="trust-strip">
+		<div class="section-container">
+			<div class="trust-grid">
+				<div class="trust-item">
+					<svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+						<path d="M9 12l2 2 4-4"/>
+					</svg>
+					<div>
+						<strong>NIST 800-171 Aligned</strong>
+						<p>Security controls mapped to federal CUI protection standards.</p>
+					</div>
+				</div>
+				<div class="trust-item">
+					<svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+						<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+						<path d="M7 11V7a5 5 0 0110 0v4"/>
+					</svg>
+					<div>
+						<strong>Encrypted at Rest & In Transit</strong>
+						<p>AES-256 encryption for stored data. TLS 1.2+ for all connections.</p>
+					</div>
+				</div>
+				<div class="trust-item">
+					<svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+						<polyline points="14 2 14 8 20 8"/>
+						<line x1="16" y1="13" x2="8" y2="13"/>
+						<line x1="16" y1="17" x2="8" y2="17"/>
+					</svg>
+					<div>
+						<strong>Full Audit Trail</strong>
+						<p>Every access and change is logged. Exportable for IG inspections.</p>
+					</div>
+				</div>
+				<div class="trust-item">
+					<svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+						<circle cx="9" cy="7" r="4"/>
+						<path d="M23 21v-2a4 4 0 00-3-3.87"/>
+						<path d="M16 3.13a4 4 0 010 7.75"/>
+					</svg>
+					<div>
+						<strong>Role-Based Access Control</strong>
+						<p>Granular permissions with group scoping. See only what you need.</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
 	<!-- Features Section -->
 	<section id="features" class="features">
 		<div class="section-container">
@@ -450,6 +502,11 @@
 				<a href="/pricing">Pricing</a>
 				<a href="#roadmap">Roadmap</a>
 				<a href="/security">Security</a>
+			</div>
+			<div class="footer-legal">
+				<a href="/terms">Terms of Use</a>
+				<span class="footer-legal-sep">&middot;</span>
+				<a href="/privacy">Privacy Policy</a>
 			</div>
 			<p class="footer-text">Built for Army leaders, by Army leaders.</p>
 		</div>
@@ -1527,6 +1584,73 @@
 		margin: 0;
 	}
 
+	/* ---- Trust Strip ---- */
+	.trust-strip {
+		padding: 3.5rem 0;
+		background: var(--ink);
+		border-bottom: 1px solid var(--ink-border);
+	}
+
+	.trust-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 2rem;
+	}
+
+	.trust-item {
+		display: flex;
+		gap: 0.875rem;
+		align-items: flex-start;
+	}
+
+	.trust-icon {
+		width: 28px;
+		height: 28px;
+		flex-shrink: 0;
+		color: var(--brass);
+		margin-top: 0.125rem;
+	}
+
+	.trust-item strong {
+		display: block;
+		font-family: var(--font-body);
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--hero-text);
+		margin-bottom: 0.25rem;
+		letter-spacing: 0.01em;
+	}
+
+	.trust-item p {
+		font-size: 0.75rem;
+		color: var(--hero-muted);
+		line-height: 1.5;
+		margin: 0;
+	}
+
+	/* ---- Footer Legal ---- */
+	.footer-legal {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.footer-legal a {
+		color: var(--hero-muted);
+		text-decoration: none;
+		font-size: 0.75rem;
+		transition: color 0.15s;
+	}
+
+	.footer-legal a:hover {
+		color: var(--hero-text);
+	}
+
+	.footer-legal-sep {
+		color: rgba(255,255,255,0.15);
+		font-size: 0.75rem;
+	}
+
 	/* ============================================
 	   Responsive — Tablet
 	   ============================================ */
@@ -1563,6 +1687,10 @@
 
 		.feature-lead {
 			grid-column: span 2;
+		}
+
+		.trust-grid {
+			grid-template-columns: repeat(2, 1fr);
 		}
 
 		.onboarding-track {
@@ -1760,6 +1888,11 @@
 
 		.cta-subtitle {
 			font-size: 0.9375rem;
+		}
+
+		.trust-grid {
+			grid-template-columns: 1fr;
+			gap: 1.5rem;
 		}
 
 		.footer-container {

@@ -631,6 +631,11 @@
 				<a href="/#roadmap">Roadmap</a>
 				<a href="/security">Security</a>
 			</div>
+			<div class="footer-legal">
+				<a href="/terms">Terms of Use</a>
+				<span class="footer-legal-sep">&middot;</span>
+				<a href="/privacy">Privacy Policy</a>
+			</div>
 			<p class="footer-text">Built for Army leaders, by Army leaders.</p>
 		</div>
 	</footer>
@@ -990,6 +995,28 @@
 		color: rgba(255,255,255,0.2);
 		font-size: 0.75rem;
 		margin: 0;
+	}
+
+	.footer-legal {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.footer-legal a {
+		color: var(--hero-muted);
+		text-decoration: none;
+		font-size: 0.75rem;
+		transition: color 0.15s;
+	}
+
+	.footer-legal a:hover {
+		color: var(--hero-text);
+	}
+
+	.footer-legal-sep {
+		color: rgba(255,255,255,0.15);
+		font-size: 0.75rem;
 	}
 
 	/* ---- Feature Sections (alternating layout) ---- */

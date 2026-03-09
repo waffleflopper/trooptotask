@@ -98,7 +98,7 @@
 	});
 
 	// Get training statuses for all training types
-	const trainingStatuses = $derived(() => {
+	const trainingStatuses = $derived.by(() => {
 		return trainingTypesStore.list.map((type) => {
 			const training = personnelTrainingsStore.getByPersonnelAndType(person.id, type.id);
 			const statusInfo = getTrainingStatus(training, type, person);
@@ -498,9 +498,9 @@
 						</div>
 					</div>
 					<div class="card-body">
-						{#if trainingStatuses().length > 0}
+						{#if trainingStatuses.length > 0}
 							<div class="training-grid">
-								{#each trainingStatuses() as item (item.type.id)}
+								{#each trainingStatuses as item (item.type.id)}
 									<button
 										class="training-card"
 										onclick={() => canEdit && openEditTraining(item.type)}

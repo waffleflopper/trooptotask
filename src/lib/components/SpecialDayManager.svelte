@@ -24,7 +24,7 @@
 			.sort((a, b) => a.date.localeCompare(b.date))
 	);
 
-	const yearOptions = $derived(() => {
+	const yearOptions = $derived.by(() => {
 		const currentYear = new Date().getFullYear();
 		return [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
 	});
@@ -103,7 +103,7 @@
 			<div class="filter-bar">
 				<label class="label">Year:</label>
 				<select class="select" bind:value={filterYear} style="width: 100px;">
-					{#each yearOptions() as year}
+					{#each yearOptions as year}
 						<option value={year}>{year}</option>
 					{/each}
 				</select>

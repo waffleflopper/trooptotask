@@ -37,7 +37,7 @@
 			.filter((s): s is { color: string; name: string; textColor: string } => s !== null)
 	);
 
-	const tooltipText = $derived(() => {
+	const tooltipText = $derived.by(() => {
 		const parts: string[] = [];
 		if (assignments.length > 0) {
 			parts.push(...assignments.map((a) => a.type.name));
@@ -79,7 +79,7 @@
 	class:has-status={statusColors.length > 0}
 	class:has-assignment={assignments.length > 0}
 	style:background={getBackground()}
-	title={tooltipText()}
+	title={tooltipText}
 	onclick={onclick}
 >
 	{#if assignments.length > 0}

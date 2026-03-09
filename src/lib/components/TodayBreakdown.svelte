@@ -41,7 +41,7 @@
 	);
 
 	// Find assignment types and their assigned values
-	const assignmentInfo = $derived(() => {
+	const assignmentInfo = $derived.by(() => {
 		return assignmentTypes.map(type => {
 			const assignment = todayAssignments.find(a => a.assignmentTypeId === type.id);
 			let assigneeName = 'Not Assigned';
@@ -82,13 +82,13 @@
 	}
 
 	// Categorize personnel
-	const personnelBreakdown = $derived(() => {
+	const personnelBreakdown = $derived.by(() => {
 		const available: { person: Personnel; assignments: string[] }[] = [];
 		const unavailable: { person: Personnel; statuses: { status: StatusType; entry: AvailabilityEntry }[] }[] = [];
 
 		// Find who has assignments today
 		const personnelAssignments = new Map<string, string[]>();
-		for (const info of assignmentInfo()) {
+		for (const info of assignmentInfo) {
 			if (info.assignment && info.type.assignTo === 'personnel') {
 				const current = personnelAssignments.get(info.assignment.assigneeId) || [];
 				current.push(info.type.shortName);
@@ -111,10 +111,10 @@
 	});
 
 	// Group unavailable personnel by status
-	const outByStatus = $derived(() => {
+	const outByStatus = $derived.by(() => {
 		const groups = new Map<string, { status: StatusType; personnel: Personnel[] }>();
 
-		for (const { person, statuses } of personnelBreakdown().unavailable) {
+		for (const { person, statuses } of personnelBreakdown.unavailable) {
 			for (const { status } of statuses) {
 				if (!groups.has(status.id)) {
 					groups.set(status.id, { status, personnel: [] });
@@ -141,11 +141,11 @@
 			<!-- Summary Stats -->
 			<div class="stats-row">
 				<div class="stat">
-					<span class="stat-value available">{personnelBreakdown().available.length}</span>
+					<span class="stat-value available">{personnelBreakdown.available.length}</span>
 					<span class="stat-label">Available</span>
 				</div>
 				<div class="stat">
-					<span class="stat-value unavailable">{personnelBreakdown().unavailable.length}</span>
+					<span class="stat-value unavailable">{personnelBreakdown.unavailable.length}</span>
 					<span class="stat-label">Out</span>
 				</div>
 				<div class="stat">
@@ -156,11 +156,11 @@
 
 			<div class="breakdown-content">
 				<!-- Daily Assignments -->
-				{#if assignmentInfo().length > 0}
+				{#if assignmentInfo.length > 0}
 					<section class="section assignments-section">
 						<h3>Daily Assignments</h3>
 						<div class="assignment-grid">
-							{#each assignmentInfo() as info}
+							{#each assignmentInfo as info}
 								<div class="assignment-card" class:not-assigned={!info.isAssigned}>
 									<div class="assignment-type">
 										<span class="assignment-short">{info.type.shortName}</span>
@@ -187,14 +187,14 @@
 					<h3>
 						<span class="section-icon in">&#10003;</span>
 						Available
-						<span class="count">{personnelBreakdown().available.length}</span>
+						<span class="count">{personnelBreakdown.available.length}</span>
 					</h3>
-					{#if personnelBreakdown().available.length === 0}
+					{#if personnelBreakdown.available.length === 0}
 						<div class="empty-message">No one is available today</div>
 					{:else}
 						<div class="personnel-groups">
 							{#each personnelByGroup as grp}
-								{@const availableForGroup = personnelBreakdown().available.filter(
+								{@const availableForGroup = personnelBreakdown.available.filter(
 									(p) => p.person.groupName === grp.group
 								)}
 								{#if availableForGroup.length > 0}
@@ -225,13 +225,13 @@
 					<h3>
 						<span class="section-icon out">&#10007;</span>
 						Unavailable
-						<span class="count">{personnelBreakdown().unavailable.length}</span>
+						<span class="count">{personnelBreakdown.unavailable.length}</span>
 					</h3>
-					{#if personnelBreakdown().unavailable.length === 0}
+					{#if personnelBreakdown.unavailable.length === 0}
 						<div class="empty-message success">Everyone is available today!</div>
 					{:else}
 						<div class="status-groups">
-							{#each outByStatus() as { status, personnel }}
+							{#each outByStatus as { status, personnel }}
 								<div class="status-group">
 									<div class="status-header" style="background-color: {status.color}; color: {status.textColor}">
 										{status.name}

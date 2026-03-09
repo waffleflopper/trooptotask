@@ -1,9 +1,14 @@
 import type { PageServerLoad } from './$types';
 import { getSupabaseClient } from '$lib/server/supabase';
 
-export const load: PageServerLoad = async ({ params, locals, cookies }) => {
+export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
 	const supabase = getSupabaseClient(locals, cookies);
+
+	const parentData = await parent();
+	const scopedPersonnelIds = parentData.scopedGroupId
+		? new Set(parentData.personnel.map((p: any) => p.id))
+		: null;
 
 	const [templateRes, onboardingsRes] = await Promise.all([
 		supabase
@@ -18,7 +23,11 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 			.order('created_at', { ascending: false })
 	]);
 
-	const onboardings = onboardingsRes.data ?? [];
+	// Filter onboardings to scoped personnel if group-scoped
+	let onboardings = onboardingsRes.data ?? [];
+	if (scopedPersonnelIds) {
+		onboardings = onboardings.filter((o: any) => scopedPersonnelIds.has(o.personnel_id));
+	}
 
 	// Fetch step progress for all onboardings
 	let allSteps: any[] = [];

@@ -120,7 +120,7 @@
 			canViewLeadersBook: member.canViewLeadersBook,
 			canEditLeadersBook: member.canEditLeadersBook,
 			canManageMembers: member.canManageMembers
-		});
+		}, member.scopedGroupId);
 	}
 
 	function toggleExpanded(memberId: string) {
@@ -145,7 +145,7 @@
 			canViewLeadersBook: invite.canViewLeadersBook,
 			canEditLeadersBook: invite.canEditLeadersBook,
 			canManageMembers: invite.canManageMembers
-		});
+		}, invite.scopedGroupId);
 	}
 
 	let memberSelectedGroupId = $state<Record<string, string>>({});

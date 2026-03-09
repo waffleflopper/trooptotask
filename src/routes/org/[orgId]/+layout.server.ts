@@ -106,7 +106,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 
 			isDemoReadOnly: true,
 			isDemoSandbox: false,
-			...shared
+			...shared,
+			allPersonnel: shared.personnel
 		};
 	}
 
@@ -150,7 +151,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 
 					isDemoReadOnly: false,
 					isDemoSandbox: true,
-					...shared
+					...shared,
+					allPersonnel: shared.personnel
 				};
 			}
 		} catch {
@@ -211,7 +213,10 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		canManageMembers: isPrivileged || membership.can_manage_members
 	};
 
-	const fullEditor = !isPrivileged && isFullEditor(permissions);
+	const scopedGroupId: string | null =
+		isPrivileged ? null : (membership.scoped_group_id ?? null);
+
+	const fullEditor = !isPrivileged && !scopedGroupId && isFullEditor(permissions);
 
 	const { count: unreadNotificationCount } = await locals.supabase
 		.from('notifications')
@@ -220,11 +225,9 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		.eq('organization_id', orgId)
 		.eq('read', false);
 
-	const scopedGroupId: string | null =
-		isPrivileged ? null : (membership.scoped_group_id ?? null);
-
 	// Filter personnel data for group-scoped members
 	let { personnel, groups, statusTypes, trainingTypes, personnelTrainings, activeOnboardingPersonnelIds } = shared;
+	const allPersonnel = personnel; // Keep unscoped list for calendar viewing
 
 	if (scopedGroupId) {
 		const scopedPersonnelIds = new Set(
@@ -251,6 +254,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		isDemoReadOnly: false,
 		isDemoSandbox: false,
 		personnel,
+		allPersonnel,
 		groups,
 		statusTypes,
 		trainingTypes,

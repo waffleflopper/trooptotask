@@ -148,7 +148,7 @@ export async function requirePrivilegedOrFullEditor(
 ): Promise<void> {
 	const { data: membership } = await supabase
 		.from('organization_memberships')
-		.select('role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members')
+		.select('role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members')
 		.eq('organization_id', orgId)
 		.eq('user_id', userId)
 		.single();
@@ -159,12 +159,13 @@ export async function requirePrivilegedOrFullEditor(
 
 	if (isPrivilegedRole(membership.role)) return;
 
-	const isFullEd = membership.can_view_calendar && membership.can_edit_calendar &&
+	// Team leaders (scoped to a group) are not full editors even with all permissions
+	const isFullEd = !membership.scoped_group_id &&
+		membership.can_view_calendar && membership.can_edit_calendar &&
 		membership.can_view_personnel && membership.can_edit_personnel &&
 		membership.can_view_training && membership.can_edit_training &&
 		membership.can_view_onboarding && membership.can_edit_onboarding &&
-		membership.can_view_leaders_book && membership.can_edit_leaders_book &&
-		membership.can_manage_members;
+		membership.can_view_leaders_book && membership.can_edit_leaders_book;
 
 	if (!isFullEd) {
 		throw error(403, 'This action requires full editor, admin, or owner permissions');

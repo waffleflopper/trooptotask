@@ -1,20 +1,15 @@
 import type { PageServerLoad } from './$types';
-import type { Personnel, RatingSchemeEntry } from '$lib/types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { RatingSchemeEntry } from '$lib/types';
 import { getSupabaseClient } from '$lib/server/supabase';
 
-export const load: PageServerLoad = async ({ params, locals, cookies }) => {
+export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
 	const supabase = getSupabaseClient(locals, cookies);
 	const userId = locals.user?.id;
 
-	const [personnelRes, groupsRes, pinnedGroupsRes, ratingSchemeRes] = await Promise.all([
-		supabase
-			.from('personnel')
-			.select('*, groups(name)')
-			.eq('organization_id', orgId)
-			.order('last_name'),
-		supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
+	const parentData = await parent();
+
+	const [pinnedGroupsRes, ratingSchemeRes] = await Promise.all([
 		userId ? supabase
 			.from('user_pinned_groups')
 			.select('*')
@@ -27,23 +22,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 			.eq('organization_id', orgId)
 			.order('rating_period_end')
 	]);
-
-	const personnel: Personnel[] = (personnelRes.data ?? []).map((p: any) => ({
-		id: p.id,
-		rank: p.rank,
-		lastName: p.last_name,
-		firstName: p.first_name,
-		mos: p.mos ?? '',
-		clinicRole: p.clinic_role,
-		groupId: p.group_id,
-		groupName: p.groups?.name ?? ''
-	}));
-
-	const groups: Group[] = (groupsRes.data ?? []).map((g: any) => ({
-		id: g.id,
-		name: g.name,
-		sortOrder: g.sort_order
-	}));
 
 	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map((p: any) => p.group_name);
 
@@ -69,8 +47,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 
 	return {
 		orgId,
-		personnel,
-		groups,
 		pinnedGroups,
 		ratingSchemeEntries
 	};

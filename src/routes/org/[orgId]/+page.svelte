@@ -13,8 +13,10 @@
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import DashboardCustomizeModal from '$lib/components/DashboardCustomizeModal.svelte';
 	import { getTrainingStatus, getTrainingStats } from '$lib/utils/trainingStatus';
-	import { parseDate } from '$lib/utils/dates';
+	import { formatDate, parseDate } from '$lib/utils/dates';
 	import { browser } from '$app/environment';
+	import { changelog } from '$lib/data/changelog';
+	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 
 	const HALF_SIZE_CARDS: CardId[] = ['strength', 'duty', 'training', 'upcoming', 'ratings'];
 
@@ -29,6 +31,18 @@
 	$effect(() => {
 		if (browser) {
 			bannerDismissed = localStorage.getItem(bannerKey) === 'true';
+		}
+	});
+
+	// Auto-show What's New if user hasn't seen the latest entry (once per session)
+	let hasAutoShownWhatsNew = false;
+	$effect(() => {
+		if (browser && !hasAutoShownWhatsNew && changelog.length > 0 && data.userId) {
+			const lastSeen = localStorage.getItem(`changelog-last-seen-${data.userId}`);
+			if (lastSeen !== changelog[0].id) {
+				hasAutoShownWhatsNew = true;
+				whatsNewStore.show();
+			}
 		}
 	});
 
@@ -50,8 +64,8 @@
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
 	});
 
-	// Today's date string from server
-	const today = data.today;
+	// Use client's local timezone for "today" instead of server UTC
+	const today = formatDate(new Date());
 
 	// Format today for display
 	const todayDisplay = $derived(() => {

@@ -19,9 +19,10 @@
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
 		unreadNotificationCount?: number;
+		onWhatsNew?: () => void;
 	}
 
-	let { orgId, orgName, userRole, permissions, allOrgs, onToggleTheme, isDarkTheme, unreadNotificationCount = 0 }: Props = $props();
+	let { orgId, orgName, userRole, permissions, allOrgs, onToggleTheme, isDarkTheme, unreadNotificationCount = 0, onWhatsNew }: Props = $props();
 
 	const pathname = $derived($page.url.pathname);
 
@@ -107,6 +108,7 @@
 			{allOrgs}
 			{onToggleTheme}
 			{isDarkTheme}
+			{onWhatsNew}
 		/>
 	</div>
 </header>

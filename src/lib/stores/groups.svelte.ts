@@ -5,7 +5,7 @@ export interface Group {
 }
 
 class GroupsStore {
-	#groups = $state<Group[]>([]);
+	#groups = $state.raw<Group[]>([]);
 	#orgId = '';
 
 	get list() {

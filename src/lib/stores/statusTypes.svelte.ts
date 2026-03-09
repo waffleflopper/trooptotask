@@ -1,7 +1,7 @@
 import type { StatusType } from '../types';
 
 class StatusTypesStore {
-	#statusTypes = $state<StatusType[]>([]);
+	#statusTypes = $state.raw<StatusType[]>([]);
 	#orgId = '';
 
 	get list() {

@@ -2,7 +2,7 @@ import type { Personnel } from '../types';
 import type { DeleteResult } from '../utils/deletionRequests';
 
 class PersonnelStore {
-	#personnel = $state<Personnel[]>([]);
+	#personnel = $state.raw<Personnel[]>([]);
 	#orgId = '';
 
 	get list() {

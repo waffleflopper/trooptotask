@@ -2,7 +2,7 @@ import type { AvailabilityEntry } from '../types';
 import { isDateInRange, formatDate } from '../utils/dates';
 
 class AvailabilityStore {
-	#entries = $state<AvailabilityEntry[]>([]);
+	#entries = $state.raw<AvailabilityEntry[]>([]);
 	#orgId = '';
 
 	get list() {

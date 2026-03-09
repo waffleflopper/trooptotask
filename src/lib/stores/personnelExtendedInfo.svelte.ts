@@ -1,7 +1,7 @@
 import type { PersonnelExtendedInfo } from '../types/leadersBook';
 
 class PersonnelExtendedInfoStore {
-	#extendedInfo = $state<PersonnelExtendedInfo[]>([]);
+	#extendedInfo = $state.raw<PersonnelExtendedInfo[]>([]);
 	#orgId = '';
 
 	get list() {

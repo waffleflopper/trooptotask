@@ -17,7 +17,7 @@ const defaults: DashboardPrefs = {
 const ALL_CARD_IDS = defaults.cardOrder;
 
 class DashboardPrefsStore {
-	#prefs = $state<DashboardPrefs>({ ...defaults });
+	#prefs = $state.raw<DashboardPrefs>({ ...defaults });
 
 	constructor() {
 		if (browser) {

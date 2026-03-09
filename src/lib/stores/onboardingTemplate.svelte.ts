@@ -1,7 +1,7 @@
 import type { OnboardingTemplateStep } from '../types';
 
 class OnboardingTemplateStore {
-	#steps = $state<OnboardingTemplateStep[]>([]);
+	#steps = $state.raw<OnboardingTemplateStep[]>([]);
 	#orgId = '';
 
 	get list() {

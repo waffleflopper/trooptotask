@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { themeStore } from '$lib/stores/theme.svelte';
 
-	type HelpItem = {
-		title: string;
-		content: string;
-		role?: 'admin' | 'team-leader' | 'viewer';
-	};
+	type HelpItem =
+		| { title: string; content: string; role?: undefined }
+		| { content: string; role: 'admin' | 'team-leader' | 'viewer'; title?: undefined };
 
 	let expandedSections = $state<Set<string>>(new Set(['getting-started']));
 
@@ -65,8 +63,7 @@
 					content: 'The group breakdown table shows each group\'s total personnel, present count, per-status counts, and availability percentage. Pinned groups appear at the top.'
 				},
 				{
-					title: '',
-					content: 'If you are scoped to a specific group, your dashboard only reflects personnel in that group.',
+		content: 'If you are scoped to a specific group, your dashboard only reflects personnel in that group.',
 					role: 'team-leader'
 				}
 			]
@@ -109,13 +106,11 @@
 					content: 'Toggle "Show Status Text" in the toolbar to show abbreviated status names on calendar cells alongside the color coding.'
 				},
 				{
-					title: '',
-					content: 'You can see the full calendar for org-wide visibility, but can only edit entries for personnel in your assigned group.',
+		content: 'You can see the full calendar for org-wide visibility, but can only edit entries for personnel in your assigned group.',
 					role: 'team-leader'
 				},
 				{
-					title: '',
-					content: 'Bulk Status, Duty Roster Generator, and Export require full-editor, admin, or owner access.',
+		content: 'Bulk Status, Duty Roster Generator, and Export require full-editor, admin, or owner access.',
 					role: 'admin'
 				}
 			]
@@ -154,13 +149,11 @@
 					content: 'Use the search box at the top to filter personnel by name. Works in both view modes.'
 				},
 				{
-					title: '',
-					content: 'You only see personnel in your assigned group. You can add and edit personnel within your group.',
+		content: 'You only see personnel in your assigned group. You can add and edit personnel within your group.',
 					role: 'team-leader'
 				},
 				{
-					title: '',
-					content: 'Manage Groups, Bulk Import, and Bulk Delete require full-editor, admin, or owner access.',
+		content: 'Manage Groups, Bulk Import, and Bulk Delete require full-editor, admin, or owner access.',
 					role: 'admin'
 				}
 			]
@@ -195,13 +188,11 @@
 					content: 'Import training records via Excel or CSV from the toolbar overflow menu. Format: Person identifier, Training Type, Completion Date.'
 				},
 				{
-					title: '',
-					content: 'You only see training for personnel in your assigned group.',
+		content: 'You only see training for personnel in your assigned group.',
 					role: 'team-leader'
 				},
 				{
-					title: '',
-					content: 'Manage Types, Reports, and Bulk Import require full-editor, admin, or owner access.',
+		content: 'Manage Types, Reports, and Bulk Import require full-editor, admin, or owner access.',
 					role: 'admin'
 				}
 			]
@@ -228,8 +219,7 @@
 					content: 'Each onboarding shows a progress bar and step count. Expand a person\'s entry to see individual step status, add notes, and mark steps complete.'
 				},
 				{
-					title: '',
-					content: 'Template management requires full-editor, admin, or owner access.',
+		content: 'Template management requires full-editor, admin, or owner access.',
 					role: 'admin'
 				}
 			]
@@ -248,13 +238,11 @@
 					content: 'Set development goals for personnel and track progress over time. Goals can be linked to counseling records.'
 				},
 				{
-					title: '',
-					content: 'You only see records for personnel in your assigned group.',
+		content: 'You only see records for personnel in your assigned group.',
 					role: 'team-leader'
 				},
 				{
-					title: '',
-					content: 'Counseling type management requires full-editor, admin, or owner access.',
+		content: 'Counseling type management requires full-editor, admin, or owner access.',
 					role: 'admin'
 				}
 			]
@@ -289,13 +277,11 @@
 					content: 'Manage holidays and special days. Federal holidays are pre-loaded — add organizational closures, training days, or custom events. Access via "Manage Holidays" in the Calendar toolbar overflow menu.'
 				},
 				{
-					title: '',
-					content: 'Member management requires the "Manage Members" permission. Type management (status types, assignment types, training types, counseling types) requires full-editor, admin, or owner access.',
+		content: 'Member management requires the "Manage Members" permission. Type management (status types, assignment types, training types, counseling types) requires full-editor, admin, or owner access.',
 					role: 'admin'
 				},
 				{
-					title: '',
-					content: 'Only the owner can transfer ownership or delete the organization.',
+		content: 'Only the owner can transfer ownership or delete the organization.',
 					role: 'admin'
 				}
 			]
@@ -326,13 +312,11 @@
 					content: 'Members who are not full-editors, admins, or owners must request approval to delete personnel, counseling records, training records, and development goals. The record shows a "Pending deletion" indicator until an admin or owner approves or denies the request from the Admin Hub.'
 				},
 				{
-					title: '',
-					content: 'As a team leader, you can add and edit personnel, calendar entries, training, and counseling records for your assigned group. You cannot access type managers, bulk operations, or the admin hub.',
+		content: 'As a team leader, you can add and edit personnel, calendar entries, training, and counseling records for your assigned group. You cannot access type managers, bulk operations, or the admin hub.',
 					role: 'team-leader'
 				},
 				{
-					title: '',
-					content: 'Read-only members can view all pages they have view permissions for, but cannot make any changes. Attempting to edit shows a permission message.',
+		content: 'Read-only members can view all pages they have view permissions for, but cannot make any changes. Attempting to edit shows a permission message.',
 					role: 'viewer'
 				}
 			]
@@ -351,8 +335,7 @@
 					content: 'View a chronological log of all actions taken in the organization — personnel changes, training updates, membership modifications, and more. Use this for accountability and compliance tracking.'
 				},
 				{
-					title: '',
-					content: 'The Admin Hub is only visible to admins and owners. Access it from the avatar menu.',
+		content: 'The Admin Hub is only visible to admins and owners. Access it from the avatar menu.',
 					role: 'admin'
 				}
 			]

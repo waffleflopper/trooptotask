@@ -145,7 +145,7 @@
 		editingPerson = null;
 	}
 
-	async function handleRemove(id: string) {
+	async function handleArchive(id: string) {
 		const person = personnelStore.getById(id);
 		const result = await personnelStore.remove(id);
 		if (result === 'approval_required' && person) {
@@ -153,7 +153,7 @@
 				data.orgId,
 				'personnel',
 				id,
-				`${person.rank} ${person.lastName}, ${person.firstName}`,
+				`Archive ${person.rank} ${person.lastName}, ${person.firstName}`,
 				`/org/${data.orgId}/personnel`
 			);
 		}
@@ -170,7 +170,7 @@
 		showBulkManager = false;
 	}
 
-	async function handleBulkDelete(ids: string[]) {
+	async function handleBulkArchive(ids: string[]) {
 		for (const id of ids) {
 			const person = personnelStore.getById(id);
 			const result = await personnelStore.remove(id);
@@ -179,7 +179,7 @@
 					data.orgId,
 					'personnel',
 					id,
-					`${person.rank} ${person.lastName}, ${person.firstName}`,
+					`Archive ${person.rank} ${person.lastName}, ${person.firstName}`,
 					`/org/${data.orgId}/personnel`
 				);
 			}
@@ -511,7 +511,7 @@
 		personnel={editingPerson}
 		groups={groupsStore.list}
 		onSubmit={handleSubmit}
-		onRemove={handleRemove}
+		onRemove={handleArchive}
 		onClose={closePersonnelModal}
 	/>
 {/if}
@@ -531,7 +531,7 @@
 		personnelByGroup={personnelByGroup}
 		groups={groupsStore.list}
 		onBulkAdd={handleBulkAdd}
-		onBulkDelete={handleBulkDelete}
+		onBulkDelete={handleBulkArchive}
 		onClose={() => (showBulkManager = false)}
 	/>
 {/if}

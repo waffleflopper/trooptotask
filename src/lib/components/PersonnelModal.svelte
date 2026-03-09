@@ -44,16 +44,16 @@
 		onClose();
 	}
 
-	let showRemoveConfirm = $state(false);
+	let showArchiveConfirm = $state(false);
 
-	function handleRemove() {
-		showRemoveConfirm = true;
+	function handleArchive() {
+		showArchiveConfirm = true;
 	}
 
-	function doRemove() {
+	function doArchive() {
 		if (personnel && onRemove) {
 			onRemove(personnel.id);
-			toastStore.success('Personnel removed');
+			toastStore.success('Personnel archived');
 			onClose();
 		}
 	}
@@ -158,15 +158,12 @@
 
 	{#snippet footer()}
 		{#if isEditing && onRemove}
-			<button type="button" class="btn btn-danger" onclick={handleRemove}>
+			<button type="button" class="btn btn-warning" onclick={handleArchive}>
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-					<path
-						fill-rule="evenodd"
-						d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-						clip-rule="evenodd"
-					/>
+					<path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+					<path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" />
 				</svg>
-				Remove
+				Archive
 			</button>
 		{/if}
 		<div class="spacer"></div>
@@ -177,14 +174,14 @@
 	{/snippet}
 </Modal>
 
-{#if showRemoveConfirm && personnel}
+{#if showArchiveConfirm && personnel}
 	<ConfirmDialog
-		title="Remove Personnel"
-		message="Remove {personnel.rank} {personnel.lastName}? This action cannot be undone."
-		confirmLabel="Remove"
-		variant="danger"
-		onConfirm={doRemove}
-		onCancel={() => (showRemoveConfirm = false)}
+		title="Archive Personnel"
+		message="Archive {personnel.rank} {personnel.lastName}? They will be hidden from all active views."
+		confirmLabel="Archive"
+		variant="warning"
+		onConfirm={doArchive}
+		onCancel={() => (showArchiveConfirm = false)}
 	/>
 {/if}
 
@@ -232,10 +229,16 @@
 		color: var(--color-text-muted);
 	}
 
-	.btn-danger {
+	.btn-warning {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-xs);
+		background-color: var(--color-warning);
+		color: white;
+	}
+
+	.btn-warning:hover {
+		background-color: #e68900;
 	}
 
 </style>

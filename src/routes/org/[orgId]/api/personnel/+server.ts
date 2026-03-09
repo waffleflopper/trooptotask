@@ -134,6 +134,9 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 		await requireEditPermission(supabase, orgId, userId!, 'personnel');
 	}
 
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
+
 	const body = await request.json();
 	const { id } = body;
 
@@ -207,6 +210,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals, cookies }
 	if (!mem || !isPrivilegedRole(mem.role)) {
 		throw error(403, 'Only admins and owners can restore archived personnel');
 	}
+
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
 
 	const body = await request.json();
 	const { action, id } = body;

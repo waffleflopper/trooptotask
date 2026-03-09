@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getApiContext } from '$lib/server/supabase';
 import { isPrivilegedRole } from '$lib/server/permissions';
+import { checkReadOnly } from '$lib/server/read-only-guard';
 import { auditLog } from '$lib/server/auditLog';
 
 export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
@@ -21,6 +22,9 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	if (!mem || !isPrivilegedRole(mem.role)) {
 		throw error(403, 'Only admins and owners can change settings');
 	}
+
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
 
 	const body = await request.json();
 	const { archiveRetentionMonths } = body;

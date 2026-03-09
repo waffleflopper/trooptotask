@@ -7,7 +7,7 @@ export interface Personnel {
 	clinicRole: string;
 	groupId: string | null;
 	groupName: string;
-	archivedAt: string | null;
+	archivedAt?: string | null;
 }
 
 // ============================================================

@@ -16,6 +16,9 @@
 		<a href="/org/{orgId}/admin/audit" class="tab" class:active={currentPath.includes('/audit')}>
 			Audit Log
 		</a>
+		<a href="/org/{orgId}/admin/settings" class="tab" class:active={currentPath.includes('/settings')}>
+			Settings
+		</a>
 	</nav>
 	<div class="admin-content">
 		{@render children()}

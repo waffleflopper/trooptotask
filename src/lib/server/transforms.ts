@@ -12,7 +12,8 @@ export function transformPersonnel(data: any[]): Personnel[] {
 		mos: p.mos ?? '',
 		clinicRole: p.clinic_role,
 		groupId: p.group_id,
-		groupName: p.groups?.name ?? ''
+		groupName: p.groups?.name ?? '',
+		archivedAt: p.archived_at ?? null
 	}));
 }
 

@@ -10,6 +10,9 @@
 		<a href="/org/{orgId}/admin/approvals" class="tab" class:active={currentPath.includes('/approvals')}>
 			Approvals
 		</a>
+		<a href="/org/{orgId}/admin/archived" class="tab" class:active={currentPath.includes('/archived')}>
+			Archived Personnel
+		</a>
 		<a href="/org/{orgId}/admin/audit" class="tab" class:active={currentPath.includes('/audit')}>
 			Audit Log
 		</a>

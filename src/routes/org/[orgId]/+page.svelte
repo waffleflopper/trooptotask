@@ -13,7 +13,7 @@
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import DashboardCustomizeModal from '$lib/components/DashboardCustomizeModal.svelte';
 	import { getTrainingStatus, getTrainingStats } from '$lib/utils/trainingStatus';
-	import { parseDate } from '$lib/utils/dates';
+	import { formatDate, parseDate } from '$lib/utils/dates';
 	import { browser } from '$app/environment';
 
 	const HALF_SIZE_CARDS: CardId[] = ['strength', 'duty', 'training', 'upcoming', 'ratings'];
@@ -50,8 +50,8 @@
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
 	});
 
-	// Today's date string from server
-	const today = data.today;
+	// Use client's local timezone for "today" instead of server UTC
+	const today = formatDate(new Date());
 
 	// Format today for display
 	const todayDisplay = $derived(() => {

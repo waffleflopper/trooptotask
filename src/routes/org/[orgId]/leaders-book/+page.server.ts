@@ -13,8 +13,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	const { orgId } = params;
 	const supabase = getSupabaseClient(locals, cookies);
 
-	// Date range for availability data (current/future status only)
-	const today = formatDate(new Date());
+	// Fetch ±1 day to cover timezone differences (server is UTC, client may not be)
+	const yesterday = formatDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
 
 	const [
 		extendedInfoRes,
@@ -45,7 +45,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 			.from('availability_entries')
 			.select('*')
 			.eq('organization_id', orgId)
-			.gte('end_date', today)
+			.gte('end_date', yesterday)
 	]);
 
 	let extendedInfo: PersonnelExtendedInfo[] = (extendedInfoRes.data ?? []).map((e: any) => ({

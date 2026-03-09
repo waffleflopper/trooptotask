@@ -12,8 +12,10 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const userId = locals.user?.id ?? null;
 	const supabase = getSupabaseClient(locals, cookies);
 
-	const today = formatDate(new Date());
-	const twoWeeksOut = formatDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000));
+	// Fetch ±1 day to cover timezone differences (server is UTC, client may not be)
+	const serverNow = new Date();
+	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
+	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
 
 	const [availabilityRes, assignmentTypesRes, todayAssignmentsRes, pinnedGroupsRes, onboardingsRes, ratingSchemeRes] =
 		await Promise.all([
@@ -21,7 +23,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 				.from('availability_entries')
 				.select('*')
 				.eq('organization_id', orgId)
-				.gte('end_date', today)
+				.gte('end_date', yesterday)
 				.lte('start_date', twoWeeksOut),
 			supabase
 				.from('assignment_types')
@@ -32,7 +34,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 				.from('daily_assignments')
 				.select('*')
 				.eq('organization_id', orgId)
-				.eq('date', today),
+				.gte('date', yesterday)
+				.lte('date', twoWeeksOut),
 			userId
 				? supabase
 						.from('user_pinned_groups')
@@ -107,7 +110,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 
 	return {
 		orgId,
-		today,
 		availabilityEntries,
 		assignmentTypes,
 		todayAssignments,

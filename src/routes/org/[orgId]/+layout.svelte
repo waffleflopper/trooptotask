@@ -11,10 +11,21 @@
 	import TopHeader from '$lib/components/TopHeader.svelte';
 	import BottomTabBar from '$lib/components/BottomTabBar.svelte';
 	import FeedbackModal from '$lib/components/FeedbackModal.svelte';
+	import WhatsNewModal from '$lib/components/WhatsNewModal.svelte';
+	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
+	import { changelog } from '$lib/data/changelog';
+	import { browser } from '$app/environment';
 
 	let { children, data } = $props();
 
 	let showFeedback = $state(false);
+
+	function closeWhatsNew() {
+		whatsNewStore.close();
+		if (browser && changelog.length > 0 && data.userId) {
+			localStorage.setItem(`changelog-last-seen-${data.userId}`, changelog[0].id);
+		}
+	}
 
 	// Initialize demo mode store with server data
 	$effect(() => {
@@ -52,6 +63,7 @@
 	onToggleTheme={() => themeStore.toggle()}
 	isDarkTheme={themeStore.isDark}
 	unreadNotificationCount={data.unreadNotificationCount}
+	onWhatsNew={() => whatsNewStore.show()}
 />
 
 <main class="app-content" class:has-demo-banner={demoModeStore.hasBanner} class:has-sub-banner={subscriptionStore.hasBanner}>
@@ -83,6 +95,10 @@
 
 {#if demoModeStore.showSandboxModal}
 	<DemoSandboxModal onClose={() => demoModeStore.closeSandboxModal()} />
+{/if}
+
+{#if whatsNewStore.open}
+	<WhatsNewModal onClose={closeWhatsNew} />
 {/if}
 
 <style>

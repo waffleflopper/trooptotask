@@ -14,12 +14,31 @@
 	import DashboardCustomizeModal from '$lib/components/DashboardCustomizeModal.svelte';
 	import { getTrainingStatus, getTrainingStats } from '$lib/utils/trainingStatus';
 	import { parseDate } from '$lib/utils/dates';
+	import { browser } from '$app/environment';
 
 	const HALF_SIZE_CARDS: CardId[] = ['strength', 'duty', 'training', 'upcoming', 'ratings'];
 
 	let showCustomizeModal = $state(false);
 
 	let { data } = $props();
+
+	// Welcome banner
+	const bannerKey = $derived(`guide-dismissed-${data.userId}-${data.orgId}`);
+	let bannerDismissed = $state(true); // default true to avoid flash
+
+	$effect(() => {
+		if (browser) {
+			bannerDismissed = localStorage.getItem(bannerKey) === 'true';
+		}
+	});
+
+	function dismissBanner() {
+		bannerDismissed = true;
+		if (browser) {
+			localStorage.setItem(bannerKey, 'true');
+		}
+	}
+
 	$effect(() => {
 		personnelStore.load(data.personnel, data.orgId);
 		groupsStore.load(data.groups, data.orgId);
@@ -351,6 +370,22 @@
 				<span>{todayDisplay()}</span>
 			</div>
 		</div>
+
+		{#if !bannerDismissed}
+			<div class="welcome-banner">
+				<div class="welcome-content">
+					<strong>Welcome to Troop to Task!</strong>
+					<span class="welcome-text">New here? Check out the platform guide to learn what you can do.</span>
+					<a href="/help" class="btn btn-sm btn-primary welcome-btn">View Guide</a>
+				</div>
+				<button class="welcome-dismiss" onclick={dismissBanner} aria-label="Dismiss welcome banner">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<line x1="18" y1="6" x2="6" y2="18" />
+						<line x1="6" y1="6" x2="18" y2="18" />
+					</svg>
+				</button>
+			</div>
+		{/if}
 
 		<!-- Dynamic card layout -->
 		{#each cardRows as row (row.join('-'))}
@@ -1327,6 +1362,60 @@
 		background: var(--color-surface-variant);
 	}
 
+	/* Welcome Banner */
+	.welcome-banner {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-md);
+		padding: var(--spacing-md) var(--spacing-lg);
+		background: var(--color-surface);
+		border-radius: var(--radius-lg);
+		border-left: 3px solid var(--color-primary);
+		box-shadow: var(--shadow-1);
+	}
+
+	.welcome-content {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		flex-wrap: wrap;
+	}
+
+	.welcome-content strong {
+		color: var(--color-text);
+		font-size: var(--font-size-base);
+	}
+
+	.welcome-text {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+	}
+
+	.welcome-btn {
+		margin-left: var(--spacing-sm);
+	}
+
+	.welcome-dismiss {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: var(--spacing-xs);
+		color: var(--color-text-muted);
+		border-radius: var(--radius-sm);
+		flex-shrink: 0;
+	}
+
+	.welcome-dismiss:hover {
+		color: var(--color-text);
+		background: var(--color-surface-variant);
+	}
+
+	.welcome-dismiss svg {
+		width: 18px;
+		height: 18px;
+	}
+
 	/* Mobile Responsive */
 	@media (max-width: 640px) {
 		.dashboard {
@@ -1340,6 +1429,15 @@
 
 		.dashboard-date {
 			display: none;
+		}
+
+		.welcome-content {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+
+		.welcome-btn {
+			margin-left: 0;
 		}
 
 		.card-row {

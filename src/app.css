@@ -294,6 +294,17 @@ a:hover {
 	box-shadow: var(--shadow-2);
 }
 
+.btn-warning {
+	background-color: var(--color-warning);
+	color: white;
+	box-shadow: var(--shadow-1);
+}
+
+.btn-warning:hover {
+	background-color: #e68900;
+	box-shadow: var(--shadow-2);
+}
+
 .btn-success {
 	background-color: var(--color-success);
 	color: white;

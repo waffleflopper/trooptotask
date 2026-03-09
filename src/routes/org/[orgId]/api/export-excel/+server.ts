@@ -74,7 +74,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			developmentGoalsRes,
 			personnelExtendedRes
 		] = await Promise.all([
-			locals.supabase.from('personnel').select('*').eq('organization_id', orgId),
+			locals.supabase.from('personnel').select('*').eq('organization_id', orgId).is('archived_at', null),
 			locals.supabase.from('groups').select('*').eq('organization_id', orgId),
 			locals.supabase.from('availability_entries').select('*').eq('organization_id', orgId),
 			locals.supabase.from('training_types').select('*').eq('organization_id', orgId),

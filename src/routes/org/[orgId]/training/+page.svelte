@@ -75,9 +75,10 @@
 	);
 
 	// Grouped view - use shared utility with explicit group order
+	const groupOrder = $derived(data.groups.map((g) => g.name));
 	const personnelByGroup = $derived(
 		groupAndSortPersonnel(basePersonnel, {
-			groupOrder: data.groups.map((g) => g.name),
+			groupOrder,
 			fallbackGroupName: data.orgName
 		})
 	);
@@ -255,36 +256,39 @@
 			/>
 		{:else if filteredPersonnel.length === 0}
 			<EmptyState message="No personnel found." />
-		{:else if viewMode === 'alphabetical'}
-			<TrainingMatrix
-				personnel={filteredPersonnel}
-				trainingTypes={trainingTypesStore.list}
-				trainings={personnelTrainingsStore.list}
-				onCellClick={data.permissions.canEditTraining ? handleCellClick : undefined}
-				onPersonClick={data.permissions.canEditTraining ? handlePersonClick : undefined}
-			/>
 		{:else}
-			<div class="grouped-training">
-				{#each personnelByGroup as grp (grp.group)}
-					<div class="group-section">
-						<button class="group-header" onclick={() => toggleGroup(grp.group)}>
-							<span class="toggle-icon">{collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
-							<span class="group-name">{grp.group}</span>
-							<span class="group-count">({grp.personnel.length})</span>
-						</button>
-						{#if !collapsedGroups.has(grp.group)}
-							<div class="group-content">
-								<TrainingMatrix
-									personnel={grp.personnel}
-									trainingTypes={trainingTypesStore.list}
-									trainings={personnelTrainingsStore.list}
-									onCellClick={data.permissions.canEditTraining ? handleCellClick : undefined}
-									onPersonClick={data.permissions.canEditTraining ? handlePersonClick : undefined}
-								/>
-							</div>
-						{/if}
-					</div>
-				{/each}
+			<div class="view-panel" class:hidden-view={viewMode !== 'alphabetical'}>
+				<TrainingMatrix
+					personnel={filteredPersonnel}
+					trainingTypes={trainingTypesStore.list}
+					trainings={personnelTrainingsStore.list}
+					onCellClick={data.permissions.canEditTraining ? handleCellClick : undefined}
+					onPersonClick={data.permissions.canEditTraining ? handlePersonClick : undefined}
+				/>
+			</div>
+			<div class="view-panel" class:hidden-view={viewMode !== 'by-group'}>
+				<div class="grouped-training">
+					{#each personnelByGroup as grp (grp.group)}
+						<div class="group-section">
+							<button class="group-header" onclick={() => toggleGroup(grp.group)}>
+								<span class="toggle-icon">{collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
+								<span class="group-name">{grp.group}</span>
+								<span class="group-count">({grp.personnel.length})</span>
+							</button>
+							{#if !collapsedGroups.has(grp.group)}
+								<div class="group-content">
+									<TrainingMatrix
+										personnel={grp.personnel}
+										trainingTypes={trainingTypesStore.list}
+										trainings={personnelTrainingsStore.list}
+										onCellClick={data.permissions.canEditTraining ? handleCellClick : undefined}
+										onPersonClick={data.permissions.canEditTraining ? handlePersonClick : undefined}
+									/>
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
 			</div>
 		{/if}
 	</main>
@@ -569,6 +573,10 @@
 
 	.page-content {
 		overflow: hidden;
+	}
+
+	.hidden-view {
+		display: none;
 	}
 
 	/* Mobile Responsive Styles */

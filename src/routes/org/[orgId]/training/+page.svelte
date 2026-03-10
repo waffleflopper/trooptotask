@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Personnel, TrainingType, PersonnelTraining } from '$lib/types';
+	import { invalidateAll } from '$app/navigation';
 	import { trainingTypesStore } from '$lib/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
@@ -166,10 +167,8 @@
 		}
 	}
 
-	async function handleBulkAddTrainings(trainings: Omit<PersonnelTraining, 'id'>[]) {
-		for (const training of trainings) {
-			await personnelTrainingsStore.add(training);
-		}
+	async function handleBulkImportComplete() {
+		await invalidateAll();
 		showBulkImporter = false;
 	}
 </script>
@@ -350,9 +349,10 @@
 
 {#if showBulkImporter}
 	<BulkTrainingImporter
+		orgId={data.orgId}
 		personnel={data.personnel}
 		trainingTypes={trainingTypesStore.list}
-		onBulkAdd={handleBulkAddTrainings}
+		onImportComplete={handleBulkImportComplete}
 		onClose={() => (showBulkImporter = false)}
 	/>
 {/if}

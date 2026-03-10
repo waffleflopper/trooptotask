@@ -14,21 +14,39 @@
 	const existingInfo = $derived(personnelExtendedInfoStore.getByPersonnelId(person.id));
 
 	// Form state
-	let emergencyContactName = $state(existingInfo?.emergencyContactName ?? '');
-	let emergencyContactRelationship = $state(existingInfo?.emergencyContactRelationship ?? '');
-	let emergencyContactPhone = $state(existingInfo?.emergencyContactPhone ?? '');
-	let spouseName = $state(existingInfo?.spouseName ?? '');
-	let spousePhone = $state(existingInfo?.spousePhone ?? '');
-	let vehicleMakeModel = $state(existingInfo?.vehicleMakeModel ?? '');
-	let vehiclePlate = $state(existingInfo?.vehiclePlate ?? '');
-	let vehicleColor = $state(existingInfo?.vehicleColor ?? '');
-	let personalEmail = $state(existingInfo?.personalEmail ?? '');
-	let personalPhone = $state(existingInfo?.personalPhone ?? '');
-	let addressStreet = $state(existingInfo?.addressStreet ?? '');
-	let addressCity = $state(existingInfo?.addressCity ?? '');
-	let addressState = $state(existingInfo?.addressState ?? '');
-	let addressZip = $state(existingInfo?.addressZip ?? '');
-	let leaderNotes = $state(existingInfo?.leaderNotes ?? '');
+	let emergencyContactName = $state('');
+	let emergencyContactRelationship = $state('');
+	let emergencyContactPhone = $state('');
+	let spouseName = $state('');
+	let spousePhone = $state('');
+	let vehicleMakeModel = $state('');
+	let vehiclePlate = $state('');
+	let vehicleColor = $state('');
+	let personalEmail = $state('');
+	let personalPhone = $state('');
+	let addressStreet = $state('');
+	let addressCity = $state('');
+	let addressState = $state('');
+	let addressZip = $state('');
+	let leaderNotes = $state('');
+
+	$effect(() => {
+		emergencyContactName = existingInfo?.emergencyContactName ?? '';
+		emergencyContactRelationship = existingInfo?.emergencyContactRelationship ?? '';
+		emergencyContactPhone = existingInfo?.emergencyContactPhone ?? '';
+		spouseName = existingInfo?.spouseName ?? '';
+		spousePhone = existingInfo?.spousePhone ?? '';
+		vehicleMakeModel = existingInfo?.vehicleMakeModel ?? '';
+		vehiclePlate = existingInfo?.vehiclePlate ?? '';
+		vehicleColor = existingInfo?.vehicleColor ?? '';
+		personalEmail = existingInfo?.personalEmail ?? '';
+		personalPhone = existingInfo?.personalPhone ?? '';
+		addressStreet = existingInfo?.addressStreet ?? '';
+		addressCity = existingInfo?.addressCity ?? '';
+		addressState = existingInfo?.addressState ?? '';
+		addressZip = existingInfo?.addressZip ?? '';
+		leaderNotes = existingInfo?.leaderNotes ?? '';
+	});
 
 	let saving = $state(false);
 

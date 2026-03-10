@@ -23,7 +23,12 @@
 
 	let { startDate, personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments, onClose, onCellClick }: Props = $props();
 
-	let viewStartDate = $state(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
+	let viewStartDate = $state(new Date());
+
+	// Reset view when startDate prop changes
+	$effect(() => {
+		viewStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+	});
 
 	// Get 3 months of data
 	const months = $derived.by(() => {

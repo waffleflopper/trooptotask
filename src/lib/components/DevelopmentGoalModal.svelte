@@ -31,13 +31,23 @@
 	const orgId = $page.params.orgId!;
 
 	// Form state
-	let title = $state(existingGoal?.title ?? '');
-	let description = $state(existingGoal?.description ?? '');
-	let category = $state<GoalCategory>(existingGoal?.category ?? 'career');
-	let priority = $state<GoalPriority>(existingGoal?.priority ?? 'medium');
-	let status = $state<GoalStatus>(existingGoal?.status ?? 'not-started');
-	let targetDate = $state(existingGoal?.targetDate ?? '');
-	let progressNotes = $state(existingGoal?.progressNotes ?? '');
+	let title = $state('');
+	let description = $state('');
+	let category = $state<GoalCategory>('career');
+	let priority = $state<GoalPriority>('medium');
+	let status = $state<GoalStatus>('not-started');
+	let targetDate = $state('');
+	let progressNotes = $state('');
+
+	$effect(() => {
+		title = existingGoal?.title ?? '';
+		description = existingGoal?.description ?? '';
+		category = existingGoal?.category ?? 'career';
+		priority = existingGoal?.priority ?? 'medium';
+		status = existingGoal?.status ?? 'not-started';
+		targetDate = existingGoal?.targetDate ?? '';
+		progressNotes = existingGoal?.progressNotes ?? '';
+	});
 
 	let saving = $state(false);
 

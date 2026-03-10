@@ -22,11 +22,7 @@
 
 	// Local state for the entries list — updated immediately on add/remove to avoid
 	// reactive prop propagation timing issues (notably in Firefox)
-	let localEntries = $state<AvailabilityEntry[]>(
-		existingEntries.filter(
-			(e) => e.personnelId === person.id && dateStr >= e.startDate && dateStr <= e.endDate
-		)
-	);
+	let localEntries = $state<AvailabilityEntry[]>([]);
 
 	// Sync local entries when the prop changes (e.g. server replaces temp IDs)
 	$effect(() => {
@@ -36,10 +32,17 @@
 	});
 
 	// Form state
-	let selectedStatusId = $state(statusTypes[0]?.id ?? '');
-	let startDate = $state(dateStr);
-	let endDate = $state(dateStr);
+	let selectedStatusId = $state('');
+	let startDate = $state('');
+	let endDate = $state('');
 	let editingEntry = $state<AvailabilityEntry | null>(null);
+
+	// Reset form state when props change (e.g. modal reopened with different data)
+	$effect(() => {
+		selectedStatusId = statusTypes[0]?.id ?? '';
+		startDate = dateStr;
+		endDate = dateStr;
+	});
 
 	const dateDisplay = $derived(
 		date.toLocaleDateString('en-US', {

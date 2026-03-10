@@ -6,7 +6,11 @@
 
 	let { data, form } = $props();
 
-	let searchInput = $state(data.search);
+	let searchInput = $state('');
+
+	$effect(() => {
+		searchInput = data.search;
+	});
 	let loadingId = $state<string | null>(null);
 	let giftingOrgId = $state<string | null>(null);
 	let extendingOrgId = $state<string | null>(null);

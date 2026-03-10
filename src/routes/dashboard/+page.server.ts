@@ -4,7 +4,7 @@ import { PERMISSION_PRESETS } from '$lib/types';
 import { notifyAdmins } from '$lib/server/notifications';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	const { user } = await locals.safeGetSession();
+	const user = locals.user;
 	if (!user) throw redirect(303, '/auth/login');
 
 	// Allow forcing dashboard view with ?show=all
@@ -57,7 +57,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 export const actions: Actions = {
 	acceptInvitation: async ({ request, locals }) => {
-		const { user } = await locals.safeGetSession();
+		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
 		const formData = await request.formData();
@@ -148,7 +148,7 @@ export const actions: Actions = {
 	},
 
 	declineInvitation: async ({ request, locals }) => {
-		const { user } = await locals.safeGetSession();
+		const user = locals.user;
 		if (!user) throw redirect(303, '/auth/login');
 
 		const formData = await request.formData();

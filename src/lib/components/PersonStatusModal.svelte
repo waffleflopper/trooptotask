@@ -17,14 +17,21 @@
 
 	let { person, existingEntry, onClose }: Props = $props();
 
-	const isEditing = !!existingEntry;
+	const isEditing = $derived(!!existingEntry);
 	const todayStr = formatDate(new Date());
 
-	let selectedStatusId = $state(existingEntry?.statusTypeId ?? statusTypesStore.list[0]?.id ?? '');
-	let startDate = $state(existingEntry?.startDate ?? todayStr);
-	let endDate = $state(existingEntry?.endDate ?? todayStr);
+	let selectedStatusId = $state('');
+	let startDate = $state('');
+	let endDate = $state('');
 	let isSubmitting = $state(false);
 	let isDeleting = $state(false);
+
+	// Reset form state when existingEntry changes (e.g. modal reopened with different data)
+	$effect(() => {
+		selectedStatusId = existingEntry?.statusTypeId ?? statusTypesStore.list[0]?.id ?? '';
+		startDate = existingEntry?.startDate ?? todayStr;
+		endDate = existingEntry?.endDate ?? todayStr;
+	});
 
 	const dateError = $derived.by(() => {
 		if (startDate && endDate && startDate > endDate) {

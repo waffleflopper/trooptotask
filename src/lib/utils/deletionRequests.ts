@@ -13,6 +13,9 @@ export async function submitDeletionRequest(
 	resourceDescription: string,
 	resourceUrl?: string
 ): Promise<boolean> {
+	const isPersonnel = resourceType === 'personnel';
+	const action = isPersonnel ? 'archival' : 'deletion';
+
 	try {
 		const res = await fetch(`/org/${orgId}/api/deletion-requests`, {
 			method: 'POST',
@@ -26,19 +29,19 @@ export async function submitDeletionRequest(
 		});
 
 		if (res.status === 409) {
-			toastStore.info('A deletion request for this item is already pending.');
+			toastStore.info(`An ${action} request for this item is already pending.`);
 			return true;
 		}
 
 		if (!res.ok) {
-			toastStore.error('Failed to submit deletion request.');
+			toastStore.error(`Failed to submit ${action} request.`);
 			return false;
 		}
 
-		toastStore.info('Deletion request submitted for admin approval.');
+		toastStore.info(`${isPersonnel ? 'Archival' : 'Deletion'} request submitted for admin approval.`);
 		return true;
 	} catch {
-		toastStore.error('Failed to submit deletion request.');
+		toastStore.error(`Failed to submit ${action} request.`);
 		return false;
 	}
 }

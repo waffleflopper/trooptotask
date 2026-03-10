@@ -100,14 +100,15 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}
 
 	// Create notification for the requester
+	const isPersonnel = request_record.resource_type === 'personnel';
+	const actionWord = isPersonnel ? 'archive' : 'delete';
+	const actionWordCap = isPersonnel ? 'Archival' : 'Deletion';
 	const notificationType = action === 'approve' ? 'deletion_approved' : 'deletion_denied';
-	const notificationTitle = action === 'approve' ? 'Deletion Approved' : 'Deletion Denied';
+	const notificationTitle = action === 'approve' ? `${actionWordCap} Approved` : `${actionWordCap} Denied`;
 	const notificationMessage =
 		action === 'approve'
-			? request_record.resource_type === 'personnel'
-				? `Your request to archive "${request_record.resource_description}" has been approved.`
-				: `Your request to delete "${request_record.resource_description}" has been approved.`
-			: `Your request to delete "${request_record.resource_description}" has been denied.${denialReason ? ` Reason: ${denialReason}` : ''}`;
+			? `Your request to ${actionWord} "${request_record.resource_description}" has been approved.`
+			: `Your request to ${actionWord} "${request_record.resource_description}" has been denied.${denialReason ? ` Reason: ${denialReason}` : ''}`;
 
 	await adminClient.from('notifications').insert({
 		user_id: request_record.requested_by,

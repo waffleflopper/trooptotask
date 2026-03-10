@@ -1,4 +1,5 @@
 import { createCrudHandlers } from '$lib/server/crudFactory';
+import { notifyAdmins } from '$lib/server/notifications';
 import type { CounselingType } from '$lib/types/leadersBook';
 
 const handlers = createCrudHandlers<CounselingType>({
@@ -21,7 +22,14 @@ const handlers = createCrudHandlers<CounselingType>({
 		sort_order: 0
 	},
 	auditResourceType: 'counseling_type',
-	auditDetailFields: ['name']
+	auditDetailFields: ['name'],
+	onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
+		await notifyAdmins(orgId, userId, {
+			type: 'config_type_deleted',
+			title: 'Counseling Type Deleted',
+			message: `"${userEmail}" deleted the counseling type "${(deletedDetails as any)?.name ?? 'unknown'}".`
+		});
+	}
 });
 
 export const { POST, PUT, DELETE } = handlers;

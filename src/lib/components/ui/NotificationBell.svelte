@@ -64,6 +64,31 @@
 		}
 	}
 
+	async function handleLinkClick(notification: Notification) {
+		close();
+		if (!notification.read) {
+			notification.read = true;
+			localUnreadCount = Math.max(0, localUnreadCount - 1);
+			await fetch(`/org/${orgId}/api/notifications`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: notification.id })
+			});
+		}
+	}
+
+	async function dismissAll() {
+		const res = await fetch(`/org/${orgId}/api/notifications`, {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ deleteAll: true })
+		});
+		if (res.ok) {
+			notifications = [];
+			localUnreadCount = 0;
+		}
+	}
+
 	async function dismiss(id: string) {
 		const res = await fetch(`/org/${orgId}/api/notifications`, {
 			method: 'DELETE',
@@ -120,6 +145,11 @@
 						Mark all read
 					</button>
 				{/if}
+				{#if notifications.length > 0}
+					<button class="mark-all-btn clear-all-btn" type="button" onclick={dismissAll}>
+						Clear all
+					</button>
+				{/if}
 			</div>
 			<div class="dropdown-body">
 				{#if loading}
@@ -131,7 +161,7 @@
 						<div class="notification-item" class:unread={!notification.read}>
 							<div class="notification-content">
 								{#if notification.link}
-									<a href={notification.link} class="notification-title" onclick={close}>
+									<a href={notification.link} class="notification-title" onclick={() => handleLinkClick(notification)}>
 										{notification.title}
 									</a>
 								{:else}
@@ -246,6 +276,10 @@
 
 	.mark-all-btn:hover {
 		text-decoration: underline;
+	}
+
+	.clear-all-btn {
+		color: var(--color-text-muted);
 	}
 
 	.dropdown-body {

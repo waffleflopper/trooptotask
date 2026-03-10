@@ -1,4 +1,5 @@
 import { createCrudHandlers } from '$lib/server/crudFactory';
+import { notifyAdmins } from '$lib/server/notifications';
 import type { AssignmentType } from '$lib/stores/dailyAssignments.svelte';
 
 const handlers = createCrudHandlers<AssignmentType>({
@@ -15,7 +16,14 @@ const handlers = createCrudHandlers<AssignmentType>({
 		sort_order: 0
 	},
 	auditResourceType: 'assignment_type',
-	auditDetailFields: ['name', 'short_name']
+	auditDetailFields: ['name', 'short_name'],
+	onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
+		await notifyAdmins(orgId, userId, {
+			type: 'config_type_deleted',
+			title: 'Assignment Type Deleted',
+			message: `"${userEmail}" deleted the assignment type "${(deletedDetails as any)?.name ?? 'unknown'}".`
+		});
+	}
 });
 
 export const { POST, PUT, DELETE } = handlers;

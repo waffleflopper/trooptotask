@@ -151,10 +151,6 @@
 		return { valid, cellErrors, cellWarnings };
 	}
 
-	function resolvedKeyFromRow(row: Record<string, string>): string {
-		return `${row.lastName}|${row.firstName}|${row.trainingType}|${row.status}`;
-	}
-
 	async function handleFileUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
 		const file = input.files?.[0];
@@ -191,11 +187,39 @@
 		if (checkedRows.length === 0) return;
 
 		const records = checkedRows
-			.map((row) => {
-				const key = resolvedKeyFromRow(row);
-				return resolvedMap.get(key);
+			.map((row): ResolvedRecord | null => {
+				const person = personnel.find(
+					(p) =>
+						p.lastName.toLowerCase() === (row.lastName ?? '').toLowerCase() &&
+						p.firstName.toLowerCase() === (row.firstName ?? '').toLowerCase()
+				);
+				const trainingType = trainingTypes.find(
+					(t) => t.name.toLowerCase() === (row.trainingType ?? '').toLowerCase()
+				);
+				if (!person || !trainingType) return null;
+
+				const statusResult = parseTrainingStatus(row.status ?? '');
+				if (statusResult.type === 'exempt') {
+					return {
+						personnelId: person.id,
+						trainingTypeId: trainingType.id,
+						completionDate: null,
+						notes: (row.notes ?? '').trim(),
+						status: 'exempt'
+					};
+				}
+				if (statusResult.type === 'completed' || statusResult.type === 'date') {
+					return {
+						personnelId: person.id,
+						trainingTypeId: trainingType.id,
+						completionDate: statusResult.date,
+						notes: (row.notes ?? '').trim(),
+						status: 'completed'
+					};
+				}
+				return null;
 			})
-			.filter((r): r is ResolvedRecord => r !== undefined);
+			.filter((r): r is ResolvedRecord => r !== null);
 
 		if (records.length === 0) return;
 
@@ -233,6 +257,7 @@
 
 	function handleDone() {
 		onImportComplete();
+		onClose();
 	}
 </script>
 
@@ -325,7 +350,7 @@
 				</p>
 			{/if}
 		</div>
-	{:else if importState === 'preview' || importState === 'importing'}
+	{:else if importState === 'preview'}
 		<div class="preview-section">
 			<p class="hint">
 				Review the data below. Double-click any cell to edit. Rows with errors are shown with
@@ -342,6 +367,11 @@
 					{importError}
 				</p>
 			{/if}
+		</div>
+	{:else if importState === 'importing'}
+		<div class="importing-state">
+			<Spinner size={20} color="var(--color-primary)" />
+			<span>Importing records...</span>
 		</div>
 	{:else if importState === 'results' && results}
 		<div class="results-section">
@@ -413,6 +443,17 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
+	}
+
+	.importing-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-md);
+		padding: var(--spacing-xl) 0;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
 	}
 
 	.info-box {

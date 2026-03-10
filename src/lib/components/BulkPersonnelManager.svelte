@@ -156,16 +156,16 @@
 					errors: data.errors ?? []
 				};
 			}
+			importStep = 'results';
 		} catch (err) {
 			importResult = {
 				insertedCount: 0,
 				errors: [{ index: -1, message: err instanceof Error ? err.message : 'Network error' }]
 			};
+			importStep = 'results';
 		} finally {
 			runningImport = false;
 		}
-
-		importStep = 'results';
 	}
 
 	function handleDone() {

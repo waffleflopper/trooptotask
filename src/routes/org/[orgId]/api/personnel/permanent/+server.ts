@@ -4,6 +4,7 @@ import { getApiContext } from '$lib/server/supabase';
 import { isPrivilegedRole } from '$lib/server/permissions';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { auditLog } from '$lib/server/auditLog';
+import { notifyAdmins } from '$lib/server/notifications';
 
 export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
@@ -50,6 +51,8 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 
 	if (dbError) throw error(500, dbError.message);
 
+	const personName = `${person.rank} ${person.last_name}, ${person.first_name}`;
+
 	auditLog(
 		{
 			action: 'personnel.permanently_deleted',
@@ -58,11 +61,17 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 			orgId,
 			details: {
 				actor: locals.user?.email ?? userId,
-				name: `${person.rank} ${person.last_name}, ${person.first_name}`
+				name: personName
 			}
 		},
 		{ userId }
 	);
+
+	await notifyAdmins(orgId, userId, {
+		type: 'personnel_permanently_deleted',
+		title: 'Personnel Permanently Deleted',
+		message: `"${locals.user?.email}" permanently deleted "${personName}".`
+	});
 
 	return json({ success: true });
 };

@@ -7,6 +7,18 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-09-personnel-archival',
+		date: '2026-03-09',
+		title: 'Personnel Archival',
+		items: [
+			'Personnel are now archived instead of permanently deleted — archived records are preserved and can be restored by admins',
+			'Admins and owners can view archived personnel, restore them to active status, or permanently delete them from the new Archived Personnel tab in Admin Hub',
+			'Export an archived person\'s complete records (training, counseling, goals, availability) as an Excel file before permanent deletion',
+			'Configurable retention period in Admin Hub Settings — archived personnel are automatically cleaned up after the retention window (default 36 months)',
+			'Archived personnel don\'t count toward your subscription\'s personnel cap'
+		]
+	},
+	{
 		id: '2026-03-08-platform-guide',
 		date: '2026-03-08',
 		title: 'Platform Guide & Permissions',

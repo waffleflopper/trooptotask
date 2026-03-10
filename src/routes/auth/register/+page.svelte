@@ -6,8 +6,8 @@
 	let loading = $state(false);
 
 	// Use URL params for initial values, then form values on error
-	const initialInviteCode = form?.inviteCode ?? data.inviteCode ?? '';
-	const initialEmail = form?.email ?? data.email ?? '';
+	const initialInviteCode = $derived(form?.inviteCode ?? data.inviteCode ?? '');
+	const initialEmail = $derived(form?.email ?? data.email ?? '');
 </script>
 
 <svelte:head>

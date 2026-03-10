@@ -27,31 +27,60 @@
 	);
 
 	// Form state
-	let ratedPersonId = $state(entry?.ratedPersonId ?? '');
-	let evalType = $state<'OER' | 'NCOER' | 'WOER'>(entry?.evalType ?? 'NCOER');
-	let reportType = $state<ReportType | ''>(entry?.reportType ?? '');
-	let raterMode = $state<'internal' | 'external'>(entry?.raterPersonId ? 'internal' : entry?.raterName ? 'external' : 'internal');
-	let raterPersonId = $state(entry?.raterPersonId ?? '');
-	let raterName = $state(entry?.raterName ?? '');
-	let srMode = $state<'internal' | 'external'>(entry?.seniorRaterPersonId ? 'internal' : entry?.seniorRaterName ? 'external' : 'internal');
-	let seniorRaterPersonId = $state(entry?.seniorRaterPersonId ?? '');
-	let seniorRaterName = $state(entry?.seniorRaterName ?? '');
-	let showIntermediate = $state(!!(entry?.intermediateRaterPersonId || entry?.intermediateRaterName));
-	let irMode = $state<'internal' | 'external'>(entry?.intermediateRaterPersonId ? 'internal' : 'internal');
-	let intermediateRaterPersonId = $state(entry?.intermediateRaterPersonId ?? '');
-	let intermediateRaterName = $state(entry?.intermediateRaterName ?? '');
-	let showReviewer = $state(!!(entry?.reviewerPersonId || entry?.reviewerName));
-	let rvMode = $state<'internal' | 'external'>(entry?.reviewerPersonId ? 'internal' : 'internal');
-	let reviewerPersonId = $state(entry?.reviewerPersonId ?? '');
-	let reviewerName = $state(entry?.reviewerName ?? '');
-	let ratingPeriodStart = $state(entry?.ratingPeriodStart ?? '');
-	let ratingPeriodEnd = $state(entry?.ratingPeriodEnd ?? '');
-	let status = $state(entry?.status ?? 'active');
-	let workflowStatus = $state<WorkflowStatus | ''>(entry?.workflowStatus ?? '');
-	let showWorkflow = $state(!!entry?.workflowStatus);
-	let notes = $state(entry?.notes ?? '');
+	let ratedPersonId = $state('');
+	let evalType = $state<'OER' | 'NCOER' | 'WOER'>('NCOER');
+	let reportType = $state<ReportType | ''>('');
+	let raterMode = $state<'internal' | 'external'>('internal');
+	let raterPersonId = $state('');
+	let raterName = $state('');
+	let srMode = $state<'internal' | 'external'>('internal');
+	let seniorRaterPersonId = $state('');
+	let seniorRaterName = $state('');
+	let showIntermediate = $state(false);
+	let irMode = $state<'internal' | 'external'>('internal');
+	let intermediateRaterPersonId = $state('');
+	let intermediateRaterName = $state('');
+	let showReviewer = $state(false);
+	let rvMode = $state<'internal' | 'external'>('internal');
+	let reviewerPersonId = $state('');
+	let reviewerName = $state('');
+	let ratingPeriodStart = $state('');
+	let ratingPeriodEnd = $state('');
+	let status = $state<'active' | 'completed' | 'change-of-rater'>('active');
+	let workflowStatus = $state<WorkflowStatus | ''>('');
+	let showWorkflow = $state(false);
+	let notes = $state('');
 	let saving = $state(false);
 	let showDeleteConfirm = $state(false);
+
+	// Reset form state when entry changes (e.g. modal reopened with different data)
+	$effect(() => {
+		ratedPersonId = entry?.ratedPersonId ?? '';
+		evalType = entry?.evalType ?? 'NCOER';
+		reportType = entry?.reportType ?? '';
+		raterMode = entry?.raterPersonId ? 'internal' : entry?.raterName ? 'external' : 'internal';
+		raterPersonId = entry?.raterPersonId ?? '';
+		raterName = entry?.raterName ?? '';
+		srMode = entry?.seniorRaterPersonId ? 'internal' : entry?.seniorRaterName ? 'external' : 'internal';
+		seniorRaterPersonId = entry?.seniorRaterPersonId ?? '';
+		seniorRaterName = entry?.seniorRaterName ?? '';
+		showIntermediate = !!(entry?.intermediateRaterPersonId || entry?.intermediateRaterName);
+		irMode = entry?.intermediateRaterPersonId ? 'internal' : 'internal';
+		intermediateRaterPersonId = entry?.intermediateRaterPersonId ?? '';
+		intermediateRaterName = entry?.intermediateRaterName ?? '';
+		showReviewer = !!(entry?.reviewerPersonId || entry?.reviewerName);
+		rvMode = entry?.reviewerPersonId ? 'internal' : 'internal';
+		reviewerPersonId = entry?.reviewerPersonId ?? '';
+		reviewerName = entry?.reviewerName ?? '';
+		ratingPeriodStart = entry?.ratingPeriodStart ?? '';
+		ratingPeriodEnd = entry?.ratingPeriodEnd ?? '';
+		status = entry?.status ?? 'active';
+		workflowStatus = entry?.workflowStatus ?? '';
+		showWorkflow = !!entry?.workflowStatus;
+		notes = entry?.notes ?? '';
+		saving = false;
+		showDeleteConfirm = false;
+	});
 
 	const reportTypeOptions = $derived(getReportTypesForEvalType(evalType));
 

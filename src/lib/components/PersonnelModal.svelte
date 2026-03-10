@@ -15,12 +15,21 @@
 
 	let { personnel = null, groups, onSubmit, onRemove, onClose }: Props = $props();
 
-	let rank = $state(personnel?.rank ?? 'SPC');
-	let firstName = $state(personnel?.firstName ?? '');
-	let lastName = $state(personnel?.lastName ?? '');
-	let mos = $state(personnel?.mos ?? '');
-	let clinicRole = $state(personnel?.clinicRole ?? '');
-	let groupId = $state(personnel?.groupId ?? '');
+	let rank = $state('SPC');
+	let firstName = $state('');
+	let lastName = $state('');
+	let mos = $state('');
+	let clinicRole = $state('');
+	let groupId = $state('');
+
+	$effect(() => {
+		rank = personnel?.rank ?? 'SPC';
+		firstName = personnel?.firstName ?? '';
+		lastName = personnel?.lastName ?? '';
+		mos = personnel?.mos ?? '';
+		clinicRole = personnel?.clinicRole ?? '';
+		groupId = personnel?.groupId ?? '';
+	});
 
 	const isEditing = $derived(!!personnel);
 	const isValid = $derived(firstName.trim() !== '' && lastName.trim() !== '');

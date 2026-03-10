@@ -80,7 +80,7 @@ export function getMissingRequired(
   mappings: ColumnMapping[],
   columnDefs: ColumnDef[]
 ): ColumnDef[] {
-  const mappedKeys = new Set(mappings.map(m => m.fieldKey).filter(Boolean));
+  const mappedKeys = new Set(mappings.map(m => m.fieldKey).filter((k): k is string => k !== null));
   return columnDefs.filter(d => d.required && !mappedKeys.has(d.key));
 }
 

@@ -6,11 +6,12 @@ import * as XLSX from 'xlsx';
  * Handles comma-separated values with basic trimming.
  */
 export function parseCSVText(text: string): string[][] {
-  return text
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0)
-    .map(line => line.split(',').map(cell => cell.trim()));
+  const workbook = XLSX.read(text, { type: 'string' });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const raw: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  return raw
+    .map(row => (row as unknown[]).map(cell => String(cell ?? '').trim()))
+    .filter(row => row.some(cell => cell.length > 0));
 }
 
 /**
@@ -100,7 +101,7 @@ function parseDateString(str: string): string | null {
   // Excel serial number
   if (/^\d+$/.test(trimmed)) {
     const serial = parseInt(trimmed, 10);
-    if (serial > 0 && serial < 200000) {
+    if (serial >= 25569 && serial <= 60000) {
       // Excel epoch: Jan 1, 1900, with the leap year bug
       const excelEpoch = new Date(1900, 0, 1);
       const ms = excelEpoch.getTime() + (serial - 2) * 86400000;
@@ -111,10 +112,13 @@ function parseDateString(str: string): string | null {
     }
   }
 
-  // Fallback: JS Date.parse
+  // Fallback: JS Date.parse (use local date parts to avoid UTC offset shifting the date)
   const d = new Date(trimmed);
   if (!isNaN(d.getTime())) {
-    return d.toISOString().slice(0, 10);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   return null;

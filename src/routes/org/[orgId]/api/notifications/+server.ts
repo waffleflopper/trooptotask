@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const { orgId } = params;
-	const { user } = await locals.safeGetSession();
+	const user = locals.user;
 	if (!user) throw error(401, 'Authentication required');
 
 	const { data, error: dbError } = await locals.supabase
@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const { orgId } = params;
-	const { user } = await locals.safeGetSession();
+	const user = locals.user;
 	if (!user) throw error(401, 'Authentication required');
 
 	const body = await request.json();
@@ -52,7 +52,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, request, locals }) => {
-	const { user } = await locals.safeGetSession();
+	const user = locals.user;
 	if (!user) throw error(401, 'Authentication required');
 
 	const body = await request.json();

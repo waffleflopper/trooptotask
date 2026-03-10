@@ -8,8 +8,8 @@ export const POST: RequestHandler = async ({ params, request, locals, url }) => 
 		return json({ error: 'Billing is not enabled' }, { status: 400 });
 	}
 
-	const { session } = await locals.safeGetSession();
-	if (!session?.user) {
+	const user = locals.user;
+	if (!user) {
 		throw error(401, 'Not authenticated');
 	}
 
@@ -20,7 +20,7 @@ export const POST: RequestHandler = async ({ params, request, locals, url }) => 
 		.from('organization_memberships')
 		.select('role')
 		.eq('organization_id', orgId)
-		.eq('user_id', session.user.id)
+		.eq('user_id', user.id)
 		.single();
 
 	if (membership?.role !== 'owner') {
@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ params, request, locals, url }) => 
 		throw error(404, 'Organization not found');
 	}
 
-	const email = session.user.email;
+	const email = user.email;
 	if (!email) {
 		return json({ error: 'User email not found' }, { status: 400 });
 	}

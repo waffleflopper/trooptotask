@@ -53,7 +53,6 @@
 	function doArchive() {
 		if (personnel && onRemove) {
 			onRemove(personnel.id);
-			toastStore.success('Personnel archived');
 			onClose();
 		}
 	}

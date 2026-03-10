@@ -1,4 +1,5 @@
 import { createCrudHandlers } from '$lib/server/crudFactory';
+import { notifyAdmins } from '$lib/server/notifications';
 import type { StatusType } from '$lib/types';
 
 const handlers = createCrudHandlers<StatusType>({
@@ -16,6 +17,13 @@ const handlers = createCrudHandlers<StatusType>({
 	},
 	auditResourceType: 'status_type',
 	auditDetailFields: ['name'],
+	onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
+		await notifyAdmins(orgId, userId, {
+			type: 'config_type_deleted',
+			title: 'Status Type Deleted',
+			message: `"${userEmail}" deleted the status type "${(deletedDetails as any)?.name ?? 'unknown'}".`
+		});
+	},
 	// Cascade delete: remove availability entries with this status type
 	onDelete: async (supabase, orgId, id) => {
 		await supabase

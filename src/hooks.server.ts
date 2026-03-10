@@ -44,41 +44,21 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	});
 
+	// Cache getUser() result within a single request to avoid redundant auth API calls
+	let cachedSession: { session: any; user: any } | null = null;
 	event.locals.safeGetSession = async () => {
-		// Use getUser() to securely verify the user from the auth server
-		// This avoids the insecure session warning from getSession()
+		if (cachedSession) return cachedSession;
 		const {
 			data: { user },
 			error
 		} = await event.locals.supabase.auth.getUser();
 
-		if (error || !user) {
-			return { session: null, user: null };
-		}
-
-		// Return a minimal session object to indicate authenticated state
-		// We don't need the full session since user is verified via getUser()
-		return {
-			session: { user } as any,
-			user
-		};
+		cachedSession =
+			error || !user
+				? { session: null, user: null }
+				: { session: { user } as any, user };
+		return cachedSession;
 	};
-
-	// Get session for route protection - this also refreshes the session if needed
-	const { session, user } = await event.locals.safeGetSession();
-	event.locals.session = session;
-	event.locals.user = user;
-
-	// Enforce 24-hour absolute session timeout
-	if (user && user.last_sign_in_at) {
-		const sessionCreated = new Date(user.last_sign_in_at).getTime();
-		const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
-		if (Date.now() - sessionCreated > maxSessionAge) {
-			await event.locals.supabase.auth.signOut();
-			event.locals.session = null;
-			event.locals.user = null;
-		}
-	}
 
 	// Define public routes that don't require authentication
 	const publicRoutes = ['/', '/auth', '/api/webhooks', '/demo', '/api/create-demo-sandbox', '/api/access-requests', '/features', '/pricing', '/security', '/terms', '/privacy'];
@@ -90,10 +70,30 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const isDemoMode = event.cookies.get('demo_mode') === 'readonly' || event.cookies.get('demo_sandbox');
 	const isOrgRoute = event.url.pathname.startsWith('/org/');
 
-	// Protect routes - redirect unauthenticated users to login
-	// Exception: allow demo mode access to org routes
-	if (!session && !isPublicRoute && !(isDemoMode && isOrgRoute)) {
-		redirect(303, '/auth/login');
+	// Only call getUser() for protected routes — skip for public routes and demo mode
+	if (isPublicRoute || (isDemoMode && isOrgRoute)) {
+		event.locals.session = null;
+		event.locals.user = null;
+	} else {
+		const { session, user } = await event.locals.safeGetSession();
+		event.locals.session = session;
+		event.locals.user = user;
+
+		// Enforce 24-hour absolute session timeout
+		if (user && user.last_sign_in_at) {
+			const sessionCreated = new Date(user.last_sign_in_at).getTime();
+			const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
+			if (Date.now() - sessionCreated > maxSessionAge) {
+				await event.locals.supabase.auth.signOut();
+				event.locals.session = null;
+				event.locals.user = null;
+			}
+		}
+
+		// Protect routes - redirect unauthenticated users to login
+		if (!session) {
+			redirect(303, '/auth/login');
+		}
 	}
 
 	const response = await resolve(event, {

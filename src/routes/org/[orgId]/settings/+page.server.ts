@@ -406,7 +406,7 @@ export const actions: Actions = {
 			.single();
 		const orgName = permOrg?.name ?? 'the organization';
 
-		if (targetMembership?.user_id) {
+		if (targetMembership?.user_id && targetMembership.user_id !== user.id) {
 			if (oldRole !== newRole) {
 				await notifyUser(orgId, targetMembership.user_id, {
 					type: 'member_role_changed',

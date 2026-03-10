@@ -5,6 +5,7 @@ import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscriptio
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { getAdminClient } from '$lib/server/supabase';
 import { auditLog } from '$lib/server/auditLog';
+import { notifyAdmins } from '$lib/server/notifications';
 
 export const POST: RequestHandler = async ({ params, locals }) => {
 	const { orgId } = params;
@@ -146,6 +147,12 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			{ action: 'export.created', resourceType: 'data_export', orgId },
 			{ userId: locals.user!.id }
 		);
+
+		await notifyAdmins(orgId, userId, {
+			type: 'bulk_data_exported',
+			title: 'Data Exported',
+			message: `"${locals.user?.email ?? 'A user'}" exported organization data.`
+		});
 
 		// Return as downloadable JSON
 		return new Response(jsonStr, {

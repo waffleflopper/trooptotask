@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getApiContext, getAdminClient } from '$lib/server/supabase';
 import { isPrivilegedRole } from '$lib/server/permissions';
 import { auditLog } from '$lib/server/auditLog';
+import { notifyUser } from '$lib/server/notifications';
 
 const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {
 	personnel: 'personnel',
@@ -103,19 +104,13 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const isPersonnel = request_record.resource_type === 'personnel';
 	const actionWord = isPersonnel ? 'archive' : 'delete';
 	const actionWordCap = isPersonnel ? 'Archival' : 'Deletion';
-	const notificationType = action === 'approve' ? 'deletion_approved' : 'deletion_denied';
-	const notificationTitle = action === 'approve' ? `${actionWordCap} Approved` : `${actionWordCap} Denied`;
-	const notificationMessage =
-		action === 'approve'
-			? `Your request to ${actionWord} "${request_record.resource_description}" has been approved.`
-			: `Your request to ${actionWord} "${request_record.resource_description}" has been denied.${denialReason ? ` Reason: ${denialReason}` : ''}`;
 
-	await adminClient.from('notifications').insert({
-		user_id: request_record.requested_by,
-		organization_id: orgId,
-		type: notificationType,
-		title: notificationTitle,
-		message: notificationMessage,
+	await notifyUser(orgId, request_record.requested_by, {
+		type: action === 'approve' ? 'deletion_approved' : 'deletion_denied',
+		title: action === 'approve' ? `${actionWordCap} Approved` : `${actionWordCap} Denied`,
+		message: action === 'approve'
+			? `Your request to ${actionWord} "${request_record.resource_description}" has been approved.`
+			: `Your request to ${actionWord} "${request_record.resource_description}" has been denied.${denialReason ? ` Reason: ${denialReason}` : ''}`,
 		link: action === 'deny' ? request_record.resource_url : null
 	});
 

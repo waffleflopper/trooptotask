@@ -128,7 +128,7 @@ export const TRAINING_COLUMNS: ColumnDef[] = [
   },
   {
     key: 'status', label: 'Date / Status', required: true,
-    aliases: ['date', 'completion date', 'completed', 'date completed', 'status']
+    aliases: ['date', 'date / status', 'date/status', 'completion date', 'completed', 'date completed', 'status']
   },
   {
     key: 'notes', label: 'Notes', required: false,

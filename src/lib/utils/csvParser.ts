@@ -6,11 +6,11 @@ import * as XLSX from 'xlsx';
  * Handles comma-separated values with basic trimming.
  */
 export function parseCSVText(text: string): string[][] {
-  const workbook = XLSX.read(text, { type: 'string' });
+  const workbook = XLSX.read(text, { type: 'string', raw: true });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const raw: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  const raw: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
   return raw
-    .map(row => (row as unknown[]).map(cell => String(cell ?? '').trim()))
+    .map(row => Array.from(row as unknown[], cell => String(cell ?? '').trim()))
     .filter(row => row.some(cell => cell.length > 0));
 }
 
@@ -24,12 +24,12 @@ export function parseFile(file: File): Promise<string[][]> {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: 'array', raw: true });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const raw: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        // Convert all cells to trimmed strings
+        const raw: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+        // Convert all cells to trimmed strings; Array.from densifies sparse arrays (XLSX skips empty cells)
         const rows = raw
-          .map(row => (row as unknown[]).map(cell => String(cell ?? '').trim()))
+          .map(row => Array.from(row as unknown[], cell => String(cell ?? '').trim()))
           .filter(row => row.some(cell => cell.length > 0));
         resolve(rows);
       } catch (err) {

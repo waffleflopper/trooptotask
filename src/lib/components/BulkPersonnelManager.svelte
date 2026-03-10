@@ -3,7 +3,7 @@
 	import type { Personnel } from '../types';
 	import { ALL_RANKS } from '../types';
 	import { parseCSVText, parseFile } from '../utils/csvParser';
-	import { PERSONNEL_COLUMNS } from '../utils/columnMapping';
+	import { PERSONNEL_COLUMNS, detectHeaderRow } from '../utils/columnMapping';
 	import BulkImportTable from './ui/BulkImportTable.svelte';
 	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 	import Modal from './Modal.svelte';
@@ -43,6 +43,12 @@
 		uploadedFileName ? fileRows : (importText.trim() ? parseCSVText(importText) : [])
 	);
 
+	const dataRowCount = $derived(
+		rawRows.length > 0 && detectHeaderRow(rawRows[0], PERSONNEL_COLUMNS)
+			? rawRows.length - 1
+			: rawRows.length
+	);
+
 	// Results state
 	interface ImportResult {
 		insertedCount: number;
@@ -66,7 +72,7 @@
 		const rank = (row.rank ?? '').trim();
 		if (!rank) {
 			cellErrors.rank = 'Rank is required';
-		} else if (!ALL_RANKS.includes(rank as (typeof ALL_RANKS)[number])) {
+		} else if (!ALL_RANKS.some(r => r.toLowerCase() === rank.toLowerCase())) {
 			cellErrors.rank = `"${rank}" is not a valid rank`;
 		}
 
@@ -460,7 +466,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 					onclick={goToPreview}
 					disabled={rawRows.length === 0}
 				>
-					Preview {rawRows.length > 0 ? rawRows.length : ''} Rows
+					Preview {dataRowCount > 0 ? dataRowCount : ''} Rows
 				</button>
 			{:else if importStep === 'preview'}
 				<button class="btn btn-secondary" onclick={backToInput}>Back</button>

@@ -76,11 +76,14 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const exemptionUpdates: Map<string, Set<string>> = new Map();
 	const batchErrors: Array<{ index: number; message: string }> = [];
 
-	// Fetch existing training records for upsert detection
+	// Fetch existing training records for upsert detection — scope to referenced IDs only
+	const personnelIdsForLookup = [...new Set(records.map(r => r.personnelId))];
 	const { data: existingRecords } = await supabase
 		.from('personnel_trainings')
 		.select('id, personnel_id, training_type_id')
-		.eq('organization_id', orgId);
+		.eq('organization_id', orgId)
+		.in('personnel_id', personnelIdsForLookup)
+		.in('training_type_id', trainingTypeIds);
 	const existingMap = new Map(
 		(existingRecords ?? []).map(e => [`${e.personnel_id}:${e.training_type_id}`, e.id])
 	);

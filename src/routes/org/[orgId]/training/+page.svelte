@@ -379,7 +379,7 @@
 
 <style>
 	.page {
-		height: 100%;
+		height: calc(100dvh - var(--header-height, 56px));
 		display: flex;
 		flex-direction: column;
 		background: var(--color-bg);
@@ -572,7 +572,14 @@
 	}
 
 	.page-content {
+		flex: 1;
+		min-height: 0;
 		overflow: hidden;
+	}
+
+	.view-panel {
+		height: 100%;
+		overflow: auto;
 	}
 
 	.hidden-view {

@@ -7,6 +7,7 @@ import { TIER_CONFIG } from '$lib/types/subscription';
 import { requireManageMembersPermission, requireOwnerRole } from '$lib/server/permissions';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
 import { auditLog } from '$lib/server/auditLog';
+import { notifyUser, notifyAdmins } from '$lib/server/notifications';
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	const { orgId, orgName, userRole, permissions, allOrgs, isAdmin, groups } = await parent();
@@ -190,6 +191,13 @@ export const actions: Actions = {
 			{ userId: user.id }
 		);
 
+		await notifyAdmins(orgId, user.id, {
+			type: 'member_invited',
+			title: 'Member Invited',
+			message: `"${user.email}" invited "${email}" to the organization.`,
+			link: `/org/${orgId}/settings`
+		});
+
 		return {
 			inviteSuccess: true,
 			inviteEmail: email,
@@ -239,7 +247,7 @@ export const actions: Actions = {
 		// Don't allow removing self
 		const { data: membership } = await locals.supabase
 			.from('organization_memberships')
-			.select('user_id, role')
+			.select('user_id, role, email')
 			.eq('id', membershipId)
 			.single();
 
@@ -263,6 +271,27 @@ export const actions: Actions = {
 			{ userId: user.id }
 		);
 
+		if (membership?.user_id) {
+			const { data: org } = await locals.supabase
+				.from('organizations')
+				.select('name')
+				.eq('id', orgId)
+				.single();
+
+			await notifyUser(orgId, membership.user_id, {
+				type: 'member_removed',
+				title: 'Removed from Organization',
+				message: `You have been removed from "${org?.name ?? 'the organization'}".`
+			});
+
+			await notifyAdmins(orgId, user.id, {
+				type: 'member_removed',
+				title: 'Member Removed',
+				message: `"${user.email}" removed "${membership.email}" from the organization.`,
+				link: `/org/${orgId}/settings`
+			});
+		}
+
 		return { success: true };
 	},
 
@@ -282,7 +311,7 @@ export const actions: Actions = {
 		// Check target membership is not owner
 		const { data: targetMembership } = await locals.supabase
 			.from('organization_memberships')
-			.select('role')
+			.select('role, user_id')
 			.eq('id', membershipId)
 			.single();
 
@@ -367,6 +396,32 @@ export const actions: Actions = {
 			{ userId: user.id }
 		);
 
+		const oldRole = targetMembership?.role;
+		const newRole = role;
+
+		const { data: permOrg } = await locals.supabase
+			.from('organizations')
+			.select('name')
+			.eq('id', orgId)
+			.single();
+		const orgName = permOrg?.name ?? 'the organization';
+
+		if (targetMembership?.user_id) {
+			if (oldRole !== newRole) {
+				await notifyUser(orgId, targetMembership.user_id, {
+					type: 'member_role_changed',
+					title: 'Role Updated',
+					message: `Your role in "${orgName}" has been changed to ${newRole}.`
+				});
+			} else {
+				await notifyUser(orgId, targetMembership.user_id, {
+					type: 'member_permissions_changed',
+					title: 'Permissions Updated',
+					message: `Your permissions in "${orgName}" have been updated.`
+				});
+			}
+		}
+
 		return { permissionSuccess: true };
 	},
 
@@ -397,6 +452,19 @@ export const actions: Actions = {
 			{ action: 'org.ownership_transferred', resourceType: 'organization', orgId, severity: 'critical', details: { newOwnerId } },
 			{ userId: user.id }
 		);
+
+		const { data: transferOrg } = await locals.supabase
+			.from('organizations')
+			.select('name')
+			.eq('id', orgId)
+			.single();
+
+		await notifyUser(orgId, newOwnerId, {
+			type: 'ownership_transferred',
+			title: 'Ownership Transferred',
+			message: `You are now the owner of "${transferOrg?.name ?? 'the organization'}".`,
+			link: `/org/${orgId}/settings`
+		});
 
 		return { transferSuccess: true };
 	},

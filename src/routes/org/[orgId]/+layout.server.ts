@@ -18,6 +18,7 @@ async function fetchSharedData(supabase: any, orgId: string) {
 				.from('personnel')
 				.select('*, groups(name)')
 				.eq('organization_id', orgId)
+				.is('archived_at', null)
 				.order('last_name'),
 			supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
 			supabase.from('status_types').select('*').eq('organization_id', orgId).order('sort_order'),

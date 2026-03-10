@@ -218,18 +218,18 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 		selectedIds = newSet;
 	}
 
-	let showDeleteConfirm = $state(false);
+	let showArchiveConfirm = $state(false);
 
-	function handleDelete() {
+	function handleArchive() {
 		if (selectedIds.size > 0) {
-			showDeleteConfirm = true;
+			showArchiveConfirm = true;
 		}
 	}
 
-	function doDelete() {
+	function doArchive() {
 		onBulkDelete([...selectedIds]);
 		selectedIds = new Set();
-		showDeleteConfirm = false;
+		showArchiveConfirm = false;
 	}
 
 	$effect(() => {
@@ -267,9 +267,10 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 				onclick={() => (activeTab = 'delete')}
 			>
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-					<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+					<path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+					<path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" />
 				</svg>
-				Delete
+				Archive
 			</button>
 		</div>
 
@@ -436,7 +437,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 							<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
 								<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
 							</svg>
-							<strong>{selectedIds.size}</strong> personnel selected for deletion
+							<strong>{selectedIds.size}</strong> personnel selected for archival
 						</div>
 					{/if}
 				</div>
@@ -456,24 +457,24 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 			</button>
 		{:else}
 			<button
-				class="btn btn-danger"
-				onclick={handleDelete}
+				class="btn btn-warning"
+				onclick={handleArchive}
 				disabled={selectedIds.size === 0}
 			>
-				Delete {selectedIds.size} Personnel
+				Archive {selectedIds.size} Personnel
 			</button>
 		{/if}
 	{/snippet}
 </Modal>
 
-{#if showDeleteConfirm}
+{#if showArchiveConfirm}
 	<ConfirmDialog
-		title="Delete Personnel"
-		message="Delete {selectedIds.size} personnel? This will also remove all their schedule entries. This action cannot be undone."
-		confirmLabel="Delete"
-		variant="danger"
-		onConfirm={doDelete}
-		onCancel={() => (showDeleteConfirm = false)}
+		title="Archive Personnel"
+		message="Archive {selectedIds.size} personnel? They will be hidden from all active views."
+		confirmLabel="Archive"
+		variant="warning"
+		onConfirm={doArchive}
+		onCancel={() => (showArchiveConfirm = false)}
 	/>
 {/if}
 

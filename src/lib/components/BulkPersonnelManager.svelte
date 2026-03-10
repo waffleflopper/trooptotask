@@ -1,10 +1,13 @@
 <script lang="ts">
-	import type { Personnel } from '../types';
 	import type { Group } from '../stores/groups.svelte';
+	import type { Personnel } from '../types';
 	import { ALL_RANKS } from '../types';
-	import * as XLSX from 'xlsx';
+	import { parseCSVText, parseFile } from '../utils/csvParser';
+	import { PERSONNEL_COLUMNS } from '../utils/columnMapping';
+	import BulkImportTable from './ui/BulkImportTable.svelte';
 	import ConfirmDialog from './ui/ConfirmDialog.svelte';
 	import Modal from './Modal.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface GroupData {
 		group: string;
@@ -14,208 +17,180 @@
 	interface Props {
 		personnelByGroup: GroupData[];
 		groups: Group[];
-		onBulkAdd: (personnel: Omit<Personnel, 'id'>[]) => void;
+		orgId: string;
+		onImportComplete: () => void;
 		onBulkDelete: (ids: string[]) => void;
 		onClose: () => void;
 	}
 
-	let { personnelByGroup, groups, onBulkAdd, onBulkDelete, onClose }: Props = $props();
+	let { personnelByGroup, groups, orgId, onImportComplete, onBulkDelete, onClose }: Props = $props();
 
 	type TabType = 'import' | 'delete';
 	let activeTab = $state<TabType>('import');
 
-	// Import state
-	let importText = $state('');
-	let importErrors = $state<string[]>([]);
-	let parsedPersonnel = $state<Omit<Personnel, 'id'>[]>([]);
-	let fileInput: HTMLInputElement;
+	// --- Import state machine ---
+	type ImportState = 'input' | 'preview' | 'importing' | 'results';
+	let importStep = $state<ImportState>('input');
+
+	// rawRows is derived from either the pasted text or the file upload result.
+	// fileRows holds the async result from parseFile; importText drives the text path.
+	let fileRows = $state<string[][]>([]);
 	let uploadedFileName = $state('');
+	let importText = $state('');
+	let fileInput: HTMLInputElement | undefined = $state();
 
-	// Delete state
-	let selectedIds = $state<Set<string>>(new Set());
-
-	const allPersonnel = $derived(
-		personnelByGroup.flatMap((g) => g.personnel)
+	const rawRows = $derived(
+		uploadedFileName ? fileRows : (importText.trim() ? parseCSVText(importText) : [])
 	);
 
-	const groupNames = $derived(groups.map(g => g.name));
+	// Results state
+	interface ImportResult {
+		insertedCount: number;
+		errors: Array<{ index: number; message: string }>;
+		capError?: string;
+	}
+	let importResult = $state<ImportResult | null>(null);
 
-	const exampleFormat = `SGT, Smith, John, 68W, Medic, Alpha Team
-SPC, Johnson, Jane, 68C, Admin, Bravo Team
-CPT, Williams, Robert, 62A, Physician, Leadership
-CIV, Brown, Sarah, RN, Receptionist, Support`;
+	// BulkImportTable ref — used to call getCheckedRows()
+	let tableRef = $state<ReturnType<typeof BulkImportTable>>();
 
-	function parseImportText() {
-		importErrors = [];
-		parsedPersonnel = [];
+	// --- Validate row for BulkImportTable ---
+	function validateRow(row: Record<string, string>) {
+		const cellErrors: Record<string, string> = {};
+		const cellWarnings: Record<string, string> = {};
 
-		if (!importText.trim()) {
-			return;
+		// rank: required + must be valid
+		const rank = (row.rank ?? '').trim();
+		if (!rank) {
+			cellErrors.rank = 'Rank is required';
+		} else if (!ALL_RANKS.includes(rank as (typeof ALL_RANKS)[number])) {
+			cellErrors.rank = `"${rank}" is not a valid rank`;
 		}
 
-		const lines = importText.trim().split('\n');
-		const parsed: Omit<Personnel, 'id'>[] = [];
-		const errors: string[] = [];
-
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i].trim();
-			if (!line) continue;
-
-			const parts = line.split(',').map((p) => p.trim());
-
-			if (parts.length < 3) {
-				errors.push(`Line ${i + 1}: Need at least Rank, Last Name, First Name`);
-				continue;
-			}
-
-			const [rank, lastName, firstName, mos = '', clinicRole = '', groupName = ''] = parts;
-
-			// Validate rank
-			if (!ALL_RANKS.includes(rank as any)) {
-				errors.push(`Line ${i + 1}: Invalid rank "${rank}"`);
-				continue;
-			}
-
-			// Validate group if provided
-			const matchedGroup = groups.find(g => g.name.toLowerCase() === groupName.toLowerCase());
-			if (groupName && !matchedGroup) {
-				errors.push(`Line ${i + 1}: Unknown group "${groupName}" - will be unassigned`);
-			}
-
-			parsed.push({
-				rank,
-				lastName,
-				firstName,
-				mos,
-				clinicRole,
-				groupId: matchedGroup?.id ?? null,
-				groupName: matchedGroup?.name ?? ''
-			});
+		// lastName: required
+		const lastName = (row.lastName ?? '').trim();
+		if (!lastName) {
+			cellErrors.lastName = 'Last name is required';
 		}
 
-		importErrors = errors;
-		parsedPersonnel = parsed;
+		// firstName: required
+		const firstName = (row.firstName ?? '').trim();
+		if (!firstName) {
+			cellErrors.firstName = 'First name is required';
+		}
+
+		// groupName: optional but warn if not found
+		const groupName = (row.groupName ?? '').trim();
+		if (groupName) {
+			const match = groups.find((g) => g.name.toLowerCase() === groupName.toLowerCase());
+			if (!match) {
+				cellWarnings.groupName = `"${groupName}" doesn't match any group — will be unassigned`;
+			}
+		}
+
+		return {
+			valid: Object.keys(cellErrors).length === 0,
+			cellErrors,
+			cellWarnings
+		};
 	}
 
-	function handleImport() {
-		if (parsedPersonnel.length > 0) {
-			onBulkAdd(parsedPersonnel);
-			importText = '';
-			parsedPersonnel = [];
-			importErrors = [];
-			uploadedFileName = '';
-		}
-	}
-
-	function handleFileUpload(event: Event) {
+	// --- Input step handlers ---
+	async function handleFileUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
 		const file = input.files?.[0];
 		if (!file) return;
 
 		uploadedFileName = file.name;
-		const reader = new FileReader();
-
-		reader.onload = (e) => {
-			try {
-				const data = e.target?.result;
-				const workbook = XLSX.read(data, { type: 'array' });
-				const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-				const rows = XLSX.utils.sheet_to_json<string[]>(firstSheet, { header: 1 });
-
-				// Skip header row if it looks like a header
-				let startRow = 0;
-				if (rows.length > 0) {
-					const firstCell = String(rows[0][0] || '').toLowerCase();
-					if (firstCell === 'rank' || firstCell === 'grade' || firstCell.includes('rank')) {
-						startRow = 1;
-					}
-				}
-
-				// Parse rows into personnel
-				const parsed: Omit<Personnel, 'id'>[] = [];
-				const errors: string[] = [];
-
-				for (let i = startRow; i < rows.length; i++) {
-					const row = rows[i];
-					if (!row || row.length === 0 || !row[0]) continue;
-
-					const rank = String(row[0] || '').trim();
-					const lastName = String(row[1] || '').trim();
-					const firstName = String(row[2] || '').trim();
-					const mos = String(row[3] || '').trim();
-					const clinicRole = String(row[4] || '').trim();
-					const groupName = String(row[5] || '').trim();
-
-					if (!rank || !lastName || !firstName) {
-						errors.push(`Row ${i + 1}: Need at least Rank, Last Name, First Name`);
-						continue;
-					}
-
-					if (!ALL_RANKS.includes(rank as any)) {
-						errors.push(`Row ${i + 1}: Invalid rank "${rank}"`);
-						continue;
-					}
-
-					const matchedGroup = groups.find(g => g.name.toLowerCase() === groupName.toLowerCase());
-					if (groupName && !matchedGroup) {
-						errors.push(`Row ${i + 1}: Unknown group "${groupName}" - will be unassigned`);
-					}
-
-					parsed.push({
-						rank,
-						lastName,
-						firstName,
-						mos,
-						clinicRole,
-						groupId: matchedGroup?.id ?? null,
-						groupName: matchedGroup?.name ?? ''
-					});
-				}
-
-				importErrors = errors;
-				parsedPersonnel = parsed;
-				importText = ''; // Clear text area since we're using file
-			} catch (err) {
-				importErrors = [`Failed to parse file: ${err instanceof Error ? err.message : 'Unknown error'}`];
-				parsedPersonnel = [];
-			}
-		};
-
-		reader.readAsArrayBuffer(file);
+		importText = '';
+		try {
+			fileRows = await parseFile(file);
+		} catch (err) {
+			fileRows = [];
+			uploadedFileName = '';
+			alert(`Failed to parse file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		}
 	}
 
-	function clearFileUpload() {
+	function clearFile() {
 		uploadedFileName = '';
-		parsedPersonnel = [];
-		importErrors = [];
+		fileRows = [];
 		if (fileInput) fileInput.value = '';
 	}
 
-	function toggleSelect(id: string) {
-		const newSet = new Set(selectedIds);
-		if (newSet.has(id)) {
-			newSet.delete(id);
-		} else {
-			newSet.add(id);
+	function goToPreview() {
+		importStep = 'preview';
+	}
+
+	function backToInput() {
+		importStep = 'input';
+	}
+
+	// --- Import ---
+	async function runImport() {
+		if (!tableRef) return;
+		const checkedRows = tableRef.getCheckedRows();
+		if (checkedRows.length === 0) return;
+
+		importStep = 'importing';
+
+		try {
+			const response = await fetch(`/org/${orgId}/api/personnel/batch`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ records: checkedRows })
+			});
+
+			const data = await response.json();
+
+			if (response.status === 403 && data.error) {
+				importResult = { insertedCount: 0, errors: data.errors ?? [], capError: data.error };
+			} else {
+				importResult = {
+					insertedCount: (data.inserted ?? []).length,
+					errors: data.errors ?? []
+				};
+			}
+		} catch (err) {
+			importResult = {
+				insertedCount: 0,
+				errors: [{ index: -1, message: err instanceof Error ? err.message : 'Network error' }]
+			};
 		}
-		selectedIds = newSet;
+
+		importStep = 'results';
+	}
+
+	function handleDone() {
+		onImportComplete();
+		onClose();
+	}
+
+	// --- Archive tab state (unchanged) ---
+	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
+
+	let selectedIds = new SvelteSet<string>();
+
+	function toggleSelect(id: string) {
+		if (selectedIds.has(id)) {
+			selectedIds.delete(id);
+		} else {
+			selectedIds.add(id);
+		}
 	}
 
 	function selectAll() {
-		selectedIds = new Set(allPersonnel.map((p) => p.id));
+		selectedIds.clear();
+		for (const p of allPersonnel) selectedIds.add(p.id);
 	}
 
 	function selectNone() {
-		selectedIds = new Set();
+		selectedIds.clear();
 	}
 
 	function selectGroup(groupName: string) {
 		const groupPersonnel = allPersonnel.filter((p) => p.groupName === groupName);
-		const newSet = new Set(selectedIds);
-		for (const p of groupPersonnel) {
-			newSet.add(p.id);
-		}
-		selectedIds = newSet;
+		for (const p of groupPersonnel) selectedIds.add(p.id);
 	}
 
 	let showArchiveConfirm = $state(false);
@@ -228,24 +203,18 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 
 	function doArchive() {
 		onBulkDelete([...selectedIds]);
-		selectedIds = new Set();
+		selectedIds.clear();
 		showArchiveConfirm = false;
 	}
 
-	$effect(() => {
-		if (importText) {
-			parseImportText();
-		} else {
-			parsedPersonnel = [];
-			importErrors = [];
-		}
-	});
+	// Width is wider during preview to accommodate the table
+	const modalWidth = $derived(importStep === 'preview' || importStep === 'importing' || importStep === 'results' ? '800px' : '600px');
 </script>
 
 <Modal
 	title="Bulk Personnel Management"
 	{onClose}
-	width="600px"
+	width={modalWidth}
 	titleId="bulk-personnel-title"
 	showCloseButton={false}
 >
@@ -276,111 +245,141 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 
 		<div class="content-body">
 			{#if activeTab === 'import'}
-				<div class="import-section">
-					<!-- File Upload -->
-					<div class="upload-section">
-						<h4>Upload File</h4>
-						<p class="hint">Upload an Excel (.xlsx, .xls) or CSV file</p>
-						<div class="upload-row">
-							<input
-								type="file"
-								accept=".xlsx,.xls,.csv"
-								onchange={handleFileUpload}
-								bind:this={fileInput}
-								class="file-input"
-								id="fileUpload"
-							/>
-							<label for="fileUpload" class="btn btn-secondary upload-btn">
-								<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-									<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-								</svg>
-								Choose File
-							</label>
-							{#if uploadedFileName}
-								<span class="file-name">{uploadedFileName}</span>
-								<button class="btn btn-secondary btn-sm" onclick={clearFileUpload}>Clear</button>
-							{/if}
-						</div>
-						<p class="format-hint">Columns: Rank, Last Name, First Name, MOS, Role, Group</p>
-					</div>
-
-					<div class="divider">
-						<span>or paste text</span>
-					</div>
-
-					<div class="format-info">
-						<h4>Paste Data</h4>
-						<p>One person per line, comma-separated:</p>
-						<code>Rank, Last Name, First Name, MOS, Role, Group</code>
-						<p class="hint">MOS, Role, and Group are optional</p>
-					</div>
-
-					<div class="example-box">
-						<div class="example-header">
-							<span>Example</span>
-							<button class="btn btn-secondary btn-sm" onclick={() => { importText = exampleFormat; uploadedFileName = ''; }}>
-								Use Example
-							</button>
-						</div>
-						<pre>{exampleFormat}</pre>
-					</div>
-
-					<div class="form-group">
-						<label class="label" for="importText">Personnel Data</label>
-						<textarea
-							id="importText"
-							class="input import-textarea"
-							bind:value={importText}
-							placeholder="Paste personnel data here..."
-							rows="6"
-							disabled={!!uploadedFileName}
-						></textarea>
-					</div>
-
-					{#if importErrors.length > 0}
-						<div class="warnings-box">
-							<div class="warnings-header">
-								<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-									<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-								</svg>
-								Warnings ({importErrors.length})
+				<!-- INPUT step -->
+				{#if importStep === 'input'}
+					<div class="import-section">
+						<div class="upload-section">
+							<h4>Upload File</h4>
+							<p class="hint">Upload an Excel (.xlsx, .xls) or CSV file</p>
+							<div class="upload-row">
+								<input
+									type="file"
+									accept=".xlsx,.xls,.csv"
+									onchange={handleFileUpload}
+									bind:this={fileInput}
+									class="file-input"
+									id="fileUpload"
+								/>
+								<label for="fileUpload" class="btn btn-secondary upload-btn">
+									<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+										<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+									</svg>
+									Choose File
+								</label>
+								{#if uploadedFileName}
+									<span class="file-name">{uploadedFileName}</span>
+									<button class="btn btn-secondary btn-sm" onclick={clearFile}>Clear</button>
+								{/if}
 							</div>
-							<ul>
-								{#each importErrors as error}
-									<li>{error}</li>
-								{/each}
-							</ul>
+							<p class="format-hint">Columns: Rank, Last Name, First Name, MOS, Role, Group</p>
 						</div>
-					{/if}
 
-					{#if parsedPersonnel.length > 0}
-						<div class="preview-box">
-							<div class="preview-header">
-								<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+						<div class="divider"><span>or paste text</span></div>
+
+						<div class="format-info">
+							<h4>Paste Data</h4>
+							<p>One person per line, comma-separated:</p>
+							<code>Rank, Last Name, First Name, MOS, Role, Group</code>
+							<p class="hint">MOS, Role, and Group are optional</p>
+						</div>
+
+						<div class="example-box">
+							<div class="example-header">
+								<span>Example</span>
+								<button
+									class="btn btn-secondary btn-sm"
+									onclick={() => {
+										importText = `SGT, Smith, John, 68W, Medic, Alpha Team
+SPC, Johnson, Jane, 68C, Admin, Bravo Team
+CPT, Williams, Robert, 62A, Physician, Leadership
+CIV, Brown, Sarah, RN, Receptionist, Support`;
+										uploadedFileName = '';
+									}}
+								>
+									Use Example
+								</button>
+							</div>
+							<pre>SGT, Smith, John, 68W, Medic, Alpha Team
+SPC, Johnson, Jane, 68C, Admin, Bravo Team
+CPT, Williams, Robert, 62A, Physician, Leadership
+CIV, Brown, Sarah, RN, Receptionist, Support</pre>
+						</div>
+
+						<div class="form-group">
+							<label class="label" for="importText">Personnel Data</label>
+							<textarea
+								id="importText"
+								class="input import-textarea"
+								bind:value={importText}
+								placeholder="Paste personnel data here..."
+								rows={6}
+								disabled={!!uploadedFileName}
+							></textarea>
+						</div>
+					</div>
+
+				<!-- PREVIEW step -->
+				{:else if importStep === 'preview'}
+					<BulkImportTable
+						bind:this={tableRef}
+						{rawRows}
+						columnDefs={PERSONNEL_COLUMNS}
+						{validateRow}
+					/>
+
+				<!-- IMPORTING step -->
+				{:else if importStep === 'importing'}
+					<div class="importing-state">
+						<div class="spinner"></div>
+						<p>Importing personnel records...</p>
+					</div>
+
+				<!-- RESULTS step -->
+				{:else if importStep === 'results' && importResult}
+					<div class="results-section">
+						{#if importResult.capError}
+							<div class="result-error-banner">
+								<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+									<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+								</svg>
+								{importResult.capError}
+							</div>
+						{/if}
+
+						{#if importResult.insertedCount > 0}
+							<div class="result-success">
+								<svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
 									<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
 								</svg>
-								Ready to Import ({parsedPersonnel.length})
+								<strong>{importResult.insertedCount}</strong> personnel imported successfully
 							</div>
-							<div class="preview-list">
-								{#each parsedPersonnel as person}
-									<div class="preview-item">
-										<span class="preview-rank">{person.rank}</span>
-										<span class="preview-name">{person.lastName}, {person.firstName}</span>
-										{#if person.mos}
-											<span class="preview-mos">{person.mos}</span>
-										{/if}
-										{#if person.clinicRole}
-											<span class="preview-role">{person.clinicRole}</span>
-										{/if}
-										{#if person.groupName}
-											<span class="preview-group">{person.groupName}</span>
-										{/if}
-									</div>
-								{/each}
+						{/if}
+
+						{#if importResult.errors.length > 0}
+							<div class="result-errors">
+								<div class="result-errors-header">
+									<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+										<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+									</svg>
+									{importResult.errors.length} record{importResult.errors.length !== 1 ? 's' : ''} had errors
+								</div>
+								<ul>
+									{#each importResult.errors as err (err.index)}
+										<li>
+											{#if err.index >= 0}Row {err.index + 1}: {/if}{err.message}
+										</li>
+									{/each}
+								</ul>
 							</div>
-						</div>
-					{/if}
-				</div>
+						{/if}
+
+						{#if importResult.insertedCount === 0 && importResult.errors.length === 0 && !importResult.capError}
+							<p class="result-empty">No records were imported.</p>
+						{/if}
+					</div>
+				{/if}
+
+			<!-- ARCHIVE tab (unchanged) -->
 			{:else}
 				<div class="delete-section">
 					<div class="delete-controls">
@@ -392,7 +391,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 					</div>
 
 					<div class="group-chips">
-						{#each personnelByGroup as grp}
+						{#each personnelByGroup as grp (grp.group)}
 							{#if grp.personnel.length > 0}
 								<button
 									class="group-chip"
@@ -406,12 +405,12 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 					</div>
 
 					<div class="personnel-checklist">
-						{#each personnelByGroup as grp}
+						{#each personnelByGroup as grp (grp.group)}
 							{#if grp.personnel.length > 0}
 								<div class="checklist-group">
 									<div class="checklist-header">{grp.group}</div>
 									<div class="checklist-items">
-										{#each grp.personnel as person}
+										{#each grp.personnel as person (person.id)}
 											{@const isSelected = selectedIds.has(person.id)}
 											<label class="checklist-item" class:selected={isSelected}>
 												<input
@@ -446,16 +445,28 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 	</div>
 
 	{#snippet footer()}
-		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 		{#if activeTab === 'import'}
-			<button
-				class="btn btn-primary"
-				onclick={handleImport}
-				disabled={parsedPersonnel.length === 0}
-			>
-				Import {parsedPersonnel.length} Personnel
-			</button>
+			{#if importStep === 'input'}
+				<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+				<button
+					class="btn btn-primary"
+					onclick={goToPreview}
+					disabled={rawRows.length === 0}
+				>
+					Preview {rawRows.length > 0 ? rawRows.length : ''} Rows
+				</button>
+			{:else if importStep === 'preview'}
+				<button class="btn btn-secondary" onclick={backToInput}>Back</button>
+				<button class="btn btn-primary" onclick={runImport}>
+					Import Records
+				</button>
+			{:else if importStep === 'importing'}
+				<button class="btn btn-secondary" disabled>Importing...</button>
+			{:else if importStep === 'results'}
+				<button class="btn btn-primary" onclick={handleDone}>Done</button>
+			{/if}
 		{:else}
+			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 			<button
 				class="btn btn-warning"
 				onclick={handleArchive}
@@ -517,7 +528,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 		flex: 1;
 		overflow-y: auto;
 		padding: var(--spacing-lg);
-		max-height: 50vh;
+		max-height: 65vh;
 	}
 
 	/* Import Section */
@@ -654,80 +665,76 @@ CIV, Brown, Sarah, RN, Receptionist, Support`;
 		resize: vertical;
 	}
 
-	.warnings-box {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		border-radius: var(--radius-md);
-		padding: var(--spacing-sm) var(--spacing-md);
-		margin-bottom: var(--spacing-md);
+	/* Importing state */
+	.importing-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-md);
+		padding: var(--spacing-xl) 0;
+		color: var(--color-text-muted);
 	}
 
-	.warnings-header {
+	/* Results section */
+	.results-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-md);
+	}
+
+	.result-success {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
-		font-weight: 600;
-		color: #dc2626;
-		margin-bottom: var(--spacing-xs);
-	}
-
-	.warnings-box ul {
-		margin: 0;
-		padding-left: var(--spacing-lg);
-		font-size: var(--font-size-sm);
-		color: #b91c1c;
-	}
-
-	.preview-box {
+		padding: var(--spacing-md);
 		background: #f0fdf4;
 		border: 1px solid #bbf7d0;
 		border-radius: var(--radius-md);
+		color: #15803d;
+		font-size: var(--font-size-base);
+	}
+
+	.result-error-banner {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-md);
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		border-radius: var(--radius-md);
+		color: #dc2626;
+		font-size: var(--font-size-sm);
+	}
+
+	.result-errors {
+		background: #fff3cd;
+		border: 1px solid #fde68a;
+		border-radius: var(--radius-md);
 		padding: var(--spacing-sm) var(--spacing-md);
 	}
 
-	.preview-header {
+	.result-errors-header {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
 		font-weight: 600;
-		color: #22c55e;
+		color: #92400e;
 		margin-bottom: var(--spacing-xs);
 	}
 
-	.preview-list {
-		max-height: 200px;
-		overflow-y: auto;
-	}
-
-	.preview-item {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-xs) 0;
+	.result-errors ul {
+		margin: 0;
+		padding-left: var(--spacing-lg);
 		font-size: var(--font-size-sm);
-		border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+		color: #78350f;
 	}
 
-	.preview-item:last-child {
-		border-bottom: none;
-	}
-
-	.preview-rank {
-		font-weight: 600;
-		color: var(--color-primary);
-	}
-
-	.preview-name {
-		font-weight: 500;
-	}
-
-	.preview-mos {
-		color: var(--color-primary);
-	}
-
-	.preview-role,
-	.preview-group {
+	.result-empty {
 		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		text-align: center;
+		padding: var(--spacing-lg) 0;
 	}
 
 	/* Delete Section */

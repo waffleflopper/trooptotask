@@ -170,10 +170,8 @@
 		pinnedGroupsStore.toggle(group);
 	}
 
-	async function handleBulkAdd(personnelList: Omit<Personnel, 'id'>[]) {
-		for (const person of personnelList) {
-			await personnelStore.add(person);
-		}
+	async function handleBulkImportComplete() {
+		await invalidateAll();
 		showBulkManager = false;
 	}
 
@@ -544,7 +542,8 @@
 	<BulkPersonnelManager
 		personnelByGroup={personnelByGroup}
 		groups={groupsStore.list}
-		onBulkAdd={handleBulkAdd}
+		orgId={data.orgId}
+		onImportComplete={handleBulkImportComplete}
 		onBulkDelete={handleBulkArchive}
 		onClose={() => (showBulkManager = false)}
 	/>

@@ -54,6 +54,9 @@
 	// BulkImportTable ref — used to call getCheckedRows()
 	let tableRef = $state<ReturnType<typeof BulkImportTable>>();
 
+	// Double-submit guard for the import action
+	let runningImport = $state(false);
+
 	// --- Validate row for BulkImportTable ---
 	function validateRow(row: Record<string, string>) {
 		const cellErrors: Record<string, string> = {};
@@ -128,9 +131,11 @@
 
 	// --- Import ---
 	async function runImport() {
-		if (!tableRef) return;
+		if (runningImport) return;
+		runningImport = true;
+		if (!tableRef) { runningImport = false; return; }
 		const checkedRows = tableRef.getCheckedRows();
-		if (checkedRows.length === 0) return;
+		if (checkedRows.length === 0) { runningImport = false; return; }
 
 		importStep = 'importing';
 
@@ -156,6 +161,8 @@
 				insertedCount: 0,
 				errors: [{ index: -1, message: err instanceof Error ? err.message : 'Network error' }]
 			};
+		} finally {
+			runningImport = false;
 		}
 
 		importStep = 'results';
@@ -457,7 +464,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 				</button>
 			{:else if importStep === 'preview'}
 				<button class="btn btn-secondary" onclick={backToInput}>Back</button>
-				<button class="btn btn-primary" onclick={runImport}>
+				<button class="btn btn-primary" onclick={runImport} disabled={runningImport}>
 					Import Records
 				</button>
 			{:else if importStep === 'importing'}

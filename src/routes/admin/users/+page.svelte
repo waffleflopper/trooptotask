@@ -7,7 +7,11 @@
 	let { data } = $props();
 	let showPlatformInvite = $state(false);
 
-	let searchInput = $state(data.search);
+	let searchInput = $state('');
+
+	$effect(() => {
+		searchInput = data.search;
+	});
 
 	function applyFilters() {
 		const params = new URLSearchParams();

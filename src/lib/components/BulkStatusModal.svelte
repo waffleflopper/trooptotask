@@ -18,8 +18,13 @@
 	let { personnelByGroup, statusTypes, onApply, onClose }: Props = $props();
 
 	const todayStr = formatDate(new Date());
-	let selectedStatusId = $state(statusTypes[0]?.id ?? '');
+	let selectedStatusId = $state('');
 	let startDate = $state(todayStr);
+
+	// Reset selected status when statusTypes prop changes
+	$effect(() => {
+		selectedStatusId = statusTypes[0]?.id ?? '';
+	});
 	let endDate = $state(todayStr);
 	let selectedIds = $state<Set<string>>(new Set());
 	let searchQuery = $state('');

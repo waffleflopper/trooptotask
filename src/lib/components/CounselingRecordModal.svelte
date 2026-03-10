@@ -28,15 +28,27 @@
 	const uploadId = existingRecord?.id ?? crypto.randomUUID();
 
 	// Form state
-	let counselingTypeId = $state(existingRecord?.counselingTypeId ?? '');
-	let dateConducted = $state(existingRecord?.dateConducted ?? todayStr);
-	let subject = $state(existingRecord?.subject ?? '');
-	let notes = $state(existingRecord?.notes ?? '');
-	let filePath = $state<string | null>(existingRecord?.filePath ?? null);
-	let followUpDate = $state(existingRecord?.followUpDate ?? '');
-	let status = $state<CounselingStatus>(existingRecord?.status ?? 'draft');
-	let counselorSigned = $state(existingRecord?.counselorSigned ?? false);
-	let soldierSigned = $state(existingRecord?.soldierSigned ?? false);
+	let counselingTypeId = $state('');
+	let dateConducted = $state(todayStr);
+	let subject = $state('');
+	let notes = $state('');
+	let filePath = $state<string | null>(null);
+	let followUpDate = $state('');
+	let status = $state<CounselingStatus>('draft');
+	let counselorSigned = $state(false);
+	let soldierSigned = $state(false);
+
+	$effect(() => {
+		counselingTypeId = existingRecord?.counselingTypeId ?? '';
+		dateConducted = existingRecord?.dateConducted ?? todayStr;
+		subject = existingRecord?.subject ?? '';
+		notes = existingRecord?.notes ?? '';
+		filePath = existingRecord?.filePath ?? null;
+		followUpDate = existingRecord?.followUpDate ?? '';
+		status = existingRecord?.status ?? 'draft';
+		counselorSigned = existingRecord?.counselorSigned ?? false;
+		soldierSigned = existingRecord?.soldierSigned ?? false;
+	});
 
 	let saving = $state(false);
 

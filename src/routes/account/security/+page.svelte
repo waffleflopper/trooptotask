@@ -6,7 +6,11 @@
 
 	let { data }: { data: PageData } = $props();
 
-	let mfaEnabled = $state(data.hasMFA);
+	let mfaEnabled = $state(false);
+
+	$effect(() => {
+		mfaEnabled = data.hasMFA;
+	});
 	let enrolling = $state(false);
 	let qrCode = $state('');
 	let factorId = $state('');

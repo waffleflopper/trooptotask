@@ -22,7 +22,12 @@
 	let { currentDate, assignmentTypes, assignments, personnelByGroup, groups, onSetAssignment, onClose }: Props = $props();
 
 	// State for selected month
-	let viewDate = $state(new Date(currentDate));
+	let viewDate = $state(new Date());
+
+	// Reset view when currentDate prop changes
+	$effect(() => {
+		viewDate = new Date(currentDate);
+	});
 
 	const year = $derived(viewDate.getFullYear());
 	const month = $derived(viewDate.getMonth());

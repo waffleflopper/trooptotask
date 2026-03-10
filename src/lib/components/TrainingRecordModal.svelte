@@ -26,14 +26,20 @@
 	const todayStr = formatDate(new Date());
 
 	// Initialize state
-	let isComplete = $state(!!existingTraining);
-	let completionDate = $state(
-		existingTraining?.completionDate ?? (neverExpires ? '' : todayStr)
-	);
+	let isComplete = $state(false);
+	let completionDate = $state(neverExpires ? '' : todayStr);
 	// For expiration-date-only types, seed directly from the stored expiration date
-	let directExpirationDate = $state(existingTraining?.expirationDate ?? '');
-	let notes = $state(existingTraining?.notes ?? '');
-	let certificateUrl = $state(existingTraining?.certificateUrl ?? '');
+	let directExpirationDate = $state('');
+	let notes = $state('');
+	let certificateUrl = $state('');
+
+	$effect(() => {
+		isComplete = !!existingTraining;
+		completionDate = existingTraining?.completionDate ?? (neverExpires ? '' : todayStr);
+		directExpirationDate = existingTraining?.expirationDate ?? '';
+		notes = existingTraining?.notes ?? '';
+		certificateUrl = existingTraining?.certificateUrl ?? '';
+	});
 
 	const previewExpirationDate = $derived(
 		expirationDateOnly

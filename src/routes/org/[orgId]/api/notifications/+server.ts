@@ -57,7 +57,18 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 
 	const body = await request.json();
 
-	if (!body.id) throw error(400, 'Missing notification id');
+	if (body.deleteAll) {
+		const { error: dbError } = await locals.supabase
+			.from('notifications')
+			.delete()
+			.eq('user_id', user.id)
+			.eq('organization_id', params.orgId);
+
+		if (dbError) throw error(500, dbError.message);
+		return json({ success: true });
+	}
+
+	if (!body.id) throw error(400, 'Missing notification id or deleteAll');
 
 	const { error: dbError } = await locals.supabase
 		.from('notifications')

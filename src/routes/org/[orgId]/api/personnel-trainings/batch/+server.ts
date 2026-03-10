@@ -66,7 +66,8 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			.from('personnel')
 			.select('id, group_id')
 			.eq('organization_id', orgId)
-			.in('id', personnelIds);
+			.in('id', personnelIds)
+			.is('archived_at', null);
 		personnelGroupMap = new Map((personnelData ?? []).map(p => [p.id, p.group_id]));
 	}
 
@@ -177,16 +178,21 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		insertedData = data ?? [];
 	}
 
-	for (const rec of updateRows) {
-		const { id, ...updates } = rec.row as { id: string; [key: string]: unknown };
-		const { data, error: updateError } = await supabase
-			.from('personnel_trainings')
-			.update(updates)
-			.eq('id', id)
-			.eq('organization_id', orgId)
-			.select()
-			.single();
+	const updateResults = await Promise.all(
+		updateRows.map(async (rec) => {
+			const { id, ...updates } = rec.row as { id: string; [key: string]: unknown };
+			const { data, error: updateError } = await supabase
+				.from('personnel_trainings')
+				.update(updates)
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.select()
+				.single();
+			return { rec, data, updateError };
+		})
+	);
 
+	for (const { rec, data, updateError } of updateResults) {
 		if (updateError) {
 			batchErrors.push({ index: rec.index, message: updateError.message });
 		} else if (data) {

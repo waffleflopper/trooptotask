@@ -5,7 +5,6 @@
 	import Spinner from './ui/Spinner.svelte';
 	import { TRAINING_COLUMNS } from '../utils/columnMapping';
 	import { parseCSVText, parseFile, parseTrainingStatus } from '../utils/csvParser';
-	import { SvelteMap } from 'svelte/reactivity';
 
 	interface ResolvedRecord {
 		personnelId: string;
@@ -39,9 +38,6 @@
 	let uploadedFileName = $state('');
 	let fileInputEl: HTMLInputElement | undefined = $state();
 	let bulkTable: ReturnType<typeof BulkImportTable> | undefined = $state();
-
-	// Map from row index → resolved record (populated during validateRow)
-	let resolvedMap = new SvelteMap<string, ResolvedRecord>();
 
 	interface ImportResults {
 		inserted: number;
@@ -136,18 +132,6 @@
 
 		const valid = Object.keys(cellErrors).length === 0;
 
-		// Store resolved data keyed by a stable key built from the raw values
-		if (valid && person && trainingType && resolvedStatus !== null) {
-			const key = `${row.lastName}|${row.firstName}|${row.trainingType}|${row.status}`;
-			resolvedMap.set(key, {
-				personnelId: person.id,
-				trainingTypeId: trainingType.id,
-				completionDate: resolvedDate,
-				notes: (row.notes ?? '').trim(),
-				status: resolvedStatus
-			});
-		}
-
 		return { valid, cellErrors, cellWarnings };
 	}
 
@@ -157,7 +141,6 @@
 		if (!file) return;
 		uploadedFileName = file.name;
 		importText = '';
-		resolvedMap = new SvelteMap();
 		try {
 			rawRows = await parseFile(file);
 			importState = 'preview';
@@ -168,7 +151,6 @@
 
 	function handleTextParse() {
 		if (!importText.trim()) return;
-		resolvedMap = new SvelteMap();
 		rawRows = parseCSVText(importText);
 		uploadedFileName = '';
 		importState = 'preview';
@@ -177,12 +159,11 @@
 	function handleBack() {
 		importState = 'input';
 		rawRows = [];
-		resolvedMap = new SvelteMap();
 		importError = '';
 	}
 
 	async function handleImport() {
-		if (!bulkTable) return;
+		if (isSubmitting || !bulkTable) return;
 		const checkedRows = bulkTable.getCheckedRows();
 		if (checkedRows.length === 0) return;
 

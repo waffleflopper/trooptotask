@@ -1,6 +1,7 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { PERMISSION_PRESETS } from '$lib/types';
+import { notifyAdmins } from '$lib/server/notifications';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const { user } = await locals.safeGetSession();
@@ -135,6 +136,13 @@ export const actions: Actions = {
 			.from('organization_invitations')
 			.delete()
 			.eq('id', invitationId);
+
+		await notifyAdmins(invitation.organization_id, user.id, {
+			type: 'member_joined',
+			title: 'New Member Joined',
+			message: `"${user.email}" has joined the organization.`,
+			link: `/org/${invitation.organization_id}/settings`
+		});
 
 		return { success: true, accepted: true };
 	},

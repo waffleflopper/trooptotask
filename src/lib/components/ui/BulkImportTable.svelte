@@ -35,7 +35,7 @@
   // Reset overrides when rawRows change (new file loaded)
   $effect(() => {
     rawRows; // track dependency
-    userOverrides = new SvelteMap();
+    userOverrides.clear();
   });
 
   const mappings = $derived.by(() => {
@@ -78,11 +78,47 @@
   // checkedRows auto-selects valid rows on initial load; user can toggle manually
   let checkedRows = new SvelteSet<number>();
 
+  // Track the last-seen validations so the incremental effect can diff them
+  let prevValidations = $state<RowValidation[]>([]);
+
+  // When rawRows changes (new file loaded), reset everything and auto-check all valid rows
   $effect(() => {
+    // Depend only on rawRows — editableRows is reset in its own effect first,
+    // but rowValidations isn't ready yet, so we clear and let the incremental
+    // effect below populate checkedRows on the next tick.
+    rawRows; // track dependency
     checkedRows.clear();
-    rowValidations.forEach((v, i) => {
-      if (v.valid) checkedRows.add(i);
-    });
+    prevValidations = [];
+  });
+
+  // Incremental update: when rowValidations changes due to cell edits or mapping
+  // changes, only add rows that became valid and remove rows that became invalid.
+  // This preserves manual checkbox selections the user made.
+  $effect(() => {
+    const current = rowValidations;
+    const prev = prevValidations;
+
+    if (prev.length === 0 && current.length > 0) {
+      // Initial population after a file load — auto-check all valid rows
+      current.forEach((v, i) => {
+        if (v.valid) checkedRows.add(i);
+      });
+    } else {
+      // Incremental update: only touch rows whose validity changed
+      current.forEach((v, i) => {
+        const wasValid = prev[i]?.valid ?? false;
+        if (!wasValid && v.valid) {
+          // Row just became valid: auto-add it (was unchecked because invalid)
+          checkedRows.add(i);
+        } else if (wasValid && !v.valid) {
+          // Row just became invalid: remove it even if user had checked it
+          checkedRows.delete(i);
+        }
+        // If validity didn't change, leave the checkbox alone
+      });
+    }
+
+    prevValidations = current;
   });
 
   function toggleRow(index: number) {

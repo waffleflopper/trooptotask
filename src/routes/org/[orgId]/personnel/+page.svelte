@@ -19,6 +19,8 @@
 	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
 	import { exportRatingScheme } from '$lib/utils/ratingSchemeExport';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
+	import { toastStore } from '$lib/stores/toast.svelte';
+	import { invalidateAll } from '$app/navigation';
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 
@@ -148,7 +150,10 @@
 	async function handleArchive(id: string) {
 		const person = personnelStore.getById(id);
 		const result = await personnelStore.remove(id);
-		if (result === 'approval_required' && person) {
+		if (result === 'deleted') {
+			toastStore.success('Personnel archived');
+			await invalidateAll();
+		} else if (result === 'approval_required' && person) {
 			await submitDeletionRequest(
 				data.orgId,
 				'personnel',
@@ -156,6 +161,8 @@
 				`Archive ${person.rank} ${person.lastName}, ${person.firstName}`,
 				`/org/${data.orgId}/personnel`
 			);
+		} else if (result === 'error') {
+			toastStore.error('Failed to archive personnel');
 		}
 	}
 
@@ -171,10 +178,13 @@
 	}
 
 	async function handleBulkArchive(ids: string[]) {
+		let archivedCount = 0;
 		for (const id of ids) {
 			const person = personnelStore.getById(id);
 			const result = await personnelStore.remove(id);
-			if (result === 'approval_required' && person) {
+			if (result === 'deleted') {
+				archivedCount++;
+			} else if (result === 'approval_required' && person) {
 				await submitDeletionRequest(
 					data.orgId,
 					'personnel',
@@ -183,6 +193,10 @@
 					`/org/${data.orgId}/personnel`
 				);
 			}
+		}
+		if (archivedCount > 0) {
+			toastStore.success(`${archivedCount} personnel archived`);
+			await invalidateAll();
 		}
 		showBulkManager = false;
 	}

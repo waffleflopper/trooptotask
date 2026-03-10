@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission, getScopedGroupId } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
-import { canAddPersonnel } from '$lib/server/subscription';
+import { canAddPersonnel, getEffectiveTier } from '$lib/server/subscription';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { auditLog } from '$lib/server/auditLog';
 import { sanitizeString } from '$lib/server/validation';
@@ -107,6 +107,38 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 
 	if (validRows.length === 0) {
 		return json({ inserted: [], errors });
+	}
+
+	// Enforce personnel cap against full batch size
+	const tier = await getEffectiveTier(supabase, orgId);
+	if (tier.personnelCap !== null && tier.personnelCap !== Infinity) {
+		const { count: currentCount } = await supabase
+			.from('personnel')
+			.select('*', { count: 'exact', head: true })
+			.eq('organization_id', orgId)
+			.is('archived_at', null);
+
+		const available = tier.personnelCap - (currentCount ?? 0);
+		if (available <= 0) {
+			return json(
+				{
+					error: `Personnel limit reached (${tier.personnelCap}). Upgrade to add more.`,
+					inserted: [],
+					errors
+				},
+				{ status: 403 }
+			);
+		}
+		if (validRows.length > available) {
+			// Trim excess rows and add cap errors for them
+			const excess = validRows.splice(available);
+			for (const { index } of excess) {
+				errors.push({
+					index,
+					message: 'Personnel cap reached — this record would exceed your plan limit'
+				});
+			}
+		}
 	}
 
 	// Bulk insert

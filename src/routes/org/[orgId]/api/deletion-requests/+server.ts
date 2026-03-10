@@ -1,8 +1,8 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getApiContext } from '$lib/server/supabase';
-import { getAdminClient } from '$lib/server/supabase';
 import { auditLog } from '$lib/server/auditLog';
+import { notifyAdmins } from '$lib/server/notifications';
 
 export const GET: RequestHandler = async ({ params, url, locals, cookies }) => {
 	const { orgId } = params;
@@ -104,27 +104,15 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	);
 
 	// Notify admins/owners about the pending request
-	const adminClient = getAdminClient();
-	const { data: admins } = await adminClient
-		.from('organization_memberships')
-		.select('user_id')
-		.eq('organization_id', orgId)
-		.in('role', ['owner', 'admin']);
-
 	const isPersonnel = resourceType === 'personnel';
 	const actionWord = isPersonnel ? 'archive' : 'delete';
 
-	for (const adm of (admins ?? [])) {
-		if (adm.user_id === userId) continue; // don't notify the requester
-		await adminClient.from('notifications').insert({
-			user_id: adm.user_id,
-			organization_id: orgId,
-			type: 'deletion_request_pending',
-			title: `${isPersonnel ? 'Archival' : 'Deletion'} Request`,
-			message: `${userEmail} requested to ${actionWord} "${resourceDescription}". Review in Admin Hub.`,
-			link: `/org/${orgId}/admin/approvals`
-		});
-	}
+	await notifyAdmins(orgId, userId, {
+		type: 'deletion_request_pending',
+		title: `${isPersonnel ? 'Archival' : 'Deletion'} Request`,
+		message: `${userEmail} requested to ${actionWord} "${resourceDescription}". Review in Admin Hub.`,
+		link: `/org/${orgId}/admin/approvals`
+	});
 
 	return json(data, { status: 201 });
 };

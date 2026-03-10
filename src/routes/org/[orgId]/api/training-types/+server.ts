@@ -1,4 +1,5 @@
 import { createCrudHandlers } from '$lib/server/crudFactory';
+import { notifyAdmins } from '$lib/server/notifications';
 import type { TrainingType } from '$lib/types';
 
 const handlers = createCrudHandlers<TrainingType>({
@@ -28,6 +29,13 @@ const handlers = createCrudHandlers<TrainingType>({
 	},
 	auditResourceType: 'training_type',
 	auditDetailFields: ['name'],
+	onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
+		await notifyAdmins(orgId, userId, {
+			type: 'config_type_deleted',
+			title: 'Training Type Deleted',
+			message: `"${userEmail}" deleted the training type "${(deletedDetails as any)?.name ?? 'unknown'}".`
+		});
+	},
 	// Cascade delete: remove personnel trainings with this type
 	onDelete: async (supabase, orgId, id) => {
 		await supabase

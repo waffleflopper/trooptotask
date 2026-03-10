@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { requireEditPermission, getScopedGroupId } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
+import { notifyAdmins } from '$lib/server/notifications';
 
 function toClient(row: any) {
 	return {
@@ -217,6 +218,15 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 		}
 	}
 
+	// Capture entry details before deletion for notification
+	const { data: deletedEntry } = await supabase
+		.from('rating_scheme_entries')
+		.select('eval_type')
+		.eq('id', id)
+		.eq('organization_id', orgId)
+		.single();
+	const deletedName = (deletedEntry as any)?.eval_type;
+
 	const { error: dbError } = await supabase
 		.from('rating_scheme_entries')
 		.delete()
@@ -224,6 +234,12 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 		.eq('organization_id', orgId);
 
 	if (dbError) throw error(500, dbError.message);
+
+	await notifyAdmins(orgId, userId, {
+		type: 'config_type_deleted',
+		title: 'Rating Scheme Entry Deleted',
+		message: `"${locals.user?.email}" deleted the rating scheme entry "${deletedName ?? 'unknown'}".`
+	});
 
 	return json({ success: true });
 };

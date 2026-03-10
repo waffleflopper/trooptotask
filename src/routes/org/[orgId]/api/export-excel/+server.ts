@@ -6,6 +6,7 @@ import { TIER_CONFIG } from '$lib/types/subscription';
 import { getAdminClient } from '$lib/server/supabase';
 import ExcelJS from 'exceljs';
 import { auditLog } from '$lib/server/auditLog';
+import { notifyAdmins } from '$lib/server/notifications';
 
 export const POST: RequestHandler = async ({ params, locals }) => {
 	const { orgId } = params;
@@ -456,6 +457,12 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			{ action: 'export.excel_created', resourceType: 'data_export', orgId },
 			{ userId: locals.user!.id }
 		);
+
+		await notifyAdmins(orgId, userId, {
+			type: 'bulk_data_exported',
+			title: 'Data Exported',
+			message: `"${locals.user?.email ?? 'A user'}" exported organization data.`
+		});
 
 		const dateStr = new Date().toISOString().split('T')[0];
 		return new Response(buffer as ArrayBuffer, {

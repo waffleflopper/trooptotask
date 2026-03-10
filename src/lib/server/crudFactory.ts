@@ -43,6 +43,18 @@ export interface CrudConfig<T> {
 	onDelete?: (supabase: SupabaseClient, orgId: string, id: string) => Promise<void>;
 
 	/**
+	 * Optional callback after successful delete.
+	 * Called with context about what was deleted, for notifications etc.
+	 */
+	onAfterDelete?: (context: {
+		orgId: string;
+		userId: string | null;
+		userEmail: string | undefined;
+		id: string;
+		deletedDetails: Record<string, unknown> | null;
+	}) => Promise<void>;
+
+	/**
 	 * Transform the database row to API response format.
 	 * If not provided, uses automatic field mapping.
 	 */
@@ -423,6 +435,16 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 				{ action: `${config.auditResourceType}.deleted`, resourceType: config.auditResourceType, resourceId: id, orgId, details },
 				{ userId }
 			);
+		}
+
+		if (config.onAfterDelete) {
+			await config.onAfterDelete({
+				orgId,
+				userId: userId ?? null,
+				userEmail: locals.user?.email,
+				id,
+				deletedDetails
+			});
 		}
 
 		return json({ success: true });

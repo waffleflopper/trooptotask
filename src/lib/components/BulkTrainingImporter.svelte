@@ -116,9 +116,9 @@
 				}
 			} else if (parsed.type === 'completed') {
 				// yes/true/done — completion flag without a specific date
-				const isExpiring =
-					trainingType.expirationMonths !== null && !trainingType.expirationDateOnly;
-				if (isExpiring) {
+				if (trainingType.expirationDateOnly) {
+					cellErrors.status = `${trainingType.name} requires an expiration date, not yes/no`;
+				} else if (trainingType.expirationMonths !== null) {
 					cellErrors.status = `${trainingType.name} requires a completion date, not yes/no`;
 				} else {
 					resolvedStatus = 'completed';
@@ -141,6 +141,7 @@
 		if (!file) return;
 		uploadedFileName = file.name;
 		importText = '';
+		importError = '';
 		try {
 			rawRows = await parseFile(file);
 			importState = 'preview';
@@ -215,12 +216,12 @@
 				body: JSON.stringify({ records })
 			});
 
+			const data = await res.json().catch(() => ({}));
+
 			if (!res.ok) {
-				const body = await res.json().catch(() => ({}));
-				throw new Error(body.message ?? `HTTP ${res.status}`);
+				throw new Error(data.message ?? `HTTP ${res.status}`);
 			}
 
-			const data = await res.json();
 			results = {
 				inserted: data.inserted?.length ?? 0,
 				updated: data.updated?.length ?? 0,

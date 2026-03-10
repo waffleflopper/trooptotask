@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireEditPermission, getScopedGroupId } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
-import { canAddPersonnel, getEffectiveTier } from '$lib/server/subscription';
+import { getEffectiveTier } from '$lib/server/subscription';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { auditLog } from '$lib/server/auditLog';
 import { sanitizeString } from '$lib/server/validation';
@@ -37,12 +37,6 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 
 	if (records.length > 500) {
 		throw error(400, 'Maximum 500 records per batch');
-	}
-
-	// Check personnel cap
-	const capCheck = await canAddPersonnel(supabase, orgId);
-	if (!capCheck.allowed) {
-		return json({ error: capCheck.message, inserted: [], errors: [] }, { status: 403 });
 	}
 
 	// Fetch groups for name matching

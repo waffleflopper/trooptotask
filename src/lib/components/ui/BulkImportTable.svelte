@@ -39,12 +39,14 @@
   });
 
   const mappings = $derived.by(() => {
-    return autoMappings.map(m => {
-      if (userOverrides.has(m.columnIndex)) {
-        return { ...m, fieldKey: userOverrides.get(m.columnIndex) ?? null };
-      }
-      return m;
-    });
+    return autoMappings
+      .filter((m): m is ColumnMapping => m != null && typeof m.columnIndex === 'number')
+      .map(m => {
+        if (userOverrides.has(m.columnIndex)) {
+          return { ...m, fieldKey: userOverrides.get(m.columnIndex) ?? null };
+        }
+        return m;
+      });
   });
 
   // Notify parent when mappings change
@@ -58,9 +60,18 @@
   // editableRows starts as a copy of dataRows; user edits mutate it directly
   let editableRows = $state<string[][]>([]);
 
+  // checkedRows auto-selects valid rows on initial load; user can toggle manually
+  let checkedRows = new SvelteSet<number>();
+
+  // Generation counter tracks when rawRows changes (new file loaded) vs cell edits.
+  // This avoids fragile cross-effect state sharing via plain variables.
+  let dataGeneration = 0;
+  let lastCheckedGeneration = -1;
+
+  // Reset editableRows and bump generation when dataRows changes
   $effect(() => {
-    // Only reset when dataRows reference changes (new file loaded)
     editableRows = dataRows.map(row => [...row]);
+    dataGeneration++;
   });
 
   const rowValidations = $derived.by(() => {
@@ -68,53 +79,38 @@
       const mapped: Record<string, string> = {};
       for (const m of mappings) {
         if (m.fieldKey && m.columnIndex < row.length) {
-          mapped[m.fieldKey] = row[m.columnIndex].trim();
+          mapped[m.fieldKey] = (row[m.columnIndex] ?? '').trim();
         }
       }
       return validateRow(mapped);
     });
   });
 
-  // checkedRows auto-selects valid rows on initial load; user can toggle manually
-  let checkedRows = new SvelteSet<number>();
+  // Track previous validations for incremental checkbox updates
+  let prevValidations: RowValidation[] = [];
 
-  // Track the last-seen validations so the incremental effect can diff them
-  let prevValidations = $state<RowValidation[]>([]);
-
-  // When rawRows changes (new file loaded), reset everything and auto-check all valid rows
-  $effect(() => {
-    // Depend only on rawRows — editableRows is reset in its own effect first,
-    // but rowValidations isn't ready yet, so we clear and let the incremental
-    // effect below populate checkedRows on the next tick.
-    rawRows; // track dependency
-    checkedRows.clear();
-    prevValidations = [];
-  });
-
-  // Incremental update: when rowValidations changes due to cell edits or mapping
-  // changes, only add rows that became valid and remove rows that became invalid.
-  // This preserves manual checkbox selections the user made.
+  // Single effect handles both initial population and incremental updates
   $effect(() => {
     const current = rowValidations;
-    const prev = prevValidations;
+    const isNewData = lastCheckedGeneration !== dataGeneration;
 
-    if (prev.length === 0 && current.length > 0) {
-      // Initial population after a file load — auto-check all valid rows
+    if (isNewData) {
+      // New file loaded — reset and auto-check all valid rows
+      checkedRows.clear();
       current.forEach((v, i) => {
         if (v.valid) checkedRows.add(i);
       });
+      lastCheckedGeneration = dataGeneration;
     } else {
-      // Incremental update: only touch rows whose validity changed
+      // Incremental update from cell edit or mapping change —
+      // only touch rows whose validity changed
       current.forEach((v, i) => {
-        const wasValid = prev[i]?.valid ?? false;
+        const wasValid = prevValidations[i]?.valid ?? false;
         if (!wasValid && v.valid) {
-          // Row just became valid: auto-add it (was unchecked because invalid)
           checkedRows.add(i);
         } else if (wasValid && !v.valid) {
-          // Row just became invalid: remove it even if user had checked it
           checkedRows.delete(i);
         }
-        // If validity didn't change, leave the checkbox alone
       });
     }
 
@@ -128,7 +124,7 @@
 
   function selectAll() {
     checkedRows.clear();
-    rowValidations.forEach((_, i) => checkedRows.add(i));
+    rowValidations.forEach((v, i) => { if (v.valid) checkedRows.add(i); });
   }
 
   function selectNone() {
@@ -164,7 +160,7 @@
       const mapped: Record<string, string> = {};
       for (const m of mappings) {
         if (m.fieldKey && m.columnIndex < row.length) {
-          mapped[m.fieldKey] = row[m.columnIndex].trim();
+          mapped[m.fieldKey] = (row[m.columnIndex] ?? '').trim();
         }
       }
       results.push(mapped);

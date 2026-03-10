@@ -61,7 +61,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	};
 
 	// Define public routes that don't require authentication
-	const publicRoutes = ['/', '/auth', '/api/webhooks', '/demo', '/api/create-demo-sandbox', '/api/access-requests', '/features', '/pricing', '/security', '/terms', '/privacy'];
+	const publicRoutes = ['/', '/auth', '/api/webhooks', '/demo', '/api/create-demo-sandbox', '/api/access-requests', '/features', '/pricing', '/security', '/terms', '/privacy', '/dashboard'];
 	const isPublicRoute = publicRoutes.some(route =>
 		event.url.pathname === route || event.url.pathname.startsWith(route + '/')
 	);
@@ -70,30 +70,25 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const isDemoMode = event.cookies.get('demo_mode') === 'readonly' || event.cookies.get('demo_sandbox');
 	const isOrgRoute = event.url.pathname.startsWith('/org/');
 
-	// Only call getUser() for protected routes — skip for public routes and demo mode
-	if (isPublicRoute || (isDemoMode && isOrgRoute)) {
-		event.locals.session = null;
-		event.locals.user = null;
-	} else {
-		const { session, user } = await event.locals.safeGetSession();
-		event.locals.session = session;
-		event.locals.user = user;
+	// Always attempt to get the session — public routes need user info for conditional rendering
+	const { session, user } = await event.locals.safeGetSession();
+	event.locals.session = session;
+	event.locals.user = user;
 
+	if (session && user?.last_sign_in_at) {
 		// Enforce 24-hour absolute session timeout
-		if (user && user.last_sign_in_at) {
-			const sessionCreated = new Date(user.last_sign_in_at).getTime();
-			const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
-			if (Date.now() - sessionCreated > maxSessionAge) {
-				await event.locals.supabase.auth.signOut();
-				event.locals.session = null;
-				event.locals.user = null;
-			}
+		const sessionCreated = new Date(user.last_sign_in_at).getTime();
+		const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
+		if (Date.now() - sessionCreated > maxSessionAge) {
+			await event.locals.supabase.auth.signOut();
+			event.locals.session = null;
+			event.locals.user = null;
 		}
+	}
 
-		// Protect routes - redirect unauthenticated users to login
-		if (!session) {
-			redirect(303, '/auth/login');
-		}
+	// Protect routes — redirect unauthenticated users to login (skip public routes and demo mode)
+	if (!event.locals.session && !isPublicRoute && !(isDemoMode && isOrgRoute)) {
+		redirect(303, '/auth/login');
 	}
 
 	const response = await resolve(event, {

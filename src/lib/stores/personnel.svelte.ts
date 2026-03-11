@@ -38,6 +38,10 @@ class PersonnelStore {
 		}
 	}
 
+	addBatchResults(inserted: Personnel[]) {
+		this.#personnel = [...this.#personnel, ...inserted];
+	}
+
 	async update(id: string, data: Partial<Omit<Personnel, 'id'>>): Promise<boolean> {
 		// Optimistic: update immediately
 		const original = this.#personnel.find((p) => p.id === id);

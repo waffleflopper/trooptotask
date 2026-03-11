@@ -49,6 +49,12 @@ class PersonnelTrainingsStore {
 		}
 	}
 
+	addBatchResults(inserted: PersonnelTraining[], updated: PersonnelTraining[]) {
+		const updatedIds = new Set(updated.map(u => u.id));
+		this.#trainings = this.#trainings.filter(t => !updatedIds.has(t.id));
+		this.#trainings = [...this.#trainings, ...inserted, ...updated];
+	}
+
 	async update(id: string, data: Partial<Omit<PersonnelTraining, 'id'>>): Promise<boolean> {
 		// Optimistic: update immediately
 		const original = this.#trainings.find((t) => t.id === id);

@@ -2,6 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG, type EffectiveTier, type Tier } from '$lib/types/subscription';
 
+/** In-memory TTL cache for tier queries (per-process, resets on cold start) */
+const tierCache = new Map<string, { data: EffectiveTier; expiresAt: number }>();
+const TIER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Get the effective tier for an org.
  * When billing is disabled, returns unlimited tier.
@@ -22,9 +26,24 @@ export async function getEffectiveTier(
 		};
 	}
 
+	const cached = tierCache.get(orgId);
+	if (cached && cached.expiresAt > Date.now()) {
+		return cached.data;
+	}
+
 	const { data, error } = await supabase.rpc('get_effective_tier', { p_org_id: orgId });
 	if (error) throw error;
-	return data as EffectiveTier;
+
+	const result = data as EffectiveTier;
+	tierCache.set(orgId, { data: result, expiresAt: Date.now() + TIER_CACHE_TTL });
+	return result;
+}
+
+/**
+ * Invalidate the cached tier for a single org.
+ */
+export function invalidateTierCache(orgId: string): void {
+	tierCache.delete(orgId);
 }
 
 /**

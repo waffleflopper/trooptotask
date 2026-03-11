@@ -89,6 +89,26 @@ class AvailabilityStore {
 		}
 	}
 
+	async removeBatch(ids: string[]): Promise<boolean> {
+		// Optimistic: remove all matching entries
+		const removedEntries = this.#entries.filter(e => ids.includes(e.id));
+		this.#entries = this.#entries.filter(e => !ids.includes(e.id));
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/availability/batch`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ ids })
+			});
+			if (!res.ok) throw new Error('Failed to delete availability batch');
+			return true;
+		} catch {
+			// Rollback on failure
+			this.#entries = [...this.#entries, ...removedEntries];
+			return false;
+		}
+	}
+
 	// Local-only removal for cascade operations
 	removeByPersonnelLocal(personnelId: string) {
 		this.#entries = this.#entries.filter((e) => e.personnelId !== personnelId);

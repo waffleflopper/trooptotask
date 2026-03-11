@@ -12,10 +12,11 @@ const handlers = createCrudHandlers<AvailabilityEntry>({
 		personnelId: 'personnel_id',
 		statusTypeId: 'status_type_id',
 		startDate: 'start_date',
-		endDate: 'end_date'
+		endDate: 'end_date',
+		note: 'note'
 	},
 	auditResourceType: 'availability',
-	auditDetailFields: ['personnel_id', 'status_type_id', 'start_date', 'end_date']
+	auditDetailFields: ['personnel_id', 'status_type_id', 'start_date', 'end_date', 'note']
 });
 
 // Note: No PUT handler - availability entries are created/deleted, not updated

@@ -36,6 +36,7 @@
 	let startDate = $state('');
 	let endDate = $state('');
 	let editingEntry = $state<AvailabilityEntry | null>(null);
+	let note = $state('');
 
 	// Reset form state when props change (e.g. modal reopened with different data)
 	$effect(() => {
@@ -72,6 +73,7 @@
 		selectedStatusId = entry.statusTypeId;
 		startDate = entry.startDate;
 		endDate = entry.endDate;
+		note = entry.note ?? '';
 	}
 
 	function cancelEdit() {
@@ -79,6 +81,7 @@
 		selectedStatusId = statusTypes[0]?.id ?? '';
 		startDate = dateStr;
 		endDate = dateStr;
+		note = '';
 	}
 
 	function handleSubmit() {
@@ -88,7 +91,8 @@
 			personnelId: person.id,
 			statusTypeId: selectedStatusId,
 			startDate,
-			endDate
+			endDate,
+			note: note.trim() || null
 		};
 
 		if (editingEntry) {
@@ -110,6 +114,7 @@
 		selectedStatusId = statusTypes[0]?.id ?? '';
 		startDate = dateStr;
 		endDate = dateStr;
+		note = '';
 	}
 
 	let removeEntryId = $state<string | null>(null);
@@ -178,6 +183,9 @@
 							({getDayCountForEntry(entry)}
 							{getDayCountForEntry(entry) === 1 ? 'day' : 'days'})
 						</span>
+						{#if entry.note}
+							<span class="entry-note" title={entry.note}>{entry.note}</span>
+						{/if}
 					</div>
 					{#if !entry.id.startsWith('temp-')}
 						<button
@@ -252,6 +260,18 @@
 		{#if dateError}
 			<div class="form-error">{dateError}</div>
 		{/if}
+
+		<div class="form-group">
+			<label class="label" for="statusNote">Note</label>
+			<input
+				id="statusNote"
+				type="text"
+				class="input"
+				bind:value={note}
+				maxlength={200}
+				placeholder="Optional note (e.g., JRTC rotation)"
+			/>
+		</div>
 	</div>
 
 	{#snippet footer()}
@@ -423,5 +443,15 @@
 
 	.add-section {
 		padding-top: var(--spacing-sm);
+	}
+
+	.entry-note {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+		font-style: italic;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		max-width: 120px;
 	}
 </style>

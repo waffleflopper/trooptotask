@@ -5,8 +5,9 @@
 	import { COUNSELING_STATUS_LABELS, COUNSELING_STATUS_COLORS } from '$lib/types/leadersBook';
 	import { counselingTypesStore } from '$lib/stores/counselingTypes.svelte';
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
-	import { supabase } from '$lib/supabase';
 	import { formatDate } from '$lib/utils/dates';
+
+	const supabase = $derived($page.data.supabase);
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import Modal from './Modal.svelte';

@@ -15,6 +15,7 @@
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 	import { changelog } from '$lib/data/changelog';
 	import { browser } from '$app/environment';
+	import NavigationProgress from '$lib/components/ui/NavigationProgress.svelte';
 
 	let { children, data } = $props();
 
@@ -61,6 +62,7 @@
 	});
 </script>
 
+<NavigationProgress />
 <DemoBanner />
 <SubscriptionBanner orgId={data.orgId} />
 

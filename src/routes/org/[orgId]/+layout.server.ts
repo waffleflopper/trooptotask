@@ -165,7 +165,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	if (!user) throw redirect(303, '/auth/login');
 
 	// Parallelize: membership + allOrgs (single query), shared entity data, and tier
-	const [membershipsRes, shared, effectiveTier] = await Promise.all([
+	const [membershipsRes, shared, effectiveTier, notificationCountRes] = await Promise.all([
 		locals.supabase
 			.from('organization_memberships')
 			.select(
@@ -173,7 +173,13 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			)
 			.eq('user_id', user.id),
 		fetchSharedData(supabase, orgId),
-		getEffectiveTier(supabase, orgId)
+		getEffectiveTier(supabase, orgId),
+		locals.supabase
+			.from('notifications')
+			.select('id', { count: 'exact', head: true })
+			.eq('user_id', user.id)
+			.eq('organization_id', orgId)
+			.eq('read', false)
 	]);
 
 	const allMemberships = membershipsRes.data ?? [];
@@ -214,13 +220,6 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 
 	const fullEditor = !isPrivileged && !scopedGroupId && isFullEditor(permissions);
 
-	const { count: unreadNotificationCount } = await locals.supabase
-		.from('notifications')
-		.select('id', { count: 'exact', head: true })
-		.eq('user_id', user.id)
-		.eq('organization_id', orgId)
-		.eq('read', false);
-
 	// Filter personnel data for group-scoped members
 	let { personnel, groups, statusTypes, trainingTypes, personnelTrainings, activeOnboardingPersonnelIds } = shared;
 	const allPersonnel = personnel; // Keep unscoped list for calendar viewing
@@ -241,7 +240,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		userId: user.id,
 		permissions,
 		isFullEditor: fullEditor,
-		unreadNotificationCount: unreadNotificationCount ?? 0,
+		unreadNotificationCount: notificationCountRes.count ?? 0,
 		scopedGroupId,
 		isOwner,
 		isAdmin,

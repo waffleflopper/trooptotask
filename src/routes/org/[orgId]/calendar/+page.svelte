@@ -28,6 +28,7 @@
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
+	import { browser } from '$app/environment';
 	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
 
 	let { data } = $props();
@@ -64,6 +65,26 @@
 	let selectedPerson = $state<Personnel | null>(null);
 	let selectedDate = $state<Date | null>(null);
 	let assignmentDate = $state<Date | null>(null);
+
+	// Onboarding highlight toggle (persisted per user)
+	const highlightKey = $derived(`calendar-highlight-onboarding-${data.userId}`);
+	let highlightOnboarding = $state(true);
+
+	$effect(() => {
+		if (browser) {
+			const stored = localStorage.getItem(highlightKey);
+			if (stored !== null) {
+				highlightOnboarding = stored !== 'false';
+			}
+		}
+	});
+
+	function toggleHighlightOnboarding() {
+		highlightOnboarding = !highlightOnboarding;
+		if (browser) {
+			localStorage.setItem(highlightKey, String(highlightOnboarding));
+		}
+	}
 
 	// Use shared utility for personnel grouping — use ALL personnel for calendar display
 	const personnelByGroup = $derived(
@@ -220,6 +241,15 @@
 
 <div class="page">
 	<PageToolbar title="Calendar" helpTopic="calendar" overflowItems={calendarOverflowItems}>
+		<button
+			class="toolbar-toggle"
+			class:active={highlightOnboarding}
+			onclick={toggleHighlightOnboarding}
+			title={highlightOnboarding ? 'Hide onboarding highlighting' : 'Show onboarding highlighting'}
+		>
+			<span class="toggle-dot"></span>
+			Onboarding
+		</button>
 		<button class="btn btn-sm" onclick={() => (showTodayBreakdown = true)}>
 			Today's Breakdown
 		</button>
@@ -256,6 +286,7 @@
 				assignmentTypes={dailyAssignmentsStore.types}
 				assignments={dailyAssignmentsStore.assignments}
 				activeOnboardingPersonnelIds={data.activeOnboardingPersonnelIds}
+				highlightOnboarding={highlightOnboarding}
 				canEdit={data.permissions.canEditCalendar}
 				showStatusText={calendarPrefsStore.showStatusText}
 				personnelHref={`/org/${data.orgId}/personnel`}
@@ -439,6 +470,44 @@
 		font-size: var(--font-size-lg);
 		margin-bottom: var(--spacing-sm);
 		color: var(--color-text);
+	}
+
+	.toolbar-toggle {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+
+	.toolbar-toggle:hover {
+		border-color: var(--color-primary);
+		color: var(--color-text);
+	}
+
+	.toolbar-toggle.active {
+		border-color: #B8943E;
+		color: #B8943E;
+		background: var(--color-onboarding-tint);
+	}
+
+	.toggle-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: var(--color-border);
+		transition: background 0.15s ease;
+	}
+
+	.toolbar-toggle.active .toggle-dot {
+		background: #B8943E;
 	}
 
 	/* Mobile styles — .page-content mobile in app.css */

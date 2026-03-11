@@ -60,6 +60,35 @@ class AvailabilityStore {
 		}
 	}
 
+	async addBatch(entries: Omit<AvailabilityEntry, 'id'>[]): Promise<AvailabilityEntry[]> {
+		// Optimistic: add all with temp IDs
+		const tempEntries: AvailabilityEntry[] = entries.map(e => ({
+			id: `temp-${crypto.randomUUID()}`,
+			...e
+		}));
+		this.#entries = [...this.#entries, ...tempEntries];
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/availability/batch`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ records: entries })
+			});
+			if (!res.ok) throw new Error('Failed to add availability batch');
+			const data = await res.json();
+			const inserted: AvailabilityEntry[] = data.inserted;
+			// Remove temp entries and add real ones
+			const tempIds = new Set(tempEntries.map(e => e.id));
+			this.#entries = [...this.#entries.filter(e => !tempIds.has(e.id)), ...inserted];
+			return inserted;
+		} catch {
+			// Rollback on failure
+			const tempIds = new Set(tempEntries.map(e => e.id));
+			this.#entries = this.#entries.filter(e => !tempIds.has(e.id));
+			return [];
+		}
+	}
+
 	// Local-only removal for cascade operations
 	removeByPersonnelLocal(personnelId: string) {
 		this.#entries = this.#entries.filter((e) => e.personnelId !== personnelId);

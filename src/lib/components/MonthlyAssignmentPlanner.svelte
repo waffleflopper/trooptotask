@@ -16,10 +16,11 @@
 		personnelByGroup: GroupData[];
 		groups: string[];
 		onSetAssignment: (date: string, typeId: string, assigneeId: string) => Promise<boolean>;
+		onSetAssignmentBatch: (assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]) => Promise<boolean>;
 		onClose: () => void;
 	}
 
-	let { currentDate, assignmentTypes, assignments, personnelByGroup, groups, onSetAssignment, onClose }: Props = $props();
+	let { currentDate, assignmentTypes, assignments, personnelByGroup, groups, onSetAssignment, onSetAssignmentBatch, onClose }: Props = $props();
 
 	// State for selected month
 	let viewDate = $state(new Date());
@@ -124,17 +125,19 @@
 
 		isApplying = true;
 		try {
-			for (const date of dates) {
-				const weekend = isWeekend(date);
-				const shouldApply =
-					quickFillDays === 'all' ||
-					(quickFillDays === 'weekdays' && !weekend) ||
-					(quickFillDays === 'weekends' && weekend);
-
-				if (shouldApply) {
-					await onSetAssignment(formatDate(date), quickFillType, assigneeId);
-				}
-			}
+			const batch = dates
+				.filter(date => {
+					const weekend = isWeekend(date);
+					return quickFillDays === 'all' ||
+						(quickFillDays === 'weekdays' && !weekend) ||
+						(quickFillDays === 'weekends' && weekend);
+				})
+				.map(date => ({
+					date: formatDate(date),
+					assignmentTypeId: quickFillType,
+					assigneeId
+				}));
+			await onSetAssignmentBatch(batch);
 		} finally {
 			isApplying = false;
 		}
@@ -153,9 +156,12 @@
 
 		isApplying = true;
 		try {
-			for (const date of dates) {
-				await onSetAssignment(formatDate(date), typeId, '');
-			}
+			const batch = dates.map(date => ({
+				date: formatDate(date),
+				assignmentTypeId: typeId,
+				assigneeId: ''
+			}));
+			await onSetAssignmentBatch(batch);
 		} finally {
 			isApplying = false;
 		}

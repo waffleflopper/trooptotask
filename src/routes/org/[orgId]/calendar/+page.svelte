@@ -108,15 +108,9 @@
 	}
 
 	async function handleBulkStatusApply(personnelIds: string[], statusTypeId: string, startDate: string, endDate: string) {
-		// Create an availability entry for each person with the date range
-		for (const personnelId of personnelIds) {
-			await availabilityStore.add({
-				personnelId,
-				statusTypeId,
-				startDate,
-				endDate
-			});
-		}
+		await availabilityStore.addBatch(
+			personnelIds.map(personnelId => ({ personnelId, statusTypeId, startDate, endDate }))
+		);
 	}
 
 	function handleExportCSV() {
@@ -142,9 +136,7 @@
 	}
 
 	async function handleApplyRoster(assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]) {
-		for (const assignment of assignments) {
-			await dailyAssignmentsStore.setAssignment(assignment.date, assignment.assignmentTypeId, assignment.assigneeId);
-		}
+		await dailyAssignmentsStore.setAssignmentBatch(assignments);
 	}
 
 	async function handleSaveRoster(payload: Omit<RosterHistoryItem, 'id' | 'createdAt'>): Promise<RosterHistoryItem | null> {
@@ -377,6 +369,7 @@
 		personnelByGroup={personnelByGroup}
 		groups={groupsStore.names}
 		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
+		onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}
 		onClose={() => (showAssignmentPlanner = false)}
 	/>
 {/if}

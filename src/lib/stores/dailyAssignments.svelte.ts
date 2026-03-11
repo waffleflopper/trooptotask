@@ -191,6 +191,64 @@ class DailyAssignmentsStore {
 		}
 	}
 
+	async setAssignmentBatch(
+		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
+	): Promise<boolean> {
+		// Optimistic: apply all changes locally
+		const originals: DailyAssignment[] = [];
+		const tempEntries: DailyAssignment[] = [];
+
+		for (const a of assignments) {
+			const existing = this.#assignments.find(
+				e => e.date === a.date && e.assignmentTypeId === a.assignmentTypeId
+			);
+			if (existing) originals.push(existing);
+
+			this.#assignments = this.#assignments.filter(
+				e => !(e.date === a.date && e.assignmentTypeId === a.assignmentTypeId)
+			);
+
+			if (a.assigneeId) {
+				const temp: DailyAssignment = {
+					id: `temp-${crypto.randomUUID()}`,
+					date: a.date,
+					assignmentTypeId: a.assignmentTypeId,
+					assigneeId: a.assigneeId
+				};
+				tempEntries.push(temp);
+				this.#assignments = [...this.#assignments, temp];
+			}
+		}
+
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/daily-assignments/batch`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ records: assignments })
+			});
+			if (!res.ok) throw new Error('Failed to batch update assignments');
+
+			const data = await res.json();
+			const inserted: DailyAssignment[] = data.inserted;
+
+			// Replace temp entries with real ones
+			const tempIds = new Set(tempEntries.map(e => e.id));
+			this.#assignments = [
+				...this.#assignments.filter(a => !tempIds.has(a.id)),
+				...inserted
+			];
+			return true;
+		} catch {
+			// Rollback: remove temps, restore originals
+			const tempIds = new Set(tempEntries.map(e => e.id));
+			this.#assignments = [
+				...this.#assignments.filter(a => !tempIds.has(a.id)),
+				...originals
+			];
+			return false;
+		}
+	}
+
 	getAssignmentsForDate(date: string): DailyAssignment[] {
 		return this.#assignments.filter((a) => a.date === date);
 	}

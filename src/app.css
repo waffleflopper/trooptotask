@@ -47,6 +47,7 @@
 	--color-holiday: #fff8e1;
 	--color-today-border: var(--color-primary);
 	--color-today-bg: #f5f0e0;
+	--color-onboarding-tint: rgba(184, 148, 62, 0.12);
 
 	/* Spacing - 8px grid */
 	--spacing-xs: 4px;
@@ -151,6 +152,7 @@
 	--color-weekend: #1a1a1a;
 	--color-holiday: #3d2c00;
 	--color-today-bg: #2a2418;
+	--color-onboarding-tint: rgba(184, 148, 62, 0.15);
 
 	/* Adjusted shadows for dark mode */
 	--shadow-1: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.48);

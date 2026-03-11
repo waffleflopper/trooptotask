@@ -11,7 +11,7 @@
 	interface Props {
 		personnelByGroup: GroupData[];
 		statusTypes: StatusType[];
-		onApply: (personnelIds: string[], statusTypeId: string, startDate: string, endDate: string) => Promise<void>;
+		onApply: (personnelIds: string[], statusTypeId: string, startDate: string, endDate: string, note: string | null) => Promise<void>;
 		onClose: () => void;
 	}
 
@@ -29,6 +29,7 @@
 	let selectedIds = $state<Set<string>>(new Set());
 	let searchQuery = $state('');
 	let isSubmitting = $state(false);
+	let note = $state('');
 	let collapsedGroups = $state<Set<string>>(new Set());
 
 	const allPersonnel = $derived(
@@ -148,7 +149,7 @@
 
 		isSubmitting = true;
 		try {
-			await onApply([...selectedIds], selectedStatusId, startDate, endDate);
+			await onApply([...selectedIds], selectedStatusId, startDate, endDate, note.trim() || null);
 			onClose();
 		} finally {
 			isSubmitting = false;
@@ -207,6 +208,20 @@
 				{#if dateError}
 					<div class="date-error">{dateError}</div>
 				{/if}
+
+				<div class="config-row">
+					<div class="form-group" style="flex: 1;">
+						<label class="label" for="bulkNote">Note</label>
+						<input
+							id="bulkNote"
+							type="text"
+							class="input"
+							bind:value={note}
+							maxlength={200}
+							placeholder="Optional note (e.g., JRTC rotation)"
+						/>
+					</div>
+				</div>
 			</div>
 
 			<!-- Personnel Selection -->

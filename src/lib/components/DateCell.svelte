@@ -30,11 +30,10 @@
 
 	const statusColors = $derived(
 		entries
-			.map((entry) => {
+			.flatMap((entry) => {
 				const status = statusTypeMap.get(entry.statusTypeId);
-				return status ? { color: status.color, name: status.name, textColor: status.textColor } : null;
+				return status ? [{ color: status.color, name: status.name, textColor: status.textColor, note: entry.note }] : [];
 			})
-			.filter((s): s is { color: string; name: string; textColor: string } => s !== null)
 	);
 
 	const tooltipText = $derived.by(() => {
@@ -46,7 +45,7 @@
 			parts.push(holidayName);
 		}
 		if (statusColors.length > 0) {
-			parts.push(...statusColors.map((s) => s.name));
+			parts.push(...statusColors.map((s) => s.note ? `${s.name} — ${s.note}` : s.name));
 		}
 		return parts.join('\n');
 	});

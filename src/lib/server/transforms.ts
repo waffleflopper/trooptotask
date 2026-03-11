@@ -69,7 +69,8 @@ export function transformAvailabilityEntries(data: any[]): AvailabilityEntry[] {
 		personnelId: a.personnel_id,
 		statusTypeId: a.status_type_id,
 		startDate: a.start_date,
-		endDate: a.end_date
+		endDate: a.end_date,
+		note: a.note ?? null
 	}));
 }
 

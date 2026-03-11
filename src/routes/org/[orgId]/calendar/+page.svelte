@@ -107,9 +107,9 @@
 		assignmentDate = null;
 	}
 
-	async function handleBulkStatusApply(personnelIds: string[], statusTypeId: string, startDate: string, endDate: string) {
+	async function handleBulkStatusApply(personnelIds: string[], statusTypeId: string, startDate: string, endDate: string, note: string | null) {
 		await availabilityStore.addBatch(
-			personnelIds.map(personnelId => ({ personnelId, statusTypeId, startDate, endDate }))
+			personnelIds.map(personnelId => ({ personnelId, statusTypeId, startDate, endDate, note }))
 		);
 	}
 

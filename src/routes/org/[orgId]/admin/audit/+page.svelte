@@ -14,11 +14,11 @@
 		if (!details) return '';
 		const parts: string[] = [];
 		if (details.name) parts.push(String(details.name));
-		// Show remaining non-id, non-actor fields as key=value
 		for (const [k, v] of Object.entries(details)) {
 			if (['actor', 'name'].includes(k)) continue;
 			if (v === null || v === undefined) continue;
-			parts.push(`${k.replace(/_/g, ' ')}: ${v}`);
+			const label = k.replace(/_/g, ' ');
+			parts.push(`${label}: ${v}`);
 		}
 		return parts.join(' · ');
 	}
@@ -31,13 +31,13 @@
 			params.delete(key);
 		}
 		params.set('page', '1');
-		goto(`${$page.url.pathname}?${params.toString()}`);
+		goto(`${$page.url.pathname}?${params.toString()}`, { noScroll: true, keepFocus: true });
 	}
 
 	function goToPage(pageNum: number) {
 		const params = new URLSearchParams($page.url.searchParams);
 		params.set('page', pageNum.toString());
-		goto(`${$page.url.pathname}?${params.toString()}`);
+		goto(`${$page.url.pathname}?${params.toString()}`, { noScroll: true, keepFocus: true });
 	}
 
 	const totalPages = $derived(Math.ceil(data.totalCount / data.limit));

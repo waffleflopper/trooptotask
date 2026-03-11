@@ -9,6 +9,77 @@ const EXCLUDED_ACTIONS = [
 	'security.rate_limit_violation'
 ];
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Collect unique UUIDs from a specific key across all log details */
+function collectIds(logs: any[], key: string): string[] {
+	const ids = new Set<string>();
+	for (const log of logs) {
+		const v = log.details?.[key];
+		if (typeof v === 'string' && UUID_RE.test(v)) ids.add(v);
+	}
+	return [...ids];
+}
+
+/** Batch-fetch names for a set of IDs from a table */
+async function resolveNames(
+	supabase: ReturnType<typeof getAdminClient>,
+	table: string,
+	ids: string[],
+	nameColumns: string[] = ['name']
+): Promise<Map<string, string>> {
+	const map = new Map<string, string>();
+	if (ids.length === 0) return map;
+
+	const selectCols = ['id', ...nameColumns].join(', ');
+	const { data } = await supabase.from(table).select(selectCols).in('id', ids);
+	if (!data) return map;
+
+	for (const row of data as any[]) {
+		// For personnel: "rank last_name, first_name"; for others: "name"
+		if (row.rank !== undefined && row.last_name !== undefined) {
+			const parts = [row.rank, row.last_name, row.first_name].filter(Boolean);
+			map.set(row.id, parts.join(' '));
+		} else {
+			map.set(row.id, row.name ?? row.id);
+		}
+	}
+	return map;
+}
+
+/**
+ * Replace UUID fields in details with human-readable names.
+ * Mutates the details object in-place.
+ */
+function enrichDetails(
+	details: Record<string, unknown> | null,
+	personnelNames: Map<string, string>,
+	trainingTypeNames: Map<string, string>,
+	statusTypeNames: Map<string, string>
+): void {
+	if (!details) return;
+
+	if (typeof details.personnel_id === 'string' && personnelNames.has(details.personnel_id)) {
+		details.personnel = personnelNames.get(details.personnel_id)!;
+		delete details.personnel_id;
+	}
+	if (typeof details.training_type_id === 'string' && trainingTypeNames.has(details.training_type_id)) {
+		details.training_type = trainingTypeNames.get(details.training_type_id)!;
+		delete details.training_type_id;
+	}
+	if (typeof details.status_type_id === 'string' && statusTypeNames.has(details.status_type_id)) {
+		details.status_type = statusTypeNames.get(details.status_type_id)!;
+		delete details.status_type_id;
+	}
+
+	// Strip any remaining UUID values (resource_id, etc.) — they aren't useful to display
+	for (const [k, v] of Object.entries(details)) {
+		if (typeof v === 'string' && UUID_RE.test(v)) {
+			delete details[k];
+		}
+	}
+}
+
 export const load: PageServerLoad = async ({ params, url }) => {
 	const { orgId } = params;
 	const supabase = getAdminClient();
@@ -49,13 +120,34 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	]);
 
 	const { data: logs, count } = logsResult;
+	const logList = logs ?? [];
 
 	const uniqueActions = [
 		...new Set((actionsResult.data ?? []).map((a: { action: string }) => a.action))
 	].sort();
 
+	// Batch-resolve UUIDs to human-readable names
+	const personnelIds = collectIds(logList, 'personnel_id');
+	const trainingTypeIds = collectIds(logList, 'training_type_id');
+	const statusTypeIds = collectIds(logList, 'status_type_id');
+
+	const [personnelNames, trainingTypeNames, statusTypeNames] = await Promise.all([
+		resolveNames(supabase, 'personnel', personnelIds, ['rank', 'last_name', 'first_name']),
+		resolveNames(supabase, 'training_types', trainingTypeIds),
+		resolveNames(supabase, 'status_types', statusTypeIds)
+	]);
+
+	// Enrich details with resolved names
+	for (const log of logList) {
+		if (log.details) {
+			// Clone to avoid mutating the original
+			log.details = { ...log.details };
+			enrichDetails(log.details, personnelNames, trainingTypeNames, statusTypeNames);
+		}
+	}
+
 	return {
-		logs: (logs ?? []).map((log: any) => ({
+		logs: logList.map((log: any) => ({
 			id: log.id,
 			userId: log.user_id,
 			action: log.action,

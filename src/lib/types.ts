@@ -165,6 +165,7 @@ export interface AvailabilityEntry {
 	statusTypeId: string;
 	startDate: string;
 	endDate: string;
+	note?: string | null;
 }
 
 export interface SpecialDay {

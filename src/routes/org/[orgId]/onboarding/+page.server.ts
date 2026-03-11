@@ -18,7 +18,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 			.order('sort_order'),
 		supabase
 			.from('personnel_onboardings')
-			.select('*')
+			.select('*, onboarding_step_progress(*)')
 			.eq('organization_id', orgId)
 			.order('created_at', { ascending: false })
 	]);
@@ -27,26 +27,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	let onboardings = onboardingsRes.data ?? [];
 	if (scopedPersonnelIds) {
 		onboardings = onboardings.filter((o: any) => scopedPersonnelIds.has(o.personnel_id));
-	}
-
-	// Fetch step progress for all onboardings
-	let allSteps: any[] = [];
-	if (onboardings.length > 0) {
-		const onboardingIds = onboardings.map((o: any) => o.id);
-		const { data: steps } = await supabase
-			.from('onboarding_step_progress')
-			.select('*')
-			.in('onboarding_id', onboardingIds)
-			.order('sort_order');
-		allSteps = steps ?? [];
-	}
-
-	// Group steps by onboarding_id
-	const stepsByOnboarding = new Map<string, any[]>();
-	for (const step of allSteps) {
-		const existing = stepsByOnboarding.get(step.onboarding_id) ?? [];
-		existing.push(step);
-		stepsByOnboarding.set(step.onboarding_id, existing);
 	}
 
 	return {
@@ -66,7 +46,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 			startedAt: o.started_at,
 			completedAt: o.completed_at,
 			status: o.status,
-			steps: (stepsByOnboarding.get(o.id) ?? []).map((s: any) => ({
+			steps: (o.onboarding_step_progress ?? [])
+				.sort((a: any, b: any) => a.sort_order - b.sort_order)
+				.map((s: any) => ({
 				id: s.id,
 				onboardingId: s.onboarding_id,
 				stepName: s.step_name,

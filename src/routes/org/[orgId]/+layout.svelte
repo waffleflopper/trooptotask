@@ -40,9 +40,15 @@
 	});
 
 	// Re-fetch shared data when tab regains focus (handles idle tabs + multi-user changes)
+	// Only invalidate when the tab was actually hidden first — prevents a spurious
+	// re-fetch on initial page load when the browser fires visibilitychange during hydration
 	onMount(() => {
+		let wasHidden = false;
 		const handleVisibility = () => {
-			if (document.visibilityState === 'visible') {
+			if (document.visibilityState === 'hidden') {
+				wasHidden = true;
+			} else if (wasHidden) {
+				wasHidden = false;
 				invalidate('app:shared-data');
 			}
 		};

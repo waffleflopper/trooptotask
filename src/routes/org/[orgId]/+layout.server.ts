@@ -164,30 +164,25 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	// For non-demo access, require login
 	if (!user) throw redirect(303, '/auth/login');
 
-	// Parallelize: membership check, allOrgs, ownerMembership, shared entity data, and tier
-	const [membershipRes, membershipsRes, shared, effectiveTier] = await Promise.all([
+	// Parallelize: membership + allOrgs (single query), shared entity data, and tier
+	const [membershipsRes, shared, effectiveTier] = await Promise.all([
 		locals.supabase
 			.from('organization_memberships')
 			.select(
-				'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
+				'organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id, organizations(id, name)'
 			)
-			.eq('organization_id', orgId)
-			.eq('user_id', user.id)
-			.single(),
-		locals.supabase
-			.from('organization_memberships')
-			.select('organization_id, role, organizations(id, name)')
 			.eq('user_id', user.id),
 		fetchSharedData(supabase, orgId),
 		getEffectiveTier(supabase, orgId)
 	]);
 
-	const membership = membershipRes.data;
+	const allMemberships = membershipsRes.data ?? [];
+	const membership = allMemberships.find((m: any) => m.organization_id === orgId);
 	if (!membership) {
 		throw error(403, 'You are not a member of this organization');
 	}
 
-	const allOrgs = (membershipsRes.data ?? [])
+	const allOrgs = allMemberships
 		.filter((m: any) => m.organizations)
 		.map((m: any) => ({
 			id: m.organizations.id,

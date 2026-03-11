@@ -17,8 +17,10 @@
 
 		const {
 			data: { subscription }
-		} = data.supabase.auth.onAuthStateChange((event: string) => {
-			if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+		} = data.supabase.auth.onAuthStateChange((event: string, newSession: any) => {
+			// Only invalidate on real auth changes, not the initial session detection
+			// which fires SIGNED_IN on page load and would cause unnecessary re-fetches
+			if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
 				invalidate('supabase:auth');
 			}
 		});

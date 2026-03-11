@@ -1,15 +1,17 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireEditPermission, getScopedGroupId, requireGroupAccess } from '$lib/server/permissions';
+import { requireEditPermission, getScopedGroupId } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { auditLog } from '$lib/server/auditLog';
+import { validateUUID } from '$lib/server/validation';
 
 interface BatchAvailabilityRecord {
 	personnelId: string;
 	statusTypeId: string;
 	startDate: string;
 	endDate: string;
+	note?: string | null;
 }
 
 export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
@@ -64,7 +66,8 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		personnel_id: r.personnelId,
 		status_type_id: r.statusTypeId,
 		start_date: r.startDate,
-		end_date: r.endDate
+		end_date: r.endDate,
+		note: r.note ?? null
 	}));
 
 	const { data: inserted, error: dbError } = await supabase
@@ -92,8 +95,91 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		personnelId: d.personnel_id,
 		statusTypeId: d.status_type_id,
 		startDate: d.start_date,
-		endDate: d.end_date
+		endDate: d.end_date,
+		note: d.note ?? null
 	}));
 
 	return json({ inserted: result });
+};
+
+export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
+	const { orgId } = params;
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+	}
+
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
+
+	const body = await request.json();
+	const ids: string[] = body.ids;
+
+	if (!Array.isArray(ids) || ids.length === 0) {
+		throw error(400, 'ids array is required');
+	}
+
+	if (ids.length > 500) {
+		throw error(400, 'Maximum 500 ids per batch');
+	}
+
+	// Validate all IDs are UUIDs
+	for (const id of ids) {
+		if (!validateUUID(id)) {
+			throw error(400, 'Invalid ID format');
+		}
+	}
+
+	// Enforce group scope if user is scoped
+	let scopedGroupId: string | null = null;
+	if (!isSandbox && userId) {
+		scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
+	}
+
+	if (scopedGroupId) {
+		const { data: entries } = await supabase
+			.from('availability_entries')
+			.select('id, personnel_id')
+			.eq('organization_id', orgId)
+			.in('id', ids);
+
+		const personnelIds = [...new Set((entries ?? []).map(e => e.personnel_id))];
+		const { data: personnelData } = await supabase
+			.from('personnel')
+			.select('id, group_id')
+			.eq('organization_id', orgId)
+			.in('id', personnelIds);
+
+		const groupMap = new Map((personnelData ?? []).map(p => [p.id, p.group_id]));
+		for (const entry of entries ?? []) {
+			const groupId = groupMap.get(entry.personnel_id);
+			if (groupId !== scopedGroupId) {
+				throw error(403, 'Personnel not in your assigned group');
+			}
+		}
+	}
+
+	const { error: dbError, count } = await supabase
+		.from('availability_entries')
+		.delete({ count: 'exact' })
+		.eq('organization_id', orgId)
+		.in('id', ids);
+
+	if (dbError) throw error(500, dbError.message);
+
+	auditLog(
+		{
+			action: 'availability.bulk_deleted',
+			resourceType: 'availability',
+			orgId,
+			details: {
+				actor: locals.user?.email ?? userId,
+				count: count ?? ids.length
+			}
+		},
+		{ userId }
+	);
+
+	return json({ deleted: count ?? ids.length });
 };

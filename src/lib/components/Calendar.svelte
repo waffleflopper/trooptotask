@@ -22,6 +22,7 @@
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		activeOnboardingPersonnelIds?: string[];
+		highlightOnboarding?: boolean;
 		canEdit?: boolean;
 		showStatusText?: boolean;
 		onPrevMonth: () => void;
@@ -46,6 +47,7 @@
 		assignmentTypes,
 		assignments,
 		activeOnboardingPersonnelIds = [],
+		highlightOnboarding = true,
 		canEdit = true,
 		showStatusText = false,
 		onPrevMonth,
@@ -182,6 +184,7 @@
 							personAssignments={assignmentsByPerson.get(person.id) ?? []}
 							{showStatusText}
 							isOnboarding={onboardingSet.has(person.id)}
+							{highlightOnboarding}
 							onCellClick={canEdit ? onCellClick : undefined}
 							{onPersonClick}
 						/>

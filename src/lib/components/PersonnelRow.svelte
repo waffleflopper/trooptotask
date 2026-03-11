@@ -14,6 +14,7 @@
 		personAssignments: DailyAssignment[];
 		showStatusText?: boolean;
 		isOnboarding?: boolean;
+		highlightOnboarding?: boolean;
 		onCellClick?: (person: Personnel, date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
 	}
@@ -28,6 +29,7 @@
 		personAssignments,
 		showStatusText = false,
 		isOnboarding = false,
+		highlightOnboarding = true,
 		onCellClick,
 		onPersonClick
 	}: Props = $props();
@@ -115,7 +117,7 @@
 				{statusTypeMap}
 				assignments={assignmentsByDate.get(dateStr) ?? []}
 				{showStatusText}
-				{isOnboarding}
+				isOnboarding={isOnboarding && highlightOnboarding}
 				onclick={() => handleCellClick(date)}
 			/>
 		{/each}

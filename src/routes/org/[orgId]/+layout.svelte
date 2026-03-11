@@ -39,21 +39,25 @@
 		}
 	});
 
-	// Re-fetch shared data when tab regains focus (handles idle tabs + multi-user changes)
-	// Only invalidate when the tab was actually hidden first — prevents a spurious
-	// re-fetch on initial page load when the browser fires visibilitychange during hydration
+	// Re-fetch shared data when the window regains focus (handles idle tabs,
+	// switching apps, and multi-user changes). Uses focus/blur instead of
+	// visibilitychange so it also catches alt-tabbing between windows.
+	// The wasAway guard prevents a spurious re-fetch on initial page load.
 	onMount(() => {
-		let wasHidden = false;
-		const handleVisibility = () => {
-			if (document.visibilityState === 'hidden') {
-				wasHidden = true;
-			} else if (wasHidden) {
-				wasHidden = false;
+		let wasAway = false;
+		const handleBlur = () => { wasAway = true; };
+		const handleFocus = () => {
+			if (wasAway) {
+				wasAway = false;
 				invalidate('app:shared-data');
 			}
 		};
-		document.addEventListener('visibilitychange', handleVisibility);
-		return () => document.removeEventListener('visibilitychange', handleVisibility);
+		window.addEventListener('blur', handleBlur);
+		window.addEventListener('focus', handleFocus);
+		return () => {
+			window.removeEventListener('blur', handleBlur);
+			window.removeEventListener('focus', handleFocus);
+		};
 	});
 </script>
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { invalidateAll } from '$app/navigation';
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -22,14 +22,13 @@
 		{ label: 'All', value: 'all' }
 	];
 
-	function setFilter(status: string) {
-		const params = new URLSearchParams();
-		if (status !== 'pending') {
-			params.set('status', status);
-		}
-		const qs = params.toString();
-		goto(`${$page.url.pathname}${qs ? '?' + qs : ''}`, { invalidateAll: true });
-	}
+	let statusFilter = $state('pending');
+
+	const filteredRequests = $derived(
+		statusFilter === 'all'
+			? data.requests
+			: data.requests.filter((r: any) => r.status === statusFilter)
+	);
 
 	// Deny reason state
 	let denyingId = $state<string | null>(null);
@@ -84,8 +83,8 @@
 		{#each filters as f}
 			<button
 				class="filter-tab"
-				class:active={data.statusFilter === f.value}
-				onclick={() => setFilter(f.value)}
+				class:active={statusFilter === f.value}
+				onclick={() => (statusFilter = f.value)}
 			>
 				{f.label}
 			</button>
@@ -105,7 +104,7 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each data.requests as req (req.id)}
+				{#each filteredRequests as req (req.id)}
 					<tr>
 						<td class="requester-cell">
 							{req.requester_email ?? '-'}
@@ -177,7 +176,7 @@
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="5" class="empty-state">No {data.statusFilter === 'all' ? '' : data.statusFilter} requests</td>
+						<td colspan="5" class="empty-state">No {statusFilter === 'all' ? '' : statusFilter} requests</td>
 					</tr>
 				{/each}
 			</tbody>

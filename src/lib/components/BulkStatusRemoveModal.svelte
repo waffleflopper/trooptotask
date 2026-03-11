@@ -346,33 +346,6 @@
 				</div>
 			</div>
 		</div>
-
-		{#snippet footer()}
-			<div class="footer-summary">
-				{#if selectedIds.size > 0 && selectedStatus && !dateError}
-					<span
-						class="summary-badge"
-						style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-					>
-						{selectedStatus.name}
-					</span>
-					<span class="summary-text">
-						for <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? 'person' : 'people'}
-					</span>
-				{:else if selectedIds.size === 0}
-					<span class="summary-hint">Select personnel to continue</span>
-				{:else if dateError}
-					<span class="summary-error">{dateError}</span>
-				{/if}
-			</div>
-			<div class="footer-actions">
-				<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-				<button class="btn btn-danger" disabled={!isValid} onclick={handleFindMatching}>
-					Find Matching
-				</button>
-			</div>
-		{/snippet}
-
 	{:else}
 		<!-- Confirmation Step -->
 		<div class="confirm-content">
@@ -416,8 +389,34 @@
 				</div>
 			{/if}
 		</div>
+	{/if}
 
-		{#snippet footer()}
+	{#snippet footer()}
+		{#if step === 'select'}
+			<div class="footer-summary">
+				{#if selectedIds.size > 0 && selectedStatus && !dateError}
+					<span
+						class="summary-badge"
+						style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
+					>
+						{selectedStatus.name}
+					</span>
+					<span class="summary-text">
+						for <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? 'person' : 'people'}
+					</span>
+				{:else if selectedIds.size === 0}
+					<span class="summary-hint">Select personnel to continue</span>
+				{:else if dateError}
+					<span class="summary-error">{dateError}</span>
+				{/if}
+			</div>
+			<div class="footer-actions">
+				<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+				<button class="btn btn-danger" disabled={!isValid} onclick={handleFindMatching}>
+					Find Matching
+				</button>
+			</div>
+		{:else}
 			<button class="btn btn-secondary" onclick={handleBack}>Back</button>
 			<div class="spacer"></div>
 			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
@@ -431,8 +430,8 @@
 					{/if}
 				</button>
 			{/if}
-		{/snippet}
-	{/if}
+		{/if}
+	{/snippet}
 </Modal>
 
 <style>

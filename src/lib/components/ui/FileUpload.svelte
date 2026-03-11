@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { supabase } from '$lib/supabase';
+	import { page } from '$app/stores';
 	import Spinner from './Spinner.svelte';
+
+	const supabase = $derived($page.data.supabase);
 
 	interface Props {
 		filePath: string | null;

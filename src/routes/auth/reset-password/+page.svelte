@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { supabase } from '$lib/supabase';
+	import { page } from '$app/stores';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+
+	const supabase = $derived($page.data.supabase);
 
 	let password = $state('');
 	let confirmPassword = $state('');
@@ -15,14 +17,14 @@
 
 	onMount(() => {
 		// Check existing session first
-		supabase.auth.getSession().then(({ data: { session } }) => {
+		supabase.auth.getSession().then(({ data: { session } }: any) => {
 			if (session) {
 				sessionReady = true;
 			}
 		});
 
 		// Listen for auth state change (token exchange happens async from URL hash)
-		const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+		const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string) => {
 			if (event === 'PASSWORD_RECOVERY') {
 				sessionReady = true;
 			}

@@ -1,44 +1,54 @@
 <script lang="ts">
-	import type { Personnel, StatusType } from '../types';
+	import type { Personnel, StatusType, AvailabilityEntry } from '../types';
 	import { formatDate } from '../utils/dates';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import Modal from './Modal.svelte';
+	import Spinner from './ui/Spinner.svelte';
 
 	interface GroupData {
 		group: string;
 		personnel: Personnel[];
 	}
 
+	interface MatchResult {
+		exact: AvailabilityEntry[];
+		partial: AvailabilityEntry[];
+	}
+
 	interface Props {
 		personnelByGroup: GroupData[];
 		statusTypes: StatusType[];
-		onApply: (personnelIds: string[], statusTypeId: string, startDate: string, endDate: string, note: string | null) => Promise<void>;
+		availabilityEntries: AvailabilityEntry[];
+		personnelList: Personnel[];
+		onRemove: (ids: string[]) => Promise<boolean>;
 		onClose: () => void;
 	}
 
-	let { personnelByGroup, statusTypes, onApply, onClose }: Props = $props();
+	let { personnelByGroup, statusTypes, availabilityEntries, personnelList, onRemove, onClose }: Props = $props();
 
 	const todayStr = formatDate(new Date());
+
+	// Selection state
 	let selectedStatusId = $state('');
 	let startDate = $state(todayStr);
-
-	// Reset selected status when statusTypes prop changes
-	$effect(() => {
-		selectedStatusId = statusTypes[0]?.id ?? '';
-	});
 	let endDate = $state(todayStr);
 	let selectedIds = $state<Set<string>>(new Set());
 	let searchQuery = $state('');
-	let isSubmitting = $state(false);
-	let note = $state('');
 	let collapsedGroups = $state<Set<string>>(new Set());
 
-	const allPersonnel = $derived(
-		personnelByGroup.flatMap((g) => g.personnel)
-	);
+	// Step state
+	let step = $state<'select' | 'confirm'>('select');
+	let matchResult = $state<MatchResult>({ exact: [], partial: [] });
+	let isSubmitting = $state(false);
+
+	$effect(() => {
+		selectedStatusId = statusTypes[0]?.id ?? '';
+	});
+
+	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
 	const filteredGroups = $derived.by(() => {
 		if (!searchQuery.trim()) return personnelByGroup;
-
 		const query = searchQuery.toLowerCase();
 		return personnelByGroup
 			.map((g) => ({
@@ -64,8 +74,8 @@
 
 	const dayCount = $derived.by(() => {
 		if (!startDate || !endDate || startDate > endDate) return 0;
-		const start = new Date(startDate);
-		const end = new Date(endDate);
+		const start = new Date(startDate + 'T00:00:00');
+		const end = new Date(endDate + 'T00:00:00');
 		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 	});
 
@@ -75,24 +85,16 @@
 
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
 
-	function formatDateDisplay(dateStr: string): string {
-		const date = new Date(dateStr + 'T00:00:00');
-		return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-	}
+	const personnelMap = $derived(new Map(personnelList.map(p => [p.id, p])));
 
 	function togglePerson(id: string) {
 		const newSet = new Set(selectedIds);
-		if (newSet.has(id)) {
-			newSet.delete(id);
-		} else {
-			newSet.add(id);
-		}
+		if (newSet.has(id)) { newSet.delete(id); } else { newSet.add(id); }
 		selectedIds = newSet;
 	}
 
 	function selectAll() {
-		const visibleIds = filteredGroups.flatMap((g) => g.personnel.map((p) => p.id));
-		selectedIds = new Set(visibleIds);
+		selectedIds = new Set(filteredGroups.flatMap((g) => g.personnel.map((p) => p.id)));
 	}
 
 	function selectNone() {
@@ -115,28 +117,17 @@
 		const groupPersonnel = getGroupPersonnel(groupName);
 		const state = getGroupSelectionState(groupName);
 		const newSet = new Set(selectedIds);
-
 		if (state === 'all') {
-			// Deselect all in group
-			for (const p of groupPersonnel) {
-				newSet.delete(p.id);
-			}
+			for (const p of groupPersonnel) { newSet.delete(p.id); }
 		} else {
-			// Select all in group
-			for (const p of groupPersonnel) {
-				newSet.add(p.id);
-			}
+			for (const p of groupPersonnel) { newSet.add(p.id); }
 		}
 		selectedIds = newSet;
 	}
 
 	function toggleGroupCollapse(groupName: string) {
 		const newSet = new Set(collapsedGroups);
-		if (newSet.has(groupName)) {
-			newSet.delete(groupName);
-		} else {
-			newSet.add(groupName);
-		}
+		if (newSet.has(groupName)) { newSet.delete(groupName); } else { newSet.add(groupName); }
 		collapsedGroups = newSet;
 	}
 
@@ -144,32 +135,82 @@
 		searchQuery = '';
 	}
 
-	async function handleSubmit() {
-		if (!isValid || isSubmitting) return;
+	function formatDateDisplay(dateStr: string): string {
+		const date = new Date(dateStr + 'T00:00:00');
+		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+	}
+
+	function handleFindMatching() {
+		if (!isValid) return;
+
+		const matching = availabilityEntries.filter(
+			(e) =>
+				selectedIds.has(e.personnelId) &&
+				e.statusTypeId === selectedStatusId &&
+				e.startDate <= endDate &&
+				e.endDate >= startDate
+		);
+
+		const exact: AvailabilityEntry[] = [];
+		const partial: AvailabilityEntry[] = [];
+
+		for (const entry of matching) {
+			if (entry.startDate >= startDate && entry.endDate <= endDate) {
+				exact.push(entry);
+			} else {
+				partial.push(entry);
+			}
+		}
+
+		matchResult = { exact, partial };
+		step = 'confirm';
+	}
+
+	function handleBack() {
+		step = 'select';
+		matchResult = { exact: [], partial: [] };
+	}
+
+	async function handleConfirmRemoval() {
+		if (isSubmitting) return;
+		const allIds = [...matchResult.exact.map(e => e.id), ...matchResult.partial.map(e => e.id)];
+		if (allIds.length === 0) return;
 
 		isSubmitting = true;
 		try {
-			await onApply([...selectedIds], selectedStatusId, startDate, endDate, note.trim() || null);
-			onClose();
+			const success = await onRemove(allIds);
+			if (success) {
+				const count = allIds.length;
+				toastStore.success(`Removed ${count} status ${count === 1 ? 'entry' : 'entries'}`);
+				onClose();
+			} else {
+				toastStore.error('Failed to remove status entries');
+			}
 		} finally {
 			isSubmitting = false;
 		}
 	}
+
+	function getPersonName(personnelId: string): string {
+		const p = personnelMap.get(personnelId);
+		return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
+	}
 </script>
 
 <Modal
-	title="Bulk Status Assignment"
+	title="Bulk Remove Status"
 	{onClose}
 	width="600px"
-	titleId="bulk-status-title"
+	titleId="bulk-remove-status-title"
 >
-	<div class="modal-content">
+	{#if step === 'select'}
+		<div class="modal-content">
 			<!-- Status & Date Configuration -->
 			<div class="config-section">
 				<div class="config-row">
 					<div class="form-group status-select">
-						<label class="label" for="statusType">Status Type</label>
-						<select id="statusType" class="select" bind:value={selectedStatusId}>
+						<label class="label" for="removeStatusType">Status Type</label>
+						<select id="removeStatusType" class="select" bind:value={selectedStatusId}>
 							{#each statusTypes as status}
 								<option value={status.id}>{status.name}</option>
 							{/each}
@@ -189,13 +230,13 @@
 
 				<div class="config-row dates-row">
 					<div class="form-group">
-						<label class="label" for="startDate">Start Date</label>
-						<input id="startDate" type="date" class="input" bind:value={startDate} />
+						<label class="label" for="removeStartDate">Start Date</label>
+						<input id="removeStartDate" type="date" class="input" bind:value={startDate} />
 					</div>
 					<span class="date-arrow">→</span>
 					<div class="form-group">
-						<label class="label" for="endDate">End Date</label>
-						<input id="endDate" type="date" class="input" bind:value={endDate} />
+						<label class="label" for="removeEndDate">End Date</label>
+						<input id="removeEndDate" type="date" class="input" bind:value={endDate} />
 					</div>
 					{#if dayCount > 0}
 						<div class="day-count">
@@ -208,20 +249,6 @@
 				{#if dateError}
 					<div class="date-error">{dateError}</div>
 				{/if}
-
-				<div class="config-row">
-					<div class="form-group" style="flex: 1;">
-						<label class="label" for="bulkNote">Note</label>
-						<input
-							id="bulkNote"
-							type="text"
-							class="input"
-							bind:value={note}
-							maxlength={200}
-							placeholder="Optional note (e.g., JRTC rotation)"
-						/>
-					</div>
-				</div>
 			</div>
 
 			<!-- Personnel Selection -->
@@ -319,50 +346,96 @@
 				</div>
 			</div>
 		</div>
+	{:else}
+		<!-- Confirmation Step -->
+		<div class="confirm-content">
+			{#if matchResult.exact.length === 0 && matchResult.partial.length === 0}
+				<div class="no-matches">
+					<p>No matching status entries found for the selected criteria.</p>
+				</div>
+			{:else}
+				{#if matchResult.exact.length > 0}
+					<div class="match-section">
+						<h4 class="match-heading">
+							<span class="match-count">{matchResult.exact.length}</span>
+							exact {matchResult.exact.length === 1 ? 'match' : 'matches'} will be removed
+						</h4>
+					</div>
+				{/if}
 
-	{#snippet footer()}
-		<div class="footer-summary">
-			{#if selectedIds.size > 0 && selectedStatus && !dateError}
-				<span
-					class="summary-badge"
-					style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-				>
-					{selectedStatus.name}
-				</span>
-				<span class="summary-text">
-					for <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? 'person' : 'people'}
-					&middot;
-					{#if startDate === endDate}
-						{formatDateDisplay(startDate)}
-					{:else}
-						{formatDateDisplay(startDate)} – {formatDateDisplay(endDate)}
-					{/if}
-				</span>
-			{:else if selectedIds.size === 0}
-				<span class="summary-hint">Select personnel to continue</span>
-			{:else if dateError}
-				<span class="summary-error">{dateError}</span>
+				{#if matchResult.partial.length > 0}
+					<div class="match-section partial-section">
+						<h4 class="match-heading warning">
+							<svg class="warning-icon" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+							</svg>
+							<span class="match-count">{matchResult.partial.length}</span>
+							partial {matchResult.partial.length === 1 ? 'overlap' : 'overlaps'} will also be removed entirely
+						</h4>
+						<p class="partial-explanation">These entries extend beyond your selected date range:</p>
+						<div class="partial-list">
+							{#each matchResult.partial as entry (entry.id)}
+								<div class="partial-item">
+									<span class="partial-person">{getPersonName(entry.personnelId)}</span>
+									<span class="partial-dates">{formatDateDisplay(entry.startDate)} – {formatDateDisplay(entry.endDate)}</span>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				<div class="total-summary">
+					<strong>{matchResult.exact.length + matchResult.partial.length}</strong> total {matchResult.exact.length + matchResult.partial.length === 1 ? 'entry' : 'entries'} will be permanently removed.
+				</div>
 			{/if}
 		</div>
-		<div class="footer-actions">
-			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			<button
-				class="btn btn-primary"
-				disabled={!isValid || isSubmitting}
-				onclick={handleSubmit}
-			>
-				{#if isSubmitting}
-					<span class="spinner"></span>
-					Applying...
-				{:else}
-					Apply Status
+	{/if}
+
+	{#snippet footer()}
+		{#if step === 'select'}
+			<div class="footer-summary">
+				{#if selectedIds.size > 0 && selectedStatus && !dateError}
+					<span
+						class="summary-badge"
+						style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
+					>
+						{selectedStatus.name}
+					</span>
+					<span class="summary-text">
+						for <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? 'person' : 'people'}
+					</span>
+				{:else if selectedIds.size === 0}
+					<span class="summary-hint">Select personnel to continue</span>
+				{:else if dateError}
+					<span class="summary-error">{dateError}</span>
 				{/if}
-			</button>
-		</div>
+			</div>
+			<div class="footer-actions">
+				<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+				<button class="btn btn-danger" disabled={!isValid} onclick={handleFindMatching}>
+					Find Matching
+				</button>
+			</div>
+		{:else}
+			<button class="btn btn-secondary" onclick={handleBack}>Back</button>
+			<div class="spacer"></div>
+			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+			{#if matchResult.exact.length > 0 || matchResult.partial.length > 0}
+				<button class="btn btn-danger" disabled={isSubmitting} onclick={handleConfirmRemoval}>
+					{#if isSubmitting}
+						<Spinner />
+						Removing...
+					{:else}
+						Confirm Removal
+					{/if}
+				</button>
+			{/if}
+		{/if}
 	{/snippet}
 </Modal>
 
 <style>
+	/* === Selection Step === */
 	.modal-content {
 		display: flex;
 		flex-direction: column;
@@ -371,7 +444,6 @@
 		margin: calc(-1 * var(--spacing-lg));
 	}
 
-	/* Config Section */
 	.config-section {
 		padding: var(--spacing-lg);
 		border-bottom: 1px solid var(--color-border);
@@ -454,7 +526,6 @@
 		border-radius: var(--radius-sm);
 	}
 
-	/* Personnel Section */
 	.personnel-section {
 		flex: 1;
 		display: flex;
@@ -494,7 +565,6 @@
 		gap: var(--spacing-xs);
 	}
 
-	/* Search Bar */
 	.search-bar {
 		padding: var(--spacing-sm) var(--spacing-lg);
 		background: var(--color-surface);
@@ -529,21 +599,13 @@
 		transition: color 0.15s ease;
 	}
 
-	.clear-search:hover {
-		color: var(--color-text);
-	}
+	.clear-search:hover { color: var(--color-text); }
+	.clear-search svg { width: 16px; height: 16px; }
 
-	.clear-search svg {
-		width: 16px;
-		height: 16px;
-	}
-
-	/* Personnel List */
 	.personnel-list {
 		flex: 1;
 		overflow-y: auto;
-		padding: var(--spacing-sm) var(--spacing-lg);
-		padding-bottom: var(--spacing-md);
+		padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-md);
 	}
 
 	.group-section {
@@ -568,9 +630,7 @@
 		transition: opacity 0.15s ease;
 	}
 
-	.group-collapse-btn:hover {
-		opacity: 1;
-	}
+	.group-collapse-btn:hover { opacity: 1; }
 
 	.collapse-icon {
 		width: 16px;
@@ -578,17 +638,14 @@
 		transition: transform 0.15s ease;
 	}
 
-	.collapse-icon.collapsed {
-		transform: rotate(-90deg);
-	}
+	.collapse-icon.collapsed { transform: rotate(-90deg); }
 
 	.group-checkbox-label {
 		flex: 1;
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
-		padding: var(--spacing-sm);
-		padding-left: 0;
+		padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) 0;
 		cursor: pointer;
 		font-weight: 600;
 		font-size: var(--font-size-sm);
@@ -599,18 +656,10 @@
 		accent-color: #0F0F0F;
 	}
 
-	.group-name {
-		flex: 1;
-	}
+	.group-name { flex: 1; }
+	.group-count { opacity: 0.8; font-weight: 400; }
 
-	.group-count {
-		opacity: 0.8;
-		font-weight: 400;
-	}
-
-	.group-personnel {
-		border-top: 1px solid rgba(0, 0, 0, 0.1);
-	}
+	.group-personnel { border-top: 1px solid rgba(0, 0, 0, 0.1); }
 
 	.person-item {
 		display: flex;
@@ -623,37 +672,13 @@
 		border-bottom: 1px solid var(--color-border);
 	}
 
-	.person-item:last-child {
-		border-bottom: none;
-	}
-
-	.person-item:hover {
-		background: var(--color-bg);
-	}
-
-	.person-item.selected {
-		background: #ebf8ff;
-	}
-
-	.person-item input[type='checkbox'] {
-		cursor: pointer;
-		accent-color: var(--color-primary);
-	}
-
-	.person-item .rank {
-		font-weight: 600;
-		color: var(--color-primary);
-		min-width: 35px;
-	}
-
-	.person-item .name {
-		flex: 1;
-	}
-
-	.person-item .mos {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-	}
+	.person-item:last-child { border-bottom: none; }
+	.person-item:hover { background: var(--color-bg); }
+	.person-item.selected { background: #ebf8ff; }
+	.person-item input[type='checkbox'] { cursor: pointer; accent-color: var(--color-primary); }
+	.person-item .rank { font-weight: 600; color: var(--color-primary); min-width: 35px; }
+	.person-item .name { flex: 1; }
+	.person-item .mos { color: var(--color-text-muted); font-size: var(--font-size-sm); }
 
 	.empty-state {
 		text-align: center;
@@ -661,9 +686,7 @@
 		padding: var(--spacing-xl);
 	}
 
-	.empty-state p {
-		margin-bottom: var(--spacing-sm);
-	}
+	.empty-state p { margin-bottom: var(--spacing-sm); }
 
 	/* Footer */
 	.footer-summary {
@@ -683,25 +706,10 @@
 		flex-shrink: 0;
 	}
 
-	.summary-text {
-		color: var(--color-text-muted);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.summary-text strong {
-		color: var(--color-text);
-	}
-
-	.summary-hint {
-		color: var(--color-text-muted);
-		font-style: italic;
-	}
-
-	.summary-error {
-		color: #dc2626;
-	}
+	.summary-text { color: var(--color-text-muted); }
+	.summary-text strong { color: var(--color-text); }
+	.summary-hint { color: var(--color-text-muted); font-style: italic; }
+	.summary-error { color: #dc2626; }
 
 	.footer-actions {
 		display: flex;
@@ -709,18 +717,86 @@
 		flex-shrink: 0;
 	}
 
-	/* Spinner */
-	.spinner {
-		display: inline-block;
-		width: 14px;
-		height: 14px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		border-radius: 50%;
-		border-top-color: white;
-		animation: spin 0.8s linear infinite;
+	/* === Confirmation Step === */
+	.confirm-content {
+		min-height: 150px;
 	}
 
-	@keyframes spin {
-		to { transform: rotate(360deg); }
+	.no-matches {
+		text-align: center;
+		color: var(--color-text-muted);
+		padding: var(--spacing-xl);
 	}
+
+	.match-section {
+		margin-bottom: var(--spacing-lg);
+	}
+
+	.match-heading {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		font-size: var(--font-size-base);
+		font-weight: 600;
+		margin: 0 0 var(--spacing-sm) 0;
+	}
+
+	.match-heading.warning { color: #b45309; }
+
+	.warning-icon {
+		width: 20px;
+		height: 20px;
+		color: #f59e0b;
+		flex-shrink: 0;
+	}
+
+	.match-count {
+		font-weight: 700;
+		font-size: var(--font-size-lg);
+	}
+
+	.partial-explanation {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
+		margin: 0 0 var(--spacing-sm) 0;
+	}
+
+	.partial-list {
+		max-height: 180px;
+		overflow-y: auto;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+
+	.partial-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: var(--spacing-sm) var(--spacing-md);
+		font-size: var(--font-size-sm);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.partial-item:last-child { border-bottom: none; }
+	.partial-person { font-weight: 500; }
+	.partial-dates { color: var(--color-text-muted); white-space: nowrap; }
+
+	.partial-section {
+		padding: var(--spacing-md);
+		background: #fffbeb;
+		border: 1px solid #fde68a;
+		border-radius: var(--radius-md);
+	}
+
+	.total-summary {
+		margin-top: var(--spacing-md);
+		padding: var(--spacing-md);
+		background: var(--color-bg);
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-sm);
+		text-align: center;
+		color: var(--color-text-muted);
+	}
+
+	.total-summary strong { color: var(--color-text); }
 </style>

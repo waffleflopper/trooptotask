@@ -20,6 +20,7 @@
 	import TodayBreakdown from '$lib/components/TodayBreakdown.svelte';
 	import StatusLegend from '$lib/components/StatusLegend.svelte';
 	import BulkStatusModal from '$lib/components/BulkStatusModal.svelte';
+	import BulkStatusRemoveModal from '$lib/components/BulkStatusRemoveModal.svelte';
 	import MonthlyAssignmentPlanner from '$lib/components/MonthlyAssignmentPlanner.svelte';
 	import AssignmentTypeManager from '$lib/components/AssignmentTypeManager.svelte';
 	import DutyRosterGenerator from '$lib/components/DutyRosterGenerator.svelte';
@@ -55,6 +56,7 @@
 	let showSpecialDayManager = $state(false);
 	let showTodayBreakdown = $state(false);
 	let showBulkStatusModal = $state(false);
+	let showBulkRemoveModal = $state(false);
 	let showAssignmentPlanner = $state(false);
 	let showLongRangeView = $state(false);
 	let showAssignmentTypeManager = $state(false);
@@ -111,6 +113,10 @@
 		await availabilityStore.addBatch(
 			personnelIds.map(personnelId => ({ personnelId, statusTypeId, startDate, endDate, note }))
 		);
+	}
+
+	async function handleBulkStatusRemove(ids: string[]): Promise<boolean> {
+		return await availabilityStore.removeBatch(ids);
 	}
 
 	function handleExportCSV() {
@@ -185,6 +191,7 @@
 		if (data.permissions.canEditCalendar) {
 			if (canManageConfig) {
 				items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true, disabled: readOnly });
+				items.push({ label: 'Bulk Remove', onclick: () => (showBulkRemoveModal = true), disabled: readOnly });
 				items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true), disabled: readOnly });
 			}
 		}
@@ -341,6 +348,17 @@
 		statusTypes={statusTypesStore.list}
 		onApply={handleBulkStatusApply}
 		onClose={() => (showBulkStatusModal = false)}
+	/>
+{/if}
+
+{#if showBulkRemoveModal}
+	<BulkStatusRemoveModal
+		personnelByGroup={personnelByGroup}
+		statusTypes={statusTypesStore.list}
+		availabilityEntries={availabilityStore.list}
+		personnelList={calendarPersonnel}
+		onRemove={handleBulkStatusRemove}
+		onClose={() => (showBulkRemoveModal = false)}
 	/>
 {/if}
 

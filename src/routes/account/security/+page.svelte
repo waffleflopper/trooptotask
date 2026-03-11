@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { supabase } from '$lib/supabase';
+	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+
+	const supabase = $derived($page.data.supabase);
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	let { data }: { data: PageData } = $props();

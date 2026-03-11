@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { supabase } from '$lib/supabase';
+	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+
+	const supabase = $derived($page.data.supabase);
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 

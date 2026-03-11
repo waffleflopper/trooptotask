@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { onMount } from 'svelte';
+	import { invalidate } from '$app/navigation';
 	import { inject } from '@vercel/analytics';
 	import { injectSpeedInsights } from '@vercel/speed-insights';
 	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
@@ -13,6 +14,18 @@
 		themeStore.init();
 		inject();
 		injectSpeedInsights();
+
+		const {
+			data: { subscription }
+		} = data.supabase.auth.onAuthStateChange((event: string, newSession: any) => {
+			// Only invalidate on real auth changes, not the initial session detection
+			// which fires SIGNED_IN on page load and would cause unnecessary re-fetches
+			if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+				invalidate('supabase:auth');
+			}
+		});
+
+		return () => subscription.unsubscribe();
 	});
 </script>
 

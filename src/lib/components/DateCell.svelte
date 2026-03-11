@@ -12,6 +12,7 @@
 		statusTypeMap: Map<string, StatusType>;
 		assignments?: { type: AssignmentType; assignment: DailyAssignment }[];
 		showStatusText?: boolean;
+		isOnboarding?: boolean;
 		onclick?: () => void;
 	}
 
@@ -25,6 +26,7 @@
 		statusTypeMap,
 		assignments = [],
 		showStatusText = false,
+		isOnboarding = false,
 		onclick
 	}: Props = $props();
 
@@ -52,6 +54,9 @@
 
 	function getBackground(): string {
 		if (statusColors.length === 0) {
+			if (isOnboarding) {
+				return 'var(--color-onboarding-tint)';
+			}
 			return '';
 		}
 		if (statusColors.length === 1) {

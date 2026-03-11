@@ -115,6 +115,7 @@
 				{statusTypeMap}
 				assignments={assignmentsByDate.get(dateStr) ?? []}
 				{showStatusText}
+				{isOnboarding}
 				onclick={() => handleCellClick(date)}
 			/>
 		{/each}

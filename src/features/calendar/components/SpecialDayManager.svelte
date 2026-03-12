@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { SpecialDay } from '../types';
-	import { formatDate } from '../utils/dates';
-	import ConfirmDialog from './ui/ConfirmDialog.svelte';
+	import type { SpecialDay } from '$features/calendar/calendar.types';
+	import { formatDate } from '$lib/utils/dates';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	interface Props {
 		specialDays: SpecialDay[];

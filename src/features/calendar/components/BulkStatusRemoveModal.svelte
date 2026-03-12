@@ -1,9 +1,10 @@
 <script lang="ts">
-	import type { Personnel, StatusType, AvailabilityEntry } from '../types';
-	import { formatDate } from '../utils/dates';
+	import type { Personnel } from '$lib/types';
+	import type { StatusType, AvailabilityEntry } from '$features/calendar/calendar.types';
+	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import Modal from './Modal.svelte';
-	import Spinner from './ui/Spinner.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	interface GroupData {
 		group: string;

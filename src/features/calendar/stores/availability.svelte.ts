@@ -1,5 +1,5 @@
-import type { AvailabilityEntry } from '../types';
-import { isDateInRange, formatDate } from '../utils/dates';
+import type { AvailabilityEntry } from '../calendar.types';
+import { isDateInRange, formatDate } from '$lib/utils/dates';
 
 class AvailabilityStore {
 	#entries = $state.raw<AvailabilityEntry[]>([]);

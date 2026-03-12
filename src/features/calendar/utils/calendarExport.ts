@@ -1,6 +1,7 @@
-import type { Personnel, AvailabilityEntry, StatusType, SpecialDay } from '../types';
+import type { Personnel } from '$lib/types';
+import type { AvailabilityEntry, StatusType, SpecialDay } from '../calendar.types';
 import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
-import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from './dates';
+import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 

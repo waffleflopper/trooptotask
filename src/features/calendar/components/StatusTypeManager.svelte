@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { StatusType } from '../types';
-	import Badge from './ui/Badge.svelte';
-	import EmptyState from './ui/EmptyState.svelte';
-	import ConfirmDialog from './ui/ConfirmDialog.svelte';
+	import type { StatusType } from '$features/calendar/calendar.types';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	interface Props {
 		statusTypes: StatusType[];

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
-	import { availabilityStore } from '$lib/stores/availability.svelte';
-	import { dailyAssignmentsStore } from '$lib/stores/dailyAssignments.svelte';
+	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
+	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';

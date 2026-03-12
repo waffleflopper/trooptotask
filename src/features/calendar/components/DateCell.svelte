@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AvailabilityEntry, StatusType } from '../types';
+	import type { AvailabilityEntry, StatusType } from '$features/calendar/calendar.types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 
 	interface Props {

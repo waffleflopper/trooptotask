@@ -1,6 +1,7 @@
 <script lang="ts">
-	import type { Personnel, AvailabilityEntry, StatusType } from '../types';
-	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
+	import type { Personnel } from '../types';
+	import type { AvailabilityEntry, StatusType } from '$features/calendar/calendar.types';
+	import type { AssignmentType, DailyAssignment } from '$features/calendar/stores/dailyAssignments.svelte';
 	import type { RosterHistoryItem, RosterHistoryEntry } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '../utils/dates';
 	import ConfirmDialog from './ui/ConfirmDialog.svelte';

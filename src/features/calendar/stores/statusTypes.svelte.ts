@@ -1,4 +1,4 @@
-import type { StatusType } from '../types';
+import type { StatusType } from '../calendar.types';
 
 class StatusTypesStore {
 	#statusTypes = $state.raw<StatusType[]>([]);

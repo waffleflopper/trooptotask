@@ -1,7 +1,8 @@
 <script lang="ts">
-	import type { Personnel, AvailabilityEntry, StatusType, SpecialDay } from '../types';
+	import type { Personnel } from '$lib/types';
+	import type { AvailabilityEntry, StatusType, SpecialDay } from '$features/calendar/calendar.types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
-	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, isToday } from '../utils/dates';
+	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, isToday } from '$lib/utils/dates';
 	import { exportQuarterToCSV, printQuarterCalendar } from '../utils/calendarExport';
 
 	interface GroupData {

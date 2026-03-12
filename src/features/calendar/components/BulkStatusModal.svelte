@@ -1,7 +1,8 @@
 <script lang="ts">
-	import type { Personnel, StatusType } from '../types';
-	import { formatDate } from '../utils/dates';
-	import Modal from './Modal.svelte';
+	import type { Personnel } from '$lib/types';
+	import type { StatusType } from '$features/calendar/calendar.types';
+	import { formatDate } from '$lib/utils/dates';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface GroupData {
 		group: string;

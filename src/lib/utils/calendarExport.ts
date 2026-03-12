@@ -1,6 +1,8 @@
 import type { Personnel, AvailabilityEntry, StatusType, SpecialDay } from '../types';
 import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from './dates';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface GroupData {
 	group: string;
@@ -284,7 +286,92 @@ export function printCalendar(): void {
 }
 
 /**
- * Generate printable HTML for month calendar and open in new window for printing
+ * Parse hex color to RGB tuple for jsPDF
+ */
+function hexToRgb(hex: string): [number, number, number] {
+	const h = hex.replace('#', '');
+	return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+/**
+ * Build calendar PDF table data for a set of dates
+ */
+function buildCalendarTable(
+	dates: Date[],
+	personnelByGroup: GroupData[],
+	availabilityEntries: AvailabilityEntry[],
+	statusTypes: StatusType[],
+	specialDays: SpecialDay[],
+	assignmentTypes: AssignmentType[],
+	assignments: DailyAssignment[],
+	compact: boolean
+) {
+	const head = ['Personnel', ...dates.map((d) => {
+		const dayName = d.toLocaleDateString('en-US', { weekday: 'narrow' });
+		return `${dayName}\n${d.getDate()}`;
+	})];
+
+	const body: any[][] = [];
+	const weekendCols = new Set<number>();
+	const holidayCols = new Set<number>();
+
+	dates.forEach((d, i) => {
+		if (isWeekend(d)) weekendCols.add(i + 1);
+		const special = specialDays.find((s) => s.date === formatDate(d));
+		if (special?.type === 'federal-holiday') holidayCols.add(i + 1);
+	});
+
+	// Track styling per cell: [rowIndex][colIndex] = { fillColor, textColor }
+	const cellStyles: Map<string, { fillColor?: [number, number, number]; textColor?: number }> = new Map();
+	// Track group header rows
+	const groupRows = new Set<number>();
+
+	for (const grp of personnelByGroup) {
+		if (grp.personnel.length === 0) continue;
+
+		// Group header row
+		const groupRowIdx = body.length;
+		groupRows.add(groupRowIdx);
+		body.push([{ content: grp.group, colSpan: dates.length + 1, styles: { fontStyle: 'bold' as const, fillColor: [30, 64, 175] as [number, number, number], textColor: 255, halign: 'left' as const } }]);
+
+		for (const person of grp.personnel) {
+			const rowIdx = body.length;
+			const nameLabel = compact
+				? `${person.rank} ${person.lastName}`
+				: `${person.rank} ${person.lastName}, ${person.firstName}`;
+
+			const row: any[] = [nameLabel];
+
+			for (let di = 0; di < dates.length; di++) {
+				const date = dates[di];
+				const status = getStatusForDate(person.id, date, availabilityEntries, statusTypes);
+				const personAssignments = compact ? [] : getAssignmentsForDate(date, person.id, assignments, assignmentTypes);
+
+				let cellContent = '';
+				if (status) {
+					cellContent = compact ? '' : status.name;
+					cellStyles.set(`${rowIdx}:${di + 1}`, {
+						fillColor: hexToRgb(status.color),
+						textColor: 255
+					});
+				}
+				if (personAssignments.length > 0) {
+					const assignText = personAssignments.join(', ');
+					cellContent = cellContent ? `${cellContent}\n${assignText}` : assignText;
+				}
+
+				row.push(cellContent);
+			}
+
+			body.push(row);
+		}
+	}
+
+	return { head, body, weekendCols, holidayCols, cellStyles, groupRows };
+}
+
+/**
+ * Generate PDF for month calendar using jsPDF
  */
 export function printMonthCalendar(
 	year: number,
@@ -295,108 +382,75 @@ export function printMonthCalendar(
 	const dates = getMonthDates(year, month);
 	const monthName = getMonthName(month);
 
-	let html = `
-<!DOCTYPE html>
-<html>
-<head>
-	<title>${monthName} ${year} - Calendar</title>
-	<style>
-		* { box-sizing: border-box; margin: 0; padding: 0; }
-		body { font-family: Arial, sans-serif; font-size: 9px; padding: 10px; }
-		h1 { font-size: 16px; margin-bottom: 10px; text-align: center; }
-		table { border-collapse: collapse; width: 100%; }
-		th, td { border: 1px solid #ccc; padding: 2px 3px; text-align: center; }
-		th { background: #f0f0f0; font-weight: bold; }
-		.name-cell { text-align: left; white-space: nowrap; min-width: 120px; }
-		.group-row { background: #1e40af; color: white; font-weight: bold; }
-		.group-row td { text-align: left; }
-		.weekend { background: #f3f4f6; }
-		.holiday { background: #fef3c7; }
-		.status-cell { font-size: 8px; }
-		.rank { color: #666; margin-right: 4px; }
-		@media print {
-			body { padding: 0; }
-			@page { size: landscape; margin: 0.5cm; }
-		}
-	</style>
-</head>
-<body>
-	<h1>${monthName} ${year}</h1>
-	<table>
-		<thead>
-			<tr>
-				<th class="name-cell">Personnel</th>
-				${dates.map((d) => {
-					const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-					const isWknd = isWeekend(d);
-					const special = specialDays.find((s) => s.date === formatDate(d));
-					const isHoliday = special?.type === 'federal-holiday';
-					return `<th class="${isWknd ? 'weekend' : ''} ${isHoliday ? 'holiday' : ''}">${dayName}<br>${d.getDate()}</th>`;
-				}).join('')}
-			</tr>
-		</thead>
-		<tbody>
-`;
+	const { head, body, weekendCols, holidayCols, cellStyles, groupRows } = buildCalendarTable(
+		dates, personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments, false
+	);
 
-	for (const grp of personnelByGroup) {
-		if (grp.personnel.length > 0) {
-			html += `<tr class="group-row"><td colspan="${dates.length + 1}">${grp.group}</td></tr>`;
+	const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
+	const pageWidth = doc.internal.pageSize.getWidth();
 
-			for (const person of grp.personnel) {
-				html += `<tr><td class="name-cell"><span class="rank">${person.rank}</span>${person.lastName}, ${person.firstName}</td>`;
+	doc.setFontSize(14);
+	doc.text(`${monthName} ${year}`, pageWidth / 2, 30, { align: 'center' });
 
-				for (const date of dates) {
-					const status = getStatusForDate(person.id, date, availabilityEntries, statusTypes);
-					const personAssignments = getAssignmentsForDate(date, person.id, assignments, assignmentTypes);
-					const isWknd = isWeekend(date);
-					const special = specialDays.find((s) => s.date === formatDate(date));
-					const isHoliday = special?.type === 'federal-holiday';
+	const numCols = dates.length;
+	const nameColWidth = 110;
+	const availableWidth = pageWidth - 40 - nameColWidth;
+	const dayCellWidth = Math.max(availableWidth / numCols, 14);
 
-					let cellContent = '';
-					let bgColor = '';
+	const columnStyles: Record<number, any> = {
+		0: { cellWidth: nameColWidth, halign: 'left', overflow: 'hidden' }
+	};
+	for (let i = 1; i <= numCols; i++) {
+		columnStyles[i] = { cellWidth: dayCellWidth, halign: 'center', overflow: 'hidden' };
+	}
 
-					if (status) {
-						cellContent = status.name;
-						bgColor = status.color;
-					}
-					if (personAssignments.length > 0) {
-						cellContent = cellContent
-							? `${cellContent}<br><small>${personAssignments.join(', ')}</small>`
-							: personAssignments.join(', ');
-					}
+	autoTable(doc, {
+		startY: 40,
+		head: [head],
+		body,
+		theme: 'grid',
+		styles: {
+			fontSize: 6,
+			cellPadding: 1.5,
+			lineColor: [200, 200, 200],
+			lineWidth: 0.25,
+			overflow: 'hidden'
+		},
+		headStyles: {
+			fillColor: [240, 240, 240],
+			textColor: 30,
+			fontStyle: 'bold',
+			fontSize: 5.5,
+			halign: 'center',
+			cellPadding: 1
+		},
+		columnStyles,
+		margin: { left: 20, right: 20 },
+		didParseCell: (data: any) => {
+			if (data.section !== 'body') return;
+			const rowIdx = data.row.index;
+			if (groupRows.has(rowIdx)) return;
+			const colIdx = data.column.index;
 
-					const classes = [
-						'status-cell',
-						isWknd && !bgColor ? 'weekend' : '',
-						isHoliday && !bgColor ? 'holiday' : ''
-					].filter(Boolean).join(' ');
-
-					const style = bgColor ? `background-color: ${bgColor}; color: white;` : '';
-
-					html += `<td class="${classes}" style="${style}">${cellContent}</td>`;
-				}
-
-				html += '</tr>';
+			// Apply status color
+			const key = `${rowIdx}:${colIdx}`;
+			const style = cellStyles.get(key);
+			if (style) {
+				data.cell.styles.fillColor = style.fillColor;
+				data.cell.styles.textColor = style.textColor;
+			} else if (holidayCols.has(colIdx)) {
+				data.cell.styles.fillColor = [254, 243, 199];
+			} else if (weekendCols.has(colIdx)) {
+				data.cell.styles.fillColor = [243, 244, 246];
 			}
 		}
-	}
+	});
 
-	html += `
-		</tbody>
-	</table>
-	<script>window.onload = function() { window.print(); }</script>
-</body>
-</html>`;
-
-	const printWindow = window.open('', '_blank');
-	if (printWindow) {
-		printWindow.document.write(html);
-		printWindow.document.close();
-	}
+	doc.save(`calendar-${monthName}-${year}.pdf`);
 }
 
 /**
- * Generate printable HTML for 3-month view and open in new window for printing
+ * Generate PDF for 3-month calendar view using jsPDF
  */
 export function printQuarterCalendar(
 	startDate: Date,
@@ -404,7 +458,6 @@ export function printQuarterCalendar(
 ): void {
 	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
 
-	// Get 3 months of data
 	const months: MonthData[] = [];
 	for (let i = 0; i < 3; i++) {
 		const monthDate = addMonths(startDate, i);
@@ -416,103 +469,86 @@ export function printQuarterCalendar(
 		});
 	}
 
-	const totalDays = months.reduce((sum, m) => sum + m.dates.length, 0);
+	const allDates = months.flatMap((m) => m.dates);
 	const title = `${months[0].name} ${months[0].year} - ${months[2].name} ${months[2].year}`;
 
-	let html = `
-<!DOCTYPE html>
-<html>
-<head>
-	<title>${title} - Calendar</title>
-	<style>
-		* { box-sizing: border-box; margin: 0; padding: 0; }
-		body { font-family: Arial, sans-serif; font-size: 7px; padding: 5px; }
-		h1 { font-size: 14px; margin-bottom: 8px; text-align: center; }
-		table { border-collapse: collapse; width: 100%; }
-		th, td { border: 1px solid #ccc; padding: 1px 2px; text-align: center; }
-		th { background: #f0f0f0; font-weight: bold; }
-		.month-header { background: #1e40af; color: white; font-size: 9px; }
-		.name-cell { text-align: left; white-space: nowrap; min-width: 90px; position: sticky; left: 0; background: white; }
-		.group-row { background: #1e40af; color: white; font-weight: bold; }
-		.group-row td { text-align: left; }
-		.weekend { background: #f3f4f6; }
-		.holiday { background: #fef3c7; }
-		.status-cell { font-size: 6px; width: 18px; min-width: 18px; max-width: 18px; }
-		.rank { color: #666; margin-right: 2px; font-size: 6px; }
-		@media print {
-			body { padding: 0; }
-			@page { size: landscape; margin: 0.3cm; }
-		}
-	</style>
-</head>
-<body>
-	<h1>${title}</h1>
-	<table>
-		<thead>
-			<tr>
-				<th class="name-cell" rowspan="2">Personnel</th>
-				${months.map((m) => `<th class="month-header" colspan="${m.dates.length}">${m.name} ${m.year}</th>`).join('')}
-			</tr>
-			<tr>
-				${months.map((m) => m.dates.map((d) => {
-					const isWknd = isWeekend(d);
-					const special = specialDays.find((s) => s.date === formatDate(d));
-					const isHoliday = special?.type === 'federal-holiday';
-					return `<th class="${isWknd ? 'weekend' : ''} ${isHoliday ? 'holiday' : ''}">${d.getDate()}</th>`;
-				}).join('')).join('')}
-			</tr>
-		</thead>
-		<tbody>
-`;
+	const { head, body, weekendCols, holidayCols, cellStyles, groupRows } = buildCalendarTable(
+		allDates, personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments, true
+	);
 
-	for (const grp of personnelByGroup) {
-		if (grp.personnel.length > 0) {
-			html += `<tr class="group-row"><td colspan="${totalDays + 1}">${grp.group}</td></tr>`;
+	const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
+	const pageWidth = doc.internal.pageSize.getWidth();
 
-			for (const person of grp.personnel) {
-				html += `<tr><td class="name-cell"><span class="rank">${person.rank}</span>${person.lastName}</td>`;
+	doc.setFontSize(12);
+	doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
-				for (const month of months) {
-					for (const date of month.dates) {
-						const status = getStatusForDate(person.id, date, availabilityEntries, statusTypes);
-						const isWknd = isWeekend(date);
-						const special = specialDays.find((s) => s.date === formatDate(date));
-						const isHoliday = special?.type === 'federal-holiday';
+	// Month separator labels
+	doc.setFontSize(6);
+	const nameColWidth = 80;
+	const availableWidth = pageWidth - 40 - nameColWidth;
+	const numCols = allDates.length;
+	const dayCellWidth = Math.max(availableWidth / numCols, 6);
 
-						let bgColor = '';
-						if (status) {
-							bgColor = status.color;
-						}
+	let xOffset = 20 + nameColWidth;
+	for (const m of months) {
+		const spanWidth = m.dates.length * dayCellWidth;
+		doc.setFillColor(30, 64, 175);
+		doc.rect(xOffset, 30, spanWidth, 10, 'F');
+		doc.setTextColor(255);
+		doc.text(`${m.name} ${m.year}`, xOffset + spanWidth / 2, 37, { align: 'center' });
+		xOffset += spanWidth;
+	}
+	doc.setTextColor(0);
 
-						const classes = [
-							'status-cell',
-							isWknd && !bgColor ? 'weekend' : '',
-							isHoliday && !bgColor ? 'holiday' : ''
-						].filter(Boolean).join(' ');
+	const columnStyles: Record<number, any> = {
+		0: { cellWidth: nameColWidth, halign: 'left', overflow: 'hidden' }
+	};
+	for (let i = 1; i <= numCols; i++) {
+		columnStyles[i] = { cellWidth: dayCellWidth, halign: 'center', overflow: 'hidden' };
+	}
 
-						const style = bgColor ? `background-color: ${bgColor};` : '';
+	autoTable(doc, {
+		startY: 42,
+		head: [head],
+		body,
+		theme: 'grid',
+		styles: {
+			fontSize: 4.5,
+			cellPadding: 1,
+			lineColor: [200, 200, 200],
+			lineWidth: 0.25,
+			overflow: 'hidden'
+		},
+		headStyles: {
+			fillColor: [240, 240, 240],
+			textColor: 30,
+			fontStyle: 'bold',
+			fontSize: 4,
+			halign: 'center',
+			cellPadding: 0.5
+		},
+		columnStyles,
+		margin: { left: 20, right: 20 },
+		didParseCell: (data: any) => {
+			if (data.section !== 'body') return;
+			const rowIdx = data.row.index;
+			if (groupRows.has(rowIdx)) return;
+			const colIdx = data.column.index;
 
-						html += `<td class="${classes}" style="${style}"></td>`;
-					}
-				}
-
-				html += '</tr>';
+			const key = `${rowIdx}:${colIdx}`;
+			const style = cellStyles.get(key);
+			if (style) {
+				data.cell.styles.fillColor = style.fillColor;
+				data.cell.styles.textColor = style.textColor;
+			} else if (holidayCols.has(colIdx)) {
+				data.cell.styles.fillColor = [254, 243, 199];
+			} else if (weekendCols.has(colIdx)) {
+				data.cell.styles.fillColor = [243, 244, 246];
 			}
 		}
-	}
+	});
 
-	html += `
-		</tbody>
-	</table>
-	<script>window.onload = function() { window.print(); }</script>
-</body>
-</html>`;
-
-	const printWindow = window.open('', '_blank');
-	if (printWindow) {
-		printWindow.document.write(html);
-		printWindow.document.close();
-	}
+	doc.save(`calendar-${months[0].name}-${months[0].year}-to-${months[2].name}-${months[2].year}.pdf`);
 }
 
 function downloadFile(content: string, filename: string, mimeType: string): void {

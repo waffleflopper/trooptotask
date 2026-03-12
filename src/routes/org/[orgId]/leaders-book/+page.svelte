@@ -5,11 +5,11 @@
 		CounselingRecord,
 		DevelopmentGoal,
 		PersonnelExtendedInfo
-	} from '$lib/types/leadersBook';
+	} from '$features/counseling/counseling.types';
 	import { personnelExtendedInfoStore } from '$features/personnel/stores/personnelExtendedInfo.svelte';
-	import { counselingTypesStore } from '$lib/stores/counselingTypes.svelte';
-	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
-	import { developmentGoalsStore } from '$lib/stores/developmentGoals.svelte';
+	import { counselingTypesStore } from '$features/counseling/stores/counselingTypes.svelte';
+	import { counselingRecordsStore } from '$features/counseling/stores/counselingRecords.svelte';
+	import { developmentGoalsStore } from '$features/counseling/stores/developmentGoals.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -19,8 +19,8 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
-	import SoldierLeadersBookView from '$lib/components/SoldierLeadersBookView.svelte';
-	import CounselingTypeManager from '$lib/components/CounselingTypeManager.svelte';
+	import SoldierLeadersBookView from '$features/counseling/components/SoldierLeadersBookView.svelte';
+	import CounselingTypeManager from '$features/counseling/components/CounselingTypeManager.svelte';
 
 	let { data } = $props();
 

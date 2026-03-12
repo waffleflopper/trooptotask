@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-11-onboarding-highlight-and-performance',
+		date: '2026-03-11',
+		title: 'Onboarding Highlighting & Performance',
+		items: [
+			'Calendar cells for onboarding personnel now show a subtle brass tint when they have no status — makes it easy to tell at a glance who is still in their 1:1 onboarding period vs. fully available',
+			'New "Onboarding" toggle in the calendar toolbar lets you turn the highlighting on or off (your preference is remembered)',
+			'Faster page navigation — layout queries are now parallelized and onboarding data loads in fewer round-trips',
+			'Added a progress bar at the top of the page during navigation so the app never feels frozen'
+		]
+	},
+	{
 		id: '2026-03-09-personnel-archival',
 		date: '2026-03-09',
 		title: 'Personnel Archival',

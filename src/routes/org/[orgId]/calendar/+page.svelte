@@ -8,8 +8,8 @@
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-	import { dutyRosterHistoryStore } from '$lib/stores/dutyRosterHistory.svelte';
-	import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';
+	import { dutyRosterHistoryStore } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
+	import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { calendarPrefsStore } from '$features/calendar/stores/calendarPrefs.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
@@ -24,7 +24,7 @@
 	import BulkStatusRemoveModal from '$features/calendar/components/BulkStatusRemoveModal.svelte';
 	import MonthlyAssignmentPlanner from '$features/calendar/components/MonthlyAssignmentPlanner.svelte';
 	import AssignmentTypeManager from '$features/calendar/components/AssignmentTypeManager.svelte';
-	import DutyRosterGenerator from '$lib/components/DutyRosterGenerator.svelte';
+	import DutyRosterGenerator from '$features/duty-roster/components/DutyRosterGenerator.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';

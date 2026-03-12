@@ -8,7 +8,7 @@
 	import { ratingSchemeStore } from '$features/counseling/stores/ratingScheme.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
-	import GroupManager from '$lib/components/GroupManager.svelte';
+	import GroupManager from '$features/groups/components/GroupManager.svelte';
 	import BulkPersonnelManager from '$features/personnel/components/BulkPersonnelManager.svelte';
 	import RatingSchemeEntryModal from '$features/counseling/components/RatingSchemeEntryModal.svelte';
 	import RatingSchemeTableView from '$features/counseling/components/RatingSchemeTableView.svelte';

@@ -232,18 +232,7 @@
 				2: { cellWidth: 180 },
 				3: { cellWidth: 'auto' }
 			},
-			margin: { left: 40, right: 40 },
-			// Draw a signature line in the Signature column
-			didDrawCell: (data: any) => {
-				if (data.section === 'body' && data.column.index === 3 && data.cell.colSpan === 1) {
-					const x = data.cell.x + 5;
-					const y = data.cell.y + data.cell.height - 5;
-					const lineWidth = data.cell.width - 10;
-					doc.setDrawColor(0);
-					doc.setLineWidth(0.5);
-					doc.line(x, y, x + lineWidth, y);
-				}
-			}
+			margin: { left: 40, right: 40 }
 		});
 
 		doc.save(`${config.title.replace(/[^a-zA-Z0-9 ]/g, '').replace(/\s+/g, '-')}-sign-in-roster.pdf`);

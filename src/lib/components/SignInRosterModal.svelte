@@ -2,6 +2,8 @@
 	import type { Personnel, SignInRoster } from '$lib/types';
 	import { ARMY_RANKS, ALL_RANKS } from '$lib/types';
 	import { RANK_ORDER } from '$lib/utils/personnelGrouping';
+	import { jsPDF } from 'jspdf';
+	import autoTable from 'jspdf-autotable';
 	import Modal from './Modal.svelte';
 	import Spinner from './ui/Spinner.svelte';
 	import EmptyState from './ui/EmptyState.svelte';
@@ -150,7 +152,7 @@
 		return sorted;
 	}
 
-	// PDF generation
+	// PDF generation using jsPDF
 	function generatePDF(config: {
 		title: string;
 		rosterDate: string | null;
@@ -159,9 +161,22 @@
 		sortBy: string;
 		personnelSnapshot: { rank: string; lastName: string; firstName: string; group: string }[];
 	}) {
-		const sorted = [...config.personnelSnapshot];
+		const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+		const pageWidth = doc.internal.pageSize.getWidth();
 
-		// Group if needed
+		// Title
+		doc.setFontSize(18);
+		doc.text(config.title, pageWidth / 2, 50, { align: 'center' });
+
+		// Date
+		doc.setFontSize(12);
+		const dateDisplay = config.blankDate
+			? 'Date: _______________'
+			: `Date: ${new Date(config.rosterDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+		doc.text(dateDisplay, pageWidth / 2, 70, { align: 'center' });
+
+		// Build table body rows
+		const sorted = [...config.personnelSnapshot];
 		let rosterGroups: { name: string; people: typeof sorted }[];
 		if (config.separateByGroup) {
 			const map = new Map<string, typeof sorted>();
@@ -175,69 +190,63 @@
 			rosterGroups = [{ name: '', people: sorted }];
 		}
 
-		const dateDisplay = config.blankDate
-			? 'Date: _______________'
-			: `Date: ${new Date(config.rosterDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`;
-
-		let rows = '';
+		const body: any[] = [];
 		let rowNum = 0;
 		for (const group of rosterGroups) {
 			if (config.separateByGroup && group.name) {
-				rows += `<tr class="group-header"><td colspan="4" style="font-weight:bold; font-size:14px; padding:10px 4px 4px; border:none;">${group.name}</td></tr>`;
+				body.push([
+					{ content: group.name, colSpan: 4, styles: { fontStyle: 'bold' as const, fillColor: [240, 240, 240] as [number, number, number], cellPadding: { top: 8, bottom: 4, left: 4, right: 4 } } }
+				]);
 			}
 			for (const p of group.people) {
 				rowNum++;
-				rows += `<tr>
-					<td style="width:30px; text-align:center; padding:6px 4px;">${rowNum}</td>
-					<td style="width:60px; padding:6px 4px;">${p.rank}</td>
-					<td style="width:200px; padding:6px 4px;">${p.lastName}, ${p.firstName}</td>
-					<td style="padding:6px 4px; border-bottom:1px solid #000;">&nbsp;</td>
-				</tr>`;
+				body.push([
+					{ content: String(rowNum), styles: { halign: 'center' as const } },
+					p.rank,
+					`${p.lastName}, ${p.firstName}`,
+					''
+				]);
 			}
 		}
 
-		const html = `<!DOCTYPE html>
-<html>
-<head>
-<title>${config.title} - Sign-In Roster</title>
-<style>
-	@media print {
-		@page { size: portrait; margin: 0.75in; }
-		body { margin: 0; }
-	}
-	body { font-family: Arial, sans-serif; font-size: 12px; }
-	h1 { text-align: center; font-size: 20px; margin-bottom: 4px; }
-	.date { text-align: center; font-size: 14px; margin-bottom: 20px; }
-	table { width: 100%; border-collapse: collapse; }
-	th { text-align: left; padding: 6px 4px; border-bottom: 2px solid #000; font-size: 12px; }
-	td { font-size: 12px; }
-	.group-header td { background: none; }
-	tr { page-break-inside: avoid; }
-</style>
-</head>
-<body>
-	<h1>${config.title}</h1>
-	<div class="date">${dateDisplay}</div>
-	<table>
-		<thead>
-			<tr>
-				<th style="width:30px;">#</th>
-				<th style="width:60px;">Rank</th>
-				<th style="width:200px;">Name</th>
-				<th>Signature</th>
-			</tr>
-		</thead>
-		<tbody>${rows}</tbody>
-	</table>
-	<script>window.onload = function() { window.print(); }<\/script>
-</body>
-</html>`;
+		autoTable(doc, {
+			startY: 85,
+			head: [['#', 'Rank', 'Name', 'Signature']],
+			body,
+			theme: 'grid',
+			headStyles: {
+				fillColor: [50, 50, 50],
+				textColor: 255,
+				fontStyle: 'bold',
+				fontSize: 10
+			},
+			styles: {
+				fontSize: 10,
+				cellPadding: 5,
+				lineColor: [200, 200, 200],
+				lineWidth: 0.5
+			},
+			columnStyles: {
+				0: { cellWidth: 30, halign: 'center' },
+				1: { cellWidth: 50 },
+				2: { cellWidth: 180 },
+				3: { cellWidth: 'auto' }
+			},
+			margin: { left: 40, right: 40 },
+			// Draw a signature line in the Signature column
+			didDrawCell: (data: any) => {
+				if (data.section === 'body' && data.column.index === 3 && data.cell.colSpan === 1) {
+					const x = data.cell.x + 5;
+					const y = data.cell.y + data.cell.height - 5;
+					const lineWidth = data.cell.width - 10;
+					doc.setDrawColor(0);
+					doc.setLineWidth(0.5);
+					doc.line(x, y, x + lineWidth, y);
+				}
+			}
+		});
 
-		const printWindow = window.open('', '_blank');
-		if (printWindow) {
-			printWindow.document.write(html);
-			printWindow.document.close();
-		}
+		doc.save(`${config.title.replace(/[^a-zA-Z0-9 ]/g, '').replace(/\s+/g, '-')}-sign-in-roster.pdf`);
 	}
 
 	// Generate and save

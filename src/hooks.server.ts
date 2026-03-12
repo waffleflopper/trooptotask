@@ -33,12 +33,18 @@ export const handle: Handle = async ({ event, resolve }) => {
 		});
 	}
 
+	const isProd = event.url.hostname.endsWith('trooptotask.org');
+
 	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
 		cookies: {
 			getAll: () => event.cookies.getAll(),
 			setAll: (cookiesToSet) => {
 				cookiesToSet.forEach(({ name, value, options }) => {
-					event.cookies.set(name, value, { ...options, path: '/' });
+					event.cookies.set(name, value, {
+						...options,
+						path: '/',
+						...(isProd && { domain: '.trooptotask.org' })
+					});
 				});
 			}
 		}

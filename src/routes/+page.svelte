@@ -84,20 +84,29 @@
 
 	const roadmap = [
 		{
+			title: 'Email Notifications',
+			description:
+				'Get alerts for expiring training, coverage gaps, and assignment conflicts — plus timed daily, weekly, and monthly readiness reports delivered straight to your inbox.',
+			status: 'Planned',
+			statusClass: 'planned'
+		},
+		{
+			title: 'ACFT Score Tracking & Trends',
+			description:
+				'Log ACFT scores for each Soldier and visualize fitness trends over time to spot readiness gaps and highlight top performers.',
+			status: 'Planned',
+			statusClass: 'planned'
+		},
+		{
 			title: 'Event Sign-ups',
 			description: 'Coordinate range days, ACFT, and unit events with built-in sign-up sheets.',
-			status: 'Planned',
-			statusClass: 'planned'
+			status: 'Exploring',
+			statusClass: 'exploring'
 		},
 		{
-			title: 'Smart Notifications',
-			description: 'Get alerts for expiring training, coverage gaps, and assignment conflicts.',
-			status: 'Planned',
-			statusClass: 'planned'
-		},
-		{
-			title: 'Mobile App',
-			description: 'Native iOS and Android apps for on-the-go access and push notifications.',
+			title: 'ICTL Tracking',
+			description:
+				'Track Individual Critical Task List progress for each Soldier to ensure MOS and unit task proficiency.',
 			status: 'Exploring',
 			statusClass: 'exploring'
 		}

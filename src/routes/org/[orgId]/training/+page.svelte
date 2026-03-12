@@ -17,7 +17,7 @@
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
-	import SignInRosterModal from '$lib/components/SignInRosterModal.svelte';
+	import SignInRosterModal from '$features/sign-in-rosters/components/SignInRosterModal.svelte';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 
 	let { data } = $props();

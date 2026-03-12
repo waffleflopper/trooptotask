@@ -1,4 +1,4 @@
-import type { PersonnelExtendedInfo } from '../types/leadersBook';
+import type { PersonnelExtendedInfo } from '$lib/types/leadersBook';
 
 class PersonnelExtendedInfoStore {
 	#extendedInfo = $state.raw<PersonnelExtendedInfo[]>([]);

@@ -1,21 +1,21 @@
 <script lang="ts">
 	import type { Personnel, RatingSchemeEntry, WorkflowStatus } from '$lib/types';
 	import { RATING_STATUS_COLORS, WORKFLOW_STATUS_OPTIONS } from '$lib/types';
-	import { personnelStore } from '$lib/stores/personnel.svelte';
+	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { ratingSchemeStore } from '$lib/stores/ratingScheme.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
-	import PersonnelModal from '$lib/components/PersonnelModal.svelte';
+	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import GroupManager from '$lib/components/GroupManager.svelte';
-	import BulkPersonnelManager from '$lib/components/BulkPersonnelManager.svelte';
+	import BulkPersonnelManager from '$features/personnel/components/BulkPersonnelManager.svelte';
 	import RatingSchemeEntryModal from '$lib/components/RatingSchemeEntryModal.svelte';
 	import RatingSchemeTableView from '$lib/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$lib/components/RatingSchemeGroupedView.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
-	import { groupAndSortPersonnel, RANK_ORDER } from '$lib/utils/personnelGrouping';
+	import { groupAndSortPersonnel, RANK_ORDER } from '$features/personnel/utils/personnelGrouping';
 	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
 	import { exportRatingScheme } from '$lib/utils/ratingSchemeExport';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';

@@ -1,12 +1,12 @@
 <script lang="ts">
-	import type { Group } from '../stores/groups.svelte';
-	import type { Personnel } from '../types';
-	import { ALL_RANKS } from '../types';
-	import { parseCSVText, parseFile } from '../utils/csvParser';
-	import { PERSONNEL_COLUMNS, detectHeaderRow } from '../utils/columnMapping';
-	import BulkImportTable from './ui/BulkImportTable.svelte';
-	import ConfirmDialog from './ui/ConfirmDialog.svelte';
-	import Modal from './Modal.svelte';
+	import type { Group } from '$lib/stores/groups.svelte';
+	import type { Personnel } from '$lib/types';
+	import { ALL_RANKS } from '$lib/types';
+	import { parseCSVText, parseFile } from '$lib/utils/csvParser';
+	import { PERSONNEL_COLUMNS, detectHeaderRow } from '$lib/utils/columnMapping';
+	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface GroupData {

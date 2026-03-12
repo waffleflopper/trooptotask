@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { personnelStore } from '$lib/stores/personnel.svelte';
+	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
 	import { availabilityStore } from '$lib/stores/availability.svelte';
 	import { dailyAssignmentsStore } from '$lib/stores/dailyAssignments.svelte';
-	import { trainingTypesStore } from '$lib/stores/trainingTypes.svelte';
-	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
+	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { dashboardPrefsStore, type CardId } from '$lib/stores/dashboardPrefs.svelte';
@@ -12,7 +12,7 @@
 	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import DashboardCustomizeModal from '$lib/components/DashboardCustomizeModal.svelte';
-	import { getTrainingStatus, getTrainingStats } from '$lib/utils/trainingStatus';
+	import { getTrainingStatus, getTrainingStats } from '$features/training/utils/trainingStatus';
 	import { formatDate, parseDate } from '$lib/utils/dates';
 	import { browser } from '$app/environment';
 	import { changelog } from '$lib/data/changelog';

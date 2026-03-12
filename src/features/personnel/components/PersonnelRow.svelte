@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { Personnel, AvailabilityEntry, StatusType, SpecialDay } from '../types';
-	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
-	import { isWeekend, isToday, formatDate } from '../utils/dates';
-	import DateCell from './DateCell.svelte';
+	import type { Personnel, AvailabilityEntry, StatusType, SpecialDay } from '$lib/types';
+	import type { AssignmentType, DailyAssignment } from '$lib/stores/dailyAssignments.svelte';
+	import { isWeekend, isToday, formatDate } from '$lib/utils/dates';
+	import DateCell from '$lib/components/DateCell.svelte';
 
 	interface Props {
 		person: Personnel;

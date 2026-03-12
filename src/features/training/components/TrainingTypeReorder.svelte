@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { TrainingType } from '../types';
-	import Modal from './Modal.svelte';
+	import type { TrainingType } from '$features/training/training.types';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface Props {
 		trainingTypes: TrainingType[];

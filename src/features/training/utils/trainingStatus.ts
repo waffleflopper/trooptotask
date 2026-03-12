@@ -1,6 +1,7 @@
-import type { Personnel, TrainingType, PersonnelTraining, TrainingStatus } from '../types';
-import { TRAINING_STATUS_COLORS } from '../types';
-import { formatDate } from './dates';
+import type { Personnel } from '$lib/types';
+import type { TrainingType, PersonnelTraining, TrainingStatus } from '$features/training/training.types';
+import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
+import { formatDate } from '$lib/utils/dates';
 
 export interface TrainingStatusInfo {
 	status: TrainingStatus;

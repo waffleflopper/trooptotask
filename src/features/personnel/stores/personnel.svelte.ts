@@ -1,5 +1,5 @@
-import type { Personnel } from '../types';
-import type { DeleteResult } from '../utils/deletionRequests';
+import type { Personnel } from '$lib/types';
+import type { DeleteResult } from '$lib/utils/deletionRequests';
 
 class PersonnelStore {
 	#personnel = $state.raw<Personnel[]>([]);

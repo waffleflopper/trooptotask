@@ -1,4 +1,4 @@
-import type { Personnel } from '../types';
+import type { Personnel } from '$lib/types';
 
 export interface PersonnelGroup {
 	group: string;

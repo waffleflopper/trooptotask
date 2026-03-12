@@ -1,10 +1,11 @@
 <script lang="ts">
-	import type { Personnel, TrainingType } from '../types';
-	import Modal from './Modal.svelte';
-	import BulkImportTable from './ui/BulkImportTable.svelte';
-	import Spinner from './ui/Spinner.svelte';
-	import { TRAINING_COLUMNS } from '../utils/columnMapping';
-	import { parseCSVText, parseFile, parseTrainingStatus } from '../utils/csvParser';
+	import type { Personnel } from '$lib/types';
+	import type { TrainingType } from '$features/training/training.types';
+	import Modal from '$lib/components/Modal.svelte';
+	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { TRAINING_COLUMNS } from '$lib/utils/columnMapping';
+	import { parseCSVText, parseFile, parseTrainingStatus } from '$lib/utils/csvParser';
 
 	interface ResolvedRecord {
 		personnelId: string;

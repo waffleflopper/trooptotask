@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { Personnel } from '../types';
-	import type { Group } from '../stores/groups.svelte';
+	import type { Personnel } from '$lib/types';
+	import type { Group } from '$lib/stores/groups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import Modal from './Modal.svelte';
-	import ConfirmDialog from './ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	interface Props {
 		personnel?: Personnel | null;

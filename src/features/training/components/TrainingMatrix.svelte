@@ -1,6 +1,7 @@
 <script lang="ts">
-	import type { Personnel, TrainingType, PersonnelTraining } from '../types';
-	import { getTrainingStatus } from '../utils/trainingStatus';
+	import type { Personnel } from '$lib/types';
+	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+	import { getTrainingStatus } from '$features/training/utils/trainingStatus';
 
 	interface Props {
 		personnel: Personnel[];

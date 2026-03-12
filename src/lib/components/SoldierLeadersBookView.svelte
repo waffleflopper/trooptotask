@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { Personnel, AvailabilityEntry, TrainingType, PersonnelTraining } from '$lib/types';
+	import type { Personnel, AvailabilityEntry } from '$lib/types';
+	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import type { CounselingRecord, DevelopmentGoal } from '$lib/types/leadersBook';
 	import {
 		COUNSELING_STATUS_LABELS,
@@ -11,24 +12,24 @@
 		GOAL_CATEGORY_LABELS,
 		GOAL_CATEGORY_COLORS
 	} from '$lib/types/leadersBook';
-	import { TRAINING_STATUS_COLORS } from '$lib/types';
+	import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
 	import { formatDate as formatDateISO, formatDisplayDate } from '$lib/utils/dates';
-	import { personnelExtendedInfoStore } from '$lib/stores/personnelExtendedInfo.svelte';
+	import { personnelExtendedInfoStore } from '$features/personnel/stores/personnelExtendedInfo.svelte';
 	import { counselingTypesStore } from '$lib/stores/counselingTypes.svelte';
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
 	import { developmentGoalsStore } from '$lib/stores/developmentGoals.svelte';
 	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
 	import { availabilityStore } from '$lib/stores/availability.svelte';
-	import { trainingTypesStore } from '$lib/stores/trainingTypes.svelte';
-	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
+	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { page } from '$app/stores';
-	import { getTrainingStatus } from '$lib/utils/trainingStatus';
+	import { getTrainingStatus } from '$features/training/utils/trainingStatus';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
-	import ExtendedInfoModal from './ExtendedInfoModal.svelte';
+	import ExtendedInfoModal from '$features/personnel/components/ExtendedInfoModal.svelte';
 	import CounselingRecordModal from './CounselingRecordModal.svelte';
 	import DevelopmentGoalModal from './DevelopmentGoalModal.svelte';
 	import PersonStatusModal from './PersonStatusModal.svelte';
-	import TrainingRecordModal from './TrainingRecordModal.svelte';
+	import TrainingRecordModal from '$features/training/components/TrainingRecordModal.svelte';
 
 	interface Props {
 		person: Personnel;

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { PersonnelOnboarding, OnboardingStepProgress, Personnel, TrainingType, PersonnelTraining } from '$lib/types';
+	import type { PersonnelOnboarding, OnboardingStepProgress, Personnel } from '$lib/types';
+	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import Modal from './Modal.svelte';
 	import Badge from './ui/Badge.svelte';
 

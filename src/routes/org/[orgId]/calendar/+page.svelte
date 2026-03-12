@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel, AvailabilityEntry } from '$lib/types';
-	import { personnelStore } from '$lib/stores/personnel.svelte';
+	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
 	import { availabilityStore } from '$lib/stores/availability.svelte';
 	import { specialDaysStore } from '$lib/stores/specialDays.svelte';
@@ -29,7 +29,7 @@
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
 	import { browser } from '$app/environment';
-	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
+	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 
 	let { data } = $props();
 

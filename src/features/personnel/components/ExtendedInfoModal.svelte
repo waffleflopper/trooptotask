@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
 	import type { PersonnelExtendedInfo } from '$lib/types/leadersBook';
-	import { personnelExtendedInfoStore } from '$lib/stores/personnelExtendedInfo.svelte';
-	import Modal from './Modal.svelte';
+	import { personnelExtendedInfoStore } from '../stores/personnelExtendedInfo.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface Props {
 		person: Personnel;

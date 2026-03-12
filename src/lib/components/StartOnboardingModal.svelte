@@ -2,7 +2,7 @@
 	import type { Personnel } from '../types';
 	import type { Group } from '../stores/groups.svelte';
 	import Modal from './Modal.svelte';
-	import PersonnelModal from './PersonnelModal.svelte';
+	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import Spinner from './ui/Spinner.svelte';
 
 	interface Props {

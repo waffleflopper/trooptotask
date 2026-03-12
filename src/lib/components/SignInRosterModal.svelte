@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Personnel, SignInRoster } from '$lib/types';
 	import { ARMY_RANKS, ALL_RANKS } from '$lib/types';
-	import { RANK_ORDER } from '$lib/utils/personnelGrouping';
+	import { RANK_ORDER } from '$features/personnel/utils/personnelGrouping';
 	import { jsPDF } from 'jspdf';
 	import autoTable from 'jspdf-autotable';
 	import Modal from './Modal.svelte';

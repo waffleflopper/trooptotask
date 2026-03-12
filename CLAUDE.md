@@ -18,20 +18,31 @@ Military unit management SaaS: personnel tracking, calendar/availability, traini
 ```
 src/
   app.css                    — global design system + utility classes
+  features/
+    training/                — training types, matrix, reports, bulk import
+    personnel/               — personnel CRUD, bulk import, extended info
+    calendar/                — calendar views, availability, status, assignments
+    counseling/              — counseling records, rating scheme, leaders book
+    onboarding/              — onboarding workflows, templates
+    duty-roster/             — duty roster generation
+    sign-in-rosters/         — sign-in roster generation
+    groups/                  — group/member management
   lib/
-    components/
-      ui/                    — shared primitives (Badge, Spinner, EmptyState, FileUpload)
-      Modal.svelte            — base modal wrapper
-      *Manager.svelte         — settings/type managers (rendered in modals)
-      *Modal.svelte           — operation modals (add/edit records)
-    stores/                  — Svelte 5 rune-based state
-    types/                   — TypeScript interfaces
-    utils/                   — pure helper functions
+    components/ui/           — shared primitives (Badge, Spinner, EmptyState, FileUpload)
+    components/              — shared layout components (Modal, PageToolbar, TopHeader, etc.)
+    server/                  — shared server infra (permissions, validation, rate limiting)
+    stores/                  — shared cross-cutting stores (groups, subscription, theme, etc.)
+    types.ts                 — shared types (Personnel, permissions, ranks)
+    utils/                   — shared utils (dates, csvParser, deletionRequests)
   routes/
-    org/[orgId]/             — main app (calendar, personnel, training, leaders-book)
+    org/[orgId]/             — main app (thin shells importing from features)
     auth/                    — login/callback
     billing/                 — subscription
 ```
+
+**Path aliases**: `$features/*` → `src/features/*`, `$lib/*` → `src/lib/*`
+
+Each feature module contains its own `components/`, `stores/`, `utils/`, and types file. Import feature code via `$features/feature-name/...`.
 
 ---
 

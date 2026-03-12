@@ -1,7 +1,8 @@
 <script lang="ts">
-	import type { Personnel, AvailabilityEntry, StatusType } from '../types';
+	import type { Personnel } from '$lib/types';
+	import type { AvailabilityEntry, StatusType } from '$features/calendar/calendar.types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
-	import { formatDate } from '../utils/dates';
+	import { formatDate } from '$lib/utils/dates';
 
 	interface GroupData {
 		group: string;

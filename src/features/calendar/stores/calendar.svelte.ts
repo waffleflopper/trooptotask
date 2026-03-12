@@ -1,4 +1,4 @@
-import { getMonthDates, addMonths, getMonthName } from '../utils/dates';
+import { getMonthDates, addMonths, getMonthName } from '$lib/utils/dates';
 
 class CalendarStore {
 	#currentDate = $state(new Date());

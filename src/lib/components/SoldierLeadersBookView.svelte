@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { Personnel, AvailabilityEntry } from '$lib/types';
+	import type { Personnel } from '$lib/types';
+	import type { AvailabilityEntry } from '$features/calendar/calendar.types';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import type { CounselingRecord, DevelopmentGoal } from '$lib/types/leadersBook';
 	import {
@@ -18,8 +19,8 @@
 	import { counselingTypesStore } from '$lib/stores/counselingTypes.svelte';
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
 	import { developmentGoalsStore } from '$lib/stores/developmentGoals.svelte';
-	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
-	import { availabilityStore } from '$lib/stores/availability.svelte';
+	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { page } from '$app/stores';
@@ -28,7 +29,7 @@
 	import ExtendedInfoModal from '$features/personnel/components/ExtendedInfoModal.svelte';
 	import CounselingRecordModal from './CounselingRecordModal.svelte';
 	import DevelopmentGoalModal from './DevelopmentGoalModal.svelte';
-	import PersonStatusModal from './PersonStatusModal.svelte';
+	import PersonStatusModal from '$features/calendar/components/PersonStatusModal.svelte';
 	import TrainingRecordModal from '$features/training/components/TrainingRecordModal.svelte';
 
 	interface Props {

@@ -1,13 +1,14 @@
 <script lang="ts">
-	import type { Personnel, AvailabilityEntry } from '$lib/types';
-	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
-	import { availabilityStore } from '$lib/stores/availability.svelte';
+	import type { Personnel } from '$lib/types';
+	import type { AvailabilityEntry } from '$features/calendar/calendar.types';
+	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import Modal from './Modal.svelte';
-	import Badge from './ui/Badge.svelte';
-	import Spinner from './ui/Spinner.svelte';
-	import ConfirmDialog from './ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	interface Props {
 		person: Personnel;

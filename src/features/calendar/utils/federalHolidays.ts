@@ -1,5 +1,5 @@
-import type { SpecialDay } from '../types';
-import { formatDate } from './dates';
+import type { SpecialDay } from '../calendar.types';
+import { formatDate } from '$lib/utils/dates';
 
 function getNthWeekdayOfMonth(year: number, month: number, weekday: number, n: number): Date {
 	const firstOfMonth = new Date(year, month, 1);

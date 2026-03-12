@@ -9,7 +9,7 @@
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
-	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
+	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import OnboardingTemplateManager from '$lib/components/OnboardingTemplateManager.svelte';
 	import OnboardingReportModal from '$lib/components/OnboardingReportModal.svelte';

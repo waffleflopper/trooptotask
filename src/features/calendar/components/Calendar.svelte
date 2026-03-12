@@ -1,9 +1,10 @@
 <script lang="ts">
-	import type { Personnel, AvailabilityEntry, StatusType, SpecialDay } from '../types';
+	import type { Personnel } from '$lib/types';
+	import type { AvailabilityEntry, StatusType, SpecialDay } from '$features/calendar/calendar.types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 	import CalendarHeader from './CalendarHeader.svelte';
 	import PersonnelRow from '$features/personnel/components/PersonnelRow.svelte';
-	import GroupHeader from './GroupHeader.svelte';
+	import GroupHeader from '$lib/components/GroupHeader.svelte';
 
 	interface GroupData {
 		group: string;

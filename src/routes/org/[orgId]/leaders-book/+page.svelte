@@ -10,8 +10,8 @@
 	import { counselingTypesStore } from '$lib/stores/counselingTypes.svelte';
 	import { counselingRecordsStore } from '$lib/stores/counselingRecords.svelte';
 	import { developmentGoalsStore } from '$lib/stores/developmentGoals.svelte';
-	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
-	import { availabilityStore } from '$lib/stores/availability.svelte';
+	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';

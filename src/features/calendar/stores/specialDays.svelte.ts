@@ -1,5 +1,5 @@
-import type { SpecialDay } from '../types';
-import { formatDate } from '../utils/dates';
+import type { SpecialDay } from '../calendar.types';
+import { formatDate } from '$lib/utils/dates';
 
 class SpecialDaysStore {
 	#specialDays = $state.raw<SpecialDay[]>([]);

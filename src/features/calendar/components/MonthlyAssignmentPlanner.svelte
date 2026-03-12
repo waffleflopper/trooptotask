@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { Personnel } from '../types';
+	import type { Personnel } from '$lib/types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
-	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '../utils/dates';
-	import ConfirmDialog from './ui/ConfirmDialog.svelte';
+	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	interface GroupData {
 		group: string;

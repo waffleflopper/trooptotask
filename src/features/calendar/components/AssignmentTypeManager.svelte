@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { AssignmentType } from '../stores/dailyAssignments.svelte';
-	import Badge from './ui/Badge.svelte';
-	import EmptyState from './ui/EmptyState.svelte';
-	import ConfirmDialog from './ui/ConfirmDialog.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	interface Props {
 		assignmentTypes: AssignmentType[];

@@ -3,6 +3,29 @@ import type { RequestHandler } from './$types';
 import { getApiContext } from '$lib/server/supabase';
 import { auditLog } from '$lib/server/auditLog';
 
+// Get signed URL for download
+export const GET: RequestHandler = async ({ params, locals, cookies }) => {
+	const { orgId, id } = params;
+	const { supabase } = getApiContext(locals, cookies, orgId);
+
+	const { data: roster } = await supabase
+		.from('sign_in_rosters')
+		.select('signed_file_path')
+		.eq('id', id)
+		.eq('organization_id', orgId)
+		.single();
+
+	if (!roster?.signed_file_path) throw error(404, 'No signed file found');
+
+	const { data: signedUrl } = await supabase.storage
+		.from('counseling-files')
+		.createSignedUrl(roster.signed_file_path, 300);
+
+	if (!signedUrl) throw error(500, 'Failed to create download URL');
+
+	return json({ url: signedUrl.signedUrl });
+};
+
 // Upload signed scan
 export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId, id } = params;

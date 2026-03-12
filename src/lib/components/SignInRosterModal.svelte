@@ -17,7 +17,7 @@
 	let { orgId, personnel, groups, canEdit, onClose }: Props = $props();
 
 	// Pre-compute rank index map
-	const RANK_INDEX = new Map(RANK_ORDER.map((rank, index) => [rank, index]));
+	const RANK_INDEX = new Map<string, number>(RANK_ORDER.map((rank, index) => [rank, index]));
 
 	// View toggle
 	let view = $state<'list' | 'create'>('list');

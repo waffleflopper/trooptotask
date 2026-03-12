@@ -16,6 +16,7 @@
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
+	import SignInRosterModal from '$lib/components/SignInRosterModal.svelte';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 
 	let { data } = $props();
@@ -38,13 +39,15 @@
 	let showTypeReorder = $state(false);
 	let showReports = $state(false);
 	let showBulkImporter = $state(false);
+	let showSignInRosters = $state(false);
 	let selectedGroupId = $state<string>('');
 	let viewMode = $state<'alphabetical' | 'by-group'>('alphabetical');
 	let collapsedGroups = $state<Set<string>>(new Set());
 
 	const trainingOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
-		// Include Reports for mobile access
+		// Include Reports and Sign-In Rosters for mobile access
+		items.push({ label: 'Sign-In Rosters', onclick: () => (showSignInRosters = true) });
 		items.push({ label: 'Reports', onclick: () => (showReports = true) });
 		if (canManageConfig) {
 			items.push({ label: 'Bulk Import', onclick: () => (showBulkImporter = true), divider: true, disabled: readOnly });
@@ -179,6 +182,9 @@
 
 <div class="page">
 	<PageToolbar title="Training & Certifications" helpTopic="training-records" overflowItems={trainingOverflowItems}>
+		<button class="btn btn-sm" onclick={() => (showSignInRosters = true)}>
+			Sign-In Rosters
+		</button>
 		<button class="btn btn-sm" onclick={() => (showReports = true)}>
 			Reports
 		</button>
@@ -344,6 +350,16 @@
 		trainings={personnelTrainingsStore.list}
 		groups={data.groups}
 		onClose={() => (showReports = false)}
+	/>
+{/if}
+
+{#if showSignInRosters}
+	<SignInRosterModal
+		orgId={data.orgId}
+		personnel={data.personnel}
+		groups={data.groups}
+		canEdit={data.permissions.canEditTraining}
+		onClose={() => (showSignInRosters = false)}
 	/>
 {/if}
 

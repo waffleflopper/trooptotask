@@ -1,8 +1,9 @@
 <script lang="ts">
-	import type { Personnel, TrainingType, PersonnelTraining, TrainingStatus } from '../types';
-	import type { Group } from '../stores/groups.svelte';
-	import { getTrainingStatus, type TrainingStatusInfo } from '../utils/trainingStatus';
-	import { TRAINING_STATUS_COLORS } from '../types';
+	import type { Personnel } from '$lib/types';
+	import type { TrainingType, PersonnelTraining, TrainingStatus } from '$features/training/training.types';
+	import type { Group } from '$lib/stores/groups.svelte';
+	import { getTrainingStatus, type TrainingStatusInfo } from '$features/training/utils/trainingStatus';
+	import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
 
 	interface Props {
 		personnel: Personnel[];

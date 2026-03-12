@@ -1,4 +1,5 @@
-import type { Personnel, StatusType, TrainingType, PersonnelTraining, AvailabilityEntry, SpecialDay } from '$lib/types';
+import type { Personnel, StatusType, AvailabilityEntry, SpecialDay } from '$lib/types';
+import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { AssignmentType, DailyAssignment } from '$lib/stores/dailyAssignments.svelte';
 import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';

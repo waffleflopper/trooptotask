@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { OnboardingTemplateStep, TrainingType } from '../types';
+	import type { OnboardingTemplateStep } from '$lib/types';
+	import type { TrainingType } from '$features/training/training.types';
 	import Modal from './Modal.svelte';
 	import Badge from './ui/Badge.svelte';
 	import EmptyState from './ui/EmptyState.svelte';

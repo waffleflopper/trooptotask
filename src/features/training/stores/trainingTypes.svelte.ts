@@ -1,5 +1,5 @@
-import type { TrainingType } from '../types';
-import type { DeleteResult } from '../utils/deletionRequests';
+import type { TrainingType } from '$features/training/training.types';
+import type { DeleteResult } from '$lib/utils/deletionRequests';
 
 class TrainingTypesStore {
 	#trainingTypes = $state.raw<TrainingType[]>([]);

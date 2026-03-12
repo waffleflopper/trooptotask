@@ -1,11 +1,12 @@
 <script lang="ts">
-	import type { Personnel, TrainingType, PersonnelTraining } from '../types';
-	import { calculateExpirationDate, getTrainingStatus } from '../utils/trainingStatus';
-	import { formatDate } from '../utils/dates';
+	import type { Personnel } from '$lib/types';
+	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+	import { calculateExpirationDate, getTrainingStatus } from '$features/training/utils/trainingStatus';
+	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import Modal from './Modal.svelte';
-	import Badge from './ui/Badge.svelte';
-	import ConfirmDialog from './ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	interface Props {
 		person: Personnel;

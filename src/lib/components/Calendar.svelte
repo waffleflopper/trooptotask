@@ -2,7 +2,7 @@
 	import type { Personnel, AvailabilityEntry, StatusType, SpecialDay } from '../types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 	import CalendarHeader from './CalendarHeader.svelte';
-	import PersonnelRow from './PersonnelRow.svelte';
+	import PersonnelRow from '$features/personnel/components/PersonnelRow.svelte';
 	import GroupHeader from './GroupHeader.svelte';
 
 	interface GroupData {

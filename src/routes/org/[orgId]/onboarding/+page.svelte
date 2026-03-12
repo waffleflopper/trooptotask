@@ -1,12 +1,13 @@
 <script lang="ts">
-	import type { Personnel, TrainingType, PersonnelTraining, PersonnelOnboarding, OnboardingStepProgress } from '$lib/types';
+	import type { Personnel, PersonnelOnboarding, OnboardingStepProgress } from '$lib/types';
+	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import { invalidate } from '$app/navigation';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { onboardingTemplateStore } from '$lib/stores/onboardingTemplate.svelte';
 	import { onboardingStore } from '$lib/stores/onboarding.svelte';
-	import { personnelStore } from '$lib/stores/personnel.svelte';
-	import { trainingTypesStore } from '$lib/stores/trainingTypes.svelte';
-	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
+	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
@@ -19,7 +20,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import TrainingRecordModal from '$lib/components/TrainingRecordModal.svelte';
+	import TrainingRecordModal from '$features/training/components/TrainingRecordModal.svelte';
 
 	let { data } = $props();
 

@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-11-sign-in-rosters',
+		date: '2026-03-11',
+		title: 'Sign-In Rosters',
+		items: [
+			'You can now generate printable sign-in rosters for training events right from the Training page',
+			'Filter by rank and group, sort alphabetically or by rank, and optionally separate sections by group',
+			'Every roster you generate is saved automatically so you can re-print it later',
+			'Upload the signed copy afterward so you always have proof of attendance on file'
+		]
+	},
+	{
 		id: '2026-03-11-onboarding-highlight-and-performance',
 		date: '2026-03-11',
 		title: 'Onboarding Highlighting & Performance',
@@ -50,15 +61,4 @@ export const changelog: ChangelogEntry[] = [
 			'The dashboard now uses your browser\'s local time instead of the server\'s clock'
 		]
 	},
-	{
-		id: '2026-03-07-security',
-		date: '2026-03-07',
-		title: 'Security & Compliance',
-		items: [
-			'Added security headers and rate limiting across all endpoints',
-			'Input validation and sanitization for all user-submitted data',
-			'Audit logging for accountability and compliance tracking',
-			'New Security page explaining our data protection practices'
-		]
-	}
 ];

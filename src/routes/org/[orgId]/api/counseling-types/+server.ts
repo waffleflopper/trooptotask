@@ -1,6 +1,6 @@
 import { createCrudHandlers } from '$lib/server/crudFactory';
 import { notifyAdmins } from '$lib/server/notifications';
-import type { CounselingType } from '$lib/types/leadersBook';
+import type { CounselingType } from '$features/counseling/counseling.types';
 
 const handlers = createCrudHandlers<CounselingType>({
 	table: 'counseling_types',

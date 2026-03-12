@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { PersonnelExtendedInfo } from '$lib/types/leadersBook';
+	import type { PersonnelExtendedInfo } from '$features/counseling/counseling.types';
 	import { personnelExtendedInfoStore } from '../stores/personnelExtendedInfo.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 

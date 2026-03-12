@@ -8,8 +8,8 @@
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { dashboardPrefsStore, type CardId } from '$lib/stores/dashboardPrefs.svelte';
-	import { RATING_STATUS_COLORS } from '$lib/types';
-	import { getRatingDueStatus } from '$lib/utils/ratingScheme';
+	import { RATING_STATUS_COLORS } from '$features/counseling/counseling.types';
+	import { getRatingDueStatus } from '$features/counseling/utils/ratingScheme';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import DashboardCustomizeModal from '$lib/components/DashboardCustomizeModal.svelte';
 	import { getTrainingStatus, getTrainingStats } from '$features/training/utils/trainingStatus';

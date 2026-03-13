@@ -69,6 +69,8 @@
 	function handleScroll() {
 		if (calendarBodyEl) {
 			scrollLeft = calendarBodyEl.scrollLeft;
+			// Drive the personnel column position via CSS custom property (more reliable than position: sticky on mobile)
+			calendarBodyEl.style.setProperty('--scroll-left', `${scrollLeft}px`);
 			// Calculate scrollbar width (difference between outer and inner width)
 			const newScrollbarWidth = calendarBodyEl.offsetWidth - calendarBodyEl.clientWidth;
 			if (newScrollbarWidth !== scrollbarWidth) {
@@ -81,6 +83,7 @@
 	$effect(() => {
 		if (calendarBodyEl) {
 			scrollbarWidth = calendarBodyEl.offsetWidth - calendarBodyEl.clientWidth;
+			calendarBodyEl.style.setProperty('--scroll-left', `${calendarBodyEl.scrollLeft}px`);
 		}
 	});
 
@@ -204,7 +207,7 @@
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
-		overflow: hidden;
+		overflow: clip;
 	}
 
 	.calendar-body {

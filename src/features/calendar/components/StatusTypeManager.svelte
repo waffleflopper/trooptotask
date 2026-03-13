@@ -100,6 +100,7 @@
 						class="input"
 						bind:value={newName}
 						placeholder="Status name (e.g., Leave, TDY)"
+						aria-label="Status name"
 						onkeydown={handleKeyDown}
 					/>
 					<div class="color-pickers">
@@ -137,6 +138,7 @@
 											class="input"
 											bind:value={editName}
 											placeholder="Status name"
+											aria-label="Status name"
 										/>
 										<div class="color-pickers">
 											<label class="color-picker">

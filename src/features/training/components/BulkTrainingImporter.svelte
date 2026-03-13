@@ -75,7 +75,7 @@
 					p.lastName.toLowerCase() === lastLower && p.firstName.toLowerCase() === firstLower
 			);
 			if (!person) {
-				cellErrors.lastName = `Person not found: ${lastName}, ${firstName}`;
+				cellErrors.lastName = `Person not found: "${lastName}, ${firstName}". Check spelling matches your personnel roster`;
 			}
 		}
 
@@ -88,7 +88,7 @@
 			const nameLower = trainingTypeName.toLowerCase();
 			trainingType = trainingTypes.find((t) => t.name.toLowerCase() === nameLower);
 			if (!trainingType) {
-				cellErrors.trainingType = `Training type not found: ${trainingTypeName}`;
+				cellErrors.trainingType = `Training type not found: "${trainingTypeName}". Available types: ${trainingTypes.map((t) => t.name).join(', ')}`;
 			}
 		}
 
@@ -107,7 +107,7 @@
 				// skip rows are auto-unchecked; mark as invalid with a non-error indicator
 				cellErrors.status = 'Skipped (no/empty — row will not be imported)';
 			} else if (parsed.type === 'invalid') {
-				cellErrors.status = 'Invalid date or status value';
+				cellErrors.status = `Invalid date or status. Use a date (YYYY-MM-DD or MM/DD/YYYY), "yes", "exempt", or "no" to skip`;
 			} else if (parsed.type === 'exempt') {
 				if (!trainingType.canBeExempted) {
 					cellErrors.status = 'This training type does not allow exemptions';

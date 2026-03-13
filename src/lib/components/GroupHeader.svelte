@@ -43,9 +43,9 @@
 		align-items: center;
 		background: #0F0F0F;
 		border-right: 1px solid #2A2A2A;
-		position: sticky;
-		left: 0;
+		transform: translateX(var(--scroll-left, 0px));
 		z-index: 2;
+		will-change: transform;
 	}
 
 	.group-toggle {

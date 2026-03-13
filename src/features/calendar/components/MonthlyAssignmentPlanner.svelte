@@ -199,7 +199,7 @@
 			<div class="quick-fill">
 				<h4>Quick Fill</h4>
 				<div class="quick-fill-row">
-					<select class="select" bind:value={quickFillType}>
+					<select class="select" aria-label="Select assignment type" bind:value={quickFillType}>
 						<option value="">Select assignment type...</option>
 						{#each assignmentTypes as type}
 							<option value={type.id}>{type.shortName} - {type.name}</option>

@@ -459,7 +459,7 @@
 	}
 
 	.page-content {
-		overflow: hidden;
+		overflow: clip;
 	}
 
 	.calendar-section {

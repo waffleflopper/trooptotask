@@ -110,6 +110,7 @@
 							class="input"
 							bind:value={newName}
 							placeholder="Full name (e.g., Staff Duty)"
+							aria-label="Full name"
 							onkeydown={handleKeyDown}
 						/>
 						<input
@@ -117,12 +118,13 @@
 							class="input short-input"
 							bind:value={newShortName}
 							placeholder="Short (e.g., SD)"
+							aria-label="Short name"
 							maxlength="5"
 							onkeydown={handleKeyDown}
 						/>
 					</div>
 					<div class="form-row">
-						<select class="select" bind:value={newAssignTo}>
+						<select class="select" aria-label="Assign to" bind:value={newAssignTo}>
 							<option value="personnel">Assign to Person</option>
 							<option value="group">Assign to Group</option>
 						</select>
@@ -161,17 +163,19 @@
 												class="input"
 												bind:value={editName}
 												placeholder="Full name"
+												aria-label="Full name"
 											/>
 											<input
 												type="text"
 												class="input short-input"
 												bind:value={editShortName}
 												placeholder="Short"
+												aria-label="Short name"
 												maxlength="5"
 											/>
 										</div>
 										<div class="form-row">
-											<select class="select" bind:value={editAssignTo}>
+											<select class="select" aria-label="Assign to" bind:value={editAssignTo}>
 												<option value="personnel">Person</option>
 												<option value="group">Group</option>
 											</select>

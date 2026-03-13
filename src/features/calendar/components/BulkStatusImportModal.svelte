@@ -34,6 +34,7 @@
 	// Resolve state
 	type StatusMapping = { csvName: string; count: number; resolvedId: string | null };
 	let unmatchedStatuses = $state<StatusMapping[]>([]);
+	let savedCheckedRows = $state<Record<string, string>[]>([]);
 
 	// Import state
 	let importing = $state(false);
@@ -166,6 +167,7 @@
 		if (!tableRef) return;
 		const checkedRows = tableRef.getCheckedRows();
 		if (checkedRows.length === 0) return;
+		savedCheckedRows = checkedRows;
 
 		// Collect unique status names and check matches
 		const statusCounts = new Map<string, number>();
@@ -200,8 +202,7 @@
 	}
 
 	async function handleImport() {
-		if (!tableRef) return;
-		const checkedRows = tableRef.getCheckedRows();
+		const checkedRows = savedCheckedRows;
 		if (checkedRows.length === 0) return;
 
 		// Build status resolution map: lowercase csv name -> statusTypeId

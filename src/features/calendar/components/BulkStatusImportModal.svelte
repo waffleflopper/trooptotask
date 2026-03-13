@@ -227,7 +227,95 @@
 	}
 
 	async function handleImport() {
-		// TODO: implement in Task 6
+		if (!tableRef) return;
+		const checkedRows = tableRef.getCheckedRows();
+		if (checkedRows.length === 0) return;
+
+		// Build status resolution map: lowercase csv name -> statusTypeId
+		const statusResolutionMap = new Map<string, string>();
+		// Add matched statuses
+		for (const [lower, st] of statusTypeMap) {
+			statusResolutionMap.set(lower, st.id);
+		}
+		// Add resolved unmatched statuses
+		for (const mapping of unmatchedStatuses) {
+			if (mapping.resolvedId && mapping.resolvedId !== '__skip__') {
+				statusResolutionMap.set(mapping.csvName.toLowerCase(), mapping.resolvedId);
+			}
+		}
+
+		// Build records
+		const records: { personnelId: string; statusTypeId: string; startDate: string; endDate: string; note?: string | null }[] = [];
+		const skippedStatuses = new Set(
+			unmatchedStatuses.filter((m) => m.resolvedId === '__skip__').map((m) => m.csvName.toLowerCase())
+		);
+
+		for (const row of checkedRows) {
+			const statusName = (row.statusType || '').trim().toLowerCase();
+			if (skippedStatuses.has(statusName)) continue;
+
+			const statusTypeId = statusResolutionMap.get(statusName);
+			if (!statusTypeId) continue;
+
+			// Resolve personnel
+			const key = `${(row.lastName || '').trim().toLowerCase()}|${(row.firstName || '').trim().toLowerCase()}`;
+			const matches = personnelMap.get(key) || [];
+			let person: Personnel | undefined;
+			if (matches.length === 1) {
+				person = matches[0];
+			} else if (matches.length > 1 && row.rank) {
+				person = matches.find((p) => p.rank?.toLowerCase() === row.rank.trim().toLowerCase());
+			}
+			if (!person) continue;
+
+			const startDate = parseDateString((row.startDate || '').trim());
+			const endDate = parseDateString((row.endDate || '').trim());
+			if (!startDate || !endDate) continue;
+
+			const note = (row.note || '').trim() || null;
+			records.push({ personnelId: person.id, statusTypeId, startDate, endDate, note });
+		}
+
+		if (records.length === 0) {
+			importResult = { inserted: 0, errors: [{ row: 0, message: 'No valid records to import after filtering.' }] };
+			step = 'results';
+			return;
+		}
+
+		importing = true;
+		try {
+			// Batch in groups of 500
+			let totalInserted = 0;
+			const allErrors: { row: number; message: string }[] = [];
+
+			for (let i = 0; i < records.length; i += 500) {
+				const batch = records.slice(i, i + 500);
+				const response = await fetch(`/org/${orgId}/api/availability/batch`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ records: batch })
+				});
+
+				if (response.ok) {
+					const data = await response.json();
+					totalInserted += data.inserted?.length || 0;
+				} else {
+					const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+					allErrors.push({ row: i + 1, message: errorData.error || `Batch failed (${response.status})` });
+				}
+			}
+
+			importResult = { inserted: totalInserted, errors: allErrors };
+			step = 'results';
+			if (totalInserted > 0) {
+				onImportComplete();
+			}
+		} catch (err) {
+			importResult = { inserted: 0, errors: [{ row: 0, message: err instanceof Error ? err.message : 'Import failed' }] };
+			step = 'results';
+		} finally {
+			importing = false;
+		}
 	}
 </script>
 
@@ -272,6 +360,34 @@
 			columnDefs={STATUS_IMPORT_COLUMNS}
 			{validateRow}
 		/>
+	{/if}
+
+	{#if step === 'results'}
+		<div class="results-section">
+			{#if importResult}
+				{#if importResult.inserted > 0}
+					<div class="results-success">
+						<strong>{importResult.inserted}</strong> status {importResult.inserted === 1 ? 'entry' : 'entries'} imported successfully.
+					</div>
+				{/if}
+
+				{#if importResult.errors.length > 0}
+					<div class="results-errors">
+						<h4>Errors</h4>
+						{#each importResult.errors as error}
+							<div class="results-error-row">
+								{#if error.row > 0}<span class="text-muted">Row {error.row}:</span>{/if}
+								<span>{error.message}</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+
+				{#if importResult.inserted === 0 && importResult.errors.length === 0}
+					<p class="text-muted">No records were imported.</p>
+				{/if}
+			{/if}
+		</div>
 	{/if}
 
 	{#if step === 'resolve'}
@@ -419,5 +535,38 @@
 
 	.resolve-arrow {
 		color: var(--color-text-muted);
+	}
+
+	.results-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-md);
+	}
+
+	.results-success {
+		padding: var(--spacing-md);
+		background: color-mix(in srgb, var(--color-success) 15%, transparent);
+		border-radius: var(--radius-sm);
+		color: var(--color-success);
+	}
+
+	.results-errors {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-xs);
+	}
+
+	.results-errors h4 {
+		margin: 0;
+		color: var(--color-error);
+	}
+
+	.results-error-row {
+		display: flex;
+		gap: var(--spacing-xs);
+		font-size: var(--font-size-sm);
+		padding: var(--spacing-xs) var(--spacing-sm);
+		background: color-mix(in srgb, var(--color-error) 10%, transparent);
+		border-radius: var(--radius-sm);
 	}
 </style>

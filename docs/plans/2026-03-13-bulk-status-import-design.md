@@ -35,7 +35,7 @@ Renders the shared `BulkImportTable` component with column mapping dropdowns.
 
 **Validation:**
 
-- **Personnel matching:** Case-insensitive `(lastName, firstName)` lookup against org personnel. If rank column is mapped, uses rank to disambiguate. Multiple matches with no rank = cell error. No match = cell error.
+- **Personnel matching:** Case-insensitive `(lastName, firstName)` lookup against org personnel. If rank column is mapped, uses rank to disambiguate. Multiple matches even with rank = cell error. Multiple matches with no rank = cell error. No match = cell error.
 - **Date parsing:** Uses existing csvParser date logic (ISO, MM/DD/YYYY, Excel serial numbers). Invalid dates = cell error. Start date > end date = cell error.
 - **Status name:** Captured as raw text — resolution happens in Step 3.
 - **Start/end dates are inclusive** — the status applies on both the start and end dates.
@@ -85,12 +85,14 @@ New modal component using `Modal.svelte` wrapper. Reuses:
 
 ## API Endpoint
 
-**Route:** `POST /org/[orgId]/api/calendar/bulk-status-import/+server.ts`
+**Reuses existing endpoint:** `POST /org/[orgId]/api/availability/batch/+server.ts`
 
-**Request body:**
+This endpoint already accepts the exact payload shape needed (`BatchAvailabilityRecord[]`) and includes all required server-side protections: permission checks, group scoping, read-only guard (`checkReadOnly()`), audit logging, UUID validation, sandbox mode handling, and a 500-record batch cap.
+
+The component formats its payload to match the existing `BatchAvailabilityRecord` shape:
 ```typescript
 {
-  entries: Array<{
+  records: Array<{
     personnelId: string;
     statusTypeId: string;
     startDate: string;  // YYYY-MM-DD
@@ -100,26 +102,7 @@ New modal component using `Modal.svelte` wrapper. Reuses:
 }
 ```
 
-**Server-side validation:**
-- Permission check (full-editor/admin/owner)
-- Verify each personnel belongs to org
-- Verify each status type belongs to org
-- Validate dates (start ≤ end, valid format)
-- Respect group scoping (`requireGroupAccess()` for each personnel)
-- Input sanitization via `$lib/server/validation.ts`
-
-**Response:**
-```typescript
-{
-  inserted: number;
-  errors: Array<{ row: number; message: string }>
-}
-```
-
-**Security:**
-- Rate limited
-- Audit log entry for the bulk import operation
-- No PII logged
+No new API endpoint is needed.
 
 ## Entry Points
 
@@ -137,6 +120,13 @@ The parent calendar page manages modal state. `BulkStatusModal` receives an `onI
 ## Permissions
 
 Same as BulkStatusModal — restricted to full-editor, admin, or owner. This is a config/power feature per the permission system design.
+
+## Edge Cases & Notes
+
+- **Duplicate/overlapping entries:** The existing availability system allows overlapping status entries for the same person and date range. Importing rows that overlap with existing entries will create additional entries, not overwrite. This matches existing behavior.
+- **Batch size limit:** The existing batch API enforces a 500-record cap per request. If the import exceeds 500 checked rows, the component should batch into multiple requests.
+- **Column definitions constant:** Add `STATUS_IMPORT_COLUMNS` to `$lib/utils/columnMapping.ts` alongside existing `PERSONNEL_COLUMNS` and `TRAINING_COLUMNS`.
+- **New prop on BulkStatusModal:** Add `onImport` callback prop (existing props are `onApply` and `onClose`).
 
 ## Existing Infrastructure Reused
 

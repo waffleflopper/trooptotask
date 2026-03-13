@@ -33,6 +33,12 @@ const rules: RateLimitRule[] = [
 		methods: ['POST']
 	},
 	{
+		pattern: /^\/org\/[^/]+\/api\/getting-started/,
+		windowMs: 60 * 1000,
+		maxRequests: 20,
+		methods: ['POST', 'DELETE']
+	},
+	{
 		pattern: /^\/org\/[^/]+\/api\//,
 		windowMs: 60 * 1000,
 		maxRequests: 30,

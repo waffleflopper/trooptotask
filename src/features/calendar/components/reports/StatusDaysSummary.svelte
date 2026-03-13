@@ -355,10 +355,10 @@
 								<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
 								{#each displayColumns as st (st.id)}
 									<td class="col-status">
-										{(row.statusDays.get(st.id) ?? 0) > 0 ? row.statusDays.get(st.id) : '\u2014'}
+										{(row.statusDays.get(st.id) ?? 0) > 0 ? row.statusDays.get(st.id) : ''}
 									</td>
 								{/each}
-								<td class="col-total">{row.totalDays > 0 ? row.totalDays : '\u2014'}</td>
+								<td class="col-total">{row.totalDays > 0 ? row.totalDays : ''}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -535,6 +535,10 @@
 	.report-table td {
 		padding: var(--spacing-sm);
 		border-bottom: 1px solid var(--color-border);
+	}
+
+	.report-table tbody tr:nth-child(even) {
+		background: var(--color-surface-variant);
 	}
 
 	.report-table tbody tr:hover {

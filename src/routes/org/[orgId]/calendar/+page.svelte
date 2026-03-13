@@ -218,6 +218,11 @@
 			}
 		}
 
+		// Reports (owner/admin only)
+		if (data.isOwner || data.isAdmin) {
+			items.push({ label: 'Status Reports', href: `/org/${data.orgId}/calendar/reports`, divider: true });
+		}
+
 		// Export
 		items.push({ label: 'Export to Excel', onclick: handleExportCSV, divider: true });
 		items.push({ label: 'Print / PDF', onclick: handleExportPDF });

@@ -81,7 +81,7 @@ export function parseTrainingStatus(value: string): {
 /**
  * Parse a date string in various formats to YYYY-MM-DD.
  */
-function parseDateString(str: string): string | null {
+export function parseDateString(str: string): string | null {
   const trimmed = str.trim();
 
   // ISO: YYYY-MM-DD

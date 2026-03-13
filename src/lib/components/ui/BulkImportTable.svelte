@@ -4,7 +4,7 @@
   import { autoMapColumns, detectHeaderRow, getMissingRequired } from '$lib/utils/columnMapping';
   import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 
-  interface RowValidation {
+  export interface RowValidation {
     valid: boolean;
     cellErrors: Record<string, string>;
     cellWarnings: Record<string, string>;

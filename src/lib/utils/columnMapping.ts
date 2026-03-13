@@ -135,3 +135,34 @@ export const TRAINING_COLUMNS: ColumnDef[] = [
     aliases: ['notes', 'comments', 'remarks']
   }
 ];
+
+export const STATUS_IMPORT_COLUMNS: ColumnDef[] = [
+  {
+    key: 'lastName', label: 'Last Name', required: true,
+    aliases: ['last name', 'lastname', 'surname', 'lname']
+  },
+  {
+    key: 'firstName', label: 'First Name', required: true,
+    aliases: ['first name', 'firstname', 'fname', 'given name']
+  },
+  {
+    key: 'startDate', label: 'Start Date', required: true,
+    aliases: ['start date', 'start', 'from', 'begin']
+  },
+  {
+    key: 'endDate', label: 'End Date', required: true,
+    aliases: ['end date', 'end', 'to', 'through']
+  },
+  {
+    key: 'statusType', label: 'Status', required: true,
+    aliases: ['status', 'status type', 'type']
+  },
+  {
+    key: 'rank', label: 'Rank', required: false,
+    aliases: ['rank', 'grade', 'pay grade']
+  },
+  {
+    key: 'note', label: 'Note', required: false,
+    aliases: ['note', 'notes', 'comment', 'remarks']
+  }
+];

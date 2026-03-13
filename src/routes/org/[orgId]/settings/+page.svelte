@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import OrganizationMemberManager from '$lib/components/OrganizationMemberManager.svelte';
+	import OrganizationMemberManager from '$features/groups/components/OrganizationMemberManager.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { isBillingEnabled } from '$lib/config/billing';

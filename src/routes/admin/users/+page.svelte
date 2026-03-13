@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import PlatformInviteManager from '$lib/components/PlatformInviteManager.svelte';
+	import PlatformInviteManager from '$features/groups/components/PlatformInviteManager.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
 
 	let { data } = $props();

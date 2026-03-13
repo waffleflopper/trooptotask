@@ -1,5 +1,5 @@
 import { createCrudHandlers } from '$lib/server/crudFactory';
-import type { CounselingRecord } from '$lib/types/leadersBook';
+import type { CounselingRecord } from '$features/counseling/counseling.types';
 
 const handlers = createCrudHandlers<CounselingRecord>({
 	table: 'counseling_records',

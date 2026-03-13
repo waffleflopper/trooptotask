@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getDefaultFederalHolidays } from '$lib/utils/federalHolidays';
+import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import { requireEditPermission } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';

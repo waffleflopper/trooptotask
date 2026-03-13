@@ -1,35 +1,36 @@
 <script lang="ts">
-	import type { Personnel, AvailabilityEntry } from '$lib/types';
-	import { personnelStore } from '$lib/stores/personnel.svelte';
-	import { statusTypesStore } from '$lib/stores/statusTypes.svelte';
-	import { availabilityStore } from '$lib/stores/availability.svelte';
-	import { specialDaysStore } from '$lib/stores/specialDays.svelte';
-	import { calendarStore } from '$lib/stores/calendar.svelte';
+	import type { Personnel } from '$lib/types';
+	import type { AvailabilityEntry } from '$features/calendar/calendar.types';
+	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
+	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
+	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-	import { dailyAssignmentsStore } from '$lib/stores/dailyAssignments.svelte';
-	import { dutyRosterHistoryStore } from '$lib/stores/dutyRosterHistory.svelte';
-	import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';
+	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+	import { dutyRosterHistoryStore } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
+	import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
-	import { calendarPrefsStore } from '$lib/stores/calendarPrefs.svelte';
+	import { calendarPrefsStore } from '$features/calendar/stores/calendarPrefs.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
-	import Calendar from '$lib/components/Calendar.svelte';
-	import AvailabilityModal from '$lib/components/AvailabilityModal.svelte';
-	import StatusTypeManager from '$lib/components/StatusTypeManager.svelte';
-	import SpecialDayManager from '$lib/components/SpecialDayManager.svelte';
-	import DailyAssignmentModal from '$lib/components/DailyAssignmentModal.svelte';
-	import TodayBreakdown from '$lib/components/TodayBreakdown.svelte';
-	import StatusLegend from '$lib/components/StatusLegend.svelte';
-	import BulkStatusModal from '$lib/components/BulkStatusModal.svelte';
-	import BulkStatusRemoveModal from '$lib/components/BulkStatusRemoveModal.svelte';
-	import MonthlyAssignmentPlanner from '$lib/components/MonthlyAssignmentPlanner.svelte';
-	import AssignmentTypeManager from '$lib/components/AssignmentTypeManager.svelte';
-	import DutyRosterGenerator from '$lib/components/DutyRosterGenerator.svelte';
-	import LongRangeView from '$lib/components/LongRangeView.svelte';
+	import Calendar from '$features/calendar/components/Calendar.svelte';
+	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
+	import StatusTypeManager from '$features/calendar/components/StatusTypeManager.svelte';
+	import SpecialDayManager from '$features/calendar/components/SpecialDayManager.svelte';
+	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
+	import TodayBreakdown from '$features/calendar/components/TodayBreakdown.svelte';
+	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
+	import BulkStatusModal from '$features/calendar/components/BulkStatusModal.svelte';
+	import BulkStatusRemoveModal from '$features/calendar/components/BulkStatusRemoveModal.svelte';
+	import MonthlyAssignmentPlanner from '$features/calendar/components/MonthlyAssignmentPlanner.svelte';
+	import AssignmentTypeManager from '$features/calendar/components/AssignmentTypeManager.svelte';
+	import DutyRosterGenerator from '$features/duty-roster/components/DutyRosterGenerator.svelte';
+	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
-	import { exportMonthToCSV, printMonthCalendar } from '$lib/utils/calendarExport';
+	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { browser } from '$app/environment';
-	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
+	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 
 	let { data } = $props();
 
@@ -215,6 +216,11 @@
 				items.push({ label: 'Bulk Remove', onclick: () => (showBulkRemoveModal = true), disabled: readOnly });
 				items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true), disabled: readOnly });
 			}
+		}
+
+		// Reports (owner/admin only)
+		if (data.isOwner || data.isAdmin) {
+			items.push({ label: 'Status Reports', href: `/org/${data.orgId}/calendar/reports`, divider: true });
 		}
 
 		// Export

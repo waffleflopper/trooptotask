@@ -1,6 +1,6 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
-import { getDefaultFederalHolidays } from "$lib/utils/federalHolidays";
+import { getDefaultFederalHolidays } from "$features/calendar/utils/federalHolidays";
 import { canCreateOrg } from "$lib/server/subscription";
 
 export const load: PageServerLoad = async ({ locals }) => {

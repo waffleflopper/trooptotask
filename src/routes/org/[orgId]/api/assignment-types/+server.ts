@@ -1,6 +1,6 @@
 import { createCrudHandlers } from '$lib/server/crudFactory';
 import { notifyAdmins } from '$lib/server/notifications';
-import type { AssignmentType } from '$lib/stores/dailyAssignments.svelte';
+import type { AssignmentType } from '$features/calendar/stores/dailyAssignments.svelte';
 
 const handlers = createCrudHandlers<AssignmentType>({
 	table: 'assignment_types',

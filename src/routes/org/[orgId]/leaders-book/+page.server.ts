@@ -4,7 +4,7 @@ import type {
 	CounselingType,
 	CounselingRecord,
 	DevelopmentGoal
-} from '$lib/types/leadersBook';
+} from '$features/counseling/counseling.types';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { formatDate } from '$lib/utils/dates';
 import { transformAvailabilityEntries } from '$lib/server/transforms';

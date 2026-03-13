@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createCrudHandlers } from '$lib/server/crudFactory';
-import type { PersonnelExtendedInfo } from '$lib/types/leadersBook';
+import type { PersonnelExtendedInfo } from '$features/counseling/counseling.types';
 import { getApiContext } from '$lib/server/supabase';
 import { redactSensitiveFields } from '$lib/server/piiFilter';
 

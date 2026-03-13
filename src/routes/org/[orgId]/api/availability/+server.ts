@@ -3,7 +3,7 @@ import { requireGroupAccess } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { AvailabilityEntry } from '$lib/types';
+import type { AvailabilityEntry } from '$features/calendar/calendar.types';
 
 const handlers = createCrudHandlers<AvailabilityEntry>({
 	table: 'availability_entries',

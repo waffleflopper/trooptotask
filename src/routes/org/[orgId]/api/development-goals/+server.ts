@@ -1,5 +1,5 @@
 import { createCrudHandlers } from '$lib/server/crudFactory';
-import type { DevelopmentGoal } from '$lib/types/leadersBook';
+import type { DevelopmentGoal } from '$features/counseling/counseling.types';
 
 const handlers = createCrudHandlers<DevelopmentGoal>({
 	table: 'development_goals',

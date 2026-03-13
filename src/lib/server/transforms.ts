@@ -1,7 +1,9 @@
-import type { Personnel, StatusType, TrainingType, PersonnelTraining, AvailabilityEntry, SpecialDay } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { StatusType, AvailabilityEntry, SpecialDay } from '$features/calendar/calendar.types';
+import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { Group } from '$lib/stores/groups.svelte';
-import type { AssignmentType, DailyAssignment } from '$lib/stores/dailyAssignments.svelte';
-import type { RosterHistoryItem } from '$lib/stores/dutyRosterHistory.svelte';
+import type { AssignmentType, DailyAssignment } from '$features/calendar/stores/dailyAssignments.svelte';
+import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 
 export function transformPersonnel(data: any[]): Personnel[] {
 	return data.map((p: any) => ({

@@ -1,22 +1,23 @@
 <script lang="ts">
-	import type { Personnel, TrainingType, PersonnelTraining } from '$lib/types';
+	import type { Personnel } from '$lib/types';
+	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import { invalidateAll } from '$app/navigation';
-	import { trainingTypesStore } from '$lib/stores/trainingTypes.svelte';
-	import { personnelTrainingsStore } from '$lib/stores/personnelTrainings.svelte';
+	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
-	import { getTrainingStats } from '$lib/utils/trainingStatus';
-	import { groupAndSortPersonnel } from '$lib/utils/personnelGrouping';
-	import TrainingMatrix from '$lib/components/TrainingMatrix.svelte';
-	import TrainingRecordModal from '$lib/components/TrainingRecordModal.svelte';
-	import PersonTrainingEditor from '$lib/components/PersonTrainingEditor.svelte';
-	import TrainingTypeManager from '$lib/components/TrainingTypeManager.svelte';
-	import TrainingTypeReorder from '$lib/components/TrainingTypeReorder.svelte';
-	import TrainingReports from '$lib/components/TrainingReports.svelte';
-	import BulkTrainingImporter from '$lib/components/BulkTrainingImporter.svelte';
+	import { getTrainingStats } from '$features/training/utils/trainingStatus';
+	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
+	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
+	import TrainingRecordModal from '$features/training/components/TrainingRecordModal.svelte';
+	import PersonTrainingEditor from '$features/training/components/PersonTrainingEditor.svelte';
+	import TrainingTypeManager from '$features/training/components/TrainingTypeManager.svelte';
+	import TrainingTypeReorder from '$features/training/components/TrainingTypeReorder.svelte';
+	import TrainingReports from '$features/training/components/TrainingReports.svelte';
+	import BulkTrainingImporter from '$features/training/components/BulkTrainingImporter.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
-	import SignInRosterModal from '$lib/components/SignInRosterModal.svelte';
+	import SignInRosterModal from '$features/sign-in-rosters/components/SignInRosterModal.svelte';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 
 	let { data } = $props();

@@ -30,7 +30,9 @@
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { browser } from '$app/environment';
+	import { invalidateAll } from '$app/navigation';
 	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
+	import BulkStatusImportModal from '$features/calendar/components/BulkStatusImportModal.svelte';
 
 	let { data } = $props();
 
@@ -58,6 +60,7 @@
 	let showSpecialDayManager = $state(false);
 	let showTodayBreakdown = $state(false);
 	let showBulkStatusModal = $state(false);
+	let showBulkStatusImportModal = $state(false);
 	let showBulkRemoveModal = $state(false);
 	let showAssignmentPlanner = $state(false);
 	let showLongRangeView = $state(false);
@@ -98,6 +101,8 @@
 	const personnelByGroup = $derived(
 		groupAndSortPersonnel(calendarPersonnel, { pinnedGroups: pinnedGroupsStore.list, fallbackGroupName: data.orgName })
 	);
+
+	const allPersonnelFlat = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
 	function handlePinToggle(group: string) {
 		pinnedGroupsStore.toggle(group);
@@ -392,6 +397,22 @@
 		statusTypes={statusTypesStore.list}
 		onApply={handleBulkStatusApply}
 		onClose={() => (showBulkStatusModal = false)}
+		onImport={() => {
+			showBulkStatusModal = false;
+			showBulkStatusImportModal = true;
+		}}
+	/>
+{/if}
+
+{#if showBulkStatusImportModal}
+	<BulkStatusImportModal
+		personnel={allPersonnelFlat}
+		statusTypes={statusTypesStore.list}
+		orgId={data.orgId}
+		onImportComplete={() => {
+			invalidateAll();
+		}}
+		onClose={() => (showBulkStatusImportModal = false)}
 	/>
 {/if}
 

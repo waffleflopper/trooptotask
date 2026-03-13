@@ -520,8 +520,16 @@
 
 	{#if showTransferConfirm && transferTargetId}
 		<div class="modal-overlay" onclick={() => (showTransferConfirm = false)} role="presentation">
-			<div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-				<h3>Transfer Ownership</h3>
+			<div
+				class="modal"
+				onclick={(e) => e.stopPropagation()}
+				onkeydown={(e) => { if (e.key === 'Escape') showTransferConfirm = false; }}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="transfer-ownership-title"
+				tabindex="-1"
+			>
+				<h3 id="transfer-ownership-title">Transfer Ownership</h3>
 				<p>
 					Are you sure you want to transfer ownership of this organization?
 					You will become an Admin member and lose owner privileges.

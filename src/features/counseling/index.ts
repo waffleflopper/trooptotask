@@ -30,7 +30,7 @@ export { developmentGoalsStore } from './stores/developmentGoals.svelte';
 export { ratingSchemeStore } from './stores/ratingScheme.svelte';
 
 // Utils
-export { getRatingDueStatus, getNextRatingDate, isRatingOverdue } from './utils/ratingScheme';
+export { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './utils/ratingScheme';
 export { exportRatingScheme } from './utils/ratingSchemeExport';
 
 // Components are imported directly from their paths:

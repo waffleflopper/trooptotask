@@ -432,6 +432,7 @@
 						<p class="empty-message">No personnel match the selected filters for this training.</p>
 					{:else}
 						<div class="report-table-container">
+						<div class="table-responsive">
 							<table class="report-table">
 								<thead>
 									<tr>
@@ -464,6 +465,7 @@
 									{/each}
 								</tbody>
 							</table>
+						</div>
 						</div>
 					{/if}
 				{/if}

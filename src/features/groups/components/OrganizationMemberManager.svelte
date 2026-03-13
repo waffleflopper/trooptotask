@@ -305,6 +305,7 @@
 							<div class="permission-grid">
 								<div class="permission-section">
 									<h4>Calendar</h4>
+									<p class="permission-description">View the unit calendar and personnel statuses. Edit allows setting statuses, assignments, and availability.</p>
 									<label class="checkbox-label">
 										<input
 											type="checkbox"
@@ -325,6 +326,7 @@
 
 								<div class="permission-section">
 									<h4>Personnel</h4>
+									<p class="permission-description">View the personnel roster and details. Edit allows adding, updating, and removing personnel records.</p>
 									<label class="checkbox-label">
 										<input
 											type="checkbox"
@@ -345,6 +347,7 @@
 
 								<div class="permission-section">
 									<h4>Training</h4>
+									<p class="permission-description">View training records and compliance status. Edit allows logging training completions and managing records.</p>
 									<label class="checkbox-label">
 										<input
 											type="checkbox"
@@ -365,6 +368,7 @@
 
 								<div class="permission-section">
 									<h4>Onboarding</h4>
+									<p class="permission-description">View onboarding progress for new personnel. Edit allows starting onboardings and updating step progress.</p>
 									<label class="checkbox-label">
 										<input type="checkbox" name="canViewOnboarding" checked={member.canViewOnboarding} />
 										View
@@ -377,6 +381,7 @@
 
 								<div class="permission-section">
 									<h4>Leader's Book</h4>
+									<p class="permission-description">View counseling records and development goals. Edit allows creating and updating counseling entries.</p>
 									<label class="checkbox-label">
 										<input type="checkbox" name="canViewLeadersBook" checked={member.canViewLeadersBook} />
 										View
@@ -389,6 +394,7 @@
 
 								<div class="permission-section">
 									<h4>Members</h4>
+									<p class="permission-description">Invite, remove, and manage permissions for other organization members.</p>
 									<label class="checkbox-label">
 										<input
 											type="checkbox"
@@ -695,6 +701,13 @@
 		font-weight: 600;
 		margin-bottom: var(--spacing-xs);
 		color: var(--color-text);
+	}
+
+	.permission-description {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+		margin: 0 0 var(--spacing-xs);
+		line-height: 1.4;
 	}
 
 	/* .checkbox-label base in app.css */

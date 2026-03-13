@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isPrivilegedRole } from '$lib/server/permissions';
-import { transformAvailabilityEntries } from '$lib/server/transforms';
+import { transformAvailabilityEntries, transformDailyAssignments, transformAssignmentTypes } from '$lib/server/transforms';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
 	const supabase = locals.supabase;
@@ -50,5 +50,31 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 		throw error(500, 'Failed to fetch availability data');
 	}
 
-	return json({ entries: transformAvailabilityEntries(data ?? []) });
+	// Query daily assignments for the date range
+	const { data: assignmentsData, error: assignmentsError } = await supabase
+		.from('daily_assignments')
+		.select('*')
+		.eq('organization_id', orgId)
+		.gte('date', startDate)
+		.lte('date', endDate);
+
+	if (assignmentsError) {
+		throw error(500, 'Failed to fetch daily assignments');
+	}
+
+	// Query assignment types for the org
+	const { data: assignmentTypesData, error: assignmentTypesError } = await supabase
+		.from('assignment_types')
+		.select('*')
+		.eq('organization_id', orgId);
+
+	if (assignmentTypesError) {
+		throw error(500, 'Failed to fetch assignment types');
+	}
+
+	return json({
+		entries: transformAvailabilityEntries(data ?? []),
+		assignments: transformDailyAssignments(assignmentsData ?? []),
+		assignmentTypes: transformAssignmentTypes(assignmentTypesData ?? [])
+	});
 };

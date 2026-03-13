@@ -132,8 +132,22 @@
 </script>
 
 <svelte:head>
-	<title>Troop to Task — Army Unit Personnel Management</title>
-	<meta name="description" content="The complete personnel management solution for Army units. Visual calendars, training tracking, duty assignments, and team coordination in one tool." />
+	<title>Troop to Task — Military Unit Management</title>
+	<meta name="description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments — all in one secure platform." />
+	<!-- Open Graph -->
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Troop to Task" />
+	<meta property="og:title" content="Troop to Task — Military Unit Management" />
+	<meta property="og:description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments." />
+	<meta property="og:url" content="https://trooptotask.org" />
+	<meta property="og:image" content="https://trooptotask.org/og-image.png" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<!-- Twitter Card -->
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Troop to Task — Military Unit Management" />
+	<meta name="twitter:description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments." />
+	<meta name="twitter:image" content="https://trooptotask.org/og-image.png" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />

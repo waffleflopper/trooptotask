@@ -3,17 +3,11 @@
 	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { parseFile, parseCSVText } from '$lib/utils/csvParser';
+	import { parseFile, parseCSVText, parseDateString } from '$lib/utils/csvParser';
 	import { STATUS_IMPORT_COLUMNS } from '$lib/utils/columnMapping';
+	import type { RowValidation } from '$lib/components/ui/BulkImportTable.svelte';
 	import type { StatusType } from '$features/calendar/calendar.types';
 	import type { Personnel } from '$lib/types';
-
-	// Define locally — matches BulkImportTable's internal interface
-	interface RowValidation {
-		valid: boolean;
-		cellErrors: Record<string, string>;
-		cellWarnings: Record<string, string>;
-	}
 
 	interface Props {
 		personnel: Personnel[];
@@ -31,7 +25,6 @@
 
 	// Upload state
 	let rawRows = $state<string[][]>([]);
-	let uploadedFileName = $state('');
 	let pasteText = $state('');
 	let parseError = $state('');
 
@@ -72,26 +65,6 @@
 		unmatchedStatuses.every((s) => s.resolvedId !== null)
 	);
 
-	// Local date parser — parseDateString is not exported from csvParser
-	function parseDateString(str: string): string | null {
-		if (!str) return null;
-		// YYYY-MM-DD
-		if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-		// MM/DD/YYYY or M/D/YYYY
-		const slashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-		if (slashMatch) {
-			const [, m, d, y] = slashMatch;
-			return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-		}
-		// Try JS Date.parse as fallback
-		const ts = Date.parse(str);
-		if (!isNaN(ts)) {
-			const d = new Date(ts);
-			return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-		}
-		return null;
-	}
-
 	async function handleFileUpload(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const file = input.files?.[0];
@@ -99,7 +72,7 @@
 		parseError = '';
 		try {
 			rawRows = await parseFile(file);
-			uploadedFileName = file.name;
+
 			if (rawRows.length < 2) {
 				parseError = 'File appears to be empty or has no data rows.';
 				rawRows = [];
@@ -116,7 +89,7 @@
 		parseError = '';
 		try {
 			rawRows = parseCSVText(pasteText);
-			uploadedFileName = '';
+
 			if (rawRows.length < 2) {
 				parseError = 'No data rows found in pasted text.';
 				rawRows = [];

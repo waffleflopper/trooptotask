@@ -122,6 +122,108 @@
 			parseError = err instanceof Error ? err.message : 'Failed to parse text.';
 		}
 	}
+
+	function validateRow(row: Record<string, string>): RowValidation {
+		const errors: Record<string, string> = {};
+
+		// Personnel matching
+		const lastName = (row.lastName || '').trim();
+		const firstName = (row.firstName || '').trim();
+		if (!lastName) {
+			errors.lastName = 'Required';
+		} else if (!firstName) {
+			errors.firstName = 'Required';
+		} else {
+			const key = `${lastName.toLowerCase()}|${firstName.toLowerCase()}`;
+			const matches = personnelMap.get(key) || [];
+			if (matches.length === 0) {
+				errors.lastName = 'Person not found';
+			} else if (matches.length > 1) {
+				const rank = (row.rank || '').trim().toLowerCase();
+				if (rank) {
+					const rankMatches = matches.filter(
+						(p) => p.rank?.toLowerCase() === rank
+					);
+					if (rankMatches.length === 0) {
+						errors.rank = 'Rank does not match any person with this name';
+					} else if (rankMatches.length > 1) {
+						errors.lastName = 'Multiple people match this name and rank';
+					}
+				} else {
+					errors.lastName = 'Multiple people with this name — add Rank column to disambiguate';
+				}
+			}
+		}
+
+		// Date validation
+		const startDate = parseDateString((row.startDate || '').trim());
+		const endDate = parseDateString((row.endDate || '').trim());
+		if (!row.startDate?.trim()) {
+			errors.startDate = 'Required';
+		} else if (!startDate) {
+			errors.startDate = 'Invalid date';
+		}
+		if (!row.endDate?.trim()) {
+			errors.endDate = 'Required';
+		} else if (!endDate) {
+			errors.endDate = 'Invalid date';
+		}
+		if (startDate && endDate && startDate > endDate) {
+			errors.endDate = 'End date must be on or after start date';
+		}
+
+		// Status — just check it's present (resolution happens in Step 3)
+		if (!(row.statusType || '').trim()) {
+			errors.statusType = 'Required';
+		}
+
+		return {
+			valid: Object.keys(errors).length === 0,
+			cellErrors: errors,
+			cellWarnings: {}
+		};
+	}
+
+	function handlePreviewNext() {
+		if (!tableRef) return;
+		const checkedRows = tableRef.getCheckedRows();
+		if (checkedRows.length === 0) return;
+
+		// Collect unique status names and check matches
+		const statusCounts = new Map<string, number>();
+		for (const row of checkedRows) {
+			const name = (row.statusType || '').trim();
+			if (name) {
+				const lower = name.toLowerCase();
+				statusCounts.set(lower, (statusCounts.get(lower) || 0) + 1);
+			}
+		}
+
+		// Build unmatched list
+		const unmatched: StatusMapping[] = [];
+		for (const [lower, count] of statusCounts) {
+			const matched = statusTypeMap.get(lower);
+			if (!matched) {
+				const originalName = checkedRows.find(
+					(r) => (r.statusType || '').trim().toLowerCase() === lower
+				)?.statusType?.trim() || lower;
+				unmatched.push({ csvName: originalName, count, resolvedId: null });
+			}
+		}
+
+		unmatchedStatuses = unmatched;
+
+		// If no unmatched, go straight to import
+		if (unmatched.length === 0) {
+			handleImport();
+		} else {
+			step = 'resolve';
+		}
+	}
+
+	async function handleImport() {
+		// TODO: implement in Task 6
+	}
 </script>
 
 <Modal title="Import Statuses from File" {onClose} width="800px" titleId="bulk-status-import-title">
@@ -158,8 +260,26 @@
 		</div>
 	{/if}
 
+	{#if step === 'preview'}
+		<BulkImportTable
+			bind:this={tableRef}
+			{rawRows}
+			columnDefs={STATUS_IMPORT_COLUMNS}
+			{validateRow}
+		/>
+	{/if}
+
 	{#snippet footer()}
-		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+		{#if step === 'preview'}
+			<button class="btn btn-secondary" onclick={() => { step = 'upload'; rawRows = []; }}>Back</button>
+			<div class="spacer"></div>
+			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+			<button class="btn btn-primary" onclick={handlePreviewNext}>Next</button>
+		{:else if step === 'results'}
+			<button class="btn btn-primary" onclick={onClose}>Done</button>
+		{:else}
+			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+		{/if}
 	{/snippet}
 </Modal>
 

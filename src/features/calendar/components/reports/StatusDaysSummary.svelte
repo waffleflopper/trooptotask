@@ -526,7 +526,7 @@
 	.report-table th {
 		background: var(--color-surface-variant);
 		padding: var(--spacing-sm);
-		text-align: left;
+		text-align: center;
 		font-weight: 600;
 		border-bottom: 2px solid var(--color-border);
 		white-space: nowrap;
@@ -535,6 +535,7 @@
 	.report-table td {
 		padding: var(--spacing-sm);
 		border-bottom: 1px solid var(--color-border);
+		text-align: center;
 	}
 
 	.report-table tbody tr:nth-child(even) {
@@ -549,10 +550,12 @@
 		width: 60px;
 		font-weight: 600;
 		color: var(--color-primary);
+		text-align: left;
 	}
 
 	.col-name {
 		min-width: 150px;
+		text-align: left;
 	}
 
 	.col-status {

@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-13-bulk-status-import',
+		date: '2026-03-13',
+		title: 'Import Statuses from Spreadsheets',
+		items: [
+			'You can now import status data from CSV or Excel files directly into the calendar — great for bringing over historic data you\'ve been tracking elsewhere',
+			'The importer will help you match up status names if they don\'t exactly line up with your organization\'s status types',
+			'Supports column auto-detection so your spreadsheet doesn\'t have to be in any particular order'
+		]
+	},
+	{
 		id: '2026-03-12-production-polish',
 		date: '2026-03-12',
 		title: 'Production Polish',
@@ -39,18 +49,6 @@ export const changelog: ChangelogEntry[] = [
 			'New "Onboarding" toggle in the calendar toolbar lets you turn the highlighting on or off (your preference is remembered)',
 			'Faster page navigation — layout queries are now parallelized and onboarding data loads in fewer round-trips',
 			'Added a progress bar at the top of the page during navigation so the app never feels frozen'
-		]
-	},
-	{
-		id: '2026-03-09-personnel-archival',
-		date: '2026-03-09',
-		title: 'Personnel Archival',
-		items: [
-			'Personnel are now archived instead of permanently deleted — archived records are preserved and can be restored by admins',
-			'Admins and owners can view archived personnel, restore them to active status, or permanently delete them from the new Archived Personnel tab in Admin Hub',
-			'Export an archived person\'s complete records (training, counseling, goals, availability) as an Excel file before permanent deletion',
-			'Configurable retention period in Admin Hub Settings — archived personnel are automatically cleaned up after the retention window (default 36 months)',
-			'Archived personnel don\'t count toward your subscription\'s personnel cap'
 		]
 	},
 ];

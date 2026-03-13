@@ -14,9 +14,10 @@
 		statusTypes: StatusType[];
 		onApply: (personnelIds: string[], statusTypeId: string, startDate: string, endDate: string, note: string | null) => Promise<void>;
 		onClose: () => void;
+		onImport?: () => void;
 	}
 
-	let { personnelByGroup, statusTypes, onApply, onClose }: Props = $props();
+	let { personnelByGroup, statusTypes, onApply, onClose, onImport }: Props = $props();
 
 	const todayStr = formatDate(new Date());
 	let selectedStatusId = $state('');
@@ -321,6 +322,12 @@
 				</div>
 			</div>
 		</div>
+
+	{#if onImport}
+		<button class="btn-link import-link" onclick={onImport}>
+			Have a spreadsheet? Import from file
+		</button>
+	{/if}
 
 	{#snippet footer()}
 		<div class="footer-summary">
@@ -709,6 +716,23 @@
 		display: flex;
 		gap: var(--spacing-sm);
 		flex-shrink: 0;
+	}
+
+	.import-link {
+		display: block;
+		text-align: center;
+		margin-top: var(--spacing-md);
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
+		background: none;
+		border: none;
+		cursor: pointer;
+		text-decoration: underline;
+		padding: var(--spacing-xs);
+	}
+
+	.import-link:hover {
+		color: var(--color-primary);
 	}
 
 	/* Spinner */

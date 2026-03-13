@@ -372,6 +372,7 @@
 
 <svelte:head>
 	<title>Platform Guide - Troop to Task</title>
+	<meta name="description" content="Help and platform guide for Troop to Task." />
 </svelte:head>
 
 <div class="help-page">

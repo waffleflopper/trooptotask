@@ -5,7 +5,7 @@
 
 <svelte:head>
 	<title>Privacy Policy — Troop to Task</title>
-	<meta name="description" content="Learn how TroopToTask collects, uses, and protects your data. We respect your privacy and handle all information with care." />
+	<meta name="description" content="Privacy policy for Troop to Task military unit management software." />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />

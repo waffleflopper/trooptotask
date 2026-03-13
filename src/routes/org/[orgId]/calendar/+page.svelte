@@ -80,6 +80,13 @@
 		}
 	});
 
+	// Mark calendar as explored for Getting Started checklist
+	$effect(() => {
+		if (browser) {
+			localStorage.setItem(`gettingStarted_calendarVisited_${data.orgId}`, 'true');
+		}
+	});
+
 	function toggleHighlightOnboarding() {
 		highlightOnboarding = !highlightOnboarding;
 		if (browser) {

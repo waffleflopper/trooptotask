@@ -78,6 +78,17 @@
 			: personnel
 	);
 
+	// --- Status type filter state ---
+	let selectedStatusTypeIds = $state<Set<string>>(new Set(statusTypes.map((s) => s.id)));
+
+	function toggleAllStatuses() {
+		if (selectedStatusTypeIds.size === statusTypes.length) {
+			selectedStatusTypeIds = new Set();
+		} else {
+			selectedStatusTypeIds = new Set(statusTypes.map((s) => s.id));
+		}
+	}
+
 	// --- Report execution ---
 	let loading = $state(false);
 	let result = $state<StatusDaysResult | null>(null);
@@ -104,7 +115,11 @@
 				throw new Error(body.message || `Request failed (${res.status})`);
 			}
 			const data = await res.json();
-			result = computeStatusDays(filteredPersonnel, data.entries, startDate, endDate);
+			// Filter entries to only selected status types
+			const filteredEntries = selectedStatusTypeIds.size === statusTypes.length
+				? data.entries
+				: data.entries.filter((e: any) => selectedStatusTypeIds.has(e.statusTypeId));
+			result = computeStatusDays(filteredPersonnel, filteredEntries, startDate, endDate);
 		} catch (e: any) {
 			errorMsg = e.message || 'Failed to generate report.';
 		} finally {
@@ -268,8 +283,33 @@
 		</div>
 	</div>
 
+	<div class="config-section">
+		<h3>Status Types</h3>
+		<div class="status-filter-header">
+			<button class="btn btn-sm btn-secondary" onclick={toggleAllStatuses}>
+				{selectedStatusTypeIds.size === statusTypes.length ? 'Deselect All' : 'Select All'}
+			</button>
+			<span class="personnel-count">
+				{selectedStatusTypeIds.size} of {statusTypes.length} selected
+			</span>
+		</div>
+		<div class="status-chips">
+			{#each statusTypes as st (st.id)}
+				<button
+					class="status-chip"
+					class:selected={selectedStatusTypeIds.has(st.id)}
+					style:--chip-color={st.color}
+					style:--chip-text={st.textColor}
+					onclick={() => (selectedStatusTypeIds = toggleSet(selectedStatusTypeIds, st.id))}
+				>
+					{st.name}
+				</button>
+			{/each}
+		</div>
+	</div>
+
 	<div class="config-actions">
-		<button class="btn btn-primary" onclick={runReport} disabled={loading || !startDate || !endDate}>
+		<button class="btn btn-primary" onclick={runReport} disabled={loading || !startDate || !endDate || selectedStatusTypeIds.size === 0}>
 			{#if loading}<Spinner />{/if}
 			{loading ? 'Generating...' : 'Generate Report'}
 		</button>
@@ -403,6 +443,35 @@
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 		margin-top: var(--spacing-xs);
+	}
+
+	.status-filter-header {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		margin-bottom: var(--spacing-sm);
+	}
+
+	.status-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-xs);
+	}
+
+	.status-chip {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-radius: var(--radius-full);
+		font-size: var(--font-size-sm);
+		cursor: pointer;
+		border: 2px solid var(--chip-color);
+		background: transparent;
+		color: var(--color-text);
+		transition: all 0.15s ease;
+	}
+
+	.status-chip.selected {
+		background: var(--chip-color);
+		color: var(--chip-text);
 	}
 
 	.config-actions {

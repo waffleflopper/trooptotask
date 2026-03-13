@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-12-production-polish',
+		date: '2026-03-12',
+		title: 'Production Polish',
+		items: [
+			'Added a Getting Started checklist to help new organizations set up quickly',
+			'Improved error pages so you see a friendly message instead of a blank screen when something goes wrong',
+			'Added helpful descriptions to each permission setting so you know exactly what you\'re granting',
+			'Various stability improvements under the hood'
+		]
+	},
+	{
 		id: '2026-03-11-sign-in-rosters',
 		date: '2026-03-11',
 		title: 'Sign-In Rosters',
@@ -50,15 +61,6 @@ export const changelog: ChangelogEntry[] = [
 			'Team leaders can now be scoped to a specific group — they see and edit only their group\'s personnel while still viewing the full calendar',
 			'New permission presets make it easier to set up members: Admin, Full Editor, Team Leader, Viewer, or Custom',
 			'Deletion approvals — non-privileged users can request deletions, and admins approve or deny from the Admin Hub'
-		]
-	},
-	{
-		id: '2026-03-08-dashboard-timezone',
-		date: '2026-03-08',
-		title: 'Dashboard Timezone Fix',
-		items: [
-			'Fixed an issue where dashboard widgets could show the wrong day for users in timezones behind UTC (like Alaska or Hawaii)',
-			'The dashboard now uses your browser\'s local time instead of the server\'s clock'
 		]
 	},
 ];

@@ -247,6 +247,7 @@
 							type="text"
 							class="input search-input"
 							placeholder="Search by name, rank, MOS, or role..."
+							aria-label="Search personnel"
 							bind:value={searchQuery}
 						/>
 						{#if searchQuery}

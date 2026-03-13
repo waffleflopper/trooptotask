@@ -73,7 +73,7 @@
 		if (!rank) {
 			cellErrors.rank = 'Rank is required';
 		} else if (!ALL_RANKS.some(r => r.toLowerCase() === rank.toLowerCase())) {
-			cellErrors.rank = `"${rank}" is not a valid rank`;
+			cellErrors.rank = `"${rank}" is not a valid rank. Valid ranks: ${ALL_RANKS.join(', ')}`;
 		}
 
 		// lastName: required
@@ -93,7 +93,7 @@
 		if (groupName) {
 			const match = groups.find((g) => g.name.toLowerCase() === groupName.toLowerCase());
 			if (!match) {
-				cellWarnings.groupName = `"${groupName}" doesn't match any group — will be unassigned`;
+				cellWarnings.groupName = `"${groupName}" doesn't match any group — will be unassigned. Available groups: ${groups.map((g) => g.name).join(', ')}`;
 			}
 		}
 

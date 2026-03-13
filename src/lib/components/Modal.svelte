@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -34,10 +35,42 @@
 		footer
 	}: Props = $props();
 
+	let overlayEl: HTMLDivElement | undefined = $state();
+	let previouslyFocused: Element | null = null;
+
+	onMount(() => {
+		previouslyFocused = document.activeElement;
+		overlayEl?.focus();
+		return () => {
+			if (previouslyFocused instanceof HTMLElement) {
+				previouslyFocused.focus();
+			}
+		};
+	});
+
+	const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape' && canClose) {
 			e.preventDefault();
 			onClose();
+			return;
+		}
+
+		if (e.key === 'Tab' && overlayEl) {
+			const focusable = Array.from(overlayEl.querySelectorAll<HTMLElement>(FOCUSABLE));
+			if (focusable.length === 0) return;
+
+			const first = focusable[0];
+			const last = focusable[focusable.length - 1];
+
+			if (e.shiftKey && document.activeElement === first) {
+				e.preventDefault();
+				last.focus();
+			} else if (!e.shiftKey && document.activeElement === last) {
+				e.preventDefault();
+				first.focus();
+			}
 		}
 	}
 
@@ -53,6 +86,7 @@
 	aria-labelledby={titleId}
 	tabindex="-1"
 	onkeydown={handleKeydown}
+	bind:this={overlayEl}
 >
 	<button class="modal-backdrop" onclick={handleClose} tabindex="-1" aria-label="Close dialog"></button>
 	<div class="modal" role="document" style:width={width} style:max-width="95vw">

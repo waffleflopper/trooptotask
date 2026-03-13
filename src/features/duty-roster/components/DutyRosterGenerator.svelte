@@ -648,6 +648,7 @@
 					</div>
 
 					<div class="roster-table-container">
+					<div class="table-responsive">
 						<table class="roster-table">
 							<thead>
 								<tr>
@@ -676,6 +677,7 @@
 								{/each}
 							</tbody>
 						</table>
+					</div>
 					</div>
 				</div>
 

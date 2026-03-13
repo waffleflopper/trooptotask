@@ -32,7 +32,7 @@ export function allDatesInRange(startDate: string, endDate: string): string[] {
 }
 
 function sortByRank(personnel: Personnel[]): Personnel[] {
-	const rankIndex = new Map(RANK_ORDER.map((r, i) => [r, i]));
+	const rankIndex = new Map<string, number>(RANK_ORDER.map((r, i) => [r, i]));
 	return [...personnel].sort((a, b) => {
 		const ra = rankIndex.get(a.rank) ?? 999;
 		const rb = rankIndex.get(b.rank) ?? 999;

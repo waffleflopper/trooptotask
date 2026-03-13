@@ -3,6 +3,7 @@ import { type Handle, redirect } from '@sveltejs/kit';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
+import '$lib/server/env'; // validate env vars on startup
 
 const securityHeaders: Record<string, string> = {
 	'Content-Security-Policy':

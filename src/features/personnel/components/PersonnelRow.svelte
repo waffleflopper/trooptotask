@@ -145,12 +145,11 @@
 		gap: var(--spacing-sm);
 		background: var(--color-surface);
 		border-right: 1px solid var(--color-border);
-		position: sticky;
-		left: 0;
+		transform: translateX(var(--scroll-left, 0px));
 		z-index: 2;
 		text-align: left;
 		cursor: pointer;
-		transition: background-color 0.15s ease;
+		will-change: transform;
 	}
 
 	.personnel-info:hover {

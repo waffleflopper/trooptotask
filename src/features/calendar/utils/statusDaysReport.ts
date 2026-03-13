@@ -83,7 +83,7 @@ export function computeStatusDays(
 	}
 
 	// Sort rows by rank then last name
-	const rankIndex = new Map(RANK_ORDER.map((r, i) => [r, i]));
+	const rankIndex = new Map<string, number>(RANK_ORDER.map((r, i) => [r, i]));
 	rows.sort((a, b) => {
 		const ra = rankIndex.get(a.person.rank) ?? 999;
 		const rb = rankIndex.get(b.person.rank) ?? 999;

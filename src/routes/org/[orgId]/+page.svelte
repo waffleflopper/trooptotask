@@ -17,6 +17,7 @@
 	import { browser } from '$app/environment';
 	import { changelog } from '$lib/data/changelog';
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
+	import GettingStartedBanner from '$features/onboarding/components/GettingStartedBanner.svelte';
 
 	const HALF_SIZE_CARDS: CardId[] = ['strength', 'duty', 'training', 'upcoming', 'ratings'];
 
@@ -45,6 +46,13 @@
 			}
 		}
 	});
+
+	let gettingStartedDismissed = $state(data.gettingStartedDismissed);
+
+	async function dismissGettingStarted() {
+		gettingStartedDismissed = true;
+		await fetch(`/org/${data.orgId}/api/getting-started`, { method: 'POST' });
+	}
 
 	function dismissBanner() {
 		bannerDismissed = true;
@@ -399,6 +407,21 @@
 					</svg>
 				</button>
 			</div>
+		{/if}
+
+		{#if (data.userRole === 'owner' || data.userRole === 'admin') && !data.isDemoSandbox && !data.isDemoReadOnly}
+			<GettingStartedBanner
+				orgId={data.orgId}
+				personnelCount={data.personnel?.length ?? 0}
+				statusTypeCount={data.statusTypes?.length ?? 0}
+				trainingTypeCount={data.trainingTypes?.length ?? 0}
+				assignmentTypeCount={data.assignmentTypes?.length ?? 0}
+				onboardingTemplateStepCount={data.onboardingTemplateStepCount}
+				ratingSchemeEntryCount={data.ratingSchemeEntryCount}
+				orgMemberCount={data.orgMemberCount}
+				dismissed={gettingStartedDismissed}
+				onDismiss={dismissGettingStarted}
+			/>
 		{/if}
 
 		<!-- Dynamic card layout -->

@@ -770,6 +770,51 @@ input[type="checkbox"] {
   background: rgba(244, 67, 54, 0.15);
 }
 
+/* Responsive table wrapper — wraps <table> for horizontal scroll on mobile */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  .table-responsive {
+    margin: 0 calc(-1 * var(--spacing-sm));
+    width: calc(100% + 2 * var(--spacing-sm));
+    padding: 0 var(--spacing-sm);
+  }
+
+  /* Stack form rows on mobile */
+  .form-row {
+    flex-direction: column;
+  }
+
+  .form-row > * {
+    width: 100%;
+  }
+
+  /* Full-width buttons in tight spaces */
+  .btn-mobile-full {
+    width: 100%;
+  }
+
+  /* Hide on mobile utility */
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Show only on mobile utility */
+.show-mobile {
+  display: none !important;
+}
+
+@media (max-width: 640px) {
+  .show-mobile {
+    display: initial !important;
+  }
+}
+
 /* Loading spinner — also available as Spinner.svelte component */
 .spinner {
   display: inline-block;

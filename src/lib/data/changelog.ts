@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-12-production-polish',
+		date: '2026-03-12',
+		title: 'Production Polish',
+		items: [
+			'Added a Getting Started checklist to help new organizations set up quickly',
+			'Improved error pages so you see a friendly message instead of a blank screen when something goes wrong',
+			'Added helpful descriptions to each permission setting so you know exactly what you\'re granting',
+			'The site now works properly on phones and tablets — tables scroll horizontally and toolbar buttons no longer disappear on small screens',
+			'Bulk import error messages now tell you what the valid values are instead of just saying something is wrong',
+			'Various stability and accessibility improvements under the hood'
+		]
+	},
+	{
 		id: '2026-03-11-sign-in-rosters',
 		date: '2026-03-11',
 		title: 'Sign-In Rosters',
@@ -38,27 +51,6 @@ export const changelog: ChangelogEntry[] = [
 			'Export an archived person\'s complete records (training, counseling, goals, availability) as an Excel file before permanent deletion',
 			'Configurable retention period in Admin Hub Settings — archived personnel are automatically cleaned up after the retention window (default 36 months)',
 			'Archived personnel don\'t count toward your subscription\'s personnel cap'
-		]
-	},
-	{
-		id: '2026-03-08-platform-guide',
-		date: '2026-03-08',
-		title: 'Platform Guide & Permissions',
-		items: [
-			'New platform guide — the Help page has been completely rewritten with detailed how-to sections for every feature',
-			'Role-specific tips throughout the guide show what admins, team leaders, and viewers can each do',
-			'Team leaders can now be scoped to a specific group — they see and edit only their group\'s personnel while still viewing the full calendar',
-			'New permission presets make it easier to set up members: Admin, Full Editor, Team Leader, Viewer, or Custom',
-			'Deletion approvals — non-privileged users can request deletions, and admins approve or deny from the Admin Hub'
-		]
-	},
-	{
-		id: '2026-03-08-dashboard-timezone',
-		date: '2026-03-08',
-		title: 'Dashboard Timezone Fix',
-		items: [
-			'Fixed an issue where dashboard widgets could show the wrong day for users in timezones behind UTC (like Alaska or Hawaii)',
-			'The dashboard now uses your browser\'s local time instead of the server\'s clock'
 		]
 	},
 ];

@@ -101,10 +101,22 @@
 	@media (max-width: 640px) {
 		.page-toolbar {
 			padding: var(--spacing-sm) var(--spacing-md);
+			flex-wrap: wrap;
 		}
 
 		.toolbar-actions {
-			display: none;
+			order: 3;
+			width: 100%;
+			overflow-x: auto;
+			-webkit-overflow-scrolling: touch;
+			padding-bottom: var(--spacing-xs);
+		}
+
+		.toolbar-actions :global(.btn) {
+			white-space: nowrap;
+			font-size: var(--font-size-sm);
+			padding: 6px 12px;
+			min-height: 32px;
 		}
 	}
 </style>

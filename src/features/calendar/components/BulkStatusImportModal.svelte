@@ -67,6 +67,11 @@
 		return map;
 	});
 
+	const allResolved = $derived(
+		unmatchedStatuses.length === 0 ||
+		unmatchedStatuses.every((s) => s.resolvedId !== null)
+	);
+
 	// Local date parser — parseDateString is not exported from csvParser
 	function parseDateString(str: string): string | null {
 		if (!str) return null;
@@ -269,12 +274,58 @@
 		/>
 	{/if}
 
+	{#if step === 'resolve'}
+		<div class="resolve-section">
+			<p>The following status names from your file don't match any status types in your organization. Please select which status each should map to, or choose "Skip" to exclude those rows.</p>
+
+			<div class="resolve-list">
+				{#each unmatchedStatuses as mapping, i}
+					<div class="resolve-row">
+						<div class="resolve-info">
+							<span class="resolve-name">"{mapping.csvName}"</span>
+							<span class="text-muted">({mapping.count} {mapping.count === 1 ? 'row' : 'rows'})</span>
+						</div>
+						<span class="resolve-arrow">→</span>
+						<select
+							class="select"
+							value={mapping.resolvedId ?? ''}
+							onchange={(e) => {
+								const val = (e.target as HTMLSelectElement).value;
+								unmatchedStatuses[i].resolvedId = val || null;
+							}}
+						>
+							<option value="">— Select —</option>
+							<option value="__skip__">Skip (don't import)</option>
+							{#each statusTypes as st}
+								<option value={st.id}>{st.name}</option>
+							{/each}
+						</select>
+						{#if mapping.resolvedId && mapping.resolvedId !== '__skip__'}
+							{@const resolved = statusTypes.find((s) => s.id === mapping.resolvedId)}
+							{#if resolved}
+								<Badge label={resolved.name} color={resolved.color} textColor={resolved.textColor} />
+							{/if}
+						{/if}
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
 	{#snippet footer()}
 		{#if step === 'preview'}
 			<button class="btn btn-secondary" onclick={() => { step = 'upload'; rawRows = []; }}>Back</button>
 			<div class="spacer"></div>
 			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 			<button class="btn btn-primary" onclick={handlePreviewNext}>Next</button>
+		{:else if step === 'resolve'}
+			<button class="btn btn-secondary" onclick={() => { step = 'preview'; }}>Back</button>
+			<div class="spacer"></div>
+			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+			<button class="btn btn-primary" disabled={!allResolved || importing} onclick={handleImport}>
+				{#if importing}<Spinner />{/if}
+				{importing ? 'Importing...' : 'Import'}
+			</button>
 		{:else if step === 'results'}
 			<button class="btn btn-primary" onclick={onClose}>Done</button>
 		{:else}
@@ -325,5 +376,48 @@
 
 	.divider-text {
 		font-size: var(--font-size-sm);
+	}
+
+	.resolve-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-md);
+	}
+
+	.resolve-section p {
+		margin: 0;
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+	}
+
+	.resolve-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+	}
+
+	.resolve-row {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-sm);
+		background: var(--color-surface-variant);
+		border-radius: var(--radius-sm);
+	}
+
+	.resolve-info {
+		display: flex;
+		align-items: baseline;
+		gap: var(--spacing-xs);
+		min-width: 200px;
+	}
+
+	.resolve-name {
+		font-weight: 600;
+		font-size: var(--font-size-sm);
+	}
+
+	.resolve-arrow {
+		color: var(--color-text-muted);
 	}
 </style>

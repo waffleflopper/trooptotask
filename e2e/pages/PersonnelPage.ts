@@ -4,53 +4,61 @@ import { expect } from '@playwright/test';
 export class PersonnelPage {
 	readonly page: Page;
 	readonly addButton: Locator;
-	readonly personnelList: Locator;
-	readonly firstNameInput: Locator;
-	readonly lastNameInput: Locator;
-	readonly rankSelect: Locator;
-	readonly saveButton: Locator;
+	readonly searchInput: Locator;
 
 	constructor(page: Page) {
 		this.page = page;
 		this.addButton = page.getByTestId('add-personnel-btn');
-		this.personnelList = page.getByTestId('personnel-list');
-		this.firstNameInput = page.getByTestId('personnel-first-name');
-		this.lastNameInput = page.getByTestId('personnel-last-name');
-		this.rankSelect = page.getByTestId('personnel-rank');
-		this.saveButton = page.getByTestId('personnel-save');
+		// Search input: textbox "Search by name, rank, or role..."
+		this.searchInput = page.getByRole('textbox', { name: /search by name/i });
 	}
 
 	async goto(orgId: string) {
 		await this.page.goto(`/org/${orgId}/personnel`);
+		await this.addButton.waitFor({ state: 'visible', timeout: 10000 });
+		// Ensure page is fully hydrated before interacting
+		await this.page.waitForLoadState('networkidle');
 	}
 
 	async openAddModal() {
+		await this.addButton.waitFor({ state: 'visible' });
 		await this.addButton.click();
+		// Personnel modal opens — wait for the modal title
+		await expect(this.page.getByText('Add Personnel').first()).toBeVisible({ timeout: 10000 });
 	}
 
 	async fillForm(data: { firstName: string; lastName: string; rank?: string }) {
-		await this.firstNameInput.fill(data.firstName);
-		await this.lastNameInput.fill(data.lastName);
+		// Fields: textbox "Last Name *" (placeholder: Smith), textbox "First Name *" (placeholder: John)
+		await this.page.getByRole('textbox', { name: 'Last Name' }).fill(data.lastName);
+		await this.page.getByRole('textbox', { name: 'First Name' }).fill(data.firstName);
 		if (data.rank) {
-			await this.rankSelect.selectOption(data.rank);
+			// Rank is a combobox "Rank"
+			await this.page.getByRole('combobox', { name: 'Rank' }).selectOption(data.rank);
 		}
 	}
 
 	async save() {
-		await this.saveButton.click();
+		// Button text is "Add Personnel" (new) or "Save Changes" (edit)
+		const saveBtn = this.page.getByRole('button', { name: /Add Personnel|Save Changes/ });
+		await saveBtn.click();
 		// Wait for modal to close
-		await this.saveButton.waitFor({ state: 'hidden', timeout: 5000 });
+		await expect(this.page.getByRole('heading', { name: /Add Personnel|Edit Personnel/ })).not.toBeVisible({ timeout: 10000 });
 	}
 
-	async expectPersonnelVisible(lastName: string) {
-		await expect(this.page.getByText(lastName)).toBeVisible();
+	async expectPersonnelVisible(name: string) {
+		await expect(this.page.getByRole('main').getByText(name).first()).toBeVisible();
 	}
 
-	async expectPersonnelNotVisible(lastName: string) {
-		await expect(this.page.getByText(lastName)).not.toBeVisible();
+	async expectPersonnelNotVisible(name: string) {
+		await expect(this.page.getByRole('main').getByText(name)).not.toBeVisible();
 	}
 
 	async clickPerson(name: string) {
-		await this.page.getByText(name).click();
+		// Person names appear as buttons: "SGT Doe, John"
+		await this.page.getByRole('main').getByRole('button', { name: new RegExp(name) }).first().click();
+	}
+
+	async search(query: string) {
+		await this.searchInput.fill(query);
 	}
 }

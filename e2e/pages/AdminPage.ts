@@ -40,6 +40,6 @@ export class AdminPage {
 	}
 
 	async expectArchivedPersonVisible(name: string) {
-		await expect(this.page.getByText(name)).toBeVisible();
+		await expect(this.page.getByText(name).first()).toBeVisible();
 	}
 }

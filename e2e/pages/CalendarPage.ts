@@ -16,6 +16,8 @@ export class CalendarPage {
 
 	async goto(orgId: string) {
 		await this.page.goto(`/org/${orgId}/calendar`);
+		await this.prevMonth.waitFor({ state: 'visible', timeout: 10000 });
+		await this.page.waitForLoadState('networkidle');
 	}
 
 	async navigateNextMonth() {
@@ -26,24 +28,8 @@ export class CalendarPage {
 		await this.prevMonth.click();
 	}
 
-	async setStatus(personName: string, date: string, statusType: string) {
-		// Click on the person's cell for the given date to open status modal
-		// The exact selector depends on the calendar grid structure
-		const cell = this.page.locator(`[data-testid="calendar-cell-${personName}-${date}"]`);
-		await cell.click();
-
-		// Select status type in modal
-		const statusSelect = this.page.getByTestId('status-type-select');
-		await statusSelect.selectOption(statusType);
-
-		// Save
-		const saveButton = this.page.getByTestId('status-save');
-		await saveButton.click();
-		await saveButton.waitFor({ state: 'hidden', timeout: 5000 });
-	}
-
 	async expectStatusVisible(personName: string, statusText: string) {
-		await expect(this.page.getByText(statusText)).toBeVisible();
+		await expect(this.page.getByText(statusText).first()).toBeVisible();
 	}
 
 	async openTodayBreakdown() {

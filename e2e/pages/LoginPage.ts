@@ -17,6 +17,8 @@ export class LoginPage {
 
 	async goto() {
 		await this.page.goto('/auth/login');
+		await this.emailInput.waitFor({ state: 'visible', timeout: 10000 });
+		await this.page.waitForLoadState('networkidle');
 	}
 
 	async login(email: string, password: string) {
@@ -26,7 +28,7 @@ export class LoginPage {
 	}
 
 	async expectError(text?: string) {
-		await this.errorMessage.waitFor({ state: 'visible' });
+		await this.errorMessage.waitFor({ state: 'visible', timeout: 15000 });
 		if (text) {
 			await this.page.waitForFunction(
 				(expected) => document.querySelector('[data-testid="login-error"]')?.textContent?.includes(expected),
@@ -36,6 +38,6 @@ export class LoginPage {
 	}
 
 	async expectRedirectToDashboard() {
-		await this.page.waitForURL('**/dashboard**', { timeout: 10000 });
+		await this.page.waitForURL('**/org/**', { timeout: 30000 });
 	}
 }

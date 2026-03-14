@@ -23,12 +23,15 @@ test.describe('Personnel Management', () => {
 		personnelPage = new PersonnelPage(ownerPage);
 		await personnelPage.goto(orgId);
 
-		// Click on a seed person to open edit modal
 		await personnelPage.clickPerson('Doe');
 
+		// Wait for edit modal — check for any modal heading
+		await expect(ownerPage.getByRole('heading', { name: 'Edit Personnel' })).toBeVisible({ timeout: 5000 });
+
 		// Clear and re-fill last name
-		await personnelPage.lastNameInput.clear();
-		await personnelPage.lastNameInput.fill('UpdatedDoe');
+		const lastNameInput = ownerPage.getByRole('textbox', { name: 'Last Name' });
+		await lastNameInput.clear();
+		await lastNameInput.fill('UpdatedDoe');
 		await personnelPage.save();
 
 		await personnelPage.expectPersonnelVisible('UpdatedDoe');
@@ -38,17 +41,20 @@ test.describe('Personnel Management', () => {
 		personnelPage = new PersonnelPage(ownerPage);
 		await personnelPage.goto(orgId);
 
-		// Click person, then archive
 		await personnelPage.clickPerson('Jones');
 
-		// Look for archive button in the modal
-		const archiveButton = ownerPage.getByTestId('personnel-archive');
-		await archiveButton.click();
+		// Wait for modal
+		await expect(ownerPage.getByRole('heading', { name: 'Edit Personnel' })).toBeVisible({ timeout: 5000 });
+
+		// Look for archive/delete button in modal footer
+		const archiveBtn = ownerPage.getByRole('button', { name: /archive|delete/i }).first();
+		await archiveBtn.click();
 
 		// Confirm dialog
-		const confirmButton = ownerPage.getByRole('button', { name: /confirm|yes|archive/i });
-		await confirmButton.click();
+		await expect(ownerPage.getByRole('heading', { name: /archive|confirm/i })).toBeVisible({ timeout: 5000 });
+		await ownerPage.getByRole('button', { name: /archive|confirm|yes/i }).last().click();
 
+		// Jones should no longer be visible
 		await personnelPage.expectPersonnelNotVisible('Jones');
 	});
 
@@ -56,16 +62,13 @@ test.describe('Personnel Management', () => {
 		personnelPage = new PersonnelPage(ownerPage);
 		await personnelPage.goto(orgId);
 
-		// Search for a seed person by name
-		const searchInput = ownerPage.getByTestId('personnel-search');
-		await searchInput.fill('Doe');
+		await personnelPage.search('Doe');
 
-		// Should see Doe, not Smith
 		await personnelPage.expectPersonnelVisible('Doe');
 		await personnelPage.expectPersonnelNotVisible('Smith');
 
 		// Clear search — all should be visible again
-		await searchInput.clear();
+		await personnelPage.searchInput.clear();
 		await personnelPage.expectPersonnelVisible('Smith');
 	});
 });

@@ -59,15 +59,24 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	// Get appropriate supabase client (service role for demo mode)
 	const supabase = getSupabaseClient(locals, cookies);
 
-	// Get organization info (including demo_type)
+	// Get organization info (including demo_type and suspended_at)
 	const { data: org } = await supabase
 		.from('organizations')
-		.select('id, name, demo_type')
+		.select('id, name, demo_type, suspended_at')
 		.eq('id', orgId)
 		.single();
 
 	if (!org) {
 		throw error(404, 'Organization not found');
+	}
+
+	// Check org suspension
+	if (org.suspended_at) {
+		return {
+			orgSuspended: true,
+			orgId,
+			orgName: org.name
+		};
 	}
 
 	// Handle demo showcase access (no login required for read-only viewing)

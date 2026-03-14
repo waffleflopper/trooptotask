@@ -58,3 +58,10 @@ export async function getAdminRole(
 
 	return data.role as AdminRole;
 }
+
+export function validateSearchQuery(query: string): string | null {
+	if (!query || typeof query !== 'string') return null;
+	const trimmed = query.trim();
+	if (trimmed.length < 3) return null;
+	return trimmed.slice(0, 100);
+}

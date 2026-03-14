@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import AdminSearch from '$lib/components/admin/AdminSearch.svelte';
 
 	let { children, data } = $props();
 
@@ -80,7 +81,7 @@
 
 	<main class="admin-main">
 		<div class="admin-header">
-			<div class="admin-search-placeholder"><!-- AdminSearch goes here --></div>
+			<AdminSearch />
 			<div class="admin-header-right">
 				<span class="role-badge">{data.adminRole?.toUpperCase().replace('_', ' ')}</span>
 			</div>
@@ -208,10 +209,6 @@
 		margin-bottom: var(--spacing-lg);
 		padding-bottom: var(--spacing-md);
 		border-bottom: 1px solid var(--color-border);
-	}
-
-	.admin-search-placeholder {
-		flex: 1;
 	}
 
 	.admin-header-right {

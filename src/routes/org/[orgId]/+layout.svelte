@@ -21,6 +21,7 @@
 	let { children, data } = $props();
 
 	let showFeedback = $state(false);
+	let announcementCount = $state(0);
 
 	function closeWhatsNew() {
 		whatsNewStore.close();
@@ -74,11 +75,11 @@
 	</div>
 {:else}
 	<NavigationProgress />
-	{#if data.activeAnnouncements?.length}
-		<AnnouncementBanner announcements={data.activeAnnouncements} />
-	{/if}
 	<DemoBanner />
 	<SubscriptionBanner orgId={data.orgId} />
+	{#if data.activeAnnouncements?.length}
+		<AnnouncementBanner announcements={data.activeAnnouncements} onCountChange={(n) => (announcementCount = n)} />
+	{/if}
 
 	<TopHeader
 		orgId={data.orgId}
@@ -92,7 +93,12 @@
 		onWhatsNew={() => whatsNewStore.show()}
 	/>
 
-	<main class="app-content" class:has-demo-banner={demoModeStore.hasBanner} class:has-sub-banner={subscriptionStore.hasBanner}>
+	<main
+		class="app-content"
+		class:has-demo-banner={demoModeStore.hasBanner}
+		class:has-sub-banner={subscriptionStore.hasBanner}
+		style:--announcement-offset="{announcementCount * 40}px"
+	>
 		{@render children()}
 	</main>
 
@@ -163,20 +169,20 @@
 	}
 
 	.app-content {
-		padding-top: var(--header-height, 56px);
+		padding-top: calc(var(--header-height, 56px) + var(--announcement-offset, 0px));
 		min-height: 100vh;
 	}
 
 	.app-content.has-demo-banner {
-		padding-top: calc(var(--header-height, 56px) + 40px);
+		padding-top: calc(var(--header-height, 56px) + 40px + var(--announcement-offset, 0px));
 	}
 
 	.app-content.has-sub-banner {
-		padding-top: calc(var(--header-height, 56px) + 40px);
+		padding-top: calc(var(--header-height, 56px) + 40px + var(--announcement-offset, 0px));
 	}
 
 	.app-content.has-demo-banner.has-sub-banner {
-		padding-top: calc(var(--header-height, 56px) + 80px);
+		padding-top: calc(var(--header-height, 56px) + 80px + var(--announcement-offset, 0px));
 	}
 
 	@media (max-width: 640px) {

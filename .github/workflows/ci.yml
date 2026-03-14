@@ -62,9 +62,9 @@ jobs:
 
       - name: Set env vars from Supabase
         run: |
-          SUPABASE_URL=$(supabase status -o env | grep API_URL | cut -d= -f2)
-          ANON_KEY=$(supabase status -o env | grep ANON_KEY | cut -d= -f2)
-          SERVICE_KEY=$(supabase status -o env | grep SERVICE_ROLE_KEY | cut -d= -f2)
+          SUPABASE_URL=$(supabase status -o env | grep API_URL | cut -d= -f2- | tr -d '"')
+          ANON_KEY=$(supabase status -o env | grep ANON_KEY | cut -d= -f2- | tr -d '"')
+          SERVICE_KEY=$(supabase status -o env | grep SERVICE_ROLE_KEY | cut -d= -f2- | tr -d '"')
           echo "PUBLIC_SUPABASE_URL=$SUPABASE_URL" >> $GITHUB_ENV
           echo "PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> $GITHUB_ENV
           echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY" >> $GITHUB_ENV

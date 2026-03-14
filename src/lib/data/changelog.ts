@@ -12,7 +12,8 @@ export const changelog: ChangelogEntry[] = [
 		title: 'Duty Roster Schedule Options',
 		items: [
 			'The duty roster generator now lets you exclude weekends, federal holidays, and org closures — no more manually skipping days that nobody works',
-			'Uses the same holidays and closures you\'ve already set up in your calendar, so there\'s nothing extra to configure'
+			'Uses the same holidays and closures you\'ve already set up in your calendar, so there\'s nothing extra to configure',
+			'Roster exports now include a DA Form 6 reference grid showing each person\'s queue position for every duty date — full transparency into why someone was assigned their days'
 		]
 	},
 	{

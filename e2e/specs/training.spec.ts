@@ -1,0 +1,24 @@
+import { test, expect } from '../fixtures/auth';
+import { TrainingPage } from '../pages/TrainingPage';
+
+test.describe('Training Records', () => {
+	let trainingPage: TrainingPage;
+
+	test('view training matrix', async ({ ownerPage, orgId }) => {
+		trainingPage = new TrainingPage(ownerPage);
+		await trainingPage.goto(orgId);
+
+		// Verify matrix is visible with seed training types
+		await expect(trainingPage.trainingMatrix).toBeVisible();
+		await expect(ownerPage.getByText('Weapons Qualification')).toBeVisible();
+		await expect(ownerPage.getByText('First Aid')).toBeVisible();
+	});
+
+	test('add a training record', async ({ ownerPage, orgId }) => {
+		trainingPage = new TrainingPage(ownerPage);
+		await trainingPage.goto(orgId);
+
+		await trainingPage.addRecord('Doe', 'Weapons Qualification');
+		await trainingPage.expectRecordVisible('Doe', 'Weapons Qualification');
+	});
+});

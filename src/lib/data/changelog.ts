@@ -6,7 +6,16 @@ export type ChangelogEntry = {
 };
 
 export const changelog: ChangelogEntry[] = [
-{
+	{
+		id: '2026-03-14-duty-roster-schedule-options',
+		date: '2026-03-14',
+		title: 'Duty Roster Schedule Options',
+		items: [
+			'The duty roster generator now lets you exclude weekends, federal holidays, and org closures — no more manually skipping days that nobody works',
+			'Uses the same holidays and closures you\'ve already set up in your calendar, so there\'s nothing extra to configure'
+		]
+	},
+	{
 		id: '2026-03-13-bulk-status-import',
 		date: '2026-03-13',
 		title: 'Import Statuses from Spreadsheets',

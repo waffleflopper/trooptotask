@@ -440,6 +440,7 @@
 		onSaveRoster={handleSaveRoster}
 		onDeleteRoster={handleDeleteRoster}
 		onUpdateExemptions={handleUpdateExemptions}
+		specialDays={specialDaysStore.list}
 		onClose={() => (showDutyRosterGenerator = false)}
 	/>
 {/if}

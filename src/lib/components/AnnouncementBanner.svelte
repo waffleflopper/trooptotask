@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { demoModeStore } from '$lib/stores/demoMode.svelte';
+	import { subscriptionStore } from '$lib/stores/subscription.svelte';
+
 	interface Announcement {
 		id: string;
 		title: string;
@@ -6,13 +9,23 @@
 		type: 'info' | 'warning' | 'maintenance';
 	}
 
-	let { announcements }: { announcements: Announcement[] } = $props();
+	let { announcements, onCountChange }: { announcements: Announcement[]; onCountChange?: (count: number) => void } = $props();
 
 	let visibleAnnouncements = $state<Announcement[]>([]);
 
 	$effect(() => {
 		visibleAnnouncements = [...announcements];
 	});
+
+	$effect(() => {
+		onCountChange?.(visibleAnnouncements.length);
+	});
+
+	/** Stack below header + any demo/sub banners above us */
+	const bannerOffset = $derived(
+		(demoModeStore.hasBanner ? 40 : 0) +
+		(subscriptionStore.hasBanner ? 40 : 0)
+	);
 
 	async function dismiss(id: string) {
 		visibleAnnouncements = visibleAnnouncements.filter((a) => a.id !== id);
@@ -25,147 +38,90 @@
 </script>
 
 {#if visibleAnnouncements.length > 0}
-	<div class="announcement-container">
-		{#each visibleAnnouncements as announcement (announcement.id)}
-			<div
-				class="announcement-banner announcement-{announcement.type}"
-				role="alert"
-			>
-				<div class="announcement-content">
+	{#each visibleAnnouncements as announcement, i (announcement.id)}
+		<div
+			class="announcement-banner announcement-{announcement.type}"
+			style:top="calc(var(--header-height, 56px) + {bannerOffset + i * 40}px)"
+			role="alert"
+		>
+			<div class="banner-content">
+				<span class="banner-text">
 					<strong>{announcement.title}</strong>
-					<span>{announcement.message}</span>
-				</div>
+					<span class="banner-separator">—</span>
+					{announcement.message}
+				</span>
 				<button
-					class="announcement-dismiss"
+					class="dismiss-btn"
 					onclick={() => dismiss(announcement.id)}
 					aria-label="Dismiss announcement"
-				>&#x2715;</button>
+				>Dismiss</button>
 			</div>
-		{/each}
-	</div>
+		</div>
+	{/each}
 {/if}
 
 <style>
-	.announcement-container {
+	.announcement-banner {
 		position: fixed;
-		top: 60px;
-		right: var(--spacing-lg);
-		left: var(--spacing-lg);
-		max-width: 600px;
-		margin-left: auto;
-		z-index: 150;
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-		pointer-events: none;
+		left: 0;
+		width: 100%;
+		z-index: 99;
+		padding: var(--spacing-sm) var(--spacing-lg);
+		box-sizing: border-box;
 	}
 
-	.announcement-banner {
+	.banner-content {
 		display: flex;
 		align-items: center;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-left: 4px solid;
-		border-radius: var(--radius-lg);
 		gap: var(--spacing-md);
-		pointer-events: auto;
-		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-		animation: slideIn 0.3s ease-out;
+		max-width: 1200px;
+		margin: 0 auto;
 	}
 
-	@keyframes slideIn {
-		from {
-			opacity: 0;
-			transform: translateY(-8px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	.announcement-content {
+	.banner-text {
 		flex: 1;
 		font-size: var(--font-size-sm);
-		line-height: 1.4;
 	}
 
-	.announcement-content strong {
-		margin-right: var(--spacing-sm);
+	.banner-separator {
+		margin: 0 var(--spacing-xs);
+		opacity: 0.7;
 	}
 
-	.announcement-dismiss {
-		background: none;
-		border: none;
+	.dismiss-btn {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		background: rgba(255, 255, 255, 0.2);
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		border-radius: var(--radius-sm);
+		color: inherit;
+		font-size: var(--font-size-xs);
+		font-weight: 500;
 		cursor: pointer;
-		font-size: 16px;
-		padding: var(--spacing-xs);
-		opacity: 0.6;
+		transition: background 0.15s ease;
 		flex-shrink: 0;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
 	}
 
-	.announcement-dismiss:hover {
-		opacity: 1;
+	.dismiss-btn:hover {
+		background: rgba(255, 255, 255, 0.3);
 	}
 
 	/* Info */
 	.announcement-info {
-		background: #e3f2fd;
-		border-color: #2196f3;
-		color: #1565c0;
+		background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+		color: white;
 	}
-
-	.announcement-info .announcement-dismiss { color: #1565c0; }
-
-	:global([data-theme='dark']) .announcement-info {
-		background: #1a2332;
-		border-color: #2196f3;
-		color: #90caf9;
-	}
-
-	:global([data-theme='dark']) .announcement-info .announcement-dismiss { color: #90caf9; }
 
 	/* Warning */
 	.announcement-warning {
-		background: #fff3e0;
-		border-color: #ff9800;
-		color: #e65100;
+		background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+		color: white;
 	}
-
-	.announcement-warning .announcement-dismiss { color: #e65100; }
-
-	:global([data-theme='dark']) .announcement-warning {
-		background: #2a1f0d;
-		border-color: #ff9800;
-		color: #ffcc80;
-	}
-
-	:global([data-theme='dark']) .announcement-warning .announcement-dismiss { color: #ffcc80; }
 
 	/* Maintenance */
 	.announcement-maintenance {
-		background: #ffebee;
-		border-color: #f44336;
-		color: #c62828;
-	}
-
-	.announcement-maintenance .announcement-dismiss { color: #c62828; }
-
-	:global([data-theme='dark']) .announcement-maintenance {
-		background: #2a1215;
-		border-color: #f44336;
-		color: #ef9a9a;
-	}
-
-	:global([data-theme='dark']) .announcement-maintenance .announcement-dismiss { color: #ef9a9a; }
-
-	:global([data-theme='dark']) .announcement-banner {
-		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-	}
-
-	@media (max-width: 768px) {
-		.announcement-container {
-			right: var(--spacing-sm);
-			left: var(--spacing-sm);
-		}
+		background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+		color: white;
 	}
 </style>

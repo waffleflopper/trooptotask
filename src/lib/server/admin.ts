@@ -101,3 +101,40 @@ export function validateSearchQuery(query: string): string | null {
 	if (trimmed.length < 3) return null;
 	return trimmed.slice(0, 100);
 }
+
+interface AnnouncementInput {
+	title: string;
+	message: string;
+	type: string;
+	expiresAt?: string;
+}
+
+interface AnnouncementValidation {
+	valid: boolean;
+	title?: string;
+	message?: string;
+	type?: 'info' | 'warning' | 'maintenance';
+	expiresAt?: string;
+	error?: string;
+}
+
+export function validateAnnouncement(input: AnnouncementInput): AnnouncementValidation {
+	const title = input.title?.trim();
+	const message = input.message?.trim();
+
+	if (!title || title.length === 0) return { valid: false, error: 'Title is required' };
+	if (title.length > 200) return { valid: false, error: 'Title must be 200 characters or less' };
+	if (!message || message.length === 0) return { valid: false, error: 'Message is required' };
+	if (message.length > 1000) return { valid: false, error: 'Message must be 1000 characters or less' };
+	if (!['info', 'warning', 'maintenance'].includes(input.type)) {
+		return { valid: false, error: 'Invalid announcement type' };
+	}
+
+	return {
+		valid: true,
+		title,
+		message,
+		type: input.type as 'info' | 'warning' | 'maintenance',
+		expiresAt: input.expiresAt || undefined
+	};
+}

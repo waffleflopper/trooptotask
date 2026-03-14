@@ -30,10 +30,10 @@
 		counselingTypesStore.load(data.counselingTypes, data.orgId);
 		counselingRecordsStore.load(data.counselingRecords, data.orgId);
 		developmentGoalsStore.load(data.developmentGoals, data.orgId);
-		statusTypesStore.load(data.statusTypes, data.orgId);
+		statusTypesStore.load(data.statusTypes ?? [], data.orgId);
 		availabilityStore.load(data.availability, data.orgId);
-		trainingTypesStore.load(data.trainingTypes, data.orgId);
-		personnelTrainingsStore.load(data.personnelTrainings, data.orgId);
+		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
+		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);
 	});
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
@@ -53,7 +53,7 @@
 	});
 
 	const filteredPersonnel = $derived.by(() => {
-		let personnel = data.personnel;
+		let personnel = data.personnel ?? [];
 
 		// Filter by group if selected
 		if (selectedGroupId) {
@@ -81,7 +81,7 @@
 
 	// Statistics
 	const stats = $derived.by(() => {
-		const totalPersonnel = data.personnel.length;
+		const totalPersonnel = (data.personnel ?? []).length;
 		const withExtendedInfo = personnelExtendedInfoStore.list.length;
 		const totalCounselings = counselingRecordsStore.list.length;
 		const pendingCounselings = counselingRecordsStore.list.filter(
@@ -161,7 +161,7 @@
 		{/if}
 	</PageToolbar>
 
-	{#if !data.permissions.canViewLeadersBook}
+	{#if !data.permissions?.canViewLeadersBook}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
@@ -217,7 +217,7 @@
 
 	<main class="page-content">
 		{#if filteredPersonnel.length === 0}
-			{#if data.personnel.length === 0}
+			{#if (data.personnel ?? []).length === 0}
 				<EmptyState
 					message="No personnel added yet."
 					actionLabel="Go to Personnel"
@@ -276,7 +276,7 @@
 {#if selectedPerson}
 	<SoldierLeadersBookView
 		person={selectedPerson}
-		canEdit={data.permissions.canEditLeadersBook}
+		canEdit={data.permissions?.canEditLeadersBook ?? false}
 		onClose={closeSoldierView}
 	/>
 {/if}

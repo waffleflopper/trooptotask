@@ -59,21 +59,29 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	// Get organization counts for paged users
 	const userIds = pagedUsers.map((u) => u.id);
-	const { data: orgMemberships } = await adminClient
-		.from('organization_memberships')
-		.select('user_id')
-		.in('user_id', userIds);
+	const [orgMembershipsResult, suspensionsResult] = await Promise.all([
+		adminClient
+			.from('organization_memberships')
+			.select('user_id')
+			.in('user_id', userIds),
+		adminClient
+			.from('user_suspensions')
+			.select('user_id')
+	]);
 
 	const orgCountMap: Record<string, number> = {};
-	(orgMemberships ?? []).forEach((m: { user_id: string }) => {
+	(orgMembershipsResult.data ?? []).forEach((m: { user_id: string }) => {
 		orgCountMap[m.user_id] = (orgCountMap[m.user_id] || 0) + 1;
 	});
+
+	const suspendedIds = new Set((suspensionsResult.data ?? []).map((s: { user_id: string }) => s.user_id));
 
 	const users = pagedUsers.map((u) => ({
 		id: u.id,
 		email: u.email || null,
 		organizationCount: orgCountMap[u.id] || 0,
-		createdAt: u.created_at
+		createdAt: u.created_at,
+		isSuspended: suspendedIds.has(u.id)
 	}));
 
 	return {

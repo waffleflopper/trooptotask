@@ -1,16 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import AdminSearch from '$lib/components/admin/AdminSearch.svelte';
+	import { themeStore } from '$lib/stores/theme.svelte';
 
 	let { children, data } = $props();
-
-	const navItems = [
-		{ href: '/admin', label: 'Dashboard', icon: 'dashboard' },
-		{ href: '/admin/access-requests', label: 'Requests', icon: 'requests' },
-		{ href: '/admin/feedback', label: 'Feedback', icon: 'feedback' },
-		{ href: '/admin/users', label: 'Users', icon: 'users' },
-		{ href: '/admin/gifting', label: 'Gifting', icon: 'gifting' },
-		{ href: '/admin/audit', label: 'Audit Log', icon: 'audit' }
-	];
 
 	function isActive(href: string): boolean {
 		if (href === '/admin') {
@@ -24,58 +17,22 @@
 	<aside class="admin-sidebar">
 		<div class="sidebar-header">
 			<h1>Admin</h1>
-			<span class="role-badge">{data.adminRole?.replace('_', ' ')}</span>
 		</div>
 
 		<nav class="sidebar-nav">
-			{#each navItems as item}
-				<a
-					href={item.href}
-					class="nav-item"
-					class:active={isActive(item.href)}
-				>
-					{#if item.icon === 'requests'}
-					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-						<polyline points="22,6 12,13 2,6"></polyline>
-					</svg>
-				{:else if item.icon === 'dashboard'}
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<rect x="3" y="3" width="7" height="7"></rect>
-							<rect x="14" y="3" width="7" height="7"></rect>
-							<rect x="14" y="14" width="7" height="7"></rect>
-							<rect x="3" y="14" width="7" height="7"></rect>
-						</svg>
-					{:else if item.icon === 'feedback'}
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-						</svg>
-					{:else if item.icon === 'users'}
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-							<circle cx="9" cy="7" r="4"></circle>
-							<path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-							<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-						</svg>
-					{:else if item.icon === 'gifting'}
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<polyline points="20 12 20 22 4 22 4 12"></polyline>
-							<rect x="2" y="7" width="20" height="5"></rect>
-							<line x1="12" y1="22" x2="12" y2="7"></line>
-							<path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
-							<path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
-						</svg>
-					{:else if item.icon === 'audit'}
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-							<polyline points="14 2 14 8 20 8"></polyline>
-							<line x1="16" y1="13" x2="8" y2="13"></line>
-							<line x1="16" y1="17" x2="8" y2="17"></line>
-							<polyline points="10 9 9 9 8 9"></polyline>
-						</svg>
-					{/if}
-					<span>{item.label}</span>
-				</a>
+			{#each data.visibleNavGroups as group}
+				{#if group.label}
+					<div class="nav-group-label">{group.label}</div>
+				{/if}
+				{#each group.items as item}
+					<a
+						href={item.href}
+						class="nav-item"
+						class:active={isActive(item.href)}
+					>
+						<span>{item.label}</span>
+					</a>
+				{/each}
 			{/each}
 		</nav>
 
@@ -93,6 +50,19 @@
 	</aside>
 
 	<main class="admin-main">
+		<div class="admin-header">
+			<AdminSearch />
+			<div class="admin-header-right">
+				<button class="theme-toggle" onclick={() => themeStore.toggle()} title="Toggle dark/light mode">
+					{#if themeStore.isDark}
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+					{:else}
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+					{/if}
+				</button>
+				<span class="role-badge">{data.adminRole?.toUpperCase().replace('_', ' ')}</span>
+			</div>
+		</div>
 		{@render children()}
 	</main>
 </div>
@@ -125,24 +95,24 @@
 		font-size: var(--font-size-xl);
 		font-weight: 700;
 		color: var(--color-text);
-		margin-bottom: var(--spacing-xs);
-	}
-
-	.role-badge {
-		display: inline-block;
-		font-size: var(--font-size-xs);
-		font-weight: 500;
-		text-transform: capitalize;
-		padding: 2px 8px;
-		background: var(--color-primary-bg, #eff6ff);
-		color: var(--color-primary);
-		border-radius: var(--radius-full);
+		margin: 0;
 	}
 
 	.sidebar-nav {
 		flex: 1;
 		padding: var(--spacing-md);
 		overflow-y: auto;
+	}
+
+	.nav-group-label {
+		font-size: var(--font-size-xs);
+		font-weight: 600;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		padding: var(--spacing-sm) var(--spacing-md);
+		margin-top: var(--spacing-md);
+		margin-bottom: var(--spacing-xs);
 	}
 
 	.nav-item {
@@ -166,10 +136,6 @@
 	.nav-item.active {
 		background: var(--color-primary);
 		color: #0F0F0F;
-	}
-
-	.nav-item svg {
-		flex-shrink: 0;
 	}
 
 	.sidebar-footer {
@@ -213,6 +179,50 @@
 		overflow-y: auto;
 	}
 
+	.admin-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: var(--spacing-lg);
+		padding-bottom: var(--spacing-md);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.admin-header-right {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+	}
+
+	.theme-toggle {
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: 6px;
+		cursor: pointer;
+		color: var(--color-text-muted);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.15s;
+	}
+
+	.theme-toggle:hover {
+		background: var(--color-surface-variant);
+		color: var(--color-text);
+	}
+
+	.role-badge {
+		display: inline-block;
+		font-size: var(--font-size-xs);
+		font-weight: 500;
+		text-transform: uppercase;
+		padding: 2px 8px;
+		background: var(--color-primary-bg, #eff6ff);
+		color: var(--color-primary);
+		border-radius: var(--radius-full);
+	}
+
 	@media (max-width: 768px) {
 		.admin-sidebar {
 			width: 100%;
@@ -234,6 +244,11 @@
 			flex-wrap: wrap;
 			gap: var(--spacing-xs);
 			padding: var(--spacing-sm);
+		}
+
+		.nav-group-label {
+			width: 100%;
+			margin-top: var(--spacing-sm);
 		}
 
 		.nav-item {

@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit:
+    name: Type check & unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check
+        run: npm run check
+        env:
+          PUBLIC_SUPABASE_URL: http://localhost:54321
+          PUBLIC_SUPABASE_ANON_KEY: dummy-key-for-type-check
+          PUBLIC_BILLING_ENABLED: 'false'
+          STRIPE_SECRET_KEY: sk_test_dummy
+          STRIPE_WEBHOOK_SECRET: whsec_dummy
+          STRIPE_TEAM_PRICE_ID: price_dummy_team
+          STRIPE_UNIT_PRICE_ID: price_dummy_unit
+
+      - name: Unit tests
+        run: npm test
+        env:
+          PUBLIC_SUPABASE_URL: http://localhost:54321
+          PUBLIC_SUPABASE_ANON_KEY: dummy-key-for-type-check
+          PUBLIC_BILLING_ENABLED: 'false'
+          STRIPE_SECRET_KEY: sk_test_dummy
+          STRIPE_WEBHOOK_SECRET: whsec_dummy
+          STRIPE_TEAM_PRICE_ID: price_dummy_team
+          STRIPE_UNIT_PRICE_ID: price_dummy_unit
+
+  e2e:
+    name: E2E tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase
+        run: supabase start
+
+      - name: Set env vars from Supabase
+        run: |
+          SUPABASE_URL=$(supabase status -o env | grep API_URL | cut -d= -f2- | tr -d '"')
+          ANON_KEY=$(supabase status -o env | grep ANON_KEY | cut -d= -f2- | tr -d '"')
+          SERVICE_KEY=$(supabase status -o env | grep SERVICE_ROLE_KEY | cut -d= -f2- | tr -d '"')
+          echo "PUBLIC_SUPABASE_URL=$SUPABASE_URL" >> $GITHUB_ENV
+          echo "PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY" >> $GITHUB_ENV
+          echo "PUBLIC_SUPABASE_URL=$SUPABASE_URL" > .env.local
+          echo "PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> .env.local
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY" >> .env.local
+          echo "PUBLIC_BILLING_ENABLED=false" >> .env.local
+
+      - run: npm ci
+
+      - name: Sync SvelteKit
+        run: npx svelte-kit sync
+        env:
+          PUBLIC_SUPABASE_URL: ${{ env.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ env.PUBLIC_SUPABASE_ANON_KEY }}
+          PUBLIC_BILLING_ENABLED: 'false'
+          STRIPE_SECRET_KEY: sk_test_dummy
+          STRIPE_WEBHOOK_SECRET: whsec_dummy
+          STRIPE_TEAM_PRICE_ID: price_dummy_team
+          STRIPE_UNIT_PRICE_ID: price_dummy_unit
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          E2E_TESTING: 'true'

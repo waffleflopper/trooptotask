@@ -29,9 +29,16 @@ npm-debug.log*
 
 # Supabase seed data
 supabase/seed.sql
+supabase/seed_remote.sql
+supabase/schema_remote.sql
 
 # Presentation
 presentation.html
 dashboard.jpg
 calendar.jpg
 .worktrees/
+
+# Playwright
+test-results/
+playwright-report/
+e2e/.auth/

@@ -268,7 +268,7 @@
 			<span class="toggle-dot"></span>
 			Onboarding
 		</button>
-		<button class="btn btn-sm" onclick={() => (showTodayBreakdown = true)}>
+		<button class="btn btn-sm" data-testid="calendar-today-breakdown" onclick={() => (showTodayBreakdown = true)}>
 			Today's Breakdown
 		</button>
 		{#if data.permissions.canEditCalendar && canManageConfig}

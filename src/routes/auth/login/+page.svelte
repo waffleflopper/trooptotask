@@ -44,7 +44,7 @@
 			}}
 		>
 			{#if form?.error}
-				<div class="error-message">
+				<div class="error-message" data-testid="login-error">
 					<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
 						<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
 					</svg>
@@ -59,6 +59,7 @@
 					name="email"
 					type="email"
 					class="input"
+					data-testid="login-email"
 					value={form?.email ?? ''}
 					required
 					autocomplete="email"
@@ -73,13 +74,14 @@
 					name="password"
 					type="password"
 					class="input"
+					data-testid="login-password"
 					required
 					autocomplete="current-password"
 					placeholder="Enter your password"
 				/>
 			</div>
 
-			<button type="submit" class="btn-sign-in" disabled={loading}>
+			<button type="submit" class="btn-sign-in" data-testid="login-submit" disabled={loading}>
 				{#if loading}
 					<span class="spinner"></span>
 					Signing in...

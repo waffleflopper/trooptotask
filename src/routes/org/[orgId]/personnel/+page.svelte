@@ -248,7 +248,7 @@
 			<button class="btn-ghost" onclick={() => (showGroupManager = true)} disabled={readOnly}>
 				Manage Groups
 			</button>
-			<button class="btn btn-sm btn-primary" onclick={handleAdd} disabled={readOnly}>
+			<button class="btn btn-sm btn-primary" data-testid="add-personnel-btn" onclick={handleAdd} disabled={readOnly}>
 				Add Person
 			</button>
 			{#if readOnly}
@@ -288,6 +288,7 @@
 			<input
 				type="text"
 				class="input search-input"
+				data-testid="personnel-search"
 				placeholder="Search by name, rank, or role..."
 				bind:value={searchQuery}
 			/>
@@ -321,7 +322,7 @@
 					onAction={data.permissions.canEditPersonnel ? handleAdd : undefined}
 				/>
 			{:else if viewMode === 'alphabetical'}
-				<div class="personnel-list">
+				<div class="personnel-list" data-testid="personnel-list">
 					{#each alphabeticalPersonnel as person (person.id)}
 						{#if data.permissions.canEditPersonnel}
 							<button class="person-row" onclick={() => handleEdit(person)}>

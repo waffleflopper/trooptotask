@@ -27,11 +27,11 @@
 
 	// Hydrate stores with server data
 	$effect(() => {
-		personnelStore.load(data.personnel, data.orgId);
-		groupsStore.load(data.groups, data.orgId);
-		statusTypesStore.load(data.statusTypes, data.orgId);
-		trainingTypesStore.load(data.trainingTypes, data.orgId);
-		personnelTrainingsStore.load(data.personnelTrainings, data.orgId);
+		personnelStore.load(data.personnel ?? [], data.orgId);
+		groupsStore.load(data.groups ?? [], data.orgId);
+		statusTypesStore.load(data.statusTypes ?? [], data.orgId);
+		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
+		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);
 		onboardingTemplateStore.load(data.onboardingTemplateSteps, data.orgId);
 		onboardingStore.load(data.onboardings, data.orgId);
 	});
@@ -350,7 +350,7 @@
 		{/if}
 	</PageToolbar>
 
-	{#if !data.permissions.canViewOnboarding}
+	{#if !data.permissions?.canViewOnboarding}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>

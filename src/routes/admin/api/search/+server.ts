@@ -42,7 +42,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	// Search organizations by name (parameterized via .ilike())
 	const { data: orgs } = await adminClient
 		.from('organizations')
-		.select('id, name, subscription_tier, demo_type')
+		.select('id, name, tier, demo_type')
 		.is('demo_type', null)
 		.ilike('name', `%${query}%`)
 		.limit(5);
@@ -57,7 +57,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			return {
 				id: org.id,
 				name: org.name,
-				tier: org.subscription_tier ?? 'free',
+				tier: org.tier ?? 'free',
 				personnelCount: count ?? 0
 			};
 		})

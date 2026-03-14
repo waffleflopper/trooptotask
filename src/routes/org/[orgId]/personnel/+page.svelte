@@ -28,8 +28,8 @@
 	let { data } = $props();
 
 	$effect(() => {
-		personnelStore.load(data.personnel, data.orgId);
-		groupsStore.load(data.groups, data.orgId);
+		personnelStore.load(data.personnel ?? [], data.orgId);
+		groupsStore.load(data.groups ?? [], data.orgId);
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
 		ratingSchemeStore.load(data.ratingSchemeEntries, data.orgId);
 	});
@@ -118,7 +118,7 @@
 		showPersonnelModal = true;
 	}
 
-	const canAddPersonnel = $derived(data.permissions.canEditPersonnel && !data.scopedGroupId);
+	const canAddPersonnel = $derived((data.permissions?.canEditPersonnel ?? false) && !data.scopedGroupId);
 
 	const personnelOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
@@ -222,7 +222,7 @@
 		const entry = ratingSchemeStore.list.find((e) => e.id === id);
 		const result = await ratingSchemeStore.remove(id);
 		if (result === 'approval_required' && entry) {
-			const allPeople = data.allPersonnel ?? data.personnel;
+			const allPeople = data.allPersonnel ?? data.personnel ?? [];
 			const person = allPeople.find((p: Personnel) => p.id === entry.ratedPersonId);
 			const desc = person
 				? `Rating scheme entry for ${person.rank} ${person.lastName}`
@@ -257,7 +257,7 @@
 		{/if}
 	</PageToolbar>
 
-	{#if !data.permissions.canViewPersonnel}
+	{#if !data.permissions?.canViewPersonnel}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
@@ -318,13 +318,13 @@
 			{#if totalPersonnel === 0}
 				<EmptyState
 					message="No personnel added yet."
-					actionLabel={data.permissions.canEditPersonnel ? 'Add Person' : undefined}
-					onAction={data.permissions.canEditPersonnel ? handleAdd : undefined}
+					actionLabel={data.permissions?.canEditPersonnel ? 'Add Person' : undefined}
+					onAction={data.permissions?.canEditPersonnel ? handleAdd : undefined}
 				/>
 			{:else if viewMode === 'alphabetical'}
 				<div class="personnel-list" data-testid="personnel-list">
 					{#each alphabeticalPersonnel as person (person.id)}
-						{#if data.permissions.canEditPersonnel}
+						{#if data.permissions?.canEditPersonnel}
 							<button class="person-row" onclick={() => handleEdit(person)}>
 								<div class="person-info">
 									<span class="rank">{person.rank}</span>
@@ -381,7 +381,7 @@
 							{#if !collapsedGroups.has(grp.group)}
 								<div class="group-personnel">
 									{#each grp.personnel as person (person.id)}
-										{#if data.permissions.canEditPersonnel}
+										{#if data.permissions?.canEditPersonnel}
 											<button class="person-row" onclick={() => handleEdit(person)}>
 												<div class="person-info">
 													<span class="rank">{person.rank}</span>
@@ -441,7 +441,7 @@
 		</div>
 
 		<div class="rating-toolbar">
-			{#if data.permissions.canEditPersonnel}
+			{#if data.permissions?.canEditPersonnel}
 				<button class="btn btn-sm btn-primary" onclick={handleAddRatingEntry} disabled={readOnly}>
 					Add Entry
 				</button>
@@ -495,13 +495,13 @@
 			{#if ratingViewMode === 'grouped'}
 				<RatingSchemeGroupedView
 					entries={filteredRatingEntries}
-					personnel={data.allPersonnel ?? data.personnel}
+					personnel={data.allPersonnel ?? data.personnel ?? []}
 					onEdit={handleEditRatingEntry}
 				/>
 			{:else}
 				<RatingSchemeTableView
 					entries={filteredRatingEntries}
-					personnel={data.allPersonnel ?? data.personnel}
+					personnel={data.allPersonnel ?? data.personnel ?? []}
 					onEdit={handleEditRatingEntry}
 				/>
 			{/if}
@@ -513,7 +513,7 @@
 {#if showRatingModal}
 	<RatingSchemeEntryModal
 		entry={editingEntry}
-		personnel={data.allPersonnel ?? data.personnel}
+		personnel={data.allPersonnel ?? data.personnel ?? []}
 		onSave={handleSaveRatingEntry}
 		onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
 		onClose={() => { showRatingModal = false; editingEntry = null; }}

@@ -2,6 +2,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
 	import TransferOwnershipModal from '$lib/components/admin/TransferOwnershipModal.svelte';
+	import GiftTierModal from '$lib/components/admin/GiftTierModal.svelte';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
 	import { invalidateAll } from '$app/navigation';
 
@@ -21,6 +22,7 @@
 
 	let showSuspendModal = $state(false);
 	let showTransferModal = $state(false);
+	let showGiftModal = $state(false);
 
 	function tierLabel(tier: string) {
 		return tier.charAt(0).toUpperCase() + tier.slice(1);
@@ -33,6 +35,11 @@
 
 	async function handleTransferComplete() {
 		showTransferModal = false;
+		await invalidateAll();
+	}
+
+	async function handleGiftComplete() {
+		showGiftModal = false;
 		await invalidateAll();
 	}
 </script>
@@ -74,7 +81,7 @@
 
 		<!-- Quick Actions -->
 		<div class="actions-bar">
-			<a href="/admin/gifting?orgId={data.org.id}" class="btn btn-secondary btn-sm">Gift Tier</a>
+			<button class="btn btn-secondary btn-sm" onclick={() => (showGiftModal = true)}>Gift Tier</button>
 			<button class="btn btn-secondary btn-sm" onclick={() => (showTransferModal = true)}>
 				Transfer Ownership
 			</button>
@@ -215,6 +222,17 @@
 		members={data.members}
 		onClose={() => (showTransferModal = false)}
 		onComplete={handleTransferComplete}
+	/>
+{/if}
+
+{#if showGiftModal}
+	<GiftTierModal
+		orgId={data.org.id}
+		orgName={data.org.name}
+		currentGiftTier={data.org.giftTier}
+		giftExpiresAt={data.org.giftExpiresAt}
+		onClose={() => (showGiftModal = false)}
+		onComplete={handleGiftComplete}
 	/>
 {/if}
 

@@ -12,11 +12,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const adminClient = getAdminClient();
 
-	const { data: orgs } = await adminClient
+	const { data: orgs, error: orgsError } = await adminClient
 		.from('organizations')
-		.select('id, name, subscription_tier, gift_tier, suspended_at, created_at, demo_type')
+		.select('id, name, tier, gift_tier, suspended_at, created_at, demo_type')
 		.is('demo_type', null)
 		.order('created_at', { ascending: false });
+
+	if (orgsError) {
+		console.error('Admin orgs query failed:', orgsError.message);
+	}
 
 	// Enrich with member counts, personnel counts, and owner email
 	const enrichedOrgs = await Promise.all(
@@ -50,7 +54,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 			return {
 				...org,
-				effectiveTier: (org.gift_tier ?? org.subscription_tier ?? 'free') as string,
+				effectiveTier: (org.gift_tier ?? org.tier ?? 'free') as string,
 				memberCount: memberCount ?? 0,
 				personnelCount: personnelCount ?? 0,
 				ownerEmail,

@@ -11,9 +11,9 @@
 	<main class="page-content">
 		<CalendarReports
 			orgId={data.orgId}
-			personnel={data.allPersonnel}
-			statusTypes={data.statusTypes}
-			groups={data.groups}
+			personnel={data.allPersonnel ?? []}
+			statusTypes={data.statusTypes ?? []}
+			groups={data.groups ?? []}
 		/>
 	</main>
 </div>

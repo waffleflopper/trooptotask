@@ -10,8 +10,8 @@ test.describe('Training Records', () => {
 
 		// Verify matrix is visible with seed training types
 		await expect(trainingPage.trainingMatrix).toBeVisible();
-		await expect(ownerPage.getByText('Weapons Qualification')).toBeVisible();
-		await expect(ownerPage.getByText('First Aid')).toBeVisible();
+		await expect(ownerPage.getByText('Weapons Qualification').first()).toBeVisible();
+		await expect(ownerPage.getByText('First Aid').first()).toBeVisible();
 	});
 
 	test('add a training record', async ({ ownerPage, orgId }) => {
@@ -19,6 +19,8 @@ test.describe('Training Records', () => {
 		await trainingPage.goto(orgId);
 
 		await trainingPage.addRecord('Doe', 'Weapons Qualification');
+
+		// Verify the training matrix still shows the training type
 		await trainingPage.expectRecordVisible('Doe', 'Weapons Qualification');
 	});
 });

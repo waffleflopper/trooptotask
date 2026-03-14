@@ -1,6 +1,6 @@
 // All IDs are hardcoded for deterministic setup/teardown
-export const TEST_ORG_ID = '00000000-e2e0-test-0000-000000000001';
-export const TEST_GROUP_ID = '00000000-e2e0-test-0000-000000000002';
+export const TEST_ORG_ID = '00000000-e2e0-7e57-0000-000000000001';
+export const TEST_GROUP_ID = '00000000-e2e0-7e57-0000-000000000002';
 
 export const TEST_USERS = {
 	owner: {
@@ -34,18 +34,18 @@ export const TEST_GROUP = {
 
 // Seed personnel for predictable assertions
 export const TEST_PERSONNEL = [
-	{ id: '00000000-e2e0-test-0000-000000000010', first_name: 'John', last_name: 'Doe', rank: 'SGT' },
-	{ id: '00000000-e2e0-test-0000-000000000011', first_name: 'Jane', last_name: 'Smith', rank: 'SPC' },
-	{ id: '00000000-e2e0-test-0000-000000000012', first_name: 'Bob', last_name: 'Jones', rank: 'PFC' }
+	{ id: '00000000-e2e0-7e57-0000-000000000010', first_name: 'John', last_name: 'Doe', rank: 'SGT' },
+	{ id: '00000000-e2e0-7e57-0000-000000000011', first_name: 'Jane', last_name: 'Smith', rank: 'SPC' },
+	{ id: '00000000-e2e0-7e57-0000-000000000012', first_name: 'Bob', last_name: 'Jones', rank: 'PFC' }
 ];
 
 export const TEST_STATUS_TYPES = [
-	{ id: '00000000-e2e0-test-0000-000000000020', name: 'Present', color: '#22c55e', text_color: '#ffffff', sort_order: 0 },
-	{ id: '00000000-e2e0-test-0000-000000000021', name: 'Leave', color: '#3b82f6', text_color: '#ffffff', sort_order: 1 },
-	{ id: '00000000-e2e0-test-0000-000000000022', name: 'TDY', color: '#f59e0b', text_color: '#000000', sort_order: 2 }
+	{ id: '00000000-e2e0-7e57-0000-000000000020', name: 'Present', color: '#22c55e', text_color: '#ffffff', sort_order: 0 },
+	{ id: '00000000-e2e0-7e57-0000-000000000021', name: 'Leave', color: '#3b82f6', text_color: '#ffffff', sort_order: 1 },
+	{ id: '00000000-e2e0-7e57-0000-000000000022', name: 'TDY', color: '#f59e0b', text_color: '#000000', sort_order: 2 }
 ];
 
 export const TEST_TRAINING_TYPES = [
-	{ id: '00000000-e2e0-test-0000-000000000030', name: 'Weapons Qualification', sort_order: 0 },
-	{ id: '00000000-e2e0-test-0000-000000000031', name: 'First Aid', sort_order: 1 }
+	{ id: '00000000-e2e0-7e57-0000-000000000030', name: 'Weapons Qualification', sort_order: 0 },
+	{ id: '00000000-e2e0-7e57-0000-000000000031', name: 'First Aid', sort_order: 1 }
 ];

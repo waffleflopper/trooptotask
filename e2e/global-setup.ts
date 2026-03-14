@@ -7,27 +7,63 @@ import {
 	TEST_STATUS_TYPES,
 	TEST_TRAINING_TYPES
 } from './fixtures/test-data';
-import { chromium } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
 
 async function globalSetup() {
 	// env vars loaded by supabase.ts via dotenv/config
+
+	// 0. Clean up any leftover data from a previous failed run
+	// Delete in FK-safe order (same as teardown)
+	const orgId = TEST_ORG.id;
+	await adminClient.from('counseling_records').delete().eq('organization_id', orgId);
+	await adminClient.from('availability_entries').delete().eq('organization_id', orgId);
+	await adminClient.from('personnel_trainings').delete().eq('organization_id', orgId);
+	await adminClient.from('deletion_requests').delete().eq('organization_id', orgId);
+	await adminClient.from('personnel').delete().eq('organization_id', orgId);
+	await adminClient.from('status_types').delete().eq('organization_id', orgId);
+	await adminClient.from('training_types').delete().eq('organization_id', orgId);
+	await adminClient.from('counseling_types').delete().eq('organization_id', orgId);
+	await adminClient.from('organization_memberships').delete().eq('organization_id', orgId);
+	await adminClient.from('groups').delete().eq('organization_id', orgId);
+	await adminClient.from('audit_logs').delete().eq('organization_id', orgId);
+	await adminClient.from('notifications').delete().eq('organization_id', orgId);
+	await adminClient.from('organizations').delete().eq('id', orgId);
 
 	// 1. Create test users via Supabase Admin API
 	const userIds: Record<string, string> = {};
 
 	for (const [role, userData] of Object.entries(TEST_USERS)) {
-		// Delete user if exists from previous failed run
-		const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-		const existing = existingUsers?.users?.find((u) => u.email === userData.email);
-		if (existing) {
-			await adminClient.auth.admin.deleteUser(existing.id);
-		}
-
-		const { data, error } = await adminClient.auth.admin.createUser({
+		// Try to create user; if already exists, delete and recreate
+		let { data, error } = await adminClient.auth.admin.createUser({
 			email: userData.email,
 			password: userData.password,
 			email_confirm: true
 		});
+
+		if (error?.message?.includes('already been registered')) {
+			// Find by listing users with pagination
+			let page = 1;
+			let found = false;
+			while (!found) {
+				const { data: listData } = await adminClient.auth.admin.listUsers({ page, perPage: 100 });
+				const existing = listData?.users?.find((u) => u.email === userData.email);
+				if (existing) {
+					await adminClient.auth.admin.deleteUser(existing.id);
+					found = true;
+				}
+				if (!listData?.users?.length || listData.users.length < 100) break;
+				page++;
+			}
+			// Retry create
+			const retry = await adminClient.auth.admin.createUser({
+				email: userData.email,
+				password: userData.password,
+				email_confirm: true
+			});
+			data = retry.data;
+			error = retry.error;
+		}
 
 		if (error) throw new Error(`Failed to create ${role} user: ${error.message}`);
 		userIds[role] = data.user.id;
@@ -104,29 +140,85 @@ async function globalSetup() {
 	}
 
 	// 8. Create authenticated storageState files for each role
-	// We log in through the actual login UI to ensure cookies are set correctly
-	// by @supabase/ssr (chunked sb-<ref>-auth-token cookies)
-	const browser = await chromium.launch();
+	// Sign in programmatically via Supabase client to avoid GoTrue rate limits,
+	// then write Playwright-compatible storageState JSON with the auth cookies.
+	const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
+	const anonKey = process.env.PUBLIC_SUPABASE_ANON_KEY || '';
+
+	// Ensure auth directory exists
+	fs.mkdirSync('e2e/.auth', { recursive: true });
 
 	for (const [role, userData] of Object.entries(TEST_USERS)) {
-		const context = await browser.newContext();
-		const page = await context.newPage();
+		const client = createClient(supabaseUrl, anonKey, {
+			auth: { autoRefreshToken: false, persistSession: false }
+		});
 
-		// Log in through the real login form
-		await page.goto('http://localhost:5173/auth/login');
-		await page.fill('#email', userData.email);
-		await page.fill('#password', userData.password);
-		await page.click('.btn-sign-in');
+		const { data, error: signInError } = await client.auth.signInWithPassword({
+			email: userData.email,
+			password: userData.password
+		});
 
-		// Wait for redirect to dashboard (confirms login succeeded + cookies set)
-		await page.waitForURL('**/dashboard**', { timeout: 15000 });
+		if (signInError || !data.session) {
+			throw new Error(`Failed to sign in ${role}: ${signInError?.message || 'no session'}`);
+		}
 
-		// Save storage state
-		await context.storageState({ path: `e2e/.auth/${role}.json` });
-		await context.close();
+		// Build the cookie value that @supabase/ssr expects
+		// Cookie name: sb-{ref}-auth-token where ref is extracted from URL hostname
+		const url = new URL(supabaseUrl);
+		const ref = url.hostname.split('.')[0]; // '127' for local, project ref for hosted
+		const cookieName = `sb-${ref}-auth-token`;
+
+		// The session is stored as base64url-encoded JSON, potentially chunked
+		const sessionStr = JSON.stringify({
+			access_token: data.session.access_token,
+			refresh_token: data.session.refresh_token,
+			expires_at: data.session.expires_at,
+			expires_in: data.session.expires_in,
+			token_type: data.session.token_type,
+			user: data.session.user
+		});
+
+		// @supabase/ssr uses chunked cookies with max ~3180 chars per chunk
+		const CHUNK_SIZE = 3180;
+		const cookies: Array<Record<string, unknown>> = [];
+
+		if (sessionStr.length <= CHUNK_SIZE) {
+			cookies.push({
+				name: cookieName,
+				value: `base64-${Buffer.from(sessionStr).toString('base64url')}`,
+				domain: 'localhost',
+				path: '/',
+				httpOnly: false,
+				secure: false,
+				sameSite: 'Lax',
+				expires: data.session.expires_at || -1
+			});
+		} else {
+			// Chunk the session string
+			const encoded = `base64-${Buffer.from(sessionStr).toString('base64url')}`;
+			const chunks = Math.ceil(encoded.length / CHUNK_SIZE);
+			for (let i = 0; i < chunks; i++) {
+				cookies.push({
+					name: `${cookieName}.${i}`,
+					value: encoded.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
+					domain: 'localhost',
+					path: '/',
+					httpOnly: false,
+					secure: false,
+					sameSite: 'Lax',
+					expires: data.session.expires_at || -1
+				});
+			}
+		}
+
+		// Write Playwright storageState JSON
+		const storageState = {
+			cookies,
+			origins: []
+		};
+
+		fs.writeFileSync(`e2e/.auth/${role}.json`, JSON.stringify(storageState, null, 2));
 	}
-
-	await browser.close();
 
 	console.log('E2E global setup complete: users, org, and auth states created.');
 }

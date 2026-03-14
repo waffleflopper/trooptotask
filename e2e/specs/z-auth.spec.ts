@@ -22,7 +22,10 @@ test.describe('Authentication', () => {
 
 	test('login with empty fields shows validation error', async ({ page }) => {
 		await loginPage.submitButton.click();
-		await loginPage.expectError();
+		// Browser native validation prevents form submission — email field should show validity error
+		const emailInput = loginPage.emailInput;
+		const isInvalid = await emailInput.evaluate((el: HTMLInputElement) => !el.validity.valid);
+		expect(isInvalid).toBe(true);
 	});
 
 	test('logout redirects to login page', async ({ browser }) => {
@@ -34,7 +37,8 @@ test.describe('Authentication', () => {
 		await page.goto('/auth/logout');
 		// Logout redirects to '/' which then redirects to '/auth/login'
 		await page.waitForURL('**/', { timeout: 10000 });
-		await expect(page).toHaveURL(/^\/$|\/auth\/login/);
+		await expect(page).toHaveURL(/\/auth\/login|\/$/);
+
 		await context.close();
 	});
 });

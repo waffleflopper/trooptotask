@@ -10,34 +10,46 @@ export class LeadersBookPage {
 
 	async goto(orgId: string) {
 		await this.page.goto(`/org/${orgId}/leaders-book`);
+		await expect(this.page.getByText('Personnel').first()).toBeVisible({ timeout: 10000 });
+		await this.page.waitForLoadState('networkidle');
 	}
 
 	async selectPerson(name: string) {
-		await this.page.getByText(name).click();
+		const personCard = this.page.getByRole('button', { name: new RegExp(name) }).first();
+		await personCard.click();
+		// Wait for the SoldierLeadersBookView to load — has "Counselings" card with "+ New" button
+		await expect(this.page.locator('.card').filter({ hasText: 'Counselings' })).toBeVisible({ timeout: 10000 });
 	}
 
 	async addCounselingRecord() {
-		await this.page.getByTestId('add-counseling-btn').click();
+		// Click the "+ New" button in the Counselings card header
+		// The Counselings section has a header with "Counselings (N)" and a "+ New" button
+		const counselingsCard = this.page.locator('.card').filter({ hasText: 'Counselings' });
+		await counselingsCard.getByRole('button', { name: '+ New' }).click();
+		// Wait for CounselingRecordModal to open
+		await expect(this.page.getByRole('heading', { name: /New Counseling/ })).toBeVisible({ timeout: 5000 });
 	}
 
-	async fillCounselingForm(data: { type?: string; notes?: string }) {
-		if (data.type) {
-			const typeSelect = this.page.getByTestId('counseling-type');
-			await typeSelect.selectOption(data.type);
+	async fillCounselingForm(data: { type?: string; subject?: string; notes?: string }) {
+		if (data.subject) {
+			// Subject is a required field with placeholder "Subject of counseling..."
+			await this.page.getByPlaceholder('Subject of counseling...').fill(data.subject);
 		}
 		if (data.notes) {
-			const notesInput = this.page.getByTestId('counseling-notes');
-			await notesInput.fill(data.notes);
+			// Notes textarea with placeholder "Brief notes or comments..."
+			await this.page.getByPlaceholder('Brief notes or comments...').fill(data.notes);
 		}
 	}
 
 	async saveCounseling() {
-		const saveButton = this.page.getByTestId('counseling-save');
+		// Click the Save button in the modal footer
+		const saveButton = this.page.getByRole('button', { name: 'Save', exact: true });
 		await saveButton.click();
-		await saveButton.waitFor({ state: 'hidden', timeout: 5000 });
+		// Wait for modal to close
+		await expect(this.page.getByRole('heading', { name: /New Counseling/ })).not.toBeVisible({ timeout: 5000 });
 	}
 
 	async expectRecordVisible(text: string) {
-		await expect(this.page.getByText(text)).toBeVisible();
+		await expect(this.page.getByText(text).first()).toBeVisible();
 	}
 }

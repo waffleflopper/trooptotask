@@ -25,6 +25,11 @@ jobs:
         env:
           PUBLIC_SUPABASE_URL: http://localhost:54321
           PUBLIC_SUPABASE_ANON_KEY: dummy-key-for-type-check
+          PUBLIC_BILLING_ENABLED: 'false'
+          STRIPE_SECRET_KEY: sk_test_dummy
+          STRIPE_WEBHOOK_SECRET: whsec_dummy
+          STRIPE_TEAM_PRICE_ID: price_dummy_team
+          STRIPE_UNIT_PRICE_ID: price_dummy_unit
 
       - name: Unit tests
         run: npm test

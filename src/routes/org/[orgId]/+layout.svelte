@@ -5,6 +5,7 @@
 	import { demoModeStore } from '$lib/stores/demoMode.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
 	import DemoBanner from '$lib/components/DemoBanner.svelte';
 	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
 	import DemoSandboxModal from '$lib/components/DemoSandboxModal.svelte';
@@ -73,6 +74,9 @@
 	</div>
 {:else}
 	<NavigationProgress />
+	{#if data.activeAnnouncements?.length}
+		<AnnouncementBanner announcements={data.activeAnnouncements} />
+	{/if}
 	<DemoBanner />
 	<SubscriptionBanner orgId={data.orgId} />
 

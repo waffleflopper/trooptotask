@@ -173,8 +173,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	// For non-demo access, require login
 	if (!user) throw redirect(303, '/auth/login');
 
-	// Parallelize: membership + allOrgs (single query), shared entity data, and tier
-	const [membershipsRes, shared, effectiveTier, notificationCountRes] = await Promise.all([
+	// Parallelize: membership + allOrgs (single query), shared entity data, tier, and announcements
+	const [membershipsRes, shared, effectiveTier, notificationCountRes, announcementsRes, dismissalsRes] = await Promise.all([
 		locals.supabase
 			.from('organization_memberships')
 			.select(
@@ -188,7 +188,16 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			.select('id', { count: 'exact', head: true })
 			.eq('user_id', user.id)
 			.eq('organization_id', orgId)
-			.eq('read', false)
+			.eq('read', false),
+		supabase
+			.from('platform_announcements')
+			.select('id, title, message, type')
+			.eq('is_active', true)
+			.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
+		locals.supabase
+			.from('announcement_dismissals')
+			.select('announcement_id')
+			.eq('user_id', user.id)
 	]);
 
 	const allMemberships = membershipsRes.data ?? [];
@@ -242,6 +251,10 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		activeOnboardingPersonnelIds = activeOnboardingPersonnelIds.filter((id: string) => scopedPersonnelIds.has(id));
 	}
 
+	// Filter out dismissed announcements
+	const dismissedIds = new Set((dismissalsRes.data ?? []).map((d: any) => d.announcement_id));
+	const activeAnnouncements = (announcementsRes.data ?? []).filter((a: any) => !dismissedIds.has(a.id));
+
 	return {
 		orgId,
 		orgName: org.name,
@@ -257,6 +270,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		effectiveTier,
 		isDemoReadOnly: false,
 		isDemoSandbox: false,
+		activeAnnouncements,
 		personnel,
 		allPersonnel,
 		groups,

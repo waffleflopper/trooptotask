@@ -70,7 +70,7 @@
 			<h1>Organization Suspended</h1>
 			<p>This organization ({data.orgName}) has been suspended. If you believe this is an error, please contact support.</p>
 			<p class="contact">support@trooptotask.com</p>
-			<a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+			<a href="/dashboard?show=all" class="btn btn-secondary">Back to Dashboard</a>
 		</div>
 	</div>
 {:else}

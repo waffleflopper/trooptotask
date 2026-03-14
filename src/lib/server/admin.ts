@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { validateUUID } from './validation';
 
 export type AdminRole = 'super_admin' | 'support' | 'billing';
 
@@ -57,6 +58,41 @@ export async function getAdminRole(
 	}
 
 	return data.role as AdminRole;
+}
+
+interface SuspendRequest {
+	type: string;
+	targetId: string;
+	action: string;
+	reason?: string;
+}
+
+interface SuspendValidation {
+	valid: boolean;
+	type?: 'user' | 'org';
+	targetId?: string;
+	action?: 'suspend' | 'unsuspend';
+	reason?: string;
+	error?: string;
+}
+
+export function validateSuspendRequest(req: SuspendRequest): SuspendValidation {
+	if (!req.type || !['user', 'org'].includes(req.type)) {
+		return { valid: false, error: 'Invalid type' };
+	}
+	if (!req.targetId || !validateUUID(req.targetId)) {
+		return { valid: false, error: 'Invalid target ID' };
+	}
+	if (!req.action || !['suspend', 'unsuspend'].includes(req.action)) {
+		return { valid: false, error: 'Invalid action' };
+	}
+	return {
+		valid: true,
+		type: req.type as 'user' | 'org',
+		targetId: req.targetId,
+		action: req.action as 'suspend' | 'unsuspend',
+		reason: req.reason?.trim() || undefined
+	};
 }
 
 export function validateSearchQuery(query: string): string | null {

@@ -44,6 +44,14 @@ const rules: RateLimitRule[] = [
 		maxRequests: 30,
 		methods: ['POST', 'PUT', 'DELETE']
 	},
+	// Admin search — moderate limit (debounced client-side)
+	{ pattern: /^\/admin\/api\/search$/, windowMs: 60_000, maxRequests: 30 },
+	// Admin suspend/unsuspend — strict limit
+	{ pattern: /^\/admin\/api\/suspend$/, windowMs: 60_000 * 15, maxRequests: 10, methods: ['POST'] },
+	// Admin announcements — moderate limit
+	{ pattern: /^\/admin\/announcements$/, windowMs: 60_000, maxRequests: 20, methods: ['POST'] },
+	// Announcement dismissals — per-user, moderate limit
+	{ pattern: /^\/api\/announcements\/dismiss$/, windowMs: 60_000, maxRequests: 20, methods: ['POST'] },
 	{ pattern: /.*/, windowMs: 60 * 1000, maxRequests: 60 }
 ];
 

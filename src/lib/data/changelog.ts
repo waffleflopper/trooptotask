@@ -6,7 +6,7 @@ export type ChangelogEntry = {
 };
 
 export const changelog: ChangelogEntry[] = [
-	{
+{
 		id: '2026-03-13-bulk-status-import',
 		date: '2026-03-13',
 		title: 'Import Statuses from Spreadsheets',

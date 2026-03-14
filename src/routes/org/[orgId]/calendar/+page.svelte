@@ -38,14 +38,14 @@
 
 	// Use allPersonnel for calendar display (shows all org members regardless of group scope)
 	// but scoped personnel for editing checks
-	const calendarPersonnel = $derived(data.allPersonnel ?? data.personnel);
-	const scopedPersonnelIds = $derived(new Set(data.personnel.map((p: Personnel) => p.id)));
+	const calendarPersonnel = $derived(data.allPersonnel ?? data.personnel ?? []);
+	const scopedPersonnelIds = $derived(new Set((data.personnel ?? []).map((p: Personnel) => p.id)));
 
 	// Hydrate stores with server data
 	$effect(() => {
-		personnelStore.load(data.personnel, data.orgId);
-		groupsStore.load(data.groups, data.orgId);
-		statusTypesStore.load(data.statusTypes, data.orgId);
+		personnelStore.load(data.personnel ?? [], data.orgId);
+		groupsStore.load(data.groups ?? [], data.orgId);
+		statusTypesStore.load(data.statusTypes ?? [], data.orgId);
 		availabilityStore.load(data.availabilityEntries, data.orgId);
 		specialDaysStore.load(data.specialDays, data.orgId);
 		dailyAssignmentsStore.load(data.assignmentTypes, data.dailyAssignments, data.orgId);
@@ -109,14 +109,14 @@
 	}
 
 	function handleCellClick(person: Personnel, date: Date) {
-		if (!data.permissions.canEditCalendar) return;
+		if (!data.permissions?.canEditCalendar) return;
 		if (data.scopedGroupId && !scopedPersonnelIds.has(person.id)) return;
 		selectedPerson = person;
 		selectedDate = date;
 	}
 
 	function handlePersonClick(person: Personnel) {
-		if (!data.permissions.canEditCalendar) return;
+		if (!data.permissions?.canEditCalendar) return;
 		if (data.scopedGroupId && !scopedPersonnelIds.has(person.id)) return;
 		selectedPerson = person;
 		selectedDate = new Date();
@@ -214,7 +214,7 @@
 
 		// Visible actions duplicated for mobile access
 		items.push({ label: "Today's Breakdown", onclick: () => (showTodayBreakdown = true) });
-		if (data.permissions.canEditCalendar) {
+		if (data.permissions?.canEditCalendar) {
 			if (canManageConfig) {
 				items.push({ label: 'Assignments', onclick: () => (showAssignmentPlanner = true), disabled: readOnly });
 			}
@@ -222,7 +222,7 @@
 		items.push({ label: '3-Month View', onclick: () => (showLongRangeView = true) });
 
 		// Additional tools
-		if (data.permissions.canEditCalendar) {
+		if (data.permissions?.canEditCalendar) {
 			if (canManageConfig) {
 				items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true, disabled: readOnly });
 				items.push({ label: 'Bulk Remove', onclick: () => (showBulkRemoveModal = true), disabled: readOnly });
@@ -271,7 +271,7 @@
 		<button class="btn btn-sm" data-testid="calendar-today-breakdown" onclick={() => (showTodayBreakdown = true)}>
 			Today's Breakdown
 		</button>
-		{#if data.permissions.canEditCalendar && canManageConfig}
+		{#if data.permissions?.canEditCalendar && canManageConfig}
 			<button class="btn btn-sm" onclick={() => (showAssignmentPlanner = true)} disabled={readOnly}>
 				Assignments
 			</button>
@@ -284,7 +284,7 @@
 		{/if}
 	</PageToolbar>
 
-	{#if !data.permissions.canViewCalendar}
+	{#if !data.permissions?.canViewCalendar}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
@@ -305,7 +305,7 @@
 				assignments={dailyAssignmentsStore.assignments}
 				activeOnboardingPersonnelIds={data.activeOnboardingPersonnelIds}
 				highlightOnboarding={highlightOnboarding}
-				canEdit={data.permissions.canEditCalendar}
+				canEdit={data.permissions?.canEditCalendar ?? false}
 				showStatusText={calendarPrefsStore.showStatusText}
 				personnelHref={`/org/${data.orgId}/personnel`}
 				onPrevMonth={() => calendarStore.prevMonth()}

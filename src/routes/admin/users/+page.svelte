@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import PlatformInviteManager from '$features/groups/components/PlatformInviteManager.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
+	import Badge from '$lib/components/ui/Badge.svelte';
 
 	let { data } = $props();
 	let showPlatformInvite = $state(false);
@@ -79,6 +80,7 @@
 					<th>User</th>
 					<th>Organizations</th>
 					<th>Joined</th>
+					<th>Status</th>
 					<th></th>
 				</tr>
 			</thead>
@@ -92,12 +94,19 @@
 						<td>{user.organizationCount}</td>
 						<td>{formatDisplayDate(user.createdAt)}</td>
 						<td>
+							{#if user.isSuspended}
+								<Badge label="SUSPENDED" color="#dc2626" />
+							{:else}
+								<Badge label="ACTIVE" color="#16a34a" />
+							{/if}
+						</td>
+						<td>
 							<a href="/admin/users/{user.id}" class="view-btn">View</a>
 						</td>
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="4" class="empty-state">No users found</td>
+						<td colspan="5" class="empty-state">No users found</td>
 					</tr>
 				{/each}
 			</tbody>

@@ -155,9 +155,9 @@
 			orgId={data.orgId}
 			members={data.members}
 			invitations={data.invitations}
-			isOwner={data.isOwner}
-			isAdmin={data.isAdmin}
-			canManageMembers={data.canManageMembers}
+			isOwner={data.isOwner ?? false}
+			isAdmin={data.isAdmin ?? false}
+			canManageMembers={data.canManageMembers ?? false}
 			groups={data.groups}
 			form={form ?? undefined}
 		/>
@@ -178,7 +178,7 @@
 			</div>
 		{/if}
 
-		{#if data.isOwner || data.isAdmin || data.permissions.canManageMembers}
+		{#if data.isOwner || data.isAdmin || data.permissions?.canManageMembers}
 			<div class="settings-card">
 				<h2>Data Export</h2>
 				<p class="export-description">

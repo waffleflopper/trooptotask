@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { AvailabilityEntry, StatusType } from '$features/calendar/calendar.types';
+	import type { AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/calendar.types';
 	import type { AssignmentType, DailyAssignment } from '$features/calendar/stores/dailyAssignments.svelte';
 	import type { RosterHistoryItem, RosterHistoryEntry } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '$lib/utils/dates';
@@ -14,6 +14,7 @@
 		groups: string[];
 		availabilityEntries: AvailabilityEntry[];
 		statusTypes: StatusType[];
+		specialDays: SpecialDay[];
 		rosterHistory: RosterHistoryItem[];
 		onApplyRoster: (assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]) => Promise<void>;
 		onSaveRoster: (payload: Omit<RosterHistoryItem, 'id' | 'createdAt'>) => Promise<RosterHistoryItem | null>;
@@ -29,6 +30,7 @@
 		groups,
 		availabilityEntries,
 		statusTypes,
+		specialDays,
 		rosterHistory,
 		onApplyRoster,
 		onSaveRoster,
@@ -61,6 +63,9 @@
 	let selectedMOS = $state<string[]>([]);
 	let selectedRoles = $state<string[]>([]);
 	let excludeStatuses = $state<string[]>([]);
+	let excludeWeekends = $state(false);
+	let excludeHolidays = $state(false);
+	let excludeOrgClosures = $state(false);
 
 	// Generated roster state
 	let generatedRoster = $state<{ date: string; assignee: Personnel | null; reason?: string }[]>([]);
@@ -195,7 +200,17 @@
 		return true;
 	}
 
-	// Get dates based on duration
+	// Build set of excluded special day dates based on toggles
+	const excludedSpecialDays = $derived.by(() => {
+		const dates = new Set<string>();
+		for (const day of specialDays) {
+			if (excludeHolidays && day.type === 'federal-holiday') dates.add(day.date);
+			if (excludeOrgClosures && day.type === 'org-closure') dates.add(day.date);
+		}
+		return dates;
+	});
+
+	// Get dates based on duration, filtering out excluded days
 	function getDutyDates(start: string, end: string, duration: 'daily' | 'weekly' | 'monthly'): string[] {
 		const dates: string[] = [];
 		const startD = new Date(start + 'T00:00:00');
@@ -204,7 +219,13 @@
 		let current = new Date(startD);
 
 		while (current <= endD) {
-			dates.push(formatDate(current));
+			const dayOfWeek = current.getDay();
+			const dateStr = formatDate(current);
+			const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+			if (!(excludeWeekends && isWeekend) && !excludedSpecialDays.has(dateStr)) {
+				dates.push(dateStr);
+			}
 
 			switch (duration) {
 				case 'daily':
@@ -312,7 +333,10 @@
 				selectedRanks,
 				selectedMOS,
 				selectedRoles,
-				excludeStatuses
+				excludeStatuses,
+				excludeWeekends,
+				excludeHolidays,
+				excludeOrgClosures
 			}
 		});
 
@@ -718,6 +742,26 @@
 						</div>
 					</div>
 				</div>
+
+				<div class="config-section">
+					<h4>Schedule Options</h4>
+
+					<label class="toggle-row">
+						<input type="checkbox" bind:checked={excludeWeekends} />
+						<span>Exclude weekends (Sat & Sun)</span>
+					</label>
+
+					<label class="toggle-row">
+						<input type="checkbox" bind:checked={excludeHolidays} />
+						<span>Exclude federal holidays</span>
+					</label>
+
+					<label class="toggle-row">
+						<input type="checkbox" bind:checked={excludeOrgClosures} />
+						<span>Exclude org closures</span>
+					</label>
+
+					</div>
 
 				<div class="config-section">
 					<h4>Eligible Personnel</h4>
@@ -1161,5 +1205,21 @@
 		color: var(--color-primary);
 		margin-right: var(--spacing-xs);
 	}
+
+	.toggle-row {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		font-size: var(--font-size-sm);
+		cursor: pointer;
+		margin-bottom: var(--spacing-md);
+	}
+
+	.toggle-row input[type="checkbox"] {
+		width: 16px;
+		height: 16px;
+		accent-color: var(--color-primary);
+	}
+
 
 </style>

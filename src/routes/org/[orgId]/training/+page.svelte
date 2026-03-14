@@ -263,7 +263,7 @@
 		{:else if filteredPersonnel.length === 0}
 			<EmptyState message="No personnel found." />
 		{:else}
-			<div class="view-panel" class:hidden-view={viewMode !== 'alphabetical'}>
+			<div class="view-panel" data-testid="training-matrix" class:hidden-view={viewMode !== 'alphabetical'}>
 				<TrainingMatrix
 					personnel={filteredPersonnel}
 					trainingTypes={trainingTypesStore.list}

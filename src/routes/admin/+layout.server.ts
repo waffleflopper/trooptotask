@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { isPlatformAdmin, getAdminRole } from '$lib/server/admin';
+import { isPlatformAdmin, getAdminRole, getAccessiblePages } from '$lib/server/admin';
 import type { AdminRole } from '$lib/server/admin';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
@@ -15,10 +15,12 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 
 	// Get admin role
 	const role = await getAdminRole(locals.supabase, user.id);
+	const adminRole = role as AdminRole;
 
 	return {
 		adminUserId: user.id,
 		adminEmail: user.email,
-		adminRole: role as AdminRole
+		adminRole,
+		accessiblePages: getAccessiblePages(adminRole)
 	};
 };

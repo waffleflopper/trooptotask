@@ -54,11 +54,11 @@
 <div class="calendar-header">
 	<div class="navigation">
 		<div class="month-nav">
-			<button class="btn btn-secondary btn-sm" onclick={onPrevMonth}>
+			<button class="btn btn-secondary btn-sm" data-testid="calendar-prev-month" onclick={onPrevMonth}>
 				&larr; Prev
 			</button>
-			<h2 class="month-title">{monthName} {year}</h2>
-			<button class="btn btn-secondary btn-sm" onclick={onNextMonth}>
+			<h2 class="month-title" data-testid="calendar-month-label">{monthName} {year}</h2>
+			<button class="btn btn-secondary btn-sm" data-testid="calendar-next-month" onclick={onNextMonth}>
 				Next &rarr;
 			</button>
 		</div>

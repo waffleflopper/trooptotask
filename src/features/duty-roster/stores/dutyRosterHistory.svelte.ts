@@ -7,6 +7,11 @@ export interface RosterHistoryEntry {
 	reason?: string;
 }
 
+export interface DA6Data {
+	personnel: { id: string; name: string; rank: string; group: string }[];
+	dates: { date: string; positions: (number | null)[] }[];
+}
+
 export interface RosterHistoryItem {
 	id: string;
 	assignmentTypeId: string;
@@ -14,6 +19,7 @@ export interface RosterHistoryItem {
 	startDate: string;
 	endDate: string;
 	roster: RosterHistoryEntry[];
+	da6?: DA6Data;
 	config: Record<string, unknown>;
 	createdAt: string;
 }

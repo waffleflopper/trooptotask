@@ -10,7 +10,9 @@ import { auditLog } from '$lib/server/auditLog';
 import { notifyUser, notifyAdmins } from '$lib/server/notifications';
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
-	const { orgId, orgName, userRole, permissions, allOrgs, isAdmin, groups } = await parent();
+	const { orgId, orgName, userRole, permissions: _permissions, allOrgs, isAdmin, groups: _groups } = await parent();
+	const permissions = _permissions!;
+	const groups = _groups ?? [];
 
 	// Parallelize members + invitations queries
 	const [membershipsRes, invitationsRes] = await Promise.all([

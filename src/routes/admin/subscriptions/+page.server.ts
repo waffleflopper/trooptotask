@@ -12,11 +12,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const adminClient = getAdminClient();
 
-	const { data: orgs } = await adminClient
+	const { data: orgs, error: orgsError } = await adminClient
 		.from('organizations')
-		.select('id, name, subscription_tier, gift_tier, gift_expires_at, suspended_at, created_at')
+		.select('id, name, tier, gift_tier, gift_expires_at, suspended_at, created_at')
 		.is('demo_type', null)
 		.order('created_at', { ascending: false });
+
+	if (orgsError) {
+		console.error('Admin subscriptions query failed:', orgsError.message);
+	}
 
 	const tierCaps: Record<string, number | null> = { free: 15, team: 80, unit: null };
 
@@ -43,7 +47,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 				ownerEmail = ownerUser?.email ?? '';
 			}
 
-			const effectiveTier = (org.gift_tier ?? org.subscription_tier ?? 'free') as string;
+			const effectiveTier = (org.gift_tier ?? org.tier ?? 'free') as string;
 
 			return {
 				...org,

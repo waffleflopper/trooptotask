@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { validateUUID } from './validation';
+import { getAdminClient } from './supabase';
 
 export type AdminRole = 'super_admin' | 'support' | 'billing';
 
@@ -43,10 +44,11 @@ export function getAccessiblePages(role: AdminRole): string[] {
 }
 
 export async function getAdminRole(
-	supabase: SupabaseClient,
+	_supabase: SupabaseClient,
 	userId: string
 ): Promise<AdminRole | null> {
-	const { data, error: err } = await supabase
+	const adminClient = getAdminClient();
+	const { data, error: err } = await adminClient
 		.from('platform_admins')
 		.select('role')
 		.eq('user_id', userId)

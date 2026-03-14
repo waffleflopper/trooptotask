@@ -1,28 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import AdminSearch from '$lib/components/admin/AdminSearch.svelte';
+	import { themeStore } from '$lib/stores/theme.svelte';
 
 	let { children, data } = $props();
-
-	const navGroups = [
-		{ items: [{ label: 'Dashboard', href: '/admin', page: 'dashboard' }] },
-		{ label: 'SUPPORT', items: [
-			{ label: 'Users', href: '/admin/users', page: 'users' },
-			{ label: 'Organizations', href: '/admin/organizations', page: 'organizations' },
-			{ label: 'Access Requests', href: '/admin/access-requests', page: 'access-requests' },
-			{ label: 'Feedback', href: '/admin/feedback', page: 'feedback' },
-		]},
-		{ label: 'BILLING', items: [
-			{ label: 'Subscriptions', href: '/admin/subscriptions', page: 'subscriptions' },
-			{ label: 'Gifting', href: '/admin/gifting', page: 'gifting' },
-		]},
-		{ label: 'SYSTEM', items: [
-			{ label: 'Audit Log', href: '/admin/audit', page: 'audit' },
-			{ label: 'Announcements', href: '/admin/announcements', page: 'announcements' },
-		]},
-	];
-
-	const accessiblePages = data.accessiblePages ?? [];
 
 	function isActive(href: string): boolean {
 		if (href === '/admin') {
@@ -30,17 +11,6 @@
 		}
 		return $page.url.pathname.startsWith(href);
 	}
-
-	function getVisibleGroups() {
-		return navGroups
-			.map(group => ({
-				...group,
-				items: group.items.filter(item => accessiblePages.includes(item.page))
-			}))
-			.filter(group => group.items.length > 0);
-	}
-
-	const visibleGroups = $derived(getVisibleGroups());
 </script>
 
 <div class="admin-layout">
@@ -50,7 +20,7 @@
 		</div>
 
 		<nav class="sidebar-nav">
-			{#each visibleGroups as group}
+			{#each data.visibleNavGroups as group}
 				{#if group.label}
 					<div class="nav-group-label">{group.label}</div>
 				{/if}
@@ -83,6 +53,13 @@
 		<div class="admin-header">
 			<AdminSearch />
 			<div class="admin-header-right">
+				<button class="theme-toggle" onclick={() => themeStore.toggle()} title="Toggle dark/light mode">
+					{#if themeStore.isDark}
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+					{:else}
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+					{/if}
+				</button>
 				<span class="role-badge">{data.adminRole?.toUpperCase().replace('_', ' ')}</span>
 			</div>
 		</div>
@@ -215,6 +192,24 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
+	}
+
+	.theme-toggle {
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: 6px;
+		cursor: pointer;
+		color: var(--color-text-muted);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.15s;
+	}
+
+	.theme-toggle:hover {
+		background: var(--color-surface-variant);
+		color: var(--color-text);
 	}
 
 	.role-badge {

@@ -24,13 +24,13 @@
 
 	// Hydrate stores with server data
 	$effect(() => {
-		trainingTypesStore.load(data.trainingTypes, data.orgId);
-		personnelTrainingsStore.load(data.personnelTrainings, data.orgId);
+		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
+		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);
 	});
 
 	// Derive available roles client-side from personnel data
 	const availableRoles = $derived(
-		[...new Set(data.personnel.map((p: Personnel) => p.clinicRole))].filter(Boolean).sort()
+		[...new Set((data.personnel ?? []).map((p: Personnel) => p.clinicRole))].filter(Boolean).sort()
 	);
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
@@ -66,8 +66,8 @@
 	// Filter personnel by selected group
 	const basePersonnel = $derived(
 		selectedGroupId
-			? data.personnel.filter((p) => p.groupId === selectedGroupId)
-			: data.personnel
+			? (data.personnel ?? []).filter((p) => p.groupId === selectedGroupId)
+			: (data.personnel ?? [])
 	);
 
 	// Alphabetical view - sorted by name
@@ -80,7 +80,7 @@
 	);
 
 	// Grouped view - use shared utility with explicit group order
-	const groupOrder = $derived(data.groups.map((g) => g.name));
+	const groupOrder = $derived((data.groups ?? []).map((g) => g.name));
 	const personnelByGroup = $derived(
 		groupAndSortPersonnel(basePersonnel, {
 			groupOrder,
@@ -134,7 +134,7 @@
 		const training = personnelTrainingsStore.getById(id);
 		const result = await personnelTrainingsStore.remove(id);
 		if (result === 'approval_required' && training) {
-			const person = data.personnel.find((p: Personnel) => p.id === training.personnelId);
+			const person = (data.personnel ?? []).find((p: Personnel) => p.id === training.personnelId);
 			const type = trainingTypesStore.list.find((t) => t.id === training.trainingTypeId);
 			const desc = `${type?.name ?? 'Training'} record for ${person ? `${person.rank} ${person.lastName}` : 'unknown'}`;
 			await submitDeletionRequest(
@@ -194,7 +194,7 @@
 		{/if}
 	</PageToolbar>
 
-	{#if !data.permissions.canViewTraining}
+	{#if !data.permissions?.canViewTraining}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
@@ -257,8 +257,8 @@
 		{#if trainingTypesStore.list.length === 0}
 			<EmptyState
 				message="No training types defined yet."
-				actionLabel={data.permissions.canEditTraining ? 'Manage Types' : undefined}
-				onAction={data.permissions.canEditTraining ? () => (showTypeManager = true) : undefined}
+				actionLabel={data.permissions?.canEditTraining ? 'Manage Types' : undefined}
+				onAction={data.permissions?.canEditTraining ? () => (showTypeManager = true) : undefined}
 			/>
 		{:else if filteredPersonnel.length === 0}
 			<EmptyState message="No personnel found." />
@@ -268,8 +268,8 @@
 					personnel={filteredPersonnel}
 					trainingTypes={trainingTypesStore.list}
 					trainings={personnelTrainingsStore.list}
-					onCellClick={data.permissions.canEditTraining ? handleCellClick : undefined}
-					onPersonClick={data.permissions.canEditTraining ? handlePersonClick : undefined}
+					onCellClick={data.permissions?.canEditTraining ? handleCellClick : undefined}
+					onPersonClick={data.permissions?.canEditTraining ? handlePersonClick : undefined}
 				/>
 			</div>
 			<div class="view-panel" class:hidden-view={viewMode !== 'by-group'}>
@@ -349,7 +349,7 @@
 		personnel={filteredPersonnel}
 		trainingTypes={trainingTypesStore.list}
 		trainings={personnelTrainingsStore.list}
-		groups={data.groups}
+		groups={data.groups ?? []}
 		onClose={() => (showReports = false)}
 	/>
 {/if}
@@ -357,9 +357,9 @@
 {#if showSignInRosters}
 	<SignInRosterModal
 		orgId={data.orgId}
-		personnel={data.personnel}
-		groups={data.groups}
-		canEdit={data.permissions.canEditTraining}
+		personnel={data.personnel ?? []}
+		groups={data.groups ?? []}
+		canEdit={data.permissions?.canEditTraining ?? false}
 		onClose={() => (showSignInRosters = false)}
 	/>
 {/if}
@@ -367,7 +367,7 @@
 {#if showBulkImporter}
 	<BulkTrainingImporter
 		orgId={data.orgId}
-		personnel={data.personnel}
+		personnel={data.personnel ?? []}
 		trainingTypes={trainingTypesStore.list}
 		onImportComplete={handleBulkImportComplete}
 		onClose={() => (showBulkImporter = false)}

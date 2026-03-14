@@ -19,7 +19,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const [orgsResult, suspensionResult, auditResult] = await Promise.all([
 		adminClient
 			.from('organization_memberships')
-			.select('organization_id, role, organizations(id, name, subscription_tier, gift_tier)')
+			.select('organization_id, role, organizations(id, name, tier, gift_tier)')
 			.eq('user_id', userId),
 		adminClient
 			.from('user_suspensions')
@@ -52,7 +52,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		id: o.organizations?.id ?? null,
 		name: o.organizations?.name ?? 'Unknown',
 		role: o.role as string,
-		subscriptionTier: (o.organizations?.gift_tier ?? o.organizations?.subscription_tier ?? 'free') as string,
+		subscriptionTier: (o.organizations?.gift_tier ?? o.organizations?.tier ?? 'free') as string,
 		personnelCount: personnelCountMap[o.organizations?.id] ?? 0
 	}));
 

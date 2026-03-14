@@ -19,12 +19,12 @@ export const load: PageServerLoad = async () => {
 	// Subscription tier breakdown
 	const { data: orgTiers } = await adminClient
 		.from('organizations')
-		.select('subscription_tier, gift_tier')
+		.select('tier, gift_tier')
 		.is('demo_type', null);
 
 	const tierCounts = { free: 0, team: 0, unit: 0 };
 	for (const org of orgTiers ?? []) {
-		const effectiveTier = org.gift_tier ?? org.subscription_tier ?? 'free';
+		const effectiveTier = org.gift_tier ?? org.tier ?? 'free';
 		if (effectiveTier in tierCounts) {
 			tierCounts[effectiveTier as keyof typeof tierCounts]++;
 		}
@@ -50,7 +50,7 @@ export const load: PageServerLoad = async () => {
 		.limit(10);
 
 	return {
-		userStats: userStats ?? { total: 0, recent_30_days: 0 },
+		userStats: userStats ?? { total: 0, last_30_days: 0 },
 		signupTrend: signupTrend ?? [],
 		totalOrganizations: totalOrganizations ?? 0,
 		tierCounts,

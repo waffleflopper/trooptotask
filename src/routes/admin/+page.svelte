@@ -7,14 +7,14 @@
 	const paidCount = $derived(data.tierCounts.team + data.tierCounts.unit);
 	const recentPct = $derived(
 		data.userStats.total > 0
-			? Math.round((data.userStats.recent_30_days / data.userStats.total) * 100)
+			? Math.round((data.userStats.last_30_days / data.userStats.total) * 100)
 			: 0
 	);
 
 	// Bar chart: compute max for proportional heights
 	const maxSignups = $derived(
 		data.signupTrend.length > 0
-			? Math.max(...data.signupTrend.map((d: { signup_count: number }) => d.signup_count), 1)
+			? Math.max(...data.signupTrend.map((d: { count: number }) => d.count), 1)
 			: 1
 	);
 
@@ -64,7 +64,7 @@
 		<div class="stat-card">
 			<div class="stat-value">{data.userStats.total.toLocaleString()}</div>
 			<div class="stat-label">Total Users</div>
-			<div class="stat-sub">+{data.userStats.recent_30_days} in last 30 days ({recentPct}%)</div>
+			<div class="stat-sub">+{data.userStats.last_30_days} in last 30 days ({recentPct}%)</div>
 		</div>
 
 		<div class="stat-card">
@@ -97,19 +97,19 @@
 			<h2>Signups — Last 30 Days</h2>
 			{#if data.signupTrend.length > 0}
 				<div class="bar-chart">
-					{#each data.signupTrend as day (day.signup_date)}
+					{#each data.signupTrend as day (day.date)}
 						<div class="bar-col">
 							<div
 								class="bar"
-								style="height: {Math.round((day.signup_count / maxSignups) * 100)}%"
-								title="{day.signup_date}: {day.signup_count} signup{day.signup_count === 1 ? '' : 's'}"
+								style="height: {Math.round((day.count / maxSignups) * 100)}%"
+								title="{day.date}: {day.count} signup{day.count === 1 ? '' : 's'}"
 							></div>
 						</div>
 					{/each}
 				</div>
 				<div class="bar-chart-labels">
-					<span class="chart-label-left">{data.signupTrend[0]?.signup_date?.slice(5) ?? ''}</span>
-					<span class="chart-label-right">{data.signupTrend[data.signupTrend.length - 1]?.signup_date?.slice(5) ?? ''}</span>
+					<span class="chart-label-left">{data.signupTrend[0]?.date?.slice(5) ?? ''}</span>
+					<span class="chart-label-right">{data.signupTrend[data.signupTrend.length - 1]?.date?.slice(5) ?? ''}</span>
 				</div>
 			{:else}
 				<p class="chart-empty">No signup data available.</p>

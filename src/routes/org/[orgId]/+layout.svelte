@@ -31,7 +31,7 @@
 
 	// Initialize demo mode store with server data
 	$effect(() => {
-		demoModeStore.load(data.isDemoReadOnly, data.isDemoSandbox);
+		demoModeStore.load(data.isDemoReadOnly ?? false, data.isDemoSandbox ?? false);
 	});
 
 	// Load subscription tier into store (reacts to org navigation changes)
@@ -83,12 +83,12 @@
 	<TopHeader
 		orgId={data.orgId}
 		orgName={data.orgName}
-		userRole={data.userRole}
-		permissions={data.permissions}
-		allOrgs={data.allOrgs}
+		userRole={data.userRole ?? 'member'}
+		permissions={data.permissions!}
+		allOrgs={data.allOrgs ?? []}
 		onToggleTheme={() => themeStore.toggle()}
 		isDarkTheme={themeStore.isDark}
-		unreadNotificationCount={data.unreadNotificationCount}
+		unreadNotificationCount={data.unreadNotificationCount ?? 0}
 		onWhatsNew={() => whatsNewStore.show()}
 	/>
 
@@ -98,7 +98,7 @@
 
 	<BottomTabBar
 		orgId={data.orgId}
-		permissions={data.permissions}
+		permissions={data.permissions!}
 	/>
 
 	{#if !demoModeStore.hasBanner}

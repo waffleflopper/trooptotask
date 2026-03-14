@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-13-admin-overhaul',
+		date: '2026-03-13',
+		title: 'Platform Admin Overhaul',
+		items: [
+			'The admin panel has been completely redesigned as a support-centric operations hub — search for any user or organization and see everything in one place',
+			'Admins can now suspend/unsuspend users and organizations, send password resets, and resend invites directly from user detail pages',
+			'New subscription overview page shows all organizations with their tier, personnel usage, and gift status at a glance',
+			'Platform announcements let admins post info, warning, or maintenance banners that all users see across the app (and can dismiss)'
+		]
+	},
+	{
 		id: '2026-03-13-bulk-status-import',
 		date: '2026-03-13',
 		title: 'Import Statuses from Spreadsheets',

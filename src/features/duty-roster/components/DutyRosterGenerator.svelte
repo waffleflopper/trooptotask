@@ -2,7 +2,7 @@
 	import type { Personnel } from '$lib/types';
 	import type { AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/calendar.types';
 	import type { AssignmentType, DailyAssignment } from '$features/calendar/stores/dailyAssignments.svelte';
-	import type { RosterHistoryItem, RosterHistoryEntry } from '../stores/dutyRosterHistory.svelte';
+	import type { RosterHistoryItem, RosterHistoryEntry, DA6Data } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -69,8 +69,10 @@
 
 	// Generated roster state
 	let generatedRoster = $state<{ date: string; assignee: Personnel | null; reason?: string }[]>([]);
+	let generatedDA6 = $state<DA6Data | null>(null);
 	let isGenerating = $state(false);
 	let isApplying = $state(false);
+	let previewTab = $state<'roster' | 'da6'>('roster');
 
 	// Extract all unique values in single pass for efficiency (O(n) instead of O(4n))
 	const personnelData = $derived.by(() => {
@@ -259,12 +261,20 @@
 		const initialLastDutyDates = getLastDutyDates(selectedAssignmentTypeId, startDate);
 		const workingLastDutyDates = new Map(initialLastDutyDates);
 
+		// DA6 capture: build personnel list sorted alphabetically for stable row order
+		const da6Personnel = [...eligiblePersonnel]
+			.sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`))
+			.map(p => ({ id: p.id, name: `${p.lastName}, ${p.firstName}`, rank: p.rank, group: p.groupName }));
+		const da6Dates: DA6Data['dates'] = [];
+
 		for (const date of dutyDates) {
 			// Get available personnel for this date
 			const available = eligiblePersonnel.filter(p => isPersonAvailable(p, date));
 
 			if (available.length === 0) {
 				roster.push({ date, assignee: null, reason: 'No eligible personnel available' });
+				// DA6: everyone unavailable
+				da6Dates.push({ date, positions: da6Personnel.map(() => null) });
 				continue;
 			}
 
@@ -285,11 +295,20 @@
 
 			roster.push({ date, assignee: assigned });
 
+			// DA6: capture each person's queue position for this date
+			const positions = da6Personnel.map(dp => {
+				const availIdx = available.findIndex(a => a.id === dp.id);
+				return availIdx >= 0 ? availIdx + 1 : null; // null = unavailable, 1 = assigned
+			});
+			da6Dates.push({ date, positions });
+
 			workingCounts.set(assigned.id, (workingCounts.get(assigned.id) ?? 0) + 1);
 			workingLastDutyDates.set(assigned.id, date);
 		}
 
 		generatedRoster = roster;
+		generatedDA6 = { personnel: da6Personnel, dates: da6Dates };
+		previewTab = 'roster';
 		view = 'preview';
 		isGenerating = false;
 	}
@@ -326,6 +345,7 @@
 			startDate,
 			endDate,
 			roster: historyRoster,
+			da6: generatedDA6 ?? undefined,
 			config: {
 				dutyDuration,
 				assignmentTypeName: typeName,
@@ -351,21 +371,26 @@
 		typeName: string;
 		startDate: string;
 		endDate: string;
+		da6?: DA6Data;
 	}) {
 		const isHistory = !!opts;
 		const typeName = opts?.typeName ?? assignmentTypes.find(t => t.id === selectedAssignmentTypeId)?.name ?? 'Duty';
 		const sd = opts?.startDate ?? startDate;
 		const ed = opts?.endDate ?? endDate;
+		const da6 = opts?.da6 ?? generatedDA6;
 
 		let html = `
 			<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
 			<head>
 				<meta charset="utf-8">
 				<style>
-					table { border-collapse: collapse; }
+					table { border-collapse: collapse; margin-bottom: 24px; }
 					th, td { border: 1px solid #000; padding: 8px; text-align: left; }
 					th { background-color: #4a5568; color: white; font-weight: bold; }
 					.unavailable { background-color: #fed7d7; color: #c53030; }
+					.da6-assigned { background-color: #c6f6d5; font-weight: bold; text-align: center; }
+					.da6-position { text-align: center; color: #718096; }
+					.da6-unavail { text-align: center; color: #a0aec0; background-color: #f7fafc; }
 				</style>
 			</head>
 			<body>
@@ -441,7 +466,48 @@
 			}
 		}
 
-		html += '</table></body></html>';
+		html += '</table>';
+
+		// DA6 Reference Grid — shows each person's queue position per date
+		if (da6 && da6.dates.length > 0) {
+			html += `
+				<h2>DA Form 6 Reference</h2>
+				<p>Queue position per date. <b>X</b> = assigned duty, number = queue position, <b>—</b> = unavailable.</p>
+				<table>
+					<tr>
+						<th>Rank</th>
+						<th>Name</th>
+			`;
+
+			for (const d of da6.dates) {
+				const date = new Date(d.date + 'T00:00:00');
+				html += `<th>${date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}</th>`;
+			}
+
+			html += '</tr>';
+
+			for (let i = 0; i < da6.personnel.length; i++) {
+				const person = da6.personnel[i];
+				html += `<tr><td>${person.rank}</td><td>${person.name}</td>`;
+
+				for (const d of da6.dates) {
+					const pos = d.positions[i];
+					if (pos === null) {
+						html += '<td class="da6-unavail">&mdash;</td>';
+					} else if (pos === 1) {
+						html += '<td class="da6-assigned">X</td>';
+					} else {
+						html += `<td class="da6-position">${pos}</td>`;
+					}
+				}
+
+				html += '</tr>';
+			}
+
+			html += '</table>';
+		}
+
+		html += '</body></html>';
 
 		const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
 		const url = URL.createObjectURL(blob);
@@ -622,7 +688,7 @@
 											class="btn btn-secondary btn-xs"
 											onclick={() => {
 												const typeName = assignmentTypes.find(t => t.id === item.assignmentTypeId)?.name ?? 'Duty';
-												exportToExcel({ roster: item.roster, typeName, startDate: item.startDate, endDate: item.endDate });
+												exportToExcel({ roster: item.roster, typeName, startDate: item.startDate, endDate: item.endDate, da6: item.da6 });
 											}}
 											title="Export to Excel"
 										>
@@ -671,38 +737,94 @@
 						</div>
 					</div>
 
-					<div class="roster-table-container">
-					<div class="table-responsive">
-						<table class="roster-table">
-							<thead>
-								<tr>
-									<th>Date</th>
-									<th>Day</th>
-									<th>Assigned</th>
-									<th>Group</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each generatedRoster as entry}
-									{@const date = new Date(entry.date + 'T00:00:00')}
-									<tr class:unfilled={!entry.assignee}>
-										<td>{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
-										<td>{date.toLocaleDateString('en-US', { weekday: 'short' })}</td>
-										{#if entry.assignee}
-											<td>
-												<span class="assignee-rank">{entry.assignee.rank}</span>
-												{entry.assignee.lastName}, {entry.assignee.firstName}
-											</td>
-											<td>{entry.assignee.groupName}</td>
-										{:else}
-											<td class="unfilled-cell" colspan="2">{entry.reason ?? 'Unfilled'}</td>
-										{/if}
+					<div class="preview-tabs">
+						<button
+							class="preview-tab"
+							class:active={previewTab === 'roster'}
+							onclick={() => (previewTab = 'roster')}
+						>
+							Roster
+						</button>
+						<button
+							class="preview-tab"
+							class:active={previewTab === 'da6'}
+							onclick={() => (previewTab = 'da6')}
+						>
+							DA6 Order
+						</button>
+					</div>
+
+					{#if previewTab === 'da6' && generatedDA6}
+						<p class="hint"><strong>X</strong> = assigned duty &nbsp; # = queue position &nbsp; <strong>&mdash;</strong> = unavailable</p>
+						<div class="roster-table-container">
+						<div class="table-responsive">
+							<table class="roster-table da6-table">
+								<thead>
+									<tr>
+										<th class="da6-sticky-col">Name</th>
+										{#each generatedDA6.dates as d}
+											{@const date = new Date(d.date + 'T00:00:00')}
+											<th class="da6-date-col">{date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}</th>
+										{/each}
 									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-					</div>
+								</thead>
+								<tbody>
+									{#each generatedDA6.personnel as person, i}
+										<tr>
+											<td class="da6-sticky-col da6-name-cell">
+												<span class="assignee-rank">{person.rank}</span>
+												{person.name}
+											</td>
+											{#each generatedDA6.dates as d}
+												{@const pos = d.positions[i]}
+												{#if pos === null}
+													<td class="da6-cell da6-unavail">&mdash;</td>
+												{:else if pos === 1}
+													<td class="da6-cell da6-assigned">X</td>
+												{:else}
+													<td class="da6-cell da6-queue">{pos}</td>
+												{/if}
+											{/each}
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+						</div>
+					{:else}
+						<div class="roster-table-container">
+						<div class="table-responsive">
+							<table class="roster-table">
+								<thead>
+									<tr>
+										<th>Date</th>
+										<th>Day</th>
+										<th>Assigned</th>
+										<th>Group</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each generatedRoster as entry}
+										{@const date = new Date(entry.date + 'T00:00:00')}
+										<tr class:unfilled={!entry.assignee}>
+											<td>{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
+											<td>{date.toLocaleDateString('en-US', { weekday: 'short' })}</td>
+											{#if entry.assignee}
+												<td>
+													<span class="assignee-rank">{entry.assignee.rank}</span>
+													{entry.assignee.lastName}, {entry.assignee.firstName}
+												</td>
+												<td>{entry.assignee.groupName}</td>
+											{:else}
+												<td class="unfilled-cell" colspan="2">{entry.reason ?? 'Unfilled'}</td>
+											{/if}
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+						</div>
+					{/if}
 				</div>
 
 			{:else}
@@ -1162,7 +1284,7 @@
 
 	.roster-table-container {
 		max-height: 400px;
-		overflow-y: auto;
+		overflow: auto;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 	}
@@ -1221,5 +1343,84 @@
 		accent-color: var(--color-primary);
 	}
 
+	/* Preview Tabs */
+	.preview-tabs {
+		display: flex;
+		gap: 0;
+		border-bottom: 2px solid var(--color-border);
+		margin-bottom: var(--spacing-md);
+	}
+
+	.preview-tab {
+		padding: var(--spacing-sm) var(--spacing-md);
+		border: none;
+		background: none;
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		border-bottom: 2px solid transparent;
+		margin-bottom: -2px;
+		transition: all 0.15s ease;
+	}
+
+	.preview-tab:hover {
+		color: var(--color-text);
+	}
+
+	.preview-tab.active {
+		color: var(--color-primary);
+		border-bottom-color: var(--color-primary);
+	}
+
+	/* DA6 Table */
+	.da6-table {
+		font-size: var(--font-size-xs);
+	}
+
+	.da6-sticky-col {
+		position: sticky;
+		left: 0;
+		background: var(--color-surface);
+		z-index: 1;
+		white-space: nowrap;
+	}
+
+	.da6-table thead .da6-sticky-col {
+		z-index: 2;
+		background: var(--color-bg);
+	}
+
+	.da6-name-cell {
+		min-width: 160px;
+	}
+
+	.da6-date-col {
+		text-align: center;
+		min-width: 40px;
+		padding: var(--spacing-xs) !important;
+	}
+
+	.da6-cell {
+		text-align: center;
+		padding: var(--spacing-xs) !important;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.da6-assigned {
+		background: #c6f6d5;
+		font-weight: 700;
+		color: #22543d;
+	}
+
+	.da6-queue {
+		color: var(--color-text-muted);
+	}
+
+	.da6-unavail {
+		color: var(--color-text-muted);
+		background: var(--color-bg);
+		opacity: 0.5;
+	}
 
 </style>

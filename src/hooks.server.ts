@@ -17,21 +17,25 @@ const securityHeaders: Record<string, string> = {
 };
 
 export const handle: Handle = async ({ event, resolve }) => {
-	// Rate limiting
+	// Rate limiting — skip for e2e tests (dev mode only, tree-shaken in production)
 	const clientIp = event.getClientAddress();
-	const rateCheck = checkRateLimit(clientIp, event.url.pathname, event.request.method);
-	if (rateCheck.limited) {
-		auditLog(
-			{ action: 'security.rate_limit_exceeded', resourceType: 'request', severity: 'warning', details: { pathname: event.url.pathname, method: event.request.method } },
-			{ userId: null, ip: clientIp }
-		);
-		return new Response(JSON.stringify({ error: 'Too many requests' }), {
-			status: 429,
-			headers: {
-				'Content-Type': 'application/json',
-				'Retry-After': String(Math.ceil(rateCheck.retryAfterMs / 1000))
-			}
-		});
+	if (import.meta.env.DEV && process.env.E2E_TESTING === 'true') {
+		// rate limiting skipped for e2e tests
+	} else {
+		const rateCheck = checkRateLimit(clientIp, event.url.pathname, event.request.method);
+		if (rateCheck.limited) {
+			auditLog(
+				{ action: 'security.rate_limit_exceeded', resourceType: 'request', severity: 'warning', details: { pathname: event.url.pathname, method: event.request.method } },
+				{ userId: null, ip: clientIp }
+			);
+			return new Response(JSON.stringify({ error: 'Too many requests' }), {
+				status: 429,
+				headers: {
+					'Content-Type': 'application/json',
+					'Retry-After': String(Math.ceil(rateCheck.retryAfterMs / 1000))
+				}
+			});
+		}
 	}
 
 	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {

@@ -1,0 +1,43 @@
+import type { Page, Locator } from '@playwright/test';
+
+export class LoginPage {
+	readonly page: Page;
+	readonly emailInput: Locator;
+	readonly passwordInput: Locator;
+	readonly submitButton: Locator;
+	readonly errorMessage: Locator;
+
+	constructor(page: Page) {
+		this.page = page;
+		this.emailInput = page.getByTestId('login-email');
+		this.passwordInput = page.getByTestId('login-password');
+		this.submitButton = page.getByTestId('login-submit');
+		this.errorMessage = page.getByTestId('login-error');
+	}
+
+	async goto() {
+		await this.page.goto('/auth/login');
+		await this.emailInput.waitFor({ state: 'visible', timeout: 10000 });
+		await this.page.waitForLoadState('networkidle');
+	}
+
+	async login(email: string, password: string) {
+		await this.emailInput.fill(email);
+		await this.passwordInput.fill(password);
+		await this.submitButton.click();
+	}
+
+	async expectError(text?: string) {
+		await this.errorMessage.waitFor({ state: 'visible', timeout: 15000 });
+		if (text) {
+			await this.page.waitForFunction(
+				(expected) => document.querySelector('[data-testid="login-error"]')?.textContent?.includes(expected),
+				text
+			);
+		}
+	}
+
+	async expectRedirectToDashboard() {
+		await this.page.waitForURL('**/org/**', { timeout: 30000 });
+	}
+}

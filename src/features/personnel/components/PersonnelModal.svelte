@@ -71,7 +71,7 @@
 	<form class="personnel-form" onsubmit={handleSubmit}>
 		<div class="form-group">
 			<label class="label" for="rank">Rank</label>
-			<select id="rank" class="select" bind:value={rank}>
+			<select id="rank" class="select" data-testid="personnel-rank" bind:value={rank}>
 				<optgroup label="Commissioned Officer">
 					{#each ['GEN', 'LTG', 'MG', 'BG', 'COL', 'LTC', 'MAJ', 'CPT', '1LT', '2LT'] as r}
 						<option value={r}>{r}</option>
@@ -105,6 +105,7 @@
 					id="lastName"
 					type="text"
 					class="input"
+					data-testid="personnel-last-name"
 					bind:value={lastName}
 					placeholder="Smith"
 					required
@@ -116,6 +117,7 @@
 					id="firstName"
 					type="text"
 					class="input"
+					data-testid="personnel-first-name"
 					bind:value={firstName}
 					placeholder="John"
 					required
@@ -166,7 +168,7 @@
 
 	{#snippet footer()}
 		{#if isEditing && onRemove}
-			<button type="button" class="btn btn-warning" onclick={handleArchive}>
+			<button type="button" class="btn btn-warning" data-testid="personnel-archive" onclick={handleArchive}>
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
 					<path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
 					<path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" />
@@ -176,7 +178,7 @@
 		{/if}
 		<div class="spacer"></div>
 		<button type="button" class="btn btn-secondary" onclick={onClose}>Cancel</button>
-		<button type="button" class="btn btn-primary" disabled={!isValid} onclick={handleSubmit}>
+		<button type="button" class="btn btn-primary" data-testid="personnel-save" disabled={!isValid} onclick={handleSubmit}>
 			{isEditing ? 'Save Changes' : 'Add Personnel'}
 		</button>
 	{/snippet}

@@ -250,7 +250,7 @@
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>{isExempt ? 'Close' : 'Cancel'}</button>
 		{#if !isExempt}
-			<button class="btn btn-primary" onclick={handleSave} disabled={!canSave || saving}>
+			<button class="btn btn-primary" data-testid="training-save" onclick={handleSave} disabled={!canSave || saving}>
 				{saving ? 'Saving...' : 'Save'}
 			</button>
 		{/if}

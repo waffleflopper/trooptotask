@@ -96,6 +96,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 		redirect(303, '/auth/login');
 	}
 
+	// Check user suspension (skip for auth routes, api routes, and the suspended page itself)
+	const skipSuspensionCheck = ['/auth', '/api/auth', '/suspended'].some(p => event.url.pathname.startsWith(p));
+	if (event.locals.user && !skipSuspensionCheck) {
+		const { data: isSuspended } = await event.locals.supabase.rpc('is_user_suspended', {
+			check_user_id: event.locals.user.id
+		});
+		if (isSuspended) {
+			return new Response(null, {
+				status: 302,
+				headers: { Location: '/suspended' }
+			});
+		}
+	}
+
 	const response = await resolve(event, {
 		filterSerializedResponseHeaders(name) {
 			return name === 'content-range' || name === 'x-supabase-api-version';

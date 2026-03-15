@@ -459,7 +459,7 @@
 	}
 
 	.date-error {
-		color: #dc2626;
+		color: var(--color-error);
 		font-size: var(--font-size-sm);
 		margin-top: var(--spacing-sm);
 		padding: var(--spacing-xs) var(--spacing-sm);

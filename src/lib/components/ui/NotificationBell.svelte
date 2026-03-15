@@ -104,6 +104,12 @@
 		}
 	}
 
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && open) {
+			open = false;
+		}
+	}
+
 	function handleClickOutside(event: MouseEvent) {
 		const target = event.target as HTMLElement;
 		if (!target.closest('.notification-bell-wrapper')) {
@@ -119,13 +125,16 @@
 	});
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 <div class="notification-bell-wrapper">
 	<button
 		class="bell-button"
 		type="button"
 		onclick={toggle}
-		aria-label="Notifications"
+		aria-label={localUnreadCount > 0 ? `Notifications, ${localUnreadCount} unread` : 'Notifications'}
 		aria-expanded={open}
+		aria-haspopup="true"
 	>
 		<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 			<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
@@ -137,7 +146,7 @@
 	</button>
 
 	{#if open}
-		<div class="dropdown">
+		<div class="dropdown" role="region" aria-label="Notifications">
 			<div class="dropdown-header">
 				<span class="dropdown-title">Notifications</span>
 				{#if localUnreadCount > 0}

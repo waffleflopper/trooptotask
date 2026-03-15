@@ -74,12 +74,15 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 
 	const existing = progressRows ?? [];
 
-	// Write template_id to the onboarding
-	const { error: assignError } = await supabase
-		.from('personnel_onboardings')
-		.update({ template_id: templateId })
-		.eq('id', onboardingId);
-	if (assignError) throw error(500, 'Failed to assign template');
+	// Write template_id to the onboarding and backfill step links in parallel
+	const updates: Promise<{ error: any }>[] = [
+		Promise.resolve(
+			supabase
+				.from('personnel_onboardings')
+				.update({ template_id: templateId })
+				.eq('id', onboardingId)
+		)
+	];
 
 	// Backfill template_step_id by matching on (step_name, step_type)
 	for (const progressRow of existing) {
@@ -91,13 +94,20 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		);
 
 		if (match) {
-			const { error: backfillError } = await supabase
-				.from('onboarding_step_progress')
-				.update({ template_step_id: match.id })
-				.eq('id', progressRow.id);
-			if (backfillError) throw error(500, 'Failed to backfill step');
+			updates.push(
+				Promise.resolve(
+					supabase
+						.from('onboarding_step_progress')
+						.update({ template_step_id: match.id })
+						.eq('id', progressRow.id)
+				)
+			);
 		}
 	}
+
+	const results = await Promise.all(updates);
+	const failed = results.find((r) => r.error);
+	if (failed) throw error(500, 'Failed to assign template');
 
 	// Return refreshed progress rows
 	const { data: refreshed, error: refreshError } = await supabase

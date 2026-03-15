@@ -1,4 +1,11 @@
 {
+	"rewrites": [
+		{
+			"source": "/:path*",
+			"has": [{ "type": "host", "value": "admin.trooptotask.org" }],
+			"destination": "/admin/:path*"
+		}
+	],
 	"crons": [
 		{
 			"path": "/api/cleanup-demo-sandboxes",

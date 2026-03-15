@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data, form } = $props();
@@ -153,7 +154,7 @@
 								<div class="detail-actions">
 									<button type="submit" class="btn btn-primary btn-sm" disabled={savingId !== null}>
 										{#if savingId === item.id}
-											<span class="spinner"></span>
+											<Spinner />
 										{/if}
 										Save
 									</button>
@@ -378,20 +379,6 @@
 		font-family: inherit;
 	}
 
-	.spinner {
-		display: inline-block;
-		width: 12px;
-		height: 12px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		border-radius: 50%;
-		border-top-color: white;
-		animation: spin 0.8s linear infinite;
-		margin-right: 4px;
-	}
-
-	@keyframes spin {
-		to { transform: rotate(360deg); }
-	}
 
 	.empty-card {
 		background: var(--color-surface);

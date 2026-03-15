@@ -4,6 +4,7 @@
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, isToday } from '$lib/utils/dates';
 	import { exportQuarterToCSV, printQuarterCalendar } from '../utils/calendarExport';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface GroupData {
 		group: string;
@@ -113,14 +114,8 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="longrange-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal long-range-modal" role="document">
-		<div class="modal-header">
-			<h2 id="longrange-title">Long Range View</h2>
-			<button class="btn btn-secondary btn-sm close-btn" onclick={onClose} aria-label="Close">&times;</button>
-		</div>
-
+<Modal title="Long Range View" {onClose} width="min(95vw, 1400px)" titleId="longrange-title">
+	<div class="body-wrapper">
 		<div class="nav-bar">
 			<button class="btn btn-secondary btn-sm" onclick={prevQuarter}>
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
@@ -157,122 +152,123 @@
 			</div>
 		</div>
 
-		<div class="modal-body">
-			<div class="calendar-grid">
-				<!-- Header Row with Months and Days -->
-				<div class="grid-header">
-					<div class="name-cell header-cell">Personnel</div>
-					{#each months as month}
-						<div class="month-header" style="width: {month.dates.length * 24}px; min-width: {month.dates.length * 24}px;">
-							{month.name} {month.year}
-						</div>
-					{/each}
+	<div class="scroll-area">
+	<div class="calendar-grid">
+		<!-- Header Row with Months and Days -->
+		<div class="grid-header">
+			<div class="name-cell header-cell">Personnel</div>
+			{#each months as month}
+				<div class="month-header" style="width: {month.dates.length * 24}px; min-width: {month.dates.length * 24}px;">
+					{month.name} {month.year}
 				</div>
+			{/each}
+		</div>
 
-				<!-- Day Numbers Row -->
-				<div class="day-row">
-					<div class="name-cell day-header-cell"></div>
+		<!-- Day Numbers Row -->
+		<div class="day-row">
+			<div class="name-cell day-header-cell"></div>
+			{#each months as month}
+				{#each month.dates as date}
+					{@const weekend = isWeekend(date)}
+					{@const today = isToday(date)}
+					{@const special = getSpecialDay(date)}
+					{@const badges = getAssignmentBadges(date)}
+					<div
+						class="day-cell"
+						class:weekend
+						class:today
+						class:holiday={special?.type === 'federal-holiday'}
+						title={special?.name ?? ''}
+					>
+						<span class="day-num">{date.getDate()}</span>
+						{#if badges.length > 0}
+							<div class="day-badges">
+								{#each badges as badge}
+									<span class="mini-badge" style="background-color: {badge.color}" title={badge.shortName}></span>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/each}
+			{/each}
+		</div>
+
+		<!-- Personnel Rows -->
+		{#each personnelByGroup as grp}
+			{#if grp.personnel.length > 0}
+				<!-- Group Header -->
+				<div class="group-row">
+					<div class="name-cell group-name">{grp.group}</div>
 					{#each months as month}
 						{#each month.dates as date}
-							{@const weekend = isWeekend(date)}
-							{@const today = isToday(date)}
-							{@const special = getSpecialDay(date)}
-							{@const badges = getAssignmentBadges(date)}
-							<div
-								class="day-cell"
-								class:weekend
-								class:today
-								class:holiday={special?.type === 'federal-holiday'}
-								title={special?.name ?? ''}
-							>
-								<span class="day-num">{date.getDate()}</span>
-								{#if badges.length > 0}
-									<div class="day-badges">
-										{#each badges as badge}
-											<span class="mini-badge" style="background-color: {badge.color}" title={badge.shortName}></span>
-										{/each}
-									</div>
-								{/if}
-							</div>
+							<div class="group-cell"></div>
 						{/each}
 					{/each}
 				</div>
 
-				<!-- Personnel Rows -->
-				{#each personnelByGroup as grp}
-					{#if grp.personnel.length > 0}
-						<!-- Group Header -->
-						<div class="group-row">
-							<div class="name-cell group-name">{grp.group}</div>
-							{#each months as month}
-								{#each month.dates as date}
-									<div class="group-cell"></div>
-								{/each}
-							{/each}
+				<!-- Personnel in Group -->
+				{#each grp.personnel as person}
+					<div class="person-row">
+						<div class="name-cell person-name">
+							<span class="rank">{person.rank}</span>
+							<span class="name">{person.lastName}</span>
 						</div>
-
-						<!-- Personnel in Group -->
-						{#each grp.personnel as person}
-							<div class="person-row">
-								<div class="name-cell person-name">
-									<span class="rank">{person.rank}</span>
-									<span class="name">{person.lastName}</span>
-								</div>
-								{#each months as month}
-									{#each month.dates as date}
-										{@const status = getStatusForDate(person.id, date)}
-										{@const weekend = isWeekend(date)}
-										{@const today = isToday(date)}
-										<button
-											class="status-cell"
-											class:weekend
-											class:today
-											class:has-status={status}
-											style={status ? `background-color: ${status.color}` : ''}
-											title={status?.name ?? ''}
-											onclick={() => handleCellClick(person, date)}
-										>
-											{#if status}
-												<span class="status-dot"></span>
-											{/if}
-										</button>
-									{/each}
-								{/each}
-							</div>
+						{#each months as month}
+							{#each month.dates as date}
+								{@const status = getStatusForDate(person.id, date)}
+								{@const weekend = isWeekend(date)}
+								{@const today = isToday(date)}
+								<button
+									class="status-cell"
+									class:weekend
+									class:today
+									class:has-status={status}
+									style={status ? `background-color: ${status.color}` : ''}
+									title={status?.name ?? ''}
+									onclick={() => handleCellClick(person, date)}
+								>
+									{#if status}
+										<span class="status-dot"></span>
+									{/if}
+								</button>
+							{/each}
 						{/each}
-					{/if}
+					</div>
 				{/each}
-			</div>
-		</div>
-
-		<div class="modal-footer">
-			<div class="legend">
-				<span class="legend-label">Status:</span>
-				{#each statusTypes as status}
-					<span class="legend-item">
-						<span class="legend-color" style="background-color: {status.color}"></span>
-						{status.name}
-					</span>
-				{/each}
-			</div>
-			<button class="btn btn-primary" onclick={onClose}>Close</button>
-		</div>
+			{/if}
+		{/each}
 	</div>
-</div>
+	</div><!-- end scroll-area -->
+	</div><!-- end body-wrapper -->
+
+	{#snippet footer()}
+		<div class="legend">
+			<span class="legend-label">Status:</span>
+			{#each statusTypes as status}
+				<span class="legend-item">
+					<span class="legend-color" style="background-color: {status.color}"></span>
+					{status.name}
+				</span>
+			{/each}
+		</div>
+		<button class="btn btn-primary" onclick={onClose}>Close</button>
+	{/snippet}
+</Modal>
 
 <style>
-	.long-range-modal {
-		width: 95vw;
-		max-width: 1400px;
-		max-height: 90vh;
+	/* Body layout: nav bar fixed, calendar scrolls */
+	.body-wrapper {
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
+		/* Bleed past modal-body padding to fill edge-to-edge */
+		margin: calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg)) calc(-1 * var(--spacing-lg));
 	}
 
-	.close-btn {
-		font-size: 1.25rem;
-		line-height: 1;
-		padding: var(--spacing-xs) var(--spacing-sm);
+	.scroll-area {
+		flex: 1;
+		overflow: auto;
+		scrollbar-gutter: stable;
 	}
 
 	.nav-bar {
@@ -283,6 +279,7 @@
 		padding: var(--spacing-md) var(--spacing-lg);
 		background: #0F0F0F;
 		color: #F0EDE6;
+		flex-shrink: 0;
 	}
 
 	.nav-bar .btn-secondary {
@@ -311,13 +308,6 @@
 		margin-left: var(--spacing-md);
 		padding-left: var(--spacing-md);
 		border-left: 1px solid #2A2A2A;
-	}
-
-	.modal-body {
-		flex: 1;
-		overflow: auto;
-		padding: 0;
-		scrollbar-gutter: stable;
 	}
 
 	.calendar-grid {
@@ -527,15 +517,6 @@
 	}
 
 	/* Footer */
-	.modal-footer {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-md) var(--spacing-lg);
-		border-top: 1px solid var(--color-border);
-		background: var(--color-surface);
-	}
-
 	.legend {
 		display: flex;
 		align-items: center;
@@ -563,18 +544,9 @@
 
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
-		.long-range-modal {
-			width: 100vw;
-			max-width: 100vw;
-			height: 100vh;
-			max-height: 100vh;
-			border-radius: 0;
-		}
-
 		.nav-bar {
 			flex-wrap: wrap;
 			gap: var(--spacing-sm);
-			padding: var(--spacing-sm) var(--spacing-md);
 		}
 
 		.date-range {
@@ -636,20 +608,10 @@
 		.legend {
 			display: none; /* Too crowded on mobile */
 		}
-
-		.modal-footer {
-			justify-content: flex-end;
-			padding: var(--spacing-sm) var(--spacing-md);
-		}
 	}
 
 	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.long-range-modal {
-			width: 98vw;
-			max-width: 98vw;
-		}
-
 		.name-cell {
 			width: 120px;
 			min-width: 120px;

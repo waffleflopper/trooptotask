@@ -3,6 +3,7 @@
 	import OrganizationMemberManager from '$features/groups/components/OrganizationMemberManager.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import { isBillingEnabled } from '$lib/config/billing';
 
 	let { data, form } = $props();
@@ -243,52 +244,52 @@
 </div>
 
 {#if showDeleteConfirm}
-	<div class="modal-overlay" onclick={() => (showDeleteConfirm = false)} role="presentation">
-		<div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-			<h3>Delete Organization</h3>
-			<p>This will permanently delete <strong>{data.orgName}</strong> and all associated data.</p>
-			<p class="danger-warning">This action cannot be undone.</p>
+	<Modal title="Delete Organization" onClose={() => (showDeleteConfirm = false)} width="450px" titleId="delete-org-title">
+		<p>This will permanently delete <strong>{data.orgName}</strong> and all associated data.</p>
+		<p class="danger-warning">This action cannot be undone.</p>
 
-			<form
-				method="POST"
-				action="?/deleteOrganization"
-				use:enhance={() => {
-					loading = true;
-					return async ({ update }) => {
-						loading = false;
-						await update();
-					};
-				}}
-				onsubmit={(e) => { if (deleteConfirmText !== data.orgName) e.preventDefault(); }}
+		<form
+			id="delete-org-form"
+			method="POST"
+			action="?/deleteOrganization"
+			use:enhance={() => {
+				loading = true;
+				return async ({ update }) => {
+					loading = false;
+					await update();
+				};
+			}}
+			onsubmit={(e) => { if (deleteConfirmText !== data.orgName) e.preventDefault(); }}
+		>
+			<div class="form-group">
+				<label class="label" for="confirmDelete">
+					Type <strong>{data.orgName}</strong> to confirm:
+				</label>
+				<input
+					id="confirmDelete"
+					type="text"
+					class="input"
+					bind:value={deleteConfirmText}
+					placeholder="Enter organization name"
+					autocomplete="off"
+				/>
+			</div>
+		</form>
+
+		{#snippet footer()}
+			<button type="button" class="btn btn-secondary" onclick={() => (showDeleteConfirm = false)}>
+				Cancel
+			</button>
+			<button
+				type="submit"
+				form="delete-org-form"
+				class="btn btn-danger"
+				disabled={loading || deleteConfirmText !== data.orgName}
 			>
-				<div class="form-group">
-					<label class="label" for="confirmDelete">
-						Type <strong>{data.orgName}</strong> to confirm:
-					</label>
-					<input
-						id="confirmDelete"
-						type="text"
-						class="input"
-						bind:value={deleteConfirmText}
-						placeholder="Enter organization name"
-						autocomplete="off"
-					/>
-				</div>
-				<div class="modal-actions">
-					<button type="button" class="btn btn-secondary" onclick={() => (showDeleteConfirm = false)}>
-						Cancel
-					</button>
-					<button
-						type="submit"
-						class="btn btn-danger"
-						disabled={loading || deleteConfirmText !== data.orgName}
-					>
-						{loading ? 'Deleting...' : 'Delete Permanently'}
-					</button>
-				</div>
-			</form>
-		</div>
-	</div>
+				{loading ? 'Deleting...' : 'Delete Permanently'}
+			</button>
+		{/snippet}
+	</Modal>
 {/if}
 
 <style>
@@ -418,46 +419,6 @@
 	.btn-danger:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
-	}
-
-	.modal-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-	}
-
-	.modal {
-		background: var(--color-surface);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-lg);
-		max-width: 450px;
-		width: 90%;
-	}
-
-	.modal h3 {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
-		margin-bottom: var(--spacing-md);
-		color: #dc2626;
-	}
-
-	.modal p {
-		margin-bottom: var(--spacing-md);
-		color: var(--color-text);
-	}
-
-	.modal .form-group {
-		margin-bottom: var(--spacing-md);
-	}
-
-	.modal-actions {
-		display: flex;
-		gap: var(--spacing-sm);
-		justify-content: flex-end;
 	}
 
 	/* Mobile Responsive Styles */

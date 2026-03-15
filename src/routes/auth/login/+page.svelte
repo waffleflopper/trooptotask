@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	let { form, data } = $props();
 	let loading = $state(false);
@@ -83,7 +84,7 @@
 
 			<button type="submit" class="btn-sign-in" data-testid="login-submit" disabled={loading}>
 				{#if loading}
-					<span class="spinner"></span>
+					<Spinner color="#0F0F0F" />
 					Signing in...
 				{:else}
 					Sign In
@@ -121,7 +122,7 @@
 		>
 			<button type="submit" class="btn-demo" disabled={demoLoading || loading}>
 				{#if demoLoading}
-					<span class="spinner demo-spinner"></span>
+					<Spinner color="var(--color-text-secondary)" />
 					Loading demo...
 				{:else}
 					<svg viewBox="0 0 20 20" fill="currentColor" class="demo-icon">
@@ -265,19 +266,6 @@
 		cursor: not-allowed;
 	}
 
-	.spinner {
-		display: inline-block;
-		width: 16px;
-		height: 16px;
-		border: 2px solid rgba(15, 15, 15, 0.3);
-		border-radius: 50%;
-		border-top-color: #0F0F0F;
-		animation: spin 0.8s linear infinite;
-	}
-
-	@keyframes spin {
-		to { transform: rotate(360deg); }
-	}
 
 	.divider {
 		display: flex;
@@ -365,10 +353,6 @@
 		height: 18px;
 	}
 
-	.demo-spinner {
-		border-color: rgba(0, 0, 0, 0.2);
-		border-top-color: var(--color-text);
-	}
 
 	.demo-hint {
 		text-align: center;

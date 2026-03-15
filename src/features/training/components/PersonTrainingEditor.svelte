@@ -4,6 +4,7 @@
 	import { calculateExpirationDate, getTrainingStatus } from '$features/training/utils/trainingStatus';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -298,19 +299,16 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="person-training-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal person-training-modal" role="document">
-		<div class="modal-header">
-			<div class="header-content">
-				<h2 id="person-training-title">Training Records</h2>
-				<div class="person-badge">
-					<span class="person-rank">{person.rank}</span>
-					<span class="person-name">{person.lastName}, {person.firstName}</span>
-				</div>
-			</div>
-			<button class="btn btn-secondary btn-sm close-btn" onclick={onClose} aria-label="Close">&times;</button>
+<Modal title="Training Records" {onClose} width="600px" titleId="person-training-title">
+	{#snippet headerActions()}
+		<div class="person-badge">
+			<span class="person-rank">{person.rank}</span>
+			<span class="person-name">{person.lastName}, {person.firstName}</span>
 		</div>
+	{/snippet}
+	{#snippet footer()}
+		<button class="btn btn-secondary" onclick={onClose}>Close</button>
+	{/snippet}
 
 		<div class="stats-summary">
 			<div class="stat current">
@@ -551,11 +549,7 @@
 			</div>
 		</div>
 
-		<div class="modal-footer">
-			<button class="btn btn-secondary" onclick={onClose}>Close</button>
-		</div>
-	</div>
-</div>
+</Modal>
 
 {#if confirmRemoveTypeId}
 	<ConfirmDialog
@@ -581,20 +575,6 @@
 {/if}
 
 <style>
-	.person-training-modal {
-		width: 600px;
-		max-width: 95vw;
-		max-height: 90vh;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.header-content {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-xs);
-	}
-
 	.person-badge {
 		display: flex;
 		align-items: center;
@@ -649,12 +629,6 @@
 		justify-content: flex-end;
 		padding: var(--spacing-sm) var(--spacing-md);
 		border-bottom: 1px solid var(--color-border);
-	}
-
-	.modal-body {
-		flex: 1;
-		overflow-y: auto;
-		padding: var(--spacing-md);
 	}
 
 	.training-list {
@@ -811,23 +785,8 @@
 		font-weight: 500;
 	}
 
-	.modal-footer {
-		padding: var(--spacing-md);
-		border-top: 1px solid var(--color-border);
-		display: flex;
-		justify-content: flex-end;
-	}
-
 	/* Mobile Responsive */
 	@media (max-width: 640px) {
-		.person-training-modal {
-			width: 100vw;
-			max-width: 100vw;
-			height: 100vh;
-			max-height: 100vh;
-			border-radius: 0;
-		}
-
 		.stats-summary {
 			flex-wrap: wrap;
 			gap: var(--spacing-xs);

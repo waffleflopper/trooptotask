@@ -3,6 +3,7 @@
 	import type { StatusType } from '$features/calendar/calendar.types';
 	import { formatDate } from '$lib/utils/dates';
 	import Modal from '$lib/components/Modal.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	interface GroupData {
 		group: string;
@@ -197,7 +198,10 @@
 					<span class="date-arrow">→</span>
 					<div class="form-group">
 						<label class="label" for="endDate">End Date</label>
-						<input id="endDate" type="date" class="input" bind:value={endDate} />
+						<input id="endDate" type="date" class="input" bind:value={endDate}
+							aria-describedby={dateError ? 'date-error' : undefined}
+							aria-invalid={dateError ? true : undefined}
+						/>
 					</div>
 					{#if dayCount > 0}
 						<div class="day-count">
@@ -208,7 +212,7 @@
 				</div>
 
 				{#if dateError}
-					<div class="date-error">{dateError}</div>
+					<div id="date-error" class="date-error" role="alert">{dateError}</div>
 				{/if}
 
 				<div class="config-row">
@@ -270,7 +274,7 @@
 								<button
 									class="group-collapse-btn"
 									onclick={() => toggleGroupCollapse(grp.group)}
-									aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
+									aria-label={isCollapsed ? `Expand ${grp.group}` : `Collapse ${grp.group}`}
 								>
 									<svg class="collapse-icon" class:collapsed={isCollapsed} viewBox="0 0 20 20" fill="currentColor">
 										<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -361,7 +365,7 @@
 				onclick={handleSubmit}
 			>
 				{#if isSubmitting}
-					<span class="spinner"></span>
+					<Spinner />
 					Applying...
 				{:else}
 					Apply Status
@@ -455,11 +459,11 @@
 	}
 
 	.date-error {
-		color: #dc2626;
+		color: var(--color-error);
 		font-size: var(--font-size-sm);
 		margin-top: var(--spacing-sm);
 		padding: var(--spacing-xs) var(--spacing-sm);
-		background: #fef2f2;
+		background: rgba(244, 67, 54, 0.08);
 		border-radius: var(--radius-sm);
 	}
 
@@ -641,7 +645,7 @@
 	}
 
 	.person-item.selected {
-		background: #ebf8ff;
+		background: rgba(var(--color-primary-rgb), 0.08);
 	}
 
 	.person-item input[type='checkbox'] {
@@ -709,7 +713,7 @@
 	}
 
 	.summary-error {
-		color: #dc2626;
+		color: var(--color-error);
 	}
 
 	.footer-actions {
@@ -735,18 +739,4 @@
 		color: var(--color-primary);
 	}
 
-	/* Spinner */
-	.spinner {
-		display: inline-block;
-		width: 14px;
-		height: 14px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		border-radius: 50%;
-		border-top-color: white;
-		animation: spin 0.8s linear infinite;
-	}
-
-	@keyframes spin {
-		to { transform: rotate(360deg); }
-	}
 </style>

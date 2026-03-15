@@ -102,16 +102,14 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		);
 	}
 
-	// 2. Update snapshot fields on existing incomplete steps that still exist in template
+	// 2. Update snapshot fields on existing steps that still exist in template
 	for (const progressRow of existing) {
 		if (!progressRow.template_step_id) continue;
 		if (!liveStepIds.has(progressRow.template_step_id)) continue;
-		if (progressRow.completed) continue; // Never touch completed steps
 
 		const templateStep = liveSteps.find((s: any) => s.id === progressRow.template_step_id)!;
 
-		// If stages changed on a paperwork step, reset current_stage to the first new stage
-		const stagesChanged = JSON.stringify(templateStep.stages) !== JSON.stringify(progressRow.stages);
+		// Always sync snapshot fields (name, type, stages, sort_order) even on completed steps
 		const updateFields: Record<string, unknown> = {
 			step_name: templateStep.name,
 			step_type: templateStep.step_type,
@@ -119,11 +117,15 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			stages: templateStep.stages,
 			sort_order: templateStep.sort_order
 		};
-		if (stagesChanged && templateStep.step_type === 'paperwork' && templateStep.stages?.length) {
-			// Keep current_stage if it still exists in the new stages list, otherwise reset
-			const currentStageStillValid = templateStep.stages.includes(progressRow.current_stage);
-			if (!currentStageStillValid) {
-				updateFields.current_stage = templateStep.stages[0];
+
+		// For incomplete paperwork steps, reset current_stage if it no longer exists
+		if (!progressRow.completed) {
+			const stagesChanged = JSON.stringify(templateStep.stages) !== JSON.stringify(progressRow.stages);
+			if (stagesChanged && templateStep.step_type === 'paperwork' && templateStep.stages?.length) {
+				const currentStageStillValid = templateStep.stages.includes(progressRow.current_stage);
+				if (!currentStageStillValid) {
+					updateFields.current_stage = templateStep.stages[0];
+				}
 			}
 		}
 

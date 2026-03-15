@@ -27,7 +27,7 @@
 		title,
 		onClose,
 		width = '480px',
-		titleId = 'modal-title',
+		titleId = `modal-title-${Math.random().toString(36).slice(2, 8)}`,
 		canClose = true,
 		showCloseButton = true,
 		headerActions,
@@ -83,15 +83,12 @@
 
 <div
 	class="modal-overlay"
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby={titleId}
 	tabindex="-1"
 	onkeydown={handleKeydown}
 	bind:this={overlayEl}
 >
 	<button class="modal-backdrop" onclick={handleClose} tabindex="-1" aria-hidden="true"></button>
-	<div class="modal" role="document" style:width={width} style:max-width="95vw">
+	<div class="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} style:width={width} style:max-width="95vw">
 		<div class="modal-header">
 			<h2 id={titleId}>{title}</h2>
 			{#if headerActions || (showCloseButton && canClose)}

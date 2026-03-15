@@ -185,7 +185,7 @@
 								class="dismiss-btn"
 								type="button"
 								onclick={() => dismiss(notification.id)}
-								aria-label="Dismiss notification"
+								aria-label="Dismiss: {notification.title}"
 							>
 								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 									<polyline points="3 6 5 6 21 6"></polyline>

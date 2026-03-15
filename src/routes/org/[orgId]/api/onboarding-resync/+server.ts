@@ -78,6 +78,8 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			.map((p: any) => [p.template_step_id, p])
 	);
 
+	const updates: Promise<{ error: any }>[] = [];
+
 	// 1. Add steps that are in the template but not yet in progress
 	const newStepRows = liveSteps
 		.filter((t: any) => !existingByTemplateStepId.has(t.id))
@@ -95,10 +97,9 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		}));
 
 	if (newStepRows.length > 0) {
-		const { error: insertError } = await supabase
-			.from('onboarding_step_progress')
-			.insert(newStepRows);
-		if (insertError) throw error(500, 'Failed to insert new steps');
+		updates.push(
+			Promise.resolve(supabase.from('onboarding_step_progress').insert(newStepRows))
+		);
 	}
 
 	// 2. Update snapshot fields on existing incomplete steps that still exist in template
@@ -108,18 +109,25 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		if (progressRow.completed) continue; // Never touch completed steps
 
 		const templateStep = liveSteps.find((s: any) => s.id === progressRow.template_step_id)!;
-		const { error: updateError } = await supabase
-			.from('onboarding_step_progress')
-			.update({
-				step_name: templateStep.name,
-				step_type: templateStep.step_type,
-				training_type_id: templateStep.training_type_id,
-				stages: templateStep.stages,
-				sort_order: templateStep.sort_order
-			})
-			.eq('id', progressRow.id);
-		if (updateError) throw error(500, 'Failed to update step');
+		updates.push(
+			Promise.resolve(
+				supabase
+					.from('onboarding_step_progress')
+					.update({
+						step_name: templateStep.name,
+						step_type: templateStep.step_type,
+						training_type_id: templateStep.training_type_id,
+						stages: templateStep.stages,
+						sort_order: templateStep.sort_order
+					})
+					.eq('id', progressRow.id)
+			)
+		);
 	}
+
+	const results = await Promise.all(updates);
+	const failed = results.find((r) => r.error);
+	if (failed) throw error(500, 'Failed to sync onboarding steps');
 
 	// Return the refreshed progress rows
 	const { data: refreshed, error: refreshError } = await supabase

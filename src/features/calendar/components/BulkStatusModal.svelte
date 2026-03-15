@@ -197,7 +197,10 @@
 					<span class="date-arrow">→</span>
 					<div class="form-group">
 						<label class="label" for="endDate">End Date</label>
-						<input id="endDate" type="date" class="input" bind:value={endDate} />
+						<input id="endDate" type="date" class="input" bind:value={endDate}
+							aria-describedby={dateError ? 'date-error' : undefined}
+							aria-invalid={dateError ? true : undefined}
+						/>
 					</div>
 					{#if dayCount > 0}
 						<div class="day-count">
@@ -208,7 +211,7 @@
 				</div>
 
 				{#if dateError}
-					<div class="date-error">{dateError}</div>
+					<div id="date-error" class="date-error" role="alert">{dateError}</div>
 				{/if}
 
 				<div class="config-row">

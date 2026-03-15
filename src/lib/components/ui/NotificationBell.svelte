@@ -117,9 +117,16 @@
 		}
 	}
 
+	let dropdownEl = $state<HTMLDivElement | null>(null);
+
 	$effect(() => {
 		if (open) {
 			document.addEventListener('click', handleClickOutside, true);
+			// Focus first interactive element in dropdown
+			setTimeout(() => {
+				const firstFocusable = dropdownEl?.querySelector<HTMLElement>('a[href], button:not([disabled])');
+				firstFocusable?.focus();
+			}, 0);
 			return () => document.removeEventListener('click', handleClickOutside, true);
 		}
 	});
@@ -146,7 +153,7 @@
 	</button>
 
 	{#if open}
-		<div class="dropdown" role="region" aria-label="Notifications">
+		<div class="dropdown" role="region" aria-label="Notifications" bind:this={dropdownEl}>
 			<div class="dropdown-header">
 				<span class="dropdown-title">Notifications</span>
 				{#if localUnreadCount > 0}

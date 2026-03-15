@@ -275,4 +275,26 @@
 		color: var(--color-text-muted);
 		text-align: right;
 	}
+
+	@media (max-width: 768px) {
+		.filters {
+			flex-direction: column;
+		}
+
+		.search-input {
+			min-width: 0;
+			width: 100%;
+		}
+
+		.filter-select {
+			min-width: 0;
+			width: 100%;
+		}
+
+		.orgs-table th,
+		.orgs-table td {
+			padding: var(--spacing-xs) var(--spacing-sm);
+			font-size: var(--font-size-xs);
+		}
+	}
 </style>

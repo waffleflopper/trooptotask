@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { afterNavigate } from '$app/navigation';
 	import AdminSearch from '$lib/components/admin/AdminSearch.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 
 	let { children, data } = $props();
+	let menuOpen = $state(false);
 
 	function isActive(href: string): boolean {
 		if (href === '/admin') {
@@ -11,10 +13,33 @@
 		}
 		return $page.url.pathname.startsWith(href);
 	}
+
+	// Close menu on navigation
+	afterNavigate(() => {
+		menuOpen = false;
+	});
 </script>
 
 <div class="admin-layout">
-	<aside class="admin-sidebar">
+	<!-- Mobile top bar -->
+	<div class="mobile-topbar">
+		<button class="hamburger" onclick={() => menuOpen = !menuOpen} aria-label="Toggle navigation">
+			{#if menuOpen}
+				<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+			{:else}
+				<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+			{/if}
+		</button>
+		<h1>Admin</h1>
+		<span class="role-badge">{data.adminRole?.toUpperCase().replace('_', ' ')}</span>
+	</div>
+
+	<!-- Overlay backdrop -->
+	{#if menuOpen}
+		<button class="sidebar-overlay" onclick={() => menuOpen = false} aria-label="Close navigation"></button>
+	{/if}
+
+	<aside class="admin-sidebar" class:open={menuOpen}>
 		<div class="sidebar-header">
 			<h1>Admin</h1>
 		</div>
@@ -60,7 +85,7 @@
 						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
 					{/if}
 				</button>
-				<span class="role-badge">{data.adminRole?.toUpperCase().replace('_', ' ')}</span>
+				<span class="role-badge desktop-only">{data.adminRole?.toUpperCase().replace('_', ' ')}</span>
 			</div>
 		</div>
 		{@render children()}
@@ -74,6 +99,16 @@
 		background: var(--color-bg);
 	}
 
+	/* Mobile top bar — hidden on desktop */
+	.mobile-topbar {
+		display: none;
+	}
+
+	/* Sidebar overlay backdrop — mobile only */
+	.sidebar-overlay {
+		display: none;
+	}
+
 	.admin-sidebar {
 		width: 260px;
 		background: var(--color-surface);
@@ -84,6 +119,7 @@
 		top: 0;
 		left: 0;
 		bottom: 0;
+		z-index: 100;
 	}
 
 	.sidebar-header {
@@ -223,36 +259,80 @@
 		border-radius: var(--radius-full);
 	}
 
+	/* ── Mobile ── */
 	@media (max-width: 768px) {
-		.admin-sidebar {
-			width: 100%;
-			position: relative;
-			border-right: none;
-			border-bottom: 1px solid var(--color-border);
-		}
-
 		.admin-layout {
 			flex-direction: column;
 		}
 
+		.mobile-topbar {
+			display: flex;
+			align-items: center;
+			gap: var(--spacing-sm);
+			padding: var(--spacing-sm) var(--spacing-md);
+			background: var(--color-surface);
+			border-bottom: 1px solid var(--color-border);
+			position: sticky;
+			top: 0;
+			z-index: 90;
+		}
+
+		.mobile-topbar h1 {
+			font-size: var(--font-size-lg);
+			font-weight: 700;
+			color: var(--color-text);
+			margin: 0;
+			flex: 1;
+		}
+
+		.hamburger {
+			background: none;
+			border: none;
+			padding: var(--spacing-xs);
+			cursor: pointer;
+			color: var(--color-text);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.sidebar-overlay {
+			display: block;
+			position: fixed;
+			inset: 0;
+			background: rgba(0, 0, 0, 0.5);
+			z-index: 99;
+			border: none;
+			cursor: default;
+		}
+
+		.admin-sidebar {
+			transform: translateX(-100%);
+			transition: transform 0.25s ease;
+			width: 280px;
+		}
+
+		.admin-sidebar.open {
+			transform: translateX(0);
+		}
+
 		.admin-main {
 			margin-left: 0;
+			padding: var(--spacing-md);
 		}
 
-		.sidebar-nav {
-			display: flex;
-			flex-wrap: wrap;
-			gap: var(--spacing-xs);
-			padding: var(--spacing-sm);
+		.admin-header {
+			flex-direction: column;
+			align-items: stretch;
+			gap: var(--spacing-sm);
 		}
 
-		.nav-group-label {
-			width: 100%;
-			margin-top: var(--spacing-sm);
+		.admin-header-right {
+			justify-content: flex-end;
 		}
 
-		.nav-item {
-			margin-bottom: 0;
+		.desktop-only {
+			display: none;
 		}
 	}
 </style>

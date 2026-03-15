@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	let email = $state('');
 	let name = $state('');
@@ -136,7 +137,7 @@
 
 				<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
 					{#if loading}
-						<span class="spinner"></span>
+						<Spinner />
 						Submitting...
 					{:else}
 						Submit Request
@@ -261,19 +262,6 @@
 		padding: var(--spacing-md);
 	}
 
-	.spinner {
-		display: inline-block;
-		width: 16px;
-		height: 16px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		border-radius: 50%;
-		border-top-color: white;
-		animation: spin 0.8s linear infinite;
-	}
-
-	@keyframes spin {
-		to { transform: rotate(360deg); }
-	}
 
 	.divider {
 		display: flex;

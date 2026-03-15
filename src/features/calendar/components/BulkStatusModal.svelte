@@ -3,6 +3,7 @@
 	import type { StatusType } from '$features/calendar/calendar.types';
 	import { formatDate } from '$lib/utils/dates';
 	import Modal from '$lib/components/Modal.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	interface GroupData {
 		group: string;
@@ -364,7 +365,7 @@
 				onclick={handleSubmit}
 			>
 				{#if isSubmitting}
-					<span class="spinner"></span>
+					<Spinner />
 					Applying...
 				{:else}
 					Apply Status
@@ -738,18 +739,4 @@
 		color: var(--color-primary);
 	}
 
-	/* Spinner */
-	.spinner {
-		display: inline-block;
-		width: 14px;
-		height: 14px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		border-radius: 50%;
-		border-top-color: white;
-		animation: spin 0.8s linear infinite;
-	}
-
-	@keyframes spin {
-		to { transform: rotate(360deg); }
-	}
 </style>

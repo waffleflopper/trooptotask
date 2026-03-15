@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data, form } = $props();
@@ -164,7 +165,7 @@
 									/>
 									<button type="submit" class="btn btn-primary btn-sm" disabled={loadingId !== null}>
 										{#if loadingId === org.id + '-gift'}
-											<span class="spinner"></span>
+											<Spinner />
 										{/if}
 										Apply
 									</button>
@@ -199,7 +200,7 @@
 									/>
 									<button type="submit" class="btn btn-primary btn-sm" disabled={loadingId !== null}>
 										{#if loadingId === org.id + '-extend'}
-											<span class="spinner"></span>
+											<Spinner />
 										{/if}
 										Extend
 									</button>
@@ -237,7 +238,7 @@
 											<input type="hidden" name="orgId" value={org.id} />
 											<button type="submit" class="btn btn-danger btn-sm" disabled={loadingId !== null}>
 												{#if loadingId === org.id + '-revoke'}
-													<span class="spinner"></span>
+													<Spinner />
 												{/if}
 												Revoke
 											</button>
@@ -471,22 +472,6 @@
 		padding: var(--spacing-xl) !important;
 	}
 
-	.spinner {
-		display: inline-block;
-		width: 12px;
-		height: 12px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		border-radius: 50%;
-		border-top-color: white;
-		animation: spin 0.8s linear infinite;
-		margin-right: 4px;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
 
 	:global([data-theme='dark']) .alert-error {
 		background: #450a0a;

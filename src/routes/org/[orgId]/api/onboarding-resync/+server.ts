@@ -78,8 +78,6 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			.map((p: any) => [p.template_step_id, p])
 	);
 
-	const updates: Promise<any>[] = [];
-
 	// 1. Add steps that are in the template but not yet in progress
 	const newStepRows = liveSteps
 		.filter((t: any) => !existingByTemplateStepId.has(t.id))
@@ -97,9 +95,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		}));
 
 	if (newStepRows.length > 0) {
-		updates.push(
-			supabase.from('onboarding_step_progress').insert(newStepRows)
-		);
+		const { error: insertError } = await supabase
+			.from('onboarding_step_progress')
+			.insert(newStepRows);
+		if (insertError) throw error(500, 'Failed to insert new steps');
 	}
 
 	// 2. Update snapshot fields on existing incomplete steps that still exist in template
@@ -109,21 +108,18 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		if (progressRow.completed) continue; // Never touch completed steps
 
 		const templateStep = liveSteps.find((s: any) => s.id === progressRow.template_step_id)!;
-		updates.push(
-			supabase
-				.from('onboarding_step_progress')
-				.update({
-					step_name: templateStep.name,
-					step_type: templateStep.step_type,
-					training_type_id: templateStep.training_type_id,
-					stages: templateStep.stages,
-					sort_order: templateStep.sort_order
-				})
-				.eq('id', progressRow.id)
-		);
+		const { error: updateError } = await supabase
+			.from('onboarding_step_progress')
+			.update({
+				step_name: templateStep.name,
+				step_type: templateStep.step_type,
+				training_type_id: templateStep.training_type_id,
+				stages: templateStep.stages,
+				sort_order: templateStep.sort_order
+			})
+			.eq('id', progressRow.id);
+		if (updateError) throw error(500, 'Failed to update step');
 	}
-
-	await Promise.all(updates);
 
 	// Return the refreshed progress rows
 	const { data: refreshed, error: refreshError } = await supabase

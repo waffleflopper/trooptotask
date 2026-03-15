@@ -1,3 +1,4 @@
+import { untrack } from 'svelte';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '../onboarding.types';
 
 class OnboardingTemplateStore {
@@ -26,8 +27,11 @@ class OnboardingTemplateStore {
 		this.#templates = templates;
 		this.#steps = steps;
 		this.#orgId = orgId;
-		// Keep active template if still valid, otherwise default to first
-		const stillValid = templates.some((t) => t.id === this.#activeTemplateId);
+		// Keep active template if still valid, otherwise default to first.
+		// Use untrack to avoid creating a reactive dependency on #activeTemplateId,
+		// which would cause the page $effect to re-run and overwrite client-side changes.
+		const currentActive = untrack(() => this.#activeTemplateId);
+		const stillValid = templates.some((t) => t.id === currentActive);
 		if (!stillValid) {
 			this.#activeTemplateId = templates.length > 0 ? templates[0].id : null;
 		}

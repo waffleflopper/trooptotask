@@ -22,6 +22,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import TrainingRecordModal from '$features/training/components/TrainingRecordModal.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	let { data } = $props();
 
@@ -746,31 +747,34 @@
 {/if}
 
 {#if assigningTemplateId}
-	<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="assign-template-title">
-		<div class="assign-modal">
-			<h3 id="assign-template-title">Assign Template</h3>
-			<p class="assign-desc">This onboarding was started before templates were introduced. Assign it to a template to enable re-sync. Steps will be matched by name and type.</p>
-			<div class="form-group">
-				<label class="label" for="assign-template-select">Template</label>
-				<select id="assign-template-select" class="select" bind:value={assignTemplateSelected}>
-					{#each onboardingTemplateStore.templates as t (t.id)}
-						<option value={t.id}>{t.name}</option>
-					{/each}
-				</select>
-			</div>
-			{#if assignTemplateError}
-				<p class="error-text">{assignTemplateError}</p>
-			{/if}
-			<div class="assign-actions">
-				<div class="spacer"></div>
-				<button class="btn btn-secondary" onclick={() => { assigningTemplateId = null; assignTemplateError = ''; }}>Cancel</button>
-				<button class="btn btn-primary" onclick={handleAssignTemplate} disabled={!assignTemplateSelected || assigningTemplate}>
-					{#if assigningTemplate}<Spinner />{/if}
-					Assign Template
-				</button>
-			</div>
+	<Modal
+		title="Assign Template"
+		onClose={() => { assigningTemplateId = null; assignTemplateError = ''; }}
+		width="420px"
+		titleId="assign-template-title"
+	>
+		<p class="assign-desc">This onboarding was started before templates were introduced. Assign it to a template to enable re-sync. Steps will be matched by name and type.</p>
+		<div class="form-group">
+			<label class="label" for="assign-template-select">Template</label>
+			<select id="assign-template-select" class="select" bind:value={assignTemplateSelected}>
+				{#each onboardingTemplateStore.templates as t (t.id)}
+					<option value={t.id}>{t.name}</option>
+				{/each}
+			</select>
 		</div>
-	</div>
+		{#if assignTemplateError}
+			<p class="error-text">{assignTemplateError}</p>
+		{/if}
+
+		{#snippet footer()}
+			<div class="spacer"></div>
+			<button class="btn btn-secondary" onclick={() => { assigningTemplateId = null; assignTemplateError = ''; }}>Cancel</button>
+			<button class="btn btn-primary" onclick={handleAssignTemplate} disabled={!assignTemplateSelected || assigningTemplate}>
+				{#if assigningTemplate}<Spinner />{/if}
+				Assign Template
+			</button>
+		{/snippet}
+	</Modal>
 {/if}
 
 {#if editingTrainingStep}
@@ -1313,43 +1317,11 @@
 	}
 
 	/* Assign template modal */
-	.modal-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-		padding: var(--spacing-md);
-	}
-
-	.assign-modal {
-		background: var(--color-surface);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-lg);
-		max-width: 420px;
-		width: 100%;
-		box-shadow: var(--shadow-3);
-	}
-
-	.assign-modal h3 {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
-		margin-bottom: var(--spacing-sm);
-	}
-
 	.assign-desc {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-secondary);
 		margin-bottom: var(--spacing-md);
 		line-height: 1.5;
-	}
-
-	.assign-actions {
-		display: flex;
-		gap: var(--spacing-sm);
-		margin-top: var(--spacing-md);
 	}
 
 	.error-text {

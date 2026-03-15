@@ -3,6 +3,7 @@
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import type {
 		OrganizationMember,
 		OrganizationMemberPermissions,
@@ -519,55 +520,52 @@
 	{/if}
 
 	{#if showTransferConfirm && transferTargetId}
-		<div class="modal-overlay" onclick={() => (showTransferConfirm = false)} role="presentation">
-			<div
-				class="modal"
-				onclick={(e) => e.stopPropagation()}
-				onkeydown={(e) => { if (e.key === 'Escape') showTransferConfirm = false; }}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby="transfer-ownership-title"
-				tabindex="-1"
+		<Modal
+			title="Transfer Ownership"
+			onClose={() => (showTransferConfirm = false)}
+			width="400px"
+			titleId="transfer-ownership-title"
+		>
+			<p>
+				Are you sure you want to transfer ownership of this organization?
+				You will become an Admin member and lose owner privileges.
+			</p>
+			<p class="warning">This action cannot be undone by you.</p>
+
+			{#if form?.transferError}
+				<div class="error-message">{form.transferError}</div>
+			{/if}
+
+			<form
+				id="transfer-ownership-form"
+				method="POST"
+				action="?/transferOwnership"
+				use:enhance={() => {
+					loading = true;
+					return async ({ update }) => {
+						loading = false;
+						showTransferConfirm = false;
+						await update();
+					};
+				}}
 			>
-				<h3 id="transfer-ownership-title">Transfer Ownership</h3>
-				<p>
-					Are you sure you want to transfer ownership of this organization?
-					You will become an Admin member and lose owner privileges.
-				</p>
-				<p class="warning">This action cannot be undone by you.</p>
+				<input type="hidden" name="newOwnerId" value={transferTargetId} />
+			</form>
 
-				{#if form?.transferError}
-					<div class="error-message">{form.transferError}</div>
-				{/if}
-
-				<form
-					method="POST"
-					action="?/transferOwnership"
-					use:enhance={() => {
-						loading = true;
-						return async ({ update }) => {
-							loading = false;
-							showTransferConfirm = false;
-							await update();
-						};
-					}}
+			{#snippet footer()}
+				<button type="button" class="btn btn-secondary" onclick={() => (showTransferConfirm = false)}>
+					Cancel
+				</button>
+				<button
+					type="submit"
+					form="transfer-ownership-form"
+					class="btn btn-danger"
+					disabled={loading}
 				>
-					<input type="hidden" name="newOwnerId" value={transferTargetId} />
-					<div class="modal-actions">
-						<button
-							type="button"
-							class="btn btn-secondary"
-							onclick={() => (showTransferConfirm = false)}
-						>
-							Cancel
-						</button>
-						<button type="submit" class="btn btn-danger" disabled={loading}>
-							{loading ? 'Transferring...' : 'Transfer Ownership'}
-						</button>
-					</div>
-				</form>
-			</div>
-		</div>
+					{loading ? 'Transferring...' : 'Transfer Ownership'}
+				</button>
+			{/snippet}
+		</Modal>
 	{/if}
 </div>
 
@@ -800,44 +798,9 @@
 		margin-bottom: var(--spacing-md);
 	}
 
-	.modal-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-	}
-
-	.modal {
-		background: var(--color-surface);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-lg);
-		max-width: 400px;
-		width: 90%;
-	}
-
-	.modal h3 {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
-		margin-bottom: var(--spacing-md);
-	}
-
-	.modal p {
-		margin-bottom: var(--spacing-md);
-		color: var(--color-text);
-	}
-
-	.modal .warning {
+	.warning {
 		color: #dc2626;
 		font-weight: 500;
-	}
-
-	.modal-actions {
-		display: flex;
-		gap: var(--spacing-sm);
-		justify-content: flex-end;
 	}
 
 	/* Mobile styles */

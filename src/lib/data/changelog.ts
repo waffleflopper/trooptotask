@@ -7,6 +7,18 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-15-accessibility-improvements',
+		date: '2026-03-15',
+		title: 'Accessibility Improvements',
+		items: [
+			'Improved keyboard navigation throughout the app — you can now tab through all interactive elements and use Escape to close menus and modals',
+			'Added a "Skip to main content" link for keyboard and screen reader users',
+			'Better color contrast across the board, in both light and dark mode',
+			'Screen readers now properly announce notifications, form errors, and loading states',
+			'Added support for reduced motion and high contrast display modes'
+		]
+	},
+	{
 		id: '2026-03-15-multi-template-onboarding',
 		date: '2026-03-15',
 		title: 'Multiple Onboarding Templates',
@@ -43,19 +55,6 @@ export const changelog: ChangelogEntry[] = [
 			'You can now import status data from CSV or Excel files directly into the calendar — great for bringing over historic data you\'ve been tracking elsewhere',
 			'The importer will help you match up status names if they don\'t exactly line up with your organization\'s status types',
 			'Supports column auto-detection so your spreadsheet doesn\'t have to be in any particular order'
-		]
-	},
-	{
-		id: '2026-03-12-production-polish',
-		date: '2026-03-12',
-		title: 'Production Polish',
-		items: [
-			'Added a Getting Started checklist to help new organizations set up quickly',
-			'Improved error pages so you see a friendly message instead of a blank screen when something goes wrong',
-			'Added helpful descriptions to each permission setting so you know exactly what you\'re granting',
-			'The site now works properly on phones and tablets — tables scroll horizontally and toolbar buttons no longer disappear on small screens',
-			'Bulk import error messages now tell you what the valid values are instead of just saying something is wrong',
-			'Various stability and accessibility improvements under the hood'
 		]
 	},
 ];

@@ -274,7 +274,7 @@
 								<button
 									class="group-collapse-btn"
 									onclick={() => toggleGroupCollapse(grp.group)}
-									aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
+									aria-label={isCollapsed ? `Expand ${grp.group}` : `Collapse ${grp.group}`}
 								>
 									<svg class="collapse-icon" class:collapsed={isCollapsed} viewBox="0 0 20 20" fill="currentColor">
 										<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -463,7 +463,7 @@
 		font-size: var(--font-size-sm);
 		margin-top: var(--spacing-sm);
 		padding: var(--spacing-xs) var(--spacing-sm);
-		background: #fef2f2;
+		background: rgba(244, 67, 54, 0.08);
 		border-radius: var(--radius-sm);
 	}
 
@@ -645,7 +645,7 @@
 	}
 
 	.person-item.selected {
-		background: #ebf8ff;
+		background: rgba(var(--color-primary-rgb), 0.08);
 	}
 
 	.person-item input[type='checkbox'] {
@@ -713,7 +713,7 @@
 	}
 
 	.summary-error {
-		color: #dc2626;
+		color: var(--color-error);
 	}
 
 	.footer-actions {

@@ -6,6 +6,33 @@ import { env } from '$env/dynamic/private';
 
 const GITHUB_REPO = 'waffleflopper/trooptotask';
 
+// Map URL path segments to human-readable section names
+const SECTION_MAP: Record<string, string> = {
+	calendar: 'Calendar',
+	'calendar/reports': 'Calendar Reports',
+	training: 'Training',
+	personnel: 'Personnel',
+	'leaders-book': "Leader's Book",
+	onboarding: 'Onboarding',
+	settings: 'Settings',
+	billing: 'Billing',
+	audit: 'Audit Log',
+	admin: 'Admin',
+	'admin/settings': 'Admin Settings',
+	'admin/approvals': 'Admin Approvals',
+	'admin/audit': 'Admin Audit Log',
+	'admin/archived': 'Admin Archived'
+};
+
+function getPageSection(pageUrl?: string): string | null {
+	if (!pageUrl) return null;
+	// Strip /org/<uuid>/ prefix and trailing slashes
+	const match = pageUrl.match(/^\/org\/[^/]+\/?(.*?)\/?$/);
+	const slug = match?.[1] ?? '';
+	if (!slug) return 'Dashboard';
+	return SECTION_MAP[slug] ?? slug;
+}
+
 const CATEGORY_LABELS: Record<string, string[]> = {
 	bug: ['bug', 'user-feedback'],
 	feature: ['enhancement', 'user-feedback'],
@@ -16,6 +43,7 @@ async function createGitHubIssue(params: {
 	category: string;
 	message: string;
 	pageUrl?: string;
+	pageSection?: string | null;
 	organizationName?: string;
 	userEmail?: string;
 }): Promise<{ issueNumber: number; issueUrl: string } | null> {
@@ -42,6 +70,7 @@ async function createGitHubIssue(params: {
 		`**Category:** ${params.category}`,
 	];
 
+	if (params.pageSection) bodyParts.push(`**Section:** ${params.pageSection}`);
 	if (params.pageUrl) bodyParts.push(`**Page:** ${params.pageUrl}`);
 	if (params.organizationName) bodyParts.push(`**Organization:** ${params.organizationName}`);
 	if (params.userEmail) bodyParts.push(`**Submitted by:** ${params.userEmail}`);
@@ -86,11 +115,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid category');
 	}
 
+	const pageSection = getPageSection(pageUrl);
+
 	// Create GitHub issue (non-blocking — feedback still saved to DB even if this fails)
 	const githubResult = await createGitHubIssue({
 		category: category || 'general',
 		message,
 		pageUrl,
+		pageSection,
 		organizationName,
 		userEmail: user.email
 	});
@@ -105,6 +137,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		category: category || 'general',
 		message,
 		page_url: pageUrl || null,
+		page_section: pageSection || null,
 		github_issue_number: githubResult?.issueNumber || null,
 		github_issue_url: githubResult?.issueUrl || null
 	});

@@ -261,6 +261,10 @@
 
 	/* ── Mobile ── */
 	@media (max-width: 768px) {
+		.admin-layout {
+			flex-direction: column;
+		}
+
 		.mobile-topbar {
 			display: flex;
 			align-items: center;

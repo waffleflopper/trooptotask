@@ -309,15 +309,14 @@
 							Delete
 						</button>
 					{/if}
+					{#if !showNewTemplateForm}
+						<button class="btn btn-secondary btn-sm new-template-btn" onclick={() => { showNewTemplateForm = true; templateError = ''; }}>
+							+ New Template
+						</button>
+					{/if}
 				{/if}
 			</div>
 		</div>
-
-		{#if !showNewTemplateForm}
-			<button class="btn btn-secondary btn-sm new-template-btn" onclick={() => { showNewTemplateForm = true; templateError = ''; }}>
-				+ New Template
-			</button>
-		{/if}
 	</div>
 
 	{#if deleteTemplateError}
@@ -549,16 +548,12 @@
 
 <style>
 	.template-header {
-		display: flex;
-		align-items: flex-end;
-		gap: var(--spacing-md);
 		margin-bottom: var(--spacing-md);
 		padding-bottom: var(--spacing-md);
 		border-bottom: 1px solid var(--color-divider);
 	}
 
 	.template-selector {
-		flex: 1;
 		min-width: 0;
 	}
 

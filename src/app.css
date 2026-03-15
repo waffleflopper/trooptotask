@@ -319,9 +319,9 @@ a:hover {
 }
 
 .btn-sm {
-	padding: 6px 16px;
+	padding: 8px 16px;
 	font-size: var(--font-size-sm);
-	min-height: 32px;
+	min-height: 36px;
 }
 
 .btn-lg {
@@ -429,8 +429,8 @@ a:hover {
 
 /* Checkbox styling */
 input[type="checkbox"] {
-	width: 18px;
-	height: 18px;
+	width: 20px;
+	height: 20px;
 	accent-color: var(--color-primary);
 	cursor: pointer;
 }

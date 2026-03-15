@@ -10,7 +10,12 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 		? new Set(parentData.personnel.map((p: any) => p.id))
 		: null;
 
-	const [templateRes, onboardingsRes] = await Promise.all([
+	const [templatesRes, templateStepsRes, onboardingsRes] = await Promise.all([
+		supabase
+			.from('onboarding_templates')
+			.select('*')
+			.eq('organization_id', orgId)
+			.order('name'),
 		supabase
 			.from('onboarding_template_steps')
 			.select('*')
@@ -29,37 +34,51 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 		onboardings = onboardings.filter((o: any) => scopedPersonnelIds.has(o.personnel_id));
 	}
 
+	const onboardingTemplates = (templatesRes.data ?? []).map((t: any) => ({
+		id: t.id,
+		orgId: t.organization_id,
+		name: t.name,
+		description: t.description,
+		createdAt: t.created_at
+	}));
+
+	const onboardingTemplateSteps = (templateStepsRes.data ?? []).map((t: any) => ({
+		id: t.id,
+		templateId: t.template_id,
+		name: t.name,
+		description: t.description,
+		stepType: t.step_type,
+		trainingTypeId: t.training_type_id,
+		stages: t.stages,
+		sortOrder: t.sort_order
+	}));
+
 	return {
 		orgId,
-		onboardingTemplateSteps: (templateRes.data ?? []).map((t: any) => ({
-			id: t.id,
-			name: t.name,
-			description: t.description,
-			stepType: t.step_type,
-			trainingTypeId: t.training_type_id,
-			stages: t.stages,
-			sortOrder: t.sort_order
-		})),
+		onboardingTemplates,
+		onboardingTemplateSteps,
 		onboardings: onboardings.map((o: any) => ({
 			id: o.id,
 			personnelId: o.personnel_id,
 			startedAt: o.started_at,
 			completedAt: o.completed_at,
 			status: o.status,
+			templateId: o.template_id ?? null,
 			steps: (o.onboarding_step_progress ?? [])
 				.sort((a: any, b: any) => a.sort_order - b.sort_order)
 				.map((s: any) => ({
-				id: s.id,
-				onboardingId: s.onboarding_id,
-				stepName: s.step_name,
-				stepType: s.step_type,
-				trainingTypeId: s.training_type_id,
-				stages: s.stages,
-				sortOrder: s.sort_order,
-				completed: s.completed,
-				currentStage: s.current_stage,
-				notes: Array.isArray(s.notes) ? s.notes : []
-			}))
+					id: s.id,
+					onboardingId: s.onboarding_id,
+					stepName: s.step_name,
+					stepType: s.step_type,
+					trainingTypeId: s.training_type_id,
+					stages: s.stages,
+					sortOrder: s.sort_order,
+					completed: s.completed,
+					currentStage: s.current_stage,
+					notes: Array.isArray(s.notes) ? s.notes : [],
+					templateStepId: s.template_step_id ?? null
+				}))
 		}))
 	};
 };

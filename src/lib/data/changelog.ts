@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-15-multi-template-onboarding',
+		date: '2026-03-15',
+		title: 'Multiple Onboarding Templates',
+		items: [
+			'You can now create multiple onboarding templates — one for officers, one for enlisted, one for civilians, whatever your unit needs',
+			'Pick which template to use when you start someone\'s onboarding, so the right checklist shows up for the right person',
+			'Use the Re-sync button to update someone\'s in-progress onboarding when the template changes — completed steps are never touched, only incomplete ones get updated',
+			'If you remove a step from the template after someone already started, it shows up as deprecated on their checklist so you can review and dismiss it manually'
+		]
+	},
+	{
 		id: '2026-03-15-feedback-improvements',
 		date: '2026-03-15',
 		title: 'Better Feedback Reports',
@@ -45,17 +56,6 @@ export const changelog: ChangelogEntry[] = [
 			'The site now works properly on phones and tablets — tables scroll horizontally and toolbar buttons no longer disappear on small screens',
 			'Bulk import error messages now tell you what the valid values are instead of just saying something is wrong',
 			'Various stability and accessibility improvements under the hood'
-		]
-	},
-	{
-		id: '2026-03-11-sign-in-rosters',
-		date: '2026-03-11',
-		title: 'Sign-In Rosters',
-		items: [
-			'You can now generate printable sign-in rosters for training events right from the Training page',
-			'Filter by rank and group, sort alphabetically or by rank, and optionally separate sections by group',
-			'Every roster you generate is saved automatically so you can re-print it later',
-			'Upload the signed copy afterward so you always have proof of attendance on file'
 		]
 	},
 ];

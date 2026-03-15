@@ -2,6 +2,7 @@
 	import type { SpecialDay } from '$features/calendar/calendar.types';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface Props {
 		specialDays: SpecialDay[];
@@ -73,75 +74,65 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="special-day-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal" style="width: 550px;" role="document">
-		<div class="modal-header">
-			<h2 id="special-day-title">Manage Holidays & Closures</h2>
-			<button class="btn btn-secondary btn-sm" onclick={onClose}>&times;</button>
-		</div>
+<Modal title="Manage Holidays & Closures" {onClose} width="550px" titleId="special-day-title">
+	<div class="add-form">
+		<input type="date" class="input" bind:value={newDate} style="width: 150px;" />
+		<input
+			type="text"
+			class="input"
+			bind:value={newName}
+			placeholder="Name (e.g., Training Day)"
+			style="flex: 1;"
+		/>
+		<select class="select" bind:value={newType} style="width: 140px;">
+			<option value="org-closure">Closure</option>
+			<option value="federal-holiday">Federal Holiday</option>
+		</select>
+		<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!newName.trim()}>
+			Add
+		</button>
+	</div>
 
-		<div class="modal-body">
-			<div class="add-form">
-				<input type="date" class="input" bind:value={newDate} style="width: 150px;" />
-				<input
-					type="text"
-					class="input"
-					bind:value={newName}
-					placeholder="Name (e.g., Training Day)"
-					style="flex: 1;"
-				/>
-				<select class="select" bind:value={newType} style="width: 140px;">
-					<option value="org-closure">Closure</option>
-					<option value="federal-holiday">Federal Holiday</option>
-				</select>
-				<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!newName.trim()}>
-					Add
+	<div class="filter-bar">
+		<label class="label">Year:</label>
+		<select class="select" bind:value={filterYear} style="width: 100px;">
+			{#each yearOptions as year}
+				<option value={year}>{year}</option>
+			{/each}
+		</select>
+		<span class="count">{filteredDays.length} days</span>
+	</div>
+
+	<div class="day-list">
+		{#each filteredDays as day (day.id)}
+			<div class="day-item">
+				<div class="day-info">
+					<span class="day-date">{formatDisplayDate(day.date)}</span>
+					<span class="day-name">{day.name}</span>
+					<span class="day-type" class:holiday={day.type === 'federal-holiday'}>
+						{day.type === 'federal-holiday' ? 'Holiday' : 'Closure'}
+					</span>
+				</div>
+				<button
+					class="btn btn-danger btn-sm"
+					onclick={() => handleRemove(day)}
+					title="Remove"
+				>
+					&times;
 				</button>
 			</div>
-
-			<div class="filter-bar">
-				<label class="label">Year:</label>
-				<select class="select" bind:value={filterYear} style="width: 100px;">
-					{#each yearOptions as year}
-						<option value={year}>{year}</option>
-					{/each}
-				</select>
-				<span class="count">{filteredDays.length} days</span>
-			</div>
-
-			<div class="day-list">
-				{#each filteredDays as day (day.id)}
-					<div class="day-item">
-						<div class="day-info">
-							<span class="day-date">{formatDisplayDate(day.date)}</span>
-							<span class="day-name">{day.name}</span>
-							<span class="day-type" class:holiday={day.type === 'federal-holiday'}>
-								{day.type === 'federal-holiday' ? 'Holiday' : 'Closure'}
-							</span>
-						</div>
-						<button
-							class="btn btn-danger btn-sm"
-							onclick={() => handleRemove(day)}
-							title="Remove"
-						>
-							&times;
-						</button>
-					</div>
-				{:else}
-					<div class="empty-state">No holidays or closures for {filterYear}</div>
-				{/each}
-			</div>
-		</div>
-
-		<div class="modal-footer">
-			<button class="btn btn-secondary" onclick={handleResetHolidays}>
-				Reset Federal Holidays
-			</button>
-			<button class="btn btn-primary" onclick={onClose}>Done</button>
-		</div>
+		{:else}
+			<div class="empty-state">No holidays or closures for {filterYear}</div>
+		{/each}
 	</div>
-</div>
+
+	{#snippet footer()}
+		<button class="btn btn-secondary" onclick={handleResetHolidays}>
+			Reset Federal Holidays
+		</button>
+		<button class="btn btn-primary" onclick={onClose}>Done</button>
+	{/snippet}
+</Modal>
 
 {#if confirmRemove}
 	<ConfirmDialog

@@ -28,12 +28,12 @@
 </script>
 
 <div class="matrix-container">
-	<table class="matrix">
+	<table class="matrix" aria-label="Training status matrix">
 		<thead>
 			<tr>
-				<th class="name-header">Personnel</th>
+				<th scope="col" class="name-header">Personnel</th>
 				{#each trainingTypes as type (type.id)}
-					<th class="type-header">
+					<th scope="col" class="type-header">
 						<span class="type-name" style="background-color: {type.color}">
 							{type.name}
 						</span>
@@ -44,7 +44,7 @@
 		<tbody>
 			{#each personnel as person (person.id)}
 				<tr>
-					<td class="name-cell">
+					<th scope="row" class="name-cell">
 						{#if onPersonClick}
 							<button class="person-btn" onclick={() => onPersonClick(person)}>
 								<span class="person-rank">{person.rank}</span>
@@ -54,7 +54,7 @@
 							<span class="person-rank">{person.rank}</span>
 							{person.lastName}, {person.firstName}
 						{/if}
-					</td>
+					</th>
 					{#each trainingTypes as type (type.id)}
 						{@const training = getTraining(person.id, type.id)}
 						{@const statusInfo = getTrainingStatus(training, type, person)}
@@ -64,12 +64,13 @@
 									class="status-badge"
 									style="background-color: {statusInfo.color}"
 									data-status={statusInfo.status}
+									aria-label="{person.lastName} {type.name}: {statusInfo.label}"
 									onclick={() => onCellClick(person, type, training)}
 								>
 									{statusInfo.label}
 								</button>
 							{:else}
-								<span class="status-badge" style="background-color: {statusInfo.color}" data-status={statusInfo.status}>
+								<span class="status-badge" style="background-color: {statusInfo.color}" data-status={statusInfo.status} aria-label="{person.lastName} {type.name}: {statusInfo.label}">
 									{statusInfo.label}
 								</span>
 							{/if}

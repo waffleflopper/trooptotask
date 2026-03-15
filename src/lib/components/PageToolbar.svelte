@@ -30,6 +30,8 @@
 				type="button"
 				class="more-btn"
 				aria-label="More actions"
+				aria-expanded={showOverflow}
+				aria-haspopup="menu"
 				onclick={() => (showOverflow = !showOverflow)}
 			>
 				<span>More</span>

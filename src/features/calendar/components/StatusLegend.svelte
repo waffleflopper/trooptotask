@@ -8,12 +8,12 @@
 	let { statusTypes }: Props = $props();
 </script>
 
-<div class="status-legend">
+<div class="status-legend" role="region" aria-label="Status color legend">
 	<span class="legend-label">Status Key:</span>
 	<div class="legend-items">
 		{#each statusTypes as status (status.id)}
 			<div class="legend-item">
-				<span class="legend-color" style="background-color: {status.color}"></span>
+				<span class="legend-color" style="background-color: {status.color}" aria-hidden="true"></span>
 				<span class="legend-name">{status.name}</span>
 			</div>
 		{/each}

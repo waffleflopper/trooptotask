@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data, form } = $props();
@@ -90,7 +91,7 @@
 								<input type="hidden" name="requestId" value={req.id} />
 								<button type="submit" class="btn btn-primary btn-sm" disabled={loadingId !== null}>
 									{#if loadingId === req.id + '-approve'}
-										<span class="spinner"></span>
+										<Spinner />
 									{/if}
 									Approve
 								</button>
@@ -109,7 +110,7 @@
 								<input type="hidden" name="requestId" value={req.id} />
 								<button type="submit" class="btn btn-danger btn-sm" disabled={loadingId !== null}>
 									{#if loadingId === req.id + '-reject'}
-										<span class="spinner"></span>
+										<Spinner />
 									{/if}
 									Reject
 								</button>
@@ -160,7 +161,7 @@
 									<input type="hidden" name="requestId" value={req.id} />
 									<button type="submit" class="btn btn-secondary btn-sm" disabled={loadingId !== null}>
 										{#if loadingId === req.id + '-resend'}
-											<span class="spinner secondary"></span>
+											<Spinner color="var(--color-text-muted)" />
 										{/if}
 										Resend
 									</button>
@@ -321,25 +322,6 @@
 		flex-shrink: 0;
 	}
 
-	.spinner {
-		display: inline-block;
-		width: 12px;
-		height: 12px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		border-radius: 50%;
-		border-top-color: white;
-		animation: spin 0.8s linear infinite;
-		margin-right: 4px;
-	}
-
-	.spinner.secondary {
-		border-color: rgba(0, 0, 0, 0.15);
-		border-top-color: var(--color-text-muted);
-	}
-
-	@keyframes spin {
-		to { transform: rotate(360deg); }
-	}
 
 	.empty-card {
 		background: var(--color-surface);

@@ -35,6 +35,7 @@
 </script>
 
 <header class="top-header">
+	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<div class="header-left">
 		<a href="/org/{orgId}" class="logo-link">
 			<span class="header-mark">T2T</span>
@@ -48,6 +49,7 @@
 			href="/org/{orgId}"
 			class="nav-tab"
 			class:active={isDashboardActive}
+			aria-current={isDashboardActive ? 'page' : undefined}
 		>
 			Dashboard
 		</a>
@@ -56,6 +58,7 @@
 				href="/org/{orgId}/calendar"
 				class="nav-tab"
 				class:active={isCalendarActive}
+				aria-current={isCalendarActive ? 'page' : undefined}
 			>
 				Calendar
 			</a>
@@ -65,6 +68,7 @@
 				href="/org/{orgId}/personnel"
 				class="nav-tab"
 				class:active={isPersonnelActive}
+				aria-current={isPersonnelActive ? 'page' : undefined}
 			>
 				Personnel
 			</a>
@@ -74,6 +78,7 @@
 				href="/org/{orgId}/training"
 				class="nav-tab"
 				class:active={isTrainingActive}
+				aria-current={isTrainingActive ? 'page' : undefined}
 			>
 				Training
 			</a>
@@ -83,6 +88,7 @@
 				href="/org/{orgId}/onboarding"
 				class="nav-tab"
 				class:active={isOnboardingActive}
+				aria-current={isOnboardingActive ? 'page' : undefined}
 			>
 				Onboarding
 			</a>
@@ -92,6 +98,7 @@
 				href="/org/{orgId}/leaders-book"
 				class="nav-tab"
 				class:active={isLeadersBookActive}
+				aria-current={isLeadersBookActive ? 'page' : undefined}
 			>
 				Leaders Book
 				<span class="beta-badge">Beta</span>
@@ -226,6 +233,23 @@
 		align-items: center;
 		gap: var(--spacing-sm);
 		flex-shrink: 0;
+	}
+
+	.skip-link {
+		position: absolute;
+		top: -100%;
+		left: var(--spacing-md);
+		background: var(--color-primary);
+		color: white;
+		padding: var(--spacing-sm) var(--spacing-md);
+		border-radius: var(--radius-md);
+		z-index: 200;
+		font-weight: 600;
+		text-decoration: none;
+	}
+
+	.skip-link:focus {
+		top: var(--spacing-sm);
 	}
 
 	/* Mobile (< 640px) */

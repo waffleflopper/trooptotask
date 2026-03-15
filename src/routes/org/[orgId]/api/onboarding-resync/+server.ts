@@ -109,17 +109,29 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		if (progressRow.completed) continue; // Never touch completed steps
 
 		const templateStep = liveSteps.find((s: any) => s.id === progressRow.template_step_id)!;
+
+		// If stages changed on a paperwork step, reset current_stage to the first new stage
+		const stagesChanged = JSON.stringify(templateStep.stages) !== JSON.stringify(progressRow.stages);
+		const updateFields: Record<string, unknown> = {
+			step_name: templateStep.name,
+			step_type: templateStep.step_type,
+			training_type_id: templateStep.training_type_id,
+			stages: templateStep.stages,
+			sort_order: templateStep.sort_order
+		};
+		if (stagesChanged && templateStep.step_type === 'paperwork' && templateStep.stages?.length) {
+			// Keep current_stage if it still exists in the new stages list, otherwise reset
+			const currentStageStillValid = templateStep.stages.includes(progressRow.current_stage);
+			if (!currentStageStillValid) {
+				updateFields.current_stage = templateStep.stages[0];
+			}
+		}
+
 		updates.push(
 			Promise.resolve(
 				supabase
 					.from('onboarding_step_progress')
-					.update({
-						step_name: templateStep.name,
-						step_type: templateStep.step_type,
-						training_type_id: templateStep.training_type_id,
-						stages: templateStep.stages,
-						sort_order: templateStep.sort_order
-					})
+					.update(updateFields)
 					.eq('id', progressRow.id)
 			)
 		);

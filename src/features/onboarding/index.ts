@@ -4,6 +4,7 @@
 export type {
 	OnboardingStepType,
 	OnboardingStatus,
+	OnboardingTemplate,
 	OnboardingTemplateStep,
 	OnboardingStepNote,
 	OnboardingStepProgress,

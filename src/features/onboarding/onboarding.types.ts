@@ -5,8 +5,17 @@
 export type OnboardingStepType = 'training' | 'paperwork' | 'checkbox';
 export type OnboardingStatus = 'in_progress' | 'completed' | 'cancelled';
 
+export interface OnboardingTemplate {
+	id: string;
+	orgId: string;
+	name: string;
+	description: string | null;
+	createdAt: string;
+}
+
 export interface OnboardingTemplateStep {
 	id: string;
+	templateId: string;
 	name: string;
 	description: string | null;
 	stepType: OnboardingStepType;
@@ -31,6 +40,7 @@ export interface OnboardingStepProgress {
 	completed: boolean;
 	currentStage: string | null;
 	notes: OnboardingStepNote[];
+	templateStepId: string | null;
 }
 
 export interface PersonnelOnboarding {
@@ -40,4 +50,5 @@ export interface PersonnelOnboarding {
 	completedAt: string | null;
 	status: OnboardingStatus;
 	steps: OnboardingStepProgress[];
+	templateId: string | null;
 }

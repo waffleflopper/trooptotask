@@ -4,18 +4,29 @@ import { requirePrivilegedOrFullEditor } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 
-function transformRow(r: any) {
+function transformTemplate(r: any) {
 	return {
 		id: r.id,
-		templateId: r.template_id,
+		orgId: r.organization_id,
 		name: r.name,
 		description: r.description,
-		stepType: r.step_type,
-		trainingTypeId: r.training_type_id,
-		stages: r.stages,
-		sortOrder: r.sort_order
+		createdAt: r.created_at
 	};
 }
+
+export const GET: RequestHandler = async ({ params, locals, cookies }) => {
+	const { orgId } = params;
+	const { supabase } = getApiContext(locals, cookies, orgId);
+
+	const { data, error: dbError } = await supabase
+		.from('onboarding_templates')
+		.select('*')
+		.eq('organization_id', orgId)
+		.order('name');
+
+	if (dbError) throw error(500, dbError.message);
+	return json((data ?? []).map(transformTemplate));
+};
 
 export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
 	const { orgId } = params;
@@ -31,22 +42,23 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const body = await request.json();
 
 	const { data, error: dbError } = await supabase
-		.from('onboarding_template_steps')
+		.from('onboarding_templates')
 		.insert({
 			organization_id: orgId,
-			template_id: body.templateId,
 			name: body.name,
-			description: body.description ?? null,
-			step_type: body.stepType,
-			training_type_id: body.trainingTypeId ?? null,
-			stages: body.stages ?? null,
-			sort_order: body.sortOrder ?? 0
+			description: body.description ?? null
 		})
 		.select()
 		.single();
 
-	if (dbError) throw error(500, dbError.message);
-	return json(transformRow(data));
+	if (dbError) {
+		if (dbError.code === '23505') {
+			throw error(409, 'A template with that name already exists.');
+		}
+		throw error(500, dbError.message);
+	}
+
+	return json(transformTemplate(data));
 };
 
 export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
@@ -66,21 +78,23 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	const updateData: Record<string, unknown> = {};
 	if (fields.name !== undefined) updateData.name = fields.name;
 	if (fields.description !== undefined) updateData.description = fields.description;
-	if (fields.stepType !== undefined) updateData.step_type = fields.stepType;
-	if (fields.trainingTypeId !== undefined) updateData.training_type_id = fields.trainingTypeId;
-	if (fields.stages !== undefined) updateData.stages = fields.stages;
-	if (fields.sortOrder !== undefined) updateData.sort_order = fields.sortOrder;
 
 	const { data, error: dbError } = await supabase
-		.from('onboarding_template_steps')
+		.from('onboarding_templates')
 		.update(updateData)
 		.eq('id', id)
 		.eq('organization_id', orgId)
 		.select()
 		.single();
 
-	if (dbError) throw error(500, dbError.message);
-	return json(transformRow(data));
+	if (dbError) {
+		if (dbError.code === '23505') {
+			throw error(409, 'A template with that name already exists.');
+		}
+		throw error(500, dbError.message);
+	}
+
+	return json(transformTemplate(data));
 };
 
 export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
@@ -96,8 +110,37 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 
 	const { id } = await request.json();
 
+	// Block only if active (in_progress) onboardings reference this template
+	const { count, error: countError } = await supabase
+		.from('personnel_onboardings')
+		.select('id', { count: 'exact', head: true })
+		.eq('organization_id', orgId)
+		.eq('template_id', id)
+		.eq('status', 'in_progress');
+
+	if (countError) throw error(500, countError.message);
+
+	if ((count ?? 0) > 0) {
+		throw error(
+			409,
+			`Cannot delete — ${count} active onboarding${count === 1 ? '' : 's'} ${count === 1 ? 'is' : 'are'} using this template.`
+		);
+	}
+
+	// Prevent deleting the last template
+	const { count: templateCount, error: templateCountError } = await supabase
+		.from('onboarding_templates')
+		.select('id', { count: 'exact', head: true })
+		.eq('organization_id', orgId);
+
+	if (templateCountError) throw error(500, templateCountError.message);
+
+	if ((templateCount ?? 0) <= 1) {
+		throw error(409, 'Cannot delete the last template. Create another template first.');
+	}
+
 	const { error: dbError } = await supabase
-		.from('onboarding_template_steps')
+		.from('onboarding_templates')
 		.delete()
 		.eq('id', id)
 		.eq('organization_id', orgId);

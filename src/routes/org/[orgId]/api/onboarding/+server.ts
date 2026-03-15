@@ -15,7 +15,8 @@ function transformStep(r: any) {
 		sortOrder: r.sort_order,
 		completed: r.completed,
 		currentStage: r.current_stage,
-		notes: Array.isArray(r.notes) ? r.notes : []
+		notes: Array.isArray(r.notes) ? r.notes : [],
+		templateStepId: r.template_step_id ?? null
 	};
 }
 
@@ -26,7 +27,8 @@ function transformOnboarding(r: any, steps: any[]) {
 		startedAt: r.started_at,
 		completedAt: r.completed_at,
 		status: r.status,
-		steps: steps.map(transformStep)
+		steps: steps.map(transformStep),
+		templateId: r.template_id ?? null
 	};
 }
 
@@ -49,23 +51,30 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		.insert({
 			organization_id: orgId,
 			personnel_id: body.personnelId,
-			started_at: body.startedAt
+			started_at: body.startedAt,
+			template_id: body.templateId ?? null
 		})
 		.select()
 		.single();
 
 	if (onboardingError) throw error(500, onboardingError.message);
 
-	// Fetch current template steps to snapshot
-	const { data: templateSteps, error: templateError } = await supabase
+	// Fetch template steps to snapshot — scoped to the chosen template if provided
+	let templateQuery = supabase
 		.from('onboarding_template_steps')
 		.select('*')
 		.eq('organization_id', orgId)
 		.order('sort_order');
 
+	if (body.templateId) {
+		templateQuery = templateQuery.eq('template_id', body.templateId);
+	}
+
+	const { data: templateSteps, error: templateError } = await templateQuery;
+
 	if (templateError) throw error(500, templateError.message);
 
-	// Create step progress rows from template snapshot
+	// Create step progress rows from template snapshot, storing the source template_step_id
 	let steps: any[] = [];
 	if (templateSteps && templateSteps.length > 0) {
 		const stepRows = templateSteps.map((t: any) => ({
@@ -77,7 +86,8 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			sort_order: t.sort_order,
 			completed: false,
 			current_stage: t.step_type === 'paperwork' && t.stages?.length ? t.stages[0] : null,
-			notes: []
+			notes: [],
+			template_step_id: t.id
 		}));
 
 		const { data: createdSteps, error: stepsError } = await supabase

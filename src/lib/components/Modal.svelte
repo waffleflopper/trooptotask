@@ -36,16 +36,18 @@
 	}: Props = $props();
 
 	let overlayEl: HTMLDivElement | undefined = $state();
-	let previouslyFocused: Element | null = null;
+	let previouslyFocused: HTMLElement | null = null;
 
 	onMount(() => {
-		previouslyFocused = document.activeElement;
-		overlayEl?.focus();
-		return () => {
-			if (previouslyFocused instanceof HTMLElement) {
-				previouslyFocused.focus();
-			}
-		};
+		previouslyFocused = document.activeElement as HTMLElement;
+		// Focus first focusable element inside the dialog, or the overlay as fallback
+		const firstFocusable = overlayEl?.querySelector<HTMLElement>(FOCUSABLE);
+		if (firstFocusable) {
+			firstFocusable.focus();
+		} else {
+			overlayEl?.focus();
+		}
+		return () => previouslyFocused?.focus();
 	});
 
 	const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -88,7 +90,7 @@
 	onkeydown={handleKeydown}
 	bind:this={overlayEl}
 >
-	<button class="modal-backdrop" onclick={handleClose} tabindex="-1" aria-label="Close dialog"></button>
+	<button class="modal-backdrop" onclick={handleClose} tabindex="-1" aria-hidden="true"></button>
 	<div class="modal" role="document" style:width={width} style:max-width="95vw">
 		<div class="modal-header">
 			<h2 id={titleId}>{title}</h2>

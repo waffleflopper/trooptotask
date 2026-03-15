@@ -4,6 +4,7 @@
 	import type { Group } from '$lib/stores/groups.svelte';
 	import { getTrainingStatus, type TrainingStatusInfo } from '$features/training/utils/trainingStatus';
 	import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface Props {
 		personnel: Personnel[];
@@ -263,16 +264,37 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="training-reports-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal reports-modal" role="document">
-		<div class="modal-header">
-			<h2 id="training-reports-title">Training Reports</h2>
-			<button class="btn btn-secondary btn-sm" onclick={onClose}>&times;</button>
+<Modal title="Training Reports" {onClose} width="900px" titleId="training-reports-title">
+	{#snippet footer()}
+		<div class="footer-info">
+			{#if activeReport === 'personnel'}
+				{personnelReportData.length} personnel
+			{:else if selectedTrainingTypeId}
+				{trainingReportData.length} personnel
+			{/if}
 		</div>
+		<div class="spacer"></div>
+		<div class="footer-actions">
+			{#if activeReport === 'personnel' && personnelReportData.length > 0}
+				<button class="btn btn-secondary" onclick={exportPersonnelReport}>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+						<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+					</svg>
+					Export to Excel
+				</button>
+			{:else if activeReport === 'training' && selectedTrainingTypeId && trainingReportData.length > 0}
+				<button class="btn btn-secondary" onclick={exportTrainingReport}>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+						<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+					</svg>
+					Export to Excel
+				</button>
+			{/if}
+			<button class="btn btn-primary" onclick={onClose}>Close</button>
+		</div>
+	{/snippet}
 
-		<div class="modal-body">
-			<!-- Report Type Tabs -->
+		<!-- Report Type Tabs -->
 			<div class="report-tabs">
 				<button
 					class="tab-btn"
@@ -470,47 +492,10 @@
 					{/if}
 				{/if}
 			</div>
-		</div>
 
-		<div class="modal-footer">
-			<div class="footer-info">
-				{#if activeReport === 'personnel'}
-					{personnelReportData.length} personnel
-				{:else if selectedTrainingTypeId}
-					{trainingReportData.length} personnel
-				{/if}
-			</div>
-			<div class="footer-actions">
-				{#if activeReport === 'personnel' && personnelReportData.length > 0}
-					<button class="btn btn-secondary" onclick={exportPersonnelReport}>
-						<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-							<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-						</svg>
-						Export to Excel
-					</button>
-				{:else if activeReport === 'training' && selectedTrainingTypeId && trainingReportData.length > 0}
-					<button class="btn btn-secondary" onclick={exportTrainingReport}>
-						<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-							<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-						</svg>
-						Export to Excel
-					</button>
-				{/if}
-				<button class="btn btn-primary" onclick={onClose}>Close</button>
-			</div>
-		</div>
-	</div>
-</div>
+</Modal>
 
 <style>
-	.reports-modal {
-		width: 900px;
-		max-width: 95vw;
-		max-height: 90vh;
-		display: flex;
-		flex-direction: column;
-	}
-
 	.report-tabs {
 		display: flex;
 		gap: var(--spacing-xs);
@@ -760,14 +745,6 @@
 		font-weight: 500;
 	}
 
-	/* Footer */
-	.modal-footer {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--spacing-md);
-	}
-
 	.footer-info {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
@@ -786,14 +763,6 @@
 
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
-		.reports-modal {
-			width: 100vw;
-			max-width: 100vw;
-			height: 100vh;
-			max-height: 100vh;
-			border-radius: 0;
-		}
-
 		.filter-row {
 			flex-direction: column;
 			align-items: stretch;
@@ -824,11 +793,6 @@
 
 		.report-table {
 			font-size: var(--font-size-xs);
-		}
-
-		.modal-footer {
-			flex-direction: column;
-			gap: var(--spacing-sm);
 		}
 
 		.footer-actions {

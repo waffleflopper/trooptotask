@@ -3,6 +3,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface Props {
 		trainingTypes: TrainingType[];
@@ -163,16 +164,12 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="training-types-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal" style="width: 600px; max-height: 90vh;" role="document">
-		<div class="modal-header">
-			<h2 id="training-types-title">Manage Training Types</h2>
-			<button class="btn btn-secondary btn-sm" onclick={onClose}>&times;</button>
-		</div>
+<Modal title="Manage Training Types" {onClose} width="600px" titleId="training-types-title">
+	{#snippet footer()}
+		<button class="btn btn-primary" onclick={onClose}>Done</button>
+	{/snippet}
 
-		<div class="modal-body">
-			<div class="add-section">
+		<div class="add-section">
 				<h3>Add Training Type</h3>
 				<div class="add-form">
 					<div class="form-row">
@@ -422,13 +419,8 @@
 					{/if}
 				</div>
 			</div>
-		</div>
 
-		<div class="modal-footer">
-			<button class="btn btn-primary" onclick={onClose}>Done</button>
-		</div>
-	</div>
-</div>
+</Modal>
 
 {#if confirmRemove}
 	<ConfirmDialog

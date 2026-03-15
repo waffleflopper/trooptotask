@@ -756,6 +756,7 @@
 
 					{#if previewTab === 'da6' && generatedDA6}
 						<p class="hint"><strong>X</strong> = assigned duty &nbsp; # = queue position &nbsp; <strong>&mdash;</strong> = unavailable</p>
+					<p class="hint hint-detail">Queue positions reflect each person's priority among <em>available</em> personnel per day. Numbers shift when others become unavailable or exempt — this is normal and follows the DA6 rotation principle per <a href="https://armypubs.army.mil/ProductMaps/PubForm/Details.aspx?PUB_ID=1004278" target="_blank" rel="noopener noreferrer">AR 220-45</a>.</p>
 						<div class="roster-table-container">
 						<div class="table-responsive">
 							<table class="roster-table da6-table">
@@ -1064,6 +1065,16 @@
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
 		margin-bottom: var(--spacing-sm);
+	}
+
+	.hint-detail {
+		font-style: italic;
+		margin-top: 0;
+	}
+
+	.hint-detail a {
+		color: var(--color-primary);
+		text-decoration: underline;
 	}
 
 	.config-section {

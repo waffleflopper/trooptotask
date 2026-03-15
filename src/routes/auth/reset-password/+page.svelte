@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 
@@ -103,7 +104,7 @@
 			</div>
 		{:else if !sessionReady}
 			<div class="loading-section">
-				<span class="spinner"></span>
+				<Spinner />
 				<p class="loading-text">Verifying reset link...</p>
 			</div>
 		{:else}
@@ -147,7 +148,7 @@
 
 				<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
 					{#if loading}
-						<span class="spinner"></span>
+						<Spinner />
 						Updating...
 					{:else}
 						Update Password
@@ -298,12 +299,6 @@
 		padding: var(--spacing-xl) 0;
 	}
 
-	.loading-section .spinner {
-		width: 24px;
-		height: 24px;
-		border-color: rgba(var(--color-primary-rgb), 0.2);
-		border-top-color: var(--color-primary);
-	}
 
 	.loading-text {
 		margin-top: var(--spacing-md);
@@ -317,19 +312,6 @@
 		padding: var(--spacing-md);
 	}
 
-	.spinner {
-		display: inline-block;
-		width: 16px;
-		height: 16px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		border-radius: 50%;
-		border-top-color: white;
-		animation: spin 0.8s linear infinite;
-	}
-
-	@keyframes spin {
-		to { transform: rotate(360deg); }
-	}
 
 	.divider {
 		display: flex;

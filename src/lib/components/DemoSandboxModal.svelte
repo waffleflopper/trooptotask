@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Modal from './Modal.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	interface Props {
 		onClose: () => void;
@@ -100,7 +101,7 @@
 		{/if}
 		<button class="btn btn-primary" onclick={createSandbox} disabled={creating}>
 			{#if creating}
-				<span class="spinner"></span>
+				<Spinner />
 				Creating your sandbox...
 			{:else}
 				Create My Sandbox
@@ -180,20 +181,4 @@
 		font-size: var(--font-size-sm);
 	}
 
-	.spinner {
-		display: inline-block;
-		width: 16px;
-		height: 16px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		border-radius: 50%;
-		border-top-color: white;
-		animation: spin 0.8s linear infinite;
-		margin-right: var(--spacing-sm);
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
 </style>

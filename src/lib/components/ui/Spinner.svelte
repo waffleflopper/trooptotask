@@ -12,6 +12,7 @@
 	style:--spin-color={color}
 	style:width="{size}px"
 	style:height="{size}px"
+	aria-hidden="true"
 ></span>
 
 <style>

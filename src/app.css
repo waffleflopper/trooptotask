@@ -378,7 +378,7 @@ a:hover {
 }
 
 .input:focus {
-	outline: none;
+	outline: 2px solid transparent;
 	border-color: var(--color-primary);
 	box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.15);
 }
@@ -409,7 +409,7 @@ a:hover {
 }
 
 .select:focus {
-	outline: none;
+	outline: 2px solid transparent;
 	border-color: var(--color-primary);
 	box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.15);
 }
@@ -433,6 +433,11 @@ input[type="checkbox"] {
 	height: 18px;
 	accent-color: var(--color-primary);
 	cursor: pointer;
+}
+
+input[type="checkbox"]:focus-visible {
+	outline: 2px solid var(--color-primary);
+	outline-offset: 2px;
 }
 
 /* ============================================
@@ -836,5 +841,27 @@ input[type="checkbox"] {
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
 		scroll-behavior: auto !important;
+	}
+}
+
+/* Accessibility: Windows High Contrast Mode */
+@media (forced-colors: active) {
+	.btn {
+		border: 1px solid ButtonText;
+	}
+
+	.btn-primary {
+		background-color: Highlight;
+		color: HighlightText;
+	}
+
+	.input,
+	.select {
+		border: 1px solid ButtonText;
+	}
+
+	.input:focus,
+	.select:focus {
+		outline: 2px solid Highlight;
 	}
 }

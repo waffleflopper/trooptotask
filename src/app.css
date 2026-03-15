@@ -525,7 +525,9 @@ input[type="checkbox"]:focus-visible {
 	box-shadow: var(--shadow-5);
 	max-width: 90vw;
 	max-height: 90vh;
-	overflow: auto;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
 	z-index: var(--z-modal);
 	animation: slideUp var(--transition-normal) ease-out;
 }
@@ -535,6 +537,7 @@ input[type="checkbox"]:focus-visible {
 	align-items: center;
 	justify-content: space-between;
 	padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+	flex-shrink: 0;
 }
 
 .modal-header h2 {
@@ -545,6 +548,9 @@ input[type="checkbox"]:focus-visible {
 
 .modal-body {
 	padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+	overflow-y: auto;
+	flex: 1;
+	min-height: 0;
 }
 
 .modal-footer {
@@ -552,6 +558,7 @@ input[type="checkbox"]:focus-visible {
 	justify-content: flex-end;
 	gap: var(--spacing-sm);
 	padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+	flex-shrink: 0;
 }
 
 /* ============================================

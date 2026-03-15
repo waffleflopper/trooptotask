@@ -7,6 +7,7 @@ import { checkReadOnly } from '$lib/server/read-only-guard';
 function transformRow(r: any) {
 	return {
 		id: r.id,
+		templateId: r.template_id,
 		name: r.name,
 		description: r.description,
 		stepType: r.step_type,
@@ -33,6 +34,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		.from('onboarding_template_steps')
 		.insert({
 			organization_id: orgId,
+			template_id: body.templateId,
 			name: body.name,
 			description: body.description ?? null,
 			step_type: body.stepType,

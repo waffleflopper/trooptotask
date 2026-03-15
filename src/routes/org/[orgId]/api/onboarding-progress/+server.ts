@@ -53,6 +53,45 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 		sortOrder: data.sort_order,
 		completed: data.completed,
 		currentStage: data.current_stage,
-		notes: Array.isArray(data.notes) ? data.notes : []
+		notes: Array.isArray(data.notes) ? data.notes : [],
+		templateStepId: data.template_step_id ?? null
 	});
+};
+
+export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
+	const { orgId } = params;
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	if (!isSandbox) {
+		await requireEditPermission(supabase, orgId, userId!, 'onboarding');
+	}
+
+	const blocked = await checkReadOnly(supabase, orgId);
+	if (blocked) return blocked;
+
+	const { id } = await request.json();
+
+	// Verify step belongs to an onboarding in this org
+	const { data: stepCheck } = await supabase
+		.from('onboarding_step_progress')
+		.select('id, completed, onboarding_id, personnel_onboardings!inner(organization_id)')
+		.eq('id', id)
+		.single();
+
+	if (!stepCheck || (stepCheck as any).personnel_onboardings?.organization_id !== orgId) {
+		throw error(404, 'Step not found');
+	}
+
+	// Only allow removing incomplete deprecated steps
+	if ((stepCheck as any).completed) {
+		throw error(409, 'Cannot remove a completed step.');
+	}
+
+	const { error: dbError } = await supabase
+		.from('onboarding_step_progress')
+		.delete()
+		.eq('id', id);
+
+	if (dbError) throw error(500, dbError.message);
+	return json({ success: true });
 };

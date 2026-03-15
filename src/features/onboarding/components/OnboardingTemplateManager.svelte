@@ -15,6 +15,11 @@
 
 	let { trainingTypes, onClose }: Props = $props();
 
+	// Derived locals to ensure reactive tracking of store state
+	const templates = $derived(onboardingTemplateStore.templates);
+	const activeTemplateId = $derived(onboardingTemplateStore.activeTemplateId);
+	const stepList = $derived(onboardingTemplateStore.list);
+
 	const stepTypeColors: Record<string, string> = {
 		training: '#3b82f6',
 		paperwork: '#f59e0b',
@@ -64,9 +69,7 @@
 	}
 
 	function startRenameTemplate() {
-		const active = onboardingTemplateStore.templates.find(
-			(t) => t.id === onboardingTemplateStore.activeTemplateId
-		);
+		const active = templates.find((t) => t.id === activeTemplateId);
 		if (!active) return;
 		editingTemplateId = active.id;
 		editTemplateName = active.name;
@@ -132,7 +135,7 @@
 			stepType: newStepType,
 			trainingTypeId: newStepType === 'training' ? newTrainingTypeId : null,
 			stages: newStepType === 'paperwork' ? newStages.filter((s) => s.trim()) : null,
-			sortOrder: onboardingTemplateStore.list.length
+			sortOrder: stepList.length
 		});
 		resetNewForm();
 	}
@@ -204,7 +207,7 @@
 	let orderedSteps = $state<OnboardingTemplateStep[]>([]);
 
 	$effect(() => {
-		orderedSteps = [...onboardingTemplateStore.list];
+		orderedSteps = [...stepList];
 	});
 
 	function moveUp(index: number) {
@@ -246,12 +249,10 @@
 	}
 
 	const activeTemplate = $derived(
-		onboardingTemplateStore.templates.find(
-			(t) => t.id === onboardingTemplateStore.activeTemplateId
-		) ?? null
+		templates.find((t) => t.id === activeTemplateId) ?? null
 	);
 
-	const canDeleteTemplate = $derived(onboardingTemplateStore.templates.length > 1);
+	const canDeleteTemplate = $derived(templates.length > 1);
 </script>
 
 <Modal title="Manage Onboarding Templates" {onClose} width="640px" titleId="onboarding-template-title">
@@ -260,7 +261,7 @@
 		<div class="template-selector">
 			<label class="label" for="template-select">Template</label>
 			<div class="template-select-row">
-				{#if editingTemplateId === onboardingTemplateStore.activeTemplateId}
+				{#if editingTemplateId === activeTemplateId}
 					<div class="rename-form">
 						<input
 							type="text"
@@ -290,10 +291,10 @@
 						id="template-select"
 						class="select"
 						style="flex: 1;"
-						value={onboardingTemplateStore.activeTemplateId}
+						value={activeTemplateId}
 						onchange={(e) => onboardingTemplateStore.setActiveTemplate((e.target as HTMLSelectElement).value)}
 					>
-						{#each onboardingTemplateStore.templates as t (t.id)}
+						{#each templates as t (t.id)}
 							<option value={t.id}>{t.name}</option>
 						{/each}
 					</select>

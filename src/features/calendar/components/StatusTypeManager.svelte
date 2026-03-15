@@ -3,6 +3,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface Props {
 		statusTypes: StatusType[];
@@ -82,117 +83,107 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="status-manager-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal status-manager-modal" role="document">
-		<div class="modal-header">
-			<h2 id="status-manager-title">Manage Status Types</h2>
-			<button class="btn btn-secondary btn-sm close-btn" onclick={onClose} aria-label="Close">&times;</button>
-		</div>
-
-		<div class="modal-body">
-			<!-- Add New Status -->
-			<div class="add-section">
-				<h4>Add New Status</h4>
-				<div class="add-form">
-					<input
-						type="text"
-						class="input"
-						bind:value={newName}
-						placeholder="Status name (e.g., Leave, TDY)"
-						aria-label="Status name"
-						onkeydown={handleKeyDown}
-					/>
-					<div class="color-pickers">
-						<label class="color-picker">
-							<span>Background</span>
-							<input type="color" bind:value={newColor} />
-						</label>
-						<label class="color-picker">
-							<span>Text</span>
-							<input type="color" bind:value={newTextColor} />
-						</label>
-					</div>
-					{#if canAdd}
-						<Badge label={newName} color={newColor} textColor={newTextColor} />
-					{/if}
-					<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!canAdd}>
-						Add
-					</button>
-				</div>
+<Modal title="Manage Status Types" {onClose} width="520px" titleId="status-manager-title">
+	<!-- Add New Status -->
+	<div class="add-section">
+		<h4>Add New Status</h4>
+		<div class="add-form">
+			<input
+				type="text"
+				class="input"
+				bind:value={newName}
+				placeholder="Status name (e.g., Leave, TDY)"
+				aria-label="Status name"
+				onkeydown={handleKeyDown}
+			/>
+			<div class="color-pickers">
+				<label class="color-picker">
+					<span>Background</span>
+					<input type="color" bind:value={newColor} />
+				</label>
+				<label class="color-picker">
+					<span>Text</span>
+					<input type="color" bind:value={newTextColor} />
+				</label>
 			</div>
-
-			<!-- Existing Status Types -->
-			<div class="status-list-section">
-				<h4>Existing Status Types ({statusTypes.length})</h4>
-				{#if statusTypes.length === 0}
-					<EmptyState message="No status types yet. Add one above to get started." />
-				{:else}
-					<div class="status-list">
-						{#each statusTypes as status (status.id)}
-							<div class="status-item" class:editing={editingId === status.id}>
-								{#if editingId === status.id}
-									<div class="edit-form">
-										<input
-											type="text"
-											class="input"
-											bind:value={editName}
-											placeholder="Status name"
-											aria-label="Status name"
-										/>
-										<div class="color-pickers">
-											<label class="color-picker">
-												<span>BG</span>
-												<input type="color" bind:value={editColor} />
-											</label>
-											<label class="color-picker">
-												<span>Text</span>
-												<input type="color" bind:value={editTextColor} />
-											</label>
-										</div>
-										<Badge label={editName || 'Preview'} color={editColor} textColor={editTextColor} />
-										<div class="edit-actions">
-											<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
-											<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
-										</div>
-									</div>
-								{:else}
-									<div class="status-display">
-										<Badge label={status.name} color={status.color} textColor={status.textColor} />
-									</div>
-									<div class="status-actions">
-										<button
-											class="btn btn-secondary btn-sm"
-											onclick={() => startEdit(status)}
-											title="Edit"
-										>
-											<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
-												<path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-											</svg>
-										</button>
-										<button
-											class="btn btn-danger btn-sm"
-											onclick={() => handleRemove(status.id, status.name)}
-											title="Remove"
-										>
-											<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
-												<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-											</svg>
-										</button>
-									</div>
-								{/if}
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<div class="modal-footer">
-			<button class="btn btn-primary" onclick={onClose}>Done</button>
+			{#if canAdd}
+				<Badge label={newName} color={newColor} textColor={newTextColor} />
+			{/if}
+			<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!canAdd}>
+				Add
+			</button>
 		</div>
 	</div>
-</div>
+
+	<!-- Existing Status Types -->
+	<div class="status-list-section">
+		<h4>Existing Status Types ({statusTypes.length})</h4>
+		{#if statusTypes.length === 0}
+			<EmptyState message="No status types yet. Add one above to get started." />
+		{:else}
+			<div class="status-list">
+				{#each statusTypes as status (status.id)}
+					<div class="status-item" class:editing={editingId === status.id}>
+						{#if editingId === status.id}
+							<div class="edit-form">
+								<input
+									type="text"
+									class="input"
+									bind:value={editName}
+									placeholder="Status name"
+									aria-label="Status name"
+								/>
+								<div class="color-pickers">
+									<label class="color-picker">
+										<span>BG</span>
+										<input type="color" bind:value={editColor} />
+									</label>
+									<label class="color-picker">
+										<span>Text</span>
+										<input type="color" bind:value={editTextColor} />
+									</label>
+								</div>
+								<Badge label={editName || 'Preview'} color={editColor} textColor={editTextColor} />
+								<div class="edit-actions">
+									<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
+									<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
+								</div>
+							</div>
+						{:else}
+							<div class="status-display">
+								<Badge label={status.name} color={status.color} textColor={status.textColor} />
+							</div>
+							<div class="status-actions">
+								<button
+									class="btn btn-secondary btn-sm"
+									onclick={() => startEdit(status)}
+									title="Edit"
+								>
+									<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+										<path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+									</svg>
+								</button>
+								<button
+									class="btn btn-danger btn-sm"
+									onclick={() => handleRemove(status.id, status.name)}
+									title="Remove"
+								>
+									<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+										<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+									</svg>
+								</button>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</div>
+
+	{#snippet footer()}
+		<button class="btn btn-primary" onclick={onClose}>Done</button>
+	{/snippet}
+</Modal>
 
 {#if confirmRemove}
 	<ConfirmDialog
@@ -206,25 +197,6 @@
 {/if}
 
 <style>
-	.status-manager-modal {
-		width: 520px;
-		max-width: 95vw;
-		max-height: 90vh;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.close-btn {
-		font-size: 1.25rem;
-		line-height: 1;
-		padding: var(--spacing-xs) var(--spacing-sm);
-	}
-
-	.modal-body {
-		flex: 1;
-		overflow-y: auto;
-	}
-
 	h4 {
 		font-size: var(--font-size-sm);
 		font-weight: 600;

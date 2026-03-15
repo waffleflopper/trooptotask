@@ -29,6 +29,7 @@
 	let uploading = $state(false);
 	let dragOver = $state(false);
 	let errorMsg = $state('');
+	let fileInput = $state<HTMLInputElement | null>(null);
 
 	function sanitizeFilename(name: string): string {
 		return name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -138,14 +139,17 @@
 			{/if}
 		</div>
 	{:else}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="drop-zone"
 			class:drag-over={dragOver}
 			class:disabled
+			role="button"
+			tabindex="0"
+			aria-label="Drop file here or press Enter to choose"
 			ondrop={handleDrop}
 			ondragover={handleDragOver}
 			ondragleave={handleDragLeave}
+			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput?.click(); }}}
 		>
 			<svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -156,6 +160,7 @@
 			<label class="choose-btn btn btn-secondary btn-sm">
 				Choose PDF
 				<input
+					bind:this={fileInput}
 					type="file"
 					accept={accept}
 					onchange={handleFileSelect}
@@ -167,7 +172,7 @@
 	{/if}
 
 	{#if errorMsg}
-		<span class="error-msg">{errorMsg}</span>
+		<span class="error-msg" role="alert">{errorMsg}</span>
 	{/if}
 </div>
 

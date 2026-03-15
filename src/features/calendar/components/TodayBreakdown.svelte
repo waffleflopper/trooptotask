@@ -3,6 +3,7 @@
 	import type { AvailabilityEntry, StatusType } from '$features/calendar/calendar.types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 	import { formatDate } from '$lib/utils/dates';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface GroupData {
 		group: string;
@@ -128,159 +129,129 @@
 	});
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="breakdown-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal breakdown-modal" role="document">
-		<div class="modal-header">
-			<h2 id="breakdown-title">Today's Breakdown</h2>
-			<button class="btn btn-secondary btn-sm close-btn" onclick={onClose} aria-label="Close">&times;</button>
+<Modal title="Today's Breakdown" {onClose} width="700px" titleId="breakdown-title">
+	<div class="date-banner">{dateDisplay}</div>
+
+	<!-- Summary Stats -->
+	<div class="stats-row">
+		<div class="stat">
+			<span class="stat-value available">{personnelBreakdown.available.length}</span>
+			<span class="stat-label">Available</span>
 		</div>
-
-		<div class="modal-body">
-			<div class="date-banner">{dateDisplay}</div>
-
-			<!-- Summary Stats -->
-			<div class="stats-row">
-				<div class="stat">
-					<span class="stat-value available">{personnelBreakdown.available.length}</span>
-					<span class="stat-label">Available</span>
-				</div>
-				<div class="stat">
-					<span class="stat-value unavailable">{personnelBreakdown.unavailable.length}</span>
-					<span class="stat-label">Out</span>
-				</div>
-				<div class="stat">
-					<span class="stat-value total">{allPersonnel.length}</span>
-					<span class="stat-label">Total</span>
-				</div>
-			</div>
-
-			<div class="breakdown-content">
-				<!-- Daily Assignments -->
-				{#if assignmentInfo.length > 0}
-					<section class="section assignments-section">
-						<h3>Daily Assignments</h3>
-						<div class="assignment-grid">
-							{#each assignmentInfo as info}
-								<div class="assignment-card" class:not-assigned={!info.isAssigned}>
-									<div class="assignment-type">
-										<span class="assignment-short">{info.type.shortName}</span>
-										<span class="assignment-name">{info.type.name}</span>
-									</div>
-									<div class="assignment-value">
-										{#if info.isAssigned}
-											<span class="assignee-name">{info.assigneeName}</span>
-											{#if info.assigneeDetails}
-												<span class="assignee-details">{info.assigneeDetails}</span>
-											{/if}
-										{:else}
-											<span class="not-assigned-text">Not Assigned</span>
-										{/if}
-									</div>
-								</div>
-							{/each}
-						</div>
-					</section>
-				{/if}
-
-				<!-- Available -->
-				<section class="section available-section">
-					<h3>
-						<span class="section-icon in">&#10003;</span>
-						Available
-						<span class="count">{personnelBreakdown.available.length}</span>
-					</h3>
-					{#if personnelBreakdown.available.length === 0}
-						<div class="empty-message">No one is available today</div>
-					{:else}
-						<div class="personnel-groups">
-							{#each personnelByGroup as grp}
-								{@const availableForGroup = personnelBreakdown.available.filter(
-									(p) => p.person.groupName === grp.group
-								)}
-								{#if availableForGroup.length > 0}
-									<div class="group-block">
-										<div class="group-label">{grp.group}</div>
-										<div class="personnel-chips">
-											{#each availableForGroup as { person, assignments }}
-												<div class="person-chip" class:has-assignment={assignments.length > 0}>
-													<span class="chip-rank">{person.rank}</span>
-													<span class="chip-name">{person.lastName}</span>
-													{#if assignments.length > 0}
-														{#each assignments as badge}
-															<span class="assignment-badge">{badge}</span>
-														{/each}
-													{/if}
-												</div>
-											{/each}
-										</div>
-									</div>
-								{/if}
-							{/each}
-						</div>
-					{/if}
-				</section>
-
-				<!-- Unavailable -->
-				<section class="section unavailable-section">
-					<h3>
-						<span class="section-icon out">&#10007;</span>
-						Unavailable
-						<span class="count">{personnelBreakdown.unavailable.length}</span>
-					</h3>
-					{#if personnelBreakdown.unavailable.length === 0}
-						<div class="empty-message success">Everyone is available today!</div>
-					{:else}
-						<div class="status-groups">
-							{#each outByStatus as { status, personnel }}
-								<div class="status-group">
-									<div class="status-header" style="background-color: {status.color}; color: {status.textColor}">
-										{status.name}
-										<span class="status-count">{personnel.length}</span>
-									</div>
-									<div class="status-personnel">
-										{#each personnel as person}
-											<div class="person-chip out">
-												<span class="chip-rank">{person.rank}</span>
-												<span class="chip-name">{person.lastName}</span>
-											</div>
-										{/each}
-									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
-				</section>
-			</div>
+		<div class="stat">
+			<span class="stat-value unavailable">{personnelBreakdown.unavailable.length}</span>
+			<span class="stat-label">Out</span>
 		</div>
-
-		<div class="modal-footer">
-			<button class="btn btn-primary" onclick={onClose}>Close</button>
+		<div class="stat">
+			<span class="stat-value total">{allPersonnel.length}</span>
+			<span class="stat-label">Total</span>
 		</div>
 	</div>
-</div>
+
+	<div class="breakdown-content">
+		<!-- Daily Assignments -->
+		{#if assignmentInfo.length > 0}
+			<section class="section assignments-section">
+				<h3>Daily Assignments</h3>
+				<div class="assignment-grid">
+					{#each assignmentInfo as info}
+						<div class="assignment-card" class:not-assigned={!info.isAssigned}>
+							<div class="assignment-type">
+								<span class="assignment-short">{info.type.shortName}</span>
+								<span class="assignment-name">{info.type.name}</span>
+							</div>
+							<div class="assignment-value">
+								{#if info.isAssigned}
+									<span class="assignee-name">{info.assigneeName}</span>
+									{#if info.assigneeDetails}
+										<span class="assignee-details">{info.assigneeDetails}</span>
+									{/if}
+								{:else}
+									<span class="not-assigned-text">Not Assigned</span>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
+			</section>
+		{/if}
+
+		<!-- Available -->
+		<section class="section available-section">
+			<h3>
+				<span class="section-icon in">&#10003;</span>
+				Available
+				<span class="count">{personnelBreakdown.available.length}</span>
+			</h3>
+			{#if personnelBreakdown.available.length === 0}
+				<div class="empty-message">No one is available today</div>
+			{:else}
+				<div class="personnel-groups">
+					{#each personnelByGroup as grp}
+						{@const availableForGroup = personnelBreakdown.available.filter(
+							(p) => p.person.groupName === grp.group
+						)}
+						{#if availableForGroup.length > 0}
+							<div class="group-block">
+								<div class="group-label">{grp.group}</div>
+								<div class="personnel-chips">
+									{#each availableForGroup as { person, assignments }}
+										<div class="person-chip" class:has-assignment={assignments.length > 0}>
+											<span class="chip-rank">{person.rank}</span>
+											<span class="chip-name">{person.lastName}</span>
+											{#if assignments.length > 0}
+												{#each assignments as badge}
+													<span class="assignment-badge">{badge}</span>
+												{/each}
+											{/if}
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			{/if}
+		</section>
+
+		<!-- Unavailable -->
+		<section class="section unavailable-section">
+			<h3>
+				<span class="section-icon out">&#10007;</span>
+				Unavailable
+				<span class="count">{personnelBreakdown.unavailable.length}</span>
+			</h3>
+			{#if personnelBreakdown.unavailable.length === 0}
+				<div class="empty-message success">Everyone is available today!</div>
+			{:else}
+				<div class="status-groups">
+					{#each outByStatus as { status, personnel }}
+						<div class="status-group">
+							<div class="status-header" style="background-color: {status.color}; color: {status.textColor}">
+								{status.name}
+								<span class="status-count">{personnel.length}</span>
+							</div>
+							<div class="status-personnel">
+								{#each personnel as person}
+									<div class="person-chip out">
+										<span class="chip-rank">{person.rank}</span>
+										<span class="chip-name">{person.lastName}</span>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</section>
+	</div>
+
+	{#snippet footer()}
+		<button class="btn btn-primary" onclick={onClose}>Close</button>
+	{/snippet}
+</Modal>
 
 <style>
-	.breakdown-modal {
-		width: 700px;
-		max-width: 95vw;
-		max-height: 90vh;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.close-btn {
-		font-size: 1.25rem;
-		line-height: 1;
-		padding: var(--spacing-xs) var(--spacing-sm);
-	}
-
-	.modal-body {
-		flex: 1;
-		overflow-y: auto;
-		padding: 0;
-	}
-
 	.date-banner {
 		font-size: var(--font-size-lg);
 		font-weight: 600;
@@ -288,6 +259,8 @@
 		padding: var(--spacing-md) var(--spacing-lg);
 		background: var(--color-primary);
 		color: #0F0F0F;
+		/* Bleed past modal-body padding to fill edge-to-edge */
+		margin: calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg)) 0;
 	}
 
 	/* Stats Row */
@@ -298,6 +271,8 @@
 		padding: var(--spacing-md) var(--spacing-lg);
 		background: var(--color-bg);
 		border-bottom: 1px solid var(--color-border);
+		/* Bleed past modal-body padding to fill edge-to-edge */
+		margin: 0 calc(-1 * var(--spacing-lg));
 	}
 
 	.stat {

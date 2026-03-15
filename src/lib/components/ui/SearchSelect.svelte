@@ -10,9 +10,10 @@
 		placeholder?: string;
 		disabled?: boolean;
 		onchange?: (value: string) => void;
+		id?: string;
 	}
 
-	let { options, value = $bindable(), placeholder = 'Search...', disabled = false, onchange }: Props = $props();
+	let { options, value = $bindable(), placeholder = 'Search...', disabled = false, onchange, id = 'ss-' + Math.random().toString(36).slice(2, 8) }: Props = $props();
 
 	let query = $state('');
 	let open = $state(false);
@@ -108,6 +109,11 @@
 				onblur={handleBlur}
 				onkeydown={handleKeydown}
 				{disabled}
+				role="combobox"
+				aria-expanded={open}
+				aria-controls="{id}-listbox"
+				aria-autocomplete="list"
+				aria-activedescendant={highlightIndex >= 0 ? `${id}-option-${highlightIndex}` : undefined}
 			/>
 		{:else}
 			<button
@@ -120,27 +126,27 @@
 				{selectedLabel || placeholder}
 			</button>
 			{#if value && !disabled}
-				<button class="clear-btn" type="button" onmousedown={clearSelection} tabindex="-1">&times;</button>
+				<button class="clear-btn" type="button" onmousedown={clearSelection} tabindex="-1" aria-label="Clear selection">&times;</button>
 			{/if}
 		{/if}
 	</div>
 
 	{#if open}
-		<ul class="dropdown" bind:this={listEl}>
+		<ul class="dropdown" bind:this={listEl} id="{id}-listbox" role="listbox">
 			{#if filtered.length === 0}
 				<li class="no-results">No matches</li>
 			{:else}
 				{#each filtered as opt, i (opt.value)}
-					<li>
-						<button
-							class="dropdown-item"
-							class:highlighted={i === highlightIndex}
-							class:selected={opt.value === value}
-							type="button"
-							onmousedown={() => selectOption(opt)}
-						>
-							{opt.label}
-						</button>
+					<li
+						id="{id}-option-{i}"
+						class="dropdown-item"
+						class:highlighted={i === highlightIndex}
+						class:selected={opt.value === value}
+						role="option"
+						aria-selected={opt.value === value}
+						onmousedown={() => selectOption(opt)}
+					>
+						{opt.label}
 					</li>
 				{/each}
 			{/if}

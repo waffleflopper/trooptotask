@@ -3,6 +3,7 @@
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface GroupData {
 		group: string;
@@ -170,172 +171,162 @@
 	const selectedType = $derived(assignmentTypes.find(t => t.id === quickFillType));
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="planner-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal planner-modal" role="document">
-		<div class="modal-header">
-			<h2 id="planner-title">Monthly Assignment Planner</h2>
-			<button class="btn btn-secondary btn-sm close-btn" onclick={onClose} aria-label="Close">&times;</button>
-		</div>
-
-		<div class="modal-body">
-			<!-- Month Navigation -->
-			<div class="month-nav">
-				<button class="btn btn-secondary btn-sm" onclick={prevMonth}>
-					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-						<path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-					</svg>
-				</button>
-				<h3>{monthName} {year}</h3>
-				<button class="btn btn-secondary btn-sm" onclick={nextMonth}>
-					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-						<path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-					</svg>
-				</button>
-				<button class="btn btn-secondary btn-sm" onclick={goToCurrentMonth}>Today</button>
-			</div>
-
-			<!-- Quick Fill Section -->
-			<div class="quick-fill">
-				<h4>Quick Fill</h4>
-				<div class="quick-fill-row">
-					<select class="select" aria-label="Select assignment type" bind:value={quickFillType}>
-						<option value="">Select assignment type...</option>
-						{#each assignmentTypes as type}
-							<option value={type.id}>{type.shortName} - {type.name}</option>
-						{/each}
-					</select>
-
-					{#if selectedType?.assignTo === 'personnel'}
-						{@const eligibleGroups = getEligiblePersonnelByGroup(selectedType)}
-						<select class="select" bind:value={quickFillPerson}>
-							<option value="">Select person...</option>
-							{#each eligibleGroups as grp}
-								{#if grp.personnel.length > 0}
-									<optgroup label={grp.group}>
-										{#each grp.personnel as person}
-											<option value={person.id}>{person.rank} {person.lastName}</option>
-										{/each}
-									</optgroup>
-								{/if}
-							{/each}
-						</select>
-					{:else if selectedType?.assignTo === 'group'}
-						<select class="select" bind:value={quickFillGroup}>
-							<option value="">Select group...</option>
-							{#each groups as group}
-								<option value={group}>{group}</option>
-							{/each}
-						</select>
-					{/if}
-
-					<select class="select days-select" bind:value={quickFillDays}>
-						<option value="weekdays">Weekdays only</option>
-						<option value="weekends">Weekends only</option>
-						<option value="all">All days</option>
-					</select>
-
-					<button
-						class="btn btn-primary btn-sm"
-						onclick={applyQuickFill}
-						disabled={!quickFillType || (!quickFillPerson && !quickFillGroup) || isApplying}
-					>
-						{isApplying ? 'Applying...' : 'Apply'}
-					</button>
-				</div>
-				{#if selectedType?.shortName === 'MOD'}
-					<p class="filter-hint">Only personnel with MOS of PA or MD are eligible for MOD.</p>
-				{/if}
-			</div>
-
-			<!-- Assignment Grid -->
-			<div class="grid-container">
-				<table class="assignment-grid">
-					<thead>
-						<tr>
-							<th class="date-col">Date</th>
-							<th class="day-col">Day</th>
-							{#each assignmentTypes as type}
-								<th class="type-col">
-									<div class="type-header">
-										<span class="type-badge" style="background-color: {type.color}">{type.shortName}</span>
-										<button
-											class="clear-btn"
-											onclick={() => clearAll(type.id)}
-											title="Clear all {type.name}"
-										>
-											<svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-												<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9z" clip-rule="evenodd" />
-											</svg>
-										</button>
-									</div>
-								</th>
-							{/each}
-						</tr>
-					</thead>
-					<tbody>
-						{#each dates as date}
-							{@const dateStr = formatDate(date)}
-							{@const weekend = isWeekend(date)}
-							{@const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })}
-							{@const isToday = formatDate(new Date()) === dateStr}
-							<tr class:weekend class:today={isToday}>
-								<td class="date-col">
-									<span class="date-num">{date.getDate()}</span>
-								</td>
-								<td class="day-col">
-									<span class="day-name">{dayName}</span>
-								</td>
-								{#each assignmentTypes as type}
-									{@const assignment = getAssignment(date, type.id)}
-									{@const eligibleGroups = getEligiblePersonnelByGroup(type)}
-									<td class="assignment-cell">
-										{#if type.assignTo === 'personnel'}
-											<select
-												class="cell-select"
-												value={assignment?.assigneeId ?? ''}
-												onchange={(e) => handleChange(date, type.id, e.currentTarget.value)}
-											>
-												<option value="">-</option>
-												{#each eligibleGroups as grp}
-													{#if grp.personnel.length > 0}
-														<optgroup label={grp.group}>
-															{#each grp.personnel as person}
-																<option value={person.id}>{person.rank} {person.lastName}</option>
-															{/each}
-														</optgroup>
-													{/if}
-												{/each}
-											</select>
-										{:else}
-											<select
-												class="cell-select"
-												value={assignment?.assigneeId ?? ''}
-												onchange={(e) => handleChange(date, type.id, e.currentTarget.value)}
-											>
-												<option value="">-</option>
-												{#each groups as group}
-													<option value={group}>{group}</option>
-												{/each}
-											</select>
-										{/if}
-									</td>
-								{/each}
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		</div>
-
-		<div class="modal-footer">
-			<div class="footer-info">
-				{dates.length} days in {monthName}
-			</div>
-			<button class="btn btn-primary" onclick={onClose}>Done</button>
-		</div>
+<Modal title="Monthly Assignment Planner" {onClose} width="900px" titleId="planner-title">
+	<!-- Month Navigation -->
+	<div class="month-nav">
+		<button class="btn btn-secondary btn-sm" onclick={prevMonth}>
+			<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+				<path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+			</svg>
+		</button>
+		<h3>{monthName} {year}</h3>
+		<button class="btn btn-secondary btn-sm" onclick={nextMonth}>
+			<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+				<path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+			</svg>
+		</button>
+		<button class="btn btn-secondary btn-sm" onclick={goToCurrentMonth}>Today</button>
 	</div>
-</div>
+
+	<!-- Quick Fill Section -->
+	<div class="quick-fill">
+		<h4>Quick Fill</h4>
+		<div class="quick-fill-row">
+			<select class="select" aria-label="Select assignment type" bind:value={quickFillType}>
+				<option value="">Select assignment type...</option>
+				{#each assignmentTypes as type}
+					<option value={type.id}>{type.shortName} - {type.name}</option>
+				{/each}
+			</select>
+
+			{#if selectedType?.assignTo === 'personnel'}
+				{@const eligibleGroups = getEligiblePersonnelByGroup(selectedType)}
+				<select class="select" bind:value={quickFillPerson}>
+					<option value="">Select person...</option>
+					{#each eligibleGroups as grp}
+						{#if grp.personnel.length > 0}
+							<optgroup label={grp.group}>
+								{#each grp.personnel as person}
+									<option value={person.id}>{person.rank} {person.lastName}</option>
+								{/each}
+							</optgroup>
+						{/if}
+					{/each}
+				</select>
+			{:else if selectedType?.assignTo === 'group'}
+				<select class="select" bind:value={quickFillGroup}>
+					<option value="">Select group...</option>
+					{#each groups as group}
+						<option value={group}>{group}</option>
+					{/each}
+				</select>
+			{/if}
+
+			<select class="select days-select" bind:value={quickFillDays}>
+				<option value="weekdays">Weekdays only</option>
+				<option value="weekends">Weekends only</option>
+				<option value="all">All days</option>
+			</select>
+
+			<button
+				class="btn btn-primary btn-sm"
+				onclick={applyQuickFill}
+				disabled={!quickFillType || (!quickFillPerson && !quickFillGroup) || isApplying}
+			>
+				{isApplying ? 'Applying...' : 'Apply'}
+			</button>
+		</div>
+		{#if selectedType?.shortName === 'MOD'}
+			<p class="filter-hint">Only personnel with MOS of PA or MD are eligible for MOD.</p>
+		{/if}
+	</div>
+
+	<!-- Assignment Grid -->
+	<div class="grid-container">
+		<table class="assignment-grid">
+			<thead>
+				<tr>
+					<th class="date-col">Date</th>
+					<th class="day-col">Day</th>
+					{#each assignmentTypes as type}
+						<th class="type-col">
+							<div class="type-header">
+								<span class="type-badge" style="background-color: {type.color}">{type.shortName}</span>
+								<button
+									class="clear-btn"
+									onclick={() => clearAll(type.id)}
+									title="Clear all {type.name}"
+								>
+									<svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+										<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9z" clip-rule="evenodd" />
+									</svg>
+								</button>
+							</div>
+						</th>
+					{/each}
+				</tr>
+			</thead>
+			<tbody>
+				{#each dates as date}
+					{@const dateStr = formatDate(date)}
+					{@const weekend = isWeekend(date)}
+					{@const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })}
+					{@const isToday = formatDate(new Date()) === dateStr}
+					<tr class:weekend class:today={isToday}>
+						<td class="date-col">
+							<span class="date-num">{date.getDate()}</span>
+						</td>
+						<td class="day-col">
+							<span class="day-name">{dayName}</span>
+						</td>
+						{#each assignmentTypes as type}
+							{@const assignment = getAssignment(date, type.id)}
+							{@const eligibleGroups = getEligiblePersonnelByGroup(type)}
+							<td class="assignment-cell">
+								{#if type.assignTo === 'personnel'}
+									<select
+										class="cell-select"
+										value={assignment?.assigneeId ?? ''}
+										onchange={(e) => handleChange(date, type.id, e.currentTarget.value)}
+									>
+										<option value="">-</option>
+										{#each eligibleGroups as grp}
+											{#if grp.personnel.length > 0}
+												<optgroup label={grp.group}>
+													{#each grp.personnel as person}
+														<option value={person.id}>{person.rank} {person.lastName}</option>
+													{/each}
+												</optgroup>
+											{/if}
+										{/each}
+									</select>
+								{:else}
+									<select
+										class="cell-select"
+										value={assignment?.assigneeId ?? ''}
+										onchange={(e) => handleChange(date, type.id, e.currentTarget.value)}
+									>
+										<option value="">-</option>
+										{#each groups as group}
+											<option value={group}>{group}</option>
+										{/each}
+									</select>
+								{/if}
+							</td>
+						{/each}
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
+
+	{#snippet footer()}
+		<div class="footer-info">
+			{dates.length} days in {monthName}
+		</div>
+		<button class="btn btn-primary" onclick={onClose}>Done</button>
+	{/snippet}
+</Modal>
 
 {#if clearTypeId}
 	<ConfirmDialog
@@ -349,28 +340,6 @@
 {/if}
 
 <style>
-	.planner-modal {
-		width: 900px;
-		max-width: 95vw;
-		max-height: 90vh;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.close-btn {
-		font-size: 1.25rem;
-		line-height: 1;
-		padding: var(--spacing-xs) var(--spacing-sm);
-	}
-
-	.modal-body {
-		flex: 1;
-		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-		padding: 0;
-	}
-
 	/* Month Navigation */
 	.month-nav {
 		display: flex;
@@ -380,6 +349,8 @@
 		padding: var(--spacing-md) var(--spacing-lg);
 		background: #0F0F0F;
 		color: #F0EDE6;
+		/* Bleed past modal-body padding to fill edge-to-edge */
+		margin: calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg)) 0;
 	}
 
 	.month-nav h3 {
@@ -404,6 +375,8 @@
 		padding: var(--spacing-md) var(--spacing-lg);
 		background: var(--color-bg);
 		border-bottom: 1px solid var(--color-border);
+		/* Bleed past modal-body padding to fill edge-to-edge */
+		margin: 0 calc(-1 * var(--spacing-lg));
 	}
 
 	.quick-fill h4 {
@@ -440,7 +413,6 @@
 
 	/* Grid Container */
 	.grid-container {
-		flex: 1;
 		overflow: auto;
 		padding: var(--spacing-md) var(--spacing-lg);
 	}
@@ -561,15 +533,6 @@
 	}
 
 	/* Footer */
-	.modal-footer {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-md) var(--spacing-lg);
-		border-top: 1px solid var(--color-border);
-		background: var(--color-surface);
-	}
-
 	.footer-info {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
@@ -577,14 +540,6 @@
 
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
-		.planner-modal {
-			width: 100vw;
-			max-width: 100vw;
-			height: 100vh;
-			max-height: 100vh;
-			border-radius: 0;
-		}
-
 		.month-nav {
 			padding: var(--spacing-sm) var(--spacing-md);
 		}
@@ -645,23 +600,10 @@
 			font-size: var(--font-size-xs);
 			padding: 2px;
 		}
-
-		.modal-footer {
-			padding: var(--spacing-sm) var(--spacing-md);
-		}
-
-		.footer-info {
-			font-size: var(--font-size-xs);
-		}
 	}
 
 	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.planner-modal {
-			width: 95vw;
-			max-width: 95vw;
-		}
-
 		.type-col {
 			min-width: 120px;
 		}

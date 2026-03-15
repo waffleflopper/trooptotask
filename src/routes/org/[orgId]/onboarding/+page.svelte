@@ -32,7 +32,11 @@
 		statusTypesStore.load(data.statusTypes ?? [], data.orgId);
 		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
 		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);
-		onboardingTemplateStore.load(data.onboardingTemplateSteps, data.orgId);
+		onboardingTemplateStore.load(
+			data.onboardingTemplates,
+			data.onboardingTemplateSteps,
+			data.orgId
+		);
 		onboardingStore.load(data.onboardings, data.orgId);
 	});
 
@@ -55,7 +59,7 @@
 		const items: OverflowItem[] = [];
 		items.push({ label: 'View Report', onclick: () => (showReport = true) });
 		if (canManageConfig) {
-			items.push({ label: 'Manage Template', onclick: () => (showTemplateManager = true), disabled: readOnly });
+			items.push({ label: 'Manage Templates', onclick: () => (showTemplateManager = true), disabled: readOnly });
 		}
 		return items;
 	});
@@ -106,6 +110,14 @@
 		return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
 	}
 
+	// Check if a step is deprecated: has a templateStepId that no longer exists in ANY template
+	function isStepDeprecated(step: OnboardingStepProgress): boolean {
+		return (
+			step.templateStepId !== null &&
+			onboardingTemplateStore.getById(step.templateStepId) === undefined
+		);
+	}
+
 	// Check if a training step is complete (auto-detect from training records)
 	function isTrainingStepComplete(step: OnboardingStepProgress, personnelId: string): boolean {
 		if (!step.trainingTypeId) return false;
@@ -135,10 +147,13 @@
 		return training.completionDate !== null;
 	}
 
-	// Calculate progress for an onboarding
+	// Calculate progress for an onboarding (deprecated steps excluded)
 	function getProgress(onboarding: PersonnelOnboarding): { completed: number; total: number } {
 		let completed = 0;
+		let total = 0;
 		for (const step of onboarding.steps) {
+			if (isStepDeprecated(step)) continue; // Skip deprecated steps in progress count
+			total++;
 			if (step.stepType === 'training') {
 				if (isTrainingStepComplete(step, onboarding.personnelId)) completed++;
 			} else if (step.stepType === 'paperwork') {
@@ -149,12 +164,12 @@
 				if (step.completed) completed++;
 			}
 		}
-		return { completed, total: onboarding.steps.length };
+		return { completed, total };
 	}
 
 	// Event handlers
-	async function handleStartOnboarding(personnelId: string, startedAt: string) {
-		await onboardingStore.startOnboarding(personnelId, startedAt);
+	async function handleStartOnboarding(personnelId: string, startedAt: string, templateId: string | null) {
+		await onboardingStore.startOnboarding(personnelId, startedAt, templateId);
 		showStartModal = false;
 	}
 
@@ -275,17 +290,6 @@
 		await onboardingStore.completeOnboarding(id);
 	}
 
-	// Template manager callbacks
-	async function handleAddTemplateStep(data: any) {
-		await onboardingTemplateStore.add(data);
-	}
-	async function handleUpdateTemplateStep(id: string, data: any) {
-		await onboardingTemplateStore.update(id, data);
-	}
-	async function handleRemoveTemplateStep(id: string) {
-		await onboardingTemplateStore.remove(id);
-	}
-
 	function toggleExpand(id: string) {
 		expandedOnboardingId = expandedOnboardingId === id ? null : id;
 	}
@@ -305,6 +309,53 @@
 		if (!step.currentStage) return 0;
 		const idx = stages.indexOf(step.currentStage);
 		return idx >= 0 ? idx : 0;
+	}
+
+	// ── Re-sync & assign-template state ───────────────────────────
+
+	let resyncingId = $state<string | null>(null);
+	let resyncError = $state<string | null>(null);
+
+	async function handleResync(onboardingId: string) {
+		resyncingId = onboardingId;
+		resyncError = null;
+		const result = await onboardingStore.resync(onboardingId);
+		resyncingId = null;
+		if (!result.success) {
+			resyncError = result.error ?? 'Re-sync failed';
+		}
+	}
+
+	let assigningTemplateId = $state<string | null>(null);
+	let assignTemplateSelected = $state('');
+	let assigningTemplate = $state(false);
+	let assignTemplateError = $state('');
+
+	function openAssignTemplate(onboardingId: string) {
+		assigningTemplateId = onboardingId;
+		assignTemplateSelected = onboardingTemplateStore.templates[0]?.id ?? '';
+		assignTemplateError = '';
+	}
+
+	async function handleAssignTemplate() {
+		if (!assigningTemplateId || !assignTemplateSelected) return;
+		assigningTemplate = true;
+		assignTemplateError = '';
+		const result = await onboardingStore.assignTemplate(assigningTemplateId, assignTemplateSelected);
+		assigningTemplate = false;
+		if (result.success) {
+			assigningTemplateId = null;
+		} else {
+			assignTemplateError = result.error ?? 'Failed to assign template';
+		}
+	}
+
+	let removingDeprecatedStepId = $state<string | null>(null);
+
+	async function handleRemoveDeprecatedStep(stepId: string) {
+		removingDeprecatedStepId = stepId;
+		await onboardingStore.removeDeprecatedStep(stepId);
+		removingDeprecatedStepId = null;
 	}
 </script>
 
@@ -333,7 +384,7 @@
 		{#if data.permissions?.canEditOnboarding}
 			{#if canManageConfig}
 			<button class="btn-ghost" onclick={() => (showTemplateManager = true)} disabled={readOnly}>
-				Manage Template
+				Manage Templates
 			</button>
 			{/if}
 			<button
@@ -362,9 +413,16 @@
 				<span>No template steps defined — new onboardings cannot be started until steps are added.</span>
 				{#if data.permissions?.canEditOnboarding}
 					<button class="btn btn-sm btn-secondary" onclick={() => (showTemplateManager = true)}>
-						Manage Template
+						Manage Templates
 					</button>
 				{/if}
+			</div>
+		{/if}
+
+		{#if resyncError}
+			<div class="error-banner">
+				<span>{resyncError}</span>
+				<button class="btn btn-sm btn-secondary" onclick={() => (resyncError = null)}>Dismiss</button>
 			</div>
 		{/if}
 
@@ -392,6 +450,7 @@
 					{@const progress = getProgress(onboarding)}
 					{@const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0}
 					{@const isExpanded = expandedOnboardingId === onboarding.id}
+					{@const isLegacy = onboarding.templateId === null}
 					<div class="onboarding-card" class:expanded={isExpanded}>
 						<button
 							class="card-summary"
@@ -434,6 +493,32 @@
 												Mark Complete
 											</button>
 										{/if}
+										{#if isLegacy}
+											<button
+												class="btn btn-secondary btn-sm"
+												onclick={() => openAssignTemplate(onboarding.id)}
+												title="Assign a template to enable re-sync"
+											>
+												Assign Template
+											</button>
+										{:else}
+											<button
+												class="btn btn-secondary btn-sm sync-btn"
+												onclick={() => handleResync(onboarding.id)}
+												disabled={resyncingId === onboarding.id}
+												title="Sync with current template: adds new steps, updates incomplete steps"
+											>
+												{#if resyncingId === onboarding.id}
+													<Spinner color="var(--color-text-secondary)" />
+												{:else}
+													<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sync-icon">
+														<path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+														<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+													</svg>
+												{/if}
+												Re-sync
+											</button>
+										{/if}
 										<button
 											class="btn btn-danger btn-sm"
 											onclick={() => (cancellingId = onboarding.id)}
@@ -445,6 +530,7 @@
 
 								<div class="step-list">
 									{#each onboarding.steps as step (step.id)}
+										{@const deprecated = isStepDeprecated(step)}
 										{@const isTrainingComplete = step.stepType === 'training' && isTrainingStepComplete(step, onboarding.personnelId)}
 										{@const isPaperworkComplete = step.stepType === 'paperwork' && (() => {
 											const stages = step.stages ?? [];
@@ -452,131 +538,158 @@
 										})()}
 										{@const isCheckboxComplete = step.stepType === 'checkbox' && step.completed}
 										{@const isStepComplete = isTrainingComplete || isPaperworkComplete || isCheckboxComplete}
-										<div class="step-row" class:step-complete={isStepComplete}>
+										<div
+											class="step-row"
+											class:step-complete={isStepComplete}
+											class:step-deprecated={deprecated}
+										>
 											<div class="step-main">
-												<Badge
-													label={stepTypeLabels[step.stepType]}
-													color={stepTypeColors[step.stepType]}
-												/>
+												{#if deprecated}
+													<Badge label="Deprecated" color="#6b7280" />
+												{:else}
+													<Badge
+														label={stepTypeLabels[step.stepType]}
+														color={stepTypeColors[step.stepType]}
+													/>
+												{/if}
 												<span class="step-name">{step.stepName}</span>
 
-												<div class="step-status">
-													{#if step.stepType === 'checkbox'}
-														{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
-															<button
-																class="checkbox-toggle"
-																class:checked={step.completed}
-																onclick={() => handleToggleCheckbox(step)}
-																aria-label={step.completed ? 'Mark incomplete' : 'Mark complete'}
-															>
-																{#if step.completed}
-																	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-																		<polyline points="20 6 9 17 4 12" />
-																	</svg>
-																{/if}
-															</button>
-														{:else}
-															<span class="status-icon" class:complete={step.completed}>
-																{step.completed ? '\u2713' : '\u2014'}
-															</span>
-														{/if}
-													{:else if step.stepType === 'training'}
-														{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
-															<button
-																class="training-status-btn"
-																class:complete={isTrainingComplete}
-																class:incomplete={!isTrainingComplete}
-																onclick={() => handleTrainingStepClick(step, onboarding)}
-																aria-label="Edit training record"
-															>
-																{isTrainingComplete ? '\u2713' : '\u2717'}
-															</button>
-														{:else}
-															<span class="status-icon" class:complete={isTrainingComplete} class:incomplete={!isTrainingComplete}>
-																{isTrainingComplete ? '\u2713' : '\u2717'}
-															</span>
-														{/if}
-													{:else if step.stepType === 'paperwork'}
-														{@const stages = step.stages ?? []}
-														{@const stageIndex = getPaperworkStageIndex(step)}
-														<div class="stage-indicator">
-															{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
-																<button
-																	class="stage-arrow"
-																	onclick={() => handleRetreatStage(step)}
-																	disabled={stageIndex <= 0}
-																	aria-label="Previous stage"
-																>
-																	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-																</button>
-															{/if}
-															<span class="stage-text">
-																{step.currentStage ?? stages[0] ?? 'N/A'}
-																<span class="stage-count">({stageIndex + 1}/{stages.length})</span>
-															</span>
-															{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
-																<button
-																	class="stage-arrow"
-																	onclick={() => handleAdvanceStage(step)}
-																	disabled={stageIndex >= stages.length - 1}
-																	aria-label="Next stage"
-																>
-																	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-																</button>
-															{/if}
-														</div>
+												{#if deprecated}
+													{#if step.completed}
+														<span class="deprecated-note">Removed from template</span>
+													{:else if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
+														<button
+															class="btn btn-danger btn-sm"
+															onclick={() => handleRemoveDeprecatedStep(step.id)}
+															disabled={removingDeprecatedStepId === step.id}
+														>
+															{#if removingDeprecatedStepId === step.id}<Spinner />{/if}
+															Remove Step
+														</button>
+													{:else}
+														<span class="deprecated-note">Removed from template</span>
 													{/if}
-												</div>
+												{:else}
+													<div class="step-status">
+														{#if step.stepType === 'checkbox'}
+															{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
+																<button
+																	class="checkbox-toggle"
+																	class:checked={step.completed}
+																	onclick={() => handleToggleCheckbox(step)}
+																	aria-label={step.completed ? 'Mark incomplete' : 'Mark complete'}
+																>
+																	{#if step.completed}
+																		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+																			<polyline points="20 6 9 17 4 12" />
+																		</svg>
+																	{/if}
+																</button>
+															{:else}
+																<span class="status-icon" class:complete={step.completed}>
+																	{step.completed ? '\u2713' : '\u2014'}
+																</span>
+															{/if}
+														{:else if step.stepType === 'training'}
+															{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
+																<button
+																	class="training-status-btn"
+																	class:complete={isTrainingComplete}
+																	class:incomplete={!isTrainingComplete}
+																	onclick={() => handleTrainingStepClick(step, onboarding)}
+																	aria-label="Edit training record"
+																>
+																	{isTrainingComplete ? '\u2713' : '\u2717'}
+																</button>
+															{:else}
+																<span class="status-icon" class:complete={isTrainingComplete} class:incomplete={!isTrainingComplete}>
+																	{isTrainingComplete ? '\u2713' : '\u2717'}
+																</span>
+															{/if}
+														{:else if step.stepType === 'paperwork'}
+															{@const stages = step.stages ?? []}
+															{@const stageIndex = getPaperworkStageIndex(step)}
+															<div class="stage-indicator">
+																{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
+																	<button
+																		class="stage-arrow"
+																		onclick={() => handleRetreatStage(step)}
+																		disabled={stageIndex <= 0}
+																		aria-label="Previous stage"
+																	>
+																		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+																	</button>
+																{/if}
+																<span class="stage-text">
+																	{step.currentStage ?? stages[0] ?? 'N/A'}
+																	<span class="stage-count">({stageIndex + 1}/{stages.length})</span>
+																</span>
+																{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
+																	<button
+																		class="stage-arrow"
+																		onclick={() => handleAdvanceStage(step)}
+																		disabled={stageIndex >= stages.length - 1}
+																		aria-label="Next stage"
+																	>
+																		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+																	</button>
+																{/if}
+															</div>
+														{/if}
+													</div>
+												{/if}
 											</div>
 
-											<button
-												class="notes-toggle"
-												onclick={() => toggleNotes(step.id)}
-												aria-label="Toggle notes"
-											>
-												<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="notes-icon">
-													<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-												</svg>
-												{#if step.notes.length > 0}
-													<span class="notes-count">{step.notes.length}</span>
-												{/if}
-											</button>
+											{#if !deprecated}
+												<button
+													class="notes-toggle"
+													onclick={() => toggleNotes(step.id)}
+													aria-label="Toggle notes"
+												>
+													<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="notes-icon">
+														<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+													</svg>
+													{#if step.notes.length > 0}
+														<span class="notes-count">{step.notes.length}</span>
+													{/if}
+												</button>
 
-											{#if expandedNotes.has(step.id)}
-												<div class="step-notes">
-													{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
-														<div class="note-input-row">
-															<input
-																type="text"
-																class="input note-input"
-																placeholder="Add a note..."
-																bind:value={noteInputs[step.id]}
-																onkeydown={(e) => {
-																	if (e.key === 'Enter') handleAddNote(step);
-																}}
-															/>
-															<button
-																class="btn btn-primary btn-sm"
-																onclick={() => handleAddNote(step)}
-																disabled={!noteInputs[step.id]?.trim()}
-															>
-																Add
-															</button>
-														</div>
-													{/if}
-													{#if step.notes.length === 0}
-														<p class="no-notes">No notes yet.</p>
-													{:else}
-														<div class="notes-list">
-															{#each step.notes as note}
-																<div class="note-item">
-																	<span class="note-text">{note.text}</span>
-																	<span class="note-time">{formatTimestamp(note.timestamp)}</span>
-																</div>
-															{/each}
-														</div>
-													{/if}
-												</div>
+												{#if expandedNotes.has(step.id)}
+													<div class="step-notes">
+														{#if data.permissions?.canEditOnboarding && onboarding.status === 'in_progress'}
+															<div class="note-input-row">
+																<input
+																	type="text"
+																	class="input note-input"
+																	placeholder="Add a note..."
+																	bind:value={noteInputs[step.id]}
+																	onkeydown={(e) => {
+																		if (e.key === 'Enter') handleAddNote(step);
+																	}}
+																/>
+																<button
+																	class="btn btn-primary btn-sm"
+																	onclick={() => handleAddNote(step)}
+																	disabled={!noteInputs[step.id]?.trim()}
+																>
+																	Add
+																</button>
+															</div>
+														{/if}
+														{#if step.notes.length === 0}
+															<p class="no-notes">No notes yet.</p>
+														{:else}
+															<div class="notes-list">
+																{#each step.notes as note}
+																	<div class="note-item">
+																		<span class="note-text">{note.text}</span>
+																		<span class="note-time">{formatTimestamp(note.timestamp)}</span>
+																	</div>
+																{/each}
+															</div>
+														{/if}
+													</div>
+												{/if}
 											{/if}
 										</div>
 									{/each}
@@ -603,11 +716,7 @@
 
 {#if showTemplateManager}
 	<OnboardingTemplateManager
-		templateSteps={onboardingTemplateStore.list}
 		trainingTypes={trainingTypesStore.list}
-		onAdd={handleAddTemplateStep}
-		onUpdate={handleUpdateTemplateStep}
-		onRemove={handleRemoveTemplateStep}
 		onClose={() => (showTemplateManager = false)}
 	/>
 {/if}
@@ -617,6 +726,7 @@
 		personnel={personnelStore.list}
 		existingOnboardingPersonnelIds={existingOnboardingPersonnelIds}
 		groups={groupsStore.list}
+		templates={onboardingTemplateStore.templates}
 		{hasTemplateSteps}
 		onSubmit={handleStartOnboarding}
 		onAddPerson={handleAddPerson}
@@ -633,6 +743,34 @@
 		onConfirm={() => handleCancelOnboarding(cancellingId!)}
 		onCancel={() => (cancellingId = null)}
 	/>
+{/if}
+
+{#if assigningTemplateId}
+	<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="assign-template-title">
+		<div class="assign-modal">
+			<h3 id="assign-template-title">Assign Template</h3>
+			<p class="assign-desc">This onboarding was started before templates were introduced. Assign it to a template to enable re-sync. Steps will be matched by name and type.</p>
+			<div class="form-group">
+				<label class="label" for="assign-template-select">Template</label>
+				<select id="assign-template-select" class="select" bind:value={assignTemplateSelected}>
+					{#each onboardingTemplateStore.templates as t (t.id)}
+						<option value={t.id}>{t.name}</option>
+					{/each}
+				</select>
+			</div>
+			{#if assignTemplateError}
+				<p class="error-text">{assignTemplateError}</p>
+			{/if}
+			<div class="assign-actions">
+				<div class="spacer"></div>
+				<button class="btn btn-secondary" onclick={() => { assigningTemplateId = null; assignTemplateError = ''; }}>Cancel</button>
+				<button class="btn btn-primary" onclick={handleAssignTemplate} disabled={!assignTemplateSelected || assigningTemplate}>
+					{#if assigningTemplate}<Spinner />{/if}
+					Assign Template
+				</button>
+			</div>
+		</div>
+	</div>
 {/if}
 
 {#if editingTrainingStep}
@@ -738,6 +876,23 @@
 	}
 
 	.warning-banner span {
+		flex: 1;
+	}
+
+	.error-banner {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-md);
+		padding: var(--spacing-sm) var(--spacing-lg);
+		background: rgba(239, 68, 68, 0.1);
+		border: 1px solid var(--color-error);
+		border-radius: var(--radius-md);
+		color: var(--color-error);
+		font-size: var(--font-size-sm);
+		margin-bottom: var(--spacing-md);
+	}
+
+	.error-banner span {
 		flex: 1;
 	}
 
@@ -864,6 +1019,19 @@
 		gap: var(--spacing-sm);
 		margin-bottom: var(--spacing-md);
 		justify-content: flex-end;
+		flex-wrap: wrap;
+	}
+
+	.sync-btn {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+	}
+
+	.sync-icon {
+		width: 14px;
+		height: 14px;
+		flex-shrink: 0;
 	}
 
 	/* Step list */
@@ -888,6 +1056,11 @@
 		opacity: 0.7;
 	}
 
+	.step-row.step-deprecated {
+		opacity: 0.65;
+		background: var(--color-surface-variant);
+	}
+
 	.step-main {
 		display: flex;
 		align-items: center;
@@ -903,6 +1076,12 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.deprecated-note {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+		font-style: italic;
 	}
 
 	.step-status {
@@ -1131,6 +1310,52 @@
 		color: var(--color-text-muted);
 		white-space: nowrap;
 		flex-shrink: 0;
+	}
+
+	/* Assign template modal */
+	.modal-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		padding: var(--spacing-md);
+	}
+
+	.assign-modal {
+		background: var(--color-surface);
+		border-radius: var(--radius-lg);
+		padding: var(--spacing-lg);
+		max-width: 420px;
+		width: 100%;
+		box-shadow: var(--shadow-3);
+	}
+
+	.assign-modal h3 {
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		margin-bottom: var(--spacing-sm);
+	}
+
+	.assign-desc {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		margin-bottom: var(--spacing-md);
+		line-height: 1.5;
+	}
+
+	.assign-actions {
+		display: flex;
+		gap: var(--spacing-sm);
+		margin-top: var(--spacing-md);
+	}
+
+	.error-text {
+		font-size: var(--font-size-sm);
+		color: var(--color-error);
+		margin-top: var(--spacing-xs);
 	}
 
 	/* Mobile Responsive Styles */

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
 	import type { Group } from '$lib/stores/groups.svelte';
+	import type { OnboardingTemplate } from '../onboarding.types';
 	import Modal from '$lib/components/Modal.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -9,16 +10,18 @@
 		personnel: Personnel[];
 		existingOnboardingPersonnelIds: string[];
 		groups: Group[];
+		templates: OnboardingTemplate[];
 		hasTemplateSteps?: boolean;
-		onSubmit: (personnelId: string, startedAt: string) => void | Promise<void>;
+		onSubmit: (personnelId: string, startedAt: string, templateId: string | null) => void | Promise<void>;
 		onAddPerson: (data: Omit<Personnel, 'id'>) => Promise<string | null>;
 		onClose: () => void;
 	}
 
-	let { personnel, existingOnboardingPersonnelIds, groups, hasTemplateSteps = true, onSubmit, onAddPerson, onClose }: Props = $props();
+	let { personnel, existingOnboardingPersonnelIds, groups, templates, hasTemplateSteps = true, onSubmit, onAddPerson, onClose }: Props = $props();
 
 	let selectedPersonnelId = $state('');
 	let startDate = $state(new Date().toISOString().split('T')[0]);
+	let selectedTemplateId = $state<string>(templates[0]?.id ?? '');
 	let saving = $state(false);
 	let showAddPersonModal = $state(false);
 
@@ -29,12 +32,13 @@
 	);
 
 	const canSave = $derived(!!selectedPersonnelId && !!startDate && hasTemplateSteps);
+	const showTemplateSelector = $derived(templates.length > 1);
 
 	async function handleSave() {
 		if (!canSave || saving) return;
 		saving = true;
 		try {
-			await onSubmit(selectedPersonnelId, startDate);
+			await onSubmit(selectedPersonnelId, startDate, selectedTemplateId || null);
 			onClose();
 		} finally {
 			saving = false;
@@ -50,6 +54,16 @@
 </script>
 
 <Modal title="Start Onboarding" {onClose} width="450px" titleId="start-onboarding-title">
+	{#if showTemplateSelector}
+		<div class="form-group">
+			<label class="label" for="template-select">Template</label>
+			<select id="template-select" class="select" bind:value={selectedTemplateId}>
+				{#each templates as t (t.id)}
+					<option value={t.id}>{t.name}</option>
+				{/each}
+			</select>
+		</div>
+	{/if}
 	<div class="form-group">
 		<label class="label" for="personnel-select">Person</label>
 		<div class="person-select-row">

@@ -493,6 +493,116 @@
 		</div>
 	</section>
 
+	<!-- FAQ Section -->
+	<section id="faq" class="faq">
+		<div class="section-container">
+			<div class="section-label">FAQ</div>
+			<h2 class="section-title">Questions worth asking<br /><em>before you commit.</em></h2>
+
+			<div class="faq-list">
+				<details class="faq-item">
+					<summary class="faq-question">
+						Are the calendar statuses fixed — like "Leave" or "TDY" — or can I change them?
+						<span class="faq-icon" aria-hidden="true"></span>
+					</summary>
+					<div class="faq-answer">
+						<p>Absolutely not — customizing statuses is usually one of the first things a new unit admin does. You define every status yourself: the name, the color, and whether it marks a day as a unit closure (like a training holiday or DONSA). If your unit has a status called "PDHA/PDHRA" or "Rear D," that's exactly what you'll see on the calendar. Your formation, your language.</p>
+					</div>
+				</details>
+
+				<details class="faq-item">
+					<summary class="faq-question">
+						I want my squad leaders to manage their people without seeing everyone else's business. Is that possible?
+						<span class="faq-icon" aria-hidden="true"></span>
+					</summary>
+					<div class="faq-answer">
+						<p>Yes — and this is one of the most powerful things T2T does. When you invite someone to your organization, you can scope their access to a specific group. A Team Leader role can update statuses for their Soldiers and track their training, but they won't see counseling records, onboarding checklists, or personnel data for anyone outside their group. They get exactly the visibility they need to do their job, and nothing they shouldn't have.</p>
+					</div>
+				</details>
+
+				<details class="faq-item">
+					<summary class="faq-question">
+						I already have my roster in a spreadsheet. Do I have to re-enter everyone by hand?
+						<span class="faq-icon" aria-hidden="true"></span>
+					</summary>
+					<div class="faq-answer">
+						<p>Please don't. T2T's bulk import tool lets you paste your spreadsheet directly and walks you through mapping your columns to the right fields — name, rank, MOS, section, assignment, whatever you have. You can be up and running with a full roster in a few minutes, not a few hours. If your spreadsheet is a mess, the column mapper is forgiving enough to handle it.</p>
+					</div>
+				</details>
+
+				<details class="faq-item">
+					<summary class="faq-question">
+						What is the "Leaders Book" and why would I use it instead of just keeping notes?
+						<span class="faq-icon" aria-hidden="true"></span>
+					</summary>
+					<div class="faq-answer">
+						<p>Think of it as a digital replacement for that notebook every NCO keeps in their left cargo pocket — except it doesn't get lost, it's searchable, and the data stays with the Soldier even if they change sections. You can log counseling sessions (initial, monthly, event-driven), track development goals and key dates, manage rating scheme positions for OER/NCOER/WOER, and store extended Soldier info that doesn't have a home on a standard form. Everything in one place, accessible from anywhere you have a browser.</p>
+					</div>
+				</details>
+
+				<details class="faq-item">
+					<summary class="faq-question">
+						How does the duty roster generator actually work?
+						<span class="faq-icon" aria-hidden="true"></span>
+					</summary>
+					<div class="faq-answer">
+						<p>It runs the same logic that's supposed to be behind a DA Form 6 — fair rotation based on availability, eligibility, and how many times each person has already pulled the duty — without the hours of manual cross-referencing. You set who's eligible (rank requirements, exemptions, availability), and T2T builds the roster and tracks cumulative duty counts so the same three Soldiers aren't always on the list. The output is print-ready for the board or shareable digitally with your HQ.</p>
+					</div>
+				</details>
+
+				<details class="faq-item">
+					<summary class="faq-question">
+						What kind of training data can I track?
+						<span class="faq-icon" aria-hidden="true"></span>
+					</summary>
+					<div class="faq-answer">
+						<p>Anything your unit requires. You create the training types — Weapons Qual, ACFT, CPR/BLS, SHARP, you name it — and set an expiration window for each one. T2T then tracks every Soldier against it and color-codes the matrix: green for current, yellow at 60 days, orange at 30, red for overdue. You can mark individual Soldiers as exempt, track pass/fail or just attendance, and export the whole thing to Excel for your training briefing. No more digging through a shared drive full of outdated spreadsheets.</p>
+					</div>
+				</details>
+
+				<details class="faq-item">
+					<summary class="faq-question">
+						What does the in-processing checklist actually do that a shared doc can't?
+						<span class="faq-icon" aria-hidden="true"></span>
+					</summary>
+					<div class="faq-answer">
+						<p>It turns your in-processing SOP into a living workflow. Build a template once — equipment issue, clearing finance, initial counseling, ID card appointment, whatever your steps are — and every new arrival gets their own checklist generated from that template automatically. You can see progress by person ("where is SGT Johnson in the process?") or pivot and view it by step ("who across the whole platoon hasn't done their initial counseling?"). No more chasing people down the hallway trying to piece together who's done what.</p>
+					</div>
+				</details>
+
+				<details class="faq-item">
+					<summary class="faq-question">
+						Can I manage more than one unit from the same account?
+						<span class="faq-icon" aria-hidden="true"></span>
+					</summary>
+					<div class="faq-answer">
+						<p>Yes. One login, multiple organizations — and you can switch between them without signing out. Whether you're managing a company and a detachment, you're in a higher HQ role overseeing subordinate units, or you just PCS'd and want to keep your old organization's data accessible during the transition, everything lives under the same account.</p>
+					</div>
+				</details>
+
+				<details class="faq-item">
+					<summary class="faq-question">
+						Can I export data, or does everything stay locked inside the app?
+						<span class="faq-icon" aria-hidden="true"></span>
+					</summary>
+					<div class="faq-answer">
+						<p>Both — the data lives in T2T so it's always current, and you can pull it out whenever you need it. Personnel rosters, training matrices, and calendar exports all go to Excel with color-coding intact. Duty rosters and sign-in sheets are designed to print cleanly straight from the browser. If the XO walks in and wants a personnel readiness brief, you have it in about 30 seconds.</p>
+					</div>
+				</details>
+
+				<details class="faq-item">
+					<summary class="faq-question">
+						Is this secure enough to hold personal information about my Soldiers?
+						<span class="faq-icon" aria-hidden="true"></span>
+					</summary>
+					<div class="faq-answer">
+						<p>T2T is built to a military standard, not a startup standard. It aligns to NIST 800-171 — the federal framework for protecting Controlled Unclassified Information — with AES-256 encryption at rest, TLS 1.2+ in transit, role-based access control with group scoping, and a full audit log of every action in the system (exportable for IG inspections). T2T is not authorized for classified information, but for the administrative and personnel data that runs your day-to-day operations, the controls are where they need to be.</p>
+					</div>
+				</details>
+			</div>
+		</div>
+	</section>
+
 	<!-- CTA Section -->
 	<section class="cta">
 		<div class="cta-container">
@@ -1674,6 +1784,86 @@
 		font-size: 0.75rem;
 	}
 
+	/* ---- FAQ ---- */
+	.faq {
+		padding: 6rem 0;
+		background: var(--paper-warm);
+		border-top: 1px solid var(--color-border);
+	}
+
+	:global([data-theme='dark']) .faq {
+		background: var(--color-surface);
+	}
+
+	.faq .section-title {
+		margin-bottom: 3rem;
+	}
+
+	.faq-list {
+		max-width: 760px;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.faq-item {
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.faq-item[open] .faq-icon::before {
+		content: '×';
+	}
+
+	.faq-icon::before {
+		content: '+';
+		font-size: 1.375rem;
+		font-weight: 300;
+		color: var(--brass);
+		line-height: 1;
+		transition: none;
+	}
+
+	.faq-question {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1.5rem;
+		padding: 1.375rem 0;
+		cursor: pointer;
+		list-style: none;
+		font-family: var(--font-display);
+		font-size: 1.125rem;
+		font-weight: 400;
+		color: var(--color-text);
+		line-height: 1.35;
+	}
+
+	.faq-question::-webkit-details-marker {
+		display: none;
+	}
+
+	.faq-question:hover {
+		color: var(--brass);
+	}
+
+	.faq-icon {
+		flex-shrink: 0;
+		width: 24px;
+		height: 24px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.faq-answer {
+		padding-bottom: 1.375rem;
+	}
+
+	.faq-answer p {
+		font-size: 0.9875rem;
+		color: var(--color-text-secondary);
+		line-height: 1.75;
+		margin: 0;
+	}
+
 	/* ============================================
 	   Responsive — Tablet
 	   ============================================ */
@@ -1899,6 +2089,14 @@
 
 		.roadmap-description {
 			font-size: 0.875rem;
+		}
+
+		.faq {
+			padding: 4rem 0;
+		}
+
+		.faq-question {
+			font-size: 1rem;
 		}
 
 		.cta {

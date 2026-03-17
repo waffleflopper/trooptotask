@@ -35,6 +35,20 @@ export function validateEnum<T extends string>(value: string | null | undefined,
 }
 
 /**
+ * Validate a password meets strength requirements.
+ * Returns null if valid, or an error message string if invalid.
+ */
+export function validatePassword(password: string): string | null {
+	if (!password || password.length < 12) {
+		return 'Password must be at least 12 characters';
+	}
+	if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+		return 'Password must include uppercase, lowercase, and a number';
+	}
+	return null;
+}
+
+/**
  * Validate a string is non-empty after trimming.
  */
 export function requireString(input: string | null | undefined, maxLength: number = 255): string | null {

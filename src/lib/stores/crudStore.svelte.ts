@@ -14,6 +14,7 @@ export interface CrudStore<T extends { id: string }> {
 	removeBool(id: string): Promise<boolean>;
 	setItems(items: T[]): void;
 	getItems(): T[];
+	getOrgId(): string;
 }
 
 export function createCrudStore<T extends { id: string }>(
@@ -21,6 +22,35 @@ export function createCrudStore<T extends { id: string }>(
 ): CrudStore<T> {
 	let items = $state.raw<T[]>([]);
 	let orgId = '';
+
+	async function removeImpl(id: string): Promise<DeleteResult> {
+		const original = items.find((item) => item.id === id);
+		if (!original) return 'error';
+
+		items = items.filter((item) => item.id !== id);
+
+		try {
+			const res = await fetch(`/org/${orgId}/api/${config.resource}`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+
+			if (res.status === 202) {
+				const body = await res.json();
+				if (body.requiresApproval) {
+					items = [...items, original];
+					return 'approval_required';
+				}
+			}
+
+			if (!res.ok) throw new Error();
+			return 'deleted';
+		} catch {
+			items = [...items, original];
+			return 'error';
+		}
+	}
 
 	return {
 		get items() {
@@ -84,37 +114,10 @@ export function createCrudStore<T extends { id: string }>(
 			}
 		},
 
-		async remove(id: string): Promise<DeleteResult> {
-			const original = items.find((item) => item.id === id);
-			if (!original) return 'error';
-
-			items = items.filter((item) => item.id !== id);
-
-			try {
-				const res = await fetch(`/org/${orgId}/api/${config.resource}`, {
-					method: 'DELETE',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ id })
-				});
-
-				if (res.status === 202) {
-					const body = await res.json();
-					if (body.requiresApproval) {
-						items = [...items, original];
-						return 'approval_required';
-					}
-				}
-
-				if (!res.ok) throw new Error();
-				return 'deleted';
-			} catch {
-				items = [...items, original];
-				return 'error';
-			}
-		},
+		remove: removeImpl,
 
 		async removeBool(id: string): Promise<boolean> {
-			const result = await this.remove(id);
+			const result = await removeImpl(id);
 			return result === 'deleted';
 		},
 
@@ -124,6 +127,10 @@ export function createCrudStore<T extends { id: string }>(
 
 		getItems() {
 			return items;
+		},
+
+		getOrgId() {
+			return orgId;
 		}
 	};
 }

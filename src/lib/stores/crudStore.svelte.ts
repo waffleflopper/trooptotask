@@ -17,9 +17,7 @@ export interface CrudStore<T extends { id: string }> {
 	getOrgId(): string;
 }
 
-export function createCrudStore<T extends { id: string }>(
-	config: CrudStoreConfig<T>
-): CrudStore<T> {
+export function createCrudStore<T extends { id: string }>(config: CrudStoreConfig<T>): CrudStore<T> {
 	let items = $state.raw<T[]>([]);
 	let orgId = '';
 

@@ -4,9 +4,33 @@ import type { Personnel } from '$lib/types';
 const store = createCrudStore<Personnel>({ resource: 'personnel' });
 
 const RANK_ORDER = [
-	'PV1', 'PV2', 'PFC', 'SPC', 'CPL', 'SGT', 'SSG', 'SFC', 'MSG', '1SG', 'SGM', 'CSM',
-	'WO1', 'CW2', 'CW3', 'CW4', 'CW5',
-	'2LT', '1LT', 'CPT', 'MAJ', 'LTC', 'COL', 'BG', 'MG', 'LTG', 'GEN'
+	'PV1',
+	'PV2',
+	'PFC',
+	'SPC',
+	'CPL',
+	'SGT',
+	'SSG',
+	'SFC',
+	'MSG',
+	'1SG',
+	'SGM',
+	'CSM',
+	'WO1',
+	'CW2',
+	'CW3',
+	'CW4',
+	'CW5',
+	'2LT',
+	'1LT',
+	'CPT',
+	'MAJ',
+	'LTC',
+	'COL',
+	'BG',
+	'MG',
+	'LTG',
+	'GEN'
 ];
 
 export const personnelStore = {

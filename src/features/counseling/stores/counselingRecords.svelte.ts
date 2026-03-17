@@ -12,8 +12,6 @@ export const counselingRecordsStore = {
 	update: store.update,
 	remove: store.remove,
 	getById: (id: string) => store.getItems().find((r) => r.id === id),
-	getByPersonnelId: (personnelId: string) =>
-		store.getItems().filter((r) => r.personnelId === personnelId),
-	removeByTypeLocal: (typeId: string) =>
-		store.setItems(store.getItems().filter((r) => r.counselingTypeId !== typeId))
+	getByPersonnelId: (personnelId: string) => store.getItems().filter((r) => r.personnelId === personnelId),
+	removeByTypeLocal: (typeId: string) => store.setItems(store.getItems().filter((r) => r.counselingTypeId !== typeId))
 };

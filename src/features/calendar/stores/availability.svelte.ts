@@ -63,23 +63,23 @@ export const availabilityStore = {
 		store.setItems(store.getItems().filter((e) => e.statusTypeId !== statusTypeId)),
 
 	getById: (id: string) => store.getItems().find((e) => e.id === id),
-	getByPersonnel: (personnelId: string) =>
-		store.getItems().filter((e) => e.personnelId === personnelId),
+	getByPersonnel: (personnelId: string) => store.getItems().filter((e) => e.personnelId === personnelId),
 
 	getByPersonnelAndDate: (personnelId: string, date: Date) =>
 		store.getItems().filter((e) => e.personnelId === personnelId && isDateInRange(date, e.startDate, e.endDate)),
 
-	getByDate: (date: Date) =>
-		store.getItems().filter((e) => isDateInRange(date, e.startDate, e.endDate)),
+	getByDate: (date: Date) => store.getItems().filter((e) => isDateInRange(date, e.startDate, e.endDate)),
 
 	getByDateRange(startDate: Date, endDate: Date) {
 		const start = formatDate(startDate);
 		const end = formatDate(endDate);
-		return store.getItems().filter(
-			(e) =>
-				(e.startDate >= start && e.startDate <= end) ||
-				(e.endDate >= start && e.endDate <= end) ||
-				(e.startDate <= start && e.endDate >= end)
-		);
+		return store
+			.getItems()
+			.filter(
+				(e) =>
+					(e.startDate >= start && e.startDate <= end) ||
+					(e.endDate >= start && e.endDate <= end) ||
+					(e.startDate <= start && e.endDate >= end)
+			);
 	}
 };

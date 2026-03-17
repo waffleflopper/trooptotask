@@ -40,6 +40,5 @@ export const groupsStore = {
 	},
 
 	getById: (id: string) => store.getItems().find((g) => g.id === id),
-	getByName: (name: string) =>
-		store.getItems().find((g) => g.name.toLowerCase() === name.toLowerCase())
+	getByName: (name: string) => store.getItems().find((g) => g.name.toLowerCase() === name.toLowerCase())
 };

@@ -59,9 +59,7 @@ describe('personnelExtendedInfoStore', () => {
 
 	describe('getByPersonnelId', () => {
 		it('should find extended info by personnel ID', () => {
-			expect(personnelExtendedInfoStore.getByPersonnelId('p1')?.personalEmail).toBe(
-				'john@test.com'
-			);
+			expect(personnelExtendedInfoStore.getByPersonnelId('p1')?.personalEmail).toBe('john@test.com');
 		});
 
 		it('should return undefined for unknown personnel', () => {

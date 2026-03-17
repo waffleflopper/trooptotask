@@ -12,6 +12,5 @@ export const developmentGoalsStore = {
 	update: store.update,
 	remove: store.remove,
 	getById: (id: string) => store.getItems().find((g) => g.id === id),
-	getByPersonnelId: (personnelId: string) =>
-		store.getItems().filter((g) => g.personnelId === personnelId)
+	getByPersonnelId: (personnelId: string) => store.getItems().filter((g) => g.personnelId === personnelId)
 };

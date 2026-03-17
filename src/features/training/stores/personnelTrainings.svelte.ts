@@ -4,13 +4,9 @@ import type { PersonnelTraining } from '$features/training/training.types';
 const store = createCrudStore<PersonnelTraining>({
 	resource: 'personnel-trainings',
 	beforeAdd(items, data) {
-		const displaced = items.find(
-			(t) => t.personnelId === data.personnelId && t.trainingTypeId === data.trainingTypeId
-		);
+		const displaced = items.find((t) => t.personnelId === data.personnelId && t.trainingTypeId === data.trainingTypeId);
 		return {
-			items: items.filter(
-				(t) => !(t.personnelId === data.personnelId && t.trainingTypeId === data.trainingTypeId)
-			),
+			items: items.filter((t) => !(t.personnelId === data.personnelId && t.trainingTypeId === data.trainingTypeId)),
 			displaced
 		};
 	}

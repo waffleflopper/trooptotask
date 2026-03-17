@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import type { CounselingType, CounselingRecurrence } from '../counseling.types';
-	import Badge from '$lib/components/ui/Badge.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import FileUpload from '$lib/components/ui/FileUpload.svelte';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import Modal from '$lib/components/Modal.svelte';
 	import { COUNSELING_RECURRENCE_LABELS } from '../counseling.types';
+	import TypeManager from '$lib/components/ui/TypeManager.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import FileUpload from '$lib/components/ui/FileUpload.svelte';
 
 	interface Props {
 		counselingTypes: CounselingType[];
@@ -31,7 +29,6 @@
 	let newUploadId = $state(crypto.randomUUID());
 
 	// Edit form
-	let editingId = $state<string | null>(null);
 	let editName = $state('');
 	let editDescription = $state('');
 	let editTemplateContent = $state('');
@@ -39,76 +36,7 @@
 	let editRecurrence = $state<CounselingRecurrence>('none');
 	let editColor = $state('');
 	let editIsFreeform = $state(false);
-
-	function handleAdd() {
-		if (newName.trim()) {
-			onAdd({
-				name: newName.trim(),
-				description: newDescription.trim() || null,
-				templateContent: newTemplateContent.trim() || null,
-				templateFilePath: newTemplateFilePath,
-				recurrence: newRecurrence,
-				color: newColor,
-				isFreeform: newIsFreeform,
-				sortOrder: counselingTypes.length
-			});
-			resetNewForm();
-		}
-	}
-
-	function resetNewForm() {
-		newName = '';
-		newDescription = '';
-		newTemplateContent = '';
-		newTemplateFilePath = null;
-		newUploadId = crypto.randomUUID();
-		newRecurrence = 'none';
-		newColor = '#8b5cf6';
-		newIsFreeform = false;
-	}
-
-	function startEdit(type: CounselingType) {
-		editingId = type.id;
-		editName = type.name;
-		editDescription = type.description ?? '';
-		editTemplateContent = type.templateContent ?? '';
-		editTemplateFilePath = type.templateFilePath ?? null;
-		editRecurrence = type.recurrence;
-		editColor = type.color;
-		editIsFreeform = type.isFreeform;
-	}
-
-	function saveEdit() {
-		if (editingId && editName.trim()) {
-			onUpdate(editingId, {
-				name: editName.trim(),
-				description: editDescription.trim() || null,
-				templateContent: editTemplateContent.trim() || null,
-				templateFilePath: editTemplateFilePath,
-				recurrence: editRecurrence,
-				color: editColor,
-				isFreeform: editIsFreeform
-			});
-		}
-		cancelEdit();
-	}
-
-	function cancelEdit() {
-		editingId = null;
-	}
-
-	let confirmRemove = $state<{ id: string; name: string } | null>(null);
-
-	function handleRemove(id: string, name: string) {
-		confirmRemove = { id, name };
-	}
-
-	function doRemove() {
-		if (confirmRemove) {
-			onRemove(confirmRemove.id);
-			confirmRemove = null;
-		}
-	}
+	let editingTypeId = $state<string | null>(null);
 
 	function addDefaultTypes() {
 		const defaults = [
@@ -160,10 +88,66 @@
 	}
 </script>
 
-<Modal title="Manage Counseling Types" {onClose} width="650px" titleId="counseling-types-title">
-	<div class="add-section">
-		<h3>Add Counseling Type</h3>
-		<div class="add-form">
+<TypeManager
+	items={counselingTypes}
+	title="Manage Counseling Types"
+	noun="Counseling Type"
+	titleId="counseling-types-title"
+	width="650px"
+	{onAdd}
+	{onUpdate}
+	{onRemove}
+	{onClose}
+	getAddData={() =>
+		newName.trim()
+			? {
+					name: newName.trim(),
+					description: newDescription.trim() || null,
+					templateContent: newTemplateContent.trim() || null,
+					templateFilePath: newTemplateFilePath,
+					recurrence: newRecurrence,
+					color: newColor,
+					isFreeform: newIsFreeform,
+					sortOrder: counselingTypes.length
+				}
+			: null}
+	resetAddForm={() => {
+		newName = '';
+		newDescription = '';
+		newTemplateContent = '';
+		newTemplateFilePath = null;
+		newUploadId = crypto.randomUUID();
+		newRecurrence = 'none';
+		newColor = '#8b5cf6';
+		newIsFreeform = false;
+	}}
+	onEditStart={(t) => {
+		editingTypeId = t.id;
+		editName = t.name;
+		editDescription = t.description ?? '';
+		editTemplateContent = t.templateContent ?? '';
+		editTemplateFilePath = t.templateFilePath ?? null;
+		editRecurrence = t.recurrence;
+		editColor = t.color;
+		editIsFreeform = t.isFreeform;
+	}}
+	getEditData={() =>
+		editName.trim()
+			? {
+					name: editName.trim(),
+					description: editDescription.trim() || null,
+					templateContent: editTemplateContent.trim() || null,
+					templateFilePath: editTemplateFilePath,
+					recurrence: editRecurrence,
+					color: editColor,
+					isFreeform: editIsFreeform
+				}
+			: null}
+	removeConfirmMessage={(t) =>
+		`Remove "${t.name}"? Existing counseling records will keep their data but lose the type reference.`}
+>
+	{#snippet addForm()}
+		<div class="counseling-form">
 			<div class="form-row">
 				<div class="form-group flex-1">
 					<label class="label">Name</label>
@@ -212,161 +196,102 @@
 					filePath={newTemplateFilePath}
 					{orgId}
 					storagePath="templates/{newUploadId}"
-					onUpload={(path: string) => (newTemplateFilePath = path)}
+					onUpload={(path) => (newTemplateFilePath = path)}
 					onRemove={() => (newTemplateFilePath = null)}
 					label="Template PDF (optional)"
 				/>
 			{/if}
 
-			<button class="btn btn-primary" onclick={handleAdd} disabled={!newName.trim()}> Add Counseling Type </button>
-		</div>
-	</div>
-
-	<div class="list-section">
-		<div class="list-header">
-			<h3>Existing Types</h3>
 			{#if counselingTypes.length === 0}
-				<button class="btn btn-secondary btn-sm" onclick={addDefaultTypes}> Add Default Types </button>
-			{/if}
-		</div>
-		<div class="type-list">
-			{#each counselingTypes as type (type.id)}
-				<div class="type-item">
-					{#if editingId === type.id}
-						<div class="edit-form">
-							<div class="form-row">
-								<div class="form-group flex-1">
-									<label class="label">Name</label>
-									<input type="text" class="input" bind:value={editName} />
-								</div>
-								<div class="form-group">
-									<label class="label">Color</label>
-									<input type="color" class="color-input" bind:value={editColor} />
-								</div>
-							</div>
-
-							<div class="form-group">
-								<label class="label">Description</label>
-								<input type="text" class="input" bind:value={editDescription} />
-							</div>
-
-							<div class="form-row">
-								<div class="form-group flex-1">
-									<label class="label">Recurrence</label>
-									<select class="select" bind:value={editRecurrence}>
-										{#each Object.entries(COUNSELING_RECURRENCE_LABELS) as [value, label]}
-											<option {value}>{label}</option>
-										{/each}
-									</select>
-								</div>
-								<div class="form-group">
-									<label class="label">&nbsp;</label>
-									<label class="checkbox-label">
-										<input type="checkbox" bind:checked={editIsFreeform} />
-										Freeform
-									</label>
-								</div>
-							</div>
-
-							{#if !editIsFreeform}
-								<div class="form-group">
-									<label class="label">Template Content</label>
-									<textarea class="input textarea" bind:value={editTemplateContent} rows="3"></textarea>
-								</div>
-								<FileUpload
-									filePath={editTemplateFilePath}
-									{orgId}
-									storagePath="templates/{editingId}"
-									onUpload={(path) => (editTemplateFilePath = path)}
-									onRemove={() => (editTemplateFilePath = null)}
-									label="Template PDF (optional)"
-								/>
-							{/if}
-
-							<div class="edit-actions">
-								<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
-								<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
-							</div>
-						</div>
-					{:else}
-						<div class="type-info">
-							<Badge label={type.name} color={type.color} />
-							{#if type.recurrence !== 'none'}
-								<span class="type-meta">{COUNSELING_RECURRENCE_LABELS[type.recurrence]}</span>
-							{/if}
-							{#if type.isFreeform}
-								<Badge label="Freeform" variant="outlined" />
-							{/if}
-							{#if type.templateContent || type.templateFilePath}
-								<span class="type-meta">Has template</span>
-							{/if}
-						</div>
-						<div class="type-actions">
-							<button class="btn btn-secondary btn-sm" onclick={() => startEdit(type)}> Edit </button>
-							<button class="btn btn-danger btn-sm" onclick={() => handleRemove(type.id, type.name)}> &times; </button>
-						</div>
-					{/if}
+				<div class="default-types-hint">
+					<button class="btn btn-secondary btn-sm" onclick={addDefaultTypes}>Add Default Types</button>
 				</div>
-			{/each}
-
-			{#if counselingTypes.length === 0}
-				<EmptyState message="No counseling types defined yet." variant="simple" />
 			{/if}
 		</div>
-	</div>
-
-	{#snippet footer()}
-		<button class="btn btn-primary" onclick={onClose}>Done</button>
 	{/snippet}
-</Modal>
 
-{#if confirmRemove}
-	<ConfirmDialog
-		title="Remove Counseling Type"
-		message={`Remove "${confirmRemove.name}"? Existing counseling records will keep their data but lose the type reference.`}
-		confirmLabel="Remove"
-		variant="danger"
-		onConfirm={doRemove}
-		onCancel={() => (confirmRemove = null)}
-	/>
-{/if}
+	{#snippet itemDisplay(type)}
+		<Badge label={type.name} color={type.color} />
+		{#if type.recurrence !== 'none'}
+			<span class="type-meta">{COUNSELING_RECURRENCE_LABELS[type.recurrence]}</span>
+		{/if}
+		{#if type.isFreeform}
+			<Badge label="Freeform" variant="outlined" />
+		{/if}
+		{#if type.templateContent || type.templateFilePath}
+			<span class="type-meta">Has template</span>
+		{/if}
+	{/snippet}
+
+	{#snippet editForm()}
+		<div class="counseling-form">
+			<div class="form-row">
+				<div class="form-group flex-1">
+					<label class="label">Name</label>
+					<input type="text" class="input" bind:value={editName} />
+				</div>
+				<div class="form-group">
+					<label class="label">Color</label>
+					<input type="color" class="color-input" bind:value={editColor} />
+				</div>
+			</div>
+
+			<div class="form-group">
+				<label class="label">Description</label>
+				<input type="text" class="input" bind:value={editDescription} />
+			</div>
+
+			<div class="form-row">
+				<div class="form-group flex-1">
+					<label class="label">Recurrence</label>
+					<select class="select" bind:value={editRecurrence}>
+						{#each Object.entries(COUNSELING_RECURRENCE_LABELS) as [value, label]}
+							<option {value}>{label}</option>
+						{/each}
+					</select>
+				</div>
+				<div class="form-group">
+					<label class="label">&nbsp;</label>
+					<label class="checkbox-label">
+						<input type="checkbox" bind:checked={editIsFreeform} />
+						Freeform
+					</label>
+				</div>
+			</div>
+
+			{#if !editIsFreeform}
+				<div class="form-group">
+					<label class="label">Template Content</label>
+					<textarea class="input textarea" bind:value={editTemplateContent} rows="3"></textarea>
+				</div>
+				<FileUpload
+					filePath={editTemplateFilePath}
+					{orgId}
+					storagePath="templates/{editingTypeId}"
+					onUpload={(path) => (editTemplateFilePath = path)}
+					onRemove={() => (editTemplateFilePath = null)}
+					label="Template PDF (optional)"
+				/>
+			{/if}
+		</div>
+	{/snippet}
+</TypeManager>
 
 <style>
-	.add-section,
-	.list-section {
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.add-section h3,
-	.list-section h3 {
-		font-size: var(--font-size-base);
-		font-weight: 600;
-		margin-bottom: var(--spacing-sm);
-		color: var(--color-text-muted);
-	}
-
-	.list-header {
+	.counseling-form {
 		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: var(--spacing-sm);
-	}
-
-	.add-form,
-	.edit-form {
-		padding: var(--spacing-md);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
+		flex-direction: column;
+		gap: var(--spacing-sm);
+		width: 100%;
 	}
 
 	.form-row {
 		display: flex;
 		gap: var(--spacing-md);
-		margin-bottom: var(--spacing-sm);
 	}
 
 	.form-group {
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: 0;
 	}
 
 	.form-group.flex-1 {
@@ -392,47 +317,12 @@
 		font-family: monospace;
 	}
 
-	.type-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-		max-height: 300px;
-		overflow-y: auto;
-	}
-
-	.type-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
-	}
-
-	.type-info {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-		flex-wrap: wrap;
-	}
-
 	.type-meta {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 	}
 
-	.type-actions {
-		display: flex;
-		gap: var(--spacing-xs);
-	}
-
-	.edit-form {
-		width: 100%;
-	}
-
-	.edit-actions {
-		display: flex;
-		gap: var(--spacing-xs);
+	.default-types-hint {
 		margin-top: var(--spacing-sm);
 	}
 </style>

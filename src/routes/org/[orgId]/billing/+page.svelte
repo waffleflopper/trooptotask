@@ -102,7 +102,11 @@
 
 	async function handleCancelSubscription() {
 		if (cancelLoading) return;
-		if (!confirm('Are you sure you want to cancel your subscription immediately? Your organization will revert to the Free tier.')) {
+		if (
+			!confirm(
+				'Are you sure you want to cancel your subscription immediately? Your organization will revert to the Free tier.'
+			)
+		) {
 			return;
 		}
 		cancelLoading = true;
@@ -173,8 +177,8 @@
 					<strong>Your organization is in read-only mode.</strong>
 					<p>
 						You have <strong>{personnelCount}</strong> personnel but your plan allows
-						<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>.
-						Subscribe to a higher tier or remove personnel to restore full access.
+						<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>. Subscribe to a higher tier or
+						remove personnel to restore full access.
 					</p>
 				</div>
 			</div>
@@ -213,12 +217,18 @@
 					<div class="gift-info">
 						<div class="gift-badge">
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-								<path d="M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+								<path
+									d="M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"
+								/>
 							</svg>
 							Complimentary {giftTier ? giftTier.charAt(0).toUpperCase() + giftTier.slice(1) : ''} tier
 						</div>
 						<p class="gift-expires">
-							Expires: {new Date(giftExpiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+							Expires: {new Date(giftExpiresAt).toLocaleDateString('en-US', {
+								year: 'numeric',
+								month: 'long',
+								day: 'numeric'
+							})}
 							{#if giftDaysRemaining !== null}
 								({giftDaysRemaining} {giftDaysRemaining === 1 ? 'day' : 'days'} remaining)
 							{/if}
@@ -272,7 +282,10 @@
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
 								<polyline points="20 6 9 17 4 12" />
 							</svg>
-							<span><strong>{formatCap(plan.maxOrgsOwned)}</strong> {plan.maxOrgsOwned === 1 ? 'organization' : 'organizations'}</span>
+							<span
+								><strong>{formatCap(plan.maxOrgsOwned)}</strong>
+								{plan.maxOrgsOwned === 1 ? 'organization' : 'organizations'}</span
+							>
 						</li>
 						<li>
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -287,11 +300,7 @@
 							<button class="btn btn-secondary" disabled>Current Plan</button>
 						{:else if plan.tier === 'free'}
 							{#if isDowngrade && data.canManageSubscription}
-								<button
-									class="btn btn-secondary"
-									onclick={handleManageSubscription}
-									disabled={portalLoading}
-								>
+								<button class="btn btn-secondary" onclick={handleManageSubscription} disabled={portalLoading}>
 									{#if portalLoading}<Spinner />{/if}
 									{portalLoading ? 'Opening...' : 'Manage Subscription'}
 								</button>
@@ -299,20 +308,12 @@
 								<button class="btn btn-secondary" disabled>Free Plan</button>
 							{/if}
 						{:else if isDowngrade && data.canManageSubscription}
-							<button
-								class="btn btn-secondary"
-								onclick={handleManageSubscription}
-								disabled={portalLoading}
-							>
+							<button class="btn btn-secondary" onclick={handleManageSubscription} disabled={portalLoading}>
 								{#if portalLoading}<Spinner />{/if}
 								{portalLoading ? 'Opening...' : 'Downgrade'}
 							</button>
 						{:else}
-							<button
-								class="btn btn-primary"
-								onclick={() => handleSubscribe(plan.tier)}
-								disabled={!!subscribingTier}
-							>
+							<button class="btn btn-primary" onclick={() => handleSubscribe(plan.tier)} disabled={!!subscribingTier}>
 								{#if subscribingTier === plan.tier}<Spinner />{/if}
 								{subscribingTier === plan.tier ? 'Redirecting...' : 'Subscribe'}
 							</button>

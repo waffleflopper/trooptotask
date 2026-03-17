@@ -13,6 +13,7 @@
 ## Execution Pattern (Same for All Phases)
 
 Each phase follows the same sequence:
+
 1. **Types** — Extract feature types to `feature.types.ts`, update all imports
 2. **Utils** — Move feature utils, fix internal + external imports
 3. **Stores** — Move feature stores, fix internal + external imports
@@ -22,6 +23,7 @@ Each phase follows the same sequence:
 7. **Commit**
 
 For each moved file:
+
 - **Internal imports**: Relative paths (`../types`, `./Modal.svelte`) become absolute (`$lib/types`, `$lib/components/Modal.svelte`) or feature-relative
 - **External consumers**: Absolute paths (`$lib/stores/foo.svelte`) become `$features/featureName/stores/foo.svelte`
 
@@ -40,30 +42,31 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 ### What Moves
 
 **Types to extract from `src/lib/types.ts`:**
+
 - `Personnel` interface (lines 1-11)
 
 > **Decision: Keep `Personnel` in `src/lib/types.ts`.** The `Personnel` type is imported by 30+ files across every feature. Moving it would touch nearly the entire codebase for no architectural benefit — it's truly shared infrastructure. Same rationale as `ARMY_RANKS`, `ALL_RANKS`, and permission types. They stay in `src/lib/types.ts`.
 
 **Components (4):**
 
-| File | Relative imports to fix | External consumers |
-|------|------------------------|-------------------|
-| `PersonnelModal.svelte` | `../types` → `$lib/types`; `../stores/groups.svelte` → `$lib/stores/groups.svelte`; `./Modal.svelte` → `$lib/components/Modal.svelte`; `./ui/ConfirmDialog.svelte` → `$lib/components/ui/ConfirmDialog.svelte` | `personnel/+page.svelte` |
-| `PersonnelRow.svelte` | `../types` → `$lib/types`; `../stores/dailyAssignments.svelte` → `$lib/stores/dailyAssignments.svelte`; `../utils/dates` → `$lib/utils/dates`; `./DateCell.svelte` → `$lib/components/DateCell.svelte` | `Calendar.svelte` (internal to calendar feature — update when calendar moves) |
-| `BulkPersonnelManager.svelte` | `../stores/groups.svelte` → `$lib/stores/groups.svelte`; `../types` → `$lib/types`; `../utils/csvParser` → `$lib/utils/csvParser`; `../utils/columnMapping` → `$lib/utils/columnMapping`; `./ui/BulkImportTable.svelte` → `$lib/components/ui/BulkImportTable.svelte`; `./ui/ConfirmDialog.svelte` → `$lib/components/ui/ConfirmDialog.svelte`; `./Modal.svelte` → `$lib/components/Modal.svelte` | `personnel/+page.svelte` |
-| `ExtendedInfoModal.svelte` | `./Modal.svelte` → `$lib/components/Modal.svelte` | `SoldierLeadersBookView.svelte` |
+| File                          | Relative imports to fix                                                                                                                                                                                                                                                                                                                                                                           | External consumers                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `PersonnelModal.svelte`       | `../types` → `$lib/types`; `../stores/groups.svelte` → `$lib/stores/groups.svelte`; `./Modal.svelte` → `$lib/components/Modal.svelte`; `./ui/ConfirmDialog.svelte` → `$lib/components/ui/ConfirmDialog.svelte`                                                                                                                                                                                    | `personnel/+page.svelte`                                                      |
+| `PersonnelRow.svelte`         | `../types` → `$lib/types`; `../stores/dailyAssignments.svelte` → `$lib/stores/dailyAssignments.svelte`; `../utils/dates` → `$lib/utils/dates`; `./DateCell.svelte` → `$lib/components/DateCell.svelte`                                                                                                                                                                                            | `Calendar.svelte` (internal to calendar feature — update when calendar moves) |
+| `BulkPersonnelManager.svelte` | `../stores/groups.svelte` → `$lib/stores/groups.svelte`; `../types` → `$lib/types`; `../utils/csvParser` → `$lib/utils/csvParser`; `../utils/columnMapping` → `$lib/utils/columnMapping`; `./ui/BulkImportTable.svelte` → `$lib/components/ui/BulkImportTable.svelte`; `./ui/ConfirmDialog.svelte` → `$lib/components/ui/ConfirmDialog.svelte`; `./Modal.svelte` → `$lib/components/Modal.svelte` | `personnel/+page.svelte`                                                      |
+| `ExtendedInfoModal.svelte`    | `./Modal.svelte` → `$lib/components/Modal.svelte`                                                                                                                                                                                                                                                                                                                                                 | `SoldierLeadersBookView.svelte`                                               |
 
 **Stores (2):**
 
-| File | Internal imports to fix | External consumers |
-|------|----------------------|-------------------|
-| `personnel.svelte.ts` | `../types` → `$lib/types`; `../utils/deletionRequests` → `$lib/utils/deletionRequests` | `calendar/+page.svelte`, `personnel/+page.svelte`, `onboarding/+page.svelte`, `+page.svelte` (dashboard) |
-| `personnelExtendedInfo.svelte.ts` | `../types/leadersBook` → `$lib/types/leadersBook` | `ExtendedInfoModal.svelte`, `SoldierLeadersBookView.svelte`, `leaders-book/+page.svelte` |
+| File                              | Internal imports to fix                                                                | External consumers                                                                                       |
+| --------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `personnel.svelte.ts`             | `../types` → `$lib/types`; `../utils/deletionRequests` → `$lib/utils/deletionRequests` | `calendar/+page.svelte`, `personnel/+page.svelte`, `onboarding/+page.svelte`, `+page.svelte` (dashboard) |
+| `personnelExtendedInfo.svelte.ts` | `../types/leadersBook` → `$lib/types/leadersBook`                                      | `ExtendedInfoModal.svelte`, `SoldierLeadersBookView.svelte`, `leaders-book/+page.svelte`                 |
 
 **Utils (1):**
 
-| File | Internal imports to fix | External consumers |
-|------|----------------------|-------------------|
+| File                   | Internal imports to fix   | External consumers                                                                                     |
+| ---------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `personnelGrouping.ts` | `../types` → `$lib/types` | `training/+page.svelte`, `personnel/+page.svelte`, `calendar/+page.svelte`, `SignInRosterModal.svelte` |
 
 ### Tasks
@@ -77,6 +80,7 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 - [ ] **Task 2.7:** Commit
 
 ### Smoke Test
+
 - Personnel page: add/edit/delete personnel
 - Bulk import
 - Calendar still renders PersonnelRow
@@ -96,6 +100,7 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 ### What Moves
 
 **Types to extract from `src/lib/types.ts`:**
+
 - `StatusType` interface
 - `AvailabilityEntry` interface
 - `SpecialDay` interface
@@ -103,41 +108,41 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 
 **Components (15):**
 
-| File | Key relative imports to fix | External consumers |
-|------|----------------------------|-------------------|
-| `Calendar.svelte` | `../types`, `../stores/dailyAssignments.svelte`, `./CalendarHeader.svelte` (now sibling), `./PersonnelRow.svelte` → `$features/personnel/...`, `./GroupHeader.svelte` → `$lib/components/GroupHeader.svelte` | `calendar/+page.svelte` |
-| `CalendarHeader.svelte` | `../types`, `../stores/dailyAssignments.svelte`, `../utils/dates` | `Calendar.svelte` (sibling) |
-| `DateCell.svelte` | `../types`, `../stores/dailyAssignments.svelte` | `PersonnelRow.svelte` (in personnel feature) |
-| `AvailabilityModal.svelte` | `../types`, `../utils/dates`, `./Modal.svelte`, `./ui/Badge.svelte`, `./ui/ConfirmDialog.svelte` | `calendar/+page.svelte` |
-| `StatusTypeManager.svelte` | `../types`, `./ui/Badge.svelte`, `./ui/EmptyState.svelte`, `./ui/ConfirmDialog.svelte` | `calendar/+page.svelte` |
-| `SpecialDayManager.svelte` | `../types`, `../utils/dates`, `./ui/ConfirmDialog.svelte` | `calendar/+page.svelte` |
-| `BulkStatusModal.svelte` | `../types`, `../utils/dates`, `./Modal.svelte` | `calendar/+page.svelte` |
-| `BulkStatusRemoveModal.svelte` | `../types`, `../utils/dates`, `./Modal.svelte`, `./ui/Spinner.svelte` | `calendar/+page.svelte` |
-| `TodayBreakdown.svelte` | `../types`, `../stores/dailyAssignments.svelte`, `../utils/dates` | `calendar/+page.svelte` |
-| `StatusLegend.svelte` | `../types` | `calendar/+page.svelte` |
-| `PersonStatusModal.svelte` | `$lib/types`, `$lib/stores/statusTypes.svelte`, `$lib/stores/availability.svelte`, `./Modal.svelte`, `./ui/Badge.svelte`, `./ui/Spinner.svelte`, `./ui/ConfirmDialog.svelte` | `SoldierLeadersBookView.svelte` (counseling feature) |
-| `DailyAssignmentModal.svelte` | `../types`, `../stores/dailyAssignments.svelte`, `../utils/dates`, `./Modal.svelte` | `calendar/+page.svelte` |
-| `AssignmentTypeManager.svelte` | `../stores/dailyAssignments.svelte`, `./ui/Badge.svelte`, `./ui/EmptyState.svelte`, `./ui/ConfirmDialog.svelte` | `calendar/+page.svelte` |
-| `MonthlyAssignmentPlanner.svelte` | `../types`, `../stores/dailyAssignments.svelte`, `../utils/dates`, `./ui/ConfirmDialog.svelte` | `calendar/+page.svelte` |
-| `LongRangeView.svelte` | `../types`, `../stores/dailyAssignments.svelte`, `../utils/dates`, `../utils/calendarExport` | `calendar/+page.svelte` |
+| File                              | Key relative imports to fix                                                                                                                                                                                  | External consumers                                   |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `Calendar.svelte`                 | `../types`, `../stores/dailyAssignments.svelte`, `./CalendarHeader.svelte` (now sibling), `./PersonnelRow.svelte` → `$features/personnel/...`, `./GroupHeader.svelte` → `$lib/components/GroupHeader.svelte` | `calendar/+page.svelte`                              |
+| `CalendarHeader.svelte`           | `../types`, `../stores/dailyAssignments.svelte`, `../utils/dates`                                                                                                                                            | `Calendar.svelte` (sibling)                          |
+| `DateCell.svelte`                 | `../types`, `../stores/dailyAssignments.svelte`                                                                                                                                                              | `PersonnelRow.svelte` (in personnel feature)         |
+| `AvailabilityModal.svelte`        | `../types`, `../utils/dates`, `./Modal.svelte`, `./ui/Badge.svelte`, `./ui/ConfirmDialog.svelte`                                                                                                             | `calendar/+page.svelte`                              |
+| `StatusTypeManager.svelte`        | `../types`, `./ui/Badge.svelte`, `./ui/EmptyState.svelte`, `./ui/ConfirmDialog.svelte`                                                                                                                       | `calendar/+page.svelte`                              |
+| `SpecialDayManager.svelte`        | `../types`, `../utils/dates`, `./ui/ConfirmDialog.svelte`                                                                                                                                                    | `calendar/+page.svelte`                              |
+| `BulkStatusModal.svelte`          | `../types`, `../utils/dates`, `./Modal.svelte`                                                                                                                                                               | `calendar/+page.svelte`                              |
+| `BulkStatusRemoveModal.svelte`    | `../types`, `../utils/dates`, `./Modal.svelte`, `./ui/Spinner.svelte`                                                                                                                                        | `calendar/+page.svelte`                              |
+| `TodayBreakdown.svelte`           | `../types`, `../stores/dailyAssignments.svelte`, `../utils/dates`                                                                                                                                            | `calendar/+page.svelte`                              |
+| `StatusLegend.svelte`             | `../types`                                                                                                                                                                                                   | `calendar/+page.svelte`                              |
+| `PersonStatusModal.svelte`        | `$lib/types`, `$lib/stores/statusTypes.svelte`, `$lib/stores/availability.svelte`, `./Modal.svelte`, `./ui/Badge.svelte`, `./ui/Spinner.svelte`, `./ui/ConfirmDialog.svelte`                                 | `SoldierLeadersBookView.svelte` (counseling feature) |
+| `DailyAssignmentModal.svelte`     | `../types`, `../stores/dailyAssignments.svelte`, `../utils/dates`, `./Modal.svelte`                                                                                                                          | `calendar/+page.svelte`                              |
+| `AssignmentTypeManager.svelte`    | `../stores/dailyAssignments.svelte`, `./ui/Badge.svelte`, `./ui/EmptyState.svelte`, `./ui/ConfirmDialog.svelte`                                                                                              | `calendar/+page.svelte`                              |
+| `MonthlyAssignmentPlanner.svelte` | `../types`, `../stores/dailyAssignments.svelte`, `../utils/dates`, `./ui/ConfirmDialog.svelte`                                                                                                               | `calendar/+page.svelte`                              |
+| `LongRangeView.svelte`            | `../types`, `../stores/dailyAssignments.svelte`, `../utils/dates`, `../utils/calendarExport`                                                                                                                 | `calendar/+page.svelte`                              |
 
 **Stores (6):**
 
-| File | Internal imports to fix | External consumers |
-|------|----------------------|-------------------|
-| `availability.svelte.ts` | `../types`, `../utils/dates` | `calendar/+page.svelte`, `SoldierLeadersBookView.svelte`, `PersonStatusModal.svelte`, `onboarding/+page.svelte`, `leaders-book/+page.svelte` |
-| `calendar.svelte.ts` | `../utils/dates` | `calendar/+page.svelte` |
-| `specialDays.svelte.ts` | `../types`, `../utils/dates` | `calendar/+page.svelte` |
-| `statusTypes.svelte.ts` | `../types` | `calendar/+page.svelte`, `SoldierLeadersBookView.svelte`, `PersonStatusModal.svelte`, `onboarding/+page.svelte`, `+page.svelte` (dashboard), `leaders-book/+page.svelte` |
+| File                         | Internal imports to fix                   | External consumers                                                                                                                                                                                                                                                                                                      |
+| ---------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `availability.svelte.ts`     | `../types`, `../utils/dates`              | `calendar/+page.svelte`, `SoldierLeadersBookView.svelte`, `PersonStatusModal.svelte`, `onboarding/+page.svelte`, `leaders-book/+page.svelte`                                                                                                                                                                            |
+| `calendar.svelte.ts`         | `../utils/dates`                          | `calendar/+page.svelte`                                                                                                                                                                                                                                                                                                 |
+| `specialDays.svelte.ts`      | `../types`, `../utils/dates`              | `calendar/+page.svelte`                                                                                                                                                                                                                                                                                                 |
+| `statusTypes.svelte.ts`      | `../types`                                | `calendar/+page.svelte`, `SoldierLeadersBookView.svelte`, `PersonStatusModal.svelte`, `onboarding/+page.svelte`, `+page.svelte` (dashboard), `leaders-book/+page.svelte`                                                                                                                                                |
 | `dailyAssignments.svelte.ts` | (exports interfaces only, no lib imports) | `calendar/+page.svelte`, `Calendar.svelte`, `CalendarHeader.svelte`, `DateCell.svelte`, `TodayBreakdown.svelte`, `DailyAssignmentModal.svelte`, `MonthlyAssignmentPlanner.svelte`, `LongRangeView.svelte`, `DutyRosterGenerator.svelte`, `+page.svelte` (dashboard), `calendarExport.ts`, `assignment-types/+server.ts` |
-| `calendarPrefs.svelte.ts` | `$app/environment` (no lib imports) | `calendar/+page.svelte` |
+| `calendarPrefs.svelte.ts`    | `$app/environment` (no lib imports)       | `calendar/+page.svelte`                                                                                                                                                                                                                                                                                                 |
 
 **Utils (2):**
 
-| File | Internal imports to fix | External consumers |
-|------|----------------------|-------------------|
-| `federalHolidays.ts` | `../types` → calendar types, `./dates` → `$lib/utils/dates` | `special-days/+server.ts`, `org/new/+page.server.ts` |
-| `calendarExport.ts` | `../types`, `../stores/dailyAssignments.svelte`, `./dates` → `$lib/utils/dates` | `calendar/+page.svelte`, `LongRangeView.svelte` (sibling) |
+| File                 | Internal imports to fix                                                         | External consumers                                        |
+| -------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `federalHolidays.ts` | `../types` → calendar types, `./dates` → `$lib/utils/dates`                     | `special-days/+server.ts`, `org/new/+page.server.ts`      |
+| `calendarExport.ts`  | `../types`, `../stores/dailyAssignments.svelte`, `./dates` → `$lib/utils/dates` | `calendar/+page.svelte`, `LongRangeView.svelte` (sibling) |
 
 ### Cross-Feature Dependencies
 
@@ -158,6 +163,7 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 - [ ] **Task 3.8:** Commit
 
 ### Smoke Test
+
 - Calendar page: month view, availability modals, status types, special days, assignments
 - Bulk status add/remove
 - Long range view
@@ -179,6 +185,7 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 ### What Moves
 
 **Types:**
+
 - Move entire `src/lib/types/leadersBook.ts` → `src/features/counseling/counseling.types.ts`
 - Extract from `src/lib/types.ts`:
   - `ReportType`, `ReportTypeOption`, `OER_REPORT_TYPES`, `NCOER_REPORT_TYPES`, `WOER_REPORT_TYPES`
@@ -188,32 +195,32 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 
 **Components (7):**
 
-| File | Key imports to fix | External consumers |
-|------|-------------------|-------------------|
-| `SoldierLeadersBookView.svelte` | Already uses `$lib/` and `$features/training/` absolute paths. Fix: `./CounselingRecordModal` → sibling, `./DevelopmentGoalModal` → sibling, `./ExtendedInfoModal` → `$features/personnel/...`, `./PersonStatusModal` → `$features/calendar/...` | `leaders-book/+page.svelte` |
-| `CounselingRecordModal.svelte` | `$lib/types/leadersBook` → `../counseling.types`, `./Modal.svelte` → `$lib/components/Modal.svelte`, `./ui/Spinner.svelte`, `./ui/FileUpload.svelte`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...` | `SoldierLeadersBookView.svelte` (sibling) |
-| `CounselingTypeManager.svelte` | `$lib/types/leadersBook` → `../counseling.types`, `./ui/Badge.svelte`, `./ui/EmptyState.svelte`, `./ui/FileUpload.svelte`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...` | `leaders-book/+page.svelte` |
-| `DevelopmentGoalModal.svelte` | `$lib/types/leadersBook` → `../counseling.types`, `./Modal.svelte` → `$lib/components/Modal.svelte`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...` | `SoldierLeadersBookView.svelte` (sibling) |
-| `RatingSchemeEntryModal.svelte` | `$lib/types` (rating types → counseling types), `./Modal.svelte`, `./ui/Spinner.svelte`, `./ui/SearchSelect.svelte` → `$lib/components/...` | `personnel/+page.svelte` |
-| `RatingSchemeTableView.svelte` | `$lib/types` (rating types → counseling types), `./ui/Badge.svelte`, `./ui/EmptyState.svelte` → `$lib/components/ui/...` | `personnel/+page.svelte` |
-| `RatingSchemeGroupedView.svelte` | `$lib/types` (rating types → counseling types), `./ui/Badge.svelte`, `./ui/EmptyState.svelte` → `$lib/components/ui/...` | `personnel/+page.svelte` |
+| File                             | Key imports to fix                                                                                                                                                                                                                               | External consumers                        |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| `SoldierLeadersBookView.svelte`  | Already uses `$lib/` and `$features/training/` absolute paths. Fix: `./CounselingRecordModal` → sibling, `./DevelopmentGoalModal` → sibling, `./ExtendedInfoModal` → `$features/personnel/...`, `./PersonStatusModal` → `$features/calendar/...` | `leaders-book/+page.svelte`               |
+| `CounselingRecordModal.svelte`   | `$lib/types/leadersBook` → `../counseling.types`, `./Modal.svelte` → `$lib/components/Modal.svelte`, `./ui/Spinner.svelte`, `./ui/FileUpload.svelte`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...`                                     | `SoldierLeadersBookView.svelte` (sibling) |
+| `CounselingTypeManager.svelte`   | `$lib/types/leadersBook` → `../counseling.types`, `./ui/Badge.svelte`, `./ui/EmptyState.svelte`, `./ui/FileUpload.svelte`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...`                                                                | `leaders-book/+page.svelte`               |
+| `DevelopmentGoalModal.svelte`    | `$lib/types/leadersBook` → `../counseling.types`, `./Modal.svelte` → `$lib/components/Modal.svelte`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...`                                                                                      | `SoldierLeadersBookView.svelte` (sibling) |
+| `RatingSchemeEntryModal.svelte`  | `$lib/types` (rating types → counseling types), `./Modal.svelte`, `./ui/Spinner.svelte`, `./ui/SearchSelect.svelte` → `$lib/components/...`                                                                                                      | `personnel/+page.svelte`                  |
+| `RatingSchemeTableView.svelte`   | `$lib/types` (rating types → counseling types), `./ui/Badge.svelte`, `./ui/EmptyState.svelte` → `$lib/components/ui/...`                                                                                                                         | `personnel/+page.svelte`                  |
+| `RatingSchemeGroupedView.svelte` | `$lib/types` (rating types → counseling types), `./ui/Badge.svelte`, `./ui/EmptyState.svelte` → `$lib/components/ui/...`                                                                                                                         | `personnel/+page.svelte`                  |
 
 **Stores (5):**
 
-| File | Internal imports to fix | External consumers |
-|------|----------------------|-------------------|
-| `counselingRecords.svelte.ts` | `../types/leadersBook`, `../utils/deletionRequests` | `CounselingRecordModal.svelte` (sibling), `SoldierLeadersBookView.svelte` (sibling), `leaders-book/+page.svelte` |
-| `counselingTypes.svelte.ts` | `../types/leadersBook`, `../utils/deletionRequests` | `CounselingRecordModal.svelte` (sibling), `SoldierLeadersBookView.svelte` (sibling), `leaders-book/+page.svelte` |
-| `developmentGoals.svelte.ts` | `../types/leadersBook`, `../utils/deletionRequests` | `DevelopmentGoalModal.svelte` (sibling), `SoldierLeadersBookView.svelte` (sibling), `leaders-book/+page.svelte` |
-| `ratingScheme.svelte.ts` | `../types` (rating types), `../utils/deletionRequests` | `personnel/+page.svelte` |
-| `personnelExtendedInfo.svelte.ts` | `../types/leadersBook` | `ExtendedInfoModal.svelte` (personnel feature), `SoldierLeadersBookView.svelte` (sibling), `leaders-book/+page.svelte` |
+| File                              | Internal imports to fix                                | External consumers                                                                                                     |
+| --------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `counselingRecords.svelte.ts`     | `../types/leadersBook`, `../utils/deletionRequests`    | `CounselingRecordModal.svelte` (sibling), `SoldierLeadersBookView.svelte` (sibling), `leaders-book/+page.svelte`       |
+| `counselingTypes.svelte.ts`       | `../types/leadersBook`, `../utils/deletionRequests`    | `CounselingRecordModal.svelte` (sibling), `SoldierLeadersBookView.svelte` (sibling), `leaders-book/+page.svelte`       |
+| `developmentGoals.svelte.ts`      | `../types/leadersBook`, `../utils/deletionRequests`    | `DevelopmentGoalModal.svelte` (sibling), `SoldierLeadersBookView.svelte` (sibling), `leaders-book/+page.svelte`        |
+| `ratingScheme.svelte.ts`          | `../types` (rating types), `../utils/deletionRequests` | `personnel/+page.svelte`                                                                                               |
+| `personnelExtendedInfo.svelte.ts` | `../types/leadersBook`                                 | `ExtendedInfoModal.svelte` (personnel feature), `SoldierLeadersBookView.svelte` (sibling), `leaders-book/+page.svelte` |
 
 **Utils (2):**
 
-| File | Internal imports to fix | External consumers |
-|------|----------------------|-------------------|
-| `ratingScheme.ts` | `../types` (needs `ARMY_RANKS` from `$lib/types` + rating types from counseling types) | `RatingSchemeEntryModal.svelte` (sibling), `RatingSchemeTableView.svelte` (sibling), `RatingSchemeGroupedView.svelte` (sibling), `personnel/+page.svelte`, `+page.svelte` (dashboard), `ratingSchemeExport.ts` (sibling) |
-| `ratingSchemeExport.ts` | `$lib/types` (Personnel), `./ratingScheme` (sibling), `xlsx` (external) | `personnel/+page.svelte` |
+| File                    | Internal imports to fix                                                                | External consumers                                                                                                                                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ratingScheme.ts`       | `../types` (needs `ARMY_RANKS` from `$lib/types` + rating types from counseling types) | `RatingSchemeEntryModal.svelte` (sibling), `RatingSchemeTableView.svelte` (sibling), `RatingSchemeGroupedView.svelte` (sibling), `personnel/+page.svelte`, `+page.svelte` (dashboard), `ratingSchemeExport.ts` (sibling) |
+| `ratingSchemeExport.ts` | `$lib/types` (Personnel), `./ratingScheme` (sibling), `xlsx` (external)                | `personnel/+page.svelte`                                                                                                                                                                                                 |
 
 ### Cross-Feature Dependencies
 
@@ -234,6 +241,7 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 - [ ] **Task 4.8:** Commit
 
 ### Smoke Test
+
 - Leaders Book page: soldier view, counseling records, development goals, extended info
 - Personnel page: rating scheme table/grouped views, add/edit rating scheme entries
 - Dashboard: rating scheme stats
@@ -251,6 +259,7 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 ### What Moves
 
 **Types to extract from `src/lib/types.ts`:**
+
 - `OnboardingStepType` type
 - `OnboardingStatus` type
 - `OnboardingTemplateStep` interface
@@ -260,17 +269,17 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 
 **Components (3):**
 
-| File | Key imports to fix | External consumers |
-|------|-------------------|-------------------|
-| `OnboardingTemplateManager.svelte` | `$lib/types` (OnboardingTemplateStep → onboarding types), `$features/training/training.types` (already correct), `./Modal.svelte` → `$lib/components/Modal.svelte`, `./ui/Badge.svelte`, `./ui/EmptyState.svelte`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...` | `onboarding/+page.svelte` |
-| `OnboardingReportModal.svelte` | `$lib/types` (onboarding types → onboarding feature types), `$features/training/training.types` (already correct), `./Modal.svelte`, `./ui/Badge.svelte` → `$lib/components/...` | `onboarding/+page.svelte` |
-| `StartOnboardingModal.svelte` | `../types` → `$lib/types` (Personnel), onboarding types → feature types; `../stores/groups.svelte` → `$lib/stores/groups.svelte`; `./Modal.svelte` → `$lib/components/Modal.svelte`; `./PersonnelModal.svelte` → `$features/personnel/components/PersonnelModal.svelte`; `./ui/Spinner.svelte` → `$lib/components/ui/Spinner.svelte` | `onboarding/+page.svelte` |
+| File                               | Key imports to fix                                                                                                                                                                                                                                                                                                                   | External consumers        |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- |
+| `OnboardingTemplateManager.svelte` | `$lib/types` (OnboardingTemplateStep → onboarding types), `$features/training/training.types` (already correct), `./Modal.svelte` → `$lib/components/Modal.svelte`, `./ui/Badge.svelte`, `./ui/EmptyState.svelte`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...`                                                            | `onboarding/+page.svelte` |
+| `OnboardingReportModal.svelte`     | `$lib/types` (onboarding types → onboarding feature types), `$features/training/training.types` (already correct), `./Modal.svelte`, `./ui/Badge.svelte` → `$lib/components/...`                                                                                                                                                     | `onboarding/+page.svelte` |
+| `StartOnboardingModal.svelte`      | `../types` → `$lib/types` (Personnel), onboarding types → feature types; `../stores/groups.svelte` → `$lib/stores/groups.svelte`; `./Modal.svelte` → `$lib/components/Modal.svelte`; `./PersonnelModal.svelte` → `$features/personnel/components/PersonnelModal.svelte`; `./ui/Spinner.svelte` → `$lib/components/ui/Spinner.svelte` | `onboarding/+page.svelte` |
 
 **Stores (2):**
 
-| File | Internal imports to fix | External consumers |
-|------|----------------------|-------------------|
-| `onboarding.svelte.ts` | `../types` (onboarding types → feature types) | `onboarding/+page.svelte` |
+| File                           | Internal imports to fix                             | External consumers        |
+| ------------------------------ | --------------------------------------------------- | ------------------------- |
+| `onboarding.svelte.ts`         | `../types` (onboarding types → feature types)       | `onboarding/+page.svelte` |
 | `onboardingTemplate.svelte.ts` | `../types` (OnboardingTemplateStep → feature types) | `onboarding/+page.svelte` |
 
 ### Cross-Feature Dependencies
@@ -290,6 +299,7 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 - [ ] **Task 5.7:** Commit
 
 ### Smoke Test
+
 - Onboarding page: start onboarding, template manager, progress tracking
 - Onboarding report modal
 - Training steps within onboarding
@@ -308,17 +318,18 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 
 **Components (1):**
 
-| File | Key imports to fix | External consumers |
-|------|-------------------|-------------------|
+| File                         | Key imports to fix                                                                                                                                                                                                                                                                                                        | External consumers      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | `DutyRosterGenerator.svelte` | `../types` → `$lib/types` + calendar types; `../stores/dailyAssignments.svelte` → `$features/calendar/stores/...`; `../stores/dutyRosterHistory.svelte` → sibling store; `../utils/dates` → `$lib/utils/dates`; `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...`; `./Modal.svelte` → `$lib/components/Modal.svelte` | `calendar/+page.svelte` |
 
 **Stores (1):**
 
-| File | Internal imports | External consumers |
-|------|-----------------|-------------------|
+| File                          | Internal imports                     | External consumers                                            |
+| ----------------------------- | ------------------------------------ | ------------------------------------------------------------- |
 | `dutyRosterHistory.svelte.ts` | (exports interfaces, no lib imports) | `calendar/+page.svelte`, `transforms.ts`, `export/+server.ts` |
 
 **Tasks:**
+
 - [ ] **Task 6A.1:** Create `src/features/duty-roster/{components,stores}`, move files, fix imports, create barrel export
 - [ ] **Task 6A.2:** Verify build
 
@@ -326,13 +337,14 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 
 **Components (1):**
 
-| File | Key imports to fix | External consumers |
-|------|-------------------|-------------------|
+| File                       | Key imports to fix                                                                                                                                                                                                                       | External consumers      |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | `SignInRosterModal.svelte` | `$lib/types` (Personnel + SignInRoster), `$lib/utils/personnelGrouping` → `$features/personnel/utils/...`, `./Modal.svelte` → `$lib/components/Modal.svelte`, `./ui/Spinner.svelte`, `./ui/EmptyState.svelte` → `$lib/components/ui/...` | `training/+page.svelte` |
 
 **Types:** Extract `SignInRoster` interface from `src/lib/types.ts`
 
 **Tasks:**
+
 - [ ] **Task 6B.1:** Create `src/features/sign-in-rosters/components/`, create `sign-in-rosters.types.ts`, move component, fix imports, create barrel export
 - [ ] **Task 6B.2:** Verify build
 
@@ -340,15 +352,16 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 
 **Components (3):**
 
-| File | Key imports to fix | External consumers |
-|------|-------------------|-------------------|
-| `GroupManager.svelte` | `../stores/groups.svelte` → `$lib/stores/groups.svelte`; `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...` | `personnel/+page.svelte` |
-| `OrganizationMemberManager.svelte` | `$lib/types` (permissions — stays), `$lib/utils/dates`, `./ui/Badge.svelte`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...` | `settings/+page.svelte` |
-| `PlatformInviteManager.svelte` | `$lib/utils/dates`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...` | `admin/users/+page.svelte` |
+| File                               | Key imports to fix                                                                                                                  | External consumers         |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `GroupManager.svelte`              | `../stores/groups.svelte` → `$lib/stores/groups.svelte`; `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...`                     | `personnel/+page.svelte`   |
+| `OrganizationMemberManager.svelte` | `$lib/types` (permissions — stays), `$lib/utils/dates`, `./ui/Badge.svelte`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...` | `settings/+page.svelte`    |
+| `PlatformInviteManager.svelte`     | `$lib/utils/dates`, `./ui/ConfirmDialog.svelte` → `$lib/components/ui/...`                                                          | `admin/users/+page.svelte` |
 
 **Stores:** `groups.svelte.ts` and `pinnedGroups.svelte.ts` stay in `src/lib/stores/` (shared across 5+ features)
 
 **Tasks:**
+
 - [ ] **Task 6C.1:** Create `src/features/groups/components/`, move 3 components, fix imports, create barrel export
 - [ ] **Task 6C.2:** Verify build
 
@@ -358,6 +371,7 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 - [ ] **Commit all Phase 6**
 
 ### Smoke Test
+
 - Calendar page: duty roster generator
 - Training page: sign-in roster modal
 - Personnel page: group manager
@@ -377,6 +391,7 @@ Phase 1 has been executed. The `$features` alias is configured and the training 
 ### Task 7.1: Verify `src/lib/types.ts` Only Contains Shared Types
 
 After all extractions, this file should contain only:
+
 - `Personnel` interface (shared across all features)
 - `OrganizationMemberPermissions` interface
 - `OrganizationMember` interface
@@ -391,6 +406,7 @@ Everything else should have been extracted to feature modules. Verify and clean 
 ### Task 7.2: Verify `src/lib/stores/` Only Contains Shared Stores
 
 Should contain only:
+
 - `groups.svelte.ts` — used by 5+ features
 - `pinnedGroups.svelte.ts` — used by calendar + dashboard
 - `subscription.svelte.ts` — used by all features for billing gating
@@ -404,6 +420,7 @@ Should contain only:
 ### Task 7.3: Verify `src/lib/utils/` Only Contains Shared Utils
 
 Should contain only:
+
 - `dates.ts` — used by 10+ features
 - `csvParser.ts` — used by training + personnel bulk import
 - `columnMapping.ts` — used by training + personnel bulk import
@@ -412,6 +429,7 @@ Should contain only:
 ### Task 7.4: Verify `src/lib/components/` Only Contains Shared Components
 
 Should contain only:
+
 - `ui/` subdirectory (all shared primitives: Badge, Spinner, EmptyState, etc.)
 - `Modal.svelte` — base modal wrapper
 - `PageToolbar.svelte` — shared toolbar
@@ -461,6 +479,7 @@ npm run build
 ```
 
 Manual smoke test ALL features:
+
 1. Dashboard — stats, training alerts, rating scheme alerts
 2. Calendar — month view, availability, status types, assignments, long range, duty roster
 3. Personnel — list, add/edit, bulk import, rating scheme, groups
@@ -477,14 +496,14 @@ Manual smoke test ALL features:
 
 ## Summary of Phases
 
-| Phase | Feature | Files Moved | Blast Radius | Stop Point |
-|-------|---------|-------------|-------------|------------|
-| 1 | Training (DONE) | 7 components, 2 stores, 1 util, types | ~15 files | Yes |
-| 2 | Personnel | 4 components, 2 stores, 1 util | ~10 files | Yes |
-| 3 | Calendar | 15 components, 6 stores, 2 utils, types | ~25 files (largest) | Yes |
-| 4 | Counseling/Leaders Book | 7 components, 5 stores, 2 utils, types | ~15 files | Yes |
-| 5 | Onboarding | 3 components, 2 stores, types | ~5 files | Yes |
-| 6 | Remaining (duty roster, sign-in, groups) | 5 components, 1 store, types | ~8 files | Yes |
-| 7 | Final cleanup + CLAUDE.md | Cleanup only | CLAUDE.md | Yes (done) |
+| Phase | Feature                                  | Files Moved                             | Blast Radius        | Stop Point |
+| ----- | ---------------------------------------- | --------------------------------------- | ------------------- | ---------- |
+| 1     | Training (DONE)                          | 7 components, 2 stores, 1 util, types   | ~15 files           | Yes        |
+| 2     | Personnel                                | 4 components, 2 stores, 1 util          | ~10 files           | Yes        |
+| 3     | Calendar                                 | 15 components, 6 stores, 2 utils, types | ~25 files (largest) | Yes        |
+| 4     | Counseling/Leaders Book                  | 7 components, 5 stores, 2 utils, types  | ~15 files           | Yes        |
+| 5     | Onboarding                               | 3 components, 2 stores, types           | ~5 files            | Yes        |
+| 6     | Remaining (duty roster, sign-in, groups) | 5 components, 1 store, types            | ~8 files            | Yes        |
+| 7     | Final cleanup + CLAUDE.md                | Cleanup only                            | CLAUDE.md           | Yes (done) |
 
 **Total: ~41 components, ~18 stores, ~8 utils migrated across 7 phases.**

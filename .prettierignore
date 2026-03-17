@@ -1,0 +1,22 @@
+# Package manager
+node_modules/
+package-lock.json
+
+# Build output
+.svelte-kit/
+build/
+dist/
+
+# Supabase
+supabase/.temp/
+
+# Generated
+.vercel/
+.env*
+
+# Documentation with pseudo-code
+CLAUDE.md
+docs/
+
+# Worktrees
+.claude/

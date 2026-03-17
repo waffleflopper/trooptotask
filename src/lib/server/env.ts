@@ -35,9 +35,7 @@ function validateEnv(): void {
 	const optional = vars.filter((v) => !v.required && !v.value);
 
 	if (missing.length > 0) {
-		console.error(
-			`[env] Missing required environment variables: ${missing.map((v) => v.name).join(', ')}`
-		);
+		console.error(`[env] Missing required environment variables: ${missing.map((v) => v.name).join(', ')}`);
 	}
 
 	if (optional.length > 0) {

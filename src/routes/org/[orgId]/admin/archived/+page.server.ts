@@ -8,22 +8,18 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			.eq('organization_id', params.orgId)
 			.not('archived_at', 'is', null)
 			.order('archived_at', { ascending: false }),
-		locals.supabase
-			.from('organizations')
-			.select('archive_retention_months')
-			.eq('id', params.orgId)
-			.single()
+		locals.supabase.from('organizations').select('archive_retention_months').eq('id', params.orgId).single()
 	]);
 
-	const archivedPersonnel = (personnelRes.data ?? []).map((p: any) => ({
-		id: p.id,
-		rank: p.rank,
-		firstName: p.first_name,
-		lastName: p.last_name,
-		mos: p.mos,
-		groupName: p.groups?.name ?? '',
-		archivedAt: p.archived_at,
-		groupId: p.group_id
+	const archivedPersonnel = (personnelRes.data ?? []).map((p: Record<string, unknown>) => ({
+		id: p.id as string,
+		rank: p.rank as string,
+		firstName: p.first_name as string,
+		lastName: p.last_name as string,
+		mos: p.mos as string,
+		groupName: ((p.groups as Record<string, unknown> | null)?.name as string) ?? '',
+		archivedAt: p.archived_at as string,
+		groupId: p.group_id as string
 	}));
 
 	return {

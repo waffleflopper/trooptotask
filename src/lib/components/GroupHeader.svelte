@@ -19,7 +19,10 @@
 		<button
 			class="pin-btn"
 			class:pinned={isPinned}
-			onclick={(e) => { e.stopPropagation(); onPinToggle?.(); }}
+			onclick={(e) => {
+				e.stopPropagation();
+				onPinToggle?.();
+			}}
 			title={isPinned ? 'Unpin group' : 'Pin group to top'}
 		>
 			{isPinned ? '📌' : '📍'}
@@ -31,8 +34,8 @@
 <style>
 	.group-header {
 		display: flex;
-		background: #0F0F0F;
-		color: #F0EDE6;
+		background: #0f0f0f;
+		color: #f0ede6;
 		border-bottom: 1px solid var(--color-border);
 	}
 
@@ -41,8 +44,8 @@
 		min-width: var(--personnel-column-width);
 		display: flex;
 		align-items: center;
-		background: #0F0F0F;
-		border-right: 1px solid #2A2A2A;
+		background: #0f0f0f;
+		border-right: 1px solid #2a2a2a;
 		transform: translateX(var(--scroll-left, 0px));
 		z-index: 2;
 		will-change: transform;
@@ -55,7 +58,7 @@
 		align-items: center;
 		gap: var(--spacing-sm);
 		background: transparent;
-		color: #F0EDE6;
+		color: #f0ede6;
 		text-align: left;
 		cursor: pointer;
 		font-weight: 600;
@@ -63,7 +66,7 @@
 	}
 
 	.group-toggle:hover {
-		background: #1A1A1A;
+		background: #1a1a1a;
 	}
 
 	.toggle-icon {
@@ -98,6 +101,6 @@
 	.group-header-spacer {
 		flex: 1;
 		min-width: calc(var(--cell-width) * var(--dates-count, 31));
-		background: #0F0F0F;
+		background: #0f0f0f;
 	}
 </style>

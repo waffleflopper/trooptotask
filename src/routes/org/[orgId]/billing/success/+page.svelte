@@ -18,7 +18,9 @@
 				</svg>
 			</div>
 			<h1>Subscription Active!</h1>
-			<p>Your plan has been updated. Your organization now has access to the new tier's features and personnel limits.</p>
+			<p>
+				Your plan has been updated. Your organization now has access to the new tier's features and personnel limits.
+			</p>
 			<div class="result-actions">
 				<a href="/org/{orgId}" class="btn btn-primary">Go to Dashboard</a>
 				<a href="/org/{orgId}/billing" class="btn btn-secondary">View Billing</a>

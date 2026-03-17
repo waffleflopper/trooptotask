@@ -20,11 +20,13 @@
 	<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 		{#if themeStore.isDark}
 			<svg viewBox="0 0 24 24" fill="currentColor">
-				<path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+				<path
+					d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+				/>
 			</svg>
 		{:else}
 			<svg viewBox="0 0 24 24" fill="currentColor">
-				<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+				<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
 			</svg>
 		{/if}
 	</button>
@@ -52,9 +54,7 @@
 				<p class="confirm-text">
 					We've sent a confirmation link to <strong>{form.email}</strong>
 				</p>
-				<p class="confirm-text">
-					Please check your email and click the link to activate your account.
-				</p>
+				<p class="confirm-text">Please check your email and click the link to activate your account.</p>
 				<div class="confirm-hint">
 					<p>Didn't receive the email? Check your spam folder or</p>
 					<a href="/auth/register" class="btn btn-secondary">Try again</a>
@@ -82,7 +82,11 @@
 				{#if form?.error}
 					<div class="error-message">
 						<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-							<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+							<path
+								fill-rule="evenodd"
+								d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+								clip-rule="evenodd"
+							/>
 						</svg>
 						{form.error}
 					</div>
@@ -146,10 +150,13 @@
 					/>
 				</div>
 
-					<div class="terms-group">
+				<div class="terms-group">
 					<label class="checkbox-label">
 						<input type="checkbox" name="agreeTerms" required />
-						<span>I have read and agree to the <a href="/terms" target="_blank">Terms of Use</a> and <a href="/privacy" target="_blank">Privacy Policy</a></span>
+						<span
+							>I have read and agree to the <a href="/terms" target="_blank">Terms of Use</a> and
+							<a href="/privacy" target="_blank">Privacy Policy</a></span
+						>
 					</label>
 				</div>
 
@@ -185,7 +192,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		background: #0F0F0F;
+		background: #0f0f0f;
 		padding: var(--spacing-lg);
 	}
 
@@ -201,7 +208,7 @@
 	.auth-card {
 		background: var(--color-surface);
 		border-radius: 12px;
-		box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 		padding: var(--spacing-xl);
 		width: 100%;
 		max-width: 400px;
@@ -217,8 +224,8 @@
 		font-size: 0.75rem;
 		font-weight: 500;
 		letter-spacing: 0.05em;
-		background: #B8943E;
-		color: #0F0F0F;
+		background: #b8943e;
+		color: #0f0f0f;
 		padding: 0.35rem 0.625rem;
 		border-radius: 5px;
 		display: inline-block;
@@ -361,7 +368,6 @@
 		padding: var(--spacing-md);
 	}
 
-
 	.divider {
 		display: flex;
 		align-items: center;
@@ -414,8 +420,8 @@
 		height: 40px;
 		border-radius: 6px;
 		background: transparent;
-		border: 1px solid #2A2A2A;
-		color: #8A8780;
+		border: 1px solid #2a2a2a;
+		color: #8a8780;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -424,8 +430,8 @@
 	}
 
 	.theme-toggle:hover {
-		color: #F0EDE6;
-		border-color: #8A8780;
+		color: #f0ede6;
+		border-color: #8a8780;
 	}
 
 	.theme-toggle svg {

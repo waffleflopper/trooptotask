@@ -27,7 +27,7 @@
 	const filteredRequests = $derived(
 		statusFilter === 'all'
 			? data.requests
-			: data.requests.filter((r: any) => r.status === statusFilter)
+			: data.requests.filter((r: Record<string, unknown>) => r.status === statusFilter)
 	);
 
 	// Deny reason state
@@ -81,11 +81,7 @@
 	<!-- Status filter tabs -->
 	<div class="filter-tabs">
 		{#each filters as f}
-			<button
-				class="filter-tab"
-				class:active={statusFilter === f.value}
-				onclick={() => (statusFilter = f.value)}
-			>
+			<button class="filter-tab" class:active={statusFilter === f.value} onclick={() => (statusFilter = f.value)}>
 				{f.label}
 			</button>
 		{/each}
@@ -149,9 +145,7 @@
 											{#if processing === req.id}<Spinner />{/if}
 											Confirm
 										</button>
-										<button class="btn btn-secondary btn-sm" onclick={cancelDeny}>
-											Cancel
-										</button>
+										<button class="btn btn-secondary btn-sm" onclick={cancelDeny}> Cancel </button>
 									</div>
 								{:else}
 									<button
@@ -162,12 +156,7 @@
 										{#if processing === req.id}<Spinner />{/if}
 										Approve
 									</button>
-									<button
-										class="btn btn-secondary btn-sm"
-										onclick={() => startDeny(req.id)}
-									>
-										Deny
-									</button>
+									<button class="btn btn-secondary btn-sm" onclick={() => startDeny(req.id)}> Deny </button>
 								{/if}
 							{:else if req.status === 'denied' && req.denial_reason}
 								<span class="denial-reason">{req.denial_reason}</span>

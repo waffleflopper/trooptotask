@@ -53,14 +53,12 @@
 
 		try {
 			const path = `${orgId}/${storagePath}/${sanitizeFilename(file.name)}`;
-			const { error } = await supabase.storage
-				.from('counseling-files')
-				.upload(path, file, { upsert: true });
+			const { error } = await supabase.storage.from('counseling-files').upload(path, file, { upsert: true });
 
 			if (error) throw error;
 			onUpload(path);
-		} catch (err: any) {
-			errorMsg = err.message || 'Upload failed.';
+		} catch (err: unknown) {
+			errorMsg = err instanceof Error ? err.message : 'Upload failed.';
 		} finally {
 			uploading = false;
 		}
@@ -91,9 +89,7 @@
 
 	async function handleDownload() {
 		if (!filePath) return;
-		const { data, error } = await supabase.storage
-			.from('counseling-files')
-			.createSignedUrl(filePath, 60);
+		const { data, error } = await supabase.storage.from('counseling-files').createSignedUrl(filePath, 60);
 
 		if (error || !data?.signedUrl) {
 			errorMsg = 'Could not generate download link.';
@@ -149,7 +145,12 @@
 			ondrop={handleDrop}
 			ondragover={handleDragOver}
 			ondragleave={handleDragLeave}
-			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput?.click(); }}}
+			onkeydown={(e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					fileInput?.click();
+				}
+			}}
 		>
 			<svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -159,14 +160,7 @@
 			<span class="drop-text">Drag & drop PDF here or</span>
 			<label class="choose-btn btn btn-secondary btn-sm">
 				Choose PDF
-				<input
-					bind:this={fileInput}
-					type="file"
-					accept={accept}
-					onchange={handleFileSelect}
-					{disabled}
-					hidden
-				/>
+				<input bind:this={fileInput} type="file" {accept} onchange={handleFileSelect} {disabled} hidden />
 			</label>
 		</div>
 	{/if}

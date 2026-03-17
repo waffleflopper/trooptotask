@@ -143,9 +143,15 @@
 		assignmentDate = null;
 	}
 
-	async function handleBulkStatusApply(personnelIds: string[], statusTypeId: string, startDate: string, endDate: string, note: string | null) {
+	async function handleBulkStatusApply(
+		personnelIds: string[],
+		statusTypeId: string,
+		startDate: string,
+		endDate: string,
+		note: string | null
+	) {
 		await availabilityStore.addBatch(
-			personnelIds.map(personnelId => ({ personnelId, statusTypeId, startDate, endDate, note }))
+			personnelIds.map((personnelId) => ({ personnelId, statusTypeId, startDate, endDate, note }))
 		);
 	}
 
@@ -179,7 +185,9 @@
 		await dailyAssignmentsStore.setAssignmentBatch(assignments);
 	}
 
-	async function handleSaveRoster(payload: Omit<RosterHistoryItem, 'id' | 'createdAt'>): Promise<RosterHistoryItem | null> {
+	async function handleSaveRoster(
+		payload: Omit<RosterHistoryItem, 'id' | 'createdAt'>
+	): Promise<RosterHistoryItem | null> {
 		try {
 			const res = await fetch(`/org/${data.orgId}/api/duty-roster-history`, {
 				method: 'POST',
@@ -224,7 +232,12 @@
 		// Additional tools
 		if (data.permissions?.canEditCalendar) {
 			if (canManageConfig) {
-				items.push({ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true), divider: true, disabled: readOnly });
+				items.push({
+					label: 'Bulk Status',
+					onclick: () => (showBulkStatusModal = true),
+					divider: true,
+					disabled: readOnly
+				});
 				items.push({ label: 'Bulk Remove', onclick: () => (showBulkRemoveModal = true), disabled: readOnly });
 				items.push({ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true), disabled: readOnly });
 			}
@@ -240,11 +253,23 @@
 		items.push({ label: 'Print / PDF', onclick: handleExportPDF });
 
 		// Display toggle
-		items.push({ label: 'Show Status Text', toggle: true, active: calendarPrefsStore.showStatusText, onclick: () => calendarPrefsStore.toggleShowStatusText(), divider: true });
+		items.push({
+			label: 'Show Status Text',
+			toggle: true,
+			active: calendarPrefsStore.showStatusText,
+			onclick: () => calendarPrefsStore.toggleShowStatusText(),
+			divider: true
+		});
 
 		// Configure group
 		if (canManageConfig) {
-			items.push({ label: 'Status Types', onclick: () => (showStatusManager = true), divider: true, group: 'Configure', disabled: readOnly });
+			items.push({
+				label: 'Status Types',
+				onclick: () => (showStatusManager = true),
+				divider: true,
+				group: 'Configure',
+				disabled: readOnly
+			});
 			items.push({ label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true), disabled: readOnly });
 			items.push({ label: 'Holidays', onclick: () => (showSpecialDayManager = true), disabled: readOnly });
 		}
@@ -276,9 +301,7 @@
 				Assignments
 			</button>
 		{/if}
-		<button class="btn btn-sm" onclick={() => (showLongRangeView = true)}>
-			3-Month View
-		</button>
+		<button class="btn btn-sm" onclick={() => (showLongRangeView = true)}> 3-Month View </button>
 		{#if readOnly}
 			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
 		{/if}
@@ -290,35 +313,35 @@
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
 		</div>
 	{:else}
-	<main class="page-content">
-		<section class="calendar-section">
-			<Calendar
-				year={calendarStore.year}
-				monthName={calendarStore.monthName}
-				dates={calendarStore.dates}
-				personnelByGroup={personnelByGroup}
-				availabilityEntries={availabilityStore.list}
-				statusTypes={statusTypesStore.list}
-				specialDays={specialDaysStore.list}
-				pinnedGroups={pinnedGroupsStore.list}
-				assignmentTypes={dailyAssignmentsStore.types}
-				assignments={dailyAssignmentsStore.assignments}
-				activeOnboardingPersonnelIds={data.activeOnboardingPersonnelIds}
-				highlightOnboarding={highlightOnboarding}
-				canEdit={data.permissions?.canEditCalendar ?? false}
-				showStatusText={calendarPrefsStore.showStatusText}
-				personnelHref={`/org/${data.orgId}/personnel`}
-				onPrevMonth={() => calendarStore.prevMonth()}
-				onNextMonth={() => calendarStore.nextMonth()}
-				onGoToToday={() => calendarStore.goToToday()}
-				onCellClick={handleCellClick}
-				onPersonClick={handlePersonClick}
-				onPinToggle={handlePinToggle}
-				onDateClick={handleDateClick}
-			/>
-			<StatusLegend statusTypes={statusTypesStore.list} />
-		</section>
-	</main>
+		<main class="page-content">
+			<section class="calendar-section">
+				<Calendar
+					year={calendarStore.year}
+					monthName={calendarStore.monthName}
+					dates={calendarStore.dates}
+					{personnelByGroup}
+					availabilityEntries={availabilityStore.list}
+					statusTypes={statusTypesStore.list}
+					specialDays={specialDaysStore.list}
+					pinnedGroups={pinnedGroupsStore.list}
+					assignmentTypes={dailyAssignmentsStore.types}
+					assignments={dailyAssignmentsStore.assignments}
+					activeOnboardingPersonnelIds={data.activeOnboardingPersonnelIds}
+					{highlightOnboarding}
+					canEdit={data.permissions?.canEditCalendar ?? false}
+					showStatusText={calendarPrefsStore.showStatusText}
+					personnelHref={`/org/${data.orgId}/personnel`}
+					onPrevMonth={() => calendarStore.prevMonth()}
+					onNextMonth={() => calendarStore.nextMonth()}
+					onGoToToday={() => calendarStore.goToToday()}
+					onCellClick={handleCellClick}
+					onPersonClick={handlePersonClick}
+					onPinToggle={handlePinToggle}
+					onDateClick={handleDateClick}
+				/>
+				<StatusLegend statusTypes={statusTypesStore.list} />
+			</section>
+		</main>
 	{/if}
 </div>
 
@@ -372,7 +395,7 @@
 		date={assignmentDate}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
-		personnelByGroup={personnelByGroup}
+		{personnelByGroup}
 		groups={groupsStore.names}
 		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
@@ -382,7 +405,7 @@
 
 {#if showTodayBreakdown}
 	<TodayBreakdown
-		personnelByGroup={personnelByGroup}
+		{personnelByGroup}
 		availabilityEntries={availabilityStore.list}
 		statusTypes={statusTypesStore.list}
 		assignmentTypes={dailyAssignmentsStore.types}
@@ -393,7 +416,7 @@
 
 {#if showBulkStatusModal}
 	<BulkStatusModal
-		personnelByGroup={personnelByGroup}
+		{personnelByGroup}
 		statusTypes={statusTypesStore.list}
 		onApply={handleBulkStatusApply}
 		onClose={() => (showBulkStatusModal = false)}
@@ -418,7 +441,7 @@
 
 {#if showBulkRemoveModal}
 	<BulkStatusRemoveModal
-		personnelByGroup={personnelByGroup}
+		{personnelByGroup}
 		statusTypes={statusTypesStore.list}
 		availabilityEntries={availabilityStore.list}
 		personnelList={calendarPersonnel}
@@ -431,7 +454,7 @@
 	<DutyRosterGenerator
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
-		personnelByGroup={personnelByGroup}
+		{personnelByGroup}
 		groups={groupsStore.names}
 		availabilityEntries={availabilityStore.list}
 		statusTypes={statusTypesStore.list}
@@ -450,7 +473,7 @@
 		currentDate={calendarStore.currentDate}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
-		personnelByGroup={personnelByGroup}
+		{personnelByGroup}
 		groups={groupsStore.names}
 		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 		onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}
@@ -461,7 +484,7 @@
 {#if showLongRangeView}
 	<LongRangeView
 		startDate={calendarStore.currentDate}
-		personnelByGroup={personnelByGroup}
+		{personnelByGroup}
 		availabilityEntries={availabilityStore.list}
 		statusTypes={statusTypesStore.list}
 		specialDays={specialDaysStore.list}
@@ -528,8 +551,8 @@
 	}
 
 	.toolbar-toggle.active {
-		border-color: #B8943E;
-		color: #B8943E;
+		border-color: #b8943e;
+		color: #b8943e;
 		background: var(--color-onboarding-tint);
 	}
 
@@ -542,7 +565,7 @@
 	}
 
 	.toolbar-toggle.active .toggle-dot {
-		background: #B8943E;
+		background: #b8943e;
 	}
 
 	/* Mobile styles — .page-content mobile in app.css */

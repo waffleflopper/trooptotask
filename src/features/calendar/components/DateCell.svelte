@@ -31,11 +31,10 @@
 	}: Props = $props();
 
 	const statusColors = $derived(
-		entries
-			.flatMap((entry) => {
-				const status = statusTypeMap.get(entry.statusTypeId);
-				return status ? [{ color: status.color, name: status.name, textColor: status.textColor, note: entry.note }] : [];
-			})
+		entries.flatMap((entry) => {
+			const status = statusTypeMap.get(entry.statusTypeId);
+			return status ? [{ color: status.color, name: status.name, textColor: status.textColor, note: entry.note }] : [];
+		})
 	);
 
 	const tooltipText = $derived.by(() => {
@@ -47,7 +46,7 @@
 			parts.push(holidayName);
 		}
 		if (statusColors.length > 0) {
-			parts.push(...statusColors.map((s) => s.note ? `${s.name} — ${s.note}` : s.name));
+			parts.push(...statusColors.map((s) => (s.note ? `${s.name} — ${s.note}` : s.name)));
 		}
 		return parts.join('\n');
 	});
@@ -84,7 +83,7 @@
 	class:has-assignment={assignments.length > 0}
 	style:background={getBackground()}
 	title={tooltipText}
-	onclick={onclick}
+	{onclick}
 >
 	{#if assignments.length > 0}
 		<div class="assignment-badges">
@@ -94,7 +93,9 @@
 		</div>
 	{/if}
 	{#if showStatusText && statusColors.length > 0}
-		<span class="status-text" style="color: {statusColors[0].textColor}">{statusColors.map(s => s.name).join(', ')}</span>
+		<span class="status-text" style="color: {statusColors[0].textColor}"
+			>{statusColors.map((s) => s.name).join(', ')}</span
+		>
 	{:else if statusColors.length > 1}
 		<span class="multi-indicator">{statusColors.length}</span>
 	{/if}

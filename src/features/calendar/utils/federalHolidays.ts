@@ -54,7 +54,7 @@ export function getFederalHolidays(year: number): SpecialDay[] {
 	holidays.push({
 		id: `presidents-day-${year}`,
 		date: formatDate(presidentsDay),
-		name: "Presidents Day",
+		name: 'Presidents Day',
 		type: 'federal-holiday'
 	});
 

@@ -28,6 +28,7 @@
 			</button>
 		</div>
 		<div class="help-body">
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -- developer-controlled static help content, not user input -->
 			{@html topic.content}
 		</div>
 	</aside>

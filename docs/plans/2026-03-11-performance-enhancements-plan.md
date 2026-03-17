@@ -13,6 +13,7 @@
 ### Task 1: Navigation Progress Bar
 
 **Files:**
+
 - Create: `src/lib/components/ui/NavigationProgress.svelte`
 - Modify: `src/routes/org/[orgId]/+layout.svelte`
 
@@ -22,37 +23,46 @@ Create `src/lib/components/ui/NavigationProgress.svelte`:
 
 ```svelte
 <script lang="ts">
-  import { navigating } from '$app/stores';
+	import { navigating } from '$app/stores';
 </script>
 
 {#if $navigating}
-  <div class="nav-progress">
-    <div class="nav-progress-bar"></div>
-  </div>
+	<div class="nav-progress">
+		<div class="nav-progress-bar"></div>
+	</div>
 {/if}
 
 <style>
-  .nav-progress {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 3px;
-    z-index: 9999;
-    overflow: hidden;
-  }
+	.nav-progress {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 3px;
+		z-index: 9999;
+		overflow: hidden;
+	}
 
-  .nav-progress-bar {
-    height: 100%;
-    background: #B8943E;
-    animation: progress 1.5s ease-in-out infinite;
-  }
+	.nav-progress-bar {
+		height: 100%;
+		background: #b8943e;
+		animation: progress 1.5s ease-in-out infinite;
+	}
 
-  @keyframes progress {
-    0% { width: 0%; margin-left: 0%; }
-    50% { width: 60%; margin-left: 20%; }
-    100% { width: 0%; margin-left: 100%; }
-  }
+	@keyframes progress {
+		0% {
+			width: 0%;
+			margin-left: 0%;
+		}
+		50% {
+			width: 60%;
+			margin-left: 20%;
+		}
+		100% {
+			width: 0%;
+			margin-left: 100%;
+		}
+	}
 </style>
 ```
 
@@ -80,6 +90,7 @@ feat: add navigation progress bar during page transitions
 ### Task 2: Tier Query Cache
 
 **Files:**
+
 - Modify: `src/lib/server/subscription.ts`
 
 **Step 1: Add in-memory TTL cache to getEffectiveTier**
@@ -91,46 +102,44 @@ const tierCache = new Map<string, { data: EffectiveTier; expiresAt: number }>();
 const TIER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export function invalidateTierCache(orgId: string) {
-  tierCache.delete(orgId);
+	tierCache.delete(orgId);
 }
 ```
 
 Modify `getEffectiveTier` to check cache before querying:
 
 ```typescript
-export async function getEffectiveTier(
-  supabase: SupabaseClient,
-  orgId: string
-): Promise<EffectiveTier> {
-  if (!isBillingEnabled) {
-    return {
-      tier: 'unit',
-      source: 'default',
-      personnelCount: 0,
-      personnelCap: Infinity,
-      isReadOnly: false,
-      giftExpiresAt: null,
-      giftTier: null
-    };
-  }
+export async function getEffectiveTier(supabase: SupabaseClient, orgId: string): Promise<EffectiveTier> {
+	if (!isBillingEnabled) {
+		return {
+			tier: 'unit',
+			source: 'default',
+			personnelCount: 0,
+			personnelCap: Infinity,
+			isReadOnly: false,
+			giftExpiresAt: null,
+			giftTier: null
+		};
+	}
 
-  const cached = tierCache.get(orgId);
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.data;
-  }
+	const cached = tierCache.get(orgId);
+	if (cached && Date.now() < cached.expiresAt) {
+		return cached.data;
+	}
 
-  const { data, error } = await supabase.rpc('get_effective_tier', { p_org_id: orgId });
-  if (error) throw error;
+	const { data, error } = await supabase.rpc('get_effective_tier', { p_org_id: orgId });
+	if (error) throw error;
 
-  const result = data as EffectiveTier;
-  tierCache.set(orgId, { data: result, expiresAt: Date.now() + TIER_CACHE_TTL });
-  return result;
+	const result = data as EffectiveTier;
+	tierCache.set(orgId, { data: result, expiresAt: Date.now() + TIER_CACHE_TTL });
+	return result;
 }
 ```
 
 **Step 2: Add cache invalidation calls in billing mutation routes**
 
 Search for routes that modify billing/subscription state and add `invalidateTierCache(orgId)` calls. Key files:
+
 - `src/routes/org/[orgId]/billing/` — any POST/PATCH handlers
 - `src/routes/org/[orgId]/api/personnel/batch/+server.ts` — if it modifies personnel count
 
@@ -145,6 +154,7 @@ perf: cache tier query with 5-minute TTL
 ### Task 3: Parallelize Notification Count
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/+layout.server.ts`
 
 **Step 1: Move notification count into the main Promise.all**
@@ -155,18 +165,15 @@ Change the main Promise.all to include the notification count:
 
 ```typescript
 const [membershipsRes, shared, effectiveTier, notificationCountRes] = await Promise.all([
-  locals.supabase
-    .from('organization_memberships')
-    .select(/* existing select */)
-    .eq('user_id', user.id),
-  fetchSharedData(supabase, orgId),
-  getEffectiveTier(supabase, orgId),
-  locals.supabase
-    .from('notifications')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('organization_id', orgId)
-    .eq('read', false)
+	locals.supabase.from('organization_memberships').select(/* existing select */).eq('user_id', user.id),
+	fetchSharedData(supabase, orgId),
+	getEffectiveTier(supabase, orgId),
+	locals.supabase
+		.from('notifications')
+		.select('id', { count: 'exact', head: true })
+		.eq('user_id', user.id)
+		.eq('organization_id', orgId)
+		.eq('read', false)
 ]);
 ```
 
@@ -185,6 +192,7 @@ perf: parallelize notification count query in layout load
 ### Task 4: Stream Non-Critical Page Data (Dashboard)
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/+page.server.ts`
 - Modify: `src/routes/org/[orgId]/+page.svelte` (if needed for Awaiting streamed data)
 
@@ -199,45 +207,45 @@ In `src/routes/org/[orgId]/+page.server.ts`, split into immediate data and strea
 const onboardings = onboardingsRes.data ?? [];
 
 async function enrichOnboardings() {
-  if (onboardings.length === 0) return [];
-  const onboardingIds = onboardings.map((o: any) => o.id);
-  const { data: steps } = await supabase
-    .from('onboarding_step_progress')
-    .select('*')
-    .in('onboarding_id', onboardingIds)
-    .order('sort_order');
+	if (onboardings.length === 0) return [];
+	const onboardingIds = onboardings.map((o: any) => o.id);
+	const { data: steps } = await supabase
+		.from('onboarding_step_progress')
+		.select('*')
+		.in('onboarding_id', onboardingIds)
+		.order('sort_order');
 
-  const stepsByOnboarding = new Map<string, any[]>();
-  for (const step of (steps ?? [])) {
-    const existing = stepsByOnboarding.get(step.onboarding_id) ?? [];
-    existing.push(step);
-    stepsByOnboarding.set(step.onboarding_id, existing);
-  }
+	const stepsByOnboarding = new Map<string, any[]>();
+	for (const step of steps ?? []) {
+		const existing = stepsByOnboarding.get(step.onboarding_id) ?? [];
+		existing.push(step);
+		stepsByOnboarding.set(step.onboarding_id, existing);
+	}
 
-  return onboardings.map((o: any) => ({
-    id: o.id,
-    personnelId: o.personnel_id,
-    status: o.status,
-    startedAt: o.started_at,
-    steps: (stepsByOnboarding.get(o.id) ?? []).map((s: any) => ({
-      id: s.id,
-      stepName: s.step_name,
-      stepType: s.step_type,
-      trainingTypeId: s.training_type_id,
-      completed: s.completed,
-      sortOrder: s.sort_order
-    }))
-  }));
+	return onboardings.map((o: any) => ({
+		id: o.id,
+		personnelId: o.personnel_id,
+		status: o.status,
+		startedAt: o.started_at,
+		steps: (stepsByOnboarding.get(o.id) ?? []).map((s: any) => ({
+			id: s.id,
+			stepName: s.step_name,
+			stepType: s.step_type,
+			trainingTypeId: s.training_type_id,
+			completed: s.completed,
+			sortOrder: s.sort_order
+		}))
+	}));
 }
 
 return {
-  orgId,
-  availabilityEntries,
-  assignmentTypes,
-  todayAssignments,
-  pinnedGroups,
-  activeOnboardings: enrichOnboardings(), // streamed promise
-  ratingSchemeEntries
+	orgId,
+	availabilityEntries,
+	assignmentTypes,
+	todayAssignments,
+	pinnedGroups,
+	activeOnboardings: enrichOnboardings(), // streamed promise
+	ratingSchemeEntries
 };
 ```
 
@@ -247,9 +255,9 @@ Where the dashboard consumes `data.activeOnboardings`, wrap in `{#await}`:
 
 ```svelte
 {#await data.activeOnboardings}
-  <!-- loading state for onboarding widget -->
+	<!-- loading state for onboarding widget -->
 {:then activeOnboardings}
-  <!-- existing onboarding rendering using activeOnboardings -->
+	<!-- existing onboarding rendering using activeOnboardings -->
 {/await}
 ```
 
@@ -264,6 +272,7 @@ perf: stream onboarding step data on dashboard for faster initial render
 ### Task 5: Stream Non-Critical Page Data (Onboarding)
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/onboarding/+page.server.ts`
 - Modify: `src/routes/org/[orgId]/onboarding/+page.svelte` (if needed)
 
@@ -296,6 +305,7 @@ npm run build
 ```
 
 **Step 3: Manual testing checklist**
+
 - Navigate between all pages — progress bar appears
 - Progress bar is gold and animates smoothly
 - No layout data flash/reload when switching pages within same org

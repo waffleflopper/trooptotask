@@ -49,15 +49,12 @@ export interface OrganizationInvitation {
 }
 
 // Preset permission templates for easy assignment
-export type PermissionPreset =
-	| 'owner'
-	| 'admin'
-	| 'full-editor'
-	| 'team-leader'
-	| 'viewer'
-	| 'custom';
+export type PermissionPreset = 'owner' | 'admin' | 'full-editor' | 'team-leader' | 'viewer' | 'custom';
 
-export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'custom'>, OrganizationMemberPermissions> = {
+export const PERMISSION_PRESETS: Record<
+	Exclude<PermissionPreset, 'owner' | 'custom'>,
+	OrganizationMemberPermissions
+> = {
 	admin: {
 		canViewCalendar: true,
 		canEditCalendar: true,
@@ -112,7 +109,10 @@ export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'cus
 	}
 };
 
-export function getPermissionPreset(permissions: OrganizationMemberPermissions, scopedGroupId?: string | null): PermissionPreset {
+export function getPermissionPreset(
+	permissions: OrganizationMemberPermissions,
+	scopedGroupId?: string | null
+): PermissionPreset {
 	// Check each preset
 	for (const [preset, presetPermissions] of Object.entries(PERMISSION_PRESETS)) {
 		if (
@@ -144,11 +144,16 @@ export function getPermissionPreset(permissions: OrganizationMemberPermissions, 
 
 export function isFullEditor(permissions: OrganizationMemberPermissions): boolean {
 	return (
-		permissions.canViewCalendar && permissions.canEditCalendar &&
-		permissions.canViewPersonnel && permissions.canEditPersonnel &&
-		permissions.canViewTraining && permissions.canEditTraining &&
-		permissions.canViewOnboarding && permissions.canEditOnboarding &&
-		permissions.canViewLeadersBook && permissions.canEditLeadersBook
+		permissions.canViewCalendar &&
+		permissions.canEditCalendar &&
+		permissions.canViewPersonnel &&
+		permissions.canEditPersonnel &&
+		permissions.canViewTraining &&
+		permissions.canEditTraining &&
+		permissions.canViewOnboarding &&
+		permissions.canEditOnboarding &&
+		permissions.canViewLeadersBook &&
+		permissions.canEditLeadersBook
 	);
 }
 
@@ -167,5 +172,3 @@ export const ALL_RANKS = [
 	...ARMY_RANKS.officer,
 	...ARMY_RANKS.civilian
 ];
-
-

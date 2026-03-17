@@ -70,7 +70,12 @@
 									{statusInfo.label}
 								</button>
 							{:else}
-								<span class="status-badge" style="background-color: {statusInfo.color}" data-status={statusInfo.status} aria-label="{person.lastName} {type.name}: {statusInfo.label}">
+								<span
+									class="status-badge"
+									style="background-color: {statusInfo.color}"
+									data-status={statusInfo.status}
+									aria-label="{person.lastName} {type.name}: {statusInfo.label}"
+								>
 									{statusInfo.label}
 								</span>
 							{/if}

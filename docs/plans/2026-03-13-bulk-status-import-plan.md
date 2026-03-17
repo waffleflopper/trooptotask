@@ -14,12 +14,12 @@
 
 ## File Structure
 
-| Action | File | Responsibility |
-|--------|------|----------------|
+| Action | File                                                            | Responsibility                                                                   |
+| ------ | --------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Create | `src/features/calendar/components/BulkStatusImportModal.svelte` | Main import modal — 4-step state machine, status resolution UI, import execution |
-| Modify | `src/lib/utils/columnMapping.ts` | Add `STATUS_IMPORT_COLUMNS` constant |
-| Modify | `src/features/calendar/components/BulkStatusModal.svelte` | Add `onImport` prop and "Import from file" link |
-| Modify | `src/routes/org/[orgId]/calendar/+page.svelte` | Add import modal state, wire up open/close between modals |
+| Modify | `src/lib/utils/columnMapping.ts`                                | Add `STATUS_IMPORT_COLUMNS` constant                                             |
+| Modify | `src/features/calendar/components/BulkStatusModal.svelte`       | Add `onImport` prop and "Import from file" link                                  |
+| Modify | `src/routes/org/[orgId]/calendar/+page.svelte`                  | Add import modal state, wire up open/close between modals                        |
 
 ---
 
@@ -28,6 +28,7 @@
 ### Task 1: Add STATUS_IMPORT_COLUMNS to columnMapping.ts
 
 **Files:**
+
 - Modify: `src/lib/utils/columnMapping.ts:116-137` (after TRAINING_COLUMNS)
 
 - [ ] **Step 1: Add the column definitions**
@@ -37,7 +38,12 @@ Add after `TRAINING_COLUMNS` (line ~137):
 ```typescript
 export const STATUS_IMPORT_COLUMNS: ColumnDef[] = [
 	{ key: 'lastName', label: 'Last Name', required: true, aliases: ['last name', 'lastname', 'surname', 'lname'] },
-	{ key: 'firstName', label: 'First Name', required: true, aliases: ['first name', 'firstname', 'fname', 'given name'] },
+	{
+		key: 'firstName',
+		label: 'First Name',
+		required: true,
+		aliases: ['first name', 'firstname', 'fname', 'given name']
+	},
 	{ key: 'startDate', label: 'Start Date', required: true, aliases: ['start date', 'start', 'from', 'begin'] },
 	{ key: 'endDate', label: 'End Date', required: true, aliases: ['end date', 'end', 'to', 'through'] },
 	{ key: 'statusType', label: 'Status', required: true, aliases: ['status', 'status type', 'type'] },
@@ -63,6 +69,7 @@ git commit -m "feat: add STATUS_IMPORT_COLUMNS to columnMapping"
 ### Task 2: Add onImport prop and link to BulkStatusModal
 
 **Files:**
+
 - Modify: `src/features/calendar/components/BulkStatusModal.svelte:12-17` (Props interface)
 
 - [ ] **Step 1: Add onImport to the Props interface**
@@ -73,13 +80,20 @@ Change the Props interface (line 12-17) to add optional `onImport`:
 interface Props {
 	personnelByGroup: GroupData[];
 	statusTypes: StatusType[];
-	onApply: (personnelIds: string[], statusTypeId: string, startDate: string, endDate: string, note: string | null) => Promise<void>;
+	onApply: (
+		personnelIds: string[],
+		statusTypeId: string,
+		startDate: string,
+		endDate: string,
+		note: string | null
+	) => Promise<void>;
 	onClose: () => void;
 	onImport?: () => void;
 }
 ```
 
 Update the destructure to include it:
+
 ```typescript
 let { personnelByGroup, statusTypes, onApply, onClose, onImport }: Props = $props();
 ```
@@ -90,9 +104,7 @@ Add a link near the bottom of the modal body (above the footer), after the perso
 
 ```svelte
 {#if onImport}
-	<button class="btn-link import-link" onclick={onImport}>
-		Have a spreadsheet? Import from file
-	</button>
+	<button class="btn-link import-link" onclick={onImport}> Have a spreadsheet? Import from file </button>
 {/if}
 ```
 
@@ -136,9 +148,11 @@ git commit -m "feat: add onImport prop and import link to BulkStatusModal"
 ### Task 3: Create BulkStatusImportModal — Upload Step
 
 **Files:**
+
 - Create: `src/features/calendar/components/BulkStatusImportModal.svelte`
 
 **Reference files to study:**
+
 - `src/features/training/components/BulkTrainingImporter.svelte` — closest pattern to follow
 - `src/features/personnel/components/BulkPersonnelManager.svelte` — alternate pattern reference
 - `src/lib/components/ui/BulkImportTable.svelte` — props interface
@@ -299,9 +313,7 @@ Create `src/features/calendar/components/BulkStatusImportModal.svelte`:
 					placeholder="last name, first name, start date, end date, status&#10;Smith, John, 2026-01-01, 2026-01-05, Leave&#10;..."
 					bind:value={pasteText}
 				></textarea>
-				<button class="btn btn-primary btn-sm" onclick={handlePaste} disabled={!pasteText.trim()}>
-					Parse
-				</button>
+				<button class="btn btn-primary btn-sm" onclick={handlePaste} disabled={!pasteText.trim()}> Parse </button>
 			</div>
 
 			{#if parseError}
@@ -378,6 +390,7 @@ git commit -m "feat: create BulkStatusImportModal with upload step"
 ### Task 4: Add Preview Step with Validation
 
 **Files:**
+
 - Modify: `src/features/calendar/components/BulkStatusImportModal.svelte`
 
 - [ ] **Step 1: Add the validateRow function**
@@ -403,9 +416,7 @@ function validateRow(row: Record<string, string>): RowValidation {
 		} else if (matches.length > 1) {
 			const rank = (row.rank || '').trim().toLowerCase();
 			if (rank) {
-				const rankMatches = matches.filter(
-					(p) => p.rank?.toLowerCase() === rank
-				);
+				const rankMatches = matches.filter((p) => p.rank?.toLowerCase() === rank);
 				if (rankMatches.length === 0) {
 					errors.rank = 'Rank does not match any person with this name';
 				} else if (rankMatches.length > 1) {
@@ -473,9 +484,8 @@ function handlePreviewNext() {
 		const matched = statusTypeMap.get(lower);
 		if (!matched) {
 			// Find the original casing from the first occurrence
-			const originalName = checkedRows.find(
-				(r) => (r.statusType || '').trim().toLowerCase() === lower
-			)?.statusType?.trim() || lower;
+			const originalName =
+				checkedRows.find((r) => (r.statusType || '').trim().toLowerCase() === lower)?.statusType?.trim() || lower;
 			unmatched.push({ csvName: originalName, count, resolvedId: null });
 		}
 	}
@@ -494,12 +504,7 @@ Add the preview step in the template, after the upload `{#if}` block:
 
 ```svelte
 {#if step === 'preview'}
-	<BulkImportTable
-		bind:this={tableRef}
-		{rawRows}
-		columnDefs={STATUS_IMPORT_COLUMNS}
-		{validateRow}
-	/>
+	<BulkImportTable bind:this={tableRef} {rawRows} columnDefs={STATUS_IMPORT_COLUMNS} {validateRow} />
 {/if}
 ```
 
@@ -508,7 +513,13 @@ Update the footer snippet to include the Next button when on preview:
 ```svelte
 {#snippet footer()}
 	{#if step === 'preview'}
-		<button class="btn btn-secondary" onclick={() => { step = 'upload'; rawRows = []; }}>Back</button>
+		<button
+			class="btn btn-secondary"
+			onclick={() => {
+				step = 'upload';
+				rawRows = [];
+			}}>Back</button
+		>
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 		<button class="btn btn-primary" onclick={handlePreviewNext}>Next</button>
@@ -537,6 +548,7 @@ git commit -m "feat: add preview step with validation to BulkStatusImportModal"
 ### Task 5: Add Resolve Unmatched Statuses Step
 
 **Files:**
+
 - Modify: `src/features/calendar/components/BulkStatusImportModal.svelte`
 
 - [ ] **Step 1: Add the resolve step UI**
@@ -544,10 +556,7 @@ git commit -m "feat: add preview step with validation to BulkStatusImportModal"
 Add a derived for whether all statuses are resolved:
 
 ```typescript
-const allResolved = $derived(
-	unmatchedStatuses.length === 0 ||
-	unmatchedStatuses.every((s) => s.resolvedId !== null)
-);
+const allResolved = $derived(unmatchedStatuses.length === 0 || unmatchedStatuses.every((s) => s.resolvedId !== null));
 ```
 
 Add the resolve step in the template after the preview `{#if}` block:
@@ -597,12 +606,23 @@ Update the footer to include resolve step buttons:
 ```svelte
 {#snippet footer()}
 	{#if step === 'preview'}
-		<button class="btn btn-secondary" onclick={() => { step = 'upload'; rawRows = []; }}>Back</button>
+		<button
+			class="btn btn-secondary"
+			onclick={() => {
+				step = 'upload';
+				rawRows = [];
+			}}>Back</button
+		>
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 		<button class="btn btn-primary" onclick={handlePreviewNext}>Next</button>
 	{:else if step === 'resolve'}
-		<button class="btn btn-secondary" onclick={() => { step = 'preview'; }}>Back</button>
+		<button
+			class="btn btn-secondary"
+			onclick={() => {
+				step = 'preview';
+			}}>Back</button
+		>
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 		<button class="btn btn-primary" disabled={!allResolved || importing} onclick={handleImport}>
@@ -681,6 +701,7 @@ git commit -m "feat: add resolve unmatched statuses step to BulkStatusImportModa
 ### Task 6: Add Import Execution and Results Step
 
 **Files:**
+
 - Modify: `src/features/calendar/components/BulkStatusImportModal.svelte`
 
 - [ ] **Step 1: Add the handleImport function**
@@ -707,7 +728,13 @@ async function handleImport() {
 	}
 
 	// Build records
-	const records: { personnelId: string; statusTypeId: string; startDate: string; endDate: string; note?: string | null }[] = [];
+	const records: {
+		personnelId: string;
+		statusTypeId: string;
+		startDate: string;
+		endDate: string;
+		note?: string | null;
+	}[] = [];
 	const skippedStatuses = new Set(
 		unmatchedStatuses.filter((m) => m.resolvedId === '__skip__').map((m) => m.csvName.toLowerCase())
 	);
@@ -871,6 +898,7 @@ git commit -m "feat: add import execution and results step to BulkStatusImportMo
 ### Task 7: Integrate BulkStatusImportModal into the Calendar Page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/calendar/+page.svelte:57-68` (modal state variables)
 - Modify: `src/routes/org/[orgId]/calendar/+page.svelte:389-396` (BulkStatusModal rendering)
 
@@ -897,7 +925,7 @@ Change the BulkStatusModal rendering (around line 389-396) from:
 ```svelte
 {#if showBulkStatusModal}
 	<BulkStatusModal
-		personnelByGroup={personnelByGroup}
+		{personnelByGroup}
 		statusTypes={statusTypesStore.list}
 		onApply={handleBulkStatusApply}
 		onClose={() => (showBulkStatusModal = false)}
@@ -910,7 +938,7 @@ To:
 ```svelte
 {#if showBulkStatusModal}
 	<BulkStatusModal
-		personnelByGroup={personnelByGroup}
+		{personnelByGroup}
 		statusTypes={statusTypesStore.list}
 		onApply={handleBulkStatusApply}
 		onClose={() => (showBulkStatusModal = false)}
@@ -988,6 +1016,7 @@ Smith,John,2026-02-01,2026-02-03,Vacation,Family trip
 Run: `npm run dev`
 
 Test checklist:
+
 1. Open calendar page
 2. Click "Bulk Status" button → BulkStatusModal opens
 3. Click "Have a spreadsheet? Import from file" → BulkStatusModal closes, BulkStatusImportModal opens
@@ -1030,6 +1059,7 @@ git commit -m "feat: polish bulk status import modal"
 ### Task 9: Update Changelog
 
 **Files:**
+
 - Modify: `src/lib/data/changelog.ts`
 
 - [ ] **Step 1: Add changelog entry**

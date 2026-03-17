@@ -12,10 +12,10 @@ const EXCLUDED_ACTIONS = [
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Collect unique UUIDs from a specific key across all log details */
-function collectIds(logs: any[], key: string): string[] {
+function collectIds(logs: Record<string, unknown>[], key: string): string[] {
 	const ids = new Set<string>();
 	for (const log of logs) {
-		const v = log.details?.[key];
+		const v = (log.details as Record<string, unknown> | null)?.[key];
 		if (typeof v === 'string' && UUID_RE.test(v)) ids.add(v);
 	}
 	return [...ids];
@@ -35,13 +35,13 @@ async function resolveNames(
 	const { data } = await supabase.from(table).select(selectCols).in('id', ids);
 	if (!data) return map;
 
-	for (const row of data as any[]) {
+	for (const row of data as unknown as Record<string, unknown>[]) {
 		// For personnel: "rank last_name, first_name"; for others: "name"
 		if (row.rank !== undefined && row.last_name !== undefined) {
 			const parts = [row.rank, row.last_name, row.first_name].filter(Boolean);
-			map.set(row.id, parts.join(' '));
+			map.set(row.id as string, parts.join(' '));
 		} else {
-			map.set(row.id, row.name ?? row.id);
+			map.set(row.id as string, (row.name as string) ?? (row.id as string));
 		}
 	}
 	return map;
@@ -90,10 +90,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const offset = (page - 1) * limit;
 
 	// Build query — scoped to this org, excluding site-wide auth events
-	let query = supabase
-		.from('audit_logs')
-		.select('*', { count: 'exact' })
-		.eq('org_id', orgId);
+	let query = supabase.from('audit_logs').select('*', { count: 'exact' }).eq('org_id', orgId);
 
 	for (const excluded of EXCLUDED_ACTIONS) {
 		query = query.neq('action', excluded);
@@ -103,9 +100,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		query = query.eq('action', action);
 	}
 
-	query = query
-		.order('timestamp', { ascending: false })
-		.range(offset, offset + limit - 1);
+	query = query.order('timestamp', { ascending: false }).range(offset, offset + limit - 1);
 
 	// Get available actions for filter dropdown (scoped to org)
 	const [logsResult, actionsResult] = await Promise.all([
@@ -120,11 +115,9 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	]);
 
 	const { data: logs, count } = logsResult;
-	const logList = logs ?? [];
+	const logList = (logs ?? []) as unknown as Record<string, unknown>[];
 
-	const uniqueActions = [
-		...new Set((actionsResult.data ?? []).map((a: { action: string }) => a.action))
-	].sort();
+	const uniqueActions = [...new Set((actionsResult.data ?? []).map((a: { action: string }) => a.action))].sort();
 
 	// Batch-resolve UUIDs to human-readable names
 	const personnelIds = collectIds(logList, 'personnel_id');
@@ -141,20 +134,20 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	for (const log of logList) {
 		if (log.details) {
 			// Clone to avoid mutating the original
-			log.details = { ...log.details };
-			enrichDetails(log.details, personnelNames, trainingTypeNames, statusTypeNames);
+			log.details = { ...(log.details as Record<string, unknown>) };
+			enrichDetails(log.details as Record<string, unknown>, personnelNames, trainingTypeNames, statusTypeNames);
 		}
 	}
 
 	return {
-		logs: logList.map((log: any) => ({
-			id: log.id,
-			userId: log.user_id,
-			action: log.action,
-			resourceType: log.resource_type,
-			resourceId: log.resource_id,
-			details: log.details,
-			createdAt: log.timestamp
+		logs: logList.map((log) => ({
+			id: log.id as string,
+			userId: log.user_id as string | null,
+			action: log.action as string,
+			resourceType: log.resource_type as string | null,
+			resourceId: log.resource_id as string | null,
+			details: log.details as Record<string, unknown> | null,
+			createdAt: log.timestamp as string
 		})),
 		totalCount: count ?? 0,
 		page,

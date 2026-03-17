@@ -31,13 +31,11 @@ export const POST: RequestHandler = async ({ request }) => {
 		throw error(409, 'A request for this email is already pending');
 	}
 
-	const { error: insertError } = await adminClient
-		.from('access_requests')
-		.insert({
-			email: email.toLowerCase(),
-			name,
-			reason: reason || null
-		});
+	const { error: insertError } = await adminClient.from('access_requests').insert({
+		email: email.toLowerCase(),
+		name,
+		reason: reason || null
+	});
 
 	if (insertError) {
 		console.error('Failed to create access request:', insertError);

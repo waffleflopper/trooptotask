@@ -20,7 +20,17 @@
 		onToggleExempt?: (exempt: boolean) => void;
 	}
 
-	let { person, trainingType, existingTraining, onSave, onRemove, onClose, canBeExempted = false, isExempt = false, onToggleExempt }: Props = $props();
+	let {
+		person,
+		trainingType,
+		existingTraining,
+		onSave,
+		onRemove,
+		onClose,
+		canBeExempted = false,
+		isExempt = false,
+		onToggleExempt
+	}: Props = $props();
 
 	const neverExpires = trainingType.expirationMonths === null && !trainingType.expirationDateOnly;
 	const expirationDateOnly = trainingType.expirationDateOnly;
@@ -45,14 +55,16 @@
 	const previewExpirationDate = $derived(
 		expirationDateOnly
 			? directExpirationDate || null
-			: completionDate ? calculateExpirationDate(completionDate, trainingType.expirationMonths) : null
+			: completionDate
+				? calculateExpirationDate(completionDate, trainingType.expirationMonths)
+				: null
 	);
 
 	const previewTraining = $derived({
 		id: existingTraining?.id ?? '',
 		personnelId: person.id,
 		trainingTypeId: trainingType.id,
-		completionDate: expirationDateOnly ? null : (completionDate || null),
+		completionDate: expirationDateOnly ? null : completionDate || null,
 		expirationDate: previewExpirationDate,
 		notes,
 		certificateUrl
@@ -71,9 +83,7 @@
 		return getTrainingStatus(previewTraining, trainingType, person);
 	});
 
-	const canSave = $derived(
-		expirationDateOnly ? !!directExpirationDate : neverExpires ? isComplete : !!completionDate
-	);
+	const canSave = $derived(expirationDateOnly ? !!directExpirationDate : neverExpires ? isComplete : !!completionDate);
 
 	let saving = $state(false);
 
@@ -84,7 +94,7 @@
 			await onSave({
 				personnelId: person.id,
 				trainingTypeId: trainingType.id,
-				completionDate: expirationDateOnly ? null : (completionDate || null),
+				completionDate: expirationDateOnly ? null : completionDate || null,
 				expirationDate: previewExpirationDate,
 				notes: notes.trim() || null,
 				certificateUrl: certificateUrl.trim() || null
@@ -139,10 +149,7 @@
 
 	{#if canBeExempted && onToggleExempt}
 		<div class="exempt-toggle">
-			<button
-				class="btn {isExempt ? 'btn-danger' : 'btn-secondary'} btn-sm"
-				onclick={() => onToggleExempt(!isExempt)}
-			>
+			<button class="btn {isExempt ? 'btn-danger' : 'btn-secondary'} btn-sm" onclick={() => onToggleExempt(!isExempt)}>
 				{isExempt ? 'Remove Exemption' : 'Mark as Exempt'}
 			</button>
 			{#if isExempt}
@@ -159,13 +166,7 @@
 		<!-- Expiration-date-only: enter the expiration date directly -->
 		<div class="form-group">
 			<label class="label" for="expiration-date">License / Certification Expiration Date</label>
-			<input
-				type="date"
-				id="expiration-date"
-				class="input"
-				bind:value={directExpirationDate}
-				required
-			/>
+			<input type="date" id="expiration-date" class="input" bind:value={directExpirationDate} required />
 			<span class="field-hint">Enter the expiration date shown on the license or certificate</span>
 		</div>
 	{:else if neverExpires}
@@ -179,26 +180,14 @@
 
 		<div class="form-group">
 			<label class="label" for="completion-date">Completion Date (Optional)</label>
-			<input
-				type="date"
-				id="completion-date"
-				class="input"
-				bind:value={completionDate}
-				disabled={!isComplete}
-			/>
+			<input type="date" id="completion-date" class="input" bind:value={completionDate} disabled={!isComplete} />
 			<span class="field-hint">Record when training was completed for your records</span>
 		</div>
 	{:else}
 		<!-- Expiring training: completion date required, expiration auto-calculated -->
 		<div class="form-group">
 			<label class="label" for="completion-date">Completion Date</label>
-			<input
-				type="date"
-				id="completion-date"
-				class="input"
-				bind:value={completionDate}
-				required
-			/>
+			<input type="date" id="completion-date" class="input" bind:value={completionDate} required />
 		</div>
 	{/if}
 
@@ -222,24 +211,13 @@
 
 		<div class="form-group">
 			<label class="label" for="notes">Notes (optional)</label>
-			<textarea
-				id="notes"
-				class="input textarea"
-				bind:value={notes}
-				placeholder="Any additional notes..."
-				rows="2"
+			<textarea id="notes" class="input textarea" bind:value={notes} placeholder="Any additional notes..." rows="2"
 			></textarea>
 		</div>
 
 		<div class="form-group">
 			<label class="label" for="certificate-url">Certificate URL (optional)</label>
-			<input
-				type="url"
-				id="certificate-url"
-				class="input"
-				bind:value={certificateUrl}
-				placeholder="https://..."
-			/>
+			<input type="url" id="certificate-url" class="input" bind:value={certificateUrl} placeholder="https://..." />
 		</div>
 	{/if}
 

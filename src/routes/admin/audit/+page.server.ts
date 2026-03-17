@@ -13,9 +13,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	const offset = (page - 1) * limit;
 
 	// Build query
-	let query = supabase
-		.from('audit_logs')
-		.select('*', { count: 'exact' });
+	let query = supabase.from('audit_logs').select('*', { count: 'exact' });
 
 	if (action) {
 		query = query.eq('action', action);
@@ -27,18 +25,12 @@ export const load: PageServerLoad = async ({ url }) => {
 		query = query.eq('org_id', orgId);
 	}
 
-	query = query
-		.order('timestamp', { ascending: false })
-		.range(offset, offset + limit - 1);
+	query = query.order('timestamp', { ascending: false }).range(offset, offset + limit - 1);
 
 	// Run both queries in parallel
 	const [logsResult, actionsResult] = await Promise.all([
 		query,
-		supabase
-			.from('audit_logs')
-			.select('action')
-			.order('timestamp', { ascending: false })
-			.limit(1000)
+		supabase.from('audit_logs').select('action').order('timestamp', { ascending: false }).limit(1000)
 	]);
 
 	const { data: logs, count } = logsResult;
@@ -47,17 +39,17 @@ export const load: PageServerLoad = async ({ url }) => {
 	const uniqueActions = [...new Set((actionsResult.data ?? []).map((a: { action: string }) => a.action))].sort();
 
 	return {
-		logs: (logs ?? []).map((log: any) => ({
-			id: log.id,
-			userId: log.user_id,
-			orgId: log.org_id,
-			action: log.action,
-			resourceType: log.resource_type,
-			resourceId: log.resource_id,
-			ipAddress: log.ip_address,
-			details: log.details,
-			severity: log.severity,
-			createdAt: log.timestamp
+		logs: ((logs ?? []) as unknown as Record<string, unknown>[]).map((log) => ({
+			id: log.id as string,
+			userId: log.user_id as string | null,
+			orgId: log.org_id as string | null,
+			action: log.action as string,
+			resourceType: log.resource_type as string | null,
+			resourceId: log.resource_id as string | null,
+			ipAddress: log.ip_address as string | null,
+			details: log.details as Record<string, unknown> | null,
+			severity: log.severity as string,
+			createdAt: log.timestamp as string
 		})),
 		totalCount: count ?? 0,
 		page,

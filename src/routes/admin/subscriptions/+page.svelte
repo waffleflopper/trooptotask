@@ -22,9 +22,7 @@
 
 		if (searchInput.trim()) {
 			const q = searchInput.trim().toLowerCase();
-			result = result.filter(
-				(s) => s.name.toLowerCase().includes(q) || s.ownerEmail.toLowerCase().includes(q)
-			);
+			result = result.filter((s) => s.name.toLowerCase().includes(q) || s.ownerEmail.toLowerCase().includes(q));
 		}
 
 		if (tierFilter !== 'all') {
@@ -83,12 +81,7 @@
 
 	<!-- Filters -->
 	<div class="filters">
-		<input
-			type="text"
-			placeholder="Search by name or owner email..."
-			bind:value={searchInput}
-			class="search-input"
-		/>
+		<input type="text" placeholder="Search by name or owner email..." bind:value={searchInput} class="search-input" />
 
 		<select bind:value={tierFilter} class="select filter-select">
 			<option value="all">All tiers</option>
@@ -174,9 +167,7 @@
 					currentPage * PAGE_SIZE,
 					filteredSubs.length
 				)} of {filteredSubs.length}
-				{filteredSubs.length !== data.subscriptions.length
-					? `(filtered from ${data.subscriptions.length})`
-					: ''}
+				{filteredSubs.length !== data.subscriptions.length ? `(filtered from ${data.subscriptions.length})` : ''}
 			</p>
 			{#if totalPages > 1}
 				<div class="pagination">

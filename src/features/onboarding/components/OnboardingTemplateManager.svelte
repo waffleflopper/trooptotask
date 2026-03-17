@@ -241,16 +241,12 @@
 			return `${step.stages.length} stage${step.stages.length === 1 ? '' : 's'}`;
 		}
 		if (step.description) {
-			return step.description.length > 60
-				? step.description.substring(0, 60) + '...'
-				: step.description;
+			return step.description.length > 60 ? step.description.substring(0, 60) + '...' : step.description;
 		}
 		return '';
 	}
 
-	const activeTemplate = $derived(
-		templates.find((t) => t.id === activeTemplateId) ?? null
-	);
+	const activeTemplate = $derived(templates.find((t) => t.id === activeTemplateId) ?? null);
 
 	const canDeleteTemplate = $derived(templates.length > 1);
 </script>
@@ -263,12 +259,7 @@
 			<div class="template-select-row">
 				{#if editingTemplateId === activeTemplateId}
 					<div class="rename-form">
-						<input
-							type="text"
-							class="input"
-							bind:value={editTemplateName}
-							placeholder="Template name..."
-						/>
+						<input type="text" class="input" bind:value={editTemplateName} placeholder="Template name..." />
 						<input
 							type="text"
 							class="input"
@@ -279,7 +270,11 @@
 							<p class="error-text">{templateError}</p>
 						{/if}
 						<div class="rename-actions">
-							<button class="btn btn-primary btn-sm" onclick={saveRenameTemplate} disabled={!editTemplateName.trim() || renamingTemplate}>
+							<button
+								class="btn btn-primary btn-sm"
+								onclick={saveRenameTemplate}
+								disabled={!editTemplateName.trim() || renamingTemplate}
+							>
 								{#if renamingTemplate}<Spinner />{/if}
 								Save
 							</button>
@@ -304,14 +299,21 @@
 					{#if canDeleteTemplate}
 						<button
 							class="btn btn-danger btn-sm"
-							onclick={() => activeTemplate && (confirmDeleteTemplate = { id: activeTemplate.id, name: activeTemplate.name })}
+							onclick={() =>
+								activeTemplate && (confirmDeleteTemplate = { id: activeTemplate.id, name: activeTemplate.name })}
 							title="Delete template"
 						>
 							Delete
 						</button>
 					{/if}
 					{#if !showNewTemplateForm}
-						<button class="btn btn-secondary btn-sm new-template-btn" onclick={() => { showNewTemplateForm = true; templateError = ''; }}>
+						<button
+							class="btn btn-secondary btn-sm new-template-btn"
+							onclick={() => {
+								showNewTemplateForm = true;
+								templateError = '';
+							}}
+						>
 							+ New Template
 						</button>
 					{/if}
@@ -349,7 +351,13 @@
 					{#if creatingTemplate}<Spinner />{/if}
 					Create Template
 				</button>
-				<button class="btn btn-secondary btn-sm" onclick={() => { showNewTemplateForm = false; templateError = ''; }}>
+				<button
+					class="btn btn-secondary btn-sm"
+					onclick={() => {
+						showNewTemplateForm = false;
+						templateError = '';
+					}}
+				>
 					Cancel
 				</button>
 			</div>
@@ -390,12 +398,7 @@
 					<div class="stages-list">
 						{#each newStages as stage, index}
 							<div class="stage-row">
-								<input
-									type="text"
-									class="input flex-1"
-									bind:value={newStages[index]}
-									placeholder="Stage name..."
-								/>
+								<input type="text" class="input flex-1" bind:value={newStages[index]} placeholder="Stage name..." />
 								<button class="btn btn-danger btn-sm" onclick={() => removeNewStage(index)}>&times;</button>
 							</div>
 						{/each}
@@ -409,9 +412,7 @@
 				</div>
 			{/if}
 
-			<button class="btn btn-primary" onclick={handleAdd} disabled={!newName.trim()}>
-				Add Step
-			</button>
+			<button class="btn btn-primary" onclick={handleAdd} disabled={!newName.trim()}> Add Step </button>
 		</div>
 	</div>
 
@@ -493,21 +494,23 @@
 						<div class="type-actions">
 							<div class="move-btns">
 								<button class="btn-move" onclick={() => moveUp(index)} disabled={index === 0} title="Move up">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+										><polyline points="18 15 12 9 6 15" /></svg
+									>
 								</button>
-								<button class="btn-move" onclick={() => moveDown(index)} disabled={index === orderedSteps.length - 1} title="Move down">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+								<button
+									class="btn-move"
+									onclick={() => moveDown(index)}
+									disabled={index === orderedSteps.length - 1}
+									title="Move down"
+								>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+										><polyline points="6 9 12 15 18 9" /></svg
+									>
 								</button>
 							</div>
-							<button class="btn btn-secondary btn-sm" onclick={() => startEdit(step)}>
-								Edit
-							</button>
-							<button
-								class="btn btn-danger btn-sm"
-								onclick={() => handleRemove(step.id, step.name)}
-							>
-								&times;
-							</button>
+							<button class="btn btn-secondary btn-sm" onclick={() => startEdit(step)}> Edit </button>
+							<button class="btn btn-danger btn-sm" onclick={() => handleRemove(step.id, step.name)}> &times; </button>
 						</div>
 					{/if}
 				</div>
@@ -528,7 +531,7 @@
 {#if confirmRemove}
 	<ConfirmDialog
 		title="Remove Onboarding Step"
-		message='Remove "{confirmRemove.name}"? This step will be removed from the template.'
+		message={`Remove "${confirmRemove.name}"? This step will be removed from the template.`}
 		confirmLabel="Remove"
 		variant="danger"
 		onConfirm={doRemove}
@@ -543,7 +546,10 @@
 		confirmLabel="Delete Template"
 		variant="danger"
 		onConfirm={handleDeleteTemplate}
-		onCancel={() => { confirmDeleteTemplate = null; deleteTemplateError = ''; }}
+		onCancel={() => {
+			confirmDeleteTemplate = null;
+			deleteTemplateError = '';
+		}}
 	/>
 {/if}
 

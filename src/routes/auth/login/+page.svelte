@@ -16,9 +16,11 @@
 	<div class="auth-noise"></div>
 	<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 		{#if themeStore.isDark}
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5" /></svg>
 		{:else}
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+				><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg
+			>
 		{/if}
 	</button>
 	<div class="beta-banner">
@@ -47,7 +49,11 @@
 			{#if form?.error}
 				<div class="error-message" data-testid="login-error">
 					<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-						<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+						<path
+							fill-rule="evenodd"
+							d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+							clip-rule="evenodd"
+						/>
 					</svg>
 					{form.error}
 				</div>
@@ -103,7 +109,11 @@
 		{#if data.demoError}
 			<div class="error-message">
 				<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-					<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+					<path
+						fill-rule="evenodd"
+						d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+						clip-rule="evenodd"
+					/>
 				</svg>
 				{data.demoError}
 			</div>
@@ -126,8 +136,12 @@
 					Loading demo...
 				{:else}
 					<svg viewBox="0 0 20 20" fill="currentColor" class="demo-icon">
-						<path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-						<path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+						<path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+						<path
+							fill-rule="evenodd"
+							d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+							clip-rule="evenodd"
+						/>
 					</svg>
 					Try Demo
 				{/if}
@@ -160,7 +174,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		background: #0F0F0F;
+		background: #0f0f0f;
 		padding: var(--spacing-lg);
 		position: relative;
 	}
@@ -177,7 +191,7 @@
 	.auth-card {
 		background: var(--color-surface);
 		border-radius: 12px;
-		box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 		padding: var(--spacing-xl);
 		width: 100%;
 		max-width: 400px;
@@ -194,8 +208,8 @@
 		font-size: 0.75rem;
 		font-weight: 500;
 		letter-spacing: 0.05em;
-		background: #B8943E;
-		color: #0F0F0F;
+		background: #b8943e;
+		color: #0f0f0f;
 		padding: 0.35rem 0.625rem;
 		border-radius: 5px;
 		display: inline-block;
@@ -245,8 +259,8 @@
 		font-family: var(--font-family);
 		font-size: var(--font-size-base);
 		font-weight: 500;
-		background: #B8943E;
-		color: #0F0F0F;
+		background: #b8943e;
+		color: #0f0f0f;
 		border: none;
 		border-radius: 8px;
 		cursor: pointer;
@@ -258,14 +272,13 @@
 	}
 
 	.btn-sign-in:hover:not(:disabled) {
-		background: #D4B15A;
+		background: #d4b15a;
 	}
 
 	.btn-sign-in:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
-
 
 	.divider {
 		display: flex;
@@ -294,7 +307,7 @@
 	}
 
 	.auth-link a {
-		color: #B8943E;
+		color: #b8943e;
 		font-weight: 500;
 		text-decoration: none;
 	}
@@ -315,7 +328,7 @@
 	}
 
 	.forgot-link a:hover {
-		color: #B8943E;
+		color: #b8943e;
 		text-decoration: underline;
 	}
 
@@ -353,7 +366,6 @@
 		height: 18px;
 	}
 
-
 	.demo-hint {
 		text-align: center;
 		font-size: var(--font-size-xs);
@@ -377,7 +389,7 @@
 		font-family: var(--font-display);
 		font-size: var(--font-size-lg);
 		font-weight: 600;
-		color: #B8943E;
+		color: #b8943e;
 		margin-bottom: var(--spacing-xs);
 	}
 
@@ -390,8 +402,8 @@
 	.beta-cta {
 		display: inline-block;
 		padding: 0.5rem 1.5rem;
-		background: #B8943E;
-		color: #0F0F0F;
+		background: #b8943e;
+		color: #0f0f0f;
 		font-weight: 600;
 		font-size: var(--font-size-sm);
 		border-radius: 8px;
@@ -400,7 +412,7 @@
 	}
 
 	.beta-cta:hover {
-		background: #D4B15A;
+		background: #d4b15a;
 	}
 
 	.auth-footer {
@@ -419,8 +431,8 @@
 		height: 36px;
 		border-radius: 6px;
 		background: transparent;
-		border: 1px solid #2A2A2A;
-		color: #8A8780;
+		border: 1px solid #2a2a2a;
+		color: #8a8780;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -430,8 +442,8 @@
 	}
 
 	.theme-toggle:hover {
-		color: #F0EDE6;
-		border-color: #8A8780;
+		color: #f0ede6;
+		border-color: #8a8780;
 	}
 
 	.theme-toggle svg {

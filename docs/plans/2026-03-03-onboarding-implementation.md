@@ -15,6 +15,7 @@
 ## Task 1: Database Migration
 
 **Files:**
+
 - Create: `supabase/migrations/20260303_onboarding.sql`
 
 **Step 1: Write the migration SQL**
@@ -129,6 +130,7 @@ git commit -m "feat(onboarding): add database tables for onboarding feature"
 ## Task 2: TypeScript Types
 
 **Files:**
+
 - Modify: `src/lib/types.ts` (append new interfaces at end of file)
 
 **Step 1: Add onboarding type definitions**
@@ -190,6 +192,7 @@ git commit -m "feat(onboarding): add TypeScript interfaces for onboarding"
 ## Task 3: Onboarding Template Store
 
 **Files:**
+
 - Create: `src/lib/stores/onboardingTemplate.svelte.ts`
 
 **Step 1: Implement the store**
@@ -295,11 +298,13 @@ git commit -m "feat(onboarding): add onboarding template store"
 ## Task 4: Onboarding Store
 
 **Files:**
+
 - Create: `src/lib/stores/onboarding.svelte.ts`
 
 **Step 1: Implement the store**
 
 This store manages `PersonnelOnboarding` records (with nested `steps` arrays). It needs methods for:
+
 - `load()` — hydrate from server
 - `startOnboarding(personnelId, startedAt)` — POST to create onboarding + snapshot steps
 - `updateStepProgress(stepId, data)` — PUT to update a step's completed/currentStage/notes
@@ -328,9 +333,7 @@ class OnboardingStore {
 	}
 
 	getByPersonnelId(personnelId: string) {
-		return this.#onboardings.find(
-			(o) => o.personnelId === personnelId && o.status === 'in_progress'
-		);
+		return this.#onboardings.find((o) => o.personnelId === personnelId && o.status === 'in_progress');
 	}
 
 	getById(id: string) {
@@ -358,19 +361,13 @@ class OnboardingStore {
 		data: Partial<Pick<OnboardingStepProgress, 'completed' | 'currentStage' | 'notes'>>
 	): Promise<boolean> {
 		// Find which onboarding contains this step
-		const onboarding = this.#onboardings.find((o) =>
-			o.steps.some((s) => s.id === stepId)
-		);
+		const onboarding = this.#onboardings.find((o) => o.steps.some((s) => s.id === stepId));
 		if (!onboarding) return false;
 
 		const originalSteps = [...onboarding.steps];
-		const updatedSteps = onboarding.steps.map((s) =>
-			s.id === stepId ? { ...s, ...data } : s
-		);
+		const updatedSteps = onboarding.steps.map((s) => (s.id === stepId ? { ...s, ...data } : s));
 
-		this.#onboardings = this.#onboardings.map((o) =>
-			o.id === onboarding.id ? { ...o, steps: updatedSteps } : o
-		);
+		this.#onboardings = this.#onboardings.map((o) => (o.id === onboarding.id ? { ...o, steps: updatedSteps } : o));
 
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/onboarding-progress`, {
@@ -381,9 +378,7 @@ class OnboardingStore {
 			if (!res.ok) throw new Error('Failed to update step progress');
 			return true;
 		} catch {
-			this.#onboardings = this.#onboardings.map((o) =>
-				o.id === onboarding.id ? { ...o, steps: originalSteps } : o
-			);
+			this.#onboardings = this.#onboardings.map((o) => (o.id === onboarding.id ? { ...o, steps: originalSteps } : o));
 			return false;
 		}
 	}
@@ -392,9 +387,7 @@ class OnboardingStore {
 		const original = this.#onboardings.find((o) => o.id === id);
 		if (!original) return false;
 
-		this.#onboardings = this.#onboardings.map((o) =>
-			o.id === id ? { ...o, status: 'cancelled' as const } : o
-		);
+		this.#onboardings = this.#onboardings.map((o) => (o.id === id ? { ...o, status: 'cancelled' as const } : o));
 
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/onboarding`, {
@@ -405,9 +398,7 @@ class OnboardingStore {
 			if (!res.ok) throw new Error('Failed to cancel onboarding');
 			return true;
 		} catch {
-			this.#onboardings = this.#onboardings.map((o) =>
-				o.id === id ? original : o
-			);
+			this.#onboardings = this.#onboardings.map((o) => (o.id === id ? original : o));
 			return false;
 		}
 	}
@@ -430,9 +421,7 @@ class OnboardingStore {
 			if (!res.ok) throw new Error('Failed to complete onboarding');
 			return true;
 		} catch {
-			this.#onboardings = this.#onboardings.map((o) =>
-				o.id === id ? original : o
-			);
+			this.#onboardings = this.#onboardings.map((o) => (o.id === id ? original : o));
 			return false;
 		}
 	}
@@ -453,6 +442,7 @@ git commit -m "feat(onboarding): add onboarding store with step progress managem
 ## Task 5: Onboarding Template API Route
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/api/onboarding-template/+server.ts`
 
 **Step 1: Implement the API route**
@@ -569,6 +559,7 @@ git commit -m "feat(onboarding): add onboarding template API route"
 ## Task 6: Onboarding API Route
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/api/onboarding/+server.ts`
 
 **Step 1: Implement the API route**
@@ -734,6 +725,7 @@ git commit -m "feat(onboarding): add onboarding API route with template snapshot
 ## Task 7: Onboarding Progress API Route
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/api/onboarding-progress/+server.ts`
 
 **Step 1: Implement the API route**
@@ -798,6 +790,7 @@ git commit -m "feat(onboarding): add step progress update API route"
 ## Task 8: Data Loading — Page Server
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/onboarding/+page.server.ts`
 
 **Step 1: Implement server-side data loading**
@@ -813,11 +806,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const supabase = getSupabaseClient(locals, cookies);
 
 	const [templateRes, onboardingsRes] = await Promise.all([
-		supabase
-			.from('onboarding_template_steps')
-			.select('*')
-			.eq('organization_id', orgId)
-			.order('sort_order'),
+		supabase.from('onboarding_template_steps').select('*').eq('organization_id', orgId).order('sort_order'),
 		supabase
 			.from('personnel_onboardings')
 			.select('*')
@@ -893,6 +882,7 @@ git commit -m "feat(onboarding): add onboarding page server data loading"
 ## Task 9: Onboarding Template Manager Component
 
 **Files:**
+
 - Create: `src/lib/components/OnboardingTemplateManager.svelte`
 
 **Step 1: Implement the component**
@@ -900,6 +890,7 @@ git commit -m "feat(onboarding): add onboarding page server data loading"
 Follow the pattern from `TrainingTypeManager.svelte`: rendered inside a Modal, callback props for `onAdd`/`onUpdate`/`onRemove`/`onClose`. Form varies by step type. Supports reordering via move up/down buttons. Uses Badge, EmptyState, ConfirmDialog.
 
 Key behaviors:
+
 - List existing template steps sorted by `sortOrder`
 - "Add Step" form with type selector (training/paperwork/checkbox)
   - Training: shows dropdown of available training types (passed as prop)
@@ -910,6 +901,7 @@ Key behaviors:
 - Delete with ConfirmDialog
 
 Props:
+
 ```typescript
 interface Props {
 	templateSteps: OnboardingTemplateStep[];
@@ -935,16 +927,19 @@ git commit -m "feat(onboarding): add template manager component"
 ## Task 10: Start Onboarding Modal Component
 
 **Files:**
+
 - Create: `src/lib/components/StartOnboardingModal.svelte`
 
 **Step 1: Implement the component**
 
 Simple modal with:
+
 - Searchable personnel picker (dropdown filtering people NOT currently being onboarded)
 - Start date input (defaults to today)
 - Save button
 
 Props:
+
 ```typescript
 interface Props {
 	personnel: Personnel[];
@@ -968,6 +963,7 @@ git commit -m "feat(onboarding): add start onboarding modal component"
 ## Task 11: Onboarding Page
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/onboarding/+page.svelte`
 
 **Step 1: Implement the page**
@@ -975,6 +971,7 @@ git commit -m "feat(onboarding): add start onboarding modal component"
 This is the main page. Follow the pattern from `src/routes/org/[orgId]/training/+page.svelte` and `src/routes/org/[orgId]/+page.svelte` (dashboard).
 
 Structure:
+
 1. **Script section**: Import stores, hydrate via `$effect()`, derive computed values
 2. **Header**: Page title "Onboarding" with action buttons (manage template, start onboarding)
 3. **Filter toggle**: Show active / all (including completed/cancelled)
@@ -988,6 +985,7 @@ Structure:
 8. **Sidebar**: Pass appropriate callbacks for onboarding-specific tools
 
 Key derived values:
+
 - `availablePersonnel` — people not currently being onboarded
 - Per-onboarding progress count (completed steps / total steps)
 - Training step auto-completion: check `personnelTrainingsStore.list` for matching `trainingTypeId` + `personnelId` with non-expired record
@@ -1008,6 +1006,7 @@ git commit -m "feat(onboarding): add onboarding page with list, inline detail, a
 ## Task 12: Sidebar Navigation Update
 
 **Files:**
+
 - Modify: `src/lib/components/Sidebar.svelte`
 
 **Step 1: Add Onboarding nav item**
@@ -1015,17 +1014,20 @@ git commit -m "feat(onboarding): add onboarding page with list, inline detail, a
 Add a new nav link for "Onboarding" in the main nav section, after the Training link and before the Leaders Book link. Gate behind `perms.canViewPersonnel` (same as Personnel).
 
 Add to the Props interface:
+
 ```typescript
 // Onboarding-specific callbacks
 onShowOnboardingTemplateManager?: () => void;
 ```
 
 Add to destructuring:
+
 ```typescript
 onShowOnboardingTemplateManager,
 ```
 
 Add nav link in the markup (after Training, before Leaders Book):
+
 ```svelte
 {#if perms.canViewPersonnel}
 	<a
@@ -1045,6 +1047,7 @@ Add nav link in the markup (after Training, before Leaders Book):
 ```
 
 Add an "Onboarding Tools" section (similar to Training Tools) that appears when on the onboarding page:
+
 ```svelte
 {#if perms.canEditPersonnel && onShowOnboardingTemplateManager}
 	<div class="nav-section" class:collapsed={collapsedSections.has('onboarding-tools')}>
@@ -1059,7 +1062,9 @@ Add an "Onboarding Tools" section (similar to Training Tools) that appears when 
 				<button class="nav-item" onclick={() => handleNavClick(onShowOnboardingTemplateManager)}>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<circle cx="12" cy="12" r="3" />
-						<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+						<path
+							d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+						/>
 					</svg>
 					Manage Template
 				</button>
@@ -1099,6 +1104,7 @@ Expected: Build succeeds.
 **Step 3: Manual smoke test**
 
 Start dev server (`npm run dev`), navigate to `/org/[orgId]/onboarding`:
+
 - Verify page loads, sidebar shows "Onboarding" link
 - Test "Manage Template" → template manager modal opens
 - Add a checkbox step, a paperwork step with stages, and a training-linked step
@@ -1120,18 +1126,18 @@ git commit -m "fix(onboarding): address issues found during smoke testing"
 
 ## Task Summary
 
-| Task | Description | Files |
-|------|-------------|-------|
-| 1 | Database migration | `supabase/migrations/20260303_onboarding.sql` |
-| 2 | TypeScript types | `src/lib/types.ts` |
-| 3 | Template store | `src/lib/stores/onboardingTemplate.svelte.ts` |
-| 4 | Onboarding store | `src/lib/stores/onboarding.svelte.ts` |
-| 5 | Template API route | `src/routes/org/[orgId]/api/onboarding-template/+server.ts` |
-| 6 | Onboarding API route | `src/routes/org/[orgId]/api/onboarding/+server.ts` |
-| 7 | Progress API route | `src/routes/org/[orgId]/api/onboarding-progress/+server.ts` |
-| 8 | Page server load | `src/routes/org/[orgId]/onboarding/+page.server.ts` |
-| 9 | Template manager component | `src/lib/components/OnboardingTemplateManager.svelte` |
-| 10 | Start onboarding modal | `src/lib/components/StartOnboardingModal.svelte` |
-| 11 | Onboarding page | `src/routes/org/[orgId]/onboarding/+page.svelte` |
-| 12 | Sidebar nav update | `src/lib/components/Sidebar.svelte` |
-| 13 | Build verification | N/A |
+| Task | Description                | Files                                                       |
+| ---- | -------------------------- | ----------------------------------------------------------- |
+| 1    | Database migration         | `supabase/migrations/20260303_onboarding.sql`               |
+| 2    | TypeScript types           | `src/lib/types.ts`                                          |
+| 3    | Template store             | `src/lib/stores/onboardingTemplate.svelte.ts`               |
+| 4    | Onboarding store           | `src/lib/stores/onboarding.svelte.ts`                       |
+| 5    | Template API route         | `src/routes/org/[orgId]/api/onboarding-template/+server.ts` |
+| 6    | Onboarding API route       | `src/routes/org/[orgId]/api/onboarding/+server.ts`          |
+| 7    | Progress API route         | `src/routes/org/[orgId]/api/onboarding-progress/+server.ts` |
+| 8    | Page server load           | `src/routes/org/[orgId]/onboarding/+page.server.ts`         |
+| 9    | Template manager component | `src/lib/components/OnboardingTemplateManager.svelte`       |
+| 10   | Start onboarding modal     | `src/lib/components/StartOnboardingModal.svelte`            |
+| 11   | Onboarding page            | `src/routes/org/[orgId]/onboarding/+page.svelte`            |
+| 12   | Sidebar nav update         | `src/lib/components/Sidebar.svelte`                         |
+| 13   | Build verification         | N/A                                                         |

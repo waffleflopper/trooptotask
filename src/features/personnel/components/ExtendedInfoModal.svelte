@@ -77,12 +77,7 @@
 	}
 </script>
 
-<Modal
-	title="Soldier Information"
-	{onClose}
-	width="600px"
-	titleId="extended-info-title"
->
+<Modal title="Soldier Information" {onClose} width="600px" titleId="extended-info-title">
 	<div class="person-info">
 		<span class="person-rank">{person.rank}</span>
 		<span class="person-name">{person.lastName}, {person.firstName}</span>
@@ -97,22 +92,12 @@
 			</div>
 			<div class="form-group flex-1">
 				<label class="label">Relationship</label>
-				<input
-					type="text"
-					class="input"
-					bind:value={emergencyContactRelationship}
-					placeholder="e.g., Spouse"
-				/>
+				<input type="text" class="input" bind:value={emergencyContactRelationship} placeholder="e.g., Spouse" />
 			</div>
 		</div>
 		<div class="form-group">
 			<label class="label">Phone</label>
-			<input
-				type="tel"
-				class="input"
-				bind:value={emergencyContactPhone}
-				placeholder="(555) 123-4567"
-			/>
+			<input type="tel" class="input" bind:value={emergencyContactPhone} placeholder="(555) 123-4567" />
 		</div>
 	</div>
 
@@ -135,12 +120,7 @@
 		<div class="form-row">
 			<div class="form-group flex-2">
 				<label class="label">Make/Model</label>
-				<input
-					type="text"
-					class="input"
-					bind:value={vehicleMakeModel}
-					placeholder="e.g., Toyota Camry"
-				/>
+				<input type="text" class="input" bind:value={vehicleMakeModel} placeholder="e.g., Toyota Camry" />
 			</div>
 			<div class="form-group flex-1">
 				<label class="label">Color</label>
@@ -158,21 +138,11 @@
 		<div class="form-row">
 			<div class="form-group flex-1">
 				<label class="label">Email</label>
-				<input
-					type="email"
-					class="input"
-					bind:value={personalEmail}
-					placeholder="email@example.com"
-				/>
+				<input type="email" class="input" bind:value={personalEmail} placeholder="email@example.com" />
 			</div>
 			<div class="form-group flex-1">
 				<label class="label">Phone</label>
-				<input
-					type="tel"
-					class="input"
-					bind:value={personalPhone}
-					placeholder="(555) 123-4567"
-				/>
+				<input type="tel" class="input" bind:value={personalPhone} placeholder="(555) 123-4567" />
 			</div>
 		</div>
 	</div>

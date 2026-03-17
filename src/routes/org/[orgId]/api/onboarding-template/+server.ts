@@ -4,7 +4,7 @@ import { requirePrivilegedOrFullEditor } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 
-function transformRow(r: any) {
+function transformRow(r: Record<string, unknown>) {
 	return {
 		id: r.id,
 		templateId: r.template_id,

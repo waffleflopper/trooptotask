@@ -35,8 +35,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	]);
 
 	// Get personnel counts per org
-	const orgIds = (orgsResult.data ?? []).map((o: any) => o.organizations?.id).filter(Boolean);
-	let personnelCountMap: Record<string, number> = {};
+	const orgIds = (orgsResult.data ?? [])
+		.map((o: Record<string, unknown>) => (o.organizations as Record<string, unknown> | null)?.id)
+		.filter(Boolean);
+	const personnelCountMap: Record<string, number> = {};
 	if (orgIds.length > 0) {
 		const { data: personnelRows } = await adminClient
 			.from('personnel')
@@ -48,13 +50,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		});
 	}
 
-	const organizations = (orgsResult.data ?? []).map((o: any) => ({
-		id: o.organizations?.id ?? null,
-		name: o.organizations?.name ?? 'Unknown',
-		role: o.role as string,
-		subscriptionTier: (o.organizations?.gift_tier ?? o.organizations?.tier ?? 'free') as string,
-		personnelCount: personnelCountMap[o.organizations?.id] ?? 0
-	}));
+	const organizations = (orgsResult.data ?? []).map((o: Record<string, unknown>) => {
+		const org = o.organizations as Record<string, unknown> | null;
+		return {
+			id: org?.id ?? null,
+			name: (org?.name as string) ?? 'Unknown',
+			role: o.role as string,
+			subscriptionTier: (org?.gift_tier ?? org?.tier ?? 'free') as string,
+			personnelCount: personnelCountMap[org?.id as string] ?? 0
+		};
+	});
 
 	const suspension = suspensionResult.data
 		? {
@@ -64,7 +69,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			}
 		: null;
 
-	const recentActivity = (auditResult.data ?? []).map((a: any) => ({
+	const recentActivity = (auditResult.data ?? []).map((a: Record<string, unknown>) => ({
 		id: a.id as string,
 		action: a.action as string,
 		resourceType: a.resource_type as string,
@@ -153,9 +158,7 @@ export const actions: Actions = {
 			return fail(404, { error: 'User not found' });
 		}
 
-		const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
-			authUser.user.email
-		);
+		const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(authUser.user.email);
 
 		if (inviteError) {
 			return fail(500, { error: 'Failed to resend invite' });

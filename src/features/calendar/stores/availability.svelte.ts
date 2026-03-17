@@ -62,7 +62,7 @@ class AvailabilityStore {
 
 	async addBatch(entries: Omit<AvailabilityEntry, 'id'>[]): Promise<AvailabilityEntry[]> {
 		// Optimistic: add all with temp IDs
-		const tempEntries: AvailabilityEntry[] = entries.map(e => ({
+		const tempEntries: AvailabilityEntry[] = entries.map((e) => ({
 			id: `temp-${crypto.randomUUID()}`,
 			...e
 		}));
@@ -78,21 +78,21 @@ class AvailabilityStore {
 			const data = await res.json();
 			const inserted: AvailabilityEntry[] = data.inserted;
 			// Remove temp entries and add real ones
-			const tempIds = new Set(tempEntries.map(e => e.id));
-			this.#entries = [...this.#entries.filter(e => !tempIds.has(e.id)), ...inserted];
+			const tempIds = new Set(tempEntries.map((e) => e.id));
+			this.#entries = [...this.#entries.filter((e) => !tempIds.has(e.id)), ...inserted];
 			return inserted;
 		} catch {
 			// Rollback on failure
-			const tempIds = new Set(tempEntries.map(e => e.id));
-			this.#entries = this.#entries.filter(e => !tempIds.has(e.id));
+			const tempIds = new Set(tempEntries.map((e) => e.id));
+			this.#entries = this.#entries.filter((e) => !tempIds.has(e.id));
 			return [];
 		}
 	}
 
 	async removeBatch(ids: string[]): Promise<boolean> {
 		// Optimistic: remove all matching entries
-		const removedEntries = this.#entries.filter(e => ids.includes(e.id));
-		this.#entries = this.#entries.filter(e => !ids.includes(e.id));
+		const removedEntries = this.#entries.filter((e) => ids.includes(e.id));
+		this.#entries = this.#entries.filter((e) => !ids.includes(e.id));
 
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/availability/batch`, {
@@ -127,9 +127,7 @@ class AvailabilityStore {
 	}
 
 	getByPersonnelAndDate(personnelId: string, date: Date): AvailabilityEntry[] {
-		return this.#entries.filter(
-			(e) => e.personnelId === personnelId && isDateInRange(date, e.startDate, e.endDate)
-		);
+		return this.#entries.filter((e) => e.personnelId === personnelId && isDateInRange(date, e.startDate, e.endDate));
 	}
 
 	getByDate(date: Date): AvailabilityEntry[] {

@@ -29,11 +29,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const body = await request.json();
 	const { archiveRetentionMonths } = body;
 
-	if (
-		typeof archiveRetentionMonths !== 'number' ||
-		archiveRetentionMonths < 1 ||
-		archiveRetentionMonths > 120
-	) {
+	if (typeof archiveRetentionMonths !== 'number' || archiveRetentionMonths < 1 || archiveRetentionMonths > 120) {
 		throw error(400, 'Retention months must be between 1 and 120');
 	}
 

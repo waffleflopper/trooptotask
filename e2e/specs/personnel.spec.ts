@@ -52,7 +52,10 @@ test.describe('Personnel Management', () => {
 
 		// Confirm dialog
 		await expect(ownerPage.getByRole('heading', { name: /archive|confirm/i })).toBeVisible({ timeout: 5000 });
-		await ownerPage.getByRole('button', { name: /archive|confirm|yes/i }).last().click();
+		await ownerPage
+			.getByRole('button', { name: /archive|confirm|yes/i })
+			.last()
+			.click();
 
 		// Jones should no longer be visible
 		await personnelPage.expectPersonnelNotVisible('Jones');

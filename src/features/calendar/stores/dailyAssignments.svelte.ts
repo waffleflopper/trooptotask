@@ -120,9 +120,7 @@ class DailyAssignmentsStore {
 		);
 
 		// Optimistic: remove existing and add new
-		this.#assignments = this.#assignments.filter(
-			(a) => !(a.date === date && a.assignmentTypeId === assignmentTypeId)
-		);
+		this.#assignments = this.#assignments.filter((a) => !(a.date === date && a.assignmentTypeId === assignmentTypeId));
 
 		// Add optimistic assignment if assigneeId is provided
 		const tempId = `temp-${crypto.randomUUID()}`;
@@ -167,14 +165,10 @@ class DailyAssignmentsStore {
 
 	async removeAssignment(date: string, assignmentTypeId: string): Promise<boolean> {
 		// Optimistic: remove immediately
-		const original = this.#assignments.find(
-			(a) => a.date === date && a.assignmentTypeId === assignmentTypeId
-		);
+		const original = this.#assignments.find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
 		if (!original) return false;
 
-		this.#assignments = this.#assignments.filter(
-			(a) => !(a.date === date && a.assignmentTypeId === assignmentTypeId)
-		);
+		this.#assignments = this.#assignments.filter((a) => !(a.date === date && a.assignmentTypeId === assignmentTypeId));
 
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/daily-assignments`, {
@@ -199,13 +193,11 @@ class DailyAssignmentsStore {
 		const tempEntries: DailyAssignment[] = [];
 
 		for (const a of assignments) {
-			const existing = this.#assignments.find(
-				e => e.date === a.date && e.assignmentTypeId === a.assignmentTypeId
-			);
+			const existing = this.#assignments.find((e) => e.date === a.date && e.assignmentTypeId === a.assignmentTypeId);
 			if (existing) originals.push(existing);
 
 			this.#assignments = this.#assignments.filter(
-				e => !(e.date === a.date && e.assignmentTypeId === a.assignmentTypeId)
+				(e) => !(e.date === a.date && e.assignmentTypeId === a.assignmentTypeId)
 			);
 
 			if (a.assigneeId) {
@@ -232,19 +224,13 @@ class DailyAssignmentsStore {
 			const inserted: DailyAssignment[] = data.inserted;
 
 			// Replace temp entries with real ones
-			const tempIds = new Set(tempEntries.map(e => e.id));
-			this.#assignments = [
-				...this.#assignments.filter(a => !tempIds.has(a.id)),
-				...inserted
-			];
+			const tempIds = new Set(tempEntries.map((e) => e.id));
+			this.#assignments = [...this.#assignments.filter((a) => !tempIds.has(a.id)), ...inserted];
 			return true;
 		} catch {
 			// Rollback: remove temps, restore originals
-			const tempIds = new Set(tempEntries.map(e => e.id));
-			this.#assignments = [
-				...this.#assignments.filter(a => !tempIds.has(a.id)),
-				...originals
-			];
+			const tempIds = new Set(tempEntries.map((e) => e.id));
+			this.#assignments = [...this.#assignments.filter((a) => !tempIds.has(a.id)), ...originals];
 			return false;
 		}
 	}
@@ -254,9 +240,7 @@ class DailyAssignmentsStore {
 	}
 
 	getAssignmentForDate(date: string, assignmentTypeId: string): DailyAssignment | undefined {
-		return this.#assignments.find(
-			(a) => a.date === date && a.assignmentTypeId === assignmentTypeId
-		);
+		return this.#assignments.find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
 	}
 
 	getAssignmentsForPersonnel(personnelId: string): DailyAssignment[] {
@@ -268,9 +252,7 @@ class DailyAssignmentsStore {
 	}
 
 	getPersonnelAssignmentsForDate(personnelId: string, date: string): DailyAssignment[] {
-		return this.#assignments.filter(
-			(a) => a.assigneeId === personnelId && a.date === date
-		);
+		return this.#assignments.filter((a) => a.assigneeId === personnelId && a.date === date);
 	}
 }
 

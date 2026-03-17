@@ -30,34 +30,43 @@
 	});
 
 	// Track editing state for each training type
-	let editingStates = $state<Map<string, {
-		isComplete: boolean;
-		completionDate: string;
-		directExpirationDate: string;
-		notes: string;
-		certificateUrl: string;
-		isEditing: boolean;
-		isDirty: boolean;
-	}>>(new Map());
+	let editingStates = $state<
+		Map<
+			string,
+			{
+				isComplete: boolean;
+				completionDate: string;
+				directExpirationDate: string;
+				notes: string;
+				certificateUrl: string;
+				isEditing: boolean;
+				isDirty: boolean;
+			}
+		>
+	>(new Map());
 
 	// Initialize editing states on mount
 	$effect(() => {
-		const states = new Map<string, {
-			isComplete: boolean;
-			completionDate: string;
-			directExpirationDate: string;
-			notes: string;
-			certificateUrl: string;
-			isEditing: boolean;
-			isDirty: boolean;
-		}>();
+		const states = new Map<
+			string,
+			{
+				isComplete: boolean;
+				completionDate: string;
+				directExpirationDate: string;
+				notes: string;
+				certificateUrl: string;
+				isEditing: boolean;
+				isDirty: boolean;
+			}
+		>();
 
 		for (const type of trainingTypes) {
 			const existing = trainingMap.get(type.id);
 			const neverExpires = type.expirationMonths === null && !type.expirationDateOnly;
 			states.set(type.id, {
 				isComplete: !!existing,
-				completionDate: existing?.completionDate ?? (neverExpires || type.expirationDateOnly ? '' : formatDate(new Date())),
+				completionDate:
+					existing?.completionDate ?? (neverExpires || type.expirationDateOnly ? '' : formatDate(new Date())),
 				directExpirationDate: existing?.expirationDate ?? '',
 				notes: existing?.notes ?? '',
 				certificateUrl: existing?.certificateUrl ?? '',
@@ -70,7 +79,7 @@
 
 	// Get training status for display
 	function getStatusInfo(typeId: string) {
-		const type = trainingTypes.find(t => t.id === typeId);
+		const type = trainingTypes.find((t) => t.id === typeId);
 		const training = trainingMap.get(typeId);
 		if (!type) return { status: 'not-required' as const, label: 'N/A', color: '#6b7280' };
 		return getTrainingStatus(training, type, person);
@@ -78,18 +87,35 @@
 
 	// Calculate summary stats
 	const stats = $derived.by(() => {
-		let current = 0, warningYellow = 0, warningOrange = 0, expired = 0, notCompleted = 0;
+		let current = 0,
+			warningYellow = 0,
+			warningOrange = 0,
+			expired = 0,
+			notCompleted = 0;
 
 		for (const type of trainingTypes) {
 			const status = getStatusInfo(type.id);
 			switch (status.label) {
-				case 'Current': current++; break;
-				case 'Under 60d': warningYellow++; break;
-				case 'Under 30d': warningOrange++; break;
-				case 'Expired': expired++; break;
-				case 'Not Done': notCompleted++; break;
-				case 'N/A': break;
-				default: current++; break;
+				case 'Current':
+					current++;
+					break;
+				case 'Under 60d':
+					warningYellow++;
+					break;
+				case 'Under 30d':
+					warningOrange++;
+					break;
+				case 'Expired':
+					expired++;
+					break;
+				case 'Not Done':
+					notCompleted++;
+					break;
+				case 'N/A':
+					break;
+				default:
+					current++;
+					break;
 			}
 		}
 
@@ -105,7 +131,11 @@
 		}
 	}
 
-	function updateField(typeId: string, field: 'completionDate' | 'directExpirationDate' | 'notes' | 'certificateUrl' | 'isComplete', value: string | boolean) {
+	function updateField(
+		typeId: string,
+		field: 'completionDate' | 'directExpirationDate' | 'notes' | 'certificateUrl' | 'isComplete',
+		value: string | boolean
+	) {
 		const state = editingStates.get(typeId);
 		if (state) {
 			const newStates = new Map(editingStates);
@@ -115,7 +145,7 @@
 	}
 
 	async function markCompletedToday(typeId: string) {
-		const type = trainingTypes.find(t => t.id === typeId);
+		const type = trainingTypes.find((t) => t.id === typeId);
 		if (!type) return;
 
 		const today = formatDate(new Date());
@@ -146,7 +176,7 @@
 
 	// Mark as complete without a date (for never-expires training)
 	async function markComplete(typeId: string) {
-		const type = trainingTypes.find(t => t.id === typeId);
+		const type = trainingTypes.find((t) => t.id === typeId);
 		if (!type || type.expirationMonths !== null) return;
 
 		await onSave({
@@ -174,7 +204,7 @@
 
 	async function saveTraining(typeId: string) {
 		const state = editingStates.get(typeId);
-		const type = trainingTypes.find(t => t.id === typeId);
+		const type = trainingTypes.find((t) => t.id === typeId);
 		if (!state || !type) return;
 
 		const neverExpires = type.expirationMonths === null && !type.expirationDateOnly;
@@ -187,9 +217,9 @@
 			return;
 		}
 
-		const completionDate = type.expirationDateOnly ? null : (state.completionDate || null);
+		const completionDate = type.expirationDateOnly ? null : state.completionDate || null;
 		const expirationDate = type.expirationDateOnly
-			? (state.directExpirationDate || null)
+			? state.directExpirationDate || null
 			: calculateExpirationDate(completionDate, type.expirationMonths);
 
 		await onSave({
@@ -222,7 +252,7 @@
 		const existing = trainingMap.get(typeId);
 		if (!existing) return;
 
-		const type = trainingTypes.find(t => t.id === typeId);
+		const type = trainingTypes.find((t) => t.id === typeId);
 		const neverExpires = type?.expirationMonths === null && !type?.expirationDateOnly;
 
 		await onRemove(existing.id);
@@ -248,7 +278,7 @@
 	async function doMarkAllCompleted() {
 		showMarkAllConfirm = false;
 		// Skip expiration-date-only types — they need individual expiration dates
-		const applicableTypes = trainingTypes.filter(t => !t.expirationDateOnly);
+		const applicableTypes = trainingTypes.filter((t) => !t.expirationDateOnly);
 
 		const today = formatDate(new Date());
 
@@ -283,12 +313,13 @@
 
 	function cancelEdit(typeId: string) {
 		const existing = trainingMap.get(typeId);
-		const type = trainingTypes.find(t => t.id === typeId);
+		const type = trainingTypes.find((t) => t.id === typeId);
 		const neverExpires = type?.expirationMonths === null && !type?.expirationDateOnly;
 		const newStates = new Map(editingStates);
 		newStates.set(typeId, {
 			isComplete: !!existing,
-			completionDate: existing?.completionDate ?? (neverExpires || type?.expirationDateOnly ? '' : formatDate(new Date())),
+			completionDate:
+				existing?.completionDate ?? (neverExpires || type?.expirationDateOnly ? '' : formatDate(new Date())),
 			directExpirationDate: existing?.expirationDate ?? '',
 			notes: existing?.notes ?? '',
 			certificateUrl: existing?.certificateUrl ?? '',
@@ -310,245 +341,241 @@
 		<button class="btn btn-secondary" onclick={onClose}>Close</button>
 	{/snippet}
 
-		<div class="stats-summary">
-			<div class="stat current">
-				<span class="stat-value">{stats.current}</span>
-				<span class="stat-label">Current</span>
-			</div>
-			<div class="stat warning-yellow">
-				<span class="stat-value">{stats.warningYellow}</span>
-				<span class="stat-label">&lt;60d</span>
-			</div>
-			<div class="stat warning-orange">
-				<span class="stat-value">{stats.warningOrange}</span>
-				<span class="stat-label">&lt;30d</span>
-			</div>
-			<div class="stat expired">
-				<span class="stat-value">{stats.expired}</span>
-				<span class="stat-label">Expired</span>
-			</div>
-			<div class="stat not-done">
-				<span class="stat-value">{stats.notCompleted}</span>
-				<span class="stat-label">Not Done</span>
-			</div>
+	<div class="stats-summary">
+		<div class="stat current">
+			<span class="stat-value">{stats.current}</span>
+			<span class="stat-label">Current</span>
 		</div>
-
-		<div class="bulk-actions">
-			<button class="btn btn-primary btn-sm" onclick={markAllCompletedToday}>
-				Mark All Completed Today
-			</button>
+		<div class="stat warning-yellow">
+			<span class="stat-value">{stats.warningYellow}</span>
+			<span class="stat-label">&lt;60d</span>
 		</div>
+		<div class="stat warning-orange">
+			<span class="stat-value">{stats.warningOrange}</span>
+			<span class="stat-label">&lt;30d</span>
+		</div>
+		<div class="stat expired">
+			<span class="stat-value">{stats.expired}</span>
+			<span class="stat-label">Expired</span>
+		</div>
+		<div class="stat not-done">
+			<span class="stat-value">{stats.notCompleted}</span>
+			<span class="stat-label">Not Done</span>
+		</div>
+	</div>
 
-		<div class="modal-body">
-			<div class="training-list">
-				{#each trainingTypes as type (type.id)}
-					{@const existing = trainingMap.get(type.id)}
-					{@const status = getStatusInfo(type.id)}
-					{@const state = editingStates.get(type.id)}
-					{@const isExempt = type.canBeExempted && type.exemptPersonnelIds.includes(person.id)}
-					<div class="training-item" class:has-record={!!existing} class:editing={state?.isEditing}>
-						<div class="training-header">
-							<div class="training-info">
-								<span class="training-badge" style="background-color: {type.color}">
-									{type.name}
-								</span>
-								<span class="status-badge" style="background-color: {status.color}" data-status={status.status}>
-									{status.label}
-								</span>
-							</div>
-							<div class="training-actions">
-								{#if !state?.isEditing}
-									{#if type.canBeExempted && onToggleExempt}
+	<div class="bulk-actions">
+		<button class="btn btn-primary btn-sm" onclick={markAllCompletedToday}> Mark All Completed Today </button>
+	</div>
+
+	<div class="modal-body">
+		<div class="training-list">
+			{#each trainingTypes as type (type.id)}
+				{@const existing = trainingMap.get(type.id)}
+				{@const status = getStatusInfo(type.id)}
+				{@const state = editingStates.get(type.id)}
+				{@const isExempt = type.canBeExempted && type.exemptPersonnelIds.includes(person.id)}
+				<div class="training-item" class:has-record={!!existing} class:editing={state?.isEditing}>
+					<div class="training-header">
+						<div class="training-info">
+							<span class="training-badge" style="background-color: {type.color}">
+								{type.name}
+							</span>
+							<span class="status-badge" style="background-color: {status.color}" data-status={status.status}>
+								{status.label}
+							</span>
+						</div>
+						<div class="training-actions">
+							{#if !state?.isEditing}
+								{#if type.canBeExempted && onToggleExempt}
+									<button
+										class="btn btn-sm {isExempt ? 'btn-danger' : 'btn-secondary'}"
+										onclick={() => onToggleExempt(type.id, !isExempt)}
+										title={isExempt ? 'Remove exemption' : 'Mark as exempt'}
+									>
+										{isExempt ? 'Unexempt' : 'Exempt'}
+									</button>
+								{/if}
+								{#if !isExempt}
+									{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
+									{#if type.expirationDateOnly}
+										<!-- Expiration-date-only: no quick action, must use Edit -->
+									{:else if neverExpires && !existing}
 										<button
-											class="btn btn-sm {isExempt ? 'btn-danger' : 'btn-secondary'}"
-											onclick={() => onToggleExempt(type.id, !isExempt)}
-											title={isExempt ? 'Remove exemption' : 'Mark as exempt'}
+											class="btn btn-primary btn-sm"
+											onclick={() => markComplete(type.id)}
+											title="Mark as complete"
 										>
-											{isExempt ? 'Unexempt' : 'Exempt'}
+											Complete
+										</button>
+									{:else}
+										<button
+											class="btn btn-primary btn-sm"
+											onclick={() => markCompletedToday(type.id)}
+											title="Mark as completed today"
+										>
+											Today
 										</button>
 									{/if}
-									{#if !isExempt}
-										{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
-										{#if type.expirationDateOnly}
-											<!-- Expiration-date-only: no quick action, must use Edit -->
-										{:else if neverExpires && !existing}
-											<button
-												class="btn btn-primary btn-sm"
-												onclick={() => markComplete(type.id)}
-												title="Mark as complete"
-											>
-												Complete
-											</button>
-										{:else}
-											<button
-												class="btn btn-primary btn-sm"
-												onclick={() => markCompletedToday(type.id)}
-												title="Mark as completed today"
-											>
-												Today
-											</button>
-										{/if}
-										<button
-											class="btn btn-secondary btn-sm"
-											onclick={() => toggleEdit(type.id)}
-										>
-											{existing ? 'Edit' : 'Add'}
+									<button class="btn btn-secondary btn-sm" onclick={() => toggleEdit(type.id)}>
+										{existing ? 'Edit' : 'Add'}
+									</button>
+									{#if existing}
+										<button class="btn btn-danger btn-sm" onclick={() => removeTraining(type.id)} title="Remove record">
+											&times;
 										</button>
-										{#if existing}
-											<button
-												class="btn btn-danger btn-sm"
-												onclick={() => removeTraining(type.id)}
-												title="Remove record"
-											>
-												&times;
-											</button>
-										{/if}
 									{/if}
 								{/if}
+							{/if}
+						</div>
+					</div>
+
+					{#if existing && !state?.isEditing}
+						<div class="training-details">
+							{#if existing.completionDate}
+								<span class="detail-item">
+									<span class="detail-label">Completed:</span>
+									<span class="detail-value">{existing.completionDate}</span>
+								</span>
+							{:else}
+								<span class="detail-item">
+									<span class="detail-label">Status:</span>
+									<span class="detail-value">Complete (no date)</span>
+								</span>
+							{/if}
+							{#if existing.expirationDate}
+								<span class="detail-item">
+									<span class="detail-label">Expires:</span>
+									<span class="detail-value">{existing.expirationDate}</span>
+								</span>
+							{/if}
+							{#if existing.notes}
+								<span class="detail-item notes">
+									<span class="detail-label">Notes:</span>
+									<span class="detail-value">{existing.notes}</span>
+								</span>
+							{/if}
+						</div>
+					{/if}
+
+					{#if state?.isEditing}
+						{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
+						<div class="edit-form">
+							{#if type.expirationDateOnly}
+								<div class="form-row">
+									<div class="form-group">
+										<label class="label" for="date-{type.id}">Expiration Date</label>
+										<input
+											type="date"
+											id="date-{type.id}"
+											class="input"
+											value={state.directExpirationDate}
+											oninput={(e) => updateField(type.id, 'directExpirationDate', e.currentTarget.value)}
+											required
+										/>
+									</div>
+									<div class="form-group expiration-preview">
+										<span class="label">Status:</span>
+										<span class="preview-value">
+											{state.directExpirationDate
+												? state.directExpirationDate >= formatDate(new Date())
+													? 'Current'
+													: 'Expired'
+												: 'Set date'}
+										</span>
+									</div>
+								</div>
+							{:else if neverExpires}
+								<div class="form-group checkbox-group">
+									<label class="checkbox-label">
+										<input
+											type="checkbox"
+											checked={state.isComplete}
+											onchange={(e) => updateField(type.id, 'isComplete', e.currentTarget.checked)}
+										/>
+										<span class="checkbox-text">Mark as Complete</span>
+									</label>
+								</div>
+								<div class="form-row">
+									<div class="form-group">
+										<label class="label" for="date-{type.id}">Completion Date (Optional)</label>
+										<input
+											type="date"
+											id="date-{type.id}"
+											class="input"
+											value={state.completionDate}
+											oninput={(e) => updateField(type.id, 'completionDate', e.currentTarget.value)}
+											disabled={!state.isComplete}
+										/>
+									</div>
+									<div class="form-group expiration-preview">
+										<span class="label">Expires:</span>
+										<span class="preview-value">Never</span>
+									</div>
+								</div>
+							{:else}
+								<div class="form-row">
+									<div class="form-group">
+										<label class="label" for="date-{type.id}">Completion Date</label>
+										<input
+											type="date"
+											id="date-{type.id}"
+											class="input"
+											value={state.completionDate}
+											oninput={(e) => updateField(type.id, 'completionDate', e.currentTarget.value)}
+											required
+										/>
+									</div>
+									<div class="form-group expiration-preview">
+										<span class="label">Expires:</span>
+										<span class="preview-value">
+											{calculateExpirationDate(state.completionDate, type.expirationMonths) ?? 'Set date'}
+										</span>
+									</div>
+								</div>
+							{/if}
+							<div class="form-group">
+								<label class="label" for="notes-{type.id}">Notes</label>
+								<input
+									type="text"
+									id="notes-{type.id}"
+									class="input"
+									value={state.notes}
+									oninput={(e) => updateField(type.id, 'notes', e.currentTarget.value)}
+									placeholder="Optional notes..."
+								/>
+							</div>
+							<div class="form-group">
+								<label class="label" for="cert-{type.id}">Certificate URL</label>
+								<input
+									type="url"
+									id="cert-{type.id}"
+									class="input"
+									value={state.certificateUrl}
+									oninput={(e) => updateField(type.id, 'certificateUrl', e.currentTarget.value)}
+									placeholder="https://..."
+								/>
+							</div>
+							<div class="edit-actions">
+								<button class="btn btn-secondary btn-sm" onclick={() => cancelEdit(type.id)}> Cancel </button>
+								<button
+									class="btn btn-primary btn-sm"
+									onclick={() => saveTraining(type.id)}
+									disabled={type.expirationDateOnly
+										? !state.directExpirationDate
+										: neverExpires
+											? !state.isComplete
+											: !state.completionDate}
+								>
+									Save
+								</button>
 							</div>
 						</div>
-
-						{#if existing && !state?.isEditing}
-							<div class="training-details">
-								{#if existing.completionDate}
-									<span class="detail-item">
-										<span class="detail-label">Completed:</span>
-										<span class="detail-value">{existing.completionDate}</span>
-									</span>
-								{:else}
-									<span class="detail-item">
-										<span class="detail-label">Status:</span>
-										<span class="detail-value">Complete (no date)</span>
-									</span>
-								{/if}
-								{#if existing.expirationDate}
-									<span class="detail-item">
-										<span class="detail-label">Expires:</span>
-										<span class="detail-value">{existing.expirationDate}</span>
-									</span>
-								{/if}
-								{#if existing.notes}
-									<span class="detail-item notes">
-										<span class="detail-label">Notes:</span>
-										<span class="detail-value">{existing.notes}</span>
-									</span>
-								{/if}
-							</div>
-						{/if}
-
-						{#if state?.isEditing}
-							{@const neverExpires = type.expirationMonths === null && !type.expirationDateOnly}
-							<div class="edit-form">
-								{#if type.expirationDateOnly}
-									<div class="form-row">
-										<div class="form-group">
-											<label class="label" for="date-{type.id}">Expiration Date</label>
-											<input
-												type="date"
-												id="date-{type.id}"
-												class="input"
-												value={state.directExpirationDate}
-												oninput={(e) => updateField(type.id, 'directExpirationDate', e.currentTarget.value)}
-												required
-											/>
-										</div>
-										<div class="form-group expiration-preview">
-											<span class="label">Status:</span>
-											<span class="preview-value">
-												{state.directExpirationDate ? (state.directExpirationDate >= formatDate(new Date()) ? 'Current' : 'Expired') : 'Set date'}
-											</span>
-										</div>
-									</div>
-								{:else if neverExpires}
-									<div class="form-group checkbox-group">
-										<label class="checkbox-label">
-											<input
-												type="checkbox"
-												checked={state.isComplete}
-												onchange={(e) => updateField(type.id, 'isComplete', e.currentTarget.checked)}
-											/>
-											<span class="checkbox-text">Mark as Complete</span>
-										</label>
-									</div>
-									<div class="form-row">
-										<div class="form-group">
-											<label class="label" for="date-{type.id}">Completion Date (Optional)</label>
-											<input
-												type="date"
-												id="date-{type.id}"
-												class="input"
-												value={state.completionDate}
-												oninput={(e) => updateField(type.id, 'completionDate', e.currentTarget.value)}
-												disabled={!state.isComplete}
-											/>
-										</div>
-										<div class="form-group expiration-preview">
-											<span class="label">Expires:</span>
-											<span class="preview-value">Never</span>
-										</div>
-									</div>
-								{:else}
-									<div class="form-row">
-										<div class="form-group">
-											<label class="label" for="date-{type.id}">Completion Date</label>
-											<input
-												type="date"
-												id="date-{type.id}"
-												class="input"
-												value={state.completionDate}
-												oninput={(e) => updateField(type.id, 'completionDate', e.currentTarget.value)}
-												required
-											/>
-										</div>
-										<div class="form-group expiration-preview">
-											<span class="label">Expires:</span>
-											<span class="preview-value">
-												{calculateExpirationDate(state.completionDate, type.expirationMonths) ?? 'Set date'}
-											</span>
-										</div>
-									</div>
-								{/if}
-								<div class="form-group">
-									<label class="label" for="notes-{type.id}">Notes</label>
-									<input
-										type="text"
-										id="notes-{type.id}"
-										class="input"
-										value={state.notes}
-										oninput={(e) => updateField(type.id, 'notes', e.currentTarget.value)}
-										placeholder="Optional notes..."
-									/>
-								</div>
-								<div class="form-group">
-									<label class="label" for="cert-{type.id}">Certificate URL</label>
-									<input
-										type="url"
-										id="cert-{type.id}"
-										class="input"
-										value={state.certificateUrl}
-										oninput={(e) => updateField(type.id, 'certificateUrl', e.currentTarget.value)}
-										placeholder="https://..."
-									/>
-								</div>
-								<div class="edit-actions">
-									<button class="btn btn-secondary btn-sm" onclick={() => cancelEdit(type.id)}>
-										Cancel
-									</button>
-									<button
-										class="btn btn-primary btn-sm"
-										onclick={() => saveTraining(type.id)}
-										disabled={type.expirationDateOnly ? !state.directExpirationDate : neverExpires ? !state.isComplete : !state.completionDate}
-									>
-										Save
-									</button>
-								</div>
-							</div>
-						{/if}
-					</div>
-				{/each}
-			</div>
+					{/if}
+				</div>
+			{/each}
 		</div>
-
+	</div>
 </Modal>
 
 {#if confirmRemoveTypeId}
@@ -563,7 +590,7 @@
 {/if}
 
 {#if showMarkAllConfirm}
-	{@const count = trainingTypes.filter(t => !t.expirationDateOnly).length}
+	{@const count = trainingTypes.filter((t) => !t.expirationDateOnly).length}
 	<ConfirmDialog
 		title="Mark All Completed"
 		message="Mark {count} trainings as completed today? (Expiration-date-only trainings must be set individually)"
@@ -607,11 +634,26 @@
 		min-width: 50px;
 	}
 
-	.stat.current { background-color: rgba(34, 197, 94, 0.1); border: 1px solid #22c55e; }
-	.stat.warning-yellow { background-color: rgba(234, 179, 8, 0.1); border: 1px solid #eab308; }
-	.stat.warning-orange { background-color: rgba(249, 115, 22, 0.1); border: 1px solid #f97316; }
-	.stat.expired { background-color: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; }
-	.stat.not-done { background-color: rgba(107, 114, 128, 0.1); border: 1px solid #6b7280; }
+	.stat.current {
+		background-color: rgba(34, 197, 94, 0.1);
+		border: 1px solid #22c55e;
+	}
+	.stat.warning-yellow {
+		background-color: rgba(234, 179, 8, 0.1);
+		border: 1px solid #eab308;
+	}
+	.stat.warning-orange {
+		background-color: rgba(249, 115, 22, 0.1);
+		border: 1px solid #f97316;
+	}
+	.stat.expired {
+		background-color: rgba(239, 68, 68, 0.1);
+		border: 1px solid #ef4444;
+	}
+	.stat.not-done {
+		background-color: rgba(107, 114, 128, 0.1);
+		border: 1px solid #6b7280;
+	}
 
 	.stat-value {
 		display: block;
@@ -774,7 +816,7 @@
 		border-color: var(--color-primary);
 	}
 
-	.checkbox-label input[type="checkbox"] {
+	.checkbox-label input[type='checkbox'] {
 		width: 18px;
 		height: 18px;
 		accent-color: var(--color-primary);

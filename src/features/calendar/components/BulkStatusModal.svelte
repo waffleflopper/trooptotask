@@ -13,7 +13,13 @@
 	interface Props {
 		personnelByGroup: GroupData[];
 		statusTypes: StatusType[];
-		onApply: (personnelIds: string[], statusTypeId: string, startDate: string, endDate: string, note: string | null) => Promise<void>;
+		onApply: (
+			personnelIds: string[],
+			statusTypeId: string,
+			startDate: string,
+			endDate: string,
+			note: string | null
+		) => Promise<void>;
 		onClose: () => void;
 		onImport?: () => void;
 	}
@@ -35,9 +41,7 @@
 	let note = $state('');
 	let collapsedGroups = $state<Set<string>>(new Set());
 
-	const allPersonnel = $derived(
-		personnelByGroup.flatMap((g) => g.personnel)
-	);
+	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
 	const filteredGroups = $derived.by(() => {
 		if (!searchQuery.trim()) return personnelByGroup;
@@ -72,9 +76,7 @@
 		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 	});
 
-	const isValid = $derived(
-		selectedStatusId && startDate && endDate && startDate <= endDate && selectedIds.size > 0
-	);
+	const isValid = $derived(selectedStatusId && startDate && endDate && startDate <= endDate && selectedIds.size > 0);
 
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
 
@@ -160,190 +162,193 @@
 	}
 </script>
 
-<Modal
-	title="Bulk Status Assignment"
-	{onClose}
-	width="600px"
-	titleId="bulk-status-title"
->
+<Modal title="Bulk Status Assignment" {onClose} width="600px" titleId="bulk-status-title">
 	<div class="modal-content">
-			<!-- Status & Date Configuration -->
-			<div class="config-section">
-				<div class="config-row">
-					<div class="form-group status-select">
-						<label class="label" for="statusType">Status Type</label>
-						<select id="statusType" class="select" bind:value={selectedStatusId}>
-							{#each statusTypes as status}
-								<option value={status.id}>{status.name}</option>
-							{/each}
-						</select>
-					</div>
-					{#if selectedStatus}
-						<div class="status-preview">
-							<span
-								class="status-badge"
-								style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-							>
-								{selectedStatus.name}
-							</span>
-						</div>
-					{/if}
+		<!-- Status & Date Configuration -->
+		<div class="config-section">
+			<div class="config-row">
+				<div class="form-group status-select">
+					<label class="label" for="statusType">Status Type</label>
+					<select id="statusType" class="select" bind:value={selectedStatusId}>
+						{#each statusTypes as status}
+							<option value={status.id}>{status.name}</option>
+						{/each}
+					</select>
 				</div>
-
-				<div class="config-row dates-row">
-					<div class="form-group">
-						<label class="label" for="startDate">Start Date</label>
-						<input id="startDate" type="date" class="input" bind:value={startDate} />
+				{#if selectedStatus}
+					<div class="status-preview">
+						<span
+							class="status-badge"
+							style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
+						>
+							{selectedStatus.name}
+						</span>
 					</div>
-					<span class="date-arrow">→</span>
-					<div class="form-group">
-						<label class="label" for="endDate">End Date</label>
-						<input id="endDate" type="date" class="input" bind:value={endDate}
-							aria-describedby={dateError ? 'date-error' : undefined}
-							aria-invalid={dateError ? true : undefined}
-						/>
-					</div>
-					{#if dayCount > 0}
-						<div class="day-count">
-							<span class="day-count-number">{dayCount}</span>
-							<span class="day-count-label">{dayCount === 1 ? 'day' : 'days'}</span>
-						</div>
-					{/if}
-				</div>
-
-				{#if dateError}
-					<div id="date-error" class="date-error" role="alert">{dateError}</div>
 				{/if}
-
-				<div class="config-row">
-					<div class="form-group" style="flex: 1;">
-						<label class="label" for="bulkNote">Note</label>
-						<input
-							id="bulkNote"
-							type="text"
-							class="input"
-							bind:value={note}
-							maxlength={200}
-							placeholder="Optional note (e.g., JRTC rotation)"
-						/>
-					</div>
-				</div>
 			</div>
 
-			<!-- Personnel Selection -->
-			<div class="personnel-section">
-				<div class="section-header">
-					<h3>Select Personnel</h3>
-					<div class="selection-info">
-						<span class="selected-count">{selectedIds.size} selected</span>
-						<div class="selection-actions">
-							<button class="btn btn-secondary btn-sm" onclick={selectAll}>All</button>
-							<button class="btn btn-secondary btn-sm" onclick={selectNone}>None</button>
-						</div>
-					</div>
+			<div class="config-row dates-row">
+				<div class="form-group">
+					<label class="label" for="startDate">Start Date</label>
+					<input id="startDate" type="date" class="input" bind:value={startDate} />
 				</div>
-
-				<div class="search-bar">
-					<div class="search-input-wrapper">
-						<svg class="search-icon" viewBox="0 0 20 20" fill="currentColor">
-							<path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-						</svg>
-						<input
-							type="text"
-							class="input search-input"
-							placeholder="Search by name, rank, MOS, or role..."
-							aria-label="Search personnel"
-							bind:value={searchQuery}
-						/>
-						{#if searchQuery}
-							<button class="clear-search" onclick={clearSearch} aria-label="Clear search">
-								<svg viewBox="0 0 20 20" fill="currentColor">
-									<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-								</svg>
-							</button>
-						{/if}
-					</div>
+				<span class="date-arrow">→</span>
+				<div class="form-group">
+					<label class="label" for="endDate">End Date</label>
+					<input
+						id="endDate"
+						type="date"
+						class="input"
+						bind:value={endDate}
+						aria-describedby={dateError ? 'date-error' : undefined}
+						aria-invalid={dateError ? true : undefined}
+					/>
 				</div>
+				{#if dayCount > 0}
+					<div class="day-count">
+						<span class="day-count-number">{dayCount}</span>
+						<span class="day-count-label">{dayCount === 1 ? 'day' : 'days'}</span>
+					</div>
+				{/if}
+			</div>
 
-				<div class="personnel-list">
-					{#each filteredGroups as grp (grp.group)}
-						{@const selectionState = getGroupSelectionState(grp.group)}
-						{@const isCollapsed = collapsedGroups.has(grp.group)}
-						<div class="group-section">
-							<div class="group-header">
-								<button
-									class="group-collapse-btn"
-									onclick={() => toggleGroupCollapse(grp.group)}
-									aria-label={isCollapsed ? `Expand ${grp.group}` : `Collapse ${grp.group}`}
-								>
-									<svg class="collapse-icon" class:collapsed={isCollapsed} viewBox="0 0 20 20" fill="currentColor">
-										<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-									</svg>
-								</button>
-								<label class="group-checkbox-label">
-									<input
-										type="checkbox"
-										checked={selectionState === 'all'}
-										indeterminate={selectionState === 'some'}
-										onchange={() => toggleGroup(grp.group)}
-									/>
-									<span class="group-name">{grp.group}</span>
-									<span class="group-count">({grp.personnel.length})</span>
-								</label>
-							</div>
-							{#if !isCollapsed}
-								<div class="group-personnel">
-									{#each grp.personnel as person (person.id)}
-										{@const isSelected = selectedIds.has(person.id)}
-										<label class="person-item" class:selected={isSelected}>
-											<input
-												type="checkbox"
-												checked={isSelected}
-												onchange={() => togglePerson(person.id)}
-											/>
-											<span class="rank">{person.rank}</span>
-											<span class="name">{person.lastName}, {person.firstName}</span>
-											{#if person.mos}
-												<span class="mos">{person.mos}</span>
-											{/if}
-										</label>
-									{/each}
-								</div>
-							{/if}
-						</div>
-					{/each}
+			{#if dateError}
+				<div id="date-error" class="date-error" role="alert">{dateError}</div>
+			{/if}
 
-					{#if filteredGroups.length === 0}
-						<div class="empty-state">
-							{#if searchQuery}
-								<p>No personnel match "{searchQuery}"</p>
-								<button class="btn btn-secondary btn-sm" onclick={clearSearch}>Clear search</button>
-							{:else}
-								<p>No personnel available</p>
-							{/if}
-						</div>
-					{/if}
+			<div class="config-row">
+				<div class="form-group" style="flex: 1;">
+					<label class="label" for="bulkNote">Note</label>
+					<input
+						id="bulkNote"
+						type="text"
+						class="input"
+						bind:value={note}
+						maxlength={200}
+						placeholder="Optional note (e.g., JRTC rotation)"
+					/>
 				</div>
 			</div>
 		</div>
 
+		<!-- Personnel Selection -->
+		<div class="personnel-section">
+			<div class="section-header">
+				<h3>Select Personnel</h3>
+				<div class="selection-info">
+					<span class="selected-count">{selectedIds.size} selected</span>
+					<div class="selection-actions">
+						<button class="btn btn-secondary btn-sm" onclick={selectAll}>All</button>
+						<button class="btn btn-secondary btn-sm" onclick={selectNone}>None</button>
+					</div>
+				</div>
+			</div>
+
+			<div class="search-bar">
+				<div class="search-input-wrapper">
+					<svg class="search-icon" viewBox="0 0 20 20" fill="currentColor">
+						<path
+							fill-rule="evenodd"
+							d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+							clip-rule="evenodd"
+						/>
+					</svg>
+					<input
+						type="text"
+						class="input search-input"
+						placeholder="Search by name, rank, MOS, or role..."
+						aria-label="Search personnel"
+						bind:value={searchQuery}
+					/>
+					{#if searchQuery}
+						<button class="clear-search" onclick={clearSearch} aria-label="Clear search">
+							<svg viewBox="0 0 20 20" fill="currentColor">
+								<path
+									fill-rule="evenodd"
+									d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+									clip-rule="evenodd"
+								/>
+							</svg>
+						</button>
+					{/if}
+				</div>
+			</div>
+
+			<div class="personnel-list">
+				{#each filteredGroups as grp (grp.group)}
+					{@const selectionState = getGroupSelectionState(grp.group)}
+					{@const isCollapsed = collapsedGroups.has(grp.group)}
+					<div class="group-section">
+						<div class="group-header">
+							<button
+								class="group-collapse-btn"
+								onclick={() => toggleGroupCollapse(grp.group)}
+								aria-label={isCollapsed ? `Expand ${grp.group}` : `Collapse ${grp.group}`}
+							>
+								<svg class="collapse-icon" class:collapsed={isCollapsed} viewBox="0 0 20 20" fill="currentColor">
+									<path
+										fill-rule="evenodd"
+										d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+										clip-rule="evenodd"
+									/>
+								</svg>
+							</button>
+							<label class="group-checkbox-label">
+								<input
+									type="checkbox"
+									checked={selectionState === 'all'}
+									indeterminate={selectionState === 'some'}
+									onchange={() => toggleGroup(grp.group)}
+								/>
+								<span class="group-name">{grp.group}</span>
+								<span class="group-count">({grp.personnel.length})</span>
+							</label>
+						</div>
+						{#if !isCollapsed}
+							<div class="group-personnel">
+								{#each grp.personnel as person (person.id)}
+									{@const isSelected = selectedIds.has(person.id)}
+									<label class="person-item" class:selected={isSelected}>
+										<input type="checkbox" checked={isSelected} onchange={() => togglePerson(person.id)} />
+										<span class="rank">{person.rank}</span>
+										<span class="name">{person.lastName}, {person.firstName}</span>
+										{#if person.mos}
+											<span class="mos">{person.mos}</span>
+										{/if}
+									</label>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/each}
+
+				{#if filteredGroups.length === 0}
+					<div class="empty-state">
+						{#if searchQuery}
+							<p>No personnel match "{searchQuery}"</p>
+							<button class="btn btn-secondary btn-sm" onclick={clearSearch}>Clear search</button>
+						{:else}
+							<p>No personnel available</p>
+						{/if}
+					</div>
+				{/if}
+			</div>
+		</div>
+	</div>
+
 	{#if onImport}
-		<button class="btn-link import-link" onclick={onImport}>
-			Have a spreadsheet? Import from file
-		</button>
+		<button class="btn-link import-link" onclick={onImport}> Have a spreadsheet? Import from file </button>
 	{/if}
 
 	{#snippet footer()}
 		<div class="footer-summary">
 			{#if selectedIds.size > 0 && selectedStatus && !dateError}
-				<span
-					class="summary-badge"
-					style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-				>
+				<span class="summary-badge" style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}">
 					{selectedStatus.name}
 				</span>
 				<span class="summary-text">
-					for <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? 'person' : 'people'}
+					for <strong>{selectedIds.size}</strong>
+					{selectedIds.size === 1 ? 'person' : 'people'}
 					&middot;
 					{#if startDate === endDate}
 						{formatDateDisplay(startDate)}
@@ -359,11 +364,7 @@
 		</div>
 		<div class="footer-actions">
 			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			<button
-				class="btn btn-primary"
-				disabled={!isValid || isSubmitting}
-				onclick={handleSubmit}
-			>
+			<button class="btn btn-primary" disabled={!isValid || isSubmitting} onclick={handleSubmit}>
 				{#if isSubmitting}
 					<Spinner />
 					Applying...
@@ -571,12 +572,12 @@
 		display: flex;
 		align-items: center;
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 	}
 
 	.group-collapse-btn {
 		padding: var(--spacing-sm);
-		color: #0F0F0F;
+		color: #0f0f0f;
 		opacity: 0.8;
 		transition: opacity 0.15s ease;
 	}
@@ -609,7 +610,7 @@
 
 	.group-checkbox-label input[type='checkbox'] {
 		cursor: pointer;
-		accent-color: #0F0F0F;
+		accent-color: #0f0f0f;
 	}
 
 	.group-name {
@@ -738,5 +739,4 @@
 	.import-link:hover {
 		color: var(--color-primary);
 	}
-
 </style>

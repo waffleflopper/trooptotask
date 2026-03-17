@@ -66,8 +66,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		giftExpiresAt: org.gift_expires_at,
 		giftedBy: org.gifted_by,
 		personnelCount: personnelCounts[org.id] || 0,
-		hasActiveSubscription:
-			!!org.stripe_subscription_id && org.subscription_status === 'active',
+		hasActiveSubscription: !!org.stripe_subscription_id && org.subscription_status === 'active',
 		subscriptionStatus: org.subscription_status,
 		stripeSubscriptionId: org.stripe_subscription_id
 	}));
@@ -76,9 +75,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	if (search) {
 		const lowerSearch = search.toLowerCase();
 		organizations = organizations.filter(
-			(o) =>
-				o.name.toLowerCase().includes(lowerSearch) ||
-				o.ownerEmail.toLowerCase().includes(lowerSearch)
+			(o) => o.name.toLowerCase().includes(lowerSearch) || o.ownerEmail.toLowerCase().includes(lowerSearch)
 		);
 	}
 

@@ -8,7 +8,10 @@
 	<meta name="description" content="Privacy policy for Troop to Task military unit management software." />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap"
+		rel="stylesheet"
+	/>
 </svelte:head>
 
 <div class="legal-page">
@@ -34,12 +37,28 @@
 				<a href="/#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<circle cx="12" cy="12" r="5" /><path
+								d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+							/>
 						</svg>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
 						</svg>
 					{/if}
 				</button>
@@ -53,9 +72,13 @@
 			<div class="mobile-actions">
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><circle cx="12" cy="12" r="5" /></svg
+						>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg
+						>
 					{/if}
 				</button>
 				{#if data.user}
@@ -83,7 +106,12 @@
 		<div class="content-inner">
 			<div class="content-label">01 // Information We Collect</div>
 			<h2>What we collect, and why.</h2>
-			<p>We collect information you provide directly: account info (email, name), organization data, and personnel records you enter (names, ranks, unit assignments, contact information, training records, counseling notes, availability statuses). We also collect usage data automatically: IP addresses, browser type, pages visited, and timestamps for security and audit purposes.</p>
+			<p>
+				We collect information you provide directly: account info (email, name), organization data, and personnel
+				records you enter (names, ranks, unit assignments, contact information, training records, counseling notes,
+				availability statuses). We also collect usage data automatically: IP addresses, browser type, pages visited, and
+				timestamps for security and audit purposes.
+			</p>
 		</div>
 	</section>
 
@@ -92,7 +120,12 @@
 		<div class="content-inner">
 			<div class="content-label">02 // How We Use Your Information</div>
 			<h2>Purpose-driven, nothing more.</h2>
-			<p>We use your information to: provide and maintain the TroopToTask service; authenticate your identity and manage access; generate audit logs for compliance; send service-related notifications; improve the service based on aggregate usage patterns. We do not use your data for advertising, profiling, or any purpose unrelated to delivering the service.</p>
+			<p>
+				We use your information to: provide and maintain the TroopToTask service; authenticate your identity and manage
+				access; generate audit logs for compliance; send service-related notifications; improve the service based on
+				aggregate usage patterns. We do not use your data for advertising, profiling, or any purpose unrelated to
+				delivering the service.
+			</p>
 		</div>
 	</section>
 
@@ -101,7 +134,11 @@
 		<div class="content-inner">
 			<div class="content-label">03 // Data Storage &amp; Security</div>
 			<h2>Protected at every layer.</h2>
-			<p>All data is encrypted at rest (AES-256) and in transit (TLS 1.2+). Data is stored on Supabase infrastructure hosted in the United States. We implement role-based access controls, audit logging, and security headers aligned with NIST SP 800-171. See our <a href="/security">Security page</a> for comprehensive details.</p>
+			<p>
+				All data is encrypted at rest (AES-256) and in transit (TLS 1.2+). Data is stored on Supabase infrastructure
+				hosted in the United States. We implement role-based access controls, audit logging, and security headers
+				aligned with NIST SP 800-171. See our <a href="/security">Security page</a> for comprehensive details.
+			</p>
 		</div>
 	</section>
 
@@ -110,7 +147,11 @@
 		<div class="content-inner">
 			<div class="content-label">04 // Data Sharing</div>
 			<h2>Your data stays yours.</h2>
-			<p>We do not sell, rent, or share your personal information or personnel data with third parties. We may disclose information only when required by law, to enforce our terms, or to protect rights and safety. Our infrastructure providers (Supabase, Vercel) process data solely to deliver the service under strict data processing agreements.</p>
+			<p>
+				We do not sell, rent, or share your personal information or personnel data with third parties. We may disclose
+				information only when required by law, to enforce our terms, or to protect rights and safety. Our infrastructure
+				providers (Supabase, Vercel) process data solely to deliver the service under strict data processing agreements.
+			</p>
 		</div>
 	</section>
 
@@ -119,7 +160,11 @@
 		<div class="content-inner">
 			<div class="content-label">05 // Data Retention</div>
 			<h2>Kept only as long as needed.</h2>
-			<p>We retain your data for as long as your account is active. When you delete personnel records, counseling records, or other data, it is permanently removed from our database. If you delete your account, all associated data is deleted. Audit logs may be retained for compliance purposes for up to 1 year after account deletion.</p>
+			<p>
+				We retain your data for as long as your account is active. When you delete personnel records, counseling
+				records, or other data, it is permanently removed from our database. If you delete your account, all associated
+				data is deleted. Audit logs may be retained for compliance purposes for up to 1 year after account deletion.
+			</p>
 		</div>
 	</section>
 
@@ -128,7 +173,12 @@
 		<div class="content-inner">
 			<div class="content-label">06 // Your Rights</div>
 			<h2>You are in control.</h2>
-			<p>You have the right to: access all data stored about you and your organization; export your data at any time via our export features; correct inaccurate information; delete your data and account; request information about how your data is processed. Organization owners can manage these rights for their organization's data through the application.</p>
+			<p>
+				You have the right to: access all data stored about you and your organization; export your data at any time via
+				our export features; correct inaccurate information; delete your data and account; request information about how
+				your data is processed. Organization owners can manage these rights for their organization's data through the
+				application.
+			</p>
 		</div>
 	</section>
 
@@ -137,7 +187,11 @@
 		<div class="content-inner">
 			<div class="content-label">07 // Cookies &amp; Tracking</div>
 			<h2>Essential only, no surveillance.</h2>
-			<p>We use only essential cookies required for authentication and session management. We do not use tracking cookies, analytics beacons, or third-party advertising pixels. We do not participate in cross-site tracking or data broker networks.</p>
+			<p>
+				We use only essential cookies required for authentication and session management. We do not use tracking
+				cookies, analytics beacons, or third-party advertising pixels. We do not participate in cross-site tracking or
+				data broker networks.
+			</p>
 		</div>
 	</section>
 
@@ -146,7 +200,11 @@
 		<div class="content-inner">
 			<div class="content-label">08 // Children's Privacy</div>
 			<h2>Not designed for minors.</h2>
-			<p>TroopToTask is designed for use by military personnel and unit leaders. We do not knowingly collect information from children under 13. If we become aware that we have collected such information, we will delete it immediately.</p>
+			<p>
+				TroopToTask is designed for use by military personnel and unit leaders. We do not knowingly collect information
+				from children under 13. If we become aware that we have collected such information, we will delete it
+				immediately.
+			</p>
 		</div>
 	</section>
 
@@ -155,7 +213,10 @@
 		<div class="content-inner">
 			<div class="content-label">09 // Changes to This Policy</div>
 			<h2>Transparent updates.</h2>
-			<p>We may update this policy to reflect changes in our practices or legal requirements. We will notify users of material changes via the application. Continued use after changes constitutes acceptance.</p>
+			<p>
+				We may update this policy to reflect changes in our practices or legal requirements. We will notify users of
+				material changes via the application. Continued use after changes constitutes acceptance.
+			</p>
 		</div>
 	</section>
 
@@ -166,8 +227,19 @@
 			<h2>Get in touch.</h2>
 			<p>For privacy-related inquiries, contact us at:</p>
 			<div class="contact-box">
-				<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+				<svg
+					viewBox="0 0 24 24"
+					width="20"
+					height="20"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline
+						points="22,6 12,13 2,6"
+					/>
 				</svg>
 				<a href="mailto:privacy@trooptotask.com">privacy@trooptotask.com</a>
 			</div>
@@ -182,12 +254,24 @@
 			{#if data.user}
 				<a href="/dashboard?show=all" class="cta-btn">
 					Go to Dashboard
-					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+						><path
+							fill-rule="evenodd"
+							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/></svg
+					>
 				</a>
 			{:else}
 				<a href="/auth/login" class="cta-btn">
 					Get Started Free
-					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+						><path
+							fill-rule="evenodd"
+							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/></svg
+					>
 				</a>
 			{/if}
 		</div>
@@ -227,17 +311,17 @@
 		--font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
 		--font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 		--font-mono: 'DM Mono', 'Menlo', monospace;
-		--brass: #B8943E;
-		--brass-light: #D4B15A;
+		--brass: #b8943e;
+		--brass-light: #d4b15a;
 		--brass-muted: rgba(184, 148, 62, 0.15);
-		--ink: #0F0F0F;
-		--ink-light: #1A1A1A;
-		--ink-border: #2A2A2A;
-		--paper: #FAFAF8;
-		--paper-warm: #F5F4F0;
+		--ink: #0f0f0f;
+		--ink-light: #1a1a1a;
+		--ink-border: #2a2a2a;
+		--paper: #fafaf8;
+		--paper-warm: #f5f4f0;
 		--hero-bg: var(--ink);
-		--hero-text: #F0EDE6;
-		--hero-muted: #8A8780;
+		--hero-text: #f0ede6;
+		--hero-muted: #8a8780;
 		min-height: 100vh;
 		background: var(--color-bg);
 		color: var(--color-text);
@@ -684,12 +768,12 @@
 	}
 
 	.footer-legal-sep {
-		color: rgba(255,255,255,0.15);
+		color: rgba(255, 255, 255, 0.15);
 		font-size: 0.75rem;
 	}
 
 	.footer-text {
-		color: rgba(255,255,255,0.2);
+		color: rgba(255, 255, 255, 0.2);
 		font-size: 0.75rem;
 		margin: 0;
 	}

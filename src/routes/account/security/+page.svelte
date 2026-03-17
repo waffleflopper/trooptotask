@@ -41,8 +41,8 @@
 				factorId = enrollData.id;
 				qrCode = enrollData.totp.qr_code;
 			}
-		} catch (e: any) {
-			error = e.message || 'Failed to start MFA enrollment';
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to start MFA enrollment';
 			enrolling = false;
 		} finally {
 			loading = false;
@@ -58,11 +58,10 @@
 		error = '';
 		loading = true;
 		try {
-			const { data: challengeData, error: challengeError } =
-				await supabase.auth.mfa.challengeAndVerify({
-					factorId,
-					code: verifyCode
-				});
+			const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challengeAndVerify({
+				factorId,
+				code: verifyCode
+			});
 
 			if (challengeError) {
 				error = challengeError.message;
@@ -74,8 +73,8 @@
 			enrolling = false;
 			qrCode = '';
 			verifyCode = '';
-		} catch (e: any) {
-			error = e.message || 'Verification failed';
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Verification failed';
 		} finally {
 			loading = false;
 		}
@@ -99,7 +98,7 @@
 		try {
 			const { data: factors } = await supabase.auth.mfa.listFactors();
 			const totpFactors = factors?.totp ?? [];
-			const verifiedFactor = totpFactors.find((f: any) => f.status === 'verified');
+			const verifiedFactor = totpFactors.find((f: Record<string, unknown>) => f.status === 'verified');
 
 			if (!verifiedFactor) {
 				error = 'No verified MFA factor found';
@@ -117,8 +116,8 @@
 
 			success = 'MFA has been disabled.';
 			mfaEnabled = false;
-		} catch (e: any) {
-			error = e.message || 'Failed to disable MFA';
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to disable MFA';
 		} finally {
 			disabling = false;
 		}
@@ -151,8 +150,8 @@
 		<section class="security-section">
 			<h2>Two-Factor Authentication (MFA)</h2>
 			<p class="section-description">
-				Add an extra layer of security to your account by requiring a verification code from your
-				authenticator app when signing in.
+				Add an extra layer of security to your account by requiring a verification code from your authenticator app when
+				signing in.
 			</p>
 
 			<div class="mfa-status">
@@ -173,8 +172,8 @@
 				<div class="enroll-section">
 					<h3>Set up your authenticator</h3>
 					<p class="enroll-instructions">
-						Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password,
-						etc.), then enter the 6-digit verification code below.
+						Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.), then enter the
+						6-digit verification code below.
 					</p>
 
 					<div class="qr-container">
@@ -203,14 +202,8 @@
 							/>
 						</div>
 						<div class="enroll-actions">
-							<button type="button" class="btn btn-secondary" onclick={cancelEnroll}>
-								Cancel
-							</button>
-							<button
-								type="submit"
-								class="btn btn-primary"
-								disabled={loading || verifyCode.length !== 6}
-							>
+							<button type="button" class="btn btn-secondary" onclick={cancelEnroll}> Cancel </button>
+							<button type="submit" class="btn btn-primary" disabled={loading || verifyCode.length !== 6}>
 								{#if loading}<Spinner />{/if}
 								Verify & Enable
 							</button>

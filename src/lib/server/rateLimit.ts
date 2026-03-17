@@ -13,14 +13,17 @@ interface RateLimitRule {
 const store = new Map<string, RateLimitEntry>();
 
 // Clean stale entries every 5 minutes
-setInterval(() => {
-	const now = Date.now();
-	for (const [key, entry] of store) {
-		if (now > entry.resetAt) {
-			store.delete(key);
+setInterval(
+	() => {
+		const now = Date.now();
+		for (const [key, entry] of store) {
+			if (now > entry.resetAt) {
+				store.delete(key);
+			}
 		}
-	}
-}, 5 * 60 * 1000);
+	},
+	5 * 60 * 1000
+);
 
 const rules: RateLimitRule[] = [
 	{ pattern: /^\/auth\//, windowMs: 15 * 60 * 1000, maxRequests: 10, methods: ['POST'] },

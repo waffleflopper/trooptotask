@@ -16,7 +16,9 @@
 </script>
 
 <div class="page-toolbar">
-	<h2 class="toolbar-title">{title}{#if helpTopic}<HelpButton topic={helpTopic} />{/if}</h2>
+	<h2 class="toolbar-title">
+		{title}{#if helpTopic}<HelpButton topic={helpTopic} />{/if}
+	</h2>
 
 	{#if children}
 		<div class="toolbar-actions">
@@ -35,16 +37,21 @@
 				onclick={() => (showOverflow = !showOverflow)}
 			>
 				<span>More</span>
-				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<svg
+					width="12"
+					height="12"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
 					<polyline points="6 9 12 15 18 9" />
 				</svg>
 			</button>
-			<OverflowMenu
-				items={overflowItems}
-				align="right"
-				open={showOverflow}
-				onClose={() => (showOverflow = false)}
-			/>
+			<OverflowMenu items={overflowItems} align="right" open={showOverflow} onClose={() => (showOverflow = false)} />
 		</div>
 	{/if}
 </div>

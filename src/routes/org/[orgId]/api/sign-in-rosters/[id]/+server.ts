@@ -22,11 +22,7 @@ export const DELETE: RequestHandler = async ({ params, locals, cookies }) => {
 		await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
 	}
 
-	const { error: dbError } = await supabase
-		.from('sign_in_rosters')
-		.delete()
-		.eq('id', id)
-		.eq('organization_id', orgId);
+	const { error: dbError } = await supabase.from('sign_in_rosters').delete().eq('id', id).eq('organization_id', orgId);
 
 	if (dbError) throw error(500, dbError.message);
 

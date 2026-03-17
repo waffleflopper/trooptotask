@@ -3,7 +3,7 @@ import type { AvailabilityEntry, StatusType, SpecialDay } from '../calendar.type
 import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import autoTable, { type RowInput } from 'jspdf-autotable';
 
 interface GroupData {
 	group: string;
@@ -66,11 +66,7 @@ function escapeCSV(value: string): string {
 /**
  * Export single month calendar to Excel-compatible HTML with colors
  */
-export function exportMonthToCSV(
-	year: number,
-	month: number,
-	options: ExportOptions
-): void {
+export function exportMonthToCSV(year: number, month: number, options: ExportOptions): void {
 	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
 	const dates = getMonthDates(year, month);
 	const monthName = getMonthName(month);
@@ -161,10 +157,7 @@ export function exportMonthToCSV(
 /**
  * Export 3-month view to Excel-compatible HTML with colors (same format as single month)
  */
-export function exportQuarterToCSV(
-	startDate: Date,
-	options: ExportOptions
-): void {
+export function exportQuarterToCSV(startDate: Date, options: ExportOptions): void {
 	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
 
 	// Get 3 months of data
@@ -307,12 +300,15 @@ function buildCalendarTable(
 	assignments: DailyAssignment[],
 	compact: boolean
 ) {
-	const head = ['Personnel', ...dates.map((d) => {
-		const dayName = d.toLocaleDateString('en-US', { weekday: 'narrow' });
-		return `${dayName}\n${d.getDate()}`;
-	})];
+	const head = [
+		'Personnel',
+		...dates.map((d) => {
+			const dayName = d.toLocaleDateString('en-US', { weekday: 'narrow' });
+			return `${dayName}\n${d.getDate()}`;
+		})
+	];
 
-	const body: any[][] = [];
+	const body: RowInput[] = [];
 	const weekendCols = new Set<number>();
 	const holidayCols = new Set<number>();
 
@@ -333,7 +329,18 @@ function buildCalendarTable(
 		// Group header row
 		const groupRowIdx = body.length;
 		groupRows.add(groupRowIdx);
-		body.push([{ content: grp.group, colSpan: dates.length + 1, styles: { fontStyle: 'bold' as const, fillColor: [30, 64, 175] as [number, number, number], textColor: 255, halign: 'left' as const } }]);
+		body.push([
+			{
+				content: grp.group,
+				colSpan: dates.length + 1,
+				styles: {
+					fontStyle: 'bold' as const,
+					fillColor: [30, 64, 175] as [number, number, number],
+					textColor: 255,
+					halign: 'left' as const
+				}
+			}
+		]);
 
 		for (const person of grp.personnel) {
 			const rowIdx = body.length;
@@ -341,6 +348,7 @@ function buildCalendarTable(
 				? `${person.rank} ${person.lastName}`
 				: `${person.rank} ${person.lastName}, ${person.firstName}`;
 
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- jsPDF-autoTable row cells use mixed types
 			const row: any[] = [nameLabel];
 
 			for (let di = 0; di < dates.length; di++) {
@@ -374,17 +382,20 @@ function buildCalendarTable(
 /**
  * Generate PDF for month calendar using jsPDF
  */
-export function printMonthCalendar(
-	year: number,
-	month: number,
-	options: ExportOptions
-): void {
+export function printMonthCalendar(year: number, month: number, options: ExportOptions): void {
 	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
 	const dates = getMonthDates(year, month);
 	const monthName = getMonthName(month);
 
 	const { head, body, weekendCols, holidayCols, cellStyles, groupRows } = buildCalendarTable(
-		dates, personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments, false
+		dates,
+		personnelByGroup,
+		availabilityEntries,
+		statusTypes,
+		specialDays,
+		assignmentTypes,
+		assignments,
+		false
 	);
 
 	const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
@@ -398,6 +409,7 @@ export function printMonthCalendar(
 	const availableWidth = pageWidth - 40 - nameColWidth;
 	const dayCellWidth = Math.max(availableWidth / numCols, 14);
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- jsPDF-autoTable columnStyles uses dynamic numeric keys with vendor-specific types
 	const columnStyles: Record<number, any> = {
 		0: { cellWidth: nameColWidth, halign: 'left', overflow: 'hidden' }
 	};
@@ -427,6 +439,7 @@ export function printMonthCalendar(
 		},
 		columnStyles,
 		margin: { left: 20, right: 20 },
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- jsPDF-autoTable didParseCell callback has vendor-specific untyped data param
 		didParseCell: (data: any) => {
 			if (data.section !== 'body') return;
 			const rowIdx = data.row.index;
@@ -453,10 +466,7 @@ export function printMonthCalendar(
 /**
  * Generate PDF for 3-month calendar view using jsPDF
  */
-export function printQuarterCalendar(
-	startDate: Date,
-	options: ExportOptions
-): void {
+export function printQuarterCalendar(startDate: Date, options: ExportOptions): void {
 	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
 
 	const months: MonthData[] = [];
@@ -474,7 +484,14 @@ export function printQuarterCalendar(
 	const title = `${months[0].name} ${months[0].year} - ${months[2].name} ${months[2].year}`;
 
 	const { head, body, weekendCols, holidayCols, cellStyles, groupRows } = buildCalendarTable(
-		allDates, personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments, true
+		allDates,
+		personnelByGroup,
+		availabilityEntries,
+		statusTypes,
+		specialDays,
+		assignmentTypes,
+		assignments,
+		true
 	);
 
 	const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
@@ -501,6 +518,7 @@ export function printQuarterCalendar(
 	}
 	doc.setTextColor(0);
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- jsPDF-autoTable columnStyles uses dynamic numeric keys with vendor-specific types
 	const columnStyles: Record<number, any> = {
 		0: { cellWidth: nameColWidth, halign: 'left', overflow: 'hidden' }
 	};
@@ -530,6 +548,7 @@ export function printQuarterCalendar(
 		},
 		columnStyles,
 		margin: { left: 20, right: 20 },
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- jsPDF-autoTable didParseCell callback has vendor-specific untyped data param
 		didParseCell: (data: any) => {
 			if (data.section !== 'body') return;
 			const rowIdx = data.row.index;

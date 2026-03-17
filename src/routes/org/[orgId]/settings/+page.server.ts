@@ -31,44 +31,44 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			.eq('status', 'pending')
 	]);
 
-	const members: OrganizationMember[] = (membershipsRes.data ?? []).map((m: any) => ({
-		id: m.id,
+	const members = (membershipsRes.data ?? []).map((m: Record<string, unknown>) => ({
+		id: m.id as string,
 		organizationId: orgId,
-		userId: m.user_id,
-		email: m.email,
-		role: m.role,
-		scopedGroupId: m.scoped_group_id,
-		createdAt: m.created_at,
-		canViewCalendar: m.can_view_calendar,
-		canEditCalendar: m.can_edit_calendar,
-		canViewPersonnel: m.can_view_personnel,
-		canEditPersonnel: m.can_edit_personnel,
-		canViewTraining: m.can_view_training,
-		canEditTraining: m.can_edit_training,
-		canViewOnboarding: m.can_view_onboarding,
-		canEditOnboarding: m.can_edit_onboarding,
-		canViewLeadersBook: m.can_view_leaders_book,
-		canEditLeadersBook: m.can_edit_leaders_book,
-		canManageMembers: m.can_manage_members
-	}));
+		userId: m.user_id as string,
+		email: m.email as string,
+		role: m.role as string,
+		scopedGroupId: m.scoped_group_id as string | null,
+		createdAt: m.created_at as string,
+		canViewCalendar: m.can_view_calendar as boolean,
+		canEditCalendar: m.can_edit_calendar as boolean,
+		canViewPersonnel: m.can_view_personnel as boolean,
+		canEditPersonnel: m.can_edit_personnel as boolean,
+		canViewTraining: m.can_view_training as boolean,
+		canEditTraining: m.can_edit_training as boolean,
+		canViewOnboarding: m.can_view_onboarding as boolean,
+		canEditOnboarding: m.can_edit_onboarding as boolean,
+		canViewLeadersBook: m.can_view_leaders_book as boolean,
+		canEditLeadersBook: m.can_edit_leaders_book as boolean,
+		canManageMembers: m.can_manage_members as boolean
+	})) as OrganizationMember[];
 
-	const invitations = (invitationsRes.data ?? []).map((inv: any) => ({
-		id: inv.id,
-		email: inv.email,
-		status: inv.status,
-		createdAt: inv.created_at,
-		scopedGroupId: inv.scoped_group_id,
-		canViewCalendar: inv.can_view_calendar,
-		canEditCalendar: inv.can_edit_calendar,
-		canViewPersonnel: inv.can_view_personnel,
-		canEditPersonnel: inv.can_edit_personnel,
-		canViewTraining: inv.can_view_training,
-		canEditTraining: inv.can_edit_training,
-		canViewOnboarding: inv.can_view_onboarding,
-		canEditOnboarding: inv.can_edit_onboarding,
-		canViewLeadersBook: inv.can_view_leaders_book,
-		canEditLeadersBook: inv.can_edit_leaders_book,
-		canManageMembers: inv.can_manage_members
+	const invitations = (invitationsRes.data ?? []).map((inv: Record<string, unknown>) => ({
+		id: inv.id as string,
+		email: inv.email as string,
+		status: inv.status as string,
+		createdAt: inv.created_at as string,
+		scopedGroupId: inv.scoped_group_id as string | null,
+		canViewCalendar: inv.can_view_calendar as boolean,
+		canEditCalendar: inv.can_edit_calendar as boolean,
+		canViewPersonnel: inv.can_view_personnel as boolean,
+		canEditPersonnel: inv.can_edit_personnel as boolean,
+		canViewTraining: inv.can_view_training as boolean,
+		canEditTraining: inv.can_edit_training as boolean,
+		canViewOnboarding: inv.can_view_onboarding as boolean,
+		canEditOnboarding: inv.can_edit_onboarding as boolean,
+		canViewLeadersBook: inv.can_view_leaders_book as boolean,
+		canEditLeadersBook: inv.can_edit_leaders_book as boolean,
+		canManageMembers: inv.can_manage_members as boolean
 	}));
 
 	// Load export rate limit info
@@ -120,10 +120,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Organization name is required' });
 		}
 
-		const { error } = await locals.supabase
-			.from('organizations')
-			.update({ name })
-			.eq('id', orgId);
+		const { error } = await locals.supabase.from('organizations').update({ name }).eq('id', orgId);
 
 		if (error) {
 			return fail(500, { error: error.message });
@@ -164,7 +161,7 @@ export const actions: Actions = {
 		const permissions = PERMISSION_PRESETS[preset] || PERMISSION_PRESETS['full-editor'];
 
 		// Read scoped group ID for team-leader preset
-		const scopedGroupId = formData.get('scopedGroupId') as string || null;
+		const scopedGroupId = (formData.get('scopedGroupId') as string) || null;
 
 		const { error } = await locals.supabase.from('organization_invitations').insert({
 			organization_id: orgId,
@@ -188,10 +185,7 @@ export const actions: Actions = {
 			return fail(500, { inviteError: error.message });
 		}
 
-		auditLog(
-			{ action: 'member.invite', resourceType: 'organization', orgId, details: { email } },
-			{ userId: user.id }
-		);
+		auditLog({ action: 'member.invite', resourceType: 'organization', orgId, details: { email } }, { userId: user.id });
 
 		await notifyAdmins(orgId, user.id, {
 			type: 'member_invited',
@@ -203,7 +197,8 @@ export const actions: Actions = {
 		return {
 			inviteSuccess: true,
 			inviteEmail: email,
-			inviteMessage: 'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
+			inviteMessage:
+				'Invitation created! Tell the user to log in to Troop to Task - they will see the invitation on their dashboard.'
 		};
 	},
 
@@ -220,11 +215,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Invalid invitation ID' });
 		}
 
-		await locals.supabase
-			.from('organization_invitations')
-			.delete()
-			.eq('id', inviteId)
-			.eq('organization_id', orgId);
+		await locals.supabase.from('organization_invitations').delete().eq('id', inviteId).eq('organization_id', orgId);
 
 		auditLog(
 			{ action: 'member.invite_revoked', resourceType: 'organization', orgId, details: { inviteId } },
@@ -262,11 +253,7 @@ export const actions: Actions = {
 			return fail(400, { memberError: 'Cannot remove the organization owner' });
 		}
 
-		await locals.supabase
-			.from('organization_memberships')
-			.delete()
-			.eq('id', membershipId)
-			.eq('organization_id', orgId);
+		await locals.supabase.from('organization_memberships').delete().eq('id', membershipId).eq('organization_id', orgId);
 
 		auditLog(
 			{ action: 'member.removed', resourceType: 'organization', orgId, details: { membershipId } },
@@ -274,11 +261,7 @@ export const actions: Actions = {
 		);
 
 		if (membership?.user_id) {
-			const { data: org } = await locals.supabase
-				.from('organizations')
-				.select('name')
-				.eq('id', orgId)
-				.single();
+			const { data: org } = await locals.supabase.from('organizations').select('name').eq('id', orgId).single();
 
 			await notifyUser(orgId, membership.user_id, {
 				type: 'member_removed',
@@ -379,9 +362,7 @@ export const actions: Actions = {
 
 		// Determine role and scoped_group_id based on preset
 		const role = preset === 'admin' ? 'admin' : 'member';
-		const scopedGroupId = preset === 'team-leader'
-			? (formData.get('scopedGroupId') as string || null)
-			: null;
+		const scopedGroupId = preset === 'team-leader' ? (formData.get('scopedGroupId') as string) || null : null;
 
 		const { error } = await locals.supabase
 			.from('organization_memberships')
@@ -394,18 +375,20 @@ export const actions: Actions = {
 		}
 
 		auditLog(
-			{ action: 'member.permissions_changed', resourceType: 'organization', orgId, severity: 'warning', details: { membershipId, preset } },
+			{
+				action: 'member.permissions_changed',
+				resourceType: 'organization',
+				orgId,
+				severity: 'warning',
+				details: { membershipId, preset }
+			},
 			{ userId: user.id }
 		);
 
 		const oldRole = targetMembership?.role;
 		const newRole = role;
 
-		const { data: permOrg } = await locals.supabase
-			.from('organizations')
-			.select('name')
-			.eq('id', orgId)
-			.single();
+		const { data: permOrg } = await locals.supabase.from('organizations').select('name').eq('id', orgId).single();
 		const orgName = permOrg?.name ?? 'the organization';
 
 		if (targetMembership?.user_id && targetMembership.user_id !== user.id) {
@@ -451,15 +434,17 @@ export const actions: Actions = {
 		}
 
 		auditLog(
-			{ action: 'org.ownership_transferred', resourceType: 'organization', orgId, severity: 'critical', details: { newOwnerId } },
+			{
+				action: 'org.ownership_transferred',
+				resourceType: 'organization',
+				orgId,
+				severity: 'critical',
+				details: { newOwnerId }
+			},
 			{ userId: user.id }
 		);
 
-		const { data: transferOrg } = await locals.supabase
-			.from('organizations')
-			.select('name')
-			.eq('id', orgId)
-			.single();
+		const { data: transferOrg } = await locals.supabase.from('organizations').select('name').eq('id', orgId).single();
 
 		await notifyUser(orgId, newOwnerId, {
 			type: 'ownership_transferred',
@@ -490,19 +475,13 @@ export const actions: Actions = {
 		}
 
 		// Delete the organization (cascades to all related data)
-		const { error } = await locals.supabase
-			.from('organizations')
-			.delete()
-			.eq('id', orgId);
+		const { error } = await locals.supabase.from('organizations').delete().eq('id', orgId);
 
 		if (error) {
 			return fail(500, { deleteError: error.message });
 		}
 
-		auditLog(
-			{ action: 'org.deleted', resourceType: 'organization', orgId, severity: 'critical' },
-			{ userId: user.id }
-		);
+		auditLog({ action: 'org.deleted', resourceType: 'organization', orgId, severity: 'critical' }, { userId: user.id });
 
 		// Redirect to dashboard after deletion
 		throw redirect(303, '/dashboard?show=all');

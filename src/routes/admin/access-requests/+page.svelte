@@ -10,9 +10,12 @@
 
 	function statusColor(status: string): string {
 		switch (status) {
-			case 'approved': return 'var(--color-success)';
-			case 'rejected': return 'var(--color-error)';
-			default: return 'var(--color-text-muted)';
+			case 'approved':
+				return 'var(--color-success)';
+			case 'rejected':
+				return 'var(--color-error)';
+			default:
+				return 'var(--color-text-muted)';
 		}
 	}
 </script>
@@ -37,21 +40,13 @@
 	{/if}
 
 	<div class="tabs">
-		<button
-			class="tab"
-			class:active={activeTab === 'pending'}
-			onclick={() => (activeTab = 'pending')}
-		>
+		<button class="tab" class:active={activeTab === 'pending'} onclick={() => (activeTab = 'pending')}>
 			Pending
 			{#if data.pending.length > 0}
 				<span class="tab-count">{data.pending.length}</span>
 			{/if}
 		</button>
-		<button
-			class="tab"
-			class:active={activeTab === 'reviewed'}
-			onclick={() => (activeTab = 'reviewed')}
-		>
+		<button class="tab" class:active={activeTab === 'reviewed'} onclick={() => (activeTab = 'reviewed')}>
 			Reviewed
 			{#if data.reviewed.length > 0}
 				<span class="tab-count">{data.reviewed.length}</span>
@@ -120,58 +115,56 @@
 				{/each}
 			</div>
 		{/if}
+	{:else if data.reviewed.length === 0}
+		<div class="empty-card">
+			<p>No reviewed requests yet</p>
+		</div>
 	{:else}
-		{#if data.reviewed.length === 0}
-			<div class="empty-card">
-				<p>No reviewed requests yet</p>
-			</div>
-		{:else}
-			<div class="request-list">
-				{#each data.reviewed as req (req.id)}
-					<div class="request-card reviewed">
-						<div class="request-info">
-							<div class="request-header-row">
-								<span class="request-name">{req.name}</span>
-								<Badge label={req.status} color={statusColor(req.status)} />
-							</div>
-							<div class="request-email">{req.email}</div>
-							{#if req.reason}
-								<div class="request-reason">{req.reason}</div>
-							{/if}
-							<div class="request-date">
-								Submitted {formatDisplayDateTime(req.created_at)}
-								{#if req.reviewed_at}
-									&middot; Reviewed {formatDisplayDateTime(req.reviewed_at)}
-								{/if}
-							</div>
+		<div class="request-list">
+			{#each data.reviewed as req (req.id)}
+				<div class="request-card reviewed">
+					<div class="request-info">
+						<div class="request-header-row">
+							<span class="request-name">{req.name}</span>
+							<Badge label={req.status} color={statusColor(req.status)} />
 						</div>
-						{#if req.status === 'approved' && req.registration_invites && !req.registration_invites.used_by}
-							<div class="request-actions">
-								<form
-									method="POST"
-									action="?/resend"
-									use:enhance={() => {
-										loadingId = req.id + '-resend';
-										return async ({ update }) => {
-											loadingId = null;
-											await update();
-										};
-									}}
-								>
-									<input type="hidden" name="requestId" value={req.id} />
-									<button type="submit" class="btn btn-secondary btn-sm" disabled={loadingId !== null}>
-										{#if loadingId === req.id + '-resend'}
-											<Spinner color="var(--color-text-muted)" />
-										{/if}
-										Resend
-									</button>
-								</form>
-							</div>
+						<div class="request-email">{req.email}</div>
+						{#if req.reason}
+							<div class="request-reason">{req.reason}</div>
 						{/if}
+						<div class="request-date">
+							Submitted {formatDisplayDateTime(req.created_at)}
+							{#if req.reviewed_at}
+								&middot; Reviewed {formatDisplayDateTime(req.reviewed_at)}
+							{/if}
+						</div>
 					</div>
-				{/each}
-			</div>
-		{/if}
+					{#if req.status === 'approved' && req.registration_invites && !req.registration_invites.used_by}
+						<div class="request-actions">
+							<form
+								method="POST"
+								action="?/resend"
+								use:enhance={() => {
+									loadingId = req.id + '-resend';
+									return async ({ update }) => {
+										loadingId = null;
+										await update();
+									};
+								}}
+							>
+								<input type="hidden" name="requestId" value={req.id} />
+								<button type="submit" class="btn btn-secondary btn-sm" disabled={loadingId !== null}>
+									{#if loadingId === req.id + '-resend'}
+										<Spinner color="var(--color-text-muted)" />
+									{/if}
+									Resend
+								</button>
+							</form>
+						</div>
+					{/if}
+				</div>
+			{/each}
+		</div>
 	{/if}
 </div>
 
@@ -252,7 +245,7 @@
 
 	.tab.active .tab-count {
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 	}
 
 	/* Request cards */
@@ -321,7 +314,6 @@
 		gap: var(--spacing-sm);
 		flex-shrink: 0;
 	}
-
 
 	.empty-card {
 		background: var(--color-surface);

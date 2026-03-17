@@ -22,7 +22,17 @@
 		onWhatsNew?: () => void;
 	}
 
-	let { orgId, orgName, userRole, permissions, allOrgs, onToggleTheme, isDarkTheme, unreadNotificationCount = 0, onWhatsNew }: Props = $props();
+	let {
+		orgId,
+		orgName,
+		userRole,
+		permissions,
+		allOrgs,
+		onToggleTheme,
+		isDarkTheme,
+		unreadNotificationCount = 0,
+		onWhatsNew
+	}: Props = $props();
 
 	const pathname = $derived($page.url.pathname);
 
@@ -108,15 +118,7 @@
 
 	<div class="header-right">
 		<NotificationBell {orgId} unreadCount={unreadNotificationCount} />
-		<AvatarMenu
-			{orgId}
-			{orgName}
-			{userRole}
-			{allOrgs}
-			{onToggleTheme}
-			{isDarkTheme}
-			{onWhatsNew}
-		/>
+		<AvatarMenu {orgId} {orgName} {userRole} {allOrgs} {onToggleTheme} {isDarkTheme} {onWhatsNew} />
 	</div>
 </header>
 
@@ -131,9 +133,9 @@
 		left: 0;
 		width: 100%;
 		height: var(--header-height);
-		background: #0F0F0F;
-		color: #F0EDE6;
-		border-bottom: 1px solid #2A2A2A;
+		background: #0f0f0f;
+		color: #f0ede6;
+		border-bottom: 1px solid #2a2a2a;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -155,7 +157,7 @@
 		align-items: center;
 		gap: var(--spacing-sm);
 		text-decoration: none;
-		color: #F0EDE6;
+		color: #f0ede6;
 	}
 
 	.header-mark {
@@ -163,8 +165,8 @@
 		font-size: 0.6875rem;
 		font-weight: 500;
 		letter-spacing: 0.05em;
-		background: #B8943E;
-		color: #0F0F0F;
+		background: #b8943e;
+		color: #0f0f0f;
 		padding: 0.2rem 0.4rem;
 		border-radius: 4px;
 		line-height: 1;
@@ -178,7 +180,7 @@
 	}
 
 	.header-org-name {
-		color: #8A8780;
+		color: #8a8780;
 		font-size: var(--font-size-xs);
 	}
 
@@ -197,7 +199,7 @@
 		padding: 0 var(--spacing-md);
 		font-size: var(--font-size-sm);
 		font-weight: 500;
-		color: #8A8780;
+		color: #8a8780;
 		text-decoration: none;
 		border-bottom: 3px solid transparent;
 		box-sizing: border-box;
@@ -206,12 +208,12 @@
 	}
 
 	.nav-tab:hover {
-		color: #F0EDE6;
+		color: #f0ede6;
 	}
 
 	.nav-tab.active {
-		color: #B8943E;
-		border-bottom-color: #B8943E;
+		color: #b8943e;
+		border-bottom-color: #b8943e;
 	}
 
 	.beta-badge {
@@ -221,7 +223,7 @@
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		background: rgba(184, 148, 62, 0.15);
-		color: #B8943E;
+		color: #b8943e;
 		padding: 2px 6px;
 		border-radius: 3px;
 		margin-left: 6px;

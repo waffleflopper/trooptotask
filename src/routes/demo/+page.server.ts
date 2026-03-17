@@ -11,11 +11,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	});
 
 	// Find the showcase organization
-	const { data: showcaseOrg } = await supabase
-		.from('organizations')
-		.select('id')
-		.eq('demo_type', 'showcase')
-		.single();
+	const { data: showcaseOrg } = await supabase.from('organizations').select('id').eq('demo_type', 'showcase').single();
 
 	if (!showcaseOrg) {
 		// No showcase org found - redirect to login with error

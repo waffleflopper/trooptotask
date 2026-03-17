@@ -15,6 +15,7 @@
 ### Task 1: Security Response Headers
 
 **Files:**
+
 - Modify: `src/hooks.server.ts`
 
 **Step 1: Add security headers to the handle function**
@@ -33,7 +34,7 @@ const securityHeaders: Record<string, string> = {
 		"default-src 'self'",
 		"script-src 'self' 'unsafe-inline' https://js.stripe.com",
 		"style-src 'self' 'unsafe-inline'",
-		"frame-src https://js.stripe.com",
+		'frame-src https://js.stripe.com',
 		"connect-src 'self' https://*.supabase.co",
 		"img-src 'self' data: blob:",
 		"font-src 'self'"
@@ -78,6 +79,7 @@ git commit -m "feat: add security response headers (CSP, HSTS, X-Frame-Options, 
 ### Task 2: Rate Limiting Module
 
 **Files:**
+
 - Create: `src/lib/server/rateLimit.ts`
 - Modify: `src/hooks.server.ts`
 
@@ -102,14 +104,17 @@ interface RateLimitRule {
 const store = new Map<string, RateLimitEntry>();
 
 // Clean stale entries every 5 minutes
-setInterval(() => {
-	const now = Date.now();
-	for (const [key, entry] of store) {
-		if (now > entry.resetAt) {
-			store.delete(key);
+setInterval(
+	() => {
+		const now = Date.now();
+		for (const [key, entry] of store) {
+			if (now > entry.resetAt) {
+				store.delete(key);
+			}
 		}
-	}
-}, 5 * 60 * 1000);
+	},
+	5 * 60 * 1000
+);
 
 const rules: RateLimitRule[] = [
 	{ pattern: /^\/auth\//, windowMs: 15 * 60 * 1000, maxRequests: 10 },
@@ -208,6 +213,7 @@ git commit -m "feat: add in-memory rate limiting for auth, API, and export route
 ### Task 3: Server-Side Permission Checks on Settings Form Actions
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/settings/+page.server.ts`
 - Modify: `src/lib/server/permissions.ts`
 
@@ -245,11 +251,7 @@ export async function requireManageMembersPermission(
  * Requires that the user is the org owner.
  * Used for destructive operations: delete org, transfer ownership.
  */
-export async function requireOwnerRole(
-	supabase: SupabaseClient,
-	orgId: string,
-	userId: string
-): Promise<void> {
+export async function requireOwnerRole(supabase: SupabaseClient, orgId: string, userId: string): Promise<void> {
 	const { data: membership } = await supabase
 		.from('organization_memberships')
 		.select('role')
@@ -274,21 +276,25 @@ import { requireManageMembersPermission, requireOwnerRole } from '$lib/server/pe
 Then add permission checks to each action:
 
 **updateName** — after `if (!user)` check, add:
+
 ```typescript
 await requireManageMembersPermission(locals.supabase, orgId, user.id);
 ```
 
 **invite** — after `if (!user)` check, add:
+
 ```typescript
 await requireManageMembersPermission(locals.supabase, orgId, user.id);
 ```
 
 **revokeInvite** — after `if (!user)` check, add:
+
 ```typescript
 await requireManageMembersPermission(locals.supabase, orgId, user.id);
 ```
 
 **transferOwnership** — after `if (!user)` check, add:
+
 ```typescript
 await requireOwnerRole(locals.supabase, orgId, user.id);
 ```
@@ -310,6 +316,7 @@ git commit -m "feat: add server-side permission checks to settings form actions"
 ### Task 4: Input Validation Module
 
 **Files:**
+
 - Create: `src/lib/server/validation.ts`
 
 **Step 1: Create the validation module**
@@ -323,7 +330,8 @@ Create `src/lib/server/validation.ts`:
  */
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+const EMAIL_REGEX =
+	/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
 /**
  * Sanitize a string: trim whitespace, collapse internal whitespace, cap length.
@@ -385,21 +393,25 @@ git commit -m "feat: add centralized input validation module"
 ### Task 5: Apply Input Validation to Settings Form Actions
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/settings/+page.server.ts`
 
 **Step 1: Add validation to settings actions**
 
 Add import:
+
 ```typescript
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
 ```
 
 **updateName action** — replace the name extraction:
+
 ```typescript
 const name = sanitizeString(formData.get('name') as string, 100);
 ```
 
 **invite action** — replace the email extraction and add validation:
+
 ```typescript
 const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
 if (!validateEmail(email)) {
@@ -408,6 +420,7 @@ if (!validateEmail(email)) {
 ```
 
 **revokeInvite action** — add UUID validation:
+
 ```typescript
 const inviteId = formData.get('inviteId') as string;
 if (!validateUUID(inviteId)) {
@@ -416,6 +429,7 @@ if (!validateUUID(inviteId)) {
 ```
 
 **removeMember action** — add UUID validation:
+
 ```typescript
 const membershipId = formData.get('membershipId') as string;
 if (!validateUUID(membershipId)) {
@@ -424,6 +438,7 @@ if (!validateUUID(membershipId)) {
 ```
 
 **updatePermissions action** — add UUID validation:
+
 ```typescript
 const membershipId = formData.get('membershipId') as string;
 if (!validateUUID(membershipId)) {
@@ -432,6 +447,7 @@ if (!validateUUID(membershipId)) {
 ```
 
 **transferOwnership action** — add UUID validation:
+
 ```typescript
 const newOwnerId = formData.get('newOwnerId') as string;
 if (!validateUUID(newOwnerId)) {
@@ -456,17 +472,20 @@ git commit -m "feat: apply input validation to settings form actions"
 ### Task 6: Apply Input Validation to Auth Routes
 
 **Files:**
+
 - Modify: `src/routes/auth/register/+page.server.ts`
 - Modify: `src/routes/auth/login/+page.server.ts`
 
 **Step 1: Harden registration validation**
 
 In `src/routes/auth/register/+page.server.ts`, add import:
+
 ```typescript
 import { sanitizeString, validateEmail } from '$lib/server/validation';
 ```
 
 Replace the existing input handling:
+
 ```typescript
 const inviteCode = sanitizeString(formData.get('inviteCode') as string, 50);
 const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
@@ -497,11 +516,13 @@ if (password !== confirmPassword) {
 **Step 2: Harden login validation**
 
 In `src/routes/auth/login/+page.server.ts`, add import:
+
 ```typescript
 import { sanitizeString } from '$lib/server/validation';
 ```
 
 Replace email extraction:
+
 ```typescript
 const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
 const password = formData.get('password') as string;
@@ -528,6 +549,7 @@ git commit -m "feat: harden auth input validation and upgrade password policy to
 ### Task 7: Apply Input Validation to API Endpoints
 
 **Files:**
+
 - Modify: `src/lib/server/crudFactory.ts`
 - Modify: `src/routes/api/access-requests/+server.ts`
 - Modify: `src/routes/api/feedback/+server.ts`
@@ -535,16 +557,19 @@ git commit -m "feat: harden auth input validation and upgrade password policy to
 **Step 1: Add UUID validation to crudFactory**
 
 In `src/lib/server/crudFactory.ts`, add import:
+
 ```typescript
 import { validateUUID } from './validation';
 ```
 
 In each of the POST, PUT, DELETE handlers, after extracting `orgId`, add:
+
 ```typescript
 if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 ```
 
 In PUT and DELETE handlers, after extracting `id` from body, add:
+
 ```typescript
 if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 ```
@@ -552,6 +577,7 @@ if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 **Step 2: Harden access-requests endpoint**
 
 In `src/routes/api/access-requests/+server.ts`, add import and apply:
+
 ```typescript
 import { sanitizeString, validateEmail } from '$lib/server/validation';
 ```
@@ -561,6 +587,7 @@ Apply `sanitizeString()` to name/message fields and `validateEmail()` to email.
 **Step 3: Harden feedback endpoint**
 
 In `src/routes/api/feedback/+server.ts`, add import and apply:
+
 ```typescript
 import { sanitizeString, validateEnum } from '$lib/server/validation';
 ```
@@ -584,6 +611,7 @@ git commit -m "feat: apply input validation to CRUD factory and public API endpo
 ### Task 8: Supabase Storage Bucket RLS Policies
 
 **Files:**
+
 - Create: `supabase/migrations/20260307_storage_bucket_policies.sql`
 
 **Step 1: Create the migration**
@@ -641,6 +669,7 @@ git commit -m "feat: add RLS policies for counseling-files storage bucket"
 ### Task 9: Audit Logging — Database Table
 
 **Files:**
+
 - Create: `supabase/migrations/20260307_audit_logs.sql`
 
 **Step 1: Create the audit_logs migration**
@@ -698,6 +727,7 @@ git commit -m "feat: add audit_logs table with RLS for NIST 800-171 compliance"
 ### Task 10: Audit Logging — Application Module
 
 **Files:**
+
 - Create: `src/lib/server/auditLog.ts`
 
 **Step 1: Create the audit logging helper**
@@ -783,6 +813,7 @@ git commit -m "feat: add audit logging module for NIST 800-171 compliance"
 ### Task 11: Integrate Audit Logging into Critical Operations
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/settings/+page.server.ts`
 - Modify: `src/routes/org/[orgId]/api/export/+server.ts`
 - Modify: `src/routes/org/[orgId]/api/export-excel/+server.ts`
@@ -793,6 +824,7 @@ git commit -m "feat: add audit logging module for NIST 800-171 compliance"
 **Step 1: Add audit logging to settings actions**
 
 In `src/routes/org/[orgId]/settings/+page.server.ts`, add import:
+
 ```typescript
 import { auditLog, getRequestInfo } from '$lib/server/auditLog';
 ```
@@ -800,6 +832,7 @@ import { auditLog, getRequestInfo } from '$lib/server/auditLog';
 Add audit logging calls after successful operations:
 
 **invite** — after successful insert:
+
 ```typescript
 auditLog(
 	{ action: 'member.invite', resourceType: 'organization', orgId, details: { email } },
@@ -810,6 +843,7 @@ auditLog(
 Note: The `event` object is available in SvelteKit form actions — update the action signatures to destructure it. Each action already receives `{ params, request, locals }` — verify the full signature includes the fields needed. If `getClientAddress` is not available on form action events, extract IP from the request headers instead.
 
 **removeMember** — after successful delete:
+
 ```typescript
 auditLog(
 	{ action: 'member.remove', resourceType: 'organization', orgId, details: { membershipId } },
@@ -818,22 +852,37 @@ auditLog(
 ```
 
 **updatePermissions** — after successful update:
+
 ```typescript
 auditLog(
-	{ action: 'member.permissions_changed', resourceType: 'organization', orgId, severity: 'warning', details: { membershipId, preset } },
+	{
+		action: 'member.permissions_changed',
+		resourceType: 'organization',
+		orgId,
+		severity: 'warning',
+		details: { membershipId, preset }
+	},
 	{ userId: user.id, ip: '', userAgent: '' }
 );
 ```
 
 **transferOwnership** — after successful RPC:
+
 ```typescript
 auditLog(
-	{ action: 'org.ownership_transferred', resourceType: 'organization', orgId, severity: 'critical', details: { newOwnerId } },
+	{
+		action: 'org.ownership_transferred',
+		resourceType: 'organization',
+		orgId,
+		severity: 'critical',
+		details: { newOwnerId }
+	},
 	{ userId: user.id, ip: '', userAgent: '' }
 );
 ```
 
 **deleteOrganization** — after successful delete:
+
 ```typescript
 auditLog(
 	{ action: 'org.deleted', resourceType: 'organization', orgId, severity: 'critical' },
@@ -844,11 +893,13 @@ auditLog(
 **Step 2: Add audit logging to export endpoints**
 
 In `src/routes/org/[orgId]/api/export/+server.ts` and `export-excel/+server.ts`, add:
+
 ```typescript
 import { auditLog } from '$lib/server/auditLog';
 ```
 
 After the export is initiated successfully:
+
 ```typescript
 auditLog(
 	{ action: 'export.created', resourceType: 'data_export', orgId },
@@ -859,11 +910,13 @@ auditLog(
 **Step 3: Add audit logging to login**
 
 In `src/routes/auth/login/+page.server.ts`, add:
+
 ```typescript
 import { auditLog } from '$lib/server/auditLog';
 ```
 
 After successful login:
+
 ```typescript
 auditLog(
 	{ action: 'auth.login_success', resourceType: 'user', details: { email } },
@@ -872,6 +925,7 @@ auditLog(
 ```
 
 After failed login (in the error handler):
+
 ```typescript
 auditLog(
 	{ action: 'auth.login_failure', resourceType: 'user', severity: 'warning', details: { email } },
@@ -882,12 +936,18 @@ auditLog(
 **Step 4: Add audit logging for rate limit violations in hooks.server.ts**
 
 In the rate limit check block in `hooks.server.ts`, before returning 429:
+
 ```typescript
 import { auditLog } from '$lib/server/auditLog';
 
 // Inside the rate limit block:
 auditLog(
-	{ action: 'security.rate_limit_exceeded', resourceType: 'request', severity: 'warning', details: { pathname: event.url.pathname, method: event.request.method } },
+	{
+		action: 'security.rate_limit_exceeded',
+		resourceType: 'request',
+		severity: 'warning',
+		details: { pathname: event.url.pathname, method: event.request.method }
+	},
 	{ userId: event.locals.user?.id ?? null, ip: clientIp, userAgent: event.request.headers.get('user-agent') ?? '' }
 );
 ```
@@ -902,6 +962,7 @@ auditResourceType?: string;
 ```
 
 Then in POST/PUT/DELETE handlers, after successful operation:
+
 ```typescript
 if (config.auditResourceType) {
 	const { auditLog } = await import('./auditLog');
@@ -915,6 +976,7 @@ if (config.auditResourceType) {
 **Step 6: Enable audit logging on PII-related CRUD endpoints**
 
 Add `auditResourceType` to the crud configs for:
+
 - `personnel-extended-info/+server.ts` — `auditResourceType: 'personnel_extended_info'`
 - `counseling-records/+server.ts` — `auditResourceType: 'counseling_record'`
 
@@ -935,6 +997,7 @@ git commit -m "feat: integrate audit logging into auth, settings, exports, and P
 ### Task 12: Session Management — Timeout Configuration
 
 **Files:**
+
 - Modify: `src/hooks.server.ts`
 
 **Step 1: Add session age check**
@@ -973,6 +1036,7 @@ git commit -m "feat: enforce 24-hour absolute session timeout for NIST 800-171 c
 ### Task 13: Data Minimization — API Response Filtering
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/api/personnel-extended-info/+server.ts`
 - Create: `src/lib/server/piiFilter.ts`
 
@@ -1084,6 +1148,7 @@ git commit -m "feat: add PII field filtering based on permission level for data 
 ### Task 14: MFA — TOTP Enrollment Flow
 
 **Files:**
+
 - Create: `src/routes/account/security/+page.svelte`
 - Create: `src/routes/account/security/+page.server.ts`
 
@@ -1101,7 +1166,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// Check if user has MFA factors enrolled
 	const { data: factors } = await locals.supabase.auth.mfa.listFactors();
 	const totpFactors = factors?.totp ?? [];
-	const hasMFA = totpFactors.some(f => f.status === 'verified');
+	const hasMFA = totpFactors.some((f) => f.status === 'verified');
 
 	return { hasMFA };
 };
@@ -1110,6 +1175,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 **Step 2: Create the account security page UI**
 
 Create `src/routes/account/security/+page.svelte` with:
+
 - Current MFA status display
 - "Enable MFA" button that calls `supabase.auth.mfa.enroll({ factorType: 'totp' })`
 - QR code display for TOTP setup (using the returned `totp.qr_code` data URL)
@@ -1121,10 +1187,12 @@ Follow the existing app design patterns: use `.btn`, `.input`, `.form-group` cla
 **Step 3: Add MFA challenge to login flow**
 
 In `src/routes/auth/login/+page.server.ts`, after successful `signInWithPassword`:
+
 - Check if the response includes an MFA challenge (`data.session === null` and error code indicates MFA required)
 - If MFA is required, redirect to a `/auth/mfa-verify` page instead of dashboard
 
 Create `src/routes/auth/mfa-verify/+page.svelte` with:
+
 - TOTP code input (6 digits)
 - Verify button that calls `supabase.auth.mfa.challengeAndVerify()`
 - Redirect to dashboard on success
@@ -1148,6 +1216,7 @@ git commit -m "feat: add TOTP MFA enrollment and verification flow"
 ### Task 15: Data Retention — Cleanup Cron Job
 
 **Files:**
+
 - Create: `src/routes/api/cleanup-old-data/+server.ts`
 - Modify: `vercel.json`
 - Create: `supabase/migrations/20260307_data_retention.sql`
@@ -1208,9 +1277,7 @@ export const GET: RequestHandler = async ({ request }) => {
 	const cleanupSecret = env.CLEANUP_SECRET;
 	const cronSecret = env.CRON_SECRET;
 
-	const isAuthorized =
-		(authHeader === `Bearer ${cleanupSecret}`) ||
-		(authHeader === `Bearer ${cronSecret}`);
+	const isAuthorized = authHeader === `Bearer ${cleanupSecret}` || authHeader === `Bearer ${cronSecret}`;
 
 	if (!isAuthorized) {
 		throw error(401, 'Unauthorized');
@@ -1233,10 +1300,11 @@ export const GET: RequestHandler = async ({ request }) => {
 **Step 3: Add cron job to vercel.json**
 
 Add a new cron entry:
+
 ```json
 {
-  "path": "/api/cleanup-old-data",
-  "schedule": "0 4 * * 0"
+	"path": "/api/cleanup-old-data",
+	"schedule": "0 4 * * 0"
 }
 ```
 
@@ -1254,6 +1322,7 @@ git commit -m "feat: add data retention cleanup cron for audit logs and webhook 
 ### Task 16: Incident Response Plan
 
 **Files:**
+
 - Create: `docs/security/incident-response.md`
 
 **Step 1: Write the incident response plan**
@@ -1266,6 +1335,7 @@ Create `docs/security/incident-response.md`:
 ## 1. Identification
 
 Monitor for indicators of compromise:
+
 - Unusual audit log patterns (bulk data access, export spikes, failed auth attempts)
 - Supabase dashboard alerts (unusual query patterns, connection spikes)
 - Stripe webhook failures or unexpected subscription changes
@@ -1322,6 +1392,7 @@ git commit -m "docs: add incident response plan for NIST 800-171 compliance"
 ### Task 17: Public Security Documentation
 
 **Files:**
+
 - Create: `docs/security/security-overview.md`
 
 **Step 1: Write the security overview**
@@ -1334,6 +1405,7 @@ Create `docs/security/security-overview.md`:
 ## Data Classification
 
 TroopToTask handles Controlled Unclassified Information (CUI) including:
+
 - Personnel names and contact information
 - Emergency contact details
 - Counseling records and leader notes
@@ -1355,6 +1427,7 @@ TroopToTask handles Controlled Unclassified Information (CUI) including:
 ## Audit Logging
 
 All security-relevant events are logged:
+
 - Login attempts (success and failure)
 - Personnel data access and modifications
 - Data exports
@@ -1372,6 +1445,7 @@ Audit logs are append-only and retained for 1 year.
 ## Compliance Alignment
 
 TroopToTask's security controls are aligned with NIST SP 800-171 Rev 2 for the protection of CUI, covering:
+
 - Access Control (3.1)
 - Audit & Accountability (3.3)
 - Identification & Authentication (3.5)
@@ -1380,6 +1454,7 @@ TroopToTask's security controls are aligned with NIST SP 800-171 Rev 2 for the p
 ## Security Headers
 
 All responses include:
+
 - Content-Security-Policy
 - Strict-Transport-Security (HSTS)
 - X-Frame-Options
@@ -1410,6 +1485,7 @@ git commit -m "docs: add public-facing security overview documentation"
 ### Task 18: Features Page — Security Section
 
 **Files:**
+
 - Modify: `src/routes/features/+page.svelte`
 
 **Step 1: Add "08 // Security & Compliance" section**
@@ -1418,31 +1494,34 @@ Follow the existing feature section pattern (alternating left/right layout). Add
 
 ```svelte
 <section class="feature-section reverse">
-  <div class="feature-text">
-    <span class="feature-label">08 // Security & Compliance</span>
-    <h2>Built for military-grade <em>data protection.</em></h2>
-    <p>Your personnel data deserves the same standard of protection you bring to your mission. TroopToTask aligns with NIST SP 800-171 controls for Controlled Unclassified Information.</p>
-    <ul>
-      <li>NIST SP 800-171 aligned for CUI protection</li>
-      <li>End-to-end encryption in transit and at rest</li>
-      <li>Row-level data isolation between organizations</li>
-      <li>Comprehensive audit logging of all data access</li>
-      <li>Role-based access controls with least-privilege defaults</li>
-      <li>Multi-factor authentication support</li>
-    </ul>
-  </div>
-  <div class="feature-demo">
-    <!-- Security layers visual -->
-    <div class="demo-browser">
-      <div class="demo-browser-bar">
-        <span class="demo-dot"></span><span class="demo-dot"></span><span class="demo-dot"></span>
-      </div>
-      <div class="security-visual">
-        <!-- Build a layered security visual using CSS matching the existing demo panel style -->
-        <!-- Show stacked layers: Encryption > RLS/Org Isolation > Audit Trail > Access Controls -->
-      </div>
-    </div>
-  </div>
+	<div class="feature-text">
+		<span class="feature-label">08 // Security & Compliance</span>
+		<h2>Built for military-grade <em>data protection.</em></h2>
+		<p>
+			Your personnel data deserves the same standard of protection you bring to your mission. TroopToTask aligns with
+			NIST SP 800-171 controls for Controlled Unclassified Information.
+		</p>
+		<ul>
+			<li>NIST SP 800-171 aligned for CUI protection</li>
+			<li>End-to-end encryption in transit and at rest</li>
+			<li>Row-level data isolation between organizations</li>
+			<li>Comprehensive audit logging of all data access</li>
+			<li>Role-based access controls with least-privilege defaults</li>
+			<li>Multi-factor authentication support</li>
+		</ul>
+	</div>
+	<div class="feature-demo">
+		<!-- Security layers visual -->
+		<div class="demo-browser">
+			<div class="demo-browser-bar">
+				<span class="demo-dot"></span><span class="demo-dot"></span><span class="demo-dot"></span>
+			</div>
+			<div class="security-visual">
+				<!-- Build a layered security visual using CSS matching the existing demo panel style -->
+				<!-- Show stacked layers: Encryption > RLS/Org Isolation > Audit Trail > Access Controls -->
+			</div>
+		</div>
+	</div>
 </section>
 ```
 
@@ -1465,6 +1544,7 @@ git commit -m "feat: add Security & Compliance section to features page"
 ### Task 19: Landing Page — Security Feature Card
 
 **Files:**
+
 - Modify: `src/routes/+page.svelte`
 
 **Step 1: Add security card to the feature grid**
@@ -1473,9 +1553,12 @@ Find the feature grid section (12 numbered feature cards). Add a 13th card:
 
 ```svelte
 <div class="feature-card">
-  <span class="feature-number">13</span>
-  <h3>Security & Compliance</h3>
-  <p>NIST 800-171 aligned. Your personnel data is encrypted, access-controlled, and audit-logged. Built for the standards military leaders expect.</p>
+	<span class="feature-number">13</span>
+	<h3>Security & Compliance</h3>
+	<p>
+		NIST 800-171 aligned. Your personnel data is encrypted, access-controlled, and audit-logged. Built for the standards
+		military leaders expect.
+	</p>
 </div>
 ```
 
@@ -1496,6 +1579,7 @@ git commit -m "feat: add security feature card to landing page"
 ### Task 20: Pricing Page — Trust Badges
 
 **Files:**
+
 - Modify: `src/routes/pricing/+page.svelte`
 
 **Step 1: Add trust badge row below pricing grid**
@@ -1504,51 +1588,52 @@ After the pricing grid and before the FAQ section, add a trust badge row:
 
 ```svelte
 <div class="trust-badges">
-  <div class="trust-badge">
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-    </svg>
-    <span>NIST 800-171 Aligned</span>
-  </div>
-  <div class="trust-badge">
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-    </svg>
-    <span>256-bit Encryption</span>
-  </div>
-  <div class="trust-badge">
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-    </svg>
-    <span>Audit Logged</span>
-  </div>
+	<div class="trust-badge">
+		<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+			<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+		</svg>
+		<span>NIST 800-171 Aligned</span>
+	</div>
+	<div class="trust-badge">
+		<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+			<rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+		</svg>
+		<span>256-bit Encryption</span>
+	</div>
+	<div class="trust-badge">
+		<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+			<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+		</svg>
+		<span>Audit Logged</span>
+	</div>
 </div>
 ```
 
 Add styles:
+
 ```css
 .trust-badges {
-  display: flex;
-  justify-content: center;
-  gap: var(--spacing-xl);
-  padding: var(--spacing-lg) 0;
-  margin-top: var(--spacing-lg);
+	display: flex;
+	justify-content: center;
+	gap: var(--spacing-xl);
+	padding: var(--spacing-lg) 0;
+	margin-top: var(--spacing-lg);
 }
 
 .trust-badge {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-family: var(--font-mono);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-sm);
+	color: var(--color-text-secondary);
+	font-size: var(--font-size-sm);
+	font-family: var(--font-mono);
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
 }
 
 .trust-badge svg {
-  color: var(--brass);
-  flex-shrink: 0;
+	color: var(--brass);
+	flex-shrink: 0;
 }
 ```
 
@@ -1571,6 +1656,7 @@ git commit -m "feat: add trust/compliance badges to pricing page"
 ### Task 21: Public Security Page + Footer Link
 
 **Files:**
+
 - Create: `src/routes/security/+page.svelte`
 - Modify: `src/hooks.server.ts` (add to public routes)
 - Modify: Footer component in landing/features/pricing pages
@@ -1580,6 +1666,7 @@ git commit -m "feat: add trust/compliance badges to pricing page"
 Create `src/routes/security/+page.svelte` that renders the security overview content. Follow the same page layout as the features page (classification bar, nav, hero header, content sections, footer). Render the content from `docs/security/security-overview.md` as structured HTML sections — do NOT use {@html}, manually convert to Svelte markup.
 
 Sections:
+
 - Hero header: "Security & Compliance" with subtitle about NIST 800-171 alignment
 - Data Classification
 - Encryption

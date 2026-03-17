@@ -13,6 +13,7 @@
 ### Task 1: Add `isOnboarding` prop to DateCell
 
 **Files:**
+
 - Modify: `src/lib/components/DateCell.svelte`
 
 **Step 1: Add prop and background logic**
@@ -21,12 +22,13 @@ In the Props interface, add `isOnboarding`:
 
 ```typescript
 interface Props {
-    // ... existing props ...
-    isOnboarding?: boolean;
+	// ... existing props ...
+	isOnboarding?: boolean;
 }
 ```
 
 In the destructured props, add:
+
 ```typescript
 isOnboarding = false,
 ```
@@ -35,24 +37,26 @@ Modify the `getBackground()` function to return onboarding tint when no status:
 
 ```typescript
 function getBackground(): string {
-    if (statusColors.length === 0) {
-        if (isOnboarding) {
-            return 'var(--color-onboarding-tint)';
-        }
-        return '';
-    }
-    // ... rest unchanged
+	if (statusColors.length === 0) {
+		if (isOnboarding) {
+			return 'var(--color-onboarding-tint)';
+		}
+		return '';
+	}
+	// ... rest unchanged
 }
 ```
 
 **Step 2: Add CSS variable for onboarding tint**
 
 In `src/app.css`, add to the `:root` block (light mode):
+
 ```css
 --color-onboarding-tint: rgba(184, 148, 62, 0.12);
 ```
 
 In the `[data-theme='dark']` block:
+
 ```css
 --color-onboarding-tint: rgba(184, 148, 62, 0.15);
 ```
@@ -68,6 +72,7 @@ feat: add onboarding tint to empty DateCell backgrounds
 ### Task 2: Pass `isOnboarding` from PersonnelRow to DateCell
 
 **Files:**
+
 - Modify: `src/lib/components/PersonnelRow.svelte`
 
 **Step 1: Pass the existing `isOnboarding` prop through to DateCell**
@@ -76,17 +81,17 @@ In the DateCell usage (around line 108-119), add the `isOnboarding` prop:
 
 ```svelte
 <DateCell
-    {date}
-    isWeekend={isWeekend(date)}
-    isToday={isToday(date)}
-    isHoliday={!!specialDay}
-    holidayName={specialDay?.name}
-    entries={availabilityByDate.get(dateStr) ?? []}
-    {statusTypeMap}
-    assignments={assignmentsByDate.get(dateStr) ?? []}
-    {showStatusText}
-    {isOnboarding}
-    onclick={() => handleCellClick(date)}
+	{date}
+	isWeekend={isWeekend(date)}
+	isToday={isToday(date)}
+	isHoliday={!!specialDay}
+	holidayName={specialDay?.name}
+	entries={availabilityByDate.get(dateStr) ?? []}
+	{statusTypeMap}
+	assignments={assignmentsByDate.get(dateStr) ?? []}
+	{showStatusText}
+	{isOnboarding}
+	onclick={() => handleCellClick(date)}
 />
 ```
 
@@ -103,6 +108,7 @@ feat: pass isOnboarding prop from PersonnelRow to DateCell
 ### Task 3: Add highlight toggle to Calendar page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/calendar/+page.svelte`
 
 **Step 1: Add toggle state with localStorage persistence**
@@ -115,19 +121,19 @@ const highlightKey = $derived(`calendar-highlight-onboarding-${data.userId}`);
 let highlightOnboarding = $state(true); // default ON
 
 $effect(() => {
-    if (browser) {
-        const stored = localStorage.getItem(highlightKey);
-        if (stored !== null) {
-            highlightOnboarding = stored !== 'false';
-        }
-    }
+	if (browser) {
+		const stored = localStorage.getItem(highlightKey);
+		if (stored !== null) {
+			highlightOnboarding = stored !== 'false';
+		}
+	}
 });
 
 function toggleHighlightOnboarding() {
-    highlightOnboarding = !highlightOnboarding;
-    if (browser) {
-        localStorage.setItem(highlightKey, String(highlightOnboarding));
-    }
+	highlightOnboarding = !highlightOnboarding;
+	if (browser) {
+		localStorage.setItem(highlightKey, String(highlightOnboarding));
+	}
 }
 ```
 
@@ -137,13 +143,13 @@ Inside `<PageToolbar>`, add a toggle button (before the "Today's Breakdown" butt
 
 ```svelte
 <button
-    class="toolbar-toggle"
-    class:active={highlightOnboarding}
-    onclick={toggleHighlightOnboarding}
-    title={highlightOnboarding ? 'Hide onboarding highlighting' : 'Show onboarding highlighting'}
+	class="toolbar-toggle"
+	class:active={highlightOnboarding}
+	onclick={toggleHighlightOnboarding}
+	title={highlightOnboarding ? 'Hide onboarding highlighting' : 'Show onboarding highlighting'}
 >
-    <span class="toggle-dot"></span>
-    Onboarding
+	<span class="toggle-dot"></span>
+	Onboarding
 </button>
 ```
 
@@ -153,41 +159,41 @@ In the `<style>` block:
 
 ```css
 .toolbar-toggle {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    color: var(--color-text-muted);
-    cursor: pointer;
-    transition: all 0.15s ease;
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-xs);
+	padding: var(--spacing-xs) var(--spacing-sm);
+	font-size: var(--font-size-sm);
+	font-weight: 500;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+	background: var(--color-surface);
+	color: var(--color-text-muted);
+	cursor: pointer;
+	transition: all 0.15s ease;
 }
 
 .toolbar-toggle:hover {
-    border-color: var(--color-primary);
-    color: var(--color-text);
+	border-color: var(--color-primary);
+	color: var(--color-text);
 }
 
 .toolbar-toggle.active {
-    border-color: #B8943E;
-    color: #B8943E;
-    background: var(--color-onboarding-tint);
+	border-color: #b8943e;
+	color: #b8943e;
+	background: var(--color-onboarding-tint);
 }
 
 .toggle-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--color-border);
-    transition: background 0.15s ease;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--color-border);
+	transition: background 0.15s ease;
 }
 
 .toolbar-toggle.active .toggle-dot {
-    background: #B8943E;
+	background: #b8943e;
 }
 ```
 
@@ -202,17 +208,20 @@ feat: add onboarding highlight toggle to calendar toolbar
 ### Task 4: Wire toggle through Calendar → PersonnelRow → DateCell
 
 **Files:**
+
 - Modify: `src/lib/components/Calendar.svelte`
 - Modify: `src/routes/org/[orgId]/calendar/+page.svelte`
 
 **Step 1: Add `highlightOnboarding` prop to Calendar.svelte**
 
 In the Calendar Props interface, add:
+
 ```typescript
 highlightOnboarding?: boolean;
 ```
 
 In the destructured props:
+
 ```typescript
 highlightOnboarding = true,
 ```
@@ -221,17 +230,17 @@ Update the PersonnelRow usage to conditionally pass `isOnboarding`:
 
 ```svelte
 <PersonnelRow
-    {person}
-    {dates}
-    personAvailability={availabilityByPerson.get(person.id) ?? []}
-    {statusTypeMap}
-    {specialDays}
-    {assignmentTypes}
-    personAssignments={assignmentsByPerson.get(person.id) ?? []}
-    {showStatusText}
-    isOnboarding={highlightOnboarding && onboardingSet.has(person.id)}
-    onCellClick={canEdit ? onCellClick : undefined}
-    {onPersonClick}
+	{person}
+	{dates}
+	personAvailability={availabilityByPerson.get(person.id) ?? []}
+	{statusTypeMap}
+	{specialDays}
+	{assignmentTypes}
+	personAssignments={assignmentsByPerson.get(person.id) ?? []}
+	{showStatusText}
+	isOnboarding={highlightOnboarding && onboardingSet.has(person.id)}
+	onCellClick={canEdit ? onCellClick : undefined}
+	{onPersonClick}
 />
 ```
 
@@ -242,19 +251,23 @@ The key change: `isOnboarding` is now `highlightOnboarding && onboardingSet.has(
 Instead, add a separate `highlightOnboarding` prop to PersonnelRow and pass both:
 
 In PersonnelRow Props:
+
 ```typescript
 highlightOnboarding?: boolean;
 ```
+
 Destructure with default `true`.
 
 Pass `isOnboarding` unchanged (always based on onboardingSet), and pass `highlightOnboarding` as a new prop.
 
 PersonnelRow passes to DateCell:
+
 ```svelte
 isOnboarding={isOnboarding && highlightOnboarding}
 ```
 
 Calendar passes to PersonnelRow:
+
 ```svelte
 isOnboarding={onboardingSet.has(person.id)}
 highlightOnboarding={highlightOnboarding}
@@ -265,6 +278,7 @@ This way the dot always shows, but the cell tint is controlled by the toggle.
 **Step 2: Pass `highlightOnboarding` from calendar page to Calendar component**
 
 Find where `<Calendar>` is used in the calendar page and add the prop:
+
 ```svelte
 highlightOnboarding={highlightOnboarding}
 ```

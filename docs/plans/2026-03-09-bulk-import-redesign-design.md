@@ -38,26 +38,26 @@ Unchanged. CSV paste textarea or file upload (.xlsx/.xls/.csv). On input, parse 
 
 #### Recognized Headers — Personnel
 
-| Field | Matches |
-|-------|---------|
-| Rank | rank, grade, pay grade, paygrade |
-| Last Name | last name, lastname, last, surname, family name |
-| First Name | first name, firstname, first, given name |
-| MOS | mos, military occupational specialty, job, afsc |
-| Role | role, clinic role, duty position, position, billet |
-| Group | group, unit, section, team, platoon, squad |
+| Field      | Matches                                            |
+| ---------- | -------------------------------------------------- |
+| Rank       | rank, grade, pay grade, paygrade                   |
+| Last Name  | last name, lastname, last, surname, family name    |
+| First Name | first name, firstname, first, given name           |
+| MOS        | mos, military occupational specialty, job, afsc    |
+| Role       | role, clinic role, duty position, position, billet |
+| Group      | group, unit, section, team, platoon, squad         |
 
 Required: Rank, Last Name, First Name. Optional: MOS, Role, Group.
 
 #### Recognized Headers — Training
 
-| Field | Matches |
-|-------|---------|
-| Last Name | (same as personnel) |
-| First Name | (same as personnel) |
-| Training Type | training, training type, type, course, certification |
-| Status/Date | date, completion date, completed, date completed, status |
-| Notes | notes, comments, remarks |
+| Field         | Matches                                                  |
+| ------------- | -------------------------------------------------------- |
+| Last Name     | (same as personnel)                                      |
+| First Name    | (same as personnel)                                      |
+| Training Type | training, training type, type, course, certification     |
+| Status/Date   | date, completion date, completed, date completed, status |
+| Notes         | notes, comments, remarks                                 |
 
 Required: Last Name, First Name, Training Type, Status/Date. Optional: Notes.
 
@@ -88,11 +88,11 @@ Spreadsheet-like table showing all parsed rows.
 - Training Type: must match an existing training type name (case-insensitive)
 - Status/Date column accepts three value types:
 
-| Value | Meaning |
-|-------|---------|
-| A date (`2025-06-15`, `06/15/2025`, Excel serial) | Completed on that date |
-| `yes`, `complete`, `done`, `true`, `x`, `1` | Completed today (non-expiring types only) |
-| `exempt`, `exempted`, `e` | Mark as exempt |
+| Value                                             | Meaning                                   |
+| ------------------------------------------------- | ----------------------------------------- |
+| A date (`2025-06-15`, `06/15/2025`, Excel serial) | Completed on that date                    |
+| `yes`, `complete`, `done`, `true`, `x`, `1`       | Completed today (non-expiring types only) |
+| `exempt`, `exempted`, `e`                         | Mark as exempt                            |
 
 **Training cross-validation:**
 
@@ -134,20 +134,22 @@ Replace the preview table with results:
 ### `POST /org/[orgId]/api/personnel/batch`
 
 **Request:**
+
 ```typescript
 {
-  records: Array<{
-    rank: string;
-    lastName: string;
-    firstName: string;
-    mos?: string;
-    clinicRole?: string;
-    groupName?: string;
-  }>
+	records: Array<{
+		rank: string;
+		lastName: string;
+		firstName: string;
+		mos?: string;
+		clinicRole?: string;
+		groupName?: string;
+	}>;
 }
 ```
 
 **Server-side:**
+
 1. Permission check: `canEditPersonnel`
 2. Read-only check
 3. Personnel cap check: current count + records.length <= tier limit
@@ -158,29 +160,32 @@ Replace the preview table with results:
 8. Single audit log entry: "Bulk imported N personnel"
 
 **Response:**
+
 ```typescript
 {
-  inserted: Array<Personnel>;
-  errors: Array<{ index: number; message: string }>;
+	inserted: Array<Personnel>;
+	errors: Array<{ index: number; message: string }>;
 }
 ```
 
 ### `POST /org/[orgId]/api/personnel-trainings/batch`
 
 **Request:**
+
 ```typescript
 {
-  records: Array<{
-    personnelId: string;
-    trainingTypeId: string;
-    completionDate: string | null; // null for exempt
-    notes?: string;
-    status: 'completed' | 'exempt';
-  }>
+	records: Array<{
+		personnelId: string;
+		trainingTypeId: string;
+		completionDate: string | null; // null for exempt
+		notes?: string;
+		status: 'completed' | 'exempt';
+	}>;
 }
 ```
 
 **Server-side:**
+
 1. Permission check: `canEditTraining`
 2. Read-only check
 3. Group scope: validate all personnel are in user's group (if scoped)
@@ -193,12 +198,13 @@ Replace the preview table with results:
 8. Single audit log entry: "Bulk imported N training records, M exemptions"
 
 **Response:**
+
 ```typescript
 {
-  inserted: Array<PersonnelTraining>;
-  updated: Array<PersonnelTraining>;
-  exempted: Array<{ index: number; personnelId: string; trainingTypeId: string }>;
-  errors: Array<{ index: number; message: string }>;
+	inserted: Array<PersonnelTraining>;
+	updated: Array<PersonnelTraining>;
+	exempted: Array<{ index: number; personnelId: string; trainingTypeId: string }>;
+	errors: Array<{ index: number; message: string }>;
 }
 ```
 
@@ -216,12 +222,12 @@ Replace the preview table with results:
 
 ## What Changes
 
-| Aspect | Before | After |
-|--------|--------|-------|
-| Column matching | Positional (hardcoded order) | Header-based with mapping UI |
-| Preview | Read-only list | Editable table with per-cell validation |
-| Error handling | Block all on any error | Per-row validation, skip/fix |
-| API | Sequential single-record calls | Single batch endpoint |
-| Progress | Spinner on button | Progress bar with record count |
-| Results | Modal closes silently | Results summary before close |
-| Exemptions | Not supported in import | "exempt" keyword in status column |
+| Aspect          | Before                         | After                                   |
+| --------------- | ------------------------------ | --------------------------------------- |
+| Column matching | Positional (hardcoded order)   | Header-based with mapping UI            |
+| Preview         | Read-only list                 | Editable table with per-cell validation |
+| Error handling  | Block all on any error         | Per-row validation, skip/fix            |
+| API             | Sequential single-record calls | Single batch endpoint                   |
+| Progress        | Spinner on button              | Progress bar with record count          |
+| Results         | Modal closes silently          | Results summary before close            |
+| Exemptions      | Not supported in import        | "exempt" keyword in status column       |

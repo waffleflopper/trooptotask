@@ -25,7 +25,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const rateCheck = checkRateLimit(clientIp, event.url.pathname, event.request.method);
 		if (rateCheck.limited) {
 			auditLog(
-				{ action: 'security.rate_limit_exceeded', resourceType: 'request', severity: 'warning', details: { pathname: event.url.pathname, method: event.request.method } },
+				{
+					action: 'security.rate_limit_exceeded',
+					resourceType: 'request',
+					severity: 'warning',
+					details: { pathname: event.url.pathname, method: event.request.method }
+				},
 				{ userId: null, ip: clientIp }
 			);
 			return new Response(JSON.stringify({ error: 'Too many requests' }), {
@@ -50,7 +55,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	});
 
 	// Cache getUser() result within a single request to avoid redundant auth API calls
-	let cachedSession: { session: any; user: any } | null = null;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase auth types require casting to satisfy SvelteKit locals.session shape
+	let cachedSession: any = null;
 	event.locals.safeGetSession = async () => {
 		if (cachedSession) return cachedSession;
 		const {
@@ -58,17 +64,27 @@ export const handle: Handle = async ({ event, resolve }) => {
 			error
 		} = await event.locals.supabase.auth.getUser();
 
-		cachedSession =
-			error || !user
-				? { session: null, user: null }
-				: { session: { user } as any, user };
+		cachedSession = error || !user ? { session: null, user: null } : { session: { user }, user };
 		return cachedSession;
 	};
 
 	// Define public routes that don't require authentication
-	const publicRoutes = ['/', '/auth', '/api/webhooks', '/demo', '/api/create-demo-sandbox', '/api/access-requests', '/features', '/pricing', '/security', '/terms', '/privacy', '/dashboard'];
-	const isPublicRoute = publicRoutes.some(route =>
-		event.url.pathname === route || event.url.pathname.startsWith(route + '/')
+	const publicRoutes = [
+		'/',
+		'/auth',
+		'/api/webhooks',
+		'/demo',
+		'/api/create-demo-sandbox',
+		'/api/access-requests',
+		'/features',
+		'/pricing',
+		'/security',
+		'/terms',
+		'/privacy',
+		'/dashboard'
+	];
+	const isPublicRoute = publicRoutes.some(
+		(route) => event.url.pathname === route || event.url.pathname.startsWith(route + '/')
 	);
 
 	// Check for demo mode - allow unauthenticated access to /org/* routes if in demo mode
@@ -97,7 +113,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// Check user suspension (skip for auth routes, api routes, and the suspended page itself)
-	const skipSuspensionCheck = ['/auth', '/api/auth', '/suspended'].some(p => event.url.pathname.startsWith(p));
+	const skipSuspensionCheck = ['/auth', '/api/auth', '/suspended'].some((p) => event.url.pathname.startsWith(p));
 	if (event.locals.user && !skipSuspensionCheck) {
 		const { data: isSuspended } = await event.locals.supabase.rpc('is_user_suspended', {
 			check_user_id: event.locals.user.id

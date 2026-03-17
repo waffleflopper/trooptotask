@@ -17,7 +17,7 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 	if (dbError) throw error(500, dbError.message);
 
 	return json(
-		(data ?? []).map((r: any) => ({
+		(data ?? []).map((r: Record<string, unknown>) => ({
 			id: r.id,
 			assignmentTypeId: r.assignment_type_id,
 			name: r.name,

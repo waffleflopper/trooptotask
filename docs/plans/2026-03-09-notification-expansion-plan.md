@@ -15,6 +15,7 @@
 ### Task 1: Create the centralized notification helper module
 
 **Files:**
+
 - Create: `src/lib/server/notifications.ts`
 
 **Step 1: Create the helper module**
@@ -32,11 +33,7 @@ interface NotificationPayload {
 /**
  * Notify a specific user.
  */
-export async function notifyUser(
-	orgId: string,
-	userId: string,
-	notification: NotificationPayload
-): Promise<void> {
+export async function notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void> {
 	const adminClient = getAdminClient();
 	await adminClient.from('notifications').insert({
 		user_id: userId,
@@ -94,6 +91,7 @@ git commit -m "feat: add centralized notification helper module"
 ### Task 2: Refactor existing notification inserts to use helpers
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/api/deletion-requests/+server.ts` (lines 106-127 — replace inline admin notification loop with `notifyAdmins()`)
 - Modify: `src/routes/org/[orgId]/api/deletion-requests/review/+server.ts` (lines 102-120 — replace inline insert with `notifyUser()`)
 - Modify: `src/routes/api/cleanup-archived-personnel/+server.ts` (lines 66-87 — replace inline admin notification loop with `notifyAdmins()`)
@@ -136,9 +134,10 @@ const actionWordCap = isPersonnel ? 'Archival' : 'Deletion';
 await notifyUser(orgId, request_record.requested_by, {
 	type: action === 'approve' ? 'deletion_approved' : 'deletion_denied',
 	title: action === 'approve' ? `${actionWordCap} Approved` : `${actionWordCap} Denied`,
-	message: action === 'approve'
-		? `Your request to ${actionWord} "${request_record.resource_description}" has been approved.`
-		: `Your request to ${actionWord} "${request_record.resource_description}" has been denied.${denialReason ? ` Reason: ${denialReason}` : ''}`,
+	message:
+		action === 'approve'
+			? `Your request to ${actionWord} "${request_record.resource_description}" has been approved.`
+			: `Your request to ${actionWord} "${request_record.resource_description}" has been denied.${denialReason ? ` Reason: ${denialReason}` : ''}`,
 	link: action === 'deny' ? request_record.resource_url : null
 });
 ```
@@ -155,7 +154,7 @@ import { notifyAdmins } from '$lib/server/notifications';
 // ... after successful deletion of expired archives ...
 
 for (const [orgId, people] of byOrg.entries()) {
-	const nameList = people.map(p => p.name).join(', ');
+	const nameList = people.map((p) => p.name).join(', ');
 	await notifyAdmins(orgId, null, {
 		type: 'archive_auto_deleted',
 		title: 'Archived Personnel Auto-Deleted',
@@ -183,6 +182,7 @@ git commit -m "refactor: use centralized notification helpers for existing notif
 ### Task 3: Add membership notifications to settings page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/settings/+page.server.ts`
 
 **Step 1: Add notifications to the `invite` action**
@@ -215,11 +215,7 @@ import { notifyUser, notifyAdmins } from '$lib/server/notifications';
 // After auditLog:
 if (membership?.user_id) {
 	// Fetch org name for the removed member's notification
-	const { data: org } = await locals.supabase
-		.from('organizations')
-		.select('name')
-		.eq('id', orgId)
-		.single();
+	const { data: org } = await locals.supabase.from('organizations').select('name').eq('id', orgId).single();
 
 	await notifyUser(orgId, membership.user_id, {
 		type: 'member_removed',
@@ -250,11 +246,7 @@ const oldRole = targetMembership?.role;
 const newRole = role; // 'admin' or 'member' from line 350
 
 // Fetch org name
-const { data: org } = await locals.supabase
-	.from('organizations')
-	.select('name')
-	.eq('id', orgId)
-	.single();
+const { data: org } = await locals.supabase.from('organizations').select('name').eq('id', orgId).single();
 const orgName = org?.name ?? 'the organization';
 
 if (oldRole !== newRole && targetMembership?.user_id) {
@@ -278,11 +270,7 @@ After the successful RPC + audit log (after line 399), add:
 
 ```typescript
 // Fetch org name
-const { data: org } = await locals.supabase
-	.from('organizations')
-	.select('name')
-	.eq('id', orgId)
-	.single();
+const { data: org } = await locals.supabase.from('organizations').select('name').eq('id', orgId).single();
 
 await notifyUser(orgId, newOwnerId, {
 	type: 'ownership_transferred',
@@ -309,6 +297,7 @@ git commit -m "feat: add membership notifications (invite, remove, permissions, 
 ### Task 4: Add member_joined notification to dashboard
 
 **Files:**
+
 - Modify: `src/routes/dashboard/+page.server.ts`
 
 **Step 1: Add notification after invite acceptance**
@@ -346,6 +335,7 @@ git commit -m "feat: add member_joined notification on invite acceptance"
 ### Task 5: Add personnel_permanently_deleted notification
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/api/personnel/permanent/+server.ts`
 
 **Step 1: Read the file and identify insertion point**
@@ -385,6 +375,7 @@ git commit -m "feat: add notification for permanent personnel deletion"
 ### Task 6: Add bulk_data_exported notification
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/api/export-excel/+server.ts`
 - Modify: `src/routes/org/[orgId]/api/export/+server.ts`
 
@@ -425,6 +416,7 @@ git commit -m "feat: add notification for bulk data exports"
 ### Task 7: Add config_type_deleted notification via CRUD factory
 
 **Files:**
+
 - Modify: `src/lib/server/crudFactory.ts` (add `onAfterDelete` callback to config + invoke it in DELETE handler)
 - Modify: `src/routes/org/[orgId]/api/training-types/+server.ts`
 - Modify: `src/routes/org/[orgId]/api/status-types/+server.ts`
@@ -482,10 +474,11 @@ onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
 		title: 'Training Type Deleted',
 		message: `"${userEmail}" deleted the training type "${(deletedDetails as any)?.name ?? 'unknown'}".`
 	});
-}
+};
 ```
 
 For `status-types/+server.ts`:
+
 ```typescript
 onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
 	await notifyAdmins(orgId, userId, {
@@ -493,10 +486,11 @@ onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
 		title: 'Status Type Deleted',
 		message: `"${userEmail}" deleted the status type "${(deletedDetails as any)?.name ?? 'unknown'}".`
 	});
-}
+};
 ```
 
 For `counseling-types/+server.ts`:
+
 ```typescript
 onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
 	await notifyAdmins(orgId, userId, {
@@ -504,10 +498,11 @@ onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
 		title: 'Counseling Type Deleted',
 		message: `"${userEmail}" deleted the counseling type "${(deletedDetails as any)?.name ?? 'unknown'}".`
 	});
-}
+};
 ```
 
 For `assignment-types/+server.ts`:
+
 ```typescript
 onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
 	await notifyAdmins(orgId, userId, {
@@ -515,7 +510,7 @@ onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
 		title: 'Assignment Type Deleted',
 		message: `"${userEmail}" deleted the assignment type "${(deletedDetails as any)?.name ?? 'unknown'}".`
 	});
-}
+};
 ```
 
 For `rating-scheme/+server.ts`: This file does NOT use the CRUD factory — it has its own DELETE handler. Add the notification inline after the successful delete + audit log:
@@ -570,18 +565,18 @@ Expected: Build succeeds
 
 ### Summary of all notification types after completion
 
-| Type | Recipients | Trigger |
-|------|-----------|---------|
-| `deletion_request_pending` | Admins (excl. actor) | Member requests archival/deletion |
-| `deletion_approved` | Requester | Admin approves request |
-| `deletion_denied` | Requester | Admin denies request |
-| `archive_auto_deleted` | Admins | Cron auto-deletes expired archives |
-| `member_invited` | Admins (excl. actor) | Admin sends invite |
-| `member_joined` | Admins (excl. joiner) | User accepts invite |
-| `member_removed` | Removed member + admins (excl. actor) | Admin removes member |
-| `member_permissions_changed` | Affected member | Admin changes permissions |
-| `member_role_changed` | Affected member | Admin changes role |
-| `ownership_transferred` | New owner | Owner transfers ownership |
-| `personnel_permanently_deleted` | Admins (excl. actor) | Admin permanently deletes archived person |
-| `bulk_data_exported` | Admins (excl. actor) | User runs bulk export |
-| `config_type_deleted` | Admins (excl. actor) | Type deleted (training/status/counseling/assignment/rating) |
+| Type                            | Recipients                            | Trigger                                                     |
+| ------------------------------- | ------------------------------------- | ----------------------------------------------------------- |
+| `deletion_request_pending`      | Admins (excl. actor)                  | Member requests archival/deletion                           |
+| `deletion_approved`             | Requester                             | Admin approves request                                      |
+| `deletion_denied`               | Requester                             | Admin denies request                                        |
+| `archive_auto_deleted`          | Admins                                | Cron auto-deletes expired archives                          |
+| `member_invited`                | Admins (excl. actor)                  | Admin sends invite                                          |
+| `member_joined`                 | Admins (excl. joiner)                 | User accepts invite                                         |
+| `member_removed`                | Removed member + admins (excl. actor) | Admin removes member                                        |
+| `member_permissions_changed`    | Affected member                       | Admin changes permissions                                   |
+| `member_role_changed`           | Affected member                       | Admin changes role                                          |
+| `ownership_transferred`         | New owner                             | Owner transfers ownership                                   |
+| `personnel_permanently_deleted` | Admins (excl. actor)                  | Admin permanently deletes archived person                   |
+| `bulk_data_exported`            | Admins (excl. actor)                  | User runs bulk export                                       |
+| `config_type_deleted`           | Admins (excl. actor)                  | Type deleted (training/status/counseling/assignment/rating) |

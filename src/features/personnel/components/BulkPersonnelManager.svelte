@@ -39,14 +39,10 @@
 	let importText = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
 
-	const rawRows = $derived(
-		uploadedFileName ? fileRows : (importText.trim() ? parseCSVText(importText) : [])
-	);
+	const rawRows = $derived(uploadedFileName ? fileRows : importText.trim() ? parseCSVText(importText) : []);
 
 	const dataRowCount = $derived(
-		rawRows.length > 0 && detectHeaderRow(rawRows[0], PERSONNEL_COLUMNS)
-			? rawRows.length - 1
-			: rawRows.length
+		rawRows.length > 0 && detectHeaderRow(rawRows[0], PERSONNEL_COLUMNS) ? rawRows.length - 1 : rawRows.length
 	);
 
 	// Results state
@@ -72,7 +68,7 @@
 		const rank = (row.rank ?? '').trim();
 		if (!rank) {
 			cellErrors.rank = 'Rank is required';
-		} else if (!ALL_RANKS.some(r => r.toLowerCase() === rank.toLowerCase())) {
+		} else if (!ALL_RANKS.some((r) => r.toLowerCase() === rank.toLowerCase())) {
 			cellErrors.rank = `"${rank}" is not a valid rank. Valid ranks: ${ALL_RANKS.join(', ')}`;
 		}
 
@@ -139,9 +135,15 @@
 	async function runImport() {
 		if (runningImport) return;
 		runningImport = true;
-		if (!tableRef) { runningImport = false; return; }
+		if (!tableRef) {
+			runningImport = false;
+			return;
+		}
 		const checkedRows = tableRef.getCheckedRows();
-		if (checkedRows.length === 0) { runningImport = false; return; }
+		if (checkedRows.length === 0) {
+			runningImport = false;
+			return;
+		}
 
 		importStep = 'importing';
 
@@ -221,7 +223,9 @@
 	}
 
 	// Width is wider during preview to accommodate the table
-	const modalWidth = $derived(importStep === 'preview' || importStep === 'importing' || importStep === 'results' ? '800px' : '600px');
+	const modalWidth = $derived(
+		importStep === 'preview' || importStep === 'importing' || importStep === 'results' ? '800px' : '600px'
+	);
 </script>
 
 <Modal
@@ -233,24 +237,24 @@
 >
 	<div class="bulk-content">
 		<div class="tabs">
-			<button
-				class="tab"
-				class:active={activeTab === 'import'}
-				onclick={() => (activeTab = 'import')}
-			>
+			<button class="tab" class:active={activeTab === 'import'} onclick={() => (activeTab = 'import')}>
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-					<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+					<path
+						fill-rule="evenodd"
+						d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+						clip-rule="evenodd"
+					/>
 				</svg>
 				Import
 			</button>
-			<button
-				class="tab"
-				class:active={activeTab === 'delete'}
-				onclick={() => (activeTab = 'delete')}
-			>
+			<button class="tab" class:active={activeTab === 'delete'} onclick={() => (activeTab = 'delete')}>
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
 					<path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
-					<path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" />
+					<path
+						fill-rule="evenodd"
+						d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"
+						clip-rule="evenodd"
+					/>
 				</svg>
 				Archive
 			</button>
@@ -275,7 +279,11 @@
 								/>
 								<label for="fileUpload" class="btn btn-secondary upload-btn">
 									<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-										<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+										<path
+											fill-rule="evenodd"
+											d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
+											clip-rule="evenodd"
+										/>
 									</svg>
 									Choose File
 								</label>
@@ -331,29 +339,28 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 						</div>
 					</div>
 
-				<!-- PREVIEW step -->
+					<!-- PREVIEW step -->
 				{:else if importStep === 'preview'}
-					<BulkImportTable
-						bind:this={tableRef}
-						{rawRows}
-						columnDefs={PERSONNEL_COLUMNS}
-						{validateRow}
-					/>
+					<BulkImportTable bind:this={tableRef} {rawRows} columnDefs={PERSONNEL_COLUMNS} {validateRow} />
 
-				<!-- IMPORTING step -->
+					<!-- IMPORTING step -->
 				{:else if importStep === 'importing'}
 					<div class="importing-state">
 						<div class="spinner"></div>
 						<p>Importing personnel records...</p>
 					</div>
 
-				<!-- RESULTS step -->
+					<!-- RESULTS step -->
 				{:else if importStep === 'results' && importResult}
 					<div class="results-section">
 						{#if importResult.capError}
 							<div class="result-error-banner">
 								<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-									<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+									<path
+										fill-rule="evenodd"
+										d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+										clip-rule="evenodd"
+									/>
 								</svg>
 								{importResult.capError}
 							</div>
@@ -362,7 +369,11 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 						{#if importResult.insertedCount > 0}
 							<div class="result-success">
 								<svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
-									<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+									<path
+										fill-rule="evenodd"
+										d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+										clip-rule="evenodd"
+									/>
 								</svg>
 								<strong>{importResult.insertedCount}</strong> personnel imported successfully
 							</div>
@@ -372,14 +383,19 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 							<div class="result-errors">
 								<div class="result-errors-header">
 									<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-										<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+										<path
+											fill-rule="evenodd"
+											d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+											clip-rule="evenodd"
+										/>
 									</svg>
 									{importResult.errors.length} record{importResult.errors.length !== 1 ? 's' : ''} had errors
 								</div>
 								<ul>
 									{#each importResult.errors as err (err.index)}
 										<li>
-											{#if err.index >= 0}Row {err.index + 1}: {/if}{err.message}
+											{#if err.index >= 0}Row {err.index + 1}:
+											{/if}{err.message}
 										</li>
 									{/each}
 								</ul>
@@ -392,7 +408,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 					</div>
 				{/if}
 
-			<!-- ARCHIVE tab (unchanged) -->
+				<!-- ARCHIVE tab (unchanged) -->
 			{:else}
 				<div class="delete-section">
 					<div class="delete-controls">
@@ -406,10 +422,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 					<div class="group-chips">
 						{#each personnelByGroup as grp (grp.group)}
 							{#if grp.personnel.length > 0}
-								<button
-									class="group-chip"
-									onclick={() => selectGroup(grp.group)}
-								>
+								<button class="group-chip" onclick={() => selectGroup(grp.group)}>
 									{grp.group}
 									<span class="chip-count">{grp.personnel.length}</span>
 								</button>
@@ -426,11 +439,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 										{#each grp.personnel as person (person.id)}
 											{@const isSelected = selectedIds.has(person.id)}
 											<label class="checklist-item" class:selected={isSelected}>
-												<input
-													type="checkbox"
-													checked={isSelected}
-													onchange={() => toggleSelect(person.id)}
-												/>
+												<input type="checkbox" checked={isSelected} onchange={() => toggleSelect(person.id)} />
 												<span class="item-rank">{person.rank}</span>
 												<span class="item-name">{person.lastName}, {person.firstName}</span>
 												{#if person.clinicRole}
@@ -447,7 +456,11 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 					{#if selectedIds.size > 0}
 						<div class="delete-warning">
 							<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-								<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+								<path
+									fill-rule="evenodd"
+									d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+									clip-rule="evenodd"
+								/>
 							</svg>
 							<strong>{selectedIds.size}</strong> personnel selected for archival
 						</div>
@@ -461,18 +474,12 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 		{#if activeTab === 'import'}
 			{#if importStep === 'input'}
 				<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-				<button
-					class="btn btn-primary"
-					onclick={goToPreview}
-					disabled={rawRows.length === 0}
-				>
+				<button class="btn btn-primary" onclick={goToPreview} disabled={rawRows.length === 0}>
 					Preview {dataRowCount > 0 ? dataRowCount : ''} Rows
 				</button>
 			{:else if importStep === 'preview'}
 				<button class="btn btn-secondary" onclick={backToInput}>Back</button>
-				<button class="btn btn-primary" onclick={runImport} disabled={runningImport}>
-					Import Records
-				</button>
+				<button class="btn btn-primary" onclick={runImport} disabled={runningImport}> Import Records </button>
 			{:else if importStep === 'importing'}
 				<button class="btn btn-secondary" disabled>Importing...</button>
 			{:else if importStep === 'results'}
@@ -480,11 +487,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 			{/if}
 		{:else}
 			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			<button
-				class="btn btn-warning"
-				onclick={handleArchive}
-				disabled={selectedIds.size === 0}
-			>
+			<button class="btn btn-warning" onclick={handleArchive} disabled={selectedIds.size === 0}>
 				Archive {selectedIds.size} Personnel
 			</button>
 		{/if}
@@ -792,7 +795,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 	.group-chip:hover {
 		background: var(--color-primary);
 		border-color: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 	}
 
 	.chip-count {

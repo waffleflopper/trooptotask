@@ -150,10 +150,7 @@ function apiToDb(
 /**
  * Transforms API request body to database update format
  */
-function apiToDbUpdates(
-	body: Record<string, unknown>,
-	fields: FieldMapping
-): Record<string, unknown> {
+function apiToDbUpdates(body: Record<string, unknown>, fields: FieldMapping): Record<string, unknown> {
 	const updates: Record<string, unknown> = {};
 
 	for (const [key, value] of Object.entries(body)) {
@@ -202,11 +199,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 			if (scopedGroupId) {
 				const personnelId = body[snakeToCamel(config.personnelIdField)] ?? body[config.personnelIdField];
 				if (personnelId) {
-					const { data: person } = await supabase
-						.from('personnel')
-						.select('group_id')
-						.eq('id', personnelId)
-						.single();
+					const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
 					if (person && person.group_id !== scopedGroupId) {
 						throw error(403, 'You do not have access to personnel outside your group');
 					}
@@ -214,33 +207,33 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 			}
 		}
 
-		const insertData = toInsert
-			? toInsert(body, orgId)
-			: apiToDb(body, fields, orgId, defaults);
+		const insertData = toInsert ? toInsert(body, orgId) : apiToDb(body, fields, orgId, defaults);
 
-		const { data, error: dbError } = await supabase
-			.from(table)
-			.insert(insertData)
-			.select(select)
-			.single();
+		const { data, error: dbError } = await supabase.from(table).insert(insertData).select(select).single();
 
 		if (dbError) throw error(500, dbError.message);
+
+		const row = data as unknown as Record<string, unknown>;
 
 		if (config.auditResourceType) {
 			const { auditLog } = await import('./auditLog');
 			const details: Record<string, unknown> = { actor: locals.user?.email ?? userId };
 			if (config.auditDetailFields) {
 				for (const col of config.auditDetailFields) {
-					if ((data as any)[col] !== undefined) details[col] = (data as any)[col];
+					if (row[col] !== undefined) details[col] = row[col];
 				}
 			}
 			auditLog(
-				{ action: `${config.auditResourceType}.created`, resourceType: config.auditResourceType, resourceId: (data as any).id, orgId, details },
+				{
+					action: `${config.auditResourceType}.created`,
+					resourceType: config.auditResourceType,
+					resourceId: row.id as string,
+					orgId,
+					details
+				},
 				{ userId }
 			);
 		}
-
-		const row = data as unknown as Record<string, unknown>;
 		const response = toResponse ? toResponse(row) : dbToApi<T>(row, fields);
 		return json(response);
 	};
@@ -282,11 +275,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 					.single();
 				const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
 				if (personnelId) {
-					const { data: person } = await supabase
-						.from('personnel')
-						.select('group_id')
-						.eq('id', personnelId)
-						.single();
+					const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
 					if (person && person.group_id !== scopedGroupId) {
 						throw error(403, 'You do not have access to personnel outside your group');
 					}
@@ -313,13 +302,20 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		if (config.auditResourceType) {
 			const { auditLog } = await import('./auditLog');
 			const details: Record<string, unknown> = { actor: locals.user?.email ?? userId };
+			const updatedRow = data as unknown as Record<string, unknown>;
 			if (config.auditDetailFields) {
 				for (const col of config.auditDetailFields) {
-					if ((data as any)[col] !== undefined) details[col] = (data as any)[col];
+					if (updatedRow[col] !== undefined) details[col] = updatedRow[col];
 				}
 			}
 			auditLog(
-				{ action: `${config.auditResourceType}.updated`, resourceType: config.auditResourceType, resourceId: id, orgId, details },
+				{
+					action: `${config.auditResourceType}.updated`,
+					resourceType: config.auditResourceType,
+					resourceId: id,
+					orgId,
+					details
+				},
 				{ userId }
 			);
 		}
@@ -365,11 +361,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 					.single();
 				const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
 				if (personnelId) {
-					const { data: person } = await supabase
-						.from('personnel')
-						.select('group_id')
-						.eq('id', personnelId)
-						.single();
+					const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
 					if (person && person.group_id !== scopedGroupId) {
 						throw error(403, 'You do not have access to personnel outside your group');
 					}
@@ -380,19 +372,27 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		if (config.requireDeletionApproval && !isSandbox && userId) {
 			const { data: mem } = await supabase
 				.from('organization_memberships')
-				.select('role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book')
+				.select(
+					'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book'
+				)
 				.eq('organization_id', orgId)
 				.eq('user_id', userId)
 				.single();
 
 			if (mem && mem.role === 'member') {
 				// Team leaders (scoped to a group) always need approval, even with all permissions
-				const isFullEd = !mem.scoped_group_id &&
-					mem.can_view_calendar && mem.can_edit_calendar &&
-					mem.can_view_personnel && mem.can_edit_personnel &&
-					mem.can_view_training && mem.can_edit_training &&
-					mem.can_view_onboarding && mem.can_edit_onboarding &&
-					mem.can_view_leaders_book && mem.can_edit_leaders_book;
+				const isFullEd =
+					!mem.scoped_group_id &&
+					mem.can_view_calendar &&
+					mem.can_edit_calendar &&
+					mem.can_view_personnel &&
+					mem.can_edit_personnel &&
+					mem.can_view_training &&
+					mem.can_edit_training &&
+					mem.can_view_onboarding &&
+					mem.can_edit_onboarding &&
+					mem.can_view_leaders_book &&
+					mem.can_edit_leaders_book;
 
 				if (!isFullEd) {
 					return json({ requiresApproval: true }, { status: 202 });
@@ -417,11 +417,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 			await onDelete(supabase, orgId, id);
 		}
 
-		const { error: dbError } = await supabase
-			.from(table)
-			.delete()
-			.eq('id', id)
-			.eq('organization_id', orgId);
+		const { error: dbError } = await supabase.from(table).delete().eq('id', id).eq('organization_id', orgId);
 
 		if (dbError) throw error(500, dbError.message);
 
@@ -432,7 +428,13 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 				Object.assign(details, deletedDetails);
 			}
 			auditLog(
-				{ action: `${config.auditResourceType}.deleted`, resourceType: config.auditResourceType, resourceId: id, orgId, details },
+				{
+					action: `${config.auditResourceType}.deleted`,
+					resourceType: config.auditResourceType,
+					resourceId: id,
+					orgId,
+					details
+				},
 				{ userId }
 			);
 		}

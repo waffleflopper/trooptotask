@@ -13,6 +13,7 @@
 ### Task 1: Add role callout styling to the help page
 
 **Files:**
+
 - Modify: `src/routes/help/+page.svelte` (style block, ~line 358-607)
 
 **Step 1: Add role callout CSS**
@@ -36,7 +37,7 @@ Add these styles inside the existing `<style>` block, after the `.help-item p` r
 }
 
 .role-callout--team-leader {
-	border-left-color: #B8943E;
+	border-left-color: #b8943e;
 }
 
 .role-callout--viewer {
@@ -57,7 +58,7 @@ Add these styles inside the existing `<style>` block, after the `.help-item p` r
 }
 
 .role-callout--team-leader .role-callout-label {
-	color: #B8943E;
+	color: #b8943e;
 }
 
 .role-callout--viewer .role-callout-label {
@@ -88,6 +89,7 @@ git commit -m "style: add role callout CSS to help page"
 ### Task 2: Rewrite help page content — sections 1-6
 
 **Files:**
+
 - Modify: `src/routes/help/+page.svelte` (script block, sections array ~line 10-265)
 
 Replace the `sections` array with updated content. This task covers the first 6 sections. The section data structure stays the same (`id`, `title`, `icon`, `items[]`) but items now include an optional `role` field for callouts.
@@ -364,6 +366,7 @@ git commit -m "feat: rewrite help page sections 1-6 with role callouts"
 ### Task 3: Rewrite help page content — sections 7-11
 
 **Files:**
+
 - Modify: `src/routes/help/+page.svelte` (script block, continuing sections array)
 
 **Step 1: Replace sections 7-11**
@@ -575,6 +578,7 @@ git commit -m "feat: complete help page rewrite with 11 sections, role callouts,
 ### Task 4: Add welcome banner to org dashboard
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/+page.svelte`
 
 **Step 1: Add banner state and dismissal logic**

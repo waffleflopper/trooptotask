@@ -2,7 +2,12 @@
 	import type { Personnel } from '$lib/types';
 	import type { RatingSchemeEntry, ReportType, WorkflowStatus } from '../counseling.types';
 	import { WORKFLOW_STATUS_OPTIONS, WORKFLOW_STATUS_COLORS } from '../counseling.types';
-	import { getEvalTypeForRank, getReportTypesForEvalType, calculateThruDate, getExtendedAnnualWarning } from '$features/counseling/utils/ratingScheme';
+	import {
+		getEvalTypeForRank,
+		getReportTypesForEvalType,
+		calculateThruDate,
+		getExtendedAnnualWarning
+	} from '$features/counseling/utils/ratingScheme';
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
@@ -18,14 +23,10 @@
 	let { entry, personnel, onSave, onDelete, onClose }: Props = $props();
 
 	const sortedPersonnel = $derived(
-		[...personnel].sort((a, b) =>
-			a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
-		)
+		[...personnel].sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
 	);
 
-	const personnelOptions = $derived(
-		sortedPersonnel.map((p) => ({ value: p.id, label: formatPersonLabel(p) }))
-	);
+	const personnelOptions = $derived(sortedPersonnel.map((p) => ({ value: p.id, label: formatPersonLabel(p) })));
 
 	// Form state
 	let ratedPersonId = $state('');
@@ -136,10 +137,10 @@
 
 	const canSave = $derived(
 		!!ratedPersonId &&
-		!!ratingPeriodStart &&
-		!!ratingPeriodEnd &&
-		(raterMode === 'internal' ? !!raterPersonId : !!raterName.trim()) &&
-		(srMode === 'internal' ? !!seniorRaterPersonId : !!seniorRaterName.trim())
+			!!ratingPeriodStart &&
+			!!ratingPeriodEnd &&
+			(raterMode === 'internal' ? !!raterPersonId : !!raterName.trim()) &&
+			(srMode === 'internal' ? !!seniorRaterPersonId : !!seniorRaterName.trim())
 	);
 
 	async function handleSave() {
@@ -162,7 +163,7 @@
 				status,
 				notes: notes.trim() || null,
 				reportType: reportType || null,
-				workflowStatus: (showWorkflow && workflowStatus) ? workflowStatus as WorkflowStatus : null
+				workflowStatus: showWorkflow && workflowStatus ? (workflowStatus as WorkflowStatus) : null
 			});
 			onClose();
 		} finally {
@@ -189,7 +190,12 @@
 <Modal title={entry ? 'Edit Rating Entry' : 'Add Rating Entry'} {onClose} width="550px" titleId="rating-entry-title">
 	<div class="form-group">
 		<label class="label">Rated Individual</label>
-		<SearchSelect options={personnelOptions} bind:value={ratedPersonId} placeholder="Search personnel..." disabled={!!entry} />
+		<SearchSelect
+			options={personnelOptions}
+			bind:value={ratedPersonId}
+			placeholder="Search personnel..."
+			disabled={!!entry}
+		/>
 	</div>
 
 	<div class="form-row">
@@ -215,26 +221,44 @@
 	<fieldset class="rater-section">
 		<legend class="section-legend">Rater <span class="required">*</span></legend>
 		<div class="mode-toggle">
-			<button class="toggle-btn" class:active={raterMode === 'internal'} onclick={() => (raterMode = 'internal')}>From Org</button>
-			<button class="toggle-btn" class:active={raterMode === 'external'} onclick={() => (raterMode = 'external')}>External</button>
+			<button class="toggle-btn" class:active={raterMode === 'internal'} onclick={() => (raterMode = 'internal')}
+				>From Org</button
+			>
+			<button class="toggle-btn" class:active={raterMode === 'external'} onclick={() => (raterMode = 'external')}
+				>External</button
+			>
 		</div>
 		{#if raterMode === 'internal'}
 			<SearchSelect options={personnelOptions} bind:value={raterPersonId} placeholder="Search rater..." />
 		{:else}
-			<input class="input" type="text" bind:value={raterName} placeholder="Rank, Name, Position (e.g., MAJ Smith, S3)" />
+			<input
+				class="input"
+				type="text"
+				bind:value={raterName}
+				placeholder="Rank, Name, Position (e.g., MAJ Smith, S3)"
+			/>
 		{/if}
 	</fieldset>
 
 	<fieldset class="rater-section">
 		<legend class="section-legend">Senior Rater <span class="required">*</span></legend>
 		<div class="mode-toggle">
-			<button class="toggle-btn" class:active={srMode === 'internal'} onclick={() => (srMode = 'internal')}>From Org</button>
-			<button class="toggle-btn" class:active={srMode === 'external'} onclick={() => (srMode = 'external')}>External</button>
+			<button class="toggle-btn" class:active={srMode === 'internal'} onclick={() => (srMode = 'internal')}
+				>From Org</button
+			>
+			<button class="toggle-btn" class:active={srMode === 'external'} onclick={() => (srMode = 'external')}
+				>External</button
+			>
 		</div>
 		{#if srMode === 'internal'}
 			<SearchSelect options={personnelOptions} bind:value={seniorRaterPersonId} placeholder="Search senior rater..." />
 		{:else}
-			<input class="input" type="text" bind:value={seniorRaterName} placeholder="Rank, Name, Position (e.g., COL Jones, BDE CDR)" />
+			<input
+				class="input"
+				type="text"
+				bind:value={seniorRaterName}
+				placeholder="Rank, Name, Position (e.g., COL Jones, BDE CDR)"
+			/>
 		{/if}
 	</fieldset>
 
@@ -244,14 +268,29 @@
 		<fieldset class="rater-section">
 			<legend class="section-legend">
 				Intermediate Rater
-				<button class="btn-remove-section" onclick={() => { showIntermediate = false; intermediateRaterPersonId = ''; intermediateRaterName = ''; }}>Remove</button>
+				<button
+					class="btn-remove-section"
+					onclick={() => {
+						showIntermediate = false;
+						intermediateRaterPersonId = '';
+						intermediateRaterName = '';
+					}}>Remove</button
+				>
 			</legend>
 			<div class="mode-toggle">
-				<button class="toggle-btn" class:active={irMode === 'internal'} onclick={() => (irMode = 'internal')}>From Org</button>
-				<button class="toggle-btn" class:active={irMode === 'external'} onclick={() => (irMode = 'external')}>External</button>
+				<button class="toggle-btn" class:active={irMode === 'internal'} onclick={() => (irMode = 'internal')}
+					>From Org</button
+				>
+				<button class="toggle-btn" class:active={irMode === 'external'} onclick={() => (irMode = 'external')}
+					>External</button
+				>
 			</div>
 			{#if irMode === 'internal'}
-				<SearchSelect options={personnelOptions} bind:value={intermediateRaterPersonId} placeholder="Search intermediate rater..." />
+				<SearchSelect
+					options={personnelOptions}
+					bind:value={intermediateRaterPersonId}
+					placeholder="Search intermediate rater..."
+				/>
 			{:else}
 				<input class="input" type="text" bind:value={intermediateRaterName} placeholder="Rank, Name, Position" />
 			{/if}
@@ -264,11 +303,22 @@
 		<fieldset class="rater-section">
 			<legend class="section-legend">
 				Reviewer
-				<button class="btn-remove-section" onclick={() => { showReviewer = false; reviewerPersonId = ''; reviewerName = ''; }}>Remove</button>
+				<button
+					class="btn-remove-section"
+					onclick={() => {
+						showReviewer = false;
+						reviewerPersonId = '';
+						reviewerName = '';
+					}}>Remove</button
+				>
 			</legend>
 			<div class="mode-toggle">
-				<button class="toggle-btn" class:active={rvMode === 'internal'} onclick={() => (rvMode = 'internal')}>From Org</button>
-				<button class="toggle-btn" class:active={rvMode === 'external'} onclick={() => (rvMode = 'external')}>External</button>
+				<button class="toggle-btn" class:active={rvMode === 'internal'} onclick={() => (rvMode = 'internal')}
+					>From Org</button
+				>
+				<button class="toggle-btn" class:active={rvMode === 'external'} onclick={() => (rvMode = 'external')}
+					>External</button
+				>
 			</div>
 			{#if rvMode === 'internal'}
 				<SearchSelect options={personnelOptions} bind:value={reviewerPersonId} placeholder="Search reviewer..." />
@@ -308,7 +358,13 @@
 		<div class="form-group workflow-group">
 			<div class="workflow-header">
 				<label class="label" for="workflow-status">Workflow Status</label>
-				<button class="btn-remove-section" onclick={() => { showWorkflow = false; workflowStatus = ''; }}>Remove</button>
+				<button
+					class="btn-remove-section"
+					onclick={() => {
+						showWorkflow = false;
+						workflowStatus = '';
+					}}>Remove</button
+				>
 			</div>
 			<select id="workflow-status" class="select" bind:value={workflowStatus}>
 				<option value="">Select workflow step...</option>

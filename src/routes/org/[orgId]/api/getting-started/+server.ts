@@ -15,16 +15,14 @@ export const POST: RequestHandler = async ({ locals, params }) => {
 		return new Response(JSON.stringify({ error: 'Invalid org ID' }), { status: 400 });
 	}
 
-	const { error } = await supabase
-		.from('getting_started_progress')
-		.upsert(
-			{
-				organization_id: params.orgId,
-				user_id: userId,
-				dismissed_at: new Date().toISOString()
-			},
-			{ onConflict: 'organization_id,user_id' }
-		);
+	const { error } = await supabase.from('getting_started_progress').upsert(
+		{
+			organization_id: params.orgId,
+			user_id: userId,
+			dismissed_at: new Date().toISOString()
+		},
+		{ onConflict: 'organization_id,user_id' }
+	);
 
 	if (error) {
 		return new Response(JSON.stringify({ error: 'Failed to dismiss' }), { status: 500 });

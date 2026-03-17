@@ -18,8 +18,20 @@
 		scrollbarWidth?: number;
 	}
 
-	let { year, monthName, dates, specialDays, assignmentTypes, assignments, onPrevMonth, onNextMonth, onGoToToday, onDateClick, scrollLeft = 0, scrollbarWidth = 0 }: Props =
-		$props();
+	let {
+		year,
+		monthName,
+		dates,
+		specialDays,
+		assignmentTypes,
+		assignments,
+		onPrevMonth,
+		onNextMonth,
+		onGoToToday,
+		onDateClick,
+		scrollLeft = 0,
+		scrollbarWidth = 0
+	}: Props = $props();
 
 	let dateHeadersEl: HTMLDivElement;
 
@@ -44,9 +56,7 @@
 		// Look up by shortName since database generates UUIDs for IDs
 		const fdsType = assignmentTypes.find((t) => t.shortName === 'FDS');
 		if (!fdsType) return null;
-		const assignment = assignments.find(
-			(a) => a.date === dateStr && a.assignmentTypeId === fdsType.id
-		);
+		const assignment = assignments.find((a) => a.date === dateStr && a.assignmentTypeId === fdsType.id);
 		return assignment?.assigneeId || null;
 	}
 </script>

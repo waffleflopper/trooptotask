@@ -8,17 +8,20 @@
 ## 1. Error Pages
 
 ### Root Error Page (`src/routes/+error.svelte`)
+
 - Displays HTTP status code and friendly message
 - Branded with app styling (uses CSS variables from app.css)
 - "Go Home" button linking to `/`
 - Handles common cases: 404 ("Page not found"), 403 ("You don't have permission"), 500 ("Something went wrong")
 
 ### Org-Scoped Error Page (`src/routes/org/[orgId]/+error.svelte`)
+
 - Same branded layout
 - "Back to Dashboard" button linking to `/org/{orgId}`
 - Uses `$page.error` and `$page.status` from SvelteKit
 
 ### Behavior
+
 - No layout dependencies — error pages should work even if layout load fails
 - Minimal styling (inline or from app.css global styles already loaded)
 
@@ -27,9 +30,11 @@
 ## 2. First-Time User Experience — Getting Started Checklist
 
 ### Location
+
 Persistent banner at the top of the org dashboard (`src/routes/org/[orgId]/+page.svelte`), rendered above the existing dashboard cards.
 
 ### Data Model
+
 A new table `getting_started_progress` to track dismissal state:
 
 ```sql
@@ -53,16 +58,16 @@ CREATE POLICY "Users can manage their own getting started progress"
 
 Each step is derived from existing data loaded in the org layout or dashboard page server. New orgs start with zero status types, assignment types, and training types (no defaults are seeded by `create_org_with_owner`), so simple `length > 0` checks work for Steps 2-4.
 
-| # | Step | Label | Completion Check | Link |
-|---|------|-------|-----------------|------|
-| 1 | Add personnel | "Add your first personnel" | `personnel.length > 0` | `/org/{orgId}/personnel` |
-| 2 | Status types | "Set up your status types" | `statusTypes.length > 0` | `/org/{orgId}/calendar` (opens StatusTypeManager) |
-| 3 | Assignment types | "Set up assignment types" | `assignmentTypes.length > 0` | `/org/{orgId}/calendar` (opens AssignmentTypeManager) |
-| 4 | Training types | "Configure training types" | `trainingTypes.length > 0` | `/org/{orgId}/training` (opens TrainingTypeManager) |
-| 5 | Onboarding template | "Set up your onboarding flow" | At least one onboarding template step exists | `/org/{orgId}/onboarding` |
-| 6 | Rating scheme | "Configure your rating scheme" | At least one rating scheme entry exists | `/org/{orgId}/leaders-book` |
-| 7 | Invite a member | "Invite a team member" | `orgMemberCount > 1` (more than just the creator) | `/org/{orgId}/settings` (member management) |
-| 8 | Explore calendar | "Explore the calendar" | User has visited calendar page (tracked client-side via localStorage) | `/org/{orgId}/calendar` |
+| #   | Step                | Label                          | Completion Check                                                      | Link                                                  |
+| --- | ------------------- | ------------------------------ | --------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1   | Add personnel       | "Add your first personnel"     | `personnel.length > 0`                                                | `/org/{orgId}/personnel`                              |
+| 2   | Status types        | "Set up your status types"     | `statusTypes.length > 0`                                              | `/org/{orgId}/calendar` (opens StatusTypeManager)     |
+| 3   | Assignment types    | "Set up assignment types"      | `assignmentTypes.length > 0`                                          | `/org/{orgId}/calendar` (opens AssignmentTypeManager) |
+| 4   | Training types      | "Configure training types"     | `trainingTypes.length > 0`                                            | `/org/{orgId}/training` (opens TrainingTypeManager)   |
+| 5   | Onboarding template | "Set up your onboarding flow"  | At least one onboarding template step exists                          | `/org/{orgId}/onboarding`                             |
+| 6   | Rating scheme       | "Configure your rating scheme" | At least one rating scheme entry exists                               | `/org/{orgId}/leaders-book`                           |
+| 7   | Invite a member     | "Invite a team member"         | `orgMemberCount > 1` (more than just the creator)                     | `/org/{orgId}/settings` (member management)           |
+| 8   | Explore calendar    | "Explore the calendar"         | User has visited calendar page (tracked client-side via localStorage) | `/org/{orgId}/calendar`                               |
 
 ### Completion Detection Details
 
@@ -112,6 +117,7 @@ Each step is derived from existing data loaded in the org layout or dashboard pa
 New component: `src/features/onboarding/components/GettingStartedBanner.svelte`
 
 Props:
+
 - `orgId: string`
 - `personnel: PersonnelInfo[]`
 - `statusTypes: StatusType[]`
@@ -126,6 +132,7 @@ Props:
 ### API Endpoint
 
 `src/routes/org/[orgId]/api/getting-started/+server.ts`
+
 - `POST`: Create/update dismissal state (set `dismissed_at`). Uses upsert on the unique (organization_id, user_id) constraint.
 - `DELETE`: Un-dismiss (clear `dismissed_at`, in case we add a "show again" option in settings). Checklist reappears with current completion state recalculated from live data — no stored step state to reset.
 
@@ -141,13 +148,19 @@ Update the existing `<svelte:head>` block:
 
 ```html
 <title>Troop to Task — Military Unit Management</title>
-<meta name="description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments — all in one secure platform." />
+<meta
+	name="description"
+	content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments — all in one secure platform."
+/>
 
 <!-- Open Graph -->
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Troop to Task" />
 <meta property="og:title" content="Troop to Task — Military Unit Management" />
-<meta property="og:description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments." />
+<meta
+	property="og:description"
+	content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments."
+/>
 <meta property="og:url" content="https://trooptotask.org" />
 <meta property="og:image" content="https://trooptotask.org/og-image.png" />
 <meta property="og:image:width" content="1200" />
@@ -156,17 +169,23 @@ Update the existing `<svelte:head>` block:
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Troop to Task — Military Unit Management" />
-<meta name="twitter:description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments." />
+<meta
+	name="twitter:description"
+	content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments."
+/>
 <meta name="twitter:image" content="https://trooptotask.org/og-image.png" />
 ```
 
 ### OG Image
+
 - Create a 1200x630px OG image (`static/og-image.png`)
 - Should show the app name, tagline, and a simple visual (logo or dashboard screenshot)
 - User will need to provide or approve the image design
 
 ### Other Public Pages
+
 Add `<meta name="description">` to:
+
 - `/privacy` — "Privacy policy for Troop to Task military unit management software."
 - `/security` — "Security practices and NIST 800-171 compliance information for Troop to Task."
 - `/help` — "Help and platform guide for Troop to Task."
@@ -176,11 +195,13 @@ Add `<meta name="description">` to:
 ## 4. `.single()` Null Check Audit
 
 ### Approach
+
 Audit **every** `.single()` call in the codebase (~55 files). For each one, verify that the code checks for null/error before using the result. Fix any that don't.
 
 Run `grep -rn '\.single()' src/` to get the full list. The known-safe and known-risky locations below are a starting point, not exhaustive.
 
 ### Known Safe (have null checks)
+
 - `src/routes/org/[orgId]/+layout.server.ts:67` — org lookup, throws 404
 - `src/lib/server/permissions.ts` — all membership lookups checked
 - `src/routes/auth/register/+page.server.ts:51` — invite lookup checked
@@ -189,6 +210,7 @@ Run `grep -rn '\.single()' src/` to get the full list. The known-safe and known-
 - `src/lib/server/admin.ts:29` — checked
 
 ### Known Risky (need verification)
+
 - `src/routes/org/[orgId]/settings/+page.server.ts` — multiple `.single()` calls
 - `src/routes/org/[orgId]/api/onboarding/+server.ts`
 - `src/routes/org/[orgId]/api/personnel-extended-info/+server.ts`
@@ -211,12 +233,14 @@ Run `grep -rn '\.single()' src/` to get the full list. The known-safe and known-
 - Any `.single()` calls inside shared `crudFactory` patterns
 
 ### Fix Pattern
+
 For each unguarded `.single()`:
+
 ```typescript
 const { data, error } = await supabase.from('table').select('*').eq('id', id).single();
 if (error || !data) {
-  return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
-  // or: throw error(404, 'Not found');
+	return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+	// or: throw error(404, 'Not found');
 }
 ```
 
@@ -225,36 +249,36 @@ if (error || !data) {
 ## 5. Permission Descriptions in Member Management UI
 
 ### Location
+
 `src/features/groups/components/OrganizationMemberManager.svelte` — the permission checkbox grid (lines ~305-401).
 
 ### Descriptions
 
 Add a small help text line below each section heading:
 
-| Section | Description |
-|---------|-------------|
-| Calendar | "View the unit calendar and personnel statuses. Edit allows setting statuses, assignments, and availability." |
-| Personnel | "View the personnel roster and details. Edit allows adding, updating, and removing personnel records." |
-| Training | "View training records and compliance status. Edit allows logging training completions and managing records." |
-| Onboarding | "View onboarding progress for new personnel. Edit allows starting onboardings and updating step progress." |
-| Leader's Book | "View counseling records and development goals. Edit allows creating and updating counseling entries." |
-| Members | "Invite, remove, and manage permissions for other organization members. (Single toggle — no separate view-only option.)" |
+| Section       | Description                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Calendar      | "View the unit calendar and personnel statuses. Edit allows setting statuses, assignments, and availability."            |
+| Personnel     | "View the personnel roster and details. Edit allows adding, updating, and removing personnel records."                   |
+| Training      | "View training records and compliance status. Edit allows logging training completions and managing records."            |
+| Onboarding    | "View onboarding progress for new personnel. Edit allows starting onboardings and updating step progress."               |
+| Leader's Book | "View counseling records and development goals. Edit allows creating and updating counseling entries."                   |
+| Members       | "Invite, remove, and manage permissions for other organization members. (Single toggle — no separate view-only option.)" |
 
 ### UI Treatment
+
 - Small muted text below each section `<h4>`, using `font-size: var(--font-size-xs)` and `color: var(--color-text-muted)`
 - No tooltip/hover — always visible when the custom permissions form is expanded
 - Keeps the UI scannable without requiring interaction
 
 ```html
 <div class="permission-section">
-  <h4>Calendar</h4>
-  <p class="permission-description">View the unit calendar and personnel statuses. Edit allows setting statuses, assignments, and availability.</p>
-  <label class="checkbox-label">
-    <input type="checkbox" ... /> View
-  </label>
-  <label class="checkbox-label">
-    <input type="checkbox" ... /> Edit
-  </label>
+	<h4>Calendar</h4>
+	<p class="permission-description">
+		View the unit calendar and personnel statuses. Edit allows setting statuses, assignments, and availability.
+	</p>
+	<label class="checkbox-label"> <input type="checkbox" ... /> View </label>
+	<label class="checkbox-label"> <input type="checkbox" ... /> Edit </label>
 </div>
 ```
 

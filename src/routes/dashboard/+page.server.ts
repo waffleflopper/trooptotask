@@ -17,12 +17,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.eq('user_id', user.id);
 
 	const organizations = (memberships ?? [])
-		.filter((m: any) => m.organizations)
-		.map((m: any) => ({
-			id: m.organizations.id,
-			name: m.organizations.name,
-			role: m.role
-		}));
+		.filter((m: Record<string, unknown>) => m.organizations)
+		.map((m: Record<string, unknown>) => {
+			const org = m.organizations as Record<string, unknown>;
+			return { id: org.id as string, name: org.name as string, role: m.role as string };
+		});
 
 	// Get pending invitations for this user's email
 	const { data: invitations } = await locals.supabase
@@ -33,12 +32,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.order('created_at', { ascending: false });
 
 	const pendingInvitations = (invitations ?? [])
-		.filter((inv: any) => inv.organizations)
-		.map((inv: any) => ({
-			id: inv.id,
-			organizationId: inv.organization_id,
-			organizationName: inv.organizations.name,
-			createdAt: inv.created_at
+		.filter((inv: Record<string, unknown>) => inv.organizations)
+		.map((inv: Record<string, unknown>) => ({
+			id: inv.id as string,
+			organizationId: inv.organization_id as string,
+			organizationName: (inv.organizations as Record<string, unknown>).name as string,
+			createdAt: inv.created_at as string
 		}));
 
 	// If user has exactly one organization AND no pending invitations, redirect directly
@@ -89,53 +88,50 @@ export const actions: Actions = {
 
 		if (existing) {
 			// Already a member, just delete the invitation
-			await locals.supabase
-				.from('organization_invitations')
-				.delete()
-				.eq('id', invitationId);
+			await locals.supabase.from('organization_invitations').delete().eq('id', invitationId);
 			return fail(400, { error: 'You are already a member of this organization' });
 		}
 
 		// Determine role: if all permissions + manage members = admin
 		const isAdminInvite =
-			invitation.can_view_calendar && invitation.can_edit_calendar &&
-			invitation.can_view_personnel && invitation.can_edit_personnel &&
-			invitation.can_view_training && invitation.can_edit_training &&
-			invitation.can_view_onboarding && invitation.can_edit_onboarding &&
-			invitation.can_view_leaders_book && invitation.can_edit_leaders_book &&
+			invitation.can_view_calendar &&
+			invitation.can_edit_calendar &&
+			invitation.can_view_personnel &&
+			invitation.can_edit_personnel &&
+			invitation.can_view_training &&
+			invitation.can_edit_training &&
+			invitation.can_view_onboarding &&
+			invitation.can_edit_onboarding &&
+			invitation.can_view_leaders_book &&
+			invitation.can_edit_leaders_book &&
 			invitation.can_manage_members;
 
 		// Create membership with the invitation's permissions
-		const { error: memberError } = await locals.supabase
-			.from('organization_memberships')
-			.insert({
-				organization_id: invitation.organization_id,
-				user_id: user.id,
-				email: user.email?.toLowerCase(),
-				role: isAdminInvite ? 'admin' : 'member',
-				can_view_calendar: invitation.can_view_calendar ?? true,
-				can_edit_calendar: invitation.can_edit_calendar ?? true,
-				can_view_personnel: invitation.can_view_personnel ?? true,
-				can_edit_personnel: invitation.can_edit_personnel ?? true,
-				can_view_training: invitation.can_view_training ?? true,
-				can_edit_training: invitation.can_edit_training ?? true,
-				can_view_onboarding: invitation.can_view_onboarding ?? true,
-				can_edit_onboarding: invitation.can_edit_onboarding ?? true,
-				can_view_leaders_book: invitation.can_view_leaders_book ?? true,
-				can_edit_leaders_book: invitation.can_edit_leaders_book ?? true,
-				can_manage_members: invitation.can_manage_members ?? false,
-				scoped_group_id: invitation.scoped_group_id ?? null
-			});
+		const { error: memberError } = await locals.supabase.from('organization_memberships').insert({
+			organization_id: invitation.organization_id,
+			user_id: user.id,
+			email: user.email?.toLowerCase(),
+			role: isAdminInvite ? 'admin' : 'member',
+			can_view_calendar: invitation.can_view_calendar ?? true,
+			can_edit_calendar: invitation.can_edit_calendar ?? true,
+			can_view_personnel: invitation.can_view_personnel ?? true,
+			can_edit_personnel: invitation.can_edit_personnel ?? true,
+			can_view_training: invitation.can_view_training ?? true,
+			can_edit_training: invitation.can_edit_training ?? true,
+			can_view_onboarding: invitation.can_view_onboarding ?? true,
+			can_edit_onboarding: invitation.can_edit_onboarding ?? true,
+			can_view_leaders_book: invitation.can_view_leaders_book ?? true,
+			can_edit_leaders_book: invitation.can_edit_leaders_book ?? true,
+			can_manage_members: invitation.can_manage_members ?? false,
+			scoped_group_id: invitation.scoped_group_id ?? null
+		});
 
 		if (memberError) {
 			return fail(500, { error: 'Failed to accept invitation' });
 		}
 
 		// Delete the invitation
-		await locals.supabase
-			.from('organization_invitations')
-			.delete()
-			.eq('id', invitationId);
+		await locals.supabase.from('organization_invitations').delete().eq('id', invitationId);
 
 		await notifyAdmins(invitation.organization_id, user.id, {
 			type: 'member_joined',

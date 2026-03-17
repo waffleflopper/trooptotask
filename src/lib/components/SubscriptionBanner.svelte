@@ -6,9 +6,7 @@
 	let { orgId }: { orgId: string } = $props();
 
 	const daysRemaining = $derived(subscriptionStore.giftDaysRemaining);
-	const showGiftWarning = $derived(
-		subscriptionStore.isGifted && daysRemaining !== null && daysRemaining <= 14
-	);
+	const showGiftWarning = $derived(subscriptionStore.isGifted && daysRemaining !== null && daysRemaining <= 14);
 	const isUrgent = $derived(daysRemaining !== null && daysRemaining <= 3);
 	const isReadOnly = $derived(subscriptionStore.isReadOnly);
 	const showBanner = $derived(isBillingEnabled && (showGiftWarning || isReadOnly));
@@ -36,8 +34,7 @@
 				</span>
 				<span class="banner-text">
 					Your org has <strong>{personnelCount}</strong> personnel but your current plan allows
-					<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>.
-					Your data is read-only.
+					<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>. Your data is read-only.
 				</span>
 				<a href="/org/{orgId}/billing" class="banner-btn">Subscribe</a>
 				<a href="/org/{orgId}/personnel" class="banner-btn">Manage Personnel</a>
@@ -58,12 +55,12 @@
 				<span class="banner-text">
 					{#if isUrgent}
 						Your complimentary <strong>{tierName}</strong> plan expires in
-						<strong>{daysRemaining}</strong> {daysRemaining === 1 ? 'day' : 'days'}.
-						Subscribe now to maintain full access.
+						<strong>{daysRemaining}</strong>
+						{daysRemaining === 1 ? 'day' : 'days'}. Subscribe now to maintain full access.
 					{:else}
 						Your complimentary <strong>{tierName}</strong> plan expires in
-						<strong>{daysRemaining}</strong> {daysRemaining === 1 ? 'day' : 'days'}.
-						Set up a subscription to keep your data.
+						<strong>{daysRemaining}</strong>
+						{daysRemaining === 1 ? 'day' : 'days'}. Set up a subscription to keep your data.
 					{/if}
 				</span>
 				<a href="/org/{orgId}/billing" class="banner-btn">Subscribe</a>

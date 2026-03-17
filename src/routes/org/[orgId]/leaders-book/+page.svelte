@@ -84,13 +84,9 @@
 		const totalPersonnel = (data.personnel ?? []).length;
 		const withExtendedInfo = personnelExtendedInfoStore.list.length;
 		const totalCounselings = counselingRecordsStore.list.length;
-		const pendingCounselings = counselingRecordsStore.list.filter(
-			(r) => r.status === 'draft'
-		).length;
+		const pendingCounselings = counselingRecordsStore.list.filter((r) => r.status === 'draft').length;
 		const totalGoals = developmentGoalsStore.list.length;
-		const completedGoals = developmentGoalsStore.list.filter(
-			(g) => g.status === 'completed'
-		).length;
+		const completedGoals = developmentGoalsStore.list.filter((g) => g.status === 'completed').length;
 
 		return {
 			totalPersonnel,
@@ -126,10 +122,7 @@
 		await counselingTypesStore.add(typeData);
 	}
 
-	async function handleUpdateCounselingType(
-		id: string,
-		typeData: Partial<Omit<CounselingType, 'id'>>
-	) {
+	async function handleUpdateCounselingType(id: string, typeData: Partial<Omit<CounselingType, 'id'>>) {
 		await counselingTypesStore.update(id, typeData);
 	}
 
@@ -167,109 +160,104 @@
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
 		</div>
 	{:else}
-	<div class="stats-bar">
-		<div class="stat">
-			<span class="stat-value">{stats.totalPersonnel}</span>
-			<span class="stat-label">Personnel</span>
-		</div>
-		<div class="stat info">
-			<span class="stat-value">{stats.withExtendedInfo}</span>
-			<span class="stat-label">With Info</span>
-		</div>
-		<div class="stat counseling">
-			<span class="stat-value">{stats.totalCounselings}</span>
-			<span class="stat-label">Counselings</span>
-		</div>
-		<div class="stat pending">
-			<span class="stat-value">{stats.pendingCounselings}</span>
-			<span class="stat-label">Pending</span>
-		</div>
-		<div class="stat goals">
-			<span class="stat-value">{stats.completedGoals}/{stats.totalGoals}</span>
-			<span class="stat-label">Goals Done</span>
-		</div>
-	</div>
-
-	<div class="filter-bar">
-		<label class="filter-label">
-			<span class="filter-label-text">Group:</span>
-			<select class="select" bind:value={selectedGroupId}>
-				<option value="">All Groups</option>
-				{#each data.groups as group (group.id)}
-					<option value={group.id}>{group.name}</option>
-				{/each}
-			</select>
-		</label>
-		<div class="search-box">
-			<svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<circle cx="11" cy="11" r="8" />
-				<line x1="21" y1="21" x2="16.65" y2="16.65" />
-			</svg>
-			<input
-				type="text"
-				class="search-input"
-				placeholder="Search personnel..."
-				bind:value={searchQuery}
-			/>
-		</div>
-		<span class="filter-count">{filteredPersonnel.length} personnel</span>
-	</div>
-
-	<main class="page-content">
-		{#if filteredPersonnel.length === 0}
-			{#if (data.personnel ?? []).length === 0}
-				<EmptyState
-					message="No personnel added yet."
-					actionLabel="Go to Personnel"
-					actionHref={`/org/${data.orgId}/personnel`}
-				/>
-			{:else}
-				<EmptyState message="No personnel match your search." />
-			{/if}
-		{:else}
-			<div class="personnel-grid">
-				{#each filteredPersonnel as person (person.id)}
-					<button class="person-card" onclick={() => handlePersonClick(person)}>
-						<div class="person-header">
-							<span class="person-rank">{person.rank}</span>
-							<span class="person-name">{person.lastName}, {person.firstName}</span>
-						</div>
-						<div class="person-details">
-							{#if person.groupName}
-								<span class="person-group">{person.groupName}</span>
-							{/if}
-							{#if person.clinicRole}
-								<span class="person-role">{person.clinicRole}</span>
-							{/if}
-						</div>
-						<div class="person-stats">
-							<span class="person-stat" class:has-data={hasExtendedInfo(person.id)}>
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-									<circle cx="12" cy="7" r="4" />
-								</svg>
-								Info
-							</span>
-							<span class="person-stat" class:has-data={getPersonnelCounselingCount(person.id) > 0}>
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-									<polyline points="14 2 14 8 20 8" />
-								</svg>
-								{getPersonnelCounselingCount(person.id)}
-							</span>
-							<span class="person-stat" class:has-data={getPersonnelGoalCount(person.id) > 0}>
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<circle cx="12" cy="12" r="10" />
-									<polyline points="12 6 12 12 16 14" />
-								</svg>
-								{getPersonnelGoalCount(person.id)}
-							</span>
-						</div>
-					</button>
-				{/each}
+		<div class="stats-bar">
+			<div class="stat">
+				<span class="stat-value">{stats.totalPersonnel}</span>
+				<span class="stat-label">Personnel</span>
 			</div>
-		{/if}
-	</main>
+			<div class="stat info">
+				<span class="stat-value">{stats.withExtendedInfo}</span>
+				<span class="stat-label">With Info</span>
+			</div>
+			<div class="stat counseling">
+				<span class="stat-value">{stats.totalCounselings}</span>
+				<span class="stat-label">Counselings</span>
+			</div>
+			<div class="stat pending">
+				<span class="stat-value">{stats.pendingCounselings}</span>
+				<span class="stat-label">Pending</span>
+			</div>
+			<div class="stat goals">
+				<span class="stat-value">{stats.completedGoals}/{stats.totalGoals}</span>
+				<span class="stat-label">Goals Done</span>
+			</div>
+		</div>
+
+		<div class="filter-bar">
+			<label class="filter-label">
+				<span class="filter-label-text">Group:</span>
+				<select class="select" bind:value={selectedGroupId}>
+					<option value="">All Groups</option>
+					{#each data.groups as group (group.id)}
+						<option value={group.id}>{group.name}</option>
+					{/each}
+				</select>
+			</label>
+			<div class="search-box">
+				<svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<circle cx="11" cy="11" r="8" />
+					<line x1="21" y1="21" x2="16.65" y2="16.65" />
+				</svg>
+				<input type="text" class="search-input" placeholder="Search personnel..." bind:value={searchQuery} />
+			</div>
+			<span class="filter-count">{filteredPersonnel.length} personnel</span>
+		</div>
+
+		<main class="page-content">
+			{#if filteredPersonnel.length === 0}
+				{#if (data.personnel ?? []).length === 0}
+					<EmptyState
+						message="No personnel added yet."
+						actionLabel="Go to Personnel"
+						actionHref={`/org/${data.orgId}/personnel`}
+					/>
+				{:else}
+					<EmptyState message="No personnel match your search." />
+				{/if}
+			{:else}
+				<div class="personnel-grid">
+					{#each filteredPersonnel as person (person.id)}
+						<button class="person-card" onclick={() => handlePersonClick(person)}>
+							<div class="person-header">
+								<span class="person-rank">{person.rank}</span>
+								<span class="person-name">{person.lastName}, {person.firstName}</span>
+							</div>
+							<div class="person-details">
+								{#if person.groupName}
+									<span class="person-group">{person.groupName}</span>
+								{/if}
+								{#if person.clinicRole}
+									<span class="person-role">{person.clinicRole}</span>
+								{/if}
+							</div>
+							<div class="person-stats">
+								<span class="person-stat" class:has-data={hasExtendedInfo(person.id)}>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+										<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+										<circle cx="12" cy="7" r="4" />
+									</svg>
+									Info
+								</span>
+								<span class="person-stat" class:has-data={getPersonnelCounselingCount(person.id) > 0}>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+										<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+										<polyline points="14 2 14 8 20 8" />
+									</svg>
+									{getPersonnelCounselingCount(person.id)}
+								</span>
+								<span class="person-stat" class:has-data={getPersonnelGoalCount(person.id) > 0}>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+										<circle cx="12" cy="12" r="10" />
+										<polyline points="12 6 12 12 16 14" />
+									</svg>
+									{getPersonnelGoalCount(person.id)}
+								</span>
+							</div>
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</main>
 	{/if}
 </div>
 
@@ -448,7 +436,7 @@
 	}
 
 	.person-card:hover {
-		border-color: #B8943E;
+		border-color: #b8943e;
 		box-shadow: var(--shadow-2);
 		transform: translateY(-2px);
 	}
@@ -462,7 +450,7 @@
 
 	.person-rank {
 		font-weight: 700;
-		color: #B8943E;
+		color: #b8943e;
 	}
 
 	.person-name {
@@ -508,11 +496,11 @@
 	}
 
 	.person-stat.has-data {
-		color: #B8943E;
+		color: #b8943e;
 	}
 
 	.person-stat.has-data svg {
-		color: #B8943E;
+		color: #b8943e;
 	}
 
 	@media (max-width: 640px) {

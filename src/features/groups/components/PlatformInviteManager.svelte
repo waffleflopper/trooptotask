@@ -119,18 +119,17 @@
 	function sendEmail() {
 		if (!createdInvite) return;
 
-		const subject = encodeURIComponent('You\'re invited to join Troop to Task');
+		const subject = encodeURIComponent("You're invited to join Troop to Task");
 		const body = encodeURIComponent(
 			`You've been invited to join Troop to Task!\n\n` +
-			`Click the link below to create your account:\n${createdInvite.registrationUrl}\n\n` +
-			`Or enter this invite code manually: ${createdInvite.code}\n\n` +
-			`This invite expires in ${expiresInDays} days.`
+				`Click the link below to create your account:\n${createdInvite.registrationUrl}\n\n` +
+				`Or enter this invite code manually: ${createdInvite.code}\n\n` +
+				`This invite expires in ${expiresInDays} days.`
 		);
 
 		const mailto = `mailto:${createdInvite.email || ''}?subject=${subject}&body=${body}`;
 		window.open(mailto, '_blank');
 	}
-
 
 	// Check if invite is expired
 	function isExpired(expiresAt: string): boolean {
@@ -163,9 +162,7 @@
 				<label>Invite Code</label>
 				<div class="code-box">
 					<code>{createdInvite.code}</code>
-					<button class="btn btn-secondary btn-sm" onclick={() => copyToClipboard(createdInvite!.code)}>
-						Copy
-					</button>
+					<button class="btn btn-secondary btn-sm" onclick={() => copyToClipboard(createdInvite!.code)}> Copy </button>
 				</div>
 			</div>
 
@@ -191,9 +188,7 @@
 					</svg>
 					Send via Email
 				</button>
-				<button class="btn btn-secondary" onclick={() => (createdInvite = null)}>
-					Create Another
-				</button>
+				<button class="btn btn-secondary" onclick={() => (createdInvite = null)}> Create Another </button>
 			</div>
 		</div>
 	{:else}
@@ -244,7 +239,11 @@
 			{:else}
 				<div class="invites-list">
 					{#each invites as invite (invite.id)}
-						<div class="invite-item" class:used={invite.used_at} class:expired={!invite.used_at && isExpired(invite.expires_at)}>
+						<div
+							class="invite-item"
+							class:used={invite.used_at}
+							class:expired={!invite.used_at && isExpired(invite.expires_at)}
+						>
 							<div class="invite-info">
 								<code class="invite-code">{invite.code}</code>
 								{#if invite.email}
@@ -261,13 +260,13 @@
 								</span>
 							</div>
 							{#if !invite.used_at}
-								<button
-									class="btn btn-danger btn-sm"
-									onclick={() => deleteInvite(invite.id)}
-									title="Delete invite"
-								>
+								<button class="btn btn-danger btn-sm" onclick={() => deleteInvite(invite.id)} title="Delete invite">
 									<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
-										<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+										<path
+											fill-rule="evenodd"
+											d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+											clip-rule="evenodd"
+										/>
 									</svg>
 								</button>
 							{/if}

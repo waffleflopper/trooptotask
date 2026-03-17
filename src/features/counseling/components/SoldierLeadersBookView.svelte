@@ -53,16 +53,14 @@
 
 	const extendedInfo = $derived(personnelExtendedInfoStore.getByPersonnelId(person.id));
 	const counselingRecords = $derived(
-		counselingRecordsStore.getByPersonnelId(person.id).sort(
-			(a, b) => new Date(b.dateConducted).getTime() - new Date(a.dateConducted).getTime()
-		)
+		counselingRecordsStore
+			.getByPersonnelId(person.id)
+			.sort((a, b) => new Date(b.dateConducted).getTime() - new Date(a.dateConducted).getTime())
 	);
 	const developmentGoals = $derived(developmentGoalsStore.getByPersonnelId(person.id));
 
 	// Get all statuses for this person (reactive via store.list)
-	const personStatuses = $derived(
-		availabilityStore.list.filter((e) => e.personnelId === person.id)
-	);
+	const personStatuses = $derived(availabilityStore.list.filter((e) => e.personnelId === person.id));
 
 	// Helper to get local date string (YYYY-MM-DD) without timezone issues
 	function getLocalDateStr(date: Date = new Date()): string {
@@ -101,15 +99,17 @@
 
 	// Get training statuses for all training types
 	const trainingStatuses = $derived.by(() => {
-		return trainingTypesStore.list.map((type) => {
-			const training = personnelTrainingsStore.getByPersonnelAndType(person.id, type.id);
-			const statusInfo = getTrainingStatus(training, type, person);
-			return {
-				type,
-				training,
-				statusInfo
-			};
-		}).sort((a, b) => a.type.sortOrder - b.type.sortOrder);
+		return trainingTypesStore.list
+			.map((type) => {
+				const training = personnelTrainingsStore.getByPersonnelAndType(person.id, type.id);
+				const statusInfo = getTrainingStatus(training, type, person);
+				return {
+					type,
+					training,
+					statusInfo
+				};
+			})
+			.sort((a, b) => a.type.sortOrder - b.type.sortOrder);
 	});
 
 	function getCounselingTypeName(typeId: string | null): string {
@@ -420,7 +420,7 @@
 						<!-- Current Status -->
 						<div class="current-status-section">
 							<h3>Current Status</h3>
-						{#if currentStatus}
+							{#if currentStatus}
 								<button
 									class="current-status-card"
 									onclick={() => canEdit && openEditStatus(currentStatus)}
@@ -429,7 +429,9 @@
 								>
 									<span
 										class="current-status-badge"
-										style="background-color: {getStatusTypeColor(currentStatus.statusTypeId)}; color: {getStatusTypeTextColor(currentStatus.statusTypeId)}"
+										style="background-color: {getStatusTypeColor(
+											currentStatus.statusTypeId
+										)}; color: {getStatusTypeTextColor(currentStatus.statusTypeId)}"
 									>
 										{getStatusTypeName(currentStatus.statusTypeId)}
 									</span>
@@ -448,21 +450,21 @@
 						<div class="upcoming-statuses-section">
 							<div class="statuses-header">
 								<h3>Upcoming (Next 3 Months)</h3>
-								<span class="status-count">{upcomingStatuses.length} {upcomingStatuses.length === 1 ? 'status' : 'statuses'}</span>
+								<span class="status-count"
+									>{upcomingStatuses.length} {upcomingStatuses.length === 1 ? 'status' : 'statuses'}</span
+								>
 							</div>
 
 							{#if upcomingStatuses.length > 0}
 								<div class="statuses-list">
 									{#each upcomingStatuses as entry (entry.id)}
-										<button
-											class="status-card"
-											onclick={() => canEdit && openEditStatus(entry)}
-											disabled={!canEdit}
-										>
+										<button class="status-card" onclick={() => canEdit && openEditStatus(entry)} disabled={!canEdit}>
 											<div class="status-card-header">
 												<span
 													class="status-type-badge"
-													style="background-color: {getStatusTypeColor(entry.statusTypeId)}; color: {getStatusTypeTextColor(entry.statusTypeId)}"
+													style="background-color: {getStatusTypeColor(
+														entry.statusTypeId
+													)}; color: {getStatusTypeTextColor(entry.statusTypeId)}"
 												>
 													{getStatusTypeName(entry.statusTypeId)}
 												</span>
@@ -560,11 +562,7 @@
 						{#if counselingRecords.length > 0}
 							<div class="records-list">
 								{#each counselingRecords as record (record.id)}
-									<button
-										class="record-card"
-										onclick={() => canEdit && openEditCounseling(record)}
-										disabled={!canEdit}
-									>
+									<button class="record-card" onclick={() => canEdit && openEditCounseling(record)} disabled={!canEdit}>
 										<div class="record-header">
 											<span
 												class="record-type"
@@ -573,10 +571,7 @@
 												{getCounselingTypeName(record.counselingTypeId)}
 											</span>
 											<span class="record-date">{formatDisplayDate(record.dateConducted)}</span>
-											<span
-												class="record-status"
-												style="background-color: {COUNSELING_STATUS_COLORS[record.status]}"
-											>
+											<span class="record-status" style="background-color: {COUNSELING_STATUS_COLORS[record.status]}">
 												{COUNSELING_STATUS_LABELS[record.status]}
 											</span>
 										</div>
@@ -626,22 +621,12 @@
 						{#if developmentGoals.length > 0}
 							<div class="goals-list">
 								{#each developmentGoals as goal (goal.id)}
-									<button
-										class="goal-card"
-										onclick={() => canEdit && openEditGoal(goal)}
-										disabled={!canEdit}
-									>
+									<button class="goal-card" onclick={() => canEdit && openEditGoal(goal)} disabled={!canEdit}>
 										<div class="goal-header">
-											<span
-												class="goal-category"
-												style="background-color: {GOAL_CATEGORY_COLORS[goal.category]}"
-											>
+											<span class="goal-category" style="background-color: {GOAL_CATEGORY_COLORS[goal.category]}">
 												{GOAL_CATEGORY_LABELS[goal.category]}
 											</span>
-											<span
-												class="goal-priority"
-												style="color: {GOAL_PRIORITY_COLORS[goal.priority]}"
-											>
+											<span class="goal-priority" style="color: {GOAL_PRIORITY_COLORS[goal.priority]}">
 												{GOAL_PRIORITY_LABELS[goal.priority]}
 											</span>
 										</div>
@@ -650,10 +635,7 @@
 											<p class="goal-description">{goal.description}</p>
 										{/if}
 										<div class="goal-footer">
-											<span
-												class="goal-status"
-												style="background-color: {GOAL_STATUS_COLORS[goal.status]}"
-											>
+											<span class="goal-status" style="background-color: {GOAL_STATUS_COLORS[goal.status]}">
 												{GOAL_STATUS_LABELS[goal.status]}
 											</span>
 											{#if goal.targetDate}
@@ -683,11 +665,7 @@
 {/if}
 
 {#if showCounselingModal}
-	<CounselingRecordModal
-		{person}
-		existingRecord={editingCounseling}
-		onClose={closeCounselingModal}
-	/>
+	<CounselingRecordModal {person} existingRecord={editingCounseling} onClose={closeCounselingModal} />
 {/if}
 
 {#if showGoalModal}
@@ -727,8 +705,8 @@
 	}
 
 	.view-header {
-		background: #0F0F0F;
-		color: #F0EDE6;
+		background: #0f0f0f;
+		color: #f0ede6;
 		padding: var(--spacing-md) var(--spacing-lg);
 	}
 
@@ -780,7 +758,7 @@
 		font-size: var(--font-size-sm);
 	}
 
-.view-content {
+	.view-content {
 		flex: 1;
 		overflow-y: auto;
 		padding: var(--spacing-lg);
@@ -851,7 +829,7 @@
 		border: 1px solid var(--color-border);
 	}
 
-.info-section h3 {
+	.info-section h3 {
 		font-size: var(--font-size-sm);
 		font-weight: 600;
 		color: var(--color-text-muted);
@@ -1158,7 +1136,7 @@
 	.active-badge {
 		padding: 2px var(--spacing-sm);
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 		border-radius: var(--radius-sm);
 		font-size: var(--font-size-xs);
 		font-weight: 500;
@@ -1305,6 +1283,5 @@
 		.card {
 			max-height: none;
 		}
-
 	}
 </style>

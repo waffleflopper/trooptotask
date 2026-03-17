@@ -13,6 +13,7 @@
 ### Task 1: Database Migration — Add `note` Column
 
 **Files:**
+
 - Create: `supabase/migrations/20260310_status_notes.sql`
 
 **Step 1: Write the migration**
@@ -44,6 +45,7 @@ git commit -m "feat: add note column to availability_entries"
 ### Task 2: Type & Transform Updates for `note`
 
 **Files:**
+
 - Modify: `src/lib/types.ts:162-168` (AvailabilityEntry interface)
 - Modify: `src/lib/server/transforms.ts:66-74` (transformAvailabilityEntries)
 
@@ -96,6 +98,7 @@ git commit -m "feat: add note field to AvailabilityEntry type and transform"
 ### Task 3: API & Store — Pass `note` Through
 
 **Files:**
+
 - Modify: `src/lib/stores/availability.svelte.ts` (add, addBatch, removeBatch)
 - Modify: `src/routes/org/[orgId]/api/availability/+server.ts` (CRUD config)
 - Modify: `src/routes/org/[orgId]/api/availability/batch/+server.ts` (POST handler + new DELETE handler)
@@ -117,7 +120,7 @@ In `src/routes/org/[orgId]/api/availability/+server.ts`, add `note` to the field
 Also update the `auditDetailFields` array to include `'note'`:
 
 ```typescript
-	auditDetailFields: ['personnel_id', 'status_type_id', 'start_date', 'end_date', 'note']
+auditDetailFields: ['personnel_id', 'status_type_id', 'start_date', 'end_date', 'note'];
 ```
 
 **Step 2: Update batch POST to include `note`**
@@ -139,27 +142,27 @@ interface BatchAvailabilityRecord {
 Update the `rows` mapping (line 62-68) to include `note`:
 
 ```typescript
-	const rows = records.map(r => ({
-		organization_id: orgId,
-		personnel_id: r.personnelId,
-		status_type_id: r.statusTypeId,
-		start_date: r.startDate,
-		end_date: r.endDate,
-		note: r.note ?? null
-	}));
+const rows = records.map((r) => ({
+	organization_id: orgId,
+	personnel_id: r.personnelId,
+	status_type_id: r.statusTypeId,
+	start_date: r.startDate,
+	end_date: r.endDate,
+	note: r.note ?? null
+}));
 ```
 
 Update the result mapping (line 90-96) to include `note`:
 
 ```typescript
-	const result = (inserted ?? []).map(d => ({
-		id: d.id,
-		personnelId: d.personnel_id,
-		statusTypeId: d.status_type_id,
-		startDate: d.start_date,
-		endDate: d.end_date,
-		note: d.note ?? null
-	}));
+const result = (inserted ?? []).map((d) => ({
+	id: d.id,
+	personnelId: d.personnel_id,
+	statusTypeId: d.status_type_id,
+	startDate: d.start_date,
+	endDate: d.end_date,
+	note: d.note ?? null
+}));
 ```
 
 **Step 3: Add DELETE handler to batch endpoint**
@@ -210,14 +213,14 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 			.eq('organization_id', orgId)
 			.in('id', ids);
 
-		const personnelIds = [...new Set((entries ?? []).map(e => e.personnel_id))];
+		const personnelIds = [...new Set((entries ?? []).map((e) => e.personnel_id))];
 		const { data: personnelData } = await supabase
 			.from('personnel')
 			.select('id, group_id')
 			.eq('organization_id', orgId)
 			.in('id', personnelIds);
 
-		const groupMap = new Map((personnelData ?? []).map(p => [p.id, p.group_id]));
+		const groupMap = new Map((personnelData ?? []).map((p) => [p.id, p.group_id]));
 		for (const entry of entries ?? []) {
 			const groupId = groupMap.get(entry.personnel_id);
 			if (groupId !== scopedGroupId) {
@@ -302,6 +305,7 @@ git commit -m "feat: add note to availability API and add batch delete endpoint"
 ### Task 4: UI — Add Note Input to AvailabilityModal
 
 **Files:**
+
 - Modify: `src/lib/components/AvailabilityModal.svelte`
 
 **Step 1: Add note state and pass through**
@@ -309,62 +313,62 @@ git commit -m "feat: add note to availability API and add batch delete endpoint"
 Add `note` state variable (around line 38, after `editingEntry`):
 
 ```typescript
-	let note = $state('');
+let note = $state('');
 ```
 
 In the `startEdit` function (line 70-75), add note initialization:
 
 ```typescript
-	function startEdit(entry: AvailabilityEntry) {
-		editingEntry = entry;
-		selectedStatusId = entry.statusTypeId;
-		startDate = entry.startDate;
-		endDate = entry.endDate;
-		note = entry.note ?? '';
-	}
+function startEdit(entry: AvailabilityEntry) {
+	editingEntry = entry;
+	selectedStatusId = entry.statusTypeId;
+	startDate = entry.startDate;
+	endDate = entry.endDate;
+	note = entry.note ?? '';
+}
 ```
 
 In `cancelEdit` (line 77-82), reset note:
 
 ```typescript
-	function cancelEdit() {
-		editingEntry = null;
-		selectedStatusId = statusTypes[0]?.id ?? '';
-		startDate = dateStr;
-		endDate = dateStr;
-		note = '';
-	}
+function cancelEdit() {
+	editingEntry = null;
+	selectedStatusId = statusTypes[0]?.id ?? '';
+	startDate = dateStr;
+	endDate = dateStr;
+	note = '';
+}
 ```
 
 In `handleSubmit` (line 84-113), include note in `newData`:
 
 ```typescript
-		const newData = {
-			personnelId: person.id,
-			statusTypeId: selectedStatusId,
-			startDate,
-			endDate,
-			note: note.trim() || null
-		};
+const newData = {
+	personnelId: person.id,
+	statusTypeId: selectedStatusId,
+	startDate,
+	endDate,
+	note: note.trim() || null
+};
 ```
 
 Also include `note` in the temp entry created on line 103:
 
 ```typescript
-		if (dateStr >= newData.startDate && dateStr <= newData.endDate) {
-			const tempEntry: AvailabilityEntry = { id: `temp-${crypto.randomUUID()}`, ...newData };
-			localEntries = [...localEntries, tempEntry];
-		}
+if (dateStr >= newData.startDate && dateStr <= newData.endDate) {
+	const tempEntry: AvailabilityEntry = { id: `temp-${crypto.randomUUID()}`, ...newData };
+	localEntries = [...localEntries, tempEntry];
+}
 ```
 
 And reset note after submit (around line 111-112):
 
 ```typescript
-		// Reset form
-		selectedStatusId = statusTypes[0]?.id ?? '';
-		startDate = dateStr;
-		endDate = dateStr;
-		note = '';
+// Reset form
+selectedStatusId = statusTypes[0]?.id ?? '';
+startDate = dateStr;
+endDate = dateStr;
+note = '';
 ```
 
 **Step 2: Add note display in existing entries list**
@@ -374,9 +378,9 @@ In the template, update the `.entry-item` block (around line 172-205). After the
 After the `<div class="entry-details">` block (line 175-180), add:
 
 ```svelte
-						{#if entry.note}
-							<span class="entry-note" title={entry.note}>{entry.note}</span>
-						{/if}
+{#if entry.note}
+	<span class="entry-note" title={entry.note}>{entry.note}</span>
+{/if}
 ```
 
 **Step 3: Add note input to the form**
@@ -384,17 +388,17 @@ After the `<div class="entry-details">` block (line 175-180), add:
 After the date range section (after the `{#if dateError}` block, around line 253-254), add the note input:
 
 ```svelte
-		<div class="form-group">
-			<label class="label" for="statusNote">Note</label>
-			<input
-				id="statusNote"
-				type="text"
-				class="input"
-				bind:value={note}
-				maxlength={200}
-				placeholder="Optional note (e.g., JRTC rotation)"
-			/>
-		</div>
+<div class="form-group">
+	<label class="label" for="statusNote">Note</label>
+	<input
+		id="statusNote"
+		type="text"
+		class="input"
+		bind:value={note}
+		maxlength={200}
+		placeholder="Optional note (e.g., JRTC rotation)"
+	/>
+</div>
 ```
 
 **Step 4: Add CSS for note display**
@@ -402,15 +406,15 @@ After the date range section (after the `{#if dateError}` block, around line 253
 Add to the `<style>` section:
 
 ```css
-	.entry-note {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		font-style: italic;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		max-width: 120px;
-	}
+.entry-note {
+	font-size: var(--font-size-xs);
+	color: var(--color-text-muted);
+	font-style: italic;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 120px;
+}
 ```
 
 **Step 5: Verify**
@@ -430,6 +434,7 @@ git commit -m "feat: add note input to AvailabilityModal"
 ### Task 5: UI — Add Note Input to BulkStatusModal
 
 **Files:**
+
 - Modify: `src/lib/components/BulkStatusModal.svelte`
 
 **Step 1: Update onApply callback signature**
@@ -437,7 +442,8 @@ git commit -m "feat: add note input to AvailabilityModal"
 Update the `Props` interface (line 14) to include note:
 
 ```typescript
-		onApply: (personnelIds: string[], statusTypeId: string, startDate: string, endDate: string, note: string | null) => Promise<void>;
+onApply: (personnelIds: string[], statusTypeId: string, startDate: string, endDate: string, note: string | null) =>
+	Promise<void>;
 ```
 
 **Step 2: Add note state**
@@ -445,7 +451,7 @@ Update the `Props` interface (line 14) to include note:
 After the `isSubmitting` state (line 31), add:
 
 ```typescript
-	let note = $state('');
+let note = $state('');
 ```
 
 **Step 3: Pass note in handleSubmit**
@@ -453,17 +459,17 @@ After the `isSubmitting` state (line 31), add:
 Update `handleSubmit` (line 146-156):
 
 ```typescript
-	async function handleSubmit() {
-		if (!isValid || isSubmitting) return;
+async function handleSubmit() {
+	if (!isValid || isSubmitting) return;
 
-		isSubmitting = true;
-		try {
-			await onApply([...selectedIds], selectedStatusId, startDate, endDate, note.trim() || null);
-			onClose();
-		} finally {
-			isSubmitting = false;
-		}
+	isSubmitting = true;
+	try {
+		await onApply([...selectedIds], selectedStatusId, startDate, endDate, note.trim() || null);
+		onClose();
+	} finally {
+		isSubmitting = false;
 	}
+}
 ```
 
 **Step 4: Add note input to template**
@@ -471,19 +477,19 @@ Update `handleSubmit` (line 146-156):
 After the `{#if dateError}` block (line 207-209), add the note input inside `.config-section`:
 
 ```svelte
-				<div class="config-row">
-					<div class="form-group" style="flex: 1;">
-						<label class="label" for="bulkNote">Note</label>
-						<input
-							id="bulkNote"
-							type="text"
-							class="input"
-							bind:value={note}
-							maxlength={200}
-							placeholder="Optional note (e.g., JRTC rotation)"
-						/>
-					</div>
-				</div>
+<div class="config-row">
+	<div class="form-group" style="flex: 1;">
+		<label class="label" for="bulkNote">Note</label>
+		<input
+			id="bulkNote"
+			type="text"
+			class="input"
+			bind:value={note}
+			maxlength={200}
+			placeholder="Optional note (e.g., JRTC rotation)"
+		/>
+	</div>
+</div>
 ```
 
 **Step 5: Update calendar page to pass note through**
@@ -491,11 +497,17 @@ After the `{#if dateError}` block (line 207-209), add the note input inside `.co
 In `src/routes/org/[orgId]/calendar/+page.svelte`, update `handleBulkStatusApply` (line 110-114):
 
 ```typescript
-	async function handleBulkStatusApply(personnelIds: string[], statusTypeId: string, startDate: string, endDate: string, note: string | null) {
-		await availabilityStore.addBatch(
-			personnelIds.map(personnelId => ({ personnelId, statusTypeId, startDate, endDate, note }))
-		);
-	}
+async function handleBulkStatusApply(
+	personnelIds: string[],
+	statusTypeId: string,
+	startDate: string,
+	endDate: string,
+	note: string | null
+) {
+	await availabilityStore.addBatch(
+		personnelIds.map((personnelId) => ({ personnelId, statusTypeId, startDate, endDate, note }))
+	);
+}
 ```
 
 **Step 6: Verify**
@@ -515,6 +527,7 @@ git commit -m "feat: add note input to BulkStatusModal"
 ### Task 6: UI — Show Notes in DateCell Tooltip
 
 **Files:**
+
 - Modify: `src/lib/components/DateCell.svelte`
 
 **Step 1: Update statusColors derived to include note**
@@ -522,14 +535,14 @@ git commit -m "feat: add note input to BulkStatusModal"
 Update the `statusColors` derived (line 31-38) to carry the note:
 
 ```typescript
-	const statusColors = $derived(
-		entries
-			.map((entry) => {
-				const status = statusTypeMap.get(entry.statusTypeId);
-				return status ? { color: status.color, name: status.name, textColor: status.textColor, note: entry.note } : null;
-			})
-			.filter((s): s is { color: string; name: string; textColor: string; note?: string | null } => s !== null)
-	);
+const statusColors = $derived(
+	entries
+		.map((entry) => {
+			const status = statusTypeMap.get(entry.statusTypeId);
+			return status ? { color: status.color, name: status.name, textColor: status.textColor, note: entry.note } : null;
+		})
+		.filter((s): s is { color: string; name: string; textColor: string; note?: string | null } => s !== null)
+);
 ```
 
 **Step 2: Update tooltipText to show notes**
@@ -537,19 +550,19 @@ Update the `statusColors` derived (line 31-38) to carry the note:
 Update the `tooltipText` derived (line 40-52) to include notes:
 
 ```typescript
-	const tooltipText = $derived.by(() => {
-		const parts: string[] = [];
-		if (assignments.length > 0) {
-			parts.push(...assignments.map((a) => a.type.name));
-		}
-		if (holidayName) {
-			parts.push(holidayName);
-		}
-		if (statusColors.length > 0) {
-			parts.push(...statusColors.map((s) => s.note ? `${s.name} — ${s.note}` : s.name));
-		}
-		return parts.join('\n');
-	});
+const tooltipText = $derived.by(() => {
+	const parts: string[] = [];
+	if (assignments.length > 0) {
+		parts.push(...assignments.map((a) => a.type.name));
+	}
+	if (holidayName) {
+		parts.push(holidayName);
+	}
+	if (statusColors.length > 0) {
+		parts.push(...statusColors.map((s) => (s.note ? `${s.name} — ${s.note}` : s.name)));
+	}
+	return parts.join('\n');
+});
 ```
 
 **Step 3: Verify**
@@ -569,6 +582,7 @@ git commit -m "feat: show status notes in DateCell tooltip"
 ### Task 7: UI — BulkStatusRemoveModal Component
 
 **Files:**
+
 - Create: `src/lib/components/BulkStatusRemoveModal.svelte`
 
 **Step 1: Create the modal component**
@@ -576,6 +590,7 @@ git commit -m "feat: show status notes in DateCell tooltip"
 Create `src/lib/components/BulkStatusRemoveModal.svelte` with the following content.
 
 This component has two steps:
+
 1. **Selection step**: pick status type, date range, and personnel (mirrors BulkStatusModal)
 2. **Confirmation step**: shows exact matches and partial overlaps, confirm or go back
 
@@ -661,18 +676,20 @@ This component has two steps:
 		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 	});
 
-	const isValid = $derived(
-		selectedStatusId && startDate && endDate && startDate <= endDate && selectedIds.size > 0
-	);
+	const isValid = $derived(selectedStatusId && startDate && endDate && startDate <= endDate && selectedIds.size > 0);
 
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
 
 	// Personnel lookup for confirmation display
-	const personnelMap = $derived(new Map(personnelList.map(p => [p.id, p])));
+	const personnelMap = $derived(new Map(personnelList.map((p) => [p.id, p])));
 
 	function togglePerson(id: string) {
 		const newSet = new Set(selectedIds);
-		if (newSet.has(id)) { newSet.delete(id); } else { newSet.add(id); }
+		if (newSet.has(id)) {
+			newSet.delete(id);
+		} else {
+			newSet.add(id);
+		}
 		selectedIds = newSet;
 	}
 
@@ -702,16 +719,24 @@ This component has two steps:
 		const state = getGroupSelectionState(groupName);
 		const newSet = new Set(selectedIds);
 		if (state === 'all') {
-			for (const p of groupPersonnel) { newSet.delete(p.id); }
+			for (const p of groupPersonnel) {
+				newSet.delete(p.id);
+			}
 		} else {
-			for (const p of groupPersonnel) { newSet.add(p.id); }
+			for (const p of groupPersonnel) {
+				newSet.add(p.id);
+			}
 		}
 		selectedIds = newSet;
 	}
 
 	function toggleGroupCollapse(groupName: string) {
 		const newSet = new Set(collapsedGroups);
-		if (newSet.has(groupName)) { newSet.delete(groupName); } else { newSet.add(groupName); }
+		if (newSet.has(groupName)) {
+			newSet.delete(groupName);
+		} else {
+			newSet.add(groupName);
+		}
 		collapsedGroups = newSet;
 	}
 
@@ -757,7 +782,7 @@ This component has two steps:
 
 	async function handleConfirmRemoval() {
 		if (isSubmitting) return;
-		const allIds = [...matchResult.exact.map(e => e.id), ...matchResult.partial.map(e => e.id)];
+		const allIds = [...matchResult.exact.map((e) => e.id), ...matchResult.partial.map((e) => e.id)];
 		if (allIds.length === 0) return;
 
 		isSubmitting = true;
@@ -780,12 +805,7 @@ This component has two steps:
 	}
 </script>
 
-<Modal
-	title="Bulk Remove Status"
-	{onClose}
-	width="600px"
-	titleId="bulk-remove-status-title"
->
+<Modal title="Bulk Remove Status" {onClose} width="600px" titleId="bulk-remove-status-title">
 	{#if step === 'select'}
 		<div class="modal-content">
 			<!-- Status & Date Configuration -->
@@ -850,7 +870,11 @@ This component has two steps:
 				<div class="search-bar">
 					<div class="search-input-wrapper">
 						<svg class="search-icon" viewBox="0 0 20 20" fill="currentColor">
-							<path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+							<path
+								fill-rule="evenodd"
+								d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+								clip-rule="evenodd"
+							/>
 						</svg>
 						<input
 							type="text"
@@ -861,7 +885,11 @@ This component has two steps:
 						{#if searchQuery}
 							<button class="clear-search" onclick={clearSearch} aria-label="Clear search">
 								<svg viewBox="0 0 20 20" fill="currentColor">
-									<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+									<path
+										fill-rule="evenodd"
+										d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+										clip-rule="evenodd"
+									/>
 								</svg>
 							</button>
 						{/if}
@@ -880,7 +908,11 @@ This component has two steps:
 									aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
 								>
 									<svg class="collapse-icon" class:collapsed={isCollapsed} viewBox="0 0 20 20" fill="currentColor">
-										<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+										<path
+											fill-rule="evenodd"
+											d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+											clip-rule="evenodd"
+										/>
 									</svg>
 								</button>
 								<label class="group-checkbox-label">
@@ -899,11 +931,7 @@ This component has two steps:
 									{#each grp.personnel as person (person.id)}
 										{@const isSelected = selectedIds.has(person.id)}
 										<label class="person-item" class:selected={isSelected}>
-											<input
-												type="checkbox"
-												checked={isSelected}
-												onchange={() => togglePerson(person.id)}
-											/>
+											<input type="checkbox" checked={isSelected} onchange={() => togglePerson(person.id)} />
 											<span class="rank">{person.rank}</span>
 											<span class="name">{person.lastName}, {person.firstName}</span>
 											{#if person.mos}
@@ -940,7 +968,8 @@ This component has two steps:
 						{selectedStatus.name}
 					</span>
 					<span class="summary-text">
-						for <strong>{selectedIds.size}</strong> {selectedIds.size === 1 ? 'person' : 'people'}
+						for <strong>{selectedIds.size}</strong>
+						{selectedIds.size === 1 ? 'person' : 'people'}
 						&middot;
 						{#if startDate === endDate}
 							{formatDateDisplay(startDate)}
@@ -956,16 +985,9 @@ This component has two steps:
 			</div>
 			<div class="footer-actions">
 				<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-				<button
-					class="btn btn-danger"
-					disabled={!isValid}
-					onclick={handleFindMatching}
-				>
-					Find Matching
-				</button>
+				<button class="btn btn-danger" disabled={!isValid} onclick={handleFindMatching}> Find Matching </button>
 			</div>
 		{/snippet}
-
 	{:else}
 		<!-- Confirmation Step -->
 		<div class="confirm-content">
@@ -987,7 +1009,11 @@ This component has two steps:
 					<div class="match-section partial-section">
 						<h4 class="match-heading warning">
 							<svg class="warning-icon" viewBox="0 0 20 20" fill="currentColor">
-								<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+								<path
+									fill-rule="evenodd"
+									d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+									clip-rule="evenodd"
+								/>
 							</svg>
 							<span class="match-count">{matchResult.partial.length}</span>
 							partial {matchResult.partial.length === 1 ? 'overlap' : 'overlaps'} will also be removed entirely
@@ -997,7 +1023,9 @@ This component has two steps:
 							{#each matchResult.partial as entry (entry.id)}
 								<div class="partial-item">
 									<span class="partial-person">{getPersonName(entry.personnelId)}</span>
-									<span class="partial-dates">{formatDateDisplay(entry.startDate)} – {formatDateDisplay(entry.endDate)}</span>
+									<span class="partial-dates"
+										>{formatDateDisplay(entry.startDate)} – {formatDateDisplay(entry.endDate)}</span
+									>
 								</div>
 							{/each}
 						</div>
@@ -1005,7 +1033,11 @@ This component has two steps:
 				{/if}
 
 				<div class="total-summary">
-					<strong>{matchResult.exact.length + matchResult.partial.length}</strong> total {matchResult.exact.length + matchResult.partial.length === 1 ? 'entry' : 'entries'} will be permanently removed.
+					<strong>{matchResult.exact.length + matchResult.partial.length}</strong> total {matchResult.exact.length +
+						matchResult.partial.length ===
+					1
+						? 'entry'
+						: 'entries'} will be permanently removed.
 				</div>
 			{/if}
 		</div>
@@ -1015,11 +1047,7 @@ This component has two steps:
 			<div class="spacer"></div>
 			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 			{#if matchResult.exact.length > 0 || matchResult.partial.length > 0}
-				<button
-					class="btn btn-danger"
-					disabled={isSubmitting}
-					onclick={handleConfirmRemoval}
-				>
+				<button class="btn btn-danger" disabled={isSubmitting} onclick={handleConfirmRemoval}>
 					{#if isSubmitting}
 						<Spinner />
 						Removing...
@@ -1225,12 +1253,12 @@ This component has two steps:
 		display: flex;
 		align-items: center;
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 	}
 
 	.group-collapse-btn {
 		padding: var(--spacing-sm);
-		color: #0F0F0F;
+		color: #0f0f0f;
 		opacity: 0.8;
 		transition: opacity 0.15s ease;
 	}
@@ -1263,7 +1291,7 @@ This component has two steps:
 
 	.group-checkbox-label input[type='checkbox'] {
 		cursor: pointer;
-		accent-color: #0F0F0F;
+		accent-color: #0f0f0f;
 	}
 
 	.group-name {
@@ -1485,6 +1513,7 @@ git commit -m "feat: add BulkStatusRemoveModal component"
 ### Task 8: Wire Up BulkStatusRemoveModal in Calendar Page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/calendar/+page.svelte`
 
 **Step 1: Add import and state**
@@ -1492,13 +1521,13 @@ git commit -m "feat: add BulkStatusRemoveModal component"
 Add import (around line 23, with other imports):
 
 ```typescript
-	import BulkStatusRemoveModal from '$lib/components/BulkStatusRemoveModal.svelte';
+import BulkStatusRemoveModal from '$lib/components/BulkStatusRemoveModal.svelte';
 ```
 
 Add state variable (around line 58, near `showBulkStatusModal`):
 
 ```typescript
-	let showBulkRemoveModal = $state(false);
+let showBulkRemoveModal = $state(false);
 ```
 
 **Step 2: Add handler function**
@@ -1506,9 +1535,9 @@ Add state variable (around line 58, near `showBulkStatusModal`):
 After `handleBulkStatusApply` (around line 114), add:
 
 ```typescript
-	async function handleBulkStatusRemove(ids: string[]): Promise<boolean> {
-		return await availabilityStore.removeBatch(ids);
-	}
+async function handleBulkStatusRemove(ids: string[]): Promise<boolean> {
+	return await availabilityStore.removeBatch(ids);
+}
 ```
 
 **Step 3: Add Bulk Remove to overflow menu**
@@ -1516,7 +1545,7 @@ After `handleBulkStatusApply` (around line 114), add:
 In the `calendarOverflowItems` derived (around line 187), add the Bulk Remove item right after the Bulk Status item:
 
 ```typescript
-				items.push({ label: 'Bulk Remove', onclick: () => (showBulkRemoveModal = true), disabled: readOnly });
+items.push({ label: 'Bulk Remove', onclick: () => (showBulkRemoveModal = true), disabled: readOnly });
 ```
 
 **Step 4: Add modal rendering**
@@ -1526,7 +1555,7 @@ After the `{#if showBulkStatusModal}` block (around line 338-345), add:
 ```svelte
 {#if showBulkRemoveModal}
 	<BulkStatusRemoveModal
-		personnelByGroup={personnelByGroup}
+		{personnelByGroup}
 		statusTypes={statusTypesStore.list}
 		availabilityEntries={availabilityStore.list}
 		personnelList={calendarPersonnel}
@@ -1568,16 +1597,16 @@ Expected: Build succeeds
 
 ## Summary of All Changes
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `supabase/migrations/20260310_status_notes.sql` | Create | Add `note` column |
-| `src/lib/types.ts` | Modify | Add `note` to AvailabilityEntry |
-| `src/lib/server/transforms.ts` | Modify | Include `note` in transform |
-| `src/routes/.../api/availability/+server.ts` | Modify | Add `note` to CRUD fields |
+| File                                               | Action | Purpose                                |
+| -------------------------------------------------- | ------ | -------------------------------------- |
+| `supabase/migrations/20260310_status_notes.sql`    | Create | Add `note` column                      |
+| `src/lib/types.ts`                                 | Modify | Add `note` to AvailabilityEntry        |
+| `src/lib/server/transforms.ts`                     | Modify | Include `note` in transform            |
+| `src/routes/.../api/availability/+server.ts`       | Modify | Add `note` to CRUD fields              |
 | `src/routes/.../api/availability/batch/+server.ts` | Modify | Add `note` to POST, add DELETE handler |
-| `src/lib/stores/availability.svelte.ts` | Modify | Add `removeBatch()` |
-| `src/lib/components/AvailabilityModal.svelte` | Modify | Add note input + display |
-| `src/lib/components/BulkStatusModal.svelte` | Modify | Add note input |
-| `src/lib/components/DateCell.svelte` | Modify | Show note in tooltip |
-| `src/lib/components/BulkStatusRemoveModal.svelte` | Create | New bulk remove modal |
-| `src/routes/.../calendar/+page.svelte` | Modify | Wire up bulk remove modal + pass note |
+| `src/lib/stores/availability.svelte.ts`            | Modify | Add `removeBatch()`                    |
+| `src/lib/components/AvailabilityModal.svelte`      | Modify | Add note input + display               |
+| `src/lib/components/BulkStatusModal.svelte`        | Modify | Add note input                         |
+| `src/lib/components/DateCell.svelte`               | Modify | Show note in tooltip                   |
+| `src/lib/components/BulkStatusRemoveModal.svelte`  | Create | New bulk remove modal                  |
+| `src/routes/.../calendar/+page.svelte`             | Modify | Wire up bulk remove modal + pass note  |

@@ -54,10 +54,7 @@ export async function createCheckoutSession(options: {
 	return { url: session.url, customerId };
 }
 
-export async function createPortalSession(
-	customerId: string,
-	returnUrl: string
-): Promise<string> {
+export async function createPortalSession(customerId: string, returnUrl: string): Promise<string> {
 	const stripe = getStripe();
 	const session = await stripe.billingPortal.sessions.create({
 		customer: customerId,

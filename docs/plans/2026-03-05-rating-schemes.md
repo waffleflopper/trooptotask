@@ -13,6 +13,7 @@
 ### Task 1: Database Migration
 
 **Files:**
+
 - Create: `supabase/migrations/20260305_rating_scheme.sql`
 
 **Step 1: Write the migration**
@@ -76,6 +77,7 @@ git commit -m "feat(rating): add rating_scheme_entries table with RLS"
 ### Task 2: TypeScript Types & Utilities
 
 **Files:**
+
 - Modify: `src/lib/types.ts`
 - Create: `src/lib/utils/ratingScheme.ts`
 
@@ -127,11 +129,7 @@ export function getEvalTypeForRank(rank: string): 'OER' | 'NCOER' | 'WOER' {
 	return 'NCOER';
 }
 
-export function getRatingDueStatus(
-	ratingPeriodEnd: string,
-	status: string,
-	today: Date = new Date()
-): RatingDueStatus {
+export function getRatingDueStatus(ratingPeriodEnd: string, status: string, today: Date = new Date()): RatingDueStatus {
 	if (status === 'completed') return 'completed';
 
 	const end = new Date(ratingPeriodEnd + 'T00:00:00');
@@ -163,6 +161,7 @@ git commit -m "feat(rating): add RatingSchemeEntry type and due-status utilities
 ### Task 3: Rating Scheme Store
 
 **Files:**
+
 - Create: `src/lib/stores/ratingScheme.svelte.ts`
 
 **Step 1: Create the store**
@@ -264,6 +263,7 @@ git commit -m "feat(rating): add rating scheme store with optimistic updates"
 ### Task 4: API Route
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/api/rating-scheme/+server.ts`
 
 **Step 1: Create the CRUD API route**
@@ -324,11 +324,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		notes: body.notes || null
 	};
 
-	const { data, error: dbError } = await supabase
-		.from('rating_scheme_entries')
-		.insert(row)
-		.select()
-		.single();
+	const { data, error: dbError } = await supabase.from('rating_scheme_entries').insert(row).select().single();
 
 	if (dbError) throw error(500, dbError.message);
 
@@ -355,8 +351,10 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	if (fields.raterName !== undefined) updates.rater_name = fields.raterName || null;
 	if (fields.seniorRaterPersonId !== undefined) updates.senior_rater_person_id = fields.seniorRaterPersonId || null;
 	if (fields.seniorRaterName !== undefined) updates.senior_rater_name = fields.seniorRaterName || null;
-	if (fields.intermediateRaterPersonId !== undefined) updates.intermediate_rater_person_id = fields.intermediateRaterPersonId || null;
-	if (fields.intermediateRaterName !== undefined) updates.intermediate_rater_name = fields.intermediateRaterName || null;
+	if (fields.intermediateRaterPersonId !== undefined)
+		updates.intermediate_rater_person_id = fields.intermediateRaterPersonId || null;
+	if (fields.intermediateRaterName !== undefined)
+		updates.intermediate_rater_name = fields.intermediateRaterName || null;
 	if (fields.reviewerPersonId !== undefined) updates.reviewer_person_id = fields.reviewerPersonId || null;
 	if (fields.reviewerName !== undefined) updates.reviewer_name = fields.reviewerName || null;
 	if (fields.ratingPeriodStart !== undefined) updates.rating_period_start = fields.ratingPeriodStart;
@@ -414,6 +412,7 @@ git commit -m "feat(rating): add rating scheme CRUD API route"
 ### Task 5: Load Rating Scheme Data in Personnel Page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/personnel/+page.server.ts`
 - Modify: `src/routes/org/[orgId]/personnel/+page.svelte` (import and load store)
 
@@ -422,11 +421,7 @@ git commit -m "feat(rating): add rating scheme CRUD API route"
 In `src/routes/org/[orgId]/personnel/+page.server.ts`, add to the `Promise.all()`:
 
 ```typescript
-supabase
-	.from('rating_scheme_entries')
-	.select('*')
-	.eq('organization_id', orgId)
-	.order('rating_period_end')
+supabase.from('rating_scheme_entries').select('*').eq('organization_id', orgId).order('rating_period_end');
 ```
 
 Add the import and transform the data:
@@ -485,11 +480,13 @@ git commit -m "feat(rating): load rating scheme data in personnel page"
 ### Task 6: RatingSchemeEntryModal Component
 
 **Files:**
+
 - Create: `src/lib/components/RatingSchemeEntryModal.svelte`
 
 **Step 1: Create the add/edit modal**
 
 This modal lets users create or edit a rating scheme entry. It needs:
+
 - Rated person selector (dropdown of all org personnel)
 - Eval type selector (auto-suggested from rated person's rank)
 - Rater section: toggle between internal (personnel dropdown) / external (freetext)
@@ -519,18 +516,20 @@ This modal lets users create or edit a rating scheme entry. It needs:
 	let { entry, personnel, onSave, onDelete, onClose }: Props = $props();
 
 	const sortedPersonnel = $derived(
-		[...personnel].sort((a, b) =>
-			a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
-		)
+		[...personnel].sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
 	);
 
 	// Form state
 	let ratedPersonId = $state(entry?.ratedPersonId ?? '');
 	let evalType = $state<'OER' | 'NCOER' | 'WOER'>(entry?.evalType ?? 'NCOER');
-	let raterMode = $state<'internal' | 'external'>(entry?.raterPersonId ? 'internal' : entry?.raterName ? 'external' : 'internal');
+	let raterMode = $state<'internal' | 'external'>(
+		entry?.raterPersonId ? 'internal' : entry?.raterName ? 'external' : 'internal'
+	);
 	let raterPersonId = $state(entry?.raterPersonId ?? '');
 	let raterName = $state(entry?.raterName ?? '');
-	let srMode = $state<'internal' | 'external'>(entry?.seniorRaterPersonId ? 'internal' : entry?.seniorRaterName ? 'external' : 'internal');
+	let srMode = $state<'internal' | 'external'>(
+		entry?.seniorRaterPersonId ? 'internal' : entry?.seniorRaterName ? 'external' : 'internal'
+	);
 	let seniorRaterPersonId = $state(entry?.seniorRaterPersonId ?? '');
 	let seniorRaterName = $state(entry?.seniorRaterName ?? '');
 	let showIntermediate = $state(!!(entry?.intermediateRaterPersonId || entry?.intermediateRaterName));
@@ -560,10 +559,10 @@ This modal lets users create or edit a rating scheme entry. It needs:
 
 	const canSave = $derived(
 		!!ratedPersonId &&
-		!!ratingPeriodStart &&
-		!!ratingPeriodEnd &&
-		(raterMode === 'internal' ? !!raterPersonId : !!raterName.trim()) &&
-		(srMode === 'internal' ? !!seniorRaterPersonId : !!seniorRaterName.trim())
+			!!ratingPeriodStart &&
+			!!ratingPeriodEnd &&
+			(raterMode === 'internal' ? !!raterPersonId : !!raterName.trim()) &&
+			(srMode === 'internal' ? !!seniorRaterPersonId : !!seniorRaterName.trim())
 	);
 
 	async function handleSave() {
@@ -631,8 +630,12 @@ This modal lets users create or edit a rating scheme entry. It needs:
 	<fieldset class="rater-section">
 		<legend class="section-legend">Rater <span class="required">*</span></legend>
 		<div class="mode-toggle">
-			<button class="toggle-btn" class:active={raterMode === 'internal'} onclick={() => (raterMode = 'internal')}>From Org</button>
-			<button class="toggle-btn" class:active={raterMode === 'external'} onclick={() => (raterMode = 'external')}>External</button>
+			<button class="toggle-btn" class:active={raterMode === 'internal'} onclick={() => (raterMode = 'internal')}
+				>From Org</button
+			>
+			<button class="toggle-btn" class:active={raterMode === 'external'} onclick={() => (raterMode = 'external')}
+				>External</button
+			>
 		</div>
 		{#if raterMode === 'internal'}
 			<select class="select" bind:value={raterPersonId}>
@@ -642,15 +645,24 @@ This modal lets users create or edit a rating scheme entry. It needs:
 				{/each}
 			</select>
 		{:else}
-			<input class="input" type="text" bind:value={raterName} placeholder="Rank, Name, Position (e.g., MAJ Smith, S3)" />
+			<input
+				class="input"
+				type="text"
+				bind:value={raterName}
+				placeholder="Rank, Name, Position (e.g., MAJ Smith, S3)"
+			/>
 		{/if}
 	</fieldset>
 
 	<fieldset class="rater-section">
 		<legend class="section-legend">Senior Rater <span class="required">*</span></legend>
 		<div class="mode-toggle">
-			<button class="toggle-btn" class:active={srMode === 'internal'} onclick={() => (srMode = 'internal')}>From Org</button>
-			<button class="toggle-btn" class:active={srMode === 'external'} onclick={() => (srMode = 'external')}>External</button>
+			<button class="toggle-btn" class:active={srMode === 'internal'} onclick={() => (srMode = 'internal')}
+				>From Org</button
+			>
+			<button class="toggle-btn" class:active={srMode === 'external'} onclick={() => (srMode = 'external')}
+				>External</button
+			>
 		</div>
 		{#if srMode === 'internal'}
 			<select class="select" bind:value={seniorRaterPersonId}>
@@ -660,7 +672,12 @@ This modal lets users create or edit a rating scheme entry. It needs:
 				{/each}
 			</select>
 		{:else}
-			<input class="input" type="text" bind:value={seniorRaterName} placeholder="Rank, Name, Position (e.g., COL Jones, BDE CDR)" />
+			<input
+				class="input"
+				type="text"
+				bind:value={seniorRaterName}
+				placeholder="Rank, Name, Position (e.g., COL Jones, BDE CDR)"
+			/>
 		{/if}
 	</fieldset>
 
@@ -670,11 +687,22 @@ This modal lets users create or edit a rating scheme entry. It needs:
 		<fieldset class="rater-section">
 			<legend class="section-legend">
 				Intermediate Rater
-				<button class="btn-remove-section" onclick={() => { showIntermediate = false; intermediateRaterPersonId = ''; intermediateRaterName = ''; }}>Remove</button>
+				<button
+					class="btn-remove-section"
+					onclick={() => {
+						showIntermediate = false;
+						intermediateRaterPersonId = '';
+						intermediateRaterName = '';
+					}}>Remove</button
+				>
 			</legend>
 			<div class="mode-toggle">
-				<button class="toggle-btn" class:active={irMode === 'internal'} onclick={() => (irMode = 'internal')}>From Org</button>
-				<button class="toggle-btn" class:active={irMode === 'external'} onclick={() => (irMode = 'external')}>External</button>
+				<button class="toggle-btn" class:active={irMode === 'internal'} onclick={() => (irMode = 'internal')}
+					>From Org</button
+				>
+				<button class="toggle-btn" class:active={irMode === 'external'} onclick={() => (irMode = 'external')}
+					>External</button
+				>
 			</div>
 			{#if irMode === 'internal'}
 				<select class="select" bind:value={intermediateRaterPersonId}>
@@ -695,11 +723,22 @@ This modal lets users create or edit a rating scheme entry. It needs:
 		<fieldset class="rater-section">
 			<legend class="section-legend">
 				Reviewer
-				<button class="btn-remove-section" onclick={() => { showReviewer = false; reviewerPersonId = ''; reviewerName = ''; }}>Remove</button>
+				<button
+					class="btn-remove-section"
+					onclick={() => {
+						showReviewer = false;
+						reviewerPersonId = '';
+						reviewerName = '';
+					}}>Remove</button
+				>
 			</legend>
 			<div class="mode-toggle">
-				<button class="toggle-btn" class:active={rvMode === 'internal'} onclick={() => (rvMode = 'internal')}>From Org</button>
-				<button class="toggle-btn" class:active={rvMode === 'external'} onclick={() => (rvMode = 'external')}>External</button>
+				<button class="toggle-btn" class:active={rvMode === 'internal'} onclick={() => (rvMode = 'internal')}
+					>From Org</button
+				>
+				<button class="toggle-btn" class:active={rvMode === 'external'} onclick={() => (rvMode = 'external')}
+					>External</button
+				>
 			</div>
 			{#if rvMode === 'internal'}
 				<select class="select" bind:value={reviewerPersonId}>
@@ -857,6 +896,7 @@ git commit -m "feat(rating): add RatingSchemeEntryModal component"
 ### Task 7: RatingSchemeView Component — Table View
 
 **Files:**
+
 - Create: `src/lib/components/RatingSchemeTableView.svelte`
 
 **Step 1: Create the flat table view**
@@ -929,7 +969,12 @@ This shows all rating scheme entries in a sortable table. Rows are clickable to 
 					{@const rated = getRatedPerson(entry.ratedPersonId)}
 					{@const due = formatDueStatus(entry)}
 					<tr class="clickable" onclick={() => onEdit(entry)}>
-						<td><Badge label={entry.evalType} color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'} /></td>
+						<td
+							><Badge
+								label={entry.evalType}
+								color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'}
+							/></td
+						>
 						<td class="person-cell">
 							{#if rated}
 								<span class="rank">{rated.rank}</span> {rated.lastName}, {rated.firstName}
@@ -1014,6 +1059,7 @@ git commit -m "feat(rating): add RatingSchemeTableView component"
 ### Task 8: RatingSchemeView Component — Grouped View
 
 **Files:**
+
 - Create: `src/lib/components/RatingSchemeGroupedView.svelte`
 
 **Step 1: Create the grouped hierarchy view**
@@ -1120,18 +1166,23 @@ Groups entries by senior rater, then sub-groups by rater. Shows the chain visual
 		{#each grouped as srGroup}
 			<div class="sr-group">
 				<div class="sr-header">
-					<span class="sr-label">SR:</span> {srGroup.seniorRaterLabel}
+					<span class="sr-label">SR:</span>
+					{srGroup.seniorRaterLabel}
 				</div>
 				{#each srGroup.raterGroups as rGroup}
 					<div class="rater-group">
 						<div class="rater-header">
-							<span class="rater-label">Rater:</span> {rGroup.raterLabel}
+							<span class="rater-label">Rater:</span>
+							{rGroup.raterLabel}
 						</div>
 						{#each rGroup.entries as entry (entry.id)}
 							{@const due = formatDueStatus(entry)}
 							<button class="entry-row" onclick={() => onEdit(entry)}>
 								<span class="rated-name">{getRatedPersonLabel(entry.ratedPersonId)}</span>
-								<Badge label={entry.evalType} color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'} />
+								<Badge
+									label={entry.evalType}
+									color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'}
+								/>
 								<span class="period">{formatDate(entry.ratingPeriodStart)}–{formatDate(entry.ratingPeriodEnd)}</span>
 								<Badge label={due.label} color={due.color} />
 							</button>
@@ -1231,6 +1282,7 @@ git commit -m "feat(rating): add RatingSchemeGroupedView component"
 ### Task 9: Integrate Rating Scheme into Personnel Page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/personnel/+page.svelte`
 
 **Step 1: Add the Rating Scheme view to the personnel page**
@@ -1320,7 +1372,10 @@ Add the modal at the bottom:
 		personnel={personnelStore.list}
 		onSave={handleSaveRatingEntry}
 		onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
-		onClose={() => { showRatingModal = false; editingEntry = null; }}
+		onClose={() => {
+			showRatingModal = false;
+			editingEntry = null;
+		}}
 	/>
 {/if}
 ```
@@ -1341,6 +1396,7 @@ git commit -m "feat(rating): integrate rating scheme views into personnel page"
 ### Task 10: Add Help Content
 
 **Files:**
+
 - Modify: `src/lib/help-content.ts`
 
 **Step 1: Add rating scheme help topic**

@@ -33,25 +33,21 @@
 		})
 	);
 
-	const allPersonnel = $derived(
-		personnelByGroup.flatMap((g) => g.personnel)
-	);
+	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
 	// Get today's assignments
-	const todayAssignments = $derived(
-		assignments.filter((a) => a.date === todayStr)
-	);
+	const todayAssignments = $derived(assignments.filter((a) => a.date === todayStr));
 
 	// Find assignment types and their assigned values
 	const assignmentInfo = $derived.by(() => {
-		return assignmentTypes.map(type => {
-			const assignment = todayAssignments.find(a => a.assignmentTypeId === type.id);
+		return assignmentTypes.map((type) => {
+			const assignment = todayAssignments.find((a) => a.assignmentTypeId === type.id);
 			let assigneeName = 'Not Assigned';
 			let assigneeDetails = '';
 
 			if (assignment) {
 				if (type.assignTo === 'personnel') {
-					const person = allPersonnel.find(p => p.id === assignment.assigneeId);
+					const person = allPersonnel.find((p) => p.id === assignment.assigneeId);
 					if (person) {
 						assigneeName = `${person.rank} ${person.lastName}`;
 						assigneeDetails = person.clinicRole || '';
@@ -188,9 +184,7 @@
 			{:else}
 				<div class="personnel-groups">
 					{#each personnelByGroup as grp}
-						{@const availableForGroup = personnelBreakdown.available.filter(
-							(p) => p.person.groupName === grp.group
-						)}
+						{@const availableForGroup = personnelBreakdown.available.filter((p) => p.person.groupName === grp.group)}
 						{#if availableForGroup.length > 0}
 							<div class="group-block">
 								<div class="group-label">{grp.group}</div>
@@ -258,7 +252,7 @@
 		text-align: center;
 		padding: var(--spacing-md) var(--spacing-lg);
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 		/* Bleed past modal-body padding to fill edge-to-edge */
 		margin: calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg)) 0;
 	}
@@ -345,7 +339,7 @@
 
 	.count {
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 		font-size: var(--font-size-sm);
 		padding: 2px 8px;
 		border-radius: 10px;
@@ -459,7 +453,7 @@
 
 	.assignment-badge {
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 		font-size: 9px;
 		font-weight: 700;
 		padding: 1px 4px;

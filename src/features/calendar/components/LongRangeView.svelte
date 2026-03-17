@@ -23,7 +23,17 @@
 		onCellClick?: (person: Personnel, date: Date) => void;
 	}
 
-	let { startDate, personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments, onClose, onCellClick }: Props = $props();
+	let {
+		startDate,
+		personnelByGroup,
+		availabilityEntries,
+		statusTypes,
+		specialDays,
+		assignmentTypes,
+		assignments,
+		onClose,
+		onCellClick
+	}: Props = $props();
 
 	let viewStartDate = $state(new Date());
 
@@ -47,7 +57,7 @@
 		return result;
 	});
 
-	const allPersonnel = $derived(personnelByGroup.flatMap(g => g.personnel));
+	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
 	function prevQuarter() {
 		viewStartDate = addMonths(viewStartDate, -3);
@@ -64,24 +74,26 @@
 	function getStatusForDate(personnelId: string, date: Date): StatusType | null {
 		const dateStr = formatDate(date);
 		const entry = availabilityEntries.find(
-			e => e.personnelId === personnelId && dateStr >= e.startDate && dateStr <= e.endDate
+			(e) => e.personnelId === personnelId && dateStr >= e.startDate && dateStr <= e.endDate
 		);
 		if (!entry) return null;
-		return statusTypes.find(s => s.id === entry.statusTypeId) ?? null;
+		return statusTypes.find((s) => s.id === entry.statusTypeId) ?? null;
 	}
 
 	function getSpecialDay(date: Date): SpecialDay | null {
 		const dateStr = formatDate(date);
-		return specialDays.find(s => s.date === dateStr) ?? null;
+		return specialDays.find((s) => s.date === dateStr) ?? null;
 	}
 
 	function getAssignmentBadges(date: Date): { shortName: string; color: string }[] {
 		const dateStr = formatDate(date);
-		const dayAssignments = assignments.filter(a => a.date === dateStr);
-		return dayAssignments.map(a => {
-			const type = assignmentTypes.find(t => t.id === a.assignmentTypeId);
-			return type ? { shortName: type.shortName, color: type.color } : null;
-		}).filter((b): b is { shortName: string; color: string } => b !== null);
+		const dayAssignments = assignments.filter((a) => a.date === dateStr);
+		return dayAssignments
+			.map((a) => {
+				const type = assignmentTypes.find((t) => t.id === a.assignmentTypeId);
+				return type ? { shortName: type.shortName, color: type.color } : null;
+			})
+			.filter((b): b is { shortName: string; color: string } => b !== null);
 	}
 
 	function handleCellClick(person: Personnel, date: Date) {
@@ -119,18 +131,28 @@
 		<div class="nav-bar">
 			<button class="btn btn-secondary btn-sm" onclick={prevQuarter}>
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-					<path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+					<path
+						fill-rule="evenodd"
+						d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+						clip-rule="evenodd"
+					/>
 				</svg>
 				Prev 3 Months
 			</button>
 			<div class="date-range">
-				{months[0].name} {months[0].year} – {months[2].name} {months[2].year}
+				{months[0].name}
+				{months[0].year} – {months[2].name}
+				{months[2].year}
 			</div>
 			<button class="btn btn-secondary btn-sm" onclick={goToToday}>Today</button>
 			<button class="btn btn-secondary btn-sm" onclick={nextQuarter}>
 				Next 3 Months
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-					<path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+					<path
+						fill-rule="evenodd"
+						d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+						clip-rule="evenodd"
+					/>
 				</svg>
 			</button>
 			<div class="export-buttons">
@@ -152,94 +174,100 @@
 			</div>
 		</div>
 
-	<div class="scroll-area">
-	<div class="calendar-grid">
-		<!-- Header Row with Months and Days -->
-		<div class="grid-header">
-			<div class="name-cell header-cell">Personnel</div>
-			{#each months as month}
-				<div class="month-header" style="width: {month.dates.length * 24}px; min-width: {month.dates.length * 24}px;">
-					{month.name} {month.year}
+		<div class="scroll-area">
+			<div class="calendar-grid">
+				<!-- Header Row with Months and Days -->
+				<div class="grid-header">
+					<div class="name-cell header-cell">Personnel</div>
+					{#each months as month}
+						<div
+							class="month-header"
+							style="width: {month.dates.length * 24}px; min-width: {month.dates.length * 24}px;"
+						>
+							{month.name}
+							{month.year}
+						</div>
+					{/each}
 				</div>
-			{/each}
-		</div>
 
-		<!-- Day Numbers Row -->
-		<div class="day-row">
-			<div class="name-cell day-header-cell"></div>
-			{#each months as month}
-				{#each month.dates as date}
-					{@const weekend = isWeekend(date)}
-					{@const today = isToday(date)}
-					{@const special = getSpecialDay(date)}
-					{@const badges = getAssignmentBadges(date)}
-					<div
-						class="day-cell"
-						class:weekend
-						class:today
-						class:holiday={special?.type === 'federal-holiday'}
-						title={special?.name ?? ''}
-					>
-						<span class="day-num">{date.getDate()}</span>
-						{#if badges.length > 0}
-							<div class="day-badges">
-								{#each badges as badge}
-									<span class="mini-badge" style="background-color: {badge.color}" title={badge.shortName}></span>
-								{/each}
-							</div>
-						{/if}
-					</div>
-				{/each}
-			{/each}
-		</div>
-
-		<!-- Personnel Rows -->
-		{#each personnelByGroup as grp}
-			{#if grp.personnel.length > 0}
-				<!-- Group Header -->
-				<div class="group-row">
-					<div class="name-cell group-name">{grp.group}</div>
+				<!-- Day Numbers Row -->
+				<div class="day-row">
+					<div class="name-cell day-header-cell"></div>
 					{#each months as month}
 						{#each month.dates as date}
-							<div class="group-cell"></div>
+							{@const weekend = isWeekend(date)}
+							{@const today = isToday(date)}
+							{@const special = getSpecialDay(date)}
+							{@const badges = getAssignmentBadges(date)}
+							<div
+								class="day-cell"
+								class:weekend
+								class:today
+								class:holiday={special?.type === 'federal-holiday'}
+								title={special?.name ?? ''}
+							>
+								<span class="day-num">{date.getDate()}</span>
+								{#if badges.length > 0}
+									<div class="day-badges">
+										{#each badges as badge}
+											<span class="mini-badge" style="background-color: {badge.color}" title={badge.shortName}></span>
+										{/each}
+									</div>
+								{/if}
+							</div>
 						{/each}
 					{/each}
 				</div>
 
-				<!-- Personnel in Group -->
-				{#each grp.personnel as person}
-					<div class="person-row">
-						<div class="name-cell person-name">
-							<span class="rank">{person.rank}</span>
-							<span class="name">{person.lastName}</span>
-						</div>
-						{#each months as month}
-							{#each month.dates as date}
-								{@const status = getStatusForDate(person.id, date)}
-								{@const weekend = isWeekend(date)}
-								{@const today = isToday(date)}
-								<button
-									class="status-cell"
-									class:weekend
-									class:today
-									class:has-status={status}
-									style={status ? `background-color: ${status.color}` : ''}
-									title={status?.name ?? ''}
-									onclick={() => handleCellClick(person, date)}
-								>
-									{#if status}
-										<span class="status-dot"></span>
-									{/if}
-								</button>
+				<!-- Personnel Rows -->
+				{#each personnelByGroup as grp}
+					{#if grp.personnel.length > 0}
+						<!-- Group Header -->
+						<div class="group-row">
+							<div class="name-cell group-name">{grp.group}</div>
+							{#each months as month}
+								{#each month.dates as date}
+									<div class="group-cell"></div>
+								{/each}
 							{/each}
+						</div>
+
+						<!-- Personnel in Group -->
+						{#each grp.personnel as person}
+							<div class="person-row">
+								<div class="name-cell person-name">
+									<span class="rank">{person.rank}</span>
+									<span class="name">{person.lastName}</span>
+								</div>
+								{#each months as month}
+									{#each month.dates as date}
+										{@const status = getStatusForDate(person.id, date)}
+										{@const weekend = isWeekend(date)}
+										{@const today = isToday(date)}
+										<button
+											class="status-cell"
+											class:weekend
+											class:today
+											class:has-status={status}
+											style={status ? `background-color: ${status.color}` : ''}
+											title={status?.name ?? ''}
+											onclick={() => handleCellClick(person, date)}
+										>
+											{#if status}
+												<span class="status-dot"></span>
+											{/if}
+										</button>
+									{/each}
+								{/each}
+							</div>
 						{/each}
-					</div>
+					{/if}
 				{/each}
-			{/if}
-		{/each}
+			</div>
+		</div>
+		<!-- end scroll-area -->
 	</div>
-	</div><!-- end scroll-area -->
-	</div><!-- end body-wrapper -->
+	<!-- end body-wrapper -->
 
 	{#snippet footer()}
 		<div class="legend">
@@ -277,8 +305,8 @@
 		justify-content: center;
 		gap: var(--spacing-md);
 		padding: var(--spacing-md) var(--spacing-lg);
-		background: #0F0F0F;
-		color: #F0EDE6;
+		background: #0f0f0f;
+		color: #f0ede6;
 		flex-shrink: 0;
 	}
 
@@ -288,7 +316,7 @@
 		gap: var(--spacing-xs);
 		background: rgba(255, 255, 255, 0.1);
 		border-color: rgba(255, 255, 255, 0.2);
-		color: #F0EDE6;
+		color: #f0ede6;
 	}
 
 	.nav-bar .btn-secondary:hover {
@@ -307,7 +335,7 @@
 		gap: var(--spacing-xs);
 		margin-left: var(--spacing-md);
 		padding-left: var(--spacing-md);
-		border-left: 1px solid #2A2A2A;
+		border-left: 1px solid #2a2a2a;
 	}
 
 	.calendar-grid {
@@ -351,20 +379,20 @@
 
 	.header-cell {
 		font-weight: 600;
-		background: #0F0F0F;
-		color: #F0EDE6;
-		border-right-color: #0F0F0F;
+		background: #0f0f0f;
+		color: #f0ede6;
+		border-right-color: #0f0f0f;
 		z-index: 11;
 	}
 
 	.month-header {
 		text-align: center;
 		padding: var(--spacing-xs);
-		background: #0F0F0F;
-		color: #F0EDE6;
+		background: #0f0f0f;
+		color: #f0ede6;
 		font-weight: 600;
 		font-size: var(--font-size-sm);
-		border-left: 1px solid #2A2A2A;
+		border-left: 1px solid #2a2a2a;
 		flex-shrink: 0;
 	}
 
@@ -428,14 +456,14 @@
 	}
 
 	.group-row {
-		background: #0F0F0F;
+		background: #0f0f0f;
 	}
 
 	.group-name {
 		font-weight: 600;
 		font-size: var(--font-size-sm);
-		color: #F0EDE6;
-		background: #0F0F0F;
+		color: #f0ede6;
+		background: #0f0f0f;
 	}
 
 	.group-cell {
@@ -444,8 +472,8 @@
 		max-width: 24px;
 		flex-shrink: 0;
 		height: 20px;
-		background: #0F0F0F;
-		border-left: 1px solid #2A2A2A;
+		background: #0f0f0f;
+		border-left: 1px solid #2a2a2a;
 	}
 
 	.person-row {

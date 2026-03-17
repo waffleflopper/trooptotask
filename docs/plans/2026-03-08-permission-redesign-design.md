@@ -10,14 +10,14 @@ Upgrade TroopToTask's permission system from a two-role model (owner/member) to 
 
 Three database roles via the `organization_role` enum: `owner`, `admin`, `member`.
 
-| Capability | Owner | Admin | Member |
-|---|---|---|---|
-| All org data (read/write) | Yes | Yes | Per permission flags |
-| View audit logs | Yes | Yes | No |
-| Manage members & invitations | Yes | Yes | Per `can_manage_members` flag |
-| Org settings (name, billing) | Yes | Yes | No |
-| Transfer ownership | Yes | No | No |
-| Delete organization | Yes | No | No |
+| Capability                   | Owner | Admin | Member                        |
+| ---------------------------- | ----- | ----- | ----------------------------- |
+| All org data (read/write)    | Yes   | Yes   | Per permission flags          |
+| View audit logs              | Yes   | Yes   | No                            |
+| Manage members & invitations | Yes   | Yes   | Per `can_manage_members` flag |
+| Org settings (name, billing) | Yes   | Yes   | No                            |
+| Transfer ownership           | Yes   | No    | No                            |
+| Delete organization          | Yes   | No    | No                            |
 
 Owners and admins bypass individual permission flags — they always have full org-wide access. Members are checked against their 7 boolean permission flags (unchanged from today).
 
@@ -36,29 +36,29 @@ scoped_group_id UUID REFERENCES groups(id) ON DELETE SET NULL
 
 ### Scoping Rules by Page
 
-| Page | Org-wide member | Group-scoped member |
-|---|---|---|
-| Calendar | See all, edit per flags | See all, edit only own group |
-| Personnel | See all, edit per flags | See only own group |
-| Training | See all, edit per flags | See only own group |
-| Leader's Book | See all, edit per flags | See only own group |
-| Audit Log | No access | No access |
-| Org Settings | No access (unless `can_manage_members`) | No access |
+| Page          | Org-wide member                         | Group-scoped member          |
+| ------------- | --------------------------------------- | ---------------------------- |
+| Calendar      | See all, edit per flags                 | See all, edit only own group |
+| Personnel     | See all, edit per flags                 | See only own group           |
+| Training      | See all, edit per flags                 | See only own group           |
+| Leader's Book | See all, edit per flags                 | See only own group           |
+| Audit Log     | No access                               | No access                    |
+| Org Settings  | No access (unless `can_manage_members`) | No access                    |
 
 When a scoped group is deleted, `ON DELETE SET NULL` returns the member to org-wide access.
 
 ### Permission Presets
 
-| Preset | Role | Scope | Description |
-|---|---|---|---|
-| Admin | `admin` | org-wide | Full access, manage members, view audit log |
-| Full Editor | `member` | org-wide | All edit permissions, no member management |
-| Team Leader | `member` | scoped to group | All edit permissions for their group only |
-| Calendar Only | `member` | org-wide | View/edit calendar, view-only personnel & training |
-| Personnel Only | `member` | org-wide | View/edit personnel, view-only calendar & training |
-| Training Only | `member` | org-wide | View/edit training, view-only calendar & personnel |
-| Viewer | `member` | org-wide | View all, edit nothing |
-| Custom | `member` | configurable | Individual flag + scope selection |
+| Preset         | Role     | Scope           | Description                                        |
+| -------------- | -------- | --------------- | -------------------------------------------------- |
+| Admin          | `admin`  | org-wide        | Full access, manage members, view audit log        |
+| Full Editor    | `member` | org-wide        | All edit permissions, no member management         |
+| Team Leader    | `member` | scoped to group | All edit permissions for their group only          |
+| Calendar Only  | `member` | org-wide        | View/edit calendar, view-only personnel & training |
+| Personnel Only | `member` | org-wide        | View/edit personnel, view-only calendar & training |
+| Training Only  | `member` | org-wide        | View/edit training, view-only calendar & personnel |
+| Viewer         | `member` | org-wide        | View all, edit nothing                             |
+| Custom         | `member` | configurable    | Individual flag + scope selection                  |
 
 ### Enforcement Points
 
@@ -95,6 +95,6 @@ Existing data is unaffected: all current members have `NULL` scope (org-wide) an
 
 - Owners and admins always have org-wide access; group scoping is ignored for these roles.
 - A member with `scoped_group_id = NULL` behaves exactly like today (org-wide, per-flag permissions).
-- Calendar visibility is always org-wide regardless of scope (for coordination). Calendar *editing* respects group scope.
+- Calendar visibility is always org-wide regardless of scope (for coordination). Calendar _editing_ respects group scope.
 - Deleting a group that a member is scoped to gracefully falls back to org-wide access (ON DELETE SET NULL).
 - The "Team Leader" preset is just a member with all edit flags + a scoped group — no special logic beyond existing flag checks + scope filtering.

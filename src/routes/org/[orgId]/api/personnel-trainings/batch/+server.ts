@@ -50,25 +50,25 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}
 
 	// Fetch all referenced training types in one query
-	const trainingTypeIds = [...new Set(records.map(r => r.trainingTypeId))];
+	const trainingTypeIds = [...new Set(records.map((r) => r.trainingTypeId))];
 	const { data: trainingTypes } = await supabase
 		.from('training_types')
 		.select('id, expiration_months, expiration_date_only, can_be_exempted, exempt_personnel_ids')
 		.eq('organization_id', orgId)
 		.in('id', trainingTypeIds);
-	const typeMap = new Map((trainingTypes ?? []).map(t => [t.id, t]));
+	const typeMap = new Map((trainingTypes ?? []).map((t) => [t.id, t]));
 
 	// If scoped, fetch personnel group_ids for access check
 	let personnelGroupMap = new Map<string, string | null>();
 	if (scopedGroupId) {
-		const personnelIds = [...new Set(records.map(r => r.personnelId))];
+		const personnelIds = [...new Set(records.map((r) => r.personnelId))];
 		const { data: personnelData } = await supabase
 			.from('personnel')
 			.select('id, group_id')
 			.eq('organization_id', orgId)
 			.in('id', personnelIds)
 			.is('archived_at', null);
-		personnelGroupMap = new Map((personnelData ?? []).map(p => [p.id, p.group_id]));
+		personnelGroupMap = new Map((personnelData ?? []).map((p) => [p.id, p.group_id]));
 	}
 
 	// Split and validate
@@ -77,16 +77,14 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const batchErrors: Array<{ index: number; message: string }> = [];
 
 	// Fetch existing training records for upsert detection — scope to referenced IDs only
-	const personnelIdsForLookup = [...new Set(records.map(r => r.personnelId))];
+	const personnelIdsForLookup = [...new Set(records.map((r) => r.personnelId))];
 	const { data: existingRecords } = await supabase
 		.from('personnel_trainings')
 		.select('id, personnel_id, training_type_id')
 		.eq('organization_id', orgId)
 		.in('personnel_id', personnelIdsForLookup)
 		.in('training_type_id', trainingTypeIds);
-	const existingMap = new Map(
-		(existingRecords ?? []).map(e => [`${e.personnel_id}:${e.training_type_id}`, e.id])
-	);
+	const existingMap = new Map((existingRecords ?? []).map((e) => [`${e.personnel_id}:${e.training_type_id}`, e.id]));
 
 	for (let i = 0; i < records.length; i++) {
 		const rec = records[i];
@@ -164,17 +162,17 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		}
 	}
 
-	const insertRows = completedRecords.filter(r => !r.isUpdate);
-	const updateRows = completedRecords.filter(r => r.isUpdate);
+	const insertRows = completedRecords.filter((r) => !r.isUpdate);
+	const updateRows = completedRecords.filter((r) => r.isUpdate);
 
 	let insertedData: Record<string, unknown>[] = [];
-	let updatedData: Record<string, unknown>[] = [];
+	const updatedData: Record<string, unknown>[] = [];
 	const exemptedResults: Array<{ index: number; personnelId: string; trainingTypeId: string }> = [];
 
 	if (insertRows.length > 0) {
 		const { data, error: insertError } = await supabase
 			.from('personnel_trainings')
-			.insert(insertRows.map(r => r.row))
+			.insert(insertRows.map((r) => r.row))
 			.select();
 
 		if (insertError) throw error(500, insertError.message);
@@ -216,7 +214,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}
 
 	for (let i = 0; i < records.length; i++) {
-		if (records[i].status === 'exempt' && !batchErrors.some(e => e.index === i)) {
+		if (records[i].status === 'exempt' && !batchErrors.some((e) => e.index === i)) {
 			exemptedResults.push({
 				index: i,
 				personnelId: records[i].personnelId,

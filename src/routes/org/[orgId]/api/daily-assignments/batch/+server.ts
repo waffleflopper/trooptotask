@@ -34,8 +34,8 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}
 
 	// Split into upserts (has assigneeId) and clears (empty assigneeId)
-	const upserts = records.filter(r => r.assigneeId);
-	const clears = records.filter(r => !r.assigneeId);
+	const upserts = records.filter((r) => r.assigneeId);
+	const clears = records.filter((r) => !r.assigneeId);
 
 	// Batch delete all affected date+type combos first
 	// Group by assignmentTypeId for efficient deletes
@@ -61,17 +61,14 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	// Batch insert all upserts
 	let insertedData: Record<string, unknown>[] = [];
 	if (upserts.length > 0) {
-		const rows = upserts.map(r => ({
+		const rows = upserts.map((r) => ({
 			organization_id: orgId,
 			assignment_type_id: r.assignmentTypeId,
 			date: r.date,
 			assignee_id: r.assigneeId
 		}));
 
-		const { data, error: insertError } = await supabase
-			.from('daily_assignments')
-			.insert(rows)
-			.select();
+		const { data, error: insertError } = await supabase.from('daily_assignments').insert(rows).select();
 
 		if (insertError) throw error(500, insertError.message);
 		insertedData = data ?? [];
@@ -91,7 +88,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		{ userId }
 	);
 
-	const result = insertedData.map(d => ({
+	const result = insertedData.map((d) => ({
 		id: d.id as string,
 		date: d.date as string,
 		assignmentTypeId: d.assignment_type_id as string,

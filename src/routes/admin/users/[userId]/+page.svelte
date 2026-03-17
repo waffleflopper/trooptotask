@@ -35,9 +35,7 @@
 		}
 	});
 
-	const initials = $derived(
-		data.user.email.slice(0, 2).toUpperCase()
-	);
+	const initials = $derived(data.user.email.slice(0, 2).toUpperCase());
 
 	const tierColor: Record<string, string> = {
 		free: '#6b7280',
@@ -60,8 +58,16 @@
 <div class="user-detail-page">
 	<header class="page-header">
 		<a href="/admin/users" class="back-link">
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M19 12H5M12 19l-7-7 7-7"/>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<path d="M19 12H5M12 19l-7-7 7-7" />
 			</svg>
 			Back to Users
 		</a>
@@ -94,36 +100,41 @@
 
 	<!-- Quick Actions -->
 	<div class="actions-bar">
-		<form method="POST" action="?/resetPassword" use:enhance={() => {
-			sendingReset = true;
-			return async ({ update }) => {
-				await update();
-				sendingReset = false;
-			};
-		}}>
+		<form
+			method="POST"
+			action="?/resetPassword"
+			use:enhance={() => {
+				sendingReset = true;
+				return async ({ update }) => {
+					await update();
+					sendingReset = false;
+				};
+			}}
+		>
 			<button type="submit" class="btn btn-secondary" disabled={sendingReset}>
 				{#if sendingReset}<Spinner color="currentColor" />{/if}
 				Send Password Reset
 			</button>
 		</form>
 
-		<form method="POST" action="?/resendInvite" use:enhance={() => {
-			sendingInvite = true;
-			return async ({ update }) => {
-				await update();
-				sendingInvite = false;
-			};
-		}}>
+		<form
+			method="POST"
+			action="?/resendInvite"
+			use:enhance={() => {
+				sendingInvite = true;
+				return async ({ update }) => {
+					await update();
+					sendingInvite = false;
+				};
+			}}
+		>
 			<button type="submit" class="btn btn-secondary" disabled={sendingInvite}>
 				{#if sendingInvite}<Spinner color="currentColor" />{/if}
 				Resend Invite
 			</button>
 		</form>
 
-		<button
-			class="btn {data.isSuspended ? 'btn-secondary' : 'btn-danger'}"
-			onclick={() => (showSuspendModal = true)}
-		>
+		<button class="btn {data.isSuspended ? 'btn-secondary' : 'btn-danger'}" onclick={() => (showSuspendModal = true)}>
 			{data.isSuspended ? 'Unsuspend User' : 'Suspend User'}
 		</button>
 	</div>
@@ -187,7 +198,9 @@
 							<tr>
 								<td class="nowrap">{formatDisplayDateTime(event.timestamp)}</td>
 								<td><code class="action-code">{event.action}</code></td>
-								<td class="text-muted">{event.resourceType}{event.resourceId ? ` · ${event.resourceId.slice(0, 8)}…` : ''}</td>
+								<td class="text-muted"
+									>{event.resourceType}{event.resourceId ? ` · ${event.resourceId.slice(0, 8)}…` : ''}</td
+								>
 								<td class="text-muted">{event.orgId ? event.orgId.slice(0, 8) + '…' : '—'}</td>
 							</tr>
 						{/each}

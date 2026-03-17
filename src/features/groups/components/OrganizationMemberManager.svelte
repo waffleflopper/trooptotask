@@ -4,11 +4,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import type {
-		OrganizationMember,
-		OrganizationMemberPermissions,
-		PermissionPreset
-	} from '$lib/types';
+	import type { OrganizationMember, OrganizationMemberPermissions, PermissionPreset } from '$lib/types';
 	import { PERMISSION_PRESETS, getPermissionPreset } from '$lib/types';
 
 	interface Invitation {
@@ -53,16 +49,7 @@
 		};
 	}
 
-	let {
-		orgId,
-		members,
-		invitations,
-		isOwner,
-		isAdmin,
-		canManageMembers,
-		groups,
-		form
-	}: Props = $props();
+	let { orgId, members, invitations, isOwner, isAdmin, canManageMembers, groups, form }: Props = $props();
 
 	let expandedMemberId = $state<string | null>(null);
 	let inviteEmail = $state('');
@@ -84,9 +71,7 @@
 	];
 
 	// Filter preset options: only owners can assign/change admin
-	const availablePresetOptions = $derived(
-		isOwner ? presetOptions : presetOptions.filter(o => o.value !== 'admin')
-	);
+	const availablePresetOptions = $derived(isOwner ? presetOptions : presetOptions.filter((o) => o.value !== 'admin'));
 
 	function getPresetLabel(preset: PermissionPreset): string {
 		switch (preset) {
@@ -109,19 +94,22 @@
 
 	function getMemberPreset(member: OrganizationMember): PermissionPreset {
 		if (member.role === 'owner') return 'owner';
-		return getPermissionPreset({
-			canViewCalendar: member.canViewCalendar,
-			canEditCalendar: member.canEditCalendar,
-			canViewPersonnel: member.canViewPersonnel,
-			canEditPersonnel: member.canEditPersonnel,
-			canViewTraining: member.canViewTraining,
-			canEditTraining: member.canEditTraining,
-			canViewOnboarding: member.canViewOnboarding,
-			canEditOnboarding: member.canEditOnboarding,
-			canViewLeadersBook: member.canViewLeadersBook,
-			canEditLeadersBook: member.canEditLeadersBook,
-			canManageMembers: member.canManageMembers
-		}, member.scopedGroupId);
+		return getPermissionPreset(
+			{
+				canViewCalendar: member.canViewCalendar,
+				canEditCalendar: member.canEditCalendar,
+				canViewPersonnel: member.canViewPersonnel,
+				canEditPersonnel: member.canEditPersonnel,
+				canViewTraining: member.canViewTraining,
+				canEditTraining: member.canEditTraining,
+				canViewOnboarding: member.canViewOnboarding,
+				canEditOnboarding: member.canEditOnboarding,
+				canViewLeadersBook: member.canViewLeadersBook,
+				canEditLeadersBook: member.canEditLeadersBook,
+				canManageMembers: member.canManageMembers
+			},
+			member.scopedGroupId
+		);
 	}
 
 	function toggleExpanded(memberId: string) {
@@ -132,21 +120,23 @@
 		}
 	}
 
-
 	function getInvitePreset(invite: Invitation): PermissionPreset {
-		return getPermissionPreset({
-			canViewCalendar: invite.canViewCalendar,
-			canEditCalendar: invite.canEditCalendar,
-			canViewPersonnel: invite.canViewPersonnel,
-			canEditPersonnel: invite.canEditPersonnel,
-			canViewTraining: invite.canViewTraining,
-			canEditTraining: invite.canEditTraining,
-			canViewOnboarding: invite.canViewOnboarding,
-			canEditOnboarding: invite.canEditOnboarding,
-			canViewLeadersBook: invite.canViewLeadersBook,
-			canEditLeadersBook: invite.canEditLeadersBook,
-			canManageMembers: invite.canManageMembers
-		}, invite.scopedGroupId);
+		return getPermissionPreset(
+			{
+				canViewCalendar: invite.canViewCalendar,
+				canEditCalendar: invite.canEditCalendar,
+				canViewPersonnel: invite.canViewPersonnel,
+				canEditPersonnel: invite.canEditPersonnel,
+				canViewTraining: invite.canViewTraining,
+				canEditTraining: invite.canEditTraining,
+				canViewOnboarding: invite.canViewOnboarding,
+				canEditOnboarding: invite.canEditOnboarding,
+				canViewLeadersBook: invite.canViewLeadersBook,
+				canEditLeadersBook: invite.canEditLeadersBook,
+				canManageMembers: invite.canManageMembers
+			},
+			invite.scopedGroupId
+		);
 	}
 
 	let memberSelectedGroupId = $state<Record<string, string>>({});
@@ -182,7 +172,9 @@
 									<Badge label="MEMBER" color="#6b7280" />
 								{/if}
 								{#if member.scopedGroupId}
-									<span class="scope-label">({groups.find(g => g.id === member.scopedGroupId)?.name ?? 'Unknown group'})</span>
+									<span class="scope-label"
+										>({groups.find((g) => g.id === member.scopedGroupId)?.name ?? 'Unknown group'})</span
+									>
 								{/if}
 							</div>
 						</div>
@@ -306,70 +298,57 @@
 							<div class="permission-grid">
 								<div class="permission-section">
 									<h4>Calendar</h4>
-									<p class="permission-description">View the unit calendar and personnel statuses. Edit allows setting statuses, assignments, and availability.</p>
+									<p class="permission-description">
+										View the unit calendar and personnel statuses. Edit allows setting statuses, assignments, and
+										availability.
+									</p>
 									<label class="checkbox-label">
-										<input
-											type="checkbox"
-											name="canViewCalendar"
-											checked={member.canViewCalendar}
-										/>
+										<input type="checkbox" name="canViewCalendar" checked={member.canViewCalendar} />
 										View
 									</label>
 									<label class="checkbox-label">
-										<input
-											type="checkbox"
-											name="canEditCalendar"
-											checked={member.canEditCalendar}
-										/>
+										<input type="checkbox" name="canEditCalendar" checked={member.canEditCalendar} />
 										Edit
 									</label>
 								</div>
 
 								<div class="permission-section">
 									<h4>Personnel</h4>
-									<p class="permission-description">View the personnel roster and details. Edit allows adding, updating, and removing personnel records.</p>
+									<p class="permission-description">
+										View the personnel roster and details. Edit allows adding, updating, and removing personnel records.
+									</p>
 									<label class="checkbox-label">
-										<input
-											type="checkbox"
-											name="canViewPersonnel"
-											checked={member.canViewPersonnel}
-										/>
+										<input type="checkbox" name="canViewPersonnel" checked={member.canViewPersonnel} />
 										View
 									</label>
 									<label class="checkbox-label">
-										<input
-											type="checkbox"
-											name="canEditPersonnel"
-											checked={member.canEditPersonnel}
-										/>
+										<input type="checkbox" name="canEditPersonnel" checked={member.canEditPersonnel} />
 										Edit
 									</label>
 								</div>
 
 								<div class="permission-section">
 									<h4>Training</h4>
-									<p class="permission-description">View training records and compliance status. Edit allows logging training completions and managing records.</p>
+									<p class="permission-description">
+										View training records and compliance status. Edit allows logging training completions and managing
+										records.
+									</p>
 									<label class="checkbox-label">
-										<input
-											type="checkbox"
-											name="canViewTraining"
-											checked={member.canViewTraining}
-										/>
+										<input type="checkbox" name="canViewTraining" checked={member.canViewTraining} />
 										View
 									</label>
 									<label class="checkbox-label">
-										<input
-											type="checkbox"
-											name="canEditTraining"
-											checked={member.canEditTraining}
-										/>
+										<input type="checkbox" name="canEditTraining" checked={member.canEditTraining} />
 										Edit
 									</label>
 								</div>
 
 								<div class="permission-section">
 									<h4>Onboarding</h4>
-									<p class="permission-description">View onboarding progress for new personnel. Edit allows starting onboardings and updating step progress.</p>
+									<p class="permission-description">
+										View onboarding progress for new personnel. Edit allows starting onboardings and updating step
+										progress.
+									</p>
 									<label class="checkbox-label">
 										<input type="checkbox" name="canViewOnboarding" checked={member.canViewOnboarding} />
 										View
@@ -382,7 +361,9 @@
 
 								<div class="permission-section">
 									<h4>Leader's Book</h4>
-									<p class="permission-description">View counseling records and development goals. Edit allows creating and updating counseling entries.</p>
+									<p class="permission-description">
+										View counseling records and development goals. Edit allows creating and updating counseling entries.
+									</p>
 									<label class="checkbox-label">
 										<input type="checkbox" name="canViewLeadersBook" checked={member.canViewLeadersBook} />
 										View
@@ -395,13 +376,11 @@
 
 								<div class="permission-section">
 									<h4>Members</h4>
-									<p class="permission-description">Invite, remove, and manage permissions for other organization members.</p>
+									<p class="permission-description">
+										Invite, remove, and manage permissions for other organization members.
+									</p>
 									<label class="checkbox-label">
-										<input
-											type="checkbox"
-											name="canManageMembers"
-											checked={member.canManageMembers}
-										/>
+										<input type="checkbox" name="canManageMembers" checked={member.canManageMembers} />
 										Manage
 									</label>
 								</div>
@@ -463,7 +442,8 @@
 				{/if}
 
 				<p class="invite-note">
-					Note: There are no email notifications. The invited user needs to log in to Troop to Task to see and accept their invitation.
+					Note: There are no email notifications. The invited user needs to log in to Troop to Task to see and accept
+					their invitation.
 				</p>
 
 				<div class="invite-form">
@@ -527,8 +507,8 @@
 			titleId="transfer-ownership-title"
 		>
 			<p>
-				Are you sure you want to transfer ownership of this organization?
-				You will become an Admin member and lose owner privileges.
+				Are you sure you want to transfer ownership of this organization? You will become an Admin member and lose owner
+				privileges.
 			</p>
 			<p class="warning">This action cannot be undone by you.</p>
 
@@ -553,15 +533,8 @@
 			</form>
 
 			{#snippet footer()}
-				<button type="button" class="btn btn-secondary" onclick={() => (showTransferConfirm = false)}>
-					Cancel
-				</button>
-				<button
-					type="submit"
-					form="transfer-ownership-form"
-					class="btn btn-danger"
-					disabled={loading}
-				>
+				<button type="button" class="btn btn-secondary" onclick={() => (showTransferConfirm = false)}> Cancel </button>
+				<button type="submit" form="transfer-ownership-form" class="btn btn-danger" disabled={loading}>
 					{loading ? 'Transferring...' : 'Transfer Ownership'}
 				</button>
 			{/snippet}

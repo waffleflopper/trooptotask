@@ -40,7 +40,13 @@ export const TEST_PERSONNEL = [
 ];
 
 export const TEST_STATUS_TYPES = [
-	{ id: '00000000-e2e0-7e57-0000-000000000020', name: 'Present', color: '#22c55e', text_color: '#ffffff', sort_order: 0 },
+	{
+		id: '00000000-e2e0-7e57-0000-000000000020',
+		name: 'Present',
+		color: '#22c55e',
+		text_color: '#ffffff',
+		sort_order: 0
+	},
 	{ id: '00000000-e2e0-7e57-0000-000000000021', name: 'Leave', color: '#3b82f6', text_color: '#ffffff', sort_order: 1 },
 	{ id: '00000000-e2e0-7e57-0000-000000000022', name: 'TDY', color: '#f59e0b', text_color: '#000000', sort_order: 2 }
 ];

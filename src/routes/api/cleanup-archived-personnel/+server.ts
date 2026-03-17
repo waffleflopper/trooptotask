@@ -9,9 +9,7 @@ export const GET: RequestHandler = async ({ request }) => {
 	const cleanupSecret = env.CLEANUP_SECRET;
 	const cronSecret = env.CRON_SECRET;
 
-	const isAuthorized =
-		(authHeader === `Bearer ${cleanupSecret}`) ||
-		(authHeader === `Bearer ${cronSecret}`);
+	const isAuthorized = authHeader === `Bearer ${cleanupSecret}` || authHeader === `Bearer ${cronSecret}`;
 
 	if (!isAuthorized) {
 		throw error(401, 'Unauthorized');
@@ -22,7 +20,9 @@ export const GET: RequestHandler = async ({ request }) => {
 	// Find all archived personnel joined with their org's retention setting
 	const { data: expiredPersonnel, error: queryError } = await admin
 		.from('personnel')
-		.select('id, rank, first_name, last_name, organization_id, archived_at, organizations!inner(archive_retention_months)')
+		.select(
+			'id, rank, first_name, last_name, organization_id, archived_at, organizations!inner(archive_retention_months)'
+		)
 		.not('archived_at', 'is', null);
 
 	if (queryError) {
@@ -30,9 +30,10 @@ export const GET: RequestHandler = async ({ request }) => {
 	}
 
 	const now = new Date();
-	const toDelete = (expiredPersonnel ?? []).filter((p: any) => {
-		const archivedAt = new Date(p.archived_at);
-		const retentionMonths = p.organizations?.archive_retention_months ?? 36;
+	const toDelete = (expiredPersonnel ?? []).filter((p: Record<string, unknown>) => {
+		const archivedAt = new Date(p.archived_at as string);
+		const retentionMonths =
+			((p.organizations as Record<string, unknown> | null)?.archive_retention_months as number) ?? 36;
 		const expiresAt = new Date(archivedAt);
 		expiresAt.setMonth(expiresAt.getMonth() + retentionMonths);
 		return now > expiresAt;
@@ -44,7 +45,7 @@ export const GET: RequestHandler = async ({ request }) => {
 
 	// Group by org for notifications
 	const byOrg = new Map<string, Array<{ id: string; name: string }>>();
-	for (const p of toDelete as any[]) {
+	for (const p of toDelete) {
 		const orgId = p.organization_id;
 		if (!byOrg.has(orgId)) byOrg.set(orgId, []);
 		byOrg.get(orgId)!.push({
@@ -54,11 +55,8 @@ export const GET: RequestHandler = async ({ request }) => {
 	}
 
 	// Delete expired personnel
-	const idsToDelete = toDelete.map((p: any) => p.id);
-	const { error: deleteError } = await admin
-		.from('personnel')
-		.delete()
-		.in('id', idsToDelete);
+	const idsToDelete = toDelete.map((p) => p.id);
+	const { error: deleteError } = await admin.from('personnel').delete().in('id', idsToDelete);
 
 	if (deleteError) {
 		throw error(500, deleteError.message);
@@ -66,7 +64,7 @@ export const GET: RequestHandler = async ({ request }) => {
 
 	// Create notifications for org admins/owners
 	for (const [orgId, people] of byOrg.entries()) {
-		const nameList = people.map(p => p.name).join(', ');
+		const nameList = people.map((p) => p.name).join(', ');
 		await notifyAdmins(orgId, null, {
 			type: 'archive_auto_deleted',
 			title: 'Archived Personnel Auto-Deleted',

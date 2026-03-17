@@ -26,9 +26,7 @@
 	let saving = $state(false);
 	let errorMsg = $state('');
 
-	const hasActiveGift = $derived(
-		!!currentGiftTier && !!giftExpiresAt && new Date(giftExpiresAt) > new Date()
-	);
+	const hasActiveGift = $derived(!!currentGiftTier && !!giftExpiresAt && new Date(giftExpiresAt) > new Date());
 
 	function formatDate(d: string | null): string {
 		if (!d) return 'N/A';
@@ -63,6 +61,7 @@
 					return async ({ result }) => {
 						saving = false;
 						if (result.type === 'failure') {
+							// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
 							errorMsg = (result.data as any)?.error?.message ?? 'Failed to extend gift';
 						} else {
 							onComplete();
@@ -93,7 +92,9 @@
 
 		<div class="action-section">
 			<h3>Revoke Gift</h3>
-			<p class="hint">Removes the gift and reverts to the org's base tier. If a Stripe subscription was paused, it will be resumed.</p>
+			<p class="hint">
+				Removes the gift and reverts to the org's base tier. If a Stripe subscription was paused, it will be resumed.
+			</p>
 			<form
 				method="POST"
 				action="?/revokeGift"
@@ -103,6 +104,7 @@
 					return async ({ result }) => {
 						saving = false;
 						if (result.type === 'failure') {
+							// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
 							errorMsg = (result.data as any)?.error?.message ?? 'Failed to revoke gift';
 						} else {
 							onComplete();
@@ -129,6 +131,7 @@
 					return async ({ result }) => {
 						saving = false;
 						if (result.type === 'failure') {
+							// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
 							errorMsg = (result.data as any)?.error?.message ?? 'Failed to apply gift';
 						} else {
 							onComplete();
@@ -146,15 +149,7 @@
 				</div>
 				<div class="form-group">
 					<label class="label" for="gift-days">Duration (days)</label>
-					<input
-						id="gift-days"
-						type="number"
-						name="days"
-						class="input"
-						bind:value={days}
-						min="1"
-						max="365"
-					/>
+					<input id="gift-days" type="number" name="days" class="input" bind:value={days} min="1" max="365" />
 				</div>
 				<button type="submit" class="btn btn-primary" disabled={saving} style="margin-top: var(--spacing-sm);">
 					{#if saving}<Spinner />{/if}

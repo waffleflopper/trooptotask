@@ -17,6 +17,7 @@
 The dropdown menu used by the ⋮ button in toolbars and the avatar menu. Build this first since both `PageToolbar` and `AvatarMenu` depend on it.
 
 **Files:**
+
 - Create: `src/lib/components/ui/OverflowMenu.svelte`
 
 **Step 1: Create the component**
@@ -25,33 +26,34 @@ This is a generic dropdown that positions itself below its trigger button. It ac
 
 ```svelte
 <script lang="ts">
-  import { onMount } from 'svelte';
+	import { onMount } from 'svelte';
 
-  export interface OverflowItem {
-    label: string;
-    icon?: string;           // SVG path string
-    onclick?: () => void;
-    href?: string;
-    toggle?: boolean;        // is this a toggle item?
-    active?: boolean;        // toggle state
-    divider?: boolean;       // render a divider before this item
-    group?: string;          // group label (rendered as a header before the item)
-    danger?: boolean;        // red styling
-    disabled?: boolean;
-  }
+	export interface OverflowItem {
+		label: string;
+		icon?: string; // SVG path string
+		onclick?: () => void;
+		href?: string;
+		toggle?: boolean; // is this a toggle item?
+		active?: boolean; // toggle state
+		divider?: boolean; // render a divider before this item
+		group?: string; // group label (rendered as a header before the item)
+		danger?: boolean; // red styling
+		disabled?: boolean;
+	}
 
-  interface Props {
-    items: OverflowItem[];
-    open: boolean;
-    onClose: () => void;
-    align?: 'left' | 'right';  // default 'right'
-  }
+	interface Props {
+		items: OverflowItem[];
+		open: boolean;
+		onClose: () => void;
+		align?: 'left' | 'right'; // default 'right'
+	}
 
-  let { items, open, onClose, align = 'right' }: Props = $props();
+	let { items, open, onClose, align = 'right' }: Props = $props();
 </script>
 ```
 
 Features:
+
 - Renders a positioned dropdown (absolute, below parent)
 - Click-outside closes (attach `mousedown` listener on mount when `open`)
 - Items with `onclick` call the handler then `onClose()`
@@ -76,35 +78,37 @@ git commit -m "feat: add OverflowMenu dropdown component"
 The user avatar circle + account dropdown in the top-right corner of the header.
 
 **Files:**
+
 - Create: `src/lib/components/ui/AvatarMenu.svelte`
 
 **Step 1: Create the component**
 
 ```svelte
 <script lang="ts">
-  import { goto } from '$app/navigation';
-  import { isBillingEnabled } from '$lib/config/billing';
-  import OverflowMenu from './OverflowMenu.svelte';
-  import type { OverflowItem } from './OverflowMenu.svelte';
+	import { goto } from '$app/navigation';
+	import { isBillingEnabled } from '$lib/config/billing';
+	import OverflowMenu from './OverflowMenu.svelte';
+	import type { OverflowItem } from './OverflowMenu.svelte';
 
-  interface OrgInfo {
-    id: string;
-    name: string;
-    role: string;
-  }
+	interface OrgInfo {
+		id: string;
+		name: string;
+		role: string;
+	}
 
-  interface Props {
-    orgId: string;
-    orgName: string;
-    userRole: string;
-    allOrgs?: OrgInfo[];
-    onToggleTheme: () => void;
-    isDarkTheme: boolean;
-  }
+	interface Props {
+		orgId: string;
+		orgName: string;
+		userRole: string;
+		allOrgs?: OrgInfo[];
+		onToggleTheme: () => void;
+		isDarkTheme: boolean;
+	}
 </script>
 ```
 
 Features:
+
 - Renders initials-based avatar circle (first letter of org name, brass `#B8943E` background)
 - Click toggles the dropdown open/closed
 - Dropdown items: org name + role (non-clickable header), divider, Org Settings (`/org/{orgId}/settings`), Billing (`/billing`, only if `isBillingEnabled`), Theme toggle (Light/Dark, toggle item), Help (`/help`), divider, Sign Out (`/auth/logout`, danger styling)
@@ -124,46 +128,50 @@ git commit -m "feat: add AvatarMenu component with account dropdown"
 The fixed top navigation bar.
 
 **Files:**
+
 - Create: `src/lib/components/TopHeader.svelte`
 
 **Step 1: Create the component**
 
 ```svelte
 <script lang="ts">
-  import { page } from '$app/stores';
-  import type { OrganizationMemberPermissions } from '$lib/types';
-  import AvatarMenu from './ui/AvatarMenu.svelte';
+	import { page } from '$app/stores';
+	import type { OrganizationMemberPermissions } from '$lib/types';
+	import AvatarMenu from './ui/AvatarMenu.svelte';
 
-  interface OrgInfo {
-    id: string;
-    name: string;
-    role: string;
-  }
+	interface OrgInfo {
+		id: string;
+		name: string;
+		role: string;
+	}
 
-  interface Props {
-    orgId: string;
-    orgName: string;
-    userRole: string;
-    userId: string | null;
-    permissions: OrganizationMemberPermissions;
-    allOrgs: OrgInfo[];
-    onToggleTheme: () => void;
-    isDarkTheme: boolean;
-  }
+	interface Props {
+		orgId: string;
+		orgName: string;
+		userRole: string;
+		userId: string | null;
+		permissions: OrganizationMemberPermissions;
+		allOrgs: OrgInfo[];
+		onToggleTheme: () => void;
+		isDarkTheme: boolean;
+	}
 </script>
 ```
 
 Layout:
+
 - Fixed top, `height: 56px`, `width: 100%`, `z-index: 100`, `background: #0F0F0F`, `color: #F0EDE6`
 - **Left zone**: T2T brass badge + "Troop to Task" logotype (reuse exact styles from current sidebar header). Link to `/org/{orgId}`. Below the logotype, org name in muted text (or dropdown if multi-org — but org switching is in AvatarMenu, so just static text here).
 - **Center zone**: Nav tabs as `<a>` tags. Dashboard, Calendar (if `canViewCalendar`), Personnel (if `canViewPersonnel`), Training (if `canViewTraining`), Leaders Book (if `canViewPersonnel`, with Beta badge). Active tab: brass `#B8943E` bottom border (3px), brass text color.
 - **Right zone**: `<AvatarMenu>` component.
 
 Responsive:
+
 - **Mobile (< 640px)**: Hide the center nav tabs (hidden via `display: none`). Left zone shows just "T2T" badge. Right zone keeps avatar. The bottom tab bar handles navigation on mobile.
 - **Desktop/Tablet**: Full layout as described.
 
 CSS:
+
 - Define `--header-height: 56px` in `:global(:root)` (replaces `--sidebar-width`)
 - Use flexbox: `display: flex; align-items: center; justify-content: space-between`
 
@@ -181,23 +189,25 @@ git commit -m "feat: add TopHeader navigation bar component"
 Mobile-only bottom navigation.
 
 **Files:**
+
 - Create: `src/lib/components/BottomTabBar.svelte`
 
 **Step 1: Create the component**
 
 ```svelte
 <script lang="ts">
-  import { page } from '$app/stores';
-  import type { OrganizationMemberPermissions } from '$lib/types';
+	import { page } from '$app/stores';
+	import type { OrganizationMemberPermissions } from '$lib/types';
 
-  interface Props {
-    orgId: string;
-    permissions: OrganizationMemberPermissions;
-  }
+	interface Props {
+		orgId: string;
+		permissions: OrganizationMemberPermissions;
+	}
 </script>
 ```
 
 Features:
+
 - Fixed bottom, `height: 56px`, `background: #0F0F0F`, `z-index: 100`
 - 5 tab items: Dashboard, Calendar, Personnel, Training, LB (short labels)
 - Each tab: SVG icon (reuse the same icons from current sidebar nav items) + label below
@@ -219,27 +229,29 @@ git commit -m "feat: add BottomTabBar mobile navigation component"
 Reusable toolbar shell that each page renders with its own actions.
 
 **Files:**
+
 - Create: `src/lib/components/PageToolbar.svelte`
 
 **Step 1: Create the component**
 
 ```svelte
 <script lang="ts">
-  import OverflowMenu from './ui/OverflowMenu.svelte';
-  import type { OverflowItem } from './ui/OverflowMenu.svelte';
+	import OverflowMenu from './ui/OverflowMenu.svelte';
+	import type { OverflowItem } from './ui/OverflowMenu.svelte';
 
-  interface Props {
-    title: string;
-    overflowItems?: OverflowItem[];
-    children?: import('svelte').Snippet;  // slot for visible action buttons
-  }
+	interface Props {
+		title: string;
+		overflowItems?: OverflowItem[];
+		children?: import('svelte').Snippet; // slot for visible action buttons
+	}
 
-  let { title, overflowItems = [], children }: Props = $props();
-  let showOverflow = $state(false);
+	let { title, overflowItems = [], children }: Props = $props();
+	let showOverflow = $state(false);
 </script>
 ```
 
 Layout:
+
 - `height: 44px`, not fixed (scrolls with content)
 - `background: var(--color-surface)`, `border-bottom: 1px solid var(--color-border)`
 - **Left**: Page title (`<h2>`, using `--font-display`, `--font-size-lg`)
@@ -247,6 +259,7 @@ Layout:
 - ⋮ button opens `<OverflowMenu>`
 
 Responsive:
+
 - **Mobile (< 640px)**: Hide slotted action buttons (`display: none`). Only show title + ⋮. All actions go into the overflow menu on mobile (pages should include all items in `overflowItems` and also render the frequent ones in the slot — the slot hides on mobile so overflow is the only way to reach them).
 
 **Step 2: Commit**
@@ -263,6 +276,7 @@ git commit -m "feat: add PageToolbar with overflow menu"
 Move navigation from per-page to the layout.
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/+layout.svelte`
 
 **Step 1: Update the layout**
@@ -273,33 +287,34 @@ Import `TopHeader`, `BottomTabBar`, the theme store, and add:
 
 ```svelte
 <TopHeader
-  orgId={data.orgId}
-  orgName={data.orgName}
-  userRole={data.userRole}
-  userId={data.userId}
-  permissions={data.permissions}
-  allOrgs={data.allOrgs}
-  onToggleTheme={() => themeStore.toggle()}
-  isDarkTheme={themeStore.isDark}
+	orgId={data.orgId}
+	orgName={data.orgName}
+	userRole={data.userRole}
+	userId={data.userId}
+	permissions={data.permissions}
+	allOrgs={data.allOrgs}
+	onToggleTheme={() => themeStore.toggle()}
+	isDarkTheme={themeStore.isDark}
 />
 
 <main class="app-content">
-  {@render children()}
+	{@render children()}
 </main>
 
 <BottomTabBar orgId={data.orgId} permissions={data.permissions} />
 ```
 
 Add CSS:
+
 ```css
 .app-content {
-  padding-top: var(--header-height);
+	padding-top: var(--header-height);
 }
 
 @media (max-width: 640px) {
-  .app-content {
-    padding-bottom: 56px;  /* BottomTabBar height */
-  }
+	.app-content {
+		padding-bottom: 56px; /* BottomTabBar height */
+	}
 }
 ```
 
@@ -317,6 +332,7 @@ git commit -m "feat: add TopHeader and BottomTabBar to org layout"
 Remove Sidebar, add PageToolbar, clean up CSS.
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/+page.svelte`
 
 **Step 1: Update the page**
@@ -347,6 +363,7 @@ git commit -m "refactor: migrate dashboard from sidebar to top header + toolbar"
 The most complex migration — has the most page-specific tools.
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/calendar/+page.svelte`
 
 **Step 1: Update the page**
@@ -360,20 +377,30 @@ The most complex migration — has the most page-specific tools.
 
 ```typescript
 const calendarOverflowItems = $derived<OverflowItem[]>([
-  // Only include items the user has permission for
-  ...(data.permissions.canEditCalendar ? [
-    { label: 'Bulk Status', onclick: () => (showBulkStatusModal = true) },
-    { label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true) },
-  ] : []),
-  { label: 'Export to Excel', onclick: handleExportCSV, divider: true },
-  { label: 'Print / PDF', onclick: handleExportPDF },
-  { label: 'Show Status Text', toggle: true, active: calendarPrefsStore.showStatusText, onclick: () => calendarPrefsStore.toggleShowStatusText(), divider: true },
-  // Configure group
-  ...(data.permissions.canEditCalendar ? [
-    { label: 'Status Types', onclick: () => (showStatusManager = true), divider: true, group: 'Configure' },
-    { label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true) },
-    { label: 'Holidays', onclick: () => (showSpecialDayManager = true) },
-  ] : []),
+	// Only include items the user has permission for
+	...(data.permissions.canEditCalendar
+		? [
+				{ label: 'Bulk Status', onclick: () => (showBulkStatusModal = true) },
+				{ label: 'Duty Roster', onclick: () => (showDutyRosterGenerator = true) }
+			]
+		: []),
+	{ label: 'Export to Excel', onclick: handleExportCSV, divider: true },
+	{ label: 'Print / PDF', onclick: handleExportPDF },
+	{
+		label: 'Show Status Text',
+		toggle: true,
+		active: calendarPrefsStore.showStatusText,
+		onclick: () => calendarPrefsStore.toggleShowStatusText(),
+		divider: true
+	},
+	// Configure group
+	...(data.permissions.canEditCalendar
+		? [
+				{ label: 'Status Types', onclick: () => (showStatusManager = true), divider: true, group: 'Configure' },
+				{ label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true) },
+				{ label: 'Holidays', onclick: () => (showSpecialDayManager = true) }
+			]
+		: [])
 ]);
 ```
 
@@ -381,17 +408,11 @@ const calendarOverflowItems = $derived<OverflowItem[]>([
 
 ```svelte
 <PageToolbar title="Calendar" overflowItems={calendarOverflowItems}>
-  <button class="btn btn-sm" onclick={() => (showTodayBreakdown = true)}>
-    Today's Breakdown
-  </button>
-  {#if data.permissions.canEditCalendar}
-    <button class="btn btn-sm" onclick={() => (showAssignmentPlanner = true)}>
-      Assignments
-    </button>
-  {/if}
-  <button class="btn btn-sm" onclick={() => (showLongRangeView = true)}>
-    3-Month View
-  </button>
+	<button class="btn btn-sm" onclick={() => (showTodayBreakdown = true)}> Today's Breakdown </button>
+	{#if data.permissions.canEditCalendar}
+		<button class="btn btn-sm" onclick={() => (showAssignmentPlanner = true)}> Assignments </button>
+	{/if}
+	<button class="btn btn-sm" onclick={() => (showLongRangeView = true)}> 3-Month View </button>
 </PageToolbar>
 ```
 
@@ -414,6 +435,7 @@ git commit -m "refactor: migrate calendar from sidebar to top header + toolbar"
 ### Task 9: Migrate Personnel page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/personnel/+page.svelte`
 
 **Step 1: Update the page**
@@ -427,11 +449,9 @@ git commit -m "refactor: migrate calendar from sidebar to top header + toolbar"
 
 ```svelte
 <PageToolbar title="Personnel" overflowItems={personnelOverflowItems}>
-  {#if data.permissions.canEditPersonnel}
-    <button class="btn btn-sm btn-primary" onclick={handleAdd}>
-      Add Person
-    </button>
-  {/if}
+	{#if data.permissions.canEditPersonnel}
+		<button class="btn btn-sm btn-primary" onclick={handleAdd}> Add Person </button>
+	{/if}
 </PageToolbar>
 ```
 
@@ -449,6 +469,7 @@ git commit -m "refactor: migrate personnel from sidebar to top header + toolbar"
 ### Task 10: Migrate Training page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/training/+page.svelte`
 
 **Step 1: Update the page**
@@ -462,9 +483,7 @@ git commit -m "refactor: migrate personnel from sidebar to top header + toolbar"
 
 ```svelte
 <PageToolbar title="Training & Certifications" overflowItems={trainingOverflowItems}>
-  <button class="btn btn-sm" onclick={() => (showReports = true)}>
-    Reports
-  </button>
+	<button class="btn btn-sm" onclick={() => (showReports = true)}> Reports </button>
 </PageToolbar>
 ```
 
@@ -482,6 +501,7 @@ git commit -m "refactor: migrate training from sidebar to top header + toolbar"
 ### Task 11: Migrate Leaders Book page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/leaders-book/+page.svelte`
 
 **Step 1: Update the page**
@@ -511,6 +531,7 @@ git commit -m "refactor: migrate leaders book from sidebar to top header + toolb
 ### Task 12: Migrate Settings page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/settings/+page.svelte`
 
 **Step 1: Update the page**
@@ -533,6 +554,7 @@ git commit -m "refactor: migrate settings from sidebar to top header + toolbar"
 ### Task 13: Delete Sidebar.svelte and clean up
 
 **Files:**
+
 - Delete: `src/lib/components/Sidebar.svelte`
 - Modify: `src/app.css` (if any `--sidebar-width` references exist there — currently none, but verify)
 
@@ -587,6 +609,7 @@ Expected: 0 new errors, build succeeds.
 **Step 2: Visual review checklist**
 
 Test each page manually:
+
 - [ ] Dashboard: header shows, nav tabs work, avatar menu works, no sidebar remnants
 - [ ] Calendar: header, toolbar with 3 buttons + overflow, all modals still open correctly
 - [ ] Personnel: header, toolbar with Add Person + overflow

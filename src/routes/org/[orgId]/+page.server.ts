@@ -25,11 +25,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 				.eq('organization_id', orgId)
 				.gte('end_date', yesterday)
 				.lte('start_date', twoWeeksOut),
-			supabase
-				.from('assignment_types')
-				.select('*')
-				.eq('organization_id', orgId)
-				.order('sort_order'),
+			supabase.from('assignment_types').select('*').eq('organization_id', orgId).order('sort_order'),
 			supabase
 				.from('daily_assignments')
 				.select('*')
@@ -62,24 +58,26 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const assignmentTypes = transformAssignmentTypes(assignmentTypesRes.data ?? []);
 	const todayAssignments = transformDailyAssignments(todayAssignmentsRes.data ?? []);
 
-	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map((p: any) => p.group_name);
+	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map(
+		(p: Record<string, unknown>) => p.group_name as string
+	);
 
-	const ratingSchemeEntries = (ratingSchemeRes.data ?? []).map((r: any) => ({
-		id: r.id,
-		ratedPersonId: r.rated_person_id,
-		evalType: r.eval_type,
-		ratingPeriodEnd: r.rating_period_end,
-		status: r.status
+	const ratingSchemeEntries = (ratingSchemeRes.data ?? []).map((r: Record<string, unknown>) => ({
+		id: r.id as string,
+		ratedPersonId: r.rated_person_id as string,
+		evalType: r.eval_type as string,
+		ratingPeriodEnd: r.rating_period_end as string,
+		status: r.status as string
 	}));
 
-	const activeOnboardings = (onboardingsRes.data ?? []).map((o: any) => ({
+	const activeOnboardings = (onboardingsRes.data ?? []).map((o: Record<string, unknown>) => ({
 		id: o.id,
 		personnelId: o.personnel_id,
 		status: o.status,
 		startedAt: o.started_at,
-		steps: (o.onboarding_step_progress ?? [])
-			.sort((a: any, b: any) => a.sort_order - b.sort_order)
-			.map((s: any) => ({
+		steps: ((o.onboarding_step_progress as Record<string, unknown>[]) ?? [])
+			.sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
+			.map((s) => ({
 				id: s.id,
 				stepName: s.step_name,
 				stepType: s.step_type,
@@ -96,18 +94,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		{ count: orgMemberCount },
 		{ data: gettingStartedData }
 	] = await Promise.all([
-		supabase
-			.from('onboarding_template_steps')
-			.select('*', { count: 'exact', head: true })
-			.eq('organization_id', orgId),
-		supabase
-			.from('rating_scheme_entries')
-			.select('*', { count: 'exact', head: true })
-			.eq('organization_id', orgId),
-		supabase
-			.from('organization_memberships')
-			.select('*', { count: 'exact', head: true })
-			.eq('organization_id', orgId),
+		supabase.from('onboarding_template_steps').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
+		supabase.from('rating_scheme_entries').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
+		supabase.from('organization_memberships').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
 		supabase
 			.from('getting_started_progress')
 			.select('dismissed_at')

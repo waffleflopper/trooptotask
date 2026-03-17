@@ -111,11 +111,7 @@ export const actions: Actions = {
 		const adminClient = getAdminClient();
 
 		// Fetch org to verify the name confirmation
-		const { data: org } = await adminClient
-			.from('organizations')
-			.select('id, name')
-			.eq('id', orgId)
-			.single();
+		const { data: org } = await adminClient.from('organizations').select('id, name').eq('id', orgId).single();
 
 		if (!org) return fail(404, { error: { message: 'Organization not found' } });
 		if (confirmName !== org.name) return fail(400, { error: { message: 'Organization name does not match' } });
@@ -222,11 +218,29 @@ export const actions: Actions = {
 
 		if (updateError) return fail(500, { error: { message: 'Failed to gift tier' } });
 
-		if (org.stripe_subscription_id && org.subscription_status === 'active' && TIER_RANK[giftTier] >= TIER_RANK[org.tier]) {
-			try { await pauseSubscription(org.stripe_subscription_id); } catch (err) { console.error('[admin] Failed to pause subscription:', err); }
+		if (
+			org.stripe_subscription_id &&
+			org.subscription_status === 'active' &&
+			TIER_RANK[giftTier] >= TIER_RANK[org.tier]
+		) {
+			try {
+				await pauseSubscription(org.stripe_subscription_id);
+			} catch (err) {
+				console.error('[admin] Failed to pause subscription:', err);
+			}
 		}
 
-		await auditLog({ action: 'admin.org.gift_tier', resourceType: 'organization', resourceId: orgId, orgId, details: { giftTier, days }, severity: 'warning' }, getRequestInfo(event));
+		await auditLog(
+			{
+				action: 'admin.org.gift_tier',
+				resourceType: 'organization',
+				resourceId: orgId,
+				orgId,
+				details: { giftTier, days },
+				severity: 'warning'
+			},
+			getRequestInfo(event)
+		);
 		return { success: true };
 	},
 
@@ -257,10 +271,17 @@ export const actions: Actions = {
 		if (updateError) return fail(500, { error: { message: 'Failed to revoke gift' } });
 
 		if (org.stripe_subscription_id && org.subscription_status === 'paused') {
-			try { await resumeSubscription(org.stripe_subscription_id); } catch (err) { console.error('[admin] Failed to resume subscription:', err); }
+			try {
+				await resumeSubscription(org.stripe_subscription_id);
+			} catch (err) {
+				console.error('[admin] Failed to resume subscription:', err);
+			}
 		}
 
-		await auditLog({ action: 'admin.org.revoke_gift', resourceType: 'organization', resourceId: orgId, orgId, severity: 'warning' }, getRequestInfo(event));
+		await auditLog(
+			{ action: 'admin.org.revoke_gift', resourceType: 'organization', resourceId: orgId, orgId, severity: 'warning' },
+			getRequestInfo(event)
+		);
 		return { success: true };
 	},
 
@@ -300,7 +321,17 @@ export const actions: Actions = {
 
 		if (updateError) return fail(500, { error: { message: 'Failed to extend gift' } });
 
-		await auditLog({ action: 'admin.org.extend_gift', resourceType: 'organization', resourceId: orgId, orgId, details: { days }, severity: 'info' }, getRequestInfo(event));
+		await auditLog(
+			{
+				action: 'admin.org.extend_gift',
+				resourceType: 'organization',
+				resourceId: orgId,
+				orgId,
+				details: { days },
+				severity: 'info'
+			},
+			getRequestInfo(event)
+		);
 		return { success: true };
 	}
 };

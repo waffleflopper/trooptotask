@@ -24,8 +24,7 @@ export function getTrainingStatus(
 ): TrainingStatusInfo {
 	// Check if this training is required for the person's role
 	// '*' means required for all roles, [] means optional for all
-	const isRequired =
-		type.requiredForRoles.includes('*') || type.requiredForRoles.includes(person.clinicRole);
+	const isRequired = type.requiredForRoles.includes('*') || type.requiredForRoles.includes(person.clinicRole);
 
 	// Check exemption before other status checks
 	if (type.canBeExempted && type.exemptPersonnelIds.includes(person.id)) {

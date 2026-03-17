@@ -50,8 +50,8 @@ class PersonnelTrainingsStore {
 	}
 
 	addBatchResults(inserted: PersonnelTraining[], updated: PersonnelTraining[]) {
-		const updatedIds = new Set(updated.map(u => u.id));
-		this.#trainings = this.#trainings.filter(t => !updatedIds.has(t.id));
+		const updatedIds = new Set(updated.map((u) => u.id));
+		this.#trainings = this.#trainings.filter((t) => !updatedIds.has(t.id));
 		this.#trainings = [...this.#trainings, ...inserted, ...updated];
 	}
 
@@ -116,9 +116,7 @@ class PersonnelTrainingsStore {
 	}
 
 	getByPersonnelAndType(personnelId: string, trainingTypeId: string) {
-		return this.#trainings.find(
-			(t) => t.personnelId === personnelId && t.trainingTypeId === trainingTypeId
-		);
+		return this.#trainings.find((t) => t.personnelId === personnelId && t.trainingTypeId === trainingTypeId);
 	}
 
 	removeByPersonnelLocal(personnelId: string) {

@@ -47,7 +47,9 @@
 <Modal {title} {onClose} width="480px" canClose={!saving}>
 	<div class="body">
 		{#if isSuspended}
-			<p>Are you sure you want to <strong>unsuspend</strong> <em>{targetName}</em>? They will regain access immediately.</p>
+			<p>
+				Are you sure you want to <strong>unsuspend</strong> <em>{targetName}</em>? They will regain access immediately.
+			</p>
 		{:else}
 			<p>Are you sure you want to <strong>suspend</strong> <em>{targetName}</em>? They will lose access immediately.</p>
 		{/if}
@@ -71,11 +73,7 @@
 
 	{#snippet footer()}
 		<button class="btn btn-secondary" onclick={onClose} disabled={saving}>Cancel</button>
-		<button
-			class="btn {isSuspended ? 'btn-primary' : 'btn-danger'}"
-			onclick={handleAction}
-			disabled={saving}
-		>
+		<button class="btn {isSuspended ? 'btn-primary' : 'btn-danger'}" onclick={handleAction} disabled={saving}>
 			{#if saving}<Spinner />{/if}
 			{saving ? 'Processing...' : isSuspended ? 'Unsuspend' : 'Suspend'}
 		</button>

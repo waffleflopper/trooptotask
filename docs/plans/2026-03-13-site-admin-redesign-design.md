@@ -43,17 +43,17 @@ SYSTEM
 
 ### Role-Based Page Access
 
-| Page             | super_admin | support | billing |
-|------------------|:-----------:|:-------:|:-------:|
-| Dashboard        | ✓           | ✓       | ✓       |
-| Users            | ✓           | ✓       |         |
-| Organizations    | ✓           | ✓       |         |
-| Access Requests  | ✓           | ✓       |         |
-| Feedback         | ✓           | ✓       |         |
-| Subscriptions    | ✓           |         | ✓       |
-| Gifting          | ✓           |         | ✓       |
-| Audit Log        | ✓           |         |         |
-| Announcements    | ✓           |         |         |
+| Page            | super_admin | support | billing |
+| --------------- | :---------: | :-----: | :-----: |
+| Dashboard       |      ✓      |    ✓    |    ✓    |
+| Users           |      ✓      |    ✓    |         |
+| Organizations   |      ✓      |    ✓    |         |
+| Access Requests |      ✓      |    ✓    |         |
+| Feedback        |      ✓      |    ✓    |         |
+| Subscriptions   |      ✓      |         |    ✓    |
+| Gifting         |      ✓      |         |    ✓    |
+| Audit Log       |      ✓      |         |         |
+| Announcements   |      ✓      |         |         |
 
 - Layout checks `adminRole` and only renders sidebar links the user has access to
 - Each `+page.server.ts` also enforces role access server-side (defense-in-depth)
@@ -114,6 +114,7 @@ A search bar at the top of every admin page (in the layout header).
 ### Quick Actions Bar
 
 Buttons rendered based on admin role:
+
 - **Send Password Reset** — triggers Supabase auth password reset email (support, super_admin)
 - **Resend Invite** — resends invite if they were invited but haven't confirmed (support, super_admin)
 - **Suspend User** / **Unsuspend User** — toggles suspension (super_admin only)
@@ -123,6 +124,7 @@ All actions open a confirmation modal with optional reason field. All actions ar
 ### Organizations Section
 
 List of all orgs the user belongs to:
+
 - Org name (clickable → org detail page)
 - Role in that org (owner/admin/member)
 - Personnel count
@@ -152,6 +154,7 @@ All actions open a confirmation modal with optional reason field. All actions ar
 ### Subscription Card
 
 Grid showing:
+
 - Tier and price
 - Status (active/past_due/canceled/gifted)
 - Personnel count vs cap (e.g., "42 / 80")
@@ -162,6 +165,7 @@ Grid showing:
 ### Members Section
 
 List of all org members:
+
 - Email (clickable → user detail page)
 - Role (owner/admin/member)
 
@@ -229,6 +233,7 @@ Read-only overview table of all organizations with subscription data.
 ### Database
 
 `platform_announcements` table:
+
 - `id` UUID primary key
 - `title` text (required, max 200 chars)
 - `message` text (required, max 1000 chars)
@@ -241,6 +246,7 @@ Read-only overview table of all organizations with subscription data.
 - `updated_at` timestamptz
 
 `announcement_dismissals` table:
+
 - `announcement_id` UUID (FK)
 - `user_id` UUID (FK)
 - `dismissed_at` timestamptz
@@ -289,6 +295,7 @@ The existing Feedback page and FeedbackModal stay as-is. Enhancements:
 ### User Suspension Storage
 
 Option: `user_suspensions` table with `user_id`, `suspended_at`, `suspended_by`, `reason`
+
 - Checked via RPC or join in hooks.server.ts
 - Preferred over user_metadata because it's queryable and audit-friendly
 
@@ -361,6 +368,7 @@ src/routes/admin/
 ## What Changes vs What Stays
 
 ### Stays As-Is
+
 - Access Requests page (functionality unchanged)
 - Feedback page (functionality unchanged, just dashboard integration)
 - Gifting page (functionality unchanged)
@@ -368,12 +376,14 @@ src/routes/admin/
 - Platform admin access control model (`platform_admins` table, `is_platform_admin()` RPC)
 
 ### Enhanced
+
 - Dashboard (trend charts, subscription mix, pending counts, activity feed)
 - Layout/sidebar (grouped sections, role-based visibility, global search)
 - User detail page (quick actions, activity, suspension)
 - Users list page (suspension status column)
 
 ### New
+
 - Organizations list page
 - Organization detail page
 - Subscriptions overview page

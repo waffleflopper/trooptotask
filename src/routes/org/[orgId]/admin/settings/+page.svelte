@@ -44,26 +44,15 @@
 	<section class="settings-section">
 		<h3>Archive Retention</h3>
 		<p class="section-description">
-			Archived personnel records are automatically purged after the retention period expires.
-			Set how long archived records should be kept before permanent deletion.
+			Archived personnel records are automatically purged after the retention period expires. Set how long archived
+			records should be kept before permanent deletion.
 		</p>
 
 		<div class="form-group">
 			<label class="label" for="retention-months">Retention period (months)</label>
 			<div class="input-row">
-				<input
-					id="retention-months"
-					class="input"
-					type="number"
-					min="1"
-					max="120"
-					bind:value={retentionMonths}
-				/>
-				<button
-					class="btn btn-primary"
-					disabled={!hasChanges || !isValid || saving}
-					onclick={handleSave}
-				>
+				<input id="retention-months" class="input" type="number" min="1" max="120" bind:value={retentionMonths} />
+				<button class="btn btn-primary" disabled={!hasChanges || !isValid || saving} onclick={handleSave}>
 					{#if saving}<Spinner />{/if}
 					{saving ? 'Saving...' : 'Save'}
 				</button>

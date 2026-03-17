@@ -50,7 +50,11 @@
 		{ label: 'Set up your status types', complete: statusTypeCount > 0, link: `/org/${orgId}/calendar` },
 		{ label: 'Set up assignment types', complete: assignmentTypeCount > 0, link: `/org/${orgId}/calendar` },
 		{ label: 'Configure training types', complete: trainingTypeCount > 0, link: `/org/${orgId}/training` },
-		{ label: 'Set up your onboarding flow', complete: onboardingTemplateStepCount > 0, link: `/org/${orgId}/onboarding` },
+		{
+			label: 'Set up your onboarding flow',
+			complete: onboardingTemplateStepCount > 0,
+			link: `/org/${orgId}/onboarding`
+		},
 		{ label: 'Configure your rating scheme', complete: ratingSchemeEntryCount > 0, link: `/org/${orgId}/leaders-book` },
 		{ label: 'Invite a team member', complete: orgMemberCount > 1, link: `/org/${orgId}/settings` },
 		{ label: 'Explore the calendar', complete: calendarVisited, link: `/org/${orgId}/calendar` }
@@ -111,7 +115,13 @@
 						{#if step.complete}
 							<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
 								<circle cx="9" cy="9" r="9" fill="var(--color-success)" />
-								<path d="M5 9L8 12L13 6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+								<path
+									d="M5 9L8 12L13 6"
+									stroke="white"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/>
 							</svg>
 						{:else}
 							<svg width="18" height="18" viewBox="0 0 18 18" fill="none">

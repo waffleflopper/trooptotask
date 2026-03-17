@@ -5,10 +5,16 @@
 
 <svelte:head>
 	<title>Pricing — Troop to Task</title>
-	<meta name="description" content="Simple, transparent pricing for Troop to Task. Free for small teams, affordable plans for larger units." />
+	<meta
+		name="description"
+		content="Simple, transparent pricing for Troop to Task. Free for small teams, affordable plans for larger units."
+	/>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap"
+		rel="stylesheet"
+	/>
 </svelte:head>
 
 <div class="pricing-page">
@@ -34,12 +40,28 @@
 				<a href="/#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<circle cx="12" cy="12" r="5" /><path
+								d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+							/>
 						</svg>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
 						</svg>
 					{/if}
 				</button>
@@ -53,9 +75,13 @@
 			<div class="mobile-actions">
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><circle cx="12" cy="12" r="5" /></svg
+						>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg
+						>
 					{/if}
 				</button>
 				{#if data.user}
@@ -74,10 +100,13 @@
 			<div class="section-label">Pricing</div>
 			<h1>Simple, transparent <em>pricing.</em></h1>
 			<p>No feature gating. Every plan gets the full platform. Pick the size that fits your formation.</p>
-		<div class="beta-banner">
-			<span class="beta-badge">BETA</span>
-			<span>All features are <strong>completely free</strong> during the beta period. When pricing goes live, beta testers will receive a generous grace period before any subscription is required.</span>
-		</div>
+			<div class="beta-banner">
+				<span class="beta-badge">BETA</span>
+				<span
+					>All features are <strong>completely free</strong> during the beta period. When pricing goes live, beta testers
+					will receive a generous grace period before any subscription is required.</span
+				>
+			</div>
 		</div>
 	</section>
 
@@ -94,19 +123,27 @@
 					<p class="card-description">Perfect for squad leaders and small teams getting started.</p>
 					<ul class="feature-list">
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							Up to <strong>15</strong> personnel
 						</li>
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							<strong>1</strong> organization
 						</li>
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							<strong>3</strong> exports per month
 						</li>
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							All platform features
 						</li>
 					</ul>
@@ -123,19 +160,27 @@
 					<p class="card-description">For platoon-level leaders managing a full team.</p>
 					<ul class="feature-list">
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							Up to <strong>80</strong> personnel
 						</li>
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							<strong>1</strong> organization
 						</li>
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							<strong>Unlimited</strong> exports
 						</li>
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							All platform features
 						</li>
 					</ul>
@@ -151,19 +196,27 @@
 					<p class="card-description">For company commanders and staff managing multiple elements.</p>
 					<ul class="feature-list">
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							<strong>Unlimited</strong> personnel
 						</li>
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							<strong>Unlimited</strong> organizations
 						</li>
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							<strong>Unlimited</strong> exports
 						</li>
 						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12" /></svg>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+								><polyline points="20 6 9 17 4 12" /></svg
+							>
 							All platform features
 						</li>
 					</ul>
@@ -176,19 +229,19 @@
 	<div class="trust-badges">
 		<div class="trust-badge">
 			<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+				<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
 			</svg>
 			<span>NIST 800-171 Aligned</span>
 		</div>
 		<div class="trust-badge">
 			<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-				<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+				<rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
 			</svg>
 			<span>256-bit Encryption</span>
 		</div>
 		<div class="trust-badge">
 			<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+				<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
 			</svg>
 			<span>Audit Logged</span>
 		</div>
@@ -203,19 +256,32 @@
 			<div class="faq-grid">
 				<div class="faq-item">
 					<h3>Is the beta really free?</h3>
-					<p>Yes. During the beta testing phase, all features and tiers are completely free with no credit card required. When pricing goes live, every beta tester will receive a generous grace period to decide on a plan — you won't be charged without notice.</p>
+					<p>
+						Yes. During the beta testing phase, all features and tiers are completely free with no credit card required.
+						When pricing goes live, every beta tester will receive a generous grace period to decide on a plan — you
+						won't be charged without notice.
+					</p>
 				</div>
 				<div class="faq-item">
 					<h3>What happens if I exceed my personnel cap?</h3>
-					<p>Your organization enters read-only mode. You can still view and export all data, but you won't be able to add or edit records until you upgrade or remove personnel.</p>
+					<p>
+						Your organization enters read-only mode. You can still view and export all data, but you won't be able to
+						add or edit records until you upgrade or remove personnel.
+					</p>
 				</div>
 				<div class="faq-item">
 					<h3>Can I cancel anytime?</h3>
-					<p>Yes. You can cancel your subscription at any time. Your data remains accessible, and your organization reverts to the Free tier limits.</p>
+					<p>
+						Yes. You can cancel your subscription at any time. Your data remains accessible, and your organization
+						reverts to the Free tier limits.
+					</p>
 				</div>
 				<div class="faq-item">
 					<h3>Are there any feature differences between plans?</h3>
-					<p>No. Every plan includes the full platform — calendar, training tracker, leader's book, assignments, onboarding, and more. Plans differ only in personnel capacity and export limits.</p>
+					<p>
+						No. Every plan includes the full platform — calendar, training tracker, leader's book, assignments,
+						onboarding, and more. Plans differ only in personnel capacity and export limits.
+					</p>
 				</div>
 			</div>
 		</div>
@@ -225,16 +291,23 @@
 	<section class="cta">
 		<div class="cta-container">
 			<h2 class="cta-title">Ready to get <em>organized?</em></h2>
-			<p class="cta-subtitle">Free during beta — no strings attached. Beta testers get a generous grace period before any subscription is needed.</p>
+			<p class="cta-subtitle">
+				Free during beta — no strings attached. Beta testers get a generous grace period before any subscription is
+				needed.
+			</p>
 			{#if data.user}
 				<a href="/dashboard?show=all" class="cta-btn">
 					Go to Dashboard
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+						><path d="M5 12h14M12 5l7 7-7 7" /></svg
+					>
 				</a>
 			{:else}
 				<a href="/auth/login" class="cta-btn">
 					Get Started Free
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+						><path d="M5 12h14M12 5l7 7-7 7" /></svg
+					>
 				</a>
 			{/if}
 		</div>
@@ -274,17 +347,17 @@
 		--font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
 		--font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 		--font-mono: 'DM Mono', 'Menlo', monospace;
-		--brass: #B8943E;
-		--brass-light: #D4B15A;
+		--brass: #b8943e;
+		--brass-light: #d4b15a;
 		--brass-muted: rgba(184, 148, 62, 0.15);
-		--ink: #0F0F0F;
-		--ink-light: #1A1A1A;
-		--ink-border: #2A2A2A;
-		--paper: #FAFAF8;
-		--paper-warm: #F5F4F0;
+		--ink: #0f0f0f;
+		--ink-light: #1a1a1a;
+		--ink-border: #2a2a2a;
+		--paper: #fafaf8;
+		--paper-warm: #f5f4f0;
 		--hero-bg: var(--ink);
-		--hero-text: #F0EDE6;
-		--hero-muted: #8A8780;
+		--hero-text: #f0ede6;
+		--hero-muted: #8a8780;
 		min-height: 100vh;
 		background: var(--color-bg);
 		color: var(--color-text);
@@ -863,7 +936,7 @@
 	}
 
 	.footer-text {
-		color: rgba(255,255,255,0.2);
+		color: rgba(255, 255, 255, 0.2);
 		font-size: 0.75rem;
 		margin: 0;
 	}
@@ -886,7 +959,7 @@
 	}
 
 	.footer-legal-sep {
-		color: rgba(255,255,255,0.15);
+		color: rgba(255, 255, 255, 0.15);
 		font-size: 0.75rem;
 	}
 

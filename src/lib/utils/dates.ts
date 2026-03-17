@@ -80,8 +80,18 @@ export function isDateInRange(date: Date, startDate: string, endDate: string): b
 
 export function getMonthName(month: number): string {
 	const months = [
-		'January', 'February', 'March', 'April', 'May', 'June',
-		'July', 'August', 'September', 'October', 'November', 'December'
+		'January',
+		'February',
+		'March',
+		'April',
+		'May',
+		'June',
+		'July',
+		'August',
+		'September',
+		'October',
+		'November',
+		'December'
 	];
 	return months[month];
 }

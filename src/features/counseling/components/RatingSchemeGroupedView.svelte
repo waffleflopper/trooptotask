@@ -102,20 +102,28 @@
 		{#each grouped as srGroup}
 			<div class="sr-group">
 				<div class="sr-header">
-					<span class="sr-label">SR:</span> {srGroup.seniorRaterLabel}
+					<span class="sr-label">SR:</span>
+					{srGroup.seniorRaterLabel}
 				</div>
 				{#each srGroup.raterGroups as rGroup}
 					<div class="rater-group">
 						<div class="rater-header">
-							<span class="rater-label">Rater:</span> {rGroup.raterLabel}
+							<span class="rater-label">Rater:</span>
+							{rGroup.raterLabel}
 						</div>
 						{#each rGroup.entries as entry (entry.id)}
 							{@const due = formatDueStatus(entry)}
 							<button class="entry-row" onclick={() => onEdit(entry)}>
 								<span class="rated-name">{getRatedPersonLabel(entry.ratedPersonId)}</span>
-								<Badge label={entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType} color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'} />
+								<Badge
+									label={entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType}
+									color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'}
+								/>
 								{#if entry.workflowStatus}
-									<Badge label={getWorkflowLabel(entry.workflowStatus)} color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]} />
+									<Badge
+										label={getWorkflowLabel(entry.workflowStatus)}
+										color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]}
+									/>
 								{/if}
 								<span class="period">{formatDate(entry.ratingPeriodStart)}–{formatDate(entry.ratingPeriodEnd)}</span>
 								<Badge label={due.label} color={due.color} />

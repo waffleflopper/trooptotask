@@ -82,10 +82,12 @@
 			}
 			const data = await res.json();
 			// Filter entries to only away status types client-side
-			const filteredEntries = data.entries.filter((e: any) => awayStatusTypeIds.has(e.statusTypeId));
+			const filteredEntries = data.entries.filter((e: Record<string, unknown>) =>
+				awayStatusTypeIds.has(e.statusTypeId as string)
+			);
 			result = computePersonnelTempo(personnel, filteredEntries, awayStatusTypeIds, startDate, endDate, threshold);
-		} catch (e: any) {
-			errorMsg = e.message || 'Failed to generate report.';
+		} catch (e: unknown) {
+			errorMsg = e instanceof Error ? e.message : 'Failed to generate report.';
 		} finally {
 			loading = false;
 		}
@@ -101,11 +103,7 @@
 	const statusTypeMap = $derived(new Map(statusTypes.map((s) => [s.id, s])));
 
 	const displayColumns = $derived(
-		result
-			? result.activeStatusTypeIds
-					.map((id) => statusTypeMap.get(id))
-					.filter((s): s is StatusType => !!s)
-			: []
+		result ? result.activeStatusTypeIds.map((id) => statusTypeMap.get(id)).filter((s): s is StatusType => !!s) : []
 	);
 
 	// --- CSV Export ---
@@ -229,9 +227,7 @@
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate} &middot; {result.totalDaysInPeriod} days in period
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}>
-				Export CSV
-			</button>
+			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
 		</div>
 
 		{#if result.rows.length === 0}

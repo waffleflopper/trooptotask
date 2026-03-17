@@ -41,10 +41,7 @@ class PersonnelExtendedInfoStore {
 		}
 	}
 
-	async update(
-		id: string,
-		data: Partial<Omit<PersonnelExtendedInfo, 'id'>>
-	): Promise<boolean> {
+	async update(id: string, data: Partial<Omit<PersonnelExtendedInfo, 'id'>>): Promise<boolean> {
 		// Optimistic: update immediately
 		const original = this.#extendedInfo.find((e) => e.id === id);
 		if (!original) return false;
@@ -76,7 +73,7 @@ class PersonnelExtendedInfoStore {
 		const existing = this.getByPersonnelId(personnelId);
 		if (existing) {
 			const success = await this.update(existing.id, data);
-			return success ? this.getByPersonnelId(personnelId) ?? null : null;
+			return success ? (this.getByPersonnelId(personnelId) ?? null) : null;
 		} else {
 			return this.add({ personnelId, ...data } as Omit<PersonnelExtendedInfo, 'id'>);
 		}

@@ -55,19 +55,21 @@
 
 	{#if data.authError}
 		<div class="auth-error">
-			<strong>Failed to load users:</strong> {data.authError}
+			<strong>Failed to load users:</strong>
+			{data.authError}
 		</div>
 	{/if}
 
 	<!-- Filters -->
 	<div class="filters">
-		<form class="search-form" onsubmit={(e) => { e.preventDefault(); applyFilters(); }}>
-			<input
-				type="text"
-				placeholder="Search by email..."
-				bind:value={searchInput}
-				class="search-input"
-			/>
+		<form
+			class="search-form"
+			onsubmit={(e) => {
+				e.preventDefault();
+				applyFilters();
+			}}
+		>
+			<input type="text" placeholder="Search by email..." bind:value={searchInput} class="search-input" />
 			<button type="submit" class="search-btn">Search</button>
 		</form>
 	</div>
@@ -116,23 +118,13 @@
 	<!-- Pagination -->
 	{#if totalPages > 1}
 		<div class="pagination">
-			<button
-				class="page-btn"
-				disabled={data.page <= 1}
-				onclick={() => goToPage(data.page - 1)}
-			>
-				Previous
-			</button>
+			<button class="page-btn" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}> Previous </button>
 
 			<span class="page-info">
 				Page {data.page} of {totalPages}
 			</span>
 
-			<button
-				class="page-btn"
-				disabled={data.page >= totalPages}
-				onclick={() => goToPage(data.page + 1)}
-			>
+			<button class="page-btn" disabled={data.page >= totalPages} onclick={() => goToPage(data.page + 1)}>
 				Next
 			</button>
 		</div>
@@ -220,7 +212,7 @@
 	.search-btn {
 		padding: var(--spacing-sm) var(--spacing-lg);
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 		border: none;
 		border-radius: var(--radius-md);
 		font-weight: 500;

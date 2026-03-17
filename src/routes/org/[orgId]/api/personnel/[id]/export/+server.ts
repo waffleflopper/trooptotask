@@ -36,54 +36,26 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 		statusTypesRes,
 		groupsRes
 	] = await Promise.all([
-		supabase
-			.from('personnel')
-			.select('*')
-			.eq('id', id)
-			.eq('organization_id', orgId)
-			.single(),
-		supabase
-			.from('personnel_trainings')
-			.select('*')
-			.eq('personnel_id', id),
+		supabase.from('personnel').select('*').eq('id', id).eq('organization_id', orgId).single(),
+		supabase.from('personnel_trainings').select('*').eq('personnel_id', id),
 		supabase
 			.from('counseling_records')
 			.select('*')
 			.eq('personnel_id', id)
 			.eq('organization_id', orgId)
 			.order('date_conducted', { ascending: false }),
-		supabase
-			.from('development_goals')
-			.select('*')
-			.eq('personnel_id', id)
-			.eq('organization_id', orgId),
+		supabase.from('development_goals').select('*').eq('personnel_id', id).eq('organization_id', orgId),
 		supabase
 			.from('availability_entries')
 			.select('*')
 			.eq('personnel_id', id)
 			.eq('organization_id', orgId)
 			.order('start_date', { ascending: false }),
-		supabase
-			.from('personnel_extended_info')
-			.select('*')
-			.eq('personnel_id', id)
-			.maybeSingle(),
-		supabase
-			.from('training_types')
-			.select('id, name')
-			.eq('organization_id', orgId),
-		supabase
-			.from('counseling_types')
-			.select('id, name')
-			.eq('organization_id', orgId),
-		supabase
-			.from('status_types')
-			.select('id, name')
-			.eq('organization_id', orgId),
-		supabase
-			.from('groups')
-			.select('id, name')
-			.eq('organization_id', orgId)
+		supabase.from('personnel_extended_info').select('*').eq('personnel_id', id).maybeSingle(),
+		supabase.from('training_types').select('id, name').eq('organization_id', orgId),
+		supabase.from('counseling_types').select('id, name').eq('organization_id', orgId),
+		supabase.from('status_types').select('id, name').eq('organization_id', orgId),
+		supabase.from('groups').select('id, name').eq('organization_id', orgId)
 	]);
 
 	const person = personRes.data;
@@ -146,9 +118,7 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 			{ field: 'Personal Phone', value: ext.personal_phone ?? '' },
 			{
 				field: 'Address',
-				value: [ext.address_street, ext.address_city, ext.address_state, ext.address_zip]
-					.filter(Boolean)
-					.join(', ')
+				value: [ext.address_street, ext.address_city, ext.address_state, ext.address_zip].filter(Boolean).join(', ')
 			},
 			{ field: 'Leader Notes', value: ext.leader_notes ?? '' }
 		);
@@ -246,7 +216,9 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 	// Write workbook to buffer
 	const buffer = await workbook.xlsx.writeBuffer();
 
-	const personName = `${person.rank ?? ''} ${person.last_name ?? ''} ${person.first_name ?? ''}`.trim().replace(/\s+/g, '_');
+	const personName = `${person.rank ?? ''} ${person.last_name ?? ''} ${person.first_name ?? ''}`
+		.trim()
+		.replace(/\s+/g, '_');
 	const dateStr = new Date().toISOString().split('T')[0];
 	const filename = `${personName}-export-${dateStr}.xlsx`;
 
@@ -266,8 +238,7 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 
 	return new Response(buffer as ArrayBuffer, {
 		headers: {
-			'Content-Type':
-				'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 			'Content-Disposition': `attachment; filename="${filename}"`
 		}
 	});

@@ -5,10 +5,16 @@
 
 <svelte:head>
 	<title>Features — Troop to Task</title>
-	<meta name="description" content="Explore all Troop to Task features: visual calendars, personnel management, training tracking, leaders book, in-processing checklists, rating schemes, and daily assignments." />
+	<meta
+		name="description"
+		content="Explore all Troop to Task features: visual calendars, personnel management, training tracking, leaders book, in-processing checklists, rating schemes, and daily assignments."
+	/>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap"
+		rel="stylesheet"
+	/>
 </svelte:head>
 
 <div class="features-page">
@@ -34,12 +40,28 @@
 				<a href="/#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<circle cx="12" cy="12" r="5" /><path
+								d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+							/>
 						</svg>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
 						</svg>
 					{/if}
 				</button>
@@ -53,9 +75,13 @@
 			<div class="mobile-actions">
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><circle cx="12" cy="12" r="5" /></svg
+						>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg
+						>
 					{/if}
 				</button>
 				{#if data.user}
@@ -73,7 +99,10 @@
 		<div class="page-header-content">
 			<div class="section-label">Platform</div>
 			<h1>Everything your unit needs,<br /><em>nothing it doesn't.</em></h1>
-			<p>Seven core tools that replace your whiteboard, spreadsheets, and shared drives. Each one built for how Army units actually operate.</p>
+			<p>
+				Seven core tools that replace your whiteboard, spreadsheets, and shared drives. Each one built for how Army
+				units actually operate.
+			</p>
 		</div>
 	</section>
 
@@ -83,7 +112,10 @@
 			<div class="feature-text">
 				<div class="feature-label">01 // Calendar</div>
 				<h2>See your entire unit at a glance.</h2>
-				<p class="feature-desc">A visual calendar that replaces the whiteboard. Color-coded statuses make it instant to see who's available, who's on leave, and where the gaps are.</p>
+				<p class="feature-desc">
+					A visual calendar that replaces the whiteboard. Color-coded statuses make it instant to see who's available,
+					who's on leave, and where the gaps are.
+				</p>
 				<ul>
 					<li>Color-coded statuses: leave, TDY, school, appointments, and custom types</li>
 					<li>Month and 3-month views for long-range planning</li>
@@ -161,7 +193,10 @@
 			<div class="feature-text">
 				<div class="feature-label">02 // Personnel</div>
 				<h2>Organize your roster, <em>your way.</em></h2>
-				<p class="feature-desc">Build your unit's roster with groups and sections. Track rank, MOS, role, and contact info. Bulk import from any spreadsheet to get started fast.</p>
+				<p class="feature-desc">
+					Build your unit's roster with groups and sections. Track rank, MOS, role, and contact info. Bulk import from
+					any spreadsheet to get started fast.
+				</p>
 				<ul>
 					<li>Organize by platoon, section, or custom groups</li>
 					<li>Bulk import from spreadsheets — paste or upload</li>
@@ -177,8 +212,16 @@
 					</div>
 					<div class="demo-body">
 						<div class="demo-search">
-							<svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+							<svg
+								class="demo-search-icon"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
 							</svg>
 							<span class="demo-search-text">Search personnel...</span>
 						</div>
@@ -220,7 +263,10 @@
 			<div class="feature-text">
 				<div class="feature-label">03 // Training</div>
 				<h2>Never miss an expiration <em>again.</em></h2>
-				<p class="feature-desc">Track every certification across your unit with color-coded warnings. Know at a glance who's current, who's expiring soon, and who needs retraining.</p>
+				<p class="feature-desc">
+					Track every certification across your unit with color-coded warnings. Know at a glance who's current, who's
+					expiring soon, and who needs retraining.
+				</p>
 				<ul>
 					<li>Color-coded warnings at 60, 30, and 0 days before expiration</li>
 					<li>Organization-wide training completion view</li>
@@ -301,7 +347,10 @@
 			<div class="feature-text">
 				<div class="feature-label">04 // Leaders Book</div>
 				<h2>Your digital counseling <em>packet.</em></h2>
-				<p class="feature-desc">Centralize soldier information, counseling records, and development goals. Upload supporting documents and track follow-ups — all in one place.</p>
+				<p class="feature-desc">
+					Centralize soldier information, counseling records, and development goals. Upload supporting documents and
+					track follow-ups — all in one place.
+				</p>
 				<ul>
 					<li>Counseling records with PDF upload and download</li>
 					<li>Development goal tracking and follow-ups</li>
@@ -328,11 +377,25 @@
 								<div class="demo-timeline-content">
 									<div class="demo-timeline-top">
 										<span class="demo-counseling-type event">Event</span>
-										<svg class="demo-file-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-											<path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.49"/>
+										<svg
+											class="demo-file-icon"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<path
+												d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.49"
+											/>
 										</svg>
 									</div>
-									<div class="demo-timeline-summary">Excellence during FTX — led squad through night land nav with zero incidents</div>
+									<div class="demo-timeline-summary">
+										Excellence during FTX — led squad through night land nav with zero incidents
+									</div>
 								</div>
 							</div>
 							<div class="demo-timeline-entry">
@@ -349,11 +412,25 @@
 								<div class="demo-timeline-content">
 									<div class="demo-timeline-top">
 										<span class="demo-counseling-type initial">Initial</span>
-										<svg class="demo-file-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-											<path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.49"/>
+										<svg
+											class="demo-file-icon"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<path
+												d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.49"
+											/>
 										</svg>
 									</div>
-									<div class="demo-timeline-summary">Initial counseling — duties, expectations, and development plan</div>
+									<div class="demo-timeline-summary">
+										Initial counseling — duties, expectations, and development plan
+									</div>
 								</div>
 							</div>
 						</div>
@@ -369,7 +446,10 @@
 			<div class="feature-text">
 				<div class="feature-label">05 // In-Processing</div>
 				<h2>Onboard new personnel <em>with confidence.</em></h2>
-				<p class="feature-desc">Create custom in-processing templates and track each step per soldier. Pivot by step to see which personnel still need a specific action.</p>
+				<p class="feature-desc">
+					Create custom in-processing templates and track each step per soldier. Pivot by step to see which personnel
+					still need a specific action.
+				</p>
 				<ul>
 					<li>Customizable step templates per organization</li>
 					<li>Per-person progress tracking with completion dates</li>
@@ -396,32 +476,68 @@
 						<div class="demo-checklist">
 							<div class="demo-checklist-item completed">
 								<div class="demo-checkbox checked">
-									<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-										<polyline points="20 6 9 17 4 12"/>
+									<svg
+										width="10"
+										height="10"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="3"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<polyline points="20 6 9 17 4 12" />
 									</svg>
 								</div>
 								<span class="demo-checklist-label">DEERS Enrollment</span>
 							</div>
 							<div class="demo-checklist-item completed">
 								<div class="demo-checkbox checked">
-									<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-										<polyline points="20 6 9 17 4 12"/>
+									<svg
+										width="10"
+										height="10"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="3"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<polyline points="20 6 9 17 4 12" />
 									</svg>
 								</div>
 								<span class="demo-checklist-label">CAC Card Pickup</span>
 							</div>
 							<div class="demo-checklist-item completed">
 								<div class="demo-checkbox checked">
-									<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-										<polyline points="20 6 9 17 4 12"/>
+									<svg
+										width="10"
+										height="10"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="3"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<polyline points="20 6 9 17 4 12" />
 									</svg>
 								</div>
 								<span class="demo-checklist-label">Unit Welcome Brief</span>
 							</div>
 							<div class="demo-checklist-item completed">
 								<div class="demo-checkbox checked">
-									<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-										<polyline points="20 6 9 17 4 12"/>
+									<svg
+										width="10"
+										height="10"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="3"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<polyline points="20 6 9 17 4 12" />
 									</svg>
 								</div>
 								<span class="demo-checklist-label">Barracks Assignment</span>
@@ -443,7 +559,10 @@
 			<div class="feature-text">
 				<div class="feature-label">06 // Rating Scheme</div>
 				<h2>Stay ahead of <em>every evaluation.</em></h2>
-				<p class="feature-desc">Track OER, NCOER, and WOER evaluations across your unit. Color-coded due-status alerts make it impossible to miss an upcoming report.</p>
+				<p class="feature-desc">
+					Track OER, NCOER, and WOER evaluations across your unit. Color-coded due-status alerts make it impossible to
+					miss an upcoming report.
+				</p>
 				<ul>
 					<li>OER, NCOER, and WOER evaluation support</li>
 					<li>Due-status alerts: overdue, due in 30, and due in 60 days</li>
@@ -502,7 +621,10 @@
 			<div class="feature-text">
 				<div class="feature-label">07 // Daily Assignments</div>
 				<h2>Plan the duty roster <em>in minutes.</em></h2>
-				<p class="feature-desc">Assign MOD, CQ, staff duty, and custom roles. Auto-generate fair rosters based on availability and past assignment counts.</p>
+				<p class="feature-desc">
+					Assign MOD, CQ, staff duty, and custom roles. Auto-generate fair rosters based on availability and past
+					assignment counts.
+				</p>
 				<ul>
 					<li>Custom assignment types (MOD, CQ, Staff Duty, and more)</li>
 					<li>Auto-generate rosters based on availability and eligibility</li>
@@ -548,7 +670,10 @@
 			<div class="feature-text">
 				<div class="feature-label">08 // Security & Compliance</div>
 				<h2>Built for military-grade <em>data protection.</em></h2>
-				<p class="feature-desc">Your personnel data deserves the same standard of protection you bring to your mission. TroopToTask aligns with NIST SP 800-171 controls for Controlled Unclassified Information.</p>
+				<p class="feature-desc">
+					Your personnel data deserves the same standard of protection you bring to your mission. TroopToTask aligns
+					with NIST SP 800-171 controls for Controlled Unclassified Information.
+				</p>
 				<ul>
 					<li>NIST SP 800-171 aligned for CUI protection</li>
 					<li>End-to-end encryption in transit and at rest</li>
@@ -567,27 +692,41 @@
 					<div class="demo-body">
 						<div class="security-status-list">
 							<div class="security-status-row">
-								<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+								<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+									><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg
+								>
 								<span class="security-status-name">NIST 800-171 Controls</span>
 								<span class="security-status-badge active">Active</span>
 							</div>
 							<div class="security-status-row">
-								<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+								<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+									><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg
+								>
 								<span class="security-status-name">AES-256 Encryption</span>
 								<span class="security-status-badge active">Active</span>
 							</div>
 							<div class="security-status-row">
-								<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>
+								<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+									><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><path
+										d="M20 8v6M23 11h-6"
+									/></svg
+								>
 								<span class="security-status-name">Row-Level Isolation</span>
 								<span class="security-status-badge active">Active</span>
 							</div>
 							<div class="security-status-row">
-								<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+								<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+									><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline
+										points="14 2 14 8 20 8"
+									/><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg
+								>
 								<span class="security-status-name">Audit Logging</span>
 								<span class="security-status-badge active">Active</span>
 							</div>
 							<div class="security-status-row">
-								<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+								<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+									><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg
+								>
 								<span class="security-status-name">Rate Limiting</span>
 								<span class="security-status-badge active">Active</span>
 							</div>
@@ -606,12 +745,24 @@
 			{#if data.user}
 				<a href="/dashboard?show=all" class="cta-btn">
 					Go to Dashboard
-					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+						><path
+							fill-rule="evenodd"
+							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/></svg
+					>
 				</a>
 			{:else}
 				<a href="/auth/login" class="cta-btn">
 					Get Started Free
-					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+						><path
+							fill-rule="evenodd"
+							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/></svg
+					>
 				</a>
 			{/if}
 		</div>
@@ -651,17 +802,17 @@
 		--font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
 		--font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 		--font-mono: 'DM Mono', 'Menlo', monospace;
-		--brass: #B8943E;
-		--brass-light: #D4B15A;
+		--brass: #b8943e;
+		--brass-light: #d4b15a;
 		--brass-muted: rgba(184, 148, 62, 0.15);
-		--ink: #0F0F0F;
-		--ink-light: #1A1A1A;
-		--ink-border: #2A2A2A;
-		--paper: #FAFAF8;
-		--paper-warm: #F5F4F0;
+		--ink: #0f0f0f;
+		--ink-light: #1a1a1a;
+		--ink-border: #2a2a2a;
+		--paper: #fafaf8;
+		--paper-warm: #f5f4f0;
 		--hero-bg: var(--ink);
-		--hero-text: #F0EDE6;
-		--hero-muted: #8A8780;
+		--hero-text: #f0ede6;
+		--hero-muted: #8a8780;
 		min-height: 100vh;
 		background: var(--color-bg);
 		color: var(--color-text);
@@ -992,7 +1143,7 @@
 	}
 
 	.footer-text {
-		color: rgba(255,255,255,0.2);
+		color: rgba(255, 255, 255, 0.2);
 		font-size: 0.75rem;
 		margin: 0;
 	}
@@ -1015,7 +1166,7 @@
 	}
 
 	.footer-legal-sep {
-		color: rgba(255,255,255,0.15);
+		color: rgba(255, 255, 255, 0.15);
 		font-size: 0.75rem;
 	}
 
@@ -1113,7 +1264,9 @@
 		border: 1px solid var(--ink-border);
 		border-radius: 12px;
 		overflow: hidden;
-		box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 20px 60px rgba(0,0,0,0.3);
+		box-shadow:
+			0 0 0 1px rgba(255, 255, 255, 0.03),
+			0 20px 60px rgba(0, 0, 0, 0.3);
 	}
 
 	.demo-chrome {
@@ -1122,7 +1275,7 @@
 		gap: 0.75rem;
 		padding: 0.625rem 1rem;
 		border-bottom: 1px solid var(--ink-border);
-		background: rgba(255,255,255,0.02);
+		background: rgba(255, 255, 255, 0.02);
 	}
 
 	.demo-dots {
@@ -1192,7 +1345,7 @@
 	}
 
 	.cal-empty {
-		background: rgba(255,255,255,0.04);
+		background: rgba(255, 255, 255, 0.04);
 	}
 
 	.cal-leave {
@@ -1240,8 +1393,8 @@
 		gap: 0.5rem;
 		padding: 0.5rem 0.75rem;
 		border-radius: 6px;
-		border: 1px solid rgba(255,255,255,0.1);
-		background: rgba(255,255,255,0.03);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: rgba(255, 255, 255, 0.03);
 		margin-bottom: 1rem;
 	}
 
@@ -1262,7 +1415,7 @@
 		justify-content: space-between;
 		margin-bottom: 0.625rem;
 		padding-bottom: 0.5rem;
-		border-bottom: 1px solid rgba(255,255,255,0.06);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 	}
 
 	.demo-group-name {
@@ -1277,7 +1430,7 @@
 		font-family: var(--font-mono);
 		font-size: 0.5625rem;
 		color: var(--hero-muted);
-		background: rgba(255,255,255,0.06);
+		background: rgba(255, 255, 255, 0.06);
 		padding: 0.125rem 0.375rem;
 		border-radius: 3px;
 	}
@@ -1375,7 +1528,7 @@
 
 	.demo-training-bar {
 		height: 4px;
-		background: rgba(255,255,255,0.06);
+		background: rgba(255, 255, 255, 0.06);
 		border-radius: 2px;
 		overflow: hidden;
 	}
@@ -1403,7 +1556,7 @@
 		gap: 0.75rem;
 		margin-bottom: 1rem;
 		padding-bottom: 0.75rem;
-		border-bottom: 1px solid rgba(255,255,255,0.06);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 	}
 
 	.demo-soldier-name {
@@ -1504,7 +1657,7 @@
 
 	.demo-progress-bar {
 		height: 6px;
-		background: rgba(255,255,255,0.06);
+		background: rgba(255, 255, 255, 0.06);
 		border-radius: 3px;
 		overflow: hidden;
 	}
@@ -1539,7 +1692,7 @@
 		width: 16px;
 		height: 16px;
 		border-radius: 4px;
-		border: 1.5px solid rgba(255,255,255,0.15);
+		border: 1.5px solid rgba(255, 255, 255, 0.15);
 		background: transparent;
 		flex-shrink: 0;
 		display: flex;
@@ -1571,7 +1724,7 @@
 		display: flex;
 		gap: 0.5rem;
 		padding-bottom: 0.5rem;
-		border-bottom: 1px solid rgba(255,255,255,0.06);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 		margin-bottom: 0.625rem;
 	}
 
@@ -1583,10 +1736,19 @@
 		letter-spacing: 0.08em;
 	}
 
-	.demo-eval-col-name { flex: 2; }
-	.demo-eval-col-type { flex: 1; }
-	.demo-eval-col-due { flex: 1.2; }
-	.demo-eval-col-status { flex: 1; text-align: right; }
+	.demo-eval-col-name {
+		flex: 2;
+	}
+	.demo-eval-col-type {
+		flex: 1;
+	}
+	.demo-eval-col-due {
+		flex: 1.2;
+	}
+	.demo-eval-col-status {
+		flex: 1;
+		text-align: right;
+	}
 
 	.demo-eval-row {
 		display: flex;
@@ -1678,7 +1840,7 @@
 		color: var(--hero-text);
 		margin-bottom: 1rem;
 		padding-bottom: 0.625rem;
-		border-bottom: 1px solid rgba(255,255,255,0.06);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 	}
 
 	.demo-duty-list {
@@ -1721,7 +1883,7 @@
 	}
 
 	.demo-duty-badge.front-desk {
-		background: rgba(255,255,255,0.06);
+		background: rgba(255, 255, 255, 0.06);
 		color: var(--hero-muted);
 	}
 

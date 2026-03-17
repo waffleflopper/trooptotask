@@ -100,12 +100,7 @@
 	}
 </script>
 
-<Modal
-	title={isEditing ? 'Edit Status' : 'Add Status'}
-	{onClose}
-	width="450px"
-	titleId="status-modal-title"
->
+<Modal title={isEditing ? 'Edit Status' : 'Add Status'} {onClose} width="450px" titleId="status-modal-title">
 	<div class="person-info">
 		<span class="person-rank">{person.rank}</span>
 		<span class="person-name">{person.lastName}, {person.firstName}</span>
@@ -263,5 +258,4 @@
 	.btn-danger:hover:not(:disabled) {
 		background: #b91c1c;
 	}
-
 </style>

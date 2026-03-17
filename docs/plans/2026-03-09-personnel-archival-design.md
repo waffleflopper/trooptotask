@@ -109,7 +109,7 @@ All existing personnel queries add `.is('archived_at', null)` to only load activ
 ### Org settings UI
 
 - New section in Admin Hub settings: "Archive Retention"
-- Number input: "Automatically delete archived personnel after ___ months" (default 36)
+- Number input: "Automatically delete archived personnel after \_\_\_ months" (default 36)
 - Min: 1 month, max: 120 months (10 years)
 
 ## Scheduled Cleanup (Vercel Cron)
@@ -129,8 +129,8 @@ All existing personnel queries add `.is('archived_at', null)` to only load activ
 
 ```json
 {
-  "path": "/api/cleanup-archived-personnel",
-  "schedule": "0 5 * * *"
+	"path": "/api/cleanup-archived-personnel",
+	"schedule": "0 5 * * *"
 }
 ```
 
@@ -146,15 +146,15 @@ All existing personnel queries add `.is('archived_at', null)` to only load activ
 
 ## Impact on Existing Systems
 
-| System | Change Required |
-|--------|----------------|
-| Personnel queries (layout) | Add `.is('archived_at', null)` filter |
-| `count_org_personnel()` | Exclude archived |
-| Personnel store `remove()` | Soft-archive instead of hard-delete |
-| Deletion approval "approve" | Archive instead of hard-delete |
+| System                        | Change Required                               |
+| ----------------------------- | --------------------------------------------- | ----- |
+| Personnel queries (layout)    | Add `.is('archived_at', null)` filter         |
+| `count_org_personnel()`       | Exclude archived                              |
+| Personnel store `remove()`    | Soft-archive instead of hard-delete           |
+| Deletion approval "approve"   | Archive instead of hard-delete                |
 | Personnel UI (delete buttons) | Rename to "Archive", update confirmation text |
-| Admin Hub | Add "Archived Personnel" tab |
-| Org settings | Add retention period setting |
-| vercel.json | Add new cron entry |
-| Personnel type (TypeScript) | Add `archivedAt: string | null` |
-| Downstream components | No changes (filtered at layout level) |
+| Admin Hub                     | Add "Archived Personnel" tab                  |
+| Org settings                  | Add retention period setting                  |
+| vercel.json                   | Add new cron entry                            |
+| Personnel type (TypeScript)   | Add `archivedAt: string                       | null` |
+| Downstream components         | No changes (filtered at layout level)         |

@@ -7,13 +7,15 @@
 		{
 			icon: 'lock',
 			title: 'Security & Compliance',
-			description: 'NIST 800-171 aligned. Your personnel data is encrypted at rest and in transit, access-controlled with role-based permissions, and every action is audit-logged. Built for the standards military leaders expect.',
+			description:
+				'NIST 800-171 aligned. Your personnel data is encrypted at rest and in transit, access-controlled with role-based permissions, and every action is audit-logged. Built for the standards military leaders expect.',
 			lead: true
 		},
 		{
 			icon: 'calendar',
 			title: 'Visual Calendar',
-			description: 'See your entire unit\'s availability at a glance with color-coded statuses for leave, TDY, training, and more.'
+			description:
+				"See your entire unit's availability at a glance with color-coded statuses for leave, TDY, training, and more."
 		},
 		{
 			icon: 'users',
@@ -23,12 +25,13 @@
 		{
 			icon: 'star',
 			title: 'Rating Scheme Tracker',
-			description: 'Track OER, NCOER, and WOER evaluations. See who\'s overdue, due in 30/60 days, and export to Excel.'
+			description: "Track OER, NCOER, and WOER evaluations. See who's overdue, due in 30/60 days, and export to Excel."
 		},
 		{
 			icon: 'checklist',
 			title: 'In-Processing Checklist',
-			description: 'Custom onboarding templates with step-by-step tracking. See progress by person or pivot by step to find gaps.'
+			description:
+				'Custom onboarding templates with step-by-step tracking. See progress by person or pivot by step to find gaps.'
 		},
 		{
 			icon: 'roster',
@@ -38,7 +41,8 @@
 		{
 			icon: 'clipboard',
 			title: 'Daily Assignments',
-			description: 'Assign MOD, front desk support, and custom duties. Plan the entire month with the assignment planner.'
+			description:
+				'Assign MOD, front desk support, and custom duties. Plan the entire month with the assignment planner.'
 		},
 		{
 			icon: 'chart',
@@ -53,7 +57,8 @@
 		{
 			icon: 'shield',
 			title: 'Granular Permissions',
-			description: 'Owner, admin, and member roles with 11 permission toggles. Scope team leaders to specific groups. Approval workflows for deletions.'
+			description:
+				'Owner, admin, and member roles with 11 permission toggles. Scope team leaders to specific groups. Approval workflows for deletions.'
 		},
 		{
 			icon: 'building',
@@ -70,15 +75,15 @@
 	const shipped = [
 		{
 			title: 'Digital Leaders Book',
-			description: 'Centralized soldier information, counseling records, and development tracking.',
+			description: 'Centralized soldier information, counseling records, and development tracking.'
 		},
 		{
 			title: 'Rating Scheme Tracker',
-			description: 'OER, NCOER, and WOER evaluation tracking with due-status alerts and Excel export.',
+			description: 'OER, NCOER, and WOER evaluation tracking with due-status alerts and Excel export.'
 		},
 		{
 			title: 'In-Processing Checklist',
-			description: 'Custom onboarding templates with step-by-step progress tracking per person.',
+			description: 'Custom onboarding templates with step-by-step progress tracking per person.'
 		}
 	];
 
@@ -115,16 +120,20 @@
 	function getFeatureIcon(icon: string) {
 		const icons: Record<string, string> = {
 			calendar: 'M3 4h18a2 2 0 012 2v14a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2zm13-2v4M8 2v4M1 10h22',
-			users: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm14 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75',
-			clipboard: 'M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M8 2h8a1 1 0 011 1v2a1 1 0 01-1 1H8a1 1 0 01-1-1V3a1 1 0 011-1zM9 14l2 2 4-4',
+			users:
+				'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm14 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75',
+			clipboard:
+				'M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M8 2h8a1 1 0 011 1v2a1 1 0 01-1 1H8a1 1 0 01-1-1V3a1 1 0 011-1zM9 14l2 2 4-4',
 			roster: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
 			chart: 'M3 4h18a2 2 0 012 2v14a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2zM9 4v18M15 4v18M3 10h18M3 16h18',
 			certificate: 'M12 15a7 7 0 100-14 7 7 0 000 14zM8.21 13.89L7 23l5-3 5 3-1.21-9.12',
 			shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4',
-			building: 'M4 2h16a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2zM9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01',
+			building:
+				'M4 2h16a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2zM9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01',
 			download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
 			star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
-			checklist: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5h6M9 14l2 2 4-4M9 11h.01',
+			checklist:
+				'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5h6M9 14l2 2 4-4M9 11h.01',
 			lock: 'M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4M12 16v2'
 		};
 		return icons[icon] || '';
@@ -133,12 +142,18 @@
 
 <svelte:head>
 	<title>Troop to Task — Military Unit Management</title>
-	<meta name="description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments — all in one secure platform." />
+	<meta
+		name="description"
+		content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments — all in one secure platform."
+	/>
 	<!-- Open Graph -->
 	<meta property="og:type" content="website" />
 	<meta property="og:site_name" content="Troop to Task" />
 	<meta property="og:title" content="Troop to Task — Military Unit Management" />
-	<meta property="og:description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments." />
+	<meta
+		property="og:description"
+		content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments."
+	/>
 	<meta property="og:url" content="https://trooptotask.org" />
 	<meta property="og:image" content="https://trooptotask.org/og-image.png" />
 	<meta property="og:image:width" content="1200" />
@@ -146,11 +161,17 @@
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="Troop to Task — Military Unit Management" />
-	<meta name="twitter:description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments." />
+	<meta
+		name="twitter:description"
+		content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments."
+	/>
 	<meta name="twitter:image" content="https://trooptotask.org/og-image.png" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap"
+		rel="stylesheet"
+	/>
 </svelte:head>
 
 <div class="landing">
@@ -174,14 +195,31 @@
 				<a href="/pricing" class="nav-link">Pricing</a>
 				<a href="/security" class="nav-link">Security</a>
 				<a href="#roadmap" class="nav-link">Roadmap</a>
+				<a href="#faq" class="nav-link">FAQ</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<circle cx="12" cy="12" r="5" /><path
+								d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+							/>
 						</svg>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
 						</svg>
 					{/if}
 				</button>
@@ -195,9 +233,13 @@
 			<div class="mobile-actions">
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><circle cx="12" cy="12" r="5" /></svg
+						>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg
+						>
 					{/if}
 				</button>
 				{#if data.user}
@@ -220,19 +262,31 @@
 					<em>that actually works.</em>
 				</h1>
 				<p class="hero-subtitle">
-					Troop to Task gives Army leaders a visual calendar, training tracker, and
-					assignment planner — one tool instead of five. Free during beta.
+					Troop to Task gives Army leaders a visual calendar, training tracker, and assignment planner — one tool
+					instead of five. Free during beta.
 				</p>
 				<div class="hero-actions">
 					{#if data.user}
 						<a href="/dashboard?show=all" class="hero-btn-primary">
 							Go to Dashboard
-							<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+							<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+								><path
+									fill-rule="evenodd"
+									d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+									clip-rule="evenodd"
+								/></svg
+							>
 						</a>
 					{:else}
 						<a href="/auth/login" class="hero-btn-primary">
 							Get Started Free
-							<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+							<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+								><path
+									fill-rule="evenodd"
+									d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+									clip-rule="evenodd"
+								/></svg
+							>
 						</a>
 					{/if}
 					<a href="#features" class="hero-btn-ghost">See what's included</a>
@@ -277,13 +331,19 @@
 									<span>M</span><span>T</span><span>W</span><span>T</span><span>F</span>
 								</div>
 								<div class="cal-row">
-									<span class="cal-empty"></span><span class="cal-leave"></span><span class="cal-leave"></span><span class="cal-empty"></span><span class="cal-empty"></span>
+									<span class="cal-empty"></span><span class="cal-leave"></span><span class="cal-leave"></span><span
+										class="cal-empty"
+									></span><span class="cal-empty"></span>
 								</div>
 								<div class="cal-row">
-									<span class="cal-tdy"></span><span class="cal-tdy"></span><span class="cal-empty"></span><span class="cal-empty"></span><span class="cal-appt"></span>
+									<span class="cal-tdy"></span><span class="cal-tdy"></span><span class="cal-empty"></span><span
+										class="cal-empty"
+									></span><span class="cal-appt"></span>
 								</div>
 								<div class="cal-row">
-									<span class="cal-empty"></span><span class="cal-empty"></span><span class="cal-school"></span><span class="cal-school"></span><span class="cal-school"></span>
+									<span class="cal-empty"></span><span class="cal-empty"></span><span class="cal-school"></span><span
+										class="cal-school"
+									></span><span class="cal-school"></span>
 								</div>
 							</div>
 							<div class="cal-legend">
@@ -299,15 +359,21 @@
 							</div>
 							<div class="training-bars">
 								<div class="training-item">
-									<div class="training-meta"><span class="training-name">Weapons Qual</span><span class="training-pct">85%</span></div>
+									<div class="training-meta">
+										<span class="training-name">Weapons Qual</span><span class="training-pct">85%</span>
+									</div>
 									<div class="training-bar"><div class="training-fill fill-good" style="width: 85%"></div></div>
 								</div>
 								<div class="training-item">
-									<div class="training-meta"><span class="training-name">ACFT</span><span class="training-pct">60%</span></div>
+									<div class="training-meta">
+										<span class="training-name">ACFT</span><span class="training-pct">60%</span>
+									</div>
 									<div class="training-bar"><div class="training-fill fill-warn" style="width: 60%"></div></div>
 								</div>
 								<div class="training-item">
-									<div class="training-meta"><span class="training-name">First Aid</span><span class="training-pct">25%</span></div>
+									<div class="training-meta">
+										<span class="training-name">First Aid</span><span class="training-pct">25%</span>
+									</div>
 									<div class="training-bar"><div class="training-fill fill-crit" style="width: 25%"></div></div>
 								</div>
 							</div>
@@ -317,7 +383,9 @@
 								<span class="dash-panel-title">Today's Duty</span>
 							</div>
 							<div class="duty-list">
-								<div class="duty-row"><span class="duty-role">MOD</span><span class="duty-name">CPT Rodriguez</span></div>
+								<div class="duty-row">
+									<span class="duty-role">MOD</span><span class="duty-name">CPT Rodriguez</span>
+								</div>
 								<div class="duty-row"><span class="duty-role">CQ</span><span class="duty-name">SSG Thompson</span></div>
 							</div>
 						</div>
@@ -327,8 +395,15 @@
 							</div>
 							<div class="coverage-ring">
 								<svg viewBox="0 0 36 36">
-									<path class="ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
-									<path class="ring-fill" stroke-dasharray="78, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+									<path
+										class="ring-bg"
+										d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+									/>
+									<path
+										class="ring-fill"
+										stroke-dasharray="78, 100"
+										d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+									/>
 								</svg>
 								<span class="coverage-value">78%</span>
 							</div>
@@ -344,9 +419,17 @@
 		<div class="section-container">
 			<div class="trust-grid">
 				<div class="trust-item">
-					<svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-						<path d="M9 12l2 2 4-4"/>
+					<svg
+						class="trust-icon"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+						<path d="M9 12l2 2 4-4" />
 					</svg>
 					<div>
 						<strong>NIST 800-171 Aligned</strong>
@@ -354,9 +437,17 @@
 					</div>
 				</div>
 				<div class="trust-item">
-					<svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-						<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-						<path d="M7 11V7a5 5 0 0110 0v4"/>
+					<svg
+						class="trust-icon"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+						<path d="M7 11V7a5 5 0 0110 0v4" />
 					</svg>
 					<div>
 						<strong>Encrypted at Rest & In Transit</strong>
@@ -364,11 +455,19 @@
 					</div>
 				</div>
 				<div class="trust-item">
-					<svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-						<polyline points="14 2 14 8 20 8"/>
-						<line x1="16" y1="13" x2="8" y2="13"/>
-						<line x1="16" y1="17" x2="8" y2="17"/>
+					<svg
+						class="trust-icon"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+						<polyline points="14 2 14 8 20 8" />
+						<line x1="16" y1="13" x2="8" y2="13" />
+						<line x1="16" y1="17" x2="8" y2="17" />
 					</svg>
 					<div>
 						<strong>Full Audit Trail</strong>
@@ -376,11 +475,19 @@
 					</div>
 				</div>
 				<div class="trust-item">
-					<svg class="trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-						<circle cx="9" cy="7" r="4"/>
-						<path d="M23 21v-2a4 4 0 00-3-3.87"/>
-						<path d="M16 3.13a4 4 0 010 7.75"/>
+					<svg
+						class="trust-icon"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+						<circle cx="9" cy="7" r="4" />
+						<path d="M23 21v-2a4 4 0 00-3-3.87" />
+						<path d="M16 3.13a4 4 0 010 7.75" />
 					</svg>
 					<div>
 						<strong>Role-Based Access Control</strong>
@@ -412,7 +519,13 @@
 			<div class="features-cta">
 				<a href="/features" class="features-link">
 					See all features
-					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"
+						><path
+							fill-rule="evenodd"
+							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/></svg
+					>
 				</a>
 			</div>
 		</div>
@@ -460,7 +573,17 @@
 				{#each shipped as item}
 					<div class="shipped-entry">
 						<div class="shipped-check">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true">
+							<svg
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								width="14"
+								height="14"
+								aria-hidden="true"
+							>
 								<polyline points="20 6 9 17 4 12" />
 							</svg>
 						</div>
@@ -506,7 +629,12 @@
 						<span class="faq-icon" aria-hidden="true"></span>
 					</summary>
 					<div class="faq-answer">
-						<p>Absolutely not — customizing statuses is usually one of the first things a new unit admin does. You define every status yourself: the name, the color, and whether it marks a day as a unit closure (like a training holiday or DONSA). If your unit has a status called "PDHA/PDHRA" or "Rear D," that's exactly what you'll see on the calendar. Your formation, your language.</p>
+						<p>
+							Absolutely not — customizing statuses is usually one of the first things a new unit admin does. You define
+							every status yourself: the name, the color, and whether it marks a day as a unit closure (like a training
+							holiday or DONSA). If your unit has a status called "PDHA/PDHRA" or "Rear D," that's exactly what you'll
+							see on the calendar. Your formation, your language.
+						</p>
 					</div>
 				</details>
 
@@ -516,7 +644,13 @@
 						<span class="faq-icon" aria-hidden="true"></span>
 					</summary>
 					<div class="faq-answer">
-						<p>Yes — and this is one of the most powerful things T2T does. When you invite someone to your organization, you can scope their access to a specific group. A Team Leader role can update statuses for their Soldiers and track their training, but they won't see counseling records, onboarding checklists, or personnel data for anyone outside their group. They get exactly the visibility they need to do their job, and nothing they shouldn't have.</p>
+						<p>
+							Yes — and this is one of the most powerful things T2T does. When you invite someone to your organization,
+							you can scope their access to a specific group. A Team Leader role can update statuses for their Soldiers
+							and track their training, but they won't see counseling records, onboarding checklists, or personnel data
+							for anyone outside their group. They get exactly the visibility they need to do their job, and nothing
+							they shouldn't have.
+						</p>
 					</div>
 				</details>
 
@@ -526,7 +660,12 @@
 						<span class="faq-icon" aria-hidden="true"></span>
 					</summary>
 					<div class="faq-answer">
-						<p>Please don't. T2T's bulk import tool lets you paste your spreadsheet directly and walks you through mapping your columns to the right fields — name, rank, MOS, section, assignment, whatever you have. You can be up and running with a full roster in a few minutes, not a few hours. If your spreadsheet is a mess, the column mapper is forgiving enough to handle it.</p>
+						<p>
+							Please don't. T2T's bulk import tool lets you paste your spreadsheet directly and walks you through
+							mapping your columns to the right fields — name, rank, MOS, section, assignment, whatever you have. You
+							can be up and running with a full roster in a few minutes, not a few hours. If your spreadsheet is a mess,
+							the column mapper is forgiving enough to handle it.
+						</p>
 					</div>
 				</details>
 
@@ -536,7 +675,13 @@
 						<span class="faq-icon" aria-hidden="true"></span>
 					</summary>
 					<div class="faq-answer">
-						<p>Think of it as a digital replacement for that notebook every NCO keeps in their left cargo pocket — except it doesn't get lost, it's searchable, and the data stays with the Soldier even if they change sections. You can log counseling sessions (initial, monthly, event-driven), track development goals and key dates, manage rating scheme positions for OER/NCOER/WOER, and store extended Soldier info that doesn't have a home on a standard form. Everything in one place, accessible from anywhere you have a browser.</p>
+						<p>
+							Think of it as a digital replacement for that notebook every NCO keeps in their left cargo pocket — except
+							it doesn't get lost, it's searchable, and the data stays with the Soldier even if they change sections.
+							You can log counseling sessions (initial, monthly, event-driven), track development goals and key dates,
+							manage rating scheme positions for OER/NCOER/WOER, and store extended Soldier info that doesn't have a
+							home on a standard form. Everything in one place, accessible from anywhere you have a browser.
+						</p>
 					</div>
 				</details>
 
@@ -546,7 +691,13 @@
 						<span class="faq-icon" aria-hidden="true"></span>
 					</summary>
 					<div class="faq-answer">
-						<p>It runs the same logic that's supposed to be behind a DA Form 6 — fair rotation based on availability, eligibility, and how many times each person has already pulled the duty — without the hours of manual cross-referencing. You set who's eligible (rank requirements, exemptions, availability), and T2T builds the roster and tracks cumulative duty counts so the same three Soldiers aren't always on the list. The output is print-ready for the board or shareable digitally with your HQ.</p>
+						<p>
+							It runs the same logic that's supposed to be behind a DA Form 6 — fair rotation based on availability,
+							eligibility, and how many times each person has already pulled the duty — without the hours of manual
+							cross-referencing. You set who's eligible (rank requirements, exemptions, availability), and T2T builds
+							the roster and tracks cumulative duty counts so the same three Soldiers aren't always on the list. The
+							output is print-ready for the board or shareable digitally with your HQ.
+						</p>
 					</div>
 				</details>
 
@@ -556,7 +707,13 @@
 						<span class="faq-icon" aria-hidden="true"></span>
 					</summary>
 					<div class="faq-answer">
-						<p>Anything your unit requires. You create the training types — Weapons Qual, ACFT, CPR/BLS, SHARP, you name it — and set an expiration window for each one. T2T then tracks every Soldier against it and color-codes the matrix: green for current, yellow at 60 days, orange at 30, red for overdue. You can mark individual Soldiers as exempt, track pass/fail or just attendance, and export the whole thing to Excel for your training briefing. No more digging through a shared drive full of outdated spreadsheets.</p>
+						<p>
+							Anything your unit requires. You create the training types — Weapons Qual, ACFT, CPR/BLS, SHARP, you name
+							it — and set an expiration window for each one. T2T then tracks every Soldier against it and color-codes
+							the matrix: green for current, yellow at 60 days, orange at 30, red for overdue. You can mark individual
+							Soldiers as exempt, track pass/fail or just attendance, and export the whole thing to Excel for your
+							training briefing. No more digging through a shared drive full of outdated spreadsheets.
+						</p>
 					</div>
 				</details>
 
@@ -566,7 +723,14 @@
 						<span class="faq-icon" aria-hidden="true"></span>
 					</summary>
 					<div class="faq-answer">
-						<p>It turns your in-processing SOP into a living workflow. Build a template once — equipment issue, clearing finance, initial counseling, ID card appointment, whatever your steps are — and every new arrival gets their own checklist generated from that template automatically. You can see progress by person ("where is SGT Johnson in the process?") or pivot and view it by step ("who across the whole platoon hasn't done their initial counseling?"). No more chasing people down the hallway trying to piece together who's done what.</p>
+						<p>
+							It turns your in-processing SOP into a living workflow. Build a template once — equipment issue, clearing
+							finance, initial counseling, ID card appointment, whatever your steps are — and every new arrival gets
+							their own checklist generated from that template automatically. You can see progress by person ("where is
+							SGT Johnson in the process?") or pivot and view it by step ("who across the whole platoon hasn't done
+							their initial counseling?"). No more chasing people down the hallway trying to piece together who's done
+							what.
+						</p>
 					</div>
 				</details>
 
@@ -576,7 +740,12 @@
 						<span class="faq-icon" aria-hidden="true"></span>
 					</summary>
 					<div class="faq-answer">
-						<p>Yes. One login, multiple organizations — and you can switch between them without signing out. Whether you're managing a company and a detachment, you're in a higher HQ role overseeing subordinate units, or you just PCS'd and want to keep your old organization's data accessible during the transition, everything lives under the same account.</p>
+						<p>
+							Yes. One login, multiple organizations — and you can switch between them without signing out. Whether
+							you're managing a company and a detachment, you're in a higher HQ role overseeing subordinate units, or
+							you just PCS'd and want to keep your old organization's data accessible during the transition, everything
+							lives under the same account.
+						</p>
 					</div>
 				</details>
 
@@ -586,7 +755,12 @@
 						<span class="faq-icon" aria-hidden="true"></span>
 					</summary>
 					<div class="faq-answer">
-						<p>Both — the data lives in T2T so it's always current, and you can pull it out whenever you need it. Personnel rosters, training matrices, and calendar exports all go to Excel with color-coding intact. Duty rosters and sign-in sheets are designed to print cleanly straight from the browser. If the XO walks in and wants a personnel readiness brief, you have it in about 30 seconds.</p>
+						<p>
+							Both — the data lives in T2T so it's always current, and you can pull it out whenever you need it.
+							Personnel rosters, training matrices, and calendar exports all go to Excel with color-coding intact. Duty
+							rosters and sign-in sheets are designed to print cleanly straight from the browser. If the XO walks in and
+							wants a personnel readiness brief, you have it in about 30 seconds.
+						</p>
 					</div>
 				</details>
 
@@ -596,7 +770,14 @@
 						<span class="faq-icon" aria-hidden="true"></span>
 					</summary>
 					<div class="faq-answer">
-						<p>T2T is built to a military standard, not a startup standard. It aligns to NIST 800-171 — the federal framework for protecting Controlled Unclassified Information — with AES-256 encryption at rest, TLS 1.2+ in transit, role-based access control with group scoping, and a full audit log of every action in the system (exportable for IG inspections). T2T is not authorized for classified information, but for the administrative and personnel data that runs your day-to-day operations, the controls are where they need to be.</p>
+						<p>
+							T2T is built to a military standard, not a startup standard. It aligns to NIST 800-171 — the federal
+							framework for protecting Controlled Unclassified Information — with AES-256 encryption at rest, TLS 1.2+
+							in transit, role-based access control with group scoping, and a full audit log of every action in the
+							system (exportable for IG inspections). T2T is not authorized for classified information, but for the
+							administrative and personnel data that runs your day-to-day operations, the controls are where they need
+							to be.
+						</p>
 					</div>
 				</details>
 			</div>
@@ -607,16 +788,31 @@
 	<section class="cta">
 		<div class="cta-container">
 			<h2 class="cta-title">Ready to streamline<br /><em>your unit?</em></h2>
-			<p class="cta-subtitle">Currently free during beta — no credit card required. Beta testers will receive a generous grace period before any subscription is needed.</p>
+			<p class="cta-subtitle">
+				Currently free during beta — no credit card required. Beta testers will receive a generous grace period before
+				any subscription is needed.
+			</p>
 			{#if data.user}
 				<a href="/dashboard?show=all" class="cta-btn">
 					Go to Dashboard
-					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+						><path
+							fill-rule="evenodd"
+							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/></svg
+					>
 				</a>
 			{:else}
 				<a href="/auth/login" class="cta-btn">
 					Get Started Free
-					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+						><path
+							fill-rule="evenodd"
+							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/></svg
+					>
 				</a>
 			{/if}
 		</div>
@@ -656,17 +852,17 @@
 		--font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
 		--font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 		--font-mono: 'DM Mono', 'Menlo', monospace;
-		--brass: #B8943E;
-		--brass-light: #D4B15A;
+		--brass: #b8943e;
+		--brass-light: #d4b15a;
 		--brass-muted: rgba(184, 148, 62, 0.15);
-		--ink: #0F0F0F;
-		--ink-light: #1A1A1A;
-		--ink-border: #2A2A2A;
-		--paper: #FAFAF8;
-		--paper-warm: #F5F4F0;
+		--ink: #0f0f0f;
+		--ink-light: #1a1a1a;
+		--ink-border: #2a2a2a;
+		--paper: #fafaf8;
+		--paper-warm: #f5f4f0;
 		--hero-bg: var(--ink);
-		--hero-text: #F0EDE6;
-		--hero-muted: #8A8780;
+		--hero-text: #f0ede6;
+		--hero-muted: #8a8780;
 		min-height: 100vh;
 		background: var(--color-bg);
 		color: var(--color-text);
@@ -959,8 +1155,8 @@
 		border-radius: 12px;
 		overflow: hidden;
 		box-shadow:
-			0 0 0 1px rgba(255,255,255,0.03),
-			0 20px 60px rgba(0,0,0,0.4);
+			0 0 0 1px rgba(255, 255, 255, 0.03),
+			0 20px 60px rgba(0, 0, 0, 0.4);
 	}
 
 	.compliance-sash {
@@ -978,7 +1174,7 @@
 		font-weight: 600;
 		letter-spacing: 0.08em;
 		transform: rotate(45deg);
-		box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 	}
 
 	.dash-chrome {
@@ -987,7 +1183,7 @@
 		gap: 0.75rem;
 		padding: 0.625rem 1rem;
 		border-bottom: 1px solid var(--ink-border);
-		background: rgba(255,255,255,0.02);
+		background: rgba(255, 255, 255, 0.02);
 	}
 
 	.dash-dots {
@@ -1017,8 +1213,8 @@
 	}
 
 	.dash-panel {
-		background: rgba(255,255,255,0.03);
-		border: 1px solid rgba(255,255,255,0.06);
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid rgba(255, 255, 255, 0.06);
 		border-radius: 8px;
 		padding: 0.875rem;
 	}
@@ -1084,11 +1280,21 @@
 		padding-bottom: 2px;
 	}
 
-	.cal-empty { background: rgba(255,255,255,0.04); }
-	.cal-leave { background: #4caf50; }
-	.cal-tdy { background: #7c4dff; }
-	.cal-school { background: #2196f3; }
-	.cal-appt { background: #ff9800; }
+	.cal-empty {
+		background: rgba(255, 255, 255, 0.04);
+	}
+	.cal-leave {
+		background: #4caf50;
+	}
+	.cal-tdy {
+		background: #7c4dff;
+	}
+	.cal-school {
+		background: #2196f3;
+	}
+	.cal-appt {
+		background: #ff9800;
+	}
 
 	.cal-legend {
 		display: flex;
@@ -1144,7 +1350,7 @@
 
 	.training-bar {
 		height: 4px;
-		background: rgba(255,255,255,0.06);
+		background: rgba(255, 255, 255, 0.06);
 		border-radius: 2px;
 		overflow: hidden;
 	}
@@ -1154,9 +1360,15 @@
 		border-radius: 2px;
 	}
 
-	.fill-good { background: #4caf50; }
-	.fill-warn { background: #ff9800; }
-	.fill-crit { background: #f44336; }
+	.fill-good {
+		background: #4caf50;
+	}
+	.fill-warn {
+		background: #ff9800;
+	}
+	.fill-crit {
+		background: #f44336;
+	}
 
 	/* Duty inside dashboard */
 	.duty-list {
@@ -1177,7 +1389,7 @@
 		font-weight: 500;
 		padding: 0.125rem 0.375rem;
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 		border-radius: 3px;
 		letter-spacing: 0.05em;
 	}
@@ -1208,7 +1420,7 @@
 
 	.ring-bg {
 		fill: none;
-		stroke: rgba(255,255,255,0.06);
+		stroke: rgba(255, 255, 255, 0.06);
 		stroke-width: 3;
 	}
 
@@ -1712,7 +1924,7 @@
 	}
 
 	.footer-text {
-		color: rgba(255,255,255,0.2);
+		color: rgba(255, 255, 255, 0.2);
 		font-size: 0.75rem;
 		margin: 0;
 	}
@@ -1780,7 +1992,7 @@
 	}
 
 	.footer-legal-sep {
-		color: rgba(255,255,255,0.15);
+		color: rgba(255, 255, 255, 0.15);
 		font-size: 0.75rem;
 	}
 

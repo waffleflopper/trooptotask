@@ -15,26 +15,28 @@
 ## File Map
 
 ### New Files
-| File | Purpose |
-|------|---------|
-| `src/routes/+error.svelte` | Root error page (404, 403, 500) |
-| `src/routes/org/[orgId]/+error.svelte` | Org-scoped error page with "Back to Dashboard" |
-| `supabase/migrations/20260312_getting_started.sql` | DB table for checklist dismissal state |
-| `src/routes/org/[orgId]/api/getting-started/+server.ts` | API for dismiss/un-dismiss |
-| `src/features/onboarding/components/GettingStartedBanner.svelte` | Checklist banner component |
+
+| File                                                             | Purpose                                        |
+| ---------------------------------------------------------------- | ---------------------------------------------- |
+| `src/routes/+error.svelte`                                       | Root error page (404, 403, 500)                |
+| `src/routes/org/[orgId]/+error.svelte`                           | Org-scoped error page with "Back to Dashboard" |
+| `supabase/migrations/20260312_getting_started.sql`               | DB table for checklist dismissal state         |
+| `src/routes/org/[orgId]/api/getting-started/+server.ts`          | API for dismiss/un-dismiss                     |
+| `src/features/onboarding/components/GettingStartedBanner.svelte` | Checklist banner component                     |
 
 ### Modified Files
-| File | Change |
-|------|--------|
-| `src/routes/org/[orgId]/+page.server.ts` | Add count queries for onboarding steps, rating entries, org members, getting started dismissal |
-| `src/routes/org/[orgId]/+page.svelte` | Render GettingStartedBanner above dashboard cards |
-| `src/routes/org/[orgId]/calendar/+page.svelte` | Set localStorage flag for "explore calendar" step |
-| `src/routes/+page.svelte` | Replace title/description, add OG + Twitter Card tags |
-| `src/routes/privacy/+page.svelte` | Add meta description |
-| `src/routes/security/+page.svelte` | Add meta description |
-| `src/routes/help/+page.svelte` | Add meta description |
-| `src/features/groups/components/OrganizationMemberManager.svelte` | Add permission descriptions below section headings |
-| ~20 API route files | Add null checks after `.single()` calls where missing |
+
+| File                                                              | Change                                                                                         |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `src/routes/org/[orgId]/+page.server.ts`                          | Add count queries for onboarding steps, rating entries, org members, getting started dismissal |
+| `src/routes/org/[orgId]/+page.svelte`                             | Render GettingStartedBanner above dashboard cards                                              |
+| `src/routes/org/[orgId]/calendar/+page.svelte`                    | Set localStorage flag for "explore calendar" step                                              |
+| `src/routes/+page.svelte`                                         | Replace title/description, add OG + Twitter Card tags                                          |
+| `src/routes/privacy/+page.svelte`                                 | Add meta description                                                                           |
+| `src/routes/security/+page.svelte`                                | Add meta description                                                                           |
+| `src/routes/help/+page.svelte`                                    | Add meta description                                                                           |
+| `src/features/groups/components/OrganizationMemberManager.svelte` | Add permission descriptions below section headings                                             |
+| ~20 API route files                                               | Add null checks after `.single()` calls where missing                                          |
 
 ---
 
@@ -43,6 +45,7 @@
 ### Task 1: Root Error Page
 
 **Files:**
+
 - Create: `src/routes/+error.svelte`
 
 - [ ] **Step 1: Create root error page**
@@ -115,6 +118,7 @@ git commit -m "feat: add branded root error page"
 ### Task 2: Org-Scoped Error Page
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/+error.svelte`
 
 - [ ] **Step 1: Create org-scoped error page**
@@ -186,6 +190,7 @@ git commit -m "feat: add org-scoped error page"
 ### Task 3: OG/Meta Tags — Landing Page
 
 **Files:**
+
 - Modify: `src/routes/+page.svelte` — the `<svelte:head>` block (lines ~133-136)
 
 - [ ] **Step 1: Read current landing page head section**
@@ -199,13 +204,19 @@ Read `src/routes/+page.svelte` to find the exact existing `<svelte:head>` block.
 ```svelte
 <svelte:head>
 	<title>Troop to Task — Military Unit Management</title>
-	<meta name="description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments — all in one secure platform." />
+	<meta
+		name="description"
+		content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments — all in one secure platform."
+	/>
 
 	<!-- Open Graph -->
 	<meta property="og:type" content="website" />
 	<meta property="og:site_name" content="Troop to Task" />
 	<meta property="og:title" content="Troop to Task — Military Unit Management" />
-	<meta property="og:description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments." />
+	<meta
+		property="og:description"
+		content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments."
+	/>
 	<meta property="og:url" content="https://trooptotask.org" />
 	<meta property="og:image" content="https://trooptotask.org/og-image.png" />
 	<meta property="og:image:width" content="1200" />
@@ -214,7 +225,10 @@ Read `src/routes/+page.svelte` to find the exact existing `<svelte:head>` block.
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="Troop to Task — Military Unit Management" />
-	<meta name="twitter:description" content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments." />
+	<meta
+		name="twitter:description"
+		content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments."
+	/>
 	<meta name="twitter:image" content="https://trooptotask.org/og-image.png" />
 </svelte:head>
 ```
@@ -237,6 +251,7 @@ git commit -m "feat: add OG and Twitter Card meta tags to landing page"
 ### Task 4: Meta Descriptions for Public Pages
 
 **Files:**
+
 - Modify: `src/routes/privacy/+page.svelte`
 - Modify: `src/routes/security/+page.svelte`
 - Modify: `src/routes/help/+page.svelte`
@@ -250,16 +265,19 @@ Read all three files. Each should already have a `<title>` tag. Add `<meta name=
 For each file, add inside `<svelte:head>`:
 
 **privacy:**
+
 ```html
 <meta name="description" content="Privacy policy for Troop to Task military unit management software." />
 ```
 
 **security:**
+
 ```html
 <meta name="description" content="Security practices and NIST 800-171 compliance information for Troop to Task." />
 ```
 
 **help:**
+
 ```html
 <meta name="description" content="Help and platform guide for Troop to Task." />
 ```
@@ -280,6 +298,7 @@ git commit -m "feat: add meta descriptions to public pages"
 ### Task 5: Permission Descriptions
 
 **Files:**
+
 - Modify: `src/features/groups/components/OrganizationMemberManager.svelte` — permission grid section (lines ~305-401)
 
 - [ ] **Step 1: Read the permission grid section**
@@ -290,14 +309,14 @@ Read `src/features/groups/components/OrganizationMemberManager.svelte` lines 290
 
 After each `<h4>` heading in the permission grid, add a `<p class="permission-description">` with the appropriate text:
 
-| After `<h4>` | Description text |
-|---------------|-----------------|
-| Calendar | View the unit calendar and personnel statuses. Edit allows setting statuses, assignments, and availability. |
-| Personnel | View the personnel roster and details. Edit allows adding, updating, and removing personnel records. |
-| Training | View training records and compliance status. Edit allows logging training completions and managing records. |
-| Onboarding | View onboarding progress for new personnel. Edit allows starting onboardings and updating step progress. |
-| Leader's Book | View counseling records and development goals. Edit allows creating and updating counseling entries. |
-| Members | Invite, remove, and manage permissions for other organization members. |
+| After `<h4>`  | Description text                                                                                            |
+| ------------- | ----------------------------------------------------------------------------------------------------------- |
+| Calendar      | View the unit calendar and personnel statuses. Edit allows setting statuses, assignments, and availability. |
+| Personnel     | View the personnel roster and details. Edit allows adding, updating, and removing personnel records.        |
+| Training      | View training records and compliance status. Edit allows logging training completions and managing records. |
+| Onboarding    | View onboarding progress for new personnel. Edit allows starting onboardings and updating step progress.    |
+| Leader's Book | View counseling records and development goals. Edit allows creating and updating counseling entries.        |
+| Members       | Invite, remove, and manage permissions for other organization members.                                      |
 
 - [ ] **Step 3: Add CSS for `.permission-description`**
 
@@ -330,6 +349,7 @@ git commit -m "feat: add permission descriptions to member management UI"
 ### Task 6: Audit and Fix All `.single()` Calls
 
 **Files:**
+
 - Modify: All files containing `.single()` calls (~20 API route files)
 
 This task is a sweep. The implementer should:
@@ -356,6 +376,7 @@ if (!data) throw error(404, 'Not found');
 ```
 
 A call is **unsafe** if the result is used directly without checking:
+
 ```typescript
 const { data } = await supabase.from(...).single();
 return json(data); // data could be null!
@@ -364,6 +385,7 @@ return json(data); // data could be null!
 - [ ] **Step 3: Fix each unsafe call**
 
 For API route handlers (`+server.ts`), use this pattern:
+
 ```typescript
 const { data, error: dbError } = await supabase.from('table').select('*').eq('id', id).single();
 if (dbError || !data) {
@@ -372,6 +394,7 @@ if (dbError || !data) {
 ```
 
 For page server loads (`+page.server.ts` / `+layout.server.ts`), use:
+
 ```typescript
 const { data, error: dbError } = await supabase.from('table').select('*').eq('id', id).single();
 if (dbError || !data) {
@@ -399,6 +422,7 @@ git commit -m "fix: add null checks to unguarded .single() calls across API rout
 ### Task 7: Database Migration
 
 **Files:**
+
 - Create: `supabase/migrations/20260312_getting_started.sql`
 
 - [ ] **Step 1: Write migration file**
@@ -438,6 +462,7 @@ git commit -m "feat: add getting_started_progress table for onboarding checklist
 ### Task 8: Getting Started API Endpoint
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/api/getting-started/+server.ts`
 
 - [ ] **Step 1: Create the API endpoint**
@@ -460,16 +485,14 @@ export const POST: RequestHandler = async ({ locals, params }) => {
 		return new Response(JSON.stringify({ error: 'Invalid org ID' }), { status: 400 });
 	}
 
-	const { error } = await supabase
-		.from('getting_started_progress')
-		.upsert(
-			{
-				organization_id: params.orgId,
-				user_id: userId,
-				dismissed_at: new Date().toISOString()
-			},
-			{ onConflict: 'organization_id,user_id' }
-		);
+	const { error } = await supabase.from('getting_started_progress').upsert(
+		{
+			organization_id: params.orgId,
+			user_id: userId,
+			dismissed_at: new Date().toISOString()
+		},
+		{ onConflict: 'organization_id,user_id' }
+	);
 
 	if (error) {
 		return new Response(JSON.stringify({ error: 'Failed to dismiss' }), { status: 500 });
@@ -525,6 +548,7 @@ git commit -m "feat: add getting-started dismiss/un-dismiss API endpoint"
 ### Task 9: Dashboard Server — Add Checklist Count Queries
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/+page.server.ts`
 
 - [ ] **Step 1: Read the current dashboard server load**
@@ -543,18 +567,9 @@ const [
 	{ count: orgMemberCount },
 	{ data: gettingStartedData }
 ] = await Promise.all([
-	supabase
-		.from('onboarding_template_steps')
-		.select('*', { count: 'exact', head: true })
-		.eq('organization_id', orgId),
-	supabase
-		.from('rating_scheme_entries')
-		.select('*', { count: 'exact', head: true })
-		.eq('organization_id', orgId),
-	supabase
-		.from('organization_memberships')
-		.select('*', { count: 'exact', head: true })
-		.eq('organization_id', orgId),
+	supabase.from('onboarding_template_steps').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
+	supabase.from('rating_scheme_entries').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
+	supabase.from('organization_memberships').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
 	supabase
 		.from('getting_started_progress')
 		.select('dismissed_at')
@@ -596,6 +611,7 @@ git commit -m "feat: add getting-started checklist count queries to dashboard se
 ### Task 10: Calendar Page — Set localStorage Flag
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/calendar/+page.svelte`
 
 - [ ] **Step 1: Read the calendar page**
@@ -635,6 +651,7 @@ git commit -m "feat: set localStorage flag when user visits calendar page"
 ### Task 11: GettingStartedBanner Component
 
 **Files:**
+
 - Create: `src/features/onboarding/components/GettingStartedBanner.svelte`
 
 - [ ] **Step 1: Create the banner component**
@@ -694,7 +711,11 @@ This component receives all completion data as props and derives step completion
 		{ label: 'Set up your status types', complete: statusTypeCount > 0, link: `/org/${orgId}/calendar` },
 		{ label: 'Set up assignment types', complete: assignmentTypeCount > 0, link: `/org/${orgId}/calendar` },
 		{ label: 'Configure training types', complete: trainingTypeCount > 0, link: `/org/${orgId}/training` },
-		{ label: 'Set up your onboarding flow', complete: onboardingTemplateStepCount > 0, link: `/org/${orgId}/onboarding` },
+		{
+			label: 'Set up your onboarding flow',
+			complete: onboardingTemplateStepCount > 0,
+			link: `/org/${orgId}/onboarding`
+		},
 		{ label: 'Configure your rating scheme', complete: ratingSchemeEntryCount > 0, link: `/org/${orgId}/leaders-book` },
 		{ label: 'Invite a team member', complete: orgMemberCount > 1, link: `/org/${orgId}/settings` },
 		{ label: 'Explore the calendar', complete: calendarVisited, link: `/org/${orgId}/calendar` }
@@ -755,7 +776,13 @@ This component receives all completion data as props and derives step completion
 						{#if step.complete}
 							<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
 								<circle cx="9" cy="9" r="9" fill="var(--color-success)" />
-								<path d="M5 9L8 12L13 6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+								<path
+									d="M5 9L8 12L13 6"
+									stroke="white"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/>
 							</svg>
 						{:else}
 							<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -917,11 +944,13 @@ git commit -m "feat: add GettingStartedBanner component"
 ### Task 12: Wire Banner into Dashboard Page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/+page.svelte`
 
 - [ ] **Step 1: Read the dashboard page**
 
 Read `src/routes/org/[orgId]/+page.svelte` to find:
+
 1. The import section
 2. Where `data` is destructured or used
 3. Where the welcome banner renders (lines ~388-402)
@@ -997,6 +1026,7 @@ git commit -m "feat: wire GettingStartedBanner into dashboard page"
 ### Task 13: Update Changelog
 
 **Files:**
+
 - Modify: `src/lib/data/changelog.ts`
 
 - [ ] **Step 1: Read current changelog**

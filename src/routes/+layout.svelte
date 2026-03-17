@@ -17,6 +17,7 @@
 
 		const {
 			data: { subscription }
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase onAuthStateChange session param has complex internal type
 		} = data.supabase.auth.onAuthStateChange((event: string, newSession: any) => {
 			// Only invalidate on real auth changes, not the initial session detection
 			// which fires SIGNED_IN on page load and would cause unnecessary re-fetches
@@ -32,7 +33,10 @@
 <svelte:head>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap"
+		rel="stylesheet"
+	/>
 </svelte:head>
 
 <div class="app">

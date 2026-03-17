@@ -13,10 +13,10 @@ TypeScript array in `src/lib/data/changelog.ts`. Each entry has an `id`, `date`,
 
 ```typescript
 type ChangelogEntry = {
-  id: string;        // e.g. '2026-03-08-permissions'
-  date: string;       // 'YYYY-MM-DD'
-  title: string;      // 'Improved Permissions'
-  items: string[];    // plain-language bullet points
+	id: string; // e.g. '2026-03-08-permissions'
+	date: string; // 'YYYY-MM-DD'
+	title: string; // 'Improved Permissions'
+	items: string[]; // plain-language bullet points
 };
 ```
 
@@ -43,11 +43,11 @@ localStorage keyed by `changelog-last-seen-{userId}`. Stores the `id` of the las
 
 ## Changes
 
-| What | Action |
-|------|--------|
-| `src/lib/data/changelog.ts` | Create — changelog entries array + type |
-| `src/lib/components/WhatsNewModal.svelte` | Create — modal component |
-| `src/routes/org/[orgId]/+page.svelte` | Modify — auto-show modal on dashboard load |
-| TopHeader avatar menu | Modify — add "What's New" link |
-| Database | None |
-| Dependencies | None |
+| What                                      | Action                                     |
+| ----------------------------------------- | ------------------------------------------ |
+| `src/lib/data/changelog.ts`               | Create — changelog entries array + type    |
+| `src/lib/components/WhatsNewModal.svelte` | Create — modal component                   |
+| `src/routes/org/[orgId]/+page.svelte`     | Modify — auto-show modal on dashboard load |
+| TopHeader avatar menu                     | Modify — add "What's New" link             |
+| Database                                  | None                                       |
+| Dependencies                              | None                                       |

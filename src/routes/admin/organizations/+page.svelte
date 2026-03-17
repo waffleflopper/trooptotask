@@ -19,9 +19,7 @@
 
 		if (searchInput.trim()) {
 			const q = searchInput.trim().toLowerCase();
-			result = result.filter(
-				(o) => o.name.toLowerCase().includes(q) || o.ownerEmail.toLowerCase().includes(q)
-			);
+			result = result.filter((o) => o.name.toLowerCase().includes(q) || o.ownerEmail.toLowerCase().includes(q));
 		}
 
 		if (tierFilter !== 'all') {
@@ -52,12 +50,7 @@
 
 	<!-- Filters -->
 	<div class="filters">
-		<input
-			type="text"
-			placeholder="Search by name or owner email..."
-			bind:value={searchInput}
-			class="search-input"
-		/>
+		<input type="text" placeholder="Search by name or owner email..." bind:value={searchInput} class="search-input" />
 
 		<select bind:value={tierFilter} class="select filter-select">
 			<option value="all">All tiers</option>

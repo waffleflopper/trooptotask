@@ -99,9 +99,7 @@
 
 	const onboardingSet = $derived(new Set(activeOnboardingPersonnelIds));
 
-	const totalPersonnel = $derived(
-		personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0)
-	);
+	const totalPersonnel = $derived(personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0));
 
 	// Pre-index availability entries by personnel ID for O(1) lookup per person
 	const availabilityByPerson = $derived.by(() => {

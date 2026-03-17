@@ -18,9 +18,7 @@ class OnboardingStore {
 	}
 
 	getByPersonnelId(personnelId: string) {
-		return this.#onboardings.find(
-			(o) => o.personnelId === personnelId && o.status === 'in_progress'
-		);
+		return this.#onboardings.find((o) => o.personnelId === personnelId && o.status === 'in_progress');
 	}
 
 	getById(id: string) {
@@ -51,19 +49,13 @@ class OnboardingStore {
 		stepId: string,
 		data: Partial<Pick<OnboardingStepProgress, 'completed' | 'currentStage' | 'notes'>>
 	): Promise<boolean> {
-		const onboarding = this.#onboardings.find((o) =>
-			o.steps.some((s) => s.id === stepId)
-		);
+		const onboarding = this.#onboardings.find((o) => o.steps.some((s) => s.id === stepId));
 		if (!onboarding) return false;
 
 		const originalSteps = [...onboarding.steps];
-		const updatedSteps = onboarding.steps.map((s) =>
-			s.id === stepId ? { ...s, ...data } : s
-		);
+		const updatedSteps = onboarding.steps.map((s) => (s.id === stepId ? { ...s, ...data } : s));
 
-		this.#onboardings = this.#onboardings.map((o) =>
-			o.id === onboarding.id ? { ...o, steps: updatedSteps } : o
-		);
+		this.#onboardings = this.#onboardings.map((o) => (o.id === onboarding.id ? { ...o, steps: updatedSteps } : o));
 
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/onboarding-progress`, {
@@ -74,24 +66,18 @@ class OnboardingStore {
 			if (!res.ok) throw new Error('Failed to update step progress');
 			return true;
 		} catch {
-			this.#onboardings = this.#onboardings.map((o) =>
-				o.id === onboarding.id ? { ...o, steps: originalSteps } : o
-			);
+			this.#onboardings = this.#onboardings.map((o) => (o.id === onboarding.id ? { ...o, steps: originalSteps } : o));
 			return false;
 		}
 	}
 
 	async removeDeprecatedStep(stepId: string): Promise<boolean> {
-		const onboarding = this.#onboardings.find((o) =>
-			o.steps.some((s) => s.id === stepId)
-		);
+		const onboarding = this.#onboardings.find((o) => o.steps.some((s) => s.id === stepId));
 		if (!onboarding) return false;
 
 		const originalSteps = [...onboarding.steps];
 		this.#onboardings = this.#onboardings.map((o) =>
-			o.id === onboarding.id
-				? { ...o, steps: o.steps.filter((s) => s.id !== stepId) }
-				: o
+			o.id === onboarding.id ? { ...o, steps: o.steps.filter((s) => s.id !== stepId) } : o
 		);
 
 		try {
@@ -103,9 +89,7 @@ class OnboardingStore {
 			if (!res.ok) throw new Error('Failed to remove step');
 			return true;
 		} catch {
-			this.#onboardings = this.#onboardings.map((o) =>
-				o.id === onboarding.id ? { ...o, steps: originalSteps } : o
-			);
+			this.#onboardings = this.#onboardings.map((o) => (o.id === onboarding.id ? { ...o, steps: originalSteps } : o));
 			return false;
 		}
 	}
@@ -132,19 +116,14 @@ class OnboardingStore {
 
 			const result = await res.json();
 			// Update the onboarding's steps in the store
-			this.#onboardings = this.#onboardings.map((o) =>
-				o.id === onboardingId ? { ...o, steps: result.steps } : o
-			);
+			this.#onboardings = this.#onboardings.map((o) => (o.id === onboardingId ? { ...o, steps: result.steps } : o));
 			return { success: true };
 		} catch {
 			return { success: false, error: 'Failed to re-sync onboarding' };
 		}
 	}
 
-	async assignTemplate(
-		onboardingId: string,
-		templateId: string
-	): Promise<{ success: boolean; error?: string }> {
+	async assignTemplate(onboardingId: string, templateId: string): Promise<{ success: boolean; error?: string }> {
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/onboarding-assign-template`, {
 				method: 'POST',
@@ -158,9 +137,7 @@ class OnboardingStore {
 			const result = await res.json();
 			// Update the onboarding's templateId and steps
 			this.#onboardings = this.#onboardings.map((o) =>
-				o.id === onboardingId
-					? { ...o, templateId: result.templateId, steps: result.steps }
-					: o
+				o.id === onboardingId ? { ...o, templateId: result.templateId, steps: result.steps } : o
 			);
 			return { success: true };
 		} catch {
@@ -172,9 +149,7 @@ class OnboardingStore {
 		const original = this.#onboardings.find((o) => o.id === id);
 		if (!original) return false;
 
-		this.#onboardings = this.#onboardings.map((o) =>
-			o.id === id ? { ...o, status: 'cancelled' as const } : o
-		);
+		this.#onboardings = this.#onboardings.map((o) => (o.id === id ? { ...o, status: 'cancelled' as const } : o));
 
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/onboarding`, {
@@ -185,9 +160,7 @@ class OnboardingStore {
 			if (!res.ok) throw new Error('Failed to cancel onboarding');
 			return true;
 		} catch {
-			this.#onboardings = this.#onboardings.map((o) =>
-				o.id === id ? original : o
-			);
+			this.#onboardings = this.#onboardings.map((o) => (o.id === id ? original : o));
 			return false;
 		}
 	}
@@ -210,9 +183,7 @@ class OnboardingStore {
 			if (!res.ok) throw new Error('Failed to complete onboarding');
 			return true;
 		} catch {
-			this.#onboardings = this.#onboardings.map((o) =>
-				o.id === id ? original : o
-			);
+			this.#onboardings = this.#onboardings.map((o) => (o.id === id ? original : o));
 			return false;
 		}
 	}

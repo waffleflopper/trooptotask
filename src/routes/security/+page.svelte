@@ -8,7 +8,10 @@
 	<meta name="description" content="Security practices and NIST 800-171 compliance information for Troop to Task." />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap"
+		rel="stylesheet"
+	/>
 </svelte:head>
 
 <div class="security-page">
@@ -34,12 +37,28 @@
 				<a href="/#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<circle cx="12" cy="12" r="5" /><path
+								d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+							/>
 						</svg>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
 						</svg>
 					{/if}
 				</button>
@@ -53,9 +72,13 @@
 			<div class="mobile-actions">
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><circle cx="12" cy="12" r="5" /></svg
+						>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg
+						>
 					{/if}
 				</button>
 				{#if data.user}
@@ -82,8 +105,15 @@
 		<div class="content-inner">
 			<div class="content-label">01 // Data Classification</div>
 			<h2>What we handle, and how we treat it.</h2>
-			<p>TroopToTask manages personnel readiness data that may include Controlled Unclassified Information (CUI). This includes names, ranks, unit assignments, training records, counseling notes, and availability statuses. We treat all customer data as CUI-equivalent and apply protections accordingly.</p>
-			<p>We do not process, store, or transmit classified information at any level. TroopToTask is designed exclusively for unclassified environments.</p>
+			<p>
+				TroopToTask manages personnel readiness data that may include Controlled Unclassified Information (CUI). This
+				includes names, ranks, unit assignments, training records, counseling notes, and availability statuses. We treat
+				all customer data as CUI-equivalent and apply protections accordingly.
+			</p>
+			<p>
+				We do not process, store, or transmit classified information at any level. TroopToTask is designed exclusively
+				for unclassified environments.
+			</p>
 		</div>
 	</section>
 
@@ -92,8 +122,14 @@
 		<div class="content-inner">
 			<div class="content-label">02 // Encryption</div>
 			<h2>Encrypted in transit and at rest.</h2>
-			<p>All data transmitted between your browser and our servers is encrypted with TLS 1.2 or higher, enforced via HTTP Strict Transport Security (HSTS) headers. Downgrade attacks and cleartext connections are blocked.</p>
-			<p>Data at rest is encrypted with AES-256 by our infrastructure providers. Database backups, file storage, and all persistent data stores use server-side encryption with managed keys.</p>
+			<p>
+				All data transmitted between your browser and our servers is encrypted with TLS 1.2 or higher, enforced via HTTP
+				Strict Transport Security (HSTS) headers. Downgrade attacks and cleartext connections are blocked.
+			</p>
+			<p>
+				Data at rest is encrypted with AES-256 by our infrastructure providers. Database backups, file storage, and all
+				persistent data stores use server-side encryption with managed keys.
+			</p>
 		</div>
 	</section>
 
@@ -102,8 +138,16 @@
 		<div class="content-inner">
 			<div class="content-label">03 // Access Control</div>
 			<h2>Every request is authorized.</h2>
-			<p>Authentication is handled via Supabase Auth with support for email/password and multi-factor authentication (TOTP). Sessions are enforced with a 24-hour absolute timeout and secure, HttpOnly cookies.</p>
-			<p>Authorization uses a layered approach: role-based access control (RBAC) at the application level with admin, editor, and viewer roles, combined with PostgreSQL Row-Level Security (RLS) policies that enforce tenant isolation at the database layer. Every API endpoint validates organization membership and role permissions server-side before processing requests.</p>
+			<p>
+				Authentication is handled via Supabase Auth with support for email/password and multi-factor authentication
+				(TOTP). Sessions are enforced with a 24-hour absolute timeout and secure, HttpOnly cookies.
+			</p>
+			<p>
+				Authorization uses a layered approach: role-based access control (RBAC) at the application level with admin,
+				editor, and viewer roles, combined with PostgreSQL Row-Level Security (RLS) policies that enforce tenant
+				isolation at the database layer. Every API endpoint validates organization membership and role permissions
+				server-side before processing requests.
+			</p>
 		</div>
 	</section>
 
@@ -112,8 +156,15 @@
 		<div class="content-inner">
 			<div class="content-label">04 // Audit Logging</div>
 			<h2>Every action leaves a trail.</h2>
-			<p>TroopToTask maintains structured audit logs for security-relevant events including authentication attempts, permission changes, data modifications, and administrative actions. Logs capture the actor, action, resource, timestamp, and contextual metadata.</p>
-			<p>Audit records are retained for 90 days, with automated cleanup of expired entries. Personally identifiable information is filtered from log details to maintain data minimization principles.</p>
+			<p>
+				TroopToTask maintains structured audit logs for security-relevant events including authentication attempts,
+				permission changes, data modifications, and administrative actions. Logs capture the actor, action, resource,
+				timestamp, and contextual metadata.
+			</p>
+			<p>
+				Audit records are retained for 90 days, with automated cleanup of expired entries. Personally identifiable
+				information is filtered from log details to maintain data minimization principles.
+			</p>
 		</div>
 	</section>
 
@@ -125,8 +176,14 @@
 			<p>TroopToTask runs on infrastructure from providers with established security programs:</p>
 			<ul>
 				<li><strong>Vercel</strong> — Application hosting and edge delivery. SOC 2 Type II certified.</li>
-				<li><strong>Supabase</strong> — PostgreSQL database, authentication, and file storage. SOC 2 Type II certified. Hosted on AWS with isolated tenancy.</li>
-				<li><strong>Stripe</strong> — Payment processing. PCI DSS Level 1 certified. TroopToTask never stores credit card numbers or payment credentials.</li>
+				<li>
+					<strong>Supabase</strong> — PostgreSQL database, authentication, and file storage. SOC 2 Type II certified. Hosted
+					on AWS with isolated tenancy.
+				</li>
+				<li>
+					<strong>Stripe</strong> — Payment processing. PCI DSS Level 1 certified. TroopToTask never stores credit card numbers
+					or payment credentials.
+				</li>
 			</ul>
 			<p>All infrastructure is hosted within the United States.</p>
 		</div>
@@ -140,13 +197,24 @@
 			<p>TroopToTask's security controls align with the following NIST SP 800-171 Rev 2 control families:</p>
 			<ul>
 				<li><strong>Access Control (3.1)</strong> — RBAC, RLS, session management, least privilege</li>
-				<li><strong>Audit &amp; Accountability (3.3)</strong> — Structured logging, retention policies, PII filtering</li>
-				<li><strong>Identification &amp; Authentication (3.5)</strong> — MFA support, password policies, session timeouts</li>
-				<li><strong>System &amp; Communications Protection (3.13)</strong> — TLS 1.2+, AES-256, security headers, CSP</li>
-				<li><strong>System &amp; Information Integrity (3.14)</strong> — Input validation, rate limiting, error handling</li>
+				<li>
+					<strong>Audit &amp; Accountability (3.3)</strong> — Structured logging, retention policies, PII filtering
+				</li>
+				<li>
+					<strong>Identification &amp; Authentication (3.5)</strong> — MFA support, password policies, session timeouts
+				</li>
+				<li>
+					<strong>System &amp; Communications Protection (3.13)</strong> — TLS 1.2+, AES-256, security headers, CSP
+				</li>
+				<li>
+					<strong>System &amp; Information Integrity (3.14)</strong> — Input validation, rate limiting, error handling
+				</li>
 				<li><strong>Incident Response (3.6)</strong> — Documented response procedures, contact channels</li>
 			</ul>
-			<p>While we are not FedRAMP authorized, we continuously improve our posture to support organizations that handle CUI.</p>
+			<p>
+				While we are not FedRAMP authorized, we continuously improve our posture to support organizations that handle
+				CUI.
+			</p>
 		</div>
 	</section>
 
@@ -155,14 +223,31 @@
 		<div class="content-inner">
 			<div class="content-label">07 // Responsible Disclosure</div>
 			<h2>Report a vulnerability.</h2>
-			<p>If you discover a security vulnerability in TroopToTask, we encourage responsible disclosure. Please report findings to:</p>
+			<p>
+				If you discover a security vulnerability in TroopToTask, we encourage responsible disclosure. Please report
+				findings to:
+			</p>
 			<div class="disclosure-contact">
-				<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+				<svg
+					viewBox="0 0 24 24"
+					width="20"
+					height="20"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline
+						points="22,6 12,13 2,6"
+					/>
 				</svg>
 				<a href="mailto:security@trooptotask.app">security@trooptotask.app</a>
 			</div>
-			<p>We ask that you provide a reasonable amount of time for us to address reported issues before public disclosure. We will acknowledge receipt within 48 hours and aim to provide a resolution timeline within 5 business days.</p>
+			<p>
+				We ask that you provide a reasonable amount of time for us to address reported issues before public disclosure.
+				We will acknowledge receipt within 48 hours and aim to provide a resolution timeline within 5 business days.
+			</p>
 		</div>
 	</section>
 
@@ -174,12 +259,24 @@
 			{#if data.user}
 				<a href="/dashboard?show=all" class="cta-btn">
 					Go to Dashboard
-					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+						><path
+							fill-rule="evenodd"
+							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/></svg
+					>
 				</a>
 			{:else}
 				<a href="/auth/login" class="cta-btn">
 					Get Started Free
-					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+						><path
+							fill-rule="evenodd"
+							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/></svg
+					>
 				</a>
 			{/if}
 		</div>
@@ -219,17 +316,17 @@
 		--font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
 		--font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 		--font-mono: 'DM Mono', 'Menlo', monospace;
-		--brass: #B8943E;
-		--brass-light: #D4B15A;
+		--brass: #b8943e;
+		--brass-light: #d4b15a;
 		--brass-muted: rgba(184, 148, 62, 0.15);
-		--ink: #0F0F0F;
-		--ink-light: #1A1A1A;
-		--ink-border: #2A2A2A;
-		--paper: #FAFAF8;
-		--paper-warm: #F5F4F0;
+		--ink: #0f0f0f;
+		--ink-light: #1a1a1a;
+		--ink-border: #2a2a2a;
+		--paper: #fafaf8;
+		--paper-warm: #f5f4f0;
 		--hero-bg: var(--ink);
-		--hero-text: #F0EDE6;
-		--hero-muted: #8A8780;
+		--hero-text: #f0ede6;
+		--hero-muted: #8a8780;
 		min-height: 100vh;
 		background: var(--color-bg);
 		color: var(--color-text);
@@ -672,7 +769,7 @@
 	}
 
 	.footer-text {
-		color: rgba(255,255,255,0.2);
+		color: rgba(255, 255, 255, 0.2);
 		font-size: 0.75rem;
 		margin: 0;
 	}
@@ -695,7 +792,7 @@
 	}
 
 	.footer-legal-sep {
-		color: rgba(255,255,255,0.15);
+		color: rgba(255, 255, 255, 0.15);
 		font-size: 0.75rem;
 	}
 

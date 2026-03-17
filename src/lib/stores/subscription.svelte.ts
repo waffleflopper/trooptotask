@@ -42,10 +42,7 @@ function createSubscriptionStore() {
 				effectiveTier?.giftExpiresAt != null &&
 				Math.max(
 					0,
-					Math.ceil(
-						(new Date(effectiveTier.giftExpiresAt).getTime() - Date.now()) /
-							(1000 * 60 * 60 * 24)
-					)
+					Math.ceil((new Date(effectiveTier.giftExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
 				) <= 14;
 			return giftExpiring || (effectiveTier?.isReadOnly ?? false);
 		},

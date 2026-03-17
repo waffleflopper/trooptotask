@@ -8,9 +8,7 @@ export const GET: RequestHandler = async ({ request }) => {
 	const cleanupSecret = env.CLEANUP_SECRET;
 	const cronSecret = env.CRON_SECRET;
 
-	const isAuthorized =
-		(authHeader === `Bearer ${cleanupSecret}`) ||
-		(authHeader === `Bearer ${cronSecret}`);
+	const isAuthorized = authHeader === `Bearer ${cleanupSecret}` || authHeader === `Bearer ${cronSecret}`;
 
 	if (!isAuthorized) {
 		throw error(401, 'Unauthorized');

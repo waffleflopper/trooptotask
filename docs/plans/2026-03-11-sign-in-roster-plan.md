@@ -13,6 +13,7 @@
 ### Task 1: Database Migration
 
 **Files:**
+
 - Create: `supabase/migrations/20260311_sign_in_rosters.sql`
 
 **Step 1: Write the migration**
@@ -98,6 +99,7 @@ git commit -m "feat: add sign_in_rosters table migration"
 ### Task 2: TypeScript Types
 
 **Files:**
+
 - Modify: `src/lib/types.ts` (add interface at end of file, near other interfaces)
 
 **Step 1: Add the SignInRoster interface**
@@ -132,11 +134,13 @@ git commit -m "feat: add SignInRoster type interface"
 ### Task 3: API Routes — List & Create
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/api/sign-in-rosters/+server.ts`
 
 **Step 1: Write the GET and POST handlers**
 
 Follow the pattern from `src/routes/org/[orgId]/api/personnel/+server.ts`. Key points:
+
 - Use `getApiContext` for supabase/userId
 - Permission check: `requireViewPermission` for GET, `requireViewPermission` for POST (anyone who can view training can create)
 - GET supports query params: `title` (search), `from`/`to` (date range), `limit` (default 20), `offset` (default 0)
@@ -222,11 +226,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		created_by: userId
 	};
 
-	const { data, error: dbError } = await supabase
-		.from('sign_in_rosters')
-		.insert(row)
-		.select()
-		.single();
+	const { data, error: dbError } = await supabase.from('sign_in_rosters').insert(row).select().single();
 
 	if (dbError) throw error(500, dbError.message);
 
@@ -269,6 +269,7 @@ git commit -m "feat: add sign-in rosters list and create API endpoints"
 ### Task 4: API Routes — Delete, Upload, Remove Upload
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/api/sign-in-rosters/[id]/+server.ts`
 - Create: `src/routes/org/[orgId]/api/sign-in-rosters/[id]/upload/+server.ts`
 
@@ -301,11 +302,7 @@ export const DELETE: RequestHandler = async ({ params, locals, cookies }) => {
 		await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
 	}
 
-	const { error: dbError } = await supabase
-		.from('sign_in_rosters')
-		.delete()
-		.eq('id', id)
-		.eq('organization_id', orgId);
+	const { error: dbError } = await supabase.from('sign_in_rosters').delete().eq('id', id).eq('organization_id', orgId);
 
 	if (dbError) throw error(500, dbError.message);
 
@@ -418,11 +415,13 @@ git commit -m "feat: add sign-in roster delete and upload API endpoints"
 ### Task 5: SignInRosterModal Component — List View
 
 **Files:**
+
 - Create: `src/lib/components/SignInRosterModal.svelte`
 
 This is the main modal component. Start with the list view (primary view when modal opens).
 
 **Key details:**
+
 - Uses `Modal.svelte` as wrapper
 - Fetches rosters from API on mount via `$effect`
 - Shows 20 most recent, with title search + date range filter
@@ -432,17 +431,19 @@ This is the main modal component. Start with the list view (primary view when mo
 - Pagination via "Load more" button
 
 **Props interface:**
+
 ```typescript
 interface Props {
 	orgId: string;
 	personnel: Personnel[];
 	groups: { id: string; name: string }[];
-	canEdit: boolean;  // canEditTraining — controls delete/upload actions
+	canEdit: boolean; // canEditTraining — controls delete/upload actions
 	onClose: () => void;
 }
 ```
 
 **State variables:**
+
 ```typescript
 let rosters = $state<SignInRoster[]>([]);
 let total = $state(0);
@@ -455,9 +456,12 @@ let expandedId = $state<string | null>(null);
 ```
 
 **Fetching pattern:**
+
 ```typescript
 async function fetchRosters(reset = false) {
-	if (reset) { rosters = []; }
+	if (reset) {
+		rosters = [];
+	}
 	loading = true;
 	const offset = reset ? 0 : rosters.length;
 	const params = new URLSearchParams({ limit: '20', offset: String(offset) });
@@ -476,6 +480,7 @@ async function fetchRosters(reset = false) {
 Build out the full list view UI with filter bar, roster rows, expanded detail actions, and load-more pagination. Use existing CSS classes (`.btn`, `.input`, `.form-row`, etc.) and shared components (`Spinner`, `EmptyState`).
 
 For the expanded row detail actions:
+
 - **Re-print**: call `generatePDF(roster)` (reuse from create view, Task 7)
 - **Upload signed scan**: file input that POSTs to upload endpoint
 - **Download signed scan**: fetch signed URL from Supabase storage, open in new tab
@@ -493,11 +498,13 @@ git commit -m "feat: add SignInRosterModal list view component"
 ### Task 6: SignInRosterModal Component — Create View
 
 **Files:**
+
 - Modify: `src/lib/components/SignInRosterModal.svelte`
 
 Add the create view within the same component (toggled by `view` state).
 
 **Create view state:**
+
 ```typescript
 let title = $state('');
 let dateOption = $state<'specific' | 'blank'>('specific');
@@ -505,12 +512,13 @@ let rosterDate = $state(new Date().toISOString().split('T')[0]);
 let separateByGroup = $state(false);
 let sortBy = $state<'alphabetical' | 'rank'>('alphabetical');
 let selectedRanks = $state<Set<string>>(new Set(ALL_RANKS));
-let selectedGroups = $state<Set<string>>(new Set());  // empty = all groups
+let selectedGroups = $state<Set<string>>(new Set()); // empty = all groups
 ```
 
 **Category quick-toggles logic:**
 
 Reference `ARMY_RANKS` from `src/lib/types.ts` for category definitions:
+
 - "All Officers": `ARMY_RANKS.officer`
 - "All Warrant": `ARMY_RANKS.warrant`
 - "All Enlisted": `ARMY_RANKS.enlisted` + `ARMY_RANKS.nco`
@@ -518,27 +526,28 @@ Reference `ARMY_RANKS` from `src/lib/types.ts` for category definitions:
 
 ```typescript
 // Derived: is a category fully selected?
-const allOfficersSelected = $derived(ARMY_RANKS.officer.every(r => selectedRanks.has(r)));
-const allWarrantSelected = $derived(ARMY_RANKS.warrant.every(r => selectedRanks.has(r)));
-const allEnlistedSelected = $derived([...ARMY_RANKS.enlisted, ...ARMY_RANKS.nco].every(r => selectedRanks.has(r)));
-const allCiviliansSelected = $derived(ARMY_RANKS.civilian.every(r => selectedRanks.has(r)));
+const allOfficersSelected = $derived(ARMY_RANKS.officer.every((r) => selectedRanks.has(r)));
+const allWarrantSelected = $derived(ARMY_RANKS.warrant.every((r) => selectedRanks.has(r)));
+const allEnlistedSelected = $derived([...ARMY_RANKS.enlisted, ...ARMY_RANKS.nco].every((r) => selectedRanks.has(r)));
+const allCiviliansSelected = $derived(ARMY_RANKS.civilian.every((r) => selectedRanks.has(r)));
 
 function toggleCategory(ranks: readonly string[]) {
-	const allSelected = ranks.every(r => selectedRanks.has(r));
+	const allSelected = ranks.every((r) => selectedRanks.has(r));
 	const next = new Set(selectedRanks);
 	if (allSelected) {
-		ranks.forEach(r => next.delete(r));
+		ranks.forEach((r) => next.delete(r));
 	} else {
-		ranks.forEach(r => next.add(r));
+		ranks.forEach((r) => next.add(r));
 	}
 	selectedRanks = next;
 }
 ```
 
 **Personnel filtering (derived):**
+
 ```typescript
 const filteredPersonnel = $derived.by(() => {
-	return personnel.filter(p => {
+	return personnel.filter((p) => {
 		if (!selectedRanks.has(p.rank)) return false;
 		if (selectedGroups.size > 0 && !selectedGroups.has(p.groupName)) return false;
 		return true;
@@ -547,6 +556,7 @@ const filteredPersonnel = $derived.by(() => {
 ```
 
 **Form layout:**
+
 - Title input
 - Date radio + date picker (or "Leave blank")
 - Separate by group toggle
@@ -558,6 +568,7 @@ const filteredPersonnel = $derived.by(() => {
 - Footer: Cancel (back to list) | Generate
 
 **On Generate:**
+
 1. Build personnel snapshot from `filteredPersonnel`
 2. Sort snapshot according to `sortBy` (use `RANK_INDEX` from personnelGrouping.ts for rank sort)
 3. If `separateByGroup`, group them using group names
@@ -578,6 +589,7 @@ git commit -m "feat: add SignInRosterModal create view with filtering"
 ### Task 7: PDF Generation
 
 **Files:**
+
 - Modify: `src/lib/components/SignInRosterModal.svelte` (add `generatePDF` function)
 
 **Pattern:** Follow existing print-to-window approach from calendar page.
@@ -693,6 +705,7 @@ function generatePDF(config: {
 ```
 
 **Key details:**
+
 - Row numbering restarts per page conceptually but is sequential for simplicity
 - Signature column has bottom border only (the signature line)
 - Group headers span full width, no border
@@ -711,6 +724,7 @@ git commit -m "feat: add PDF generation for sign-in rosters"
 ### Task 8: Wire Modal into Training Page
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/training/+page.svelte` (add button + modal)
 
 **Step 1: Add the button next to Reports**
@@ -718,17 +732,14 @@ git commit -m "feat: add PDF generation for sign-in rosters"
 In the `PageToolbar` section (around line 181-188), add a "Sign-In Rosters" button next to the Reports button:
 
 ```svelte
-<button class="btn btn-sm" onclick={() => (showSignInRosters = true)}>
-	Sign-In Rosters
-</button>
-<button class="btn btn-sm" onclick={() => (showReports = true)}>
-	Reports
-</button>
+<button class="btn btn-sm" onclick={() => (showSignInRosters = true)}> Sign-In Rosters </button>
+<button class="btn btn-sm" onclick={() => (showReports = true)}> Reports </button>
 ```
 
 **Step 2: Add state and modal rendering**
 
 At top of script:
+
 ```typescript
 import SignInRosterModal from '$lib/components/SignInRosterModal.svelte';
 
@@ -736,6 +747,7 @@ let showSignInRosters = $state(false);
 ```
 
 At bottom of template (alongside other modals):
+
 ```svelte
 {#if showSignInRosters}
 	<SignInRosterModal
@@ -764,6 +776,7 @@ git commit -m "feat: wire SignInRosterModal into training page toolbar"
 ### Task 9: Integration Testing & Polish
 
 **Files:**
+
 - Modify: `src/lib/components/SignInRosterModal.svelte` (bug fixes, UX polish)
 
 **Step 1: Manual test checklist**
@@ -771,6 +784,7 @@ git commit -m "feat: wire SignInRosterModal into training page toolbar"
 Run the dev server: `npm run dev`
 
 Test the following:
+
 - [ ] "Sign-In Rosters" button appears on training page
 - [ ] Modal opens to empty list view with "No sign-in rosters yet" empty state
 - [ ] "New Roster" button switches to create view
@@ -815,6 +829,7 @@ git commit -m "fix: sign-in roster polish and bug fixes"
 ### Task 10: Changelog Update
 
 **Files:**
+
 - Modify: `src/lib/data/changelog.ts`
 
 **Step 1: Add changelog entry**

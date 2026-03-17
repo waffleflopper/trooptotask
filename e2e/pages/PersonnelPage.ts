@@ -42,7 +42,9 @@ export class PersonnelPage {
 		const saveBtn = this.page.getByRole('button', { name: /Add Personnel|Save Changes/ });
 		await saveBtn.click();
 		// Wait for modal to close
-		await expect(this.page.getByRole('heading', { name: /Add Personnel|Edit Personnel/ })).not.toBeVisible({ timeout: 10000 });
+		await expect(this.page.getByRole('heading', { name: /Add Personnel|Edit Personnel/ })).not.toBeVisible({
+			timeout: 10000
+		});
 	}
 
 	async expectPersonnelVisible(name: string) {
@@ -55,7 +57,11 @@ export class PersonnelPage {
 
 	async clickPerson(name: string) {
 		// Person names appear as buttons: "SGT Doe, John"
-		await this.page.getByRole('main').getByRole('button', { name: new RegExp(name) }).first().click();
+		await this.page
+			.getByRole('main')
+			.getByRole('button', { name: new RegExp(name) })
+			.first()
+			.click();
 	}
 
 	async search(query: string) {

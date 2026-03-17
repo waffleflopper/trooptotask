@@ -108,9 +108,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	await notifyUser(orgId, request_record.requested_by, {
 		type: action === 'approve' ? 'deletion_approved' : 'deletion_denied',
 		title: action === 'approve' ? `${actionWordCap} Approved` : `${actionWordCap} Denied`,
-		message: action === 'approve'
-			? `Your request to ${actionWord} "${request_record.resource_description}" has been approved.`
-			: `Your request to ${actionWord} "${request_record.resource_description}" has been denied.${denialReason ? ` Reason: ${denialReason}` : ''}`,
+		message:
+			action === 'approve'
+				? `Your request to ${actionWord} "${request_record.resource_description}" has been approved.`
+				: `Your request to ${actionWord} "${request_record.resource_description}" has been denied.${denialReason ? ` Reason: ${denialReason}` : ''}`,
 		link: action === 'deny' ? request_record.resource_url : null
 	});
 

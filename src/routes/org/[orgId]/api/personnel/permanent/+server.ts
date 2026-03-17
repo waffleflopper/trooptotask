@@ -43,11 +43,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	if (!person) throw error(404, 'Personnel not found');
 	if (!person.archived_at) throw error(400, 'Can only permanently delete archived personnel');
 
-	const { error: dbError } = await supabase
-		.from('personnel')
-		.delete()
-		.eq('id', id)
-		.eq('organization_id', orgId);
+	const { error: dbError } = await supabase.from('personnel').delete().eq('id', id).eq('organization_id', orgId);
 
 	if (dbError) throw error(500, dbError.message);
 

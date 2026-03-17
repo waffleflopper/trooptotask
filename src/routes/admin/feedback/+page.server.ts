@@ -41,10 +41,7 @@ export const actions: Actions = {
 		if (status) updateData.status = status;
 		if (adminNotes !== null) updateData.admin_notes = adminNotes || '';
 
-		const { error: updateErr } = await adminClient
-			.from('beta_feedback')
-			.update(updateData)
-			.eq('id', feedbackId);
+		const { error: updateErr } = await adminClient.from('beta_feedback').update(updateData).eq('id', feedbackId);
 
 		if (updateErr) {
 			console.error('Failed to update feedback:', updateErr);

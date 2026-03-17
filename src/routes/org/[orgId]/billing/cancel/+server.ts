@@ -56,9 +56,6 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		return json({ success: true });
 	} catch (err) {
 		console.error('Stripe cancel error:', err);
-		return json(
-			{ error: 'Failed to cancel subscription. Please try again.' },
-			{ status: 500 }
-		);
+		return json({ error: 'Failed to cancel subscription. Please try again.' }, { status: 500 });
 	}
 };

@@ -48,7 +48,9 @@
 	// The wasAway guard prevents a spurious re-fetch on initial page load.
 	onMount(() => {
 		let wasAway = false;
-		const handleBlur = () => { wasAway = true; };
+		const handleBlur = () => {
+			wasAway = true;
+		};
 		const handleFocus = () => {
 			if (wasAway) {
 				wasAway = false;
@@ -68,7 +70,9 @@
 	<div class="suspended-org-container">
 		<div class="suspended-org-card">
 			<h1>Organization Suspended</h1>
-			<p>This organization ({data.orgName}) has been suspended. If you believe this is an error, please contact support.</p>
+			<p>
+				This organization ({data.orgName}) has been suspended. If you believe this is an error, please contact support.
+			</p>
 			<p class="contact">support@trooptotask.com</p>
 			<a href="/dashboard?show=all" class="btn btn-secondary">Back to Dashboard</a>
 		</div>
@@ -103,14 +107,19 @@
 		{@render children()}
 	</main>
 
-	<BottomTabBar
-		orgId={data.orgId}
-		permissions={data.permissions!}
-	/>
+	<BottomTabBar orgId={data.orgId} permissions={data.permissions!} />
 
 	{#if !demoModeStore.hasBanner}
 		<button class="feedback-pill" onclick={() => (showFeedback = true)} aria-label="Send feedback">
-			<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="14"
+				height="14"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
 				<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
 			</svg>
 			Feedback

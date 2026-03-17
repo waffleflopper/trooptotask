@@ -24,7 +24,7 @@ In `OrganizationMemberManager.svelte`, the group picker for team leaders only sh
 
 ### Fix
 
-Track selected preset value in component state. When "Team Leader" is selected from the dropdown, show the group picker based on the *selected* value, not the stored member data.
+Track selected preset value in component state. When "Team Leader" is selected from the dropdown, show the group picker based on the _selected_ value, not the stored member data.
 
 ### Preset Cleanup
 
@@ -37,6 +37,7 @@ Remove `calendar-only`, `personnel-only`, `training-only` from `PERMISSION_PRESE
 ### Database Changes
 
 Add four columns to `organization_memberships` and `organization_invitations`:
+
 - `can_view_onboarding BOOLEAN DEFAULT true`
 - `can_edit_onboarding BOOLEAN DEFAULT true`
 - `can_view_leaders_book BOOLEAN DEFAULT true`
@@ -47,6 +48,7 @@ Defaults are `true` so existing members retain full access.
 ### RLS Functions
 
 Add four new functions matching existing pattern:
+
 - `can_view_onboarding(p_organization_id uuid)`
 - `can_edit_onboarding(p_organization_id uuid)`
 - `can_view_leaders_book(p_organization_id uuid)`
@@ -58,12 +60,12 @@ Update `OrganizationMember`, `OrganizationMemberPermissions`, `PermissionPreset`
 
 ### Preset Values
 
-| Preset | Onboarding | Leader's Book | Other |
-|--------|-----------|---------------|-------|
-| admin | view+edit | view+edit | all true |
-| full-editor | view+edit | view+edit | all true except canManageMembers=false |
-| team-leader | view+edit | view+edit | same as full-editor + scopedGroupId |
-| viewer | view only | view only | all view=true, edit=false |
+| Preset      | Onboarding | Leader's Book | Other                                  |
+| ----------- | ---------- | ------------- | -------------------------------------- |
+| admin       | view+edit  | view+edit     | all true                               |
+| full-editor | view+edit  | view+edit     | all true except canManageMembers=false |
+| team-leader | view+edit  | view+edit     | same as full-editor + scopedGroupId    |
+| viewer      | view only  | view only     | all view=true, edit=false              |
 
 ### Enforcement
 
@@ -91,6 +93,7 @@ A member with ALL 11 permission toggles set to true (canViewCalendar, canEditCal
 These require full-editor, admin, or owner:
 
 **Type/Config Managers:**
+
 - StatusTypeManager
 - AssignmentTypeManager
 - TrainingTypeManager
@@ -99,11 +102,13 @@ These require full-editor, admin, or owner:
 - SpecialDayManager
 
 **Calendar Power Features:**
+
 - BulkStatusModal (mass status apply)
 - DutyRosterGenerator
 - MonthlyAssignmentPlanner
 
 **Other:**
+
 - Data export
 
 ### Implementation

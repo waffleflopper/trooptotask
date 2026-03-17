@@ -40,11 +40,8 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}
 
 	// Fetch groups for name matching
-	const { data: groups } = await supabase
-		.from('groups')
-		.select('id, name')
-		.eq('organization_id', orgId);
-	const groupMap = new Map((groups ?? []).map(g => [g.name.toLowerCase(), g.id]));
+	const { data: groups } = await supabase.from('groups').select('id, name').eq('organization_id', orgId);
+	const groupMap = new Map((groups ?? []).map((g) => [g.name.toLowerCase(), g.id]));
 
 	// Get scoped group for non-privileged users
 	let scopedGroupId: string | null = null;
@@ -55,7 +52,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	// Validate all records
 	const validRows: Array<{ index: number; row: Record<string, unknown> }> = [];
 	const errors: Array<{ index: number; message: string }> = [];
-	const allRanksLower = ALL_RANKS.map(r => r.toLowerCase());
+	const allRanksLower = ALL_RANKS.map((r) => r.toLowerCase());
 
 	for (let i = 0; i < records.length; i++) {
 		const rec = records[i];
@@ -138,7 +135,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	// Bulk insert
 	const { data: inserted, error: dbError } = await supabase
 		.from('personnel')
-		.insert(validRows.map(v => v.row))
+		.insert(validRows.map((v) => v.row))
 		.select('*, groups(name)');
 
 	if (dbError) throw error(500, dbError.message);
@@ -156,7 +153,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		{ userId }
 	);
 
-	const result = (inserted ?? []).map(d => ({
+	const result = (inserted ?? []).map((d) => ({
 		id: d.id,
 		rank: d.rank,
 		lastName: d.last_name,

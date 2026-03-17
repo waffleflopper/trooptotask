@@ -5,7 +5,7 @@ import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { notifyAdmins } from '$lib/server/notifications';
 
-function toClient(row: any) {
+function toClient(row: Record<string, unknown>) {
 	return {
 		id: row.id,
 		ratedPersonId: row.rated_person_id,
@@ -75,11 +75,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		workflow_status: body.workflowStatus || null
 	};
 
-	const { data, error: dbError } = await supabase
-		.from('rating_scheme_entries')
-		.insert(row)
-		.select()
-		.single();
+	const { data, error: dbError } = await supabase.from('rating_scheme_entries').insert(row).select().single();
 
 	if (dbError) throw error(500, dbError.message);
 
@@ -132,8 +128,10 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	if (fields.raterName !== undefined) updates.rater_name = fields.raterName || null;
 	if (fields.seniorRaterPersonId !== undefined) updates.senior_rater_person_id = fields.seniorRaterPersonId || null;
 	if (fields.seniorRaterName !== undefined) updates.senior_rater_name = fields.seniorRaterName || null;
-	if (fields.intermediateRaterPersonId !== undefined) updates.intermediate_rater_person_id = fields.intermediateRaterPersonId || null;
-	if (fields.intermediateRaterName !== undefined) updates.intermediate_rater_name = fields.intermediateRaterName || null;
+	if (fields.intermediateRaterPersonId !== undefined)
+		updates.intermediate_rater_person_id = fields.intermediateRaterPersonId || null;
+	if (fields.intermediateRaterName !== undefined)
+		updates.intermediate_rater_name = fields.intermediateRaterName || null;
 	if (fields.reviewerPersonId !== undefined) updates.reviewer_person_id = fields.reviewerPersonId || null;
 	if (fields.reviewerName !== undefined) updates.reviewer_name = fields.reviewerName || null;
 	if (fields.ratingPeriodStart !== undefined) updates.rating_period_start = fields.ratingPeriodStart;
@@ -199,18 +197,26 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	if (!isSandbox && userId) {
 		const { data: mem } = await supabase
 			.from('organization_memberships')
-			.select('role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book')
+			.select(
+				'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book'
+			)
 			.eq('organization_id', orgId)
 			.eq('user_id', userId)
 			.single();
 
 		if (mem && mem.role === 'member') {
-			const isFullEd = !mem.scoped_group_id &&
-				mem.can_view_calendar && mem.can_edit_calendar &&
-				mem.can_view_personnel && mem.can_edit_personnel &&
-				mem.can_view_training && mem.can_edit_training &&
-				mem.can_view_onboarding && mem.can_edit_onboarding &&
-				mem.can_view_leaders_book && mem.can_edit_leaders_book;
+			const isFullEd =
+				!mem.scoped_group_id &&
+				mem.can_view_calendar &&
+				mem.can_edit_calendar &&
+				mem.can_view_personnel &&
+				mem.can_edit_personnel &&
+				mem.can_view_training &&
+				mem.can_edit_training &&
+				mem.can_view_onboarding &&
+				mem.can_edit_onboarding &&
+				mem.can_view_leaders_book &&
+				mem.can_edit_leaders_book;
 
 			if (!isFullEd) {
 				return json({ requiresApproval: true }, { status: 202 });
@@ -225,7 +231,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 		.eq('id', id)
 		.eq('organization_id', orgId)
 		.single();
-	const deletedName = (deletedEntry as any)?.eval_type;
+	const deletedName = (deletedEntry as Record<string, unknown> | null)?.eval_type;
 
 	const { error: dbError } = await supabase
 		.from('rating_scheme_entries')

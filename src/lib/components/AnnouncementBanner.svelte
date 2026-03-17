@@ -9,7 +9,8 @@
 		type: 'info' | 'warning' | 'maintenance';
 	}
 
-	let { announcements, onCountChange }: { announcements: Announcement[]; onCountChange?: (count: number) => void } = $props();
+	let { announcements, onCountChange }: { announcements: Announcement[]; onCountChange?: (count: number) => void } =
+		$props();
 
 	let visibleAnnouncements = $state<Announcement[]>([]);
 
@@ -22,10 +23,7 @@
 	});
 
 	/** Stack below header + any demo/sub banners above us */
-	const bannerOffset = $derived(
-		(demoModeStore.hasBanner ? 40 : 0) +
-		(subscriptionStore.hasBanner ? 40 : 0)
-	);
+	const bannerOffset = $derived((demoModeStore.hasBanner ? 40 : 0) + (subscriptionStore.hasBanner ? 40 : 0));
 
 	async function dismiss(id: string) {
 		visibleAnnouncements = visibleAnnouncements.filter((a) => a.id !== id);
@@ -50,11 +48,9 @@
 					<span class="banner-separator">—</span>
 					{announcement.message}
 				</span>
-				<button
-					class="dismiss-btn"
-					onclick={() => dismiss(announcement.id)}
-					aria-label="Dismiss announcement"
-				>Dismiss</button>
+				<button class="dismiss-btn" onclick={() => dismiss(announcement.id)} aria-label="Dismiss announcement"
+					>Dismiss</button
+				>
 			</div>
 		</div>
 	{/each}

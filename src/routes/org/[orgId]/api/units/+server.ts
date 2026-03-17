@@ -76,11 +76,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 
 	if (!id) throw error(400, 'Missing id');
 
-	const { error: dbError } = await supabase
-		.from('units')
-		.delete()
-		.eq('id', id)
-		.eq('organization_id', orgId);
+	const { error: dbError } = await supabase.from('units').delete().eq('id', id).eq('organization_id', orgId);
 
 	if (dbError) throw error(500, dbError.message);
 

@@ -1,7 +1,11 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isPrivilegedRole } from '$lib/server/permissions';
-import { transformAvailabilityEntries, transformDailyAssignments, transformAssignmentTypes } from '$lib/server/transforms';
+import {
+	transformAvailabilityEntries,
+	transformDailyAssignments,
+	transformAssignmentTypes
+} from '$lib/server/transforms';
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
 	const supabase = locals.supabase;

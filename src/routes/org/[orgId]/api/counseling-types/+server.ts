@@ -27,7 +27,7 @@ const handlers = createCrudHandlers<CounselingType>({
 		await notifyAdmins(orgId, userId, {
 			type: 'config_type_deleted',
 			title: 'Counseling Type Deleted',
-			message: `"${userEmail}" deleted the counseling type "${(deletedDetails as any)?.name ?? 'unknown'}".`
+			message: `"${userEmail}" deleted the counseling type "${deletedDetails?.name ?? 'unknown'}".`
 		});
 	}
 });

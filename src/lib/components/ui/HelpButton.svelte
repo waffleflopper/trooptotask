@@ -4,14 +4,7 @@
 	let { topic }: { topic: string } = $props();
 </script>
 
-<button
-	class="help-btn"
-	onclick={() => helpStore.open(topic)}
-	aria-label="Help"
-	title="Help"
->
-	?
-</button>
+<button class="help-btn" onclick={() => helpStore.open(topic)} aria-label="Help" title="Help"> ? </button>
 
 <style>
 	.help-btn {

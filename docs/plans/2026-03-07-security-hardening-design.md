@@ -9,6 +9,7 @@
 ## Audit Summary
 
 **Current strengths:**
+
 - RLS enabled on all 28 tables with org-isolation policies
 - Zero raw SQL — all queries parameterized via Supabase client
 - No eval(), no innerHTML, no dangerous {@html} with user data
@@ -17,6 +18,7 @@
 - Dual-key protection on mutations (id + organization_id)
 
 **Gaps identified:**
+
 - No security response headers (CSP, X-Frame-Options, etc.)
 - No API-wide rate limiting
 - Some form actions rely solely on RLS without server-side permission checks
@@ -34,15 +36,15 @@
 
 Add these headers to every response:
 
-| Header | Value | Purpose |
-|--------|-------|---------|
-| Content-Security-Policy | `default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; frame-src https://js.stripe.com; connect-src 'self' https://*.supabase.co; img-src 'self' data: blob:; font-src 'self'` | Prevents XSS, injection |
-| X-Frame-Options | `DENY` | Prevents clickjacking |
-| X-Content-Type-Options | `nosniff` | Prevents MIME sniffing |
-| Referrer-Policy | `strict-origin-when-cross-origin` | Limits referrer leakage |
-| Permissions-Policy | `camera=(), microphone=(), geolocation=()` | Disables unused browser APIs |
-| Strict-Transport-Security | `max-age=31536000; includeSubDomains` | Forces HTTPS |
-| X-DNS-Prefetch-Control | `off` | Prevents DNS prefetch leakage |
+| Header                    | Value                                                                                                                                                                                                                                   | Purpose                       |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Content-Security-Policy   | `default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; frame-src https://js.stripe.com; connect-src 'self' https://*.supabase.co; img-src 'self' data: blob:; font-src 'self'` | Prevents XSS, injection       |
+| X-Frame-Options           | `DENY`                                                                                                                                                                                                                                  | Prevents clickjacking         |
+| X-Content-Type-Options    | `nosniff`                                                                                                                                                                                                                               | Prevents MIME sniffing        |
+| Referrer-Policy           | `strict-origin-when-cross-origin`                                                                                                                                                                                                       | Limits referrer leakage       |
+| Permissions-Policy        | `camera=(), microphone=(), geolocation=()`                                                                                                                                                                                              | Disables unused browser APIs  |
+| Strict-Transport-Security | `max-age=31536000; includeSubDomains`                                                                                                                                                                                                   | Forces HTTPS                  |
+| X-DNS-Prefetch-Control    | `off`                                                                                                                                                                                                                                   | Prevents DNS prefetch leakage |
 
 **Implementation:** Add a `handleSecurityHeaders` function in hooks.server.ts that sets these on every response via `resolve(event, { transformPageChunk })` or by modifying the response directly.
 
@@ -54,8 +56,8 @@ In-memory sliding-window rate limiter keyed by IP + route pattern.
 
 ```typescript
 interface RateLimitConfig {
-  windowMs: number;    // time window
-  maxRequests: number; // max requests per window
+	windowMs: number; // time window
+	maxRequests: number; // max requests per window
 }
 ```
 
@@ -79,12 +81,12 @@ interface RateLimitConfig {
 
 These form actions currently rely only on RLS. Add explicit server-side checks:
 
-| Action | Current Check | Add |
-|--------|--------------|-----|
-| `updateName` | RLS only | `requireEditPermission(supabase, orgId, userId, 'canManageMembers')` |
-| `invite` | RLS only | Verify user is owner or has `canManageMembers` |
-| `revokeInvite` | RLS only | Verify user is owner or has `canManageMembers` |
-| `transferOwnership` | RPC handles it | Add explicit owner check before RPC call |
+| Action              | Current Check  | Add                                                                  |
+| ------------------- | -------------- | -------------------------------------------------------------------- |
+| `updateName`        | RLS only       | `requireEditPermission(supabase, orgId, userId, 'canManageMembers')` |
+| `invite`            | RLS only       | Verify user is owner or has `canManageMembers`                       |
+| `revokeInvite`      | RLS only       | Verify user is owner or has `canManageMembers`                       |
+| `transferOwnership` | RPC handles it | Add explicit owner check before RPC call                             |
 
 **Principle:** Defense-in-depth. RLS is the last line, not the only line.
 
@@ -96,19 +98,20 @@ Centralized validation utilities:
 
 ```typescript
 // String sanitization — trim + collapse whitespace + length cap
-export function sanitizeString(input: string, maxLength: number = 255): string
+export function sanitizeString(input: string, maxLength: number = 255): string;
 
 // Email validation — stricter than current regex
-export function validateEmail(email: string): boolean
+export function validateEmail(email: string): boolean;
 
 // UUID validation — prevent injection via route params
-export function validateUUID(id: string): boolean
+export function validateUUID(id: string): boolean;
 
 // Enum validation — restrict to allowed values
-export function validateEnum<T>(value: string, allowed: T[]): T | null
+export function validateEnum<T>(value: string, allowed: T[]): T | null;
 ```
 
 **Apply to:**
+
 - All form action inputs (settings, auth, feedback)
 - All API route body parsing (personnel, training, counseling)
 - Route params (orgId, personnelId) — validate as UUID before use
@@ -175,20 +178,20 @@ USING (is_org_owner(org_id) OR is_platform_admin());
 
 **Events to log:**
 
-| Event | Severity | Trigger |
-|-------|----------|---------|
-| Login success/failure | info/warning | Auth callback |
-| Personnel record viewed | info | GET personnel-extended-info |
-| Personnel record created/updated/deleted | info | Personnel API mutations |
-| Counseling record created/updated/deleted | info | Counseling API mutations |
-| Data export initiated | info | Export endpoints |
-| Member invited/removed | info | Settings actions |
-| Permissions changed | warning | Settings updatePermissions |
-| Ownership transferred | critical | Settings transferOwnership |
-| Organization deleted | critical | Settings deleteOrganization |
-| Failed authorization attempt | warning | Permission check failures |
-| Rate limit exceeded | warning | Rate limiter |
-| Admin action (gifting, etc.) | critical | Admin routes |
+| Event                                     | Severity     | Trigger                     |
+| ----------------------------------------- | ------------ | --------------------------- |
+| Login success/failure                     | info/warning | Auth callback               |
+| Personnel record viewed                   | info         | GET personnel-extended-info |
+| Personnel record created/updated/deleted  | info         | Personnel API mutations     |
+| Counseling record created/updated/deleted | info         | Counseling API mutations    |
+| Data export initiated                     | info         | Export endpoints            |
+| Member invited/removed                    | info         | Settings actions            |
+| Permissions changed                       | warning      | Settings updatePermissions  |
+| Ownership transferred                     | critical     | Settings transferOwnership  |
+| Organization deleted                      | critical     | Settings deleteOrganization |
+| Failed authorization attempt              | warning      | Permission check failures   |
+| Rate limit exceeded                       | warning      | Rate limiter                |
+| Admin action (gifting, etc.)              | critical     | Admin routes                |
 
 **Implementation:** `auditLog(event, locals)` helper called from API routes and form actions. Uses service role client to INSERT (bypasses RLS for append-only writes).
 
@@ -196,34 +199,35 @@ USING (is_org_owner(org_id) OR is_platform_admin());
 
 **Session management enhancements:**
 
-| Control | Implementation |
-|---------|---------------|
-| Session timeout | Add `maxAge` to Supabase auth config — 8-hour idle timeout, 24-hour absolute timeout |
+| Control                             | Implementation                                                                             |
+| ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| Session timeout                     | Add `maxAge` to Supabase auth config — 8-hour idle timeout, 24-hour absolute timeout       |
 | Re-authentication for sensitive ops | Require password confirmation before: ownership transfer, org deletion, export of all data |
-| Login attempt lockout | After 5 failed attempts in 15 min, lock account for 30 min (tracked in rate limiter) |
+| Login attempt lockout               | After 5 failed attempts in 15 min, lock account for 30 min (tracked in rate limiter)       |
 
 **File:** Update Supabase auth config and add re-auth modal component.
 
 ### 2.3 Identification & Authentication (3.5)
 
-| Control | Current | Target |
-|---------|---------|--------|
-| Unique user IDs | Supabase auth.uid() | Already compliant |
-| Password complexity | 6-char minimum | 12-char minimum, require mixed case + number |
-| MFA | Not available | Add TOTP MFA via Supabase Auth (optional for users, can be org-enforced later) |
+| Control             | Current             | Target                                                                         |
+| ------------------- | ------------------- | ------------------------------------------------------------------------------ |
+| Unique user IDs     | Supabase auth.uid() | Already compliant                                                              |
+| Password complexity | 6-char minimum      | 12-char minimum, require mixed case + number                                   |
+| MFA                 | Not available       | Add TOTP MFA via Supabase Auth (optional for users, can be org-enforced later) |
 
 **Implementation:**
+
 - Update registration validation to enforce new password policy
 - Add MFA enrollment flow using Supabase's built-in TOTP support
 - Add MFA verification to login flow
 
 ### 2.4 System & Communications Protection (3.13)
 
-| Control | Status | Notes |
-|---------|--------|-------|
-| Encryption in transit | TLS via Vercel + Supabase | Already compliant |
-| Encryption at rest | Supabase encrypts at rest by default | Already compliant |
-| Boundary protection | Security headers (Phase 1) | Phase 1 covers this |
+| Control               | Status                               | Notes               |
+| --------------------- | ------------------------------------ | ------------------- |
+| Encryption in transit | TLS via Vercel + Supabase            | Already compliant   |
+| Encryption at rest    | Supabase encrypts at rest by default | Already compliant   |
+| Boundary protection   | Security headers (Phase 1)           | Phase 1 covers this |
 
 No additional work needed — Supabase + Vercel provide these by default.
 
@@ -233,11 +237,11 @@ No additional work needed — Supabase + Vercel provide these by default.
 
 Add a `sanitizeResponse` layer to personnel-extended-info that strips fields based on the requester's permission level:
 
-| Permission | Fields Returned |
-|------------|----------------|
-| `can_edit_personnel` | All fields |
+| Permission                       | Fields Returned                                                                                         |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `can_edit_personnel`             | All fields                                                                                              |
 | `can_view_personnel` (read-only) | Names, training status, duty status — no emergency contacts, no personal addresses, no counseling notes |
-| No permission | 403 |
+| No permission                    | 403                                                                                                     |
 
 **File:** Update `src/routes/org/[orgId]/api/personnel-extended-info/+server.ts`
 
@@ -249,13 +253,13 @@ Add a `sanitizeResponse` layer to personnel-extended-info that strips fields bas
 
 Define retention periods (configurable per-org later):
 
-| Data Type | Retention | Action on Expiry |
-|-----------|-----------|-----------------|
-| Audit logs | 1 year | Archive to cold storage, then delete |
-| Counseling files (PDFs) | Until personnel record deleted | Cascade delete |
-| Demo sandbox data | 1 hour | Auto-cleanup (already implemented) |
-| Deleted org data | 30 days soft-delete, then hard purge | Scheduled cleanup |
-| Stripe webhook events | 90 days | Purge old events |
+| Data Type               | Retention                            | Action on Expiry                     |
+| ----------------------- | ------------------------------------ | ------------------------------------ |
+| Audit logs              | 1 year                               | Archive to cold storage, then delete |
+| Counseling files (PDFs) | Until personnel record deleted       | Cascade delete                       |
+| Demo sandbox data       | 1 hour                               | Auto-cleanup (already implemented)   |
+| Deleted org data        | 30 days soft-delete, then hard purge | Scheduled cleanup                    |
+| Stripe webhook events   | 90 days                              | Purge old events                     |
 
 **Implementation:** Supabase scheduled function or Vercel cron job for periodic cleanup.
 
@@ -264,6 +268,7 @@ Define retention periods (configurable per-org later):
 **New file:** `docs/security/incident-response.md`
 
 Document:
+
 - How to identify a breach (audit log alerts, unusual export patterns)
 - Contact chain (who to notify)
 - Steps to contain (revoke sessions, disable org, rotate keys)
@@ -275,6 +280,7 @@ Document:
 **New file:** `docs/security/security-overview.md`
 
 Public-facing security documentation covering:
+
 - Data handling practices
 - Encryption standards (in-transit and at-rest)
 - Access control model
@@ -291,6 +297,7 @@ Public-facing security documentation covering:
 Add **"08 // Security & Compliance"** section to the features page following the existing alternating layout pattern:
 
 **Content:**
+
 - Heading: "Built for military-grade _data protection._"
 - Description: Brief paragraph on NIST 800-171 alignment and why it matters for unit leaders
 - Bullet points:

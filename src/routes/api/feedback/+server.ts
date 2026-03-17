@@ -67,7 +67,7 @@ async function createGitHubIssue(params: {
 		params.message,
 		'',
 		'---',
-		`**Category:** ${params.category}`,
+		`**Category:** ${params.category}`
 	];
 
 	if (params.pageSection) bodyParts.push(`**Section:** ${params.pageSection}`);

@@ -20,9 +20,7 @@
 	let filterYear = $state(new Date().getFullYear());
 
 	const filteredDays = $derived(
-		specialDays
-			.filter((d) => d.date.startsWith(`${filterYear}-`))
-			.sort((a, b) => a.date.localeCompare(b.date))
+		specialDays.filter((d) => d.date.startsWith(`${filterYear}-`)).sort((a, b) => a.date.localeCompare(b.date))
 	);
 
 	const yearOptions = $derived.by(() => {
@@ -77,20 +75,12 @@
 <Modal title="Manage Holidays & Closures" {onClose} width="550px" titleId="special-day-title">
 	<div class="add-form">
 		<input type="date" class="input" bind:value={newDate} style="width: 150px;" />
-		<input
-			type="text"
-			class="input"
-			bind:value={newName}
-			placeholder="Name (e.g., Training Day)"
-			style="flex: 1;"
-		/>
+		<input type="text" class="input" bind:value={newName} placeholder="Name (e.g., Training Day)" style="flex: 1;" />
 		<select class="select" bind:value={newType} style="width: 140px;">
 			<option value="org-closure">Closure</option>
 			<option value="federal-holiday">Federal Holiday</option>
 		</select>
-		<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!newName.trim()}>
-			Add
-		</button>
+		<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!newName.trim()}> Add </button>
 	</div>
 
 	<div class="filter-bar">
@@ -113,13 +103,7 @@
 						{day.type === 'federal-holiday' ? 'Holiday' : 'Closure'}
 					</span>
 				</div>
-				<button
-					class="btn btn-danger btn-sm"
-					onclick={() => handleRemove(day)}
-					title="Remove"
-				>
-					&times;
-				</button>
+				<button class="btn btn-danger btn-sm" onclick={() => handleRemove(day)} title="Remove"> &times; </button>
 			</div>
 		{:else}
 			<div class="empty-state">No holidays or closures for {filterYear}</div>
@@ -127,9 +111,7 @@
 	</div>
 
 	{#snippet footer()}
-		<button class="btn btn-secondary" onclick={handleResetHolidays}>
-			Reset Federal Holidays
-		</button>
+		<button class="btn btn-secondary" onclick={handleResetHolidays}> Reset Federal Holidays </button>
 		<button class="btn btn-primary" onclick={onClose}>Done</button>
 	{/snippet}
 </Modal>
@@ -137,7 +119,7 @@
 {#if confirmRemove}
 	<ConfirmDialog
 		title="Remove Special Day"
-		message='Remove "{confirmRemove.name}"?'
+		message={`Remove "${confirmRemove.name}"?`}
 		confirmLabel="Remove"
 		variant="danger"
 		onConfirm={doRemove}

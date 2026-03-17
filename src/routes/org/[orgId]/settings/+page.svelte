@@ -132,14 +132,7 @@
 
 					<div class="form-group">
 						<label class="label" for="name">Organization Name</label>
-						<input
-							id="name"
-							name="name"
-							type="text"
-							class="input"
-							value={data.orgName ?? ''}
-							required
-						/>
+						<input id="name" name="name" type="text" class="input" value={data.orgName ?? ''} required />
 					</div>
 
 					<button type="submit" class="btn btn-primary" disabled={loading}>
@@ -172,9 +165,7 @@
 		{#if (data.isOwner || data.isAdmin) && isBillingEnabled}
 			<div class="settings-card">
 				<h2>Billing & Subscription</h2>
-				<p class="billing-description">
-					Manage your subscription plan, view usage, and update payment information.
-				</p>
+				<p class="billing-description">Manage your subscription plan, view usage, and update payment information.</p>
 				<a href="/org/{data.orgId}/billing" class="btn btn-primary">Manage Billing</a>
 			</div>
 		{/if}
@@ -183,8 +174,8 @@
 			<div class="settings-card">
 				<h2>Data Export</h2>
 				<p class="export-description">
-					Download all organization data. JSON for backups and integrations, or Excel for
-					a human-readable workbook with named sheets.
+					Download all organization data. JSON for backups and integrations, or Excel for a human-readable workbook with
+					named sheets.
 				</p>
 
 				{#if data.exportInfo.isLimited}
@@ -192,9 +183,7 @@
 						Exports this month: {data.exportInfo.exportsUsed} / {data.exportInfo.exportsLimit}
 					</p>
 					{#if data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit}
-						<p class="export-limit-warning">
-							Export limit reached. Upgrade your plan for unlimited exports.
-						</p>
+						<p class="export-limit-warning">Export limit reached. Upgrade your plan for unlimited exports.</p>
 					{/if}
 				{/if}
 
@@ -209,7 +198,9 @@
 					<button
 						class="btn btn-primary"
 						onclick={handleExport}
-						disabled={exporting || exportingExcel || (data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit)}
+						disabled={exporting ||
+							exportingExcel ||
+							(data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit)}
 					>
 						{#if exporting}<Spinner />{/if}
 						{exporting ? 'Generating...' : 'Export as JSON'}
@@ -217,7 +208,9 @@
 					<button
 						class="btn btn-primary"
 						onclick={handleExportExcel}
-						disabled={exporting || exportingExcel || (data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit)}
+						disabled={exporting ||
+							exportingExcel ||
+							(data.exportInfo.isLimited && data.exportInfo.exportsUsed >= data.exportInfo.exportsLimit)}
 					>
 						{#if exportingExcel}<Spinner />{/if}
 						{exportingExcel ? 'Generating...' : 'Export as Excel'}
@@ -230,7 +223,8 @@
 			<div class="settings-card danger-zone">
 				<h2>Danger Zone</h2>
 				<p class="danger-warning">
-					Deleting an organization is permanent and cannot be undone. All personnel, calendar data, training records, and settings will be permanently deleted.
+					Deleting an organization is permanent and cannot be undone. All personnel, calendar data, training records,
+					and settings will be permanently deleted.
 				</p>
 				{#if form?.deleteError}
 					<div class="error-message">{form.deleteError}</div>
@@ -244,7 +238,12 @@
 </div>
 
 {#if showDeleteConfirm}
-	<Modal title="Delete Organization" onClose={() => (showDeleteConfirm = false)} width="450px" titleId="delete-org-title">
+	<Modal
+		title="Delete Organization"
+		onClose={() => (showDeleteConfirm = false)}
+		width="450px"
+		titleId="delete-org-title"
+	>
 		<p>This will permanently delete <strong>{data.orgName}</strong> and all associated data.</p>
 		<p class="danger-warning">This action cannot be undone.</p>
 
@@ -259,7 +258,9 @@
 					await update();
 				};
 			}}
-			onsubmit={(e) => { if (deleteConfirmText !== data.orgName) e.preventDefault(); }}
+			onsubmit={(e) => {
+				if (deleteConfirmText !== data.orgName) e.preventDefault();
+			}}
 		>
 			<div class="form-group">
 				<label class="label" for="confirmDelete">
@@ -277,9 +278,7 @@
 		</form>
 
 		{#snippet footer()}
-			<button type="button" class="btn btn-secondary" onclick={() => (showDeleteConfirm = false)}>
-				Cancel
-			</button>
+			<button type="button" class="btn btn-secondary" onclick={() => (showDeleteConfirm = false)}> Cancel </button>
 			<button
 				type="submit"
 				form="delete-org-form"

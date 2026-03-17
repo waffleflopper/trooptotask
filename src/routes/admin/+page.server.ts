@@ -17,10 +17,7 @@ export const load: PageServerLoad = async () => {
 		.is('demo_type', null);
 
 	// Subscription tier breakdown
-	const { data: orgTiers } = await adminClient
-		.from('organizations')
-		.select('tier, gift_tier')
-		.is('demo_type', null);
+	const { data: orgTiers } = await adminClient.from('organizations').select('tier, gift_tier').is('demo_type', null);
 
 	const tierCounts = { free: 0, team: 0, unit: 0 };
 	for (const org of orgTiers ?? []) {

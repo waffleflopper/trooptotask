@@ -58,9 +58,7 @@
 		return counselingTypesStore.getById(counselingTypeId) ?? null;
 	});
 
-	const hasTemplate = $derived(
-		selectedType && (selectedType.templateContent || selectedType.templateFilePath)
-	);
+	const hasTemplate = $derived(selectedType && (selectedType.templateContent || selectedType.templateFilePath));
 
 	const canSave = $derived(subject.trim() && dateConducted);
 
@@ -77,7 +75,9 @@
 			// Open template content in a new window as plain text
 			const win = window.open('', '_blank');
 			if (win) {
-				win.document.write(`<pre style="white-space:pre-wrap;font-family:sans-serif;padding:2em;">${selectedType.templateContent}</pre>`);
+				win.document.write(
+					`<pre style="white-space:pre-wrap;font-family:sans-serif;padding:2em;">${selectedType.templateContent}</pre>`
+				);
 				win.document.title = `${selectedType.name} Template`;
 			}
 		}
@@ -99,13 +99,15 @@
 				followUpDate: followUpDate || null,
 				status,
 				counselorSigned,
-				counselorSignedAt: counselorSigned && !existingRecord?.counselorSigned
-					? new Date().toISOString()
-					: existingRecord?.counselorSignedAt ?? null,
+				counselorSignedAt:
+					counselorSigned && !existingRecord?.counselorSigned
+						? new Date().toISOString()
+						: (existingRecord?.counselorSignedAt ?? null),
 				soldierSigned,
-				soldierSignedAt: soldierSigned && !existingRecord?.soldierSigned
-					? new Date().toISOString()
-					: existingRecord?.soldierSignedAt ?? null
+				soldierSignedAt:
+					soldierSigned && !existingRecord?.soldierSigned
+						? new Date().toISOString()
+						: (existingRecord?.soldierSignedAt ?? null)
 			};
 
 			if (existingRecord) {
@@ -134,7 +136,10 @@
 		try {
 			const result = await counselingRecordsStore.remove(existingRecord.id);
 			if (result === 'approval_required') {
-				const typeName = (existingRecord.counselingTypeId ? counselingTypesStore.getById(existingRecord.counselingTypeId)?.name : null) ?? 'Counseling';
+				const typeName =
+					(existingRecord.counselingTypeId
+						? counselingTypesStore.getById(existingRecord.counselingTypeId)?.name
+						: null) ?? 'Counseling';
 				await submitDeletionRequest(
 					orgId,
 					'counseling_record',
@@ -161,12 +166,7 @@
 	}
 </script>
 
-<Modal
-	title="{isEdit ? 'Edit' : 'New'} Counseling"
-	{onClose}
-	width="650px"
-	titleId="counseling-record-title"
->
+<Modal title="{isEdit ? 'Edit' : 'New'} Counseling" {onClose} width="650px" titleId="counseling-record-title">
 	<div class="person-info">
 		<span class="person-rank">{person.rank}</span>
 		<span class="person-name">{person.lastName}, {person.firstName}</span>
@@ -182,9 +182,7 @@
 				{/each}
 			</select>
 			{#if hasTemplate}
-				<button class="template-link" type="button" onclick={handleViewTemplate}>
-					View Template
-				</button>
+				<button class="template-link" type="button" onclick={handleViewTemplate}> View Template </button>
 			{/if}
 		</div>
 		<div class="form-group">
@@ -195,13 +193,7 @@
 
 	<div class="form-group">
 		<label class="label">Subject <span class="required">*</span></label>
-		<input
-			type="text"
-			class="input"
-			bind:value={subject}
-			placeholder="Subject of counseling..."
-			required
-		/>
+		<input type="text" class="input" bind:value={subject} placeholder="Subject of counseling..." required />
 	</div>
 
 	<FileUpload
@@ -230,12 +222,7 @@
 
 	<div class="form-group">
 		<label class="label">Notes (optional)</label>
-		<textarea
-			class="input textarea"
-			bind:value={notes}
-			placeholder="Brief notes or comments..."
-			rows="3"
-		></textarea>
+		<textarea class="input textarea" bind:value={notes} placeholder="Brief notes or comments..." rows="3"></textarea>
 	</div>
 
 	<div class="signatures-section">

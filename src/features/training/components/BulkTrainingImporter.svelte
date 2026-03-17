@@ -50,8 +50,7 @@
 	let importError = $state('');
 	let isSubmitting = $state(false);
 
-	const exampleCsv =
-		`Last Name,First Name,Training Type,Date / Status,Notes\nSmith,John,CPR/BLS,2024-01-15,\nJohnson,Jane,ACLS,2024-02-20,\nWilliams,Robert,First Aid,yes,Annual refresh\nDavis,Michael,Safety Brief,exempt,`;
+	const exampleCsv = `Last Name,First Name,Training Type,Date / Status,Notes\nSmith,John,CPR/BLS,2024-01-15,\nJohnson,Jane,ACLS,2024-02-20,\nWilliams,Robert,First Aid,yes,Annual refresh\nDavis,Michael,Safety Brief,exempt,`;
 
 	function validateRow(row: Record<string, string>): RowValidation {
 		const cellErrors: Record<string, string> = {};
@@ -71,8 +70,7 @@
 			const lastLower = lastName.toLowerCase();
 			const firstLower = firstName.toLowerCase();
 			person = personnel.find(
-				(p) =>
-					p.lastName.toLowerCase() === lastLower && p.firstName.toLowerCase() === firstLower
+				(p) => p.lastName.toLowerCase() === lastLower && p.firstName.toLowerCase() === firstLower
 			);
 			if (!person) {
 				cellErrors.lastName = `Person not found: "${lastName}, ${firstName}". Check spelling matches your personnel roster`;
@@ -176,9 +174,7 @@
 						p.lastName.toLowerCase() === (row.lastName ?? '').toLowerCase() &&
 						p.firstName.toLowerCase() === (row.firstName ?? '').toLowerCase()
 				);
-				const trainingType = trainingTypes.find(
-					(t) => t.name.toLowerCase() === (row.trainingType ?? '').toLowerCase()
-				);
+				const trainingType = trainingTypes.find((t) => t.name.toLowerCase() === (row.trainingType ?? '').toLowerCase());
 				if (!person || !trainingType) return null;
 
 				const statusResult = parseTrainingStatus(row.status ?? '');
@@ -244,13 +240,7 @@
 	}
 </script>
 
-<Modal
-	title="Bulk Training Import"
-	{onClose}
-	width="800px"
-	titleId="bulk-training-title"
-	canClose={!isSubmitting}
->
+<Modal title="Bulk Training Import" {onClose} width="800px" titleId="bulk-training-title" canClose={!isSubmitting}>
 	{#if importState === 'input'}
 		<div class="input-section">
 			<!-- Available training types -->
@@ -261,9 +251,7 @@
 						<span
 							class="type-chip"
 							style="background-color: {type.color}"
-							title={type.expirationMonths === null
-								? 'Accepts yes/no'
-								: `Expires in ${type.expirationMonths} months`}
+							title={type.expirationMonths === null ? 'Accepts yes/no' : `Expires in ${type.expirationMonths} months`}
 						>
 							{type.name}{type.expirationMonths === null ? ' *' : ''}
 						</span>
@@ -314,16 +302,14 @@
 					<h4>Paste Data</h4>
 					<button
 						class="btn btn-secondary btn-sm"
-						onclick={() => { importText = exampleCsv; }}
+						onclick={() => {
+							importText = exampleCsv;
+						}}
 					>
 						Use Example
 					</button>
 				</div>
-				<textarea
-					class="input import-textarea"
-					bind:value={importText}
-					placeholder="Paste CSV data here..."
-					rows="6"
+				<textarea class="input import-textarea" bind:value={importText} placeholder="Paste CSV data here..." rows="6"
 				></textarea>
 			</div>
 
@@ -336,15 +322,10 @@
 	{:else if importState === 'preview'}
 		<div class="preview-section">
 			<p class="hint">
-				Review the data below. Double-click any cell to edit. Rows with errors are shown with
-				red highlighting and will not be imported unless fixed.
+				Review the data below. Double-click any cell to edit. Rows with errors are shown with red highlighting and will
+				not be imported unless fixed.
 			</p>
-			<BulkImportTable
-				bind:this={bulkTable}
-				{rawRows}
-				columnDefs={TRAINING_COLUMNS}
-				{validateRow}
-			/>
+			<BulkImportTable bind:this={bulkTable} {rawRows} columnDefs={TRAINING_COLUMNS} {validateRow} />
 			{#if importError}
 				<p class="text-error" style="margin-top: var(--spacing-sm); font-size: var(--font-size-sm);">
 					{importError}
@@ -380,8 +361,8 @@
 			</div>
 			{#if results.errors > 0}
 				<p class="hint" style="margin-top: var(--spacing-md);">
-					Some records could not be imported. They may have been missing required data or referenced
-					personnel outside your assigned group.
+					Some records could not be imported. They may have been missing required data or referenced personnel outside
+					your assigned group.
 				</p>
 			{/if}
 		</div>
@@ -390,20 +371,10 @@
 	{#snippet footer()}
 		{#if importState === 'input'}
 			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			<button
-				class="btn btn-primary"
-				onclick={handleTextParse}
-				disabled={!importText.trim()}
-			>
-				Preview
-			</button>
+			<button class="btn btn-primary" onclick={handleTextParse} disabled={!importText.trim()}> Preview </button>
 		{:else if importState === 'preview'}
 			<button class="btn btn-secondary" onclick={handleBack}>Back</button>
-			<button
-				class="btn btn-primary"
-				onclick={handleImport}
-				disabled={isSubmitting}
-			>
+			<button class="btn btn-primary" onclick={handleImport} disabled={isSubmitting}>
 				{#if isSubmitting}<Spinner />{/if}
 				Import
 			</button>

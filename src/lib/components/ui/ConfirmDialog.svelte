@@ -35,7 +35,7 @@
 	}
 </script>
 
-<Modal title={title} onClose={onCancel} width="420px" titleId="confirm-dialog-title" canClose={!confirming}>
+<Modal {title} onClose={onCancel} width="420px" titleId="confirm-dialog-title" canClose={!confirming}>
 	<p class="confirm-message">{message}</p>
 
 	{#snippet footer()}

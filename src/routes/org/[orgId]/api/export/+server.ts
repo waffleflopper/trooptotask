@@ -86,10 +86,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			locals.supabase.from('counseling_types').select('*').eq('organization_id', orgId),
 			locals.supabase.from('counseling_records').select('*').eq('organization_id', orgId),
 			locals.supabase.from('special_days').select('*').eq('organization_id', orgId),
-			locals.supabase
-				.from('onboarding_template_steps')
-				.select('*')
-				.eq('organization_id', orgId),
+			locals.supabase.from('onboarding_template_steps').select('*').eq('organization_id', orgId),
 			locals.supabase.from('personnel_onboardings').select('*').eq('organization_id', orgId),
 			locals.supabase.from('rating_scheme_entries').select('*').eq('organization_id', orgId),
 			locals.supabase.from('development_goals').select('*').eq('organization_id', orgId),
@@ -101,10 +98,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		const onboardingIds = (onboardingsRes.data ?? []).map((o: { id: string }) => o.id);
 		const onboardingProgressRes =
 			onboardingIds.length > 0
-				? await locals.supabase
-						.from('onboarding_step_progress')
-						.select('*')
-						.in('onboarding_id', onboardingIds)
+				? await locals.supabase.from('onboarding_step_progress').select('*').in('onboarding_id', onboardingIds)
 				: { data: [] };
 
 		const exportData = {
@@ -143,10 +137,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			})
 			.eq('id', exportRecord.id);
 
-		auditLog(
-			{ action: 'export.created', resourceType: 'data_export', orgId },
-			{ userId: locals.user!.id }
-		);
+		auditLog({ action: 'export.created', resourceType: 'data_export', orgId }, { userId: locals.user!.id });
 
 		await notifyAdmins(orgId, userId, {
 			type: 'bulk_data_exported',

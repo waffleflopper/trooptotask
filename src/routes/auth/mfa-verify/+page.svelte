@@ -28,7 +28,7 @@
 		try {
 			const { data: factors } = await supabase.auth.mfa.listFactors();
 			const totpFactors = factors?.totp ?? [];
-			const verifiedFactor = totpFactors.find((f: any) => f.status === 'verified');
+			const verifiedFactor = totpFactors.find((f: Record<string, unknown>) => f.status === 'verified');
 
 			if (!verifiedFactor) {
 				error = 'No MFA factor found. Please contact support.';
@@ -46,8 +46,8 @@
 			}
 
 			goto('/dashboard');
-		} catch (e: any) {
-			error = e.message || 'Verification failed';
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Verification failed';
 		} finally {
 			loading = false;
 		}
@@ -69,9 +69,7 @@
 			</svg>
 		{:else}
 			<svg viewBox="0 0 24 24" fill="currentColor">
-				<path
-					d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-				/>
+				<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
 			</svg>
 		{/if}
 	</button>

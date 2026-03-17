@@ -70,6 +70,7 @@ e2e/
 ## Environment Variables
 
 Tests rely on the same `.env.local` used for local development:
+
 - `PUBLIC_SUPABASE_URL` — `http://127.0.0.1:54321`
 - `PUBLIC_SUPABASE_ANON_KEY` — local Supabase anon key
 - `SUPABASE_SERVICE_ROLE_KEY` — local Supabase service role key (needed for admin API in global setup)
@@ -88,17 +89,18 @@ The app applies rate limiting in `hooks.server.ts` on every request. Rapid test 
 
 Created via Supabase Admin API in `e2e/global-setup.ts`, not in the seed file. Cleaned up in `e2e/global-teardown.ts`.
 
-| User | Email | Role | Purpose |
-|------|-------|------|---------|
-| Owner | `e2e-owner@test.local` | `owner` | Full access, destructive ops |
-| Admin | `e2e-admin@test.local` | `admin` | Admin features, no transfer/delete org |
-| Member | `e2e-member@test.local` | `member` | Limited permissions, scoped access |
+| User   | Email                   | Role     | Purpose                                |
+| ------ | ----------------------- | -------- | -------------------------------------- |
+| Owner  | `e2e-owner@test.local`  | `owner`  | Full access, destructive ops           |
+| Admin  | `e2e-admin@test.local`  | `admin`  | Admin features, no transfer/delete org |
+| Member | `e2e-member@test.local` | `member` | Limited permissions, scoped access     |
 
 Password for all: `E2eTestPass123!`
 
 ### Test Organization
 
 Created in global setup alongside users via direct Supabase DB inserts (service role):
+
 1. Insert org into `organizations` table
 2. Insert `organization_members` rows linking each test user to the org with correct roles:
    - Owner user → `role: 'owner'`
@@ -113,11 +115,12 @@ Created in global setup alongside users via direct Supabase DB inserts (service 
 ```ts
 // Each role is a separate Playwright fixture
 test('can add personnel', async ({ ownerPage }) => {
-  // ownerPage is already authenticated as owner, navigated to test org
+	// ownerPage is already authenticated as owner, navigated to test org
 });
 ```
 
 Mechanism:
+
 1. Navigate to the login page
 2. Use `page.evaluate()` to call `supabase.auth.signInWithPassword()` inside the browser context — this ensures cookies are set correctly by `@supabase/ssr` in the native cookie format (chunked `sb-<ref>-auth-token` cookies)
 3. Save the authenticated state via Playwright's `storageState` so it can be reused across tests without re-authenticating
@@ -163,46 +166,54 @@ Example: `<button data-testid="add-personnel-btn">Add Personnel</button>`
 ## Test Suites
 
 ### Priority 1: `auth.spec.ts`
+
 - Login with valid credentials → redirects to dashboard
 - Login with invalid password → shows error message
 - Login with empty fields → shows validation error
 - Logout → redirected to login page
 
 ### Priority 2: `personnel.spec.ts`
+
 - Add a new person (fill form, save, verify in list)
 - Edit an existing person (change name, save, verify)
 - Archive a person (confirm dialog, verify removed from list)
 - Search/filter personnel list
 
 ### Priority 3: `calendar.spec.ts`
+
 - Set a person's status for a date (open modal, select type, save)
 - Verify status appears on calendar
 - Navigate between months
 - View today's breakdown
 
 ### Priority 4: `training.spec.ts`
+
 - Add a training record to a person
 - View training matrix, verify record appears
 - Edit/delete a training record
 
 ### Priority 5: `permissions.spec.ts`
+
 - Member with limited permissions can't see admin link
 - Member can't access admin routes directly (gets permission message)
 - Scoped member only sees their group's personnel
 - Owner/admin can access everything
 
 ### Priority 6: `admin.spec.ts`
+
 - View pending approval requests
 - Approve/deny a deletion request
 - View archived personnel list
 - Restore an archived person
 
 ### Priority 7: `leaders-book.spec.ts`
+
 - Add a counseling record
 - View/edit existing record
 - Verify records appear under the right person
 
 ### Priority 8: `bulk-import.spec.ts` (defer if needed)
+
 - Upload a valid CSV → preview step → confirm import
 - Upload CSV with errors → shows validation errors
 
@@ -216,6 +227,7 @@ Example: `<button data-testid="add-personnel-btn">Add Personnel</button>`
 ## CI Readiness (Future)
 
 Designed for but not implementing GitHub Actions now. When ready:
+
 - Workflow triggers on PR to `dev`
 - Steps: checkout → setup Node → `supabase start` → seed DB → `npm run build` → `npx playwright test`
 - Playwright config already supports `process.env.CI` for retry count

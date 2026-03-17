@@ -47,11 +47,13 @@
 	<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 		{#if themeStore.isDark}
 			<svg viewBox="0 0 24 24" fill="currentColor">
-				<path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+				<path
+					d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+				/>
 			</svg>
 		{:else}
 			<svg viewBox="0 0 24 24" fill="currentColor">
-				<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+				<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
 			</svg>
 		{/if}
 	</button>
@@ -70,8 +72,8 @@
 			<div class="confirm-section">
 				<div class="confirm-icon">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-						<polyline points="22 4 12 14.01 9 11.01"/>
+						<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+						<polyline points="22 4 12 14.01 9 11.01" />
 					</svg>
 				</div>
 				<h2 class="confirm-title">We've got your request!</h2>
@@ -92,7 +94,11 @@
 				{#if errorMsg}
 					<div class="error-message">
 						<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-							<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+							<path
+								fill-rule="evenodd"
+								d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+								clip-rule="evenodd"
+							/>
 						</svg>
 						{errorMsg}
 					</div>
@@ -170,7 +176,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		background: #0F0F0F;
+		background: #0f0f0f;
 		padding: var(--spacing-lg);
 	}
 
@@ -186,7 +192,7 @@
 	.auth-card {
 		background: var(--color-surface);
 		border-radius: 12px;
-		box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 		padding: var(--spacing-xl);
 		width: 100%;
 		max-width: 400px;
@@ -202,8 +208,8 @@
 		font-size: 0.75rem;
 		font-weight: 500;
 		letter-spacing: 0.05em;
-		background: #B8943E;
-		color: #0F0F0F;
+		background: #b8943e;
+		color: #0f0f0f;
 		padding: 0.35rem 0.625rem;
 		border-radius: 5px;
 		display: inline-block;
@@ -261,7 +267,6 @@
 		margin-top: var(--spacing-sm);
 		padding: var(--spacing-md);
 	}
-
 
 	.divider {
 		display: flex;
@@ -355,8 +360,8 @@
 		height: 40px;
 		border-radius: 6px;
 		background: transparent;
-		border: 1px solid #2A2A2A;
-		color: #8A8780;
+		border: 1px solid #2a2a2a;
+		color: #8a8780;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -365,8 +370,8 @@
 	}
 
 	.theme-toggle:hover {
-		color: #F0EDE6;
-		border-color: #8A8780;
+		color: #f0ede6;
+		border-color: #8a8780;
 	}
 
 	.theme-toggle svg {

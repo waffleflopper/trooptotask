@@ -3,6 +3,7 @@
 ## 1. Identification
 
 Monitor for indicators of compromise:
+
 - Unusual audit log patterns (bulk data access, export spikes, failed auth attempts)
 - Supabase dashboard alerts (unusual query patterns, connection spikes)
 - Stripe webhook failures or unexpected subscription changes

@@ -16,7 +16,12 @@
 
 	let { orgId, personnel, statusTypes, groups }: Props = $props();
 
-	type ReportType = 'status-days' | 'availability-forecast' | 'personnel-tempo' | 'assignment-coverage' | 'group-readiness';
+	type ReportType =
+		| 'status-days'
+		| 'availability-forecast'
+		| 'personnel-tempo'
+		| 'assignment-coverage'
+		| 'group-readiness';
 	let selectedReport = $state<ReportType>('status-days');
 
 	const reportOptions: { value: ReportType; label: string }[] = [

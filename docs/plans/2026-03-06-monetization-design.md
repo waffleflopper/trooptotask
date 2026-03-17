@@ -9,13 +9,13 @@ Subscription-based monetization tied to organizations, with personnel count as t
 
 ## Tier Structure
 
-| | Free | Team ($15/mo) | Unit ($30/mo) |
-|---|---|---|---|
-| Personnel cap | 15 | 80 | Unlimited |
-| Orgs owned | 1 | 1 | Unlimited |
-| Features | All | All | All |
-| Bulk data exports/mo | 3 | Unlimited | Unlimited |
-| Per-page CSV/PDF/Excel | Unlimited | Unlimited | Unlimited |
+|                        | Free      | Team ($15/mo) | Unit ($30/mo) |
+| ---------------------- | --------- | ------------- | ------------- |
+| Personnel cap          | 15        | 80            | Unlimited     |
+| Orgs owned             | 1         | 1             | Unlimited     |
+| Features               | All       | All           | All           |
+| Bulk data exports/mo   | 3         | Unlimited     | Unlimited     |
+| Per-page CSV/PDF/Excel | Unlimited | Unlimited     | Unlimited     |
 
 - Subscription lives on the **organization**, not the user account.
 - The org owner (creator) is the billing contact.
@@ -71,10 +71,12 @@ getEffectiveTier(org) → { tier, source, isReadOnly, personnelCap }
 Triggered when an org's personnel count exceeds its effective tier's cap (on lapse or downgrade).
 
 **Blocked in read-only:**
+
 - Creating/editing/deleting: availability, training records, counseling records, assignments, onboarding steps, calendar events
 - Creating/editing: org settings, types (status types, training types, etc.)
 
 **Allowed in read-only:**
+
 - Viewing all data (calendar, personnel, training, etc.)
 - Deleting personnel (to get under cap)
 - Bulk data export ("Export All Org Data")
@@ -91,6 +93,7 @@ Three banner types shown at top of every org page:
 ## Admin Gifting
 
 Platform admin panel (in `/admin`):
+
 - Gift a tier to any org: select org → choose tier → set duration → apply
 - View active gifts with expiry dates
 - Revoke or extend gifts at any time
@@ -99,6 +102,7 @@ Platform admin panel (in `/admin`):
 ## Data Export
 
 **"Export All Org Data"** in org settings:
+
 - Bundles all org data into downloadable archive (JSON/CSV zip)
 - Rate-limited: 3/month on Free tier, unlimited on paid
 - Tracked via `data_exports` table
@@ -114,6 +118,7 @@ Platform admin panel (in `/admin`):
 ## Billing Feature Flag
 
 **`PUBLIC_BILLING_ENABLED`** environment variable:
+
 - `false` (default): all billing UI hidden, all orgs treated as unlimited tier. No upgrade prompts, no subscription pages, no banners.
 - `true`: full billing system active with tier enforcement, Stripe integration, banners, etc.
 

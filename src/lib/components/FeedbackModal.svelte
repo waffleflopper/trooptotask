@@ -69,7 +69,7 @@
 			placeholder={category === 'bug'
 				? 'Describe the bug: what happened, what you expected, and steps to reproduce...'
 				: category === 'feature'
-					? 'Describe the feature you\'d like to see...'
+					? "Describe the feature you'd like to see..."
 					: 'Share your thoughts, suggestions, or feedback...'}
 			required
 		></textarea>

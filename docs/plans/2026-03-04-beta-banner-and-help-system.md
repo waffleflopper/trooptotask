@@ -13,6 +13,7 @@
 ### Task 1: Beta Tester Banner on Login Page
 
 **Files:**
+
 - Modify: `src/routes/auth/login/+page.svelte`
 
 **Step 1: Add banner markup above the auth-card**
@@ -21,9 +22,9 @@ Insert this block immediately after `<div class="auth-noise"></div>` and the the
 
 ```svelte
 <div class="beta-banner">
-  <p class="beta-headline">We're looking for beta testers!</p>
-  <p class="beta-sub">Help shape the future of Army personnel management.</p>
-  <a href="/auth/request-access" class="beta-cta">Request Access</a>
+	<p class="beta-headline">We're looking for beta testers!</p>
+	<p class="beta-sub">Help shape the future of Army personnel management.</p>
+	<a href="/auth/request-access" class="beta-cta">Request Access</a>
 </div>
 ```
 
@@ -33,45 +34,45 @@ Add these styles inside the existing `<style>` block:
 
 ```css
 .beta-banner {
-  text-align: center;
-  margin-bottom: var(--spacing-lg);
-  padding: var(--spacing-lg) var(--spacing-xl);
-  background: rgba(184, 148, 62, 0.08);
-  border: 1px solid rgba(184, 148, 62, 0.25);
-  border-radius: 12px;
-  width: 100%;
-  max-width: 400px;
-  position: relative;
+	text-align: center;
+	margin-bottom: var(--spacing-lg);
+	padding: var(--spacing-lg) var(--spacing-xl);
+	background: rgba(184, 148, 62, 0.08);
+	border: 1px solid rgba(184, 148, 62, 0.25);
+	border-radius: 12px;
+	width: 100%;
+	max-width: 400px;
+	position: relative;
 }
 
 .beta-headline {
-  font-family: var(--font-display);
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: #B8943E;
-  margin-bottom: var(--spacing-xs);
+	font-family: var(--font-display);
+	font-size: var(--font-size-lg);
+	font-weight: 600;
+	color: #b8943e;
+	margin-bottom: var(--spacing-xs);
 }
 
 .beta-sub {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  margin-bottom: var(--spacing-md);
+	font-size: var(--font-size-sm);
+	color: var(--color-text-muted);
+	margin-bottom: var(--spacing-md);
 }
 
 .beta-cta {
-  display: inline-block;
-  padding: 0.5rem 1.5rem;
-  background: #B8943E;
-  color: #0F0F0F;
-  font-weight: 600;
-  font-size: var(--font-size-sm);
-  border-radius: 8px;
-  text-decoration: none;
-  transition: background 0.15s;
+	display: inline-block;
+	padding: 0.5rem 1.5rem;
+	background: #b8943e;
+	color: #0f0f0f;
+	font-weight: 600;
+	font-size: var(--font-size-sm);
+	border-radius: 8px;
+	text-decoration: none;
+	transition: background 0.15s;
 }
 
 .beta-cta:hover {
-  background: #D4B15A;
+	background: #d4b15a;
 }
 ```
 
@@ -92,6 +93,7 @@ git commit -m "feat(auth): add beta tester banner above login card"
 ### Task 2: Help Store
 
 **Files:**
+
 - Create: `src/lib/stores/help.svelte.ts`
 
 **Step 1: Create the help store**
@@ -124,6 +126,7 @@ git commit -m "feat(help): add help store for managing active topic"
 ### Task 3: Help Content File
 
 **Files:**
+
 - Create: `src/lib/help-content.ts`
 
 **Step 1: Create the centralized help content map**
@@ -137,7 +140,7 @@ export interface HelpTopic {
 }
 
 export const helpContent: Record<string, HelpTopic> = {
-	'calendar': {
+	calendar: {
 		title: 'Calendar',
 		content: `
 			<p>The calendar shows your unit's daily schedule at a glance. Each column represents a person, and colored badges show their status or assignment for that day.</p>
@@ -188,6 +191,7 @@ git commit -m "feat(help): add centralized help content file with initial topics
 ### Task 4: HelpButton Component
 
 **Files:**
+
 - Create: `src/lib/components/ui/HelpButton.svelte`
 
 **Step 1: Create the HelpButton component**
@@ -199,14 +203,7 @@ git commit -m "feat(help): add centralized help content file with initial topics
 	let { topic }: { topic: string } = $props();
 </script>
 
-<button
-	class="help-btn"
-	onclick={() => helpStore.open(topic)}
-	aria-label="Help"
-	title="Help"
->
-	?
-</button>
+<button class="help-btn" onclick={() => helpStore.open(topic)} aria-label="Help" title="Help"> ? </button>
 
 <style>
 	.help-btn {
@@ -250,6 +247,7 @@ git commit -m "feat(help): add HelpButton component"
 ### Task 5: HelpPanel Component
 
 **Files:**
+
 - Create: `src/lib/components/ui/HelpPanel.svelte`
 
 **Step 1: Create the HelpPanel component**
@@ -405,6 +403,7 @@ git commit -m "feat(help): add HelpPanel slide-out component"
 ### Task 6: Mount HelpPanel in Layout
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/+layout.svelte` (or the root `+layout.svelte` — wherever the main app shell is)
 
 **Step 1: Find the app layout**
@@ -417,8 +416,8 @@ Add alongside the existing global UI components (e.g. near ToastContainer):
 
 ```svelte
 <script lang="ts">
-  import HelpPanel from '$lib/components/ui/HelpPanel.svelte';
-  // ... existing imports
+	import HelpPanel from '$lib/components/ui/HelpPanel.svelte';
+	// ... existing imports
 </script>
 
 <!-- Add near other global overlays -->
@@ -441,6 +440,7 @@ git commit -m "feat(help): mount HelpPanel in app layout"
 ### Task 7: Add HelpButtons to Key Pages
 
 **Files:**
+
 - Modify: Pages where help buttons should appear (calendar, training, leader's book headers)
 
 **Step 1: Identify placement points**

@@ -69,7 +69,12 @@
 					{@const rated = getRatedPerson(entry.ratedPersonId)}
 					{@const due = formatDueStatus(entry)}
 					<tr class="clickable" onclick={() => onEdit(entry)}>
-						<td><Badge label={entry.evalType} color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'} /></td>
+						<td
+							><Badge
+								label={entry.evalType}
+								color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'}
+							/></td
+						>
 						<td class="report-cell">{entry.reportType ? getReportTypeLabel(entry.reportType, entry.evalType) : '—'}</td>
 						<td class="person-cell">
 							{#if rated}
@@ -84,7 +89,10 @@
 						<td class="status-cell">
 							<Badge label={due.label} color={due.color} />
 							{#if entry.workflowStatus}
-								<Badge label={getWorkflowLabel(entry.workflowStatus)} color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]} />
+								<Badge
+									label={getWorkflowLabel(entry.workflowStatus)}
+									color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]}
+								/>
 							{/if}
 						</td>
 					</tr>

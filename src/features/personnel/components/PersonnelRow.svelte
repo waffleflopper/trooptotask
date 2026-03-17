@@ -190,7 +190,7 @@
 		width: 7px;
 		height: 7px;
 		border-radius: 50%;
-		background: #B8943E;
+		background: #b8943e;
 		flex-shrink: 0;
 	}
 

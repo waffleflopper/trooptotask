@@ -159,10 +159,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Invalid announcement ID' });
 		}
 
-		const { error: deleteErr } = await supabase
-			.from('platform_announcements')
-			.delete()
-			.eq('id', id);
+		const { error: deleteErr } = await supabase.from('platform_announcements').delete().eq('id', id);
 
 		if (deleteErr) {
 			console.error('Failed to delete announcement');

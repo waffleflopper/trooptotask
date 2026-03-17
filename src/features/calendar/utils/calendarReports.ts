@@ -86,9 +86,7 @@ export function computeAvailabilityForecast(
 		for (const person of personnel) {
 			const personEntries = entriesByPerson.get(person.id) ?? [];
 			// Check if person has any status on this date
-			const activeEntry = personEntries.find(
-				(e) => dateStr >= e.startDate && dateStr <= e.endDate
-			);
+			const activeEntry = personEntries.find((e) => dateStr >= e.startDate && dateStr <= e.endDate);
 			if (activeEntry) {
 				const st = statusMap.get(activeEntry.statusTypeId);
 				unavailablePersonnel.push({
@@ -258,9 +256,8 @@ export function computeAssignmentCoverage(
 		rows.push({ person, assignmentCounts, totalAssignments });
 	}
 
-	const averageTotal = rows.length > 0
-		? Math.round((rows.reduce((sum, r) => sum + r.totalAssignments, 0) / rows.length) * 10) / 10
-		: 0;
+	const averageTotal =
+		rows.length > 0 ? Math.round((rows.reduce((sum, r) => sum + r.totalAssignments, 0) / rows.length) * 10) / 10 : 0;
 
 	return { rows, activeAssignmentTypeIds: [...activeAssignmentTypeIds], averageTotal };
 }
@@ -318,9 +315,7 @@ export function computeGroupReadiness(
 			let unavailableCount = 0;
 			for (const person of groupPersonnel) {
 				const personEntries = entriesByPerson.get(person.id) ?? [];
-				const hasStatus = personEntries.some(
-					(e) => dateStr >= e.startDate && dateStr <= e.endDate
-				);
+				const hasStatus = personEntries.some((e) => dateStr >= e.startDate && dateStr <= e.endDate);
 				if (hasStatus) unavailableCount++;
 			}
 

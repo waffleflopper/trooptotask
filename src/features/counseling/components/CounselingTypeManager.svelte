@@ -112,11 +112,37 @@
 
 	function addDefaultTypes() {
 		const defaults = [
-			{ name: 'Initial Counseling', description: 'Initial counseling for new soldiers', recurrence: 'none' as CounselingRecurrence, color: '#3b82f6' },
-			{ name: 'Monthly Counseling', description: 'Regular monthly performance counseling', recurrence: 'monthly' as CounselingRecurrence, color: '#22c55e' },
-			{ name: 'Quarterly Counseling', description: 'Quarterly review and goal setting', recurrence: 'quarterly' as CounselingRecurrence, color: '#8b5cf6' },
-			{ name: 'Event Counseling', description: 'Counseling for specific events or incidents', recurrence: 'none' as CounselingRecurrence, color: '#f59e0b' },
-			{ name: 'Freeform', description: 'Custom counseling without template', recurrence: 'none' as CounselingRecurrence, color: '#6b7280', isFreeform: true }
+			{
+				name: 'Initial Counseling',
+				description: 'Initial counseling for new soldiers',
+				recurrence: 'none' as CounselingRecurrence,
+				color: '#3b82f6'
+			},
+			{
+				name: 'Monthly Counseling',
+				description: 'Regular monthly performance counseling',
+				recurrence: 'monthly' as CounselingRecurrence,
+				color: '#22c55e'
+			},
+			{
+				name: 'Quarterly Counseling',
+				description: 'Quarterly review and goal setting',
+				recurrence: 'quarterly' as CounselingRecurrence,
+				color: '#8b5cf6'
+			},
+			{
+				name: 'Event Counseling',
+				description: 'Counseling for specific events or incidents',
+				recurrence: 'none' as CounselingRecurrence,
+				color: '#f59e0b'
+			},
+			{
+				name: 'Freeform',
+				description: 'Custom counseling without template',
+				recurrence: 'none' as CounselingRecurrence,
+				color: '#6b7280',
+				isFreeform: true
+			}
 		];
 
 		defaults.forEach((d, i) => {
@@ -135,184 +161,159 @@
 </script>
 
 <Modal title="Manage Counseling Types" {onClose} width="650px" titleId="counseling-types-title">
-		<div class="add-section">
-				<h3>Add Counseling Type</h3>
-				<div class="add-form">
-					<div class="form-row">
-						<div class="form-group flex-1">
-							<label class="label">Name</label>
-							<input
-								type="text"
-								class="input"
-								bind:value={newName}
-								placeholder="e.g., Monthly Counseling"
-							/>
-						</div>
-						<div class="form-group">
-							<label class="label">Color</label>
-							<input type="color" class="color-input" bind:value={newColor} />
-						</div>
-					</div>
-
-					<div class="form-group">
-						<label class="label">Description (optional)</label>
-						<input
-							type="text"
-							class="input"
-							bind:value={newDescription}
-							placeholder="Brief description..."
-						/>
-					</div>
-
-					<div class="form-row">
-						<div class="form-group flex-1">
-							<label class="label">Recurrence</label>
-							<select class="select" bind:value={newRecurrence}>
-								{#each Object.entries(COUNSELING_RECURRENCE_LABELS) as [value, label]}
-									<option {value}>{label}</option>
-								{/each}
-							</select>
-						</div>
-						<div class="form-group">
-							<label class="label">&nbsp;</label>
-							<label class="checkbox-label">
-								<input type="checkbox" bind:checked={newIsFreeform} />
-								Freeform (no template)
-							</label>
-						</div>
-					</div>
-
-					{#if !newIsFreeform}
-						<div class="form-group">
-							<label class="label">Template Content (Markdown)</label>
-							<textarea
-								class="input textarea"
-								bind:value={newTemplateContent}
-								placeholder="## Purpose of Counseling&#10;&#10;## Key Points&#10;&#10;## Plan of Action"
-								rows="4"
-							></textarea>
-						</div>
-						<FileUpload
-							filePath={newTemplateFilePath}
-							{orgId}
-							storagePath="templates/{newUploadId}"
-							onUpload={(path: string) => (newTemplateFilePath = path)}
-							onRemove={() => (newTemplateFilePath = null)}
-							label="Template PDF (optional)"
-						/>
-					{/if}
-
-					<button class="btn btn-primary" onclick={handleAdd} disabled={!newName.trim()}>
-						Add Counseling Type
-					</button>
+	<div class="add-section">
+		<h3>Add Counseling Type</h3>
+		<div class="add-form">
+			<div class="form-row">
+				<div class="form-group flex-1">
+					<label class="label">Name</label>
+					<input type="text" class="input" bind:value={newName} placeholder="e.g., Monthly Counseling" />
+				</div>
+				<div class="form-group">
+					<label class="label">Color</label>
+					<input type="color" class="color-input" bind:value={newColor} />
 				</div>
 			</div>
 
-			<div class="list-section">
-				<div class="list-header">
-					<h3>Existing Types</h3>
-					{#if counselingTypes.length === 0}
-						<button class="btn btn-secondary btn-sm" onclick={addDefaultTypes}>
-							Add Default Types
-						</button>
-					{/if}
+			<div class="form-group">
+				<label class="label">Description (optional)</label>
+				<input type="text" class="input" bind:value={newDescription} placeholder="Brief description..." />
+			</div>
+
+			<div class="form-row">
+				<div class="form-group flex-1">
+					<label class="label">Recurrence</label>
+					<select class="select" bind:value={newRecurrence}>
+						{#each Object.entries(COUNSELING_RECURRENCE_LABELS) as [value, label]}
+							<option {value}>{label}</option>
+						{/each}
+					</select>
 				</div>
-				<div class="type-list">
-					{#each counselingTypes as type (type.id)}
-						<div class="type-item">
-							{#if editingId === type.id}
-								<div class="edit-form">
-									<div class="form-row">
-										<div class="form-group flex-1">
-											<label class="label">Name</label>
-											<input type="text" class="input" bind:value={editName} />
-										</div>
-										<div class="form-group">
-											<label class="label">Color</label>
-											<input type="color" class="color-input" bind:value={editColor} />
-										</div>
-									</div>
+				<div class="form-group">
+					<label class="label">&nbsp;</label>
+					<label class="checkbox-label">
+						<input type="checkbox" bind:checked={newIsFreeform} />
+						Freeform (no template)
+					</label>
+				</div>
+			</div>
 
-									<div class="form-group">
-										<label class="label">Description</label>
-										<input type="text" class="input" bind:value={editDescription} />
-									</div>
+			{#if !newIsFreeform}
+				<div class="form-group">
+					<label class="label">Template Content (Markdown)</label>
+					<textarea
+						class="input textarea"
+						bind:value={newTemplateContent}
+						placeholder="## Purpose of Counseling&#10;&#10;## Key Points&#10;&#10;## Plan of Action"
+						rows="4"
+					></textarea>
+				</div>
+				<FileUpload
+					filePath={newTemplateFilePath}
+					{orgId}
+					storagePath="templates/{newUploadId}"
+					onUpload={(path: string) => (newTemplateFilePath = path)}
+					onRemove={() => (newTemplateFilePath = null)}
+					label="Template PDF (optional)"
+				/>
+			{/if}
 
-									<div class="form-row">
-										<div class="form-group flex-1">
-											<label class="label">Recurrence</label>
-											<select class="select" bind:value={editRecurrence}>
-												{#each Object.entries(COUNSELING_RECURRENCE_LABELS) as [value, label]}
-													<option {value}>{label}</option>
-												{/each}
-											</select>
-										</div>
-										<div class="form-group">
-											<label class="label">&nbsp;</label>
-											<label class="checkbox-label">
-												<input type="checkbox" bind:checked={editIsFreeform} />
-												Freeform
-											</label>
-										</div>
-									</div>
+			<button class="btn btn-primary" onclick={handleAdd} disabled={!newName.trim()}> Add Counseling Type </button>
+		</div>
+	</div>
 
-									{#if !editIsFreeform}
-										<div class="form-group">
-											<label class="label">Template Content</label>
-											<textarea
-												class="input textarea"
-												bind:value={editTemplateContent}
-												rows="3"
-											></textarea>
-										</div>
-										<FileUpload
-											filePath={editTemplateFilePath}
-											{orgId}
-											storagePath="templates/{editingId}"
-											onUpload={(path) => (editTemplateFilePath = path)}
-											onRemove={() => (editTemplateFilePath = null)}
-											label="Template PDF (optional)"
-										/>
-									{/if}
-
-									<div class="edit-actions">
-										<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
-										<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
-									</div>
+	<div class="list-section">
+		<div class="list-header">
+			<h3>Existing Types</h3>
+			{#if counselingTypes.length === 0}
+				<button class="btn btn-secondary btn-sm" onclick={addDefaultTypes}> Add Default Types </button>
+			{/if}
+		</div>
+		<div class="type-list">
+			{#each counselingTypes as type (type.id)}
+				<div class="type-item">
+					{#if editingId === type.id}
+						<div class="edit-form">
+							<div class="form-row">
+								<div class="form-group flex-1">
+									<label class="label">Name</label>
+									<input type="text" class="input" bind:value={editName} />
 								</div>
-							{:else}
-								<div class="type-info">
-									<Badge label={type.name} color={type.color} />
-									{#if type.recurrence !== 'none'}
-										<span class="type-meta">{COUNSELING_RECURRENCE_LABELS[type.recurrence]}</span>
-									{/if}
-									{#if type.isFreeform}
-										<Badge label="Freeform" variant="outlined" />
-									{/if}
-									{#if type.templateContent || type.templateFilePath}
-										<span class="type-meta">Has template</span>
-									{/if}
+								<div class="form-group">
+									<label class="label">Color</label>
+									<input type="color" class="color-input" bind:value={editColor} />
 								</div>
-								<div class="type-actions">
-									<button class="btn btn-secondary btn-sm" onclick={() => startEdit(type)}>
-										Edit
-									</button>
-									<button
-										class="btn btn-danger btn-sm"
-										onclick={() => handleRemove(type.id, type.name)}
-									>
-										&times;
-									</button>
+							</div>
+
+							<div class="form-group">
+								<label class="label">Description</label>
+								<input type="text" class="input" bind:value={editDescription} />
+							</div>
+
+							<div class="form-row">
+								<div class="form-group flex-1">
+									<label class="label">Recurrence</label>
+									<select class="select" bind:value={editRecurrence}>
+										{#each Object.entries(COUNSELING_RECURRENCE_LABELS) as [value, label]}
+											<option {value}>{label}</option>
+										{/each}
+									</select>
 								</div>
+								<div class="form-group">
+									<label class="label">&nbsp;</label>
+									<label class="checkbox-label">
+										<input type="checkbox" bind:checked={editIsFreeform} />
+										Freeform
+									</label>
+								</div>
+							</div>
+
+							{#if !editIsFreeform}
+								<div class="form-group">
+									<label class="label">Template Content</label>
+									<textarea class="input textarea" bind:value={editTemplateContent} rows="3"></textarea>
+								</div>
+								<FileUpload
+									filePath={editTemplateFilePath}
+									{orgId}
+									storagePath="templates/{editingId}"
+									onUpload={(path) => (editTemplateFilePath = path)}
+									onRemove={() => (editTemplateFilePath = null)}
+									label="Template PDF (optional)"
+								/>
+							{/if}
+
+							<div class="edit-actions">
+								<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
+								<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
+							</div>
+						</div>
+					{:else}
+						<div class="type-info">
+							<Badge label={type.name} color={type.color} />
+							{#if type.recurrence !== 'none'}
+								<span class="type-meta">{COUNSELING_RECURRENCE_LABELS[type.recurrence]}</span>
+							{/if}
+							{#if type.isFreeform}
+								<Badge label="Freeform" variant="outlined" />
+							{/if}
+							{#if type.templateContent || type.templateFilePath}
+								<span class="type-meta">Has template</span>
 							{/if}
 						</div>
-					{/each}
-
-					{#if counselingTypes.length === 0}
-						<EmptyState message="No counseling types defined yet." variant="simple" />
+						<div class="type-actions">
+							<button class="btn btn-secondary btn-sm" onclick={() => startEdit(type)}> Edit </button>
+							<button class="btn btn-danger btn-sm" onclick={() => handleRemove(type.id, type.name)}> &times; </button>
+						</div>
 					{/if}
 				</div>
-			</div>
+			{/each}
+
+			{#if counselingTypes.length === 0}
+				<EmptyState message="No counseling types defined yet." variant="simple" />
+			{/if}
+		</div>
+	</div>
 
 	{#snippet footer()}
 		<button class="btn btn-primary" onclick={onClose}>Done</button>
@@ -322,7 +323,7 @@
 {#if confirmRemove}
 	<ConfirmDialog
 		title="Remove Counseling Type"
-		message='Remove "{confirmRemove.name}"? Existing counseling records will keep their data but lose the type reference.'
+		message={`Remove "${confirmRemove.name}"? Existing counseling records will keep their data but lose the type reference.`}
 		confirmLabel="Remove"
 		variant="danger"
 		onConfirm={doRemove}
@@ -434,5 +435,4 @@
 		gap: var(--spacing-xs);
 		margin-top: var(--spacing-sm);
 	}
-
 </style>

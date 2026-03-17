@@ -54,9 +54,7 @@
 			return personnelByGroup
 				.map((g) => ({
 					...g,
-					personnel: g.personnel.filter((p) =>
-						MOD_ELIGIBLE_MOS.some((mos) => p.mos.toUpperCase().includes(mos))
-					)
+					personnel: g.personnel.filter((p) => MOD_ELIGIBLE_MOS.some((mos) => p.mos.toUpperCase().includes(mos)))
 				}))
 				.filter((g) => g.personnel.length > 0);
 		}
@@ -92,9 +90,7 @@
 		{#each assignmentTypes as type (type.id)}
 			<div class="assignment-row">
 				<label class="assignment-label">
-					<span class="assignment-badge" style="background-color: {type.color}"
-						>{type.shortName}</span
-					>
+					<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
 					<span class="assignment-name">{type.name}</span>
 				</label>
 
@@ -145,9 +141,7 @@
 				{@const type = assignmentTypes.find((t) => t.id === assignment.assignmentTypeId)}
 				{#if type}
 					<div class="current-assignment">
-						<span class="assignment-badge" style="background-color: {type.color}"
-							>{type.shortName}</span
-						>
+						<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
 						<span>
 							{#if type.assignTo === 'personnel'}
 								{getPersonnelDisplay(assignment.assigneeId)}

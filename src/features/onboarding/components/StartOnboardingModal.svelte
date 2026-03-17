@@ -17,7 +17,16 @@
 		onClose: () => void;
 	}
 
-	let { personnel, existingOnboardingPersonnelIds, groups, templates, hasTemplateSteps = true, onSubmit, onAddPerson, onClose }: Props = $props();
+	let {
+		personnel,
+		existingOnboardingPersonnelIds,
+		groups,
+		templates,
+		hasTemplateSteps = true,
+		onSubmit,
+		onAddPerson,
+		onClose
+	}: Props = $props();
 
 	let selectedPersonnelId = $state('');
 	let startDate = $state(new Date().toISOString().split('T')[0]);

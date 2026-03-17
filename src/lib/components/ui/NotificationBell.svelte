@@ -143,7 +143,17 @@
 		aria-expanded={open}
 		aria-haspopup="true"
 	>
-		<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			width="20"
+			height="20"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+		>
 			<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
 			<path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
 		</svg>
@@ -157,14 +167,10 @@
 			<div class="dropdown-header">
 				<span class="dropdown-title">Notifications</span>
 				{#if localUnreadCount > 0}
-					<button class="mark-all-btn" type="button" onclick={markAllRead}>
-						Mark all read
-					</button>
+					<button class="mark-all-btn" type="button" onclick={markAllRead}> Mark all read </button>
 				{/if}
 				{#if notifications.length > 0}
-					<button class="mark-all-btn clear-all-btn" type="button" onclick={dismissAll}>
-						Clear all
-					</button>
+					<button class="mark-all-btn clear-all-btn" type="button" onclick={dismissAll}> Clear all </button>
 				{/if}
 			</div>
 			<div class="dropdown-body">
@@ -194,7 +200,17 @@
 								onclick={() => dismiss(notification.id)}
 								aria-label="Dismiss: {notification.title}"
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
 									<polyline points="3 6 5 6 21 6"></polyline>
 									<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 								</svg>
@@ -221,7 +237,7 @@
 		height: 32px;
 		border: none;
 		background: transparent;
-		color: #8A8780;
+		color: #8a8780;
 		cursor: pointer;
 		border-radius: var(--radius-sm);
 		transition: color var(--transition-fast);
@@ -229,7 +245,7 @@
 	}
 
 	.bell-button:hover {
-		color: #F0EDE6;
+		color: #f0ede6;
 	}
 
 	.badge-count {

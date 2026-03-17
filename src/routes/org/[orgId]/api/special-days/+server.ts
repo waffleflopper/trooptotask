@@ -21,11 +21,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	// Handle bulk reset of federal holidays
 	if (body.action === 'resetFederalHolidays') {
 		// Delete existing federal holidays
-		await supabase
-			.from('special_days')
-			.delete()
-			.eq('organization_id', orgId)
-			.eq('type', 'federal-holiday');
+		await supabase.from('special_days').delete().eq('organization_id', orgId).eq('type', 'federal-holiday');
 
 		// Re-insert defaults
 		const holidays = getDefaultFederalHolidays();
@@ -41,14 +37,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		}
 
 		// Return all special days
-		const { data: allDays } = await supabase
-			.from('special_days')
-			.select()
-			.eq('organization_id', orgId)
-			.order('date');
+		const { data: allDays } = await supabase.from('special_days').select().eq('organization_id', orgId).order('date');
 
 		return json(
-			(allDays ?? []).map((d: any) => ({
+			(allDays ?? []).map((d: Record<string, unknown>) => ({
 				id: d.id,
 				date: d.date,
 				name: d.name,
@@ -94,11 +86,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 
 	if (!id) throw error(400, 'Missing id');
 
-	const { error: dbError } = await supabase
-		.from('special_days')
-		.delete()
-		.eq('id', id)
-		.eq('organization_id', orgId);
+	const { error: dbError } = await supabase.from('special_days').delete().eq('id', id).eq('organization_id', orgId);
 
 	if (dbError) throw error(500, dbError.message);
 

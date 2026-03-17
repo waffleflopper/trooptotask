@@ -7,18 +7,12 @@
 
 <div class="admin-layout">
 	<nav class="admin-tabs">
-		<a href="/org/{orgId}/admin/approvals" class="tab" class:active={currentPath.includes('/approvals')}>
-			Approvals
-		</a>
+		<a href="/org/{orgId}/admin/approvals" class="tab" class:active={currentPath.includes('/approvals')}> Approvals </a>
 		<a href="/org/{orgId}/admin/archived" class="tab" class:active={currentPath.includes('/archived')}>
 			Archived Personnel
 		</a>
-		<a href="/org/{orgId}/admin/audit" class="tab" class:active={currentPath.includes('/audit')}>
-			Audit Log
-		</a>
-		<a href="/org/{orgId}/admin/settings" class="tab" class:active={currentPath.includes('/settings')}>
-			Settings
-		</a>
+		<a href="/org/{orgId}/admin/audit" class="tab" class:active={currentPath.includes('/audit')}> Audit Log </a>
+		<a href="/org/{orgId}/admin/settings" class="tab" class:active={currentPath.includes('/settings')}> Settings </a>
 	</nav>
 	<div class="admin-content">
 		{@render children()}
@@ -45,7 +39,9 @@
 		color: var(--color-text-muted);
 		text-decoration: none;
 		border-bottom: 2px solid transparent;
-		transition: color var(--transition-fast), border-color var(--transition-fast);
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast);
 	}
 
 	.tab:hover {

@@ -21,7 +21,7 @@ const handlers = createCrudHandlers<AssignmentType>({
 		await notifyAdmins(orgId, userId, {
 			type: 'config_type_deleted',
 			title: 'Assignment Type Deleted',
-			message: `"${userEmail}" deleted the assignment type "${(deletedDetails as any)?.name ?? 'unknown'}".`
+			message: `"${userEmail}" deleted the assignment type "${deletedDetails?.name ?? 'unknown'}".`
 		});
 	}
 });

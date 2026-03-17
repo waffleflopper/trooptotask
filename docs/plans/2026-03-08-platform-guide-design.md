@@ -68,12 +68,12 @@ Styling: variant of existing `.help-item` with different left-border color and a
 
 ## What Changes
 
-| What | Action |
-|------|--------|
-| `/help` page content | Replace — reorganize into 11 sections with role callouts |
+| What                 | Action                                                    |
+| -------------------- | --------------------------------------------------------- |
+| `/help` page content | Replace — reorganize into 11 sections with role callouts  |
 | `/help` page styling | Extend — add `.role-callout` variant with colored borders |
-| Org dashboard | Add — dismissable welcome banner at top |
-| New components | None |
-| New routes | None |
-| New dependencies | None |
-| Database changes | None |
+| Org dashboard        | Add — dismissable welcome banner at top                   |
+| New components       | None                                                      |
+| New routes           | None                                                      |
+| New dependencies     | None                                                      |
+| Database changes     | None                                                      |

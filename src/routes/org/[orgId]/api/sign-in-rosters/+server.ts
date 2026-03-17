@@ -34,7 +34,7 @@ export const GET: RequestHandler = async ({ params, url, locals, cookies }) => {
 
 	if (dbError) throw error(500, dbError.message);
 
-	const rosters = (data || []).map((r: any) => ({
+	const rosters = (data || []).map((r: Record<string, unknown>) => ({
 		id: r.id,
 		title: r.title,
 		rosterDate: r.roster_date,
@@ -77,11 +77,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		created_by: userId
 	};
 
-	const { data, error: dbError } = await supabase
-		.from('sign_in_rosters')
-		.insert(row)
-		.select()
-		.single();
+	const { data, error: dbError } = await supabase.from('sign_in_rosters').insert(row).select().single();
 
 	if (dbError) throw error(500, dbError.message);
 

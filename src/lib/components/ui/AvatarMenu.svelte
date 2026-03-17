@@ -50,9 +50,7 @@
 							// Preserve the current page path suffix after /org/{orgId}
 							const pathname = $page.url.pathname;
 							const orgPrefix = `/org/${orgId}`;
-							const suffix = pathname.startsWith(orgPrefix)
-								? pathname.slice(orgPrefix.length)
-								: '';
+							const suffix = pathname.startsWith(orgPrefix) ? pathname.slice(orgPrefix.length) : '';
 							goto(`/org/${org.id}${suffix}`);
 						}
 					}
@@ -120,7 +118,7 @@
 		{initial}
 	</button>
 
-	<OverflowMenu items={items} open={menuOpen} onClose={closeMenu} align="right" />
+	<OverflowMenu {items} open={menuOpen} onClose={closeMenu} align="right" />
 </div>
 
 <style>
@@ -135,8 +133,8 @@
 		width: 32px;
 		height: 32px;
 		border-radius: 50%;
-		background: #B8943E;
-		color: #0F0F0F;
+		background: #b8943e;
+		color: #0f0f0f;
 		font-family: var(--font-mono);
 		font-weight: 700;
 		font-size: 14px;

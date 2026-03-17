@@ -224,16 +224,8 @@
 		if (result === 'approval_required' && entry) {
 			const allPeople = data.allPersonnel ?? data.personnel ?? [];
 			const person = allPeople.find((p: Personnel) => p.id === entry.ratedPersonId);
-			const desc = person
-				? `Rating scheme entry for ${person.rank} ${person.lastName}`
-				: 'Rating scheme entry';
-			await submitDeletionRequest(
-				data.orgId,
-				'rating_scheme_entry',
-				id,
-				desc,
-				`/org/${data.orgId}/personnel`
-			);
+			const desc = person ? `Rating scheme entry for ${person.rank} ${person.lastName}` : 'Rating scheme entry';
+			await submitDeletionRequest(data.orgId, 'rating_scheme_entry', id, desc, `/org/${data.orgId}/personnel`);
 		}
 	}
 </script>
@@ -243,11 +235,13 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Personnel" helpTopic={pageView === 'rating-scheme' ? 'rating-scheme' : 'personnel'} overflowItems={personnelOverflowItems}>
+	<PageToolbar
+		title="Personnel"
+		helpTopic={pageView === 'rating-scheme' ? 'rating-scheme' : 'personnel'}
+		overflowItems={personnelOverflowItems}
+	>
 		{#if canAddPersonnel}
-			<button class="btn-ghost" onclick={() => (showGroupManager = true)} disabled={readOnly}>
-				Manage Groups
-			</button>
+			<button class="btn-ghost" onclick={() => (showGroupManager = true)} disabled={readOnly}> Manage Groups </button>
 			<button class="btn btn-sm btn-primary" data-testid="add-personnel-btn" onclick={handleAdd} disabled={readOnly}>
 				Add Person
 			</button>
@@ -263,250 +257,239 @@
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
 		</div>
 	{:else}
-	<div class="page-view-toggle">
-		<button
-			class="page-view-btn"
-			class:active={pageView === 'roster'}
-			onclick={() => (pageView = 'roster')}
-		>
-			Roster
-		</button>
-		<button
-			class="page-view-btn"
-			class:active={pageView === 'rating-scheme'}
-			onclick={() => (pageView = 'rating-scheme')}
-		>
-			Rating Scheme
-		</button>
-	</div>
-
-	{#if pageView === 'roster'}
-		<div class="toolbar">
-			<div class="toolbar-title">
-				<span class="count">({totalPersonnel})</span>
-			</div>
-			<input
-				type="text"
-				class="input search-input"
-				data-testid="personnel-search"
-				placeholder="Search by name, rank, or role..."
-				bind:value={searchQuery}
-			/>
-			<div class="view-toggle">
-				<span class="view-label">View:</span>
-				<button
-					class="view-btn"
-					class:active={viewMode === 'alphabetical'}
-					onclick={() => (viewMode = 'alphabetical')}
-				>
-					A-Z
-				</button>
-				<button
-					class="view-btn"
-					class:active={viewMode === 'by-group'}
-					onclick={() => (viewMode = 'by-group')}
-				>
-					By Group
-				</button>
-			</div>
-			{#if searchQuery && filteredCount !== totalPersonnel}
-				<span class="filter-info">Showing {filteredCount} of {totalPersonnel}</span>
-			{/if}
+		<div class="page-view-toggle">
+			<button class="page-view-btn" class:active={pageView === 'roster'} onclick={() => (pageView = 'roster')}>
+				Roster
+			</button>
+			<button
+				class="page-view-btn"
+				class:active={pageView === 'rating-scheme'}
+				onclick={() => (pageView = 'rating-scheme')}
+			>
+				Rating Scheme
+			</button>
 		</div>
 
-		<main class="page-content">
-			{#if totalPersonnel === 0}
-				<EmptyState
-					message="No personnel added yet."
-					actionLabel={data.permissions?.canEditPersonnel ? 'Add Person' : undefined}
-					onAction={data.permissions?.canEditPersonnel ? handleAdd : undefined}
-				/>
-			{:else if viewMode === 'alphabetical'}
-				<div class="personnel-list" data-testid="personnel-list">
-					{#each alphabeticalPersonnel as person (person.id)}
-						{#if data.permissions?.canEditPersonnel}
-							<button class="person-row" onclick={() => handleEdit(person)}>
-								<div class="person-info">
-									<span class="rank">{person.rank}</span>
-									<span class="name">{person.lastName}, {person.firstName}</span>
-									{#if person.mos}
-										<span class="mos">{person.mos}</span>
-									{/if}
-									{#if person.clinicRole}
-										<span class="role">{person.clinicRole}</span>
-									{/if}
-									{#if person.groupName}
-										<span class="group-badge">{person.groupName}</span>
-									{/if}
-								</div>
-							</button>
-						{:else}
-							<div class="person-row readonly">
-								<div class="person-info">
-									<span class="rank">{person.rank}</span>
-									<span class="name">{person.lastName}, {person.firstName}</span>
-									{#if person.mos}
-										<span class="mos">{person.mos}</span>
-									{/if}
-									{#if person.clinicRole}
-										<span class="role">{person.clinicRole}</span>
-									{/if}
-									{#if person.groupName}
-										<span class="group-badge">{person.groupName}</span>
-									{/if}
-								</div>
-							</div>
-						{/if}
-					{/each}
+		{#if pageView === 'roster'}
+			<div class="toolbar">
+				<div class="toolbar-title">
+					<span class="count">({totalPersonnel})</span>
 				</div>
-			{:else}
-				<div class="personnel-grid">
-					{#each personnelByGroup as grp (grp.group)}
-						<div class="group-card">
-							<div class="group-header">
-								<button class="group-toggle" onclick={() => toggleGroup(grp.group)}>
-									<span class="toggle-icon">{collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
-									<span class="group-name">{grp.group}</span>
-									<span class="group-count">({grp.personnel.length})</span>
-								</button>
-								<button
-									class="pin-btn"
-									class:pinned={pinnedGroupsStore.list.includes(grp.group)}
-									onclick={() => handlePinToggle(grp.group)}
-									title={pinnedGroupsStore.list.includes(grp.group) ? 'Unpin group' : 'Pin group to top'}
-								>
-									{pinnedGroupsStore.list.includes(grp.group) ? '📌' : '📍'}
-								</button>
-							</div>
-							{#if !collapsedGroups.has(grp.group)}
-								<div class="group-personnel">
-									{#each grp.personnel as person (person.id)}
-										{#if data.permissions?.canEditPersonnel}
-											<button class="person-row" onclick={() => handleEdit(person)}>
-												<div class="person-info">
-													<span class="rank">{person.rank}</span>
-													<span class="name">{person.lastName}, {person.firstName}</span>
-													{#if person.mos}
-														<span class="mos">{person.mos}</span>
-													{/if}
-													{#if person.clinicRole}
-														<span class="role">{person.clinicRole}</span>
-													{/if}
-												</div>
-											</button>
-										{:else}
-											<div class="person-row readonly">
-												<div class="person-info">
-													<span class="rank">{person.rank}</span>
-													<span class="name">{person.lastName}, {person.firstName}</span>
-													{#if person.mos}
-														<span class="mos">{person.mos}</span>
-													{/if}
-													{#if person.clinicRole}
-														<span class="role">{person.clinicRole}</span>
-													{/if}
-												</div>
-											</div>
+				<input
+					type="text"
+					class="input search-input"
+					data-testid="personnel-search"
+					placeholder="Search by name, rank, or role..."
+					bind:value={searchQuery}
+				/>
+				<div class="view-toggle">
+					<span class="view-label">View:</span>
+					<button
+						class="view-btn"
+						class:active={viewMode === 'alphabetical'}
+						onclick={() => (viewMode = 'alphabetical')}
+					>
+						A-Z
+					</button>
+					<button class="view-btn" class:active={viewMode === 'by-group'} onclick={() => (viewMode = 'by-group')}>
+						By Group
+					</button>
+				</div>
+				{#if searchQuery && filteredCount !== totalPersonnel}
+					<span class="filter-info">Showing {filteredCount} of {totalPersonnel}</span>
+				{/if}
+			</div>
+
+			<main class="page-content">
+				{#if totalPersonnel === 0}
+					<EmptyState
+						message="No personnel added yet."
+						actionLabel={data.permissions?.canEditPersonnel ? 'Add Person' : undefined}
+						onAction={data.permissions?.canEditPersonnel ? handleAdd : undefined}
+					/>
+				{:else if viewMode === 'alphabetical'}
+					<div class="personnel-list" data-testid="personnel-list">
+						{#each alphabeticalPersonnel as person (person.id)}
+							{#if data.permissions?.canEditPersonnel}
+								<button class="person-row" onclick={() => handleEdit(person)}>
+									<div class="person-info">
+										<span class="rank">{person.rank}</span>
+										<span class="name">{person.lastName}, {person.firstName}</span>
+										{#if person.mos}
+											<span class="mos">{person.mos}</span>
 										{/if}
-									{/each}
+										{#if person.clinicRole}
+											<span class="role">{person.clinicRole}</span>
+										{/if}
+										{#if person.groupName}
+											<span class="group-badge">{person.groupName}</span>
+										{/if}
+									</div>
+								</button>
+							{:else}
+								<div class="person-row readonly">
+									<div class="person-info">
+										<span class="rank">{person.rank}</span>
+										<span class="name">{person.lastName}, {person.firstName}</span>
+										{#if person.mos}
+											<span class="mos">{person.mos}</span>
+										{/if}
+										{#if person.clinicRole}
+											<span class="role">{person.clinicRole}</span>
+										{/if}
+										{#if person.groupName}
+											<span class="group-badge">{person.groupName}</span>
+										{/if}
+									</div>
 								</div>
 							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</main>
-	{:else}
-		<div class="rating-stats-bar">
-			<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.overdue}">
-				<span class="stat-count">{ratingStats.overdue}</span>
-				<span class="stat-label">Overdue</span>
-			</div>
-			<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS['due-30']}">
-				<span class="stat-count">{ratingStats['due-30']}</span>
-				<span class="stat-label">Due 30d</span>
-			</div>
-			<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS['due-60']}">
-				<span class="stat-count">{ratingStats['due-60']}</span>
-				<span class="stat-label">Due 60d</span>
-			</div>
-			<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.current}">
-				<span class="stat-count">{ratingStats.current}</span>
-				<span class="stat-label">Current</span>
-			</div>
-			<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.completed}">
-				<span class="stat-count">{ratingStats.completed}</span>
-				<span class="stat-label">Completed</span>
-			</div>
-		</div>
-
-		<div class="rating-toolbar">
-			{#if data.permissions?.canEditPersonnel}
-				<button class="btn btn-sm btn-primary" onclick={handleAddRatingEntry} disabled={readOnly}>
-					Add Entry
-				</button>
-				{#if readOnly}
-					<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+						{/each}
+					</div>
+				{:else}
+					<div class="personnel-grid">
+						{#each personnelByGroup as grp (grp.group)}
+							<div class="group-card">
+								<div class="group-header">
+									<button class="group-toggle" onclick={() => toggleGroup(grp.group)}>
+										<span class="toggle-icon">{collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
+										<span class="group-name">{grp.group}</span>
+										<span class="group-count">({grp.personnel.length})</span>
+									</button>
+									<button
+										class="pin-btn"
+										class:pinned={pinnedGroupsStore.list.includes(grp.group)}
+										onclick={() => handlePinToggle(grp.group)}
+										title={pinnedGroupsStore.list.includes(grp.group) ? 'Unpin group' : 'Pin group to top'}
+									>
+										{pinnedGroupsStore.list.includes(grp.group) ? '📌' : '📍'}
+									</button>
+								</div>
+								{#if !collapsedGroups.has(grp.group)}
+									<div class="group-personnel">
+										{#each grp.personnel as person (person.id)}
+											{#if data.permissions?.canEditPersonnel}
+												<button class="person-row" onclick={() => handleEdit(person)}>
+													<div class="person-info">
+														<span class="rank">{person.rank}</span>
+														<span class="name">{person.lastName}, {person.firstName}</span>
+														{#if person.mos}
+															<span class="mos">{person.mos}</span>
+														{/if}
+														{#if person.clinicRole}
+															<span class="role">{person.clinicRole}</span>
+														{/if}
+													</div>
+												</button>
+											{:else}
+												<div class="person-row readonly">
+													<div class="person-info">
+														<span class="rank">{person.rank}</span>
+														<span class="name">{person.lastName}, {person.firstName}</span>
+														{#if person.mos}
+															<span class="mos">{person.mos}</span>
+														{/if}
+														{#if person.clinicRole}
+															<span class="role">{person.clinicRole}</span>
+														{/if}
+													</div>
+												</div>
+											{/if}
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
 				{/if}
-			{/if}
-			<button class="btn btn-sm btn-secondary" onclick={() => exportRatingScheme(filteredRatingEntries, personnelStore.list)}>
-				Export
-			</button>
-			<div class="spacer"></div>
-			<select class="select rating-filter" bind:value={evalTypeFilter}>
-				<option value="all">All Types</option>
-				<option value="OER">OER</option>
-				<option value="NCOER">NCOER</option>
-				<option value="WOER">WOER</option>
-			</select>
-			<select class="select rating-filter" bind:value={ratingFilter}>
-				<option value="active">Active</option>
-				<option value="completed">Completed</option>
-				<option value="change-of-rater">Change of Rater</option>
-				<option value="all">All Statuses</option>
-			</select>
-			{#if hasAnyWorkflowStatus}
-				<select class="select rating-filter" bind:value={workflowFilter}>
-					<option value="all">All Workflow</option>
-					{#each WORKFLOW_STATUS_OPTIONS as opt (opt.value)}
-						<option value={opt.value}>{opt.label}</option>
-					{/each}
-				</select>
-			{/if}
-			<div class="view-toggle">
-				<button
-					class="view-btn"
-					class:active={ratingViewMode === 'grouped'}
-					onclick={() => (ratingViewMode = 'grouped')}
-				>
-					Grouped
-				</button>
-				<button
-					class="view-btn"
-					class:active={ratingViewMode === 'table'}
-					onclick={() => (ratingViewMode = 'table')}
-				>
-					Table
-				</button>
+			</main>
+		{:else}
+			<div class="rating-stats-bar">
+				<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.overdue}">
+					<span class="stat-count">{ratingStats.overdue}</span>
+					<span class="stat-label">Overdue</span>
+				</div>
+				<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS['due-30']}">
+					<span class="stat-count">{ratingStats['due-30']}</span>
+					<span class="stat-label">Due 30d</span>
+				</div>
+				<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS['due-60']}">
+					<span class="stat-count">{ratingStats['due-60']}</span>
+					<span class="stat-label">Due 60d</span>
+				</div>
+				<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.current}">
+					<span class="stat-count">{ratingStats.current}</span>
+					<span class="stat-label">Current</span>
+				</div>
+				<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.completed}">
+					<span class="stat-count">{ratingStats.completed}</span>
+					<span class="stat-label">Completed</span>
+				</div>
 			</div>
-		</div>
 
-		<main class="page-content">
-			{#if ratingViewMode === 'grouped'}
-				<RatingSchemeGroupedView
-					entries={filteredRatingEntries}
-					personnel={data.allPersonnel ?? data.personnel ?? []}
-					onEdit={handleEditRatingEntry}
-				/>
-			{:else}
-				<RatingSchemeTableView
-					entries={filteredRatingEntries}
-					personnel={data.allPersonnel ?? data.personnel ?? []}
-					onEdit={handleEditRatingEntry}
-				/>
-			{/if}
-		</main>
-	{/if}
+			<div class="rating-toolbar">
+				{#if data.permissions?.canEditPersonnel}
+					<button class="btn btn-sm btn-primary" onclick={handleAddRatingEntry} disabled={readOnly}> Add Entry </button>
+					{#if readOnly}
+						<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+					{/if}
+				{/if}
+				<button
+					class="btn btn-sm btn-secondary"
+					onclick={() => exportRatingScheme(filteredRatingEntries, personnelStore.list)}
+				>
+					Export
+				</button>
+				<div class="spacer"></div>
+				<select class="select rating-filter" bind:value={evalTypeFilter}>
+					<option value="all">All Types</option>
+					<option value="OER">OER</option>
+					<option value="NCOER">NCOER</option>
+					<option value="WOER">WOER</option>
+				</select>
+				<select class="select rating-filter" bind:value={ratingFilter}>
+					<option value="active">Active</option>
+					<option value="completed">Completed</option>
+					<option value="change-of-rater">Change of Rater</option>
+					<option value="all">All Statuses</option>
+				</select>
+				{#if hasAnyWorkflowStatus}
+					<select class="select rating-filter" bind:value={workflowFilter}>
+						<option value="all">All Workflow</option>
+						{#each WORKFLOW_STATUS_OPTIONS as opt (opt.value)}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</select>
+				{/if}
+				<div class="view-toggle">
+					<button
+						class="view-btn"
+						class:active={ratingViewMode === 'grouped'}
+						onclick={() => (ratingViewMode = 'grouped')}
+					>
+						Grouped
+					</button>
+					<button class="view-btn" class:active={ratingViewMode === 'table'} onclick={() => (ratingViewMode = 'table')}>
+						Table
+					</button>
+				</div>
+			</div>
+
+			<main class="page-content">
+				{#if ratingViewMode === 'grouped'}
+					<RatingSchemeGroupedView
+						entries={filteredRatingEntries}
+						personnel={data.allPersonnel ?? data.personnel ?? []}
+						onEdit={handleEditRatingEntry}
+					/>
+				{:else}
+					<RatingSchemeTableView
+						entries={filteredRatingEntries}
+						personnel={data.allPersonnel ?? data.personnel ?? []}
+						onEdit={handleEditRatingEntry}
+					/>
+				{/if}
+			</main>
+		{/if}
 	{/if}
 </div>
 
@@ -516,7 +499,10 @@
 		personnel={data.allPersonnel ?? data.personnel ?? []}
 		onSave={handleSaveRatingEntry}
 		onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
-		onClose={() => { showRatingModal = false; editingEntry = null; }}
+		onClose={() => {
+			showRatingModal = false;
+			editingEntry = null;
+		}}
 	/>
 {/if}
 
@@ -542,7 +528,7 @@
 
 {#if showBulkManager}
 	<BulkPersonnelManager
-		personnelByGroup={personnelByGroup}
+		{personnelByGroup}
 		groups={groupsStore.list}
 		orgId={data.orgId}
 		onImportComplete={handleBulkImportComplete}
@@ -715,9 +701,9 @@
 	}
 
 	.view-btn.active {
-		background: #B8943E;
-		border-color: #B8943E;
-		color: #0F0F0F;
+		background: #b8943e;
+		border-color: #b8943e;
+		color: #0f0f0f;
 	}
 
 	.personnel-list {
@@ -730,8 +716,8 @@
 	.group-badge {
 		font-family: var(--font-mono);
 		font-size: var(--font-size-xs);
-		color: #0F0F0F;
-		background: #B8943E;
+		color: #0f0f0f;
+		background: #b8943e;
 		padding: 2px var(--spacing-sm);
 		border-radius: var(--radius-sm);
 		margin-left: auto;
@@ -770,8 +756,8 @@
 	.group-header {
 		display: flex;
 		align-items: center;
-		background: #0F0F0F;
-		color: #F0EDE6;
+		background: #0f0f0f;
+		color: #f0ede6;
 	}
 
 	.group-toggle {
@@ -788,7 +774,7 @@
 	}
 
 	.group-toggle:hover {
-		background: #1A1A1A;
+		background: #1a1a1a;
 	}
 
 	.toggle-icon {
@@ -816,7 +802,7 @@
 
 	.pin-btn:hover {
 		opacity: 1;
-		background: #1A1A1A;
+		background: #1a1a1a;
 	}
 
 	.pin-btn.pinned {
@@ -860,7 +846,7 @@
 
 	.rank {
 		font-weight: 600;
-		color: #B8943E;
+		color: #b8943e;
 		min-width: 40px;
 	}
 
@@ -871,7 +857,7 @@
 
 	.mos {
 		font-size: var(--font-size-sm);
-		color: #B8943E;
+		color: #b8943e;
 		font-weight: 500;
 	}
 
@@ -932,5 +918,4 @@
 			max-width: 300px;
 		}
 	}
-
 </style>

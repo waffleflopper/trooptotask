@@ -10,40 +10,40 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	const parentData = await parent();
 
 	const [pinnedGroupsRes, ratingSchemeRes] = await Promise.all([
-		userId ? supabase
-			.from('user_pinned_groups')
-			.select('*')
-			.eq('organization_id', orgId)
-			.eq('user_id', userId)
-			.order('sort_order') : Promise.resolve({ data: [] }),
-		supabase
-			.from('rating_scheme_entries')
-			.select('*')
-			.eq('organization_id', orgId)
-			.order('rating_period_end')
+		userId
+			? supabase
+					.from('user_pinned_groups')
+					.select('*')
+					.eq('organization_id', orgId)
+					.eq('user_id', userId)
+					.order('sort_order')
+			: Promise.resolve({ data: [] }),
+		supabase.from('rating_scheme_entries').select('*').eq('organization_id', orgId).order('rating_period_end')
 	]);
 
-	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map((p: any) => p.group_name);
+	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map(
+		(p: Record<string, unknown>) => p.group_name as string
+	);
 
-	const ratingSchemeEntries: RatingSchemeEntry[] = (ratingSchemeRes.data ?? []).map((r: any) => ({
-		id: r.id,
-		ratedPersonId: r.rated_person_id,
-		evalType: r.eval_type,
-		raterPersonId: r.rater_person_id,
-		raterName: r.rater_name,
-		seniorRaterPersonId: r.senior_rater_person_id,
-		seniorRaterName: r.senior_rater_name,
-		intermediateRaterPersonId: r.intermediate_rater_person_id,
-		intermediateRaterName: r.intermediate_rater_name,
-		reviewerPersonId: r.reviewer_person_id,
-		reviewerName: r.reviewer_name,
-		ratingPeriodStart: r.rating_period_start,
-		ratingPeriodEnd: r.rating_period_end,
-		status: r.status,
-		notes: r.notes,
-		reportType: r.report_type,
-		workflowStatus: r.workflow_status
-	}));
+	const ratingSchemeEntries = (ratingSchemeRes.data ?? []).map((r: Record<string, unknown>) => ({
+		id: r.id as string,
+		ratedPersonId: r.rated_person_id as string,
+		evalType: r.eval_type as string,
+		raterPersonId: r.rater_person_id as string | null,
+		raterName: r.rater_name as string | null,
+		seniorRaterPersonId: r.senior_rater_person_id as string | null,
+		seniorRaterName: r.senior_rater_name as string | null,
+		intermediateRaterPersonId: r.intermediate_rater_person_id as string | null,
+		intermediateRaterName: r.intermediate_rater_name as string | null,
+		reviewerPersonId: r.reviewer_person_id as string | null,
+		reviewerName: r.reviewer_name as string | null,
+		ratingPeriodStart: r.rating_period_start as string,
+		ratingPeriodEnd: r.rating_period_end as string,
+		status: r.status as string,
+		notes: r.notes as string | null,
+		reportType: r.report_type as string | null,
+		workflowStatus: r.workflow_status as string | null
+	})) as RatingSchemeEntry[];
 
 	return {
 		orgId,

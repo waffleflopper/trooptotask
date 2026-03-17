@@ -25,23 +25,28 @@
 			items: [
 				{
 					title: 'What is Troop to Task?',
-					content: 'Troop to Task is a unit management platform for tracking personnel availability, training certifications, duty assignments, onboarding checklists, and counseling records. It gives leaders a real-time picture of their unit\'s readiness.'
+					content:
+						"Troop to Task is a unit management platform for tracking personnel availability, training certifications, duty assignments, onboarding checklists, and counseling records. It gives leaders a real-time picture of their unit's readiness."
 				},
 				{
 					title: 'Dashboard',
-					content: 'The Dashboard is your home base inside an organization. It shows today\'s strength, duty assignments, training status, upcoming changes, and active onboardings at a glance. Click "Customize" to show, hide, or reorder dashboard cards.'
+					content:
+						'The Dashboard is your home base inside an organization. It shows today\'s strength, duty assignments, training status, upcoming changes, and active onboardings at a glance. Click "Customize" to show, hide, or reorder dashboard cards.'
 				},
 				{
 					title: 'Navigation',
-					content: 'Use the top navigation bar to move between Dashboard, Calendar, Personnel, Training, Onboarding, and Leaders Book. On mobile, the bottom tab bar provides the same navigation. The avatar menu in the top-right gives access to Settings, Billing, Help, and Admin (if you have access).'
+					content:
+						'Use the top navigation bar to move between Dashboard, Calendar, Personnel, Training, Onboarding, and Leaders Book. On mobile, the bottom tab bar provides the same navigation. The avatar menu in the top-right gives access to Settings, Billing, Help, and Admin (if you have access).'
 				},
 				{
 					title: 'Multiple Organizations',
-					content: 'You can belong to multiple organizations. Click the organization name in the top-left header to switch between them, or go to the main Dashboard to see all your organizations and pending invitations.'
+					content:
+						'You can belong to multiple organizations. Click the organization name in the top-left header to switch between them, or go to the main Dashboard to see all your organizations and pending invitations.'
 				},
 				{
 					title: 'Theme Toggle',
-					content: 'Switch between light and dark mode from the avatar menu or the sun/moon icon on standalone pages. Your preference is saved automatically.'
+					content:
+						'Switch between light and dark mode from the avatar menu or the sun/moon icon on standalone pages. Your preference is saved automatically.'
 				}
 			]
 		},
@@ -52,18 +57,21 @@
 			items: [
 				{
 					title: 'Dashboard Cards',
-					content: 'The dashboard shows cards for: Today\'s Strength (available vs. total personnel), Duty Assignments, Training Status, Upcoming Changes (next 7 days), Rating Scheme status, Active Onboardings, and Per-Group Breakdown.'
+					content:
+						"The dashboard shows cards for: Today's Strength (available vs. total personnel), Duty Assignments, Training Status, Upcoming Changes (next 7 days), Rating Scheme status, Active Onboardings, and Per-Group Breakdown."
 				},
 				{
 					title: 'Customization',
-					content: 'Click "Customize" in the toolbar to show, hide, or reorder dashboard cards. Your preferences are saved in the browser.'
+					content:
+						'Click "Customize" in the toolbar to show, hide, or reorder dashboard cards. Your preferences are saved in the browser.'
 				},
 				{
 					title: 'Per-Group Breakdown',
-					content: 'The group breakdown table shows each group\'s total personnel, present count, per-status counts, and availability percentage. Pinned groups appear at the top.'
+					content:
+						"The group breakdown table shows each group's total personnel, present count, per-status counts, and availability percentage. Pinned groups appear at the top."
 				},
 				{
-		content: 'If you are scoped to a specific group, your dashboard only reflects personnel in that group.',
+					content: 'If you are scoped to a specific group, your dashboard only reflects personnel in that group.',
 					role: 'team-leader'
 				}
 			]
@@ -75,27 +83,33 @@
 			items: [
 				{
 					title: 'Monthly View',
-					content: 'The Calendar shows a monthly grid with personnel as rows and days as columns. Each cell is color-coded by status. Weekends and holidays have distinct background colors for easy identification.'
+					content:
+						'The Calendar shows a monthly grid with personnel as rows and days as columns. Each cell is color-coded by status. Weekends and holidays have distinct background colors for easy identification.'
 				},
 				{
 					title: 'Adding Status Entries',
-					content: 'Click any cell to add or modify a status entry (Leave, TDY, School, Sick, etc.). Select a date range if the status spans multiple days. The status color appears on the calendar immediately.'
+					content:
+						'Click any cell to add or modify a status entry (Leave, TDY, School, Sick, etc.). Select a date range if the status spans multiple days. The status color appears on the calendar immediately.'
 				},
 				{
 					title: '3-Month View',
-					content: 'For long-range planning, open "3-Month View" from the toolbar overflow menu. This displays three months at once so you can spot coverage gaps and plan ahead.'
+					content:
+						'For long-range planning, open "3-Month View" from the toolbar overflow menu. This displays three months at once so you can spot coverage gaps and plan ahead.'
 				},
 				{
 					title: 'Daily Assignments',
-					content: 'Use "Assignments" from the toolbar to assign personnel to daily duties (MOD, Front Desk, CQ, etc.). The monthly planner lets you fill assignments quickly across the month.'
+					content:
+						'Use "Assignments" from the toolbar to assign personnel to daily duties (MOD, Front Desk, CQ, etc.). The monthly planner lets you fill assignments quickly across the month.'
 				},
 				{
 					title: 'Duty Roster Generator',
-					content: 'The Duty Roster tool automatically distributes assignments fairly across eligible personnel, taking into account availability and previous assignment counts.'
+					content:
+						'The Duty Roster tool automatically distributes assignments fairly across eligible personnel, taking into account availability and previous assignment counts.'
 				},
 				{
 					title: 'Bulk Status',
-					content: 'Apply the same status to multiple people at once via "Bulk Status" in the toolbar. Select personnel, choose a status, set the date range, and apply.'
+					content:
+						'Apply the same status to multiple people at once via "Bulk Status" in the toolbar. Select personnel, choose a status, set the date range, and apply.'
 				},
 				{
 					title: 'Export',
@@ -103,14 +117,16 @@
 				},
 				{
 					title: 'Show Status Text',
-					content: 'Toggle "Show Status Text" in the toolbar to show abbreviated status names on calendar cells alongside the color coding.'
+					content:
+						'Toggle "Show Status Text" in the toolbar to show abbreviated status names on calendar cells alongside the color coding.'
 				},
 				{
-		content: 'You can see the full calendar for org-wide visibility, but can only edit entries for personnel in your assigned group.',
+					content:
+						'You can see the full calendar for org-wide visibility, but can only edit entries for personnel in your assigned group.',
 					role: 'team-leader'
 				},
 				{
-		content: 'Bulk Status, Duty Roster Generator, and Export require full-editor, admin, or owner access.',
+					content: 'Bulk Status, Duty Roster Generator, and Export require full-editor, admin, or owner access.',
 					role: 'admin'
 				}
 			]
@@ -122,38 +138,44 @@
 			items: [
 				{
 					title: 'View Modes',
-					content: 'Toggle between "By Group" (personnel organized under collapsible group headings) and "A-Z" (single alphabetical list with group badges) using the buttons in the filter bar.'
+					content:
+						'Toggle between "By Group" (personnel organized under collapsible group headings) and "A-Z" (single alphabetical list with group badges) using the buttons in the filter bar.'
 				},
 				{
 					title: 'Adding Personnel',
-					content: 'Click "Add Person" in the toolbar to add a new team member. Enter their name, rank, MOS, role, and assign them to a group.'
+					content:
+						'Click "Add Person" in the toolbar to add a new team member. Enter their name, rank, MOS, role, and assign them to a group.'
 				},
 				{
 					title: 'Editing Personnel',
-					content: 'Click on any person in the list to view and edit their information, including extended info like phone, email, and emergency contacts.'
+					content:
+						'Click on any person in the list to view and edit their information, including extended info like phone, email, and emergency contacts.'
 				},
 				{
 					title: 'Groups',
-					content: 'Organize personnel into groups (sections, teams, departments). Use "Manage Groups" in the toolbar overflow menu to create, rename, reorder, or delete groups. Pin frequently used groups to keep them at the top of lists.'
+					content:
+						'Organize personnel into groups (sections, teams, departments). Use "Manage Groups" in the toolbar overflow menu to create, rename, reorder, or delete groups. Pin frequently used groups to keep them at the top of lists.'
 				},
 				{
 					title: 'Bulk Import',
-					content: 'Import many personnel at once using Excel or CSV. Click "Bulk Import" in the toolbar overflow menu. Required columns: FirstName, LastName, Rank. Optional: MOS, Role, Group.'
+					content:
+						'Import many personnel at once using Excel or CSV. Click "Bulk Import" in the toolbar overflow menu. Required columns: FirstName, LastName, Rank. Optional: MOS, Role, Group.'
 				},
 				{
 					title: 'Bulk Delete',
-					content: 'Select multiple personnel with checkboxes, then click the delete button. A confirmation dialog prevents accidental deletion.'
+					content:
+						'Select multiple personnel with checkboxes, then click the delete button. A confirmation dialog prevents accidental deletion.'
 				},
 				{
 					title: 'Search',
 					content: 'Use the search box at the top to filter personnel by name. Works in both view modes.'
 				},
 				{
-		content: 'You only see personnel in your assigned group. You can add and edit personnel within your group.',
+					content: 'You only see personnel in your assigned group. You can add and edit personnel within your group.',
 					role: 'team-leader'
 				},
 				{
-		content: 'Manage Groups, Bulk Import, and Bulk Delete require full-editor, admin, or owner access.',
+					content: 'Manage Groups, Bulk Import, and Bulk Delete require full-editor, admin, or owner access.',
 					role: 'admin'
 				}
 			]
@@ -165,34 +187,40 @@
 			items: [
 				{
 					title: 'Training Matrix',
-					content: 'The Training page shows a matrix grid: personnel as rows, training types as columns. Each cell shows completion status with color-coded expiration warnings.'
+					content:
+						'The Training page shows a matrix grid: personnel as rows, training types as columns. Each cell shows completion status with color-coded expiration warnings.'
 				},
 				{
 					title: 'Expiration Colors',
-					content: 'Cells are color-coded: Green = valid, Yellow = expiring within 60 days, Orange = expiring within 30 days, Red = expired or missing. This lets you quickly spot who needs recertification.'
+					content:
+						'Cells are color-coded: Green = valid, Yellow = expiring within 60 days, Orange = expiring within 30 days, Red = expired or missing. This lets you quickly spot who needs recertification.'
 				},
 				{
 					title: 'Recording Training',
-					content: 'Click any cell in the training matrix to record a completion date. The system calculates the expiration date automatically based on the training type settings.'
+					content:
+						'Click any cell in the training matrix to record a completion date. The system calculates the expiration date automatically based on the training type settings.'
 				},
 				{
 					title: 'Training Types',
-					content: 'Configure which certifications you track via "Manage Types" in the toolbar overflow menu. Set the name, expiration period (months), and optionally restrict by role.'
+					content:
+						'Configure which certifications you track via "Manage Types" in the toolbar overflow menu. Set the name, expiration period (months), and optionally restrict by role.'
 				},
 				{
 					title: 'Reports',
-					content: 'Click "Reports" in the toolbar to see delinquency reports — all expired or soon-to-expire training sorted by urgency for prioritizing recertification.'
+					content:
+						'Click "Reports" in the toolbar to see delinquency reports — all expired or soon-to-expire training sorted by urgency for prioritizing recertification.'
 				},
 				{
 					title: 'Bulk Import',
-					content: 'Import training records via Excel or CSV from the toolbar overflow menu. Format: Person identifier, Training Type, Completion Date.'
+					content:
+						'Import training records via Excel or CSV from the toolbar overflow menu. Format: Person identifier, Training Type, Completion Date.'
 				},
 				{
-		content: 'You only see training for personnel in your assigned group.',
+					content: 'You only see training for personnel in your assigned group.',
 					role: 'team-leader'
 				},
 				{
-		content: 'Manage Types, Reports, and Bulk Import require full-editor, admin, or owner access.',
+					content: 'Manage Types, Reports, and Bulk Import require full-editor, admin, or owner access.',
 					role: 'admin'
 				}
 			]
@@ -204,22 +232,26 @@
 			items: [
 				{
 					title: 'Overview',
-					content: 'The Onboarding page tracks in-processing checklists for new personnel. Each onboarding has a set of steps that must be completed before the person is fully integrated.'
+					content:
+						'The Onboarding page tracks in-processing checklists for new personnel. Each onboarding has a set of steps that must be completed before the person is fully integrated.'
 				},
 				{
 					title: 'Templates',
-					content: 'Define onboarding templates with three step types: Training (auto-completes when the training record exists), Paperwork (upload-based with stages), and Checkbox (simple manual check-off). Use "Manage Template" in the toolbar.'
+					content:
+						'Define onboarding templates with three step types: Training (auto-completes when the training record exists), Paperwork (upload-based with stages), and Checkbox (simple manual check-off). Use "Manage Template" in the toolbar.'
 				},
 				{
 					title: 'Starting an Onboarding',
-					content: 'Click "Start Onboarding" in the toolbar, select a person, and the template steps are created for them. Track progress as each step is completed.'
+					content:
+						'Click "Start Onboarding" in the toolbar, select a person, and the template steps are created for them. Track progress as each step is completed.'
 				},
 				{
 					title: 'Progress Tracking',
-					content: 'Each onboarding shows a progress bar and step count. Expand a person\'s entry to see individual step status, add notes, and mark steps complete.'
+					content:
+						"Each onboarding shows a progress bar and step count. Expand a person's entry to see individual step status, add notes, and mark steps complete."
 				},
 				{
-		content: 'Template management requires full-editor, admin, or owner access.',
+					content: 'Template management requires full-editor, admin, or owner access.',
 					role: 'admin'
 				}
 			]
@@ -231,18 +263,20 @@
 			items: [
 				{
 					title: 'Counseling Records',
-					content: 'Track counseling sessions for each person: initial, monthly, quarterly, or event-driven. Each record can include a PDF document upload. Access the Leaders Book from the top navigation.'
+					content:
+						'Track counseling sessions for each person: initial, monthly, quarterly, or event-driven. Each record can include a PDF document upload. Access the Leaders Book from the top navigation.'
 				},
 				{
 					title: 'Development Goals',
-					content: 'Set development goals for personnel and track progress over time. Goals can be linked to counseling records.'
+					content:
+						'Set development goals for personnel and track progress over time. Goals can be linked to counseling records.'
 				},
 				{
-		content: 'You only see records for personnel in your assigned group.',
+					content: 'You only see records for personnel in your assigned group.',
 					role: 'team-leader'
 				},
 				{
-		content: 'Counseling type management requires full-editor, admin, or owner access.',
+					content: 'Counseling type management requires full-editor, admin, or owner access.',
 					role: 'admin'
 				}
 			]
@@ -258,30 +292,36 @@
 				},
 				{
 					title: 'Member Management',
-					content: 'View all organization members, their roles, and permissions. Invite new members by email — they will see the invitation on their Dashboard when they log in.'
+					content:
+						'View all organization members, their roles, and permissions. Invite new members by email — they will see the invitation on their Dashboard when they log in.'
 				},
 				{
 					title: 'Permission Presets',
-					content: 'When inviting or editing a member, choose a preset: Admin (full access + admin hub), Full Editor (all editing permissions), Team Leader (scoped to a group), Viewer (read-only), or Custom (pick individual toggles).'
+					content:
+						'When inviting or editing a member, choose a preset: Admin (full access + admin hub), Full Editor (all editing permissions), Team Leader (scoped to a group), Viewer (read-only), or Custom (pick individual toggles).'
 				},
 				{
 					title: 'Status Types',
-					content: 'Configure the status types available in your calendar (Leave, TDY, School, Sick, etc.). Set name, abbreviation, color, and whether it counts as "unavailable". Access via "Manage Status Types" in the Calendar toolbar overflow menu.'
+					content:
+						'Configure the status types available in your calendar (Leave, TDY, School, Sick, etc.). Set name, abbreviation, color, and whether it counts as "unavailable". Access via "Manage Status Types" in the Calendar toolbar overflow menu.'
 				},
 				{
 					title: 'Assignment Types',
-					content: 'Define duty assignments (MOD, Front Desk, CQ, etc.). You can restrict certain assignments to specific roles. Access via "Manage Assignment Types" in the Calendar toolbar overflow menu.'
+					content:
+						'Define duty assignments (MOD, Front Desk, CQ, etc.). You can restrict certain assignments to specific roles. Access via "Manage Assignment Types" in the Calendar toolbar overflow menu.'
 				},
 				{
 					title: 'Holidays',
-					content: 'Manage holidays and special days. Federal holidays are pre-loaded — add organizational closures, training days, or custom events. Access via "Manage Holidays" in the Calendar toolbar overflow menu.'
+					content:
+						'Manage holidays and special days. Federal holidays are pre-loaded — add organizational closures, training days, or custom events. Access via "Manage Holidays" in the Calendar toolbar overflow menu.'
 				},
 				{
-		content: 'Member management requires the "Manage Members" permission. Type management (status types, assignment types, training types, counseling types) requires full-editor, admin, or owner access.',
+					content:
+						'Member management requires the "Manage Members" permission. Type management (status types, assignment types, training types, counseling types) requires full-editor, admin, or owner access.',
 					role: 'admin'
 				},
 				{
-		content: 'Only the owner can transfer ownership or delete the organization.',
+					content: 'Only the owner can transfer ownership or delete the organization.',
 					role: 'admin'
 				}
 			]
@@ -293,30 +333,37 @@
 			items: [
 				{
 					title: 'Role Hierarchy',
-					content: 'There are three roles: Owner, Admin, and Member. The Owner has full access including transferring ownership and deleting the organization. Admins have full access plus the Admin Hub, but cannot transfer or delete. Members have access controlled by individual permission toggles.'
+					content:
+						'There are three roles: Owner, Admin, and Member. The Owner has full access including transferring ownership and deleting the organization. Admins have full access plus the Admin Hub, but cannot transfer or delete. Members have access controlled by individual permission toggles.'
 				},
 				{
 					title: 'Permission Presets',
-					content: 'Admin: full access + admin hub. Full Editor: all 11 permission toggles on — can edit everything and access type managers, bulk operations, and export. Team Leader: scoped to a specific group with edit permissions for that group. Viewer: can see everything but cannot make changes. Custom: pick individual toggles.'
+					content:
+						'Admin: full access + admin hub. Full Editor: all 11 permission toggles on — can edit everything and access type managers, bulk operations, and export. Team Leader: scoped to a specific group with edit permissions for that group. Viewer: can see everything but cannot make changes. Custom: pick individual toggles.'
 				},
 				{
 					title: 'Group Scoping',
-					content: 'Members can be scoped to a specific group. When scoped, they only see and edit personnel in that group. This is the "Team Leader" model — each group leader manages their own people while the calendar stays org-wide for visibility. Owners and admins are always org-wide regardless of scope setting.'
+					content:
+						'Members can be scoped to a specific group. When scoped, they only see and edit personnel in that group. This is the "Team Leader" model — each group leader manages their own people while the calendar stays org-wide for visibility. Owners and admins are always org-wide regardless of scope setting.'
 				},
 				{
 					title: 'What Full Editor Unlocks',
-					content: 'A member with all 11 permission toggles on is detected as a "Full Editor." This unlocks access to type managers (status types, training types, etc.), bulk operations (bulk status, bulk import/delete), data export, and the duty roster generator — everything except the Admin Hub and destructive operations.'
+					content:
+						'A member with all 11 permission toggles on is detected as a "Full Editor." This unlocks access to type managers (status types, training types, etc.), bulk operations (bulk status, bulk import/delete), data export, and the duty roster generator — everything except the Admin Hub and destructive operations.'
 				},
 				{
 					title: 'Deletion Approvals',
-					content: 'Members who are not full-editors, admins, or owners must request approval to delete personnel, counseling records, training records, and development goals. The record shows a "Pending deletion" indicator until an admin or owner approves or denies the request from the Admin Hub.'
+					content:
+						'Members who are not full-editors, admins, or owners must request approval to delete personnel, counseling records, training records, and development goals. The record shows a "Pending deletion" indicator until an admin or owner approves or denies the request from the Admin Hub.'
 				},
 				{
-		content: 'As a team leader, you can add and edit personnel, calendar entries, training, and counseling records for your assigned group. You cannot access type managers, bulk operations, or the admin hub.',
+					content:
+						'As a team leader, you can add and edit personnel, calendar entries, training, and counseling records for your assigned group. You cannot access type managers, bulk operations, or the admin hub.',
 					role: 'team-leader'
 				},
 				{
-		content: 'Read-only members can view all pages they have view permissions for, but cannot make any changes. Attempting to edit shows a permission message.',
+					content:
+						'Read-only members can view all pages they have view permissions for, but cannot make any changes. Attempting to edit shows a permission message.',
 					role: 'viewer'
 				}
 			]
@@ -328,14 +375,16 @@
 			items: [
 				{
 					title: 'Approvals',
-					content: 'Review pending deletion requests from non-privileged members. Approve or deny each request with an optional reason. The requester is notified of the decision. Filter between pending and resolved requests.'
+					content:
+						'Review pending deletion requests from non-privileged members. Approve or deny each request with an optional reason. The requester is notified of the decision. Filter between pending and resolved requests.'
 				},
 				{
 					title: 'Audit Log',
-					content: 'View a chronological log of all actions taken in the organization — personnel changes, training updates, membership modifications, and more. Use this for accountability and compliance tracking.'
+					content:
+						'View a chronological log of all actions taken in the organization — personnel changes, training updates, membership modifications, and more. Use this for accountability and compliance tracking.'
 				},
 				{
-		content: 'The Admin Hub is only visible to admins and owners. Access it from the avatar menu.',
+					content: 'The Admin Hub is only visible to admins and owners. Access it from the avatar menu.',
 					role: 'admin'
 				}
 			]
@@ -347,23 +396,28 @@
 			items: [
 				{
 					title: 'Quick Organization Switch',
-					content: 'Click the organization name in the top-left header to switch between organizations without going back to the main Dashboard.'
+					content:
+						'Click the organization name in the top-left header to switch between organizations without going back to the main Dashboard.'
 				},
 				{
 					title: 'Pin Groups',
-					content: 'Pin frequently used groups to always appear at the top of personnel lists and the dashboard breakdown. Look for the pin icon when managing groups.'
+					content:
+						'Pin frequently used groups to always appear at the top of personnel lists and the dashboard breakdown. Look for the pin icon when managing groups.'
 				},
 				{
 					title: 'Keyboard Navigation',
-					content: 'Use Tab to navigate between interactive elements. Press Enter or Space to activate buttons. Press Escape to close modals and dialogs.'
+					content:
+						'Use Tab to navigate between interactive elements. Press Enter or Space to activate buttons. Press Escape to close modals and dialogs.'
 				},
 				{
 					title: 'Mobile Usage',
-					content: 'On mobile, the bottom tab bar replaces the top navigation. The calendar and training matrix scroll horizontally. All features are fully functional on mobile.'
+					content:
+						'On mobile, the bottom tab bar replaces the top navigation. The calendar and training matrix scroll horizontally. All features are fully functional on mobile.'
 				},
 				{
 					title: 'Notifications',
-					content: 'The bell icon next to your avatar shows unread notifications. Click it to see deletion approval results and other updates. Each notification can be dismissed individually.'
+					content:
+						'The bell icon next to your avatar shows unread notifications. Click it to see deletion approval results and other updates. Each notification can be dismissed individually.'
 				}
 			]
 		}
@@ -391,9 +445,7 @@
 			</svg>
 		{:else}
 			<svg viewBox="0 0 24 24" fill="currentColor">
-				<path
-					d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-				/>
+				<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
 			</svg>
 		{/if}
 	</button>
@@ -462,9 +514,7 @@
 		<footer class="help-footer">
 			<p>
 				Need more help? Contact your organization administrator or visit the
-				<a href="https://github.com/waffleflopper/trooptotask" target="_blank" rel="noopener"
-					>project repository</a
-				>.
+				<a href="https://github.com/waffleflopper/trooptotask" target="_blank" rel="noopener">project repository</a>.
 			</p>
 		</footer>
 	</div>
@@ -651,7 +701,7 @@
 	}
 
 	.role-callout--team-leader {
-		border-left-color: #B8943E;
+		border-left-color: #b8943e;
 	}
 
 	.role-callout--viewer {
@@ -672,7 +722,7 @@
 	}
 
 	.role-callout--team-leader .role-callout-label {
-		color: #B8943E;
+		color: #b8943e;
 	}
 
 	.role-callout--viewer .role-callout-label {

@@ -8,11 +8,7 @@ export function getEvalTypeForRank(rank: string): 'OER' | 'NCOER' | 'WOER' {
 	return 'NCOER';
 }
 
-export function getRatingDueStatus(
-	ratingPeriodEnd: string,
-	status: string,
-	today: Date = new Date()
-): RatingDueStatus {
+export function getRatingDueStatus(ratingPeriodEnd: string, status: string, today: Date = new Date()): RatingDueStatus {
 	if (status === 'completed') return 'completed';
 
 	const end = new Date(ratingPeriodEnd + 'T00:00:00');

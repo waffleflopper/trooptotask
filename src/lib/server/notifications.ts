@@ -10,11 +10,7 @@ interface NotificationPayload {
 /**
  * Notify a specific user.
  */
-export async function notifyUser(
-	orgId: string,
-	userId: string,
-	notification: NotificationPayload
-): Promise<void> {
+export async function notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void> {
 	const adminClient = getAdminClient();
 	const { error } = await adminClient.from('notifications').insert({
 		user_id: userId,

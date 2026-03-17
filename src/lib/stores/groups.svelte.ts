@@ -82,9 +82,7 @@ class GroupsStore {
 		const original = this.#groups.find((g) => g.id === id);
 		if (!original) return false;
 
-		this.#groups = this.#groups.map((g) =>
-			g.id === id ? { ...g, name: newName.trim() } : g
-		);
+		this.#groups = this.#groups.map((g) => (g.id === id ? { ...g, name: newName.trim() } : g));
 
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/groups`, {

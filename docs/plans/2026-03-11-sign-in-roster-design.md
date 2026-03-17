@@ -8,20 +8,20 @@ Modal-based sign-in roster generator accessible from the training page. Allows u
 
 New `sign_in_rosters` table:
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | default gen_random_uuid() |
-| org_id | uuid FK → organizations | |
-| title | text NOT NULL | User-entered title |
-| roster_date | date | The date shown on the roster |
-| blank_date | boolean NOT NULL default false | If true, date line left blank on PDF |
-| separate_by_group | boolean NOT NULL default false | |
-| sort_by | text NOT NULL default 'alphabetical' | 'alphabetical' or 'rank' |
-| personnel_snapshot | jsonb NOT NULL | Array of { id, rank, name, group } frozen at generation time |
-| filter_config | jsonb | Groups/ranks selected for re-generation |
-| signed_file_path | text | Supabase storage path for uploaded signed scan (nullable) |
-| created_by | uuid FK → auth.users | |
-| created_at | timestamptz NOT NULL default now() | |
+| Column             | Type                                 | Notes                                                        |
+| ------------------ | ------------------------------------ | ------------------------------------------------------------ |
+| id                 | uuid PK                              | default gen_random_uuid()                                    |
+| org_id             | uuid FK → organizations              |                                                              |
+| title              | text NOT NULL                        | User-entered title                                           |
+| roster_date        | date                                 | The date shown on the roster                                 |
+| blank_date         | boolean NOT NULL default false       | If true, date line left blank on PDF                         |
+| separate_by_group  | boolean NOT NULL default false       |                                                              |
+| sort_by            | text NOT NULL default 'alphabetical' | 'alphabetical' or 'rank'                                     |
+| personnel_snapshot | jsonb NOT NULL                       | Array of { id, rank, name, group } frozen at generation time |
+| filter_config      | jsonb                                | Groups/ranks selected for re-generation                      |
+| signed_file_path   | text                                 | Supabase storage path for uploaded signed scan (nullable)    |
+| created_by         | uuid FK → auth.users                 |                                                              |
+| created_at         | timestamptz NOT NULL default now()   |                                                              |
 
 RLS: org members can read/write their own org's rosters. Delete restricted to canEditTraining.
 
@@ -76,13 +76,13 @@ Generated via existing print-to-new-window pattern.
 
 ## API Endpoints
 
-| Method | Path | Purpose | Permission |
-|--------|------|---------|------------|
-| GET | /org/[orgId]/api/sign-in-rosters | List saved rosters (paginated, filterable) | canViewTraining |
-| POST | /org/[orgId]/api/sign-in-rosters | Save new roster record | canViewTraining |
-| DELETE | /org/[orgId]/api/sign-in-rosters/[id] | Delete roster + uploaded file | canEditTraining |
-| POST | /org/[orgId]/api/sign-in-rosters/[id]/upload | Upload signed scan | canEditTraining |
-| DELETE | /org/[orgId]/api/sign-in-rosters/[id]/upload | Remove signed scan | canEditTraining |
+| Method | Path                                         | Purpose                                    | Permission      |
+| ------ | -------------------------------------------- | ------------------------------------------ | --------------- |
+| GET    | /org/[orgId]/api/sign-in-rosters             | List saved rosters (paginated, filterable) | canViewTraining |
+| POST   | /org/[orgId]/api/sign-in-rosters             | Save new roster record                     | canViewTraining |
+| DELETE | /org/[orgId]/api/sign-in-rosters/[id]        | Delete roster + uploaded file              | canEditTraining |
+| POST   | /org/[orgId]/api/sign-in-rosters/[id]/upload | Upload signed scan                         | canEditTraining |
+| DELETE | /org/[orgId]/api/sign-in-rosters/[id]/upload | Remove signed scan                         | canEditTraining |
 
 No dedicated "download original PDF" endpoint — component re-generates from personnel_snapshot and stored config.
 

@@ -4,7 +4,7 @@ export interface HelpTopic {
 }
 
 export const helpContent: Record<string, HelpTopic> = {
-	'dashboard': {
+	dashboard: {
 		title: 'Dashboard',
 		content: `
 			<p>The dashboard is your real-time command center, showing organization strength, assignments, training status, and upcoming changes at a glance.</p>
@@ -25,7 +25,7 @@ export const helpContent: Record<string, HelpTopic> = {
 			<p>A table showing each group's total, present, and status counts. Pinned groups appear at the top for quick reference.</p>
 		`
 	},
-	'calendar': {
+	calendar: {
 		title: 'Calendar',
 		content: `
 			<p>The calendar displays your unit's monthly schedule as a grid. Each row is a person (grouped by section), and each column is a date. Colored cells indicate statuses, and small badges show duty assignments.</p>
@@ -60,7 +60,7 @@ export const helpContent: Record<string, HelpTopic> = {
 			</ul>
 		`
 	},
-	'personnel': {
+	personnel: {
 		title: 'Personnel',
 		content: `
 			<p>Manage your unit's roster. Add, edit, and organize personnel by group, rank, MOS, and clinic role.</p>
@@ -144,7 +144,7 @@ export const helpContent: Record<string, HelpTopic> = {
 			<p>Track career, education, physical, and personal goals for each soldier. Set priority (Low/Medium/High), status (Not Started/In Progress/Completed/On Hold), target dates, and progress notes.</p>
 		`
 	},
-	'onboarding': {
+	onboarding: {
 		title: 'Onboarding',
 		content: `
 			<p>Track multi-step onboarding checklists for new personnel joining the unit. Each onboarding uses a shared template of steps that you can customize.</p>
@@ -213,7 +213,7 @@ export const helpContent: Record<string, HelpTopic> = {
 			<p>Click any entry (in either view) to open the edit modal. You can update all fields, change status to Completed or Change of Rater, or delete the entry entirely.</p>
 		`
 	},
-	'settings': {
+	settings: {
 		title: 'Settings',
 		content: `
 			<p>Configure your organization's name, manage team members, and control access permissions.</p>

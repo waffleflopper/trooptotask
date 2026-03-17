@@ -4,10 +4,7 @@ import { getAdminClient } from './supabase';
 
 export type AdminRole = 'super_admin' | 'support' | 'billing';
 
-export async function isPlatformAdmin(
-	supabase: SupabaseClient,
-	userId: string
-): Promise<boolean> {
+export async function isPlatformAdmin(supabase: SupabaseClient, userId: string): Promise<boolean> {
 	// Use the database function which is SECURITY DEFINER and bypasses RLS
 	const { data, error: err } = await supabase.rpc('is_platform_admin');
 
@@ -43,10 +40,7 @@ export function getAccessiblePages(role: AdminRole): string[] {
 		.map(([page]) => page);
 }
 
-export async function getAdminRole(
-	_supabase: SupabaseClient,
-	userId: string
-): Promise<AdminRole | null> {
+export async function getAdminRole(_supabase: SupabaseClient, userId: string): Promise<AdminRole | null> {
 	const adminClient = getAdminClient();
 	const { data, error: err } = await adminClient
 		.from('platform_admins')

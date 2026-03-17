@@ -7,12 +7,7 @@
 	let { size = 14, color = 'white' }: Props = $props();
 </script>
 
-<span
-	class="spinner"
-	style:--spin-color={color}
-	style:width="{size}px"
-	style:height="{size}px"
-	aria-hidden="true"
+<span class="spinner" style:--spin-color={color} style:width="{size}px" style:height="{size}px" aria-hidden="true"
 ></span>
 
 <style>

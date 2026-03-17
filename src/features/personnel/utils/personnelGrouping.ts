@@ -7,10 +7,33 @@ export interface PersonnelGroup {
 
 // Military rank order (highest to lowest)
 export const RANK_ORDER = [
-	'GEN', 'LTG', 'MG', 'BG', 'COL', 'LTC', 'MAJ', 'CPT', '1LT', '2LT',
-	'CW5', 'CW4', 'CW3', 'CW2', 'WO1',
-	'CSM', 'SGM', '1SG', 'MSG', 'SFC', 'SSG', 'SGT',
-	'CPL', 'SPC', 'PFC', 'PV2', 'PV1',
+	'GEN',
+	'LTG',
+	'MG',
+	'BG',
+	'COL',
+	'LTC',
+	'MAJ',
+	'CPT',
+	'1LT',
+	'2LT',
+	'CW5',
+	'CW4',
+	'CW3',
+	'CW2',
+	'WO1',
+	'CSM',
+	'SGM',
+	'1SG',
+	'MSG',
+	'SFC',
+	'SSG',
+	'SGT',
+	'CPL',
+	'SPC',
+	'PFC',
+	'PV2',
+	'PV1',
 	'CIV'
 ] as const;
 
@@ -39,9 +62,7 @@ export function groupAndSortPersonnel(
 	options: string[] | GroupSortOptions = []
 ): PersonnelGroup[] {
 	// Support legacy signature: groupAndSortPersonnel(personnel, pinnedGroups)
-	const opts: GroupSortOptions = Array.isArray(options)
-		? { pinnedGroups: options }
-		: options;
+	const opts: GroupSortOptions = Array.isArray(options) ? { pinnedGroups: options } : options;
 
 	const groupMap = new Map<string, Personnel[]>();
 

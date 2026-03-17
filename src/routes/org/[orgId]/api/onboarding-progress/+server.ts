@@ -25,6 +25,7 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 		.eq('id', id)
 		.single();
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase joined query result has dynamic nested shape
 	if (!stepCheck || (stepCheck as any).personnel_onboardings?.organization_id !== orgId) {
 		throw error(404, 'Step not found');
 	}
@@ -78,19 +79,18 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 		.eq('id', id)
 		.single();
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase joined query result has dynamic nested shape
 	if (!stepCheck || (stepCheck as any).personnel_onboardings?.organization_id !== orgId) {
 		throw error(404, 'Step not found');
 	}
 
 	// Only allow removing incomplete deprecated steps
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase joined query result has dynamic nested shape
 	if ((stepCheck as any).completed) {
 		throw error(409, 'Cannot remove a completed step.');
 	}
 
-	const { error: dbError } = await supabase
-		.from('onboarding_step_progress')
-		.delete()
-		.eq('id', id);
+	const { error: dbError } = await supabase.from('onboarding_step_progress').delete().eq('id', id);
 
 	if (dbError) throw error(500, dbError.message);
 	return json({ success: true });

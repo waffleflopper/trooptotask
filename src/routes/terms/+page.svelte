@@ -8,7 +8,10 @@
 	<meta name="description" content="Terms of Use for TroopToTask, a military personnel management platform." />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap"
+		rel="stylesheet"
+	/>
 </svelte:head>
 
 <div class="legal-page">
@@ -34,12 +37,28 @@
 				<a href="/#roadmap" class="nav-link">Roadmap</a>
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<circle cx="12" cy="12" r="5" /><path
+								d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+							/>
 						</svg>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
 						</svg>
 					{/if}
 				</button>
@@ -53,9 +72,13 @@
 			<div class="mobile-actions">
 				<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 					{#if themeStore.isDark}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><circle cx="12" cy="12" r="5" /></svg
+						>
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg
+						>
 					{/if}
 				</button>
 				{#if data.user}
@@ -73,7 +96,10 @@
 		<div class="page-header-content">
 			<div class="section-label">TERMS OF USE</div>
 			<h1>Terms of <em>Use</em></h1>
-			<p>Please read these terms carefully before using TroopToTask. By accessing or using the service, you agree to be bound by these terms.</p>
+			<p>
+				Please read these terms carefully before using TroopToTask. By accessing or using the service, you agree to be
+				bound by these terms.
+			</p>
 			<p class="effective-date">Effective date: March 8, 2026</p>
 		</div>
 	</section>
@@ -83,7 +109,10 @@
 		<div class="content-inner">
 			<div class="content-label">01 // Acceptance of Terms</div>
 			<h2>By using TroopToTask, you agree.</h2>
-			<p>By creating an account or using TroopToTask, you agree to these terms. If you do not agree, do not use the service. We may update these terms; continued use constitutes acceptance of changes.</p>
+			<p>
+				By creating an account or using TroopToTask, you agree to these terms. If you do not agree, do not use the
+				service. We may update these terms; continued use constitutes acceptance of changes.
+			</p>
 		</div>
 	</section>
 
@@ -92,7 +121,11 @@
 		<div class="content-inner">
 			<div class="content-label">02 // Description of Service</div>
 			<h2>What TroopToTask provides.</h2>
-			<p>TroopToTask is a web-based personnel management platform for military unit leaders. It provides calendar management, training tracking, duty assignments, counseling records, in-processing checklists, and related tools. The service is provided "as is" during the beta period.</p>
+			<p>
+				TroopToTask is a web-based personnel management platform for military unit leaders. It provides calendar
+				management, training tracking, duty assignments, counseling records, in-processing checklists, and related
+				tools. The service is provided "as is" during the beta period.
+			</p>
 		</div>
 	</section>
 
@@ -101,8 +134,14 @@
 		<div class="content-inner">
 			<div class="content-label">03 // User Accounts & Responsibilities</div>
 			<h2>Your account, your responsibility.</h2>
-			<p>You are responsible for maintaining the confidentiality of your account credentials. You must not share your account or grant access to unauthorized individuals. You are responsible for all activity under your account.</p>
-			<p>You must provide accurate information and keep it current. Organization owners are responsible for managing member access and permissions within their organizations.</p>
+			<p>
+				You are responsible for maintaining the confidentiality of your account credentials. You must not share your
+				account or grant access to unauthorized individuals. You are responsible for all activity under your account.
+			</p>
+			<p>
+				You must provide accurate information and keep it current. Organization owners are responsible for managing
+				member access and permissions within their organizations.
+			</p>
 		</div>
 	</section>
 
@@ -128,7 +167,11 @@
 		<div class="content-inner">
 			<div class="content-label">05 // Data & Privacy</div>
 			<h2>Your data belongs to you.</h2>
-			<p>Your use of TroopToTask is also governed by our <a href="/privacy">Privacy Policy</a>. You retain ownership of all data you enter into the platform. We do not sell, share, or monetize your data. See our Privacy Policy for full details on data handling.</p>
+			<p>
+				Your use of TroopToTask is also governed by our <a href="/privacy">Privacy Policy</a>. You retain ownership of
+				all data you enter into the platform. We do not sell, share, or monetize your data. See our Privacy Policy for
+				full details on data handling.
+			</p>
 		</div>
 	</section>
 
@@ -137,7 +180,10 @@
 		<div class="content-inner">
 			<div class="content-label">06 // Intellectual Property</div>
 			<h2>Service ownership and your content.</h2>
-			<p>The TroopToTask service, including its design, code, and documentation, is the property of TroopToTask and protected by applicable intellectual property laws. Your data remains yours.</p>
+			<p>
+				The TroopToTask service, including its design, code, and documentation, is the property of TroopToTask and
+				protected by applicable intellectual property laws. Your data remains yours.
+			</p>
 		</div>
 	</section>
 
@@ -146,8 +192,16 @@
 		<div class="content-inner">
 			<div class="content-label">07 // Limitation of Liability</div>
 			<h2>Provided "as is" without warranty.</h2>
-			<p>TroopToTask is provided "as is" without warranties of any kind, express or implied. To the maximum extent permitted by law, TroopToTask shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of data, loss of profits, or business interruption, arising from your use of or inability to use the service.</p>
-			<p>TroopToTask is not an official Department of Defense system and should not be used as the sole system of record for any official military purpose.</p>
+			<p>
+				TroopToTask is provided "as is" without warranties of any kind, express or implied. To the maximum extent
+				permitted by law, TroopToTask shall not be liable for any indirect, incidental, special, consequential, or
+				punitive damages, including but not limited to loss of data, loss of profits, or business interruption, arising
+				from your use of or inability to use the service.
+			</p>
+			<p>
+				TroopToTask is not an official Department of Defense system and should not be used as the sole system of record
+				for any official military purpose.
+			</p>
 		</div>
 	</section>
 
@@ -156,7 +210,11 @@
 		<div class="content-inner">
 			<div class="content-label">08 // Termination</div>
 			<h2>Access may be revoked.</h2>
-			<p>We may suspend or terminate your access to the service at any time for violation of these terms or for any other reason at our discretion. You may delete your account and data at any time. Upon termination, your right to use the service ceases immediately.</p>
+			<p>
+				We may suspend or terminate your access to the service at any time for violation of these terms or for any other
+				reason at our discretion. You may delete your account and data at any time. Upon termination, your right to use
+				the service ceases immediately.
+			</p>
 		</div>
 	</section>
 
@@ -165,7 +223,10 @@
 		<div class="content-inner">
 			<div class="content-label">09 // Governing Law</div>
 			<h2>Jurisdiction and disputes.</h2>
-			<p>These terms shall be governed by and construed in accordance with the laws of the United States. Any disputes arising under these terms shall be resolved in the appropriate federal or state courts.</p>
+			<p>
+				These terms shall be governed by and construed in accordance with the laws of the United States. Any disputes
+				arising under these terms shall be resolved in the appropriate federal or state courts.
+			</p>
 		</div>
 	</section>
 
@@ -176,8 +237,19 @@
 			<h2>Questions about these terms?</h2>
 			<p>If you have questions about these terms, contact us at:</p>
 			<div class="contact-box">
-				<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+				<svg
+					viewBox="0 0 24 24"
+					width="20"
+					height="20"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline
+						points="22,6 12,13 2,6"
+					/>
 				</svg>
 				<a href="mailto:support@trooptotask.com">support@trooptotask.com</a>
 			</div>
@@ -192,12 +264,24 @@
 			{#if data.user}
 				<a href="/dashboard?show=all" class="cta-btn">
 					Go to Dashboard
-					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+						><path
+							fill-rule="evenodd"
+							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/></svg
+					>
 				</a>
 			{:else}
 				<a href="/auth/login" class="cta-btn">
 					Get Started Free
-					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
+						><path
+							fill-rule="evenodd"
+							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/></svg
+					>
 				</a>
 			{/if}
 		</div>
@@ -237,17 +321,17 @@
 		--font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
 		--font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 		--font-mono: 'DM Mono', 'Menlo', monospace;
-		--brass: #B8943E;
-		--brass-light: #D4B15A;
+		--brass: #b8943e;
+		--brass-light: #d4b15a;
 		--brass-muted: rgba(184, 148, 62, 0.15);
-		--ink: #0F0F0F;
-		--ink-light: #1A1A1A;
-		--ink-border: #2A2A2A;
-		--paper: #FAFAF8;
-		--paper-warm: #F5F4F0;
+		--ink: #0f0f0f;
+		--ink-light: #1a1a1a;
+		--ink-border: #2a2a2a;
+		--paper: #fafaf8;
+		--paper-warm: #f5f4f0;
 		--hero-bg: var(--ink);
-		--hero-text: #F0EDE6;
-		--hero-muted: #8A8780;
+		--hero-text: #f0ede6;
+		--hero-muted: #8a8780;
 		min-height: 100vh;
 		background: var(--color-bg);
 		color: var(--color-text);
@@ -727,12 +811,12 @@
 	}
 
 	.footer-legal-sep {
-		color: rgba(255,255,255,0.15);
+		color: rgba(255, 255, 255, 0.15);
 		font-size: 0.75rem;
 	}
 
 	.footer-text {
-		color: rgba(255,255,255,0.2);
+		color: rgba(255, 255, 255, 0.2);
 		font-size: 0.75rem;
 		margin: 0;
 	}

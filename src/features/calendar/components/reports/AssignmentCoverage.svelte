@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { AssignmentType } from '../../stores/dailyAssignments.svelte';
+	import type { AssignmentType, DailyAssignment } from '../../stores/dailyAssignments.svelte';
 	import type { AssignmentCoverageResult } from '../../utils/calendarReports';
 	import { computeAssignmentCoverage } from '../../utils/calendarReports';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -42,11 +42,9 @@
 	let selectedTypeIds = $state<Set<string>>(new Set());
 
 	// Keep a reference to raw data so we can re-compute on filter change
-	let rawAssignments = $state<any[]>([]);
+	let rawAssignments = $state<DailyAssignment[]>([]);
 
-	const personnelAssignmentTypes = $derived(
-		fetchedAssignmentTypes.filter((t) => t.assignTo === 'personnel')
-	);
+	const personnelAssignmentTypes = $derived(fetchedAssignmentTypes.filter((t) => t.assignTo === 'personnel'));
 
 	const displayTypes = $derived(
 		result
@@ -83,7 +81,7 @@
 			}
 			const data = await res.json();
 
-			const types: AssignmentType[] = (data.assignmentTypes ?? []);
+			const types: AssignmentType[] = data.assignmentTypes ?? [];
 			const personnelTypes = types.filter((t) => t.assignTo === 'personnel');
 			fetchedAssignmentTypes = types;
 			rawAssignments = data.assignments ?? [];
@@ -99,8 +97,8 @@
 				startDate,
 				endDate
 			);
-		} catch (e: any) {
-			errorMsg = e.message || 'Failed to generate report.';
+		} catch (e: unknown) {
+			errorMsg = e instanceof Error ? e.message : 'Failed to generate report.';
 		} finally {
 			loading = false;
 		}
@@ -149,11 +147,7 @@
 		for (const row of result.rows) {
 			const vsAvg = Math.round((row.totalAssignments - result.averageTotal) * 10) / 10;
 			const vsAvgStr = vsAvg > 0 ? `+${vsAvg}` : vsAvg === 0 ? '0' : `${vsAvg}`;
-			const cols = [
-				`"${row.person.rank}"`,
-				`"${row.person.lastName}"`,
-				`"${row.person.firstName}"`
-			];
+			const cols = [`"${row.person.rank}"`, `"${row.person.lastName}"`, `"${row.person.firstName}"`];
 			for (const t of displayTypes) {
 				cols.push(`${row.assignmentCounts.get(t.id) ?? 0}`);
 			}
@@ -202,21 +196,11 @@
 			</label>
 			<label class="form-group">
 				<span class="label">Start</span>
-				<input
-					type="date"
-					class="input"
-					bind:value={startDate}
-					oninput={handleDateChange}
-				/>
+				<input type="date" class="input" bind:value={startDate} oninput={handleDateChange} />
 			</label>
 			<label class="form-group">
 				<span class="label">End</span>
-				<input
-					type="date"
-					class="input"
-					bind:value={endDate}
-					oninput={handleDateChange}
-				/>
+				<input type="date" class="input" bind:value={endDate} oninput={handleDateChange} />
 			</label>
 		</div>
 	</div>
@@ -265,9 +249,7 @@
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}>
-				Export CSV
-			</button>
+			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
 		</div>
 
 		{#if result.rows.length === 0 || displayTypes.length === 0}

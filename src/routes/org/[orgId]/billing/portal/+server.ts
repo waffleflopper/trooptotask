@@ -39,17 +39,11 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 	}
 
 	try {
-		const portalUrl = await createPortalSession(
-			org.stripe_customer_id,
-			`${url.origin}/org/${orgId}/billing`
-		);
+		const portalUrl = await createPortalSession(org.stripe_customer_id, `${url.origin}/org/${orgId}/billing`);
 
 		return json({ url: portalUrl });
 	} catch (err) {
 		console.error('Stripe portal error:', err);
-		return json(
-			{ error: 'Failed to open subscription portal. Please try again.' },
-			{ status: 500 }
-		);
+		return json({ error: 'Failed to open subscription portal. Please try again.' }, { status: 500 });
 	}
 };

@@ -45,18 +45,13 @@
 				<span class="type-color" style="background-color: {type.color}"></span>
 				<span class="type-name">{type.name}</span>
 				<div class="move-btns">
-					<button
-						class="btn-move"
-						onclick={() => moveUp(i)}
-						disabled={i === 0}
-						aria-label="Move up"
-					>▲</button>
+					<button class="btn-move" onclick={() => moveUp(i)} disabled={i === 0} aria-label="Move up">▲</button>
 					<button
 						class="btn-move"
 						onclick={() => moveDown(i)}
 						disabled={i === orderedTypes.length - 1}
-						aria-label="Move down"
-					>▼</button>
+						aria-label="Move down">▼</button
+					>
 				</div>
 			</li>
 		{/each}
@@ -131,7 +126,7 @@
 
 	.btn-move:hover:not(:disabled) {
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 		border-color: var(--color-primary);
 	}
 

@@ -4,7 +4,7 @@ import { requireEditPermission } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 
-function transformStep(r: any) {
+function transformStep(r: Record<string, unknown>) {
 	return {
 		id: r.id,
 		onboardingId: r.onboarding_id,
@@ -20,7 +20,7 @@ function transformStep(r: any) {
 	};
 }
 
-function transformOnboarding(r: any, steps: any[]) {
+function transformOnboarding(r: Record<string, unknown>, steps: Record<string, unknown>[]) {
 	return {
 		id: r.id,
 		personnelId: r.personnel_id,
@@ -75,9 +75,9 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	if (templateError) throw error(500, templateError.message);
 
 	// Create step progress rows from template snapshot, storing the source template_step_id
-	let steps: any[] = [];
+	let steps: Record<string, unknown>[] = [];
 	if (templateSteps && templateSteps.length > 0) {
-		const stepRows = templateSteps.map((t: any) => ({
+		const stepRows = templateSteps.map((t: Record<string, unknown>) => ({
 			onboarding_id: onboarding.id,
 			step_name: t.name,
 			step_type: t.step_type,
@@ -85,7 +85,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			stages: t.stages,
 			sort_order: t.sort_order,
 			completed: false,
-			current_stage: t.step_type === 'paperwork' && t.stages?.length ? t.stages[0] : null,
+			current_stage: t.step_type === 'paperwork' && Array.isArray(t.stages) && t.stages.length ? t.stages[0] : null,
 			notes: [],
 			template_step_id: t.id
 		}));

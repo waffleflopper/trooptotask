@@ -75,7 +75,13 @@
 
 	<!-- Search -->
 	<div class="filters">
-		<form class="search-form" onsubmit={(e) => { e.preventDefault(); applySearch(); }}>
+		<form
+			class="search-form"
+			onsubmit={(e) => {
+				e.preventDefault();
+				applySearch();
+			}}
+		>
 			<input
 				type="text"
 				placeholder="Search by org name or owner email..."
@@ -212,14 +218,20 @@
 								<div class="action-buttons">
 									<button
 										class="btn btn-primary btn-sm"
-										onclick={() => { giftingOrgId = org.id; extendingOrgId = null; }}
+										onclick={() => {
+											giftingOrgId = org.id;
+											extendingOrgId = null;
+										}}
 									>
 										Gift
 									</button>
 									{#if isGiftActive(org)}
 										<button
 											class="btn btn-secondary btn-sm"
-											onclick={() => { extendingOrgId = org.id; giftingOrgId = null; }}
+											onclick={() => {
+												extendingOrgId = org.id;
+												giftingOrgId = null;
+											}}
 										>
 											Extend
 										</button>
@@ -471,7 +483,6 @@
 		color: var(--color-text-muted);
 		padding: var(--spacing-xl) !important;
 	}
-
 
 	:global([data-theme='dark']) .alert-error {
 		background: #450a0a;

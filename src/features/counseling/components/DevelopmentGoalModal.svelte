@@ -1,11 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type {
-		DevelopmentGoal,
-		GoalStatus,
-		GoalPriority,
-		GoalCategory
-	} from '../counseling.types';
+	import type { DevelopmentGoal, GoalStatus, GoalPriority, GoalCategory } from '../counseling.types';
 	import {
 		GOAL_STATUS_LABELS,
 		GOAL_PRIORITY_LABELS,
@@ -112,12 +107,7 @@
 	}
 </script>
 
-<Modal
-	title="{isEdit ? 'Edit' : 'New'} Development Goal"
-	{onClose}
-	width="550px"
-	titleId="goal-modal-title"
->
+<Modal title="{isEdit ? 'Edit' : 'New'} Development Goal" {onClose} width="550px" titleId="goal-modal-title">
 	<div class="person-info">
 		<span class="person-rank">{person.rank}</span>
 		<span class="person-name">{person.lastName}, {person.firstName}</span>
@@ -125,22 +115,12 @@
 
 	<div class="form-group">
 		<label class="label">Goal Title <span class="required">*</span></label>
-		<input
-			type="text"
-			class="input"
-			bind:value={title}
-			placeholder="e.g., Complete SLC"
-			required
-		/>
+		<input type="text" class="input" bind:value={title} placeholder="e.g., Complete SLC" required />
 	</div>
 
 	<div class="form-group">
 		<label class="label">Description</label>
-		<textarea
-			class="input textarea"
-			bind:value={description}
-			placeholder="Detailed description of the goal..."
-			rows="3"
+		<textarea class="input textarea" bind:value={description} placeholder="Detailed description of the goal..." rows="3"
 		></textarea>
 	</div>
 
@@ -187,11 +167,7 @@
 
 	<div class="form-group">
 		<label class="label">Progress Notes</label>
-		<textarea
-			class="input textarea"
-			bind:value={progressNotes}
-			placeholder="Track progress and updates..."
-			rows="3"
+		<textarea class="input textarea" bind:value={progressNotes} placeholder="Track progress and updates..." rows="3"
 		></textarea>
 	</div>
 

@@ -43,16 +43,18 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		group_id: body.groupId || null
 	};
 
-	const { data, error: dbError } = await supabase
-		.from('personnel')
-		.insert(row)
-		.select('*, groups(name)')
-		.single();
+	const { data, error: dbError } = await supabase.from('personnel').insert(row).select('*, groups(name)').single();
 
 	if (dbError) throw error(500, dbError.message);
 
 	auditLog(
-		{ action: 'personnel.created', resourceType: 'personnel', resourceId: data.id, orgId, details: { actor: locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` } },
+		{
+			action: 'personnel.created',
+			resourceType: 'personnel',
+			resourceId: data.id,
+			orgId,
+			details: { actor: locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` }
+		},
 		{ userId }
 	);
 
@@ -109,7 +111,13 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	if (dbError) throw error(500, dbError.message);
 
 	auditLog(
-		{ action: 'personnel.updated', resourceType: 'personnel', resourceId: id, orgId, details: { actor: locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` } },
+		{
+			action: 'personnel.updated',
+			resourceType: 'personnel',
+			resourceId: id,
+			orgId,
+			details: { actor: locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` }
+		},
 		{ userId }
 	);
 
@@ -157,18 +165,26 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	if (!isSandbox && userId) {
 		const { data: mem } = await supabase
 			.from('organization_memberships')
-			.select('role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book')
+			.select(
+				'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book'
+			)
 			.eq('organization_id', orgId)
 			.eq('user_id', userId)
 			.single();
 
 		if (mem && mem.role === 'member') {
-			const isFullEd = !mem.scoped_group_id &&
-				mem.can_view_calendar && mem.can_edit_calendar &&
-				mem.can_view_personnel && mem.can_edit_personnel &&
-				mem.can_view_training && mem.can_edit_training &&
-				mem.can_view_onboarding && mem.can_edit_onboarding &&
-				mem.can_view_leaders_book && mem.can_edit_leaders_book;
+			const isFullEd =
+				!mem.scoped_group_id &&
+				mem.can_view_calendar &&
+				mem.can_edit_calendar &&
+				mem.can_view_personnel &&
+				mem.can_edit_personnel &&
+				mem.can_view_training &&
+				mem.can_edit_training &&
+				mem.can_view_onboarding &&
+				mem.can_edit_onboarding &&
+				mem.can_view_leaders_book &&
+				mem.can_edit_leaders_book;
 
 			if (!isFullEd) {
 				return json({ requiresApproval: true }, { status: 202 });
@@ -185,7 +201,16 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	if (dbError) throw error(500, dbError.message);
 
 	auditLog(
-		{ action: 'personnel.archived', resourceType: 'personnel', resourceId: id, orgId, details: { actor: locals.user?.email ?? userId, name: existing ? `${existing.rank} ${existing.last_name}, ${existing.first_name}` : id } },
+		{
+			action: 'personnel.archived',
+			resourceType: 'personnel',
+			resourceId: id,
+			orgId,
+			details: {
+				actor: locals.user?.email ?? userId,
+				name: existing ? `${existing.rank} ${existing.last_name}, ${existing.first_name}` : id
+			}
+		},
 		{ userId }
 	);
 

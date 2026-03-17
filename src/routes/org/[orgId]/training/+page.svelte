@@ -65,9 +65,7 @@
 
 	// Filter personnel by selected group
 	const basePersonnel = $derived(
-		selectedGroupId
-			? (data.personnel ?? []).filter((p) => p.groupId === selectedGroupId)
-			: (data.personnel ?? [])
+		selectedGroupId ? (data.personnel ?? []).filter((p) => p.groupId === selectedGroupId) : (data.personnel ?? [])
 	);
 
 	// Alphabetical view - sorted by name
@@ -98,15 +96,9 @@
 		collapsedGroups = newSet;
 	}
 
-	const stats = $derived(
-		getTrainingStats(filteredPersonnel, trainingTypesStore.list, personnelTrainingsStore.list)
-	);
+	const stats = $derived(getTrainingStats(filteredPersonnel, trainingTypesStore.list, personnelTrainingsStore.list));
 
-	function handleCellClick(
-		person: Personnel,
-		type: TrainingType,
-		training: PersonnelTraining | undefined
-	) {
+	function handleCellClick(person: Personnel, type: TrainingType, training: PersonnelTraining | undefined) {
 		selectedPerson = person;
 		selectedType = type;
 		selectedTraining = training;
@@ -137,13 +129,7 @@
 			const person = (data.personnel ?? []).find((p: Personnel) => p.id === training.personnelId);
 			const type = trainingTypesStore.list.find((t) => t.id === training.trainingTypeId);
 			const desc = `${type?.name ?? 'Training'} record for ${person ? `${person.rank} ${person.lastName}` : 'unknown'}`;
-			await submitDeletionRequest(
-				data.orgId,
-				'personnel_training',
-				id,
-				desc,
-				`/org/${data.orgId}/training`
-			);
+			await submitDeletionRequest(data.orgId, 'personnel_training', id, desc, `/org/${data.orgId}/training`);
 		}
 	}
 
@@ -183,12 +169,8 @@
 
 <div class="page">
 	<PageToolbar title="Training & Certifications" helpTopic="training-records" overflowItems={trainingOverflowItems}>
-		<button class="btn btn-sm" onclick={() => (showSignInRosters = true)}>
-			Sign-In Rosters
-		</button>
-		<button class="btn btn-sm" onclick={() => (showReports = true)}>
-			Reports
-		</button>
+		<button class="btn btn-sm" onclick={() => (showSignInRosters = true)}> Sign-In Rosters </button>
+		<button class="btn btn-sm" onclick={() => (showReports = true)}> Reports </button>
 		{#if readOnly}
 			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
 		{/if}
@@ -200,104 +182,96 @@
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
 		</div>
 	{:else}
-	<div class="stats-bar">
-		<div class="stat current">
-			<span class="stat-value">{stats.current}</span>
-			<span class="stat-label">Current</span>
-		</div>
-		<div class="stat warning-yellow">
-			<span class="stat-value">{stats.warningYellow}</span>
-			<span class="stat-label">Expiring (60d)</span>
-		</div>
-		<div class="stat warning-orange">
-			<span class="stat-value">{stats.warningOrange}</span>
-			<span class="stat-label">Expiring (30d)</span>
-		</div>
-		<div class="stat expired">
-			<span class="stat-value">{stats.expired}</span>
-			<span class="stat-label">Expired</span>
-		</div>
-		<div class="stat not-completed">
-			<span class="stat-value">{stats.notCompleted}</span>
-			<span class="stat-label">Not Done</span>
-		</div>
-	</div>
-
-	<div class="filter-bar">
-		<label class="filter-label">
-			Filter by Group:
-			<select class="select" bind:value={selectedGroupId}>
-				<option value="">All Groups</option>
-				{#each data.groups as group (group.id)}
-					<option value={group.id}>{group.name}</option>
-				{/each}
-			</select>
-		</label>
-		<div class="view-toggle">
-			<span class="view-label">View:</span>
-			<button
-				class="view-btn"
-				class:active={viewMode === 'alphabetical'}
-				onclick={() => (viewMode = 'alphabetical')}
-			>
-				A-Z
-			</button>
-			<button
-				class="view-btn"
-				class:active={viewMode === 'by-group'}
-				onclick={() => (viewMode = 'by-group')}
-			>
-				By Group
-			</button>
-		</div>
-		<span class="filter-count">{filteredPersonnel.length} personnel</span>
-	</div>
-
-	<main class="page-content">
-		{#if trainingTypesStore.list.length === 0}
-			<EmptyState
-				message="No training types defined yet."
-				actionLabel={data.permissions?.canEditTraining ? 'Manage Types' : undefined}
-				onAction={data.permissions?.canEditTraining ? () => (showTypeManager = true) : undefined}
-			/>
-		{:else if filteredPersonnel.length === 0}
-			<EmptyState message="No personnel found." />
-		{:else}
-			<div class="view-panel" data-testid="training-matrix" class:hidden-view={viewMode !== 'alphabetical'}>
-				<TrainingMatrix
-					personnel={filteredPersonnel}
-					trainingTypes={trainingTypesStore.list}
-					trainings={personnelTrainingsStore.list}
-					onCellClick={data.permissions?.canEditTraining ? handleCellClick : undefined}
-					onPersonClick={data.permissions?.canEditTraining ? handlePersonClick : undefined}
-				/>
+		<div class="stats-bar">
+			<div class="stat current">
+				<span class="stat-value">{stats.current}</span>
+				<span class="stat-label">Current</span>
 			</div>
-			<div class="view-panel" class:hidden-view={viewMode !== 'by-group'}>
-				<div class="grouped-training">
-					{#each personnelByGroup as grp (grp.group)}
-						<div class="group-section">
-							<button class="group-header" onclick={() => toggleGroup(grp.group)}>
-								<span class="toggle-icon">{collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
-								<span class="group-name">{grp.group}</span>
-								<span class="group-count">({grp.personnel.length})</span>
-							</button>
-							{#if !collapsedGroups.has(grp.group)}
-								<div class="group-content">
-									<TrainingMatrix
-										personnel={grp.personnel}
-										trainingTypes={trainingTypesStore.list}
-										trainings={personnelTrainingsStore.list}
-										onCellClick={data.permissions.canEditTraining ? handleCellClick : undefined}
-										onPersonClick={data.permissions.canEditTraining ? handlePersonClick : undefined}
-									/>
-								</div>
-							{/if}
-						</div>
+			<div class="stat warning-yellow">
+				<span class="stat-value">{stats.warningYellow}</span>
+				<span class="stat-label">Expiring (60d)</span>
+			</div>
+			<div class="stat warning-orange">
+				<span class="stat-value">{stats.warningOrange}</span>
+				<span class="stat-label">Expiring (30d)</span>
+			</div>
+			<div class="stat expired">
+				<span class="stat-value">{stats.expired}</span>
+				<span class="stat-label">Expired</span>
+			</div>
+			<div class="stat not-completed">
+				<span class="stat-value">{stats.notCompleted}</span>
+				<span class="stat-label">Not Done</span>
+			</div>
+		</div>
+
+		<div class="filter-bar">
+			<label class="filter-label">
+				Filter by Group:
+				<select class="select" bind:value={selectedGroupId}>
+					<option value="">All Groups</option>
+					{#each data.groups as group (group.id)}
+						<option value={group.id}>{group.name}</option>
 					{/each}
-				</div>
+				</select>
+			</label>
+			<div class="view-toggle">
+				<span class="view-label">View:</span>
+				<button class="view-btn" class:active={viewMode === 'alphabetical'} onclick={() => (viewMode = 'alphabetical')}>
+					A-Z
+				</button>
+				<button class="view-btn" class:active={viewMode === 'by-group'} onclick={() => (viewMode = 'by-group')}>
+					By Group
+				</button>
 			</div>
-		{/if}
-	</main>
+			<span class="filter-count">{filteredPersonnel.length} personnel</span>
+		</div>
+
+		<main class="page-content">
+			{#if trainingTypesStore.list.length === 0}
+				<EmptyState
+					message="No training types defined yet."
+					actionLabel={data.permissions?.canEditTraining ? 'Manage Types' : undefined}
+					onAction={data.permissions?.canEditTraining ? () => (showTypeManager = true) : undefined}
+				/>
+			{:else if filteredPersonnel.length === 0}
+				<EmptyState message="No personnel found." />
+			{:else}
+				<div class="view-panel" data-testid="training-matrix" class:hidden-view={viewMode !== 'alphabetical'}>
+					<TrainingMatrix
+						personnel={filteredPersonnel}
+						trainingTypes={trainingTypesStore.list}
+						trainings={personnelTrainingsStore.list}
+						onCellClick={data.permissions?.canEditTraining ? handleCellClick : undefined}
+						onPersonClick={data.permissions?.canEditTraining ? handlePersonClick : undefined}
+					/>
+				</div>
+				<div class="view-panel" class:hidden-view={viewMode !== 'by-group'}>
+					<div class="grouped-training">
+						{#each personnelByGroup as grp (grp.group)}
+							<div class="group-section">
+								<button class="group-header" onclick={() => toggleGroup(grp.group)}>
+									<span class="toggle-icon">{collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
+									<span class="group-name">{grp.group}</span>
+									<span class="group-count">({grp.personnel.length})</span>
+								</button>
+								{#if !collapsedGroups.has(grp.group)}
+									<div class="group-content">
+										<TrainingMatrix
+											personnel={grp.personnel}
+											trainingTypes={trainingTypesStore.list}
+											trainings={personnelTrainingsStore.list}
+											onCellClick={data.permissions.canEditTraining ? handleCellClick : undefined}
+											onPersonClick={data.permissions.canEditTraining ? handlePersonClick : undefined}
+										/>
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		</main>
 	{/if}
 </div>
 
@@ -316,9 +290,7 @@
 			const type = selectedType;
 			if (!person || !type) return;
 			const currentIds = type.exemptPersonnelIds;
-			const updatedIds = exempt
-				? [...currentIds, person.id]
-				: currentIds.filter((id) => id !== person.id);
+			const updatedIds = exempt ? [...currentIds, person.id] : currentIds.filter((id) => id !== person.id);
 			trainingTypesStore.update(type.id, { exemptPersonnelIds: updatedIds });
 			closeRecordModal();
 		}}
@@ -328,7 +300,7 @@
 {#if showTypeManager}
 	<TrainingTypeManager
 		trainingTypes={trainingTypesStore.list}
-		availableRoles={availableRoles}
+		{availableRoles}
 		onAdd={handleAddType}
 		onUpdate={handleUpdateType}
 		onRemove={handleRemoveType}
@@ -383,7 +355,7 @@
 		onRemove={handleRemoveTraining}
 		onClose={closePersonEditor}
 		onToggleExempt={(typeId, exempt) => {
-			const type = trainingTypesStore.list.find(t => t.id === typeId);
+			const type = trainingTypesStore.list.find((t) => t.id === typeId);
 			if (!type || !editingPersonTraining) return;
 			const currentIds = type.exemptPersonnelIds;
 			const updatedIds = exempt
@@ -518,9 +490,9 @@
 	}
 
 	.view-btn.active {
-		background: #B8943E;
-		border-color: #B8943E;
-		color: #0F0F0F;
+		background: #b8943e;
+		border-color: #b8943e;
+		color: #0f0f0f;
 	}
 
 	.grouped-training {
@@ -542,8 +514,8 @@
 		gap: var(--spacing-sm);
 		width: 100%;
 		padding: var(--spacing-md);
-		background: #0F0F0F;
-		color: #F0EDE6;
+		background: #0f0f0f;
+		color: #f0ede6;
 		font-weight: 600;
 		cursor: pointer;
 		border: none;
@@ -551,7 +523,7 @@
 	}
 
 	.group-header:hover {
-		background: #1A1A1A;
+		background: #1a1a1a;
 	}
 
 	.toggle-icon {

@@ -61,10 +61,7 @@
 		return map;
 	});
 
-	const allResolved = $derived(
-		unmatchedStatuses.length === 0 ||
-		unmatchedStatuses.every((s) => s.resolvedId !== null)
-	);
+	const allResolved = $derived(unmatchedStatuses.length === 0 || unmatchedStatuses.every((s) => s.resolvedId !== null));
 
 	async function handleFileUpload(e: Event) {
 		const input = e.target as HTMLInputElement;
@@ -120,9 +117,7 @@
 			} else if (matches.length > 1) {
 				const rank = (row.rank || '').trim().toLowerCase();
 				if (rank) {
-					const rankMatches = matches.filter(
-						(p) => p.rank?.toLowerCase() === rank
-					);
+					const rankMatches = matches.filter((p) => p.rank?.toLowerCase() === rank);
 					if (rankMatches.length === 0) {
 						errors.rank = 'Rank does not match any person with this name';
 					} else if (rankMatches.length > 1) {
@@ -184,9 +179,8 @@
 		for (const [lower, count] of statusCounts) {
 			const matched = statusTypeMap.get(lower);
 			if (!matched) {
-				const originalName = checkedRows.find(
-					(r) => (r.statusType || '').trim().toLowerCase() === lower
-				)?.statusType?.trim() || lower;
+				const originalName =
+					checkedRows.find((r) => (r.statusType || '').trim().toLowerCase() === lower)?.statusType?.trim() || lower;
 				unmatched.push({ csvName: originalName, count, resolvedId: null });
 			}
 		}
@@ -219,7 +213,13 @@
 		}
 
 		// Build records
-		const records: { personnelId: string; statusTypeId: string; startDate: string; endDate: string; note?: string | null }[] = [];
+		const records: {
+			personnelId: string;
+			statusTypeId: string;
+			startDate: string;
+			endDate: string;
+			note?: string | null;
+		}[] = [];
 		const skippedStatuses = new Set(
 			unmatchedStatuses.filter((m) => m.resolvedId === '__skip__').map((m) => m.csvName.toLowerCase())
 		);
@@ -285,7 +285,10 @@
 				onImportComplete();
 			}
 		} catch (err) {
-			importResult = { inserted: 0, errors: [{ row: 0, message: err instanceof Error ? err.message : 'Import failed' }] };
+			importResult = {
+				inserted: 0,
+				errors: [{ row: 0, message: err instanceof Error ? err.message : 'Import failed' }]
+			};
 			step = 'results';
 		} finally {
 			importing = false;
@@ -316,9 +319,7 @@
 					placeholder="last name, first name, start date, end date, status&#10;Smith, John, 2026-01-01, 2026-01-05, Leave&#10;..."
 					bind:value={pasteText}
 				></textarea>
-				<button class="btn btn-primary btn-sm" onclick={handlePaste} disabled={!pasteText.trim()}>
-					Parse
-				</button>
+				<button class="btn btn-primary btn-sm" onclick={handlePaste} disabled={!pasteText.trim()}> Parse </button>
 			</div>
 
 			{#if parseError}
@@ -328,12 +329,7 @@
 	{/if}
 
 	{#if step === 'preview'}
-		<BulkImportTable
-			bind:this={tableRef}
-			{rawRows}
-			columnDefs={STATUS_IMPORT_COLUMNS}
-			{validateRow}
-		/>
+		<BulkImportTable bind:this={tableRef} {rawRows} columnDefs={STATUS_IMPORT_COLUMNS} {validateRow} />
 	{/if}
 
 	{#if step === 'results'}
@@ -366,7 +362,10 @@
 
 	{#if step === 'resolve'}
 		<div class="resolve-section">
-			<p>The following status names from your file don't match any status types in your organization. Please select which status each should map to, or choose "Skip" to exclude those rows.</p>
+			<p>
+				The following status names from your file don't match any status types in your organization. Please select which
+				status each should map to, or choose "Skip" to exclude those rows.
+			</p>
 
 			<div class="resolve-list">
 				{#each unmatchedStatuses as mapping, i}
@@ -404,12 +403,23 @@
 
 	{#snippet footer()}
 		{#if step === 'preview'}
-			<button class="btn btn-secondary" onclick={() => { step = 'upload'; rawRows = []; }}>Back</button>
+			<button
+				class="btn btn-secondary"
+				onclick={() => {
+					step = 'upload';
+					rawRows = [];
+				}}>Back</button
+			>
 			<div class="spacer"></div>
 			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 			<button class="btn btn-primary" onclick={handlePreviewNext}>Next</button>
 		{:else if step === 'resolve'}
-			<button class="btn btn-secondary" onclick={() => { step = 'preview'; }}>Back</button>
+			<button
+				class="btn btn-secondary"
+				onclick={() => {
+					step = 'preview';
+				}}>Back</button
+			>
 			<div class="spacer"></div>
 			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 			<button class="btn btn-primary" disabled={!allResolved || importing} onclick={handleImport}>

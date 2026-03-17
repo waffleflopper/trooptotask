@@ -50,10 +50,7 @@ describe('specialDaysStore', () => {
 	describe('resetFederalHolidays', () => {
 		it('should replace all items with server response', async () => {
 			const newDays = [{ id: '10', name: 'Reset Day', date: '2026-07-04', type: 'federal_holiday' }];
-			vi.stubGlobal(
-				'fetch',
-				vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(newDays) })
-			);
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(newDays) }));
 
 			const result = await specialDaysStore.resetFederalHolidays();
 
@@ -62,10 +59,7 @@ describe('specialDaysStore', () => {
 		});
 
 		it('should return false on failure without changing items', async () => {
-			vi.stubGlobal(
-				'fetch',
-				vi.fn().mockResolvedValue({ ok: false })
-			);
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
 
 			const result = await specialDaysStore.resetFederalHolidays();
 
@@ -76,10 +70,7 @@ describe('specialDaysStore', () => {
 
 	describe('remove', () => {
 		it('should return boolean true on success', async () => {
-			vi.stubGlobal(
-				'fetch',
-				vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) })
-			);
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) }));
 
 			const result = await specialDaysStore.remove('1');
 

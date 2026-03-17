@@ -11,8 +11,7 @@ export const personnelExtendedInfoStore = {
 	add: store.add,
 	update: store.update,
 	remove: store.removeBool,
-	getByPersonnelId: (personnelId: string) =>
-		store.getItems().find((e) => e.personnelId === personnelId),
+	getByPersonnelId: (personnelId: string) => store.getItems().find((e) => e.personnelId === personnelId),
 
 	async upsert(
 		personnelId: string,

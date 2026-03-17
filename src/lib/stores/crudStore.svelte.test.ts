@@ -122,7 +122,13 @@ describe('createCrudStore', () => {
 	describe('remove', () => {
 		it('should remove item optimistically and return deleted', async () => {
 			const store = makeStore();
-			store.load([{ id: '1', name: 'Alpha' }, { id: '2', name: 'Bravo' }], 'org-1');
+			store.load(
+				[
+					{ id: '1', name: 'Alpha' },
+					{ id: '2', name: 'Bravo' }
+				],
+				'org-1'
+			);
 
 			vi.stubGlobal('fetch', mockFetch({}));
 
@@ -250,9 +256,15 @@ describe('createCrudStore', () => {
 
 			expect(store.getItems()).toEqual([{ id: '1', name: 'Alpha' }]);
 
-			store.setItems([{ id: '2', name: 'Bravo' }, { id: '3', name: 'Charlie' }]);
+			store.setItems([
+				{ id: '2', name: 'Bravo' },
+				{ id: '3', name: 'Charlie' }
+			]);
 
-			expect(store.items).toEqual([{ id: '2', name: 'Bravo' }, { id: '3', name: 'Charlie' }]);
+			expect(store.items).toEqual([
+				{ id: '2', name: 'Bravo' },
+				{ id: '3', name: 'Charlie' }
+			]);
 			expect(store.getItems()).toEqual(store.items);
 		});
 	});

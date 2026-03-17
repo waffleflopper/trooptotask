@@ -26,10 +26,7 @@ describe('statusTypesStore', () => {
 
 	describe('remove', () => {
 		it('should return boolean true on success', async () => {
-			vi.stubGlobal(
-				'fetch',
-				vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) })
-			);
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) }));
 
 			const result = await statusTypesStore.remove('1');
 

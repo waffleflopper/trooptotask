@@ -3,9 +3,36 @@ import { personnelStore } from './personnel.svelte';
 import type { Personnel } from '$lib/types';
 
 const mockPersonnel: Personnel[] = [
-	{ id: '1', firstName: 'John', lastName: 'Doe', rank: 'SGT', groupId: 'g1', groupName: 'Alpha', mos: '11B', clinicRole: 'Medic' },
-	{ id: '2', firstName: 'Jane', lastName: 'Smith', rank: 'PFC', groupId: 'g1', groupName: 'Alpha', mos: '68W', clinicRole: 'Provider' },
-	{ id: '3', firstName: 'Bob', lastName: 'Alpha', rank: 'SGT', groupId: 'g2', groupName: 'Bravo', mos: '11B', clinicRole: 'Medic' }
+	{
+		id: '1',
+		firstName: 'John',
+		lastName: 'Doe',
+		rank: 'SGT',
+		groupId: 'g1',
+		groupName: 'Alpha',
+		mos: '11B',
+		clinicRole: 'Medic'
+	},
+	{
+		id: '2',
+		firstName: 'Jane',
+		lastName: 'Smith',
+		rank: 'PFC',
+		groupId: 'g1',
+		groupName: 'Alpha',
+		mos: '68W',
+		clinicRole: 'Provider'
+	},
+	{
+		id: '3',
+		firstName: 'Bob',
+		lastName: 'Alpha',
+		rank: 'SGT',
+		groupId: 'g2',
+		groupName: 'Bravo',
+		mos: '11B',
+		clinicRole: 'Medic'
+	}
 ];
 
 describe('personnelStore', () => {
@@ -23,8 +50,14 @@ describe('personnelStore', () => {
 	describe('addBatchResults', () => {
 		it('should append batch results to list', () => {
 			const newPerson: Personnel = {
-				id: '4', firstName: 'New', lastName: 'Person', rank: 'PV1',
-				groupId: 'g1', groupName: 'Alpha', mos: '11B', clinicRole: 'Medic'
+				id: '4',
+				firstName: 'New',
+				lastName: 'Person',
+				rank: 'PV1',
+				groupId: 'g1',
+				groupName: 'Alpha',
+				mos: '11B',
+				clinicRole: 'Medic'
 			};
 
 			personnelStore.addBatchResults([newPerson]);

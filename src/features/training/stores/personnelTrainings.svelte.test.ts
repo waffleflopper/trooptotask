@@ -3,14 +3,40 @@ import { personnelTrainingsStore } from './personnelTrainings.svelte';
 import type { PersonnelTraining } from '../training.types';
 
 const mockTrainings: PersonnelTraining[] = [
-	{ id: '1', personnelId: 'p1', trainingTypeId: 'tt1', completionDate: '2026-01-15', expirationDate: '2027-01-15', notes: null, certificateUrl: null },
-	{ id: '2', personnelId: 'p1', trainingTypeId: 'tt2', completionDate: '2026-02-01', expirationDate: null, notes: null, certificateUrl: null },
-	{ id: '3', personnelId: 'p2', trainingTypeId: 'tt1', completionDate: '2026-01-20', expirationDate: '2027-01-20', notes: null, certificateUrl: null }
+	{
+		id: '1',
+		personnelId: 'p1',
+		trainingTypeId: 'tt1',
+		completionDate: '2026-01-15',
+		expirationDate: '2027-01-15',
+		notes: null,
+		certificateUrl: null
+	},
+	{
+		id: '2',
+		personnelId: 'p1',
+		trainingTypeId: 'tt2',
+		completionDate: '2026-02-01',
+		expirationDate: null,
+		notes: null,
+		certificateUrl: null
+	},
+	{
+		id: '3',
+		personnelId: 'p2',
+		trainingTypeId: 'tt1',
+		completionDate: '2026-01-20',
+		expirationDate: '2027-01-20',
+		notes: null,
+		certificateUrl: null
+	}
 ];
 
 function mockFetch(response: unknown) {
 	return vi.fn().mockResolvedValue({
-		ok: true, status: 200, json: () => Promise.resolve(response)
+		ok: true,
+		status: 200,
+		json: () => Promise.resolve(response)
 	});
 }
 
@@ -40,14 +66,23 @@ describe('personnelTrainingsStore', () => {
 	describe('add (upsert)', () => {
 		it('should replace existing entry with same composite key', async () => {
 			const serverResult: PersonnelTraining = {
-				id: 'new-1', personnelId: 'p1', trainingTypeId: 'tt1',
-				completionDate: '2026-03-01', expirationDate: '2027-03-01', notes: null, certificateUrl: null
+				id: 'new-1',
+				personnelId: 'p1',
+				trainingTypeId: 'tt1',
+				completionDate: '2026-03-01',
+				expirationDate: '2027-03-01',
+				notes: null,
+				certificateUrl: null
 			};
 			vi.stubGlobal('fetch', mockFetch(serverResult));
 
 			await personnelTrainingsStore.add({
-				personnelId: 'p1', trainingTypeId: 'tt1',
-				completionDate: '2026-03-01', expirationDate: '2027-03-01', notes: null, certificateUrl: null
+				personnelId: 'p1',
+				trainingTypeId: 'tt1',
+				completionDate: '2026-03-01',
+				expirationDate: '2027-03-01',
+				notes: null,
+				certificateUrl: null
 			});
 
 			const byKey = personnelTrainingsStore.getByPersonnelAndType('p1', 'tt1');
@@ -60,8 +95,13 @@ describe('personnelTrainingsStore', () => {
 		it('should merge inserted and updated records', () => {
 			const updated: PersonnelTraining = { ...mockTrainings[0], completionDate: '2026-06-01' };
 			const inserted: PersonnelTraining = {
-				id: '4', personnelId: 'p3', trainingTypeId: 'tt1',
-				completionDate: '2026-05-01', expirationDate: null, notes: null, certificateUrl: null
+				id: '4',
+				personnelId: 'p3',
+				trainingTypeId: 'tt1',
+				completionDate: '2026-05-01',
+				expirationDate: null,
+				notes: null,
+				certificateUrl: null
 			};
 
 			personnelTrainingsStore.addBatchResults([inserted], [updated]);

@@ -45,10 +45,7 @@ describe('counselingTypesStore', () => {
 
 	describe('remove', () => {
 		it('should return DeleteResult on success', async () => {
-			vi.stubGlobal(
-				'fetch',
-				vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) })
-			);
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) }));
 			const result = await counselingTypesStore.remove('1');
 			expect(result).toBe('deleted');
 		});

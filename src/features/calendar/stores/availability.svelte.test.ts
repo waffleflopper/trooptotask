@@ -10,7 +10,9 @@ const mockEntries: AvailabilityEntry[] = [
 
 function mockFetch(response: unknown) {
 	return vi.fn().mockResolvedValue({
-		ok: true, status: 200, json: () => Promise.resolve(response)
+		ok: true,
+		status: 200,
+		json: () => Promise.resolve(response)
 	});
 }
 

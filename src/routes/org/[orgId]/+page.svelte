@@ -141,20 +141,14 @@
 	// Training stats across all personnel
 	const trainingStats = $derived.by(() => {
 		if (trainingTypesStore.list.length === 0) return null;
-		return getTrainingStats(
-			personnelStore.list,
-			trainingTypesStore.list,
-			personnelTrainingsStore.list
-		);
+		return getTrainingStats(personnelStore.list, trainingTypesStore.list, personnelTrainingsStore.list);
 	});
 
 	// Top expired/warning personnel for training card
 	const topTrainingIssues = $derived.by(() => {
 		if (trainingTypesStore.list.length === 0) return [];
 		const issues: { personName: string; typeName: string; label: string; status: string }[] = [];
-		const trainingMap = new Map(
-			personnelTrainingsStore.list.map((t) => [`${t.personnelId}-${t.trainingTypeId}`, t])
-		);
+		const trainingMap = new Map(personnelTrainingsStore.list.map((t) => [`${t.personnelId}-${t.trainingTypeId}`, t]));
 		for (const person of personnelStore.list) {
 			for (const type of trainingTypesStore.list) {
 				const training = trainingMap.get(`${person.id}-${type.id}`);
@@ -248,15 +242,15 @@
 
 	// Active onboardings with progress (filtered to scoped personnel)
 	const activeOnboardings = $derived.by(() => {
-		const onboardings = (data.activeOnboardings ?? []).filter(
-			(o: any) => personnelIds.has(o.personnelId)
+		const onboardings = (data.activeOnboardings ?? []).filter((o: Record<string, unknown>) =>
+			personnelIds.has(o.personnelId as string)
 		);
-		return onboardings.map((o: any) => {
+		return onboardings.map((o: Record<string, unknown>) => {
 			const person = personnelStore.list.find((p) => p.id === o.personnelId);
 			const personName = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';
 
 			// Check training-type steps for auto-completion from personnelTrainingsStore
-			const steps = (o.steps ?? []).map((step: any) => {
+			const steps = ((o.steps as Record<string, unknown>[]) ?? []).map((step: Record<string, unknown>) => {
 				if (step.stepType === 'training' && step.trainingTypeId && !step.completed) {
 					const hasTraining = personnelTrainingsStore.list.some(
 						(t) => t.personnelId === o.personnelId && t.trainingTypeId === step.trainingTypeId
@@ -267,7 +261,7 @@
 			});
 
 			const totalSteps = steps.length;
-			const completedSteps = steps.filter((s: any) => s.completed).length;
+			const completedSteps = steps.filter((s: Record<string, unknown>) => s.completed).length;
 
 			return {
 				id: o.id,
@@ -321,9 +315,7 @@
 	});
 
 	// Duty strength percentage
-	const dutyStrengthPct = $derived(
-		totalPersonnel > 0 ? Math.round((availableCount / totalPersonnel) * 100) : 100
-	);
+	const dutyStrengthPct = $derived(totalPersonnel > 0 ? Math.round((availableCount / totalPersonnel) * 100) : 100);
 
 	// Rating scheme stats
 	const ratingStats = $derived.by(() => {
@@ -337,7 +329,9 @@
 		return counts;
 	});
 
-	const ratingTotal = $derived(ratingStats.overdue + ratingStats['due-30'] + ratingStats['due-60'] + ratingStats.current);
+	const ratingTotal = $derived(
+		ratingStats.overdue + ratingStats['due-30'] + ratingStats['due-60'] + ratingStats.current
+	);
 
 	// Dynamic card rows: pair consecutive half-size visible cards into rows
 	const cardRows = $derived.by(() => {
@@ -380,7 +374,9 @@
 		<div class="dashboard-header">
 			<div class="dashboard-title">
 				<h2>{data.orgName}</h2>
-				<p class="greeting">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}</p>
+				<p class="greeting">
+					Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}
+				</p>
 			</div>
 			<div class="dashboard-date">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="date-icon">
@@ -477,7 +473,11 @@
 					<div class="strength-bar">
 						<div
 							class="strength-bar-fill"
-							style="width: {dutyStrengthPct}%; background: {dutyStrengthPct >= 80 ? 'var(--color-success)' : dutyStrengthPct >= 60 ? 'var(--color-warning)' : 'var(--color-error)'}"
+							style="width: {dutyStrengthPct}%; background: {dutyStrengthPct >= 80
+								? 'var(--color-success)'
+								: dutyStrengthPct >= 60
+									? 'var(--color-warning)'
+									: 'var(--color-error)'}"
 						></div>
 					</div>
 					<span class="strength-pct">{dutyStrengthPct}% present</span>
@@ -487,7 +487,8 @@
 					<div class="status-chips">
 						{#each [...statusBreakdown.entries()] as [, info]}
 							<span class="status-chip" style="background: {info.color}; color: {info.textColor}">
-								{info.count} {info.name}
+								{info.count}
+								{info.name}
 							</span>
 						{/each}
 					</div>
@@ -512,10 +513,9 @@
 					<div class="duty-list">
 						{#each dutyAssignments as assignment}
 							<div class="duty-item">
-								<span
-									class="duty-badge"
-									style="background: {assignment.color}"
-								>{assignment.shortName || assignment.typeName}</span>
+								<span class="duty-badge" style="background: {assignment.color}"
+									>{assignment.shortName || assignment.typeName}</span
+								>
 								<span class="duty-assignee">{assignment.assigneeName || 'Unassigned'}</span>
 							</div>
 						{/each}
@@ -573,7 +573,11 @@
 								<div class="issue-row">
 									<span class="issue-name">{issue.personName}</span>
 									<span class="issue-type">{issue.typeName}</span>
-									<span class="issue-badge" class:expired={issue.status === 'expired'} class:warning={issue.status === 'warning-orange'}>
+									<span
+										class="issue-badge"
+										class:expired={issue.status === 'expired'}
+										class:warning={issue.status === 'warning-orange'}
+									>
 										{issue.label}
 									</span>
 								</div>
@@ -610,12 +614,13 @@
 								<div class="upcoming-date">{formatShortDate(date)}</div>
 								{#each changes as change}
 									<div class="upcoming-item">
-										<span
-											class="upcoming-dot"
-											style="background: {change.statusColor}"
-										></span>
+										<span class="upcoming-dot" style="background: {change.statusColor}"></span>
 										<span class="upcoming-person">{change.personName}</span>
-										<span class="upcoming-direction" class:departing={change.direction === 'departing'} class:returning={change.direction === 'returning'}>
+										<span
+											class="upcoming-direction"
+											class:departing={change.direction === 'departing'}
+											class:returning={change.direction === 'returning'}
+										>
 											{change.direction === 'departing' ? 'starts' : 'returns'} — {change.statusName}
 										</span>
 									</div>
@@ -694,10 +699,7 @@
 									<span class="onboarding-name">{ob.personName}</span>
 									<div class="onboarding-progress-wrap">
 										<div class="onboarding-bar">
-											<div
-												class="onboarding-bar-fill"
-												style="width: {ob.pct}%"
-											></div>
+											<div class="onboarding-bar-fill" style="width: {ob.pct}%"></div>
 										</div>
 										<span class="onboarding-steps">{ob.completedSteps}/{ob.totalSteps}</span>
 									</div>
@@ -746,7 +748,9 @@
 										<td class="col-group">
 											{#if group.isPinned}
 												<svg class="pin-icon" viewBox="0 0 24 24" fill="currentColor">
-													<path d="M12 2C8.686 2 6 4.686 6 8c0 4.5 6 12 6 12s6-7.5 6-12c0-3.314-2.686-6-6-6zm0 8c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2z"/>
+													<path
+														d="M12 2C8.686 2 6 4.686 6 8c0 4.5 6 12 6 12s6-7.5 6-12c0-3.314-2.686-6-6-6zm0 8c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2z"
+													/>
 												</svg>
 											{/if}
 											{group.name}
@@ -765,7 +769,12 @@
 											</td>
 										{/each}
 										<td class="col-num">
-											<span class="pct-badge" class:pct-high={group.pct >= 80} class:pct-mid={group.pct >= 60 && group.pct < 80} class:pct-low={group.pct < 60}>
+											<span
+												class="pct-badge"
+												class:pct-high={group.pct >= 80}
+												class:pct-mid={group.pct >= 60 && group.pct < 80}
+												class:pct-low={group.pct < 60}
+											>
 												{group.pct}%
 											</span>
 										</td>
@@ -870,7 +879,7 @@
 	.card-header svg {
 		width: 18px;
 		height: 18px;
-		color: #B8943E;
+		color: #b8943e;
 		flex-shrink: 0;
 	}
 
@@ -1046,10 +1055,18 @@
 		text-align: center;
 	}
 
-	.training-stat--expired .training-stat-value { color: var(--color-error); }
-	.training-stat--orange .training-stat-value { color: var(--color-warning); }
-	.training-stat--yellow .training-stat-value { color: #f59e0b; }
-	.training-stat--current .training-stat-value { color: var(--color-success); }
+	.training-stat--expired .training-stat-value {
+		color: var(--color-error);
+	}
+	.training-stat--orange .training-stat-value {
+		color: var(--color-warning);
+	}
+	.training-stat--yellow .training-stat-value {
+		color: #f59e0b;
+	}
+	.training-stat--current .training-stat-value {
+		color: var(--color-success);
+	}
 
 	.training-issues {
 		margin-bottom: var(--spacing-sm);
@@ -1130,7 +1147,7 @@
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: #B8943E;
+		color: #b8943e;
 		padding: 2px 0;
 		border-bottom: 1px solid var(--color-divider);
 		margin-bottom: 2px;
@@ -1245,7 +1262,7 @@
 	.pin-icon {
 		width: 10px;
 		height: 10px;
-		color: #B8943E;
+		color: #b8943e;
 		margin-right: 4px;
 		vertical-align: middle;
 	}

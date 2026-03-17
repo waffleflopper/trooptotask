@@ -30,18 +30,12 @@
 
 			<div class="form-group">
 				<label class="label" for="name">Organization Name</label>
-				<input
-					id="name"
-					name="name"
-					type="text"
-					class="input"
-					placeholder="e.g., Ft. Hood TMC"
-					required
-				/>
+				<input id="name" name="name" type="text" class="input" placeholder="e.g., Ft. Hood TMC" required />
 			</div>
 
 			<p class="seed-info">
-				Your organization will be set up with default units, status types, assignment types, and federal holidays. You can customize these after creation.
+				Your organization will be set up with default units, status types, assignment types, and federal holidays. You
+				can customize these after creation.
 			</p>
 
 			<div class="actions">

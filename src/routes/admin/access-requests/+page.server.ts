@@ -209,10 +209,7 @@ export const actions: Actions = {
 			}
 
 			// Update access request to point to new invite
-			await supabase
-				.from('access_requests')
-				.update({ invite_id: newInvite.id })
-				.eq('id', requestId);
+			await supabase.from('access_requests').update({ invite_id: newInvite.id }).eq('id', requestId);
 
 			code = newCode;
 		}

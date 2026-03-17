@@ -21,11 +21,13 @@ Add a "See all features" link below the grid pointing to `/features`.
 ### 2. Roadmap Update
 
 Add "Recently Shipped" items (green/completed badge):
+
 - Digital Leaders Book
 - Rating Scheme Tracker
 - In-Processing Checklist
 
 Keep future items:
+
 - Event Sign-ups (Planned)
 - Smart Notifications (Planned)
 - Mobile App (Exploring)
@@ -42,6 +44,7 @@ Dedicated `/features` route with 7 alternating left/right sections.
 **Layout**: Each section has text on one side and a CSS-animated demo mockup on the other. Direction alternates per section.
 
 **Section structure**:
+
 ```
 [Mono label]     "01 // CALENDAR"
 [Serif title]    "See your entire unit at a glance."
@@ -51,19 +54,20 @@ Dedicated `/features` route with 7 alternating left/right sections.
 
 **7 sections with demo concepts**:
 
-| # | Feature | Demo |
-|---|---------|------|
-| 01 | Visual Calendar | Mini calendar grid with color-coded status cells + legend |
-| 02 | Personnel Management | Roster list with rank/name rows, group headers, search bar |
-| 03 | Training Tracker | Progress bars per cert type with color-coded expiration warnings |
-| 04 | Leaders Book | Counseling record entries, file attachment indicator, timeline |
-| 05 | In-Processing Checklist | Checklist with checkmarks, progress bar, completion counter |
-| 06 | Rating Scheme | Table rows with eval types, due-status badges |
-| 07 | Daily Assignments | Duty roster with role badges, name assignments |
+| #   | Feature                 | Demo                                                             |
+| --- | ----------------------- | ---------------------------------------------------------------- |
+| 01  | Visual Calendar         | Mini calendar grid with color-coded status cells + legend        |
+| 02  | Personnel Management    | Roster list with rank/name rows, group headers, search bar       |
+| 03  | Training Tracker        | Progress bars per cert type with color-coded expiration warnings |
+| 04  | Leaders Book            | Counseling record entries, file attachment indicator, timeline   |
+| 05  | In-Processing Checklist | Checklist with checkmarks, progress bar, completion counter      |
+| 06  | Rating Scheme           | Table rows with eval types, due-status badges                    |
+| 07  | Daily Assignments       | Duty roster with role badges, name assignments                   |
 
 **Design system**: Same as landing page — Instrument Serif, DM Sans, DM Mono, brass (#B8943E) accent, dark panel mockups, light/dark theme support.
 
 **Page elements**:
+
 - Hero/header with page title
 - 7 feature sections (alternating layout)
 - CTA section at bottom
@@ -73,7 +77,7 @@ Dedicated `/features` route with 7 alternating left/right sections.
 
 ## Files
 
-| Action | File |
-|--------|------|
-| Modify | `src/routes/+page.svelte` |
+| Action | File                               |
+| ------ | ---------------------------------- |
+| Modify | `src/routes/+page.svelte`          |
 | Create | `src/routes/features/+page.svelte` |

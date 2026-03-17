@@ -3,6 +3,7 @@
 ## Data Classification
 
 TroopToTask handles Controlled Unclassified Information (CUI) including:
+
 - Personnel names and contact information
 - Emergency contact details
 - Counseling records and leader notes
@@ -24,6 +25,7 @@ TroopToTask handles Controlled Unclassified Information (CUI) including:
 ## Audit Logging
 
 All security-relevant events are logged:
+
 - Login attempts (success and failure)
 - Personnel data access and modifications
 - Data exports
@@ -41,6 +43,7 @@ Audit logs are append-only and retained for 1 year.
 ## Compliance Alignment
 
 TroopToTask's security controls are aligned with NIST SP 800-171 Rev 2 for the protection of CUI, covering:
+
 - Access Control (3.1)
 - Audit & Accountability (3.3)
 - Identification & Authentication (3.5)
@@ -49,6 +52,7 @@ TroopToTask's security controls are aligned with NIST SP 800-171 Rev 2 for the p
 ## Security Headers
 
 All responses include:
+
 - Content-Security-Policy
 - Strict-Transport-Security (HSTS)
 - X-Frame-Options

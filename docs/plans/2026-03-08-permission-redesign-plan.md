@@ -15,6 +15,7 @@
 ### Task 1: Database Migration
 
 **Files:**
+
 - Create: `supabase/migrations/20260308_permission_redesign.sql`
 
 **Step 1: Write the migration**
@@ -182,6 +183,7 @@ git commit -m "feat: add admin role and scoped_group_id to permission system"
 ### Task 2: Update TypeScript Types
 
 **Files:**
+
 - Modify: `src/lib/types.ts`
 
 **Step 1: Update the types and presets**
@@ -191,6 +193,7 @@ In `src/lib/types.ts`, make these changes:
 1. Update `OrganizationMember.role` type from `'owner' | 'member'` to `'owner' | 'admin' | 'member'`
 
 2. Add `scopedGroupId` to `OrganizationMember`:
+
 ```typescript
 export interface OrganizationMember extends OrganizationMemberPermissions {
 	id: string;
@@ -204,6 +207,7 @@ export interface OrganizationMember extends OrganizationMemberPermissions {
 ```
 
 3. Add `scopedGroupId` to `OrganizationInvitation`:
+
 ```typescript
 export interface OrganizationInvitation {
 	id: string;
@@ -217,6 +221,7 @@ export interface OrganizationInvitation {
 ```
 
 4. Add `'team-leader'` to `PermissionPreset`:
+
 ```typescript
 export type PermissionPreset =
 	| 'owner'
@@ -231,6 +236,7 @@ export type PermissionPreset =
 ```
 
 5. Add `team-leader` to `PERMISSION_PRESETS`:
+
 ```typescript
 'team-leader': {
 	canViewCalendar: true,
@@ -260,6 +266,7 @@ git commit -m "feat: add admin role, team-leader preset, and scopedGroupId to ty
 ### Task 3: Update Server Permission Helpers
 
 **Files:**
+
 - Modify: `src/lib/server/permissions.ts`
 
 **Step 1: Update MembershipPermissions and all functions**
@@ -358,11 +365,7 @@ export async function requireManageMembersPermission(
 	}
 }
 
-export async function requireOwnerRole(
-	supabase: SupabaseClient,
-	orgId: string,
-	userId: string
-): Promise<void> {
+export async function requireOwnerRole(supabase: SupabaseClient, orgId: string, userId: string): Promise<void> {
 	const { data: membership } = await supabase
 		.from('organization_memberships')
 		.select('role')
@@ -432,6 +435,7 @@ git commit -m "feat: update permission helpers for admin role and group scoping"
 ### Task 4: Update Layout to Load Scope & Filter Data
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/+layout.server.ts`
 
 **Step 1: Update membership select to include scoped_group_id and recognize admin role**
@@ -452,15 +456,19 @@ locals.supabase
 **Step 2: Update isOwner check and permissions builder (around lines 177-188)**
 
 Replace:
+
 ```typescript
 const isOwner = membership.role === 'owner';
 ```
+
 With:
+
 ```typescript
 const isPrivileged = membership.role === 'owner' || membership.role === 'admin';
 ```
 
 Then update all permission assignments to use `isPrivileged`:
+
 ```typescript
 const permissions: OrganizationMemberPermissions = {
 	canViewCalendar: isPrivileged || membership.can_view_calendar,
@@ -478,25 +486,23 @@ const permissions: OrganizationMemberPermissions = {
 After the permissions block, add group scope filtering:
 
 ```typescript
-const scopedGroupId: string | null =
-	isPrivileged ? null : (membership.scoped_group_id ?? null);
+const scopedGroupId: string | null = isPrivileged ? null : (membership.scoped_group_id ?? null);
 
 // Filter personnel data for group-scoped members
 let { personnel, groups, statusTypes, trainingTypes, personnelTrainings, activeOnboardingPersonnelIds } = shared;
 
 if (scopedGroupId) {
-	const scopedPersonnelIds = new Set(
-		personnel.filter(p => p.groupId === scopedGroupId).map(p => p.id)
-	);
-	personnel = personnel.filter(p => p.groupId === scopedGroupId);
-	personnelTrainings = personnelTrainings.filter(pt => scopedPersonnelIds.has(pt.personnelId));
-	activeOnboardingPersonnelIds = activeOnboardingPersonnelIds.filter(id => scopedPersonnelIds.has(id));
+	const scopedPersonnelIds = new Set(personnel.filter((p) => p.groupId === scopedGroupId).map((p) => p.id));
+	personnel = personnel.filter((p) => p.groupId === scopedGroupId);
+	personnelTrainings = personnelTrainings.filter((pt) => scopedPersonnelIds.has(pt.personnelId));
+	activeOnboardingPersonnelIds = activeOnboardingPersonnelIds.filter((id) => scopedPersonnelIds.has(id));
 }
 ```
 
 **Step 4: Update the return object**
 
 Change `userRole` type and add new fields:
+
 ```typescript
 return {
 	orgId,
@@ -537,6 +543,7 @@ git commit -m "feat: add admin role recognition and group scope filtering to lay
 ### Task 5: Filter Leader's Book Data by Group Scope
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/leaders-book/+page.server.ts`
 
 **Step 1: Get scopedGroupId from parent and filter queries**
@@ -555,12 +562,12 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 
 	// If group-scoped, filter to only personnel in scope
 	if (scopedGroupId) {
-		const scopedPersonnelIds = new Set(personnel.map(p => p.id));
+		const scopedPersonnelIds = new Set(personnel.map((p) => p.id));
 		// Filter each result set
-		extendedInfo = extendedInfo.filter(e => scopedPersonnelIds.has(e.personnelId));
-		counselingRecords = counselingRecords.filter(r => scopedPersonnelIds.has(r.personnelId));
-		developmentGoals = developmentGoals.filter(g => scopedPersonnelIds.has(g.personnelId));
-		availability = availability.filter(a => scopedPersonnelIds.has(a.personnelId));
+		extendedInfo = extendedInfo.filter((e) => scopedPersonnelIds.has(e.personnelId));
+		counselingRecords = counselingRecords.filter((r) => scopedPersonnelIds.has(r.personnelId));
+		developmentGoals = developmentGoals.filter((g) => scopedPersonnelIds.has(g.personnelId));
+		availability = availability.filter((a) => scopedPersonnelIds.has(a.personnelId));
 	}
 
 	return { orgId, extendedInfo, counselingTypes, counselingRecords, developmentGoals, availability };
@@ -583,6 +590,7 @@ git commit -m "feat: filter leader's book data by group scope"
 ### Task 6: Filter Calendar Editing by Group Scope
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/api/availability/+server.ts`
 
 The calendar page shows all personnel (org-wide visibility), but group-scoped members can only edit availability for their group's people.
@@ -680,6 +688,7 @@ git commit -m "feat: enforce group scope on calendar availability edits"
 ### Task 7: Add Group Scope Checks to Personnel API
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/api/personnel/+server.ts`
 
 **Step 1: Add group scope enforcement**
@@ -736,6 +745,7 @@ git commit -m "feat: enforce group scope on personnel create/update/delete"
 ### Task 8: Add Group Scope Checks to Personnel-Related CRUD Endpoints
 
 **Files:**
+
 - Modify: `src/lib/server/crudFactory.ts`
 
 Rather than modifying every individual endpoint, add group scope support to the crudFactory itself. This covers counseling records, development goals, personnel extended info, and personnel trainings.
@@ -743,6 +753,7 @@ Rather than modifying every individual endpoint, add group scope support to the 
 **Step 1: Add `personnelIdField` config option**
 
 Add to `CrudConfig`:
+
 ```typescript
 /** If set, the DB column that contains the personnel_id for group scope enforcement */
 personnelIdField?: string;
@@ -760,11 +771,7 @@ if (config.personnelIdField && !isSandbox && userId) {
 		// Determine the personnel_id from the request body
 		const personnelId = body[config.personnelIdField] ?? body.personnelId;
 		if (personnelId) {
-			const { data: person } = await supabase
-				.from('personnel')
-				.select('group_id')
-				.eq('id', personnelId)
-				.single();
+			const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
 			if (person && person.group_id !== scopedGroupId) {
 				throw error(403, 'You do not have access to personnel outside your group');
 			}
@@ -778,6 +785,7 @@ For PUT and DELETE, the personnel_id might be on the existing record rather than
 **Step 3: Add `personnelIdField` to relevant endpoints**
 
 Add `personnelIdField: 'personnel_id'` to:
+
 - `src/routes/org/[orgId]/api/counseling-records/+server.ts`
 - `src/routes/org/[orgId]/api/development-goals/+server.ts`
 - `src/routes/org/[orgId]/api/personnel-extended-info/+server.ts`
@@ -802,6 +810,7 @@ git commit -m "feat: add group scope enforcement to crudFactory and personnel-re
 ### Task 9: Update Settings Page Server for Admin Role
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/settings/+page.server.ts`
 
 **Step 1: Update the invite action to handle admin role and scoped_group_id**
@@ -847,8 +856,9 @@ Important: Cannot change owner's role via updatePermissions. Keep the existing `
 **Step 3: Update load function to include scopedGroupId in member data**
 
 In the members mapping, add:
+
 ```typescript
-scopedGroupId: m.scoped_group_id
+scopedGroupId: m.scoped_group_id;
 ```
 
 **Step 4: Update settings page access — admins can access**
@@ -869,11 +879,13 @@ git commit -m "feat: update settings server for admin role and group scope in in
 ### Task 10: Update OrganizationMemberManager Component
 
 **Files:**
+
 - Modify: `src/lib/components/OrganizationMemberManager.svelte`
 
 **Step 1: Update role badge display**
 
 Change the role badge logic to show "Owner", "Admin", or "Member":
+
 ```svelte
 {#if member.role === 'owner'}
 	<Badge label="OWNER" color="#B8943E" bold />
@@ -887,9 +899,10 @@ Change the role badge logic to show "Owner", "Admin", or "Member":
 **Step 2: Add group scope display**
 
 When a member has a `scopedGroupId`, show the group name next to their role:
+
 ```svelte
 {#if member.scopedGroupId}
-	<span class="scope-label">{groups.find(g => g.id === member.scopedGroupId)?.name ?? 'Unknown group'}</span>
+	<span class="scope-label">{groups.find((g) => g.id === member.scopedGroupId)?.name ?? 'Unknown group'}</span>
 {/if}
 ```
 
@@ -902,6 +915,7 @@ Add the option in the preset select dropdown and show a group picker when 'team-
 ```
 
 When 'team-leader' or 'custom' is selected and user wants group scoping:
+
 ```svelte
 {#if selectedPreset === 'team-leader' || selectedPreset === 'custom'}
 	<select name="scopedGroupId" class="select">
@@ -924,6 +938,7 @@ Update the guard: admins can change member permissions but not other admins or o
 **Step 6: Props update**
 
 Add `groups` and `isAdmin` to the component props:
+
 ```typescript
 interface Props {
 	members: OrganizationMember[];
@@ -949,11 +964,13 @@ git commit -m "feat: update member manager UI for admin role, team leader preset
 ### Task 11: Update Settings Page Template
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/settings/+page.svelte`
 
 **Step 1: Gate settings sections for admins**
 
 Update permission checks so admins can see settings:
+
 - Org name: `data.isOwner || data.isAdmin`
 - Data export: `data.isOwner || data.isAdmin || data.permissions.canManageMembers`
 - Billing: `data.isOwner || data.isAdmin`
@@ -990,12 +1007,14 @@ git commit -m "feat: update settings page for admin access and group scope UI"
 ### Task 12: Update Audit Log Access for Admins
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/audit/+page.server.ts`
 - Modify: `src/lib/components/ui/AvatarMenu.svelte`
 
 **Step 1: Allow admins to view org audit log**
 
 In `+page.server.ts`, change the guard:
+
 ```typescript
 if (userRole !== 'owner' && userRole !== 'admin') {
 	throw error(403, 'Only organization owners and admins can view audit logs');
@@ -1005,6 +1024,7 @@ if (userRole !== 'owner' && userRole !== 'admin') {
 **Step 2: Show audit log link for admins in avatar menu**
 
 In `AvatarMenu.svelte`, update the condition:
+
 ```typescript
 if (userRole === 'owner' || userRole === 'admin') {
 	result.push({ label: 'Audit Log', href: `/org/${orgId}/audit` });
@@ -1012,6 +1032,7 @@ if (userRole === 'owner' || userRole === 'admin') {
 ```
 
 Also update the Org Settings link visibility:
+
 ```typescript
 result.push({ label: 'Org Settings', href: `/org/${orgId}/settings` });
 // This should be visible to anyone with canManageMembers or owner/admin role
@@ -1035,11 +1056,13 @@ git commit -m "feat: allow admins to view audit logs and org settings"
 ### Task 13: Handle Admin Role and Group Scope in Invitation Acceptance
 
 **Files:**
+
 - Search for the invitation acceptance code (likely in `src/routes/auth/callback/` or a webhook handler)
 
 **Step 1: Find and update the invitation acceptance flow**
 
 When an invitation is accepted, the new membership should inherit:
+
 - The `scoped_group_id` from the invitation
 - If the invitation preset was 'admin', set `role = 'admin'` instead of 'member'
 
@@ -1084,6 +1107,7 @@ Expected: Build succeeds
 ### Task 15: Update Claude Memory
 
 **Files:**
+
 - Modify: `/Users/robertbaddeley/.claude/projects/-Users-robertbaddeley-projects-trooptotask/memory/MEMORY.md`
 
 **Step 1: Add permission system documentation to memory**
@@ -1092,6 +1116,7 @@ Add a section documenting the permission model so all future features respect it
 
 ```markdown
 ## Permission System (redesigned 2026-03-08)
+
 - **Roles:** owner > admin > member (DB enum `organization_role`)
 - **Owner:** Full access + destructive ops (transfer, delete org)
 - **Admin:** Full access + audit logs + settings, but no transfer/delete

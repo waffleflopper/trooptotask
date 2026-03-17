@@ -6,7 +6,10 @@
 	let { data } = $props();
 
 	function formatAction(action: string): string {
-		return action.replace(/\./g, ' > ').replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+		return action
+			.replace(/\./g, ' > ')
+			.replace(/_/g, ' ')
+			.replace(/\b\w/g, (l) => l.toUpperCase());
 	}
 
 	function setParam(key: string, value: string) {
@@ -41,11 +44,7 @@
 
 	<!-- Filters -->
 	<div class="filters">
-		<select
-			value={data.actionFilter}
-			onchange={(e) => setParam('action', e.currentTarget.value)}
-			class="filter-select"
-		>
+		<select value={data.actionFilter} onchange={(e) => setParam('action', e.currentTarget.value)} class="filter-select">
 			<option value="">All Actions</option>
 			{#each data.availableActions as action}
 				<option value={action}>{formatAction(action)}</option>
@@ -139,23 +138,13 @@
 	<!-- Pagination -->
 	{#if totalPages > 1}
 		<div class="pagination">
-			<button
-				class="page-btn"
-				disabled={data.page <= 1}
-				onclick={() => goToPage(data.page - 1)}
-			>
-				Previous
-			</button>
+			<button class="page-btn" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}> Previous </button>
 
 			<span class="page-info">
 				Page {data.page} of {totalPages}
 			</span>
 
-			<button
-				class="page-btn"
-				disabled={data.page >= totalPages}
-				onclick={() => goToPage(data.page + 1)}
-			>
+			<button class="page-btn" disabled={data.page >= totalPages} onclick={() => goToPage(data.page + 1)}>
 				Next
 			</button>
 		</div>

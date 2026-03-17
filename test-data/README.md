@@ -3,7 +3,9 @@
 ## Personnel Import
 
 ### `personnel-import-with-headers.csv`
+
 15 valid rows with standard headers. Tests:
+
 - All rank tiers (enlisted, NCO, warrant, officer, civilian)
 - MOS codes
 - Group assignment (Alpha Squad, Bravo Squad, Charlie Squad)
@@ -11,13 +13,17 @@
 - Name with apostrophe (O'Brien)
 
 ### `personnel-import-no-headers.csv`
+
 5 valid rows with no headers. Tests positional fallback mapping.
 
 ### `personnel-import-shuffled-headers.csv`
+
 5 valid rows with columns in a different order (First Name before Last Name, etc). Tests that header auto-detection correctly maps columns regardless of order.
 
 ### `personnel-import-with-errors.csv`
+
 10 rows with a mix of valid and error cases. Tests:
+
 - Row 1: ✅ Valid
 - Row 2: ❌ Invalid rank (`E5` — not in ALL_RANKS)
 - Row 3: ❌ Missing rank
@@ -38,7 +44,9 @@ Expected: 5 valid rows ready, 4 errors, 1 warning
 > **Note:** These files assume personnel from `personnel-import-with-headers.csv` have already been imported. The training types used (CPR/BLS, Sexual Harassment Prevention, Active Shooter Training) must exist in your org's training type list.
 
 ### `training-import-with-headers.csv`
+
 15 rows covering all status value types:
+
 - ISO dates (`2024-09-15`)
 - US format dates (`09/22/2024`)
 - Yes/done/x values (for non-expiring types)
@@ -47,7 +55,9 @@ Expected: 5 valid rows ready, 4 errors, 1 warning
 - Notes field
 
 ### `training-import-with-errors.csv`
+
 10 rows with error cases:
+
 - Row 1: ✅ Valid date
 - Row 2: ❌ Training type not found
 - Row 3: ❌ Person not found
@@ -62,7 +72,9 @@ Expected: 5 valid rows ready, 4 errors, 1 warning
 Expected: 5 ready, 4 errors, 1 skipped
 
 ### `training-import-alt-headers.csv`
+
 4 valid rows using non-standard header names:
+
 - `surname` → Last Name
 - `given name` → First Name
 - `course` → Training Type

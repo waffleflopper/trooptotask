@@ -50,7 +50,8 @@
 		return () => previouslyFocused?.focus();
 	});
 
-	const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+	const FOCUSABLE =
+		'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape' && canClose) {
@@ -81,14 +82,9 @@
 	}
 </script>
 
-<div
-	class="modal-overlay"
-	tabindex="-1"
-	onkeydown={handleKeydown}
-	bind:this={overlayEl}
->
+<div class="modal-overlay" tabindex="-1" onkeydown={handleKeydown} bind:this={overlayEl}>
 	<button class="modal-backdrop" onclick={handleClose} tabindex="-1" aria-hidden="true"></button>
-	<div class="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} style:width={width} style:max-width="95vw">
+	<div class="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} style:width style:max-width="95vw">
 		<div class="modal-header">
 			<h2 id={titleId}>{title}</h2>
 			{#if headerActions || (showCloseButton && canClose)}
@@ -97,9 +93,7 @@
 						{@render headerActions()}
 					{/if}
 					{#if showCloseButton && canClose}
-						<button class="btn btn-secondary btn-sm close-btn" onclick={handleClose} aria-label="Close"
-							>&times;</button
-						>
+						<button class="btn btn-secondary btn-sm close-btn" onclick={handleClose} aria-label="Close">&times;</button>
 					{/if}
 				</div>
 			{/if}

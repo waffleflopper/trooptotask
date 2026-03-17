@@ -19,11 +19,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 
 	if (body.action === 'replace') {
 		// Replace all pinned groups for this user/org
-		await supabase
-			.from('user_pinned_groups')
-			.delete()
-			.eq('user_id', userId!)
-			.eq('organization_id', orgId);
+		await supabase.from('user_pinned_groups').delete().eq('user_id', userId!).eq('organization_id', orgId);
 
 		if (body.groups && body.groups.length > 0) {
 			const rows = body.groups.map((groupName: string, i: number) => ({
@@ -33,9 +29,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 				sort_order: i
 			}));
 
-			const { error: dbError } = await supabase
-				.from('user_pinned_groups')
-				.insert(rows);
+			const { error: dbError } = await supabase.from('user_pinned_groups').insert(rows);
 
 			if (dbError) throw error(500, dbError.message);
 		}

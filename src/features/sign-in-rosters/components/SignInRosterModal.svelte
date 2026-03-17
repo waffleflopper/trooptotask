@@ -4,7 +4,7 @@
 	import { ARMY_RANKS, ALL_RANKS } from '$lib/types';
 	import { RANK_ORDER } from '$features/personnel/utils/personnelGrouping';
 	import { jsPDF } from 'jspdf';
-	import autoTable from 'jspdf-autotable';
+	import autoTable, { type RowInput } from 'jspdf-autotable';
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -191,12 +191,20 @@
 			rosterGroups = [{ name: '', people: sorted }];
 		}
 
-		const body: any[] = [];
+		const body: RowInput[] = [];
 		let rowNum = 0;
 		for (const group of rosterGroups) {
 			if (config.separateByGroup && group.name) {
 				body.push([
-					{ content: group.name, colSpan: 4, styles: { fontStyle: 'bold' as const, fillColor: [240, 240, 240] as [number, number, number], cellPadding: { top: 8, bottom: 4, left: 4, right: 4 } } }
+					{
+						content: group.name,
+						colSpan: 4,
+						styles: {
+							fontStyle: 'bold' as const,
+							fillColor: [240, 240, 240] as [number, number, number],
+							cellPadding: { top: 8, bottom: 4, left: 4, right: 4 }
+						}
+					}
 				]);
 			}
 			for (const p of group.people) {
@@ -382,23 +390,11 @@
 					bind:value={searchTitle}
 					oninput={handleSearch}
 				/>
-				<input
-					class="input date-input"
-					type="date"
-					bind:value={dateFrom}
-					onchange={() => fetchRosters(true)}
-				/>
+				<input class="input date-input" type="date" bind:value={dateFrom} onchange={() => fetchRosters(true)} />
 				<span class="date-sep">to</span>
-				<input
-					class="input date-input"
-					type="date"
-					bind:value={dateTo}
-					onchange={() => fetchRosters(true)}
-				/>
+				<input class="input date-input" type="date" bind:value={dateTo} onchange={() => fetchRosters(true)} />
 				{#if canEdit}
-					<button class="btn btn-primary btn-sm" onclick={() => (view = 'create')}>
-						New Roster
-					</button>
+					<button class="btn btn-primary btn-sm" onclick={() => (view = 'create')}> New Roster </button>
 				{/if}
 			</div>
 
@@ -412,11 +408,7 @@
 				<div class="roster-list">
 					{#each rosters as roster (roster.id)}
 						<div class="roster-row" class:expanded={expandedId === roster.id}>
-							<button
-								class="roster-header"
-								onclick={() =>
-									(expandedId = expandedId === roster.id ? null : roster.id)}
-							>
+							<button class="roster-header" onclick={() => (expandedId = expandedId === roster.id ? null : roster.id)}>
 								<div class="roster-info">
 									<span class="roster-title">{roster.title}</span>
 									<span class="roster-meta">
@@ -431,43 +423,26 @@
 										{/if}
 									</span>
 								</div>
-								<span class="expand-icon"
-									>{expandedId === roster.id ? '\u25B2' : '\u25BC'}</span
-								>
+								<span class="expand-icon">{expandedId === roster.id ? '\u25B2' : '\u25BC'}</span>
 							</button>
 
 							{#if expandedId === roster.id}
 								<div class="roster-detail">
 									<div class="detail-meta">
-										<span
-											>Sort: {roster.sortBy === 'rank'
-												? 'By rank'
-												: 'Alphabetical'}</span
-										>
+										<span>Sort: {roster.sortBy === 'rank' ? 'By rank' : 'Alphabetical'}</span>
 										{#if roster.separateByGroup}
 											<span>&middot; Separated by group</span>
 										{/if}
 										<span>&middot; Created {formatDate(roster.createdAt)}</span>
 									</div>
 									<div class="detail-actions">
-										<button
-											class="btn btn-sm btn-secondary"
-											onclick={() => reprintRoster(roster)}
-										>
-											Re-print
-										</button>
+										<button class="btn btn-sm btn-secondary" onclick={() => reprintRoster(roster)}> Re-print </button>
 										{#if canEdit}
 											{#if roster.signedFilePath}
-												<button
-													class="btn btn-sm btn-secondary"
-													onclick={() => downloadScan(roster)}
-												>
+												<button class="btn btn-sm btn-secondary" onclick={() => downloadScan(roster)}>
 													Download Scan
 												</button>
-												<button
-													class="btn btn-sm btn-secondary"
-													onclick={() => removeScan(roster)}
-												>
+												<button class="btn btn-sm btn-secondary" onclick={() => removeScan(roster)}>
 													Remove Scan
 												</button>
 											{:else}
@@ -483,8 +458,7 @@
 														class="hidden-input"
 														disabled={uploading === roster.id}
 														onchange={(e) => {
-															const target =
-																e.target as HTMLInputElement;
+															const target = e.target as HTMLInputElement;
 															const file = target.files?.[0];
 															if (file) uploadScan(roster, file);
 															target.value = '';
@@ -513,11 +487,7 @@
 
 				{#if rosters.length < total}
 					<div class="load-more">
-						<button
-							class="btn btn-sm btn-secondary"
-							disabled={loading}
-							onclick={() => fetchRosters(false)}
-						>
+						<button class="btn btn-sm btn-secondary" disabled={loading} onclick={() => fetchRosters(false)}>
 							{#if loading}<Spinner size={12} />{/if}
 							Load more
 						</button>
@@ -530,13 +500,7 @@
 		<div class="create-view">
 			<div class="form-group">
 				<label class="label" for="roster-title">Title <span class="required">*</span></label>
-				<input
-					id="roster-title"
-					class="input"
-					type="text"
-					placeholder="e.g. Annual AT Sign-In"
-					bind:value={title}
-				/>
+				<input id="roster-title" class="input" type="text" placeholder="e.g. Annual AT Sign-In" bind:value={title} />
 			</div>
 
 			<div class="form-group">
@@ -584,42 +548,22 @@
 				<!-- svelte-ignore a11y_label_has_associated_control -->
 				<label class="label">Filter by Rank</label>
 				<div class="category-toggles">
-					<button
-						class="chip"
-						class:active={allOfficersSelected}
-						onclick={() => toggleCategory(ARMY_RANKS.officer)}
-					>
+					<button class="chip" class:active={allOfficersSelected} onclick={() => toggleCategory(ARMY_RANKS.officer)}>
 						All Officers
 					</button>
-					<button
-						class="chip"
-						class:active={allWarrantSelected}
-						onclick={() => toggleCategory(ARMY_RANKS.warrant)}
-					>
+					<button class="chip" class:active={allWarrantSelected} onclick={() => toggleCategory(ARMY_RANKS.warrant)}>
 						All Warrant
 					</button>
-					<button
-						class="chip"
-						class:active={allEnlistedSelected}
-						onclick={() => toggleCategory(enlistedAndNco)}
-					>
+					<button class="chip" class:active={allEnlistedSelected} onclick={() => toggleCategory(enlistedAndNco)}>
 						All Enlisted
 					</button>
-					<button
-						class="chip"
-						class:active={allCiviliansSelected}
-						onclick={() => toggleCategory(ARMY_RANKS.civilian)}
-					>
+					<button class="chip" class:active={allCiviliansSelected} onclick={() => toggleCategory(ARMY_RANKS.civilian)}>
 						Civilians
 					</button>
 				</div>
 				<div class="rank-chips">
 					{#each ALL_RANKS as rank (rank)}
-						<button
-							class="rank-chip"
-							class:active={selectedRanks.has(rank)}
-							onclick={() => toggleRank(rank)}
-						>
+						<button class="rank-chip" class:active={selectedRanks.has(rank)} onclick={() => toggleRank(rank)}>
 							{rank}
 						</button>
 					{/each}
@@ -658,11 +602,7 @@
 			<button class="btn btn-secondary" onclick={onClose}>Close</button>
 		{:else}
 			<button class="btn btn-secondary" onclick={() => (view = 'list')}>Cancel</button>
-			<button
-				class="btn btn-primary"
-				disabled={!canGenerate || saving}
-				onclick={handleGenerate}
-			>
+			<button class="btn btn-primary" disabled={!canGenerate || saving} onclick={handleGenerate}>
 				{#if saving}<Spinner />{/if}
 				{saving ? 'Saving...' : 'Generate & Print'}
 			</button>

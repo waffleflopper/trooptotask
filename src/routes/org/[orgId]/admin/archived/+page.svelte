@@ -101,8 +101,7 @@
 	<div class="page-header">
 		<h2>Archived Personnel</h2>
 		<p class="header-description">
-			Archived personnel are retained for {data.retentionMonths} months before automatic permanent
-			deletion.
+			Archived personnel are retained for {data.retentionMonths} months before automatic permanent deletion.
 		</p>
 	</div>
 
@@ -124,8 +123,7 @@
 				<tbody>
 					{#each data.archivedPersonnel as person (person.id)}
 						{@const days = daysUntilAutoDelete(person.archivedAt, data.retentionMonths)}
-						{@const countdownClass =
-							days <= 0 ? 'overdue' : days < 30 ? 'critical' : days < 90 ? 'warning' : ''}
+						{@const countdownClass = days <= 0 ? 'overdue' : days < 30 ? 'critical' : days < 90 ? 'warning' : ''}
 						<tr>
 							<td class="name-cell">
 								{person.rank}
@@ -150,8 +148,7 @@
 								</button>
 								<button
 									class="btn btn-secondary btn-sm"
-									onclick={() =>
-										handleExport(person.id, `${person.rank}-${person.lastName}`)}
+									onclick={() => handleExport(person.id, `${person.rank}-${person.lastName}`)}
 									disabled={exporting === person.id}
 								>
 									{#if exporting === person.id}<Spinner />{/if}

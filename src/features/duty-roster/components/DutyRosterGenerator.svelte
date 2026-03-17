@@ -105,14 +105,12 @@
 	const allRoles = $derived(personnelData.allRoles);
 
 	// Get currently selected assignment type object
-	const selectedAssignmentType = $derived.by(() =>
-		assignmentTypes.find(t => t.id === selectedAssignmentTypeId) ?? null
+	const selectedAssignmentType = $derived.by(
+		() => assignmentTypes.find((t) => t.id === selectedAssignmentTypeId) ?? null
 	);
 
 	// Exempt personnel IDs for the currently selected assignment type
-	const currentExemptIds = $derived.by(() =>
-		selectedAssignmentType?.exemptPersonnelIds ?? []
-	);
+	const currentExemptIds = $derived.by(() => selectedAssignmentType?.exemptPersonnelIds ?? []);
 
 	// Filter personnel based on selection criteria (excluding exempt)
 	const eligiblePersonnel = $derived.by(() => {
@@ -120,28 +118,28 @@
 
 		// Filter by groups if any selected
 		if (selectedGroups.length > 0) {
-			personnel = personnel.filter(p => selectedGroups.includes(p.groupName));
+			personnel = personnel.filter((p) => selectedGroups.includes(p.groupName));
 		}
 
 		// Filter by ranks if any selected
 		if (selectedRanks.length > 0) {
-			personnel = personnel.filter(p => selectedRanks.includes(p.rank));
+			personnel = personnel.filter((p) => selectedRanks.includes(p.rank));
 		}
 
 		// Filter by MOS if any selected
 		if (selectedMOS.length > 0) {
-			personnel = personnel.filter(p => p.mos && selectedMOS.includes(p.mos));
+			personnel = personnel.filter((p) => p.mos && selectedMOS.includes(p.mos));
 		}
 
 		// Filter by clinic role if any selected
 		if (selectedRoles.length > 0) {
-			personnel = personnel.filter(p => p.clinicRole && selectedRoles.includes(p.clinicRole));
+			personnel = personnel.filter((p) => p.clinicRole && selectedRoles.includes(p.clinicRole));
 		}
 
 		// Exclude exempt personnel
 		const exempt = currentExemptIds;
 		if (exempt.length > 0) {
-			personnel = personnel.filter(p => !exempt.includes(p.id));
+			personnel = personnel.filter((p) => !exempt.includes(p.id));
 		}
 
 		return personnel;
@@ -152,12 +150,12 @@
 		const counts = new Map<string, number>();
 
 		// Initialize all eligible personnel with 0
-		eligiblePersonnel.forEach(p => counts.set(p.id, 0));
+		eligiblePersonnel.forEach((p) => counts.set(p.id, 0));
 
 		// Count existing assignments of this type
 		assignments
-			.filter(a => a.assignmentTypeId === assignmentTypeId)
-			.forEach(a => {
+			.filter((a) => a.assignmentTypeId === assignmentTypeId)
+			.forEach((a) => {
 				const current = counts.get(a.assigneeId) ?? 0;
 				counts.set(a.assigneeId, current + 1);
 			});
@@ -171,11 +169,11 @@
 	// (e.g. generating February retroactively).
 	function getLastDutyDates(assignmentTypeId: string, beforeDate: string): Map<string, string | null> {
 		const lastDates = new Map<string, string | null>();
-		eligiblePersonnel.forEach(p => lastDates.set(p.id, null));
+		eligiblePersonnel.forEach((p) => lastDates.set(p.id, null));
 
 		assignments
-			.filter(a => a.assignmentTypeId === assignmentTypeId && a.date < beforeDate)
-			.forEach(a => {
+			.filter((a) => a.assignmentTypeId === assignmentTypeId && a.date < beforeDate)
+			.forEach((a) => {
 				const current = lastDates.get(a.assigneeId) ?? null;
 				if (current === null || a.date > current) {
 					lastDates.set(a.assigneeId, a.date);
@@ -188,7 +186,7 @@
 	// Check if person is available on a given date
 	function isPersonAvailable(person: Personnel, date: string): boolean {
 		const entries = availabilityEntries.filter(
-			e => e.personnelId === person.id && date >= e.startDate && date <= e.endDate
+			(e) => e.personnelId === person.id && date >= e.startDate && date <= e.endDate
 		);
 
 		if (entries.length === 0) return true;
@@ -264,12 +262,12 @@
 		// DA6 capture: build personnel list sorted alphabetically for stable row order
 		const da6Personnel = [...eligiblePersonnel]
 			.sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`))
-			.map(p => ({ id: p.id, name: `${p.lastName}, ${p.firstName}`, rank: p.rank, group: p.groupName }));
+			.map((p) => ({ id: p.id, name: `${p.lastName}, ${p.firstName}`, rank: p.rank, group: p.groupName }));
 		const da6Dates: DA6Data['dates'] = [];
 
 		for (const date of dutyDates) {
 			// Get available personnel for this date
-			const available = eligiblePersonnel.filter(p => isPersonAvailable(p, date));
+			const available = eligiblePersonnel.filter((p) => isPersonAvailable(p, date));
 
 			if (available.length === 0) {
 				roster.push({ date, assignee: null, reason: 'No eligible personnel available' });
@@ -296,8 +294,8 @@
 			roster.push({ date, assignee: assigned });
 
 			// DA6: capture each person's queue position for this date
-			const positions = da6Personnel.map(dp => {
-				const availIdx = available.findIndex(a => a.id === dp.id);
+			const positions = da6Personnel.map((dp) => {
+				const availIdx = available.findIndex((a) => a.id === dp.id);
 				return availIdx >= 0 ? availIdx + 1 : null; // null = unavailable, 1 = assigned
 			});
 			da6Dates.push({ date, positions });
@@ -320,17 +318,17 @@
 		isApplying = true;
 
 		const assignmentsToCreate = generatedRoster
-			.filter(r => r.assignee !== null)
-			.map(r => ({
+			.filter((r) => r.assignee !== null)
+			.map((r) => ({
 				date: r.date,
 				assignmentTypeId: selectedAssignmentTypeId,
 				assigneeId: r.assignee!.id
 			}));
 
 		// Save to history first
-		const assignmentType = assignmentTypes.find(t => t.id === selectedAssignmentTypeId);
+		const assignmentType = assignmentTypes.find((t) => t.id === selectedAssignmentTypeId);
 		const typeName = assignmentType?.name ?? 'Duty';
-		const historyRoster: RosterHistoryEntry[] = generatedRoster.map(r => ({
+		const historyRoster: RosterHistoryEntry[] = generatedRoster.map((r) => ({
 			date: r.date,
 			assigneeId: r.assignee?.id ?? null,
 			assigneeName: r.assignee ? `${r.assignee.lastName}, ${r.assignee.firstName}` : null,
@@ -374,7 +372,7 @@
 		da6?: DA6Data;
 	}) {
 		const isHistory = !!opts;
-		const typeName = opts?.typeName ?? assignmentTypes.find(t => t.id === selectedAssignmentTypeId)?.name ?? 'Duty';
+		const typeName = opts?.typeName ?? assignmentTypes.find((t) => t.id === selectedAssignmentTypeId)?.name ?? 'Duty';
 		const sd = opts?.startDate ?? startDate;
 		const ed = opts?.endDate ?? endDate;
 		const da6 = opts?.da6 ?? generatedDA6;
@@ -531,8 +529,8 @@
 		reApplyItem = null;
 
 		const assignmentsToCreate = item.roster
-			.filter(r => r.assigneeId !== null)
-			.map(r => ({
+			.filter((r) => r.assigneeId !== null)
+			.map((r) => ({
 				date: r.date,
 				assignmentTypeId: item.assignmentTypeId,
 				assigneeId: r.assigneeId!
@@ -558,7 +556,7 @@
 
 	function toggleGroup(group: string) {
 		if (selectedGroups.includes(group)) {
-			selectedGroups = selectedGroups.filter(g => g !== group);
+			selectedGroups = selectedGroups.filter((g) => g !== group);
 		} else {
 			selectedGroups = [...selectedGroups, group];
 		}
@@ -566,7 +564,7 @@
 
 	function toggleRank(rank: string) {
 		if (selectedRanks.includes(rank)) {
-			selectedRanks = selectedRanks.filter(r => r !== rank);
+			selectedRanks = selectedRanks.filter((r) => r !== rank);
 		} else {
 			selectedRanks = [...selectedRanks, rank];
 		}
@@ -574,7 +572,7 @@
 
 	function toggleMOS(mos: string) {
 		if (selectedMOS.includes(mos)) {
-			selectedMOS = selectedMOS.filter(m => m !== mos);
+			selectedMOS = selectedMOS.filter((m) => m !== mos);
 		} else {
 			selectedMOS = [...selectedMOS, mos];
 		}
@@ -582,7 +580,7 @@
 
 	function toggleRole(role: string) {
 		if (selectedRoles.includes(role)) {
-			selectedRoles = selectedRoles.filter(r => r !== role);
+			selectedRoles = selectedRoles.filter((r) => r !== role);
 		} else {
 			selectedRoles = [...selectedRoles, role];
 		}
@@ -590,7 +588,7 @@
 
 	function toggleExcludeStatus(statusId: string) {
 		if (excludeStatuses.includes(statusId)) {
-			excludeStatuses = excludeStatuses.filter(s => s !== statusId);
+			excludeStatuses = excludeStatuses.filter((s) => s !== statusId);
 		} else {
 			excludeStatuses = [...excludeStatuses, statusId];
 		}
@@ -598,9 +596,7 @@
 
 	function toggleExempt(personnelId: string) {
 		const current = currentExemptIds;
-		const next = current.includes(personnelId)
-			? current.filter(id => id !== personnelId)
-			: [...current, personnelId];
+		const next = current.includes(personnelId) ? current.filter((id) => id !== personnelId) : [...current, personnelId];
 		onUpdateExemptions(selectedAssignmentTypeId, next);
 	}
 
@@ -609,38 +605,33 @@
 		if (excludeStatuses.length === 0 && statusTypes.length > 0) {
 			const unavailableNames = ['leave', 'tdy', 'school', 'sick', 'appointment'];
 			excludeStatuses = statusTypes
-				.filter(s => unavailableNames.some(n => s.name.toLowerCase().includes(n)))
-				.map(s => s.id);
+				.filter((s) => unavailableNames.some((n) => s.name.toLowerCase().includes(n)))
+				.map((s) => s.id);
 		}
 	});
 
 	// Personnel-only assignment types
-	const personnelAssignmentTypes = $derived(
-		assignmentTypes.filter(t => t.assignTo === 'personnel')
-	);
+	const personnelAssignmentTypes = $derived(assignmentTypes.filter((t) => t.assignTo === 'personnel'));
 
 	// Modal title derives from view
 	const modalTitle = $derived(
-		view === 'history' ? 'Roster History' :
-		view === 'preview' ? 'Generated Roster Preview' :
-		'Generate Duty Roster'
+		view === 'history' ? 'Roster History' : view === 'preview' ? 'Generated Roster Preview' : 'Generate Duty Roster'
 	);
 </script>
 
-<Modal
-	title={modalTitle}
-	{onClose}
-	width="640px"
-	canClose={!isApplying}
->
+<Modal title={modalTitle} {onClose} width="640px" canClose={!isApplying}>
 	{#snippet headerActions()}
 		{#if view === 'config'}
-			<button
-				class="btn btn-secondary btn-sm"
-				onclick={() => (view = 'history')}
-				title="View roster history"
-			>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true">
+			<button class="btn btn-secondary btn-sm" onclick={() => (view = 'history')} title="View roster history">
+				<svg
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					width="14"
+					height="14"
+					aria-hidden="true"
+				>
 					<circle cx="12" cy="12" r="10" />
 					<polyline points="12 6 12 12 16 14" />
 				</svg>
@@ -653,111 +644,115 @@
 	{/snippet}
 
 	<div>
-			{#if view === 'history'}
-				<!-- History View -->
-				<div class="history-section">
-					<div class="history-header">
-						<button class="btn btn-secondary btn-sm" onclick={() => (view = 'config')}>
-							&larr; Back
-						</button>
-						<p class="hint">Past rosters, most recent first.</p>
-					</div>
-
-					{#if rosterHistory.length === 0}
-						<div class="empty-state">
-							<p>No roster history yet. Generate and apply a roster to save it here.</p>
-						</div>
-					{:else}
-						<div class="history-list">
-							{#each rosterHistory as item (item.id)}
-								{@const filled = item.roster.filter(r => r.assigneeId).length}
-								{@const total = item.roster.length}
-								<div class="history-card">
-									<div class="history-card-info">
-										<div class="history-card-name">{item.name}</div>
-										<div class="history-card-meta">
-											{formatDisplayDate(item.startDate)} – {formatDisplayDate(item.endDate)}
-											&nbsp;·&nbsp;
-											{filled}/{total} filled
-											&nbsp;·&nbsp;
-											<span class="history-card-date">{formatHistoryDate(item.createdAt)}</span>
-										</div>
-									</div>
-									<div class="history-card-actions">
-										<button
-											class="btn btn-secondary btn-xs"
-											onclick={() => {
-												const typeName = assignmentTypes.find(t => t.id === item.assignmentTypeId)?.name ?? 'Duty';
-												exportToExcel({ roster: item.roster, typeName, startDate: item.startDate, endDate: item.endDate, da6: item.da6 });
-											}}
-											title="Export to Excel"
-										>
-											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
-												<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-												<polyline points="14 2 14 8 20 8" />
-											</svg>
-											Export
-										</button>
-										<button
-											class="btn btn-secondary btn-xs"
-											onclick={() => reApplyHistoryRoster(item)}
-											title="Re-apply to calendar"
-										>
-											Re-apply
-										</button>
-										<button
-											class="btn btn-danger btn-xs"
-											onclick={() => onDeleteRoster(item.id)}
-											title="Delete this roster"
-										>
-											Delete
-										</button>
-									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
+		{#if view === 'history'}
+			<!-- History View -->
+			<div class="history-section">
+				<div class="history-header">
+					<button class="btn btn-secondary btn-sm" onclick={() => (view = 'config')}> &larr; Back </button>
+					<p class="hint">Past rosters, most recent first.</p>
 				</div>
 
-			{:else if view === 'preview'}
-				<!-- Preview Section -->
-				<div class="preview-section">
-					<div class="roster-stats">
-						<div class="stat">
-							<span class="stat-value">{generatedRoster.length}</span>
-							<span class="stat-label">Total Duties</span>
-						</div>
-						<div class="stat">
-							<span class="stat-value">{generatedRoster.filter(r => r.assignee).length}</span>
-							<span class="stat-label">Filled</span>
-						</div>
-						<div class="stat unfilled">
-							<span class="stat-value">{generatedRoster.filter(r => !r.assignee).length}</span>
-							<span class="stat-label">Unfilled</span>
-						</div>
+				{#if rosterHistory.length === 0}
+					<div class="empty-state">
+						<p>No roster history yet. Generate and apply a roster to save it here.</p>
 					</div>
-
-					<div class="preview-tabs">
-						<button
-							class="preview-tab"
-							class:active={previewTab === 'roster'}
-							onclick={() => (previewTab = 'roster')}
-						>
-							Roster
-						</button>
-						<button
-							class="preview-tab"
-							class:active={previewTab === 'da6'}
-							onclick={() => (previewTab = 'da6')}
-						>
-							DA6 Order
-						</button>
+				{:else}
+					<div class="history-list">
+						{#each rosterHistory as item (item.id)}
+							{@const filled = item.roster.filter((r) => r.assigneeId).length}
+							{@const total = item.roster.length}
+							<div class="history-card">
+								<div class="history-card-info">
+									<div class="history-card-name">{item.name}</div>
+									<div class="history-card-meta">
+										{formatDisplayDate(item.startDate)} – {formatDisplayDate(item.endDate)}
+										&nbsp;·&nbsp;
+										{filled}/{total} filled &nbsp;·&nbsp;
+										<span class="history-card-date">{formatHistoryDate(item.createdAt)}</span>
+									</div>
+								</div>
+								<div class="history-card-actions">
+									<button
+										class="btn btn-secondary btn-xs"
+										onclick={() => {
+											const typeName = assignmentTypes.find((t) => t.id === item.assignmentTypeId)?.name ?? 'Duty';
+											exportToExcel({
+												roster: item.roster,
+												typeName,
+												startDate: item.startDate,
+												endDate: item.endDate,
+												da6: item.da6
+											});
+										}}
+										title="Export to Excel"
+									>
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+											<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+											<polyline points="14 2 14 8 20 8" />
+										</svg>
+										Export
+									</button>
+									<button
+										class="btn btn-secondary btn-xs"
+										onclick={() => reApplyHistoryRoster(item)}
+										title="Re-apply to calendar"
+									>
+										Re-apply
+									</button>
+									<button
+										class="btn btn-danger btn-xs"
+										onclick={() => onDeleteRoster(item.id)}
+										title="Delete this roster"
+									>
+										Delete
+									</button>
+								</div>
+							</div>
+						{/each}
 					</div>
+				{/if}
+			</div>
+		{:else if view === 'preview'}
+			<!-- Preview Section -->
+			<div class="preview-section">
+				<div class="roster-stats">
+					<div class="stat">
+						<span class="stat-value">{generatedRoster.length}</span>
+						<span class="stat-label">Total Duties</span>
+					</div>
+					<div class="stat">
+						<span class="stat-value">{generatedRoster.filter((r) => r.assignee).length}</span>
+						<span class="stat-label">Filled</span>
+					</div>
+					<div class="stat unfilled">
+						<span class="stat-value">{generatedRoster.filter((r) => !r.assignee).length}</span>
+						<span class="stat-label">Unfilled</span>
+					</div>
+				</div>
 
-					{#if previewTab === 'da6' && generatedDA6}
-						<p class="hint"><strong>X</strong> = assigned duty &nbsp; # = queue position &nbsp; <strong>&mdash;</strong> = unavailable</p>
-					<p class="hint hint-detail">Queue positions reflect each person's priority among <em>available</em> personnel per day. Numbers shift when others become unavailable or exempt — this is normal and follows the DA6 rotation principle per <a href="https://armypubs.army.mil/ProductMaps/PubForm/Details.aspx?PUB_ID=1004278" target="_blank" rel="noopener noreferrer">AR 220-45</a>.</p>
-						<div class="roster-table-container">
+				<div class="preview-tabs">
+					<button class="preview-tab" class:active={previewTab === 'roster'} onclick={() => (previewTab = 'roster')}>
+						Roster
+					</button>
+					<button class="preview-tab" class:active={previewTab === 'da6'} onclick={() => (previewTab = 'da6')}>
+						DA6 Order
+					</button>
+				</div>
+
+				{#if previewTab === 'da6' && generatedDA6}
+					<p class="hint">
+						<strong>X</strong> = assigned duty &nbsp; # = queue position &nbsp; <strong>&mdash;</strong> = unavailable
+					</p>
+					<p class="hint hint-detail">
+						Queue positions reflect each person's priority among <em>available</em> personnel per day. Numbers shift
+						when others become unavailable or exempt — this is normal and follows the DA6 rotation principle per
+						<a
+							href="https://armypubs.army.mil/ProductMaps/PubForm/Details.aspx?PUB_ID=1004278"
+							target="_blank"
+							rel="noopener noreferrer">AR 220-45</a
+						>.
+					</p>
+					<div class="roster-table-container">
 						<div class="table-responsive">
 							<table class="roster-table da6-table">
 								<thead>
@@ -765,7 +760,9 @@
 										<th class="da6-sticky-col">Name</th>
 										{#each generatedDA6.dates as d}
 											{@const date = new Date(d.date + 'T00:00:00')}
-											<th class="da6-date-col">{date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}</th>
+											<th class="da6-date-col"
+												>{date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}</th
+											>
 										{/each}
 									</tr>
 								</thead>
@@ -791,9 +788,9 @@
 								</tbody>
 							</table>
 						</div>
-						</div>
-					{:else}
-						<div class="roster-table-container">
+					</div>
+				{:else}
+					<div class="roster-table-container">
 						<div class="table-responsive">
 							<table class="roster-table">
 								<thead>
@@ -824,195 +821,184 @@
 								</tbody>
 							</table>
 						</div>
-						</div>
-					{/if}
-				</div>
-
-			{:else}
-				<!-- Configuration Section -->
-				<div class="config-section">
-					<h4>Duty Configuration</h4>
-
-					<div class="form-group">
-						<label class="label" for="assignmentType">Assignment Type</label>
-						<select id="assignmentType" class="select" bind:value={selectedAssignmentTypeId}>
-							<option value="">Select duty type...</option>
-							{#each personnelAssignmentTypes as type}
-								<option value={type.id}>{type.name} ({type.shortName})</option>
-							{/each}
-						</select>
-					</div>
-
-					<div class="form-row">
-						<div class="form-group">
-							<label class="label" for="duration">Duty Duration</label>
-							<select id="duration" class="select" bind:value={dutyDuration}>
-								<option value="daily">Daily</option>
-								<option value="weekly">Weekly</option>
-								<option value="monthly">Monthly</option>
-							</select>
-						</div>
-					</div>
-
-					<div class="form-row">
-						<div class="form-group">
-							<label class="label" for="startDate">Start Date</label>
-							<input id="startDate" type="date" class="input" bind:value={startDate} />
-						</div>
-						<div class="form-group">
-							<label class="label" for="endDate">End Date</label>
-							<input id="endDate" type="date" class="input" bind:value={endDate} />
-						</div>
-					</div>
-				</div>
-
-				<div class="config-section">
-					<h4>Schedule Options</h4>
-
-					<label class="toggle-row">
-						<input type="checkbox" bind:checked={excludeWeekends} />
-						<span>Exclude weekends (Sat & Sun)</span>
-					</label>
-
-					<label class="toggle-row">
-						<input type="checkbox" bind:checked={excludeHolidays} />
-						<span>Exclude federal holidays</span>
-					</label>
-
-					<label class="toggle-row">
-						<input type="checkbox" bind:checked={excludeOrgClosures} />
-						<span>Exclude org closures</span>
-					</label>
-
-					</div>
-
-				<div class="config-section">
-					<h4>Eligible Personnel</h4>
-					<p class="hint">Leave empty to include all. Select specific groups/ranks to filter.</p>
-
-					<div class="filter-group">
-						<label class="label">Groups</label>
-						<div class="chip-list">
-							{#each groups as group}
-								<button
-									class="chip"
-									class:selected={selectedGroups.includes(group)}
-									onclick={() => toggleGroup(group)}
-								>
-									{group || '(No Group)'}
-								</button>
-							{/each}
-						</div>
-					</div>
-
-					<div class="filter-group">
-						<label class="label">Ranks</label>
-						<div class="chip-list">
-							{#each allRanks as rank}
-								<button
-									class="chip"
-									class:selected={selectedRanks.includes(rank)}
-									onclick={() => toggleRank(rank)}
-								>
-									{rank}
-								</button>
-							{/each}
-						</div>
-					</div>
-
-					{#if allMOS.length > 0}
-						<div class="filter-group">
-							<label class="label">MOS</label>
-							<div class="chip-list">
-								{#each allMOS as mos}
-									<button
-										class="chip"
-										class:selected={selectedMOS.includes(mos)}
-										onclick={() => toggleMOS(mos)}
-									>
-										{mos}
-									</button>
-								{/each}
-							</div>
-						</div>
-					{/if}
-
-					{#if allRoles.length > 0}
-						<div class="filter-group">
-							<label class="label">Roles</label>
-							<div class="chip-list">
-								{#each allRoles as role}
-									<button
-										class="chip"
-										class:selected={selectedRoles.includes(role)}
-										onclick={() => toggleRole(role)}
-									>
-										{role}
-									</button>
-								{/each}
-							</div>
-						</div>
-					{/if}
-
-					<div class="eligible-count">
-						{eligiblePersonnel.length} personnel eligible
-					</div>
-				</div>
-
-				{#if selectedAssignmentTypeId}
-					<div class="config-section">
-						<h4>Exempt Personnel</h4>
-						<p class="hint">These individuals will never be assigned this duty type.</p>
-
-						<div class="chip-list">
-							{#each personnelByGroup as grp}
-								{#each grp.personnel as person}
-									<button
-										class="chip exempt-chip"
-										class:selected={currentExemptIds.includes(person.id)}
-										onclick={() => toggleExempt(person.id)}
-									>
-										{person.rank} {person.lastName}
-									</button>
-								{/each}
-							{/each}
-						</div>
-
-						{#if currentExemptIds.length > 0}
-							<div class="exempt-count">{currentExemptIds.length} exempted</div>
-						{/if}
 					</div>
 				{/if}
+			</div>
+		{:else}
+			<!-- Configuration Section -->
+			<div class="config-section">
+				<h4>Duty Configuration</h4>
 
-				<div class="config-section">
-					<h4>Unavailable Statuses</h4>
-					<p class="hint">Personnel with these statuses will be skipped.</p>
+				<div class="form-group">
+					<label class="label" for="assignmentType">Assignment Type</label>
+					<select id="assignmentType" class="select" bind:value={selectedAssignmentTypeId}>
+						<option value="">Select duty type...</option>
+						{#each personnelAssignmentTypes as type}
+							<option value={type.id}>{type.name} ({type.shortName})</option>
+						{/each}
+					</select>
+				</div>
 
+				<div class="form-row">
+					<div class="form-group">
+						<label class="label" for="duration">Duty Duration</label>
+						<select id="duration" class="select" bind:value={dutyDuration}>
+							<option value="daily">Daily</option>
+							<option value="weekly">Weekly</option>
+							<option value="monthly">Monthly</option>
+						</select>
+					</div>
+				</div>
+
+				<div class="form-row">
+					<div class="form-group">
+						<label class="label" for="startDate">Start Date</label>
+						<input id="startDate" type="date" class="input" bind:value={startDate} />
+					</div>
+					<div class="form-group">
+						<label class="label" for="endDate">End Date</label>
+						<input id="endDate" type="date" class="input" bind:value={endDate} />
+					</div>
+				</div>
+			</div>
+
+			<div class="config-section">
+				<h4>Schedule Options</h4>
+
+				<label class="toggle-row">
+					<input type="checkbox" bind:checked={excludeWeekends} />
+					<span>Exclude weekends (Sat & Sun)</span>
+				</label>
+
+				<label class="toggle-row">
+					<input type="checkbox" bind:checked={excludeHolidays} />
+					<span>Exclude federal holidays</span>
+				</label>
+
+				<label class="toggle-row">
+					<input type="checkbox" bind:checked={excludeOrgClosures} />
+					<span>Exclude org closures</span>
+				</label>
+			</div>
+
+			<div class="config-section">
+				<h4>Eligible Personnel</h4>
+				<p class="hint">Leave empty to include all. Select specific groups/ranks to filter.</p>
+
+				<div class="filter-group">
+					<label class="label">Groups</label>
 					<div class="chip-list">
-						{#each statusTypes as status}
-							<button
-								class="chip status-chip"
-								class:selected={excludeStatuses.includes(status.id)}
-								style="--chip-color: {status.color}; --chip-text: {status.textColor}"
-								onclick={() => toggleExcludeStatus(status.id)}
-							>
-								{status.name}
+						{#each groups as group}
+							<button class="chip" class:selected={selectedGroups.includes(group)} onclick={() => toggleGroup(group)}>
+								{group || '(No Group)'}
 							</button>
 						{/each}
 					</div>
 				</div>
+
+				<div class="filter-group">
+					<label class="label">Ranks</label>
+					<div class="chip-list">
+						{#each allRanks as rank}
+							<button class="chip" class:selected={selectedRanks.includes(rank)} onclick={() => toggleRank(rank)}>
+								{rank}
+							</button>
+						{/each}
+					</div>
+				</div>
+
+				{#if allMOS.length > 0}
+					<div class="filter-group">
+						<label class="label">MOS</label>
+						<div class="chip-list">
+							{#each allMOS as mos}
+								<button class="chip" class:selected={selectedMOS.includes(mos)} onclick={() => toggleMOS(mos)}>
+									{mos}
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				{#if allRoles.length > 0}
+					<div class="filter-group">
+						<label class="label">Roles</label>
+						<div class="chip-list">
+							{#each allRoles as role}
+								<button class="chip" class:selected={selectedRoles.includes(role)} onclick={() => toggleRole(role)}>
+									{role}
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				<div class="eligible-count">
+					{eligiblePersonnel.length} personnel eligible
+				</div>
+			</div>
+
+			{#if selectedAssignmentTypeId}
+				<div class="config-section">
+					<h4>Exempt Personnel</h4>
+					<p class="hint">These individuals will never be assigned this duty type.</p>
+
+					<div class="chip-list">
+						{#each personnelByGroup as grp}
+							{#each grp.personnel as person}
+								<button
+									class="chip exempt-chip"
+									class:selected={currentExemptIds.includes(person.id)}
+									onclick={() => toggleExempt(person.id)}
+								>
+									{person.rank}
+									{person.lastName}
+								</button>
+							{/each}
+						{/each}
+					</div>
+
+					{#if currentExemptIds.length > 0}
+						<div class="exempt-count">{currentExemptIds.length} exempted</div>
+					{/if}
+				</div>
 			{/if}
-		</div>
+
+			<div class="config-section">
+				<h4>Unavailable Statuses</h4>
+				<p class="hint">Personnel with these statuses will be skipped.</p>
+
+				<div class="chip-list">
+					{#each statusTypes as status}
+						<button
+							class="chip status-chip"
+							class:selected={excludeStatuses.includes(status.id)}
+							style="--chip-color: {status.color}; --chip-text: {status.textColor}"
+							onclick={() => toggleExcludeStatus(status.id)}
+						>
+							{status.name}
+						</button>
+					{/each}
+				</div>
+			</div>
+		{/if}
+	</div>
 
 	{#snippet footer()}
 		{#if view === 'history'}
 			<button class="btn btn-secondary" onclick={() => (view = 'config')}>Back to Config</button>
 		{:else if view === 'preview'}
-			<button class="btn btn-secondary" onclick={() => (view = 'config')}>
-				&larr; Back to Config
-			</button>
+			<button class="btn btn-secondary" onclick={() => (view = 'config')}> &larr; Back to Config </button>
 			<button class="btn btn-secondary" onclick={() => exportToExcel()}>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+				<svg
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					width="16"
+					height="16"
+					aria-hidden="true"
+				>
 					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 					<polyline points="14 2 14 8 20 8" />
 					<line x1="16" y1="13" x2="8" y2="13" />
@@ -1023,7 +1009,7 @@
 			<button
 				class="btn btn-primary"
 				onclick={applyRoster}
-				disabled={isApplying || generatedRoster.filter(r => r.assignee).length === 0}
+				disabled={isApplying || generatedRoster.filter((r) => r.assignee).length === 0}
 			>
 				{isApplying ? 'Applying...' : 'Apply to Calendar'}
 			</button>
@@ -1043,7 +1029,7 @@
 {#if reApplyItem}
 	<ConfirmDialog
 		title="Re-apply Roster"
-		message='Re-apply "{reApplyItem.name}" to the calendar? This will overwrite any existing assignments for those dates.'
+		message={`Re-apply "${reApplyItem.name}" to the calendar? This will overwrite any existing assignments for those dates.`}
 		confirmLabel="Re-apply"
 		variant="warning"
 		onConfirm={doReApplyRoster}
@@ -1125,7 +1111,7 @@
 	.chip.selected {
 		background: var(--color-primary);
 		border-color: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 	}
 
 	.chip.status-chip.selected {
@@ -1242,7 +1228,7 @@
 		height: 18px;
 		padding: 0 4px;
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 		border-radius: var(--radius-full);
 		font-size: 10px;
 		font-weight: 700;
@@ -1348,7 +1334,7 @@
 		margin-bottom: var(--spacing-md);
 	}
 
-	.toggle-row input[type="checkbox"] {
+	.toggle-row input[type='checkbox'] {
 		width: 16px;
 		height: 16px;
 		accent-color: var(--color-primary);
@@ -1433,5 +1419,4 @@
 		background: var(--color-bg);
 		opacity: 0.5;
 	}
-
 </style>

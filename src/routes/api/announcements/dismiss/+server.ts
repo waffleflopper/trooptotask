@@ -11,9 +11,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		throw error(400, 'Invalid announcement ID');
 	}
 
-	await supabase
-		.from('announcement_dismissals')
-		.upsert({ announcement_id: announcementId, user_id: user.id });
+	await supabase.from('announcement_dismissals').upsert({ announcement_id: announcementId, user_id: user.id });
 
 	return json({ success: true });
 };

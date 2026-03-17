@@ -10,10 +10,7 @@ const TIER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  * Get the effective tier for an org.
  * When billing is disabled, returns unlimited tier.
  */
-export async function getEffectiveTier(
-	supabase: SupabaseClient,
-	orgId: string
-): Promise<EffectiveTier> {
+export async function getEffectiveTier(supabase: SupabaseClient, orgId: string): Promise<EffectiveTier> {
 	if (!isBillingEnabled) {
 		return {
 			tier: 'unit',
@@ -74,10 +71,7 @@ export async function canAddPersonnel(
 /**
  * Check if an org is in read-only mode.
  */
-export async function isOrgReadOnly(
-	supabase: SupabaseClient,
-	orgId: string
-): Promise<boolean> {
+export async function isOrgReadOnly(supabase: SupabaseClient, orgId: string): Promise<boolean> {
 	if (!isBillingEnabled) return false;
 	const tier = await getEffectiveTier(supabase, orgId);
 	return tier.isReadOnly;
@@ -86,10 +80,7 @@ export async function isOrgReadOnly(
 /**
  * Check how many orgs a user owns.
  */
-export async function getUserOwnedOrgCount(
-	supabase: SupabaseClient,
-	userId: string
-): Promise<number> {
+export async function getUserOwnedOrgCount(supabase: SupabaseClient, userId: string): Promise<number> {
 	const { count, error } = await supabase
 		.from('organizations')
 		.select('*', { count: 'exact', head: true })
@@ -135,10 +126,7 @@ export async function canCreateOrg(
 /**
  * Count bulk data exports this month for an org.
  */
-export async function getMonthlyExportCount(
-	supabase: SupabaseClient,
-	orgId: string
-): Promise<number> {
+export async function getMonthlyExportCount(supabase: SupabaseClient, orgId: string): Promise<number> {
 	const now = new Date();
 	const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 

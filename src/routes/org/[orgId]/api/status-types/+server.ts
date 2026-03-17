@@ -21,16 +21,12 @@ const handlers = createCrudHandlers<StatusType>({
 		await notifyAdmins(orgId, userId, {
 			type: 'config_type_deleted',
 			title: 'Status Type Deleted',
-			message: `"${userEmail}" deleted the status type "${(deletedDetails as any)?.name ?? 'unknown'}".`
+			message: `"${userEmail}" deleted the status type "${deletedDetails?.name ?? 'unknown'}".`
 		});
 	},
 	// Cascade delete: remove availability entries with this status type
 	onDelete: async (supabase, orgId, id) => {
-		await supabase
-			.from('availability_entries')
-			.delete()
-			.eq('status_type_id', id)
-			.eq('organization_id', orgId);
+		await supabase.from('availability_entries').delete().eq('status_type_id', id).eq('organization_id', orgId);
 	}
 });
 

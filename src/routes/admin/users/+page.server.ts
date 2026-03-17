@@ -60,13 +60,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// Get organization counts for paged users
 	const userIds = pagedUsers.map((u) => u.id);
 	const [orgMembershipsResult, suspensionsResult] = await Promise.all([
-		adminClient
-			.from('organization_memberships')
-			.select('user_id')
-			.in('user_id', userIds),
-		adminClient
-			.from('user_suspensions')
-			.select('user_id')
+		adminClient.from('organization_memberships').select('user_id').in('user_id', userIds),
+		adminClient.from('user_suspensions').select('user_id')
 	]);
 
 	const orgCountMap: Record<string, number> = {};

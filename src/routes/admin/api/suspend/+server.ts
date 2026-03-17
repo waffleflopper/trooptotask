@@ -26,10 +26,7 @@ export const POST: RequestHandler = async (event) => {
 				.upsert({ user_id: targetId, suspended_by: user.id, reason });
 			if (dbError) throw error(500, 'Operation failed');
 		} else {
-			const { error: dbError } = await adminClient
-				.from('user_suspensions')
-				.delete()
-				.eq('user_id', targetId);
+			const { error: dbError } = await adminClient.from('user_suspensions').delete().eq('user_id', targetId);
 			if (dbError) throw error(500, 'Operation failed');
 		}
 	} else {

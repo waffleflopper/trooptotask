@@ -18,10 +18,7 @@ export function getAdminClient(): SupabaseClient {
  * Returns a Supabase client appropriate for the current context.
  * Uses service role client for demo mode to bypass RLS.
  */
-export function getSupabaseClient(
-	locals: App.Locals,
-	cookies: Cookies
-): SupabaseClient {
+export function getSupabaseClient(locals: App.Locals, cookies: Cookies): SupabaseClient {
 	const demoMode = cookies.get('demo_mode');
 	const demoSandbox = cookies.get('demo_sandbox');
 	const isDemoMode = demoMode === 'readonly' || !!demoSandbox;

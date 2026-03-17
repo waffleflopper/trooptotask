@@ -9,9 +9,11 @@
 **Tech Stack:** SvelteKit 2.5, Svelte 5 (runes), TypeScript, Supabase (Postgres), pure CSS variables
 
 **CRITICAL:** All database migrations must be applied to the LOCAL database only:
+
 ```bash
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f <migration_file>
 ```
+
 NEVER use `supabase migration repair`, `supabase db reset`, or any command that connects to the remote database.
 
 ---
@@ -19,6 +21,7 @@ NEVER use `supabase migration repair`, `supabase db reset`, or any command that 
 ### Task 1: Database Migration — New Permission Columns, Tables
 
 **Files:**
+
 - Create: `supabase/migrations/20260308_permission_enhancements.sql`
 
 **Step 1: Write the migration SQL**
@@ -195,6 +198,7 @@ git commit -m "feat: add permission enhancement migration — onboarding/leaders
 ### Task 2: TypeScript Types & Presets Update
 
 **Files:**
+
 - Modify: `src/lib/types.ts` (lines 16-140)
 
 **Step 1: Update OrganizationMemberPermissions interface**
@@ -222,13 +226,7 @@ export interface OrganizationMemberPermissions {
 At `src/lib/types.ts:47-56`, remove the three presets:
 
 ```typescript
-export type PermissionPreset =
-	| 'owner'
-	| 'admin'
-	| 'full-editor'
-	| 'team-leader'
-	| 'viewer'
-	| 'custom';
+export type PermissionPreset = 'owner' | 'admin' | 'full-editor' | 'team-leader' | 'viewer' | 'custom';
 ```
 
 **Step 3: Update PERMISSION_PRESETS constant**
@@ -236,7 +234,10 @@ export type PermissionPreset =
 At `src/lib/types.ts:58-122`, replace with (removing calendar-only, personnel-only, training-only, adding new fields):
 
 ```typescript
-export const PERMISSION_PRESETS: Record<Exclude<PermissionPreset, 'owner' | 'custom'>, OrganizationMemberPermissions> = {
+export const PERMISSION_PRESETS: Record<
+	Exclude<PermissionPreset, 'owner' | 'custom'>,
+	OrganizationMemberPermissions
+> = {
 	admin: {
 		canViewCalendar: true,
 		canEditCalendar: true,
@@ -326,11 +327,16 @@ After the `getPermissionPreset` function, add:
 ```typescript
 export function isFullEditor(permissions: OrganizationMemberPermissions): boolean {
 	return (
-		permissions.canViewCalendar && permissions.canEditCalendar &&
-		permissions.canViewPersonnel && permissions.canEditPersonnel &&
-		permissions.canViewTraining && permissions.canEditTraining &&
-		permissions.canViewOnboarding && permissions.canEditOnboarding &&
-		permissions.canViewLeadersBook && permissions.canEditLeadersBook &&
+		permissions.canViewCalendar &&
+		permissions.canEditCalendar &&
+		permissions.canViewPersonnel &&
+		permissions.canEditPersonnel &&
+		permissions.canViewTraining &&
+		permissions.canEditTraining &&
+		permissions.canViewOnboarding &&
+		permissions.canEditOnboarding &&
+		permissions.canViewLeadersBook &&
+		permissions.canEditLeadersBook &&
 		permissions.canManageMembers
 	);
 }
@@ -356,6 +362,7 @@ git commit -m "feat: update permission types — add onboarding/leaders-book fie
 ### Task 3: Update Server Permissions Module
 
 **Files:**
+
 - Modify: `src/lib/server/permissions.ts`
 
 **Step 1: Update PermissionType and MembershipPermissions**
@@ -385,12 +392,14 @@ interface MembershipPermissions {
 At `src/lib/server/permissions.ts:23-25`, update the select:
 
 ```typescript
-	const { data: membership } = await supabase
-		.from('organization_memberships')
-		.select('role, can_edit_calendar, can_edit_personnel, can_edit_training, can_edit_onboarding, can_edit_leaders_book, scoped_group_id')
-		.eq('organization_id', orgId)
-		.eq('user_id', userId)
-		.single();
+const { data: membership } = await supabase
+	.from('organization_memberships')
+	.select(
+		'role, can_edit_calendar, can_edit_personnel, can_edit_training, can_edit_onboarding, can_edit_leaders_book, scoped_group_id'
+	)
+	.eq('organization_id', orgId)
+	.eq('user_id', userId)
+	.single();
 ```
 
 **Step 3: Add cases to requireEditPermission switch**
@@ -430,7 +439,9 @@ export async function requirePrivilegedOrFullEditor(
 ): Promise<void> {
 	const { data: membership } = await supabase
 		.from('organization_memberships')
-		.select('role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members')
+		.select(
+			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
+		)
 		.eq('organization_id', orgId)
 		.eq('user_id', userId)
 		.single();
@@ -442,11 +453,17 @@ export async function requirePrivilegedOrFullEditor(
 	if (isPrivilegedRole(membership.role)) return;
 
 	// Check if full editor (all permissions true)
-	const isFullEd = membership.can_view_calendar && membership.can_edit_calendar &&
-		membership.can_view_personnel && membership.can_edit_personnel &&
-		membership.can_view_training && membership.can_edit_training &&
-		membership.can_view_onboarding && membership.can_edit_onboarding &&
-		membership.can_view_leaders_book && membership.can_edit_leaders_book &&
+	const isFullEd =
+		membership.can_view_calendar &&
+		membership.can_edit_calendar &&
+		membership.can_view_personnel &&
+		membership.can_edit_personnel &&
+		membership.can_view_training &&
+		membership.can_edit_training &&
+		membership.can_view_onboarding &&
+		membership.can_edit_onboarding &&
+		membership.can_view_leaders_book &&
+		membership.can_edit_leaders_book &&
 		membership.can_manage_members;
 
 	if (!isFullEd) {
@@ -467,6 +484,7 @@ git commit -m "feat: update permissions module — add onboarding/leaders-book t
 ### Task 4: Update Layout Server — Load New Permissions & isFullEditor
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/+layout.server.ts`
 
 **Step 1: Update membership select**
@@ -474,7 +492,7 @@ git commit -m "feat: update permissions module — add onboarding/leaders-book t
 At `src/routes/org/[orgId]/+layout.server.ts:156-157`, update the select to include new columns:
 
 ```typescript
-		'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
+'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id';
 ```
 
 **Step 2: Update permissions object**
@@ -482,19 +500,19 @@ At `src/routes/org/[orgId]/+layout.server.ts:156-157`, update the select to incl
 At `src/routes/org/[orgId]/+layout.server.ts:188-196`, add the new fields:
 
 ```typescript
-	const permissions: OrganizationMemberPermissions = {
-		canViewCalendar: isPrivileged || membership.can_view_calendar,
-		canEditCalendar: isPrivileged || membership.can_edit_calendar,
-		canViewPersonnel: isPrivileged || membership.can_view_personnel,
-		canEditPersonnel: isPrivileged || membership.can_edit_personnel,
-		canViewTraining: isPrivileged || membership.can_view_training,
-		canEditTraining: isPrivileged || membership.can_edit_training,
-		canViewOnboarding: isPrivileged || membership.can_view_onboarding,
-		canEditOnboarding: isPrivileged || membership.can_edit_onboarding,
-		canViewLeadersBook: isPrivileged || membership.can_view_leaders_book,
-		canEditLeadersBook: isPrivileged || membership.can_edit_leaders_book,
-		canManageMembers: isPrivileged || membership.can_manage_members
-	};
+const permissions: OrganizationMemberPermissions = {
+	canViewCalendar: isPrivileged || membership.can_view_calendar,
+	canEditCalendar: isPrivileged || membership.can_edit_calendar,
+	canViewPersonnel: isPrivileged || membership.can_view_personnel,
+	canEditPersonnel: isPrivileged || membership.can_edit_personnel,
+	canViewTraining: isPrivileged || membership.can_view_training,
+	canEditTraining: isPrivileged || membership.can_edit_training,
+	canViewOnboarding: isPrivileged || membership.can_view_onboarding,
+	canEditOnboarding: isPrivileged || membership.can_edit_onboarding,
+	canViewLeadersBook: isPrivileged || membership.can_view_leaders_book,
+	canEditLeadersBook: isPrivileged || membership.can_edit_leaders_book,
+	canManageMembers: isPrivileged || membership.can_manage_members
+};
 ```
 
 **Step 3: Add isFullEditor computation**
@@ -502,14 +520,19 @@ At `src/routes/org/[orgId]/+layout.server.ts:188-196`, add the new fields:
 After the permissions object (after line 196), add:
 
 ```typescript
-	const isFullEditor = !isPrivileged && (
-		permissions.canViewCalendar && permissions.canEditCalendar &&
-		permissions.canViewPersonnel && permissions.canEditPersonnel &&
-		permissions.canViewTraining && permissions.canEditTraining &&
-		permissions.canViewOnboarding && permissions.canEditOnboarding &&
-		permissions.canViewLeadersBook && permissions.canEditLeadersBook &&
-		permissions.canManageMembers
-	);
+const isFullEditor =
+	!isPrivileged &&
+	permissions.canViewCalendar &&
+	permissions.canEditCalendar &&
+	permissions.canViewPersonnel &&
+	permissions.canEditPersonnel &&
+	permissions.canViewTraining &&
+	permissions.canEditTraining &&
+	permissions.canViewOnboarding &&
+	permissions.canEditOnboarding &&
+	permissions.canViewLeadersBook &&
+	permissions.canEditLeadersBook &&
+	permissions.canManageMembers;
 ```
 
 **Step 4: Add unread notification count**
@@ -517,13 +540,13 @@ After the permissions object (after line 196), add:
 After the `isFullEditor` computation, add:
 
 ```typescript
-	// Get unread notification count
-	const { count: unreadNotificationCount } = await locals.supabase
-		.from('notifications')
-		.select('id', { count: 'exact', head: true })
-		.eq('user_id', user.id)
-		.eq('organization_id', orgId)
-		.eq('read', false);
+// Get unread notification count
+const { count: unreadNotificationCount } = await locals.supabase
+	.from('notifications')
+	.select('id', { count: 'exact', head: true })
+	.eq('user_id', user.id)
+	.eq('organization_id', orgId)
+	.eq('read', false);
 ```
 
 **Step 5: Update return object**
@@ -540,19 +563,19 @@ At `src/routes/org/[orgId]/+layout.server.ts:213-232`, add to the return:
 At lines 74-82 (read-only demo), add the new fields:
 
 ```typescript
-		const readOnlyPermissions: OrganizationMemberPermissions = {
-			canViewCalendar: true,
-			canEditCalendar: false,
-			canViewPersonnel: true,
-			canEditPersonnel: false,
-			canViewTraining: true,
-			canEditTraining: false,
-			canViewOnboarding: true,
-			canEditOnboarding: false,
-			canViewLeadersBook: true,
-			canEditLeadersBook: false,
-			canManageMembers: false
-		};
+const readOnlyPermissions: OrganizationMemberPermissions = {
+	canViewCalendar: true,
+	canEditCalendar: false,
+	canViewPersonnel: true,
+	canEditPersonnel: false,
+	canViewTraining: true,
+	canEditTraining: false,
+	canViewOnboarding: true,
+	canEditOnboarding: false,
+	canViewLeadersBook: true,
+	canEditLeadersBook: false,
+	canManageMembers: false
+};
 ```
 
 And add to that return: `isFullEditor: false, unreadNotificationCount: 0,`
@@ -560,19 +583,19 @@ And add to that return: `isFullEditor: false, unreadNotificationCount: 0,`
 At lines 112-120 (sandbox demo), add the new fields:
 
 ```typescript
-		const fullPermissions: OrganizationMemberPermissions = {
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewTraining: true,
-			canEditTraining: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
-			canManageMembers: true
-		};
+const fullPermissions: OrganizationMemberPermissions = {
+	canViewCalendar: true,
+	canEditCalendar: true,
+	canViewPersonnel: true,
+	canEditPersonnel: true,
+	canViewTraining: true,
+	canEditTraining: true,
+	canViewOnboarding: true,
+	canEditOnboarding: true,
+	canViewLeadersBook: true,
+	canEditLeadersBook: true,
+	canManageMembers: true
+};
 ```
 
 And add to that return: `isFullEditor: true, unreadNotificationCount: 0,`
@@ -589,6 +612,7 @@ git commit -m "feat: layout server — load new permissions, isFullEditor, unrea
 ### Task 5: Fix Team Leader Group Dropdown & Update Member Manager UI
 
 **Files:**
+
 - Modify: `src/lib/components/OrganizationMemberManager.svelte`
 
 **Step 1: Remove old presets from presetOptions**
@@ -596,12 +620,12 @@ git commit -m "feat: layout server — load new permissions, isFullEditor, unrea
 At `src/lib/components/OrganizationMemberManager.svelte:72-80`, replace with:
 
 ```typescript
-	const presetOptions: { value: Exclude<PermissionPreset, 'owner' | 'custom'>; label: string }[] = [
-		{ value: 'admin', label: 'Admin' },
-		{ value: 'full-editor', label: 'Full Editor' },
-		{ value: 'team-leader', label: 'Team Leader' },
-		{ value: 'viewer', label: 'Viewer' }
-	];
+const presetOptions: { value: Exclude<PermissionPreset, 'owner' | 'custom'>; label: string }[] = [
+	{ value: 'admin', label: 'Admin' },
+	{ value: 'full-editor', label: 'Full Editor' },
+	{ value: 'team-leader', label: 'Team Leader' },
+	{ value: 'viewer', label: 'Viewer' }
+];
 ```
 
 **Step 2: Remove old preset labels**
@@ -609,16 +633,22 @@ At `src/lib/components/OrganizationMemberManager.svelte:72-80`, replace with:
 At `src/lib/components/OrganizationMemberManager.svelte:87-108`, replace getPresetLabel to remove the three dropped presets:
 
 ```typescript
-	function getPresetLabel(preset: PermissionPreset): string {
-		switch (preset) {
-			case 'owner': return 'Owner';
-			case 'admin': return 'Admin';
-			case 'full-editor': return 'Full Editor';
-			case 'viewer': return 'Viewer';
-			case 'team-leader': return 'Team Leader';
-			case 'custom': return 'Custom';
-		}
+function getPresetLabel(preset: PermissionPreset): string {
+	switch (preset) {
+		case 'owner':
+			return 'Owner';
+		case 'admin':
+			return 'Admin';
+		case 'full-editor':
+			return 'Full Editor';
+		case 'viewer':
+			return 'Viewer';
+		case 'team-leader':
+			return 'Team Leader';
+		case 'custom':
+			return 'Custom';
 	}
+}
 ```
 
 **Step 3: Fix team leader dropdown bug — track selected preset per member**
@@ -626,28 +656,28 @@ At `src/lib/components/OrganizationMemberManager.svelte:87-108`, replace getPres
 Add state to track selected presets at line 70 (after `inviteScopedGroupId`):
 
 ```typescript
-	let memberSelectedPreset = $state<Record<string, string>>({});
+let memberSelectedPreset = $state<Record<string, string>>({});
 ```
 
 Update `getMemberPreset` usage to also add the new permission fields (line 110-121). Update the function to include new fields:
 
 ```typescript
-	function getMemberPreset(member: OrganizationMember): PermissionPreset {
-		if (member.role === 'owner') return 'owner';
-		return getPermissionPreset({
-			canViewCalendar: member.canViewCalendar,
-			canEditCalendar: member.canEditCalendar,
-			canViewPersonnel: member.canViewPersonnel,
-			canEditPersonnel: member.canEditPersonnel,
-			canViewTraining: member.canViewTraining,
-			canEditTraining: member.canEditTraining,
-			canViewOnboarding: member.canViewOnboarding,
-			canEditOnboarding: member.canEditOnboarding,
-			canViewLeadersBook: member.canViewLeadersBook,
-			canEditLeadersBook: member.canEditLeadersBook,
-			canManageMembers: member.canManageMembers
-		});
-	}
+function getMemberPreset(member: OrganizationMember): PermissionPreset {
+	if (member.role === 'owner') return 'owner';
+	return getPermissionPreset({
+		canViewCalendar: member.canViewCalendar,
+		canEditCalendar: member.canEditCalendar,
+		canViewPersonnel: member.canViewPersonnel,
+		canEditPersonnel: member.canEditPersonnel,
+		canViewTraining: member.canViewTraining,
+		canEditTraining: member.canEditTraining,
+		canViewOnboarding: member.canViewOnboarding,
+		canEditOnboarding: member.canEditOnboarding,
+		canViewLeadersBook: member.canViewLeadersBook,
+		canEditLeadersBook: member.canEditLeadersBook,
+		canManageMembers: member.canManageMembers
+	});
+}
 ```
 
 Similarly update `getInvitePreset` (line 132-142) with new fields.
@@ -674,7 +704,11 @@ At line 201-209, update to track selected preset:
 At line 218, change the condition to use the selected preset:
 
 ```typescript
-								{#if (memberSelectedPreset[member.id] === 'team-leader' || (preset === 'team-leader' && !memberSelectedPreset[member.id])) && expandedMemberId === member.id}
+{
+	#if(
+		memberSelectedPreset[member.id] === 'team-leader' || (preset === 'team-leader' && !memberSelectedPreset[member.id])
+	) && expandedMemberId === member.id;
+}
 ```
 
 **Step 6: Add Onboarding and Leader's Book to custom permission grid**
@@ -682,45 +716,29 @@ At line 218, change the condition to use the selected preset:
 At line 286-357 (the permission-grid), add two new sections after the Training section:
 
 ```svelte
-							<div class="permission-section">
-								<h4>Onboarding</h4>
-								<label class="checkbox-label">
-									<input
-										type="checkbox"
-										name="canViewOnboarding"
-										checked={member.canViewOnboarding}
-									/>
-									View
-								</label>
-								<label class="checkbox-label">
-									<input
-										type="checkbox"
-										name="canEditOnboarding"
-										checked={member.canEditOnboarding}
-									/>
-									Edit
-								</label>
-							</div>
+<div class="permission-section">
+	<h4>Onboarding</h4>
+	<label class="checkbox-label">
+		<input type="checkbox" name="canViewOnboarding" checked={member.canViewOnboarding} />
+		View
+	</label>
+	<label class="checkbox-label">
+		<input type="checkbox" name="canEditOnboarding" checked={member.canEditOnboarding} />
+		Edit
+	</label>
+</div>
 
-							<div class="permission-section">
-								<h4>Leader's Book</h4>
-								<label class="checkbox-label">
-									<input
-										type="checkbox"
-										name="canViewLeadersBook"
-										checked={member.canViewLeadersBook}
-									/>
-									View
-								</label>
-								<label class="checkbox-label">
-									<input
-										type="checkbox"
-										name="canEditLeadersBook"
-										checked={member.canEditLeadersBook}
-									/>
-									Edit
-								</label>
-							</div>
+<div class="permission-section">
+	<h4>Leader's Book</h4>
+	<label class="checkbox-label">
+		<input type="checkbox" name="canViewLeadersBook" checked={member.canViewLeadersBook} />
+		View
+	</label>
+	<label class="checkbox-label">
+		<input type="checkbox" name="canEditLeadersBook" checked={member.canEditLeadersBook} />
+		Edit
+	</label>
+</div>
 ```
 
 **Step 7: Commit**
@@ -735,6 +753,7 @@ git commit -m "fix: team leader group dropdown, remove unused presets, add onboa
 ### Task 6: Update Settings Server — Invite & UpdatePermissions Actions
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/settings/+page.server.ts`
 
 **Step 1: Update invite action**
@@ -797,6 +816,7 @@ git commit -m "feat: settings server — carry new permission fields through inv
 ### Task 7: Update Invitation Acceptance Flows
 
 **Files:**
+
 - Modify: `src/routes/dashboard/+page.server.ts`
 - Modify: `src/routes/auth/register/+page.server.ts`
 
@@ -814,13 +834,18 @@ In `src/routes/dashboard/+page.server.ts`, the `acceptInvitation` action (around
 Also update the `isAdminInvite` detection to include the new fields:
 
 ```typescript
-		const isAdminInvite =
-			invitation.can_view_calendar && invitation.can_edit_calendar &&
-			invitation.can_view_personnel && invitation.can_edit_personnel &&
-			invitation.can_view_training && invitation.can_edit_training &&
-			invitation.can_view_onboarding && invitation.can_edit_onboarding &&
-			invitation.can_view_leaders_book && invitation.can_edit_leaders_book &&
-			invitation.can_manage_members;
+const isAdminInvite =
+	invitation.can_view_calendar &&
+	invitation.can_edit_calendar &&
+	invitation.can_view_personnel &&
+	invitation.can_edit_personnel &&
+	invitation.can_view_training &&
+	invitation.can_edit_training &&
+	invitation.can_view_onboarding &&
+	invitation.can_edit_onboarding &&
+	invitation.can_view_leaders_book &&
+	invitation.can_edit_leaders_book &&
+	invitation.can_manage_members;
 ```
 
 **Step 2: Update register auto-accept**
@@ -845,6 +870,7 @@ git commit -m "feat: carry new permission fields through invitation acceptance f
 ### Task 8: Page-Level Permission Enforcement
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/onboarding/+page.svelte`
 - Modify: `src/routes/org/[orgId]/leaders-book/+page.svelte`
 - Modify: `src/routes/org/[orgId]/calendar/+page.svelte`
@@ -867,6 +893,7 @@ In each page, when the user doesn't have view permission for that section, show 
 ```
 
 With CSS:
+
 ```css
 .no-permission {
 	display: flex;
@@ -895,6 +922,7 @@ With CSS:
 **Step 3: Update onboarding API routes**
 
 Change the permission type in onboarding API routes from `'personnel'` to `'onboarding'`:
+
 - `src/routes/org/[orgId]/api/onboarding/+server.ts` — change `requireEditPermission(supabase, orgId, userId!, 'personnel')` to `'onboarding'`
 - `src/routes/org/[orgId]/api/onboarding-template/+server.ts` — same change
 - `src/routes/org/[orgId]/api/onboarding-progress/+server.ts` — same change
@@ -902,6 +930,7 @@ Change the permission type in onboarding API routes from `'personnel'` to `'onbo
 **Step 4: Update leader's book API routes**
 
 Change permission type for leader's book CRUD endpoints from `'personnel'` to `'leaders-book'`:
+
 - `src/routes/org/[orgId]/api/counseling-records/+server.ts` — change permission to `'leaders-book'`
 - `src/routes/org/[orgId]/api/development-goals/+server.ts` — change permission to `'leaders-book'`
 - `src/routes/org/[orgId]/api/personnel-extended-info/+server.ts` — change its permission check to use `'leaders-book'`
@@ -918,6 +947,7 @@ git commit -m "feat: page-level permission enforcement — no-permission message
 ### Task 9: Config & Power Feature Restrictions
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/calendar/+page.svelte`
 - Modify: `src/routes/org/[orgId]/training/+page.svelte`
 - Modify: `src/routes/org/[orgId]/leaders-book/+page.svelte`
@@ -933,19 +963,27 @@ git commit -m "feat: page-level permission enforcement — no-permission message
 In `src/routes/org/[orgId]/calendar/+page.svelte`, the overflow menu items for config management (around lines 195-198) should only show for full-editor/admin/owner. Add condition:
 
 ```typescript
-	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
+const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
 ```
 
 Then wrap the config items:
+
 ```typescript
-	if (canManageConfig) {
-		items.push({ label: 'Status Types', onclick: () => (showStatusManager = true), divider: true, group: 'Configure', disabled: readOnly });
-		items.push({ label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true), disabled: readOnly });
-		items.push({ label: 'Holidays', onclick: () => (showSpecialDayManager = true), disabled: readOnly });
-	}
+if (canManageConfig) {
+	items.push({
+		label: 'Status Types',
+		onclick: () => (showStatusManager = true),
+		divider: true,
+		group: 'Configure',
+		disabled: readOnly
+	});
+	items.push({ label: 'Assignment Types', onclick: () => (showAssignmentTypeManager = true), disabled: readOnly });
+	items.push({ label: 'Holidays', onclick: () => (showSpecialDayManager = true), disabled: readOnly });
+}
 ```
 
 Also gate BulkStatusModal, DutyRosterGenerator, MonthlyAssignmentPlanner behind `canManageConfig`:
+
 ```typescript
 	if (data.permissions.canEditCalendar && canManageConfig) {
 		items.push({ label: 'Assignments', ... });
@@ -959,7 +997,7 @@ Also gate BulkStatusModal, DutyRosterGenerator, MonthlyAssignmentPlanner behind 
 In `src/routes/org/[orgId]/training/+page.svelte`, the "Manage Types" and "Reorder Columns" items should check `canManageConfig`:
 
 ```typescript
-	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
+const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
 ```
 
 **Step 3: Gate config managers in leaders-book and onboarding pages**
@@ -977,6 +1015,7 @@ In each type-management API route, replace `requireEditPermission` with `require
 - `src/routes/org/[orgId]/api/onboarding-template/+server.ts`
 
 For each, the crudFactory config needs a custom permission check. Since crudFactory uses `requireEditPermission`, we need to either:
+
 - Add a `requireFullEditor` option to the crudFactory config, OR
 - Override the handlers for these specific routes
 
@@ -994,6 +1033,7 @@ git commit -m "feat: restrict config managers and power features to full-editor/
 ### Task 10: Deletion Requests API
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/api/deletion-requests/+server.ts`
 - Create: `src/routes/org/[orgId]/api/deletion-requests/review/+server.ts`
 
@@ -1090,7 +1130,13 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	if (dbError) throw error(500, dbError.message);
 
 	auditLog(
-		{ action: 'deletion_request.created', resourceType: 'deletion_request', resourceId: data.id, orgId, details: { actor: locals.user?.email, resource_type: resourceType, resource_description: resourceDescription } },
+		{
+			action: 'deletion_request.created',
+			resourceType: 'deletion_request',
+			resourceId: data.id,
+			orgId,
+			details: { actor: locals.user?.email, resource_type: resourceType, resource_description: resourceDescription }
+		},
 		{ userId }
 	);
 
@@ -1120,7 +1166,13 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	if (dbError) throw error(500, dbError.message);
 
 	auditLog(
-		{ action: 'deletion_request.cancelled', resourceType: 'deletion_request', resourceId: id, orgId, details: { actor: locals.user?.email } },
+		{
+			action: 'deletion_request.cancelled',
+			resourceType: 'deletion_request',
+			resourceId: id,
+			orgId,
+			details: { actor: locals.user?.email }
+		},
 		{ userId }
 	);
 
@@ -1201,7 +1253,13 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		if (deleteError) throw error(500, `Failed to delete resource: ${deleteError.message}`);
 
 		auditLog(
-			{ action: `${request_data.resource_type}.deleted`, resourceType: request_data.resource_type, resourceId: request_data.resource_id, orgId, details: { actor: locals.user?.email, approved_deletion: true, description: request_data.resource_description } },
+			{
+				action: `${request_data.resource_type}.deleted`,
+				resourceType: request_data.resource_type,
+				resourceId: request_data.resource_id,
+				orgId,
+				details: { actor: locals.user?.email, approved_deletion: true, description: request_data.resource_description }
+			},
 			{ userId }
 		);
 	}
@@ -1213,14 +1271,21 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		organization_id: orgId,
 		type: action === 'approve' ? 'deletion_approved' : 'deletion_denied',
 		title: action === 'approve' ? 'Deletion Approved' : 'Deletion Denied',
-		message: action === 'approve'
-			? `Your request to delete "${request_data.resource_description}" was approved.`
-			: `Your request to delete "${request_data.resource_description}" was denied.${denialReason ? ` Reason: ${denialReason}` : ''}`,
+		message:
+			action === 'approve'
+				? `Your request to delete "${request_data.resource_description}" was approved.`
+				: `Your request to delete "${request_data.resource_description}" was denied.${denialReason ? ` Reason: ${denialReason}` : ''}`,
 		link: action === 'deny' ? request_data.resource_url : null
 	});
 
 	auditLog(
-		{ action: `deletion_request.${action === 'approve' ? 'approved' : 'denied'}`, resourceType: 'deletion_request', resourceId: id, orgId, details: { actor: locals.user?.email, resource_description: request_data.resource_description } },
+		{
+			action: `deletion_request.${action === 'approve' ? 'approved' : 'denied'}`,
+			resourceType: 'deletion_request',
+			resourceId: id,
+			orgId,
+			details: { actor: locals.user?.email, resource_description: request_data.resource_description }
+		},
 		{ userId }
 	);
 
@@ -1229,11 +1294,16 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 
 function getTableForResourceType(resourceType: string): string {
 	switch (resourceType) {
-		case 'personnel': return 'personnel';
-		case 'counseling_record': return 'counseling_records';
-		case 'training_record': return 'personnel_trainings';
-		case 'development_goal': return 'development_goals';
-		default: throw new Error(`Unknown resource type: ${resourceType}`);
+		case 'personnel':
+			return 'personnel';
+		case 'counseling_record':
+			return 'counseling_records';
+		case 'training_record':
+			return 'personnel_trainings';
+		case 'development_goal':
+			return 'development_goals';
+		default:
+			throw new Error(`Unknown resource type: ${resourceType}`);
 	}
 }
 ```
@@ -1250,6 +1320,7 @@ git commit -m "feat: deletion requests API — create, cancel, review with notif
 ### Task 11: Integrate Deletion Approval into Existing Delete Flows
 
 **Files:**
+
 - Modify: `src/lib/server/crudFactory.ts`
 - Modify: `src/routes/org/[orgId]/api/personnel/+server.ts`
 - Modify: `src/routes/org/[orgId]/api/personnel-trainings/+server.ts`
@@ -1267,32 +1338,41 @@ Add to config interface:
 In the DELETE handler (around line 306-388), after permission checks but before the actual delete, add:
 
 ```typescript
-	if (config.requireDeletionApproval && !isSandbox && userId) {
-		const { data: mem } = await supabase
-			.from('organization_memberships')
-			.select('role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members')
-			.eq('organization_id', orgId)
-			.eq('user_id', userId)
-			.single();
+if (config.requireDeletionApproval && !isSandbox && userId) {
+	const { data: mem } = await supabase
+		.from('organization_memberships')
+		.select(
+			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
+		)
+		.eq('organization_id', orgId)
+		.eq('user_id', userId)
+		.single();
 
-		if (mem && mem.role === 'member') {
-			const allPerms = mem.can_view_calendar && mem.can_edit_calendar &&
-				mem.can_view_personnel && mem.can_edit_personnel &&
-				mem.can_view_training && mem.can_edit_training &&
-				mem.can_view_onboarding && mem.can_edit_onboarding &&
-				mem.can_view_leaders_book && mem.can_edit_leaders_book &&
-				mem.can_manage_members;
+	if (mem && mem.role === 'member') {
+		const allPerms =
+			mem.can_view_calendar &&
+			mem.can_edit_calendar &&
+			mem.can_view_personnel &&
+			mem.can_edit_personnel &&
+			mem.can_view_training &&
+			mem.can_edit_training &&
+			mem.can_view_onboarding &&
+			mem.can_edit_onboarding &&
+			mem.can_view_leaders_book &&
+			mem.can_edit_leaders_book &&
+			mem.can_manage_members;
 
-			if (!allPerms) {
-				return json({ requiresApproval: true }, { status: 202 });
-			}
+		if (!allPerms) {
+			return json({ requiresApproval: true }, { status: 202 });
 		}
 	}
+}
 ```
 
 **Step 2: Enable deletion approval for relevant crudFactory consumers**
 
 Add `requireDeletionApproval: true` to:
+
 - `src/routes/org/[orgId]/api/counseling-records/+server.ts`
 - `src/routes/org/[orgId]/api/development-goals/+server.ts`
 
@@ -1316,6 +1396,7 @@ git commit -m "feat: integrate deletion approval — crudFactory flag, personnel
 ### Task 12: Client-Side Deletion Approval UX
 
 **Files:**
+
 - Modify: Various page components that have delete buttons
 
 **Step 1: Update delete handlers to handle 202 response**
@@ -1377,6 +1458,7 @@ git commit -m "feat: client-side deletion approval UX — pending indicators, re
 ### Task 13: Admin Hub — Layout & Approvals Page
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/admin/+layout.server.ts`
 - Create: `src/routes/org/[orgId]/admin/+layout.svelte`
 - Create: `src/routes/org/[orgId]/admin/+page.server.ts` (redirect to approvals)
@@ -1412,20 +1494,8 @@ export const load: LayoutServerLoad = async ({ parent }) => {
 
 <div class="admin-layout">
 	<nav class="admin-tabs">
-		<a
-			href="/org/{orgId}/admin/approvals"
-			class="tab"
-			class:active={currentPath.includes('/approvals')}
-		>
-			Approvals
-		</a>
-		<a
-			href="/org/{orgId}/admin/audit"
-			class="tab"
-			class:active={currentPath.includes('/audit')}
-		>
-			Audit Log
-		</a>
+		<a href="/org/{orgId}/admin/approvals" class="tab" class:active={currentPath.includes('/approvals')}> Approvals </a>
+		<a href="/org/{orgId}/admin/audit" class="tab" class:active={currentPath.includes('/audit')}> Audit Log </a>
 	</nav>
 	<div class="admin-content">
 		{@render children()}
@@ -1515,6 +1585,7 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 ```
 
 The approvals page should show:
+
 - Filter tabs: Pending | Approved | Denied | All
 - Table: Requester (email), Description (linked), Requested (relative date), Actions (Approve/Deny for pending)
 - Deny shows a text input for optional reason
@@ -1532,6 +1603,7 @@ git commit -m "feat: admin hub layout with approvals page — deletion request r
 ### Task 14: Move Audit Log Under Admin Hub
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/admin/audit/+page.server.ts`
 - Create: `src/routes/org/[orgId]/admin/audit/+page.svelte`
 - Modify: `src/routes/org/[orgId]/audit/+page.server.ts` (redirect)
@@ -1565,9 +1637,9 @@ Delete `src/routes/org/[orgId]/audit/+page.svelte` (no longer needed since it re
 In `src/lib/components/ui/AvatarMenu.svelte`, change the audit log link (around line 72-74):
 
 ```typescript
-	if (userRole === 'owner' || userRole === 'admin') {
-		result.push({ label: 'Admin', href: `/org/${orgId}/admin` });
-	}
+if (userRole === 'owner' || userRole === 'admin') {
+	result.push({ label: 'Admin', href: `/org/${orgId}/admin` });
+}
 ```
 
 **Step 5: Commit**
@@ -1582,6 +1654,7 @@ git commit -m "feat: move audit log under admin hub, add redirect from old URL, 
 ### Task 15: Notification Bell Component
 
 **Files:**
+
 - Create: `src/lib/components/ui/NotificationBell.svelte`
 - Create: `src/routes/org/[orgId]/api/notifications/+server.ts`
 
@@ -1627,11 +1700,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 			.eq('organization_id', orgId)
 			.eq('read', false);
 	} else if (id) {
-		await locals.supabase
-			.from('notifications')
-			.update({ read: true })
-			.eq('id', id)
-			.eq('user_id', user.id);
+		await locals.supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', user.id);
 	}
 
 	return json({ success: true });
@@ -1648,11 +1717,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 
 	if (!id) throw error(400, 'Missing id');
 
-	await locals.supabase
-		.from('notifications')
-		.delete()
-		.eq('id', id)
-		.eq('user_id', user.id);
+	await locals.supabase.from('notifications').delete().eq('id', id).eq('user_id', user.id);
 
 	return json({ success: true });
 };
@@ -1716,7 +1781,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ markAllRead: true })
 		});
-		notifications = notifications.map(n => ({ ...n, read: true }));
+		notifications = notifications.map((n) => ({ ...n, read: true }));
 		localUnreadCount = 0;
 	}
 
@@ -1726,8 +1791,8 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id })
 		});
-		const wasUnread = notifications.find(n => n.id === id && !n.read);
-		notifications = notifications.filter(n => n.id !== id);
+		const wasUnread = notifications.find((n) => n.id === id && !n.read);
+		notifications = notifications.filter((n) => n.id !== id);
 		if (wasUnread) localUnreadCount = Math.max(0, localUnreadCount - 1);
 	}
 

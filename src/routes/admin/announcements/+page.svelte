@@ -38,9 +38,7 @@
 	<div class="page-header">
 		<h1>Announcements</h1>
 		{#if !showCreateForm}
-			<button class="btn btn-primary" onclick={() => (showCreateForm = true)}>
-				Create Announcement
-			</button>
+			<button class="btn btn-primary" onclick={() => (showCreateForm = true)}> Create Announcement </button>
 		{/if}
 	</div>
 
@@ -108,9 +106,7 @@
 				</div>
 
 				<div class="form-actions">
-					<button type="button" class="btn btn-secondary" onclick={() => (showCreateForm = false)}>
-						Cancel
-					</button>
+					<button type="button" class="btn btn-secondary" onclick={() => (showCreateForm = false)}> Cancel </button>
 					<button class="btn btn-primary" type="submit" disabled={creating}>
 						{#if creating}<Spinner />{/if}
 						{creating ? 'Saving...' : 'Save'}
@@ -148,11 +144,7 @@
 								}}
 							>
 								<input type="hidden" name="id" value={announcement.id} />
-								<button
-									class="btn btn-secondary btn-sm"
-									type="submit"
-									disabled={togglingId === announcement.id}
-								>
+								<button class="btn btn-secondary btn-sm" type="submit" disabled={togglingId === announcement.id}>
 									{#if togglingId === announcement.id}<Spinner color="#333" />{/if}
 									{announcement.is_active ? 'Deactivate' : 'Activate'}
 								</button>
@@ -175,11 +167,7 @@
 								}}
 							>
 								<input type="hidden" name="id" value={announcement.id} />
-								<button
-									class="btn btn-danger btn-sm"
-									type="submit"
-									disabled={deletingId === announcement.id}
-								>
+								<button class="btn btn-danger btn-sm" type="submit" disabled={deletingId === announcement.id}>
 									{#if deletingId === announcement.id}<Spinner />{/if}
 									Delete
 								</button>

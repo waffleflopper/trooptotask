@@ -11,6 +11,7 @@ import {
 	transformPersonnelTrainings
 } from '$lib/server/transforms';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type varies based on auth context (service role vs user)
 async function fetchSharedData(supabase: any, orgId: string) {
 	const [personnelRes, groupsRes, statusTypesRes, trainingTypesRes, personnelTrainingsRes, activeOnboardingsRes] =
 		await Promise.all([
@@ -22,11 +23,7 @@ async function fetchSharedData(supabase: any, orgId: string) {
 				.order('last_name'),
 			supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
 			supabase.from('status_types').select('*').eq('organization_id', orgId).order('sort_order'),
-			supabase
-				.from('training_types')
-				.select('*')
-				.eq('organization_id', orgId)
-				.order('sort_order'),
+			supabase.from('training_types').select('*').eq('organization_id', orgId).order('sort_order'),
 			supabase.from('personnel_trainings').select('*').eq('organization_id', orgId),
 			supabase
 				.from('personnel_onboardings')
@@ -41,7 +38,9 @@ async function fetchSharedData(supabase: any, orgId: string) {
 		statusTypes: transformStatusTypes(statusTypesRes.data ?? []),
 		trainingTypes: transformTrainingTypes(trainingTypesRes.data ?? []),
 		personnelTrainings: transformPersonnelTrainings(personnelTrainingsRes.data ?? []),
-		activeOnboardingPersonnelIds: (activeOnboardingsRes.data ?? []).map((r: any) => r.personnel_id) as string[]
+		activeOnboardingPersonnelIds: (activeOnboardingsRes.data ?? []).map(
+			(r: Record<string, unknown>) => r.personnel_id
+		) as string[]
 	};
 }
 
@@ -174,45 +173,42 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	if (!user) throw redirect(303, '/auth/login');
 
 	// Parallelize: membership + allOrgs (single query), shared entity data, tier, and announcements
-	const [membershipsRes, shared, effectiveTier, notificationCountRes, announcementsRes, dismissalsRes] = await Promise.all([
-		locals.supabase
-			.from('organization_memberships')
-			.select(
-				'organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id, organizations(id, name)'
-			)
-			.eq('user_id', user.id),
-		fetchSharedData(supabase, orgId),
-		getEffectiveTier(supabase, orgId),
-		locals.supabase
-			.from('notifications')
-			.select('id', { count: 'exact', head: true })
-			.eq('user_id', user.id)
-			.eq('organization_id', orgId)
-			.eq('read', false),
-		supabase
-			.from('platform_announcements')
-			.select('id, title, message, type')
-			.eq('is_active', true)
-			.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
-		locals.supabase
-			.from('announcement_dismissals')
-			.select('announcement_id')
-			.eq('user_id', user.id)
-	]);
+	const [membershipsRes, shared, effectiveTier, notificationCountRes, announcementsRes, dismissalsRes] =
+		await Promise.all([
+			locals.supabase
+				.from('organization_memberships')
+				.select(
+					'organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id, organizations(id, name)'
+				)
+				.eq('user_id', user.id),
+			fetchSharedData(supabase, orgId),
+			getEffectiveTier(supabase, orgId),
+			locals.supabase
+				.from('notifications')
+				.select('id', { count: 'exact', head: true })
+				.eq('user_id', user.id)
+				.eq('organization_id', orgId)
+				.eq('read', false),
+			supabase
+				.from('platform_announcements')
+				.select('id, title, message, type')
+				.eq('is_active', true)
+				.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
+			locals.supabase.from('announcement_dismissals').select('announcement_id').eq('user_id', user.id)
+		]);
 
 	const allMemberships = membershipsRes.data ?? [];
-	const membership = allMemberships.find((m: any) => m.organization_id === orgId);
+	const membership = allMemberships.find((m: Record<string, unknown>) => m.organization_id === orgId);
 	if (!membership) {
 		throw error(403, 'You are not a member of this organization');
 	}
 
 	const allOrgs = allMemberships
-		.filter((m: any) => m.organizations)
-		.map((m: any) => ({
-			id: m.organizations.id,
-			name: m.organizations.name,
-			role: m.role
-		}));
+		.filter((m: Record<string, unknown>) => m.organizations)
+		.map((m: Record<string, unknown>) => {
+			const org = m.organizations as Record<string, unknown>;
+			return { id: org.id as string, name: org.name as string, role: m.role as string };
+		});
 
 	const isOwner = membership.role === 'owner';
 	const isAdmin = membership.role === 'admin';
@@ -233,27 +229,27 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		canManageMembers: isPrivileged || membership.can_manage_members
 	};
 
-	const scopedGroupId: string | null =
-		isPrivileged ? null : (membership.scoped_group_id ?? null);
+	const scopedGroupId: string | null = isPrivileged ? null : (membership.scoped_group_id ?? null);
 
 	const fullEditor = !isPrivileged && !scopedGroupId && isFullEditor(permissions);
 
 	// Filter personnel data for group-scoped members
-	let { personnel, groups, statusTypes, trainingTypes, personnelTrainings, activeOnboardingPersonnelIds } = shared;
+	let { personnel, personnelTrainings, activeOnboardingPersonnelIds } = shared;
+	const { groups, statusTypes, trainingTypes } = shared;
 	const allPersonnel = personnel; // Keep unscoped list for calendar viewing
 
 	if (scopedGroupId) {
-		const scopedPersonnelIds = new Set(
-			personnel.filter((p: any) => p.groupId === scopedGroupId).map((p: any) => p.id)
-		);
-		personnel = personnel.filter((p: any) => p.groupId === scopedGroupId);
-		personnelTrainings = personnelTrainings.filter((pt: any) => scopedPersonnelIds.has(pt.personnelId));
+		const scopedPersonnelIds = new Set(personnel.filter((p) => p.groupId === scopedGroupId).map((p) => p.id));
+		personnel = personnel.filter((p) => p.groupId === scopedGroupId);
+		personnelTrainings = personnelTrainings.filter((pt) => scopedPersonnelIds.has(pt.personnelId));
 		activeOnboardingPersonnelIds = activeOnboardingPersonnelIds.filter((id: string) => scopedPersonnelIds.has(id));
 	}
 
 	// Filter out dismissed announcements
-	const dismissedIds = new Set((dismissalsRes.data ?? []).map((d: any) => d.announcement_id));
-	const activeAnnouncements = (announcementsRes.data ?? []).filter((a: any) => !dismissedIds.has(a.id));
+	const dismissedIds = new Set((dismissalsRes.data ?? []).map((d: Record<string, unknown>) => d.announcement_id));
+	const activeAnnouncements = (announcementsRes.data ?? []).filter(
+		(a: Record<string, unknown>) => !dismissedIds.has(a.id)
+	);
 
 	return {
 		orgId,

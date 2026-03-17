@@ -132,13 +132,7 @@
 			</div>
 			<div class="form-group">
 				<label class="label" for="clinicRole">Role</label>
-				<input
-					id="clinicRole"
-					type="text"
-					class="input"
-					bind:value={clinicRole}
-					placeholder="e.g., Medic, Physician"
-				/>
+				<input id="clinicRole" type="text" class="input" bind:value={clinicRole} placeholder="e.g., Medic, Physician" />
 			</div>
 		</div>
 
@@ -171,14 +165,24 @@
 			<button type="button" class="btn btn-warning" data-testid="personnel-archive" onclick={handleArchive}>
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
 					<path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
-					<path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" />
+					<path
+						fill-rule="evenodd"
+						d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"
+						clip-rule="evenodd"
+					/>
 				</svg>
 				Archive
 			</button>
 		{/if}
 		<div class="spacer"></div>
 		<button type="button" class="btn btn-secondary" onclick={onClose}>Cancel</button>
-		<button type="button" class="btn btn-primary" data-testid="personnel-save" disabled={!isValid} onclick={handleSubmit}>
+		<button
+			type="button"
+			class="btn btn-primary"
+			data-testid="personnel-save"
+			disabled={!isValid}
+			onclick={handleSubmit}
+		>
 			{isEditing ? 'Save Changes' : 'Add Personnel'}
 		</button>
 	{/snippet}
@@ -250,5 +254,4 @@
 	.btn-warning:hover {
 		background-color: #e68900;
 	}
-
 </style>

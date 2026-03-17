@@ -104,9 +104,7 @@ class CounselingRecordsStore {
 
 	// Remove records by type locally (used when a type is deleted)
 	removeByTypeLocal(typeId: string) {
-		this.#counselingRecords = this.#counselingRecords.filter(
-			(r) => r.counselingTypeId !== typeId
-		);
+		this.#counselingRecords = this.#counselingRecords.filter((r) => r.counselingTypeId !== typeId);
 	}
 }
 

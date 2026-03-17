@@ -15,9 +15,7 @@ export function exportStatusDaysCsv(
 	endDate: string
 ): void {
 	const statusTypeMap = new Map(statusTypes.map((s) => [s.id, s]));
-	const columns = result.activeStatusTypeIds
-		.map((id) => statusTypeMap.get(id))
-		.filter((s): s is StatusType => !!s);
+	const columns = result.activeStatusTypeIds.map((id) => statusTypeMap.get(id)).filter((s): s is StatusType => !!s);
 
 	// Header row
 	const headers = ['Rank', 'Last Name', 'First Name', ...columns.map((s) => s.name), 'Total Days'];

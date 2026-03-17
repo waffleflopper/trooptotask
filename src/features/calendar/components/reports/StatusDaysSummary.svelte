@@ -45,12 +45,8 @@
 	let selectedRoles = $state<Set<string>>(new Set());
 	let nameSearch = $state('');
 
-	const uniqueMosCodes = $derived(
-		[...new Set(personnel.map((p) => p.mos).filter(Boolean))].sort()
-	);
-	const uniqueRoles = $derived(
-		[...new Set(personnel.map((p) => p.clinicRole).filter(Boolean))].sort()
-	);
+	const uniqueMosCodes = $derived([...new Set(personnel.map((p) => p.mos).filter(Boolean))].sort());
+	const uniqueRoles = $derived([...new Set(personnel.map((p) => p.clinicRole).filter(Boolean))].sort());
 
 	const filteredPersonnel = $derived.by(() => {
 		switch (filterMode) {
@@ -71,9 +67,8 @@
 
 	const nameFilteredPersonnel = $derived(
 		nameSearch
-			? personnel.filter(
-					(p) =>
-						`${p.rank} ${p.lastName} ${p.firstName}`.toLowerCase().includes(nameSearch.toLowerCase())
+			? personnel.filter((p) =>
+					`${p.rank} ${p.lastName} ${p.firstName}`.toLowerCase().includes(nameSearch.toLowerCase())
 				)
 			: personnel
 	);
@@ -116,12 +111,13 @@
 			}
 			const data = await res.json();
 			// Filter entries to only selected status types
-			const filteredEntries = selectedStatusTypeIds.size === statusTypes.length
-				? data.entries
-				: data.entries.filter((e: any) => selectedStatusTypeIds.has(e.statusTypeId));
+			const filteredEntries =
+				selectedStatusTypeIds.size === statusTypes.length
+					? data.entries
+					: data.entries.filter((e: Record<string, unknown>) => selectedStatusTypeIds.has(e.statusTypeId as string));
 			result = computeStatusDays(filteredPersonnel, filteredEntries, startDate, endDate);
-		} catch (e: any) {
-			errorMsg = e.message || 'Failed to generate report.';
+		} catch (e: unknown) {
+			errorMsg = e instanceof Error ? e.message : 'Failed to generate report.';
 		} finally {
 			loading = false;
 		}
@@ -142,11 +138,7 @@
 	const statusTypeMap = $derived(new Map(statusTypes.map((s) => [s.id, s])));
 
 	const displayColumns = $derived(
-		result
-			? result.activeStatusTypeIds
-					.map((id) => statusTypeMap.get(id))
-					.filter((s): s is StatusType => !!s)
-			: []
+		result ? result.activeStatusTypeIds.map((id) => statusTypeMap.get(id)).filter((s): s is StatusType => !!s) : []
 	);
 </script>
 
@@ -172,21 +164,11 @@
 			</label>
 			<label class="form-group">
 				<span class="label">Start</span>
-				<input
-					type="date"
-					class="input"
-					bind:value={startDate}
-					oninput={handleDateChange}
-				/>
+				<input type="date" class="input" bind:value={startDate} oninput={handleDateChange} />
 			</label>
 			<label class="form-group">
 				<span class="label">End</span>
-				<input
-					type="date"
-					class="input"
-					bind:value={endDate}
-					oninput={handleDateChange}
-				/>
+				<input type="date" class="input" bind:value={endDate} oninput={handleDateChange} />
 			</label>
 		</div>
 	</div>
@@ -212,12 +194,7 @@
 
 		{#if filterMode === 'name'}
 			<div class="filter-panel">
-				<input
-					type="text"
-					class="input"
-					placeholder="Search by name..."
-					bind:value={nameSearch}
-				/>
+				<input type="text" class="input" placeholder="Search by name..." bind:value={nameSearch} />
 				<div class="checkbox-list">
 					{#each nameFilteredPersonnel as person (person.id)}
 						<label class="checkbox-item">
@@ -309,7 +286,11 @@
 	</div>
 
 	<div class="config-actions">
-		<button class="btn btn-primary" onclick={runReport} disabled={loading || !startDate || !endDate || selectedStatusTypeIds.size === 0}>
+		<button
+			class="btn btn-primary"
+			onclick={runReport}
+			disabled={loading || !startDate || !endDate || selectedStatusTypeIds.size === 0}
+		>
 			{#if loading}<Spinner />{/if}
 			{loading ? 'Generating...' : 'Generate Report'}
 		</button>
@@ -326,9 +307,7 @@
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}>
-				Export CSV
-			</button>
+			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
 		</div>
 
 		{#if result.rows.length === 0}

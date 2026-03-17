@@ -23,15 +23,15 @@ Renders the shared `BulkImportTable` component with column mapping dropdowns.
 
 **Column Definitions:**
 
-| Field      | Required | Aliases                                    |
-| ---------- | -------- | ------------------------------------------ |
-| Last Name  | yes      | `last name, last, surname, lname`          |
-| First Name | yes      | `first name, first, fname, given name`     |
-| Start Date | yes      | `start date, start, from, begin`           |
-| End Date   | yes      | `end date, end, to, through`               |
-| Status     | yes      | `status, status type, type`                |
-| Rank       | no       | `rank, grade, pay grade`                   |
-| Note       | no       | `note, notes, comment, remarks`            |
+| Field      | Required | Aliases                                |
+| ---------- | -------- | -------------------------------------- |
+| Last Name  | yes      | `last name, last, surname, lname`      |
+| First Name | yes      | `first name, first, fname, given name` |
+| Start Date | yes      | `start date, start, from, begin`       |
+| End Date   | yes      | `end date, end, to, through`           |
+| Status     | yes      | `status, status type, type`            |
+| Rank       | no       | `rank, grade, pay grade`               |
+| Note       | no       | `note, notes, comment, remarks`        |
 
 **Validation:**
 
@@ -52,6 +52,7 @@ After clicking "Next," all unique status names from checked rows are matched cas
 **Resolution UI:**
 
 Each unmatched status is displayed as a row:
+
 - Raw CSV value (e.g., "vacation")
 - Row count using this status (e.g., "12 rows")
 - Dropdown of org status types with color badge previews
@@ -64,10 +65,12 @@ Each unmatched status is displayed as a row:
 ### Step 4 — Import & Results
 
 **Import process:**
+
 - For each checked, valid row: create an `availability_entry` with matched `personnelId`, resolved `statusTypeId`, `startDate`, `endDate`, optional `note`
 - Batch insert via a single API call
 
 **Results screen:**
+
 - Success count: "15 status entries created"
 - Error list: any rows that failed server-side, with row number and reason
 - "Done" button closes the modal
@@ -77,6 +80,7 @@ Each unmatched status is displayed as a row:
 **File:** `src/features/calendar/components/BulkStatusImportModal.svelte`
 
 New modal component using `Modal.svelte` wrapper. Reuses:
+
 - `BulkImportTable` for preview/mapping
 - `columnMapping.ts` for auto-detection and manual column mapping
 - `csvParser.ts` for file parsing and date handling
@@ -90,15 +94,16 @@ New modal component using `Modal.svelte` wrapper. Reuses:
 This endpoint already accepts the exact payload shape needed (`BatchAvailabilityRecord[]`) and includes all required server-side protections: permission checks, group scoping, read-only guard (`checkReadOnly()`), audit logging, UUID validation, sandbox mode handling, and a 500-record batch cap.
 
 The component formats its payload to match the existing `BatchAvailabilityRecord` shape:
+
 ```typescript
 {
-  records: Array<{
-    personnelId: string;
-    statusTypeId: string;
-    startDate: string;  // YYYY-MM-DD
-    endDate: string;    // YYYY-MM-DD
-    note?: string;
-  }>
+	records: Array<{
+		personnelId: string;
+		statusTypeId: string;
+		startDate: string; // YYYY-MM-DD
+		endDate: string; // YYYY-MM-DD
+		note?: string;
+	}>;
 }
 ```
 

@@ -15,12 +15,7 @@
 		{label}
 	</span>
 {:else}
-	<span
-		class="badge"
-		style:background-color={color}
-		style:color={textColor}
-		style:font-weight={bold ? '700' : '500'}
-	>
+	<span class="badge" style:background-color={color} style:color={textColor} style:font-weight={bold ? '700' : '500'}>
 		{label}
 	</span>
 {/if}

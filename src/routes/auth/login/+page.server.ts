@@ -38,10 +38,7 @@ export const actions: Actions = {
 				return fail(400, { error: error.message, email });
 			}
 
-			auditLog(
-				{ action: 'auth.login_success', resourceType: 'user', details: { email } },
-				{ userId: null }
-			);
+			auditLog({ action: 'auth.login_success', resourceType: 'user', details: { email } }, { userId: null });
 
 			// Check if user has MFA enabled and needs to complete verification
 			const { data: aalData } = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();

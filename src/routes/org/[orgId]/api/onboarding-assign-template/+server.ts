@@ -4,7 +4,7 @@ import { requireEditPermission } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 
-function transformStep(r: any) {
+function transformStep(r: Record<string, unknown>) {
 	return {
 		id: r.id,
 		onboardingId: r.onboarding_id,
@@ -75,13 +75,8 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const existing = progressRows ?? [];
 
 	// Write template_id to the onboarding and backfill step links in parallel
-	const updates: Promise<{ error: any }>[] = [
-		Promise.resolve(
-			supabase
-				.from('personnel_onboardings')
-				.update({ template_id: templateId })
-				.eq('id', onboardingId)
-		)
+	const updates: Promise<{ error: unknown }>[] = [
+		Promise.resolve(supabase.from('personnel_onboardings').update({ template_id: templateId }).eq('id', onboardingId))
 	];
 
 	// Backfill template_step_id by matching on (step_name, step_type)
@@ -89,17 +84,13 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		if (progressRow.template_step_id) continue; // Already linked
 
 		const match = liveSteps.find(
-			(t: any) =>
-				t.name === progressRow.step_name && t.step_type === progressRow.step_type
+			(t: Record<string, unknown>) => t.name === progressRow.step_name && t.step_type === progressRow.step_type
 		);
 
 		if (match) {
 			updates.push(
 				Promise.resolve(
-					supabase
-						.from('onboarding_step_progress')
-						.update({ template_step_id: match.id })
-						.eq('id', progressRow.id)
+					supabase.from('onboarding_step_progress').update({ template_step_id: match.id }).eq('id', progressRow.id)
 				)
 			);
 		}

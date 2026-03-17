@@ -4,11 +4,7 @@ import type { RatingSchemeEntry } from '../counseling.types';
 import { WORKFLOW_STATUS_OPTIONS } from '../counseling.types';
 import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
 
-function getPersonName(
-	personnel: Personnel[],
-	id: string | null,
-	name: string | null
-): string {
+function getPersonName(personnel: Personnel[], id: string | null, name: string | null): string {
 	if (id) {
 		const p = personnel.find((p) => p.id === id);
 		return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
@@ -45,18 +41,18 @@ export function exportRatingScheme(entries: RatingSchemeEntry[], personnel: Pers
 			'Eval Type': entry.evalType,
 			'Report Type': entry.reportType ? getReportTypeLabel(entry.reportType, entry.evalType) : '',
 			'Rated Individual': rated ? `${rated.rank} ${rated.lastName}, ${rated.firstName}` : 'Unknown',
-			'Rank': rated?.rank ?? '',
-			'Rater': getPersonName(personnel, entry.raterPersonId, entry.raterName),
+			Rank: rated?.rank ?? '',
+			Rater: getPersonName(personnel, entry.raterPersonId, entry.raterName),
 			'Senior Rater': getPersonName(personnel, entry.seniorRaterPersonId, entry.seniorRaterName),
 			'Intermediate Rater': getPersonName(personnel, entry.intermediateRaterPersonId, entry.intermediateRaterName),
-			'Reviewer': getPersonName(personnel, entry.reviewerPersonId, entry.reviewerName),
+			Reviewer: getPersonName(personnel, entry.reviewerPersonId, entry.reviewerName),
 			'Rating Period Start': entry.ratingPeriodStart,
 			'Thru Date': entry.ratingPeriodEnd,
 			'Days Until Due': getDaysUntilDue(entry.ratingPeriodEnd),
 			'Due Status': getDueStatusLabel(entry),
-			'Status': getStatusLabel(entry.status),
+			Status: getStatusLabel(entry.status),
 			'Workflow Status': getWorkflowLabel(entry.workflowStatus),
-			'Notes': entry.notes ?? ''
+			Notes: entry.notes ?? ''
 		};
 	});
 
@@ -64,21 +60,21 @@ export function exportRatingScheme(entries: RatingSchemeEntry[], personnel: Pers
 
 	// Set column widths
 	ws['!cols'] = [
-		{ wch: 10 },  // Eval Type
-		{ wch: 18 },  // Report Type
-		{ wch: 28 },  // Rated Individual
-		{ wch: 8 },   // Rank
-		{ wch: 28 },  // Rater
-		{ wch: 28 },  // Senior Rater
-		{ wch: 28 },  // Intermediate Rater
-		{ wch: 28 },  // Reviewer
-		{ wch: 14 },  // Rating Period Start
-		{ wch: 14 },  // Thru Date
-		{ wch: 14 },  // Days Until Due
-		{ wch: 16 },  // Due Status
-		{ wch: 16 },  // Status
-		{ wch: 22 },  // Workflow Status
-		{ wch: 30 }   // Notes
+		{ wch: 10 }, // Eval Type
+		{ wch: 18 }, // Report Type
+		{ wch: 28 }, // Rated Individual
+		{ wch: 8 }, // Rank
+		{ wch: 28 }, // Rater
+		{ wch: 28 }, // Senior Rater
+		{ wch: 28 }, // Intermediate Rater
+		{ wch: 28 }, // Reviewer
+		{ wch: 14 }, // Rating Period Start
+		{ wch: 14 }, // Thru Date
+		{ wch: 14 }, // Days Until Due
+		{ wch: 16 }, // Due Status
+		{ wch: 16 }, // Status
+		{ wch: 22 }, // Workflow Status
+		{ wch: 30 } // Notes
 	];
 
 	const wb = XLSX.utils.book_new();

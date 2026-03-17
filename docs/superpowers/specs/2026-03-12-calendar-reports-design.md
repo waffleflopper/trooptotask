@@ -84,6 +84,7 @@ src/features/calendar/
 ```
 
 Route files:
+
 ```
 src/routes/org/[orgId]/calendar/
   reports/
@@ -92,6 +93,7 @@ src/routes/org/[orgId]/calendar/
 ```
 
 API:
+
 ```
 src/routes/org/[orgId]/api/calendar-reports/
   status-days/+server.ts             — availability query endpoint

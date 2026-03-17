@@ -25,15 +25,17 @@
 	let selectedMos = $state<string>('');
 	let selectedRole = $state<string>('');
 	let selectedTrainingTypeId = $state<string>('');
-	let selectedStatuses = $state<Set<TrainingStatus>>(new Set(['expired', 'warning-orange', 'warning-yellow', 'not-completed']));
+	let selectedStatuses = $state<Set<TrainingStatus>>(
+		new Set(['expired', 'warning-orange', 'warning-yellow', 'not-completed'])
+	);
 
 	// Get unique MOS and Roles for filter dropdowns
-	const uniqueMos = $derived([...new Set(personnel.map(p => p.mos).filter(Boolean))].sort());
-	const uniqueRoles = $derived([...new Set(personnel.map(p => p.clinicRole).filter(Boolean))].sort());
+	const uniqueMos = $derived([...new Set(personnel.map((p) => p.mos).filter(Boolean))].sort());
+	const uniqueRoles = $derived([...new Set(personnel.map((p) => p.clinicRole).filter(Boolean))].sort());
 
 	// Filter personnel based on selections
 	const filteredPersonnel = $derived.by(() => {
-		return personnel.filter(p => {
+		return personnel.filter((p) => {
 			if (selectedGroupId && p.groupId !== selectedGroupId) return false;
 			if (selectedMos && p.mos !== selectedMos) return false;
 			if (selectedRole && p.clinicRole !== selectedRole) return false;
@@ -81,7 +83,13 @@
 				// Sort by urgency
 				personTrainings.sort((a, b) => {
 					const statusOrder: Record<TrainingStatus, number> = {
-						expired: 0, 'warning-orange': 1, 'warning-yellow': 2, 'not-completed': 3, current: 4, 'not-required': 5, exempt: 6
+						expired: 0,
+						'warning-orange': 1,
+						'warning-yellow': 2,
+						'not-completed': 3,
+						current: 4,
+						'not-required': 5,
+						exempt: 6
 					};
 					return statusOrder[a.statusInfo.status] - statusOrder[b.statusInfo.status];
 				});
@@ -92,10 +100,16 @@
 		// Sort by most urgent person first
 		result.sort((a, b) => {
 			const statusOrder: Record<TrainingStatus, number> = {
-				expired: 0, 'warning-orange': 1, 'warning-yellow': 2, 'not-completed': 3, current: 4, 'not-required': 5, exempt: 6
+				expired: 0,
+				'warning-orange': 1,
+				'warning-yellow': 2,
+				'not-completed': 3,
+				current: 4,
+				'not-required': 5,
+				exempt: 6
 			};
-			const aWorst = Math.min(...a.trainings.map(t => statusOrder[t.statusInfo.status]));
-			const bWorst = Math.min(...b.trainings.map(t => statusOrder[t.statusInfo.status]));
+			const aWorst = Math.min(...a.trainings.map((t) => statusOrder[t.statusInfo.status]));
+			const bWorst = Math.min(...b.trainings.map((t) => statusOrder[t.statusInfo.status]));
 			return aWorst - bWorst;
 		});
 
@@ -112,7 +126,7 @@
 	const trainingReportData = $derived.by(() => {
 		if (!selectedTrainingTypeId) return [];
 
-		const type = trainingTypes.find(t => t.id === selectedTrainingTypeId);
+		const type = trainingTypes.find((t) => t.id === selectedTrainingTypeId);
 		if (!type) return [];
 
 		const result: TrainingReportItem[] = [];
@@ -129,7 +143,13 @@
 		// Sort by urgency
 		result.sort((a, b) => {
 			const statusOrder: Record<TrainingStatus, number> = {
-				expired: 0, 'warning-orange': 1, 'warning-yellow': 2, 'not-completed': 3, current: 4, 'not-required': 5, exempt: 6
+				expired: 0,
+				'warning-orange': 1,
+				'warning-yellow': 2,
+				'not-completed': 3,
+				current: 4,
+				'not-required': 5,
+				exempt: 6
 			};
 			const statusDiff = statusOrder[a.statusInfo.status] - statusOrder[b.statusInfo.status];
 			if (statusDiff !== 0) return statusDiff;
@@ -151,11 +171,21 @@
 				const statusInfo = getTrainingStatus(training, type, person);
 
 				switch (statusInfo.status) {
-					case 'current': counts.current++; break;
-					case 'warning-yellow': counts.warningYellow++; break;
-					case 'warning-orange': counts.warningOrange++; break;
-					case 'expired': counts.expired++; break;
-					case 'not-completed': counts.notCompleted++; break;
+					case 'current':
+						counts.current++;
+						break;
+					case 'warning-yellow':
+						counts.warningYellow++;
+						break;
+					case 'warning-orange':
+						counts.warningOrange++;
+						break;
+					case 'expired':
+						counts.expired++;
+						break;
+					case 'not-completed':
+						counts.notCompleted++;
+						break;
 				}
 			}
 		}
@@ -190,7 +220,19 @@
 		const rows: string[][] = [];
 
 		// Header
-		rows.push(['Rank', 'Last Name', 'First Name', 'Group', 'MOS', 'Role', 'Training', 'Status', 'Days Until Expiration', 'Completion Date', 'Expiration Date']);
+		rows.push([
+			'Rank',
+			'Last Name',
+			'First Name',
+			'Group',
+			'MOS',
+			'Role',
+			'Training',
+			'Status',
+			'Days Until Expiration',
+			'Completion Date',
+			'Expiration Date'
+		]);
 
 		for (const item of personnelReportData) {
 			const person = item.person;
@@ -217,13 +259,24 @@
 	function exportTrainingReport() {
 		if (!selectedTrainingTypeId) return;
 
-		const type = trainingTypes.find(t => t.id === selectedTrainingTypeId);
+		const type = trainingTypes.find((t) => t.id === selectedTrainingTypeId);
 		if (!type) return;
 
 		const rows: string[][] = [];
 
 		// Header
-		rows.push(['Rank', 'Last Name', 'First Name', 'Group', 'MOS', 'Role', 'Status', 'Days Until Expiration', 'Completion Date', 'Expiration Date']);
+		rows.push([
+			'Rank',
+			'Last Name',
+			'First Name',
+			'Group',
+			'MOS',
+			'Role',
+			'Status',
+			'Days Until Expiration',
+			'Completion Date',
+			'Expiration Date'
+		]);
 
 		for (const item of trainingReportData) {
 			const person = item.person;
@@ -246,7 +299,7 @@
 	}
 
 	function downloadCSV(rows: string[][], filename: string) {
-		const csvContent = rows.map(row => row.map(escapeCSV).join(',')).join('\n');
+		const csvContent = rows.map((row) => row.map(escapeCSV).join(',')).join('\n');
 		const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
 		const url = URL.createObjectURL(blob);
 		const link = document.createElement('a');
@@ -278,14 +331,22 @@
 			{#if activeReport === 'personnel' && personnelReportData.length > 0}
 				<button class="btn btn-secondary" onclick={exportPersonnelReport}>
 					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-						<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+						<path
+							fill-rule="evenodd"
+							d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/>
 					</svg>
 					Export to Excel
 				</button>
 			{:else if activeReport === 'training' && selectedTrainingTypeId && trainingReportData.length > 0}
 				<button class="btn btn-secondary" onclick={exportTrainingReport}>
 					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-						<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+						<path
+							fill-rule="evenodd"
+							d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/>
 					</svg>
 					Export to Excel
 				</button>
@@ -294,205 +355,198 @@
 		</div>
 	{/snippet}
 
-		<!-- Report Type Tabs -->
-			<div class="report-tabs">
-				<button
-					class="tab-btn"
-					class:active={activeReport === 'personnel'}
-					onclick={() => (activeReport = 'personnel')}
-				>
-					By Personnel
-				</button>
-				<button
-					class="tab-btn"
-					class:active={activeReport === 'training'}
-					onclick={() => (activeReport = 'training')}
-				>
-					By Training
-				</button>
+	<!-- Report Type Tabs -->
+	<div class="report-tabs">
+		<button class="tab-btn" class:active={activeReport === 'personnel'} onclick={() => (activeReport = 'personnel')}>
+			By Personnel
+		</button>
+		<button class="tab-btn" class:active={activeReport === 'training'} onclick={() => (activeReport = 'training')}>
+			By Training
+		</button>
+	</div>
+
+	<!-- Filters Section -->
+	<div class="filters-section">
+		<div class="filter-row">
+			<div class="filter-group">
+				<label class="label">Group:</label>
+				<select class="select" bind:value={selectedGroupId}>
+					<option value="">All Groups</option>
+					{#each groups as group (group.id)}
+						<option value={group.id}>{group.name}</option>
+					{/each}
+				</select>
 			</div>
 
-			<!-- Filters Section -->
-			<div class="filters-section">
-				<div class="filter-row">
-					<div class="filter-group">
-						<label class="label">Group:</label>
-						<select class="select" bind:value={selectedGroupId}>
-							<option value="">All Groups</option>
-							{#each groups as group (group.id)}
-								<option value={group.id}>{group.name}</option>
-							{/each}
-						</select>
-					</div>
+			<div class="filter-group">
+				<label class="label">MOS:</label>
+				<select class="select" bind:value={selectedMos}>
+					<option value="">All MOS</option>
+					{#each uniqueMos as mos}
+						<option value={mos}>{mos}</option>
+					{/each}
+				</select>
+			</div>
 
-					<div class="filter-group">
-						<label class="label">MOS:</label>
-						<select class="select" bind:value={selectedMos}>
-							<option value="">All MOS</option>
-							{#each uniqueMos as mos}
-								<option value={mos}>{mos}</option>
-							{/each}
-						</select>
-					</div>
+			<div class="filter-group">
+				<label class="label">Role:</label>
+				<select class="select" bind:value={selectedRole}>
+					<option value="">All Roles</option>
+					{#each uniqueRoles as role}
+						<option value={role}>{role}</option>
+					{/each}
+				</select>
+			</div>
 
-					<div class="filter-group">
-						<label class="label">Role:</label>
-						<select class="select" bind:value={selectedRole}>
-							<option value="">All Roles</option>
-							{#each uniqueRoles as role}
-								<option value={role}>{role}</option>
-							{/each}
-						</select>
-					</div>
+			<button class="btn btn-secondary btn-sm clear-btn" onclick={clearFilters}>Clear</button>
+		</div>
 
-					<button class="btn btn-secondary btn-sm clear-btn" onclick={clearFilters}>Clear</button>
+		{#if activeReport === 'training'}
+			<div class="filter-row">
+				<div class="filter-group training-select">
+					<label class="label">Training Type:</label>
+					<select class="select" bind:value={selectedTrainingTypeId}>
+						<option value="">Select a training...</option>
+						{#each trainingTypes as type (type.id)}
+							<option value={type.id}>{type.name}</option>
+						{/each}
+					</select>
 				</div>
+			</div>
+		{/if}
 
-				{#if activeReport === 'training'}
-					<div class="filter-row">
-						<div class="filter-group training-select">
-							<label class="label">Training Type:</label>
-							<select class="select" bind:value={selectedTrainingTypeId}>
-								<option value="">Select a training...</option>
-								{#each trainingTypes as type (type.id)}
-									<option value={type.id}>{type.name}</option>
+		<!-- Status Toggles -->
+		<div class="status-toggles">
+			<span class="toggle-label">Show:</span>
+			<button
+				class="status-toggle"
+				class:active={selectedStatuses.has('expired')}
+				style="--toggle-color: {TRAINING_STATUS_COLORS['expired']}"
+				onclick={() => toggleStatus('expired')}
+			>
+				Expired ({stats.expired})
+			</button>
+			<button
+				class="status-toggle"
+				class:active={selectedStatuses.has('warning-orange')}
+				style="--toggle-color: {TRAINING_STATUS_COLORS['warning-orange']}"
+				onclick={() => toggleStatus('warning-orange')}
+			>
+				Under 30d ({stats.warningOrange})
+			</button>
+			<button
+				class="status-toggle"
+				class:active={selectedStatuses.has('warning-yellow')}
+				style="--toggle-color: {TRAINING_STATUS_COLORS['warning-yellow']}"
+				onclick={() => toggleStatus('warning-yellow')}
+			>
+				Under 60d ({stats.warningYellow})
+			</button>
+			<button
+				class="status-toggle"
+				class:active={selectedStatuses.has('not-completed')}
+				style="--toggle-color: {TRAINING_STATUS_COLORS['not-completed']}"
+				onclick={() => toggleStatus('not-completed')}
+			>
+				Not Done ({stats.notCompleted})
+			</button>
+			<button
+				class="status-toggle"
+				class:active={selectedStatuses.has('current')}
+				style="--toggle-color: {TRAINING_STATUS_COLORS['current']}"
+				onclick={() => toggleStatus('current')}
+			>
+				Current ({stats.current})
+			</button>
+		</div>
+	</div>
+
+	<!-- Report Content -->
+	<div class="report-content">
+		{#if activeReport === 'personnel'}
+			<!-- Personnel Report -->
+			{#if personnelReportData.length === 0}
+				<p class="empty-message">No personnel match the selected filters.</p>
+			{:else}
+				<div class="report-list">
+					{#each personnelReportData as item (item.person.id)}
+						<div class="person-card">
+							<div class="person-header">
+								<span class="person-rank">{item.person.rank}</span>
+								<span class="person-name">{item.person.lastName}, {item.person.firstName}</span>
+								{#if item.person.groupName}
+									<span class="person-group">{item.person.groupName}</span>
+								{/if}
+								{#if item.person.mos}
+									<span class="person-mos">{item.person.mos}</span>
+								{/if}
+								{#if item.person.clinicRole}
+									<span class="person-role">{item.person.clinicRole}</span>
+								{/if}
+							</div>
+							<div class="training-list">
+								{#each item.trainings as t (t.type.id)}
+									<div class="training-item">
+										<span class="training-name" style="background-color: {t.type.color}">{t.type.name}</span>
+										<span class="training-status" style="background-color: {t.statusInfo.color}"
+											>{t.statusInfo.label}</span
+										>
+										{#if t.statusInfo.daysUntilExpiration !== null}
+											<span class="training-days">{t.statusInfo.daysUntilExpiration}d</span>
+										{/if}
+									</div>
 								{/each}
-							</select>
+							</div>
 						</div>
-					</div>
-				{/if}
-
-				<!-- Status Toggles -->
-				<div class="status-toggles">
-					<span class="toggle-label">Show:</span>
-					<button
-						class="status-toggle"
-						class:active={selectedStatuses.has('expired')}
-						style="--toggle-color: {TRAINING_STATUS_COLORS['expired']}"
-						onclick={() => toggleStatus('expired')}
-					>
-						Expired ({stats.expired})
-					</button>
-					<button
-						class="status-toggle"
-						class:active={selectedStatuses.has('warning-orange')}
-						style="--toggle-color: {TRAINING_STATUS_COLORS['warning-orange']}"
-						onclick={() => toggleStatus('warning-orange')}
-					>
-						Under 30d ({stats.warningOrange})
-					</button>
-					<button
-						class="status-toggle"
-						class:active={selectedStatuses.has('warning-yellow')}
-						style="--toggle-color: {TRAINING_STATUS_COLORS['warning-yellow']}"
-						onclick={() => toggleStatus('warning-yellow')}
-					>
-						Under 60d ({stats.warningYellow})
-					</button>
-					<button
-						class="status-toggle"
-						class:active={selectedStatuses.has('not-completed')}
-						style="--toggle-color: {TRAINING_STATUS_COLORS['not-completed']}"
-						onclick={() => toggleStatus('not-completed')}
-					>
-						Not Done ({stats.notCompleted})
-					</button>
-					<button
-						class="status-toggle"
-						class:active={selectedStatuses.has('current')}
-						style="--toggle-color: {TRAINING_STATUS_COLORS['current']}"
-						onclick={() => toggleStatus('current')}
-					>
-						Current ({stats.current})
-					</button>
+					{/each}
 				</div>
-			</div>
-
-			<!-- Report Content -->
-			<div class="report-content">
-				{#if activeReport === 'personnel'}
-					<!-- Personnel Report -->
-					{#if personnelReportData.length === 0}
-						<p class="empty-message">No personnel match the selected filters.</p>
-					{:else}
-						<div class="report-list">
-							{#each personnelReportData as item (item.person.id)}
-								<div class="person-card">
-									<div class="person-header">
-										<span class="person-rank">{item.person.rank}</span>
-										<span class="person-name">{item.person.lastName}, {item.person.firstName}</span>
-										{#if item.person.groupName}
-											<span class="person-group">{item.person.groupName}</span>
-										{/if}
-										{#if item.person.mos}
-											<span class="person-mos">{item.person.mos}</span>
-										{/if}
-										{#if item.person.clinicRole}
-											<span class="person-role">{item.person.clinicRole}</span>
-										{/if}
-									</div>
-									<div class="training-list">
-										{#each item.trainings as t (t.type.id)}
-											<div class="training-item">
-												<span class="training-name" style="background-color: {t.type.color}">{t.type.name}</span>
-												<span class="training-status" style="background-color: {t.statusInfo.color}">{t.statusInfo.label}</span>
-												{#if t.statusInfo.daysUntilExpiration !== null}
-													<span class="training-days">{t.statusInfo.daysUntilExpiration}d</span>
-												{/if}
-											</div>
-										{/each}
-									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
-				{:else}
-					<!-- Training Report -->
-					{#if !selectedTrainingTypeId}
-						<p class="empty-message">Select a training type to view the report.</p>
-					{:else if trainingReportData.length === 0}
-						<p class="empty-message">No personnel match the selected filters for this training.</p>
-					{:else}
-						<div class="report-table-container">
-						<div class="table-responsive">
-							<table class="report-table">
-								<thead>
+			{/if}
+		{:else}
+			<!-- Training Report -->
+			{#if !selectedTrainingTypeId}
+				<p class="empty-message">Select a training type to view the report.</p>
+			{:else if trainingReportData.length === 0}
+				<p class="empty-message">No personnel match the selected filters for this training.</p>
+			{:else}
+				<div class="report-table-container">
+					<div class="table-responsive">
+						<table class="report-table">
+							<thead>
+								<tr>
+									<th>Rank</th>
+									<th>Name</th>
+									<th>Group</th>
+									<th>Status</th>
+									<th>Days</th>
+									<th>Completed</th>
+									<th>Expires</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each trainingReportData as item (item.person.id)}
 									<tr>
-										<th>Rank</th>
-										<th>Name</th>
-										<th>Group</th>
-										<th>Status</th>
-										<th>Days</th>
-										<th>Completed</th>
-										<th>Expires</th>
+										<td class="rank-cell">{item.person.rank}</td>
+										<td>{item.person.lastName}, {item.person.firstName}</td>
+										<td>{item.person.groupName || '-'}</td>
+										<td>
+											<span class="status-badge" style="background-color: {item.statusInfo.color}">
+												{item.statusInfo.label}
+											</span>
+										</td>
+										<td class="days-cell">
+											{item.statusInfo.daysUntilExpiration ?? '-'}
+										</td>
+										<td>{item.training?.completionDate ?? '-'}</td>
+										<td>{item.training?.expirationDate ?? '-'}</td>
 									</tr>
-								</thead>
-								<tbody>
-									{#each trainingReportData as item (item.person.id)}
-										<tr>
-											<td class="rank-cell">{item.person.rank}</td>
-											<td>{item.person.lastName}, {item.person.firstName}</td>
-											<td>{item.person.groupName || '-'}</td>
-											<td>
-												<span class="status-badge" style="background-color: {item.statusInfo.color}">
-													{item.statusInfo.label}
-												</span>
-											</td>
-											<td class="days-cell">
-												{item.statusInfo.daysUntilExpiration ?? '-'}
-											</td>
-											<td>{item.training?.completionDate ?? '-'}</td>
-											<td>{item.training?.expirationDate ?? '-'}</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
-						</div>
-					{/if}
-				{/if}
-			</div>
-
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			{/if}
+		{/if}
+	</div>
 </Modal>
 
 <style>
@@ -523,7 +577,7 @@
 
 	.tab-btn.active {
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 	}
 
 	.filters-section {
@@ -637,8 +691,8 @@
 		align-items: center;
 		gap: var(--spacing-sm);
 		padding: var(--spacing-sm) var(--spacing-md);
-		background: #0F0F0F;
-		color: #F0EDE6;
+		background: #0f0f0f;
+		color: #f0ede6;
 	}
 
 	.person-rank {

@@ -23,20 +23,21 @@ Enable military organizational hierarchy by allowing a parent org (e.g., Battali
 
 ### New Table: `org_relationships`
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | uuid | PK, default `gen_random_uuid()` |
-| `parent_org_id` | uuid FK → organizations | The parent org |
-| `child_org_id` | uuid FK → organizations | The child org |
-| `status` | text check (`pending`, `active`, `declined`, `severed`) | Relationship state |
-| `invited_at` | timestamptz | When parent sent the invite |
-| `invited_by` | uuid FK → auth.users | Who in parent org sent it |
-| `accepted_at` | timestamptz | Nullable, set on acceptance |
-| `accepted_by` | uuid FK → auth.users | Who in child org accepted |
-| `severed_at` | timestamptz | Nullable, set on severance |
-| `severed_by` | uuid FK → auth.users | Who severed the link |
+| Column          | Type                                                    | Notes                           |
+| --------------- | ------------------------------------------------------- | ------------------------------- |
+| `id`            | uuid                                                    | PK, default `gen_random_uuid()` |
+| `parent_org_id` | uuid FK → organizations                                 | The parent org                  |
+| `child_org_id`  | uuid FK → organizations                                 | The child org                   |
+| `status`        | text check (`pending`, `active`, `declined`, `severed`) | Relationship state              |
+| `invited_at`    | timestamptz                                             | When parent sent the invite     |
+| `invited_by`    | uuid FK → auth.users                                    | Who in parent org sent it       |
+| `accepted_at`   | timestamptz                                             | Nullable, set on acceptance     |
+| `accepted_by`   | uuid FK → auth.users                                    | Who in child org accepted       |
+| `severed_at`    | timestamptz                                             | Nullable, set on severance      |
+| `severed_by`    | uuid FK → auth.users                                    | Who severed the link            |
 
 **Constraints:**
+
 - Unique on `child_org_id` WHERE `status = 'active'` (one active parent only)
 - Check: `parent_org_id != child_org_id`
 - **Single-level enforcement:** An org with an active relationship as a child cannot be a parent, and an org with active relationships as a parent cannot be a child. Enforced at application level on invite creation (check both directions before allowing).
@@ -45,6 +46,7 @@ Enable military organizational hierarchy by allowing a parent org (e.g., Battali
 ### Modified Table: `organizations`
 
 Add `link_code` column:
+
 - Type: text, unique, not null, default `encode(gen_random_bytes(6), 'hex')` (12-char hex string)
 - Generated at org creation
 - Displayed in Admin area for sharing
@@ -55,27 +57,30 @@ Add `link_code` column:
 
 Tracks which of the parent's types are currently shared with children.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | uuid | PK, default `gen_random_uuid()` |
-| `parent_org_id` | uuid FK → organizations | The parent org |
-| `type_category` | text check (`training`, `status`, `assignment`, `counseling`) | Which type table |
-| `type_id` | uuid | The parent's type ID being shared |
-| `created_at` | timestamptz | When sharing was enabled |
+| Column          | Type                                                          | Notes                             |
+| --------------- | ------------------------------------------------------------- | --------------------------------- |
+| `id`            | uuid                                                          | PK, default `gen_random_uuid()`   |
+| `parent_org_id` | uuid FK → organizations                                       | The parent org                    |
+| `type_category` | text check (`training`, `status`, `assignment`, `counseling`) | Which type table                  |
+| `type_id`       | uuid                                                          | The parent's type ID being shared |
+| `created_at`    | timestamptz                                                   | When sharing was enabled          |
 
 **Constraints:**
+
 - Unique on `(parent_org_id, type_category, type_id)`
 - Deleting a row from this table triggers unsharing (orphans copies in children)
 
 ### Modified Tables: Type Tables
 
 Add to `training_types`, `status_types`, `assignment_types`, `counseling_types`:
+
 - `source_org_id` (nullable uuid FK → organizations) — which parent org pushed this type
 - `source_type_id` (nullable uuid) — the original type ID in the parent org (used for propagating edits)
 
 Both columns are null for locally created types. Both are set when a type is pushed from a parent. Index on `(source_org_id, source_type_id)` for efficient propagation queries.
 
 Rules:
+
 - `NULL` source = locally created
 - Non-null source = pushed from that parent org
 - Child org cannot edit or delete rows where `source_org_id IS NOT NULL`
@@ -105,12 +110,12 @@ Each org has a shareable link code displayed in their Admin area (e.g., "Your or
 
 ### Permission Gating
 
-| Action | Who |
-|--------|-----|
-| Send invite | Parent admin/owner |
-| Accept/decline invite | Child admin/owner |
+| Action                 | Who                |
+| ---------------------- | ------------------ |
+| Send invite            | Parent admin/owner |
+| Accept/decline invite  | Child admin/owner  |
 | Sever from parent side | Parent admin/owner |
-| Sever from child side | Child admin/owner |
+| Sever from child side  | Child admin/owner  |
 
 ---
 
@@ -130,12 +135,12 @@ When a parent edits a shared type (name, color, etc.), the update propagates to 
 
 ### Editing & Deletion Rules
 
-| Action | Parent | Child |
-|--------|--------|-------|
-| Edit a pushed type (name, color, etc.) | Yes — change propagates to all children | No — read-only |
-| Unshare a type | Yes — orphans in children (`source_org_id` → NULL) | N/A |
-| Delete pushed type while shared | Not allowed — must unshare first | No — can't delete while linked |
-| Add local types alongside pushed ones | N/A | Yes — full control of their own types |
+| Action                                 | Parent                                             | Child                                 |
+| -------------------------------------- | -------------------------------------------------- | ------------------------------------- |
+| Edit a pushed type (name, color, etc.) | Yes — change propagates to all children            | No — read-only                        |
+| Unshare a type                         | Yes — orphans in children (`source_org_id` → NULL) | N/A                                   |
+| Delete pushed type while shared        | Not allowed — must unshare first                   | No — can't delete while linked        |
+| Add local types alongside pushed ones  | N/A                                                | Yes — full control of their own types |
 
 ### Visual Distinction
 
@@ -161,6 +166,7 @@ This handles naming collisions (parent pushes "Weapons Qualification", child alr
 ### Navigation
 
 New nav item "Subordinate Units" visible to admin/owner. The page handles the empty state gracefully (no children yet → shows invite code + instructions for linking). Shows:
+
 - The invite code management and invite workflow
 - List of child orgs (if parent)
 - Pending invites (if any)
@@ -168,6 +174,7 @@ New nav item "Subordinate Units" visible to admin/owner. The page handles the em
 ### Top Level: Child Org Cards
 
 Each active child org displayed as a summary card:
+
 - Org name
 - Personnel headcount
 - Training compliance summary — calculated across **all** training types in the child org (both pushed and local). Percentage = personnel with current records / total personnel, averaged across all types.
@@ -177,6 +184,7 @@ Each active child org displayed as a summary card:
 ### Drill-Down: Child Org Detail View (Read-Only)
 
 Organized into tabs or sections:
+
 - **Personnel** — Full roster (name, rank, group) with status indicators
 - **Training** — Compliance matrix view (who's current, who's overdue, on which types)
 - **Calendar/Availability** — Current status snapshot and upcoming statuses
@@ -186,6 +194,7 @@ All content is strictly read-only. No edit capabilities from the parent side.
 ### Data Fetching
 
 Server-side queries against child org data, authorized by confirming:
+
 1. An active `org_relationships` row exists between parent and child
 2. The requesting user is admin/owner in the parent org
 
@@ -195,11 +204,11 @@ Existing `orgId`-scoped query patterns are reused, called with the child's `orgI
 
 **All drill-down access is audit-logged in both the parent and child org logs:**
 
-| Field | Value |
-|-------|-------|
-| `org_id` | Logged in **both** parent and child org |
-| `action` | `parent_accessed_child_data` |
-| `actor` | The parent org user who drilled in |
+| Field     | Value                                                                |
+| --------- | -------------------------------------------------------------------- |
+| `org_id`  | Logged in **both** parent and child org                              |
+| `action`  | `parent_accessed_child_data`                                         |
+| `actor`   | The parent org user who drilled in                                   |
 | `details` | Which child org, what section accessed (personnel/training/calendar) |
 
 This ensures child org admins can see who from higher has accessed their data, and parent org has a record of cross-org access by their users.
@@ -219,21 +228,27 @@ This ensures child org admins can see who from higher has accessed their data, a
 ## Edge Cases
 
 ### Parent org deleted or archived
+
 Sever all active child relationships. Orphan all pushed types in children (`source_org_id` → NULL). Children continue operating independently.
 
 ### Child org deleted or archived
+
 Relationship status becomes `severed`. Parent's Subordinate Units page no longer shows them.
 
 ### Name collision on push
+
 Parent pushes a type with the same name as an existing child type. Both coexist — one marked as local, one marked as pushed. Child admin can use the merge tool to consolidate.
 
 ### User is admin/owner in both parent and child orgs
+
 Both perspectives work normally. No special handling needed.
 
 ### Re-linking after severance
+
 Same invite flow as initial linking. New row in `org_relationships`. Previously orphaned types remain local in the child; the parent's currently-shared types are pushed fresh.
 
 ### Concurrent operations during severance
+
 Severance (status update + type orphaning) is performed in a single database transaction. Any in-flight parent type edits that hit after the transaction commits will find no matching `source_type_id`/`source_org_id` rows and become no-ops.
 
 ---
@@ -249,19 +264,23 @@ Severance (status update + type orphaning) is performed in a single database tra
 ## API Endpoints
 
 ### Relationship Management
+
 - `POST /org/[orgId]/api/subordinate-units/invite` — Send invite (parent admin/owner)
 - `POST /org/[orgId]/api/subordinate-units/accept` — Accept invite (child admin/owner)
 - `POST /org/[orgId]/api/subordinate-units/decline` — Decline invite (child admin/owner)
 - `POST /org/[orgId]/api/subordinate-units/sever` — Sever relationship (either side admin/owner)
 
 ### Shared Types
+
 - `GET /org/[orgId]/api/subordinate-units/shared-types` — List parent's shared types
 - `POST /org/[orgId]/api/subordinate-units/shared-types` — Share/unshare types (parent admin/owner)
 
 ### Type Merge
+
 - `POST /org/[orgId]/api/types/merge` — Merge one type into another within the same category (admin/owner, any org)
 
 ### Child Data Access (Parent)
+
 - `GET /org/[orgId]/api/subordinate-units/[childOrgId]/summary` — Child org summary card data
 - `GET /org/[orgId]/api/subordinate-units/[childOrgId]/personnel` — Child personnel roster
 - `GET /org/[orgId]/api/subordinate-units/[childOrgId]/training` — Child training compliance

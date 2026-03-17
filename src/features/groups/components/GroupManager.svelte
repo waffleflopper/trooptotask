@@ -60,7 +60,14 @@
 	}
 </script>
 
-<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="groups-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && onClose()}>
+<div
+	class="modal-overlay"
+	role="dialog"
+	aria-modal="true"
+	aria-labelledby="groups-title"
+	tabindex="-1"
+	onkeydown={(e) => e.key === 'Escape' && onClose()}
+>
 	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
 	<div class="modal" style="width: 400px;" role="document">
 		<div class="modal-header">
@@ -77,9 +84,7 @@
 					placeholder="New group name"
 					onkeydown={handleKeydown}
 				/>
-				<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!newGroupName.trim()}>
-					Add
-				</button>
+				<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!newGroupName.trim()}> Add </button>
 			</div>
 
 			<div class="group-list">
@@ -99,12 +104,8 @@
 						{:else}
 							<span class="group-name">{group.name}</span>
 							<div class="group-actions">
-								<button class="btn btn-secondary btn-sm" onclick={() => startEdit(group)}>
-									Edit
-								</button>
-								<button class="btn btn-danger btn-sm" onclick={() => handleRemove(group)}>
-									&times;
-								</button>
+								<button class="btn btn-secondary btn-sm" onclick={() => startEdit(group)}> Edit </button>
+								<button class="btn btn-danger btn-sm" onclick={() => handleRemove(group)}> &times; </button>
 							</div>
 						{/if}
 					</div>
@@ -121,7 +122,7 @@
 {#if confirmRemove}
 	<ConfirmDialog
 		title="Remove Group"
-		message='Remove "{confirmRemove.name}"? Personnel in this group will become unassigned.'
+		message={`Remove "${confirmRemove.name}"? Personnel in this group will become unassigned.`}
 		confirmLabel="Remove"
 		variant="danger"
 		onConfirm={doRemove}

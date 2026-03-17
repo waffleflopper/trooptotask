@@ -23,7 +23,7 @@
 	.nav-progress-bar {
 		height: 100%;
 		width: 40%;
-		background: #B8943E;
+		background: #b8943e;
 		border-radius: 0 2px 2px 0;
 		animation: slide 1.2s ease-in-out infinite;
 	}

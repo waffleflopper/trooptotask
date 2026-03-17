@@ -169,263 +169,262 @@
 		<button class="btn btn-primary" onclick={onClose}>Done</button>
 	{/snippet}
 
-		<div class="add-section">
-				<h3>Add Training Type</h3>
-				<div class="add-form">
-					<div class="form-row">
-						<div class="form-group flex-1">
-							<label class="label">Name</label>
-							<input type="text" class="input" bind:value={newName} placeholder="e.g., CPR/BLS" />
-						</div>
-						<div class="form-group">
-							<label class="label">Color</label>
-							<input type="color" class="color-input" bind:value={newColor} />
-						</div>
-					</div>
+	<div class="add-section">
+		<h3>Add Training Type</h3>
+		<div class="add-form">
+			<div class="form-row">
+				<div class="form-group flex-1">
+					<label class="label">Name</label>
+					<input type="text" class="input" bind:value={newName} placeholder="e.g., CPR/BLS" />
+				</div>
+				<div class="form-group">
+					<label class="label">Color</label>
+					<input type="color" class="color-input" bind:value={newColor} />
+				</div>
+			</div>
 
-					<div class="form-group">
-						<label class="label">Description (optional)</label>
-						<input type="text" class="input" bind:value={newDescription} placeholder="Brief description..." />
-					</div>
+			<div class="form-group">
+				<label class="label">Description (optional)</label>
+				<input type="text" class="input" bind:value={newDescription} placeholder="Brief description..." />
+			</div>
 
-					<div class="form-row">
-						<div class="form-group">
-							<label class="label">Expiration</label>
-							{#if newExpirationDateOnly}
-								<div class="expiration-date-only-note">Expiration date entered per person</div>
-							{:else}
-								<div class="expiration-input">
-									<input
-										type="number"
-										class="input"
-										bind:value={newExpirationMonths}
-										min="1"
-										placeholder="e.g., 24"
-										disabled={newExpirationMonths === null}
-									/>
-									<label class="checkbox-label">
-										<input
-											type="checkbox"
-											checked={newExpirationMonths === null}
-											onchange={() => (newExpirationMonths = newExpirationMonths === null ? 12 : null)}
-										/>
-										Never expires
-									</label>
-								</div>
-							{/if}
-							<label class="checkbox-label mode-toggle">
-								<input type="checkbox" bind:checked={newExpirationDateOnly} />
-								Expiration date only (variable per person)
+			<div class="form-row">
+				<div class="form-group">
+					<label class="label">Expiration</label>
+					{#if newExpirationDateOnly}
+						<div class="expiration-date-only-note">Expiration date entered per person</div>
+					{:else}
+						<div class="expiration-input">
+							<input
+								type="number"
+								class="input"
+								bind:value={newExpirationMonths}
+								min="1"
+								placeholder="e.g., 24"
+								disabled={newExpirationMonths === null}
+							/>
+							<label class="checkbox-label">
+								<input
+									type="checkbox"
+									checked={newExpirationMonths === null}
+									onchange={() => (newExpirationMonths = newExpirationMonths === null ? 12 : null)}
+								/>
+								Never expires
 							</label>
 						</div>
-						<div class="form-group">
-							<label class="label">Warning Days</label>
-							<div class="warning-inputs">
-								<div class="warning-input">
-									<span class="warning-dot yellow"></span>
-									<input type="number" class="input small" bind:value={newWarningYellow} min="1" />
+					{/if}
+					<label class="checkbox-label mode-toggle">
+						<input type="checkbox" bind:checked={newExpirationDateOnly} />
+						Expiration date only (variable per person)
+					</label>
+				</div>
+				<div class="form-group">
+					<label class="label">Warning Days</label>
+					<div class="warning-inputs">
+						<div class="warning-input">
+							<span class="warning-dot yellow"></span>
+							<input type="number" class="input small" bind:value={newWarningYellow} min="1" />
+						</div>
+						<div class="warning-input">
+							<span class="warning-dot orange"></span>
+							<input type="number" class="input small" bind:value={newWarningOrange} min="1" />
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="form-group">
+				<label class="label">Required For Roles (empty = optional for all)</label>
+				<div class="role-chips">
+					<button
+						type="button"
+						class="role-chip all-chip"
+						class:selected={newRequiredForRoles.includes('*')}
+						onclick={() => (newRequiredForRoles = toggleRole(newRequiredForRoles, '*'))}
+					>
+						All
+					</button>
+					{#each availableRoles as role}
+						<button
+							type="button"
+							class="role-chip"
+							class:selected={newRequiredForRoles.includes(role)}
+							class:disabled={newRequiredForRoles.includes('*')}
+							onclick={() => (newRequiredForRoles = toggleRole(newRequiredForRoles, role))}
+							disabled={newRequiredForRoles.includes('*')}
+						>
+							{role || '(No role)'}
+						</button>
+					{/each}
+				</div>
+			</div>
+
+			<div class="form-group">
+				<label class="checkbox-label">
+					<input type="checkbox" bind:checked={newCanBeExempted} />
+					Can be exempted (allow marking individual personnel as exempt)
+				</label>
+			</div>
+
+			<button class="btn btn-primary" onclick={handleAdd} disabled={!newName.trim()}> Add Training Type </button>
+		</div>
+	</div>
+
+	<div class="list-section">
+		<h3>Existing Training Types</h3>
+		<div class="type-list">
+			{#each orderedTypes as type, index (type.id)}
+				<div class="type-item">
+					{#if editingId === type.id}
+						<div class="edit-form">
+							<div class="form-row">
+								<div class="form-group flex-1">
+									<label class="label">Name</label>
+									<input type="text" class="input" bind:value={editName} />
 								</div>
-								<div class="warning-input">
-									<span class="warning-dot orange"></span>
-									<input type="number" class="input small" bind:value={newWarningOrange} min="1" />
+								<div class="form-group">
+									<label class="label">Color</label>
+									<input type="color" class="color-input" bind:value={editColor} />
 								</div>
 							</div>
-						</div>
-					</div>
 
-					<div class="form-group">
-						<label class="label">Required For Roles (empty = optional for all)</label>
-						<div class="role-chips">
-							<button
-								type="button"
-								class="role-chip all-chip"
-								class:selected={newRequiredForRoles.includes('*')}
-								onclick={() => (newRequiredForRoles = toggleRole(newRequiredForRoles, '*'))}
-							>
-								All
-							</button>
-							{#each availableRoles as role}
-								<button
-									type="button"
-									class="role-chip"
-									class:selected={newRequiredForRoles.includes(role)}
-									class:disabled={newRequiredForRoles.includes('*')}
-									onclick={() => (newRequiredForRoles = toggleRole(newRequiredForRoles, role))}
-									disabled={newRequiredForRoles.includes('*')}
-								>
-									{role || '(No role)'}
-								</button>
-							{/each}
-						</div>
-					</div>
+							<div class="form-group">
+								<label class="label">Description</label>
+								<input type="text" class="input" bind:value={editDescription} />
+							</div>
 
-					<div class="form-group">
-						<label class="checkbox-label">
-							<input type="checkbox" bind:checked={newCanBeExempted} />
-							Can be exempted (allow marking individual personnel as exempt)
-						</label>
-					</div>
-
-					<button class="btn btn-primary" onclick={handleAdd} disabled={!newName.trim()}>
-						Add Training Type
-					</button>
-				</div>
-			</div>
-
-			<div class="list-section">
-				<h3>Existing Training Types</h3>
-				<div class="type-list">
-					{#each orderedTypes as type, index (type.id)}
-						<div class="type-item">
-							{#if editingId === type.id}
-								<div class="edit-form">
-									<div class="form-row">
-										<div class="form-group flex-1">
-											<label class="label">Name</label>
-											<input type="text" class="input" bind:value={editName} />
-										</div>
-										<div class="form-group">
-											<label class="label">Color</label>
-											<input type="color" class="color-input" bind:value={editColor} />
-										</div>
-									</div>
-
-									<div class="form-group">
-										<label class="label">Description</label>
-										<input type="text" class="input" bind:value={editDescription} />
-									</div>
-
-									<div class="form-row">
-										<div class="form-group">
-											<label class="label">Expiration</label>
-											{#if editExpirationDateOnly}
-												<div class="expiration-date-only-note">Expiration date entered per person</div>
-											{:else}
-												<div class="expiration-input">
-													<input
-														type="number"
-														class="input"
-														bind:value={editExpirationMonths}
-														min="1"
-														disabled={editExpirationMonths === null}
-													/>
-													<label class="checkbox-label">
-														<input
-															type="checkbox"
-															checked={editExpirationMonths === null}
-															onchange={() => (editExpirationMonths = editExpirationMonths === null ? 12 : null)}
-														/>
-														Never
-													</label>
-												</div>
-											{/if}
-											<label class="checkbox-label mode-toggle">
-												<input type="checkbox" bind:checked={editExpirationDateOnly} />
-												Expiration date only (variable per person)
+							<div class="form-row">
+								<div class="form-group">
+									<label class="label">Expiration</label>
+									{#if editExpirationDateOnly}
+										<div class="expiration-date-only-note">Expiration date entered per person</div>
+									{:else}
+										<div class="expiration-input">
+											<input
+												type="number"
+												class="input"
+												bind:value={editExpirationMonths}
+												min="1"
+												disabled={editExpirationMonths === null}
+											/>
+											<label class="checkbox-label">
+												<input
+													type="checkbox"
+													checked={editExpirationMonths === null}
+													onchange={() => (editExpirationMonths = editExpirationMonths === null ? 12 : null)}
+												/>
+												Never
 											</label>
 										</div>
-										<div class="form-group">
-											<label class="label">Warning Days</label>
-											<div class="warning-inputs">
-												<div class="warning-input">
-													<span class="warning-dot yellow"></span>
-													<input type="number" class="input small" bind:value={editWarningYellow} min="1" />
-												</div>
-												<div class="warning-input">
-													<span class="warning-dot orange"></span>
-													<input type="number" class="input small" bind:value={editWarningOrange} min="1" />
-												</div>
-											</div>
-										</div>
-									</div>
-
-									<div class="form-group">
-										<label class="label">Required For Roles</label>
-										<div class="role-chips">
-											<button
-												type="button"
-												class="role-chip all-chip"
-												class:selected={editRequiredForRoles.includes('*')}
-												onclick={() => (editRequiredForRoles = toggleRole(editRequiredForRoles, '*'))}
-											>
-												All
-											</button>
-											{#each availableRoles as role}
-												<button
-													type="button"
-													class="role-chip"
-													class:selected={editRequiredForRoles.includes(role)}
-													class:disabled={editRequiredForRoles.includes('*')}
-													onclick={() => (editRequiredForRoles = toggleRole(editRequiredForRoles, role))}
-													disabled={editRequiredForRoles.includes('*')}
-												>
-													{role || '(No role)'}
-												</button>
-											{/each}
-										</div>
-									</div>
-
-									<div class="form-group">
-									<label class="checkbox-label">
-										<input type="checkbox" bind:checked={editCanBeExempted} />
-										Can be exempted
+									{/if}
+									<label class="checkbox-label mode-toggle">
+										<input type="checkbox" bind:checked={editExpirationDateOnly} />
+										Expiration date only (variable per person)
 									</label>
 								</div>
-
-								<div class="edit-actions">
-									<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
-									<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
-								</div>
-								</div>
-							{:else}
-								<div class="type-info">
-									<Badge label={type.name} color={type.color} />
-									{#if type.expirationDateOnly}
-										<span class="type-meta">Exp. date per person</span>
-									{:else if type.expirationMonths}
-										<span class="type-meta">Expires: {type.expirationMonths}mo</span>
-									{:else}
-										<span class="type-meta">Never expires</span>
-									{/if}
-									{#if type.requiredForRoles.length > 0}
-										<span class="type-meta">Required for: {formatRequiredRoles(type.requiredForRoles)}</span>
-									{/if}
-								</div>
-								<div class="type-actions">
-									<div class="move-btns">
-										<button class="btn-move" onclick={() => moveUp(index)} disabled={index === 0} title="Move up">
-											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-										</button>
-										<button class="btn-move" onclick={() => moveDown(index)} disabled={index === orderedTypes.length - 1} title="Move down">
-											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-										</button>
+								<div class="form-group">
+									<label class="label">Warning Days</label>
+									<div class="warning-inputs">
+										<div class="warning-input">
+											<span class="warning-dot yellow"></span>
+											<input type="number" class="input small" bind:value={editWarningYellow} min="1" />
+										</div>
+										<div class="warning-input">
+											<span class="warning-dot orange"></span>
+											<input type="number" class="input small" bind:value={editWarningOrange} min="1" />
+										</div>
 									</div>
-									<button class="btn btn-secondary btn-sm" onclick={() => startEdit(type)}>
-										Edit
-									</button>
-									<button
-										class="btn btn-danger btn-sm"
-										onclick={() => handleRemove(type.id, type.name)}
-									>
-										&times;
-									</button>
 								</div>
+							</div>
+
+							<div class="form-group">
+								<label class="label">Required For Roles</label>
+								<div class="role-chips">
+									<button
+										type="button"
+										class="role-chip all-chip"
+										class:selected={editRequiredForRoles.includes('*')}
+										onclick={() => (editRequiredForRoles = toggleRole(editRequiredForRoles, '*'))}
+									>
+										All
+									</button>
+									{#each availableRoles as role}
+										<button
+											type="button"
+											class="role-chip"
+											class:selected={editRequiredForRoles.includes(role)}
+											class:disabled={editRequiredForRoles.includes('*')}
+											onclick={() => (editRequiredForRoles = toggleRole(editRequiredForRoles, role))}
+											disabled={editRequiredForRoles.includes('*')}
+										>
+											{role || '(No role)'}
+										</button>
+									{/each}
+								</div>
+							</div>
+
+							<div class="form-group">
+								<label class="checkbox-label">
+									<input type="checkbox" bind:checked={editCanBeExempted} />
+									Can be exempted
+								</label>
+							</div>
+
+							<div class="edit-actions">
+								<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
+								<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
+							</div>
+						</div>
+					{:else}
+						<div class="type-info">
+							<Badge label={type.name} color={type.color} />
+							{#if type.expirationDateOnly}
+								<span class="type-meta">Exp. date per person</span>
+							{:else if type.expirationMonths}
+								<span class="type-meta">Expires: {type.expirationMonths}mo</span>
+							{:else}
+								<span class="type-meta">Never expires</span>
+							{/if}
+							{#if type.requiredForRoles.length > 0}
+								<span class="type-meta">Required for: {formatRequiredRoles(type.requiredForRoles)}</span>
 							{/if}
 						</div>
-					{/each}
-
-					{#if orderedTypes.length === 0}
-						<EmptyState message="No training types defined yet." variant="simple" />
+						<div class="type-actions">
+							<div class="move-btns">
+								<button class="btn-move" onclick={() => moveUp(index)} disabled={index === 0} title="Move up">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+										><polyline points="18 15 12 9 6 15" /></svg
+									>
+								</button>
+								<button
+									class="btn-move"
+									onclick={() => moveDown(index)}
+									disabled={index === orderedTypes.length - 1}
+									title="Move down"
+								>
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+										><polyline points="6 9 12 15 18 9" /></svg
+									>
+								</button>
+							</div>
+							<button class="btn btn-secondary btn-sm" onclick={() => startEdit(type)}> Edit </button>
+							<button class="btn btn-danger btn-sm" onclick={() => handleRemove(type.id, type.name)}> &times; </button>
+						</div>
 					{/if}
 				</div>
-			</div>
+			{/each}
 
+			{#if orderedTypes.length === 0}
+				<EmptyState message="No training types defined yet." variant="simple" />
+			{/if}
+		</div>
+	</div>
 </Modal>
 
 {#if confirmRemove}
 	<ConfirmDialog
 		title="Remove Training Type"
-		message='Remove "{confirmRemove.name}"? All training records of this type will also be removed.'
+		message={`Remove "${confirmRemove.name}"? All training records of this type will also be removed.`}
 		confirmLabel="Remove"
 		variant="danger"
 		onConfirm={doRemove}
@@ -542,7 +541,7 @@
 
 	.role-chip.selected {
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 		border-color: var(--color-primary);
 	}
 

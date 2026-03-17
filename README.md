@@ -5,6 +5,7 @@ A personnel scheduling and availability tracking application designed for Army u
 ## Features
 
 ### Calendar View
+
 - Visual monthly calendar showing all personnel availability at a glance
 - Color-coded status indicators (Leave, TDY, School, Sick, etc.)
 - Click any cell to add or modify status entries
@@ -12,6 +13,7 @@ A personnel scheduling and availability tracking application designed for Army u
 - Sticky headers for easy navigation
 
 ### Personnel Management
+
 - Organize personnel by groups/sections
 - Track rank, MOS, and roles
 - Pin frequently accessed groups to the top
@@ -19,17 +21,20 @@ A personnel scheduling and availability tracking application designed for Army u
 - Bulk delete functionality
 
 ### Daily Assignments
+
 - Assign MOD (Medical Officer of the Day), Front Desk Support, and other daily duties
 - Monthly assignment planner with quick-fill options
 - Role-based assignment restrictions (e.g., only PA/MD can be MOD)
 - Visual assignment badges on calendar
 
 ### Long-Range Planning
+
 - 3-month view for extended planning
 - See coverage gaps before they happen
 - Plan around leave, TDY, and training schedules
 
 ### Training & Certifications
+
 - Track training types with customizable expiration periods
 - Multi-threshold expiration warnings (60 days yellow, 30 days orange, expired red)
 - Role-based training requirements
@@ -38,6 +43,7 @@ A personnel scheduling and availability tracking application designed for Army u
 - Delinquency reports sorted by urgency
 
 ### Additional Features
+
 - Dark/Light mode support
 - Bulk status application for multiple personnel
 - Federal holiday management
@@ -62,17 +68,20 @@ A personnel scheduling and availability tracking application designed for Army u
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/waffleflopper/trooptotask.git
    cd trooptotask
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Create a `.env` file with your Supabase credentials:
+
    ```
    PUBLIC_SUPABASE_URL=your_supabase_url
    PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
@@ -84,6 +93,7 @@ A personnel scheduling and availability tracking application designed for Army u
    - `seed-demo.sql` - (Optional) Adds demo data
 
 5. Start the development server:
+
    ```bash
    npm run dev
    ```
@@ -113,6 +123,7 @@ src/
 ## Demo Account
 
 A demo account is available to explore the application with sample data:
+
 - Visit the login page and click "Try Demo"
 - No account creation required
 

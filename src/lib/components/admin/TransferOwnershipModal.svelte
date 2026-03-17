@@ -26,9 +26,7 @@
 	// Exclude the current owner
 	const eligibleMembers = $derived(members.filter((m) => m.role !== 'owner'));
 
-	const canConfirm = $derived(
-		selectedUserId !== '' && confirmName.trim() === orgName && !saving
-	);
+	const canConfirm = $derived(selectedUserId !== '' && confirmName.trim() === orgName && !saving);
 
 	async function handleTransfer() {
 		if (!canConfirm) return;

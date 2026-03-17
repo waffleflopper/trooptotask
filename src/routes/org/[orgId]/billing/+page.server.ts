@@ -41,8 +41,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			name: config.name,
 			personnelCap: config.personnelCap === Infinity ? null : config.personnelCap,
 			maxOrgsOwned: config.maxOrgsOwned === Infinity ? null : config.maxOrgsOwned,
-			bulkExportsPerMonth:
-				config.bulkExportsPerMonth === Infinity ? null : config.bulkExportsPerMonth,
+			bulkExportsPerMonth: config.bulkExportsPerMonth === Infinity ? null : config.bulkExportsPerMonth,
 			priceMonthly: config.priceMonthly
 		};
 	});

@@ -55,10 +55,8 @@ async function checkGiftPause(
 
 	if (!org) return;
 
-	const giftActive =
-		org.gift_tier && org.gift_expires_at && new Date(org.gift_expires_at) > new Date();
-	const shouldPause =
-		giftActive && (TIER_RANK[org.gift_tier] ?? 0) >= (TIER_RANK[orgTier] ?? 0);
+	const giftActive = org.gift_tier && org.gift_expires_at && new Date(org.gift_expires_at) > new Date();
+	const shouldPause = giftActive && (TIER_RANK[org.gift_tier] ?? 0) >= (TIER_RANK[orgTier] ?? 0);
 
 	if (shouldPause && !subscription.pause_collection) {
 		await pauseSubscription(subscription.id);
@@ -71,10 +69,7 @@ async function checkGiftPause(
 // Event handlers
 // ---------------------------------------------------------------------------
 
-async function handleCheckoutCompleted(
-	supabase: SupabaseClient,
-	session: Stripe.Checkout.Session
-): Promise<void> {
+async function handleCheckoutCompleted(supabase: SupabaseClient, session: Stripe.Checkout.Session): Promise<void> {
 	const orgId = session.metadata?.orgId;
 	const tier = session.metadata?.tier as Tier | undefined;
 	const subscriptionId = session.subscription as string | null;
@@ -113,10 +108,7 @@ async function handleCheckoutCompleted(
 	}
 }
 
-async function handleSubscriptionUpdated(
-	supabase: SupabaseClient,
-	subscription: Stripe.Subscription
-): Promise<void> {
+async function handleSubscriptionUpdated(supabase: SupabaseClient, subscription: Stripe.Subscription): Promise<void> {
 	const orgId = subscription.metadata?.orgId;
 	const tier = (subscription.metadata?.tier ?? 'free') as Tier;
 
@@ -141,9 +133,7 @@ async function handleSubscriptionUpdated(
 	// current_period_end was removed from Stripe SDK v20 types but is
 	// still present in the webhook payload.
 	const rawSub = subscription as unknown as SubscriptionWebhookData;
-	const periodEnd = rawSub.current_period_end
-		? new Date(rawSub.current_period_end * 1000).toISOString()
-		: null;
+	const periodEnd = rawSub.current_period_end ? new Date(rawSub.current_period_end * 1000).toISOString() : null;
 
 	const { error } = await supabase
 		.from('organizations')
@@ -162,10 +152,7 @@ async function handleSubscriptionUpdated(
 	await checkGiftPause(supabase, orgId, tier, subscription);
 }
 
-async function handleSubscriptionDeleted(
-	supabase: SupabaseClient,
-	subscription: Stripe.Subscription
-): Promise<void> {
+async function handleSubscriptionDeleted(supabase: SupabaseClient, subscription: Stripe.Subscription): Promise<void> {
 	const orgId = subscription.metadata?.orgId;
 
 	if (!orgId) {
@@ -188,10 +175,7 @@ async function handleSubscriptionDeleted(
 	}
 }
 
-async function handlePaymentFailed(
-	supabase: SupabaseClient,
-	invoice: Stripe.Invoice
-): Promise<void> {
+async function handlePaymentFailed(supabase: SupabaseClient, invoice: Stripe.Invoice): Promise<void> {
 	const subscriptionId = getSubscriptionIdFromInvoice(invoice);
 
 	if (!subscriptionId) {
@@ -211,10 +195,7 @@ async function handlePaymentFailed(
 		return;
 	}
 
-	const { error } = await supabase
-		.from('organizations')
-		.update({ subscription_status: 'past_due' })
-		.eq('id', org.id);
+	const { error } = await supabase.from('organizations').update({ subscription_status: 'past_due' }).eq('id', org.id);
 
 	if (error) {
 		throw new Error(`Failed to mark org ${org.id} as past_due: ${error.message}`);
@@ -266,24 +247,15 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		switch (event.type) {
 			case 'checkout.session.completed':
-				await handleCheckoutCompleted(
-					supabase,
-					event.data.object as Stripe.Checkout.Session
-				);
+				await handleCheckoutCompleted(supabase, event.data.object as Stripe.Checkout.Session);
 				break;
 
 			case 'customer.subscription.updated':
-				await handleSubscriptionUpdated(
-					supabase,
-					event.data.object as Stripe.Subscription
-				);
+				await handleSubscriptionUpdated(supabase, event.data.object as Stripe.Subscription);
 				break;
 
 			case 'customer.subscription.deleted':
-				await handleSubscriptionDeleted(
-					supabase,
-					event.data.object as Stripe.Subscription
-				);
+				await handleSubscriptionDeleted(supabase, event.data.object as Stripe.Subscription);
 				break;
 
 			case 'invoice.payment_failed':

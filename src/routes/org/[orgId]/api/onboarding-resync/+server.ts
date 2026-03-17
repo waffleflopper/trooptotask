@@ -4,7 +4,7 @@ import { requireEditPermission } from '$lib/server/permissions';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 
-function transformStep(r: any) {
+function transformStep(r: Record<string, unknown>) {
 	return {
 		id: r.id,
 		onboardingId: r.onboarding_id,
@@ -45,10 +45,14 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 
 	// Block re-sync if no template assigned (historical record)
 	if (!onboarding.template_id) {
-		throw error(422, JSON.stringify({
-			error: 'resync_unavailable',
-			message: 'This onboarding was started before templates were introduced. Assign it to a template before re-syncing.'
-		}));
+		throw error(
+			422,
+			JSON.stringify({
+				error: 'resync_unavailable',
+				message:
+					'This onboarding was started before templates were introduced. Assign it to a template before re-syncing.'
+			})
+		);
 	}
 
 	// Load current template steps
@@ -61,7 +65,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	if (templateError) throw error(500, templateError.message);
 
 	const liveSteps = templateSteps ?? [];
-	const liveStepIds = new Set(liveSteps.map((s: any) => s.id));
+	const liveStepIds = new Set(liveSteps.map((s: Record<string, unknown>) => s.id));
 
 	// Load existing progress rows
 	const { data: progressRows, error: progressError } = await supabase
@@ -74,16 +78,16 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const existing = progressRows ?? [];
 	const existingByTemplateStepId = new Map(
 		existing
-			.filter((p: any) => p.template_step_id)
-			.map((p: any) => [p.template_step_id, p])
+			.filter((p: Record<string, unknown>) => p.template_step_id)
+			.map((p: Record<string, unknown>) => [p.template_step_id, p])
 	);
 
-	const updates: Promise<{ error: any }>[] = [];
+	const updates: Promise<{ error: unknown }>[] = [];
 
 	// 1. Add steps that are in the template but not yet in progress
 	const newStepRows = liveSteps
-		.filter((t: any) => !existingByTemplateStepId.has(t.id))
-		.map((t: any, index: number) => ({
+		.filter((t: Record<string, unknown>) => !existingByTemplateStepId.has(t.id))
+		.map((t: Record<string, unknown>) => ({
 			onboarding_id: onboardingId,
 			step_name: t.name,
 			step_type: t.step_type,
@@ -91,15 +95,13 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			stages: t.stages,
 			sort_order: t.sort_order,
 			completed: false,
-			current_stage: t.step_type === 'paperwork' && t.stages?.length ? t.stages[0] : null,
+			current_stage: t.step_type === 'paperwork' && Array.isArray(t.stages) && t.stages.length ? t.stages[0] : null,
 			notes: [],
 			template_step_id: t.id
 		}));
 
 	if (newStepRows.length > 0) {
-		updates.push(
-			Promise.resolve(supabase.from('onboarding_step_progress').insert(newStepRows))
-		);
+		updates.push(Promise.resolve(supabase.from('onboarding_step_progress').insert(newStepRows)));
 	}
 
 	// 2. Update snapshot fields on existing steps that still exist in template
@@ -107,7 +109,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		if (!progressRow.template_step_id) continue;
 		if (!liveStepIds.has(progressRow.template_step_id)) continue;
 
-		const templateStep = liveSteps.find((s: any) => s.id === progressRow.template_step_id)!;
+		const templateStep = liveSteps.find((s: Record<string, unknown>) => s.id === progressRow.template_step_id)!;
 
 		// Always sync snapshot fields (name, type, stages, sort_order) even on completed steps
 		const updateFields: Record<string, unknown> = {
@@ -130,12 +132,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		}
 
 		updates.push(
-			Promise.resolve(
-				supabase
-					.from('onboarding_step_progress')
-					.update(updateFields)
-					.eq('id', progressRow.id)
-			)
+			Promise.resolve(supabase.from('onboarding_step_progress').update(updateFields).eq('id', progressRow.id))
 		);
 	}
 

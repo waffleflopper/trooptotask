@@ -39,13 +39,7 @@
 	}
 </script>
 
-<Modal
-	title="Try Editing"
-	{onClose}
-	width="450px"
-	titleId="sandbox-modal-title"
-	canClose={!creating}
->
+<Modal title="Try Editing" {onClose} width="450px" titleId="sandbox-modal-title" canClose={!creating}>
 	<div class="info-section">
 		<div class="icon">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -56,8 +50,8 @@
 			</svg>
 		</div>
 		<p>
-			You're viewing a <strong>read-only demo</strong>. To try editing, we'll create your own
-			private sandbox with sample data.
+			You're viewing a <strong>read-only demo</strong>. To try editing, we'll create your own private sandbox with
+			sample data.
 		</p>
 	</div>
 
@@ -125,9 +119,9 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: #0F0F0F;
+		background: #0f0f0f;
 		border-radius: var(--radius-lg);
-		color: #F0EDE6;
+		color: #f0ede6;
 	}
 
 	.icon svg {
@@ -180,5 +174,4 @@
 		color: #ef4444;
 		font-size: var(--font-size-sm);
 	}
-
 </style>

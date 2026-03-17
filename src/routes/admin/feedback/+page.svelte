@@ -11,24 +11,28 @@
 
 	function categoryColor(category: string): string {
 		switch (category) {
-			case 'bug': return 'var(--color-error)';
-			case 'feature': return 'var(--color-info)';
-			default: return 'var(--color-text-muted)';
+			case 'bug':
+				return 'var(--color-error)';
+			case 'feature':
+				return 'var(--color-info)';
+			default:
+				return 'var(--color-text-muted)';
 		}
 	}
 
 	function categoryLabel(category: string): string {
 		switch (category) {
-			case 'bug': return 'Bug';
-			case 'feature': return 'Feature';
-			default: return 'General';
+			case 'bug':
+				return 'Bug';
+			case 'feature':
+				return 'Feature';
+			default:
+				return 'General';
 		}
 	}
 
 	const currentItems = $derived(
-		activeTab === 'new' ? data.newItems
-		: activeTab === 'reviewed' ? data.reviewedItems
-		: data.resolvedItems
+		activeTab === 'new' ? data.newItems : activeTab === 'reviewed' ? data.reviewedItems : data.resolvedItems
 	);
 
 	const totalCount = $derived(data.newItems.length + data.reviewedItems.length + data.resolvedItems.length);
@@ -103,7 +107,17 @@
 								{/if}
 							</div>
 						</div>
-						<svg class="expand-icon" class:expanded={expandedId === item.id} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<svg
+							class="expand-icon"
+							class:expanded={expandedId === item.id}
+							xmlns="http://www.w3.org/2000/svg"
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
 							<polyline points="6 9 12 15 18 9"></polyline>
 						</svg>
 					</button>
@@ -245,7 +259,7 @@
 
 	.tab.active .tab-count {
 		background: var(--color-primary);
-		color: #0F0F0F;
+		color: #0f0f0f;
 	}
 
 	/* Feedback cards */
@@ -378,7 +392,6 @@
 		min-height: 60px;
 		font-family: inherit;
 	}
-
 
 	.empty-card {
 		background: var(--color-surface);

@@ -80,8 +80,8 @@
 			}
 			const data = await res.json();
 			result = computeAvailabilityForecast(filteredPersonnel, data.entries, statusTypes, startDate, endDate);
-		} catch (e: any) {
-			errorMsg = e.message || 'Failed to generate report.';
+		} catch (e: unknown) {
+			errorMsg = e instanceof Error ? e.message : 'Failed to generate report.';
 		} finally {
 			loading = false;
 		}
@@ -99,9 +99,7 @@
 
 		const headers = ['Date', 'Unavailable', 'Available', 'Available %', 'Unavailable Personnel'];
 		const rows = result.days.map((day) => {
-			const unavailableNames = day.unavailablePersonnel
-				.map((u) => `${u.person.rank} ${u.person.lastName}`)
-				.join(', ');
+			const unavailableNames = day.unavailablePersonnel.map((u) => `${u.person.rank} ${u.person.lastName}`).join(', ');
 			return [
 				day.date,
 				String(day.unavailableCount),
@@ -142,11 +140,7 @@
 		<div class="checkbox-list">
 			{#each groups as group (group.id)}
 				<label class="checkbox-item">
-					<input
-						type="checkbox"
-						checked={selectedGroupIds.has(group.id)}
-						onchange={() => toggleGroup(group.id)}
-					/>
+					<input type="checkbox" checked={selectedGroupIds.has(group.id)} onchange={() => toggleGroup(group.id)} />
 					<span>{group.name}</span>
 				</label>
 			{/each}
@@ -177,9 +171,7 @@
 			<span class="report-summary">
 				{result.days.length} days &middot; {filteredPersonnel.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}>
-				Export CSV
-			</button>
+			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
 		</div>
 
 		{#if result.days.length === 0}
@@ -227,7 +219,9 @@
 										<div class="detail-content">
 											{#each day.unavailablePersonnel as entry (entry.person.id)}
 												<span class="detail-person">
-													<span class="detail-name">{entry.person.rank} {entry.person.lastName}, {entry.person.firstName}</span>
+													<span class="detail-name"
+														>{entry.person.rank} {entry.person.lastName}, {entry.person.firstName}</span
+													>
 													<Badge label={entry.statusName} color={entry.statusColor} />
 												</span>
 											{/each}

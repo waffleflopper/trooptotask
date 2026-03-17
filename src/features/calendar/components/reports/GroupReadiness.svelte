@@ -125,8 +125,8 @@
 			}
 			const data = await res.json();
 			result = computeGroupReadiness(personnel, data.entries, groups, selectedGroupIds, startDate, endDate);
-		} catch (e: any) {
-			errorMsg = e.message || 'Failed to generate report.';
+		} catch (e: unknown) {
+			errorMsg = e instanceof Error ? e.message : 'Failed to generate report.';
 		} finally {
 			loading = false;
 		}
@@ -202,11 +202,7 @@
 		<div class="checkbox-list">
 			{#each groups as group (group.id)}
 				<label class="checkbox-item">
-					<input
-						type="checkbox"
-						checked={selectedGroupIds.has(group.id)}
-						onchange={() => toggleGroup(group.id)}
-					/>
+					<input type="checkbox" checked={selectedGroupIds.has(group.id)} onchange={() => toggleGroup(group.id)} />
 					<span>{group.name}</span>
 				</label>
 			{/each}
@@ -235,9 +231,7 @@
 			<span class="report-summary">
 				{result.groups.length} groups &middot; {startDate} to {endDate}
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}>
-				Export CSV
-			</button>
+			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
 		</div>
 
 		{#if result.groups.length === 0}
@@ -258,10 +252,7 @@
 							<tr>
 								<td class="col-group">{group.groupName}</td>
 								{#each group.cells as cell}
-									<td
-										class="col-date"
-										style:background={cellBackground(cell.availablePercent)}
-									>
+									<td class="col-date" style:background={cellBackground(cell.availablePercent)}>
 										{cell.availableCount}/{cell.totalPersonnel}
 									</td>
 								{/each}

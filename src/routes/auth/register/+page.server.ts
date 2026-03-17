@@ -83,18 +83,25 @@ export const actions: Actions = {
 		if (newUser) {
 			const { data: invitations } = await locals.supabase
 				.from('organization_invitations')
-				.select('organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id')
+				.select(
+					'organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
+				)
 				.eq('email', email.toLowerCase())
 				.eq('status', 'pending');
 
 			if (invitations && invitations.length > 0) {
 				for (const inv of invitations) {
 					const isAdminInvite =
-						inv.can_view_calendar && inv.can_edit_calendar &&
-						inv.can_view_personnel && inv.can_edit_personnel &&
-						inv.can_view_training && inv.can_edit_training &&
-						inv.can_view_onboarding && inv.can_edit_onboarding &&
-						inv.can_view_leaders_book && inv.can_edit_leaders_book &&
+						inv.can_view_calendar &&
+						inv.can_edit_calendar &&
+						inv.can_view_personnel &&
+						inv.can_edit_personnel &&
+						inv.can_view_training &&
+						inv.can_edit_training &&
+						inv.can_view_onboarding &&
+						inv.can_edit_onboarding &&
+						inv.can_view_leaders_book &&
+						inv.can_edit_leaders_book &&
 						inv.can_manage_members;
 
 					await locals.supabase.from('organization_memberships').insert({

@@ -17,11 +17,22 @@
 		personnelByGroup: GroupData[];
 		groups: string[];
 		onSetAssignment: (date: string, typeId: string, assigneeId: string) => Promise<boolean>;
-		onSetAssignmentBatch: (assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]) => Promise<boolean>;
+		onSetAssignmentBatch: (
+			assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
+		) => Promise<boolean>;
 		onClose: () => void;
 	}
 
-	let { currentDate, assignmentTypes, assignments, personnelByGroup, groups, onSetAssignment, onSetAssignmentBatch, onClose }: Props = $props();
+	let {
+		currentDate,
+		assignmentTypes,
+		assignments,
+		personnelByGroup,
+		groups,
+		onSetAssignment,
+		onSetAssignmentBatch,
+		onClose
+	}: Props = $props();
 
 	// State for selected month
 	let viewDate = $state(new Date());
@@ -42,21 +53,15 @@
 	const MOD_ELIGIBLE_MOS = ['PA', 'MD'];
 
 	// Filter only personnel-type assignments (MOD, etc.)
-	const personnelAssignmentTypes = $derived(
-		assignmentTypes.filter(t => t.assignTo === 'personnel')
-	);
+	const personnelAssignmentTypes = $derived(assignmentTypes.filter((t) => t.assignTo === 'personnel'));
 
-	const groupAssignmentTypes = $derived(
-		assignmentTypes.filter(t => t.assignTo === 'group')
-	);
+	const groupAssignmentTypes = $derived(assignmentTypes.filter((t) => t.assignTo === 'group'));
 
 	// Get eligible personnel for a given assignment type
 	function getEligiblePersonnel(type: AssignmentType): Personnel[] {
 		if (type.shortName === 'MOD') {
 			// Only PA/MD can be MOD
-			return allPersonnel.filter(p =>
-				MOD_ELIGIBLE_MOS.some(mos => p.mos.toUpperCase().includes(mos))
-			);
+			return allPersonnel.filter((p) => MOD_ELIGIBLE_MOS.some((mos) => p.mos.toUpperCase().includes(mos)));
 		}
 		return allPersonnel;
 	}
@@ -65,13 +70,11 @@
 	function getEligiblePersonnelByGroup(type: AssignmentType): GroupData[] {
 		if (type.shortName === 'MOD') {
 			return personnelByGroup
-				.map(g => ({
+				.map((g) => ({
 					...g,
-					personnel: g.personnel.filter(p =>
-						MOD_ELIGIBLE_MOS.some(mos => p.mos.toUpperCase().includes(mos))
-					)
+					personnel: g.personnel.filter((p) => MOD_ELIGIBLE_MOS.some((mos) => p.mos.toUpperCase().includes(mos)))
 				}))
-				.filter(g => g.personnel.length > 0);
+				.filter((g) => g.personnel.length > 0);
 		}
 		return personnelByGroup;
 	}
@@ -79,13 +82,13 @@
 	// Get the current assignment for a date and type
 	function getAssignment(date: Date, typeId: string): DailyAssignment | undefined {
 		const dateStr = formatDate(date);
-		return assignments.find(a => a.date === dateStr && a.assignmentTypeId === typeId);
+		return assignments.find((a) => a.date === dateStr && a.assignmentTypeId === typeId);
 	}
 
 	function getAssigneeDisplay(assignment: DailyAssignment | undefined, type: AssignmentType): string {
 		if (!assignment) return '';
 		if (type.assignTo === 'personnel') {
-			const person = allPersonnel.find(p => p.id === assignment.assigneeId);
+			const person = allPersonnel.find((p) => p.id === assignment.assigneeId);
 			return person ? `${person.rank} ${person.lastName}` : '';
 		}
 		return assignment.assigneeId;
@@ -112,13 +115,13 @@
 	let quickFillType = $state('');
 	let quickFillPerson = $state('');
 	let quickFillGroup = $state('');
-	let quickFillDays = $state<('weekdays' | 'weekends' | 'all')>('weekdays');
+	let quickFillDays = $state<'weekdays' | 'weekends' | 'all'>('weekdays');
 	let isApplying = $state(false);
 
 	async function applyQuickFill() {
 		if (!quickFillType) return;
 
-		const type = assignmentTypes.find(t => t.id === quickFillType);
+		const type = assignmentTypes.find((t) => t.id === quickFillType);
 		if (!type) return;
 
 		const assigneeId = type.assignTo === 'personnel' ? quickFillPerson : quickFillGroup;
@@ -127,13 +130,15 @@
 		isApplying = true;
 		try {
 			const batch = dates
-				.filter(date => {
+				.filter((date) => {
 					const weekend = isWeekend(date);
-					return quickFillDays === 'all' ||
+					return (
+						quickFillDays === 'all' ||
 						(quickFillDays === 'weekdays' && !weekend) ||
-						(quickFillDays === 'weekends' && weekend);
+						(quickFillDays === 'weekends' && weekend)
+					);
 				})
-				.map(date => ({
+				.map((date) => ({
 					date: formatDate(date),
 					assignmentTypeId: quickFillType,
 					assigneeId
@@ -157,7 +162,7 @@
 
 		isApplying = true;
 		try {
-			const batch = dates.map(date => ({
+			const batch = dates.map((date) => ({
 				date: formatDate(date),
 				assignmentTypeId: typeId,
 				assigneeId: ''
@@ -168,7 +173,7 @@
 		}
 	}
 
-	const selectedType = $derived(assignmentTypes.find(t => t.id === quickFillType));
+	const selectedType = $derived(assignmentTypes.find((t) => t.id === quickFillType));
 </script>
 
 <Modal title="Monthly Assignment Planner" {onClose} width="900px" titleId="planner-title">
@@ -176,13 +181,21 @@
 	<div class="month-nav">
 		<button class="btn btn-secondary btn-sm" onclick={prevMonth}>
 			<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-				<path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+				<path
+					fill-rule="evenodd"
+					d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+					clip-rule="evenodd"
+				/>
 			</svg>
 		</button>
 		<h3>{monthName} {year}</h3>
 		<button class="btn btn-secondary btn-sm" onclick={nextMonth}>
 			<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-				<path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+				<path
+					fill-rule="evenodd"
+					d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+					clip-rule="evenodd"
+				/>
 			</svg>
 		</button>
 		<button class="btn btn-secondary btn-sm" onclick={goToCurrentMonth}>Today</button>
@@ -252,13 +265,13 @@
 						<th class="type-col">
 							<div class="type-header">
 								<span class="type-badge" style="background-color: {type.color}">{type.shortName}</span>
-								<button
-									class="clear-btn"
-									onclick={() => clearAll(type.id)}
-									title="Clear all {type.name}"
-								>
+								<button class="clear-btn" onclick={() => clearAll(type.id)} title="Clear all {type.name}">
 									<svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-										<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9z" clip-rule="evenodd" />
+										<path
+											fill-rule="evenodd"
+											d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9z"
+											clip-rule="evenodd"
+										/>
 									</svg>
 								</button>
 							</div>
@@ -347,8 +360,8 @@
 		justify-content: center;
 		gap: var(--spacing-md);
 		padding: var(--spacing-md) var(--spacing-lg);
-		background: #0F0F0F;
-		color: #F0EDE6;
+		background: #0f0f0f;
+		color: #f0ede6;
 		/* Bleed past modal-body padding to fill edge-to-edge */
 		margin: calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg)) 0;
 	}
@@ -363,7 +376,7 @@
 	.month-nav .btn-secondary {
 		background: rgba(255, 255, 255, 0.1);
 		border-color: rgba(255, 255, 255, 0.2);
-		color: #F0EDE6;
+		color: #f0ede6;
 	}
 
 	.month-nav .btn-secondary:hover {

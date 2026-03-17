@@ -15,6 +15,7 @@
 ## Task 1: Day Counting Utility
 
 **Files:**
+
 - Create: `src/features/calendar/utils/statusDaysReport.ts`
 
 This is the core business logic — pure functions, no framework dependencies.
@@ -139,6 +140,7 @@ git commit -m "feat(calendar-reports): add status days computation utility"
 ## Task 2: CSV Export Utility
 
 **Files:**
+
 - Create: `src/features/calendar/components/reports/StatusDaysSummaryExport.ts`
 
 - [ ] **Step 2.1: Create the export file**
@@ -162,9 +164,7 @@ export function exportStatusDaysCsv(
 	endDate: string
 ): void {
 	const statusTypeMap = new Map(statusTypes.map((s) => [s.id, s]));
-	const columns = result.activeStatusTypeIds
-		.map((id) => statusTypeMap.get(id))
-		.filter((s): s is StatusType => !!s);
+	const columns = result.activeStatusTypeIds.map((id) => statusTypeMap.get(id)).filter((s): s is StatusType => !!s);
 
 	// Header row
 	const headers = ['Rank', 'Last Name', 'First Name', ...columns.map((s) => s.name), 'Total Days'];
@@ -210,6 +210,7 @@ git commit -m "feat(calendar-reports): add CSV export for status days report"
 ## Task 3: API Endpoint
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/api/calendar-reports/status-days/+server.ts`
 
 - [ ] **Step 3.1: Create the API endpoint**
@@ -288,6 +289,7 @@ git commit -m "feat(calendar-reports): add status-days API endpoint"
 ## Task 4: StatusDaysSummary Component
 
 **Files:**
+
 - Create: `src/features/calendar/components/reports/StatusDaysSummary.svelte`
 
 This is the main report component with the config panel and output table.
@@ -295,6 +297,7 @@ This is the main report component with the config panel and output table.
 - [ ] **Step 4.1: Create the component**
 
 The component handles:
+
 1. Date range selection with year shortcut
 2. Personnel filtering (all, by name, by group, by MOS, by role)
 3. Fetching data from the API
@@ -353,12 +356,8 @@ The component handles:
 	let nameSearch = $state('');
 
 	// Derive unique MOS codes and roles from personnel
-	const uniqueMosCodes = $derived(
-		[...new Set(personnel.map((p) => p.mos).filter(Boolean))].sort()
-	);
-	const uniqueRoles = $derived(
-		[...new Set(personnel.map((p) => p.clinicRole).filter(Boolean))].sort()
-	);
+	const uniqueMosCodes = $derived([...new Set(personnel.map((p) => p.mos).filter(Boolean))].sort());
+	const uniqueRoles = $derived([...new Set(personnel.map((p) => p.clinicRole).filter(Boolean))].sort());
 
 	// Filter personnel based on current filter mode
 	const filteredPersonnel = $derived.by(() => {
@@ -381,9 +380,8 @@ The component handles:
 	// Name search filtered list (for the name picker)
 	const nameFilteredPersonnel = $derived(
 		nameSearch
-			? personnel.filter(
-					(p) =>
-						`${p.rank} ${p.lastName} ${p.firstName}`.toLowerCase().includes(nameSearch.toLowerCase())
+			? personnel.filter((p) =>
+					`${p.rank} ${p.lastName} ${p.firstName}`.toLowerCase().includes(nameSearch.toLowerCase())
 				)
 			: personnel
 	);
@@ -440,11 +438,7 @@ The component handles:
 
 	// Columns to display (only status types that appear in results)
 	const displayColumns = $derived(
-		result
-			? result.activeStatusTypeIds
-					.map((id) => statusTypeMap.get(id))
-					.filter((s): s is StatusType => !!s)
-			: []
+		result ? result.activeStatusTypeIds.map((id) => statusTypeMap.get(id)).filter((s): s is StatusType => !!s) : []
 	);
 </script>
 
@@ -470,21 +464,11 @@ The component handles:
 			</label>
 			<label class="form-group">
 				<span class="label">Start</span>
-				<input
-					type="date"
-					class="input"
-					bind:value={startDate}
-					oninput={handleDateChange}
-				/>
+				<input type="date" class="input" bind:value={startDate} oninput={handleDateChange} />
 			</label>
 			<label class="form-group">
 				<span class="label">End</span>
-				<input
-					type="date"
-					class="input"
-					bind:value={endDate}
-					oninput={handleDateChange}
-				/>
+				<input type="date" class="input" bind:value={endDate} oninput={handleDateChange} />
 			</label>
 		</div>
 	</div>
@@ -510,12 +494,7 @@ The component handles:
 
 		{#if filterMode === 'name'}
 			<div class="filter-panel">
-				<input
-					type="text"
-					class="input"
-					placeholder="Search by name..."
-					bind:value={nameSearch}
-				/>
+				<input type="text" class="input" placeholder="Search by name..." bind:value={nameSearch} />
 				<div class="checkbox-list">
 					{#each nameFilteredPersonnel as person (person.id)}
 						<label class="checkbox-item">
@@ -599,9 +578,7 @@ The component handles:
 			<span class="report-summary">
 				{result.rows.length} personnel &middot; {startDate} to {endDate}
 			</span>
-			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}>
-				Export CSV
-			</button>
+			<button class="btn btn-secondary btn-sm" onclick={handleExportCsv}> Export CSV </button>
 		</div>
 
 		{#if result.rows.length === 0}
@@ -832,6 +809,7 @@ git commit -m "feat(calendar-reports): add StatusDaysSummary component"
 ## Task 5: CalendarReports Shell Component
 
 **Files:**
+
 - Create: `src/features/calendar/components/reports/CalendarReports.svelte`
 
 A thin wrapper that holds the report type selector and renders the selected report.
@@ -904,6 +882,7 @@ git commit -m "feat(calendar-reports): add CalendarReports shell component"
 ## Task 6: Route Files
 
 **Files:**
+
 - Create: `src/routes/org/[orgId]/calendar/reports/+page.server.ts`
 - Create: `src/routes/org/[orgId]/calendar/reports/+page.svelte`
 
@@ -939,12 +918,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 
 <PageToolbar title="Calendar Reports" />
 
-<CalendarReports
-	orgId={data.orgId}
-	personnel={data.allPersonnel}
-	statusTypes={data.statusTypes}
-	groups={data.groups}
-/>
+<CalendarReports orgId={data.orgId} personnel={data.allPersonnel} statusTypes={data.statusTypes} groups={data.groups} />
 ```
 
 - [ ] **Step 6.3: Commit**
@@ -959,6 +933,7 @@ git commit -m "feat(calendar-reports): add reports route with permission gate"
 ## Task 7: Add Reports Link to Calendar Toolbar
 
 **Files:**
+
 - Modify: `src/routes/org/[orgId]/calendar/+page.svelte`
 
 Add a "Reports" item to the calendar page overflow menu, visible only to owner/admin.
@@ -968,6 +943,7 @@ Add a "Reports" item to the calendar page overflow menu, visible only to owner/a
 Find the `calendarOverflowItems` derived block in `calendar/+page.svelte`. Add a "Reports" item that uses `href` to navigate to the reports page. Place it before the "Configure" group items (before the last divider). The item should only appear for owners and admins (not just `canManageConfig` which includes full-editors).
 
 The item should look like:
+
 ```typescript
 {
 	label: 'Status Reports',

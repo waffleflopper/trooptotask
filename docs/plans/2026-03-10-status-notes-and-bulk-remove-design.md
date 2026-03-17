@@ -137,25 +137,27 @@ After "Find Matching" is clicked:
 
 ## Decisions Made
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Note required vs optional | Optional | Most statuses are self-explanatory; avoid friction |
-| Note display method | Existing tooltip | Simple, consistent, notes are short |
-| Bulk remove UI | Separate modal | Different enough flow (confirmation step) to warrant separation |
-| Partial overlap handling | Delete entirely + warn | Simplest; user can re-add partial ranges after |
-| Note max length | 200 chars | Enough for context, fits in tooltip |
-| Note input type | Single-line | Notes are brief descriptions, not paragraphs |
-| Preview filtering | Client-side | All data already loaded in store; no server round-trip needed |
+| Decision                  | Choice                 | Rationale                                                       |
+| ------------------------- | ---------------------- | --------------------------------------------------------------- |
+| Note required vs optional | Optional               | Most statuses are self-explanatory; avoid friction              |
+| Note display method       | Existing tooltip       | Simple, consistent, notes are short                             |
+| Bulk remove UI            | Separate modal         | Different enough flow (confirmation step) to warrant separation |
+| Partial overlap handling  | Delete entirely + warn | Simplest; user can re-add partial ranges after                  |
+| Note max length           | 200 chars              | Enough for context, fits in tooltip                             |
+| Note input type           | Single-line            | Notes are brief descriptions, not paragraphs                    |
+| Preview filtering         | Client-side            | All data already loaded in store; no server round-trip needed   |
 
 ---
 
 ## Files to Create/Modify
 
 ### New Files
+
 - `supabase/migrations/20260310_status_notes.sql` — add note column
 - `src/lib/components/BulkStatusRemoveModal.svelte` — bulk remove modal
 
 ### Modified Files
+
 - `src/lib/types.ts` — add `note` to AvailabilityEntry
 - `src/lib/stores/availability.svelte.ts` — add `removeBatch()`, pass `note` in add/addBatch
 - `src/routes/org/[orgId]/api/availability/+server.ts` — accept `note` field

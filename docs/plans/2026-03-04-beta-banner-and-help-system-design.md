@@ -23,11 +23,11 @@
 
 ```typescript
 export const helpContent: Record<string, { title: string; content: string }> = {
-  'training-records': {
-    title: 'Training Records',
-    content: '<p>Track individual and unit training...</p>'
-  },
-  // ...
+	'training-records': {
+		title: 'Training Records',
+		content: '<p>Track individual and unit training...</p>'
+	}
+	// ...
 };
 ```
 

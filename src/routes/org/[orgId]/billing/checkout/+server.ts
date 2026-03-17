@@ -63,18 +63,12 @@ export const POST: RequestHandler = async ({ params, request, locals, url }) => 
 
 		// Persist customer ID immediately to prevent duplicate customers on retry
 		if (!org.stripe_customer_id) {
-			await locals.supabase
-				.from('organizations')
-				.update({ stripe_customer_id: customerId })
-				.eq('id', orgId);
+			await locals.supabase.from('organizations').update({ stripe_customer_id: customerId }).eq('id', orgId);
 		}
 
 		return json({ url: checkoutUrl });
 	} catch (err) {
 		console.error('Stripe checkout error:', err);
-		return json(
-			{ error: 'Failed to create checkout session. Please try again.' },
-			{ status: 500 }
-		);
+		return json({ error: 'Failed to create checkout session. Please try again.' }, { status: 500 });
 	}
 };

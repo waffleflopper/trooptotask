@@ -24,8 +24,8 @@ export const changelog: ChangelogEntry[] = [
 		title: 'Multiple Onboarding Templates',
 		items: [
 			'You can now create multiple onboarding templates — one for officers, one for enlisted, one for civilians, whatever your unit needs',
-			'Pick which template to use when you start someone\'s onboarding, so the right checklist shows up for the right person',
-			'Use the Re-sync button to update someone\'s in-progress onboarding when the template changes — completed steps are never touched, only incomplete ones get updated',
+			"Pick which template to use when you start someone's onboarding, so the right checklist shows up for the right person",
+			"Use the Re-sync button to update someone's in-progress onboarding when the template changes — completed steps are never touched, only incomplete ones get updated",
 			'If you remove a step from the template after someone already started, it shows up as deprecated on their checklist so you can review and dismiss it manually'
 		]
 	},
@@ -43,8 +43,8 @@ export const changelog: ChangelogEntry[] = [
 		title: 'Duty Roster Schedule Options',
 		items: [
 			'The duty roster generator now lets you exclude weekends, federal holidays, and org closures — no more manually skipping days that nobody works',
-			'Uses the same holidays and closures you\'ve already set up in your calendar, so there\'s nothing extra to configure',
-			'Roster exports now include a DA Form 6 reference grid showing each person\'s queue position for every duty date — full transparency into why someone was assigned their days'
+			"Uses the same holidays and closures you've already set up in your calendar, so there's nothing extra to configure",
+			"Roster exports now include a DA Form 6 reference grid showing each person's queue position for every duty date — full transparency into why someone was assigned their days"
 		]
 	},
 	{
@@ -52,9 +52,9 @@ export const changelog: ChangelogEntry[] = [
 		date: '2026-03-13',
 		title: 'Import Statuses from Spreadsheets',
 		items: [
-			'You can now import status data from CSV or Excel files directly into the calendar — great for bringing over historic data you\'ve been tracking elsewhere',
-			'The importer will help you match up status names if they don\'t exactly line up with your organization\'s status types',
-			'Supports column auto-detection so your spreadsheet doesn\'t have to be in any particular order'
+			"You can now import status data from CSV or Excel files directly into the calendar — great for bringing over historic data you've been tracking elsewhere",
+			"The importer will help you match up status names if they don't exactly line up with your organization's status types",
+			"Supports column auto-detection so your spreadsheet doesn't have to be in any particular order"
 		]
-	},
+	}
 ];

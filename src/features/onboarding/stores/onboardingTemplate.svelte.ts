@@ -18,9 +18,7 @@ class OnboardingTemplateStore {
 	/** Steps for the currently active template, sorted by sortOrder */
 	get list() {
 		const activeId = this.#activeTemplateId;
-		return [...this.#steps]
-			.filter((s) => s.templateId === activeId)
-			.sort((a, b) => a.sortOrder - b.sortOrder);
+		return [...this.#steps].filter((s) => s.templateId === activeId).sort((a, b) => a.sortOrder - b.sortOrder);
 	}
 
 	load(templates: OnboardingTemplate[], steps: OnboardingTemplateStep[], orgId: string) {
@@ -131,9 +129,7 @@ class OnboardingTemplateStore {
 
 	// ── Step CRUD (scoped to active template) ──────────────────────
 
-	async add(
-		data: Omit<OnboardingTemplateStep, 'id' | 'templateId'>
-	): Promise<OnboardingTemplateStep | null> {
+	async add(data: Omit<OnboardingTemplateStep, 'id' | 'templateId'>): Promise<OnboardingTemplateStep | null> {
 		if (!this.#activeTemplateId) return null;
 
 		const tempId = `temp-${crypto.randomUUID()}`;
@@ -160,10 +156,7 @@ class OnboardingTemplateStore {
 		}
 	}
 
-	async update(
-		id: string,
-		data: Partial<Omit<OnboardingTemplateStep, 'id' | 'templateId'>>
-	): Promise<boolean> {
+	async update(id: string, data: Partial<Omit<OnboardingTemplateStep, 'id' | 'templateId'>>): Promise<boolean> {
 		const original = this.#steps.find((s) => s.id === id);
 		if (!original) return false;
 

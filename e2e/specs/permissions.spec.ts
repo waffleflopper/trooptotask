@@ -12,9 +12,7 @@ test.describe('Permissions', () => {
 		await memberPage.goto(`/org/${orgId}/admin`);
 		// Admin layout server throws 403, which renders the error page
 		// The error page shows a heading with "403" and a message about permissions
-		await expect(
-			memberPage.getByText("You don't have permission to view this page.")
-		).toBeVisible();
+		await expect(memberPage.getByText("You don't have permission to view this page.")).toBeVisible();
 	});
 
 	test('scoped member only sees their group personnel', async ({ memberPage, orgId }) => {

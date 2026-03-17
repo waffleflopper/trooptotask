@@ -13,7 +13,14 @@
 		id?: string;
 	}
 
-	let { options, value = $bindable(), placeholder = 'Search...', disabled = false, onchange, id = 'ss-' + Math.random().toString(36).slice(2, 8) }: Props = $props();
+	let {
+		options,
+		value = $bindable(),
+		placeholder = 'Search...',
+		disabled = false,
+		onchange,
+		id = 'ss-' + Math.random().toString(36).slice(2, 8)
+	}: Props = $props();
 
 	let query = $state('');
 	let open = $state(false);
@@ -119,14 +126,20 @@
 			<button
 				class="display-btn"
 				class:has-value={!!value}
-				onclick={() => { if (!disabled) inputEl?.focus(); open = true; setTimeout(() => inputEl?.focus(), 0); }}
+				onclick={() => {
+					if (!disabled) inputEl?.focus();
+					open = true;
+					setTimeout(() => inputEl?.focus(), 0);
+				}}
 				{disabled}
 				type="button"
 			>
 				{selectedLabel || placeholder}
 			</button>
 			{#if value && !disabled}
-				<button class="clear-btn" type="button" onmousedown={clearSelection} tabindex="-1" aria-label="Clear selection">&times;</button>
+				<button class="clear-btn" type="button" onmousedown={clearSelection} tabindex="-1" aria-label="Clear selection"
+					>&times;</button
+				>
 			{/if}
 		{/if}
 	</div>

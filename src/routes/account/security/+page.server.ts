@@ -6,7 +6,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const { data: factors } = await locals.supabase.auth.mfa.listFactors();
 	const totpFactors = factors?.totp ?? [];
-	const hasMFA = totpFactors.some((f: any) => f.status === 'verified');
+	const hasMFA = totpFactors.some((f: Record<string, unknown>) => f.status === 'verified');
 
 	return { hasMFA };
 };

@@ -64,10 +64,7 @@
 				</p>
 			</div>
 			<div class="header-badges">
-				<Badge
-					label={tierLabel(data.org.effectiveTier)}
-					color={TIER_COLORS[data.org.effectiveTier] ?? '#6b7280'}
-				/>
+				<Badge label={tierLabel(data.org.effectiveTier)} color={TIER_COLORS[data.org.effectiveTier] ?? '#6b7280'} />
 				{#if data.org.giftTier}
 					<Badge label="Gifted" color="#f59e0b" textColor="#1f2937" />
 				{/if}
@@ -82,9 +79,7 @@
 		<!-- Quick Actions -->
 		<div class="actions-bar">
 			<button class="btn btn-secondary btn-sm" onclick={() => (showGiftModal = true)}>Gift Tier</button>
-			<button class="btn btn-secondary btn-sm" onclick={() => (showTransferModal = true)}>
-				Transfer Ownership
-			</button>
+			<button class="btn btn-secondary btn-sm" onclick={() => (showTransferModal = true)}> Transfer Ownership </button>
 			<button
 				class="btn btn-sm {data.org.isSuspended ? 'btn-primary' : 'btn-danger'}"
 				onclick={() => (showSuspendModal = true)}
@@ -102,10 +97,7 @@
 				<div class="info-row">
 					<dt>Tier</dt>
 					<dd>
-						<Badge
-							label={tierLabel(data.org.effectiveTier)}
-							color={TIER_COLORS[data.org.effectiveTier] ?? '#6b7280'}
-						/>
+						<Badge label={tierLabel(data.org.effectiveTier)} color={TIER_COLORS[data.org.effectiveTier] ?? '#6b7280'} />
 					</dd>
 				</div>
 				<div class="info-row">

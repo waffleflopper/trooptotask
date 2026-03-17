@@ -76,7 +76,7 @@ Not a technical report. Can group things together before making the plain langua
 
 <!-- Snippets (replacing slots) -->
 {#snippet footer()}
-  <button>Cancel</button>
+	<button>Cancel</button>
 {/snippet}
 ```
 
@@ -90,13 +90,13 @@ Base modal wrapper. Use for all modals.
 
 ```svelte
 <Modal title="Edit Foo" {onClose} width="500px" titleId="foo-title">
-  <!-- body content -->
-  {#snippet footer()}
-    <button class="btn btn-danger" onclick={handleDelete}>Delete</button>
-    <div class="spacer"></div>
-    <button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-    <button class="btn btn-primary" onclick={handleSave}>Save</button>
-  {/snippet}
+	<!-- body content -->
+	{#snippet footer()}
+		<button class="btn btn-danger" onclick={handleDelete}>Delete</button>
+		<div class="spacer"></div>
+		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+		<button class="btn btn-primary" onclick={handleSave}>Save</button>
+	{/snippet}
 </Modal>
 ```
 
@@ -121,8 +121,8 @@ Loading spinner for async buttons.
 
 ```svelte
 <button disabled={saving}>
-  {#if saving}<Spinner />{/if}
-  {saving ? 'Saving...' : 'Save'}
+	{#if saving}<Spinner />{/if}
+	{saving ? 'Saving...' : 'Save'}
 </button>
 ```
 
@@ -133,8 +133,10 @@ Props: `size?: number` (px, default 14), `color?: string` (default `'white'`)
 Empty list placeholder.
 
 ```svelte
-<EmptyState message="No items yet." />                    <!-- box variant -->
-<EmptyState message="No items defined yet." variant="simple" />  <!-- italic, no bg -->
+<EmptyState message="No items yet." />
+<!-- box variant -->
+<EmptyState message="No items defined yet." variant="simple" />
+<!-- italic, no bg -->
 ```
 
 Props: `message: string`, `variant?: 'box' | 'simple'` (default `'box'`)
@@ -145,12 +147,12 @@ File upload/download with drag-and-drop. Uses Supabase storage (`counseling-file
 
 ```svelte
 <FileUpload
-  {filePath}
-  {orgId}
-  storagePath={uploadId}
-  onUpload={(path) => (filePath = path)}
-  onRemove={() => (filePath = null)}
-  label="PDF Document"
+	{filePath}
+	{orgId}
+	storagePath={uploadId}
+	onUpload={(path) => (filePath = path)}
+	onRemove={() => (filePath = null)}
+	label="PDF Document"
 />
 ```
 
@@ -209,14 +211,14 @@ Props: `filePath: string | null`, `orgId: string`, `storagePath: string`, `onUpl
 let saving = $state(false);
 
 async function handleSave() {
-  if (!canSave || saving) return;
-  saving = true;
-  try {
-    await store.update(id, data);
-    onClose();
-  } finally {
-    saving = false;
-  }
+	if (!canSave || saving) return;
+	saving = true;
+	try {
+		await store.update(id, data);
+		onClose();
+	} finally {
+		saving = false;
+	}
 }
 ```
 

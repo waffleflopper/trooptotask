@@ -47,26 +47,28 @@
 		`Remove "${s.name}"? All schedule entries using this status will also be removed. This cannot be undone.`}
 >
 	{#snippet addForm()}
-		<input
-			type="text"
-			class="input"
-			bind:value={newName}
-			placeholder="Status name (e.g., Leave, TDY)"
-			aria-label="Status name"
-		/>
-		<div class="color-pickers">
-			<label class="color-picker">
-				<span>Background</span>
-				<input type="color" bind:value={newColor} />
-			</label>
-			<label class="color-picker">
-				<span>Text</span>
-				<input type="color" bind:value={newTextColor} />
-			</label>
+		<div class="inline-form">
+			<input
+				type="text"
+				class="input"
+				bind:value={newName}
+				placeholder="Status name (e.g., Leave, TDY)"
+				aria-label="Status name"
+			/>
+			<div class="color-pickers">
+				<label class="color-picker">
+					<span>Background</span>
+					<input type="color" bind:value={newColor} />
+				</label>
+				<label class="color-picker">
+					<span>Text</span>
+					<input type="color" bind:value={newTextColor} />
+				</label>
+			</div>
+			{#if newName.trim()}
+				<Badge label={newName} color={newColor} textColor={newTextColor} />
+			{/if}
 		</div>
-		{#if newName.trim()}
-			<Badge label={newName} color={newColor} textColor={newTextColor} />
-		{/if}
 	{/snippet}
 
 	{#snippet itemDisplay(status)}
@@ -74,22 +76,36 @@
 	{/snippet}
 
 	{#snippet editForm()}
-		<input type="text" class="input" bind:value={editName} placeholder="Status name" aria-label="Status name" />
-		<div class="color-pickers">
-			<label class="color-picker">
-				<span>BG</span>
-				<input type="color" bind:value={editColor} />
-			</label>
-			<label class="color-picker">
-				<span>Text</span>
-				<input type="color" bind:value={editTextColor} />
-			</label>
+		<div class="inline-form">
+			<input type="text" class="input" bind:value={editName} placeholder="Status name" aria-label="Status name" />
+			<div class="color-pickers">
+				<label class="color-picker">
+					<span>BG</span>
+					<input type="color" bind:value={editColor} />
+				</label>
+				<label class="color-picker">
+					<span>Text</span>
+					<input type="color" bind:value={editTextColor} />
+				</label>
+			</div>
+			<Badge label={editName || 'Preview'} color={editColor} textColor={editTextColor} />
 		</div>
-		<Badge label={editName || 'Preview'} color={editColor} textColor={editTextColor} />
 	{/snippet}
 </TypeManager>
 
 <style>
+	.inline-form {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		flex-wrap: wrap;
+	}
+
+	.inline-form .input {
+		flex: 1;
+		min-width: 150px;
+	}
+
 	.color-pickers {
 		display: flex;
 		gap: var(--spacing-sm);

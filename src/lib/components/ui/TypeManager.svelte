@@ -183,14 +183,13 @@
 
 	.add-form {
 		display: flex;
-		align-items: center;
+		flex-direction: column;
 		gap: var(--spacing-sm);
-		flex-wrap: wrap;
+		overflow: hidden;
 	}
 
 	.add-form :global(.input) {
-		flex: 1;
-		min-width: 150px;
+		min-width: 0;
 	}
 
 	.list-section {
@@ -246,10 +245,10 @@
 
 	.edit-form {
 		display: flex;
-		align-items: center;
+		flex-direction: column;
 		gap: var(--spacing-sm);
 		width: 100%;
-		flex-wrap: wrap;
+		overflow: hidden;
 	}
 
 	.edit-form :global(.input) {

@@ -386,6 +386,7 @@
 	.form-row {
 		display: flex;
 		gap: var(--spacing-md);
+		flex-wrap: wrap;
 	}
 
 	.form-group {

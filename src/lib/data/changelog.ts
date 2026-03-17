@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-17-training-manage-types-button',
+		date: '2026-03-17',
+		title: 'Training Types Button is Now Always Visible',
+		items: [
+			'The "Manage Types" button on the Training page is now permanently visible in the toolbar for admins and editors — no more hunting through the overflow menu or wondering where it went after you added your first training type'
+		]
+	},
+	{
 		id: '2026-03-15-accessibility-improvements',
 		date: '2026-03-15',
 		title: 'Accessibility Improvements',
@@ -47,14 +55,4 @@ export const changelog: ChangelogEntry[] = [
 			"Roster exports now include a DA Form 6 reference grid showing each person's queue position for every duty date — full transparency into why someone was assigned their days"
 		]
 	},
-	{
-		id: '2026-03-13-bulk-status-import',
-		date: '2026-03-13',
-		title: 'Import Statuses from Spreadsheets',
-		items: [
-			"You can now import status data from CSV or Excel files directly into the calendar — great for bringing over historic data you've been tracking elsewhere",
-			"The importer will help you match up status names if they don't exactly line up with your organization's status types",
-			"Supports column auto-detection so your spreadsheet doesn't have to be in any particular order"
-		]
-	}
 ];

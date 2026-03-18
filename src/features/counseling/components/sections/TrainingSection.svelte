@@ -69,13 +69,9 @@
 		<h3>Training</h3>
 		<div class="training-legend">
 			<span class="legend-item" style="--color: {TRAINING_STATUS_COLORS['current']}">Current</span>
-			<span class="legend-item" style="--color: {TRAINING_STATUS_COLORS['warning-yellow']}"
-				>Warning</span
-			>
+			<span class="legend-item" style="--color: {TRAINING_STATUS_COLORS['warning-yellow']}">Warning</span>
 			<span class="legend-item" style="--color: {TRAINING_STATUS_COLORS['expired']}">Expired</span>
-			<span class="legend-item" style="--color: {TRAINING_STATUS_COLORS['not-completed']}"
-				>Not Done</span
-			>
+			<span class="legend-item" style="--color: {TRAINING_STATUS_COLORS['not-completed']}">Not Done</span>
 		</div>
 	</div>
 	<div class="leader-card-body">
@@ -90,10 +86,7 @@
 					>
 						<div class="training-card-header">
 							<span class="training-name">{item.type.name}</span>
-							<span
-								class="training-status-badge"
-								style="background-color: {item.statusInfo.color}"
-							>
+							<span class="training-status-badge" style="background-color: {item.statusInfo.color}">
 								{item.statusInfo.label}
 							</span>
 						</div>
@@ -132,10 +125,7 @@
 	<TrainingRecordModal
 		{person}
 		trainingType={editingTrainingType}
-		existingTraining={personnelTrainingsStore.getByPersonnelAndType(
-			person.id,
-			editingTrainingType.id
-		)}
+		existingTraining={personnelTrainingsStore.getByPersonnelAndType(person.id, editingTrainingType.id)}
 		onSave={handleTrainingSave}
 		onRemove={handleTrainingRemove}
 		onClose={closeTrainingModal}

@@ -20,10 +20,7 @@
 	const counselingRecords = $derived(
 		counselingRecordsStore
 			.getByPersonnelId(person.id)
-			.sort(
-				(a, b) =>
-					new Date(b.dateConducted).getTime() - new Date(a.dateConducted).getTime()
-			)
+			.sort((a, b) => new Date(b.dateConducted).getTime() - new Date(a.dateConducted).getTime())
 	);
 
 	function getCounselingTypeName(typeId: string | null): string {
@@ -65,25 +62,13 @@
 		{#if counselingRecords.length > 0}
 			<div class="records-list">
 				{#each counselingRecords as record (record.id)}
-					<button
-						class="record-card"
-						onclick={() => canEdit && openEditCounseling(record)}
-						disabled={!canEdit}
-					>
+					<button class="record-card" onclick={() => canEdit && openEditCounseling(record)} disabled={!canEdit}>
 						<div class="record-header">
-							<span
-								class="record-type"
-								style="background-color: {getCounselingTypeColor(record.counselingTypeId)}"
-							>
+							<span class="record-type" style="background-color: {getCounselingTypeColor(record.counselingTypeId)}">
 								{getCounselingTypeName(record.counselingTypeId)}
 							</span>
-							<span class="record-date"
-								>{formatDisplayDate(record.dateConducted)}</span
-							>
-							<span
-								class="record-status"
-								style="background-color: {COUNSELING_STATUS_COLORS[record.status]}"
-							>
+							<span class="record-date">{formatDisplayDate(record.dateConducted)}</span>
+							<span class="record-status" style="background-color: {COUNSELING_STATUS_COLORS[record.status]}">
 								{COUNSELING_STATUS_LABELS[record.status]}
 							</span>
 						</div>
@@ -96,9 +81,7 @@
 						{/if}
 						<div class="record-footer">
 							{#if record.followUpDate}
-								<span class="follow-up"
-									>Follow-up: {formatDisplayDate(record.followUpDate)}</span
-								>
+								<span class="follow-up">Follow-up: {formatDisplayDate(record.followUpDate)}</span>
 							{/if}
 							<span class="signatures">
 								{#if record.counselorSigned}
@@ -124,11 +107,7 @@
 </div>
 
 {#if showCounselingModal}
-	<CounselingRecordModal
-		{person}
-		existingRecord={editingCounseling}
-		onClose={closeCounselingModal}
-	/>
+	<CounselingRecordModal {person} existingRecord={editingCounseling} onClose={closeCounselingModal} />
 {/if}
 
 <style>

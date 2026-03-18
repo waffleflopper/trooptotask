@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { sanitizeString, validateEmail } from '$lib/server/validation';
+import { sanitizeString, validateEmail, validatePassword } from '$lib/server/validation';
 import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -31,12 +31,9 @@ export const actions: Actions = {
 			return fail(400, { error: 'Please enter a valid email address', email, inviteCode });
 		}
 
-		if (!password || password.length < 12) {
-			return fail(400, { error: 'Password must be at least 12 characters', email, inviteCode });
-		}
-
-		if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-			return fail(400, { error: 'Password must include uppercase, lowercase, and a number', email, inviteCode });
+		const passwordError = validatePassword(password);
+		if (passwordError) {
+			return fail(400, { error: passwordError, email, inviteCode });
 		}
 
 		if (password !== confirmPassword) {

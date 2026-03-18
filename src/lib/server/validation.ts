@@ -42,6 +42,9 @@ export function validatePassword(password: string): string | null {
 	if (!password || password.length < 12) {
 		return 'Password must be at least 12 characters';
 	}
+	if (password.length > 128) {
+		return 'Password must be 128 characters or fewer';
+	}
 	if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
 		return 'Password must include uppercase, lowercase, and a number';
 	}

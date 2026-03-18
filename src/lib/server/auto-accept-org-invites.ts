@@ -5,19 +5,20 @@ export async function autoAcceptOrgInvites(
 	userId: string,
 	email: string
 ): Promise<{ accepted: number }> {
+	const normalizedEmail = email.toLowerCase();
+
 	const { data: invitations } = await supabase
 		.from('organization_invitations')
 		.select(
 			'organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
 		)
-		.eq('email', email.toLowerCase())
+		.eq('email', normalizedEmail)
 		.eq('status', 'pending');
 
 	if (!invitations || invitations.length === 0) {
 		return { accepted: 0 };
 	}
-
-	const normalizedEmail = email.toLowerCase();
+	const acceptedOrgIds: string[] = [];
 
 	for (const inv of invitations) {
 		const isAdminInvite =
@@ -33,7 +34,7 @@ export async function autoAcceptOrgInvites(
 			inv.can_edit_leaders_book &&
 			inv.can_manage_members;
 
-		await supabase.from('organization_memberships').insert({
+		const { error: insertError } = await supabase.from('organization_memberships').insert({
 			organization_id: inv.organization_id,
 			user_id: userId,
 			email: normalizedEmail,
@@ -51,13 +52,19 @@ export async function autoAcceptOrgInvites(
 			can_manage_members: inv.can_manage_members ?? false,
 			scoped_group_id: inv.scoped_group_id ?? null
 		});
+
+		if (!insertError) {
+			acceptedOrgIds.push(inv.organization_id);
+		}
 	}
 
-	await supabase
-		.from('organization_invitations')
-		.update({ status: 'accepted' })
-		.eq('email', normalizedEmail)
-		.eq('status', 'pending');
+	if (acceptedOrgIds.length > 0) {
+		await supabase
+			.from('organization_invitations')
+			.update({ status: 'accepted' })
+			.eq('email', normalizedEmail)
+			.in('organization_id', acceptedOrgIds);
+	}
 
-	return { accepted: invitations.length };
+	return { accepted: acceptedOrgIds.length };
 }

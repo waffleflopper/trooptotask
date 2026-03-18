@@ -7,7 +7,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// Exchange PKCE code for session if present
 	const code = url.searchParams.get('code');
 	if (code) {
-		await locals.supabase.auth.exchangeCodeForSession(code);
+		const { error: exchangeError } = await locals.supabase.auth.exchangeCodeForSession(code);
+		if (exchangeError) {
+			console.error('Accept-invite code exchange failed:', exchangeError.message);
+		}
 	}
 
 	const {
@@ -19,6 +22,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 export const actions: Actions = {
 	default: async ({ request, locals }) => {
+		// Verify user has a valid session (from invite token exchange)
+		const {
+			data: { user: sessionUser }
+		} = await locals.supabase.auth.getUser();
+		if (!sessionUser) {
+			return fail(401, { error: 'Session expired. Please use the invite link again.' });
+		}
+
 		const formData = await request.formData();
 		const password = formData.get('password') as string;
 		const confirmPassword = formData.get('confirmPassword') as string;
@@ -32,11 +43,11 @@ export const actions: Actions = {
 			return fail(400, { error: 'Passwords do not match' });
 		}
 
-		// Update the user's password (user is authenticated via invite token exchange)
+		// Update the user's password
 		const { error: updateError } = await locals.supabase.auth.updateUser({ password });
 
 		if (updateError) {
-			return fail(400, { error: updateError.message });
+			return fail(400, { error: 'Failed to set password. Please try again.' });
 		}
 
 		// Get the current user for auto-accept

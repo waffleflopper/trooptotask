@@ -233,6 +233,10 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const { orgId } = params;
+
+		const ctx = await createPermissionContext(locals.supabase, user.id, orgId);
+		ctx.requireManageMembers();
+
 		const formData = await request.formData();
 		const membershipId = formData.get('membershipId') as string;
 

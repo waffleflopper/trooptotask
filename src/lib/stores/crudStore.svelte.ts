@@ -20,11 +20,13 @@ export interface CrudStore<T extends { id: string }> {
 export function createCrudStore<T extends { id: string }>(config: CrudStoreConfig<T>): CrudStore<T> {
 	let items = $state.raw<T[]>([]);
 	let orgId = '';
+	let pendingMutations = 0;
 
 	async function removeImpl(id: string): Promise<DeleteResult> {
 		const original = items.find((item) => item.id === id);
 		if (!original) return 'error';
 
+		pendingMutations++;
 		items = items.filter((item) => item.id !== id);
 
 		try {
@@ -47,6 +49,8 @@ export function createCrudStore<T extends { id: string }>(config: CrudStoreConfi
 		} catch {
 			items = [...items, original];
 			return 'error';
+		} finally {
+			pendingMutations--;
 		}
 	}
 
@@ -56,11 +60,17 @@ export function createCrudStore<T extends { id: string }>(config: CrudStoreConfi
 		},
 
 		load(newItems: T[], newOrgId: string) {
+			// Skip reload if mutations are in-flight for the same org —
+			// prevents focus-triggered invalidation from clobbering optimistic state (issue #113)
+			if (pendingMutations > 0 && newOrgId === orgId) {
+				return;
+			}
 			items = newItems;
 			orgId = newOrgId;
 		},
 
 		async add(data: Omit<T, 'id'>): Promise<T | null> {
+			pendingMutations++;
 			const tempId = `temp-${crypto.randomUUID()}`;
 			const optimistic = { id: tempId, ...data } as T;
 			let displaced: T | undefined;
@@ -87,6 +97,8 @@ export function createCrudStore<T extends { id: string }>(config: CrudStoreConfi
 				items = items.filter((item) => item.id !== tempId);
 				if (displaced) items = [...items, displaced];
 				return null;
+			} finally {
+				pendingMutations--;
 			}
 		},
 
@@ -94,6 +106,7 @@ export function createCrudStore<T extends { id: string }>(config: CrudStoreConfi
 			const original = items.find((item) => item.id === id);
 			if (!original) return false;
 
+			pendingMutations++;
 			items = items.map((item) => (item.id === id ? { ...item, ...data } : item));
 
 			try {
@@ -109,6 +122,8 @@ export function createCrudStore<T extends { id: string }>(config: CrudStoreConfi
 			} catch {
 				items = items.map((item) => (item.id === id ? original : item));
 				return false;
+			} finally {
+				pendingMutations--;
 			}
 		},
 

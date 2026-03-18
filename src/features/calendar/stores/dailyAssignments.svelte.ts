@@ -18,6 +18,7 @@ class DailyAssignmentsStore {
 	#types = $state.raw<AssignmentType[]>([]);
 	#assignments = $state.raw<DailyAssignment[]>([]);
 	#orgId = '';
+	#pendingMutations = 0;
 
 	get types() {
 		return this.#types;
@@ -28,6 +29,7 @@ class DailyAssignmentsStore {
 	}
 
 	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
+		if (this.#pendingMutations > 0 && orgId === this.#orgId) return;
 		this.#types = types;
 		this.#assignments = assignments;
 		this.#orgId = orgId;
@@ -35,6 +37,7 @@ class DailyAssignmentsStore {
 
 	// Assignment Type methods
 	async addType(data: Omit<AssignmentType, 'id'>): Promise<AssignmentType | null> {
+		this.#pendingMutations++;
 		// Optimistic: add with temp ID
 		const tempId = `temp-${crypto.randomUUID()}`;
 		const optimisticType: AssignmentType = { id: tempId, ...data };
@@ -55,6 +58,8 @@ class DailyAssignmentsStore {
 			// Rollback on failure
 			this.#types = this.#types.filter((t) => t.id !== tempId);
 			return null;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -63,6 +68,7 @@ class DailyAssignmentsStore {
 		const original = this.#types.find((t) => t.id === id);
 		if (!original) return false;
 
+		this.#pendingMutations++;
 		this.#types = this.#types.map((t) => (t.id === id ? { ...t, ...data } : t));
 
 		try {
@@ -80,6 +86,8 @@ class DailyAssignmentsStore {
 			// Rollback on failure
 			this.#types = this.#types.map((t) => (t.id === id ? original : t));
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -88,6 +96,7 @@ class DailyAssignmentsStore {
 		const original = this.#types.find((t) => t.id === id);
 		if (!original) return false;
 
+		this.#pendingMutations++;
 		const affectedAssignments = this.#assignments.filter((a) => a.assignmentTypeId === id);
 		this.#types = this.#types.filter((t) => t.id !== id);
 		this.#assignments = this.#assignments.filter((a) => a.assignmentTypeId !== id);
@@ -105,6 +114,8 @@ class DailyAssignmentsStore {
 			this.#types = [...this.#types, original];
 			this.#assignments = [...this.#assignments, ...affectedAssignments];
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -114,6 +125,7 @@ class DailyAssignmentsStore {
 
 	// Daily Assignment methods
 	async setAssignment(date: string, assignmentTypeId: string, assigneeId: string): Promise<boolean> {
+		this.#pendingMutations++;
 		// Store existing assignment for rollback
 		const existingAssignment = this.#assignments.find(
 			(a) => a.date === date && a.assignmentTypeId === assignmentTypeId
@@ -160,6 +172,8 @@ class DailyAssignmentsStore {
 				this.#assignments = [...this.#assignments, existingAssignment];
 			}
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -168,6 +182,7 @@ class DailyAssignmentsStore {
 		const original = this.#assignments.find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
 		if (!original) return false;
 
+		this.#pendingMutations++;
 		this.#assignments = this.#assignments.filter((a) => !(a.date === date && a.assignmentTypeId === assignmentTypeId));
 
 		try {
@@ -182,12 +197,15 @@ class DailyAssignmentsStore {
 			// Rollback on failure
 			this.#assignments = [...this.#assignments, original];
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
 	async setAssignmentBatch(
 		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
 	): Promise<boolean> {
+		this.#pendingMutations++;
 		// Optimistic: apply all changes locally
 		const originals: DailyAssignment[] = [];
 		const tempEntries: DailyAssignment[] = [];
@@ -232,6 +250,8 @@ class DailyAssignmentsStore {
 			const tempIds = new Set(tempEntries.map((e) => e.id));
 			this.#assignments = [...this.#assignments.filter((a) => !tempIds.has(a.id)), ...originals];
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 

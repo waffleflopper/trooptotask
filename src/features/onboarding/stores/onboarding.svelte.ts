@@ -3,6 +3,7 @@ import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.
 class OnboardingStore {
 	#onboardings = $state.raw<PersonnelOnboarding[]>([]);
 	#orgId = '';
+	#pendingMutations = 0;
 
 	get list() {
 		return this.#onboardings;
@@ -13,6 +14,7 @@ class OnboardingStore {
 	}
 
 	load(onboardings: PersonnelOnboarding[], orgId: string) {
+		if (this.#pendingMutations > 0 && orgId === this.#orgId) return;
 		this.#onboardings = onboardings;
 		this.#orgId = orgId;
 	}
@@ -30,6 +32,7 @@ class OnboardingStore {
 		startedAt: string,
 		templateId: string | null
 	): Promise<PersonnelOnboarding | null> {
+		this.#pendingMutations++;
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/onboarding`, {
 				method: 'POST',
@@ -42,6 +45,8 @@ class OnboardingStore {
 			return newOnboarding;
 		} catch {
 			return null;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -52,6 +57,7 @@ class OnboardingStore {
 		const onboarding = this.#onboardings.find((o) => o.steps.some((s) => s.id === stepId));
 		if (!onboarding) return false;
 
+		this.#pendingMutations++;
 		const originalSteps = [...onboarding.steps];
 		const updatedSteps = onboarding.steps.map((s) => (s.id === stepId ? { ...s, ...data } : s));
 
@@ -68,6 +74,8 @@ class OnboardingStore {
 		} catch {
 			this.#onboardings = this.#onboardings.map((o) => (o.id === onboarding.id ? { ...o, steps: originalSteps } : o));
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -75,6 +83,7 @@ class OnboardingStore {
 		const onboarding = this.#onboardings.find((o) => o.steps.some((s) => s.id === stepId));
 		if (!onboarding) return false;
 
+		this.#pendingMutations++;
 		const originalSteps = [...onboarding.steps];
 		this.#onboardings = this.#onboardings.map((o) =>
 			o.id === onboarding.id ? { ...o, steps: o.steps.filter((s) => s.id !== stepId) } : o
@@ -91,10 +100,13 @@ class OnboardingStore {
 		} catch {
 			this.#onboardings = this.#onboardings.map((o) => (o.id === onboarding.id ? { ...o, steps: originalSteps } : o));
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
 	async resync(onboardingId: string): Promise<{ success: boolean; error?: string }> {
+		this.#pendingMutations++;
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/onboarding-resync`, {
 				method: 'POST',
@@ -120,10 +132,13 @@ class OnboardingStore {
 			return { success: true };
 		} catch {
 			return { success: false, error: 'Failed to re-sync onboarding' };
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
 	async assignTemplate(onboardingId: string, templateId: string): Promise<{ success: boolean; error?: string }> {
+		this.#pendingMutations++;
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/onboarding-assign-template`, {
 				method: 'POST',
@@ -142,6 +157,8 @@ class OnboardingStore {
 			return { success: true };
 		} catch {
 			return { success: false, error: 'Failed to assign template' };
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -149,6 +166,7 @@ class OnboardingStore {
 		const original = this.#onboardings.find((o) => o.id === id);
 		if (!original) return false;
 
+		this.#pendingMutations++;
 		this.#onboardings = this.#onboardings.map((o) => (o.id === id ? { ...o, status: 'cancelled' as const } : o));
 
 		try {
@@ -162,6 +180,8 @@ class OnboardingStore {
 		} catch {
 			this.#onboardings = this.#onboardings.map((o) => (o.id === id ? original : o));
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -169,6 +189,7 @@ class OnboardingStore {
 		const original = this.#onboardings.find((o) => o.id === id);
 		if (!original) return false;
 
+		this.#pendingMutations++;
 		const today = new Date().toISOString().split('T')[0];
 		this.#onboardings = this.#onboardings.map((o) =>
 			o.id === id ? { ...o, status: 'completed' as const, completedAt: today } : o
@@ -185,6 +206,8 @@ class OnboardingStore {
 		} catch {
 			this.#onboardings = this.#onboardings.map((o) => (o.id === id ? original : o));
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 }

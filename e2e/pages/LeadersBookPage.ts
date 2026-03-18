@@ -18,13 +18,13 @@ export class LeadersBookPage {
 		const personCard = this.page.getByRole('button', { name: new RegExp(name) }).first();
 		await personCard.click();
 		// Wait for the SoldierLeadersBookView to load — has "Counselings" card with "+ New" button
-		await expect(this.page.locator('.card').filter({ hasText: 'Counselings' })).toBeVisible({ timeout: 10000 });
+		await expect(this.page.locator('.leader-card').filter({ hasText: 'Counselings' })).toBeVisible({ timeout: 10000 });
 	}
 
 	async addCounselingRecord() {
 		// Click the "+ New" button in the Counselings card header
 		// The Counselings section has a header with "Counselings (N)" and a "+ New" button
-		const counselingsCard = this.page.locator('.card').filter({ hasText: 'Counselings' });
+		const counselingsCard = this.page.locator('.leader-card').filter({ hasText: 'Counselings' });
 		await counselingsCard.getByRole('button', { name: '+ New' }).click();
 		// Wait for CounselingRecordModal to open
 		await expect(this.page.getByRole('heading', { name: /New Counseling/ })).toBeVisible({ timeout: 5000 });

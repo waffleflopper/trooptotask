@@ -237,8 +237,11 @@
 			const tt = trainingTypes.find((t) => t.id === step.trainingTypeId);
 			return tt ? `Training: ${tt.name}` : 'Training type not found';
 		}
-		if (step.stepType === 'paperwork' && step.stages?.length) {
-			return `${step.stages.length} stage${step.stages.length === 1 ? '' : 's'}`;
+		if (step.stepType === 'paperwork') {
+			if (step.stages?.length) {
+				return `${step.stages.length} stage${step.stages.length === 1 ? '' : 's'}`;
+			}
+			return 'No stages defined';
 		}
 		if (step.description) {
 			return step.description.length > 60 ? step.description.substring(0, 60) + '...' : step.description;

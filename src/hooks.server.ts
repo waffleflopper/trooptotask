@@ -6,8 +6,7 @@ import { auditLog } from '$lib/server/auditLog';
 import '$lib/server/env'; // validate env vars on startup
 
 const securityHeaders: Record<string, string> = {
-	'Content-Security-Policy':
-		"default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; frame-src https://js.stripe.com; connect-src 'self' https://*.supabase.co; img-src 'self' data: blob:; font-src 'self'",
+	'Content-Security-Policy': `default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; frame-src https://js.stripe.com; connect-src 'self' https://*.supabase.co ${import.meta.env.DEV ? 'http://127.0.0.1:54321' : ''}; img-src 'self' data: blob:; font-src 'self'`,
 	'X-Frame-Options': 'DENY',
 	'X-Content-Type-Options': 'nosniff',
 	'Referrer-Policy': 'strict-origin-when-cross-origin',

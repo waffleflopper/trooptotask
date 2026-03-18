@@ -160,11 +160,7 @@ export async function createPermissionContext(
 		async requireGroupAccess(supabaseClient: SupabaseClient, personnelId: string): Promise<void> {
 			if (!scopedGroupId) return;
 
-			const { data: person } = await supabaseClient
-				.from('personnel')
-				.select('group_id')
-				.eq('id', personnelId)
-				.single();
+			const { data: person } = await supabaseClient.from('personnel').select('group_id').eq('id', personnelId).single();
 
 			if (person && person.group_id !== scopedGroupId) {
 				throw error(403, 'You do not have access to personnel outside your group');

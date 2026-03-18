@@ -131,6 +131,11 @@ describe('validatePassword', () => {
 		expect(validatePassword('NoDigitsHereAbc')).toBe('Password must include uppercase, lowercase, and a number');
 	});
 
+	it('rejects password longer than 128 characters', () => {
+		const longPassword = 'Aa1' + 'x'.repeat(126);
+		expect(validatePassword(longPassword)).toBe('Password must be 128 characters or fewer');
+	});
+
 	it('rejects empty password', () => {
 		expect(validatePassword('')).toBe('Password must be at least 12 characters');
 	});

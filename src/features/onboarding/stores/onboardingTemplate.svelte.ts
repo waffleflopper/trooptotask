@@ -6,6 +6,7 @@ class OnboardingTemplateStore {
 	#steps = $state.raw<OnboardingTemplateStep[]>([]);
 	#activeTemplateId = $state<string | null>(null);
 	#orgId = '';
+	#pendingMutations = 0;
 
 	get templates() {
 		return [...this.#templates].sort((a, b) => a.name.localeCompare(b.name));
@@ -22,6 +23,7 @@ class OnboardingTemplateStore {
 	}
 
 	load(templates: OnboardingTemplate[], steps: OnboardingTemplateStep[], orgId: string) {
+		if (this.#pendingMutations > 0 && orgId === this.#orgId) return;
 		this.#templates = templates;
 		this.#steps = steps;
 		this.#orgId = orgId;
@@ -50,6 +52,7 @@ class OnboardingTemplateStore {
 		name: string,
 		description: string | null
 	): Promise<{ template: OnboardingTemplate | null; error?: string }> {
+		this.#pendingMutations++;
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/onboarding-templates`, {
 				method: 'POST',
@@ -66,6 +69,8 @@ class OnboardingTemplateStore {
 			return { template: newTemplate };
 		} catch {
 			return { template: null, error: 'Failed to create template' };
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -76,6 +81,7 @@ class OnboardingTemplateStore {
 		const original = this.#templates.find((t) => t.id === id);
 		if (!original) return { success: false };
 
+		this.#pendingMutations++;
 		// Optimistic update
 		this.#templates = this.#templates.map((t) => (t.id === id ? { ...t, ...data } : t));
 
@@ -96,6 +102,8 @@ class OnboardingTemplateStore {
 		} catch {
 			this.#templates = this.#templates.map((t) => (t.id === id ? original : t));
 			return { success: false, error: 'Failed to update template' };
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -103,6 +111,7 @@ class OnboardingTemplateStore {
 		const original = this.#templates.find((t) => t.id === id);
 		if (!original) return { success: false };
 
+		this.#pendingMutations++;
 		try {
 			const res = await fetch(`/org/${this.#orgId}/api/onboarding-templates`, {
 				method: 'DELETE',
@@ -124,6 +133,8 @@ class OnboardingTemplateStore {
 			return { success: true };
 		} catch {
 			return { success: false, error: 'Failed to delete template' };
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -132,6 +143,7 @@ class OnboardingTemplateStore {
 	async add(data: Omit<OnboardingTemplateStep, 'id' | 'templateId'>): Promise<OnboardingTemplateStep | null> {
 		if (!this.#activeTemplateId) return null;
 
+		this.#pendingMutations++;
 		const tempId = `temp-${crypto.randomUUID()}`;
 		const optimistic: OnboardingTemplateStep = {
 			id: tempId,
@@ -153,6 +165,8 @@ class OnboardingTemplateStore {
 		} catch {
 			this.#steps = this.#steps.filter((s) => s.id !== tempId);
 			return null;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -160,6 +174,7 @@ class OnboardingTemplateStore {
 		const original = this.#steps.find((s) => s.id === id);
 		if (!original) return false;
 
+		this.#pendingMutations++;
 		this.#steps = this.#steps.map((s) => (s.id === id ? { ...s, ...data } : s));
 
 		try {
@@ -175,6 +190,8 @@ class OnboardingTemplateStore {
 		} catch {
 			this.#steps = this.#steps.map((s) => (s.id === id ? original : s));
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -182,6 +199,7 @@ class OnboardingTemplateStore {
 		const original = this.#steps.find((s) => s.id === id);
 		if (!original) return false;
 
+		this.#pendingMutations++;
 		this.#steps = this.#steps.filter((s) => s.id !== id);
 
 		try {
@@ -195,6 +213,8 @@ class OnboardingTemplateStore {
 		} catch {
 			this.#steps = [...this.#steps, original];
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 }

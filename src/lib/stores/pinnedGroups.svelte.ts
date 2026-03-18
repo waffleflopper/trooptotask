@@ -1,12 +1,14 @@
 class PinnedGroupsStore {
 	#pinnedGroups = $state.raw<string[]>([]);
 	#orgId = '';
+	#pendingMutations = 0;
 
 	get list() {
 		return this.#pinnedGroups;
 	}
 
 	load(pinnedGroups: string[], orgId: string) {
+		if (this.#pendingMutations > 0 && orgId === this.#orgId) return;
 		this.#pinnedGroups = pinnedGroups;
 		this.#orgId = orgId;
 	}
@@ -18,6 +20,7 @@ class PinnedGroupsStore {
 	async pin(group: string): Promise<boolean> {
 		if (this.#pinnedGroups.includes(group)) return true;
 
+		this.#pendingMutations++;
 		// Optimistic: add immediately
 		this.#pinnedGroups = [...this.#pinnedGroups, group];
 
@@ -33,10 +36,13 @@ class PinnedGroupsStore {
 			// Rollback on failure
 			this.#pinnedGroups = this.#pinnedGroups.filter((g) => g !== group);
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
 	async unpin(group: string): Promise<boolean> {
+		this.#pendingMutations++;
 		// Optimistic: remove immediately
 		const originalList = [...this.#pinnedGroups];
 		this.#pinnedGroups = this.#pinnedGroups.filter((g) => g !== group);
@@ -53,6 +59,8 @@ class PinnedGroupsStore {
 			// Rollback on failure
 			this.#pinnedGroups = originalList;
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -68,6 +76,7 @@ class PinnedGroupsStore {
 		const index = this.#pinnedGroups.indexOf(group);
 		if (index <= 0) return false;
 
+		this.#pendingMutations++;
 		// Optimistic: reorder immediately
 		const originalList = [...this.#pinnedGroups];
 		const newList = [...this.#pinnedGroups];
@@ -86,6 +95,8 @@ class PinnedGroupsStore {
 			// Rollback on failure
 			this.#pinnedGroups = originalList;
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 
@@ -93,6 +104,7 @@ class PinnedGroupsStore {
 		const index = this.#pinnedGroups.indexOf(group);
 		if (index < 0 || index >= this.#pinnedGroups.length - 1) return false;
 
+		this.#pendingMutations++;
 		// Optimistic: reorder immediately
 		const originalList = [...this.#pinnedGroups];
 		const newList = [...this.#pinnedGroups];
@@ -111,6 +123,8 @@ class PinnedGroupsStore {
 			// Rollback on failure
 			this.#pinnedGroups = originalList;
 			return false;
+		} finally {
+			this.#pendingMutations--;
 		}
 	}
 }

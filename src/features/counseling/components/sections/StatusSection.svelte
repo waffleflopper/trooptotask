@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
 	import type { AvailabilityEntry } from '$features/calendar/calendar.types';
+	import { formatDate } from '$lib/utils/dates';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import PersonStatusModal from '$features/calendar/components/PersonStatusModal.svelte';
@@ -15,14 +16,6 @@
 	let showStatusModal = $state(false);
 	let editingStatus = $state<AvailabilityEntry | undefined>(undefined);
 
-	// Helper to get local date string (YYYY-MM-DD) without timezone issues
-	function getLocalDateStr(date: Date = new Date()): string {
-		const year = date.getFullYear();
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		return `${year}-${month}-${day}`;
-	}
-
 	// Get all statuses for this person (reactive via store.list)
 	const personStatuses = $derived(
 		availabilityStore.list.filter((e) => e.personnelId === person.id)
@@ -30,7 +23,7 @@
 
 	// Get current status (active today)
 	const currentStatus = $derived.by(() => {
-		const todayStr = getLocalDateStr();
+		const todayStr = formatDate(new Date());
 		return personStatuses.find(
 			(entry) => entry.startDate <= todayStr && entry.endDate >= todayStr
 		);
@@ -42,8 +35,8 @@
 		const threeMonthsOut = new Date(today);
 		threeMonthsOut.setMonth(threeMonthsOut.getMonth() + 3);
 
-		const todayStr = getLocalDateStr(today);
-		const futureStr = getLocalDateStr(threeMonthsOut);
+		const todayStr = formatDate(today);
+		const futureStr = formatDate(threeMonthsOut);
 
 		const current = currentStatus;
 

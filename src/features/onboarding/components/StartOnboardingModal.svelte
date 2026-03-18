@@ -4,6 +4,7 @@
 	import type { OnboardingTemplate } from '../onboarding.types';
 	import Modal from '$lib/components/Modal.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
+	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	interface Props {
@@ -76,12 +77,14 @@
 	<div class="form-group">
 		<label class="label" for="personnel-select">Person</label>
 		<div class="person-select-row">
-			<select id="personnel-select" class="select" bind:value={selectedPersonnelId} style="flex: 1;">
-				<option value="">Select a person...</option>
-				{#each availablePersonnel as p (p.id)}
-					<option value={p.id}>{p.rank} {p.lastName}, {p.firstName}</option>
-				{/each}
-			</select>
+			<div style="flex: 1;">
+				<SearchSelect
+					id="personnel-select"
+					options={availablePersonnel.map((p) => ({ value: p.id, label: `${p.rank} ${p.lastName}, ${p.firstName}` }))}
+					bind:value={selectedPersonnelId}
+					placeholder="Search for a person..."
+				/>
+			</div>
 			<button class="btn btn-secondary btn-sm" onclick={() => (showAddPersonModal = true)}>+ Add New</button>
 		</div>
 	</div>

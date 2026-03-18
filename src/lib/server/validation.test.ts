@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeString, validateEmail, validateUUID, validateEnum, requireString } from './validation';
+import {
+	sanitizeString,
+	validateEmail,
+	validateUUID,
+	validateEnum,
+	requireString,
+	validatePassword
+} from './validation';
 
 describe('sanitizeString', () => {
 	it('trims whitespace', () => {
@@ -99,5 +106,37 @@ describe('requireString', () => {
 
 	it('respects maxLength', () => {
 		expect(requireString('abcdef', 3)).toBe('abc');
+	});
+});
+
+describe('validatePassword', () => {
+	it('accepts valid password with 12+ chars, mixed case, and digit', () => {
+		expect(validatePassword('SecurePass12')).toBeNull();
+		expect(validatePassword('MyPassword123!')).toBeNull();
+	});
+
+	it('rejects password shorter than 12 characters', () => {
+		expect(validatePassword('Short1Aa')).toBe('Password must be at least 12 characters');
+	});
+
+	it('rejects password without lowercase letter', () => {
+		expect(validatePassword('ALLUPPERCASE1')).toBe('Password must include uppercase, lowercase, and a number');
+	});
+
+	it('rejects password without uppercase letter', () => {
+		expect(validatePassword('alllowercase1')).toBe('Password must include uppercase, lowercase, and a number');
+	});
+
+	it('rejects password without digit', () => {
+		expect(validatePassword('NoDigitsHereAbc')).toBe('Password must include uppercase, lowercase, and a number');
+	});
+
+	it('rejects password longer than 128 characters', () => {
+		const longPassword = 'Aa1' + 'x'.repeat(126);
+		expect(validatePassword(longPassword)).toBe('Password must be 128 characters or fewer');
+	});
+
+	it('rejects empty password', () => {
+		expect(validatePassword('')).toBe('Password must be at least 12 characters');
 	});
 });

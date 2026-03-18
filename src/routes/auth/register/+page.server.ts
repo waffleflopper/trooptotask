@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { sanitizeString, validateEmail } from '$lib/server/validation';
+import { sanitizeString, validateEmail, validatePassword } from '$lib/server/validation';
+import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.session) {
@@ -30,12 +31,9 @@ export const actions: Actions = {
 			return fail(400, { error: 'Please enter a valid email address', email, inviteCode });
 		}
 
-		if (!password || password.length < 12) {
-			return fail(400, { error: 'Password must be at least 12 characters', email, inviteCode });
-		}
-
-		if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-			return fail(400, { error: 'Password must include uppercase, lowercase, and a number', email, inviteCode });
+		const passwordError = validatePassword(password);
+		if (passwordError) {
+			return fail(400, { error: passwordError, email, inviteCode });
 		}
 
 		if (password !== confirmPassword) {
@@ -81,54 +79,7 @@ export const actions: Actions = {
 
 		// After signup, auto-accept any pending organization invitations for this email
 		if (newUser) {
-			const { data: invitations } = await locals.supabase
-				.from('organization_invitations')
-				.select(
-					'organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
-				)
-				.eq('email', email.toLowerCase())
-				.eq('status', 'pending');
-
-			if (invitations && invitations.length > 0) {
-				for (const inv of invitations) {
-					const isAdminInvite =
-						inv.can_view_calendar &&
-						inv.can_edit_calendar &&
-						inv.can_view_personnel &&
-						inv.can_edit_personnel &&
-						inv.can_view_training &&
-						inv.can_edit_training &&
-						inv.can_view_onboarding &&
-						inv.can_edit_onboarding &&
-						inv.can_view_leaders_book &&
-						inv.can_edit_leaders_book &&
-						inv.can_manage_members;
-
-					await locals.supabase.from('organization_memberships').insert({
-						organization_id: inv.organization_id,
-						user_id: newUser.id,
-						email: email.toLowerCase(),
-						role: isAdminInvite ? 'admin' : 'member',
-						can_view_calendar: inv.can_view_calendar ?? true,
-						can_edit_calendar: inv.can_edit_calendar ?? true,
-						can_view_personnel: inv.can_view_personnel ?? true,
-						can_edit_personnel: inv.can_edit_personnel ?? true,
-						can_view_training: inv.can_view_training ?? true,
-						can_edit_training: inv.can_edit_training ?? true,
-						can_view_onboarding: inv.can_view_onboarding ?? true,
-						can_edit_onboarding: inv.can_edit_onboarding ?? true,
-						can_view_leaders_book: inv.can_view_leaders_book ?? true,
-						can_edit_leaders_book: inv.can_edit_leaders_book ?? true,
-						can_manage_members: inv.can_manage_members ?? false,
-						scoped_group_id: inv.scoped_group_id ?? null
-					});
-				}
-				await locals.supabase
-					.from('organization_invitations')
-					.update({ status: 'accepted' })
-					.eq('email', email.toLowerCase())
-					.eq('status', 'pending');
-			}
+			await autoAcceptOrgInvites(locals.supabase, newUser.id, email);
 		}
 
 		// Check if email confirmation is required

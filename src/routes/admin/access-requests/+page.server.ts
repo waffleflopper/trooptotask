@@ -55,6 +55,7 @@ export const actions: Actions = {
 		);
 
 		if (inviteError) {
+			console.error('Supabase invite error:', inviteError.message, inviteError);
 			if (inviteError.message?.includes('already been registered') || inviteError.message?.includes('already exists')) {
 				return fail(400, {
 					error: 'This email is already registered. The user may need to log in or reset their password.'

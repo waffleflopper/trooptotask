@@ -2,23 +2,17 @@
 	import type { Personnel } from '$lib/types';
 	import type { AvailabilityEntry } from '$features/calendar/calendar.types';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
-	import type { CounselingRecord, DevelopmentGoal } from '../counseling.types';
+	import type { CounselingRecord } from '../counseling.types';
 	import {
 		COUNSELING_STATUS_LABELS,
-		COUNSELING_STATUS_COLORS,
-		GOAL_STATUS_LABELS,
-		GOAL_STATUS_COLORS,
-		GOAL_PRIORITY_LABELS,
-		GOAL_PRIORITY_COLORS,
-		GOAL_CATEGORY_LABELS,
-		GOAL_CATEGORY_COLORS
+		COUNSELING_STATUS_COLORS
 	} from '../counseling.types';
 	import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
 	import { formatDate as formatDateISO, formatDisplayDate } from '$lib/utils/dates';
 	import { personnelExtendedInfoStore } from '$features/personnel/stores/personnelExtendedInfo.svelte';
 	import { counselingTypesStore } from '$features/counseling/stores/counselingTypes.svelte';
 	import { counselingRecordsStore } from '$features/counseling/stores/counselingRecords.svelte';
-	import { developmentGoalsStore } from '$features/counseling/stores/developmentGoals.svelte';
+	import GoalsSection from './sections/GoalsSection.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -28,7 +22,6 @@
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import ExtendedInfoModal from '$features/personnel/components/ExtendedInfoModal.svelte';
 	import CounselingRecordModal from './CounselingRecordModal.svelte';
-	import DevelopmentGoalModal from './DevelopmentGoalModal.svelte';
 	import PersonStatusModal from '$features/calendar/components/PersonStatusModal.svelte';
 	import TrainingRecordModal from '$features/training/components/TrainingRecordModal.svelte';
 
@@ -43,11 +36,9 @@
 
 	let showExtendedInfoModal = $state(false);
 	let showCounselingModal = $state(false);
-	let showGoalModal = $state(false);
 	let showStatusModal = $state(false);
 	let showTrainingModal = $state(false);
 	let editingCounseling = $state<CounselingRecord | undefined>(undefined);
-	let editingGoal = $state<DevelopmentGoal | undefined>(undefined);
 	let editingStatus = $state<AvailabilityEntry | undefined>(undefined);
 	let editingTrainingType = $state<TrainingType | undefined>(undefined);
 
@@ -57,8 +48,6 @@
 			.getByPersonnelId(person.id)
 			.sort((a, b) => new Date(b.dateConducted).getTime() - new Date(a.dateConducted).getTime())
 	);
-	const developmentGoals = $derived(developmentGoalsStore.getByPersonnelId(person.id));
-
 	// Get all statuses for this person (reactive via store.list)
 	const personStatuses = $derived(availabilityStore.list.filter((e) => e.personnelId === person.id));
 
@@ -149,21 +138,6 @@
 	function closeCounselingModal() {
 		showCounselingModal = false;
 		editingCounseling = undefined;
-	}
-
-	function openNewGoal() {
-		editingGoal = undefined;
-		showGoalModal = true;
-	}
-
-	function openEditGoal(goal: DevelopmentGoal) {
-		editingGoal = goal;
-		showGoalModal = true;
-	}
-
-	function closeGoalModal() {
-		showGoalModal = false;
-		editingGoal = undefined;
 	}
 
 	function openNewStatus() {
@@ -283,8 +257,8 @@
 		<main class="view-content">
 			<div class="dashboard-row top-row">
 				<!-- Info Card -->
-				<div class="card">
-					<div class="card-header">
+				<div class="leader-card">
+					<div class="leader-card-header">
 						<h3>Information</h3>
 						{#if canEdit}
 							<button class="btn btn-sm btn-primary" onclick={() => (showExtendedInfoModal = true)}>
@@ -292,7 +266,7 @@
 							</button>
 						{/if}
 					</div>
-					<div class="card-body">
+					<div class="leader-card-body">
 						{#if extendedInfo}
 							<div class="info-sections">
 								<section class="info-section">
@@ -409,14 +383,14 @@
 				</div>
 
 				<!-- Status Card -->
-				<div class="card">
-					<div class="card-header">
+				<div class="leader-card">
+					<div class="leader-card-header">
 						<h3>Status</h3>
 						{#if canEdit}
 							<button class="btn btn-sm btn-primary" onclick={openNewStatus}>+ Add</button>
 						{/if}
 					</div>
-					<div class="card-body">
+					<div class="leader-card-body">
 						<!-- Current Status -->
 						<div class="current-status-section">
 							<h3>Current Status</h3>
@@ -491,8 +465,8 @@
 				</div>
 
 				<!-- Training Card -->
-				<div class="card">
-					<div class="card-header">
+				<div class="leader-card">
+					<div class="leader-card-header">
 						<h3>Training</h3>
 						<div class="training-legend">
 							<span class="legend-item" style="--color: {TRAINING_STATUS_COLORS['current']}">Current</span>
@@ -501,7 +475,7 @@
 							<span class="legend-item" style="--color: {TRAINING_STATUS_COLORS['not-completed']}">Not Done</span>
 						</div>
 					</div>
-					<div class="card-body">
+					<div class="leader-card-body">
 						{#if trainingStatuses.length > 0}
 							<div class="training-grid">
 								{#each trainingStatuses as item (item.type.id)}
@@ -551,14 +525,14 @@
 
 			<div class="dashboard-row bottom-row">
 				<!-- Counselings Card -->
-				<div class="card">
-					<div class="card-header">
+				<div class="leader-card">
+					<div class="leader-card-header">
 						<h3>Counselings ({counselingRecords.length})</h3>
 						{#if canEdit}
 							<button class="btn btn-sm btn-primary" onclick={openNewCounseling}>+ New</button>
 						{/if}
 					</div>
-					<div class="card-body">
+					<div class="leader-card-body">
 						{#if counselingRecords.length > 0}
 							<div class="records-list">
 								{#each counselingRecords as record (record.id)}
@@ -609,52 +583,7 @@
 					</div>
 				</div>
 
-				<!-- Goals Card -->
-				<div class="card">
-					<div class="card-header">
-						<h3>Goals ({developmentGoals.length})</h3>
-						{#if canEdit}
-							<button class="btn btn-sm btn-primary" onclick={openNewGoal}>+ New</button>
-						{/if}
-					</div>
-					<div class="card-body">
-						{#if developmentGoals.length > 0}
-							<div class="goals-list">
-								{#each developmentGoals as goal (goal.id)}
-									<button class="goal-card" onclick={() => canEdit && openEditGoal(goal)} disabled={!canEdit}>
-										<div class="goal-header">
-											<span class="goal-category" style="background-color: {GOAL_CATEGORY_COLORS[goal.category]}">
-												{GOAL_CATEGORY_LABELS[goal.category]}
-											</span>
-											<span class="goal-priority" style="color: {GOAL_PRIORITY_COLORS[goal.priority]}">
-												{GOAL_PRIORITY_LABELS[goal.priority]}
-											</span>
-										</div>
-										<h4 class="goal-title">{goal.title}</h4>
-										{#if goal.description}
-											<p class="goal-description">{goal.description}</p>
-										{/if}
-										<div class="goal-footer">
-											<span class="goal-status" style="background-color: {GOAL_STATUS_COLORS[goal.status]}">
-												{GOAL_STATUS_LABELS[goal.status]}
-											</span>
-											{#if goal.targetDate}
-												<span class="goal-target">Target: {formatDisplayDate(goal.targetDate)}</span>
-											{/if}
-										</div>
-									</button>
-								{/each}
-							</div>
-						{:else}
-							<div class="empty-state">
-								<p>No development goals yet.</p>
-								{#if canEdit}
-									<p>Click "+ New" to add career, education, or personal goals.</p>
-								{/if}
-							</div>
-						{/if}
-					</div>
-				</div>
+				<GoalsSection {person} {canEdit} />
 			</div>
 		</main>
 	</div>
@@ -666,10 +595,6 @@
 
 {#if showCounselingModal}
 	<CounselingRecordModal {person} existingRecord={editingCounseling} onClose={closeCounselingModal} />
-{/if}
-
-{#if showGoalModal}
-	<DevelopmentGoalModal {person} existingGoal={editingGoal} onClose={closeGoalModal} />
 {/if}
 
 {#if showStatusModal}
@@ -780,37 +705,6 @@
 		grid-template-columns: repeat(2, 1fr);
 	}
 
-	.card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-		max-height: 480px;
-	}
-
-	.card-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-md) var(--spacing-lg);
-		border-bottom: 1px solid var(--color-border);
-		flex-shrink: 0;
-	}
-
-	.card-header h3 {
-		font-size: var(--font-size-base);
-		font-weight: 600;
-		margin: 0;
-	}
-
-	.card-body {
-		overflow-y: auto;
-		padding: var(--spacing-md) var(--spacing-lg);
-		flex: 1;
-	}
-
 	.btn-sm {
 		padding: var(--spacing-xs) var(--spacing-sm);
 		font-size: var(--font-size-sm);
@@ -883,15 +777,13 @@
 		margin: 0;
 	}
 
-	.records-list,
-	.goals-list {
+	.records-list {
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
 	}
 
-	.record-card,
-	.goal-card {
+	.record-card {
 		display: flex;
 		flex-direction: column;
 		padding: var(--spacing-md);
@@ -903,27 +795,23 @@
 		text-align: left;
 	}
 
-	.record-card:hover:not(:disabled),
-	.goal-card:hover:not(:disabled) {
+	.record-card:hover:not(:disabled) {
 		border-color: var(--color-primary);
 		box-shadow: var(--shadow-2);
 	}
 
-	.record-card:disabled,
-	.goal-card:disabled {
+	.record-card:disabled {
 		cursor: default;
 	}
 
-	.record-header,
-	.goal-header {
+	.record-header {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
 		margin-bottom: var(--spacing-sm);
 	}
 
-	.record-type,
-	.goal-category {
+	.record-type {
 		padding: 2px var(--spacing-sm);
 		border-radius: var(--radius-sm);
 		color: white;
@@ -931,14 +819,12 @@
 		font-weight: 500;
 	}
 
-	.record-date,
-	.goal-target {
+	.record-date {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 	}
 
-	.record-status,
-	.goal-status {
+	.record-status {
 		padding: 2px var(--spacing-sm);
 		border-radius: var(--radius-sm);
 		color: white;
@@ -947,20 +833,13 @@
 		margin-left: auto;
 	}
 
-	.goal-priority {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-	}
-
-	.record-subject,
-	.goal-title {
+	.record-subject {
 		font-size: var(--font-size-base);
 		font-weight: 600;
 		margin: 0 0 var(--spacing-xs);
 	}
 
-	.record-preview,
-	.goal-description {
+	.record-preview {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 		margin: 0 0 var(--spacing-sm);
@@ -976,8 +855,7 @@
 		font-weight: 500;
 	}
 
-	.record-footer,
-	.goal-footer {
+	.record-footer {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-md);
@@ -1278,10 +1156,6 @@
 		.top-row,
 		.bottom-row {
 			grid-template-columns: 1fr;
-		}
-
-		.card {
-			max-height: none;
 		}
 	}
 </style>

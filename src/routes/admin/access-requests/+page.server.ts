@@ -1,17 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { sendInviteEmail } from '$lib/server/email';
-import crypto from 'crypto';
-
-function generateInviteCode(): string {
-	const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-	let code = '';
-	const bytes = crypto.randomBytes(8);
-	for (let i = 0; i < 8; i++) {
-		code += chars[bytes[i] % chars.length];
-	}
-	return code;
-}
+import { getAdminClient } from '$lib/server/supabase';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const supabase = locals.supabase;
@@ -44,6 +33,7 @@ export const actions: Actions = {
 		if (!requestId) return fail(400, { error: 'Missing request ID' });
 
 		const supabase = locals.supabase;
+		const adminClient = getAdminClient();
 
 		// Get the access request
 		const { data: accessRequest, error: fetchErr } = await supabase
@@ -57,26 +47,38 @@ export const actions: Actions = {
 			return fail(404, { error: 'Request not found or already reviewed' });
 		}
 
-		// Generate invite code
-		const code = generateInviteCode();
-		const expiresAt = new Date();
-		expiresAt.setDate(expiresAt.getDate() + 7);
+		// Send Supabase invite email (creates user in "invited" state)
+		const redirectTo = `${url.origin}/auth/accept-invite`;
+		const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
+			accessRequest.email,
+			{ redirectTo }
+		);
 
-		// Create registration invite locked to the requester's email
-		const { data: invite, error: inviteErr } = await supabase
+		if (inviteError) {
+			console.error('Supabase invite error:', inviteError.message, inviteError);
+			if (inviteError.message?.includes('already been registered') || inviteError.message?.includes('already exists')) {
+				return fail(400, {
+					error: 'This email is already registered. The user may need to log in or reset their password.'
+				});
+			}
+			return fail(500, { error: 'Failed to send invite. Please try again.' });
+		}
+
+		// Create registration_invites audit row
+		const { data: invite, error: auditErr } = await supabase
 			.from('registration_invites')
 			.insert({
-				code,
+				code: `supabase-invite-${Date.now()}`,
 				email: accessRequest.email,
 				created_by: user.id,
-				expires_at: expiresAt.toISOString()
+				used_by: inviteData.user?.id ?? null,
+				expires_at: null
 			})
 			.select()
 			.single();
 
-		if (inviteErr || !invite) {
-			console.error('Failed to create invite:', inviteErr);
-			return fail(500, { error: 'Failed to create invite code' });
+		if (auditErr) {
+			console.error('Failed to create audit row:', auditErr);
 		}
 
 		// Update access request
@@ -86,24 +88,13 @@ export const actions: Actions = {
 				status: 'approved',
 				reviewed_by: user.id,
 				reviewed_at: new Date().toISOString(),
-				invite_id: invite.id
+				invite_id: invite?.id ?? null
 			})
 			.eq('id', requestId);
 
 		if (updateErr) {
 			console.error('Failed to update access request:', updateErr);
 			return fail(500, { error: 'Failed to approve request' });
-		}
-
-		// Build registration URL
-		const registrationUrl = `${url.origin}/auth/register?code=${code}&email=${encodeURIComponent(accessRequest.email)}`;
-
-		// Send invite email
-		try {
-			await sendInviteEmail(accessRequest.email, accessRequest.name, registrationUrl);
-		} catch (emailErr) {
-			console.error('Failed to send invite email:', emailErr);
-			// Don't fail — the invite was created, admin can share the link manually
 		}
 
 		// Log admin action
@@ -162,8 +153,9 @@ export const actions: Actions = {
 		if (!requestId) return fail(400, { error: 'Missing request ID' });
 
 		const supabase = locals.supabase;
+		const adminClient = getAdminClient();
 
-		// Get the approved access request with its invite
+		// Get the approved access request
 		const { data: accessRequest, error: fetchErr } = await supabase
 			.from('access_requests')
 			.select('*, registration_invites(code, used_by, expires_at)')
@@ -175,52 +167,20 @@ export const actions: Actions = {
 			return fail(404, { error: 'Approved request not found' });
 		}
 
-		const invite = accessRequest.registration_invites;
+		// Re-invite via Supabase (handles unconfirmed users gracefully)
+		const redirectTo = `${url.origin}/auth/accept-invite`;
+		const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
+			accessRequest.email,
+			{ redirectTo }
+		);
 
-		if (!invite) {
-			return fail(400, { error: 'No invite code associated with this request' });
-		}
-
-		if (invite.used_by) {
-			return fail(400, { error: 'This invite has already been used' });
-		}
-
-		// Check if expired — if so, create a fresh invite
-		let code = invite.code;
-		if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-			const newCode = generateInviteCode();
-			const expiresAt = new Date();
-			expiresAt.setDate(expiresAt.getDate() + 7);
-
-			const { data: newInvite, error: inviteErr } = await supabase
-				.from('registration_invites')
-				.insert({
-					code: newCode,
-					email: accessRequest.email,
-					created_by: user.id,
-					expires_at: expiresAt.toISOString()
-				})
-				.select()
-				.single();
-
-			if (inviteErr || !newInvite) {
-				console.error('Failed to create new invite:', inviteErr);
-				return fail(500, { error: 'Failed to create new invite code' });
+		if (inviteError) {
+			if (inviteError.message?.includes('already been registered') || inviteError.message?.includes('already exists')) {
+				return fail(400, {
+					error: 'This user has already completed registration. They may need to log in or reset their password.'
+				});
 			}
-
-			// Update access request to point to new invite
-			await supabase.from('access_requests').update({ invite_id: newInvite.id }).eq('id', requestId);
-
-			code = newCode;
-		}
-
-		const registrationUrl = `${url.origin}/auth/register?code=${code}&email=${encodeURIComponent(accessRequest.email)}`;
-
-		try {
-			await sendInviteEmail(accessRequest.email, accessRequest.name, registrationUrl);
-		} catch (emailErr) {
-			console.error('Failed to resend invite email:', emailErr);
-			return fail(500, { error: 'Failed to send email' });
+			return fail(500, { error: 'Failed to resend invite. Please try again.' });
 		}
 
 		return { success: true, action: 'resend' };

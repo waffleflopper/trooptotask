@@ -17,16 +17,12 @@
 	let editingStatus = $state<AvailabilityEntry | undefined>(undefined);
 
 	// Get all statuses for this person (reactive via store.list)
-	const personStatuses = $derived(
-		availabilityStore.list.filter((e) => e.personnelId === person.id)
-	);
+	const personStatuses = $derived(availabilityStore.list.filter((e) => e.personnelId === person.id));
 
 	// Get current status (active today)
 	const currentStatus = $derived.by(() => {
 		const todayStr = formatDate(new Date());
-		return personStatuses.find(
-			(entry) => entry.startDate <= todayStr && entry.endDate >= todayStr
-		);
+		return personStatuses.find((entry) => entry.startDate <= todayStr && entry.endDate >= todayStr);
 	});
 
 	// Get upcoming statuses for next 3 months (excluding current)
@@ -117,9 +113,9 @@
 				>
 					<span
 						class="current-status-badge"
-						style="background-color: {getStatusTypeColor(
+						style="background-color: {getStatusTypeColor(currentStatus.statusTypeId)}; color: {getStatusTypeTextColor(
 							currentStatus.statusTypeId
-						)}; color: {getStatusTypeTextColor(currentStatus.statusTypeId)}"
+						)}"
 					>
 						{getStatusTypeName(currentStatus.statusTypeId)}
 					</span>
@@ -147,28 +143,19 @@
 			{#if upcomingStatuses.length > 0}
 				<div class="statuses-list">
 					{#each upcomingStatuses as entry (entry.id)}
-						<button
-							class="status-card"
-							onclick={() => canEdit && openEditStatus(entry)}
-							disabled={!canEdit}
-						>
+						<button class="status-card" onclick={() => canEdit && openEditStatus(entry)} disabled={!canEdit}>
 							<div class="status-card-header">
 								<span
 									class="status-type-badge"
-									style="background-color: {getStatusTypeColor(
+									style="background-color: {getStatusTypeColor(entry.statusTypeId)}; color: {getStatusTypeTextColor(
 										entry.statusTypeId
-									)}; color: {getStatusTypeTextColor(entry.statusTypeId)}"
+									)}"
 								>
 									{getStatusTypeName(entry.statusTypeId)}
 								</span>
 							</div>
 							<div class="status-dates">
-								<svg
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-								>
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 									<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
 									<line x1="16" y1="2" x2="16" y2="6" />
 									<line x1="8" y1="2" x2="8" y2="6" />

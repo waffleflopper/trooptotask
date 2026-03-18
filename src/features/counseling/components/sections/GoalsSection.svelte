@@ -51,22 +51,12 @@
 		{#if developmentGoals.length > 0}
 			<div class="goals-list">
 				{#each developmentGoals as goal (goal.id)}
-					<button
-						class="goal-card"
-						onclick={() => canEdit && openEditGoal(goal)}
-						disabled={!canEdit}
-					>
+					<button class="goal-card" onclick={() => canEdit && openEditGoal(goal)} disabled={!canEdit}>
 						<div class="goal-header">
-							<span
-								class="goal-category"
-								style="background-color: {GOAL_CATEGORY_COLORS[goal.category]}"
-							>
+							<span class="goal-category" style="background-color: {GOAL_CATEGORY_COLORS[goal.category]}">
 								{GOAL_CATEGORY_LABELS[goal.category]}
 							</span>
-							<span
-								class="goal-priority"
-								style="color: {GOAL_PRIORITY_COLORS[goal.priority]}"
-							>
+							<span class="goal-priority" style="color: {GOAL_PRIORITY_COLORS[goal.priority]}">
 								{GOAL_PRIORITY_LABELS[goal.priority]}
 							</span>
 						</div>
@@ -75,16 +65,11 @@
 							<p class="goal-description">{goal.description}</p>
 						{/if}
 						<div class="goal-footer">
-							<span
-								class="goal-status"
-								style="background-color: {GOAL_STATUS_COLORS[goal.status]}"
-							>
+							<span class="goal-status" style="background-color: {GOAL_STATUS_COLORS[goal.status]}">
 								{GOAL_STATUS_LABELS[goal.status]}
 							</span>
 							{#if goal.targetDate}
-								<span class="goal-target"
-									>Target: {formatDisplayDate(goal.targetDate)}</span
-								>
+								<span class="goal-target">Target: {formatDisplayDate(goal.targetDate)}</span>
 							{/if}
 						</div>
 					</button>

@@ -7,6 +7,7 @@
 	import { onMount } from 'svelte';
 
 	const supabase = $derived($page.data.supabase);
+	const hasSession = $derived($page.data.hasSession);
 
 	let password = $state('');
 	let confirmPassword = $state('');
@@ -23,30 +24,44 @@
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
 	const canSubmit = $derived(hasMinLength && hasUppercase && hasLowercase && hasDigit && passwordsMatch && !loading);
 
-	let authSubscription: { unsubscribe: () => void } | null = null;
+	onMount(async () => {
+		// If server already exchanged a PKCE code, session is ready
+		if (hasSession) {
+			sessionReady = true;
+			return;
+		}
 
-	onMount(() => {
-		// Listen for auth state change (token exchange happens async from URL hash)
-		const {
-			data: { subscription }
-		} = supabase.auth.onAuthStateChange((event: string) => {
-			if (event === 'SIGNED_IN') {
-				sessionReady = true;
+		// Extract tokens from URL hash (Supabase invite uses implicit flow with hash fragments)
+		const hash = window.location.hash.substring(1);
+		if (hash) {
+			const params = new URLSearchParams(hash);
+			const accessToken = params.get('access_token');
+			const refreshToken = params.get('refresh_token');
+
+			if (accessToken && refreshToken) {
+				const { error: sessionError } = await supabase.auth.setSession({
+					access_token: accessToken,
+					refresh_token: refreshToken
+				});
+				if (!sessionError) {
+					sessionReady = true;
+					// Clean up the hash from the URL
+					window.history.replaceState(null, '', window.location.pathname);
+					return;
+				}
 			}
-		});
-		authSubscription = subscription;
+		}
 
-		// Timeout after 10 seconds if no SIGNED_IN event
-		const timeout = setTimeout(() => {
-			if (!sessionReady) {
-				tokenError = true;
-			}
-		}, 10000);
+		// Fallback: check if session already exists
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase auth getSession returns complex internal type
+		const { data: { session: existingSession } }: any = await supabase.auth.getSession();
+		if (existingSession) {
+			sessionReady = true;
+			return;
+		}
 
-		return () => {
-			authSubscription?.unsubscribe();
-			clearTimeout(timeout);
-		};
+		// If nothing worked, show error
+		tokenError = true;
 	});
 </script>
 

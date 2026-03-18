@@ -3,16 +3,16 @@ import type { Actions, PageServerLoad } from './$types';
 import { validatePassword } from '$lib/server/validation';
 import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
 
-export const load: PageServerLoad = async ({ locals }) => {
-	// If user already has a full session with password set, redirect to dashboard
-	if (locals.session) {
-		const { data: { user } } = await locals.supabase.auth.getUser();
-		// If user exists and has confirmed their email, they're fully set up
-		if (user?.email_confirmed_at) {
-			redirect(303, '/dashboard');
-		}
+export const load: PageServerLoad = async ({ locals, url }) => {
+	// Exchange PKCE code for session if present
+	const code = url.searchParams.get('code');
+	if (code) {
+		await locals.supabase.auth.exchangeCodeForSession(code);
 	}
-	return {};
+
+	const { data: { user } } = await locals.supabase.auth.getUser();
+
+	return { hasSession: !!user };
 };
 
 export const actions: Actions = {

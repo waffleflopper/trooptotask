@@ -169,10 +169,7 @@ export const actions: Actions = {
 
 		// Re-invite via Supabase (handles unconfirmed users gracefully)
 		const redirectTo = `${url.origin}/auth/accept-invite`;
-		const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
-			accessRequest.email,
-			{ redirectTo }
-		);
+		const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(accessRequest.email, { redirectTo });
 
 		if (inviteError) {
 			if (inviteError.message?.includes('already been registered') || inviteError.message?.includes('already exists')) {

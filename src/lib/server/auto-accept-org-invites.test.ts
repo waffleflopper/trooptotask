@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- mock Supabase clients need any casts */
 import { describe, it, expect, vi } from 'vitest';
 import { autoAcceptOrgInvites } from './auto-accept-org-invites';
 
@@ -115,21 +116,33 @@ describe('autoAcceptOrgInvites', () => {
 		const invitations = [
 			{
 				organization_id: 'org-1',
-				can_view_calendar: true, can_edit_calendar: false,
-				can_view_personnel: true, can_edit_personnel: false,
-				can_view_training: false, can_edit_training: false,
-				can_view_onboarding: false, can_edit_onboarding: false,
-				can_view_leaders_book: false, can_edit_leaders_book: false,
-				can_manage_members: false, scoped_group_id: 'group-1'
+				can_view_calendar: true,
+				can_edit_calendar: false,
+				can_view_personnel: true,
+				can_edit_personnel: false,
+				can_view_training: false,
+				can_edit_training: false,
+				can_view_onboarding: false,
+				can_edit_onboarding: false,
+				can_view_leaders_book: false,
+				can_edit_leaders_book: false,
+				can_manage_members: false,
+				scoped_group_id: 'group-1'
 			},
 			{
 				organization_id: 'org-2',
-				can_view_calendar: true, can_edit_calendar: true,
-				can_view_personnel: true, can_edit_personnel: true,
-				can_view_training: true, can_edit_training: true,
-				can_view_onboarding: true, can_edit_onboarding: true,
-				can_view_leaders_book: true, can_edit_leaders_book: true,
-				can_manage_members: true, scoped_group_id: null
+				can_view_calendar: true,
+				can_edit_calendar: true,
+				can_view_personnel: true,
+				can_edit_personnel: true,
+				can_view_training: true,
+				can_edit_training: true,
+				can_view_onboarding: true,
+				can_edit_onboarding: true,
+				can_view_leaders_book: true,
+				can_edit_leaders_book: true,
+				can_manage_members: true,
+				scoped_group_id: null
 			}
 		];
 		const supabase = createMockSupabase(invitations);
@@ -138,7 +151,11 @@ describe('autoAcceptOrgInvites', () => {
 
 		expect(result).toEqual({ accepted: 2 });
 		expect(supabase._insertedRows).toHaveLength(2);
-		expect(supabase._insertedRows[0]).toMatchObject({ organization_id: 'org-1', role: 'member', scoped_group_id: 'group-1' });
+		expect(supabase._insertedRows[0]).toMatchObject({
+			organization_id: 'org-1',
+			role: 'member',
+			scoped_group_id: 'group-1'
+		});
 		expect(supabase._insertedRows[1]).toMatchObject({ organization_id: 'org-2', role: 'admin', scoped_group_id: null });
 		expect(supabase._updatedInvitations.called).toBe(true);
 	});

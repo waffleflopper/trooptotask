@@ -53,8 +53,10 @@
 		}
 
 		// Fallback: check if session already exists
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase auth getSession returns complex internal type
-		const { data: { session: existingSession } }: any = await supabase.auth.getSession();
+		const {
+			data: { session: existingSession }
+		} = // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase auth getSession returns complex internal type
+			(await supabase.auth.getSession()) as any;
 		if (existingSession) {
 			sessionReady = true;
 			return;

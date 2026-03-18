@@ -44,11 +44,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 
 	// Enforce group scoping on the rated person
 	if (ctx?.scopedGroupId && body.ratedPersonId) {
-		const { data: person } = await supabase
-			.from('personnel')
-			.select('group_id')
-			.eq('id', body.ratedPersonId)
-			.single();
+		const { data: person } = await supabase.from('personnel').select('group_id').eq('id', body.ratedPersonId).single();
 		if (person && person.group_id !== ctx.scopedGroupId) {
 			throw error(403, 'You can only manage rating scheme entries for personnel in your group');
 		}

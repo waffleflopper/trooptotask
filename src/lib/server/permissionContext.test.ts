@@ -7,10 +7,7 @@ function expectHttpError(e: unknown): { status: number; message: string } {
 	return { status: err.status, message: err.body.message };
 }
 
-function mockSupabase(
-	membershipRow: Record<string, unknown> | null,
-	personnelRow?: Record<string, unknown> | null
-) {
+function mockSupabase(membershipRow: Record<string, unknown> | null, personnelRow?: Record<string, unknown> | null) {
 	return {
 		from: (table: string) => ({
 			select: () => ({
@@ -30,7 +27,7 @@ function mockSupabase(
 				})
 			})
 		})
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mocking Supabase's complex generic type
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mocking Supabase's complex generic type
 	} as any;
 }
 
@@ -397,20 +394,14 @@ describe('requireGroupAccess', () => {
 	});
 
 	it('scoped member can access personnel in their group', async () => {
-		const supabase = mockSupabase(
-			{ ...FULL_PERMISSIONS, scoped_group_id: 'group-1' },
-			{ group_id: 'group-1' }
-		);
+		const supabase = mockSupabase({ ...FULL_PERMISSIONS, scoped_group_id: 'group-1' }, { group_id: 'group-1' });
 		const ctx = await createPermissionContext(supabase, 'user-1', 'org-1');
 
 		await expect(ctx.requireGroupAccess(supabase, 'person-1')).resolves.toBeUndefined();
 	});
 
 	it('scoped member cannot access personnel outside their group', async () => {
-		const supabase = mockSupabase(
-			{ ...FULL_PERMISSIONS, scoped_group_id: 'group-1' },
-			{ group_id: 'group-2' }
-		);
+		const supabase = mockSupabase({ ...FULL_PERMISSIONS, scoped_group_id: 'group-1' }, { group_id: 'group-2' });
 		const ctx = await createPermissionContext(supabase, 'user-1', 'org-1');
 
 		try {

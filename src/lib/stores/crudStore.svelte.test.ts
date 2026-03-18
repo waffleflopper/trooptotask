@@ -249,6 +249,192 @@ describe('createCrudStore', () => {
 		});
 	});
 
+	describe('load during in-flight mutations (issue #113)', () => {
+		it('should not clobber optimistic add when load is called mid-flight', async () => {
+			const store = makeStore();
+			store.load([{ id: '1', name: 'Existing' }], 'org-1');
+
+			// Set up a fetch that resolves after a delay (simulating network latency)
+			let resolveFetch!: (value: unknown) => void;
+			const fetchPromise = new Promise((resolve) => {
+				resolveFetch = resolve;
+			});
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValue(
+					fetchPromise.then(() => ({
+						ok: true,
+						status: 200,
+						json: () => Promise.resolve({ id: 'server-1', name: 'New' })
+					}))
+				)
+			);
+
+			// Start the add (in-flight, not yet resolved)
+			const addPromise = store.add({ name: 'New' });
+
+			// Optimistic item should be present
+			expect(store.items.length).toBe(2);
+			expect(store.items.some((i) => i.name === 'New')).toBe(true);
+
+			// Simulate what happens when focus-invalidation triggers $effect → store.load()
+			// with stale server data that doesn't include the new item yet
+			store.load([{ id: '1', name: 'Existing' }], 'org-1');
+
+			// The optimistic item should NOT be clobbered
+			expect(store.items.some((i) => i.name === 'New')).toBe(true);
+
+			// Resolve the fetch
+			resolveFetch(undefined);
+			await addPromise;
+
+			// After resolution, server item replaces optimistic
+			expect(store.items).toEqual([
+				{ id: '1', name: 'Existing' },
+				{ id: 'server-1', name: 'New' }
+			]);
+		});
+
+		it('should not clobber optimistic update when load is called mid-flight', async () => {
+			const store = makeStore();
+			store.load([{ id: '1', name: 'Original' }], 'org-1');
+
+			let resolveFetch!: (value: unknown) => void;
+			const fetchPromise = new Promise((resolve) => {
+				resolveFetch = resolve;
+			});
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValue(
+					fetchPromise.then(() => ({
+						ok: true,
+						status: 200,
+						json: () => Promise.resolve({ id: '1', name: 'Updated' })
+					}))
+				)
+			);
+
+			const updatePromise = store.update('1', { name: 'Updated' });
+
+			// Optimistic update should be visible
+			expect(store.items[0].name).toBe('Updated');
+
+			// Stale load arrives (still has old name)
+			store.load([{ id: '1', name: 'Original' }], 'org-1');
+
+			// Should still show optimistic update, not stale data
+			expect(store.items[0].name).toBe('Updated');
+
+			resolveFetch(undefined);
+			await updatePromise;
+
+			expect(store.items[0].name).toBe('Updated');
+		});
+
+		it('should not clobber optimistic remove when load is called mid-flight', async () => {
+			const store = makeStore();
+			store.load(
+				[
+					{ id: '1', name: 'Alpha' },
+					{ id: '2', name: 'Bravo' }
+				],
+				'org-1'
+			);
+
+			let resolveFetch!: (value: unknown) => void;
+			const fetchPromise = new Promise((resolve) => {
+				resolveFetch = resolve;
+			});
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValue(
+					fetchPromise.then(() => ({
+						ok: true,
+						status: 200,
+						json: () => Promise.resolve({})
+					}))
+				)
+			);
+
+			const removePromise = store.remove('1');
+
+			// Item should be optimistically removed
+			expect(store.items.length).toBe(1);
+			expect(store.items[0].id).toBe('2');
+
+			// Stale load arrives (still has both items)
+			store.load(
+				[
+					{ id: '1', name: 'Alpha' },
+					{ id: '2', name: 'Bravo' }
+				],
+				'org-1'
+			);
+
+			// Should still show optimistic removal
+			expect(store.items.length).toBe(1);
+			expect(store.items[0].id).toBe('2');
+
+			resolveFetch(undefined);
+			await removePromise;
+
+			expect(store.items).toEqual([{ id: '2', name: 'Bravo' }]);
+		});
+
+		it('should allow load when org changes even during in-flight mutation', async () => {
+			const store = makeStore();
+			store.load([{ id: '1', name: 'Existing' }], 'org-1');
+
+			let resolveFetch!: (value: unknown) => void;
+			const fetchPromise = new Promise((resolve) => {
+				resolveFetch = resolve;
+			});
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValue(
+					fetchPromise.then(() => ({
+						ok: true,
+						status: 200,
+						json: () => Promise.resolve({ id: 'server-1', name: 'New' })
+					}))
+				)
+			);
+
+			store.add({ name: 'New' });
+
+			// Load with DIFFERENT org — this should always go through
+			store.load([{ id: '10', name: 'Other Org Item' }], 'org-2');
+
+			expect(store.items).toEqual([{ id: '10', name: 'Other Org Item' }]);
+
+			resolveFetch(undefined);
+		});
+
+		it('should allow load after all mutations complete', async () => {
+			const store = makeStore();
+			store.load([{ id: '1', name: 'Existing' }], 'org-1');
+
+			const serverItem: TestItem = { id: 'server-1', name: 'New' };
+			vi.stubGlobal('fetch', mockFetch(serverItem));
+
+			await store.add({ name: 'New' });
+
+			// Mutation is complete — load should work normally now
+			store.load(
+				[
+					{ id: '1', name: 'Existing' },
+					{ id: 'server-1', name: 'New' }
+				],
+				'org-1'
+			);
+
+			expect(store.items).toEqual([
+				{ id: '1', name: 'Existing' },
+				{ id: 'server-1', name: 'New' }
+			]);
+		});
+	});
+
 	describe('setItems / getItems', () => {
 		it('should allow direct item manipulation via escape hatches', () => {
 			const store = makeStore();

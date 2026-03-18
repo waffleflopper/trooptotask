@@ -172,9 +172,7 @@
 		<button class="btn btn-sm" onclick={() => (showSignInRosters = true)}> Sign-In Rosters </button>
 		<button class="btn btn-sm" onclick={() => (showReports = true)}> Reports </button>
 		{#if canManageConfig}
-			<button class="btn btn-sm" onclick={() => (showTypeManager = true)} disabled={readOnly}>
-				Manage Types
-			</button>
+			<button class="btn btn-sm" onclick={() => (showTypeManager = true)} disabled={readOnly}> Manage Types </button>
 		{/if}
 		{#if readOnly}
 			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>

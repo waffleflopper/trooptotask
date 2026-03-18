@@ -54,5 +54,5 @@ export const changelog: ChangelogEntry[] = [
 			"Uses the same holidays and closures you've already set up in your calendar, so there's nothing extra to configure",
 			"Roster exports now include a DA Form 6 reference grid showing each person's queue position for every duty date — full transparency into why someone was assigned their days"
 		]
-	},
+	}
 ];

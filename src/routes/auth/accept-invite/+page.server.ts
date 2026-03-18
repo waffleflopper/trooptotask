@@ -10,7 +10,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		await locals.supabase.auth.exchangeCodeForSession(code);
 	}
 
-	const { data: { user } } = await locals.supabase.auth.getUser();
+	const {
+		data: { user }
+	} = await locals.supabase.auth.getUser();
 
 	return { hasSession: !!user };
 };
@@ -38,7 +40,9 @@ export const actions: Actions = {
 		}
 
 		// Get the current user for auto-accept
-		const { data: { user } } = await locals.supabase.auth.getUser();
+		const {
+			data: { user }
+		} = await locals.supabase.auth.getUser();
 
 		if (user) {
 			await autoAcceptOrgInvites(locals.supabase, user.id, user.email ?? '');

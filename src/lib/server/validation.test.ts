@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeString, validateEmail, validateUUID, validateEnum, requireString, validatePassword } from './validation';
+import {
+	sanitizeString,
+	validateEmail,
+	validateUUID,
+	validateEnum,
+	requireString,
+	validatePassword
+} from './validation';
 
 describe('sanitizeString', () => {
 	it('trims whitespace', () => {

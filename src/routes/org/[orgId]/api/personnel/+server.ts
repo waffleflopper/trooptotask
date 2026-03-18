@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireEditPermission, requireGroupAccess, getScopedGroupId, isPrivilegedRole } from '$lib/server/permissions';
+import { isPrivilegedRole } from '$lib/server/permissions';
+import { createPermissionContext } from '$lib/server/permissionContext';
 import { getApiContext } from '$lib/server/supabase';
 import { canAddPersonnel } from '$lib/server/subscription';
 import { checkReadOnly } from '$lib/server/read-only-guard';
@@ -10,10 +11,8 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const { orgId } = params;
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
-	// Skip permission check for sandbox mode
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'personnel');
-	}
+	const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
+	ctx?.requireEdit('personnel');
 
 	const blocked = await checkReadOnly(supabase, orgId);
 	if (blocked) return blocked;
@@ -26,11 +25,8 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 
 	const body = await request.json();
 
-	if (!isSandbox && userId) {
-		const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
-		if (scopedGroupId && body.groupId !== scopedGroupId) {
-			return json({ error: 'You can only add personnel to your assigned group' }, { status: 403 });
-		}
+	if (ctx && ctx.scopedGroupId && body.groupId !== ctx.scopedGroupId) {
+		return json({ error: 'You can only add personnel to your assigned group' }, { status: 403 });
 	}
 
 	const row = {
@@ -74,10 +70,8 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	const { orgId } = params;
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
-	// Skip permission check for sandbox mode
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'personnel');
-	}
+	const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
+	ctx?.requireEdit('personnel');
 
 	const blocked = await checkReadOnly(supabase, orgId);
 	if (blocked) return blocked;
@@ -87,9 +81,11 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 
 	if (!id) throw error(400, 'Missing id');
 
-	if (!isSandbox && userId) {
+	if (ctx && ctx.scopedGroupId) {
 		const { data: person } = await supabase.from('personnel').select('group_id').eq('id', id).single();
-		await requireGroupAccess(supabase, orgId, userId, person?.group_id ?? null);
+		if (person?.group_id !== ctx.scopedGroupId) {
+			throw error(403, 'You do not have access to personnel outside your group');
+		}
 	}
 
 	const updates: Record<string, unknown> = {};
@@ -137,10 +133,8 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	const { orgId } = params;
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
-	// Skip permission check for sandbox mode
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'personnel');
-	}
+	const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
+	ctx?.requireEdit('personnel');
 
 	const blocked = await checkReadOnly(supabase, orgId);
 	if (blocked) return blocked;
@@ -158,38 +152,14 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 		.eq('organization_id', orgId)
 		.single();
 
-	if (!isSandbox && userId) {
-		await requireGroupAccess(supabase, orgId, userId, existing?.group_id ?? null);
+	if (ctx && ctx.scopedGroupId) {
+		if (existing?.group_id !== ctx.scopedGroupId) {
+			throw error(403, 'You do not have access to personnel outside your group');
+		}
 	}
 
-	if (!isSandbox && userId) {
-		const { data: mem } = await supabase
-			.from('organization_memberships')
-			.select(
-				'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book'
-			)
-			.eq('organization_id', orgId)
-			.eq('user_id', userId)
-			.single();
-
-		if (mem && mem.role === 'member') {
-			const isFullEd =
-				!mem.scoped_group_id &&
-				mem.can_view_calendar &&
-				mem.can_edit_calendar &&
-				mem.can_view_personnel &&
-				mem.can_edit_personnel &&
-				mem.can_view_training &&
-				mem.can_edit_training &&
-				mem.can_view_onboarding &&
-				mem.can_edit_onboarding &&
-				mem.can_view_leaders_book &&
-				mem.can_edit_leaders_book;
-
-			if (!isFullEd) {
-				return json({ requiresApproval: true }, { status: 202 });
-			}
-		}
+	if (ctx && !ctx.isPrivileged && !ctx.isFullEditor) {
+		return json({ requiresApproval: true }, { status: 202 });
 	}
 
 	const { error: dbError } = await supabase

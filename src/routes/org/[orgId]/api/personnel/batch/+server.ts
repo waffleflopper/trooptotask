@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireEditPermission, getScopedGroupId } from '$lib/server/permissions';
+import { createPermissionContext } from '$lib/server/permissionContext';
 import { getApiContext } from '$lib/server/supabase';
 import { getEffectiveTier } from '$lib/server/subscription';
 import { checkReadOnly } from '$lib/server/read-only-guard';
@@ -21,8 +21,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const { orgId } = params;
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
+	let ctx: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
 	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'personnel');
+		ctx = await createPermissionContext(supabase, userId!, orgId);
+		ctx.requireEdit('personnel');
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);
@@ -44,10 +46,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const groupMap = new Map((groups ?? []).map((g) => [g.name.toLowerCase(), g.id]));
 
 	// Get scoped group for non-privileged users
-	let scopedGroupId: string | null = null;
-	if (!isSandbox && userId) {
-		scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
-	}
+	const scopedGroupId = ctx?.scopedGroupId ?? null;
 
 	// Validate all records
 	const validRows: Array<{ index: number; row: Record<string, unknown> }> = [];

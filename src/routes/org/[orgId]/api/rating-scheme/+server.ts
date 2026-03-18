@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireEditPermission, getScopedGroupId } from '$lib/server/permissions';
+import { createPermissionContext } from '$lib/server/permissionContext';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { notifyAdmins } from '$lib/server/notifications';
@@ -31,8 +31,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const { orgId } = params;
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
+	let ctx: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
 	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'personnel');
+		ctx = await createPermissionContext(supabase, userId!, orgId);
+		ctx.requireEdit('personnel');
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);
@@ -41,17 +43,14 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const body = await request.json();
 
 	// Enforce group scoping on the rated person
-	if (!isSandbox && userId && body.ratedPersonId) {
-		const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
-		if (scopedGroupId) {
-			const { data: person } = await supabase
-				.from('personnel')
-				.select('group_id')
-				.eq('id', body.ratedPersonId)
-				.single();
-			if (person && person.group_id !== scopedGroupId) {
-				throw error(403, 'You can only manage rating scheme entries for personnel in your group');
-			}
+	if (ctx?.scopedGroupId && body.ratedPersonId) {
+		const { data: person } = await supabase
+			.from('personnel')
+			.select('group_id')
+			.eq('id', body.ratedPersonId)
+			.single();
+		if (person && person.group_id !== ctx.scopedGroupId) {
+			throw error(403, 'You can only manage rating scheme entries for personnel in your group');
 		}
 	}
 
@@ -86,8 +85,10 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	const { orgId } = params;
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
+	let ctxPut: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
 	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'personnel');
+		ctxPut = await createPermissionContext(supabase, userId!, orgId);
+		ctxPut.requireEdit('personnel');
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);
@@ -99,24 +100,21 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	if (!id) throw error(400, 'Missing id');
 
 	// Enforce group scoping on the rated person
-	if (!isSandbox && userId) {
-		const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
-		if (scopedGroupId) {
-			const { data: entry } = await supabase
-				.from('rating_scheme_entries')
-				.select('rated_person_id')
-				.eq('id', id)
-				.eq('organization_id', orgId)
+	if (ctxPut?.scopedGroupId) {
+		const { data: entry } = await supabase
+			.from('rating_scheme_entries')
+			.select('rated_person_id')
+			.eq('id', id)
+			.eq('organization_id', orgId)
+			.single();
+		if (entry) {
+			const { data: person } = await supabase
+				.from('personnel')
+				.select('group_id')
+				.eq('id', entry.rated_person_id)
 				.single();
-			if (entry) {
-				const { data: person } = await supabase
-					.from('personnel')
-					.select('group_id')
-					.eq('id', entry.rated_person_id)
-					.single();
-				if (person && person.group_id !== scopedGroupId) {
-					throw error(403, 'You can only manage rating scheme entries for personnel in your group');
-				}
+			if (person && person.group_id !== ctxPut.scopedGroupId) {
+				throw error(403, 'You can only manage rating scheme entries for personnel in your group');
 			}
 		}
 	}
@@ -158,8 +156,10 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	const { orgId } = params;
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
+	let ctxDel: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
 	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'personnel');
+		ctxDel = await createPermissionContext(supabase, userId!, orgId);
+		ctxDel.requireEdit('personnel');
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);
@@ -171,24 +171,21 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	if (!id) throw error(400, 'Missing id');
 
 	// Enforce group scoping
-	if (!isSandbox && userId) {
-		const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
-		if (scopedGroupId) {
-			const { data: entry } = await supabase
-				.from('rating_scheme_entries')
-				.select('rated_person_id')
-				.eq('id', id)
-				.eq('organization_id', orgId)
+	if (ctxDel?.scopedGroupId) {
+		const { data: entry } = await supabase
+			.from('rating_scheme_entries')
+			.select('rated_person_id')
+			.eq('id', id)
+			.eq('organization_id', orgId)
+			.single();
+		if (entry) {
+			const { data: person } = await supabase
+				.from('personnel')
+				.select('group_id')
+				.eq('id', entry.rated_person_id)
 				.single();
-			if (entry) {
-				const { data: person } = await supabase
-					.from('personnel')
-					.select('group_id')
-					.eq('id', entry.rated_person_id)
-					.single();
-				if (person && person.group_id !== scopedGroupId) {
-					throw error(403, 'You can only manage rating scheme entries for personnel in your group');
-				}
+			if (person && person.group_id !== ctxDel.scopedGroupId) {
+				throw error(403, 'You can only manage rating scheme entries for personnel in your group');
 			}
 		}
 	}

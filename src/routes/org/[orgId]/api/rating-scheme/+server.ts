@@ -1,8 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 import { notifyAdmins } from '$lib/server/notifications';
 
 function toClient(row: Record<string, unknown>) {
@@ -27,20 +24,8 @@ function toClient(row: Record<string, unknown>) {
 	};
 }
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	let ctx: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
-	if (!isSandbox) {
-		ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireEdit('personnel');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ supabase, orgId, ctx }, event) => {
+	const body = await event.request.json();
 
 	// Enforce group scoping on the rated person
 	if (ctx?.scopedGroupId && body.ratedPersonId) {
@@ -75,28 +60,16 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	if (dbError) throw error(500, dbError.message);
 
 	return json(toClient(data));
-};
+});
 
-export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	let ctxPut: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
-	if (!isSandbox) {
-		ctxPut = await createPermissionContext(supabase, userId!, orgId);
-		ctxPut.requireEdit('personnel');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const PUT = apiRoute({ permission: { edit: 'personnel' } }, async ({ supabase, orgId, ctx }, event) => {
+	const body = await event.request.json();
 	const { id, ...fields } = body;
 
 	if (!id) throw error(400, 'Missing id');
 
 	// Enforce group scoping on the rated person
-	if (ctxPut?.scopedGroupId) {
+	if (ctx?.scopedGroupId) {
 		const { data: entry } = await supabase
 			.from('rating_scheme_entries')
 			.select('rated_person_id')
@@ -109,7 +82,7 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 				.select('group_id')
 				.eq('id', entry.rated_person_id)
 				.single();
-			if (person && person.group_id !== ctxPut.scopedGroupId) {
+			if (person && person.group_id !== ctx.scopedGroupId) {
 				throw error(403, 'You can only manage rating scheme entries for personnel in your group');
 			}
 		}
@@ -146,73 +119,64 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	if (dbError) throw error(500, dbError.message);
 
 	return json(toClient(data));
-};
+});
 
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+export const DELETE = apiRoute(
+	{ permission: { edit: 'personnel' } },
+	async ({ supabase, orgId, userId, ctx }, event) => {
+		const body = await event.request.json();
+		const { id } = body;
 
-	let ctxDel: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
-	if (!isSandbox) {
-		ctxDel = await createPermissionContext(supabase, userId!, orgId);
-		ctxDel.requireEdit('personnel');
-	}
+		if (!id) throw error(400, 'Missing id');
 
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
+		// Enforce group scoping
+		if (ctx?.scopedGroupId) {
+			const { data: entry } = await supabase
+				.from('rating_scheme_entries')
+				.select('rated_person_id')
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.single();
+			if (entry) {
+				const { data: person } = await supabase
+					.from('personnel')
+					.select('group_id')
+					.eq('id', entry.rated_person_id)
+					.single();
+				if (person && person.group_id !== ctx.scopedGroupId) {
+					throw error(403, 'You can only manage rating scheme entries for personnel in your group');
+				}
+			}
+		}
 
-	const body = await request.json();
-	const { id } = body;
+		// Deletion approval for non-full-editors
+		if (ctx && !ctx.isPrivileged && !ctx.isFullEditor) {
+			return json({ requiresApproval: true }, { status: 202 });
+		}
 
-	if (!id) throw error(400, 'Missing id');
-
-	// Enforce group scoping
-	if (ctxDel?.scopedGroupId) {
-		const { data: entry } = await supabase
+		// Capture entry details before deletion for notification
+		const { data: deletedEntry } = await supabase
 			.from('rating_scheme_entries')
-			.select('rated_person_id')
+			.select('eval_type')
 			.eq('id', id)
 			.eq('organization_id', orgId)
 			.single();
-		if (entry) {
-			const { data: person } = await supabase
-				.from('personnel')
-				.select('group_id')
-				.eq('id', entry.rated_person_id)
-				.single();
-			if (person && person.group_id !== ctxDel.scopedGroupId) {
-				throw error(403, 'You can only manage rating scheme entries for personnel in your group');
-			}
-		}
+		const deletedName = (deletedEntry as Record<string, unknown> | null)?.eval_type;
+
+		const { error: dbError } = await supabase
+			.from('rating_scheme_entries')
+			.delete()
+			.eq('id', id)
+			.eq('organization_id', orgId);
+
+		if (dbError) throw error(500, dbError.message);
+
+		await notifyAdmins(orgId, userId, {
+			type: 'config_type_deleted',
+			title: 'Rating Scheme Entry Deleted',
+			message: `"${event.locals.user?.email}" deleted the rating scheme entry "${deletedName ?? 'unknown'}".`
+		});
+
+		return json({ success: true });
 	}
-
-	// Deletion approval for non-full-editors
-	if (ctxDel && !ctxDel.isPrivileged && !ctxDel.isFullEditor) {
-		return json({ requiresApproval: true }, { status: 202 });
-	}
-
-	// Capture entry details before deletion for notification
-	const { data: deletedEntry } = await supabase
-		.from('rating_scheme_entries')
-		.select('eval_type')
-		.eq('id', id)
-		.eq('organization_id', orgId)
-		.single();
-	const deletedName = (deletedEntry as Record<string, unknown> | null)?.eval_type;
-
-	const { error: dbError } = await supabase
-		.from('rating_scheme_entries')
-		.delete()
-		.eq('id', id)
-		.eq('organization_id', orgId);
-
-	if (dbError) throw error(500, dbError.message);
-
-	await notifyAdmins(orgId, userId, {
-		type: 'config_type_deleted',
-		title: 'Rating Scheme Entry Deleted',
-		message: `"${locals.user?.email}" deleted the rating scheme entry "${deletedName ?? 'unknown'}".`
-	});
-
-	return json({ success: true });
-};
+);

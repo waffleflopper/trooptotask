@@ -1,8 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 import { formatDate } from '$lib/utils/dates';
 import { auditLog } from '$lib/server/auditLog';
 
@@ -13,17 +10,8 @@ function calculateExpirationDate(completionDate: string | null, expirationMonths
 	return formatDate(date);
 }
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
-	ctx?.requireEdit('training');
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'training' } }, async ({ supabase, orgId, userId, ctx }, event) => {
+	const body = await event.request.json();
 
 	if (ctx && body.personnelId) {
 		if (ctx.scopedGroupId) {
@@ -115,7 +103,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			resourceId: data.id,
 			orgId,
 			details: {
-				actor: locals.user?.email ?? userId,
+				actor: event.locals.user?.email ?? userId,
 				personnel_id: data.personnel_id,
 				training_type_id: data.training_type_id,
 				completion_date: data.completion_date
@@ -133,19 +121,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		notes: data.notes,
 		certificateUrl: data.certificate_url
 	});
-};
+});
 
-export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
-	ctx?.requireEdit('training');
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const PUT = apiRoute({ permission: { edit: 'training' } }, async ({ supabase, orgId, userId, ctx }, event) => {
+	const body = await event.request.json();
 	const { id, ...fields } = body;
 
 	if (!id) throw error(400, 'Missing id');
@@ -222,7 +201,7 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 			resourceId: id,
 			orgId,
 			details: {
-				actor: locals.user?.email ?? userId,
+				actor: event.locals.user?.email ?? userId,
 				personnel_id: data.personnel_id,
 				training_type_id: data.training_type_id,
 				completion_date: data.completion_date
@@ -240,66 +219,60 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 		notes: data.notes,
 		certificateUrl: data.certificate_url
 	});
-};
+});
 
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+export const DELETE = apiRoute(
+	{ permission: { edit: 'training' } },
+	async ({ supabase, orgId, userId, ctx }, event) => {
+		const body = await event.request.json();
+		const { id } = body;
 
-	const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
-	ctx?.requireEdit('training');
+		if (!id) throw error(400, 'Missing id');
 
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
-	const { id } = body;
-
-	if (!id) throw error(400, 'Missing id');
-
-	if (ctx) {
-		const { data: existingRecord } = await supabase
-			.from('personnel_trainings')
-			.select('personnel_id')
-			.eq('id', id)
-			.eq('organization_id', orgId)
-			.single();
-		if (existingRecord?.personnel_id) {
-			if (ctx.scopedGroupId) {
-				const { data: person } = await supabase
-					.from('personnel')
-					.select('group_id')
-					.eq('id', existingRecord.personnel_id)
-					.single();
-				if (person?.group_id !== ctx.scopedGroupId) {
-					throw error(403, 'You do not have access to personnel outside your group');
+		if (ctx) {
+			const { data: existingRecord } = await supabase
+				.from('personnel_trainings')
+				.select('personnel_id')
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.single();
+			if (existingRecord?.personnel_id) {
+				if (ctx.scopedGroupId) {
+					const { data: person } = await supabase
+						.from('personnel')
+						.select('group_id')
+						.eq('id', existingRecord.personnel_id)
+						.single();
+					if (person?.group_id !== ctx.scopedGroupId) {
+						throw error(403, 'You do not have access to personnel outside your group');
+					}
 				}
+			}
+
+			if (!ctx.isPrivileged && !ctx.isFullEditor) {
+				return json({ requiresApproval: true }, { status: 202 });
 			}
 		}
 
-		if (!ctx.isPrivileged && !ctx.isFullEditor) {
-			return json({ requiresApproval: true }, { status: 202 });
-		}
+		const { error: dbError } = await supabase
+			.from('personnel_trainings')
+			.delete()
+			.eq('id', id)
+			.eq('organization_id', orgId);
+
+		if (dbError) throw error(500, dbError.message);
+
+		auditLog(
+			{
+				action: 'training_record.deleted',
+				resourceType: 'training_record',
+				resourceId: id,
+				orgId,
+				details: { actor: event.locals.user?.email ?? userId }
+			},
+			{ userId }
+		);
+
+		return json({ success: true });
 	}
-
-	const { error: dbError } = await supabase
-		.from('personnel_trainings')
-		.delete()
-		.eq('id', id)
-		.eq('organization_id', orgId);
-
-	if (dbError) throw error(500, dbError.message);
-
-	auditLog(
-		{
-			action: 'training_record.deleted',
-			resourceType: 'training_record',
-			resourceId: id,
-			orgId,
-			details: { actor: locals.user?.email ?? userId }
-		},
-		{ userId }
-	);
-
-	return json({ success: true });
-};
+);

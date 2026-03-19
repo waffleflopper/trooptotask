@@ -1,22 +1,8 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 
-export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		const ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireEdit('onboarding');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const PUT = apiRoute({ permission: { edit: 'onboarding' } }, async ({ supabase, orgId }, event) => {
+	const body = await event.request.json();
 	const { id, ...fields } = body;
 
 	// Verify step belongs to an onboarding in this org
@@ -58,21 +44,10 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 		notes: Array.isArray(data.notes) ? data.notes : [],
 		templateStepId: data.template_step_id ?? null
 	});
-};
+});
 
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		const ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireEdit('onboarding');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const { id } = await request.json();
+export const DELETE = apiRoute({ permission: { edit: 'onboarding' } }, async ({ supabase, orgId }, event) => {
+	const { id } = await event.request.json();
 
 	// Verify step belongs to an onboarding in this org
 	const { data: stepCheck } = await supabase
@@ -96,4 +71,4 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 
 	if (dbError) throw error(500, dbError.message);
 	return json({ success: true });
-};
+});

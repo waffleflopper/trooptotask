@@ -329,7 +329,6 @@
 					pinnedGroups={pinnedGroupsStore.list}
 					assignmentTypes={dailyAssignmentsStore.types}
 					assignments={dailyAssignmentsStore.assignments}
-					activeOnboardingPersonnelIds={data.activeOnboardingPersonnelIds}
 					{highlightOnboarding}
 					canEdit={data.permissions?.canEditCalendar ?? false}
 					showStatusText={calendarPrefsStore.showStatusText}

@@ -33,7 +33,7 @@
 	};
 
 	// ── Template management state ──────────────────────────────────
-	let showNewTemplateForm = $state(false);
+	let showNewTemplateForm = $state(templates.length === 0);
 	let newTemplateName = $state('');
 	let newTemplateDescription = $state('');
 	let creatingTemplate = $state(false);
@@ -260,7 +260,7 @@
 		<div class="template-selector">
 			<label class="label" for="template-select">Template</label>
 			<div class="template-select-row">
-				{#if editingTemplateId === activeTemplateId}
+				{#if editingTemplateId != null && editingTemplateId === activeTemplateId}
 					<div class="rename-form">
 						<input type="text" class="input" bind:value={editTemplateName} placeholder="Template name..." />
 						<input

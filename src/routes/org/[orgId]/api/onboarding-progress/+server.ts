@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireEditPermission } from '$lib/server/permissions';
+import { createPermissionContext } from '$lib/server/permissionContext';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 
@@ -9,7 +9,8 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
 	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'onboarding');
+		const ctx = await createPermissionContext(supabase, userId!, orgId);
+		ctx.requireEdit('onboarding');
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);
@@ -64,7 +65,8 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
 	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'onboarding');
+		const ctx = await createPermissionContext(supabase, userId!, orgId);
+		ctx.requireEdit('onboarding');
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);

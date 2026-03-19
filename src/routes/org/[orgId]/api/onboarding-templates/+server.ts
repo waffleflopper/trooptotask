@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requirePrivilegedOrFullEditor } from '$lib/server/permissions';
+import { createPermissionContext } from '$lib/server/permissionContext';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 
@@ -33,7 +33,8 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
 	if (!isSandbox) {
-		await requirePrivilegedOrFullEditor(supabase, orgId, userId!);
+		const ctx = await createPermissionContext(supabase, userId!, orgId);
+		ctx.requireFullEditor();
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);
@@ -66,7 +67,8 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
 	if (!isSandbox) {
-		await requirePrivilegedOrFullEditor(supabase, orgId, userId!);
+		const ctx = await createPermissionContext(supabase, userId!, orgId);
+		ctx.requireFullEditor();
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);
@@ -102,7 +104,8 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
 	if (!isSandbox) {
-		await requirePrivilegedOrFullEditor(supabase, orgId, userId!);
+		const ctx = await createPermissionContext(supabase, userId!, orgId);
+		ctx.requireFullEditor();
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);

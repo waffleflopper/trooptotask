@@ -441,7 +441,13 @@
 				{@render cardContent(row[0])}
 			{/if}
 		{:else}
-			<EmptyState message="Your current permissions don't include dashboard access. Contact your organization admin." />
+			{#if allowedCards.length === 0}
+				<EmptyState
+					message="Your current permissions don't include dashboard access. Contact your organization admin."
+				/>
+			{:else}
+				<EmptyState message="No cards visible — open Customize to restore them." />
+			{/if}
 		{/each}
 	</main>
 </div>

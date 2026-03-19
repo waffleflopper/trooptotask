@@ -13,34 +13,25 @@ import {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type varies based on auth context (service role vs user)
 async function fetchSharedData(supabase: any, orgId: string) {
-	const [personnelRes, groupsRes, statusTypesRes, trainingTypesRes, personnelTrainingsRes, activeOnboardingsRes] =
-		await Promise.all([
-			supabase
-				.from('personnel')
-				.select('*, groups(name)')
-				.eq('organization_id', orgId)
-				.is('archived_at', null)
-				.order('last_name'),
-			supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
-			supabase.from('status_types').select('*').eq('organization_id', orgId).order('sort_order'),
-			supabase.from('training_types').select('*').eq('organization_id', orgId).order('sort_order'),
-			supabase.from('personnel_trainings').select('*').eq('organization_id', orgId),
-			supabase
-				.from('personnel_onboardings')
-				.select('personnel_id')
-				.eq('organization_id', orgId)
-				.eq('status', 'in_progress')
-		]);
+	const [personnelRes, groupsRes, statusTypesRes, trainingTypesRes, personnelTrainingsRes] = await Promise.all([
+		supabase
+			.from('personnel')
+			.select('*, groups(name)')
+			.eq('organization_id', orgId)
+			.is('archived_at', null)
+			.order('last_name'),
+		supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
+		supabase.from('status_types').select('*').eq('organization_id', orgId).order('sort_order'),
+		supabase.from('training_types').select('*').eq('organization_id', orgId).order('sort_order'),
+		supabase.from('personnel_trainings').select('*').eq('organization_id', orgId)
+	]);
 
 	return {
 		personnel: transformPersonnel(personnelRes.data ?? []),
 		groups: transformGroups(groupsRes.data ?? []),
 		statusTypes: transformStatusTypes(statusTypesRes.data ?? []),
 		trainingTypes: transformTrainingTypes(trainingTypesRes.data ?? []),
-		personnelTrainings: transformPersonnelTrainings(personnelTrainingsRes.data ?? []),
-		activeOnboardingPersonnelIds: (activeOnboardingsRes.data ?? []).map(
-			(r: Record<string, unknown>) => r.personnel_id
-		) as string[]
+		personnelTrainings: transformPersonnelTrainings(personnelTrainingsRes.data ?? [])
 	};
 }
 
@@ -234,7 +225,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	const fullEditor = !isPrivileged && !scopedGroupId && isFullEditor(permissions);
 
 	// Filter personnel data for group-scoped members
-	let { personnel, personnelTrainings, activeOnboardingPersonnelIds } = shared;
+	let { personnel, personnelTrainings } = shared;
 	const { groups, statusTypes, trainingTypes } = shared;
 	const allPersonnel = personnel; // Keep unscoped list for calendar viewing
 
@@ -242,7 +233,6 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		const scopedPersonnelIds = new Set(personnel.filter((p) => p.groupId === scopedGroupId).map((p) => p.id));
 		personnel = personnel.filter((p) => p.groupId === scopedGroupId);
 		personnelTrainings = personnelTrainings.filter((pt) => scopedPersonnelIds.has(pt.personnelId));
-		activeOnboardingPersonnelIds = activeOnboardingPersonnelIds.filter((id: string) => scopedPersonnelIds.has(id));
 	}
 
 	// Filter out dismissed announcements
@@ -272,7 +262,6 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		groups,
 		statusTypes,
 		trainingTypes,
-		personnelTrainings,
-		activeOnboardingPersonnelIds
+		personnelTrainings
 	};
 };

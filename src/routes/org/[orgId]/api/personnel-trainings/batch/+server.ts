@@ -1,8 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 import { formatDate } from '$lib/utils/dates';
 
@@ -21,20 +18,8 @@ interface BatchTrainingRecord {
 	status: 'completed' | 'exempt';
 }
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	let ctx: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
-	if (!isSandbox) {
-		ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireEdit('training');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'training' } }, async ({ supabase, orgId, userId, ctx }, event) => {
+	const body = await event.request.json();
 	const records: BatchTrainingRecord[] = body.records;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -238,7 +223,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			resourceType: 'training_record',
 			orgId,
 			details: {
-				actor: locals.user?.email ?? userId,
+				actor: event.locals.user?.email ?? userId,
 				inserted: insertedData.length,
 				updated: updatedData.length,
 				exempted: exemptedResults.length
@@ -253,4 +238,4 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		exempted: exemptedResults,
 		errors: batchErrors
 	});
-};
+});

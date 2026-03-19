@@ -1,8 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 import { validateUUID } from '$lib/server/validation';
 
@@ -14,20 +11,8 @@ interface BatchAvailabilityRecord {
 	note?: string | null;
 }
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	let ctx: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
-	if (!isSandbox) {
-		ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireEdit('calendar');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supabase, orgId, userId, ctx }, event) => {
+	const body = await event.request.json();
 	const records: BatchAvailabilityRecord[] = body.records;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -79,7 +64,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			resourceType: 'availability',
 			orgId,
 			details: {
-				actor: locals.user?.email ?? userId,
+				actor: event.locals.user?.email ?? userId,
 				count: inserted.length
 			}
 		},
@@ -96,85 +81,76 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}));
 
 	return json({ inserted: result });
-};
+});
 
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+export const DELETE = apiRoute(
+	{ permission: { edit: 'calendar' } },
+	async ({ supabase, orgId, userId, ctx }, event) => {
+		const body = await event.request.json();
+		const ids: string[] = body.ids;
 
-	let ctxDel: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
-	if (!isSandbox) {
-		ctxDel = await createPermissionContext(supabase, userId!, orgId);
-		ctxDel.requireEdit('calendar');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
-	const ids: string[] = body.ids;
-
-	if (!Array.isArray(ids) || ids.length === 0) {
-		throw error(400, 'ids array is required');
-	}
-
-	if (ids.length > 500) {
-		throw error(400, 'Maximum 500 ids per batch');
-	}
-
-	// Validate all IDs are UUIDs
-	for (const id of ids) {
-		if (!validateUUID(id)) {
-			throw error(400, 'Invalid ID format');
+		if (!Array.isArray(ids) || ids.length === 0) {
+			throw error(400, 'ids array is required');
 		}
-	}
 
-	// Enforce group scope if user is scoped
-	const scopedGroupIdDel = ctxDel?.scopedGroupId ?? null;
+		if (ids.length > 500) {
+			throw error(400, 'Maximum 500 ids per batch');
+		}
 
-	if (scopedGroupIdDel) {
-		const { data: entries } = await supabase
+		// Validate all IDs are UUIDs
+		for (const id of ids) {
+			if (!validateUUID(id)) {
+				throw error(400, 'Invalid ID format');
+			}
+		}
+
+		// Enforce group scope if user is scoped
+		const scopedGroupId = ctx?.scopedGroupId ?? null;
+
+		if (scopedGroupId) {
+			const { data: entries } = await supabase
+				.from('availability_entries')
+				.select('id, personnel_id')
+				.eq('organization_id', orgId)
+				.in('id', ids);
+
+			const personnelIds = [...new Set((entries ?? []).map((e) => e.personnel_id))];
+			const { data: personnelData } = await supabase
+				.from('personnel')
+				.select('id, group_id')
+				.eq('organization_id', orgId)
+				.in('id', personnelIds);
+
+			const groupMap = new Map((personnelData ?? []).map((p) => [p.id, p.group_id]));
+			for (const entry of entries ?? []) {
+				const groupId = groupMap.get(entry.personnel_id);
+				if (groupId !== scopedGroupId) {
+					throw error(403, 'Personnel not in your assigned group');
+				}
+			}
+		}
+
+		const { error: dbError, count } = await supabase
 			.from('availability_entries')
-			.select('id, personnel_id')
+			.delete({ count: 'exact' })
 			.eq('organization_id', orgId)
 			.in('id', ids);
 
-		const personnelIds = [...new Set((entries ?? []).map((e) => e.personnel_id))];
-		const { data: personnelData } = await supabase
-			.from('personnel')
-			.select('id, group_id')
-			.eq('organization_id', orgId)
-			.in('id', personnelIds);
+		if (dbError) throw error(500, dbError.message);
 
-		const groupMap = new Map((personnelData ?? []).map((p) => [p.id, p.group_id]));
-		for (const entry of entries ?? []) {
-			const groupId = groupMap.get(entry.personnel_id);
-			if (groupId !== scopedGroupIdDel) {
-				throw error(403, 'Personnel not in your assigned group');
-			}
-		}
+		auditLog(
+			{
+				action: 'availability.bulk_deleted',
+				resourceType: 'availability',
+				orgId,
+				details: {
+					actor: event.locals.user?.email ?? userId,
+					count: count ?? ids.length
+				}
+			},
+			{ userId }
+		);
+
+		return json({ deleted: count ?? ids.length });
 	}
-
-	const { error: dbError, count } = await supabase
-		.from('availability_entries')
-		.delete({ count: 'exact' })
-		.eq('organization_id', orgId)
-		.in('id', ids);
-
-	if (dbError) throw error(500, dbError.message);
-
-	auditLog(
-		{
-			action: 'availability.bulk_deleted',
-			resourceType: 'availability',
-			orgId,
-			details: {
-				actor: locals.user?.email ?? userId,
-				count: count ?? ids.length
-			}
-		},
-		{ userId }
-	);
-
-	return json({ deleted: count ?? ids.length });
-};
+);

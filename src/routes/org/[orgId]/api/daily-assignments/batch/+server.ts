@@ -1,8 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 
 interface BatchAssignmentRecord {
@@ -11,19 +8,8 @@ interface BatchAssignmentRecord {
 	assigneeId: string; // empty string = clear
 }
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		const ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireEdit('calendar');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supabase, orgId, userId }, event) => {
+	const body = await event.request.json();
 	const records: BatchAssignmentRecord[] = body.records;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -81,7 +67,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			resourceType: 'daily_assignment',
 			orgId,
 			details: {
-				actor: locals.user?.email ?? userId,
+				actor: event.locals.user?.email ?? userId,
 				upserted: insertedData.length,
 				cleared: clears.length
 			}
@@ -97,4 +83,4 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}));
 
 	return json({ inserted: result, cleared: clears.length });
-};
+});

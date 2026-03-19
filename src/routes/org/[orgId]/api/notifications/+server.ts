@@ -67,11 +67,7 @@ export const DELETE = apiRoute(
 
 		if (!body.id) throw error(400, 'Missing notification id or deleteAll');
 
-		const { error: dbError } = await supabase
-			.from('notifications')
-			.delete()
-			.eq('id', body.id)
-			.eq('user_id', userId);
+		const { error: dbError } = await supabase.from('notifications').delete().eq('id', body.id).eq('user_id', userId);
 
 		if (dbError) throw error(500, dbError.message);
 		return json({ success: true });

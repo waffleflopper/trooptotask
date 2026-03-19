@@ -1,7 +1,12 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 import { getApiContext } from '$lib/server/supabase';
-import { createPermissionContext, type PermissionContext, type FeatureArea } from '$lib/server/permissionContext';
+import {
+	createPermissionContext,
+	createSandboxContext,
+	type PermissionContext,
+	type FeatureArea
+} from '$lib/server/permissionContext';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { validateUUID } from '$lib/server/validation';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -12,13 +17,17 @@ export type PermissionSpec =
 	| { fullEditor: true }
 	| { privileged: true }
 	| { owner: true }
-	| { custom: (ctx: PermissionContext) => void }
-	| { none: true };
+	| { manageMembers: true }
+	| { authenticated: true }
+	| { custom: (ctx: PermissionContext) => void };
 
 export interface ApiRouteConfig {
 	permission: PermissionSpec;
 	readOnly?: boolean;
 	blockSandbox?: boolean;
+	groupScope?: {
+		resolvePersonnelId: (event: RequestEvent) => Promise<string | null>;
+	};
 }
 
 export interface ApiRouteContext {
@@ -26,7 +35,7 @@ export interface ApiRouteContext {
 	orgId: string;
 	userId: string | null;
 	isSandbox: boolean;
-	ctx: PermissionContext | null;
+	ctx: PermissionContext;
 }
 
 function applyPermission(spec: PermissionSpec, ctx: PermissionContext): void {
@@ -40,10 +49,12 @@ function applyPermission(spec: PermissionSpec, ctx: PermissionContext): void {
 		ctx.requirePrivileged();
 	} else if ('owner' in spec) {
 		ctx.requireOwner();
+	} else if ('manageMembers' in spec) {
+		ctx.requireManageMembers();
 	} else if ('custom' in spec) {
 		spec.custom(ctx);
 	}
-	// 'none' — no permission check needed
+	// 'authenticated' — no permission check needed
 }
 
 export function apiRoute(
@@ -63,14 +74,23 @@ export function apiRoute(
 			return json({ error: 'This action is not available in sandbox mode' }, { status: 403 });
 		}
 
-		let ctx: PermissionContext | null = null;
+		let ctx: PermissionContext;
 
-		if (!isSandbox) {
+		if (isSandbox) {
+			ctx = createSandboxContext();
+		} else {
 			if (!userId) {
 				throw error(401, 'Unauthorized');
 			}
 			ctx = await createPermissionContext(supabase, userId, orgId);
 			applyPermission(config.permission, ctx);
+		}
+
+		if (config.groupScope) {
+			const personnelId = await config.groupScope.resolvePersonnelId(event);
+			if (personnelId) {
+				await ctx.requireGroupAccess(supabase, personnelId);
+			}
 		}
 
 		const readOnly = config.readOnly ?? true;

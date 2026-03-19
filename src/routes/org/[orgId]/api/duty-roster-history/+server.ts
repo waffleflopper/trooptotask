@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 
-export const GET = apiRoute({ permission: { none: true }, readOnly: false }, async ({ supabase, orgId }) => {
+export const GET = apiRoute({ permission: { authenticated: true }, readOnly: false }, async ({ supabase, orgId }) => {
 	const { data, error: dbError } = await supabase
 		.from('duty_roster_history')
 		.select('*')

@@ -4,9 +4,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('$lib/server/supabase', () => ({
 	getApiContext: vi.fn()
 }));
-vi.mock('$lib/server/permissionContext', () => ({
-	createPermissionContext: vi.fn()
-}));
+vi.mock('$lib/server/permissionContext', async () => {
+	const actual = await vi.importActual('$lib/server/permissionContext');
+	return {
+		...actual,
+		createPermissionContext: vi.fn()
+	};
+});
 vi.mock('$lib/server/read-only-guard', () => ({
 	checkReadOnly: vi.fn()
 }));
@@ -49,7 +53,6 @@ function mockPermissionContext(overrides: Partial<PermissionContext> = {}): Perm
 		requireOwner: vi.fn(),
 		requireFullEditor: vi.fn(),
 		requireManageMembers: vi.fn(),
-		assertCrudPermissions: vi.fn(),
 		requireGroupAccess: vi.fn(),
 		...overrides
 	};
@@ -138,13 +141,13 @@ describe('apiRoute permission dispatch', () => {
 		expect(customFn).toHaveBeenCalledWith(ctx);
 	});
 
-	it('{ none: true } still creates permission context for authenticated user', async () => {
+	it('{ authenticated: true } creates ctx but skips permission checks', async () => {
 		const ctx = mockPermissionContext();
 		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
 		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
 
-		let receivedCtx: PermissionContext | null = null;
-		const handler = apiRoute({ permission: { none: true } }, async (routeCtx) => {
+		let receivedCtx: PermissionContext | undefined;
+		const handler = apiRoute({ permission: { authenticated: true } }, async (routeCtx) => {
 			receivedCtx = routeCtx.ctx;
 			return new Response('ok');
 		});
@@ -152,30 +155,29 @@ describe('apiRoute permission dispatch', () => {
 		await handler(mockRequestEvent());
 
 		expect(receivedCtx).toBe(ctx);
+		expect(ctx.requireEdit).not.toHaveBeenCalled();
+		expect(ctx.requireView).not.toHaveBeenCalled();
+		expect(ctx.requirePrivileged).not.toHaveBeenCalled();
 	});
 
-	it('{ none: true } skips permission check entirely', async () => {
+	it('{ manageMembers: true } calls ctx.requireManageMembers()', async () => {
 		const ctx = mockPermissionContext();
 		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
 		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
 
-		const handler = apiRoute({ permission: { none: true } }, async () => new Response('ok'));
+		const handler = apiRoute({ permission: { manageMembers: true } }, async () => new Response('ok'));
 
 		await handler(mockRequestEvent());
 
-		expect(ctx.requireEdit).not.toHaveBeenCalled();
-		expect(ctx.requireView).not.toHaveBeenCalled();
-		expect(ctx.requireFullEditor).not.toHaveBeenCalled();
-		expect(ctx.requirePrivileged).not.toHaveBeenCalled();
-		expect(ctx.requireOwner).not.toHaveBeenCalled();
+		expect(ctx.requireManageMembers).toHaveBeenCalled();
 	});
 });
 
 describe('sandbox handling', () => {
-	it('sandbox bypasses permission context — ctx is null', async () => {
+	it('sandbox receives synthetic full-access context (non-null)', async () => {
 		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: null, isSandbox: true });
 
-		let receivedCtx: PermissionContext | null = 'not-set' as unknown as PermissionContext | null;
+		let receivedCtx: PermissionContext | null = null;
 		const handler = apiRoute({ permission: { edit: 'training' } }, async (routeCtx) => {
 			receivedCtx = routeCtx.ctx;
 			return new Response('ok');
@@ -184,7 +186,16 @@ describe('sandbox handling', () => {
 		await handler(mockRequestEvent());
 
 		expect(createPermissionContext).not.toHaveBeenCalled();
-		expect(receivedCtx).toBeNull();
+		expect(receivedCtx).not.toBeNull();
+		expect(receivedCtx!.isPrivileged).toBe(true);
+		expect(receivedCtx!.isOwner).toBe(true);
+		expect(receivedCtx!.canEdit.calendar).toBe(true);
+		expect(receivedCtx!.canEdit.personnel).toBe(true);
+		expect(receivedCtx!.canEdit.training).toBe(true);
+		expect(receivedCtx!.canEdit.onboarding).toBe(true);
+		expect(receivedCtx!.canEdit['leaders-book']).toBe(true);
+		expect(receivedCtx!.canManageMembers).toBe(true);
+		expect(receivedCtx!.scopedGroupId).toBeNull();
 	});
 
 	it('blockSandbox: true rejects sandbox requests with 403', async () => {
@@ -197,6 +208,48 @@ describe('sandbox handling', () => {
 		expect(response.status).toBe(403);
 		const body = await response.json();
 		expect(body.error).toMatch(/sandbox/i);
+	});
+});
+
+describe('groupScope enforcement', () => {
+	it('calls ctx.requireGroupAccess() when groupScope resolves a personnelId', async () => {
+		const ctx = mockPermissionContext();
+		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
+		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
+
+		const handler = apiRoute(
+			{
+				permission: { edit: 'personnel' },
+				groupScope: {
+					resolvePersonnelId: async () => 'person-123'
+				}
+			},
+			async () => new Response('ok')
+		);
+
+		await handler(mockRequestEvent());
+
+		expect(ctx.requireGroupAccess).toHaveBeenCalledWith(mockSupabase, 'person-123');
+	});
+
+	it('skips requireGroupAccess when resolvePersonnelId returns null', async () => {
+		const ctx = mockPermissionContext();
+		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
+		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
+
+		const handler = apiRoute(
+			{
+				permission: { edit: 'personnel' },
+				groupScope: {
+					resolvePersonnelId: async () => null
+				}
+			},
+			async () => new Response('ok')
+		);
+
+		await handler(mockRequestEvent());
+
+		expect(ctx.requireGroupAccess).not.toHaveBeenCalled();
 	});
 });
 

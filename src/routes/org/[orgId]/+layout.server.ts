@@ -3,46 +3,7 @@ import type { LayoutServerLoad } from './$types';
 import { isFullEditor, type OrganizationMemberPermissions } from '$lib/types';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { getEffectiveTier } from '$lib/server/subscription';
-import {
-	transformPersonnel,
-	transformGroups,
-	transformStatusTypes,
-	transformTrainingTypes,
-	transformPersonnelTrainings
-} from '$lib/server/transforms';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type varies based on auth context (service role vs user)
-async function fetchSharedData(supabase: any, orgId: string) {
-	const [personnelRes, groupsRes, statusTypesRes, trainingTypesRes, personnelTrainingsRes, activeOnboardingsRes] =
-		await Promise.all([
-			supabase
-				.from('personnel')
-				.select('*, groups(name)')
-				.eq('organization_id', orgId)
-				.is('archived_at', null)
-				.order('last_name'),
-			supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
-			supabase.from('status_types').select('*').eq('organization_id', orgId).order('sort_order'),
-			supabase.from('training_types').select('*').eq('organization_id', orgId).order('sort_order'),
-			supabase.from('personnel_trainings').select('*').eq('organization_id', orgId),
-			supabase
-				.from('personnel_onboardings')
-				.select('personnel_id')
-				.eq('organization_id', orgId)
-				.eq('status', 'in_progress')
-		]);
-
-	return {
-		personnel: transformPersonnel(personnelRes.data ?? []),
-		groups: transformGroups(groupsRes.data ?? []),
-		statusTypes: transformStatusTypes(statusTypesRes.data ?? []),
-		trainingTypes: transformTrainingTypes(trainingTypesRes.data ?? []),
-		personnelTrainings: transformPersonnelTrainings(personnelTrainingsRes.data ?? []),
-		activeOnboardingPersonnelIds: (activeOnboardingsRes.data ?? []).map(
-			(r: Record<string, unknown>) => r.personnel_id
-		) as string[]
-	};
-}
+import { fetchSharedData } from '$lib/server/sharedData';
 
 export const load: LayoutServerLoad = async ({ params, locals, cookies, depends }) => {
 	depends('app:shared-data');
@@ -95,7 +56,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		};
 
 		const [shared, effectiveTier] = await Promise.all([
-			fetchSharedData(supabase, orgId),
+			fetchSharedData(supabase, orgId, null),
 			getEffectiveTier(supabase, orgId)
 		]);
 
@@ -115,8 +76,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 
 			isDemoReadOnly: true,
 			isDemoSandbox: false,
-			...shared,
-			allPersonnel: shared.personnel
+			...shared
 		};
 	}
 
@@ -140,7 +100,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 				};
 
 				const [shared, effectiveTier] = await Promise.all([
-					fetchSharedData(supabase, orgId),
+					fetchSharedData(supabase, orgId, null),
 					getEffectiveTier(supabase, orgId)
 				]);
 
@@ -160,8 +120,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 
 					isDemoReadOnly: false,
 					isDemoSandbox: true,
-					...shared,
-					allPersonnel: shared.personnel
+					...shared
 				};
 			}
 		} catch {
@@ -172,30 +131,29 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	// For non-demo access, require login
 	if (!user) throw redirect(303, '/auth/login');
 
-	// Parallelize: membership + allOrgs (single query), shared entity data, tier, and announcements
-	const [membershipsRes, shared, effectiveTier, notificationCountRes, announcementsRes, dismissalsRes] =
-		await Promise.all([
-			locals.supabase
-				.from('organization_memberships')
-				.select(
-					'organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id, organizations(id, name)'
-				)
-				.eq('user_id', user.id),
-			fetchSharedData(supabase, orgId),
-			getEffectiveTier(supabase, orgId),
-			locals.supabase
-				.from('notifications')
-				.select('id', { count: 'exact', head: true })
-				.eq('user_id', user.id)
-				.eq('organization_id', orgId)
-				.eq('read', false),
-			supabase
-				.from('platform_announcements')
-				.select('id, title, message, type')
-				.eq('is_active', true)
-				.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
-			locals.supabase.from('announcement_dismissals').select('announcement_id').eq('user_id', user.id)
-		]);
+	// Parallelize: membership + allOrgs (single query), tier, and announcements
+	// Note: fetchSharedData is called after membership resolves (needs scopedGroupId)
+	const [membershipsRes, effectiveTier, notificationCountRes, announcementsRes, dismissalsRes] = await Promise.all([
+		locals.supabase
+			.from('organization_memberships')
+			.select(
+				'organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id, organizations(id, name)'
+			)
+			.eq('user_id', user.id),
+		getEffectiveTier(supabase, orgId),
+		locals.supabase
+			.from('notifications')
+			.select('id', { count: 'exact', head: true })
+			.eq('user_id', user.id)
+			.eq('organization_id', orgId)
+			.eq('read', false),
+		supabase
+			.from('platform_announcements')
+			.select('id, title, message, type')
+			.eq('is_active', true)
+			.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
+		locals.supabase.from('announcement_dismissals').select('announcement_id').eq('user_id', user.id)
+	]);
 
 	const allMemberships = membershipsRes.data ?? [];
 	const membership = allMemberships.find((m: Record<string, unknown>) => m.organization_id === orgId);
@@ -233,17 +191,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 
 	const fullEditor = !isPrivileged && !scopedGroupId && isFullEditor(permissions);
 
-	// Filter personnel data for group-scoped members
-	let { personnel, personnelTrainings, activeOnboardingPersonnelIds } = shared;
-	const { groups, statusTypes, trainingTypes } = shared;
-	const allPersonnel = personnel; // Keep unscoped list for calendar viewing
-
-	if (scopedGroupId) {
-		const scopedPersonnelIds = new Set(personnel.filter((p) => p.groupId === scopedGroupId).map((p) => p.id));
-		personnel = personnel.filter((p) => p.groupId === scopedGroupId);
-		personnelTrainings = personnelTrainings.filter((pt) => scopedPersonnelIds.has(pt.personnelId));
-		activeOnboardingPersonnelIds = activeOnboardingPersonnelIds.filter((id: string) => scopedPersonnelIds.has(id));
-	}
+	const shared = await fetchSharedData(supabase, orgId, scopedGroupId);
 
 	// Filter out dismissed announcements
 	const dismissedIds = new Set((dismissalsRes.data ?? []).map((d: Record<string, unknown>) => d.announcement_id));
@@ -267,12 +215,6 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		isDemoReadOnly: false,
 		isDemoSandbox: false,
 		activeAnnouncements,
-		personnel,
-		allPersonnel,
-		groups,
-		statusTypes,
-		trainingTypes,
-		personnelTrainings,
-		activeOnboardingPersonnelIds
+		...shared
 	};
 };

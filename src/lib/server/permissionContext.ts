@@ -21,12 +21,6 @@ export interface PermissionContext {
 	requireFullEditor(): void;
 	requireManageMembers(): void;
 
-	assertCrudPermissions(opts: {
-		area: FeatureArea;
-		requireFullEditor?: boolean;
-		personnelGroupId?: string | null;
-	}): Promise<{ scopedGroupId: string | null; needsDeletionApproval: boolean }>;
-
 	requireGroupAccess(supabase: SupabaseClient, personnelId: string): Promise<void>;
 }
 
@@ -56,10 +50,6 @@ export function createSandboxContext(): PermissionContext {
 		requireOwner(): void {},
 		requireFullEditor(): void {},
 		requireManageMembers(): void {},
-
-		async assertCrudPermissions(): Promise<{ scopedGroupId: string | null; needsDeletionApproval: boolean }> {
-			return { scopedGroupId: null, needsDeletionApproval: false };
-		},
 
 		async requireGroupAccess(): Promise<void> {}
 	};
@@ -170,28 +160,6 @@ export async function createPermissionContext(
 			if (!canManageMembers) {
 				throw error(403, 'You do not have permission to manage this organization');
 			}
-		},
-
-		async assertCrudPermissions(opts: {
-			area: FeatureArea;
-			requireFullEditor?: boolean;
-			personnelGroupId?: string | null;
-		}): Promise<{ scopedGroupId: string | null; needsDeletionApproval: boolean }> {
-			if (opts.requireFullEditor) {
-				ctx.requireFullEditor();
-			} else {
-				ctx.requireEdit(opts.area);
-			}
-
-			if (scopedGroupId && opts.personnelGroupId !== undefined && opts.personnelGroupId !== null) {
-				if (opts.personnelGroupId !== scopedGroupId) {
-					throw error(403, 'You do not have access to personnel outside your group');
-				}
-			}
-
-			const needsDeletionApproval = !isPrivileged && !isFullEditor;
-
-			return { scopedGroupId, needsDeletionApproval };
 		},
 
 		async requireGroupAccess(supabaseClient: SupabaseClient, personnelId: string): Promise<void> {

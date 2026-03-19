@@ -3,8 +3,14 @@ import type { PermissionContext, FeatureArea } from './permissionContext';
 export type PermissionRule = (ctx: PermissionContext) => void;
 
 export const Rules = {
-	view: (area: FeatureArea): PermissionRule => (ctx) => ctx.requireView(area),
-	edit: (area: FeatureArea): PermissionRule => (ctx) => ctx.requireEdit(area),
+	view:
+		(area: FeatureArea): PermissionRule =>
+		(ctx) =>
+			ctx.requireView(area),
+	edit:
+		(area: FeatureArea): PermissionRule =>
+		(ctx) =>
+			ctx.requireEdit(area),
 	privileged: (): PermissionRule => (ctx) => ctx.requirePrivileged(),
 	owner: (): PermissionRule => (ctx) => ctx.requireOwner(),
 	fullEditor: (): PermissionRule => (ctx) => ctx.requireFullEditor(),

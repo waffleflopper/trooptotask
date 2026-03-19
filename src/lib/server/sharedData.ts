@@ -41,8 +41,8 @@ export async function fetchSharedData(supabase: any, orgId: string, scopedGroupI
 	let personnelTrainings = allTrainings;
 
 	if (scopedGroupId) {
-		const scopedPersonnelIds = new Set(allPersonnel.filter((p) => p.groupId === scopedGroupId).map((p) => p.id));
 		personnel = allPersonnel.filter((p) => p.groupId === scopedGroupId);
+		const scopedPersonnelIds = new Set(personnel.map((p) => p.id));
 		personnelTrainings = allTrainings.filter((pt) => scopedPersonnelIds.has(pt.personnelId));
 	}
 

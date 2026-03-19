@@ -1,7 +1,12 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 import { getApiContext } from '$lib/server/supabase';
-import { createPermissionContext, createSandboxContext, type PermissionContext, type FeatureArea } from '$lib/server/permissionContext';
+import {
+	createPermissionContext,
+	createSandboxContext,
+	type PermissionContext,
+	type FeatureArea
+} from '$lib/server/permissionContext';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { validateUUID } from '$lib/server/validation';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -14,8 +19,7 @@ export type PermissionSpec =
 	| { owner: true }
 	| { manageMembers: true }
 	| { authenticated: true }
-	| { custom: (ctx: PermissionContext) => void }
-	| { none: true };
+	| { custom: (ctx: PermissionContext) => void };
 
 export interface ApiRouteConfig {
 	permission: PermissionSpec;
@@ -50,7 +54,7 @@ function applyPermission(spec: PermissionSpec, ctx: PermissionContext): void {
 	} else if ('custom' in spec) {
 		spec.custom(ctx);
 	}
-	// 'none' and 'authenticated' — no permission check needed
+	// 'authenticated' — no permission check needed
 }
 
 export function apiRoute(

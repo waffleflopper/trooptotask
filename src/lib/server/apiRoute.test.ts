@@ -141,38 +141,6 @@ describe('apiRoute permission dispatch', () => {
 		expect(customFn).toHaveBeenCalledWith(ctx);
 	});
 
-	it('{ none: true } still creates permission context for authenticated user', async () => {
-		const ctx = mockPermissionContext();
-		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
-		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
-
-		let receivedCtx: PermissionContext | null = null;
-		const handler = apiRoute({ permission: { none: true } }, async (routeCtx) => {
-			receivedCtx = routeCtx.ctx;
-			return new Response('ok');
-		});
-
-		await handler(mockRequestEvent());
-
-		expect(receivedCtx).toBe(ctx);
-	});
-
-	it('{ none: true } skips permission check entirely', async () => {
-		const ctx = mockPermissionContext();
-		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
-		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
-
-		const handler = apiRoute({ permission: { none: true } }, async () => new Response('ok'));
-
-		await handler(mockRequestEvent());
-
-		expect(ctx.requireEdit).not.toHaveBeenCalled();
-		expect(ctx.requireView).not.toHaveBeenCalled();
-		expect(ctx.requireFullEditor).not.toHaveBeenCalled();
-		expect(ctx.requirePrivileged).not.toHaveBeenCalled();
-		expect(ctx.requireOwner).not.toHaveBeenCalled();
-	});
-
 	it('{ authenticated: true } creates ctx but skips permission checks', async () => {
 		const ctx = mockPermissionContext();
 		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });

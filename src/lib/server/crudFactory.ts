@@ -179,206 +179,197 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 	const { table, fields, select = '*', defaults, onDelete, toResponse, toInsert } = config;
 	const permissionSpec = buildPermissionSpec(config);
 
-	const POST = apiRoute(
-		{ permission: permissionSpec },
-		async ({ supabase, orgId, userId, ctx }, event) => {
-			const body = await event.request.json();
+	const POST = apiRoute({ permission: permissionSpec }, async ({ supabase, orgId, userId, ctx }, event) => {
+		const body = await event.request.json();
 
-			if (config.personnelIdField && ctx.scopedGroupId) {
-				const personnelId = body[snakeToCamel(config.personnelIdField)] ?? body[config.personnelIdField];
-				if (personnelId) {
-					const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
-					if (person && person.group_id !== ctx.scopedGroupId) {
-						throw error(403, 'You do not have access to personnel outside your group');
-					}
+		if (config.personnelIdField && ctx.scopedGroupId) {
+			const personnelId = body[snakeToCamel(config.personnelIdField)] ?? body[config.personnelIdField];
+			if (personnelId) {
+				const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
+				if (person && person.group_id !== ctx.scopedGroupId) {
+					throw error(403, 'You do not have access to personnel outside your group');
 				}
 			}
-
-			const insertData = toInsert ? toInsert(body, orgId) : apiToDb(body, fields, orgId, defaults);
-
-			const { data, error: dbError } = await supabase.from(table).insert(insertData).select(select).single();
-
-			if (dbError) throw error(500, dbError.message);
-
-			const row = data as unknown as Record<string, unknown>;
-
-			if (config.auditResourceType) {
-				const { auditLog } = await import('./auditLog');
-				const details: Record<string, unknown> = { actor: event.locals.user?.email ?? userId };
-				if (config.auditDetailFields) {
-					for (const col of config.auditDetailFields) {
-						if (row[col] !== undefined) details[col] = row[col];
-					}
-				}
-				auditLog(
-					{
-						action: `${config.auditResourceType}.created`,
-						resourceType: config.auditResourceType,
-						resourceId: row.id as string,
-						orgId,
-						details
-					},
-					{ userId }
-				);
-			}
-			const response = toResponse ? toResponse(row) : dbToApi<T>(row, fields);
-			return json(response);
 		}
-	);
 
-	const PUT = apiRoute(
-		{ permission: permissionSpec },
-		async ({ supabase, orgId, userId, ctx }, event) => {
-			const body = await event.request.json();
-			const { id } = body;
+		const insertData = toInsert ? toInsert(body, orgId) : apiToDb(body, fields, orgId, defaults);
 
-			if (!id) throw error(400, 'Missing id');
+		const { data, error: dbError } = await supabase.from(table).insert(insertData).select(select).single();
 
-			const { validateUUID } = await import('./validation');
-			if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
+		if (dbError) throw error(500, dbError.message);
 
-			if (config.personnelIdField && ctx.scopedGroupId) {
-				const { data: existing } = await supabase
-					.from(table)
-					.select(config.personnelIdField)
-					.eq('id', id)
-					.eq('organization_id', orgId)
-					.single();
-				const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
-				if (personnelId) {
-					const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
-					if (person && person.group_id !== ctx.scopedGroupId) {
-						throw error(403, 'You do not have access to personnel outside your group');
-					}
+		const row = data as unknown as Record<string, unknown>;
+
+		if (config.auditResourceType) {
+			const { auditLog } = await import('./auditLog');
+			const details: Record<string, unknown> = { actor: event.locals.user?.email ?? userId };
+			if (config.auditDetailFields) {
+				for (const col of config.auditDetailFields) {
+					if (row[col] !== undefined) details[col] = row[col];
 				}
 			}
+			auditLog(
+				{
+					action: `${config.auditResourceType}.created`,
+					resourceType: config.auditResourceType,
+					resourceId: row.id as string,
+					orgId,
+					details
+				},
+				{ userId }
+			);
+		}
+		const response = toResponse ? toResponse(row) : dbToApi<T>(row, fields);
+		return json(response);
+	});
 
-			const updates = apiToDbUpdates(body, fields);
+	const PUT = apiRoute({ permission: permissionSpec }, async ({ supabase, orgId, userId, ctx }, event) => {
+		const body = await event.request.json();
+		const { id } = body;
 
-			if (Object.keys(updates).length === 0) {
-				throw error(400, 'No fields to update');
-			}
+		if (!id) throw error(400, 'Missing id');
 
-			const { data, error: dbError } = await supabase
+		const { validateUUID } = await import('./validation');
+		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
+
+		if (config.personnelIdField && ctx.scopedGroupId) {
+			const { data: existing } = await supabase
 				.from(table)
-				.update(updates)
+				.select(config.personnelIdField)
 				.eq('id', id)
 				.eq('organization_id', orgId)
-				.select(select)
 				.single();
-
-			if (dbError) throw error(500, dbError.message);
-
-			if (config.auditResourceType) {
-				const { auditLog } = await import('./auditLog');
-				const details: Record<string, unknown> = { actor: event.locals.user?.email ?? userId };
-				const updatedRow = data as unknown as Record<string, unknown>;
-				if (config.auditDetailFields) {
-					for (const col of config.auditDetailFields) {
-						if (updatedRow[col] !== undefined) details[col] = updatedRow[col];
-					}
+			const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
+			if (personnelId) {
+				const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
+				if (person && person.group_id !== ctx.scopedGroupId) {
+					throw error(403, 'You do not have access to personnel outside your group');
 				}
-				auditLog(
-					{
-						action: `${config.auditResourceType}.updated`,
-						resourceType: config.auditResourceType,
-						resourceId: id,
-						orgId,
-						details
-					},
-					{ userId }
-				);
 			}
-
-			const row = data as unknown as Record<string, unknown>;
-			const response = toResponse ? toResponse(row) : dbToApi<T>(row, fields);
-			return json(response);
 		}
-	);
 
-	const DELETE = apiRoute(
-		{ permission: permissionSpec },
-		async ({ supabase, orgId, userId, ctx }, event) => {
-			const body = await event.request.json();
-			const { id } = body;
+		const updates = apiToDbUpdates(body, fields);
 
-			if (!id) throw error(400, 'Missing id');
+		if (Object.keys(updates).length === 0) {
+			throw error(400, 'No fields to update');
+		}
 
-			const { validateUUID } = await import('./validation');
-			if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
+		const { data, error: dbError } = await supabase
+			.from(table)
+			.update(updates)
+			.eq('id', id)
+			.eq('organization_id', orgId)
+			.select(select)
+			.single();
 
-			if (config.personnelIdField && ctx.scopedGroupId) {
-				const { data: existing } = await supabase
-					.from(table)
-					.select(config.personnelIdField)
-					.eq('id', id)
-					.eq('organization_id', orgId)
-					.single();
-				const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
-				if (personnelId) {
-					const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
-					if (person && person.group_id !== ctx.scopedGroupId) {
-						throw error(403, 'You do not have access to personnel outside your group');
-					}
+		if (dbError) throw error(500, dbError.message);
+
+		if (config.auditResourceType) {
+			const { auditLog } = await import('./auditLog');
+			const details: Record<string, unknown> = { actor: event.locals.user?.email ?? userId };
+			const updatedRow = data as unknown as Record<string, unknown>;
+			if (config.auditDetailFields) {
+				for (const col of config.auditDetailFields) {
+					if (updatedRow[col] !== undefined) details[col] = updatedRow[col];
 				}
 			}
-
-			if (config.requireDeletionApproval && !ctx.isPrivileged && !ctx.isFullEditor) {
-				return json({ requiresApproval: true }, { status: 202 });
-			}
-
-			// Capture record details before deletion for audit log
-			let deletedDetails: Record<string, unknown> | null = null;
-			if (config.auditResourceType && config.auditDetailFields?.length) {
-				const { data: existing } = await supabase
-					.from(table)
-					.select(config.auditDetailFields.join(', '))
-					.eq('id', id)
-					.eq('organization_id', orgId)
-					.single();
-				if (existing) deletedDetails = existing as unknown as Record<string, unknown>;
-			}
-
-			// Run cascade delete if configured
-			if (onDelete) {
-				await onDelete(supabase, orgId, id);
-			}
-
-			const { error: dbError } = await supabase.from(table).delete().eq('id', id).eq('organization_id', orgId);
-
-			if (dbError) throw error(500, dbError.message);
-
-			if (config.auditResourceType) {
-				const { auditLog } = await import('./auditLog');
-				const details: Record<string, unknown> = { actor: event.locals.user?.email ?? userId };
-				if (deletedDetails) {
-					Object.assign(details, deletedDetails);
-				}
-				auditLog(
-					{
-						action: `${config.auditResourceType}.deleted`,
-						resourceType: config.auditResourceType,
-						resourceId: id,
-						orgId,
-						details
-					},
-					{ userId }
-				);
-			}
-
-			if (config.onAfterDelete) {
-				await config.onAfterDelete({
+			auditLog(
+				{
+					action: `${config.auditResourceType}.updated`,
+					resourceType: config.auditResourceType,
+					resourceId: id,
 					orgId,
-					userId: userId ?? null,
-					userEmail: event.locals.user?.email,
-					id,
-					deletedDetails
-				});
-			}
-
-			return json({ success: true });
+					details
+				},
+				{ userId }
+			);
 		}
-	);
+
+		const row = data as unknown as Record<string, unknown>;
+		const response = toResponse ? toResponse(row) : dbToApi<T>(row, fields);
+		return json(response);
+	});
+
+	const DELETE = apiRoute({ permission: permissionSpec }, async ({ supabase, orgId, userId, ctx }, event) => {
+		const body = await event.request.json();
+		const { id } = body;
+
+		if (!id) throw error(400, 'Missing id');
+
+		const { validateUUID } = await import('./validation');
+		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
+
+		if (config.personnelIdField && ctx.scopedGroupId) {
+			const { data: existing } = await supabase
+				.from(table)
+				.select(config.personnelIdField)
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.single();
+			const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
+			if (personnelId) {
+				const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
+				if (person && person.group_id !== ctx.scopedGroupId) {
+					throw error(403, 'You do not have access to personnel outside your group');
+				}
+			}
+		}
+
+		if (config.requireDeletionApproval && !ctx.isPrivileged && !ctx.isFullEditor) {
+			return json({ requiresApproval: true }, { status: 202 });
+		}
+
+		// Capture record details before deletion for audit log
+		let deletedDetails: Record<string, unknown> | null = null;
+		if (config.auditResourceType && config.auditDetailFields?.length) {
+			const { data: existing } = await supabase
+				.from(table)
+				.select(config.auditDetailFields.join(', '))
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.single();
+			if (existing) deletedDetails = existing as unknown as Record<string, unknown>;
+		}
+
+		// Run cascade delete if configured
+		if (onDelete) {
+			await onDelete(supabase, orgId, id);
+		}
+
+		const { error: dbError } = await supabase.from(table).delete().eq('id', id).eq('organization_id', orgId);
+
+		if (dbError) throw error(500, dbError.message);
+
+		if (config.auditResourceType) {
+			const { auditLog } = await import('./auditLog');
+			const details: Record<string, unknown> = { actor: event.locals.user?.email ?? userId };
+			if (deletedDetails) {
+				Object.assign(details, deletedDetails);
+			}
+			auditLog(
+				{
+					action: `${config.auditResourceType}.deleted`,
+					resourceType: config.auditResourceType,
+					resourceId: id,
+					orgId,
+					details
+				},
+				{ userId }
+			);
+		}
+
+		if (config.onAfterDelete) {
+			await config.onAfterDelete({
+				orgId,
+				userId: userId ?? null,
+				userEmail: event.locals.user?.email,
+				id,
+				deletedDetails
+			});
+		}
+
+		return json({ success: true });
+	});
 
 	return { POST, PUT, DELETE };
 }

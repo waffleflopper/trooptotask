@@ -32,7 +32,7 @@ export const GET = apiRoute(
 );
 
 export const POST = apiRoute(
-	{ permission: { authenticated: true }, readOnly: false },
+	{ permission: { authenticated: true }, readOnly: false, blockSandbox: true },
 	async ({ supabase, orgId, userId }, event) => {
 		const body = await event.request.json();
 		const { resourceType, resourceId, resourceDescription, resourceUrl } = body;
@@ -102,7 +102,7 @@ export const POST = apiRoute(
 );
 
 export const DELETE = apiRoute(
-	{ permission: { authenticated: true }, readOnly: false },
+	{ permission: { authenticated: true }, readOnly: false, blockSandbox: true },
 	async ({ supabase, orgId, userId }, event) => {
 		const body = await event.request.json();
 		const { id } = body;

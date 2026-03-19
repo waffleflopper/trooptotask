@@ -1,8 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 
 function transformRow(r: Record<string, unknown>) {
 	return {
@@ -17,19 +14,8 @@ function transformRow(r: Record<string, unknown>) {
 	};
 }
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		const ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireFullEditor();
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { fullEditor: true } }, async ({ supabase, orgId }, event) => {
+	const body = await event.request.json();
 
 	const { data, error: dbError } = await supabase
 		.from('onboarding_template_steps')
@@ -48,21 +34,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 
 	if (dbError) throw error(500, dbError.message);
 	return json(transformRow(data));
-};
+});
 
-export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		const ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireFullEditor();
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const PUT = apiRoute({ permission: { fullEditor: true } }, async ({ supabase, orgId }, event) => {
+	const body = await event.request.json();
 	const { id, ...fields } = body;
 
 	const updateData: Record<string, unknown> = {};
@@ -83,21 +58,10 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 
 	if (dbError) throw error(500, dbError.message);
 	return json(transformRow(data));
-};
+});
 
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		const ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireFullEditor();
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const { id } = await request.json();
+export const DELETE = apiRoute({ permission: { fullEditor: true } }, async ({ supabase, orgId }, event) => {
+	const { id } = await event.request.json();
 
 	const { error: dbError } = await supabase
 		.from('onboarding_template_steps')
@@ -107,4 +71,4 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 
 	if (dbError) throw error(500, dbError.message);
 	return json({ success: true });
-};
+});

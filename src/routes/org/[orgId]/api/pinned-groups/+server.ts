@@ -1,21 +1,13 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
+export const POST = apiRoute({ permission: { none: true } }, async ({ supabase, orgId, userId, isSandbox }, event) => {
 	// Pinned groups require a user ID - skip for sandbox mode
 	if (isSandbox) {
 		return json({ success: true, groups: [] });
 	}
 
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+	const body = await event.request.json();
 
 	if (body.action === 'replace') {
 		// Replace all pinned groups for this user/org
@@ -56,30 +48,27 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		groupName: data.group_name,
 		sortOrder: data.sort_order
 	});
-};
+});
 
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+export const DELETE = apiRoute(
+	{ permission: { none: true } },
+	async ({ supabase, orgId, userId, isSandbox }, event) => {
+		// Pinned groups require a user ID - skip for sandbox mode
+		if (isSandbox) {
+			return json({ success: true });
+		}
 
-	// Pinned groups require a user ID - skip for sandbox mode
-	if (isSandbox) {
+		const body = await event.request.json();
+
+		const { error: dbError } = await supabase
+			.from('user_pinned_groups')
+			.delete()
+			.eq('user_id', userId!)
+			.eq('organization_id', orgId)
+			.eq('group_name', body.groupName);
+
+		if (dbError) throw error(500, dbError.message);
+
 		return json({ success: true });
 	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
-
-	const { error: dbError } = await supabase
-		.from('user_pinned_groups')
-		.delete()
-		.eq('user_id', userId!)
-		.eq('organization_id', orgId)
-		.eq('group_name', body.groupName);
-
-	if (dbError) throw error(500, dbError.message);
-
-	return json({ success: true });
-};
+);

@@ -1,43 +1,40 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import { createCrudHandlers } from '$lib/server/crudFactory';
+import { apiRoute } from '$lib/server/apiRoute';
 import type { PersonnelExtendedInfo } from '$features/counseling/counseling.types';
-import { getApiContext } from '$lib/server/supabase';
 import { redactSensitiveFields } from '$lib/server/piiFilter';
 
-export const GET: RequestHandler = async ({ params, locals, cookies }) => {
-	const { orgId } = params;
-	if (!orgId) throw error(400, 'Missing orgId');
+export const GET = apiRoute(
+	{ permission: { none: true }, readOnly: false },
+	async ({ supabase, orgId, userId, isSandbox }, event) => {
+		let canEdit = isSandbox;
+		if (!isSandbox && userId) {
+			const { data: membership } = await supabase
+				.from('organization_memberships')
+				.select('role, can_edit_personnel, can_edit_leaders_book')
+				.eq('organization_id', orgId)
+				.eq('user_id', userId)
+				.single();
 
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+			if (!membership) throw error(403, 'Not a member of this organization');
+			canEdit = membership.role === 'owner' || membership.can_edit_personnel || membership.can_edit_leaders_book;
+		}
 
-	let canEdit = isSandbox;
-	if (!isSandbox && userId) {
-		const { data: membership } = await supabase
-			.from('organization_memberships')
-			.select('role, can_edit_personnel, can_edit_leaders_book')
-			.eq('organization_id', orgId)
-			.eq('user_id', userId)
-			.single();
+		const { data, error: dbError } = await supabase
+			.from('personnel_extended_info')
+			.select('*')
+			.eq('organization_id', orgId);
 
-		if (!membership) throw error(403, 'Not a member of this organization');
-		canEdit = membership.role === 'owner' || membership.can_edit_personnel || membership.can_edit_leaders_book;
+		if (dbError) throw error(500, dbError.message);
+
+		const rows = data ?? [];
+		if (canEdit) {
+			return json(rows);
+		}
+
+		return json(rows.map(redactSensitiveFields));
 	}
-
-	const { data, error: dbError } = await supabase
-		.from('personnel_extended_info')
-		.select('*')
-		.eq('organization_id', orgId);
-
-	if (dbError) throw error(500, dbError.message);
-
-	const rows = data ?? [];
-	if (canEdit) {
-		return json(rows);
-	}
-
-	return json(rows.map(redactSensitiveFields));
-};
+);
 
 const handlers = createCrudHandlers<PersonnelExtendedInfo>({
 	table: 'personnel_extended_info',

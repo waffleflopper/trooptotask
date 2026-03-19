@@ -1,17 +1,13 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { getApiContext } from '$lib/server/supabase';
+import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 
-export const GET: RequestHandler = async ({ params, url, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase } = getApiContext(locals, cookies, orgId);
-
-	const title = url.searchParams.get('title') || '';
-	const from = url.searchParams.get('from');
-	const to = url.searchParams.get('to');
-	const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
-	const offset = parseInt(url.searchParams.get('offset') || '0');
+export const GET = apiRoute({ permission: { none: true }, readOnly: false }, async ({ supabase, orgId }, event) => {
+	const title = event.url.searchParams.get('title') || '';
+	const from = event.url.searchParams.get('from');
+	const to = event.url.searchParams.get('to');
+	const limit = Math.min(parseInt(event.url.searchParams.get('limit') || '20'), 100);
+	const offset = parseInt(event.url.searchParams.get('offset') || '0');
 
 	let query = supabase
 		.from('sign_in_rosters')
@@ -49,60 +45,60 @@ export const GET: RequestHandler = async ({ params, url, locals, cookies }) => {
 	}));
 
 	return json({ rosters, total: count ?? 0 });
-};
+});
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId } = getApiContext(locals, cookies, orgId);
+export const POST = apiRoute(
+	{ permission: { none: true }, readOnly: false },
+	async ({ supabase, orgId, userId }, event) => {
+		const body = await event.request.json();
 
-	const body = await request.json();
+		if (!body.title?.trim()) {
+			return json({ error: 'Title is required' }, { status: 400 });
+		}
+		if (!body.personnelSnapshot?.length) {
+			return json({ error: 'Personnel snapshot is required' }, { status: 400 });
+		}
 
-	if (!body.title?.trim()) {
-		return json({ error: 'Title is required' }, { status: 400 });
+		const row = {
+			organization_id: orgId,
+			title: body.title.trim(),
+			roster_date: body.rosterDate || null,
+			blank_date: body.blankDate ?? false,
+			separate_by_group: body.separateByGroup ?? false,
+			sort_by: body.sortBy || 'alphabetical',
+			personnel_snapshot: body.personnelSnapshot,
+			filter_config: body.filterConfig || null,
+			signed_file_path: null,
+			created_by: userId
+		};
+
+		const { data, error: dbError } = await supabase.from('sign_in_rosters').insert(row).select().single();
+
+		if (dbError) throw error(500, dbError.message);
+
+		auditLog(
+			{
+				action: 'sign_in_roster.created',
+				resourceType: 'sign_in_roster',
+				resourceId: data.id,
+				orgId,
+				details: { actor: event.locals.user?.email ?? userId, title: body.title }
+			},
+			{ userId }
+		);
+
+		return json({
+			id: data.id,
+			title: data.title,
+			rosterDate: data.roster_date,
+			blankDate: data.blank_date,
+			separateByGroup: data.separate_by_group,
+			sortBy: data.sort_by,
+			personnelSnapshot: data.personnel_snapshot,
+			filterConfig: data.filter_config,
+			signedFilePath: data.signed_file_path,
+			createdBy: data.created_by,
+			createdAt: data.created_at
+		});
 	}
-	if (!body.personnelSnapshot?.length) {
-		return json({ error: 'Personnel snapshot is required' }, { status: 400 });
-	}
-
-	const row = {
-		organization_id: orgId,
-		title: body.title.trim(),
-		roster_date: body.rosterDate || null,
-		blank_date: body.blankDate ?? false,
-		separate_by_group: body.separateByGroup ?? false,
-		sort_by: body.sortBy || 'alphabetical',
-		personnel_snapshot: body.personnelSnapshot,
-		filter_config: body.filterConfig || null,
-		signed_file_path: null,
-		created_by: userId
-	};
-
-	const { data, error: dbError } = await supabase.from('sign_in_rosters').insert(row).select().single();
-
-	if (dbError) throw error(500, dbError.message);
-
-	auditLog(
-		{
-			action: 'sign_in_roster.created',
-			resourceType: 'sign_in_roster',
-			resourceId: data.id,
-			orgId,
-			details: { actor: locals.user?.email ?? userId, title: body.title }
-		},
-		{ userId }
-	);
-
-	return json({
-		id: data.id,
-		title: data.title,
-		rosterDate: data.roster_date,
-		blankDate: data.blank_date,
-		separateByGroup: data.separate_by_group,
-		sortBy: data.sort_by,
-		personnelSnapshot: data.personnel_snapshot,
-		filterConfig: data.filter_config,
-		signedFilePath: data.signed_file_path,
-		createdBy: data.created_by,
-		createdAt: data.created_at
-	});
-};
+);

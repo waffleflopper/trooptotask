@@ -1,6 +1,5 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
-import { isPrivilegedRole } from '$lib/server/permissions';
 import { canAddPersonnel } from '$lib/server/subscription';
 import { auditLog } from '$lib/server/auditLog';
 
@@ -161,16 +160,7 @@ export const DELETE = apiRoute(
 );
 
 export const PATCH = apiRoute(
-	{
-		permission: {
-			custom: (ctx) => {
-				if (!isPrivilegedRole(ctx.role)) {
-					throw new Error('Only admins and owners can restore archived personnel');
-				}
-			}
-		},
-		blockSandbox: true
-	},
+	{ permission: { privileged: true }, blockSandbox: true },
 	async ({ supabase, orgId, userId }, event) => {
 		const body = await event.request.json();
 		const { action, id } = body;

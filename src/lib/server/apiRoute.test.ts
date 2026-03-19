@@ -53,7 +53,6 @@ function mockPermissionContext(overrides: Partial<PermissionContext> = {}): Perm
 		requireOwner: vi.fn(),
 		requireFullEditor: vi.fn(),
 		requireManageMembers: vi.fn(),
-		assertCrudPermissions: vi.fn(),
 		requireGroupAccess: vi.fn(),
 		...overrides
 	};

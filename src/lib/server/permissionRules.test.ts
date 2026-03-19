@@ -19,7 +19,6 @@ function mockCtx(overrides: Partial<PermissionContext> = {}): PermissionContext 
 		requireOwner: vi.fn(),
 		requireFullEditor: vi.fn(),
 		requireManageMembers: vi.fn(),
-		assertCrudPermissions: vi.fn(),
 		requireGroupAccess: vi.fn(),
 		...overrides
 	};

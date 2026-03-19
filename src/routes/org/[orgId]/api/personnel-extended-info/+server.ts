@@ -5,20 +5,9 @@ import type { PersonnelExtendedInfo } from '$features/counseling/counseling.type
 import { redactSensitiveFields } from '$lib/server/piiFilter';
 
 export const GET = apiRoute(
-	{ permission: { none: true }, readOnly: false },
-	async ({ supabase, orgId, userId, isSandbox }, event) => {
-		let canEdit = isSandbox;
-		if (!isSandbox && userId) {
-			const { data: membership } = await supabase
-				.from('organization_memberships')
-				.select('role, can_edit_personnel, can_edit_leaders_book')
-				.eq('organization_id', orgId)
-				.eq('user_id', userId)
-				.single();
-
-			if (!membership) throw error(403, 'Not a member of this organization');
-			canEdit = membership.role === 'owner' || membership.can_edit_personnel || membership.can_edit_leaders_book;
-		}
+	{ permission: { authenticated: true }, readOnly: false },
+	async ({ supabase, orgId, ctx }) => {
+		const canEdit = ctx.isPrivileged || ctx.canEdit.personnel || ctx.canEdit['leaders-book'];
 
 		const { data, error: dbError } = await supabase
 			.from('personnel_extended_info')

@@ -21,13 +21,40 @@ export interface PermissionContext {
 	requireFullEditor(): void;
 	requireManageMembers(): void;
 
-	assertCrudPermissions(opts: {
-		area: FeatureArea;
-		requireFullEditor?: boolean;
-		personnelGroupId?: string | null;
-	}): Promise<{ scopedGroupId: string | null; needsDeletionApproval: boolean }>;
-
 	requireGroupAccess(supabase: SupabaseClient, personnelId: string): Promise<void>;
+}
+
+export function createSandboxContext(): PermissionContext {
+	const allTrue: Record<FeatureArea, boolean> = {
+		calendar: true,
+		personnel: true,
+		training: true,
+		onboarding: true,
+		'leaders-book': true
+	};
+
+	const ctx: PermissionContext = {
+		role: 'owner',
+		isOwner: true,
+		isAdmin: false,
+		isPrivileged: true,
+		isFullEditor: false,
+		scopedGroupId: null,
+		canView: { ...allTrue },
+		canEdit: { ...allTrue },
+		canManageMembers: true,
+
+		requireEdit(): void {},
+		requireView(): void {},
+		requirePrivileged(): void {},
+		requireOwner(): void {},
+		requireFullEditor(): void {},
+		requireManageMembers(): void {},
+
+		async requireGroupAccess(): Promise<void> {}
+	};
+
+	return ctx;
 }
 
 export async function createPermissionContext(
@@ -133,28 +160,6 @@ export async function createPermissionContext(
 			if (!canManageMembers) {
 				throw error(403, 'You do not have permission to manage this organization');
 			}
-		},
-
-		async assertCrudPermissions(opts: {
-			area: FeatureArea;
-			requireFullEditor?: boolean;
-			personnelGroupId?: string | null;
-		}): Promise<{ scopedGroupId: string | null; needsDeletionApproval: boolean }> {
-			if (opts.requireFullEditor) {
-				ctx.requireFullEditor();
-			} else {
-				ctx.requireEdit(opts.area);
-			}
-
-			if (scopedGroupId && opts.personnelGroupId !== undefined && opts.personnelGroupId !== null) {
-				if (opts.personnelGroupId !== scopedGroupId) {
-					throw error(403, 'You do not have access to personnel outside your group');
-				}
-			}
-
-			const needsDeletionApproval = !isPrivileged && !isFullEditor;
-
-			return { scopedGroupId, needsDeletionApproval };
 		},
 
 		async requireGroupAccess(supabaseClient: SupabaseClient, personnelId: string): Promise<void> {

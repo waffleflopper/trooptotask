@@ -3,7 +3,7 @@ import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 
 export const DELETE = apiRoute(
-	{ permission: { none: true }, readOnly: false },
+	{ permission: { authenticated: true }, readOnly: false },
 	async ({ supabase, orgId, userId }, event) => {
 		const id = event.params.id;
 

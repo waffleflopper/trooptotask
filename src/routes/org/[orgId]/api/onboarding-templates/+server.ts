@@ -11,7 +11,7 @@ function transformTemplate(r: Record<string, unknown>) {
 	};
 }
 
-export const GET = apiRoute({ permission: { none: true }, readOnly: false }, async ({ supabase, orgId }) => {
+export const GET = apiRoute({ permission: { authenticated: true }, readOnly: false }, async ({ supabase, orgId }) => {
 	const { data, error: dbError } = await supabase
 		.from('onboarding_templates')
 		.select('*')

@@ -1,10 +1,8 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createPermissionContext, type FeatureArea } from './permissionContext';
-import { getApiContext } from './supabase';
-import { checkReadOnly } from './read-only-guard';
-import { validateUUID } from './validation';
+import { apiRoute, type PermissionSpec } from './apiRoute';
+import type { FeatureArea } from './permissionContext';
 
 /**
  * Field mapping configuration for camelCase <-> snake_case conversion
@@ -163,6 +161,13 @@ function apiToDbUpdates(body: Record<string, unknown>, fields: FieldMapping): Re
 	return updates;
 }
 
+function buildPermissionSpec(config: CrudConfig<unknown>): PermissionSpec {
+	if (config.requireFullEditor) {
+		return { fullEditor: true };
+	}
+	return { edit: config.permission };
+}
+
 /**
  * Creates CRUD request handlers for a database table
  */
@@ -171,31 +176,13 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 	PUT: RequestHandler;
 	DELETE: RequestHandler;
 } {
-	const { table, permission, fields, select = '*', defaults, onDelete, toResponse, toInsert } = config;
+	const { table, fields, select = '*', defaults, onDelete, toResponse, toInsert } = config;
+	const permissionSpec = buildPermissionSpec(config);
 
-	const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-		const { orgId } = params;
-		if (!orgId) throw error(400, 'Missing orgId');
-		if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
+	const POST = apiRoute({ permission: permissionSpec }, async ({ supabase, orgId, userId, ctx }, event) => {
+		const body = await event.request.json();
 
-		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-		const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
-
-		if (ctx) {
-			if (config.requireFullEditor) {
-				ctx.requireFullEditor();
-			} else {
-				ctx.requireEdit(permission);
-			}
-		}
-
-		const blocked = await checkReadOnly(supabase, orgId);
-		if (blocked) return blocked;
-
-		const body = await request.json();
-
-		if (config.personnelIdField && ctx?.scopedGroupId) {
+		if (config.personnelIdField && ctx.scopedGroupId) {
 			const personnelId = body[snakeToCamel(config.personnelIdField)] ?? body[config.personnelIdField];
 			if (personnelId) {
 				const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
@@ -215,7 +202,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (config.auditResourceType) {
 			const { auditLog } = await import('./auditLog');
-			const details: Record<string, unknown> = { actor: locals.user?.email ?? userId };
+			const details: Record<string, unknown> = { actor: event.locals.user?.email ?? userId };
 			if (config.auditDetailFields) {
 				for (const col of config.auditDetailFields) {
 					if (row[col] !== undefined) details[col] = row[col];
@@ -234,35 +221,18 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		}
 		const response = toResponse ? toResponse(row) : dbToApi<T>(row, fields);
 		return json(response);
-	};
+	});
 
-	const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
-		const { orgId } = params;
-		if (!orgId) throw error(400, 'Missing orgId');
-		if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
-
-		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-		const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
-
-		if (ctx) {
-			if (config.requireFullEditor) {
-				ctx.requireFullEditor();
-			} else {
-				ctx.requireEdit(permission);
-			}
-		}
-
-		const blocked = await checkReadOnly(supabase, orgId);
-		if (blocked) return blocked;
-
-		const body = await request.json();
+	const PUT = apiRoute({ permission: permissionSpec }, async ({ supabase, orgId, userId, ctx }, event) => {
+		const body = await event.request.json();
 		const { id } = body;
 
 		if (!id) throw error(400, 'Missing id');
+
+		const { validateUUID } = await import('./validation');
 		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 
-		if (config.personnelIdField && ctx?.scopedGroupId) {
+		if (config.personnelIdField && ctx.scopedGroupId) {
 			const { data: existing } = await supabase
 				.from(table)
 				.select(config.personnelIdField)
@@ -296,7 +266,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (config.auditResourceType) {
 			const { auditLog } = await import('./auditLog');
-			const details: Record<string, unknown> = { actor: locals.user?.email ?? userId };
+			const details: Record<string, unknown> = { actor: event.locals.user?.email ?? userId };
 			const updatedRow = data as unknown as Record<string, unknown>;
 			if (config.auditDetailFields) {
 				for (const col of config.auditDetailFields) {
@@ -318,35 +288,18 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		const row = data as unknown as Record<string, unknown>;
 		const response = toResponse ? toResponse(row) : dbToApi<T>(row, fields);
 		return json(response);
-	};
+	});
 
-	const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-		const { orgId } = params;
-		if (!orgId) throw error(400, 'Missing orgId');
-		if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
-
-		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-		const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
-
-		if (ctx) {
-			if (config.requireFullEditor) {
-				ctx.requireFullEditor();
-			} else {
-				ctx.requireEdit(permission);
-			}
-		}
-
-		const blocked = await checkReadOnly(supabase, orgId);
-		if (blocked) return blocked;
-
-		const body = await request.json();
+	const DELETE = apiRoute({ permission: permissionSpec }, async ({ supabase, orgId, userId, ctx }, event) => {
+		const body = await event.request.json();
 		const { id } = body;
 
 		if (!id) throw error(400, 'Missing id');
+
+		const { validateUUID } = await import('./validation');
 		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 
-		if (config.personnelIdField && ctx?.scopedGroupId) {
+		if (config.personnelIdField && ctx.scopedGroupId) {
 			const { data: existing } = await supabase
 				.from(table)
 				.select(config.personnelIdField)
@@ -362,7 +315,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 			}
 		}
 
-		if (config.requireDeletionApproval && ctx && !ctx.isPrivileged && !ctx.isFullEditor) {
+		if (config.requireDeletionApproval && !ctx.isPrivileged && !ctx.isFullEditor) {
 			return json({ requiresApproval: true }, { status: 202 });
 		}
 
@@ -389,7 +342,7 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		if (config.auditResourceType) {
 			const { auditLog } = await import('./auditLog');
-			const details: Record<string, unknown> = { actor: locals.user?.email ?? userId };
+			const details: Record<string, unknown> = { actor: event.locals.user?.email ?? userId };
 			if (deletedDetails) {
 				Object.assign(details, deletedDetails);
 			}
@@ -409,14 +362,14 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 			await config.onAfterDelete({
 				orgId,
 				userId: userId ?? null,
-				userEmail: locals.user?.email,
+				userEmail: event.locals.user?.email,
 				id,
 				deletedDetails
 			});
 		}
 
 		return json({ success: true });
-	};
+	});
 
 	return { POST, PUT, DELETE };
 }

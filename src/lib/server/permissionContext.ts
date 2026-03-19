@@ -30,6 +30,43 @@ export interface PermissionContext {
 	requireGroupAccess(supabase: SupabaseClient, personnelId: string): Promise<void>;
 }
 
+export function createSandboxContext(): PermissionContext {
+	const allTrue: Record<FeatureArea, boolean> = {
+		calendar: true,
+		personnel: true,
+		training: true,
+		onboarding: true,
+		'leaders-book': true
+	};
+
+	const ctx: PermissionContext = {
+		role: 'owner',
+		isOwner: true,
+		isAdmin: false,
+		isPrivileged: true,
+		isFullEditor: false,
+		scopedGroupId: null,
+		canView: { ...allTrue },
+		canEdit: { ...allTrue },
+		canManageMembers: true,
+
+		requireEdit(): void {},
+		requireView(): void {},
+		requirePrivileged(): void {},
+		requireOwner(): void {},
+		requireFullEditor(): void {},
+		requireManageMembers(): void {},
+
+		async assertCrudPermissions(): Promise<{ scopedGroupId: string | null; needsDeletionApproval: boolean }> {
+			return { scopedGroupId: null, needsDeletionApproval: false };
+		},
+
+		async requireGroupAccess(): Promise<void> {}
+	};
+
+	return ctx;
+}
+
 export async function createPermissionContext(
 	supabase: SupabaseClient,
 	userId: string,

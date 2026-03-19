@@ -4,22 +4,9 @@ import { auditLog } from '$lib/server/auditLog';
 import { notifyAdmins } from '$lib/server/notifications';
 
 export const GET = apiRoute(
-	{ permission: { none: true }, readOnly: false },
-	async ({ supabase, orgId, userId }, event) => {
+	{ permission: { authenticated: true }, readOnly: false },
+	async ({ supabase, orgId, userId, ctx }, event) => {
 		const status = event.url.searchParams.get('status');
-
-		// Check membership role to determine access level
-		let isPrivileged = false;
-		if (userId) {
-			const { data: membership } = await supabase
-				.from('organization_memberships')
-				.select('role')
-				.eq('organization_id', orgId)
-				.eq('user_id', userId)
-				.single();
-
-			isPrivileged = membership?.role === 'owner' || membership?.role === 'admin';
-		}
 
 		let query = supabase
 			.from('deletion_requests')
@@ -32,7 +19,7 @@ export const GET = apiRoute(
 		}
 
 		// Non-privileged users can only see their own requests
-		if (!isPrivileged && userId) {
+		if (!ctx.isPrivileged && userId) {
 			query = query.eq('requested_by', userId);
 		}
 
@@ -45,10 +32,8 @@ export const GET = apiRoute(
 );
 
 export const POST = apiRoute(
-	{ permission: { none: true }, readOnly: false },
+	{ permission: { authenticated: true }, readOnly: false },
 	async ({ supabase, orgId, userId }, event) => {
-		if (!userId) throw error(401, 'Unauthorized');
-
 		const body = await event.request.json();
 		const { resourceType, resourceId, resourceDescription, resourceUrl } = body;
 
@@ -117,10 +102,8 @@ export const POST = apiRoute(
 );
 
 export const DELETE = apiRoute(
-	{ permission: { none: true }, readOnly: false },
+	{ permission: { authenticated: true }, readOnly: false },
 	async ({ supabase, orgId, userId }, event) => {
-		if (!userId) throw error(401, 'Unauthorized');
-
 		const body = await event.request.json();
 		const { id } = body;
 

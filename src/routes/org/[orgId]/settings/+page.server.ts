@@ -4,7 +4,7 @@ import { PERMISSION_PRESETS, type OrganizationMember, type PermissionPreset } fr
 import { isBillingEnabled } from '$lib/config/billing';
 import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscription';
 import { TIER_CONFIG } from '$lib/types/subscription';
-import { requireManageMembersPermission, requireOwnerRole } from '$lib/server/permissions';
+import { createPermissionContext } from '$lib/server/permissionContext';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
 import { auditLog } from '$lib/server/auditLog';
 import { notifyUser, notifyAdmins } from '$lib/server/notifications';
@@ -112,7 +112,8 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const { orgId } = params;
-		await requireManageMembersPermission(locals.supabase, orgId, user.id);
+		const ctx = await createPermissionContext(locals.supabase, user.id, orgId);
+		ctx.requireManageMembers();
 		const formData = await request.formData();
 		const name = sanitizeString(formData.get('name') as string, 100);
 
@@ -134,7 +135,8 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const { orgId } = params;
-		await requireManageMembersPermission(locals.supabase, orgId, user.id);
+		const ctx = await createPermissionContext(locals.supabase, user.id, orgId);
+		ctx.requireManageMembers();
 		const formData = await request.formData();
 		const email = sanitizeString(formData.get('email') as string, 254).toLowerCase();
 		const preset = formData.get('preset') as Exclude<PermissionPreset, 'owner' | 'custom'>;
@@ -207,7 +209,8 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const { orgId } = params;
-		await requireManageMembersPermission(locals.supabase, orgId, user.id);
+		const ctx = await createPermissionContext(locals.supabase, user.id, orgId);
+		ctx.requireManageMembers();
 		const formData = await request.formData();
 		const inviteId = formData.get('inviteId') as string;
 
@@ -230,6 +233,10 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const { orgId } = params;
+
+		const ctx = await createPermissionContext(locals.supabase, user.id, orgId);
+		ctx.requireManageMembers();
+
 		const formData = await request.formData();
 		const membershipId = formData.get('membershipId') as string;
 
@@ -305,10 +312,11 @@ export const actions: Actions = {
 		}
 
 		// Only owners can change admin roles
+		const ctx = await createPermissionContext(locals.supabase, user.id, orgId);
 		if (preset === 'admin' || targetMembership?.role === 'admin') {
-			await requireOwnerRole(locals.supabase, orgId, user.id);
+			ctx.requireOwner();
 		} else {
-			await requireManageMembersPermission(locals.supabase, orgId, user.id);
+			ctx.requireManageMembers();
 		}
 
 		let permissions: {
@@ -415,7 +423,8 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const { orgId } = params;
-		await requireOwnerRole(locals.supabase, orgId, user.id);
+		const ctx = await createPermissionContext(locals.supabase, user.id, orgId);
+		ctx.requireOwner();
 		const formData = await request.formData();
 		const newOwnerId = formData.get('newOwnerId') as string;
 

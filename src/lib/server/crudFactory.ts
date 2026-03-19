@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { requireEditPermission, requirePrivilegedOrFullEditor, type PermissionType } from './permissions';
+import { createPermissionContext, type FeatureArea } from './permissionContext';
 import { getApiContext } from './supabase';
 import { checkReadOnly } from './read-only-guard';
 import { validateUUID } from './validation';
@@ -21,7 +21,7 @@ export interface CrudConfig<T> {
 	table: string;
 
 	/** Permission type required for edit operations */
-	permission: PermissionType;
+	permission: FeatureArea;
 
 	/**
 	 * Field mappings from camelCase (API) to snake_case (DB)
@@ -180,11 +180,13 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
-		if (!isSandbox) {
+		const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
+
+		if (ctx) {
 			if (config.requireFullEditor) {
-				await requirePrivilegedOrFullEditor(supabase, orgId, userId!);
+				ctx.requireFullEditor();
 			} else {
-				await requireEditPermission(supabase, orgId, userId!, permission);
+				ctx.requireEdit(permission);
 			}
 		}
 
@@ -193,16 +195,12 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		const body = await request.json();
 
-		if (config.personnelIdField && !isSandbox && userId) {
-			const { getScopedGroupId } = await import('./permissions');
-			const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
-			if (scopedGroupId) {
-				const personnelId = body[snakeToCamel(config.personnelIdField)] ?? body[config.personnelIdField];
-				if (personnelId) {
-					const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
-					if (person && person.group_id !== scopedGroupId) {
-						throw error(403, 'You do not have access to personnel outside your group');
-					}
+		if (config.personnelIdField && ctx?.scopedGroupId) {
+			const personnelId = body[snakeToCamel(config.personnelIdField)] ?? body[config.personnelIdField];
+			if (personnelId) {
+				const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
+				if (person && person.group_id !== ctx.scopedGroupId) {
+					throw error(403, 'You do not have access to personnel outside your group');
 				}
 			}
 		}
@@ -245,11 +243,13 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
-		if (!isSandbox) {
+		const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
+
+		if (ctx) {
 			if (config.requireFullEditor) {
-				await requirePrivilegedOrFullEditor(supabase, orgId, userId!);
+				ctx.requireFullEditor();
 			} else {
-				await requireEditPermission(supabase, orgId, userId!, permission);
+				ctx.requireEdit(permission);
 			}
 		}
 
@@ -262,23 +262,18 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		if (!id) throw error(400, 'Missing id');
 		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 
-		if (config.personnelIdField && !isSandbox && userId) {
-			const { getScopedGroupId } = await import('./permissions');
-			const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
-			if (scopedGroupId) {
-				// Look up personnel_id from existing record
-				const { data: existing } = await supabase
-					.from(table)
-					.select(config.personnelIdField)
-					.eq('id', id)
-					.eq('organization_id', orgId)
-					.single();
-				const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
-				if (personnelId) {
-					const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
-					if (person && person.group_id !== scopedGroupId) {
-						throw error(403, 'You do not have access to personnel outside your group');
-					}
+		if (config.personnelIdField && ctx?.scopedGroupId) {
+			const { data: existing } = await supabase
+				.from(table)
+				.select(config.personnelIdField)
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.single();
+			const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
+			if (personnelId) {
+				const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
+				if (person && person.group_id !== ctx.scopedGroupId) {
+					throw error(403, 'You do not have access to personnel outside your group');
 				}
 			}
 		}
@@ -332,11 +327,13 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 
 		const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
-		if (!isSandbox) {
+		const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
+
+		if (ctx) {
 			if (config.requireFullEditor) {
-				await requirePrivilegedOrFullEditor(supabase, orgId, userId!);
+				ctx.requireFullEditor();
 			} else {
-				await requireEditPermission(supabase, orgId, userId!, permission);
+				ctx.requireEdit(permission);
 			}
 		}
 
@@ -349,55 +346,24 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		if (!id) throw error(400, 'Missing id');
 		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 
-		if (config.personnelIdField && !isSandbox && userId) {
-			const { getScopedGroupId } = await import('./permissions');
-			const scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
-			if (scopedGroupId) {
-				const { data: existing } = await supabase
-					.from(table)
-					.select(config.personnelIdField)
-					.eq('id', id)
-					.eq('organization_id', orgId)
-					.single();
-				const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
-				if (personnelId) {
-					const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
-					if (person && person.group_id !== scopedGroupId) {
-						throw error(403, 'You do not have access to personnel outside your group');
-					}
+		if (config.personnelIdField && ctx?.scopedGroupId) {
+			const { data: existing } = await supabase
+				.from(table)
+				.select(config.personnelIdField)
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.single();
+			const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
+			if (personnelId) {
+				const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
+				if (person && person.group_id !== ctx.scopedGroupId) {
+					throw error(403, 'You do not have access to personnel outside your group');
 				}
 			}
 		}
 
-		if (config.requireDeletionApproval && !isSandbox && userId) {
-			const { data: mem } = await supabase
-				.from('organization_memberships')
-				.select(
-					'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book'
-				)
-				.eq('organization_id', orgId)
-				.eq('user_id', userId)
-				.single();
-
-			if (mem && mem.role === 'member') {
-				// Team leaders (scoped to a group) always need approval, even with all permissions
-				const isFullEd =
-					!mem.scoped_group_id &&
-					mem.can_view_calendar &&
-					mem.can_edit_calendar &&
-					mem.can_view_personnel &&
-					mem.can_edit_personnel &&
-					mem.can_view_training &&
-					mem.can_edit_training &&
-					mem.can_view_onboarding &&
-					mem.can_edit_onboarding &&
-					mem.can_view_leaders_book &&
-					mem.can_edit_leaders_book;
-
-				if (!isFullEd) {
-					return json({ requiresApproval: true }, { status: 202 });
-				}
-			}
+		if (config.requireDeletionApproval && ctx && !ctx.isPrivileged && !ctx.isFullEditor) {
+			return json({ requiresApproval: true }, { status: 202 });
 		}
 
 		// Capture record details before deletion for audit log

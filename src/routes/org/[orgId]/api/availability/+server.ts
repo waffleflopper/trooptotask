@@ -1,5 +1,5 @@
 import { createCrudHandlers } from '$lib/server/crudFactory';
-import { requireGroupAccess } from '$lib/server/permissions';
+import { createPermissionContext } from '$lib/server/permissionContext';
 import { getApiContext } from '$lib/server/supabase';
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
@@ -31,16 +31,22 @@ export const POST: RequestHandler = async (event) => {
 		const personnelId = body.personnelId;
 
 		if (personnelId) {
-			const { data: person } = await event.locals.supabase
-				.from('personnel')
-				.select('group_id')
-				.eq('id', personnelId)
-				.eq('organization_id', orgId)
-				.single();
+			const ctx = await createPermissionContext(event.locals.supabase, userId, orgId);
 
-			if (!person) throw error(404, 'Personnel not found');
+			if (ctx.scopedGroupId) {
+				const { data: person } = await event.locals.supabase
+					.from('personnel')
+					.select('group_id')
+					.eq('id', personnelId)
+					.eq('organization_id', orgId)
+					.single();
 
-			await requireGroupAccess(event.locals.supabase, orgId, userId, person.group_id);
+				if (!person) throw error(404, 'Personnel not found');
+
+				if (person.group_id !== ctx.scopedGroupId) {
+					throw error(403, 'You do not have access to personnel outside your group');
+				}
+			}
 		}
 	}
 
@@ -57,6 +63,8 @@ export const DELETE: RequestHandler = async (event) => {
 		const entryId = body.id;
 
 		if (entryId) {
+			const ctx = await createPermissionContext(event.locals.supabase, userId, orgId);
+
 			// Look up the availability entry to get personnel_id
 			const { data: entry } = await event.locals.supabase
 				.from('availability_entries')
@@ -67,17 +75,21 @@ export const DELETE: RequestHandler = async (event) => {
 
 			if (!entry) throw error(404, 'Availability entry not found');
 
-			// Look up the personnel's group_id
-			const { data: person } = await event.locals.supabase
-				.from('personnel')
-				.select('group_id')
-				.eq('id', entry.personnel_id)
-				.eq('organization_id', orgId)
-				.single();
+			if (ctx.scopedGroupId) {
+				// Look up the personnel's group_id
+				const { data: person } = await event.locals.supabase
+					.from('personnel')
+					.select('group_id')
+					.eq('id', entry.personnel_id)
+					.eq('organization_id', orgId)
+					.single();
 
-			if (!person) throw error(404, 'Personnel not found');
+				if (!person) throw error(404, 'Personnel not found');
 
-			await requireGroupAccess(event.locals.supabase, orgId, userId, person.group_id);
+				if (person.group_id !== ctx.scopedGroupId) {
+					throw error(403, 'You do not have access to personnel outside your group');
+				}
+			}
 		}
 	}
 

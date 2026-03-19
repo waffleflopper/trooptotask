@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireEditPermission, getScopedGroupId } from '$lib/server/permissions';
+import { createPermissionContext } from '$lib/server/permissionContext';
 import { getApiContext } from '$lib/server/supabase';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { auditLog } from '$lib/server/auditLog';
@@ -25,8 +25,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const { orgId } = params;
 	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
 
+	let ctx: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
 	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'training');
+		ctx = await createPermissionContext(supabase, userId!, orgId);
+		ctx.requireEdit('training');
 	}
 
 	const blocked = await checkReadOnly(supabase, orgId);
@@ -44,10 +46,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}
 
 	// Get scoped group for validation
-	let scopedGroupId: string | null = null;
-	if (!isSandbox && userId) {
-		scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
-	}
+	const scopedGroupId = ctx?.scopedGroupId ?? null;
 
 	// Fetch all referenced training types in one query
 	const trainingTypeIds = [...new Set(records.map((r) => r.trainingTypeId))];

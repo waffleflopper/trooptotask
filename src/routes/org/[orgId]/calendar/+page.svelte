@@ -32,6 +32,7 @@
 	import { browser } from '$app/environment';
 	import { invalidateAll } from '$app/navigation';
 	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
+	import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
 	import BulkStatusImportModal from '$features/calendar/components/BulkStatusImportModal.svelte';
 
 	let { data } = $props();
@@ -102,7 +103,9 @@
 		groupAndSortPersonnel(calendarPersonnel, { pinnedGroups: pinnedGroupsStore.list, fallbackGroupName: data.orgName })
 	);
 
-	const allPersonnelFlat = $derived(personnelByGroup.flatMap((g) => g.personnel));
+	// Scoped version for exports, bulk ops, and reports — respects group scope
+	const scopedPBG = $derived(scopePersonnelByGroup(personnelByGroup, data.scopedGroupId ?? null));
+	const allPersonnelFlat = $derived(scopedPBG.flatMap((g) => g.personnel));
 
 	function handlePinToggle(group: string) {
 		pinnedGroupsStore.toggle(group);
@@ -161,7 +164,7 @@
 
 	function handleExportCSV() {
 		exportMonthToCSV(calendarStore.year, calendarStore.month, {
-			personnelByGroup: personnelByGroup,
+			personnelByGroup: scopedPBG,
 			availabilityEntries: availabilityStore.list,
 			statusTypes: statusTypesStore.list,
 			specialDays: specialDaysStore.list,
@@ -172,7 +175,7 @@
 
 	function handleExportPDF() {
 		printMonthCalendar(calendarStore.year, calendarStore.month, {
-			personnelByGroup: personnelByGroup,
+			personnelByGroup: scopedPBG,
 			availabilityEntries: availabilityStore.list,
 			statusTypes: statusTypesStore.list,
 			specialDays: specialDaysStore.list,
@@ -416,7 +419,7 @@
 
 {#if showBulkStatusModal}
 	<BulkStatusModal
-		{personnelByGroup}
+		personnelByGroup={scopedPBG}
 		statusTypes={statusTypesStore.list}
 		onApply={handleBulkStatusApply}
 		onClose={() => (showBulkStatusModal = false)}
@@ -441,7 +444,7 @@
 
 {#if showBulkRemoveModal}
 	<BulkStatusRemoveModal
-		{personnelByGroup}
+		personnelByGroup={scopedPBG}
 		statusTypes={statusTypesStore.list}
 		availabilityEntries={availabilityStore.list}
 		personnelList={calendarPersonnel}
@@ -454,7 +457,7 @@
 	<DutyRosterGenerator
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
-		{personnelByGroup}
+		personnelByGroup={scopedPBG}
 		groups={groupsStore.names}
 		availabilityEntries={availabilityStore.list}
 		statusTypes={statusTypesStore.list}
@@ -473,7 +476,7 @@
 		currentDate={calendarStore.currentDate}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
-		{personnelByGroup}
+		personnelByGroup={scopedPBG}
 		groups={groupsStore.names}
 		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 		onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}

@@ -18,6 +18,8 @@
 	import { changelog } from '$lib/data/changelog';
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 	import GettingStartedBanner from '$features/onboarding/components/GettingStartedBanner.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { getVisibleDashboardCards } from '$lib/utils/dashboardCards';
 
 	const HALF_SIZE_CARDS: CardId[] = ['strength', 'duty', 'training', 'upcoming', 'ratings'];
 
@@ -333,9 +335,12 @@
 		ratingStats.overdue + ratingStats['due-30'] + ratingStats['due-60'] + ratingStats.current
 	);
 
+	// Permission-gated cards
+	const allowedCards = $derived(data.permissions ? getVisibleDashboardCards(data.permissions) : []);
+
 	// Dynamic card rows: pair consecutive half-size visible cards into rows
 	const cardRows = $derived.by(() => {
-		const visible = dashboardPrefsStore.visibleCards;
+		const visible = dashboardPrefsStore.visibleCards.filter((id) => allowedCards.includes(id));
 		const rows: CardId[][] = [];
 		let pending: CardId | null = null;
 
@@ -435,6 +440,8 @@
 			{:else}
 				{@render cardContent(row[0])}
 			{/if}
+		{:else}
+			<EmptyState message="Your current permissions don't include dashboard access. Contact your organization admin." />
 		{/each}
 	</main>
 </div>

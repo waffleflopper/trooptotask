@@ -6,6 +6,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import type { OrganizationMember, OrganizationMemberPermissions, PermissionPreset } from '$lib/types';
 	import { PERMISSION_PRESETS, getPermissionPreset } from '$lib/types';
+	import { sortMembers } from '$features/groups/utils/sortMembers';
 
 	interface Invitation {
 		id: string;
@@ -50,6 +51,8 @@
 	}
 
 	let { orgId, members, invitations, isOwner, isAdmin, canManageMembers, groups, form }: Props = $props();
+
+	const sortedMembers = $derived(sortMembers(members));
 
 	let expandedMemberId = $state<string | null>(null);
 	let inviteEmail = $state('');
@@ -153,7 +156,7 @@
 	<div class="section">
 		<h2>Organization Members</h2>
 		<div class="member-list">
-			{#each members as member (member.id)}
+			{#each sortedMembers as member (member.id)}
 				{@const preset = getMemberPreset(member)}
 				<div class="member-card" class:expanded={expandedMemberId === member.id}>
 					<div class="member-row">

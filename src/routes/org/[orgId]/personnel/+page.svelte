@@ -222,7 +222,7 @@
 		const entry = ratingSchemeStore.list.find((e) => e.id === id);
 		const result = await ratingSchemeStore.remove(id);
 		if (result === 'approval_required' && entry) {
-			const allPeople = data.allPersonnel ?? data.personnel ?? [];
+			const allPeople = data.personnel ?? [];
 			const person = allPeople.find((p: Personnel) => p.id === entry.ratedPersonId);
 			const desc = person ? `Rating scheme entry for ${person.rank} ${person.lastName}` : 'Rating scheme entry';
 			await submitDeletionRequest(data.orgId, 'rating_scheme_entry', id, desc, `/org/${data.orgId}/personnel`);
@@ -478,13 +478,13 @@
 				{#if ratingViewMode === 'grouped'}
 					<RatingSchemeGroupedView
 						entries={filteredRatingEntries}
-						personnel={data.allPersonnel ?? data.personnel ?? []}
+						personnel={data.personnel ?? []}
 						onEdit={handleEditRatingEntry}
 					/>
 				{:else}
 					<RatingSchemeTableView
 						entries={filteredRatingEntries}
-						personnel={data.allPersonnel ?? data.personnel ?? []}
+						personnel={data.personnel ?? []}
 						onEdit={handleEditRatingEntry}
 					/>
 				{/if}
@@ -496,7 +496,7 @@
 {#if showRatingModal}
 	<RatingSchemeEntryModal
 		entry={editingEntry}
-		personnel={data.allPersonnel ?? data.personnel ?? []}
+		personnel={data.personnel ?? []}
 		onSave={handleSaveRatingEntry}
 		onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
 		onClose={() => {

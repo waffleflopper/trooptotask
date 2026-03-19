@@ -1,8 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 
 function transformStep(r: Record<string, unknown>) {
 	return {
@@ -20,19 +17,8 @@ function transformStep(r: Record<string, unknown>) {
 	};
 }
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		const ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireEdit('onboarding');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const { onboardingId } = await request.json();
+export const POST = apiRoute({ permission: { edit: 'onboarding' } }, async ({ supabase, orgId }, event) => {
+	const { onboardingId } = await event.request.json();
 
 	// Load the onboarding record
 	const { data: onboarding, error: onboardingError } = await supabase
@@ -154,4 +140,4 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		onboardingId,
 		steps: (refreshed ?? []).map(transformStep)
 	});
-};
+});

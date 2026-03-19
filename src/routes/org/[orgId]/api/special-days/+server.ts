@@ -1,23 +1,9 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		const ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireEdit('calendar');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supabase, orgId }, event) => {
+	const body = await event.request.json();
 
 	// Handle bulk reset of federal holidays
 	if (body.action === 'resetFederalHolidays') {
@@ -69,21 +55,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		name: data.name,
 		type: data.type
 	});
-};
+});
 
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		const ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireEdit('calendar');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const DELETE = apiRoute({ permission: { edit: 'calendar' } }, async ({ supabase, orgId }, event) => {
+	const body = await event.request.json();
 	const { id } = body;
 
 	if (!id) throw error(400, 'Missing id');
@@ -93,4 +68,4 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	if (dbError) throw error(500, dbError.message);
 
 	return json({ success: true });
-};
+});

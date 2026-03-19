@@ -1,16 +1,8 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase } = getApiContext(locals, cookies, orgId);
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { none: true } }, async ({ supabase, orgId }, event) => {
+	const body = await event.request.json();
 
 	const { data, error: dbError } = await supabase
 		.from('units')
@@ -29,16 +21,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		name: data.name,
 		sortOrder: data.sort_order
 	});
-};
+});
 
-export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase } = getApiContext(locals, cookies, orgId);
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const PUT = apiRoute({ permission: { none: true } }, async ({ supabase, orgId }, event) => {
+	const body = await event.request.json();
 	const { id, ...fields } = body;
 
 	if (!id) throw error(400, 'Missing id');
@@ -62,16 +48,10 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 		name: data.name,
 		sortOrder: data.sort_order
 	});
-};
+});
 
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase } = getApiContext(locals, cookies, orgId);
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const DELETE = apiRoute({ permission: { none: true } }, async ({ supabase, orgId }, event) => {
+	const body = await event.request.json();
 	const { id } = body;
 
 	if (!id) throw error(400, 'Missing id');
@@ -81,4 +61,4 @@ export const DELETE: RequestHandler = async ({ params, request, locals, cookies 
 	if (dbError) throw error(500, dbError.message);
 
 	return json({ success: true });
-};
+});

@@ -1,9 +1,6 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
+import { apiRoute } from '$lib/server/apiRoute';
 import { getEffectiveTier } from '$lib/server/subscription';
-import { checkReadOnly } from '$lib/server/read-only-guard';
 import { auditLog } from '$lib/server/auditLog';
 import { sanitizeString } from '$lib/server/validation';
 import { ALL_RANKS } from '$lib/types';
@@ -17,20 +14,8 @@ interface BatchRecord {
 	groupName?: string;
 }
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	let ctx: Awaited<ReturnType<typeof createPermissionContext>> | null = null;
-	if (!isSandbox) {
-		ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireEdit('personnel');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ supabase, orgId, userId, ctx }, event) => {
+	const body = await event.request.json();
 	const records: BatchRecord[] = body.records;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -145,7 +130,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			resourceType: 'personnel',
 			orgId,
 			details: {
-				actor: locals.user?.email ?? userId,
+				actor: event.locals.user?.email ?? userId,
 				count: inserted.length
 			}
 		},
@@ -164,4 +149,4 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}));
 
 	return json({ inserted: result, errors });
-};
+});

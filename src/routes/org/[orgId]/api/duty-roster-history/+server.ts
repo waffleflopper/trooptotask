@@ -1,13 +1,7 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 
-export const GET: RequestHandler = async ({ params, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase } = getApiContext(locals, cookies, orgId);
-
+export const GET = apiRoute({ permission: { none: true }, readOnly: false }, async ({ supabase, orgId }) => {
 	const { data, error: dbError } = await supabase
 		.from('duty_roster_history')
 		.select('*')
@@ -28,21 +22,10 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 			createdAt: r.created_at
 		}))
 	);
-};
+});
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		const ctx = await createPermissionContext(supabase, userId!, orgId);
-		ctx.requireEdit('calendar');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supabase, orgId, userId }, event) => {
+	const body = await event.request.json();
 
 	const { data, error: dbError } = await supabase
 		.from('duty_roster_history')
@@ -71,4 +54,4 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		config: data.config,
 		createdAt: data.created_at
 	});
-};
+});

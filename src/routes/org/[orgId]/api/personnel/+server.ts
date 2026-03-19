@@ -1,29 +1,17 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import { apiRoute } from '$lib/server/apiRoute';
 import { isPrivilegedRole } from '$lib/server/permissions';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { getApiContext } from '$lib/server/supabase';
 import { canAddPersonnel } from '$lib/server/subscription';
-import { checkReadOnly } from '$lib/server/read-only-guard';
 import { auditLog } from '$lib/server/auditLog';
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
-	ctx?.requireEdit('personnel');
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
+export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ supabase, orgId, userId, ctx }, event) => {
 	// Enforce personnel cap
 	const capCheck = await canAddPersonnel(supabase, orgId);
 	if (!capCheck.allowed) {
 		return json({ error: capCheck.message }, { status: 403 });
 	}
 
-	const body = await request.json();
+	const body = await event.request.json();
 
 	if (ctx && ctx.scopedGroupId && body.groupId !== ctx.scopedGroupId) {
 		return json({ error: 'You can only add personnel to your assigned group' }, { status: 403 });
@@ -49,7 +37,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			resourceType: 'personnel',
 			resourceId: data.id,
 			orgId,
-			details: { actor: locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` }
+			details: { actor: event.locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` }
 		},
 		{ userId }
 	);
@@ -64,19 +52,10 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		groupId: data.group_id,
 		groupName: data.groups?.name ?? ''
 	});
-};
+});
 
-export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
-	ctx?.requireEdit('personnel');
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const PUT = apiRoute({ permission: { edit: 'personnel' } }, async ({ supabase, orgId, userId, ctx }, event) => {
+	const body = await event.request.json();
 	const { id, ...fields } = body;
 
 	if (!id) throw error(400, 'Missing id');
@@ -112,7 +91,7 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 			resourceType: 'personnel',
 			resourceId: id,
 			orgId,
-			details: { actor: locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` }
+			details: { actor: event.locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` }
 		},
 		{ userId }
 	);
@@ -127,132 +106,117 @@ export const PUT: RequestHandler = async ({ params, request, locals, cookies }) 
 		groupId: data.group_id,
 		groupName: data.groups?.name ?? ''
 	});
-};
+});
 
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+export const DELETE = apiRoute(
+	{ permission: { edit: 'personnel' } },
+	async ({ supabase, orgId, userId, ctx }, event) => {
+		const body = await event.request.json();
+		const { id } = body;
 
-	const ctx = !isSandbox ? await createPermissionContext(supabase, userId!, orgId) : null;
-	ctx?.requireEdit('personnel');
+		if (!id) throw error(400, 'Missing id');
 
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
+		// Capture name before deletion for audit log
+		const { data: existing } = await supabase
+			.from('personnel')
+			.select('rank, first_name, last_name, group_id')
+			.eq('id', id)
+			.eq('organization_id', orgId)
+			.single();
 
-	const body = await request.json();
-	const { id } = body;
-
-	if (!id) throw error(400, 'Missing id');
-
-	// Capture name before deletion for audit log
-	const { data: existing } = await supabase
-		.from('personnel')
-		.select('rank, first_name, last_name, group_id')
-		.eq('id', id)
-		.eq('organization_id', orgId)
-		.single();
-
-	if (ctx && ctx.scopedGroupId) {
-		if (existing?.group_id !== ctx.scopedGroupId) {
-			throw error(403, 'You do not have access to personnel outside your group');
+		if (ctx && ctx.scopedGroupId) {
+			if (existing?.group_id !== ctx.scopedGroupId) {
+				throw error(403, 'You do not have access to personnel outside your group');
+			}
 		}
+
+		if (ctx && !ctx.isPrivileged && !ctx.isFullEditor) {
+			return json({ requiresApproval: true }, { status: 202 });
+		}
+
+		const { error: dbError } = await supabase
+			.from('personnel')
+			.update({ archived_at: new Date().toISOString() })
+			.eq('id', id)
+			.eq('organization_id', orgId);
+
+		if (dbError) throw error(500, dbError.message);
+
+		auditLog(
+			{
+				action: 'personnel.archived',
+				resourceType: 'personnel',
+				resourceId: id,
+				orgId,
+				details: {
+					actor: event.locals.user?.email ?? userId,
+					name: existing ? `${existing.rank} ${existing.last_name}, ${existing.first_name}` : id
+				}
+			},
+			{ userId }
+		);
+
+		return json({ success: true });
 	}
+);
 
-	if (ctx && !ctx.isPrivileged && !ctx.isFullEditor) {
-		return json({ requiresApproval: true }, { status: 202 });
-	}
-
-	const { error: dbError } = await supabase
-		.from('personnel')
-		.update({ archived_at: new Date().toISOString() })
-		.eq('id', id)
-		.eq('organization_id', orgId);
-
-	if (dbError) throw error(500, dbError.message);
-
-	auditLog(
-		{
-			action: 'personnel.archived',
-			resourceType: 'personnel',
-			resourceId: id,
-			orgId,
-			details: {
-				actor: locals.user?.email ?? userId,
-				name: existing ? `${existing.rank} ${existing.last_name}, ${existing.first_name}` : id
+export const PATCH = apiRoute(
+	{
+		permission: {
+			custom: (ctx) => {
+				if (!isPrivilegedRole(ctx.role)) {
+					throw new Error('Only admins and owners can restore archived personnel');
+				}
 			}
 		},
-		{ userId }
-	);
+		blockSandbox: true
+	},
+	async ({ supabase, orgId, userId }, event) => {
+		const body = await event.request.json();
+		const { action, id } = body;
 
-	return json({ success: true });
-};
+		if (action !== 'restore') throw error(400, 'Invalid action');
+		if (!id) throw error(400, 'Missing id');
 
-export const PATCH: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+		// Check personnel cap before restoring
+		const capCheck = await canAddPersonnel(supabase, orgId);
+		if (!capCheck.allowed) {
+			return json({ message: capCheck.message }, { status: 422 });
+		}
 
-	if (isSandbox) throw error(403, 'Not available in sandbox mode');
-	if (!userId) throw error(401, 'Unauthorized');
+		// Verify this person is actually archived
+		const { data: person } = await supabase
+			.from('personnel')
+			.select('rank, first_name, last_name, archived_at')
+			.eq('id', id)
+			.eq('organization_id', orgId)
+			.single();
 
-	// Only admins/owners can restore
-	const { data: mem } = await supabase
-		.from('organization_memberships')
-		.select('role')
-		.eq('organization_id', orgId)
-		.eq('user_id', userId)
-		.single();
+		if (!person) throw error(404, 'Personnel not found');
+		if (!person.archived_at) throw error(400, 'Personnel is not archived');
 
-	if (!mem || !isPrivilegedRole(mem.role)) {
-		throw error(403, 'Only admins and owners can restore archived personnel');
+		const { error: dbError } = await supabase
+			.from('personnel')
+			.update({ archived_at: null })
+			.eq('id', id)
+			.eq('organization_id', orgId);
+
+		if (dbError) throw error(500, dbError.message);
+
+		auditLog(
+			{
+				action: 'personnel.restored',
+				resourceType: 'personnel',
+				resourceId: id,
+				orgId,
+				details: {
+					actor: event.locals.user?.email ?? userId,
+					name: `${person.rank} ${person.last_name}, ${person.first_name}`
+				}
+			},
+			{ userId }
+		);
+
+		return json({ success: true });
 	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
-	const { action, id } = body;
-
-	if (action !== 'restore') throw error(400, 'Invalid action');
-	if (!id) throw error(400, 'Missing id');
-
-	// Check personnel cap before restoring
-	const capCheck = await canAddPersonnel(supabase, orgId);
-	if (!capCheck.allowed) {
-		return json({ message: capCheck.message }, { status: 422 });
-	}
-
-	// Verify this person is actually archived
-	const { data: person } = await supabase
-		.from('personnel')
-		.select('rank, first_name, last_name, archived_at')
-		.eq('id', id)
-		.eq('organization_id', orgId)
-		.single();
-
-	if (!person) throw error(404, 'Personnel not found');
-	if (!person.archived_at) throw error(400, 'Personnel is not archived');
-
-	const { error: dbError } = await supabase
-		.from('personnel')
-		.update({ archived_at: null })
-		.eq('id', id)
-		.eq('organization_id', orgId);
-
-	if (dbError) throw error(500, dbError.message);
-
-	auditLog(
-		{
-			action: 'personnel.restored',
-			resourceType: 'personnel',
-			resourceId: id,
-			orgId,
-			details: {
-				actor: locals.user?.email ?? userId,
-				name: `${person.rank} ${person.last_name}, ${person.first_name}`
-			}
-		},
-		{ userId }
-	);
-
-	return json({ success: true });
-};
+);

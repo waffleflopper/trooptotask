@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 
-export const POST = apiRoute({ permission: { none: true } }, async ({ supabase, orgId }, event) => {
+export const POST = apiRoute({ permission: { authenticated: true } }, async ({ supabase, orgId }, event) => {
 	const body = await event.request.json();
 
 	const { data, error: dbError } = await supabase
@@ -23,7 +23,7 @@ export const POST = apiRoute({ permission: { none: true } }, async ({ supabase, 
 	});
 });
 
-export const PUT = apiRoute({ permission: { none: true } }, async ({ supabase, orgId }, event) => {
+export const PUT = apiRoute({ permission: { authenticated: true } }, async ({ supabase, orgId }, event) => {
 	const body = await event.request.json();
 	const { id, ...fields } = body;
 
@@ -50,7 +50,7 @@ export const PUT = apiRoute({ permission: { none: true } }, async ({ supabase, o
 	});
 });
 
-export const DELETE = apiRoute({ permission: { none: true } }, async ({ supabase, orgId }, event) => {
+export const DELETE = apiRoute({ permission: { authenticated: true } }, async ({ supabase, orgId }, event) => {
 	const body = await event.request.json();
 	const { id } = body;
 

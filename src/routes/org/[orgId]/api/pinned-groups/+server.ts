@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 
-export const POST = apiRoute({ permission: { none: true } }, async ({ supabase, orgId, userId, isSandbox }, event) => {
+export const POST = apiRoute({ permission: { authenticated: true } }, async ({ supabase, orgId, userId, isSandbox }, event) => {
 	// Pinned groups require a user ID - skip for sandbox mode
 	if (isSandbox) {
 		return json({ success: true, groups: [] });
@@ -51,7 +51,7 @@ export const POST = apiRoute({ permission: { none: true } }, async ({ supabase, 
 });
 
 export const DELETE = apiRoute(
-	{ permission: { none: true } },
+	{ permission: { authenticated: true } },
 	async ({ supabase, orgId, userId, isSandbox }, event) => {
 		// Pinned groups require a user ID - skip for sandbox mode
 		if (isSandbox) {

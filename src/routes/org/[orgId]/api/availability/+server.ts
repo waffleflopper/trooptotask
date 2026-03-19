@@ -21,9 +21,9 @@ const handlers = createCrudHandlers<AvailabilityEntry>({
 
 // Wrap POST to enforce group scope before delegating to the CRUD handler
 export const POST = apiRoute(
-	{ permission: { none: true }, readOnly: false },
+	{ permission: { authenticated: true }, readOnly: false },
 	async ({ supabase, orgId, isSandbox, ctx }, event) => {
-		if (!isSandbox && ctx) {
+		if (!isSandbox) {
 			const body = await event.request.clone().json();
 			const personnelId = body.personnelId;
 
@@ -51,9 +51,9 @@ export const POST = apiRoute(
 
 // Wrap DELETE to enforce group scope before delegating to the CRUD handler
 export const DELETE = apiRoute(
-	{ permission: { none: true }, readOnly: false },
+	{ permission: { authenticated: true }, readOnly: false },
 	async ({ supabase, orgId, isSandbox, ctx }, event) => {
-		if (!isSandbox && ctx) {
+		if (!isSandbox) {
 			const body = await event.request.clone().json();
 			const entryId = body.id;
 

@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 
-export const GET = apiRoute({ permission: { none: true }, readOnly: false }, async ({ supabase, orgId }, event) => {
+export const GET = apiRoute({ permission: { authenticated: true }, readOnly: false }, async ({ supabase, orgId }, event) => {
 	const title = event.url.searchParams.get('title') || '';
 	const from = event.url.searchParams.get('from');
 	const to = event.url.searchParams.get('to');
@@ -48,7 +48,7 @@ export const GET = apiRoute({ permission: { none: true }, readOnly: false }, asy
 });
 
 export const POST = apiRoute(
-	{ permission: { none: true }, readOnly: false },
+	{ permission: { authenticated: true }, readOnly: false },
 	async ({ supabase, orgId, userId }, event) => {
 		const body = await event.request.json();
 

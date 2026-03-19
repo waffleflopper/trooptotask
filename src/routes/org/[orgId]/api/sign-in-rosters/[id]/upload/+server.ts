@@ -3,7 +3,7 @@ import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 
 // Get signed URL for download
-export const GET = apiRoute({ permission: { none: true }, readOnly: false }, async ({ supabase, orgId }, event) => {
+export const GET = apiRoute({ permission: { authenticated: true }, readOnly: false }, async ({ supabase, orgId }, event) => {
 	const id = event.params.id;
 
 	const { data: roster } = await supabase
@@ -26,7 +26,7 @@ export const GET = apiRoute({ permission: { none: true }, readOnly: false }, asy
 
 // Upload signed scan
 export const POST = apiRoute(
-	{ permission: { none: true }, readOnly: false },
+	{ permission: { authenticated: true }, readOnly: false },
 	async ({ supabase, orgId, userId }, event) => {
 		const id = event.params.id;
 
@@ -69,7 +69,7 @@ export const POST = apiRoute(
 );
 
 // Remove signed scan
-export const DELETE = apiRoute({ permission: { none: true }, readOnly: false }, async ({ supabase, orgId }, event) => {
+export const DELETE = apiRoute({ permission: { authenticated: true }, readOnly: false }, async ({ supabase, orgId }, event) => {
 	const id = event.params.id;
 
 	const { data: roster } = await supabase

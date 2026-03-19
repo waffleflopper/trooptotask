@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import { apiRoute } from '$lib/server/apiRoute';
 import { isBillingEnabled } from '$lib/config/billing';
 import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscription';
 import { TIER_CONFIG } from '$lib/types/subscription';
@@ -8,30 +8,14 @@ import ExcelJS from 'exceljs';
 import { auditLog } from '$lib/server/auditLog';
 import { notifyAdmins } from '$lib/server/notifications';
 
-export const POST: RequestHandler = async ({ params, locals }) => {
-	const { orgId } = params;
-
-	if (!locals.user) throw error(401, 'Unauthorized');
-	const userId = locals.user.id;
-
-	// Only allow org owner or admin to trigger export
-	const { data: membership } = await locals.supabase
-		.from('organization_memberships')
-		.select('role, can_manage_members')
-		.eq('organization_id', orgId)
-		.eq('user_id', userId)
-		.single();
-
-	if (!membership) throw error(403, 'Not a member of this organization');
-	if (membership.role !== 'owner' && !membership.can_manage_members) {
-		throw error(403, 'Only the organization owner or admin can export data');
-	}
-
+export const POST = apiRoute(
+	{ permission: { manageMembers: true }, readOnly: false },
+	async ({ supabase, orgId, userId }, event) => {
 	// Check rate limit when billing is enabled
 	if (isBillingEnabled) {
-		const tier = await getEffectiveTier(locals.supabase, orgId);
+		const tier = await getEffectiveTier(supabase, orgId);
 		const config = TIER_CONFIG[tier.tier];
-		const exportCount = await getMonthlyExportCount(locals.supabase, orgId);
+		const exportCount = await getMonthlyExportCount(supabase, orgId);
 		if (exportCount >= config.bulkExportsPerMonth) {
 			return new Response(
 				JSON.stringify({
@@ -43,7 +27,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	}
 
 	// Record export as processing
-	const { data: exportRecord, error: insertError } = await locals.supabase
+	const { data: exportRecord, error: insertError } = await supabase
 		.from('data_exports')
 		.insert({
 			org_id: orgId,
@@ -75,29 +59,29 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			developmentGoalsRes,
 			personnelExtendedRes
 		] = await Promise.all([
-			locals.supabase.from('personnel').select('*').eq('organization_id', orgId).is('archived_at', null),
-			locals.supabase.from('groups').select('*').eq('organization_id', orgId),
-			locals.supabase.from('availability_entries').select('*').eq('organization_id', orgId),
-			locals.supabase.from('training_types').select('*').eq('organization_id', orgId),
-			locals.supabase.from('personnel_trainings').select('*').eq('organization_id', orgId),
-			locals.supabase.from('status_types').select('*').eq('organization_id', orgId),
-			locals.supabase.from('assignment_types').select('*').eq('organization_id', orgId),
-			locals.supabase.from('daily_assignments').select('*').eq('organization_id', orgId),
-			locals.supabase.from('counseling_types').select('*').eq('organization_id', orgId),
-			locals.supabase.from('counseling_records').select('*').eq('organization_id', orgId),
-			locals.supabase.from('special_days').select('*').eq('organization_id', orgId),
-			locals.supabase.from('onboarding_template_steps').select('*').eq('organization_id', orgId),
-			locals.supabase.from('personnel_onboardings').select('*').eq('organization_id', orgId),
-			locals.supabase.from('rating_scheme_entries').select('*').eq('organization_id', orgId),
-			locals.supabase.from('development_goals').select('*').eq('organization_id', orgId),
-			locals.supabase.from('personnel_extended_info').select('*').eq('organization_id', orgId)
+			supabase.from('personnel').select('*').eq('organization_id', orgId).is('archived_at', null),
+			supabase.from('groups').select('*').eq('organization_id', orgId),
+			supabase.from('availability_entries').select('*').eq('organization_id', orgId),
+			supabase.from('training_types').select('*').eq('organization_id', orgId),
+			supabase.from('personnel_trainings').select('*').eq('organization_id', orgId),
+			supabase.from('status_types').select('*').eq('organization_id', orgId),
+			supabase.from('assignment_types').select('*').eq('organization_id', orgId),
+			supabase.from('daily_assignments').select('*').eq('organization_id', orgId),
+			supabase.from('counseling_types').select('*').eq('organization_id', orgId),
+			supabase.from('counseling_records').select('*').eq('organization_id', orgId),
+			supabase.from('special_days').select('*').eq('organization_id', orgId),
+			supabase.from('onboarding_template_steps').select('*').eq('organization_id', orgId),
+			supabase.from('personnel_onboardings').select('*').eq('organization_id', orgId),
+			supabase.from('rating_scheme_entries').select('*').eq('organization_id', orgId),
+			supabase.from('development_goals').select('*').eq('organization_id', orgId),
+			supabase.from('personnel_extended_info').select('*').eq('organization_id', orgId)
 		]);
 
 		// Fetch onboarding step progress
 		const onboardingIds = (onboardingsRes.data ?? []).map((o: { id: string }) => o.id);
 		const onboardingProgressRes =
 			onboardingIds.length > 0
-				? await locals.supabase.from('onboarding_step_progress').select('*').in('onboarding_id', onboardingIds)
+				? await supabase.from('onboarding_step_progress').select('*').in('onboarding_id', onboardingIds)
 				: { data: [] };
 
 		const personnel = personnelRes.data ?? [];
@@ -445,12 +429,12 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			})
 			.eq('id', exportRecord.id);
 
-		auditLog({ action: 'export.excel_created', resourceType: 'data_export', orgId }, { userId: locals.user!.id });
+		auditLog({ action: 'export.excel_created', resourceType: 'data_export', orgId }, { userId });
 
 		await notifyAdmins(orgId, userId, {
 			type: 'bulk_data_exported',
 			title: 'Data Exported',
-			message: `"${locals.user?.email ?? 'A user'}" exported organization data.`
+			message: `"${event.locals.user?.email ?? 'A user'}" exported organization data.`
 		});
 
 		const dateStr = new Date().toISOString().split('T')[0];
@@ -474,7 +458,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		console.error('Excel export error:', err);
 		throw error(500, 'Failed to generate export');
 	}
-};
+});
 
 function styleHeaderRow(sheet: ExcelJS.Worksheet) {
 	const headerRow = sheet.getRow(1);

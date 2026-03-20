@@ -1,3 +1,19 @@
+/**
+ * Personnel Repository — centralized personnel query module.
+ * All personnel reads should go through this module. See #188.
+ *
+ * Documented exceptions (mutations and single-record ops):
+ *  - personnel/+server.ts — CRUD mutations (insert, update, delete, archive)
+ *  - personnel/batch/+server.ts — bulk insert
+ *  - personnel/permanent/+server.ts — permanent delete of archived personnel
+ *  - personnel/[id]/export/+server.ts — single-record fetch for export
+ *  - cleanup-archived-personnel/+server.ts — cron job cross-org delete
+ *  - deletion-requests/review/+server.ts — archive mutation
+ *  - personnel-trainings/+server.ts — single-record group_id scope lookups
+ *  - rating-scheme/+server.ts — single-record group_id scope lookups
+ *  - permissionContext.ts — single-record group_id scope check
+ *  - crudFactory.ts — single-record group_id scope checks
+ */
 import type { Personnel } from '$lib/types';
 import { transformPersonnel } from '$lib/server/transforms';
 

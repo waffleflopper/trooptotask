@@ -3,12 +3,12 @@ import type { StatusType } from '$features/calendar/calendar.types';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import {
-	transformPersonnel,
 	transformGroups,
 	transformStatusTypes,
 	transformTrainingTypes,
 	transformPersonnelTrainings
 } from '$lib/server/transforms';
+import { queryPersonnel, personnelIds } from '$lib/server/personnelRepository';
 
 const TRAINING_ROUTES = new Set(['training', 'onboarding', '']);
 
@@ -35,13 +35,16 @@ export async function fetchSharedData(
 ): Promise<SharedData> {
 	const loadTrainings = include?.personnelTrainings ?? false;
 
-	const [personnelRes, groupsRes, statusTypesRes, trainingTypesRes, personnelTrainingsRes] = await Promise.all([
-		supabase
-			.from('personnel')
-			.select('*, groups(name)')
-			.eq('organization_id', orgId)
-			.is('archived_at', null)
-			.order('last_name'),
+	const [
+		allPersonnelResult,
+		scopedPersonnelResult,
+		groupsRes,
+		statusTypesRes,
+		trainingTypesRes,
+		personnelTrainingsRes
+	] = await Promise.all([
+		queryPersonnel({ supabase, orgId }),
+		scopedGroupId ? queryPersonnel({ supabase, orgId, scopedGroupId }) : null,
 		supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
 		supabase.from('status_types').select('*').eq('organization_id', orgId).order('sort_order'),
 		supabase.from('training_types').select('*').eq('organization_id', orgId).order('sort_order'),
@@ -50,16 +53,15 @@ export async function fetchSharedData(
 			: Promise.resolve({ data: [], error: null })
 	]);
 
-	const allPersonnel = transformPersonnel(personnelRes.data ?? []);
-	const allTrainings = transformPersonnelTrainings(personnelTrainingsRes.data ?? []);
+	const allPersonnel = allPersonnelResult.data;
+	const personnel = scopedPersonnelResult ? scopedPersonnelResult.data : allPersonnel;
 
-	let personnel = allPersonnel;
+	const allTrainings = transformPersonnelTrainings(personnelTrainingsRes.data ?? []);
 	let personnelTrainings = allTrainings;
 
 	if (scopedGroupId) {
-		personnel = allPersonnel.filter((p) => p.groupId === scopedGroupId);
-		const scopedPersonnelIds = new Set(personnel.map((p) => p.id));
-		personnelTrainings = allTrainings.filter((pt) => scopedPersonnelIds.has(pt.personnelId));
+		const scopedIds = new Set(personnelIds(personnel));
+		personnelTrainings = allTrainings.filter((pt) => scopedIds.has(pt.personnelId));
 	}
 
 	return {

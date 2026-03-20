@@ -522,13 +522,17 @@
 		onAdd={(name) => groupsStore.add(name)}
 		onRemove={async (id) => {
 			await groupsStore.remove(id);
-			personnelStore.setItems(
-				personnelStore.getItems().map((p) => (p.groupId === id ? { ...p, groupId: null, groupName: '' } : p))
+			personnelStore.updateLocalWhere(
+				(p) => p.groupId === id,
+				(p) => ({ ...p, groupId: null, groupName: '' })
 			);
 		}}
 		onRename={async (id, name) => {
 			await groupsStore.rename(id, name);
-			personnelStore.setItems(personnelStore.getItems().map((p) => (p.groupId === id ? { ...p, groupName: name } : p)));
+			personnelStore.updateLocalWhere(
+				(p) => p.groupId === id,
+				(p) => ({ ...p, groupName: name })
+			);
 		}}
 		onClose={() => (showGroupManager = false)}
 	/>

@@ -27,13 +27,12 @@ export interface Store<T extends { id: string }> {
 	removeBool(id: string): Promise<boolean>;
 	removeBatch(ids: string[]): Promise<boolean>;
 	mergeBatchResults(inserted: T[], updated?: T[]): void;
-	setItems(items: T[]): void;
-	getItems(): T[];
-	getOrgId(): string;
 	getById(id: string): T | undefined;
 	filter(predicate: (item: T) => boolean): T[];
 	find(predicate: (item: T) => boolean): T | undefined;
 	removeLocalWhere(predicate: (item: T) => boolean): void;
+	updateLocalWhere(predicate: (item: T) => boolean, updater: (item: T) => T): void;
+	appendLocal(items: T[]): void;
 }
 
 export function createStore<T extends { id: string }>(config: StoreConfig<T>): Store<T> {
@@ -193,18 +192,6 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 			return result === 'deleted';
 		},
 
-		setItems(newItems: T[]) {
-			collection.set(newItems);
-		},
-
-		getItems() {
-			return collection.getSnapshot();
-		},
-
-		getOrgId() {
-			return orgIdVal.value;
-		},
-
 		getById(id: string) {
 			return collection.getSnapshot().find((item) => item.id === id);
 		},
@@ -219,6 +206,14 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 
 		removeLocalWhere(predicate: (item: T) => boolean) {
 			collection.set(collection.getSnapshot().filter((item) => !predicate(item)));
+		},
+
+		updateLocalWhere(predicate: (item: T) => boolean, updater: (item: T) => T) {
+			collection.set(collection.getSnapshot().map((item) => (predicate(item) ? updater(item) : item)));
+		},
+
+		appendLocal(items: T[]) {
+			collection.set([...collection.getSnapshot(), ...items]);
 		}
 	};
 }

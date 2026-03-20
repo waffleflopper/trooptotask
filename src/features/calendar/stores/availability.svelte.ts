@@ -1,60 +1,103 @@
-import { createCrudStore } from '$lib/stores/crudStore.svelte';
+import { createStore } from '$lib/stores/core';
+import type { BatchApiAdapter } from '$lib/stores/core';
 import type { AvailabilityEntry } from '../calendar.types';
 import { isDateInRange, formatDate } from '$lib/utils/dates';
 
-const store = createCrudStore<AvailabilityEntry>({ resource: 'availability' });
+let orgIdRef = '';
+
+function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
+	const headers = { 'Content-Type': 'application/json' };
+	function url() {
+		return `/org/${orgIdRef}/api/availability`;
+	}
+
+	return {
+		async create(data) {
+			const res = await fetch(url(), {
+				method: 'POST',
+				headers,
+				body: JSON.stringify(data)
+			});
+			if (!res.ok) throw new Error('POST availability failed');
+			return res.json();
+		},
+
+		async update(id, data) {
+			const res = await fetch(url(), {
+				method: 'PUT',
+				headers,
+				body: JSON.stringify({ id, ...data })
+			});
+			if (!res.ok) throw new Error('PUT availability failed');
+			return res.json();
+		},
+
+		async remove(id) {
+			try {
+				const res = await fetch(url(), {
+					method: 'DELETE',
+					headers,
+					body: JSON.stringify({ id })
+				});
+
+				if (res.status === 202) {
+					const body = await res.json();
+					if (body.requiresApproval) {
+						return 'approval_required';
+					}
+				}
+
+				if (!res.ok) return 'error';
+				return 'deleted';
+			} catch {
+				return 'error';
+			}
+		},
+
+		async createBatch(items) {
+			const res = await fetch(`${url()}/batch`, {
+				method: 'POST',
+				headers,
+				body: JSON.stringify({ records: items })
+			});
+			if (!res.ok) throw new Error('Failed to add availability batch');
+			const data = await res.json();
+			return data.inserted;
+		},
+
+		async removeBatch(ids) {
+			const res = await fetch(`${url()}/batch`, {
+				method: 'DELETE',
+				headers,
+				body: JSON.stringify({ ids })
+			});
+			if (!res.ok) throw new Error('Failed to delete availability batch');
+			return true;
+		}
+	};
+}
+
+const batchAdapter = createAvailabilityBatchAdapter();
+
+const store = createStore<AvailabilityEntry>({
+	resource: 'availability',
+	adapter: batchAdapter,
+	batchAdapter
+});
 
 export const availabilityStore = {
 	get list() {
 		return store.items;
 	},
-	load: store.load,
+	load(items: AvailabilityEntry[], orgId: string) {
+		orgIdRef = orgId;
+		store.load(items, orgId);
+	},
 	add: store.add,
 	remove: store.removeBool,
 
-	async addBatch(entries: Omit<AvailabilityEntry, 'id'>[]): Promise<AvailabilityEntry[]> {
-		const tempEntries: AvailabilityEntry[] = entries.map((e) => ({
-			id: `temp-${crypto.randomUUID()}`,
-			...e
-		}));
-		store.setItems([...store.getItems(), ...tempEntries]);
-
-		try {
-			const res = await fetch(`/org/${store.getOrgId()}/api/availability/batch`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ records: entries })
-			});
-			if (!res.ok) throw new Error('Failed to add availability batch');
-			const data = await res.json();
-			const inserted: AvailabilityEntry[] = data.inserted;
-			const tempIds = new Set(tempEntries.map((e) => e.id));
-			store.setItems([...store.getItems().filter((e) => !tempIds.has(e.id)), ...inserted]);
-			return inserted;
-		} catch {
-			const tempIds = new Set(tempEntries.map((e) => e.id));
-			store.setItems(store.getItems().filter((e) => !tempIds.has(e.id)));
-			return [];
-		}
-	},
-
-	async removeBatch(ids: string[]): Promise<boolean> {
-		const removedEntries = store.getItems().filter((e) => ids.includes(e.id));
-		store.setItems(store.getItems().filter((e) => !ids.includes(e.id)));
-
-		try {
-			const res = await fetch(`/org/${store.getOrgId()}/api/availability/batch`, {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ ids })
-			});
-			if (!res.ok) throw new Error('Failed to delete availability batch');
-			return true;
-		} catch {
-			store.setItems([...store.getItems(), ...removedEntries]);
-			return false;
-		}
-	},
+	addBatch: store.addBatch,
+	removeBatch: store.removeBatch,
 
 	removeByPersonnelLocal: (personnelId: string) =>
 		store.setItems(store.getItems().filter((e) => e.personnelId !== personnelId)),

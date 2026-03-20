@@ -3,9 +3,9 @@ import type { LayoutServerLoad } from './$types';
 import { isFullEditor, type OrganizationMemberPermissions } from '$lib/types';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { getEffectiveTier } from '$lib/server/subscription';
-import { fetchSharedData } from '$lib/server/sharedData';
+import { fetchSharedData, needsPersonnelTrainings } from '$lib/server/sharedData';
 
-export const load: LayoutServerLoad = async ({ params, locals, cookies, depends }) => {
+export const load: LayoutServerLoad = async ({ params, locals, cookies, depends, url }) => {
 	depends('app:shared-data');
 
 	const user = locals.user;
@@ -55,8 +55,9 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			canManageMembers: false
 		};
 
+		const includeTrainings = needsPersonnelTrainings(url.pathname, orgId);
 		const [shared, effectiveTier] = await Promise.all([
-			fetchSharedData(supabase, orgId, null),
+			fetchSharedData(supabase, orgId, null, { personnelTrainings: includeTrainings }),
 			getEffectiveTier(supabase, orgId)
 		]);
 
@@ -99,8 +100,9 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					canManageMembers: true
 				};
 
+				const includeTrainingsSandbox = needsPersonnelTrainings(url.pathname, orgId);
 				const [shared, effectiveTier] = await Promise.all([
-					fetchSharedData(supabase, orgId, null),
+					fetchSharedData(supabase, orgId, null, { personnelTrainings: includeTrainingsSandbox }),
 					getEffectiveTier(supabase, orgId)
 				]);
 
@@ -191,7 +193,9 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 
 	const fullEditor = !isPrivileged && !scopedGroupId && isFullEditor(permissions);
 
-	const shared = await fetchSharedData(supabase, orgId, scopedGroupId);
+	const shared = await fetchSharedData(supabase, orgId, scopedGroupId, {
+		personnelTrainings: needsPersonnelTrainings(url.pathname, orgId)
+	});
 
 	// Filter out dismissed announcements
 	const dismissedIds = new Set((dismissalsRes.data ?? []).map((d: Record<string, unknown>) => d.announcement_id));

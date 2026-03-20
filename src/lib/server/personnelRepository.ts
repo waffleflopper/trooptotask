@@ -57,7 +57,13 @@ export async function queryPersonnel<T = Personnel>(config: PersonnelQueryConfig
 		transform = 'personnel'
 	} = config;
 
-	let query = supabase.from('personnel').select(select);
+	const hasSelectOptions = !!(count || headOnly);
+	let query = hasSelectOptions
+		? supabase.from('personnel').select(select, {
+				...(count ? { count } : {}),
+				...(headOnly ? { head: true } : {})
+			})
+		: supabase.from('personnel').select(select);
 
 	query = query.eq('organization_id', orgId);
 

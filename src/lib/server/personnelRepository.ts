@@ -127,7 +127,8 @@ export async function validatePersonnelScope(
 		.from('personnel')
 		.select('id, group_id')
 		.eq('organization_id', orgId)
-		.in('id', personnelIdsToCheck);
+		.in('id', personnelIdsToCheck)
+		.is('archived_at', null);
 
 	if (error) {
 		throw Object.assign(new Error('Failed to validate personnel scope'), { status: 500 });

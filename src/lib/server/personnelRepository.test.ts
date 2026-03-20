@@ -182,13 +182,15 @@ describe('queryPersonnel', () => {
 
 	it('headOnly returns empty data with count', async () => {
 		const rows = [makeDbRow(), makeDbRow(), makeDbRow()];
-		const { supabase } = createMockSupabase(rows);
+		const { supabase, calls } = createMockSupabase(rows);
 
 		const result = await queryPersonnel({ supabase, orgId: ORG_ID, headOnly: true, count: 'exact' });
 
 		expect(result.data).toEqual([]);
 		expect(result.count).toBe(3);
 		expect(result.error).toBeNull();
+		// Verify count and head options passed to .select()
+		expect(calls['select']![0]).toEqual(['*, groups(name)', { count: 'exact', head: true }]);
 	});
 
 	it('transform: "raw" returns untransformed DB rows', async () => {

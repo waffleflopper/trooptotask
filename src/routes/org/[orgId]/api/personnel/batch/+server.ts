@@ -4,6 +4,7 @@ import { getEffectiveTier } from '$lib/server/subscription';
 import { auditLog } from '$lib/server/auditLog';
 import { sanitizeString } from '$lib/server/validation';
 import { ALL_RANKS } from '$lib/types';
+import { queryPersonnel } from '$lib/server/personnelRepository';
 
 interface BatchRecord {
 	rank: string;
@@ -87,11 +88,13 @@ export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ sup
 	// Enforce personnel cap against full batch size
 	const tier = await getEffectiveTier(supabase, orgId);
 	if (tier.personnelCap !== null && tier.personnelCap !== Infinity) {
-		const { count: currentCount } = await supabase
-			.from('personnel')
-			.select('*', { count: 'exact', head: true })
-			.eq('organization_id', orgId)
-			.is('archived_at', null);
+		const { count: currentCount } = await queryPersonnel({
+			supabase,
+			orgId,
+			headOnly: true,
+			count: 'exact',
+			select: '*'
+		});
 
 		const available = tier.personnelCap - (currentCount ?? 0);
 		if (available <= 0) {

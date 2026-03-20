@@ -43,6 +43,9 @@ export const personnelStore = {
 	remove: store.remove,
 	getById: store.getById,
 
+	setItems: store.setItems,
+	getItems: store.getItems,
+
 	addBatchResults(inserted: Personnel[]) {
 		store.setItems([...store.getItems(), ...inserted]);
 	},

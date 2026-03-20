@@ -1,7 +1,7 @@
-import { createCrudStore } from '$lib/stores/crudStore.svelte';
+import { createStore } from '$lib/stores/core';
 import type { Personnel } from '$lib/types';
 
-const store = createCrudStore<Personnel>({ resource: 'personnel' });
+const store = createStore<Personnel>({ resource: 'personnel' });
 
 const RANK_ORDER = [
 	'PV1',
@@ -41,14 +41,14 @@ export const personnelStore = {
 	add: store.add,
 	update: store.update,
 	remove: store.remove,
-	getById: (id: string) => store.getItems().find((p) => p.id === id),
+	getById: store.getById,
 
 	addBatchResults(inserted: Personnel[]) {
 		store.setItems([...store.getItems(), ...inserted]);
 	},
 
 	removeLocal(id: string) {
-		store.setItems(store.getItems().filter((p) => p.id !== id));
+		store.removeLocalWhere((p) => p.id === id);
 	},
 
 	sortByRankAndName() {

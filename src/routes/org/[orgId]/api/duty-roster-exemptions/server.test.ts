@@ -12,6 +12,10 @@ vi.mock('$lib/server/read-only-guard', () => ({
 vi.mock('$lib/server/validation', () => ({
 	validateUUID: vi.fn()
 }));
+vi.mock('$lib/server/auditLog', () => ({
+	auditLog: vi.fn(),
+	getRequestInfo: vi.fn().mockReturnValue({ userId: null, ip: '127.0.0.1', userAgent: 'test' })
+}));
 
 import { PUT } from './+server';
 import { getApiContext } from '$lib/server/supabase';
@@ -51,7 +55,8 @@ function mockEvent(body: unknown) {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body)
-		})
+		}),
+		getClientAddress: () => '127.0.0.1'
 	} as unknown as Parameters<typeof PUT>[0];
 }
 

@@ -1,7 +1,7 @@
-import { createCrudStore } from '$lib/stores/crudStore.svelte';
+import { createStore } from '$lib/stores/core';
 import type { StatusType } from '../calendar.types';
 
-const store = createCrudStore<StatusType>({ resource: 'status-types' });
+const store = createStore<StatusType>({ resource: 'status-types' });
 
 export const statusTypesStore = {
 	get list() {
@@ -11,5 +11,5 @@ export const statusTypesStore = {
 	add: store.add,
 	update: store.update,
 	remove: store.removeBool,
-	getById: (id: string) => store.getItems().find((t) => t.id === id)
+	getById: store.getById
 };

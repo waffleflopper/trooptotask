@@ -1,6 +1,6 @@
 import { ARMY_RANKS } from '$lib/types';
-import { OER_REPORT_TYPES, NCOER_REPORT_TYPES, WOER_REPORT_TYPES } from '../counseling.types';
-import type { RatingDueStatus, ReportType, ReportTypeOption } from '../counseling.types';
+import { OER_REPORT_TYPES, NCOER_REPORT_TYPES, WOER_REPORT_TYPES } from '../rating-scheme.types';
+import type { RatingDueStatus, ReportType, ReportTypeOption } from '../rating-scheme.types';
 
 export function getEvalTypeForRank(rank: string): 'OER' | 'NCOER' | 'WOER' {
 	if ((ARMY_RANKS.officer as readonly string[]).includes(rank)) return 'OER';

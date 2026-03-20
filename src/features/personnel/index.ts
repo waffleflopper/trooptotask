@@ -2,8 +2,6 @@
 
 // Stores
 export { personnelStore } from './stores/personnel.svelte';
-export { personnelExtendedInfoStore } from './stores/personnelExtendedInfo.svelte';
-
 // Utils
 export {
 	groupAndSortPersonnel,

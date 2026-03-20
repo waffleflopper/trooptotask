@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
-import { canAddPersonnel } from '$lib/server/subscription';
+import { canAddPersonnel, invalidateTierCache } from '$lib/server/subscription';
 import { auditLog } from '$lib/server/auditLog';
 
 export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ supabase, orgId, userId, ctx }, event) => {
@@ -29,6 +29,8 @@ export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ sup
 	const { data, error: dbError } = await supabase.from('personnel').insert(row).select('*, groups(name)').single();
 
 	if (dbError) throw error(500, dbError.message);
+
+	invalidateTierCache(orgId);
 
 	auditLog(
 		{
@@ -141,6 +143,8 @@ export const DELETE = apiRoute(
 
 		if (dbError) throw error(500, dbError.message);
 
+		invalidateTierCache(orgId);
+
 		auditLog(
 			{
 				action: 'personnel.archived',
@@ -192,6 +196,8 @@ export const PATCH = apiRoute(
 			.eq('organization_id', orgId);
 
 		if (dbError) throw error(500, dbError.message);
+
+		invalidateTierCache(orgId);
 
 		auditLog(
 			{

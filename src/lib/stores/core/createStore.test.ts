@@ -7,6 +7,7 @@ import type { BeforeAddHook } from './optimistic';
 interface TestItem {
 	id: string;
 	name: string;
+	sortOrder?: number;
 }
 
 describe('createStore', () => {
@@ -453,6 +454,96 @@ describe('createStore', () => {
 
 			expect(store.find((i) => i.name === 'Bravo')).toEqual({ id: '2', name: 'Bravo' });
 			expect(store.find((i) => i.name === 'Charlie')).toBeUndefined();
+		});
+	});
+
+	describe('sort config', () => {
+		function makeSortedStore(adapterOverrides: Partial<ApiAdapter<TestItem>> = {}) {
+			return createStore<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter(adapterOverrides),
+				sort: (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+			});
+		}
+
+		it('should return items sorted via sort comparator', () => {
+			const store = makeSortedStore();
+			store.load(
+				[
+					{ id: '1', name: 'Charlie', sortOrder: 3 },
+					{ id: '2', name: 'Alpha', sortOrder: 1 },
+					{ id: '3', name: 'Bravo', sortOrder: 2 }
+				],
+				'org-1'
+			);
+
+			expect(store.items.map((i) => i.name)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+		});
+
+		it('should expose rawItems in insertion order (unsorted)', () => {
+			const store = makeSortedStore();
+			store.load(
+				[
+					{ id: '1', name: 'Charlie', sortOrder: 3 },
+					{ id: '2', name: 'Alpha', sortOrder: 1 },
+					{ id: '3', name: 'Bravo', sortOrder: 2 }
+				],
+				'org-1'
+			);
+
+			expect(store.rawItems.map((i) => i.name)).toEqual(['Charlie', 'Alpha', 'Bravo']);
+		});
+
+		it('should sort items after add', async () => {
+			const store = makeSortedStore({
+				create: async (data) => ({ id: 'server-1', ...data }) as TestItem
+			});
+			store.load(
+				[
+					{ id: '1', name: 'Alpha', sortOrder: 1 },
+					{ id: '2', name: 'Charlie', sortOrder: 3 }
+				],
+				'org-1'
+			);
+
+			await store.add({ name: 'Bravo', sortOrder: 2 });
+
+			expect(store.items.map((i) => i.name)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+		});
+
+		it('should sort items after update', async () => {
+			const store = makeSortedStore({
+				update: async (id, data) => ({ id, name: 'Alpha', sortOrder: 1, ...data }) as TestItem
+			});
+			store.load(
+				[
+					{ id: '1', name: 'Alpha', sortOrder: 2 },
+					{ id: '2', name: 'Bravo', sortOrder: 1 }
+				],
+				'org-1'
+			);
+
+			// Before update: sorted = [Bravo(1), Alpha(2)]
+			expect(store.items[0].name).toBe('Bravo');
+
+			await store.update('1', { sortOrder: 0 });
+
+			// After update: Alpha sortOrder=0, Bravo sortOrder=1
+			expect(store.items[0].name).toBe('Alpha');
+		});
+
+		it('rawItems should be unsorted for store without sort config', () => {
+			const store = makeStore();
+			store.load(
+				[
+					{ id: '1', name: 'Bravo' },
+					{ id: '2', name: 'Alpha' }
+				],
+				'org-1'
+			);
+
+			// rawItems same as items when no sort
+			expect(store.rawItems).toEqual(store.items);
 		});
 	});
 });

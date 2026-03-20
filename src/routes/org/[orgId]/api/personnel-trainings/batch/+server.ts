@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 import { formatDate } from '$lib/utils/dates';
+import { queryPersonnel } from '$lib/server/personnelRepository';
 
 function calculateExpirationDate(completionDate: string | null, expirationMonths: number | null): string | null {
 	if (expirationMonths === null || !completionDate) return null;
@@ -42,17 +43,18 @@ export const POST = apiRoute({ permission: { edit: 'training' } }, async ({ supa
 		.in('id', trainingTypeIds);
 	const typeMap = new Map((trainingTypes ?? []).map((t) => [t.id, t]));
 
-	// If scoped, fetch personnel group_ids for access check
+	// If scoped, fetch personnel group_ids for access check via repository
 	let personnelGroupMap = new Map<string, string | null>();
 	if (scopedGroupId) {
-		const personnelIds = [...new Set(records.map((r) => r.personnelId))];
-		const { data: personnelData } = await supabase
-			.from('personnel')
-			.select('id, group_id')
-			.eq('organization_id', orgId)
-			.in('id', personnelIds)
-			.is('archived_at', null);
-		personnelGroupMap = new Map((personnelData ?? []).map((p) => [p.id, p.group_id]));
+		const personnelIdsToCheck = [...new Set(records.map((r) => r.personnelId))];
+		const { data: personnelData } = await queryPersonnel<{ id: string; group_id: string | null }>({
+			supabase,
+			orgId,
+			select: 'id, group_id',
+			transform: 'raw',
+			filters: [(q) => q.in('id', personnelIdsToCheck)]
+		});
+		personnelGroupMap = new Map(personnelData.map((p) => [p.id, p.group_id]));
 	}
 
 	// Split and validate

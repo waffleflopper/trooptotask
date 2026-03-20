@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 import { validateUUID } from '$lib/server/validation';
+import { validatePersonnelScope } from '$lib/server/personnelRepository';
 
 interface BatchAvailabilityRecord {
 	personnelId: string;
@@ -25,24 +26,8 @@ export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supa
 
 	// Enforce group scope if user is scoped
 	const scopedGroupId = ctx?.scopedGroupId ?? null;
-
-	if (scopedGroupId) {
-		const personnelIds = [...new Set(records.map((r) => r.personnelId))];
-		const { data: personnelData } = await supabase
-			.from('personnel')
-			.select('id, group_id')
-			.eq('organization_id', orgId)
-			.in('id', personnelIds)
-			.is('archived_at', null);
-
-		const groupMap = new Map((personnelData ?? []).map((p) => [p.id, p.group_id]));
-		for (const rec of records) {
-			const groupId = groupMap.get(rec.personnelId);
-			if (groupId !== scopedGroupId) {
-				throw error(403, 'Personnel not in your assigned group');
-			}
-		}
-	}
+	const uniquePersonnelIds = [...new Set(records.map((r) => r.personnelId))];
+	await validatePersonnelScope(supabase, orgId, uniquePersonnelIds, scopedGroupId);
 
 	// Bulk insert
 	const rows = records.map((r) => ({
@@ -114,20 +99,8 @@ export const DELETE = apiRoute(
 				.eq('organization_id', orgId)
 				.in('id', ids);
 
-			const personnelIds = [...new Set((entries ?? []).map((e) => e.personnel_id))];
-			const { data: personnelData } = await supabase
-				.from('personnel')
-				.select('id, group_id')
-				.eq('organization_id', orgId)
-				.in('id', personnelIds);
-
-			const groupMap = new Map((personnelData ?? []).map((p) => [p.id, p.group_id]));
-			for (const entry of entries ?? []) {
-				const groupId = groupMap.get(entry.personnel_id);
-				if (groupId !== scopedGroupId) {
-					throw error(403, 'Personnel not in your assigned group');
-				}
-			}
+			const personnelIdsFromEntries = [...new Set((entries ?? []).map((e) => e.personnel_id))];
+			await validatePersonnelScope(supabase, orgId, personnelIdsFromEntries, scopedGroupId);
 		}
 
 		const { error: dbError, count } = await supabase

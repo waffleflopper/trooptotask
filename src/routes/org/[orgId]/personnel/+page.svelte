@@ -520,8 +520,16 @@
 	<GroupManager
 		groups={groupsStore.list}
 		onAdd={(name) => groupsStore.add(name)}
-		onRemove={(id) => groupsStore.remove(id)}
-		onRename={(id, name) => groupsStore.rename(id, name)}
+		onRemove={async (id) => {
+			await groupsStore.remove(id);
+			personnelStore.setItems(
+				personnelStore.getItems().map((p) => (p.groupId === id ? { ...p, groupId: null, groupName: '' } : p))
+			);
+		}}
+		onRename={async (id, name) => {
+			await groupsStore.rename(id, name);
+			personnelStore.setItems(personnelStore.getItems().map((p) => (p.groupId === id ? { ...p, groupName: name } : p)));
+		}}
 		onClose={() => (showGroupManager = false)}
 	/>
 {/if}

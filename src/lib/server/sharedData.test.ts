@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fetchSharedData } from './sharedData';
+import { fetchSharedData, needsPersonnelTrainings } from './sharedData';
 
 function mockSupabase(overrides: Record<string, unknown[]> = {}) {
 	const defaults: Record<string, unknown[]> = {
@@ -98,7 +98,7 @@ function mockSupabase(overrides: Record<string, unknown[]> = {}) {
 describe('fetchSharedData', () => {
 	it('returns all expected fields when scopedGroupId is null', async () => {
 		const supabase = mockSupabase();
-		const result = await fetchSharedData(supabase, 'org1', null);
+		const result = await fetchSharedData(supabase, 'org1', null, { personnelTrainings: true });
 
 		expect(result).toHaveProperty('personnel');
 		expect(result).toHaveProperty('allPersonnel');
@@ -114,16 +114,32 @@ describe('fetchSharedData', () => {
 		expect(result.personnelTrainings).toHaveLength(2);
 	});
 
-	it('personnel equals allPersonnel when no scoping', async () => {
+	it('returns empty personnelTrainings when include param is omitted', async () => {
 		const supabase = mockSupabase();
 		const result = await fetchSharedData(supabase, 'org1', null);
+
+		expect(result.personnelTrainings).toEqual([]);
+		expect(result.personnel).toHaveLength(2);
+		expect(result.groups).toHaveLength(2);
+	});
+
+	it('returns empty personnelTrainings when include.personnelTrainings is false', async () => {
+		const supabase = mockSupabase();
+		const result = await fetchSharedData(supabase, 'org1', null, { personnelTrainings: false });
+
+		expect(result.personnelTrainings).toEqual([]);
+	});
+
+	it('personnel equals allPersonnel when no scoping', async () => {
+		const supabase = mockSupabase();
+		const result = await fetchSharedData(supabase, 'org1', null, { personnelTrainings: true });
 
 		expect(result.personnel).toEqual(result.allPersonnel);
 	});
 
 	it('filters personnel to scoped group when scopedGroupId is set', async () => {
 		const supabase = mockSupabase();
-		const result = await fetchSharedData(supabase, 'org1', 'g1');
+		const result = await fetchSharedData(supabase, 'org1', 'g1', { personnelTrainings: true });
 
 		expect(result.personnel).toHaveLength(1);
 		expect(result.personnel[0].lastName).toBe('Smith');
@@ -132,9 +148,48 @@ describe('fetchSharedData', () => {
 
 	it('filters personnelTrainings to scoped personnel when scopedGroupId is set', async () => {
 		const supabase = mockSupabase();
-		const result = await fetchSharedData(supabase, 'org1', 'g1');
+		const result = await fetchSharedData(supabase, 'org1', 'g1', { personnelTrainings: true });
 
 		expect(result.personnelTrainings).toHaveLength(1);
 		expect(result.personnelTrainings[0].personnelId).toBe('p1');
+	});
+
+	it('does not query personnel_trainings table when include is omitted', async () => {
+		const supabase = mockSupabase();
+		await fetchSharedData(supabase, 'org1', null);
+
+		const fromCalls = supabase.from.mock.calls.map((c: string[]) => c[0]);
+		expect(fromCalls).not.toContain('personnel_trainings');
+	});
+
+	it('queries personnel_trainings table when include.personnelTrainings is true', async () => {
+		const supabase = mockSupabase();
+		await fetchSharedData(supabase, 'org1', null, { personnelTrainings: true });
+
+		const fromCalls = supabase.from.mock.calls.map((c: string[]) => c[0]);
+		expect(fromCalls).toContain('personnel_trainings');
+	});
+});
+
+describe('needsPersonnelTrainings', () => {
+	const orgId = 'org-abc-123';
+
+	it('returns true for dashboard, training, and onboarding routes', () => {
+		expect(needsPersonnelTrainings(`/org/${orgId}`, orgId)).toBe(true);
+		expect(needsPersonnelTrainings(`/org/${orgId}/training`, orgId)).toBe(true);
+		expect(needsPersonnelTrainings(`/org/${orgId}/training/some-sub`, orgId)).toBe(true);
+		expect(needsPersonnelTrainings(`/org/${orgId}/onboarding`, orgId)).toBe(true);
+	});
+
+	it('returns false for calendar, personnel, leaders-book, and admin routes', () => {
+		expect(needsPersonnelTrainings(`/org/${orgId}/calendar`, orgId)).toBe(false);
+		expect(needsPersonnelTrainings(`/org/${orgId}/personnel`, orgId)).toBe(false);
+		expect(needsPersonnelTrainings(`/org/${orgId}/leaders-book`, orgId)).toBe(false);
+		expect(needsPersonnelTrainings(`/org/${orgId}/admin`, orgId)).toBe(false);
+	});
+
+	it('returns false for unknown routes (safe default)', () => {
+		expect(needsPersonnelTrainings(`/org/${orgId}/settings`, orgId)).toBe(false);
+		expect(needsPersonnelTrainings(`/org/${orgId}/billing`, orgId)).toBe(false);
 	});
 });

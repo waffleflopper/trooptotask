@@ -18,7 +18,7 @@ export const GET = apiRoute(
 );
 
 export const PUT = apiRoute(
-	{ permission: { authenticated: true }, readOnly: false },
+	{ permission: { authenticated: true }, readOnly: false, audit: 'notification' },
 	async ({ supabase, orgId, userId }, event) => {
 		const body = await event.request.json();
 
@@ -50,7 +50,7 @@ export const PUT = apiRoute(
 );
 
 export const DELETE = apiRoute(
-	{ permission: { authenticated: true }, readOnly: false },
+	{ permission: { authenticated: true }, readOnly: false, audit: 'notification' },
 	async ({ supabase, orgId, userId }, event) => {
 		const body = await event.request.json();
 

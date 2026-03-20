@@ -341,15 +341,15 @@
 		</div>
 	</section>
 
-	<!-- Section 04 — Leaders Book (reversed) -->
+	<!-- Section 04 — Leaders Book (reversed) — currently being redesigned -->
 	<section class="feature-section reverse">
 		<div class="feature-section-inner">
 			<div class="feature-text">
-				<div class="feature-label">04 // Leaders Book</div>
+				<div class="feature-label">04 // Leaders Book <span class="coming-soon-badge">Coming Soon</span></div>
 				<h2>Your digital counseling <em>packet.</em></h2>
 				<p class="feature-desc">
-					Centralize soldier information, counseling records, and development goals. Upload supporting documents and
-					track follow-ups — all in one place.
+					We're rebuilding the Leaders Book from the ground up — counseling records, development goals, and extended
+					soldier info, done right. The Rating Scheme tracker is available now on the Personnel page.
 				</p>
 				<ul>
 					<li>Counseling records with PDF upload and download</li>
@@ -1209,6 +1209,19 @@
 		text-transform: uppercase;
 		color: var(--brass);
 		margin-bottom: 0.75rem;
+	}
+
+	.coming-soon-badge {
+		display: inline-block;
+		background: var(--brass-muted);
+		color: var(--brass-light);
+		font-size: 0.5625rem;
+		font-weight: 700;
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
+		margin-left: 0.5rem;
+		vertical-align: middle;
+		letter-spacing: 0.08em;
 	}
 
 	.feature-text h2 {

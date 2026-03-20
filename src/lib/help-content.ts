@@ -121,27 +121,11 @@ export const helpContent: Record<string, HelpTopic> = {
 	'leaders-book': {
 		title: "Leader's Book",
 		content: `
-			<p>A consolidated view of each soldier's key information — counseling records, development goals, extended personal info, current status, and training.</p>
+			<p>The Leader's Book is currently being redesigned from the ground up. We're rebuilding it to be more intuitive, more powerful, and better integrated with the rest of the app.</p>
 
-			<h4>Getting Started</h4>
-			<p>Click any person's card to open their full detail view. The card shows indicators for info completeness, counseling count, and goal count so you can quickly see who needs attention.</p>
+			<p>When it returns, it will include counseling records, development goals, extended personnel info, and everything you'd expect from a digital leader's book — just done right this time.</p>
 
-			<h4>Soldier Detail View</h4>
-			<p>The detail view has five sections:</p>
-			<ul>
-				<li><strong>Information</strong> — emergency contact, spouse, vehicle, home address, and leader notes</li>
-				<li><strong>Status</strong> — current status and upcoming statuses for the next 3 months</li>
-				<li><strong>Training</strong> — all training types with completion and expiration dates</li>
-				<li><strong>Counselings</strong> — chronological counseling records with type, date, subject, and signature tracking</li>
-				<li><strong>Goals</strong> — development goals organized by category (Career, Education, Physical, Personal)</li>
-			</ul>
-
-			<h4>Counseling Records</h4>
-			<p>Click <strong>+ New</strong> to add a counseling record. Select a counseling type (Initial, Monthly, Quarterly, Event, or Freeform), enter the date, subject, and notes. You can attach a PDF document and track counselor/soldier signatures.</p>
-			<p>Counseling types are managed from the overflow menu — you can customize names, colors, recurrence schedules, and even add template content.</p>
-
-			<h4>Development Goals</h4>
-			<p>Track career, education, physical, and personal goals for each soldier. Set priority (Low/Medium/High), status (Not Started/In Progress/Completed/On Hold), target dates, and progress notes.</p>
+			<p>In the meantime, the <strong>Rating Scheme</strong> is still fully available on the <strong>Personnel</strong> page.</p>
 		`
 	},
 	onboarding: {

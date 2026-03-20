@@ -1,5 +1,5 @@
 import { createCrudStore } from '$lib/stores/crudStore.svelte';
-import type { RatingSchemeEntry } from '../counseling.types';
+import type { RatingSchemeEntry } from '../rating-scheme.types';
 
 const store = createCrudStore<RatingSchemeEntry>({ resource: 'rating-scheme' });
 

@@ -75,7 +75,7 @@
 	const shipped = [
 		{
 			title: 'Digital Leaders Book',
-			description: 'Centralized soldier information, counseling records, and development tracking.'
+			description: 'Counseling records, development goals, and soldier info — currently being redesigned.'
 		},
 		{
 			title: 'Rating Scheme Tracker',
@@ -671,16 +671,16 @@
 
 				<details class="faq-item">
 					<summary class="faq-question">
-						What is the "Leaders Book" and why would I use it instead of just keeping notes?
+						What is the "Leaders Book" and when is it coming back?
 						<span class="faq-icon" aria-hidden="true"></span>
 					</summary>
 					<div class="faq-answer">
 						<p>
-							Think of it as a digital replacement for that notebook every NCO keeps in their left cargo pocket — except
-							it doesn't get lost, it's searchable, and the data stays with the Soldier even if they change sections.
-							You can log counseling sessions (initial, monthly, event-driven), track development goals and key dates,
-							manage rating scheme positions for OER/NCOER/WOER, and store extended Soldier info that doesn't have a
-							home on a standard form. Everything in one place, accessible from anywhere you have a browser.
+							The Leaders Book is a digital replacement for that notebook every NCO keeps in their left cargo pocket —
+							counseling records, development goals, extended soldier info, and everything else that doesn't have a home
+							on a standard form. We're currently rebuilding it from the ground up to be more intuitive and better
+							integrated with the rest of the app. The Rating Scheme tracker is still fully available on the Personnel
+							page in the meantime.
 						</p>
 					</div>
 				</details>

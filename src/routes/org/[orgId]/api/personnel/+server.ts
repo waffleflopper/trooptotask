@@ -108,7 +108,7 @@ export const PUT = apiRoute({ permission: { edit: 'personnel' } }, async ({ supa
 });
 
 export const DELETE = apiRoute(
-	{ permission: { edit: 'personnel' } },
+	{ permission: { edit: 'personnel' }, readOnly: false },
 	async ({ supabase, orgId, userId, ctx }, event) => {
 		const body = await event.request.json();
 		const { id } = body;

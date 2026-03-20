@@ -6,6 +6,7 @@ import { TIER_CONFIG } from '$lib/types/subscription';
 import { getAdminClient } from '$lib/server/supabase';
 import { auditLog } from '$lib/server/auditLog';
 import { notifyAdmins } from '$lib/server/notifications';
+import { queryPersonnel } from '$lib/server/personnelRepository';
 
 export const POST = apiRoute(
 	{ permission: { manageMembers: true }, readOnly: false, blockSandbox: true },
@@ -59,7 +60,10 @@ export const POST = apiRoute(
 				personnelExtendedRes,
 				dutyRosterHistoryRes
 			] = await Promise.all([
-				supabase.from('personnel').select('*').eq('organization_id', orgId).is('archived_at', null),
+				queryPersonnel<Record<string, unknown>>({ supabase, orgId, select: '*', transform: 'raw' }).then((r) => ({
+					data: r.data,
+					error: r.error ? { message: r.error } : null
+				})),
 				supabase.from('groups').select('*').eq('organization_id', orgId),
 				supabase.from('availability_entries').select('*').eq('organization_id', orgId),
 				supabase.from('training_types').select('*').eq('organization_id', orgId),

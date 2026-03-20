@@ -663,25 +663,7 @@ describe('createStore', () => {
 		});
 	});
 
-	describe('setItems / getItems / getById / filter / find', () => {
-		it('should allow direct item manipulation via escape hatches', () => {
-			const store = makeStore();
-			store.load([{ id: '1', name: 'Alpha' }], 'org-1');
-
-			expect(store.getItems()).toEqual([{ id: '1', name: 'Alpha' }]);
-
-			store.setItems([
-				{ id: '2', name: 'Bravo' },
-				{ id: '3', name: 'Charlie' }
-			]);
-
-			expect(store.items).toEqual([
-				{ id: '2', name: 'Bravo' },
-				{ id: '3', name: 'Charlie' }
-			]);
-			expect(store.getItems()).toEqual(store.items);
-		});
-
+	describe('getById / filter / find', () => {
 		it('should find item by id', () => {
 			const store = makeStore();
 			store.load(
@@ -725,6 +707,79 @@ describe('createStore', () => {
 
 			expect(store.find((i) => i.name === 'Bravo')).toEqual({ id: '2', name: 'Bravo' });
 			expect(store.find((i) => i.name === 'Charlie')).toBeUndefined();
+		});
+	});
+
+	describe('updateLocalWhere', () => {
+		it('should update items matching predicate without API call', () => {
+			const store = makeStore();
+			store.load(
+				[
+					{ id: '1', name: 'Alpha' },
+					{ id: '2', name: 'Bravo' },
+					{ id: '3', name: 'Alpha' }
+				],
+				'org-1'
+			);
+
+			store.updateLocalWhere(
+				(i) => i.name === 'Alpha',
+				(i) => ({ ...i, name: 'Updated' })
+			);
+
+			expect(store.items).toEqual([
+				{ id: '1', name: 'Updated' },
+				{ id: '2', name: 'Bravo' },
+				{ id: '3', name: 'Updated' }
+			]);
+		});
+
+		it('should do nothing when no items match', () => {
+			const store = makeStore();
+			store.load(
+				[
+					{ id: '1', name: 'Alpha' },
+					{ id: '2', name: 'Bravo' }
+				],
+				'org-1'
+			);
+
+			store.updateLocalWhere(
+				(i) => i.name === 'Charlie',
+				(i) => ({ ...i, name: 'Nope' })
+			);
+
+			expect(store.items).toEqual([
+				{ id: '1', name: 'Alpha' },
+				{ id: '2', name: 'Bravo' }
+			]);
+		});
+	});
+
+	describe('appendLocal', () => {
+		it('should append items without API call', () => {
+			const store = makeStore();
+			store.load([{ id: '1', name: 'Alpha' }], 'org-1');
+
+			store.appendLocal([
+				{ id: '2', name: 'Bravo' },
+				{ id: '3', name: 'Charlie' }
+			]);
+
+			expect(store.items).toEqual([
+				{ id: '1', name: 'Alpha' },
+				{ id: '2', name: 'Bravo' },
+				{ id: '3', name: 'Charlie' }
+			]);
+		});
+
+		it('should handle empty append', () => {
+			const store = makeStore();
+			store.load([{ id: '1', name: 'Alpha' }], 'org-1');
+
+			store.appendLocal([]);
+
+			expect(store.items).toEqual([{ id: '1', name: 'Alpha' }]);
 		});
 	});
 

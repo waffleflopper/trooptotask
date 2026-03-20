@@ -20,17 +20,17 @@ export const personnelTrainingsStore = {
 	add: store.add,
 	update: store.update,
 	remove: store.remove,
-	getById: (id: string) => store.getItems().find((t) => t.id === id),
+	getById: (id: string) => store.getById(id),
 	getByPersonnelAndType: (personnelId: string, trainingTypeId: string) =>
-		store.getItems().find((t) => t.personnelId === personnelId && t.trainingTypeId === trainingTypeId),
+		store.find((t) => t.personnelId === personnelId && t.trainingTypeId === trainingTypeId),
 
 	addBatchResults: store.mergeBatchResults,
 
 	removeByPersonnelLocal(personnelId: string) {
-		store.setItems(store.getItems().filter((t) => t.personnelId !== personnelId));
+		store.removeLocalWhere((t) => t.personnelId === personnelId);
 	},
 
 	removeByTrainingTypeLocal(trainingTypeId: string) {
-		store.setItems(store.getItems().filter((t) => t.trainingTypeId !== trainingTypeId));
+		store.removeLocalWhere((t) => t.trainingTypeId === trainingTypeId);
 	}
 };

@@ -18,6 +18,53 @@ const guardType = {
 	exemptPersonnelIds: []
 };
 
+describe('regression: delete type then add type flow', () => {
+	it('should show new type after deleting old type and adding new one', async () => {
+		vi.restoreAllMocks();
+
+		// Setup: load store with one type
+		const typeA = {
+			id: 'type-a',
+			name: 'Old Type',
+			shortName: 'OT',
+			assignTo: 'personnel' as const,
+			color: '#000',
+			exemptPersonnelIds: []
+		};
+		dailyAssignmentsStore.load([typeA], [], 'org-1');
+		expect(dailyAssignmentsStore.types).toEqual([typeA]);
+
+		// Step 1: Delete typeA
+		vi.stubGlobal('fetch', mockFetch(typeA));
+		const deleteResult = await dailyAssignmentsStore.removeType('type-a');
+		expect(deleteResult).toBe(true);
+		expect(dailyAssignmentsStore.types).toEqual([]);
+
+		// Step 2: Add typeB
+		const typeB = {
+			id: 'type-b',
+			name: 'New Type',
+			shortName: 'NT',
+			assignTo: 'personnel' as const,
+			color: '#fff',
+			exemptPersonnelIds: []
+		};
+		vi.stubGlobal('fetch', mockFetch(typeB));
+		const addResult = await dailyAssignmentsStore.addType({
+			name: 'New Type',
+			shortName: 'NT',
+			assignTo: 'personnel',
+			color: '#fff',
+			exemptPersonnelIds: []
+		});
+		expect(addResult).toEqual(typeB);
+
+		// Step 3: Verify store has ONLY typeB, not typeA
+		expect(dailyAssignmentsStore.types).toEqual([typeB]);
+		expect(dailyAssignmentsStore.types).not.toContainEqual(typeA);
+	});
+});
+
 describe('dailyAssignmentsStore - core primitives composition', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();

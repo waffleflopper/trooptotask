@@ -11,19 +11,16 @@ function transformTemplate(r: Record<string, unknown>) {
 	};
 }
 
-export const GET = apiRoute(
-	{ permission: { authenticated: true }, readOnly: false, audit: 'onboarding_template' },
-	async ({ supabase, orgId }) => {
-		const { data, error: dbError } = await supabase
-			.from('onboarding_templates')
-			.select('*')
-			.eq('organization_id', orgId)
-			.order('name');
+export const GET = apiRoute({ permission: { authenticated: true }, readOnly: false }, async ({ supabase, orgId }) => {
+	const { data, error: dbError } = await supabase
+		.from('onboarding_templates')
+		.select('*')
+		.eq('organization_id', orgId)
+		.order('name');
 
-		if (dbError) throw error(500, dbError.message);
-		return json((data ?? []).map(transformTemplate));
-	}
-);
+	if (dbError) throw error(500, dbError.message);
+	return json((data ?? []).map(transformTemplate));
+});
 
 export const POST = apiRoute(
 	{ permission: { fullEditor: true }, audit: 'onboarding_template' },

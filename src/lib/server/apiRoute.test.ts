@@ -494,7 +494,7 @@ describe('auto audit logging', () => {
 		);
 	});
 
-	it('audit failure does not break the response', async () => {
+	it('auto-audit failure does not break the response', async () => {
 		const ctx = mockPermissionContext();
 		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
 		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
@@ -507,6 +507,25 @@ describe('auto audit logging', () => {
 			{ permission: { edit: 'calendar' }, audit: 'special_day' },
 			async () => new Response('ok', { status: 200 })
 		);
+
+		const response = await handler(mockRequestEvent());
+
+		expect(response.status).toBe(200);
+	});
+
+	it('ctx.audit() failure does not break the response', async () => {
+		const ctx = mockPermissionContext();
+		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
+		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
+		vi.mocked(getRequestInfo).mockReturnValue({ userId: 'user-1', ip: '127.0.0.1', userAgent: 'test' });
+		vi.mocked(auditLog).mockImplementation(() => {
+			throw new Error('DB connection lost');
+		});
+
+		const handler = apiRoute({ permission: { edit: 'personnel' }, audit: 'personnel' }, async (routeCtx) => {
+			routeCtx.audit('personnel.archived', { reason: 'ETS' }, 'person-1');
+			return new Response('ok', { status: 200 });
+		});
 
 		const response = await handler(mockRequestEvent());
 

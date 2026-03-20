@@ -1,31 +1,28 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 
-export const GET = apiRoute(
-	{ permission: { authenticated: true }, readOnly: false, audit: 'duty_roster' },
-	async ({ supabase, orgId }) => {
-		const { data, error: dbError } = await supabase
-			.from('duty_roster_history')
-			.select('*')
-			.eq('organization_id', orgId)
-			.order('created_at', { ascending: false });
+export const GET = apiRoute({ permission: { authenticated: true }, readOnly: false }, async ({ supabase, orgId }) => {
+	const { data, error: dbError } = await supabase
+		.from('duty_roster_history')
+		.select('*')
+		.eq('organization_id', orgId)
+		.order('created_at', { ascending: false });
 
-		if (dbError) throw error(500, dbError.message);
+	if (dbError) throw error(500, dbError.message);
 
-		return json(
-			(data ?? []).map((r: Record<string, unknown>) => ({
-				id: r.id,
-				assignmentTypeId: r.assignment_type_id,
-				name: r.name,
-				startDate: r.start_date,
-				endDate: r.end_date,
-				roster: r.roster,
-				config: r.config,
-				createdAt: r.created_at
-			}))
-		);
-	}
-);
+	return json(
+		(data ?? []).map((r: Record<string, unknown>) => ({
+			id: r.id,
+			assignmentTypeId: r.assignment_type_id,
+			name: r.name,
+			startDate: r.start_date,
+			endDate: r.end_date,
+			roster: r.roster,
+			config: r.config,
+			createdAt: r.created_at
+		}))
+	);
+});
 
 export const POST = apiRoute(
 	{ permission: { edit: 'calendar' }, audit: 'duty_roster' },

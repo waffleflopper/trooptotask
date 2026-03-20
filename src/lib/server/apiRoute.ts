@@ -186,17 +186,21 @@ export function apiRoute(
 
 		const manualAudit = (action: string, details?: Record<string, unknown>, resourceId?: string) => {
 			manualAuditCalled = true;
-			const requestInfo = getRequestInfo(event);
-			auditLog(
-				{
-					action,
-					resourceType: auditConfig?.resourceType ?? action.split('.')[0],
-					resourceId,
-					orgId,
-					details
-				},
-				{ userId: requestInfo.userId, ip: requestInfo.ip, userAgent: requestInfo.userAgent }
-			);
+			try {
+				const requestInfo = getRequestInfo(event);
+				auditLog(
+					{
+						action,
+						resourceType: auditConfig?.resourceType ?? action.split('.')[0],
+						resourceId,
+						orgId,
+						details
+					},
+					{ userId: requestInfo.userId, ip: requestInfo.ip, userAgent: requestInfo.userAgent }
+				);
+			} catch {
+				// fire-and-forget: manual audit failure must never break the response
+			}
 		};
 
 		const routeCtx: ApiRouteContext = {

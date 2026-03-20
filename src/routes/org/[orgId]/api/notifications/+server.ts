@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 
 export const GET = apiRoute(
-	{ permission: { authenticated: true }, readOnly: false, audit: 'notification' },
+	{ permission: { authenticated: true }, readOnly: false },
 	async ({ supabase, orgId, userId }) => {
 		const { data, error: dbError } = await supabase
 			.from('notifications')

@@ -10,10 +10,12 @@ export interface StoreConfig<T extends { id: string }> {
 	beforeAdd?: BeforeAddHook<T>;
 	adapter?: ApiAdapter<T>;
 	strategy?: OptimisticStrategy<T>;
+	sort?: (a: T, b: T) => number;
 }
 
 export interface Store<T extends { id: string }> {
 	readonly items: T[];
+	readonly rawItems: T[];
 	readonly orgId: string;
 	load(items: T[], orgId: string): void;
 	add(data: Omit<T, 'id'>): Promise<T | null>;
@@ -55,6 +57,11 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 
 	return {
 		get items() {
+			const raw = collection.items;
+			return config.sort ? [...raw].sort(config.sort) : raw;
+		},
+
+		get rawItems() {
 			return collection.items;
 		},
 

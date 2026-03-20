@@ -2,7 +2,8 @@ import { json, error } from '@sveltejs/kit';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import { apiRoute } from '$lib/server/apiRoute';
 
-export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supabase, orgId }, event) => {
+export const POST = apiRoute({ permission: { edit: 'calendar' }, audit: 'special_day' }, async (routeCtx, event) => {
+	const { supabase, orgId } = routeCtx;
 	const body = await event.request.json();
 
 	// Handle bulk reset of federal holidays
@@ -26,6 +27,7 @@ export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supa
 		// Return all special days
 		const { data: allDays } = await supabase.from('special_days').select().eq('organization_id', orgId).order('date');
 
+		routeCtx.audit('special_day.federal_holidays_reset');
 		return json(
 			(allDays ?? []).map((d: Record<string, unknown>) => ({
 				id: d.id,
@@ -57,15 +59,18 @@ export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supa
 	});
 });
 
-export const DELETE = apiRoute({ permission: { edit: 'calendar' } }, async ({ supabase, orgId }, event) => {
-	const body = await event.request.json();
-	const { id } = body;
+export const DELETE = apiRoute(
+	{ permission: { edit: 'calendar' }, audit: 'special_day' },
+	async ({ supabase, orgId }, event) => {
+		const body = await event.request.json();
+		const { id } = body;
 
-	if (!id) throw error(400, 'Missing id');
+		if (!id) throw error(400, 'Missing id');
 
-	const { error: dbError } = await supabase.from('special_days').delete().eq('id', id).eq('organization_id', orgId);
+		const { error: dbError } = await supabase.from('special_days').delete().eq('id', id).eq('organization_id', orgId);
 
-	if (dbError) throw error(500, dbError.message);
+		if (dbError) throw error(500, dbError.message);
 
-	return json({ success: true });
-});
+		return json({ success: true });
+	}
+);

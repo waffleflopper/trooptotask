@@ -7,7 +7,7 @@ import {
 } from '$lib/server/transforms';
 
 export const GET = apiRoute(
-	{ permission: { privileged: true }, readOnly: false },
+	{ permission: { privileged: true }, readOnly: false, audit: 'calendar_report' },
 	async ({ supabase, orgId }, event) => {
 		// Validate query params
 		const startDate = event.url.searchParams.get('startDate');

@@ -9,7 +9,9 @@ import {
 } from '$lib/server/permissionContext';
 import { checkReadOnly } from '$lib/server/read-only-guard';
 import { validateUUID } from '$lib/server/validation';
+import { auditLog, getRequestInfo } from '$lib/server/auditLog';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ZodType } from 'zod';
 
 export type PermissionSpec =
 	| { edit: FeatureArea }
@@ -21,6 +23,12 @@ export type PermissionSpec =
 	| { authenticated: true }
 	| { custom: (ctx: PermissionContext) => void };
 
+export interface AuditConfig {
+	resourceType: string;
+	action?: string;
+	detailFields?: string[];
+}
+
 export interface ApiRouteConfig {
 	permission: PermissionSpec;
 	readOnly?: boolean;
@@ -28,6 +36,9 @@ export interface ApiRouteConfig {
 	groupScope?: {
 		resolvePersonnelId: (event: RequestEvent) => Promise<string | null>;
 	};
+	audit?: string | AuditConfig;
+	schema?: ZodType;
+	scopeByPersonnel?: string;
 }
 
 export interface ApiRouteContext {
@@ -36,6 +47,9 @@ export interface ApiRouteContext {
 	userId: string | null;
 	isSandbox: boolean;
 	ctx: PermissionContext;
+	body?: Record<string, unknown>;
+	setAuditResourceId: (id: string) => void;
+	audit: (action: string, details?: Record<string, unknown>, resourceId?: string) => void;
 }
 
 function applyPermission(spec: PermissionSpec, ctx: PermissionContext): void {
@@ -55,6 +69,31 @@ function applyPermission(spec: PermissionSpec, ctx: PermissionContext): void {
 		spec.custom(ctx);
 	}
 	// 'authenticated' — no permission check needed
+}
+
+export function snakeToCamel(str: string): string {
+	return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function resolveAuditConfig(audit: string | AuditConfig): AuditConfig {
+	if (typeof audit === 'string') {
+		return { resourceType: audit };
+	}
+	return audit;
+}
+
+function methodToAction(method: string): string {
+	switch (method) {
+		case 'POST':
+			return 'created';
+		case 'PUT':
+		case 'PATCH':
+			return 'updated';
+		case 'DELETE':
+			return 'deleted';
+		default:
+			return 'accessed';
+	}
 }
 
 export function apiRoute(
@@ -99,6 +138,114 @@ export function apiRoute(
 			if (blocked) return blocked;
 		}
 
-		return handler({ supabase, orgId, userId, isSandbox, ctx }, event);
+		let auditResourceId: string | undefined;
+		let manualAuditCalled = false;
+		let parsedBody: Record<string, unknown> | undefined;
+
+		const auditConfig = config.audit ? resolveAuditConfig(config.audit) : undefined;
+		const needsBodyParse = config.schema || config.scopeByPersonnel || auditConfig?.detailFields?.length;
+
+		if (needsBodyParse) {
+			let rawBody: unknown;
+			try {
+				rawBody = await event.request.clone().json();
+			} catch {
+				if (config.schema) {
+					return json({ error: 'Invalid JSON in request body' }, { status: 400 });
+				}
+				// Body parsing failure is not fatal for audit-only
+			}
+
+			if (config.schema && rawBody !== undefined) {
+				const result = config.schema.safeParse(rawBody);
+				if (!result.success) {
+					const issues = result.error.issues.map((i) => ({
+						path: i.path.join('.'),
+						message: i.message
+					}));
+					return json({ error: 'Validation error', issues }, { status: 400 });
+				}
+				parsedBody = result.data as Record<string, unknown>;
+			} else if (rawBody !== undefined) {
+				parsedBody = rawBody as Record<string, unknown>;
+			}
+		}
+
+		if (config.scopeByPersonnel && ctx.scopedGroupId) {
+			const camelField = snakeToCamel(config.scopeByPersonnel);
+			const personnelId = parsedBody?.[camelField] ?? parsedBody?.[config.scopeByPersonnel];
+			if (!personnelId || typeof personnelId !== 'string') {
+				return json({ error: 'Missing required personnel ID for group scope check' }, { status: 400 });
+			}
+			await ctx.requireGroupAccess(supabase, personnelId);
+		}
+
+		const setAuditResourceId = (id: string) => {
+			auditResourceId = id;
+		};
+
+		const manualAudit = (action: string, details?: Record<string, unknown>, resourceId?: string) => {
+			manualAuditCalled = true;
+			try {
+				const requestInfo = getRequestInfo(event);
+				auditLog(
+					{
+						action,
+						resourceType: auditConfig?.resourceType ?? action.split('.')[0],
+						resourceId,
+						orgId,
+						details
+					},
+					{ userId: requestInfo.userId, ip: requestInfo.ip, userAgent: requestInfo.userAgent }
+				);
+			} catch {
+				// fire-and-forget: manual audit failure must never break the response
+			}
+		};
+
+		const routeCtx: ApiRouteContext = {
+			supabase,
+			orgId,
+			userId,
+			isSandbox,
+			ctx,
+			body: parsedBody,
+			setAuditResourceId,
+			audit: manualAudit
+		};
+
+		const response = await handler(routeCtx, event);
+
+		if (config.audit && !manualAuditCalled && response.status >= 200 && response.status < 300) {
+			const action = auditConfig!.action ?? `${auditConfig!.resourceType}.${methodToAction(event.request.method)}`;
+			const requestInfo = getRequestInfo(event);
+
+			let details: Record<string, unknown> | undefined;
+			if (auditConfig!.detailFields?.length && parsedBody) {
+				details = {};
+				for (const field of auditConfig!.detailFields!) {
+					if (parsedBody[field] !== undefined) {
+						details[field] = parsedBody[field];
+					}
+				}
+			}
+
+			try {
+				auditLog(
+					{
+						action,
+						resourceType: auditConfig!.resourceType,
+						resourceId: auditResourceId,
+						orgId,
+						details
+					},
+					{ userId: requestInfo.userId, ip: requestInfo.ip, userAgent: requestInfo.userAgent }
+				);
+			} catch {
+				// fire-and-forget: audit failure must never break the response
+			}
+		}
+
+		return response;
 	};
 }

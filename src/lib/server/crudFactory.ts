@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { apiRoute, type PermissionSpec } from './apiRoute';
+import { apiRoute, snakeToCamel, type PermissionSpec } from './apiRoute';
 import type { FeatureArea } from './permissionContext';
 
 /**
@@ -85,13 +85,6 @@ export interface CrudConfig<T> {
  */
 function camelToSnake(str: string): string {
 	return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-}
-
-/**
- * Converts a snake_case string to camelCase
- */
-function snakeToCamel(str: string): string {
-	return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 }
 
 /**

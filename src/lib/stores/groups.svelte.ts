@@ -1,4 +1,4 @@
-import { createCrudStore } from '$lib/stores/crudStore.svelte';
+import { createStore } from '$lib/stores/core';
 
 export interface Group {
 	id: string;
@@ -6,7 +6,7 @@ export interface Group {
 	sortOrder: number;
 }
 
-const store = createCrudStore<Group>({ resource: 'groups' });
+const store = createStore<Group>({ resource: 'groups' });
 
 export const groupsStore = {
 	get list() {
@@ -39,6 +39,6 @@ export const groupsStore = {
 		return store.update(id, { name: newName.trim() });
 	},
 
-	getById: (id: string) => store.getItems().find((g) => g.id === id),
-	getByName: (name: string) => store.getItems().find((g) => g.name.toLowerCase() === name.toLowerCase())
+	getById: store.getById,
+	getByName: (name: string) => store.find((g) => g.name.toLowerCase() === name.toLowerCase())
 };

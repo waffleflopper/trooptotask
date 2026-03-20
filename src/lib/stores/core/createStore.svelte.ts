@@ -33,6 +33,7 @@ export interface Store<T extends { id: string }> {
 	getById(id: string): T | undefined;
 	filter(predicate: (item: T) => boolean): T[];
 	find(predicate: (item: T) => boolean): T | undefined;
+	removeLocalWhere(predicate: (item: T) => boolean): void;
 }
 
 export function createStore<T extends { id: string }>(config: StoreConfig<T>): Store<T> {
@@ -214,6 +215,10 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 
 		find(predicate: (item: T) => boolean) {
 			return collection.getSnapshot().find(predicate);
+		},
+
+		removeLocalWhere(predicate: (item: T) => boolean) {
+			collection.set(collection.getSnapshot().filter((item) => !predicate(item)));
 		}
 	};
 }

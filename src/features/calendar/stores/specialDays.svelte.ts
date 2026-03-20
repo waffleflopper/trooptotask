@@ -1,8 +1,8 @@
-import { createCrudStore } from '$lib/stores/crudStore.svelte';
+import { createStore } from '$lib/stores/core';
 import { formatDate } from '$lib/utils/dates';
 import type { SpecialDay } from '../calendar.types';
 
-const store = createCrudStore<SpecialDay>({ resource: 'special-days' });
+const store = createStore<SpecialDay>({ resource: 'special-days' });
 
 export const specialDaysStore = {
 	get list() {
@@ -24,11 +24,11 @@ export const specialDaysStore = {
 		return true;
 	},
 
-	getById: (id: string) => store.getItems().find((d) => d.id === id),
+	getById: store.getById,
 
 	getByDate(date: Date): SpecialDay | undefined {
 		const dateStr = formatDate(date);
-		return store.getItems().find((d) => d.date === dateStr);
+		return store.find((d) => d.date === dateStr);
 	},
 
 	isSpecialDay(date: Date): boolean {
@@ -37,6 +37,6 @@ export const specialDaysStore = {
 	},
 
 	getByYear(year: number): SpecialDay[] {
-		return store.getItems().filter((d) => d.date.startsWith(`${year}-`));
+		return store.filter((d) => d.date.startsWith(`${year}-`));
 	}
 };

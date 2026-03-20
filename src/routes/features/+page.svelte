@@ -1213,8 +1213,8 @@
 
 	.coming-soon-badge {
 		display: inline-block;
-		background: var(--brass);
-		color: var(--bg);
+		background: var(--brass-muted);
+		color: var(--brass-light);
 		font-size: 0.5625rem;
 		font-weight: 700;
 		padding: 0.125rem 0.375rem;

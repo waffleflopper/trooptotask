@@ -2,13 +2,14 @@ import type { DeleteResult } from '$lib/utils/deletionRequests';
 import { createReactiveCollection, createReactiveValue } from './reactiveState.svelte';
 import { createDefaultStrategy, createMutationTracker } from './optimistic';
 import { createRestAdapter } from './ports';
-import type { ApiAdapter } from './ports';
+import type { ApiAdapter, BatchApiAdapter } from './ports';
 import type { BeforeAddHook, OptimisticStrategy } from './optimistic';
 
 export interface StoreConfig<T extends { id: string }> {
 	resource: string;
 	beforeAdd?: BeforeAddHook<T>;
 	adapter?: ApiAdapter<T>;
+	batchAdapter?: BatchApiAdapter<T>;
 	strategy?: OptimisticStrategy<T>;
 	sort?: (a: T, b: T) => number;
 }
@@ -17,11 +18,15 @@ export interface Store<T extends { id: string }> {
 	readonly items: T[];
 	readonly rawItems: T[];
 	readonly orgId: string;
+	readonly busy: boolean;
 	load(items: T[], orgId: string): void;
 	add(data: Omit<T, 'id'>): Promise<T | null>;
+	addBatch(entries: Omit<T, 'id'>[]): Promise<T[]>;
 	update(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean>;
 	remove(id: string): Promise<DeleteResult>;
 	removeBool(id: string): Promise<boolean>;
+	removeBatch(ids: string[]): Promise<boolean>;
+	mergeBatchResults(inserted: T[], updated?: T[]): void;
 	setItems(items: T[]): void;
 	getItems(): T[];
 	getOrgId(): string;
@@ -69,6 +74,10 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 			return orgIdVal.value;
 		},
 
+		get busy() {
+			return tracker.pending > 0;
+		},
+
 		load(newItems: T[], newOrgId: string) {
 			if (tracker.pending > 0 && newOrgId === orgIdVal.value) {
 				return;
@@ -95,6 +104,65 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 					return null;
 				}
 			});
+		},
+
+		async addBatch(entries: Omit<T, 'id'>[]): Promise<T[]> {
+			const snapshot = collection.getSnapshot();
+			const tempIds: string[] = [];
+			const tempItems = entries.map((data) => {
+				const tempId = `temp-${crypto.randomUUID()}`;
+				tempIds.push(tempId);
+				return { id: tempId, ...data } as T;
+			});
+			collection.set([...snapshot, ...tempItems]);
+
+			return tracker.wrap(async () => {
+				try {
+					let created: T[];
+					if (config.batchAdapter) {
+						created = await config.batchAdapter.createBatch(entries);
+					} else {
+						created = await Promise.all(entries.map((data) => adapter.create(data)));
+					}
+					const tempIdSet = new Set(tempIds);
+					collection.set([...collection.getSnapshot().filter((item) => !tempIdSet.has(item.id)), ...created]);
+					return created;
+				} catch {
+					const tempIdSet = new Set(tempIds);
+					collection.set(collection.getSnapshot().filter((item) => !tempIdSet.has(item.id)));
+					return [];
+				}
+			});
+		},
+
+		async removeBatch(ids: string[]): Promise<boolean> {
+			const snapshot = collection.getSnapshot();
+			const idSet = new Set(ids);
+			const removed = snapshot.filter((item) => idSet.has(item.id));
+			collection.set(snapshot.filter((item) => !idSet.has(item.id)));
+
+			return tracker.wrap(async () => {
+				try {
+					if (config.batchAdapter?.removeBatch) {
+						await config.batchAdapter.removeBatch(ids);
+					} else {
+						await Promise.all(ids.map((id) => adapter.remove(id)));
+					}
+					return true;
+				} catch {
+					collection.set([...collection.getSnapshot(), ...removed]);
+					return false;
+				}
+			});
+		},
+
+		mergeBatchResults(inserted: T[], updated?: T[]) {
+			let current = collection.getSnapshot();
+			if (updated && updated.length > 0) {
+				const updatedMap = new Map(updated.map((u) => [u.id, u]));
+				current = current.map((item) => updatedMap.get(item.id) ?? item);
+			}
+			collection.set([...current, ...inserted]);
 		},
 
 		async update(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean> {

@@ -1,7 +1,7 @@
-import { createCrudStore } from '$lib/stores/crudStore.svelte';
+import { createStore } from '$lib/stores/core';
 import type { PersonnelTraining } from '$features/training/training.types';
 
-const store = createCrudStore<PersonnelTraining>({
+const store = createStore<PersonnelTraining>({
 	resource: 'personnel-trainings',
 	beforeAdd(items, data) {
 		const displaced = items.find((t) => t.personnelId === data.personnelId && t.trainingTypeId === data.trainingTypeId);
@@ -24,10 +24,7 @@ export const personnelTrainingsStore = {
 	getByPersonnelAndType: (personnelId: string, trainingTypeId: string) =>
 		store.getItems().find((t) => t.personnelId === personnelId && t.trainingTypeId === trainingTypeId),
 
-	addBatchResults(inserted: PersonnelTraining[], updated: PersonnelTraining[]) {
-		const updatedIds = new Set(updated.map((u) => u.id));
-		store.setItems([...store.getItems().filter((t) => !updatedIds.has(t.id)), ...inserted, ...updated]);
-	},
+	addBatchResults: store.mergeBatchResults,
 
 	removeByPersonnelLocal(personnelId: string) {
 		store.setItems(store.getItems().filter((t) => t.personnelId !== personnelId));

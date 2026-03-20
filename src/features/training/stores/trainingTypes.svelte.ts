@@ -1,15 +1,18 @@
-import { createCrudStore } from '$lib/stores/crudStore.svelte';
+import { createStore } from '$lib/stores/core';
 import type { TrainingType } from '$features/training/training.types';
 
-const store = createCrudStore<TrainingType>({ resource: 'training-types' });
+const store = createStore<TrainingType>({
+	resource: 'training-types',
+	sort: (a, b) => a.sortOrder - b.sortOrder
+});
 
 export const trainingTypesStore = {
 	get list() {
-		return [...store.items].sort((a, b) => a.sortOrder - b.sortOrder);
+		return store.items;
 	},
 	load: store.load,
 	add: store.add,
 	update: store.update,
 	remove: store.remove,
-	getById: (id: string) => store.getItems().find((t) => t.id === id)
+	getById: store.getById
 };

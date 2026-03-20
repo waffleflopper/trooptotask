@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createStore } from './createStore.svelte';
 import { createMockAdapter } from './ports';
-import type { ApiAdapter } from './ports';
+import type { ApiAdapter, BatchApiAdapter } from './ports';
 import type { BeforeAddHook } from './optimistic';
 
 interface TestItem {
 	id: string;
 	name: string;
+	sortOrder?: number;
 }
 
 describe('createStore', () => {
@@ -391,6 +392,277 @@ describe('createStore', () => {
 		});
 	});
 
+	describe('busy', () => {
+		it('should be false when no mutations in flight', () => {
+			const store = makeStore();
+			store.load([], 'org-1');
+			expect(store.busy).toBe(false);
+		});
+
+		it('should be true during in-flight mutation', async () => {
+			let resolveCreate!: (value: TestItem) => void;
+			const createPromise = new Promise<TestItem>((resolve) => {
+				resolveCreate = resolve;
+			});
+
+			const store = makeStore({
+				adapterOverrides: { create: () => createPromise }
+			});
+			store.load([], 'org-1');
+
+			const addPromise = store.add({ name: 'New' });
+			expect(store.busy).toBe(true);
+
+			resolveCreate({ id: 'server-1', name: 'New' });
+			await addPromise;
+			expect(store.busy).toBe(false);
+		});
+	});
+
+	describe('addBatch', () => {
+		function makeBatchAdapter(overrides: Partial<BatchApiAdapter<TestItem>> = {}): BatchApiAdapter<TestItem> {
+			return {
+				create: async (data) => ({ id: 'server-1', ...data }) as TestItem,
+				update: async (id, data) => ({ id, name: 'default', ...data }) as TestItem,
+				remove: async () => 'deleted',
+				createBatch: async (items) => items.map((d, i) => ({ id: `server-${i}`, ...d }) as TestItem),
+				...overrides
+			};
+		}
+
+		it('should add multiple items optimistically then replace with server results', async () => {
+			const serverItems: TestItem[] = [
+				{ id: 'server-1', name: 'Alpha' },
+				{ id: 'server-2', name: 'Bravo' }
+			];
+			const batchAdapter = makeBatchAdapter({ createBatch: async () => serverItems });
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: batchAdapter,
+				batchAdapter
+			});
+			store.load([], 'org-1');
+
+			const result = await store.addBatch([{ name: 'Alpha' }, { name: 'Bravo' }]);
+
+			expect(result).toEqual(serverItems);
+			expect(store.items).toEqual(serverItems);
+		});
+
+		it('should rollback all temp items on batch create failure', async () => {
+			const existing: TestItem = { id: '1', name: 'Existing' };
+			const batchAdapter = makeBatchAdapter({
+				createBatch: async () => {
+					throw new Error('batch fail');
+				}
+			});
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: batchAdapter,
+				batchAdapter
+			});
+			store.load([existing], 'org-1');
+
+			const result = await store.addBatch([{ name: 'New1' }, { name: 'New2' }]);
+
+			expect(result).toEqual([]);
+			expect(store.items).toEqual([existing]);
+		});
+
+		it('should fall back to sequential creates when no batchAdapter', async () => {
+			const store = makeStore({
+				adapterOverrides: {
+					create: async (data) => ({ id: `s-${(data as TestItem).name}`, ...data }) as TestItem
+				}
+			});
+			store.load([], 'org-1');
+
+			const result = await store.addBatch([{ name: 'A' }, { name: 'B' }]);
+
+			expect(result).toHaveLength(2);
+			expect(store.items).toHaveLength(2);
+		});
+
+		it('should set busy during batch add', async () => {
+			let resolveCreate!: (value: TestItem[]) => void;
+			const createPromise = new Promise<TestItem[]>((resolve) => {
+				resolveCreate = resolve;
+			});
+
+			const batchAdapter = makeBatchAdapter({ createBatch: () => createPromise });
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: batchAdapter,
+				batchAdapter
+			});
+			store.load([], 'org-1');
+
+			const addPromise = store.addBatch([{ name: 'A' }]);
+			expect(store.busy).toBe(true);
+
+			resolveCreate([{ id: 'server-1', name: 'A' }]);
+			await addPromise;
+			expect(store.busy).toBe(false);
+		});
+	});
+
+	describe('removeBatch', () => {
+		function makeBatchAdapter(overrides: Partial<BatchApiAdapter<TestItem>> = {}): BatchApiAdapter<TestItem> {
+			return {
+				create: async (data) => ({ id: 'server-1', ...data }) as TestItem,
+				update: async (id, data) => ({ id, name: 'default', ...data }) as TestItem,
+				remove: async () => 'deleted',
+				createBatch: async (items) => items.map((d, i) => ({ id: `server-${i}`, ...d }) as TestItem),
+				removeBatch: async () => true,
+				...overrides
+			};
+		}
+
+		it('should remove multiple items optimistically', async () => {
+			const items: TestItem[] = [
+				{ id: '1', name: 'Alpha' },
+				{ id: '2', name: 'Bravo' },
+				{ id: '3', name: 'Charlie' }
+			];
+			const batchAdapter = makeBatchAdapter();
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: batchAdapter,
+				batchAdapter
+			});
+			store.load(items, 'org-1');
+
+			const result = await store.removeBatch(['1', '3']);
+
+			expect(result).toBe(true);
+			expect(store.items).toEqual([{ id: '2', name: 'Bravo' }]);
+		});
+
+		it('should rollback on batch remove failure', async () => {
+			const items: TestItem[] = [
+				{ id: '1', name: 'Alpha' },
+				{ id: '2', name: 'Bravo' }
+			];
+			const batchAdapter = makeBatchAdapter({
+				removeBatch: async () => {
+					throw new Error('batch fail');
+				}
+			});
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: batchAdapter,
+				batchAdapter
+			});
+			store.load(items, 'org-1');
+
+			const result = await store.removeBatch(['1']);
+
+			expect(result).toBe(false);
+			expect(store.items).toHaveLength(2);
+			expect(store.items.find((i) => i.id === '1')).toEqual({ id: '1', name: 'Alpha' });
+			expect(store.items.find((i) => i.id === '2')).toEqual({ id: '2', name: 'Bravo' });
+		});
+
+		it('should fall back to sequential removes when no batchAdapter.removeBatch', async () => {
+			const items: TestItem[] = [
+				{ id: '1', name: 'Alpha' },
+				{ id: '2', name: 'Bravo' },
+				{ id: '3', name: 'Charlie' }
+			];
+			const store = makeStore();
+			store.load(items, 'org-1');
+
+			const result = await store.removeBatch(['1', '3']);
+
+			expect(result).toBe(true);
+			expect(store.items).toEqual([{ id: '2', name: 'Bravo' }]);
+		});
+	});
+
+	describe('mergeBatchResults', () => {
+		it('should merge inserted items into store', () => {
+			const store = makeStore();
+			store.load([{ id: '1', name: 'Existing' }], 'org-1');
+
+			store.mergeBatchResults([{ id: '2', name: 'New' }]);
+
+			expect(store.items).toEqual([
+				{ id: '1', name: 'Existing' },
+				{ id: '2', name: 'New' }
+			]);
+		});
+
+		it('should merge inserted and updated items', () => {
+			const store = makeStore();
+			store.load(
+				[
+					{ id: '1', name: 'Old' },
+					{ id: '2', name: 'Keep' }
+				],
+				'org-1'
+			);
+
+			store.mergeBatchResults([{ id: '3', name: 'New' }], [{ id: '1', name: 'Updated' }]);
+
+			expect(store.items).toEqual([
+				{ id: '1', name: 'Updated' },
+				{ id: '2', name: 'Keep' },
+				{ id: '3', name: 'New' }
+			]);
+		});
+	});
+
+	describe('removeLocalWhere', () => {
+		it('should remove items matching predicate without API call', () => {
+			const store = makeStore();
+			store.load(
+				[
+					{ id: '1', name: 'Alpha' },
+					{ id: '2', name: 'Bravo' },
+					{ id: '3', name: 'Alpha' }
+				],
+				'org-1'
+			);
+
+			store.removeLocalWhere((i) => i.name === 'Alpha');
+
+			expect(store.items).toEqual([{ id: '2', name: 'Bravo' }]);
+		});
+
+		it('should do nothing when no items match', () => {
+			const store = makeStore();
+			store.load(
+				[
+					{ id: '1', name: 'Alpha' },
+					{ id: '2', name: 'Bravo' }
+				],
+				'org-1'
+			);
+
+			store.removeLocalWhere((i) => i.name === 'Charlie');
+
+			expect(store.items).toEqual([
+				{ id: '1', name: 'Alpha' },
+				{ id: '2', name: 'Bravo' }
+			]);
+		});
+
+		it('should remove all items when all match', () => {
+			const store = makeStore();
+			store.load(
+				[
+					{ id: '1', name: 'Alpha' },
+					{ id: '2', name: 'Alpha' }
+				],
+				'org-1'
+			);
+
+			store.removeLocalWhere((i) => i.name === 'Alpha');
+
+			expect(store.items).toEqual([]);
+		});
+	});
+
 	describe('setItems / getItems / getById / filter / find', () => {
 		it('should allow direct item manipulation via escape hatches', () => {
 			const store = makeStore();
@@ -453,6 +725,96 @@ describe('createStore', () => {
 
 			expect(store.find((i) => i.name === 'Bravo')).toEqual({ id: '2', name: 'Bravo' });
 			expect(store.find((i) => i.name === 'Charlie')).toBeUndefined();
+		});
+	});
+
+	describe('sort config', () => {
+		function makeSortedStore(adapterOverrides: Partial<ApiAdapter<TestItem>> = {}) {
+			return createStore<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter(adapterOverrides),
+				sort: (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+			});
+		}
+
+		it('should return items sorted via sort comparator', () => {
+			const store = makeSortedStore();
+			store.load(
+				[
+					{ id: '1', name: 'Charlie', sortOrder: 3 },
+					{ id: '2', name: 'Alpha', sortOrder: 1 },
+					{ id: '3', name: 'Bravo', sortOrder: 2 }
+				],
+				'org-1'
+			);
+
+			expect(store.items.map((i) => i.name)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+		});
+
+		it('should expose rawItems in insertion order (unsorted)', () => {
+			const store = makeSortedStore();
+			store.load(
+				[
+					{ id: '1', name: 'Charlie', sortOrder: 3 },
+					{ id: '2', name: 'Alpha', sortOrder: 1 },
+					{ id: '3', name: 'Bravo', sortOrder: 2 }
+				],
+				'org-1'
+			);
+
+			expect(store.rawItems.map((i) => i.name)).toEqual(['Charlie', 'Alpha', 'Bravo']);
+		});
+
+		it('should sort items after add', async () => {
+			const store = makeSortedStore({
+				create: async (data) => ({ id: 'server-1', ...data }) as TestItem
+			});
+			store.load(
+				[
+					{ id: '1', name: 'Alpha', sortOrder: 1 },
+					{ id: '2', name: 'Charlie', sortOrder: 3 }
+				],
+				'org-1'
+			);
+
+			await store.add({ name: 'Bravo', sortOrder: 2 });
+
+			expect(store.items.map((i) => i.name)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+		});
+
+		it('should sort items after update', async () => {
+			const store = makeSortedStore({
+				update: async (id, data) => ({ id, name: 'Alpha', sortOrder: 1, ...data }) as TestItem
+			});
+			store.load(
+				[
+					{ id: '1', name: 'Alpha', sortOrder: 2 },
+					{ id: '2', name: 'Bravo', sortOrder: 1 }
+				],
+				'org-1'
+			);
+
+			// Before update: sorted = [Bravo(1), Alpha(2)]
+			expect(store.items[0].name).toBe('Bravo');
+
+			await store.update('1', { sortOrder: 0 });
+
+			// After update: Alpha sortOrder=0, Bravo sortOrder=1
+			expect(store.items[0].name).toBe('Alpha');
+		});
+
+		it('rawItems should be unsorted for store without sort config', () => {
+			const store = makeStore();
+			store.load(
+				[
+					{ id: '1', name: 'Bravo' },
+					{ id: '2', name: 'Alpha' }
+				],
+				'org-1'
+			);
+
+			// rawItems same as items when no sort
+			expect(store.rawItems).toEqual(store.items);
 		});
 	});
 });

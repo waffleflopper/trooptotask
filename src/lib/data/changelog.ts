@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-19-leaders-book-redesign',
+		date: '2026-03-19',
+		title: "Leader's Book Redesign In Progress",
+		items: [
+			"We've temporarily removed the Leader's Book while we rebuild it from the ground up — the new version will be more intuitive and better integrated with the rest of the app",
+			'Your existing data (counseling records, development goals, extended info) is safely preserved and will carry over to the new version',
+			'The Rating Scheme is still fully available on the Personnel page — nothing changed there'
+		]
+	},
+	{
 		id: '2026-03-17-training-manage-types-button',
 		date: '2026-03-17',
 		title: 'Training Types Button is Now Always Visible',
@@ -43,16 +53,6 @@ export const changelog: ChangelogEntry[] = [
 		title: 'Better Feedback Reports',
 		items: [
 			'Feedback submissions now include which section of the app you were in — so bug reports actually come with useful context instead of just a raw URL'
-		]
-	},
-	{
-		id: '2026-03-14-duty-roster-schedule-options',
-		date: '2026-03-14',
-		title: 'Duty Roster Schedule Options',
-		items: [
-			'The duty roster generator now lets you exclude weekends, federal holidays, and org closures — no more manually skipping days that nobody works',
-			"Uses the same holidays and closures you've already set up in your calendar, so there's nothing extra to configure",
-			"Roster exports now include a DA Form 6 reference grid showing each person's queue position for every duty date — full transparency into why someone was assigned their days"
 		]
 	}
 ];

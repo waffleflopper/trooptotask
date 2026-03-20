@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import type { Personnel } from '$lib/types';
-import type { RatingSchemeEntry } from '../counseling.types';
-import { WORKFLOW_STATUS_OPTIONS } from '../counseling.types';
+import type { RatingSchemeEntry } from '../rating-scheme.types';
+import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
 
 function getPersonName(personnel: Personnel[], id: string | null, name: string | null): string {
@@ -58,7 +58,6 @@ export function exportRatingScheme(entries: RatingSchemeEntry[], personnel: Pers
 
 	const ws = XLSX.utils.json_to_sheet(rows);
 
-	// Set column widths
 	ws['!cols'] = [
 		{ wch: 10 }, // Eval Type
 		{ wch: 18 }, // Report Type

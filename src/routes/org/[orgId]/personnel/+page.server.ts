@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import type { RatingSchemeEntry } from '$features/counseling/counseling.types';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import { getSupabaseClient } from '$lib/server/supabase';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {

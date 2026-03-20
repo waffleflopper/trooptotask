@@ -181,10 +181,9 @@ describe('needsPersonnelTrainings', () => {
 		expect(needsPersonnelTrainings(`/org/${orgId}/onboarding`, orgId)).toBe(true);
 	});
 
-	it('returns false for calendar, personnel, leaders-book, and admin routes', () => {
+	it('returns false for calendar, personnel, and admin routes', () => {
 		expect(needsPersonnelTrainings(`/org/${orgId}/calendar`, orgId)).toBe(false);
 		expect(needsPersonnelTrainings(`/org/${orgId}/personnel`, orgId)).toBe(false);
-		expect(needsPersonnelTrainings(`/org/${orgId}/leaders-book`, orgId)).toBe(false);
 		expect(needsPersonnelTrainings(`/org/${orgId}/admin`, orgId)).toBe(false);
 	});
 

@@ -53,11 +53,12 @@
 			visible: permissions.canViewOnboarding,
 			exactMatch: false
 		},
+		// Leaders Book temporarily hidden during redesign
 		{
 			href: `/org/${orgId}/leaders-book`,
 			label: 'LB',
 			icon: 'leaders-book',
-			visible: permissions.canViewLeadersBook,
+			visible: false,
 			exactMatch: false
 		}
 	]);

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { RatingSchemeEntry, ReportType, WorkflowStatus } from '../counseling.types';
-	import { WORKFLOW_STATUS_OPTIONS, WORKFLOW_STATUS_COLORS } from '../counseling.types';
+	import type { RatingSchemeEntry, ReportType, WorkflowStatus } from '../rating-scheme.types';
+	import { WORKFLOW_STATUS_OPTIONS, WORKFLOW_STATUS_COLORS } from '../rating-scheme.types';
 	import {
 		getEvalTypeForRank,
 		getReportTypesForEvalType,
 		calculateThruDate,
 		getExtendedAnnualWarning
-	} from '$features/counseling/utils/ratingScheme';
+	} from '$features/rating-scheme/utils/ratingScheme';
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';

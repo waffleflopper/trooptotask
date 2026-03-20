@@ -14,7 +14,7 @@ export const groupsStore = {
 	},
 
 	get names() {
-		return store.getItems().map((g) => g.name);
+		return store.rawItems.map((g) => g.name);
 	},
 
 	load: store.load,
@@ -24,13 +24,13 @@ export const groupsStore = {
 		if (!name.trim()) return null;
 		const trimmedName = name.trim();
 
-		if (store.getItems().some((g) => g.name.toLowerCase() === trimmedName.toLowerCase())) {
+		if (store.find((g) => g.name.toLowerCase() === trimmedName.toLowerCase())) {
 			return null;
 		}
 
 		return store.add({
 			name: trimmedName,
-			sortOrder: store.getItems().length
+			sortOrder: store.rawItems.length
 		} as Omit<Group, 'id'>);
 	},
 

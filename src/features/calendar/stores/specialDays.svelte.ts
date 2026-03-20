@@ -13,14 +13,15 @@ export const specialDaysStore = {
 	remove: store.removeBool,
 
 	async resetFederalHolidays(): Promise<boolean> {
-		const res = await fetch(`/org/${store.getOrgId()}/api/special-days`, {
+		const res = await fetch(`/org/${store.orgId}/api/special-days`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ action: 'resetFederalHolidays' })
 		});
 		if (!res.ok) return false;
 		const allDays = await res.json();
-		store.setItems(allDays);
+		store.removeLocalWhere(() => true);
+		store.appendLocal(allDays);
 		return true;
 	},
 
@@ -33,7 +34,7 @@ export const specialDaysStore = {
 
 	isSpecialDay(date: Date): boolean {
 		const dateStr = formatDate(date);
-		return store.getItems().some((d) => d.date === dateStr);
+		return store.find((d) => d.date === dateStr) !== undefined;
 	},
 
 	getByYear(year: number): SpecialDay[] {

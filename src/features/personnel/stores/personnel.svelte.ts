@@ -43,19 +43,18 @@ export const personnelStore = {
 	remove: store.remove,
 	getById: store.getById,
 
-	setItems: store.setItems,
-	getItems: store.getItems,
-
 	addBatchResults(inserted: Personnel[]) {
-		store.setItems([...store.getItems(), ...inserted]);
+		store.appendLocal(inserted);
 	},
 
 	removeLocal(id: string) {
 		store.removeLocalWhere((p) => p.id === id);
 	},
 
+	updateLocalWhere: store.updateLocalWhere,
+
 	sortByRankAndName() {
-		return [...store.getItems()].sort((a, b) => {
+		return [...store.rawItems].sort((a, b) => {
 			const rankDiff = RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
 			if (rankDiff !== 0) return rankDiff;
 			return a.lastName.localeCompare(b.lastName);

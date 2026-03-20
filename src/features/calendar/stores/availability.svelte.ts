@@ -99,30 +99,26 @@ export const availabilityStore = {
 	addBatch: store.addBatch,
 	removeBatch: store.removeBatch,
 
-	removeByPersonnelLocal: (personnelId: string) =>
-		store.setItems(store.getItems().filter((e) => e.personnelId !== personnelId)),
+	removeByPersonnelLocal: (personnelId: string) => store.removeLocalWhere((e) => e.personnelId === personnelId),
 
-	removeByStatusTypeLocal: (statusTypeId: string) =>
-		store.setItems(store.getItems().filter((e) => e.statusTypeId !== statusTypeId)),
+	removeByStatusTypeLocal: (statusTypeId: string) => store.removeLocalWhere((e) => e.statusTypeId === statusTypeId),
 
-	getById: (id: string) => store.getItems().find((e) => e.id === id),
-	getByPersonnel: (personnelId: string) => store.getItems().filter((e) => e.personnelId === personnelId),
+	getById: (id: string) => store.getById(id),
+	getByPersonnel: (personnelId: string) => store.filter((e) => e.personnelId === personnelId),
 
 	getByPersonnelAndDate: (personnelId: string, date: Date) =>
-		store.getItems().filter((e) => e.personnelId === personnelId && isDateInRange(date, e.startDate, e.endDate)),
+		store.filter((e) => e.personnelId === personnelId && isDateInRange(date, e.startDate, e.endDate)),
 
-	getByDate: (date: Date) => store.getItems().filter((e) => isDateInRange(date, e.startDate, e.endDate)),
+	getByDate: (date: Date) => store.filter((e) => isDateInRange(date, e.startDate, e.endDate)),
 
 	getByDateRange(startDate: Date, endDate: Date) {
 		const start = formatDate(startDate);
 		const end = formatDate(endDate);
-		return store
-			.getItems()
-			.filter(
-				(e) =>
-					(e.startDate >= start && e.startDate <= end) ||
-					(e.endDate >= start && e.endDate <= end) ||
-					(e.startDate <= start && e.endDate >= end)
-			);
+		return store.filter(
+			(e) =>
+				(e.startDate >= start && e.startDate <= end) ||
+				(e.endDate >= start && e.endDate <= end) ||
+				(e.startDate <= start && e.endDate >= end)
+		);
 	}
 };

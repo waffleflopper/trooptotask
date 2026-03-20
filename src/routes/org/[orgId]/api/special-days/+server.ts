@@ -2,63 +2,62 @@ import { json, error } from '@sveltejs/kit';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import { apiRoute } from '$lib/server/apiRoute';
 
-export const POST = apiRoute(
-	{ permission: { edit: 'calendar' }, audit: 'special_day' },
-	async ({ supabase, orgId }, event) => {
-		const body = await event.request.json();
+export const POST = apiRoute({ permission: { edit: 'calendar' }, audit: 'special_day' }, async (routeCtx, event) => {
+	const { supabase, orgId } = routeCtx;
+	const body = await event.request.json();
 
-		// Handle bulk reset of federal holidays
-		if (body.action === 'resetFederalHolidays') {
-			// Delete existing federal holidays
-			await supabase.from('special_days').delete().eq('organization_id', orgId).eq('type', 'federal-holiday');
+	// Handle bulk reset of federal holidays
+	if (body.action === 'resetFederalHolidays') {
+		// Delete existing federal holidays
+		await supabase.from('special_days').delete().eq('organization_id', orgId).eq('type', 'federal-holiday');
 
-			// Re-insert defaults
-			const holidays = getDefaultFederalHolidays();
-			const rows = holidays.map((h) => ({
-				organization_id: orgId,
-				date: h.date,
-				name: h.name,
-				type: h.type
-			}));
+		// Re-insert defaults
+		const holidays = getDefaultFederalHolidays();
+		const rows = holidays.map((h) => ({
+			organization_id: orgId,
+			date: h.date,
+			name: h.name,
+			type: h.type
+		}));
 
-			for (let i = 0; i < rows.length; i += 50) {
-				await supabase.from('special_days').insert(rows.slice(i, i + 50));
-			}
-
-			// Return all special days
-			const { data: allDays } = await supabase.from('special_days').select().eq('organization_id', orgId).order('date');
-
-			return json(
-				(allDays ?? []).map((d: Record<string, unknown>) => ({
-					id: d.id,
-					date: d.date,
-					name: d.name,
-					type: d.type
-				}))
-			);
+		for (let i = 0; i < rows.length; i += 50) {
+			await supabase.from('special_days').insert(rows.slice(i, i + 50));
 		}
 
-		const { data, error: dbError } = await supabase
-			.from('special_days')
-			.insert({
-				organization_id: orgId,
-				date: body.date,
-				name: body.name,
-				type: body.type
-			})
-			.select()
-			.single();
+		// Return all special days
+		const { data: allDays } = await supabase.from('special_days').select().eq('organization_id', orgId).order('date');
 
-		if (dbError) throw error(500, dbError.message);
-
-		return json({
-			id: data.id,
-			date: data.date,
-			name: data.name,
-			type: data.type
-		});
+		routeCtx.audit('special_day.federal_holidays_reset');
+		return json(
+			(allDays ?? []).map((d: Record<string, unknown>) => ({
+				id: d.id,
+				date: d.date,
+				name: d.name,
+				type: d.type
+			}))
+		);
 	}
-);
+
+	const { data, error: dbError } = await supabase
+		.from('special_days')
+		.insert({
+			organization_id: orgId,
+			date: body.date,
+			name: body.name,
+			type: body.type
+		})
+		.select()
+		.single();
+
+	if (dbError) throw error(500, dbError.message);
+
+	return json({
+		id: data.id,
+		date: data.date,
+		name: data.name,
+		type: data.type
+	});
+});
 
 export const DELETE = apiRoute(
 	{ permission: { edit: 'calendar' }, audit: 'special_day' },

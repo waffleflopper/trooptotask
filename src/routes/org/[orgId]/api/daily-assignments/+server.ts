@@ -3,7 +3,8 @@ import { apiRoute } from '$lib/server/apiRoute';
 
 export const POST = apiRoute(
 	{ permission: { edit: 'calendar' }, audit: 'daily_assignment' },
-	async ({ supabase, orgId }, event) => {
+	async (routeCtx, event) => {
+		const { supabase, orgId } = routeCtx;
 		const body = await event.request.json();
 
 		// Upsert: delete existing then insert (using the unique constraint)
@@ -36,6 +37,7 @@ export const POST = apiRoute(
 			});
 		}
 
+		routeCtx.audit('daily_assignment.removed', { date: body.date, assignmentTypeId: body.assignmentTypeId });
 		return json({ success: true, removed: true });
 	}
 );

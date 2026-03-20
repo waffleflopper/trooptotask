@@ -53,6 +53,13 @@ export async function fetchSharedData(
 			: Promise.resolve({ data: [], error: null })
 	]);
 
+	if (allPersonnelResult.error) {
+		console.error('Failed to fetch personnel:', allPersonnelResult.error);
+	}
+	if (scopedPersonnelResult?.error) {
+		console.error('Failed to fetch scoped personnel:', scopedPersonnelResult.error);
+	}
+
 	const allPersonnel = allPersonnelResult.data;
 	const personnel = scopedPersonnelResult ? scopedPersonnelResult.data : allPersonnel;
 

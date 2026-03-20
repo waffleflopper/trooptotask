@@ -274,6 +274,7 @@ describe('validatePersonnelScope', () => {
 			select: record('select'),
 			eq: record('eq'),
 			in: record('in'),
+			is: record('is'),
 			then: undefined as unknown
 		};
 

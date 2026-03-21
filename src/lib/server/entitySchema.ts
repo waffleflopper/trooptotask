@@ -94,7 +94,7 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 	if (config.requireDeletionApproval) {
 		throw new Error(
 			`Entity "${table}": requireDeletionApproval is not yet implemented in the entity system. ` +
-				`Use crudFactory for entities that need deletion approval until this is implemented.`
+				`Use custom apiRoute handlers for entities that need deletion approval until this is implemented.`
 		);
 	}
 

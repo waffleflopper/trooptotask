@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { transformCounselingRecords, transformDevelopmentGoals } from './transforms';
+import { CounselingRecordEntity } from './entities/counselingRecord';
+import { DevelopmentGoalEntity } from './entities/developmentGoal';
 import { RatingSchemeEntryEntity } from './entities/ratingSchemeEntry';
 
 const ORG_ID = '00000000-0000-0000-0000-000000000001';
@@ -138,7 +139,7 @@ describe('RatingSchemeEntryEntity.fromDbArray', () => {
 	});
 });
 
-describe('transformCounselingRecords', () => {
+describe('CounselingRecordEntity.fromDbArray', () => {
 	it('maps simplified counseling record fields', () => {
 		const dbRows = [
 			{
@@ -154,7 +155,7 @@ describe('transformCounselingRecords', () => {
 			}
 		];
 
-		const result = transformCounselingRecords(dbRows);
+		const result = CounselingRecordEntity.fromDbArray(dbRows);
 
 		expect(result).toMatchObject([
 			{
@@ -183,18 +184,18 @@ describe('transformCounselingRecords', () => {
 			}
 		];
 
-		const result = transformCounselingRecords(dbRows);
+		const result = CounselingRecordEntity.fromDbArray(dbRows);
 
 		expect(result[0].notes).toBeNull();
 		expect(result[0].filePath).toBeNull();
 	});
 
 	it('returns empty array for empty input', () => {
-		expect(transformCounselingRecords([])).toEqual([]);
+		expect(CounselingRecordEntity.fromDbArray([])).toEqual([]);
 	});
 });
 
-describe('transformDevelopmentGoals', () => {
+describe('DevelopmentGoalEntity.fromDbArray', () => {
 	it('maps simplified development goal fields', () => {
 		const dbRows = [
 			{
@@ -210,7 +211,7 @@ describe('transformDevelopmentGoals', () => {
 			}
 		];
 
-		const result = transformDevelopmentGoals(dbRows);
+		const result = DevelopmentGoalEntity.fromDbArray(dbRows);
 
 		expect(result).toMatchObject([
 			{
@@ -239,7 +240,7 @@ describe('transformDevelopmentGoals', () => {
 			}
 		];
 
-		const result = transformDevelopmentGoals(dbRows);
+		const result = DevelopmentGoalEntity.fromDbArray(dbRows);
 
 		expect(result[0].isCompleted).toBe(true);
 		expect(result[0].termType).toBe('long');
@@ -247,7 +248,7 @@ describe('transformDevelopmentGoals', () => {
 	});
 
 	it('returns empty array for empty input', () => {
-		expect(transformDevelopmentGoals([])).toEqual([]);
+		expect(DevelopmentGoalEntity.fromDbArray([])).toEqual([]);
 	});
 });
 

@@ -224,6 +224,10 @@ export function transformDevelopmentGoals(data: DbRow[]): DevelopmentGoal[] {
 	}));
 }
 
+export function transformPinnedGroups(data: DbRow[]): string[] {
+	return data.map((p) => p.group_name as string);
+}
+
 export function transformRatingSchemeEntries(data: DbRow[]): RatingSchemeEntry[] {
 	return data.map((r) => ({
 		id: r.id as string,

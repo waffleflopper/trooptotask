@@ -7,7 +7,8 @@ import {
 	transformDailyAssignments
 } from '$lib/server/transforms';
 
-export const load: PageServerLoad = async ({ params, locals, cookies }) => {
+export const load: PageServerLoad = async ({ params, locals, cookies, depends }) => {
+	depends('app:shared-data');
 	const { orgId } = params;
 	const userId = locals.user?.id ?? null;
 	const supabase = getSupabaseClient(locals, cookies);

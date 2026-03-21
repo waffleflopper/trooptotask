@@ -19,7 +19,7 @@ export { exportMonthToCSV, printMonthCalendar, exportQuarterToCSV, printQuarterC
 // Components are imported directly from their paths:
 // $features/calendar/components/Calendar.svelte
 // $features/calendar/components/CalendarHeader.svelte
-// $features/calendar/components/DateCell.svelte
+// $lib/components/ui/DateCell.svelte (moved to shared UI primitives)
 // $features/calendar/components/AvailabilityModal.svelte
 // $features/calendar/components/StatusTypeManager.svelte
 // $features/calendar/components/SpecialDayManager.svelte

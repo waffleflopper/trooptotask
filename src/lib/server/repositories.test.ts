@@ -267,3 +267,44 @@ describe('personnelTrainingRepo', () => {
 		});
 	});
 });
+
+describe('ratingSchemeRepo', () => {
+	it('queries rating_scheme_entries table with rating_period_end ordering and transforms correctly', async () => {
+		const { ratingSchemeRepo } = await import('./repositories');
+		const rows = [
+			{
+				id: 'rs1',
+				rated_person_id: 'p1',
+				eval_type: 'NCOER',
+				rater_person_id: null,
+				rater_name: null,
+				senior_rater_person_id: null,
+				senior_rater_name: null,
+				intermediate_rater_person_id: null,
+				intermediate_rater_name: null,
+				reviewer_person_id: null,
+				reviewer_name: null,
+				rating_period_start: '2026-01-01',
+				rating_period_end: '2026-12-31',
+				status: 'active',
+				notes: null,
+				report_type: null,
+				workflow_status: null
+			}
+		];
+		const { supabase, calls } = createMockSupabase(rows);
+
+		const result = await ratingSchemeRepo.list(supabase, ORG_ID);
+
+		expect(calls['from']![0]).toEqual(['rating_scheme_entries']);
+		expect(calls['order']![0]).toEqual(['rating_period_end', { ascending: true }]);
+		expect(result[0]).toMatchObject({
+			id: 'rs1',
+			ratedPersonId: 'p1',
+			evalType: 'NCOER',
+			ratingPeriodStart: '2026-01-01',
+			ratingPeriodEnd: '2026-12-31',
+			status: 'active'
+		});
+	});
+});

@@ -69,7 +69,7 @@
 			if (wasAway) {
 				wasAway = false;
 				clearTimeout(debounceTimer);
-				debounceTimer = setTimeout(() => invalidate('app:shared-data'), 2000);
+				debounceTimer = setTimeout(() => invalidate('app:org-core'), 2000);
 			}
 		};
 		window.addEventListener('blur', handleBlur);

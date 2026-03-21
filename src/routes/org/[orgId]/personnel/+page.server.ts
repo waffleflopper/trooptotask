@@ -3,7 +3,7 @@ import { getSupabaseClient } from '$lib/server/supabase';
 import { fetchPersonnelData } from '$lib/server/personnelPageServer';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, depends }) => {
-	depends('app:shared-data');
+	depends('app:org-core');
 	const { orgId } = params;
 	const supabase = getSupabaseClient(locals, cookies);
 	const userId = locals.user?.id ?? null;

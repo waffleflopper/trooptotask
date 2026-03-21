@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Personnel } from '$lib/types';
-import { transformPersonnel } from '$lib/server/transforms';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
 
-// Mock transforms before importing the module under test
-vi.mock('$lib/server/transforms', () => ({
-	transformPersonnel: vi.fn((rows: Record<string, unknown>[]) =>
+// Mock the entity module before importing the module under test
+vi.mock('$lib/server/entities/personnel', () => {
+	const fromDbArray = vi.fn((rows: Record<string, unknown>[]) =>
 		rows.map((r) => ({
 			id: r.id,
 			rank: r.rank,
@@ -16,8 +16,11 @@ vi.mock('$lib/server/transforms', () => ({
 			groupName: (r.groups as Record<string, unknown>)?.name ?? '',
 			archivedAt: r.archived_at ?? null
 		}))
-	)
-}));
+	);
+	return {
+		PersonnelEntity: { fromDbArray }
+	};
+});
 
 import { personnelIds, queryPersonnel, validatePersonnelScope, type QueryModifier } from './personnelRepository';
 
@@ -135,7 +138,7 @@ describe('queryPersonnel', () => {
 		// Default order by last_name ascending
 		expect(calls['order']![0]).toEqual(['last_name', { ascending: true }]);
 		// Transform was called
-		expect(transformPersonnel).toHaveBeenCalledWith(rows);
+		expect(PersonnelEntity.fromDbArray).toHaveBeenCalledWith(rows);
 		// Result shape
 		expect(result.data).toHaveLength(2);
 		expect(result.error).toBeNull();
@@ -196,11 +199,11 @@ describe('queryPersonnel', () => {
 	it('transform: "raw" returns untransformed DB rows', async () => {
 		const rows = [makeDbRow({ last_name: 'Raw' })];
 		const { supabase } = createMockSupabase(rows);
-		vi.mocked(transformPersonnel).mockClear();
+		vi.mocked(PersonnelEntity.fromDbArray).mockClear();
 
 		const result = await queryPersonnel({ supabase, orgId: ORG_ID, transform: 'raw' });
 
-		expect(transformPersonnel).not.toHaveBeenCalled();
+		expect(PersonnelEntity.fromDbArray).not.toHaveBeenCalled();
 		expect(result.data[0]).toHaveProperty('last_name', 'Raw');
 	});
 

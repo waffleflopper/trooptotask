@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Personnel } from '$lib/types';
 import type { PersonnelQueryResult } from '$lib/server/personnelRepository';
 import type { StatusType } from '$lib/types';
-import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+import type { TrainingType } from '$features/training/training.types';
 import type { Group } from '$lib/stores/groups.svelte';
 
 vi.mock('$lib/server/personnelRepository', () => ({
@@ -34,57 +34,44 @@ const mockTrainingTypes: TrainingType[] = [
 	}
 ];
 
-const mockPersonnelTrainings: PersonnelTraining[] = [
-	{
-		id: 'pt1',
-		personnelId: 'p1',
-		trainingTypeId: 'tt1',
-		completionDate: '2026-01-01',
-		expirationDate: '2027-01-01',
-		notes: '',
-		certificateUrl: ''
-	},
-	{
-		id: 'pt2',
-		personnelId: 'p2',
-		trainingTypeId: 'tt1',
-		completionDate: '2026-02-01',
-		expirationDate: '2027-02-01',
-		notes: '',
-		certificateUrl: ''
+vi.mock('$lib/server/entities/group', () => ({
+	GroupEntity: {
+		repo: {
+			list: vi.fn(() => Promise.resolve(mockGroups)),
+			query: vi.fn(),
+			queryDateRange: vi.fn(),
+			queryByIds: vi.fn()
+		}
 	}
-];
+}));
 
-vi.mock('$lib/server/repositories', () => ({
-	groupRepo: {
-		list: vi.fn(() => Promise.resolve(mockGroups)),
-		query: vi.fn(),
-		queryDateRange: vi.fn(),
-		queryByIds: vi.fn()
-	},
-	statusTypeRepo: {
-		list: vi.fn(() => Promise.resolve(mockStatusTypes)),
-		query: vi.fn(),
-		queryDateRange: vi.fn(),
-		queryByIds: vi.fn()
-	},
-	trainingTypeRepo: {
-		list: vi.fn(() => Promise.resolve(mockTrainingTypes)),
-		query: vi.fn(),
-		queryDateRange: vi.fn(),
-		queryByIds: vi.fn()
-	},
-	personnelTrainingRepo: {
-		list: vi.fn(() => Promise.resolve(mockPersonnelTrainings)),
-		query: vi.fn(),
-		queryDateRange: vi.fn(),
-		queryByIds: vi.fn()
+vi.mock('$lib/server/entities/statusType', () => ({
+	StatusTypeEntity: {
+		repo: {
+			list: vi.fn(() => Promise.resolve(mockStatusTypes)),
+			query: vi.fn(),
+			queryDateRange: vi.fn(),
+			queryByIds: vi.fn()
+		}
+	}
+}));
+
+vi.mock('$lib/server/entities/trainingType', () => ({
+	TrainingTypeEntity: {
+		repo: {
+			list: vi.fn(() => Promise.resolve(mockTrainingTypes)),
+			query: vi.fn(),
+			queryDateRange: vi.fn(),
+			queryByIds: vi.fn()
+		}
 	}
 }));
 
 import { fetchSharedData } from './sharedData';
 import { queryPersonnel } from '$lib/server/personnelRepository';
-import { groupRepo, statusTypeRepo, trainingTypeRepo, personnelTrainingRepo } from '$lib/server/repositories';
+import { GroupEntity } from '$lib/server/entities/group';
+import { StatusTypeEntity } from '$lib/server/entities/statusType';
+import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 
 const allPersonnel: Personnel[] = [
 	{
@@ -125,9 +112,9 @@ function mockQueryPersonnelResult(data: Personnel[]): PersonnelQueryResult {
 describe('fetchSharedData', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(groupRepo.list).mockResolvedValue(mockGroups);
-		vi.mocked(statusTypeRepo.list).mockResolvedValue(mockStatusTypes);
-		vi.mocked(trainingTypeRepo.list).mockResolvedValue(mockTrainingTypes);
+		vi.mocked(GroupEntity.repo.list).mockResolvedValue(mockGroups);
+		vi.mocked(StatusTypeEntity.repo.list).mockResolvedValue(mockStatusTypes);
+		vi.mocked(TrainingTypeEntity.repo.list).mockResolvedValue(mockTrainingTypes);
 	});
 
 	it('returns personnel, groups, statusTypes, trainingTypes without personnelTrainings', async () => {
@@ -153,12 +140,12 @@ describe('fetchSharedData', () => {
 		await fetchSharedData(supabase, 'org1', null);
 	});
 
-	it('never calls personnelTrainingRepo', async () => {
+	it('does not return personnelTrainings (loaded separately by feature layouts)', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
 		const supabase = mockSupabase();
-		await fetchSharedData(supabase, 'org1', null);
+		const result = await fetchSharedData(supabase, 'org1', null);
 
-		expect(personnelTrainingRepo.list).not.toHaveBeenCalled();
+		expect(result).not.toHaveProperty('personnelTrainings');
 	});
 
 	it('personnel equals allPersonnel when no scoping', async () => {
@@ -188,8 +175,8 @@ describe('fetchSharedData', () => {
 		const supabase = mockSupabase();
 		await fetchSharedData(supabase, 'org1', null);
 
-		expect(groupRepo.list).toHaveBeenCalledWith(supabase, 'org1');
-		expect(statusTypeRepo.list).toHaveBeenCalledWith(supabase, 'org1');
-		expect(trainingTypeRepo.list).toHaveBeenCalledWith(supabase, 'org1');
+		expect(GroupEntity.repo.list).toHaveBeenCalledWith(supabase, 'org1');
+		expect(StatusTypeEntity.repo.list).toHaveBeenCalledWith(supabase, 'org1');
+		expect(TrainingTypeEntity.repo.list).toHaveBeenCalledWith(supabase, 'org1');
 	});
 });

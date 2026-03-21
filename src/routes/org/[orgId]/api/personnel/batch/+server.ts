@@ -5,6 +5,7 @@ import { auditLog } from '$lib/server/auditLog';
 import { sanitizeString } from '$lib/server/validation';
 import { ALL_RANKS } from '$lib/types';
 import { queryPersonnel } from '$lib/server/personnelRepository';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
 
 interface BatchRecord {
 	rank: string;
@@ -140,16 +141,7 @@ export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ sup
 		{ userId }
 	);
 
-	const result = (inserted ?? []).map((d) => ({
-		id: d.id,
-		rank: d.rank,
-		lastName: d.last_name,
-		firstName: d.first_name,
-		mos: d.mos,
-		clinicRole: d.clinic_role,
-		groupId: d.group_id,
-		groupName: d.groups?.name ?? ''
-	}));
+	const result = PersonnelEntity.fromDbArray((inserted ?? []) as Record<string, unknown>[]);
 
 	return json({ inserted: result, errors });
 });

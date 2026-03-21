@@ -9,11 +9,9 @@ import type {
 	OnboardingTemplateStep,
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
-import {
-	transformOnboardingTemplates,
-	transformOnboardingTemplateSteps,
-	transformPersonnelOnboardings
-} from '$lib/server/transforms';
+import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
+import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
+import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type varies based on auth context
 type SupabaseClient = any;
@@ -36,7 +34,7 @@ export async function findTemplates(supabase: SupabaseClient, orgId: string): Pr
 		return { data: [], error: error.message };
 	}
 
-	return { data: transformOnboardingTemplates(data ?? []), error: null };
+	return { data: OnboardingTemplateEntity.fromDbArray(data ?? []) as OnboardingTemplate[], error: null };
 }
 
 export async function findTemplateSteps(
@@ -53,7 +51,7 @@ export async function findTemplateSteps(
 		return { data: [], error: error.message };
 	}
 
-	return { data: transformOnboardingTemplateSteps(data ?? []), error: null };
+	return { data: OnboardingTemplateStepEntity.fromDbArray(data ?? []) as OnboardingTemplateStep[], error: null };
 }
 
 export async function findOnboardings(
@@ -77,7 +75,7 @@ export async function findOnboardings(
 		rows = rows.filter((o) => scopedPersonnelIds.has(o.personnel_id as string));
 	}
 
-	return { data: transformPersonnelOnboardings(rows), error: null };
+	return { data: PersonnelOnboardingEntity.fromDbArray(rows) as PersonnelOnboarding[], error: null };
 }
 
 export async function countTemplateSteps(supabase: SupabaseClient, orgId: string): Promise<number> {

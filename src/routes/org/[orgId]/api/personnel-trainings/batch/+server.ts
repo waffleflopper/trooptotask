@@ -3,6 +3,7 @@ import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 import { formatDate } from '$lib/utils/dates';
 import { queryPersonnel } from '$lib/server/personnelRepository';
+import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 
 function calculateExpirationDate(completionDate: string | null, expirationMonths: number | null): string | null {
 	if (expirationMonths === null || !completionDate) return null;
@@ -209,15 +210,7 @@ export const POST = apiRoute({ permission: { edit: 'training' } }, async ({ supa
 		}
 	}
 
-	const transformRecord = (d: Record<string, unknown>) => ({
-		id: d.id,
-		personnelId: d.personnel_id,
-		trainingTypeId: d.training_type_id,
-		completionDate: d.completion_date,
-		expirationDate: d.expiration_date,
-		notes: d.notes,
-		certificateUrl: d.certificate_url
-	});
+	const transformRecord = (d: Record<string, unknown>) => PersonnelTrainingEntity.fromDb(d);
 
 	auditLog(
 		{

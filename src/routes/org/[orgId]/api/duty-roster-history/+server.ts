@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
+import { RosterHistoryEntity } from '$lib/server/entities/rosterHistory';
 
 export const GET = apiRoute({ permission: { authenticated: true }, readOnly: false }, async ({ supabase, orgId }) => {
 	const { data, error: dbError } = await supabase
@@ -10,18 +11,7 @@ export const GET = apiRoute({ permission: { authenticated: true }, readOnly: fal
 
 	if (dbError) throw error(500, dbError.message);
 
-	return json(
-		(data ?? []).map((r: Record<string, unknown>) => ({
-			id: r.id,
-			assignmentTypeId: r.assignment_type_id,
-			name: r.name,
-			startDate: r.start_date,
-			endDate: r.end_date,
-			roster: r.roster,
-			config: r.config,
-			createdAt: r.created_at
-		}))
-	);
+	return json(RosterHistoryEntity.fromDbArray((data ?? []) as Record<string, unknown>[]));
 });
 
 export const POST = apiRoute(
@@ -29,32 +19,15 @@ export const POST = apiRoute(
 	async ({ supabase, orgId, userId }, event) => {
 		const body = await event.request.json();
 
-		const { data, error: dbError } = await supabase
-			.from('duty_roster_history')
-			.insert({
-				organization_id: orgId,
-				assignment_type_id: body.assignmentTypeId,
-				name: body.name,
-				start_date: body.startDate,
-				end_date: body.endDate,
-				roster: body.roster,
-				config: body.config ?? null,
-				created_by_user_id: userId ?? null
-			})
-			.select()
-			.single();
+		const insertData = {
+			...RosterHistoryEntity.toDbInsert(body, orgId),
+			created_by_user_id: userId ?? null
+		};
+
+		const { data, error: dbError } = await supabase.from('duty_roster_history').insert(insertData).select().single();
 
 		if (dbError) throw error(500, dbError.message);
 
-		return json({
-			id: data.id,
-			assignmentTypeId: data.assignment_type_id,
-			name: data.name,
-			startDate: data.start_date,
-			endDate: data.end_date,
-			roster: data.roster,
-			config: data.config,
-			createdAt: data.created_at
-		});
+		return json(RosterHistoryEntity.fromDb(data as Record<string, unknown>));
 	}
 );

@@ -11,18 +11,40 @@ const mockDailyAssignmentQueryDateRange = vi.fn();
 const mockRosterHistoryList = vi.fn();
 const mockPinnedGroupList = vi.fn();
 
-vi.mock('$lib/server/repositories', () => ({
-	availabilityRepo: { list: mockAvailabilityList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() },
-	specialDayRepo: { list: vi.fn(), query: vi.fn(), queryDateRange: mockSpecialDayQueryDateRange, queryByIds: vi.fn() },
-	assignmentTypeRepo: { list: mockAssignmentTypeList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() },
-	dailyAssignmentRepo: {
-		list: vi.fn(),
-		query: vi.fn(),
-		queryDateRange: mockDailyAssignmentQueryDateRange,
-		queryByIds: vi.fn()
-	},
-	rosterHistoryRepo: { list: mockRosterHistoryList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() },
-	pinnedGroupRepo: { list: mockPinnedGroupList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+vi.mock('$lib/server/entities/availabilityEntry', () => ({
+	AvailabilityEntryEntity: {
+		repo: { list: mockAvailabilityList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+	}
+}));
+
+vi.mock('$lib/server/entities/specialDay', () => ({
+	SpecialDayEntity: {
+		repo: { list: vi.fn(), query: vi.fn(), queryDateRange: mockSpecialDayQueryDateRange, queryByIds: vi.fn() }
+	}
+}));
+
+vi.mock('$lib/server/entities/dailyAssignment', () => ({
+	DailyAssignmentEntity: {
+		repo: { list: vi.fn(), query: vi.fn(), queryDateRange: mockDailyAssignmentQueryDateRange, queryByIds: vi.fn() }
+	}
+}));
+
+vi.mock('$lib/server/entities/rosterHistory', () => ({
+	RosterHistoryEntity: {
+		repo: { list: mockRosterHistoryList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+	}
+}));
+
+vi.mock('$lib/server/entities/pinnedGroups', () => ({
+	PinnedGroupsEntity: {
+		repo: { list: mockPinnedGroupList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+	}
+}));
+
+vi.mock('$lib/server/entities/assignmentType', () => ({
+	AssignmentTypeEntity: {
+		repo: { list: mockAssignmentTypeList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+	}
 }));
 
 function setupMockDefaults() {

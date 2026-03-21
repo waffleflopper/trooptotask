@@ -4,13 +4,11 @@
  * See #216 / #227.
  */
 import { formatDate } from '$lib/utils/dates';
-import {
-	availabilityRepo,
-	assignmentTypeRepo,
-	dailyAssignmentRepo,
-	pinnedGroupRepo,
-	ratingSchemeRepo
-} from '$lib/server/repositories';
+import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
+import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
+import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
+import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
+import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { findOnboardings } from '$lib/server/onboardingRepository';
 import type { QueryModifier } from '$lib/server/repositoryFactory';
 
@@ -33,11 +31,11 @@ export async function fetchDashboardData(supabase: SupabaseClient, orgId: string
 
 	const [availabilityEntries, assignmentTypes, todayAssignments, pinnedGroups, ratingSchemeEntries, onboardingsResult] =
 		await Promise.all([
-			availabilityRepo.list(supabase, orgId, { filters: [dateOverlapFilter] }),
-			assignmentTypeRepo.list(supabase, orgId),
-			dailyAssignmentRepo.list(supabase, orgId, { filters: [dailyDateFilter] }),
-			userId ? pinnedGroupRepo.list(supabase, orgId, { filters: [userFilter] }) : Promise.resolve([]),
-			ratingSchemeRepo.list(supabase, orgId, {
+			AvailabilityEntryEntity.repo.list(supabase, orgId, { filters: [dateOverlapFilter] }),
+			AssignmentTypeEntity.repo.list(supabase, orgId),
+			DailyAssignmentEntity.repo.list(supabase, orgId, { filters: [dailyDateFilter] }),
+			userId ? PinnedGroupsEntity.repo.list(supabase, orgId, { filters: [userFilter] }) : Promise.resolve([]),
+			RatingSchemeEntryEntity.repo.list(supabase, orgId, {
 				select: 'id, rated_person_id, eval_type, rating_period_end, status',
 				filters: [excludeCompleted]
 			}),

@@ -1,19 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-	transformOnboardingTemplates,
-	transformOnboardingTemplateSteps,
-	transformPersonnelOnboardings
-} from '$lib/server/transforms';
+import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
+import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
+import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 
-vi.mock('$lib/server/transforms', async (importOriginal) => {
-	const actual = (await importOriginal()) as Record<string, unknown>;
-	return {
-		...actual,
-		transformOnboardingTemplates: vi.fn(actual.transformOnboardingTemplates as (...args: unknown[]) => unknown),
-		transformOnboardingTemplateSteps: vi.fn(actual.transformOnboardingTemplateSteps as (...args: unknown[]) => unknown),
-		transformPersonnelOnboardings: vi.fn(actual.transformPersonnelOnboardings as (...args: unknown[]) => unknown)
-	};
-});
+// Spy on entity fromDbArray methods to verify they are called by the repository
+const mockTemplateFromDbArray = vi.spyOn(OnboardingTemplateEntity, 'fromDbArray');
+const mockStepFromDbArray = vi.spyOn(OnboardingTemplateStepEntity, 'fromDbArray');
+const mockOnboardingFromDbArray = vi.spyOn(PersonnelOnboardingEntity, 'fromDbArray');
 
 import { findTemplates, findTemplateSteps, findOnboardings, countTemplateSteps } from './onboardingRepository';
 
@@ -60,207 +53,6 @@ function createMockSupabase(
 	return { supabase, calls };
 }
 
-describe('transformOnboardingTemplates', () => {
-	it('maps DB rows to OnboardingTemplate objects with camelCase keys', () => {
-		const rows = [
-			{
-				id: 't1',
-				organization_id: 'org-1',
-				name: 'New Hire',
-				description: 'Onboarding for new hires',
-				created_at: '2026-01-15T00:00:00Z'
-			}
-		];
-
-		const result = transformOnboardingTemplates(rows);
-
-		expect(result).toEqual([
-			{
-				id: 't1',
-				orgId: 'org-1',
-				name: 'New Hire',
-				description: 'Onboarding for new hires',
-				createdAt: '2026-01-15T00:00:00Z'
-			}
-		]);
-	});
-
-	it('handles null description', () => {
-		const rows = [
-			{
-				id: 't1',
-				organization_id: 'org-1',
-				name: 'Quick Start',
-				description: null,
-				created_at: '2026-01-15T00:00:00Z'
-			}
-		];
-
-		const result = transformOnboardingTemplates(rows);
-
-		expect(result[0].description).toBeNull();
-	});
-});
-
-describe('transformOnboardingTemplateSteps', () => {
-	it('maps DB rows to OnboardingTemplateStep objects', () => {
-		const rows = [
-			{
-				id: 's1',
-				template_id: 't1',
-				name: 'Complete paperwork',
-				description: 'Fill out all forms',
-				step_type: 'paperwork',
-				training_type_id: null,
-				stages: null,
-				sort_order: 0
-			},
-			{
-				id: 's2',
-				template_id: 't1',
-				name: 'CPR Training',
-				description: null,
-				step_type: 'training',
-				training_type_id: 'tt-1',
-				stages: ['classroom', 'practical'],
-				sort_order: 1
-			}
-		];
-
-		const result = transformOnboardingTemplateSteps(rows);
-
-		expect(result).toEqual([
-			{
-				id: 's1',
-				templateId: 't1',
-				name: 'Complete paperwork',
-				description: 'Fill out all forms',
-				stepType: 'paperwork',
-				trainingTypeId: null,
-				stages: null,
-				sortOrder: 0
-			},
-			{
-				id: 's2',
-				templateId: 't1',
-				name: 'CPR Training',
-				description: null,
-				stepType: 'training',
-				trainingTypeId: 'tt-1',
-				stages: ['classroom', 'practical'],
-				sortOrder: 1
-			}
-		]);
-	});
-});
-
-describe('transformPersonnelOnboardings', () => {
-	it('maps DB rows with nested step progress, sorting steps by sort_order', () => {
-		const rows = [
-			{
-				id: 'o1',
-				personnel_id: 'p1',
-				started_at: '2026-01-10T00:00:00Z',
-				completed_at: null,
-				status: 'in_progress',
-				template_id: 't1',
-				onboarding_step_progress: [
-					{
-						id: 'sp2',
-						onboarding_id: 'o1',
-						step_name: 'CPR Training',
-						step_type: 'training',
-						training_type_id: 'tt-1',
-						stages: ['classroom', 'practical'],
-						sort_order: 1,
-						completed: false,
-						current_stage: 'classroom',
-						notes: [{ text: 'Started', timestamp: '2026-01-11T00:00:00Z' }],
-						template_step_id: 's2'
-					},
-					{
-						id: 'sp1',
-						onboarding_id: 'o1',
-						step_name: 'Paperwork',
-						step_type: 'paperwork',
-						training_type_id: null,
-						stages: null,
-						sort_order: 0,
-						completed: true,
-						current_stage: null,
-						notes: [],
-						template_step_id: 's1'
-					}
-				]
-			}
-		];
-
-		const result = transformPersonnelOnboardings(rows);
-
-		expect(result).toHaveLength(1);
-		expect(result[0].id).toBe('o1');
-		expect(result[0].personnelId).toBe('p1');
-		expect(result[0].status).toBe('in_progress');
-		expect(result[0].templateId).toBe('t1');
-		// Steps should be sorted by sortOrder (0 before 1)
-		expect(result[0].steps[0].stepName).toBe('Paperwork');
-		expect(result[0].steps[0].sortOrder).toBe(0);
-		expect(result[0].steps[1].stepName).toBe('CPR Training');
-		expect(result[0].steps[1].sortOrder).toBe(1);
-	});
-
-	it('handles missing onboarding_step_progress gracefully', () => {
-		const rows = [
-			{
-				id: 'o1',
-				personnel_id: 'p1',
-				started_at: '2026-01-10T00:00:00Z',
-				completed_at: null,
-				status: 'in_progress',
-				template_id: null,
-				onboarding_step_progress: null
-			}
-		];
-
-		const result = transformPersonnelOnboardings(rows);
-
-		expect(result[0].steps).toEqual([]);
-		expect(result[0].templateId).toBeNull();
-	});
-
-	it('handles non-array notes by defaulting to empty array', () => {
-		const rows = [
-			{
-				id: 'o1',
-				personnel_id: 'p1',
-				started_at: '2026-01-10T00:00:00Z',
-				completed_at: null,
-				status: 'in_progress',
-				template_id: null,
-				onboarding_step_progress: [
-					{
-						id: 'sp1',
-						onboarding_id: 'o1',
-						step_name: 'Step',
-						step_type: 'checkbox',
-						training_type_id: null,
-						stages: null,
-						sort_order: 0,
-						completed: false,
-						current_stage: null,
-						notes: 'not-an-array',
-						template_step_id: null
-					}
-				]
-			}
-		];
-
-		const result = transformPersonnelOnboardings(rows);
-
-		expect(result[0].steps[0].notes).toEqual([]);
-	});
-});
-
 describe('findTemplates', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -278,7 +70,7 @@ describe('findTemplates', () => {
 		expect(calls['order']![0]).toEqual(['name']);
 		expect(result.data).toHaveLength(1);
 		expect(result.error).toBeNull();
-		expect(transformOnboardingTemplates).toHaveBeenCalledWith(rows);
+		expect(mockTemplateFromDbArray).toHaveBeenCalledWith(rows);
 	});
 
 	it('returns empty data and error message on Supabase error', async () => {
@@ -307,7 +99,7 @@ describe('findTemplateSteps', () => {
 		expect(calls['order']![0]).toEqual(['sort_order']);
 		expect(result.data).toHaveLength(1);
 		expect(result.error).toBeNull();
-		expect(transformOnboardingTemplateSteps).toHaveBeenCalledWith(rows);
+		expect(mockStepFromDbArray).toHaveBeenCalledWith(rows);
 	});
 });
 
@@ -338,7 +130,7 @@ describe('findOnboardings', () => {
 		expect(calls['order']![0]).toEqual(['created_at', { ascending: false }]);
 		expect(result.data).toHaveLength(1);
 		expect(result.error).toBeNull();
-		expect(transformPersonnelOnboardings).toHaveBeenCalledWith(rows);
+		expect(mockOnboardingFromDbArray).toHaveBeenCalledWith(rows);
 	});
 
 	it('filters onboardings to scoped personnel IDs when provided', async () => {
@@ -368,7 +160,7 @@ describe('findOnboardings', () => {
 		const result = await findOnboardings(supabase, ORG_ID, scopedIds);
 
 		// Transform should only receive the filtered rows
-		expect(transformPersonnelOnboardings).toHaveBeenCalledWith([rows[0]]);
+		expect(mockOnboardingFromDbArray).toHaveBeenCalledWith([rows[0]]);
 		expect(result.data).toHaveLength(1);
 	});
 });

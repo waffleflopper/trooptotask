@@ -1,41 +1,22 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
-
-function transformRow(r: Record<string, unknown>) {
-	return {
-		id: r.id,
-		templateId: r.template_id,
-		name: r.name,
-		description: r.description,
-		stepType: r.step_type,
-		trainingTypeId: r.training_type_id,
-		stages: r.stages,
-		sortOrder: r.sort_order
-	};
-}
+import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
 
 export const POST = apiRoute(
 	{ permission: { fullEditor: true }, audit: 'onboarding_template' },
 	async ({ supabase, orgId }, event) => {
 		const body = await event.request.json();
 
+		const insertData = OnboardingTemplateStepEntity.toDbInsert(body, orgId);
+
 		const { data, error: dbError } = await supabase
 			.from('onboarding_template_steps')
-			.insert({
-				organization_id: orgId,
-				template_id: body.templateId,
-				name: body.name,
-				description: body.description ?? null,
-				step_type: body.stepType,
-				training_type_id: body.trainingTypeId ?? null,
-				stages: body.stages ?? null,
-				sort_order: body.sortOrder ?? 0
-			})
+			.insert(insertData)
 			.select()
 			.single();
 
 		if (dbError) throw error(500, dbError.message);
-		return json(transformRow(data));
+		return json(OnboardingTemplateStepEntity.fromDb(data as Record<string, unknown>));
 	}
 );
 
@@ -45,24 +26,18 @@ export const PUT = apiRoute(
 		const body = await event.request.json();
 		const { id, ...fields } = body;
 
-		const updateData: Record<string, unknown> = {};
-		if (fields.name !== undefined) updateData.name = fields.name;
-		if (fields.description !== undefined) updateData.description = fields.description;
-		if (fields.stepType !== undefined) updateData.step_type = fields.stepType;
-		if (fields.trainingTypeId !== undefined) updateData.training_type_id = fields.trainingTypeId;
-		if (fields.stages !== undefined) updateData.stages = fields.stages;
-		if (fields.sortOrder !== undefined) updateData.sort_order = fields.sortOrder;
+		const updates = OnboardingTemplateStepEntity.toDbUpdate({ id, ...fields });
 
 		const { data, error: dbError } = await supabase
 			.from('onboarding_template_steps')
-			.update(updateData)
+			.update(updates)
 			.eq('id', id)
 			.eq('organization_id', orgId)
 			.select()
 			.single();
 
 		if (dbError) throw error(500, dbError.message);
-		return json(transformRow(data));
+		return json(OnboardingTemplateStepEntity.fromDb(data as Record<string, unknown>));
 	}
 );
 

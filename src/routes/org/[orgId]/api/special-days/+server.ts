@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import { apiRoute } from '$lib/server/apiRoute';
+import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 
 export const POST = apiRoute({ permission: { edit: 'calendar' }, audit: 'special_day' }, async (routeCtx, event) => {
 	const { supabase, orgId } = routeCtx;
@@ -28,35 +29,16 @@ export const POST = apiRoute({ permission: { edit: 'calendar' }, audit: 'special
 		const { data: allDays } = await supabase.from('special_days').select().eq('organization_id', orgId).order('date');
 
 		routeCtx.audit('special_day.federal_holidays_reset');
-		return json(
-			(allDays ?? []).map((d: Record<string, unknown>) => ({
-				id: d.id,
-				date: d.date,
-				name: d.name,
-				type: d.type
-			}))
-		);
+		return json(SpecialDayEntity.fromDbArray((allDays ?? []) as Record<string, unknown>[]));
 	}
 
-	const { data, error: dbError } = await supabase
-		.from('special_days')
-		.insert({
-			organization_id: orgId,
-			date: body.date,
-			name: body.name,
-			type: body.type
-		})
-		.select()
-		.single();
+	const insertData = SpecialDayEntity.toDbInsert(body, orgId);
+
+	const { data, error: dbError } = await supabase.from('special_days').insert(insertData).select().single();
 
 	if (dbError) throw error(500, dbError.message);
 
-	return json({
-		id: data.id,
-		date: data.date,
-		name: data.name,
-		type: data.type
-	});
+	return json(SpecialDayEntity.fromDb(data as Record<string, unknown>));
 });
 
 export const DELETE = apiRoute(

@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 import { canAddPersonnel, invalidateTierCache } from '$lib/server/subscription';
 import { auditLog } from '$lib/server/auditLog';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
 
 export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ supabase, orgId, userId, ctx }, event) => {
 	// Enforce personnel cap
@@ -16,15 +17,7 @@ export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ sup
 		return json({ error: 'You can only add personnel to your assigned group' }, { status: 403 });
 	}
 
-	const row = {
-		organization_id: orgId,
-		rank: body.rank,
-		last_name: body.lastName,
-		first_name: body.firstName,
-		mos: body.mos ?? '',
-		clinic_role: body.clinicRole ?? '',
-		group_id: body.groupId || null
-	};
+	const row = PersonnelEntity.toDbInsert(body, orgId);
 
 	const { data, error: dbError } = await supabase.from('personnel').insert(row).select('*, groups(name)').single();
 
@@ -43,16 +36,7 @@ export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ sup
 		{ userId }
 	);
 
-	return json({
-		id: data.id,
-		rank: data.rank,
-		lastName: data.last_name,
-		firstName: data.first_name,
-		mos: data.mos,
-		clinicRole: data.clinic_role,
-		groupId: data.group_id,
-		groupName: data.groups?.name ?? ''
-	});
+	return json(PersonnelEntity.fromDb(data as Record<string, unknown>));
 });
 
 export const PUT = apiRoute({ permission: { edit: 'personnel' } }, async ({ supabase, orgId, userId, ctx }, event) => {
@@ -63,12 +47,8 @@ export const PUT = apiRoute({ permission: { edit: 'personnel' } }, async ({ supa
 
 	await ctx.requireGroupAccess(supabase, id);
 
-	const updates: Record<string, unknown> = {};
-	if (fields.rank !== undefined) updates.rank = fields.rank;
-	if (fields.lastName !== undefined) updates.last_name = fields.lastName;
-	if (fields.firstName !== undefined) updates.first_name = fields.firstName;
-	if (fields.mos !== undefined) updates.mos = fields.mos;
-	if (fields.clinicRole !== undefined) updates.clinic_role = fields.clinicRole;
+	const updates = PersonnelEntity.toDbUpdate({ id, ...fields });
+	// Handle groupId falsy → null coercion (empty string = null)
 	if (fields.groupId !== undefined) updates.group_id = fields.groupId || null;
 
 	const { data, error: dbError } = await supabase
@@ -92,16 +72,7 @@ export const PUT = apiRoute({ permission: { edit: 'personnel' } }, async ({ supa
 		{ userId }
 	);
 
-	return json({
-		id: data.id,
-		rank: data.rank,
-		lastName: data.last_name,
-		firstName: data.first_name,
-		mos: data.mos,
-		clinicRole: data.clinic_role,
-		groupId: data.group_id,
-		groupName: data.groups?.name ?? ''
-	});
+	return json(PersonnelEntity.fromDb(data as Record<string, unknown>));
 });
 
 export const DELETE = apiRoute(

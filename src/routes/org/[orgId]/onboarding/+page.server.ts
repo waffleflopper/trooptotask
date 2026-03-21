@@ -6,7 +6,8 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import { getSupabaseClient } from '$lib/server/supabase';
 
-export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
+export const load: PageServerLoad = async ({ params, locals, cookies, parent, depends }) => {
+	depends('app:shared-data');
 	const { orgId } = params;
 	const supabase = getSupabaseClient(locals, cookies);
 

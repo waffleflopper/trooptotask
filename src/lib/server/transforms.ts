@@ -4,6 +4,12 @@ import type { TrainingType, PersonnelTraining } from '$features/training/trainin
 import type { Group } from '$lib/stores/groups.svelte';
 import type { AssignmentType, DailyAssignment } from '$features/calendar/stores/dailyAssignments.svelte';
 import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
+import type {
+	OnboardingTemplate,
+	OnboardingTemplateStep,
+	OnboardingStepNote,
+	PersonnelOnboarding
+} from '$features/onboarding/onboarding.types';
 
 type DbRow = Record<string, unknown>;
 
@@ -117,5 +123,54 @@ export function transformRosterHistory(data: DbRow[]): RosterHistoryItem[] {
 		roster: r.roster as RosterHistoryItem['roster'],
 		config: (r.config as Record<string, unknown>) ?? {},
 		createdAt: r.created_at as string
+	}));
+}
+
+export function transformOnboardingTemplates(data: DbRow[]): OnboardingTemplate[] {
+	return data.map((t) => ({
+		id: t.id as string,
+		orgId: t.organization_id as string,
+		name: t.name as string,
+		description: (t.description as string | null) ?? null,
+		createdAt: t.created_at as string
+	}));
+}
+
+export function transformOnboardingTemplateSteps(data: DbRow[]): OnboardingTemplateStep[] {
+	return data.map((t) => ({
+		id: t.id as string,
+		templateId: t.template_id as string,
+		name: t.name as string,
+		description: (t.description as string | null) ?? null,
+		stepType: t.step_type as OnboardingTemplateStep['stepType'],
+		trainingTypeId: (t.training_type_id as string | null) ?? null,
+		stages: (t.stages as string[] | null) ?? null,
+		sortOrder: t.sort_order as number
+	}));
+}
+
+export function transformPersonnelOnboardings(data: DbRow[]): PersonnelOnboarding[] {
+	return data.map((o) => ({
+		id: o.id as string,
+		personnelId: o.personnel_id as string,
+		startedAt: o.started_at as string,
+		completedAt: (o.completed_at as string | null) ?? null,
+		status: o.status as PersonnelOnboarding['status'],
+		templateId: (o.template_id as string | null) ?? null,
+		steps: ((o.onboarding_step_progress as DbRow[]) ?? [])
+			.sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
+			.map((s) => ({
+				id: s.id as string,
+				onboardingId: s.onboarding_id as string,
+				stepName: s.step_name as string,
+				stepType: s.step_type as OnboardingTemplateStep['stepType'],
+				trainingTypeId: (s.training_type_id as string | null) ?? null,
+				stages: (s.stages as string[] | null) ?? null,
+				sortOrder: s.sort_order as number,
+				completed: s.completed as boolean,
+				currentStage: (s.current_stage as string | null) ?? null,
+				notes: Array.isArray(s.notes) ? (s.notes as OnboardingStepNote[]) : [],
+				templateStepId: (s.template_step_id as string | null) ?? null
+			}))
 	}));
 }

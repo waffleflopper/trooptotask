@@ -22,9 +22,8 @@
 
 	let { data } = $props();
 
-	// Hydrate stores with server data
+	// Hydrate training-specific stores (universal stores hydrated in org layout)
 	$effect(() => {
-		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
 		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);
 	});
 

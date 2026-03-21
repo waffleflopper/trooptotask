@@ -5,6 +5,10 @@
 	import { demoModeStore } from '$lib/stores/demoMode.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { groupsStore } from '$lib/stores/groups.svelte';
+	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
 	import DemoBanner from '$lib/components/DemoBanner.svelte';
 	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
@@ -29,6 +33,14 @@
 			localStorage.setItem(`changelog-last-seen-${data.userId}`, changelog[0].id);
 		}
 	}
+
+	// Hydrate universal stores with server data
+	$effect(() => {
+		personnelStore.load(data.personnel ?? [], data.orgId);
+		groupsStore.load(data.groups ?? [], data.orgId);
+		statusTypesStore.load(data.statusTypes ?? [], data.orgId);
+		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
+	});
 
 	// Initialize demo mode store with server data
 	$effect(() => {
@@ -57,7 +69,7 @@
 			if (wasAway) {
 				wasAway = false;
 				clearTimeout(debounceTimer);
-				debounceTimer = setTimeout(() => invalidate('app:shared-data'), 2000);
+				debounceTimer = setTimeout(() => invalidate('app:org-core'), 2000);
 			}
 		};
 		window.addEventListener('blur', handleBlur);

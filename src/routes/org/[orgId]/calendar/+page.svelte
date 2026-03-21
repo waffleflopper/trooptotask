@@ -42,17 +42,7 @@
 	const calendarPersonnel = $derived(data.allPersonnel ?? data.personnel ?? []);
 	const scopedPersonnelIds = $derived(new Set((data.personnel ?? []).map((p: Personnel) => p.id)));
 
-	// Hydrate stores with server data
-	$effect(() => {
-		personnelStore.load(data.personnel ?? [], data.orgId);
-		groupsStore.load(data.groups ?? [], data.orgId);
-		statusTypesStore.load(data.statusTypes ?? [], data.orgId);
-		availabilityStore.load(data.availabilityEntries, data.orgId);
-		specialDaysStore.load(data.specialDays, data.orgId);
-		dailyAssignmentsStore.load(data.assignmentTypes, data.dailyAssignments, data.orgId);
-		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
-		dutyRosterHistoryStore.load(data.rosterHistory);
-	});
+	// Calendar stores hydrated in calendar layout
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);

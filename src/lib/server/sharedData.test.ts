@@ -82,7 +82,7 @@ vi.mock('$lib/server/repositories', () => ({
 	}
 }));
 
-import { fetchSharedData, needsPersonnelTrainings } from './sharedData';
+import { fetchSharedData } from './sharedData';
 import { queryPersonnel } from '$lib/server/personnelRepository';
 import { groupRepo, statusTypeRepo, trainingTypeRepo, personnelTrainingRepo } from '$lib/server/repositories';
 
@@ -125,85 +125,35 @@ function mockQueryPersonnelResult(data: Personnel[]): PersonnelQueryResult {
 describe('fetchSharedData', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		// Reset repo mocks to default return values
 		vi.mocked(groupRepo.list).mockResolvedValue(mockGroups);
 		vi.mocked(statusTypeRepo.list).mockResolvedValue(mockStatusTypes);
 		vi.mocked(trainingTypeRepo.list).mockResolvedValue(mockTrainingTypes);
-		vi.mocked(personnelTrainingRepo.list).mockResolvedValue(mockPersonnelTrainings);
 	});
 
-	it('returns all expected fields when scopedGroupId is null', async () => {
+	it('returns personnel, groups, statusTypes, trainingTypes without personnelTrainings', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
 		const supabase = mockSupabase();
-		const result = await fetchSharedData(supabase, 'org1', null, { personnelTrainings: true });
+		const result = await fetchSharedData(supabase, 'org1', null);
 
 		expect(result).toHaveProperty('personnel');
 		expect(result).toHaveProperty('allPersonnel');
 		expect(result).toHaveProperty('groups');
 		expect(result).toHaveProperty('statusTypes');
 		expect(result).toHaveProperty('trainingTypes');
-		expect(result).toHaveProperty('personnelTrainings');
+		expect(result).not.toHaveProperty('personnelTrainings');
 		expect(result.personnel).toHaveLength(2);
 		expect(result.allPersonnel).toHaveLength(2);
-		expect(result.groups).toHaveLength(2);
-		expect(result.statusTypes).toHaveLength(1);
-		expect(result.trainingTypes).toHaveLength(1);
-		expect(result.personnelTrainings).toHaveLength(2);
 	});
 
-	it('returns empty personnelTrainings when include param is omitted', async () => {
+	it('does not accept an include parameter', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
 		const supabase = mockSupabase();
-		const result = await fetchSharedData(supabase, 'org1', null);
-
-		expect(result.personnelTrainings).toEqual([]);
-		expect(result.personnel).toHaveLength(2);
-		expect(result.groups).toHaveLength(2);
+		// fetchSharedData should only take 3 args now
+		expect(fetchSharedData.length).toBe(3);
+		await fetchSharedData(supabase, 'org1', null);
 	});
 
-	it('returns empty personnelTrainings when include.personnelTrainings is false', async () => {
-		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
-		const supabase = mockSupabase();
-		const result = await fetchSharedData(supabase, 'org1', null, { personnelTrainings: false });
-
-		expect(result.personnelTrainings).toEqual([]);
-	});
-
-	it('personnel equals allPersonnel when no scoping', async () => {
-		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
-		const supabase = mockSupabase();
-		const result = await fetchSharedData(supabase, 'org1', null, { personnelTrainings: true });
-
-		expect(result.personnel).toEqual(result.allPersonnel);
-	});
-
-	it('calls queryPersonnel with scopedGroupId for DB-level scoping', async () => {
-		vi.mocked(queryPersonnel)
-			.mockResolvedValueOnce(mockQueryPersonnelResult(allPersonnel))
-			.mockResolvedValueOnce(mockQueryPersonnelResult(scopedPersonnel));
-		const supabase = mockSupabase();
-		const result = await fetchSharedData(supabase, 'org1', 'g1', { personnelTrainings: true });
-
-		expect(result.personnel).toHaveLength(1);
-		expect(result.personnel[0].lastName).toBe('Smith');
-		expect(result.allPersonnel).toHaveLength(2);
-		// Verify queryPersonnel was called twice: once unscoped, once scoped
-		expect(queryPersonnel).toHaveBeenCalledTimes(2);
-		expect(queryPersonnel).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org1', scopedGroupId: 'g1' }));
-	});
-
-	it('filters personnelTrainings to scoped personnel when scopedGroupId is set', async () => {
-		vi.mocked(queryPersonnel)
-			.mockResolvedValueOnce(mockQueryPersonnelResult(allPersonnel))
-			.mockResolvedValueOnce(mockQueryPersonnelResult(scopedPersonnel));
-		const supabase = mockSupabase();
-		const result = await fetchSharedData(supabase, 'org1', 'g1', { personnelTrainings: true });
-
-		expect(result.personnelTrainings).toHaveLength(1);
-		expect(result.personnelTrainings[0].personnelId).toBe('p1');
-	});
-
-	it('does not call personnelTrainingRepo when include is omitted', async () => {
+	it('never calls personnelTrainingRepo', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
 		const supabase = mockSupabase();
 		await fetchSharedData(supabase, 'org1', null);
@@ -211,44 +161,35 @@ describe('fetchSharedData', () => {
 		expect(personnelTrainingRepo.list).not.toHaveBeenCalled();
 	});
 
-	it('calls personnelTrainingRepo when include.personnelTrainings is true', async () => {
+	it('personnel equals allPersonnel when no scoping', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
 		const supabase = mockSupabase();
-		await fetchSharedData(supabase, 'org1', null, { personnelTrainings: true });
+		const result = await fetchSharedData(supabase, 'org1', null);
 
-		expect(personnelTrainingRepo.list).toHaveBeenCalledWith(supabase, 'org1');
+		expect(result.personnel).toEqual(result.allPersonnel);
 	});
 
-	it('delegates to repository modules instead of calling supabase directly', async () => {
+	it('scopes personnel when scopedGroupId is set', async () => {
+		vi.mocked(queryPersonnel)
+			.mockResolvedValueOnce(mockQueryPersonnelResult(allPersonnel))
+			.mockResolvedValueOnce(mockQueryPersonnelResult(scopedPersonnel));
+		const supabase = mockSupabase();
+		const result = await fetchSharedData(supabase, 'org1', 'g1');
+
+		expect(result.personnel).toHaveLength(1);
+		expect(result.personnel[0].lastName).toBe('Smith');
+		expect(result.allPersonnel).toHaveLength(2);
+		expect(queryPersonnel).toHaveBeenCalledTimes(2);
+		expect(queryPersonnel).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org1', scopedGroupId: 'g1' }));
+	});
+
+	it('delegates to repository modules', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
 		const supabase = mockSupabase();
-		await fetchSharedData(supabase, 'org1', null, { personnelTrainings: true });
+		await fetchSharedData(supabase, 'org1', null);
 
 		expect(groupRepo.list).toHaveBeenCalledWith(supabase, 'org1');
 		expect(statusTypeRepo.list).toHaveBeenCalledWith(supabase, 'org1');
 		expect(trainingTypeRepo.list).toHaveBeenCalledWith(supabase, 'org1');
-		expect(personnelTrainingRepo.list).toHaveBeenCalledWith(supabase, 'org1');
-	});
-});
-
-describe('needsPersonnelTrainings', () => {
-	const orgId = 'org-abc-123';
-
-	it('returns true for dashboard, training, and onboarding routes', () => {
-		expect(needsPersonnelTrainings(`/org/${orgId}`, orgId)).toBe(true);
-		expect(needsPersonnelTrainings(`/org/${orgId}/training`, orgId)).toBe(true);
-		expect(needsPersonnelTrainings(`/org/${orgId}/training/some-sub`, orgId)).toBe(true);
-		expect(needsPersonnelTrainings(`/org/${orgId}/onboarding`, orgId)).toBe(true);
-	});
-
-	it('returns false for calendar, personnel, and admin routes', () => {
-		expect(needsPersonnelTrainings(`/org/${orgId}/calendar`, orgId)).toBe(false);
-		expect(needsPersonnelTrainings(`/org/${orgId}/personnel`, orgId)).toBe(false);
-		expect(needsPersonnelTrainings(`/org/${orgId}/admin`, orgId)).toBe(false);
-	});
-
-	it('returns false for unknown routes (safe default)', () => {
-		expect(needsPersonnelTrainings(`/org/${orgId}/settings`, orgId)).toBe(false);
-		expect(needsPersonnelTrainings(`/org/${orgId}/billing`, orgId)).toBe(false);
 	});
 });

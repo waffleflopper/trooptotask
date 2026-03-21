@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { AssignmentType, DailyAssignment } from '../../stores/dailyAssignments.svelte';
+	import type { AssignmentType, DailyAssignment } from '$lib/types';
 	import type { AssignmentCoverageResult } from '../../utils/calendarReports';
 	import { computeAssignmentCoverage } from '../../utils/calendarReports';
 	import Spinner from '$lib/components/ui/Spinner.svelte';

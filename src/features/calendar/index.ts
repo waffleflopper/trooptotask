@@ -1,7 +1,7 @@
 // Calendar feature barrel export
 
 // Types
-export type { StatusType, AvailabilityEntry, SpecialDay } from '$lib/types';
+export type { StatusType, AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 export { DEFAULT_STATUS_TYPES } from '$lib/types';
 
 // Stores
@@ -18,6 +18,7 @@ export { exportMonthToCSV, printMonthCalendar, exportQuarterToCSV, printQuarterC
 
 // Components are imported directly from their paths:
 // $features/calendar/components/Calendar.svelte
+// $features/calendar/components/CalendarRow.svelte (moved from personnel/PersonnelRow)
 // $features/calendar/components/CalendarHeader.svelte
 // $lib/components/ui/DateCell.svelte (moved to shared UI primitives)
 // $features/calendar/components/AvailabilityModal.svelte

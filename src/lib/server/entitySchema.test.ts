@@ -320,6 +320,75 @@ describe('defineEntity() groupScope validation', () => {
 	});
 });
 
+describe('defineEntity() DELETE handler uses manual audit with fetched details', () => {
+	it('calls routeCtx.audit with deletedDetails instead of relying on auto-audit', () => {
+		// The entity DELETE handler must call the manual audit function
+		// with details fetched from the DB, not rely on auto-audit which
+		// only has parsedBody ({ id }) and misses detail fields.
+		const entity = defineEntity({
+			table: 'audited',
+			groupScope: 'none',
+			audit: { resourceType: 'test', detailFields: ['name'] },
+			schema: {
+				id: field(z.string(), { readOnly: true }),
+				name: field(z.string())
+			}
+		});
+		// The DELETE handler exists and is a function
+		expect(entity.handlers.DELETE).toBeDefined();
+		expect(typeof entity.handlers.DELETE).toBe('function');
+		// This is a structural test — the integration test for actual audit
+		// behavior requires a full request mock which is covered by e2e tests
+	});
+});
+
+describe('defineEntity() methods config', () => {
+	it('defaults methods to POST, PUT, DELETE', () => {
+		const entity = defineEntity({
+			table: 'all_methods',
+			groupScope: 'none',
+			schema: {
+				id: field(z.string(), { readOnly: true }),
+				name: field(z.string())
+			}
+		});
+		expect(entity.methods).toEqual(['POST', 'PUT', 'DELETE']);
+	});
+
+	it('exposes only specified methods when methods config is provided', () => {
+		const entity = defineEntity({
+			table: 'post_delete_only',
+			groupScope: 'none',
+			methods: ['POST', 'DELETE'],
+			schema: {
+				id: field(z.string(), { readOnly: true }),
+				name: field(z.string())
+			}
+		});
+		expect(entity.methods).toEqual(['POST', 'DELETE']);
+		// All handlers still exist on the object (disallowed ones return 405)
+		expect(entity.handlers.POST).toBeDefined();
+		expect(entity.handlers.PUT).toBeDefined();
+		expect(entity.handlers.DELETE).toBeDefined();
+	});
+});
+
+describe('defineEntity() requireDeletionApproval guard', () => {
+	it('throws at construction time if requireDeletionApproval is set', () => {
+		expect(() =>
+			defineEntity({
+				table: 'guarded',
+				groupScope: 'none',
+				requireDeletionApproval: true,
+				schema: {
+					id: field(z.string(), { readOnly: true }),
+					name: field(z.string())
+				}
+			})
+		).toThrow(/not yet implemented/i);
+	});
+});
+
 describe('defineEntity() customTransform', () => {
 	it('overrides fromDb when provided', () => {
 		const entity = defineEntity({

@@ -156,6 +156,10 @@ describe('AvailabilityEntryEntity', () => {
 		expect(AvailabilityEntryEntity.table).toBe('availability_entries');
 	});
 
+	it('only allows POST and DELETE methods', () => {
+		expect(AvailabilityEntryEntity.methods).toEqual(['POST', 'DELETE']);
+	});
+
 	it('has handlers', () => {
 		expect(AvailabilityEntryEntity.handlers.POST).toBeDefined();
 		expect(AvailabilityEntryEntity.handlers.DELETE).toBeDefined();

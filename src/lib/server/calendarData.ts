@@ -2,14 +2,9 @@ import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } f
 import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 import type { QueryModifier } from '$lib/server/repositoryFactory';
 import { formatDate } from '$lib/utils/dates';
-import {
-	availabilityRepo,
-	specialDayRepo,
-	dailyAssignmentRepo,
-	rosterHistoryRepo,
-	pinnedGroupRepo
-} from '$lib/server/repositories';
+import { specialDayRepo, dailyAssignmentRepo, rosterHistoryRepo, pinnedGroupRepo } from '$lib/server/repositories';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
+import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 
 export interface CalendarData {
 	availabilityEntries: AvailabilityEntry[];
@@ -42,7 +37,7 @@ export async function fetchCalendarData(
 
 	const [availabilityEntries, specialDaysResult, assignmentTypes, dailyAssignmentsResult, pinnedGroups, rosterHistory] =
 		await Promise.all([
-			availabilityRepo.list(supabase, orgId, { filters: [availabilityOverlapFilter] }),
+			AvailabilityEntryEntity.repo.list(supabase, orgId, { filters: [availabilityOverlapFilter] }),
 			specialDayRepo.queryDateRange(supabase, orgId, {
 				column: 'date',
 				start: rangeStartStr,

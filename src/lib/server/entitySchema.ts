@@ -4,6 +4,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { apiRoute, type PermissionSpec, type AuditConfig } from './apiRoute';
 import type { FeatureArea } from './permissionContext';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createRepository, type Repository } from './repositoryFactory';
 
 export interface FieldMeta {
 	column: string | undefined;
@@ -57,6 +58,7 @@ export interface EntityConfig<T = unknown> {
 		deletedDetails: Record<string, unknown> | null;
 	}) => Promise<void>;
 	requireDeletionApproval?: boolean;
+	orderBy?: Array<{ column: string; ascending?: boolean }>;
 }
 
 export interface EntityHandlers {
@@ -78,6 +80,7 @@ export interface EntityDefinition<T = unknown> {
 	createSchema: z.ZodObject<z.ZodRawShape>;
 	updateSchema: z.ZodObject<z.ZodRawShape>;
 	handlers: EntityHandlers;
+	repo: Repository<T>;
 }
 
 export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefinition<T> {
@@ -296,6 +299,14 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 
 	const handlers: EntityHandlers = { POST, PUT, DELETE };
 
+	// Build repository
+	const repo = createRepository<T>({
+		table,
+		transform: fromDbArray,
+		select,
+		orderBy: config.orderBy
+	});
+
 	return {
 		table,
 		groupScope,
@@ -308,6 +319,7 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		toDbUpdate,
 		createSchema,
 		updateSchema,
-		handlers
+		handlers,
+		repo
 	};
 }

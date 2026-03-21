@@ -1,6 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
-	import type { StatusType } from '$features/calendar/calendar.types';
+	import type { Personnel, StatusType } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';

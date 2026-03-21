@@ -1,6 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
-	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
+	import type { Personnel, AssignmentType, DailyAssignment } from '$lib/types';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Modal from '$lib/components/Modal.svelte';

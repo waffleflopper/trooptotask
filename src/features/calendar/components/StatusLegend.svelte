@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { StatusType } from '$features/calendar/calendar.types';
+	import type { StatusType } from '$lib/types';
 
 	interface Props {
 		statusTypes: StatusType[];

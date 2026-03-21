@@ -12,6 +12,6 @@ export {
 
 // Components are imported directly from their paths:
 // $features/personnel/components/PersonnelModal.svelte
-// $features/personnel/components/PersonnelRow.svelte
+// PersonnelRow moved to $features/calendar/components/CalendarRow.svelte
 // $features/personnel/components/BulkPersonnelManager.svelte
 // $features/personnel/components/ExtendedInfoModal.svelte

@@ -1,6 +1,6 @@
 import { createStore } from '$lib/stores/core';
 import { formatDate } from '$lib/utils/dates';
-import type { SpecialDay } from '../calendar.types';
+import type { SpecialDay } from '$lib/types';
 
 const store = createStore<SpecialDay>({ resource: 'special-days' });
 

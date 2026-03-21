@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { StatusType } from '../../calendar.types';
+	import type { StatusType } from '$lib/types';
 	import StatusDaysSummary from './StatusDaysSummary.svelte';
 	import AvailabilityForecast from './AvailabilityForecast.svelte';
 	import PersonnelTempo from './PersonnelTempo.svelte';

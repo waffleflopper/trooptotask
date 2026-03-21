@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
+import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 
 export const POST = apiRoute(
 	{ permission: { edit: 'calendar' }, audit: 'daily_assignment' },
@@ -16,25 +17,13 @@ export const POST = apiRoute(
 			.eq('date', body.date);
 
 		if (body.assigneeId) {
-			const { data, error: dbError } = await supabase
-				.from('daily_assignments')
-				.insert({
-					organization_id: orgId,
-					assignment_type_id: body.assignmentTypeId,
-					date: body.date,
-					assignee_id: body.assigneeId
-				})
-				.select()
-				.single();
+			const insertData = DailyAssignmentEntity.toDbInsert(body, orgId);
+
+			const { data, error: dbError } = await supabase.from('daily_assignments').insert(insertData).select().single();
 
 			if (dbError) throw error(500, dbError.message);
 
-			return json({
-				id: data.id,
-				date: data.date,
-				assignmentTypeId: data.assignment_type_id,
-				assigneeId: data.assignee_id
-			});
+			return json(DailyAssignmentEntity.fromDb(data as Record<string, unknown>));
 		}
 
 		routeCtx.audit('daily_assignment.removed', { date: body.date, assignmentTypeId: body.assignmentTypeId });

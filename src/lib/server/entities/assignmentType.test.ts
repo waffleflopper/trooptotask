@@ -10,9 +10,10 @@ describe('AssignmentTypeEntity', () => {
 			short_name: 'FG',
 			assign_to: 'personnel',
 			color: '#ff0000',
+			sort_order: 3,
 			exempt_personnel_ids: ['p-1', 'p-2']
 		};
-		const result = AssignmentTypeEntity.fromDb(row) as AssignmentType;
+		const result = AssignmentTypeEntity.fromDb(row) as AssignmentType & { sortOrder: number };
 
 		expect(result).toEqual({
 			id: 'at-1',
@@ -20,6 +21,7 @@ describe('AssignmentTypeEntity', () => {
 			shortName: 'FG',
 			assignTo: 'personnel',
 			color: '#ff0000',
+			sortOrder: 3,
 			exemptPersonnelIds: ['p-1', 'p-2']
 		});
 	});

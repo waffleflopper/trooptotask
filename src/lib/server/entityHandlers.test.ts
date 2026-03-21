@@ -375,20 +375,8 @@ describe('entity handlers delete callbacks', () => {
 		);
 	});
 
-	it('requireDeletionApproval returns 202 for non-privileged users', async () => {
-		const mockSupabase = createDeleteMockSupabase();
-		const ctx = mockPermissionContext({ isPrivileged: false, isFullEditor: false });
-		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
-		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
-
-		const entity = createTestEntity({ requireDeletionApproval: true });
-		const event = mockRequestEvent('DELETE', { id: 'del-id' });
-
-		const response = await entity.handlers.DELETE(event);
-		const data = await response.json();
-
-		expect(response.status).toBe(202);
-		expect(data).toEqual({ requiresApproval: true });
+	it('requireDeletionApproval throws at construction time (not yet implemented)', () => {
+		expect(() => createTestEntity({ requireDeletionApproval: true })).toThrow(/not yet implemented/i);
 	});
 
 	it('DELETE rejects missing id via Zod validation', async () => {
@@ -402,20 +390,6 @@ describe('entity handlers delete callbacks', () => {
 
 		const response = await entity.handlers.DELETE(event);
 		expect(response.status).toBe(400);
-	});
-
-	it('requireDeletionApproval allows privileged users to delete', async () => {
-		const mockSupabase = createDeleteMockSupabase();
-		const ctx = mockPermissionContext({ isPrivileged: true });
-		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
-		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
-
-		const entity = createTestEntity({ requireDeletionApproval: true });
-		const event = mockRequestEvent('DELETE', { id: 'del-id' });
-
-		const response = await entity.handlers.DELETE(event);
-
-		expect(response.status).toBe(200);
 	});
 
 	it('captures record details before deleting when audit has detailFields', async () => {

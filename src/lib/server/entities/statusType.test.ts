@@ -4,14 +4,15 @@ import type { StatusType } from '$lib/types';
 
 describe('StatusTypeEntity', () => {
 	it('fromDb produces correct StatusType shape (snake_case → camelCase)', () => {
-		const row = { id: 'st-1', name: 'Leave', color: '#22c55e', text_color: '#ffffff' };
-		const result = StatusTypeEntity.fromDb(row) as StatusType;
+		const row = { id: 'st-1', name: 'Leave', color: '#22c55e', text_color: '#ffffff', sort_order: 2 };
+		const result = StatusTypeEntity.fromDb(row) as StatusType & { sortOrder: number };
 
 		expect(result).toEqual({
 			id: 'st-1',
 			name: 'Leave',
 			color: '#22c55e',
-			textColor: '#ffffff'
+			textColor: '#ffffff',
+			sortOrder: 2
 		});
 	});
 

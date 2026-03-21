@@ -5,6 +5,7 @@ import type { AvailabilityEntry } from '$lib/types';
 export const AvailabilityEntryEntity = defineEntity<AvailabilityEntry>({
 	table: 'availability_entries',
 	permission: 'calendar',
+	methods: ['POST', 'DELETE'],
 	groupScope: { personnelColumn: 'personnel_id' },
 	audit: {
 		resourceType: 'availability',

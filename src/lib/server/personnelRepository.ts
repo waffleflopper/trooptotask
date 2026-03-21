@@ -9,10 +9,9 @@
  *  - personnel/[id]/export/+server.ts — single-record fetch for export
  *  - cleanup-archived-personnel/+server.ts — cron job cross-org delete
  *  - deletion-requests/review/+server.ts — archive mutation
- *  - personnel-trainings/+server.ts — single-record group_id scope lookups
- *  - rating-scheme/+server.ts — single-record group_id scope lookups
- *  - permissionContext.ts — single-record group_id scope check
- *  - crudFactory.ts — single-record group_id scope checks
+ *
+ * Group scope enforcement is handled by groupAccess.ts via PermissionContext methods.
+ * See #245 for the ports & adapters design.
  */
 import type { Personnel } from '$lib/types';
 import { transformPersonnel } from '$lib/server/transforms';
@@ -111,9 +110,12 @@ export async function queryPersonnel<T = Personnel>(config: PersonnelQueryConfig
 	return { data: transformed as T[], count: resultCount ?? null, error: null };
 }
 
-/** Validates that a set of personnel IDs all belong to the given scope.
- *  Used by mutation endpoints to enforce group access on batch operations.
- *  Throws 403 if any personnel are outside scope. */
+/**
+ * @deprecated Use `ctx.requireGroupAccessBatch(supabase, personnelIds)` instead.
+ * This function is replaced by the groupAccess module (#245).
+ * Validates that a set of personnel IDs all belong to the given scope.
+ * Throws 403 if any personnel are outside scope.
+ */
 export async function validatePersonnelScope(
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type varies based on auth context
 	supabase: any,

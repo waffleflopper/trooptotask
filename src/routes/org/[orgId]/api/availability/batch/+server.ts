@@ -2,7 +2,6 @@ import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 import { validateUUID } from '$lib/server/validation';
-import { validatePersonnelScope } from '$lib/server/personnelRepository';
 
 interface BatchAvailabilityRecord {
 	personnelId: string;
@@ -24,10 +23,9 @@ export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supa
 		throw error(400, 'Maximum 500 records per batch');
 	}
 
-	// Enforce group scope if user is scoped
-	const scopedGroupId = ctx?.scopedGroupId ?? null;
+	// Enforce group scope
 	const uniquePersonnelIds = [...new Set(records.map((r) => r.personnelId))];
-	await validatePersonnelScope(supabase, orgId, uniquePersonnelIds, scopedGroupId);
+	await ctx.requireGroupAccessBatch(supabase, uniquePersonnelIds);
 
 	// Bulk insert
 	const rows = records.map((r) => ({
@@ -89,18 +87,18 @@ export const DELETE = apiRoute(
 			}
 		}
 
-		// Enforce group scope if user is scoped
-		const scopedGroupId = ctx?.scopedGroupId ?? null;
-
-		if (scopedGroupId) {
+		// Enforce group scope — look up personnel IDs from the entries being deleted
+		if (ctx.scopedGroupId) {
 			const { data: entries } = await supabase
 				.from('availability_entries')
 				.select('id, personnel_id')
 				.eq('organization_id', orgId)
 				.in('id', ids);
 
-			const personnelIdsFromEntries = [...new Set((entries ?? []).map((e) => e.personnel_id))];
-			await validatePersonnelScope(supabase, orgId, personnelIdsFromEntries, scopedGroupId);
+			const personnelIdsFromEntries = [
+				...new Set((entries ?? []).map((e: { personnel_id: string }) => e.personnel_id))
+			];
+			await ctx.requireGroupAccessBatch(supabase, personnelIdsFromEntries);
 		}
 
 		const { error: dbError, count } = await supabase

@@ -5,8 +5,23 @@
 
 	let { children, data } = $props();
 
-	// Hydrate onboarding-specific stores
+	// Guard against parent-only invalidation clobbering optimistic store mutations.
+	// See calendar/+layout.svelte for full explanation.
+	let lastRefs: unknown[] = [];
+
 	$effect(() => {
+		const refs = [
+			data.onboardingTemplates,
+			data.onboardingTemplateSteps,
+			data.onboardings,
+			data.personnelTrainings,
+			data.orgId
+		];
+
+		const unchanged = refs.length === lastRefs.length && refs.every((r, i) => r === lastRefs[i]);
+		if (unchanged) return;
+		lastRefs = refs;
+
 		onboardingTemplateStore.load(data.onboardingTemplates, data.onboardingTemplateSteps, data.orgId);
 		onboardingStore.load(data.onboardings, data.orgId);
 		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);

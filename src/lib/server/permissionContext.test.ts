@@ -7,7 +7,11 @@ function expectHttpError(e: unknown): { status: number; message: string } {
 	return { status: err.status, message: err.body.message };
 }
 
-function mockSupabase(membershipRow: Record<string, unknown> | null, personnelRow?: Record<string, unknown> | null) {
+function mockSupabase(
+	membershipRow: Record<string, unknown> | null,
+	personnelRow?: Record<string, unknown> | null,
+	personnelRows?: Record<string, unknown>[]
+) {
 	return {
 		from: (table: string) => ({
 			select: () => ({
@@ -24,7 +28,11 @@ function mockSupabase(membershipRow: Record<string, unknown> | null, personnelRo
 						// personnel table uses .eq('id', personnelId).single()
 						return Promise.resolve({ data: personnelRow ?? null, error: null });
 					}
-				})
+				}),
+				in: (_col: string, _vals: string[]) => {
+					// batch personnel query: .select('id, group_id').in('id', [...])
+					return Promise.resolve({ data: personnelRows ?? [], error: null });
+				}
 			})
 		})
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mocking Supabase's complex generic type
@@ -311,6 +319,126 @@ describe('requireGroupAccess', () => {
 
 		try {
 			await ctx.requireGroupAccess(supabase, 'person-1');
+			expect.unreachable('should have thrown');
+		} catch (e) {
+			const { status, message } = expectHttpError(e);
+			expect(status).toBe(403);
+			expect(message).toBe('You do not have access to personnel outside your group');
+		}
+	});
+});
+
+describe('requireGroupAccessBatch', () => {
+	it('privileged role skips batch group check', async () => {
+		const supabase = mockSupabase(ownerRow());
+		const ctx = await createPermissionContext(supabase, 'user-1', 'org-1');
+
+		await expect(ctx.requireGroupAccessBatch(supabase, ['p-1', 'p-2'])).resolves.toBeUndefined();
+	});
+
+	it('scoped member passes when all personnel are in their group', async () => {
+		const supabase = mockSupabase({ ...FULL_PERMISSIONS, scoped_group_id: 'group-1' }, null, [
+			{ id: 'p-1', group_id: 'group-1' },
+			{ id: 'p-2', group_id: 'group-1' }
+		]);
+		const ctx = await createPermissionContext(supabase, 'user-1', 'org-1');
+
+		await expect(ctx.requireGroupAccessBatch(supabase, ['p-1', 'p-2'])).resolves.toBeUndefined();
+	});
+
+	it('scoped member denied when any personnel is in a different group', async () => {
+		const supabase = mockSupabase({ ...FULL_PERMISSIONS, scoped_group_id: 'group-1' }, null, [
+			{ id: 'p-1', group_id: 'group-1' },
+			{ id: 'p-2', group_id: 'group-2' }
+		]);
+		const ctx = await createPermissionContext(supabase, 'user-1', 'org-1');
+
+		try {
+			await ctx.requireGroupAccessBatch(supabase, ['p-1', 'p-2']);
+			expect.unreachable('should have thrown');
+		} catch (e) {
+			const { status, message } = expectHttpError(e);
+			expect(status).toBe(403);
+			expect(message).toBe('You do not have access to personnel outside your group');
+		}
+	});
+});
+
+describe('requireGroupAccessByRecord', () => {
+	// For requireGroupAccessByRecord, the mock needs to handle two sequential lookups:
+	// 1. Record table lookup → returns { personnel_id: 'person-X' }
+	// 2. Personnel table lookup → returns { group_id: 'group-X' }
+	// We use a table-aware mock to distinguish these.
+	function mockSupabaseForRecord(
+		membershipRow: Record<string, unknown>,
+		recordRow: Record<string, unknown> | null,
+		personnelRow: Record<string, unknown> | null
+	) {
+		let callCount = 0;
+		return {
+			from: (table: string) => ({
+				select: () => ({
+					eq: (_col: string, _val: string) => ({
+						eq: (_col2: string, _val2: string) => ({
+							single: () => {
+								if (table === 'organization_memberships') {
+									return Promise.resolve({ data: membershipRow, error: null });
+								}
+								// First non-membership call is the record lookup, second is personnel
+								callCount++;
+								if (callCount === 1) {
+									return Promise.resolve({ data: recordRow, error: null });
+								}
+								return Promise.resolve({ data: personnelRow, error: null });
+							}
+						}),
+						single: () => {
+							callCount++;
+							if (callCount === 1) {
+								return Promise.resolve({ data: recordRow, error: null });
+							}
+							return Promise.resolve({ data: personnelRow, error: null });
+						}
+					}),
+					in: () => Promise.resolve({ data: [], error: null })
+				})
+			})
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mocking Supabase's complex generic type
+		} as any;
+	}
+
+	it('privileged role skips record group check', async () => {
+		const supabase = mockSupabaseForRecord(ownerRow(), null, null);
+		const ctx = await createPermissionContext(supabase, 'user-1', 'org-1');
+
+		await expect(
+			ctx.requireGroupAccessByRecord(supabase, 'training_records', 'rec-1', 'org-1', 'personnel_id')
+		).resolves.toBeUndefined();
+	});
+
+	it('scoped member passes when record personnel is in their group', async () => {
+		const supabase = mockSupabaseForRecord(
+			{ ...FULL_PERMISSIONS, scoped_group_id: 'group-1' },
+			{ personnel_id: 'person-1' },
+			{ group_id: 'group-1' }
+		);
+		const ctx = await createPermissionContext(supabase, 'user-1', 'org-1');
+
+		await expect(
+			ctx.requireGroupAccessByRecord(supabase, 'training_records', 'rec-1', 'org-1', 'personnel_id')
+		).resolves.toBeUndefined();
+	});
+
+	it('scoped member denied when record personnel is in a different group', async () => {
+		const supabase = mockSupabaseForRecord(
+			{ ...FULL_PERMISSIONS, scoped_group_id: 'group-1' },
+			{ personnel_id: 'person-1' },
+			{ group_id: 'group-2' }
+		);
+		const ctx = await createPermissionContext(supabase, 'user-1', 'org-1');
+
+		try {
+			await ctx.requireGroupAccessByRecord(supabase, 'training_records', 'rec-1', 'org-1', 'personnel_id');
 			expect.unreachable('should have thrown');
 		} catch (e) {
 			const { status, message } = expectHttpError(e);

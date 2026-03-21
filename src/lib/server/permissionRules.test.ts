@@ -20,6 +20,8 @@ function mockCtx(overrides: Partial<PermissionContext> = {}): PermissionContext 
 		requireFullEditor: vi.fn(),
 		requireManageMembers: vi.fn(),
 		requireGroupAccess: vi.fn(),
+		requireGroupAccessBatch: vi.fn(),
+		requireGroupAccessByRecord: vi.fn(),
 		...overrides
 	};
 }

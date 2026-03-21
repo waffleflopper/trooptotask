@@ -68,11 +68,10 @@ class DashboardPrefsStore {
 	}
 
 	toggleCard(id: CardId) {
-		if (this.#prefs.hiddenCards.includes(id)) {
-			this.#prefs.hiddenCards = this.#prefs.hiddenCards.filter((c) => c !== id);
-		} else {
-			this.#prefs.hiddenCards = [...this.#prefs.hiddenCards, id];
-		}
+		const hiddenCards = this.#prefs.hiddenCards.includes(id)
+			? this.#prefs.hiddenCards.filter((c) => c !== id)
+			: [...this.#prefs.hiddenCards, id];
+		this.#prefs = { ...this.#prefs, hiddenCards };
 		this.save();
 	}
 
@@ -83,7 +82,7 @@ class DashboardPrefsStore {
 		const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
 		if (targetIdx < 0 || targetIdx >= order.length) return;
 		[order[idx], order[targetIdx]] = [order[targetIdx], order[idx]];
-		this.#prefs.cardOrder = order;
+		this.#prefs = { ...this.#prefs, cardOrder: order };
 		this.save();
 	}
 

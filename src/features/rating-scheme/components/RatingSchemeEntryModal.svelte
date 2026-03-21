@@ -9,7 +9,7 @@
 		getExtendedAnnualWarning
 	} from '$features/rating-scheme/utils/ratingScheme';
 	import Modal from '$lib/components/Modal.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 
 	interface Props {
@@ -52,7 +52,6 @@
 	let workflowStatus = $state<WorkflowStatus | ''>('');
 	let showWorkflow = $state(false);
 	let notes = $state('');
-	let saving = $state(false);
 	let showDeleteConfirm = $state(false);
 
 	// Reset form state when entry changes (e.g. modal reopened with different data)
@@ -80,7 +79,6 @@
 		workflowStatus = entry?.workflowStatus ?? '';
 		showWorkflow = !!entry?.workflowStatus;
 		notes = entry?.notes ?? '';
-		saving = false;
 		showDeleteConfirm = false;
 	});
 
@@ -144,42 +142,34 @@
 	);
 
 	async function handleSave() {
-		if (!canSave || saving) return;
-		saving = true;
-		try {
-			await onSave({
-				ratedPersonId,
-				evalType,
-				raterPersonId: raterMode === 'internal' ? raterPersonId || null : null,
-				raterName: raterMode === 'external' ? raterName.trim() || null : null,
-				seniorRaterPersonId: srMode === 'internal' ? seniorRaterPersonId || null : null,
-				seniorRaterName: srMode === 'external' ? seniorRaterName.trim() || null : null,
-				intermediateRaterPersonId: showIntermediate && irMode === 'internal' ? intermediateRaterPersonId || null : null,
-				intermediateRaterName: showIntermediate && irMode === 'external' ? intermediateRaterName.trim() || null : null,
-				reviewerPersonId: showReviewer && rvMode === 'internal' ? reviewerPersonId || null : null,
-				reviewerName: showReviewer && rvMode === 'external' ? reviewerName.trim() || null : null,
-				ratingPeriodStart,
-				ratingPeriodEnd,
-				status,
-				notes: notes.trim() || null,
-				reportType: reportType || null,
-				workflowStatus: showWorkflow && workflowStatus ? (workflowStatus as WorkflowStatus) : null
-			});
-			onClose();
-		} finally {
-			saving = false;
-		}
+		if (!canSave) return;
+		const saveData = {
+			ratedPersonId,
+			evalType,
+			raterPersonId: raterMode === 'internal' ? raterPersonId || null : null,
+			raterName: raterMode === 'external' ? raterName.trim() || null : null,
+			seniorRaterPersonId: srMode === 'internal' ? seniorRaterPersonId || null : null,
+			seniorRaterName: srMode === 'external' ? seniorRaterName.trim() || null : null,
+			intermediateRaterPersonId: showIntermediate && irMode === 'internal' ? intermediateRaterPersonId || null : null,
+			intermediateRaterName: showIntermediate && irMode === 'external' ? intermediateRaterName.trim() || null : null,
+			reviewerPersonId: showReviewer && rvMode === 'internal' ? reviewerPersonId || null : null,
+			reviewerName: showReviewer && rvMode === 'external' ? reviewerName.trim() || null : null,
+			ratingPeriodStart,
+			ratingPeriodEnd,
+			status,
+			notes: notes.trim() || null,
+			reportType: reportType || null,
+			workflowStatus: showWorkflow && workflowStatus ? (workflowStatus as WorkflowStatus) : null
+		};
+		onClose();
+		await onSave(saveData);
 	}
 
 	async function handleDelete() {
-		if (!entry || !onDelete || saving) return;
-		saving = true;
-		try {
-			await onDelete(entry.id);
-			onClose();
-		} finally {
-			saving = false;
-		}
+		if (!entry || !onDelete) return;
+		const id = entry.id;
+		onClose();
+		await onDelete(id);
 	}
 
 	function formatPersonLabel(p: Personnel): string {
@@ -384,7 +374,7 @@
 		{#if entry && onDelete}
 			{#if showDeleteConfirm}
 				<span class="delete-confirm-text">Delete this entry?</span>
-				<button class="btn btn-danger btn-sm" onclick={handleDelete} disabled={saving}>Yes, Delete</button>
+				<button class="btn btn-danger btn-sm" onclick={handleDelete}>Yes, Delete</button>
 				<button class="btn btn-secondary btn-sm" onclick={() => (showDeleteConfirm = false)}>No</button>
 			{:else}
 				<button class="btn btn-danger" onclick={() => (showDeleteConfirm = true)}>Delete</button>
@@ -392,10 +382,7 @@
 		{/if}
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-		<button class="btn btn-primary" disabled={!canSave || saving} onclick={handleSave}>
-			{#if saving}<Spinner />{/if}
-			{saving ? 'Saving...' : 'Save'}
-		</button>
+		<button class="btn btn-primary" disabled={!canSave} onclick={handleSave}> Save </button>
 	{/snippet}
 </Modal>
 

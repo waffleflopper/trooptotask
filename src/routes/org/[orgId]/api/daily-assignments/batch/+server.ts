@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
+import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 
 interface BatchAssignmentRecord {
 	date: string;
@@ -75,12 +76,7 @@ export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supa
 		{ userId }
 	);
 
-	const result = insertedData.map((d) => ({
-		id: d.id as string,
-		date: d.date as string,
-		assignmentTypeId: d.assignment_type_id as string,
-		assigneeId: d.assignee_id as string
-	}));
+	const result = DailyAssignmentEntity.fromDbArray(insertedData as Record<string, unknown>[]);
 
 	return json({ inserted: result, cleared: clears.length });
 });

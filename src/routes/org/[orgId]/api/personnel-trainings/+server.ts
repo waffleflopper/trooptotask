@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 import { formatDate } from '$lib/utils/dates';
 import { auditLog } from '$lib/server/auditLog';
+import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 
 function calculateExpirationDate(completionDate: string | null, expirationMonths: number | null): string | null {
 	if (expirationMonths === null || !completionDate) return null;
@@ -107,15 +108,7 @@ export const POST = apiRoute({ permission: { edit: 'training' } }, async ({ supa
 		{ userId }
 	);
 
-	return json({
-		id: data.id,
-		personnelId: data.personnel_id,
-		trainingTypeId: data.training_type_id,
-		completionDate: data.completion_date,
-		expirationDate: data.expiration_date,
-		notes: data.notes,
-		certificateUrl: data.certificate_url
-	});
+	return json(PersonnelTrainingEntity.fromDb(data as Record<string, unknown>));
 });
 
 export const PUT = apiRoute({ permission: { edit: 'training' } }, async ({ supabase, orgId, userId, ctx }, event) => {
@@ -196,15 +189,7 @@ export const PUT = apiRoute({ permission: { edit: 'training' } }, async ({ supab
 		{ userId }
 	);
 
-	return json({
-		id: data.id,
-		personnelId: data.personnel_id,
-		trainingTypeId: data.training_type_id,
-		completionDate: data.completion_date,
-		expirationDate: data.expiration_date,
-		notes: data.notes,
-		certificateUrl: data.certificate_url
-	});
+	return json(PersonnelTrainingEntity.fromDb(data as Record<string, unknown>));
 });
 
 export const DELETE = apiRoute(

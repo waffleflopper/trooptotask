@@ -1,7 +1,7 @@
 import type { LayoutServerLoad } from './$types';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { findTemplates, findTemplateSteps, findOnboardings } from '$lib/server/onboardingRepository';
-import { personnelTrainingRepo } from '$lib/server/repositories';
+import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 
 export const load: LayoutServerLoad = async ({ params, locals, cookies, parent, depends }) => {
 	depends('app:onboarding-data');
@@ -15,7 +15,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, parent, 
 		findTemplates(supabase, orgId),
 		findTemplateSteps(supabase, orgId),
 		findOnboardings(supabase, orgId, scopedPersonnelIds),
-		personnelTrainingRepo.list(supabase, orgId)
+		PersonnelTrainingEntity.repo.list(supabase, orgId)
 	]);
 
 	return {

@@ -85,24 +85,23 @@
 
 	const canSave = $derived(expirationDateOnly ? !!directExpirationDate : neverExpires ? isComplete : !!completionDate);
 
-	let saving = $state(false);
-
 	async function handleSave() {
-		if (!canSave || saving) return;
-		saving = true;
+		if (!canSave) return;
+		const saveData = {
+			personnelId: person.id,
+			trainingTypeId: trainingType.id,
+			completionDate: expirationDateOnly ? null : completionDate || null,
+			expirationDate: previewExpirationDate,
+			notes: notes.trim() || null,
+			certificateUrl: certificateUrl.trim() || null
+		};
+		const isUpdate = !!existingTraining;
+		onClose();
 		try {
-			await onSave({
-				personnelId: person.id,
-				trainingTypeId: trainingType.id,
-				completionDate: expirationDateOnly ? null : completionDate || null,
-				expirationDate: previewExpirationDate,
-				notes: notes.trim() || null,
-				certificateUrl: certificateUrl.trim() || null
-			});
-			toastStore.success(existingTraining ? 'Training record updated' : 'Training record saved');
-			onClose();
-		} finally {
-			saving = false;
+			await onSave(saveData);
+			toastStore.success(isUpdate ? 'Training record updated' : 'Training record saved');
+		} catch {
+			toastStore.error('Failed to save training record');
 		}
 	}
 
@@ -228,8 +227,8 @@
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>{isExempt ? 'Close' : 'Cancel'}</button>
 		{#if !isExempt}
-			<button class="btn btn-primary" data-testid="training-save" onclick={handleSave} disabled={!canSave || saving}>
-				{saving ? 'Saving...' : 'Save'}
+			<button class="btn btn-primary" data-testid="training-save" onclick={handleSave} disabled={!canSave}>
+				Save
 			</button>
 		{/if}
 	{/snippet}

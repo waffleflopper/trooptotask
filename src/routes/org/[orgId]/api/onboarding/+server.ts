@@ -1,32 +1,12 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
+import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 
-function transformStep(r: Record<string, unknown>) {
-	return {
-		id: r.id,
-		onboardingId: r.onboarding_id,
-		stepName: r.step_name,
-		stepType: r.step_type,
-		trainingTypeId: r.training_type_id,
-		stages: r.stages,
-		sortOrder: r.sort_order,
-		completed: r.completed,
-		currentStage: r.current_stage,
-		notes: Array.isArray(r.notes) ? r.notes : [],
-		templateStepId: r.template_step_id ?? null
-	};
-}
-
-function transformOnboarding(r: Record<string, unknown>, steps: Record<string, unknown>[]) {
-	return {
-		id: r.id,
-		personnelId: r.personnel_id,
-		startedAt: r.started_at,
-		completedAt: r.completed_at,
-		status: r.status,
-		steps: steps.map(transformStep),
-		templateId: r.template_id ?? null
-	};
+function transformResponse(onboarding: Record<string, unknown>, steps: Record<string, unknown>[]) {
+	return PersonnelOnboardingEntity.fromDb({
+		...onboarding,
+		onboarding_step_progress: steps
+	});
 }
 
 export const POST = apiRoute(
@@ -88,7 +68,7 @@ export const POST = apiRoute(
 			steps = createdSteps ?? [];
 		}
 
-		return json(transformOnboarding(onboarding, steps));
+		return json(transformResponse(onboarding, steps));
 	}
 );
 
@@ -119,7 +99,7 @@ export const PUT = apiRoute(
 			.eq('onboarding_id', id)
 			.order('sort_order');
 
-		return json(transformOnboarding(data, steps ?? []));
+		return json(transformResponse(data, steps ?? []));
 	}
 );
 

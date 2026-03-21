@@ -19,6 +19,7 @@ import {
 	transformDailyAssignments,
 	transformRosterHistory,
 	transformPersonnelTrainings,
+	transformPinnedGroups,
 	transformRatingSchemeEntries
 } from '$lib/server/transforms';
 import { createRepository } from '$lib/server/repositoryFactory';
@@ -72,6 +73,12 @@ export const rosterHistoryRepo = createRepository<RosterHistoryItem>({
 export const personnelTrainingRepo = createRepository<PersonnelTraining>({
 	table: 'personnel_trainings',
 	transform: transformPersonnelTrainings
+});
+
+export const pinnedGroupRepo = createRepository<string>({
+	table: 'user_pinned_groups',
+	transform: transformPinnedGroups,
+	orderBy: [{ column: 'sort_order', ascending: true }]
 });
 
 export const ratingSchemeRepo = createRepository<RatingSchemeEntry>({

@@ -244,15 +244,13 @@
 
 	// Active onboardings with progress (filtered to scoped personnel)
 	const activeOnboardings = $derived.by(() => {
-		const onboardings = (data.activeOnboardings ?? []).filter((o: Record<string, unknown>) =>
-			personnelIds.has(o.personnelId as string)
-		);
-		return onboardings.map((o: Record<string, unknown>) => {
+		const onboardings = (data.activeOnboardings ?? []).filter((o) => personnelIds.has(o.personnelId));
+		return onboardings.map((o) => {
 			const person = personnelStore.list.find((p) => p.id === o.personnelId);
 			const personName = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';
 
 			// Check training-type steps for auto-completion from personnelTrainingsStore
-			const steps = ((o.steps as Record<string, unknown>[]) ?? []).map((step: Record<string, unknown>) => {
+			const steps = (o.steps ?? []).map((step) => {
 				if (step.stepType === 'training' && step.trainingTypeId && !step.completed) {
 					const hasTraining = personnelTrainingsStore.list.some(
 						(t) => t.personnelId === o.personnelId && t.trainingTypeId === step.trainingTypeId
@@ -263,7 +261,7 @@
 			});
 
 			const totalSteps = steps.length;
-			const completedSteps = steps.filter((s: Record<string, unknown>) => s.completed).length;
+			const completedSteps = steps.filter((s) => s.completed).length;
 
 			return {
 				id: o.id,

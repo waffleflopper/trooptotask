@@ -268,6 +268,23 @@ describe('personnelTrainingRepo', () => {
 	});
 });
 
+describe('pinnedGroupRepo', () => {
+	it('queries user_pinned_groups table with sort_order ordering and transforms to group name strings', async () => {
+		const { pinnedGroupRepo } = await import('./repositories');
+		const rows = [
+			{ id: 'pg1', group_name: 'Alpha', sort_order: 0 },
+			{ id: 'pg2', group_name: 'Bravo', sort_order: 1 }
+		];
+		const { supabase, calls } = createMockSupabase(rows);
+
+		const result = await pinnedGroupRepo.list(supabase, ORG_ID);
+
+		expect(calls['from']![0]).toEqual(['user_pinned_groups']);
+		expect(calls['order']![0]).toEqual(['sort_order', { ascending: true }]);
+		expect(result).toEqual(['Alpha', 'Bravo']);
+	});
+});
+
 describe('ratingSchemeRepo', () => {
 	it('queries rating_scheme_entries table with rating_period_end ordering and transforms correctly', async () => {
 		const { ratingSchemeRepo } = await import('./repositories');

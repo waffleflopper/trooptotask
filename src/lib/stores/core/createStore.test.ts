@@ -1071,6 +1071,20 @@ describe('createStore', () => {
 			expect(onError).toHaveBeenCalledWith('remove', undefined);
 		});
 
+		it('should not call onError for approval_required', async () => {
+			const onError = vi.fn();
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter({ remove: async () => 'approval_required' }),
+				onError
+			});
+			store.load([{ id: '1', name: 'Alice' }], 'org-1');
+
+			await store.remove('1');
+
+			expect(onError).not.toHaveBeenCalled();
+		});
+
 		it('should not call onError on success', async () => {
 			const onError = vi.fn();
 			const store = createStore<TestItem>({

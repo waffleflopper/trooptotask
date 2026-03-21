@@ -62,7 +62,7 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 		const result = await adapter.remove(id);
 		if (result === 'deleted') {
 			serverState.set(serverState.getSnapshot().filter((item) => item.id !== id));
-		} else {
+		} else if (result === 'error') {
 			config.onError?.('remove', undefined);
 		}
 		log.resolve(mutationId);

@@ -66,15 +66,20 @@ vi.mock('$lib/server/entities/group', () => ({
 	}
 }));
 
+vi.mock('$lib/server/entities/trainingType', () => ({
+	TrainingTypeEntity: {
+		repo: {
+			list: vi.fn(() => Promise.resolve(mockTrainingTypes)),
+			query: vi.fn(),
+			queryDateRange: vi.fn(),
+			queryByIds: vi.fn()
+		}
+	}
+}));
+
 vi.mock('$lib/server/repositories', () => ({
 	statusTypeRepo: {
 		list: vi.fn(() => Promise.resolve(mockStatusTypes)),
-		query: vi.fn(),
-		queryDateRange: vi.fn(),
-		queryByIds: vi.fn()
-	},
-	trainingTypeRepo: {
-		list: vi.fn(() => Promise.resolve(mockTrainingTypes)),
 		query: vi.fn(),
 		queryDateRange: vi.fn(),
 		queryByIds: vi.fn()
@@ -90,7 +95,8 @@ vi.mock('$lib/server/repositories', () => ({
 import { fetchSharedData } from './sharedData';
 import { queryPersonnel } from '$lib/server/personnelRepository';
 import { GroupEntity } from '$lib/server/entities/group';
-import { statusTypeRepo, trainingTypeRepo, personnelTrainingRepo } from '$lib/server/repositories';
+import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
+import { statusTypeRepo, personnelTrainingRepo } from '$lib/server/repositories';
 
 const allPersonnel: Personnel[] = [
 	{
@@ -133,7 +139,7 @@ describe('fetchSharedData', () => {
 		vi.clearAllMocks();
 		vi.mocked(GroupEntity.repo.list).mockResolvedValue(mockGroups);
 		vi.mocked(statusTypeRepo.list).mockResolvedValue(mockStatusTypes);
-		vi.mocked(trainingTypeRepo.list).mockResolvedValue(mockTrainingTypes);
+		vi.mocked(TrainingTypeEntity.repo.list).mockResolvedValue(mockTrainingTypes);
 	});
 
 	it('returns personnel, groups, statusTypes, trainingTypes without personnelTrainings', async () => {
@@ -196,6 +202,6 @@ describe('fetchSharedData', () => {
 
 		expect(GroupEntity.repo.list).toHaveBeenCalledWith(supabase, 'org1');
 		expect(statusTypeRepo.list).toHaveBeenCalledWith(supabase, 'org1');
-		expect(trainingTypeRepo.list).toHaveBeenCalledWith(supabase, 'org1');
+		expect(TrainingTypeEntity.repo.list).toHaveBeenCalledWith(supabase, 'org1');
 	});
 });

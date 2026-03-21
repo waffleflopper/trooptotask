@@ -1,50 +1,90 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Personnel } from '$lib/types';
 import type { PersonnelQueryResult } from '$lib/server/personnelRepository';
+import type { StatusType } from '$features/calendar/calendar.types';
+import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+import type { Group } from '$lib/stores/groups.svelte';
 
 vi.mock('$lib/server/personnelRepository', () => ({
 	queryPersonnel: vi.fn(),
 	personnelIds: vi.fn((p: Personnel[]) => p.map((x) => x.id))
 }));
 
-vi.mock('$lib/server/transforms', () => ({
-	transformGroups: vi.fn((rows: Record<string, unknown>[]) =>
-		rows.map((g) => ({ id: g.id, name: g.name, sortOrder: g.sort_order }))
-	),
-	transformStatusTypes: vi.fn((rows: Record<string, unknown>[]) =>
-		rows.map((s) => ({ id: s.id, name: s.name, color: s.color, textColor: s.text_color }))
-	),
-	transformTrainingTypes: vi.fn((rows: Record<string, unknown>[]) =>
-		rows.map((t) => ({
-			id: t.id,
-			name: t.name,
-			description: t.description,
-			expirationMonths: t.expiration_months,
-			warningDaysYellow: t.warning_days_yellow,
-			warningDaysOrange: t.warning_days_orange,
-			requiredForRoles: t.required_for_roles ?? [],
-			color: t.color,
-			sortOrder: t.sort_order,
-			expirationDateOnly: t.expiration_date_only ?? false,
-			canBeExempted: t.can_be_exempted ?? false,
-			exemptPersonnelIds: t.exempt_personnel_ids ?? []
-		}))
-	),
-	transformPersonnelTrainings: vi.fn((rows: Record<string, unknown>[]) =>
-		rows.map((t) => ({
-			id: t.id,
-			personnelId: t.personnel_id,
-			trainingTypeId: t.training_type_id,
-			completionDate: t.completion_date,
-			expirationDate: t.expiration_date,
-			notes: t.notes,
-			certificateUrl: t.certificate_url
-		}))
-	)
+const mockGroups: Group[] = [
+	{ id: 'g1', name: 'Alpha', sortOrder: 0 },
+	{ id: 'g2', name: 'Bravo', sortOrder: 1 }
+];
+
+const mockStatusTypes: StatusType[] = [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' }];
+
+const mockTrainingTypes: TrainingType[] = [
+	{
+		id: 'tt1',
+		name: 'CPR',
+		description: 'CPR cert',
+		expirationMonths: 12,
+		warningDaysYellow: 30,
+		warningDaysOrange: 14,
+		requiredForRoles: [],
+		color: '#0f0',
+		sortOrder: 0,
+		expirationDateOnly: false,
+		canBeExempted: false,
+		exemptPersonnelIds: []
+	}
+];
+
+const mockPersonnelTrainings: PersonnelTraining[] = [
+	{
+		id: 'pt1',
+		personnelId: 'p1',
+		trainingTypeId: 'tt1',
+		completionDate: '2026-01-01',
+		expirationDate: '2027-01-01',
+		notes: '',
+		certificateUrl: ''
+	},
+	{
+		id: 'pt2',
+		personnelId: 'p2',
+		trainingTypeId: 'tt1',
+		completionDate: '2026-02-01',
+		expirationDate: '2027-02-01',
+		notes: '',
+		certificateUrl: ''
+	}
+];
+
+vi.mock('$lib/server/repositories', () => ({
+	groupRepo: {
+		list: vi.fn(() => Promise.resolve(mockGroups)),
+		query: vi.fn(),
+		queryDateRange: vi.fn(),
+		queryByIds: vi.fn()
+	},
+	statusTypeRepo: {
+		list: vi.fn(() => Promise.resolve(mockStatusTypes)),
+		query: vi.fn(),
+		queryDateRange: vi.fn(),
+		queryByIds: vi.fn()
+	},
+	trainingTypeRepo: {
+		list: vi.fn(() => Promise.resolve(mockTrainingTypes)),
+		query: vi.fn(),
+		queryDateRange: vi.fn(),
+		queryByIds: vi.fn()
+	},
+	personnelTrainingRepo: {
+		list: vi.fn(() => Promise.resolve(mockPersonnelTrainings)),
+		query: vi.fn(),
+		queryDateRange: vi.fn(),
+		queryByIds: vi.fn()
+	}
 }));
 
 import { fetchSharedData, needsPersonnelTrainings } from './sharedData';
 import { queryPersonnel } from '$lib/server/personnelRepository';
+import { groupRepo, statusTypeRepo, trainingTypeRepo, personnelTrainingRepo } from '$lib/server/repositories';
 
 const allPersonnel: Personnel[] = [
 	{
@@ -71,72 +111,11 @@ const allPersonnel: Personnel[] = [
 
 const scopedPersonnel: Personnel[] = [allPersonnel[0]];
 
-function mockTableSupabase(overrides: Record<string, unknown[]> = {}) {
-	const defaults: Record<string, unknown[]> = {
-		groups: [
-			{ id: 'g1', name: 'Alpha', sort_order: 0 },
-			{ id: 'g2', name: 'Bravo', sort_order: 1 }
-		],
-		status_types: [{ id: 'st1', name: 'Leave', color: '#ff0', text_color: '#000' }],
-		training_types: [
-			{
-				id: 'tt1',
-				name: 'CPR',
-				description: 'CPR cert',
-				expiration_months: 12,
-				warning_days_yellow: 30,
-				warning_days_orange: 14,
-				required_for_roles: [],
-				color: '#0f0',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: false,
-				exempt_personnel_ids: []
-			}
-		],
-		personnel_trainings: [
-			{
-				id: 'pt1',
-				personnel_id: 'p1',
-				training_type_id: 'tt1',
-				completion_date: '2026-01-01',
-				expiration_date: '2027-01-01',
-				notes: '',
-				certificate_url: ''
-			},
-			{
-				id: 'pt2',
-				personnel_id: 'p2',
-				training_type_id: 'tt1',
-				completion_date: '2026-02-01',
-				expiration_date: '2027-02-01',
-				notes: '',
-				certificate_url: ''
-			}
-		]
-	};
-
-	const data = { ...defaults, ...overrides };
-
-	const chainable = (table: string) => {
-		const result = { data: data[table] ?? [], error: null };
-		const chain: Record<string, unknown> = {};
-		const methods = ['select', 'eq', 'is', 'order'];
-		for (const m of methods) {
-			chain[m] = vi.fn().mockReturnValue(chain);
-		}
-		for (const m of methods) {
-			(chain[m] as ReturnType<typeof vi.fn>).mockReturnValue({ ...chain, ...result, then: undefined });
-		}
-		Object.defineProperty(chain, 'then', {
-			value: (resolve: (v: unknown) => void) => resolve(result),
-			configurable: true,
-			writable: true
-		});
-		return chain;
-	};
-
-	return { from: vi.fn((table: string) => chainable(table)) };
+// Supabase mock is still needed since repos call supabase internally,
+// but sharedData no longer calls supabase.from() for status_types/training_types/personnel_trainings.
+// The mock supabase is passed through to repos which are themselves mocked.
+function mockSupabase() {
+	return {} as Record<string, unknown>;
 }
 
 function mockQueryPersonnelResult(data: Personnel[]): PersonnelQueryResult {
@@ -146,11 +125,16 @@ function mockQueryPersonnelResult(data: Personnel[]): PersonnelQueryResult {
 describe('fetchSharedData', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// Reset repo mocks to default return values
+		vi.mocked(groupRepo.list).mockResolvedValue(mockGroups);
+		vi.mocked(statusTypeRepo.list).mockResolvedValue(mockStatusTypes);
+		vi.mocked(trainingTypeRepo.list).mockResolvedValue(mockTrainingTypes);
+		vi.mocked(personnelTrainingRepo.list).mockResolvedValue(mockPersonnelTrainings);
 	});
 
 	it('returns all expected fields when scopedGroupId is null', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
-		const supabase = mockTableSupabase();
+		const supabase = mockSupabase();
 		const result = await fetchSharedData(supabase, 'org1', null, { personnelTrainings: true });
 
 		expect(result).toHaveProperty('personnel');
@@ -169,7 +153,7 @@ describe('fetchSharedData', () => {
 
 	it('returns empty personnelTrainings when include param is omitted', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
-		const supabase = mockTableSupabase();
+		const supabase = mockSupabase();
 		const result = await fetchSharedData(supabase, 'org1', null);
 
 		expect(result.personnelTrainings).toEqual([]);
@@ -179,7 +163,7 @@ describe('fetchSharedData', () => {
 
 	it('returns empty personnelTrainings when include.personnelTrainings is false', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
-		const supabase = mockTableSupabase();
+		const supabase = mockSupabase();
 		const result = await fetchSharedData(supabase, 'org1', null, { personnelTrainings: false });
 
 		expect(result.personnelTrainings).toEqual([]);
@@ -187,7 +171,7 @@ describe('fetchSharedData', () => {
 
 	it('personnel equals allPersonnel when no scoping', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
-		const supabase = mockTableSupabase();
+		const supabase = mockSupabase();
 		const result = await fetchSharedData(supabase, 'org1', null, { personnelTrainings: true });
 
 		expect(result.personnel).toEqual(result.allPersonnel);
@@ -197,7 +181,7 @@ describe('fetchSharedData', () => {
 		vi.mocked(queryPersonnel)
 			.mockResolvedValueOnce(mockQueryPersonnelResult(allPersonnel))
 			.mockResolvedValueOnce(mockQueryPersonnelResult(scopedPersonnel));
-		const supabase = mockTableSupabase();
+		const supabase = mockSupabase();
 		const result = await fetchSharedData(supabase, 'org1', 'g1', { personnelTrainings: true });
 
 		expect(result.personnel).toHaveLength(1);
@@ -212,38 +196,38 @@ describe('fetchSharedData', () => {
 		vi.mocked(queryPersonnel)
 			.mockResolvedValueOnce(mockQueryPersonnelResult(allPersonnel))
 			.mockResolvedValueOnce(mockQueryPersonnelResult(scopedPersonnel));
-		const supabase = mockTableSupabase();
+		const supabase = mockSupabase();
 		const result = await fetchSharedData(supabase, 'org1', 'g1', { personnelTrainings: true });
 
 		expect(result.personnelTrainings).toHaveLength(1);
 		expect(result.personnelTrainings[0].personnelId).toBe('p1');
 	});
 
-	it('does not query personnel_trainings table when include is omitted', async () => {
+	it('does not call personnelTrainingRepo when include is omitted', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
-		const supabase = mockTableSupabase();
+		const supabase = mockSupabase();
 		await fetchSharedData(supabase, 'org1', null);
 
-		const fromCalls = supabase.from.mock.calls.map((c: string[]) => c[0]);
-		expect(fromCalls).not.toContain('personnel_trainings');
+		expect(personnelTrainingRepo.list).not.toHaveBeenCalled();
 	});
 
-	it('queries personnel_trainings table when include.personnelTrainings is true', async () => {
+	it('calls personnelTrainingRepo when include.personnelTrainings is true', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
-		const supabase = mockTableSupabase();
+		const supabase = mockSupabase();
 		await fetchSharedData(supabase, 'org1', null, { personnelTrainings: true });
 
-		const fromCalls = supabase.from.mock.calls.map((c: string[]) => c[0]);
-		expect(fromCalls).toContain('personnel_trainings');
+		expect(personnelTrainingRepo.list).toHaveBeenCalledWith(supabase, 'org1');
 	});
 
-	it('does not call supabase.from("personnel") directly — uses queryPersonnel instead', async () => {
+	it('delegates to repository modules instead of calling supabase directly', async () => {
 		vi.mocked(queryPersonnel).mockResolvedValue(mockQueryPersonnelResult(allPersonnel));
-		const supabase = mockTableSupabase();
+		const supabase = mockSupabase();
 		await fetchSharedData(supabase, 'org1', null, { personnelTrainings: true });
 
-		const fromCalls = supabase.from.mock.calls.map((c: string[]) => c[0]);
-		expect(fromCalls).not.toContain('personnel');
+		expect(groupRepo.list).toHaveBeenCalledWith(supabase, 'org1');
+		expect(statusTypeRepo.list).toHaveBeenCalledWith(supabase, 'org1');
+		expect(trainingTypeRepo.list).toHaveBeenCalledWith(supabase, 'org1');
+		expect(personnelTrainingRepo.list).toHaveBeenCalledWith(supabase, 'org1');
 	});
 });
 

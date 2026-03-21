@@ -1,5 +1,5 @@
 import type { Personnel } from '$lib/types';
-import type { StatusType } from '$features/calendar/calendar.types';
+import type { StatusType } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import { queryPersonnel } from '$lib/server/personnelRepository';

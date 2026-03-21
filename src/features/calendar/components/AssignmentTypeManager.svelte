@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AssignmentType } from '../stores/dailyAssignments.svelte';
+	import type { AssignmentType } from '$lib/types';
 	import TypeManager from '$lib/components/ui/TypeManager.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 

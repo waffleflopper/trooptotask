@@ -6,8 +6,7 @@
 	import { parseFile, parseCSVText, parseDateString } from '$lib/utils/csvParser';
 	import { STATUS_IMPORT_COLUMNS } from '$lib/utils/columnMapping';
 	import type { RowValidation } from '$lib/components/ui/BulkImportTable.svelte';
-	import type { StatusType } from '$features/calendar/calendar.types';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel, StatusType } from '$lib/types';
 
 	interface Props {
 		personnel: Personnel[];

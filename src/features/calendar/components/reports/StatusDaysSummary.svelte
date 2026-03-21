@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { StatusType } from '../../calendar.types';
+	import type { StatusType } from '$lib/types';
 	import type { StatusDaysResult } from '../../utils/statusDaysReport';
 	import { computeStatusDays } from '../../utils/statusDaysReport';
 	import { exportStatusDaysCsv } from './StatusDaysSummaryExport';

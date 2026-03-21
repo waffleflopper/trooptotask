@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { StatusType } from '../../calendar.types';
+	import type { StatusType } from '$lib/types';
 	import type { GroupReadinessResult } from '../../utils/calendarReports';
 	import { computeGroupReadiness } from '../../utils/calendarReports';
 	import Spinner from '$lib/components/ui/Spinner.svelte';

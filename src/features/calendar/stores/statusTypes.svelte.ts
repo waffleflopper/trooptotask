@@ -1,5 +1,5 @@
 import { createStore } from '$lib/stores/core';
-import type { StatusType } from '../calendar.types';
+import type { StatusType } from '$lib/types';
 
 const store = createStore<StatusType>({ resource: 'status-types' });
 

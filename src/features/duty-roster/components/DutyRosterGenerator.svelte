@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/calendar.types';
-	import type { AssignmentType, DailyAssignment } from '$features/calendar/stores/dailyAssignments.svelte';
+	import type { AvailabilityEntry, SpecialDay, StatusType } from '$lib/types';
+	import type { AssignmentType, DailyAssignment } from '$lib/types';
 	import type { RosterHistoryItem, RosterHistoryEntry, DA6Data } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';

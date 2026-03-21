@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SpecialDay } from '$features/calendar/calendar.types';
+	import type { SpecialDay } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Modal from '$lib/components/Modal.svelte';

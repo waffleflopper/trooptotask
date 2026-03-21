@@ -1,5 +1,5 @@
 import type { StatusDaysResult } from '../../utils/statusDaysReport';
-import type { StatusType } from '../../calendar.types';
+import type { StatusType } from '$lib/types';
 
 function escapeCsvCell(value: string): string {
 	if (value.includes(',') || value.includes('"') || value.includes('\n')) {

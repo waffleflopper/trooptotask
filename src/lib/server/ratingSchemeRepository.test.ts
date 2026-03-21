@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { transformRatingSchemeEntries, transformCounselingRecords, transformDevelopmentGoals } from './transforms';
-import { ratingSchemeRepo } from './repositories';
+import { transformCounselingRecords, transformDevelopmentGoals } from './transforms';
+import { RatingSchemeEntryEntity } from './entities/ratingSchemeEntry';
 
 const ORG_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -46,7 +46,7 @@ function createMockSupabase(
 	return { supabase, calls };
 }
 
-describe('transformRatingSchemeEntries', () => {
+describe('RatingSchemeEntryEntity.fromDbArray', () => {
 	it('maps all snake_case DB fields to camelCase RatingSchemeEntry', () => {
 		const dbRows = [
 			{
@@ -70,7 +70,7 @@ describe('transformRatingSchemeEntries', () => {
 			}
 		];
 
-		const result = transformRatingSchemeEntries(dbRows);
+		const result = RatingSchemeEntryEntity.fromDbArray(dbRows);
 
 		expect(result).toEqual([
 			{
@@ -118,7 +118,7 @@ describe('transformRatingSchemeEntries', () => {
 			}
 		];
 
-		const result = transformRatingSchemeEntries(dbRows);
+		const result = RatingSchemeEntryEntity.fromDbArray(dbRows);
 
 		expect(result[0].raterPersonId).toBeNull();
 		expect(result[0].raterName).toBeNull();
@@ -134,7 +134,7 @@ describe('transformRatingSchemeEntries', () => {
 	});
 
 	it('returns empty array for empty input', () => {
-		expect(transformRatingSchemeEntries([])).toEqual([]);
+		expect(RatingSchemeEntryEntity.fromDbArray([])).toEqual([]);
 	});
 });
 
@@ -251,7 +251,7 @@ describe('transformDevelopmentGoals', () => {
 	});
 });
 
-describe('ratingSchemeRepo', () => {
+describe('RatingSchemeEntryEntity.repo', () => {
 	it('queries rating_scheme_entries table with org scoping and correct ordering', async () => {
 		const rows = [
 			{
@@ -276,7 +276,7 @@ describe('ratingSchemeRepo', () => {
 		];
 		const { supabase, calls } = createMockSupabase(rows);
 
-		const result = await ratingSchemeRepo.list(supabase, ORG_ID);
+		const result = await RatingSchemeEntryEntity.repo.list(supabase, ORG_ID);
 
 		expect(calls['from']![0]).toEqual(['rating_scheme_entries']);
 		expect(calls['eq']![0]).toEqual(['organization_id', ORG_ID]);
@@ -289,7 +289,7 @@ describe('ratingSchemeRepo', () => {
 	it('applies status filter via query options', async () => {
 		const { supabase, calls } = createMockSupabase([]);
 
-		await ratingSchemeRepo.list(supabase, ORG_ID, {
+		await RatingSchemeEntryEntity.repo.list(supabase, ORG_ID, {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock query builder
 			filters: [(q: any) => q.neq('status', 'completed')]
 		});

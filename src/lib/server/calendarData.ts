@@ -2,9 +2,12 @@ import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } f
 import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 import type { QueryModifier } from '$lib/server/repositoryFactory';
 import { formatDate } from '$lib/utils/dates';
-import { specialDayRepo, dailyAssignmentRepo, rosterHistoryRepo, pinnedGroupRepo } from '$lib/server/repositories';
+import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
+import { RosterHistoryEntity } from '$lib/server/entities/rosterHistory';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
+import { SpecialDayEntity } from '$lib/server/entities/specialDay';
+import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 
 export interface CalendarData {
 	availabilityEntries: AvailabilityEntry[];
@@ -38,19 +41,19 @@ export async function fetchCalendarData(
 	const [availabilityEntries, specialDaysResult, assignmentTypes, dailyAssignmentsResult, pinnedGroups, rosterHistory] =
 		await Promise.all([
 			AvailabilityEntryEntity.repo.list(supabase, orgId, { filters: [availabilityOverlapFilter] }),
-			specialDayRepo.queryDateRange(supabase, orgId, {
+			SpecialDayEntity.repo.queryDateRange(supabase, orgId, {
 				column: 'date',
 				start: rangeStartStr,
 				end: rangeEndStr
 			}),
 			AssignmentTypeEntity.repo.list(supabase, orgId),
-			dailyAssignmentRepo.queryDateRange(supabase, orgId, {
+			DailyAssignmentEntity.repo.queryDateRange(supabase, orgId, {
 				column: 'date',
 				start: rangeStartStr,
 				end: rangeEndStr
 			}),
-			userId ? pinnedGroupRepo.list(supabase, orgId, { filters: [userFilter] }) : Promise.resolve([]),
-			rosterHistoryRepo.list(supabase, orgId, { limit: 50 })
+			userId ? PinnedGroupsEntity.repo.list(supabase, orgId, { filters: [userFilter] }) : Promise.resolve([]),
+			RosterHistoryEntity.repo.list(supabase, orgId, { limit: 50 })
 		]);
 
 	return {

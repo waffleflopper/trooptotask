@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
-import { transformDailyAssignments } from '$lib/server/transforms';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
+import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 
 export const GET = apiRoute(
@@ -59,7 +59,7 @@ export const GET = apiRoute(
 
 		return json({
 			entries: AvailabilityEntryEntity.fromDbArray(data ?? []),
-			assignments: transformDailyAssignments(assignmentsData ?? []),
+			assignments: DailyAssignmentEntity.fromDbArray(assignmentsData ?? []),
 			assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypesData ?? [])
 		});
 	}

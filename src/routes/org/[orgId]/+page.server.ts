@@ -6,6 +6,7 @@ import {
 	transformAssignmentTypes,
 	transformDailyAssignments
 } from '$lib/server/transforms';
+import { ratingSchemeRepo } from '$lib/server/repositories';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, depends }) => {
 	depends('app:shared-data');
@@ -18,42 +19,49 @@ export const load: PageServerLoad = async ({ params, locals, cookies, depends })
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
 
-	const [availabilityRes, assignmentTypesRes, todayAssignmentsRes, pinnedGroupsRes, onboardingsRes, ratingSchemeRes] =
-		await Promise.all([
-			supabase
-				.from('availability_entries')
-				.select('*')
-				.eq('organization_id', orgId)
-				.gte('end_date', yesterday)
-				.lte('start_date', twoWeeksOut),
-			supabase.from('assignment_types').select('*').eq('organization_id', orgId).order('sort_order'),
-			supabase
-				.from('daily_assignments')
-				.select('*')
-				.eq('organization_id', orgId)
-				.gte('date', yesterday)
-				.lte('date', twoWeeksOut),
-			userId
-				? supabase
-						.from('user_pinned_groups')
-						.select('*')
-						.eq('organization_id', orgId)
-						.eq('user_id', userId)
-						.order('sort_order')
-				: Promise.resolve({ data: [] }),
-			supabase
-				.from('personnel_onboardings')
-				.select('*, onboarding_step_progress(*)')
-				.eq('organization_id', orgId)
-				.eq('status', 'in_progress')
-				.order('created_at', { ascending: false }),
-			supabase
-				.from('rating_scheme_entries')
-				.select('id, rated_person_id, eval_type, rating_period_end, status')
-				.eq('organization_id', orgId)
-				.neq('status', 'completed')
-				.order('rating_period_end')
-		]);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase query builder type
+	const excludeCompleted = (q: any) => q.neq('status', 'completed');
+
+	const [
+		availabilityRes,
+		assignmentTypesRes,
+		todayAssignmentsRes,
+		pinnedGroupsRes,
+		onboardingsRes,
+		ratingSchemeEntries
+	] = await Promise.all([
+		supabase
+			.from('availability_entries')
+			.select('*')
+			.eq('organization_id', orgId)
+			.gte('end_date', yesterday)
+			.lte('start_date', twoWeeksOut),
+		supabase.from('assignment_types').select('*').eq('organization_id', orgId).order('sort_order'),
+		supabase
+			.from('daily_assignments')
+			.select('*')
+			.eq('organization_id', orgId)
+			.gte('date', yesterday)
+			.lte('date', twoWeeksOut),
+		userId
+			? supabase
+					.from('user_pinned_groups')
+					.select('*')
+					.eq('organization_id', orgId)
+					.eq('user_id', userId)
+					.order('sort_order')
+			: Promise.resolve({ data: [] }),
+		supabase
+			.from('personnel_onboardings')
+			.select('*, onboarding_step_progress(*)')
+			.eq('organization_id', orgId)
+			.eq('status', 'in_progress')
+			.order('created_at', { ascending: false }),
+		ratingSchemeRepo.list(supabase, orgId, {
+			select: 'id, rated_person_id, eval_type, rating_period_end, status',
+			filters: [excludeCompleted]
+		})
+	]);
 
 	const availabilityEntries = transformAvailabilityEntries(availabilityRes.data ?? []);
 	const assignmentTypes = transformAssignmentTypes(assignmentTypesRes.data ?? []);
@@ -62,14 +70,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies, depends })
 	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map(
 		(p: Record<string, unknown>) => p.group_name as string
 	);
-
-	const ratingSchemeEntries = (ratingSchemeRes.data ?? []).map((r: Record<string, unknown>) => ({
-		id: r.id as string,
-		ratedPersonId: r.rated_person_id as string,
-		evalType: r.eval_type as string,
-		ratingPeriodEnd: r.rating_period_end as string,
-		status: r.status as string
-	}));
 
 	const activeOnboardings = (onboardingsRes.data ?? []).map((o: Record<string, unknown>) => ({
 		id: o.id,

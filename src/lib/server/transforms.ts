@@ -10,6 +10,33 @@ import type {
 	OnboardingStepNote,
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
+
+/**
+ * Simplified counseling record for the new Leaders Book model.
+ * See PRD: leaders-book-redesign — counseling_records (simplify).
+ */
+export interface CounselingRecord {
+	id: string;
+	personnelId: string;
+	dateConducted: string;
+	subject: string;
+	notes: string | null;
+	filePath: string | null;
+}
+
+/**
+ * Simplified development goal for the new Leaders Book model.
+ * See PRD: leaders-book-redesign — development_goals (simplify).
+ */
+export interface DevelopmentGoal {
+	id: string;
+	personnelId: string;
+	title: string;
+	termType: 'short' | 'long';
+	isCompleted: boolean;
+	notes: string | null;
+}
 
 type DbRow = Record<string, unknown>;
 
@@ -172,5 +199,49 @@ export function transformPersonnelOnboardings(data: DbRow[]): PersonnelOnboardin
 				notes: Array.isArray(s.notes) ? (s.notes as OnboardingStepNote[]) : [],
 				templateStepId: (s.template_step_id as string | null) ?? null
 			}))
+	}));
+}
+
+export function transformCounselingRecords(data: DbRow[]): CounselingRecord[] {
+	return data.map((r) => ({
+		id: r.id as string,
+		personnelId: r.personnel_id as string,
+		dateConducted: r.date_conducted as string,
+		subject: r.subject as string,
+		notes: (r.notes as string) ?? null,
+		filePath: (r.file_path as string) ?? null
+	}));
+}
+
+export function transformDevelopmentGoals(data: DbRow[]): DevelopmentGoal[] {
+	return data.map((r) => ({
+		id: r.id as string,
+		personnelId: r.personnel_id as string,
+		title: r.title as string,
+		termType: r.term_type as DevelopmentGoal['termType'],
+		isCompleted: (r.is_completed as boolean) ?? false,
+		notes: (r.notes as string) ?? null
+	}));
+}
+
+export function transformRatingSchemeEntries(data: DbRow[]): RatingSchemeEntry[] {
+	return data.map((r) => ({
+		id: r.id as string,
+		ratedPersonId: r.rated_person_id as string,
+		evalType: r.eval_type as RatingSchemeEntry['evalType'],
+		raterPersonId: (r.rater_person_id as string) ?? null,
+		raterName: (r.rater_name as string) ?? null,
+		seniorRaterPersonId: (r.senior_rater_person_id as string) ?? null,
+		seniorRaterName: (r.senior_rater_name as string) ?? null,
+		intermediateRaterPersonId: (r.intermediate_rater_person_id as string) ?? null,
+		intermediateRaterName: (r.intermediate_rater_name as string) ?? null,
+		reviewerPersonId: (r.reviewer_person_id as string) ?? null,
+		reviewerName: (r.reviewer_name as string) ?? null,
+		ratingPeriodStart: r.rating_period_start as string,
+		ratingPeriodEnd: r.rating_period_end as string,
+		status: r.status as RatingSchemeEntry['status'],
+		notes: (r.notes as string) ?? null,
+		reportType: (r.report_type as RatingSchemeEntry['reportType']) ?? null,
+		workflowStatus: (r.workflow_status as RatingSchemeEntry['workflowStatus']) ?? null
 	}));
 }

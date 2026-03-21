@@ -8,6 +8,7 @@ import type { StatusType, AvailabilityEntry, SpecialDay } from '$features/calend
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { AssignmentType, DailyAssignment } from '$features/calendar/stores/dailyAssignments.svelte';
 import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import {
 	transformGroups,
 	transformStatusTypes,
@@ -17,7 +18,8 @@ import {
 	transformAvailabilityEntries,
 	transformDailyAssignments,
 	transformRosterHistory,
-	transformPersonnelTrainings
+	transformPersonnelTrainings,
+	transformRatingSchemeEntries
 } from '$lib/server/transforms';
 import { createRepository } from '$lib/server/repositoryFactory';
 
@@ -70,4 +72,10 @@ export const rosterHistoryRepo = createRepository<RosterHistoryItem>({
 export const personnelTrainingRepo = createRepository<PersonnelTraining>({
 	table: 'personnel_trainings',
 	transform: transformPersonnelTrainings
+});
+
+export const ratingSchemeRepo = createRepository<RatingSchemeEntry>({
+	table: 'rating_scheme_entries',
+	transform: transformRatingSchemeEntries,
+	orderBy: [{ column: 'rating_period_end', ascending: true }]
 });

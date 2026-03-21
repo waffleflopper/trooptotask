@@ -5,7 +5,6 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	interface Props {
 		personnel: Personnel[];
@@ -32,7 +31,6 @@
 	let selectedPersonnelId = $state('');
 	let startDate = $state(new Date().toISOString().split('T')[0]);
 	let selectedTemplateId = $state<string>(templates[0]?.id ?? '');
-	let saving = $state(false);
 	let showAddPersonModal = $state(false);
 
 	const availablePersonnel = $derived(
@@ -45,14 +43,12 @@
 	const showTemplateSelector = $derived(templates.length > 1);
 
 	async function handleSave() {
-		if (!canSave || saving) return;
-		saving = true;
-		try {
-			await onSubmit(selectedPersonnelId, startDate, selectedTemplateId || null);
-			onClose();
-		} finally {
-			saving = false;
-		}
+		if (!canSave) return;
+		const personnelId = selectedPersonnelId;
+		const date = startDate;
+		const templateId = selectedTemplateId || null;
+		onClose();
+		await onSubmit(personnelId, date, templateId);
 	}
 
 	async function handleAddPersonSubmit(data: Omit<Personnel, 'id'>) {
@@ -98,10 +94,7 @@
 	{#snippet footer()}
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-		<button class="btn btn-primary" disabled={!canSave || saving} onclick={handleSave}>
-			{#if saving}<Spinner />{/if}
-			{saving ? 'Starting...' : 'Start Onboarding'}
-		</button>
+		<button class="btn btn-primary" disabled={!canSave} onclick={handleSave}> Start Onboarding </button>
 	{/snippet}
 </Modal>
 

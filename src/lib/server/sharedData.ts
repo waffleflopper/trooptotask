@@ -4,7 +4,8 @@ import type { TrainingType } from '$features/training/training.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import { queryPersonnel } from '$lib/server/personnelRepository';
 import { GroupEntity } from '$lib/server/entities/group';
-import { statusTypeRepo, trainingTypeRepo } from '$lib/server/repositories';
+import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
+import { statusTypeRepo } from '$lib/server/repositories';
 
 export interface SharedData {
 	personnel: Personnel[];
@@ -25,7 +26,7 @@ export async function fetchSharedData(
 		scopedGroupId ? queryPersonnel({ supabase, orgId, scopedGroupId }) : null,
 		GroupEntity.repo.list(supabase, orgId),
 		statusTypeRepo.list(supabase, orgId),
-		trainingTypeRepo.list(supabase, orgId)
+		TrainingTypeEntity.repo.list(supabase, orgId)
 	]);
 
 	if (allPersonnelResult.error) {

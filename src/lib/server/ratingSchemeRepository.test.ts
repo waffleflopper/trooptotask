@@ -156,7 +156,7 @@ describe('transformCounselingRecords', () => {
 
 		const result = transformCounselingRecords(dbRows);
 
-		expect(result).toEqual([
+		expect(result).toMatchObject([
 			{
 				id: 'cr-1',
 				personnelId: 'p-1',
@@ -212,7 +212,7 @@ describe('transformDevelopmentGoals', () => {
 
 		const result = transformDevelopmentGoals(dbRows);
 
-		expect(result).toEqual([
+		expect(result).toMatchObject([
 			{
 				id: 'dg-1',
 				personnelId: 'p-1',

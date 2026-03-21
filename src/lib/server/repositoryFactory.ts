@@ -1,7 +1,7 @@
 /**
  * Repository Factory — centralized read query module.
  * Creates typed repositories for org-scoped database tables.
- * Complements crudFactory (which handles mutations). See #216.
+ * Used internally by defineEntity() to create .repo on each entity. See #252.
  */
 import type { QueryModifier } from './personnelRepository';
 

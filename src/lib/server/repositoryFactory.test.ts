@@ -44,7 +44,8 @@ function createMockSupabase(
 		in: record('in'),
 		gte: record('gte'),
 		lte: record('lte'),
-		ilike: record('ilike')
+		ilike: record('ilike'),
+		limit: record('limit')
 	};
 
 	Object.defineProperty(builder, 'then', {
@@ -170,6 +171,26 @@ describe('createRepository', () => {
 			await repo.queryByIds(supabase, ORG_ID, 'personnel_id', ['p1', 'p2']);
 
 			expect(calls['in']![0]).toEqual(['personnel_id', ['p1', 'p2']]);
+		});
+	});
+
+	describe('limit', () => {
+		it('applies limit when specified in options', async () => {
+			const { supabase, calls } = createMockSupabase([]);
+			const repo = createRepository(testConfig);
+
+			await repo.list(supabase, ORG_ID, { limit: 50 });
+
+			expect(calls['limit']![0]).toEqual([50]);
+		});
+
+		it('does not apply limit when not specified', async () => {
+			const { supabase, calls } = createMockSupabase([]);
+			const repo = createRepository(testConfig);
+
+			await repo.list(supabase, ORG_ID);
+
+			expect(calls['limit']).toBeUndefined();
 		});
 	});
 

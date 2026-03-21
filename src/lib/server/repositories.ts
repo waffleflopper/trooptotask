@@ -54,7 +54,7 @@ export const specialDayRepo = createRepository<SpecialDay>({
 });
 
 export const availabilityRepo = createRepository<AvailabilityEntry>({
-	table: 'availability',
+	table: 'availability_entries',
 	transform: transformAvailabilityEntries
 });
 
@@ -64,7 +64,7 @@ export const dailyAssignmentRepo = createRepository<DailyAssignment>({
 });
 
 export const rosterHistoryRepo = createRepository<RosterHistoryItem>({
-	table: 'roster_history',
+	table: 'duty_roster_history',
 	transform: transformRosterHistory,
 	orderBy: [{ column: 'created_at', ascending: false }]
 });

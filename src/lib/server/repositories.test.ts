@@ -160,7 +160,7 @@ describe('specialDayRepo', () => {
 });
 
 describe('availabilityRepo', () => {
-	it('queries availability table without ordering and transforms correctly', async () => {
+	it('queries availability_entries table without ordering and transforms correctly', async () => {
 		const { availabilityRepo } = await import('./repositories');
 		const rows = [
 			{
@@ -176,7 +176,7 @@ describe('availabilityRepo', () => {
 
 		const result = await availabilityRepo.list(supabase, ORG_ID);
 
-		expect(calls['from']![0]).toEqual(['availability']);
+		expect(calls['from']![0]).toEqual(['availability_entries']);
 		expect(result[0]).toEqual({
 			id: 'a1',
 			personnelId: 'p1',
@@ -207,7 +207,7 @@ describe('dailyAssignmentRepo', () => {
 });
 
 describe('rosterHistoryRepo', () => {
-	it('queries roster_history table with created_at desc ordering and transforms correctly', async () => {
+	it('queries duty_roster_history table with created_at desc ordering and transforms correctly', async () => {
 		const { rosterHistoryRepo } = await import('./repositories');
 		const rows = [
 			{
@@ -225,7 +225,7 @@ describe('rosterHistoryRepo', () => {
 
 		const result = await rosterHistoryRepo.list(supabase, ORG_ID);
 
-		expect(calls['from']![0]).toEqual(['roster_history']);
+		expect(calls['from']![0]).toEqual(['duty_roster_history']);
 		expect(calls['order']![0]).toEqual(['created_at', { ascending: false }]);
 		expect(result[0]).toMatchObject({
 			id: 'rh1',

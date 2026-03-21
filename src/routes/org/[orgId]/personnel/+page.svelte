@@ -27,9 +27,8 @@
 
 	let { data } = $props();
 
+	// Hydrate personnel-specific stores (universal stores hydrated in org layout)
 	$effect(() => {
-		personnelStore.load(data.personnel ?? [], data.orgId);
-		groupsStore.load(data.groups ?? [], data.orgId);
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
 		ratingSchemeStore.load(data.ratingSchemeEntries, data.orgId);
 	});

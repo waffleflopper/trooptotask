@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidate } from '$app/navigation';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
@@ -22,11 +22,7 @@
 
 	let { data } = $props();
 
-	// Hydrate stores with server data
-	$effect(() => {
-		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
-		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);
-	});
+	// personnelTrainingsStore hydrated in training layout
 
 	// Derive available roles client-side from personnel data
 	const availableRoles = $derived(
@@ -158,7 +154,7 @@
 	}
 
 	async function handleBulkImportComplete() {
-		await invalidateAll();
+		await invalidate('app:training-data');
 		showBulkImporter = false;
 	}
 </script>

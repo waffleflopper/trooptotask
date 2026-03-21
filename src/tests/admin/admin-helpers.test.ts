@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { canAccessPage, getAccessiblePages } from '$lib/server/admin';
-import type { AdminRole } from '$lib/server/admin';
 
 describe('canAccessPage', () => {
 	it('super_admin can access all pages', () => {

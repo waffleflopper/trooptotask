@@ -5,11 +5,11 @@ import { formatDate } from '$lib/utils/dates';
 import {
 	availabilityRepo,
 	specialDayRepo,
-	assignmentTypeRepo,
 	dailyAssignmentRepo,
 	rosterHistoryRepo,
 	pinnedGroupRepo
 } from '$lib/server/repositories';
+import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 
 export interface CalendarData {
 	availabilityEntries: AvailabilityEntry[];
@@ -48,7 +48,7 @@ export async function fetchCalendarData(
 				start: rangeStartStr,
 				end: rangeEndStr
 			}),
-			assignmentTypeRepo.list(supabase, orgId),
+			AssignmentTypeEntity.repo.list(supabase, orgId),
 			dailyAssignmentRepo.queryDateRange(supabase, orgId, {
 				column: 'date',
 				start: rangeStartStr,

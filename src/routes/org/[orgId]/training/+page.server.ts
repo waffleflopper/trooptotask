@@ -1,7 +1,6 @@
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, depends }) => {
-	depends('app:shared-data');
+export const load: PageServerLoad = async ({ params }) => {
 	return {
 		orgId: params.orgId
 	};

@@ -10,7 +10,6 @@
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
-	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import OnboardingTemplateManager from '$features/onboarding/components/OnboardingTemplateManager.svelte';
 	import OnboardingReportModal from '$features/onboarding/components/OnboardingReportModal.svelte';
@@ -26,12 +25,7 @@
 
 	let { data } = $props();
 
-	// Hydrate onboarding-specific stores (universal stores hydrated in org layout)
-	$effect(() => {
-		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);
-		onboardingTemplateStore.load(data.onboardingTemplates, data.onboardingTemplateSteps, data.orgId);
-		onboardingStore.load(data.onboardings, data.orgId);
-	});
+	// Universal stores hydrated in org layout; onboarding stores hydrated in onboarding sub-layout.
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);
@@ -245,13 +239,13 @@
 			await checkAutoComplete(editingTrainingStep.onboardingId);
 		}
 		editingTrainingStep = null;
-		invalidate('app:shared-data');
+		invalidate('app:onboarding-data');
 	}
 
 	async function handleTrainingRemove(id: string) {
 		await personnelTrainingsStore.remove(id);
 		editingTrainingStep = null;
-		invalidate('app:shared-data');
+		invalidate('app:onboarding-data');
 	}
 
 	async function handleTrainingToggleExempt(exempt: boolean) {
@@ -264,7 +258,7 @@
 		await trainingTypesStore.update(type.id, { exemptPersonnelIds: updatedIds });
 		await checkAutoComplete(editingTrainingStep.onboardingId);
 		editingTrainingStep = null;
-		invalidate('app:shared-data');
+		invalidate('app:onboarding-data');
 	}
 
 	async function handleCancelOnboarding(id: string) {

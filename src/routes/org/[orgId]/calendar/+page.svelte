@@ -42,14 +42,7 @@
 	const calendarPersonnel = $derived(data.allPersonnel ?? data.personnel ?? []);
 	const scopedPersonnelIds = $derived(new Set((data.personnel ?? []).map((p: Personnel) => p.id)));
 
-	// Hydrate calendar-specific stores (universal stores hydrated in org layout)
-	$effect(() => {
-		availabilityStore.load(data.availabilityEntries, data.orgId);
-		specialDaysStore.load(data.specialDays, data.orgId);
-		dailyAssignmentsStore.load(data.assignmentTypes, data.dailyAssignments, data.orgId);
-		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
-		dutyRosterHistoryStore.load(data.rosterHistory);
-	});
+	// Calendar stores hydrated in calendar layout
 
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 	const canManageConfig = $derived(data.isOwner || data.isAdmin || data.isFullEditor);

@@ -1,11 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { getSupabaseClient } from '$lib/server/supabase';
-import { formatDate } from '$lib/utils/dates';
-import {
-	transformAvailabilityEntries,
-	transformAssignmentTypes,
-	transformDailyAssignments
-} from '$lib/server/transforms';
+import { fetchDashboardData } from '$lib/server/dashboardData';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, depends }) => {
 	depends('app:shared-data');
@@ -13,88 +8,14 @@ export const load: PageServerLoad = async ({ params, locals, cookies, depends })
 	const userId = locals.user?.id ?? null;
 	const supabase = getSupabaseClient(locals, cookies);
 
-	// Fetch ±1 day to cover timezone differences (server is UTC, client may not be)
-	const serverNow = new Date();
-	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
-	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
-
-	const [availabilityRes, assignmentTypesRes, todayAssignmentsRes, pinnedGroupsRes, onboardingsRes, ratingSchemeRes] =
-		await Promise.all([
-			supabase
-				.from('availability_entries')
-				.select('*')
-				.eq('organization_id', orgId)
-				.gte('end_date', yesterday)
-				.lte('start_date', twoWeeksOut),
-			supabase.from('assignment_types').select('*').eq('organization_id', orgId).order('sort_order'),
-			supabase
-				.from('daily_assignments')
-				.select('*')
-				.eq('organization_id', orgId)
-				.gte('date', yesterday)
-				.lte('date', twoWeeksOut),
-			userId
-				? supabase
-						.from('user_pinned_groups')
-						.select('*')
-						.eq('organization_id', orgId)
-						.eq('user_id', userId)
-						.order('sort_order')
-				: Promise.resolve({ data: [] }),
-			supabase
-				.from('personnel_onboardings')
-				.select('*, onboarding_step_progress(*)')
-				.eq('organization_id', orgId)
-				.eq('status', 'in_progress')
-				.order('created_at', { ascending: false }),
-			supabase
-				.from('rating_scheme_entries')
-				.select('id, rated_person_id, eval_type, rating_period_end, status')
-				.eq('organization_id', orgId)
-				.neq('status', 'completed')
-				.order('rating_period_end')
-		]);
-
-	const availabilityEntries = transformAvailabilityEntries(availabilityRes.data ?? []);
-	const assignmentTypes = transformAssignmentTypes(assignmentTypesRes.data ?? []);
-	const todayAssignments = transformDailyAssignments(todayAssignmentsRes.data ?? []);
-
-	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map(
-		(p: Record<string, unknown>) => p.group_name as string
-	);
-
-	const ratingSchemeEntries = (ratingSchemeRes.data ?? []).map((r: Record<string, unknown>) => ({
-		id: r.id as string,
-		ratedPersonId: r.rated_person_id as string,
-		evalType: r.eval_type as string,
-		ratingPeriodEnd: r.rating_period_end as string,
-		status: r.status as string
-	}));
-
-	const activeOnboardings = (onboardingsRes.data ?? []).map((o: Record<string, unknown>) => ({
-		id: o.id,
-		personnelId: o.personnel_id,
-		status: o.status,
-		startedAt: o.started_at,
-		steps: ((o.onboarding_step_progress as Record<string, unknown>[]) ?? [])
-			.sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
-			.map((s) => ({
-				id: s.id,
-				stepName: s.step_name,
-				stepType: s.step_type,
-				trainingTypeId: s.training_type_id,
-				completed: s.completed,
-				sortOrder: s.sort_order
-			}))
-	}));
-
-	// Getting Started checklist data
 	const [
+		dashboardData,
 		{ count: onboardingTemplateStepCount },
 		{ count: ratingSchemeEntryCount },
 		{ count: orgMemberCount },
 		{ data: gettingStartedData }
 	] = await Promise.all([
+		fetchDashboardData(supabase, orgId, userId),
 		supabase.from('onboarding_template_steps').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
 		supabase.from('rating_scheme_entries').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
 		supabase.from('organization_memberships').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
@@ -108,12 +29,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, depends })
 
 	return {
 		orgId,
-		availabilityEntries,
-		assignmentTypes,
-		todayAssignments,
-		pinnedGroups,
-		activeOnboardings,
-		ratingSchemeEntries,
+		...dashboardData,
 		onboardingTemplateStepCount: onboardingTemplateStepCount ?? 0,
 		ratingSchemeEntryCount: ratingSchemeEntryCount ?? 0,
 		orgMemberCount: orgMemberCount ?? 0,

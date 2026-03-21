@@ -2,13 +2,8 @@ import type { Personnel } from '$lib/types';
 import type { StatusType } from '$features/calendar/calendar.types';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { Group } from '$lib/stores/groups.svelte';
-import {
-	transformGroups,
-	transformStatusTypes,
-	transformTrainingTypes,
-	transformPersonnelTrainings
-} from '$lib/server/transforms';
 import { queryPersonnel, personnelIds } from '$lib/server/personnelRepository';
+import { groupRepo, statusTypeRepo, trainingTypeRepo, personnelTrainingRepo } from '$lib/server/repositories';
 
 const TRAINING_ROUTES = new Set(['training', 'onboarding', '']);
 
@@ -35,23 +30,15 @@ export async function fetchSharedData(
 ): Promise<SharedData> {
 	const loadTrainings = include?.personnelTrainings ?? false;
 
-	const [
-		allPersonnelResult,
-		scopedPersonnelResult,
-		groupsRes,
-		statusTypesRes,
-		trainingTypesRes,
-		personnelTrainingsRes
-	] = await Promise.all([
-		queryPersonnel({ supabase, orgId }),
-		scopedGroupId ? queryPersonnel({ supabase, orgId, scopedGroupId }) : null,
-		supabase.from('groups').select('*').eq('organization_id', orgId).order('sort_order'),
-		supabase.from('status_types').select('*').eq('organization_id', orgId).order('sort_order'),
-		supabase.from('training_types').select('*').eq('organization_id', orgId).order('sort_order'),
-		loadTrainings
-			? supabase.from('personnel_trainings').select('*').eq('organization_id', orgId)
-			: Promise.resolve({ data: [], error: null })
-	]);
+	const [allPersonnelResult, scopedPersonnelResult, groups, statusTypes, trainingTypes, allTrainings] =
+		await Promise.all([
+			queryPersonnel({ supabase, orgId }),
+			scopedGroupId ? queryPersonnel({ supabase, orgId, scopedGroupId }) : null,
+			groupRepo.list(supabase, orgId),
+			statusTypeRepo.list(supabase, orgId),
+			trainingTypeRepo.list(supabase, orgId),
+			loadTrainings ? personnelTrainingRepo.list(supabase, orgId) : Promise.resolve([] as PersonnelTraining[])
+		]);
 
 	if (allPersonnelResult.error) {
 		console.error('Failed to fetch personnel:', allPersonnelResult.error);
@@ -63,7 +50,6 @@ export async function fetchSharedData(
 	const allPersonnel = allPersonnelResult.data;
 	const personnel = scopedPersonnelResult ? scopedPersonnelResult.data : allPersonnel;
 
-	const allTrainings = transformPersonnelTrainings(personnelTrainingsRes.data ?? []);
 	let personnelTrainings = allTrainings;
 
 	if (scopedGroupId) {
@@ -74,9 +60,9 @@ export async function fetchSharedData(
 	return {
 		personnel,
 		allPersonnel,
-		groups: transformGroups(groupsRes.data ?? []),
-		statusTypes: transformStatusTypes(statusTypesRes.data ?? []),
-		trainingTypes: transformTrainingTypes(trainingTypesRes.data ?? []),
+		groups,
+		statusTypes,
+		trainingTypes,
 		personnelTrainings
 	};
 }

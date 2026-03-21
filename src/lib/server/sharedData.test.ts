@@ -55,13 +55,18 @@ const mockPersonnelTrainings: PersonnelTraining[] = [
 	}
 ];
 
+vi.mock('$lib/server/entities/group', () => ({
+	GroupEntity: {
+		repo: {
+			list: vi.fn(() => Promise.resolve(mockGroups)),
+			query: vi.fn(),
+			queryDateRange: vi.fn(),
+			queryByIds: vi.fn()
+		}
+	}
+}));
+
 vi.mock('$lib/server/repositories', () => ({
-	groupRepo: {
-		list: vi.fn(() => Promise.resolve(mockGroups)),
-		query: vi.fn(),
-		queryDateRange: vi.fn(),
-		queryByIds: vi.fn()
-	},
 	statusTypeRepo: {
 		list: vi.fn(() => Promise.resolve(mockStatusTypes)),
 		query: vi.fn(),
@@ -84,7 +89,8 @@ vi.mock('$lib/server/repositories', () => ({
 
 import { fetchSharedData } from './sharedData';
 import { queryPersonnel } from '$lib/server/personnelRepository';
-import { groupRepo, statusTypeRepo, trainingTypeRepo, personnelTrainingRepo } from '$lib/server/repositories';
+import { GroupEntity } from '$lib/server/entities/group';
+import { statusTypeRepo, trainingTypeRepo, personnelTrainingRepo } from '$lib/server/repositories';
 
 const allPersonnel: Personnel[] = [
 	{
@@ -125,7 +131,7 @@ function mockQueryPersonnelResult(data: Personnel[]): PersonnelQueryResult {
 describe('fetchSharedData', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(groupRepo.list).mockResolvedValue(mockGroups);
+		vi.mocked(GroupEntity.repo.list).mockResolvedValue(mockGroups);
 		vi.mocked(statusTypeRepo.list).mockResolvedValue(mockStatusTypes);
 		vi.mocked(trainingTypeRepo.list).mockResolvedValue(mockTrainingTypes);
 	});
@@ -188,7 +194,7 @@ describe('fetchSharedData', () => {
 		const supabase = mockSupabase();
 		await fetchSharedData(supabase, 'org1', null);
 
-		expect(groupRepo.list).toHaveBeenCalledWith(supabase, 'org1');
+		expect(GroupEntity.repo.list).toHaveBeenCalledWith(supabase, 'org1');
 		expect(statusTypeRepo.list).toHaveBeenCalledWith(supabase, 'org1');
 		expect(trainingTypeRepo.list).toHaveBeenCalledWith(supabase, 'org1');
 	});

@@ -3,13 +3,11 @@
  * Each repo centralizes read queries with consistent transforms, sorting, and org scoping.
  * See #216 / #222.
  */
-import type { Group } from '$lib/stores/groups.svelte';
 import type { StatusType, AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import {
-	transformGroups,
 	transformStatusTypes,
 	transformTrainingTypes,
 	transformAssignmentTypes,
@@ -22,12 +20,6 @@ import {
 	transformRatingSchemeEntries
 } from '$lib/server/transforms';
 import { createRepository } from '$lib/server/repositoryFactory';
-
-export const groupRepo = createRepository<Group>({
-	table: 'groups',
-	transform: transformGroups,
-	orderBy: [{ column: 'sort_order', ascending: true }]
-});
 
 export const statusTypeRepo = createRepository<StatusType>({
 	table: 'status_types',

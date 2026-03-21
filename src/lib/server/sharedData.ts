@@ -3,7 +3,8 @@ import type { StatusType } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import { queryPersonnel } from '$lib/server/personnelRepository';
-import { groupRepo, statusTypeRepo, trainingTypeRepo } from '$lib/server/repositories';
+import { GroupEntity } from '$lib/server/entities/group';
+import { statusTypeRepo, trainingTypeRepo } from '$lib/server/repositories';
 
 export interface SharedData {
 	personnel: Personnel[];
@@ -22,7 +23,7 @@ export async function fetchSharedData(
 	const [allPersonnelResult, scopedPersonnelResult, groups, statusTypes, trainingTypes] = await Promise.all([
 		queryPersonnel({ supabase, orgId }),
 		scopedGroupId ? queryPersonnel({ supabase, orgId, scopedGroupId }) : null,
-		groupRepo.list(supabase, orgId),
+		GroupEntity.repo.list(supabase, orgId),
 		statusTypeRepo.list(supabase, orgId),
 		trainingTypeRepo.list(supabase, orgId)
 	]);

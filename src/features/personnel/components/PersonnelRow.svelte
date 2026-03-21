@@ -3,7 +3,7 @@
 	import type { AvailabilityEntry, StatusType, SpecialDay } from '$features/calendar/calendar.types';
 	import type { AssignmentType, DailyAssignment } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { isWeekend, isToday, formatDate } from '$lib/utils/dates';
-	import DateCell from '$features/calendar/components/DateCell.svelte';
+	import DateCell from '$lib/components/ui/DateCell.svelte';
 
 	interface Props {
 		person: Personnel;

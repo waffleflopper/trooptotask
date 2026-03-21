@@ -13,13 +13,8 @@ function calculateExpirationDate(completionDate: string | null, expirationMonths
 export const POST = apiRoute({ permission: { edit: 'training' } }, async ({ supabase, orgId, userId, ctx }, event) => {
 	const body = await event.request.json();
 
-	if (ctx && body.personnelId) {
-		if (ctx.scopedGroupId) {
-			const { data: person } = await supabase.from('personnel').select('group_id').eq('id', body.personnelId).single();
-			if (person?.group_id !== ctx.scopedGroupId) {
-				throw error(403, 'You do not have access to personnel outside your group');
-			}
-		}
+	if (body.personnelId) {
+		await ctx.requireGroupAccess(supabase, body.personnelId);
 	}
 
 	// Fetch the training type to get expiration_months and expiration_date_only
@@ -138,17 +133,8 @@ export const PUT = apiRoute({ permission: { edit: 'training' } }, async ({ supab
 		.eq('id', id)
 		.single();
 
-	if (ctx && existing?.personnel_id) {
-		if (ctx.scopedGroupId) {
-			const { data: person } = await supabase
-				.from('personnel')
-				.select('group_id')
-				.eq('id', existing.personnel_id)
-				.single();
-			if (person?.group_id !== ctx.scopedGroupId) {
-				throw error(403, 'You do not have access to personnel outside your group');
-			}
-		}
+	if (existing?.personnel_id) {
+		await ctx.requireGroupAccess(supabase, existing.personnel_id);
 	}
 
 	let isExpirationDateOnly = false;
@@ -229,29 +215,10 @@ export const DELETE = apiRoute(
 
 		if (!id) throw error(400, 'Missing id');
 
-		if (ctx) {
-			const { data: existingRecord } = await supabase
-				.from('personnel_trainings')
-				.select('personnel_id')
-				.eq('id', id)
-				.eq('organization_id', orgId)
-				.single();
-			if (existingRecord?.personnel_id) {
-				if (ctx.scopedGroupId) {
-					const { data: person } = await supabase
-						.from('personnel')
-						.select('group_id')
-						.eq('id', existingRecord.personnel_id)
-						.single();
-					if (person?.group_id !== ctx.scopedGroupId) {
-						throw error(403, 'You do not have access to personnel outside your group');
-					}
-				}
-			}
+		await ctx.requireGroupAccessByRecord(supabase, 'personnel_trainings', id, orgId, 'personnel_id');
 
-			if (!ctx.isPrivileged && !ctx.isFullEditor) {
-				return json({ requiresApproval: true }, { status: 202 });
-			}
+		if (!ctx.isPrivileged && !ctx.isFullEditor) {
+			return json({ requiresApproval: true }, { status: 202 });
 		}
 
 		const { error: dbError } = await supabase

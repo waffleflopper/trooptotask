@@ -29,16 +29,8 @@ export const POST = apiRoute(
 	async ({ supabase, orgId, ctx }, event) => {
 		const body = await event.request.json();
 
-		// Enforce group scoping on the rated person
-		if (ctx?.scopedGroupId && body.ratedPersonId) {
-			const { data: person } = await supabase
-				.from('personnel')
-				.select('group_id')
-				.eq('id', body.ratedPersonId)
-				.single();
-			if (person && person.group_id !== ctx.scopedGroupId) {
-				throw error(403, 'You can only manage rating scheme entries for personnel in your group');
-			}
+		if (body.ratedPersonId) {
+			await ctx.requireGroupAccess(supabase, body.ratedPersonId);
 		}
 
 		const row = {
@@ -77,25 +69,7 @@ export const PUT = apiRoute(
 
 		if (!id) throw error(400, 'Missing id');
 
-		// Enforce group scoping on the rated person
-		if (ctx?.scopedGroupId) {
-			const { data: entry } = await supabase
-				.from('rating_scheme_entries')
-				.select('rated_person_id')
-				.eq('id', id)
-				.eq('organization_id', orgId)
-				.single();
-			if (entry) {
-				const { data: person } = await supabase
-					.from('personnel')
-					.select('group_id')
-					.eq('id', entry.rated_person_id)
-					.single();
-				if (person && person.group_id !== ctx.scopedGroupId) {
-					throw error(403, 'You can only manage rating scheme entries for personnel in your group');
-				}
-			}
-		}
+		await ctx.requireGroupAccessByRecord(supabase, 'rating_scheme_entries', id, orgId, 'rated_person_id');
 
 		const updates: Record<string, unknown> = {};
 		if (fields.ratedPersonId !== undefined) updates.rated_person_id = fields.ratedPersonId;
@@ -139,25 +113,7 @@ export const DELETE = apiRoute(
 
 		if (!id) throw error(400, 'Missing id');
 
-		// Enforce group scoping
-		if (ctx?.scopedGroupId) {
-			const { data: entry } = await supabase
-				.from('rating_scheme_entries')
-				.select('rated_person_id')
-				.eq('id', id)
-				.eq('organization_id', orgId)
-				.single();
-			if (entry) {
-				const { data: person } = await supabase
-					.from('personnel')
-					.select('group_id')
-					.eq('id', entry.rated_person_id)
-					.single();
-				if (person && person.group_id !== ctx.scopedGroupId) {
-					throw error(403, 'You can only manage rating scheme entries for personnel in your group');
-				}
-			}
-		}
+		await ctx.requireGroupAccessByRecord(supabase, 'rating_scheme_entries', id, orgId, 'rated_person_id');
 
 		// Deletion approval for non-full-editors
 		if (ctx && !ctx.isPrivileged && !ctx.isFullEditor) {

@@ -33,6 +33,7 @@
 <svelte:head>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- Static string for async font preload, no XSS risk -->
 	{@html `<link
 		rel="preload"
 		as="style"

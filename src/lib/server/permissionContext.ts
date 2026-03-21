@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createSupabaseGroupResolver, enforceGroupAccess, enforceGroupAccessBatch } from './groupAccess';
 
 export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'onboarding' | 'leaders-book';
 
@@ -22,6 +23,14 @@ export interface PermissionContext {
 	requireManageMembers(): void;
 
 	requireGroupAccess(supabase: SupabaseClient, personnelId: string): Promise<void>;
+	requireGroupAccessBatch(supabase: SupabaseClient, personnelIds: string[]): Promise<void>;
+	requireGroupAccessByRecord(
+		supabase: SupabaseClient,
+		table: string,
+		recordId: string,
+		orgId: string,
+		personnelIdColumn: string
+	): Promise<void>;
 }
 
 export function createSandboxContext(): PermissionContext {
@@ -51,7 +60,9 @@ export function createSandboxContext(): PermissionContext {
 		requireFullEditor(): void {},
 		requireManageMembers(): void {},
 
-		async requireGroupAccess(): Promise<void> {}
+		async requireGroupAccess(): Promise<void> {},
+		async requireGroupAccessBatch(): Promise<void> {},
+		async requireGroupAccessByRecord(): Promise<void> {}
 	};
 
 	return ctx;
@@ -163,13 +174,38 @@ export async function createPermissionContext(
 		},
 
 		async requireGroupAccess(supabaseClient: SupabaseClient, personnelId: string): Promise<void> {
+			const resolver = createSupabaseGroupResolver(supabaseClient);
+			await enforceGroupAccess(resolver, scopedGroupId, personnelId);
+		},
+
+		async requireGroupAccessBatch(supabaseClient: SupabaseClient, personnelIds: string[]): Promise<void> {
+			const resolver = createSupabaseGroupResolver(supabaseClient);
+			await enforceGroupAccessBatch(resolver, scopedGroupId, personnelIds);
+		},
+
+		async requireGroupAccessByRecord(
+			supabaseClient: SupabaseClient,
+			table: string,
+			recordId: string,
+			orgId: string,
+			personnelIdColumn: string
+		): Promise<void> {
 			if (!scopedGroupId) return;
 
-			const { data: person } = await supabaseClient.from('personnel').select('group_id').eq('id', personnelId).single();
+			const { data: record } = await supabaseClient
+				.from(table)
+				.select(personnelIdColumn)
+				.eq('id', recordId)
+				.eq('organization_id', orgId)
+				.single();
 
-			if (person && person.group_id !== scopedGroupId) {
-				throw error(403, 'You do not have access to personnel outside your group');
-			}
+			if (!record) return;
+
+			const personnelId = (record as unknown as Record<string, unknown>)[personnelIdColumn] as string | null;
+			if (!personnelId) return;
+
+			const resolver = createSupabaseGroupResolver(supabaseClient);
+			await enforceGroupAccess(resolver, scopedGroupId, personnelId);
 		}
 	};
 

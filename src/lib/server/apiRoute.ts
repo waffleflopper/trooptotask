@@ -171,7 +171,7 @@ export function apiRoute(
 			}
 		}
 
-		if (config.scopeByPersonnel && ctx.scopedGroupId) {
+		if (config.scopeByPersonnel) {
 			const camelField = snakeToCamel(config.scopeByPersonnel);
 			const personnelId = parsedBody?.[camelField] ?? parsedBody?.[config.scopeByPersonnel];
 			if (!personnelId || typeof personnelId !== 'string') {

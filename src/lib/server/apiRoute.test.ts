@@ -60,6 +60,8 @@ function mockPermissionContext(overrides: Partial<PermissionContext> = {}): Perm
 		requireFullEditor: vi.fn(),
 		requireManageMembers: vi.fn(),
 		requireGroupAccess: vi.fn(),
+		requireGroupAccessBatch: vi.fn(),
+		requireGroupAccessByRecord: vi.fn(),
 		...overrides
 	};
 }
@@ -706,7 +708,7 @@ describe('scopeByPersonnel', () => {
 		expect(ctx.requireGroupAccess).toHaveBeenCalledWith(mockSupabase, 'person-abc');
 	});
 
-	it('admin/owner (no scopedGroupId) → skips group check', async () => {
+	it('admin/owner (no scopedGroupId) → delegates to requireGroupAccess which no-ops', async () => {
 		const ctx = mockPermissionContext({ scopedGroupId: null, isPrivileged: true });
 		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
 		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
@@ -716,9 +718,10 @@ describe('scopeByPersonnel', () => {
 			async () => new Response('ok', { status: 200 })
 		);
 
-		await handler(mockRequestWithBody({ personnelId: 'person-abc' }));
+		const response = await handler(mockRequestWithBody({ personnelId: 'person-abc' }));
 
-		expect(ctx.requireGroupAccess).not.toHaveBeenCalled();
+		expect(response.status).toBe(200);
+		expect(ctx.requireGroupAccess).toHaveBeenCalledWith(mockSupabase, 'person-abc');
 	});
 
 	it('missing personnel ID in body → returns 400', async () => {

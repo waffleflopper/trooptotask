@@ -10,8 +10,13 @@ const mockDailyAssignmentList = vi.fn();
 const mockPinnedGroupList = vi.fn();
 const mockRatingSchemeList = vi.fn();
 
+vi.mock('$lib/server/entities/availabilityEntry', () => ({
+	AvailabilityEntryEntity: {
+		repo: { list: mockAvailabilityList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+	}
+}));
+
 vi.mock('$lib/server/repositories', () => ({
-	availabilityRepo: { list: mockAvailabilityList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() },
 	dailyAssignmentRepo: {
 		list: mockDailyAssignmentList,
 		query: vi.fn(),

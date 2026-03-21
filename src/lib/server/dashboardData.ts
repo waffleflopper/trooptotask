@@ -4,8 +4,9 @@
  * See #216 / #227.
  */
 import { formatDate } from '$lib/utils/dates';
-import { availabilityRepo, dailyAssignmentRepo, pinnedGroupRepo, ratingSchemeRepo } from '$lib/server/repositories';
+import { dailyAssignmentRepo, pinnedGroupRepo, ratingSchemeRepo } from '$lib/server/repositories';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
+import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { findOnboardings } from '$lib/server/onboardingRepository';
 import type { QueryModifier } from '$lib/server/repositoryFactory';
 
@@ -28,7 +29,7 @@ export async function fetchDashboardData(supabase: SupabaseClient, orgId: string
 
 	const [availabilityEntries, assignmentTypes, todayAssignments, pinnedGroups, ratingSchemeEntries, onboardingsResult] =
 		await Promise.all([
-			availabilityRepo.list(supabase, orgId, { filters: [dateOverlapFilter] }),
+			AvailabilityEntryEntity.repo.list(supabase, orgId, { filters: [dateOverlapFilter] }),
 			AssignmentTypeEntity.repo.list(supabase, orgId),
 			dailyAssignmentRepo.list(supabase, orgId, { filters: [dailyDateFilter] }),
 			userId ? pinnedGroupRepo.list(supabase, orgId, { filters: [userFilter] }) : Promise.resolve([]),

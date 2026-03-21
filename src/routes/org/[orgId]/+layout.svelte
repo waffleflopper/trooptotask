@@ -45,21 +45,25 @@
 	// Re-fetch shared data when the window regains focus (handles idle tabs,
 	// switching apps, and multi-user changes). Uses focus/blur instead of
 	// visibilitychange so it also catches alt-tabbing between windows.
-	// The wasAway guard prevents a spurious re-fetch on initial page load.
+	// Debounced to 2s so rapid tab-switching doesn't trigger multiple refetches.
 	onMount(() => {
 		let wasAway = false;
+		let debounceTimer: ReturnType<typeof setTimeout>;
 		const handleBlur = () => {
 			wasAway = true;
+			clearTimeout(debounceTimer);
 		};
 		const handleFocus = () => {
 			if (wasAway) {
 				wasAway = false;
-				invalidate('app:shared-data');
+				clearTimeout(debounceTimer);
+				debounceTimer = setTimeout(() => invalidate('app:shared-data'), 2000);
 			}
 		};
 		window.addEventListener('blur', handleBlur);
 		window.addEventListener('focus', handleFocus);
 		return () => {
+			clearTimeout(debounceTimer);
 			window.removeEventListener('blur', handleBlur);
 			window.removeEventListener('focus', handleFocus);
 		};

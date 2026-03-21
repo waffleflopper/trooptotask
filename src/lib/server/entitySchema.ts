@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import { json, error } from '@sveltejs/kit';
+import type { RequestHandler } from '@sveltejs/kit';
+import { apiRoute, type PermissionSpec, type AuditConfig } from './apiRoute';
+import type { FeatureArea } from './permissionContext';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface FieldMeta {
 	column: string | undefined;
@@ -39,6 +44,25 @@ export interface EntityConfig<T = unknown> {
 	groupScope: GroupScopeConfig;
 	schema: EntitySchema;
 	customTransform?: (row: Record<string, unknown>) => T;
+	permission?: FeatureArea;
+	requireFullEditor?: boolean;
+	audit?: string | AuditConfig;
+	select?: string;
+	onDelete?: (supabase: SupabaseClient, orgId: string, id: string) => Promise<void>;
+	onAfterDelete?: (context: {
+		orgId: string;
+		userId: string | null;
+		userEmail: string | undefined;
+		id: string;
+		deletedDetails: Record<string, unknown> | null;
+	}) => Promise<void>;
+	requireDeletionApproval?: boolean;
+}
+
+export interface EntityHandlers {
+	POST: RequestHandler;
+	PUT: RequestHandler;
+	DELETE: RequestHandler;
 }
 
 export interface EntityDefinition<T = unknown> {
@@ -53,6 +77,7 @@ export interface EntityDefinition<T = unknown> {
 	toDbUpdate: (body: Record<string, unknown>) => Record<string, unknown>;
 	createSchema: z.ZodObject<z.ZodRawShape>;
 	updateSchema: z.ZodObject<z.ZodRawShape>;
+	handlers: EntityHandlers;
 }
 
 export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefinition<T> {
@@ -149,6 +174,128 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 	}
 	const updateSchema = z.object(updateShape);
 
+	// Build handlers
+	const permissionSpec: PermissionSpec = config.requireFullEditor
+		? { fullEditor: true }
+		: config.permission
+			? { edit: config.permission }
+			: { authenticated: true };
+
+	const select = config.select ?? '*';
+
+	// Determine scopeByPersonnel for POST group scope
+	const scopeByPersonnel = groupScope !== 'none' && personnelIdField ? fieldMap[personnelIdField] : undefined;
+
+	const POST = apiRoute(
+		{
+			permission: permissionSpec,
+			schema: createSchema,
+			audit: config.audit,
+			scopeByPersonnel
+		},
+		async ({ supabase, orgId, body: validatedBody }) => {
+			const insertData = toDbInsert(validatedBody ?? {}, orgId);
+
+			const { data, error: dbError } = await supabase.from(table).insert(insertData).select(select).single();
+
+			if (dbError) throw error(500, dbError.message);
+
+			const row = data as unknown as Record<string, unknown>;
+			return json(fromDb(row));
+		}
+	);
+
+	const PUT = apiRoute(
+		{
+			permission: permissionSpec,
+			schema: updateSchema,
+			audit: config.audit
+		},
+		async ({ supabase, orgId, body: validatedBody, ctx }) => {
+			const body = validatedBody ?? {};
+			const { id } = body as { id: string };
+
+			if (!id) throw error(400, 'Missing id');
+
+			const { validateUUID } = await import('./validation');
+			if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
+
+			// Group scope enforcement for PUT
+			if (groupScope !== 'none' && personnelIdField) {
+				await ctx.requireGroupAccessByRecord(supabase, table, id, orgId, groupScope.personnelColumn);
+			}
+
+			const updates = toDbUpdate(body);
+
+			if (Object.keys(updates).length === 0) {
+				throw error(400, 'No fields to update');
+			}
+
+			const { data, error: dbError } = await supabase
+				.from(table)
+				.update(updates)
+				.eq('id', id)
+				.eq('organization_id', orgId)
+				.select(select)
+				.single();
+
+			if (dbError) throw error(500, dbError.message);
+
+			const row = data as unknown as Record<string, unknown>;
+			return json(fromDb(row));
+		}
+	);
+
+	const DELETE = apiRoute(
+		{
+			permission: permissionSpec,
+			audit: config.audit
+		},
+		async ({ supabase, orgId, userId, ctx }, event) => {
+			const body = await event.request.json();
+			const { id } = body;
+
+			if (!id) throw error(400, 'Missing id');
+
+			const { validateUUID } = await import('./validation');
+			if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
+
+			// Group scope enforcement for DELETE
+			if (groupScope !== 'none' && personnelIdField) {
+				await ctx.requireGroupAccessByRecord(supabase, table, id, orgId, groupScope.personnelColumn);
+			}
+
+			// Deletion approval check
+			if (config.requireDeletionApproval && !ctx.isPrivileged && !ctx.isFullEditor) {
+				return json({ requiresApproval: true }, { status: 202 });
+			}
+
+			// Cascade delete
+			if (config.onDelete) {
+				await config.onDelete(supabase, orgId, id);
+			}
+
+			const { error: dbError } = await supabase.from(table).delete().eq('id', id).eq('organization_id', orgId);
+
+			if (dbError) throw error(500, dbError.message);
+
+			// After-delete callback
+			if (config.onAfterDelete) {
+				await config.onAfterDelete({
+					orgId,
+					userId: userId ?? null,
+					userEmail: event.locals.user?.email,
+					id,
+					deletedDetails: null
+				});
+			}
+
+			return json({ success: true });
+		}
+	);
+
+	const handlers: EntityHandlers = { POST, PUT, DELETE };
+
 	return {
 		table,
 		groupScope,
@@ -160,6 +307,7 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		toDbInsert,
 		toDbUpdate,
 		createSchema,
-		updateSchema
+		updateSchema,
+		handlers
 	};
 }

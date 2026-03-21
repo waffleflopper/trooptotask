@@ -14,7 +14,7 @@
  * See #245 for the ports & adapters design.
  */
 import type { Personnel } from '$lib/types';
-import { transformPersonnel } from '$lib/server/transforms';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase query builder type is complex and varies by context
 type SupabaseQuery = any;
@@ -106,7 +106,7 @@ export async function queryPersonnel<T = Personnel>(config: PersonnelQueryConfig
 		return { data: [] as unknown as T[], count: resultCount ?? null, error: null };
 	}
 
-	const transformed = transform === 'raw' ? rows : transformPersonnel(rows);
+	const transformed = transform === 'raw' ? rows : PersonnelEntity.fromDbArray(rows);
 	return { data: transformed as T[], count: resultCount ?? null, error: null };
 }
 

@@ -23,6 +23,7 @@ export interface QueryOptions {
 	orderBy?: Array<{ column: string; ascending?: boolean }>;
 	filters?: QueryModifier[];
 	count?: 'exact' | 'planned' | 'estimated';
+	limit?: number;
 }
 
 export interface QueryResult<T> {
@@ -72,6 +73,10 @@ export function createRepository<T>(config: RepositoryConfig<T>): Repository<T> 
 
 		for (const { column, ascending = true } of orderBy) {
 			q = q.order(column, { ascending });
+		}
+
+		if (options?.limit != null) {
+			q = q.limit(options.limit);
 		}
 
 		const { data, error, count: resultCount } = await q;

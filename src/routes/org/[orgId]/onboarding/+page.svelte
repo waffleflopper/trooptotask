@@ -26,12 +26,8 @@
 
 	let { data } = $props();
 
-	// Hydrate stores with server data
+	// Hydrate onboarding-specific stores (universal stores hydrated in org layout)
 	$effect(() => {
-		personnelStore.load(data.personnel ?? [], data.orgId);
-		groupsStore.load(data.groups ?? [], data.orgId);
-		statusTypesStore.load(data.statusTypes ?? [], data.orgId);
-		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
 		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);
 		onboardingTemplateStore.load(data.onboardingTemplates, data.onboardingTemplateSteps, data.orgId);
 		onboardingStore.load(data.onboardings, data.orgId);

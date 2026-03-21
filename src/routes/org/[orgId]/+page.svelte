@@ -63,13 +63,10 @@
 		}
 	}
 
+	// Hydrate dashboard-specific stores (universal stores hydrated in org layout)
 	$effect(() => {
-		personnelStore.load(data.personnel ?? [], data.orgId);
-		groupsStore.load(data.groups ?? [], data.orgId);
-		statusTypesStore.load(data.statusTypes ?? [], data.orgId);
 		availabilityStore.load(data.availabilityEntries, data.orgId);
 		dailyAssignmentsStore.load(data.assignmentTypes, data.todayAssignments, data.orgId);
-		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
 		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
 	});

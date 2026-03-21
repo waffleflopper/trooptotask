@@ -3,7 +3,7 @@
 	import type { AvailabilityEntry, StatusType, SpecialDay } from '$features/calendar/calendar.types';
 	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 	import CalendarHeader from './CalendarHeader.svelte';
-	import PersonnelRow from '$features/personnel/components/PersonnelRow.svelte';
+	import CalendarRow from './CalendarRow.svelte';
 	import GroupHeader from '$lib/components/GroupHeader.svelte';
 
 	interface GroupData {
@@ -176,7 +176,7 @@
 				/>
 				{#if !collapsedGroups.has(grp.group)}
 					{#each grp.personnel as person (person.id)}
-						<PersonnelRow
+						<CalendarRow
 							{person}
 							{dates}
 							personAvailability={availabilityByPerson.get(person.id) ?? []}

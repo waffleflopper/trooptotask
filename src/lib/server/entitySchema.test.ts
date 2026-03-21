@@ -279,6 +279,47 @@ describe('defineEntity() updateSchema', () => {
 	});
 });
 
+describe('defineEntity() groupScope validation', () => {
+	it('throws if groupScope.personnelColumn does not match isPersonnelId field column', () => {
+		expect(() =>
+			defineEntity({
+				table: 'bad',
+				groupScope: { personnelColumn: 'wrong_column' },
+				schema: {
+					id: field(z.string(), { readOnly: true }),
+					personnelId: field(z.string(), { column: 'personnel_id', isPersonnelId: true })
+				}
+			})
+		).toThrow(/personnelColumn.*mismatch/i);
+	});
+
+	it('does not throw when groupScope.personnelColumn matches isPersonnelId field', () => {
+		expect(() =>
+			defineEntity({
+				table: 'ok',
+				groupScope: { personnelColumn: 'personnel_id' },
+				schema: {
+					id: field(z.string(), { readOnly: true }),
+					personnelId: field(z.string(), { column: 'personnel_id', isPersonnelId: true })
+				}
+			})
+		).not.toThrow();
+	});
+
+	it('throws if groupScope has personnelColumn but no field is marked isPersonnelId', () => {
+		expect(() =>
+			defineEntity({
+				table: 'bad',
+				groupScope: { personnelColumn: 'personnel_id' },
+				schema: {
+					id: field(z.string(), { readOnly: true }),
+					name: field(z.string())
+				}
+			})
+		).toThrow(/isPersonnelId/i);
+	});
+});
+
 describe('defineEntity() customTransform', () => {
 	it('overrides fromDb when provided', () => {
 		const entity = defineEntity({

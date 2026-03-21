@@ -391,6 +391,19 @@ describe('entity handlers delete callbacks', () => {
 		expect(data).toEqual({ requiresApproval: true });
 	});
 
+	it('DELETE rejects missing id via Zod validation', async () => {
+		const mockSupabase = createDeleteMockSupabase();
+		const ctx = mockPermissionContext();
+		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
+		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
+
+		const entity = createTestEntity();
+		const event = mockRequestEvent('DELETE', { notAnId: 'oops' });
+
+		const response = await entity.handlers.DELETE(event);
+		expect(response.status).toBe(400);
+	});
+
 	it('requireDeletionApproval allows privileged users to delete', async () => {
 		const mockSupabase = createDeleteMockSupabase();
 		const ctx = mockPermissionContext({ isPrivileged: true });
@@ -403,5 +416,50 @@ describe('entity handlers delete callbacks', () => {
 		const response = await entity.handlers.DELETE(event);
 
 		expect(response.status).toBe(200);
+	});
+
+	it('captures record details before deleting when audit has detailFields', async () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const mockSupabase: any = { from: vi.fn() };
+		// Set up select chain for detail capture
+		const selectChain = {
+			eq: vi.fn().mockReturnValue({
+				eq: vi.fn().mockReturnValue({
+					single: vi.fn().mockResolvedValue({
+						data: { name: 'Alpha Group' },
+						error: null
+					})
+				})
+			})
+		};
+		// Set up delete chain
+		const deleteChain = {
+			eq: vi.fn().mockReturnValue({
+				eq: vi.fn().mockResolvedValue({ error: null })
+			})
+		};
+		mockSupabase.from.mockReturnValue({
+			select: vi.fn().mockReturnValue(selectChain),
+			delete: vi.fn().mockReturnValue(deleteChain)
+		});
+
+		const ctx = mockPermissionContext();
+		vi.mocked(getApiContext).mockReturnValue({ supabase: mockSupabase, userId: 'user-1', isSandbox: false });
+		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
+
+		const onAfterDelete = vi.fn().mockResolvedValue(undefined);
+		const entity = createTestEntity({
+			audit: { resourceType: 'test_record', detailFields: ['name'] },
+			onAfterDelete
+		});
+		const event = mockRequestEvent('DELETE', { id: 'del-id' });
+
+		await entity.handlers.DELETE(event);
+
+		expect(onAfterDelete).toHaveBeenCalledWith(
+			expect.objectContaining({
+				deletedDetails: { name: 'Alpha Group' }
+			})
+		);
 	});
 });

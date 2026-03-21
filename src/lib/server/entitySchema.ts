@@ -105,6 +105,20 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		}
 	}
 
+	// Validate groupScope.personnelColumn matches isPersonnelId field
+	if (groupScope !== 'none') {
+		if (!personnelIdField) {
+			throw new Error(`Entity "${table}": groupScope has personnelColumn but no field is marked isPersonnelId`);
+		}
+		const expectedColumn = fieldMap[personnelIdField];
+		if (groupScope.personnelColumn !== expectedColumn) {
+			throw new Error(
+				`Entity "${table}": groupScope.personnelColumn mismatch — ` +
+					`got "${groupScope.personnelColumn}" but isPersonnelId field "${personnelIdField}" maps to "${expectedColumn}"`
+			);
+		}
+	}
+
 	// fromDb: snake_case row → camelCase object
 	function defaultFromDb(row: Record<string, unknown>): T {
 		const result: Record<string, unknown> = {};
@@ -249,16 +263,16 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		}
 	);
 
+	const deleteSchema = z.object({ id: z.string().min(1) });
+
 	const DELETE = apiRoute(
 		{
 			permission: permissionSpec,
+			schema: deleteSchema,
 			audit: config.audit
 		},
-		async ({ supabase, orgId, userId, ctx }, event) => {
-			const body = await event.request.json();
-			const { id } = body;
-
-			if (!id) throw error(400, 'Missing id');
+		async ({ supabase, orgId, userId, body: validatedBody, ctx }, event) => {
+			const { id } = validatedBody as { id: string };
 
 			const { validateUUID } = await import('./validation');
 			if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
@@ -271,6 +285,24 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 			// Deletion approval check
 			if (config.requireDeletionApproval && !ctx.isPrivileged && !ctx.isFullEditor) {
 				return json({ requiresApproval: true }, { status: 202 });
+			}
+
+			// Capture record details before deletion for audit
+			let deletedDetails: Record<string, unknown> | null = null;
+			const auditConfig = config.audit
+				? typeof config.audit === 'string'
+					? { resourceType: config.audit }
+					: config.audit
+				: null;
+
+			if (auditConfig?.detailFields?.length) {
+				const { data: existing } = await supabase
+					.from(table)
+					.select(auditConfig.detailFields.join(', '))
+					.eq('id', id)
+					.eq('organization_id', orgId)
+					.single();
+				if (existing) deletedDetails = existing as unknown as Record<string, unknown>;
 			}
 
 			// Cascade delete
@@ -289,7 +321,7 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 					userId: userId ?? null,
 					userEmail: event.locals.user?.email,
 					id,
-					deletedDetails: null
+					deletedDetails
 				});
 			}
 

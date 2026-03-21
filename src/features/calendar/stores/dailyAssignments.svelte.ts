@@ -1,21 +1,8 @@
 import { createReactiveCollection, createStore, createMutationLog, replay } from '$lib/stores/core';
 import type { MutationEntry } from '$lib/stores/core';
+import type { AssignmentType, DailyAssignment } from '$lib/types';
 
-export interface AssignmentType {
-	id: string;
-	name: string;
-	shortName: string;
-	assignTo: 'personnel' | 'group';
-	color: string;
-	exemptPersonnelIds: string[];
-}
-
-export interface DailyAssignment {
-	id: string;
-	date: string;
-	assignmentTypeId: string;
-	assigneeId: string;
-}
+export type { AssignmentType, DailyAssignment } from '$lib/types';
 
 class DailyAssignmentsStore {
 	#typeStore = createStore<AssignmentType>({ resource: 'assignment-types' });

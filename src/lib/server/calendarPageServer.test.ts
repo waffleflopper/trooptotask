@@ -9,6 +9,7 @@ const mockSpecialDayQueryDateRange = vi.fn();
 const mockAssignmentTypeList = vi.fn();
 const mockDailyAssignmentQueryDateRange = vi.fn();
 const mockRosterHistoryList = vi.fn();
+const mockPinnedGroupList = vi.fn();
 
 vi.mock('$lib/server/repositories', () => ({
 	availabilityRepo: { list: mockAvailabilityList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() },
@@ -20,45 +21,9 @@ vi.mock('$lib/server/repositories', () => ({
 		queryDateRange: mockDailyAssignmentQueryDateRange,
 		queryByIds: vi.fn()
 	},
-	rosterHistoryRepo: { list: mockRosterHistoryList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+	rosterHistoryRepo: { list: mockRosterHistoryList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() },
+	pinnedGroupRepo: { list: mockPinnedGroupList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
 }));
-
-// Mock supabase for pinned groups (stays raw)
-function createMockSupabase(pinnedGroupRows: Record<string, unknown>[] = []) {
-	const calls: Record<string, unknown[][]> = {};
-
-	function record(method: string) {
-		return (...args: unknown[]) => {
-			calls[method] = calls[method] ?? [];
-			calls[method].push(args);
-			return builder;
-		};
-	}
-
-	const builder: Record<string, unknown> = {
-		select: record('select'),
-		eq: record('eq'),
-		order: record('order'),
-		then: undefined
-	};
-
-	Object.defineProperty(builder, 'then', {
-		value: (resolve: (val: unknown) => void) => {
-			resolve({ data: pinnedGroupRows });
-		},
-		configurable: true
-	});
-
-	const supabase = {
-		from: (table: string) => {
-			calls['from'] = calls['from'] ?? [];
-			calls['from'].push([table]);
-			return builder;
-		}
-	};
-
-	return { supabase, calls };
-}
 
 function setupMockDefaults() {
 	const availEntries = [
@@ -87,6 +52,7 @@ function setupMockDefaults() {
 	mockAssignmentTypeList.mockResolvedValue(assignmentTypes);
 	mockDailyAssignmentQueryDateRange.mockResolvedValue({ data: dailyAssignments, count: null, error: null });
 	mockRosterHistoryList.mockResolvedValue(rosterHistory);
+	mockPinnedGroupList.mockResolvedValue(['Alpha']);
 
 	return { availEntries, specialDays, assignmentTypes, dailyAssignments, rosterHistory };
 }
@@ -98,10 +64,9 @@ describe('fetchCalendarData', () => {
 
 	it('returns all expected data fields using repos', async () => {
 		const { availEntries, specialDays, assignmentTypes, dailyAssignments, rosterHistory } = setupMockDefaults();
-		const { supabase } = createMockSupabase([{ group_name: 'Alpha' }]);
 
 		const { fetchCalendarData } = await import('./calendarData');
-		const result = await fetchCalendarData(supabase, ORG_ID, USER_ID);
+		const result = await fetchCalendarData({} as never, ORG_ID, USER_ID);
 
 		expect(result.availabilityEntries).toEqual(availEntries);
 		expect(result.specialDays).toEqual(specialDays);
@@ -113,10 +78,9 @@ describe('fetchCalendarData', () => {
 
 	it('uses availability repo with custom overlap filters for date range', async () => {
 		setupMockDefaults();
-		const { supabase } = createMockSupabase();
 
 		const { fetchCalendarData } = await import('./calendarData');
-		await fetchCalendarData(supabase, ORG_ID, USER_ID);
+		await fetchCalendarData({} as never, ORG_ID, USER_ID);
 
 		// availabilityRepo.list should be called with custom filters (not queryDateRange)
 		// because availability uses a two-column overlap query
@@ -129,10 +93,9 @@ describe('fetchCalendarData', () => {
 
 	it('uses queryDateRange for special days and daily assignments', async () => {
 		setupMockDefaults();
-		const { supabase } = createMockSupabase();
 
 		const { fetchCalendarData } = await import('./calendarData');
-		await fetchCalendarData(supabase, ORG_ID, USER_ID);
+		await fetchCalendarData({} as never, ORG_ID, USER_ID);
 
 		expect(mockSpecialDayQueryDateRange).toHaveBeenCalledWith(
 			expect.anything(),
@@ -148,10 +111,9 @@ describe('fetchCalendarData', () => {
 
 	it('limits roster history to 50 entries', async () => {
 		setupMockDefaults();
-		const { supabase } = createMockSupabase();
 
 		const { fetchCalendarData } = await import('./calendarData');
-		await fetchCalendarData(supabase, ORG_ID, USER_ID);
+		await fetchCalendarData({} as never, ORG_ID, USER_ID);
 
 		expect(mockRosterHistoryList).toHaveBeenCalledWith(
 			expect.anything(),
@@ -160,13 +122,26 @@ describe('fetchCalendarData', () => {
 		);
 	});
 
-	it('returns empty pinned groups when no userId', async () => {
+	it('filters pinned groups by user_id via repo', async () => {
 		setupMockDefaults();
-		const { supabase } = createMockSupabase();
 
 		const { fetchCalendarData } = await import('./calendarData');
-		const result = await fetchCalendarData(supabase, ORG_ID, null);
+		await fetchCalendarData({} as never, ORG_ID, USER_ID);
+
+		expect(mockPinnedGroupList).toHaveBeenCalledWith(
+			expect.anything(),
+			ORG_ID,
+			expect.objectContaining({ filters: expect.any(Array) })
+		);
+	});
+
+	it('returns empty pinned groups when no userId', async () => {
+		setupMockDefaults();
+
+		const { fetchCalendarData } = await import('./calendarData');
+		const result = await fetchCalendarData({} as never, ORG_ID, null);
 
 		expect(result.pinnedGroups).toEqual([]);
+		expect(mockPinnedGroupList).not.toHaveBeenCalled();
 	});
 });

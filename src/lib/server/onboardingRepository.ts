@@ -81,10 +81,15 @@ export async function findOnboardings(
 }
 
 export async function countTemplateSteps(supabase: SupabaseClient, orgId: string): Promise<number> {
-	const { count } = await supabase
+	const { count, error } = await supabase
 		.from('onboarding_template_steps')
 		.select('id', { count: 'exact', head: true })
 		.eq('organization_id', orgId);
+
+	if (error) {
+		console.error('Failed to count template steps:', error.message);
+		return 0;
+	}
 
 	return count ?? 0;
 }

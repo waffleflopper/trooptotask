@@ -8,7 +8,8 @@ import {
 	specialDayRepo,
 	assignmentTypeRepo,
 	dailyAssignmentRepo,
-	rosterHistoryRepo
+	rosterHistoryRepo,
+	pinnedGroupRepo
 } from '$lib/server/repositories';
 
 export interface CalendarData {
@@ -37,40 +38,26 @@ export async function fetchCalendarData(
 	const availabilityOverlapFilter: QueryModifier = (q) =>
 		q.gte('end_date', rangeStartStr).lte('start_date', rangeEndStr);
 
-	const [
-		availabilityEntries,
-		specialDaysResult,
-		assignmentTypes,
-		dailyAssignmentsResult,
-		pinnedGroupsRes,
-		rosterHistory
-	] = await Promise.all([
-		availabilityRepo.list(supabase, orgId, { filters: [availabilityOverlapFilter] }),
-		specialDayRepo.queryDateRange(supabase, orgId, {
-			column: 'date',
-			start: rangeStartStr,
-			end: rangeEndStr
-		}),
-		assignmentTypeRepo.list(supabase, orgId),
-		dailyAssignmentRepo.queryDateRange(supabase, orgId, {
-			column: 'date',
-			start: rangeStartStr,
-			end: rangeEndStr
-		}),
-		userId
-			? supabase
-					.from('user_pinned_groups')
-					.select('*')
-					.eq('organization_id', orgId)
-					.eq('user_id', userId)
-					.order('sort_order')
-			: Promise.resolve({ data: [] }),
-		rosterHistoryRepo.list(supabase, orgId, { limit: 50 })
-	]);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase query builder type
+	const userFilter: QueryModifier = (q: any) => q.eq('user_id', userId);
 
-	const pinnedGroups: string[] = (pinnedGroupsRes.data ?? []).map(
-		(p: Record<string, unknown>) => p.group_name as string
-	);
+	const [availabilityEntries, specialDaysResult, assignmentTypes, dailyAssignmentsResult, pinnedGroups, rosterHistory] =
+		await Promise.all([
+			availabilityRepo.list(supabase, orgId, { filters: [availabilityOverlapFilter] }),
+			specialDayRepo.queryDateRange(supabase, orgId, {
+				column: 'date',
+				start: rangeStartStr,
+				end: rangeEndStr
+			}),
+			assignmentTypeRepo.list(supabase, orgId),
+			dailyAssignmentRepo.queryDateRange(supabase, orgId, {
+				column: 'date',
+				start: rangeStartStr,
+				end: rangeEndStr
+			}),
+			userId ? pinnedGroupRepo.list(supabase, orgId, { filters: [userFilter] }) : Promise.resolve([]),
+			rosterHistoryRepo.list(supabase, orgId, { limit: 50 })
+		]);
 
 	return {
 		availabilityEntries,

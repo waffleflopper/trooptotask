@@ -18,9 +18,11 @@ vi.mock('$lib/server/onboardingRepository', () => ({
 	findOnboardings: (...args: unknown[]) => mockFindOnboardings(...args)
 }));
 
-vi.mock('$lib/server/repositories', () => ({
-	personnelTrainingRepo: {
-		list: (...args: unknown[]) => mockPersonnelTrainingList(...args)
+vi.mock('$lib/server/entities/personnelTraining', () => ({
+	PersonnelTrainingEntity: {
+		repo: {
+			list: (...args: unknown[]) => mockPersonnelTrainingList(...args)
+		}
 	}
 }));
 

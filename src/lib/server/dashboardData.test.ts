@@ -16,15 +16,22 @@ vi.mock('$lib/server/entities/availabilityEntry', () => ({
 	}
 }));
 
-vi.mock('$lib/server/repositories', () => ({
-	dailyAssignmentRepo: {
-		list: mockDailyAssignmentList,
-		query: vi.fn(),
-		queryDateRange: vi.fn(),
-		queryByIds: vi.fn()
-	},
-	pinnedGroupRepo: { list: mockPinnedGroupList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() },
-	ratingSchemeRepo: { list: mockRatingSchemeList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+vi.mock('$lib/server/entities/dailyAssignment', () => ({
+	DailyAssignmentEntity: {
+		repo: { list: mockDailyAssignmentList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+	}
+}));
+
+vi.mock('$lib/server/entities/pinnedGroups', () => ({
+	PinnedGroupsEntity: {
+		repo: { list: mockPinnedGroupList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+	}
+}));
+
+vi.mock('$lib/server/entities/ratingSchemeEntry', () => ({
+	RatingSchemeEntryEntity: {
+		repo: { list: mockRatingSchemeList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+	}
 }));
 
 vi.mock('$lib/server/entities/assignmentType', () => ({

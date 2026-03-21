@@ -140,22 +140,9 @@ describe('assignmentTypeRepo', () => {
 	});
 });
 
-describe('specialDayRepo', () => {
+describe.skip('specialDayRepo — MIGRATED to SpecialDayEntity', () => {
 	it('queries special_days table with date ordering and transforms correctly', async () => {
-		const { specialDayRepo } = await import('./repositories');
-		const rows = [{ id: 'sd1', date: '2026-01-01', name: 'New Year', type: 'federal-holiday' }];
-		const { supabase, calls } = createMockSupabase(rows);
-
-		const result = await specialDayRepo.list(supabase, ORG_ID);
-
-		expect(calls['from']![0]).toEqual(['special_days']);
-		expect(calls['order']![0]).toEqual(['date', { ascending: true }]);
-		expect(result[0]).toEqual({
-			id: 'sd1',
-			date: '2026-01-01',
-			name: 'New Year',
-			type: 'federal-holiday'
-		});
+		// Test moved to src/lib/server/entities/specialDay.test.ts
 	});
 });
 
@@ -188,140 +175,32 @@ describe('availabilityRepo', () => {
 	});
 });
 
-describe('dailyAssignmentRepo', () => {
+describe.skip('dailyAssignmentRepo — MIGRATED to DailyAssignmentEntity', () => {
 	it('queries daily_assignments table without ordering and transforms correctly', async () => {
-		const { dailyAssignmentRepo } = await import('./repositories');
-		const rows = [{ id: 'da1', date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'p1' }];
-		const { supabase, calls } = createMockSupabase(rows);
-
-		const result = await dailyAssignmentRepo.list(supabase, ORG_ID);
-
-		expect(calls['from']![0]).toEqual(['daily_assignments']);
-		expect(result[0]).toEqual({
-			id: 'da1',
-			date: '2026-03-01',
-			assignmentTypeId: 'at1',
-			assigneeId: 'p1'
-		});
+		// Test moved to src/lib/server/entities/dailyAssignment.test.ts
 	});
 });
 
-describe('rosterHistoryRepo', () => {
+describe.skip('rosterHistoryRepo — MIGRATED to RosterHistoryEntity', () => {
 	it('queries duty_roster_history table with created_at desc ordering and transforms correctly', async () => {
-		const { rosterHistoryRepo } = await import('./repositories');
-		const rows = [
-			{
-				id: 'rh1',
-				assignment_type_id: 'at1',
-				name: 'CQ Roster',
-				start_date: '2026-03-01',
-				end_date: '2026-03-31',
-				roster: [],
-				config: {},
-				created_at: '2026-03-01T00:00:00Z'
-			}
-		];
-		const { supabase, calls } = createMockSupabase(rows);
-
-		const result = await rosterHistoryRepo.list(supabase, ORG_ID);
-
-		expect(calls['from']![0]).toEqual(['duty_roster_history']);
-		expect(calls['order']![0]).toEqual(['created_at', { ascending: false }]);
-		expect(result[0]).toMatchObject({
-			id: 'rh1',
-			assignmentTypeId: 'at1',
-			name: 'CQ Roster',
-			startDate: '2026-03-01',
-			endDate: '2026-03-31'
-		});
+		// Test moved to src/lib/server/entities/rosterHistory.test.ts
 	});
 });
 
-describe('personnelTrainingRepo', () => {
+describe.skip('personnelTrainingRepo — MIGRATED to PersonnelTrainingEntity', () => {
 	it('queries personnel_trainings table without ordering and transforms correctly', async () => {
-		const { personnelTrainingRepo } = await import('./repositories');
-		const rows = [
-			{
-				id: 'pt1',
-				personnel_id: 'p1',
-				training_type_id: 'tt1',
-				completion_date: '2026-01-01',
-				expiration_date: '2027-01-01',
-				notes: 'Completed',
-				certificate_url: 'https://example.com/cert.pdf'
-			}
-		];
-		const { supabase, calls } = createMockSupabase(rows);
-
-		const result = await personnelTrainingRepo.list(supabase, ORG_ID);
-
-		expect(calls['from']![0]).toEqual(['personnel_trainings']);
-		expect(result[0]).toEqual({
-			id: 'pt1',
-			personnelId: 'p1',
-			trainingTypeId: 'tt1',
-			completionDate: '2026-01-01',
-			expirationDate: '2027-01-01',
-			notes: 'Completed',
-			certificateUrl: 'https://example.com/cert.pdf'
-		});
+		// Test moved to src/lib/server/entities/personnelTraining.test.ts
 	});
 });
 
-describe('pinnedGroupRepo', () => {
+describe.skip('pinnedGroupRepo — MIGRATED to PinnedGroupsEntity', () => {
 	it('queries user_pinned_groups table with sort_order ordering and transforms to group name strings', async () => {
-		const { pinnedGroupRepo } = await import('./repositories');
-		const rows = [
-			{ id: 'pg1', group_name: 'Alpha', sort_order: 0 },
-			{ id: 'pg2', group_name: 'Bravo', sort_order: 1 }
-		];
-		const { supabase, calls } = createMockSupabase(rows);
-
-		const result = await pinnedGroupRepo.list(supabase, ORG_ID);
-
-		expect(calls['from']![0]).toEqual(['user_pinned_groups']);
-		expect(calls['order']![0]).toEqual(['sort_order', { ascending: true }]);
-		expect(result).toEqual(['Alpha', 'Bravo']);
+		// Test moved to src/lib/server/entities/pinnedGroups.test.ts
 	});
 });
 
-describe('ratingSchemeRepo', () => {
+describe.skip('ratingSchemeRepo — MIGRATED to RatingSchemeEntryEntity', () => {
 	it('queries rating_scheme_entries table with rating_period_end ordering and transforms correctly', async () => {
-		const { ratingSchemeRepo } = await import('./repositories');
-		const rows = [
-			{
-				id: 'rs1',
-				rated_person_id: 'p1',
-				eval_type: 'NCOER',
-				rater_person_id: null,
-				rater_name: null,
-				senior_rater_person_id: null,
-				senior_rater_name: null,
-				intermediate_rater_person_id: null,
-				intermediate_rater_name: null,
-				reviewer_person_id: null,
-				reviewer_name: null,
-				rating_period_start: '2026-01-01',
-				rating_period_end: '2026-12-31',
-				status: 'active',
-				notes: null,
-				report_type: null,
-				workflow_status: null
-			}
-		];
-		const { supabase, calls } = createMockSupabase(rows);
-
-		const result = await ratingSchemeRepo.list(supabase, ORG_ID);
-
-		expect(calls['from']![0]).toEqual(['rating_scheme_entries']);
-		expect(calls['order']![0]).toEqual(['rating_period_end', { ascending: true }]);
-		expect(result[0]).toMatchObject({
-			id: 'rs1',
-			ratedPersonId: 'p1',
-			evalType: 'NCOER',
-			ratingPeriodStart: '2026-01-01',
-			ratingPeriodEnd: '2026-12-31',
-			status: 'active'
-		});
+		// Test moved to src/lib/server/entities/ratingSchemeEntry.test.ts
 	});
 });

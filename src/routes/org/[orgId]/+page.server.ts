@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { fetchDashboardData } from '$lib/server/dashboardData';
-import { personnelTrainingRepo } from '$lib/server/repositories';
+import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { personnelIds } from '$lib/server/personnelRepository';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, depends, parent }) => {
@@ -22,7 +22,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, depends, p
 		{ data: gettingStartedData }
 	] = await Promise.all([
 		fetchDashboardData(supabase, orgId, userId),
-		personnelTrainingRepo.list(supabase, orgId),
+		PersonnelTrainingEntity.repo.list(supabase, orgId),
 		supabase.from('onboarding_template_steps').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
 		supabase.from('rating_scheme_entries').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
 		supabase.from('organization_memberships').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),

@@ -3,7 +3,8 @@
  * into a testable module. Uses repository layer for all reads.
  * See #216 / #227.
  */
-import { pinnedGroupRepo, ratingSchemeRepo } from '$lib/server/repositories';
+import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
+import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import type { QueryModifier } from '$lib/server/repositoryFactory';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type varies based on auth context
@@ -14,8 +15,8 @@ export async function fetchPersonnelData(supabase: SupabaseClient, orgId: string
 	const userFilter: QueryModifier = (q: any) => q.eq('user_id', userId);
 
 	const [pinnedGroups, ratingSchemeEntries] = await Promise.all([
-		userId ? pinnedGroupRepo.list(supabase, orgId, { filters: [userFilter] }) : Promise.resolve([]),
-		ratingSchemeRepo.list(supabase, orgId)
+		userId ? PinnedGroupsEntity.repo.list(supabase, orgId, { filters: [userFilter] }) : Promise.resolve([]),
+		RatingSchemeEntryEntity.repo.list(supabase, orgId)
 	]);
 
 	return {

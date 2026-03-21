@@ -1,6 +1,6 @@
 import type { LayoutServerLoad } from './$types';
 import { getSupabaseClient } from '$lib/server/supabase';
-import { personnelTrainingRepo } from '$lib/server/repositories';
+import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 
 export const load: LayoutServerLoad = async ({ params, locals, cookies, depends, parent }) => {
 	depends('app:training-data');
@@ -8,7 +8,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends,
 	const supabase = getSupabaseClient(locals, cookies);
 
 	const parentData = await parent();
-	const allTrainings = await personnelTrainingRepo.list(supabase, orgId);
+	const allTrainings = await PersonnelTrainingEntity.repo.list(supabase, orgId);
 
 	let personnelTrainings = allTrainings;
 	if (parentData.scopedGroupId) {

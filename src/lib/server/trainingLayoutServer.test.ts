@@ -28,9 +28,11 @@ const mockPersonnel = [
 
 const mockList = vi.fn();
 
-vi.mock('$lib/server/repositories', () => ({
-	personnelTrainingRepo: {
-		list: (...args: unknown[]) => mockList(...args)
+vi.mock('$lib/server/entities/personnelTraining', () => ({
+	PersonnelTrainingEntity: {
+		repo: {
+			list: (...args: unknown[]) => mockList(...args)
+		}
 	}
 }));
 

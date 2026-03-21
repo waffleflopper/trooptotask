@@ -1,17 +1,18 @@
 import type { DeleteResult } from '$lib/utils/deletionRequests';
 import { createReactiveCollection, createReactiveValue } from './reactiveState.svelte';
-import { createDefaultStrategy, createMutationTracker } from './optimistic';
+import { createMutationLog } from './mutationLog.svelte';
+import { replay } from './replay';
 import { createRestAdapter } from './ports';
 import type { ApiAdapter, BatchApiAdapter } from './ports';
-import type { BeforeAddHook, OptimisticStrategy } from './optimistic';
+import type { BeforeAddHook } from './optimistic';
 
 export interface StoreConfig<T extends { id: string }> {
 	resource: string;
 	beforeAdd?: BeforeAddHook<T>;
 	adapter?: ApiAdapter<T>;
 	batchAdapter?: BatchApiAdapter<T>;
-	strategy?: OptimisticStrategy<T>;
 	sort?: (a: T, b: T) => number;
+	onError?: (operation: string, error?: unknown) => void;
 }
 
 export interface Store<T extends { id: string }> {
@@ -36,38 +37,46 @@ export interface Store<T extends { id: string }> {
 }
 
 export function createStore<T extends { id: string }>(config: StoreConfig<T>): Store<T> {
-	const collection = createReactiveCollection<T>();
+	const serverState = createReactiveCollection<T>();
 	const orgIdVal = createReactiveValue('');
-	const tracker = createMutationTracker();
-	const strategy = config.strategy ?? createDefaultStrategy<T>();
+	const log = createMutationLog<T>();
 
 	let adapter: ApiAdapter<T> = config.adapter ?? createRestAdapter<T>(() => orgIdVal.value, config.resource);
 
+	function getDisplayItems(): T[] {
+		return replay(serverState.items, log.entries, config.beforeAdd);
+	}
+
+	function getDisplaySnapshot(): T[] {
+		return replay(serverState.getSnapshot(), log.entries, config.beforeAdd);
+	}
+
 	async function removeImpl(id: string): Promise<DeleteResult> {
-		const snapshot = collection.getSnapshot();
-		const original = snapshot.find((item) => item.id === id);
+		const displayed = getDisplaySnapshot();
+		const original = displayed.find((item) => item.id === id);
 		if (!original) return 'error';
 
-		const { newItems, rollback } = strategy.applyRemove(snapshot, id);
-		collection.set(newItems);
+		const mutationId = crypto.randomUUID();
+		log.push({ type: 'remove', mutationId, targetId: id });
 
-		return tracker.wrap(async () => {
-			const result = await adapter.remove(id);
-			if (result === 'approval_required' || result === 'error') {
-				collection.set(rollback(collection.getSnapshot()));
-			}
-			return result;
-		});
+		const result = await adapter.remove(id);
+		if (result === 'deleted') {
+			serverState.set(serverState.getSnapshot().filter((item) => item.id !== id));
+		} else {
+			config.onError?.('remove', undefined);
+		}
+		log.resolve(mutationId);
+		return result;
 	}
 
 	return {
 		get items() {
-			const raw = collection.items;
+			const raw = getDisplayItems();
 			return config.sort ? [...raw].sort(config.sort) : raw;
 		},
 
 		get rawItems() {
-			return collection.items;
+			return getDisplayItems();
 		},
 
 		get orgId() {
@@ -75,14 +84,14 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 		},
 
 		get busy() {
-			return tracker.pending > 0;
+			return log.pending > 0;
 		},
 
 		load(newItems: T[], newOrgId: string) {
-			if (tracker.pending > 0 && newOrgId === orgIdVal.value) {
-				return;
+			if (newOrgId !== orgIdVal.value) {
+				log.clear();
 			}
-			collection.set(newItems);
+			serverState.set(newItems);
 			orgIdVal.set(newOrgId);
 			if (!config.adapter) {
 				adapter = createRestAdapter<T>(() => orgIdVal.value, config.resource);
@@ -90,99 +99,67 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 		},
 
 		async add(data: Omit<T, 'id'>): Promise<T | null> {
-			const snapshot = collection.getSnapshot();
-			const { newItems, tempId, rollback } = strategy.applyAdd(snapshot, data, config.beforeAdd);
-			collection.set(newItems);
+			const tempId = `temp-${crypto.randomUUID()}`;
+			const mutationId = crypto.randomUUID();
+			log.push({ type: 'add', mutationId, tempId, data });
 
-			return tracker.wrap(async () => {
-				try {
-					const created = await adapter.create(data);
-					collection.set(strategy.reconcile(collection.getSnapshot(), tempId, created));
-					return created;
-				} catch {
-					collection.set(rollback(collection.getSnapshot()));
-					return null;
+			try {
+				const created = await adapter.create(data);
+				let current = serverState.getSnapshot();
+				if (config.beforeAdd) {
+					const { items } = config.beforeAdd(current, data);
+					current = items;
 				}
-			});
+				serverState.set([...current, created]);
+				log.resolve(mutationId);
+				return created;
+			} catch (e) {
+				config.onError?.('add', e);
+				log.resolve(mutationId);
+				return null;
+			}
 		},
 
 		async addBatch(entries: Omit<T, 'id'>[]): Promise<T[]> {
-			const snapshot = collection.getSnapshot();
-			const tempIds: string[] = [];
-			const tempItems = entries.map((data) => {
-				const tempId = `temp-${crypto.randomUUID()}`;
-				tempIds.push(tempId);
-				return { id: tempId, ...data } as T;
-			});
-			collection.set([...snapshot, ...tempItems]);
+			const mutationId = crypto.randomUUID();
+			const tempIds = entries.map(() => `temp-${crypto.randomUUID()}`);
+			log.push({ type: 'add-batch', mutationId, tempIds, data: entries });
 
-			return tracker.wrap(async () => {
-				try {
-					let created: T[];
-					if (config.batchAdapter) {
-						created = await config.batchAdapter.createBatch(entries);
-					} else {
-						created = await Promise.all(entries.map((data) => adapter.create(data)));
-					}
-					const tempIdSet = new Set(tempIds);
-					collection.set([...collection.getSnapshot().filter((item) => !tempIdSet.has(item.id)), ...created]);
-					return created;
-				} catch {
-					const tempIdSet = new Set(tempIds);
-					collection.set(collection.getSnapshot().filter((item) => !tempIdSet.has(item.id)));
-					return [];
+			try {
+				let created: T[];
+				if (config.batchAdapter) {
+					created = await config.batchAdapter.createBatch(entries);
+				} else {
+					created = await Promise.all(entries.map((data) => adapter.create(data)));
 				}
-			});
-		},
-
-		async removeBatch(ids: string[]): Promise<boolean> {
-			const snapshot = collection.getSnapshot();
-			const idSet = new Set(ids);
-			const removed = snapshot.filter((item) => idSet.has(item.id));
-			collection.set(snapshot.filter((item) => !idSet.has(item.id)));
-
-			return tracker.wrap(async () => {
-				try {
-					if (config.batchAdapter?.removeBatch) {
-						await config.batchAdapter.removeBatch(ids);
-					} else {
-						await Promise.all(ids.map((id) => adapter.remove(id)));
-					}
-					return true;
-				} catch {
-					collection.set([...collection.getSnapshot(), ...removed]);
-					return false;
-				}
-			});
-		},
-
-		mergeBatchResults(inserted: T[], updated?: T[]) {
-			let current = collection.getSnapshot();
-			if (updated && updated.length > 0) {
-				const updatedMap = new Map(updated.map((u) => [u.id, u]));
-				current = current.map((item) => updatedMap.get(item.id) ?? item);
+				serverState.set([...serverState.getSnapshot(), ...created]);
+				log.resolve(mutationId);
+				return created;
+			} catch (e) {
+				config.onError?.('addBatch', e);
+				log.resolve(mutationId);
+				return [];
 			}
-			collection.set([...current, ...inserted]);
 		},
 
 		async update(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean> {
-			const snapshot = collection.getSnapshot();
-			const original = snapshot.find((item) => item.id === id);
+			const displayed = getDisplaySnapshot();
+			const original = displayed.find((item) => item.id === id);
 			if (!original) return false;
 
-			const { newItems, rollback } = strategy.applyUpdate(snapshot, id, data as Partial<T>);
-			collection.set(newItems);
+			const mutationId = crypto.randomUUID();
+			log.push({ type: 'update', mutationId, targetId: id, data: data as Partial<T> });
 
-			return tracker.wrap(async () => {
-				try {
-					const updated = await adapter.update(id, data);
-					collection.set(collection.getSnapshot().map((item) => (item.id === id ? updated : item)));
-					return true;
-				} catch {
-					collection.set(rollback(collection.getSnapshot()));
-					return false;
-				}
-			});
+			try {
+				const updated = await adapter.update(id, data);
+				serverState.set(serverState.getSnapshot().map((item) => (item.id === id ? updated : item)));
+				log.resolve(mutationId);
+				return true;
+			} catch (e) {
+				config.onError?.('update', e);
+				log.resolve(mutationId);
+				return false;
+			}
 		},
 
 		remove: removeImpl,
@@ -192,28 +169,58 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 			return result === 'deleted';
 		},
 
+		async removeBatch(ids: string[]): Promise<boolean> {
+			const mutationId = crypto.randomUUID();
+			log.push({ type: 'remove-batch', mutationId, targetIds: ids });
+
+			try {
+				if (config.batchAdapter?.removeBatch) {
+					await config.batchAdapter.removeBatch(ids);
+				} else {
+					await Promise.all(ids.map((id) => adapter.remove(id)));
+				}
+				const idSet = new Set(ids);
+				serverState.set(serverState.getSnapshot().filter((item) => !idSet.has(item.id)));
+				log.resolve(mutationId);
+				return true;
+			} catch (e) {
+				config.onError?.('removeBatch', e);
+				log.resolve(mutationId);
+				return false;
+			}
+		},
+
+		mergeBatchResults(inserted: T[], updated?: T[]) {
+			let current = serverState.getSnapshot();
+			if (updated && updated.length > 0) {
+				const updatedMap = new Map(updated.map((u) => [u.id, u]));
+				current = current.map((item) => updatedMap.get(item.id) ?? item);
+			}
+			serverState.set([...current, ...inserted]);
+		},
+
 		getById(id: string) {
-			return collection.getSnapshot().find((item) => item.id === id);
+			return getDisplaySnapshot().find((item) => item.id === id);
 		},
 
 		filter(predicate: (item: T) => boolean) {
-			return collection.getSnapshot().filter(predicate);
+			return getDisplaySnapshot().filter(predicate);
 		},
 
 		find(predicate: (item: T) => boolean) {
-			return collection.getSnapshot().find(predicate);
+			return getDisplaySnapshot().find(predicate);
 		},
 
 		removeLocalWhere(predicate: (item: T) => boolean) {
-			collection.set(collection.getSnapshot().filter((item) => !predicate(item)));
+			serverState.set(serverState.getSnapshot().filter((item) => !predicate(item)));
 		},
 
 		updateLocalWhere(predicate: (item: T) => boolean, updater: (item: T) => T) {
-			collection.set(collection.getSnapshot().map((item) => (predicate(item) ? updater(item) : item)));
+			serverState.set(serverState.getSnapshot().map((item) => (predicate(item) ? updater(item) : item)));
 		},
 
 		appendLocal(items: T[]) {
-			collection.set([...collection.getSnapshot(), ...items]);
+			serverState.set([...serverState.getSnapshot(), ...items]);
 		}
 	};
 }

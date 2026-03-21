@@ -872,4 +872,231 @@ describe('createStore', () => {
 			expect(store.rawItems).toEqual(store.items);
 		});
 	});
+
+	describe('concurrent mutation regression', () => {
+		it('should preserve update B when concurrent update A fails', async () => {
+			let resolveA!: (value: TestItem) => void;
+			let rejectA!: (err: Error) => void;
+			const promiseA = new Promise<TestItem>((resolve, reject) => {
+				resolveA = resolve;
+				rejectA = reject;
+			});
+
+			let resolveB!: (value: TestItem) => void;
+			const promiseB = new Promise<TestItem>((resolve) => {
+				resolveB = resolve;
+			});
+
+			let callCount = 0;
+			const store = makeStore({
+				adapterOverrides: {
+					update: () => {
+						callCount++;
+						return callCount === 1 ? promiseA : promiseB;
+					}
+				}
+			});
+			store.load(
+				[
+					{ id: '1', name: 'Alice' },
+					{ id: '2', name: 'Bob' }
+				],
+				'org-1'
+			);
+
+			// Both updates start concurrently
+			const updateA = store.update('1', { name: 'Alicia' });
+			const updateB = store.update('2', { name: 'Bobby' });
+
+			// Both optimistic changes visible
+			expect(store.items.find((i) => i.id === '1')?.name).toBe('Alicia');
+			expect(store.items.find((i) => i.id === '2')?.name).toBe('Bobby');
+
+			// A fails — B's optimistic state must survive
+			rejectA(new Error('network error'));
+			await updateA;
+
+			expect(store.items.find((i) => i.id === '1')?.name).toBe('Alice'); // rolled back
+			expect(store.items.find((i) => i.id === '2')?.name).toBe('Bobby'); // preserved!
+
+			// B succeeds
+			resolveB({ id: '2', name: 'Bobby' });
+			await updateB;
+
+			expect(store.items).toEqual([
+				{ id: '1', name: 'Alice' },
+				{ id: '2', name: 'Bobby' }
+			]);
+		});
+
+		it('should preserve add B when concurrent add A fails', async () => {
+			let rejectA!: (err: Error) => void;
+			const promiseA = new Promise<TestItem>((_, reject) => {
+				rejectA = reject;
+			});
+
+			let resolveB!: (value: TestItem) => void;
+			const promiseB = new Promise<TestItem>((resolve) => {
+				resolveB = resolve;
+			});
+
+			let callCount = 0;
+			const store = makeStore({
+				adapterOverrides: {
+					create: () => {
+						callCount++;
+						return callCount === 1 ? promiseA : promiseB;
+					}
+				}
+			});
+			store.load([], 'org-1');
+
+			const addA = store.add({ name: 'Alpha' });
+			const addB = store.add({ name: 'Bravo' });
+
+			// Both optimistic items visible
+			expect(store.items.length).toBe(2);
+			expect(store.items.some((i) => i.name === 'Alpha')).toBe(true);
+			expect(store.items.some((i) => i.name === 'Bravo')).toBe(true);
+
+			// A fails — B's optimistic item must survive
+			rejectA(new Error('fail'));
+			await addA;
+
+			expect(store.items.length).toBe(1);
+			expect(store.items[0].name).toBe('Bravo');
+
+			// B succeeds
+			resolveB({ id: 'server-b', name: 'Bravo' });
+			await addB;
+
+			expect(store.items).toEqual([{ id: 'server-b', name: 'Bravo' }]);
+		});
+
+		it('should accept load during mutation and preserve optimistic state via replay', async () => {
+			let resolveUpdate!: (value: TestItem) => void;
+			const updatePromise = new Promise<TestItem>((resolve) => {
+				resolveUpdate = resolve;
+			});
+
+			const store = makeStore({
+				adapterOverrides: { update: () => updatePromise }
+			});
+			store.load(
+				[
+					{ id: '1', name: 'Alice' },
+					{ id: '2', name: 'Bob' }
+				],
+				'org-1'
+			);
+
+			const updateP = store.update('1', { name: 'Alicia' });
+
+			// Optimistic update visible
+			expect(store.items.find((i) => i.id === '1')?.name).toBe('Alicia');
+
+			// Server load arrives with new item (e.g., another user added item 3)
+			store.load(
+				[
+					{ id: '1', name: 'Alice' },
+					{ id: '2', name: 'Bob' },
+					{ id: '3', name: 'Charlie' }
+				],
+				'org-1'
+			);
+
+			// Optimistic update survives load, AND new item is visible
+			expect(store.items.find((i) => i.id === '1')?.name).toBe('Alicia');
+			expect(store.items.find((i) => i.id === '3')?.name).toBe('Charlie');
+
+			resolveUpdate({ id: '1', name: 'Alicia' });
+			await updateP;
+
+			expect(store.items).toEqual([
+				{ id: '1', name: 'Alicia' },
+				{ id: '2', name: 'Bob' },
+				{ id: '3', name: 'Charlie' }
+			]);
+		});
+	});
+
+	describe('onError callback', () => {
+		it('should call onError when add fails', async () => {
+			const onError = vi.fn();
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter({
+					create: async () => {
+						throw new Error('network error');
+					}
+				}),
+				onError
+			});
+			store.load([], 'org-1');
+
+			await store.add({ name: 'Fail' });
+
+			expect(onError).toHaveBeenCalledWith('add', expect.any(Error));
+		});
+
+		it('should call onError when update fails', async () => {
+			const onError = vi.fn();
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter({
+					update: async () => {
+						throw new Error('fail');
+					}
+				}),
+				onError
+			});
+			store.load([{ id: '1', name: 'Alice' }], 'org-1');
+
+			await store.update('1', { name: 'Changed' });
+
+			expect(onError).toHaveBeenCalledWith('update', expect.any(Error));
+		});
+
+		it('should call onError when remove fails', async () => {
+			const onError = vi.fn();
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter({ remove: async () => 'error' }),
+				onError
+			});
+			store.load([{ id: '1', name: 'Alice' }], 'org-1');
+
+			await store.remove('1');
+
+			expect(onError).toHaveBeenCalledWith('remove', undefined);
+		});
+
+		it('should not call onError for approval_required', async () => {
+			const onError = vi.fn();
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter({ remove: async () => 'approval_required' }),
+				onError
+			});
+			store.load([{ id: '1', name: 'Alice' }], 'org-1');
+
+			await store.remove('1');
+
+			expect(onError).not.toHaveBeenCalled();
+		});
+
+		it('should not call onError on success', async () => {
+			const onError = vi.fn();
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter(),
+				onError
+			});
+			store.load([], 'org-1');
+
+			await store.add({ name: 'Good' });
+
+			expect(onError).not.toHaveBeenCalled();
+		});
+	});
 });

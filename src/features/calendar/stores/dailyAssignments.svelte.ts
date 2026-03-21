@@ -1,10 +1,5 @@
-import {
-	createReactiveCollection,
-	createMutationTracker,
-	createDefaultStrategy,
-	createRestAdapter
-} from '$lib/stores/core';
-import type { ApiAdapter, OptimisticStrategy } from '$lib/stores/core';
+import { createReactiveCollection, createStore, createMutationLog, replay } from '$lib/stores/core';
+import type { MutationEntry } from '$lib/stores/core';
 
 export interface AssignmentType {
 	id: string;
@@ -23,255 +18,240 @@ export interface DailyAssignment {
 }
 
 class DailyAssignmentsStore {
-	#types = createReactiveCollection<AssignmentType>();
-	#assignments = createReactiveCollection<DailyAssignment>();
-	#tracker = createMutationTracker();
-	#typeStrategy: OptimisticStrategy<AssignmentType> = createDefaultStrategy<AssignmentType>();
-	#typeAdapter: ApiAdapter<AssignmentType>;
+	#typeStore = createStore<AssignmentType>({ resource: 'assignment-types' });
+	#assignmentServerState = createReactiveCollection<DailyAssignment>();
+	#assignmentLog = createMutationLog<DailyAssignment>();
 	#orgId = '';
 
-	constructor() {
-		this.#typeAdapter = createRestAdapter<AssignmentType>(() => this.#orgId, 'assignment-types');
-	}
-
 	get types() {
-		return this.#types.items;
+		return this.#typeStore.items;
 	}
 
 	get assignments() {
-		return this.#assignments.items;
+		return replay(this.#assignmentServerState.items, this.#assignmentLog.entries);
 	}
 
 	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
-		if (this.#tracker.pending > 0 && orgId === this.#orgId) return;
-		this.#types.set(types);
-		this.#assignments.set(assignments);
+		if (orgId !== this.#orgId) {
+			this.#assignmentLog.clear();
+		}
+		this.#typeStore.load(types, orgId);
+		this.#assignmentServerState.set(assignments);
 		this.#orgId = orgId;
-		this.#typeAdapter = createRestAdapter<AssignmentType>(() => this.#orgId, 'assignment-types');
 	}
 
 	// Assignment Type methods
 	async addType(data: Omit<AssignmentType, 'id'>): Promise<AssignmentType | null> {
-		const snapshot = this.#types.getSnapshot();
-		const { newItems, tempId, rollback } = this.#typeStrategy.applyAdd(snapshot, data);
-		this.#types.set(newItems);
-
-		return this.#tracker.wrap(async () => {
-			try {
-				const created = await this.#typeAdapter.create(data);
-				this.#types.set(this.#typeStrategy.reconcile(this.#types.getSnapshot(), tempId, created));
-				return created;
-			} catch {
-				this.#types.set(rollback(this.#types.getSnapshot()));
-				return null;
-			}
-		});
+		return this.#typeStore.add(data);
 	}
 
 	async updateType(id: string, data: Partial<Omit<AssignmentType, 'id'>>): Promise<boolean> {
-		const snapshot = this.#types.getSnapshot();
-		const original = snapshot.find((t) => t.id === id);
-		if (!original) return false;
-
-		const { newItems, rollback } = this.#typeStrategy.applyUpdate(snapshot, id, data as Partial<AssignmentType>);
-		this.#types.set(newItems);
-
-		return this.#tracker.wrap(async () => {
-			try {
-				const updated = await this.#typeAdapter.update(id, data);
-				this.#types.set(this.#types.getSnapshot().map((t) => (t.id === id ? updated : t)));
-				return true;
-			} catch {
-				this.#types.set(rollback(this.#types.getSnapshot()));
-				return false;
-			}
-		});
+		return this.#typeStore.update(id, data);
 	}
 
 	async removeType(id: string): Promise<boolean> {
-		const snapshot = this.#types.getSnapshot();
-		const original = snapshot.find((t) => t.id === id);
-		if (!original) return false;
+		const type = this.#typeStore.getById(id);
+		if (!type) return false;
 
-		// Cascade: capture affected assignments for rollback
-		const affectedAssignments = this.#assignments.getSnapshot().filter((a) => a.assignmentTypeId === id);
+		// Cascade: optimistically remove affected assignments via log
+		const affectedIds = this.#getAssignmentSnapshot()
+			.filter((a) => a.assignmentTypeId === id)
+			.map((a) => a.id);
 
-		const { newItems, rollback } = this.#typeStrategy.applyRemove(snapshot, id);
-		this.#types.set(newItems);
-		this.#assignments.set(this.#assignments.getSnapshot().filter((a) => a.assignmentTypeId !== id));
+		let cascadeMutationId: string | null = null;
+		if (affectedIds.length > 0) {
+			cascadeMutationId = crypto.randomUUID();
+			this.#assignmentLog.push({ type: 'remove-batch', mutationId: cascadeMutationId, targetIds: affectedIds });
+		}
 
-		return this.#tracker.wrap(async () => {
-			try {
-				const result = await this.#typeAdapter.remove(id);
-				if (result !== 'deleted') throw new Error('Failed to delete assignment type');
-				return true;
-			} catch {
-				this.#types.set(rollback(this.#types.getSnapshot()));
-				this.#assignments.set([...this.#assignments.getSnapshot(), ...affectedAssignments]);
-				return false;
-			}
-		});
+		const result = await this.#typeStore.remove(id);
+
+		if (result === 'deleted') {
+			// Confirm cascade in serverState
+			const idSet = new Set(affectedIds);
+			this.#assignmentServerState.set(this.#assignmentServerState.getSnapshot().filter((a) => !idSet.has(a.id)));
+		}
+
+		// Resolve cascade log (success = serverState updated, failure = auto-rollback)
+		if (cascadeMutationId) {
+			this.#assignmentLog.resolve(cascadeMutationId);
+		}
+
+		return result === 'deleted';
 	}
 
 	getTypeById(id: string) {
-		return this.#types.getSnapshot().find((t) => t.id === id);
+		return this.#typeStore.getById(id);
 	}
 
 	// Daily Assignment methods
-	async setAssignment(date: string, assignmentTypeId: string, assigneeId: string): Promise<boolean> {
-		// Store existing assignment for rollback
-		const existingAssignment = this.#assignments
-			.getSnapshot()
-			.find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
+	#getAssignmentSnapshot(): DailyAssignment[] {
+		return replay(this.#assignmentServerState.getSnapshot(), this.#assignmentLog.entries);
+	}
 
-		// Optimistic: remove existing and add new
-		this.#assignments.set(
-			this.#assignments.getSnapshot().filter((a) => !(a.date === date && a.assignmentTypeId === assignmentTypeId))
+	async setAssignment(date: string, assignmentTypeId: string, assigneeId: string): Promise<boolean> {
+		const existing = this.#getAssignmentSnapshot().find(
+			(a) => a.date === date && a.assignmentTypeId === assignmentTypeId
 		);
 
-		// Add optimistic assignment if assigneeId is provided
-		const tempId = `temp-${crypto.randomUUID()}`;
-		if (assigneeId) {
-			const optimisticAssignment: DailyAssignment = {
-				id: tempId,
-				date,
-				assignmentTypeId,
-				assigneeId
-			};
-			this.#assignments.set([...this.#assignments.getSnapshot(), optimisticAssignment]);
+		let removeMutationId: string | null = null;
+		if (existing) {
+			removeMutationId = crypto.randomUUID();
+			this.#assignmentLog.push({ type: 'remove', mutationId: removeMutationId, targetId: existing.id });
 		}
 
-		return this.#tracker.wrap(async () => {
-			try {
-				const res = await fetch(`/org/${this.#orgId}/api/daily-assignments`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ date, assignmentTypeId, assigneeId })
-				});
-				if (!res.ok) throw new Error('Failed to set assignment');
+		let addMutationId: string | null = null;
+		let tempId: string | null = null;
+		if (assigneeId) {
+			addMutationId = crypto.randomUUID();
+			tempId = `temp-${crypto.randomUUID()}`;
+			this.#assignmentLog.push({
+				type: 'add',
+				mutationId: addMutationId,
+				tempId,
+				data: { date, assignmentTypeId, assigneeId } as Omit<DailyAssignment, 'id'>
+			});
+		}
 
-				// Replace temp with real data if assigneeId was provided
-				if (assigneeId) {
-					const data = await res.json();
-					if (data.id) {
-						this.#assignments.set(this.#assignments.getSnapshot().map((a) => (a.id === tempId ? data : a)));
-					} else {
-						this.#assignments.set(this.#assignments.getSnapshot().filter((a) => a.id !== tempId));
-					}
-				}
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/daily-assignments`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ date, assignmentTypeId, assigneeId })
+			});
+			if (!res.ok) throw new Error('Failed to set assignment');
 
-				return true;
-			} catch {
-				// Rollback on failure
-				this.#assignments.set(this.#assignments.getSnapshot().filter((a) => a.id !== tempId));
-				if (existingAssignment) {
-					this.#assignments.set([...this.#assignments.getSnapshot(), existingAssignment]);
-				}
-				return false;
+			// Update serverState
+			let current = this.#assignmentServerState.getSnapshot();
+			if (existing) {
+				current = current.filter((a) => a.id !== existing.id);
 			}
-		});
+			if (assigneeId) {
+				const data = await res.json();
+				if (data.id) {
+					current = [...current, data];
+				}
+			}
+			this.#assignmentServerState.set(current);
+
+			if (removeMutationId) this.#assignmentLog.resolve(removeMutationId);
+			if (addMutationId) this.#assignmentLog.resolve(addMutationId);
+			return true;
+		} catch {
+			if (removeMutationId) this.#assignmentLog.resolve(removeMutationId);
+			if (addMutationId) this.#assignmentLog.resolve(addMutationId);
+			return false;
+		}
 	}
 
 	async removeAssignment(date: string, assignmentTypeId: string): Promise<boolean> {
-		// Optimistic: remove immediately
-		const original = this.#assignments
-			.getSnapshot()
-			.find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
+		const original = this.#getAssignmentSnapshot().find(
+			(a) => a.date === date && a.assignmentTypeId === assignmentTypeId
+		);
 		if (!original) return false;
 
-		this.#assignments.set(
-			this.#assignments.getSnapshot().filter((a) => !(a.date === date && a.assignmentTypeId === assignmentTypeId))
-		);
+		const mutationId = crypto.randomUUID();
+		this.#assignmentLog.push({ type: 'remove', mutationId, targetId: original.id });
 
-		return this.#tracker.wrap(async () => {
-			try {
-				const res = await fetch(`/org/${this.#orgId}/api/daily-assignments`, {
-					method: 'DELETE',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ date, assignmentTypeId })
-				});
-				if (!res.ok) throw new Error('Failed to remove assignment');
-				return true;
-			} catch {
-				// Rollback on failure
-				this.#assignments.set([...this.#assignments.getSnapshot(), original]);
-				return false;
-			}
-		});
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/daily-assignments`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ date, assignmentTypeId })
+			});
+			if (!res.ok) throw new Error('Failed to remove assignment');
+
+			this.#assignmentServerState.set(this.#assignmentServerState.getSnapshot().filter((a) => a.id !== original.id));
+			this.#assignmentLog.resolve(mutationId);
+			return true;
+		} catch {
+			this.#assignmentLog.resolve(mutationId);
+			return false;
+		}
 	}
 
 	async setAssignmentBatch(
 		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
 	): Promise<boolean> {
-		// Optimistic: apply all changes locally
-		const originals: DailyAssignment[] = [];
-		const tempEntries: DailyAssignment[] = [];
-
-		let currentItems = this.#assignments.getSnapshot();
+		const removeMutationIds: string[] = [];
+		const existingIds: string[] = [];
+		const tempIds: string[] = [];
+		const addData: Omit<DailyAssignment, 'id'>[] = [];
 
 		for (const a of assignments) {
-			const existing = currentItems.find((e) => e.date === a.date && e.assignmentTypeId === a.assignmentTypeId);
-			if (existing) originals.push(existing);
-
-			currentItems = currentItems.filter((e) => !(e.date === a.date && e.assignmentTypeId === a.assignmentTypeId));
+			const existing = this.#getAssignmentSnapshot().find(
+				(e) => e.date === a.date && e.assignmentTypeId === a.assignmentTypeId
+			);
+			if (existing) {
+				const rmId = crypto.randomUUID();
+				removeMutationIds.push(rmId);
+				existingIds.push(existing.id);
+				this.#assignmentLog.push({ type: 'remove', mutationId: rmId, targetId: existing.id });
+			}
 
 			if (a.assigneeId) {
-				const temp: DailyAssignment = {
-					id: `temp-${crypto.randomUUID()}`,
+				tempIds.push(`temp-${crypto.randomUUID()}`);
+				addData.push({
 					date: a.date,
 					assignmentTypeId: a.assignmentTypeId,
 					assigneeId: a.assigneeId
-				};
-				tempEntries.push(temp);
-				currentItems = [...currentItems, temp];
+				});
 			}
 		}
 
-		this.#assignments.set(currentItems);
+		let addMutationId: string | null = null;
+		if (tempIds.length > 0) {
+			addMutationId = crypto.randomUUID();
+			this.#assignmentLog.push({ type: 'add-batch', mutationId: addMutationId, tempIds, data: addData });
+		}
 
-		return this.#tracker.wrap(async () => {
-			try {
-				const res = await fetch(`/org/${this.#orgId}/api/daily-assignments/batch`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ records: assignments })
-				});
-				if (!res.ok) throw new Error('Failed to batch update assignments');
+		try {
+			const res = await fetch(`/org/${this.#orgId}/api/daily-assignments/batch`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ records: assignments })
+			});
+			if (!res.ok) throw new Error('Failed to batch update assignments');
 
-				const data = await res.json();
-				const inserted: DailyAssignment[] = data.inserted;
+			const data = await res.json();
+			const inserted: DailyAssignment[] = data.inserted;
 
-				// Replace temp entries with real ones
-				const tempIds = new Set(tempEntries.map((e) => e.id));
-				this.#assignments.set([...this.#assignments.getSnapshot().filter((a) => !tempIds.has(a.id)), ...inserted]);
-				return true;
-			} catch {
-				// Rollback: remove temps, restore originals
-				const tempIds = new Set(tempEntries.map((e) => e.id));
-				this.#assignments.set([...this.#assignments.getSnapshot().filter((a) => !tempIds.has(a.id)), ...originals]);
-				return false;
+			// Update serverState: remove old, add new
+			let current = this.#assignmentServerState.getSnapshot();
+			if (existingIds.length > 0) {
+				const idSet = new Set(existingIds);
+				current = current.filter((a) => !idSet.has(a.id));
 			}
-		});
+			this.#assignmentServerState.set([...current, ...inserted]);
+
+			for (const rmId of removeMutationIds) this.#assignmentLog.resolve(rmId);
+			if (addMutationId) this.#assignmentLog.resolve(addMutationId);
+			return true;
+		} catch {
+			for (const rmId of removeMutationIds) this.#assignmentLog.resolve(rmId);
+			if (addMutationId) this.#assignmentLog.resolve(addMutationId);
+			return false;
+		}
 	}
 
 	getAssignmentsForDate(date: string): DailyAssignment[] {
-		return this.#assignments.getSnapshot().filter((a) => a.date === date);
+		return this.#getAssignmentSnapshot().filter((a) => a.date === date);
 	}
 
 	getAssignmentForDate(date: string, assignmentTypeId: string): DailyAssignment | undefined {
-		return this.#assignments.getSnapshot().find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
+		return this.#getAssignmentSnapshot().find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
 	}
 
 	getAssignmentsForPersonnel(personnelId: string): DailyAssignment[] {
-		return this.#assignments.getSnapshot().filter((a) => a.assigneeId === personnelId);
+		return this.#getAssignmentSnapshot().filter((a) => a.assigneeId === personnelId);
 	}
 
 	getAssignmentsForGroup(groupName: string): DailyAssignment[] {
-		return this.#assignments.getSnapshot().filter((a) => a.assigneeId === groupName);
+		return this.#getAssignmentSnapshot().filter((a) => a.assigneeId === groupName);
 	}
 
 	getPersonnelAssignmentsForDate(personnelId: string, date: string): DailyAssignment[] {
-		return this.#assignments.getSnapshot().filter((a) => a.assigneeId === personnelId && a.date === date);
+		return this.#getAssignmentSnapshot().filter((a) => a.assigneeId === personnelId && a.date === date);
 	}
 }
 

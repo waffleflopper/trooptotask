@@ -1,10 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
-import {
-	transformAvailabilityEntries,
-	transformDailyAssignments,
-	transformAssignmentTypes
-} from '$lib/server/transforms';
+import { transformAvailabilityEntries, transformDailyAssignments } from '$lib/server/transforms';
+import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 
 export const GET = apiRoute(
 	{ permission: { privileged: true }, readOnly: false, audit: 'calendar_report' },
@@ -62,7 +59,7 @@ export const GET = apiRoute(
 		return json({
 			entries: transformAvailabilityEntries(data ?? []),
 			assignments: transformDailyAssignments(assignmentsData ?? []),
-			assignmentTypes: transformAssignmentTypes(assignmentTypesData ?? [])
+			assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypesData ?? [])
 		});
 	}
 );

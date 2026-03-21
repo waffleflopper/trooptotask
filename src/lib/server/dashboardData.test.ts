@@ -12,7 +12,6 @@ const mockRatingSchemeList = vi.fn();
 
 vi.mock('$lib/server/repositories', () => ({
 	availabilityRepo: { list: mockAvailabilityList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() },
-	assignmentTypeRepo: { list: mockAssignmentTypeList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() },
 	dailyAssignmentRepo: {
 		list: mockDailyAssignmentList,
 		query: vi.fn(),
@@ -21,6 +20,12 @@ vi.mock('$lib/server/repositories', () => ({
 	},
 	pinnedGroupRepo: { list: mockPinnedGroupList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() },
 	ratingSchemeRepo: { list: mockRatingSchemeList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+}));
+
+vi.mock('$lib/server/entities/assignmentType', () => ({
+	AssignmentTypeEntity: {
+		repo: { list: mockAssignmentTypeList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+	}
 }));
 
 // Mock onboarding repo

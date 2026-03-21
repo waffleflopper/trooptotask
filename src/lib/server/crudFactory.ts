@@ -175,14 +175,9 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 	const POST = apiRoute({ permission: permissionSpec }, async ({ supabase, orgId, userId, ctx }, event) => {
 		const body = await event.request.json();
 
-		if (config.personnelIdField && ctx.scopedGroupId) {
+		if (config.personnelIdField) {
 			const personnelId = body[snakeToCamel(config.personnelIdField)] ?? body[config.personnelIdField];
-			if (personnelId) {
-				const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
-				if (person && person.group_id !== ctx.scopedGroupId) {
-					throw error(403, 'You do not have access to personnel outside your group');
-				}
-			}
+			if (personnelId) await ctx.requireGroupAccess(supabase, personnelId);
 		}
 
 		const insertData = toInsert ? toInsert(body, orgId) : apiToDb(body, fields, orgId, defaults);
@@ -225,20 +220,8 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		const { validateUUID } = await import('./validation');
 		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 
-		if (config.personnelIdField && ctx.scopedGroupId) {
-			const { data: existing } = await supabase
-				.from(table)
-				.select(config.personnelIdField)
-				.eq('id', id)
-				.eq('organization_id', orgId)
-				.single();
-			const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
-			if (personnelId) {
-				const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
-				if (person && person.group_id !== ctx.scopedGroupId) {
-					throw error(403, 'You do not have access to personnel outside your group');
-				}
-			}
+		if (config.personnelIdField) {
+			await ctx.requireGroupAccessByRecord(supabase, table, id, orgId, config.personnelIdField);
 		}
 
 		const updates = apiToDbUpdates(body, fields);
@@ -292,20 +275,8 @@ export function createCrudHandlers<T>(config: CrudConfig<T>): {
 		const { validateUUID } = await import('./validation');
 		if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 
-		if (config.personnelIdField && ctx.scopedGroupId) {
-			const { data: existing } = await supabase
-				.from(table)
-				.select(config.personnelIdField)
-				.eq('id', id)
-				.eq('organization_id', orgId)
-				.single();
-			const personnelId = (existing as Record<string, unknown> | null)?.[config.personnelIdField!];
-			if (personnelId) {
-				const { data: person } = await supabase.from('personnel').select('group_id').eq('id', personnelId).single();
-				if (person && person.group_id !== ctx.scopedGroupId) {
-					throw error(403, 'You do not have access to personnel outside your group');
-				}
-			}
+		if (config.personnelIdField) {
+			await ctx.requireGroupAccessByRecord(supabase, table, id, orgId, config.personnelIdField);
 		}
 
 		if (config.requireDeletionApproval && !ctx.isPrivileged && !ctx.isFullEditor) {

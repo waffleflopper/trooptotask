@@ -61,12 +61,7 @@ export const PUT = apiRoute({ permission: { edit: 'personnel' } }, async ({ supa
 
 	if (!id) throw error(400, 'Missing id');
 
-	if (ctx && ctx.scopedGroupId) {
-		const { data: person } = await supabase.from('personnel').select('group_id').eq('id', id).single();
-		if (person?.group_id !== ctx.scopedGroupId) {
-			throw error(403, 'You do not have access to personnel outside your group');
-		}
-	}
+	await ctx.requireGroupAccess(supabase, id);
 
 	const updates: Record<string, unknown> = {};
 	if (fields.rank !== undefined) updates.rank = fields.rank;
@@ -120,18 +115,14 @@ export const DELETE = apiRoute(
 		// Capture name before deletion for audit log
 		const { data: existing } = await supabase
 			.from('personnel')
-			.select('rank, first_name, last_name, group_id')
+			.select('rank, first_name, last_name')
 			.eq('id', id)
 			.eq('organization_id', orgId)
 			.single();
 
-		if (ctx && ctx.scopedGroupId) {
-			if (existing?.group_id !== ctx.scopedGroupId) {
-				throw error(403, 'You do not have access to personnel outside your group');
-			}
-		}
+		await ctx.requireGroupAccess(supabase, id);
 
-		if (ctx && !ctx.isPrivileged && !ctx.isFullEditor) {
+		if (!ctx.isPrivileged && !ctx.isFullEditor) {
 			return json({ requiresApproval: true }, { status: 202 });
 		}
 

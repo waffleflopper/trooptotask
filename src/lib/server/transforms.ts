@@ -95,8 +95,8 @@ export function transformPersonnelTrainings(data: DbRow[]): PersonnelTraining[] 
 		trainingTypeId: t.training_type_id as string,
 		completionDate: t.completion_date as string,
 		expirationDate: t.expiration_date as string,
-		notes: t.notes as string,
-		certificateUrl: t.certificate_url as string
+		notes: (t.notes as string) ?? null,
+		certificateUrl: (t.certificate_url as string) ?? null
 	}));
 }
 

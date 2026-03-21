@@ -75,6 +75,11 @@ export const personnelTrainingRepo = createRepository<PersonnelTraining>({
 	transform: transformPersonnelTrainings
 });
 
+/**
+ * Pinned groups repo. IMPORTANT: callers MUST pass a `user_id` filter
+ * via QueryModifier — without it, this returns ALL users' pinned groups for the org.
+ * Example: `pinnedGroupRepo.list(supabase, orgId, { filters: [(q) => q.eq('user_id', userId)] })`
+ */
 export const pinnedGroupRepo = createRepository<string>({
 	table: 'user_pinned_groups',
 	transform: transformPinnedGroups,

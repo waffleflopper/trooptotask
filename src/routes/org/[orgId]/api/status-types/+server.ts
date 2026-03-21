@@ -1,6 +1,6 @@
 import { createCrudHandlers } from '$lib/server/crudFactory';
 import { notifyAdmins } from '$lib/server/notifications';
-import type { StatusType } from '$features/calendar/calendar.types';
+import type { StatusType } from '$lib/types';
 
 const handlers = createCrudHandlers<StatusType>({
 	table: 'status_types',

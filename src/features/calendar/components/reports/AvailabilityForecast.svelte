@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { StatusType } from '../../calendar.types';
+	import type { StatusType } from '$lib/types';
 	import type { AvailabilityForecastResult } from '../../utils/calendarReports';
 	import { computeAvailabilityForecast } from '../../utils/calendarReports';
 	import Badge from '$lib/components/ui/Badge.svelte';

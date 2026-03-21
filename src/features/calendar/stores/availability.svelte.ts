@@ -1,6 +1,6 @@
 import { createStore } from '$lib/stores/core';
 import type { BatchApiAdapter } from '$lib/stores/core';
-import type { AvailabilityEntry } from '../calendar.types';
+import type { AvailabilityEntry } from '$lib/types';
 import { isDateInRange, formatDate } from '$lib/utils/dates';
 
 let orgIdRef = '';

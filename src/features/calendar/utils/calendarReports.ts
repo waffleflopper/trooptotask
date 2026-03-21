@@ -1,4 +1,4 @@
-import type { AvailabilityEntry, StatusType } from '../calendar.types';
+import type { AvailabilityEntry, StatusType } from '$lib/types';
 import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
 import type { Personnel } from '$lib/types';
 import { RANK_ORDER } from '$features/personnel/utils/personnelGrouping';

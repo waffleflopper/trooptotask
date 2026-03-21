@@ -1,6 +1,5 @@
 <script lang="ts">
-	import type { SpecialDay } from '$features/calendar/calendar.types';
-	import type { AssignmentType, DailyAssignment } from '../stores/dailyAssignments.svelte';
+	import type { SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 	import { isWeekend, isToday, formatDate, getDayName } from '$lib/utils/dates';
 
 	interface Props {

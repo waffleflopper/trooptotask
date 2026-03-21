@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { availabilityStore } from './availability.svelte';
-import type { AvailabilityEntry } from '../calendar.types';
+import type { AvailabilityEntry } from '$lib/types';
 
 const mockEntries: AvailabilityEntry[] = [
 	{ id: '1', personnelId: 'p1', statusTypeId: 'st1', startDate: '2026-03-01', endDate: '2026-03-05', note: null },

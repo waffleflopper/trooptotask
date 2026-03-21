@@ -1,4 +1,4 @@
-import type { AvailabilityEntry } from '../calendar.types';
+import type { AvailabilityEntry } from '$lib/types';
 import type { Personnel } from '$lib/types';
 import { RANK_ORDER } from '$features/personnel/utils/personnelGrouping';
 

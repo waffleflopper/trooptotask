@@ -1,4 +1,4 @@
-import type { AvailabilityEntry, SpecialDay } from '$features/calendar/calendar.types';
+import type { AvailabilityEntry, SpecialDay } from '$lib/types';
 import type { AssignmentType, DailyAssignment } from '$features/calendar/stores/dailyAssignments.svelte';
 import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 import type { QueryModifier } from '$lib/server/repositoryFactory';

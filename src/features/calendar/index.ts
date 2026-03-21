@@ -1,8 +1,8 @@
 // Calendar feature barrel export
 
 // Types
-export type { StatusType, AvailabilityEntry, SpecialDay } from './calendar.types';
-export { DEFAULT_STATUS_TYPES } from './calendar.types';
+export type { StatusType, AvailabilityEntry, SpecialDay } from '$lib/types';
+export { DEFAULT_STATUS_TYPES } from '$lib/types';
 
 // Stores
 export { availabilityStore } from './stores/availability.svelte';

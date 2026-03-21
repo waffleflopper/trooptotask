@@ -1,5 +1,5 @@
 import { createCrudHandlers } from '$lib/server/crudFactory';
-import type { AvailabilityEntry } from '$features/calendar/calendar.types';
+import type { AvailabilityEntry } from '$lib/types';
 
 const handlers = createCrudHandlers<AvailabilityEntry>({
 	table: 'availability_entries',

@@ -1,6 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
-	import type { AvailabilityEntry } from '$features/calendar/calendar.types';
+	import type { Personnel, AvailabilityEntry } from '$lib/types';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { formatDate } from '$lib/utils/dates';

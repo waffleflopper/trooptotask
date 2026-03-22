@@ -5,8 +5,8 @@ import { SvelteMap } from 'svelte/reactivity';
  * Replaces scattered boolean $state variables across route pages.
  */
 export class ModalRegistry {
-	#modals: SvelteMap<string, unknown> = new SvelteMap();
-	#closers: SvelteMap<string, () => void> = new SvelteMap();
+	#modals = $state(new SvelteMap<string, unknown>());
+	#closers = new Map<string, () => void>();
 
 	isOpen(id: string): boolean {
 		return this.#modals.has(id);

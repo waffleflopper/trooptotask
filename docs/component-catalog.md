@@ -114,6 +114,8 @@ Import: `import { DataTable } from '$lib/components/ui/data-table';`
 
 Headless composable for table logic (sorting, filtering, pagination, grouping). Use directly for matrix/custom table layouts that need DataTable logic without the visual component.
 
+**Reactivity note:** Only `data` is reactive (passed as a closure). All other options (`columns`, `initialSortKey`, `initialSortDirection`, `pageSize`, `groupBy`, `filterFn`) are captured once at initialization. Pagination is automatically hidden when `groupBy` is active.
+
 ```typescript
 import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';

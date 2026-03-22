@@ -12,6 +12,10 @@
 	import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 	import { exportRatingScheme } from '$features/rating-scheme/utils/ratingSchemeExport';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
+	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
+	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import type { Personnel } from '$lib/types';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -46,6 +50,56 @@
 		}
 		return items;
 	});
+
+	// Personnel DataTable setup
+	const personnelColumns: ColumnDef<Personnel>[] = [
+		{ key: 'rank', header: 'Rank', value: (p) => p.rank },
+		{
+			key: 'name',
+			header: 'Name',
+			value: (p) => `${p.lastName}, ${p.firstName}`,
+			compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
+		},
+		{ key: 'mos', header: 'MOS', value: (p) => p.mos },
+		{ key: 'role', header: 'Role', value: (p) => p.clinicRole },
+		{ key: 'group', header: 'Group', value: (p) => p.groupName }
+	];
+
+	if (permissions?.canEditPersonnel) {
+		personnelColumns.push({ key: 'actions', header: '', value: () => '', searchable: false });
+	}
+
+	const azTable = useDataTable<Personnel>({
+		data: () => personnelStore.items,
+		columns: personnelColumns,
+		initialSortKey: 'name',
+		initialSortDirection: 'asc'
+	});
+
+	const groupedTable = useDataTable<Personnel>({
+		data: () => personnelStore.items,
+		columns: personnelColumns,
+		initialSortKey: 'name',
+		initialSortDirection: 'asc',
+		groupBy: {
+			key: (p) => p.groupName || ctx.orgName,
+			compare: (a, b) => {
+				const aPin = pinnedGroupsStore.list.includes(a) ? 0 : 1;
+				const bPin = pinnedGroupsStore.list.includes(b) ? 0 : 1;
+				if (aPin !== bPin) return aPin - bPin;
+				return a.localeCompare(b);
+			}
+		}
+	});
+
+	let rosterSearch = $state('');
+
+	$effect(() => {
+		azTable.setSearch(rosterSearch);
+		groupedTable.setSearch(rosterSearch);
+	});
+
+	const handleRowClick = permissions?.canEditPersonnel ? (person: Personnel) => ctx.handleEdit(person) : undefined;
 </script>
 
 <svelte:head>
@@ -94,39 +148,6 @@
 		</div>
 
 		{#if ctx.pageView === 'roster'}
-			<div class="toolbar">
-				<div class="toolbar-title">
-					<span class="count">({ctx.totalPersonnel})</span>
-				</div>
-				<input
-					type="text"
-					class="input search-input"
-					data-testid="personnel-search"
-					placeholder="Search by name, rank, or role..."
-					bind:value={ctx.searchQuery}
-				/>
-				<div class="view-toggle">
-					<span class="view-label">View:</span>
-					<button
-						class="view-btn"
-						class:active={ctx.viewMode === 'alphabetical'}
-						onclick={() => (ctx.viewMode = 'alphabetical')}
-					>
-						A-Z
-					</button>
-					<button
-						class="view-btn"
-						class:active={ctx.viewMode === 'by-group'}
-						onclick={() => (ctx.viewMode = 'by-group')}
-					>
-						By Group
-					</button>
-				</div>
-				{#if ctx.searchQuery && ctx.filteredCount !== ctx.totalPersonnel}
-					<span class="filter-info">Showing {ctx.filteredCount} of {ctx.totalPersonnel}</span>
-				{/if}
-			</div>
-
 			<main class="page-content">
 				{#if ctx.totalPersonnel === 0}
 					<EmptyState
@@ -134,99 +155,85 @@
 						actionLabel={permissions?.canEditPersonnel ? 'Add Person' : undefined}
 						onAction={permissions?.canEditPersonnel ? () => ctx.handleAdd() : undefined}
 					/>
-				{:else if ctx.viewMode === 'alphabetical'}
-					<div class="personnel-list" data-testid="personnel-list">
-						{#each ctx.alphabeticalPersonnel as person (person.id)}
-							{#if permissions?.canEditPersonnel}
-								<button class="person-row" onclick={() => ctx.handleEdit(person)}>
-									<div class="person-info">
-										<span class="rank">{person.rank}</span>
-										<span class="name">{person.lastName}, {person.firstName}</span>
-										{#if person.mos}
-											<span class="mos">{person.mos}</span>
-										{/if}
-										{#if person.clinicRole}
-											<span class="role">{person.clinicRole}</span>
-										{/if}
-										{#if person.groupName}
-											<span class="group-badge">{person.groupName}</span>
-										{/if}
-									</div>
-								</button>
-							{:else}
-								<div class="person-row readonly">
-									<div class="person-info">
-										<span class="rank">{person.rank}</span>
-										<span class="name">{person.lastName}, {person.firstName}</span>
-										{#if person.mos}
-											<span class="mos">{person.mos}</span>
-										{/if}
-										{#if person.clinicRole}
-											<span class="role">{person.clinicRole}</span>
-										{/if}
-										{#if person.groupName}
-											<span class="group-badge">{person.groupName}</span>
-										{/if}
-									</div>
-								</div>
-							{/if}
-						{/each}
-					</div>
 				{:else}
-					<div class="personnel-grid">
-						{#each ctx.personnelByGroup as grp (grp.group)}
-							<div class="group-card">
-								<div class="group-header">
-									<button class="group-toggle" onclick={() => ctx.toggleGroup(grp.group)}>
-										<span class="toggle-icon">{ctx.collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
-										<span class="group-name">{grp.group}</span>
-										<span class="group-count">({grp.personnel.length})</span>
+					{#key ctx.viewMode}
+						<DataTable
+							table={ctx.viewMode === 'alphabetical' ? azTable : groupedTable}
+							columns={personnelColumns}
+							onRowClick={handleRowClick}
+							ariaLabel="Personnel roster"
+							emptyMessage="No personnel match your search."
+						>
+							{#snippet toolbar(tbl)}
+								<div class="roster-toolbar">
+									<span class="roster-count">({personnelStore.items.length})</span>
+									<input
+										type="search"
+										class="input roster-search"
+										data-testid="personnel-search"
+										placeholder="Search by name, rank, or role..."
+										bind:value={rosterSearch}
+									/>
+									<div class="view-toggle">
+										<span class="view-label">View:</span>
+										<button
+											class="view-btn"
+											class:active={ctx.viewMode === 'alphabetical'}
+											onclick={() => (ctx.viewMode = 'alphabetical')}
+										>
+											A-Z
+										</button>
+										<button
+											class="view-btn"
+											class:active={ctx.viewMode === 'by-group'}
+											onclick={() => (ctx.viewMode = 'by-group')}
+										>
+											By Group
+										</button>
+									</div>
+									{#if tbl.search && tbl.totalRows !== personnelStore.items.length}
+										<span class="roster-filter-info">Showing {tbl.totalRows} of {personnelStore.items.length}</span>
+									{/if}
+								</div>
+							{/snippet}
+							{#snippet cell(row, col)}
+								{#if col.key === 'rank'}
+									<span class="cell-rank">{row.rank}</span>
+								{:else if col.key === 'name'}
+									<span class="cell-name">{row.lastName}, {row.firstName}</span>
+								{:else if col.key === 'actions'}
+									<button
+										class="btn btn-sm btn-secondary"
+										onclick={(e) => {
+											e.stopPropagation();
+											ctx.handleEdit(row);
+										}}
+									>
+										Edit
+									</button>
+								{:else}
+									{String(col.value(row) ?? '')}
+								{/if}
+							{/snippet}
+							{#snippet groupHeader(group)}
+								<div class="dt-group-header">
+									<button class="dt-group-toggle" onclick={group.toggle}>
+										<span class="dt-toggle-icon">{group.collapsed ? '▶' : '▼'}</span>
+										<span>{group.label}</span>
+										<span class="dt-group-count">({group.count})</span>
 									</button>
 									<button
-										class="pin-btn"
-										class:pinned={pinnedGroupsStore.list.includes(grp.group)}
-										onclick={() => pinnedGroupsStore.toggle(grp.group)}
-										title={pinnedGroupsStore.list.includes(grp.group) ? 'Unpin group' : 'Pin group to top'}
+										class="dt-pin-btn"
+										class:pinned={pinnedGroupsStore.list.includes(group.key)}
+										onclick={() => pinnedGroupsStore.toggle(group.key)}
+										title={pinnedGroupsStore.list.includes(group.key) ? 'Unpin group' : 'Pin group to top'}
 									>
-										{pinnedGroupsStore.list.includes(grp.group) ? '📌' : '📍'}
+										{pinnedGroupsStore.list.includes(group.key) ? '📌' : '📍'}
 									</button>
 								</div>
-								{#if !ctx.collapsedGroups.has(grp.group)}
-									<div class="group-personnel">
-										{#each grp.personnel as person (person.id)}
-											{#if permissions?.canEditPersonnel}
-												<button class="person-row" onclick={() => ctx.handleEdit(person)}>
-													<div class="person-info">
-														<span class="rank">{person.rank}</span>
-														<span class="name">{person.lastName}, {person.firstName}</span>
-														{#if person.mos}
-															<span class="mos">{person.mos}</span>
-														{/if}
-														{#if person.clinicRole}
-															<span class="role">{person.clinicRole}</span>
-														{/if}
-													</div>
-												</button>
-											{:else}
-												<div class="person-row readonly">
-													<div class="person-info">
-														<span class="rank">{person.rank}</span>
-														<span class="name">{person.lastName}, {person.firstName}</span>
-														{#if person.mos}
-															<span class="mos">{person.mos}</span>
-														{/if}
-														{#if person.clinicRole}
-															<span class="role">{person.clinicRole}</span>
-														{/if}
-													</div>
-												</div>
-											{/if}
-										{/each}
-									</div>
-								{/if}
-							</div>
-						{/each}
-					</div>
+							{/snippet}
+						</DataTable>
+					{/key}
 				{/if}
 			</main>
 		{:else}
@@ -424,33 +431,27 @@
 		font-size: var(--font-size-sm);
 	}
 
-	.toolbar {
+	/* Personnel Roster Toolbar */
+	.roster-toolbar {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-md);
 		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-surface);
-		border-bottom: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-divider);
 	}
 
-	.toolbar-title {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-	}
-
-	.count {
+	.roster-count {
 		font-family: var(--font-mono);
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 	}
 
-	.search-input {
+	.roster-search {
 		flex: 1;
 		max-width: 400px;
 	}
 
-	.filter-info {
+	.roster-filter-info {
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 	}
@@ -490,26 +491,9 @@
 	}
 
 	.view-btn.active {
-		background: #b8943e;
-		border-color: #b8943e;
-		color: #0f0f0f;
-	}
-
-	.personnel-list {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-sm);
-	}
-
-	.group-badge {
-		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
-		color: #0f0f0f;
-		background: #b8943e;
-		padding: 2px var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		margin-left: auto;
+		background: var(--color-primary);
+		border-color: var(--color-primary);
+		color: white;
 	}
 
 	.no-permission {
@@ -529,143 +513,74 @@
 
 	/* .page-content base + mobile in app.css */
 
-	.personnel-grid {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-md);
+	/* DataTable cell styles */
+	.cell-rank {
+		font-weight: 600;
+		color: var(--color-primary);
 	}
 
-	.group-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		overflow: hidden;
+	.cell-name {
+		font-weight: 500;
 	}
 
-	.group-header {
+	/* DataTable group header styles */
+	.dt-group-header {
 		display: flex;
 		align-items: center;
-		background: #0f0f0f;
-		color: #f0ede6;
+		width: 100%;
 	}
 
-	.group-toggle {
+	.dt-group-toggle {
 		flex: 1;
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
-		padding: var(--spacing-md);
+		padding: var(--spacing-xs) 0;
 		background: transparent;
-		color: white;
-		text-align: left;
+		border: none;
+		color: inherit;
+		font: inherit;
+		font-weight: var(--font-weight-semibold);
 		cursor: pointer;
-		font-weight: 600;
+		text-align: left;
 	}
 
-	.group-toggle:hover {
-		background: #1a1a1a;
-	}
-
-	.toggle-icon {
+	.dt-toggle-icon {
 		font-size: 10px;
 		width: 12px;
 	}
 
-	.group-name {
-		flex: 1;
-	}
-
-	.group-count {
+	.dt-group-count {
 		font-weight: 400;
 		opacity: 0.8;
 	}
 
-	.pin-btn {
-		padding: var(--spacing-md);
+	.dt-pin-btn {
+		padding: var(--spacing-xs) var(--spacing-sm);
 		background: transparent;
-		color: white;
+		border: none;
 		opacity: 0.5;
 		font-size: 14px;
+		cursor: pointer;
 		transition: opacity 0.15s ease;
 	}
 
-	.pin-btn:hover {
-		opacity: 1;
-		background: #1a1a1a;
-	}
-
-	.pin-btn.pinned {
+	.dt-pin-btn:hover {
 		opacity: 1;
 	}
 
-	.group-personnel {
-		padding: var(--spacing-sm);
-	}
-
-	.person-row {
-		display: flex;
-		align-items: center;
-		width: 100%;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-md);
-		transition: background-color 0.15s ease;
-		cursor: pointer;
-		text-align: left;
-		background: transparent;
-		border: none;
-	}
-
-	.person-row:hover {
-		background-color: var(--color-bg);
-	}
-
-	.person-row.readonly {
-		cursor: default;
-	}
-
-	.person-row.readonly:hover {
-		background-color: transparent;
-	}
-
-	.person-info {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-	}
-
-	.rank {
-		font-weight: 600;
-		color: #b8943e;
-		min-width: 40px;
-	}
-
-	.name {
-		font-weight: 500;
-		color: var(--color-text);
-	}
-
-	.mos {
-		font-size: var(--font-size-sm);
-		color: #b8943e;
-		font-weight: 500;
-	}
-
-	.role {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		padding: 2px var(--spacing-sm);
-		background: var(--color-bg);
-		border-radius: var(--radius-sm);
+	.dt-pin-btn.pinned {
+		opacity: 1;
 	}
 
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
-		.toolbar {
+		.roster-toolbar {
 			flex-wrap: wrap;
 			padding: var(--spacing-sm) var(--spacing-md);
 		}
 
-		.search-input {
+		.roster-search {
 			max-width: unset;
 			width: 100%;
 		}
@@ -674,36 +589,11 @@
 			width: 100%;
 			justify-content: flex-start;
 		}
-
-		.group-badge {
-			display: none;
-		}
-
-		.group-toggle {
-			padding: var(--spacing-sm);
-		}
-
-		.person-info {
-			flex-wrap: wrap;
-			gap: var(--spacing-sm);
-		}
-
-		.rank {
-			min-width: 35px;
-		}
-
-		.mos {
-			display: none; /* Hide MOS on mobile to save space */
-		}
-
-		.role {
-			font-size: var(--font-size-xs);
-		}
 	}
 
 	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.search-input {
+		.roster-search {
 			max-width: 300px;
 		}
 	}

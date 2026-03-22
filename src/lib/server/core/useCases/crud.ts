@@ -7,6 +7,9 @@ export interface CrudConfig {
 	entity: EntityDefinition;
 	permission: FeatureArea;
 	auditResource: string;
+	requireFullEditor?: boolean;
+	beforeDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
+	afterDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
 }
 
 export interface CrudUseCases {
@@ -20,6 +23,9 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 
 	return {
 		async create(ctx, data) {
+			if (config.requireFullEditor) {
+				ctx.auth.requireFullEditor();
+			}
 			ctx.auth.requireEdit(permission);
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
@@ -50,6 +56,9 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 		},
 
 		async update(ctx, data) {
+			if (config.requireFullEditor) {
+				ctx.auth.requireFullEditor();
+			}
 			ctx.auth.requireEdit(permission);
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
@@ -79,6 +88,9 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 		},
 
 		async remove(ctx, id) {
+			if (config.requireFullEditor) {
+				ctx.auth.requireFullEditor();
+			}
 			ctx.auth.requireEdit(permission);
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
@@ -92,6 +104,10 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 				await ctx.auth.requireGroupAccessByRecord(entity.table, id, personnelColumn);
 			}
 
+			if (config.beforeDelete) {
+				await config.beforeDelete(ctx, id);
+			}
+
 			await ctx.store.delete(entity.table, ctx.auth.orgId, id);
 
 			ctx.audit.log({
@@ -99,6 +115,10 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 				resourceType: auditResource,
 				resourceId: id
 			});
+
+			if (config.afterDelete) {
+				await config.afterDelete(ctx, id);
+			}
 		}
 	};
 }

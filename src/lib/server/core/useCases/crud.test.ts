@@ -256,4 +256,125 @@ describe('createCrudUseCases', () => {
 			await expect(remove(ctx, 'record-outside')).rejects.toThrow('Access denied');
 		});
 	});
+
+	describe('requireFullEditor', () => {
+		const fullEditorConfig = {
+			...crudConfig,
+			requireFullEditor: true
+		};
+
+		it('calls requireFullEditor on create when configured', async () => {
+			const ctx = buildContext({
+				auth: {
+					requireFullEditor() {
+						throw new Error('Requires full editor');
+					}
+				}
+			});
+			const { create } = createCrudUseCases(fullEditorConfig);
+
+			await expect(create(ctx, { personnelId: 'p-1' })).rejects.toThrow('Requires full editor');
+		});
+
+		it('calls requireFullEditor on update when configured', async () => {
+			const ctx = buildContext({
+				auth: {
+					requireFullEditor() {
+						throw new Error('Requires full editor');
+					}
+				}
+			});
+			const { update } = createCrudUseCases(fullEditorConfig);
+
+			await expect(update(ctx, { id: 'tr-1', notes: 'x' })).rejects.toThrow('Requires full editor');
+		});
+
+		it('calls requireFullEditor on remove when configured', async () => {
+			const ctx = buildContext({
+				auth: {
+					requireFullEditor() {
+						throw new Error('Requires full editor');
+					}
+				}
+			});
+			const { remove } = createCrudUseCases(fullEditorConfig);
+
+			await expect(remove(ctx, 'tr-1')).rejects.toThrow('Requires full editor');
+		});
+
+		it('does not call requireFullEditor when not configured', async () => {
+			let fullEditorCalled = false;
+			const ctx = buildContext({
+				auth: {
+					requireFullEditor() {
+						fullEditorCalled = true;
+					}
+				}
+			});
+			const { create } = createCrudUseCases(crudConfig);
+
+			await create(ctx, { personnelId: 'p-1' });
+			expect(fullEditorCalled).toBe(false);
+		});
+	});
+
+	describe('beforeDelete hook', () => {
+		it('calls beforeDelete before deleting the record', async () => {
+			const callOrder: string[] = [];
+			const ctx = buildContext();
+
+			ctx.store.seed('test_records', [{ id: 'tr-1', personnel_id: 'p-1', notes: 'x', organization_id: 'test-org' }]);
+			// Seed a related record to cascade-delete
+			ctx.store.seed('related_items', [{ id: 'rel-1', test_record_id: 'tr-1', organization_id: 'test-org' }]);
+
+			const configWithHook = {
+				...crudConfig,
+				beforeDelete: async (hookCtx: UseCaseContext, id: string) => {
+					callOrder.push('beforeDelete');
+					await hookCtx.store.deleteWhere('related_items', hookCtx.auth.orgId, {
+						test_record_id: id
+					});
+				}
+			};
+
+			const { remove } = createCrudUseCases(configWithHook);
+			await remove(ctx, 'tr-1');
+
+			// Related items should be cascade-deleted
+			const related = await ctx.store.findMany('related_items', 'test-org');
+			expect(related).toHaveLength(0);
+
+			// Main record should also be deleted
+			const main = await ctx.store.findOne('test_records', 'test-org', { id: 'tr-1' });
+			expect(main).toBeNull();
+		});
+	});
+
+	describe('afterDelete hook', () => {
+		it('calls afterDelete after deleting and auditing', async () => {
+			const ctx = buildContext();
+
+			ctx.store.seed('test_records', [{ id: 'tr-1', personnel_id: 'p-1', notes: 'x', organization_id: 'test-org' }]);
+
+			let afterDeleteCalled = false;
+			const configWithHook = {
+				...crudConfig,
+				afterDelete: async (hookCtx: UseCaseContext, deletedId: string) => {
+					afterDeleteCalled = true;
+					// Verify record is already gone when afterDelete fires
+					const record = await hookCtx.store.findOne('test_records', hookCtx.auth.orgId, {
+						id: deletedId
+					});
+					expect(record).toBeNull();
+					// Verify audit already logged
+					expect(ctx.auditPort.events).toHaveLength(1);
+				}
+			};
+
+			const { remove } = createCrudUseCases(configWithHook);
+			await remove(ctx, 'tr-1');
+
+			expect(afterDeleteCalled).toBe(true);
+		});
+	});
 });

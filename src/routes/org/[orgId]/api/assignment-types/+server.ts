@@ -1,3 +1,4 @@
-import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
+import { assignmentTypeCrudConfig } from '$lib/server/core/useCases/assignmentTypeCrud';
+import { crudHandlers } from '$lib/server/adapters/httpAdapter';
 
-export const { POST, PUT, DELETE } = AssignmentTypeEntity.handlers;
+export const { POST, PUT, DELETE } = crudHandlers(assignmentTypeCrudConfig);

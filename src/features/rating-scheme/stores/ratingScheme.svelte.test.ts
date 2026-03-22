@@ -56,28 +56,28 @@ describe('ratingSchemeStore', () => {
 		ratingSchemeStore.load(structuredClone(mockEntries), 'org-1');
 	});
 
-	describe('list', () => {
+	describe('items', () => {
 		it('returns loaded entries', () => {
-			expect(ratingSchemeStore.list).toHaveLength(2);
+			expect(ratingSchemeStore.items).toHaveLength(2);
 		});
 
 		it('contains entries with correct data', () => {
-			const entry = ratingSchemeStore.list.find((e) => e.id === '1');
+			const entry = ratingSchemeStore.items.find((e) => e.id === '1');
 			expect(entry?.evalType).toBe('NCOER');
 			expect(entry?.ratedPersonId).toBe('p1');
 		});
 
 		it('returns empty array when no items loaded', () => {
 			ratingSchemeStore.load([], 'org-2');
-			expect(ratingSchemeStore.list).toEqual([]);
+			expect(ratingSchemeStore.items).toEqual([]);
 		});
 	});
 
 	describe('load', () => {
 		it('replaces existing items with new data', () => {
 			ratingSchemeStore.load([mockEntries[0]], 'org-2');
-			expect(ratingSchemeStore.list).toHaveLength(1);
-			expect(ratingSchemeStore.list[0].evalType).toBe('NCOER');
+			expect(ratingSchemeStore.items).toHaveLength(1);
+			expect(ratingSchemeStore.items[0].evalType).toBe('NCOER');
 		});
 	});
 
@@ -107,7 +107,7 @@ describe('ratingSchemeStore', () => {
 
 			expect(result).not.toBeNull();
 			expect(result!.id).toBe('new-1');
-			expect(ratingSchemeStore.list.some((e) => e.id === 'new-1')).toBe(true);
+			expect(ratingSchemeStore.items.some((e) => e.id === 'new-1')).toBe(true);
 		});
 	});
 

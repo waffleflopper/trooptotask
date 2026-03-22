@@ -4,7 +4,6 @@ import { formatDate } from '$lib/utils/dates';
 import type { SpecialDay } from '$lib/types';
 
 interface SpecialDayExtensions extends Record<string, unknown> {
-	readonly list: SpecialDay[];
 	remove: (id: string) => Promise<boolean>;
 	resetFederalHolidays: () => Promise<boolean>;
 	getByDate: (date: Date) => SpecialDay | undefined;
@@ -14,10 +13,6 @@ interface SpecialDayExtensions extends Record<string, unknown> {
 
 function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 	return {
-		get list() {
-			return base.items;
-		},
-
 		remove: base.removeBool,
 
 		async resetFederalHolidays(): Promise<boolean> {

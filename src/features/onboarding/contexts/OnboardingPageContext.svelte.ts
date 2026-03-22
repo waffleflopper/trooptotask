@@ -255,11 +255,11 @@ export class OnboardingPageContext {
 	}
 
 	isTrainingStepComplete(step: OnboardingStepProgress, personnelId: string): boolean {
-		return isTrainingStepComplete(step, personnelId, trainingTypesStore.list, personnelTrainingsStore.list);
+		return isTrainingStepComplete(step, personnelId, trainingTypesStore.items, personnelTrainingsStore.list);
 	}
 
 	getProgress(onboarding: PersonnelOnboarding): { completed: number; total: number } {
-		return getProgress(onboarding, this.knownTemplateStepIds, trainingTypesStore.list, personnelTrainingsStore.list);
+		return getProgress(onboarding, this.knownTemplateStepIds, trainingTypesStore.items, personnelTrainingsStore.list);
 	}
 
 	getPaperworkStageIndex(step: OnboardingStepProgress): number {
@@ -442,7 +442,7 @@ export class OnboardingPageContext {
 	}
 
 	get groups() {
-		return groupsStore.list;
+		return groupsStore.items;
 	}
 
 	get templates() {
@@ -450,7 +450,7 @@ export class OnboardingPageContext {
 	}
 
 	get trainingTypes() {
-		return trainingTypesStore.list;
+		return trainingTypesStore.items;
 	}
 
 	get personnelTrainings() {

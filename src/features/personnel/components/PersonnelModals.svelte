@@ -93,7 +93,7 @@
 	}
 
 	async function handleDeleteRatingEntry(id: string) {
-		const entry = ratingSchemeStore.list.find((e) => e.id === id);
+		const entry = ratingSchemeStore.items.find((e) => e.id === id);
 		const result = await ratingSchemeStore.remove(id);
 		if (result === 'approval_required' && entry) {
 			const person = allPersonnel.find((p) => p.id === entry.ratedPersonId);
@@ -116,7 +116,7 @@
 {#if modals.isOpen('personnel-modal')}
 	<PersonnelModal
 		personnel={editingPerson}
-		groups={groupsStore.list}
+		groups={groupsStore.items}
 		onSubmit={handleSubmit}
 		onRemove={handleArchive}
 		onClose={modals.closerFor('personnel-modal')}
@@ -125,7 +125,7 @@
 
 {#if modals.isOpen('group-manager')}
 	<GroupManager
-		groups={groupsStore.list}
+		groups={groupsStore.items}
 		onAdd={(name) => groupsStore.add(name)}
 		onRemove={async (id) => {
 			await groupsStore.remove(id);
@@ -148,7 +148,7 @@
 {#if modals.isOpen('bulk-manager')}
 	<BulkPersonnelManager
 		personnelByGroup={ctx.personnelByGroup}
-		groups={groupsStore.list}
+		groups={groupsStore.items}
 		orgId={ctx.orgId}
 		onImportComplete={handleBulkImportComplete}
 		onBulkDelete={handleBulkArchive}

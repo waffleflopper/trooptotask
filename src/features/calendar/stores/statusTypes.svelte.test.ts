@@ -20,23 +20,23 @@ describe('statusTypesStore', () => {
 		statusTypesStore.load(structuredClone(mockTypes), 'org-1');
 	});
 
-	describe('list', () => {
+	describe('items', () => {
 		it('returns loaded items', () => {
-			expect(statusTypesStore.list).toHaveLength(2);
-			expect(statusTypesStore.list[0].name).toBe('Leave');
+			expect(statusTypesStore.items).toHaveLength(2);
+			expect(statusTypesStore.items[0].name).toBe('Leave');
 		});
 
 		it('returns empty array when no items loaded', () => {
 			statusTypesStore.load([], 'org-2');
-			expect(statusTypesStore.list).toEqual([]);
+			expect(statusTypesStore.items).toEqual([]);
 		});
 	});
 
 	describe('load', () => {
 		it('replaces existing items with new data', () => {
 			statusTypesStore.load([mockTypes[1]], 'org-2');
-			expect(statusTypesStore.list).toHaveLength(1);
-			expect(statusTypesStore.list[0].name).toBe('TDY');
+			expect(statusTypesStore.items).toHaveLength(1);
+			expect(statusTypesStore.items[0].name).toBe('TDY');
 		});
 	});
 
@@ -61,7 +61,7 @@ describe('statusTypesStore', () => {
 
 			expect(result).not.toBeNull();
 			expect(result!.id).toBe('new-1');
-			expect(statusTypesStore.list.some((s) => s.id === 'new-1')).toBe(true);
+			expect(statusTypesStore.items.some((s) => s.id === 'new-1')).toBe(true);
 		});
 	});
 

@@ -162,9 +162,7 @@ describe('defineStore (Tier 3 — enhance with internals)', () => {
 		expect(capturedInternals!.adapter).toBe(adapter);
 	});
 
-	it('Tier 2 (1-arg enhance) still works after detection logic was added', () => {
-		// Verify that a 1-arg enhance function (enhance.length === 1) still produces
-		// a correctly merged store — detection must not break the Tier 2 path.
+	it('Tier 2 (1-arg enhance) produces a correctly merged store', () => {
 		const store = defineStore({ table: 'test_items', overrides: { adapter: mockAdapter() } }, (base) => ({
 			count: () => base.items.length
 		}));

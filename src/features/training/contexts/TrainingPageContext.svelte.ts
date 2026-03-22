@@ -113,7 +113,7 @@ export class TrainingPageContext {
 
 	// ---- derived: stats ----
 	get stats() {
-		return getTrainingStats(this.filteredPersonnel, trainingTypesStore.list, personnelTrainingsStore.list);
+		return getTrainingStats(this.filteredPersonnel, trainingTypesStore.items, personnelTrainingsStore.list);
 	}
 
 	// ---- derived: overflow menu ----
@@ -174,7 +174,7 @@ export class TrainingPageContext {
 		const result = await personnelTrainingsStore.remove(id);
 		if (result === 'approval_required' && training) {
 			const person = this.personnel.find((p) => p.id === training.personnelId);
-			const type = trainingTypesStore.list.find((t) => t.id === training.trainingTypeId);
+			const type = trainingTypesStore.items.find((t) => t.id === training.trainingTypeId);
 			const desc = `${type?.name ?? 'Training'} record for ${person ? `${person.rank} ${person.lastName}` : 'unknown'}`;
 			await submitDeletionRequest(this.orgId, 'personnel_training', id, desc, `/org/${this.orgId}/training`);
 		}
@@ -189,7 +189,7 @@ export class TrainingPageContext {
 	}
 
 	async handleRemoveType(id: string): Promise<void> {
-		const type = trainingTypesStore.list.find((t) => t.id === id);
+		const type = trainingTypesStore.items.find((t) => t.id === id);
 		const result = await trainingTypesStore.remove(id);
 		if (result === 'approval_required' && type) {
 			await submitDeletionRequest(
@@ -205,7 +205,7 @@ export class TrainingPageContext {
 	}
 
 	async handleToggleExempt(typeId: string, personId: string, exempt: boolean): Promise<void> {
-		const type = trainingTypesStore.list.find((t) => t.id === typeId);
+		const type = trainingTypesStore.items.find((t) => t.id === typeId);
 		if (!type) return;
 		const currentIds = type.exemptPersonnelIds;
 		const updatedIds = exempt ? [...currentIds, personId] : currentIds.filter((id) => id !== personId);

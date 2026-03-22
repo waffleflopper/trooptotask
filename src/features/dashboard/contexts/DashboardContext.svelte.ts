@@ -217,7 +217,7 @@ export class DashboardContext {
 	get statusBreakdown(): Map<string, { name: string; color: string; textColor: string; count: number }> {
 		const map = new Map<string, { name: string; color: string; textColor: string; count: number }>();
 		for (const entry of this.todayEntries) {
-			const st = statusTypesStore.list.find((s) => s.id === entry.statusTypeId);
+			const st = statusTypesStore.items.find((s) => s.id === entry.statusTypeId);
 			if (!st) continue;
 			const existing = map.get(st.id);
 			if (existing) {
@@ -288,7 +288,7 @@ export class DashboardContext {
 
 		for (const entry of availabilityStore.list) {
 			const person = personnelStore.list.find((p) => p.id === entry.personnelId);
-			const st = statusTypesStore.list.find((s) => s.id === entry.statusTypeId);
+			const st = statusTypesStore.items.find((s) => s.id === entry.statusTypeId);
 			if (!person || !st) continue;
 
 			// Starting soon (departing)
@@ -385,7 +385,7 @@ export class DashboardContext {
 		isPinned: boolean;
 	}[] {
 		const pinnedSet = new Set(pinnedGroupsStore.list);
-		const sorted = [...groupsStore.list].sort((a, b) => {
+		const sorted = [...groupsStore.items].sort((a, b) => {
 			const aPinned = pinnedSet.has(a.name);
 			const bPinned = pinnedSet.has(b.name);
 			if (aPinned && !bPinned) return -1;

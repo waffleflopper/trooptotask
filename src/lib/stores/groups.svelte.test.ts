@@ -20,23 +20,23 @@ describe('groupsStore', () => {
 		groupsStore.load(structuredClone(mockGroups), 'org-1');
 	});
 
-	describe('list', () => {
+	describe('items', () => {
 		it('returns loaded items', () => {
-			expect(groupsStore.list).toHaveLength(2);
-			expect(groupsStore.list[0].name).toBe('Alpha');
+			expect(groupsStore.items).toHaveLength(2);
+			expect(groupsStore.items[0].name).toBe('Alpha');
 		});
 
 		it('returns empty array when no items loaded', () => {
 			groupsStore.load([], 'org-2');
-			expect(groupsStore.list).toEqual([]);
+			expect(groupsStore.items).toEqual([]);
 		});
 	});
 
 	describe('load', () => {
 		it('replaces existing items with new data', () => {
 			groupsStore.load([{ id: '9', name: 'Zulu', sortOrder: 0 }], 'org-2');
-			expect(groupsStore.list).toHaveLength(1);
-			expect(groupsStore.list[0].name).toBe('Zulu');
+			expect(groupsStore.items).toHaveLength(1);
+			expect(groupsStore.items[0].name).toBe('Zulu');
 		});
 	});
 

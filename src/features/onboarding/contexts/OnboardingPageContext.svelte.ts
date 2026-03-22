@@ -215,11 +215,11 @@ export class OnboardingPageContext {
 	}
 
 	get hasTemplateSteps() {
-		return onboardingTemplateStore.list.length > 0;
+		return onboardingTemplateStore.allSteps.length > 0;
 	}
 
 	get knownTemplateStepIds(): string[] {
-		return onboardingTemplateStore.list.map((s) => s.id);
+		return onboardingTemplateStore.allSteps.map((s) => s.id);
 	}
 
 	get existingOnboardingPersonnelIds(): string[] {

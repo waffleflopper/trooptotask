@@ -131,7 +131,7 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 0 var(--spacing-lg);
-		z-index: 100;
+		z-index: calc(var(--z-sticky) + 100);
 		box-sizing: border-box;
 	}
 

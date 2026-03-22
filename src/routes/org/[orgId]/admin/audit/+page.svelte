@@ -2,6 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
+	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
+	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 
 	let { data } = $props();
 
@@ -12,7 +14,6 @@
 			.replace(/\b\w/g, (l) => l.toUpperCase());
 	}
 
-	/** Extract a human-readable description from log details, excluding actor */
 	function getSummary(details: Record<string, unknown> | null): string {
 		if (!details) return '';
 		const parts: string[] = [];
@@ -44,6 +45,15 @@
 	}
 
 	const totalPages = $derived(Math.ceil(data.totalCount / data.limit));
+
+	type AuditLog = (typeof data.logs)[number];
+
+	const columns: ColumnDef<AuditLog>[] = [
+		{ key: 'timestamp', header: 'Timestamp', value: (l) => l.createdAt },
+		{ key: 'user', header: 'User', value: (l) => (l.details as Record<string, unknown>)?.actor ?? '-' },
+		{ key: 'action', header: 'Action', value: (l) => l.action },
+		{ key: 'description', header: 'Description', value: (l) => getSummary(l.details as Record<string, unknown>) }
+	];
 </script>
 
 <svelte:head>
@@ -56,80 +66,65 @@
 		<p class="subtitle">Activity log for your organization</p>
 	</header>
 
-	<!-- Filters -->
-	<div class="filters">
-		<select value={data.actionFilter} onchange={(e) => setParam('action', e.currentTarget.value)} class="filter-select">
-			<option value="">All Actions</option>
-			{#each data.availableActions as action}
-				<option value={action}>{formatAction(action)}</option>
-			{/each}
-		</select>
-
-		<span class="count">{data.totalCount} entries</span>
-	</div>
-
-	<!-- Audit Log Table -->
-	<div class="audit-table-container">
-		<table class="audit-table">
-			<thead>
-				<tr>
-					<th>Timestamp</th>
-					<th>User</th>
-					<th>Action</th>
-					<th>Description</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each data.logs as log (log.id)}
-					{@const summary = getSummary(log.details)}
-					<tr>
-						<td class="timestamp">{formatDisplayDateTime(log.createdAt)}</td>
-						<td class="actor-cell">
-							{#if log.details?.actor}
-								<span class="actor">{log.details.actor}</span>
-							{:else}
-								<span class="no-target">-</span>
-							{/if}
-						</td>
-						<td>
-							<span class="action-badge">{formatAction(log.action)}</span>
-						</td>
-						<td class="description-cell">
-							{#if summary}
-								<span class="description">{summary}</span>
-							{:else if log.resourceType}
-								<span class="resource-type">{log.resourceType.replace(/_/g, ' ')}</span>
-								{#if log.resourceId}
-									<code class="resource-id">{log.resourceId.slice(0, 8)}</code>
-								{/if}
-							{:else}
-								<span class="no-details">-</span>
-							{/if}
-						</td>
-					</tr>
+	<DataTable data={data.logs} {columns} ariaLabel="Audit log" emptyMessage="No audit log entries yet">
+		{#snippet toolbar(_tbl)}
+			<div class="filters">
+				<select value={data.actionFilter} onchange={(e) => setParam('action', e.currentTarget.value)} class="select">
+					<option value="">All Actions</option>
+					{#each data.availableActions as action}
+						<option value={action}>{formatAction(action)}</option>
+					{/each}
+				</select>
+				<span class="count">{data.totalCount} entries</span>
+			</div>
+		{/snippet}
+		{#snippet cell(row, col)}
+			{#if col.key === 'timestamp'}
+				<span class="timestamp">{formatDisplayDateTime(row.createdAt)}</span>
+			{:else if col.key === 'user'}
+				{#if (row.details as Record<string, unknown>)?.actor}
+					<span class="actor">{(row.details as Record<string, unknown>).actor}</span>
 				{:else}
-					<tr>
-						<td colspan="4" class="empty-state">No audit log entries yet</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-
-	<!-- Pagination -->
-	{#if totalPages > 1}
-		<div class="pagination">
-			<button class="page-btn" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}> Previous </button>
-
-			<span class="page-info">
-				Page {data.page} of {totalPages}
-			</span>
-
-			<button class="page-btn" disabled={data.page >= totalPages} onclick={() => goToPage(data.page + 1)}>
-				Next
-			</button>
-		</div>
-	{/if}
+					<span class="no-target">-</span>
+				{/if}
+			{:else if col.key === 'action'}
+				<span class="action-badge">{formatAction(row.action)}</span>
+			{:else if col.key === 'description'}
+				{@const summary = getSummary(row.details as Record<string, unknown>)}
+				<span class="description-cell">
+					{#if summary}
+						{summary}
+					{:else if row.resourceType}
+						<span class="resource-type">{row.resourceType.replace(/_/g, ' ')}</span>
+						{#if row.resourceId}
+							<code class="resource-id">{row.resourceId.slice(0, 8)}</code>
+						{/if}
+					{:else}
+						<span class="no-details">-</span>
+					{/if}
+				</span>
+			{:else}
+				{String(col.value(row) ?? '')}
+			{/if}
+		{/snippet}
+		{#snippet footer(_tbl)}
+			{#if totalPages > 1}
+				<div class="pagination">
+					<button class="btn btn-secondary btn-sm" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}>
+						Previous
+					</button>
+					<span class="page-info">Page {data.page} of {totalPages}</span>
+					<button
+						class="btn btn-secondary btn-sm"
+						disabled={data.page >= totalPages}
+						onclick={() => goToPage(data.page + 1)}
+					>
+						Next
+					</button>
+				</div>
+			{/if}
+		{/snippet}
+	</DataTable>
 </div>
 
 <style>
@@ -158,17 +153,8 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-md);
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.filter-select {
 		padding: var(--spacing-sm) var(--spacing-md);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
-		cursor: pointer;
+		border-bottom: 1px solid var(--color-divider);
 	}
 
 	.count {
@@ -176,45 +162,7 @@
 		color: var(--color-text-muted);
 	}
 
-	/* Table */
-	.audit-table-container {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		overflow-x: auto;
-	}
-
-	.audit-table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-
-	.audit-table th,
-	.audit-table td {
-		padding: var(--spacing-sm) var(--spacing-md);
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.audit-table th {
-		font-size: var(--font-size-xs);
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-text-muted);
-		background: var(--color-surface-variant);
-	}
-
-	.audit-table td {
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
-		vertical-align: top;
-	}
-
-	.audit-table tbody tr:hover {
-		background: var(--color-surface-variant);
-	}
-
+	/* Cell styles */
 	.timestamp {
 		white-space: nowrap;
 		font-size: var(--font-size-xs);
@@ -232,6 +180,16 @@
 		text-transform: capitalize;
 	}
 
+	.actor {
+		font-size: var(--font-size-xs);
+		color: var(--color-text-secondary);
+		white-space: nowrap;
+	}
+
+	.description-cell {
+		max-width: 400px;
+	}
+
 	.resource-type {
 		font-size: var(--font-size-xs);
 		font-weight: 500;
@@ -246,32 +204,9 @@
 		margin-left: 4px;
 	}
 
-	.actor-cell {
-		white-space: nowrap;
-	}
-
-	.actor {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-secondary);
-	}
-
-	.description-cell {
-		max-width: 400px;
-	}
-
-	.description {
-		font-size: var(--font-size-sm);
-	}
-
 	.no-target,
 	.no-details {
 		color: var(--color-text-muted);
-	}
-
-	.empty-state {
-		text-align: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-xl) !important;
 	}
 
 	/* Pagination */
@@ -280,26 +215,7 @@
 		justify-content: center;
 		align-items: center;
 		gap: var(--spacing-md);
-		margin-top: var(--spacing-lg);
-	}
-
-	.page-btn {
 		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
-		cursor: pointer;
-	}
-
-	.page-btn:hover:not(:disabled) {
-		background: var(--color-surface-variant);
-	}
-
-	.page-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
 	}
 
 	.page-info {

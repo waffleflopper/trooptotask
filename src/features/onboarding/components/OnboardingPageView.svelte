@@ -62,7 +62,7 @@
 		</div>
 	{:else}
 		<main class="page-content">
-			{#if !ctx.hasTemplateSteps && onboardingStore.list.length > 0}
+			{#if !ctx.hasTemplateSteps && onboardingStore.items.length > 0}
 				<div class="warning-banner">
 					<span>No template steps defined — new onboardings cannot be started until steps are added.</span>
 					{#if ctx.canEditOnboarding}
@@ -81,7 +81,7 @@
 			{/if}
 
 			{#if ctx.filteredOnboardings.length === 0}
-				{#if !ctx.hasTemplateSteps && onboardingStore.list.length === 0}
+				{#if !ctx.hasTemplateSteps && onboardingStore.items.length === 0}
 					{#if ctx.canEditOnboarding}
 						<EmptyState
 							message="Set up your onboarding template to get started. Define the steps new members need to complete."

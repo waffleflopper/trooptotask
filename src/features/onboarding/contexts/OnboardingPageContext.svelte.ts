@@ -227,7 +227,7 @@ export class OnboardingPageContext {
 	}
 
 	get filteredOnboardings(): PersonnelOnboarding[] {
-		return filterOnboardings(onboardingStore.list, this.showFilter);
+		return filterOnboardings(onboardingStore.items, this.showFilter);
 	}
 
 	get overflowItems(): OverflowItem[] {
@@ -293,7 +293,7 @@ export class OnboardingPageContext {
 
 	async handleToggleCheckbox(step: OnboardingStepProgress) {
 		await onboardingStore.updateStepProgress(step.id, { completed: !step.completed });
-		const onboarding = onboardingStore.list.find((o) => o.steps.some((s) => s.id === step.id));
+		const onboarding = onboardingStore.items.find((o) => o.steps.some((s) => s.id === step.id));
 		if (onboarding) await this.checkAutoComplete(onboarding.id);
 	}
 
@@ -305,7 +305,7 @@ export class OnboardingPageContext {
 			const isLast = currentIndex + 1 === stages.length - 1;
 			await onboardingStore.updateStepProgress(step.id, { currentStage: nextStage, completed: isLast });
 			if (isLast) {
-				const onboarding = onboardingStore.list.find((o) => o.steps.some((s) => s.id === step.id));
+				const onboarding = onboardingStore.items.find((o) => o.steps.some((s) => s.id === step.id));
 				if (onboarding) await this.checkAutoComplete(onboarding.id);
 			}
 		}
@@ -434,11 +434,11 @@ export class OnboardingPageContext {
 	// ── Store accessors (for view) ─────────────────────────────
 
 	get onboardings() {
-		return onboardingStore.list;
+		return onboardingStore.items;
 	}
 
 	get personnel() {
-		return personnelStore.list;
+		return personnelStore.items;
 	}
 
 	get groups() {

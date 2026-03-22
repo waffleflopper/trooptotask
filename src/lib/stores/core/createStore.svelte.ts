@@ -1,6 +1,7 @@
 import type { DeleteResult } from '$lib/utils/deletionRequests';
 import { createReactiveCollection, createReactiveValue } from './reactiveState.svelte';
 import { createMutationLog } from './mutationLog.svelte';
+import type { MutationLog } from './mutationLog.svelte';
 import { replay } from './replay';
 import { createRestAdapter } from './ports';
 import type { ApiAdapter, BatchApiAdapter } from './ports';
@@ -36,7 +37,18 @@ export interface Store<T extends { id: string }> {
 	appendLocal(items: T[]): void;
 }
 
-export function createStore<T extends { id: string }>(config: StoreConfig<T>): Store<T> {
+export interface StoreInternals<T extends { id: string }> {
+	serverState: ReturnType<typeof createReactiveCollection<T>>;
+	log: MutationLog<T>;
+	replay(): T[];
+	snapshot(): T[];
+	orgId(): string;
+	adapter: ApiAdapter<T>;
+}
+
+export function createStoreWithInternals<T extends { id: string }>(
+	config: StoreConfig<T>
+): { store: Store<T>; internals: StoreInternals<T> } {
 	const serverState = createReactiveCollection<T>();
 	const orgIdVal = createReactiveValue('');
 	const log = createMutationLog<T>();
@@ -69,7 +81,7 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 		return result;
 	}
 
-	return {
+	const store: Store<T> = {
 		get items() {
 			const raw = getDisplayItems();
 			return config.sort ? [...raw].sort(config.sort) : raw;
@@ -223,4 +235,21 @@ export function createStore<T extends { id: string }>(config: StoreConfig<T>): S
 			serverState.set([...serverState.getSnapshot(), ...items]);
 		}
 	};
+
+	const internals: StoreInternals<T> = {
+		serverState,
+		log,
+		replay: () => getDisplayItems(),
+		snapshot: () => getDisplaySnapshot(),
+		orgId: () => orgIdVal.value,
+		get adapter() {
+			return adapter;
+		}
+	};
+
+	return { store, internals };
+}
+
+export function createStore<T extends { id: string }>(config: StoreConfig<T>): Store<T> {
+	return createStoreWithInternals(config).store;
 }

@@ -13,4 +13,7 @@ export { replay } from './replay';
 export type { MutationEntry } from './replay';
 
 export { createStore } from './createStore.svelte';
-export type { Store, StoreConfig } from './createStore.svelte';
+export type { Store, StoreConfig, StoreInternals } from './createStore.svelte';
+
+export { defineStore, tableToResource, buildComparator } from './defineStore.svelte';
+export type { DefineStoreConfig } from './defineStore.svelte';

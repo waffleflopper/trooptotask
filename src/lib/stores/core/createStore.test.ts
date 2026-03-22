@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createStore } from './createStore.svelte';
+import { createStore, createStoreWithInternals } from './createStore.svelte';
 import { createMockAdapter } from './ports';
 import type { ApiAdapter, BatchApiAdapter } from './ports';
 import type { BeforeAddHook } from './optimistic';
@@ -1017,6 +1017,106 @@ describe('createStore', () => {
 				{ id: '2', name: 'Bob' },
 				{ id: '3', name: 'Charlie' }
 			]);
+		});
+	});
+
+	describe('createStoreWithInternals', () => {
+		function makeAdapter(overrides: Partial<ApiAdapter<TestItem>> = {}): ApiAdapter<TestItem> {
+			return createMockAdapter<TestItem>({
+				create: async (data) => ({ id: 'server-1', ...data }) as TestItem,
+				update: async (id, data) => ({ id, name: 'default', ...data }) as TestItem,
+				remove: async () => 'deleted',
+				...overrides
+			});
+		}
+
+		it('internals.serverState starts empty', () => {
+			const { internals } = createStoreWithInternals<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter()
+			});
+
+			expect(internals.serverState.items).toEqual([]);
+		});
+
+		it('internals.orgId() reflects org loaded into store', () => {
+			const { store, internals } = createStoreWithInternals<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter()
+			});
+
+			store.load([{ id: '1', name: 'Alpha' }], 'org-42');
+
+			expect(internals.orgId()).toBe('org-42');
+		});
+
+		it('internals.replay() returns items after load', () => {
+			const item: TestItem = { id: '1', name: 'Alpha' };
+			const { store, internals } = createStoreWithInternals<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter()
+			});
+
+			store.load([item], 'org-1');
+
+			expect(internals.replay()).toEqual([item]);
+		});
+
+		it('internals.snapshot() returns items after load', () => {
+			const item: TestItem = { id: '1', name: 'Alpha' };
+			const { store, internals } = createStoreWithInternals<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter()
+			});
+
+			store.load([item], 'org-1');
+
+			expect(internals.snapshot()).toEqual([item]);
+		});
+
+		it('internals.log.pending is non-zero during an in-flight mutation', async () => {
+			let resolveCreate!: (value: TestItem) => void;
+			const createPromise = new Promise<TestItem>((resolve) => {
+				resolveCreate = resolve;
+			});
+
+			const { store, internals } = createStoreWithInternals<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter({ create: () => createPromise })
+			});
+			store.load([], 'org-1');
+
+			const addPromise = store.add({ name: 'New' });
+
+			expect(internals.log.pending).toBeGreaterThan(0);
+
+			resolveCreate({ id: 'server-1', name: 'New' });
+			await addPromise;
+
+			expect(internals.log.pending).toBe(0);
+		});
+
+		it('internals.adapter is the configured adapter instance', () => {
+			const adapter = makeAdapter();
+			const { internals } = createStoreWithInternals<TestItem>({
+				resource: 'test-items',
+				adapter
+			});
+
+			expect(internals.adapter).toBe(adapter);
+		});
+
+		it('store returned by createStoreWithInternals is a working Store<T>', () => {
+			const item: TestItem = { id: '1', name: 'Alpha' };
+			const { store } = createStoreWithInternals<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter()
+			});
+
+			store.load([item], 'org-1');
+
+			expect(store.items).toEqual([item]);
+			expect(store.orgId).toBe('org-1');
 		});
 	});
 

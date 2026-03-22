@@ -56,5 +56,5 @@ export const changelog: ChangelogEntry[] = [
 			"Use the Re-sync button to update someone's in-progress onboarding when the template changes — completed steps are never touched, only incomplete ones get updated",
 			'If you remove a step from the template after someone already started, it shows up as deprecated on their checklist so you can review and dismiss it manually'
 		]
-	},
+	}
 ];

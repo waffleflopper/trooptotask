@@ -40,6 +40,14 @@
 	}
 
 	let {
+		data,
+		columns: columnsProp,
+		table: tableProp,
+		initialSortKey,
+		initialSortDirection,
+		pageSize,
+		groupBy,
+		filterFn,
 		ariaLabel,
 		emptyMessage = 'No data.',
 		showSearch = false,
@@ -55,24 +63,23 @@
 		headerCell,
 		groupHeader: groupHeaderSnippet,
 		toolbar,
-		footer,
-		...rest
+		footer
 	}: Props = $props();
 
-	// Snapshot init-time props for useDataTable construction.
-	// Only ariaLabel needs to stay reactive (used in template).
-	const { data: initData, columns: initColumns, table: initTable, ...initOptions } = rest;
-
 	const internalTable =
-		!initTable && initData
+		!tableProp && data
 			? useDataTable({
-					data: () => initData,
-					columns: initColumns,
-					...initOptions
+					data: () => data!,
+					columns: columnsProp,
+					initialSortKey,
+					initialSortDirection,
+					pageSize,
+					groupBy,
+					filterFn
 				})
 			: undefined;
 
-	const table = $derived(initTable ?? internalTable!);
+	const table = $derived(tableProp ?? internalTable!);
 	const cols = $derived(table.columns);
 
 	function ariaSort(colKey: string): 'ascending' | 'descending' | undefined {

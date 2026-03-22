@@ -126,7 +126,7 @@
 
 	.btn-move:hover:not(:disabled) {
 		background: var(--color-primary);
-		color: #0f0f0f;
+		color: var(--color-chrome);
 		border-color: var(--color-primary);
 	}
 

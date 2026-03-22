@@ -237,7 +237,7 @@
 		height: 32px;
 		border: none;
 		background: transparent;
-		color: #8a8780;
+		color: var(--color-chrome-text-muted);
 		cursor: pointer;
 		border-radius: var(--radius-sm);
 		transition: color var(--transition-fast);
@@ -245,7 +245,7 @@
 	}
 
 	.bell-button:hover {
-		color: #f0ede6;
+		color: var(--color-chrome-text);
 	}
 
 	.badge-count {
@@ -340,7 +340,7 @@
 	}
 
 	.notification-item.unread {
-		background: rgba(63, 81, 181, 0.06);
+		background: rgba(var(--color-primary-rgb), var(--opacity-subtle));
 	}
 
 	.notification-content {

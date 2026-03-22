@@ -250,7 +250,7 @@
 		text-align: center;
 		padding: var(--spacing-md) var(--spacing-lg);
 		background: var(--color-primary);
-		color: #0f0f0f;
+		color: var(--color-chrome);
 		/* Bleed past modal-body padding to fill edge-to-edge */
 		margin: calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg)) 0;
 	}
@@ -337,7 +337,7 @@
 
 	.count {
 		background: var(--color-primary);
-		color: #0f0f0f;
+		color: var(--color-chrome);
 		font-size: var(--font-size-sm);
 		padding: 2px 8px;
 		border-radius: 10px;
@@ -451,7 +451,7 @@
 
 	.assignment-badge {
 		background: var(--color-primary);
-		color: #0f0f0f;
+		color: var(--color-chrome);
 		font-size: 9px;
 		font-weight: 700;
 		padding: 1px 4px;

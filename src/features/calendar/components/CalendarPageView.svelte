@@ -149,8 +149,8 @@
 	}
 
 	.toolbar-toggle.active {
-		border-color: #b8943e;
-		color: #b8943e;
+		border-color: var(--color-primary);
+		color: var(--color-primary);
 		background: var(--color-onboarding-tint);
 	}
 
@@ -163,7 +163,7 @@
 	}
 
 	.toolbar-toggle.active .toggle-dot {
-		background: #b8943e;
+		background: var(--color-primary);
 	}
 
 	/* Mobile styles — .page-content mobile in app.css */

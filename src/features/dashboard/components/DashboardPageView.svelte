@@ -536,7 +536,7 @@
 	.card-header svg {
 		width: 18px;
 		height: 18px;
-		color: #b8943e;
+		color: var(--color-primary);
 		flex-shrink: 0;
 	}
 
@@ -751,7 +751,7 @@
 	}
 
 	.training-stat--yellow .training-stat-value {
-		color: #b8943e;
+		color: var(--color-primary);
 	}
 
 	.training-stat--current .training-stat-value {
@@ -835,7 +835,7 @@
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: #b8943e;
+		color: var(--color-primary);
 		padding: 2px 0;
 		border-bottom: 1px solid var(--color-divider);
 		margin-bottom: 2px;
@@ -1067,7 +1067,7 @@
 	.pin-icon {
 		width: 12px;
 		height: 12px;
-		color: #b8943e;
+		color: var(--color-primary);
 		display: inline-block;
 		vertical-align: middle;
 		margin-right: 2px;

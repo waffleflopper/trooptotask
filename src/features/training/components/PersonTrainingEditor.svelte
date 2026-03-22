@@ -652,7 +652,7 @@
 	}
 	.stat.not-done {
 		background-color: rgba(107, 114, 128, 0.1);
-		border: 1px solid #6b7280;
+		border: 1px solid var(--color-text-muted);
 	}
 
 	.stat-value {
@@ -870,6 +870,6 @@
 	}
 
 	:global([data-theme='dark']) .status-badge[data-status='exempt'] {
-		background-color: #6b7280 !important;
+		background-color: var(--color-text-muted) !important;
 	}
 </style>

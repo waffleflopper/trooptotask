@@ -133,8 +133,8 @@
 		width: 32px;
 		height: 32px;
 		border-radius: 50%;
-		background: #b8943e;
-		color: #0f0f0f;
+		background: var(--color-chrome-active);
+		color: var(--color-chrome);
 		font-family: var(--font-mono);
 		font-weight: 700;
 		font-size: 14px;

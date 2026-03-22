@@ -7,6 +7,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import FormField from '$lib/components/ui/FormField.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -163,11 +164,14 @@
 		</div>
 	{:else if expirationDateOnly}
 		<!-- Expiration-date-only: enter the expiration date directly -->
-		<div class="form-group">
-			<label class="label" for="expiration-date">License / Certification Expiration Date</label>
-			<input type="date" id="expiration-date" class="input" bind:value={directExpirationDate} required />
-			<span class="field-hint">Enter the expiration date shown on the license or certificate</span>
-		</div>
+		<FormField
+			label="License / Certification Expiration Date"
+			id="expiration-date"
+			type="date"
+			required
+			hint="Enter the expiration date shown on the license or certificate"
+			bind:value={directExpirationDate}
+		/>
 	{:else if neverExpires}
 		<!-- Never-expires training: checkbox to mark complete, date optional -->
 		<div class="form-group checkbox-group">
@@ -177,17 +181,17 @@
 			</label>
 		</div>
 
-		<div class="form-group">
-			<label class="label" for="completion-date">Completion Date (Optional)</label>
-			<input type="date" id="completion-date" class="input" bind:value={completionDate} disabled={!isComplete} />
-			<span class="field-hint">Record when training was completed for your records</span>
-		</div>
+		<FormField
+			label="Completion Date (Optional)"
+			id="completion-date"
+			type="date"
+			disabled={!isComplete}
+			hint="Record when training was completed for your records"
+			bind:value={completionDate}
+		/>
 	{:else}
 		<!-- Expiring training: completion date required, expiration auto-calculated -->
-		<div class="form-group">
-			<label class="label" for="completion-date">Completion Date</label>
-			<input type="date" id="completion-date" class="input" bind:value={completionDate} required />
-		</div>
+		<FormField label="Completion Date" id="completion-date" type="date" required bind:value={completionDate} />
 	{/if}
 
 	{#if !isExempt}
@@ -208,16 +212,22 @@
 			</div>
 		</div>
 
-		<div class="form-group">
-			<label class="label" for="notes">Notes (optional)</label>
-			<textarea id="notes" class="input textarea" bind:value={notes} placeholder="Any additional notes..." rows="2"
-			></textarea>
-		</div>
+		<FormField
+			label="Notes (optional)"
+			id="notes"
+			inputElement="textarea"
+			placeholder="Any additional notes..."
+			rows={2}
+			bind:value={notes}
+		/>
 
-		<div class="form-group">
-			<label class="label" for="certificate-url">Certificate URL (optional)</label>
-			<input type="url" id="certificate-url" class="input" bind:value={certificateUrl} placeholder="https://..." />
-		</div>
+		<FormField
+			label="Certificate URL (optional)"
+			id="certificate-url"
+			type="url"
+			placeholder="https://..."
+			bind:value={certificateUrl}
+		/>
 	{/if}
 
 	{#snippet footer()}
@@ -343,13 +353,6 @@
 
 	.checkbox-text {
 		font-weight: 500;
-	}
-
-	.field-hint {
-		display: block;
-		margin-top: var(--spacing-xs);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
 	}
 
 	.exempt-toggle {

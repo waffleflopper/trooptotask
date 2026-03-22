@@ -4,6 +4,7 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import FormField from '$lib/components/ui/FormField.svelte';
 
 	interface Props {
 		personnel?: Personnel | null;
@@ -69,9 +70,8 @@
 
 <Modal title={isEditing ? 'Edit Personnel' : 'Add Personnel'} {onClose} titleId="personnel-title">
 	<form class="personnel-form" onsubmit={handleSubmit}>
-		<div class="form-group">
-			<label class="label" for="rank">Rank</label>
-			<select id="rank" class="select" data-testid="personnel-rank" bind:value={rank}>
+		<FormField label="Rank" id="rank">
+			<select id="rank" class="input" data-testid="personnel-rank" bind:value={rank}>
 				<optgroup label="Commissioned Officer">
 					{#each ['GEN', 'LTG', 'MG', 'BG', 'COL', 'LTC', 'MAJ', 'CPT', '1LT', '2LT'] as r}
 						<option value={r}>{r}</option>
@@ -96,55 +96,26 @@
 					<option value="CIV">CIV</option>
 				</optgroup>
 			</select>
+		</FormField>
+
+		<div class="form-row">
+			<FormField label="Last Name" id="lastName" placeholder="Smith" required bind:value={lastName} />
+			<FormField label="First Name" id="firstName" placeholder="John" required bind:value={firstName} />
 		</div>
 
 		<div class="form-row">
-			<div class="form-group">
-				<label class="label" for="lastName">Last Name <span class="required">*</span></label>
-				<input
-					id="lastName"
-					type="text"
-					class="input"
-					data-testid="personnel-last-name"
-					bind:value={lastName}
-					placeholder="Smith"
-					required
-				/>
-			</div>
-			<div class="form-group">
-				<label class="label" for="firstName">First Name <span class="required">*</span></label>
-				<input
-					id="firstName"
-					type="text"
-					class="input"
-					data-testid="personnel-first-name"
-					bind:value={firstName}
-					placeholder="John"
-					required
-				/>
-			</div>
+			<FormField label="MOS / Job Title" id="mos" placeholder="e.g., 68W, 68C, RN" bind:value={mos} />
+			<FormField label="Role" id="clinicRole" placeholder="e.g., Medic, Physician" bind:value={clinicRole} />
 		</div>
 
-		<div class="form-row">
-			<div class="form-group">
-				<label class="label" for="mos">MOS / Job Title</label>
-				<input id="mos" type="text" class="input" bind:value={mos} placeholder="e.g., 68W, 68C, RN" />
-			</div>
-			<div class="form-group">
-				<label class="label" for="clinicRole">Role</label>
-				<input id="clinicRole" type="text" class="input" bind:value={clinicRole} placeholder="e.g., Medic, Physician" />
-			</div>
-		</div>
-
-		<div class="form-group">
-			<label class="label" for="group">Group</label>
-			<select id="group" class="select" bind:value={groupId}>
+		<FormField label="Group" id="group" inputElement="select" bind:value={groupId}>
+			<select id="group" class="input" bind:value={groupId}>
 				<option value="">No Group Assigned</option>
 				{#each groups as g}
 					<option value={g.id}>{g.name}</option>
 				{/each}
 			</select>
-		</div>
+		</FormField>
 
 		<!-- Preview -->
 		<div class="preview">

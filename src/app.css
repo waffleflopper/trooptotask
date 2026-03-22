@@ -113,6 +113,34 @@
 	--z-modal-backdrop: 900;
 	--z-modal: 1000;
 	--z-tooltip: 1100;
+
+	/* Chrome / App Shell */
+	--color-chrome: #0f0f0f;
+	--color-chrome-text: #f0ede6;
+	--color-chrome-text-muted: #8a8780;
+	--color-chrome-border: #2a2a2a;
+	--color-chrome-active: var(--color-primary);
+
+	/* Form field tokens */
+	--field-bg: var(--color-surface);
+	--field-border: var(--color-border);
+	--field-border-focus: var(--color-primary);
+	--field-label: var(--color-text-secondary);
+	--field-error: var(--color-error);
+	--field-help: var(--color-text-muted);
+
+	/* Toolbar tokens */
+	--toolbar-bg: var(--color-surface);
+	--toolbar-border: var(--color-border);
+
+	/* Opacity scale */
+	--opacity-subtle: 0.08;
+	--opacity-light: 0.12;
+	--opacity-medium: 0.15;
+	--opacity-heavy: 0.45;
+
+	/* Micro-spacing */
+	--spacing-2xs: 2px;
 }
 
 /* ============================================
@@ -160,6 +188,25 @@
 	--shadow-3: 0 10px 20px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.3);
 	--shadow-4: 0 15px 25px rgba(0, 0, 0, 0.45), 0 5px 10px rgba(0, 0, 0, 0.15);
 	--shadow-5: 0 20px 40px rgba(0, 0, 0, 0.5);
+
+	/* Chrome / App Shell — dark mode */
+	--color-chrome: #0f0f0f;
+	--color-chrome-text: #f0ede6;
+	--color-chrome-text-muted: #8a8780;
+	--color-chrome-border: #2a2a2a;
+	--color-chrome-active: var(--color-primary);
+
+	/* Form field tokens — dark mode */
+	--field-bg: var(--color-surface);
+	--field-border: var(--color-border);
+	--field-border-focus: var(--color-primary);
+	--field-label: var(--color-text-secondary);
+	--field-error: var(--color-error);
+	--field-help: var(--color-text-muted);
+
+	/* Toolbar tokens — dark mode */
+	--toolbar-bg: var(--color-surface);
+	--toolbar-border: var(--color-border);
 }
 
 /* ============================================
@@ -795,6 +842,31 @@ input[type='checkbox']:focus-visible {
 	}
 }
 
+/* Page layout utilities */
+.app-page {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	background: var(--color-bg);
+}
+
+.page-scroll {
+	flex: 1;
+	overflow-y: auto;
+	padding: var(--spacing-lg);
+}
+
+.page-fill {
+	flex: 1;
+	overflow: hidden;
+}
+
+@media (max-width: 640px) {
+	.page-scroll {
+		padding: var(--spacing-sm);
+	}
+}
+
 /* Checkbox label — inline flex label with checkbox */
 .checkbox-label {
 	display: flex;
@@ -821,6 +893,23 @@ input[type='checkbox']:focus-visible {
 
 [data-theme='dark'] .form-error {
 	background: rgba(244, 67, 54, 0.15);
+}
+
+/* Form field utilities */
+.input-error {
+	border-color: var(--field-error);
+}
+
+.field-hint {
+	font-size: var(--font-size-xs);
+	color: var(--field-help);
+	margin-top: var(--spacing-xs);
+}
+
+.field-error {
+	font-size: var(--font-size-xs);
+	color: var(--field-error);
+	margin-top: var(--spacing-xs);
 }
 
 /* Responsive table wrapper — wraps <table> for horizontal scroll on mobile */

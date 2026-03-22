@@ -1,69 +1,95 @@
 # Troop to Task
 
-A personnel scheduling and availability tracking application designed for Army units and organizations. Built with SvelteKit and Supabase.
+A military unit management platform for personnel tracking, calendar/availability, training records, counseling, onboarding, and daily assignments. Built with SvelteKit and Supabase.
 
 ## Features
 
-### Calendar View
+### Dashboard
 
-- Visual monthly calendar showing all personnel availability at a glance
-- Color-coded status indicators (Leave, TDY, School, Sick, etc.)
-- Click any cell to add or modify status entries
-- Weekend and holiday highlighting
-- Sticky headers for easy navigation
+- Organization overview with key metrics at a glance
+- Customizable dashboard widgets
+- Quick access to all features
+
+### Calendar & Availability
+
+- Visual monthly calendar showing all personnel availability
+- Color-coded, customizable status types (Leave, TDY, School, Sick, etc.)
+- Daily assignment planning (MOD, Front Desk, CQ, etc.)
+- Monthly assignment planner with quick-fill options
+- 3-month long-range planning view
+- Today's breakdown with real-time coverage gaps
+- Bulk status application and removal
+- Status notes for additional context
+- Weekend and federal holiday management
 
 ### Personnel Management
 
-- Organize personnel by groups/sections
-- Track rank, MOS, and roles
-- Pin frequently accessed groups to the top
-- Bulk import via CSV or Excel file upload
-- Bulk delete functionality
-
-### Daily Assignments
-
-- Assign MOD (Medical Officer of the Day), Front Desk Support, and other daily duties
-- Monthly assignment planner with quick-fill options
-- Role-based assignment restrictions (e.g., only PA/MD can be MOD)
-- Visual assignment badges on calendar
-
-### Long-Range Planning
-
-- 3-month view for extended planning
-- See coverage gaps before they happen
-- Plan around leave, TDY, and training schedules
+- Organize personnel by groups and sections
+- Track rank, MOS, contact info, and extended personnel data
+- Bulk import via CSV or Excel
+- Personnel archival system with configurable retention
+- Group-scoped access for team leaders
 
 ### Training & Certifications
 
-- Track training types with customizable expiration periods
-- Multi-threshold expiration warnings (60 days yellow, 30 days orange, expired red)
-- Role-based training requirements
-- Training matrix showing all personnel × training types
+- Customizable training types with expiration tracking
+- Multi-threshold warnings (60 days, 30 days, expired)
+- Training matrix showing all personnel x training types
 - Bulk import training records via CSV or Excel
 - Delinquency reports sorted by urgency
+- Rating schemes for performance tracking
 
-### Additional Features
+### Onboarding
 
-- Dark/Light mode support
-- Bulk status application for multiple personnel
-- Federal holiday management
-- Multi-organization support with role-based access
-- Invite-only registration system
+- Template-based onboarding workflows
+- Track new personnel through customizable checklists
+- Visual progress indicators
+
+### Counseling & Leader's Book
+
+- Counseling record management (currently being redesigned)
+
+### Duty Roster & Sign-In Rosters
+
+- Automated duty roster generation
+- Printable sign-in roster generation
+
+### Administration
+
+- Role-based permissions (Owner, Admin, Member) with 11 granular permission flags
+- Group-scoped access control for team leaders
+- Deletion approval workflow for non-privileged users
+- Personnel archival with admin review
+- Audit logging for compliance
+- Notification system (bell icon with real-time unread count)
+
+### Platform
+
+- Light and dark mode
+- Mobile responsive with bottom tab navigation
+- Multi-organization support
+- Subscription tiers (Free, Team, Unit) with personnel-count gating
+- Demo mode with sandbox environment
+- What's New changelog for users
+- Feedback submission system
 
 ## Tech Stack
 
-- **Frontend**: SvelteKit 5 with Svelte 5 runes
-- **Database**: Supabase (PostgreSQL)
+- **Framework**: SvelteKit 2.5 + Svelte 5 (runes)
+- **Language**: TypeScript
+- **Database**: Supabase (PostgreSQL + Row Level Security)
 - **Authentication**: Supabase Auth
-- **Styling**: CSS with custom properties for theming
-- **Excel Parsing**: SheetJS (xlsx)
+- **Styling**: Pure CSS with custom properties (no Tailwind)
+- **Payments**: Stripe (subscription billing)
+- **Deployment**: Vercel
+- **Testing**: Vitest (unit) + Playwright (E2E)
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- A Supabase project
+- [Supabase CLI](https://supabase.com/docs/guides/cli) (for local development)
 
 ### Installation
 
@@ -80,17 +106,19 @@ A personnel scheduling and availability tracking application designed for Army u
    npm install
    ```
 
-3. Create a `.env` file with your Supabase credentials:
+3. Start the local Supabase instance:
+
+   ```bash
+   supabase start
+   ```
+
+4. Create a `.env` file with your Supabase credentials:
 
    ```
-   PUBLIC_SUPABASE_URL=your_supabase_url
-   PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+   PUBLIC_SUPABASE_ANON_KEY=your_local_anon_key
+   SUPABASE_SERVICE_ROLE_KEY=your_local_service_role_key
    ```
-
-4. Set up the database by running the SQL files in the `supabase/` directory:
-   - `schema.sql` - Creates tables
-   - `policies.sql` - Sets up Row Level Security
-   - `seed-demo.sql` - (Optional) Adds demo data
 
 5. Start the development server:
 
@@ -100,27 +128,51 @@ A personnel scheduling and availability tracking application designed for Army u
 
 6. Open [http://localhost:5173](http://localhost:5173)
 
+### Scripts
+
+```bash
+npm run dev          # Start dev server
+npm run build        # Production build
+npm run check        # TypeScript/Svelte type checking
+npm run lint         # ESLint
+npm run format       # Prettier formatting
+npm run test         # Unit tests (Vitest)
+npm run test:e2e     # E2E tests (Playwright)
+```
+
 ## Project Structure
 
 ```
 src/
-├── lib/
-│   ├── components/     # Svelte components
-│   ├── stores/         # Svelte 5 stores (state management)
-│   ├── types.ts        # TypeScript interfaces
-│   └── utils/          # Utility functions
-├── routes/
-│   ├── auth/           # Login, register, logout
-│   ├── org/[orgId]/
-│   │   ├── +page.svelte        # Main calendar view
-│   │   ├── personnel/          # Personnel management
-│   │   ├── training/           # Training tracker
-│   │   └── settings/           # Organization settings
-│   └── dashboard/      # Organization selector
-└── app.css             # Global styles and CSS variables
+  app.css                    # Global design system + CSS variables
+  features/
+    training/                # Training types, matrix, reports, bulk import
+    personnel/               # Personnel CRUD, bulk import, extended info
+    calendar/                # Calendar views, availability, status, assignments
+    counseling/              # Counseling records, rating schemes, leader's book
+    onboarding/              # Onboarding workflows, templates
+    dashboard/               # Dashboard widgets and overview
+    duty-roster/             # Duty roster generation
+    sign-in-rosters/         # Sign-in roster generation
+    groups/                  # Group and member management
+  lib/
+    components/              # Shared layout components (Modal, PageToolbar, etc.)
+    components/ui/           # Shared UI primitives (Badge, Spinner, DataTable, etc.)
+    server/
+      entities/              # Schema-first entity definitions
+      apiRoute.ts            # API route wrapper (permissions, validation, audit)
+    stores/                  # Shared cross-cutting stores
+    types.ts                 # Shared TypeScript types
+    utils/                   # Shared utilities
+  routes/
+    org/[orgId]/             # Main app (thin shells importing from features)
+    auth/                    # Login, callback, registration
+    billing/                 # Subscription management
 ```
 
-## Demo Account
+Each feature module contains its own `components/`, `stores/`, `utils/`, and types. Features are imported via `$features/feature-name/...`.
+
+## Demo
 
 A demo account is available to explore the application with sample data:
 
@@ -133,4 +185,4 @@ This project is proprietary software. All rights reserved.
 
 ## Contributing
 
-This is currently a private project. Contact the maintainers for contribution guidelines.
+Contributions welcome! Please open an issue to discuss proposed changes before submitting a PR.

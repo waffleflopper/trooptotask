@@ -1,8 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { fetchDashboardData } from '$lib/server/dashboardData';
-import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import { personnelIds } from '$lib/server/personnelRepository';
+import { getTrainingSummary, getOnboardingTrainingCompletions } from '$lib/server/trainingSummaryService';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, depends, parent }) => {
 	depends('app:org-core');
@@ -11,18 +10,20 @@ export const load: PageServerLoad = async ({ params, locals, cookies, depends, p
 	const supabase = getSupabaseClient(locals, cookies);
 
 	const parentData = await parent();
-	const scopedGroupId = parentData.scopedGroupId ?? null;
 
 	const [
 		dashboardData,
-		allTrainings,
+		trainingSummary,
 		{ count: onboardingTemplateStepCount },
 		{ count: ratingSchemeEntryCount },
 		{ count: orgMemberCount },
 		{ data: gettingStartedData }
 	] = await Promise.all([
 		fetchDashboardData(supabase, orgId, userId),
-		PersonnelTrainingEntity.repo.list(supabase, orgId),
+		getTrainingSummary(supabase, orgId, parentData.personnel ?? [], parentData.trainingTypes ?? [], {
+			issueLimit: 5,
+			issueStatuses: ['expired', 'warning-orange']
+		}),
 		supabase.from('onboarding_template_steps').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
 		supabase.from('rating_scheme_entries').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
 		supabase.from('organization_memberships').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
@@ -34,16 +35,17 @@ export const load: PageServerLoad = async ({ params, locals, cookies, depends, p
 			.maybeSingle()
 	]);
 
-	let personnelTrainings = allTrainings;
-	if (scopedGroupId) {
-		const scopedIds = new Set(personnelIds(parentData.personnel ?? []));
-		personnelTrainings = allTrainings.filter((pt) => scopedIds.has(pt.personnelId));
-	}
+	// Get training completions for personnel with active onboardings
+	const onboardingPersonnelIds = (dashboardData.activeOnboardings ?? []).map(
+		(o: { personnelId: string }) => o.personnelId
+	);
+	const onboardingTrainingCompletions = await getOnboardingTrainingCompletions(supabase, orgId, onboardingPersonnelIds);
 
 	return {
 		orgId,
 		...dashboardData,
-		personnelTrainings,
+		trainingSummary,
+		onboardingTrainingCompletions: [...onboardingTrainingCompletions],
 		onboardingTemplateStepCount: onboardingTemplateStepCount ?? 0,
 		ratingSchemeEntryCount: ratingSchemeEntryCount ?? 0,
 		orgMemberCount: orgMemberCount ?? 0,

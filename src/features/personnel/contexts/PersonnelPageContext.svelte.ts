@@ -29,7 +29,7 @@ export interface PersonnelPageData {
 // importing the real module-singleton stores.
 // ---------------------------------------------------------------------------
 export interface PersonnelStoreAccessor {
-	readonly list: Personnel[];
+	readonly items: Personnel[];
 }
 
 export interface RatingStoreAccessor {
@@ -77,7 +77,7 @@ export class PersonnelPageContext {
 		// Allow plain arrays (for tests) or store objects (for the real app)
 		this.#personnelStore = Array.isArray(personnelStore)
 			? {
-					get list() {
+					get items() {
 						return personnelStore;
 					}
 				}
@@ -114,8 +114,8 @@ export class PersonnelPageContext {
 
 	get filteredPersonnel(): Personnel[] {
 		const query = this.searchQuery.trim().toLowerCase();
-		if (!query) return this.#personnelStore.list;
-		return this.#personnelStore.list.filter(
+		if (!query) return this.#personnelStore.items;
+		return this.#personnelStore.items.filter(
 			(p) =>
 				p.lastName.toLowerCase().includes(query) ||
 				p.firstName.toLowerCase().includes(query) ||
@@ -140,7 +140,7 @@ export class PersonnelPageContext {
 	}
 
 	get totalPersonnel(): number {
-		return this.#personnelStore.list.length;
+		return this.#personnelStore.items.length;
 	}
 
 	get filteredCount(): number {

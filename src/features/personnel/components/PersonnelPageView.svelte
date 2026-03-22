@@ -264,7 +264,7 @@
 				{/if}
 				<button
 					class="btn btn-sm btn-secondary"
-					onclick={() => exportRatingScheme(ctx.filteredRatingEntries, personnelStore.list)}
+					onclick={() => exportRatingScheme(ctx.filteredRatingEntries, personnelStore.items)}
 				>
 					Export
 				</button>

@@ -70,6 +70,10 @@ export const onboardingTemplateStore = {
 		return stepStore.items.filter((s) => s.templateId === activeTemplateId);
 	},
 
+	get allSteps() {
+		return stepStore.items;
+	},
+
 	load(templates: OnboardingTemplate[], steps: OnboardingTemplateStep[], orgId: string) {
 		templateStore.load(templates, orgId);
 		stepStore.load(steps, orgId);

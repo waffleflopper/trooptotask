@@ -49,5 +49,8 @@ e2e/.auth/
 # Superpowers
 .superpowers/
 
+# Test data
+test-data/
+
 # Docs artifacts
 docs/pr74_full_diff.txt

@@ -16,7 +16,13 @@ export { calendarPrefsStore } from './stores/calendarPrefs.svelte';
 export { getDefaultFederalHolidays } from './utils/federalHolidays';
 export { exportMonthToCSV, printMonthCalendar, exportQuarterToCSV, printQuarterCalendar } from './utils/calendarExport';
 
+// Context
+export { CalendarPageContext } from './contexts/CalendarPageContext.svelte';
+export type { CalendarPageData } from './contexts/CalendarPageContext.svelte';
+
 // Components are imported directly from their paths:
+// $features/calendar/components/CalendarPageView.svelte
+// $features/calendar/components/CalendarModals.svelte
 // $features/calendar/components/Calendar.svelte
 // $features/calendar/components/CalendarRow.svelte (moved from personnel/PersonnelRow)
 // $features/calendar/components/CalendarHeader.svelte

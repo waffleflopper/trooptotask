@@ -9,6 +9,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
 	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
 	import DemoBanner from '$lib/components/DemoBanner.svelte';
 	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
@@ -23,6 +24,31 @@
 	import NavigationProgress from '$lib/components/ui/NavigationProgress.svelte';
 
 	let { children, data } = $props();
+
+	// Set OrgContext so child pages can call getOrgContext()
+	setOrgContext(
+		createOrgContext({
+			orgId: data.orgId ?? '',
+			orgName: data.orgName ?? '',
+			userId: data.userId ?? null,
+			userRole: data.userRole ?? 'member',
+			permissions: data.permissions ?? {
+				canViewCalendar: false,
+				canEditCalendar: false,
+				canViewPersonnel: false,
+				canEditPersonnel: false,
+				canViewTraining: false,
+				canEditTraining: false,
+				canViewOnboarding: false,
+				canEditOnboarding: false,
+				canViewLeadersBook: false,
+				canEditLeadersBook: false,
+				canManageMembers: false
+			},
+			scopedGroupId: data.scopedGroupId ?? null,
+			isReadOnly: data.effectiveTier?.isReadOnly ?? false
+		})
+	);
 
 	let showFeedback = $state(false);
 	let announcementCount = $state(0);

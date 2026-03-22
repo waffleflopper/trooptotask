@@ -9,8 +9,8 @@ export class PersonnelPage {
 	constructor(page: Page) {
 		this.page = page;
 		this.addButton = page.getByTestId('add-personnel-btn');
-		// Search input: textbox "Search by name, rank, or role..."
-		this.searchInput = page.getByRole('textbox', { name: /search by name/i });
+		// Search input: searchbox "Search by name, rank, or role..."
+		this.searchInput = page.getByRole('searchbox', { name: /search by name/i });
 	}
 
 	async goto(orgId: string) {
@@ -56,12 +56,9 @@ export class PersonnelPage {
 	}
 
 	async clickPerson(name: string) {
-		// Person names appear as buttons: "SGT Doe, John"
-		await this.page
-			.getByRole('main')
-			.getByRole('button', { name: new RegExp(name) })
-			.first()
-			.click();
+		// Find the row containing the person's name and click its Edit button
+		const row = this.page.getByRole('row').filter({ hasText: new RegExp(name) }).first();
+		await row.getByRole('button', { name: 'Edit' }).click();
 	}
 
 	async search(query: string) {

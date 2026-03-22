@@ -5,11 +5,13 @@ A military unit management platform for personnel tracking, calendar/availabilit
 ## Features
 
 ### Dashboard
+
 - Organization overview with key metrics at a glance
 - Customizable dashboard widgets
 - Quick access to all features
 
 ### Calendar & Availability
+
 - Visual monthly calendar showing all personnel availability
 - Color-coded, customizable status types (Leave, TDY, School, Sick, etc.)
 - Daily assignment planning (MOD, Front Desk, CQ, etc.)
@@ -21,6 +23,7 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - Weekend and federal holiday management
 
 ### Personnel Management
+
 - Organize personnel by groups and sections
 - Track rank, MOS, contact info, and extended personnel data
 - Bulk import via CSV or Excel
@@ -28,6 +31,7 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - Group-scoped access for team leaders
 
 ### Training & Certifications
+
 - Customizable training types with expiration tracking
 - Multi-threshold warnings (60 days, 30 days, expired)
 - Training matrix showing all personnel x training types
@@ -36,18 +40,22 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - Rating schemes for performance tracking
 
 ### Onboarding
+
 - Template-based onboarding workflows
 - Track new personnel through customizable checklists
 - Visual progress indicators
 
 ### Counseling & Leader's Book
+
 - Counseling record management (currently being redesigned)
 
 ### Duty Roster & Sign-In Rosters
+
 - Automated duty roster generation
 - Printable sign-in roster generation
 
 ### Administration
+
 - Role-based permissions (Owner, Admin, Member) with 11 granular permission flags
 - Group-scoped access control for team leaders
 - Deletion approval workflow for non-privileged users
@@ -56,6 +64,7 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - Notification system (bell icon with real-time unread count)
 
 ### Platform
+
 - Light and dark mode
 - Mobile responsive with bottom tab navigation
 - Multi-organization support

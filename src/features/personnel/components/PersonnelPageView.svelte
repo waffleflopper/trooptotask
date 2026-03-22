@@ -25,7 +25,7 @@
 
 	const ratingStats = $derived.by(() => {
 		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0, current: 0, completed: 0 };
-		for (const entry of ratingSchemeStore.list) {
+		for (const entry of ratingSchemeStore.items) {
 			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
 			counts[status]++;
 		}
@@ -264,7 +264,7 @@
 				{/if}
 				<button
 					class="btn btn-sm btn-secondary"
-					onclick={() => exportRatingScheme(ctx.filteredRatingEntries, personnelStore.list)}
+					onclick={() => exportRatingScheme(ctx.filteredRatingEntries, personnelStore.items)}
 				>
 					Export
 				</button>

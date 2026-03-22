@@ -215,11 +215,11 @@ export class OnboardingPageContext {
 	}
 
 	get hasTemplateSteps() {
-		return onboardingTemplateStore.list.length > 0;
+		return onboardingTemplateStore.allSteps.length > 0;
 	}
 
 	get knownTemplateStepIds(): string[] {
-		return onboardingTemplateStore.list.map((s) => s.id);
+		return onboardingTemplateStore.allSteps.map((s) => s.id);
 	}
 
 	get existingOnboardingPersonnelIds(): string[] {
@@ -227,7 +227,7 @@ export class OnboardingPageContext {
 	}
 
 	get filteredOnboardings(): PersonnelOnboarding[] {
-		return filterOnboardings(onboardingStore.list, this.showFilter);
+		return filterOnboardings(onboardingStore.items, this.showFilter);
 	}
 
 	get overflowItems(): OverflowItem[] {
@@ -255,11 +255,11 @@ export class OnboardingPageContext {
 	}
 
 	isTrainingStepComplete(step: OnboardingStepProgress, personnelId: string): boolean {
-		return isTrainingStepComplete(step, personnelId, trainingTypesStore.list, personnelTrainingsStore.list);
+		return isTrainingStepComplete(step, personnelId, trainingTypesStore.items, personnelTrainingsStore.items);
 	}
 
 	getProgress(onboarding: PersonnelOnboarding): { completed: number; total: number } {
-		return getProgress(onboarding, this.knownTemplateStepIds, trainingTypesStore.list, personnelTrainingsStore.list);
+		return getProgress(onboarding, this.knownTemplateStepIds, trainingTypesStore.items, personnelTrainingsStore.items);
 	}
 
 	getPaperworkStageIndex(step: OnboardingStepProgress): number {
@@ -293,7 +293,7 @@ export class OnboardingPageContext {
 
 	async handleToggleCheckbox(step: OnboardingStepProgress) {
 		await onboardingStore.updateStepProgress(step.id, { completed: !step.completed });
-		const onboarding = onboardingStore.list.find((o) => o.steps.some((s) => s.id === step.id));
+		const onboarding = onboardingStore.items.find((o) => o.steps.some((s) => s.id === step.id));
 		if (onboarding) await this.checkAutoComplete(onboarding.id);
 	}
 
@@ -305,7 +305,7 @@ export class OnboardingPageContext {
 			const isLast = currentIndex + 1 === stages.length - 1;
 			await onboardingStore.updateStepProgress(step.id, { currentStage: nextStage, completed: isLast });
 			if (isLast) {
-				const onboarding = onboardingStore.list.find((o) => o.steps.some((s) => s.id === step.id));
+				const onboarding = onboardingStore.items.find((o) => o.steps.some((s) => s.id === step.id));
 				if (onboarding) await this.checkAutoComplete(onboarding.id);
 			}
 		}
@@ -434,15 +434,15 @@ export class OnboardingPageContext {
 	// ── Store accessors (for view) ─────────────────────────────
 
 	get onboardings() {
-		return onboardingStore.list;
+		return onboardingStore.items;
 	}
 
 	get personnel() {
-		return personnelStore.list;
+		return personnelStore.items;
 	}
 
 	get groups() {
-		return groupsStore.list;
+		return groupsStore.items;
 	}
 
 	get templates() {
@@ -450,10 +450,10 @@ export class OnboardingPageContext {
 	}
 
 	get trainingTypes() {
-		return trainingTypesStore.list;
+		return trainingTypesStore.items;
 	}
 
 	get personnelTrainings() {
-		return personnelTrainingsStore.list;
+		return personnelTrainingsStore.items;
 	}
 }

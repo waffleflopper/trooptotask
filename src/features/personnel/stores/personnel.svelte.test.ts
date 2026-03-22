@@ -61,7 +61,7 @@ describe('personnelStore', () => {
 			};
 
 			personnelStore.addBatchResults([newPerson]);
-			expect(personnelStore.list).toHaveLength(4);
+			expect(personnelStore.items).toHaveLength(4);
 			expect(personnelStore.getById('4')?.lastName).toBe('Person');
 		});
 	});
@@ -69,7 +69,7 @@ describe('personnelStore', () => {
 	describe('removeLocal', () => {
 		it('should remove person from list locally without API call', () => {
 			personnelStore.removeLocal('1');
-			expect(personnelStore.list).toHaveLength(2);
+			expect(personnelStore.items).toHaveLength(2);
 			expect(personnelStore.getById('1')).toBeUndefined();
 		});
 	});

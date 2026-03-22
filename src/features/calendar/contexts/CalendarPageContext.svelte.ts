@@ -278,9 +278,9 @@ export class CalendarPageContext {
 	handleExportCSV(): void {
 		exportMonthToCSV(calendarStore.year, calendarStore.month, {
 			personnelByGroup: this.scopedPBG,
-			availabilityEntries: availabilityStore.list,
-			statusTypes: statusTypesStore.list,
-			specialDays: specialDaysStore.list,
+			availabilityEntries: availabilityStore.items,
+			statusTypes: statusTypesStore.items,
+			specialDays: specialDaysStore.items,
 			assignmentTypes: dailyAssignmentsStore.types,
 			assignments: dailyAssignmentsStore.assignments
 		});
@@ -289,9 +289,9 @@ export class CalendarPageContext {
 	handleExportPDF(): void {
 		printMonthCalendar(calendarStore.year, calendarStore.month, {
 			personnelByGroup: this.scopedPBG,
-			availabilityEntries: availabilityStore.list,
-			statusTypes: statusTypesStore.list,
-			specialDays: specialDaysStore.list,
+			availabilityEntries: availabilityStore.items,
+			statusTypes: statusTypesStore.items,
+			specialDays: specialDaysStore.items,
 			assignmentTypes: dailyAssignmentsStore.types,
 			assignments: dailyAssignmentsStore.assignments
 		});

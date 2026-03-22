@@ -7,10 +7,58 @@ const mockDays = [
 	{ id: '3', name: 'Christmas', date: '2026-12-25', type: 'federal-holiday' as const }
 ];
 
+function stubFetch(response: unknown, status = 200) {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn().mockResolvedValue({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(response) })
+	);
+}
+
 describe('specialDaysStore', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		specialDaysStore.load(structuredClone(mockDays), 'org-1');
+	});
+
+	describe('items', () => {
+		it('returns loaded items', () => {
+			expect(specialDaysStore.items).toHaveLength(3);
+			expect(specialDaysStore.items[0].name).toBe('New Year');
+		});
+
+		it('returns empty array when no items loaded', () => {
+			specialDaysStore.load([], 'org-2');
+			expect(specialDaysStore.items).toEqual([]);
+		});
+	});
+
+	describe('load', () => {
+		it('replaces existing items with new data', () => {
+			specialDaysStore.load([mockDays[0]], 'org-2');
+			expect(specialDaysStore.items).toHaveLength(1);
+		});
+	});
+
+	describe('add', () => {
+		it('adds item and returns the server-created record', async () => {
+			const created = { id: 'new-1', name: 'July 4th', date: '2026-07-04', type: 'federal-holiday' };
+			stubFetch(created);
+
+			const result = await specialDaysStore.add({ name: 'July 4th', date: '2026-07-04', type: 'federal-holiday' });
+
+			expect(result).not.toBeNull();
+			expect(result!.id).toBe('new-1');
+		});
+	});
+
+	describe('getById', () => {
+		it('finds a special day by ID', () => {
+			expect(specialDaysStore.getById('1')?.name).toBe('New Year');
+		});
+
+		it('returns undefined for non-existent ID', () => {
+			expect(specialDaysStore.getById('nonexistent')).toBeUndefined();
+		});
 	});
 
 	describe('getByDate', () => {
@@ -55,7 +103,7 @@ describe('specialDaysStore', () => {
 			const result = await specialDaysStore.resetFederalHolidays();
 
 			expect(result).toBe(true);
-			expect(specialDaysStore.list).toEqual(newDays);
+			expect(specialDaysStore.items).toEqual(newDays);
 		});
 
 		it('should return false on failure without changing items', async () => {
@@ -64,7 +112,7 @@ describe('specialDaysStore', () => {
 			const result = await specialDaysStore.resetFederalHolidays();
 
 			expect(result).toBe(false);
-			expect(specialDaysStore.list).toEqual(mockDays);
+			expect(specialDaysStore.items).toEqual(mockDays);
 		});
 	});
 

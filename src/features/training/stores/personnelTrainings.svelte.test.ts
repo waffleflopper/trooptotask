@@ -87,7 +87,7 @@ describe('personnelTrainingsStore', () => {
 
 			const byKey = personnelTrainingsStore.getByPersonnelAndType('p1', 'tt1');
 			expect(byKey?.id).toBe('new-1');
-			expect(personnelTrainingsStore.list).toHaveLength(3);
+			expect(personnelTrainingsStore.items).toHaveLength(3);
 		});
 	});
 
@@ -105,7 +105,7 @@ describe('personnelTrainingsStore', () => {
 			};
 
 			personnelTrainingsStore.addBatchResults([inserted], [updated]);
-			expect(personnelTrainingsStore.list).toHaveLength(4);
+			expect(personnelTrainingsStore.items).toHaveLength(4);
 			expect(personnelTrainingsStore.getById('1')?.completionDate).toBe('2026-06-01');
 		});
 	});
@@ -113,16 +113,16 @@ describe('personnelTrainingsStore', () => {
 	describe('removeByPersonnelLocal', () => {
 		it('should remove all trainings for a person', () => {
 			personnelTrainingsStore.removeByPersonnelLocal('p1');
-			expect(personnelTrainingsStore.list).toHaveLength(1);
-			expect(personnelTrainingsStore.list[0].personnelId).toBe('p2');
+			expect(personnelTrainingsStore.items).toHaveLength(1);
+			expect(personnelTrainingsStore.items[0].personnelId).toBe('p2');
 		});
 	});
 
 	describe('removeByTrainingTypeLocal', () => {
 		it('should remove all trainings for a type', () => {
 			personnelTrainingsStore.removeByTrainingTypeLocal('tt1');
-			expect(personnelTrainingsStore.list).toHaveLength(1);
-			expect(personnelTrainingsStore.list[0].trainingTypeId).toBe('tt2');
+			expect(personnelTrainingsStore.items).toHaveLength(1);
+			expect(personnelTrainingsStore.items[0].trainingTypeId).toBe('tt2');
 		});
 	});
 });

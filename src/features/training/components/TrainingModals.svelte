@@ -42,7 +42,7 @@
 
 {#if modals.isOpen('type-manager')}
 	<TrainingTypeManager
-		trainingTypes={trainingTypesStore.list}
+		trainingTypes={trainingTypesStore.items}
 		availableRoles={ctx.availableRoles}
 		onAdd={ctx.handleAddType.bind(ctx)}
 		onUpdate={ctx.handleUpdateType.bind(ctx)}
@@ -53,7 +53,7 @@
 
 {#if modals.isOpen('type-reorder')}
 	<TrainingTypeReorder
-		trainingTypes={trainingTypesStore.list}
+		trainingTypes={trainingTypesStore.items}
 		onUpdate={ctx.handleUpdateType.bind(ctx)}
 		onClose={modals.closerFor('type-reorder')}
 	/>
@@ -62,8 +62,8 @@
 {#if modals.isOpen('reports')}
 	<TrainingReports
 		personnel={ctx.filteredPersonnel}
-		trainingTypes={trainingTypesStore.list}
-		trainings={personnelTrainingsStore.list}
+		trainingTypes={trainingTypesStore.items}
+		trainings={personnelTrainingsStore.items}
 		groups={ctx.groups}
 		onClose={modals.closerFor('reports')}
 	/>
@@ -83,7 +83,7 @@
 	<BulkTrainingImporter
 		orgId={ctx.orgId}
 		personnel={ctx.personnel}
-		trainingTypes={trainingTypesStore.list}
+		trainingTypes={trainingTypesStore.items}
 		onImportComplete={ctx.handleBulkImportComplete.bind(ctx)}
 		onClose={modals.closerFor('bulk-import')}
 	/>
@@ -94,8 +94,8 @@
 	{#if pe}
 		<PersonTrainingEditor
 			person={pe.person}
-			trainingTypes={trainingTypesStore.list}
-			trainings={personnelTrainingsStore.list}
+			trainingTypes={trainingTypesStore.items}
+			trainings={personnelTrainingsStore.items}
 			onSave={ctx.handleSaveTraining.bind(ctx)}
 			onRemove={ctx.handleRemoveTraining.bind(ctx)}
 			onClose={modals.closerFor('person-editor')}

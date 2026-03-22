@@ -33,6 +33,7 @@ export interface DataTableGroup<T> {
 }
 
 export interface DataTableState<T> {
+	readonly columns: ColumnDef<T>[];
 	readonly rows: T[];
 	readonly groups: DataTableGroup<T>[];
 	readonly totalRows: number;
@@ -152,6 +153,9 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 	}
 
 	return {
+		get columns() {
+			return options.columns;
+		},
 		get rows() {
 			return getPaged();
 		},

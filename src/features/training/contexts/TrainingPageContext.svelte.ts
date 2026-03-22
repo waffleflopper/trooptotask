@@ -113,7 +113,7 @@ export class TrainingPageContext {
 
 	// ---- derived: stats ----
 	get stats() {
-		return getTrainingStats(this.filteredPersonnel, trainingTypesStore.items, personnelTrainingsStore.list);
+		return getTrainingStats(this.filteredPersonnel, trainingTypesStore.items, personnelTrainingsStore.items);
 	}
 
 	// ---- derived: overflow menu ----

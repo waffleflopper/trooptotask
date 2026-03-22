@@ -18,7 +18,7 @@ vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: { items: [] }
 }));
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
-	availabilityStore: { list: [], load: vi.fn() }
+	availabilityStore: { items: [], load: vi.fn() }
 }));
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 	dailyAssignmentsStore: { assignments: [], types: [], load: vi.fn() }

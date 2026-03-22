@@ -36,7 +36,7 @@
 		person={ctx.selectedPerson}
 		date={ctx.selectedDate}
 		statusTypes={statusTypesStore.items}
-		existingEntries={availabilityStore.list}
+		existingEntries={availabilityStore.items}
 		onAdd={(entry) => ctx.handleAddAvailability(entry)}
 		onRemove={(id) => ctx.handleRemoveAvailability(id)}
 		onClose={() => ctx.closeAvailabilityModal()}
@@ -92,7 +92,7 @@
 {#if modals.isOpen('today-breakdown')}
 	<TodayBreakdown
 		personnelByGroup={ctx.personnelByGroup}
-		availabilityEntries={availabilityStore.list}
+		availabilityEntries={availabilityStore.items}
 		statusTypes={statusTypesStore.items}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
@@ -129,7 +129,7 @@
 	<BulkStatusRemoveModal
 		personnelByGroup={ctx.scopedPBG}
 		statusTypes={statusTypesStore.items}
-		availabilityEntries={availabilityStore.list}
+		availabilityEntries={availabilityStore.items}
 		personnelList={ctx.calendarPersonnel}
 		onRemove={(ids) => ctx.handleBulkStatusRemove(ids)}
 		onClose={() => modals.close('bulk-remove')}
@@ -142,7 +142,7 @@
 		assignments={dailyAssignmentsStore.assignments}
 		personnelByGroup={ctx.scopedPBG}
 		groups={groupsStore.names}
-		availabilityEntries={availabilityStore.list}
+		availabilityEntries={availabilityStore.items}
 		statusTypes={statusTypesStore.items}
 		rosterHistory={dutyRosterHistoryStore.items}
 		onApplyRoster={(assignments) => ctx.handleApplyRoster(assignments)}
@@ -171,7 +171,7 @@
 	<LongRangeView
 		startDate={calendarStore.currentDate}
 		personnelByGroup={ctx.personnelByGroup}
-		availabilityEntries={availabilityStore.list}
+		availabilityEntries={availabilityStore.items}
 		statusTypes={statusTypesStore.items}
 		specialDays={specialDaysStore.items}
 		assignmentTypes={dailyAssignmentsStore.types}

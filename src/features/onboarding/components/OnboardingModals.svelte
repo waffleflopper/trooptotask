@@ -29,7 +29,7 @@
 		onboardings={onboardingStore.list}
 		personnel={personnelStore.list}
 		trainingTypes={trainingTypesStore.items}
-		personnelTrainings={personnelTrainingsStore.list}
+		personnelTrainings={personnelTrainingsStore.items}
 		onClose={ctx.modals.closerFor(MODAL_IDS.report)}
 	/>
 {/if}

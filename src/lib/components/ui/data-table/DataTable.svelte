@@ -184,7 +184,7 @@
 		<EmptyState message={emptyMessage} />
 	{/if}
 
-	{#if table.pageSize > 0 && table.totalPages > 1}
+	{#if table.pageSize > 0 && table.totalPages > 1 && table.groups.length === 0}
 		<div class="data-table-pagination">
 			<button class="btn btn-secondary btn-sm" disabled={table.page <= 1} onclick={() => table.setPage(table.page - 1)}
 				>Previous</button

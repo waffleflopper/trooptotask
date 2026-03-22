@@ -15,6 +15,10 @@ export interface GroupDef<T> {
 	compare?: (a: string, b: string) => number;
 }
 
+/**
+ * Options for useDataTable. Only `data` is reactive (via closure).
+ * All other options are captured once at initialization and not tracked for changes.
+ */
 export interface DataTableOptions<T> {
 	data: () => T[];
 	columns: ColumnDef<T>[];

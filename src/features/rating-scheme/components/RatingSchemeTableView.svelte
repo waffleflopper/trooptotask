@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { RatingSchemeEntry, RatingDueStatus } from '../rating-scheme.types';
+	import type { RatingSchemeEntry } from '../rating-scheme.types';
 	import { RATING_STATUS_COLORS, WORKFLOW_STATUS_OPTIONS, WORKFLOW_STATUS_COLORS } from '../rating-scheme.types';
 	import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from '$features/rating-scheme/utils/ratingScheme';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { DataTable } from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 
 	interface Props {
 		entries: RatingSchemeEntry[];
@@ -46,97 +47,101 @@
 	function getWorkflowLabel(status: string): string {
 		return WORKFLOW_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
 	}
+
+	function getEvalTypeColor(evalType: string): string {
+		if (evalType === 'OER') return 'var(--color-info)';
+		if (evalType === 'WOER') return 'var(--color-primary)';
+		return 'var(--color-success)';
+	}
+
+	const columns: ColumnDef<RatingSchemeEntry>[] = [
+		{
+			key: 'evalType',
+			header: 'Type',
+			value: (e) => e.evalType
+		},
+		{
+			key: 'reportType',
+			header: 'Report',
+			value: (e) => (e.reportType ? getReportTypeLabel(e.reportType, e.evalType) : '—')
+		},
+		{
+			key: 'ratedIndividual',
+			header: 'Rated Individual',
+			value: (e) => {
+				const p = getRatedPerson(e.ratedPersonId);
+				return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
+			},
+			compare: (a, b) => {
+				const pa = getRatedPerson(a.ratedPersonId);
+				const pb = getRatedPerson(b.ratedPersonId);
+				return (pa?.lastName ?? '').localeCompare(pb?.lastName ?? '');
+			}
+		},
+		{
+			key: 'rater',
+			header: 'Rater',
+			value: (e) => getPersonName(e.raterPersonId, e.raterName)
+		},
+		{
+			key: 'seniorRater',
+			header: 'Senior Rater',
+			value: (e) => getPersonName(e.seniorRaterPersonId, e.seniorRaterName)
+		},
+		{
+			key: 'thruDate',
+			header: 'Thru Date',
+			value: (e) => e.ratingPeriodEnd,
+			compare: (a, b) => a.ratingPeriodEnd.localeCompare(b.ratingPeriodEnd)
+		},
+		{
+			key: 'status',
+			header: 'Status',
+			value: (e) => formatDueStatus(e).label
+		}
+	];
 </script>
 
-{#if entries.length === 0}
-	<EmptyState message="No rating scheme entries yet. Click 'Add Entry' to get started." />
-{:else}
-	<div class="table-wrapper">
-		<table class="rating-table">
-			<thead>
-				<tr>
-					<th>Type</th>
-					<th>Report</th>
-					<th>Rated Individual</th>
-					<th>Rater</th>
-					<th>Senior Rater</th>
-					<th>Thru Date</th>
-					<th>Status</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each entries as entry (entry.id)}
-					{@const rated = getRatedPerson(entry.ratedPersonId)}
-					{@const due = formatDueStatus(entry)}
-					<tr class="clickable" onclick={() => onEdit(entry)}>
-						<td
-							><Badge
-								label={entry.evalType}
-								color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'}
-							/></td
-						>
-						<td class="report-cell">{entry.reportType ? getReportTypeLabel(entry.reportType, entry.evalType) : '—'}</td>
-						<td class="person-cell">
-							{#if rated}
-								<span class="rank">{rated.rank}</span> {rated.lastName}, {rated.firstName}
-							{:else}
-								<span class="unknown">Unknown</span>
-							{/if}
-						</td>
-						<td class="rater-cell">{getPersonName(entry.raterPersonId, entry.raterName)}</td>
-						<td class="rater-cell">{getPersonName(entry.seniorRaterPersonId, entry.seniorRaterName)}</td>
-						<td>{formatDate(entry.ratingPeriodEnd)}</td>
-						<td class="status-cell">
-							<Badge label={due.label} color={due.color} />
-							{#if entry.workflowStatus}
-								<Badge
-									label={getWorkflowLabel(entry.workflowStatus)}
-									color={WORKFLOW_STATUS_COLORS[entry.workflowStatus]}
-								/>
-							{/if}
-						</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-{/if}
+<DataTable
+	data={entries}
+	{columns}
+	emptyMessage="No rating scheme entries yet. Click 'Add Entry' to get started."
+	onRowClick={(entry) => onEdit(entry)}
+	compact
+	initialSortKey="thruDate"
+	initialSortDirection="asc"
+>
+	{#snippet cell(row, col)}
+		{#if col.key === 'evalType'}
+			<Badge label={row.evalType} color={getEvalTypeColor(row.evalType)} />
+		{:else if col.key === 'reportType'}
+			<span class="report-cell">{col.value(row)}</span>
+		{:else if col.key === 'ratedIndividual'}
+			{@const rated = getRatedPerson(row.ratedPersonId)}
+			{#if rated}
+				<span class="rank">{rated.rank}</span> {rated.lastName}, {rated.firstName}
+			{:else}
+				<span class="unknown">Unknown</span>
+			{/if}
+		{:else if col.key === 'rater' || col.key === 'seniorRater'}
+			<span class="rater-cell">{String(col.value(row))}</span>
+		{:else if col.key === 'thruDate'}
+			{formatDate(row.ratingPeriodEnd)}
+		{:else if col.key === 'status'}
+			{@const due = formatDueStatus(row)}
+			<span class="status-cell">
+				<Badge label={due.label} color={due.color} />
+				{#if row.workflowStatus}
+					<Badge label={getWorkflowLabel(row.workflowStatus)} color={WORKFLOW_STATUS_COLORS[row.workflowStatus]} />
+				{/if}
+			</span>
+		{:else}
+			{String(col.value(row) ?? '')}
+		{/if}
+	{/snippet}
+</DataTable>
 
 <style>
-	.table-wrapper {
-		overflow-x: auto;
-	}
-
-	.rating-table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--font-size-sm);
-	}
-
-	.rating-table th {
-		text-align: left;
-		padding: var(--spacing-sm) var(--spacing-md);
-		font-weight: 600;
-		color: var(--color-text-secondary);
-		border-bottom: 2px solid var(--color-border);
-		white-space: nowrap;
-	}
-
-	.rating-table td {
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-bottom: 1px solid var(--color-divider);
-		color: var(--color-text);
-	}
-
-	tr.clickable {
-		cursor: pointer;
-		transition: background 0.1s;
-	}
-
-	tr.clickable:hover {
-		background: var(--color-surface-variant);
-	}
-
 	.rank {
 		font-weight: 600;
 		color: var(--color-text-secondary);
@@ -147,6 +152,7 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		display: block;
 	}
 
 	.report-cell {

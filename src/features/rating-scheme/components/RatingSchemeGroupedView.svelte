@@ -117,7 +117,11 @@
 								<span class="rated-name">{getRatedPersonLabel(entry.ratedPersonId)}</span>
 								<Badge
 									label={entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType}
-									color={entry.evalType === 'OER' ? '#3b82f6' : entry.evalType === 'WOER' ? '#8b5cf6' : '#059669'}
+									color={entry.evalType === 'OER'
+										? 'var(--color-info)'
+										: entry.evalType === 'WOER'
+											? 'var(--color-primary)'
+											: 'var(--color-success)'}
 								/>
 								{#if entry.workflowStatus}
 									<Badge

@@ -1,10 +1,12 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
 	import type { StatusType } from '$lib/types';
-	import type { PersonnelTempoResult } from '../../utils/calendarReports';
+	import type { PersonnelTempoResult, TempoRow } from '../../utils/calendarReports';
 	import { computePersonnelTempo } from '../../utils/calendarReports';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 
 	interface Props {
 		orgId: string;
@@ -140,6 +142,39 @@
 		}
 		return value;
 	}
+
+	// --- useDataTable for sorting ---
+	const tableColumns: ColumnDef<TempoRow>[] = [
+		{
+			key: 'rank',
+			header: 'Rank',
+			value: (r) => r.person.rank
+		},
+		{
+			key: 'name',
+			header: 'Name',
+			value: (r) => `${r.person.lastName}, ${r.person.firstName}`,
+			compare: (a, b) => a.person.lastName.localeCompare(b.person.lastName)
+		},
+		{
+			key: 'totalAway',
+			header: 'Total Away',
+			value: (r) => r.totalAwayDays,
+			compare: (a, b) => a.totalAwayDays - b.totalAwayDays
+		},
+		{
+			key: 'percentAway',
+			header: '% Away',
+			value: (r) => r.percentAway,
+			compare: (a, b) => a.percentAway - b.percentAway
+		}
+	];
+
+	const table = useDataTable({
+		data: () => result?.rows ?? [],
+		columns: tableColumns,
+		initialSortKey: 'name'
+	});
 </script>
 
 <div class="report-config">
@@ -233,23 +268,23 @@
 		{#if result.rows.length === 0}
 			<p class="no-data">No data found for the selected criteria.</p>
 		{:else}
-			<div class="table-wrapper">
-				<table class="report-table">
+			<div class="data-table compact">
+				<table aria-label="Personnel tempo report">
 					<thead>
 						<tr>
-							<th class="col-rank">Rank</th>
-							<th class="col-name">Name</th>
+							<th class="col-rank" onclick={() => table.toggleSort('rank')}>Rank</th>
+							<th class="col-name" onclick={() => table.toggleSort('name')}>Name</th>
 							{#each displayColumns as st (st.id)}
 								<th class="col-status">
 									<Badge label={st.name} color={st.color} textColor={st.textColor} />
 								</th>
 							{/each}
-							<th class="col-total">Total Away</th>
-							<th class="col-percent">% Away</th>
+							<th class="col-total" onclick={() => table.toggleSort('totalAway')}>Total Away</th>
+							<th class="col-percent" onclick={() => table.toggleSort('percentAway')}>% Away</th>
 						</tr>
 					</thead>
 					<tbody>
-						{#each result.rows as row (row.person.id)}
+						{#each table.rows as row (row.person.id)}
 							<tr class:flagged={row.flagged}>
 								<td class="col-rank">{row.person.rank}</td>
 								<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
@@ -380,46 +415,63 @@
 		font-style: italic;
 	}
 
-	.table-wrapper {
+	/* DataTable-compatible table styles */
+	.data-table {
 		overflow-x: auto;
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
 	}
 
-	.report-table {
+	table {
 		width: 100%;
 		border-collapse: collapse;
 		font-size: var(--font-size-sm);
 	}
 
-	.report-table th {
+	thead {
 		background: var(--color-surface-variant);
-		padding: var(--spacing-sm);
-		text-align: center;
-		font-weight: 600;
+	}
+
+	th {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 		border-bottom: 2px solid var(--color-border);
+		cursor: pointer;
+		user-select: none;
 		white-space: nowrap;
-	}
-
-	.report-table td {
-		padding: var(--spacing-sm);
-		border-bottom: 1px solid var(--color-border);
+		background: var(--color-surface-variant);
 		text-align: center;
 	}
 
-	.report-table tbody tr:nth-child(even) {
-		background: var(--color-surface-variant);
+	th:hover {
+		color: var(--color-text);
 	}
 
-	.report-table tbody tr:hover {
+	td {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-bottom: 1px solid var(--color-divider);
+		color: var(--color-text);
+		text-align: center;
+	}
+
+	tbody tr:last-child td {
+		border-bottom: none;
+	}
+
+	tbody tr:hover {
 		background: var(--color-bg);
 	}
 
-	.report-table tbody tr.flagged {
+	tbody tr.flagged {
 		background: color-mix(in srgb, var(--color-error) 8%, transparent);
 	}
 
-	.report-table tbody tr.flagged:nth-child(even) {
+	tbody tr.flagged:hover {
 		background: color-mix(in srgb, var(--color-error) 12%, transparent);
 	}
 
@@ -459,6 +511,12 @@
 
 		.date-row .form-group {
 			min-width: unset;
+		}
+
+		th,
+		td {
+			padding: var(--spacing-xs) var(--spacing-sm);
+			font-size: var(--font-size-sm);
 		}
 	}
 </style>

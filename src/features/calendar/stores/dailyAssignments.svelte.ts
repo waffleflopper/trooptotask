@@ -1,279 +1,259 @@
-export interface AssignmentType {
-	id: string;
-	name: string;
-	shortName: string;
-	assignTo: 'personnel' | 'group';
-	color: string;
-	exemptPersonnelIds: string[];
+import { defineStore } from '$lib/stores/core';
+import type { Store, StoreInternals } from '$lib/stores/core';
+import type { AssignmentType, DailyAssignment } from '$lib/types';
+
+export type { AssignmentType, DailyAssignment } from '$lib/types';
+
+const typesStore = defineStore<AssignmentType>({ table: 'assignment_types' });
+
+interface AssignmentExtensions extends Record<string, unknown> {
+	readonly types: AssignmentType[];
+	readonly assignments: DailyAssignment[];
+	load: (types: AssignmentType[], assignments: DailyAssignment[], orgId: string) => void;
+	addType: (data: Omit<AssignmentType, 'id'>) => Promise<AssignmentType | null>;
+	updateType: (id: string, data: Partial<Omit<AssignmentType, 'id'>>) => Promise<boolean>;
+	removeType: (id: string) => Promise<boolean>;
+	getTypeById: (id: string) => AssignmentType | undefined;
+	setAssignment: (date: string, assignmentTypeId: string, assigneeId: string) => Promise<boolean>;
+	removeAssignment: (date: string, assignmentTypeId: string) => Promise<boolean>;
+	setAssignmentBatch: (
+		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
+	) => Promise<boolean>;
+	getAssignmentsForDate: (date: string) => DailyAssignment[];
+	getAssignmentForDate: (date: string, assignmentTypeId: string) => DailyAssignment | undefined;
+	getAssignmentsForPersonnel: (personnelId: string) => DailyAssignment[];
+	getAssignmentsForGroup: (groupName: string) => DailyAssignment[];
+	getPersonnelAssignmentsForDate: (personnelId: string, date: string) => DailyAssignment[];
 }
 
-export interface DailyAssignment {
-	id: string;
-	date: string;
-	assignmentTypeId: string;
-	assigneeId: string;
-}
-
-class DailyAssignmentsStore {
-	#types = $state.raw<AssignmentType[]>([]);
-	#assignments = $state.raw<DailyAssignment[]>([]);
-	#orgId = '';
-	#pendingMutations = 0;
-
-	get types() {
-		return this.#types;
+function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAssignment>): AssignmentExtensions {
+	function getAssignmentSnapshot(): DailyAssignment[] {
+		return internals.snapshot();
 	}
 
-	get assignments() {
-		return this.#assignments;
-	}
+	return {
+		get types() {
+			return typesStore.items;
+		},
 
-	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
-		if (this.#pendingMutations > 0 && orgId === this.#orgId) return;
-		this.#types = types;
-		this.#assignments = assignments;
-		this.#orgId = orgId;
-	}
+		get assignments() {
+			return internals.replay();
+		},
 
-	// Assignment Type methods
-	async addType(data: Omit<AssignmentType, 'id'>): Promise<AssignmentType | null> {
-		this.#pendingMutations++;
-		// Optimistic: add with temp ID
-		const tempId = `temp-${crypto.randomUUID()}`;
-		const optimisticType: AssignmentType = { id: tempId, ...data };
-		this.#types = [...this.#types, optimisticType];
+		load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
+			typesStore.load(types, orgId);
+			base.load(assignments, orgId);
+		},
 
-		try {
-			const res = await fetch(`/org/${this.#orgId}/api/assignment-types`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(data)
-			});
-			if (!res.ok) throw new Error('Failed to add assignment type');
-			const newType = await res.json();
-			// Replace temp with real data
-			this.#types = this.#types.map((t) => (t.id === tempId ? newType : t));
-			return newType;
-		} catch {
-			// Rollback on failure
-			this.#types = this.#types.filter((t) => t.id !== tempId);
-			return null;
-		} finally {
-			this.#pendingMutations--;
-		}
-	}
+		// Assignment Type methods
+		async addType(data: Omit<AssignmentType, 'id'>): Promise<AssignmentType | null> {
+			return typesStore.add(data);
+		},
 
-	async updateType(id: string, data: Partial<Omit<AssignmentType, 'id'>>): Promise<boolean> {
-		// Optimistic: update immediately
-		const original = this.#types.find((t) => t.id === id);
-		if (!original) return false;
+		async updateType(id: string, data: Partial<Omit<AssignmentType, 'id'>>): Promise<boolean> {
+			return typesStore.update(id, data);
+		},
 
-		this.#pendingMutations++;
-		this.#types = this.#types.map((t) => (t.id === id ? { ...t, ...data } : t));
+		async removeType(id: string): Promise<boolean> {
+			const type = typesStore.getById(id);
+			if (!type) return false;
 
-		try {
-			const res = await fetch(`/org/${this.#orgId}/api/assignment-types`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id, ...data })
-			});
-			if (!res.ok) throw new Error('Failed to update assignment type');
-			const updated = await res.json();
-			// Replace with server response
-			this.#types = this.#types.map((t) => (t.id === id ? updated : t));
-			return true;
-		} catch {
-			// Rollback on failure
-			this.#types = this.#types.map((t) => (t.id === id ? original : t));
-			return false;
-		} finally {
-			this.#pendingMutations--;
-		}
-	}
+			// Cascade: optimistically remove affected assignments via log
+			const affectedIds = getAssignmentSnapshot()
+				.filter((a) => a.assignmentTypeId === id)
+				.map((a) => a.id);
 
-	async removeType(id: string): Promise<boolean> {
-		// Optimistic: remove immediately
-		const original = this.#types.find((t) => t.id === id);
-		if (!original) return false;
+			let cascadeMutationId: string | null = null;
+			if (affectedIds.length > 0) {
+				cascadeMutationId = crypto.randomUUID();
+				internals.log.push({ type: 'remove-batch', mutationId: cascadeMutationId, targetIds: affectedIds });
+			}
 
-		this.#pendingMutations++;
-		const affectedAssignments = this.#assignments.filter((a) => a.assignmentTypeId === id);
-		this.#types = this.#types.filter((t) => t.id !== id);
-		this.#assignments = this.#assignments.filter((a) => a.assignmentTypeId !== id);
+			const result = await typesStore.remove(id);
 
-		try {
-			const res = await fetch(`/org/${this.#orgId}/api/assignment-types`, {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id })
-			});
-			if (!res.ok) throw new Error('Failed to delete assignment type');
-			return true;
-		} catch {
-			// Rollback on failure
-			this.#types = [...this.#types, original];
-			this.#assignments = [...this.#assignments, ...affectedAssignments];
-			return false;
-		} finally {
-			this.#pendingMutations--;
-		}
-	}
+			if (result === 'deleted') {
+				// Confirm cascade in serverState
+				const idSet = new Set(affectedIds);
+				internals.serverState.set(internals.serverState.getSnapshot().filter((a) => !idSet.has(a.id)));
+			}
 
-	getTypeById(id: string) {
-		return this.#types.find((t) => t.id === id);
-	}
+			// Resolve cascade log (success = serverState updated, failure = auto-rollback)
+			if (cascadeMutationId) {
+				internals.log.resolve(cascadeMutationId);
+			}
 
-	// Daily Assignment methods
-	async setAssignment(date: string, assignmentTypeId: string, assigneeId: string): Promise<boolean> {
-		this.#pendingMutations++;
-		// Store existing assignment for rollback
-		const existingAssignment = this.#assignments.find(
-			(a) => a.date === date && a.assignmentTypeId === assignmentTypeId
-		);
+			return result === 'deleted';
+		},
 
-		// Optimistic: remove existing and add new
-		this.#assignments = this.#assignments.filter((a) => !(a.date === date && a.assignmentTypeId === assignmentTypeId));
+		getTypeById(id: string) {
+			return typesStore.getById(id);
+		},
 
-		// Add optimistic assignment if assigneeId is provided
-		const tempId = `temp-${crypto.randomUUID()}`;
-		if (assigneeId) {
-			const optimisticAssignment: DailyAssignment = {
-				id: tempId,
-				date,
-				assignmentTypeId,
-				assigneeId
-			};
-			this.#assignments = [...this.#assignments, optimisticAssignment];
-		}
+		// Daily Assignment methods
+		async setAssignment(date: string, assignmentTypeId: string, assigneeId: string): Promise<boolean> {
+			const existing = getAssignmentSnapshot().find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
 
-		try {
-			const res = await fetch(`/org/${this.#orgId}/api/daily-assignments`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ date, assignmentTypeId, assigneeId })
-			});
-			if (!res.ok) throw new Error('Failed to set assignment');
+			let removeMutationId: string | null = null;
+			if (existing) {
+				removeMutationId = crypto.randomUUID();
+				internals.log.push({ type: 'remove', mutationId: removeMutationId, targetId: existing.id });
+			}
 
-			// Replace temp with real data if assigneeId was provided
+			let addMutationId: string | null = null;
+			let tempId: string | null = null;
 			if (assigneeId) {
-				const data = await res.json();
-				if (data.id) {
-					this.#assignments = this.#assignments.map((a) => (a.id === tempId ? data : a));
-				} else {
-					this.#assignments = this.#assignments.filter((a) => a.id !== tempId);
+				addMutationId = crypto.randomUUID();
+				tempId = `temp-${crypto.randomUUID()}`;
+				internals.log.push({
+					type: 'add',
+					mutationId: addMutationId,
+					tempId,
+					data: { date, assignmentTypeId, assigneeId } as Omit<DailyAssignment, 'id'>
+				});
+			}
+
+			try {
+				const res = await fetch(`/org/${internals.orgId()}/api/daily-assignments`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ date, assignmentTypeId, assigneeId })
+				});
+				if (!res.ok) throw new Error('Failed to set assignment');
+
+				// Update serverState
+				let current = internals.serverState.getSnapshot();
+				if (existing) {
+					current = current.filter((a) => a.id !== existing.id);
+				}
+				if (assigneeId) {
+					const data = await res.json();
+					if (data.id) {
+						current = [...current, data];
+					}
+				}
+				internals.serverState.set(current);
+
+				if (removeMutationId) internals.log.resolve(removeMutationId);
+				if (addMutationId) internals.log.resolve(addMutationId);
+				return true;
+			} catch {
+				if (removeMutationId) internals.log.resolve(removeMutationId);
+				if (addMutationId) internals.log.resolve(addMutationId);
+				return false;
+			}
+		},
+
+		async removeAssignment(date: string, assignmentTypeId: string): Promise<boolean> {
+			const original = getAssignmentSnapshot().find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
+			if (!original) return false;
+
+			const mutationId = crypto.randomUUID();
+			internals.log.push({ type: 'remove', mutationId, targetId: original.id });
+
+			try {
+				const res = await fetch(`/org/${internals.orgId()}/api/daily-assignments`, {
+					method: 'DELETE',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ date, assignmentTypeId })
+				});
+				if (!res.ok) throw new Error('Failed to remove assignment');
+
+				internals.serverState.set(internals.serverState.getSnapshot().filter((a) => a.id !== original.id));
+				internals.log.resolve(mutationId);
+				return true;
+			} catch {
+				internals.log.resolve(mutationId);
+				return false;
+			}
+		},
+
+		async setAssignmentBatch(
+			assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
+		): Promise<boolean> {
+			const removeMutationIds: string[] = [];
+			const existingIds: string[] = [];
+			const tempIds: string[] = [];
+			const addData: Omit<DailyAssignment, 'id'>[] = [];
+
+			for (const a of assignments) {
+				const existing = getAssignmentSnapshot().find(
+					(e) => e.date === a.date && e.assignmentTypeId === a.assignmentTypeId
+				);
+				if (existing) {
+					const rmId = crypto.randomUUID();
+					removeMutationIds.push(rmId);
+					existingIds.push(existing.id);
+					internals.log.push({ type: 'remove', mutationId: rmId, targetId: existing.id });
+				}
+
+				if (a.assigneeId) {
+					tempIds.push(`temp-${crypto.randomUUID()}`);
+					addData.push({
+						date: a.date,
+						assignmentTypeId: a.assignmentTypeId,
+						assigneeId: a.assigneeId
+					});
 				}
 			}
 
-			return true;
-		} catch {
-			// Rollback on failure
-			this.#assignments = this.#assignments.filter((a) => a.id !== tempId);
-			if (existingAssignment) {
-				this.#assignments = [...this.#assignments, existingAssignment];
+			let addMutationId: string | null = null;
+			if (tempIds.length > 0) {
+				addMutationId = crypto.randomUUID();
+				internals.log.push({ type: 'add-batch', mutationId: addMutationId, tempIds, data: addData });
 			}
-			return false;
-		} finally {
-			this.#pendingMutations--;
-		}
-	}
 
-	async removeAssignment(date: string, assignmentTypeId: string): Promise<boolean> {
-		// Optimistic: remove immediately
-		const original = this.#assignments.find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
-		if (!original) return false;
+			try {
+				const res = await fetch(`/org/${internals.orgId()}/api/daily-assignments/batch`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ records: assignments })
+				});
+				if (!res.ok) throw new Error('Failed to batch update assignments');
 
-		this.#pendingMutations++;
-		this.#assignments = this.#assignments.filter((a) => !(a.date === date && a.assignmentTypeId === assignmentTypeId));
+				const data = await res.json();
+				const inserted: DailyAssignment[] = data.inserted;
 
-		try {
-			const res = await fetch(`/org/${this.#orgId}/api/daily-assignments`, {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ date, assignmentTypeId })
-			});
-			if (!res.ok) throw new Error('Failed to remove assignment');
-			return true;
-		} catch {
-			// Rollback on failure
-			this.#assignments = [...this.#assignments, original];
-			return false;
-		} finally {
-			this.#pendingMutations--;
-		}
-	}
+				// Update serverState: remove old, add new
+				let current = internals.serverState.getSnapshot();
+				if (existingIds.length > 0) {
+					const idSet = new Set(existingIds);
+					current = current.filter((a) => !idSet.has(a.id));
+				}
+				internals.serverState.set([...current, ...inserted]);
 
-	async setAssignmentBatch(
-		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
-	): Promise<boolean> {
-		this.#pendingMutations++;
-		// Optimistic: apply all changes locally
-		const originals: DailyAssignment[] = [];
-		const tempEntries: DailyAssignment[] = [];
-
-		for (const a of assignments) {
-			const existing = this.#assignments.find((e) => e.date === a.date && e.assignmentTypeId === a.assignmentTypeId);
-			if (existing) originals.push(existing);
-
-			this.#assignments = this.#assignments.filter(
-				(e) => !(e.date === a.date && e.assignmentTypeId === a.assignmentTypeId)
-			);
-
-			if (a.assigneeId) {
-				const temp: DailyAssignment = {
-					id: `temp-${crypto.randomUUID()}`,
-					date: a.date,
-					assignmentTypeId: a.assignmentTypeId,
-					assigneeId: a.assigneeId
-				};
-				tempEntries.push(temp);
-				this.#assignments = [...this.#assignments, temp];
+				for (const rmId of removeMutationIds) internals.log.resolve(rmId);
+				if (addMutationId) internals.log.resolve(addMutationId);
+				return true;
+			} catch {
+				for (const rmId of removeMutationIds) internals.log.resolve(rmId);
+				if (addMutationId) internals.log.resolve(addMutationId);
+				return false;
 			}
+		},
+
+		getAssignmentsForDate(date: string): DailyAssignment[] {
+			return getAssignmentSnapshot().filter((a) => a.date === date);
+		},
+
+		getAssignmentForDate(date: string, assignmentTypeId: string): DailyAssignment | undefined {
+			return getAssignmentSnapshot().find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
+		},
+
+		getAssignmentsForPersonnel(personnelId: string): DailyAssignment[] {
+			return getAssignmentSnapshot().filter((a) => a.assigneeId === personnelId);
+		},
+
+		getAssignmentsForGroup(groupName: string): DailyAssignment[] {
+			return getAssignmentSnapshot().filter((a) => a.assigneeId === groupName);
+		},
+
+		getPersonnelAssignmentsForDate(personnelId: string, date: string): DailyAssignment[] {
+			return getAssignmentSnapshot().filter((a) => a.assigneeId === personnelId && a.date === date);
 		}
-
-		try {
-			const res = await fetch(`/org/${this.#orgId}/api/daily-assignments/batch`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ records: assignments })
-			});
-			if (!res.ok) throw new Error('Failed to batch update assignments');
-
-			const data = await res.json();
-			const inserted: DailyAssignment[] = data.inserted;
-
-			// Replace temp entries with real ones
-			const tempIds = new Set(tempEntries.map((e) => e.id));
-			this.#assignments = [...this.#assignments.filter((a) => !tempIds.has(a.id)), ...inserted];
-			return true;
-		} catch {
-			// Rollback: remove temps, restore originals
-			const tempIds = new Set(tempEntries.map((e) => e.id));
-			this.#assignments = [...this.#assignments.filter((a) => !tempIds.has(a.id)), ...originals];
-			return false;
-		} finally {
-			this.#pendingMutations--;
-		}
-	}
-
-	getAssignmentsForDate(date: string): DailyAssignment[] {
-		return this.#assignments.filter((a) => a.date === date);
-	}
-
-	getAssignmentForDate(date: string, assignmentTypeId: string): DailyAssignment | undefined {
-		return this.#assignments.find((a) => a.date === date && a.assignmentTypeId === assignmentTypeId);
-	}
-
-	getAssignmentsForPersonnel(personnelId: string): DailyAssignment[] {
-		return this.#assignments.filter((a) => a.assigneeId === personnelId);
-	}
-
-	getAssignmentsForGroup(groupName: string): DailyAssignment[] {
-		return this.#assignments.filter((a) => a.assigneeId === groupName);
-	}
-
-	getPersonnelAssignmentsForDate(personnelId: string, date: string): DailyAssignment[] {
-		return this.#assignments.filter((a) => a.assigneeId === personnelId && a.date === date);
-	}
+	};
 }
 
-export const dailyAssignmentsStore = new DailyAssignmentsStore();
+export const dailyAssignmentsStore = defineStore<DailyAssignment, AssignmentExtensions>(
+	{ table: 'daily_assignments' },
+	enhance
+);

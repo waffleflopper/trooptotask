@@ -1,39 +1,46 @@
-import { createCrudStore } from '$lib/stores/crudStore.svelte';
+import { defineStore } from '$lib/stores/core';
+import type { Store } from '$lib/stores/core';
 import type { PersonnelTraining } from '$features/training/training.types';
 
-const store = createCrudStore<PersonnelTraining>({
-	resource: 'personnel-trainings',
-	beforeAdd(items, data) {
-		const displaced = items.find((t) => t.personnelId === data.personnelId && t.trainingTypeId === data.trainingTypeId);
-		return {
-			items: items.filter((t) => !(t.personnelId === data.personnelId && t.trainingTypeId === data.trainingTypeId)),
-			displaced
-		};
-	}
-});
+interface PersonnelTrainingsExtensions extends Record<string, unknown> {
+	getByPersonnelAndType: (personnelId: string, trainingTypeId: string) => PersonnelTraining | undefined;
+	addBatchResults: (inserted: PersonnelTraining[], updated?: PersonnelTraining[]) => void;
+	removeByPersonnelLocal: (personnelId: string) => void;
+	removeByTrainingTypeLocal: (trainingTypeId: string) => void;
+}
 
-export const personnelTrainingsStore = {
-	get list() {
-		return store.items;
+function enhance(base: Store<PersonnelTraining>): PersonnelTrainingsExtensions {
+	return {
+		getByPersonnelAndType(personnelId: string, trainingTypeId: string) {
+			return base.find((t) => t.personnelId === personnelId && t.trainingTypeId === trainingTypeId);
+		},
+
+		addBatchResults: base.mergeBatchResults,
+
+		removeByPersonnelLocal(personnelId: string) {
+			base.removeLocalWhere((t) => t.personnelId === personnelId);
+		},
+
+		removeByTrainingTypeLocal(trainingTypeId: string) {
+			base.removeLocalWhere((t) => t.trainingTypeId === trainingTypeId);
+		}
+	};
+}
+
+export const personnelTrainingsStore = defineStore<PersonnelTraining, PersonnelTrainingsExtensions>(
+	{
+		table: 'personnel_trainings',
+		overrides: {
+			beforeAdd(items, data) {
+				const displaced = items.find(
+					(t) => t.personnelId === data.personnelId && t.trainingTypeId === data.trainingTypeId
+				);
+				return {
+					items: items.filter((t) => !(t.personnelId === data.personnelId && t.trainingTypeId === data.trainingTypeId)),
+					displaced
+				};
+			}
+		}
 	},
-	load: store.load,
-	add: store.add,
-	update: store.update,
-	remove: store.remove,
-	getById: (id: string) => store.getItems().find((t) => t.id === id),
-	getByPersonnelAndType: (personnelId: string, trainingTypeId: string) =>
-		store.getItems().find((t) => t.personnelId === personnelId && t.trainingTypeId === trainingTypeId),
-
-	addBatchResults(inserted: PersonnelTraining[], updated: PersonnelTraining[]) {
-		const updatedIds = new Set(updated.map((u) => u.id));
-		store.setItems([...store.getItems().filter((t) => !updatedIds.has(t.id)), ...inserted, ...updated]);
-	},
-
-	removeByPersonnelLocal(personnelId: string) {
-		store.setItems(store.getItems().filter((t) => t.personnelId !== personnelId));
-	},
-
-	removeByTrainingTypeLocal(trainingTypeId: string) {
-		store.setItems(store.getItems().filter((t) => t.trainingTypeId !== trainingTypeId));
-	}
-};
+	enhance
+);

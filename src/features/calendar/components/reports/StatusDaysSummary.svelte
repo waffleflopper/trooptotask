@@ -1,11 +1,13 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { StatusType } from '../../calendar.types';
-	import type { StatusDaysResult } from '../../utils/statusDaysReport';
+	import type { StatusType } from '$lib/types';
+	import type { StatusDaysResult, StatusDayRow } from '../../utils/statusDaysReport';
 	import { computeStatusDays } from '../../utils/statusDaysReport';
 	import { exportStatusDaysCsv } from './StatusDaysSummaryExport';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 
 	interface Props {
 		orgId: string;
@@ -140,6 +142,33 @@
 	const displayColumns = $derived(
 		result ? result.activeStatusTypeIds.map((id) => statusTypeMap.get(id)).filter((s): s is StatusType => !!s) : []
 	);
+
+	// --- useDataTable for sorting ---
+	const columns: ColumnDef<StatusDayRow>[] = [
+		{
+			key: 'rank',
+			header: 'Rank',
+			value: (r) => r.person.rank
+		},
+		{
+			key: 'name',
+			header: 'Name',
+			value: (r) => `${r.person.lastName}, ${r.person.firstName}`,
+			compare: (a, b) => a.person.lastName.localeCompare(b.person.lastName)
+		},
+		{
+			key: 'totalDays',
+			header: 'Total Days',
+			value: (r) => r.totalDays,
+			compare: (a, b) => a.totalDays - b.totalDays
+		}
+	];
+
+	const table = useDataTable({
+		data: () => result?.rows ?? [],
+		columns,
+		initialSortKey: 'name'
+	});
 </script>
 
 <div class="report-config">
@@ -313,22 +342,22 @@
 		{#if result.rows.length === 0}
 			<p class="no-data">No data found for the selected criteria.</p>
 		{:else}
-			<div class="table-wrapper">
-				<table class="report-table">
+			<div class="data-table compact striped">
+				<table aria-label="Status days summary">
 					<thead>
 						<tr>
-							<th class="col-rank">Rank</th>
-							<th class="col-name">Name</th>
+							<th class="col-rank" onclick={() => table.toggleSort('rank')}>Rank</th>
+							<th class="col-name" onclick={() => table.toggleSort('name')}>Name</th>
 							{#each displayColumns as st (st.id)}
 								<th class="col-status">
 									<Badge label={st.name} color={st.color} textColor={st.textColor} />
 								</th>
 							{/each}
-							<th class="col-total">Total Days</th>
+							<th class="col-total" onclick={() => table.toggleSort('totalDays')}>Total Days</th>
 						</tr>
 					</thead>
 					<tbody>
-						{#each result.rows as row (row.person.id)}
+						{#each table.rows as row (row.person.id)}
 							<tr>
 								<td class="col-rank">{row.person.rank}</td>
 								<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
@@ -490,38 +519,59 @@
 		font-style: italic;
 	}
 
-	.table-wrapper {
+	/* DataTable-compatible table styles */
+	.data-table {
 		overflow-x: auto;
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
 	}
 
-	.report-table {
+	table {
 		width: 100%;
 		border-collapse: collapse;
 		font-size: var(--font-size-sm);
 	}
 
-	.report-table th {
+	thead {
 		background: var(--color-surface-variant);
-		padding: var(--spacing-sm);
-		text-align: center;
-		font-weight: 600;
+	}
+
+	th {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 		border-bottom: 2px solid var(--color-border);
+		cursor: pointer;
+		user-select: none;
 		white-space: nowrap;
-	}
-
-	.report-table td {
-		padding: var(--spacing-sm);
-		border-bottom: 1px solid var(--color-border);
+		background: var(--color-surface-variant);
 		text-align: center;
 	}
 
-	.report-table tbody tr:nth-child(even) {
+	th:hover {
+		color: var(--color-text);
+	}
+
+	td {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-bottom: 1px solid var(--color-divider);
+		color: var(--color-text);
+		text-align: center;
+	}
+
+	tbody tr:last-child td {
+		border-bottom: none;
+	}
+
+	.striped tbody tr:nth-child(even) {
 		background: var(--color-surface-variant);
 	}
 
-	.report-table tbody tr:hover {
+	tbody tr:hover {
 		background: var(--color-bg);
 	}
 
@@ -538,12 +588,10 @@
 	}
 
 	.col-status {
-		text-align: center;
 		min-width: 80px;
 	}
 
 	.col-total {
-		text-align: center;
 		font-weight: 600;
 		min-width: 80px;
 	}
@@ -555,6 +603,12 @@
 
 		.date-row .form-group {
 			min-width: unset;
+		}
+
+		th,
+		td {
+			padding: var(--spacing-xs) var(--spacing-sm);
+			font-size: var(--font-size-sm);
 		}
 	}
 </style>

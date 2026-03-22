@@ -1,9 +1,11 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { StatusType } from '../../calendar.types';
-	import type { GroupReadinessResult } from '../../utils/calendarReports';
+	import type { StatusType } from '$lib/types';
+	import type { GroupReadinessResult, ReadinessGroupRow } from '../../utils/calendarReports';
 	import { computeGroupReadiness } from '../../utils/calendarReports';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 
 	interface Props {
 		orgId: string;
@@ -166,6 +168,22 @@
 		if (percent >= 50) return 'color-mix(in srgb, var(--color-warning) 15%, transparent)';
 		return 'color-mix(in srgb, var(--color-error) 15%, transparent)';
 	}
+
+	// --- useDataTable for sorting ---
+	const columns: ColumnDef<ReadinessGroupRow>[] = [
+		{
+			key: 'groupName',
+			header: 'Group',
+			value: (r) => r.groupName,
+			compare: (a, b) => a.groupName.localeCompare(b.groupName)
+		}
+	];
+
+	const table = useDataTable({
+		data: () => result?.groups ?? [],
+		columns,
+		initialSortKey: 'groupName'
+	});
 </script>
 
 <div class="report-config">
@@ -237,18 +255,18 @@
 		{#if result.groups.length === 0}
 			<p class="no-data">No data found for the selected criteria.</p>
 		{:else}
-			<div class="table-wrapper">
-				<table class="report-table">
+			<div class="data-table compact">
+				<table aria-label="Group readiness heat map">
 					<thead>
 						<tr>
-							<th class="col-group">Group</th>
+							<th class="col-group" onclick={() => table.toggleSort('groupName')}>Group</th>
 							{#each result.dates as dateStr}
 								<th class="col-date">{formatShortDate(dateStr)}</th>
 							{/each}
 						</tr>
 					</thead>
 					<tbody>
-						{#each result.groups as group (group.groupId)}
+						{#each table.rows as group (group.groupId)}
 							<tr>
 								<td class="col-group">{group.groupName}</td>
 								{#each group.cells as cell}
@@ -378,32 +396,53 @@
 		font-style: italic;
 	}
 
-	.table-wrapper {
+	/* DataTable-compatible table styles */
+	.data-table {
 		overflow-x: auto;
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
 	}
 
-	.report-table {
+	table {
 		width: 100%;
 		border-collapse: collapse;
 		font-size: var(--font-size-sm);
 	}
 
-	.report-table th {
+	thead {
 		background: var(--color-surface-variant);
-		padding: var(--spacing-sm);
-		text-align: center;
-		font-weight: 600;
+	}
+
+	th {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 		border-bottom: 2px solid var(--color-border);
+		cursor: pointer;
+		user-select: none;
+		white-space: nowrap;
+		background: var(--color-surface-variant);
+		text-align: center;
+	}
+
+	th:hover {
+		color: var(--color-text);
+	}
+
+	td {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-bottom: 1px solid var(--color-divider);
+		color: var(--color-text);
+		text-align: center;
 		white-space: nowrap;
 	}
 
-	.report-table td {
-		padding: var(--spacing-sm);
-		border-bottom: 1px solid var(--color-border);
-		text-align: center;
-		white-space: nowrap;
+	tbody tr:last-child td {
+		border-bottom: none;
 	}
 
 	.col-group {
@@ -427,6 +466,12 @@
 
 		.quick-range-row {
 			flex-direction: column;
+		}
+
+		th,
+		td {
+			padding: var(--spacing-xs) var(--spacing-sm);
+			font-size: var(--font-size-sm);
 		}
 	}
 </style>

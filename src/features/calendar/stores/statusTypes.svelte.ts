@@ -1,15 +1,15 @@
-import { createCrudStore } from '$lib/stores/crudStore.svelte';
-import type { StatusType } from '../calendar.types';
+import { defineStore } from '$lib/stores/core';
+import type { Store } from '$lib/stores/core';
+import type { StatusType } from '$lib/types';
 
-const store = createCrudStore<StatusType>({ resource: 'status-types' });
+interface StatusTypeExtensions extends Record<string, unknown> {
+	remove: (id: string) => Promise<boolean>;
+}
 
-export const statusTypesStore = {
-	get list() {
-		return store.items;
-	},
-	load: store.load,
-	add: store.add,
-	update: store.update,
-	remove: store.removeBool,
-	getById: (id: string) => store.getItems().find((t) => t.id === id)
-};
+function enhance(base: Store<StatusType>): StatusTypeExtensions {
+	return {
+		remove: base.removeBool
+	};
+}
+
+export const statusTypesStore = defineStore<StatusType, StatusTypeExtensions>({ table: 'status_types' }, enhance);

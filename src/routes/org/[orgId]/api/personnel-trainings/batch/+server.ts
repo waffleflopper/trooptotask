@@ -1,10 +1,9 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { requireEditPermission, getScopedGroupId } from '$lib/server/permissions';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
 import { formatDate } from '$lib/utils/dates';
+import { queryPersonnel } from '$lib/server/personnelRepository';
+import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 
 function calculateExpirationDate(completionDate: string | null, expirationMonths: number | null): string | null {
 	if (expirationMonths === null || !completionDate) return null;
@@ -21,18 +20,8 @@ interface BatchTrainingRecord {
 	status: 'completed' | 'exempt';
 }
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'training');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'training' } }, async ({ supabase, orgId, userId, ctx }, event) => {
+	const body = await event.request.json();
 	const records: BatchTrainingRecord[] = body.records;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -44,10 +33,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	}
 
 	// Get scoped group for validation
-	let scopedGroupId: string | null = null;
-	if (!isSandbox && userId) {
-		scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
-	}
+	const scopedGroupId = ctx?.scopedGroupId ?? null;
 
 	// Fetch all referenced training types in one query
 	const trainingTypeIds = [...new Set(records.map((r) => r.trainingTypeId))];
@@ -58,17 +44,18 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		.in('id', trainingTypeIds);
 	const typeMap = new Map((trainingTypes ?? []).map((t) => [t.id, t]));
 
-	// If scoped, fetch personnel group_ids for access check
+	// If scoped, fetch personnel group_ids for access check via repository
 	let personnelGroupMap = new Map<string, string | null>();
 	if (scopedGroupId) {
-		const personnelIds = [...new Set(records.map((r) => r.personnelId))];
-		const { data: personnelData } = await supabase
-			.from('personnel')
-			.select('id, group_id')
-			.eq('organization_id', orgId)
-			.in('id', personnelIds)
-			.is('archived_at', null);
-		personnelGroupMap = new Map((personnelData ?? []).map((p) => [p.id, p.group_id]));
+		const personnelIdsToCheck = [...new Set(records.map((r) => r.personnelId))];
+		const { data: personnelData } = await queryPersonnel<{ id: string; group_id: string | null }>({
+			supabase,
+			orgId,
+			select: 'id, group_id',
+			transform: 'raw',
+			filters: [(q) => q.in('id', personnelIdsToCheck)]
+		});
+		personnelGroupMap = new Map(personnelData.map((p) => [p.id, p.group_id]));
 	}
 
 	// Split and validate
@@ -223,15 +210,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		}
 	}
 
-	const transformRecord = (d: Record<string, unknown>) => ({
-		id: d.id,
-		personnelId: d.personnel_id,
-		trainingTypeId: d.training_type_id,
-		completionDate: d.completion_date,
-		expirationDate: d.expiration_date,
-		notes: d.notes,
-		certificateUrl: d.certificate_url
-	});
+	const transformRecord = (d: Record<string, unknown>) => PersonnelTrainingEntity.fromDb(d);
 
 	auditLog(
 		{
@@ -239,7 +218,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			resourceType: 'training_record',
 			orgId,
 			details: {
-				actor: locals.user?.email ?? userId,
+				actor: event.locals.user?.email ?? userId,
 				inserted: insertedData.length,
 				updated: updatedData.length,
 				exempted: exemptedResults.length
@@ -254,4 +233,4 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		exempted: exemptedResults,
 		errors: batchErrors
 	});
-};
+});

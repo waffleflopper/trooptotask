@@ -8,6 +8,7 @@ import {
 	TEST_TRAINING_TYPES
 } from './fixtures/test-data';
 import { createClient } from '@supabase/supabase-js';
+import { execSync } from 'child_process';
 import fs from 'fs';
 
 async function globalSetup() {
@@ -30,40 +31,29 @@ async function globalSetup() {
 	await adminClient.from('notifications').delete().eq('organization_id', orgId);
 	await adminClient.from('organizations').delete().eq('id', orgId);
 
-	// 1. Create test users via Supabase Admin API
+	// 1. Clean up leftover test auth users via psql, then create fresh ones
+	// The admin API's listUsers can be unreliable on local Supabase, so we
+	// delete directly from auth.users using psql to ensure a clean slate.
+	const testEmails = Object.values(TEST_USERS)
+		.map((u) => `'${u.email}'`)
+		.join(',');
+	try {
+		execSync(
+			`psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "DELETE FROM auth.users WHERE email IN (${testEmails})"`,
+			{ stdio: 'pipe' }
+		);
+	} catch {
+		// psql cleanup is best-effort for local dev; ignore failures
+	}
+
 	const userIds: Record<string, string> = {};
 
 	for (const [role, userData] of Object.entries(TEST_USERS)) {
-		// Try to create user; if already exists, delete and recreate
-		let { data, error } = await adminClient.auth.admin.createUser({
+		const { data, error } = await adminClient.auth.admin.createUser({
 			email: userData.email,
 			password: userData.password,
 			email_confirm: true
 		});
-
-		if (error?.message?.includes('already been registered')) {
-			// Find by listing users with pagination
-			let page = 1;
-			let found = false;
-			while (!found) {
-				const { data: listData } = await adminClient.auth.admin.listUsers({ page, perPage: 100 });
-				const existing = listData?.users?.find((u) => u.email === userData.email);
-				if (existing) {
-					await adminClient.auth.admin.deleteUser(existing.id);
-					found = true;
-				}
-				if (!listData?.users?.length || listData.users.length < 100) break;
-				page++;
-			}
-			// Retry create
-			const retry = await adminClient.auth.admin.createUser({
-				email: userData.email,
-				password: userData.password,
-				email_confirm: true
-			});
-			data = retry.data;
-			error = retry.error;
-		}
 
 		if (error) throw new Error(`Failed to create ${role} user: ${error.message}`);
 		userIds[role] = data.user.id;

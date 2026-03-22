@@ -3,6 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { getAdminRole, canAccessPage } from '$lib/server/admin';
 import { getAdminClient } from '$lib/server/supabase';
 import { auditLog, getRequestInfo } from '$lib/server/auditLog';
+import { queryPersonnel } from '$lib/server/personnelRepository';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const supabase = locals.supabase;
@@ -39,15 +40,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.map((o: Record<string, unknown>) => (o.organizations as Record<string, unknown> | null)?.id)
 		.filter(Boolean);
 	const personnelCountMap: Record<string, number> = {};
-	if (orgIds.length > 0) {
-		const { data: personnelRows } = await adminClient
-			.from('personnel')
-			.select('organization_id')
-			.in('organization_id', orgIds)
-			.is('archived_at', null);
-		(personnelRows ?? []).forEach((p: { organization_id: string }) => {
-			personnelCountMap[p.organization_id] = (personnelCountMap[p.organization_id] || 0) + 1;
+	for (const oid of orgIds) {
+		const { count } = await queryPersonnel({
+			supabase: adminClient,
+			orgId: oid as string,
+			headOnly: true,
+			count: 'exact'
 		});
+		personnelCountMap[oid as string] = count ?? 0;
 	}
 
 	const organizations = (orgsResult.data ?? []).map((o: Record<string, unknown>) => {

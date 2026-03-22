@@ -1,84 +1,73 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase } = getApiContext(locals, cookies, orgId);
+export const POST = apiRoute(
+	{ permission: { authenticated: true }, audit: 'unit' },
+	async ({ supabase, orgId }, event) => {
+		const body = await event.request.json();
 
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
+		const { data, error: dbError } = await supabase
+			.from('units')
+			.insert({
+				organization_id: orgId,
+				name: body.name,
+				sort_order: body.sortOrder ?? 0
+			})
+			.select()
+			.single();
 
-	const body = await request.json();
+		if (dbError) throw error(500, dbError.message);
 
-	const { data, error: dbError } = await supabase
-		.from('units')
-		.insert({
-			organization_id: orgId,
-			name: body.name,
-			sort_order: body.sortOrder ?? 0
-		})
-		.select()
-		.single();
+		return json({
+			id: data.id,
+			name: data.name,
+			sortOrder: data.sort_order
+		});
+	}
+);
 
-	if (dbError) throw error(500, dbError.message);
+export const PUT = apiRoute(
+	{ permission: { authenticated: true }, audit: 'unit' },
+	async ({ supabase, orgId }, event) => {
+		const body = await event.request.json();
+		const { id, ...fields } = body;
 
-	return json({
-		id: data.id,
-		name: data.name,
-		sortOrder: data.sort_order
-	});
-};
+		if (!id) throw error(400, 'Missing id');
 
-export const PUT: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase } = getApiContext(locals, cookies, orgId);
+		const updates: Record<string, unknown> = {};
+		if (fields.name !== undefined) updates.name = fields.name;
+		if (fields.sortOrder !== undefined) updates.sort_order = fields.sortOrder;
 
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
+		const { data, error: dbError } = await supabase
+			.from('units')
+			.update(updates)
+			.eq('id', id)
+			.eq('organization_id', orgId)
+			.select()
+			.single();
 
-	const body = await request.json();
-	const { id, ...fields } = body;
+		if (dbError) throw error(500, dbError.message);
 
-	if (!id) throw error(400, 'Missing id');
+		return json({
+			id: data.id,
+			name: data.name,
+			sortOrder: data.sort_order
+		});
+	}
+);
 
-	const updates: Record<string, unknown> = {};
-	if (fields.name !== undefined) updates.name = fields.name;
-	if (fields.sortOrder !== undefined) updates.sort_order = fields.sortOrder;
+export const DELETE = apiRoute(
+	{ permission: { authenticated: true }, audit: 'unit' },
+	async ({ supabase, orgId }, event) => {
+		const body = await event.request.json();
+		const { id } = body;
 
-	const { data, error: dbError } = await supabase
-		.from('units')
-		.update(updates)
-		.eq('id', id)
-		.eq('organization_id', orgId)
-		.select()
-		.single();
+		if (!id) throw error(400, 'Missing id');
 
-	if (dbError) throw error(500, dbError.message);
+		const { error: dbError } = await supabase.from('units').delete().eq('id', id).eq('organization_id', orgId);
 
-	return json({
-		id: data.id,
-		name: data.name,
-		sortOrder: data.sort_order
-	});
-};
+		if (dbError) throw error(500, dbError.message);
 
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase } = getApiContext(locals, cookies, orgId);
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
-	const { id } = body;
-
-	if (!id) throw error(400, 'Missing id');
-
-	const { error: dbError } = await supabase.from('units').delete().eq('id', id).eq('organization_id', orgId);
-
-	if (dbError) throw error(500, dbError.message);
-
-	return json({ success: true });
-};
+		return json({ success: true });
+	}
+);

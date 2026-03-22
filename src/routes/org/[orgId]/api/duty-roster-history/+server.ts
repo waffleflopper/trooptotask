@@ -1,13 +1,8 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { requireEditPermission } from '$lib/server/permissions';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
+import { RosterHistoryEntity } from '$lib/server/entities/rosterHistory';
 
-export const GET: RequestHandler = async ({ params, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase } = getApiContext(locals, cookies, orgId);
-
+export const GET = apiRoute({ permission: { authenticated: true }, readOnly: false }, async ({ supabase, orgId }) => {
 	const { data, error: dbError } = await supabase
 		.from('duty_roster_history')
 		.select('*')
@@ -16,58 +11,23 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 
 	if (dbError) throw error(500, dbError.message);
 
-	return json(
-		(data ?? []).map((r: Record<string, unknown>) => ({
-			id: r.id,
-			assignmentTypeId: r.assignment_type_id,
-			name: r.name,
-			startDate: r.start_date,
-			endDate: r.end_date,
-			roster: r.roster,
-			config: r.config,
-			createdAt: r.created_at
-		}))
-	);
-};
+	return json(RosterHistoryEntity.fromDbArray((data ?? []) as Record<string, unknown>[]));
+});
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+export const POST = apiRoute(
+	{ permission: { edit: 'calendar' }, audit: 'duty_roster' },
+	async ({ supabase, orgId, userId }, event) => {
+		const body = await event.request.json();
 
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'calendar');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
-
-	const { data, error: dbError } = await supabase
-		.from('duty_roster_history')
-		.insert({
-			organization_id: orgId,
-			assignment_type_id: body.assignmentTypeId,
-			name: body.name,
-			start_date: body.startDate,
-			end_date: body.endDate,
-			roster: body.roster,
-			config: body.config ?? null,
+		const insertData = {
+			...RosterHistoryEntity.toDbInsert(body, orgId),
 			created_by_user_id: userId ?? null
-		})
-		.select()
-		.single();
+		};
 
-	if (dbError) throw error(500, dbError.message);
+		const { data, error: dbError } = await supabase.from('duty_roster_history').insert(insertData).select().single();
 
-	return json({
-		id: data.id,
-		assignmentTypeId: data.assignment_type_id,
-		name: data.name,
-		startDate: data.start_date,
-		endDate: data.end_date,
-		roster: data.roster,
-		config: data.config,
-		createdAt: data.created_at
-	});
-};
+		if (dbError) throw error(500, dbError.message);
+
+		return json(RosterHistoryEntity.fromDb(data as Record<string, unknown>));
+	}
+);

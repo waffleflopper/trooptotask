@@ -3,6 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
 import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
 import type { Tier } from '$lib/types/subscription';
+import { invalidateTierCache } from '$lib/server/subscription';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 
@@ -145,6 +146,7 @@ export const actions: Actions = {
 			}
 		}
 
+		invalidateTierCache(orgId);
 		return { success: true, action: 'gift' };
 	},
 
@@ -194,6 +196,7 @@ export const actions: Actions = {
 			}
 		}
 
+		invalidateTierCache(orgId);
 		return { success: true, action: 'revoke' };
 	},
 
@@ -243,6 +246,7 @@ export const actions: Actions = {
 			return fail(500, { error: 'Failed to extend gift' });
 		}
 
+		invalidateTierCache(orgId);
 		return { success: true, action: 'extend' };
 	}
 };

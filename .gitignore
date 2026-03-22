@@ -42,3 +42,15 @@ calendar.jpg
 test-results/
 playwright-report/
 e2e/.auth/
+
+# Claude Code
+.claude/
+
+# Superpowers
+.superpowers/
+
+# Test data
+test-data/
+
+# Docs artifacts
+docs/pr74_full_diff.txt

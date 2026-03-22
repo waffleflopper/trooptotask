@@ -1,85 +1,135 @@
-import { createCrudStore } from '$lib/stores/crudStore.svelte';
-import type { AvailabilityEntry } from '../calendar.types';
+import { defineStore } from '$lib/stores/core';
+import type { Store, BatchApiAdapter } from '$lib/stores/core';
+import type { AvailabilityEntry } from '$lib/types';
 import { isDateInRange, formatDate } from '$lib/utils/dates';
 
-const store = createCrudStore<AvailabilityEntry>({ resource: 'availability' });
+let orgIdRef = '';
 
-export const availabilityStore = {
-	get list() {
-		return store.items;
-	},
-	load: store.load,
-	add: store.add,
-	remove: store.removeBool,
+function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
+	const headers = { 'Content-Type': 'application/json' };
+	function url() {
+		return `/org/${orgIdRef}/api/availability`;
+	}
 
-	async addBatch(entries: Omit<AvailabilityEntry, 'id'>[]): Promise<AvailabilityEntry[]> {
-		const tempEntries: AvailabilityEntry[] = entries.map((e) => ({
-			id: `temp-${crypto.randomUUID()}`,
-			...e
-		}));
-		store.setItems([...store.getItems(), ...tempEntries]);
-
-		try {
-			const res = await fetch(`/org/${store.getOrgId()}/api/availability/batch`, {
+	return {
+		async create(data) {
+			const res = await fetch(url(), {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ records: entries })
+				headers,
+				body: JSON.stringify(data)
+			});
+			if (!res.ok) throw new Error('POST availability failed');
+			return res.json();
+		},
+
+		async update(id, data) {
+			const res = await fetch(url(), {
+				method: 'PUT',
+				headers,
+				body: JSON.stringify({ id, ...data })
+			});
+			if (!res.ok) throw new Error('PUT availability failed');
+			return res.json();
+		},
+
+		async remove(id) {
+			try {
+				const res = await fetch(url(), {
+					method: 'DELETE',
+					headers,
+					body: JSON.stringify({ id })
+				});
+
+				if (res.status === 202) {
+					const body = await res.json();
+					if (body.requiresApproval) {
+						return 'approval_required';
+					}
+				}
+
+				if (!res.ok) return 'error';
+				return 'deleted';
+			} catch {
+				return 'error';
+			}
+		},
+
+		async createBatch(items) {
+			const res = await fetch(`${url()}/batch`, {
+				method: 'POST',
+				headers,
+				body: JSON.stringify({ records: items })
 			});
 			if (!res.ok) throw new Error('Failed to add availability batch');
 			const data = await res.json();
-			const inserted: AvailabilityEntry[] = data.inserted;
-			const tempIds = new Set(tempEntries.map((e) => e.id));
-			store.setItems([...store.getItems().filter((e) => !tempIds.has(e.id)), ...inserted]);
-			return inserted;
-		} catch {
-			const tempIds = new Set(tempEntries.map((e) => e.id));
-			store.setItems(store.getItems().filter((e) => !tempIds.has(e.id)));
-			return [];
-		}
-	},
+			return data.inserted;
+		},
 
-	async removeBatch(ids: string[]): Promise<boolean> {
-		const removedEntries = store.getItems().filter((e) => ids.includes(e.id));
-		store.setItems(store.getItems().filter((e) => !ids.includes(e.id)));
-
-		try {
-			const res = await fetch(`/org/${store.getOrgId()}/api/availability/batch`, {
+		async removeBatch(ids) {
+			const res = await fetch(`${url()}/batch`, {
 				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
+				headers,
 				body: JSON.stringify({ ids })
 			});
 			if (!res.ok) throw new Error('Failed to delete availability batch');
 			return true;
-		} catch {
-			store.setItems([...store.getItems(), ...removedEntries]);
-			return false;
 		}
-	},
+	};
+}
 
-	removeByPersonnelLocal: (personnelId: string) =>
-		store.setItems(store.getItems().filter((e) => e.personnelId !== personnelId)),
+const batchAdapter = createAvailabilityBatchAdapter();
 
-	removeByStatusTypeLocal: (statusTypeId: string) =>
-		store.setItems(store.getItems().filter((e) => e.statusTypeId !== statusTypeId)),
+interface AvailabilityExtensions extends Record<string, unknown> {
+	load: (items: AvailabilityEntry[], orgId: string) => void;
+	remove: (id: string) => Promise<boolean>;
+	removeByPersonnelLocal: (personnelId: string) => void;
+	removeByStatusTypeLocal: (statusTypeId: string) => void;
+	getByPersonnel: (personnelId: string) => AvailabilityEntry[];
+	getByPersonnelAndDate: (personnelId: string, date: Date) => AvailabilityEntry[];
+	getByDate: (date: Date) => AvailabilityEntry[];
+	getByDateRange: (startDate: Date, endDate: Date) => AvailabilityEntry[];
+}
 
-	getById: (id: string) => store.getItems().find((e) => e.id === id),
-	getByPersonnel: (personnelId: string) => store.getItems().filter((e) => e.personnelId === personnelId),
+function enhance(base: Store<AvailabilityEntry>): AvailabilityExtensions {
+	return {
+		load(items: AvailabilityEntry[], orgId: string) {
+			orgIdRef = orgId;
+			base.load(items, orgId);
+		},
 
-	getByPersonnelAndDate: (personnelId: string, date: Date) =>
-		store.getItems().filter((e) => e.personnelId === personnelId && isDateInRange(date, e.startDate, e.endDate)),
+		remove: base.removeBool,
 
-	getByDate: (date: Date) => store.getItems().filter((e) => isDateInRange(date, e.startDate, e.endDate)),
+		removeByPersonnelLocal: (personnelId: string) => base.removeLocalWhere((e) => e.personnelId === personnelId),
 
-	getByDateRange(startDate: Date, endDate: Date) {
-		const start = formatDate(startDate);
-		const end = formatDate(endDate);
-		return store
-			.getItems()
-			.filter(
+		removeByStatusTypeLocal: (statusTypeId: string) => base.removeLocalWhere((e) => e.statusTypeId === statusTypeId),
+
+		getByPersonnel: (personnelId: string) => base.filter((e) => e.personnelId === personnelId),
+
+		getByPersonnelAndDate: (personnelId: string, date: Date) =>
+			base.filter((e) => e.personnelId === personnelId && isDateInRange(date, e.startDate, e.endDate)),
+
+		getByDate: (date: Date) => base.filter((e) => isDateInRange(date, e.startDate, e.endDate)),
+
+		getByDateRange(startDate: Date, endDate: Date) {
+			const start = formatDate(startDate);
+			const end = formatDate(endDate);
+			return base.filter(
 				(e) =>
 					(e.startDate >= start && e.startDate <= end) ||
 					(e.endDate >= start && e.endDate <= end) ||
 					(e.startDate <= start && e.endDate >= end)
 			);
-	}
-};
+		}
+	};
+}
+
+export const availabilityStore = defineStore<AvailabilityEntry, AvailabilityExtensions>(
+	{
+		table: 'availability',
+		overrides: {
+			adapter: batchAdapter,
+			batchAdapter
+		}
+	},
+	enhance
+);

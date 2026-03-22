@@ -20,6 +20,35 @@ describe('groupsStore', () => {
 		groupsStore.load(structuredClone(mockGroups), 'org-1');
 	});
 
+	describe('items', () => {
+		it('returns loaded items', () => {
+			expect(groupsStore.items).toHaveLength(2);
+			expect(groupsStore.items[0].name).toBe('Alpha');
+		});
+
+		it('returns empty array when no items loaded', () => {
+			groupsStore.load([], 'org-2');
+			expect(groupsStore.items).toEqual([]);
+		});
+	});
+
+	describe('load', () => {
+		it('replaces existing items with new data', () => {
+			groupsStore.load([{ id: '9', name: 'Zulu', sortOrder: 0 }], 'org-2');
+			expect(groupsStore.items).toHaveLength(1);
+			expect(groupsStore.items[0].name).toBe('Zulu');
+		});
+	});
+
+	describe('remove', () => {
+		it('returns boolean true on success', async () => {
+			vi.stubGlobal('fetch', mockFetch({}));
+			const result = await groupsStore.remove('1');
+			expect(result).toBe(true);
+			expect(typeof result).toBe('boolean');
+		});
+	});
+
 	describe('getById', () => {
 		it('should find a group by ID', () => {
 			expect(groupsStore.getById('1')?.name).toBe('Alpha');

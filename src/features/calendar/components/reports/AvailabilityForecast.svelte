@@ -1,10 +1,12 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { StatusType } from '../../calendar.types';
-	import type { AvailabilityForecastResult } from '../../utils/calendarReports';
+	import type { StatusType } from '$lib/types';
+	import type { AvailabilityForecastResult, ForecastDay } from '../../utils/calendarReports';
 	import { computeAvailabilityForecast } from '../../utils/calendarReports';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 
 	interface Props {
 		orgId: string;
@@ -118,6 +120,39 @@
 		link.click();
 		URL.revokeObjectURL(url);
 	}
+
+	// --- useDataTable for sorting ---
+	const tableColumns: ColumnDef<ForecastDay>[] = [
+		{
+			key: 'date',
+			header: 'Date',
+			value: (r) => r.date
+		},
+		{
+			key: 'unavailable',
+			header: 'Unavailable',
+			value: (r) => r.unavailableCount,
+			compare: (a, b) => a.unavailableCount - b.unavailableCount
+		},
+		{
+			key: 'available',
+			header: 'Available',
+			value: (r) => r.availableCount,
+			compare: (a, b) => a.availableCount - b.availableCount
+		},
+		{
+			key: 'percent',
+			header: 'Available %',
+			value: (r) => r.availablePercent,
+			compare: (a, b) => a.availablePercent - b.availablePercent
+		}
+	];
+
+	const table = useDataTable({
+		data: () => result?.days ?? [],
+		columns: tableColumns,
+		initialSortKey: 'date'
+	});
 </script>
 
 <div class="report-config">
@@ -177,18 +212,18 @@
 		{#if result.days.length === 0}
 			<p class="no-data">No data found for the selected criteria.</p>
 		{:else}
-			<div class="table-wrapper">
-				<table class="report-table">
+			<div class="data-table compact">
+				<table aria-label="Availability forecast">
 					<thead>
 						<tr>
-							<th class="col-date">Date</th>
-							<th class="col-data">Unavailable</th>
-							<th class="col-data">Available</th>
-							<th class="col-data">Available %</th>
+							<th class="col-date" onclick={() => table.toggleSort('date')}>Date</th>
+							<th class="col-data" onclick={() => table.toggleSort('unavailable')}>Unavailable</th>
+							<th class="col-data" onclick={() => table.toggleSort('available')}>Available</th>
+							<th class="col-data" onclick={() => table.toggleSort('percent')}>Available %</th>
 						</tr>
 					</thead>
 					<tbody>
-						{#each result.days as day (day.date)}
+						{#each table.rows as day (day.date)}
 							<tr
 								class="forecast-row"
 								class:expandable={day.unavailableCount > 0}
@@ -337,37 +372,58 @@
 		font-style: italic;
 	}
 
-	.table-wrapper {
+	/* DataTable-compatible table styles */
+	.data-table {
 		overflow-x: auto;
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
 	}
 
-	.report-table {
+	table {
 		width: 100%;
 		border-collapse: collapse;
 		font-size: var(--font-size-sm);
 	}
 
-	.report-table th {
+	thead {
 		background: var(--color-surface-variant);
-		padding: var(--spacing-sm);
-		text-align: center;
-		font-weight: 600;
+	}
+
+	th {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 		border-bottom: 2px solid var(--color-border);
+		cursor: pointer;
+		user-select: none;
 		white-space: nowrap;
+		background: var(--color-surface-variant);
+		text-align: center;
 	}
 
-	.report-table td {
-		padding: var(--spacing-sm);
-		border-bottom: 1px solid var(--color-border);
+	th:hover {
+		color: var(--color-text);
 	}
 
-	.report-table tbody tr.forecast-row:nth-child(odd) {
+	td {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-bottom: 1px solid var(--color-divider);
+		color: var(--color-text);
+	}
+
+	tbody tr:last-child td {
+		border-bottom: none;
+	}
+
+	.forecast-row:nth-child(odd) {
 		background: var(--color-surface-variant);
 	}
 
-	.report-table tbody tr.forecast-row:hover {
+	.forecast-row:hover {
 		background: var(--color-bg);
 	}
 
@@ -386,7 +442,7 @@
 		min-width: 80px;
 	}
 
-	.report-table th.col-date {
+	th.col-date {
 		text-align: left;
 	}
 
@@ -443,6 +499,12 @@
 
 		.date-row .form-group {
 			min-width: unset;
+		}
+
+		th,
+		td {
+			padding: var(--spacing-xs) var(--spacing-sm);
+			font-size: var(--font-size-sm);
 		}
 	}
 </style>

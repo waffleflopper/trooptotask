@@ -1,6 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
-	import type { AvailabilityEntry } from '$features/calendar/calendar.types';
+	import type { Personnel, AvailabilityEntry } from '$lib/types';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { formatDate } from '$lib/utils/dates';
@@ -29,7 +28,7 @@
 
 	// Reset form state when existingEntry changes (e.g. modal reopened with different data)
 	$effect(() => {
-		selectedStatusId = existingEntry?.statusTypeId ?? statusTypesStore.list[0]?.id ?? '';
+		selectedStatusId = existingEntry?.statusTypeId ?? statusTypesStore.items[0]?.id ?? '';
 		startDate = existingEntry?.startDate ?? todayStr;
 		endDate = existingEntry?.endDate ?? todayStr;
 	});
@@ -50,7 +49,7 @@
 
 	const isValid = $derived(selectedStatusId && startDate && endDate && startDate <= endDate);
 
-	const selectedStatus = $derived(statusTypesStore.list.find((s) => s.id === selectedStatusId));
+	const selectedStatus = $derived(statusTypesStore.items.find((s) => s.id === selectedStatusId));
 
 	async function handleSubmit() {
 		if (!isValid || isSubmitting) return;
@@ -109,7 +108,7 @@
 	<div class="form-group">
 		<label class="label" for="statusType">Status Type <span class="required">*</span></label>
 		<select id="statusType" class="select" bind:value={selectedStatusId}>
-			{#each statusTypesStore.list as status}
+			{#each statusTypesStore.items as status}
 				<option value={status.id}>{status.name}</option>
 			{/each}
 		</select>

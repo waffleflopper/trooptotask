@@ -1,9 +1,7 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { requireEditPermission } from '$lib/server/permissions';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 import { auditLog } from '$lib/server/auditLog';
+import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 
 interface BatchAssignmentRecord {
 	date: string;
@@ -11,18 +9,8 @@ interface BatchAssignmentRecord {
 	assigneeId: string; // empty string = clear
 }
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'calendar');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supabase, orgId, userId }, event) => {
+	const body = await event.request.json();
 	const records: BatchAssignmentRecord[] = body.records;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -80,7 +68,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			resourceType: 'daily_assignment',
 			orgId,
 			details: {
-				actor: locals.user?.email ?? userId,
+				actor: event.locals.user?.email ?? userId,
 				upserted: insertedData.length,
 				cleared: clears.length
 			}
@@ -88,12 +76,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		{ userId }
 	);
 
-	const result = insertedData.map((d) => ({
-		id: d.id as string,
-		date: d.date as string,
-		assignmentTypeId: d.assignment_type_id as string,
-		assigneeId: d.assignee_id as string
-	}));
+	const result = DailyAssignmentEntity.fromDbArray(insertedData as Record<string, unknown>[]);
 
 	return json({ inserted: result, cleared: clears.length });
-};
+});

@@ -1,27 +1,19 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { requireEditPermission } from '$lib/server/permissions';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
 
-export const DELETE: RequestHandler = async ({ params, locals, cookies }) => {
-	const { orgId, rosterId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+export const DELETE = apiRoute(
+	{ permission: { edit: 'calendar' }, audit: 'duty_roster' },
+	async ({ supabase, orgId }, event) => {
+		const rosterId = event.params.rosterId as string;
 
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+		const { error: dbError } = await supabase
+			.from('duty_roster_history')
+			.delete()
+			.eq('id', rosterId)
+			.eq('organization_id', orgId);
+
+		if (dbError) throw error(500, dbError.message);
+
+		return json({ success: true });
 	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const { error: dbError } = await supabase
-		.from('duty_roster_history')
-		.delete()
-		.eq('id', rosterId)
-		.eq('organization_id', orgId);
-
-	if (dbError) throw error(500, dbError.message);
-
-	return json({ success: true });
-};
+);

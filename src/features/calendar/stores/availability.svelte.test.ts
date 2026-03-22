@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { availabilityStore } from './availability.svelte';
-import type { AvailabilityEntry } from '../calendar.types';
+import type { AvailabilityEntry } from '$lib/types';
 
 const mockEntries: AvailabilityEntry[] = [
 	{ id: '1', personnelId: 'p1', statusTypeId: 'st1', startDate: '2026-03-01', endDate: '2026-03-05', note: null },
@@ -54,7 +54,7 @@ describe('availabilityStore', () => {
 			]);
 
 			expect(result).toHaveLength(1);
-			expect(availabilityStore.list).toHaveLength(4);
+			expect(availabilityStore.items).toHaveLength(4);
 		});
 	});
 
@@ -65,21 +65,21 @@ describe('availabilityStore', () => {
 			const result = await availabilityStore.removeBatch(['1', '3']);
 
 			expect(result).toBe(true);
-			expect(availabilityStore.list).toHaveLength(1);
+			expect(availabilityStore.items).toHaveLength(1);
 		});
 	});
 
 	describe('removeByPersonnelLocal', () => {
 		it('should remove entries for a person locally', () => {
 			availabilityStore.removeByPersonnelLocal('p1');
-			expect(availabilityStore.list).toHaveLength(1);
+			expect(availabilityStore.items).toHaveLength(1);
 		});
 	});
 
 	describe('removeByStatusTypeLocal', () => {
 		it('should remove entries for a status type locally', () => {
 			availabilityStore.removeByStatusTypeLocal('st1');
-			expect(availabilityStore.list).toHaveLength(1);
+			expect(availabilityStore.items).toHaveLength(1);
 		});
 	});
 

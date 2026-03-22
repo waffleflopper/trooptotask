@@ -1,0 +1,20 @@
+import type { LayoutServerLoad } from './$types';
+import { getSupabaseClient } from '$lib/server/supabase';
+import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
+
+export const load: LayoutServerLoad = async ({ params, locals, cookies, depends, parent }) => {
+	depends('app:training-data');
+	const { orgId } = params;
+	const supabase = getSupabaseClient(locals, cookies);
+
+	const parentData = await parent();
+	const allTrainings = await PersonnelTrainingEntity.repo.list(supabase, orgId);
+
+	let personnelTrainings = allTrainings;
+	if (parentData.scopedGroupId) {
+		const scopedIds = new Set((parentData.personnel ?? []).map((p) => p.id));
+		personnelTrainings = allTrainings.filter((t) => scopedIds.has(t.personnelId));
+	}
+
+	return { personnelTrainings, orgId };
+};

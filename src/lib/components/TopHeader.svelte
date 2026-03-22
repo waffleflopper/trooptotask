@@ -41,7 +41,8 @@
 	const isPersonnelActive = $derived(pathname.startsWith(`/org/${orgId}/personnel`));
 	const isTrainingActive = $derived(pathname.startsWith(`/org/${orgId}/training`));
 	const isOnboardingActive = $derived(pathname.startsWith(`/org/${orgId}/onboarding`));
-	const isLeadersBookActive = $derived(pathname.startsWith(`/org/${orgId}/leaders-book`));
+	// Leaders Book temporarily hidden during redesign
+	// const isLeadersBookActive = $derived(pathname.startsWith(`/org/${orgId}/leaders-book`));
 </script>
 
 <header class="top-header">
@@ -103,17 +104,7 @@
 				Onboarding
 			</a>
 		{/if}
-		{#if permissions.canViewLeadersBook}
-			<a
-				href="/org/{orgId}/leaders-book"
-				class="nav-tab"
-				class:active={isLeadersBookActive}
-				aria-current={isLeadersBookActive ? 'page' : undefined}
-			>
-				Leaders Book
-				<span class="beta-badge">Beta</span>
-			</a>
-		{/if}
+		<!-- Leaders Book temporarily hidden during redesign -->
 	</nav>
 
 	<div class="header-right">
@@ -140,7 +131,7 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 0 var(--spacing-lg);
-		z-index: 100;
+		z-index: calc(var(--z-sticky) + 100);
 		box-sizing: border-box;
 	}
 

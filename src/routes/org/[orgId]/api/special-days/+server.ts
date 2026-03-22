@@ -1,22 +1,11 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
-import { requireEditPermission } from '$lib/server/permissions';
-import { getApiContext } from '$lib/server/supabase';
-import { checkReadOnly } from '$lib/server/read-only-guard';
+import { apiRoute } from '$lib/server/apiRoute';
+import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'calendar');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'calendar' }, audit: 'special_day' }, async (routeCtx, event) => {
+	const { supabase, orgId } = routeCtx;
+	const body = await event.request.json();
 
 	// Handle bulk reset of federal holidays
 	if (body.action === 'resetFederalHolidays') {
@@ -39,56 +28,31 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 		// Return all special days
 		const { data: allDays } = await supabase.from('special_days').select().eq('organization_id', orgId).order('date');
 
-		return json(
-			(allDays ?? []).map((d: Record<string, unknown>) => ({
-				id: d.id,
-				date: d.date,
-				name: d.name,
-				type: d.type
-			}))
-		);
+		routeCtx.audit('special_day.federal_holidays_reset');
+		return json(SpecialDayEntity.fromDbArray((allDays ?? []) as Record<string, unknown>[]));
 	}
 
-	const { data, error: dbError } = await supabase
-		.from('special_days')
-		.insert({
-			organization_id: orgId,
-			date: body.date,
-			name: body.name,
-			type: body.type
-		})
-		.select()
-		.single();
+	const insertData = SpecialDayEntity.toDbInsert(body, orgId);
+
+	const { data, error: dbError } = await supabase.from('special_days').insert(insertData).select().single();
 
 	if (dbError) throw error(500, dbError.message);
 
-	return json({
-		id: data.id,
-		date: data.date,
-		name: data.name,
-		type: data.type
-	});
-};
+	return json(SpecialDayEntity.fromDb(data as Record<string, unknown>));
+});
 
-export const DELETE: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+export const DELETE = apiRoute(
+	{ permission: { edit: 'calendar' }, audit: 'special_day' },
+	async ({ supabase, orgId }, event) => {
+		const body = await event.request.json();
+		const { id } = body;
 
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'calendar');
+		if (!id) throw error(400, 'Missing id');
+
+		const { error: dbError } = await supabase.from('special_days').delete().eq('id', id).eq('organization_id', orgId);
+
+		if (dbError) throw error(500, dbError.message);
+
+		return json({ success: true });
 	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
-	const { id } = body;
-
-	if (!id) throw error(400, 'Missing id');
-
-	const { error: dbError } = await supabase.from('special_days').delete().eq('id', id).eq('organization_id', orgId);
-
-	if (dbError) throw error(500, dbError.message);
-
-	return json({ success: true });
-};
+);

@@ -5,6 +5,11 @@
 	import { demoModeStore } from '$lib/stores/demoMode.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { groupsStore } from '$lib/stores/groups.svelte';
+	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
 	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
 	import DemoBanner from '$lib/components/DemoBanner.svelte';
 	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
@@ -20,6 +25,31 @@
 
 	let { children, data } = $props();
 
+	// Set OrgContext so child pages can call getOrgContext()
+	setOrgContext(
+		createOrgContext({
+			orgId: data.orgId ?? '',
+			orgName: data.orgName ?? '',
+			userId: data.userId ?? null,
+			userRole: data.userRole ?? 'member',
+			permissions: data.permissions ?? {
+				canViewCalendar: false,
+				canEditCalendar: false,
+				canViewPersonnel: false,
+				canEditPersonnel: false,
+				canViewTraining: false,
+				canEditTraining: false,
+				canViewOnboarding: false,
+				canEditOnboarding: false,
+				canViewLeadersBook: false,
+				canEditLeadersBook: false,
+				canManageMembers: false
+			},
+			scopedGroupId: data.scopedGroupId ?? null,
+			isReadOnly: data.effectiveTier?.isReadOnly ?? false
+		})
+	);
+
 	let showFeedback = $state(false);
 	let announcementCount = $state(0);
 
@@ -29,6 +59,14 @@
 			localStorage.setItem(`changelog-last-seen-${data.userId}`, changelog[0].id);
 		}
 	}
+
+	// Hydrate universal stores with server data
+	$effect(() => {
+		personnelStore.load(data.personnel ?? [], data.orgId);
+		groupsStore.load(data.groups ?? [], data.orgId);
+		statusTypesStore.load(data.statusTypes ?? [], data.orgId);
+		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
+	});
 
 	// Initialize demo mode store with server data
 	$effect(() => {
@@ -45,21 +83,25 @@
 	// Re-fetch shared data when the window regains focus (handles idle tabs,
 	// switching apps, and multi-user changes). Uses focus/blur instead of
 	// visibilitychange so it also catches alt-tabbing between windows.
-	// The wasAway guard prevents a spurious re-fetch on initial page load.
+	// Debounced to 2s so rapid tab-switching doesn't trigger multiple refetches.
 	onMount(() => {
 		let wasAway = false;
+		let debounceTimer: ReturnType<typeof setTimeout>;
 		const handleBlur = () => {
 			wasAway = true;
+			clearTimeout(debounceTimer);
 		};
 		const handleFocus = () => {
 			if (wasAway) {
 				wasAway = false;
-				invalidate('app:shared-data');
+				clearTimeout(debounceTimer);
+				debounceTimer = setTimeout(() => invalidate('app:org-core'), 2000);
 			}
 		};
 		window.addEventListener('blur', handleBlur);
 		window.addEventListener('focus', handleFocus);
 		return () => {
+			clearTimeout(debounceTimer);
 			window.removeEventListener('blur', handleBlur);
 			window.removeEventListener('focus', handleFocus);
 		};

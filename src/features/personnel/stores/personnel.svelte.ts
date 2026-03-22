@@ -1,7 +1,6 @@
-import { createCrudStore } from '$lib/stores/crudStore.svelte';
+import { defineStore } from '$lib/stores/core';
+import type { Store } from '$lib/stores/core';
 import type { Personnel } from '$lib/types';
-
-const store = createCrudStore<Personnel>({ resource: 'personnel' });
 
 const RANK_ORDER = [
 	'PV1',
@@ -33,29 +32,33 @@ const RANK_ORDER = [
 	'GEN'
 ];
 
-export const personnelStore = {
-	get list() {
-		return store.items;
-	},
-	load: store.load,
-	add: store.add,
-	update: store.update,
-	remove: store.remove,
-	getById: (id: string) => store.getItems().find((p) => p.id === id),
+interface PersonnelExtensions extends Record<string, unknown> {
+	addBatchResults: (inserted: Personnel[]) => void;
+	removeLocal: (id: string) => void;
+	updateLocalWhere: (predicate: (item: Personnel) => boolean, updater: (item: Personnel) => Personnel) => void;
+	sortByRankAndName: () => Personnel[];
+}
 
-	addBatchResults(inserted: Personnel[]) {
-		store.setItems([...store.getItems(), ...inserted]);
-	},
+function enhance(base: Store<Personnel>): PersonnelExtensions {
+	return {
+		addBatchResults(inserted: Personnel[]) {
+			base.appendLocal(inserted);
+		},
 
-	removeLocal(id: string) {
-		store.setItems(store.getItems().filter((p) => p.id !== id));
-	},
+		removeLocal(id: string) {
+			base.removeLocalWhere((p) => p.id === id);
+		},
 
-	sortByRankAndName() {
-		return [...store.getItems()].sort((a, b) => {
-			const rankDiff = RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
-			if (rankDiff !== 0) return rankDiff;
-			return a.lastName.localeCompare(b.lastName);
-		});
-	}
-};
+		updateLocalWhere: base.updateLocalWhere,
+
+		sortByRankAndName() {
+			return [...base.rawItems].sort((a, b) => {
+				const rankDiff = RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
+				if (rankDiff !== 0) return rankDiff;
+				return a.lastName.localeCompare(b.lastName);
+			});
+		}
+	};
+}
+
+export const personnelStore = defineStore<Personnel, PersonnelExtensions>({ table: 'personnel' }, enhance);

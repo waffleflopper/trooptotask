@@ -1,4 +1,4 @@
-import type { SpecialDay } from '../calendar.types';
+import type { SpecialDay } from '$lib/types';
 import { formatDate } from '$lib/utils/dates';
 
 function getNthWeekdayOfMonth(year: number, month: number, weekday: number, n: number): Date {

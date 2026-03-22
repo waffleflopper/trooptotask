@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getAdminRole, canAccessPage } from '$lib/server/admin';
 import { getAdminClient } from '$lib/server/supabase';
+import { queryPersonnel } from '$lib/server/personnelRepository';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const { user, supabase } = locals;
@@ -30,11 +31,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 				.select('*', { count: 'exact', head: true })
 				.eq('organization_id', org.id);
 
-			const { count: personnelCount } = await adminClient
-				.from('personnel')
-				.select('*', { count: 'exact', head: true })
-				.eq('organization_id', org.id)
-				.is('archived_at', null);
+			const { count: personnelCount } = await queryPersonnel({
+				supabase: adminClient,
+				orgId: org.id,
+				headOnly: true,
+				count: 'exact'
+			});
 
 			// Get owner email
 			const { data: ownerMembership } = await adminClient

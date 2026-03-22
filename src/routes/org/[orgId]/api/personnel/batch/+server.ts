@@ -1,12 +1,11 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { requireEditPermission, getScopedGroupId } from '$lib/server/permissions';
-import { getApiContext } from '$lib/server/supabase';
+import { apiRoute } from '$lib/server/apiRoute';
 import { getEffectiveTier } from '$lib/server/subscription';
-import { checkReadOnly } from '$lib/server/read-only-guard';
 import { auditLog } from '$lib/server/auditLog';
 import { sanitizeString } from '$lib/server/validation';
 import { ALL_RANKS } from '$lib/types';
+import { queryPersonnel } from '$lib/server/personnelRepository';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
 
 interface BatchRecord {
 	rank: string;
@@ -17,18 +16,8 @@ interface BatchRecord {
 	groupName?: string;
 }
 
-export const POST: RequestHandler = async ({ params, request, locals, cookies }) => {
-	const { orgId } = params;
-	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
-
-	if (!isSandbox) {
-		await requireEditPermission(supabase, orgId, userId!, 'personnel');
-	}
-
-	const blocked = await checkReadOnly(supabase, orgId);
-	if (blocked) return blocked;
-
-	const body = await request.json();
+export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ supabase, orgId, userId, ctx }, event) => {
+	const body = await event.request.json();
 	const records: BatchRecord[] = body.records;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -44,10 +33,7 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	const groupMap = new Map((groups ?? []).map((g) => [g.name.toLowerCase(), g.id]));
 
 	// Get scoped group for non-privileged users
-	let scopedGroupId: string | null = null;
-	if (!isSandbox && userId) {
-		scopedGroupId = await getScopedGroupId(supabase, orgId, userId);
-	}
+	const scopedGroupId = ctx?.scopedGroupId ?? null;
 
 	// Validate all records
 	const validRows: Array<{ index: number; row: Record<string, unknown> }> = [];
@@ -103,11 +89,13 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 	// Enforce personnel cap against full batch size
 	const tier = await getEffectiveTier(supabase, orgId);
 	if (tier.personnelCap !== null && tier.personnelCap !== Infinity) {
-		const { count: currentCount } = await supabase
-			.from('personnel')
-			.select('*', { count: 'exact', head: true })
-			.eq('organization_id', orgId)
-			.is('archived_at', null);
+		const { count: currentCount } = await queryPersonnel({
+			supabase,
+			orgId,
+			headOnly: true,
+			count: 'exact',
+			select: '*'
+		});
 
 		const available = tier.personnelCap - (currentCount ?? 0);
 		if (available <= 0) {
@@ -146,23 +134,14 @@ export const POST: RequestHandler = async ({ params, request, locals, cookies })
 			resourceType: 'personnel',
 			orgId,
 			details: {
-				actor: locals.user?.email ?? userId,
+				actor: event.locals.user?.email ?? userId,
 				count: inserted.length
 			}
 		},
 		{ userId }
 	);
 
-	const result = (inserted ?? []).map((d) => ({
-		id: d.id,
-		rank: d.rank,
-		lastName: d.last_name,
-		firstName: d.first_name,
-		mos: d.mos,
-		clinicRole: d.clinic_role,
-		groupId: d.group_id,
-		groupName: d.groups?.name ?? ''
-	}));
+	const result = PersonnelEntity.fromDbArray((inserted ?? []) as Record<string, unknown>[]);
 
 	return json({ inserted: result, errors });
-};
+});

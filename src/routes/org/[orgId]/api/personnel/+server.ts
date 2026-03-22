@@ -1,130 +1,91 @@
 import { json, error } from '@sveltejs/kit';
+import type { RequestEvent } from '@sveltejs/kit';
 import { apiRoute } from '$lib/server/apiRoute';
 import { canAddPersonnel, invalidateTierCache } from '$lib/server/subscription';
 import { auditLog } from '$lib/server/auditLog';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
+import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
+import { getApiContext } from '$lib/server/supabase';
+import { validateUUID } from '$lib/server/validation';
 
-export const POST = apiRoute({ permission: { edit: 'personnel' } }, async ({ supabase, orgId, userId, ctx }, event) => {
-	// Enforce personnel cap
-	const capCheck = await canAddPersonnel(supabase, orgId);
-	if (!capCheck.allowed) {
-		return json({ error: capCheck.message }, { status: 403 });
+function getSubscription(event: RequestEvent) {
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
+	return createSupabaseSubscriptionAdapter(supabase, orgId);
+}
+
+export const POST = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const subscription = getSubscription(event);
+	const { create } = createPersonnelUseCases(subscription);
+
+	let body: Record<string, unknown>;
+	try {
+		body = (await event.request.json()) as Record<string, unknown>;
+	} catch {
+		throw error(400, 'Invalid JSON in request body');
 	}
 
-	const body = await event.request.json();
+	try {
+		const result = await create(ctx, body);
+		return json(result);
+	} catch (err) {
+		if (err && typeof err === 'object' && 'status' in err) throw err;
+		throw error(500, 'Internal server error');
+	}
+};
 
-	if (ctx && ctx.scopedGroupId && body.groupId !== ctx.scopedGroupId) {
-		return json({ error: 'You can only add personnel to your assigned group' }, { status: 403 });
+export const PUT = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const subscription = getSubscription(event);
+	const { update } = createPersonnelUseCases(subscription);
+
+	let body: Record<string, unknown>;
+	try {
+		body = (await event.request.json()) as Record<string, unknown>;
+	} catch {
+		throw error(400, 'Invalid JSON in request body');
 	}
 
-	const row = PersonnelEntity.toDbInsert(body, orgId);
+	try {
+		const result = await update(ctx, body);
+		return json(result);
+	} catch (err) {
+		if (err && typeof err === 'object' && 'status' in err) throw err;
+		throw error(500, 'Internal server error');
+	}
+};
 
-	const { data, error: dbError } = await supabase.from('personnel').insert(row).select('*, groups(name)').single();
+export const DELETE = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const subscription = getSubscription(event);
+	const { archive } = createPersonnelUseCases(subscription);
 
-	if (dbError) throw error(500, dbError.message);
+	let body: Record<string, unknown>;
+	try {
+		body = (await event.request.json()) as Record<string, unknown>;
+	} catch {
+		throw error(400, 'Invalid JSON in request body');
+	}
 
-	invalidateTierCache(orgId);
+	const id = body.id;
+	if (!id || typeof id !== 'string') throw error(400, 'Missing id');
+	if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
 
-	auditLog(
-		{
-			action: 'personnel.created',
-			resourceType: 'personnel',
-			resourceId: data.id,
-			orgId,
-			details: { actor: event.locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` }
-		},
-		{ userId }
-	);
-
-	return json(PersonnelEntity.fromDb(data as Record<string, unknown>));
-});
-
-export const PUT = apiRoute({ permission: { edit: 'personnel' } }, async ({ supabase, orgId, userId, ctx }, event) => {
-	const body = await event.request.json();
-	const { id, ...fields } = body;
-
-	if (!id) throw error(400, 'Missing id');
-
-	await ctx.requireGroupAccess(supabase, id);
-
-	const updates = PersonnelEntity.toDbUpdate({ id, ...fields });
-	// Handle groupId falsy → null coercion (empty string = null)
-	if (fields.groupId !== undefined) updates.group_id = fields.groupId || null;
-
-	const { data, error: dbError } = await supabase
-		.from('personnel')
-		.update(updates)
-		.eq('id', id)
-		.eq('organization_id', orgId)
-		.select('*, groups(name)')
-		.single();
-
-	if (dbError) throw error(500, dbError.message);
-
-	auditLog(
-		{
-			action: 'personnel.updated',
-			resourceType: 'personnel',
-			resourceId: id,
-			orgId,
-			details: { actor: event.locals.user?.email ?? userId, name: `${data.rank} ${data.last_name}, ${data.first_name}` }
-		},
-		{ userId }
-	);
-
-	return json(PersonnelEntity.fromDb(data as Record<string, unknown>));
-});
-
-export const DELETE = apiRoute(
-	{ permission: { edit: 'personnel' }, readOnly: false },
-	async ({ supabase, orgId, userId, ctx }, event) => {
-		const body = await event.request.json();
-		const { id } = body;
-
-		if (!id) throw error(400, 'Missing id');
-
-		// Capture name before deletion for audit log
-		const { data: existing } = await supabase
-			.from('personnel')
-			.select('rank, first_name, last_name')
-			.eq('id', id)
-			.eq('organization_id', orgId)
-			.single();
-
-		await ctx.requireGroupAccess(supabase, id);
-
-		if (!ctx.isPrivileged && !ctx.isFullEditor) {
+	try {
+		const result = await archive(ctx, id);
+		if (result?.requiresApproval) {
 			return json({ requiresApproval: true }, { status: 202 });
 		}
-
-		const { error: dbError } = await supabase
-			.from('personnel')
-			.update({ archived_at: new Date().toISOString() })
-			.eq('id', id)
-			.eq('organization_id', orgId);
-
-		if (dbError) throw error(500, dbError.message);
-
-		invalidateTierCache(orgId);
-
-		auditLog(
-			{
-				action: 'personnel.archived',
-				resourceType: 'personnel',
-				resourceId: id,
-				orgId,
-				details: {
-					actor: event.locals.user?.email ?? userId,
-					name: existing ? `${existing.rank} ${existing.last_name}, ${existing.first_name}` : id
-				}
-			},
-			{ userId }
-		);
-
 		return json({ success: true });
+	} catch (err) {
+		if (err && typeof err === 'object' && 'status' in err) throw err;
+		throw error(500, 'Internal server error');
 	}
-);
+};
 
+// Restore stays on legacy apiRoute — privileged-only, not yet migrated
 export const PATCH = apiRoute(
 	{ permission: { privileged: true }, blockSandbox: true },
 	async ({ supabase, orgId, userId }, event) => {
@@ -134,13 +95,11 @@ export const PATCH = apiRoute(
 		if (action !== 'restore') throw error(400, 'Invalid action');
 		if (!id) throw error(400, 'Missing id');
 
-		// Check personnel cap before restoring
 		const capCheck = await canAddPersonnel(supabase, orgId);
 		if (!capCheck.allowed) {
 			return json({ message: capCheck.message }, { status: 422 });
 		}
 
-		// Verify this person is actually archived
 		const { data: person } = await supabase
 			.from('personnel')
 			.select('rank, first_name, last_name, archived_at')

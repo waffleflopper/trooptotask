@@ -131,8 +131,8 @@
 			left: 0;
 			width: 100%;
 			height: 56px;
-			background: #0f0f0f;
-			border-top: 1px solid #2a2a2a;
+			background: var(--color-chrome);
+			border-top: 1px solid var(--color-chrome-border);
 			z-index: 100;
 		}
 
@@ -145,7 +145,7 @@
 			gap: 2px;
 			padding: 6px 0;
 			text-decoration: none;
-			color: #8a8780;
+			color: var(--color-chrome-text-muted);
 			transition: color var(--transition-fast);
 			-webkit-tap-highlight-color: transparent;
 		}
@@ -165,7 +165,7 @@
 		}
 
 		.tab.active {
-			color: #b8943e;
+			color: var(--color-chrome-active);
 		}
 	}
 </style>

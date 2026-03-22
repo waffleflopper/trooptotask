@@ -12,7 +12,7 @@ vi.mock('$lib/stores/whatsNew.svelte', () => ({ whatsNewStore: { show: vi.fn(), 
 
 // Stub all stores — each returns a minimal reactive-compatible object
 vi.mock('$features/personnel/stores/personnel.svelte', () => ({
-	personnelStore: { list: [] }
+	personnelStore: { items: [] }
 }));
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: { items: [] }

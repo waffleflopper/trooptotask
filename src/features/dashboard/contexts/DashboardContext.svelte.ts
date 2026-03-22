@@ -181,7 +181,7 @@ export class DashboardContext {
 	// Derived: personnelIds (scoped)
 	// ---------------------------------------------------------------------------
 	get personnelIds(): Set<string> {
-		return new Set(personnelStore.list.map((p) => p.id));
+		return new Set(personnelStore.items.map((p) => p.id));
 	}
 
 	// ---------------------------------------------------------------------------
@@ -204,7 +204,7 @@ export class DashboardContext {
 	// Derived: totalPersonnel / availableCount
 	// ---------------------------------------------------------------------------
 	get totalPersonnel(): number {
-		return personnelStore.list.length;
+		return personnelStore.items.length;
 	}
 
 	get availableCount(): number {
@@ -239,7 +239,7 @@ export class DashboardContext {
 				const type = dailyAssignmentsStore.types.find((t) => t.id === a.assignmentTypeId);
 				let assigneeName = '';
 				if (type?.assignTo === 'personnel') {
-					const person = personnelStore.list.find((p) => p.id === a.assigneeId);
+					const person = personnelStore.items.find((p) => p.id === a.assigneeId);
 					if (person) assigneeName = `${person.rank} ${person.lastName}`;
 				} else {
 					assigneeName = a.assigneeId;
@@ -287,7 +287,7 @@ export class DashboardContext {
 		}[] = [];
 
 		for (const entry of availabilityStore.items) {
-			const person = personnelStore.list.find((p) => p.id === entry.personnelId);
+			const person = personnelStore.items.find((p) => p.id === entry.personnelId);
 			const st = statusTypesStore.items.find((s) => s.id === entry.statusTypeId);
 			if (!person || !st) continue;
 
@@ -345,7 +345,7 @@ export class DashboardContext {
 		const completionSet = new Set(this.data.onboardingTrainingCompletions ?? []);
 
 		return onboardings.map((o) => {
-			const person = personnelStore.list.find((p) => p.id === o.personnelId);
+			const person = personnelStore.items.find((p) => p.id === o.personnelId);
 			const personName = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';
 
 			const steps = ((o.steps ?? []) as { stepType: string; trainingTypeId?: string; completed: boolean }[]).map(
@@ -394,7 +394,7 @@ export class DashboardContext {
 		});
 
 		return sorted.map((group) => {
-			const groupPersonnel = personnelStore.list.filter((p) => p.groupId === group.id);
+			const groupPersonnel = personnelStore.items.filter((p) => p.groupId === group.id);
 			const total = groupPersonnel.length;
 			const unavailable = groupPersonnel.filter((p) => this.unavailablePersonnelIds.has(p.id)).length;
 			const available = total - unavailable;

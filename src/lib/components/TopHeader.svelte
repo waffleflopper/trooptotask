@@ -124,9 +124,9 @@
 		left: 0;
 		width: 100%;
 		height: var(--header-height);
-		background: #0f0f0f;
-		color: #f0ede6;
-		border-bottom: 1px solid #2a2a2a;
+		background: var(--color-chrome);
+		color: var(--color-chrome-text);
+		border-bottom: 1px solid var(--color-chrome-border);
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -148,7 +148,7 @@
 		align-items: center;
 		gap: var(--spacing-sm);
 		text-decoration: none;
-		color: #f0ede6;
+		color: var(--color-chrome-text);
 	}
 
 	.header-mark {
@@ -156,8 +156,8 @@
 		font-size: 0.6875rem;
 		font-weight: 500;
 		letter-spacing: 0.05em;
-		background: #b8943e;
-		color: #0f0f0f;
+		background: var(--color-chrome-active);
+		color: var(--color-chrome);
 		padding: 0.2rem 0.4rem;
 		border-radius: 4px;
 		line-height: 1;
@@ -171,7 +171,7 @@
 	}
 
 	.header-org-name {
-		color: #8a8780;
+		color: var(--color-chrome-text-muted);
 		font-size: var(--font-size-xs);
 	}
 
@@ -190,7 +190,7 @@
 		padding: 0 var(--spacing-md);
 		font-size: var(--font-size-sm);
 		font-weight: 500;
-		color: #8a8780;
+		color: var(--color-chrome-text-muted);
 		text-decoration: none;
 		border-bottom: 3px solid transparent;
 		box-sizing: border-box;
@@ -199,12 +199,12 @@
 	}
 
 	.nav-tab:hover {
-		color: #f0ede6;
+		color: var(--color-chrome-text);
 	}
 
 	.nav-tab.active {
-		color: #b8943e;
-		border-bottom-color: #b8943e;
+		color: var(--color-chrome-active);
+		border-bottom-color: var(--color-chrome-active);
 	}
 
 	.beta-badge {
@@ -213,8 +213,8 @@
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		background: rgba(184, 148, 62, 0.15);
-		color: #b8943e;
+		background: rgba(184, 148, 62, var(--opacity-medium));
+		color: var(--color-chrome-active);
 		padding: 2px 6px;
 		border-radius: 3px;
 		margin-left: 6px;

@@ -149,11 +149,54 @@ const table = useDataTable({
 
 ### Colors
 
-- **Primary**: `--color-primary: #3f51b5` (indigo)
+- **Primary**: `--color-primary: #b8943e` (brass)
 - **Surface**: `--color-bg`, `--color-surface`, `--color-surface-variant`
 - **Text**: `--color-text`, `--color-text-secondary`, `--color-text-muted`
 - **Border**: `--color-border`, `--color-divider`
 - **Status**: `--color-success`, `--color-warning`, `--color-error`, `--color-info`
+
+### Chrome / App Shell Tokens
+
+Semantic tokens for the header, nav, and app shell. Dark by default, theme-controllable.
+
+| Token | Light Mode | Purpose |
+|-------|-----------|---------|
+| `--color-chrome` | `#0f0f0f` | App shell background |
+| `--color-chrome-text` | `#f0ede6` | App shell text |
+| `--color-chrome-text-muted` | `#8a8780` | App shell secondary text |
+| `--color-chrome-border` | `#2a2a2a` | App shell borders |
+| `--color-chrome-active` | `var(--color-primary)` | Active nav item |
+
+### Form Field Tokens
+
+Semantic tokens for form fields. Reference these instead of raw color variables.
+
+| Token | Default | Purpose |
+|-------|---------|---------|
+| `--field-bg` | `var(--color-surface)` | Input background |
+| `--field-border` | `var(--color-border)` | Input border |
+| `--field-border-focus` | `var(--color-primary)` | Focused input border |
+| `--field-label` | `var(--color-text-secondary)` | Label text color |
+| `--field-error` | `var(--color-error)` | Error text/border color |
+| `--field-help` | `var(--color-text-muted)` | Hint text color |
+
+### Toolbar Tokens
+
+| Token | Default | Purpose |
+|-------|---------|---------|
+| `--toolbar-bg` | `var(--color-surface)` | Toolbar background |
+| `--toolbar-border` | `var(--color-border)` | Toolbar border |
+
+### Opacity Scale
+
+Use instead of hardcoded `rgba()` alpha values.
+
+| Token | Value | Use case |
+|-------|-------|----------|
+| `--opacity-subtle` | `0.08` | Hover states, tints |
+| `--opacity-light` | `0.12` | Chip backgrounds, light overlays |
+| `--opacity-medium` | `0.15` | Active states, medium overlays |
+| `--opacity-heavy` | `0.45` | Disabled states, heavy overlays |
 
 ### Typography
 
@@ -163,6 +206,10 @@ const table = useDataTable({
 
 `--radius-sm: 4px` | `--radius-md: 8px` | `--radius-lg: 12px` | `--radius-full: 9999px`
 
+### Micro-spacing
+
+`--spacing-2xs: 2px` — for tight gaps (e.g., icon-to-text in compact UI)
+
 ### Utility Classes
 
 ```css
@@ -171,6 +218,24 @@ const table = useDataTable({
 .text-primary / .text-muted / .text-error / etc.
 .bg-surface / .bg-surface-variant
 .rounded-sm / .rounded-md / .rounded-lg
+```
+
+### Page Layout Utilities
+
+```css
+.app-page      /* height: 100%; flex column; page root */
+.page-scroll   /* flex: 1; overflow-y: auto; padded — scrollable content area */
+.page-fill     /* flex: 1; overflow: hidden — non-scrolling content (Calendar, matrix views) */
+```
+
+`.page-scroll` padding reduces to `--spacing-sm` on mobile.
+
+### Form Field Utilities
+
+```css
+.input-error   /* border-color: var(--field-error) — apply to .input when validation fails */
+.field-hint    /* hint text below input (xs size, muted color) */
+.field-error   /* error text below input (xs size, error color) */
 ```
 
 ### Button Classes

@@ -9,9 +9,7 @@ import { createSupabaseAuthContextAdapter, createSandboxAuthContext } from './su
 import { createSupabaseAuditAdapter } from './supabaseAudit';
 import { createSupabaseReadOnlyGuard } from './supabaseReadOnlyGuard';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type { EntityDefinition } from '$lib/server/entitySchema';
-import type { FeatureArea } from '$lib/server/core/ports';
-import { createCrudUseCases } from '$lib/server/core/useCases/crud';
+import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
 
 export async function buildContext(event: RequestEvent): Promise<UseCaseContext> {
 	const orgId = event.params.orgId as string;
@@ -119,13 +117,7 @@ export function deleteHandler(useCase: (ctx: UseCaseContext, id: string) => Prom
 	};
 }
 
-export interface CrudHandlersConfig {
-	entity: EntityDefinition;
-	permission: FeatureArea;
-	auditResource: string;
-}
-
-export function crudHandlers(config: CrudHandlersConfig): {
+export function crudHandlers(config: CrudConfig): {
 	POST: RequestHandler;
 	PUT: RequestHandler;
 	DELETE: RequestHandler;

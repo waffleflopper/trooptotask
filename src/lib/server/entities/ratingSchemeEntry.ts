@@ -4,11 +4,11 @@ import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.ty
 
 export const RatingSchemeEntryEntity = defineEntity<RatingSchemeEntry>({
 	table: 'rating_scheme_entries',
-	groupScope: 'none',
+	groupScope: { personnelColumn: 'rated_person_id' },
 	orderBy: [{ column: 'rating_period_end', ascending: true }],
 	schema: {
 		id: field(z.string(), { readOnly: true }),
-		ratedPersonId: field(z.string(), { column: 'rated_person_id' }),
+		ratedPersonId: field(z.string(), { column: 'rated_person_id', isPersonnelId: true }),
 		evalType: field(z.enum(['OER', 'NCOER', 'WOER']), { column: 'eval_type' }),
 		raterPersonId: field(z.string().nullable().optional(), {
 			column: 'rater_person_id',

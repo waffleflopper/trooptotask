@@ -29,11 +29,11 @@ export interface PersonnelPageData {
 // importing the real module-singleton stores.
 // ---------------------------------------------------------------------------
 export interface PersonnelStoreAccessor {
-	readonly list: Personnel[];
+	readonly items: Personnel[];
 }
 
 export interface RatingStoreAccessor {
-	readonly list: RatingSchemeEntry[];
+	readonly items: RatingSchemeEntry[];
 }
 
 export interface PinnedGroupsAccessor {
@@ -77,7 +77,7 @@ export class PersonnelPageContext {
 		// Allow plain arrays (for tests) or store objects (for the real app)
 		this.#personnelStore = Array.isArray(personnelStore)
 			? {
-					get list() {
+					get items() {
 						return personnelStore;
 					}
 				}
@@ -85,7 +85,7 @@ export class PersonnelPageContext {
 
 		this.#ratingStore = Array.isArray(ratingStore)
 			? {
-					get list() {
+					get items() {
 						return ratingStore as RatingSchemeEntry[];
 					}
 				}
@@ -114,8 +114,8 @@ export class PersonnelPageContext {
 
 	get filteredPersonnel(): Personnel[] {
 		const query = this.searchQuery.trim().toLowerCase();
-		if (!query) return this.#personnelStore.list;
-		return this.#personnelStore.list.filter(
+		if (!query) return this.#personnelStore.items;
+		return this.#personnelStore.items.filter(
 			(p) =>
 				p.lastName.toLowerCase().includes(query) ||
 				p.firstName.toLowerCase().includes(query) ||
@@ -140,7 +140,7 @@ export class PersonnelPageContext {
 	}
 
 	get totalPersonnel(): number {
-		return this.#personnelStore.list.length;
+		return this.#personnelStore.items.length;
 	}
 
 	get filteredCount(): number {
@@ -153,11 +153,11 @@ export class PersonnelPageContext {
 	// ---- Derived: rating scheme ----
 
 	get hasAnyWorkflowStatus(): boolean {
-		return this.#ratingStore.list.some((e) => !!e.workflowStatus);
+		return this.#ratingStore.items.some((e) => !!e.workflowStatus);
 	}
 
 	get filteredRatingEntries(): RatingSchemeEntry[] {
-		let entries = this.#ratingStore.list;
+		let entries = this.#ratingStore.items;
 		if (this.ratingFilter !== 'all') entries = entries.filter((e) => e.status === this.ratingFilter);
 		if (this.evalTypeFilter !== 'all') entries = entries.filter((e) => e.evalType === this.evalTypeFilter);
 		if (this.workflowFilter !== 'all') entries = entries.filter((e) => e.workflowStatus === this.workflowFilter);

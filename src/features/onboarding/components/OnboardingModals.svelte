@@ -26,26 +26,26 @@
 
 {#if ctx.modals.isOpen(MODAL_IDS.report)}
 	<OnboardingReportModal
-		onboardings={onboardingStore.list}
-		personnel={personnelStore.list}
-		trainingTypes={trainingTypesStore.list}
-		personnelTrainings={personnelTrainingsStore.list}
+		onboardings={onboardingStore.items}
+		personnel={personnelStore.items}
+		trainingTypes={trainingTypesStore.items}
+		personnelTrainings={personnelTrainingsStore.items}
 		onClose={ctx.modals.closerFor(MODAL_IDS.report)}
 	/>
 {/if}
 
 {#if ctx.modals.isOpen(MODAL_IDS.templateManager)}
 	<OnboardingTemplateManager
-		trainingTypes={trainingTypesStore.list}
+		trainingTypes={trainingTypesStore.items}
 		onClose={ctx.modals.closerFor(MODAL_IDS.templateManager)}
 	/>
 {/if}
 
 {#if ctx.modals.isOpen(MODAL_IDS.startOnboarding)}
 	<StartOnboardingModal
-		personnel={personnelStore.list}
+		personnel={personnelStore.items}
 		existingOnboardingPersonnelIds={ctx.existingOnboardingPersonnelIds}
-		groups={groupsStore.list}
+		groups={groupsStore.items}
 		templates={onboardingTemplateStore.templates}
 		hasTemplateSteps={ctx.hasTemplateSteps}
 		onSubmit={(personnelId, startedAt, templateId) => ctx.handleStartOnboarding(personnelId, startedAt, templateId)}

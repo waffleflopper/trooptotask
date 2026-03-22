@@ -63,6 +63,6 @@ export default ts.config(
 		}
 	},
 	{
-		ignores: ['.svelte-kit/', 'build/', 'node_modules/', '.claude/', '.superpowers/', '.vercel/']
+		ignores: ['.svelte-kit/', 'build/', 'node_modules/', '.claude/', '.superpowers/', '.vercel/', 'playwright-report/']
 	}
 );

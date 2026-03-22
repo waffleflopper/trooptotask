@@ -1,65 +1,99 @@
 import { untrack } from 'svelte';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '../onboarding.types';
-import { createReactiveCollection, createReactiveValue, createMutationLog, replay } from '$lib/stores/core';
+import { defineStore } from '$lib/stores/core';
+import type { Store, StoreInternals } from '$lib/stores/core';
 
-class OnboardingTemplateStore {
-	#templateServerState = createReactiveCollection<OnboardingTemplate>();
-	#templateLog = createMutationLog<OnboardingTemplate>();
-	#stepServerState = createReactiveCollection<OnboardingTemplateStep>();
-	#stepLog = createMutationLog<OnboardingTemplateStep>();
-	#activeTemplateId = createReactiveValue<string | null>(null);
-	#orgId = '';
+// ── Internal stores for mutation tracking ──────────────────────────
 
-	#getTemplateDisplay(): OnboardingTemplate[] {
-		return replay(this.#templateServerState.getSnapshot(), this.#templateLog.entries);
-	}
+interface TemplateExtensions extends Record<string, unknown> {
+	readonly internals: StoreInternals<OnboardingTemplate>;
+}
 
-	#getStepDisplay(): OnboardingTemplateStep[] {
-		return replay(this.#stepServerState.getSnapshot(), this.#stepLog.entries);
-	}
+function templateEnhance(
+	base: Store<OnboardingTemplate>,
+	internals: StoreInternals<OnboardingTemplate>
+): TemplateExtensions {
+	return {
+		get internals() {
+			return internals;
+		}
+	};
+}
 
+const templateStore = defineStore<OnboardingTemplate, TemplateExtensions>(
+	{ table: 'onboarding_templates', orderBy: [{ field: 'name' }] },
+	templateEnhance
+);
+
+interface StepExtensions extends Record<string, unknown> {
+	readonly internals: StoreInternals<OnboardingTemplateStep>;
+}
+
+function stepEnhance(
+	base: Store<OnboardingTemplateStep>,
+	internals: StoreInternals<OnboardingTemplateStep>
+): StepExtensions {
+	return {
+		get internals() {
+			return internals;
+		}
+	};
+}
+
+const stepStore = defineStore<OnboardingTemplateStep, StepExtensions>(
+	{ table: 'onboarding_template_steps', orderBy: [{ field: 'sortOrder' }] },
+	stepEnhance
+);
+
+// ── Composed public API ────────────────────────────────────────────
+
+let activeTemplateId = $state<string | null>(null);
+
+function getTemplateDisplay(): OnboardingTemplate[] {
+	return templateStore.internals.snapshot();
+}
+
+function getStepDisplay(): OnboardingTemplateStep[] {
+	return stepStore.internals.snapshot();
+}
+
+export const onboardingTemplateStore = {
 	get templates() {
-		return [...replay(this.#templateServerState.items, this.#templateLog.entries)].sort((a, b) =>
-			a.name.localeCompare(b.name)
-		);
-	}
+		return templateStore.items;
+	},
 
 	get activeTemplateId() {
-		return this.#activeTemplateId.value;
-	}
+		return activeTemplateId;
+	},
 
 	get list() {
-		const activeId = this.#activeTemplateId.value;
-		return [...replay(this.#stepServerState.items, this.#stepLog.entries)]
-			.filter((s) => s.templateId === activeId)
-			.sort((a, b) => a.sortOrder - b.sortOrder);
-	}
+		return stepStore.items.filter((s) => s.templateId === activeTemplateId);
+	},
+
+	get allSteps() {
+		return stepStore.items;
+	},
 
 	load(templates: OnboardingTemplate[], steps: OnboardingTemplateStep[], orgId: string) {
-		if (orgId !== this.#orgId) {
-			this.#templateLog.clear();
-			this.#stepLog.clear();
-		}
-		this.#templateServerState.set(templates);
-		this.#stepServerState.set(steps);
-		this.#orgId = orgId;
+		templateStore.load(templates, orgId);
+		stepStore.load(steps, orgId);
 		// Keep active template if still valid, otherwise default to first.
-		// Use untrack to avoid creating a reactive dependency on #activeTemplateId,
+		// Use untrack to avoid creating a reactive dependency on activeTemplateId,
 		// which would cause the page $effect to re-run and overwrite client-side changes.
-		const currentActive = untrack(() => this.#activeTemplateId.value);
+		const currentActive = untrack(() => activeTemplateId);
 		const stillValid = templates.some((t) => t.id === currentActive);
 		if (!stillValid) {
-			this.#activeTemplateId.set(templates.length > 0 ? templates[0].id : null);
+			activeTemplateId = templates.length > 0 ? templates[0].id : null;
 		}
-	}
+	},
 
 	setActiveTemplate(id: string) {
-		this.#activeTemplateId.set(id);
-	}
+		activeTemplateId = id;
+	},
 
 	getById(id: string) {
-		return this.#getStepDisplay().find((s) => s.id === id);
-	}
+		return getStepDisplay().find((s) => s.id === id);
+	},
 
 	// ── Template CRUD ──────────────────────────────────────────────
 
@@ -67,8 +101,9 @@ class OnboardingTemplateStore {
 		name: string,
 		description: string | null
 	): Promise<{ template: OnboardingTemplate | null; error?: string }> {
+		const ti = templateStore.internals;
 		try {
-			const res = await fetch(`/org/${this.#orgId}/api/onboarding-templates`, {
+			const res = await fetch(`/org/${ti.orgId()}/api/onboarding-templates`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ name, description })
@@ -78,24 +113,25 @@ class OnboardingTemplateStore {
 				return { template: null, error: text };
 			}
 			const newTemplate: OnboardingTemplate = await res.json();
-			this.#templateServerState.set([...this.#templateServerState.getSnapshot(), newTemplate]);
-			this.#activeTemplateId.set(newTemplate.id);
+			ti.serverState.set([...ti.serverState.getSnapshot(), newTemplate]);
+			activeTemplateId = newTemplate.id;
 			return { template: newTemplate };
 		} catch {
 			return { template: null, error: 'Failed to create template' };
 		}
-	}
+	},
 
 	async updateTemplate(
 		id: string,
 		data: Partial<Pick<OnboardingTemplate, 'name' | 'description'>>
 	): Promise<{ success: boolean; error?: string }> {
-		const display = this.#getTemplateDisplay();
+		const ti = templateStore.internals;
+		const display = getTemplateDisplay();
 		const original = display.find((t) => t.id === id);
 		if (!original) return { success: false };
 
 		const mutationId = crypto.randomUUID();
-		this.#templateLog.push({
+		ti.log.push({
 			type: 'update',
 			mutationId,
 			targetId: id,
@@ -103,33 +139,35 @@ class OnboardingTemplateStore {
 		});
 
 		try {
-			const res = await fetch(`/org/${this.#orgId}/api/onboarding-templates`, {
+			const res = await fetch(`/org/${ti.orgId()}/api/onboarding-templates`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id, ...data })
 			});
 			if (!res.ok) {
-				this.#templateLog.resolve(mutationId);
+				ti.log.resolve(mutationId);
 				const text = await res.text();
 				return { success: false, error: text };
 			}
 			const updated: OnboardingTemplate = await res.json();
-			this.#templateServerState.set(this.#templateServerState.getSnapshot().map((t) => (t.id === id ? updated : t)));
-			this.#templateLog.resolve(mutationId);
+			ti.serverState.set(ti.serverState.getSnapshot().map((t) => (t.id === id ? updated : t)));
+			ti.log.resolve(mutationId);
 			return { success: true };
 		} catch {
-			this.#templateLog.resolve(mutationId);
+			ti.log.resolve(mutationId);
 			return { success: false, error: 'Failed to update template' };
 		}
-	}
+	},
 
 	async removeTemplate(id: string): Promise<{ success: boolean; error?: string }> {
-		const display = this.#getTemplateDisplay();
+		const ti = templateStore.internals;
+		const si = stepStore.internals;
+		const display = getTemplateDisplay();
 		const original = display.find((t) => t.id === id);
 		if (!original) return { success: false };
 
 		try {
-			const res = await fetch(`/org/${this.#orgId}/api/onboarding-templates`, {
+			const res = await fetch(`/org/${ti.orgId()}/api/onboarding-templates`, {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
@@ -139,57 +177,59 @@ class OnboardingTemplateStore {
 				return { success: false, error: text };
 			}
 
-			this.#templateServerState.set(this.#templateServerState.getSnapshot().filter((t) => t.id !== id));
-			this.#stepServerState.set(this.#stepServerState.getSnapshot().filter((s) => s.templateId !== id));
+			ti.serverState.set(ti.serverState.getSnapshot().filter((t) => t.id !== id));
+			si.serverState.set(si.serverState.getSnapshot().filter((s) => s.templateId !== id));
 
-			if (this.#activeTemplateId.value === id) {
-				const remaining = this.#templateServerState.getSnapshot();
-				this.#activeTemplateId.set(remaining.length > 0 ? remaining[0].id : null);
+			if (activeTemplateId === id) {
+				const remaining = ti.serverState.getSnapshot();
+				activeTemplateId = remaining.length > 0 ? remaining[0].id : null;
 			}
 			return { success: true };
 		} catch {
 			return { success: false, error: 'Failed to delete template' };
 		}
-	}
+	},
 
 	// ── Step CRUD (scoped to active template) ──────────────────────
 
 	async add(data: Omit<OnboardingTemplateStep, 'id' | 'templateId'>): Promise<OnboardingTemplateStep | null> {
-		if (!this.#activeTemplateId.value) return null;
+		if (!activeTemplateId) return null;
 
+		const si = stepStore.internals;
 		const tempId = `temp-${crypto.randomUUID()}`;
 		const mutationId = crypto.randomUUID();
-		this.#stepLog.push({
+		si.log.push({
 			type: 'add',
 			mutationId,
 			tempId,
-			data: { templateId: this.#activeTemplateId.value, ...data } as Omit<OnboardingTemplateStep, 'id'>
+			data: { templateId: activeTemplateId, ...data } as Omit<OnboardingTemplateStep, 'id'>
 		});
 
 		try {
-			const res = await fetch(`/org/${this.#orgId}/api/onboarding-template`, {
+			const res = await fetch(`/org/${si.orgId()}/api/onboarding-template`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ templateId: this.#activeTemplateId.value, ...data })
+				body: JSON.stringify({ templateId: activeTemplateId, ...data })
 			});
 			if (!res.ok) throw new Error('Failed to add template step');
 			const newStep = await res.json();
-			this.#stepServerState.set([...this.#stepServerState.getSnapshot(), newStep]);
-			this.#stepLog.resolve(mutationId);
+			si.serverState.set([...si.serverState.getSnapshot(), newStep]);
+			si.log.resolve(mutationId);
 			return newStep;
 		} catch {
-			this.#stepLog.resolve(mutationId);
+			si.log.resolve(mutationId);
 			return null;
 		}
-	}
+	},
 
 	async update(id: string, data: Partial<Omit<OnboardingTemplateStep, 'id' | 'templateId'>>): Promise<boolean> {
-		const display = this.#getStepDisplay();
+		const si = stepStore.internals;
+		const display = getStepDisplay();
 		const original = display.find((s) => s.id === id);
 		if (!original) return false;
 
 		const mutationId = crypto.randomUUID();
-		this.#stepLog.push({
+		si.log.push({
 			type: 'update',
 			mutationId,
 			targetId: id,
@@ -197,45 +237,44 @@ class OnboardingTemplateStore {
 		});
 
 		try {
-			const res = await fetch(`/org/${this.#orgId}/api/onboarding-template`, {
+			const res = await fetch(`/org/${si.orgId()}/api/onboarding-template`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id, ...data })
 			});
 			if (!res.ok) throw new Error('Failed to update template step');
 			const updated = await res.json();
-			this.#stepServerState.set(this.#stepServerState.getSnapshot().map((s) => (s.id === id ? updated : s)));
-			this.#stepLog.resolve(mutationId);
+			si.serverState.set(si.serverState.getSnapshot().map((s) => (s.id === id ? updated : s)));
+			si.log.resolve(mutationId);
 			return true;
 		} catch {
-			this.#stepLog.resolve(mutationId);
+			si.log.resolve(mutationId);
 			return false;
 		}
-	}
+	},
 
 	async remove(id: string): Promise<boolean> {
-		const display = this.#getStepDisplay();
+		const si = stepStore.internals;
+		const display = getStepDisplay();
 		const original = display.find((s) => s.id === id);
 		if (!original) return false;
 
 		const mutationId = crypto.randomUUID();
-		this.#stepLog.push({ type: 'remove', mutationId, targetId: id });
+		si.log.push({ type: 'remove', mutationId, targetId: id });
 
 		try {
-			const res = await fetch(`/org/${this.#orgId}/api/onboarding-template`, {
+			const res = await fetch(`/org/${si.orgId()}/api/onboarding-template`, {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
 			});
 			if (!res.ok) throw new Error('Failed to delete template step');
-			this.#stepServerState.set(this.#stepServerState.getSnapshot().filter((s) => s.id !== id));
-			this.#stepLog.resolve(mutationId);
+			si.serverState.set(si.serverState.getSnapshot().filter((s) => s.id !== id));
+			si.log.resolve(mutationId);
 			return true;
 		} catch {
-			this.#stepLog.resolve(mutationId);
+			si.log.resolve(mutationId);
 			return false;
 		}
 	}
-}
-
-export const onboardingTemplateStore = new OnboardingTemplateStore();
+};

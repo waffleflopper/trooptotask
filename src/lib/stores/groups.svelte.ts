@@ -1,4 +1,5 @@
-import { createStore } from '$lib/stores/core';
+import { defineStore } from '$lib/stores/core';
+import type { Store } from '$lib/stores/core';
 
 export interface Group {
 	id: string;
@@ -6,39 +7,41 @@ export interface Group {
 	sortOrder: number;
 }
 
-const store = createStore<Group>({ resource: 'groups' });
+interface GroupExtensions extends Record<string, unknown> {
+	readonly names: string[];
+	remove: (id: string) => Promise<boolean>;
+	add: (name: string) => Promise<Group | null>;
+	rename: (id: string, newName: string) => Promise<boolean>;
+	getByName: (name: string) => Group | undefined;
+}
 
-export const groupsStore = {
-	get list() {
-		return store.items;
-	},
+function enhance(base: Store<Group>): GroupExtensions {
+	return {
+		get names() {
+			return base.rawItems.map((g) => g.name);
+		},
 
-	get names() {
-		return store.rawItems.map((g) => g.name);
-	},
+		remove: base.removeBool,
 
-	load: store.load,
-	remove: store.removeBool,
+		async add(name: string): Promise<Group | null> {
+			if (!name.trim()) return null;
+			const trimmed = name.trim();
+			if (base.find((g) => g.name.toLowerCase() === trimmed.toLowerCase())) return null;
+			return base.add({ name: trimmed, sortOrder: base.rawItems.length } as Omit<Group, 'id'>);
+		},
 
-	async add(name: string): Promise<Group | null> {
-		if (!name.trim()) return null;
-		const trimmedName = name.trim();
+		async rename(id: string, newName: string): Promise<boolean> {
+			if (!newName.trim()) return false;
+			return base.update(id, { name: newName.trim() });
+		},
 
-		if (store.find((g) => g.name.toLowerCase() === trimmedName.toLowerCase())) {
-			return null;
+		getByName(name: string) {
+			return base.find((g) => g.name.toLowerCase() === name.toLowerCase());
 		}
+	};
+}
 
-		return store.add({
-			name: trimmedName,
-			sortOrder: store.rawItems.length
-		} as Omit<Group, 'id'>);
-	},
-
-	async rename(id: string, newName: string): Promise<boolean> {
-		if (!newName.trim()) return false;
-		return store.update(id, { name: newName.trim() });
-	},
-
-	getById: store.getById,
-	getByName: (name: string) => store.find((g) => g.name.toLowerCase() === name.toLowerCase())
-};
+export const groupsStore = defineStore<Group, GroupExtensions>(
+	{ table: 'groups', orderBy: [{ field: 'sortOrder' }] },
+	enhance
+);

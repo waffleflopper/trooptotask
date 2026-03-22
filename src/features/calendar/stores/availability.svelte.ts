@@ -1,5 +1,5 @@
-import { createStore } from '$lib/stores/core';
-import type { BatchApiAdapter } from '$lib/stores/core';
+import { defineStore } from '$lib/stores/core';
+import type { Store, BatchApiAdapter } from '$lib/stores/core';
 import type { AvailabilityEntry } from '$lib/types';
 import { isDateInRange, formatDate } from '$lib/utils/dates';
 
@@ -79,46 +79,57 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 
 const batchAdapter = createAvailabilityBatchAdapter();
 
-const store = createStore<AvailabilityEntry>({
-	resource: 'availability',
-	adapter: batchAdapter,
-	batchAdapter
-});
+interface AvailabilityExtensions extends Record<string, unknown> {
+	load: (items: AvailabilityEntry[], orgId: string) => void;
+	remove: (id: string) => Promise<boolean>;
+	removeByPersonnelLocal: (personnelId: string) => void;
+	removeByStatusTypeLocal: (statusTypeId: string) => void;
+	getByPersonnel: (personnelId: string) => AvailabilityEntry[];
+	getByPersonnelAndDate: (personnelId: string, date: Date) => AvailabilityEntry[];
+	getByDate: (date: Date) => AvailabilityEntry[];
+	getByDateRange: (startDate: Date, endDate: Date) => AvailabilityEntry[];
+}
 
-export const availabilityStore = {
-	get list() {
-		return store.items;
+function enhance(base: Store<AvailabilityEntry>): AvailabilityExtensions {
+	return {
+		load(items: AvailabilityEntry[], orgId: string) {
+			orgIdRef = orgId;
+			base.load(items, orgId);
+		},
+
+		remove: base.removeBool,
+
+		removeByPersonnelLocal: (personnelId: string) => base.removeLocalWhere((e) => e.personnelId === personnelId),
+
+		removeByStatusTypeLocal: (statusTypeId: string) => base.removeLocalWhere((e) => e.statusTypeId === statusTypeId),
+
+		getByPersonnel: (personnelId: string) => base.filter((e) => e.personnelId === personnelId),
+
+		getByPersonnelAndDate: (personnelId: string, date: Date) =>
+			base.filter((e) => e.personnelId === personnelId && isDateInRange(date, e.startDate, e.endDate)),
+
+		getByDate: (date: Date) => base.filter((e) => isDateInRange(date, e.startDate, e.endDate)),
+
+		getByDateRange(startDate: Date, endDate: Date) {
+			const start = formatDate(startDate);
+			const end = formatDate(endDate);
+			return base.filter(
+				(e) =>
+					(e.startDate >= start && e.startDate <= end) ||
+					(e.endDate >= start && e.endDate <= end) ||
+					(e.startDate <= start && e.endDate >= end)
+			);
+		}
+	};
+}
+
+export const availabilityStore = defineStore<AvailabilityEntry, AvailabilityExtensions>(
+	{
+		table: 'availability',
+		overrides: {
+			adapter: batchAdapter,
+			batchAdapter
+		}
 	},
-	load(items: AvailabilityEntry[], orgId: string) {
-		orgIdRef = orgId;
-		store.load(items, orgId);
-	},
-	add: store.add,
-	remove: store.removeBool,
-
-	addBatch: store.addBatch,
-	removeBatch: store.removeBatch,
-
-	removeByPersonnelLocal: (personnelId: string) => store.removeLocalWhere((e) => e.personnelId === personnelId),
-
-	removeByStatusTypeLocal: (statusTypeId: string) => store.removeLocalWhere((e) => e.statusTypeId === statusTypeId),
-
-	getById: (id: string) => store.getById(id),
-	getByPersonnel: (personnelId: string) => store.filter((e) => e.personnelId === personnelId),
-
-	getByPersonnelAndDate: (personnelId: string, date: Date) =>
-		store.filter((e) => e.personnelId === personnelId && isDateInRange(date, e.startDate, e.endDate)),
-
-	getByDate: (date: Date) => store.filter((e) => isDateInRange(date, e.startDate, e.endDate)),
-
-	getByDateRange(startDate: Date, endDate: Date) {
-		const start = formatDate(startDate);
-		const end = formatDate(endDate);
-		return store.filter(
-			(e) =>
-				(e.startDate >= start && e.startDate <= end) ||
-				(e.endDate >= start && e.endDate <= end) ||
-				(e.startDate <= start && e.endDate >= end)
-		);
-	}
-};
+	enhance
+);

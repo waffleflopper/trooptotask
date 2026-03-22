@@ -35,7 +35,7 @@
 	<AvailabilityModal
 		person={ctx.selectedPerson}
 		date={ctx.selectedDate}
-		statusTypes={statusTypesStore.list}
+		statusTypes={statusTypesStore.items}
 		existingEntries={availabilityStore.list}
 		onAdd={(entry) => ctx.handleAddAvailability(entry)}
 		onRemove={(id) => ctx.handleRemoveAvailability(id)}
@@ -45,7 +45,7 @@
 
 {#if modals.isOpen('status-manager')}
 	<StatusTypeManager
-		statusTypes={statusTypesStore.list}
+		statusTypes={statusTypesStore.items}
 		onAdd={(data) => statusTypesStore.add(data)}
 		onUpdate={(id, data) => statusTypesStore.update(id, data)}
 		onRemove={async (id) => {
@@ -68,7 +68,7 @@
 
 {#if modals.isOpen('special-day-manager')}
 	<SpecialDayManager
-		specialDays={specialDaysStore.list}
+		specialDays={specialDaysStore.items}
 		onAdd={(data) => specialDaysStore.add(data)}
 		onRemove={(id) => specialDaysStore.remove(id)}
 		onResetHolidays={() => specialDaysStore.resetFederalHolidays()}
@@ -93,7 +93,7 @@
 	<TodayBreakdown
 		personnelByGroup={ctx.personnelByGroup}
 		availabilityEntries={availabilityStore.list}
-		statusTypes={statusTypesStore.list}
+		statusTypes={statusTypesStore.items}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
 		onClose={() => modals.close('today-breakdown')}
@@ -103,7 +103,7 @@
 {#if modals.isOpen('bulk-status')}
 	<BulkStatusModal
 		personnelByGroup={ctx.scopedPBG}
-		statusTypes={statusTypesStore.list}
+		statusTypes={statusTypesStore.items}
 		onApply={(ids, typeId, start, end, note) => ctx.handleBulkStatusApply(ids, typeId, start, end, note)}
 		onClose={() => modals.close('bulk-status')}
 		onImport={() => {
@@ -116,7 +116,7 @@
 {#if modals.isOpen('bulk-status-import')}
 	<BulkStatusImportModal
 		personnel={ctx.allPersonnelFlat}
-		statusTypes={statusTypesStore.list}
+		statusTypes={statusTypesStore.items}
 		{orgId}
 		onImportComplete={() => {
 			import('$app/navigation').then(({ invalidateAll }) => invalidateAll());
@@ -128,7 +128,7 @@
 {#if modals.isOpen('bulk-remove')}
 	<BulkStatusRemoveModal
 		personnelByGroup={ctx.scopedPBG}
-		statusTypes={statusTypesStore.list}
+		statusTypes={statusTypesStore.items}
 		availabilityEntries={availabilityStore.list}
 		personnelList={ctx.calendarPersonnel}
 		onRemove={(ids) => ctx.handleBulkStatusRemove(ids)}
@@ -143,13 +143,13 @@
 		personnelByGroup={ctx.scopedPBG}
 		groups={groupsStore.names}
 		availabilityEntries={availabilityStore.list}
-		statusTypes={statusTypesStore.list}
+		statusTypes={statusTypesStore.items}
 		rosterHistory={dutyRosterHistoryStore.items}
 		onApplyRoster={(assignments) => ctx.handleApplyRoster(assignments)}
 		onSaveRoster={(payload) => ctx.handleSaveRoster(payload)}
 		onDeleteRoster={(id) => ctx.handleDeleteRoster(id)}
 		onUpdateExemptions={(typeId, ids) => ctx.handleUpdateExemptions(typeId, ids)}
-		specialDays={specialDaysStore.list}
+		specialDays={specialDaysStore.items}
 		onClose={() => modals.close('duty-roster-generator')}
 	/>
 {/if}
@@ -172,8 +172,8 @@
 		startDate={calendarStore.currentDate}
 		personnelByGroup={ctx.personnelByGroup}
 		availabilityEntries={availabilityStore.list}
-		statusTypes={statusTypesStore.list}
-		specialDays={specialDaysStore.list}
+		statusTypes={statusTypesStore.items}
+		specialDays={specialDaysStore.items}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
 		onClose={() => modals.close('long-range-view')}

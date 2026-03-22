@@ -15,7 +15,7 @@ vi.mock('$features/personnel/stores/personnel.svelte', () => ({
 	personnelStore: { list: [] }
 }));
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
-	statusTypesStore: { list: [] }
+	statusTypesStore: { items: [] }
 }));
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
 	availabilityStore: { list: [], load: vi.fn() }
@@ -24,13 +24,13 @@ vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 	dailyAssignmentsStore: { assignments: [], types: [], load: vi.fn() }
 }));
 vi.mock('$features/training/stores/trainingTypes.svelte', () => ({
-	trainingTypesStore: { list: [] }
+	trainingTypesStore: { items: [] }
 }));
 vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
 	pinnedGroupsStore: { list: [], load: vi.fn() }
 }));
 vi.mock('$lib/stores/groups.svelte', () => ({
-	groupsStore: { list: [] }
+	groupsStore: { items: [] }
 }));
 vi.mock('$lib/stores/dashboardPrefs.svelte', () => ({
 	dashboardPrefsStore: {

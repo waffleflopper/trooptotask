@@ -28,7 +28,7 @@
 	<OnboardingReportModal
 		onboardings={onboardingStore.list}
 		personnel={personnelStore.list}
-		trainingTypes={trainingTypesStore.list}
+		trainingTypes={trainingTypesStore.items}
 		personnelTrainings={personnelTrainingsStore.list}
 		onClose={ctx.modals.closerFor(MODAL_IDS.report)}
 	/>
@@ -36,7 +36,7 @@
 
 {#if ctx.modals.isOpen(MODAL_IDS.templateManager)}
 	<OnboardingTemplateManager
-		trainingTypes={trainingTypesStore.list}
+		trainingTypes={trainingTypesStore.items}
 		onClose={ctx.modals.closerFor(MODAL_IDS.templateManager)}
 	/>
 {/if}
@@ -45,7 +45,7 @@
 	<StartOnboardingModal
 		personnel={personnelStore.list}
 		existingOnboardingPersonnelIds={ctx.existingOnboardingPersonnelIds}
-		groups={groupsStore.list}
+		groups={groupsStore.items}
 		templates={onboardingTemplateStore.templates}
 		hasTemplateSteps={ctx.hasTemplateSteps}
 		onSubmit={(personnelId, startedAt, templateId) => ctx.handleStartOnboarding(personnelId, startedAt, templateId)}

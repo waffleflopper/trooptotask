@@ -393,7 +393,7 @@
 									<th class="col-group">Group</th>
 									<th class="col-num">Total</th>
 									<th class="col-num">Present</th>
-									{#each statusTypesStore.list as st}
+									{#each statusTypesStore.items as st}
 										<th class="col-num col-status" style="color: {st.color}">{st.name}</th>
 									{/each}
 									<th class="col-num">%</th>
@@ -414,7 +414,7 @@
 										</td>
 										<td class="col-num">{group.total}</td>
 										<td class="col-num col-present">{group.available}</td>
-										{#each statusTypesStore.list as st}
+										{#each statusTypesStore.items as st}
 											<td class="col-num">
 												{#if (group.statusCounts.get(st.id) ?? 0) > 0}
 													<span class="table-chip" style="background: {st.color}; color: {st.textColor}">

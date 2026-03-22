@@ -20,22 +20,22 @@ describe('specialDaysStore', () => {
 		specialDaysStore.load(structuredClone(mockDays), 'org-1');
 	});
 
-	describe('list', () => {
+	describe('items', () => {
 		it('returns loaded items', () => {
-			expect(specialDaysStore.list).toHaveLength(3);
-			expect(specialDaysStore.list[0].name).toBe('New Year');
+			expect(specialDaysStore.items).toHaveLength(3);
+			expect(specialDaysStore.items[0].name).toBe('New Year');
 		});
 
 		it('returns empty array when no items loaded', () => {
 			specialDaysStore.load([], 'org-2');
-			expect(specialDaysStore.list).toEqual([]);
+			expect(specialDaysStore.items).toEqual([]);
 		});
 	});
 
 	describe('load', () => {
 		it('replaces existing items with new data', () => {
 			specialDaysStore.load([mockDays[0]], 'org-2');
-			expect(specialDaysStore.list).toHaveLength(1);
+			expect(specialDaysStore.items).toHaveLength(1);
 		});
 	});
 
@@ -103,7 +103,7 @@ describe('specialDaysStore', () => {
 			const result = await specialDaysStore.resetFederalHolidays();
 
 			expect(result).toBe(true);
-			expect(specialDaysStore.list).toEqual(newDays);
+			expect(specialDaysStore.items).toEqual(newDays);
 		});
 
 		it('should return false on failure without changing items', async () => {
@@ -112,7 +112,7 @@ describe('specialDaysStore', () => {
 			const result = await specialDaysStore.resetFederalHolidays();
 
 			expect(result).toBe(false);
-			expect(specialDaysStore.list).toEqual(mockDays);
+			expect(specialDaysStore.items).toEqual(mockDays);
 		});
 	});
 

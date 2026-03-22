@@ -80,7 +80,7 @@
 		</div>
 
 		<main class="page-content">
-			{#if trainingTypesStore.list.length === 0}
+			{#if trainingTypesStore.items.length === 0}
 				<EmptyState
 					message="No training types defined yet."
 					actionLabel={ctx.canEditTraining ? 'Manage Types' : undefined}
@@ -92,7 +92,7 @@
 				<div class="view-panel" data-testid="training-matrix" class:hidden-view={ctx.viewMode !== 'alphabetical'}>
 					<TrainingMatrix
 						personnel={ctx.filteredPersonnel}
-						trainingTypes={trainingTypesStore.list}
+						trainingTypes={trainingTypesStore.items}
 						trainings={personnelTrainingsStore.list}
 						onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
 						onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
@@ -111,7 +111,7 @@
 									<div class="group-content">
 										<TrainingMatrix
 											personnel={grp.personnel}
-											trainingTypes={trainingTypesStore.list}
+											trainingTypes={trainingTypesStore.items}
 											trainings={personnelTrainingsStore.list}
 											onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
 											onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}

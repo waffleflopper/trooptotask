@@ -69,8 +69,8 @@
 					dates={calendarStore.dates}
 					personnelByGroup={ctx.personnelByGroup}
 					availabilityEntries={availabilityStore.list}
-					statusTypes={statusTypesStore.list}
-					specialDays={specialDaysStore.list}
+					statusTypes={statusTypesStore.items}
+					specialDays={specialDaysStore.items}
 					pinnedGroups={pinnedGroupsStore.list}
 					assignmentTypes={dailyAssignmentsStore.types}
 					assignments={dailyAssignmentsStore.assignments}
@@ -86,7 +86,7 @@
 					onPinToggle={(group) => ctx.handlePinToggle(group)}
 					onDateClick={(date) => ctx.handleDateClick(date)}
 				/>
-				<StatusLegend statusTypes={statusTypesStore.list} />
+				<StatusLegend statusTypes={statusTypesStore.items} />
 			</section>
 		</main>
 	{/if}

@@ -1,15 +1,15 @@
 import { defineStore } from '$lib/stores/core';
+import type { Store } from '$lib/stores/core';
 import type { StatusType } from '$lib/types';
 
-const _base = defineStore<StatusType>({ table: 'status_types' });
+interface StatusTypeExtensions extends Record<string, unknown> {
+	remove: (id: string) => Promise<boolean>;
+}
 
-export const statusTypesStore = {
-	get list(): StatusType[] {
-		return _base.items;
-	},
-	load: _base.load,
-	add: _base.add,
-	update: _base.update,
-	remove: _base.removeBool,
-	getById: _base.getById
-};
+function enhance(base: Store<StatusType>): StatusTypeExtensions {
+	return {
+		remove: base.removeBool
+	};
+}
+
+export const statusTypesStore = defineStore<StatusType, StatusTypeExtensions>({ table: 'status_types' }, enhance);

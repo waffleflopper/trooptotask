@@ -68,10 +68,9 @@ export function defineStore<T extends { id: string }, E extends Record<string, u
 
 	if (!enhance) return store;
 
-	const extensions =
-		enhance.length === 2
-			? (enhance as (base: Store<T>, internals: StoreInternals<T>) => E)(store, internals)
-			: (enhance as (base: Store<T>) => E)(store);
+	// Always pass both arguments — Tier 2 callers simply ignore the second.
+	// This avoids fragile Function.length detection which breaks with default params.
+	const extensions = (enhance as (base: Store<T>, internals: StoreInternals<T>) => E)(store, internals);
 	const merged = Object.create(null) as Store<T> & E;
 
 	// Copy base store — preserving getters

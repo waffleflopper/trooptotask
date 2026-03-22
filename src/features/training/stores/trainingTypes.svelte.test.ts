@@ -62,21 +62,21 @@ describe('trainingTypesStore', () => {
 
 	describe('list (sorted by sortOrder)', () => {
 		it('returns items sorted by sortOrder ascending', () => {
-			const names = trainingTypesStore.list.map((t) => t.name);
+			const names = trainingTypesStore.items.map((t) => t.name);
 			expect(names).toEqual(['Weapons', 'PT Test', 'CPR']);
 		});
 
 		it('returns empty array before load', () => {
 			trainingTypesStore.load([], 'org-2');
-			expect(trainingTypesStore.list).toEqual([]);
+			expect(trainingTypesStore.items).toEqual([]);
 		});
 	});
 
 	describe('load', () => {
 		it('replaces existing items with new data', () => {
 			trainingTypesStore.load([mockTypes[0]], 'org-2');
-			expect(trainingTypesStore.list).toHaveLength(1);
-			expect(trainingTypesStore.list[0].name).toBe('CPR');
+			expect(trainingTypesStore.items).toHaveLength(1);
+			expect(trainingTypesStore.items[0].name).toBe('CPR');
 		});
 	});
 
@@ -124,7 +124,7 @@ describe('trainingTypesStore', () => {
 
 			expect(result).not.toBeNull();
 			expect(result!.id).toBe('new-1');
-			expect(trainingTypesStore.list.some((t) => t.id === 'new-1')).toBe(true);
+			expect(trainingTypesStore.items.some((t) => t.id === 'new-1')).toBe(true);
 		});
 	});
 

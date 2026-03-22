@@ -8,7 +8,6 @@ export interface Group {
 }
 
 interface GroupExtensions extends Record<string, unknown> {
-	readonly list: Group[];
 	readonly names: string[];
 	remove: (id: string) => Promise<boolean>;
 	add: (name: string) => Promise<Group | null>;
@@ -18,10 +17,6 @@ interface GroupExtensions extends Record<string, unknown> {
 
 function enhance(base: Store<Group>): GroupExtensions {
 	return {
-		get list() {
-			return base.items;
-		},
-
 		get names() {
 			return base.rawItems.map((g) => g.name);
 		},

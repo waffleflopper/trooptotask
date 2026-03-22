@@ -55,6 +55,57 @@ export async function getTrainingSummary(
 	return { stats, issues };
 }
 
+export type TrainingSummaryByGroupOptions = Omit<TrainingSummaryOptions, 'groupId'>;
+
+export async function getTrainingSummaryByGroup(
+	supabase: SupabaseClient,
+	orgId: string,
+	personnel: Personnel[],
+	trainingTypes: TrainingType[],
+	options: TrainingSummaryByGroupOptions = {}
+): Promise<Map<string, TrainingSummary>> {
+	const trainings = await PersonnelTrainingEntity.repo.list(supabase, orgId);
+
+	const { issueLimit = 5, issueStatuses = ['expired', 'warning-orange'], includeNotCompleted = false } = options;
+
+	// Partition personnel by group
+	const groupMap = new Map<string, Personnel[]>();
+	for (const p of personnel) {
+		const key = p.groupId ?? 'ungrouped';
+		if (!groupMap.has(key)) groupMap.set(key, []);
+		groupMap.get(key)!.push(p);
+	}
+
+	const result = new Map<string, TrainingSummary>();
+	for (const [groupId, groupPersonnel] of groupMap) {
+		const stats = getTrainingStats(
+			groupPersonnel,
+			trainingTypes,
+			trainings,
+			groupId === 'ungrouped' ? undefined : groupId
+		);
+
+		const delinquent = getDelinquentTrainings(groupPersonnel, trainingTypes, trainings, {
+			groupId: groupId === 'ungrouped' ? undefined : groupId,
+			includeNotCompleted
+		});
+
+		const filtered = delinquent.filter((d) => issueStatuses.includes(d.statusInfo.status));
+
+		const issues: TrainingIssue[] = filtered.slice(0, issueLimit).map((d) => ({
+			personName: `${d.person.rank} ${d.person.lastName}, ${d.person.firstName}`,
+			typeName: d.type.name,
+			label: d.statusInfo.label,
+			status: d.statusInfo.status,
+			daysUntilExpiration: d.statusInfo.daysUntilExpiration
+		}));
+
+		result.set(groupId, { stats, issues });
+	}
+
+	return result;
+}
+
 export async function getOnboardingTrainingCompletions(
 	supabase: SupabaseClient,
 	orgId: string,

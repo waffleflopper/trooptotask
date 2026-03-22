@@ -307,3 +307,88 @@ describe('getOnboardingTrainingCompletions', () => {
 		);
 	});
 });
+
+describe('getTrainingSummaryByGroup', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('returns separate summaries keyed by groupId', async () => {
+		const personnel = [
+			makePersonnel({ id: 'p1', groupId: 'g1' }),
+			makePersonnel({ id: 'p2', lastName: 'Jones', groupId: 'g2' })
+		];
+		const types = [makeTrainingType({ id: 'tt1', requiredForRoles: ['*'] })];
+
+		const today = new Date();
+		const expiredDate = new Date(today);
+		expiredDate.setDate(expiredDate.getDate() - 10);
+		const fmt = (d: Date) => d.toISOString().split('T')[0];
+
+		// Both personnel have expired training
+		const trainings = [
+			makeTraining({ id: 'pt1', personnelId: 'p1', trainingTypeId: 'tt1', expirationDate: fmt(expiredDate) }),
+			makeTraining({ id: 'pt2', personnelId: 'p2', trainingTypeId: 'tt1', expirationDate: fmt(expiredDate) })
+		];
+		mockTrainingList.mockResolvedValue(trainings);
+
+		const { getTrainingSummaryByGroup } = await import('./trainingSummaryService');
+		const result = await getTrainingSummaryByGroup(createMockSupabase(), ORG_ID, personnel, types);
+
+		expect(result).toBeInstanceOf(Map);
+		expect(result.has('g1')).toBe(true);
+		expect(result.has('g2')).toBe(true);
+		// Each group should have 1 person's worth of stats
+		expect(result.get('g1')!.stats.total).toBe(1);
+		expect(result.get('g2')!.stats.total).toBe(1);
+		// Each group should have issues
+		expect(result.get('g1')!.issues.length).toBeGreaterThan(0);
+		expect(result.get('g2')!.issues.length).toBeGreaterThan(0);
+	});
+
+	it('aggregates personnel without groupId under "ungrouped" key', async () => {
+		const personnel = [
+			makePersonnel({ id: 'p1', groupId: null }),
+			makePersonnel({ id: 'p2', lastName: 'Jones', groupId: 'g1' })
+		];
+		const types = [makeTrainingType({ id: 'tt1', requiredForRoles: ['*'] })];
+		mockTrainingList.mockResolvedValue([]);
+
+		const { getTrainingSummaryByGroup } = await import('./trainingSummaryService');
+		const result = await getTrainingSummaryByGroup(createMockSupabase(), ORG_ID, personnel, types);
+
+		expect(result.has('ungrouped')).toBe(true);
+		expect(result.has('g1')).toBe(true);
+		expect(result.size).toBe(2);
+	});
+
+	it('applies issueLimit per group, not globally', async () => {
+		const personnel = [
+			makePersonnel({ id: 'p1', groupId: 'g1' }),
+			makePersonnel({ id: 'p2', lastName: 'Jones', groupId: 'g1' }),
+			makePersonnel({ id: 'p3', lastName: 'Doe', groupId: 'g2' }),
+			makePersonnel({ id: 'p4', lastName: 'Brown', groupId: 'g2' })
+		];
+		const types = [makeTrainingType({ id: 'tt1', requiredForRoles: ['*'] })];
+
+		const today = new Date();
+		const expiredDate = new Date(today);
+		expiredDate.setDate(expiredDate.getDate() - 10);
+		const fmt = (d: Date) => d.toISOString().split('T')[0];
+
+		// All 4 personnel have expired training
+		const trainings = personnel.map((p, i) =>
+			makeTraining({ id: `pt${i}`, personnelId: p.id, trainingTypeId: 'tt1', expirationDate: fmt(expiredDate) })
+		);
+		mockTrainingList.mockResolvedValue(trainings);
+
+		const { getTrainingSummaryByGroup } = await import('./trainingSummaryService');
+		const result = await getTrainingSummaryByGroup(createMockSupabase(), ORG_ID, personnel, types, {
+			issueLimit: 1
+		});
+
+		// Each group should have at most 1 issue (limit per group)
+		expect(result.get('g1')!.issues.length).toBe(1);
+		expect(result.get('g2')!.issues.length).toBe(1);
+	});
+});

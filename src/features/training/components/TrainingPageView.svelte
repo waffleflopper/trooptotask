@@ -4,6 +4,7 @@
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
@@ -99,28 +100,22 @@
 					/>
 				</div>
 				<div class="view-panel" class:hidden-view={ctx.viewMode !== 'by-group'}>
-					<div class="grouped-training">
-						{#each ctx.personnelByGroup as grp (grp.group)}
-							<div class="group-section">
-								<button class="group-header" onclick={() => ctx.toggleGroup(grp.group)}>
-									<span class="toggle-icon">{ctx.collapsedGroups.has(grp.group) ? '▶' : '▼'}</span>
-									<span class="group-name">{grp.group}</span>
-									<span class="group-count">({grp.personnel.length})</span>
-								</button>
-								{#if !ctx.collapsedGroups.has(grp.group)}
-									<div class="group-content">
-										<TrainingMatrix
-											personnel={grp.personnel}
-											trainingTypes={trainingTypesStore.items}
-											trainings={personnelTrainingsStore.items}
-											onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
-											onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
-										/>
-									</div>
-								{/if}
-							</div>
-						{/each}
-					</div>
+					<TrainingMatrix
+						personnel={ctx.filteredPersonnel}
+						trainingTypes={trainingTypesStore.items}
+						trainings={personnelTrainingsStore.items}
+						onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
+						onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
+						groupBy={{
+							key: (p) => p.groupName || 'Unassigned',
+							compare: (a, b) => {
+								const aPin = pinnedGroupsStore.list.includes(a) ? 0 : 1;
+								const bPin = pinnedGroupsStore.list.includes(b) ? 0 : 1;
+								if (aPin !== bPin) return aPin - bPin;
+								return a.localeCompare(b);
+							}
+						}}
+					/>
 				</div>
 			{/if}
 		</main>
@@ -151,28 +146,28 @@
 	}
 
 	.stat.current {
-		background-color: rgba(34, 197, 94, 0.1);
-		border: 1px solid #22c55e;
+		background-color: color-mix(in srgb, var(--color-success) 10%, transparent);
+		border: 1px solid var(--color-success);
 	}
 
 	.stat.warning-yellow {
-		background-color: rgba(234, 179, 8, 0.1);
-		border: 1px solid #eab308;
+		background-color: color-mix(in srgb, var(--color-warning) 10%, transparent);
+		border: 1px solid var(--color-warning);
 	}
 
 	.stat.warning-orange {
-		background-color: rgba(249, 115, 22, 0.1);
-		border: 1px solid #f97316;
+		background-color: color-mix(in srgb, var(--color-warning) 15%, transparent);
+		border: 1px solid var(--color-warning);
 	}
 
 	.stat.expired {
-		background-color: rgba(239, 68, 68, 0.1);
-		border: 1px solid #ef4444;
+		background-color: color-mix(in srgb, var(--color-error) 10%, transparent);
+		border: 1px solid var(--color-error);
 	}
 
 	.stat.not-completed {
-		background-color: rgba(107, 114, 128, 0.1);
-		border: 1px solid #6b7280;
+		background-color: color-mix(in srgb, var(--color-text-muted) 10%, transparent);
+		border: 1px solid var(--color-text-muted);
 	}
 
 	.stat-value {
@@ -251,59 +246,9 @@
 	}
 
 	.view-btn.active {
-		background: #b8943e;
-		border-color: #b8943e;
-		color: #0f0f0f;
-	}
-
-	.grouped-training {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-lg);
-	}
-
-	.group-section {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		overflow: hidden;
-	}
-
-	.group-header {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		width: 100%;
-		padding: var(--spacing-md);
-		background: #0f0f0f;
-		color: #f0ede6;
-		font-weight: 600;
-		cursor: pointer;
-		border: none;
-		text-align: left;
-	}
-
-	.group-header:hover {
-		background: #1a1a1a;
-	}
-
-	.toggle-icon {
-		font-size: 10px;
-		width: 12px;
-	}
-
-	.group-name {
-		flex: 1;
-	}
-
-	.group-count {
-		font-weight: 400;
-		opacity: 0.8;
-	}
-
-	.group-content {
-		padding: var(--spacing-md);
-		overflow-x: auto;
+		background: var(--color-primary);
+		border-color: var(--color-primary);
+		color: white;
 	}
 
 	.no-permission {
@@ -382,10 +327,6 @@
 		.filter-count {
 			width: 100%;
 			margin-left: 0;
-		}
-
-		.group-content {
-			padding: var(--spacing-sm);
 		}
 	}
 

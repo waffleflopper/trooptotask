@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-22-table-improvements',
+		date: '2026-03-22',
+		title: 'Tables Got a Glow-Up',
+		items: [
+			'All tables across the app now have a consistent look and feel — reports, training matrix, admin pages, rating scheme, the works',
+			'You can now click column headers to sort most tables — finally, no more squinting to find someone buried in a long list',
+			'Fixed a bug where editing a rating scheme entry would create a duplicate instead of actually saving your changes'
+		]
+	},
+	{
 		id: '2026-03-19-leaders-book-redesign',
 		date: '2026-03-19',
 		title: "Leader's Book Redesign In Progress",
@@ -47,12 +57,4 @@ export const changelog: ChangelogEntry[] = [
 			'If you remove a step from the template after someone already started, it shows up as deprecated on their checklist so you can review and dismiss it manually'
 		]
 	},
-	{
-		id: '2026-03-15-feedback-improvements',
-		date: '2026-03-15',
-		title: 'Better Feedback Reports',
-		items: [
-			'Feedback submissions now include which section of the app you were in — so bug reports actually come with useful context instead of just a raw URL'
-		]
-	}
 ];

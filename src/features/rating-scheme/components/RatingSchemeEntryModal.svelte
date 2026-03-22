@@ -161,8 +161,8 @@
 			reportType: reportType || null,
 			workflowStatus: showWorkflow && workflowStatus ? (workflowStatus as WorkflowStatus) : null
 		};
-		onClose();
 		await onSave(saveData);
+		onClose();
 	}
 
 	async function handleDelete() {

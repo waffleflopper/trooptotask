@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
+	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
 
@@ -13,6 +14,8 @@
 	let permanentlyDeleting = $state<string | null>(null);
 	let exporting = $state<string | null>(null);
 	let confirmPermanentDelete = $state<{ id: string; name: string } | null>(null);
+
+	type ArchivedPerson = (typeof data.archivedPersonnel)[number];
 
 	function daysUntilAutoDelete(archivedAt: string, retentionMonths: number): number {
 		const archiveDate = new Date(archivedAt);
@@ -35,6 +38,32 @@
 		const months = Math.floor(days / 30);
 		return `${months} month${months !== 1 ? 's' : ''}`;
 	}
+
+	const columns: ColumnDef<ArchivedPerson>[] = [
+		{
+			key: 'name',
+			header: 'Name',
+			value: (p) => `${p.rank} ${p.lastName}, ${p.firstName}`,
+			compare: (a, b) => a.lastName.localeCompare(b.lastName)
+		},
+		{ key: 'mos', header: 'MOS', value: (p) => p.mos || '--' },
+		{ key: 'group', header: 'Group', value: (p) => p.groupName || '--' },
+		{
+			key: 'archived',
+			header: 'Archived',
+			value: (p) => p.archivedAt,
+			compare: (a, b) => new Date(a.archivedAt).getTime() - new Date(b.archivedAt).getTime()
+		},
+		{
+			key: 'autoDelete',
+			header: 'Auto-Delete',
+			value: (p) => daysUntilAutoDelete(p.archivedAt, data.retentionMonths),
+			compare: (a, b) =>
+				daysUntilAutoDelete(a.archivedAt, data.retentionMonths) -
+				daysUntilAutoDelete(b.archivedAt, data.retentionMonths)
+		},
+		{ key: 'actions', header: 'Actions', value: () => '', searchable: false }
+	];
 
 	async function handleRestore(id: string) {
 		restoring = id;
@@ -105,72 +134,54 @@
 		</p>
 	</div>
 
-	{#if data.archivedPersonnel.length === 0}
-		<EmptyState message="No archived personnel." />
-	{:else}
-		<div class="table-wrapper">
-			<table class="archived-table">
-				<thead>
-					<tr>
-						<th>Name</th>
-						<th>MOS</th>
-						<th>Group</th>
-						<th>Archived</th>
-						<th>Auto-Delete</th>
-						<th>Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each data.archivedPersonnel as person (person.id)}
-						{@const days = daysUntilAutoDelete(person.archivedAt, data.retentionMonths)}
-						{@const countdownClass = days <= 0 ? 'overdue' : days < 30 ? 'critical' : days < 90 ? 'warning' : ''}
-						<tr>
-							<td class="name-cell">
-								{person.rank}
-								{person.lastName}, {person.firstName}
-							</td>
-							<td>{person.mos || '--'}</td>
-							<td>{person.groupName || '--'}</td>
-							<td>{formatDate(person.archivedAt)}</td>
-							<td>
-								<span class="countdown {countdownClass}">
-									{formatCountdown(days)}
-								</span>
-							</td>
-							<td class="actions-cell">
-								<button
-									class="btn btn-primary btn-sm"
-									onclick={() => handleRestore(person.id)}
-									disabled={restoring === person.id}
-								>
-									{#if restoring === person.id}<Spinner />{/if}
-									Restore
-								</button>
-								<button
-									class="btn btn-secondary btn-sm"
-									onclick={() => handleExport(person.id, `${person.rank}-${person.lastName}`)}
-									disabled={exporting === person.id}
-								>
-									{#if exporting === person.id}<Spinner />{/if}
-									Export
-								</button>
-								<button
-									class="btn btn-danger btn-sm"
-									onclick={() =>
-										(confirmPermanentDelete = {
-											id: person.id,
-											name: `${person.rank} ${person.lastName}, ${person.firstName}`
-										})}
-								>
-									Delete
-								</button>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{/if}
+	<DataTable
+		data={data.archivedPersonnel}
+		{columns}
+		initialSortKey="name"
+		ariaLabel="Archived personnel"
+		emptyMessage="No archived personnel."
+	>
+		{#snippet cell(row, col)}
+			{#if col.key === 'name'}
+				<span class="name-cell">{row.rank} {row.lastName}, {row.firstName}</span>
+			{:else if col.key === 'archived'}
+				{formatDate(row.archivedAt)}
+			{:else if col.key === 'autoDelete'}
+				{@const days = daysUntilAutoDelete(row.archivedAt, data.retentionMonths)}
+				{@const countdownClass = days <= 0 ? 'overdue' : days < 30 ? 'critical' : days < 90 ? 'warning' : ''}
+				<span class="countdown {countdownClass}">
+					{formatCountdown(days)}
+				</span>
+			{:else if col.key === 'actions'}
+				<div class="actions-cell">
+					<button class="btn btn-primary btn-sm" onclick={() => handleRestore(row.id)} disabled={restoring === row.id}>
+						{#if restoring === row.id}<Spinner />{/if}
+						Restore
+					</button>
+					<button
+						class="btn btn-secondary btn-sm"
+						onclick={() => handleExport(row.id, `${row.rank}-${row.lastName}`)}
+						disabled={exporting === row.id}
+					>
+						{#if exporting === row.id}<Spinner />{/if}
+						Export
+					</button>
+					<button
+						class="btn btn-danger btn-sm"
+						onclick={() =>
+							(confirmPermanentDelete = {
+								id: row.id,
+								name: `${row.rank} ${row.lastName}, ${row.firstName}`
+							})}
+					>
+						Delete
+					</button>
+				</div>
+			{:else}
+				{String(col.value(row) ?? '')}
+			{/if}
+		{/snippet}
+	</DataTable>
 </div>
 
 {#if confirmPermanentDelete}
@@ -202,55 +213,16 @@
 		font-size: var(--font-size-sm);
 	}
 
-	.table-wrapper {
-		overflow-x: auto;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-	}
-
-	.archived-table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--font-size-sm);
-	}
-
-	.archived-table th {
-		text-align: left;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface-variant);
-		color: var(--color-text-secondary);
-		font-weight: 600;
-		font-size: var(--font-size-xs);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		border-bottom: 1px solid var(--color-border);
-		white-space: nowrap;
-	}
-
-	.archived-table td {
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-bottom: 1px solid var(--color-divider);
-		vertical-align: middle;
-	}
-
-	.archived-table tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.archived-table tbody tr:hover {
-		background: var(--color-surface-variant);
-	}
-
 	.name-cell {
 		font-weight: 500;
 		white-space: nowrap;
 	}
 
 	.actions-cell {
-		white-space: nowrap;
 		display: flex;
 		gap: var(--spacing-xs);
 		align-items: center;
+		white-space: nowrap;
 	}
 
 	.countdown {

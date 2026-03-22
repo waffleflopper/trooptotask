@@ -1111,7 +1111,7 @@
 	.chip.selected {
 		background: var(--color-primary);
 		border-color: var(--color-primary);
-		color: #0f0f0f;
+		color: var(--color-chrome);
 	}
 
 	.chip.status-chip.selected {
@@ -1228,7 +1228,7 @@
 		height: 18px;
 		padding: 0 4px;
 		background: var(--color-primary);
-		color: #0f0f0f;
+		color: var(--color-chrome);
 		border-radius: var(--radius-full);
 		font-size: 10px;
 		font-weight: 700;

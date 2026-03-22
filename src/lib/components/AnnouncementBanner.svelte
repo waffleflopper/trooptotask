@@ -1,7 +1,4 @@
 <script lang="ts">
-	import { demoModeStore } from '$lib/stores/demoMode.svelte';
-	import { subscriptionStore } from '$lib/stores/subscription.svelte';
-
 	interface Announcement {
 		id: string;
 		title: string;
@@ -22,9 +19,6 @@
 		onCountChange?.(visibleAnnouncements.length);
 	});
 
-	/** Stack below header + any demo/sub banners above us */
-	const bannerOffset = $derived((demoModeStore.hasBanner ? 40 : 0) + (subscriptionStore.hasBanner ? 40 : 0));
-
 	async function dismiss(id: string) {
 		visibleAnnouncements = visibleAnnouncements.filter((a) => a.id !== id);
 		await fetch('/api/announcements/dismiss', {
@@ -37,11 +31,7 @@
 
 {#if visibleAnnouncements.length > 0}
 	{#each visibleAnnouncements as announcement, i (announcement.id)}
-		<div
-			class="announcement-banner announcement-{announcement.type}"
-			style:top="calc(var(--header-height, 56px) + {bannerOffset + i * 40}px)"
-			role="alert"
-		>
+		<div class="announcement-banner announcement-{announcement.type}" role="alert">
 			<div class="banner-content">
 				<span class="banner-text">
 					<strong>{announcement.title}</strong>
@@ -58,10 +48,7 @@
 
 <style>
 	.announcement-banner {
-		position: fixed;
-		left: 0;
 		width: 100%;
-		z-index: 99;
 		padding: var(--spacing-sm) var(--spacing-lg);
 		box-sizing: border-box;
 	}

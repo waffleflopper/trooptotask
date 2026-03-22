@@ -4,6 +4,45 @@ Shared UI primitives live in `src/lib/components/ui/`. Import via `$lib/componen
 
 ---
 
+## `PageToolbar.svelte`
+
+Page header toolbar with title, actions, breadcrumbs, and variant support. Lives in `src/lib/components/` (not `ui/`).
+
+```svelte
+<!-- Basic usage (unchanged) -->
+<PageToolbar title="Personnel">
+	<button class="btn btn-primary" onclick={handleAdd}>Add</button>
+</PageToolbar>
+
+<!-- With breadcrumbs and subtitle -->
+<PageToolbar
+	title="Training Records"
+	subtitle="42 total"
+	breadcrumbs={[{ label: 'Personnel', href: '/personnel' }, { label: 'John Smith' }]}
+/>
+
+<!-- Compact variant, sticky -->
+<PageToolbar title="Detail View" variant="compact" sticky />
+
+<!-- With below slot for filters/sub-nav -->
+<PageToolbar title="Calendar">
+	{#snippet below()}
+		<SubNav tabs={tabs} active={currentTab} onChange={handleTab} />
+	{/snippet}
+</PageToolbar>
+
+<!-- Leading snippet replaces title area -->
+<PageToolbar title="Dashboard">
+	{#snippet leading()}
+		<CustomHeader />
+	{/snippet}
+</PageToolbar>
+```
+
+Props: `title: string`, `helpTopic?: string`, `overflowItems?: OverflowItem[]`, `variant?: 'default' | 'compact' | 'transparent'`, `sticky?: boolean`, `breadcrumbs?: { label: string; href?: string }[]`, `subtitle?: string`, `children?: Snippet` (actions), `leading?: Snippet`, `below?: Snippet`
+
+---
+
 ## `Modal.svelte`
 
 Base modal wrapper. Use for all modals.
@@ -47,6 +86,62 @@ Loading spinner for async buttons.
 ```
 
 Props: `size?: number` (px, default 14), `color?: string` (default `'white'`)
+
+## `ui/FormField.svelte`
+
+Labeled form field with error/hint states, accessibility wiring, and semantic `--field-*` tokens.
+
+```svelte
+<!-- Simple text input -->
+<FormField label="First Name" id="first-name" required bind:value={firstName} />
+
+<!-- Select with simple options -->
+<FormField label="Status" id="status" inputElement="select" options={statusOptions} bind:value={status} />
+
+<!-- Textarea -->
+<FormField label="Notes" id="notes" inputElement="textarea" rows={3} bind:value={notes} />
+
+<!-- With error -->
+<FormField label="Email" id="email" type="email" error={emailError} bind:value={email} />
+
+<!-- With hint -->
+<FormField label="MOS" id="mos" hint="e.g., 68W, 68C, RN" bind:value={mos} />
+
+<!-- Escape hatch: custom children (e.g., optgroups) -->
+<FormField label="Rank" id="rank">
+	<select id="rank" class="input" bind:value={rank}>
+		<optgroup label="NCO">
+			<option value="SGT">SGT</option>
+		</optgroup>
+	</select>
+</FormField>
+```
+
+Props: `label: string`, `id: string`, `inputElement?: 'input' | 'select' | 'textarea'`, `name?: string`, `type?: string`, `placeholder?: string`, `value?: string` (bindable), `required?: boolean`, `error?: string`, `hint?: string`, `disabled?: boolean`, `options?: { value: string; label: string }[]`, `rows?: number`, `children?: Snippet`
+
+Accessibility: `label[for]` wired to `id`, `aria-describedby` for error/hint, `aria-invalid` when error, `required` forwarded to native element. Uses `--field-bg`, `--field-border`, `--field-border-focus`, `--field-label`, `--field-error`, `--field-help` tokens.
+
+**Children escape hatch note:** When using the `children` snippet, you must manually wire `aria-describedby="{id}-error"` or `"{id}-hint"` on your custom input element. FormField renders the error/hint spans with those IDs but cannot auto-apply them to custom children.
+
+## `ui/SubNav.svelte`
+
+Reusable secondary tab navigation with badge counts and variant styles.
+
+```svelte
+<SubNav
+	tabs={[
+		{ label: 'Approvals', value: 'approvals', badge: pendingCount },
+		{ label: 'Archived', value: 'archived' },
+		{ label: 'Audit Log', value: 'audit' },
+		{ label: 'Settings', value: 'settings' }
+	]}
+	active={currentTab}
+	onChange={(tab) => goto(`/org/${orgId}/admin/${tab}`)}
+	variant="underline"
+/>
+```
+
+Props: `tabs: { label: string; value: string; badge?: number }[]`, `active: string`, `onChange: (value: string) => void`, `variant?: 'underline' | 'pill'` (default `'underline'`)
 
 ## `ui/EmptyState.svelte`
 
@@ -149,11 +244,54 @@ const table = useDataTable({
 
 ### Colors
 
-- **Primary**: `--color-primary: #3f51b5` (indigo)
+- **Primary**: `--color-primary: #b8943e` (brass)
 - **Surface**: `--color-bg`, `--color-surface`, `--color-surface-variant`
 - **Text**: `--color-text`, `--color-text-secondary`, `--color-text-muted`
 - **Border**: `--color-border`, `--color-divider`
 - **Status**: `--color-success`, `--color-warning`, `--color-error`, `--color-info`
+
+### Chrome / App Shell Tokens
+
+Semantic tokens for the header, nav, and app shell. Dark by default, theme-controllable.
+
+| Token | Light Mode | Purpose |
+|-------|-----------|---------|
+| `--color-chrome` | `#0f0f0f` | App shell background |
+| `--color-chrome-text` | `#f0ede6` | App shell text |
+| `--color-chrome-text-muted` | `#8a8780` | App shell secondary text |
+| `--color-chrome-border` | `#2a2a2a` | App shell borders |
+| `--color-chrome-active` | `var(--color-primary)` | Active nav item |
+
+### Form Field Tokens
+
+Semantic tokens for form fields. Reference these instead of raw color variables.
+
+| Token | Default | Purpose |
+|-------|---------|---------|
+| `--field-bg` | `var(--color-surface)` | Input background |
+| `--field-border` | `var(--color-border)` | Input border |
+| `--field-border-focus` | `var(--color-primary)` | Focused input border |
+| `--field-label` | `var(--color-text-secondary)` | Label text color |
+| `--field-error` | `var(--color-error)` | Error text/border color |
+| `--field-help` | `var(--color-text-muted)` | Hint text color |
+
+### Toolbar Tokens
+
+| Token | Default | Purpose |
+|-------|---------|---------|
+| `--toolbar-bg` | `var(--color-surface)` | Toolbar background |
+| `--toolbar-border` | `var(--color-border)` | Toolbar border |
+
+### Opacity Scale
+
+Use instead of hardcoded `rgba()` alpha values.
+
+| Token | Value | Use case |
+|-------|-------|----------|
+| `--opacity-subtle` | `0.08` | Hover states, tints |
+| `--opacity-light` | `0.12` | Chip backgrounds, light overlays |
+| `--opacity-medium` | `0.15` | Active states, medium overlays |
+| `--opacity-heavy` | `0.45` | Disabled states, heavy overlays |
 
 ### Typography
 
@@ -163,6 +301,10 @@ const table = useDataTable({
 
 `--radius-sm: 4px` | `--radius-md: 8px` | `--radius-lg: 12px` | `--radius-full: 9999px`
 
+### Micro-spacing
+
+`--spacing-2xs: 2px` — for tight gaps (e.g., icon-to-text in compact UI)
+
 ### Utility Classes
 
 ```css
@@ -171,6 +313,24 @@ const table = useDataTable({
 .text-primary / .text-muted / .text-error / etc.
 .bg-surface / .bg-surface-variant
 .rounded-sm / .rounded-md / .rounded-lg
+```
+
+### Page Layout Utilities
+
+```css
+.app-page      /* height: 100%; flex column; page root */
+.page-scroll   /* flex: 1; overflow-y: auto; padded — scrollable content area */
+.page-fill     /* flex: 1; overflow: hidden — non-scrolling content (Calendar, matrix views) */
+```
+
+`.page-scroll` padding reduces to `--spacing-sm` on mobile.
+
+### Form Field Utilities
+
+```css
+.input-error   /* border-color: var(--field-error) — apply to .input when validation fails */
+.field-hint    /* hint text below input (xs size, muted color) */
+.field-error   /* error text below input (xs size, error color) */
 ```
 
 ### Button Classes

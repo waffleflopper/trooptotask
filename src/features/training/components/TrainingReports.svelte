@@ -577,7 +577,7 @@
 
 	.tab-btn.active {
 		background: var(--color-primary);
-		color: #0f0f0f;
+		color: var(--color-chrome);
 	}
 
 	.filters-section {
@@ -691,8 +691,8 @@
 		align-items: center;
 		gap: var(--spacing-sm);
 		padding: var(--spacing-sm) var(--spacing-md);
-		background: #0f0f0f;
-		color: #f0ede6;
+		background: var(--color-chrome);
+		color: var(--color-chrome-text);
 	}
 
 	.person-rank {

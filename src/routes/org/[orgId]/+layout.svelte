@@ -11,6 +11,7 @@
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
 	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
+	import BannerStack from '$lib/components/BannerStack.svelte';
 	import DemoBanner from '$lib/components/DemoBanner.svelte';
 	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
 	import DemoSandboxModal from '$lib/components/DemoSandboxModal.svelte';
@@ -121,11 +122,13 @@
 	</div>
 {:else}
 	<NavigationProgress />
-	<DemoBanner />
-	<SubscriptionBanner orgId={data.orgId} />
-	{#if data.activeAnnouncements?.length}
-		<AnnouncementBanner announcements={data.activeAnnouncements} onCountChange={(n) => (announcementCount = n)} />
-	{/if}
+	<BannerStack>
+		<DemoBanner />
+		<SubscriptionBanner orgId={data.orgId} />
+		{#if data.activeAnnouncements?.length}
+			<AnnouncementBanner announcements={data.activeAnnouncements} onCountChange={(n) => (announcementCount = n)} />
+		{/if}
+	</BannerStack>
 
 	<TopHeader
 		orgId={data.orgId}
@@ -139,13 +142,7 @@
 		onWhatsNew={() => whatsNewStore.show()}
 	/>
 
-	<main
-		id="main-content"
-		class="app-content"
-		class:has-demo-banner={demoModeStore.hasBanner}
-		class:has-sub-banner={subscriptionStore.hasBanner}
-		style:--announcement-offset="{announcementCount * 40}px"
-	>
+	<main id="main-content" class="app-content">
 		{@render children()}
 	</main>
 
@@ -221,20 +218,8 @@
 	}
 
 	.app-content {
-		padding-top: calc(var(--header-height, 56px) + var(--announcement-offset, 0px));
+		padding-top: calc(var(--header-height, 56px) + var(--banner-height, 0px));
 		min-height: 100vh;
-	}
-
-	.app-content.has-demo-banner {
-		padding-top: calc(var(--header-height, 56px) + 40px + var(--announcement-offset, 0px));
-	}
-
-	.app-content.has-sub-banner {
-		padding-top: calc(var(--header-height, 56px) + 40px + var(--announcement-offset, 0px));
-	}
-
-	.app-content.has-demo-banner.has-sub-banner {
-		padding-top: calc(var(--header-height, 56px) + 80px + var(--announcement-offset, 0px));
 	}
 
 	@media (max-width: 640px) {

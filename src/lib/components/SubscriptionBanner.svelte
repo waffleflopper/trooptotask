@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { isBillingEnabled } from '$lib/config/billing';
-	import { demoModeStore } from '$lib/stores/demoMode.svelte';
-
 	let { orgId }: { orgId: string } = $props();
 
 	const daysRemaining = $derived(subscriptionStore.giftDaysRemaining);
@@ -14,17 +12,10 @@
 	const tierName = $derived(subscriptionStore.tierConfig.name);
 	const personnelCap = $derived(subscriptionStore.personnelCap);
 	const personnelCount = $derived(subscriptionStore.personnelCount);
-
-	/** Offset for demo banner if it's visible */
-	const demoBannerOffset = $derived(demoModeStore.hasBanner ? 40 : 0);
 </script>
 
 {#if showBanner}
-	<div
-		class="subscription-banner"
-		class:urgent={isUrgent || isReadOnly}
-		style:top="calc(var(--header-height, 56px) + {demoBannerOffset}px)"
-	>
+	<div class="subscription-banner" class:urgent={isUrgent || isReadOnly}>
 		<div class="banner-content">
 			{#if isReadOnly}
 				<span class="banner-icon">
@@ -74,10 +65,7 @@
 		background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
 		color: white;
 		padding: var(--spacing-sm) var(--spacing-lg);
-		position: fixed;
-		left: 0;
 		width: 100%;
-		z-index: 99;
 		box-sizing: border-box;
 	}
 

@@ -195,7 +195,7 @@
 		width: 7px;
 		height: 7px;
 		border-radius: 50%;
-		background: #b8943e;
+		background: var(--color-primary);
 		flex-shrink: 0;
 	}
 

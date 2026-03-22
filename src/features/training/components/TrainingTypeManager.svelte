@@ -471,7 +471,7 @@
 
 	.role-chip.selected {
 		background: var(--color-primary);
-		color: #0f0f0f;
+		color: var(--color-chrome);
 		border-color: var(--color-primary);
 	}
 

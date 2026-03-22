@@ -4,6 +4,45 @@ Shared UI primitives live in `src/lib/components/ui/`. Import via `$lib/componen
 
 ---
 
+## `PageToolbar.svelte`
+
+Page header toolbar with title, actions, breadcrumbs, and variant support. Lives in `src/lib/components/` (not `ui/`).
+
+```svelte
+<!-- Basic usage (unchanged) -->
+<PageToolbar title="Personnel">
+	<button class="btn btn-primary" onclick={handleAdd}>Add</button>
+</PageToolbar>
+
+<!-- With breadcrumbs and subtitle -->
+<PageToolbar
+	title="Training Records"
+	subtitle="42 total"
+	breadcrumbs={[{ label: 'Personnel', href: '/personnel' }, { label: 'John Smith' }]}
+/>
+
+<!-- Compact variant, sticky -->
+<PageToolbar title="Detail View" variant="compact" sticky />
+
+<!-- With below slot for filters/sub-nav -->
+<PageToolbar title="Calendar">
+	{#snippet below()}
+		<SubNav tabs={tabs} active={currentTab} onChange={handleTab} />
+	{/snippet}
+</PageToolbar>
+
+<!-- Leading snippet replaces title area -->
+<PageToolbar title="Dashboard">
+	{#snippet leading()}
+		<CustomHeader />
+	{/snippet}
+</PageToolbar>
+```
+
+Props: `title: string`, `helpTopic?: string`, `overflowItems?: OverflowItem[]`, `variant?: 'default' | 'compact' | 'transparent'`, `sticky?: boolean`, `breadcrumbs?: { label: string; href?: string }[]`, `subtitle?: string`, `children?: Snippet` (actions), `leading?: Snippet`, `below?: Snippet`
+
+---
+
 ## `Modal.svelte`
 
 Base modal wrapper. Use for all modals.
@@ -47,6 +86,60 @@ Loading spinner for async buttons.
 ```
 
 Props: `size?: number` (px, default 14), `color?: string` (default `'white'`)
+
+## `ui/FormField.svelte`
+
+Labeled form field with error/hint states, accessibility wiring, and semantic `--field-*` tokens.
+
+```svelte
+<!-- Simple text input -->
+<FormField label="First Name" id="first-name" required bind:value={firstName} />
+
+<!-- Select with simple options -->
+<FormField label="Status" id="status" inputElement="select" options={statusOptions} bind:value={status} />
+
+<!-- Textarea -->
+<FormField label="Notes" id="notes" inputElement="textarea" rows={3} bind:value={notes} />
+
+<!-- With error -->
+<FormField label="Email" id="email" type="email" error={emailError} bind:value={email} />
+
+<!-- With hint -->
+<FormField label="MOS" id="mos" hint="e.g., 68W, 68C, RN" bind:value={mos} />
+
+<!-- Escape hatch: custom children (e.g., optgroups) -->
+<FormField label="Rank" id="rank">
+	<select id="rank" class="input" bind:value={rank}>
+		<optgroup label="NCO">
+			<option value="SGT">SGT</option>
+		</optgroup>
+	</select>
+</FormField>
+```
+
+Props: `label: string`, `id: string`, `inputElement?: 'input' | 'select' | 'textarea'`, `name?: string`, `type?: string`, `placeholder?: string`, `value?: string` (bindable), `required?: boolean`, `error?: string`, `hint?: string`, `disabled?: boolean`, `options?: { value: string; label: string }[]`, `rows?: number`, `children?: Snippet`
+
+Accessibility: `label[for]` wired to `id`, `aria-describedby` for error/hint, `aria-invalid` when error. Uses `--field-bg`, `--field-border`, `--field-border-focus`, `--field-label`, `--field-error`, `--field-help` tokens.
+
+## `ui/SubNav.svelte`
+
+Reusable secondary tab navigation with badge counts and variant styles.
+
+```svelte
+<SubNav
+	tabs={[
+		{ label: 'Approvals', value: 'approvals', badge: pendingCount },
+		{ label: 'Archived', value: 'archived' },
+		{ label: 'Audit Log', value: 'audit' },
+		{ label: 'Settings', value: 'settings' }
+	]}
+	active={currentTab}
+	onChange={(tab) => goto(`/org/${orgId}/admin/${tab}`)}
+	variant="underline"
+/>
+```
+
+Props: `tabs: { label: string; value: string; badge?: number }[]`, `active: string`, `onChange: (value: string) => void`, `variant?: 'underline' | 'pill'` (default `'underline'`)
 
 ## `ui/EmptyState.svelte`
 

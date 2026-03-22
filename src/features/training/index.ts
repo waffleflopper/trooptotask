@@ -14,3 +14,7 @@ export {
 	getTrainingStats
 } from './utils/trainingStatus';
 export type { TrainingStatusInfo, TrainingStats, DelinquentTraining } from './utils/trainingStatus';
+
+// Context
+export { TrainingPageContext } from './contexts/TrainingPageContext.svelte';
+export type { TrainingPageData } from './contexts/TrainingPageContext.svelte';

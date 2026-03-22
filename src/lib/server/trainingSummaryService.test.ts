@@ -392,3 +392,86 @@ describe('getTrainingSummaryByGroup', () => {
 		expect(result.get('g2')!.issues.length).toBe(1);
 	});
 });
+
+describe('getTrainingSummaryByType', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('returns per-type stats keyed by trainingTypeId', async () => {
+		const personnel = [makePersonnel({ id: 'p1' })];
+		const types = [
+			makeTrainingType({ id: 'tt1', name: 'CPR/BLS', requiredForRoles: ['*'] }),
+			makeTrainingType({ id: 'tt2', name: 'SHARP', requiredForRoles: ['*'] })
+		];
+
+		const today = new Date();
+		const futureDate = new Date(today);
+		futureDate.setFullYear(futureDate.getFullYear() + 1);
+		const expiredDate = new Date(today);
+		expiredDate.setDate(expiredDate.getDate() - 10);
+		const fmt = (d: Date) => d.toISOString().split('T')[0];
+
+		// p1 is current on tt1, expired on tt2
+		const trainings = [
+			makeTraining({ id: 'pt1', personnelId: 'p1', trainingTypeId: 'tt1', expirationDate: fmt(futureDate) }),
+			makeTraining({ id: 'pt2', personnelId: 'p1', trainingTypeId: 'tt2', expirationDate: fmt(expiredDate) })
+		];
+		mockTrainingList.mockResolvedValue(trainings);
+
+		const { getTrainingSummaryByType } = await import('./trainingSummaryService');
+		const result = await getTrainingSummaryByType(createMockSupabase(), ORG_ID, personnel, types);
+
+		expect(result).toBeInstanceOf(Map);
+		expect(result.size).toBe(2);
+		// tt1: 1 current
+		expect(result.get('tt1')!.current).toBe(1);
+		expect(result.get('tt1')!.expired).toBe(0);
+		// tt2: 1 expired
+		expect(result.get('tt2')!.expired).toBe(1);
+		expect(result.get('tt2')!.current).toBe(0);
+	});
+
+	it('filters by groupId when option is provided', async () => {
+		const personnel = [
+			makePersonnel({ id: 'p1', groupId: 'g1' }),
+			makePersonnel({ id: 'p2', lastName: 'Jones', groupId: 'g2' })
+		];
+		const types = [makeTrainingType({ id: 'tt1', requiredForRoles: ['*'] })];
+
+		const futureDate = new Date();
+		futureDate.setFullYear(futureDate.getFullYear() + 1);
+		const fmt = (d: Date) => d.toISOString().split('T')[0];
+
+		// Only p1 has training
+		const trainings = [
+			makeTraining({ id: 'pt1', personnelId: 'p1', trainingTypeId: 'tt1', expirationDate: fmt(futureDate) })
+		];
+		mockTrainingList.mockResolvedValue(trainings);
+
+		const { getTrainingSummaryByType } = await import('./trainingSummaryService');
+		const result = await getTrainingSummaryByType(createMockSupabase(), ORG_ID, personnel, types, {
+			groupId: 'g1'
+		});
+
+		// Only p1 (g1) should be counted — 1 total, 1 current
+		expect(result.get('tt1')!.total).toBe(1);
+		expect(result.get('tt1')!.current).toBe(1);
+	});
+
+	it('returns not-completed stats for type with zero training records', async () => {
+		const personnel = [makePersonnel({ id: 'p1' }), makePersonnel({ id: 'p2', lastName: 'Jones' })];
+		const types = [makeTrainingType({ id: 'tt1', requiredForRoles: ['*'] })];
+
+		// No training records at all
+		mockTrainingList.mockResolvedValue([]);
+
+		const { getTrainingSummaryByType } = await import('./trainingSummaryService');
+		const result = await getTrainingSummaryByType(createMockSupabase(), ORG_ID, personnel, types);
+
+		// Both personnel should be not-completed
+		expect(result.get('tt1')!.total).toBe(2);
+		expect(result.get('tt1')!.notCompleted).toBe(2);
+		expect(result.get('tt1')!.current).toBe(0);
+	});
+});

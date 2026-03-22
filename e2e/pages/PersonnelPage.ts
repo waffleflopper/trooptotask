@@ -57,7 +57,10 @@ export class PersonnelPage {
 
 	async clickPerson(name: string) {
 		// Find the row containing the person's name and click its Edit button
-		const row = this.page.getByRole('row').filter({ hasText: new RegExp(name) }).first();
+		const row = this.page
+			.getByRole('row')
+			.filter({ hasText: new RegExp(name) })
+			.first();
 		await row.getByRole('button', { name: 'Edit' }).click();
 	}
 

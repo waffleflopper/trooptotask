@@ -795,7 +795,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 	.group-chip:hover {
 		background: var(--color-primary);
 		border-color: var(--color-primary);
-		color: #0f0f0f;
+		color: var(--color-chrome);
 	}
 
 	.chip-count {

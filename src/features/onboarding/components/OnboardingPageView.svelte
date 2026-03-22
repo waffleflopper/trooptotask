@@ -419,9 +419,9 @@
 	}
 
 	.filter-btn.active {
-		background: #b8943e;
-		border-color: #b8943e;
-		color: #0f0f0f;
+		background: var(--color-primary);
+		border-color: var(--color-primary);
+		color: var(--color-chrome);
 	}
 
 	.btn-ghost {
@@ -496,7 +496,7 @@
 	}
 
 	.onboarding-card.expanded {
-		border-color: #b8943e;
+		border-color: var(--color-primary);
 	}
 
 	.card-summary {
@@ -685,7 +685,7 @@
 	}
 
 	.checkbox-toggle:hover {
-		border-color: #b8943e;
+		border-color: var(--color-primary);
 	}
 
 	.checkbox-toggle.checked {
@@ -732,7 +732,7 @@
 	}
 
 	.training-status-btn:hover {
-		border-color: #b8943e;
+		border-color: var(--color-primary);
 		background: rgba(184, 148, 62, 0.08);
 	}
 
@@ -768,8 +768,8 @@
 
 	.stage-arrow:hover:not(:disabled) {
 		background: var(--color-surface-variant);
-		border-color: #b8943e;
-		color: #b8943e;
+		border-color: var(--color-primary);
+		color: var(--color-primary);
 	}
 
 	.stage-arrow:disabled {
@@ -822,7 +822,7 @@
 		font-family: var(--font-mono);
 		font-size: var(--font-size-xs);
 		font-weight: 600;
-		color: #b8943e;
+		color: var(--color-primary);
 	}
 
 	/* Step notes */

@@ -49,11 +49,7 @@
 		background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
 		color: white;
 		padding: var(--spacing-sm) var(--spacing-lg);
-		position: fixed;
-		top: var(--header-height, 56px);
-		left: 0;
 		width: 100%;
-		z-index: 99;
 		box-sizing: border-box;
 	}
 

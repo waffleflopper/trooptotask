@@ -359,8 +359,8 @@
 		justify-content: center;
 		gap: var(--spacing-md);
 		padding: var(--spacing-md) var(--spacing-lg);
-		background: #0f0f0f;
-		color: #f0ede6;
+		background: var(--color-chrome);
+		color: var(--color-chrome-text);
 		/* Bleed past modal-body padding to fill edge-to-edge */
 		margin: calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg)) 0;
 	}
@@ -375,7 +375,7 @@
 	.month-nav .btn-secondary {
 		background: rgba(255, 255, 255, 0.1);
 		border-color: rgba(255, 255, 255, 0.2);
-		color: #f0ede6;
+		color: var(--color-chrome-text);
 	}
 
 	.month-nav .btn-secondary:hover {

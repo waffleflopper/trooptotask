@@ -106,6 +106,24 @@ export async function getTrainingSummaryByGroup(
 	return result;
 }
 
+export async function getTrainingSummaryByType(
+	supabase: SupabaseClient,
+	orgId: string,
+	personnel: Personnel[],
+	trainingTypes: TrainingType[],
+	options: { groupId?: string } = {}
+): Promise<Map<string, TrainingStats>> {
+	const trainings = await PersonnelTrainingEntity.repo.list(supabase, orgId);
+
+	const result = new Map<string, TrainingStats>();
+	for (const type of trainingTypes) {
+		const stats = getTrainingStats(personnel, [type], trainings, options.groupId);
+		result.set(type.id, stats);
+	}
+
+	return result;
+}
+
 export async function getOnboardingTrainingCompletions(
 	supabase: SupabaseClient,
 	orgId: string,

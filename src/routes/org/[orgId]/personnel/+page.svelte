@@ -4,9 +4,15 @@
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { PersonnelPageData } from '$features/personnel/contexts/PersonnelPageContext.svelte';
+	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import PersonnelPageView from '$features/personnel/components/PersonnelPageView.svelte';
+	import PersonnelModals from '$features/personnel/components/PersonnelModals.svelte';
 
 	let { data } = $props();
+
+	const org = getOrgContext();
+	const modals = new ModalRegistry();
 
 	// Hydrate personnel-specific stores (universal stores hydrated in org layout)
 	$effect(() => {
@@ -18,7 +24,15 @@
 	// singletons — their reactive `.list` getters are read inside the context's
 	// derived getters, so all computations stay live without recreating the context.
 	// Cast: SvelteKit page data is a superset of PersonnelPageData.
-	const ctx = new PersonnelPageContext(data as PersonnelPageData, personnelStore, ratingSchemeStore, pinnedGroupsStore);
+	const ctx = new PersonnelPageContext(
+		data as PersonnelPageData,
+		modals,
+		org,
+		personnelStore,
+		ratingSchemeStore,
+		pinnedGroupsStore
+	);
 </script>
 
 <PersonnelPageView {ctx} allPersonnel={data.personnel ?? []} permissions={data.permissions} />
+<PersonnelModals {ctx} {modals} allPersonnel={data.personnel ?? []} />

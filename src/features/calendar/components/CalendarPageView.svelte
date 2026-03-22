@@ -11,8 +11,11 @@
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarPrefsStore } from '$features/calendar/stores/calendarPrefs.svelte';
 
+	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+
 	interface Props {
 		ctx: CalendarPageContext;
+		modals: ModalRegistry;
 		data: {
 			orgId: string;
 			orgName: string;
@@ -20,7 +23,7 @@
 		};
 	}
 
-	let { ctx, data }: Props = $props();
+	let { ctx, modals, data }: Props = $props();
 </script>
 
 <svelte:head>
@@ -38,15 +41,15 @@
 			<span class="toggle-dot"></span>
 			Onboarding
 		</button>
-		<button class="btn btn-sm" data-testid="calendar-today-breakdown" onclick={() => (ctx.showTodayBreakdown = true)}>
+		<button class="btn btn-sm" data-testid="calendar-today-breakdown" onclick={() => modals.open('today-breakdown')}>
 			Today's Breakdown
 		</button>
 		{#if data.permissions?.canEditCalendar && ctx.canManageConfig}
-			<button class="btn btn-sm" onclick={() => (ctx.showAssignmentPlanner = true)} disabled={ctx.readOnly}>
+			<button class="btn btn-sm" onclick={() => modals.open('assignment-planner')} disabled={ctx.readOnly}>
 				Assignments
 			</button>
 		{/if}
-		<button class="btn btn-sm" onclick={() => (ctx.showLongRangeView = true)}> 3-Month View </button>
+		<button class="btn btn-sm" onclick={() => modals.open('long-range-view')}> 3-Month View </button>
 		{#if ctx.readOnly}
 			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
 		{/if}

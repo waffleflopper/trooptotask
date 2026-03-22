@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CalendarPageContext, type CalendarPageData } from './CalendarPageContext.svelte';
+import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
 
 // ---------------------------------------------------------------------------
@@ -26,14 +28,28 @@ const mockData: CalendarPageData = {
 	personnel: mockPersonnel,
 	allPersonnel: mockPersonnel,
 	scopedGroupId: null,
-	isOwner: false,
-	isAdmin: false,
-	isFullEditor: false,
 	permissions: {
 		canViewCalendar: true,
 		canEditCalendar: true
 	}
 };
+
+function makeMockOrg(overrides: Partial<OrgContext> = {}): OrgContext {
+	return {
+		orgId: 'org1',
+		orgName: 'Test Org',
+		userId: 'user1',
+		role: 'member',
+		isOwner: false,
+		isAdmin: false,
+		isPrivileged: false,
+		isFullEditor: false,
+		permissions: {} as OrgContext['permissions'],
+		scopedGroupId: null,
+		readOnly: false,
+		...overrides
+	};
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -41,9 +57,13 @@ const mockData: CalendarPageData = {
 
 describe('CalendarPageContext', () => {
 	let ctx: CalendarPageContext;
+	let modals: ModalRegistry;
+	let org: OrgContext;
 
 	beforeEach(() => {
-		ctx = new CalendarPageContext(mockData);
+		modals = new ModalRegistry();
+		org = makeMockOrg();
+		ctx = new CalendarPageContext(mockData, modals, org);
 	});
 
 	// ---- Derived permission flags ------------------------------------------
@@ -58,17 +78,17 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('canManageConfig is true for owner', () => {
-			const ownerCtx = new CalendarPageContext({ ...mockData, isOwner: true });
+			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
 			expect(ownerCtx.canManageConfig).toBe(true);
 		});
 
 		it('canManageConfig is true for admin', () => {
-			const adminCtx = new CalendarPageContext({ ...mockData, isAdmin: true });
+			const adminCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isAdmin: true }));
 			expect(adminCtx.canManageConfig).toBe(true);
 		});
 
 		it('canManageConfig is true for fullEditor', () => {
-			const editorCtx = new CalendarPageContext({ ...mockData, isFullEditor: true });
+			const editorCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isFullEditor: true }));
 			expect(editorCtx.canManageConfig).toBe(true);
 		});
 	});
@@ -76,16 +96,16 @@ describe('CalendarPageContext', () => {
 	// ---- Modal visibility state --------------------------------------------
 
 	describe('modal state (all start closed)', () => {
-		it('showStatusManager starts false', () => expect(ctx.showStatusManager).toBe(false));
-		it('showSpecialDayManager starts false', () => expect(ctx.showSpecialDayManager).toBe(false));
-		it('showTodayBreakdown starts false', () => expect(ctx.showTodayBreakdown).toBe(false));
-		it('showBulkStatusModal starts false', () => expect(ctx.showBulkStatusModal).toBe(false));
-		it('showBulkStatusImportModal starts false', () => expect(ctx.showBulkStatusImportModal).toBe(false));
-		it('showBulkRemoveModal starts false', () => expect(ctx.showBulkRemoveModal).toBe(false));
-		it('showAssignmentPlanner starts false', () => expect(ctx.showAssignmentPlanner).toBe(false));
-		it('showLongRangeView starts false', () => expect(ctx.showLongRangeView).toBe(false));
-		it('showAssignmentTypeManager starts false', () => expect(ctx.showAssignmentTypeManager).toBe(false));
-		it('showDutyRosterGenerator starts false', () => expect(ctx.showDutyRosterGenerator).toBe(false));
+		it('status-manager starts closed', () => expect(modals.isOpen('status-manager')).toBe(false));
+		it('special-day-manager starts closed', () => expect(modals.isOpen('special-day-manager')).toBe(false));
+		it('today-breakdown starts closed', () => expect(modals.isOpen('today-breakdown')).toBe(false));
+		it('bulk-status starts closed', () => expect(modals.isOpen('bulk-status')).toBe(false));
+		it('bulk-status-import starts closed', () => expect(modals.isOpen('bulk-status-import')).toBe(false));
+		it('bulk-remove starts closed', () => expect(modals.isOpen('bulk-remove')).toBe(false));
+		it('assignment-planner starts closed', () => expect(modals.isOpen('assignment-planner')).toBe(false));
+		it('long-range-view starts closed', () => expect(modals.isOpen('long-range-view')).toBe(false));
+		it('assignment-type-manager starts closed', () => expect(modals.isOpen('assignment-type-manager')).toBe(false));
+		it('duty-roster-generator starts closed', () => expect(modals.isOpen('duty-roster-generator')).toBe(false));
 	});
 
 	// ---- Selected state ----------------------------------------------------
@@ -108,20 +128,21 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('does nothing when canEditCalendar is false', () => {
-			const noEditCtx = new CalendarPageContext({
-				...mockData,
-				permissions: { ...mockData.permissions, canEditCalendar: false }
-			});
+			const noEditCtx = new CalendarPageContext(
+				{ ...mockData, permissions: { ...mockData.permissions, canEditCalendar: false } },
+				new ModalRegistry(),
+				makeMockOrg()
+			);
 			noEditCtx.handleCellClick(mockPersonnel[0], new Date());
 			expect(noEditCtx.selectedPerson).toBeNull();
 		});
 
 		it('does nothing when person is outside scoped group', () => {
-			const scopedCtx = new CalendarPageContext({
-				...mockData,
-				scopedGroupId: 'other-group',
-				personnel: [] // p1 is NOT in scoped set
-			});
+			const scopedCtx = new CalendarPageContext(
+				{ ...mockData, scopedGroupId: 'other-group', personnel: [] }, // p1 is NOT in scoped set
+				new ModalRegistry(),
+				makeMockOrg()
+			);
 			scopedCtx.handleCellClick(mockPersonnel[0], new Date());
 			expect(scopedCtx.selectedPerson).toBeNull();
 		});
@@ -141,10 +162,11 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('does nothing when canEditCalendar is false', () => {
-			const noEditCtx = new CalendarPageContext({
-				...mockData,
-				permissions: { ...mockData.permissions, canEditCalendar: false }
-			});
+			const noEditCtx = new CalendarPageContext(
+				{ ...mockData, permissions: { ...mockData.permissions, canEditCalendar: false } },
+				new ModalRegistry(),
+				makeMockOrg()
+			);
 			noEditCtx.handlePersonClick(mockPersonnel[0]);
 			expect(noEditCtx.selectedPerson).toBeNull();
 		});
@@ -193,10 +215,11 @@ describe('CalendarPageContext', () => {
 
 	describe('calendarPersonnel', () => {
 		it('falls back to personnel when allPersonnel is absent', () => {
-			const ctx2 = new CalendarPageContext({
-				...mockData,
-				allPersonnel: undefined
-			});
+			const ctx2 = new CalendarPageContext(
+				{ ...mockData, allPersonnel: undefined },
+				new ModalRegistry(),
+				makeMockOrg()
+			);
 			expect(ctx2.calendarPersonnel).toEqual(mockPersonnel);
 		});
 
@@ -231,7 +254,7 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('includes configure items when canManageConfig is true', () => {
-			const ownerCtx = new CalendarPageContext({ ...mockData, isOwner: true });
+			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
 			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
 			expect(labels).toContain('Status Types');
 			expect(labels).toContain('Assignment Types');
@@ -239,7 +262,7 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('includes Status Reports link for owner', () => {
-			const ownerCtx = new CalendarPageContext({ ...mockData, isOwner: true });
+			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
 			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
 			expect(labels).toContain('Status Reports');
 		});

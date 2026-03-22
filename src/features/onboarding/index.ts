@@ -16,7 +16,7 @@ export { onboardingStore } from './stores/onboarding.svelte';
 export { onboardingTemplateStore } from './stores/onboardingTemplate.svelte';
 
 // Context
-export { createOnboardingPageContext, getOnboardingPageContext } from './contexts/OnboardingPageContext.svelte';
+export { OnboardingPageContext } from './contexts/OnboardingPageContext.svelte';
 export type { TrainingRecordPayload, AssignTemplatePayload } from './contexts/OnboardingPageContext.svelte';
 
 // Components are imported directly from their paths:

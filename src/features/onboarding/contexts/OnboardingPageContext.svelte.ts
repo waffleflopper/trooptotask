@@ -1,4 +1,3 @@
-import { getContext, setContext } from 'svelte';
 import { invalidate } from '$app/navigation';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
@@ -7,21 +6,12 @@ import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
-import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '$features/onboarding/onboarding.types';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
-
-// ── Context key ───────────────────────────────────────────────
-
-const ONBOARDING_PAGE_CONTEXT_KEY = Symbol('onboarding-page-context');
-
-export function getOnboardingPageContext(): OnboardingPageContext {
-	const ctx = getContext<OnboardingPageContext | undefined>(ONBOARDING_PAGE_CONTEXT_KEY);
-	if (!ctx) throw new Error('OnboardingPageContext not found. Ensure it is set in the page.');
-	return ctx;
-}
 
 // ── Modal IDs ─────────────────────────────────────────────────
 
@@ -181,13 +171,9 @@ export interface AssignTemplatePayload {
 // ── Context class ─────────────────────────────────────────────
 
 export class OnboardingPageContext {
-	// Permissions (from page data)
-	readonly canEditOnboarding: boolean;
-	readonly canViewOnboarding: boolean;
-	readonly canManageConfig: boolean;
-
-	// Modal registry
-	readonly modals = new ModalRegistry();
+	// Injected dependencies
+	readonly #org: OrgContext;
+	readonly modals: ModalRegistry;
 
 	// UI state
 	showFilter = $state<'active' | 'all'>('active');
@@ -203,15 +189,23 @@ export class OnboardingPageContext {
 	noteInputs = $state<Record<string, string>>({});
 	expandedNotes = $state<Set<string>>(new Set());
 
-	constructor(data: {
-		isOwner: boolean;
-		isAdmin: boolean;
-		isFullEditor: boolean;
-		permissions: { canEditOnboarding: boolean; canViewOnboarding: boolean } | null;
-	}) {
-		this.canEditOnboarding = data.permissions?.canEditOnboarding ?? false;
-		this.canViewOnboarding = data.permissions?.canViewOnboarding ?? false;
-		this.canManageConfig = data.isOwner || data.isAdmin || data.isFullEditor;
+	constructor(modals: ModalRegistry, org: OrgContext) {
+		this.modals = modals;
+		this.#org = org;
+	}
+
+	// ── Permission flags (derived from OrgContext) ─────────────
+
+	get canEditOnboarding(): boolean {
+		return this.#org.permissions?.canEditOnboarding ?? false;
+	}
+
+	get canViewOnboarding(): boolean {
+		return this.#org.permissions?.canViewOnboarding ?? false;
+	}
+
+	get canManageConfig(): boolean {
+		return this.#org.isOwner || this.#org.isAdmin || this.#org.isFullEditor;
 	}
 
 	// ── Derived ────────────────────────────────────────────────
@@ -462,19 +456,4 @@ export class OnboardingPageContext {
 	get personnelTrainings() {
 		return personnelTrainingsStore.list;
 	}
-}
-
-/**
- * Creates and registers an OnboardingPageContext in Svelte's component context.
- * Must be called during component initialization (e.g. in the page's <script>).
- */
-export function createOnboardingPageContext(data: {
-	isOwner: boolean;
-	isAdmin: boolean;
-	isFullEditor: boolean;
-	permissions: { canEditOnboarding: boolean; canViewOnboarding: boolean } | null;
-}): OnboardingPageContext {
-	const ctx = new OnboardingPageContext(data);
-	setContext(ONBOARDING_PAGE_CONTEXT_KEY, ctx);
-	return ctx;
 }

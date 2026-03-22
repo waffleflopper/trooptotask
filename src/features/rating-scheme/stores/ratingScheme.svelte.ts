@@ -1,14 +1,17 @@
-import { createStore } from '$lib/stores/core';
+import { defineStore } from '$lib/stores/core';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 
-const store = createStore<RatingSchemeEntry>({ resource: 'rating-scheme' });
+const _base = defineStore<RatingSchemeEntry>({
+	table: 'rating_scheme_entries',
+	overrides: { resource: 'rating-scheme' }
+});
 
 export const ratingSchemeStore = {
-	get list() {
-		return store.items;
+	get list(): RatingSchemeEntry[] {
+		return _base.items;
 	},
-	load: store.load,
-	add: store.add,
-	update: store.update,
-	remove: store.remove
+	load: _base.load,
+	add: _base.add,
+	update: _base.update,
+	remove: _base.remove
 };

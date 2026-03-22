@@ -1,15 +1,15 @@
-import { createStore } from '$lib/stores/core';
+import { defineStore } from '$lib/stores/core';
 import type { StatusType } from '$lib/types';
 
-const store = createStore<StatusType>({ resource: 'status-types' });
+const _base = defineStore<StatusType>({ table: 'status_types' });
 
 export const statusTypesStore = {
-	get list() {
-		return store.items;
+	get list(): StatusType[] {
+		return _base.items;
 	},
-	load: store.load,
-	add: store.add,
-	update: store.update,
-	remove: store.removeBool,
-	getById: store.getById
+	load: _base.load,
+	add: _base.add,
+	update: _base.update,
+	remove: _base.removeBool,
+	getById: _base.getById
 };

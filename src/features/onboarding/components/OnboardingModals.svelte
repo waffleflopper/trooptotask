@@ -26,8 +26,8 @@
 
 {#if ctx.modals.isOpen(MODAL_IDS.report)}
 	<OnboardingReportModal
-		onboardings={onboardingStore.list}
-		personnel={personnelStore.list}
+		onboardings={onboardingStore.items}
+		personnel={personnelStore.items}
 		trainingTypes={trainingTypesStore.items}
 		personnelTrainings={personnelTrainingsStore.items}
 		onClose={ctx.modals.closerFor(MODAL_IDS.report)}
@@ -43,7 +43,7 @@
 
 {#if ctx.modals.isOpen(MODAL_IDS.startOnboarding)}
 	<StartOnboardingModal
-		personnel={personnelStore.list}
+		personnel={personnelStore.items}
 		existingOnboardingPersonnelIds={ctx.existingOnboardingPersonnelIds}
 		groups={groupsStore.items}
 		templates={onboardingTemplateStore.templates}

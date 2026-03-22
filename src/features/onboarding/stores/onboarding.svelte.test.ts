@@ -81,7 +81,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 
 		// Different org — should go through
 		onboardingStore.load([], 'org-2');
-		expect(onboardingStore.list).toEqual([]);
+		expect(onboardingStore.items).toEqual([]);
 
 		resolveFetch(undefined);
 	});

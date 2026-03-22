@@ -1,4 +1,4 @@
-import type { DataStore, FindOptions, AuthContext, AuditPort, ReadOnlyGuard } from '../core/ports';
+import type { DataStore, FindOptions, AuthContext, AuditPort, ReadOnlyGuard, SubscriptionPort } from '../core/ports';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
@@ -160,6 +160,21 @@ export function createTestReadOnlyGuard(isReadOnly = false): ReadOnlyGuard {
 	return {
 		async check(): Promise<boolean> {
 			return isReadOnly;
+		}
+	};
+}
+
+export function createTestSubscriptionPort(
+	allowed = true,
+	message?: string
+): SubscriptionPort & { tierCacheInvalidated: boolean } {
+	return {
+		tierCacheInvalidated: false,
+		async canAddPersonnel() {
+			return allowed ? { allowed: true } : { allowed: false, message: message ?? 'Personnel limit reached' };
+		},
+		invalidateTierCache() {
+			this.tierCacheInvalidated = true;
 		}
 	};
 }

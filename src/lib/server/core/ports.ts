@@ -58,6 +58,12 @@ export interface ReadOnlyGuard {
 	check(): Promise<boolean>;
 }
 
+/** Subscription/billing cap checks and cache management */
+export interface SubscriptionPort {
+	canAddPersonnel(): Promise<{ allowed: boolean; message?: string }>;
+	invalidateTierCache(): void;
+}
+
 /** Combined context for all use cases */
 export interface UseCaseContext {
 	store: DataStore;

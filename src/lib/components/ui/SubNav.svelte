@@ -43,7 +43,7 @@
 		padding: var(--spacing-xs) var(--spacing-sm);
 		background: none;
 		border: none;
-		font-family: var(--font-body);
+		font-family: var(--font-family);
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
 		cursor: pointer;

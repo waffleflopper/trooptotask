@@ -118,7 +118,7 @@
 									<div class="progress-bar">
 										<div
 											class="progress-fill"
-											style="width: {pct}%; background: {pct === 100 ? 'var(--color-success)' : '#B8943E'}"
+											style="width: {pct}%; background: {pct === 100 ? 'var(--color-success)' : 'var(--color-primary)'}"
 										></div>
 									</div>
 									<span class="progress-text">{progress.completed}/{progress.total} steps</span>

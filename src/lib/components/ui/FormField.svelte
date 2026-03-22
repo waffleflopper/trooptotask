@@ -8,7 +8,7 @@
 		name?: string;
 		type?: string;
 		placeholder?: string;
-		value?: string | boolean;
+		value?: string;
 		required?: boolean;
 		error?: string;
 		hint?: string;
@@ -52,6 +52,7 @@
 			{id}
 			{name}
 			{disabled}
+			{required}
 			class={inputClass}
 			aria-invalid={error ? true : undefined}
 			aria-describedby={describedBy}
@@ -67,6 +68,7 @@
 			{name}
 			{placeholder}
 			{disabled}
+			{required}
 			{rows}
 			class={inputClass}
 			aria-invalid={error ? true : undefined}
@@ -80,6 +82,7 @@
 			{type}
 			{placeholder}
 			{disabled}
+			{required}
 			class={inputClass}
 			aria-invalid={error ? true : undefined}
 			aria-describedby={describedBy}
@@ -102,7 +105,7 @@
 	}
 
 	label {
-		font-family: var(--font-body);
+		font-family: var(--font-family);
 		font-size: var(--font-size-sm);
 		font-weight: var(--font-weight-medium);
 		color: var(--field-label);
@@ -114,12 +117,13 @@
 	}
 
 	.input {
-		padding: var(--spacing-xs) var(--spacing-sm);
+		width: 100%;
+		padding: var(--spacing-sm) var(--spacing-md);
 		border: 1px solid var(--field-border);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 		background: var(--field-bg);
 		color: var(--color-text);
-		font-family: var(--font-body);
+		font-family: var(--font-family);
 		font-size: var(--font-size-base);
 		transition: border-color var(--transition-fast);
 	}

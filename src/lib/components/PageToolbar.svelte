@@ -141,7 +141,7 @@
 
 	.page-toolbar.sticky {
 		position: sticky;
-		top: var(--header-height, 56px);
+		top: calc(var(--header-height, 56px) + var(--banner-height, 0px));
 		z-index: 10;
 	}
 

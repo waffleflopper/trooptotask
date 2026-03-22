@@ -47,30 +47,112 @@ const mockTypes: TrainingType[] = [
 	}
 ];
 
+function stubFetch(response: unknown, status = 200) {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn().mockResolvedValue({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(response) })
+	);
+}
+
 describe('trainingTypesStore', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		trainingTypesStore.load(structuredClone(mockTypes), 'org-1');
 	});
 
-	describe('list (sorted)', () => {
-		it('should return items sorted by sortOrder', () => {
+	describe('list (sorted by sortOrder)', () => {
+		it('returns items sorted by sortOrder ascending', () => {
 			const names = trainingTypesStore.list.map((t) => t.name);
 			expect(names).toEqual(['Weapons', 'PT Test', 'CPR']);
+		});
+
+		it('returns empty array before load', () => {
+			trainingTypesStore.load([], 'org-2');
+			expect(trainingTypesStore.list).toEqual([]);
+		});
+	});
+
+	describe('load', () => {
+		it('replaces existing items with new data', () => {
+			trainingTypesStore.load([mockTypes[0]], 'org-2');
+			expect(trainingTypesStore.list).toHaveLength(1);
+			expect(trainingTypesStore.list[0].name).toBe('CPR');
 		});
 	});
 
 	describe('getById', () => {
-		it('should find by ID', () => {
+		it('finds an item by ID', () => {
 			expect(trainingTypesStore.getById('1')?.name).toBe('CPR');
+		});
+
+		it('returns undefined for non-existent ID', () => {
+			expect(trainingTypesStore.getById('nonexistent')).toBeUndefined();
+		});
+	});
+
+	describe('add', () => {
+		it('adds item and returns the server-created record', async () => {
+			const created = {
+				id: 'new-1',
+				name: 'Land Nav',
+				sortOrder: 3,
+				color: '#000',
+				description: null,
+				expirationMonths: null,
+				warningDaysYellow: 60,
+				warningDaysOrange: 30,
+				requiredForRoles: [],
+				expirationDateOnly: false,
+				canBeExempted: false,
+				exemptPersonnelIds: []
+			};
+			stubFetch(created);
+
+			const result = await trainingTypesStore.add({
+				name: 'Land Nav',
+				sortOrder: 3,
+				color: '#000',
+				description: null,
+				expirationMonths: null,
+				warningDaysYellow: 60,
+				warningDaysOrange: 30,
+				requiredForRoles: [],
+				expirationDateOnly: false,
+				canBeExempted: false,
+				exemptPersonnelIds: []
+			});
+
+			expect(result).not.toBeNull();
+			expect(result!.id).toBe('new-1');
+			expect(trainingTypesStore.list.some((t) => t.id === 'new-1')).toBe(true);
+		});
+	});
+
+	describe('update', () => {
+		it('updates an existing item and returns true', async () => {
+			stubFetch({ ...mockTypes[0], name: 'CPR/BLS' });
+
+			const result = await trainingTypesStore.update('1', { name: 'CPR/BLS' });
+
+			expect(result).toBe(true);
 		});
 	});
 
 	describe('remove', () => {
-		it('should return DeleteResult', async () => {
-			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) }));
+		it('returns DeleteResult on success', async () => {
+			stubFetch({});
+
 			const result = await trainingTypesStore.remove('1');
+
 			expect(result).toBe('deleted');
+		});
+
+		it('returns DeleteResult type, not boolean', async () => {
+			stubFetch({});
+
+			const result = await trainingTypesStore.remove('2');
+
+			expect(typeof result).toBe('string');
 		});
 	});
 });

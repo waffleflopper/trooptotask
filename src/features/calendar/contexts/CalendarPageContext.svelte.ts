@@ -13,7 +13,8 @@ import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGroupi
 import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
 import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 import { browser } from '$app/environment';
-import { invalidateAll } from '$app/navigation';
+import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 
 // ---------------------------------------------------------------------------
@@ -27,9 +28,6 @@ export interface CalendarPageData {
 	personnel?: Personnel[];
 	allPersonnel?: Personnel[];
 	scopedGroupId?: string | null;
-	isOwner?: boolean;
-	isAdmin?: boolean;
-	isFullEditor?: boolean;
 	permissions?: {
 		canViewCalendar?: boolean;
 		canEditCalendar?: boolean;
@@ -49,17 +47,9 @@ export class CalendarPageContext {
 		return this.#getData();
 	}
 
-	// ---- modal visibility --------------------------------------------------
-	showStatusManager = $state(false);
-	showSpecialDayManager = $state(false);
-	showTodayBreakdown = $state(false);
-	showBulkStatusModal = $state(false);
-	showBulkStatusImportModal = $state(false);
-	showBulkRemoveModal = $state(false);
-	showAssignmentPlanner = $state(false);
-	showLongRangeView = $state(false);
-	showAssignmentTypeManager = $state(false);
-	showDutyRosterGenerator = $state(false);
+	// ---- injected deps -----------------------------------------------------
+	readonly #modals: ModalRegistry;
+	readonly #org: OrgContext;
 
 	// ---- selection state ---------------------------------------------------
 	selectedPerson = $state<Personnel | null>(null);
@@ -86,7 +76,7 @@ export class CalendarPageContext {
 	}
 
 	get canManageConfig(): boolean {
-		return !!(this.#data.isOwner || this.#data.isAdmin || this.#data.isFullEditor);
+		return !!(this.#org.isOwner || this.#org.isAdmin || this.#org.isFullEditor);
 	}
 
 	// ---- derived: personnel groupings --------------------------------------
@@ -110,42 +100,42 @@ export class CalendarPageContext {
 		const items: OverflowItem[] = [];
 
 		// Visible actions duplicated for mobile access
-		items.push({ label: "Today's Breakdown", onclick: () => (this.showTodayBreakdown = true) });
+		items.push({ label: "Today's Breakdown", onclick: () => this.#modals.open('today-breakdown') });
 		if (this.#data.permissions?.canEditCalendar) {
 			if (this.canManageConfig) {
 				items.push({
 					label: 'Assignments',
-					onclick: () => (this.showAssignmentPlanner = true),
+					onclick: () => this.#modals.open('assignment-planner'),
 					disabled: this.readOnly
 				});
 			}
 		}
-		items.push({ label: '3-Month View', onclick: () => (this.showLongRangeView = true) });
+		items.push({ label: '3-Month View', onclick: () => this.#modals.open('long-range-view') });
 
 		// Additional tools
 		if (this.#data.permissions?.canEditCalendar) {
 			if (this.canManageConfig) {
 				items.push({
 					label: 'Bulk Status',
-					onclick: () => (this.showBulkStatusModal = true),
+					onclick: () => this.#modals.open('bulk-status'),
 					divider: true,
 					disabled: this.readOnly
 				});
 				items.push({
 					label: 'Bulk Remove',
-					onclick: () => (this.showBulkRemoveModal = true),
+					onclick: () => this.#modals.open('bulk-remove'),
 					disabled: this.readOnly
 				});
 				items.push({
 					label: 'Duty Roster',
-					onclick: () => (this.showDutyRosterGenerator = true),
+					onclick: () => this.#modals.open('duty-roster-generator'),
 					disabled: this.readOnly
 				});
 			}
 		}
 
 		// Reports (owner/admin only)
-		if (this.#data.isOwner || this.#data.isAdmin) {
+		if (this.#org.isOwner || this.#org.isAdmin) {
 			items.push({
 				label: 'Status Reports',
 				href: `/org/${this.#data.orgId}/calendar/reports`,
@@ -170,19 +160,19 @@ export class CalendarPageContext {
 		if (this.canManageConfig) {
 			items.push({
 				label: 'Status Types',
-				onclick: () => (this.showStatusManager = true),
+				onclick: () => this.#modals.open('status-manager'),
 				divider: true,
 				group: 'Configure',
 				disabled: this.readOnly
 			});
 			items.push({
 				label: 'Assignment Types',
-				onclick: () => (this.showAssignmentTypeManager = true),
+				onclick: () => this.#modals.open('assignment-type-manager'),
 				disabled: this.readOnly
 			});
 			items.push({
 				label: 'Holidays',
-				onclick: () => (this.showSpecialDayManager = true),
+				onclick: () => this.#modals.open('special-day-manager'),
 				disabled: this.readOnly
 			});
 		}
@@ -196,25 +186,29 @@ export class CalendarPageContext {
 	}
 
 	// ---- constructor -------------------------------------------------------
-	constructor(getData: CalendarPageData | (() => CalendarPageData)) {
+	constructor(getData: CalendarPageData | (() => CalendarPageData), modals: ModalRegistry, org: OrgContext) {
 		this.#getData = typeof getData === 'function' ? getData : () => getData;
+		this.#modals = modals;
+		this.#org = org;
+	}
 
-		// Restore persisted highlight preference from localStorage
-		$effect(() => {
-			if (browser) {
-				const stored = localStorage.getItem(this.highlightKey);
-				if (stored !== null) {
-					this.highlightOnboarding = stored !== 'false';
-				}
-			}
-		});
+	// ---- lifecycle methods (called from route $effect) ---------------------
 
-		// Mark calendar as explored for Getting Started checklist
-		$effect(() => {
-			if (browser) {
-				localStorage.setItem(`gettingStarted_calendarVisited_${this.#data.orgId}`, 'true');
+	/** Restore persisted highlight preference from localStorage. */
+	initFromStorage(): void {
+		if (browser) {
+			const stored = localStorage.getItem(this.highlightKey);
+			if (stored !== null) {
+				this.highlightOnboarding = stored !== 'false';
 			}
-		});
+		}
+	}
+
+	/** Mark calendar as explored for Getting Started checklist. */
+	markCalendarVisited(): void {
+		if (browser) {
+			localStorage.setItem(`gettingStarted_calendarVisited_${this.#data.orgId}`, 'true');
+		}
 	}
 
 	// ---- handlers ----------------------------------------------------------

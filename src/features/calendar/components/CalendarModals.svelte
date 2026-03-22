@@ -20,12 +20,15 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 
+	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+
 	interface Props {
 		ctx: CalendarPageContext;
+		modals: ModalRegistry;
 		orgId: string;
 	}
 
-	let { ctx, orgId }: Props = $props();
+	let { ctx, modals, orgId }: Props = $props();
 </script>
 
 {#if ctx.selectedPerson && ctx.selectedDate}
@@ -40,7 +43,7 @@
 	/>
 {/if}
 
-{#if ctx.showStatusManager}
+{#if modals.isOpen('status-manager')}
 	<StatusTypeManager
 		statusTypes={statusTypesStore.list}
 		onAdd={(data) => statusTypesStore.add(data)}
@@ -49,27 +52,27 @@
 			await statusTypesStore.remove(id);
 			availabilityStore.removeByStatusTypeLocal(id);
 		}}
-		onClose={() => (ctx.showStatusManager = false)}
+		onClose={() => modals.close('status-manager')}
 	/>
 {/if}
 
-{#if ctx.showAssignmentTypeManager}
+{#if modals.isOpen('assignment-type-manager')}
 	<AssignmentTypeManager
 		assignmentTypes={dailyAssignmentsStore.types}
 		onAdd={(data) => dailyAssignmentsStore.addType(data)}
 		onUpdate={(id, data) => dailyAssignmentsStore.updateType(id, data)}
 		onRemove={(id) => dailyAssignmentsStore.removeType(id)}
-		onClose={() => (ctx.showAssignmentTypeManager = false)}
+		onClose={() => modals.close('assignment-type-manager')}
 	/>
 {/if}
 
-{#if ctx.showSpecialDayManager}
+{#if modals.isOpen('special-day-manager')}
 	<SpecialDayManager
 		specialDays={specialDaysStore.list}
 		onAdd={(data) => specialDaysStore.add(data)}
 		onRemove={(id) => specialDaysStore.remove(id)}
 		onResetHolidays={() => specialDaysStore.resetFederalHolidays()}
-		onClose={() => (ctx.showSpecialDayManager = false)}
+		onClose={() => modals.close('special-day-manager')}
 	/>
 {/if}
 
@@ -86,31 +89,31 @@
 	/>
 {/if}
 
-{#if ctx.showTodayBreakdown}
+{#if modals.isOpen('today-breakdown')}
 	<TodayBreakdown
 		personnelByGroup={ctx.personnelByGroup}
 		availabilityEntries={availabilityStore.list}
 		statusTypes={statusTypesStore.list}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
-		onClose={() => (ctx.showTodayBreakdown = false)}
+		onClose={() => modals.close('today-breakdown')}
 	/>
 {/if}
 
-{#if ctx.showBulkStatusModal}
+{#if modals.isOpen('bulk-status')}
 	<BulkStatusModal
 		personnelByGroup={ctx.scopedPBG}
 		statusTypes={statusTypesStore.list}
 		onApply={(ids, typeId, start, end, note) => ctx.handleBulkStatusApply(ids, typeId, start, end, note)}
-		onClose={() => (ctx.showBulkStatusModal = false)}
+		onClose={() => modals.close('bulk-status')}
 		onImport={() => {
-			ctx.showBulkStatusModal = false;
-			ctx.showBulkStatusImportModal = true;
+			modals.close('bulk-status');
+			modals.open('bulk-status-import');
 		}}
 	/>
 {/if}
 
-{#if ctx.showBulkStatusImportModal}
+{#if modals.isOpen('bulk-status-import')}
 	<BulkStatusImportModal
 		personnel={ctx.allPersonnelFlat}
 		statusTypes={statusTypesStore.list}
@@ -118,22 +121,22 @@
 		onImportComplete={() => {
 			import('$app/navigation').then(({ invalidateAll }) => invalidateAll());
 		}}
-		onClose={() => (ctx.showBulkStatusImportModal = false)}
+		onClose={() => modals.close('bulk-status-import')}
 	/>
 {/if}
 
-{#if ctx.showBulkRemoveModal}
+{#if modals.isOpen('bulk-remove')}
 	<BulkStatusRemoveModal
 		personnelByGroup={ctx.scopedPBG}
 		statusTypes={statusTypesStore.list}
 		availabilityEntries={availabilityStore.list}
 		personnelList={ctx.calendarPersonnel}
 		onRemove={(ids) => ctx.handleBulkStatusRemove(ids)}
-		onClose={() => (ctx.showBulkRemoveModal = false)}
+		onClose={() => modals.close('bulk-remove')}
 	/>
 {/if}
 
-{#if ctx.showDutyRosterGenerator}
+{#if modals.isOpen('duty-roster-generator')}
 	<DutyRosterGenerator
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
@@ -147,11 +150,11 @@
 		onDeleteRoster={(id) => ctx.handleDeleteRoster(id)}
 		onUpdateExemptions={(typeId, ids) => ctx.handleUpdateExemptions(typeId, ids)}
 		specialDays={specialDaysStore.list}
-		onClose={() => (ctx.showDutyRosterGenerator = false)}
+		onClose={() => modals.close('duty-roster-generator')}
 	/>
 {/if}
 
-{#if ctx.showAssignmentPlanner}
+{#if modals.isOpen('assignment-planner')}
 	<MonthlyAssignmentPlanner
 		currentDate={calendarStore.currentDate}
 		assignmentTypes={dailyAssignmentsStore.types}
@@ -160,11 +163,11 @@
 		groups={groupsStore.names}
 		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 		onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}
-		onClose={() => (ctx.showAssignmentPlanner = false)}
+		onClose={() => modals.close('assignment-planner')}
 	/>
 {/if}
 
-{#if ctx.showLongRangeView}
+{#if modals.isOpen('long-range-view')}
 	<LongRangeView
 		startDate={calendarStore.currentDate}
 		personnelByGroup={ctx.personnelByGroup}
@@ -173,7 +176,7 @@
 		specialDays={specialDaysStore.list}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
-		onClose={() => (ctx.showLongRangeView = false)}
+		onClose={() => modals.close('long-range-view')}
 		onCellClick={(person, date) => ctx.handleCellClick(person, date)}
 	/>
 {/if}

@@ -12,20 +12,25 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-	import type { PersonnelGroup } from '$features/personnel/utils/personnelGrouping';
+	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 	interface Props {
 		ctx: PersonnelPageContext;
-		personnelByGroup: PersonnelGroup[];
-		orgId: string;
+		modals: ModalRegistry;
 		allPersonnel: Personnel[];
 	}
 
-	let { ctx, personnelByGroup, orgId, allPersonnel }: Props = $props();
+	let { ctx, modals, allPersonnel }: Props = $props();
+
+	const personnelPayload = $derived(modals.payload<{ person: Personnel | null }>('personnel-modal'));
+	const ratingPayload = $derived(modals.payload<{ entry: RatingSchemeEntry | null }>('rating-modal'));
+
+	const editingPerson = $derived(personnelPayload?.person ?? null);
+	const editingEntry = $derived(ratingPayload?.entry ?? null);
 
 	async function handleSubmit(personData: Omit<Personnel, 'id'>) {
-		if (ctx.editingPerson) {
-			await personnelStore.update(ctx.editingPerson.id, personData);
+		if (editingPerson) {
+			await personnelStore.update(editingPerson.id, personData);
 		} else {
 			await personnelStore.add(personData);
 		}
@@ -39,11 +44,11 @@
 			await invalidateAll();
 		} else if (result === 'approval_required' && person) {
 			await submitDeletionRequest(
-				orgId,
+				ctx.orgId,
 				'personnel',
 				id,
 				`Archive ${person.rank} ${person.lastName}, ${person.firstName}`,
-				`/org/${orgId}/personnel`
+				`/org/${ctx.orgId}/personnel`
 			);
 		} else if (result === 'error') {
 			toastStore.error('Failed to archive personnel');
@@ -52,7 +57,7 @@
 
 	async function handleBulkImportComplete() {
 		await invalidateAll();
-		ctx.showBulkManager = false;
+		modals.close('bulk-manager');
 	}
 
 	async function handleBulkArchive(ids: string[]) {
@@ -64,11 +69,11 @@
 				archivedCount++;
 			} else if (result === 'approval_required' && person) {
 				await submitDeletionRequest(
-					orgId,
+					ctx.orgId,
 					'personnel',
 					id,
 					`Archive ${person.rank} ${person.lastName}, ${person.firstName}`,
-					`/org/${orgId}/personnel`
+					`/org/${ctx.orgId}/personnel`
 				);
 			}
 		}
@@ -76,12 +81,12 @@
 			toastStore.success(`${archivedCount} personnel archived`);
 			await invalidateAll();
 		}
-		ctx.showBulkManager = false;
+		modals.close('bulk-manager');
 	}
 
 	async function handleSaveRatingEntry(entryData: Omit<RatingSchemeEntry, 'id'>) {
-		if (ctx.editingEntry) {
-			await ratingSchemeStore.update(ctx.editingEntry.id, entryData);
+		if (editingEntry) {
+			await ratingSchemeStore.update(editingEntry.id, entryData);
 		} else {
 			await ratingSchemeStore.add(entryData);
 		}
@@ -93,35 +98,32 @@
 		if (result === 'approval_required' && entry) {
 			const person = allPersonnel.find((p) => p.id === entry.ratedPersonId);
 			const desc = person ? `Rating scheme entry for ${person.rank} ${person.lastName}` : 'Rating scheme entry';
-			await submitDeletionRequest(orgId, 'rating_scheme_entry', id, desc, `/org/${orgId}/personnel`);
+			await submitDeletionRequest(ctx.orgId, 'rating_scheme_entry', id, desc, `/org/${ctx.orgId}/personnel`);
 		}
 	}
 </script>
 
-{#if ctx.showRatingModal}
+{#if modals.isOpen('rating-modal')}
 	<RatingSchemeEntryModal
-		entry={ctx.editingEntry}
+		entry={editingEntry}
 		personnel={allPersonnel}
 		onSave={handleSaveRatingEntry}
-		onDelete={ctx.editingEntry ? handleDeleteRatingEntry : undefined}
-		onClose={() => {
-			ctx.showRatingModal = false;
-			ctx.editingEntry = null;
-		}}
+		onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
+		onClose={modals.closerFor('rating-modal')}
 	/>
 {/if}
 
-{#if ctx.showPersonnelModal}
+{#if modals.isOpen('personnel-modal')}
 	<PersonnelModal
-		personnel={ctx.editingPerson}
+		personnel={editingPerson}
 		groups={groupsStore.list}
 		onSubmit={handleSubmit}
 		onRemove={handleArchive}
-		onClose={() => ctx.closePersonnelModal()}
+		onClose={modals.closerFor('personnel-modal')}
 	/>
 {/if}
 
-{#if ctx.showGroupManager}
+{#if modals.isOpen('group-manager')}
 	<GroupManager
 		groups={groupsStore.list}
 		onAdd={(name) => groupsStore.add(name)}
@@ -139,17 +141,17 @@
 				(p) => ({ ...p, groupName: name })
 			);
 		}}
-		onClose={() => (ctx.showGroupManager = false)}
+		onClose={modals.closerFor('group-manager')}
 	/>
 {/if}
 
-{#if ctx.showBulkManager}
+{#if modals.isOpen('bulk-manager')}
 	<BulkPersonnelManager
-		{personnelByGroup}
+		personnelByGroup={ctx.personnelByGroup}
 		groups={groupsStore.list}
-		{orgId}
+		orgId={ctx.orgId}
 		onImportComplete={handleBulkImportComplete}
 		onBulkDelete={handleBulkArchive}
-		onClose={() => (ctx.showBulkManager = false)}
+		onClose={modals.closerFor('bulk-manager')}
 	/>
 {/if}

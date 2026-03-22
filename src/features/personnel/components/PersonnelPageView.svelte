@@ -12,7 +12,6 @@
 	import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 	import { exportRatingScheme } from '$features/rating-scheme/utils/ratingSchemeExport';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-	import PersonnelModals from '$features/personnel/components/PersonnelModals.svelte';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -37,10 +36,10 @@
 		const items: OverflowItem[] = [];
 		if (ctx.canAddPersonnel) {
 			items.push({ label: 'Add Person', onclick: () => ctx.handleAdd(), disabled: readOnly });
-			items.push({ label: 'Manage Groups', onclick: () => (ctx.showGroupManager = true), disabled: readOnly });
+			items.push({ label: 'Manage Groups', onclick: () => ctx.openGroupManager(), disabled: readOnly });
 			items.push({
 				label: 'Bulk Import',
-				onclick: () => (ctx.showBulkManager = true),
+				onclick: () => ctx.openBulkManager(),
 				divider: true,
 				disabled: readOnly
 			});
@@ -60,9 +59,7 @@
 		overflowItems={personnelOverflowItems}
 	>
 		{#if ctx.canAddPersonnel}
-			<button class="btn-ghost" onclick={() => (ctx.showGroupManager = true)} disabled={readOnly}>
-				Manage Groups
-			</button>
+			<button class="btn-ghost" onclick={() => ctx.openGroupManager()} disabled={readOnly}> Manage Groups </button>
 			<button
 				class="btn btn-sm btn-primary"
 				data-testid="add-personnel-btn"
@@ -328,8 +325,6 @@
 		{/if}
 	{/if}
 </div>
-
-<PersonnelModals {ctx} personnelByGroup={ctx.personnelByGroup} orgId={ctx.orgId} {allPersonnel} />
 
 <style>
 	.page {

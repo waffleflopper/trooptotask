@@ -7,7 +7,7 @@
 
 	let { children }: Props = $props();
 
-	let stackEl: HTMLDivElement | undefined = $state();
+	let stackEl: HTMLDivElement | undefined;
 
 	$effect(() => {
 		if (!stackEl) return;

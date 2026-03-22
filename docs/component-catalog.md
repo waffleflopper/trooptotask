@@ -119,7 +119,9 @@ Labeled form field with error/hint states, accessibility wiring, and semantic `-
 
 Props: `label: string`, `id: string`, `inputElement?: 'input' | 'select' | 'textarea'`, `name?: string`, `type?: string`, `placeholder?: string`, `value?: string` (bindable), `required?: boolean`, `error?: string`, `hint?: string`, `disabled?: boolean`, `options?: { value: string; label: string }[]`, `rows?: number`, `children?: Snippet`
 
-Accessibility: `label[for]` wired to `id`, `aria-describedby` for error/hint, `aria-invalid` when error. Uses `--field-bg`, `--field-border`, `--field-border-focus`, `--field-label`, `--field-error`, `--field-help` tokens.
+Accessibility: `label[for]` wired to `id`, `aria-describedby` for error/hint, `aria-invalid` when error, `required` forwarded to native element. Uses `--field-bg`, `--field-border`, `--field-border-focus`, `--field-label`, `--field-error`, `--field-help` tokens.
+
+**Children escape hatch note:** When using the `children` snippet, you must manually wire `aria-describedby="{id}-error"` or `"{id}-hint"` on your custom input element. FormField renders the error/hint spans with those IDs but cannot auto-apply them to custom children.
 
 ## `ui/SubNav.svelte`
 

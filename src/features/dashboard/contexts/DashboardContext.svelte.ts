@@ -188,7 +188,7 @@ export class DashboardContext {
 	// Derived: todayEntries (availability covering today, scoped)
 	// ---------------------------------------------------------------------------
 	get todayEntries() {
-		return availabilityStore.list.filter(
+		return availabilityStore.items.filter(
 			(e) => e.startDate <= this.today && e.endDate >= this.today && this.personnelIds.has(e.personnelId)
 		);
 	}
@@ -286,7 +286,7 @@ export class DashboardContext {
 			direction: 'departing' | 'returning';
 		}[] = [];
 
-		for (const entry of availabilityStore.list) {
+		for (const entry of availabilityStore.items) {
 			const person = personnelStore.list.find((p) => p.id === entry.personnelId);
 			const st = statusTypesStore.items.find((s) => s.id === entry.statusTypeId);
 			if (!person || !st) continue;

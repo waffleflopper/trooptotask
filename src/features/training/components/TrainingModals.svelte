@@ -63,7 +63,7 @@
 	<TrainingReports
 		personnel={ctx.filteredPersonnel}
 		trainingTypes={trainingTypesStore.items}
-		trainings={personnelTrainingsStore.list}
+		trainings={personnelTrainingsStore.items}
 		groups={ctx.groups}
 		onClose={modals.closerFor('reports')}
 	/>
@@ -95,7 +95,7 @@
 		<PersonTrainingEditor
 			person={pe.person}
 			trainingTypes={trainingTypesStore.items}
-			trainings={personnelTrainingsStore.list}
+			trainings={personnelTrainingsStore.items}
 			onSave={ctx.handleSaveTraining.bind(ctx)}
 			onRemove={ctx.handleRemoveTraining.bind(ctx)}
 			onClose={modals.closerFor('person-editor')}

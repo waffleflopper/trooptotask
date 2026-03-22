@@ -93,7 +93,7 @@
 					<TrainingMatrix
 						personnel={ctx.filteredPersonnel}
 						trainingTypes={trainingTypesStore.items}
-						trainings={personnelTrainingsStore.list}
+						trainings={personnelTrainingsStore.items}
 						onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
 						onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
 					/>
@@ -112,7 +112,7 @@
 										<TrainingMatrix
 											personnel={grp.personnel}
 											trainingTypes={trainingTypesStore.items}
-											trainings={personnelTrainingsStore.list}
+											trainings={personnelTrainingsStore.items}
 											onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
 											onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
 										/>

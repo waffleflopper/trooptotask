@@ -68,7 +68,7 @@
 					monthName={calendarStore.monthName}
 					dates={calendarStore.dates}
 					personnelByGroup={ctx.personnelByGroup}
-					availabilityEntries={availabilityStore.list}
+					availabilityEntries={availabilityStore.items}
 					statusTypes={statusTypesStore.items}
 					specialDays={specialDaysStore.items}
 					pinnedGroups={pinnedGroupsStore.list}

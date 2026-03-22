@@ -4,7 +4,6 @@
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { dashboardPrefsStore, type CardId } from '$lib/stores/dashboardPrefs.svelte';
@@ -12,7 +11,7 @@
 	import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import DashboardCustomizeModal from '$lib/components/DashboardCustomizeModal.svelte';
-	import { getTrainingStatus, getTrainingStats } from '$features/training/utils/trainingStatus';
+	import type { TrainingStats } from '$features/training/utils/trainingStatus';
 	import { formatDate, parseDate } from '$lib/utils/dates';
 	import { browser } from '$app/environment';
 	import { changelog } from '$lib/data/changelog';
@@ -67,7 +66,6 @@
 	$effect(() => {
 		availabilityStore.load(data.availabilityEntries, data.orgId);
 		dailyAssignmentsStore.load(data.assignmentTypes, data.todayAssignments, data.orgId);
-		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
 	});
 
@@ -137,39 +135,9 @@
 			});
 	});
 
-	// Training stats across all personnel
-	const trainingStats = $derived.by(() => {
-		if (trainingTypesStore.list.length === 0) return null;
-		return getTrainingStats(personnelStore.list, trainingTypesStore.list, personnelTrainingsStore.list);
-	});
-
-	// Top expired/warning personnel for training card
-	const topTrainingIssues = $derived.by(() => {
-		if (trainingTypesStore.list.length === 0) return [];
-		const issues: { personName: string; typeName: string; label: string; status: string }[] = [];
-		const trainingMap = new Map(personnelTrainingsStore.list.map((t) => [`${t.personnelId}-${t.trainingTypeId}`, t]));
-		for (const person of personnelStore.list) {
-			for (const type of trainingTypesStore.list) {
-				const training = trainingMap.get(`${person.id}-${type.id}`);
-				const info = getTrainingStatus(training, type, person);
-				if (info.status === 'expired' || info.status === 'warning-orange') {
-					issues.push({
-						personName: `${person.rank} ${person.lastName}`,
-						typeName: type.name,
-						label: info.label,
-						status: info.status
-					});
-				}
-			}
-		}
-		// Sort: expired first, then by label
-		issues.sort((a, b) => {
-			if (a.status === 'expired' && b.status !== 'expired') return -1;
-			if (b.status === 'expired' && a.status !== 'expired') return 1;
-			return 0;
-		});
-		return issues.slice(0, 5);
-	});
+	// Training stats + issues pre-computed server-side
+	const trainingStats: TrainingStats | null = $derived(data.trainingSummary?.stats ?? null);
+	const topTrainingIssues = $derived(data.trainingSummary?.issues ?? []);
 
 	// Upcoming changes: entries starting OR ending in next 7 days
 	const upcomingChanges = $derived.by(() => {
@@ -242,16 +210,15 @@
 	// Active onboardings with progress (filtered to scoped personnel)
 	const activeOnboardings = $derived.by(() => {
 		const onboardings = (data.activeOnboardings ?? []).filter((o) => personnelIds.has(o.personnelId));
+		const completionSet = new Set(data.onboardingTrainingCompletions ?? []);
 		return onboardings.map((o) => {
 			const person = personnelStore.list.find((p) => p.id === o.personnelId);
 			const personName = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';
 
-			// Check training-type steps for auto-completion from personnelTrainingsStore
+			// Check training-type steps for auto-completion from server-provided completions
 			const steps = (o.steps ?? []).map((step) => {
 				if (step.stepType === 'training' && step.trainingTypeId && !step.completed) {
-					const hasTraining = personnelTrainingsStore.list.some(
-						(t) => t.personnelId === o.personnelId && t.trainingTypeId === step.trainingTypeId
-					);
+					const hasTraining = completionSet.has(`${o.personnelId}-${step.trainingTypeId}`);
 					return { ...step, completed: hasTraining };
 				}
 				return step;

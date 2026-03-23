@@ -3,14 +3,16 @@ import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
+import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import type {
+	PersonnelOnboarding,
+	OnboardingStepProgress,
+	OnboardingTemplate
+} from '$features/onboarding/onboarding.types';
 import type { Personnel } from '$lib/types';
-import type { PersonnelOnboarding, OnboardingStepProgress } from '$features/onboarding/onboarding.types';
-import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 
 // ── Modal IDs ─────────────────────────────────────────────────
@@ -21,7 +23,8 @@ export const MODAL_IDS = {
 	report: 'report',
 	assignTemplate: 'assignTemplate',
 	cancelConfirm: 'cancelConfirm',
-	trainingRecord: 'trainingRecord'
+	switchTemplate: 'switchTemplate',
+	completeConfirm: 'completeConfirm'
 } as const;
 
 // ── Pure exported functions (testable) ───────────────────────
@@ -37,63 +40,24 @@ export function isStepDeprecated(step: OnboardingStepProgress, knownTemplateStep
 
 /**
  * Determines whether a training step counts as complete.
- * Accepts plain arrays so it can be unit-tested without store singletons.
+ * Training step completion is now server-derived (read-through cache pattern).
+ * The server refreshes `step.completed` from personnel_trainings on every load.
  */
-export function isTrainingStepComplete(
-	step: OnboardingStepProgress,
-	personnelId: string,
-	trainingTypes: TrainingType[],
-	personnelTrainings: PersonnelTraining[]
-): boolean {
-	if (!step.trainingTypeId) return false;
-
-	const type = trainingTypes.find((t) => t.id === step.trainingTypeId);
-
-	// Exempt counts as complete for onboarding
-	if (type && type.canBeExempted && type.exemptPersonnelIds.includes(personnelId)) {
-		return true;
-	}
-
-	const training = personnelTrainings.find(
-		(t) => t.personnelId === personnelId && t.trainingTypeId === step.trainingTypeId
-	);
-	if (!training) return false;
-
-	// Never-expires: any record existing means complete
-	if (type && type.expirationMonths === null && !type.expirationDateOnly) {
-		return true;
-	}
-
-	// Has an expiration date — check if still valid
-	if (training.expirationDate) {
-		return new Date(training.expirationDate) >= new Date();
-	}
-	return training.completionDate !== null;
+export function isTrainingStepComplete(step: OnboardingStepProgress): boolean {
+	return step.completed;
 }
 
 /**
- * Calculates completed/total progress for an onboarding, excluding deprecated steps.
+ * Calculates completed/total progress for an onboarding.
+ * Only counts active steps. All step types use `step.completed` (server-derived for training/paperwork).
  */
-export function getProgress(
-	onboarding: PersonnelOnboarding,
-	knownTemplateStepIds: string[],
-	trainingTypes: TrainingType[],
-	personnelTrainings: PersonnelTraining[]
-): { completed: number; total: number } {
+export function getProgress(onboarding: PersonnelOnboarding): { completed: number; total: number } {
 	let completed = 0;
 	let total = 0;
 	for (const step of onboarding.steps) {
-		if (isStepDeprecated(step, knownTemplateStepIds)) continue;
+		if (!step.active) continue;
 		total++;
-		if (step.stepType === 'training') {
-			if (isTrainingStepComplete(step, onboarding.personnelId, trainingTypes, personnelTrainings)) completed++;
-		} else if (step.stepType === 'paperwork') {
-			const stages = step.stages ?? [];
-			if (stages.length > 0 && step.currentStage === stages[stages.length - 1]) completed++;
-			else if (step.completed) completed++;
-		} else {
-			if (step.completed) completed++;
-		}
+		if (step.completed) completed++;
 	}
 	return { completed, total };
 }
@@ -122,11 +86,28 @@ export function formatTimestamp(isoStr: string): string {
 }
 
 /**
- * Filters onboardings by the active/all toggle.
+ * Formats a personnel record as "RANK LastName, FirstName".
  */
-export function filterOnboardings(onboardings: PersonnelOnboarding[], filter: 'active' | 'all'): PersonnelOnboarding[] {
-	if (filter === 'active') return onboardings.filter((o) => o.status === 'in_progress');
-	return onboardings;
+export function getPersonDisplayName(personnelId: string, personnel: Personnel[]): string {
+	const p = personnel.find((pr) => pr.id === personnelId);
+	return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
+}
+
+/**
+ * Returns the group name for a personnel record, or null if unassigned.
+ */
+export function getPersonGroupDisplayName(personnelId: string, personnel: Personnel[]): string | null {
+	const p = personnel.find((pr) => pr.id === personnelId);
+	return p?.groupName || null;
+}
+
+/**
+ * Returns the template name, or a fallback for null/deleted templates.
+ */
+export function getTemplateDisplayName(templateId: string | null, templates: OnboardingTemplate[]): string {
+	if (!templateId) return 'No template';
+	const tmpl = templates.find((t) => t.id === templateId);
+	return tmpl?.name ?? 'Template deleted';
 }
 
 // ── Step type constants ───────────────────────────────────────
@@ -157,13 +138,6 @@ export const STATUS_LABELS: Record<string, string> = {
 
 // ── Payload types for modals ──────────────────────────────────
 
-export interface TrainingRecordPayload {
-	person: Personnel;
-	trainingType: TrainingType;
-	existingTraining: PersonnelTraining | undefined;
-	onboardingId: string;
-}
-
 export interface AssignTemplatePayload {
 	onboardingId: string;
 }
@@ -176,7 +150,6 @@ export class OnboardingPageContext {
 	readonly modals: ModalRegistry;
 
 	// UI state
-	showFilter = $state<'active' | 'all'>('active');
 	expandedOnboardingId = $state<string | null>(null);
 	cancellingId = $state<string | null>(null);
 	resyncingId = $state<string | null>(null);
@@ -188,6 +161,14 @@ export class OnboardingPageContext {
 	removingDeprecatedStepId = $state<string | null>(null);
 	noteInputs = $state<Record<string, string>>({});
 	expandedNotes = $state<Set<string>>(new Set());
+	// Switch template state
+	switchingTemplateId = $state<string | null>(null);
+	switchTemplateSelected = $state('');
+	switchingTemplate = $state(false);
+	switchTemplateError = $state('');
+	// Complete confirmation state
+	completingId = $state<string | null>(null);
+	completingIncompleteCount = $state(0);
 
 	constructor(modals: ModalRegistry, org: OrgContext) {
 		this.modals = modals;
@@ -218,16 +199,20 @@ export class OnboardingPageContext {
 		return onboardingTemplateStore.allSteps.length > 0;
 	}
 
-	get knownTemplateStepIds(): string[] {
-		return onboardingTemplateStore.allSteps.map((s) => s.id);
-	}
-
 	get existingOnboardingPersonnelIds(): string[] {
 		return onboardingStore.activeList.map((o) => o.personnelId);
 	}
 
 	get filteredOnboardings(): PersonnelOnboarding[] {
-		return filterOnboardings(onboardingStore.items, this.showFilter);
+		return onboardingStore.items.filter((o) => o.status === 'in_progress');
+	}
+
+	get historyUrl(): string {
+		return `/org/${this.#org.orgId}/onboarding/history`;
+	}
+
+	get templatesUrl(): string {
+		return `/org/${this.#org.orgId}/onboarding/templates`;
 	}
 
 	get overflowItems(): OverflowItem[] {
@@ -236,7 +221,7 @@ export class OnboardingPageContext {
 		if (this.canManageConfig) {
 			items.push({
 				label: 'Manage Templates',
-				onclick: () => this.modals.open(MODAL_IDS.templateManager),
+				href: this.templatesUrl,
 				disabled: this.readOnly
 			});
 		}
@@ -246,20 +231,34 @@ export class OnboardingPageContext {
 	// ── Helpers ────────────────────────────────────────────────
 
 	getPersonName(personnelId: string): string {
-		const p = personnelStore.getById(personnelId);
-		return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
+		return getPersonDisplayName(personnelId, personnelStore.items);
 	}
 
-	isStepDeprecated(step: OnboardingStepProgress): boolean {
-		return isStepDeprecated(step, this.knownTemplateStepIds);
+	getPersonGroupName(personnelId: string): string | null {
+		return getPersonGroupDisplayName(personnelId, personnelStore.items);
 	}
 
-	isTrainingStepComplete(step: OnboardingStepProgress, personnelId: string): boolean {
-		return isTrainingStepComplete(step, personnelId, trainingTypesStore.items, personnelTrainingsStore.items);
+	getTemplateName(templateId: string | null): string {
+		return getTemplateDisplayName(templateId, onboardingTemplateStore.templates);
+	}
+
+	get trainingPageUrl(): string {
+		return `/org/${this.#org.orgId}/training`;
+	}
+
+	isTrainingStepComplete(step: OnboardingStepProgress): boolean {
+		return isTrainingStepComplete(step);
+	}
+
+	getTrainingTypeName(step: OnboardingStepProgress): string | null {
+		if (step.stepType !== 'training' || !step.trainingTypeId) return null;
+		const type = trainingTypesStore.items.find((t) => t.id === step.trainingTypeId);
+		if (!type || type.name === step.stepName) return null;
+		return type.name;
 	}
 
 	getProgress(onboarding: PersonnelOnboarding): { completed: number; total: number } {
-		return getProgress(onboarding, this.knownTemplateStepIds, trainingTypesStore.items, personnelTrainingsStore.items);
+		return getProgress(onboarding);
 	}
 
 	getPaperworkStageIndex(step: OnboardingStepProgress): number {
@@ -272,17 +271,8 @@ export class OnboardingPageContext {
 
 	// ── Event handlers ─────────────────────────────────────────
 
-	async checkAutoComplete(onboardingId: string) {
-		const onboarding = onboardingStore.getById(onboardingId);
-		if (!onboarding || onboarding.status !== 'in_progress') return;
-		const progress = this.getProgress(onboarding);
-		if (progress.total > 0 && progress.completed === progress.total) {
-			await onboardingStore.completeOnboarding(onboardingId);
-		}
-	}
-
-	async handleStartOnboarding(personnelId: string, startedAt: string, templateId: string | null) {
-		await onboardingStore.startOnboarding(personnelId, startedAt, templateId);
+	async handleStartOnboarding(personnelId: string, templateId: string | null) {
+		await onboardingStore.startOnboarding(personnelId, templateId);
 		this.modals.close(MODAL_IDS.startOnboarding);
 	}
 
@@ -292,34 +282,13 @@ export class OnboardingPageContext {
 	}
 
 	async handleToggleCheckbox(step: OnboardingStepProgress) {
-		await onboardingStore.updateStepProgress(step.id, { completed: !step.completed });
-		const onboarding = onboardingStore.items.find((o) => o.steps.some((s) => s.id === step.id));
-		if (onboarding) await this.checkAutoComplete(onboarding.id);
+		await onboardingStore.toggleCheckbox(step.id, !step.completed);
 	}
 
-	async handleAdvanceStage(step: OnboardingStepProgress) {
+	async handleStageClick(step: OnboardingStepProgress, stageName: string) {
 		const stages = step.stages ?? [];
-		const currentIndex = stages.indexOf(step.currentStage ?? '');
-		if (currentIndex < stages.length - 1) {
-			const nextStage = stages[currentIndex + 1];
-			const isLast = currentIndex + 1 === stages.length - 1;
-			await onboardingStore.updateStepProgress(step.id, { currentStage: nextStage, completed: isLast });
-			if (isLast) {
-				const onboarding = onboardingStore.items.find((o) => o.steps.some((s) => s.id === step.id));
-				if (onboarding) await this.checkAutoComplete(onboarding.id);
-			}
-		}
-	}
-
-	async handleRetreatStage(step: OnboardingStepProgress) {
-		const stages = step.stages ?? [];
-		const currentIndex = stages.indexOf(step.currentStage ?? '');
-		if (currentIndex > 0) {
-			await onboardingStore.updateStepProgress(step.id, {
-				currentStage: stages[currentIndex - 1],
-				completed: false
-			});
-		}
+		if (!stages.includes(stageName)) return;
+		await onboardingStore.advanceStage(step.id, stageName);
 	}
 
 	toggleNotes(stepId: string) {
@@ -332,47 +301,8 @@ export class OnboardingPageContext {
 	async handleAddNote(step: OnboardingStepProgress) {
 		const text = this.noteInputs[step.id]?.trim();
 		if (!text) return;
-		const newNote = { text, timestamp: new Date().toISOString() };
-		const updatedNotes = [newNote, ...step.notes];
-		await onboardingStore.updateStepProgress(step.id, { notes: updatedNotes });
+		await onboardingStore.addNote(step.id, text);
 		this.noteInputs[step.id] = '';
-	}
-
-	handleTrainingStepClick(step: OnboardingStepProgress, onboarding: PersonnelOnboarding) {
-		if (!step.trainingTypeId) return;
-		const person = personnelStore.getById(onboarding.personnelId);
-		const trainingType = trainingTypesStore.getById(step.trainingTypeId);
-		if (!person || !trainingType) return;
-		const existingTraining = personnelTrainingsStore.getByPersonnelAndType(person.id, trainingType.id);
-		const payload: TrainingRecordPayload = { person, trainingType, existingTraining, onboardingId: onboarding.id };
-		this.modals.open(MODAL_IDS.trainingRecord, payload);
-	}
-
-	async handleTrainingSave(trainingData: Omit<PersonnelTraining, 'id'>) {
-		await personnelTrainingsStore.add(trainingData);
-		const payload = this.modals.payload<TrainingRecordPayload>(MODAL_IDS.trainingRecord);
-		if (payload) await this.checkAutoComplete(payload.onboardingId);
-		this.modals.close(MODAL_IDS.trainingRecord);
-		invalidate('app:onboarding-data');
-	}
-
-	async handleTrainingRemove(id: string) {
-		await personnelTrainingsStore.remove(id);
-		this.modals.close(MODAL_IDS.trainingRecord);
-		invalidate('app:onboarding-data');
-	}
-
-	async handleTrainingToggleExempt(exempt: boolean) {
-		const payload = this.modals.payload<TrainingRecordPayload>(MODAL_IDS.trainingRecord);
-		if (!payload) return;
-		const { trainingType, person, onboardingId } = payload;
-		const updatedIds = exempt
-			? [...trainingType.exemptPersonnelIds, person.id]
-			: trainingType.exemptPersonnelIds.filter((id) => id !== person.id);
-		await trainingTypesStore.update(trainingType.id, { exemptPersonnelIds: updatedIds });
-		await this.checkAutoComplete(onboardingId);
-		this.modals.close(MODAL_IDS.trainingRecord);
-		invalidate('app:onboarding-data');
 	}
 
 	async handleCancelOnboarding(id: string) {
@@ -381,8 +311,25 @@ export class OnboardingPageContext {
 		this.modals.close(MODAL_IDS.cancelConfirm);
 	}
 
-	async handleCompleteOnboarding(id: string) {
-		await onboardingStore.completeOnboarding(id);
+	promptCompleteOnboarding(id: string) {
+		const onboarding = onboardingStore.getById(id);
+		if (!onboarding) return;
+		const progress = this.getProgress(onboarding);
+		const incompleteCount = progress.total - progress.completed;
+		this.completingId = id;
+		this.completingIncompleteCount = incompleteCount;
+	}
+
+	async confirmCompleteOnboarding() {
+		if (!this.completingId) return;
+		await onboardingStore.completeOnboarding(this.completingId);
+		this.completingId = null;
+		this.completingIncompleteCount = 0;
+	}
+
+	cancelComplete() {
+		this.completingId = null;
+		this.completingIncompleteCount = 0;
 	}
 
 	toggleExpand(id: string) {
@@ -425,6 +372,30 @@ export class OnboardingPageContext {
 		}
 	}
 
+	openSwitchTemplate(onboardingId: string) {
+		this.switchingTemplateId = onboardingId;
+		this.switchTemplateSelected = onboardingTemplateStore.templates[0]?.id ?? '';
+		this.switchTemplateError = '';
+	}
+
+	closeSwitchTemplate() {
+		this.switchingTemplateId = null;
+		this.switchTemplateError = '';
+	}
+
+	async handleSwitchTemplate() {
+		if (!this.switchingTemplateId || !this.switchTemplateSelected) return;
+		this.switchingTemplate = true;
+		this.switchTemplateError = '';
+		const result = await onboardingStore.switchTemplate(this.switchingTemplateId, this.switchTemplateSelected);
+		this.switchingTemplate = false;
+		if (result.success) {
+			this.closeSwitchTemplate();
+		} else {
+			this.switchTemplateError = result.error ?? 'Failed to switch template';
+		}
+	}
+
 	async handleRemoveDeprecatedStep(stepId: string) {
 		this.removingDeprecatedStepId = stepId;
 		await onboardingStore.removeDeprecatedStep(stepId);
@@ -449,11 +420,7 @@ export class OnboardingPageContext {
 		return onboardingTemplateStore.templates;
 	}
 
-	get trainingTypes() {
-		return trainingTypesStore.items;
-	}
-
-	get personnelTrainings() {
-		return personnelTrainingsStore.items;
+	get trainingTypeNames(): Map<string, string> {
+		return new Map(trainingTypesStore.items.map((t) => [t.id, t.name]));
 	}
 }

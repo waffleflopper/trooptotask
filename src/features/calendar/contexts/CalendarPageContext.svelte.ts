@@ -32,6 +32,7 @@ export interface CalendarPageData {
 		canViewCalendar?: boolean;
 		canEditCalendar?: boolean;
 	} | null;
+	activeOnboardingPersonnelIds?: string[];
 	// Allow additional layout fields to pass through without type errors
 	[key: string]: unknown;
 }
@@ -68,6 +69,11 @@ export class CalendarPageContext {
 
 	get scopedPersonnelIds(): Set<string> {
 		return new Set(((this.#data.personnel as Personnel[] | undefined) ?? []).map((p) => p.id));
+	}
+
+	// ---- derived: onboarding data ------------------------------------------
+	get activeOnboardingPersonnelIds(): string[] {
+		return this.#data.activeOnboardingPersonnelIds ?? [];
 	}
 
 	// ---- derived: permission flags -----------------------------------------

@@ -29,6 +29,7 @@ describe('PersonnelOnboardingEntity', () => {
 			personnelId: 'p-1',
 			startedAt: '2026-01-01',
 			completedAt: null,
+			cancelledAt: null,
 			status: 'in_progress',
 			templateId: 't-1',
 			steps: []
@@ -91,7 +92,8 @@ describe('PersonnelOnboardingEntity', () => {
 			completed: true,
 			currentStage: 'stage1',
 			notes: [{ text: 'done', timestamp: '2026-01-02' }],
-			templateStepId: 'ts-1'
+			templateStepId: 'ts-1',
+			active: true
 		});
 
 		// Verify second step (sort_order 2)
@@ -106,7 +108,8 @@ describe('PersonnelOnboardingEntity', () => {
 			completed: false,
 			currentStage: null,
 			notes: [],
-			templateStepId: null
+			templateStepId: null,
+			active: true
 		});
 	});
 
@@ -204,6 +207,7 @@ describe('PersonnelOnboardingEntity', () => {
 			started_at: '2026-01-01',
 			status: 'in_progress',
 			completed_at: null,
+			cancelled_at: null,
 			template_id: null
 		});
 	});

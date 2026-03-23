@@ -34,7 +34,21 @@ vi.mock('$lib/server/calendarData', () => ({
 }));
 
 vi.mock('$lib/server/supabase', () => ({
-	getSupabaseClient: () => ({})
+	getSupabaseClient: () => ({}),
+	getApiContext: () => ({ supabase: {}, userId: USER_ID, isSandbox: false })
+}));
+
+vi.mock('$lib/server/adapters/httpAdapter', () => ({
+	buildLayoutContext: vi.fn().mockResolvedValue({
+		store: {},
+		auth: { orgId: ORG_ID },
+		audit: { log() {} },
+		readOnlyGuard: { check: () => false }
+	})
+}));
+
+vi.mock('$lib/server/core/useCases/onboardingCalendarQuery', () => ({
+	getActiveOnboardingPersonnelIds: vi.fn().mockResolvedValue(new Set())
 }));
 
 describe('calendar layout server', () => {
@@ -63,6 +77,7 @@ describe('calendar layout server', () => {
 		expect(data.dailyAssignments).toEqual(mockCalendarData.dailyAssignments);
 		expect(data.pinnedGroups).toEqual(mockCalendarData.pinnedGroups);
 		expect(data.rosterHistory).toEqual(mockCalendarData.rosterHistory);
+		expect(data.activeOnboardingPersonnelIds).toEqual(new Set());
 		expect(dependsKeys).toContain('app:calendar-data');
 	});
 });

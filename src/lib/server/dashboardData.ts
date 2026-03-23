@@ -9,7 +9,7 @@ import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry'
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
-import { findOnboardings } from '$lib/server/onboardingRepository';
+import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 import type { QueryModifier } from '$lib/server/repositoryFactory';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type varies based on auth context
@@ -39,10 +39,10 @@ export async function fetchDashboardData(supabase: SupabaseClient, orgId: string
 				select: 'id, rated_person_id, eval_type, rating_period_end, status',
 				filters: [excludeCompleted]
 			}),
-			findOnboardings(supabase, orgId)
+			PersonnelOnboardingEntity.repo.list(supabase, orgId)
 		]);
 
-	const activeOnboardings = onboardingsResult.data.filter((o) => o.status === 'in_progress');
+	const activeOnboardings = onboardingsResult.filter((o: { status: string }) => o.status === 'in_progress');
 
 	return {
 		availabilityEntries,

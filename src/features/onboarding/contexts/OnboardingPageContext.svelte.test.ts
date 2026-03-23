@@ -4,11 +4,9 @@ import {
 	isStepDeprecated,
 	isTrainingStepComplete,
 	getPaperworkStageIndex,
-	formatTimestamp,
-	filterOnboardings
+	formatTimestamp
 } from './OnboardingPageContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
-import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 
 // ── Fixtures ──────────────────────────────────────────────────
 
@@ -25,6 +23,7 @@ function makeStep(overrides: Partial<OnboardingStepProgress> = {}): OnboardingSt
 		currentStage: null,
 		notes: [],
 		templateStepId: 'tpl-step-1',
+		active: true,
 		...overrides
 	};
 }
@@ -35,40 +34,10 @@ function makeOnboarding(overrides: Partial<PersonnelOnboarding> = {}): Personnel
 		personnelId: 'p-1',
 		startedAt: '2026-01-01T00:00:00Z',
 		completedAt: null,
+		cancelledAt: null,
 		status: 'in_progress',
 		steps: [],
 		templateId: 'tpl-1',
-		...overrides
-	};
-}
-
-function makeTrainingType(overrides: Partial<TrainingType> = {}): TrainingType {
-	return {
-		id: 'tt-1',
-		name: 'CPR',
-		sortOrder: 0,
-		color: '#3b82f6',
-		description: null,
-		expirationMonths: 12,
-		warningDaysYellow: 60,
-		warningDaysOrange: 30,
-		requiredForRoles: [],
-		expirationDateOnly: false,
-		canBeExempted: false,
-		exemptPersonnelIds: [],
-		...overrides
-	};
-}
-
-function makeTraining(overrides: Partial<PersonnelTraining> = {}): PersonnelTraining {
-	return {
-		id: 'tr-1',
-		personnelId: 'p-1',
-		trainingTypeId: 'tt-1',
-		completionDate: '2026-01-01',
-		expirationDate: null,
-		notes: null,
-		certificateUrl: null,
 		...overrides
 	};
 }
@@ -100,51 +69,12 @@ describe('isStepDeprecated', () => {
 // ── isTrainingStepComplete ─────────────────────────────────────
 
 describe('isTrainingStepComplete', () => {
-	it('returns false when step has no trainingTypeId', () => {
-		const step = makeStep({ stepType: 'training', trainingTypeId: null });
-		expect(isTrainingStepComplete(step, 'p-1', [], [])).toBe(false);
-	});
+	it('returns step.completed (server-derived)', () => {
+		const incomplete = makeStep({ stepType: 'training', trainingTypeId: 'tt-1', completed: false });
+		expect(isTrainingStepComplete(incomplete)).toBe(false);
 
-	it('returns true when person is exempt', () => {
-		const step = makeStep({ stepType: 'training', trainingTypeId: 'tt-1' });
-		const type = makeTrainingType({ canBeExempted: true, exemptPersonnelIds: ['p-1'] });
-		expect(isTrainingStepComplete(step, 'p-1', [type], [])).toBe(true);
-	});
-
-	it('returns false when no training record exists', () => {
-		const step = makeStep({ stepType: 'training', trainingTypeId: 'tt-1' });
-		const type = makeTrainingType();
-		expect(isTrainingStepComplete(step, 'p-1', [type], [])).toBe(false);
-	});
-
-	it('returns true when training never expires and record exists', () => {
-		const step = makeStep({ stepType: 'training', trainingTypeId: 'tt-1' });
-		const type = makeTrainingType({ expirationMonths: null, expirationDateOnly: false });
-		const training = makeTraining({ completionDate: '2026-01-01', expirationDate: null });
-		expect(isTrainingStepComplete(step, 'p-1', [type], [training])).toBe(true);
-	});
-
-	it('returns true when expiration date is in the future', () => {
-		const step = makeStep({ stepType: 'training', trainingTypeId: 'tt-1' });
-		const type = makeTrainingType({ expirationMonths: 12 });
-		const futureDate = new Date();
-		futureDate.setFullYear(futureDate.getFullYear() + 1);
-		const training = makeTraining({ expirationDate: futureDate.toISOString().split('T')[0] });
-		expect(isTrainingStepComplete(step, 'p-1', [type], [training])).toBe(true);
-	});
-
-	it('returns false when expiration date is in the past', () => {
-		const step = makeStep({ stepType: 'training', trainingTypeId: 'tt-1' });
-		const type = makeTrainingType({ expirationMonths: 12 });
-		const training = makeTraining({ expirationDate: '2020-01-01' });
-		expect(isTrainingStepComplete(step, 'p-1', [type], [training])).toBe(false);
-	});
-
-	it('returns true when no expiration date but completionDate is set', () => {
-		const step = makeStep({ stepType: 'training', trainingTypeId: 'tt-1' });
-		const type = makeTrainingType({ expirationMonths: 12 });
-		const training = makeTraining({ completionDate: '2026-01-01', expirationDate: null });
-		expect(isTrainingStepComplete(step, 'p-1', [type], [training])).toBe(true);
+		const complete = makeStep({ stepType: 'training', trainingTypeId: 'tt-1', completed: true });
+		expect(isTrainingStepComplete(complete)).toBe(true);
 	});
 });
 
@@ -153,65 +83,71 @@ describe('isTrainingStepComplete', () => {
 describe('getProgress', () => {
 	it('returns 0/0 when there are no steps', () => {
 		const ob = makeOnboarding({ steps: [] });
-		expect(getProgress(ob, [], [], [])).toEqual({ completed: 0, total: 0 });
+		expect(getProgress(ob)).toEqual({ completed: 0, total: 0 });
 	});
 
-	it('excludes deprecated steps from count', () => {
-		const deprecatedStep = makeStep({ id: 's-dep', templateStepId: 'removed', completed: true });
-		const ob = makeOnboarding({ steps: [deprecatedStep] });
-		// No known step IDs → deprecated
-		expect(getProgress(ob, [], [], [])).toEqual({ completed: 0, total: 0 });
+	it('excludes inactive steps from count', () => {
+		const inactiveStep = makeStep({ id: 's-inactive', active: false, completed: true });
+		const ob = makeOnboarding({ steps: [inactiveStep] });
+		expect(getProgress(ob)).toEqual({ completed: 0, total: 0 });
 	});
 
 	it('counts a completed checkbox step', () => {
-		const step = makeStep({ stepType: 'checkbox', completed: true, templateStepId: 'tpl-step-1' });
+		const step = makeStep({ stepType: 'checkbox', completed: true });
 		const ob = makeOnboarding({ steps: [step] });
-		expect(getProgress(ob, ['tpl-step-1'], [], [])).toEqual({ completed: 1, total: 1 });
+		expect(getProgress(ob)).toEqual({ completed: 1, total: 1 });
 	});
 
 	it('counts an incomplete checkbox step', () => {
-		const step = makeStep({ stepType: 'checkbox', completed: false, templateStepId: 'tpl-step-1' });
+		const step = makeStep({ stepType: 'checkbox', completed: false });
 		const ob = makeOnboarding({ steps: [step] });
-		expect(getProgress(ob, ['tpl-step-1'], [], [])).toEqual({ completed: 0, total: 1 });
+		expect(getProgress(ob)).toEqual({ completed: 0, total: 1 });
 	});
 
-	it('counts paperwork as complete when at last stage', () => {
+	it('counts paperwork as complete when completed=true', () => {
 		const step = makeStep({
 			id: 's-paper',
 			stepType: 'paperwork',
 			stages: ['Draft', 'Signed', 'Filed'],
 			currentStage: 'Filed',
-			completed: false,
-			templateStepId: 'tpl-step-1'
+			completed: true
 		});
 		const ob = makeOnboarding({ steps: [step] });
-		expect(getProgress(ob, ['tpl-step-1'], [], [])).toEqual({ completed: 1, total: 1 });
+		expect(getProgress(ob)).toEqual({ completed: 1, total: 1 });
 	});
 
-	it('counts paperwork as incomplete when not at last stage', () => {
+	it('counts paperwork as incomplete when completed=false', () => {
 		const step = makeStep({
 			id: 's-paper',
 			stepType: 'paperwork',
 			stages: ['Draft', 'Signed', 'Filed'],
 			currentStage: 'Draft',
-			completed: false,
-			templateStepId: 'tpl-step-1'
+			completed: false
 		});
 		const ob = makeOnboarding({ steps: [step] });
-		expect(getProgress(ob, ['tpl-step-1'], [], [])).toEqual({ completed: 0, total: 1 });
+		expect(getProgress(ob)).toEqual({ completed: 0, total: 1 });
 	});
 
-	it('counts training step as complete when training record exists and valid', () => {
+	it('counts training step as complete when completed=true (server-derived)', () => {
 		const trainingStep = makeStep({
 			id: 's-train',
 			stepType: 'training',
 			trainingTypeId: 'tt-1',
-			templateStepId: 'tpl-step-1'
+			completed: true
 		});
 		const ob = makeOnboarding({ steps: [trainingStep] });
-		const type = makeTrainingType({ expirationMonths: null, expirationDateOnly: false });
-		const training = makeTraining({ completionDate: '2026-01-01' });
-		expect(getProgress(ob, ['tpl-step-1'], [type], [training])).toEqual({ completed: 1, total: 1 });
+		expect(getProgress(ob)).toEqual({ completed: 1, total: 1 });
+	});
+
+	it('handles mixed step types with mixed completion', () => {
+		const steps = [
+			makeStep({ id: 's1', stepType: 'checkbox', completed: true }),
+			makeStep({ id: 's2', stepType: 'paperwork', completed: false }),
+			makeStep({ id: 's3', stepType: 'training', trainingTypeId: 'tt-1', completed: true }),
+			makeStep({ id: 's4', stepType: 'checkbox', completed: false, active: false })
+		];
+		const ob = makeOnboarding({ steps });
+		expect(getProgress(ob)).toEqual({ completed: 2, total: 3 });
 	});
 });
 
@@ -245,29 +181,5 @@ describe('formatTimestamp', () => {
 	it('formats a valid ISO string to readable format', () => {
 		const result = formatTimestamp('2026-01-15T14:30:00.000Z');
 		expect(result).toMatch(/^[A-Z][a-z]{2} \d{1,2} at \d{1,2}:\d{2} (AM|PM)$/);
-	});
-});
-
-// ── filterOnboardings ──────────────────────────────────────────
-
-describe('filterOnboardings', () => {
-	const active = makeOnboarding({ id: 'a', status: 'in_progress' });
-	const completed = makeOnboarding({ id: 'b', status: 'completed' });
-	const cancelled = makeOnboarding({ id: 'c', status: 'cancelled' });
-
-	it('returns only in_progress when filter is "active"', () => {
-		const result = filterOnboardings([active, completed, cancelled], 'active');
-		expect(result).toHaveLength(1);
-		expect(result[0].id).toBe('a');
-	});
-
-	it('returns all onboardings when filter is "all"', () => {
-		const result = filterOnboardings([active, completed, cancelled], 'all');
-		expect(result).toHaveLength(3);
-	});
-
-	it('returns empty array when list is empty', () => {
-		expect(filterOnboardings([], 'all')).toHaveLength(0);
-		expect(filterOnboardings([], 'active')).toHaveLength(0);
 	});
 });

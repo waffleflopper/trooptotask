@@ -1,18 +1,12 @@
 <script lang="ts">
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
-	import {
-		STEP_TYPE_COLORS,
-		STEP_TYPE_LABELS,
-		STATUS_COLORS,
-		STATUS_LABELS,
-		MODAL_IDS
-	} from '../contexts/OnboardingPageContext.svelte';
-	import { onboardingStore } from '../stores/onboarding.svelte';
+	import { STEP_TYPE_LABELS, MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Stepper from '$lib/components/ui/Stepper.svelte';
 
 	interface Props {
 		ctx: OnboardingPageContext;
@@ -27,19 +21,10 @@
 
 <div class="page">
 	<PageToolbar title="Onboarding" helpTopic="onboarding" overflowItems={ctx.overflowItems}>
-		<div class="filter-toggle">
-			<button class="filter-btn" class:active={ctx.showFilter === 'active'} onclick={() => (ctx.showFilter = 'active')}>
-				Active
-			</button>
-			<button class="filter-btn" class:active={ctx.showFilter === 'all'} onclick={() => (ctx.showFilter = 'all')}>
-				All
-			</button>
-		</div>
+		<a href={ctx.historyUrl} class="btn-ghost">History</a>
 		{#if ctx.canEditOnboarding}
 			{#if ctx.canManageConfig}
-				<button class="btn-ghost" onclick={() => ctx.modals.open(MODAL_IDS.templateManager)} disabled={ctx.readOnly}>
-					Manage Templates
-				</button>
+				<a href={ctx.templatesUrl} class="btn-ghost" class:disabled={ctx.readOnly}>Manage Templates</a>
 			{/if}
 			<button
 				class="btn btn-primary btn-sm"
@@ -62,13 +47,11 @@
 		</div>
 	{:else}
 		<main class="page-content">
-			{#if !ctx.hasTemplateSteps && onboardingStore.items.length > 0}
+			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
 				<div class="warning-banner">
 					<span>No template steps defined — new onboardings cannot be started until steps are added.</span>
 					{#if ctx.canEditOnboarding}
-						<button class="btn btn-sm btn-secondary" onclick={() => ctx.modals.open(MODAL_IDS.templateManager)}>
-							Manage Templates
-						</button>
+						<a href={ctx.templatesUrl} class="btn btn-sm btn-secondary">Manage Templates</a>
 					{/if}
 				</div>
 			{/if}
@@ -81,22 +64,18 @@
 			{/if}
 
 			{#if ctx.filteredOnboardings.length === 0}
-				{#if !ctx.hasTemplateSteps && onboardingStore.items.length === 0}
+				{#if !ctx.hasTemplateSteps && ctx.onboardings.length === 0}
 					{#if ctx.canEditOnboarding}
 						<EmptyState
 							message="Set up your onboarding template to get started. Define the steps new members need to complete."
 							actionLabel="Set Up Template"
-							onAction={() => ctx.modals.open(MODAL_IDS.templateManager)}
+							actionHref={ctx.templatesUrl}
 						/>
 					{:else}
 						<EmptyState message="Onboarding has not been configured yet." />
 					{/if}
 				{:else}
-					<EmptyState
-						message={ctx.showFilter === 'active'
-							? 'No active onboardings. Start one to begin tracking a new member.'
-							: 'No onboardings found.'}
-					/>
+					<EmptyState message="No active onboardings. Start one to begin tracking a new member." />
 				{/if}
 			{:else}
 				<div class="onboarding-list">
@@ -104,27 +83,43 @@
 						{@const progress = ctx.getProgress(onboarding)}
 						{@const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0}
 						{@const isExpanded = ctx.expandedOnboardingId === onboarding.id}
-						{@const isLegacy = onboarding.templateId === null}
+						{@const groupName = ctx.getPersonGroupName(onboarding.personnelId)}
 						<div class="onboarding-card" class:expanded={isExpanded}>
 							<button class="card-summary" onclick={() => ctx.toggleExpand(onboarding.id)} aria-expanded={isExpanded}>
 								<div class="card-main">
 									<span class="expand-icon">{isExpanded ? '▼' : '▶'}</span>
 									<div class="card-info">
 										<span class="person-name">{ctx.getPersonName(onboarding.personnelId)}</span>
-										<span class="started-date">Started {formatDisplayDate(onboarding.startedAt)}</span>
+										<div class="card-meta">
+											<span class="template-name">{ctx.getTemplateName(onboarding.templateId)}</span>
+											{#if groupName}
+												<span class="meta-sep">·</span>
+												<span class="group-name">{groupName}</span>
+											{/if}
+											<span class="meta-sep">·</span>
+											<span class="started-date">Started {formatDisplayDate(onboarding.startedAt)}</span>
+										</div>
 									</div>
 								</div>
 								<div class="card-progress">
 									<div class="progress-bar">
-										<div
-											class="progress-fill"
-											style="width: {pct}%; background: {pct === 100 ? 'var(--color-success)' : 'var(--color-primary)'}"
-										></div>
+										<div class="progress-fill" class:progress-complete={pct === 100} style="width: {pct}%"></div>
 									</div>
-									<span class="progress-text">{progress.completed}/{progress.total} steps</span>
+									<span class="progress-text">{progress.completed}/{progress.total}</span>
 								</div>
 								<div class="card-status">
-									<Badge label={STATUS_LABELS[onboarding.status]} color={STATUS_COLORS[onboarding.status]} />
+									<Badge
+										label={onboarding.status === 'in_progress'
+											? 'In Progress'
+											: onboarding.status === 'completed'
+												? 'Completed'
+												: 'Cancelled'}
+										color={onboarding.status === 'in_progress'
+											? 'var(--color-info)'
+											: onboarding.status === 'completed'
+												? 'var(--color-success)'
+												: 'var(--color-text-muted)'}
+									/>
 								</div>
 							</button>
 
@@ -132,15 +127,13 @@
 								<div class="card-detail">
 									{#if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
 										<div class="detail-actions">
-											{#if pct === 100}
-												<button
-													class="btn btn-primary btn-sm"
-													onclick={() => ctx.handleCompleteOnboarding(onboarding.id)}
-												>
-													Mark Complete
-												</button>
-											{/if}
-											{#if isLegacy}
+											<button
+												class="btn btn-primary btn-sm"
+												onclick={() => ctx.promptCompleteOnboarding(onboarding.id)}
+											>
+												Mark Complete
+											</button>
+											{#if onboarding.templateId === null}
 												<button
 													class="btn btn-secondary btn-sm"
 													onclick={() => ctx.openAssignTemplate(onboarding.id)}
@@ -153,7 +146,7 @@
 													class="btn btn-secondary btn-sm sync-btn"
 													onclick={() => ctx.handleResync(onboarding.id)}
 													disabled={ctx.resyncingId === onboarding.id}
-													title="Sync with current template: adds new steps, updates incomplete steps"
+													title="Sync with current template"
 												>
 													{#if ctx.resyncingId === onboarding.id}
 														<Spinner color="var(--color-text-secondary)" />
@@ -171,40 +164,44 @@
 													{/if}
 													Re-sync
 												</button>
+												{#if ctx.canManageConfig}
+													<button
+														class="btn btn-secondary btn-sm"
+														onclick={() => ctx.openSwitchTemplate(onboarding.id)}
+														title="Switch to a different template"
+													>
+														Switch Template
+													</button>
+												{/if}
 											{/if}
 											<button class="btn btn-danger btn-sm" onclick={() => (ctx.cancellingId = onboarding.id)}>
-												Cancel Onboarding
+												Cancel
 											</button>
 										</div>
 									{/if}
 
 									<div class="step-list">
 										{#each onboarding.steps as step (step.id)}
-											{@const deprecated = ctx.isStepDeprecated(step)}
-											{@const isTrainingComplete =
-												step.stepType === 'training' && ctx.isTrainingStepComplete(step, onboarding.personnelId)}
-											{@const isPaperworkComplete =
-												step.stepType === 'paperwork' &&
-												(() => {
-													const stages = step.stages ?? [];
-													return (
-														(stages.length > 0 && step.currentStage === stages[stages.length - 1]) || step.completed
-													);
-												})()}
-											{@const isCheckboxComplete = step.stepType === 'checkbox' && step.completed}
-											{@const isStepComplete = isTrainingComplete || isPaperworkComplete || isCheckboxComplete}
-											<div class="step-row" class:step-complete={isStepComplete} class:step-deprecated={deprecated}>
+											{@const isInactive = !step.active}
+											<div class="step-row" class:step-complete={step.completed} class:step-inactive={isInactive}>
 												<div class="step-main">
-													{#if deprecated}
-														<Badge label="Deprecated" color="#6b7280" />
+													{#if isInactive}
+														<span class="step-type-indicator step-type-inactive">removed</span>
 													{:else}
-														<Badge label={STEP_TYPE_LABELS[step.stepType]} color={STEP_TYPE_COLORS[step.stepType]} />
+														<span class="step-type-indicator step-type-{step.stepType}"
+															>{STEP_TYPE_LABELS[step.stepType]}</span
+														>
 													{/if}
-													<span class="step-name">{step.stepName}</span>
+													<span class="step-name">
+														{step.stepName}
+														{#if ctx.getTrainingTypeName(step)}
+															<span class="training-type-hint">({ctx.getTrainingTypeName(step)})</span>
+														{/if}
+													</span>
 
-													{#if deprecated}
+													{#if isInactive}
 														{#if step.completed}
-															<span class="deprecated-note">Removed from template</span>
+															<span class="inactive-note">Previously completed</span>
 														{:else if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
 															<button
 																class="btn btn-danger btn-sm"
@@ -212,10 +209,10 @@
 																disabled={ctx.removingDeprecatedStepId === step.id}
 															>
 																{#if ctx.removingDeprecatedStepId === step.id}<Spinner />{/if}
-																Remove Step
+																Remove
 															</button>
 														{:else}
-															<span class="deprecated-note">Removed from template</span>
+															<span class="inactive-note">Removed from template</span>
 														{/if}
 													{:else}
 														<div class="step-status">
@@ -239,64 +236,33 @@
 																	</span>
 																{/if}
 															{:else if step.stepType === 'training'}
-																{#if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
-																	<button
-																		class="training-status-btn"
-																		class:complete={isTrainingComplete}
-																		class:incomplete={!isTrainingComplete}
-																		onclick={() => ctx.handleTrainingStepClick(step, onboarding)}
-																		aria-label="Edit training record"
-																	>
-																		{isTrainingComplete ? '✓' : '✗'}
-																	</button>
-																{:else}
-																	<span
-																		class="status-icon"
-																		class:complete={isTrainingComplete}
-																		class:incomplete={!isTrainingComplete}
-																	>
-																		{isTrainingComplete ? '✓' : '✗'}
-																	</span>
+																<span
+																	class="status-icon"
+																	class:complete={step.completed}
+																	class:incomplete={!step.completed}
+																>
+																	{step.completed ? '✓' : '✗'}
+																</span>
+																{#if !step.completed}
+																	<a href={ctx.trainingPageUrl} class="training-link">Record Training</a>
 																{/if}
 															{:else if step.stepType === 'paperwork'}
-																{@const stages = step.stages ?? []}
-																{@const stageIndex = ctx.getPaperworkStageIndex(step)}
 																<div class="stage-indicator">
-																	{#if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
-																		<button
-																			class="stage-arrow"
-																			onclick={() => ctx.handleRetreatStage(step)}
-																			disabled={stageIndex <= 0}
-																			aria-label="Previous stage"
-																		>
-																			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-																				><polyline points="15 18 9 12 15 6" /></svg
-																			>
-																		</button>
-																	{/if}
-																	<span class="stage-text">
-																		{step.currentStage ?? stages[0] ?? 'N/A'}
-																		<span class="stage-count">({stageIndex + 1}/{stages.length})</span>
-																	</span>
-																	{#if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
-																		<button
-																			class="stage-arrow"
-																			onclick={() => ctx.handleAdvanceStage(step)}
-																			disabled={stageIndex >= stages.length - 1}
-																			aria-label="Next stage"
-																		>
-																			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-																				><polyline points="9 18 15 12 9 6" /></svg
-																			>
-																		</button>
-																	{/if}
+																	<Stepper
+																		stages={step.stages ?? []}
+																		currentStage={step.currentStage ?? (step.stages ?? [])[0] ?? ''}
+																		onStageClick={ctx.canEditOnboarding && onboarding.status === 'in_progress'
+																			? (stage) => ctx.handleStageClick(step, stage)
+																			: undefined}
+																		disabled={!ctx.canEditOnboarding || onboarding.status !== 'in_progress'}
+																	/>
 																</div>
 															{/if}
 														</div>
 													{/if}
 												</div>
 
-												{#if !deprecated}
+												{#if !isInactive}
 													<button
 														class="notes-toggle"
 														onclick={() => ctx.toggleNotes(step.id)}
@@ -389,41 +355,6 @@
 		color: var(--color-text);
 	}
 
-	/* Filter toggle */
-	.filter-toggle {
-		display: flex;
-		align-items: center;
-	}
-
-	.filter-btn {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-		color: var(--color-text);
-		cursor: pointer;
-		transition: all 0.15s ease;
-	}
-
-	.filter-btn:first-child {
-		border-radius: var(--radius-md) 0 0 var(--radius-md);
-	}
-
-	.filter-btn:last-child {
-		border-radius: 0 var(--radius-md) var(--radius-md) 0;
-		border-left: none;
-	}
-
-	.filter-btn:hover {
-		background: var(--color-bg);
-	}
-
-	.filter-btn.active {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
-		color: var(--color-chrome);
-	}
-
 	.btn-ghost {
 		background: none;
 		border: none;
@@ -441,15 +372,20 @@
 		background: var(--color-surface-variant);
 	}
 
+	.btn-ghost.disabled {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
 	.warning-banner {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-md);
 		padding: var(--spacing-sm) var(--spacing-lg);
-		background: rgba(245, 158, 11, 0.1);
-		border: 1px solid #f59e0b;
+		background: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
+		border: 1px solid var(--color-warning, #f59e0b);
 		border-radius: var(--radius-md);
-		color: #f59e0b;
+		color: var(--color-warning, #f59e0b);
 		font-size: var(--font-size-sm);
 		margin-bottom: var(--spacing-md);
 	}
@@ -463,7 +399,7 @@
 		align-items: center;
 		gap: var(--spacing-md);
 		padding: var(--spacing-sm) var(--spacing-lg);
-		background: rgba(239, 68, 68, 0.1);
+		background: var(--color-error-bg, rgba(239, 68, 68, 0.1));
 		border: 1px solid var(--color-error);
 		border-radius: var(--radius-md);
 		color: var(--color-error);
@@ -479,7 +415,7 @@
 	.onboarding-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--spacing-sm);
 	}
 
 	/* Onboarding card */
@@ -513,7 +449,7 @@
 	}
 
 	.card-summary:hover {
-		background: rgba(184, 148, 62, 0.04);
+		background: var(--color-hover);
 	}
 
 	.card-main {
@@ -534,6 +470,7 @@
 	.card-info {
 		display: flex;
 		flex-direction: column;
+		gap: 2px;
 		min-width: 0;
 	}
 
@@ -546,10 +483,32 @@
 		text-overflow: ellipsis;
 	}
 
-	.started-date {
-		font-family: var(--font-mono);
+	.card-meta {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.meta-sep {
+		color: var(--color-text-muted);
+		opacity: 0.5;
+	}
+
+	.template-name {
+		color: var(--color-text-secondary);
+	}
+
+	.group-name {
+		color: var(--color-text-secondary);
+	}
+
+	.started-date {
+		font-family: var(--font-mono);
 	}
 
 	.card-progress {
@@ -557,7 +516,7 @@
 		align-items: center;
 		gap: var(--spacing-sm);
 		flex-shrink: 0;
-		min-width: 180px;
+		min-width: 140px;
 	}
 
 	.progress-bar {
@@ -572,6 +531,11 @@
 		height: 100%;
 		border-radius: var(--radius-full);
 		transition: width 0.3s ease;
+		background: var(--color-primary);
+	}
+
+	.progress-fill.progress-complete {
+		background: var(--color-success);
 	}
 
 	.progress-text {
@@ -626,15 +590,15 @@
 		padding: var(--spacing-sm) var(--spacing-md);
 		border-radius: var(--radius-md);
 		background: var(--color-bg);
-		transition: background 0.1s ease;
+		transition: opacity 0.15s ease;
 	}
 
 	.step-row.step-complete {
-		opacity: 0.7;
+		opacity: 0.6;
 	}
 
-	.step-row.step-deprecated {
-		opacity: 0.65;
+	.step-row.step-inactive {
+		opacity: 0.5;
 		background: var(--color-surface-variant);
 	}
 
@@ -646,6 +610,38 @@
 		min-width: 0;
 	}
 
+	.step-type-indicator {
+		font-size: var(--font-size-xs);
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		padding: 2px var(--spacing-xs);
+		border-radius: var(--radius-sm);
+		flex-shrink: 0;
+	}
+
+	.step-type-checkbox {
+		color: var(--color-text-muted);
+		background: var(--color-surface-variant);
+	}
+
+	.step-type-paperwork {
+		color: var(--color-warning, #f59e0b);
+		background: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
+	}
+
+	.step-type-training {
+		color: var(--color-info);
+		background: var(--color-info-bg, rgba(59, 130, 246, 0.1));
+	}
+
+	.step-type-inactive {
+		color: var(--color-text-muted);
+		background: var(--color-surface-variant);
+		font-style: italic;
+		text-transform: none;
+	}
+
 	.step-name {
 		font-size: var(--font-size-sm);
 		font-weight: 500;
@@ -655,7 +651,13 @@
 		text-overflow: ellipsis;
 	}
 
-	.deprecated-note {
+	.training-type-hint {
+		font-weight: 400;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
+	}
+
+	.inactive-note {
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
 		font-style: italic;
@@ -714,34 +716,16 @@
 		color: var(--color-error);
 	}
 
-	/* Training status button (clickable in edit mode) */
-	.training-status-btn {
-		font-size: var(--font-size-base);
-		font-weight: 700;
-		color: var(--color-text-muted);
-		background: none;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		width: 28px;
-		height: 28px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		transition: all 0.15s ease;
+	/* Training link */
+	.training-link {
+		font-size: var(--font-size-xs);
+		color: var(--color-primary);
+		text-decoration: none;
+		font-weight: 500;
 	}
 
-	.training-status-btn:hover {
-		border-color: var(--color-primary);
-		background: rgba(184, 148, 62, 0.08);
-	}
-
-	.training-status-btn.complete {
-		color: var(--color-success);
-	}
-
-	.training-status-btn.incomplete {
-		color: var(--color-error);
+	.training-link:hover {
+		text-decoration: underline;
 	}
 
 	/* Stage indicator */
@@ -749,48 +733,6 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-xs);
-	}
-
-	.stage-arrow {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		padding: 0;
-		background: none;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.stage-arrow:hover:not(:disabled) {
-		background: var(--color-surface-variant);
-		border-color: var(--color-primary);
-		color: var(--color-primary);
-	}
-
-	.stage-arrow:disabled {
-		opacity: 0.25;
-		cursor: default;
-	}
-
-	.stage-arrow svg {
-		width: 14px;
-		height: 14px;
-	}
-
-	.stage-text {
-		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-secondary);
-		white-space: nowrap;
-	}
-
-	.stage-count {
-		color: var(--color-text-muted);
 	}
 
 	/* Notes toggle */
@@ -889,12 +831,8 @@
 		flex-shrink: 0;
 	}
 
-	/* Mobile Responsive Styles */
+	/* Mobile Responsive */
 	@media (max-width: 640px) {
-		.page {
-			margin-left: 0;
-		}
-
 		.card-summary {
 			flex-wrap: wrap;
 			padding: var(--spacing-sm) var(--spacing-md);

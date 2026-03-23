@@ -17,7 +17,9 @@ export const MODAL_IDS = {
 	startOnboarding: 'startOnboarding',
 	report: 'report',
 	assignTemplate: 'assignTemplate',
-	cancelConfirm: 'cancelConfirm'
+	cancelConfirm: 'cancelConfirm',
+	switchTemplate: 'switchTemplate',
+	completeConfirm: 'completeConfirm'
 } as const;
 
 // ── Pure exported functions (testable) ───────────────────────
@@ -138,6 +140,14 @@ export class OnboardingPageContext {
 	removingDeprecatedStepId = $state<string | null>(null);
 	noteInputs = $state<Record<string, string>>({});
 	expandedNotes = $state<Set<string>>(new Set());
+	// Switch template state
+	switchingTemplateId = $state<string | null>(null);
+	switchTemplateSelected = $state('');
+	switchingTemplate = $state(false);
+	switchTemplateError = $state('');
+	// Complete confirmation state
+	completingId = $state<string | null>(null);
+	completingIncompleteCount = $state(0);
 
 	constructor(modals: ModalRegistry, org: OrgContext) {
 		this.modals = modals;
@@ -174,6 +184,10 @@ export class OnboardingPageContext {
 
 	get filteredOnboardings(): PersonnelOnboarding[] {
 		return filterOnboardings(onboardingStore.items, this.showFilter);
+	}
+
+	get historyUrl(): string {
+		return `/org/${this.#org.orgId}/onboarding/history`;
 	}
 
 	get overflowItems(): OverflowItem[] {
@@ -229,15 +243,6 @@ export class OnboardingPageContext {
 
 	// ── Event handlers ─────────────────────────────────────────
 
-	async checkAutoComplete(onboardingId: string) {
-		const onboarding = onboardingStore.getById(onboardingId);
-		if (!onboarding || onboarding.status !== 'in_progress') return;
-		const progress = this.getProgress(onboarding);
-		if (progress.total > 0 && progress.completed === progress.total) {
-			await onboardingStore.completeOnboarding(onboardingId);
-		}
-	}
-
 	async handleStartOnboarding(personnelId: string, startedAt: string, templateId: string | null) {
 		await onboardingStore.startOnboarding(personnelId, startedAt, templateId);
 		this.modals.close(MODAL_IDS.startOnboarding);
@@ -250,8 +255,6 @@ export class OnboardingPageContext {
 
 	async handleToggleCheckbox(step: OnboardingStepProgress) {
 		await onboardingStore.updateStepProgress(step.id, { completed: !step.completed });
-		const onboarding = onboardingStore.items.find((o) => o.steps.some((s) => s.id === step.id));
-		if (onboarding) await this.checkAutoComplete(onboarding.id);
 	}
 
 	async handleAdvanceStage(step: OnboardingStepProgress) {
@@ -261,10 +264,6 @@ export class OnboardingPageContext {
 			const nextStage = stages[currentIndex + 1];
 			const isLast = currentIndex + 1 === stages.length - 1;
 			await onboardingStore.updateStepProgress(step.id, { currentStage: nextStage, completed: isLast });
-			if (isLast) {
-				const onboarding = onboardingStore.items.find((o) => o.steps.some((s) => s.id === step.id));
-				if (onboarding) await this.checkAutoComplete(onboarding.id);
-			}
 		}
 	}
 
@@ -284,10 +283,6 @@ export class OnboardingPageContext {
 		if (!stages.includes(stageName)) return;
 		const isLast = stageName === stages[stages.length - 1];
 		await onboardingStore.updateStepProgress(step.id, { currentStage: stageName, completed: isLast });
-		if (isLast) {
-			const onboarding = onboardingStore.items.find((o) => o.steps.some((s) => s.id === step.id));
-			if (onboarding) await this.checkAutoComplete(onboarding.id);
-		}
 	}
 
 	toggleNotes(stepId: string) {
@@ -312,8 +307,25 @@ export class OnboardingPageContext {
 		this.modals.close(MODAL_IDS.cancelConfirm);
 	}
 
-	async handleCompleteOnboarding(id: string) {
-		await onboardingStore.completeOnboarding(id);
+	promptCompleteOnboarding(id: string) {
+		const onboarding = onboardingStore.getById(id);
+		if (!onboarding) return;
+		const progress = this.getProgress(onboarding);
+		const incompleteCount = progress.total - progress.completed;
+		this.completingId = id;
+		this.completingIncompleteCount = incompleteCount;
+	}
+
+	async confirmCompleteOnboarding() {
+		if (!this.completingId) return;
+		await onboardingStore.completeOnboarding(this.completingId);
+		this.completingId = null;
+		this.completingIncompleteCount = 0;
+	}
+
+	cancelComplete() {
+		this.completingId = null;
+		this.completingIncompleteCount = 0;
 	}
 
 	toggleExpand(id: string) {
@@ -353,6 +365,30 @@ export class OnboardingPageContext {
 			this.closeAssignTemplate();
 		} else {
 			this.assignTemplateError = result.error ?? 'Failed to assign template';
+		}
+	}
+
+	openSwitchTemplate(onboardingId: string) {
+		this.switchingTemplateId = onboardingId;
+		this.switchTemplateSelected = onboardingTemplateStore.templates[0]?.id ?? '';
+		this.switchTemplateError = '';
+	}
+
+	closeSwitchTemplate() {
+		this.switchingTemplateId = null;
+		this.switchTemplateError = '';
+	}
+
+	async handleSwitchTemplate() {
+		if (!this.switchingTemplateId || !this.switchTemplateSelected) return;
+		this.switchingTemplate = true;
+		this.switchTemplateError = '';
+		const result = await onboardingStore.switchTemplate(this.switchingTemplateId, this.switchTemplateSelected);
+		this.switchingTemplate = false;
+		if (result.success) {
+			this.closeSwitchTemplate();
+		} else {
+			this.switchTemplateError = result.error ?? 'Failed to switch template';
 		}
 	}
 

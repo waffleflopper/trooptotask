@@ -30,6 +30,7 @@
 				All
 			</button>
 		</div>
+		<a href={ctx.historyUrl} class="btn-ghost">History</a>
 		{#if ctx.canEditOnboarding}
 			{#if ctx.canManageConfig}
 				<button class="btn-ghost" onclick={() => ctx.modals.open(MODAL_IDS.templateManager)} disabled={ctx.readOnly}>
@@ -143,14 +144,12 @@
 								<div class="card-detail">
 									{#if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
 										<div class="detail-actions">
-											{#if pct === 100}
-												<button
-													class="btn btn-primary btn-sm"
-													onclick={() => ctx.handleCompleteOnboarding(onboarding.id)}
-												>
-													Mark Complete
-												</button>
-											{/if}
+											<button
+												class="btn btn-primary btn-sm"
+												onclick={() => ctx.promptCompleteOnboarding(onboarding.id)}
+											>
+												Mark Complete
+											</button>
 											{#if onboarding.templateId === null}
 												<button
 													class="btn btn-secondary btn-sm"
@@ -182,6 +181,15 @@
 													{/if}
 													Re-sync
 												</button>
+												{#if ctx.canManageConfig}
+													<button
+														class="btn btn-secondary btn-sm"
+														onclick={() => ctx.openSwitchTemplate(onboarding.id)}
+														title="Switch to a different template"
+													>
+														Switch Template
+													</button>
+												{/if}
 											{/if}
 											<button class="btn btn-danger btn-sm" onclick={() => (ctx.cancellingId = onboarding.id)}>
 												Cancel

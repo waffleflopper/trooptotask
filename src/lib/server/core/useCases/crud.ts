@@ -1,7 +1,12 @@
-import { error } from '@sveltejs/kit';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { FeatureArea } from '$lib/server/core/ports';
+
+function fail(status: number, message: string): never {
+	const err = new Error(message);
+	(err as unknown as Record<string, unknown>).status = status;
+	throw err;
+}
 
 export interface CrudConfig {
 	entity: EntityDefinition;
@@ -30,7 +35,7 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
 			if (isReadOnly) {
-				throw error(403, 'Organization is in read-only mode');
+				fail(403, 'Organization is in read-only mode');
 			}
 
 			const validated = entity.createSchema.parse(data);
@@ -63,7 +68,7 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
 			if (isReadOnly) {
-				throw error(403, 'Organization is in read-only mode');
+				fail(403, 'Organization is in read-only mode');
 			}
 
 			const validated = entity.updateSchema.parse(data);
@@ -101,7 +106,7 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
 			if (isReadOnly) {
-				throw error(403, 'Organization is in read-only mode');
+				fail(403, 'Organization is in read-only mode');
 			}
 
 			// Group scope: enforce by record lookup

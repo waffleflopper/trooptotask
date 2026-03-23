@@ -89,16 +89,8 @@ export async function deleteAvailabilityBatch(
 		await ctx.auth.requireGroupAccessBatch(personnelIds);
 	}
 
-	// Delete each entry
-	let deletedCount = 0;
-	for (const id of ids) {
-		try {
-			await ctx.store.delete(entity.table, ctx.auth.orgId, id);
-			deletedCount++;
-		} catch {
-			// Entry may not exist — skip
-		}
-	}
+	// Batch delete all entries in one round-trip
+	const deletedCount = await ctx.store.deleteManyByIds(entity.table, ctx.auth.orgId, ids);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.bulk_deleted`,

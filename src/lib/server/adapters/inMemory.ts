@@ -72,7 +72,7 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 		},
 
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T> {
-			const row: Row = { ...data, organization_id: orgId };
+			const row: Row = { id: crypto.randomUUID(), ...data, organization_id: orgId };
 			getRows(table).push(row);
 			return row as T;
 		},
@@ -96,6 +96,19 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			rows.splice(index, 1);
 		},
 
+		async deleteManyByIds(table: string, orgId: string, ids: string[]): Promise<number> {
+			const rows = getRows(table);
+			const idSet = new Set(ids);
+			let deleted = 0;
+			for (let i = rows.length - 1; i >= 0; i--) {
+				if (rows[i].organization_id === orgId && idSet.has(rows[i].id as string)) {
+					rows.splice(i, 1);
+					deleted++;
+				}
+			}
+			return deleted;
+		},
+
 		async deleteWhere(table: string, orgId: string, filters: Record<string, unknown>): Promise<void> {
 			const rows = getRows(table);
 			for (let i = rows.length - 1; i >= 0; i--) {
@@ -109,7 +122,7 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			const tableRows = getRows(table);
 			const inserted: Row[] = [];
 			for (const data of rows) {
-				const row: Row = { ...data, organization_id: orgId };
+				const row: Row = { id: crypto.randomUUID(), ...data, organization_id: orgId };
 				tableRows.push(row);
 				inserted.push(row);
 			}

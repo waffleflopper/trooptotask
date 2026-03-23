@@ -108,7 +108,7 @@ function notifyRequester(
 	});
 }
 
-export async function approveDeletionRequest(ctx: UseCaseContext, requestId: string, reason?: string): Promise<void> {
+export async function approveDeletionRequest(ctx: UseCaseContext, requestId: string): Promise<void> {
 	ctx.auth.requirePrivileged();
 
 	const request = await fetchPendingRequest(ctx, requestId);
@@ -126,14 +126,16 @@ export async function approveDeletionRequest(ctx: UseCaseContext, requestId: str
 	const resourceId = request.resource_id as string;
 	const tableName = RESOURCE_TYPE_TABLE_MAP[resourceType];
 
-	if (tableName) {
-		if (resourceType === 'personnel') {
-			await ctx.store.update(tableName, ctx.auth.orgId, resourceId, {
-				archived_at: new Date().toISOString()
-			});
-		} else {
-			await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
-		}
+	if (!tableName) {
+		fail(400, `Unsupported resource type: ${resourceType}`);
+	}
+
+	if (resourceType === 'personnel') {
+		await ctx.store.update(tableName, ctx.auth.orgId, resourceId, {
+			archived_at: new Date().toISOString()
+		});
+	} else {
+		await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
 	}
 
 	// Notify the requester

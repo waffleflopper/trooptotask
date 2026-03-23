@@ -1,8 +1,13 @@
-import { error } from '@sveltejs/kit';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import type { CrudConfig } from './crud';
 import type { UseCaseContext } from '$lib/server/core/ports';
+
+function fail(status: number, message: string): never {
+	const err = new Error(message);
+	(err as unknown as Record<string, unknown>).status = status;
+	throw err;
+}
 
 export const specialDayCrudConfig: CrudConfig = {
 	entity: SpecialDayEntity,
@@ -16,7 +21,7 @@ export function createResetFederalHolidaysUseCase() {
 
 		const isReadOnly = await ctx.readOnlyGuard.check();
 		if (isReadOnly) {
-			throw error(403, 'Organization is in read-only mode');
+			fail(403, 'Organization is in read-only mode');
 		}
 
 		// Delete existing federal holidays

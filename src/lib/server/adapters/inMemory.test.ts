@@ -8,6 +8,27 @@ import {
 
 describe('InMemoryDataStore', () => {
 	describe('insert + findOne', () => {
+		it('auto-generates a UUID id when none provided', async () => {
+			const store = createInMemoryDataStore();
+			const inserted = await store.insert<{ id: string; name: string }>('people', 'org-1', {
+				name: 'Alice'
+			});
+
+			expect(inserted.id).toBeDefined();
+			expect(typeof inserted.id).toBe('string');
+			expect(inserted.id).toMatch(/^[0-9a-f-]{36}$/);
+		});
+
+		it('preserves explicit id when provided', async () => {
+			const store = createInMemoryDataStore();
+			const inserted = await store.insert<{ id: string }>('people', 'org-1', {
+				id: 'my-custom-id',
+				name: 'Bob'
+			});
+
+			expect(inserted.id).toBe('my-custom-id');
+		});
+
 		it('inserts a record and retrieves it by filters', async () => {
 			const store = createInMemoryDataStore();
 			const inserted = await store.insert<{ id: string; name: string }>('people', 'org-1', {
@@ -176,6 +197,42 @@ describe('InMemoryDataStore', () => {
 		});
 	});
 
+	describe('deleteManyByIds', () => {
+		it('deletes multiple records by id in one call and returns count', async () => {
+			const store = createInMemoryDataStore();
+			await store.insert('records', 'org-1', { id: 'r-1', name: 'A' });
+			await store.insert('records', 'org-1', { id: 'r-2', name: 'B' });
+			await store.insert('records', 'org-1', { id: 'r-3', name: 'C' });
+
+			const deleted = await store.deleteManyByIds('records', 'org-1', ['r-1', 'r-3']);
+			expect(deleted).toBe(2);
+
+			const remaining = await store.findMany('records', 'org-1');
+			expect(remaining).toHaveLength(1);
+			expect(remaining[0]).toMatchObject({ id: 'r-2' });
+		});
+
+		it('returns 0 for non-existent ids', async () => {
+			const store = createInMemoryDataStore();
+			await store.insert('records', 'org-1', { id: 'r-1', name: 'A' });
+
+			const deleted = await store.deleteManyByIds('records', 'org-1', ['nonexistent']);
+			expect(deleted).toBe(0);
+		});
+
+		it('does not delete records from other orgs', async () => {
+			const store = createInMemoryDataStore();
+			await store.insert('records', 'org-1', { id: 'r-1', name: 'A' });
+			await store.insert('records', 'org-2', { id: 'r-2', name: 'B' });
+
+			const deleted = await store.deleteManyByIds('records', 'org-1', ['r-1', 'r-2']);
+			expect(deleted).toBe(1);
+
+			const org2Records = await store.findMany('records', 'org-2');
+			expect(org2Records).toHaveLength(1);
+		});
+	});
+
 	describe('deleteWhere', () => {
 		it('removes all records matching filters', async () => {
 			const store = createInMemoryDataStore();
@@ -203,6 +260,18 @@ describe('InMemoryDataStore', () => {
 	});
 
 	describe('insertMany', () => {
+		it('auto-generates UUIDs for each inserted record', async () => {
+			const store = createInMemoryDataStore();
+			const results = await store.insertMany<{ id: string; name: string }>('people', 'org-1', [
+				{ name: 'Alice' },
+				{ name: 'Bob' }
+			]);
+
+			expect(results[0].id).toBeDefined();
+			expect(results[1].id).toBeDefined();
+			expect(results[0].id).not.toBe(results[1].id);
+		});
+
 		it('inserts multiple records and returns them all', async () => {
 			const store = createInMemoryDataStore();
 			const results = await store.insertMany<{ id: string; name: string }>('people', 'org-1', [

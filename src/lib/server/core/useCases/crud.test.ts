@@ -102,7 +102,7 @@ describe('createCrudUseCases', () => {
 
 			await expect(create(ctx, { personnelId: 'p-1' })).rejects.toMatchObject({
 				status: 403,
-				body: { message: 'Organization is in read-only mode' }
+				message: 'Organization is in read-only mode'
 			});
 			const stored = await ctx.store.findMany('test_records', 'test-org');
 			expect(stored).toHaveLength(0);

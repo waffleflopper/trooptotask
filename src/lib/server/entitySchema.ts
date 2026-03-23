@@ -84,6 +84,7 @@ export interface EntityDefinition<T = unknown> {
 	createSchema: z.ZodObject<z.ZodRawShape>;
 	updateSchema: z.ZodObject<z.ZodRawShape>;
 	handlers: EntityHandlers;
+	select: string;
 	repo: Repository<T>;
 }
 
@@ -383,6 +384,7 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		toDbUpdate,
 		createSchema,
 		updateSchema,
+		select,
 		handlers,
 		repo
 	};

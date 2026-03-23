@@ -74,7 +74,7 @@ describe('batchDailyAssignments', () => {
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'daily_assignment.batch_replaced',
 			resourceType: 'daily_assignment',
-			details: { inserted: 1, cleared: 1 }
+			details: { totalSlots: 2, inserted: 1, cleared: 1 }
 		});
 	});
 

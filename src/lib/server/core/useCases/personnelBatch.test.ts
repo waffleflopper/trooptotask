@@ -95,13 +95,13 @@ describe('importPersonnelBatch', () => {
 		expect(result.errors[0].message).toContain('cap reached');
 	});
 
-	it('returns error when cap fully reached (0 available)', async () => {
+	it('throws 403 when cap fully reached (0 available)', async () => {
 		const { ctx, subscription } = buildContext({ availableSlots: 0 });
-		const result = (await importPersonnelBatch(ctx, subscription, {
-			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
-		})) as { inserted: unknown[]; errors: unknown[]; error?: string };
-		expect(result.inserted).toHaveLength(0);
-		expect(result.error).toContain('Personnel limit reached');
+		await expect(
+			importPersonnelBatch(ctx, subscription, {
+				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
+			})
+		).rejects.toMatchObject({ status: 403, message: 'Personnel limit reached. Upgrade to add more.' });
 	});
 
 	it('enforces scoped group restriction', async () => {

@@ -1,11 +1,6 @@
+import { fail } from '$lib/server/core/errors';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import type { UseCaseContext } from '$lib/server/core/ports';
-
-function fail(status: number, message: string): never {
-	const err = new Error(message);
-	(err as unknown as Record<string, unknown>).status = status;
-	throw err;
-}
 
 const entity = AvailabilityEntryEntity;
 const AUDIT_RESOURCE = 'availability';

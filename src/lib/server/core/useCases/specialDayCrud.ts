@@ -1,13 +1,8 @@
+import { fail } from '$lib/server/core/errors';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import type { CrudConfig } from './crud';
 import type { UseCaseContext } from '$lib/server/core/ports';
-
-function fail(status: number, message: string): never {
-	const err = new Error(message);
-	(err as unknown as Record<string, unknown>).status = status;
-	throw err;
-}
 
 export const specialDayCrudConfig: CrudConfig = {
 	entity: SpecialDayEntity,

@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
+import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
 import { getApiContext } from '$lib/server/supabase';
 import { createPermissionContext, createSandboxContext } from '$lib/server/permissionContext';
 import { validateUUID } from '$lib/server/validation';
@@ -48,6 +48,33 @@ export async function buildContext(event: RequestEvent): Promise<UseCaseContext>
 }
 
 export { buildContextInternal };
+
+/**
+ * Build a UseCaseContext from layout/page server parameters.
+ * Layout servers don't have a RequestEvent, so this accepts the raw pieces.
+ * Audit is a no-op since layout loads are read-only data fetches.
+ */
+export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, orgId: string): Promise<UseCaseContext> {
+	if (!validateUUID(orgId)) {
+		throw error(400, 'Invalid organization ID');
+	}
+
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	const store = createSupabaseDataStore(supabase);
+	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
+	const audit = { log() {} };
+
+	let auth;
+	if (isSandbox) {
+		auth = createSandboxAuthContext(orgId);
+	} else {
+		const permCtx = await createPermissionContext(supabase, userId!, orgId);
+		auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
+	}
+
+	return { store, auth, audit, readOnlyGuard };
+}
 
 function rethrowOrWrap(err: unknown): never {
 	if (err && typeof err === 'object' && 'status' in err) {

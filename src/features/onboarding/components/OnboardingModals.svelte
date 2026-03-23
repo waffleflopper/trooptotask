@@ -1,11 +1,6 @@
 <script lang="ts">
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
-	import { onboardingStore } from '../stores/onboarding.svelte';
-	import { onboardingTemplateStore } from '../stores/onboardingTemplate.svelte';
-	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-	import { groupsStore } from '$lib/stores/groups.svelte';
 	import OnboardingReportModal from './OnboardingReportModal.svelte';
 	import StartOnboardingModal from './StartOnboardingModal.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -21,20 +16,20 @@
 
 {#if ctx.modals.isOpen(MODAL_IDS.report)}
 	<OnboardingReportModal
-		onboardings={onboardingStore.items}
-		personnel={personnelStore.items}
-		trainingTypes={trainingTypesStore.items}
-		personnelTrainings={[]}
+		onboardings={ctx.onboardings}
+		personnel={ctx.personnel}
+		templates={ctx.templates}
+		trainingTypeNames={ctx.trainingTypeNames}
 		onClose={ctx.modals.closerFor(MODAL_IDS.report)}
 	/>
 {/if}
 
 {#if ctx.modals.isOpen(MODAL_IDS.startOnboarding)}
 	<StartOnboardingModal
-		personnel={personnelStore.items}
+		personnel={ctx.personnel}
 		existingOnboardingPersonnelIds={ctx.existingOnboardingPersonnelIds}
-		groups={groupsStore.items}
-		templates={onboardingTemplateStore.templates}
+		groups={ctx.groups}
+		templates={ctx.templates}
 		hasTemplateSteps={ctx.hasTemplateSteps}
 		onSubmit={(personnelId, _startedAt, templateId) => ctx.handleStartOnboarding(personnelId, templateId)}
 		onAddPerson={ctx.handleAddPerson.bind(ctx)}
@@ -80,7 +75,7 @@
 		<div class="form-group">
 			<label class="label" for="switch-template-select">New Template</label>
 			<select id="switch-template-select" class="select" bind:value={ctx.switchTemplateSelected}>
-				{#each onboardingTemplateStore.templates as t (t.id)}
+				{#each ctx.templates as t (t.id)}
 					<option value={t.id}>{t.name}</option>
 				{/each}
 			</select>
@@ -118,7 +113,7 @@
 		<div class="form-group">
 			<label class="label" for="assign-template-select">Template</label>
 			<select id="assign-template-select" class="select" bind:value={ctx.assignTemplateSelected}>
-				{#each onboardingTemplateStore.templates as t (t.id)}
+				{#each ctx.templates as t (t.id)}
 					<option value={t.id}>{t.name}</option>
 				{/each}
 			</select>

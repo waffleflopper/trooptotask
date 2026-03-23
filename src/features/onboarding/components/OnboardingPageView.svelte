@@ -193,7 +193,12 @@
 															>{STEP_TYPE_LABELS[step.stepType]}</span
 														>
 													{/if}
-													<span class="step-name">{step.stepName}</span>
+													<span class="step-name">
+														{step.stepName}
+														{#if ctx.getTrainingTypeName(step)}
+															<span class="training-type-hint">({ctx.getTrainingTypeName(step)})</span>
+														{/if}
+													</span>
 
 													{#if isInactive}
 														{#if step.completed}
@@ -645,6 +650,12 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.training-type-hint {
+		font-weight: 400;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
 	}
 
 	.inactive-note {

@@ -243,6 +243,20 @@ describe('cancelOnboarding', () => {
 		await expect(cancelOnboarding(ctx, 'ob-1')).rejects.toThrow('Organization is in read-only mode');
 	});
 
+	it('rejects cancelling a completed onboarding', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { status: 'completed', completed_at: '2026-03-01T00:00:00Z' });
+
+		await expect(cancelOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be cancelled');
+	});
+
+	it('rejects cancelling an already cancelled onboarding', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
+
+		await expect(cancelOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be cancelled');
+	});
+
 	it('emits audit log', async () => {
 		const ctx = buildContext();
 		seedOnboarding(ctx);
@@ -398,6 +412,20 @@ describe('completeOnboarding', () => {
 		const result = await completeOnboarding(ctx, 'ob-1');
 
 		expect(result.incompleteCount).toBe(0);
+	});
+
+	it('rejects completing a cancelled onboarding', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
+
+		await expect(completeOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be completed');
+	});
+
+	it('rejects completing an already completed onboarding', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { status: 'completed', completed_at: '2026-03-01T00:00:00Z' });
+
+		await expect(completeOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be completed');
 	});
 
 	it('emits audit log with incomplete count', async () => {

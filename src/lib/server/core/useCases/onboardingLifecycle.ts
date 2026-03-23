@@ -181,6 +181,10 @@ export async function cancelOnboarding(ctx: UseCaseContext, id: string): Promise
 		fail(404, 'Onboarding not found');
 	}
 
+	if (onboarding.status !== 'in_progress') {
+		fail(400, 'Only in-progress onboardings can be cancelled');
+	}
+
 	const now = new Date().toISOString();
 	const updated = await ctx.store.update<{
 		id: string;
@@ -266,6 +270,10 @@ export async function completeOnboarding(ctx: UseCaseContext, id: string): Promi
 	});
 	if (!onboarding) {
 		fail(404, 'Onboarding not found');
+	}
+
+	if (onboarding.status !== 'in_progress') {
+		fail(400, 'Only in-progress onboardings can be completed');
 	}
 
 	// Count incomplete active steps (type-agnostic)

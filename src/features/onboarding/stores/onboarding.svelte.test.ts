@@ -34,7 +34,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		onboardingStore.load([], 'org-1');
 	});
 
-	it('should not clobber optimistic updateStepProgress when load is called mid-flight', async () => {
+	it('should not clobber optimistic toggleCheckbox when load is called mid-flight', async () => {
 		onboardingStore.load([mockOnboarding], 'org-1');
 
 		let resolveFetch!: (value: unknown) => void;
@@ -46,10 +46,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			vi.fn().mockReturnValue(fetchPromise.then(() => ({ ok: true, status: 200, json: () => Promise.resolve({}) })))
 		);
 
-		const updatePromise = onboardingStore.updateStepProgress('step-1', {
-			completed: true,
-			currentStage: 'completed'
-		});
+		const updatePromise = onboardingStore.toggleCheckbox('step-1', true);
 
 		// Optimistic: step should show completed
 		const ob = onboardingStore.getById('ob-1');
@@ -79,7 +76,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			)
 		);
 
-		onboardingStore.updateStepProgress('step-1', { completed: true, currentStage: 'completed' });
+		onboardingStore.toggleCheckbox('step-1', true);
 
 		// Different org — should go through
 		onboardingStore.load([], 'org-2');

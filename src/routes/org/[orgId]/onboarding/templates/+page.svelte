@@ -283,7 +283,9 @@
 <PageToolbar
 	title="Manage Templates"
 	breadcrumbs={[{ label: 'Onboarding', href: `/org/${org.orgId}/onboarding` }, { label: 'Manage Templates' }]}
-/>
+>
+	<a href={`/org/${org.orgId}/onboarding`} class="btn-ghost">Back</a>
+</PageToolbar>
 
 <div class="templates-layout">
 	<!-- Left panel: Template list -->
@@ -621,6 +623,24 @@
 {/snippet}
 
 <style>
+	.btn-ghost {
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		transition: all 0.15s;
+		text-decoration: none;
+	}
+
+	.btn-ghost:hover {
+		color: var(--color-text);
+		background: var(--color-surface-variant);
+	}
+
 	/* Layout */
 	.templates-layout {
 		display: grid;

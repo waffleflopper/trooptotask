@@ -131,6 +131,7 @@ export function createTestAuthContext(overrides?: Partial<AuthContext>): AuthCon
 		requirePrivileged() {},
 		requireOwner() {},
 		requireFullEditor() {},
+		requireManageMembers() {},
 		async requireGroupAccess() {},
 		async requireGroupAccessBatch() {},
 		async requireGroupAccessByRecord() {}

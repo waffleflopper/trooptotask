@@ -1,103 +1,101 @@
 import { json, error } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
-import { auditLog } from '$lib/server/auditLog';
+import type { RequestEvent } from '@sveltejs/kit';
+import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { getApiContext } from '$lib/server/supabase';
 
 // Get signed URL for download
-export const GET = apiRoute(
-	{ permission: { authenticated: true }, readOnly: false },
-	async ({ supabase, orgId }, event) => {
-		const id = event.params.id;
+export const GET = async (event: RequestEvent) => {
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		const { data: roster } = await supabase
-			.from('sign_in_rosters')
-			.select('signed_file_path')
-			.eq('id', id)
-			.eq('organization_id', orgId)
-			.single();
+	const id = event.params.id;
 
-		if (!roster?.signed_file_path) throw error(404, 'No signed file found');
+	const { data: roster } = await supabase
+		.from('sign_in_rosters')
+		.select('signed_file_path')
+		.eq('id', id)
+		.eq('organization_id', orgId)
+		.single();
 
-		const { data: signedUrl } = await supabase.storage
-			.from('counseling-files')
-			.createSignedUrl(roster.signed_file_path, 300);
+	if (!roster?.signed_file_path) throw error(404, 'No signed file found');
 
-		if (!signedUrl) throw error(500, 'Failed to create download URL');
+	const { data: signedUrl } = await supabase.storage
+		.from('counseling-files')
+		.createSignedUrl(roster.signed_file_path, 300);
 
-		return json({ url: signedUrl.signedUrl });
-	}
-);
+	if (!signedUrl) throw error(500, 'Failed to create download URL');
+
+	return json({ url: signedUrl.signedUrl });
+};
 
 // Upload signed scan
-export const POST = apiRoute(
-	{ permission: { authenticated: true }, readOnly: false },
-	async ({ supabase, orgId, userId }, event) => {
-		const id = event.params.id;
+export const POST = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		const formData = await event.request.formData();
-		const file = formData.get('file') as File;
+	const id = event.params.id;
 
-		if (!file) return json({ error: 'No file provided' }, { status: 400 });
-		if (file.size > 10 * 1024 * 1024) return json({ error: 'File must be under 10MB' }, { status: 400 });
+	const formData = await event.request.formData();
+	const file = formData.get('file') as File;
 
-		const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-		const storagePath = `${orgId}/sign-in-rosters/${id}/${sanitizedName}`;
+	if (!file) return json({ error: 'No file provided' }, { status: 400 });
+	if (file.size > 10 * 1024 * 1024) return json({ error: 'File must be under 10MB' }, { status: 400 });
 
-		const { error: uploadError } = await supabase.storage
-			.from('counseling-files')
-			.upload(storagePath, file, { upsert: true });
+	const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+	const storagePath = `${orgId}/sign-in-rosters/${id}/${sanitizedName}`;
 
-		if (uploadError) throw error(500, uploadError.message);
+	const { error: uploadError } = await supabase.storage
+		.from('counseling-files')
+		.upload(storagePath, file, { upsert: true });
 
-		const { error: dbError } = await supabase
-			.from('sign_in_rosters')
-			.update({ signed_file_path: storagePath })
-			.eq('id', id)
-			.eq('organization_id', orgId);
+	if (uploadError) throw error(500, uploadError.message);
 
-		if (dbError) throw error(500, dbError.message);
+	const { error: dbError } = await supabase
+		.from('sign_in_rosters')
+		.update({ signed_file_path: storagePath })
+		.eq('id', id)
+		.eq('organization_id', orgId);
 
-		auditLog(
-			{
-				action: 'sign_in_roster.scan_uploaded',
-				resourceType: 'sign_in_roster',
-				resourceId: id,
-				orgId,
-				details: { actor: event.locals.user?.email ?? userId }
-			},
-			{ userId }
-		);
+	if (dbError) throw error(500, dbError.message);
 
-		return json({ signedFilePath: storagePath });
-	}
-);
+	ctx.audit.log({
+		action: 'sign_in_roster.scan_uploaded',
+		resourceType: 'sign_in_roster',
+		resourceId: id,
+		details: { actor: event.locals.user?.email ?? ctx.auth.userId }
+	});
+
+	return json({ signedFilePath: storagePath });
+};
 
 // Remove signed scan
-export const DELETE = apiRoute(
-	{ permission: { authenticated: true }, readOnly: false },
-	async ({ supabase, orgId }, event) => {
-		const id = event.params.id;
+export const DELETE = async (event: RequestEvent) => {
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		const { data: roster } = await supabase
-			.from('sign_in_rosters')
-			.select('signed_file_path')
-			.eq('id', id)
-			.eq('organization_id', orgId)
-			.single();
+	const id = event.params.id;
 
-		if (!roster) throw error(404, 'Roster not found');
+	const { data: roster } = await supabase
+		.from('sign_in_rosters')
+		.select('signed_file_path')
+		.eq('id', id)
+		.eq('organization_id', orgId)
+		.single();
 
-		if (roster.signed_file_path) {
-			await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
-		}
+	if (!roster) throw error(404, 'Roster not found');
 
-		const { error: dbError } = await supabase
-			.from('sign_in_rosters')
-			.update({ signed_file_path: null })
-			.eq('id', id)
-			.eq('organization_id', orgId);
-
-		if (dbError) throw error(500, dbError.message);
-
-		return json({ success: true });
+	if (roster.signed_file_path) {
+		await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
 	}
-);
+
+	const { error: dbError } = await supabase
+		.from('sign_in_rosters')
+		.update({ signed_file_path: null })
+		.eq('id', id)
+		.eq('organization_id', orgId);
+
+	if (dbError) throw error(500, dbError.message);
+
+	return json({ success: true });
+};

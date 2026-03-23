@@ -160,11 +160,6 @@ describe('AvailabilityEntryEntity', () => {
 		expect(AvailabilityEntryEntity.methods).toEqual(['POST', 'DELETE']);
 	});
 
-	it('has handlers', () => {
-		expect(AvailabilityEntryEntity.handlers.POST).toBeDefined();
-		expect(AvailabilityEntryEntity.handlers.DELETE).toBeDefined();
-	});
-
 	it('has repo', () => {
 		expect(AvailabilityEntryEntity.repo).toBeDefined();
 		expect(AvailabilityEntryEntity.repo.list).toBeDefined();

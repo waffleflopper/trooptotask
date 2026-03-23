@@ -43,6 +43,7 @@ export interface AuthContext {
 	requirePrivileged(): void;
 	requireOwner(): void;
 	requireFullEditor(): void;
+	requireManageMembers(): void;
 	requireGroupAccess(personnelId: string): Promise<void>;
 	requireGroupAccessBatch(personnelIds: string[]): Promise<void>;
 	requireGroupAccessByRecord(table: string, recordId: string, personnelIdColumn: string): Promise<void>;

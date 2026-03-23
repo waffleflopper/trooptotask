@@ -32,14 +32,13 @@
 	}
 
 	function formatTimestamp(ts: string): string {
-		const date = new Date(ts);
-		return date.toLocaleDateString(undefined, {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric',
-			hour: 'numeric',
-			minute: '2-digit'
-		});
+		const d = new Date(ts);
+		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		const h = d.getHours();
+		const m = String(d.getMinutes()).padStart(2, '0');
+		const ampm = h >= 12 ? 'PM' : 'AM';
+		const hour = h % 12 || 12;
+		return `${months[d.getMonth()]} ${d.getDate()} at ${hour}:${m} ${ampm}`;
 	}
 </script>
 
@@ -55,7 +54,7 @@
 				<p class="empty">No notes yet.</p>
 			{:else}
 				<ul class="note-list">
-					{#each notes as note (note.timestamp + note.userId)}
+					{#each notes as note (note.timestamp + note.userId + note.text)}
 						<li class="note-item">
 							<div class="note-header">
 								<span class="note-author">{resolveAuthor(note.userId)}</span>

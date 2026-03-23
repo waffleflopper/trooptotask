@@ -102,6 +102,23 @@ describe('Onboarding Template Step CRUD', () => {
 });
 
 describe('Onboarding Template deletion hooks', () => {
+	it('cascade-deletes template steps when template is deleted', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('onboarding_templates', [{ id: 'tmpl-1', name: 'Checklist A', organization_id: 'test-org' }]);
+		ctx.store.seed('onboarding_template_steps', [
+			{ id: 'ts-1', template_id: 'tmpl-1', name: 'Step A', organization_id: 'test-org' },
+			{ id: 'ts-2', template_id: 'tmpl-1', name: 'Step B', organization_id: 'test-org' },
+			{ id: 'ts-other', template_id: 'tmpl-other', name: 'Unrelated', organization_id: 'test-org' }
+		]);
+
+		const { remove } = createCrudUseCases(onboardingTemplateCrudConfig);
+		await remove(ctx, 'tmpl-1');
+
+		const remaining = await ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', 'test-org', {});
+		expect(remaining).toHaveLength(1);
+		expect(remaining[0].id).toBe('ts-other');
+	});
+
 	it('nulls template_id on referencing onboardings when template is deleted', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('onboarding_templates', [{ id: 'tmpl-1', name: 'Checklist A', organization_id: 'test-org' }]);

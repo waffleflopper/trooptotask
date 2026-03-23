@@ -171,11 +171,16 @@ export async function resyncOnboarding(ctx: UseCaseContext, onboardingId: string
 
 	const onboarding = await ctx.store.findOne<{
 		id: string;
+		status: string;
 		template_id: string | null;
 	}>('personnel_onboardings', ctx.auth.orgId, { id: onboardingId });
 
 	if (!onboarding) {
 		fail(404, 'Onboarding not found');
+	}
+
+	if (onboarding.status !== 'in_progress') {
+		fail(400, 'Only in-progress onboardings can be resynced');
 	}
 
 	if (!onboarding.template_id) {
@@ -217,11 +222,16 @@ export async function switchTemplate(ctx: UseCaseContext, input: SwitchTemplateI
 
 	const onboarding = await ctx.store.findOne<{
 		id: string;
+		status: string;
 		template_id: string | null;
 	}>('personnel_onboardings', ctx.auth.orgId, { id: input.onboardingId });
 
 	if (!onboarding) {
 		fail(404, 'Onboarding not found');
+	}
+
+	if (onboarding.status !== 'in_progress') {
+		fail(400, 'Only in-progress onboardings can switch templates');
 	}
 
 	if (!onboarding.template_id) {

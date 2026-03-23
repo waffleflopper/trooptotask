@@ -497,6 +497,20 @@ describe('resyncOnboarding', () => {
 		expect(step?.completed).toBe(false);
 	});
 
+	it('blocks resync when onboarding is completed', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { status: 'completed' });
+
+		await expect(resyncOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be resynced');
+	});
+
+	it('blocks resync when onboarding is cancelled', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { status: 'cancelled' });
+
+		await expect(resyncOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be resynced');
+	});
+
 	it('blocks resync when template_id is null (template was deleted)', async () => {
 		const ctx = buildContext();
 		seedOnboarding(ctx, { template_id: null });
@@ -661,6 +675,24 @@ describe('switchTemplate', () => {
 		const newStep2 = result.steps.find((s) => s.templateStepId === 'ts-new-2');
 		expect(newStep2?.stepName).toBe('Vehicle Registration');
 		expect(newStep2?.currentStage).toBe('submitted');
+	});
+
+	it('blocks switch when onboarding is completed', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { status: 'completed' });
+
+		await expect(switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'tmpl-2' })).rejects.toThrow(
+			'Only in-progress onboardings can switch templates'
+		);
+	});
+
+	it('blocks switch when onboarding is cancelled', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { status: 'cancelled' });
+
+		await expect(switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'tmpl-2' })).rejects.toThrow(
+			'Only in-progress onboardings can switch templates'
+		);
 	});
 
 	it('blocks switch when template_id is null', async () => {

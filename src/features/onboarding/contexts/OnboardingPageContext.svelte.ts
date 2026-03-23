@@ -7,7 +7,11 @@ import { groupsStore } from '$lib/stores/groups.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
-import type { PersonnelOnboarding, OnboardingStepProgress } from '$features/onboarding/onboarding.types';
+import type {
+	PersonnelOnboarding,
+	OnboardingStepProgress,
+	OnboardingTemplate
+} from '$features/onboarding/onboarding.types';
 import type { Personnel } from '$lib/types';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 
@@ -79,6 +83,31 @@ export function formatTimestamp(isoStr: string): string {
 	const ampm = h >= 12 ? 'PM' : 'AM';
 	const hour = h % 12 || 12;
 	return `${months[d.getMonth()]} ${d.getDate()} at ${hour}:${m} ${ampm}`;
+}
+
+/**
+ * Formats a personnel record as "RANK LastName, FirstName".
+ */
+export function getPersonDisplayName(personnelId: string, personnel: Personnel[]): string {
+	const p = personnel.find((pr) => pr.id === personnelId);
+	return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
+}
+
+/**
+ * Returns the group name for a personnel record, or null if unassigned.
+ */
+export function getPersonGroupDisplayName(personnelId: string, personnel: Personnel[]): string | null {
+	const p = personnel.find((pr) => pr.id === personnelId);
+	return p?.groupName || null;
+}
+
+/**
+ * Returns the template name, or a fallback for null/deleted templates.
+ */
+export function getTemplateDisplayName(templateId: string | null, templates: OnboardingTemplate[]): string {
+	if (!templateId) return 'No template';
+	const tmpl = templates.find((t) => t.id === templateId);
+	return tmpl?.name ?? 'Template deleted';
 }
 
 // ── Step type constants ───────────────────────────────────────
@@ -202,19 +231,15 @@ export class OnboardingPageContext {
 	// ── Helpers ────────────────────────────────────────────────
 
 	getPersonName(personnelId: string): string {
-		const p = personnelStore.getById(personnelId);
-		return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
+		return getPersonDisplayName(personnelId, personnelStore.items);
 	}
 
 	getPersonGroupName(personnelId: string): string | null {
-		const p = personnelStore.getById(personnelId);
-		return p?.groupName || null;
+		return getPersonGroupDisplayName(personnelId, personnelStore.items);
 	}
 
 	getTemplateName(templateId: string | null): string {
-		if (!templateId) return 'No template';
-		const tmpl = onboardingTemplateStore.templates.find((t) => t.id === templateId);
-		return tmpl?.name ?? 'Template deleted';
+		return getTemplateDisplayName(templateId, onboardingTemplateStore.templates);
 	}
 
 	get trainingPageUrl(): string {

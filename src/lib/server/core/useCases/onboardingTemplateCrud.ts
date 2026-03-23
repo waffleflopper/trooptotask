@@ -8,6 +8,9 @@ export const onboardingTemplateCrudConfig: CrudConfig = {
 	auditResource: 'onboarding_template',
 	requireFullEditor: true,
 	afterDelete: async (ctx, id) => {
+		// Cascade-delete all template steps belonging to this template
+		await ctx.store.deleteWhere('onboarding_template_steps', ctx.auth.orgId, { template_id: id });
+
 		// Null out template_id on any personnel_onboardings referencing this template
 		const onboardings = await ctx.store.findMany<{ id: string }>('personnel_onboardings', ctx.auth.orgId, {
 			template_id: id

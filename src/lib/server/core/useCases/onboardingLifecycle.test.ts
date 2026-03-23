@@ -136,4 +136,56 @@ describe('startOnboarding', () => {
 			resourceId: result.id
 		});
 	});
+
+	it('sets training step completed=true when a matching training record exists', async () => {
+		const ctx = buildContext();
+		seedTemplateWithSteps(ctx);
+
+		// Seed a training record for CPR training for this soldier
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'pt-1',
+				personnel_id: 'p-1',
+				training_type_id: 'tt-cpr',
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
+
+		const trainingStep = result.steps.find((s) => s.stepType === 'training');
+		expect(trainingStep?.completed).toBe(true);
+	});
+
+	it('sets training step completed=false when no matching training record exists', async () => {
+		const ctx = buildContext();
+		seedTemplateWithSteps(ctx);
+
+		// No training records seeded
+
+		const result = await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
+
+		const trainingStep = result.steps.find((s) => s.stepType === 'training');
+		expect(trainingStep?.completed).toBe(false);
+	});
+
+	it('only queries training records for the specific soldier and training type IDs', async () => {
+		const ctx = buildContext();
+		seedTemplateWithSteps(ctx);
+
+		// Seed training record for a DIFFERENT soldier — should not affect p-1
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'pt-other',
+				personnel_id: 'p-other',
+				training_type_id: 'tt-cpr',
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
+
+		const trainingStep = result.steps.find((s) => s.stepType === 'training');
+		expect(trainingStep?.completed).toBe(false);
+	});
 });

@@ -166,12 +166,16 @@ export function createTestReadOnlyGuard(isReadOnly = false): ReadOnlyGuard {
 
 export function createTestSubscriptionPort(
 	allowed = true,
-	message?: string
+	message?: string,
+	availableSlots: number | null = null
 ): SubscriptionPort & { tierCacheInvalidated: boolean } {
 	return {
 		tierCacheInvalidated: false,
 		async canAddPersonnel() {
 			return allowed ? { allowed: true } : { allowed: false, message: message ?? 'Personnel limit reached' };
+		},
+		async getAvailablePersonnelSlots() {
+			return availableSlots;
 		},
 		invalidateTierCache() {
 			this.tierCacheInvalidated = true;

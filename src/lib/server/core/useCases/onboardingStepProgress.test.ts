@@ -6,7 +6,7 @@ import {
 	createTestReadOnlyGuard
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { toggleCheckbox } from './onboardingStepProgress';
+import { toggleCheckbox, advanceStage } from './onboardingStepProgress';
 
 type TestContext = Omit<UseCaseContext, 'store'> & {
 	store: ReturnType<typeof createInMemoryDataStore>;
@@ -79,5 +79,100 @@ describe('toggleCheckbox', () => {
 		await expect(toggleCheckbox(ctx, { stepId: 'step-1', completed: true })).rejects.toThrow(
 			'Organization is in read-only mode'
 		);
+	});
+});
+
+function seedPaperworkStep(ctx: TestContext, overrides?: Record<string, unknown>) {
+	ctx.store.seed('onboarding_step_progress', [
+		{
+			id: 'pw-step-1',
+			onboarding_id: 'ob-1',
+			step_name: 'CAC Request',
+			step_type: 'paperwork',
+			training_type_id: null,
+			stages: ['with soldier', 'submitted', 'approved'],
+			sort_order: 0,
+			completed: false,
+			current_stage: 'with soldier',
+			notes: [],
+			template_step_id: 'ts-2',
+			active: true,
+			organization_id: 'test-org',
+			...overrides
+		}
+	]);
+}
+
+describe('advanceStage', () => {
+	it('sets currentStage on a paperwork step', async () => {
+		const ctx = buildContext();
+		seedPaperworkStep(ctx);
+
+		const result = await advanceStage(ctx, { stepId: 'pw-step-1', stageName: 'submitted' });
+
+		expect(result.currentStage).toBe('submitted');
+		expect(result.id).toBe('pw-step-1');
+		expect(result.completed).toBe(false);
+	});
+
+	it('auto-completes when advancing to the last stage', async () => {
+		const ctx = buildContext();
+		seedPaperworkStep(ctx);
+
+		const result = await advanceStage(ctx, { stepId: 'pw-step-1', stageName: 'approved' });
+
+		expect(result.currentStage).toBe('approved');
+		expect(result.completed).toBe(true);
+	});
+
+	it('sets completed to false when regressing from last stage', async () => {
+		const ctx = buildContext();
+		seedPaperworkStep(ctx, { current_stage: 'approved', completed: true });
+
+		const result = await advanceStage(ctx, { stepId: 'pw-step-1', stageName: 'submitted' });
+
+		expect(result.currentStage).toBe('submitted');
+		expect(result.completed).toBe(false);
+	});
+
+	it('rejects advancing a non-paperwork step type', async () => {
+		const ctx = buildContext();
+		seedStep(ctx); // checkbox step
+
+		await expect(advanceStage(ctx, { stepId: 'step-1', stageName: 'submitted' })).rejects.toThrow(
+			'Only paperwork steps can be advanced'
+		);
+	});
+
+	it('rejects an invalid stage name', async () => {
+		const ctx = buildContext();
+		seedPaperworkStep(ctx);
+
+		await expect(advanceStage(ctx, { stepId: 'pw-step-1', stageName: 'nonexistent' })).rejects.toThrow(
+			'Invalid stage name'
+		);
+	});
+
+	it('blocks advance when organization is read-only', async () => {
+		const ctx = buildContext({ readOnly: true });
+		seedPaperworkStep(ctx);
+
+		await expect(advanceStage(ctx, { stepId: 'pw-step-1', stageName: 'submitted' })).rejects.toThrow(
+			'Organization is in read-only mode'
+		);
+	});
+
+	it('emits audit log on stage advance', async () => {
+		const ctx = buildContext();
+		seedPaperworkStep(ctx);
+
+		await advanceStage(ctx, { stepId: 'pw-step-1', stageName: 'submitted' });
+
+		expect(ctx.auditPort.events).toHaveLength(1);
+		expect(ctx.auditPort.events[0]).toMatchObject({
+			action: 'onboarding_step.stage_advanced',
+			resourceType: 'onboarding_step_progress',
+			resourceId: 'pw-step-1'
+		});
 	});
 });

@@ -322,6 +322,17 @@ export class OnboardingPageContext {
 		}
 	}
 
+	async handleStageClick(step: OnboardingStepProgress, stageName: string) {
+		const stages = step.stages ?? [];
+		if (!stages.includes(stageName)) return;
+		const isLast = stageName === stages[stages.length - 1];
+		await onboardingStore.updateStepProgress(step.id, { currentStage: stageName, completed: isLast });
+		if (isLast) {
+			const onboarding = onboardingStore.items.find((o) => o.steps.some((s) => s.id === step.id));
+			if (onboarding) await this.checkAutoComplete(onboarding.id);
+		}
+	}
+
 	toggleNotes(stepId: string) {
 		const newSet = new Set(this.expandedNotes);
 		if (newSet.has(stepId)) newSet.delete(stepId);

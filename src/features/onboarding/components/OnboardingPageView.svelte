@@ -13,6 +13,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Stepper from '$lib/components/ui/Stepper.svelte';
 
 	interface Props {
 		ctx: OnboardingPageContext;
@@ -259,37 +260,15 @@
 																	</span>
 																{/if}
 															{:else if step.stepType === 'paperwork'}
-																{@const stages = step.stages ?? []}
-																{@const stageIndex = ctx.getPaperworkStageIndex(step)}
 																<div class="stage-indicator">
-																	{#if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
-																		<button
-																			class="stage-arrow"
-																			onclick={() => ctx.handleRetreatStage(step)}
-																			disabled={stageIndex <= 0}
-																			aria-label="Previous stage"
-																		>
-																			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-																				><polyline points="15 18 9 12 15 6" /></svg
-																			>
-																		</button>
-																	{/if}
-																	<span class="stage-text">
-																		{step.currentStage ?? stages[0] ?? 'N/A'}
-																		<span class="stage-count">({stageIndex + 1}/{stages.length})</span>
-																	</span>
-																	{#if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
-																		<button
-																			class="stage-arrow"
-																			onclick={() => ctx.handleAdvanceStage(step)}
-																			disabled={stageIndex >= stages.length - 1}
-																			aria-label="Next stage"
-																		>
-																			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-																				><polyline points="9 18 15 12 9 6" /></svg
-																			>
-																		</button>
-																	{/if}
+																	<Stepper
+																		stages={step.stages ?? []}
+																		currentStage={step.currentStage ?? (step.stages ?? [])[0] ?? ''}
+																		onStageClick={ctx.canEditOnboarding && onboarding.status === 'in_progress'
+																			? (stage) => ctx.handleStageClick(step, stage)
+																			: undefined}
+																		disabled={!ctx.canEditOnboarding || onboarding.status !== 'in_progress'}
+																	/>
 																</div>
 															{/if}
 														</div>
@@ -749,48 +728,6 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-xs);
-	}
-
-	.stage-arrow {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		padding: 0;
-		background: none;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.stage-arrow:hover:not(:disabled) {
-		background: var(--color-surface-variant);
-		border-color: var(--color-primary);
-		color: var(--color-primary);
-	}
-
-	.stage-arrow:disabled {
-		opacity: 0.25;
-		cursor: default;
-	}
-
-	.stage-arrow svg {
-		width: 14px;
-		height: 14px;
-	}
-
-	.stage-text {
-		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-secondary);
-		white-space: nowrap;
-	}
-
-	.stage-count {
-		color: var(--color-text-muted);
 	}
 
 	/* Notes toggle */

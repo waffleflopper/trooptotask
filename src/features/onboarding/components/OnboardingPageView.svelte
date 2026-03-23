@@ -22,20 +22,10 @@
 
 <div class="page">
 	<PageToolbar title="Onboarding" helpTopic="onboarding" overflowItems={ctx.overflowItems}>
-		<div class="filter-toggle">
-			<button class="filter-btn" class:active={ctx.showFilter === 'active'} onclick={() => (ctx.showFilter = 'active')}>
-				Active
-			</button>
-			<button class="filter-btn" class:active={ctx.showFilter === 'all'} onclick={() => (ctx.showFilter = 'all')}>
-				All
-			</button>
-		</div>
 		<a href={ctx.historyUrl} class="btn-ghost">History</a>
 		{#if ctx.canEditOnboarding}
 			{#if ctx.canManageConfig}
-				<button class="btn-ghost" onclick={() => ctx.modals.open(MODAL_IDS.templateManager)} disabled={ctx.readOnly}>
-					Manage Templates
-				</button>
+				<a href={ctx.templatesUrl} class="btn-ghost" class:disabled={ctx.readOnly}>Manage Templates</a>
 			{/if}
 			<button
 				class="btn btn-primary btn-sm"
@@ -62,9 +52,7 @@
 				<div class="warning-banner">
 					<span>No template steps defined — new onboardings cannot be started until steps are added.</span>
 					{#if ctx.canEditOnboarding}
-						<button class="btn btn-sm btn-secondary" onclick={() => ctx.modals.open(MODAL_IDS.templateManager)}>
-							Manage Templates
-						</button>
+						<a href={ctx.templatesUrl} class="btn btn-sm btn-secondary">Manage Templates</a>
 					{/if}
 				</div>
 			{/if}
@@ -82,17 +70,13 @@
 						<EmptyState
 							message="Set up your onboarding template to get started. Define the steps new members need to complete."
 							actionLabel="Set Up Template"
-							onAction={() => ctx.modals.open(MODAL_IDS.templateManager)}
+							actionHref={ctx.templatesUrl}
 						/>
 					{:else}
 						<EmptyState message="Onboarding has not been configured yet." />
 					{/if}
 				{:else}
-					<EmptyState
-						message={ctx.showFilter === 'active'
-							? 'No active onboardings. Start one to begin tracking a new member.'
-							: 'No onboardings found.'}
-					/>
+					<EmptyState message="No active onboardings. Start one to begin tracking a new member." />
 				{/if}
 			{:else}
 				<div class="onboarding-list">
@@ -367,41 +351,6 @@
 		color: var(--color-text);
 	}
 
-	/* Filter toggle */
-	.filter-toggle {
-		display: flex;
-		align-items: center;
-	}
-
-	.filter-btn {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-		color: var(--color-text);
-		cursor: pointer;
-		transition: all 0.15s ease;
-	}
-
-	.filter-btn:first-child {
-		border-radius: var(--radius-md) 0 0 var(--radius-md);
-	}
-
-	.filter-btn:last-child {
-		border-radius: 0 var(--radius-md) var(--radius-md) 0;
-		border-left: none;
-	}
-
-	.filter-btn:hover {
-		background: var(--color-bg);
-	}
-
-	.filter-btn.active {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
-		color: var(--color-chrome);
-	}
-
 	.btn-ghost {
 		background: none;
 		border: none;
@@ -417,6 +366,11 @@
 	.btn-ghost:hover {
 		color: var(--color-text);
 		background: var(--color-surface-variant);
+	}
+
+	.btn-ghost.disabled {
+		opacity: 0.5;
+		pointer-events: none;
 	}
 
 	.warning-banner {

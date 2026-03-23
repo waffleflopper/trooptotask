@@ -6,7 +6,6 @@
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
-	import OnboardingTemplateManager from './OnboardingTemplateManager.svelte';
 	import OnboardingReportModal from './OnboardingReportModal.svelte';
 	import StartOnboardingModal from './StartOnboardingModal.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -27,13 +26,6 @@
 		trainingTypes={trainingTypesStore.items}
 		personnelTrainings={[]}
 		onClose={ctx.modals.closerFor(MODAL_IDS.report)}
-	/>
-{/if}
-
-{#if ctx.modals.isOpen(MODAL_IDS.templateManager)}
-	<OnboardingTemplateManager
-		trainingTypes={trainingTypesStore.items}
-		onClose={ctx.modals.closerFor(MODAL_IDS.templateManager)}
 	/>
 {/if}
 
@@ -59,6 +51,57 @@
 		onConfirm={() => ctx.handleCancelOnboarding(ctx.cancellingId!)}
 		onCancel={() => (ctx.cancellingId = null)}
 	/>
+{/if}
+
+{#if ctx.completingId}
+	<ConfirmDialog
+		title="Complete Onboarding"
+		message={ctx.completingIncompleteCount > 0
+			? `Are you sure? There ${ctx.completingIncompleteCount === 1 ? 'is 1 step' : `are ${ctx.completingIncompleteCount} steps`} still incomplete.`
+			: 'Mark this onboarding as complete?'}
+		confirmLabel="Mark Complete"
+		variant={ctx.completingIncompleteCount > 0 ? 'warning' : undefined}
+		onConfirm={() => ctx.confirmCompleteOnboarding()}
+		onCancel={() => ctx.cancelComplete()}
+	/>
+{/if}
+
+{#if ctx.switchingTemplateId}
+	<Modal
+		title="Switch Template"
+		onClose={() => ctx.closeSwitchTemplate()}
+		width="420px"
+		titleId="switch-template-title"
+	>
+		<p class="assign-desc">
+			Switch this onboarding to a different template. Steps will be diffed: removed steps become inactive (preserving
+			progress), new steps are added, and changed steps are updated.
+		</p>
+		<div class="form-group">
+			<label class="label" for="switch-template-select">New Template</label>
+			<select id="switch-template-select" class="select" bind:value={ctx.switchTemplateSelected}>
+				{#each onboardingTemplateStore.templates as t (t.id)}
+					<option value={t.id}>{t.name}</option>
+				{/each}
+			</select>
+		</div>
+		{#if ctx.switchTemplateError}
+			<p class="error-text">{ctx.switchTemplateError}</p>
+		{/if}
+
+		{#snippet footer()}
+			<div class="spacer"></div>
+			<button class="btn btn-secondary" onclick={() => ctx.closeSwitchTemplate()}>Cancel</button>
+			<button
+				class="btn btn-primary"
+				onclick={() => ctx.handleSwitchTemplate()}
+				disabled={!ctx.switchTemplateSelected || ctx.switchingTemplate}
+			>
+				{#if ctx.switchingTemplate}<Spinner />{/if}
+				Switch Template
+			</button>
+		{/snippet}
+	</Modal>
 {/if}
 
 {#if ctx.assigningTemplateId}

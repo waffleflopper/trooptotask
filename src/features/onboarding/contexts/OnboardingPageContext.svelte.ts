@@ -80,14 +80,6 @@ export function formatTimestamp(isoStr: string): string {
 	return `${months[d.getMonth()]} ${d.getDate()} at ${hour}:${m} ${ampm}`;
 }
 
-/**
- * Filters onboardings by the active/all toggle.
- */
-export function filterOnboardings(onboardings: PersonnelOnboarding[], filter: 'active' | 'all'): PersonnelOnboarding[] {
-	if (filter === 'active') return onboardings.filter((o) => o.status === 'in_progress');
-	return onboardings;
-}
-
 // ── Step type constants ───────────────────────────────────────
 
 export const STEP_TYPE_COLORS: Record<string, string> = {
@@ -128,7 +120,6 @@ export class OnboardingPageContext {
 	readonly modals: ModalRegistry;
 
 	// UI state
-	showFilter = $state<'active' | 'all'>('active');
 	expandedOnboardingId = $state<string | null>(null);
 	cancellingId = $state<string | null>(null);
 	resyncingId = $state<string | null>(null);
@@ -183,11 +174,15 @@ export class OnboardingPageContext {
 	}
 
 	get filteredOnboardings(): PersonnelOnboarding[] {
-		return filterOnboardings(onboardingStore.items, this.showFilter);
+		return onboardingStore.items.filter((o) => o.status === 'in_progress');
 	}
 
 	get historyUrl(): string {
 		return `/org/${this.#org.orgId}/onboarding/history`;
+	}
+
+	get templatesUrl(): string {
+		return `/org/${this.#org.orgId}/onboarding/templates`;
 	}
 
 	get overflowItems(): OverflowItem[] {
@@ -196,7 +191,7 @@ export class OnboardingPageContext {
 		if (this.canManageConfig) {
 			items.push({
 				label: 'Manage Templates',
-				onclick: () => this.modals.open(MODAL_IDS.templateManager),
+				href: this.templatesUrl,
 				disabled: this.readOnly
 			});
 		}

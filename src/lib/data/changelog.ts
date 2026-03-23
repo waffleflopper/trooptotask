@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-23-onboarding-improvements',
+		date: '2026-03-23',
+		title: 'Onboarding Report & Step Improvements',
+		items: [
+			'Fixed a bug where training steps showed as incomplete in the Onboarding Report even when they were actually done — the report now correctly reflects training completion status',
+			'The Onboarding Report can now be filtered by template, so you can focus on just the in-processing checklist for medics, officers, or whatever templates you have set up',
+			'Training steps now show the associated training type name in parentheses when it differs from the step name — so if your "NREMT" onboarding step is tied to the "Credentials/License" training column, you can see both at a glance'
+		]
+	},
+	{
 		id: '2026-03-22-under-the-hood',
 		date: '2026-03-22',
 		title: 'Under the Hood Improvements',
@@ -55,16 +65,6 @@ export const changelog: ChangelogEntry[] = [
 			'Better color contrast across the board, in both light and dark mode',
 			'Screen readers now properly announce notifications, form errors, and loading states',
 			'Added support for reduced motion and high contrast display modes'
-		]
-	},
-	{
-		id: '2026-03-15-multi-template-onboarding',
-		date: '2026-03-15',
-		title: 'Multiple Onboarding Templates',
-		items: [
-			'You can now create multiple onboarding templates — one for officers, one for enlisted, one for civilians, whatever your unit needs',
-			"Pick which template to use when you start someone's onboarding, so the right checklist shows up for the right person",
-			"Use the Re-sync button to update someone's in-progress onboarding when the template changes — completed steps are never touched, only incomplete ones get updated"
 		]
 	}
 ];

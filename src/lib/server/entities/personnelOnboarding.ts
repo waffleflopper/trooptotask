@@ -15,6 +15,7 @@ export const PersonnelOnboardingEntity = defineEntity<PersonnelOnboarding>({
 		personnelId: row.personnel_id as string,
 		startedAt: row.started_at as string,
 		completedAt: (row.completed_at as string | null) ?? null,
+		cancelledAt: (row.cancelled_at as string | null) ?? null,
 		status: row.status as PersonnelOnboarding['status'],
 		templateId: (row.template_id as string | null) ?? null,
 		steps: ((row.onboarding_step_progress as Record<string, unknown>[]) ?? [])
@@ -30,7 +31,8 @@ export const PersonnelOnboardingEntity = defineEntity<PersonnelOnboarding>({
 				completed: s.completed as boolean,
 				currentStage: (s.current_stage as string | null) ?? null,
 				notes: Array.isArray(s.notes) ? (s.notes as OnboardingStepNote[]) : [],
-				templateStepId: (s.template_step_id as string | null) ?? null
+				templateStepId: (s.template_step_id as string | null) ?? null,
+				active: (s.active as boolean) ?? true
 			}))
 	}),
 	schema: {
@@ -38,6 +40,7 @@ export const PersonnelOnboardingEntity = defineEntity<PersonnelOnboarding>({
 		personnelId: field(z.string(), { column: 'personnel_id' }),
 		startedAt: field(z.string(), { column: 'started_at' }),
 		completedAt: field(z.string().nullable(), { column: 'completed_at', insertDefault: null }),
+		cancelledAt: field(z.string().nullable(), { column: 'cancelled_at', insertDefault: null }),
 		status: field(z.enum(['in_progress', 'completed', 'cancelled'])),
 		templateId: field(z.string().nullable(), { column: 'template_id', insertDefault: null })
 	}

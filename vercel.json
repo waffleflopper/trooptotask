@@ -18,6 +18,10 @@
 		{
 			"path": "/api/cleanup-archived-personnel",
 			"schedule": "0 5 * * *"
+		},
+		{
+			"path": "/api/cleanup-expired-onboardings",
+			"schedule": "0 6 * * *"
 		}
 	]
 }

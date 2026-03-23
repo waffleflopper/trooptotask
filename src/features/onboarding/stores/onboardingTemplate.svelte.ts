@@ -103,7 +103,7 @@ export const onboardingTemplateStore = {
 	): Promise<{ template: OnboardingTemplate | null; error?: string }> {
 		const ti = templateStore.internals;
 		try {
-			const res = await fetch(`/org/${ti.orgId()}/api/onboarding-templates`, {
+			const res = await fetch(`/org/${ti.orgId()}/api/onboarding-template-stepss`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ name, description })
@@ -139,7 +139,7 @@ export const onboardingTemplateStore = {
 		});
 
 		try {
-			const res = await fetch(`/org/${ti.orgId()}/api/onboarding-templates`, {
+			const res = await fetch(`/org/${ti.orgId()}/api/onboarding-template-stepss`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id, ...data })
@@ -167,7 +167,7 @@ export const onboardingTemplateStore = {
 		if (!original) return { success: false };
 
 		try {
-			const res = await fetch(`/org/${ti.orgId()}/api/onboarding-templates`, {
+			const res = await fetch(`/org/${ti.orgId()}/api/onboarding-template-stepss`, {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })
@@ -206,7 +206,7 @@ export const onboardingTemplateStore = {
 		});
 
 		try {
-			const res = await fetch(`/org/${si.orgId()}/api/onboarding-template`, {
+			const res = await fetch(`/org/${si.orgId()}/api/onboarding-template-steps`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ templateId: activeTemplateId, ...data })
@@ -237,7 +237,7 @@ export const onboardingTemplateStore = {
 		});
 
 		try {
-			const res = await fetch(`/org/${si.orgId()}/api/onboarding-template`, {
+			const res = await fetch(`/org/${si.orgId()}/api/onboarding-template-steps`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id, ...data })
@@ -263,7 +263,7 @@ export const onboardingTemplateStore = {
 		si.log.push({ type: 'remove', mutationId, targetId: id });
 
 		try {
-			const res = await fetch(`/org/${si.orgId()}/api/onboarding-template`, {
+			const res = await fetch(`/org/${si.orgId()}/api/onboarding-template-steps`, {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id })

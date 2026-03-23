@@ -87,6 +87,25 @@ Loading spinner for async buttons.
 
 Props: `size?: number` (px, default 14), `color?: string` (default `'white'`)
 
+## `ui/Stepper.svelte`
+
+Linear stage indicator for multi-step workflows (paperwork steps, duty roster, etc.). Shows stages as connected dots with labels. Clickable when not disabled.
+
+```svelte
+<Stepper
+	stages={['with soldier', 'submitted', 'approved']}
+	currentStage="submitted"
+	onStageClick={(stage) => handleStageClick(step, stage)}
+/>
+
+<!-- Read-only (no click handler) -->
+<Stepper stages={['draft', 'review', 'done']} currentStage="review" disabled />
+```
+
+Props: `stages: string[]`, `currentStage: string`, `onStageClick?: (stage: string) => void`, `disabled?: boolean`
+
+Stage states: `completed` (before current — filled dot, primary connector), `current` (highlighted dot with glow ring, primary label), `upcoming` (hollow dot, muted label).
+
 ## `ui/FormField.svelte`
 
 Labeled form field with error/hint states, accessibility wiring, and semantic `--field-*` tokens.

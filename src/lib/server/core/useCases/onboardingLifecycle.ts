@@ -77,6 +77,24 @@ export async function startOnboarding(ctx: UseCaseContext, input: StartInput): P
 		cancelled_at: null
 	});
 
+	// Check training records for training-type steps (targeted query)
+	const trainingTypeIds = templateSteps
+		.filter((ts) => ts.step_type === 'training' && ts.training_type_id)
+		.map((ts) => ts.training_type_id!);
+
+	const completedTrainingTypeIds = new Set<string>();
+	if (trainingTypeIds.length > 0) {
+		const trainingRecords = await ctx.store.findMany<{ training_type_id: string }>(
+			'personnel_trainings',
+			ctx.auth.orgId,
+			{ personnel_id: input.personnelId },
+			{ inFilters: { training_type_id: trainingTypeIds } }
+		);
+		for (const rec of trainingRecords) {
+			completedTrainingTypeIds.add(rec.training_type_id);
+		}
+	}
+
 	// Snapshot template steps into step progress rows
 	const stepRows = templateSteps.map((ts) => ({
 		onboarding_id: onboarding.id,
@@ -85,7 +103,8 @@ export async function startOnboarding(ctx: UseCaseContext, input: StartInput): P
 		training_type_id: ts.training_type_id,
 		stages: ts.stages,
 		sort_order: ts.sort_order,
-		completed: false,
+		completed:
+			ts.step_type === 'training' && ts.training_type_id ? completedTrainingTypeIds.has(ts.training_type_id) : false,
 		current_stage:
 			ts.step_type === 'paperwork' && Array.isArray(ts.stages) && ts.stages.length > 0 ? ts.stages[0] : null,
 		notes: [],

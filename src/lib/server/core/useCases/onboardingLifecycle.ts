@@ -158,3 +158,146 @@ export async function startOnboarding(ctx: UseCaseContext, input: StartInput): P
 		}))
 	};
 }
+
+interface LifecycleResult {
+	id: string;
+	status: string;
+	cancelledAt: string | null;
+	completedAt: string | null;
+}
+
+export async function cancelOnboarding(ctx: UseCaseContext, id: string): Promise<LifecycleResult> {
+	ctx.auth.requireEdit('onboarding');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+
+	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
+		id
+	});
+	if (!onboarding) {
+		fail(404, 'Onboarding not found');
+	}
+
+	const now = new Date().toISOString();
+	const updated = await ctx.store.update<{
+		id: string;
+		status: string;
+		cancelled_at: string | null;
+		completed_at: string | null;
+	}>('personnel_onboardings', ctx.auth.orgId, id, {
+		status: 'cancelled',
+		cancelled_at: now
+	});
+
+	ctx.audit.log({
+		action: 'onboarding.cancelled',
+		resourceType: 'personnel_onboarding',
+		resourceId: id
+	});
+
+	return {
+		id: updated.id,
+		status: updated.status,
+		cancelledAt: updated.cancelled_at,
+		completedAt: updated.completed_at
+	};
+}
+
+export async function reopenOnboarding(ctx: UseCaseContext, id: string): Promise<LifecycleResult> {
+	ctx.auth.requireEdit('onboarding');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+
+	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
+		id
+	});
+	if (!onboarding) {
+		fail(404, 'Onboarding not found');
+	}
+
+	if (onboarding.status !== 'cancelled') {
+		fail(400, 'Only cancelled onboardings can be reopened');
+	}
+
+	const updated = await ctx.store.update<{
+		id: string;
+		status: string;
+		cancelled_at: string | null;
+		completed_at: string | null;
+	}>('personnel_onboardings', ctx.auth.orgId, id, {
+		status: 'in_progress',
+		cancelled_at: null
+	});
+
+	ctx.audit.log({
+		action: 'onboarding.reopened',
+		resourceType: 'personnel_onboarding',
+		resourceId: id
+	});
+
+	return {
+		id: updated.id,
+		status: updated.status,
+		cancelledAt: updated.cancelled_at,
+		completedAt: updated.completed_at
+	};
+}
+
+interface CompleteResult extends LifecycleResult {
+	incompleteCount: number;
+}
+
+export async function completeOnboarding(ctx: UseCaseContext, id: string): Promise<CompleteResult> {
+	ctx.auth.requireEdit('onboarding');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+
+	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
+		id
+	});
+	if (!onboarding) {
+		fail(404, 'Onboarding not found');
+	}
+
+	// Count incomplete active steps (type-agnostic)
+	const incompleteSteps = await ctx.store.findMany<{ id: string }>('onboarding_step_progress', ctx.auth.orgId, {
+		onboarding_id: id,
+		active: true,
+		completed: false
+	});
+
+	const now = new Date().toISOString();
+	const updated = await ctx.store.update<{
+		id: string;
+		status: string;
+		cancelled_at: string | null;
+		completed_at: string | null;
+	}>('personnel_onboardings', ctx.auth.orgId, id, {
+		status: 'completed',
+		completed_at: now
+	});
+
+	ctx.audit.log({
+		action: 'onboarding.completed',
+		resourceType: 'personnel_onboarding',
+		resourceId: id,
+		details: { incompleteCount: incompleteSteps.length }
+	});
+
+	return {
+		id: updated.id,
+		status: updated.status,
+		cancelledAt: updated.cancelled_at,
+		completedAt: updated.completed_at,
+		incompleteCount: incompleteSteps.length
+	};
+}

@@ -34,7 +34,7 @@ export function createPersonnelUseCases(subscription: SubscriptionPort): Personn
 			const dbData = entity.toDbInsert(validated, ctx.auth.orgId);
 			if (validated.groupId !== undefined) dbData.group_id = validated.groupId || null;
 
-			const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData);
+			const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData, entity.select);
 
 			subscription.invalidateTierCache();
 
@@ -65,7 +65,13 @@ export function createPersonnelUseCases(subscription: SubscriptionPort): Personn
 				dbData.group_id = (validated as Record<string, unknown>).groupId || null;
 			}
 
-			const row = await ctx.store.update<Record<string, unknown>>(entity.table, ctx.auth.orgId, id, dbData);
+			const row = await ctx.store.update<Record<string, unknown>>(
+				entity.table,
+				ctx.auth.orgId,
+				id,
+				dbData,
+				entity.select
+			);
 
 			ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.updated`,

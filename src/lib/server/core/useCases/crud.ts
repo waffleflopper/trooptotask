@@ -44,7 +44,7 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 			}
 
 			const dbData = entity.toDbInsert(validated, ctx.auth.orgId);
-			const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData);
+			const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData, entity.select);
 
 			ctx.audit.log({
 				action: `${auditResource}.created`,
@@ -76,7 +76,13 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 			}
 
 			const dbData = entity.toDbUpdate(validated);
-			const row = await ctx.store.update<Record<string, unknown>>(entity.table, ctx.auth.orgId, id, dbData);
+			const row = await ctx.store.update<Record<string, unknown>>(
+				entity.table,
+				ctx.auth.orgId,
+				id,
+				dbData,
+				entity.select
+			);
 
 			ctx.audit.log({
 				action: `${auditResource}.updated`,

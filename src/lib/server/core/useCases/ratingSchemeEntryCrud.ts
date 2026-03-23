@@ -38,7 +38,7 @@ export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {
 			}
 
 			const dbData = coerceEmptyStrings(entity.toDbInsert(validated, ctx.auth.orgId));
-			const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData);
+			const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData, entity.select);
 
 			ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.created`,
@@ -63,7 +63,13 @@ export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {
 			await ctx.auth.requireGroupAccessByRecord(entity.table, id, 'rated_person_id');
 
 			const dbData = coerceEmptyStrings(entity.toDbUpdate(validated));
-			const row = await ctx.store.update<Record<string, unknown>>(entity.table, ctx.auth.orgId, id, dbData);
+			const row = await ctx.store.update<Record<string, unknown>>(
+				entity.table,
+				ctx.auth.orgId,
+				id,
+				dbData,
+				entity.select
+			);
 
 			ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.updated`,

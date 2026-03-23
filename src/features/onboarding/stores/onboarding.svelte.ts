@@ -18,6 +18,7 @@ interface OnboardingExtensions extends Record<string, unknown> {
 	) => Promise<boolean>;
 	removeDeprecatedStep: (stepId: string) => Promise<boolean>;
 	resync: (onboardingId: string) => Promise<{ success: boolean; error?: string }>;
+	switchTemplate: (onboardingId: string, newTemplateId: string) => Promise<{ success: boolean; error?: string }>;
 	assignTemplate: (onboardingId: string, templateId: string) => Promise<{ success: boolean; error?: string }>;
 	cancelOnboarding: (id: string) => Promise<boolean>;
 	completeOnboarding: (id: string) => Promise<boolean>;
@@ -86,10 +87,10 @@ function enhance(
 			});
 
 			try {
-				const res = await fetch(`/org/${internals.orgId()}/api/onboarding-progress`, {
+				const res = await fetch(`/org/${internals.orgId()}/api/onboarding-steps`, {
 					method: 'PUT',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ id: stepId, ...data })
+					body: JSON.stringify({ stepId, ...data })
 				});
 				if (!res.ok) throw new Error('Failed to update step progress');
 
@@ -119,7 +120,7 @@ function enhance(
 			});
 
 			try {
-				const res = await fetch(`/org/${internals.orgId()}/api/onboarding-progress`, {
+				const res = await fetch(`/org/${internals.orgId()}/api/onboarding-steps`, {
 					method: 'DELETE',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ id: stepId })
@@ -167,16 +168,55 @@ function enhance(
 			}
 		},
 
-		async assignTemplate(onboardingId: string, templateId: string): Promise<{ success: boolean; error?: string }> {
+		async switchTemplate(onboardingId: string, newTemplateId: string): Promise<{ success: boolean; error?: string }> {
 			try {
-				const res = await fetch(`/org/${internals.orgId()}/api/onboarding-assign-template`, {
+				const res = await fetch(`/org/${internals.orgId()}/api/onboarding-resync`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ onboardingId, templateId })
+					body: JSON.stringify({ onboardingId, newTemplateId })
+				});
+
+				if (!res.ok) {
+					const text = await res.text();
+					let message = 'Failed to switch template';
+					try {
+						const parsed = JSON.parse(text);
+						if (parsed.message) message = parsed.message;
+					} catch {
+						// ignore parse errors
+					}
+					return { success: false, error: message };
+				}
+
+				const result = await res.json();
+				internals.serverState.set(
+					internals.serverState
+						.getSnapshot()
+						.map((o) => (o.id === onboardingId ? { ...o, templateId: result.templateId, steps: result.steps } : o))
+				);
+				return { success: true };
+			} catch {
+				return { success: false, error: 'Failed to switch template' };
+			}
+		},
+
+		async assignTemplate(onboardingId: string, templateId: string): Promise<{ success: boolean; error?: string }> {
+			try {
+				const res = await fetch(`/org/${internals.orgId()}/api/onboarding-resync`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ onboardingId, newTemplateId: templateId })
 				});
 				if (!res.ok) {
 					const text = await res.text();
-					return { success: false, error: text };
+					let message = 'Failed to assign template';
+					try {
+						const parsed = JSON.parse(text);
+						if (parsed.message) message = parsed.message;
+					} catch {
+						// ignore parse errors
+					}
+					return { success: false, error: message };
 				}
 				const result = await res.json();
 				internals.serverState.set(

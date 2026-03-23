@@ -216,6 +216,35 @@ export async function addNote(ctx: UseCaseContext, input: AddNoteInput): Promise
 	};
 }
 
+export async function removeInactiveStep(ctx: UseCaseContext, stepId: string): Promise<void> {
+	ctx.auth.requireEdit('onboarding');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+
+	const step = await ctx.store.findOne<{ id: string; active: boolean }>('onboarding_step_progress', ctx.auth.orgId, {
+		id: stepId
+	});
+
+	if (!step) {
+		fail(404, 'Step not found');
+	}
+
+	if (step.active) {
+		fail(400, 'Only inactive steps can be removed');
+	}
+
+	await ctx.store.delete('onboarding_step_progress', ctx.auth.orgId, stepId);
+
+	ctx.audit.log({
+		action: 'onboarding_step.inactive_removed',
+		resourceType: 'onboarding_step_progress',
+		resourceId: stepId
+	});
+}
+
 export async function toggleCheckbox(ctx: UseCaseContext, input: ToggleCheckboxInput): Promise<StepResult> {
 	ctx.auth.requireEdit('onboarding');
 

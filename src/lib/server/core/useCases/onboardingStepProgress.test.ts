@@ -6,7 +6,13 @@ import {
 	createTestReadOnlyGuard
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { toggleCheckbox, advanceStage, refreshTrainingSteps, addNote } from './onboardingStepProgress';
+import {
+	toggleCheckbox,
+	advanceStage,
+	refreshTrainingSteps,
+	addNote,
+	removeInactiveStep
+} from './onboardingStepProgress';
 
 type TestContext = Omit<UseCaseContext, 'store'> & {
 	store: ReturnType<typeof createInMemoryDataStore>;
@@ -401,6 +407,53 @@ describe('addNote', () => {
 			resourceType: 'onboarding_step_progress',
 			resourceId: 'step-1',
 			details: { userId: 'user-abc' }
+		});
+	});
+});
+
+describe('removeInactiveStep', () => {
+	it('hard-deletes a step where active is false', async () => {
+		const ctx = buildContext();
+		seedStep(ctx, { active: false });
+
+		await removeInactiveStep(ctx, 'step-1');
+
+		// Verify step is gone
+		const result = await ctx.store.findOne('onboarding_step_progress', 'test-org', { id: 'step-1' });
+		expect(result).toBeNull();
+	});
+
+	it('rejects removal of an active step', async () => {
+		const ctx = buildContext();
+		seedStep(ctx, { active: true });
+
+		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toThrow('Only inactive steps can be removed');
+	});
+
+	it('rejects when step not found', async () => {
+		const ctx = buildContext();
+
+		await expect(removeInactiveStep(ctx, 'nonexistent')).rejects.toThrow('Step not found');
+	});
+
+	it('blocks removal when organization is read-only', async () => {
+		const ctx = buildContext({ readOnly: true });
+		seedStep(ctx, { active: false });
+
+		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toThrow('Organization is in read-only mode');
+	});
+
+	it('emits audit log on removal', async () => {
+		const ctx = buildContext();
+		seedStep(ctx, { active: false });
+
+		await removeInactiveStep(ctx, 'step-1');
+
+		expect(ctx.auditPort.events).toHaveLength(1);
+		expect(ctx.auditPort.events[0]).toMatchObject({
+			action: 'onboarding_step.inactive_removed',
+			resourceType: 'onboarding_step_progress',
+			resourceId: 'step-1'
 		});
 	});
 });

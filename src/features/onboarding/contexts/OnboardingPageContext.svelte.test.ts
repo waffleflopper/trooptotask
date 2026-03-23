@@ -4,8 +4,7 @@ import {
 	isStepDeprecated,
 	isTrainingStepComplete,
 	getPaperworkStageIndex,
-	formatTimestamp,
-	filterOnboardings
+	formatTimestamp
 } from './OnboardingPageContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
 
@@ -182,29 +181,5 @@ describe('formatTimestamp', () => {
 	it('formats a valid ISO string to readable format', () => {
 		const result = formatTimestamp('2026-01-15T14:30:00.000Z');
 		expect(result).toMatch(/^[A-Z][a-z]{2} \d{1,2} at \d{1,2}:\d{2} (AM|PM)$/);
-	});
-});
-
-// ── filterOnboardings ──────────────────────────────────────────
-
-describe('filterOnboardings', () => {
-	const active = makeOnboarding({ id: 'a', status: 'in_progress' });
-	const completed = makeOnboarding({ id: 'b', status: 'completed' });
-	const cancelled = makeOnboarding({ id: 'c', status: 'cancelled' });
-
-	it('returns only in_progress when filter is "active"', () => {
-		const result = filterOnboardings([active, completed, cancelled], 'active');
-		expect(result).toHaveLength(1);
-		expect(result[0].id).toBe('a');
-	});
-
-	it('returns all onboardings when filter is "all"', () => {
-		const result = filterOnboardings([active, completed, cancelled], 'all');
-		expect(result).toHaveLength(3);
-	});
-
-	it('returns empty array when list is empty', () => {
-		expect(filterOnboardings([], 'all')).toHaveLength(0);
-		expect(filterOnboardings([], 'active')).toHaveLength(0);
 	});
 });

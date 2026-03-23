@@ -121,9 +121,7 @@ export const POST = async (event: RequestEvent) => {
 		if (!progressRow.template_step_id) continue;
 		if (!liveStepIds.has(progressRow.template_step_id)) {
 			updates.push(
-				Promise.resolve(
-					supabase.from('onboarding_step_progress').update({ active: false }).eq('id', progressRow.id)
-				)
+				Promise.resolve(supabase.from('onboarding_step_progress').update({ active: false }).eq('id', progressRow.id))
 			);
 		}
 	}

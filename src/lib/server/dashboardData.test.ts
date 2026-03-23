@@ -40,10 +40,12 @@ vi.mock('$lib/server/entities/assignmentType', () => ({
 	}
 }));
 
-// Mock onboarding repo
-const mockFindOnboardings = vi.fn();
-vi.mock('$lib/server/onboardingRepository', () => ({
-	findOnboardings: mockFindOnboardings
+// Mock onboarding entity
+const mockOnboardingList = vi.fn();
+vi.mock('$lib/server/entities/personnelOnboarding', () => ({
+	PersonnelOnboardingEntity: {
+		repo: { list: mockOnboardingList, query: vi.fn(), queryDateRange: vi.fn(), queryByIds: vi.fn() }
+	}
 }));
 
 function createMockSupabase(responseData: Record<string, unknown>[] | null = [], responseCount: number | null = 0) {
@@ -80,7 +82,7 @@ function setupMockDefaults() {
 	mockDailyAssignmentList.mockResolvedValue(dailyAssignments);
 	mockPinnedGroupList.mockResolvedValue(pinnedGroups);
 	mockRatingSchemeList.mockResolvedValue(ratingSchemeEntries);
-	mockFindOnboardings.mockResolvedValue({ data: onboardings, error: null });
+	mockOnboardingList.mockResolvedValue(onboardings);
 }
 
 describe('fetchDashboardData', () => {
@@ -164,13 +166,13 @@ describe('fetchDashboardData', () => {
 		);
 	});
 
-	it('uses onboarding repo findOnboardings', async () => {
+	it('uses PersonnelOnboardingEntity repo for onboardings', async () => {
 		setupMockDefaults();
 		const supabase = createMockSupabase();
 
 		const { fetchDashboardData } = await import('./dashboardData');
 		await fetchDashboardData(supabase, ORG_ID, USER_ID);
 
-		expect(mockFindOnboardings).toHaveBeenCalledWith(expect.anything(), ORG_ID);
+		expect(mockOnboardingList).toHaveBeenCalledWith(expect.anything(), ORG_ID);
 	});
 });

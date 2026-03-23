@@ -9,6 +9,7 @@ const mockOnboarding: PersonnelOnboarding = {
 	status: 'in_progress',
 	startedAt: '2026-03-01',
 	completedAt: null,
+	cancelledAt: null,
 	steps: [
 		{
 			id: 'step-1',
@@ -21,7 +22,8 @@ const mockOnboarding: PersonnelOnboarding = {
 			sortOrder: 0,
 			completed: false,
 			currentStage: null,
-			notes: []
+			notes: [],
+			active: true
 		}
 	]
 };

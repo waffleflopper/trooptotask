@@ -6,7 +6,7 @@ import {
 	createTestReadOnlyGuard
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { startOnboarding } from './onboardingLifecycle';
+import { startOnboarding, cancelOnboarding, reopenOnboarding, completeOnboarding } from './onboardingLifecycle';
 
 type TestContext = Omit<UseCaseContext, 'store'> & {
 	store: ReturnType<typeof createInMemoryDataStore>;
@@ -169,6 +169,18 @@ describe('startOnboarding', () => {
 		expect(trainingStep?.completed).toBe(false);
 	});
 
+	it('allows starting a new onboarding after previous one is cancelled', async () => {
+		const ctx = buildContext();
+		seedTemplateWithSteps(ctx);
+
+		const first = await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
+		await cancelOnboarding(ctx, first.id);
+		const second = await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
+
+		expect(second.status).toBe('in_progress');
+		expect(second.id).not.toBe(first.id);
+	});
+
 	it('only queries training records for the specific soldier and training type IDs', async () => {
 		const ctx = buildContext();
 		seedTemplateWithSteps(ctx);
@@ -187,5 +199,220 @@ describe('startOnboarding', () => {
 
 		const trainingStep = result.steps.find((s) => s.stepType === 'training');
 		expect(trainingStep?.completed).toBe(false);
+	});
+});
+
+function seedOnboarding(ctx: TestContext, overrides?: Record<string, unknown>) {
+	ctx.store.seed('personnel_onboardings', [
+		{
+			id: 'ob-1',
+			personnel_id: 'p-1',
+			template_id: 'tmpl-1',
+			status: 'in_progress',
+			started_at: '2026-01-01T00:00:00Z',
+			completed_at: null,
+			cancelled_at: null,
+			organization_id: 'test-org',
+			...overrides
+		}
+	]);
+}
+
+describe('cancelOnboarding', () => {
+	it('sets status to cancelled with cancelled_at timestamp', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx);
+
+		const result = await cancelOnboarding(ctx, 'ob-1');
+
+		expect(result.status).toBe('cancelled');
+		expect(result.cancelledAt).toBeTruthy();
+		expect(new Date(result.cancelledAt!).toISOString()).toBe(result.cancelledAt);
+	});
+
+	it('rejects when onboarding not found', async () => {
+		const ctx = buildContext();
+
+		await expect(cancelOnboarding(ctx, 'nonexistent')).rejects.toThrow('Onboarding not found');
+	});
+
+	it('blocks when organization is read-only', async () => {
+		const ctx = buildContext({ readOnly: true });
+		seedOnboarding(ctx);
+
+		await expect(cancelOnboarding(ctx, 'ob-1')).rejects.toThrow('Organization is in read-only mode');
+	});
+
+	it('emits audit log', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx);
+
+		await cancelOnboarding(ctx, 'ob-1');
+
+		expect(ctx.auditPort.events).toHaveLength(1);
+		expect(ctx.auditPort.events[0]).toMatchObject({
+			action: 'onboarding.cancelled',
+			resourceType: 'personnel_onboarding',
+			resourceId: 'ob-1'
+		});
+	});
+});
+
+describe('reopenOnboarding', () => {
+	it('sets status back to in_progress and clears cancelled_at', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
+
+		const result = await reopenOnboarding(ctx, 'ob-1');
+
+		expect(result.status).toBe('in_progress');
+		expect(result.cancelledAt).toBeNull();
+	});
+
+	it('rejects reopening an in_progress onboarding', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx); // status: in_progress
+
+		await expect(reopenOnboarding(ctx, 'ob-1')).rejects.toThrow('Only cancelled onboardings can be reopened');
+	});
+
+	it('rejects reopening a completed onboarding', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { status: 'completed', completed_at: '2026-03-01T00:00:00Z' });
+
+		await expect(reopenOnboarding(ctx, 'ob-1')).rejects.toThrow('Only cancelled onboardings can be reopened');
+	});
+
+	it('emits audit log', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
+
+		await reopenOnboarding(ctx, 'ob-1');
+
+		expect(ctx.auditPort.events).toHaveLength(1);
+		expect(ctx.auditPort.events[0]).toMatchObject({
+			action: 'onboarding.reopened',
+			resourceType: 'personnel_onboarding',
+			resourceId: 'ob-1'
+		});
+	});
+});
+
+function seedSteps(ctx: TestContext, overrides?: Record<string, unknown>[]) {
+	const defaults = [
+		{
+			id: 'step-1',
+			onboarding_id: 'ob-1',
+			step_name: 'Get ID card',
+			step_type: 'checkbox',
+			completed: false,
+			active: true,
+			organization_id: 'test-org'
+		},
+		{
+			id: 'step-2',
+			onboarding_id: 'ob-1',
+			step_name: 'CAC Request',
+			step_type: 'paperwork',
+			completed: true,
+			active: true,
+			organization_id: 'test-org'
+		},
+		{
+			id: 'step-3',
+			onboarding_id: 'ob-1',
+			step_name: 'CPR Training',
+			step_type: 'training',
+			completed: false,
+			active: true,
+			organization_id: 'test-org'
+		}
+	];
+	const rows = overrides ?? defaults;
+	ctx.store.seed('onboarding_step_progress', rows);
+}
+
+describe('completeOnboarding', () => {
+	it('sets status to completed with completed_at and returns incomplete count', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx);
+		seedSteps(ctx); // 2 incomplete (step-1, step-3), 1 complete (step-2)
+
+		const result = await completeOnboarding(ctx, 'ob-1');
+
+		expect(result.status).toBe('completed');
+		expect(result.completedAt).toBeTruthy();
+		expect(new Date(result.completedAt!).toISOString()).toBe(result.completedAt);
+		expect(result.incompleteCount).toBe(2);
+	});
+
+	it('returns 0 incomplete count when all active steps are complete', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx);
+		seedSteps(ctx, [
+			{
+				id: 'step-1',
+				onboarding_id: 'ob-1',
+				step_type: 'checkbox',
+				completed: true,
+				active: true,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'step-2',
+				onboarding_id: 'ob-1',
+				step_type: 'paperwork',
+				completed: true,
+				active: true,
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = await completeOnboarding(ctx, 'ob-1');
+
+		expect(result.incompleteCount).toBe(0);
+	});
+
+	it('excludes inactive steps from incomplete count', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx);
+		seedSteps(ctx, [
+			{
+				id: 'step-1',
+				onboarding_id: 'ob-1',
+				step_type: 'checkbox',
+				completed: true,
+				active: true,
+				organization_id: 'test-org'
+			},
+			{
+				id: 'step-2',
+				onboarding_id: 'ob-1',
+				step_type: 'checkbox',
+				completed: false,
+				active: false,
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = await completeOnboarding(ctx, 'ob-1');
+
+		expect(result.incompleteCount).toBe(0);
+	});
+
+	it('emits audit log with incomplete count', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx);
+		seedSteps(ctx);
+
+		await completeOnboarding(ctx, 'ob-1');
+
+		expect(ctx.auditPort.events).toHaveLength(1);
+		expect(ctx.auditPort.events[0]).toMatchObject({
+			action: 'onboarding.completed',
+			resourceType: 'personnel_onboarding',
+			resourceId: 'ob-1',
+			details: { incompleteCount: 2 }
+		});
 	});
 });

@@ -1,5 +1,7 @@
 import { json, error } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
+import type { RequestEvent } from '@sveltejs/kit';
+import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { getApiContext } from '$lib/server/supabase';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 
 function transformResponse(onboarding: Record<string, unknown>, steps: Record<string, unknown>[]) {
@@ -9,112 +11,134 @@ function transformResponse(onboarding: Record<string, unknown>, steps: Record<st
 	});
 }
 
-export const POST = apiRoute(
-	{ permission: { edit: 'onboarding' }, audit: 'onboarding_workflow' },
-	async ({ supabase, orgId }, event) => {
-		const body = await event.request.json();
+export const POST = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		// Create the onboarding record
-		const { data: onboarding, error: onboardingError } = await supabase
-			.from('personnel_onboardings')
-			.insert({
-				organization_id: orgId,
-				personnel_id: body.personnelId,
-				started_at: body.startedAt,
-				template_id: body.templateId ?? null
-			})
-			.select()
-			.single();
+	ctx.auth.requireEdit('onboarding');
 
-		if (onboardingError) throw error(500, onboardingError.message);
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
 
-		// Fetch template steps to snapshot — scoped to the chosen template if provided
-		let templateQuery = supabase
-			.from('onboarding_template_steps')
-			.select('*')
-			.eq('organization_id', orgId)
-			.order('sort_order');
+	const body = await event.request.json();
 
-		if (body.templateId) {
-			templateQuery = templateQuery.eq('template_id', body.templateId);
-		}
+	// Create the onboarding record
+	const { data: onboarding, error: onboardingError } = await supabase
+		.from('personnel_onboardings')
+		.insert({
+			organization_id: orgId,
+			personnel_id: body.personnelId,
+			started_at: body.startedAt,
+			template_id: body.templateId ?? null
+		})
+		.select()
+		.single();
 
-		const { data: templateSteps, error: templateError } = await templateQuery;
+	if (onboardingError) throw error(500, onboardingError.message);
 
-		if (templateError) throw error(500, templateError.message);
+	// Fetch template steps to snapshot — scoped to the chosen template if provided
+	let templateQuery = supabase
+		.from('onboarding_template_steps')
+		.select('*')
+		.eq('organization_id', orgId)
+		.order('sort_order');
 
-		// Create step progress rows from template snapshot, storing the source template_step_id
-		let steps: Record<string, unknown>[] = [];
-		if (templateSteps && templateSteps.length > 0) {
-			const stepRows = templateSteps.map((t: Record<string, unknown>) => ({
-				onboarding_id: onboarding.id,
-				step_name: t.name,
-				step_type: t.step_type,
-				training_type_id: t.training_type_id,
-				stages: t.stages,
-				sort_order: t.sort_order,
-				completed: false,
-				current_stage: t.step_type === 'paperwork' && Array.isArray(t.stages) && t.stages.length ? t.stages[0] : null,
-				notes: [],
-				template_step_id: t.id
-			}));
-
-			const { data: createdSteps, error: stepsError } = await supabase
-				.from('onboarding_step_progress')
-				.insert(stepRows)
-				.select();
-
-			if (stepsError) throw error(500, stepsError.message);
-			steps = createdSteps ?? [];
-		}
-
-		return json(transformResponse(onboarding, steps));
+	if (body.templateId) {
+		templateQuery = templateQuery.eq('template_id', body.templateId);
 	}
-);
 
-export const PUT = apiRoute(
-	{ permission: { edit: 'onboarding' }, audit: 'onboarding_workflow' },
-	async ({ supabase, orgId }, event) => {
-		const body = await event.request.json();
-		const { id, ...fields } = body;
+	const { data: templateSteps, error: templateError } = await templateQuery;
 
-		const updateData: Record<string, unknown> = {};
-		if (fields.status !== undefined) updateData.status = fields.status;
-		if (fields.completedAt !== undefined) updateData.completed_at = fields.completedAt;
+	if (templateError) throw error(500, templateError.message);
 
-		const { data, error: dbError } = await supabase
-			.from('personnel_onboardings')
-			.update(updateData)
-			.eq('id', id)
-			.eq('organization_id', orgId)
-			.select()
-			.single();
+	// Create step progress rows from template snapshot, storing the source template_step_id
+	let steps: Record<string, unknown>[] = [];
+	if (templateSteps && templateSteps.length > 0) {
+		const stepRows = templateSteps.map((t: Record<string, unknown>) => ({
+			onboarding_id: onboarding.id,
+			step_name: t.name,
+			step_type: t.step_type,
+			training_type_id: t.training_type_id,
+			stages: t.stages,
+			sort_order: t.sort_order,
+			completed: false,
+			current_stage: t.step_type === 'paperwork' && Array.isArray(t.stages) && t.stages.length ? t.stages[0] : null,
+			notes: [],
+			template_step_id: t.id
+		}));
 
-		if (dbError) throw error(500, dbError.message);
-
-		// Fetch steps for response
-		const { data: steps } = await supabase
+		const { data: createdSteps, error: stepsError } = await supabase
 			.from('onboarding_step_progress')
-			.select('*')
-			.eq('onboarding_id', id)
-			.order('sort_order');
+			.insert(stepRows)
+			.select();
 
-		return json(transformResponse(data, steps ?? []));
+		if (stepsError) throw error(500, stepsError.message);
+		steps = createdSteps ?? [];
 	}
-);
 
-export const DELETE = apiRoute(
-	{ permission: { edit: 'onboarding' }, audit: 'onboarding_workflow' },
-	async ({ supabase, orgId }, event) => {
-		const { id } = await event.request.json();
+	ctx.audit.log({ action: 'onboarding_workflow.created', resourceType: 'onboarding_workflow' });
+	return json(transformResponse(onboarding, steps));
+};
 
-		const { error: dbError } = await supabase
-			.from('personnel_onboardings')
-			.delete()
-			.eq('id', id)
-			.eq('organization_id', orgId);
+export const PUT = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		if (dbError) throw error(500, dbError.message);
-		return json({ success: true });
-	}
-);
+	ctx.auth.requireEdit('onboarding');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
+
+	const body = await event.request.json();
+	const { id, ...fields } = body;
+
+	const updateData: Record<string, unknown> = {};
+	if (fields.status !== undefined) updateData.status = fields.status;
+	if (fields.completedAt !== undefined) updateData.completed_at = fields.completedAt;
+
+	const { data, error: dbError } = await supabase
+		.from('personnel_onboardings')
+		.update(updateData)
+		.eq('id', id)
+		.eq('organization_id', orgId)
+		.select()
+		.single();
+
+	if (dbError) throw error(500, dbError.message);
+
+	// Fetch steps for response
+	const { data: steps } = await supabase
+		.from('onboarding_step_progress')
+		.select('*')
+		.eq('onboarding_id', id)
+		.order('sort_order');
+
+	ctx.audit.log({ action: 'onboarding_workflow.updated', resourceType: 'onboarding_workflow', resourceId: id });
+	return json(transformResponse(data, steps ?? []));
+};
+
+export const DELETE = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
+
+	ctx.auth.requireEdit('onboarding');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
+
+	const { id } = await event.request.json();
+
+	const { error: dbError } = await supabase
+		.from('personnel_onboardings')
+		.delete()
+		.eq('id', id)
+		.eq('organization_id', orgId);
+
+	if (dbError) throw error(500, dbError.message);
+
+	ctx.audit.log({ action: 'onboarding_workflow.deleted', resourceType: 'onboarding_workflow', resourceId: id });
+	return json({ success: true });
+};

@@ -43,6 +43,9 @@ export function createSupabaseAuthContextAdapter(
 		requireFullEditor(): void {
 			permCtx.requireFullEditor();
 		},
+		requireManageMembers(): void {
+			permCtx.requireManageMembers();
+		},
 
 		async requireGroupAccess(personnelId: string): Promise<void> {
 			await permCtx.requireGroupAccess(supabase, personnelId);
@@ -70,6 +73,7 @@ export function createSandboxAuthContext(orgId: string): AuthContext {
 		requirePrivileged() {},
 		requireOwner() {},
 		requireFullEditor() {},
+		requireManageMembers() {},
 		async requireGroupAccess() {},
 		async requireGroupAccessBatch() {},
 		async requireGroupAccessByRecord() {}

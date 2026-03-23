@@ -32,9 +32,19 @@ src/
     components/              — shared layout components (Modal, PageToolbar, TopHeader, etc.)
     server/
       entities/              — schema-first entity definitions (see docs/entity-system.md)
-      entitySchema.ts        — defineEntity() framework
+      entitySchema.ts        — defineEntity() framework (schema, transforms, repo — no handlers)
       repositoryFactory.ts   — createRepository() used internally by entities
-      apiRoute.ts            — API route wrapper (permissions, validation, audit)
+      core/
+        ports.ts             — port interfaces (DataStore, AuthContext, AuditPort, etc.)
+        useCases/            — pure business logic use cases (no Supabase imports)
+      adapters/
+        httpAdapter.ts       — buildContext(), postHandler(), crudHandlers() for SvelteKit routes
+        supabaseDataStore.ts — DataStore port implementation using Supabase
+        supabaseAuthContext.ts — AuthContext port implementation
+        supabaseAudit.ts     — AuditPort implementation
+        supabaseReadOnlyGuard.ts — ReadOnlyGuard implementation
+        supabaseSubscription.ts — SubscriptionPort implementation
+        inMemory.ts          — in-memory test adapters for all ports
       personnelRepository.ts — specialized repository for complex personnel queries
       onboardingRepository.ts — specialized repository for complex onboarding queries
     stores/                  — shared cross-cutting stores (groups, subscription, theme, etc.)

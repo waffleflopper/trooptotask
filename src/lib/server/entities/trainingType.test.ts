@@ -237,15 +237,4 @@ describe('TrainingTypeEntity', () => {
 		});
 		expect(withAll.success).toBe(true);
 	});
-
-	it('onDelete cascade config exists (handlers object has DELETE)', () => {
-		expect(TrainingTypeEntity.handlers).toHaveProperty('DELETE');
-	});
-
-	it('onAfterDelete notification config exists (handlers object has DELETE)', () => {
-		// The presence of onAfterDelete is tested through handlers existing;
-		// the actual callback is tested via integration. Here we verify the entity
-		// exposes the handlers with DELETE which internally uses onAfterDelete.
-		expect(TrainingTypeEntity.handlers.DELETE).toBeDefined();
-	});
 });

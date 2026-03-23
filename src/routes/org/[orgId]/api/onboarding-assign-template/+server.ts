@@ -1,5 +1,7 @@
 import { json, error } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
+import type { RequestEvent } from '@sveltejs/kit';
+import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { getApiContext } from '$lib/server/supabase';
 
 function transformStep(r: Record<string, unknown>) {
 	return {
@@ -17,91 +19,102 @@ function transformStep(r: Record<string, unknown>) {
 	};
 }
 
-export const POST = apiRoute(
-	{ permission: { edit: 'onboarding' }, audit: 'onboarding_assignment' },
-	async ({ supabase, orgId }, event) => {
-		const { onboardingId, templateId } = await event.request.json();
+export const POST = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		// Verify onboarding belongs to org
-		const { data: onboarding, error: onboardingError } = await supabase
-			.from('personnel_onboardings')
-			.select('*')
-			.eq('id', onboardingId)
-			.eq('organization_id', orgId)
-			.single();
+	ctx.auth.requireEdit('onboarding');
 
-		if (onboardingError || !onboarding) throw error(404, 'Onboarding not found');
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
 
-		// Verify template belongs to org
-		const { data: template, error: templateError } = await supabase
-			.from('onboarding_templates')
-			.select('id')
-			.eq('id', templateId)
-			.eq('organization_id', orgId)
-			.single();
+	const { onboardingId, templateId } = await event.request.json();
 
-		if (templateError || !template) throw error(404, 'Template not found');
+	// Verify onboarding belongs to org
+	const { data: onboarding, error: onboardingError } = await supabase
+		.from('personnel_onboardings')
+		.select('*')
+		.eq('id', onboardingId)
+		.eq('organization_id', orgId)
+		.single();
 
-		// Load template steps for backfilling
-		const { data: templateSteps, error: stepsError } = await supabase
-			.from('onboarding_template_steps')
-			.select('*')
-			.eq('template_id', templateId)
-			.order('sort_order');
+	if (onboardingError || !onboarding) throw error(404, 'Onboarding not found');
 
-		if (stepsError) throw error(500, stepsError.message);
+	// Verify template belongs to org
+	const { data: template, error: templateError } = await supabase
+		.from('onboarding_templates')
+		.select('id')
+		.eq('id', templateId)
+		.eq('organization_id', orgId)
+		.single();
 
-		const liveSteps = templateSteps ?? [];
+	if (templateError || !template) throw error(404, 'Template not found');
 
-		// Load existing progress rows
-		const { data: progressRows, error: progressError } = await supabase
-			.from('onboarding_step_progress')
-			.select('*')
-			.eq('onboarding_id', onboardingId);
+	// Load template steps for backfilling
+	const { data: templateSteps, error: stepsError } = await supabase
+		.from('onboarding_template_steps')
+		.select('*')
+		.eq('template_id', templateId)
+		.order('sort_order');
 
-		if (progressError) throw error(500, progressError.message);
+	if (stepsError) throw error(500, stepsError.message);
 
-		const existing = progressRows ?? [];
+	const liveSteps = templateSteps ?? [];
 
-		// Write template_id to the onboarding and backfill step links in parallel
-		const updates: Promise<{ error: unknown }>[] = [
-			Promise.resolve(supabase.from('personnel_onboardings').update({ template_id: templateId }).eq('id', onboardingId))
-		];
+	// Load existing progress rows
+	const { data: progressRows, error: progressError } = await supabase
+		.from('onboarding_step_progress')
+		.select('*')
+		.eq('onboarding_id', onboardingId);
 
-		// Backfill template_step_id by matching on (step_name, step_type)
-		for (const progressRow of existing) {
-			if (progressRow.template_step_id) continue; // Already linked
+	if (progressError) throw error(500, progressError.message);
 
-			const match = liveSteps.find(
-				(t: Record<string, unknown>) => t.name === progressRow.step_name && t.step_type === progressRow.step_type
+	const existing = progressRows ?? [];
+
+	// Write template_id to the onboarding and backfill step links in parallel
+	const updates: Promise<{ error: unknown }>[] = [
+		Promise.resolve(supabase.from('personnel_onboardings').update({ template_id: templateId }).eq('id', onboardingId))
+	];
+
+	// Backfill template_step_id by matching on (step_name, step_type)
+	for (const progressRow of existing) {
+		if (progressRow.template_step_id) continue; // Already linked
+
+		const match = liveSteps.find(
+			(t: Record<string, unknown>) => t.name === progressRow.step_name && t.step_type === progressRow.step_type
+		);
+
+		if (match) {
+			updates.push(
+				Promise.resolve(
+					supabase.from('onboarding_step_progress').update({ template_step_id: match.id }).eq('id', progressRow.id)
+				)
 			);
-
-			if (match) {
-				updates.push(
-					Promise.resolve(
-						supabase.from('onboarding_step_progress').update({ template_step_id: match.id }).eq('id', progressRow.id)
-					)
-				);
-			}
 		}
-
-		const results = await Promise.all(updates);
-		const failed = results.find((r) => r.error);
-		if (failed) throw error(500, 'Failed to assign template');
-
-		// Return refreshed progress rows
-		const { data: refreshed, error: refreshError } = await supabase
-			.from('onboarding_step_progress')
-			.select('*')
-			.eq('onboarding_id', onboardingId)
-			.order('sort_order');
-
-		if (refreshError) throw error(500, refreshError.message);
-
-		return json({
-			onboardingId,
-			templateId,
-			steps: (refreshed ?? []).map(transformStep)
-		});
 	}
-);
+
+	const results = await Promise.all(updates);
+	const failed = results.find((r) => r.error);
+	if (failed) throw error(500, 'Failed to assign template');
+
+	// Return refreshed progress rows
+	const { data: refreshed, error: refreshError } = await supabase
+		.from('onboarding_step_progress')
+		.select('*')
+		.eq('onboarding_id', onboardingId)
+		.order('sort_order');
+
+	if (refreshError) throw error(500, refreshError.message);
+
+	ctx.audit.log({
+		action: 'onboarding_assignment.created',
+		resourceType: 'onboarding_assignment',
+		resourceId: onboardingId
+	});
+	return json({
+		onboardingId,
+		templateId,
+		steps: (refreshed ?? []).map(transformStep)
+	});
+};

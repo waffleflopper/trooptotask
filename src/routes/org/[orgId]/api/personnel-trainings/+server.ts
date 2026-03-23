@@ -1,9 +1,8 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
-import { auditLog } from '$lib/server/auditLog';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { buildContext, postHandler } from '$lib/server/adapters/httpAdapter';
+import { getApiContext } from '$lib/server/supabase';
 import { validateUUID } from '$lib/server/validation';
 import {
 	createTrainingRecord,
@@ -13,7 +12,16 @@ import {
 
 export const POST = postHandler(createTrainingRecord);
 
-export const PUT = apiRoute({ permission: { edit: 'training' } }, async ({ supabase, orgId, userId, ctx }, event) => {
+export const PUT = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
+
+	ctx.auth.requireEdit('training');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
+
 	const body = await event.request.json();
 	const { id, ...fields } = body;
 
@@ -21,7 +29,6 @@ export const PUT = apiRoute({ permission: { edit: 'training' } }, async ({ supab
 
 	const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-	// Fetch training type to determine how to handle expiration
 	const { data: existing } = await supabase
 		.from('personnel_trainings')
 		.select('training_type_id, personnel_id')
@@ -29,7 +36,7 @@ export const PUT = apiRoute({ permission: { edit: 'training' } }, async ({ supab
 		.single();
 
 	if (existing?.personnel_id) {
-		await ctx.requireGroupAccess(supabase, existing.personnel_id);
+		await ctx.auth.requireGroupAccess(existing.personnel_id);
 	}
 
 	let isExpirationDateOnly = false;
@@ -53,12 +60,10 @@ export const PUT = apiRoute({ permission: { edit: 'training' } }, async ({ supab
 	}
 
 	if (isExpirationDateOnly) {
-		// For expiration-date-only, use the client-provided expiration date directly
 		if (fields.expirationDate !== undefined) {
 			updates.expiration_date = fields.expirationDate;
 		}
 	} else if (fields.completionDate !== undefined) {
-		// For normal trainings, recalculate expiration from completion date
 		updates.expiration_date = calculateExpirationDate(fields.completionDate, expirationMonths);
 	}
 
@@ -75,24 +80,19 @@ export const PUT = apiRoute({ permission: { edit: 'training' } }, async ({ supab
 
 	if (dbError) throw error(500, dbError.message);
 
-	auditLog(
-		{
-			action: 'training_record.updated',
-			resourceType: 'training_record',
-			resourceId: id,
-			orgId,
-			details: {
-				actor: event.locals.user?.email ?? userId,
-				personnel_id: data.personnel_id,
-				training_type_id: data.training_type_id,
-				completion_date: data.completion_date
-			}
-		},
-		{ userId }
-	);
+	ctx.audit.log({
+		action: 'training_record.updated',
+		resourceType: 'training_record',
+		resourceId: id,
+		details: {
+			personnel_id: data.personnel_id,
+			training_type_id: data.training_type_id,
+			completion_date: data.completion_date
+		}
+	});
 
 	return json(PersonnelTrainingEntity.fromDb(data as Record<string, unknown>));
-});
+};
 
 export const DELETE = async (event: RequestEvent) => {
 	const ctx = await buildContext(event);

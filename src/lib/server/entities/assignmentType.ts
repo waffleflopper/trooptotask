@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import { notifyAdmins } from '$lib/server/notifications';
 import type { AssignmentType } from '$lib/types';
 
 export const AssignmentTypeEntity = defineEntity<AssignmentType>({
@@ -10,13 +9,6 @@ export const AssignmentTypeEntity = defineEntity<AssignmentType>({
 	groupScope: 'none',
 	audit: { resourceType: 'assignment_type', detailFields: ['name', 'short_name'] },
 	orderBy: [{ column: 'sort_order', ascending: true }],
-	onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
-		await notifyAdmins(orgId, userId, {
-			type: 'config_type_deleted',
-			title: 'Assignment Type Deleted',
-			message: `"${userEmail}" deleted the assignment type "${deletedDetails?.name ?? 'unknown'}".`
-		});
-	},
 	schema: {
 		id: field(z.string(), { readOnly: true }),
 		name: field(z.string().min(1).max(100)),

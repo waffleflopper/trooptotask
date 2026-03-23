@@ -1,46 +1,40 @@
 import { json, error } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
-import { auditLog } from '$lib/server/auditLog';
+import type { RequestEvent } from '@sveltejs/kit';
+import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { getApiContext } from '$lib/server/supabase';
 
-export const DELETE = apiRoute(
-	{ permission: { authenticated: true }, readOnly: false },
-	async ({ supabase, orgId, userId }, event) => {
-		const id = event.params.id;
+export const DELETE = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		// Fetch the roster first to check for signed file
-		const { data: roster } = await supabase
-			.from('sign_in_rosters')
-			.select('signed_file_path, title')
-			.eq('id', id)
-			.eq('organization_id', orgId)
-			.single();
+	const id = event.params.id;
 
-		if (!roster) throw error(404, 'Roster not found');
+	// Fetch the roster first to check for signed file
+	const { data: roster } = await supabase
+		.from('sign_in_rosters')
+		.select('signed_file_path, title')
+		.eq('id', id)
+		.eq('organization_id', orgId)
+		.single();
 
-		// Delete signed file from storage if exists
-		if (roster.signed_file_path) {
-			await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
-		}
+	if (!roster) throw error(404, 'Roster not found');
 
-		const { error: dbError } = await supabase
-			.from('sign_in_rosters')
-			.delete()
-			.eq('id', id)
-			.eq('organization_id', orgId);
-
-		if (dbError) throw error(500, dbError.message);
-
-		auditLog(
-			{
-				action: 'sign_in_roster.deleted',
-				resourceType: 'sign_in_roster',
-				resourceId: id,
-				orgId,
-				details: { actor: event.locals.user?.email ?? userId, title: roster.title }
-			},
-			{ userId }
-		);
-
-		return json({ success: true });
+	// Delete signed file from storage if exists
+	if (roster.signed_file_path) {
+		await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
 	}
-);
+
+	const { error: dbError } = await supabase.from('sign_in_rosters').delete().eq('id', id).eq('organization_id', orgId);
+
+	if (dbError) throw error(500, dbError.message);
+
+	ctx.audit.log({
+		action: 'sign_in_roster.deleted',
+		resourceType: 'sign_in_roster',
+		resourceId: id,
+		details: { actor: event.locals.user?.email ?? ctx.auth.userId, title: roster.title }
+	});
+
+	return json({ success: true });
+};

@@ -1,8 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
 import { canAddPersonnel, invalidateTierCache } from '$lib/server/subscription';
-import { auditLog } from '$lib/server/auditLog';
 import { buildContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
@@ -85,55 +83,55 @@ export const DELETE = async (event: RequestEvent) => {
 	}
 };
 
-// Restore stays on legacy apiRoute — privileged-only, not yet migrated
-export const PATCH = apiRoute(
-	{ permission: { privileged: true }, blockSandbox: true },
-	async ({ supabase, orgId, userId }, event) => {
-		const body = await event.request.json();
-		const { action, id } = body;
+export const PATCH = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase, isSandbox } = getApiContext(event.locals, event.cookies, orgId);
 
-		if (action !== 'restore') throw error(400, 'Invalid action');
-		if (!id) throw error(400, 'Missing id');
+	ctx.auth.requirePrivileged();
 
-		const capCheck = await canAddPersonnel(supabase, orgId);
-		if (!capCheck.allowed) {
-			return json({ message: capCheck.message }, { status: 422 });
-		}
+	if (isSandbox) throw error(403, 'This action is not available in sandbox mode');
 
-		const { data: person } = await supabase
-			.from('personnel')
-			.select('rank, first_name, last_name, archived_at')
-			.eq('id', id)
-			.eq('organization_id', orgId)
-			.single();
+	const body = await event.request.json();
+	const { action, id } = body;
 
-		if (!person) throw error(404, 'Personnel not found');
-		if (!person.archived_at) throw error(400, 'Personnel is not archived');
+	if (action !== 'restore') throw error(400, 'Invalid action');
+	if (!id) throw error(400, 'Missing id');
 
-		const { error: dbError } = await supabase
-			.from('personnel')
-			.update({ archived_at: null })
-			.eq('id', id)
-			.eq('organization_id', orgId);
-
-		if (dbError) throw error(500, dbError.message);
-
-		invalidateTierCache(orgId);
-
-		auditLog(
-			{
-				action: 'personnel.restored',
-				resourceType: 'personnel',
-				resourceId: id,
-				orgId,
-				details: {
-					actor: event.locals.user?.email ?? userId,
-					name: `${person.rank} ${person.last_name}, ${person.first_name}`
-				}
-			},
-			{ userId }
-		);
-
-		return json({ success: true });
+	const capCheck = await canAddPersonnel(supabase, orgId);
+	if (!capCheck.allowed) {
+		return json({ message: capCheck.message }, { status: 422 });
 	}
-);
+
+	const { data: person } = await supabase
+		.from('personnel')
+		.select('rank, first_name, last_name, archived_at')
+		.eq('id', id)
+		.eq('organization_id', orgId)
+		.single();
+
+	if (!person) throw error(404, 'Personnel not found');
+	if (!person.archived_at) throw error(400, 'Personnel is not archived');
+
+	const { error: dbError } = await supabase
+		.from('personnel')
+		.update({ archived_at: null })
+		.eq('id', id)
+		.eq('organization_id', orgId);
+
+	if (dbError) throw error(500, dbError.message);
+
+	invalidateTierCache(orgId);
+
+	ctx.audit.log({
+		action: 'personnel.restored',
+		resourceType: 'personnel',
+		resourceId: id,
+		details: {
+			actor: event.locals.user?.email ?? ctx.auth.userId,
+			name: `${person.rank} ${person.last_name}, ${person.first_name}`
+		}
+	});
+
+	return json({ success: true });
+};

@@ -6,7 +6,7 @@ import {
 	createTestReadOnlyGuard
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { toggleCheckbox, advanceStage, refreshTrainingSteps } from './onboardingStepProgress';
+import { toggleCheckbox, advanceStage, refreshTrainingSteps, addNote } from './onboardingStepProgress';
 
 type TestContext = Omit<UseCaseContext, 'store'> & {
 	store: ReturnType<typeof createInMemoryDataStore>;
@@ -333,5 +333,74 @@ describe('refreshTrainingSteps', () => {
 		const firstAid = result.find((s) => s.id === 'tr-step-2');
 		expect(cpr?.completed).toBe(true);
 		expect(firstAid?.completed).toBe(false);
+	});
+});
+
+describe('addNote', () => {
+	it('appends a note with server-generated timestamp and userId', async () => {
+		const ctx = buildContext();
+		seedStep(ctx);
+
+		const result = await addNote(ctx, {
+			stepId: 'step-1',
+			text: 'Emailed soldier about ID card',
+			userId: 'user-abc'
+		});
+
+		expect(result.notes).toHaveLength(1);
+		expect(result.notes[0].text).toBe('Emailed soldier about ID card');
+		expect(result.notes[0].userId).toBe('user-abc');
+		expect(result.notes[0].timestamp).toBeTruthy();
+		// Timestamp should be a valid ISO string
+		expect(new Date(result.notes[0].timestamp).toISOString()).toBe(result.notes[0].timestamp);
+	});
+
+	it('preserves existing notes when appending', async () => {
+		const ctx = buildContext();
+		const existingNote = { text: 'First note', timestamp: '2026-03-01T00:00:00.000Z', userId: 'user-1' };
+		seedStep(ctx, { notes: [existingNote] });
+
+		const result = await addNote(ctx, {
+			stepId: 'step-1',
+			text: 'Second note',
+			userId: 'user-2'
+		});
+
+		expect(result.notes).toHaveLength(2);
+		expect(result.notes[0]).toEqual(existingNote);
+		expect(result.notes[1].text).toBe('Second note');
+		expect(result.notes[1].userId).toBe('user-2');
+	});
+
+	it('rejects when step not found', async () => {
+		const ctx = buildContext();
+
+		await expect(addNote(ctx, { stepId: 'nonexistent', text: 'hello', userId: 'user-1' })).rejects.toThrow(
+			'Step not found'
+		);
+	});
+
+	it('blocks when organization is read-only', async () => {
+		const ctx = buildContext({ readOnly: true });
+		seedStep(ctx);
+
+		await expect(addNote(ctx, { stepId: 'step-1', text: 'hello', userId: 'user-1' })).rejects.toThrow(
+			'Organization is in read-only mode'
+		);
+	});
+
+	it('emits audit log on note addition', async () => {
+		const ctx = buildContext();
+		seedStep(ctx);
+
+		await addNote(ctx, { stepId: 'step-1', text: 'Note text', userId: 'user-abc' });
+
+		expect(ctx.auditPort.events).toHaveLength(1);
+		expect(ctx.auditPort.events[0]).toMatchObject({
+			action: 'onboarding_step.note_added',
+			resourceType: 'onboarding_step_progress',
+			resourceId: 'step-1',
+			details: { userId: 'user-abc' }
+		});
 	});
 });

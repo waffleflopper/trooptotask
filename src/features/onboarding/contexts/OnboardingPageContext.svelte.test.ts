@@ -25,6 +25,7 @@ function makeStep(overrides: Partial<OnboardingStepProgress> = {}): OnboardingSt
 		currentStage: null,
 		notes: [],
 		templateStepId: 'tpl-step-1',
+		active: true,
 		...overrides
 	};
 }
@@ -35,6 +36,7 @@ function makeOnboarding(overrides: Partial<PersonnelOnboarding> = {}): Personnel
 		personnelId: 'p-1',
 		startedAt: '2026-01-01T00:00:00Z',
 		completedAt: null,
+		cancelledAt: null,
 		status: 'in_progress',
 		steps: [],
 		templateId: 'tpl-1',

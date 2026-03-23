@@ -41,6 +41,7 @@ export interface OnboardingStepProgress {
 	currentStage: string | null;
 	notes: OnboardingStepNote[];
 	templateStepId: string | null;
+	active: boolean;
 }
 
 export interface PersonnelOnboarding {
@@ -48,6 +49,7 @@ export interface PersonnelOnboarding {
 	personnelId: string;
 	startedAt: string;
 	completedAt: string | null;
+	cancelledAt: string | null;
 	status: OnboardingStatus;
 	steps: OnboardingStepProgress[];
 	templateId: string | null;

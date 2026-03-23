@@ -13,7 +13,7 @@ vi.mock('$lib/server/validation', () => ({
 	validateUUID: vi.fn()
 }));
 vi.mock('$lib/server/auditLog', () => ({
-	auditLog: vi.fn(),
+	auditLog: vi.fn().mockResolvedValue(undefined),
 	getRequestInfo: vi.fn().mockReturnValue({ userId: null, ip: '127.0.0.1', userAgent: 'test' })
 }));
 
@@ -66,10 +66,13 @@ let mockSupabaseUpdate: ReturnType<typeof vi.fn>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let mockSupabase: any;
 
+import { auditLog } from '$lib/server/auditLog';
+
 beforeEach(() => {
 	vi.resetAllMocks();
 	vi.mocked(validateUUID).mockReturnValue(true);
 	vi.mocked(checkReadOnly).mockResolvedValue(null);
+	vi.mocked(auditLog).mockResolvedValue(undefined as never);
 
 	mockSupabaseUpdate = vi.fn().mockReturnValue({
 		eq: vi.fn().mockReturnValue({

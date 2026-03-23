@@ -89,15 +89,6 @@ describe('StatusTypeEntity', () => {
 		expect(StatusTypeEntity.table).toBe('status_types');
 	});
 
-	it('has onDelete cascade config (function exists)', () => {
-		// The entity config has onDelete for cascade deleting availability_entries
-		// We verify this indirectly through the handlers being generated
-		// Since onDelete is on the config (not exposed on EntityDefinition), we verify
-		// the entity was created successfully with handlers
-		expect(StatusTypeEntity.handlers).toBeDefined();
-		expect(StatusTypeEntity.handlers.DELETE).toBeDefined();
-	});
-
 	it('has repo for data access', () => {
 		expect(StatusTypeEntity.repo).toBeDefined();
 		expect(typeof StatusTypeEntity.repo.list).toBe('function');

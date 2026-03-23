@@ -1,58 +1,28 @@
 import { json, error } from '@sveltejs/kit';
-import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
-import { apiRoute } from '$lib/server/apiRoute';
-import { SpecialDayEntity } from '$lib/server/entities/specialDay';
+import { specialDayCrudConfig, createResetFederalHolidaysUseCase } from '$lib/server/core/useCases/specialDayCrud';
+import { createCrudUseCases } from '$lib/server/core/useCases/crud';
+import { buildContext, deleteHandler } from '$lib/server/adapters/httpAdapter';
 
-export const POST = apiRoute({ permission: { edit: 'calendar' }, audit: 'special_day' }, async (routeCtx, event) => {
-	const { supabase, orgId } = routeCtx;
-	const body = await event.request.json();
+const useCases = createCrudUseCases(specialDayCrudConfig);
+const resetFederalHolidays = createResetFederalHolidaysUseCase();
 
-	// Handle bulk reset of federal holidays
+export const POST = async (event) => {
+	const ctx = await buildContext(event);
+
+	let body: Record<string, unknown>;
+	try {
+		body = (await event.request.json()) as Record<string, unknown>;
+	} catch {
+		throw error(400, 'Invalid JSON in request body');
+	}
+
 	if (body.action === 'resetFederalHolidays') {
-		// Delete existing federal holidays
-		await supabase.from('special_days').delete().eq('organization_id', orgId).eq('type', 'federal-holiday');
-
-		// Re-insert defaults
-		const holidays = getDefaultFederalHolidays();
-		const rows = holidays.map((h) => ({
-			organization_id: orgId,
-			date: h.date,
-			name: h.name,
-			type: h.type
-		}));
-
-		for (let i = 0; i < rows.length; i += 50) {
-			await supabase.from('special_days').insert(rows.slice(i, i + 50));
-		}
-
-		// Return all special days
-		const { data: allDays } = await supabase.from('special_days').select().eq('organization_id', orgId).order('date');
-
-		routeCtx.audit('special_day.federal_holidays_reset');
-		return json(SpecialDayEntity.fromDbArray((allDays ?? []) as Record<string, unknown>[]));
+		const result = await resetFederalHolidays(ctx);
+		return json(result);
 	}
 
-	const insertData = SpecialDayEntity.toDbInsert(body, orgId);
+	const result = await useCases.create(ctx, body);
+	return json(result);
+};
 
-	const { data, error: dbError } = await supabase.from('special_days').insert(insertData).select().single();
-
-	if (dbError) throw error(500, dbError.message);
-
-	return json(SpecialDayEntity.fromDb(data as Record<string, unknown>));
-});
-
-export const DELETE = apiRoute(
-	{ permission: { edit: 'calendar' }, audit: 'special_day' },
-	async ({ supabase, orgId }, event) => {
-		const body = await event.request.json();
-		const { id } = body;
-
-		if (!id) throw error(400, 'Missing id');
-
-		const { error: dbError } = await supabase.from('special_days').delete().eq('id', id).eq('organization_id', orgId);
-
-		if (dbError) throw error(500, dbError.message);
-
-		return json({ success: true });
-	}
-);
+export const DELETE = deleteHandler(useCases.remove);

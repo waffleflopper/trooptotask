@@ -1,82 +1,24 @@
 import { json, error } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
-import { auditLog } from '$lib/server/auditLog';
-import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
+import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { batchDailyAssignments } from '$lib/server/core/useCases/dailyAssignmentsBatch';
 
-interface BatchAssignmentRecord {
-	date: string;
-	assignmentTypeId: string;
-	assigneeId: string; // empty string = clear
-}
+export const POST = async (event: import('@sveltejs/kit').RequestEvent) => {
+	try {
+		const ctx = await buildContext(event);
 
-export const POST = apiRoute({ permission: { edit: 'calendar' } }, async ({ supabase, orgId, userId }, event) => {
-	const body = await event.request.json();
-	const records: BatchAssignmentRecord[] = body.records;
-
-	if (!Array.isArray(records) || records.length === 0) {
-		throw error(400, 'records array is required');
-	}
-
-	if (records.length > 1000) {
-		throw error(400, 'Maximum 1000 records per batch');
-	}
-
-	// Split into upserts (has assigneeId) and clears (empty assigneeId)
-	const upserts = records.filter((r) => r.assigneeId);
-	const clears = records.filter((r) => !r.assigneeId);
-
-	// Batch delete all affected date+type combos first
-	// Group by assignmentTypeId for efficient deletes
-	const deleteGroups = new Map<string, string[]>();
-	for (const rec of records) {
-		if (!deleteGroups.has(rec.assignmentTypeId)) {
-			deleteGroups.set(rec.assignmentTypeId, []);
+		let body: Record<string, unknown>;
+		try {
+			body = (await event.request.json()) as Record<string, unknown>;
+		} catch {
+			throw error(400, 'Invalid JSON in request body');
 		}
-		deleteGroups.get(rec.assignmentTypeId)!.push(rec.date);
+
+		const result = await batchDailyAssignments(ctx, {
+			records: body.records as Array<{ date: string; assignmentTypeId: string; assigneeId: string }>
+		});
+		return json(result);
+	} catch (err) {
+		if (err && typeof err === 'object' && 'status' in err) throw err;
+		throw error(500, 'Internal server error');
 	}
-
-	for (const [typeId, dates] of deleteGroups) {
-		const { error: delError } = await supabase
-			.from('daily_assignments')
-			.delete()
-			.eq('organization_id', orgId)
-			.eq('assignment_type_id', typeId)
-			.in('date', dates);
-
-		if (delError) throw error(500, delError.message);
-	}
-
-	// Batch insert all upserts
-	let insertedData: Record<string, unknown>[] = [];
-	if (upserts.length > 0) {
-		const rows = upserts.map((r) => ({
-			organization_id: orgId,
-			assignment_type_id: r.assignmentTypeId,
-			date: r.date,
-			assignee_id: r.assigneeId
-		}));
-
-		const { data, error: insertError } = await supabase.from('daily_assignments').insert(rows).select();
-
-		if (insertError) throw error(500, insertError.message);
-		insertedData = data ?? [];
-	}
-
-	auditLog(
-		{
-			action: 'daily_assignments.bulk_upserted',
-			resourceType: 'daily_assignment',
-			orgId,
-			details: {
-				actor: event.locals.user?.email ?? userId,
-				upserted: insertedData.length,
-				cleared: clears.length
-			}
-		},
-		{ userId }
-	);
-
-	const result = DailyAssignmentEntity.fromDbArray(insertedData as Record<string, unknown>[]);
-
-	return json({ inserted: result, cleared: clears.length });
-});
+};

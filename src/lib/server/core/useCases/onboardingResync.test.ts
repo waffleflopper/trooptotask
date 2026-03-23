@@ -86,7 +86,6 @@ function seedInstanceSteps(ctx: TestContext, steps?: Record<string, unknown>[]) 
 			onboarding_id: 'ob-1',
 			template_step_id: 'ts-1',
 			step_name: 'Get ID card',
-			description: 'Visit badge office',
 			step_type: 'checkbox',
 			training_type_id: null,
 			stages: null,
@@ -102,7 +101,6 @@ function seedInstanceSteps(ctx: TestContext, steps?: Record<string, unknown>[]) 
 			onboarding_id: 'ob-1',
 			template_step_id: 'ts-2',
 			step_name: 'CAC Request',
-			description: 'Submit CAC form',
 			step_type: 'paperwork',
 			training_type_id: null,
 			stages: ['with soldier', 'submitted', 'approved'],
@@ -118,7 +116,6 @@ function seedInstanceSteps(ctx: TestContext, steps?: Record<string, unknown>[]) 
 			onboarding_id: 'ob-1',
 			template_step_id: 'ts-3',
 			step_name: 'CPR Training',
-			description: 'Complete CPR cert',
 			step_type: 'training',
 			training_type_id: 'tt-cpr',
 			stages: null,
@@ -307,7 +304,6 @@ describe('resyncOnboarding', () => {
 				onboarding_id: 'ob-1',
 				template_step_id: 'ts-1',
 				step_name: 'Get ID card',
-				description: 'Visit badge office',
 				step_type: 'checkbox',
 				training_type_id: null,
 				stages: null,
@@ -350,7 +346,6 @@ describe('resyncOnboarding', () => {
 				onboarding_id: 'ob-1',
 				template_step_id: 'ts-1',
 				step_name: 'Get ID card',
-				description: 'Visit badge office',
 				step_type: 'checkbox',
 				training_type_id: null,
 				stages: null,
@@ -367,7 +362,6 @@ describe('resyncOnboarding', () => {
 
 		const updated = result.steps.find((s) => s.templateStepId === 'ts-1');
 		expect(updated?.stepName).toBe('Get Military ID');
-		expect(updated?.description).toBe('Updated description');
 		expect(updated?.sortOrder).toBe(5);
 		// Progress and notes preserved
 		expect(updated?.completed).toBe(true);
@@ -397,7 +391,6 @@ describe('resyncOnboarding', () => {
 				onboarding_id: 'ob-1',
 				template_step_id: 'ts-2',
 				step_name: 'CAC Request',
-				description: 'Submit CAC form',
 				step_type: 'paperwork',
 				training_type_id: null,
 				stages: ['with soldier', 'submitted', 'approved'],
@@ -441,7 +434,6 @@ describe('resyncOnboarding', () => {
 				onboarding_id: 'ob-1',
 				template_step_id: 'ts-2',
 				step_name: 'CAC Request',
-				description: 'Submit CAC form',
 				step_type: 'paperwork',
 				training_type_id: null,
 				stages: ['with soldier', 'submitted', 'approved'],
@@ -486,7 +478,6 @@ describe('resyncOnboarding', () => {
 				onboarding_id: 'ob-1',
 				template_step_id: 'ts-2',
 				step_name: 'CAC Request',
-				description: 'Submit CAC form',
 				step_type: 'paperwork',
 				training_type_id: null,
 				stages: ['with soldier', 'submitted', 'approved'],

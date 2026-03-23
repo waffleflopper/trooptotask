@@ -6,7 +6,6 @@ interface StepProgressRow {
 	onboarding_id: string;
 	template_step_id: string | null;
 	step_name: string;
-	description: string | null;
 	step_type: string;
 	training_type_id: string | null;
 	stages: string[] | null;
@@ -32,7 +31,6 @@ interface ResyncStepResult {
 	onboardingId: string;
 	templateStepId: string | null;
 	stepName: string;
-	description: string | null;
 	stepType: string;
 	trainingTypeId: string | null;
 	stages: string[] | null;
@@ -55,7 +53,6 @@ function mapToResult(row: StepProgressRow): ResyncStepResult {
 		onboardingId: row.onboarding_id,
 		templateStepId: row.template_step_id,
 		stepName: row.step_name,
-		description: row.description,
 		stepType: row.step_type,
 		trainingTypeId: row.training_type_id,
 		stages: row.stages,
@@ -107,7 +104,6 @@ async function performDiff(ctx: UseCaseContext, onboardingId: string, templateId
 		if (instanceStep) {
 			const updateData: Record<string, unknown> = {
 				step_name: templateStep.name,
-				description: templateStep.description,
 				step_type: templateStep.step_type,
 				training_type_id: templateStep.training_type_id,
 				stages: templateStep.stages,
@@ -144,7 +140,6 @@ async function performDiff(ctx: UseCaseContext, onboardingId: string, templateId
 				onboarding_id: onboardingId,
 				template_step_id: templateStep.id,
 				step_name: templateStep.name,
-				description: templateStep.description,
 				step_type: templateStep.step_type,
 				training_type_id: templateStep.training_type_id,
 				stages: templateStep.stages,

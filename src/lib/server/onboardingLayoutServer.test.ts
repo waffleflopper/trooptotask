@@ -2,41 +2,72 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const ORG_ID = '00000000-0000-0000-0000-000000000001';
 
-const mockTemplates = [{ id: 't1', name: 'Basic Training', organizationId: ORG_ID }];
-const mockTemplateSteps = [{ id: 'ts1', templateId: 't1', name: 'Step 1', sortOrder: 0, organizationId: ORG_ID }];
-const mockOnboardings = [{ id: 'o1', personnelId: 'p1', templateId: 't1', status: 'active', organizationId: ORG_ID }];
-const mockPersonnelTrainings = [{ id: 'pt1', personnelId: 'p1', trainingTypeId: 'tt1', completedDate: '2026-03-01' }];
+const mockTemplates = [{ id: 't1', name: 'Basic Training', orgId: ORG_ID }];
+const mockTemplateSteps = [{ id: 'ts1', templateId: 't1', name: 'Step 1', sortOrder: 0 }];
+const mockOnboardings = [
+	{
+		id: 'o1',
+		personnelId: 'p1',
+		templateId: 't1',
+		status: 'in_progress',
+		steps: [{ id: 's1', stepType: 'checkbox', active: true, completed: false }]
+	}
+];
 
-const mockFindTemplates = vi.fn();
-const mockFindTemplateSteps = vi.fn();
-const mockFindOnboardings = vi.fn();
-const mockPersonnelTrainingList = vi.fn();
+const mockTemplateList = vi.fn();
+const mockTemplateStepList = vi.fn();
+const mockOnboardingList = vi.fn();
 
-vi.mock('$lib/server/onboardingRepository', () => ({
-	findTemplates: (...args: unknown[]) => mockFindTemplates(...args),
-	findTemplateSteps: (...args: unknown[]) => mockFindTemplateSteps(...args),
-	findOnboardings: (...args: unknown[]) => mockFindOnboardings(...args)
+vi.mock('$lib/server/entities/onboardingTemplate', () => ({
+	OnboardingTemplateEntity: { repo: { list: (...args: unknown[]) => mockTemplateList(...args) } }
 }));
 
-vi.mock('$lib/server/entities/personnelTraining', () => ({
-	PersonnelTrainingEntity: {
-		repo: {
-			list: (...args: unknown[]) => mockPersonnelTrainingList(...args)
-		}
-	}
+vi.mock('$lib/server/entities/onboardingTemplateStep', () => ({
+	OnboardingTemplateStepEntity: { repo: { list: (...args: unknown[]) => mockTemplateStepList(...args) } }
+}));
+
+vi.mock('$lib/server/entities/personnelOnboarding', () => ({
+	PersonnelOnboardingEntity: { repo: { list: (...args: unknown[]) => mockOnboardingList(...args) } }
 }));
 
 vi.mock('$lib/server/supabase', () => ({
 	getSupabaseClient: () => ({})
 }));
 
+vi.mock('$lib/server/adapters/supabaseDataStore', () => ({
+	createSupabaseDataStore: () => ({})
+}));
+
+vi.mock('$lib/server/adapters/supabaseReadOnlyGuard', () => ({
+	createSupabaseReadOnlyGuard: () => ({ check: async () => false })
+}));
+
+vi.mock('$lib/server/adapters/supabaseAudit', () => ({
+	createSupabaseAuditAdapter: () => ({ log: () => {} })
+}));
+
+vi.mock('$lib/server/adapters/supabaseAuthContext', () => ({
+	createSupabaseAuthContextAdapter: () => ({
+		orgId: ORG_ID,
+		requireEdit: () => {},
+		requireView: () => {}
+	})
+}));
+
+vi.mock('$lib/server/permissionContext', () => ({
+	createPermissionContext: async () => ({})
+}));
+
+vi.mock('$lib/server/core/useCases/onboardingStepProgress', () => ({
+	refreshTrainingSteps: vi.fn().mockResolvedValue([])
+}));
+
 describe('onboarding layout server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockFindTemplates.mockResolvedValue({ data: mockTemplates, error: null });
-		mockFindTemplateSteps.mockResolvedValue({ data: mockTemplateSteps, error: null });
-		mockFindOnboardings.mockResolvedValue({ data: mockOnboardings, error: null });
-		mockPersonnelTrainingList.mockResolvedValue(mockPersonnelTrainings);
+		mockTemplateList.mockResolvedValue(mockTemplates);
+		mockTemplateStepList.mockResolvedValue(mockTemplateSteps);
+		mockOnboardingList.mockResolvedValue(mockOnboardings);
 	});
 
 	it('returns all onboarding data fields and registers depends key', async () => {
@@ -50,7 +81,8 @@ describe('onboarding layout server', () => {
 			depends: (key: string) => dependsKeys.push(key),
 			parent: async () => ({
 				scopedGroupId: null,
-				personnel: [{ id: 'p1' }, { id: 'p2' }]
+				personnel: [{ id: 'p1' }, { id: 'p2' }],
+				userId: 'user1'
 			})
 		} as never);
 
@@ -60,48 +92,57 @@ describe('onboarding layout server', () => {
 		expect(data.onboardingTemplates).toEqual(mockTemplates);
 		expect(data.onboardingTemplateSteps).toEqual(mockTemplateSteps);
 		expect(data.onboardings).toEqual(mockOnboardings);
-		expect(data.personnelTrainings).toEqual(mockPersonnelTrainings);
 		expect(dependsKeys).toContain('app:onboarding-data');
 	});
 
-	it('passes scopedPersonnelIds to findOnboardings when scopedGroupId is set', async () => {
+	it('filters onboardings by scoped personnel IDs when scopedGroupId is set', async () => {
+		mockOnboardingList.mockResolvedValue([
+			{ id: 'o1', personnelId: 'p1', templateId: 't1', status: 'in_progress', steps: [] },
+			{ id: 'o2', personnelId: 'p-other', templateId: 't1', status: 'in_progress', steps: [] }
+		]);
+
 		const { load } = await import('../../routes/org/[orgId]/onboarding/+layout.server');
 
-		const dependsKeys: string[] = [];
-		await load({
+		const result = await load({
 			params: { orgId: ORG_ID },
 			locals: { user: { id: 'user1' } },
 			cookies: {},
-			depends: (key: string) => dependsKeys.push(key),
+			depends: () => {},
 			parent: async () => ({
 				scopedGroupId: 'group1',
-				personnel: [{ id: 'p1' }, { id: 'p3' }]
+				personnel: [{ id: 'p1' }],
+				userId: 'user1'
 			})
 		} as never);
 
-		// When scopedGroupId is set, findOnboardings should receive a Set of personnel IDs
-		const scopedIds = mockFindOnboardings.mock.calls[0][2];
-		expect(scopedIds).toBeInstanceOf(Set);
-		expect(scopedIds.has('p1')).toBe(true);
-		expect(scopedIds.has('p3')).toBe(true);
-		expect(scopedIds.size).toBe(2);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const data = result as any;
+		expect(data.onboardings).toHaveLength(1);
+		expect(data.onboardings[0].personnelId).toBe('p1');
 	});
 
-	it('passes null scopedPersonnelIds when scopedGroupId is null', async () => {
+	it('returns all onboardings when scopedGroupId is null', async () => {
+		mockOnboardingList.mockResolvedValue([
+			{ id: 'o1', personnelId: 'p1', templateId: 't1', status: 'in_progress', steps: [] },
+			{ id: 'o2', personnelId: 'p2', templateId: 't1', status: 'in_progress', steps: [] }
+		]);
+
 		const { load } = await import('../../routes/org/[orgId]/onboarding/+layout.server');
 
-		await load({
+		const result = await load({
 			params: { orgId: ORG_ID },
 			locals: { user: { id: 'user1' } },
 			cookies: {},
 			depends: () => {},
 			parent: async () => ({
 				scopedGroupId: null,
-				personnel: [{ id: 'p1' }]
+				personnel: [{ id: 'p1' }, { id: 'p2' }],
+				userId: 'user1'
 			})
 		} as never);
 
-		const scopedIds = mockFindOnboardings.mock.calls[0][2];
-		expect(scopedIds).toBeNull();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const data = result as any;
+		expect(data.onboardings).toHaveLength(2);
 	});
 });

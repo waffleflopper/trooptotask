@@ -3,14 +3,11 @@ import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
-import type { Personnel } from '$lib/types';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '$features/onboarding/onboarding.types';
-import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+import type { Personnel } from '$lib/types';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 
 // ── Modal IDs ─────────────────────────────────────────────────
@@ -20,8 +17,7 @@ export const MODAL_IDS = {
 	startOnboarding: 'startOnboarding',
 	report: 'report',
 	assignTemplate: 'assignTemplate',
-	cancelConfirm: 'cancelConfirm',
-	trainingRecord: 'trainingRecord'
+	cancelConfirm: 'cancelConfirm'
 } as const;
 
 // ── Pure exported functions (testable) ───────────────────────
@@ -37,63 +33,24 @@ export function isStepDeprecated(step: OnboardingStepProgress, knownTemplateStep
 
 /**
  * Determines whether a training step counts as complete.
- * Accepts plain arrays so it can be unit-tested without store singletons.
+ * Training step completion is now server-derived (read-through cache pattern).
+ * The server refreshes `step.completed` from personnel_trainings on every load.
  */
-export function isTrainingStepComplete(
-	step: OnboardingStepProgress,
-	personnelId: string,
-	trainingTypes: TrainingType[],
-	personnelTrainings: PersonnelTraining[]
-): boolean {
-	if (!step.trainingTypeId) return false;
-
-	const type = trainingTypes.find((t) => t.id === step.trainingTypeId);
-
-	// Exempt counts as complete for onboarding
-	if (type && type.canBeExempted && type.exemptPersonnelIds.includes(personnelId)) {
-		return true;
-	}
-
-	const training = personnelTrainings.find(
-		(t) => t.personnelId === personnelId && t.trainingTypeId === step.trainingTypeId
-	);
-	if (!training) return false;
-
-	// Never-expires: any record existing means complete
-	if (type && type.expirationMonths === null && !type.expirationDateOnly) {
-		return true;
-	}
-
-	// Has an expiration date — check if still valid
-	if (training.expirationDate) {
-		return new Date(training.expirationDate) >= new Date();
-	}
-	return training.completionDate !== null;
+export function isTrainingStepComplete(step: OnboardingStepProgress): boolean {
+	return step.completed;
 }
 
 /**
- * Calculates completed/total progress for an onboarding, excluding deprecated steps.
+ * Calculates completed/total progress for an onboarding.
+ * Only counts active steps. All step types use `step.completed` (server-derived for training/paperwork).
  */
-export function getProgress(
-	onboarding: PersonnelOnboarding,
-	knownTemplateStepIds: string[],
-	trainingTypes: TrainingType[],
-	personnelTrainings: PersonnelTraining[]
-): { completed: number; total: number } {
+export function getProgress(onboarding: PersonnelOnboarding): { completed: number; total: number } {
 	let completed = 0;
 	let total = 0;
 	for (const step of onboarding.steps) {
-		if (isStepDeprecated(step, knownTemplateStepIds)) continue;
+		if (!step.active) continue;
 		total++;
-		if (step.stepType === 'training') {
-			if (isTrainingStepComplete(step, onboarding.personnelId, trainingTypes, personnelTrainings)) completed++;
-		} else if (step.stepType === 'paperwork') {
-			const stages = step.stages ?? [];
-			if (stages.length > 0 && step.currentStage === stages[stages.length - 1]) completed++;
-			else if (step.completed) completed++;
-		} else {
-			if (step.completed) completed++;
-		}
+		if (step.completed) completed++;
 	}
 	return { completed, total };
 }
@@ -157,13 +114,6 @@ export const STATUS_LABELS: Record<string, string> = {
 
 // ── Payload types for modals ──────────────────────────────────
 
-export interface TrainingRecordPayload {
-	person: Personnel;
-	trainingType: TrainingType;
-	existingTraining: PersonnelTraining | undefined;
-	onboardingId: string;
-}
-
 export interface AssignTemplatePayload {
 	onboardingId: string;
 }
@@ -218,10 +168,6 @@ export class OnboardingPageContext {
 		return onboardingTemplateStore.allSteps.length > 0;
 	}
 
-	get knownTemplateStepIds(): string[] {
-		return onboardingTemplateStore.allSteps.map((s) => s.id);
-	}
-
 	get existingOnboardingPersonnelIds(): string[] {
 		return onboardingStore.activeList.map((o) => o.personnelId);
 	}
@@ -250,16 +196,27 @@ export class OnboardingPageContext {
 		return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
 	}
 
-	isStepDeprecated(step: OnboardingStepProgress): boolean {
-		return isStepDeprecated(step, this.knownTemplateStepIds);
+	getPersonGroupName(personnelId: string): string | null {
+		const p = personnelStore.getById(personnelId);
+		return p?.groupName || null;
 	}
 
-	isTrainingStepComplete(step: OnboardingStepProgress, personnelId: string): boolean {
-		return isTrainingStepComplete(step, personnelId, trainingTypesStore.items, personnelTrainingsStore.items);
+	getTemplateName(templateId: string | null): string {
+		if (!templateId) return 'No template';
+		const tmpl = onboardingTemplateStore.templates.find((t) => t.id === templateId);
+		return tmpl?.name ?? 'Template deleted';
+	}
+
+	get trainingPageUrl(): string {
+		return `/org/${this.#org.orgId}/training`;
+	}
+
+	isTrainingStepComplete(step: OnboardingStepProgress): boolean {
+		return isTrainingStepComplete(step);
 	}
 
 	getProgress(onboarding: PersonnelOnboarding): { completed: number; total: number } {
-		return getProgress(onboarding, this.knownTemplateStepIds, trainingTypesStore.items, personnelTrainingsStore.items);
+		return getProgress(onboarding);
 	}
 
 	getPaperworkStageIndex(step: OnboardingStepProgress): number {
@@ -349,43 +306,6 @@ export class OnboardingPageContext {
 		this.noteInputs[step.id] = '';
 	}
 
-	handleTrainingStepClick(step: OnboardingStepProgress, onboarding: PersonnelOnboarding) {
-		if (!step.trainingTypeId) return;
-		const person = personnelStore.getById(onboarding.personnelId);
-		const trainingType = trainingTypesStore.getById(step.trainingTypeId);
-		if (!person || !trainingType) return;
-		const existingTraining = personnelTrainingsStore.getByPersonnelAndType(person.id, trainingType.id);
-		const payload: TrainingRecordPayload = { person, trainingType, existingTraining, onboardingId: onboarding.id };
-		this.modals.open(MODAL_IDS.trainingRecord, payload);
-	}
-
-	async handleTrainingSave(trainingData: Omit<PersonnelTraining, 'id'>) {
-		await personnelTrainingsStore.add(trainingData);
-		const payload = this.modals.payload<TrainingRecordPayload>(MODAL_IDS.trainingRecord);
-		if (payload) await this.checkAutoComplete(payload.onboardingId);
-		this.modals.close(MODAL_IDS.trainingRecord);
-		invalidate('app:onboarding-data');
-	}
-
-	async handleTrainingRemove(id: string) {
-		await personnelTrainingsStore.remove(id);
-		this.modals.close(MODAL_IDS.trainingRecord);
-		invalidate('app:onboarding-data');
-	}
-
-	async handleTrainingToggleExempt(exempt: boolean) {
-		const payload = this.modals.payload<TrainingRecordPayload>(MODAL_IDS.trainingRecord);
-		if (!payload) return;
-		const { trainingType, person, onboardingId } = payload;
-		const updatedIds = exempt
-			? [...trainingType.exemptPersonnelIds, person.id]
-			: trainingType.exemptPersonnelIds.filter((id) => id !== person.id);
-		await trainingTypesStore.update(trainingType.id, { exemptPersonnelIds: updatedIds });
-		await this.checkAutoComplete(onboardingId);
-		this.modals.close(MODAL_IDS.trainingRecord);
-		invalidate('app:onboarding-data');
-	}
-
 	async handleCancelOnboarding(id: string) {
 		await onboardingStore.cancelOnboarding(id);
 		this.cancellingId = null;
@@ -458,13 +378,5 @@ export class OnboardingPageContext {
 
 	get templates() {
 		return onboardingTemplateStore.templates;
-	}
-
-	get trainingTypes() {
-		return trainingTypesStore.items;
-	}
-
-	get personnelTrainings() {
-		return personnelTrainingsStore.items;
 	}
 }

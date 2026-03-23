@@ -6,6 +6,9 @@
 	import {
 		getProgress,
 		formatTimestamp,
+		getPersonDisplayName,
+		getPersonGroupDisplayName,
+		getTemplateDisplayName,
 		STEP_TYPE_LABELS
 	} from '$features/onboarding/contexts/OnboardingPageContext.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
@@ -21,22 +24,6 @@
 	const historyOnboardings = $derived(
 		onboardingStore.items.filter((o) => o.status === 'completed' || o.status === 'cancelled')
 	);
-
-	function getPersonName(personnelId: string): string {
-		const p = personnelStore.getById(personnelId);
-		return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
-	}
-
-	function getPersonGroupName(personnelId: string): string | null {
-		const p = personnelStore.getById(personnelId);
-		return p?.groupName || null;
-	}
-
-	function getTemplateName(templateId: string | null): string {
-		if (!templateId) return 'No template';
-		const tmpl = onboardingTemplateStore.templates.find((t) => t.id === templateId);
-		return tmpl?.name ?? 'Template deleted';
-	}
 
 	function toggleExpand(id: string) {
 		expandedOnboardingId = expandedOnboardingId === id ? null : id;
@@ -72,15 +59,17 @@
 					{@const progress = getProgress(onboarding)}
 					{@const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0}
 					{@const isExpanded = expandedOnboardingId === onboarding.id}
-					{@const groupName = getPersonGroupName(onboarding.personnelId)}
+					{@const groupName = getPersonGroupDisplayName(onboarding.personnelId, personnelStore.items)}
 					<div class="onboarding-card" class:expanded={isExpanded}>
 						<button class="card-summary" onclick={() => toggleExpand(onboarding.id)} aria-expanded={isExpanded}>
 							<div class="card-main">
 								<span class="expand-icon">{isExpanded ? '▼' : '▶'}</span>
 								<div class="card-info">
-									<span class="person-name">{getPersonName(onboarding.personnelId)}</span>
+									<span class="person-name">{getPersonDisplayName(onboarding.personnelId, personnelStore.items)}</span>
 									<div class="card-meta">
-										<span class="template-name">{getTemplateName(onboarding.templateId)}</span>
+										<span class="template-name"
+											>{getTemplateDisplayName(onboarding.templateId, onboardingTemplateStore.templates)}</span
+										>
 										{#if groupName}
 											<span class="meta-sep">·</span>
 											<span class="group-name">{groupName}</span>

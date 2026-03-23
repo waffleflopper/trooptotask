@@ -137,11 +137,6 @@
 	}
 
 	async function deleteTemplate(id: string) {
-		// Also remove all steps belonging to this template
-		const stepsToRemove = allSteps.filter((s) => s.templateId === id);
-		for (const step of stepsToRemove) {
-			await templateStepStore.removeBool(step.id);
-		}
 		await templateStore.removeBool(id);
 		if (selectedTemplateId === id) {
 			selectedTemplateId = null;

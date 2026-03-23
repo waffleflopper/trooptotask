@@ -17,7 +17,7 @@
 	}
 </script>
 
-<div class="stepper" role="list">
+<div class="stepper" role="group" aria-label="Progress steps">
 	{#each stages as stage, i (stage)}
 		{@const status = getStageStatus(stage)}
 		{#if i > 0}
@@ -25,7 +25,7 @@
 		{/if}
 		<button
 			type="button"
-			role="listitem"
+			aria-current={status === 'current' ? 'step' : undefined}
 			class="stage {status}"
 			disabled={disabled || !onStageClick}
 			onclick={() => onStageClick?.(stage)}

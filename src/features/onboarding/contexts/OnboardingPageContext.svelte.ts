@@ -299,8 +299,8 @@ export class OnboardingPageContext {
 
 	async handleAddNote(step: OnboardingStepProgress) {
 		const text = this.noteInputs[step.id]?.trim();
-		if (!text) return;
-		const newNote = { text, timestamp: new Date().toISOString() };
+		if (!text || !this.#org.userId) return;
+		const newNote = { text, timestamp: new Date().toISOString(), userId: this.#org.userId };
 		const updatedNotes = [newNote, ...step.notes];
 		await onboardingStore.updateStepProgress(step.id, { notes: updatedNotes });
 		this.noteInputs[step.id] = '';

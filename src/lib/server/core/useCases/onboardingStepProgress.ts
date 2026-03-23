@@ -160,6 +160,62 @@ export async function refreshTrainingSteps(
 	return results;
 }
 
+interface AddNoteInput {
+	stepId: string;
+	text: string;
+	userId: string;
+}
+
+interface NoteResult {
+	id: string;
+	notes: Array<{ text: string; timestamp: string; userId: string }>;
+}
+
+export async function addNote(ctx: UseCaseContext, input: AddNoteInput): Promise<NoteResult> {
+	ctx.auth.requireEdit('onboarding');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+
+	const step = await ctx.store.findOne<{
+		id: string;
+		notes: Array<{ text: string; timestamp: string; userId: string }>;
+	}>('onboarding_step_progress', ctx.auth.orgId, { id: input.stepId });
+
+	if (!step) {
+		fail(404, 'Step not found');
+	}
+
+	const newNote = {
+		text: input.text,
+		timestamp: new Date().toISOString(),
+		userId: input.userId
+	};
+
+	const updatedNotes = [...(step.notes ?? []), newNote];
+
+	const updated = await ctx.store.update<{
+		id: string;
+		notes: Array<{ text: string; timestamp: string; userId: string }>;
+	}>('onboarding_step_progress', ctx.auth.orgId, input.stepId, {
+		notes: updatedNotes
+	});
+
+	ctx.audit.log({
+		action: 'onboarding_step.note_added',
+		resourceType: 'onboarding_step_progress',
+		resourceId: input.stepId,
+		details: { userId: input.userId }
+	});
+
+	return {
+		id: updated.id,
+		notes: updated.notes
+	};
+}
+
 export async function toggleCheckbox(ctx: UseCaseContext, input: ToggleCheckboxInput): Promise<StepResult> {
 	ctx.auth.requireEdit('onboarding');
 

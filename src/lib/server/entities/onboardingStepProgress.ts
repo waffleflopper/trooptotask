@@ -15,7 +15,9 @@ export const OnboardingStepProgressEntity = defineEntity<OnboardingStepProgress>
 		sortOrder: field(z.number().int(), { column: 'sort_order', insertDefault: 0 }),
 		completed: field(z.boolean(), { insertDefault: false }),
 		currentStage: field(z.string().nullable(), { column: 'current_stage', insertDefault: null }),
-		notes: field(z.array(z.object({ text: z.string(), timestamp: z.string() })), { insertDefault: [] }),
+		notes: field(z.array(z.object({ text: z.string(), timestamp: z.string(), userId: z.string() })), {
+			insertDefault: []
+		}),
 		templateStepId: field(z.string().nullable(), { column: 'template_step_id', insertDefault: null }),
 		active: field(z.boolean(), { insertDefault: true })
 	}

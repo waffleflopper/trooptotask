@@ -27,6 +27,7 @@ export interface OnboardingTemplateStep {
 export interface OnboardingStepNote {
 	text: string;
 	timestamp: string;
+	userId: string;
 }
 
 export interface OnboardingStepProgress {

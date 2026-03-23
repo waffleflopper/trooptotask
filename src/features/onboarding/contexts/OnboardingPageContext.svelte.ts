@@ -4,6 +4,7 @@ import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
+import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '$features/onboarding/onboarding.types';
@@ -224,6 +225,13 @@ export class OnboardingPageContext {
 		return isTrainingStepComplete(step);
 	}
 
+	getTrainingTypeName(step: OnboardingStepProgress): string | null {
+		if (step.stepType !== 'training' || !step.trainingTypeId) return null;
+		const type = trainingTypesStore.items.find((t) => t.id === step.trainingTypeId);
+		if (!type || type.name === step.stepName) return null;
+		return type.name;
+	}
+
 	getProgress(onboarding: PersonnelOnboarding): { completed: number; total: number } {
 		return getProgress(onboarding);
 	}
@@ -385,5 +393,9 @@ export class OnboardingPageContext {
 
 	get templates() {
 		return onboardingTemplateStore.templates;
+	}
+
+	get trainingTypeNames(): Map<string, string> {
+		return new Map(trainingTypesStore.items.map((t) => [t.id, t.name]));
 	}
 }

@@ -1,45 +1,24 @@
 <script lang="ts">
-	import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
+	import type { PersonnelOnboarding, OnboardingStepProgress, OnboardingTemplate } from '../onboarding.types';
 	import type { Personnel } from '$lib/types';
-	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 
 	interface Props {
 		onboardings: PersonnelOnboarding[];
 		personnel: Personnel[];
-		trainingTypes: TrainingType[];
-		personnelTrainings: PersonnelTraining[];
+		templates: OnboardingTemplate[];
+		trainingTypeNames: Map<string, string>;
 		onClose: () => void;
 	}
 
-	let { onboardings, personnel, trainingTypes, personnelTrainings, onClose }: Props = $props();
+	let { onboardings, personnel, templates, trainingTypeNames, onClose }: Props = $props();
+
+	let selectedTemplateId = $state<string>('all');
 
 	function getPersonName(personnelId: string): string {
 		const p = personnel.find((pr) => pr.id === personnelId);
 		return p ? `${p.rank} ${p.lastName}, ${p.firstName}` : 'Unknown';
-	}
-
-	function isTrainingStepComplete(step: OnboardingStepProgress, personnelId: string): boolean {
-		if (!step.trainingTypeId) return false;
-		const type = trainingTypes.find((t) => t.id === step.trainingTypeId);
-		if (type && type.canBeExempted && type.exemptPersonnelIds.includes(personnelId)) return true;
-		const training = personnelTrainings.find(
-			(t) => t.personnelId === personnelId && t.trainingTypeId === step.trainingTypeId
-		);
-		if (!training) return false;
-		if (type && type.expirationMonths === null && !type.expirationDateOnly) return true;
-		if (training.expirationDate) return new Date(training.expirationDate) >= new Date();
-		return training.completionDate !== null;
-	}
-
-	function isStepComplete(step: OnboardingStepProgress, personnelId: string): boolean {
-		if (step.stepType === 'training') return isTrainingStepComplete(step, personnelId);
-		if (step.stepType === 'paperwork') {
-			const stages = step.stages ?? [];
-			return (stages.length > 0 && step.currentStage === stages[stages.length - 1]) || step.completed;
-		}
-		return step.completed;
 	}
 
 	const stepTypeColors: Record<string, string> = {
@@ -57,24 +36,35 @@
 	interface StepReport {
 		stepName: string;
 		stepType: string;
+		trainingTypeName: string | null;
 		totalPeople: number;
 		incomplete: { personnelId: string; detail: string }[];
 	}
 
-	const report = $derived.by<StepReport[]>(() => {
-		const activeOnboardings = onboardings.filter((o) => o.status === 'in_progress');
-		if (activeOnboardings.length === 0) return [];
+	const filteredOnboardings = $derived.by(() => {
+		const active = onboardings.filter((o) => o.status === 'in_progress');
+		if (selectedTemplateId === 'all') return active;
+		if (selectedTemplateId === 'none') return active.filter((o) => o.templateId === null);
+		return active.filter((o) => o.templateId === selectedTemplateId);
+	});
 
-		// Group by step name + type (template steps are the same across onboardings)
+	const report = $derived.by<StepReport[]>(() => {
+		if (filteredOnboardings.length === 0) return [];
+
 		const stepMap = new Map<string, StepReport>();
 
-		for (const onboarding of activeOnboardings) {
+		for (const onboarding of filteredOnboardings) {
 			for (const step of onboarding.steps) {
+				if (!step.active) continue;
 				const key = `${step.stepName}::${step.stepType}`;
 				if (!stepMap.has(key)) {
 					stepMap.set(key, {
 						stepName: step.stepName,
 						stepType: step.stepType,
+						trainingTypeName:
+							step.stepType === 'training' && step.trainingTypeId
+								? (trainingTypeNames.get(step.trainingTypeId) ?? null)
+								: null,
 						totalPeople: 0,
 						incomplete: []
 					});
@@ -82,7 +72,7 @@
 				const entry = stepMap.get(key)!;
 				entry.totalPeople++;
 
-				if (!isStepComplete(step, onboarding.personnelId)) {
+				if (!step.completed) {
 					let detail = '';
 					if (step.stepType === 'paperwork') {
 						const stages = step.stages ?? [];
@@ -102,14 +92,39 @@
 		});
 	});
 
-	const totalActive = $derived(onboardings.filter((o) => o.status === 'in_progress').length);
+	const templateOptions = $derived.by(() => {
+		const usedTemplateIds = new Set(
+			onboardings.filter((o) => o.status === 'in_progress' && o.templateId).map((o) => o.templateId)
+		);
+		const hasUnassigned = onboardings.some((o) => o.status === 'in_progress' && !o.templateId);
+		const options: { value: string; label: string }[] = [{ value: 'all', label: 'All Templates' }];
+		for (const t of templates) {
+			if (usedTemplateIds.has(t.id)) {
+				options.push({ value: t.id, label: t.name });
+			}
+		}
+		if (hasUnassigned) {
+			options.push({ value: 'none', label: 'No Template' });
+		}
+		return options;
+	});
 </script>
 
 <Modal title="Onboarding Report" {onClose} width="600px" titleId="onboarding-report-title">
+	{#if templateOptions.length > 2}
+		<div class="template-filter">
+			<select class="select" bind:value={selectedTemplateId}>
+				{#each templateOptions as opt (opt.value)}
+					<option value={opt.value}>{opt.label}</option>
+				{/each}
+			</select>
+		</div>
+	{/if}
+
 	{#if report.length === 0}
 		<p class="empty-msg">No active onboardings to report on.</p>
 	{:else}
-		<p class="summary">{totalActive} active onboarding{totalActive === 1 ? '' : 's'}</p>
+		<p class="summary">{filteredOnboardings.length} active onboarding{filteredOnboardings.length === 1 ? '' : 's'}</p>
 
 		<div class="report-list">
 			{#each report as step}
@@ -117,7 +132,11 @@
 				<div class="report-step" class:all-done={step.incomplete.length === 0}>
 					<div class="step-header">
 						<Badge label={stepTypeLabels[step.stepType]} color={stepTypeColors[step.stepType]} />
-						<span class="step-name">{step.stepName}</span>
+						<span class="step-name">
+							{step.stepName}{#if step.trainingTypeName && step.trainingTypeName !== step.stepName}
+								<span class="training-type-hint">({step.trainingTypeName})</span>
+							{/if}
+						</span>
 						<span class="step-count" class:complete={step.incomplete.length === 0}>
 							{completedCount}/{step.totalPeople}
 						</span>
@@ -147,6 +166,14 @@
 </Modal>
 
 <style>
+	.template-filter {
+		margin-bottom: var(--spacing-md);
+	}
+
+	.template-filter .select {
+		width: 100%;
+	}
+
 	.empty-msg {
 		color: var(--color-text-muted);
 		font-style: italic;
@@ -193,6 +220,12 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.training-type-hint {
+		font-weight: 400;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-xs);
 	}
 
 	.step-count {

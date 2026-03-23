@@ -172,6 +172,17 @@ describe('approveDeletionRequest', () => {
 		});
 	});
 
+	it('rejects unmapped resource types with 400', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx, {
+			resource_type: 'unknown_type',
+			resource_id: 'x-1',
+			resource_description: 'Unknown thing'
+		});
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toMatchObject({ status: 400 });
+	});
+
 	it('hard-deletes non-personnel resources on approval', async () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx, {

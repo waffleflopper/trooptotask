@@ -1,6 +1,11 @@
-import { error } from '@sveltejs/kit';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { UseCaseContext, SubscriptionPort } from '$lib/server/core/ports';
+
+function fail(status: number, message: string): never {
+	const err = new Error(message);
+	(err as unknown as Record<string, unknown>).status = status;
+	throw err;
+}
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -18,16 +23,16 @@ export function createPersonnelUseCases(subscription: SubscriptionPort): Personn
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
 			if (isReadOnly) {
-				throw error(403, 'Organization is in read-only mode');
+				fail(403, 'Organization is in read-only mode');
 			}
 
 			const capCheck = await subscription.canAddPersonnel();
 			if (!capCheck.allowed) {
-				throw error(403, capCheck.message ?? 'Personnel limit reached');
+				fail(403, capCheck.message ?? 'Personnel limit reached');
 			}
 
 			if (ctx.auth.scopedGroupId && data.groupId !== ctx.auth.scopedGroupId) {
-				throw error(403, 'You can only add personnel to your assigned group');
+				fail(403, 'You can only add personnel to your assigned group');
 			}
 
 			const validated = entity.createSchema.parse(data);
@@ -52,7 +57,7 @@ export function createPersonnelUseCases(subscription: SubscriptionPort): Personn
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
 			if (isReadOnly) {
-				throw error(403, 'Organization is in read-only mode');
+				fail(403, 'Organization is in read-only mode');
 			}
 
 			const validated = entity.updateSchema.parse(data);
@@ -87,7 +92,7 @@ export function createPersonnelUseCases(subscription: SubscriptionPort): Personn
 
 			const isReadOnly = await ctx.readOnlyGuard.check();
 			if (isReadOnly) {
-				throw error(403, 'Organization is in read-only mode');
+				fail(403, 'Organization is in read-only mode');
 			}
 
 			await ctx.auth.requireGroupAccess(id);

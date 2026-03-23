@@ -1,21 +1,18 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { canAddPersonnel, invalidateTierCache } from '$lib/server/subscription';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { buildContextInternal } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
-import { getApiContext } from '$lib/server/supabase';
 import { validateUUID } from '$lib/server/validation';
 
-function getSubscription(event: RequestEvent) {
-	const orgId = event.params.orgId as string;
-	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
+function getSubscription(supabase: Parameters<typeof createSupabaseSubscriptionAdapter>[0], orgId: string) {
 	return createSupabaseSubscriptionAdapter(supabase, orgId);
 }
 
 export const POST = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const subscription = getSubscription(event);
+	const { ctx, supabase } = await buildContextInternal(event);
+	const subscription = getSubscription(supabase, ctx.auth.orgId);
 	const { create } = createPersonnelUseCases(subscription);
 
 	let body: Record<string, unknown>;
@@ -35,8 +32,8 @@ export const POST = async (event: RequestEvent) => {
 };
 
 export const PUT = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const subscription = getSubscription(event);
+	const { ctx, supabase } = await buildContextInternal(event);
+	const subscription = getSubscription(supabase, ctx.auth.orgId);
 	const { update } = createPersonnelUseCases(subscription);
 
 	let body: Record<string, unknown>;
@@ -56,8 +53,8 @@ export const PUT = async (event: RequestEvent) => {
 };
 
 export const DELETE = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const subscription = getSubscription(event);
+	const { ctx, supabase } = await buildContextInternal(event);
+	const subscription = getSubscription(supabase, ctx.auth.orgId);
 	const { archive } = createPersonnelUseCases(subscription);
 
 	let body: Record<string, unknown>;
@@ -84,9 +81,8 @@ export const DELETE = async (event: RequestEvent) => {
 };
 
 export const PATCH = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const orgId = event.params.orgId as string;
-	const { supabase, isSandbox } = getApiContext(event.locals, event.cookies, orgId);
+	const { ctx, supabase, isSandbox } = await buildContextInternal(event);
+	const orgId = ctx.auth.orgId;
 
 	ctx.auth.requirePrivileged();
 

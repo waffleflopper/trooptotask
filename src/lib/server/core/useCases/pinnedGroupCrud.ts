@@ -6,13 +6,19 @@ function isSandbox(ctx: UseCaseContext): boolean {
 	return ctx.auth.userId === null;
 }
 
+export interface PinnedGroupResult {
+	id: string;
+	groupName: string;
+	sortOrder: number;
+}
+
 export interface PinnedGroupUseCases {
 	replace(ctx: UseCaseContext, groups: string[]): Promise<{ success: true; groups: string[] }>;
 	pin(
 		ctx: UseCaseContext,
 		data: { groupName: string; sortOrder?: number }
-	): Promise<{ success: true; groups: never[] } | { groupName: string; sortOrder: number }>;
-	unpin(ctx: UseCaseContext, groupName: string): Promise<{ success: true } | { success: true; groups: never[] }>;
+	): Promise<{ success: true } | PinnedGroupResult>;
+	unpin(ctx: UseCaseContext, groupName: string): Promise<{ success: true }>;
 }
 
 export function createPinnedGroupUseCases(): PinnedGroupUseCases {
@@ -47,7 +53,7 @@ export function createPinnedGroupUseCases(): PinnedGroupUseCases {
 
 		async pin(ctx, data) {
 			if (isSandbox(ctx)) {
-				return { success: true, groups: [] };
+				return { success: true };
 			}
 
 			const userId = ctx.auth.userId!;

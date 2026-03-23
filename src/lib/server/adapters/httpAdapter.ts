@@ -11,7 +11,13 @@ import { createSupabaseReadOnlyGuard } from './supabaseReadOnlyGuard';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
 
-export async function buildContext(event: RequestEvent): Promise<UseCaseContext> {
+interface BuildContextResult {
+	ctx: UseCaseContext;
+	supabase: ReturnType<typeof getApiContext>['supabase'];
+	isSandbox: boolean;
+}
+
+async function buildContextInternal(event: RequestEvent): Promise<BuildContextResult> {
 	const orgId = event.params.orgId as string;
 
 	if (!validateUUID(orgId)) {
@@ -33,86 +39,72 @@ export async function buildContext(event: RequestEvent): Promise<UseCaseContext>
 		auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
 	}
 
-	return { store, auth, audit, readOnlyGuard };
+	return { ctx: { store, auth, audit, readOnlyGuard }, supabase, isSandbox };
 }
 
-export function postHandler(
+export async function buildContext(event: RequestEvent): Promise<UseCaseContext> {
+	const { ctx } = await buildContextInternal(event);
+	return ctx;
+}
+
+export { buildContextInternal };
+
+function rethrowOrWrap(err: unknown): never {
+	if (err && typeof err === 'object' && 'status' in err) {
+		throw err; // Re-throw SvelteKit HttpError or use-case fail()
+	}
+	throw error(500, 'Internal server error');
+}
+
+export function bodyHandler(
 	useCase: (ctx: UseCaseContext, data: Record<string, unknown>) => Promise<unknown>
 ): RequestHandler {
 	return async (event) => {
-		const ctx = await buildContext(event);
-
-		let body: Record<string, unknown>;
 		try {
-			body = (await event.request.json()) as Record<string, unknown>;
-		} catch {
-			throw error(400, 'Invalid JSON in request body');
-		}
+			const ctx = await buildContext(event);
 
-		try {
+			let body: Record<string, unknown>;
+			try {
+				body = (await event.request.json()) as Record<string, unknown>;
+			} catch {
+				throw error(400, 'Invalid JSON in request body');
+			}
+
 			const result = await useCase(ctx, body);
 			return json(result);
 		} catch (err) {
-			if (err && typeof err === 'object' && 'status' in err) {
-				throw err; // Re-throw SvelteKit HttpError
-			}
-			throw error(500, 'Internal server error');
+			rethrowOrWrap(err);
 		}
 	};
 }
 
-export function putHandler(
-	useCase: (ctx: UseCaseContext, data: Record<string, unknown>) => Promise<unknown>
-): RequestHandler {
-	return async (event) => {
-		const ctx = await buildContext(event);
-
-		let body: Record<string, unknown>;
-		try {
-			body = (await event.request.json()) as Record<string, unknown>;
-		} catch {
-			throw error(400, 'Invalid JSON in request body');
-		}
-
-		try {
-			const result = await useCase(ctx, body);
-			return json(result);
-		} catch (err) {
-			if (err && typeof err === 'object' && 'status' in err) {
-				throw err;
-			}
-			throw error(500, 'Internal server error');
-		}
-	};
-}
+export const postHandler = bodyHandler;
+export const putHandler = bodyHandler;
 
 export function deleteHandler(useCase: (ctx: UseCaseContext, id: string) => Promise<void>): RequestHandler {
 	return async (event) => {
-		const ctx = await buildContext(event);
-
-		let body: Record<string, unknown>;
 		try {
-			body = (await event.request.json()) as Record<string, unknown>;
-		} catch {
-			throw error(400, 'Invalid JSON in request body');
-		}
+			const ctx = await buildContext(event);
 
-		const id = body.id;
-		if (!id || typeof id !== 'string') {
-			throw error(400, 'Missing id');
-		}
-		if (!validateUUID(id)) {
-			throw error(400, 'Invalid resource ID');
-		}
+			let body: Record<string, unknown>;
+			try {
+				body = (await event.request.json()) as Record<string, unknown>;
+			} catch {
+				throw error(400, 'Invalid JSON in request body');
+			}
 
-		try {
+			const id = body.id;
+			if (!id || typeof id !== 'string') {
+				throw error(400, 'Missing id');
+			}
+			if (!validateUUID(id)) {
+				throw error(400, 'Invalid resource ID');
+			}
+
 			await useCase(ctx, id);
 			return json({ success: true });
 		} catch (err) {
-			if (err && typeof err === 'object' && 'status' in err) {
-				throw err;
-			}
-			throw error(500, 'Internal server error');
+			rethrowOrWrap(err);
 		}
 	};
 }

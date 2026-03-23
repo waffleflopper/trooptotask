@@ -112,6 +112,20 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			if (error) throw new Error(error.message);
 		},
 
+		async deleteManyByIds(table: string, orgId: string, ids: string[]): Promise<number> {
+			if (ids.length === 0) return 0;
+
+			const { data, error } = await supabase
+				.from(table)
+				.delete()
+				.eq('organization_id', orgId)
+				.in('id', ids)
+				.select('id');
+
+			if (error) throw new Error(error.message);
+			return data?.length ?? 0;
+		},
+
 		async deleteWhere(table: string, orgId: string, filters: Record<string, unknown>): Promise<void> {
 			let query = supabase.from(table).delete().eq('organization_id', orgId);
 

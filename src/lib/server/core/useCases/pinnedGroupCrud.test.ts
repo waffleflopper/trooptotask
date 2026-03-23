@@ -73,7 +73,7 @@ describe('Pinned groups — pin', () => {
 		const { pin } = createPinnedGroupUseCases();
 
 		const result = await pin(ctx, { groupName: 'Alpha', sortOrder: 0 });
-		expect(result).toEqual({ success: true, groups: [] });
+		expect(result).toEqual({ success: true });
 	});
 });
 

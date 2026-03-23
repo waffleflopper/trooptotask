@@ -238,8 +238,8 @@ export class OnboardingPageContext {
 
 	// ── Event handlers ─────────────────────────────────────────
 
-	async handleStartOnboarding(personnelId: string, startedAt: string, templateId: string | null) {
-		await onboardingStore.startOnboarding(personnelId, startedAt, templateId);
+	async handleStartOnboarding(personnelId: string, templateId: string | null) {
+		await onboardingStore.startOnboarding(personnelId, templateId);
 		this.modals.close(MODAL_IDS.startOnboarding);
 	}
 
@@ -249,35 +249,13 @@ export class OnboardingPageContext {
 	}
 
 	async handleToggleCheckbox(step: OnboardingStepProgress) {
-		await onboardingStore.updateStepProgress(step.id, { completed: !step.completed });
-	}
-
-	async handleAdvanceStage(step: OnboardingStepProgress) {
-		const stages = step.stages ?? [];
-		const currentIndex = stages.indexOf(step.currentStage ?? '');
-		if (currentIndex < stages.length - 1) {
-			const nextStage = stages[currentIndex + 1];
-			const isLast = currentIndex + 1 === stages.length - 1;
-			await onboardingStore.updateStepProgress(step.id, { currentStage: nextStage, completed: isLast });
-		}
-	}
-
-	async handleRetreatStage(step: OnboardingStepProgress) {
-		const stages = step.stages ?? [];
-		const currentIndex = stages.indexOf(step.currentStage ?? '');
-		if (currentIndex > 0) {
-			await onboardingStore.updateStepProgress(step.id, {
-				currentStage: stages[currentIndex - 1],
-				completed: false
-			});
-		}
+		await onboardingStore.toggleCheckbox(step.id, !step.completed);
 	}
 
 	async handleStageClick(step: OnboardingStepProgress, stageName: string) {
 		const stages = step.stages ?? [];
 		if (!stages.includes(stageName)) return;
-		const isLast = stageName === stages[stages.length - 1];
-		await onboardingStore.updateStepProgress(step.id, { currentStage: stageName, completed: isLast });
+		await onboardingStore.advanceStage(step.id, stageName);
 	}
 
 	toggleNotes(stepId: string) {
@@ -289,10 +267,8 @@ export class OnboardingPageContext {
 
 	async handleAddNote(step: OnboardingStepProgress) {
 		const text = this.noteInputs[step.id]?.trim();
-		if (!text || !this.#org.userId) return;
-		const newNote = { text, timestamp: new Date().toISOString(), userId: this.#org.userId };
-		const updatedNotes = [newNote, ...step.notes];
-		await onboardingStore.updateStepProgress(step.id, { notes: updatedNotes });
+		if (!text) return;
+		await onboardingStore.addNote(step.id, text);
 		this.noteInputs[step.id] = '';
 	}
 

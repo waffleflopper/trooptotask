@@ -36,7 +36,7 @@
 		groups={groupsStore.items}
 		templates={onboardingTemplateStore.templates}
 		hasTemplateSteps={ctx.hasTemplateSteps}
-		onSubmit={(personnelId, startedAt, templateId) => ctx.handleStartOnboarding(personnelId, startedAt, templateId)}
+		onSubmit={(personnelId, _startedAt, templateId) => ctx.handleStartOnboarding(personnelId, templateId)}
 		onAddPerson={ctx.handleAddPerson.bind(ctx)}
 		onClose={ctx.modals.closerFor(MODAL_IDS.startOnboarding)}
 	/>

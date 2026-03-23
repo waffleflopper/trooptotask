@@ -12,7 +12,7 @@ import {
 export const PUT = async (event: RequestEvent) => {
 	const ctx = await buildContext(event);
 	const body = (await event.request.json()) as Record<string, unknown>;
-	const action = body.action as string | undefined;
+	const action = body.action as string;
 
 	if (action === 'advanceStage') {
 		const result = await advanceStage(ctx, {
@@ -23,20 +23,26 @@ export const PUT = async (event: RequestEvent) => {
 	}
 
 	if (action === 'addNote') {
+		const userId = ctx.auth.userId;
+		if (!userId) fail(401, 'Authentication required');
+
 		const result = await addNote(ctx, {
 			stepId: body.stepId as string,
 			text: body.text as string,
-			userId: body.userId as string
+			userId
 		});
 		return json(result);
 	}
 
-	// Default: toggleCheckbox
-	const result = await toggleCheckbox(ctx, {
-		stepId: body.stepId as string,
-		completed: body.completed as boolean
-	});
-	return json(result);
+	if (action === 'toggleCheckbox') {
+		const result = await toggleCheckbox(ctx, {
+			stepId: body.stepId as string,
+			completed: body.completed as boolean
+		});
+		return json(result);
+	}
+
+	fail(400, `Unknown action: ${action}`);
 };
 
 export const DELETE = async (event: RequestEvent) => {

@@ -61,6 +61,8 @@ export interface ReadOnlyGuard {
 /** Subscription/billing cap checks and cache management */
 export interface SubscriptionPort {
 	canAddPersonnel(): Promise<{ allowed: boolean; message?: string }>;
+	/** Returns number of personnel slots available, or null if unlimited */
+	getAvailablePersonnelSlots(): Promise<number | null>;
 	invalidateTierCache(): void;
 }
 

@@ -1,16 +1,14 @@
 <script lang="ts">
-	import type { OnboardingPageContext, TrainingRecordPayload } from '../contexts/OnboardingPageContext.svelte';
+	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
 	import { onboardingStore } from '../stores/onboarding.svelte';
 	import { onboardingTemplateStore } from '../stores/onboardingTemplate.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import OnboardingTemplateManager from './OnboardingTemplateManager.svelte';
 	import OnboardingReportModal from './OnboardingReportModal.svelte';
 	import StartOnboardingModal from './StartOnboardingModal.svelte';
-	import TrainingRecordModal from '$features/training/components/TrainingRecordModal.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -20,8 +18,6 @@
 	}
 
 	let { ctx }: Props = $props();
-
-	const trainingRecordPayload = $derived(ctx.modals.payload<TrainingRecordPayload>(MODAL_IDS.trainingRecord));
 </script>
 
 {#if ctx.modals.isOpen(MODAL_IDS.report)}
@@ -29,7 +25,7 @@
 		onboardings={onboardingStore.items}
 		personnel={personnelStore.items}
 		trainingTypes={trainingTypesStore.items}
-		personnelTrainings={personnelTrainingsStore.items}
+		personnelTrainings={[]}
 		onClose={ctx.modals.closerFor(MODAL_IDS.report)}
 	/>
 {/if}
@@ -101,21 +97,6 @@
 			</button>
 		{/snippet}
 	</Modal>
-{/if}
-
-{#if trainingRecordPayload}
-	<TrainingRecordModal
-		person={trainingRecordPayload.person}
-		trainingType={trainingRecordPayload.trainingType}
-		existingTraining={trainingRecordPayload.existingTraining}
-		onSave={(trainingData) => ctx.handleTrainingSave(trainingData)}
-		onRemove={(id) => ctx.handleTrainingRemove(id)}
-		onClose={ctx.modals.closerFor(MODAL_IDS.trainingRecord)}
-		canBeExempted={trainingRecordPayload.trainingType.canBeExempted}
-		isExempt={trainingRecordPayload.trainingType.canBeExempted &&
-			trainingRecordPayload.trainingType.exemptPersonnelIds.includes(trainingRecordPayload.person.id)}
-		onToggleExempt={(exempt) => ctx.handleTrainingToggleExempt(exempt)}
-	/>
 {/if}
 
 <style>

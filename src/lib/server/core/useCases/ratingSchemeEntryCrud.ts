@@ -1,12 +1,7 @@
+import { fail } from '$lib/server/core/errors';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { notifyAdminsViaStore } from './notifyAdminsHelper';
-
-function fail(status: number, message: string): never {
-	const err = new Error(message);
-	(err as unknown as Record<string, unknown>).status = status;
-	throw err;
-}
 
 const entity = RatingSchemeEntryEntity;
 const AUDIT_RESOURCE = 'rating_scheme';

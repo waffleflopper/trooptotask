@@ -1,12 +1,7 @@
+import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { FeatureArea } from '$lib/server/core/ports';
-
-function fail(status: number, message: string): never {
-	const err = new Error(message);
-	(err as unknown as Record<string, unknown>).status = status;
-	throw err;
-}
 
 export interface CrudConfig {
 	entity: EntityDefinition;

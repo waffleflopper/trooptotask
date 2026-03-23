@@ -1,11 +1,6 @@
+import { fail } from '$lib/server/core/errors';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { UseCaseContext, SubscriptionPort } from '$lib/server/core/ports';
-
-function fail(status: number, message: string): never {
-	const err = new Error(message);
-	(err as unknown as Record<string, unknown>).status = status;
-	throw err;
-}
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';

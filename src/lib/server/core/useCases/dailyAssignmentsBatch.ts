@@ -1,11 +1,6 @@
+import { fail } from '$lib/server/core/errors';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import type { UseCaseContext } from '$lib/server/core/ports';
-
-function fail(status: number, message: string): never {
-	const err = new Error(message);
-	(err as unknown as Record<string, unknown>).status = status;
-	throw err;
-}
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
@@ -62,7 +57,12 @@ export async function batchDailyAssignments(ctx: UseCaseContext, input: BatchInp
 	// Insert all upserts
 	let inserted: unknown[] = [];
 	if (upserts.length > 0) {
-		const rows = upserts.map((r) => entity.toDbInsert(r as unknown as Record<string, unknown>, ctx.auth.orgId));
+		const rows = upserts.map((r) =>
+			entity.toDbInsert(
+				{ date: r.date, assignmentTypeId: r.assignmentTypeId, assigneeId: r.assigneeId },
+				ctx.auth.orgId
+			)
+		);
 		const insertedRows = await ctx.store.insertMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, rows);
 		inserted = insertedRows.map((row) => entity.fromDb(row));
 	}
@@ -70,7 +70,7 @@ export async function batchDailyAssignments(ctx: UseCaseContext, input: BatchInp
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.batch_replaced`,
 		resourceType: AUDIT_RESOURCE,
-		details: { inserted: upserts.length, cleared: clears.length }
+		details: { totalSlots: records.length, inserted: inserted.length, cleared: clears.length }
 	});
 
 	return { inserted, cleared: clears.length };

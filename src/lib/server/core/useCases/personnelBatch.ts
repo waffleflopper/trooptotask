@@ -1,13 +1,8 @@
+import { fail } from '$lib/server/core/errors';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { ALL_RANKS } from '$lib/types';
 import { sanitizeString } from '$lib/server/validation';
 import type { UseCaseContext, SubscriptionPort } from '$lib/server/core/ports';
-
-function fail(status: number, message: string): never {
-	const err = new Error(message);
-	(err as unknown as Record<string, unknown>).status = status;
-	throw err;
-}
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -118,11 +113,7 @@ export async function importPersonnelBatch(
 	const available = await subscription.getAvailablePersonnelSlots();
 	if (available !== null) {
 		if (available <= 0) {
-			return {
-				error: `Personnel limit reached. Upgrade to add more.`,
-				inserted: [],
-				errors
-			} as BatchResult & { error: string };
+			fail(403, 'Personnel limit reached. Upgrade to add more.');
 		}
 		if (validRows.length > available) {
 			const excess = validRows.splice(available);

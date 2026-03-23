@@ -82,7 +82,7 @@
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
 		groupBy: {
-			key: (p) => p.groupName || ctx.orgName,
+			key: (p) => p.groupName || 'Unassigned',
 			compare: (a, b) => {
 				const aPin = pinnedGroupsStore.list.includes(a) ? 0 : 1;
 				const bPin = pinnedGroupsStore.list.includes(b) ? 0 : 1;

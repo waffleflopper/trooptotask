@@ -1,38 +1,43 @@
 import { json, error } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
-import { auditLog } from '$lib/server/auditLog';
+import type { RequestEvent } from '@sveltejs/kit';
+import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { getApiContext } from '$lib/server/supabase';
 
-export const POST = apiRoute(
-	{ permission: { privileged: true }, blockSandbox: true },
-	async ({ supabase, orgId, userId }, event) => {
-		const body = await event.request.json();
-		const { archiveRetentionMonths } = body;
+export const POST = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase, isSandbox } = getApiContext(event.locals, event.cookies, orgId);
 
-		if (typeof archiveRetentionMonths !== 'number' || archiveRetentionMonths < 1 || archiveRetentionMonths > 120) {
-			throw error(400, 'Retention months must be between 1 and 120');
-		}
+	if (isSandbox) throw error(403, 'Not available in sandbox');
 
-		const { error: dbError } = await supabase
-			.from('organizations')
-			.update({ archive_retention_months: Math.round(archiveRetentionMonths) })
-			.eq('id', orgId);
+	ctx.auth.requirePrivileged();
 
-		if (dbError) throw error(500, dbError.message);
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
 
-		auditLog(
-			{
-				action: 'organization.settings_updated',
-				resourceType: 'organization',
-				resourceId: orgId,
-				orgId,
-				details: {
-					actor: event.locals.user?.email ?? userId,
-					archive_retention_months: archiveRetentionMonths
-				}
-			},
-			{ userId }
-		);
+	const body = await event.request.json();
+	const { archiveRetentionMonths } = body;
 
-		return json({ success: true });
+	if (typeof archiveRetentionMonths !== 'number' || archiveRetentionMonths < 1 || archiveRetentionMonths > 120) {
+		throw error(400, 'Retention months must be between 1 and 120');
 	}
-);
+
+	const { error: dbError } = await supabase
+		.from('organizations')
+		.update({ archive_retention_months: Math.round(archiveRetentionMonths) })
+		.eq('id', orgId);
+
+	if (dbError) throw error(500, dbError.message);
+
+	ctx.audit.log({
+		action: 'organization.settings_updated',
+		resourceType: 'organization',
+		resourceId: orgId,
+		details: {
+			actor: event.locals.user?.email ?? ctx.auth.userId,
+			archive_retention_months: archiveRetentionMonths
+		}
+	});
+
+	return json({ success: true });
+};

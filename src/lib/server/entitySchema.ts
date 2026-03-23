@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from '@sveltejs/kit';
-import { apiRoute, type PermissionSpec, type AuditConfig } from './apiRoute';
 import type { FeatureArea } from './permissionContext';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { createRepository, type Repository } from './repositoryFactory';
 
 export interface FieldMeta {
@@ -49,25 +45,10 @@ export interface EntityConfig<T = unknown> {
 	customTransform?: (row: Record<string, unknown>) => T;
 	permission?: FeatureArea;
 	requireFullEditor?: boolean;
-	audit?: string | AuditConfig;
+	audit?: string | { resourceType: string; action?: string; detailFields?: string[] };
 	select?: string;
 	methods?: EntityMethod[];
-	onDelete?: (supabase: SupabaseClient, orgId: string, id: string) => Promise<void>;
-	onAfterDelete?: (context: {
-		orgId: string;
-		userId: string | null;
-		userEmail: string | undefined;
-		id: string;
-		deletedDetails: Record<string, unknown> | null;
-	}) => Promise<void>;
-	requireDeletionApproval?: boolean;
 	orderBy?: Array<{ column: string; ascending?: boolean }>;
-}
-
-export interface EntityHandlers {
-	POST: RequestHandler;
-	PUT: RequestHandler;
-	DELETE: RequestHandler;
 }
 
 export interface EntityDefinition<T = unknown> {
@@ -83,20 +64,12 @@ export interface EntityDefinition<T = unknown> {
 	toDbUpdate: (body: Record<string, unknown>) => Record<string, unknown>;
 	createSchema: z.ZodObject<z.ZodRawShape>;
 	updateSchema: z.ZodObject<z.ZodRawShape>;
-	handlers: EntityHandlers;
+	select: string;
 	repo: Repository<T>;
 }
 
 export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefinition<T> {
 	const { schema, table, groupScope } = config;
-
-	// Guard: requireDeletionApproval is not yet implemented in the entity system
-	if (config.requireDeletionApproval) {
-		throw new Error(
-			`Entity "${table}": requireDeletionApproval is not yet implemented in the entity system. ` +
-				`Use custom apiRoute handlers for entities that need deletion approval until this is implemented.`
-		);
-	}
 
 	const allowedMethods: EntityMethod[] = config.methods ?? ['POST', 'PUT', 'DELETE'];
 
@@ -205,162 +178,7 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 	}
 	const updateSchema = z.object(updateShape);
 
-	// Build handlers
-	const permissionSpec: PermissionSpec = config.requireFullEditor
-		? { fullEditor: true }
-		: config.permission
-			? { edit: config.permission }
-			: { authenticated: true };
-
 	const select = config.select ?? '*';
-
-	// Determine scopeByPersonnel for POST group scope
-	const scopeByPersonnel = groupScope !== 'none' && personnelIdField ? fieldMap[personnelIdField] : undefined;
-
-	// 405 handler for disallowed methods
-	const methodNotAllowed: RequestHandler = async () => {
-		return json({ error: 'Method not allowed' }, { status: 405 });
-	};
-
-	const POST = allowedMethods.includes('POST')
-		? apiRoute(
-				{
-					permission: permissionSpec,
-					schema: createSchema,
-					audit: config.audit,
-					scopeByPersonnel
-				},
-				async ({ supabase, orgId, body: validatedBody }) => {
-					const insertData = toDbInsert(validatedBody ?? {}, orgId);
-
-					const { data, error: dbError } = await supabase.from(table).insert(insertData).select(select).single();
-
-					if (dbError) throw error(500, dbError.message);
-
-					const row = data as unknown as Record<string, unknown>;
-					return json(fromDb(row));
-				}
-			)
-		: methodNotAllowed;
-
-	const PUT = allowedMethods.includes('PUT')
-		? apiRoute(
-				{
-					permission: permissionSpec,
-					schema: updateSchema,
-					audit: config.audit
-				},
-				async ({ supabase, orgId, body: validatedBody, ctx }) => {
-					const body = validatedBody ?? {};
-					const { id } = body as { id: string };
-
-					if (!id) throw error(400, 'Missing id');
-
-					const { validateUUID } = await import('./validation');
-					if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
-
-					// Group scope enforcement for PUT
-					if (groupScope !== 'none' && personnelIdField) {
-						await ctx.requireGroupAccessByRecord(supabase, table, id, orgId, groupScope.personnelColumn);
-					}
-
-					const updates = toDbUpdate(body);
-
-					if (Object.keys(updates).length === 0) {
-						throw error(400, 'No fields to update');
-					}
-
-					const { data, error: dbError } = await supabase
-						.from(table)
-						.update(updates)
-						.eq('id', id)
-						.eq('organization_id', orgId)
-						.select(select)
-						.single();
-
-					if (dbError) throw error(500, dbError.message);
-
-					const row = data as unknown as Record<string, unknown>;
-					return json(fromDb(row));
-				}
-			)
-		: methodNotAllowed;
-
-	const deleteSchema = z.object({ id: z.string().min(1) });
-
-	const DELETE = allowedMethods.includes('DELETE')
-		? apiRoute(
-				{
-					permission: permissionSpec,
-					schema: deleteSchema,
-					audit: config.audit
-				},
-				async ({ supabase, orgId, userId, body: validatedBody, ctx, audit, setAuditResourceId }, event) => {
-					const { id } = validatedBody as { id: string };
-
-					const { validateUUID } = await import('./validation');
-					if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
-
-					setAuditResourceId(id);
-
-					// Group scope enforcement for DELETE
-					if (groupScope !== 'none' && personnelIdField) {
-						await ctx.requireGroupAccessByRecord(supabase, table, id, orgId, groupScope.personnelColumn);
-					}
-
-					// Capture record details before deletion for audit + notification
-					let deletedDetails: Record<string, unknown> | null = null;
-					const auditConfig = config.audit
-						? typeof config.audit === 'string'
-							? { resourceType: config.audit }
-							: config.audit
-						: null;
-
-					if (auditConfig?.detailFields?.length) {
-						const { data: existing } = await supabase
-							.from(table)
-							.select(auditConfig.detailFields.join(', '))
-							.eq('id', id)
-							.eq('organization_id', orgId)
-							.single();
-						if (existing) deletedDetails = existing as unknown as Record<string, unknown>;
-					}
-
-					// Cascade delete
-					if (config.onDelete) {
-						await config.onDelete(supabase, orgId, id);
-					}
-
-					const { error: dbError } = await supabase.from(table).delete().eq('id', id).eq('organization_id', orgId);
-
-					if (dbError) throw error(500, dbError.message);
-
-					// Manual audit with fetched details (fixes auto-audit reading empty parsedBody)
-					if (auditConfig) {
-						const details: Record<string, unknown> = {};
-						if (deletedDetails) {
-							Object.assign(details, deletedDetails);
-						}
-						audit(`${auditConfig.resourceType}.deleted`, details, id);
-					}
-
-					// After-delete callback
-					if (config.onAfterDelete) {
-						await config.onAfterDelete({
-							orgId,
-							userId: userId ?? null,
-							userEmail: event.locals.user?.email,
-							id,
-							deletedDetails
-						});
-					}
-
-					return json({ success: true });
-				}
-			)
-		: methodNotAllowed;
-
-	const handlers: EntityHandlers = { POST, PUT, DELETE };
 
 	// Build repository
 	const repo = createRepository<T>({
@@ -383,7 +201,7 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		toDbUpdate,
 		createSchema,
 		updateSchema,
-		handlers,
+		select,
 		repo
 	};
 }

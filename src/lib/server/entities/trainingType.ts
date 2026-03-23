@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import { notifyAdmins } from '$lib/server/notifications';
 import type { TrainingType } from '$features/training/training.types';
 
 export const TrainingTypeEntity = defineEntity<TrainingType>({
@@ -10,16 +9,6 @@ export const TrainingTypeEntity = defineEntity<TrainingType>({
 	groupScope: 'none',
 	audit: { resourceType: 'training_type', detailFields: ['name'] },
 	orderBy: [{ column: 'sort_order', ascending: true }],
-	onDelete: async (supabase, orgId, id) => {
-		await supabase.from('personnel_trainings').delete().eq('training_type_id', id).eq('organization_id', orgId);
-	},
-	onAfterDelete: async ({ orgId, userId, userEmail, deletedDetails }) => {
-		await notifyAdmins(orgId, userId, {
-			type: 'config_type_deleted',
-			title: 'Training Type Deleted',
-			message: `"${userEmail}" deleted the training type "${deletedDetails?.name ?? 'unknown'}".`
-		});
-	},
 	schema: {
 		id: field(z.string(), { readOnly: true }),
 		name: field(z.string().min(1).max(100)),

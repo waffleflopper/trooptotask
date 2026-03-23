@@ -1,77 +1,57 @@
 import { json, error } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
+import type { RequestEvent } from '@sveltejs/kit';
+import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { createPinnedGroupUseCases } from '$lib/server/core/useCases/pinnedGroupCrud';
 
-export const POST = apiRoute(
-	{ permission: { authenticated: true }, audit: 'pinned_group' },
-	async ({ supabase, orgId, userId, isSandbox }, event) => {
-		// Pinned groups require a user ID - skip for sandbox mode
-		if (isSandbox) {
-			return json({ success: true, groups: [] });
-		}
+const useCases = createPinnedGroupUseCases();
 
-		const body = await event.request.json();
+export const POST = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
 
+	let body: Record<string, unknown>;
+	try {
+		body = (await event.request.json()) as Record<string, unknown>;
+	} catch {
+		throw error(400, 'Invalid JSON in request body');
+	}
+
+	try {
 		if (body.action === 'replace') {
-			// Replace all pinned groups for this user/org
-			await supabase.from('user_pinned_groups').delete().eq('user_id', userId!).eq('organization_id', orgId);
-
-			if (body.groups && body.groups.length > 0) {
-				const rows = body.groups.map((groupName: string, i: number) => ({
-					user_id: userId!,
-					organization_id: orgId,
-					group_name: groupName,
-					sort_order: i
-				}));
-
-				const { error: dbError } = await supabase.from('user_pinned_groups').insert(rows);
-
-				if (dbError) throw error(500, dbError.message);
-			}
-
-			return json({ success: true, groups: body.groups });
+			const groups = (body.groups as string[]) ?? [];
+			const result = await useCases.replace(ctx, groups);
+			return json(result);
 		}
 
-		// Single pin
-		const { data, error: dbError } = await supabase
-			.from('user_pinned_groups')
-			.insert({
-				user_id: userId!,
-				organization_id: orgId,
-				group_name: body.groupName,
-				sort_order: body.sortOrder ?? 0
-			})
-			.select()
-			.single();
-
-		if (dbError) throw error(500, dbError.message);
-
-		return json({
-			id: data.id,
-			groupName: data.group_name,
-			sortOrder: data.sort_order
+		const result = await useCases.pin(ctx, {
+			groupName: body.groupName as string,
+			sortOrder: (body.sortOrder as number) ?? 0
 		});
-	}
-);
-
-export const DELETE = apiRoute(
-	{ permission: { authenticated: true }, audit: 'pinned_group' },
-	async ({ supabase, orgId, userId, isSandbox }, event) => {
-		// Pinned groups require a user ID - skip for sandbox mode
-		if (isSandbox) {
-			return json({ success: true });
+		return json(result);
+	} catch (err) {
+		if (err && typeof err === 'object' && 'status' in err) {
+			throw err;
 		}
-
-		const body = await event.request.json();
-
-		const { error: dbError } = await supabase
-			.from('user_pinned_groups')
-			.delete()
-			.eq('user_id', userId!)
-			.eq('organization_id', orgId)
-			.eq('group_name', body.groupName);
-
-		if (dbError) throw error(500, dbError.message);
-
-		return json({ success: true });
+		throw error(500, 'Internal server error');
 	}
-);
+};
+
+export const DELETE = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+
+	let body: Record<string, unknown>;
+	try {
+		body = (await event.request.json()) as Record<string, unknown>;
+	} catch {
+		throw error(400, 'Invalid JSON in request body');
+	}
+
+	try {
+		const result = await useCases.unpin(ctx, body.groupName as string);
+		return json(result);
+	} catch (err) {
+		if (err && typeof err === 'object' && 'status' in err) {
+			throw err;
+		}
+		throw error(500, 'Internal server error');
+	}
+};

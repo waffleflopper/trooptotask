@@ -1,3 +1,4 @@
-import { StatusTypeEntity } from '$lib/server/entities/statusType';
+import { statusTypeCrudConfig } from '$lib/server/core/useCases/statusTypeCrud';
+import { crudHandlers } from '$lib/server/adapters/httpAdapter';
 
-export const { POST, PUT, DELETE } = StatusTypeEntity.handlers;
+export const { POST, PUT, DELETE } = crudHandlers(statusTypeCrudConfig);

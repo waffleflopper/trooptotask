@@ -1,50 +1,27 @@
 import { json, error } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
-import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
+import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { createDailyAssignment, clearDailyAssignment } from '$lib/server/core/useCases/dailyAssignments';
 
-export const POST = apiRoute(
-	{ permission: { edit: 'calendar' }, audit: 'daily_assignment' },
-	async (routeCtx, event) => {
-		const { supabase, orgId } = routeCtx;
-		const body = await event.request.json();
+export const POST = async (event: import('@sveltejs/kit').RequestEvent) => {
+	const ctx = await buildContext(event);
+	const body = await event.request.json();
 
-		// Upsert: delete existing then insert (using the unique constraint)
-		await supabase
-			.from('daily_assignments')
-			.delete()
-			.eq('organization_id', orgId)
-			.eq('assignment_type_id', body.assignmentTypeId)
-			.eq('date', body.date);
+	// Clear existing slot first (upsert pattern)
+	await clearDailyAssignment(ctx, { date: body.date, assignmentTypeId: body.assignmentTypeId });
 
-		if (body.assigneeId) {
-			const insertData = DailyAssignmentEntity.toDbInsert(body, orgId);
-
-			const { data, error: dbError } = await supabase.from('daily_assignments').insert(insertData).select().single();
-
-			if (dbError) throw error(500, dbError.message);
-
-			return json(DailyAssignmentEntity.fromDb(data as Record<string, unknown>));
-		}
-
-		routeCtx.audit('daily_assignment.removed', { date: body.date, assignmentTypeId: body.assignmentTypeId });
-		return json({ success: true, removed: true });
+	if (body.assigneeId) {
+		const result = await createDailyAssignment(ctx, body);
+		return json(result);
 	}
-);
 
-export const DELETE = apiRoute(
-	{ permission: { edit: 'calendar' }, audit: 'daily_assignment' },
-	async ({ supabase, orgId }, event) => {
-		const body = await event.request.json();
+	return json({ success: true, removed: true });
+};
 
-		const { error: dbError } = await supabase
-			.from('daily_assignments')
-			.delete()
-			.eq('organization_id', orgId)
-			.eq('assignment_type_id', body.assignmentTypeId)
-			.eq('date', body.date);
+export const DELETE = async (event: import('@sveltejs/kit').RequestEvent) => {
+	const ctx = await buildContext(event);
+	const body = await event.request.json();
 
-		if (dbError) throw error(500, dbError.message);
+	await clearDailyAssignment(ctx, { date: body.date, assignmentTypeId: body.assignmentTypeId });
 
-		return json({ success: true });
-	}
-);
+	return json({ success: true });
+};

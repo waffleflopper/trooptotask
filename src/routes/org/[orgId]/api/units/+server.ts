@@ -1,73 +1,93 @@
 import { json, error } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
+import type { RequestEvent } from '@sveltejs/kit';
+import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { getApiContext } from '$lib/server/supabase';
 
-export const POST = apiRoute(
-	{ permission: { authenticated: true }, audit: 'unit' },
-	async ({ supabase, orgId }, event) => {
-		const body = await event.request.json();
+export const POST = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		const { data, error: dbError } = await supabase
-			.from('units')
-			.insert({
-				organization_id: orgId,
-				name: body.name,
-				sort_order: body.sortOrder ?? 0
-			})
-			.select()
-			.single();
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
 
-		if (dbError) throw error(500, dbError.message);
+	const body = await event.request.json();
 
-		return json({
-			id: data.id,
-			name: data.name,
-			sortOrder: data.sort_order
-		});
-	}
-);
+	const { data, error: dbError } = await supabase
+		.from('units')
+		.insert({
+			organization_id: orgId,
+			name: body.name,
+			sort_order: body.sortOrder ?? 0
+		})
+		.select()
+		.single();
 
-export const PUT = apiRoute(
-	{ permission: { authenticated: true }, audit: 'unit' },
-	async ({ supabase, orgId }, event) => {
-		const body = await event.request.json();
-		const { id, ...fields } = body;
+	if (dbError) throw error(500, dbError.message);
 
-		if (!id) throw error(400, 'Missing id');
+	ctx.audit.log({ action: 'unit.created', resourceType: 'unit', resourceId: data.id });
 
-		const updates: Record<string, unknown> = {};
-		if (fields.name !== undefined) updates.name = fields.name;
-		if (fields.sortOrder !== undefined) updates.sort_order = fields.sortOrder;
+	return json({
+		id: data.id,
+		name: data.name,
+		sortOrder: data.sort_order
+	});
+};
 
-		const { data, error: dbError } = await supabase
-			.from('units')
-			.update(updates)
-			.eq('id', id)
-			.eq('organization_id', orgId)
-			.select()
-			.single();
+export const PUT = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		if (dbError) throw error(500, dbError.message);
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
 
-		return json({
-			id: data.id,
-			name: data.name,
-			sortOrder: data.sort_order
-		});
-	}
-);
+	const body = await event.request.json();
+	const { id, ...fields } = body;
 
-export const DELETE = apiRoute(
-	{ permission: { authenticated: true }, audit: 'unit' },
-	async ({ supabase, orgId }, event) => {
-		const body = await event.request.json();
-		const { id } = body;
+	if (!id) throw error(400, 'Missing id');
 
-		if (!id) throw error(400, 'Missing id');
+	const updates: Record<string, unknown> = {};
+	if (fields.name !== undefined) updates.name = fields.name;
+	if (fields.sortOrder !== undefined) updates.sort_order = fields.sortOrder;
 
-		const { error: dbError } = await supabase.from('units').delete().eq('id', id).eq('organization_id', orgId);
+	const { data, error: dbError } = await supabase
+		.from('units')
+		.update(updates)
+		.eq('id', id)
+		.eq('organization_id', orgId)
+		.select()
+		.single();
 
-		if (dbError) throw error(500, dbError.message);
+	if (dbError) throw error(500, dbError.message);
 
-		return json({ success: true });
-	}
-);
+	ctx.audit.log({ action: 'unit.updated', resourceType: 'unit', resourceId: id });
+
+	return json({
+		id: data.id,
+		name: data.name,
+		sortOrder: data.sort_order
+	});
+};
+
+export const DELETE = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
+
+	const body = await event.request.json();
+	const { id } = body;
+
+	if (!id) throw error(400, 'Missing id');
+
+	const { error: dbError } = await supabase.from('units').delete().eq('id', id).eq('organization_id', orgId);
+
+	if (dbError) throw error(500, dbError.message);
+
+	ctx.audit.log({ action: 'unit.deleted', resourceType: 'unit', resourceId: id });
+
+	return json({ success: true });
+};

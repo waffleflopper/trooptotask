@@ -1,5 +1,7 @@
 import { json, error } from '@sveltejs/kit';
-import { apiRoute } from '$lib/server/apiRoute';
+import type { RequestEvent } from '@sveltejs/kit';
+import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { getApiContext } from '$lib/server/supabase';
 
 function transformTemplate(r: Record<string, unknown>) {
 	return {
@@ -11,7 +13,13 @@ function transformTemplate(r: Record<string, unknown>) {
 	};
 }
 
-export const GET = apiRoute({ permission: { authenticated: true }, readOnly: false }, async ({ supabase, orgId }) => {
+export const GET = async (event: RequestEvent) => {
+	await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
+
+	// authenticated-only, no specific permission needed; readOnly: false means no read-only guard
+
 	const { data, error: dbError } = await supabase
 		.from('onboarding_templates')
 		.select('*')
@@ -20,104 +28,126 @@ export const GET = apiRoute({ permission: { authenticated: true }, readOnly: fal
 
 	if (dbError) throw error(500, dbError.message);
 	return json((data ?? []).map(transformTemplate));
-});
+};
 
-export const POST = apiRoute(
-	{ permission: { fullEditor: true }, audit: 'onboarding_template' },
-	async ({ supabase, orgId }, event) => {
-		const body = await event.request.json();
+export const POST = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		const { data, error: dbError } = await supabase
-			.from('onboarding_templates')
-			.insert({
-				organization_id: orgId,
-				name: body.name,
-				description: body.description ?? null
-			})
-			.select()
-			.single();
+	ctx.auth.requireFullEditor();
 
-		if (dbError) {
-			if (dbError.code === '23505') {
-				throw error(409, 'A template with that name already exists.');
-			}
-			throw error(500, dbError.message);
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
+
+	const body = await event.request.json();
+
+	const { data, error: dbError } = await supabase
+		.from('onboarding_templates')
+		.insert({
+			organization_id: orgId,
+			name: body.name,
+			description: body.description ?? null
+		})
+		.select()
+		.single();
+
+	if (dbError) {
+		if (dbError.code === '23505') {
+			throw error(409, 'A template with that name already exists.');
 		}
-
-		return json(transformTemplate(data));
+		throw error(500, dbError.message);
 	}
-);
 
-export const PUT = apiRoute(
-	{ permission: { fullEditor: true }, audit: 'onboarding_template' },
-	async ({ supabase, orgId }, event) => {
-		const body = await event.request.json();
-		const { id, ...fields } = body;
+	ctx.audit.log({ action: 'onboarding_template.created', resourceType: 'onboarding_template' });
+	return json(transformTemplate(data));
+};
 
-		const updateData: Record<string, unknown> = {};
-		if (fields.name !== undefined) updateData.name = fields.name;
-		if (fields.description !== undefined) updateData.description = fields.description;
+export const PUT = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		const { data, error: dbError } = await supabase
-			.from('onboarding_templates')
-			.update(updateData)
-			.eq('id', id)
-			.eq('organization_id', orgId)
-			.select()
-			.single();
+	ctx.auth.requireFullEditor();
 
-		if (dbError) {
-			if (dbError.code === '23505') {
-				throw error(409, 'A template with that name already exists.');
-			}
-			throw error(500, dbError.message);
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
+
+	const body = await event.request.json();
+	const { id, ...fields } = body;
+
+	const updateData: Record<string, unknown> = {};
+	if (fields.name !== undefined) updateData.name = fields.name;
+	if (fields.description !== undefined) updateData.description = fields.description;
+
+	const { data, error: dbError } = await supabase
+		.from('onboarding_templates')
+		.update(updateData)
+		.eq('id', id)
+		.eq('organization_id', orgId)
+		.select()
+		.single();
+
+	if (dbError) {
+		if (dbError.code === '23505') {
+			throw error(409, 'A template with that name already exists.');
 		}
-
-		return json(transformTemplate(data));
+		throw error(500, dbError.message);
 	}
-);
 
-export const DELETE = apiRoute(
-	{ permission: { fullEditor: true }, audit: 'onboarding_template' },
-	async ({ supabase, orgId }, event) => {
-		const { id } = await event.request.json();
+	ctx.audit.log({ action: 'onboarding_template.updated', resourceType: 'onboarding_template', resourceId: id });
+	return json(transformTemplate(data));
+};
 
-		// Block only if active (in_progress) onboardings reference this template
-		const { count, error: countError } = await supabase
-			.from('personnel_onboardings')
-			.select('id', { count: 'exact', head: true })
-			.eq('organization_id', orgId)
-			.eq('template_id', id)
-			.eq('status', 'in_progress');
+export const DELETE = async (event: RequestEvent) => {
+	const ctx = await buildContext(event);
+	const orgId = event.params.orgId as string;
+	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
 
-		if (countError) throw error(500, countError.message);
+	ctx.auth.requireFullEditor();
 
-		if ((count ?? 0) > 0) {
-			throw error(
-				409,
-				`Cannot delete — ${count} active onboarding${count === 1 ? '' : 's'} ${count === 1 ? 'is' : 'are'} using this template.`
-			);
-		}
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
 
-		// Prevent deleting the last template
-		const { count: templateCount, error: templateCountError } = await supabase
-			.from('onboarding_templates')
-			.select('id', { count: 'exact', head: true })
-			.eq('organization_id', orgId);
+	const { id } = await event.request.json();
 
-		if (templateCountError) throw error(500, templateCountError.message);
+	// Block only if active (in_progress) onboardings reference this template
+	const { count, error: countError } = await supabase
+		.from('personnel_onboardings')
+		.select('id', { count: 'exact', head: true })
+		.eq('organization_id', orgId)
+		.eq('template_id', id)
+		.eq('status', 'in_progress');
 
-		if ((templateCount ?? 0) <= 1) {
-			throw error(409, 'Cannot delete the last template. Create another template first.');
-		}
+	if (countError) throw error(500, countError.message);
 
-		const { error: dbError } = await supabase
-			.from('onboarding_templates')
-			.delete()
-			.eq('id', id)
-			.eq('organization_id', orgId);
-
-		if (dbError) throw error(500, dbError.message);
-		return json({ success: true });
+	if ((count ?? 0) > 0) {
+		throw error(
+			409,
+			`Cannot delete — ${count} active onboarding${count === 1 ? '' : 's'} ${count === 1 ? 'is' : 'are'} using this template.`
+		);
 	}
-);
+
+	// Prevent deleting the last template
+	const { count: templateCount, error: templateCountError } = await supabase
+		.from('onboarding_templates')
+		.select('id', { count: 'exact', head: true })
+		.eq('organization_id', orgId);
+
+	if (templateCountError) throw error(500, templateCountError.message);
+
+	if ((templateCount ?? 0) <= 1) {
+		throw error(409, 'Cannot delete the last template. Create another template first.');
+	}
+
+	const { error: dbError } = await supabase
+		.from('onboarding_templates')
+		.delete()
+		.eq('id', id)
+		.eq('organization_id', orgId);
+
+	if (dbError) throw error(500, dbError.message);
+
+	ctx.audit.log({ action: 'onboarding_template.deleted', resourceType: 'onboarding_template', resourceId: id });
+	return json({ success: true });
+};

@@ -82,6 +82,18 @@ export function getApiContext(
 		};
 	}
 
+	// Check for read-only demo mode (showcase viewing, no login required)
+	const demoMode = cookies.get('demo_mode');
+	if (demoMode === 'readonly') {
+		return {
+			supabase: createClient(PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY || '', {
+				auth: { persistSession: false }
+			}),
+			userId: null,
+			isSandbox: false
+		};
+	}
+
 	// Regular authenticated user
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');

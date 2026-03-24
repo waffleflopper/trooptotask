@@ -1,40 +1,42 @@
-import { json, error } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { handle } from '$lib/server/adapters/httpAdapter';
+import { fail } from '$lib/server/core/errors';
 import { getApiContext } from '$lib/server/supabase';
 
-export const DELETE = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const orgId = event.params.orgId as string;
-	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
+export const DELETE = handle<Record<string, unknown>, unknown>({
+	permission: 'personnel',
+	mutation: true,
+	parseInput: (event: RequestEvent) => {
+		const { supabase } = getApiContext(event.locals, event.cookies, event.params.orgId as string);
+		return { _supabase: supabase, rosterId: event.params.id as string };
+	},
+	fn: async (ctx, input) => {
+		const rosterId = input.rosterId as string;
 
-	const id = event.params.id;
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null; title: string }>(
+			'sign_in_rosters',
+			ctx.auth.orgId,
+			{ id: rosterId }
+		);
 
-	// Fetch the roster first to check for signed file
-	const { data: roster } = await supabase
-		.from('sign_in_rosters')
-		.select('signed_file_path, title')
-		.eq('id', id)
-		.eq('organization_id', orgId)
-		.single();
+		if (!roster) fail(404, 'Roster not found');
 
-	if (!roster) throw error(404, 'Roster not found');
+		// Delete signed file from storage if exists
+		if (roster.signed_file_path) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const supabase = input._supabase as any;
+			await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
+		}
 
-	// Delete signed file from storage if exists
-	if (roster.signed_file_path) {
-		await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
+		await ctx.store.delete('sign_in_rosters', ctx.auth.orgId, rosterId);
+
+		ctx.audit.log({
+			action: 'sign_in_roster.deleted',
+			resourceType: 'sign_in_roster',
+			resourceId: rosterId,
+			details: { title: roster.title }
+		});
+
+		return { success: true };
 	}
-
-	const { error: dbError } = await supabase.from('sign_in_rosters').delete().eq('id', id).eq('organization_id', orgId);
-
-	if (dbError) throw error(500, dbError.message);
-
-	ctx.audit.log({
-		action: 'sign_in_roster.deleted',
-		resourceType: 'sign_in_roster',
-		resourceId: id,
-		details: { actor: event.locals.user?.email ?? ctx.auth.userId, title: roster.title }
-	});
-
-	return json({ success: true });
-};
+});

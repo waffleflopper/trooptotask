@@ -4,7 +4,8 @@ import {
 	createInMemoryDataStore,
 	createTestAuthContext,
 	createTestAuditPort,
-	createTestReadOnlyGuard
+	createTestReadOnlyGuard,
+	createTestSubscriptionPort
 } from '../../adapters/inMemory';
 import type { UseCaseContext } from '../ports';
 
@@ -15,7 +16,8 @@ function makeCtx(overrides?: { store?: ReturnType<typeof createInMemoryDataStore
 		rawStore: store,
 		auth: createTestAuthContext(),
 		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard()
+		readOnlyGuard: createTestReadOnlyGuard(),
+		subscription: createTestSubscriptionPort()
 	};
 }
 

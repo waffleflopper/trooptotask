@@ -4,7 +4,8 @@ import {
 	createInMemoryDataStore,
 	createTestAuthContext,
 	createTestAuditPort,
-	createTestReadOnlyGuard
+	createTestReadOnlyGuard,
+	createTestSubscriptionPort
 } from './inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { handleUseCaseRequest, type RouteConfig } from './httpAdapter';
@@ -28,7 +29,14 @@ function buildTestCtx(overrides?: {
 }
 
 function toUseCaseCtx(t: TestContext): UseCaseContext {
-	return { store: t.store, rawStore: t.store, auth: t.auth, audit: t.auditPort, readOnlyGuard: t.readOnlyGuard };
+	return {
+		store: t.store,
+		rawStore: t.store,
+		auth: t.auth,
+		audit: t.auditPort,
+		readOnlyGuard: t.readOnlyGuard,
+		subscription: createTestSubscriptionPort()
+	};
 }
 
 describe('handleUseCaseRequest', () => {

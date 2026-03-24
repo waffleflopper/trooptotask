@@ -5,7 +5,8 @@ import {
 	createInMemoryDataStore,
 	createTestAuthContext,
 	createTestAuditPort,
-	createTestReadOnlyGuard
+	createTestReadOnlyGuard,
+	createTestSubscriptionPort
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { createCrudUseCases } from './crud';
@@ -30,6 +31,7 @@ const TestEntity = defineEntity<TestRecord>({
 type TestContext = Omit<UseCaseContext, 'store'> & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	auditPort: ReturnType<typeof createTestAuditPort>;
+	subscription: ReturnType<typeof createTestSubscriptionPort>;
 };
 
 function buildContext(overrides?: {
@@ -41,7 +43,8 @@ function buildContext(overrides?: {
 	const auditPort = createTestAuditPort();
 	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
 
-	return { store, rawStore: store, auth, audit: auditPort, readOnlyGuard, auditPort };
+	const subscription = createTestSubscriptionPort();
+	return { store, rawStore: store, auth, audit: auditPort, readOnlyGuard, subscription, auditPort };
 }
 
 const crudConfig = {

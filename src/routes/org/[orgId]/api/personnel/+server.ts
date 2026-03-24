@@ -1,108 +1,65 @@
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { buildContextInternal } from '$lib/server/adapters/httpAdapter';
-import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
-import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
+import { handle } from '$lib/server/adapters/httpAdapter';
+import { fail } from '$lib/server/core/errors';
 import { validateUUID } from '$lib/server/validation';
+import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
 
-function getSubscription(supabase: Parameters<typeof createSupabaseSubscriptionAdapter>[0], orgId: string) {
-	return createSupabaseSubscriptionAdapter(supabase, orgId);
-}
+const useCases = createPersonnelUseCases();
 
-export const POST = async (event: RequestEvent) => {
-	const { ctx, supabase } = await buildContextInternal(event);
-	const subscription = getSubscription(supabase, ctx.auth.orgId);
-	const { create } = createPersonnelUseCases(subscription);
+export const POST = handle<Record<string, unknown>, unknown>({
+	permission: 'personnel',
+	mutation: true,
+	fn: (ctx, input) => useCases.create(ctx, input)
+});
 
-	let body: Record<string, unknown>;
-	try {
-		body = (await event.request.json()) as Record<string, unknown>;
-	} catch {
-		throw error(400, 'Invalid JSON in request body');
-	}
+export const PUT = handle<Record<string, unknown>, unknown>({
+	permission: 'personnel',
+	mutation: true,
+	fn: (ctx, input) => useCases.update(ctx, input)
+});
 
-	try {
-		const result = await create(ctx, body);
-		return json(result);
-	} catch (err) {
-		if (err && typeof err === 'object' && 'status' in err) throw err;
-		throw error(500, 'Internal server error');
-	}
-};
+export const DELETE = handle<Record<string, unknown>, Record<string, unknown>>({
+	permission: 'personnel',
+	mutation: true,
+	fn: async (ctx, input) => {
+		const id = input.id;
+		if (!id || typeof id !== 'string') fail(400, 'Missing id');
+		if (!validateUUID(id)) fail(400, 'Invalid resource ID');
 
-export const PUT = async (event: RequestEvent) => {
-	const { ctx, supabase } = await buildContextInternal(event);
-	const subscription = getSubscription(supabase, ctx.auth.orgId);
-	const { update } = createPersonnelUseCases(subscription);
-
-	let body: Record<string, unknown>;
-	try {
-		body = (await event.request.json()) as Record<string, unknown>;
-	} catch {
-		throw error(400, 'Invalid JSON in request body');
-	}
-
-	try {
-		const result = await update(ctx, body);
-		return json(result);
-	} catch (err) {
-		if (err && typeof err === 'object' && 'status' in err) throw err;
-		throw error(500, 'Internal server error');
-	}
-};
-
-export const DELETE = async (event: RequestEvent) => {
-	const { ctx, supabase } = await buildContextInternal(event);
-	const subscription = getSubscription(supabase, ctx.auth.orgId);
-	const { archive } = createPersonnelUseCases(subscription);
-
-	let body: Record<string, unknown>;
-	try {
-		body = (await event.request.json()) as Record<string, unknown>;
-	} catch {
-		throw error(400, 'Invalid JSON in request body');
-	}
-
-	const id = body.id;
-	if (!id || typeof id !== 'string') throw error(400, 'Missing id');
-	if (!validateUUID(id)) throw error(400, 'Invalid resource ID');
-
-	try {
-		const result = await archive(ctx, id);
+		const result = await useCases.archive(ctx, id);
 		if (result?.requiresApproval) {
-			return json({ requiresApproval: true }, { status: 202 });
+			return { requiresApproval: true };
 		}
-		return json({ success: true });
-	} catch (err) {
-		if (err && typeof err === 'object' && 'status' in err) throw err;
-		throw error(500, 'Internal server error');
+		return { success: true };
+	},
+	formatOutput: (result) => {
+		if (result.requiresApproval) {
+			return json(result, { status: 202 });
+		}
+		return json(result);
 	}
-};
+});
 
-export const PATCH = async (event: RequestEvent) => {
-	try {
-		const { ctx, supabase, isSandbox } = await buildContextInternal(event);
-		const subscription = getSubscription(supabase, ctx.auth.orgId);
+export const PATCH = handle<Record<string, unknown>, Record<string, unknown>>({
+	permission: 'privileged',
+	mutation: true,
+	parseInput: async (event: RequestEvent) => {
+		const body = await event.request.json();
+		return {
+			...body,
+			_isSandbox: event.locals.user === undefined && event.cookies.get('sb-sandbox') !== undefined
+		};
+	},
+	fn: async (ctx, input) => {
+		const { action, id } = input;
 
-		ctx.auth.requirePrivileged();
+		if (action !== 'restore') fail(400, 'Invalid action');
+		if (!id || typeof id !== 'string') fail(400, 'Missing id');
 
-		if (isSandbox) throw error(403, 'This action is not available in sandbox mode');
-
-		let body: Record<string, unknown>;
-		try {
-			body = (await event.request.json()) as Record<string, unknown>;
-		} catch {
-			throw error(400, 'Invalid JSON in request body');
-		}
-
-		const { action, id } = body;
-
-		if (action !== 'restore') throw error(400, 'Invalid action');
-		if (!id || typeof id !== 'string') throw error(400, 'Missing id');
-
-		const capCheck = await subscription.canAddPersonnel();
+		const capCheck = await ctx.subscription.canAddPersonnel();
 		if (!capCheck.allowed) {
-			return json({ message: capCheck.message }, { status: 422 });
+			return { message: capCheck.message };
 		}
 
 		const person = await ctx.store.findOne<{
@@ -110,28 +67,30 @@ export const PATCH = async (event: RequestEvent) => {
 			first_name: string;
 			last_name: string;
 			archived_at: string | null;
-		}>('personnel', ctx.auth.orgId, { id });
+		}>('personnel', ctx.auth.orgId, { id: id as string });
 
-		if (!person) throw error(404, 'Personnel not found');
-		if (!person.archived_at) throw error(400, 'Personnel is not archived');
+		if (!person) fail(404, 'Personnel not found');
+		if (!person.archived_at) fail(400, 'Personnel is not archived');
 
-		await ctx.store.update('personnel', ctx.auth.orgId, id, { archived_at: null });
+		await ctx.store.update('personnel', ctx.auth.orgId, id as string, { archived_at: null });
 
-		subscription.invalidateTierCache();
+		ctx.subscription.invalidateTierCache();
 
 		ctx.audit.log({
 			action: 'personnel.restored',
 			resourceType: 'personnel',
-			resourceId: id,
+			resourceId: id as string,
 			details: {
-				actor: event.locals.user?.email ?? ctx.auth.userId,
 				name: `${person.rank} ${person.last_name}, ${person.first_name}`
 			}
 		});
 
-		return json({ success: true });
-	} catch (err) {
-		if (err && typeof err === 'object' && 'status' in err) throw err;
-		throw error(500, 'Internal server error');
+		return { success: true };
+	},
+	formatOutput: (result) => {
+		if (result.message && !result.success) {
+			return json(result, { status: 422 });
+		}
+		return json(result);
 	}
-};
+});

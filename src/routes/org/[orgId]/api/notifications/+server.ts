@@ -1,84 +1,70 @@
-import { json, error } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
-import { getApiContext } from '$lib/server/supabase';
+import { handle } from '$lib/server/adapters/httpAdapter';
+import { fail } from '$lib/server/core/errors';
 
-export const GET = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const orgId = event.params.orgId as string;
-	const { supabase, userId } = getApiContext(event.locals, event.cookies, orgId);
+export const GET = handle<void, unknown>({
+	permission: 'personnel',
+	fn: async (ctx) => {
+		const userId = ctx.auth.userId;
+		if (!userId) fail(401, 'Unauthorized');
 
-	const { data, error: dbError } = await supabase
-		.from('notifications')
-		.select('*')
-		.eq('user_id', userId)
-		.eq('organization_id', orgId)
-		.order('created_at', { ascending: false })
-		.limit(20);
-
-	if (dbError) throw error(500, dbError.message);
-	return json(data ?? []);
-};
-
-export const PUT = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const orgId = event.params.orgId as string;
-	const { supabase, userId } = getApiContext(event.locals, event.cookies, orgId);
-
-	const body = await event.request.json();
-
-	if (body.markAllRead) {
-		const { error: dbError } = await supabase
-			.from('notifications')
-			.update({ read: true })
-			.eq('user_id', userId)
-			.eq('organization_id', orgId)
-			.eq('read', false);
-
-		if (dbError) throw error(500, dbError.message);
-		ctx.audit.log({ action: 'notification.mark_all_read', resourceType: 'notification' });
-		return json({ success: true });
+		return ctx.store.findMany(
+			'notifications',
+			ctx.auth.orgId,
+			{ user_id: userId },
+			{
+				orderBy: [{ column: 'created_at', ascending: false }],
+				limit: 20
+			}
+		);
 	}
+});
 
-	if (body.id) {
-		const { error: dbError } = await supabase
-			.from('notifications')
-			.update({ read: true })
-			.eq('id', body.id)
-			.eq('user_id', userId);
+export const PUT = handle<Record<string, unknown>, unknown>({
+	permission: 'personnel',
+	mutation: true,
+	fn: async (ctx, input) => {
+		const userId = ctx.auth.userId;
+		if (!userId) fail(401, 'Unauthorized');
 
-		if (dbError) throw error(500, dbError.message);
-		ctx.audit.log({ action: 'notification.read', resourceType: 'notification', resourceId: body.id });
-		return json({ success: true });
+		if (input.markAllRead) {
+			const unread = await ctx.store.findMany<{ id: string }>('notifications', ctx.auth.orgId, {
+				user_id: userId,
+				read: false
+			});
+			for (const n of unread) {
+				await ctx.store.update('notifications', ctx.auth.orgId, n.id, { read: true });
+			}
+			ctx.audit.log({ action: 'notification.mark_all_read', resourceType: 'notification' });
+			return { success: true };
+		}
+
+		if (input.id) {
+			await ctx.store.update('notifications', ctx.auth.orgId, input.id as string, { read: true });
+			ctx.audit.log({ action: 'notification.read', resourceType: 'notification', resourceId: input.id as string });
+			return { success: true };
+		}
+
+		fail(400, 'Missing id or markAllRead');
 	}
+});
 
-	throw error(400, 'Missing id or markAllRead');
-};
+export const DELETE = handle<Record<string, unknown>, unknown>({
+	permission: 'personnel',
+	mutation: true,
+	fn: async (ctx, input) => {
+		const userId = ctx.auth.userId;
+		if (!userId) fail(401, 'Unauthorized');
 
-export const DELETE = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const orgId = event.params.orgId as string;
-	const { supabase, userId } = getApiContext(event.locals, event.cookies, orgId);
+		if (input.deleteAll) {
+			await ctx.store.deleteWhere('notifications', ctx.auth.orgId, { user_id: userId });
+			ctx.audit.log({ action: 'notification.delete_all', resourceType: 'notification' });
+			return { success: true };
+		}
 
-	const body = await event.request.json();
+		if (!input.id) fail(400, 'Missing notification id or deleteAll');
 
-	if (body.deleteAll) {
-		const { error: dbError } = await supabase
-			.from('notifications')
-			.delete()
-			.eq('user_id', userId)
-			.eq('organization_id', orgId);
-
-		if (dbError) throw error(500, dbError.message);
-		ctx.audit.log({ action: 'notification.delete_all', resourceType: 'notification' });
-		return json({ success: true });
+		await ctx.store.delete('notifications', ctx.auth.orgId, input.id as string);
+		ctx.audit.log({ action: 'notification.deleted', resourceType: 'notification', resourceId: input.id as string });
+		return { success: true };
 	}
-
-	if (!body.id) throw error(400, 'Missing notification id or deleteAll');
-
-	const { error: dbError } = await supabase.from('notifications').delete().eq('id', body.id).eq('user_id', userId);
-
-	if (dbError) throw error(500, dbError.message);
-	ctx.audit.log({ action: 'notification.deleted', resourceType: 'notification', resourceId: body.id });
-	return json({ success: true });
-};
+});

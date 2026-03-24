@@ -1,40 +1,36 @@
-import { json, error } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
-import { getApiContext } from '$lib/server/supabase';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { fail } from '$lib/server/core/errors';
 
-export const PUT = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const orgId = event.params.orgId as string;
-	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
+interface ExemptionInput {
+	assignmentTypeId: string;
+	personnelIds?: string[];
+}
 
-	ctx.auth.requireEdit('calendar');
+interface ExemptionOutput {
+	exemptPersonnelIds: string[];
+}
 
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
+export const putConfig: RouteConfig<ExemptionInput, ExemptionOutput> = {
+	permission: 'calendar',
+	mutation: true,
+	fn: async (ctx, input) => {
+		const { assignmentTypeId, personnelIds } = input;
 
-	const body = await event.request.json();
-	const { assignmentTypeId, personnelIds } = body as {
-		assignmentTypeId: string;
-		personnelIds: string[];
-	};
+		if (!assignmentTypeId) fail(400, 'Missing assignmentTypeId');
 
-	if (!assignmentTypeId) throw error(400, 'Missing assignmentTypeId');
+		const data = await ctx.store.update<{ exempt_personnel_ids: string[] }>(
+			'assignment_types',
+			ctx.auth.orgId,
+			assignmentTypeId,
+			{ exempt_personnel_ids: personnelIds ?? [] }
+		);
 
-	const { data, error: dbError } = await supabase
-		.from('assignment_types')
-		.update({ exempt_personnel_ids: personnelIds ?? [] })
-		.eq('id', assignmentTypeId)
-		.eq('organization_id', orgId)
-		.select('exempt_personnel_ids')
-		.single();
-
-	if (dbError) throw error(500, dbError.message);
-
-	ctx.audit.log({
+		return { exemptPersonnelIds: data.exempt_personnel_ids };
+	},
+	audit: {
 		action: 'duty_roster_exemption.updated',
-		resourceType: 'duty_roster_exemption',
-		resourceId: assignmentTypeId
-	});
-	return json({ exemptPersonnelIds: data.exempt_personnel_ids });
+		resourceType: 'duty_roster_exemption'
+	}
 };
+
+export const PUT = handle(putConfig);

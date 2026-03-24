@@ -15,56 +15,55 @@ function buildContext(overrides?: {
 	availableSlots?: number | null;
 }) {
 	const store = createInMemoryDataStore();
+	const subscription = createTestSubscriptionPort(
+		overrides?.subscriptionAllowed ?? true,
+		undefined,
+		overrides?.availableSlots ?? null
+	);
 	return {
-		ctx: {
-			store,
-			rawStore: store,
-			auth: createTestAuthContext(overrides?.auth),
-			audit: createTestAuditPort(),
-			readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly)
-		},
-		subscription: createTestSubscriptionPort(
-			overrides?.subscriptionAllowed ?? true,
-			undefined,
-			overrides?.availableSlots ?? null
-		)
+		store,
+		rawStore: store,
+		auth: createTestAuthContext(overrides?.auth),
+		audit: createTestAuditPort(),
+		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly),
+		subscription
 	};
 }
 
 describe('importPersonnelBatch', () => {
 	it('rejects empty records array', async () => {
-		const { ctx, subscription } = buildContext();
-		await expect(importPersonnelBatch(ctx, subscription, { records: [] })).rejects.toMatchObject({
+		const ctx = buildContext();
+		await expect(importPersonnelBatch(ctx, { records: [] })).rejects.toMatchObject({
 			status: 400,
 			message: 'records array is required'
 		});
 	});
 
 	it('rejects batches over 500 records', async () => {
-		const { ctx, subscription } = buildContext();
+		const ctx = buildContext();
 		const records = Array.from({ length: 501 }, (_, i) => ({
 			rank: 'SGT',
 			lastName: `Last${i}`,
 			firstName: `First${i}`
 		}));
-		await expect(importPersonnelBatch(ctx, subscription, { records })).rejects.toMatchObject({
+		await expect(importPersonnelBatch(ctx, { records })).rejects.toMatchObject({
 			status: 400,
 			message: 'Maximum 500 records per batch'
 		});
 	});
 
 	it('blocks when read-only', async () => {
-		const { ctx, subscription } = buildContext({ readOnly: true });
+		const ctx = buildContext({ readOnly: true });
 		await expect(
-			importPersonnelBatch(ctx, subscription, {
+			importPersonnelBatch(ctx, {
 				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
 			})
 		).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('returns per-record errors for invalid ranks', async () => {
-		const { ctx, subscription } = buildContext();
-		const result = await importPersonnelBatch(ctx, subscription, {
+		const ctx = buildContext();
+		const result = await importPersonnelBatch(ctx, {
 			records: [
 				{ rank: 'INVALID', lastName: 'Smith', firstName: 'John' },
 				{ rank: 'SGT', lastName: 'Doe', firstName: 'Jane' }
@@ -76,8 +75,8 @@ describe('importPersonnelBatch', () => {
 	});
 
 	it('returns errors for missing required fields', async () => {
-		const { ctx, subscription } = buildContext();
-		const result = await importPersonnelBatch(ctx, subscription, {
+		const ctx = buildContext();
+		const result = await importPersonnelBatch(ctx, {
 			records: [{ rank: '', lastName: 'Smith', firstName: 'John' }]
 		});
 		expect(result.errors).toHaveLength(1);
@@ -85,8 +84,8 @@ describe('importPersonnelBatch', () => {
 	});
 
 	it('trims batch when near subscription cap', async () => {
-		const { ctx, subscription } = buildContext({ availableSlots: 1 });
-		const result = await importPersonnelBatch(ctx, subscription, {
+		const ctx = buildContext({ availableSlots: 1 });
+		const result = await importPersonnelBatch(ctx, {
 			records: [
 				{ rank: 'SGT', lastName: 'Smith', firstName: 'John' },
 				{ rank: 'PFC', lastName: 'Doe', firstName: 'Jane' }
@@ -98,21 +97,21 @@ describe('importPersonnelBatch', () => {
 	});
 
 	it('throws 403 when cap fully reached (0 available)', async () => {
-		const { ctx, subscription } = buildContext({ availableSlots: 0 });
+		const ctx = buildContext({ availableSlots: 0 });
 		await expect(
-			importPersonnelBatch(ctx, subscription, {
+			importPersonnelBatch(ctx, {
 				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
 			})
 		).rejects.toMatchObject({ status: 403, message: 'Personnel limit reached. Upgrade to add more.' });
 	});
 
 	it('enforces scoped group restriction', async () => {
-		const { ctx, subscription } = buildContext({
+		const ctx = buildContext({
 			auth: { scopedGroupId: 'group-1' }
 		});
 		ctx.store.seed('groups', [{ id: 'group-1', organization_id: 'test-org', name: 'Alpha' }]);
 
-		const result = await importPersonnelBatch(ctx, subscription, {
+		const result = await importPersonnelBatch(ctx, {
 			records: [
 				{ rank: 'SGT', lastName: 'Smith', firstName: 'John', groupName: 'Alpha' },
 				{ rank: 'PFC', lastName: 'Doe', firstName: 'Jane' } // no group — won't match scoped group
@@ -124,16 +123,16 @@ describe('importPersonnelBatch', () => {
 	});
 
 	it('invalidates tier cache after insert', async () => {
-		const { ctx, subscription } = buildContext();
-		await importPersonnelBatch(ctx, subscription, {
+		const ctx = buildContext();
+		await importPersonnelBatch(ctx, {
 			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
 		});
-		expect(subscription.tierCacheInvalidated).toBe(true);
+		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
 	});
 
 	it('logs audit event with count', async () => {
-		const { ctx, subscription } = buildContext();
-		await importPersonnelBatch(ctx, subscription, {
+		const ctx = buildContext();
+		await importPersonnelBatch(ctx, {
 			records: [
 				{ rank: 'SGT', lastName: 'Smith', firstName: 'John' },
 				{ rank: 'PFC', lastName: 'Doe', firstName: 'Jane' }
@@ -148,12 +147,12 @@ describe('importPersonnelBatch', () => {
 	});
 
 	it('validates and inserts valid records', async () => {
-		const { ctx, subscription } = buildContext();
+		const ctx = buildContext();
 
 		// Seed groups for name matching
 		ctx.store.seed('groups', [{ id: 'group-1', organization_id: 'test-org', name: 'Alpha' }]);
 
-		const result = await importPersonnelBatch(ctx, subscription, {
+		const result = await importPersonnelBatch(ctx, {
 			records: [
 				{ rank: 'SGT', lastName: 'Smith', firstName: 'John', groupName: 'Alpha' },
 				{ rank: 'PFC', lastName: 'Doe', firstName: 'Jane' }

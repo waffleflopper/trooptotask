@@ -1,58 +1,50 @@
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { validateUUID } from '$lib/server/validation';
+import { handle } from '$lib/server/adapters/httpAdapter';
+import { fail } from '$lib/server/core/errors';
 
-// POST: dismiss the getting started checklist
-export const POST: RequestHandler = async ({ locals, params }) => {
-	const supabase = locals.supabase;
-	const userId = locals.user?.id;
+export const POST = handle<void, unknown>({
+	permission: 'personnel',
+	mutation: true,
+	fn: async (ctx) => {
+		const userId = ctx.auth.userId;
+		if (!userId) fail(401, 'Unauthorized');
 
-	if (!userId) {
-		return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+		const existing = await ctx.store.findOne('getting_started_progress', ctx.auth.orgId, { user_id: userId });
+
+		if (existing) {
+			await ctx.store.update(
+				'getting_started_progress',
+				ctx.auth.orgId,
+				(existing as Record<string, unknown>).id as string,
+				{ dismissed_at: new Date().toISOString() }
+			);
+		} else {
+			await ctx.store.insert('getting_started_progress', ctx.auth.orgId, {
+				user_id: userId,
+				dismissed_at: new Date().toISOString()
+			});
+		}
+
+		return { success: true };
 	}
+});
 
-	if (!validateUUID(params.orgId)) {
-		return new Response(JSON.stringify({ error: 'Invalid org ID' }), { status: 400 });
+export const DELETE = handle<void, unknown>({
+	permission: 'personnel',
+	mutation: true,
+	fn: async (ctx) => {
+		const userId = ctx.auth.userId;
+		if (!userId) fail(401, 'Unauthorized');
+
+		const existing = await ctx.store.findOne<{ id: string }>('getting_started_progress', ctx.auth.orgId, {
+			user_id: userId
+		});
+
+		if (existing) {
+			await ctx.store.update('getting_started_progress', ctx.auth.orgId, existing.id, {
+				dismissed_at: null
+			});
+		}
+
+		return { success: true };
 	}
-
-	const { error } = await supabase.from('getting_started_progress').upsert(
-		{
-			organization_id: params.orgId,
-			user_id: userId,
-			dismissed_at: new Date().toISOString()
-		},
-		{ onConflict: 'organization_id,user_id' }
-	);
-
-	if (error) {
-		return new Response(JSON.stringify({ error: 'Failed to dismiss' }), { status: 500 });
-	}
-
-	return json({ success: true });
-};
-
-// DELETE: un-dismiss (show checklist again)
-export const DELETE: RequestHandler = async ({ locals, params }) => {
-	const supabase = locals.supabase;
-	const userId = locals.user?.id;
-
-	if (!userId) {
-		return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-	}
-
-	if (!validateUUID(params.orgId)) {
-		return new Response(JSON.stringify({ error: 'Invalid org ID' }), { status: 400 });
-	}
-
-	const { error } = await supabase
-		.from('getting_started_progress')
-		.update({ dismissed_at: null })
-		.eq('organization_id', params.orgId)
-		.eq('user_id', userId);
-
-	if (error) {
-		return new Response(JSON.stringify({ error: 'Failed to un-dismiss' }), { status: 500 });
-	}
-
-	return json({ success: true });
-};
+});

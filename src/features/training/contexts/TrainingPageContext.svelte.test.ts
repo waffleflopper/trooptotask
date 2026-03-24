@@ -215,6 +215,13 @@ describe('TrainingPageContext', () => {
 		});
 	});
 
+	describe('default viewMode', () => {
+		it('defaults to by-group', () => {
+			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			expect(ctx.viewMode).toBe('by-group');
+		});
+	});
+
 	describe('toggleGroup', () => {
 		it('adds a group to collapsedGroups', () => {
 			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());

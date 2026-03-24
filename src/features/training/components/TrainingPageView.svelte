@@ -4,11 +4,17 @@
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
+	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
-	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
+	let {
+		ctx,
+		modals,
+		loading = false
+	}: { ctx: TrainingPageContext; modals: ModalRegistry; loading?: boolean } = $props();
 </script>
 
 <div class="page">
@@ -32,26 +38,32 @@
 		</div>
 	{:else}
 		<div class="stats-bar">
-			<div class="stat current">
-				<span class="stat-value">{ctx.stats.current}</span>
-				<span class="stat-label">Current</span>
-			</div>
-			<div class="stat warning-yellow">
-				<span class="stat-value">{ctx.stats.warningYellow}</span>
-				<span class="stat-label">Expiring (60d)</span>
-			</div>
-			<div class="stat warning-orange">
-				<span class="stat-value">{ctx.stats.warningOrange}</span>
-				<span class="stat-label">Expiring (30d)</span>
-			</div>
-			<div class="stat expired">
-				<span class="stat-value">{ctx.stats.expired}</span>
-				<span class="stat-label">Expired</span>
-			</div>
-			<div class="stat not-completed">
-				<span class="stat-value">{ctx.stats.notCompleted}</span>
-				<span class="stat-label">Not Done</span>
-			</div>
+			{#if loading}
+				{#each Array(5) as _}
+					<SkeletonBlock width="100px" height="52px" />
+				{/each}
+			{:else}
+				<div class="stat current">
+					<span class="stat-value">{ctx.stats.current}</span>
+					<span class="stat-label">Current</span>
+				</div>
+				<div class="stat warning-yellow">
+					<span class="stat-value">{ctx.stats.warningYellow}</span>
+					<span class="stat-label">Expiring (60d)</span>
+				</div>
+				<div class="stat warning-orange">
+					<span class="stat-value">{ctx.stats.warningOrange}</span>
+					<span class="stat-label">Expiring (30d)</span>
+				</div>
+				<div class="stat expired">
+					<span class="stat-value">{ctx.stats.expired}</span>
+					<span class="stat-label">Expired</span>
+				</div>
+				<div class="stat not-completed">
+					<span class="stat-value">{ctx.stats.notCompleted}</span>
+					<span class="stat-label">Not Done</span>
+				</div>
+			{/if}
 		</div>
 
 		<div class="filter-bar">
@@ -81,7 +93,11 @@
 		</div>
 
 		<main class="page-content">
-			{#if trainingTypesStore.items.length === 0}
+			{#if loading}
+				<div class="skeleton-matrix-wrapper">
+					<SkeletonGrid rows={8} columns={6} cellWidth="100px" cellHeight="38px" />
+				</div>
+			{:else if trainingTypesStore.items.length === 0}
 				<EmptyState
 					message="No training types defined yet."
 					actionLabel={ctx.canEditTraining ? 'Manage Types' : undefined}
@@ -280,6 +296,11 @@
 
 	.hidden-view {
 		display: none;
+	}
+
+	.skeleton-matrix-wrapper {
+		padding: var(--spacing-md) var(--spacing-lg);
+		overflow: hidden;
 	}
 
 	/* Mobile Responsive Styles */

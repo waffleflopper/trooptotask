@@ -11,7 +11,7 @@ describe('TrainingTypeEntity', () => {
 		expect(TrainingTypeEntity.groupScope).toBe('none');
 	});
 
-	it('fromDb produces correct TrainingType shape with all 11 fields', () => {
+	it('fromDb produces correct TrainingType shape with all fields', () => {
 		const row = {
 			id: 'tt-1',
 			name: 'CPR',
@@ -19,7 +19,12 @@ describe('TrainingTypeEntity', () => {
 			expiration_months: 12,
 			warning_days_yellow: 60,
 			warning_days_orange: 30,
-			required_for_roles: ['medic', 'nurse'],
+			applies_to_roles: ['medic', 'nurse'],
+			applies_to_mos: ['68W'],
+			applies_to_ranks: ['SGT'],
+			excluded_roles: ['admin'],
+			excluded_mos: [],
+			excluded_ranks: ['PVT'],
 			color: '#22c55e',
 			sort_order: 1,
 			expiration_date_only: true,
@@ -36,7 +41,12 @@ describe('TrainingTypeEntity', () => {
 			expirationMonths: 12,
 			warningDaysYellow: 60,
 			warningDaysOrange: 30,
-			requiredForRoles: ['medic', 'nurse'],
+			appliesToRoles: ['medic', 'nurse'],
+			appliesToMos: ['68W'],
+			appliesToRanks: ['SGT'],
+			excludedRoles: ['admin'],
+			excludedMos: [],
+			excludedRanks: ['PVT'],
 			color: '#22c55e',
 			sortOrder: 1,
 			expirationDateOnly: true,
@@ -45,7 +55,7 @@ describe('TrainingTypeEntity', () => {
 		});
 	});
 
-	it('fromDb applies nullDefault [] for null required_for_roles and exempt_personnel_ids', () => {
+	it('fromDb applies nullDefault [] for null array columns', () => {
 		const row = {
 			id: 'tt-2',
 			name: 'First Aid',
@@ -53,7 +63,12 @@ describe('TrainingTypeEntity', () => {
 			expiration_months: null,
 			warning_days_yellow: 60,
 			warning_days_orange: 30,
-			required_for_roles: null,
+			applies_to_roles: null,
+			applies_to_mos: null,
+			applies_to_ranks: null,
+			excluded_roles: null,
+			excluded_mos: null,
+			excluded_ranks: null,
 			color: '#6b7280',
 			sort_order: 0,
 			expiration_date_only: false,
@@ -63,7 +78,12 @@ describe('TrainingTypeEntity', () => {
 
 		const result = TrainingTypeEntity.fromDb(row) as TrainingType;
 
-		expect(result.requiredForRoles).toEqual([]);
+		expect(result.appliesToRoles).toEqual([]);
+		expect(result.appliesToMos).toEqual([]);
+		expect(result.appliesToRanks).toEqual([]);
+		expect(result.excludedRoles).toEqual([]);
+		expect(result.excludedMos).toEqual([]);
+		expect(result.excludedRanks).toEqual([]);
 		expect(result.exemptPersonnelIds).toEqual([]);
 	});
 
@@ -75,7 +95,7 @@ describe('TrainingTypeEntity', () => {
 			expiration_months: null,
 			warning_days_yellow: 60,
 			warning_days_orange: 30,
-			required_for_roles: [],
+			applies_to_roles: [],
 			color: '#6b7280',
 			sort_order: 0,
 			expiration_date_only: null,
@@ -98,7 +118,7 @@ describe('TrainingTypeEntity', () => {
 				expiration_months: 12,
 				warning_days_yellow: 60,
 				warning_days_orange: 30,
-				required_for_roles: [],
+				applies_to_roles: [],
 				color: '#22c55e',
 				sort_order: 0,
 				expiration_date_only: false,
@@ -112,7 +132,7 @@ describe('TrainingTypeEntity', () => {
 				expiration_months: 24,
 				warning_days_yellow: 90,
 				warning_days_orange: 45,
-				required_for_roles: ['medic'],
+				applies_to_roles: ['medic'],
 				color: '#3b82f6',
 				sort_order: 1,
 				expiration_date_only: true,
@@ -141,7 +161,12 @@ describe('TrainingTypeEntity', () => {
 			expiration_months: null,
 			warning_days_yellow: 60,
 			warning_days_orange: 30,
-			required_for_roles: [],
+			applies_to_roles: [],
+			applies_to_mos: [],
+			applies_to_ranks: [],
+			excluded_roles: [],
+			excluded_mos: [],
+			excluded_ranks: [],
 			color: '#6b7280',
 			sort_order: 0,
 			expiration_date_only: false,
@@ -158,7 +183,12 @@ describe('TrainingTypeEntity', () => {
 				expirationMonths: 6,
 				warningDaysYellow: 90,
 				warningDaysOrange: 45,
-				requiredForRoles: ['medic'],
+				appliesToRoles: ['medic'],
+				appliesToMos: ['68W'],
+				appliesToRanks: ['SGT'],
+				excludedRoles: ['admin'],
+				excludedMos: [],
+				excludedRanks: ['PVT'],
 				color: '#ff0000',
 				sortOrder: 5,
 				expirationDateOnly: true,
@@ -175,7 +205,12 @@ describe('TrainingTypeEntity', () => {
 			expiration_months: 6,
 			warning_days_yellow: 90,
 			warning_days_orange: 45,
-			required_for_roles: ['medic'],
+			applies_to_roles: ['medic'],
+			applies_to_mos: ['68W'],
+			applies_to_ranks: ['SGT'],
+			excluded_roles: ['admin'],
+			excluded_mos: [],
+			excluded_ranks: ['PVT'],
 			color: '#ff0000',
 			sort_order: 5,
 			expiration_date_only: true,
@@ -192,7 +227,12 @@ describe('TrainingTypeEntity', () => {
 			expirationMonths: 18,
 			warningDaysYellow: 45,
 			warningDaysOrange: 15,
-			requiredForRoles: ['admin'],
+			appliesToRoles: ['admin'],
+			appliesToMos: ['68W'],
+			appliesToRanks: [],
+			excludedRoles: [],
+			excludedMos: ['11B'],
+			excludedRanks: ['PVT'],
 			color: '#000000',
 			sortOrder: 3,
 			expirationDateOnly: true,
@@ -206,7 +246,12 @@ describe('TrainingTypeEntity', () => {
 			expiration_months: 18,
 			warning_days_yellow: 45,
 			warning_days_orange: 15,
-			required_for_roles: ['admin'],
+			applies_to_roles: ['admin'],
+			applies_to_mos: ['68W'],
+			applies_to_ranks: [],
+			excluded_roles: [],
+			excluded_mos: ['11B'],
+			excluded_ranks: ['PVT'],
 			color: '#000000',
 			sort_order: 3,
 			expiration_date_only: true,
@@ -228,7 +273,12 @@ describe('TrainingTypeEntity', () => {
 			expirationMonths: 12,
 			warningDaysYellow: 60,
 			warningDaysOrange: 30,
-			requiredForRoles: ['medic'],
+			appliesToRoles: ['medic'],
+			appliesToMos: ['68W'],
+			appliesToRanks: ['SGT'],
+			excludedRoles: [],
+			excludedMos: [],
+			excludedRanks: [],
 			color: '#fff',
 			sortOrder: 1,
 			expirationDateOnly: true,

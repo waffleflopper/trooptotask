@@ -7,6 +7,7 @@ export { trainingTypesStore } from './stores/trainingTypes.svelte';
 export { personnelTrainingsStore } from './stores/personnelTrainings.svelte';
 
 // Utils
+export { isTrainingApplicable } from './utils/applicability';
 export {
 	calculateExpirationDate,
 	getTrainingStatus,

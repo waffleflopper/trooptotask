@@ -2,6 +2,7 @@ import type { Personnel } from '$lib/types';
 import type { TrainingType, PersonnelTraining, TrainingStatus } from '$features/training/training.types';
 import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
 import { formatDate } from '$lib/utils/dates';
+import { isTrainingApplicable } from './applicability';
 
 export interface TrainingStatusInfo {
 	status: TrainingStatus;
@@ -22,9 +23,7 @@ export function getTrainingStatus(
 	type: TrainingType,
 	person: Personnel
 ): TrainingStatusInfo {
-	// Check if this training is required for the person's role
-	// '*' means required for all roles, [] means optional for all
-	const isRequired = type.requiredForRoles.includes('*') || type.requiredForRoles.includes(person.clinicRole);
+	const isRequired = isTrainingApplicable(type, person);
 
 	// Check exemption before other status checks
 	if (type.canBeExempted && type.exemptPersonnelIds.includes(person.id)) {

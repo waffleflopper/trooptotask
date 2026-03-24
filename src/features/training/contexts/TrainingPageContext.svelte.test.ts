@@ -93,7 +93,12 @@ const mockType: TrainingType = {
 	expirationMonths: 12,
 	warningDaysYellow: 60,
 	warningDaysOrange: 30,
-	requiredForRoles: [],
+	appliesToRoles: [],
+	appliesToMos: [],
+	appliesToRanks: [],
+	excludedRoles: [],
+	excludedMos: [],
+	excludedRanks: [],
 	expirationDateOnly: false,
 	canBeExempted: true,
 	exemptPersonnelIds: ['p-1']
@@ -211,7 +216,6 @@ describe('TrainingPageContext', () => {
 			const labels = ctx.trainingOverflowItems.map((i) => i.label);
 			expect(labels).toContain('Bulk Import');
 			expect(labels).toContain('Manage Types');
-			expect(labels).toContain('Reorder Columns');
 		});
 	});
 

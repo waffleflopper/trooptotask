@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
 import { env } from '$env/dynamic/private';
-import { notifyAdmins } from '$lib/server/notifications';
+import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
 
 export const GET: RequestHandler = async ({ request }) => {
 	const authHeader = request.headers.get('authorization');
@@ -65,7 +65,7 @@ export const GET: RequestHandler = async ({ request }) => {
 	// Create notifications for org admins/owners
 	for (const [orgId, people] of byOrg.entries()) {
 		const nameList = people.map((p) => p.name).join(', ');
-		await notifyAdmins(orgId, null, {
+		await createSupabaseNotificationAdapter().notifyAdmins(orgId, null, {
 			type: 'archive_auto_deleted',
 			title: 'Archived Personnel Auto-Deleted',
 			message: `${people.length} archived personnel auto-deleted after retention period: ${nameList}`

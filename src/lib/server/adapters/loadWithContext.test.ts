@@ -4,7 +4,8 @@ import {
 	createTestAuthContext,
 	createTestAuditPort,
 	createTestReadOnlyGuard,
-	createTestSubscriptionPort
+	createTestSubscriptionPort,
+	createTestNotificationPort
 } from './inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadWithContextCore } from './httpAdapter';
@@ -17,7 +18,8 @@ function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[
 		auth: createTestAuthContext(overrides?.auth),
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort()
+		subscription: createTestSubscriptionPort(),
+		notifications: createTestNotificationPort()
 	};
 }
 

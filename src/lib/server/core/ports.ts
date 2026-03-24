@@ -93,6 +93,20 @@ export interface SubscriptionPort {
 	invalidateTierCache(): void;
 }
 
+/** Notification payload for user/admin notifications */
+export interface NotificationPayload {
+	type: string;
+	title: string;
+	message: string;
+	link?: string | null;
+}
+
+/** Abstracts notification delivery — business logic never imports Supabase notifications */
+export interface NotificationPort {
+	notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void>;
+	notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void>;
+}
+
 /** Combined context for all use cases */
 export interface UseCaseContext {
 	store: DataStore;
@@ -100,6 +114,7 @@ export interface UseCaseContext {
 	audit: AuditPort;
 	readOnlyGuard: ReadOnlyGuard;
 	subscription: SubscriptionPort;
+	notifications: NotificationPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;
 }

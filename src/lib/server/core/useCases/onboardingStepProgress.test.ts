@@ -4,7 +4,8 @@ import {
 	createTestAuthContext,
 	createTestAuditPort,
 	createTestReadOnlyGuard,
-	createTestSubscriptionPort
+	createTestSubscriptionPort,
+	createTestNotificationPort
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import {
@@ -28,7 +29,16 @@ function buildContext(overrides?: { readOnly?: boolean }): TestContext {
 	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
 
 	const subscription = createTestSubscriptionPort();
-	return { store, rawStore: store, auth, audit: auditPort, readOnlyGuard, subscription, auditPort };
+	return {
+		store,
+		rawStore: store,
+		auth,
+		audit: auditPort,
+		readOnlyGuard,
+		subscription,
+		auditPort,
+		notifications: createTestNotificationPort()
+	};
 }
 
 function seedStep(ctx: TestContext, overrides?: Record<string, unknown>) {

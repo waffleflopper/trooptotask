@@ -6,6 +6,8 @@ import type {
 	AuditPort,
 	ReadOnlyGuard,
 	SubscriptionPort,
+	NotificationPort,
+	NotificationPayload,
 	UseCaseContext
 } from '../core/ports';
 
@@ -243,6 +245,27 @@ export function createTestReadOnlyGuard(isReadOnly = false): ReadOnlyGuard {
 	};
 }
 
+interface RecordedNotification {
+	target: 'user' | 'admins';
+	orgId: string;
+	userId?: string;
+	excludeUserId?: string | null;
+	notification: NotificationPayload;
+}
+
+export function createTestNotificationPort(): NotificationPort & { notifications: RecordedNotification[] } {
+	const notifications: RecordedNotification[] = [];
+	return {
+		notifications,
+		async notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void> {
+			notifications.push({ target: 'user', orgId, userId, notification });
+		},
+		async notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void> {
+			notifications.push({ target: 'admins', orgId, excludeUserId, notification });
+		}
+	};
+}
+
 /** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
 export function createTestContext(overrides?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
@@ -253,10 +276,12 @@ export function createTestContext(overrides?: {
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
 	auditPort: ReturnType<typeof createTestAuditPort>;
 	subscription: ReturnType<typeof createTestSubscriptionPort>;
+	notificationPort: ReturnType<typeof createTestNotificationPort>;
 } {
 	const store = createInMemoryDataStore();
 	const auditPort = createTestAuditPort();
 	const subscription = createTestSubscriptionPort(overrides?.subscriptionAllowed ?? true);
+	const notificationPort = createTestNotificationPort();
 	return {
 		store,
 		rawStore: store,
@@ -264,7 +289,9 @@ export function createTestContext(overrides?: {
 		audit: auditPort,
 		auditPort,
 		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
-		subscription
+		subscription,
+		notifications: notificationPort,
+		notificationPort
 	};
 }
 

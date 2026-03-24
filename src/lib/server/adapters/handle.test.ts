@@ -5,7 +5,8 @@ import {
 	createTestAuthContext,
 	createTestAuditPort,
 	createTestReadOnlyGuard,
-	createTestSubscriptionPort
+	createTestSubscriptionPort,
+	createTestNotificationPort
 } from './inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { handleUseCaseRequest, type RouteConfig } from './httpAdapter';
@@ -35,7 +36,8 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 		auth: t.auth,
 		audit: t.auditPort,
 		readOnlyGuard: t.readOnlyGuard,
-		subscription: createTestSubscriptionPort()
+		subscription: createTestSubscriptionPort(),
+		notifications: createTestNotificationPort()
 	};
 }
 

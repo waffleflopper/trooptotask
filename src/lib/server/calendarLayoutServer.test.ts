@@ -41,6 +41,7 @@ vi.mock('$lib/server/supabase', () => ({
 vi.mock('$lib/server/adapters/httpAdapter', () => ({
 	buildLayoutContext: vi.fn().mockResolvedValue({
 		store: {},
+		rawStore: {},
 		auth: { orgId: ORG_ID },
 		audit: { log() {} },
 		readOnlyGuard: { check: () => false }

@@ -3,7 +3,6 @@ import type { RequestHandler } from './$types';
 import { isPlatformAdmin, validateSearchQuery } from '$lib/server/admin';
 import { sanitizeString } from '$lib/server/validation';
 import { getAdminClient } from '$lib/server/supabase';
-import { queryPersonnel } from '$lib/server/personnelRepository';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	const { user, supabase } = locals;
@@ -50,12 +49,11 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	const orgResults = await Promise.all(
 		(orgs ?? []).map(async (org) => {
-			const { count } = await queryPersonnel({
-				supabase: adminClient,
-				orgId: org.id,
-				headOnly: true,
-				count: 'exact'
-			});
+			const { count } = await adminClient
+				.from('personnel')
+				.select('*', { count: 'exact', head: true })
+				.eq('organization_id', org.id)
+				.is('archived_at', null);
 			return {
 				id: org.id,
 				name: org.name,

@@ -5,7 +5,6 @@ import { getAdminClient } from '$lib/server/supabase';
 import { auditLog, getRequestInfo } from '$lib/server/auditLog';
 import { validateUUID } from '$lib/server/validation';
 import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
-import { queryPersonnel } from '$lib/server/personnelRepository';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 
@@ -49,12 +48,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	);
 
 	// Active personnel count (excluding archived)
-	const { count: personnelCount } = await queryPersonnel({
-		supabase: adminClient,
-		orgId,
-		headOnly: true,
-		count: 'exact'
-	});
+	const { count: personnelCount } = await adminClient
+		.from('personnel')
+		.select('*', { count: 'exact', head: true })
+		.eq('organization_id', orgId)
+		.is('archived_at', null);
 
 	// Last 10 audit events for this org
 	const { data: auditEvents } = await adminClient

@@ -3,9 +3,9 @@
  * Creates typed repositories for org-scoped database tables.
  * Used internally by defineEntity() to create .repo on each entity. See #252.
  */
-import type { QueryModifier } from './personnelRepository';
-
-export type { QueryModifier };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase query builder type is complex and varies by context
+type SupabaseQuery = any;
+export type QueryModifier = (query: SupabaseQuery) => SupabaseQuery;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type varies based on auth context
 type SupabaseClient = any;

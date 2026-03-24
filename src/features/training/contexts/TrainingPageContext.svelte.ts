@@ -1,5 +1,5 @@
 import { SvelteSet } from 'svelte/reactivity';
-import { invalidate } from '$app/navigation';
+import { invalidate, goto } from '$app/navigation';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
@@ -130,13 +130,7 @@ export class TrainingPageContext {
 			});
 			items.push({
 				label: 'Manage Types',
-				onclick: () => this.#modals.open('type-manager'),
-				disabled: this.readOnly
-			});
-			items.push({
-				label: 'Reorder Columns',
-				onclick: () => this.#modals.open('type-reorder'),
-				disabled: this.readOnly
+				onclick: () => goto(`/org/${this.orgId}/training/types`)
 			});
 		}
 		return items;

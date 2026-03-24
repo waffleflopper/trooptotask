@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
@@ -22,9 +23,7 @@
 		<button class="btn btn-sm" onclick={() => modals.open('sign-in-rosters')}> Sign-In Rosters </button>
 		<button class="btn btn-sm" onclick={() => modals.open('reports')}> Reports </button>
 		{#if ctx.canManageConfig}
-			<button class="btn btn-sm" onclick={() => modals.open('type-manager')} disabled={ctx.readOnly}>
-				Manage Types
-			</button>
+			<a href={`/org/${ctx.orgId}/training/types`} class="btn btn-sm"> Manage Types </a>
 		{/if}
 		{#if ctx.readOnly}
 			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
@@ -101,7 +100,7 @@
 				<EmptyState
 					message="No training types defined yet."
 					actionLabel={ctx.canEditTraining ? 'Manage Types' : undefined}
-					onAction={ctx.canEditTraining ? () => modals.open('type-manager') : undefined}
+					onAction={ctx.canEditTraining ? () => goto(`/org/${ctx.orgId}/training/types`) : undefined}
 				/>
 			{:else if ctx.filteredPersonnel.length === 0}
 				<EmptyState message="No personnel found." />

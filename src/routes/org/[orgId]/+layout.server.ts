@@ -3,7 +3,9 @@ import type { LayoutServerLoad } from './$types';
 import { isFullEditor, type OrganizationMemberPermissions } from '$lib/types';
 import { getSupabaseClient } from '$lib/server/supabase';
 import { getEffectiveTier } from '$lib/server/subscription';
-import { fetchSharedData } from '$lib/server/sharedData';
+import { fetchSharedData } from '$lib/server/core/useCases/sharedDataQuery';
+import { buildLayoutContext } from '$lib/server/adapters/httpAdapter';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 
 export const load: LayoutServerLoad = async ({ params, locals, cookies, depends }) => {
 	depends('app:org-core');
@@ -55,10 +57,36 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			canManageMembers: false
 		};
 
-		const [shared, effectiveTier] = await Promise.all([
-			fetchSharedData(supabase, orgId, null),
-			getEffectiveTier(supabase, orgId)
-		]);
+		const demoStore = createSupabaseDataStore(supabase);
+		const demoCtx = {
+			store: demoStore,
+			rawStore: demoStore,
+			auth: {
+				userId: null,
+				orgId,
+				role: 'member' as const,
+				isPrivileged: false,
+				isFullEditor: false,
+				scopedGroupId: null,
+				requireEdit() {},
+				requireView() {},
+				requirePrivileged() {},
+				requireOwner() {},
+				requireFullEditor() {},
+				requireManageMembers() {},
+				async requireGroupAccess() {},
+				async requireGroupAccessBatch() {},
+				async requireGroupAccessByRecord() {}
+			},
+			audit: { log() {} },
+			readOnlyGuard: {
+				async check() {
+					return false;
+				}
+			}
+		};
+
+		const [shared, effectiveTier] = await Promise.all([fetchSharedData(demoCtx), getEffectiveTier(supabase, orgId)]);
 
 		return {
 			orgId,
@@ -99,8 +127,9 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					canManageMembers: true
 				};
 
+				const sandboxCtx = await buildLayoutContext(locals, cookies, orgId);
 				const [shared, effectiveTier] = await Promise.all([
-					fetchSharedData(supabase, orgId, null),
+					fetchSharedData(sandboxCtx),
 					getEffectiveTier(supabase, orgId)
 				]);
 
@@ -191,7 +220,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 
 	const fullEditor = !isPrivileged && !scopedGroupId && isFullEditor(permissions);
 
-	const shared = await fetchSharedData(supabase, orgId, scopedGroupId);
+	const ctx = await buildLayoutContext(locals, cookies, orgId);
+	const shared = await fetchSharedData(ctx);
 
 	// Filter out dismissed announcements
 	const dismissedIds = new Set((dismissalsRes.data ?? []).map((d: Record<string, unknown>) => d.announcement_id));

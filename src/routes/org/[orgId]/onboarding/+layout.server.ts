@@ -42,7 +42,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, parent, 
 		const auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
 		const audit = createSupabaseAuditAdapter(orgId, { userId, ip: '127.0.0.1', userAgent: 'server' });
 		const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
-		const ctx = { store, auth, audit, readOnlyGuard };
+		const ctx = { store, rawStore: store, auth, audit, readOnlyGuard };
 
 		// Refresh training steps for all active onboardings with training steps
 		const refreshResults = await Promise.all(

@@ -36,6 +36,8 @@ interface BuildAdminContextParams {
 	lookupRole: (userId: string) => Promise<AdminRole | null>;
 	requestInfo: { userId: string | null; ip: string; userAgent: string };
 	requiredPage?: string;
+	/** Override for tests — avoids calling getAdminClient() which needs real env vars */
+	adminClient?: SupabaseClient;
 }
 
 export async function buildAdminContextCore(params: BuildAdminContextParams): Promise<AdminContext> {
@@ -51,7 +53,7 @@ export async function buildAdminContextCore(params: BuildAdminContextParams): Pr
 	const reqInfo = params.requestInfo;
 	return {
 		adminUser: { id: params.userId, role },
-		adminClient: getAdminClient(),
+		adminClient: params.adminClient ?? getAdminClient(),
 		audit(event) {
 			auditLog(event, reqInfo);
 		}

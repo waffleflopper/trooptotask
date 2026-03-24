@@ -1,6 +1,5 @@
 import { handle } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import { notifyAdmins } from '$lib/server/notifications';
 
 export const DELETE = handle<Record<string, unknown>, unknown>({
 	permission: 'privileged',
@@ -30,7 +29,7 @@ export const DELETE = handle<Record<string, unknown>, unknown>({
 			details: { name: personName }
 		});
 
-		await notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
+		await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 			type: 'personnel_permanently_deleted',
 			title: 'Personnel Permanently Deleted',
 			message: `Personnel "${personName}" was permanently deleted.`

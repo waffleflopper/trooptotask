@@ -92,6 +92,10 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					return null;
 				},
 				invalidateTierCache() {}
+			},
+			notifications: {
+				async notifyUser() {},
+				async notifyAdmins() {}
 			}
 		};
 

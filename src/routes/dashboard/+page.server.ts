@@ -1,7 +1,7 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { PERMISSION_PRESETS } from '$lib/types';
-import { notifyAdmins } from '$lib/server/notifications';
+import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const user = locals.user;
@@ -133,7 +133,7 @@ export const actions: Actions = {
 		// Delete the invitation
 		await locals.supabase.from('organization_invitations').delete().eq('id', invitationId);
 
-		await notifyAdmins(invitation.organization_id, user.id, {
+		await createSupabaseNotificationAdapter().notifyAdmins(invitation.organization_id, user.id, {
 			type: 'member_joined',
 			title: 'New Member Joined',
 			message: `"${user.email}" has joined the organization.`,

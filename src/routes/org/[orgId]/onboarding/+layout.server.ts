@@ -7,6 +7,7 @@ import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore'
 import { createSupabaseReadOnlyGuard } from '$lib/server/adapters/supabaseReadOnlyGuard';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import { createSupabaseAuditAdapter } from '$lib/server/adapters/supabaseAudit';
+import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
 import { createSupabaseAuthContextAdapter } from '$lib/server/adapters/supabaseAuthContext';
 import { createPermissionContext } from '$lib/server/permissionContext';
 import { refreshTrainingSteps } from '$lib/server/core/useCases/onboardingStepProgress';
@@ -44,7 +45,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, parent, 
 		const audit = createSupabaseAuditAdapter(orgId, { userId, ip: '127.0.0.1', userAgent: 'server' });
 		const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
 		const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
-		const ctx = { store, rawStore: store, auth, audit, readOnlyGuard, subscription };
+		const notifications = createSupabaseNotificationAdapter();
+		const ctx = { store, rawStore: store, auth, audit, readOnlyGuard, subscription, notifications };
 
 		// Refresh training steps for all active onboardings with training steps
 		const refreshResults = await Promise.all(

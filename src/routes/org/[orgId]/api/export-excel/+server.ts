@@ -6,7 +6,6 @@ import { isBillingEnabled } from '$lib/config/billing';
 import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscription';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import ExcelJS from 'exceljs';
-import { notifyAdmins } from '$lib/server/notifications';
 import { queryPersonnel } from '$lib/server/personnelRepository';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -391,7 +390,7 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 
 			ctx.audit.log({ action: 'export.excel_created', resourceType: 'data_export' });
 
-			await notifyAdmins(orgId, userId, {
+			await ctx.notifications.notifyAdmins(orgId, userId, {
 				type: 'bulk_data_exported',
 				title: 'Data Exported',
 				message: `"${input._email ?? 'A user'}" exported organization data.`

@@ -7,7 +7,7 @@ import { TIER_CONFIG } from '$lib/types/subscription';
 import { createPermissionContext } from '$lib/server/permissionContext';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
 import { auditLog } from '$lib/server/auditLog';
-import { notifyUser, notifyAdmins } from '$lib/server/notifications';
+import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	const { orgId, orgName, userRole, permissions: _permissions, allOrgs, isAdmin, groups: _groups } = await parent();
@@ -189,7 +189,7 @@ export const actions: Actions = {
 
 		auditLog({ action: 'member.invite', resourceType: 'organization', orgId, details: { email } }, { userId: user.id });
 
-		await notifyAdmins(orgId, user.id, {
+		await createSupabaseNotificationAdapter().notifyAdmins(orgId, user.id, {
 			type: 'member_invited',
 			title: 'Member Invited',
 			message: `"${user.email}" invited "${email}" to the organization.`,
@@ -270,13 +270,13 @@ export const actions: Actions = {
 		if (membership?.user_id) {
 			const { data: org } = await locals.supabase.from('organizations').select('name').eq('id', orgId).single();
 
-			await notifyUser(orgId, membership.user_id, {
+			await createSupabaseNotificationAdapter().notifyUser(orgId, membership.user_id, {
 				type: 'member_removed',
 				title: 'Removed from Organization',
 				message: `You have been removed from "${org?.name ?? 'the organization'}".`
 			});
 
-			await notifyAdmins(orgId, user.id, {
+			await createSupabaseNotificationAdapter().notifyAdmins(orgId, user.id, {
 				type: 'member_removed',
 				title: 'Member Removed',
 				message: `"${user.email}" removed "${membership.email}" from the organization.`,
@@ -401,13 +401,13 @@ export const actions: Actions = {
 
 		if (targetMembership?.user_id && targetMembership.user_id !== user.id) {
 			if (oldRole !== newRole) {
-				await notifyUser(orgId, targetMembership.user_id, {
+				await createSupabaseNotificationAdapter().notifyUser(orgId, targetMembership.user_id, {
 					type: 'member_role_changed',
 					title: 'Role Updated',
 					message: `Your role in "${orgName}" has been changed to ${newRole}.`
 				});
 			} else {
-				await notifyUser(orgId, targetMembership.user_id, {
+				await createSupabaseNotificationAdapter().notifyUser(orgId, targetMembership.user_id, {
 					type: 'member_permissions_changed',
 					title: 'Permissions Updated',
 					message: `Your permissions in "${orgName}" have been updated.`
@@ -455,7 +455,7 @@ export const actions: Actions = {
 
 		const { data: transferOrg } = await locals.supabase.from('organizations').select('name').eq('id', orgId).single();
 
-		await notifyUser(orgId, newOwnerId, {
+		await createSupabaseNotificationAdapter().notifyUser(orgId, newOwnerId, {
 			type: 'ownership_transferred',
 			title: 'Ownership Transferred',
 			message: `You are now the owner of "${transferOrg?.name ?? 'the organization'}".`,

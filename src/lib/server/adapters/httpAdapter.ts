@@ -12,6 +12,7 @@ import { createSupabaseReadOnlyGuard } from './supabaseReadOnlyGuard';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
+import { createSupabaseNotificationAdapter } from './supabaseNotification';
 import type { UseCaseContext, FeatureArea } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
@@ -45,9 +46,10 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	}
 
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
+	const notifications = createSupabaseNotificationAdapter();
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
 	return {
-		ctx: { store: scopedStore, auth, audit, readOnlyGuard, subscription, rawStore: store },
+		ctx: { store: scopedStore, auth, audit, readOnlyGuard, subscription, notifications, rawStore: store },
 		supabase,
 		isSandbox
 	};
@@ -83,8 +85,9 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	}
 
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
+	const notifications = createSupabaseNotificationAdapter();
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
-	return { store: scopedStore, auth, audit, readOnlyGuard, subscription, rawStore: store };
+	return { store: scopedStore, auth, audit, readOnlyGuard, subscription, notifications, rawStore: store };
 }
 
 function rethrowOrWrap(err: unknown): never {

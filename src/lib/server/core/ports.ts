@@ -1,8 +1,6 @@
-import type { FeatureArea } from '../permissionContext';
 import type { EffectiveTier } from '$lib/types/subscription';
 
-// Re-export for convenience so consumers don't need two imports
-export type { FeatureArea };
+export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'onboarding' | 'leaders-book';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -15,6 +13,8 @@ export interface FindOptions {
 	isNull?: Record<string, boolean>;
 	/** Range filters for date/numeric queries */
 	rangeFilters?: Array<{ column: string; op: 'gte' | 'lte' | 'gt' | 'lt'; value: string }>;
+	/** Case-insensitive LIKE filters: { title: '%search%' } */
+	ilikeFilters?: Record<string, string>;
 	/** Pagination range (0-indexed, inclusive) */
 	range?: { from: number; to: number };
 	/** Count mode — used by findManyWithCount */

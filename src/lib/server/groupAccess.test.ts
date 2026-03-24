@@ -3,8 +3,25 @@ import {
 	isGroupAccessAllowed,
 	enforceGroupAccess,
 	enforceGroupAccessBatch,
-	createInMemoryGroupResolver
+	type PersonnelGroupResolver
 } from './groupAccess';
+
+function createTestResolver(groups: Record<string, string | null>): PersonnelGroupResolver {
+	return {
+		async getGroupId(personnelId: string) {
+			return personnelId in groups ? groups[personnelId] : null;
+		},
+		async getGroupIds(personnelIds: string[]) {
+			const result = new Map<string, string | null>();
+			for (const id of personnelIds) {
+				if (id in groups) {
+					result.set(id, groups[id]);
+				}
+			}
+			return result;
+		}
+	};
+}
 
 // SvelteKit's error() throws an HttpError with status + body.message
 function expectHttpError(e: unknown): { status: number; message: string } {
@@ -32,12 +49,12 @@ describe('isGroupAccessAllowed', () => {
 
 describe('enforceGroupAccess', () => {
 	it('no-ops when scopedGroupId is null (org-wide user)', async () => {
-		const resolver = createInMemoryGroupResolver({ 'person-1': 'group-b' });
+		const resolver = createTestResolver({ 'person-1': 'group-b' });
 		await expect(enforceGroupAccess(resolver, null, 'person-1')).resolves.toBeUndefined();
 	});
 
 	it('throws 403 when personnel is in a different group', async () => {
-		const resolver = createInMemoryGroupResolver({ 'person-1': 'group-b' });
+		const resolver = createTestResolver({ 'person-1': 'group-b' });
 		try {
 			await enforceGroupAccess(resolver, 'group-a', 'person-1');
 			expect.unreachable('should have thrown');
@@ -49,24 +66,24 @@ describe('enforceGroupAccess', () => {
 	});
 
 	it('allows when personnel is not found in resolver (graceful)', async () => {
-		const resolver = createInMemoryGroupResolver({});
+		const resolver = createTestResolver({});
 		await expect(enforceGroupAccess(resolver, 'group-a', 'unknown-person')).resolves.toBeUndefined();
 	});
 });
 
 describe('enforceGroupAccessBatch', () => {
 	it('no-ops when scopedGroupId is null', async () => {
-		const resolver = createInMemoryGroupResolver({ 'p-1': 'group-b', 'p-2': 'group-c' });
+		const resolver = createTestResolver({ 'p-1': 'group-b', 'p-2': 'group-c' });
 		await expect(enforceGroupAccessBatch(resolver, null, ['p-1', 'p-2'])).resolves.toBeUndefined();
 	});
 
 	it('passes when all personnel are in the scoped group', async () => {
-		const resolver = createInMemoryGroupResolver({ 'p-1': 'group-a', 'p-2': 'group-a' });
+		const resolver = createTestResolver({ 'p-1': 'group-a', 'p-2': 'group-a' });
 		await expect(enforceGroupAccessBatch(resolver, 'group-a', ['p-1', 'p-2'])).resolves.toBeUndefined();
 	});
 
 	it('throws 403 when any personnel is in a different group', async () => {
-		const resolver = createInMemoryGroupResolver({ 'p-1': 'group-a', 'p-2': 'group-b' });
+		const resolver = createTestResolver({ 'p-1': 'group-a', 'p-2': 'group-b' });
 		try {
 			await enforceGroupAccessBatch(resolver, 'group-a', ['p-1', 'p-2']);
 			expect.unreachable('should have thrown');

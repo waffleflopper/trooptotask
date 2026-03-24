@@ -159,10 +159,4 @@ describe('PersonnelTrainingEntity', () => {
 	it('has groupScope none', () => {
 		expect(PersonnelTrainingEntity.groupScope).toBe('none');
 	});
-
-	it('has repo', () => {
-		expect(PersonnelTrainingEntity.repo).toBeDefined();
-		expect(PersonnelTrainingEntity.repo.list).toBeDefined();
-		expect(PersonnelTrainingEntity.repo.query).toBeDefined();
-	});
 });

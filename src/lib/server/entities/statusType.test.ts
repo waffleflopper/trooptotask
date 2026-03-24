@@ -88,9 +88,4 @@ describe('StatusTypeEntity', () => {
 	it('has table set to status_types', () => {
 		expect(StatusTypeEntity.table).toBe('status_types');
 	});
-
-	it('has repo for data access', () => {
-		expect(StatusTypeEntity.repo).toBeDefined();
-		expect(typeof StatusTypeEntity.repo.list).toBe('function');
-	});
 });

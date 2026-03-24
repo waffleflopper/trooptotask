@@ -71,10 +71,4 @@ describe('DailyAssignmentEntity', () => {
 	it('has groupScope none', () => {
 		expect(DailyAssignmentEntity.groupScope).toBe('none');
 	});
-
-	it('has repo', () => {
-		expect(DailyAssignmentEntity.repo).toBeDefined();
-		expect(DailyAssignmentEntity.repo.list).toBeDefined();
-		expect(DailyAssignmentEntity.repo.query).toBeDefined();
-	});
 });

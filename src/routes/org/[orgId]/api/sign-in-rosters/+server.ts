@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import { getApiContext } from '$lib/server/supabase';
+import type { FindOptions } from '$lib/server/core/ports';
 
 function toClient(r: Record<string, unknown>) {
 	return {
@@ -23,10 +23,7 @@ function toClient(r: Record<string, unknown>) {
 export const GET = handle<Record<string, unknown>, unknown>({
 	permission: 'personnel',
 	parseInput: (event: RequestEvent) => {
-		const { supabase } = getApiContext(event.locals, event.cookies, event.params.orgId as string);
 		return {
-			_supabase: supabase,
-			_orgId: event.params.orgId as string,
 			title: event.url.searchParams.get('title') || '',
 			from: event.url.searchParams.get('from'),
 			to: event.url.searchParams.get('to'),
@@ -34,27 +31,33 @@ export const GET = handle<Record<string, unknown>, unknown>({
 			offset: parseInt(event.url.searchParams.get('offset') || '0')
 		};
 	},
-	fn: async (_ctx, input) => {
-		// Uses raw supabase for ilike text search + count pagination
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const supabase = input._supabase as any;
-		const orgId = input._orgId as string;
+	fn: async (ctx, input) => {
+		const limit = input.limit as number;
+		const offset = input.offset as number;
 
-		let query = supabase
-			.from('sign_in_rosters')
-			.select('*', { count: 'exact' })
-			.eq('organization_id', orgId)
-			.order('created_at', { ascending: false })
-			.range(input.offset, (input.offset as number) + (input.limit as number) - 1);
+		const options: FindOptions = {
+			orderBy: [{ column: 'created_at', ascending: false }],
+			range: { from: offset, to: offset + limit - 1 },
+			count: 'exact'
+		};
 
-		if (input.title) query = query.ilike('title', `%${input.title}%`);
-		if (input.from) query = query.gte('created_at', input.from);
-		if (input.to) query = query.lte('created_at', input.to + 'T23:59:59.999Z');
+		if (input.title) {
+			options.ilikeFilters = { title: `%${input.title}%` };
+		}
 
-		const { data, error: dbError, count } = await query;
-		if (dbError) fail(500, dbError.message);
+		const rangeFilters: FindOptions['rangeFilters'] = [];
+		if (input.from) rangeFilters.push({ column: 'created_at', op: 'gte', value: input.from as string });
+		if (input.to) rangeFilters.push({ column: 'created_at', op: 'lte', value: input.to + 'T23:59:59.999Z' });
+		if (rangeFilters.length) options.rangeFilters = rangeFilters;
 
-		return { rosters: (data || []).map(toClient), total: count ?? 0 };
+		const { data, count } = await ctx.store.findManyWithCount<Record<string, unknown>>(
+			'sign_in_rosters',
+			ctx.auth.orgId,
+			undefined,
+			options
+		);
+
+		return { rosters: data.map(toClient), total: count ?? 0 };
 	}
 });
 

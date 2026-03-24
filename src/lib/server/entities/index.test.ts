@@ -46,7 +46,6 @@ describe('entities barrel export', () => {
 		for (const entity of allEntities) {
 			expect(entity.fromDb).toBeTypeOf('function');
 			expect(entity.fromDbArray).toBeTypeOf('function');
-			expect(entity.repo).toBeDefined();
 			expect(entity.table).toBeTypeOf('string');
 		}
 	});

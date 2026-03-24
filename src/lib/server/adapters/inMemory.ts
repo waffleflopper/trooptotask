@@ -50,6 +50,14 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			}
 		}
 
+		if (options?.ilikeFilters) {
+			for (const [key, pattern] of Object.entries(options.ilikeFilters)) {
+				// Convert SQL LIKE pattern to regex: % = .*, _ = .
+				const regex = new RegExp('^' + pattern.replace(/%/g, '.*').replace(/_/g, '.') + '$', 'i');
+				results = results.filter((row) => typeof row[key] === 'string' && regex.test(row[key] as string));
+			}
+		}
+
 		if (options?.rangeFilters) {
 			for (const { column, op, value } of options.rangeFilters) {
 				results = results.filter((row) => {

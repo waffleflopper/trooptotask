@@ -1,8 +1,9 @@
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { FeatureArea } from './core/ports';
 import { createSupabaseGroupResolver, enforceGroupAccess, enforceGroupAccessBatch } from './groupAccess';
 
-export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'onboarding' | 'leaders-book';
+export type { FeatureArea };
 
 export interface PermissionContext {
 	readonly role: 'owner' | 'admin' | 'member';

@@ -1,32 +1,32 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import { getApiContext, getAdminClient } from '$lib/server/supabase';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import ExcelJS from 'exceljs';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseClient = any;
+interface ExcelExportInput {
+	email: string | undefined;
+}
 
-export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
+interface ExcelExportOutput {
+	_rateLimited?: boolean;
+	error?: string;
+	_buffer?: ArrayBuffer;
+	_filename?: string;
+}
+
+export const POST = handle<ExcelExportInput, ExcelExportOutput>({
 	permission: 'manageMembers',
 	mutation: true,
-	parseInput: (event: RequestEvent) => {
-		const { supabase, userId, isSandbox } = getApiContext(event.locals, event.cookies, event.params.orgId as string);
-		return {
-			_supabase: supabase,
-			_userId: userId,
-			_isSandbox: isSandbox,
-			_email: event.locals.user?.email
-		};
-	},
+	parseInput: (event: RequestEvent) => ({
+		email: event.locals.user?.email
+	}),
 	fn: async (ctx, input) => {
-		const supabase = input._supabase as SupabaseClient;
-		const userId = input._userId as string;
 		const orgId = ctx.auth.orgId;
+		const userId = ctx.auth.userId;
 
-		if (input._isSandbox) fail(403, 'Not available in sandbox mode');
+		if (!userId) fail(403, 'Not available in sandbox mode');
 
 		if (isBillingEnabled) {
 			const tier = await ctx.subscription.getEffectiveTier();
@@ -40,85 +40,80 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 			}
 		}
 
-		const { data: exportRecord, error: insertError } = await supabase
-			.from('data_exports')
-			.insert({ org_id: orgId, requested_by: userId, status: 'processing' })
-			.select()
-			.single();
-
-		if (insertError) fail(500, `Failed to create export record: ${insertError.message}`);
+		const exportRecord = await ctx.rawStore.insert<{ id: string }>('data_exports', orgId, {
+			org_id: orgId,
+			requested_by: userId,
+			status: 'processing'
+		});
 
 		try {
 			const [
-				personnelRes,
-				groupsRes,
-				availabilityRes,
-				trainingTypesRes,
-				personnelTrainingsRes,
-				statusTypesRes,
-				assignmentTypesRes,
-				dailyAssignmentsRes,
-				counselingTypesRes,
-				counselingRecordsRes,
-				specialDaysRes,
-				onboardingTemplateRes,
-				onboardingsRes,
-				ratingSchemeRes,
-				developmentGoalsRes,
-				personnelExtendedRes
+				personnel,
+				groups,
+				availabilityEntries,
+				trainingTypes,
+				personnelTrainings,
+				statusTypes,
+				assignmentTypes,
+				dailyAssignments,
+				counselingTypes,
+				counselingRecords,
+				specialDays,
+				onboardingTemplateSteps,
+				personnelOnboardings,
+				ratingSchemeEntries,
+				developmentGoals,
+				personnelExtendedInfo
 			] = await Promise.all([
-				ctx.rawStore
-					.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-						isNull: { archived_at: true }
-					})
-					.then((data) => ({ data, error: null })),
-				supabase.from('groups').select('*').eq('organization_id', orgId),
-				supabase.from('availability_entries').select('*').eq('organization_id', orgId),
-				supabase.from('training_types').select('*').eq('organization_id', orgId),
-				supabase.from('personnel_trainings').select('*').eq('organization_id', orgId),
-				supabase.from('status_types').select('*').eq('organization_id', orgId),
-				supabase.from('assignment_types').select('*').eq('organization_id', orgId),
-				supabase.from('daily_assignments').select('*').eq('organization_id', orgId),
-				supabase.from('counseling_types').select('*').eq('organization_id', orgId),
-				supabase.from('counseling_records').select('*').eq('organization_id', orgId),
-				supabase.from('special_days').select('*').eq('organization_id', orgId),
-				supabase.from('onboarding_template_steps').select('*').eq('organization_id', orgId),
-				supabase.from('personnel_onboardings').select('*').eq('organization_id', orgId),
-				supabase.from('rating_scheme_entries').select('*').eq('organization_id', orgId),
-				supabase.from('development_goals').select('*').eq('organization_id', orgId),
-				supabase.from('personnel_extended_info').select('*').eq('organization_id', orgId)
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+					isNull: { archived_at: true }
+				}),
+				ctx.rawStore.findMany<Record<string, unknown>>('groups', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('availability_entries', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('training_types', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel_trainings', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('assignment_types', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('daily_assignments', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('counseling_types', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('counseling_records', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('special_days', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('onboarding_template_steps', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel_onboardings', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('rating_scheme_entries', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('development_goals', orgId),
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId)
 			]);
 
-			const onboardingIds = (onboardingsRes.data ?? []).map((o: { id: string }) => o.id);
-			const onboardingProgressRes =
+			const onboardingIds = personnelOnboardings.map((o) => (o as { id: string }).id);
+			const onboardingProgress =
 				onboardingIds.length > 0
-					? await supabase.from('onboarding_step_progress').select('*').in('onboarding_id', onboardingIds)
-					: { data: [] };
+					? await ctx.rawStore.findMany<Record<string, unknown>>('onboarding_step_progress', orgId, undefined, {
+							inFilters: { onboarding_id: onboardingIds }
+						})
+					: [];
 
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const personnel = (personnelRes.data ?? []) as any[];
-			const groups = groupsRes.data ?? [];
-			const trainingTypes = trainingTypesRes.data ?? [];
-			const statusTypes = statusTypesRes.data ?? [];
-			const assignmentTypes = assignmentTypesRes.data ?? [];
-			const counselingTypes = counselingTypesRes.data ?? [];
-			const personnelExtended = personnelExtendedRes.data ?? [];
+			const personnelRows = personnel as any[];
 
 			const personnelMap = new Map<string, string>();
-			for (const p of personnel)
+			for (const p of personnelRows)
 				personnelMap.set(p.id, `${p.rank ?? ''} ${p.last_name ?? ''}, ${p.first_name ?? ''}`.trim());
 			const groupMap = new Map<string, string>();
-			for (const g of groups) groupMap.set(g.id, g.name);
+			for (const g of groups as { id: string; name: string }[]) groupMap.set(g.id, g.name);
 			const trainingTypeMap = new Map<string, string>();
-			for (const t of trainingTypes) trainingTypeMap.set(t.id, t.name);
+			for (const t of trainingTypes as { id: string; name: string }[]) trainingTypeMap.set(t.id, t.name);
 			const statusTypeMap = new Map<string, string>();
-			for (const s of statusTypes) statusTypeMap.set(s.id, s.name);
+			for (const s of statusTypes as { id: string; name: string }[]) statusTypeMap.set(s.id, s.name);
 			const assignmentTypeMap = new Map<string, string>();
-			for (const a of assignmentTypes) assignmentTypeMap.set(a.id, a.name);
+			for (const a of assignmentTypes as { id: string; name: string }[]) assignmentTypeMap.set(a.id, a.name);
 			const counselingTypeMap = new Map<string, string>();
-			for (const c of counselingTypes) counselingTypeMap.set(c.id, c.name);
+			for (const c of counselingTypes as { id: string; name: string }[]) counselingTypeMap.set(c.id, c.name);
 			const extendedMap = new Map<string, Record<string, unknown>>();
-			for (const e of personnelExtended) extendedMap.set(e.personnel_id, e);
+			for (const e of personnelExtendedInfo as (Record<string, unknown> & {
+				personnel_id: string;
+			})[])
+				extendedMap.set(e.personnel_id, e);
 
 			const workbook = new ExcelJS.Workbook();
 
@@ -137,7 +132,7 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 				{ header: 'Address', key: 'address', width: 35 },
 				{ header: 'Leader Notes', key: 'leader_notes', width: 30 }
 			];
-			for (const p of personnel) {
+			for (const p of personnelRows) {
 				const ext = extendedMap.get(p.id) as Record<string, unknown> | undefined;
 				personnelSheet.addRow({
 					rank: p.rank,
@@ -170,7 +165,7 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 			addMappedSheet(
 				workbook,
 				'Calendar',
-				availabilityRes.data ?? [],
+				availabilityEntries,
 				[
 					{ header: 'Person', key: 'person', width: 25 },
 					{ header: 'Status', key: 'status', width: 18 },
@@ -197,7 +192,7 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 			addMappedSheet(
 				workbook,
 				'Training Records',
-				personnelTrainingsRes.data ?? [],
+				personnelTrainings,
 				[
 					{ header: 'Person', key: 'person', width: 25 },
 					{ header: 'Training Type', key: 'training_type', width: 25 },
@@ -235,7 +230,7 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 			addMappedSheet(
 				workbook,
 				'Daily Assignments',
-				dailyAssignmentsRes.data ?? [],
+				dailyAssignments,
 				[
 					{ header: 'Date', key: 'date', width: 14 },
 					{ header: 'Person', key: 'person', width: 25 },
@@ -259,7 +254,7 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 			addMappedSheet(
 				workbook,
 				'Counseling Records',
-				counselingRecordsRes.data ?? [],
+				counselingRecords,
 				[
 					{ header: 'Person', key: 'person', width: 25 },
 					{ header: 'Type', key: 'type', width: 20 },
@@ -289,7 +284,7 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 					{ header: 'Name', key: 'name', width: 30 },
 					{ header: 'Type', key: 'type', width: 14 }
 				],
-				specialDaysRes.data ?? []
+				specialDays
 			);
 			addSimpleSheet(
 				workbook,
@@ -299,12 +294,12 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 					{ header: 'Description', key: 'description', width: 40 },
 					{ header: 'Order', key: 'sort_order', width: 10 }
 				],
-				onboardingTemplateRes.data ?? []
+				onboardingTemplateSteps
 			);
 			addMappedSheet(
 				workbook,
 				'Onboarding Progress',
-				onboardingsRes.data ?? [],
+				personnelOnboardings,
 				[
 					{ header: 'Person', key: 'person', width: 25 },
 					{ header: 'Status', key: 'status', width: 14 },
@@ -321,7 +316,7 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 			addMappedSheet(
 				workbook,
 				'Rating Scheme',
-				ratingSchemeRes.data ?? [],
+				ratingSchemeEntries,
 				[
 					{ header: 'Rated Person', key: 'person', width: 25 },
 					{ header: 'Eval Type', key: 'eval_type', width: 14 },
@@ -352,7 +347,7 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 			addMappedSheet(
 				workbook,
 				'Development Goals',
-				developmentGoalsRes.data ?? [],
+				developmentGoals,
 				[
 					{ header: 'Person', key: 'person', width: 25 },
 					{ header: 'Title', key: 'title', width: 30 },
@@ -377,50 +372,41 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 
 			const buffer = await workbook.xlsx.writeBuffer();
 
-			const adminClient = getAdminClient();
-			await adminClient
-				.from('data_exports')
-				.update({
-					status: 'completed',
-					completed_at: new Date().toISOString(),
-					file_size_bytes: (buffer as ArrayBuffer).byteLength
-				})
-				.eq('id', exportRecord.id);
+			await ctx.rawStore.update('data_exports', orgId, exportRecord.id, {
+				status: 'completed',
+				completed_at: new Date().toISOString(),
+				file_size_bytes: (buffer as ArrayBuffer).byteLength
+			});
 
 			ctx.audit.log({ action: 'export.excel_created', resourceType: 'data_export' });
 
 			await ctx.notifications.notifyAdmins(orgId, userId, {
 				type: 'bulk_data_exported',
 				title: 'Data Exported',
-				message: `"${input._email ?? 'A user'}" exported organization data.`
+				message: `"${input.email ?? 'A user'}" exported organization data.`
 			});
 
 			const dateStr = new Date().toISOString().split('T')[0];
-			return { _buffer: buffer, _filename: `org-export-${orgId}-${dateStr}.xlsx` };
+			return { _buffer: buffer as ArrayBuffer, _filename: `org-export-${orgId}-${dateStr}.xlsx` };
 		} catch (err) {
-			const adminClient = getAdminClient();
-			await adminClient
-				.from('data_exports')
-				.update({
-					status: 'failed',
-					completed_at: new Date().toISOString()
-				})
-				.eq('id', exportRecord.id);
+			await ctx.rawStore.update('data_exports', orgId, exportRecord.id, {
+				status: 'failed',
+				completed_at: new Date().toISOString()
+			});
 			throw err;
 		}
 	},
 	formatOutput: (result) => {
-		if ('_rateLimited' in result) {
-			return new Response(JSON.stringify({ error: (result as Record<string, unknown>).error }), {
+		if (result._rateLimited) {
+			return new Response(JSON.stringify({ error: result.error }), {
 				status: 429,
 				headers: { 'Content-Type': 'application/json' }
 			});
 		}
-		const r = result as Record<string, unknown>;
-		return new Response(r._buffer as ArrayBuffer, {
+		return new Response(result._buffer as ArrayBuffer, {
 			headers: {
 				'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-				'Content-Disposition': `attachment; filename="${r._filename}"`
+				'Content-Disposition': `attachment; filename="${result._filename}"`
 			}
 		});
 	}

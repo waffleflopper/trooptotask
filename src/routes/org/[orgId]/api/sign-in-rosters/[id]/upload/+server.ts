@@ -1,15 +1,16 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { handle } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import { getApiContext } from '$lib/server/supabase';
 
 export const GET = handle<Record<string, unknown>, unknown>({
 	permission: 'personnel',
-	parseInput: (event: RequestEvent) => {
-		const { supabase } = getApiContext(event.locals, event.cookies, event.params.orgId as string);
-		return { _supabase: supabase, rosterId: event.params.id as string };
-	},
+	parseInput: (event: RequestEvent) => ({
+		rosterId: event.params.id as string,
+		// Direct Supabase access needed for storage operations — no StoragePort exists yet
+		_supabaseStorage: event.locals.supabase as SupabaseClient
+	}),
 	fn: async (ctx, input) => {
 		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
 			id: input.rosterId as string
@@ -17,8 +18,7 @@ export const GET = handle<Record<string, unknown>, unknown>({
 
 		if (!roster?.signed_file_path) fail(404, 'No signed file found');
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const supabase = input._supabase as any;
+		const supabase = input._supabaseStorage as SupabaseClient;
 		const { data: signedUrl } = await supabase.storage
 			.from('counseling-files')
 			.createSignedUrl(roster.signed_file_path, 300);
@@ -33,14 +33,13 @@ export const POST = handle<Record<string, unknown>, unknown>({
 	permission: 'personnel',
 	mutation: true,
 	parseInput: async (event: RequestEvent) => {
-		const { supabase } = getApiContext(event.locals, event.cookies, event.params.orgId as string);
 		const formData = await event.request.formData();
 		const file = formData.get('file') as File;
 		return {
-			_supabase: supabase,
-			_orgId: event.params.orgId as string,
 			rosterId: event.params.id as string,
-			file
+			file,
+			// Direct Supabase access needed for storage operations — no StoragePort exists yet
+			_supabaseStorage: event.locals.supabase as SupabaseClient
 		};
 	},
 	fn: async (ctx, input) => {
@@ -53,8 +52,7 @@ export const POST = handle<Record<string, unknown>, unknown>({
 		const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
 		const storagePath = `${ctx.auth.orgId}/sign-in-rosters/${rosterId}/${sanitizedName}`;
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const supabase = input._supabase as any;
+		const supabase = input._supabaseStorage as SupabaseClient;
 		const { error: uploadError } = await supabase.storage
 			.from('counseling-files')
 			.upload(storagePath, file, { upsert: true });
@@ -79,10 +77,11 @@ export const POST = handle<Record<string, unknown>, unknown>({
 export const DELETE = handle<Record<string, unknown>, unknown>({
 	permission: 'personnel',
 	mutation: true,
-	parseInput: (event: RequestEvent) => {
-		const { supabase } = getApiContext(event.locals, event.cookies, event.params.orgId as string);
-		return { _supabase: supabase, rosterId: event.params.id as string };
-	},
+	parseInput: (event: RequestEvent) => ({
+		rosterId: event.params.id as string,
+		// Direct Supabase access needed for storage operations — no StoragePort exists yet
+		_supabaseStorage: event.locals.supabase as SupabaseClient
+	}),
 	fn: async (ctx, input) => {
 		const rosterId = input.rosterId as string;
 
@@ -93,8 +92,7 @@ export const DELETE = handle<Record<string, unknown>, unknown>({
 		if (!roster) fail(404, 'Roster not found');
 
 		if (roster.signed_file_path) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const supabase = input._supabase as any;
+			const supabase = input._supabaseStorage as SupabaseClient;
 			await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
 		}
 

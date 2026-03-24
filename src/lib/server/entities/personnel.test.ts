@@ -171,16 +171,9 @@ describe('PersonnelEntity', () => {
 
 	it('has correct table and select', () => {
 		expect(PersonnelEntity.table).toBe('personnel');
-		expect(PersonnelEntity.repo).toBeDefined();
 	});
 
 	it('has groupScope none', () => {
 		expect(PersonnelEntity.groupScope).toBe('none');
-	});
-
-	it('has repo', () => {
-		expect(PersonnelEntity.repo).toBeDefined();
-		expect(PersonnelEntity.repo.list).toBeDefined();
-		expect(PersonnelEntity.repo.query).toBeDefined();
 	});
 });

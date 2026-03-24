@@ -57,6 +57,16 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	};
 }
 
+/**
+ * Provides the raw Supabase client and user info for org layout servers.
+ * Org layouts need pre-auth data (org lookup, suspension check, demo mode)
+ * before building a full UseCaseContext. This keeps getApiContext/getSupabaseClient
+ * behind the adapter boundary.
+ */
+export function getLayoutClient(locals: App.Locals, cookies: Cookies, orgId: string) {
+	return getApiContext(locals, cookies, orgId);
+}
+
 export async function buildRouteContext(event: RequestEvent): Promise<UseCaseContext> {
 	const { ctx } = await buildContextInternal(event);
 	return ctx;

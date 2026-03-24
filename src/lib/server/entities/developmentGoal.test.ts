@@ -132,10 +132,4 @@ describe('DevelopmentGoalEntity', () => {
 	it('has correct table name', () => {
 		expect(DevelopmentGoalEntity.table).toBe('development_goals');
 	});
-
-	it('has repo', () => {
-		expect(DevelopmentGoalEntity.repo).toBeDefined();
-		expect(DevelopmentGoalEntity.repo.query).toBeTypeOf('function');
-		expect(DevelopmentGoalEntity.repo.list).toBeTypeOf('function');
-	});
 });

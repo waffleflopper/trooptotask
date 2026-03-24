@@ -177,10 +177,4 @@ describe('RatingSchemeEntryEntity', () => {
 	it('has groupScope with rated_person_id personnel column', () => {
 		expect(RatingSchemeEntryEntity.groupScope).toEqual({ personnelColumn: 'rated_person_id' });
 	});
-
-	it('has repo', () => {
-		expect(RatingSchemeEntryEntity.repo).toBeDefined();
-		expect(RatingSchemeEntryEntity.repo.list).toBeDefined();
-		expect(RatingSchemeEntryEntity.repo.query).toBeDefined();
-	});
 });

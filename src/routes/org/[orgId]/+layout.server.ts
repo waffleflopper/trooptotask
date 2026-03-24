@@ -1,9 +1,8 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { isFullEditor, type OrganizationMemberPermissions } from '$lib/types';
-import { getSupabaseClient } from '$lib/server/supabase';
 import { fetchSharedData } from '$lib/server/core/useCases/sharedDataQuery';
-import { buildLayoutContext } from '$lib/server/adapters/httpAdapter';
+import { buildLayoutContext, getLayoutClient } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 
@@ -18,8 +17,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	const demoSandboxCookie = cookies.get('demo_sandbox');
 	const isDemoReadOnly = demoMode === 'readonly';
 
-	// Get appropriate supabase client (service role for demo mode)
-	const supabase = getSupabaseClient(locals, cookies);
+	// Get appropriate supabase client via adapter (service role for demo mode)
+	const { supabase } = getLayoutClient(locals, cookies, orgId);
 
 	// Get organization info (including demo_type and suspended_at)
 	const { data: org } = await supabase

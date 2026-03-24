@@ -1,70 +1,59 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import { getApiContext } from '$lib/server/supabase';
 import ExcelJS from 'exceljs';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseClient = any;
-
-export const GET = handle<Record<string, unknown>, unknown>({
+export const GET = handle<{ personnelId: string }, unknown>({
 	permission: 'privileged',
-	parseInput: (event: RequestEvent) => {
-		const { supabase } = getApiContext(event.locals, event.cookies, event.params.orgId as string);
-		return { _supabase: supabase, personnelId: event.params.id as string };
-	},
+	parseInput: (event: RequestEvent) => ({ personnelId: event.params.id as string }),
 	fn: async (ctx, input) => {
-		const supabase = input._supabase as SupabaseClient;
 		const orgId = ctx.auth.orgId;
-		const id = input.personnelId as string;
+		const id = input.personnelId;
 
-		const [
-			personRes,
-			trainingsRes,
-			counselingRes,
-			goalsRes,
-			availabilityRes,
-			extendedInfoRes,
-			trainingTypesRes,
-			counselingTypesRes,
-			statusTypesRes,
-			groupsRes
-		] = await Promise.all([
-			supabase.from('personnel').select('*').eq('id', id).eq('organization_id', orgId).single(),
-			supabase.from('personnel_trainings').select('*').eq('personnel_id', id),
-			supabase
-				.from('counseling_records')
-				.select('*')
-				.eq('personnel_id', id)
-				.eq('organization_id', orgId)
-				.order('date_conducted', { ascending: false }),
-			supabase.from('development_goals').select('*').eq('personnel_id', id).eq('organization_id', orgId),
-			supabase
-				.from('availability_entries')
-				.select('*')
-				.eq('personnel_id', id)
-				.eq('organization_id', orgId)
-				.order('start_date', { ascending: false }),
-			supabase.from('personnel_extended_info').select('*').eq('personnel_id', id).maybeSingle(),
-			supabase.from('training_types').select('id, name').eq('organization_id', orgId),
-			supabase.from('counseling_types').select('id, name').eq('organization_id', orgId),
-			supabase.from('status_types').select('id, name').eq('organization_id', orgId),
-			supabase.from('groups').select('id, name').eq('organization_id', orgId)
-		]);
+		const [person, trainings, counseling, goals, availability, trainingTypes, counselingTypes, statusTypes, groups] =
+			await Promise.all([
+				ctx.rawStore.findOne<Record<string, unknown>>('personnel', orgId, { id }),
+				ctx.rawStore.findMany<Record<string, unknown>>('personnel_trainings', orgId, { personnel_id: id }),
+				ctx.rawStore.findMany<Record<string, unknown>>(
+					'counseling_records',
+					orgId,
+					{ personnel_id: id },
+					{
+						orderBy: [{ column: 'date_conducted', ascending: false }]
+					}
+				),
+				ctx.rawStore.findMany<Record<string, unknown>>('development_goals', orgId, { personnel_id: id }),
+				ctx.rawStore.findMany<Record<string, unknown>>(
+					'availability_entries',
+					orgId,
+					{ personnel_id: id },
+					{
+						orderBy: [{ column: 'start_date', ascending: false }]
+					}
+				),
+				ctx.rawStore.findMany<Record<string, unknown>>('training_types', orgId, {}, { select: 'id, name' }),
+				ctx.rawStore.findMany<Record<string, unknown>>('counseling_types', orgId, {}, { select: 'id, name' }),
+				ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId, {}, { select: 'id, name' }),
+				ctx.rawStore.findMany<Record<string, unknown>>('groups', orgId, {}, { select: 'id, name' })
+			]);
 
-		const person = personRes.data;
 		if (!person) fail(404, 'Personnel not found');
 
-		const trainingTypeMap = new Map<string, string>();
-		for (const t of trainingTypesRes.data ?? []) trainingTypeMap.set(t.id, t.name);
-		const counselingTypeMap = new Map<string, string>();
-		for (const c of counselingTypesRes.data ?? []) counselingTypeMap.set(c.id, c.name);
-		const statusTypeMap = new Map<string, string>();
-		for (const s of statusTypesRes.data ?? []) statusTypeMap.set(s.id, s.name);
-		const groupMap = new Map<string, string>();
-		for (const g of groupsRes.data ?? []) groupMap.set(g.id, g.name);
+		// Extended info is a separate table without org_id scoping — query by personnel_id
+		const extResults = await ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId, {
+			personnel_id: id
+		});
+		const ext = extResults[0] ?? null;
 
-		const ext = extendedInfoRes.data;
+		const trainingTypeMap = new Map<string, string>();
+		for (const t of trainingTypes) trainingTypeMap.set(t.id as string, t.name as string);
+		const counselingTypeMap = new Map<string, string>();
+		for (const c of counselingTypes) counselingTypeMap.set(c.id as string, c.name as string);
+		const statusTypeMap = new Map<string, string>();
+		for (const s of statusTypes) statusTypeMap.set(s.id as string, s.name as string);
+		const groupMap = new Map<string, string>();
+		for (const g of groups) groupMap.set(g.id as string, g.name as string);
+
 		const workbook = new ExcelJS.Workbook();
 
 		const infoSheet = workbook.addWorksheet('Personnel Info');
@@ -73,31 +62,31 @@ export const GET = handle<Record<string, unknown>, unknown>({
 			{ header: 'Value', key: 'value', width: 40 }
 		];
 		const infoRows: { field: string; value: string }[] = [
-			{ field: 'Rank', value: person.rank ?? '' },
-			{ field: 'Last Name', value: person.last_name ?? '' },
-			{ field: 'First Name', value: person.first_name ?? '' },
-			{ field: 'MOS', value: person.mos ?? '' },
-			{ field: 'Role', value: person.clinic_role ?? '' },
-			{ field: 'Group', value: person.group_id ? (groupMap.get(person.group_id) ?? '') : '' },
-			{ field: 'Archived At', value: person.archived_at ?? '' }
+			{ field: 'Rank', value: (person.rank as string) ?? '' },
+			{ field: 'Last Name', value: (person.last_name as string) ?? '' },
+			{ field: 'First Name', value: (person.first_name as string) ?? '' },
+			{ field: 'MOS', value: (person.mos as string) ?? '' },
+			{ field: 'Role', value: (person.clinic_role as string) ?? '' },
+			{ field: 'Group', value: person.group_id ? (groupMap.get(person.group_id as string) ?? '') : '' },
+			{ field: 'Archived At', value: (person.archived_at as string) ?? '' }
 		];
 		if (ext) {
 			infoRows.push(
-				{ field: 'Emergency Contact Name', value: ext.emergency_contact_name ?? '' },
-				{ field: 'Emergency Contact Relationship', value: ext.emergency_contact_relationship ?? '' },
-				{ field: 'Emergency Contact Phone', value: ext.emergency_contact_phone ?? '' },
-				{ field: 'Spouse Name', value: ext.spouse_name ?? '' },
-				{ field: 'Spouse Phone', value: ext.spouse_phone ?? '' },
-				{ field: 'Vehicle Make/Model', value: ext.vehicle_make_model ?? '' },
-				{ field: 'Vehicle Plate', value: ext.vehicle_plate ?? '' },
-				{ field: 'Vehicle Color', value: ext.vehicle_color ?? '' },
-				{ field: 'Personal Email', value: ext.personal_email ?? '' },
-				{ field: 'Personal Phone', value: ext.personal_phone ?? '' },
+				{ field: 'Emergency Contact Name', value: (ext.emergency_contact_name as string) ?? '' },
+				{ field: 'Emergency Contact Relationship', value: (ext.emergency_contact_relationship as string) ?? '' },
+				{ field: 'Emergency Contact Phone', value: (ext.emergency_contact_phone as string) ?? '' },
+				{ field: 'Spouse Name', value: (ext.spouse_name as string) ?? '' },
+				{ field: 'Spouse Phone', value: (ext.spouse_phone as string) ?? '' },
+				{ field: 'Vehicle Make/Model', value: (ext.vehicle_make_model as string) ?? '' },
+				{ field: 'Vehicle Plate', value: (ext.vehicle_plate as string) ?? '' },
+				{ field: 'Vehicle Color', value: (ext.vehicle_color as string) ?? '' },
+				{ field: 'Personal Email', value: (ext.personal_email as string) ?? '' },
+				{ field: 'Personal Phone', value: (ext.personal_phone as string) ?? '' },
 				{
 					field: 'Address',
 					value: [ext.address_street, ext.address_city, ext.address_state, ext.address_zip].filter(Boolean).join(', ')
 				},
-				{ field: 'Leader Notes', value: ext.leader_notes ?? '' }
+				{ field: 'Leader Notes', value: (ext.leader_notes as string) ?? '' }
 			);
 		}
 		for (const row of infoRows) infoSheet.addRow(row);
@@ -106,7 +95,7 @@ export const GET = handle<Record<string, unknown>, unknown>({
 		addMappedSheet(
 			workbook,
 			'Training Records',
-			trainingsRes.data ?? [],
+			trainings,
 			[
 				{ header: 'Training Type', key: 'training_type', width: 25 },
 				{ header: 'Completed Date', key: 'completion_date', width: 16 },
@@ -114,7 +103,7 @@ export const GET = handle<Record<string, unknown>, unknown>({
 				{ header: 'Notes', key: 'notes', width: 40 }
 			],
 			(t) => ({
-				training_type: trainingTypeMap.get(t.training_type_id) ?? t.training_type_id,
+				training_type: trainingTypeMap.get(t.training_type_id as string) ?? t.training_type_id,
 				completion_date: t.completion_date,
 				expiration_date: t.expiration_date,
 				notes: t.notes ?? ''
@@ -124,7 +113,7 @@ export const GET = handle<Record<string, unknown>, unknown>({
 		addMappedSheet(
 			workbook,
 			'Counseling Records',
-			counselingRes.data ?? [],
+			counseling,
 			[
 				{ header: 'Type', key: 'type', width: 20 },
 				{ header: 'Date', key: 'date_conducted', width: 14 },
@@ -136,7 +125,7 @@ export const GET = handle<Record<string, unknown>, unknown>({
 				{ header: 'Notes', key: 'notes', width: 30 }
 			],
 			(c) => ({
-				type: counselingTypeMap.get(c.counseling_type_id) ?? c.counseling_type_id,
+				type: counselingTypeMap.get(c.counseling_type_id as string) ?? c.counseling_type_id,
 				date_conducted: c.date_conducted,
 				subject: c.subject ?? '',
 				key_points: c.key_points ?? '',
@@ -150,7 +139,7 @@ export const GET = handle<Record<string, unknown>, unknown>({
 		addMappedSheet(
 			workbook,
 			'Development Goals',
-			goalsRes.data ?? [],
+			goals,
 			[
 				{ header: 'Title', key: 'title', width: 30 },
 				{ header: 'Description', key: 'description', width: 40 },
@@ -174,30 +163,33 @@ export const GET = handle<Record<string, unknown>, unknown>({
 		addMappedSheet(
 			workbook,
 			'Availability History',
-			availabilityRes.data ?? [],
+			availability,
 			[
 				{ header: 'Status', key: 'status', width: 20 },
 				{ header: 'Start Date', key: 'start_date', width: 14 },
 				{ header: 'End Date', key: 'end_date', width: 14 }
 			],
 			(a) => ({
-				status: statusTypeMap.get(a.status_type_id) ?? a.status_type_id,
+				status: statusTypeMap.get(a.status_type_id as string) ?? a.status_type_id,
 				start_date: a.start_date,
 				end_date: a.end_date
 			})
 		);
 
 		const buffer = await workbook.xlsx.writeBuffer();
-		const personName = `${person.rank ?? ''} ${person.last_name ?? ''} ${person.first_name ?? ''}`
-			.trim()
-			.replace(/\s+/g, '_');
+		const personName =
+			`${(person.rank as string) ?? ''} ${(person.last_name as string) ?? ''} ${(person.first_name as string) ?? ''}`
+				.trim()
+				.replace(/\s+/g, '_');
 		const dateStr = new Date().toISOString().split('T')[0];
 
 		ctx.audit.log({
 			action: 'personnel.exported',
 			resourceType: 'personnel',
 			resourceId: id,
-			details: { name: `${person.rank ?? ''} ${person.last_name ?? ''}, ${person.first_name ?? ''}` }
+			details: {
+				name: `${(person.rank as string) ?? ''} ${(person.last_name as string) ?? ''}, ${(person.first_name as string) ?? ''}`
+			}
 		});
 
 		return { _buffer: buffer, _filename: `${personName}-export-${dateStr}.xlsx` };

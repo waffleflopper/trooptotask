@@ -27,6 +27,12 @@ function applyFindOptions(query: any, filters?: Record<string, unknown>, options
 		}
 	}
 
+	if (options?.ilikeFilters) {
+		for (const [key, pattern] of Object.entries(options.ilikeFilters)) {
+			query = query.ilike(key, pattern);
+		}
+	}
+
 	if (options?.rangeFilters) {
 		for (const { column, op, value } of options.rangeFilters) {
 			query = query[op](column, value);

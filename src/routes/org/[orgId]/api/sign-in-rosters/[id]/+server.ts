@@ -1,15 +1,16 @@
 import type { RequestEvent } from '@sveltejs/kit';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { handle } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import { getApiContext } from '$lib/server/supabase';
 
 export const DELETE = handle<Record<string, unknown>, unknown>({
 	permission: 'personnel',
 	mutation: true,
-	parseInput: (event: RequestEvent) => {
-		const { supabase } = getApiContext(event.locals, event.cookies, event.params.orgId as string);
-		return { _supabase: supabase, rosterId: event.params.id as string };
-	},
+	parseInput: (event: RequestEvent) => ({
+		rosterId: event.params.id as string,
+		// Direct Supabase access needed for storage operations — no StoragePort exists yet
+		_supabaseStorage: event.locals.supabase as SupabaseClient
+	}),
 	fn: async (ctx, input) => {
 		const rosterId = input.rosterId as string;
 
@@ -23,8 +24,7 @@ export const DELETE = handle<Record<string, unknown>, unknown>({
 
 		// Delete signed file from storage if exists
 		if (roster.signed_file_path) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const supabase = input._supabase as any;
+			const supabase = input._supabaseStorage as SupabaseClient;
 			await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
 		}
 

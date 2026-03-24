@@ -1,4 +1,5 @@
 import type { RequestEvent } from '@sveltejs/kit';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { handle } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { isBillingEnabled } from '$lib/config/billing';
@@ -6,6 +7,8 @@ import { TIER_CONFIG } from '$lib/types/subscription';
 
 interface ExportInput {
 	email: string | undefined;
+	// data_exports table uses org_id (not organization_id), so it can't go through DataStore
+	_supabase: SupabaseClient;
 }
 
 interface ExportOutput {
@@ -19,7 +22,8 @@ export const POST = handle<ExportInput, ExportOutput>({
 	permission: 'manageMembers',
 	mutation: true,
 	parseInput: (event: RequestEvent) => ({
-		email: event.locals.user?.email
+		email: event.locals.user?.email,
+		_supabase: event.locals.supabase as SupabaseClient
 	}),
 	fn: async (ctx, input) => {
 		const orgId = ctx.auth.orgId;
@@ -39,11 +43,12 @@ export const POST = handle<ExportInput, ExportOutput>({
 			}
 		}
 
-		const exportRecord = await ctx.rawStore.insert<{ id: string }>('data_exports', orgId, {
-			org_id: orgId,
-			requested_by: userId,
-			status: 'processing'
-		});
+		const { data: exportRecord, error: insertErr } = await input._supabase
+			.from('data_exports')
+			.insert({ org_id: orgId, requested_by: userId, status: 'processing' })
+			.select('id')
+			.single();
+		if (insertErr || !exportRecord) fail(500, 'Failed to create export record');
 
 		try {
 			const [
@@ -119,11 +124,14 @@ export const POST = handle<ExportInput, ExportOutput>({
 
 			const jsonStr = JSON.stringify(exportData, null, 2);
 
-			await ctx.rawStore.update('data_exports', orgId, exportRecord.id, {
-				status: 'completed',
-				completed_at: new Date().toISOString(),
-				file_size_bytes: new TextEncoder().encode(jsonStr).length
-			});
+			await input._supabase
+				.from('data_exports')
+				.update({
+					status: 'completed',
+					completed_at: new Date().toISOString(),
+					file_size_bytes: new TextEncoder().encode(jsonStr).length
+				})
+				.eq('id', exportRecord.id);
 
 			ctx.audit.log({ action: 'export.created', resourceType: 'data_export', resourceId: exportRecord.id });
 
@@ -135,10 +143,10 @@ export const POST = handle<ExportInput, ExportOutput>({
 
 			return { _json: jsonStr, _orgId: orgId };
 		} catch (err) {
-			await ctx.rawStore.update('data_exports', orgId, exportRecord.id, {
-				status: 'failed',
-				completed_at: new Date().toISOString()
-			});
+			await input._supabase
+				.from('data_exports')
+				.update({ status: 'failed', completed_at: new Date().toISOString() })
+				.eq('id', exportRecord.id);
 			throw err;
 		}
 	},

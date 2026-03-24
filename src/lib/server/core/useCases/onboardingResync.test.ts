@@ -5,7 +5,8 @@ import {
 	createTestAuditPort,
 	createTestReadOnlyGuard,
 	createTestSubscriptionPort,
-	createTestNotificationPort
+	createTestNotificationPort,
+	createTestBillingPort
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { resyncOnboarding, switchTemplate } from './onboardingResync';
@@ -33,7 +34,8 @@ function buildContext(overrides?: { readOnly?: boolean; isFullEditor?: boolean }
 		readOnlyGuard,
 		subscription,
 		auditPort,
-		notifications: createTestNotificationPort()
+		notifications: createTestNotificationPort(),
+		billing: createTestBillingPort()
 	};
 }
 

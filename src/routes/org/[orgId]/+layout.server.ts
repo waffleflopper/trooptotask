@@ -2,10 +2,10 @@ import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { isFullEditor, type OrganizationMemberPermissions } from '$lib/types';
 import { getSupabaseClient } from '$lib/server/supabase';
-import { getEffectiveTier } from '$lib/server/subscription';
 import { fetchSharedData } from '$lib/server/core/useCases/sharedDataQuery';
 import { buildLayoutContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 
 export const load: LayoutServerLoad = async ({ params, locals, cookies, depends }) => {
 	depends('app:org-core');
@@ -84,22 +84,28 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					return false;
 				}
 			},
-			subscription: {
-				async canAddPersonnel() {
-					return { allowed: true };
-				},
-				async getAvailablePersonnelSlots() {
-					return null;
-				},
-				invalidateTierCache() {}
-			},
+			subscription: createSupabaseSubscriptionAdapter(supabase, orgId),
 			notifications: {
 				async notifyUser() {},
 				async notifyAdmins() {}
+			},
+			billing: {
+				async createCheckoutSession() {
+					return { url: '', customerId: '' };
+				},
+				async createPortalSession() {
+					return { url: '' };
+				},
+				async cancelSubscription() {},
+				async pauseSubscription() {},
+				async resumeSubscription() {}
 			}
 		};
 
-		const [shared, effectiveTier] = await Promise.all([fetchSharedData(demoCtx), getEffectiveTier(supabase, orgId)]);
+		const [shared, effectiveTier] = await Promise.all([
+			fetchSharedData(demoCtx),
+			demoCtx.subscription.getEffectiveTier()
+		]);
 
 		return {
 			orgId,
@@ -143,7 +149,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 				const sandboxCtx = await buildLayoutContext(locals, cookies, orgId);
 				const [shared, effectiveTier] = await Promise.all([
 					fetchSharedData(sandboxCtx),
-					getEffectiveTier(supabase, orgId)
+					sandboxCtx.subscription.getEffectiveTier()
 				]);
 
 				return {
@@ -175,6 +181,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 
 	// Parallelize: membership + allOrgs (single query), tier, and announcements
 	// Note: fetchSharedData is called after membership resolves (needs scopedGroupId)
+	const subscriptionAdapter = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const [membershipsRes, effectiveTier, notificationCountRes, announcementsRes, dismissalsRes] = await Promise.all([
 		locals.supabase
 			.from('organization_memberships')
@@ -182,7 +189,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 				'organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id, organizations(id, name)'
 			)
 			.eq('user_id', user.id),
-		getEffectiveTier(supabase, orgId),
+		subscriptionAdapter.getEffectiveTier(),
 		locals.supabase
 			.from('notifications')
 			.select('id', { count: 'exact', head: true })

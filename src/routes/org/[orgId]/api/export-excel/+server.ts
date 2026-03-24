@@ -3,7 +3,6 @@ import { handle } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { getApiContext, getAdminClient } from '$lib/server/supabase';
 import { isBillingEnabled } from '$lib/config/billing';
-import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscription';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import ExcelJS from 'exceljs';
 
@@ -30,9 +29,9 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 		if (input._isSandbox) fail(403, 'Not available in sandbox mode');
 
 		if (isBillingEnabled) {
-			const tier = await getEffectiveTier(supabase, orgId);
+			const tier = await ctx.subscription.getEffectiveTier();
 			const config = TIER_CONFIG[tier.tier];
-			const exportCount = await getMonthlyExportCount(supabase, orgId);
+			const exportCount = await ctx.subscription.getMonthlyExportCount();
 			if (exportCount >= config.bulkExportsPerMonth) {
 				return {
 					_rateLimited: true,

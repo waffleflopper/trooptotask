@@ -8,8 +8,10 @@ import type {
 	SubscriptionPort,
 	NotificationPort,
 	NotificationPayload,
+	BillingPort,
 	UseCaseContext
 } from '../core/ports';
+import type { EffectiveTier } from '$lib/types/subscription';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
@@ -277,11 +279,13 @@ export function createTestContext(overrides?: {
 	auditPort: ReturnType<typeof createTestAuditPort>;
 	subscription: ReturnType<typeof createTestSubscriptionPort>;
 	notificationPort: ReturnType<typeof createTestNotificationPort>;
+	billingPort: ReturnType<typeof createTestBillingPort>;
 } {
 	const store = createInMemoryDataStore();
 	const auditPort = createTestAuditPort();
 	const subscription = createTestSubscriptionPort(overrides?.subscriptionAllowed ?? true);
 	const notificationPort = createTestNotificationPort();
+	const billingPort = createTestBillingPort();
 	return {
 		store,
 		rawStore: store,
@@ -291,7 +295,9 @@ export function createTestContext(overrides?: {
 		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
 		subscription,
 		notifications: notificationPort,
-		notificationPort
+		notificationPort,
+		billing: billingPort,
+		billingPort
 	};
 }
 
@@ -310,6 +316,49 @@ export function createTestSubscriptionPort(
 		},
 		invalidateTierCache() {
 			this.tierCacheInvalidated = true;
+		},
+		async getEffectiveTier(): Promise<EffectiveTier> {
+			return {
+				tier: 'unit',
+				source: 'default',
+				personnelCount: 0,
+				personnelCap: Infinity,
+				isReadOnly: false,
+				giftExpiresAt: null,
+				giftTier: null
+			};
+		},
+		async getMonthlyExportCount() {
+			return 0;
+		}
+	};
+}
+
+interface RecordedBillingCall {
+	method: string;
+	args: unknown[];
+}
+
+export function createTestBillingPort(): BillingPort & { calls: RecordedBillingCall[] } {
+	const calls: RecordedBillingCall[] = [];
+	return {
+		calls,
+		async createCheckoutSession(options) {
+			calls.push({ method: 'createCheckoutSession', args: [options] });
+			return { url: 'https://checkout.test/session', customerId: 'cus_test_123' };
+		},
+		async createPortalSession(customerId, returnUrl) {
+			calls.push({ method: 'createPortalSession', args: [customerId, returnUrl] });
+			return { url: 'https://portal.test/session' };
+		},
+		async cancelSubscription(subscriptionId) {
+			calls.push({ method: 'cancelSubscription', args: [subscriptionId] });
+		},
+		async pauseSubscription(subscriptionId) {
+			calls.push({ method: 'pauseSubscription', args: [subscriptionId] });
+		},
+		async resumeSubscription(subscriptionId) {
+			calls.push({ method: 'resumeSubscription', args: [subscriptionId] });
 		}
 	};
 }

@@ -129,6 +129,13 @@ export interface NotificationPort {
 	notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void>;
 }
 
+/** Abstracts file storage operations — business logic never imports Supabase storage */
+export interface StoragePort {
+	upload(bucket: string, path: string, data: File | Blob | ArrayBuffer, options?: { upsert?: boolean }): Promise<void>;
+	remove(bucket: string, paths: string[]): Promise<void>;
+	createSignedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string>;
+}
+
 /** Combined context for all use cases */
 export interface UseCaseContext {
 	store: DataStore;
@@ -138,6 +145,7 @@ export interface UseCaseContext {
 	subscription: SubscriptionPort;
 	notifications: NotificationPort;
 	billing: BillingPort;
+	storage: StoragePort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;
 }

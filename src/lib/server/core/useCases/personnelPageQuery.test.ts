@@ -6,7 +6,8 @@ import {
 	createTestReadOnlyGuard,
 	createTestSubscriptionPort,
 	createTestNotificationPort,
-	createTestBillingPort
+	createTestBillingPort,
+	createTestStoragePort
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { fetchPersonnelPageData } from './personnelPageQuery';
@@ -24,7 +25,8 @@ function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[
 		readOnlyGuard: createTestReadOnlyGuard(),
 		subscription: createTestSubscriptionPort(),
 		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort()
+		billing: createTestBillingPort(),
+		storage: createTestStoragePort()
 	};
 }
 

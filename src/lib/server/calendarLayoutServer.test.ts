@@ -6,7 +6,8 @@ import {
 	createTestReadOnlyGuard,
 	createTestSubscriptionPort,
 	createTestNotificationPort,
-	createTestBillingPort
+	createTestBillingPort,
+	createTestStoragePort
 } from '$lib/server/adapters/inMemory';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { fetchCalendarData } from '$lib/server/core/useCases/calendarQuery';
@@ -25,7 +26,8 @@ function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[
 		readOnlyGuard: createTestReadOnlyGuard(),
 		subscription: createTestSubscriptionPort(),
 		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort()
+		billing: createTestBillingPort(),
+		storage: createTestStoragePort()
 	};
 }
 

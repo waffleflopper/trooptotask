@@ -2,7 +2,12 @@ import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { isFullEditor, type OrganizationMemberPermissions } from '$lib/types';
 import { fetchSharedData } from '$lib/server/core/useCases/sharedDataQuery';
-import { buildLayoutContext, getLayoutClient } from '$lib/server/adapters/httpAdapter';
+import {
+	buildLayoutContext,
+	buildLayoutContextFromMembership,
+	getLayoutClient
+} from '$lib/server/adapters/httpAdapter';
+import type { MembershipRow } from '$lib/server/permissionContext';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 
@@ -98,6 +103,13 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 				async cancelSubscription() {},
 				async pauseSubscription() {},
 				async resumeSubscription() {}
+			},
+			storage: {
+				async upload() {},
+				async remove() {},
+				async createSignedUrl() {
+					return '';
+				}
 			}
 		};
 
@@ -239,7 +251,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 
 	const fullEditor = !isPrivileged && !scopedGroupId && isFullEditor(permissions);
 
-	const ctx = await buildLayoutContext(locals, cookies, orgId);
+	const ctx = await buildLayoutContextFromMembership(locals, cookies, orgId, membership as MembershipRow);
 	const shared = await fetchSharedData(ctx);
 
 	// Filter out dismissed announcements

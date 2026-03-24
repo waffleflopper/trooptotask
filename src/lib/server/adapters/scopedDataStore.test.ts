@@ -132,6 +132,84 @@ describe('ScopedDataStore', () => {
 			});
 		});
 
+		describe('pagination with personnel-scoped tables', () => {
+			function seedPaginationData(store: ReturnType<typeof createInMemoryDataStore>) {
+				store.seed('personnel', [
+					{ id: 'p-1', organization_id: ORG, name: 'Alice', group_id: GROUP_A },
+					{ id: 'p-2', organization_id: ORG, name: 'Bob', group_id: GROUP_B },
+					{ id: 'p-3', organization_id: ORG, name: 'Carol', group_id: GROUP_A },
+					{ id: 'p-4', organization_id: ORG, name: 'Dave', group_id: GROUP_A }
+				]);
+
+				// 4 records for group A personnel, 2 for group B
+				store.seed('training_records', [
+					{ id: 'tr-1', organization_id: ORG, personnel_id: 'p-1', course: 'A1' },
+					{ id: 'tr-2', organization_id: ORG, personnel_id: 'p-2', course: 'B1' },
+					{ id: 'tr-3', organization_id: ORG, personnel_id: 'p-3', course: 'A2' },
+					{ id: 'tr-4', organization_id: ORG, personnel_id: 'p-1', course: 'A3' },
+					{ id: 'tr-5', organization_id: ORG, personnel_id: 'p-2', course: 'B2' },
+					{ id: 'tr-6', organization_id: ORG, personnel_id: 'p-4', course: 'A4' }
+				]);
+			}
+
+			it('findMany with range on personnel-scoped table paginates after filtering', async () => {
+				const inner = createInMemoryDataStore();
+				seedPaginationData(inner);
+				const scoped = createScopedDataStore(inner, GROUP_A, scopeRules);
+
+				// Group A has 4 training records (tr-1, tr-3, tr-4, tr-6). Request first 2.
+				const page1 = await scoped.findMany<{ id: string }>('training_records', ORG, undefined, {
+					range: { from: 0, to: 1 }
+				});
+
+				expect(page1).toHaveLength(2);
+
+				// Request next 2
+				const page2 = await scoped.findMany<{ id: string }>('training_records', ORG, undefined, {
+					range: { from: 2, to: 3 }
+				});
+
+				expect(page2).toHaveLength(2);
+
+				// All 4 unique records across both pages
+				const allIds = [...page1, ...page2].map((r) => r.id);
+				expect(allIds).toHaveLength(4);
+				expect(new Set(allIds).size).toBe(4);
+			});
+
+			it('findMany with limit on personnel-scoped table limits after filtering', async () => {
+				const inner = createInMemoryDataStore();
+				seedPaginationData(inner);
+				const scoped = createScopedDataStore(inner, GROUP_A, scopeRules);
+
+				const results = await scoped.findMany<{ id: string }>('training_records', ORG, undefined, {
+					limit: 2
+				});
+
+				expect(results).toHaveLength(2);
+				// All results should be for group A personnel
+				const groupAPersonnel = ['p-1', 'p-3', 'p-4'];
+				for (const r of results) {
+					const full = await inner.findOne<{ personnel_id: string }>('training_records', ORG, { id: r.id });
+					expect(groupAPersonnel).toContain(full?.personnel_id);
+				}
+			});
+
+			it('findManyWithCount with range returns correct count and paginated data', async () => {
+				const inner = createInMemoryDataStore();
+				seedPaginationData(inner);
+				const scoped = createScopedDataStore(inner, GROUP_A, scopeRules);
+
+				const result = await scoped.findManyWithCount<{ id: string }>('training_records', ORG, undefined, {
+					range: { from: 0, to: 1 }
+				});
+
+				// Should return 2 items for this page, but count should be 4 (total matching)
+				expect(result.data).toHaveLength(2);
+				expect(result.count).toBe(4);
+			});
+		});
+
 		describe('write operations pass through unchanged', () => {
 			it('insert passes through to inner store', async () => {
 				const inner = createInMemoryDataStore();

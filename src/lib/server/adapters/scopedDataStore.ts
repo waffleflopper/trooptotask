@@ -49,6 +49,25 @@ export function createScopedDataStore(
 		return { filters, options, needsPersonnelFilter: rule.personnelColumn };
 	}
 
+	/** Strip pagination from options so the inner query fetches all rows for in-memory filtering */
+	function stripPagination(options?: FindOptions): FindOptions | undefined {
+		if (!options) return undefined;
+		const { range, limit, ...rest } = options;
+		return Object.keys(rest).length > 0 ? rest : undefined;
+	}
+
+	/** Apply pagination (range/limit) to an already-filtered result set */
+	function applyPagination<T>(results: T[], options?: FindOptions): T[] {
+		let sliced = results;
+		if (options?.range) {
+			sliced = sliced.slice(options.range.from, options.range.to + 1);
+		}
+		if (options?.limit !== undefined) {
+			sliced = sliced.slice(0, options.limit);
+		}
+		return sliced;
+	}
+
 	async function filterByPersonnel<T extends Record<string, unknown>>(
 		results: T[],
 		orgId: string,
@@ -93,8 +112,11 @@ export function createScopedDataStore(
 			const scoped = addScopeFilters(table, orgId, filters, options);
 
 			if (scoped.needsPersonnelFilter) {
-				const results = await inner.findMany<T & Record<string, unknown>>(table, orgId, scoped.filters, scoped.options);
-				return filterByPersonnel(results, orgId, scoped.needsPersonnelFilter) as Promise<T[]>;
+				// Fetch all rows (no pagination) so in-memory personnel filter sees everything
+				const unpaginated = stripPagination(scoped.options);
+				const results = await inner.findMany<T & Record<string, unknown>>(table, orgId, scoped.filters, unpaginated);
+				const filtered = await filterByPersonnel(results, orgId, scoped.needsPersonnelFilter);
+				return applyPagination(filtered, scoped.options) as T[];
 			}
 
 			return inner.findMany<T>(table, orgId, scoped.filters, scoped.options);
@@ -109,9 +131,11 @@ export function createScopedDataStore(
 			const scoped = addScopeFilters(table, orgId, filters, options);
 
 			if (scoped.needsPersonnelFilter) {
-				const results = await inner.findMany<T & Record<string, unknown>>(table, orgId, scoped.filters, scoped.options);
+				// Fetch all rows (no pagination) so in-memory personnel filter sees everything
+				const unpaginated = stripPagination(scoped.options);
+				const results = await inner.findMany<T & Record<string, unknown>>(table, orgId, scoped.filters, unpaginated);
 				const filtered = await filterByPersonnel(results, orgId, scoped.needsPersonnelFilter);
-				return { data: filtered as T[], count: filtered.length };
+				return { data: applyPagination(filtered, scoped.options) as T[], count: filtered.length };
 			}
 
 			return inner.findManyWithCount<T>(table, orgId, scoped.filters, scoped.options);

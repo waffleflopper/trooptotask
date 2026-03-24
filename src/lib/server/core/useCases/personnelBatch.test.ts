@@ -6,7 +6,8 @@ import {
 	createTestReadOnlyGuard,
 	createTestSubscriptionPort,
 	createTestNotificationPort,
-	createTestBillingPort
+	createTestBillingPort,
+	createTestStoragePort
 } from '$lib/server/adapters/inMemory';
 import { importPersonnelBatch } from './personnelBatch';
 
@@ -30,7 +31,8 @@ function buildContext(overrides?: {
 		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly),
 		subscription,
 		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort()
+		billing: createTestBillingPort(),
+		storage: createTestStoragePort()
 	};
 }
 

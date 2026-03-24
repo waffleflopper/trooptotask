@@ -108,7 +108,9 @@ export async function fetchAuditLogs(
 	const { page, action = '', limit = 50 } = input;
 	const offset = (page - 1) * limit;
 
-	// Fetch all logs for this org (in-memory filtering for excluded actions)
+	// Trade-off: fetches all logs to compute availableActions (the action filter dropdown).
+	// This is fine for typical orgs but could be optimized with a separate SELECT DISTINCT
+	// query on the action column if audit_logs grows large for long-lived orgs.
 	const allLogs = await adminStore.findMany<Record<string, unknown>>('audit_logs', orgId, undefined, {
 		orderBy: [{ column: 'timestamp', ascending: false }]
 	});

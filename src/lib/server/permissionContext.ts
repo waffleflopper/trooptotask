@@ -69,25 +69,31 @@ export function createSandboxContext(): PermissionContext {
 	return ctx;
 }
 
-export async function createPermissionContext(
-	supabase: SupabaseClient,
-	userId: string,
-	orgId: string
-): Promise<PermissionContext> {
-	const { data: membership } = await supabase
-		.from('organization_memberships')
-		.select(
-			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
-		)
-		.eq('organization_id', orgId)
-		.eq('user_id', userId)
-		.single();
+/** The shape of a membership row needed to build a PermissionContext (no DB query required) */
+export interface MembershipRow {
+	role: 'owner' | 'admin' | 'member';
+	scoped_group_id: string | null;
+	can_view_calendar: boolean;
+	can_edit_calendar: boolean;
+	can_view_personnel: boolean;
+	can_edit_personnel: boolean;
+	can_view_training: boolean;
+	can_edit_training: boolean;
+	can_view_onboarding: boolean;
+	can_edit_onboarding: boolean;
+	can_view_leaders_book: boolean;
+	can_edit_leaders_book: boolean;
+	can_manage_members: boolean;
+}
 
-	if (!membership) {
-		throw error(403, 'Not a member of this organization');
-	}
-
-	const role = membership.role as 'owner' | 'admin' | 'member';
+/**
+ * Build a PermissionContext from an already-fetched membership row.
+ * This avoids a redundant DB query when the caller already has the membership data.
+ * Group access enforcement requires a SupabaseClient, so those methods are no-ops here —
+ * they are wired up in the AuthContext adapter layer which has the client.
+ */
+export function createPermissionContextFromMembership(membership: MembershipRow): PermissionContext {
+	const role = membership.role;
 	const isOwner = role === 'owner';
 	const isAdmin = role === 'admin';
 	const isPrivileged = isOwner || isAdmin;
@@ -211,4 +217,25 @@ export async function createPermissionContext(
 	};
 
 	return ctx;
+}
+
+export async function createPermissionContext(
+	supabase: SupabaseClient,
+	userId: string,
+	orgId: string
+): Promise<PermissionContext> {
+	const { data: membership } = await supabase
+		.from('organization_memberships')
+		.select(
+			'role, scoped_group_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members'
+		)
+		.eq('organization_id', orgId)
+		.eq('user_id', userId)
+		.single();
+
+	if (!membership) {
+		throw error(403, 'Not a member of this organization');
+	}
+
+	return createPermissionContextFromMembership(membership as MembershipRow);
 }

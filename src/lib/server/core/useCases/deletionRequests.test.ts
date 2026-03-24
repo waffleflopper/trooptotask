@@ -3,7 +3,8 @@ import {
 	createInMemoryDataStore,
 	createTestAuthContext,
 	createTestAuditPort,
-	createTestReadOnlyGuard
+	createTestReadOnlyGuard,
+	createTestSubscriptionPort
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import {
@@ -31,7 +32,8 @@ function buildContext(overrides?: {
 		auth: createTestAuthContext(overrides?.auth),
 		audit: auditPort,
 		auditPort,
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false)
+		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
+		subscription: createTestSubscriptionPort()
 	};
 }
 

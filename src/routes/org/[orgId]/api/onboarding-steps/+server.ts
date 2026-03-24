@@ -1,6 +1,4 @@
-import { json } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { handle } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import {
 	toggleCheckbox,
@@ -9,49 +7,49 @@ import {
 	removeInactiveStep
 } from '$lib/server/core/useCases/onboardingStepProgress';
 
-export const PUT = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const body = (await event.request.json()) as Record<string, unknown>;
-	const action = body.action as string;
+export const PUT = handle<Record<string, unknown>, unknown>({
+	permission: 'onboarding',
+	mutation: true,
+	fn: async (ctx, input) => {
+		const action = input.action as string;
 
-	if (action === 'advanceStage') {
-		const result = await advanceStage(ctx, {
-			stepId: body.stepId as string,
-			stageName: body.stageName as string
-		});
-		return json(result);
+		if (action === 'advanceStage') {
+			return advanceStage(ctx, {
+				stepId: input.stepId as string,
+				stageName: input.stageName as string
+			});
+		}
+
+		if (action === 'addNote') {
+			const userId = ctx.auth.userId;
+			if (!userId) fail(401, 'Authentication required');
+
+			return addNote(ctx, {
+				stepId: input.stepId as string,
+				text: input.text as string,
+				userId
+			});
+		}
+
+		if (action === 'toggleCheckbox') {
+			return toggleCheckbox(ctx, {
+				stepId: input.stepId as string,
+				completed: input.completed as boolean
+			});
+		}
+
+		fail(400, `Unknown action: ${action}`);
 	}
+});
 
-	if (action === 'addNote') {
-		const userId = ctx.auth.userId;
-		if (!userId) fail(401, 'Authentication required');
+export const DELETE = handle<Record<string, unknown>, unknown>({
+	permission: 'onboarding',
+	mutation: true,
+	fn: async (ctx, input) => {
+		const stepId = input.id as string;
+		if (!stepId) fail(400, 'Missing step id');
 
-		const result = await addNote(ctx, {
-			stepId: body.stepId as string,
-			text: body.text as string,
-			userId
-		});
-		return json(result);
+		await removeInactiveStep(ctx, stepId);
+		return { success: true };
 	}
-
-	if (action === 'toggleCheckbox') {
-		const result = await toggleCheckbox(ctx, {
-			stepId: body.stepId as string,
-			completed: body.completed as boolean
-		});
-		return json(result);
-	}
-
-	fail(400, `Unknown action: ${action}`);
-};
-
-export const DELETE = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const body = (await event.request.json()) as Record<string, unknown>;
-	const stepId = body.id as string;
-
-	if (!stepId) fail(400, 'Missing step id');
-
-	await removeInactiveStep(ctx, stepId);
-	return json({ success: true });
-};
+});

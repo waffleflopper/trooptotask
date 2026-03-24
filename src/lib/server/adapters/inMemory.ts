@@ -247,20 +247,24 @@ export function createTestReadOnlyGuard(isReadOnly = false): ReadOnlyGuard {
 export function createTestContext(overrides?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
 	readOnly?: boolean;
+	subscriptionAllowed?: boolean;
 }): UseCaseContext & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
 	auditPort: ReturnType<typeof createTestAuditPort>;
+	subscription: ReturnType<typeof createTestSubscriptionPort>;
 } {
 	const store = createInMemoryDataStore();
 	const auditPort = createTestAuditPort();
+	const subscription = createTestSubscriptionPort(overrides?.subscriptionAllowed ?? true);
 	return {
 		store,
 		rawStore: store,
 		auth: createTestAuthContext(overrides?.auth),
 		audit: auditPort,
 		auditPort,
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false)
+		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
+		subscription
 	};
 }
 

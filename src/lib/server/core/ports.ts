@@ -99,6 +99,7 @@ export interface UseCaseContext {
 	auth: AuthContext;
 	audit: AuditPort;
 	readOnlyGuard: ReadOnlyGuard;
+	subscription: SubscriptionPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;
 }

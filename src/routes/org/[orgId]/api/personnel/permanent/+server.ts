@@ -1,55 +1,41 @@
-import { json, error } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
-import { getApiContext } from '$lib/server/supabase';
+import { handle } from '$lib/server/adapters/httpAdapter';
+import { fail } from '$lib/server/core/errors';
 import { notifyAdmins } from '$lib/server/notifications';
 
-export const DELETE = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const orgId = event.params.orgId as string;
-	const { supabase, isSandbox } = getApiContext(event.locals, event.cookies, orgId);
+export const DELETE = handle<Record<string, unknown>, unknown>({
+	permission: 'privileged',
+	mutation: true,
+	fn: async (ctx, input) => {
+		const { id } = input;
+		if (!id || typeof id !== 'string') fail(400, 'Missing id');
 
-	ctx.auth.requirePrivileged();
-	if (isSandbox) throw error(403, 'This action is not available in sandbox mode');
+		const person = await ctx.store.findOne<{
+			rank: string;
+			first_name: string;
+			last_name: string;
+			archived_at: string | null;
+		}>('personnel', ctx.auth.orgId, { id });
 
-	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) throw error(403, 'Organization is in read-only mode');
+		if (!person) fail(404, 'Personnel not found');
+		if (!person.archived_at) fail(400, 'Can only permanently delete archived personnel');
 
-	const body = await event.request.json();
-	const { id } = body;
-	if (!id) throw error(400, 'Missing id');
+		await ctx.store.delete('personnel', ctx.auth.orgId, id);
 
-	const { data: person } = await supabase
-		.from('personnel')
-		.select('rank, first_name, last_name, archived_at')
-		.eq('id', id)
-		.eq('organization_id', orgId)
-		.single();
+		const personName = `${person.rank} ${person.last_name}, ${person.first_name}`;
 
-	if (!person) throw error(404, 'Personnel not found');
-	if (!person.archived_at) throw error(400, 'Can only permanently delete archived personnel');
+		ctx.audit.log({
+			action: 'personnel.permanently_deleted',
+			resourceType: 'personnel',
+			resourceId: id,
+			details: { name: personName }
+		});
 
-	const { error: dbError } = await supabase.from('personnel').delete().eq('id', id).eq('organization_id', orgId);
+		await notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
+			type: 'personnel_permanently_deleted',
+			title: 'Personnel Permanently Deleted',
+			message: `Personnel "${personName}" was permanently deleted.`
+		});
 
-	if (dbError) throw error(500, dbError.message);
-
-	const personName = `${person.rank} ${person.last_name}, ${person.first_name}`;
-
-	ctx.audit.log({
-		action: 'personnel.permanently_deleted',
-		resourceType: 'personnel',
-		resourceId: id,
-		details: {
-			actor: event.locals.user?.email ?? ctx.auth.userId,
-			name: personName
-		}
-	});
-
-	await notifyAdmins(orgId, ctx.auth.userId, {
-		type: 'personnel_permanently_deleted',
-		title: 'Personnel Permanently Deleted',
-		message: `"${event.locals.user?.email}" permanently deleted "${personName}".`
-	});
-
-	return json({ success: true });
-};
+		return { success: true };
+	}
+});

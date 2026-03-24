@@ -2,13 +2,14 @@ import { json, error } from '@sveltejs/kit';
 import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
 import type { z } from 'zod';
 import { getApiContext } from '$lib/server/supabase';
-import { createPermissionContext, createSandboxContext } from '$lib/server/permissionContext';
+import { createPermissionContext } from '$lib/server/permissionContext';
 import { validateUUID } from '$lib/server/validation';
 import { getRequestInfo } from '$lib/server/auditLog';
 import { createSupabaseDataStore } from './supabaseDataStore';
 import { createSupabaseAuthContextAdapter, createSandboxAuthContext } from './supabaseAuthContext';
 import { createSupabaseAuditAdapter } from './supabaseAudit';
 import { createSupabaseReadOnlyGuard } from './supabaseReadOnlyGuard';
+import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import type { UseCaseContext, FeatureArea } from '$lib/server/core/ports';
@@ -43,16 +44,19 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 		auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
 	}
 
+	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
-	return { ctx: { store: scopedStore, auth, audit, readOnlyGuard, rawStore: store }, supabase, isSandbox };
+	return {
+		ctx: { store: scopedStore, auth, audit, readOnlyGuard, subscription, rawStore: store },
+		supabase,
+		isSandbox
+	};
 }
 
-export async function buildContext(event: RequestEvent): Promise<UseCaseContext> {
+async function buildContext(event: RequestEvent): Promise<UseCaseContext> {
 	const { ctx } = await buildContextInternal(event);
 	return ctx;
 }
-
-export { buildContextInternal };
 
 /**
  * Build a UseCaseContext from layout/page server parameters.
@@ -78,8 +82,9 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 		auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
 	}
 
+	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
-	return { store: scopedStore, auth, audit, readOnlyGuard, rawStore: store };
+	return { store: scopedStore, auth, audit, readOnlyGuard, subscription, rawStore: store };
 }
 
 function rethrowOrWrap(err: unknown): never {
@@ -87,59 +92,6 @@ function rethrowOrWrap(err: unknown): never {
 		throw err; // Re-throw SvelteKit HttpError or use-case fail()
 	}
 	throw error(500, 'Internal server error');
-}
-
-export function bodyHandler(
-	useCase: (ctx: UseCaseContext, data: Record<string, unknown>) => Promise<unknown>
-): RequestHandler {
-	return async (event) => {
-		try {
-			const ctx = await buildContext(event);
-
-			let body: Record<string, unknown>;
-			try {
-				body = (await event.request.json()) as Record<string, unknown>;
-			} catch {
-				throw error(400, 'Invalid JSON in request body');
-			}
-
-			const result = await useCase(ctx, body);
-			return json(result);
-		} catch (err) {
-			rethrowOrWrap(err);
-		}
-	};
-}
-
-export const postHandler = bodyHandler;
-export const putHandler = bodyHandler;
-
-export function deleteHandler(useCase: (ctx: UseCaseContext, id: string) => Promise<void>): RequestHandler {
-	return async (event) => {
-		try {
-			const ctx = await buildContext(event);
-
-			let body: Record<string, unknown>;
-			try {
-				body = (await event.request.json()) as Record<string, unknown>;
-			} catch {
-				throw error(400, 'Invalid JSON in request body');
-			}
-
-			const id = body.id;
-			if (!id || typeof id !== 'string') {
-				throw error(400, 'Missing id');
-			}
-			if (!validateUUID(id)) {
-				throw error(400, 'Invalid resource ID');
-			}
-
-			await useCase(ctx, id);
-			return json({ success: true });
-		} catch (err) {
-			rethrowOrWrap(err);
-		}
-	};
 }
 
 export function crudHandlers(config: CrudConfig): {
@@ -192,7 +144,7 @@ export interface RouteConfig<TInput = void, TOutput = unknown> {
 	permission: FeatureArea | 'manageMembers' | 'privileged' | 'owner';
 	mutation?: boolean;
 	input?: z.ZodType<TInput>;
-	parseInput?: (event: RequestEvent) => TInput;
+	parseInput?: (event: RequestEvent) => TInput | Promise<TInput>;
 	fn: (ctx: UseCaseContext, input: TInput) => Promise<TOutput>;
 	formatOutput?: (result: TOutput) => Response;
 	audit?: {
@@ -328,7 +280,7 @@ export function handle<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): R
 
 			let rawInput: unknown;
 			if (config.parseInput) {
-				rawInput = config.parseInput(event);
+				rawInput = await config.parseInput(event);
 			} else if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
 				try {
 					rawInput = await event.request.json();

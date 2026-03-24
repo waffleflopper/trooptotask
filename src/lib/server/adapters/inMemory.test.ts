@@ -3,7 +3,9 @@ import {
 	createInMemoryDataStore,
 	createTestAuthContext,
 	createTestAuditPort,
-	createTestReadOnlyGuard
+	createTestReadOnlyGuard,
+	createTestContext,
+	createTestSubscriptionPort
 } from './inMemory';
 
 describe('InMemoryDataStore', () => {
@@ -438,5 +440,51 @@ describe('TestReadOnlyGuard', () => {
 	it('can be set to read-only (true)', async () => {
 		const guard = createTestReadOnlyGuard(true);
 		expect(await guard.check()).toBe(true);
+	});
+});
+
+describe('TestSubscriptionPort', () => {
+	it('defaults to allowing personnel additions', async () => {
+		const sub = createTestSubscriptionPort();
+		const result = await sub.canAddPersonnel();
+		expect(result.allowed).toBe(true);
+	});
+
+	it('can be configured to deny personnel additions', async () => {
+		const sub = createTestSubscriptionPort(false, 'Limit reached');
+		const result = await sub.canAddPersonnel();
+		expect(result.allowed).toBe(false);
+		expect(result.message).toBe('Limit reached');
+	});
+
+	it('tracks tier cache invalidation', () => {
+		const sub = createTestSubscriptionPort();
+		expect(sub.tierCacheInvalidated).toBe(false);
+		sub.invalidateTierCache();
+		expect(sub.tierCacheInvalidated).toBe(true);
+	});
+});
+
+describe('createTestContext', () => {
+	it('provides all ports including subscription', () => {
+		const ctx = createTestContext();
+		expect(ctx.store).toBeDefined();
+		expect(ctx.rawStore).toBeDefined();
+		expect(ctx.auth).toBeDefined();
+		expect(ctx.audit).toBeDefined();
+		expect(ctx.readOnlyGuard).toBeDefined();
+		expect(ctx.subscription).toBeDefined();
+	});
+
+	it('subscription defaults to allowing additions', async () => {
+		const ctx = createTestContext();
+		const result = await ctx.subscription.canAddPersonnel();
+		expect(result.allowed).toBe(true);
+	});
+
+	it('accepts subscription override', async () => {
+		const ctx = createTestContext({ subscriptionAllowed: false });
+		const result = await ctx.subscription.canAddPersonnel();
+		expect(result.allowed).toBe(false);
 	});
 });

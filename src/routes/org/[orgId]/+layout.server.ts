@@ -83,6 +83,15 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 				async check() {
 					return false;
 				}
+			},
+			subscription: {
+				async canAddPersonnel() {
+					return { allowed: true };
+				},
+				async getAvailablePersonnelSlots() {
+					return null;
+				},
+				invalidateTierCache() {}
 			}
 		};
 

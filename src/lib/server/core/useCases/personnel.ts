@@ -1,6 +1,6 @@
 import { fail } from '$lib/server/core/errors';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import type { UseCaseContext, SubscriptionPort } from '$lib/server/core/ports';
+import type { UseCaseContext } from '$lib/server/core/ports';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -11,7 +11,7 @@ export interface PersonnelUseCases {
 	archive(ctx: UseCaseContext, id: string): Promise<{ requiresApproval: boolean } | void>;
 }
 
-export function createPersonnelUseCases(subscription: SubscriptionPort): PersonnelUseCases {
+export function createPersonnelUseCases(): PersonnelUseCases {
 	return {
 		async create(ctx, data) {
 			ctx.auth.requireEdit('personnel');
@@ -21,7 +21,7 @@ export function createPersonnelUseCases(subscription: SubscriptionPort): Personn
 				fail(403, 'Organization is in read-only mode');
 			}
 
-			const capCheck = await subscription.canAddPersonnel();
+			const capCheck = await ctx.subscription.canAddPersonnel();
 			if (!capCheck.allowed) {
 				fail(403, capCheck.message ?? 'Personnel limit reached');
 			}
@@ -36,7 +36,7 @@ export function createPersonnelUseCases(subscription: SubscriptionPort): Personn
 
 			const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData, entity.select);
 
-			subscription.invalidateTierCache();
+			ctx.subscription.invalidateTierCache();
 
 			ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.created`,
@@ -100,7 +100,7 @@ export function createPersonnelUseCases(subscription: SubscriptionPort): Personn
 				archived_at: new Date().toISOString()
 			});
 
-			subscription.invalidateTierCache();
+			ctx.subscription.invalidateTierCache();
 
 			ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.archived`,

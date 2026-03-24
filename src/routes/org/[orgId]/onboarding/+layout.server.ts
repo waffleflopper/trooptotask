@@ -5,6 +5,7 @@ import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTem
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseReadOnlyGuard } from '$lib/server/adapters/supabaseReadOnlyGuard';
+import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import { createSupabaseAuditAdapter } from '$lib/server/adapters/supabaseAudit';
 import { createSupabaseAuthContextAdapter } from '$lib/server/adapters/supabaseAuthContext';
 import { createPermissionContext } from '$lib/server/permissionContext';
@@ -42,7 +43,8 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, parent, 
 		const auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
 		const audit = createSupabaseAuditAdapter(orgId, { userId, ip: '127.0.0.1', userAgent: 'server' });
 		const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
-		const ctx = { store, rawStore: store, auth, audit, readOnlyGuard };
+		const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
+		const ctx = { store, rawStore: store, auth, audit, readOnlyGuard, subscription };
 
 		// Refresh training steps for all active onboardings with training steps
 		const refreshResults = await Promise.all(

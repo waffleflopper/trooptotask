@@ -1,29 +1,18 @@
-import { json, error } from '@sveltejs/kit';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { handle } from '$lib/server/adapters/httpAdapter';
 import { createAvailabilityBatch, deleteAvailabilityBatch } from '$lib/server/core/useCases/availabilityBatch';
 
-export const POST = async (event: import('@sveltejs/kit').RequestEvent) => {
-	const ctx = await buildContext(event);
-	const body = await event.request.json();
+// Use case functions validate input internally; handle() parses raw JSON body
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyInput = any;
 
-	try {
-		const result = await createAvailabilityBatch(ctx, body);
-		return json(result);
-	} catch (err) {
-		if (err && typeof err === 'object' && 'status' in err) throw err;
-		throw error(500, 'Internal server error');
-	}
-};
+export const POST = handle<AnyInput, unknown>({
+	permission: 'calendar',
+	mutation: true,
+	fn: (ctx, input) => createAvailabilityBatch(ctx, input)
+});
 
-export const DELETE = async (event: import('@sveltejs/kit').RequestEvent) => {
-	const ctx = await buildContext(event);
-	const body = await event.request.json();
-
-	try {
-		const result = await deleteAvailabilityBatch(ctx, body);
-		return json(result);
-	} catch (err) {
-		if (err && typeof err === 'object' && 'status' in err) throw err;
-		throw error(500, 'Internal server error');
-	}
-};
+export const DELETE = handle<AnyInput, unknown>({
+	permission: 'calendar',
+	mutation: true,
+	fn: (ctx, input) => deleteAvailabilityBatch(ctx, input)
+});

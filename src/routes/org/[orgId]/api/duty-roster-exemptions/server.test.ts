@@ -1,124 +1,68 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { createTestContext } from '$lib/server/adapters/inMemory';
+import { handleUseCaseRequest, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 
-vi.mock('$lib/server/supabase', () => ({
-	getApiContext: vi.fn()
-}));
-vi.mock('$lib/server/permissionContext', () => ({
-	createPermissionContext: vi.fn()
-}));
-vi.mock('$lib/server/read-only-guard', () => ({
-	checkReadOnly: vi.fn()
-}));
-vi.mock('$lib/server/validation', () => ({
-	validateUUID: vi.fn()
-}));
-vi.mock('$lib/server/auditLog', () => ({
-	auditLog: vi.fn().mockResolvedValue(undefined),
-	getRequestInfo: vi.fn().mockReturnValue({ userId: null, ip: '127.0.0.1', userAgent: 'test' })
-}));
-
-import { PUT } from './+server';
-import { getApiContext } from '$lib/server/supabase';
-import { createPermissionContext } from '$lib/server/permissionContext';
-import { checkReadOnly } from '$lib/server/read-only-guard';
-import { validateUUID } from '$lib/server/validation';
-
-const VALID_ORG_ID = '00000000-0000-0000-0000-000000000001';
-
-function mockPermissionContext() {
-	return {
-		role: 'admin' as const,
-		isOwner: false,
-		isAdmin: true,
-		isPrivileged: true,
-		isFullEditor: false,
-		scopedGroupId: null,
-		canView: { calendar: true, personnel: true, training: true, onboarding: true, 'leaders-book': true },
-		canEdit: { calendar: true, personnel: true, training: true, onboarding: true, 'leaders-book': true },
-		canManageMembers: true,
-		requireEdit: vi.fn(),
-		requireView: vi.fn(),
-		requirePrivileged: vi.fn(),
-		requireOwner: vi.fn(),
-		requireFullEditor: vi.fn(),
-		requireManageMembers: vi.fn(),
-		requireGroupAccess: vi.fn(),
-		requireGroupAccessBatch: vi.fn(),
-		requireGroupAccessByRecord: vi.fn()
-	};
-}
-
-function mockEvent(body: unknown) {
-	return {
-		params: { orgId: VALID_ORG_ID },
-		locals: {} as App.Locals,
-		cookies: {} as never,
-		request: new Request('http://localhost/test', {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(body)
-		}),
-		getClientAddress: () => '127.0.0.1'
-	} as unknown as Parameters<typeof PUT>[0];
-}
-
-let mockSupabaseUpdate: ReturnType<typeof vi.fn>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let mockSupabase: any;
-
-import { auditLog } from '$lib/server/auditLog';
-
-beforeEach(() => {
-	vi.resetAllMocks();
-	vi.mocked(validateUUID).mockReturnValue(true);
-	vi.mocked(checkReadOnly).mockResolvedValue(null);
-	vi.mocked(auditLog).mockResolvedValue(undefined as never);
-
-	mockSupabaseUpdate = vi.fn().mockReturnValue({
-		eq: vi.fn().mockReturnValue({
-			eq: vi.fn().mockReturnValue({
-				select: vi.fn().mockReturnValue({
-					single: vi.fn().mockResolvedValue({
-						data: { exempt_personnel_ids: ['p1', 'p2'] },
-						error: null
-					})
-				})
-			})
-		})
-	});
-
-	mockSupabase = {
-		from: vi.fn().mockReturnValue({
-			update: mockSupabaseUpdate
-		})
-	};
-
-	vi.mocked(getApiContext).mockReturnValue({
-		supabase: mockSupabase,
-		userId: 'user-1',
-		isSandbox: false
-	});
-	vi.mocked(createPermissionContext).mockResolvedValue(mockPermissionContext());
-});
+// Import the route config (not the HTTP handler)
+import { putConfig } from './+server';
 
 describe('PUT /api/duty-roster-exemptions', () => {
-	it('updates exempt personnel and returns the result', async () => {
-		const response = await PUT(mockEvent({ assignmentTypeId: 'at-1', personnelIds: ['p1', 'p2'] }));
-
-		expect(response.status).toBe(200);
-		const body = await response.json();
-		expect(body.exemptPersonnelIds).toEqual(['p1', 'p2']);
-
-		expect(mockSupabase.from).toHaveBeenCalledWith('assignment_types');
-		expect(mockSupabaseUpdate).toHaveBeenCalledWith({ exempt_personnel_ids: ['p1', 'p2'] });
+	it('exports a RouteConfig with correct permission and mutation', () => {
+		expect(putConfig.permission).toBe('calendar');
+		expect(putConfig.mutation).toBe(true);
 	});
 
-	it('requires edit calendar permission', async () => {
-		const ctx = mockPermissionContext();
-		vi.mocked(createPermissionContext).mockResolvedValue(ctx);
+	it('updates exempt personnel and returns the result', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('assignment_types', [{ id: 'at-1', organization_id: 'test-org', exempt_personnel_ids: [] }]);
 
-		await PUT(mockEvent({ assignmentTypeId: 'at-1', personnelIds: [] }));
+		const result = await handleUseCaseRequest(putConfig, ctx, {
+			assignmentTypeId: 'at-1',
+			personnelIds: ['p1', 'p2']
+		});
 
-		expect(ctx.requireEdit).toHaveBeenCalledWith('calendar');
+		expect(result).toEqual({ exemptPersonnelIds: ['p1', 'p2'] });
+	});
+
+	it('defaults personnelIds to empty array when omitted', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('assignment_types', [{ id: 'at-1', organization_id: 'test-org', exempt_personnel_ids: ['old'] }]);
+
+		const result = await handleUseCaseRequest(putConfig, ctx, {
+			assignmentTypeId: 'at-1'
+		});
+
+		expect(result).toEqual({ exemptPersonnelIds: [] });
+	});
+
+	it('rejects when assignmentTypeId is missing', async () => {
+		const ctx = createTestContext();
+
+		await expect(handleUseCaseRequest(putConfig, ctx, { personnelIds: [] })).rejects.toMatchObject({
+			status: 400
+		});
+	});
+
+	it('emits audit event', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('assignment_types', [{ id: 'at-1', organization_id: 'test-org', exempt_personnel_ids: [] }]);
+
+		await handleUseCaseRequest(putConfig, ctx, {
+			assignmentTypeId: 'at-1',
+			personnelIds: ['p1']
+		});
+
+		expect(ctx.auditPort.events).toHaveLength(1);
+		expect(ctx.auditPort.events[0]).toMatchObject({
+			action: 'duty_roster_exemption.updated',
+			resourceType: 'duty_roster_exemption'
+		});
+	});
+
+	it('blocks mutation when read-only', async () => {
+		const ctx = createTestContext({ readOnly: true });
+
+		await expect(
+			handleUseCaseRequest(putConfig, ctx, { assignmentTypeId: 'at-1', personnelIds: [] })
+		).rejects.toMatchObject({ status: 403 });
 	});
 });

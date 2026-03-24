@@ -7,7 +7,8 @@ import {
 	createTestAuditPort,
 	createTestReadOnlyGuard,
 	createTestSubscriptionPort,
-	createTestNotificationPort
+	createTestNotificationPort,
+	createTestBillingPort
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { createCrudUseCases } from './crud';
@@ -53,7 +54,8 @@ function buildContext(overrides?: {
 		readOnlyGuard,
 		subscription,
 		auditPort,
-		notifications: createTestNotificationPort()
+		notifications: createTestNotificationPort(),
+		billing: createTestBillingPort()
 	};
 }
 

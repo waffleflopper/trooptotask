@@ -2,7 +2,6 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { PERMISSION_PRESETS, type OrganizationMember, type PermissionPreset } from '$lib/types';
 import { isBillingEnabled } from '$lib/config/billing';
-import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscription';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { loadWithContext, buildLayoutContext } from '$lib/server/adapters/httpAdapter';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
@@ -74,8 +73,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 
 			if (isBillingEnabled) {
 				const [tier, exportCount] = await Promise.all([
-					getEffectiveTier(locals.supabase, orgId),
-					getMonthlyExportCount(locals.supabase, orgId)
+					ctx.subscription.getEffectiveTier(),
+					ctx.subscription.getMonthlyExportCount()
 				]);
 				const config = TIER_CONFIG[tier.tier];
 				exportInfo = {

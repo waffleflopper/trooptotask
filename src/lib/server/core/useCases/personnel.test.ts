@@ -5,7 +5,8 @@ import {
 	createTestAuditPort,
 	createTestReadOnlyGuard,
 	createTestSubscriptionPort,
-	createTestNotificationPort
+	createTestNotificationPort,
+	createTestBillingPort
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { createPersonnelUseCases } from './personnel';
@@ -36,7 +37,8 @@ function buildContext(overrides?: {
 		auditPort,
 		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
 		subscription,
-		notifications: createTestNotificationPort()
+		notifications: createTestNotificationPort(),
+		billing: createTestBillingPort()
 	};
 }
 

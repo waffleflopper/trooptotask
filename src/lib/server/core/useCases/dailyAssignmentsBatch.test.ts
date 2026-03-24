@@ -5,7 +5,8 @@ import {
 	createTestAuditPort,
 	createTestReadOnlyGuard,
 	createTestSubscriptionPort,
-	createTestNotificationPort
+	createTestNotificationPort,
+	createTestBillingPort
 } from '$lib/server/adapters/inMemory';
 import { batchDailyAssignments } from './dailyAssignmentsBatch';
 
@@ -18,7 +19,8 @@ function buildContext(overrides?: { readOnly?: boolean; auth?: Parameters<typeof
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly),
 		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort()
+		notifications: createTestNotificationPort(),
+		billing: createTestBillingPort()
 	};
 }
 

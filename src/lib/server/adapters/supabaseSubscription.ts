@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SubscriptionPort } from '$lib/server/core/ports';
-import { canAddPersonnel, getEffectiveTier, invalidateTierCache } from '$lib/server/subscription';
+import {
+	canAddPersonnel,
+	getEffectiveTier,
+	invalidateTierCache,
+	getMonthlyExportCount
+} from '$lib/server/subscription';
 
 export function createSupabaseSubscriptionAdapter(supabase: SupabaseClient, orgId: string): SubscriptionPort {
 	return {
@@ -14,6 +19,12 @@ export function createSupabaseSubscriptionAdapter(supabase: SupabaseClient, orgI
 		},
 		invalidateTierCache() {
 			invalidateTierCache(orgId);
+		},
+		async getEffectiveTier() {
+			return getEffectiveTier(supabase, orgId);
+		},
+		async getMonthlyExportCount() {
+			return getMonthlyExportCount(supabase, orgId);
 		}
 	};
 }

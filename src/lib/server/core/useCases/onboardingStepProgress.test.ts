@@ -5,7 +5,8 @@ import {
 	createTestAuditPort,
 	createTestReadOnlyGuard,
 	createTestSubscriptionPort,
-	createTestNotificationPort
+	createTestNotificationPort,
+	createTestBillingPort
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import {
@@ -37,7 +38,8 @@ function buildContext(overrides?: { readOnly?: boolean }): TestContext {
 		readOnlyGuard,
 		subscription,
 		auditPort,
-		notifications: createTestNotificationPort()
+		notifications: createTestNotificationPort(),
+		billing: createTestBillingPort()
 	};
 }
 

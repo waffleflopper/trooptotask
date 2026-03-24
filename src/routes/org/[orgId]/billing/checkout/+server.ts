@@ -1,74 +1,65 @@
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isBillingEnabled } from '$lib/config/billing';
-import { createCheckoutSession } from '$lib/server/stripe';
+import { buildRouteContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { checkout } from '$lib/server/core/useCases/billing';
+import { fail } from '$lib/server/core/errors';
 
-export const POST: RequestHandler = async ({ params, request, locals, url }) => {
+export const POST: RequestHandler = async (event) => {
 	if (!isBillingEnabled) {
 		return json({ error: 'Billing is not enabled' }, { status: 400 });
 	}
 
-	const user = locals.user;
-	if (!user) {
-		throw error(401, 'Not authenticated');
-	}
-
-	const { orgId } = params;
-
-	// Verify user is the org owner
-	const { data: membership } = await locals.supabase
-		.from('organization_memberships')
-		.select('role')
-		.eq('organization_id', orgId)
-		.eq('user_id', user.id)
-		.single();
-
-	if (membership?.role !== 'owner') {
-		throw error(403, 'Only the organization owner can manage billing');
-	}
-
-	const body = await request.json();
-	const { tier } = body;
-
-	if (tier !== 'team' && tier !== 'unit') {
-		return json({ error: 'Invalid tier. Must be "team" or "unit".' }, { status: 400 });
-	}
-
-	// Get org details
-	const { data: org } = await locals.supabase
-		.from('organizations')
-		.select('id, name, stripe_customer_id')
-		.eq('id', orgId)
-		.single();
-
-	if (!org) {
-		throw error(404, 'Organization not found');
-	}
-
-	const email = user.email;
-	if (!email) {
-		return json({ error: 'User email not found' }, { status: 400 });
-	}
-
 	try {
-		const { url: checkoutUrl, customerId } = await createCheckoutSession({
-			orgId,
-			orgName: org.name,
-			tier,
-			customerEmail: email,
-			existingCustomerId: org.stripe_customer_id ?? undefined,
-			successUrl: `${url.origin}/org/${orgId}/billing/success`,
-			cancelUrl: `${url.origin}/org/${orgId}/billing/canceled`
-		});
+		const ctx = await buildRouteContext(event);
+		const { orgId } = event.params;
 
-		// Persist customer ID immediately to prevent duplicate customers on retry
-		if (!org.stripe_customer_id) {
-			await locals.supabase.from('organizations').update({ stripe_customer_id: customerId }).eq('id', orgId);
+		const body = await event.request.json();
+		const tier = body.tier;
+		if (tier !== 'team' && tier !== 'unit') {
+			fail(400, 'Invalid tier. Must be "team" or "unit".');
 		}
 
-		return json({ url: checkoutUrl });
+		const { data: org } = await event.locals.supabase
+			.from('organizations')
+			.select('id, name, stripe_customer_id')
+			.eq('id', orgId)
+			.single();
+
+		if (!org) fail(404, 'Organization not found');
+
+		const email = event.locals.user?.email;
+		if (!email) fail(400, 'User email not found');
+
+		const result = await handleUseCaseRequest(
+			{
+				permission: 'owner',
+				mutation: true,
+				fn: (c) =>
+					checkout(c, {
+						tier,
+						customerEmail: email,
+						orgName: org.name,
+						existingCustomerId: org.stripe_customer_id ?? undefined,
+						successUrl: `${event.url.origin}/org/${orgId}/billing/success`,
+						cancelUrl: `${event.url.origin}/org/${orgId}/billing/canceled`
+					}),
+				audit: { action: 'billing.checkout', resourceType: 'organization' }
+			},
+			ctx,
+			undefined
+		);
+
+		if (!org.stripe_customer_id) {
+			await event.locals.supabase
+				.from('organizations')
+				.update({ stripe_customer_id: result.customerId })
+				.eq('id', orgId);
+		}
+
+		return json({ url: result.url });
 	} catch (err) {
-		console.error('Stripe checkout error:', err);
+		if (err && typeof err === 'object' && 'status' in err) throw err;
 		return json({ error: 'Failed to create checkout session. Please try again.' }, { status: 500 });
 	}
 };

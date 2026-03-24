@@ -13,6 +13,7 @@ import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import { createSupabaseNotificationAdapter } from './supabaseNotification';
+import { createStripeBillingAdapter } from './stripeBilling';
 import type { UseCaseContext, FeatureArea } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
@@ -47,15 +48,16 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
+	const billing = createStripeBillingAdapter();
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
 	return {
-		ctx: { store: scopedStore, auth, audit, readOnlyGuard, subscription, notifications, rawStore: store },
+		ctx: { store: scopedStore, auth, audit, readOnlyGuard, subscription, notifications, billing, rawStore: store },
 		supabase,
 		isSandbox
 	};
 }
 
-async function buildContext(event: RequestEvent): Promise<UseCaseContext> {
+export async function buildRouteContext(event: RequestEvent): Promise<UseCaseContext> {
 	const { ctx } = await buildContextInternal(event);
 	return ctx;
 }
@@ -86,8 +88,9 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
+	const billing = createStripeBillingAdapter();
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
-	return { store: scopedStore, auth, audit, readOnlyGuard, subscription, notifications, rawStore: store };
+	return { store: scopedStore, auth, audit, readOnlyGuard, subscription, notifications, billing, rawStore: store };
 }
 
 function rethrowOrWrap(err: unknown): never {
@@ -279,7 +282,7 @@ export async function loadWithContext<T>(
 export function handle<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): RequestHandler {
 	return async (event) => {
 		try {
-			const ctx = await buildContext(event);
+			const ctx = await buildRouteContext(event);
 
 			let rawInput: unknown;
 			if (config.parseInput) {

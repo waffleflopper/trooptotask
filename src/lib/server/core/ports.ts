@@ -1,4 +1,5 @@
 import type { FeatureArea } from '../permissionContext';
+import type { EffectiveTier } from '$lib/types/subscription';
 
 // Re-export for convenience so consumers don't need two imports
 export type { FeatureArea };
@@ -91,6 +92,27 @@ export interface SubscriptionPort {
 	/** Returns number of personnel slots available, or null if unlimited */
 	getAvailablePersonnelSlots(): Promise<number | null>;
 	invalidateTierCache(): void;
+	/** Get the effective tier for this org (considers gifts, subscriptions, billing-disabled) */
+	getEffectiveTier(): Promise<EffectiveTier>;
+	/** Count bulk data exports this month for this org */
+	getMonthlyExportCount(): Promise<number>;
+}
+
+/** Abstracts payment provider operations (Stripe, etc.) */
+export interface BillingPort {
+	createCheckoutSession(options: {
+		orgId: string;
+		orgName: string;
+		tier: 'team' | 'unit';
+		customerEmail: string;
+		existingCustomerId?: string;
+		successUrl: string;
+		cancelUrl: string;
+	}): Promise<{ url: string; customerId: string }>;
+	createPortalSession(customerId: string, returnUrl: string): Promise<{ url: string }>;
+	cancelSubscription(subscriptionId: string): Promise<void>;
+	pauseSubscription(subscriptionId: string): Promise<void>;
+	resumeSubscription(subscriptionId: string): Promise<void>;
 }
 
 /** Notification payload for user/admin notifications */
@@ -115,6 +137,7 @@ export interface UseCaseContext {
 	readOnlyGuard: ReadOnlyGuard;
 	subscription: SubscriptionPort;
 	notifications: NotificationPort;
+	billing: BillingPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;
 }

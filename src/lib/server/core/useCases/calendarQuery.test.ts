@@ -6,7 +6,8 @@ import {
 	createTestReadOnlyGuard,
 	createTestSubscriptionPort,
 	createTestNotificationPort,
-	createTestBillingPort
+	createTestBillingPort,
+	createTestStoragePort
 } from '$lib/server/adapters/inMemory';
 import { fetchCalendarData } from './calendarQuery';
 
@@ -22,7 +23,8 @@ function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[
 		readOnlyGuard: createTestReadOnlyGuard(),
 		subscription: createTestSubscriptionPort(),
 		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort()
+		billing: createTestBillingPort(),
+		storage: createTestStoragePort()
 	};
 }
 

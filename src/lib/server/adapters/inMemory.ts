@@ -9,6 +9,7 @@ import type {
 	NotificationPort,
 	NotificationPayload,
 	BillingPort,
+	StoragePort,
 	UseCaseContext
 } from '../core/ports';
 import type { EffectiveTier } from '$lib/types/subscription';
@@ -288,12 +289,14 @@ export function createTestContext(overrides?: {
 	subscription: ReturnType<typeof createTestSubscriptionPort>;
 	notificationPort: ReturnType<typeof createTestNotificationPort>;
 	billingPort: ReturnType<typeof createTestBillingPort>;
+	storagePort: ReturnType<typeof createTestStoragePort>;
 } {
 	const store = createInMemoryDataStore();
 	const auditPort = createTestAuditPort();
 	const subscription = createTestSubscriptionPort(overrides?.subscriptionAllowed ?? true);
 	const notificationPort = createTestNotificationPort();
 	const billingPort = createTestBillingPort();
+	const storagePort = createTestStoragePort();
 	return {
 		store,
 		rawStore: store,
@@ -305,7 +308,9 @@ export function createTestContext(overrides?: {
 		notifications: notificationPort,
 		notificationPort,
 		billing: billingPort,
-		billingPort
+		billingPort,
+		storage: storagePort,
+		storagePort
 	};
 }
 
@@ -338,6 +343,36 @@ export function createTestSubscriptionPort(
 		},
 		async getMonthlyExportCount() {
 			return 0;
+		}
+	};
+}
+
+interface StoredFile {
+	bucket: string;
+	path: string;
+	data: File | Blob | ArrayBuffer;
+}
+
+export function createTestStoragePort(): StoragePort & { files: StoredFile[] } {
+	const files: StoredFile[] = [];
+	return {
+		files,
+		async upload(bucket: string, path: string, data: File | Blob | ArrayBuffer): Promise<void> {
+			// Remove existing file at same path (upsert behavior)
+			const idx = files.findIndex((f) => f.bucket === bucket && f.path === path);
+			if (idx >= 0) files.splice(idx, 1);
+			files.push({ bucket, path, data });
+		},
+		async remove(bucket: string, paths: string[]): Promise<void> {
+			for (const p of paths) {
+				const idx = files.findIndex((f) => f.bucket === bucket && f.path === p);
+				if (idx >= 0) files.splice(idx, 1);
+			}
+		},
+		async createSignedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string> {
+			const exists = files.some((f) => f.bucket === bucket && f.path === path);
+			if (!exists) throw new Error(`File not found: ${bucket}/${path}`);
+			return `https://storage.test/${bucket}/${path}?expires=${expiresInSeconds}`;
 		}
 	};
 }

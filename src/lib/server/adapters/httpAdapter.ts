@@ -2,7 +2,11 @@ import { json, error } from '@sveltejs/kit';
 import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
 import type { z } from 'zod';
 import { getApiContext } from '$lib/server/supabase';
-import { createPermissionContext } from '$lib/server/permissionContext';
+import {
+	createPermissionContext,
+	createPermissionContextFromMembership,
+	type MembershipRow
+} from '$lib/server/permissionContext';
 import { validateUUID } from '$lib/server/validation';
 import { getRequestInfo } from '$lib/server/auditLog';
 import { createSupabaseDataStore } from './supabaseDataStore';
@@ -14,6 +18,7 @@ import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import { createSupabaseNotificationAdapter } from './supabaseNotification';
 import { createStripeBillingAdapter } from './stripeBilling';
+import { createSupabaseStorageAdapter } from './supabaseStorage';
 import type { UseCaseContext, FeatureArea } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
@@ -51,7 +56,17 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const billing = createStripeBillingAdapter();
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
 	return {
-		ctx: { store: scopedStore, auth, audit, readOnlyGuard, subscription, notifications, billing, rawStore: store },
+		ctx: {
+			store: scopedStore,
+			auth,
+			audit,
+			readOnlyGuard,
+			subscription,
+			notifications,
+			billing,
+			storage: createSupabaseStorageAdapter(supabase),
+			rawStore: store
+		},
 		supabase,
 		isSandbox
 	};
@@ -99,8 +114,65 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
 	const billing = createStripeBillingAdapter();
+	const storage = createSupabaseStorageAdapter(supabase);
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
-	return { store: scopedStore, auth, audit, readOnlyGuard, subscription, notifications, billing, rawStore: store };
+	return {
+		store: scopedStore,
+		auth,
+		audit,
+		readOnlyGuard,
+		subscription,
+		notifications,
+		billing,
+		storage,
+		rawStore: store
+	};
+}
+
+/**
+ * Build a UseCaseContext using an already-fetched membership row.
+ * Avoids re-querying organization_memberships when the layout already has the data.
+ */
+export async function buildLayoutContextFromMembership(
+	locals: App.Locals,
+	cookies: Cookies,
+	orgId: string,
+	membership: MembershipRow
+): Promise<UseCaseContext> {
+	if (!validateUUID(orgId)) {
+		throw error(400, 'Invalid organization ID');
+	}
+
+	const { supabase, userId, isSandbox } = getApiContext(locals, cookies, orgId);
+
+	const store = createSupabaseDataStore(supabase);
+	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
+	const audit = { log() {} };
+
+	let auth;
+	if (isSandbox) {
+		auth = createSandboxAuthContext(orgId);
+	} else {
+		const permCtx = createPermissionContextFromMembership(membership);
+		auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
+	}
+
+	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
+	const notifications = createSupabaseNotificationAdapter();
+	const billing = createStripeBillingAdapter();
+	const storage = createSupabaseStorageAdapter(supabase);
+	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
+	return {
+		store: scopedStore,
+		auth,
+		audit,
+		readOnlyGuard,
+		subscription,
+		notifications,
+		billing,
+		storage,
+		rawStore: store
+	};
 }
 
 function rethrowOrWrap(err: unknown): never {

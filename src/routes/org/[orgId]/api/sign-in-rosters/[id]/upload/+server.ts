@@ -1,35 +1,27 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { handle } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 
-export const GET = handle<Record<string, unknown>, unknown>({
+export const GET = handle<{ rosterId: string }, { url: string }>({
 	permission: 'personnel',
 	parseInput: (event: RequestEvent) => ({
-		rosterId: event.params.id as string,
-		// Direct Supabase access needed for storage operations — no StoragePort exists yet
-		_supabaseStorage: event.locals.supabase as SupabaseClient
+		rosterId: event.params.id as string
 	}),
 	fn: async (ctx, input) => {
 		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
-			id: input.rosterId as string
+			id: input.rosterId
 		});
 
 		if (!roster?.signed_file_path) fail(404, 'No signed file found');
 
-		const supabase = input._supabaseStorage as SupabaseClient;
-		const { data: signedUrl } = await supabase.storage
-			.from('counseling-files')
-			.createSignedUrl(roster.signed_file_path, 300);
+		const url = await ctx.storage.createSignedUrl('counseling-files', roster.signed_file_path, 300);
 
-		if (!signedUrl) fail(500, 'Failed to create download URL');
-
-		return { url: signedUrl.signedUrl };
+		return { url };
 	}
 });
 
-export const POST = handle<Record<string, unknown>, unknown>({
+export const POST = handle<{ rosterId: string; file: File }, { signedFilePath: string }>({
 	permission: 'personnel',
 	mutation: true,
 	parseInput: async (event: RequestEvent) => {
@@ -37,36 +29,26 @@ export const POST = handle<Record<string, unknown>, unknown>({
 		const file = formData.get('file') as File;
 		return {
 			rosterId: event.params.id as string,
-			file,
-			// Direct Supabase access needed for storage operations — no StoragePort exists yet
-			_supabaseStorage: event.locals.supabase as SupabaseClient
+			file
 		};
 	},
 	fn: async (ctx, input) => {
-		const file = input.file as File;
-		const rosterId = input.rosterId as string;
+		if (!input.file) fail(400, 'No file provided');
+		if (input.file.size > 10 * 1024 * 1024) fail(400, 'File must be under 10MB');
 
-		if (!file) fail(400, 'No file provided');
-		if (file.size > 10 * 1024 * 1024) fail(400, 'File must be under 10MB');
+		const sanitizedName = input.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+		const storagePath = `${ctx.auth.orgId}/sign-in-rosters/${input.rosterId}/${sanitizedName}`;
 
-		const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-		const storagePath = `${ctx.auth.orgId}/sign-in-rosters/${rosterId}/${sanitizedName}`;
+		await ctx.storage.upload('counseling-files', storagePath, input.file, { upsert: true });
 
-		const supabase = input._supabaseStorage as SupabaseClient;
-		const { error: uploadError } = await supabase.storage
-			.from('counseling-files')
-			.upload(storagePath, file, { upsert: true });
-
-		if (uploadError) fail(500, uploadError.message);
-
-		await ctx.store.update('sign_in_rosters', ctx.auth.orgId, rosterId, {
+		await ctx.store.update('sign_in_rosters', ctx.auth.orgId, input.rosterId, {
 			signed_file_path: storagePath
 		});
 
 		ctx.audit.log({
 			action: 'sign_in_roster.scan_uploaded',
 			resourceType: 'sign_in_roster',
-			resourceId: rosterId
+			resourceId: input.rosterId
 		});
 
 		return { signedFilePath: storagePath };
@@ -74,29 +56,24 @@ export const POST = handle<Record<string, unknown>, unknown>({
 	formatOutput: (result) => json(result)
 });
 
-export const DELETE = handle<Record<string, unknown>, unknown>({
+export const DELETE = handle<{ rosterId: string }, { success: boolean }>({
 	permission: 'personnel',
 	mutation: true,
 	parseInput: (event: RequestEvent) => ({
-		rosterId: event.params.id as string,
-		// Direct Supabase access needed for storage operations — no StoragePort exists yet
-		_supabaseStorage: event.locals.supabase as SupabaseClient
+		rosterId: event.params.id as string
 	}),
 	fn: async (ctx, input) => {
-		const rosterId = input.rosterId as string;
-
 		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
-			id: rosterId
+			id: input.rosterId
 		});
 
 		if (!roster) fail(404, 'Roster not found');
 
 		if (roster.signed_file_path) {
-			const supabase = input._supabaseStorage as SupabaseClient;
-			await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
+			await ctx.storage.remove('counseling-files', [roster.signed_file_path]);
 		}
 
-		await ctx.store.update('sign_in_rosters', ctx.auth.orgId, rosterId, {
+		await ctx.store.update('sign_in_rosters', ctx.auth.orgId, input.rosterId, {
 			signed_file_path: null
 		});
 

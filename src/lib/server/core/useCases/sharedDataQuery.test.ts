@@ -6,7 +6,8 @@ import {
 	createTestReadOnlyGuard,
 	createTestSubscriptionPort,
 	createTestNotificationPort,
-	createTestBillingPort
+	createTestBillingPort,
+	createTestStoragePort
 } from '$lib/server/adapters/inMemory';
 import { createScopedDataStore } from '$lib/server/adapters/scopedDataStore';
 import type { GroupScopeRule } from '$lib/server/core/ports';
@@ -26,7 +27,8 @@ function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[
 		readOnlyGuard: createTestReadOnlyGuard(),
 		subscription: createTestSubscriptionPort(),
 		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort()
+		billing: createTestBillingPort(),
+		storage: createTestStoragePort()
 	};
 }
 
@@ -198,7 +200,8 @@ describe('fetchSharedData', () => {
 			readOnlyGuard: createTestReadOnlyGuard(),
 			subscription: createTestSubscriptionPort(),
 			notifications: createTestNotificationPort(),
-			billing: createTestBillingPort()
+			billing: createTestBillingPort(),
+			storage: createTestStoragePort()
 		};
 
 		const result = await fetchSharedData(ctx);

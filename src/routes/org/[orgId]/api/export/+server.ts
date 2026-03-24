@@ -5,7 +5,6 @@ import { getApiContext, getAdminClient } from '$lib/server/supabase';
 import { isBillingEnabled } from '$lib/config/billing';
 import { getEffectiveTier, getMonthlyExportCount } from '$lib/server/subscription';
 import { TIER_CONFIG } from '$lib/types/subscription';
-import { queryPersonnel } from '$lib/server/personnelRepository';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = any;
@@ -64,10 +63,11 @@ export const POST = handle<Record<string, unknown>, Record<string, unknown>>({
 				personnelExtendedRes,
 				dutyRosterHistoryRes
 			] = await Promise.all([
-				queryPersonnel<Record<string, unknown>>({ supabase, orgId, select: '*', transform: 'raw' }).then((r) => ({
-					data: r.data,
-					error: r.error ? { message: r.error } : null
-				})),
+				ctx.rawStore
+					.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+						isNull: { archived_at: true }
+					})
+					.then((data) => ({ data, error: null })),
 				supabase.from('groups').select('*').eq('organization_id', orgId),
 				supabase.from('availability_entries').select('*').eq('organization_id', orgId),
 				supabase.from('training_types').select('*').eq('organization_id', orgId),

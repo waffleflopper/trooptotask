@@ -39,7 +39,7 @@ export class TrainingPageContext {
 
 	// ---- mutable UI state ----
 	selectedGroupId = $state<string>('');
-	viewMode = $state<'alphabetical' | 'by-group'>('alphabetical');
+	viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
 
 	constructor(data: TrainingPageData, modals: ModalRegistry, org: OrgContext) {

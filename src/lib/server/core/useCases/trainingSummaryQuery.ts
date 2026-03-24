@@ -1,6 +1,6 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { UseCaseContext } from '$lib/server/core/ports';
 import type { Personnel } from '$lib/types';
-import type { TrainingType, TrainingStatus } from '$features/training/training.types';
+import type { TrainingType, TrainingStatus, PersonnelTraining } from '$features/training/training.types';
 import { getTrainingStats, getDelinquentTrainings, type TrainingStats } from '$features/training/utils/trainingStatus';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 
@@ -17,23 +17,22 @@ export interface TrainingSummary {
 	issues: TrainingIssue[];
 }
 
-export interface TrainingSummaryOptions {
-	groupId?: string;
-	issueLimit?: number;
-	issueStatuses?: TrainingStatus[];
-	includeNotCompleted?: boolean;
+export interface TrainingSummaryInput {
+	personnel: Personnel[];
+	trainingTypes: TrainingType[];
+	options?: {
+		groupId?: string;
+		issueLimit?: number;
+		issueStatuses?: TrainingStatus[];
+		includeNotCompleted?: boolean;
+	};
 }
 
-export async function getTrainingSummary(
-	supabase: SupabaseClient,
-	orgId: string,
-	personnel: Personnel[],
-	trainingTypes: TrainingType[],
-	options: TrainingSummaryOptions = {}
-): Promise<TrainingSummary> {
-	const trainings = await PersonnelTrainingEntity.repo.list(supabase, orgId);
-
+export async function fetchTrainingSummary(ctx: UseCaseContext, input: TrainingSummaryInput): Promise<TrainingSummary> {
+	const { personnel, trainingTypes, options = {} } = input;
 	const { issueLimit = 5, issueStatuses = ['expired', 'warning-orange'], includeNotCompleted = false } = options;
+
+	const trainings = await fetchTrainings(ctx);
 
 	const stats = getTrainingStats(personnel, trainingTypes, trainings, options.groupId);
 
@@ -55,20 +54,30 @@ export async function getTrainingSummary(
 	return { stats, issues };
 }
 
-export type TrainingSummaryByGroupOptions = Omit<TrainingSummaryOptions, 'groupId'>;
+async function fetchTrainings(ctx: UseCaseContext): Promise<PersonnelTraining[]> {
+	const rows = await ctx.store.findMany<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId);
+	return PersonnelTrainingEntity.fromDbArray(rows);
+}
 
-export async function getTrainingSummaryByGroup(
-	supabase: SupabaseClient,
-	orgId: string,
-	personnel: Personnel[],
-	trainingTypes: TrainingType[],
-	options: TrainingSummaryByGroupOptions = {}
+export interface TrainingSummaryByGroupInput {
+	personnel: Personnel[];
+	trainingTypes: TrainingType[];
+	options?: {
+		issueLimit?: number;
+		issueStatuses?: TrainingStatus[];
+		includeNotCompleted?: boolean;
+	};
+}
+
+export async function fetchTrainingSummaryByGroup(
+	ctx: UseCaseContext,
+	input: TrainingSummaryByGroupInput
 ): Promise<Map<string, TrainingSummary>> {
-	const trainings = await PersonnelTrainingEntity.repo.list(supabase, orgId);
-
+	const { personnel, trainingTypes, options = {} } = input;
 	const { issueLimit = 5, issueStatuses = ['expired', 'warning-orange'], includeNotCompleted = false } = options;
 
-	// Partition personnel by group
+	const trainings = await fetchTrainings(ctx);
+
 	const groupMap = new Map<string, Personnel[]>();
 	for (const p of personnel) {
 		const key = p.groupId ?? 'ungrouped';
@@ -78,20 +87,13 @@ export async function getTrainingSummaryByGroup(
 
 	const result = new Map<string, TrainingSummary>();
 	for (const [groupId, groupPersonnel] of groupMap) {
-		const stats = getTrainingStats(
-			groupPersonnel,
-			trainingTypes,
-			trainings,
-			groupId === 'ungrouped' ? undefined : groupId
-		);
-
+		const gid = groupId === 'ungrouped' ? undefined : groupId;
+		const stats = getTrainingStats(groupPersonnel, trainingTypes, trainings, gid);
 		const delinquent = getDelinquentTrainings(groupPersonnel, trainingTypes, trainings, {
-			groupId: groupId === 'ungrouped' ? undefined : groupId,
+			groupId: gid,
 			includeNotCompleted
 		});
-
 		const filtered = delinquent.filter((d) => issueStatuses.includes(d.statusInfo.status));
-
 		const issues: TrainingIssue[] = filtered.slice(0, issueLimit).map((d) => ({
 			personName: `${d.person.rank} ${d.person.lastName}, ${d.person.firstName}`,
 			typeName: d.type.name,
@@ -99,21 +101,24 @@ export async function getTrainingSummaryByGroup(
 			status: d.statusInfo.status,
 			daysUntilExpiration: d.statusInfo.daysUntilExpiration
 		}));
-
 		result.set(groupId, { stats, issues });
 	}
 
 	return result;
 }
 
-export async function getTrainingSummaryByType(
-	supabase: SupabaseClient,
-	orgId: string,
-	personnel: Personnel[],
-	trainingTypes: TrainingType[],
-	options: { groupId?: string } = {}
+export interface TrainingSummaryByTypeInput {
+	personnel: Personnel[];
+	trainingTypes: TrainingType[];
+	options?: { groupId?: string };
+}
+
+export async function fetchTrainingSummaryByType(
+	ctx: UseCaseContext,
+	input: TrainingSummaryByTypeInput
 ): Promise<Map<string, TrainingStats>> {
-	const trainings = await PersonnelTrainingEntity.repo.list(supabase, orgId);
+	const { personnel, trainingTypes, options = {} } = input;
+	const trainings = await fetchTrainings(ctx);
 
 	const result = new Map<string, TrainingStats>();
 	for (const type of trainingTypes) {
@@ -124,16 +129,23 @@ export async function getTrainingSummaryByType(
 	return result;
 }
 
-export async function getOnboardingTrainingCompletions(
-	supabase: SupabaseClient,
-	orgId: string,
-	personnelIds: string[]
-): Promise<Set<string>> {
-	if (personnelIds.length === 0) return new Set();
+export interface OnboardingTrainingCompletionsInput {
+	personnelIds: string[];
+}
 
-	const result = await PersonnelTrainingEntity.repo.queryByIds(supabase, orgId, 'personnel_id', personnelIds, {
+export async function fetchOnboardingTrainingCompletions(
+	ctx: UseCaseContext,
+	input: OnboardingTrainingCompletionsInput
+): Promise<Set<string>> {
+	if (input.personnelIds.length === 0) return new Set();
+
+	const rows = await ctx.store.findMany<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId, undefined, {
 		select: 'personnel_id, training_type_id'
 	});
+	const trainings = PersonnelTrainingEntity.fromDbArray(rows);
 
-	return new Set(result.data.map((t) => `${t.personnelId}-${t.trainingTypeId}`));
+	const requestedIds = new Set(input.personnelIds);
+	return new Set(
+		trainings.filter((t) => requestedIds.has(t.personnelId)).map((t) => `${t.personnelId}-${t.trainingTypeId}`)
+	);
 }

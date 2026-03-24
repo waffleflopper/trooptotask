@@ -4,9 +4,12 @@ import {
 	createTestAuthContext,
 	createTestAuditPort,
 	createTestReadOnlyGuard,
-	createTestSubscriptionPort
+	createTestSubscriptionPort,
+	createTestNotificationPort,
+	createTestBillingPort,
+	createTestStoragePort
 } from '$lib/server/adapters/inMemory';
-import type { UseCaseContext, SubscriptionPort } from '$lib/server/core/ports';
+import type { UseCaseContext } from '$lib/server/core/ports';
 import { createPersonnelUseCases } from './personnel';
 
 type TestContext = Omit<UseCaseContext, 'store'> & {
@@ -26,13 +29,18 @@ function buildContext(overrides?: {
 		overrides?.subscriptionAllowed ?? true,
 		overrides?.subscriptionMessage
 	);
+	const store = createInMemoryDataStore();
 	return {
-		store: createInMemoryDataStore(),
+		store,
+		rawStore: store,
 		auth: createTestAuthContext(overrides?.auth),
 		audit: auditPort,
 		auditPort,
 		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
-		subscription
+		subscription,
+		notifications: createTestNotificationPort(),
+		billing: createTestBillingPort(),
+		storage: createTestStoragePort()
 	};
 }
 
@@ -48,7 +56,7 @@ const validInput = {
 describe('Personnel — create', () => {
 	it('inserts personnel, invalidates tier cache, and audits', async () => {
 		const ctx = buildContext();
-		const { create } = createPersonnelUseCases(ctx.subscription);
+		const { create } = createPersonnelUseCases();
 
 		const result = (await create(ctx, { ...validInput })) as Record<string, unknown>;
 
@@ -72,21 +80,21 @@ describe('Personnel — create', () => {
 
 	it('rejects create when subscription cap exceeded', async () => {
 		const ctx = buildContext({ subscriptionAllowed: false, subscriptionMessage: 'Personnel limit reached (15)' });
-		const { create } = createPersonnelUseCases(ctx.subscription);
+		const { create } = createPersonnelUseCases();
 
 		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('rejects create when scoped user targets wrong group', async () => {
 		const ctx = buildContext({ auth: { scopedGroupId: 'group-a' } });
-		const { create } = createPersonnelUseCases(ctx.subscription);
+		const { create } = createPersonnelUseCases();
 
 		await expect(create(ctx, { ...validInput, groupId: 'group-b' })).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('allows scoped user to create in their own group', async () => {
 		const ctx = buildContext({ auth: { scopedGroupId: 'group-a' } });
-		const { create } = createPersonnelUseCases(ctx.subscription);
+		const { create } = createPersonnelUseCases();
 
 		const result = (await create(ctx, { ...validInput, groupId: 'group-a' })) as Record<string, unknown>;
 		expect(result).toMatchObject({ firstName: 'John' });
@@ -94,7 +102,7 @@ describe('Personnel — create', () => {
 
 	it('rejects create when read-only', async () => {
 		const ctx = buildContext({ readOnly: true });
-		const { create } = createPersonnelUseCases(ctx.subscription);
+		const { create } = createPersonnelUseCases();
 
 		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
 	});
@@ -119,7 +127,7 @@ describe('Personnel — update', () => {
 
 	it('updates personnel and audits', async () => {
 		const ctx = buildContext();
-		const { update } = createPersonnelUseCases(ctx.subscription);
+		const { update } = createPersonnelUseCases();
 		seedPersonnel(ctx);
 
 		const result = (await update(ctx, { id: 'p-1', rank: 'SSG' })) as Record<string, unknown>;
@@ -133,7 +141,7 @@ describe('Personnel — update', () => {
 
 	it('coerces empty groupId to null on update', async () => {
 		const ctx = buildContext();
-		const { update } = createPersonnelUseCases(ctx.subscription);
+		const { update } = createPersonnelUseCases();
 		seedPersonnel(ctx);
 
 		await update(ctx, { id: 'p-1', groupId: '' });
@@ -153,7 +161,7 @@ describe('Personnel — update', () => {
 				}
 			}
 		});
-		const { update } = createPersonnelUseCases(ctx.subscription);
+		const { update } = createPersonnelUseCases();
 		seedPersonnel(ctx);
 
 		await expect(update(ctx, { id: 'p-1', rank: 'SSG' })).rejects.toMatchObject({ status: 403 });
@@ -161,7 +169,7 @@ describe('Personnel — update', () => {
 
 	it('rejects update when read-only', async () => {
 		const ctx = buildContext({ readOnly: true });
-		const { update } = createPersonnelUseCases(ctx.subscription);
+		const { update } = createPersonnelUseCases();
 
 		await expect(update(ctx, { id: 'p-1', rank: 'SSG' })).rejects.toMatchObject({ status: 403 });
 	});
@@ -186,7 +194,7 @@ describe('Personnel — archive', () => {
 
 	it('sets archived_at, invalidates tier cache, and audits', async () => {
 		const ctx = buildContext();
-		const { archive } = createPersonnelUseCases(ctx.subscription);
+		const { archive } = createPersonnelUseCases();
 		seedPersonnel(ctx);
 
 		await archive(ctx, 'p-1');
@@ -206,7 +214,7 @@ describe('Personnel — archive', () => {
 		const ctx = buildContext({
 			auth: { isPrivileged: false, isFullEditor: false, role: 'member' }
 		});
-		const { archive } = createPersonnelUseCases(ctx.subscription);
+		const { archive } = createPersonnelUseCases();
 		seedPersonnel(ctx);
 
 		const result = await archive(ctx, 'p-1');
@@ -231,7 +239,7 @@ describe('Personnel — archive', () => {
 				}
 			}
 		});
-		const { archive } = createPersonnelUseCases(ctx.subscription);
+		const { archive } = createPersonnelUseCases();
 		seedPersonnel(ctx);
 
 		await expect(archive(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
@@ -239,7 +247,7 @@ describe('Personnel — archive', () => {
 
 	it('rejects archive when read-only', async () => {
 		const ctx = buildContext({ readOnly: true });
-		const { archive } = createPersonnelUseCases(ctx.subscription);
+		const { archive } = createPersonnelUseCases();
 
 		await expect(archive(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
 	});

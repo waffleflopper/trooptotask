@@ -1,23 +1,19 @@
 import type { PageServerLoad } from './$types';
-import { getSupabaseClient } from '$lib/server/supabase';
-import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
-import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { fetchOnboardingTemplatesData } from '$lib/server/core/useCases/onboardingTemplatesQuery';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
-	const supabase = getSupabaseClient(locals, cookies);
-
 	const parentData = await parent();
 
-	const [templates, templateSteps] = await Promise.all([
-		OnboardingTemplateEntity.repo.list(supabase, orgId),
-		OnboardingTemplateStepEntity.repo.list(supabase, orgId)
-	]);
+	const data = await loadWithContext(locals, cookies, orgId, {
+		permission: 'onboarding',
+		fn: fetchOnboardingTemplatesData
+	});
 
 	return {
 		orgId,
-		templates,
-		templateSteps,
+		...data,
 		trainingTypes: parentData.trainingTypes
 	};
 };

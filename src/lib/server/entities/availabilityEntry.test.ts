@@ -159,10 +159,4 @@ describe('AvailabilityEntryEntity', () => {
 	it('only allows POST and DELETE methods', () => {
 		expect(AvailabilityEntryEntity.methods).toEqual(['POST', 'DELETE']);
 	});
-
-	it('has repo', () => {
-		expect(AvailabilityEntryEntity.repo).toBeDefined();
-		expect(AvailabilityEntryEntity.repo.list).toBeDefined();
-		expect(AvailabilityEntryEntity.repo.query).toBeDefined();
-	});
 });

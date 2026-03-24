@@ -2,7 +2,7 @@ import { fail } from '$lib/server/core/errors';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { ALL_RANKS } from '$lib/types';
 import { sanitizeString } from '$lib/server/validation';
-import type { UseCaseContext, SubscriptionPort } from '$lib/server/core/ports';
+import type { UseCaseContext } from '$lib/server/core/ports';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -33,11 +33,7 @@ interface BatchResult {
 	errors: BatchError[];
 }
 
-export async function importPersonnelBatch(
-	ctx: UseCaseContext,
-	subscription: SubscriptionPort,
-	input: BatchInput
-): Promise<BatchResult> {
+export async function importPersonnelBatch(ctx: UseCaseContext, input: BatchInput): Promise<BatchResult> {
 	ctx.auth.requireEdit('personnel');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -110,7 +106,7 @@ export async function importPersonnelBatch(
 	}
 
 	// Enforce personnel cap against full batch size
-	const available = await subscription.getAvailablePersonnelSlots();
+	const available = await ctx.subscription.getAvailablePersonnelSlots();
 	if (available !== null) {
 		if (available <= 0) {
 			fail(403, 'Personnel limit reached. Upgrade to add more.');
@@ -134,7 +130,7 @@ export async function importPersonnelBatch(
 		entity.select
 	);
 
-	subscription.invalidateTierCache();
+	ctx.subscription.invalidateTierCache();
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.bulk_created`,

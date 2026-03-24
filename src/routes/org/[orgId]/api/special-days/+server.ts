@@ -1,28 +1,31 @@
-import { json, error } from '@sveltejs/kit';
+import { handle } from '$lib/server/adapters/httpAdapter';
+import { fail } from '$lib/server/core/errors';
 import { specialDayCrudConfig, createResetFederalHolidaysUseCase } from '$lib/server/core/useCases/specialDayCrud';
 import { createCrudUseCases } from '$lib/server/core/useCases/crud';
-import { buildContext, deleteHandler } from '$lib/server/adapters/httpAdapter';
 
 const useCases = createCrudUseCases(specialDayCrudConfig);
 const resetFederalHolidays = createResetFederalHolidaysUseCase();
 
-export const POST = async (event) => {
-	const ctx = await buildContext(event);
-
-	let body: Record<string, unknown>;
-	try {
-		body = (await event.request.json()) as Record<string, unknown>;
-	} catch {
-		throw error(400, 'Invalid JSON in request body');
+export const POST = handle<Record<string, unknown>, unknown>({
+	permission: 'calendar',
+	mutation: true,
+	fn: async (ctx, input) => {
+		if (input.action === 'resetFederalHolidays') {
+			return resetFederalHolidays(ctx);
+		}
+		return useCases.create(ctx, input);
 	}
+});
 
-	if (body.action === 'resetFederalHolidays') {
-		const result = await resetFederalHolidays(ctx);
-		return json(result);
+export const DELETE = handle<Record<string, unknown>, unknown>({
+	permission: 'calendar',
+	mutation: true,
+	fn: async (ctx, input) => {
+		const id = input?.id;
+		if (!id || typeof id !== 'string') {
+			fail(400, 'Missing id');
+		}
+		await useCases.remove(ctx, id as string);
+		return { success: true };
 	}
-
-	const result = await useCases.create(ctx, body);
-	return json(result);
-};
-
-export const DELETE = deleteHandler(useCases.remove);
+});

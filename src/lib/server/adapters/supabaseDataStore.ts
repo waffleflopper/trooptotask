@@ -1,5 +1,60 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { DataStore, FindOptions } from '../core/ports';
+import type { DataStore, FindOptions, FindResult } from '../core/ports';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase query builder types are complex generics
+function applyFindOptions(query: any, filters?: Record<string, unknown>, options?: FindOptions) {
+	if (filters) {
+		for (const [key, value] of Object.entries(filters)) {
+			query = query.eq(key, value);
+		}
+	}
+
+	if (options?.filters) {
+		for (const [key, value] of Object.entries(options.filters)) {
+			query = query.eq(key, value);
+		}
+	}
+
+	if (options?.inFilters) {
+		for (const [key, values] of Object.entries(options.inFilters)) {
+			query = query.in(key, values);
+		}
+	}
+
+	if (options?.isNull) {
+		for (const [key, shouldBeNull] of Object.entries(options.isNull)) {
+			query = shouldBeNull ? query.is(key, null) : query.not(key, 'is', null);
+		}
+	}
+
+	if (options?.ilikeFilters) {
+		for (const [key, pattern] of Object.entries(options.ilikeFilters)) {
+			query = query.ilike(key, pattern);
+		}
+	}
+
+	if (options?.rangeFilters) {
+		for (const { column, op, value } of options.rangeFilters) {
+			query = query[op](column, value);
+		}
+	}
+
+	if (options?.orderBy) {
+		for (const { column, ascending } of options.orderBy) {
+			query = query.order(column, { ascending });
+		}
+	}
+
+	if (options?.range) {
+		query = query.range(options.range.from, options.range.to);
+	}
+
+	if (options?.limit !== undefined) {
+		query = query.limit(options.limit);
+	}
+
+	return query;
+}
 
 export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 	return {
@@ -39,33 +94,7 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 				.select(options?.select ?? '*')
 				.eq('organization_id', orgId);
 
-			if (filters) {
-				for (const [key, value] of Object.entries(filters)) {
-					query = query.eq(key, value);
-				}
-			}
-
-			if (options?.filters) {
-				for (const [key, value] of Object.entries(options.filters)) {
-					query = query.eq(key, value);
-				}
-			}
-
-			if (options?.inFilters) {
-				for (const [key, values] of Object.entries(options.inFilters)) {
-					query = query.in(key, values);
-				}
-			}
-
-			if (options?.orderBy) {
-				for (const { column, ascending } of options.orderBy) {
-					query = query.order(column, { ascending });
-				}
-			}
-
-			if (options?.limit !== undefined) {
-				query = query.limit(options.limit);
-			}
+			query = applyFindOptions(query, filters, options);
 
 			const { data, error } = await query;
 
@@ -74,6 +103,29 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			}
 
 			return (data ?? []) as T[];
+		},
+
+		async findManyWithCount<T>(
+			table: string,
+			orgId: string,
+			filters?: Record<string, unknown>,
+			options?: FindOptions
+		): Promise<FindResult<T>> {
+			const countMode = options?.count ?? 'exact';
+			let query = supabase
+				.from(table)
+				.select(options?.select ?? '*', { count: countMode })
+				.eq('organization_id', orgId);
+
+			query = applyFindOptions(query, filters, options);
+
+			const { data, error, count } = await query;
+
+			if (error) {
+				throw new Error(error.message);
+			}
+
+			return { data: (data ?? []) as T[], count: count ?? null };
 		},
 
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T> {

@@ -89,10 +89,4 @@ describe('SpecialDayEntity', () => {
 	it('has groupScope none', () => {
 		expect(SpecialDayEntity.groupScope).toBe('none');
 	});
-
-	it('has repo', () => {
-		expect(SpecialDayEntity.repo).toBeDefined();
-		expect(SpecialDayEntity.repo.list).toBeDefined();
-		expect(SpecialDayEntity.repo.query).toBeDefined();
-	});
 });

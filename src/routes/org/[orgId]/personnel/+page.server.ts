@@ -1,18 +1,21 @@
 import type { PageServerLoad } from './$types';
-import { getSupabaseClient } from '$lib/server/supabase';
-import { fetchPersonnelData } from '$lib/server/personnelPageServer';
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { fetchPersonnelPageData } from '$lib/server/core/useCases/personnelPageQuery';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, depends }) => {
 	depends('app:org-core');
 	const { orgId } = params;
-	const supabase = getSupabaseClient(locals, cookies);
-	const userId = locals.user?.id ?? null;
 
-	const { pinnedGroups, ratingSchemeEntries } = await fetchPersonnelData(supabase, orgId, userId);
+	return loadWithContext(locals, cookies, orgId, {
+		permission: 'personnel',
+		fn: async (ctx) => {
+			const { pinnedGroups, ratingSchemeEntries } = await fetchPersonnelPageData(ctx);
 
-	return {
-		orgId,
-		pinnedGroups,
-		ratingSchemeEntries
-	};
+			return {
+				orgId,
+				pinnedGroups,
+				ratingSchemeEntries
+			};
+		}
+	});
 };

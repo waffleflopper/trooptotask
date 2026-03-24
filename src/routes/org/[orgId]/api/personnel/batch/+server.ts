@@ -1,23 +1,12 @@
-import { json, error } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
-import { buildContextInternal } from '$lib/server/adapters/httpAdapter';
-import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
+import { handle } from '$lib/server/adapters/httpAdapter';
 import { importPersonnelBatch } from '$lib/server/core/useCases/personnelBatch';
 
-export const POST = async (event: RequestEvent) => {
-	try {
-		const { ctx, supabase } = await buildContextInternal(event);
-		const subscription = createSupabaseSubscriptionAdapter(supabase, ctx.auth.orgId);
-
-		let body: Record<string, unknown>;
-		try {
-			body = (await event.request.json()) as Record<string, unknown>;
-		} catch {
-			throw error(400, 'Invalid JSON in request body');
-		}
-
-		const result = await importPersonnelBatch(ctx, subscription, {
-			records: body.records as Array<{
+export const POST = handle<Record<string, unknown>, unknown>({
+	permission: 'personnel',
+	mutation: true,
+	fn: (ctx, input) =>
+		importPersonnelBatch(ctx, {
+			records: input.records as Array<{
 				rank: string;
 				lastName: string;
 				firstName: string;
@@ -25,10 +14,5 @@ export const POST = async (event: RequestEvent) => {
 				clinicRole?: string;
 				groupName?: string;
 			}>
-		});
-		return json(result);
-	} catch (err) {
-		if (err && typeof err === 'object' && 'status' in err) throw err;
-		throw error(500, 'Internal server error');
-	}
-};
+		})
+});

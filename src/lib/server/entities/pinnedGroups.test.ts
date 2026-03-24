@@ -35,10 +35,4 @@ describe('PinnedGroupsEntity', () => {
 	it('has groupScope none', () => {
 		expect(PinnedGroupsEntity.groupScope).toBe('none');
 	});
-
-	it('has repo', () => {
-		expect(PinnedGroupsEntity.repo).toBeDefined();
-		expect(PinnedGroupsEntity.repo.list).toBeDefined();
-		expect(PinnedGroupsEntity.repo.query).toBeDefined();
-	});
 });

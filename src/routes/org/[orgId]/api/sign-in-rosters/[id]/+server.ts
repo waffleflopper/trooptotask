@@ -1,40 +1,35 @@
-import { json, error } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
-import { getApiContext } from '$lib/server/supabase';
+import { handle } from '$lib/server/adapters/httpAdapter';
+import { fail } from '$lib/server/core/errors';
 
-export const DELETE = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const orgId = event.params.orgId as string;
-	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
+export const DELETE = handle<{ rosterId: string }, unknown>({
+	permission: 'personnel',
+	mutation: true,
+	parseInput: (event: RequestEvent) => ({
+		rosterId: event.params.id as string
+	}),
+	fn: async (ctx, input) => {
+		const roster = await ctx.store.findOne<{ signed_file_path: string | null; title: string }>(
+			'sign_in_rosters',
+			ctx.auth.orgId,
+			{ id: input.rosterId }
+		);
 
-	const id = event.params.id;
+		if (!roster) fail(404, 'Roster not found');
 
-	// Fetch the roster first to check for signed file
-	const { data: roster } = await supabase
-		.from('sign_in_rosters')
-		.select('signed_file_path, title')
-		.eq('id', id)
-		.eq('organization_id', orgId)
-		.single();
+		if (roster.signed_file_path) {
+			await ctx.storage.remove('counseling-files', [roster.signed_file_path]);
+		}
 
-	if (!roster) throw error(404, 'Roster not found');
+		await ctx.store.delete('sign_in_rosters', ctx.auth.orgId, input.rosterId);
 
-	// Delete signed file from storage if exists
-	if (roster.signed_file_path) {
-		await supabase.storage.from('counseling-files').remove([roster.signed_file_path]);
+		ctx.audit.log({
+			action: 'sign_in_roster.deleted',
+			resourceType: 'sign_in_roster',
+			resourceId: input.rosterId,
+			details: { title: roster.title }
+		});
+
+		return { success: true };
 	}
-
-	const { error: dbError } = await supabase.from('sign_in_rosters').delete().eq('id', id).eq('organization_id', orgId);
-
-	if (dbError) throw error(500, dbError.message);
-
-	ctx.audit.log({
-		action: 'sign_in_roster.deleted',
-		resourceType: 'sign_in_roster',
-		resourceId: id,
-		details: { actor: event.locals.user?.email ?? ctx.auth.userId, title: roster.title }
-	});
-
-	return json({ success: true });
-};
+});

@@ -1,180 +1,152 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { getAdminRole, canAccessPage } from '$lib/server/admin';
-import { getAdminClient } from '$lib/server/supabase';
-import { auditLog, getRequestInfo } from '$lib/server/auditLog';
-import { queryPersonnel } from '$lib/server/personnelRepository';
+import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 
-export const load: PageServerLoad = async ({ params, locals }) => {
-	const supabase = locals.supabase;
-	const adminClient = getAdminClient();
-	const { userId } = params;
+export const load: PageServerLoad = loadWithAdminContext({
+	page: 'users',
+	fn: async (ctx, event) => {
+		const { adminClient } = ctx;
+		const userId = event.params.userId as string;
 
-	// Get user email from auth
-	const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
-	if (authError || !authUser?.user) {
-		throw error(404, 'User not found');
-	}
+		const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
+		if (authError || !authUser?.user) {
+			throw error(404, 'User not found');
+		}
 
-	// Run parallel queries
-	const [orgsResult, suspensionResult, auditResult] = await Promise.all([
-		adminClient
-			.from('organization_memberships')
-			.select('organization_id, role, organizations(id, name, tier, gift_tier)')
-			.eq('user_id', userId),
-		adminClient
-			.from('user_suspensions')
-			.select('user_id, suspended_at, suspended_by, reason')
-			.eq('user_id', userId)
-			.maybeSingle(),
-		adminClient
-			.from('audit_logs')
-			.select('id, action, resource_type, resource_id, org_id, timestamp, details, severity')
-			.eq('user_id', userId)
-			.order('timestamp', { ascending: false })
-			.limit(10)
-	]);
+		const [orgsResult, suspensionResult, auditResult] = await Promise.all([
+			adminClient
+				.from('organization_memberships')
+				.select('organization_id, role, organizations(id, name, tier, gift_tier)')
+				.eq('user_id', userId),
+			adminClient
+				.from('user_suspensions')
+				.select('user_id, suspended_at, suspended_by, reason')
+				.eq('user_id', userId)
+				.maybeSingle(),
+			adminClient
+				.from('audit_logs')
+				.select('id, action, resource_type, resource_id, org_id, timestamp, details, severity')
+				.eq('user_id', userId)
+				.order('timestamp', { ascending: false })
+				.limit(10)
+		]);
 
-	// Get personnel counts per org
-	const orgIds = (orgsResult.data ?? [])
-		.map((o: Record<string, unknown>) => (o.organizations as Record<string, unknown> | null)?.id)
-		.filter(Boolean);
-	const personnelCountMap: Record<string, number> = {};
-	for (const oid of orgIds) {
-		const { count } = await queryPersonnel({
-			supabase: adminClient,
-			orgId: oid as string,
-			headOnly: true,
-			count: 'exact'
+		const orgIds = (orgsResult.data ?? [])
+			.map((o: Record<string, unknown>) => (o.organizations as Record<string, unknown> | null)?.id)
+			.filter(Boolean);
+		const personnelCountMap: Record<string, number> = {};
+		for (const oid of orgIds) {
+			const { count } = await adminClient
+				.from('personnel')
+				.select('*', { count: 'exact', head: true })
+				.eq('organization_id', oid as string)
+				.is('archived_at', null);
+			personnelCountMap[oid as string] = count ?? 0;
+		}
+
+		const organizations = (orgsResult.data ?? []).map((o: Record<string, unknown>) => {
+			const org = o.organizations as Record<string, unknown> | null;
+			return {
+				id: org?.id ?? null,
+				name: (org?.name as string) ?? 'Unknown',
+				role: o.role as string,
+				subscriptionTier: (org?.gift_tier ?? org?.tier ?? 'free') as string,
+				personnelCount: personnelCountMap[org?.id as string] ?? 0
+			};
 		});
-		personnelCountMap[oid as string] = count ?? 0;
-	}
 
-	const organizations = (orgsResult.data ?? []).map((o: Record<string, unknown>) => {
-		const org = o.organizations as Record<string, unknown> | null;
+		const suspension = suspensionResult.data
+			? {
+					suspendedAt: suspensionResult.data.suspended_at as string,
+					suspendedBy: suspensionResult.data.suspended_by as string,
+					reason: suspensionResult.data.reason as string | null
+				}
+			: null;
+
+		const recentActivity = (auditResult.data ?? []).map((a: Record<string, unknown>) => ({
+			id: a.id as string,
+			action: a.action as string,
+			resourceType: a.resource_type as string,
+			resourceId: a.resource_id as string | null,
+			orgId: a.org_id as string | null,
+			timestamp: a.timestamp as string,
+			severity: a.severity as string
+		}));
+
 		return {
-			id: org?.id ?? null,
-			name: (org?.name as string) ?? 'Unknown',
-			role: o.role as string,
-			subscriptionTier: (org?.gift_tier ?? org?.tier ?? 'free') as string,
-			personnelCount: personnelCountMap[org?.id as string] ?? 0
+			user: {
+				id: userId,
+				email: authUser.user.email || 'No email',
+				createdAt: authUser.user.created_at,
+				lastSignInAt: authUser.user.last_sign_in_at ?? null
+			},
+			organizations,
+			suspension,
+			recentActivity,
+			isSuspended: !!suspension
 		};
-	});
-
-	const suspension = suspensionResult.data
-		? {
-				suspendedAt: suspensionResult.data.suspended_at as string,
-				suspendedBy: suspensionResult.data.suspended_by as string,
-				reason: suspensionResult.data.reason as string | null
-			}
-		: null;
-
-	const recentActivity = (auditResult.data ?? []).map((a: Record<string, unknown>) => ({
-		id: a.id as string,
-		action: a.action as string,
-		resourceType: a.resource_type as string,
-		resourceId: a.resource_id as string | null,
-		orgId: a.org_id as string | null,
-		timestamp: a.timestamp as string,
-		severity: a.severity as string
-	}));
-
-	return {
-		user: {
-			id: userId,
-			email: authUser.user.email || 'No email',
-			createdAt: authUser.user.created_at,
-			lastSignInAt: authUser.user.last_sign_in_at ?? null
-		},
-		organizations,
-		suspension,
-		recentActivity,
-		isSuspended: !!suspension
-	};
-};
+	}
+});
 
 export const actions: Actions = {
-	resetPassword: async (event) => {
-		const { params, locals } = event;
-		const supabase = locals.supabase;
-		const adminClient = getAdminClient();
-		const { userId } = params;
+	resetPassword: adminAction({
+		page: 'users',
+		fn: async (ctx, event) => {
+			const { adminClient } = ctx;
+			const userId = event.params.userId as string;
 
-		// Verify caller is platform admin
-		const sessionUser = locals.user;
-		if (!sessionUser) return fail(401, { error: 'Unauthorized' });
+			const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
+			if (authError || !authUser?.user?.email) {
+				return fail(404, { error: 'User not found' });
+			}
 
-		const role = await getAdminRole(supabase, sessionUser.id);
-		if (!role || !canAccessPage(role, 'users')) {
-			return fail(403, { error: 'Forbidden' });
-		}
+			const { error: linkError } = await adminClient.auth.admin.generateLink({
+				type: 'recovery',
+				email: authUser.user.email
+			});
 
-		// Get user email
-		const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
-		if (authError || !authUser?.user?.email) {
-			return fail(404, { error: 'User not found' });
-		}
+			if (linkError) {
+				return fail(500, { error: 'Failed to send password reset' });
+			}
 
-		const { error: linkError } = await adminClient.auth.admin.generateLink({
-			type: 'recovery',
-			email: authUser.user.email
-		});
-
-		if (linkError) {
-			return fail(500, { error: 'Failed to send password reset' });
-		}
-
-		await auditLog(
-			{
+			ctx.audit({
 				action: 'admin.user.password_reset',
 				resourceType: 'user',
 				resourceId: userId,
 				details: { targetEmail: authUser.user.email },
 				severity: 'warning'
-			},
-			getRequestInfo(event)
-		);
+			});
 
-		return { success: true, message: 'Password reset email sent' };
-	},
-
-	resendInvite: async (event) => {
-		const { params, locals } = event;
-		const supabase = locals.supabase;
-		const adminClient = getAdminClient();
-		const { userId } = params;
-
-		const sessionUser = locals.user;
-		if (!sessionUser) return fail(401, { error: 'Unauthorized' });
-
-		const role = await getAdminRole(supabase, sessionUser.id);
-		if (!role || !canAccessPage(role, 'users')) {
-			return fail(403, { error: 'Forbidden' });
+			return { success: true, message: 'Password reset email sent' };
 		}
+	}),
 
-		// Get user email
-		const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
-		if (authError || !authUser?.user?.email) {
-			return fail(404, { error: 'User not found' });
-		}
+	resendInvite: adminAction({
+		page: 'users',
+		fn: async (ctx, event) => {
+			const { adminClient } = ctx;
+			const userId = event.params.userId as string;
 
-		const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(authUser.user.email);
+			const { data: authUser, error: authError } = await adminClient.auth.admin.getUserById(userId);
+			if (authError || !authUser?.user?.email) {
+				return fail(404, { error: 'User not found' });
+			}
 
-		if (inviteError) {
-			return fail(500, { error: 'Failed to resend invite' });
-		}
+			const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(authUser.user.email);
 
-		await auditLog(
-			{
+			if (inviteError) {
+				return fail(500, { error: 'Failed to resend invite' });
+			}
+
+			ctx.audit({
 				action: 'admin.user.resend_invite',
 				resourceType: 'user',
 				resourceId: userId,
 				details: { targetEmail: authUser.user.email },
 				severity: 'info'
-			},
-			getRequestInfo(event)
-		);
+			});
 
-		return { success: true, message: 'Invite email resent' };
-	}
+			return { success: true, message: 'Invite email resent' };
+		}
+	})
 };

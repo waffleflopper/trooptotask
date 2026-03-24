@@ -1,20 +1,18 @@
 import type { LayoutServerLoad } from './$types';
-import { getSupabaseClient } from '$lib/server/supabase';
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 
-export const load: LayoutServerLoad = async ({ params, locals, cookies, depends, parent }) => {
+export const load: LayoutServerLoad = async ({ params, locals, cookies, depends }) => {
 	depends('app:training-data');
 	const { orgId } = params;
-	const supabase = getSupabaseClient(locals, cookies);
 
-	const parentData = await parent();
-	const allTrainings = await PersonnelTrainingEntity.repo.list(supabase, orgId);
+	return loadWithContext(locals, cookies, orgId, {
+		permission: 'training',
+		fn: async (ctx) => {
+			const rows = await ctx.store.findMany<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId);
+			const personnelTrainings = PersonnelTrainingEntity.fromDbArray(rows);
 
-	let personnelTrainings = allTrainings;
-	if (parentData.scopedGroupId) {
-		const scopedIds = new Set((parentData.personnel ?? []).map((p) => p.id));
-		personnelTrainings = allTrainings.filter((t) => scopedIds.has(t.personnelId));
-	}
-
-	return { personnelTrainings, orgId };
+			return { personnelTrainings, orgId };
+		}
+	});
 };

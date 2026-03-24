@@ -3,7 +3,11 @@ import {
 	createInMemoryDataStore,
 	createTestAuthContext,
 	createTestAuditPort,
-	createTestReadOnlyGuard
+	createTestReadOnlyGuard,
+	createTestSubscriptionPort,
+	createTestNotificationPort,
+	createTestBillingPort,
+	createTestStoragePort
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { createCrudUseCases } from './crud';
@@ -12,6 +16,7 @@ import { assignmentTypeCrudConfig } from './assignmentTypeCrud';
 type TestContext = Omit<UseCaseContext, 'store'> & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	auditPort: ReturnType<typeof createTestAuditPort>;
+	subscription: ReturnType<typeof createTestSubscriptionPort>;
 };
 
 function buildContext(overrides?: {
@@ -23,7 +28,19 @@ function buildContext(overrides?: {
 	const auditPort = createTestAuditPort();
 	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
 
-	return { store, auth, audit: auditPort, readOnlyGuard, auditPort };
+	const subscription = createTestSubscriptionPort();
+	return {
+		store,
+		rawStore: store,
+		auth,
+		audit: auditPort,
+		readOnlyGuard,
+		subscription,
+		auditPort,
+		notifications: createTestNotificationPort(),
+		billing: createTestBillingPort(),
+		storage: createTestStoragePort()
+	};
 }
 
 describe('AssignmentType CRUD use case', () => {

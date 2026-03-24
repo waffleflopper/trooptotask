@@ -31,23 +31,6 @@ export function createSupabaseGroupResolver(supabase: SupabaseClient): Personnel
 	};
 }
 
-export function createInMemoryGroupResolver(groups: Record<string, string | null>): PersonnelGroupResolver {
-	return {
-		async getGroupId(personnelId: string): Promise<string | null> {
-			return personnelId in groups ? groups[personnelId] : null;
-		},
-		async getGroupIds(personnelIds: string[]): Promise<Map<string, string | null>> {
-			const result = new Map<string, string | null>();
-			for (const id of personnelIds) {
-				if (id in groups) {
-					result.set(id, groups[id]);
-				}
-			}
-			return result;
-		}
-	};
-}
-
 export async function enforceGroupAccess(
 	resolver: PersonnelGroupResolver,
 	scopedGroupId: string | null,

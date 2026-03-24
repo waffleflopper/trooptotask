@@ -1,7 +1,6 @@
-import type { FeatureArea } from '../permissionContext';
+import type { EffectiveTier } from '$lib/types/subscription';
 
-// Re-export for convenience so consumers don't need two imports
-export type { FeatureArea };
+export type FeatureArea = 'calendar' | 'personnel' | 'training' | 'onboarding' | 'leaders-book';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -10,7 +9,26 @@ export interface FindOptions {
 	inFilters?: Record<string, unknown[]>;
 	select?: string;
 	limit?: number;
+	/** Null-check filters: { archived_at: true } means IS NULL, false means IS NOT NULL */
+	isNull?: Record<string, boolean>;
+	/** Range filters for date/numeric queries */
+	rangeFilters?: Array<{ column: string; op: 'gte' | 'lte' | 'gt' | 'lt'; value: string }>;
+	/** Case-insensitive LIKE filters: { title: '%search%' } */
+	ilikeFilters?: Record<string, string>;
+	/** Pagination range (0-indexed, inclusive) */
+	range?: { from: number; to: number };
+	/** Count mode — used by findManyWithCount */
+	count?: 'exact' | 'planned' | 'estimated';
 }
+
+/** Result from findManyWithCount — data plus total count */
+export interface FindResult<T> {
+	data: T[];
+	count: number | null;
+}
+
+/** Scope rule for ScopedDataStore — how a table relates to personnel groups */
+export type GroupScopeRule = { type: 'group'; groupColumn: string } | { type: 'personnel'; personnelColumn: string };
 
 /** Abstracts all persistence — business logic never imports Supabase */
 export interface DataStore {
@@ -29,6 +47,13 @@ export interface DataStore {
 	deleteManyByIds(table: string, orgId: string, ids: string[]): Promise<number>;
 
 	insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;
+
+	findManyWithCount<T>(
+		table: string,
+		orgId: string,
+		filters?: Record<string, unknown>,
+		options?: FindOptions
+	): Promise<FindResult<T>>;
 }
 
 /** Abstracts permission enforcement — no SupabaseClient parameter needed */
@@ -67,6 +92,48 @@ export interface SubscriptionPort {
 	/** Returns number of personnel slots available, or null if unlimited */
 	getAvailablePersonnelSlots(): Promise<number | null>;
 	invalidateTierCache(): void;
+	/** Get the effective tier for this org (considers gifts, subscriptions, billing-disabled) */
+	getEffectiveTier(): Promise<EffectiveTier>;
+	/** Count bulk data exports this month for this org */
+	getMonthlyExportCount(): Promise<number>;
+}
+
+/** Abstracts payment provider operations (Stripe, etc.) */
+export interface BillingPort {
+	createCheckoutSession(options: {
+		orgId: string;
+		orgName: string;
+		tier: 'team' | 'unit';
+		customerEmail: string;
+		existingCustomerId?: string;
+		successUrl: string;
+		cancelUrl: string;
+	}): Promise<{ url: string; customerId: string }>;
+	createPortalSession(customerId: string, returnUrl: string): Promise<{ url: string }>;
+	cancelSubscription(subscriptionId: string): Promise<void>;
+	pauseSubscription(subscriptionId: string): Promise<void>;
+	resumeSubscription(subscriptionId: string): Promise<void>;
+}
+
+/** Notification payload for user/admin notifications */
+export interface NotificationPayload {
+	type: string;
+	title: string;
+	message: string;
+	link?: string | null;
+}
+
+/** Abstracts notification delivery — business logic never imports Supabase notifications */
+export interface NotificationPort {
+	notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void>;
+	notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void>;
+}
+
+/** Abstracts file storage operations — business logic never imports Supabase storage */
+export interface StoragePort {
+	upload(bucket: string, path: string, data: File | Blob | ArrayBuffer, options?: { upsert?: boolean }): Promise<void>;
+	remove(bucket: string, paths: string[]): Promise<void>;
+	createSignedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string>;
 }
 
 /** Combined context for all use cases */
@@ -75,4 +142,10 @@ export interface UseCaseContext {
 	auth: AuthContext;
 	audit: AuditPort;
 	readOnlyGuard: ReadOnlyGuard;
+	subscription: SubscriptionPort;
+	notifications: NotificationPort;
+	billing: BillingPort;
+	storage: StoragePort;
+	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
+	rawStore: DataStore;
 }

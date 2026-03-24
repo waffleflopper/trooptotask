@@ -126,10 +126,4 @@ describe('CounselingRecordEntity', () => {
 	it('has correct table name', () => {
 		expect(CounselingRecordEntity.table).toBe('counseling_records');
 	});
-
-	it('has repo', () => {
-		expect(CounselingRecordEntity.repo).toBeDefined();
-		expect(CounselingRecordEntity.repo.query).toBeTypeOf('function');
-		expect(CounselingRecordEntity.repo.list).toBeTypeOf('function');
-	});
 });

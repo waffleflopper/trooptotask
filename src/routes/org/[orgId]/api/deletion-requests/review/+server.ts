@@ -1,28 +1,24 @@
-import { json, error } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { handle } from '$lib/server/adapters/httpAdapter';
+import { fail } from '$lib/server/core/errors';
 import { approveDeletionRequest, denyDeletionRequest } from '$lib/server/core/useCases/deletionRequests';
 
-export const POST = async (event: RequestEvent) => {
-	try {
-		const ctx = await buildContext(event);
-		const body = await event.request.json();
-		const { id, action, denialReason } = body;
+export const POST = handle<Record<string, unknown>, unknown>({
+	permission: 'privileged',
+	mutation: true,
+	fn: async (ctx, input) => {
+		const { id, action, denialReason } = input;
 
-		if (!id || !action) throw error(400, 'Missing required fields: id, action');
+		if (!id || !action) fail(400, 'Missing required fields: id, action');
 		if (action !== 'approve' && action !== 'deny') {
-			throw error(400, 'Action must be "approve" or "deny"');
+			fail(400, 'Action must be "approve" or "deny"');
 		}
 
 		if (action === 'approve') {
-			await approveDeletionRequest(ctx, id);
+			await approveDeletionRequest(ctx, id as string);
 		} else {
-			await denyDeletionRequest(ctx, id, denialReason);
+			await denyDeletionRequest(ctx, id as string, denialReason as string | undefined);
 		}
 
-		return json({ success: true });
-	} catch (err) {
-		if (err && typeof err === 'object' && 'status' in err) throw err;
-		throw error(500, 'Internal server error');
+		return { success: true };
 	}
-};
+});

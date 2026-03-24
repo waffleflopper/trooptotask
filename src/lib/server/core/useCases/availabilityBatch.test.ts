@@ -3,7 +3,11 @@ import {
 	createInMemoryDataStore,
 	createTestAuthContext,
 	createTestAuditPort,
-	createTestReadOnlyGuard
+	createTestReadOnlyGuard,
+	createTestSubscriptionPort,
+	createTestNotificationPort,
+	createTestBillingPort,
+	createTestStoragePort
 } from '$lib/server/adapters/inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { createAvailabilityBatch, deleteAvailabilityBatch } from './availabilityBatch';
@@ -18,12 +22,18 @@ function buildContext(overrides?: {
 	readOnly?: boolean;
 }): TestContext {
 	const auditPort = createTestAuditPort();
+	const store = createInMemoryDataStore();
 	return {
-		store: createInMemoryDataStore(),
+		store,
+		rawStore: store,
 		auth: createTestAuthContext(overrides?.auth),
 		audit: auditPort,
 		auditPort,
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false)
+		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
+		subscription: createTestSubscriptionPort(),
+		notifications: createTestNotificationPort(),
+		billing: createTestBillingPort(),
+		storage: createTestStoragePort()
 	};
 }
 

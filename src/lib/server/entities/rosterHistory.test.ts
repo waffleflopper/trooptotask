@@ -153,10 +153,4 @@ describe('RosterHistoryEntity', () => {
 	it('has groupScope none', () => {
 		expect(RosterHistoryEntity.groupScope).toBe('none');
 	});
-
-	it('has repo', () => {
-		expect(RosterHistoryEntity.repo).toBeDefined();
-		expect(RosterHistoryEntity.repo.list).toBeDefined();
-		expect(RosterHistoryEntity.repo.query).toBeDefined();
-	});
 });

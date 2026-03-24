@@ -1,73 +1,47 @@
-import { json, error } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
-import { getApiContext } from '$lib/server/supabase';
+import { handle } from '$lib/server/adapters/httpAdapter';
+import { fail } from '$lib/server/core/errors';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 
-export const GET = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const orgId = event.params.orgId as string;
-	const { supabase } = getApiContext(event.locals, event.cookies, orgId);
+export const GET = handle<{ startDate: string; endDate: string }, unknown>({
+	permission: 'privileged',
+	parseInput: (event: RequestEvent) => ({
+		startDate: event.url.searchParams.get('startDate') ?? '',
+		endDate: event.url.searchParams.get('endDate') ?? ''
+	}),
+	fn: async (ctx, input) => {
+		const { startDate, endDate } = input;
 
-	ctx.auth.requirePrivileged();
+		if (!startDate || !endDate) fail(400, 'startDate and endDate query params are required');
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+			fail(400, 'Dates must be in YYYY-MM-DD format');
+		}
+		if (startDate > endDate) fail(400, 'startDate must be before or equal to endDate');
 
-	// Validate query params
-	const startDate = event.url.searchParams.get('startDate');
-	const endDate = event.url.searchParams.get('endDate');
+		const [entries, assignments, assignmentTypes] = await Promise.all([
+			ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
+				rangeFilters: [
+					{ column: 'end_date', op: 'gte', value: startDate },
+					{ column: 'start_date', op: 'lte', value: endDate }
+				]
+			}),
+			ctx.store.findMany<Record<string, unknown>>('daily_assignments', ctx.auth.orgId, undefined, {
+				rangeFilters: [
+					{ column: 'date', op: 'gte', value: startDate },
+					{ column: 'date', op: 'lte', value: endDate }
+				]
+			}),
+			ctx.store.findMany<Record<string, unknown>>('assignment_types', ctx.auth.orgId)
+		]);
 
-	if (!startDate || !endDate) {
-		throw error(400, 'startDate and endDate query params are required');
+		ctx.audit.log({ action: 'calendar_report.viewed', resourceType: 'calendar_report' });
+
+		return {
+			entries: AvailabilityEntryEntity.fromDbArray(entries),
+			assignments: DailyAssignmentEntity.fromDbArray(assignments),
+			assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypes)
+		};
 	}
-
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
-		throw error(400, 'Dates must be in YYYY-MM-DD format');
-	}
-
-	if (startDate > endDate) {
-		throw error(400, 'startDate must be before or equal to endDate');
-	}
-
-	// Query availability entries for the date range
-	const { data, error: dbError } = await supabase
-		.from('availability_entries')
-		.select('*')
-		.eq('organization_id', orgId)
-		.gte('end_date', startDate)
-		.lte('start_date', endDate);
-
-	if (dbError) {
-		throw error(500, 'Failed to fetch availability data');
-	}
-
-	// Query daily assignments for the date range
-	const { data: assignmentsData, error: assignmentsError } = await supabase
-		.from('daily_assignments')
-		.select('*')
-		.eq('organization_id', orgId)
-		.gte('date', startDate)
-		.lte('date', endDate);
-
-	if (assignmentsError) {
-		throw error(500, 'Failed to fetch daily assignments');
-	}
-
-	// Query assignment types for the org
-	const { data: assignmentTypesData, error: assignmentTypesError } = await supabase
-		.from('assignment_types')
-		.select('*')
-		.eq('organization_id', orgId);
-
-	if (assignmentTypesError) {
-		throw error(500, 'Failed to fetch assignment types');
-	}
-
-	ctx.audit.log({ action: 'calendar_report.viewed', resourceType: 'calendar_report' });
-
-	return json({
-		entries: AvailabilityEntryEntity.fromDbArray(data ?? []),
-		assignments: DailyAssignmentEntity.fromDbArray(assignmentsData ?? []),
-		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypesData ?? [])
-	});
-};
+});

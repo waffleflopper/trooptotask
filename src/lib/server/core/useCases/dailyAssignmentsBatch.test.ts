@@ -3,16 +3,26 @@ import {
 	createInMemoryDataStore,
 	createTestAuthContext,
 	createTestAuditPort,
-	createTestReadOnlyGuard
+	createTestReadOnlyGuard,
+	createTestSubscriptionPort,
+	createTestNotificationPort,
+	createTestBillingPort,
+	createTestStoragePort
 } from '$lib/server/adapters/inMemory';
 import { batchDailyAssignments } from './dailyAssignmentsBatch';
 
 function buildContext(overrides?: { readOnly?: boolean; auth?: Parameters<typeof createTestAuthContext>[0] }) {
+	const store = createInMemoryDataStore();
 	return {
-		store: createInMemoryDataStore(),
+		store,
+		rawStore: store,
 		auth: createTestAuthContext(overrides?.auth),
 		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly)
+		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly),
+		subscription: createTestSubscriptionPort(),
+		notifications: createTestNotificationPort(),
+		billing: createTestBillingPort(),
+		storage: createTestStoragePort()
 	};
 }
 

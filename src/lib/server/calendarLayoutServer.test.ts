@@ -1,83 +1,130 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import {
+	createInMemoryDataStore,
+	createTestAuthContext,
+	createTestAuditPort,
+	createTestReadOnlyGuard,
+	createTestSubscriptionPort,
+	createTestNotificationPort,
+	createTestBillingPort,
+	createTestStoragePort
+} from '$lib/server/adapters/inMemory';
+import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
+import { fetchCalendarData } from '$lib/server/core/useCases/calendarQuery';
+import { getActiveOnboardingPersonnelIds } from '$lib/server/core/useCases/onboardingCalendarQuery';
+import { formatDate } from '$lib/utils/dates';
 
-const ORG_ID = '00000000-0000-0000-0000-000000000001';
-const USER_ID = '00000000-0000-0000-0000-000000000099';
+const ORG = 'test-org';
 
-const mockCalendarData = {
-	availabilityEntries: [
-		{ id: 'a1', personnelId: 'p1', statusTypeId: 'st1', startDate: '2026-03-01', endDate: '2026-03-05', note: null }
-	],
-	specialDays: [{ id: 'sd1', date: '2026-01-01', name: 'New Year', type: 'federal-holiday' }],
-	assignmentTypes: [
-		{ id: 'at1', name: 'CQ', shortName: 'CQ', assignTo: 'personnel', color: '#ef4444', exemptPersonnelIds: [] }
-	],
-	dailyAssignments: [{ id: 'da1', date: '2026-03-01', assignmentTypeId: 'at1', assigneeId: 'p1' }],
-	pinnedGroups: ['Alpha'],
-	rosterHistory: [
+function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
+	const store = createInMemoryDataStore();
+	return {
+		store,
+		rawStore: store,
+		auth: createTestAuthContext({ orgId: ORG, ...overrides?.auth }),
+		audit: createTestAuditPort(),
+		readOnlyGuard: createTestReadOnlyGuard(),
+		subscription: createTestSubscriptionPort(),
+		notifications: createTestNotificationPort(),
+		billing: createTestBillingPort(),
+		storage: createTestStoragePort()
+	};
+}
+
+function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
+	store.seed('availability_entries', [
+		{
+			id: 'a1',
+			organization_id: ORG,
+			personnel_id: 'p1',
+			status_type_id: 'st1',
+			start_date: '2026-03-01',
+			end_date: '2026-03-05',
+			note: null
+		}
+	]);
+	store.seed('special_days', [
+		{ id: 'sd1', organization_id: ORG, date: '2026-03-15', name: 'Training Holiday', type: 'org-closure' }
+	]);
+	store.seed('assignment_types', [
+		{
+			id: 'at1',
+			organization_id: ORG,
+			name: 'CQ',
+			short_name: 'CQ',
+			assign_to: 'personnel',
+			color: '#ef4444',
+			sort_order: 0,
+			exempt_personnel_ids: null
+		}
+	]);
+	store.seed('daily_assignments', [
+		{ id: 'da1', organization_id: ORG, date: '2026-03-10', assignment_type_id: 'at1', assignee_id: 'p1' }
+	]);
+	store.seed('user_pinned_groups', [
+		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 0 }
+	]);
+	store.seed('duty_roster_history', [
 		{
 			id: 'rh1',
-			assignmentTypeId: 'at1',
+			organization_id: ORG,
+			assignment_type_id: 'at1',
 			name: 'CQ Roster',
-			startDate: '2026-03-01',
-			endDate: '2026-03-31',
+			start_date: '2026-03-01',
+			end_date: '2026-03-31',
 			roster: [],
 			config: {},
-			createdAt: '2026-03-01T00:00:00Z'
+			created_at: '2026-03-01T00:00:00Z'
 		}
-	]
-};
+	]);
+}
 
-const mockFetchCalendarData = vi.fn();
+const RANGE_START = '2026-01-01';
+const RANGE_END = '2026-09-30';
 
-vi.mock('$lib/server/calendarData', () => ({
-	fetchCalendarData: (...args: unknown[]) => mockFetchCalendarData(...args)
-}));
+describe('calendar layout server (loadWithContext)', () => {
+	it('returns calendar data and activeOnboardingPersonnelIds via loadWithContext', async () => {
+		const ctx = buildCtx();
+		seedCalendarData(ctx.store);
 
-vi.mock('$lib/server/supabase', () => ({
-	getSupabaseClient: () => ({}),
-	getApiContext: () => ({ supabase: {}, userId: USER_ID, isSandbox: false })
-}));
+		const result = await loadWithContextCore(ctx, {
+			permission: 'calendar',
+			fn: async (ctx) => {
+				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
+					fetchCalendarData(ctx, { rangeStart: RANGE_START, rangeEnd: RANGE_END }),
+					getActiveOnboardingPersonnelIds(ctx)
+				]);
+				return { ...calendarData, activeOnboardingPersonnelIds };
+			}
+		});
 
-vi.mock('$lib/server/adapters/httpAdapter', () => ({
-	buildLayoutContext: vi.fn().mockResolvedValue({
-		store: {},
-		auth: { orgId: ORG_ID },
-		audit: { log() {} },
-		readOnlyGuard: { check: () => false }
-	})
-}));
-
-vi.mock('$lib/server/core/useCases/onboardingCalendarQuery', () => ({
-	getActiveOnboardingPersonnelIds: vi.fn().mockResolvedValue(new Set())
-}));
-
-describe('calendar layout server', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		mockFetchCalendarData.mockResolvedValue(mockCalendarData);
+		expect(result.availabilityEntries).toHaveLength(1);
+		expect(result.specialDays).toHaveLength(1);
+		expect(result.assignmentTypes).toHaveLength(1);
+		expect(result.dailyAssignments).toHaveLength(1);
+		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.rosterHistory).toHaveLength(1);
+		expect(result.activeOnboardingPersonnelIds).toEqual([]);
 	});
 
-	it('returns all calendar data fields from fetchCalendarData', async () => {
-		const { load } = await import('../../routes/org/[orgId]/calendar/+layout.server');
+	it('includes active onboarding personnel IDs when present', async () => {
+		const ctx = buildCtx();
+		seedCalendarData(ctx.store);
+		ctx.store.seed('personnel_onboardings', [
+			{ id: 'ob1', organization_id: ORG, personnel_id: 'p1', status: 'in_progress' }
+		]);
 
-		const dependsKeys: string[] = [];
-		const result = await load({
-			params: { orgId: ORG_ID },
-			locals: { user: { id: USER_ID } },
-			cookies: {},
-			depends: (key: string) => dependsKeys.push(key)
-		} as never);
+		const result = await loadWithContextCore(ctx, {
+			permission: 'calendar',
+			fn: async (ctx) => {
+				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
+					fetchCalendarData(ctx, { rangeStart: RANGE_START, rangeEnd: RANGE_END }),
+					getActiveOnboardingPersonnelIds(ctx)
+				]);
+				return { ...calendarData, activeOnboardingPersonnelIds };
+			}
+		});
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit load return type doesn't expose layout data shape in tests
-		const data = result as any;
-		expect(mockFetchCalendarData).toHaveBeenCalledWith(expect.anything(), ORG_ID, USER_ID);
-		expect(data.availabilityEntries).toEqual(mockCalendarData.availabilityEntries);
-		expect(data.specialDays).toEqual(mockCalendarData.specialDays);
-		expect(data.assignmentTypes).toEqual(mockCalendarData.assignmentTypes);
-		expect(data.dailyAssignments).toEqual(mockCalendarData.dailyAssignments);
-		expect(data.pinnedGroups).toEqual(mockCalendarData.pinnedGroups);
-		expect(data.rosterHistory).toEqual(mockCalendarData.rosterHistory);
-		expect(data.activeOnboardingPersonnelIds).toEqual(new Set());
-		expect(dependsKeys).toContain('app:calendar-data');
+		expect(result.activeOnboardingPersonnelIds).toEqual(['p1']);
 	});
 });

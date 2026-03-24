@@ -1,55 +1,40 @@
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { handle } from '$lib/server/adapters/httpAdapter';
 import {
 	listDeletionRequests,
 	createDeletionRequest,
 	cancelDeletionRequest
 } from '$lib/server/core/useCases/deletionRequests';
 
-function rethrowOrWrap(err: unknown): never {
-	if (err && typeof err === 'object' && 'status' in err) throw err;
-	throw error(500, 'Internal server error');
-}
+export const GET = handle<{ status?: string }, unknown>({
+	permission: 'personnel',
+	parseInput: (event: RequestEvent) => ({
+		status: event.url.searchParams.get('status') ?? undefined
+	}),
+	fn: (ctx, input) => listDeletionRequests(ctx, input.status ? { status: input.status } : undefined)
+});
 
-export const GET = async (event: RequestEvent) => {
-	try {
-		const ctx = await buildContext(event);
-		const status = event.url.searchParams.get('status');
-		const data = await listDeletionRequests(ctx, status ? { status } : undefined);
-		return json(data);
-	} catch (err) {
-		rethrowOrWrap(err);
-	}
-};
-
-export const POST = async (event: RequestEvent) => {
-	try {
-		const ctx = await buildContext(event);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const POST = handle<any, unknown>({
+	permission: 'personnel',
+	mutation: true,
+	parseInput: async (event: RequestEvent) => {
 		const body = await event.request.json();
-		const userEmail = event.locals.user?.email ?? 'unknown';
+		return {
+			...body,
+			userEmail: event.locals.user?.email ?? 'unknown'
+		};
+	},
+	fn: (ctx, input) => createDeletionRequest(ctx, input),
+	formatOutput: (result) => json(result, { status: 201 })
+});
 
-		const data = await createDeletionRequest(ctx, {
-			resourceType: body.resourceType,
-			resourceId: body.resourceId,
-			resourceDescription: body.resourceDescription,
-			resourceUrl: body.resourceUrl,
-			userEmail
-		});
-
-		return json(data, { status: 201 });
-	} catch (err) {
-		rethrowOrWrap(err);
+export const DELETE = handle<Record<string, unknown>, unknown>({
+	permission: 'personnel',
+	mutation: true,
+	fn: async (ctx, input) => {
+		await cancelDeletionRequest(ctx, input.id as string);
+		return { success: true };
 	}
-};
-
-export const DELETE = async (event: RequestEvent) => {
-	try {
-		const ctx = await buildContext(event);
-		const body = await event.request.json();
-		await cancelDeletionRequest(ctx, body.id);
-		return json({ success: true });
-	} catch (err) {
-		rethrowOrWrap(err);
-	}
-};
+});

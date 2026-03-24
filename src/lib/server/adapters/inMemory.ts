@@ -1,4 +1,18 @@
-import type { DataStore, FindOptions, AuthContext, AuditPort, ReadOnlyGuard, SubscriptionPort } from '../core/ports';
+import type {
+	DataStore,
+	FindOptions,
+	FindResult,
+	AuthContext,
+	AuditPort,
+	ReadOnlyGuard,
+	SubscriptionPort,
+	NotificationPort,
+	NotificationPayload,
+	BillingPort,
+	StoragePort,
+	UseCaseContext
+} from '../core/ports';
+import type { EffectiveTier } from '$lib/types/subscription';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
@@ -19,6 +33,89 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 		return Object.entries(filters).every(([key, value]) => row[key] === value);
 	}
 
+	function applyFilters(rows: Row[], orgId: string, filters?: Record<string, unknown>, options?: FindOptions): Row[] {
+		const allFilters = { ...filters, ...options?.filters };
+		let results = rows.filter((row) =>
+			matchesFilters(row, orgId, Object.keys(allFilters).length > 0 ? allFilters : undefined)
+		);
+
+		if (options?.inFilters) {
+			for (const [key, values] of Object.entries(options.inFilters)) {
+				results = results.filter((row) => values.includes(row[key]));
+			}
+		}
+
+		if (options?.isNull) {
+			for (const [key, shouldBeNull] of Object.entries(options.isNull)) {
+				results = results.filter((row) => (shouldBeNull ? row[key] == null : row[key] != null));
+			}
+		}
+
+		if (options?.ilikeFilters) {
+			for (const [key, pattern] of Object.entries(options.ilikeFilters)) {
+				// Convert SQL LIKE pattern to regex: % = .*, _ = .
+				const regex = new RegExp('^' + pattern.replace(/%/g, '.*').replace(/_/g, '.') + '$', 'i');
+				results = results.filter((row) => typeof row[key] === 'string' && regex.test(row[key] as string));
+			}
+		}
+
+		if (options?.rangeFilters) {
+			for (const { column, op, value } of options.rangeFilters) {
+				results = results.filter((row) => {
+					const rowVal = row[column];
+					if (rowVal == null) return false;
+					switch (op) {
+						case 'gte':
+							return rowVal >= value;
+						case 'lte':
+							return rowVal <= value;
+						case 'gt':
+							return rowVal > value;
+						case 'lt':
+							return rowVal < value;
+					}
+				});
+			}
+		}
+
+		return results;
+	}
+
+	function applySorting(results: Row[], options?: FindOptions): Row[] {
+		if (options?.orderBy && options.orderBy.length > 0) {
+			results.sort((a, b) => {
+				for (const { column, ascending } of options.orderBy!) {
+					const aVal = a[column];
+					const bVal = b[column];
+					if (aVal === bVal) continue;
+					if (aVal == null) return ascending ? -1 : 1;
+					if (bVal == null) return ascending ? 1 : -1;
+					const cmp = aVal < bVal ? -1 : 1;
+					return ascending ? cmp : -cmp;
+				}
+				return 0;
+			});
+		}
+		return results;
+	}
+
+	function applyPagination<T>(results: Row[], options?: FindOptions): T[] {
+		let sliced = results;
+		if (options?.range) {
+			sliced = sliced.slice(options.range.from, options.range.to + 1);
+		}
+		if (options?.limit !== undefined) {
+			sliced = sliced.slice(0, options.limit);
+		}
+		return sliced as T[];
+	}
+
+	function applyQuery<T>(rows: Row[], orgId: string, filters?: Record<string, unknown>, options?: FindOptions): T[] {
+		const filtered = applyFilters(rows, orgId, filters, options);
+		const sorted = applySorting(filtered, options);
+		return applyPagination<T>(sorted, options);
+	}
+
 	return {
 		seed(table: string, rows: Row[]): void {
 			const existing = getRows(table);
@@ -37,38 +134,19 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			filters?: Record<string, unknown>,
 			options?: FindOptions
 		): Promise<T[]> {
-			const rows = getRows(table);
-			const allFilters = { ...filters, ...options?.filters };
-			let results = rows.filter((row) =>
-				matchesFilters(row, orgId, Object.keys(allFilters).length > 0 ? allFilters : undefined)
-			);
+			return applyQuery<T>(getRows(table), orgId, filters, options);
+		},
 
-			if (options?.inFilters) {
-				for (const [key, values] of Object.entries(options.inFilters)) {
-					results = results.filter((row) => values.includes(row[key]));
-				}
-			}
-
-			if (options?.orderBy && options.orderBy.length > 0) {
-				results.sort((a, b) => {
-					for (const { column, ascending } of options.orderBy!) {
-						const aVal = a[column];
-						const bVal = b[column];
-						if (aVal === bVal) continue;
-						if (aVal == null) return ascending ? -1 : 1;
-						if (bVal == null) return ascending ? 1 : -1;
-						const cmp = aVal < bVal ? -1 : 1;
-						return ascending ? cmp : -cmp;
-					}
-					return 0;
-				});
-			}
-
-			if (options?.limit !== undefined) {
-				results = results.slice(0, options.limit);
-			}
-
-			return results as T[];
+		async findManyWithCount<T>(
+			table: string,
+			orgId: string,
+			filters?: Record<string, unknown>,
+			options?: FindOptions
+		): Promise<FindResult<T>> {
+			const filtered = applyFilters(getRows(table), orgId, filters, options);
+			const count = filtered.length;
+			const data = applyPagination<T>(applySorting(filtered, options), options);
+			return { data, count };
 		},
 
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T> {
@@ -178,6 +256,64 @@ export function createTestReadOnlyGuard(isReadOnly = false): ReadOnlyGuard {
 	};
 }
 
+interface RecordedNotification {
+	target: 'user' | 'admins';
+	orgId: string;
+	userId?: string;
+	excludeUserId?: string | null;
+	notification: NotificationPayload;
+}
+
+export function createTestNotificationPort(): NotificationPort & { notifications: RecordedNotification[] } {
+	const notifications: RecordedNotification[] = [];
+	return {
+		notifications,
+		async notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void> {
+			notifications.push({ target: 'user', orgId, userId, notification });
+		},
+		async notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void> {
+			notifications.push({ target: 'admins', orgId, excludeUserId, notification });
+		}
+	};
+}
+
+/** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
+export function createTestContext(overrides?: {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+	readOnly?: boolean;
+	subscriptionAllowed?: boolean;
+}): UseCaseContext & {
+	store: ReturnType<typeof createInMemoryDataStore>;
+	rawStore: ReturnType<typeof createInMemoryDataStore>;
+	auditPort: ReturnType<typeof createTestAuditPort>;
+	subscription: ReturnType<typeof createTestSubscriptionPort>;
+	notificationPort: ReturnType<typeof createTestNotificationPort>;
+	billingPort: ReturnType<typeof createTestBillingPort>;
+	storagePort: ReturnType<typeof createTestStoragePort>;
+} {
+	const store = createInMemoryDataStore();
+	const auditPort = createTestAuditPort();
+	const subscription = createTestSubscriptionPort(overrides?.subscriptionAllowed ?? true);
+	const notificationPort = createTestNotificationPort();
+	const billingPort = createTestBillingPort();
+	const storagePort = createTestStoragePort();
+	return {
+		store,
+		rawStore: store,
+		auth: createTestAuthContext(overrides?.auth),
+		audit: auditPort,
+		auditPort,
+		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
+		subscription,
+		notifications: notificationPort,
+		notificationPort,
+		billing: billingPort,
+		billingPort,
+		storage: storagePort,
+		storagePort
+	};
+}
+
 export function createTestSubscriptionPort(
 	allowed = true,
 	message?: string,
@@ -193,6 +329,79 @@ export function createTestSubscriptionPort(
 		},
 		invalidateTierCache() {
 			this.tierCacheInvalidated = true;
+		},
+		async getEffectiveTier(): Promise<EffectiveTier> {
+			return {
+				tier: 'unit',
+				source: 'default',
+				personnelCount: 0,
+				personnelCap: Infinity,
+				isReadOnly: false,
+				giftExpiresAt: null,
+				giftTier: null
+			};
+		},
+		async getMonthlyExportCount() {
+			return 0;
+		}
+	};
+}
+
+interface StoredFile {
+	bucket: string;
+	path: string;
+	data: File | Blob | ArrayBuffer;
+}
+
+export function createTestStoragePort(): StoragePort & { files: StoredFile[] } {
+	const files: StoredFile[] = [];
+	return {
+		files,
+		async upload(bucket: string, path: string, data: File | Blob | ArrayBuffer): Promise<void> {
+			// Remove existing file at same path (upsert behavior)
+			const idx = files.findIndex((f) => f.bucket === bucket && f.path === path);
+			if (idx >= 0) files.splice(idx, 1);
+			files.push({ bucket, path, data });
+		},
+		async remove(bucket: string, paths: string[]): Promise<void> {
+			for (const p of paths) {
+				const idx = files.findIndex((f) => f.bucket === bucket && f.path === p);
+				if (idx >= 0) files.splice(idx, 1);
+			}
+		},
+		async createSignedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string> {
+			const exists = files.some((f) => f.bucket === bucket && f.path === path);
+			if (!exists) throw new Error(`File not found: ${bucket}/${path}`);
+			return `https://storage.test/${bucket}/${path}?expires=${expiresInSeconds}`;
+		}
+	};
+}
+
+interface RecordedBillingCall {
+	method: string;
+	args: unknown[];
+}
+
+export function createTestBillingPort(): BillingPort & { calls: RecordedBillingCall[] } {
+	const calls: RecordedBillingCall[] = [];
+	return {
+		calls,
+		async createCheckoutSession(options) {
+			calls.push({ method: 'createCheckoutSession', args: [options] });
+			return { url: 'https://checkout.test/session', customerId: 'cus_test_123' };
+		},
+		async createPortalSession(customerId, returnUrl) {
+			calls.push({ method: 'createPortalSession', args: [customerId, returnUrl] });
+			return { url: 'https://portal.test/session' };
+		},
+		async cancelSubscription(subscriptionId) {
+			calls.push({ method: 'cancelSubscription', args: [subscriptionId] });
+		},
+		async pauseSubscription(subscriptionId) {
+			calls.push({ method: 'pauseSubscription', args: [subscriptionId] });
+		},
+		async resumeSubscription(subscriptionId) {
+			calls.push({ method: 'resumeSubscription', args: [subscriptionId] });
 		}
 	};
 }

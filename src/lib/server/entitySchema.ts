@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import type { FeatureArea } from './permissionContext';
-import { createRepository, type Repository } from './repositoryFactory';
+import type { FeatureArea } from './core/ports';
 
 export interface FieldMeta {
 	column: string | undefined;
@@ -65,7 +64,6 @@ export interface EntityDefinition<T = unknown> {
 	createSchema: z.ZodObject<z.ZodRawShape>;
 	updateSchema: z.ZodObject<z.ZodRawShape>;
 	select: string;
-	repo: Repository<T>;
 }
 
 export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefinition<T> {
@@ -180,14 +178,6 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 
 	const select = config.select ?? '*';
 
-	// Build repository
-	const repo = createRepository<T>({
-		table,
-		transform: fromDbArray,
-		select,
-		orderBy: config.orderBy
-	});
-
 	return {
 		table,
 		groupScope,
@@ -201,7 +191,6 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		toDbUpdate,
 		createSchema,
 		updateSchema,
-		select,
-		repo
+		select
 	};
 }

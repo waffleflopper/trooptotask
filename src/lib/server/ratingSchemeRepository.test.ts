@@ -1,51 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { CounselingRecordEntity } from './entities/counselingRecord';
 import { DevelopmentGoalEntity } from './entities/developmentGoal';
 import { RatingSchemeEntryEntity } from './entities/ratingSchemeEntry';
-
-const ORG_ID = '00000000-0000-0000-0000-000000000001';
-
-function createMockSupabase(
-	responseData: Record<string, unknown>[] | null = [],
-	responseError: null | { message: string } = null
-) {
-	const calls: Record<string, unknown[][]> = {};
-
-	const record = (method: string) => {
-		return (...args: unknown[]) => {
-			if (!calls[method]) calls[method] = [];
-			calls[method].push(args);
-			return builder;
-		};
-	};
-
-	const builder: Record<string, unknown> = {
-		select: record('select'),
-		eq: record('eq'),
-		neq: record('neq'),
-		order: record('order'),
-		in: record('in'),
-		gte: record('gte'),
-		lte: record('lte'),
-		ilike: record('ilike')
-	};
-
-	Object.defineProperty(builder, 'then', {
-		value: (resolve: (val: unknown) => void) => {
-			resolve({ data: responseData, error: responseError, count: responseData?.length ?? 0 });
-		}
-	});
-
-	const supabase = {
-		from: (table: string) => {
-			calls['from'] = [[table]];
-			return builder;
-		},
-		_calls: calls
-	};
-
-	return { supabase, calls };
-}
 
 describe('RatingSchemeEntryEntity.fromDbArray', () => {
 	it('maps all snake_case DB fields to camelCase RatingSchemeEntry', () => {
@@ -249,52 +205,5 @@ describe('DevelopmentGoalEntity.fromDbArray', () => {
 
 	it('returns empty array for empty input', () => {
 		expect(DevelopmentGoalEntity.fromDbArray([])).toEqual([]);
-	});
-});
-
-describe('RatingSchemeEntryEntity.repo', () => {
-	it('queries rating_scheme_entries table with org scoping and correct ordering', async () => {
-		const rows = [
-			{
-				id: 'rs-1',
-				rated_person_id: 'p-1',
-				eval_type: 'OER',
-				rater_person_id: null,
-				rater_name: null,
-				senior_rater_person_id: null,
-				senior_rater_name: null,
-				intermediate_rater_person_id: null,
-				intermediate_rater_name: null,
-				reviewer_person_id: null,
-				reviewer_name: null,
-				rating_period_start: '2025-01-01',
-				rating_period_end: '2025-12-31',
-				status: 'active',
-				notes: null,
-				report_type: null,
-				workflow_status: null
-			}
-		];
-		const { supabase, calls } = createMockSupabase(rows);
-
-		const result = await RatingSchemeEntryEntity.repo.list(supabase, ORG_ID);
-
-		expect(calls['from']![0]).toEqual(['rating_scheme_entries']);
-		expect(calls['eq']![0]).toEqual(['organization_id', ORG_ID]);
-		expect(calls['order']![0]).toEqual(['rating_period_end', { ascending: true }]);
-		expect(result).toHaveLength(1);
-		expect(result[0].id).toBe('rs-1');
-		expect(result[0].ratedPersonId).toBe('p-1');
-	});
-
-	it('applies status filter via query options', async () => {
-		const { supabase, calls } = createMockSupabase([]);
-
-		await RatingSchemeEntryEntity.repo.list(supabase, ORG_ID, {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock query builder
-			filters: [(q: any) => q.neq('status', 'completed')]
-		});
-
-		expect(calls['neq']![0]).toEqual(['status', 'completed']);
 	});
 });

@@ -1,20 +1,16 @@
-import { json } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
-import { buildContext } from '$lib/server/adapters/httpAdapter';
+import { handle } from '$lib/server/adapters/httpAdapter';
 import { resyncOnboarding, switchTemplate } from '$lib/server/core/useCases/onboardingResync';
 
-export const POST = async (event: RequestEvent) => {
-	const ctx = await buildContext(event);
-	const { onboardingId, newTemplateId } = (await event.request.json()) as Record<string, unknown>;
-
-	if (newTemplateId) {
-		const result = await switchTemplate(ctx, {
-			onboardingId: onboardingId as string,
-			newTemplateId: newTemplateId as string
-		});
-		return json(result);
+export const POST = handle<Record<string, unknown>, unknown>({
+	permission: 'onboarding',
+	mutation: true,
+	fn: async (ctx, input) => {
+		if (input.newTemplateId) {
+			return switchTemplate(ctx, {
+				onboardingId: input.onboardingId as string,
+				newTemplateId: input.newTemplateId as string
+			});
+		}
+		return resyncOnboarding(ctx, input.onboardingId as string);
 	}
-
-	const result = await resyncOnboarding(ctx, onboardingId as string);
-	return json(result);
-};
+});

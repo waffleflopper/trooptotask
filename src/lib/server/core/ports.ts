@@ -10,7 +10,24 @@ export interface FindOptions {
 	inFilters?: Record<string, unknown[]>;
 	select?: string;
 	limit?: number;
+	/** Null-check filters: { archived_at: true } means IS NULL, false means IS NOT NULL */
+	isNull?: Record<string, boolean>;
+	/** Range filters for date/numeric queries */
+	rangeFilters?: Array<{ column: string; op: 'gte' | 'lte' | 'gt' | 'lt'; value: string }>;
+	/** Pagination range (0-indexed, inclusive) */
+	range?: { from: number; to: number };
+	/** Count mode — used by findManyWithCount */
+	count?: 'exact' | 'planned' | 'estimated';
 }
+
+/** Result from findManyWithCount — data plus total count */
+export interface FindResult<T> {
+	data: T[];
+	count: number | null;
+}
+
+/** Scope rule for ScopedDataStore — how a table relates to personnel groups */
+export type GroupScopeRule = { type: 'group'; groupColumn: string } | { type: 'personnel'; personnelColumn: string };
 
 /** Abstracts all persistence — business logic never imports Supabase */
 export interface DataStore {
@@ -29,6 +46,13 @@ export interface DataStore {
 	deleteManyByIds(table: string, orgId: string, ids: string[]): Promise<number>;
 
 	insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;
+
+	findManyWithCount<T>(
+		table: string,
+		orgId: string,
+		filters?: Record<string, unknown>,
+		options?: FindOptions
+	): Promise<FindResult<T>>;
 }
 
 /** Abstracts permission enforcement — no SupabaseClient parameter needed */
@@ -75,4 +99,6 @@ export interface UseCaseContext {
 	auth: AuthContext;
 	audit: AuditPort;
 	readOnlyGuard: ReadOnlyGuard;
+	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
+	rawStore: DataStore;
 }

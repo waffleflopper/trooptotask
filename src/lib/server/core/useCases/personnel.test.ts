@@ -26,8 +26,10 @@ function buildContext(overrides?: {
 		overrides?.subscriptionAllowed ?? true,
 		overrides?.subscriptionMessage
 	);
+	const store = createInMemoryDataStore();
 	return {
-		store: createInMemoryDataStore(),
+		store,
+		rawStore: store,
 		auth: createTestAuthContext(overrides?.auth),
 		audit: auditPort,
 		auditPort,

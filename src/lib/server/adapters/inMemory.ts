@@ -1,4 +1,13 @@
-import type { DataStore, FindOptions, AuthContext, AuditPort, ReadOnlyGuard, SubscriptionPort } from '../core/ports';
+import type {
+	DataStore,
+	FindOptions,
+	FindResult,
+	AuthContext,
+	AuditPort,
+	ReadOnlyGuard,
+	SubscriptionPort,
+	UseCaseContext
+} from '../core/ports';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
@@ -19,6 +28,81 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 		return Object.entries(filters).every(([key, value]) => row[key] === value);
 	}
 
+	function applyFilters(rows: Row[], orgId: string, filters?: Record<string, unknown>, options?: FindOptions): Row[] {
+		const allFilters = { ...filters, ...options?.filters };
+		let results = rows.filter((row) =>
+			matchesFilters(row, orgId, Object.keys(allFilters).length > 0 ? allFilters : undefined)
+		);
+
+		if (options?.inFilters) {
+			for (const [key, values] of Object.entries(options.inFilters)) {
+				results = results.filter((row) => values.includes(row[key]));
+			}
+		}
+
+		if (options?.isNull) {
+			for (const [key, shouldBeNull] of Object.entries(options.isNull)) {
+				results = results.filter((row) => (shouldBeNull ? row[key] == null : row[key] != null));
+			}
+		}
+
+		if (options?.rangeFilters) {
+			for (const { column, op, value } of options.rangeFilters) {
+				results = results.filter((row) => {
+					const rowVal = row[column];
+					if (rowVal == null) return false;
+					switch (op) {
+						case 'gte':
+							return rowVal >= value;
+						case 'lte':
+							return rowVal <= value;
+						case 'gt':
+							return rowVal > value;
+						case 'lt':
+							return rowVal < value;
+					}
+				});
+			}
+		}
+
+		return results;
+	}
+
+	function applySorting(results: Row[], options?: FindOptions): Row[] {
+		if (options?.orderBy && options.orderBy.length > 0) {
+			results.sort((a, b) => {
+				for (const { column, ascending } of options.orderBy!) {
+					const aVal = a[column];
+					const bVal = b[column];
+					if (aVal === bVal) continue;
+					if (aVal == null) return ascending ? -1 : 1;
+					if (bVal == null) return ascending ? 1 : -1;
+					const cmp = aVal < bVal ? -1 : 1;
+					return ascending ? cmp : -cmp;
+				}
+				return 0;
+			});
+		}
+		return results;
+	}
+
+	function applyPagination<T>(results: Row[], options?: FindOptions): T[] {
+		let sliced = results;
+		if (options?.range) {
+			sliced = sliced.slice(options.range.from, options.range.to + 1);
+		}
+		if (options?.limit !== undefined) {
+			sliced = sliced.slice(0, options.limit);
+		}
+		return sliced as T[];
+	}
+
+	function applyQuery<T>(rows: Row[], orgId: string, filters?: Record<string, unknown>, options?: FindOptions): T[] {
+		const filtered = applyFilters(rows, orgId, filters, options);
+		const sorted = applySorting(filtered, options);
+		return applyPagination<T>(sorted, options);
+	}
+
 	return {
 		seed(table: string, rows: Row[]): void {
 			const existing = getRows(table);
@@ -37,38 +121,19 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			filters?: Record<string, unknown>,
 			options?: FindOptions
 		): Promise<T[]> {
-			const rows = getRows(table);
-			const allFilters = { ...filters, ...options?.filters };
-			let results = rows.filter((row) =>
-				matchesFilters(row, orgId, Object.keys(allFilters).length > 0 ? allFilters : undefined)
-			);
+			return applyQuery<T>(getRows(table), orgId, filters, options);
+		},
 
-			if (options?.inFilters) {
-				for (const [key, values] of Object.entries(options.inFilters)) {
-					results = results.filter((row) => values.includes(row[key]));
-				}
-			}
-
-			if (options?.orderBy && options.orderBy.length > 0) {
-				results.sort((a, b) => {
-					for (const { column, ascending } of options.orderBy!) {
-						const aVal = a[column];
-						const bVal = b[column];
-						if (aVal === bVal) continue;
-						if (aVal == null) return ascending ? -1 : 1;
-						if (bVal == null) return ascending ? 1 : -1;
-						const cmp = aVal < bVal ? -1 : 1;
-						return ascending ? cmp : -cmp;
-					}
-					return 0;
-				});
-			}
-
-			if (options?.limit !== undefined) {
-				results = results.slice(0, options.limit);
-			}
-
-			return results as T[];
+		async findManyWithCount<T>(
+			table: string,
+			orgId: string,
+			filters?: Record<string, unknown>,
+			options?: FindOptions
+		): Promise<FindResult<T>> {
+			const filtered = applyFilters(getRows(table), orgId, filters, options);
+			const count = filtered.length;
+			const data = applyPagination<T>(applySorting(filtered, options), options);
+			return { data, count };
 		},
 
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T> {
@@ -175,6 +240,27 @@ export function createTestReadOnlyGuard(isReadOnly = false): ReadOnlyGuard {
 		async check(): Promise<boolean> {
 			return isReadOnly;
 		}
+	};
+}
+
+/** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
+export function createTestContext(overrides?: {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+	readOnly?: boolean;
+}): UseCaseContext & {
+	store: ReturnType<typeof createInMemoryDataStore>;
+	rawStore: ReturnType<typeof createInMemoryDataStore>;
+	auditPort: ReturnType<typeof createTestAuditPort>;
+} {
+	const store = createInMemoryDataStore();
+	const auditPort = createTestAuditPort();
+	return {
+		store,
+		rawStore: store,
+		auth: createTestAuthContext(overrides?.auth),
+		audit: auditPort,
+		auditPort,
+		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false)
 	};
 }
 

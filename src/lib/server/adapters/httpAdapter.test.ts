@@ -11,7 +11,23 @@ vi.mock('./supabaseDataStore', () => ({
 	createSupabaseDataStore: vi.fn()
 }));
 vi.mock('./supabaseAuthContext', () => ({
-	createSupabaseAuthContextAdapter: vi.fn(),
+	createSupabaseAuthContextAdapter: vi.fn(() => ({
+		userId: 'test-user',
+		orgId: '00000000-0000-0000-0000-000000000001',
+		role: 'owner',
+		isPrivileged: true,
+		isFullEditor: true,
+		scopedGroupId: null,
+		requireEdit() {},
+		requireView() {},
+		requirePrivileged() {},
+		requireOwner() {},
+		requireFullEditor() {},
+		requireManageMembers() {},
+		async requireGroupAccess() {},
+		async requireGroupAccessBatch() {},
+		async requireGroupAccessByRecord() {}
+	})),
 	createSandboxAuthContext: vi.fn()
 }));
 vi.mock('./supabaseAudit', () => ({
@@ -19,6 +35,12 @@ vi.mock('./supabaseAudit', () => ({
 }));
 vi.mock('./supabaseReadOnlyGuard', () => ({
 	createSupabaseReadOnlyGuard: vi.fn()
+}));
+vi.mock('./scopedDataStore', () => ({
+	createScopedDataStore: vi.fn((_inner: unknown) => ({}))
+}));
+vi.mock('./scopeRules', () => ({
+	defaultScopeRules: new Map()
 }));
 vi.mock('$lib/server/supabase', () => ({
 	getApiContext: vi.fn(() => ({ supabase: {}, userId: 'test-user', isSandbox: false }))

@@ -18,8 +18,10 @@ function buildContext(overrides?: {
 	readOnly?: boolean;
 }): TestContext {
 	const auditPort = createTestAuditPort();
+	const store = createInMemoryDataStore();
 	return {
-		store: createInMemoryDataStore(),
+		store,
+		rawStore: store,
 		auth: createTestAuthContext(overrides?.auth),
 		audit: auditPort,
 		auditPort,

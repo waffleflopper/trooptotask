@@ -14,9 +14,11 @@ function buildContext(overrides?: {
 	subscriptionAllowed?: boolean;
 	availableSlots?: number | null;
 }) {
+	const store = createInMemoryDataStore();
 	return {
 		ctx: {
-			store: createInMemoryDataStore(),
+			store,
+			rawStore: store,
 			auth: createTestAuthContext(overrides?.auth),
 			audit: createTestAuditPort(),
 			readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly)

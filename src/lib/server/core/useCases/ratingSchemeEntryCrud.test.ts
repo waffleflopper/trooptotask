@@ -22,7 +22,7 @@ function buildContext(overrides?: {
 	const auditPort = createTestAuditPort();
 	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
 
-	return { store, auth, audit: auditPort, readOnlyGuard, auditPort };
+	return { store, rawStore: store, auth, audit: auditPort, readOnlyGuard, auditPort };
 }
 
 const validInput = {

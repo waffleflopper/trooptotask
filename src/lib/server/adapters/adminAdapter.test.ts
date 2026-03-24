@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { RequestEvent } from '@sveltejs/kit';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
 	buildAdminContextCore,
 	loadWithAdminContextCore,
@@ -10,6 +11,7 @@ import {
 } from './adminAdapter';
 
 const mockEvent = {} as RequestEvent;
+const mockAdminClient = {} as SupabaseClient;
 
 describe('buildAdminContextCore', () => {
 	it('rejects when user is not a platform admin', async () => {
@@ -38,7 +40,8 @@ describe('buildAdminContextCore', () => {
 			userId: 'user-1',
 			lookupRole: async () => 'super_admin',
 			requestInfo: { userId: 'user-1', ip: '127.0.0.1', userAgent: '' },
-			requiredPage: 'audit'
+			requiredPage: 'audit',
+			adminClient: mockAdminClient
 		});
 
 		expect(ctx.adminUser.id).toBe('user-1');
@@ -49,7 +52,8 @@ describe('buildAdminContextCore', () => {
 		const ctx = await buildAdminContextCore({
 			userId: 'user-1',
 			lookupRole: async () => 'support',
-			requestInfo: { userId: 'user-1', ip: '127.0.0.1', userAgent: '' }
+			requestInfo: { userId: 'user-1', ip: '127.0.0.1', userAgent: '' },
+			adminClient: mockAdminClient
 		});
 
 		expect(ctx.adminUser.role).toBe('support');
@@ -59,7 +63,8 @@ describe('buildAdminContextCore', () => {
 		const ctx = await buildAdminContextCore({
 			userId: 'user-1',
 			lookupRole: async () => 'super_admin',
-			requestInfo: { userId: 'user-1', ip: '127.0.0.1', userAgent: '' }
+			requestInfo: { userId: 'user-1', ip: '127.0.0.1', userAgent: '' },
+			adminClient: mockAdminClient
 		});
 
 		// Should not throw

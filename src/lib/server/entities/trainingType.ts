@@ -25,8 +25,33 @@ export const TrainingTypeEntity = defineEntity<TrainingType>({
 			column: 'warning_days_orange',
 			insertDefault: 30
 		}),
-		requiredForRoles: field(z.array(z.string()), {
-			column: 'required_for_roles',
+		appliesToRoles: field(z.array(z.string()), {
+			column: 'applies_to_roles',
+			insertDefault: [],
+			nullDefault: []
+		}),
+		appliesToMos: field(z.array(z.string()), {
+			column: 'applies_to_mos',
+			insertDefault: [],
+			nullDefault: []
+		}),
+		appliesToRanks: field(z.array(z.string()), {
+			column: 'applies_to_ranks',
+			insertDefault: [],
+			nullDefault: []
+		}),
+		excludedRoles: field(z.array(z.string()), {
+			column: 'excluded_roles',
+			insertDefault: [],
+			nullDefault: []
+		}),
+		excludedMos: field(z.array(z.string()), {
+			column: 'excluded_mos',
+			insertDefault: [],
+			nullDefault: []
+		}),
+		excludedRanks: field(z.array(z.string()), {
+			column: 'excluded_ranks',
 			insertDefault: [],
 			nullDefault: []
 		}),

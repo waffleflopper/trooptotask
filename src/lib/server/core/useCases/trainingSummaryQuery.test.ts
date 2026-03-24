@@ -57,7 +57,12 @@ function makeTrainingType(id: string, name = 'CPR') {
 		expirationMonths: 12,
 		warningDaysYellow: 60,
 		warningDaysOrange: 30,
-		requiredForRoles: [] as string[],
+		appliesToRoles: [] as string[],
+		appliesToMos: [] as string[],
+		appliesToRanks: [] as string[],
+		excludedRoles: [] as string[],
+		excludedMos: [] as string[],
+		excludedRanks: [] as string[],
 		color: '#0f0',
 		sortOrder: 0,
 		expirationDateOnly: false,
@@ -184,8 +189,8 @@ describe('fetchTrainingSummary', () => {
 			trainingTypes: [makeTrainingType('tt1')] as never[]
 		});
 
-		// requiredForRoles: [] means optional, so missing training is not-required
-		expect(result.stats.notRequired).toBe(1);
+		// empty applies-to = everyone, so missing training is not-completed
+		expect(result.stats.notCompleted).toBe(1);
 		expect(result.stats.current).toBe(0);
 	});
 });

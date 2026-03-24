@@ -3,19 +3,19 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 
 // Import the route config (not the HTTP handler)
-import { putConfig } from './+server';
+import { _putConfig } from './+server';
 
 describe('PUT /api/duty-roster-exemptions', () => {
 	it('exports a RouteConfig with correct permission and mutation', () => {
-		expect(putConfig.permission).toBe('calendar');
-		expect(putConfig.mutation).toBe(true);
+		expect(_putConfig.permission).toBe('calendar');
+		expect(_putConfig.mutation).toBe(true);
 	});
 
 	it('updates exempt personnel and returns the result', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('assignment_types', [{ id: 'at-1', organization_id: 'test-org', exempt_personnel_ids: [] }]);
 
-		const result = await handleUseCaseRequest(putConfig, ctx, {
+		const result = await handleUseCaseRequest(_putConfig, ctx, {
 			assignmentTypeId: 'at-1',
 			personnelIds: ['p1', 'p2']
 		});
@@ -27,7 +27,7 @@ describe('PUT /api/duty-roster-exemptions', () => {
 		const ctx = createTestContext();
 		ctx.store.seed('assignment_types', [{ id: 'at-1', organization_id: 'test-org', exempt_personnel_ids: ['old'] }]);
 
-		const result = await handleUseCaseRequest(putConfig, ctx, {
+		const result = await handleUseCaseRequest(_putConfig, ctx, {
 			assignmentTypeId: 'at-1'
 		});
 
@@ -37,7 +37,7 @@ describe('PUT /api/duty-roster-exemptions', () => {
 	it('rejects when assignmentTypeId is missing', async () => {
 		const ctx = createTestContext();
 
-		await expect(handleUseCaseRequest(putConfig, ctx, { personnelIds: [] })).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_putConfig, ctx, { personnelIds: [] })).rejects.toMatchObject({
 			status: 400
 		});
 	});
@@ -46,7 +46,7 @@ describe('PUT /api/duty-roster-exemptions', () => {
 		const ctx = createTestContext();
 		ctx.store.seed('assignment_types', [{ id: 'at-1', organization_id: 'test-org', exempt_personnel_ids: [] }]);
 
-		await handleUseCaseRequest(putConfig, ctx, {
+		await handleUseCaseRequest(_putConfig, ctx, {
 			assignmentTypeId: 'at-1',
 			personnelIds: ['p1']
 		});
@@ -62,7 +62,7 @@ describe('PUT /api/duty-roster-exemptions', () => {
 		const ctx = createTestContext({ readOnly: true });
 
 		await expect(
-			handleUseCaseRequest(putConfig, ctx, { assignmentTypeId: 'at-1', personnelIds: [] })
+			handleUseCaseRequest(_putConfig, ctx, { assignmentTypeId: 'at-1', personnelIds: [] })
 		).rejects.toMatchObject({ status: 403 });
 	});
 });

@@ -10,7 +10,7 @@ interface ExemptionOutput {
 	exemptPersonnelIds: string[];
 }
 
-export const putConfig: RouteConfig<ExemptionInput, ExemptionOutput> = {
+export const _putConfig: RouteConfig<ExemptionInput, ExemptionOutput> = {
 	permission: 'calendar',
 	mutation: true,
 	fn: async (ctx, input) => {
@@ -33,4 +33,4 @@ export const putConfig: RouteConfig<ExemptionInput, ExemptionOutput> = {
 	}
 };
 
-export const PUT = handle(putConfig);
+export const PUT = handle(_putConfig);

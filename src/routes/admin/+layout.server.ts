@@ -1,7 +1,6 @@
-import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { isPlatformAdmin, getAdminRole, getAccessiblePages } from '$lib/server/admin';
-import type { AdminRole } from '$lib/server/admin';
+import { getAccessiblePages } from '$lib/server/admin';
+import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 
 const NAV_GROUPS = [
 	{ label: null, items: [{ label: 'Dashboard', href: '/admin', page: 'dashboard' }] },
@@ -24,36 +23,22 @@ const NAV_GROUPS = [
 	}
 ];
 
-export const load: LayoutServerLoad = async ({ locals }) => {
-	const user = locals.user;
-	if (!user) throw redirect(303, '/auth/login');
+export const load: LayoutServerLoad = loadWithAdminContext({
+	fn: async (ctx, event) => {
+		const { adminUser } = ctx;
+		const accessiblePages = getAccessiblePages(adminUser.role);
 
-	// Check if user is a platform admin
-	const isAdmin = await isPlatformAdmin(locals.supabase, user.id);
-	if (!isAdmin) {
-		throw error(403, 'Access denied. Platform admin required.');
+		const visibleNavGroups = NAV_GROUPS.map((group) => ({
+			...group,
+			items: group.items.filter((item) => accessiblePages.includes(item.page))
+		})).filter((group) => group.items.length > 0);
+
+		return {
+			adminUserId: adminUser.id,
+			adminEmail: event.locals.user?.email,
+			adminRole: adminUser.role,
+			accessiblePages,
+			visibleNavGroups
+		};
 	}
-
-	// Get admin role
-	const role = await getAdminRole(locals.supabase, user.id);
-	if (!role) {
-		throw error(403, 'Unable to determine admin role.');
-	}
-	const adminRole = role;
-
-	const accessiblePages = getAccessiblePages(adminRole);
-
-	// Pre-compute visible nav groups server-side to avoid hydration issues
-	const visibleNavGroups = NAV_GROUPS.map((group) => ({
-		...group,
-		items: group.items.filter((item) => accessiblePages.includes(item.page))
-	})).filter((group) => group.items.length > 0);
-
-	return {
-		adminUserId: user.id,
-		adminEmail: user.email,
-		adminRole,
-		accessiblePages,
-		visibleNavGroups
-	};
-};
+});

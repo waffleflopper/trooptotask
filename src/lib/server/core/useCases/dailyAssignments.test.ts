@@ -21,6 +21,7 @@ function buildContext(overrides?: {
 	const auditPort = createTestAuditPort();
 	return {
 		store,
+		rawStore: store,
 		auth: createTestAuthContext(overrides?.auth),
 		audit: auditPort,
 		auditPort,

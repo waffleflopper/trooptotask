@@ -12,6 +12,7 @@ function makeCtx(overrides?: { store?: ReturnType<typeof createInMemoryDataStore
 	const store = overrides?.store ?? createInMemoryDataStore();
 	return {
 		store,
+		rawStore: store,
 		auth: createTestAuthContext(),
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard()

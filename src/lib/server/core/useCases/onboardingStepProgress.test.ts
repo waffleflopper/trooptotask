@@ -25,7 +25,7 @@ function buildContext(overrides?: { readOnly?: boolean }): TestContext {
 	const auditPort = createTestAuditPort();
 	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
 
-	return { store, auth, audit: auditPort, readOnlyGuard, auditPort };
+	return { store, rawStore: store, auth, audit: auditPort, readOnlyGuard, auditPort };
 }
 
 function seedStep(ctx: TestContext, overrides?: Record<string, unknown>) {

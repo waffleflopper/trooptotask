@@ -16,6 +16,7 @@ export interface TrainingType {
 	expirationDateOnly: boolean; // if true, record stores expiration date directly (no completion date)
 	canBeExempted: boolean;
 	exemptPersonnelIds: string[];
+	isOptional: boolean;
 }
 
 export interface PersonnelTraining {

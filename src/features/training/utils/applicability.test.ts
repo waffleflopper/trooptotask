@@ -22,6 +22,7 @@ function makeType(overrides: Partial<TrainingType> = {}): TrainingType {
 		expirationDateOnly: false,
 		canBeExempted: false,
 		exemptPersonnelIds: [],
+		isOptional: false,
 		...overrides
 	};
 }
@@ -41,6 +42,13 @@ function makePerson(overrides: Partial<Personnel> = {}): Personnel {
 }
 
 describe('isTrainingApplicable', () => {
+	it('returns false when isOptional is true regardless of other settings', () => {
+		const type = makeType({ isOptional: true });
+		const person = makePerson();
+
+		expect(isTrainingApplicable(type, person)).toBe(false);
+	});
+
 	it('returns true when all applies-to dimensions are empty (everyone)', () => {
 		const type = makeType();
 		const person = makePerson();

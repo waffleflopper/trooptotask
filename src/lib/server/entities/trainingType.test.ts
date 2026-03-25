@@ -29,7 +29,8 @@ describe('TrainingTypeEntity', () => {
 			sort_order: 1,
 			expiration_date_only: true,
 			can_be_exempted: true,
-			exempt_personnel_ids: ['p1', 'p2']
+			exempt_personnel_ids: ['p1', 'p2'],
+			is_optional: false
 		};
 
 		const result = TrainingTypeEntity.fromDb(row) as TrainingType;
@@ -51,7 +52,8 @@ describe('TrainingTypeEntity', () => {
 			sortOrder: 1,
 			expirationDateOnly: true,
 			canBeExempted: true,
-			exemptPersonnelIds: ['p1', 'p2']
+			exemptPersonnelIds: ['p1', 'p2'],
+			isOptional: false
 		});
 	});
 
@@ -100,13 +102,15 @@ describe('TrainingTypeEntity', () => {
 			sort_order: 0,
 			expiration_date_only: null,
 			can_be_exempted: null,
-			exempt_personnel_ids: []
+			exempt_personnel_ids: [],
+			is_optional: null
 		};
 
 		const result = TrainingTypeEntity.fromDb(row) as TrainingType;
 
 		expect(result.expirationDateOnly).toBe(false);
 		expect(result.canBeExempted).toBe(false);
+		expect(result.isOptional).toBe(false);
 	});
 
 	it('fromDbArray transforms multiple rows', () => {
@@ -171,7 +175,8 @@ describe('TrainingTypeEntity', () => {
 			sort_order: 0,
 			expiration_date_only: false,
 			can_be_exempted: false,
-			exempt_personnel_ids: []
+			exempt_personnel_ids: [],
+			is_optional: false
 		});
 	});
 
@@ -215,7 +220,8 @@ describe('TrainingTypeEntity', () => {
 			sort_order: 5,
 			expiration_date_only: true,
 			can_be_exempted: true,
-			exempt_personnel_ids: ['p1']
+			exempt_personnel_ids: ['p1'],
+			is_optional: false
 		});
 	});
 

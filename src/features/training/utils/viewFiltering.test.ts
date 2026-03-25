@@ -20,7 +20,8 @@ function makeType(id: string, name: string, sortOrder: number): TrainingType {
 		excludedRanks: [],
 		expirationDateOnly: false,
 		canBeExempted: false,
-		exemptPersonnelIds: []
+		exemptPersonnelIds: [],
+		isOptional: false
 	};
 }
 

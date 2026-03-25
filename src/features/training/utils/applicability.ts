@@ -2,6 +2,8 @@ import type { TrainingType } from '$features/training/training.types';
 import type { Personnel } from '$lib/types';
 
 export function isTrainingApplicable(type: TrainingType, person: Personnel): boolean {
+	if (type.isOptional) return false;
+
 	const isExcluded =
 		type.excludedRoles.includes(person.clinicRole) ||
 		type.excludedMos.includes(person.mos) ||

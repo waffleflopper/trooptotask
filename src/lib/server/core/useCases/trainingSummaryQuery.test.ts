@@ -67,7 +67,8 @@ function makeTrainingType(id: string, name = 'CPR') {
 		sortOrder: 0,
 		expirationDateOnly: false,
 		canBeExempted: false,
-		exemptPersonnelIds: [] as string[]
+		exemptPersonnelIds: [] as string[],
+		isOptional: false
 	};
 }
 

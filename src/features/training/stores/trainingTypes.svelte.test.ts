@@ -20,7 +20,8 @@ const mockTypes: TrainingType[] = [
 		excludedRanks: [],
 		expirationDateOnly: false,
 		canBeExempted: false,
-		exemptPersonnelIds: []
+		exemptPersonnelIds: [],
+		isOptional: false
 	},
 	{
 		id: '2',
@@ -39,7 +40,8 @@ const mockTypes: TrainingType[] = [
 		excludedRanks: [],
 		expirationDateOnly: false,
 		canBeExempted: false,
-		exemptPersonnelIds: []
+		exemptPersonnelIds: [],
+		isOptional: false
 	},
 	{
 		id: '3',
@@ -58,7 +60,8 @@ const mockTypes: TrainingType[] = [
 		excludedRanks: [],
 		expirationDateOnly: false,
 		canBeExempted: false,
-		exemptPersonnelIds: []
+		exemptPersonnelIds: [],
+		isOptional: false
 	}
 ];
 
@@ -124,7 +127,8 @@ describe('trainingTypesStore', () => {
 				excludedRanks: [],
 				expirationDateOnly: false,
 				canBeExempted: false,
-				exemptPersonnelIds: []
+				exemptPersonnelIds: [],
+				isOptional: false
 			};
 			stubFetch(created);
 
@@ -144,7 +148,8 @@ describe('trainingTypesStore', () => {
 				excludedRanks: [],
 				expirationDateOnly: false,
 				canBeExempted: false,
-				exemptPersonnelIds: []
+				exemptPersonnelIds: [],
+				isOptional: false
 			});
 
 			expect(result).not.toBeNull();

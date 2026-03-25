@@ -3,18 +3,25 @@
 
 	let { children, data } = $props();
 
-	// Guard against parent-only invalidation clobbering optimistic store mutations.
+	// Track the promise reference to guard against parent-only invalidation
+	// clobbering optimistic store mutations.
 	// See calendar/+layout.svelte for full explanation.
-	let lastRefs: unknown[] = [];
+	let lastPromiseRef: unknown = null;
 
 	$effect(() => {
-		const refs = [data.personnelTrainings, data.orgId];
+		const promiseRef = data.personnelTrainings;
+		const orgId = data.orgId;
 
-		const unchanged = refs.length === lastRefs.length && refs.every((r, i) => r === lastRefs[i]);
-		if (unchanged) return;
-		lastRefs = refs;
+		if (promiseRef === lastPromiseRef) return;
+		lastPromiseRef = promiseRef;
 
-		personnelTrainingsStore.load(data.personnelTrainings ?? [], data.orgId);
+		// Signal loading immediately so skeletons show during navigation
+		personnelTrainingsStore.startLoading();
+
+		// Hydrate store when deferred data arrives
+		promiseRef.then((items) => {
+			personnelTrainingsStore.load(items ?? [], orgId);
+		});
 	});
 </script>
 

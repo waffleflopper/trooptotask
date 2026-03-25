@@ -318,26 +318,44 @@ export async function handleUseCaseRequest<TInput, TOutput>(
 interface LoadConfig<T> {
 	permission: FeatureArea | 'manageMembers' | 'privileged' | 'owner' | 'none';
 	fn: (ctx: UseCaseContext) => Promise<T>;
+	defer?: boolean;
+}
+
+function enforceLoadPermission(ctx: UseCaseContext, permission: LoadConfig<unknown>['permission']): void {
+	if (permission === 'none') return;
+	switch (permission) {
+		case 'privileged':
+			ctx.auth.requirePrivileged();
+			break;
+		case 'owner':
+			ctx.auth.requireOwner();
+			break;
+		case 'manageMembers':
+			ctx.auth.requireManageMembers();
+			break;
+		default:
+			ctx.auth.requireView(permission);
+	}
 }
 
 /**
  * Testable core of loadWithContext() — no SvelteKit dependency.
+ *
+ * Without `defer`: checks permissions and awaits the data (blocks navigation).
+ * With `defer: true`: checks permissions eagerly, returns data as an unresolved
+ * promise for SvelteKit streaming (navigation completes immediately, page shows
+ * skeletons while data loads).
  */
-export async function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T>): Promise<T> {
-	if (config.permission !== 'none') {
-		switch (config.permission) {
-			case 'privileged':
-				ctx.auth.requirePrivileged();
-				break;
-			case 'owner':
-				ctx.auth.requireOwner();
-				break;
-			case 'manageMembers':
-				ctx.auth.requireManageMembers();
-				break;
-			default:
-				ctx.auth.requireView(config.permission);
-		}
+export function loadWithContextCore<T>(
+	ctx: UseCaseContext,
+	config: LoadConfig<T> & { defer: true }
+): { data: Promise<T> };
+export function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T>): Promise<T>;
+export function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T>): Promise<T> | { data: Promise<T> } {
+	enforceLoadPermission(ctx, config.permission);
+
+	if (config.defer) {
+		return { data: config.fn(ctx) };
 	}
 
 	return config.fn(ctx);
@@ -346,13 +364,30 @@ export async function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadCo
 /**
  * Page loader wrapper with mandatory permission declaration.
  * Wraps buildLayoutContext() for use in +page.server.ts / +layout.server.ts load functions.
+ *
+ * Without `defer`: awaits data before returning (standard blocking load).
+ * With `defer: true`: permissions checked eagerly, data returned as an unresolved
+ * promise that SvelteKit streams. Pages with skeleton UIs should use this to allow
+ * instant navigation.
  */
 export async function loadWithContext<T>(
 	locals: App.Locals,
 	cookies: Cookies,
 	orgId: string,
+	config: LoadConfig<T> & { defer: true }
+): Promise<{ data: Promise<T> }>;
+export async function loadWithContext<T>(
+	locals: App.Locals,
+	cookies: Cookies,
+	orgId: string,
 	config: LoadConfig<T>
-): Promise<T> {
+): Promise<T>;
+export async function loadWithContext<T>(
+	locals: App.Locals,
+	cookies: Cookies,
+	orgId: string,
+	config: LoadConfig<T>
+): Promise<T | { data: Promise<T> }> {
 	const ctx = await buildLayoutContext(locals, cookies, orgId);
 	return loadWithContextCore(ctx, config);
 }

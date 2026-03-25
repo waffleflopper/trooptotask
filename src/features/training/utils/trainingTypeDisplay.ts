@@ -9,6 +9,8 @@ export function getExpirationMode(type: TrainingType): ExpirationMode {
 }
 
 export function formatApplicability(type: TrainingType): string {
+	if (type.isOptional) return 'Optional (tracked only)';
+
 	const parts: string[] = [];
 
 	if (type.appliesToRoles.length > 0) parts.push(type.appliesToRoles.join(', '));

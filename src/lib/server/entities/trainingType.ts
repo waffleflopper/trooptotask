@@ -71,6 +71,11 @@ export const TrainingTypeEntity = defineEntity<TrainingType>({
 			column: 'exempt_personnel_ids',
 			insertDefault: [],
 			nullDefault: []
+		}),
+		isOptional: field(z.boolean(), {
+			column: 'is_optional',
+			insertDefault: false,
+			nullDefault: false
 		})
 	}
 });

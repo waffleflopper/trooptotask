@@ -43,6 +43,7 @@
 	let editExcludedMos = $state<string[]>([]);
 	let editExcludedRanks = $state<string[]>([]);
 	let editCanBeExempted = $state(false);
+	let editIsOptional = $state(false);
 
 	// --- Derived ---
 	const types = $derived(trainingTypesStore.items);
@@ -85,6 +86,7 @@
 		editExcludedMos = [...selectedType.excludedMos];
 		editExcludedRanks = [...selectedType.excludedRanks];
 		editCanBeExempted = selectedType.canBeExempted;
+		editIsOptional = selectedType.isOptional;
 		editing = true;
 	}
 
@@ -111,6 +113,7 @@
 		editExcludedMos = [];
 		editExcludedRanks = [];
 		editCanBeExempted = false;
+		editIsOptional = false;
 		creating = true;
 		editing = false;
 	}
@@ -136,7 +139,8 @@
 				excludedRoles: editExcludedRoles,
 				excludedMos: editExcludedMos,
 				excludedRanks: editExcludedRanks,
-				canBeExempted: editCanBeExempted
+				canBeExempted: editCanBeExempted,
+				isOptional: editIsOptional
 			};
 
 			if (creating) {
@@ -184,6 +188,7 @@
 		editExcludedRoles = fields.excludedRoles;
 		editExcludedMos = fields.excludedMos;
 		editExcludedRanks = fields.excludedRanks;
+		editIsOptional = fields.isOptional;
 	}
 
 	function getExpirationLabel(mode: ExpirationMode): string {
@@ -351,6 +356,7 @@
 					excludedRoles={editExcludedRoles}
 					excludedMos={editExcludedMos}
 					excludedRanks={editExcludedRanks}
+					isOptional={editIsOptional}
 					{availableRoles}
 					{availableMos}
 					{availableRanks}

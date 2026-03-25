@@ -21,6 +21,7 @@ function makeType(overrides: Partial<TrainingType> = {}): TrainingType {
 		expirationDateOnly: false,
 		canBeExempted: false,
 		exemptPersonnelIds: [],
+		isOptional: false,
 		...overrides
 	};
 }

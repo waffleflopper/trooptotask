@@ -101,7 +101,8 @@ const mockType: TrainingType = {
 	excludedRanks: [],
 	expirationDateOnly: false,
 	canBeExempted: true,
-	exemptPersonnelIds: ['p-1']
+	exemptPersonnelIds: ['p-1'],
+	isOptional: false
 };
 
 function makeData(overrides: Record<string, unknown> = {}) {

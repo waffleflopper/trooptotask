@@ -120,7 +120,7 @@ export class TrainingPageContext {
 	get trainingOverflowItems(): OverflowItem[] {
 		const items: OverflowItem[] = [];
 		items.push({ label: 'Sign-In Rosters', onclick: () => this.#modals.open('sign-in-rosters') });
-		items.push({ label: 'Reports', onclick: () => this.#modals.open('reports') });
+		items.push({ label: 'Reports', onclick: () => goto(`/org/${this.orgId}/training/reports`) });
 		if (this.canManageConfig) {
 			items.push({
 				label: 'Bulk Import',

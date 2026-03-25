@@ -76,10 +76,7 @@ describe('TrainingViewEntity', () => {
 	});
 
 	it('toDbInsert applies defaults and adds organization_id (createdBy is DB-defaulted)', () => {
-		const result = TrainingViewEntity.toDbInsert(
-			{ name: 'New View', columnIds: ['tt-1', 'tt-2'] },
-			'org-1'
-		);
+		const result = TrainingViewEntity.toDbInsert({ name: 'New View', columnIds: ['tt-1', 'tt-2'] }, 'org-1');
 
 		expect(result).toEqual({
 			organization_id: 'org-1',

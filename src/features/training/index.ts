@@ -17,6 +17,13 @@ export {
 	getTrainingStats
 } from './utils/trainingStatus';
 export type { TrainingStatusInfo, TrainingStats, DelinquentTraining } from './utils/trainingStatus';
+export {
+	filterPersonnel,
+	computeReadinessDashboard,
+	buildPivotTable,
+	generatePivotCSV
+} from './utils/reportCalculations';
+export type { ReportFilters, ReadinessDashboard, PivotRow, PivotCell } from './utils/reportCalculations';
 
 // Context
 export { TrainingPageContext } from './contexts/TrainingPageContext.svelte';

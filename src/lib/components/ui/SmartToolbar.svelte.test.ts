@@ -13,6 +13,40 @@ describe('SmartToolbar', () => {
 		cleanup();
 	});
 
+	describe('keyboard and focus management', () => {
+		it('clicking outside closes an open dropdown', async () => {
+			renderToolbar([
+				{
+					type: 'dropdown',
+					label: 'Bulk Status',
+					items: [{ label: 'Add Bulk', onclick: vi.fn() }]
+				}
+			]);
+
+			await fireEvent.click(screen.getByRole('button', { name: /Bulk Status/ }));
+			expect(screen.getByRole('menu')).toBeTruthy();
+
+			await fireEvent.mouseDown(document.body);
+			expect(screen.queryByRole('menu')).toBeNull();
+		});
+
+		it('pressing Escape closes an open dropdown', async () => {
+			renderToolbar([
+				{
+					type: 'dropdown',
+					label: 'Bulk Status',
+					items: [{ label: 'Add Bulk', onclick: vi.fn() }]
+				}
+			]);
+
+			await fireEvent.click(screen.getByRole('button', { name: /Bulk Status/ }));
+			expect(screen.getByRole('menu')).toBeTruthy();
+
+			await fireEvent.keyDown(document.body, { key: 'Escape' });
+			expect(screen.queryByRole('menu')).toBeNull();
+		});
+	});
+
 	describe('dropdown items', () => {
 		it('dropdown items with href render as anchor links', async () => {
 			renderToolbar([

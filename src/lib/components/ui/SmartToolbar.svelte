@@ -8,7 +8,13 @@
 
 	export interface SmartToolbarItem {
 		type: 'button' | 'dropdown' | 'icon-button' | 'overflow';
+		/** Unique key used for dropdown open/close tracking. Defaults to label if omitted. */
+		id?: string;
 		label: string;
+		/**
+		 * SVG markup rendered via {@html}. Must be trusted application-defined content —
+		 * never pass user-supplied or API-sourced strings here.
+		 */
 		icon?: string;
 		href?: string;
 		onclick?: () => void;
@@ -33,6 +39,8 @@
 	const collapsibleItems = $derived(items.filter((i) => i.type !== 'overflow'));
 	const hasOverflowMenu = $derived(overflowItems.length > 0 || narrow);
 
+	let toolbarEl: HTMLElement | undefined = $state();
+
 	function toggleDropdown(label: string) {
 		openDropdown = openDropdown === label ? null : label;
 	}
@@ -40,6 +48,28 @@
 	function closeDropdown() {
 		openDropdown = null;
 	}
+
+	$effect(() => {
+		if (!openDropdown) return;
+
+		function handleMouseDown(e: MouseEvent) {
+			if (toolbarEl && !toolbarEl.contains(e.target as Node)) {
+				closeDropdown();
+			}
+		}
+
+		function handleKeyDown(e: KeyboardEvent) {
+			if (e.key === 'Escape') closeDropdown();
+		}
+
+		window.addEventListener('mousedown', handleMouseDown);
+		window.addEventListener('keydown', handleKeyDown);
+
+		return () => {
+			window.removeEventListener('mousedown', handleMouseDown);
+			window.removeEventListener('keydown', handleKeyDown);
+		};
+	});
 </script>
 
 {#snippet menuItem(item: DropdownItem)}
@@ -69,7 +99,7 @@
 	{/if}
 {/snippet}
 
-<div class="smart-toolbar" data-testid="smart-toolbar" data-narrow={narrow}>
+<div class="smart-toolbar" data-testid="smart-toolbar" data-narrow={narrow || undefined} bind:this={toolbarEl}>
 	{#if !narrow}
 		{#each collapsibleItems as item}
 			{#if item.type === 'button'}
@@ -82,8 +112,8 @@
 						class="toolbar-btn dropdown-trigger"
 						type="button"
 						aria-haspopup="menu"
-						aria-expanded={openDropdown === item.label}
-						onclick={() => toggleDropdown(item.label)}
+						aria-expanded={openDropdown === (item.id ?? item.label)}
+						onclick={() => toggleDropdown(item.id ?? item.label)}
 					>
 						{item.label}
 						<svg
@@ -99,7 +129,7 @@
 							<polyline points="6 9 12 15 18 9" />
 						</svg>
 					</button>
-					{#if openDropdown === item.label}
+					{#if openDropdown === (item.id ?? item.label)}
 						<div class="dropdown-menu" role="menu">
 							{#each item.items ?? [] as dropdownItem}
 								{@render menuItem(dropdownItem)}
@@ -230,7 +260,7 @@
 		position: absolute;
 		top: calc(100% + 4px);
 		right: 0;
-		z-index: 100;
+		z-index: 1000;
 		min-width: 180px;
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);

@@ -44,18 +44,6 @@
 			header: 'Name',
 			value: (p) => `${p.lastName}, ${p.firstName}`,
 			compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
-		},
-		{
-			key: 'rank',
-			header: 'Rank',
-			value: (p) => p.rank,
-			compare: (a, b) => a.rank.localeCompare(b.rank)
-		},
-		{
-			key: 'group',
-			header: 'Group',
-			value: (p) => p.groupName,
-			compare: (a, b) => a.groupName.localeCompare(b.groupName)
 		}
 	];
 
@@ -101,7 +89,7 @@
 		return trainingMap.get(`${personnelId}-${typeId}`);
 	}
 
-	const totalCols = $derived(trainingTypes.length + 3);
+	const totalCols = $derived(trainingTypes.length + 1);
 
 	const legendItems: Array<{ status: TrainingStatus; label: string; color: string }> = [
 		{ status: 'current', label: 'Current', color: TRAINING_STATUS_COLORS['current'] },
@@ -119,14 +107,14 @@
 		<th scope="row" class="name-cell">
 			{#if onPersonClick}
 				<button class="person-btn" onclick={() => onPersonClick(person)}>
+					<span class="person-rank">{person.rank}</span>
 					{person.lastName}, {person.firstName}
 				</button>
 			{:else}
+				<span class="person-rank">{person.rank}</span>
 				{person.lastName}, {person.firstName}
 			{/if}
 		</th>
-		<td class="rank-cell">{person.rank}</td>
-		<td class="group-cell">{person.groupName}</td>
 		{#each trainingTypes as type (type.id)}
 			{@const training = getTraining(person.id, type.id)}
 			{@const statusInfo = getTrainingStatus(training, type, person)}
@@ -191,12 +179,6 @@
 				<tr>
 					<th scope="col" class="name-header sortable" onclick={() => table.toggleSort('name')}>
 						Name{sortIndicator('name')}
-					</th>
-					<th scope="col" class="rank-header sortable" onclick={() => table.toggleSort('rank')}>
-						Rank{sortIndicator('rank')}
-					</th>
-					<th scope="col" class="group-header sortable" onclick={() => table.toggleSort('group')}>
-						Group{sortIndicator('group')}
 					</th>
 					{#each trainingTypes as type (type.id)}
 						<th scope="col" class="type-header sortable" onclick={() => table.toggleSort(type.id)}>
@@ -312,23 +294,11 @@
 		background: var(--color-surface);
 		z-index: 5;
 		text-align: left;
-		min-width: 150px;
-		max-width: 200px;
-		border-right: 1px solid var(--color-border);
-		color: var(--color-text);
-	}
-
-	.rank-header,
-	.rank-cell {
-		min-width: 50px;
-		text-align: left;
-	}
-
-	.group-header,
-	.group-cell {
-		min-width: 80px;
-		text-align: left;
+		width: 180px;
+		min-width: 180px;
+		max-width: 220px;
 		border-right: 2px solid var(--color-border);
+		color: var(--color-text);
 	}
 
 	.name-header {
@@ -420,6 +390,18 @@
 		color: var(--color-primary);
 	}
 
+	.person-btn:hover .person-rank {
+		color: var(--color-primary);
+	}
+
+	.person-rank {
+		display: inline-block;
+		font-weight: 600;
+		color: var(--color-text-muted);
+		min-width: 35px;
+		margin-right: var(--spacing-xs);
+	}
+
 	.heatmap-cell {
 		vertical-align: middle;
 		min-width: 80px;
@@ -477,13 +459,6 @@
 			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
-		}
-
-		.rank-header,
-		.rank-cell,
-		.group-header,
-		.group-cell {
-			display: none;
 		}
 
 		.type-header {

@@ -50,7 +50,7 @@
 <div class="page">
 	<PageToolbar title="Training & Certifications" helpTopic="training-records" overflowItems={ctx.trainingOverflowItems}>
 		<button class="btn btn-sm" onclick={() => modals.open('sign-in-rosters')}> Sign-In Rosters </button>
-		<button class="btn btn-sm" onclick={() => modals.open('reports')}> Reports </button>
+		<a href={`/org/${ctx.orgId}/training/reports`} class="btn btn-sm"> Reports </a>
 		{#if ctx.canManageConfig}
 			<a href={`/org/${ctx.orgId}/training/types`} class="btn btn-sm"> Manage Types </a>
 		{/if}

@@ -253,12 +253,12 @@ describe('CalendarPageContext', () => {
 			expect(labels).not.toContain('Assignment Types');
 		});
 
-		it('includes configure items when canManageConfig is true', () => {
+		it('does NOT include configure items in overflow (moved to settings page)', () => {
 			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
 			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
-			expect(labels).toContain('Status Types');
-			expect(labels).toContain('Assignment Types');
-			expect(labels).toContain('Holidays');
+			expect(labels).not.toContain('Status Types');
+			expect(labels).not.toContain('Assignment Types');
+			expect(labels).not.toContain('Holidays');
 		});
 
 		it('includes Status Reports link for owner', () => {

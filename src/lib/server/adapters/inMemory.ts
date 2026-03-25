@@ -165,6 +165,16 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			return rows[index] as T;
 		},
 
+		async updateById<T>(table: string, id: string, data: Record<string, unknown>): Promise<T> {
+			const rows = getRows(table);
+			const index = rows.findIndex((row) => row.id === id);
+			if (index === -1) {
+				throw new Error(`Record not found: ${table}/${id}`);
+			}
+			Object.assign(rows[index], data);
+			return rows[index] as T;
+		},
+
 		async delete(table: string, orgId: string, id: string): Promise<void> {
 			const rows = getRows(table);
 			const index = rows.findIndex((row) => row.id === id && row.organization_id === orgId);

@@ -40,6 +40,10 @@ export interface DataStore {
 
 	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>, select?: string): Promise<T>;
 
+	/** Update a row by primary key only — no organization_id scoping.
+	 *  Use for tables like `organizations` where the row IS the org. */
+	updateById<T>(table: string, id: string, data: Record<string, unknown>, select?: string): Promise<T>;
+
 	delete(table: string, orgId: string, id: string): Promise<void>;
 
 	deleteWhere(table: string, orgId: string, filters: Record<string, unknown>): Promise<void>;

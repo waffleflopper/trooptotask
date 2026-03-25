@@ -56,6 +56,35 @@ describe('createStore', () => {
 		});
 	});
 
+	describe('loading', () => {
+		it('should be true before load is called', () => {
+			const store = makeStore();
+			expect(store.loading).toBe(true);
+		});
+
+		it('should be false after load is called', () => {
+			const store = makeStore();
+			store.load([{ id: '1', name: 'A' }], 'org-1');
+			expect(store.loading).toBe(false);
+		});
+
+		it('should be true after startLoading is called', () => {
+			const store = makeStore();
+			store.load([{ id: '1', name: 'A' }], 'org-1');
+			expect(store.loading).toBe(false);
+			store.startLoading();
+			expect(store.loading).toBe(true);
+		});
+
+		it('should reset to false on subsequent load after startLoading', () => {
+			const store = makeStore();
+			store.load([{ id: '1', name: 'A' }], 'org-1');
+			store.startLoading();
+			store.load([{ id: '2', name: 'B' }], 'org-1');
+			expect(store.loading).toBe(false);
+		});
+	});
+
 	describe('add', () => {
 		it('should add item optimistically then replace with server response', async () => {
 			const serverItem: TestItem = { id: 'server-1', name: 'Alpha' };

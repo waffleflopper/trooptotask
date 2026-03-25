@@ -28,6 +28,15 @@ export interface PersonnelTraining {
 	certificateUrl: string | null;
 }
 
+export interface TrainingView {
+	id: string;
+	name: string;
+	columnIds: string[]; // ordered array of training_type IDs
+	createdBy: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
 export type TrainingStatus =
 	| 'current'
 	| 'warning-yellow'

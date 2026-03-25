@@ -85,8 +85,8 @@
 	}
 </script>
 
-<fieldset class="editor-section">
-	<legend class="section-title">Applicability</legend>
+<div class="applicability-editor">
+	<div class="section-heading">Applicability</div>
 
 	<!-- Presets -->
 	<div class="preset-row">
@@ -161,12 +161,15 @@
 			{/if}
 		</div>
 
-		<!-- Excluded (collapsed by default) -->
+		<!-- Exclusions -->
 		<div class="exclusions">
 			<button class="exclusion-toggle" onclick={() => (showExclusions = !showExclusions)}>
-				{showExclusions ? '▾' : '▸'} Exclusions
+				<span class="toggle-icon">{showExclusions ? '▾' : '▸'}</span>
+				<span class="toggle-label">Exclude specific roles, MOS, or ranks</span>
 				{#if !showExclusions && excludedRoles.length + excludedMos.length + excludedRanks.length > 0}
-					<span class="exclusion-count">({excludedRoles.length + excludedMos.length + excludedRanks.length})</span>
+					<span class="exclusion-count"
+						>{excludedRoles.length + excludedMos.length + excludedRanks.length} excluded</span
+					>
 				{/if}
 			</button>
 
@@ -220,34 +223,47 @@
 			{/if}
 		</div>
 	{/if}
-</fieldset>
+</div>
 
 <style>
+	.applicability-editor {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+	}
+
+	.section-heading {
+		font-size: var(--font-size-sm);
+		font-weight: 600;
+		color: var(--color-text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
 	/* Preset buttons */
 	.preset-row {
 		display: flex;
-		gap: var(--spacing-xs, 0.25rem);
-		margin-bottom: var(--spacing-sm, 0.5rem);
+		gap: var(--spacing-xs);
 	}
 
 	.preset-btn {
 		padding: 4px 12px;
-		border: 1px solid var(--color-border, #d1d5db);
-		border-radius: var(--radius-md, 6px);
-		background: var(--color-bg, #fff);
-		font-size: var(--font-size-sm, 0.875rem);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-bg);
+		font-size: var(--font-size-sm);
 		cursor: pointer;
-		transition: all var(--transition-fast, 0.15s);
+		transition: all var(--transition-fast);
 	}
 
 	.preset-btn:hover:not(:disabled) {
-		border-color: var(--color-primary, #3b82f6);
+		border-color: var(--color-primary);
 	}
 
 	.preset-btn.active {
-		background: var(--color-primary, #3b82f6);
+		background: var(--color-primary);
 		color: white;
-		border-color: var(--color-primary, #3b82f6);
+		border-color: var(--color-primary);
 	}
 
 	.preset-btn:disabled {
@@ -259,29 +275,29 @@
 	.chip-selector {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-xs, 0.25rem);
+		gap: var(--spacing-xs);
 	}
 
 	.chip {
 		display: inline-flex;
 		align-items: center;
 		padding: 4px 12px;
-		border: 1px solid var(--color-border, #d1d5db);
+		border: 1px solid var(--color-border);
 		border-radius: 999px;
-		background: var(--color-bg, #fff);
-		font-size: var(--font-size-sm, 0.875rem);
+		background: var(--color-bg);
+		font-size: var(--font-size-sm);
 		cursor: pointer;
-		transition: all var(--transition-fast, 0.15s);
+		transition: all var(--transition-fast);
 	}
 
 	.chip:hover:not(:disabled) {
-		border-color: var(--color-primary, #3b82f6);
+		border-color: var(--color-primary);
 	}
 
 	.chip.active {
-		background: var(--color-primary, #3b82f6);
+		background: var(--color-primary);
 		color: white;
-		border-color: var(--color-primary, #3b82f6);
+		border-color: var(--color-primary);
 	}
 
 	.chip:disabled {
@@ -290,27 +306,27 @@
 	}
 
 	.chip-exclude.active {
-		background: var(--color-danger, #ef4444);
+		background: var(--color-danger);
 		color: white;
-		border-color: var(--color-danger, #ef4444);
+		border-color: var(--color-danger);
 	}
 
 	/* Layout */
 	.applicability-group {
-		margin-bottom: 0.75rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.group-label {
-		font-size: 0.8rem;
+		font-size: var(--font-size-xs);
 		font-weight: 600;
-		color: var(--color-text-secondary, #6b7280);
+		color: var(--color-text-secondary);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
 
 	.hint {
-		font-size: var(--font-size-xs, 0.75rem);
-		color: var(--color-text-muted, #9ca3af);
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
 		font-style: italic;
 		margin: 0.25rem 0 0;
 	}
@@ -320,39 +336,53 @@
 	}
 
 	.dimension-label {
-		font-size: 0.75rem;
-		color: var(--color-text-muted, #9ca3af);
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
 		margin-bottom: 0.25rem;
 		display: block;
 	}
 
 	.exclusions {
-		border-top: 1px solid var(--color-border, #d1d5db);
-		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border);
+		padding-top: var(--spacing-sm);
 	}
 
 	.exclusion-toggle {
 		background: none;
-		border: none;
-		color: var(--color-text-secondary, #6b7280);
-		font-size: 0.8rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-secondary);
+		font-size: var(--font-size-sm);
 		cursor: pointer;
-		padding: 0.25rem 0;
+		padding: var(--spacing-xs) var(--spacing-sm);
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
+		gap: var(--spacing-xs);
+		width: 100%;
+		transition: all var(--transition-fast);
 	}
 
 	.exclusion-toggle:hover {
-		color: var(--color-text-primary, #111);
+		border-color: var(--color-primary);
+		color: var(--color-text);
+	}
+
+	.toggle-icon {
+		font-size: var(--font-size-xs);
+	}
+
+	.toggle-label {
+		flex: 1;
+		text-align: left;
 	}
 
 	.exclusion-count {
-		color: var(--color-warning, #eab308);
+		font-size: var(--font-size-xs);
+		color: var(--color-danger);
 		font-weight: 600;
 	}
 
 	.exclusion-content {
-		margin-top: 0.5rem;
+		margin-top: var(--spacing-sm);
 	}
 </style>

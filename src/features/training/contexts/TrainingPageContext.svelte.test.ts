@@ -93,10 +93,16 @@ const mockType: TrainingType = {
 	expirationMonths: 12,
 	warningDaysYellow: 60,
 	warningDaysOrange: 30,
-	requiredForRoles: [],
+	appliesToRoles: [],
+	appliesToMos: [],
+	appliesToRanks: [],
+	excludedRoles: [],
+	excludedMos: [],
+	excludedRanks: [],
 	expirationDateOnly: false,
 	canBeExempted: true,
-	exemptPersonnelIds: ['p-1']
+	exemptPersonnelIds: ['p-1'],
+	isOptional: false
 };
 
 function makeData(overrides: Record<string, unknown> = {}) {
@@ -211,7 +217,13 @@ describe('TrainingPageContext', () => {
 			const labels = ctx.trainingOverflowItems.map((i) => i.label);
 			expect(labels).toContain('Bulk Import');
 			expect(labels).toContain('Manage Types');
-			expect(labels).toContain('Reorder Columns');
+		});
+	});
+
+	describe('default viewMode', () => {
+		it('defaults to by-group', () => {
+			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			expect(ctx.viewMode).toBe('by-group');
 		});
 	});
 

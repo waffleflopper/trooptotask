@@ -2,6 +2,8 @@
 	import type { Personnel } from '$lib/types';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import { getTrainingStatus } from '$features/training/utils/trainingStatus';
+	import { getCellDisplayText } from '$features/training/utils/cellDisplayText';
+	import { TRAINING_STATUS_COLORS, type TrainingStatus } from '$features/training/training.types';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -26,12 +28,22 @@
 		groupBy
 	}: Props = $props();
 
+	const statusOrder: Record<TrainingStatus, number> = {
+		expired: 0,
+		'warning-orange': 1,
+		'warning-yellow': 2,
+		'not-completed': 3,
+		current: 4,
+		'not-required': 5,
+		exempt: 6
+	};
+
 	const columns: ColumnDef<Personnel>[] = [
 		{
 			key: 'name',
-			header: 'Personnel',
-			value: (p) => `${p.rank} ${p.lastName}, ${p.firstName}`,
-			compare: (a, b) => a.lastName.localeCompare(b.lastName)
+			header: 'Name',
+			value: (p) => `${p.lastName}, ${p.firstName}`,
+			compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
 		}
 	];
 
@@ -39,8 +51,30 @@
 		data: () => personnel,
 		columns,
 		initialSortKey: 'name',
-		groupBy
+		groupBy,
+		resolveColumn: (key) => {
+			const type = trainingTypes.find((t) => t.id === key);
+			if (!type) return undefined;
+			return {
+				key: type.id,
+				header: type.name,
+				value: (p: Personnel) => {
+					const t = getTraining(p.id, type.id);
+					return getTrainingStatus(t, type, p).status;
+				},
+				compare: (a: Personnel, b: Personnel) => {
+					const aInfo = getTrainingStatus(getTraining(a.id, type.id), type, a);
+					const bInfo = getTrainingStatus(getTraining(b.id, type.id), type, b);
+					return statusOrder[aInfo.status] - statusOrder[bInfo.status];
+				}
+			};
+		}
 	});
+
+	function sortIndicator(key: string): string {
+		if (table.sortKey !== key) return '';
+		return table.sortDirection === 'asc' ? ' \u25B2' : ' \u25BC';
+	}
 
 	// Create a map for quick training lookup
 	const trainingMap = $derived.by(() => {
@@ -56,6 +90,16 @@
 	}
 
 	const totalCols = $derived(trainingTypes.length + 1);
+
+	const legendItems: Array<{ status: TrainingStatus; label: string; color: string }> = [
+		{ status: 'current', label: 'Current', color: TRAINING_STATUS_COLORS['current'] },
+		{ status: 'warning-yellow', label: 'Expiring Soon', color: TRAINING_STATUS_COLORS['warning-yellow'] },
+		{ status: 'warning-orange', label: 'Expiring', color: TRAINING_STATUS_COLORS['warning-orange'] },
+		{ status: 'expired', label: 'Expired', color: TRAINING_STATUS_COLORS['expired'] },
+		{ status: 'not-completed', label: 'Not Done', color: TRAINING_STATUS_COLORS['not-completed'] },
+		{ status: 'not-required', label: 'N/A', color: TRAINING_STATUS_COLORS['not-required'] },
+		{ status: 'exempt', label: 'Exempt', color: TRAINING_STATUS_COLORS['exempt'] }
+	];
 </script>
 
 {#snippet personRow(person: Personnel)}
@@ -74,31 +118,32 @@
 		{#each trainingTypes as type (type.id)}
 			{@const training = getTraining(person.id, type.id)}
 			{@const statusInfo = getTrainingStatus(training, type, person)}
-			<td class="status-cell">
-				<div class="status-content">
-					{#if onCellClick}
-						<button
-							class="status-badge"
-							style="background-color: {statusInfo.color}"
-							data-status={statusInfo.status}
-							aria-label="{person.lastName} {type.name}: {statusInfo.label}"
-							onclick={() => onCellClick(person, type, training)}
-						>
-							{statusInfo.label}
-						</button>
-					{:else}
-						<span
-							class="status-badge"
-							style="background-color: {statusInfo.color}"
-							data-status={statusInfo.status}
-							aria-label="{person.lastName} {type.name}: {statusInfo.label}"
-						>
-							{statusInfo.label}
-						</span>
-					{/if}
-					<span class="completion-date">{training?.completionDate ?? ''}</span>
-				</div>
-			</td>
+			{@const displayText = getCellDisplayText(statusInfo, training, type.expirationDateOnly)}
+			{#if onCellClick}
+				<td
+					class="heatmap-cell"
+					style="background-color: color-mix(in srgb, {statusInfo.color} 15%, transparent)"
+					data-status={statusInfo.status}
+					role="gridcell"
+				>
+					<button
+						class="heatmap-btn"
+						aria-label="{person.lastName} {type.name}: {statusInfo.label}"
+						onclick={() => onCellClick(person, type, training)}
+					>
+						{displayText}
+					</button>
+				</td>
+			{:else}
+				<td
+					class="heatmap-cell"
+					style="background-color: color-mix(in srgb, {statusInfo.color} 15%, transparent)"
+					data-status={statusInfo.status}
+					aria-label="{person.lastName} {type.name}: {statusInfo.label}"
+				>
+					<span class="heatmap-text">{displayText}</span>
+				</td>
+			{/if}
 		{/each}
 	</tr>
 {/snippet}
@@ -116,19 +161,29 @@
 		</div>
 	{/if}
 
+	<div class="matrix-legend" role="legend" aria-label="Status color legend">
+		{#each legendItems as item (item.status)}
+			<span class="legend-item">
+				<span
+					class="legend-swatch"
+					style="background-color: color-mix(in srgb, {item.color} 15%, transparent); border-color: {item.color}"
+				></span>
+				{item.label}
+			</span>
+		{/each}
+	</div>
+
 	<div class="matrix-container">
 		<table class="matrix" aria-label="Training status matrix">
 			<thead>
 				<tr>
-					<th scope="col" class="name-header" onclick={() => table.toggleSort('name')}>
-						Personnel
-						{#if table.sortDirection === 'asc'}↑{:else}↓{/if}
+					<th scope="col" class="name-header sortable" onclick={() => table.toggleSort('name')}>
+						Name{sortIndicator('name')}
 					</th>
 					{#each trainingTypes as type (type.id)}
-						<th scope="col" class="type-header">
-							<span class="type-name" style="background-color: {type.color}">
-								{type.name}
-							</span>
+						<th scope="col" class="type-header sortable" onclick={() => table.toggleSort(type.id)}>
+							<span class="type-dot" style="background-color: {type.color}"></span>
+							{type.name}{sortIndicator(type.id)}
 						</th>
 					{/each}
 				</tr>
@@ -163,6 +218,32 @@
 	.matrix-wrapper {
 		display: flex;
 		flex-direction: column;
+		height: 100%;
+		min-height: 0;
+	}
+
+	.matrix-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-md);
+		padding: var(--spacing-sm) var(--spacing-md);
+		font-size: var(--font-size-xs);
+		color: var(--color-text-muted);
+	}
+
+	.legend-item {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+	}
+
+	.legend-swatch {
+		display: inline-block;
+		width: 14px;
+		height: 14px;
+		border-radius: var(--radius-sm);
+		border: 1px solid;
+		flex-shrink: 0;
 	}
 
 	.matrix-search {
@@ -177,8 +258,9 @@
 	}
 
 	.matrix-container {
+		flex: 1;
+		min-height: 0;
 		overflow: auto;
-		max-height: 100%;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
 		background: var(--color-surface);
@@ -212,13 +294,18 @@
 		background: var(--color-surface);
 		z-index: 5;
 		text-align: left;
+		width: 180px;
 		min-width: 180px;
+		max-width: 220px;
 		border-right: 2px solid var(--color-border);
 		color: var(--color-text);
 	}
 
 	.name-header {
 		z-index: calc(var(--z-sticky, 10) + 5);
+	}
+
+	.sortable {
 		cursor: pointer;
 		user-select: none;
 		font-size: var(--font-size-xs);
@@ -228,22 +315,23 @@
 		letter-spacing: 0.05em;
 	}
 
-	.name-header:hover {
+	.sortable:hover {
 		color: var(--color-text);
 	}
 
 	.type-header {
-		min-width: 100px;
+		min-width: 80px;
 		vertical-align: bottom;
+		white-space: nowrap;
 	}
 
-	.type-name {
+	.type-dot {
 		display: inline-block;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		color: white;
-		font-weight: 500;
-		font-size: var(--font-size-sm);
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		margin-right: 4px;
+		vertical-align: middle;
 	}
 
 	/* Group header rows — inline within the table */
@@ -257,12 +345,16 @@
 	}
 
 	.group-header-cell {
+		position: sticky;
+		left: 0;
 		padding: var(--spacing-sm) var(--spacing-md) !important;
 		text-align: left !important;
 		font-weight: var(--font-weight-semibold, 600);
 		font-size: var(--font-size-sm);
 		color: var(--color-text-secondary);
 		border-bottom: 1px solid var(--color-border);
+		background: var(--color-surface-variant);
+		z-index: 4;
 	}
 
 	.group-toggle-icon {
@@ -310,42 +402,41 @@
 		margin-right: var(--spacing-xs);
 	}
 
-	.status-cell {
+	.heatmap-cell {
 		vertical-align: middle;
+		min-width: 80px;
+		transition: filter 0.15s ease;
+		border-left: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
 	}
 
-	/* Fixed-height content wrapper ensures all cells align regardless of date */
-	.status-content {
+	.heatmap-cell:hover {
+		filter: brightness(0.92);
+	}
+
+	.heatmap-btn {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
-		min-height: 38px;
 		justify-content: center;
-	}
-
-	.status-badge {
-		display: inline-block;
+		width: 100%;
+		height: 100%;
 		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		color: white;
-		font-weight: 500;
-		font-size: var(--font-size-sm);
-		cursor: pointer;
+		background: transparent;
 		border: none;
-		transition: opacity 0.15s ease;
+		cursor: pointer;
+		color: var(--color-text);
+		font-size: var(--font-size-xs);
+		font-weight: 500;
+		white-space: nowrap;
 	}
 
-	.status-badge:hover {
-		opacity: 0.8;
-	}
-
-	/* Always reserve space for the date line so rows stay consistent height */
-	.completion-date {
-		display: block;
-		font-size: 10px;
-		color: var(--color-text-muted);
-		min-height: 14px;
-		line-height: 14px;
+	.heatmap-text {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: var(--font-size-xs);
+		font-weight: 500;
+		color: var(--color-text);
+		white-space: nowrap;
 	}
 
 	tr:hover .name-cell,
@@ -363,7 +454,6 @@
 		.name-cell {
 			min-width: 100px;
 			max-width: 100px;
-			width: 100px;
 			font-size: var(--font-size-xs);
 			padding: var(--spacing-xs);
 			white-space: nowrap;
@@ -375,32 +465,15 @@
 			min-width: 60px;
 		}
 
-		.type-name {
-			font-size: 9px;
-			padding: 2px 4px;
-			white-space: nowrap;
-		}
-
-		.person-rank {
-			min-width: 24px;
-			font-size: var(--font-size-xs);
-			margin-right: 2px;
-		}
-
-		.status-cell {
-			min-width: 60px;
+		.heatmap-cell {
+			min-width: 56px;
 			min-height: 44px; /* Touch target */
 		}
 
-		.status-badge {
-			font-size: var(--font-size-xs);
-			padding: var(--spacing-xs);
-		}
-
-		.completion-date {
+		.heatmap-btn,
+		.heatmap-text {
 			font-size: 9px;
-			min-height: 12px;
-			line-height: 12px;
+			padding: var(--spacing-xs);
 		}
 	}
 
@@ -416,12 +489,17 @@
 		}
 	}
 
-	/* Dark mode overrides for light-colored status badges */
-	:global([data-theme='dark']) .status-badge[data-status='not-required'] {
-		color: var(--color-text);
+	/* Dark mode: increase tint opacity for better visibility */
+	:global([data-theme='dark']) .heatmap-cell[data-status='not-required'],
+	:global([data-theme='dark']) .heatmap-cell[data-status='exempt'] {
+		background-color: color-mix(in srgb, var(--color-text-muted) 10%, transparent) !important;
 	}
 
-	:global([data-theme='dark']) .status-badge[data-status='exempt'] {
-		color: var(--color-text);
+	:global([data-theme='dark']) .heatmap-cell[data-status='expired'] {
+		background-color: color-mix(in srgb, #ef4444 20%, transparent) !important;
+	}
+
+	:global([data-theme='dark']) .heatmap-cell[data-status='warning-orange'] {
+		background-color: color-mix(in srgb, #f97316 20%, transparent) !important;
 	}
 </style>

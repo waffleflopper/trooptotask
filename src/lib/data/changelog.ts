@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-24-training-reports',
+		date: '2026-03-24',
+		title: 'Training Reports & Optional Training Types',
+		items: [
+			'Added a brand new Training Reports page — see overall readiness percentages, status breakdowns, worst-performing training types, and group comparisons all in one place',
+			"Training types can now be marked as \"optional\" — optional types won't count against your unit's readiness score, so things like nice-to-have certifications won't drag down your numbers",
+			'You can now save custom column views in the training matrix — set up different views for different purposes and switch between them without reconfiguring every time',
+			"Training matrix columns are now sortable by clicking the header — quickly find who's expired or expiring soon"
+		]
+	},
+	{
 		id: '2026-03-23-onboarding-improvements',
 		date: '2026-03-23',
 		title: 'Onboarding Report & Step Improvements',
@@ -53,18 +64,6 @@ export const changelog: ChangelogEntry[] = [
 		title: 'Training Types Button is Now Always Visible',
 		items: [
 			'The "Manage Types" button on the Training page is now permanently visible in the toolbar for admins and editors — no more hunting through the overflow menu or wondering where it went after you added your first training type'
-		]
-	},
-	{
-		id: '2026-03-15-accessibility-improvements',
-		date: '2026-03-15',
-		title: 'Accessibility Improvements',
-		items: [
-			'Improved keyboard navigation throughout the app — you can now tab through all interactive elements and use Escape to close menus and modals',
-			'Added a "Skip to main content" link for keyboard and screen reader users',
-			'Better color contrast across the board, in both light and dark mode',
-			'Screen readers now properly announce notifications, form errors, and loading states',
-			'Added support for reduced motion and high contrast display modes'
 		]
 	}
 ];

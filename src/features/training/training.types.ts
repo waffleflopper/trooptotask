@@ -5,12 +5,18 @@ export interface TrainingType {
 	expirationMonths: number | null; // null = never expires (ignored when expirationDateOnly is true)
 	warningDaysYellow: number; // default 60
 	warningDaysOrange: number; // default 30
-	requiredForRoles: string[]; // empty = optional for all
+	appliesToRoles: string[]; // empty = no role filter (everyone, minus exclusions)
+	appliesToMos: string[]; // empty = no MOS filter
+	appliesToRanks: string[]; // empty = no rank filter
+	excludedRoles: string[];
+	excludedMos: string[];
+	excludedRanks: string[];
 	color: string;
 	sortOrder: number;
 	expirationDateOnly: boolean; // if true, record stores expiration date directly (no completion date)
 	canBeExempted: boolean;
 	exemptPersonnelIds: string[];
+	isOptional: boolean;
 }
 
 export interface PersonnelTraining {
@@ -21,6 +27,15 @@ export interface PersonnelTraining {
 	expirationDate: string | null; // calculated or null if never expires
 	notes: string | null;
 	certificateUrl: string | null;
+}
+
+export interface TrainingView {
+	id: string;
+	name: string;
+	columnIds: string[]; // ordered array of training_type IDs
+	createdBy: string;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export type TrainingStatus =

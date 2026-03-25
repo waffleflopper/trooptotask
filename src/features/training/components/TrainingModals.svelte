@@ -3,9 +3,6 @@
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import TrainingRecordModal from '$features/training/components/TrainingRecordModal.svelte';
 	import PersonTrainingEditor from '$features/training/components/PersonTrainingEditor.svelte';
-	import TrainingTypeManager from '$features/training/components/TrainingTypeManager.svelte';
-	import TrainingTypeReorder from '$features/training/components/TrainingTypeReorder.svelte';
-	import TrainingReports from '$features/training/components/TrainingReports.svelte';
 	import BulkTrainingImporter from '$features/training/components/BulkTrainingImporter.svelte';
 	import SignInRosterModal from '$features/sign-in-rosters/components/SignInRosterModal.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
@@ -38,35 +35,6 @@
 			}}
 		/>
 	{/if}
-{/if}
-
-{#if modals.isOpen('type-manager')}
-	<TrainingTypeManager
-		trainingTypes={trainingTypesStore.items}
-		availableRoles={ctx.availableRoles}
-		onAdd={ctx.handleAddType.bind(ctx)}
-		onUpdate={ctx.handleUpdateType.bind(ctx)}
-		onRemove={ctx.handleRemoveType.bind(ctx)}
-		onClose={modals.closerFor('type-manager')}
-	/>
-{/if}
-
-{#if modals.isOpen('type-reorder')}
-	<TrainingTypeReorder
-		trainingTypes={trainingTypesStore.items}
-		onUpdate={ctx.handleUpdateType.bind(ctx)}
-		onClose={modals.closerFor('type-reorder')}
-	/>
-{/if}
-
-{#if modals.isOpen('reports')}
-	<TrainingReports
-		personnel={ctx.filteredPersonnel}
-		trainingTypes={trainingTypesStore.items}
-		trainings={personnelTrainingsStore.items}
-		groups={ctx.groups}
-		onClose={modals.closerFor('reports')}
-	/>
 {/if}
 
 {#if modals.isOpen('sign-in-rosters')}

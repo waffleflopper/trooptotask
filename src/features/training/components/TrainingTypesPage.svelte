@@ -681,6 +681,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-lg);
+		padding-bottom: 3rem;
 	}
 
 	.editor-section {

@@ -19,11 +19,14 @@
 
 	let { personnelByGroup, availabilityEntries, statusTypes, assignmentTypes, assignments, onClose }: Props = $props();
 
-	const today = new Date();
-	const todayStr = formatDate(today);
+	let selectedDate = $state(new Date());
+	let datePickerEl: HTMLInputElement | undefined = $state();
+	const selectedDateStr = $derived(formatDate(selectedDate));
+
+	const isToday = $derived(formatDate(selectedDate) === formatDate(new Date()));
 
 	const dateDisplay = $derived(
-		today.toLocaleDateString('en-US', {
+		selectedDate.toLocaleDateString('en-US', {
 			weekday: 'long',
 			month: 'long',
 			day: 'numeric',
@@ -31,10 +34,29 @@
 		})
 	);
 
+	function shiftDate(days: number) {
+		const d = new Date(selectedDate);
+		d.setDate(d.getDate() + days);
+		selectedDate = d;
+	}
+
+	function handleDateInput(e: Event) {
+		const value = (e.target as HTMLInputElement).value;
+		if (value) {
+			const [y, m, d] = value.split('-').map(Number);
+			selectedDate = new Date(y, m - 1, d);
+		}
+	}
+
+	// Format selectedDate as YYYY-MM-DD for the input
+	const inputDateStr = $derived(
+		`${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
+	);
+
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
 	// Get today's assignments
-	const todayAssignments = $derived(assignments.filter((a) => a.date === todayStr));
+	const todayAssignments = $derived(assignments.filter((a) => a.date === selectedDateStr));
 
 	// Find assignment types and their assigned values
 	const assignmentInfo = $derived.by(() => {
@@ -69,7 +91,7 @@
 	// Get personnel with statuses today
 	function getPersonnelStatuses(personnelId: string): { status: StatusType; entry: AvailabilityEntry }[] {
 		return availabilityEntries
-			.filter((e) => e.personnelId === personnelId && todayStr >= e.startDate && todayStr <= e.endDate)
+			.filter((e) => e.personnelId === personnelId && selectedDateStr >= e.startDate && selectedDateStr <= e.endDate)
 			.map((e) => {
 				const status = statusTypes.find((s) => s.id === e.statusTypeId);
 				return status ? { status, entry: e } : null;
@@ -123,8 +145,21 @@
 	});
 </script>
 
-<Modal title="Today's Breakdown" {onClose} width="700px" titleId="breakdown-title">
-	<div class="date-banner">{dateDisplay}</div>
+<Modal title={isToday ? "Today's Breakdown" : 'Daily Breakdown'} {onClose} width="700px" titleId="breakdown-title">
+	<div class="date-banner">
+		<button class="date-nav-btn" onclick={() => shiftDate(-1)} title="Previous day">&lsaquo;</button>
+		<button class="date-display-btn" onclick={() => datePickerEl?.showPicker?.()}>
+			{dateDisplay}
+		</button>
+		<input
+			bind:this={datePickerEl}
+			type="date"
+			class="hidden-date-input"
+			value={inputDateStr}
+			oninput={handleDateInput}
+		/>
+		<button class="date-nav-btn" onclick={() => shiftDate(1)} title="Next day">&rsaquo;</button>
+	</div>
 
 	<!-- Summary Stats -->
 	<div class="stats-row">
@@ -178,7 +213,7 @@
 				<span class="count">{personnelBreakdown.available.length}</span>
 			</h3>
 			{#if personnelBreakdown.available.length === 0}
-				<div class="empty-message">No one is available today</div>
+				<div class="empty-message">No one is available {isToday ? 'today' : 'this day'}</div>
 			{:else}
 				<div class="personnel-groups">
 					{#each personnelByGroup as grp}
@@ -214,7 +249,7 @@
 				<span class="count">{personnelBreakdown.unavailable.length}</span>
 			</h3>
 			{#if personnelBreakdown.unavailable.length === 0}
-				<div class="empty-message success">Everyone is available today!</div>
+				<div class="empty-message success">Everyone is available{isToday ? ' today' : ''}!</div>
 			{:else}
 				<div class="status-groups">
 					{#each outByStatus as { status, personnel }}
@@ -245,14 +280,59 @@
 
 <style>
 	.date-banner {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
-		text-align: center;
-		padding: var(--spacing-md) var(--spacing-lg);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-sm) var(--spacing-lg);
 		background: var(--color-primary);
 		color: var(--color-chrome);
 		/* Bleed past modal-body padding to fill edge-to-edge */
 		margin: calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg)) 0;
+		position: relative;
+	}
+
+	.date-nav-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		border-radius: var(--radius-md);
+		background: transparent;
+		color: var(--color-chrome);
+		font-size: 1.25rem;
+		cursor: pointer;
+		transition: background 0.15s ease;
+	}
+
+	.date-nav-btn:hover {
+		background: rgba(255, 255, 255, 0.15);
+	}
+
+	.date-display-btn {
+		background: transparent;
+		border: none;
+		color: var(--color-chrome);
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		cursor: pointer;
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-radius: var(--radius-md);
+		transition: background 0.15s ease;
+	}
+
+	.date-display-btn:hover {
+		background: rgba(255, 255, 255, 0.15);
+	}
+
+	.hidden-date-input {
+		position: absolute;
+		opacity: 0;
+		width: 0;
+		height: 0;
+		pointer-events: none;
 	}
 
 	/* Stats Row */

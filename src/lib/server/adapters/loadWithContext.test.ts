@@ -117,3 +117,61 @@ describe('loadWithContextCore', () => {
 		).rejects.toThrow('load failed');
 	});
 });
+
+describe('loadWithContextCore with defer: true', () => {
+	it('checks permissions eagerly before returning the data promise', () => {
+		const ctx = buildCtx({
+			auth: {
+				requireView() {
+					throw new Error('No access');
+				}
+			}
+		});
+
+		expect(() =>
+			loadWithContextCore(ctx, {
+				permission: 'training',
+				fn: async () => ({ items: [] }),
+				defer: true
+			})
+		).toThrow('No access');
+	});
+
+	it('returns a deferred data promise that resolves to fn result', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('items', [{ id: '1', organization_id: 'test-org', name: 'A' }]);
+
+		const { data } = loadWithContextCore(ctx, {
+			permission: 'personnel',
+			fn: async (c) => {
+				const items = await c.store.findMany('items', c.auth.orgId);
+				return { items };
+			},
+			defer: true
+		});
+
+		expect(data).toBeInstanceOf(Promise);
+		const resolved = await data;
+		expect(resolved.items).toHaveLength(1);
+	});
+
+	it('does not await fn — returns before fn resolves', async () => {
+		const ctx = buildCtx();
+		let fnFinished = false;
+
+		const { data } = loadWithContextCore(ctx, {
+			permission: 'none',
+			fn: async () => {
+				await new Promise((r) => setTimeout(r, 50));
+				fnFinished = true;
+				return { done: true };
+			},
+			defer: true
+		});
+
+		expect(fnFinished).toBe(false);
+		await data;
+		expect(fnFinished).toBe(true);
+	});
+});

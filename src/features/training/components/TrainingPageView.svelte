@@ -18,11 +18,9 @@
 
 	const STORAGE_KEY = 'trooptotask:training-view';
 
-	let {
-		ctx,
-		modals,
-		loading = false
-	}: { ctx: TrainingPageContext; modals: ModalRegistry; loading?: boolean } = $props();
+	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
+
+	const loading = $derived(personnelTrainingsStore.loading);
 
 	let selectedViewId: string | null = $state(
 		typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null

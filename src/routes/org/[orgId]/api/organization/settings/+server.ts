@@ -11,7 +11,7 @@ export const POST = handle<Record<string, unknown>, unknown>({
 			fail(400, 'Retention months must be between 1 and 120');
 		}
 
-		await ctx.rawStore.update('organizations', ctx.auth.orgId, ctx.auth.orgId, {
+		await ctx.rawStore.updateById('organizations', ctx.auth.orgId, {
 			archive_retention_months: Math.round(archiveRetentionMonths as number)
 		});
 

@@ -144,6 +144,7 @@ export function createScopedDataStore(
 		// Write operations pass through unchanged
 		insert: inner.insert.bind(inner),
 		update: inner.update.bind(inner),
+		updateById: inner.updateById.bind(inner),
 		delete: inner.delete.bind(inner),
 		deleteWhere: inner.deleteWhere.bind(inner),
 		deleteManyByIds: inner.deleteManyByIds.bind(inner),

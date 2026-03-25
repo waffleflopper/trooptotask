@@ -183,17 +183,38 @@ describe('computeReadinessDashboard', () => {
 		expect(dashboard.readinessPercent).toBe(0);
 	});
 
-	it('excludes optional training types from worst types', () => {
+	it('excludes optional training types from all readiness calculations', () => {
 		const personnel = [makePerson({ id: 'p-1' })];
 		const types = [
 			makeType({ id: 'type-1', name: 'Required', isOptional: false }),
 			makeType({ id: 'type-2', name: 'Optional', isOptional: true })
 		];
-		// No training records for either → Required is non-compliant, Optional should be ignored
-		const dashboard = computeReadinessDashboard(personnel, types, []);
+		const trainings = [makeTraining({ personnelId: 'p-1', trainingTypeId: 'type-1' })];
 
-		expect(dashboard.worstTypes.some((t) => t.typeName === 'Required')).toBe(true);
+		const dashboard = computeReadinessDashboard(personnel, types, trainings);
+
+		// Only required type counts: 1 current / 1 total = 100%
+		expect(dashboard.readinessPercent).toBe(100);
+		// Status counts only reflect required types
+		expect(dashboard.statusCounts.current).toBe(1);
+		expect(dashboard.statusCounts.notCompleted).toBe(0);
+		// Optional doesn't appear in worst types
 		expect(dashboard.worstTypes.some((t) => t.typeName === 'Optional')).toBe(false);
+	});
+
+	it('excludes optional types from group comparison', () => {
+		const personnel = [makePerson({ id: 'p-1', groupId: 'g-1', groupName: 'Alpha' })];
+		const types = [
+			makeType({ id: 'type-1', name: 'Required' }),
+			makeType({ id: 'type-2', name: 'Optional', isOptional: true })
+		];
+		const trainings = [makeTraining({ personnelId: 'p-1', trainingTypeId: 'type-1' })];
+
+		const dashboard = computeReadinessDashboard(personnel, types, trainings);
+
+		const alpha = dashboard.groupComparison.find((g) => g.groupName === 'Alpha');
+		// 100% because only required type counts, and it's current
+		expect(alpha?.readinessPercent).toBe(100);
 	});
 });
 

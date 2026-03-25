@@ -73,6 +73,9 @@ export function computeReadinessDashboard(
 ): ReadinessDashboard {
 	const trainingMap = buildTrainingMap(trainings);
 
+	// Exclude optional types from all readiness calculations
+	const requiredTypes = types.filter((type) => !type.isOptional);
+
 	const statusCounts = {
 		current: 0,
 		warningYellow: 0,
@@ -84,7 +87,7 @@ export function computeReadinessDashboard(
 	const allStatuses: TrainingStatusInfo[] = [];
 
 	for (const person of personnel) {
-		for (const type of types) {
+		for (const type of requiredTypes) {
 			const training = trainingMap.get(`${person.id}-${type.id}`);
 			const statusInfo = getTrainingStatus(training, type, person);
 			allStatuses.push(statusInfo);
@@ -111,22 +114,20 @@ export function computeReadinessDashboard(
 
 	const readinessPercent = computeReadinessFromStatuses(allStatuses);
 
-	// Worst types by non-compliance rate (skip optional — they're tracked, not required)
-	const typeStats = types
-		.filter((type) => !type.isOptional)
-		.map((type) => {
-			let applicable = 0;
-			let nonCompliant = 0;
-			for (const person of personnel) {
-				const training = trainingMap.get(`${person.id}-${type.id}`);
-				const statusInfo = getTrainingStatus(training, type, person);
-				if (statusInfo.status === 'not-required' || statusInfo.status === 'exempt') continue;
-				applicable++;
-				if (statusInfo.status !== 'current') nonCompliant++;
-			}
-			const nonComplianceRate = applicable === 0 ? 0 : Math.round((nonCompliant / applicable) * 100);
-			return { typeId: type.id, typeName: type.name, nonComplianceRate };
-		});
+	// Worst types by non-compliance rate
+	const typeStats = requiredTypes.map((type) => {
+		let applicable = 0;
+		let nonCompliant = 0;
+		for (const person of personnel) {
+			const training = trainingMap.get(`${person.id}-${type.id}`);
+			const statusInfo = getTrainingStatus(training, type, person);
+			if (statusInfo.status === 'not-required' || statusInfo.status === 'exempt') continue;
+			applicable++;
+			if (statusInfo.status !== 'current') nonCompliant++;
+		}
+		const nonComplianceRate = applicable === 0 ? 0 : Math.round((nonCompliant / applicable) * 100);
+		return { typeId: type.id, typeName: type.name, nonComplianceRate };
+	});
 
 	typeStats.sort((a, b) => b.nonComplianceRate - a.nonComplianceRate);
 	const worstTypes = typeStats.filter((t) => t.nonComplianceRate > 0).slice(0, 5);
@@ -140,7 +141,7 @@ export function computeReadinessDashboard(
 			groupMap.set(gid, { groupName: gname, statuses: [] });
 		}
 		const group = groupMap.get(gid)!;
-		for (const type of types) {
+		for (const type of requiredTypes) {
 			const training = trainingMap.get(`${person.id}-${type.id}`);
 			const statusInfo = getTrainingStatus(training, type, person);
 			group.statuses.push(statusInfo);

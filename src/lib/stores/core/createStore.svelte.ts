@@ -21,7 +21,9 @@ export interface Store<T extends { id: string }> {
 	readonly rawItems: T[];
 	readonly orgId: string;
 	readonly busy: boolean;
+	readonly loading: boolean;
 	load(items: T[], orgId: string): void;
+	startLoading(): void;
 	add(data: Omit<T, 'id'>): Promise<T | null>;
 	addBatch(entries: Omit<T, 'id'>[]): Promise<T[]>;
 	update(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean>;
@@ -51,6 +53,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 ): { store: Store<T>; internals: StoreInternals<T> } {
 	const serverState = createReactiveCollection<T>();
 	const orgIdVal = createReactiveValue('');
+	const loadingVal = createReactiveValue(true);
 	const log = createMutationLog<T>();
 
 	let adapter: ApiAdapter<T> = config.adapter ?? createRestAdapter<T>(() => orgIdVal.value, config.resource);
@@ -99,12 +102,21 @@ export function createStoreWithInternals<T extends { id: string }>(
 			return log.pending > 0;
 		},
 
+		get loading() {
+			return loadingVal.value;
+		},
+
+		startLoading() {
+			loadingVal.set(true);
+		},
+
 		load(newItems: T[], newOrgId: string) {
 			if (newOrgId !== orgIdVal.value) {
 				log.clear();
 			}
 			serverState.set(newItems);
 			orgIdVal.set(newOrgId);
+			loadingVal.set(false);
 			if (!config.adapter) {
 				adapter = createRestAdapter<T>(() => orgIdVal.value, config.resource);
 			}

@@ -28,12 +28,34 @@
 		groupBy
 	}: Props = $props();
 
+	const statusOrder: Record<TrainingStatus, number> = {
+		expired: 0,
+		'warning-orange': 1,
+		'warning-yellow': 2,
+		'not-completed': 3,
+		current: 4,
+		'not-required': 5,
+		exempt: 6
+	};
+
 	const columns: ColumnDef<Personnel>[] = [
 		{
 			key: 'name',
-			header: 'Personnel',
-			value: (p) => `${p.rank} ${p.lastName}, ${p.firstName}`,
-			compare: (a, b) => a.lastName.localeCompare(b.lastName)
+			header: 'Name',
+			value: (p) => `${p.lastName}, ${p.firstName}`,
+			compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
+		},
+		{
+			key: 'rank',
+			header: 'Rank',
+			value: (p) => p.rank,
+			compare: (a, b) => a.rank.localeCompare(b.rank)
+		},
+		{
+			key: 'group',
+			header: 'Group',
+			value: (p) => p.groupName,
+			compare: (a, b) => a.groupName.localeCompare(b.groupName)
 		}
 	];
 
@@ -41,8 +63,30 @@
 		data: () => personnel,
 		columns,
 		initialSortKey: 'name',
-		groupBy
+		groupBy,
+		resolveColumn: (key) => {
+			const type = trainingTypes.find((t) => t.id === key);
+			if (!type) return undefined;
+			return {
+				key: type.id,
+				header: type.name,
+				value: (p: Personnel) => {
+					const t = getTraining(p.id, type.id);
+					return getTrainingStatus(t, type, p).status;
+				},
+				compare: (a: Personnel, b: Personnel) => {
+					const aInfo = getTrainingStatus(getTraining(a.id, type.id), type, a);
+					const bInfo = getTrainingStatus(getTraining(b.id, type.id), type, b);
+					return statusOrder[aInfo.status] - statusOrder[bInfo.status];
+				}
+			};
+		}
 	});
+
+	function sortIndicator(key: string): string {
+		if (table.sortKey !== key) return '';
+		return table.sortDirection === 'asc' ? ' \u25B2' : ' \u25BC';
+	}
 
 	// Create a map for quick training lookup
 	const trainingMap = $derived.by(() => {
@@ -57,7 +101,7 @@
 		return trainingMap.get(`${personnelId}-${typeId}`);
 	}
 
-	const totalCols = $derived(trainingTypes.length + 1);
+	const totalCols = $derived(trainingTypes.length + 3);
 
 	const legendItems: Array<{ status: TrainingStatus; label: string; color: string }> = [
 		{ status: 'current', label: 'Current', color: TRAINING_STATUS_COLORS['current'] },
@@ -75,14 +119,14 @@
 		<th scope="row" class="name-cell">
 			{#if onPersonClick}
 				<button class="person-btn" onclick={() => onPersonClick(person)}>
-					<span class="person-rank">{person.rank}</span>
 					{person.lastName}, {person.firstName}
 				</button>
 			{:else}
-				<span class="person-rank">{person.rank}</span>
 				{person.lastName}, {person.firstName}
 			{/if}
 		</th>
+		<td class="rank-cell">{person.rank}</td>
+		<td class="group-cell">{person.groupName}</td>
 		{#each trainingTypes as type (type.id)}
 			{@const training = getTraining(person.id, type.id)}
 			{@const statusInfo = getTrainingStatus(training, type, person)}
@@ -145,15 +189,19 @@
 		<table class="matrix" aria-label="Training status matrix">
 			<thead>
 				<tr>
-					<th scope="col" class="name-header" onclick={() => table.toggleSort('name')}>
-						Personnel
-						{#if table.sortDirection === 'asc'}↑{:else}↓{/if}
+					<th scope="col" class="name-header sortable" onclick={() => table.toggleSort('name')}>
+						Name{sortIndicator('name')}
+					</th>
+					<th scope="col" class="rank-header sortable" onclick={() => table.toggleSort('rank')}>
+						Rank{sortIndicator('rank')}
+					</th>
+					<th scope="col" class="group-header sortable" onclick={() => table.toggleSort('group')}>
+						Group{sortIndicator('group')}
 					</th>
 					{#each trainingTypes as type (type.id)}
-						<th scope="col" class="type-header">
-							<span class="type-name" style="background-color: {type.color}">
-								{type.name}
-							</span>
+						<th scope="col" class="type-header sortable" onclick={() => table.toggleSort(type.id)}>
+							<span class="type-dot" style="background-color: {type.color}"></span>
+							{type.name}{sortIndicator(type.id)}
 						</th>
 					{/each}
 				</tr>
@@ -264,15 +312,30 @@
 		background: var(--color-surface);
 		z-index: 5;
 		text-align: left;
-		width: 180px;
-		min-width: 180px;
-		max-width: 220px;
-		border-right: 2px solid var(--color-border);
+		min-width: 150px;
+		max-width: 200px;
+		border-right: 1px solid var(--color-border);
 		color: var(--color-text);
+	}
+
+	.rank-header,
+	.rank-cell {
+		min-width: 50px;
+		text-align: left;
+	}
+
+	.group-header,
+	.group-cell {
+		min-width: 80px;
+		text-align: left;
+		border-right: 2px solid var(--color-border);
 	}
 
 	.name-header {
 		z-index: calc(var(--z-sticky, 10) + 5);
+	}
+
+	.sortable {
 		cursor: pointer;
 		user-select: none;
 		font-size: var(--font-size-xs);
@@ -282,22 +345,23 @@
 		letter-spacing: 0.05em;
 	}
 
-	.name-header:hover {
+	.sortable:hover {
 		color: var(--color-text);
 	}
 
 	.type-header {
 		min-width: 80px;
 		vertical-align: bottom;
+		white-space: nowrap;
 	}
 
-	.type-name {
+	.type-dot {
 		display: inline-block;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		color: white;
-		font-weight: 500;
-		font-size: var(--font-size-sm);
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		margin-right: 4px;
+		vertical-align: middle;
 	}
 
 	/* Group header rows — inline within the table */
@@ -311,12 +375,16 @@
 	}
 
 	.group-header-cell {
+		position: sticky;
+		left: 0;
 		padding: var(--spacing-sm) var(--spacing-md) !important;
 		text-align: left !important;
 		font-weight: var(--font-weight-semibold, 600);
 		font-size: var(--font-size-sm);
 		color: var(--color-text-secondary);
 		border-bottom: 1px solid var(--color-border);
+		background: var(--color-surface-variant);
+		z-index: 4;
 	}
 
 	.group-toggle-icon {
@@ -350,18 +418,6 @@
 
 	.person-btn:hover {
 		color: var(--color-primary);
-	}
-
-	.person-btn:hover .person-rank {
-		color: var(--color-primary);
-	}
-
-	.person-rank {
-		display: inline-block;
-		font-weight: 600;
-		color: var(--color-text-muted);
-		min-width: 35px;
-		margin-right: var(--spacing-xs);
 	}
 
 	.heatmap-cell {
@@ -416,7 +472,6 @@
 		.name-cell {
 			min-width: 100px;
 			max-width: 100px;
-			width: 100px;
 			font-size: var(--font-size-xs);
 			padding: var(--spacing-xs);
 			white-space: nowrap;
@@ -424,20 +479,15 @@
 			text-overflow: ellipsis;
 		}
 
+		.rank-header,
+		.rank-cell,
+		.group-header,
+		.group-cell {
+			display: none;
+		}
+
 		.type-header {
 			min-width: 60px;
-		}
-
-		.type-name {
-			font-size: 9px;
-			padding: 2px 4px;
-			white-space: nowrap;
-		}
-
-		.person-rank {
-			min-width: 24px;
-			font-size: var(--font-size-xs);
-			margin-right: 2px;
 		}
 
 		.heatmap-cell {

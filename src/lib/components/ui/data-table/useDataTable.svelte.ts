@@ -27,6 +27,8 @@ export interface DataTableOptions<T> {
 	pageSize?: number;
 	groupBy?: GroupDef<T>;
 	filterFn?: (row: T, query: string) => boolean;
+	/** Resolve dynamic columns not in the static list (e.g. for runtime-generated sort keys) */
+	resolveColumn?: (key: string) => ColumnDef<T> | undefined;
 }
 
 export interface DataTableGroup<T> {
@@ -88,7 +90,7 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 	function getSorted(): T[] {
 		const data = getFiltered();
 		if (!sortKey) return data;
-		const col = columnMap.get(sortKey);
+		const col = columnMap.get(sortKey) ?? options.resolveColumn?.(sortKey);
 		if (!col) return data;
 
 		const dir = sortDirection === 'asc' ? 1 : -1;

@@ -53,6 +53,14 @@
 		{#if ctx.readOnly}
 			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
 		{/if}
+		{#if ctx.canManageConfig}
+			<a
+				href="/org/{data.orgId}/calendar/settings"
+				class="btn btn-sm btn-icon"
+				title="Calendar Settings"
+				aria-label="Calendar Settings">⚙</a
+			>
+		{/if}
 	</PageToolbar>
 
 	{#if !data.permissions?.canViewCalendar}

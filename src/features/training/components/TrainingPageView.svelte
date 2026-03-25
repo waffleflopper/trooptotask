@@ -1,24 +1,58 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
+	import { filterColumnsByView } from '$features/training/utils/viewFiltering';
+	import { getTrainingStats } from '$features/training/utils/trainingStatus';
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
+	import ViewSelector from '$features/training/components/ViewSelector.svelte';
+	import ViewEditorModal from '$features/training/components/ViewEditorModal.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
+	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
-	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
+	const STORAGE_KEY = 'trooptotask:training-view';
+
+	let {
+		ctx,
+		modals,
+		loading = false
+	}: { ctx: TrainingPageContext; modals: ModalRegistry; loading?: boolean } = $props();
+
+	let selectedViewId: string | null = $state(
+		typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
+	);
+	let showViewEditor = $state(false);
+
+	function handleViewSelect(viewId: string | null) {
+		selectedViewId = viewId;
+		if (typeof localStorage !== 'undefined') {
+			if (viewId) {
+				localStorage.setItem(STORAGE_KEY, viewId);
+			} else {
+				localStorage.removeItem(STORAGE_KEY);
+			}
+		}
+	}
+
+	const activeView = $derived(selectedViewId ? (trainingViewsStore.getById(selectedViewId) ?? null) : null);
+
+	const filteredTypes = $derived(filterColumnsByView(trainingTypesStore.items, activeView));
+
+	const viewStats = $derived(getTrainingStats(ctx.filteredPersonnel, filteredTypes, personnelTrainingsStore.items));
 </script>
 
 <div class="page">
 	<PageToolbar title="Training & Certifications" helpTopic="training-records" overflowItems={ctx.trainingOverflowItems}>
 		<button class="btn btn-sm" onclick={() => modals.open('sign-in-rosters')}> Sign-In Rosters </button>
-		<button class="btn btn-sm" onclick={() => modals.open('reports')}> Reports </button>
+		<a href={`/org/${ctx.orgId}/training/reports`} class="btn btn-sm"> Reports </a>
 		{#if ctx.canManageConfig}
-			<button class="btn btn-sm" onclick={() => modals.open('type-manager')} disabled={ctx.readOnly}>
-				Manage Types
-			</button>
+			<a href={`/org/${ctx.orgId}/training/types`} class="btn btn-sm"> Manage Types </a>
 		{/if}
 		{#if ctx.readOnly}
 			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
@@ -32,31 +66,43 @@
 		</div>
 	{:else}
 		<div class="stats-bar">
-			<div class="stat current">
-				<span class="stat-value">{ctx.stats.current}</span>
-				<span class="stat-label">Current</span>
-			</div>
-			<div class="stat warning-yellow">
-				<span class="stat-value">{ctx.stats.warningYellow}</span>
-				<span class="stat-label">Expiring (60d)</span>
-			</div>
-			<div class="stat warning-orange">
-				<span class="stat-value">{ctx.stats.warningOrange}</span>
-				<span class="stat-label">Expiring (30d)</span>
-			</div>
-			<div class="stat expired">
-				<span class="stat-value">{ctx.stats.expired}</span>
-				<span class="stat-label">Expired</span>
-			</div>
-			<div class="stat not-completed">
-				<span class="stat-value">{ctx.stats.notCompleted}</span>
-				<span class="stat-label">Not Done</span>
-			</div>
+			{#if loading}
+				{#each Array(5) as _}
+					<SkeletonBlock width="100px" height="52px" />
+				{/each}
+			{:else}
+				<div class="stat current">
+					<span class="stat-value">{viewStats.current}</span>
+					<span class="stat-label">Current</span>
+				</div>
+				<div class="stat warning-yellow">
+					<span class="stat-value">{viewStats.warningYellow}</span>
+					<span class="stat-label">Expiring (60d)</span>
+				</div>
+				<div class="stat warning-orange">
+					<span class="stat-value">{viewStats.warningOrange}</span>
+					<span class="stat-label">Expiring (30d)</span>
+				</div>
+				<div class="stat expired">
+					<span class="stat-value">{viewStats.expired}</span>
+					<span class="stat-label">Expired</span>
+				</div>
+				<div class="stat not-completed">
+					<span class="stat-value">{viewStats.notCompleted}</span>
+					<span class="stat-label">Not Done</span>
+				</div>
+			{/if}
 		</div>
 
 		<div class="filter-bar">
+			<ViewSelector
+				{selectedViewId}
+				onSelect={handleViewSelect}
+				canEdit={ctx.canManageConfig && !ctx.readOnly}
+				onEditClick={() => (showViewEditor = true)}
+			/>
 			<label class="filter-label">
-				Filter by Group:
+				Group:
 				<select class="select" bind:value={ctx.selectedGroupId}>
 					<option value="">All Groups</option>
 					{#each ctx.groups as group (group.id)}
@@ -81,11 +127,15 @@
 		</div>
 
 		<main class="page-content">
-			{#if trainingTypesStore.items.length === 0}
+			{#if loading}
+				<div class="skeleton-matrix-wrapper">
+					<SkeletonGrid rows={8} columns={6} cellWidth="100px" cellHeight="38px" />
+				</div>
+			{:else if trainingTypesStore.items.length === 0}
 				<EmptyState
 					message="No training types defined yet."
 					actionLabel={ctx.canEditTraining ? 'Manage Types' : undefined}
-					onAction={ctx.canEditTraining ? () => modals.open('type-manager') : undefined}
+					onAction={ctx.canEditTraining ? () => goto(`/org/${ctx.orgId}/training/types`) : undefined}
 				/>
 			{:else if ctx.filteredPersonnel.length === 0}
 				<EmptyState message="No personnel found." />
@@ -93,7 +143,7 @@
 				<div class="view-panel" data-testid="training-matrix" class:hidden-view={ctx.viewMode !== 'alphabetical'}>
 					<TrainingMatrix
 						personnel={ctx.filteredPersonnel}
-						trainingTypes={trainingTypesStore.items}
+						trainingTypes={filteredTypes}
 						trainings={personnelTrainingsStore.items}
 						onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
 						onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
@@ -102,7 +152,7 @@
 				<div class="view-panel" class:hidden-view={ctx.viewMode !== 'by-group'}>
 					<TrainingMatrix
 						personnel={ctx.filteredPersonnel}
-						trainingTypes={trainingTypesStore.items}
+						trainingTypes={filteredTypes}
 						trainings={personnelTrainingsStore.items}
 						onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
 						onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
@@ -121,6 +171,10 @@
 		</main>
 	{/if}
 </div>
+
+{#if showViewEditor}
+	<ViewEditorModal onClose={() => (showViewEditor = false)} orgId={ctx.orgId} readOnly={ctx.readOnly} />
+{/if}
 
 <style>
 	.page {
@@ -280,6 +334,11 @@
 
 	.hidden-view {
 		display: none;
+	}
+
+	.skeleton-matrix-wrapper {
+		padding: var(--spacing-md) var(--spacing-lg);
+		overflow: hidden;
 	}
 
 	/* Mobile Responsive Styles */

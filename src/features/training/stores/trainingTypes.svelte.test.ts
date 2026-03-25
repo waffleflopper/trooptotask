@@ -12,10 +12,16 @@ const mockTypes: TrainingType[] = [
 		expirationMonths: 12,
 		warningDaysYellow: 60,
 		warningDaysOrange: 30,
-		requiredForRoles: [],
+		appliesToRoles: [],
+		appliesToMos: [],
+		appliesToRanks: [],
+		excludedRoles: [],
+		excludedMos: [],
+		excludedRanks: [],
 		expirationDateOnly: false,
 		canBeExempted: false,
-		exemptPersonnelIds: []
+		exemptPersonnelIds: [],
+		isOptional: false
 	},
 	{
 		id: '2',
@@ -26,10 +32,16 @@ const mockTypes: TrainingType[] = [
 		expirationMonths: 6,
 		warningDaysYellow: 60,
 		warningDaysOrange: 30,
-		requiredForRoles: [],
+		appliesToRoles: [],
+		appliesToMos: [],
+		appliesToRanks: [],
+		excludedRoles: [],
+		excludedMos: [],
+		excludedRanks: [],
 		expirationDateOnly: false,
 		canBeExempted: false,
-		exemptPersonnelIds: []
+		exemptPersonnelIds: [],
+		isOptional: false
 	},
 	{
 		id: '3',
@@ -40,10 +52,16 @@ const mockTypes: TrainingType[] = [
 		expirationMonths: null,
 		warningDaysYellow: 60,
 		warningDaysOrange: 30,
-		requiredForRoles: [],
+		appliesToRoles: [],
+		appliesToMos: [],
+		appliesToRanks: [],
+		excludedRoles: [],
+		excludedMos: [],
+		excludedRanks: [],
 		expirationDateOnly: false,
 		canBeExempted: false,
-		exemptPersonnelIds: []
+		exemptPersonnelIds: [],
+		isOptional: false
 	}
 ];
 
@@ -101,10 +119,16 @@ describe('trainingTypesStore', () => {
 				expirationMonths: null,
 				warningDaysYellow: 60,
 				warningDaysOrange: 30,
-				requiredForRoles: [],
+				appliesToRoles: [],
+				appliesToMos: [],
+				appliesToRanks: [],
+				excludedRoles: [],
+				excludedMos: [],
+				excludedRanks: [],
 				expirationDateOnly: false,
 				canBeExempted: false,
-				exemptPersonnelIds: []
+				exemptPersonnelIds: [],
+				isOptional: false
 			};
 			stubFetch(created);
 
@@ -116,10 +140,16 @@ describe('trainingTypesStore', () => {
 				expirationMonths: null,
 				warningDaysYellow: 60,
 				warningDaysOrange: 30,
-				requiredForRoles: [],
+				appliesToRoles: [],
+				appliesToMos: [],
+				appliesToRanks: [],
+				excludedRoles: [],
+				excludedMos: [],
+				excludedRanks: [],
 				expirationDateOnly: false,
 				canBeExempted: false,
-				exemptPersonnelIds: []
+				exemptPersonnelIds: [],
+				isOptional: false
 			});
 
 			expect(result).not.toBeNull();

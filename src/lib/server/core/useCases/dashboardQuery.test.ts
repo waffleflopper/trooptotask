@@ -15,6 +15,12 @@ import { fetchDashboardData } from './dashboardQuery';
 const ORG = 'test-org';
 const USER = 'user-1';
 
+/** Return today's date as YYYY-MM-DD string */
+function todayStr(): string {
+	const d = new Date();
+	return d.toISOString().slice(0, 10);
+}
+
 function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): UseCaseContext {
 	const store = createInMemoryDataStore();
 	return {
@@ -35,14 +41,16 @@ describe('fetchDashboardData', () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 
+		const today = todayStr();
+
 		store.seed('availability_entries', [
 			{
 				id: 'ae1',
 				organization_id: ORG,
 				personnel_id: 'p1',
 				status_type_id: 'st1',
-				start_date: '2026-03-20',
-				end_date: '2026-03-25',
+				start_date: today,
+				end_date: today,
 				notes: null
 			}
 		]);
@@ -53,7 +61,7 @@ describe('fetchDashboardData', () => {
 				organization_id: ORG,
 				personnel_id: 'p1',
 				assignment_type_id: 'at1',
-				date: '2026-03-23',
+				date: today,
 				notes: null
 			}
 		]);

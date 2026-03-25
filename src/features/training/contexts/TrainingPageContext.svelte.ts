@@ -1,5 +1,5 @@
 import { SvelteSet } from 'svelte/reactivity';
-import { invalidate } from '$app/navigation';
+import { invalidate, goto } from '$app/navigation';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
@@ -39,7 +39,7 @@ export class TrainingPageContext {
 
 	// ---- mutable UI state ----
 	selectedGroupId = $state<string>('');
-	viewMode = $state<'alphabetical' | 'by-group'>('alphabetical');
+	viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
 
 	constructor(data: TrainingPageData, modals: ModalRegistry, org: OrgContext) {
@@ -120,7 +120,7 @@ export class TrainingPageContext {
 	get trainingOverflowItems(): OverflowItem[] {
 		const items: OverflowItem[] = [];
 		items.push({ label: 'Sign-In Rosters', onclick: () => this.#modals.open('sign-in-rosters') });
-		items.push({ label: 'Reports', onclick: () => this.#modals.open('reports') });
+		items.push({ label: 'Reports', onclick: () => goto(`/org/${this.orgId}/training/reports`) });
 		if (this.canManageConfig) {
 			items.push({
 				label: 'Bulk Import',
@@ -130,13 +130,7 @@ export class TrainingPageContext {
 			});
 			items.push({
 				label: 'Manage Types',
-				onclick: () => this.#modals.open('type-manager'),
-				disabled: this.readOnly
-			});
-			items.push({
-				label: 'Reorder Columns',
-				onclick: () => this.#modals.open('type-reorder'),
-				disabled: this.readOnly
+				onclick: () => goto(`/org/${this.orgId}/training/types`)
 			});
 		}
 		return items;

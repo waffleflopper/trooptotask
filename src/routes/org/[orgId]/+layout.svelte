@@ -9,6 +9,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
 	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
 	import BannerStack from '$lib/components/BannerStack.svelte';
@@ -67,6 +68,7 @@
 		groupsStore.load(data.groups ?? [], data.orgId);
 		statusTypesStore.load(data.statusTypes ?? [], data.orgId);
 		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
+		trainingViewsStore.load(data.trainingViews ?? [], data.orgId);
 	});
 
 	// Initialize demo mode store with server data

@@ -255,7 +255,7 @@ describe('filterPersonnel', () => {
 	});
 
 	it('combines multiple filters with AND logic', () => {
-		const result = filterPersonnel(people, { groupId: 'g-1', clinicRole: 'NCO' });
+		const result = filterPersonnel(people, { groupId: 'g-1', role: 'NCO' });
 		expect(result).toHaveLength(1);
 		expect(result[0].id).toBe('p-1');
 	});

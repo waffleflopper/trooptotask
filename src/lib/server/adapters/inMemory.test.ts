@@ -336,6 +336,29 @@ describe('InMemoryDataStore', () => {
 			expect(found).toMatchObject({ id: 't-1', name: 'Test' });
 		});
 	});
+
+	describe('updateById', () => {
+		it('updates a row by id without requiring organization_id match', async () => {
+			const store = createInMemoryDataStore();
+			// Seed directly — no organization_id on this row (like the organizations table)
+			store.seed('organizations', [{ id: 'org-1', name: 'Old Name', archive_retention_months: 36 }]);
+
+			const updated = await store.updateById<{ id: string; name: string; archive_retention_months: number }>(
+				'organizations',
+				'org-1',
+				{ archive_retention_months: 12 }
+			);
+
+			expect(updated.archive_retention_months).toBe(12);
+			expect(updated.name).toBe('Old Name'); // unchanged fields preserved
+		});
+
+		it('throws when no row matches the id', async () => {
+			const store = createInMemoryDataStore();
+
+			await expect(store.updateById('organizations', 'nonexistent', { name: 'X' })).rejects.toThrow('Record not found');
+		});
+	});
 });
 
 describe('TestAuthContext', () => {

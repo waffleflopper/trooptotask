@@ -158,6 +158,18 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			return row as T;
 		},
 
+		async updateById<T>(table: string, id: string, data: Record<string, unknown>, select?: string): Promise<T> {
+			const { data: row, error } = await supabase
+				.from(table)
+				.update(data)
+				.eq('id', id)
+				.select(select ?? '*')
+				.single();
+
+			if (error) throw new Error(error.message);
+			return row as T;
+		},
+
 		async delete(table: string, orgId: string, id: string): Promise<void> {
 			const { error } = await supabase.from(table).delete().eq('organization_id', orgId).eq('id', id);
 

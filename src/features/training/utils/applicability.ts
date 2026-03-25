@@ -9,10 +9,7 @@ export function isTrainingApplicable(type: TrainingType, person: Personnel): boo
 
 	if (isExcluded) return false;
 
-	const hasAppliesTo =
-		type.appliesToRoles.length > 0 ||
-		type.appliesToMos.length > 0 ||
-		type.appliesToRanks.length > 0;
+	const hasAppliesTo = type.appliesToRoles.length > 0 || type.appliesToMos.length > 0 || type.appliesToRanks.length > 0;
 
 	if (!hasAppliesTo) return true;
 

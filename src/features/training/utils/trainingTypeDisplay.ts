@@ -15,8 +15,7 @@ export function formatApplicability(type: TrainingType): string {
 	if (type.appliesToMos.length > 0) parts.push(`MOS: ${type.appliesToMos.join(', ')}`);
 	if (type.appliesToRanks.length > 0) parts.push(`Ranks: ${type.appliesToRanks.join(', ')}`);
 
-	const exclusionCount =
-		type.excludedRoles.length + type.excludedMos.length + type.excludedRanks.length;
+	const exclusionCount = type.excludedRoles.length + type.excludedMos.length + type.excludedRanks.length;
 
 	if (parts.length === 0) {
 		const base = 'Everyone';

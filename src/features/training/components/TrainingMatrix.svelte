@@ -264,7 +264,9 @@
 		background: var(--color-surface);
 		z-index: 5;
 		text-align: left;
+		width: 180px;
 		min-width: 180px;
+		max-width: 220px;
 		border-right: 2px solid var(--color-border);
 		color: var(--color-text);
 	}

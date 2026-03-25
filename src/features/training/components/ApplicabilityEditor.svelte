@@ -43,15 +43,9 @@
 		}
 	});
 
-	const hasAppliesTo = $derived(
-		appliesToRoles.length > 0 || appliesToMos.length > 0 || appliesToRanks.length > 0
-	);
+	const hasAppliesTo = $derived(appliesToRoles.length > 0 || appliesToMos.length > 0 || appliesToRanks.length > 0);
 
-	function toggleChip(
-		field: keyof ApplicabilityFields,
-		value: string,
-		currentValues: string[]
-	) {
+	function toggleChip(field: keyof ApplicabilityFields, value: string, currentValues: string[]) {
 		const updated = currentValues.includes(value)
 			? currentValues.filter((v) => v !== value)
 			: [...currentValues, value];
@@ -75,7 +69,9 @@
 	<div class="applicability-group">
 		<span class="group-label">Applies to</span>
 		{#if !hasAppliesTo}
-			<p class="hint">Everyone{excludedRoles.length + excludedMos.length + excludedRanks.length > 0 ? ' (minus exclusions)' : ''}</p>
+			<p class="hint">
+				Everyone{excludedRoles.length + excludedMos.length + excludedRanks.length > 0 ? ' (minus exclusions)' : ''}
+			</p>
 		{/if}
 
 		{#if availableRoles.length > 0}
@@ -86,8 +82,8 @@
 						<button
 							class="chip"
 							class:active={appliesToRoles.includes(role)}
-							onclick={() => toggleChip('appliesToRoles', role, appliesToRoles)}
-						>{role}</button>
+							onclick={() => toggleChip('appliesToRoles', role, appliesToRoles)}>{role}</button
+						>
 					{/each}
 				</div>
 			</div>
@@ -101,8 +97,8 @@
 						<button
 							class="chip"
 							class:active={appliesToMos.includes(mos)}
-							onclick={() => toggleChip('appliesToMos', mos, appliesToMos)}
-						>{mos}</button>
+							onclick={() => toggleChip('appliesToMos', mos, appliesToMos)}>{mos}</button
+						>
 					{/each}
 				</div>
 			</div>
@@ -116,8 +112,8 @@
 						<button
 							class="chip"
 							class:active={appliesToRanks.includes(rank)}
-							onclick={() => toggleChip('appliesToRanks', rank, appliesToRanks)}
-						>{rank}</button>
+							onclick={() => toggleChip('appliesToRanks', rank, appliesToRanks)}>{rank}</button
+						>
 					{/each}
 				</div>
 			</div>
@@ -128,7 +124,7 @@
 	<div class="exclusions">
 		<button class="exclusion-toggle" onclick={() => (showExclusions = !showExclusions)}>
 			{showExclusions ? '▾' : '▸'} Exclusions
-			{#if !showExclusions && (excludedRoles.length + excludedMos.length + excludedRanks.length) > 0}
+			{#if !showExclusions && excludedRoles.length + excludedMos.length + excludedRanks.length > 0}
 				<span class="exclusion-count">({excludedRoles.length + excludedMos.length + excludedRanks.length})</span>
 			{/if}
 		</button>
@@ -143,8 +139,8 @@
 								<button
 									class="chip chip-exclude"
 									class:active={excludedRoles.includes(role)}
-									onclick={() => toggleChip('excludedRoles', role, excludedRoles)}
-								>{role}</button>
+									onclick={() => toggleChip('excludedRoles', role, excludedRoles)}>{role}</button
+								>
 							{/each}
 						</div>
 					</div>
@@ -158,8 +154,8 @@
 								<button
 									class="chip chip-exclude"
 									class:active={excludedMos.includes(mos)}
-									onclick={() => toggleChip('excludedMos', mos, excludedMos)}
-								>{mos}</button>
+									onclick={() => toggleChip('excludedMos', mos, excludedMos)}>{mos}</button
+								>
 							{/each}
 						</div>
 					</div>
@@ -173,8 +169,8 @@
 								<button
 									class="chip chip-exclude"
 									class:active={excludedRanks.includes(rank)}
-									onclick={() => toggleChip('excludedRanks', rank, excludedRanks)}
-								>{rank}</button>
+									onclick={() => toggleChip('excludedRanks', rank, excludedRanks)}>{rank}</button
+								>
 							{/each}
 						</div>
 					</div>

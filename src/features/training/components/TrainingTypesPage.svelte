@@ -52,21 +52,15 @@
 	const personnel = $derived(data.personnel ?? []);
 
 	const availableRoles = $derived(
-		[...new Set(personnel.map((p: { clinicRole: string }) => p.clinicRole))]
-			.filter(Boolean)
-			.sort() as string[]
+		[...new Set(personnel.map((p: { clinicRole: string }) => p.clinicRole))].filter(Boolean).sort() as string[]
 	);
 
 	const availableMos = $derived(
-		[...new Set(personnel.map((p: { mos: string }) => p.mos))]
-			.filter(Boolean)
-			.sort() as string[]
+		[...new Set(personnel.map((p: { mos: string }) => p.mos))].filter(Boolean).sort() as string[]
 	);
 
 	const availableRanks = $derived(
-		[...new Set(personnel.map((p: { rank: string }) => p.rank))]
-			.filter(Boolean)
-			.sort() as string[]
+		[...new Set(personnel.map((p: { rank: string }) => p.rank))].filter(Boolean).sort() as string[]
 	);
 
 	// --- Actions ---

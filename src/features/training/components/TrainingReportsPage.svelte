@@ -53,7 +53,7 @@
 
 	// --- Dashboard & Pivot (both use same filtered data) ---
 	const dashboard = $derived(computeReadinessDashboard(filteredPersonnel, filteredTypes, allTrainings));
-	const pivotRows = $derived(() => {
+	const pivotRows = $derived.by(() => {
 		const rows = buildPivotTable(filteredPersonnel, filteredTypes, allTrainings);
 		if (!filterStatus) return rows;
 		return rows.filter((row) => {
@@ -68,8 +68,18 @@
 	let sortColumn = $state<string>('name');
 	let sortAsc = $state(true);
 
-	const sortedRows = $derived(() => {
-		const rows = [...pivotRows()];
+	const statusOrder: Record<TrainingStatus, number> = {
+		expired: 0,
+		'warning-orange': 1,
+		'warning-yellow': 2,
+		'not-completed': 3,
+		current: 4,
+		'not-required': 5,
+		exempt: 6
+	};
+
+	const sortedRows = $derived.by(() => {
+		const rows = [...pivotRows];
 		rows.sort((a, b) => {
 			let cmp = 0;
 			if (sortColumn === 'name') {
@@ -82,9 +92,9 @@
 			} else {
 				const aCell = a.cells.get(sortColumn);
 				const bCell = b.cells.get(sortColumn);
-				const aLabel = aCell?.label ?? '';
-				const bLabel = bCell?.label ?? '';
-				cmp = aLabel.localeCompare(bLabel);
+				const aOrder = aCell ? (statusOrder[aCell.status] ?? 99) : 99;
+				const bOrder = bCell ? (statusOrder[bCell.status] ?? 99) : 99;
+				cmp = aOrder - bOrder;
 			}
 			return sortAsc ? cmp : -cmp;
 		});
@@ -116,7 +126,7 @@
 
 	// --- Export ---
 	function exportCSV() {
-		const rows = pivotRows();
+		const rows = pivotRows;
 		const csv = generatePivotCSV(rows, filteredTypes);
 		const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
 		const url = URL.createObjectURL(blob);
@@ -162,7 +172,7 @@
 	title="Training Reports"
 	breadcrumbs={[{ label: 'Training', href: `/org/${org.orgId}/training` }, { label: 'Reports' }]}
 >
-	<button class="btn btn-sm" onclick={exportCSV} disabled={pivotRows().length === 0}> Export CSV </button>
+	<button class="btn btn-sm" onclick={exportCSV} disabled={pivotRows.length === 0}> Export CSV </button>
 	<a href={`/org/${org.orgId}/training`} class="btn btn-sm">Back</a>
 </PageToolbar>
 
@@ -323,10 +333,10 @@
 	<div class="detail-section">
 		<div class="detail-header">
 			<h3 class="section-title">Detail Table</h3>
-			<span class="result-count">{sortedRows().length} personnel</span>
+			<span class="result-count">{sortedRows.length} personnel</span>
 		</div>
 
-		{#if sortedRows().length === 0}
+		{#if sortedRows.length === 0}
 			<EmptyState message="No personnel match the current filters." />
 		{:else}
 			<div class="table-container">
@@ -351,7 +361,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each sortedRows() as row (row.person.id)}
+						{#each sortedRows as row (row.person.id)}
 							<tr>
 								<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
 								<td class="col-rank">{row.person.rank}</td>

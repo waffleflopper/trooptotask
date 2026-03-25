@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS "public"."training_views" (
     "organization_id" "uuid" NOT NULL,
     "name" "text" NOT NULL,
     "column_ids" "uuid"[] DEFAULT '{}'::"uuid"[] NOT NULL,
-    "created_by" "uuid" DEFAULT "auth"."uid"() NOT NULL,
+    "created_by" "uuid" DEFAULT "auth"."uid"(),
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "training_views_pkey" PRIMARY KEY ("id"),
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS "public"."training_views" (
         REFERENCES "public"."organizations"("id") ON DELETE CASCADE,
     CONSTRAINT "training_views_created_by_fkey"
         FOREIGN KEY ("created_by")
-        REFERENCES "auth"."users"("id") ON DELETE CASCADE
+        REFERENCES "auth"."users"("id") ON DELETE SET NULL
 );
 
 ALTER TABLE "public"."training_views" OWNER TO "postgres";

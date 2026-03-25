@@ -7,7 +7,6 @@ export interface ReportFilters {
 	mos?: string;
 	role?: string;
 	rank?: string;
-	clinicRole?: string;
 	trainingTypeIds?: string[];
 	status?: TrainingStatus;
 }
@@ -60,7 +59,6 @@ export function filterPersonnel(personnel: Personnel[], filters: ReportFilters):
 		if (filters.groupId && p.groupId !== filters.groupId) return false;
 		if (filters.mos && p.mos !== filters.mos) return false;
 		if (filters.role && p.clinicRole !== filters.role) return false;
-		if (filters.clinicRole && p.clinicRole !== filters.clinicRole) return false;
 		if (filters.rank && p.rank !== filters.rank) return false;
 		return true;
 	});
@@ -85,11 +83,14 @@ export function computeReadinessDashboard(
 	};
 
 	const allStatuses: TrainingStatusInfo[] = [];
+	// Cache statuses keyed by "personId-typeId" to avoid recomputation
+	const statusCache = new Map<string, TrainingStatusInfo>();
 
 	for (const person of personnel) {
 		for (const type of requiredTypes) {
 			const training = trainingMap.get(`${person.id}-${type.id}`);
 			const statusInfo = getTrainingStatus(training, type, person);
+			statusCache.set(`${person.id}-${type.id}`, statusInfo);
 			allStatuses.push(statusInfo);
 
 			switch (statusInfo.status) {
@@ -114,13 +115,12 @@ export function computeReadinessDashboard(
 
 	const readinessPercent = computeReadinessFromStatuses(allStatuses);
 
-	// Worst types by non-compliance rate
+	// Worst types by non-compliance rate (reuse cached statuses)
 	const typeStats = requiredTypes.map((type) => {
 		let applicable = 0;
 		let nonCompliant = 0;
 		for (const person of personnel) {
-			const training = trainingMap.get(`${person.id}-${type.id}`);
-			const statusInfo = getTrainingStatus(training, type, person);
+			const statusInfo = statusCache.get(`${person.id}-${type.id}`)!;
 			if (statusInfo.status === 'not-required' || statusInfo.status === 'exempt') continue;
 			applicable++;
 			if (statusInfo.status !== 'current') nonCompliant++;
@@ -132,7 +132,7 @@ export function computeReadinessDashboard(
 	typeStats.sort((a, b) => b.nonComplianceRate - a.nonComplianceRate);
 	const worstTypes = typeStats.filter((t) => t.nonComplianceRate > 0).slice(0, 5);
 
-	// Group comparison
+	// Group comparison (reuse cached statuses)
 	const groupMap = new Map<string, { groupName: string; statuses: TrainingStatusInfo[] }>();
 	for (const person of personnel) {
 		const gid = person.groupId ?? 'unassigned';
@@ -142,8 +142,7 @@ export function computeReadinessDashboard(
 		}
 		const group = groupMap.get(gid)!;
 		for (const type of requiredTypes) {
-			const training = trainingMap.get(`${person.id}-${type.id}`);
-			const statusInfo = getTrainingStatus(training, type, person);
+			const statusInfo = statusCache.get(`${person.id}-${type.id}`)!;
 			group.statuses.push(statusInfo);
 		}
 	}

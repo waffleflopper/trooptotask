@@ -111,20 +111,22 @@ export function computeReadinessDashboard(
 
 	const readinessPercent = computeReadinessFromStatuses(allStatuses);
 
-	// Worst types by non-compliance rate
-	const typeStats = types.map((type) => {
-		let applicable = 0;
-		let nonCompliant = 0;
-		for (const person of personnel) {
-			const training = trainingMap.get(`${person.id}-${type.id}`);
-			const statusInfo = getTrainingStatus(training, type, person);
-			if (statusInfo.status === 'not-required' || statusInfo.status === 'exempt') continue;
-			applicable++;
-			if (statusInfo.status !== 'current') nonCompliant++;
-		}
-		const nonComplianceRate = applicable === 0 ? 0 : Math.round((nonCompliant / applicable) * 100);
-		return { typeId: type.id, typeName: type.name, nonComplianceRate };
-	});
+	// Worst types by non-compliance rate (skip optional — they're tracked, not required)
+	const typeStats = types
+		.filter((type) => !type.isOptional)
+		.map((type) => {
+			let applicable = 0;
+			let nonCompliant = 0;
+			for (const person of personnel) {
+				const training = trainingMap.get(`${person.id}-${type.id}`);
+				const statusInfo = getTrainingStatus(training, type, person);
+				if (statusInfo.status === 'not-required' || statusInfo.status === 'exempt') continue;
+				applicable++;
+				if (statusInfo.status !== 'current') nonCompliant++;
+			}
+			const nonComplianceRate = applicable === 0 ? 0 : Math.round((nonCompliant / applicable) * 100);
+			return { typeId: type.id, typeName: type.name, nonComplianceRate };
+		});
 
 	typeStats.sort((a, b) => b.nonComplianceRate - a.nonComplianceRate);
 	const worstTypes = typeStats.filter((t) => t.nonComplianceRate > 0).slice(0, 5);

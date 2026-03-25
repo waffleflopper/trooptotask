@@ -182,6 +182,19 @@ describe('computeReadinessDashboard', () => {
 		const dashboard = computeReadinessDashboard([], [], []);
 		expect(dashboard.readinessPercent).toBe(0);
 	});
+
+	it('excludes optional training types from worst types', () => {
+		const personnel = [makePerson({ id: 'p-1' })];
+		const types = [
+			makeType({ id: 'type-1', name: 'Required', isOptional: false }),
+			makeType({ id: 'type-2', name: 'Optional', isOptional: true })
+		];
+		// No training records for either → Required is non-compliant, Optional should be ignored
+		const dashboard = computeReadinessDashboard(personnel, types, []);
+
+		expect(dashboard.worstTypes.some((t) => t.typeName === 'Required')).toBe(true);
+		expect(dashboard.worstTypes.some((t) => t.typeName === 'Optional')).toBe(false);
+	});
 });
 
 describe('filterPersonnel', () => {

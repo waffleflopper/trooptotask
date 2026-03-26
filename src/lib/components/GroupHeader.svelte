@@ -34,8 +34,8 @@
 <style>
 	.group-header {
 		display: flex;
-		background: #0f0f0f;
-		color: #f0ede6;
+		background: var(--color-chrome);
+		color: var(--color-chrome-text);
 		border-bottom: 1px solid var(--color-border);
 	}
 
@@ -44,11 +44,11 @@
 		min-width: var(--personnel-column-width);
 		display: flex;
 		align-items: center;
-		background: #0f0f0f;
-		border-right: 1px solid #2a2a2a;
-		transform: translateX(var(--scroll-left, 0px));
+		background: var(--color-chrome);
+		border-right: 1px solid var(--color-chrome-border);
+		position: sticky;
+		left: 0;
 		z-index: 2;
-		will-change: transform;
 	}
 
 	.group-toggle {
@@ -58,7 +58,7 @@
 		align-items: center;
 		gap: var(--spacing-sm);
 		background: transparent;
-		color: #f0ede6;
+		color: var(--color-chrome-text);
 		text-align: left;
 		cursor: pointer;
 		font-weight: 600;
@@ -66,7 +66,7 @@
 	}
 
 	.group-toggle:hover {
-		background: #1a1a1a;
+		background: var(--color-chrome-hover, rgba(255, 255, 255, 0.05));
 	}
 
 	.toggle-icon {
@@ -101,6 +101,6 @@
 	.group-header-spacer {
 		flex: 1;
 		min-width: calc(var(--cell-width) * var(--dates-count, 31));
-		background: #0f0f0f;
+		background: var(--color-chrome);
 	}
 </style>

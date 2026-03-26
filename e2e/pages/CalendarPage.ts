@@ -18,7 +18,9 @@ export class CalendarPage {
 		this.prevMonth = page.getByRole('button', { name: 'Prev' });
 		this.nextMonth = page.getByRole('button', { name: 'Next' });
 		this.monthLabel = page.getByTestId('calendar-month-label');
-		this.todayBreakdownToolbarToggle = page.getByRole('button', { name: "Today's Summary" });
+		this.todayBreakdownToolbarToggle = page
+			.getByTestId('smart-toolbar')
+			.getByRole('button', { name: "Today's Summary" });
 		this.bulkStatusButton = page.getByRole('button', { name: /Bulk Status/ });
 		this.planningButton = page.getByRole('button', { name: /Planning/ });
 		this.moreActionsButton = page.getByRole('button', { name: /More actions/i });

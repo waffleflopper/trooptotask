@@ -108,7 +108,18 @@ describe('CalendarPageContext', () => {
 	// ---- breakdown panel state --------------------------------------------
 
 	describe('breakdownExpanded / toggleBreakdown', () => {
-		it('breakdownExpanded starts true', () => {
+		it('breakdownExpanded starts true before responsive init runs', () => {
+			expect(ctx.breakdownExpanded).toBe(true);
+		});
+
+		it('initBreakdownPreference collapses the panel on mobile viewports', () => {
+			ctx.initBreakdownPreference(() => ({ matches: true }));
+			expect(ctx.breakdownExpanded).toBe(false);
+		});
+
+		it('initBreakdownPreference keeps the panel expanded on desktop viewports', () => {
+			ctx.breakdownExpanded = false;
+			ctx.initBreakdownPreference(() => ({ matches: false }));
 			expect(ctx.breakdownExpanded).toBe(true);
 		});
 

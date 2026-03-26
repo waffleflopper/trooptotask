@@ -6,12 +6,18 @@ export class CalendarPage {
 	readonly prevMonth: Locator;
 	readonly nextMonth: Locator;
 	readonly monthLabel: Locator;
+	readonly todayBreakdownToolbarToggle: Locator;
+	readonly todayBreakdownInlineToggle: Locator;
+	readonly todayBreakdownBody: Locator;
 
 	constructor(page: Page) {
 		this.page = page;
 		this.prevMonth = page.getByTestId('calendar-prev-month');
 		this.nextMonth = page.getByTestId('calendar-next-month');
 		this.monthLabel = page.getByTestId('calendar-month-label');
+		this.todayBreakdownToolbarToggle = page.getByTestId('calendar-today-breakdown');
+		this.todayBreakdownInlineToggle = page.getByTestId('today-breakdown-summary-toggle');
+		this.todayBreakdownBody = page.getByTestId('today-breakdown-body');
 	}
 
 	async goto(orgId: string) {
@@ -32,7 +38,11 @@ export class CalendarPage {
 		await expect(this.page.getByText(statusText).first()).toBeVisible();
 	}
 
-	async openTodayBreakdown() {
-		await this.page.getByTestId('calendar-today-breakdown').click();
+	async toggleTodayBreakdownFromToolbar() {
+		await this.todayBreakdownToolbarToggle.click();
+	}
+
+	async expectTodayBreakdownExpanded(expanded: boolean) {
+		await expect(this.todayBreakdownBody).toHaveAttribute('aria-hidden', expanded ? 'false' : 'true');
 	}
 }

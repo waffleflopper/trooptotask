@@ -172,6 +172,13 @@ export class CalendarPageContext {
 		}
 	}
 
+	initBreakdownPreference(matchMediaFn: ((query: string) => { matches: boolean }) | null = browser
+		? window.matchMedia.bind(window)
+		: null): void {
+		if (!matchMediaFn) return;
+		this.breakdownExpanded = !matchMediaFn('(max-width: 640px)').matches;
+	}
+
 	/** Mark calendar as explored for Getting Started checklist. */
 	markCalendarVisited(): void {
 		if (browser) {

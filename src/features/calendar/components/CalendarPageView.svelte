@@ -46,9 +46,9 @@
 			Today's Breakdown
 		</button>
 		{#if data.permissions?.canEditCalendar && ctx.canManageConfig}
-			<button class="btn btn-sm" onclick={() => modals.open('assignment-planner')} disabled={ctx.readOnly}>
+			<a class="btn btn-sm" href={`/org/${data.orgId}/calendar/assignments`}>
 				Assignments
-			</button>
+			</a>
 		{/if}
 		<button class="btn btn-sm" onclick={() => modals.open('long-range-view')}> 3-Month View </button>
 		{#if ctx.readOnly}

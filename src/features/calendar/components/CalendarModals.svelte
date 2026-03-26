@@ -3,7 +3,6 @@
 	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
 	import TodayBreakdown from '$features/calendar/components/TodayBreakdown.svelte';
-	import MonthlyAssignmentPlanner from '$features/calendar/components/MonthlyAssignmentPlanner.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -56,19 +55,6 @@
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
 		onClose={() => modals.close('today-breakdown')}
-	/>
-{/if}
-
-{#if modals.isOpen('assignment-planner')}
-	<MonthlyAssignmentPlanner
-		currentDate={calendarStore.currentDate}
-		assignmentTypes={dailyAssignmentsStore.types}
-		assignments={dailyAssignmentsStore.assignments}
-		personnelByGroup={ctx.scopedPBG}
-		groups={groupsStore.names}
-		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
-		onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}
-		onClose={() => modals.close('assignment-planner')}
 	/>
 {/if}
 

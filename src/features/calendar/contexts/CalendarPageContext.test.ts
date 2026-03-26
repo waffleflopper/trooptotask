@@ -100,7 +100,6 @@ describe('CalendarPageContext', () => {
 		it('special-day-manager starts closed', () => expect(modals.isOpen('special-day-manager')).toBe(false));
 		it('today-breakdown starts closed', () => expect(modals.isOpen('today-breakdown')).toBe(false));
 		// bulk-status, bulk-status-import, bulk-remove modals removed — moved to /calendar/bulk page
-		it('assignment-planner starts closed', () => expect(modals.isOpen('assignment-planner')).toBe(false));
 		it('long-range-view starts closed', () => expect(modals.isOpen('long-range-view')).toBe(false));
 		it('assignment-type-manager starts closed', () => expect(modals.isOpen('assignment-type-manager')).toBe(false));
 		// duty-roster-generator modal removed — moved to /calendar/duty-roster page
@@ -319,6 +318,12 @@ describe('CalendarPageContext', () => {
 		it('does not include Duty Roster for plain member', () => {
 			const labels = ctx.calendarOverflowItems.map((i) => i.label);
 			expect(labels).not.toContain('Duty Roster');
+		});
+
+		it('does not include Assignments after moving the planner to its own page', () => {
+			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
+			expect(labels).not.toContain('Assignments');
 		});
 	});
 

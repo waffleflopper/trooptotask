@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-25-assignment-planner-page',
+		date: '2026-03-25',
+		title: 'Assignment Planning Has Its Own Page Now',
+		items: [
+			'The monthly assignment planner now opens as a full page instead of being squeezed into a popup',
+			'You now get a full month grid with more room to work through manual scheduling decisions without constant scrolling',
+			'Assignment changes still feed straight back into the main calendar, so you can plan on one page and verify on the other without any extra cleanup'
+		]
+	},
+	{
 		id: '2026-03-25-duty-roster-page',
 		date: '2026-03-25',
 		title: 'Duty Roster Works Like a Real Page Now',
@@ -46,16 +56,6 @@ export const changelog: ChangelogEntry[] = [
 			'Tightened up error handling so the app recovers more gracefully when something goes wrong instead of showing a confusing error page',
 			'Improved how bulk operations (like importing personnel or updating assignments) handle edge cases — fewer surprises when working with large batches',
 			"If you run into anything weird or notice something that doesn't look right, please don't hesitate to report it — we'll make it a high priority to fix"
-		]
-	},
-	{
-		id: '2026-03-22-table-improvements',
-		date: '2026-03-22',
-		title: 'Tables Got a Glow-Up',
-		items: [
-			'All tables across the app now have a consistent look and feel — reports, training matrix, admin pages, rating scheme, the works',
-			'You can now click column headers to sort most tables — finally, no more squinting to find someone buried in a long list',
-			'Fixed a bug where editing a rating scheme entry would create a duplicate instead of actually saving your changes'
 		]
 	}
 ];

@@ -105,15 +105,6 @@ export class CalendarPageContext {
 
 		// Visible actions duplicated for mobile access
 		items.push({ label: "Today's Breakdown", onclick: () => this.#modals.open('today-breakdown') });
-		if (this.#data.permissions?.canEditCalendar) {
-			if (this.canManageConfig) {
-				items.push({
-					label: 'Assignments',
-					onclick: () => this.#modals.open('assignment-planner'),
-					disabled: this.readOnly
-				});
-			}
-		}
 		items.push({ label: '3-Month View', onclick: () => this.#modals.open('long-range-view') });
 
 		// Additional tools

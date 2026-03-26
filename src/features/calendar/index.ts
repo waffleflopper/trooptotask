@@ -30,8 +30,10 @@ export type { CalendarPageData } from './contexts/CalendarPageContext.svelte';
 // $features/calendar/components/AvailabilityModal.svelte
 // $features/calendar/components/StatusTypeManager.svelte
 // $features/calendar/components/SpecialDayManager.svelte
-// $features/calendar/components/BulkStatusModal.svelte
-// $features/calendar/components/BulkStatusRemoveModal.svelte
+// $features/calendar/components/BulkStatusPage.svelte
+// $features/calendar/components/BulkStatusAdd.svelte
+// $features/calendar/components/BulkStatusRemove.svelte
+// $features/calendar/components/BulkStatusImport.svelte
 // $features/calendar/components/TodayBreakdown.svelte
 // $features/calendar/components/StatusLegend.svelte
 // $features/calendar/components/PersonStatusModal.svelte

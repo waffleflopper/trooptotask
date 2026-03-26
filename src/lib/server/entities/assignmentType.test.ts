@@ -79,7 +79,8 @@ describe('AssignmentTypeEntity', () => {
 			assign_to: 'personnel',
 			color: '#6b7280',
 			sort_order: 0,
-			exempt_personnel_ids: []
+			exempt_personnel_ids: [],
+			show_in_date_header: false
 		});
 	});
 
@@ -103,7 +104,8 @@ describe('AssignmentTypeEntity', () => {
 			assign_to: 'group',
 			color: '#123456',
 			sort_order: 5,
-			exempt_personnel_ids: ['p-1']
+			exempt_personnel_ids: ['p-1'],
+			show_in_date_header: false
 		});
 	});
 

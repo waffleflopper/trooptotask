@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
 	import BulkImportTable from '$lib/components/ui/BulkImportTable.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -13,10 +12,10 @@
 		statusTypes: StatusType[];
 		orgId: string;
 		onImportComplete: () => void;
-		onClose: () => void;
+		onComplete: () => void;
 	}
 
-	let { personnel, statusTypes, orgId, onImportComplete, onClose }: Props = $props();
+	let { personnel, statusTypes, orgId, onImportComplete, onComplete }: Props = $props();
 
 	// State machine
 	type Step = 'upload' | 'preview' | 'resolve' | 'results';
@@ -295,7 +294,7 @@
 	}
 </script>
 
-<Modal title="Import Statuses from File" {onClose} width="800px" titleId="bulk-status-import-title">
+<div class="bulk-import-panel">
 	{#if step === 'upload'}
 		<div class="upload-section">
 			<div class="upload-option">
@@ -343,7 +342,7 @@
 				{#if importResult.errors.length > 0}
 					<div class="results-errors">
 						<h4>Errors</h4>
-						{#each importResult.errors as error}
+						{#each importResult.errors as error, idx (idx)}
 							<div class="results-error-row">
 								{#if error.row > 0}<span class="text-muted">Row {error.row}:</span>{/if}
 								<span>{error.message}</span>
@@ -367,7 +366,7 @@
 			</p>
 
 			<div class="resolve-list">
-				{#each unmatchedStatuses as mapping, i}
+				{#each unmatchedStatuses as mapping, i (mapping.csvName)}
 					<div class="resolve-row">
 						<div class="resolve-info">
 							<span class="resolve-name">"{mapping.csvName}"</span>
@@ -384,7 +383,7 @@
 						>
 							<option value="">— Select —</option>
 							<option value="__skip__">Skip (don't import)</option>
-							{#each statusTypes as st}
+							{#each statusTypes as st (st.id)}
 								<option value={st.id}>{st.name}</option>
 							{/each}
 						</select>
@@ -400,7 +399,7 @@
 		</div>
 	{/if}
 
-	{#snippet footer()}
+	<div class="panel-footer">
 		{#if step === 'preview'}
 			<button
 				class="btn btn-secondary"
@@ -410,7 +409,6 @@
 				}}>Back</button
 			>
 			<div class="spacer"></div>
-			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 			<button class="btn btn-primary" onclick={handlePreviewNext}>Next</button>
 		{:else if step === 'resolve'}
 			<button
@@ -420,24 +418,41 @@
 				}}>Back</button
 			>
 			<div class="spacer"></div>
-			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
 			<button class="btn btn-primary" disabled={!allResolved || importing} onclick={handleImport}>
 				{#if importing}<Spinner />{/if}
 				{importing ? 'Importing...' : 'Import'}
 			</button>
 		{:else if step === 'results'}
-			<button class="btn btn-primary" onclick={onClose}>Done</button>
-		{:else}
-			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+			<button class="btn btn-primary" onclick={onComplete}>Done</button>
 		{/if}
-	{/snippet}
-</Modal>
+	</div>
+</div>
 
 <style>
+	.bulk-import-panel {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.panel-footer {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-md) var(--spacing-lg);
+		border-top: 1px solid var(--color-border);
+		background: var(--color-surface);
+	}
+
+	.spacer {
+		flex: 1;
+	}
+
 	.upload-section {
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-lg);
+		padding: var(--spacing-lg);
 	}
 
 	.upload-option {
@@ -481,6 +496,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
+		padding: var(--spacing-lg);
 	}
 
 	.resolve-section p {
@@ -524,6 +540,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
+		padding: var(--spacing-lg);
 	}
 
 	.results-success {

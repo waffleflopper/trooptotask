@@ -134,6 +134,9 @@
 	--field-label: var(--color-text-secondary);
 	--field-error: var(--color-error);
 	--field-help: var(--color-text-muted);
+	--field-row-gap: var(--spacing-md);
+	--field-stack-gap: var(--spacing-sm);
+	--field-support-gap: var(--spacing-xs);
 
 	/* Toolbar tokens */
 	--toolbar-bg: var(--color-surface);
@@ -499,6 +502,30 @@ a:hover {
 
 .form-group {
 	margin-bottom: var(--spacing-lg);
+}
+
+.form-row {
+	display: flex;
+	gap: var(--field-row-gap);
+	align-items: flex-end;
+}
+
+.form-row > .form-group {
+	flex: 1;
+	margin-bottom: 0;
+	min-width: 0;
+}
+
+.field-stack {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: var(--field-stack-gap);
+	min-width: 0;
+}
+
+.field-stack > .form-group {
+	margin-bottom: 0;
 }
 
 /* Checkbox styling */
@@ -928,6 +955,18 @@ input[type='checkbox']:focus-visible {
 	font-size: var(--font-size-xs);
 	color: var(--field-help);
 	margin-top: var(--spacing-xs);
+}
+
+.field-support {
+	display: flex;
+	align-items: center;
+	gap: var(--field-support-gap);
+	min-height: 1rem;
+}
+
+.field-support .field-hint,
+.field-support .field-error {
+	margin-top: 0;
 }
 
 .field-error {

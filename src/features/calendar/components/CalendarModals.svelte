@@ -2,7 +2,6 @@
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
-	import TodayBreakdown from '$features/calendar/components/TodayBreakdown.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -44,17 +43,6 @@
 		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 		onClose={() => ctx.closeAssignmentModal()}
-	/>
-{/if}
-
-{#if modals.isOpen('today-breakdown')}
-	<TodayBreakdown
-		personnelByGroup={ctx.personnelByGroup}
-		availabilityEntries={availabilityStore.items}
-		statusTypes={statusTypesStore.items}
-		assignmentTypes={dailyAssignmentsStore.types}
-		assignments={dailyAssignmentsStore.assignments}
-		onClose={() => modals.close('today-breakdown')}
 	/>
 {/if}
 

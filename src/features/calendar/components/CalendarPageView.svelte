@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SettingsIcon from '$lib/components/ui/icons/SettingsIcon.svelte';
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
+	import TodayBreakdownPanel from '$features/calendar/components/TodayBreakdownPanel.svelte';
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
@@ -42,7 +43,12 @@
 			<span class="toggle-dot"></span>
 			Onboarding
 		</button>
-		<button class="btn btn-sm" data-testid="calendar-today-breakdown" onclick={() => modals.open('today-breakdown')}>
+		<button
+			class="btn btn-sm"
+			class:active={ctx.breakdownExpanded}
+			data-testid="calendar-today-breakdown"
+			onclick={() => ctx.toggleBreakdown()}
+		>
 			Today's Breakdown
 		</button>
 		{#if data.permissions?.canEditCalendar && ctx.canManageConfig}
@@ -63,6 +69,16 @@
 			</a>
 		{/if}
 	</PageToolbar>
+
+	<TodayBreakdownPanel
+		expanded={ctx.breakdownExpanded}
+		onToggle={() => ctx.toggleBreakdown()}
+		personnelByGroup={ctx.personnelByGroup}
+		availabilityEntries={availabilityStore.items}
+		statusTypes={statusTypesStore.items}
+		assignmentTypes={dailyAssignmentsStore.types}
+		assignments={dailyAssignmentsStore.assignments}
+	/>
 
 	{#if !data.permissions?.canViewCalendar}
 		<div class="no-permission">

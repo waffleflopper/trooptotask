@@ -98,11 +98,26 @@ describe('CalendarPageContext', () => {
 	describe('modal state (all start closed)', () => {
 		it('status-manager starts closed', () => expect(modals.isOpen('status-manager')).toBe(false));
 		it('special-day-manager starts closed', () => expect(modals.isOpen('special-day-manager')).toBe(false));
-		it('today-breakdown starts closed', () => expect(modals.isOpen('today-breakdown')).toBe(false));
+		// today-breakdown modal removed — converted to inline panel (breakdownExpanded state)
 		// bulk-status, bulk-status-import, bulk-remove modals removed — moved to /calendar/bulk page
 		it('long-range-view starts closed', () => expect(modals.isOpen('long-range-view')).toBe(false));
 		it('assignment-type-manager starts closed', () => expect(modals.isOpen('assignment-type-manager')).toBe(false));
 		// duty-roster-generator modal removed — moved to /calendar/duty-roster page
+	});
+
+	// ---- breakdown panel state --------------------------------------------
+
+	describe('breakdownExpanded / toggleBreakdown', () => {
+		it('breakdownExpanded starts true', () => {
+			expect(ctx.breakdownExpanded).toBe(true);
+		});
+
+		it('toggleBreakdown flips breakdownExpanded', () => {
+			ctx.toggleBreakdown();
+			expect(ctx.breakdownExpanded).toBe(false);
+			ctx.toggleBreakdown();
+			expect(ctx.breakdownExpanded).toBe(true);
+		});
 	});
 
 	// ---- Selected state ----------------------------------------------------
@@ -254,6 +269,14 @@ describe('CalendarPageContext', () => {
 			const labels = ctx.calendarOverflowItems.map((i) => i.label);
 			expect(labels).toContain("Today's Breakdown");
 			expect(labels).toContain('3-Month View');
+		});
+
+		it("Today's Breakdown overflow item toggles the panel (not a modal)", () => {
+			const item = ctx.calendarOverflowItems.find((i) => i.label === "Today's Breakdown");
+			expect(item?.onclick).toBeDefined();
+			expect(ctx.breakdownExpanded).toBe(true);
+			item!.onclick!();
+			expect(ctx.breakdownExpanded).toBe(false);
 		});
 
 		it('does not include configure items when canManageConfig is false', () => {

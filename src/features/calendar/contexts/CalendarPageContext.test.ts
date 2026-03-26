@@ -64,7 +64,7 @@ describe('CalendarPageContext', () => {
 	beforeEach(() => {
 		modals = new ModalRegistry();
 		org = makeMockOrg();
-		ctx = new CalendarPageContext(mockData, modals, org);
+		ctx = new CalendarPageContext(mockData, org);
 	});
 
 	// ---- Derived permission flags ------------------------------------------
@@ -79,17 +79,17 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('canManageConfig is true for owner', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ isOwner: true }));
 			expect(ownerCtx.canManageConfig).toBe(true);
 		});
 
 		it('canManageConfig is true for admin', () => {
-			const adminCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isAdmin: true }));
+			const adminCtx = new CalendarPageContext(mockData, makeMockOrg({ isAdmin: true }));
 			expect(adminCtx.canManageConfig).toBe(true);
 		});
 
 		it('canManageConfig is true for fullEditor', () => {
-			const editorCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isFullEditor: true }));
+			const editorCtx = new CalendarPageContext(mockData, makeMockOrg({ isFullEditor: true }));
 			expect(editorCtx.canManageConfig).toBe(true);
 		});
 	});
@@ -182,7 +182,6 @@ describe('CalendarPageContext', () => {
 		it('does nothing when canEditCalendar is false', () => {
 			const noEditCtx = new CalendarPageContext(
 				{ ...mockData, permissions: { ...mockData.permissions, canEditCalendar: false } },
-				new ModalRegistry(),
 				makeMockOrg()
 			);
 			noEditCtx.handleCellClick(mockPersonnel[0], new Date());
@@ -192,7 +191,6 @@ describe('CalendarPageContext', () => {
 		it('does nothing when person is outside scoped group', () => {
 			const scopedCtx = new CalendarPageContext(
 				{ ...mockData, scopedGroupId: 'other-group', personnel: [] }, // p1 is NOT in scoped set
-				new ModalRegistry(),
 				makeMockOrg()
 			);
 			scopedCtx.handleCellClick(mockPersonnel[0], new Date());
@@ -216,7 +214,6 @@ describe('CalendarPageContext', () => {
 		it('does nothing when canEditCalendar is false', () => {
 			const noEditCtx = new CalendarPageContext(
 				{ ...mockData, permissions: { ...mockData.permissions, canEditCalendar: false } },
-				new ModalRegistry(),
 				makeMockOrg()
 			);
 			noEditCtx.handlePersonClick(mockPersonnel[0]);
@@ -267,11 +264,7 @@ describe('CalendarPageContext', () => {
 
 	describe('calendarPersonnel', () => {
 		it('falls back to personnel when allPersonnel is absent', () => {
-			const ctx2 = new CalendarPageContext(
-				{ ...mockData, allPersonnel: undefined },
-				new ModalRegistry(),
-				makeMockOrg()
-			);
+			const ctx2 = new CalendarPageContext({ ...mockData, allPersonnel: undefined }, makeMockOrg());
 			expect(ctx2.calendarPersonnel).toEqual(mockPersonnel);
 		});
 
@@ -330,7 +323,7 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('does NOT include configure items in overflow (moved to settings page)', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ isOwner: true }));
 			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
 			expect(labels).not.toContain('Status Types');
 			expect(labels).not.toContain('Assignment Types');
@@ -338,7 +331,7 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('includes Status Reports link for owner', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ isOwner: true }));
 			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
 			expect(labels).toContain('Status Reports');
 		});
@@ -355,7 +348,7 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('includes Bulk Operations as a navigation link for owner', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ isOwner: true }));
 			const bulkItem = ownerCtx.calendarOverflowItems.find((i) => i.label === 'Bulk Operations');
 			expect(bulkItem).toBeDefined();
 			expect(bulkItem!.href).toBe('/org/org1/calendar/bulk');
@@ -368,14 +361,14 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('does not include old Bulk Status or Bulk Remove modal items', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ isOwner: true }));
 			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
 			expect(labels).not.toContain('Bulk Status');
 			expect(labels).not.toContain('Bulk Remove');
 		});
 
 		it('includes Duty Roster as a navigation link for owner', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ isOwner: true }));
 			const dutyItem = ownerCtx.calendarOverflowItems.find((i) => i.label === 'Duty Roster');
 			expect(dutyItem).toBeDefined();
 			expect(dutyItem!.href).toBe('/org/org1/calendar/duty-roster');
@@ -388,7 +381,7 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('does not include Assignments after moving the planner to its own page', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ isOwner: true }));
 			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
 			expect(labels).not.toContain('Assignments');
 		});
@@ -418,7 +411,7 @@ describe('CalendarPageContext', () => {
 
 	describe('duty-roster-generator modal removed', () => {
 		it('does not reference duty-roster-generator modal in overflow items', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ isOwner: true }));
 			const dutyItem = ownerCtx.calendarOverflowItems.find((i) => i.label === 'Duty Roster');
 			// Should be a link, not a modal opener
 			expect(dutyItem!.href).toBeDefined();

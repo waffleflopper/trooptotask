@@ -9,6 +9,7 @@
 	} from '$lib/types';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, isToday } from '$lib/utils/dates';
 	import { exportQuarterToCSV, printQuarterCalendar } from '../utils/calendarExport';
+	import CalendarNavigation from './CalendarNavigation.svelte';
 
 	interface GroupData {
 		group: string;
@@ -61,8 +62,6 @@
 		return result;
 	});
 
-	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
-
 	function prevQuarter() {
 		viewStartDate = addMonths(viewStartDate, -3);
 	}
@@ -89,9 +88,6 @@
 		return specialDays.find((s) => s.date === dateStr) ?? null;
 	}
 
-	// Stats
-	const totalDays = $derived(months.reduce((sum, m) => sum + m.dates.length, 0));
-
 	function handleExportCSV() {
 		exportQuarterToCSV(viewStartDate, {
 			personnelByGroup,
@@ -116,68 +112,17 @@
 </script>
 
 <div class="long-range-wrapper">
-	<div class="nav-bar">
-		<div class="nav-bar-left">
-			<button class="btn btn-secondary btn-sm" onclick={prevQuarter}>
-				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-					<path
-						fill-rule="evenodd"
-						d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-				Prev 3 Months
-			</button>
-			<div class="date-range" data-testid="long-range-date-label">
-				{months[0].name}
-				{months[0].year} – {months[2].name}
-				{months[2].year}
-			</div>
-			<button class="btn btn-secondary btn-sm" onclick={nextQuarter}>
-				Next 3 Months
-				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
-					<path
-						fill-rule="evenodd"
-						d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-			</button>
-		</div>
-		<div class="nav-bar-right">
-			{#if onToggleViewMode}
-				<button
-					class="view-toggle active"
-					data-testid="long-range-view-toggle"
-					onclick={onToggleViewMode}
-					title="Switch to month view"
-				>
-					<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
-						<path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-					</svg>
-					3-Month
-				</button>
-			{/if}
-			<button class="btn btn-secondary btn-sm" onclick={goToToday}>Today</button>
-			<div class="export-buttons">
-				<button class="btn btn-secondary btn-sm" onclick={handleExportCSV} title="Export to Excel">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
-						<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-						<polyline points="14 2 14 8 20 8" />
-					</svg>
-					Excel
-				</button>
-				<button class="btn btn-secondary btn-sm" onclick={handleExportPDF} title="Print / PDF">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
-						<path d="M6 9V2h12v7" />
-						<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-						<rect x="6" y="14" width="12" height="8" />
-					</svg>
-					PDF
-				</button>
-			</div>
-		</div>
-	</div>
+	<CalendarNavigation
+		title={`${months[0].name} ${months[0].year} – ${months[2].name} ${months[2].year}`}
+		onPrev={prevQuarter}
+		onNext={nextQuarter}
+		onGoToToday={goToToday}
+		viewMode="3-month"
+		{onToggleViewMode}
+		prevLabel="Prev 3 Months"
+		nextLabel="Next 3 Months"
+		titleTestId="long-range-date-label"
+	/>
 
 	<div class="scroll-area">
 		<div class="calendar-grid">
@@ -273,6 +218,23 @@
 				</span>
 			{/each}
 		</div>
+		<div class="legend-actions">
+			<button class="btn btn-secondary btn-sm" onclick={handleExportCSV} title="Export to Excel">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+					<polyline points="14 2 14 8 20 8" />
+				</svg>
+				Excel
+			</button>
+			<button class="btn btn-secondary btn-sm" onclick={handleExportPDF} title="Print / PDF">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+					<path d="M6 9V2h12v7" />
+					<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+					<rect x="6" y="14" width="12" height="8" />
+				</svg>
+				PDF
+			</button>
+		</div>
 	</div>
 </div>
 
@@ -292,84 +254,6 @@
 		flex: 1;
 		overflow: auto;
 		scrollbar-gutter: stable;
-	}
-
-	.nav-bar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--spacing-md);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-chrome);
-		color: var(--color-chrome-text);
-		flex-shrink: 0;
-	}
-
-	.nav-bar-left {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-	}
-
-	.nav-bar-right {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-	}
-
-	.nav-bar .btn-secondary {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		background: rgba(255, 255, 255, 0.1);
-		border-color: rgba(255, 255, 255, 0.2);
-		color: var(--color-chrome-text);
-	}
-
-	.nav-bar .btn-secondary:hover {
-		background: rgba(255, 255, 255, 0.2);
-	}
-
-	.view-toggle {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		border-radius: var(--radius-md);
-		background: rgba(255, 255, 255, 0.15);
-		color: var(--color-chrome-text);
-		cursor: pointer;
-		transition:
-			background-color 0.15s ease,
-			border-color 0.15s ease;
-	}
-
-	.view-toggle:hover {
-		background: rgba(255, 255, 255, 0.25);
-		border-color: rgba(255, 255, 255, 0.4);
-	}
-
-	.view-toggle.active {
-		background: rgba(255, 255, 255, 0.2);
-		border-color: rgba(255, 255, 255, 0.4);
-	}
-
-	.date-range {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
-		min-width: 300px;
-		text-align: center;
-	}
-
-	.export-buttons {
-		display: flex;
-		gap: var(--spacing-xs);
-		margin-left: var(--spacing-sm);
-		padding-left: var(--spacing-sm);
-		border-left: 1px solid var(--color-chrome-border);
 	}
 
 	.calendar-grid {
@@ -399,9 +283,9 @@
 	}
 
 	.name-cell {
-		width: 140px;
-		min-width: 140px;
-		max-width: 140px;
+		width: var(--personnel-column-width);
+		min-width: var(--personnel-column-width);
+		max-width: var(--personnel-column-width);
 		flex-shrink: 0;
 		padding: var(--spacing-xs) var(--spacing-sm);
 		position: sticky;
@@ -413,20 +297,20 @@
 
 	.header-cell {
 		font-weight: 600;
-		background: var(--color-chrome);
-		color: var(--color-chrome-text);
-		border-right-color: var(--color-chrome);
+		background: var(--color-bg);
+		color: var(--color-text);
+		border-right-color: var(--color-border);
 		z-index: 11;
 	}
 
 	.month-header {
 		text-align: center;
 		padding: var(--spacing-xs);
-		background: var(--color-chrome);
-		color: var(--color-chrome-text);
+		background: var(--color-bg);
+		color: var(--color-text);
 		font-weight: 600;
 		font-size: var(--font-size-sm);
-		border-left: 1px solid var(--color-chrome-border);
+		border-left: 1px solid var(--color-border);
 		flex-shrink: 0;
 	}
 
@@ -566,6 +450,10 @@
 
 	/* Legend bar */
 	.legend-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-md);
 		padding: var(--spacing-sm) var(--spacing-md);
 		border-top: 1px solid var(--color-border);
 		background: var(--color-surface);
@@ -597,38 +485,21 @@
 		border-radius: 2px;
 	}
 
+	.legend-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		flex-shrink: 0;
+	}
+
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
-		.nav-bar {
-			flex-wrap: wrap;
-			gap: var(--spacing-sm);
-			padding: var(--spacing-sm);
-		}
-
-		.nav-bar-left {
-			width: 100%;
-			justify-content: space-between;
-		}
-
-		.date-range {
-			font-size: var(--font-size-base);
-			min-width: unset;
-		}
-
-		.export-buttons {
-			margin-left: 0;
-			padding-left: 0;
-			border-left: none;
-		}
-
 		.legend-bar {
+			flex-wrap: wrap;
 			padding: var(--spacing-xs) var(--spacing-sm);
 		}
 
 		.name-cell {
-			width: 100px;
-			min-width: 100px;
-			max-width: 100px;
 			font-size: var(--font-size-xs);
 		}
 
@@ -671,16 +542,15 @@
 		.legend {
 			display: none; /* Too crowded on mobile */
 		}
+
+		.legend-actions {
+			width: 100%;
+			justify-content: flex-end;
+		}
 	}
 
 	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.name-cell {
-			width: 120px;
-			min-width: 120px;
-			max-width: 120px;
-		}
-
 		.legend {
 			flex-wrap: wrap;
 			gap: var(--spacing-sm);

@@ -14,7 +14,6 @@
 	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 	import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
 	import { groupsStore } from '$lib/stores/groups.svelte';
-	import { goto, invalidate } from '$app/navigation';
 	import type { Personnel } from '$lib/types';
 
 	interface Props {
@@ -52,8 +51,8 @@
 	// ---- Handlers ----
 	async function handleApplyRoster(
 		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
-	): Promise<void> {
-		await dailyAssignmentsStore.setAssignmentBatch(assignments);
+	): Promise<boolean> {
+		return await dailyAssignmentsStore.setAssignmentBatch(assignments);
 	}
 
 	async function handleSaveRoster(
@@ -94,7 +93,7 @@
 	title="Duty Roster"
 	breadcrumbs={[{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }, { label: 'Duty Roster' }]}
 >
-	<a href="/org/{org.orgId}/calendar" class="btn btn-sm">Back</a>
+	<a href={`/org/${org.orgId}/calendar`} class="btn btn-sm">Back</a>
 </PageToolbar>
 
 <div class="duty-roster-page">
@@ -117,7 +116,6 @@
 			onSaveRoster={handleSaveRoster}
 			onDeleteRoster={handleDeleteRoster}
 			onUpdateExemptions={handleUpdateExemptions}
-			onClose={() => goto(`/org/${org.orgId}/calendar`)}
 		/>
 	{/if}
 </div>

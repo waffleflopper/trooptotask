@@ -5,7 +5,6 @@
 	import type { RosterHistoryItem, RosterHistoryEntry, DA6Data } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import Modal from '$lib/components/Modal.svelte';
 
 	interface Props {
 		assignmentTypes: AssignmentType[];
@@ -16,11 +15,10 @@
 		statusTypes: StatusType[];
 		specialDays: SpecialDay[];
 		rosterHistory: RosterHistoryItem[];
-		onApplyRoster: (assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]) => Promise<void>;
+		onApplyRoster: (assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]) => Promise<boolean>;
 		onSaveRoster: (payload: Omit<RosterHistoryItem, 'id' | 'createdAt'>) => Promise<RosterHistoryItem | null>;
 		onDeleteRoster: (id: string) => Promise<void>;
 		onUpdateExemptions: (assignmentTypeId: string, personnelIds: string[]) => Promise<void>;
-		onClose: () => void;
 	}
 
 	let {
@@ -35,8 +33,7 @@
 		onApplyRoster,
 		onSaveRoster,
 		onDeleteRoster,
-		onUpdateExemptions,
-		onClose
+		onUpdateExemptions
 	}: Props = $props();
 
 	// Default dates: first and last day of current month
@@ -73,6 +70,7 @@
 	let isGenerating = $state(false);
 	let isApplying = $state(false);
 	let previewTab = $state<'roster' | 'da6'>('roster');
+	let applyFeedback = $state<{ tone: 'success' | 'error'; message: string } | null>(null);
 
 	// Extract all unique values in single pass for efficiency (O(n) instead of O(4n))
 	const personnelData = $derived.by(() => {
@@ -316,6 +314,7 @@
 		if (generatedRoster.length === 0) return;
 
 		isApplying = true;
+		applyFeedback = null;
 
 		const assignmentsToCreate = generatedRoster
 			.filter((r) => r.assignee !== null)
@@ -337,7 +336,7 @@
 			reason: r.reason
 		}));
 
-		await onSaveRoster({
+		const saved = await onSaveRoster({
 			assignmentTypeId: selectedAssignmentTypeId,
 			name: `${typeName} – ${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}`,
 			startDate,
@@ -358,9 +357,24 @@
 			}
 		});
 
-		await onApplyRoster(assignmentsToCreate);
+		const applied = await onApplyRoster(assignmentsToCreate);
 		isApplying = false;
-		onClose();
+
+		if (!applied) {
+			applyFeedback = {
+				tone: 'error',
+				message: 'The roster could not be applied to the calendar. Nothing was changed.'
+			};
+			return;
+		}
+
+		applyFeedback = {
+			tone: 'success',
+			message: saved
+				? 'Roster applied to the calendar and saved to history.'
+				: 'Roster applied to the calendar. History could not be saved.'
+		};
+		view = 'history';
 	}
 
 	// Export to Excel (HTML table format) — accepts optional overrides for re-export from history
@@ -613,43 +627,56 @@
 	// Personnel-only assignment types
 	const personnelAssignmentTypes = $derived(assignmentTypes.filter((t) => t.assignTo === 'personnel'));
 
-	// Modal title derives from view
-	const modalTitle = $derived(
+	const panelTitle = $derived(
 		view === 'history' ? 'Roster History' : view === 'preview' ? 'Generated Roster Preview' : 'Generate Duty Roster'
 	);
 </script>
 
-<Modal title={modalTitle} {onClose} width="640px" canClose={!isApplying}>
-	{#snippet headerActions()}
-		{#if view === 'config'}
-			<button class="btn btn-secondary btn-sm" onclick={() => (view = 'history')} title="View roster history">
-				<svg
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					width="14"
-					height="14"
-					aria-hidden="true"
-				>
-					<circle cx="12" cy="12" r="10" />
-					<polyline points="12 6 12 12 16 14" />
-				</svg>
+<section class="generator-shell">
+	<div class="generator-hero card card-flat">
+		<div class="hero-copy">
+			<p class="eyebrow">Duty planning</p>
+			<h2>{panelTitle}</h2>
+			<p class="hero-description">
+				Build and review DA6-style rosters without working inside a popup. Generate, preview, re-apply, and audit
+				rosters from one page.
+			</p>
+		</div>
+
+		<div class="view-nav" aria-label="Duty roster views">
+			<button class="view-tab" class:active={view === 'config'} onclick={() => (view = 'config')}>Configuration</button>
+			<button
+				class="view-tab"
+				class:active={view === 'preview'}
+				onclick={() => (view = 'preview')}
+				disabled={generatedRoster.length === 0}
+			>
+				Preview
+			</button>
+			<button class="view-tab" class:active={view === 'history'} onclick={() => (view = 'history')}>
 				History
 				{#if rosterHistory.length > 0}
 					<span class="history-badge">{rosterHistory.length}</span>
 				{/if}
 			</button>
-		{/if}
-	{/snippet}
+		</div>
+	</div>
 
-	<div>
+	{#if applyFeedback}
+		<div class="feedback-banner" class:error={applyFeedback.tone === 'error'}>
+			{applyFeedback.message}
+		</div>
+	{/if}
+
+	<div class="generator-body">
 		{#if view === 'history'}
-			<!-- History View -->
-			<div class="history-section">
-				<div class="history-header">
-					<button class="btn btn-secondary btn-sm" onclick={() => (view = 'config')}> &larr; Back </button>
-					<p class="hint">Past rosters, most recent first.</p>
+			<section class="panel-card section-card card card-flat history-panel">
+				<div class="panel-header">
+					<div>
+						<h3>Roster History</h3>
+						<p class="hint">Past rosters, most recent first.</p>
+					</div>
+					<button class="btn btn-secondary btn-sm" onclick={() => (view = 'config')}>Back to Config</button>
 				</div>
 
 				{#if rosterHistory.length === 0}
@@ -711,10 +738,43 @@
 						{/each}
 					</div>
 				{/if}
-			</div>
+			</section>
 		{:else if view === 'preview'}
-			<!-- Preview Section -->
-			<div class="preview-section">
+			<section class="panel-card section-card card card-flat preview-panel">
+				<div class="panel-header">
+					<div>
+						<h3>Generated Roster Preview</h3>
+						<p class="hint">Review coverage, export the roster, then push it to the calendar when it looks right.</p>
+					</div>
+					<div class="panel-actions">
+						<button class="btn btn-secondary" onclick={() => (view = 'config')}>Back to Config</button>
+						<button class="btn btn-secondary" onclick={() => exportToExcel()}>
+							<svg
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								width="16"
+								height="16"
+								aria-hidden="true"
+							>
+								<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+								<polyline points="14 2 14 8 20 8" />
+								<line x1="16" y1="13" x2="8" y2="13" />
+								<line x1="16" y1="17" x2="8" y2="17" />
+							</svg>
+							Export to Excel
+						</button>
+						<button
+							class="btn btn-primary"
+							onclick={applyRoster}
+							disabled={isApplying || generatedRoster.filter((r) => r.assignee).length === 0}
+						>
+							{isApplying ? 'Applying...' : 'Apply to Calendar'}
+						</button>
+					</div>
+				</div>
+
 				<div class="roster-stats">
 					<div class="stat">
 						<span class="stat-value">{generatedRoster.length}</span>
@@ -745,7 +805,7 @@
 					</p>
 					<p class="hint hint-detail">
 						Queue positions reflect each person's priority among <em>available</em> personnel per day. Numbers shift
-						when others become unavailable or exempt — this is normal and follows the DA6 rotation principle per
+						when others become unavailable or exempt, which is expected under the DA6 rotation logic in
 						<a
 							href="https://armypubs.army.mil/ProductMaps/PubForm/Details.aspx?PUB_ID=1004278"
 							target="_blank"
@@ -823,208 +883,201 @@
 						</div>
 					</div>
 				{/if}
-			</div>
+			</section>
 		{:else}
-			<!-- Configuration Section -->
-			<div class="config-section">
-				<h4>Duty Configuration</h4>
+			<div class="config-grid">
+				<section class="config-section panel-card section-card card card-flat config-main">
+					<div class="panel-header">
+						<div>
+							<h3>Duty Configuration</h3>
+							<p class="hint">Choose what you are filling and the date range the roster should cover.</p>
+						</div>
+					</div>
 
-				<div class="form-group">
-					<label class="label" for="assignmentType">Assignment Type</label>
-					<select id="assignmentType" class="select" bind:value={selectedAssignmentTypeId}>
-						<option value="">Select duty type...</option>
-						{#each personnelAssignmentTypes as type}
-							<option value={type.id}>{type.name} ({type.shortName})</option>
-						{/each}
-					</select>
-				</div>
-
-				<div class="form-row">
 					<div class="form-group">
-						<label class="label" for="duration">Duty Duration</label>
-						<select id="duration" class="select" bind:value={dutyDuration}>
-							<option value="daily">Daily</option>
-							<option value="weekly">Weekly</option>
-							<option value="monthly">Monthly</option>
+						<label class="label" for="assignmentType">Assignment Type</label>
+						<select id="assignmentType" class="select" bind:value={selectedAssignmentTypeId}>
+							<option value="">Select duty type...</option>
+							{#each personnelAssignmentTypes as type}
+								<option value={type.id}>{type.name} ({type.shortName})</option>
+							{/each}
 						</select>
 					</div>
-				</div>
 
-				<div class="form-row">
-					<div class="form-group">
-						<label class="label" for="startDate">Start Date</label>
-						<input id="startDate" type="date" class="input" bind:value={startDate} />
+					<div class="form-row">
+						<div class="form-group">
+							<label class="label" for="duration">Duty Duration</label>
+							<select id="duration" class="select" bind:value={dutyDuration}>
+								<option value="daily">Daily</option>
+								<option value="weekly">Weekly</option>
+								<option value="monthly">Monthly</option>
+							</select>
+						</div>
 					</div>
-					<div class="form-group">
-						<label class="label" for="endDate">End Date</label>
-						<input id="endDate" type="date" class="input" bind:value={endDate} />
+
+					<div class="form-row">
+						<div class="form-group">
+							<label class="label" for="startDate">Start Date</label>
+							<input id="startDate" type="date" class="input" bind:value={startDate} />
+						</div>
+						<div class="form-group">
+							<label class="label" for="endDate">End Date</label>
+							<input id="endDate" type="date" class="input" bind:value={endDate} />
+						</div>
 					</div>
-				</div>
-			</div>
+				</section>
 
-			<div class="config-section">
-				<h4>Schedule Options</h4>
+				<section class="config-section panel-card section-card card card-flat">
+					<div class="panel-header">
+						<div>
+							<h3>Schedule Options</h3>
+							<p class="hint">Skip dates you know should not be filled by the auto-rotation.</p>
+						</div>
+					</div>
 
-				<label class="toggle-row">
-					<input type="checkbox" bind:checked={excludeWeekends} />
-					<span>Exclude weekends (Sat & Sun)</span>
-				</label>
+					<label class="toggle-row">
+						<input type="checkbox" bind:checked={excludeWeekends} />
+						<span>Exclude weekends (Sat & Sun)</span>
+					</label>
 
-				<label class="toggle-row">
-					<input type="checkbox" bind:checked={excludeHolidays} />
-					<span>Exclude federal holidays</span>
-				</label>
+					<label class="toggle-row">
+						<input type="checkbox" bind:checked={excludeHolidays} />
+						<span>Exclude federal holidays</span>
+					</label>
 
-				<label class="toggle-row">
-					<input type="checkbox" bind:checked={excludeOrgClosures} />
-					<span>Exclude org closures</span>
-				</label>
-			</div>
+					<label class="toggle-row">
+						<input type="checkbox" bind:checked={excludeOrgClosures} />
+						<span>Exclude org closures</span>
+					</label>
+				</section>
 
-			<div class="config-section">
-				<h4>Eligible Personnel</h4>
-				<p class="hint">Leave empty to include all. Select specific groups/ranks to filter.</p>
+				<section class="config-section panel-card section-card card card-flat">
+					<div class="panel-header">
+						<div>
+							<h3>Unavailable Statuses</h3>
+							<p class="hint">Anyone carrying one of these statuses during a duty date will be skipped.</p>
+						</div>
+					</div>
 
-				<div class="filter-group">
-					<label class="label">Groups</label>
 					<div class="chip-list">
-						{#each groups as group}
-							<button class="chip" class:selected={selectedGroups.includes(group)} onclick={() => toggleGroup(group)}>
-								{group || '(No Group)'}
+						{#each statusTypes as status}
+							<button
+								class="chip status-chip"
+								class:selected={excludeStatuses.includes(status.id)}
+								style="--chip-color: {status.color}; --chip-text: {status.textColor}"
+								onclick={() => toggleExcludeStatus(status.id)}
+							>
+								{status.name}
 							</button>
 						{/each}
 					</div>
-				</div>
+				</section>
 
-				<div class="filter-group">
-					<label class="label">Ranks</label>
-					<div class="chip-list">
-						{#each allRanks as rank}
-							<button class="chip" class:selected={selectedRanks.includes(rank)} onclick={() => toggleRank(rank)}>
-								{rank}
-							</button>
-						{/each}
+				<section class="config-section panel-card section-card card card-flat config-main">
+					<div class="panel-header">
+						<div>
+							<h3>Eligible Personnel</h3>
+							<p class="hint">Leave everything unselected to include everyone in the current scope.</p>
+						</div>
+						<div class="eligible-count">{eligiblePersonnel.length} eligible</div>
 					</div>
-				</div>
 
-				{#if allMOS.length > 0}
 					<div class="filter-group">
-						<label class="label">MOS</label>
+						<div class="label">Groups</div>
 						<div class="chip-list">
-							{#each allMOS as mos}
-								<button class="chip" class:selected={selectedMOS.includes(mos)} onclick={() => toggleMOS(mos)}>
-									{mos}
+							{#each groups as group}
+								<button class="chip" class:selected={selectedGroups.includes(group)} onclick={() => toggleGroup(group)}>
+									{group || '(No Group)'}
 								</button>
 							{/each}
 						</div>
 					</div>
-				{/if}
 
-				{#if allRoles.length > 0}
 					<div class="filter-group">
-						<label class="label">Roles</label>
+						<div class="label">Ranks</div>
 						<div class="chip-list">
-							{#each allRoles as role}
-								<button class="chip" class:selected={selectedRoles.includes(role)} onclick={() => toggleRole(role)}>
-									{role}
+							{#each allRanks as rank}
+								<button class="chip" class:selected={selectedRanks.includes(rank)} onclick={() => toggleRank(rank)}>
+									{rank}
 								</button>
 							{/each}
 						</div>
 					</div>
-				{/if}
 
-				<div class="eligible-count">
-					{eligiblePersonnel.length} personnel eligible
-				</div>
-			</div>
-
-			{#if selectedAssignmentTypeId}
-				<div class="config-section">
-					<h4>Exempt Personnel</h4>
-					<p class="hint">These individuals will never be assigned this duty type.</p>
-
-					<div class="chip-list">
-						{#each personnelByGroup as grp}
-							{#each grp.personnel as person}
-								<button
-									class="chip exempt-chip"
-									class:selected={currentExemptIds.includes(person.id)}
-									onclick={() => toggleExempt(person.id)}
-								>
-									{person.rank}
-									{person.lastName}
-								</button>
-							{/each}
-						{/each}
-					</div>
-
-					{#if currentExemptIds.length > 0}
-						<div class="exempt-count">{currentExemptIds.length} exempted</div>
+					{#if allMOS.length > 0}
+						<div class="filter-group">
+							<div class="label">MOS</div>
+							<div class="chip-list">
+								{#each allMOS as mos}
+									<button class="chip" class:selected={selectedMOS.includes(mos)} onclick={() => toggleMOS(mos)}>
+										{mos}
+									</button>
+								{/each}
+							</div>
+						</div>
 					{/if}
-				</div>
-			{/if}
 
-			<div class="config-section">
-				<h4>Unavailable Statuses</h4>
-				<p class="hint">Personnel with these statuses will be skipped.</p>
+					{#if allRoles.length > 0}
+						<div class="filter-group">
+							<div class="label">Roles</div>
+							<div class="chip-list">
+								{#each allRoles as role}
+									<button class="chip" class:selected={selectedRoles.includes(role)} onclick={() => toggleRole(role)}>
+										{role}
+									</button>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				</section>
 
-				<div class="chip-list">
-					{#each statusTypes as status}
-						<button
-							class="chip status-chip"
-							class:selected={excludeStatuses.includes(status.id)}
-							style="--chip-color: {status.color}; --chip-text: {status.textColor}"
-							onclick={() => toggleExcludeStatus(status.id)}
-						>
-							{status.name}
-						</button>
-					{/each}
+				{#if selectedAssignmentTypeId}
+					<section class="config-section panel-card section-card card card-flat config-main">
+						<div class="panel-header">
+							<div>
+								<h3>Exempt Personnel</h3>
+								<p class="hint">These people will never be assigned this duty type.</p>
+							</div>
+							{#if currentExemptIds.length > 0}
+								<div class="exempt-count">{currentExemptIds.length} exempted</div>
+							{/if}
+						</div>
+
+						<div class="chip-list">
+							{#each personnelByGroup as grp}
+								{#each grp.personnel as person}
+									<button
+										class="chip exempt-chip"
+										class:selected={currentExemptIds.includes(person.id)}
+										onclick={() => toggleExempt(person.id)}
+									>
+										{person.rank}
+										{person.lastName}
+									</button>
+								{/each}
+							{/each}
+						</div>
+					</section>
+				{/if}
+
+			</div>
+
+			<div class="sticky-actions section-card card card-flat">
+				<div>
+					<h3>Ready to generate?</h3>
+					<p class="hint">The preview shows who gets assigned before anything is written to the calendar.</p>
 				</div>
+				<button
+					class="btn btn-primary"
+					onclick={generateRoster}
+					disabled={!selectedAssignmentTypeId || !startDate || !endDate || eligiblePersonnel.length === 0 || isGenerating}
+				>
+					{isGenerating ? 'Generating...' : 'Generate Roster'}
+				</button>
 			</div>
 		{/if}
 	</div>
-
-	{#snippet footer()}
-		{#if view === 'history'}
-			<button class="btn btn-secondary" onclick={() => (view = 'config')}>Back to Config</button>
-		{:else if view === 'preview'}
-			<button class="btn btn-secondary" onclick={() => (view = 'config')}> &larr; Back to Config </button>
-			<button class="btn btn-secondary" onclick={() => exportToExcel()}>
-				<svg
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					width="16"
-					height="16"
-					aria-hidden="true"
-				>
-					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-					<polyline points="14 2 14 8 20 8" />
-					<line x1="16" y1="13" x2="8" y2="13" />
-					<line x1="16" y1="17" x2="8" y2="17" />
-				</svg>
-				Export to Excel
-			</button>
-			<button
-				class="btn btn-primary"
-				onclick={applyRoster}
-				disabled={isApplying || generatedRoster.filter((r) => r.assignee).length === 0}
-			>
-				{isApplying ? 'Applying...' : 'Apply to Calendar'}
-			</button>
-		{:else}
-			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			<button
-				class="btn btn-primary"
-				onclick={generateRoster}
-				disabled={!selectedAssignmentTypeId || !startDate || !endDate || eligiblePersonnel.length === 0 || isGenerating}
-			>
-				{isGenerating ? 'Generating...' : 'Generate Roster'}
-			</button>
-		{/if}
-	{/snippet}
-</Modal>
+</section>
 
 {#if reApplyItem}
 	<ConfirmDialog
@@ -1038,15 +1091,6 @@
 {/if}
 
 <style>
-	h4 {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		margin-bottom: var(--spacing-sm);
-	}
-
 	.hint {
 		font-size: var(--font-size-xs);
 		color: var(--color-text-muted);
@@ -1063,28 +1107,146 @@
 		text-decoration: underline;
 	}
 
-	.config-section {
-		padding-bottom: var(--spacing-md);
-		margin-bottom: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
+	.generator-shell {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-lg);
 	}
 
-	.config-section:last-child {
-		border-bottom: none;
+	.generator-hero {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-lg);
+		padding: var(--section-card-padding);
+	}
+
+	.hero-copy {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.hero-copy h2,
+	.panel-header h3,
+	.sticky-actions h3 {
+		margin: 0;
+		font-family: var(--font-display);
+	}
+
+	.hero-copy h2 {
+		font-size: var(--font-size-xl);
+	}
+
+	.eyebrow {
+		margin: 0 0 var(--spacing-xs);
+		font-size: var(--font-size-xs);
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-text-muted);
+	}
+
+	.hero-description {
+		margin: var(--spacing-sm) 0 0;
+		max-width: 58ch;
+		color: var(--color-text-secondary);
+	}
+
+	.view-nav {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-xs);
+		justify-content: flex-end;
+		flex-shrink: 0;
+		margin-left: auto;
+		align-self: center;
+	}
+
+	.view-tab {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding: var(--spacing-sm) var(--spacing-md);
+		border-radius: var(--radius-full);
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		color: var(--color-text);
+		font-size: var(--font-size-sm);
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.view-tab.active {
+		border-color: var(--color-primary);
+		background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+		color: var(--color-primary);
+	}
+
+	.view-tab:disabled {
+		opacity: 0.55;
+		cursor: not-allowed;
+	}
+
+	.feedback-banner {
+		padding: var(--spacing-sm) var(--spacing-md);
+		border-radius: var(--radius-md);
+		border: 1px solid #166534;
+		background: #f0fdf4;
+		color: #166534;
+		font-size: var(--font-size-sm);
+		font-weight: 600;
+	}
+
+	.feedback-banner.error {
+		border-color: #b91c1c;
+		background: #fef2f2;
+		color: #b91c1c;
+	}
+
+	.generator-body {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-lg);
+	}
+
+	.panel-header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--spacing-md);
+		margin-bottom: var(--spacing-md);
+	}
+
+	.config-section .panel-header {
 		margin-bottom: 0;
 	}
 
-	.form-row {
+	.panel-actions {
 		display: flex;
-		gap: var(--spacing-md);
+		flex-wrap: wrap;
+		gap: var(--spacing-sm);
+		justify-content: flex-end;
 	}
 
-	.form-row .form-group {
-		flex: 1;
+	.config-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--spacing-lg);
+		align-items: stretch;
+	}
+
+	.config-main {
+		grid-column: span 2;
+	}
+
+	.config-section {
+		margin-bottom: 0;
 	}
 
 	.filter-group {
-		margin-bottom: var(--spacing-sm);
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-xs);
 	}
 
 	.chip-list {
@@ -1134,24 +1296,14 @@
 		background: var(--color-bg);
 		border-radius: var(--radius-md);
 		text-align: center;
-		margin-top: var(--spacing-xs);
+		margin-top: 0;
 	}
 
-	/* History Section */
-	.history-section {
+	.history-panel,
+	.preview-panel {
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
-	}
-
-	.history-header {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-	}
-
-	.history-header .hint {
-		margin-bottom: 0;
 	}
 
 	.history-list {
@@ -1197,6 +1349,7 @@
 
 	.history-card-actions {
 		display: flex;
+		flex-wrap: wrap;
 		gap: var(--spacing-xs);
 		flex-shrink: 0;
 	}
@@ -1242,13 +1395,6 @@
 		font-size: var(--font-size-sm);
 	}
 
-	/* Preview Section */
-	.preview-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-md);
-	}
-
 	.roster-stats {
 		display: flex;
 		gap: var(--spacing-md);
@@ -1280,7 +1426,7 @@
 	}
 
 	.roster-table-container {
-		max-height: 400px;
+		max-height: min(65vh, 700px);
 		overflow: auto;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
@@ -1331,7 +1477,7 @@
 		gap: var(--spacing-sm);
 		font-size: var(--font-size-sm);
 		cursor: pointer;
-		margin-bottom: var(--spacing-md);
+		margin-bottom: 0;
 	}
 
 	.toggle-row input[type='checkbox'] {
@@ -1418,5 +1564,40 @@
 		color: var(--color-text-muted);
 		background: var(--color-bg);
 		opacity: 0.5;
+	}
+
+	.sticky-actions {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-md);
+		position: sticky;
+		bottom: var(--spacing-md);
+	}
+
+	.sticky-actions h3 {
+		font-size: var(--font-size-lg);
+		margin-bottom: var(--spacing-xs);
+	}
+
+	@media (max-width: 900px) {
+		.generator-hero,
+		.panel-header,
+		.sticky-actions {
+			flex-direction: column;
+		}
+
+		.view-nav,
+		.panel-actions {
+			justify-content: flex-start;
+		}
+
+		.config-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.config-main {
+			grid-column: auto;
+		}
 	}
 </style>

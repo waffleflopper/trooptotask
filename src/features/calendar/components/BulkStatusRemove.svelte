@@ -30,7 +30,7 @@
 	const todayStr = formatDate(new Date());
 
 	// Selection state
-	let selectedStatusId = $state('');
+	let selectedStatusId = $state(statusTypes[0]?.id ?? '');
 	let startDate = $state(todayStr);
 	let endDate = $state(todayStr);
 	let selectedIds = $state<Set<string>>(new Set());
@@ -39,10 +39,6 @@
 	let step = $state<'select' | 'confirm'>('select');
 	let matchResult = $state<MatchResult>({ exact: [], partial: [] });
 	let isSubmitting = $state(false);
-
-	$effect(() => {
-		selectedStatusId = statusTypes[0]?.id ?? '';
-	});
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 

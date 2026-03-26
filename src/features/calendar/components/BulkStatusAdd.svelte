@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Personnel, StatusType } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
@@ -26,12 +27,8 @@
 	let { personnelByGroup, statusTypes, onApply, onComplete }: Props = $props();
 
 	const todayStr = formatDate(new Date());
-	let selectedStatusId = $state('');
+	let selectedStatusId = $state(statusTypes[0]?.id ?? '');
 	let startDate = $state(todayStr);
-
-	$effect(() => {
-		selectedStatusId = statusTypes[0]?.id ?? '';
-	});
 	let endDate = $state(todayStr);
 	let selectedIds = $state<Set<string>>(new Set());
 	let isSubmitting = $state(false);
@@ -135,6 +132,9 @@
 		isSubmitting = true;
 		try {
 			await onApply([...selectedIds], selectedStatusId, startDate, endDate, note.trim() || null);
+			const count = selectedIds.size;
+			toastStore.success(`Applied status to ${count} ${count === 1 ? 'person' : 'people'}`);
+			selectedIds = new Set();
 			onComplete();
 		} finally {
 			isSubmitting = false;

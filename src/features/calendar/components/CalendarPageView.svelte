@@ -1,5 +1,4 @@
 <script lang="ts">
-	import SettingsIcon from '$lib/components/ui/icons/SettingsIcon.svelte';
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import TodayBreakdownPanel from '$features/calendar/components/TodayBreakdownPanel.svelte';
 	import Calendar from '$features/calendar/components/Calendar.svelte';
@@ -7,7 +6,9 @@
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
 	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import SmartToolbar from '$lib/components/ui/SmartToolbar.svelte';
+	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
+	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -27,6 +28,32 @@
 	}
 
 	let { ctx, data }: Props = $props();
+
+	function getExportData() {
+		return {
+			personnelByGroup: ctx.scopedPBG,
+			availabilityEntries: availabilityStore.items,
+			statusTypes: statusTypesStore.items,
+			specialDays: specialDaysStore.items,
+			assignmentTypes: dailyAssignmentsStore.types,
+			assignments: dailyAssignmentsStore.assignments
+		};
+	}
+
+	const toolbarItems = $derived(
+		buildCalendarToolbarItems({
+			orgId: data.orgId,
+			canEditCalendar: data.permissions?.canEditCalendar ?? false,
+			canManageConfig: ctx.canManageConfig,
+			readOnly: ctx.readOnly,
+			breakdownExpanded: ctx.breakdownExpanded,
+			showStatusText: calendarPrefsStore.showStatusText,
+			onToggleBreakdown: () => ctx.toggleBreakdown(),
+			onToggleStatusText: () => calendarPrefsStore.toggleShowStatusText(),
+			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
+			onExportPDF: () => printMonthCalendar(calendarStore.year, calendarStore.month, getExportData())
+		})
+	);
 </script>
 
 <svelte:head>
@@ -34,7 +61,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Calendar" helpTopic="calendar">
+	<SmartToolbar title="Calendar" helpTopic="calendar" items={toolbarItems}>
 		<button
 			class="toolbar-toggle"
 			class:active={ctx.highlightOnboarding}
@@ -44,31 +71,10 @@
 			<span class="toggle-dot"></span>
 			Onboarding
 		</button>
-		<button
-			class="btn btn-sm"
-			class:active={ctx.breakdownExpanded}
-			data-testid="calendar-today-breakdown"
-			onclick={() => ctx.toggleBreakdown()}
-		>
-			Today's Breakdown
-		</button>
-		{#if data.permissions?.canEditCalendar && ctx.canManageConfig}
-			<a class="btn btn-sm" href={`/org/${data.orgId}/calendar/assignments`}> Assignments </a>
-		{/if}
 		{#if ctx.readOnly}
 			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
 		{/if}
-		{#if ctx.canManageConfig}
-			<a
-				href="/org/{data.orgId}/calendar/settings"
-				class="btn btn-sm btn-icon"
-				title="Calendar Settings"
-				aria-label="Calendar Settings"
-			>
-				<SettingsIcon size={16} strokeWidth={2} />
-			</a>
-		{/if}
-	</PageToolbar>
+	</SmartToolbar>
 
 	<TodayBreakdownPanel
 		expanded={ctx.breakdownExpanded}

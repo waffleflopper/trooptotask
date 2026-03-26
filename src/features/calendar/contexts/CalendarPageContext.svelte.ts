@@ -118,9 +118,9 @@ export class CalendarPageContext {
 		}
 	}
 
-	initBreakdownPreference(matchMediaFn: ((query: string) => { matches: boolean }) | null = browser
-		? window.matchMedia.bind(window)
-		: null): void {
+	initBreakdownPreference(
+		matchMediaFn: ((query: string) => { matches: boolean }) | null = browser ? window.matchMedia.bind(window) : null
+	): void {
 		if (!matchMediaFn) return;
 		this.breakdownExpanded = !matchMediaFn('(max-width: 640px)').matches;
 	}
@@ -192,5 +192,4 @@ export class CalendarPageContext {
 	closeAssignmentModal(): void {
 		this.assignmentDate = null;
 	}
-
 }

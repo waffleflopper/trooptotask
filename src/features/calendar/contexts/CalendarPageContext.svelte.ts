@@ -2,18 +2,11 @@ import type { Personnel, AvailabilityEntry } from '$lib/types';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
-import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
-import { calendarPrefsStore } from '$features/calendar/stores/calendarPrefs.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
-import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
-import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 
 // ---------------------------------------------------------------------------
 // Page data shape (subset of layout + page server data)
@@ -47,7 +40,6 @@ export class CalendarPageContext {
 	}
 
 	// ---- injected deps -----------------------------------------------------
-	readonly #modals: ModalRegistry;
 	readonly #org: OrgContext;
 
 	// ---- selection state ---------------------------------------------------
@@ -55,8 +47,12 @@ export class CalendarPageContext {
 	selectedDate = $state<Date | null>(null);
 	assignmentDate = $state<Date | null>(null);
 
+	// ---- view mode ---------------------------------------------------------
+	viewMode = $state<'month' | '3-month'>('month');
+
 	// ---- display prefs -----------------------------------------------------
 	highlightOnboarding = $state(true);
+	breakdownExpanded = $state(true);
 
 	// ---- derived: personnel ------------------------------------------------
 	get calendarPersonnel(): Personnel[] {
@@ -99,63 +95,14 @@ export class CalendarPageContext {
 		return this.scopedPBG.flatMap((g) => g.personnel);
 	}
 
-	// ---- derived: overflow menu items --------------------------------------
-	get calendarOverflowItems(): OverflowItem[] {
-		const items: OverflowItem[] = [];
-
-		// Visible actions duplicated for mobile access
-		items.push({ label: "Today's Breakdown", onclick: () => this.#modals.open('today-breakdown') });
-		items.push({ label: '3-Month View', onclick: () => this.#modals.open('long-range-view') });
-
-		// Additional tools
-		if (this.#data.permissions?.canEditCalendar) {
-			if (this.canManageConfig) {
-				items.push({
-					label: 'Bulk Operations',
-					href: `/org/${this.#data.orgId}/calendar/bulk`,
-					divider: true
-				});
-				items.push({
-					label: 'Duty Roster',
-					href: `/org/${this.#data.orgId}/calendar/duty-roster`
-				});
-			}
-		}
-
-		// Reports (owner/admin only)
-		if (this.#org.isOwner || this.#org.isAdmin) {
-			items.push({
-				label: 'Status Reports',
-				href: `/org/${this.#data.orgId}/calendar/reports`,
-				divider: true
-			});
-		}
-
-		// Export
-		items.push({ label: 'Export to Excel', onclick: () => this.handleExportCSV(), divider: true });
-		items.push({ label: 'Print / PDF', onclick: () => this.handleExportPDF() });
-
-		// Display toggle
-		items.push({
-			label: 'Show Status Text',
-			toggle: true,
-			active: calendarPrefsStore.showStatusText,
-			onclick: () => calendarPrefsStore.toggleShowStatusText(),
-			divider: true
-		});
-
-		return items;
-	}
-
 	// ---- highlight key -----------------------------------------------------
 	get highlightKey(): string {
 		return `calendar-highlight-onboarding-${this.#data.userId ?? ''}`;
 	}
 
 	// ---- constructor -------------------------------------------------------
-	constructor(getData: CalendarPageData | (() => CalendarPageData), modals: ModalRegistry, org: OrgContext) {
+	constructor(getData: CalendarPageData | (() => CalendarPageData), org: OrgContext) {
 		this.#getData = typeof getData === 'function' ? getData : () => getData;
-		this.#modals = modals;
 		this.#org = org;
 	}
 
@@ -171,6 +118,13 @@ export class CalendarPageContext {
 		}
 	}
 
+	initBreakdownPreference(
+		matchMediaFn: ((query: string) => { matches: boolean }) | null = browser ? window.matchMedia.bind(window) : null
+	): void {
+		if (!matchMediaFn) return;
+		this.breakdownExpanded = !matchMediaFn('(max-width: 640px)').matches;
+	}
+
 	/** Mark calendar as explored for Getting Started checklist. */
 	markCalendarVisited(): void {
 		if (browser) {
@@ -179,6 +133,19 @@ export class CalendarPageContext {
 	}
 
 	// ---- handlers ----------------------------------------------------------
+
+	toggleViewMode(): void {
+		this.viewMode = this.viewMode === 'month' ? '3-month' : 'month';
+	}
+
+	navigateToMonth(date: Date): void {
+		this.viewMode = 'month';
+		calendarStore.goToMonth(date.getFullYear(), date.getMonth());
+	}
+
+	toggleBreakdown(): void {
+		this.breakdownExpanded = !this.breakdownExpanded;
+	}
 
 	toggleHighlightOnboarding(): void {
 		this.highlightOnboarding = !this.highlightOnboarding;
@@ -224,27 +191,5 @@ export class CalendarPageContext {
 
 	closeAssignmentModal(): void {
 		this.assignmentDate = null;
-	}
-
-	handleExportCSV(): void {
-		exportMonthToCSV(calendarStore.year, calendarStore.month, {
-			personnelByGroup: this.scopedPBG,
-			availabilityEntries: availabilityStore.items,
-			statusTypes: statusTypesStore.items,
-			specialDays: specialDaysStore.items,
-			assignmentTypes: dailyAssignmentsStore.types,
-			assignments: dailyAssignmentsStore.assignments
-		});
-	}
-
-	handleExportPDF(): void {
-		printMonthCalendar(calendarStore.year, calendarStore.month, {
-			personnelByGroup: this.scopedPBG,
-			availabilityEntries: availabilityStore.items,
-			statusTypes: statusTypesStore.items,
-			specialDays: specialDaysStore.items,
-			assignmentTypes: dailyAssignmentsStore.types,
-			assignments: dailyAssignmentsStore.assignments
-		});
 	}
 }

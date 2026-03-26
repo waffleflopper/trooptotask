@@ -1,9 +1,14 @@
 <script lang="ts">
-	import SettingsIcon from '$lib/components/ui/icons/SettingsIcon.svelte';
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
+	import TodayBreakdownPanel from '$features/calendar/components/TodayBreakdownPanel.svelte';
 	import Calendar from '$features/calendar/components/Calendar.svelte';
+	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
-	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
+	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
+	import SmartToolbar from '$lib/components/ui/SmartToolbar.svelte';
+	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
+	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -11,12 +16,10 @@
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarPrefsStore } from '$features/calendar/stores/calendarPrefs.svelte';
-
-	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+	import { groupsStore } from '$lib/stores/groups.svelte';
 
 	interface Props {
 		ctx: CalendarPageContext;
-		modals: ModalRegistry;
 		data: {
 			orgId: string;
 			orgName: string;
@@ -24,7 +27,33 @@
 		};
 	}
 
-	let { ctx, modals, data }: Props = $props();
+	let { ctx, data }: Props = $props();
+
+	function getExportData() {
+		return {
+			personnelByGroup: ctx.scopedPBG,
+			availabilityEntries: availabilityStore.items,
+			statusTypes: statusTypesStore.items,
+			specialDays: specialDaysStore.items,
+			assignmentTypes: dailyAssignmentsStore.types,
+			assignments: dailyAssignmentsStore.assignments
+		};
+	}
+
+	const toolbarItems = $derived(
+		buildCalendarToolbarItems({
+			orgId: data.orgId,
+			canEditCalendar: data.permissions?.canEditCalendar ?? false,
+			canManageConfig: ctx.canManageConfig,
+			readOnly: ctx.readOnly,
+			breakdownExpanded: ctx.breakdownExpanded,
+			showStatusText: calendarPrefsStore.showStatusText,
+			onToggleBreakdown: () => ctx.toggleBreakdown(),
+			onToggleStatusText: () => calendarPrefsStore.toggleShowStatusText(),
+			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
+			onExportPDF: () => printMonthCalendar(calendarStore.year, calendarStore.month, getExportData())
+		})
+	);
 </script>
 
 <svelte:head>
@@ -32,7 +61,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Calendar" helpTopic="calendar" overflowItems={ctx.calendarOverflowItems}>
+	<SmartToolbar title="Calendar" helpTopic="calendar" items={toolbarItems}>
 		<button
 			class="toolbar-toggle"
 			class:active={ctx.highlightOnboarding}
@@ -42,27 +71,20 @@
 			<span class="toggle-dot"></span>
 			Onboarding
 		</button>
-		<button class="btn btn-sm" data-testid="calendar-today-breakdown" onclick={() => modals.open('today-breakdown')}>
-			Today's Breakdown
-		</button>
-		{#if data.permissions?.canEditCalendar && ctx.canManageConfig}
-			<a class="btn btn-sm" href={`/org/${data.orgId}/calendar/assignments`}> Assignments </a>
-		{/if}
-		<button class="btn btn-sm" onclick={() => modals.open('long-range-view')}> 3-Month View </button>
 		{#if ctx.readOnly}
 			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
 		{/if}
-		{#if ctx.canManageConfig}
-			<a
-				href="/org/{data.orgId}/calendar/settings"
-				class="btn btn-sm btn-icon"
-				title="Calendar Settings"
-				aria-label="Calendar Settings"
-			>
-				<SettingsIcon size={16} strokeWidth={2} />
-			</a>
-		{/if}
-	</PageToolbar>
+	</SmartToolbar>
+
+	<TodayBreakdownPanel
+		expanded={ctx.breakdownExpanded}
+		onToggle={() => ctx.toggleBreakdown()}
+		personnelByGroup={ctx.personnelByGroup}
+		availabilityEntries={availabilityStore.items}
+		statusTypes={statusTypesStore.items}
+		assignmentTypes={dailyAssignmentsStore.types}
+		assignments={dailyAssignmentsStore.assignments}
+	/>
 
 	{#if !data.permissions?.canViewCalendar}
 		<div class="no-permission">
@@ -72,35 +94,76 @@
 	{:else}
 		<main class="page-content">
 			<section class="calendar-section">
-				<Calendar
-					year={calendarStore.year}
-					monthName={calendarStore.monthName}
-					dates={calendarStore.dates}
-					personnelByGroup={ctx.personnelByGroup}
-					availabilityEntries={availabilityStore.items}
-					statusTypes={statusTypesStore.items}
-					specialDays={specialDaysStore.items}
-					pinnedGroups={pinnedGroupsStore.list}
-					assignmentTypes={dailyAssignmentsStore.types}
-					assignments={dailyAssignmentsStore.assignments}
-					activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
-					highlightOnboarding={ctx.highlightOnboarding}
-					canEdit={data.permissions?.canEditCalendar ?? false}
-					showStatusText={calendarPrefsStore.showStatusText}
-					personnelHref={`/org/${data.orgId}/personnel`}
-					onPrevMonth={() => calendarStore.prevMonth()}
-					onNextMonth={() => calendarStore.nextMonth()}
-					onGoToToday={() => calendarStore.goToToday()}
-					onCellClick={(person, date) => ctx.handleCellClick(person, date)}
-					onPersonClick={(person) => ctx.handlePersonClick(person)}
-					onPinToggle={(group) => ctx.handlePinToggle(group)}
-					onDateClick={(date) => ctx.handleDateClick(date)}
-				/>
-				<StatusLegend statusTypes={statusTypesStore.items} />
+				{#if ctx.viewMode === '3-month'}
+					<LongRangeView
+						startDate={calendarStore.currentDate}
+						personnelByGroup={ctx.scopedPBG}
+						availabilityEntries={availabilityStore.items}
+						statusTypes={statusTypesStore.items}
+						specialDays={specialDaysStore.items}
+						assignmentTypes={dailyAssignmentsStore.types}
+						assignments={dailyAssignmentsStore.assignments}
+						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
+						onToggleViewMode={() => ctx.toggleViewMode()}
+					/>
+				{:else}
+					<Calendar
+						year={calendarStore.year}
+						monthName={calendarStore.monthName}
+						dates={calendarStore.dates}
+						personnelByGroup={ctx.personnelByGroup}
+						availabilityEntries={availabilityStore.items}
+						statusTypes={statusTypesStore.items}
+						specialDays={specialDaysStore.items}
+						pinnedGroups={pinnedGroupsStore.list}
+						assignmentTypes={dailyAssignmentsStore.types}
+						assignments={dailyAssignmentsStore.assignments}
+						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
+						highlightOnboarding={ctx.highlightOnboarding}
+						canEdit={data.permissions?.canEditCalendar ?? false}
+						showStatusText={calendarPrefsStore.showStatusText}
+						personnelHref={`/org/${data.orgId}/personnel`}
+						onPrevMonth={() => calendarStore.prevMonth()}
+						onNextMonth={() => calendarStore.nextMonth()}
+						onGoToToday={() => calendarStore.goToToday()}
+						onCellClick={(person, date) => ctx.handleCellClick(person, date)}
+						onPersonClick={(person) => ctx.handlePersonClick(person)}
+						onPinToggle={(group) => ctx.handlePinToggle(group)}
+						onDateClick={(date) => ctx.handleDateClick(date)}
+						viewMode={ctx.viewMode}
+						onToggleViewMode={() => ctx.toggleViewMode()}
+					/>
+					<StatusLegend statusTypes={statusTypesStore.items} />
+				{/if}
 			</section>
 		</main>
 	{/if}
 </div>
+
+{#if ctx.selectedPerson && ctx.selectedDate}
+	<AvailabilityModal
+		person={ctx.selectedPerson}
+		date={ctx.selectedDate}
+		statusTypes={statusTypesStore.items}
+		existingEntries={availabilityStore.items}
+		onAdd={(entry) => ctx.handleAddAvailability(entry)}
+		onRemove={(id) => ctx.handleRemoveAvailability(id)}
+		onClose={() => ctx.closeAvailabilityModal()}
+	/>
+{/if}
+
+{#if ctx.assignmentDate}
+	<DailyAssignmentModal
+		date={ctx.assignmentDate}
+		assignmentTypes={dailyAssignmentsStore.types}
+		assignments={dailyAssignmentsStore.assignments}
+		personnelByGroup={ctx.personnelByGroup}
+		groups={groupsStore.names}
+		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
+		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
+		onClose={() => ctx.closeAssignmentModal()}
+	/>
+{/if}
 
 <style>
 	.page {

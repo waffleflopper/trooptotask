@@ -59,10 +59,10 @@
 				href="/org/{data.orgId}/calendar/settings"
 				class="btn btn-sm btn-icon"
 				title="Calendar Settings"
-				aria-label="Calendar Settings">
-				<SettingsIcon size={16} strokeWidth={2} />
-			</a
+				aria-label="Calendar Settings"
 			>
+				<SettingsIcon size={16} strokeWidth={2} />
+			</a>
 		{/if}
 	</PageToolbar>
 

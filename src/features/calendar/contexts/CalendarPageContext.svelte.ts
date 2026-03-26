@@ -12,7 +12,6 @@ import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
 import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
-import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 
 // ---------------------------------------------------------------------------
@@ -47,7 +46,6 @@ export class CalendarPageContext {
 	}
 
 	// ---- injected deps -----------------------------------------------------
-	readonly #modals: ModalRegistry;
 	readonly #org: OrgContext;
 
 	// ---- selection state ---------------------------------------------------
@@ -156,9 +154,8 @@ export class CalendarPageContext {
 	}
 
 	// ---- constructor -------------------------------------------------------
-	constructor(getData: CalendarPageData | (() => CalendarPageData), modals: ModalRegistry, org: OrgContext) {
+	constructor(getData: CalendarPageData | (() => CalendarPageData), org: OrgContext) {
 		this.#getData = typeof getData === 'function' ? getData : () => getData;
-		this.#modals = modals;
 		this.#org = org;
 	}
 

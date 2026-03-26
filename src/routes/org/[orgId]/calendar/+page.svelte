@@ -9,7 +9,7 @@
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
-	const ctx = new CalendarPageContext(() => data, modals, org);
+	const ctx = new CalendarPageContext(() => data, org);
 
 	$effect(() => {
 		ctx.initBreakdownPreference();
@@ -22,5 +22,5 @@
 	});
 </script>
 
-<CalendarPageView {ctx} {modals} {data} />
+<CalendarPageView {ctx} {data} />
 <CalendarModals {ctx} {modals} orgId={data.orgId} />

@@ -14,11 +14,8 @@
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarPrefsStore } from '$features/calendar/stores/calendarPrefs.svelte';
 
-	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-
 	interface Props {
 		ctx: CalendarPageContext;
-		modals: ModalRegistry;
 		data: {
 			orgId: string;
 			orgName: string;
@@ -26,7 +23,7 @@
 		};
 	}
 
-	let { ctx, modals, data }: Props = $props();
+	let { ctx, data }: Props = $props();
 </script>
 
 <svelte:head>

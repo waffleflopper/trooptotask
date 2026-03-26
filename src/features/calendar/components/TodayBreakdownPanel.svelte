@@ -275,7 +275,7 @@
 	.chip-warning {
 		color: var(--color-warning);
 		border-color: var(--color-warning-light);
-		background: rgba(255, 152, 0, var(--opacity-subtle));
+		background: rgba(var(--color-warning-rgb), var(--opacity-subtle));
 	}
 
 	/* ---- Gaps / flags ---- */

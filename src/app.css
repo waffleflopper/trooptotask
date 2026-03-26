@@ -38,6 +38,7 @@
 	--color-success-light: #81c784;
 	--color-warning: #ff9800;
 	--color-warning-light: #ffb74d;
+	--color-warning-rgb: 255, 152, 0;
 	--color-error: #f44336;
 	--color-error-light: #e57373;
 	--color-error-rgb: 244, 67, 54;
@@ -53,6 +54,7 @@
 	--color-today-bg: #f5f0e0;
 	--color-onboarding-tint: rgba(184, 148, 62, 0.12);
 	--color-primary-tint: rgba(var(--color-primary-rgb), var(--opacity-light));
+	--color-warning-tint: rgba(var(--color-warning-rgb), var(--opacity-light));
 	--color-error-tint: rgba(var(--color-error-rgb), var(--opacity-light));
 	--color-destructive-tint: rgba(var(--color-destructive-rgb), var(--opacity-light));
 
@@ -201,6 +203,7 @@
 	--color-today-bg: #2a2418;
 	--color-onboarding-tint: rgba(184, 148, 62, 0.15);
 	--color-primary-tint: rgba(var(--color-primary-rgb), var(--opacity-light));
+	--color-warning-tint: rgba(var(--color-warning-rgb), var(--opacity-light));
 	--color-error-tint: rgba(var(--color-error-rgb), var(--opacity-light));
 	--color-destructive-tint: rgba(var(--color-destructive-rgb), var(--opacity-light));
 

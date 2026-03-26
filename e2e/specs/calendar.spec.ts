@@ -63,4 +63,26 @@ test.describe('Calendar & Status', () => {
 
 		await calendarPage.expectTodayBreakdownExpanded(false);
 	});
+
+	test('smart toolbar re-expands items after the viewport grows again', async ({ ownerPage, orgId }) => {
+		await ownerPage.setViewportSize({ width: 1400, height: 900 });
+
+		calendarPage = new CalendarPage(ownerPage);
+		await calendarPage.goto(orgId);
+
+		await expect(calendarPage.bulkStatusButton).toBeVisible();
+		await expect(calendarPage.planningButton).toBeVisible();
+		await expect(calendarPage.moreActionsButton).toBeVisible();
+
+		await ownerPage.setViewportSize({ width: 390, height: 844 });
+		await expect(calendarPage.bulkStatusButton).toBeHidden();
+		await expect(calendarPage.planningButton).toBeHidden();
+		await calendarPage.moreActionsButton.click();
+		await expect(ownerPage.getByRole('menu').getByText('Bulk Status')).toBeVisible();
+		await expect(ownerPage.getByRole('menuitem', { name: 'Add Bulk' })).toBeVisible();
+
+		await ownerPage.setViewportSize({ width: 1400, height: 900 });
+		await expect(calendarPage.bulkStatusButton).toBeVisible();
+		await expect(calendarPage.planningButton).toBeVisible();
+	});
 });

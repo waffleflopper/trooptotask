@@ -4,9 +4,16 @@
 	interface Props {
 		items: SmartToolbarItem[];
 		narrow?: boolean;
+		title?: string;
+		helpTopic?: string;
+		childContent?: string;
 	}
 
-	let { items, narrow }: Props = $props();
+	let { items, narrow, title, helpTopic, childContent }: Props = $props();
 </script>
 
-<SmartToolbar {items} {narrow} />
+<SmartToolbar {items} {narrow} {title} {helpTopic}>
+	{#if childContent}
+		<span>{childContent}</span>
+	{/if}
+</SmartToolbar>

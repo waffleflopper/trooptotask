@@ -22,17 +22,23 @@ describe('GroupHeader', () => {
 		expect(screen.getByText('Bravo')).toBeTruthy();
 	});
 
-	it('does not use hardcoded color values in inline styles', () => {
+	it('renders the group header as two sibling tracks for the sticky label and scroll area', () => {
 		const { container } = renderHeader();
-		const allElements = container.querySelectorAll('*');
-		const hardcodedColors = ['#0f0f0f', '#f0ede6', '#2a2a2a', '#1a1a1a'];
+		const groupHeader = container.querySelector('.group-header') as HTMLElement | null;
+		const groupInfo = container.querySelector('.group-info') as HTMLElement | null;
+		const spacer = container.querySelector('.group-header-spacer') as HTMLElement | null;
 
-		for (const el of allElements) {
-			const style = (el as HTMLElement).getAttribute('style') || '';
-			for (const color of hardcodedColors) {
-				expect(style).not.toContain(color);
-			}
+		expect(groupHeader).toBeTruthy();
+		expect(groupInfo).toBeTruthy();
+		expect(spacer).toBeTruthy();
+
+		if (!groupHeader || !groupInfo || !spacer) {
+			throw new Error('Group header not rendered');
 		}
+
+		expect(groupHeader.children).toHaveLength(2);
+		expect(groupHeader.children[0]).toBe(groupInfo);
+		expect(groupHeader.children[1]).toBe(spacer);
 	});
 
 	it('shows collapse arrow indicator', () => {

@@ -79,9 +79,13 @@
 		titleTestId="calendar-month-label"
 	/>
 
-	<div class="date-headers" bind:this={dateHeadersEl} style="padding-right: {scrollbarWidth}px">
-		<div class="personnel-header-spacer">Personnel</div>
-		<div class="date-columns">
+	<div
+		class="date-headers"
+		bind:this={dateHeadersEl}
+		style="padding-right: {scrollbarWidth}px; --dates-count: {dates.length};"
+	>
+		<div class="date-headers-grid">
+			<div class="personnel-header-spacer">Personnel</div>
 			{#each dates as date (formatDate(date))}
 				{@const holiday = isHoliday(date)}
 				{@const headerAssignment = getHeaderAssignment(date)}
@@ -115,40 +119,31 @@
 	}
 
 	.date-headers {
-		display: flex;
-		overflow-x: auto;
-		scrollbar-width: none; /* Firefox */
-		-ms-overflow-style: none; /* IE/Edge */
+		overflow: hidden;
 	}
 
-	.date-headers::-webkit-scrollbar {
-		display: none; /* Chrome/Safari */
+	.date-headers-grid {
+		display: grid;
+		grid-template-columns: var(--personnel-column-width) repeat(var(--dates-count), minmax(var(--cell-width), 1fr));
+		width: 100%;
+		min-width: calc(var(--personnel-column-width) + (var(--cell-width) * var(--dates-count)));
 	}
 
 	.personnel-header-spacer {
-		width: var(--personnel-column-width);
-		min-width: var(--personnel-column-width);
 		padding: var(--spacing-sm);
 		font-weight: 600;
 		font-size: var(--font-size-sm);
 		background: var(--color-surface);
 		border-right: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-border);
 		position: sticky;
 		left: 0;
 		z-index: 3;
 		color: var(--color-text);
 	}
 
-	.date-columns {
-		display: flex;
-		flex: 1;
-	}
-
 	.date-header {
-		flex: 1 1 0;
-		min-width: var(--cell-width);
-		max-width: none;
-		width: 0; /* Force flex-basis behavior */
+		min-width: 0;
 		overflow: hidden;
 		padding: var(--spacing-xs) 0;
 		text-align: center;

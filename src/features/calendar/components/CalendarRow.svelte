@@ -109,52 +109,55 @@
 			{/if}
 		</div>
 	</button>
-	<div class="date-cells">
-		{#each dates as date (formatDate(date))}
-			{@const dateStr = formatDate(date)}
-			{@const specialDay = specialDayMap.get(dateStr)}
-			<DateCell
-				{date}
-				isWeekend={isWeekend(date)}
-				isToday={isToday(date)}
-				isHoliday={!!specialDay}
-				holidayName={specialDay?.name}
-				entries={availabilityByDate.get(dateStr) ?? []}
-				{statusTypeMap}
-				assignments={assignmentsByDate.get(dateStr) ?? []}
-				{showStatusText}
-				isOnboarding={isOnboarding && highlightOnboarding}
-				onclick={() => handleCellClick(date)}
-			/>
-		{/each}
-	</div>
+	{#each dates as date (formatDate(date))}
+		{@const dateStr = formatDate(date)}
+		{@const specialDay = specialDayMap.get(dateStr)}
+		<DateCell
+			{date}
+			isWeekend={isWeekend(date)}
+			isToday={isToday(date)}
+			isHoliday={!!specialDay}
+			holidayName={specialDay?.name}
+			entries={availabilityByDate.get(dateStr) ?? []}
+			{statusTypeMap}
+			assignments={assignmentsByDate.get(dateStr) ?? []}
+			{showStatusText}
+			isOnboarding={isOnboarding && highlightOnboarding}
+			onclick={() => handleCellClick(date)}
+		/>
+	{/each}
 </div>
 
 <style>
 	.personnel-row {
-		display: flex;
+		display: grid;
+		grid-template-columns: var(--personnel-column-width) repeat(var(--dates-count), minmax(var(--cell-width), 1fr));
+		width: 100%;
+		min-width: calc(var(--personnel-column-width) + (var(--cell-width) * var(--dates-count)));
 		align-items: stretch;
-		border-bottom: 1px solid var(--color-border);
 	}
 
-	.personnel-row:last-child {
+	.personnel-row:last-child .personnel-info {
 		border-bottom: none;
 	}
 
 	.personnel-info {
-		width: var(--personnel-column-width);
-		min-width: var(--personnel-column-width);
 		padding: var(--spacing-xs) var(--spacing-sm);
 		display: flex;
 		align-items: flex-start;
 		gap: var(--spacing-sm);
 		background: var(--color-surface);
 		border-right: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-border);
 		position: sticky;
 		left: 0;
-		z-index: 2;
+		z-index: 3;
 		text-align: left;
 		cursor: pointer;
+	}
+
+	.personnel-row:last-child :global(.date-cell) {
+		border-bottom: none;
 	}
 
 	.personnel-info:hover {
@@ -207,17 +210,9 @@
 		white-space: nowrap;
 	}
 
-	.date-cells {
-		display: flex;
-		flex: 1;
-		align-items: stretch;
-	}
-
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
 		.personnel-info {
-			width: var(--personnel-column-width);
-			min-width: var(--personnel-column-width);
 			padding: var(--spacing-xs);
 		}
 
@@ -237,11 +232,6 @@
 
 	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.personnel-info {
-			width: var(--personnel-column-width);
-			min-width: var(--personnel-column-width);
-		}
-
 		.role {
 			font-size: 9px;
 		}

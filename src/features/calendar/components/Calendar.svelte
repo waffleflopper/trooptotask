@@ -163,44 +163,46 @@
 	/>
 
 	<div class="calendar-body" style="--dates-count: {dates.length};" bind:this={calendarBodyEl} onscroll={handleScroll}>
-		{#if totalPersonnel === 0}
-			<div class="empty-state">
-				<p>No personnel added yet.</p>
-				{#if personnelHref}
-					<a class="btn btn-primary btn-sm" href={personnelHref}>Go to Personnel</a>
-				{:else}
-					<p>Go to Personnel to add people to your roster.</p>
-				{/if}
-			</div>
-		{:else}
-			{#each personnelByGroup as grp (grp.group)}
-				<GroupHeader
-					groupName={grp.group}
-					isCollapsed={collapsedGroups.has(grp.group)}
-					isPinned={pinnedGroups.includes(grp.group)}
-					onToggle={() => toggleGroup(grp.group)}
-					onPinToggle={() => onPinToggle?.(grp.group)}
-				/>
-				{#if !collapsedGroups.has(grp.group)}
-					{#each grp.personnel as person (person.id)}
-						<CalendarRow
-							{person}
-							{dates}
-							personAvailability={availabilityByPerson.get(person.id) ?? []}
-							{statusTypeMap}
-							{specialDays}
-							{assignmentTypes}
-							personAssignments={assignmentsByPerson.get(person.id) ?? []}
-							{showStatusText}
-							isOnboarding={onboardingSet.has(person.id)}
-							{highlightOnboarding}
-							onCellClick={canEdit ? onCellClick : undefined}
-							{onPersonClick}
-						/>
-					{/each}
-				{/if}
-			{/each}
-		{/if}
+		<div class="calendar-grid">
+			{#if totalPersonnel === 0}
+				<div class="empty-state">
+					<p>No personnel added yet.</p>
+					{#if personnelHref}
+						<a class="btn btn-primary btn-sm" href={personnelHref}>Go to Personnel</a>
+					{:else}
+						<p>Go to Personnel to add people to your roster.</p>
+					{/if}
+				</div>
+			{:else}
+				{#each personnelByGroup as grp (grp.group)}
+					<GroupHeader
+						groupName={grp.group}
+						isCollapsed={collapsedGroups.has(grp.group)}
+						isPinned={pinnedGroups.includes(grp.group)}
+						onToggle={() => toggleGroup(grp.group)}
+						onPinToggle={() => onPinToggle?.(grp.group)}
+					/>
+					{#if !collapsedGroups.has(grp.group)}
+						{#each grp.personnel as person (person.id)}
+							<CalendarRow
+								{person}
+								{dates}
+								personAvailability={availabilityByPerson.get(person.id) ?? []}
+								{statusTypeMap}
+								{specialDays}
+								{assignmentTypes}
+								personAssignments={assignmentsByPerson.get(person.id) ?? []}
+								{showStatusText}
+								isOnboarding={onboardingSet.has(person.id)}
+								{highlightOnboarding}
+								onCellClick={canEdit ? onCellClick : undefined}
+								{onPersonClick}
+							/>
+						{/each}
+					{/if}
+				{/each}
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -218,6 +220,15 @@
 	.calendar-body {
 		flex: 1;
 		overflow: auto;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior: contain;
+	}
+
+	.calendar-grid {
+		display: flex;
+		flex-direction: column;
+		min-width: 100%;
+		min-height: 100%;
 	}
 
 	.empty-state {

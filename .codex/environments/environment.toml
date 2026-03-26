@@ -33,3 +33,8 @@ npm run lint
 npm run check
 npm run format
 '''
+
+[[actions]]
+name = "pull"
+icon = "debug"
+command = "git checkout main && git pull"

@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-26-calendar-grid-polish',
+		date: '2026-03-26',
+		title: 'Calendar Grid Scrolling Feels Less Janky',
+		items: [
+			'Cleaned up the calendar grid so row lines no longer stack on top of each other and create that double-border look',
+			'Improved horizontal scrolling so the personnel column is meant to stay anchored while you move across the month, especially on smaller screens',
+			'Tightened up the calendar layout under the hood so the header and body stay lined up better while you scroll'
+		]
+	},
+	{
 		id: '2026-03-25-assignment-planner-page',
 		date: '2026-03-25',
 		title: 'Assignment Planning Has Its Own Page Now',
@@ -45,17 +55,6 @@ export const changelog: ChangelogEntry[] = [
 			'Fixed a bug where training steps showed as incomplete in the Onboarding Report even when they were actually done — the report now correctly reflects training completion status',
 			'The Onboarding Report can now be filtered by template, so you can focus on just the in-processing checklist for medics, officers, or whatever templates you have set up',
 			'Training steps now show the associated training type name in parentheses when it differs from the step name — so if your "NREMT" onboarding step is tied to the "Credentials/License" training column, you can see both at a glance'
-		]
-	},
-	{
-		id: '2026-03-22-under-the-hood',
-		date: '2026-03-22',
-		title: 'Under the Hood Improvements',
-		items: [
-			'Made a bunch of behind-the-scenes changes to improve how the app handles requests — things should feel snappier and more reliable overall',
-			'Tightened up error handling so the app recovers more gracefully when something goes wrong instead of showing a confusing error page',
-			'Improved how bulk operations (like importing personnel or updating assignments) handle edge cases — fewer surprises when working with large batches',
-			"If you run into anything weird or notice something that doesn't look right, please don't hesitate to report it — we'll make it a high priority to fix"
 		]
 	}
 ];

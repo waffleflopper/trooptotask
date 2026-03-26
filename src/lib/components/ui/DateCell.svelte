@@ -102,10 +102,8 @@
 
 <style>
 	.date-cell {
-		flex: 1 1 0;
-		width: 0; /* Force flex-basis behavior */
 		min-height: var(--cell-height);
-		min-width: var(--cell-width);
+		min-width: 0;
 		overflow: hidden;
 		border-right: 1px solid var(--color-border);
 		border-bottom: 1px solid var(--color-border);

@@ -133,7 +133,10 @@
 			<div class="grid-header">
 				<div class="name-cell header-cell">Personnel</div>
 				{#each months as month}
-					<div class="month-header" style="width: {month.dates.length * COL_WIDTH}px; min-width: {month.dates.length * COL_WIDTH}px;">
+					<div
+						class="month-header"
+						style="width: {month.dates.length * COL_WIDTH}px; min-width: {month.dates.length * COL_WIDTH}px;"
+					>
 						{month.name}
 						{month.year}
 					</div>

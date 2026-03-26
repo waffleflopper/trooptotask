@@ -89,16 +89,16 @@
 		gap: var(--spacing-xs);
 		padding: var(--spacing-xs) var(--spacing-sm);
 		font-size: var(--font-size-sm);
-		font-weight: 500;
+		font-weight: var(--font-weight-medium);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		background: var(--color-surface);
 		color: var(--color-text-muted);
 		cursor: pointer;
 		transition:
-			background-color 0.15s ease,
-			border-color 0.15s ease,
-			color 0.15s ease;
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.view-toggle:hover {

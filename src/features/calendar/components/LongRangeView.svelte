@@ -11,6 +11,9 @@
 	import { exportQuarterToCSV, printQuarterCalendar } from '../utils/calendarExport';
 	import CalendarNavigation from './CalendarNavigation.svelte';
 
+	/** Must match --long-range-col-width in CSS */
+	const COL_WIDTH = 24;
+
 	interface GroupData {
 		group: string;
 		personnel: Personnel[];
@@ -130,7 +133,7 @@
 			<div class="grid-header">
 				<div class="name-cell header-cell">Personnel</div>
 				{#each months as month}
-					<div class="month-header" style="width: {month.dates.length * 24}px; min-width: {month.dates.length * 24}px;">
+					<div class="month-header" style="width: {month.dates.length * COL_WIDTH}px; min-width: {month.dates.length * COL_WIDTH}px;">
 						{month.name}
 						{month.year}
 					</div>
@@ -254,6 +257,7 @@
 <style>
 	/* Inline layout: fills parent container */
 	.long-range-wrapper {
+		--long-range-col-width: 24px;
 		flex: 1;
 		display: flex;
 		flex-direction: column;
@@ -292,7 +296,7 @@
 		position: sticky;
 		top: 29px; /* Height of grid-header */
 		z-index: 9;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		box-shadow: var(--shadow-1);
 	}
 
 	.name-cell {
@@ -341,20 +345,20 @@
 	}
 
 	.day-cell {
-		width: 24px;
-		min-width: 24px;
-		max-width: 24px;
+		width: var(--long-range-col-width);
+		min-width: var(--long-range-col-width);
+		max-width: var(--long-range-col-width);
 		flex-shrink: 0;
 		height: 32px;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		font-size: 10px;
+		font-size: var(--font-size-xs);
 		border-left: 1px solid var(--color-border);
 		background: var(--color-surface);
 		cursor: pointer;
-		transition: background-color 0.1s ease;
+		transition: background-color var(--transition-fast);
 	}
 
 	.day-cell:hover {
@@ -458,7 +462,7 @@
 		width: 6px;
 		height: 6px;
 		border-radius: 50%;
-		background: rgba(255, 255, 255, 0.5);
+		background: rgba(255, 255, 255, var(--opacity-heavy));
 	}
 
 	/* Legend bar */

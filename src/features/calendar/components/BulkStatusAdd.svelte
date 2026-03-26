@@ -122,9 +122,7 @@
 		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 	});
 
-	const isValid = $derived(
-		selectedStatusId && startDate && endDate && startDate <= endDate && selectedIds.size > 0
-	);
+	const isValid = $derived(selectedStatusId && startDate && endDate && startDate <= endDate && selectedIds.size > 0);
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
 
 	function formatDateDisplay(dateStr: string): string {
@@ -250,12 +248,7 @@
 						onchange={() => toggleGroup(ctx.key)}
 						onclick={(e) => e.stopPropagation()}
 					/>
-					<svg
-						class="chevron-icon"
-						class:collapsed={ctx.collapsed}
-						viewBox="0 0 20 20"
-						fill="currentColor"
-					>
+					<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
 						<path
 							fill-rule="evenodd"
 							d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
@@ -288,10 +281,7 @@
 	<div class="panel-footer">
 		<div class="footer-summary">
 			{#if selectedIds.size > 0 && selectedStatus && !dateError}
-				<span
-					class="summary-badge"
-					style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-				>
+				<span class="summary-badge" style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}">
 					{selectedStatus.name}
 				</span>
 				<span class="summary-text">

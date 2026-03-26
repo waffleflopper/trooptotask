@@ -256,5 +256,4 @@ export class CalendarPageContext {
 			assignments: dailyAssignmentsStore.assignments
 		});
 	}
-
 }

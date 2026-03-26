@@ -3,8 +3,6 @@
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-	import { dutyRosterHistoryStore } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
-
 	let { children, data } = $props();
 
 	// Guard against parent-only invalidation re-running this effect.
@@ -23,7 +21,6 @@
 			data.dailyAssignments,
 			data.specialDays,
 			data.assignmentTypes,
-			data.rosterHistory,
 			data.pinnedGroups,
 			data.orgId
 		];
@@ -36,7 +33,6 @@
 		specialDaysStore.load(data.specialDays, data.orgId);
 		dailyAssignmentsStore.load(data.assignmentTypes, data.dailyAssignments, data.orgId);
 		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
-		dutyRosterHistoryStore.load(data.rosterHistory);
 	});
 </script>
 

@@ -129,9 +129,7 @@
 		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 	});
 
-	const isValid = $derived(
-		selectedStatusId && startDate && endDate && startDate <= endDate && selectedIds.size > 0
-	);
+	const isValid = $derived(selectedStatusId && startDate && endDate && startDate <= endDate && selectedIds.size > 0);
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
 	const personnelMap = $derived(new Map(personnelList.map((p) => [p.id, p])));
 
@@ -268,9 +266,7 @@
 				>
 					{#snippet toolbar(_state)}
 						<div class="selection-toolbar">
-							<span class="selected-count"
-								>{selectedIds.size} of {allPersonnel.length} selected</span
-							>
+							<span class="selected-count">{selectedIds.size} of {allPersonnel.length} selected</span>
 							<div class="selection-actions">
 								<button class="btn btn-secondary btn-sm" onclick={selectAll}>All</button>
 								<button class="btn btn-secondary btn-sm" onclick={selectNone}>None</button>
@@ -288,12 +284,7 @@
 								onchange={() => toggleGroup(ctx.key)}
 								onclick={(e) => e.stopPropagation()}
 							/>
-							<svg
-								class="chevron-icon"
-								class:collapsed={ctx.collapsed}
-								viewBox="0 0 20 20"
-								fill="currentColor"
-							>
+							<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
 								<path
 									fill-rule="evenodd"
 									d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
@@ -350,8 +341,7 @@
 								/>
 							</svg>
 							<span class="match-count">{matchResult.partial.length}</span>
-							partial {matchResult.partial.length === 1 ? 'overlap' : 'overlaps'} will also be removed
-							entirely
+							partial {matchResult.partial.length === 1 ? 'overlap' : 'overlaps'} will also be removed entirely
 						</h4>
 						<p class="partial-explanation">These entries extend beyond your selected date range:</p>
 						<div class="partial-list">
@@ -359,9 +349,7 @@
 								<div class="partial-item">
 									<span class="partial-person">{getPersonName(entry.personnelId)}</span>
 									<span class="partial-dates"
-										>{formatDateDisplay(entry.startDate)} – {formatDateDisplay(
-											entry.endDate
-										)}</span
+										>{formatDateDisplay(entry.startDate)} – {formatDateDisplay(entry.endDate)}</span
 									>
 								</div>
 							{/each}
@@ -371,8 +359,7 @@
 
 				<div class="total-summary">
 					<strong>{matchResult.exact.length + matchResult.partial.length}</strong>
-					total {matchResult.exact.length + matchResult.partial.length === 1 ? 'entry' : 'entries'} will
-					be permanently removed.
+					total {matchResult.exact.length + matchResult.partial.length === 1 ? 'entry' : 'entries'} will be permanently removed.
 				</div>
 			{/if}
 		</div>
@@ -400,9 +387,7 @@
 				{/if}
 			</div>
 			<div class="footer-actions">
-				<button class="btn btn-danger" disabled={!isValid} onclick={handleFindMatching}>
-					Find Matching
-				</button>
+				<button class="btn btn-danger" disabled={!isValid} onclick={handleFindMatching}> Find Matching </button>
 			</div>
 		{:else}
 			<button class="btn btn-secondary" onclick={handleBack}>Back</button>

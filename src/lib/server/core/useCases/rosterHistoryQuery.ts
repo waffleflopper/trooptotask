@@ -7,15 +7,10 @@ export async function fetchRosterHistory(ctx: UseCaseContext): Promise<RosterHis
 
 	const orgId = ctx.auth.orgId;
 
-	const rows = await ctx.store.findMany<Record<string, unknown>>(
-		'duty_roster_history',
-		orgId,
-		undefined,
-		{
-			orderBy: [{ column: 'created_at', ascending: false }],
-			limit: 50
-		}
-	);
+	const rows = await ctx.store.findMany<Record<string, unknown>>('duty_roster_history', orgId, undefined, {
+		orderBy: [{ column: 'created_at', ascending: false }],
+		limit: 50
+	});
 
 	return RosterHistoryEntity.fromDbArray(rows);
 }

@@ -191,7 +191,7 @@ export interface AssignmentType {
 	assignTo: 'personnel' | 'group';
 	color: string;
 	exemptPersonnelIds: string[];
-	showInDateHeader?: boolean;
+	showInDateHeader: boolean;
 }
 
 export interface DailyAssignment {

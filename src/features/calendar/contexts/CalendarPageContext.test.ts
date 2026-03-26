@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CalendarPageContext, type CalendarPageData } from './CalendarPageContext.svelte';
-import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
 
@@ -57,13 +57,11 @@ function makeMockOrg(overrides: Partial<OrgContext> = {}): OrgContext {
 
 describe('CalendarPageContext', () => {
 	let ctx: CalendarPageContext;
-	let modals: ModalRegistry;
 	let org: OrgContext;
 
 	beforeEach(() => {
-		modals = new ModalRegistry();
 		org = makeMockOrg();
-		ctx = new CalendarPageContext(mockData, modals, org);
+		ctx = new CalendarPageContext(mockData, org);
 	});
 
 	// ---- Derived permission flags ------------------------------------------
@@ -78,31 +76,75 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('canManageConfig is true for owner', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ isOwner: true }));
 			expect(ownerCtx.canManageConfig).toBe(true);
 		});
 
 		it('canManageConfig is true for admin', () => {
-			const adminCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isAdmin: true }));
+			const adminCtx = new CalendarPageContext(mockData, makeMockOrg({ isAdmin: true }));
 			expect(adminCtx.canManageConfig).toBe(true);
 		});
 
 		it('canManageConfig is true for fullEditor', () => {
-			const editorCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isFullEditor: true }));
+			const editorCtx = new CalendarPageContext(mockData, makeMockOrg({ isFullEditor: true }));
 			expect(editorCtx.canManageConfig).toBe(true);
 		});
 	});
 
-	// ---- Modal visibility state --------------------------------------------
+	// ---- Modal registry removed (Phase 3.3 — modals inlined into CalendarPageView) ----
 
-	describe('modal state (all start closed)', () => {
-		it('status-manager starts closed', () => expect(modals.isOpen('status-manager')).toBe(false));
-		it('special-day-manager starts closed', () => expect(modals.isOpen('special-day-manager')).toBe(false));
-		it('today-breakdown starts closed', () => expect(modals.isOpen('today-breakdown')).toBe(false));
-		// bulk-status, bulk-status-import, bulk-remove modals removed — moved to /calendar/bulk page
-		it('long-range-view starts closed', () => expect(modals.isOpen('long-range-view')).toBe(false));
-		it('assignment-type-manager starts closed', () => expect(modals.isOpen('assignment-type-manager')).toBe(false));
-		// duty-roster-generator modal removed — moved to /calendar/duty-roster page
+	// ---- breakdown panel state --------------------------------------------
+
+	describe('breakdownExpanded / toggleBreakdown', () => {
+		it('breakdownExpanded starts true before responsive init runs', () => {
+			expect(ctx.breakdownExpanded).toBe(true);
+		});
+
+		it('initBreakdownPreference collapses the panel on mobile viewports', () => {
+			ctx.initBreakdownPreference(() => ({ matches: true }));
+			expect(ctx.breakdownExpanded).toBe(false);
+		});
+
+		it('initBreakdownPreference keeps the panel expanded on desktop viewports', () => {
+			ctx.breakdownExpanded = false;
+			ctx.initBreakdownPreference(() => ({ matches: false }));
+			expect(ctx.breakdownExpanded).toBe(true);
+		});
+
+		it('toggleBreakdown flips breakdownExpanded', () => {
+			ctx.toggleBreakdown();
+			expect(ctx.breakdownExpanded).toBe(false);
+			ctx.toggleBreakdown();
+			expect(ctx.breakdownExpanded).toBe(true);
+		});
+	});
+
+	// ---- View mode state ---------------------------------------------------
+
+	describe('viewMode', () => {
+		it('defaults to month', () => {
+			expect(ctx.viewMode).toBe('month');
+		});
+
+		it('toggleViewMode switches between month and 3-month', () => {
+			ctx.toggleViewMode();
+			expect(ctx.viewMode).toBe('3-month');
+			ctx.toggleViewMode();
+			expect(ctx.viewMode).toBe('month');
+		});
+
+		it('navigateToMonth switches to month view and navigates calendarStore', () => {
+			ctx.toggleViewMode(); // now in 3-month
+			expect(ctx.viewMode).toBe('3-month');
+
+			const targetDate = new Date(2026, 5, 15); // June 2026
+			ctx.navigateToMonth(targetDate);
+
+			expect(ctx.viewMode).toBe('month');
+			// calendarStore should have navigated to June 2026
+			expect(calendarStore.month).toBe(5);
+			expect(calendarStore.year).toBe(2026);
+		});
 	});
 
 	// ---- Selected state ----------------------------------------------------
@@ -127,7 +169,6 @@ describe('CalendarPageContext', () => {
 		it('does nothing when canEditCalendar is false', () => {
 			const noEditCtx = new CalendarPageContext(
 				{ ...mockData, permissions: { ...mockData.permissions, canEditCalendar: false } },
-				new ModalRegistry(),
 				makeMockOrg()
 			);
 			noEditCtx.handleCellClick(mockPersonnel[0], new Date());
@@ -137,7 +178,6 @@ describe('CalendarPageContext', () => {
 		it('does nothing when person is outside scoped group', () => {
 			const scopedCtx = new CalendarPageContext(
 				{ ...mockData, scopedGroupId: 'other-group', personnel: [] }, // p1 is NOT in scoped set
-				new ModalRegistry(),
 				makeMockOrg()
 			);
 			scopedCtx.handleCellClick(mockPersonnel[0], new Date());
@@ -161,7 +201,6 @@ describe('CalendarPageContext', () => {
 		it('does nothing when canEditCalendar is false', () => {
 			const noEditCtx = new CalendarPageContext(
 				{ ...mockData, permissions: { ...mockData.permissions, canEditCalendar: false } },
-				new ModalRegistry(),
 				makeMockOrg()
 			);
 			noEditCtx.handlePersonClick(mockPersonnel[0]);
@@ -212,11 +251,7 @@ describe('CalendarPageContext', () => {
 
 	describe('calendarPersonnel', () => {
 		it('falls back to personnel when allPersonnel is absent', () => {
-			const ctx2 = new CalendarPageContext(
-				{ ...mockData, allPersonnel: undefined },
-				new ModalRegistry(),
-				makeMockOrg()
-			);
+			const ctx2 = new CalendarPageContext({ ...mockData, allPersonnel: undefined }, makeMockOrg());
 			expect(ctx2.calendarPersonnel).toEqual(mockPersonnel);
 		});
 
@@ -247,83 +282,11 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
-	// ---- overflow items ---------------------------------------------------
+	// ---- overflow items removed (Phase 3.3 — replaced by SmartToolbar in 3.4)
 
-	describe('calendarOverflowItems', () => {
-		it("always includes Today's Breakdown and 3-Month View", () => {
-			const labels = ctx.calendarOverflowItems.map((i) => i.label);
-			expect(labels).toContain("Today's Breakdown");
-			expect(labels).toContain('3-Month View');
-		});
-
-		it('does not include configure items when canManageConfig is false', () => {
-			const labels = ctx.calendarOverflowItems.map((i) => i.label);
-			expect(labels).not.toContain('Status Types');
-			expect(labels).not.toContain('Assignment Types');
-		});
-
-		it('does NOT include configure items in overflow (moved to settings page)', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
-			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
-			expect(labels).not.toContain('Status Types');
-			expect(labels).not.toContain('Assignment Types');
-			expect(labels).not.toContain('Holidays');
-		});
-
-		it('includes Status Reports link for owner', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
-			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
-			expect(labels).toContain('Status Reports');
-		});
-
-		it('does not include Status Reports for plain member', () => {
-			const labels = ctx.calendarOverflowItems.map((i) => i.label);
-			expect(labels).not.toContain('Status Reports');
-		});
-
-		it('always includes Export to Excel and Print / PDF', () => {
-			const labels = ctx.calendarOverflowItems.map((i) => i.label);
-			expect(labels).toContain('Export to Excel');
-			expect(labels).toContain('Print / PDF');
-		});
-
-		it('includes Bulk Operations as a navigation link for owner', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
-			const bulkItem = ownerCtx.calendarOverflowItems.find((i) => i.label === 'Bulk Operations');
-			expect(bulkItem).toBeDefined();
-			expect(bulkItem!.href).toBe('/org/org1/calendar/bulk');
-			expect(bulkItem!.onclick).toBeUndefined();
-		});
-
-		it('does not include Bulk Operations for plain member', () => {
-			const labels = ctx.calendarOverflowItems.map((i) => i.label);
-			expect(labels).not.toContain('Bulk Operations');
-		});
-
-		it('does not include old Bulk Status or Bulk Remove modal items', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
-			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
-			expect(labels).not.toContain('Bulk Status');
-			expect(labels).not.toContain('Bulk Remove');
-		});
-
-		it('includes Duty Roster as a navigation link for owner', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
-			const dutyItem = ownerCtx.calendarOverflowItems.find((i) => i.label === 'Duty Roster');
-			expect(dutyItem).toBeDefined();
-			expect(dutyItem!.href).toBe('/org/org1/calendar/duty-roster');
-			expect(dutyItem!.onclick).toBeUndefined();
-		});
-
-		it('does not include Duty Roster for plain member', () => {
-			const labels = ctx.calendarOverflowItems.map((i) => i.label);
-			expect(labels).not.toContain('Duty Roster');
-		});
-
-		it('does not include Assignments after moving the planner to its own page', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
-			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
-			expect(labels).not.toContain('Assignments');
+	describe('calendarOverflowItems removed', () => {
+		it('does not have calendarOverflowItems getter', () => {
+			expect((ctx as unknown as Record<string, unknown>)['calendarOverflowItems']).toBeUndefined();
 		});
 	});
 
@@ -347,15 +310,15 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
-	// ---- duty-roster-generator modal removed ------------------------------
+	// ---- export handlers removed (Phase 3.3) --------------------------------
 
-	describe('duty-roster-generator modal removed', () => {
-		it('does not reference duty-roster-generator modal in overflow items', () => {
-			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
-			const dutyItem = ownerCtx.calendarOverflowItems.find((i) => i.label === 'Duty Roster');
-			// Should be a link, not a modal opener
-			expect(dutyItem!.href).toBeDefined();
-			expect(dutyItem!.onclick).toBeUndefined();
+	describe('export handlers removed', () => {
+		it('does not have handleExportCSV method', () => {
+			expect((ctx as unknown as Record<string, unknown>)['handleExportCSV']).toBeUndefined();
+		});
+
+		it('does not have handleExportPDF method', () => {
+			expect((ctx as unknown as Record<string, unknown>)['handleExportPDF']).toBeUndefined();
 		});
 	});
 });

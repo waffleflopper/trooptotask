@@ -7,7 +7,9 @@ export class TrainingPage {
 
 	constructor(page: Page) {
 		this.page = page;
-		this.trainingMatrix = page.getByTestId('training-matrix');
+		this.trainingMatrix = page
+			.locator('.view-panel:not(.hidden-view)')
+			.getByRole('table', { name: 'Training status matrix' });
 	}
 
 	async goto(orgId: string) {
@@ -42,6 +44,6 @@ export class TrainingPage {
 	}
 
 	async expectRecordVisible(personName: string, trainingType: string) {
-		await expect(this.page.getByText(trainingType).first()).toBeVisible();
+		await expect(this.trainingMatrix.getByText(trainingType).first()).toBeVisible();
 	}
 }

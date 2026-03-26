@@ -39,6 +39,8 @@
 		onPinToggle?: (group: string) => void;
 		onDateClick?: (date: Date) => void;
 		personnelHref?: string;
+		viewMode?: 'month' | '3-month';
+		onToggleViewMode?: () => void;
 	}
 
 	let {
@@ -63,7 +65,9 @@
 		onPersonClick,
 		onPinToggle,
 		onDateClick,
-		personnelHref
+		personnelHref,
+		viewMode = 'month',
+		onToggleViewMode
 	}: Props = $props();
 
 	let collapsedGroups = $state<Set<string>>(new Set());
@@ -158,6 +162,8 @@
 		onDateClick={canEdit ? onDateClick : undefined}
 		{scrollLeft}
 		{scrollbarWidth}
+		{viewMode}
+		{onToggleViewMode}
 	/>
 
 	<div class="calendar-body" style="--dates-count: {dates.length};" bind:this={calendarBodyEl} onscroll={handleScroll}>

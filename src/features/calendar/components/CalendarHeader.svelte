@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 	import { isWeekend, isToday, formatDate, getDayName } from '$lib/utils/dates';
+	import CalendarNavigation from './CalendarNavigation.svelte';
 
 	interface Props {
 		year: number;
@@ -15,6 +16,8 @@
 		onDateClick?: (date: Date) => void;
 		scrollLeft?: number;
 		scrollbarWidth?: number;
+		viewMode?: 'month' | '3-month';
+		onToggleViewMode?: () => void;
 	}
 
 	let {
@@ -29,7 +32,9 @@
 		onGoToToday,
 		onDateClick,
 		scrollLeft = 0,
-		scrollbarWidth = 0
+		scrollbarWidth = 0,
+		viewMode = 'month',
+		onToggleViewMode
 	}: Props = $props();
 
 	let dateHeadersEl: HTMLDivElement;
@@ -64,18 +69,15 @@
 </script>
 
 <div class="calendar-header">
-	<div class="navigation">
-		<div class="month-nav">
-			<button class="btn btn-secondary btn-sm" data-testid="calendar-prev-month" onclick={onPrevMonth}>
-				&larr; Prev
-			</button>
-			<h2 class="month-title" data-testid="calendar-month-label">{monthName} {year}</h2>
-			<button class="btn btn-secondary btn-sm" data-testid="calendar-next-month" onclick={onNextMonth}>
-				Next &rarr;
-			</button>
-		</div>
-		<button class="btn btn-primary btn-sm" onclick={onGoToToday}>Today</button>
-	</div>
+	<CalendarNavigation
+		title={`${monthName} ${year}`}
+		onPrev={onPrevMonth}
+		onNext={onNextMonth}
+		{onGoToToday}
+		{viewMode}
+		{onToggleViewMode}
+		titleTestId="calendar-month-label"
+	/>
 
 	<div class="date-headers" bind:this={dateHeadersEl} style="padding-right: {scrollbarWidth}px">
 		<div class="personnel-header-spacer">Personnel</div>
@@ -111,27 +113,6 @@
 		position: sticky;
 		top: 0;
 		z-index: 10;
-	}
-
-	.navigation {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.month-nav {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-	}
-
-	.month-title {
-		font-size: var(--font-size-xl);
-		font-weight: 600;
-		min-width: 180px;
-		text-align: center;
 	}
 
 	.date-headers {
@@ -228,22 +209,6 @@
 
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
-		.navigation {
-			flex-wrap: wrap;
-			gap: var(--spacing-sm);
-			padding: var(--spacing-sm);
-		}
-
-		.month-nav {
-			width: 100%;
-			justify-content: space-between;
-		}
-
-		.month-title {
-			font-size: var(--font-size-lg);
-			min-width: unset;
-		}
-
 		.date-header {
 			min-width: var(--cell-width);
 			min-height: 44px; /* Touch target */

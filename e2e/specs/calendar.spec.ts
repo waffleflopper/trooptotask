@@ -45,7 +45,44 @@ test.describe('Calendar & Status', () => {
 		calendarPage = new CalendarPage(ownerPage);
 		await calendarPage.goto(orgId);
 
-		await calendarPage.openTodayBreakdown();
-		await expect(ownerPage.getByRole('heading', { name: "Today's Breakdown" })).toBeVisible({ timeout: 5000 });
+		await calendarPage.expectTodayBreakdownExpanded(true);
+		await expect(ownerPage.getByTestId('today-breakdown-panel')).toContainText(/present/i);
+
+		await calendarPage.toggleTodayBreakdownFromToolbar();
+		await calendarPage.expectTodayBreakdownExpanded(false);
+
+		await calendarPage.toggleTodayBreakdownFromToolbar();
+		await calendarPage.expectTodayBreakdownExpanded(true);
+	});
+
+	test('today breakdown starts collapsed on mobile', async ({ ownerPage, orgId }) => {
+		await ownerPage.setViewportSize({ width: 390, height: 844 });
+
+		calendarPage = new CalendarPage(ownerPage);
+		await calendarPage.goto(orgId);
+
+		await calendarPage.expectTodayBreakdownExpanded(false);
+	});
+
+	test('smart toolbar re-expands items after the viewport grows again', async ({ ownerPage, orgId }) => {
+		await ownerPage.setViewportSize({ width: 1400, height: 900 });
+
+		calendarPage = new CalendarPage(ownerPage);
+		await calendarPage.goto(orgId);
+
+		await expect(calendarPage.bulkStatusButton).toBeVisible();
+		await expect(calendarPage.planningButton).toBeVisible();
+		await expect(calendarPage.moreActionsButton).toBeVisible();
+
+		await ownerPage.setViewportSize({ width: 390, height: 844 });
+		await expect(calendarPage.bulkStatusButton).toBeHidden();
+		await expect(calendarPage.planningButton).toBeHidden();
+		await calendarPage.moreActionsButton.click();
+		await expect(ownerPage.getByRole('menu').getByText('Bulk Status')).toBeVisible();
+		await expect(ownerPage.getByRole('menuitem', { name: 'Add Bulk' })).toBeVisible();
+
+		await ownerPage.setViewportSize({ width: 1400, height: 900 });
+		await expect(calendarPage.bulkStatusButton).toBeVisible();
+		await expect(calendarPage.planningButton).toBeVisible();
 	});
 });

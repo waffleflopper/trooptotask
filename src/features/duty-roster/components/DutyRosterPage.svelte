@@ -14,6 +14,7 @@
 	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 	import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
 	import { groupsStore } from '$lib/stores/groups.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { Personnel } from '$lib/types';
 
 	interface Props {
@@ -76,9 +77,14 @@
 	async function handleDeleteRoster(id: string): Promise<void> {
 		dutyRosterHistoryStore.remove(id);
 		try {
-			await fetch(`/org/${org.orgId}/api/duty-roster-history/${id}`, { method: 'DELETE' });
+			const res = await fetch(`/org/${org.orgId}/api/duty-roster-history/${id}`, { method: 'DELETE' });
+			if (!res.ok) {
+				dutyRosterHistoryStore.load(data.rosterHistory);
+				toastStore.error('Failed to delete roster entry');
+			}
 		} catch {
-			// Silently fail - history will re-sync on next page load
+			dutyRosterHistoryStore.load(data.rosterHistory);
+			toastStore.error('Failed to delete roster entry');
 		}
 	}
 

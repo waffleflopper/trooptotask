@@ -15,7 +15,8 @@ const guardType = {
 	shortName: 'GD',
 	assignTo: 'personnel' as const,
 	color: '#000',
-	exemptPersonnelIds: []
+	exemptPersonnelIds: [],
+	showInDateHeader: false
 };
 
 describe('regression: delete type then add type flow', () => {
@@ -398,6 +399,24 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			const result = dailyAssignmentsStore.getPersonnelAssignmentsForDate('p1', '2026-03-20');
 			expect(result.length).toBe(1);
 			expect(result[0]).toEqual(assignments[0]);
+		});
+	});
+
+	describe('showInDateHeader field', () => {
+		it('loads a type with showInDateHeader: true and exposes it', () => {
+			const featuredType = { ...guardType, id: 'f1', showInDateHeader: true };
+			dailyAssignmentsStore.load([guardType, featuredType], [], 'org-1');
+			const found = dailyAssignmentsStore.getTypeById('f1');
+			expect(found?.showInDateHeader).toBe(true);
+		});
+
+		it('updateType can set showInDateHeader to true on a type', async () => {
+			dailyAssignmentsStore.load([guardType], [], 'org-1');
+			const updated = { ...guardType, showInDateHeader: true };
+			vi.stubGlobal('fetch', mockFetch(updated));
+			const result = await dailyAssignmentsStore.updateType('1', { showInDateHeader: true });
+			expect(result).toBe(true);
+			expect(dailyAssignmentsStore.getTypeById('1')?.showInDateHeader).toBe(true);
 		});
 	});
 

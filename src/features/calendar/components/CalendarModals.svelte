@@ -1,15 +1,12 @@
 <script lang="ts">
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
-	import StatusTypeManager from '$features/calendar/components/StatusTypeManager.svelte';
-	import SpecialDayManager from '$features/calendar/components/SpecialDayManager.svelte';
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
 	import TodayBreakdown from '$features/calendar/components/TodayBreakdown.svelte';
 	import BulkStatusModal from '$features/calendar/components/BulkStatusModal.svelte';
 	import BulkStatusRemoveModal from '$features/calendar/components/BulkStatusRemoveModal.svelte';
 	import BulkStatusImportModal from '$features/calendar/components/BulkStatusImportModal.svelte';
 	import MonthlyAssignmentPlanner from '$features/calendar/components/MonthlyAssignmentPlanner.svelte';
-	import AssignmentTypeManager from '$features/calendar/components/AssignmentTypeManager.svelte';
 	import DutyRosterGenerator from '$features/duty-roster/components/DutyRosterGenerator.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -40,39 +37,6 @@
 		onAdd={(entry) => ctx.handleAddAvailability(entry)}
 		onRemove={(id) => ctx.handleRemoveAvailability(id)}
 		onClose={() => ctx.closeAvailabilityModal()}
-	/>
-{/if}
-
-{#if modals.isOpen('status-manager')}
-	<StatusTypeManager
-		statusTypes={statusTypesStore.items}
-		onAdd={(data) => statusTypesStore.add(data)}
-		onUpdate={(id, data) => statusTypesStore.update(id, data)}
-		onRemove={async (id) => {
-			await statusTypesStore.remove(id);
-			availabilityStore.removeByStatusTypeLocal(id);
-		}}
-		onClose={() => modals.close('status-manager')}
-	/>
-{/if}
-
-{#if modals.isOpen('assignment-type-manager')}
-	<AssignmentTypeManager
-		assignmentTypes={dailyAssignmentsStore.types}
-		onAdd={(data) => dailyAssignmentsStore.addType(data)}
-		onUpdate={(id, data) => dailyAssignmentsStore.updateType(id, data)}
-		onRemove={(id) => dailyAssignmentsStore.removeType(id)}
-		onClose={() => modals.close('assignment-type-manager')}
-	/>
-{/if}
-
-{#if modals.isOpen('special-day-manager')}
-	<SpecialDayManager
-		specialDays={specialDaysStore.items}
-		onAdd={(data) => specialDaysStore.add(data)}
-		onRemove={(id) => specialDaysStore.remove(id)}
-		onResetHolidays={() => specialDaysStore.resetFederalHolidays()}
-		onClose={() => modals.close('special-day-manager')}
 	/>
 {/if}
 

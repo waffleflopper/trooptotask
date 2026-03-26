@@ -162,27 +162,6 @@ export class CalendarPageContext {
 			divider: true
 		});
 
-		// Configure group
-		if (this.canManageConfig) {
-			items.push({
-				label: 'Status Types',
-				onclick: () => this.#modals.open('status-manager'),
-				divider: true,
-				group: 'Configure',
-				disabled: this.readOnly
-			});
-			items.push({
-				label: 'Assignment Types',
-				onclick: () => this.#modals.open('assignment-type-manager'),
-				disabled: this.readOnly
-			});
-			items.push({
-				label: 'Holidays',
-				onclick: () => this.#modals.open('special-day-manager'),
-				disabled: this.readOnly
-			});
-		}
-
 		return items;
 	}
 

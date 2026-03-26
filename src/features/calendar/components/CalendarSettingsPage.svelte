@@ -205,247 +205,283 @@
 		</section>
 
 		<div class="settings-grid">
-		<!-- ===== STATUS TYPES ===== -->
+			<!-- ===== STATUS TYPES ===== -->
 			<section class="settings-section card card-flat">
-			<div class="section-header">
-				<div>
-					<p class="section-kicker">Personnel availability</p>
-					<h2 class="section-title">Status Types</h2>
+				<div class="section-header">
+					<div>
+						<p class="section-kicker">Personnel availability</p>
+						<h2 class="section-title">Status Types</h2>
+					</div>
+					<p class="section-description">Define the statuses that can be assigned to personnel on the calendar.</p>
 				</div>
-				<p class="section-description">Define the statuses that can be assigned to personnel on the calendar.</p>
-			</div>
 
-			<div class="add-form add-form-priority">
-				<input
-					class="input"
-					type="text"
-					bind:value={newStatusName}
-					placeholder="Status name (e.g., Leave, TDY)"
-					disabled={!canMutate}
-				/>
-				<label class="color-picker">
-					<span>Background</span>
-					<input type="color" bind:value={newStatusColor} disabled={!canMutate} />
-				</label>
-				<label class="color-picker">
-					<span>Text</span>
-					<input type="color" bind:value={newStatusTextColor} disabled={!canMutate} />
-				</label>
-				{#if newStatusName.trim()}
-					<Badge label={newStatusName} color={newStatusColor} textColor={newStatusTextColor} />
-				{/if}
-				<button class="btn btn-primary btn-sm" onclick={addStatus} disabled={!canMutate || !newStatusName.trim()}>
-					+ Add
-				</button>
-			</div>
+				<div class="add-form add-form-priority">
+					<input
+						class="input"
+						type="text"
+						bind:value={newStatusName}
+						placeholder="Status name (e.g., Leave, TDY)"
+						disabled={!canMutate}
+					/>
+					<label class="color-picker">
+						<span>Background</span>
+						<input type="color" bind:value={newStatusColor} disabled={!canMutate} />
+					</label>
+					<label class="color-picker">
+						<span>Text</span>
+						<input type="color" bind:value={newStatusTextColor} disabled={!canMutate} />
+					</label>
+					{#if newStatusName.trim()}
+						<Badge label={newStatusName} color={newStatusColor} textColor={newStatusTextColor} />
+					{/if}
+					<button class="btn btn-primary btn-sm" onclick={addStatus} disabled={!canMutate || !newStatusName.trim()}>
+						+ Add
+					</button>
+				</div>
 
-			<div class="item-list">
-				{#each statusTypesStore.items as status (status.id)}
-					<div class="item-row status-item-row">
-						{#if editingStatus?.id === status.id}
-							<div class="inline-edit">
-								<input class="input" type="text" bind:value={editStatusName} placeholder="Status name" />
-								<label class="color-picker">
-									<span>BG</span>
-									<input type="color" bind:value={editStatusColor} />
-								</label>
-								<label class="color-picker">
-									<span>Text</span>
-									<input type="color" bind:value={editStatusTextColor} />
-								</label>
-								<Badge label={editStatusName || 'Preview'} color={editStatusColor} textColor={editStatusTextColor} />
-								<button class="btn btn-primary btn-sm" onclick={saveEditStatus} disabled={!canMutate || !editStatusName.trim()}
-									>Save</button
-								>
-								<button class="btn btn-sm" onclick={cancelEditStatus}>Cancel</button>
-							</div>
-						{:else}
+				<div class="item-list">
+					{#each statusTypesStore.items as status (status.id)}
+						<div class="item-row status-item-row">
+							{#if editingStatus?.id === status.id}
+								<div class="inline-edit">
+									<input class="input" type="text" bind:value={editStatusName} placeholder="Status name" />
+									<label class="color-picker">
+										<span>BG</span>
+										<input type="color" bind:value={editStatusColor} />
+									</label>
+									<label class="color-picker">
+										<span>Text</span>
+										<input type="color" bind:value={editStatusTextColor} />
+									</label>
+									<Badge label={editStatusName || 'Preview'} color={editStatusColor} textColor={editStatusTextColor} />
+									<button
+										class="btn btn-primary btn-sm"
+										onclick={saveEditStatus}
+										disabled={!canMutate || !editStatusName.trim()}>Save</button
+									>
+									<button class="btn btn-sm" onclick={cancelEditStatus}>Cancel</button>
+								</div>
+							{:else}
 								<Badge label={status.name} color={status.color} textColor={status.textColor} />
 								<div class="item-actions">
 									{#if canMutate}
-										<button class="item-icon-button" type="button" title="Edit status type" aria-label="Edit status type" onclick={() => startEditStatus(status)}>
+										<button
+											class="item-icon-button"
+											type="button"
+											title="Edit status type"
+											aria-label="Edit status type"
+											onclick={() => startEditStatus(status)}
+										>
 											<PencilIcon size={16} strokeWidth={2} />
 										</button>
-										<button class="item-icon-button item-icon-button-danger" type="button" title="Delete status type" aria-label="Delete status type" onclick={() => (confirmDeleteStatus = status)}>
+										<button
+											class="item-icon-button item-icon-button-danger"
+											type="button"
+											title="Delete status type"
+											aria-label="Delete status type"
+											onclick={() => (confirmDeleteStatus = status)}
+										>
 											<Trash2Icon size={16} strokeWidth={2} />
 										</button>
 									{/if}
 								</div>
 							{/if}
-					</div>
+						</div>
 					{/each}
 				</div>
 			</section>
 
-		<!-- ===== ASSIGNMENT TYPES ===== -->
+			<!-- ===== ASSIGNMENT TYPES ===== -->
 			<section class="settings-section card card-flat">
-			<div class="section-header">
-				<div>
-					<p class="section-kicker">Duty coverage</p>
-					<h2 class="section-title">Assignment Types</h2>
+				<div class="section-header">
+					<div>
+						<p class="section-kicker">Duty coverage</p>
+						<h2 class="section-title">Assignment Types</h2>
+					</div>
+					<p class="section-description">
+						Define assignment types and choose which assignee appears in each calendar date header.
+					</p>
 				</div>
-				<p class="section-description">
-					Define assignment types and choose which assignee appears in each calendar date header.
-				</p>
-			</div>
 
-			<div class="add-form add-form-priority">
-				<input
-					class="input"
-					type="text"
-					bind:value={newAssignName}
-					placeholder="Full name (e.g., Staff Duty)"
-					disabled={!canMutate}
-				/>
-				<input
-					class="input short-input"
-					type="text"
-					bind:value={newAssignShortName}
-					placeholder="Short (e.g., SD)"
-					maxlength="5"
-					disabled={!canMutate}
-				/>
-				<select class="select" bind:value={newAssignTo} disabled={!canMutate}>
-					<option value="personnel">Assign to Person</option>
-					<option value="group">Assign to Group</option>
-				</select>
-				<label class="color-picker">
-					<span>Color</span>
-					<input type="color" bind:value={newAssignColor} disabled={!canMutate} />
-				</label>
-				<button
-					class="btn btn-primary btn-sm"
-					onclick={addAssignType}
-					disabled={!canMutate || !newAssignName.trim() || !newAssignShortName.trim()}>+ Add</button
-				>
-			</div>
+				<div class="add-form add-form-priority">
+					<input
+						class="input"
+						type="text"
+						bind:value={newAssignName}
+						placeholder="Full name (e.g., Staff Duty)"
+						disabled={!canMutate}
+					/>
+					<input
+						class="input short-input"
+						type="text"
+						bind:value={newAssignShortName}
+						placeholder="Short (e.g., SD)"
+						maxlength="5"
+						disabled={!canMutate}
+					/>
+					<select class="select" bind:value={newAssignTo} disabled={!canMutate}>
+						<option value="personnel">Assign to Person</option>
+						<option value="group">Assign to Group</option>
+					</select>
+					<label class="color-picker">
+						<span>Color</span>
+						<input type="color" bind:value={newAssignColor} disabled={!canMutate} />
+					</label>
+					<button
+						class="btn btn-primary btn-sm"
+						onclick={addAssignType}
+						disabled={!canMutate || !newAssignName.trim() || !newAssignShortName.trim()}>+ Add</button
+					>
+				</div>
 
-			<div class="item-list">
-				{#each dailyAssignmentsStore.types as type (type.id)}
-					<div class="item-row">
-						{#if editingAssign?.id === type.id}
-							<div class="inline-edit">
-								<input class="input" type="text" bind:value={editAssignName} placeholder="Full name" />
-								<input
-									class="input short-input"
-									type="text"
-									bind:value={editAssignShortName}
-									placeholder="Short"
-									maxlength="5"
-								/>
-								<select class="select" bind:value={editAssignTo}>
-									<option value="personnel">Person</option>
-									<option value="group">Group</option>
-								</select>
-								<label class="color-picker">
-									<span>Color</span>
-									<input type="color" bind:value={editAssignColor} />
+				<div class="item-list">
+					{#each dailyAssignmentsStore.types as type (type.id)}
+						<div class="item-row">
+							{#if editingAssign?.id === type.id}
+								<div class="inline-edit">
+									<input class="input" type="text" bind:value={editAssignName} placeholder="Full name" />
+									<input
+										class="input short-input"
+										type="text"
+										bind:value={editAssignShortName}
+										placeholder="Short"
+										maxlength="5"
+									/>
+									<select class="select" bind:value={editAssignTo}>
+										<option value="personnel">Person</option>
+										<option value="group">Group</option>
+									</select>
+									<label class="color-picker">
+										<span>Color</span>
+										<input type="color" bind:value={editAssignColor} />
+									</label>
+									<button
+										class="btn btn-primary btn-sm"
+										onclick={saveEditAssign}
+										disabled={!canMutate || !editAssignName.trim() || !editAssignShortName.trim()}>Save</button
+									>
+									<button class="btn btn-sm" onclick={cancelEditAssign}>Cancel</button>
+								</div>
+							{:else}
+								<label class="header-radio" title="Show in date header">
+									<input
+										type="radio"
+										name="showInDateHeader"
+										value={type.id}
+										checked={headerTypeId === type.id}
+										disabled={!canMutate}
+										onchange={() => setShowInDateHeader(type.id)}
+									/>
 								</label>
-								<button
-									class="btn btn-primary btn-sm"
-									onclick={saveEditAssign}
-									disabled={!canMutate || !editAssignName.trim() || !editAssignShortName.trim()}>Save</button
-								>
-								<button class="btn btn-sm" onclick={cancelEditAssign}>Cancel</button>
-							</div>
-						{:else}
-							<label class="header-radio" title="Show in date header">
-								<input
-									type="radio"
-									name="showInDateHeader"
-									value={type.id}
-									checked={headerTypeId === type.id}
-									disabled={!canMutate}
-									onchange={() => setShowInDateHeader(type.id)}
-								/>
-							</label>
 								<Badge label={type.shortName} color={type.color} bold={true} />
 								<span class="item-name">{type.name}</span>
 								<span class="item-meta">{type.assignTo === 'personnel' ? 'Person' : 'Group'}</span>
 								<div class="item-actions">
 									{#if canMutate}
-										<button class="item-icon-button" type="button" title="Edit assignment type" aria-label="Edit assignment type" onclick={() => startEditAssign(type)}>
+										<button
+											class="item-icon-button"
+											type="button"
+											title="Edit assignment type"
+											aria-label="Edit assignment type"
+											onclick={() => startEditAssign(type)}
+										>
 											<PencilIcon size={16} strokeWidth={2} />
 										</button>
-										<button class="item-icon-button item-icon-button-danger" type="button" title="Delete assignment type" aria-label="Delete assignment type" onclick={() => (confirmDeleteAssign = type)}>
+										<button
+											class="item-icon-button item-icon-button-danger"
+											type="button"
+											title="Delete assignment type"
+											aria-label="Delete assignment type"
+											onclick={() => (confirmDeleteAssign = type)}
+										>
 											<Trash2Icon size={16} strokeWidth={2} />
 										</button>
 									{/if}
 								</div>
 							{/if}
-					</div>
-				{/each}
-			</div>
+						</div>
+					{/each}
+				</div>
 
-			<p class="hint">
-				<strong>Show in date header:</strong> Select the assignment type whose assignee name appears in each date
-				column of the calendar grid.
-				{#if headerTypeId}
-					Currently showing: <strong>{dailyAssignmentsStore.types.find((t) => t.id === headerTypeId)?.name}</strong>
+				<p class="hint">
+					<strong>Show in date header:</strong> Select the assignment type whose assignee name appears in each date
+					column of the calendar grid.
+					{#if headerTypeId}
+						Currently showing: <strong>{dailyAssignmentsStore.types.find((t) => t.id === headerTypeId)?.name}</strong>
 					{:else}
 						None selected (no assignee shown in date headers).
 					{/if}
 				</p>
 			</section>
 
-		<!-- ===== HOLIDAYS & SPECIAL DAYS ===== -->
+			<!-- ===== HOLIDAYS & SPECIAL DAYS ===== -->
 			<section class="settings-section settings-section-wide card card-flat">
-			<div class="section-header">
-				<div>
-					<p class="section-kicker">Date exceptions</p>
-					<h2 class="section-title">Holidays &amp; Special Days</h2>
+				<div class="section-header">
+					<div>
+						<p class="section-kicker">Date exceptions</p>
+						<h2 class="section-title">Holidays &amp; Special Days</h2>
+					</div>
+					<p class="section-description">
+						Mark federal holidays or unit closures so they stand out across the calendar and reports.
+					</p>
 				</div>
-				<p class="section-description">
-					Mark federal holidays or unit closures so they stand out across the calendar and reports.
-				</p>
-			</div>
 
-			<div class="filter-bar">
-				<label class="label" for="filter-year">Year:</label>
-				<select id="filter-year" class="select year-select" bind:value={filterYear}>
-					{#each yearOptions as year (year)}
-						<option value={year}>{year}</option>
-					{/each}
-				</select>
-				<span class="count">{filteredDays.length} days</span>
-				<button
-					class="btn btn-secondary btn-sm reset-button"
-					onclick={() => (showResetConfirm = true)}
-					disabled={!canMutate}
-				>
-					Reset Federal Holidays
-				</button>
-			</div>
+				<div class="filter-bar">
+					<label class="label" for="filter-year">Year:</label>
+					<select id="filter-year" class="select year-select" bind:value={filterYear}>
+						{#each yearOptions as year (year)}
+							<option value={year}>{year}</option>
+						{/each}
+					</select>
+					<span class="count">{filteredDays.length} days</span>
+					<button
+						class="btn btn-secondary btn-sm reset-button"
+						onclick={() => (showResetConfirm = true)}
+						disabled={!canMutate}
+					>
+						Reset Federal Holidays
+					</button>
+				</div>
 
-			<div class="add-form add-form-priority">
-				<input type="date" class="input date-input" bind:value={newSpecialDate} disabled={!canMutate} />
-				<input
-					class="input flexible-input"
-					type="text"
-					bind:value={newSpecialName}
-					placeholder="Name (e.g., Training Day)"
-					disabled={!canMutate}
-				/>
-				<select class="select type-select" bind:value={newSpecialType} disabled={!canMutate}>
-					<option value="org-closure">Closure</option>
-					<option value="federal-holiday">Federal Holiday</option>
-				</select>
-				<button class="btn btn-primary btn-sm" onclick={addSpecialDay} disabled={!canMutate || !newSpecialName.trim()}>
-					+ Add
-				</button>
-			</div>
+				<div class="add-form add-form-priority">
+					<input type="date" class="input date-input" bind:value={newSpecialDate} disabled={!canMutate} />
+					<input
+						class="input flexible-input"
+						type="text"
+						bind:value={newSpecialName}
+						placeholder="Name (e.g., Training Day)"
+						disabled={!canMutate}
+					/>
+					<select class="select type-select" bind:value={newSpecialType} disabled={!canMutate}>
+						<option value="org-closure">Closure</option>
+						<option value="federal-holiday">Federal Holiday</option>
+					</select>
+					<button
+						class="btn btn-primary btn-sm"
+						onclick={addSpecialDay}
+						disabled={!canMutate || !newSpecialName.trim()}
+					>
+						+ Add
+					</button>
+				</div>
 
-			<div class="item-list">
-				{#each filteredDays as day (day.id)}
-					<div class="item-row">
-						<span class="day-date">{formatDisplayDate(day.date)}</span>
-						<span class="item-name">{day.name}</span>
+				<div class="item-list">
+					{#each filteredDays as day (day.id)}
+						<div class="item-row">
+							<span class="day-date">{formatDisplayDate(day.date)}</span>
+							<span class="item-name">{day.name}</span>
 							<span class="day-type" class:holiday={day.type === 'federal-holiday'}>
 								{day.type === 'federal-holiday' ? 'Holiday' : 'Closure'}
 							</span>
 							<div class="item-actions">
 								{#if canMutate}
-									<button class="item-icon-button item-icon-button-danger" type="button" title="Delete special day" aria-label="Delete special day" onclick={() => (confirmDeleteSpecial = day)}>
+									<button
+										class="item-icon-button item-icon-button-danger"
+										type="button"
+										title="Delete special day"
+										aria-label="Delete special day"
+										onclick={() => (confirmDeleteSpecial = day)}
+									>
 										<Trash2Icon size={16} strokeWidth={2} />
 									</button>
 								{/if}

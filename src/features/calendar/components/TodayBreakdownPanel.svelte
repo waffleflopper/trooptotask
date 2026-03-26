@@ -28,8 +28,14 @@
 	);
 </script>
 
-<div class="breakdown-panel" role="region" aria-label="Today's summary">
-	<button class="toggle-bar" onclick={onToggle} aria-expanded={expanded}>
+<div class="breakdown-panel" data-testid="today-breakdown-panel" role="region" aria-label="Today's summary">
+	<button
+		class="toggle-bar"
+		data-testid="today-breakdown-summary-toggle"
+		onclick={onToggle}
+		aria-expanded={expanded}
+		aria-controls="today-breakdown-body"
+	>
 		<span class="toggle-label">Today's Summary</span>
 		<span class="toggle-meta">
 			{data.presentCount}/{data.totalCount} present
@@ -51,7 +57,13 @@
 		</svg>
 	</button>
 
-	<div class="panel-body" class:expanded aria-hidden={!expanded}>
+	<div
+		id="today-breakdown-body"
+		class="panel-body"
+		data-testid="today-breakdown-body"
+		class:expanded
+		aria-hidden={!expanded}
+	>
 		<div class="panel-inner">
 			<!-- Status counts -->
 			<div class="section">

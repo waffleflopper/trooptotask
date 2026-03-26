@@ -45,7 +45,22 @@ test.describe('Calendar & Status', () => {
 		calendarPage = new CalendarPage(ownerPage);
 		await calendarPage.goto(orgId);
 
-		await calendarPage.openTodayBreakdown();
-		await expect(ownerPage.getByRole('heading', { name: "Today's Breakdown" })).toBeVisible({ timeout: 5000 });
+		await calendarPage.expectTodayBreakdownExpanded(true);
+		await expect(ownerPage.getByTestId('today-breakdown-panel')).toContainText(/present/i);
+
+		await calendarPage.toggleTodayBreakdownFromToolbar();
+		await calendarPage.expectTodayBreakdownExpanded(false);
+
+		await calendarPage.toggleTodayBreakdownFromToolbar();
+		await calendarPage.expectTodayBreakdownExpanded(true);
+	});
+
+	test('today breakdown starts collapsed on mobile', async ({ ownerPage, orgId }) => {
+		await ownerPage.setViewportSize({ width: 390, height: 844 });
+
+		calendarPage = new CalendarPage(ownerPage);
+		await calendarPage.goto(orgId);
+
+		await calendarPage.expectTodayBreakdownExpanded(false);
 	});
 });

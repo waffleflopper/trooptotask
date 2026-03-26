@@ -12,6 +12,9 @@
 	const ctx = new CalendarPageContext(() => data, modals, org);
 
 	$effect(() => {
+		ctx.initBreakdownPreference();
+	});
+	$effect(() => {
 		ctx.initFromStorage();
 	});
 	$effect(() => {

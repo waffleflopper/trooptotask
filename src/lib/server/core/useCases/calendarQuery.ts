@@ -1,12 +1,10 @@
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
-import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
-import { RosterHistoryEntity } from '$lib/server/entities/rosterHistory';
 
 export interface CalendarQueryInput {
 	rangeStart: string;
@@ -19,7 +17,6 @@ export interface CalendarData {
 	assignmentTypes: AssignmentType[];
 	dailyAssignments: DailyAssignment[];
 	pinnedGroups: string[];
-	rosterHistory: RosterHistoryItem[];
 }
 
 export async function fetchCalendarData(ctx: UseCaseContext, input: CalendarQueryInput): Promise<CalendarData> {
@@ -33,8 +30,7 @@ export async function fetchCalendarData(ctx: UseCaseContext, input: CalendarQuer
 		specialDayRows,
 		assignmentTypeRows,
 		dailyAssignmentRows,
-		pinnedGroupRows,
-		rosterHistoryRows
+		pinnedGroupRows
 	] = await Promise.all([
 		// Availability uses two-column overlap: end_date >= rangeStart AND start_date <= rangeEnd
 		ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
@@ -73,12 +69,7 @@ export async function fetchCalendarData(ctx: UseCaseContext, input: CalendarQuer
 						orderBy: [{ column: 'sort_order', ascending: true }]
 					}
 				)
-			: Promise.resolve([]),
-		// Roster history: limited to 50
-		ctx.store.findMany<Record<string, unknown>>('duty_roster_history', orgId, undefined, {
-			orderBy: [{ column: 'created_at', ascending: false }],
-			limit: 50
-		})
+			: Promise.resolve([])
 	]);
 
 	return {
@@ -86,7 +77,6 @@ export async function fetchCalendarData(ctx: UseCaseContext, input: CalendarQuer
 		specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
 		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),
 		dailyAssignments: DailyAssignmentEntity.fromDbArray(dailyAssignmentRows),
-		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
-		rosterHistory: RosterHistoryEntity.fromDbArray(rosterHistoryRows)
+		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows)
 	};
 }

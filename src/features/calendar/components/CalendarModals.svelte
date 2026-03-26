@@ -3,9 +3,6 @@
 	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
 	import TodayBreakdown from '$features/calendar/components/TodayBreakdown.svelte';
-	import BulkStatusModal from '$features/calendar/components/BulkStatusModal.svelte';
-	import BulkStatusRemoveModal from '$features/calendar/components/BulkStatusRemoveModal.svelte';
-	import BulkStatusImportModal from '$features/calendar/components/BulkStatusImportModal.svelte';
 	import MonthlyAssignmentPlanner from '$features/calendar/components/MonthlyAssignmentPlanner.svelte';
 	import DutyRosterGenerator from '$features/duty-roster/components/DutyRosterGenerator.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
@@ -61,42 +58,6 @@
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
 		onClose={() => modals.close('today-breakdown')}
-	/>
-{/if}
-
-{#if modals.isOpen('bulk-status')}
-	<BulkStatusModal
-		personnelByGroup={ctx.scopedPBG}
-		statusTypes={statusTypesStore.items}
-		onApply={(ids, typeId, start, end, note) => ctx.handleBulkStatusApply(ids, typeId, start, end, note)}
-		onClose={() => modals.close('bulk-status')}
-		onImport={() => {
-			modals.close('bulk-status');
-			modals.open('bulk-status-import');
-		}}
-	/>
-{/if}
-
-{#if modals.isOpen('bulk-status-import')}
-	<BulkStatusImportModal
-		personnel={ctx.allPersonnelFlat}
-		statusTypes={statusTypesStore.items}
-		{orgId}
-		onImportComplete={() => {
-			import('$app/navigation').then(({ invalidateAll }) => invalidateAll());
-		}}
-		onClose={() => modals.close('bulk-status-import')}
-	/>
-{/if}
-
-{#if modals.isOpen('bulk-remove')}
-	<BulkStatusRemoveModal
-		personnelByGroup={ctx.scopedPBG}
-		statusTypes={statusTypesStore.items}
-		availabilityEntries={availabilityStore.items}
-		personnelList={ctx.calendarPersonnel}
-		onRemove={(ids) => ctx.handleBulkStatusRemove(ids)}
-		onClose={() => modals.close('bulk-remove')}
 	/>
 {/if}
 

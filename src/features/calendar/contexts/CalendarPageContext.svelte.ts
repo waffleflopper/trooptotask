@@ -3,8 +3,6 @@ import { availabilityStore } from '$features/calendar/stores/availability.svelte
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-import { dutyRosterHistoryStore } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
-import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { calendarPrefsStore } from '$features/calendar/stores/calendarPrefs.svelte';
@@ -107,35 +105,19 @@ export class CalendarPageContext {
 
 		// Visible actions duplicated for mobile access
 		items.push({ label: "Today's Breakdown", onclick: () => this.#modals.open('today-breakdown') });
-		if (this.#data.permissions?.canEditCalendar) {
-			if (this.canManageConfig) {
-				items.push({
-					label: 'Assignments',
-					onclick: () => this.#modals.open('assignment-planner'),
-					disabled: this.readOnly
-				});
-			}
-		}
 		items.push({ label: '3-Month View', onclick: () => this.#modals.open('long-range-view') });
 
 		// Additional tools
 		if (this.#data.permissions?.canEditCalendar) {
 			if (this.canManageConfig) {
 				items.push({
-					label: 'Bulk Status',
-					onclick: () => this.#modals.open('bulk-status'),
-					divider: true,
-					disabled: this.readOnly
-				});
-				items.push({
-					label: 'Bulk Remove',
-					onclick: () => this.#modals.open('bulk-remove'),
-					disabled: this.readOnly
+					label: 'Bulk Operations',
+					href: `/org/${this.#data.orgId}/calendar/bulk`,
+					divider: true
 				});
 				items.push({
 					label: 'Duty Roster',
-					onclick: () => this.#modals.open('duty-roster-generator'),
-					disabled: this.readOnly
+					href: `/org/${this.#data.orgId}/calendar/duty-roster`
 				});
 			}
 		}
@@ -244,22 +226,6 @@ export class CalendarPageContext {
 		this.assignmentDate = null;
 	}
 
-	async handleBulkStatusApply(
-		personnelIds: string[],
-		statusTypeId: string,
-		startDate: string,
-		endDate: string,
-		note: string | null
-	): Promise<void> {
-		await availabilityStore.addBatch(
-			personnelIds.map((personnelId) => ({ personnelId, statusTypeId, startDate, endDate, note }))
-		);
-	}
-
-	async handleBulkStatusRemove(ids: string[]): Promise<boolean> {
-		return await availabilityStore.removeBatch(ids);
-	}
-
 	handleExportCSV(): void {
 		exportMonthToCSV(calendarStore.year, calendarStore.month, {
 			personnelByGroup: this.scopedPBG,
@@ -280,40 +246,5 @@ export class CalendarPageContext {
 			assignmentTypes: dailyAssignmentsStore.types,
 			assignments: dailyAssignmentsStore.assignments
 		});
-	}
-
-	async handleApplyRoster(
-		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
-	): Promise<void> {
-		await dailyAssignmentsStore.setAssignmentBatch(assignments);
-	}
-
-	async handleSaveRoster(payload: Omit<RosterHistoryItem, 'id' | 'createdAt'>): Promise<RosterHistoryItem | null> {
-		try {
-			const res = await fetch(`/org/${this.#data.orgId}/api/duty-roster-history`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-			if (!res.ok) return null;
-			const item: RosterHistoryItem = await res.json();
-			dutyRosterHistoryStore.add(item);
-			return item;
-		} catch {
-			return null;
-		}
-	}
-
-	async handleDeleteRoster(id: string): Promise<void> {
-		dutyRosterHistoryStore.remove(id); // optimistic
-		try {
-			await fetch(`/org/${this.#data.orgId}/api/duty-roster-history/${id}`, { method: 'DELETE' });
-		} catch {
-			// Silently fail — history will re-sync on next page load
-		}
-	}
-
-	async handleUpdateExemptions(assignmentTypeId: string, personnelIds: string[]): Promise<void> {
-		await dailyAssignmentsStore.updateType(assignmentTypeId, { exemptPersonnelIds: personnelIds });
 	}
 }

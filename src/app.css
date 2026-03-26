@@ -134,10 +134,15 @@
 	--field-label: var(--color-text-secondary);
 	--field-error: var(--color-error);
 	--field-help: var(--color-text-muted);
+	--field-row-gap: var(--spacing-md);
+	--field-stack-gap: var(--spacing-sm);
+	--field-support-gap: var(--spacing-xs);
 
 	/* Toolbar tokens */
 	--toolbar-bg: var(--color-surface);
 	--toolbar-border: var(--color-border);
+	--section-card-padding: var(--spacing-xl);
+	--section-card-gap: var(--spacing-md);
 
 	/* Opacity scale */
 	--opacity-subtle: 0.08;
@@ -501,6 +506,30 @@ a:hover {
 	margin-bottom: var(--spacing-lg);
 }
 
+.form-row {
+	display: flex;
+	gap: var(--field-row-gap);
+	align-items: flex-end;
+}
+
+.form-row > .form-group {
+	flex: 1;
+	margin-bottom: 0;
+	min-width: 0;
+}
+
+.field-stack {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: var(--field-stack-gap);
+	min-width: 0;
+}
+
+.field-stack > .form-group {
+	margin-bottom: 0;
+}
+
 /* Checkbox styling */
 input[type='checkbox'] {
 	width: 20px;
@@ -522,6 +551,7 @@ input[type='checkbox']:focus-visible {
 	border-radius: var(--radius-lg);
 	box-shadow: var(--shadow-1);
 	transition: box-shadow var(--transition-normal);
+	overflow: hidden;
 }
 
 .card:hover {
@@ -553,6 +583,13 @@ input[type='checkbox']:focus-visible {
 .card-flat:hover {
 	box-shadow: none;
 	border-color: var(--color-border-dark);
+}
+
+.section-card {
+	padding: var(--section-card-padding);
+	display: flex;
+	flex-direction: column;
+	gap: var(--section-card-gap);
 }
 
 /* ============================================
@@ -928,6 +965,18 @@ input[type='checkbox']:focus-visible {
 	font-size: var(--font-size-xs);
 	color: var(--field-help);
 	margin-top: var(--spacing-xs);
+}
+
+.field-support {
+	display: flex;
+	align-items: center;
+	gap: var(--field-support-gap);
+	min-height: 1rem;
+}
+
+.field-support .field-hint,
+.field-support .field-error {
+	margin-top: 0;
 }
 
 .field-error {

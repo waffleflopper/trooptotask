@@ -57,6 +57,7 @@ export class CalendarPageContext {
 
 	// ---- display prefs -----------------------------------------------------
 	highlightOnboarding = $state(true);
+	breakdownExpanded = $state(true);
 
 	// ---- derived: personnel ------------------------------------------------
 	get calendarPersonnel(): Personnel[] {
@@ -104,7 +105,7 @@ export class CalendarPageContext {
 		const items: OverflowItem[] = [];
 
 		// Visible actions duplicated for mobile access
-		items.push({ label: "Today's Breakdown", onclick: () => this.#modals.open('today-breakdown') });
+		items.push({ label: "Today's Breakdown", onclick: () => this.toggleBreakdown() });
 		items.push({ label: '3-Month View', onclick: () => this.#modals.open('long-range-view') });
 
 		// Additional tools
@@ -179,6 +180,10 @@ export class CalendarPageContext {
 	}
 
 	// ---- handlers ----------------------------------------------------------
+
+	toggleBreakdown(): void {
+		this.breakdownExpanded = !this.breakdownExpanded;
+	}
 
 	toggleHighlightOnboarding(): void {
 		this.highlightOnboarding = !this.highlightOnboarding;

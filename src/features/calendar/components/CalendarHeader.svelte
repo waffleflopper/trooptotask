@@ -100,7 +100,10 @@
 					<span class="day-name">{getDayName(date)}</span>
 					<span class="day-number">{date.getDate()}</span>
 					{#if headerAssignment}
-						<span class="front-desk-group" title="{headerAssignment.assignmentTypeName}: {headerAssignment.assigneeId}">
+						<span
+							class="header-assignment-badge"
+							title="{headerAssignment.assignmentTypeName}: {headerAssignment.assigneeId}"
+						>
 							{headerAssignment.assigneeId}
 						</span>
 					{/if}
@@ -186,7 +189,7 @@
 		box-shadow: inset 0 -2px 0 var(--color-today-border);
 	}
 
-	.front-desk-group {
+	.header-assignment-badge {
 		font-size: 7px;
 		font-weight: 600;
 		color: var(--color-text-muted);
@@ -223,7 +226,7 @@
 			font-size: var(--font-size-xs);
 		}
 
-		.front-desk-group {
+		.header-assignment-badge {
 			font-size: 6px;
 			padding: 0 2px;
 		}

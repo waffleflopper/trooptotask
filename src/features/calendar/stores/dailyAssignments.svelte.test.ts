@@ -30,7 +30,8 @@ describe('regression: delete type then add type flow', () => {
 			shortName: 'OT',
 			assignTo: 'personnel' as const,
 			color: '#000',
-			exemptPersonnelIds: []
+			exemptPersonnelIds: [],
+			showInDateHeader: false
 		};
 		dailyAssignmentsStore.load([typeA], [], 'org-1');
 		expect(dailyAssignmentsStore.types).toEqual([typeA]);
@@ -48,7 +49,8 @@ describe('regression: delete type then add type flow', () => {
 			shortName: 'NT',
 			assignTo: 'personnel' as const,
 			color: '#fff',
-			exemptPersonnelIds: []
+			exemptPersonnelIds: [],
+			showInDateHeader: false
 		};
 		vi.stubGlobal('fetch', mockFetch(typeB));
 		const addResult = await dailyAssignmentsStore.addType({
@@ -56,7 +58,8 @@ describe('regression: delete type then add type flow', () => {
 			shortName: 'NT',
 			assignTo: 'personnel',
 			color: '#fff',
-			exemptPersonnelIds: []
+			exemptPersonnelIds: [],
+			showInDateHeader: false
 		});
 		expect(addResult).toEqual(typeB);
 
@@ -96,7 +99,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#fff',
-				exemptPersonnelIds: []
+				exemptPersonnelIds: [],
+				showInDateHeader: false
 			});
 
 			// Different org — should go through
@@ -108,7 +112,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 						shortName: 'OT',
 						assignTo: 'group' as const,
 						color: '#aaa',
-						exemptPersonnelIds: []
+						exemptPersonnelIds: [],
+						showInDateHeader: false
 					}
 				],
 				[],
@@ -116,7 +121,15 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			);
 
 			expect(dailyAssignmentsStore.types).toEqual([
-				{ id: '10', name: 'Other', shortName: 'OT', assignTo: 'group', color: '#aaa', exemptPersonnelIds: [] }
+				{
+					id: '10',
+					name: 'Other',
+					shortName: 'OT',
+					assignTo: 'group',
+					color: '#aaa',
+					exemptPersonnelIds: [],
+					showInDateHeader: false
+				}
 			]);
 
 			resolveFetch(undefined);
@@ -131,7 +144,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel' as const,
 				color: '#fff',
-				exemptPersonnelIds: []
+				exemptPersonnelIds: [],
+				showInDateHeader: false
 			};
 			vi.stubGlobal('fetch', mockFetch(serverType));
 
@@ -140,7 +154,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#fff',
-				exemptPersonnelIds: []
+				exemptPersonnelIds: [],
+				showInDateHeader: false
 			});
 
 			expect(result).toEqual(serverType);
@@ -155,7 +170,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#fff',
-				exemptPersonnelIds: []
+				exemptPersonnelIds: [],
+				showInDateHeader: false
 			});
 
 			expect(result).toBeNull();
@@ -182,7 +198,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 								shortName: 'CQ',
 								assignTo: 'personnel',
 								color: '#fff',
-								exemptPersonnelIds: []
+								exemptPersonnelIds: [],
+								showInDateHeader: false
 							})
 					}))
 				)
@@ -193,7 +210,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				shortName: 'CQ',
 				assignTo: 'personnel',
 				color: '#fff',
-				exemptPersonnelIds: []
+				exemptPersonnelIds: [],
+				showInDateHeader: false
 			});
 
 			expect(dailyAssignmentsStore.types.length).toBe(2);

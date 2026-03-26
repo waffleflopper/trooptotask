@@ -44,22 +44,6 @@
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
-	// MOD-eligible MOS codes
-	const MOD_ELIGIBLE_MOS = ['PA', 'MD'];
-
-	// Get eligible personnel grouped by type
-	function getEligiblePersonnelByGroup(type: AssignmentType): GroupData[] {
-		if (type.shortName === 'MOD') {
-			return personnelByGroup
-				.map((g) => ({
-					...g,
-					personnel: g.personnel.filter((p) => MOD_ELIGIBLE_MOS.some((mos) => p.mos.toUpperCase().includes(mos)))
-				}))
-				.filter((g) => g.personnel.length > 0);
-		}
-		return personnelByGroup;
-	}
-
 	function getCurrentAssignee(typeId: string): string {
 		const assignment = assignmentsForDate.find((a) => a.assignmentTypeId === typeId);
 		return assignment?.assigneeId ?? '';
@@ -94,14 +78,13 @@
 				</label>
 
 				{#if type.assignTo === 'personnel'}
-					{@const eligibleGroups = getEligiblePersonnelByGroup(type)}
 					<select
 						class="select"
 						value={getCurrentAssignee(type.id)}
 						onchange={(e) => handleAssignmentChange(type.id, e.currentTarget.value)}
 					>
 						<option value="">-- Not Assigned --</option>
-						{#each eligibleGroups as grp}
+						{#each personnelByGroup as grp}
 							{#if grp.personnel.length > 0}
 								<optgroup label={grp.group}>
 									{#each grp.personnel as person}
@@ -114,9 +97,6 @@
 							{/if}
 						{/each}
 					</select>
-					{#if type.shortName === 'MOD'}
-						<span class="filter-hint">Only PA/MD personnel are eligible</span>
-					{/if}
 				{:else}
 					<select
 						class="select"
@@ -220,11 +200,5 @@
 		gap: var(--spacing-sm);
 		padding: var(--spacing-xs) 0;
 		font-size: var(--font-size-sm);
-	}
-
-	.filter-hint {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		font-style: italic;
 	}
 </style>

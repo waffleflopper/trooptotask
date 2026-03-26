@@ -88,7 +88,7 @@ describe('fetchCalendarData', () => {
 		expect(spy).toHaveBeenCalledWith('calendar');
 	});
 
-	it('returns all 6 data collections with entity transforms', async () => {
+	it('returns all 5 data collections with entity transforms (roster history moved to page server)', async () => {
 		const ctx = buildCtx();
 		seedCalendarData(ctx.store);
 
@@ -129,13 +129,8 @@ describe('fetchCalendarData', () => {
 		// Pinned groups — custom transform returns just the group_name string
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 
-		// Roster history
-		expect(result.rosterHistory).toHaveLength(1);
-		expect(result.rosterHistory[0]).toMatchObject({
-			id: 'rh1',
-			assignmentTypeId: 'at1',
-			name: 'CQ Roster'
-		});
+		// Roster history no longer returned from calendarQuery
+		expect((result as unknown as Record<string, unknown>).rosterHistory).toBeUndefined();
 	});
 
 	it('excludes availability entries outside the date range (overlap logic)', async () => {
@@ -225,27 +220,5 @@ describe('fetchCalendarData', () => {
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 	});
 
-	it('limits roster history to 50 entries', async () => {
-		const ctx = buildCtx();
-		// Seed 55 roster history entries
-		for (let i = 0; i < 55; i++) {
-			ctx.store.seed('duty_roster_history', [
-				{
-					id: `rh-${i}`,
-					organization_id: ORG,
-					assignment_type_id: 'at1',
-					name: `Roster ${i}`,
-					start_date: '2026-03-01',
-					end_date: '2026-03-31',
-					roster: [],
-					config: {},
-					created_at: `2026-03-${String(i + 1).padStart(2, '0')}T00:00:00Z`
-				}
-			]);
-		}
-
-		const result = await fetchCalendarData(ctx, RANGE);
-
-		expect(result.rosterHistory).toHaveLength(50);
-	});
+	// roster history limit test moved to rosterHistoryQuery.test.ts
 });

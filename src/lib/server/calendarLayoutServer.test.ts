@@ -103,7 +103,8 @@ describe('calendar layout server (loadWithContext)', () => {
 		expect(result.assignmentTypes).toHaveLength(1);
 		expect(result.dailyAssignments).toHaveLength(1);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
-		expect(result.rosterHistory).toHaveLength(1);
+		// rosterHistory no longer loaded in calendar layout — moved to /calendar/duty-roster page server
+		expect((result as Record<string, unknown>).rosterHistory).toBeUndefined();
 		expect(result.activeOnboardingPersonnelIds).toEqual([]);
 	});
 

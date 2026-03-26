@@ -99,13 +99,10 @@ describe('CalendarPageContext', () => {
 		it('status-manager starts closed', () => expect(modals.isOpen('status-manager')).toBe(false));
 		it('special-day-manager starts closed', () => expect(modals.isOpen('special-day-manager')).toBe(false));
 		it('today-breakdown starts closed', () => expect(modals.isOpen('today-breakdown')).toBe(false));
-		it('bulk-status starts closed', () => expect(modals.isOpen('bulk-status')).toBe(false));
-		it('bulk-status-import starts closed', () => expect(modals.isOpen('bulk-status-import')).toBe(false));
-		it('bulk-remove starts closed', () => expect(modals.isOpen('bulk-remove')).toBe(false));
-		it('assignment-planner starts closed', () => expect(modals.isOpen('assignment-planner')).toBe(false));
+		// bulk-status, bulk-status-import, bulk-remove modals removed — moved to /calendar/bulk page
 		it('long-range-view starts closed', () => expect(modals.isOpen('long-range-view')).toBe(false));
 		it('assignment-type-manager starts closed', () => expect(modals.isOpen('assignment-type-manager')).toBe(false));
-		it('duty-roster-generator starts closed', () => expect(modals.isOpen('duty-roster-generator')).toBe(false));
+		// duty-roster-generator modal removed — moved to /calendar/duty-roster page
 	});
 
 	// ---- Selected state ----------------------------------------------------
@@ -238,6 +235,18 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
+	// ---- bulk handlers removed (moved to bulk page) -----------------------
+
+	describe('bulk handlers removed', () => {
+		it('does not have handleBulkStatusApply method', () => {
+			expect((ctx as unknown as Record<string, unknown>)['handleBulkStatusApply']).toBeUndefined();
+		});
+
+		it('does not have handleBulkStatusRemove method', () => {
+			expect((ctx as unknown as Record<string, unknown>)['handleBulkStatusRemove']).toBeUndefined();
+		});
+	});
+
 	// ---- overflow items ---------------------------------------------------
 
 	describe('calendarOverflowItems', () => {
@@ -276,6 +285,77 @@ describe('CalendarPageContext', () => {
 			const labels = ctx.calendarOverflowItems.map((i) => i.label);
 			expect(labels).toContain('Export to Excel');
 			expect(labels).toContain('Print / PDF');
+		});
+
+		it('includes Bulk Operations as a navigation link for owner', () => {
+			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const bulkItem = ownerCtx.calendarOverflowItems.find((i) => i.label === 'Bulk Operations');
+			expect(bulkItem).toBeDefined();
+			expect(bulkItem!.href).toBe('/org/org1/calendar/bulk');
+			expect(bulkItem!.onclick).toBeUndefined();
+		});
+
+		it('does not include Bulk Operations for plain member', () => {
+			const labels = ctx.calendarOverflowItems.map((i) => i.label);
+			expect(labels).not.toContain('Bulk Operations');
+		});
+
+		it('does not include old Bulk Status or Bulk Remove modal items', () => {
+			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
+			expect(labels).not.toContain('Bulk Status');
+			expect(labels).not.toContain('Bulk Remove');
+		});
+
+		it('includes Duty Roster as a navigation link for owner', () => {
+			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const dutyItem = ownerCtx.calendarOverflowItems.find((i) => i.label === 'Duty Roster');
+			expect(dutyItem).toBeDefined();
+			expect(dutyItem!.href).toBe('/org/org1/calendar/duty-roster');
+			expect(dutyItem!.onclick).toBeUndefined();
+		});
+
+		it('does not include Duty Roster for plain member', () => {
+			const labels = ctx.calendarOverflowItems.map((i) => i.label);
+			expect(labels).not.toContain('Duty Roster');
+		});
+
+		it('does not include Assignments after moving the planner to its own page', () => {
+			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const labels = ownerCtx.calendarOverflowItems.map((i) => i.label);
+			expect(labels).not.toContain('Assignments');
+		});
+	});
+
+	// ---- duty roster handlers removed (moved to duty-roster page) ---------
+
+	describe('duty roster handlers removed', () => {
+		it('does not have handleApplyRoster method', () => {
+			expect((ctx as unknown as Record<string, unknown>)['handleApplyRoster']).toBeUndefined();
+		});
+
+		it('does not have handleSaveRoster method', () => {
+			expect((ctx as unknown as Record<string, unknown>)['handleSaveRoster']).toBeUndefined();
+		});
+
+		it('does not have handleDeleteRoster method', () => {
+			expect((ctx as unknown as Record<string, unknown>)['handleDeleteRoster']).toBeUndefined();
+		});
+
+		it('does not have handleUpdateExemptions method', () => {
+			expect((ctx as unknown as Record<string, unknown>)['handleUpdateExemptions']).toBeUndefined();
+		});
+	});
+
+	// ---- duty-roster-generator modal removed ------------------------------
+
+	describe('duty-roster-generator modal removed', () => {
+		it('does not reference duty-roster-generator modal in overflow items', () => {
+			const ownerCtx = new CalendarPageContext(mockData, new ModalRegistry(), makeMockOrg({ isOwner: true }));
+			const dutyItem = ownerCtx.calendarOverflowItems.find((i) => i.label === 'Duty Roster');
+			// Should be a link, not a modal opener
+			expect(dutyItem!.href).toBeDefined();
+			expect(dutyItem!.onclick).toBeUndefined();
 		});
 	});
 });

@@ -2,7 +2,6 @@
 	import type { Personnel, AssignmentType, DailyAssignment } from '$lib/types';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import Modal from '$lib/components/Modal.svelte';
 
 	interface GroupData {
 		group: string;
@@ -19,7 +18,6 @@
 		onSetAssignmentBatch: (
 			assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
 		) => Promise<boolean>;
-		onClose: () => void;
 	}
 
 	let {
@@ -29,8 +27,7 @@
 		personnelByGroup,
 		groups,
 		onSetAssignment,
-		onSetAssignmentBatch,
-		onClose
+		onSetAssignmentBatch
 	}: Props = $props();
 
 	// State for selected month
@@ -175,29 +172,35 @@
 	const selectedType = $derived(assignmentTypes.find((t) => t.id === quickFillType));
 </script>
 
-<Modal title="Monthly Assignment Planner" {onClose} width="900px" titleId="planner-title">
+<div class="planner-shell">
 	<!-- Month Navigation -->
 	<div class="month-nav">
-		<button class="btn btn-secondary btn-sm" onclick={prevMonth}>
-			<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-				<path
-					fill-rule="evenodd"
-					d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-					clip-rule="evenodd"
-				/>
-			</svg>
-		</button>
+		<div class="month-controls">
+			<button class="btn btn-secondary btn-sm" onclick={prevMonth} aria-label="Previous month">
+				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+					<path
+						fill-rule="evenodd"
+						d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+			</button>
+			<button class="btn btn-secondary btn-sm" onclick={goToCurrentMonth}>Today</button>
+		</div>
+
 		<h3>{monthName} {year}</h3>
-		<button class="btn btn-secondary btn-sm" onclick={nextMonth}>
-			<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-				<path
-					fill-rule="evenodd"
-					d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-					clip-rule="evenodd"
-				/>
-			</svg>
-		</button>
-		<button class="btn btn-secondary btn-sm" onclick={goToCurrentMonth}>Today</button>
+
+		<div class="month-controls month-controls-end">
+			<button class="btn btn-secondary btn-sm" onclick={nextMonth} aria-label="Next month">
+				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+					<path
+						fill-rule="evenodd"
+						d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+			</button>
+		</div>
 	</div>
 
 	<!-- Quick Fill Section -->
@@ -332,13 +335,8 @@
 		</table>
 	</div>
 
-	{#snippet footer()}
-		<div class="footer-info">
-			{dates.length} days in {monthName}
-		</div>
-		<button class="btn btn-primary" onclick={onClose}>Done</button>
-	{/snippet}
-</Modal>
+	<div class="planner-footer">{dates.length} days in {monthName}</div>
+</div>
 
 {#if clearTypeId}
 	<ConfirmDialog
@@ -352,17 +350,25 @@
 {/if}
 
 <style>
+	.planner-shell {
+		background: color-mix(in srgb, var(--color-surface) 88%, white 12%);
+		border: 1px solid color-mix(in srgb, var(--color-border) 75%, white 25%);
+		border-radius: var(--radius-xl);
+		overflow: hidden;
+		box-shadow: var(--shadow-sm);
+	}
+
 	/* Month Navigation */
 	.month-nav {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		justify-content: center;
-		gap: var(--spacing-md);
+		justify-content: space-between;
+		gap: var(--spacing-sm);
 		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-chrome);
-		color: var(--color-chrome-text);
-		/* Bleed past modal-body padding to fill edge-to-edge */
-		margin: calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg)) 0;
+		background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 9%, white 91%), var(--color-surface));
+		color: var(--color-text);
+		border-bottom: 1px solid var(--color-divider);
 	}
 
 	.month-nav h3 {
@@ -370,31 +376,43 @@
 		font-weight: 600;
 		min-width: 180px;
 		text-align: center;
+		margin: 0;
+		font-family: var(--font-display);
 	}
 
 	.month-nav .btn-secondary {
-		background: rgba(255, 255, 255, 0.1);
-		border-color: rgba(255, 255, 255, 0.2);
-		color: var(--color-chrome-text);
+		background: var(--color-surface);
+		border-color: var(--color-border);
+		color: var(--color-text);
 	}
 
 	.month-nav .btn-secondary:hover {
-		background: rgba(255, 255, 255, 0.2);
+		background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+		border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+	}
+
+	.month-controls {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		flex-wrap: wrap;
+	}
+
+	.month-controls-end {
+		justify-content: flex-end;
 	}
 
 	/* Quick Fill */
 	.quick-fill {
 		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-bg);
-		border-bottom: 1px solid var(--color-border);
-		/* Bleed past modal-body padding to fill edge-to-edge */
-		margin: 0 calc(-1 * var(--spacing-lg));
+		background: color-mix(in srgb, var(--color-primary) 3%, var(--color-bg));
+		border-bottom: 1px solid var(--color-divider);
 	}
 
 	.quick-fill h4 {
 		font-size: var(--font-size-sm);
 		font-weight: 600;
-		color: var(--color-text-muted);
+		color: var(--color-text);
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
 		margin-bottom: var(--spacing-sm);
@@ -427,6 +445,7 @@
 	.grid-container {
 		overflow: auto;
 		padding: var(--spacing-md) var(--spacing-lg);
+		background: var(--color-surface);
 	}
 
 	.assignment-grid {
@@ -443,7 +462,7 @@
 	}
 
 	.assignment-grid th {
-		background: var(--color-surface);
+		background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
 		font-weight: 600;
 		position: sticky;
 		top: 0;
@@ -544,16 +563,19 @@
 		background: var(--color-surface);
 	}
 
-	/* Footer */
-	.footer-info {
+	.planner-footer {
+		padding: var(--spacing-md) var(--spacing-lg);
+		border-top: 1px solid var(--color-divider);
 		font-size: var(--font-size-sm);
 		color: var(--color-text-muted);
+		background: color-mix(in srgb, var(--color-primary) 3%, var(--color-surface));
 	}
 
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
 		.month-nav {
 			padding: var(--spacing-sm) var(--spacing-md);
+			justify-content: center;
 		}
 
 		.month-nav h3 {

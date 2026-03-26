@@ -22,36 +22,50 @@ src/
     training/                — training types, matrix, reports, bulk import
     personnel/               — personnel CRUD, bulk import, extended info
     calendar/                — calendar views, availability, status, assignments
-    counseling/              — counseling records, rating scheme, leaders book
+    counseling/              — counseling records, leaders book
+    rating-scheme/           — rating scheme definitions and management
     onboarding/              — onboarding workflows, templates
     duty-roster/             — duty roster generation
     sign-in-rosters/         — sign-in roster generation
     groups/                  — group/member management
+    dashboard/               — dashboard widgets and layout
   lib/
     components/ui/           — shared primitives (Badge, Spinner, EmptyState, FileUpload, DataTable)
     components/              — shared layout components (Modal, PageToolbar, TopHeader, etc.)
     server/
       entities/              — schema-first entity definitions (see docs/entity-system.md)
-      entitySchema.ts        — defineEntity() framework (schema, transforms, repo — no handlers)
+      entitySchema.ts        — defineEntity() framework (schema, transforms, Zod schemas)
       repositoryFactory.ts   — createRepository() used internally by entities
+      permissionContext.ts   — builds PermissionContext from membership rows
+      groupAccess.ts         — shared group access permission utilities
+      personnelRepository.ts — specialized repository for complex personnel queries
+      onboardingRepository.ts — specialized repository for complex onboarding queries
+      ratingSchemeRepository.ts — specialized repository for rating scheme queries
       core/
         ports.ts             — port interfaces (DataStore, AuthContext, AuditPort, etc.)
         useCases/            — pure business logic use cases (no Supabase imports)
       adapters/
-        httpAdapter.ts       — buildContext(), postHandler(), crudHandlers() for SvelteKit routes
+        httpAdapter.ts       — handle(), crudHandlers(), loadWithContext() for SvelteKit routes
         supabaseDataStore.ts — DataStore port implementation using Supabase
+        scopedDataStore.ts   — ScopedDataStore wrapper (group-scoped access control)
         supabaseAuthContext.ts — AuthContext port implementation
         supabaseAudit.ts     — AuditPort implementation
         supabaseReadOnlyGuard.ts — ReadOnlyGuard implementation
         supabaseSubscription.ts — SubscriptionPort implementation
+        supabaseNotification.ts — NotificationPort implementation
+        supabaseStorage.ts   — StoragePort implementation (file uploads)
+        stripeBilling.ts     — BillingPort implementation via Stripe
+        adminAdapter.ts      — admin-scoped data access adapter
         inMemory.ts          — in-memory test adapters for all ports
-      personnelRepository.ts — specialized repository for complex personnel queries
-      onboardingRepository.ts — specialized repository for complex onboarding queries
     stores/                  — shared cross-cutting stores (groups, subscription, theme, etc.)
     types.ts                 — shared types (Personnel, permissions, ranks)
     utils/                   — shared utils (dates, csvParser, deletionRequests)
   routes/
     org/[orgId]/             — main app (thin shells importing from features)
+      admin/                 — org admin panel (members, settings, audit)
+      audit/                 — audit log viewer
+      leaders-book/          — leaders book / counseling records
+      settings/              — org settings
     auth/                    — login/callback
     billing/                 — subscription
 ```

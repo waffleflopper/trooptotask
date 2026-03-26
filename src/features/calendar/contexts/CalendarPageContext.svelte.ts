@@ -55,6 +55,9 @@ export class CalendarPageContext {
 	selectedDate = $state<Date | null>(null);
 	assignmentDate = $state<Date | null>(null);
 
+	// ---- view mode ---------------------------------------------------------
+	viewMode = $state<'month' | '3-month'>('month');
+
 	// ---- display prefs -----------------------------------------------------
 	highlightOnboarding = $state(true);
 	breakdownExpanded = $state(true);
@@ -106,7 +109,6 @@ export class CalendarPageContext {
 
 		// Visible actions duplicated for mobile access
 		items.push({ label: "Today's Breakdown", onclick: () => this.toggleBreakdown() });
-		items.push({ label: '3-Month View', onclick: () => this.#modals.open('long-range-view') });
 
 		// Additional tools
 		if (this.#data.permissions?.canEditCalendar) {
@@ -187,6 +189,15 @@ export class CalendarPageContext {
 	}
 
 	// ---- handlers ----------------------------------------------------------
+
+	toggleViewMode(): void {
+		this.viewMode = this.viewMode === 'month' ? '3-month' : 'month';
+	}
+
+	navigateToMonth(date: Date): void {
+		this.viewMode = 'month';
+		calendarStore.goToMonth(date.getFullYear(), date.getMonth());
+	}
 
 	toggleBreakdown(): void {
 		this.breakdownExpanded = !this.breakdownExpanded;

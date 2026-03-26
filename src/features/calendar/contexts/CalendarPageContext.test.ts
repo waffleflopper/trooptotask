@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CalendarPageContext, type CalendarPageData } from './CalendarPageContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
 
@@ -100,7 +101,7 @@ describe('CalendarPageContext', () => {
 		it('special-day-manager starts closed', () => expect(modals.isOpen('special-day-manager')).toBe(false));
 		// today-breakdown modal removed — converted to inline panel (breakdownExpanded state)
 		// bulk-status, bulk-status-import, bulk-remove modals removed — moved to /calendar/bulk page
-		it('long-range-view starts closed', () => expect(modals.isOpen('long-range-view')).toBe(false));
+		// long-range-view modal removed — converted to inline view toggle (viewMode state)
 		it('assignment-type-manager starts closed', () => expect(modals.isOpen('assignment-type-manager')).toBe(false));
 		// duty-roster-generator modal removed — moved to /calendar/duty-roster page
 	});
@@ -128,6 +129,34 @@ describe('CalendarPageContext', () => {
 			expect(ctx.breakdownExpanded).toBe(false);
 			ctx.toggleBreakdown();
 			expect(ctx.breakdownExpanded).toBe(true);
+		});
+	});
+
+	// ---- View mode state ---------------------------------------------------
+
+	describe('viewMode', () => {
+		it('defaults to month', () => {
+			expect(ctx.viewMode).toBe('month');
+		});
+
+		it('toggleViewMode switches between month and 3-month', () => {
+			ctx.toggleViewMode();
+			expect(ctx.viewMode).toBe('3-month');
+			ctx.toggleViewMode();
+			expect(ctx.viewMode).toBe('month');
+		});
+
+		it('navigateToMonth switches to month view and navigates calendarStore', () => {
+			ctx.toggleViewMode(); // now in 3-month
+			expect(ctx.viewMode).toBe('3-month');
+
+			const targetDate = new Date(2026, 5, 15); // June 2026
+			ctx.navigateToMonth(targetDate);
+
+			expect(ctx.viewMode).toBe('month');
+			// calendarStore should have navigated to June 2026
+			expect(calendarStore.month).toBe(5);
+			expect(calendarStore.year).toBe(2026);
 		});
 	});
 
@@ -276,10 +305,14 @@ describe('CalendarPageContext', () => {
 	// ---- overflow items ---------------------------------------------------
 
 	describe('calendarOverflowItems', () => {
-		it("always includes Today's Breakdown and 3-Month View", () => {
+		it("always includes Today's Breakdown", () => {
 			const labels = ctx.calendarOverflowItems.map((i) => i.label);
 			expect(labels).toContain("Today's Breakdown");
-			expect(labels).toContain('3-Month View');
+		});
+
+		it('does not include 3-Month View (moved to month navigation toggle)', () => {
+			const labels = ctx.calendarOverflowItems.map((i) => i.label);
+			expect(labels).not.toContain('3-Month View');
 		});
 
 		it("Today's Breakdown overflow item toggles the panel (not a modal)", () => {

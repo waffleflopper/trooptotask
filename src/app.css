@@ -9,6 +9,7 @@
 	--color-primary-dark: #96782f;
 	--color-primary-hover: #d4b15a;
 	--color-primary-rgb: 184, 148, 62;
+	--color-primary-contrast: #0f0f0f;
 
 	/* Secondary Colors - Teal */
 	--color-secondary: #009688;
@@ -170,6 +171,7 @@
 	--color-primary-dark: #b8943e;
 	--color-primary-hover: #e2c87a;
 	--color-primary-rgb: 212, 177, 90;
+	--color-primary-contrast: #0f0f0f;
 
 	/* Secondary */
 	--color-secondary: #4db6ac;
@@ -317,7 +319,7 @@ a:hover {
 
 .btn-primary {
 	background-color: var(--color-primary);
-	color: #0f0f0f;
+	color: var(--color-primary-contrast);
 	box-shadow: var(--shadow-1);
 }
 

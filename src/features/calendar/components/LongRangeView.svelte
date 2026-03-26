@@ -9,7 +9,6 @@
 	} from '$lib/types';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, isToday } from '$lib/utils/dates';
 	import { exportQuarterToCSV, printQuarterCalendar } from '../utils/calendarExport';
-	import Modal from '$lib/components/Modal.svelte';
 
 	interface GroupData {
 		group: string;
@@ -24,8 +23,8 @@
 		specialDays: SpecialDay[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
-		onClose: () => void;
-		onCellClick?: (person: Personnel, date: Date) => void;
+		onDateColumnClick?: (date: Date) => void;
+		onToggleViewMode?: () => void;
 	}
 
 	let {
@@ -36,8 +35,8 @@
 		specialDays,
 		assignmentTypes,
 		assignments,
-		onClose,
-		onCellClick
+		onDateColumnClick,
+		onToggleViewMode
 	}: Props = $props();
 
 	let viewStartDate = $state(new Date());
@@ -90,21 +89,6 @@
 		return specialDays.find((s) => s.date === dateStr) ?? null;
 	}
 
-	function getAssignmentBadges(date: Date): { shortName: string; color: string }[] {
-		const dateStr = formatDate(date);
-		const dayAssignments = assignments.filter((a) => a.date === dateStr);
-		return dayAssignments
-			.map((a) => {
-				const type = assignmentTypes.find((t) => t.id === a.assignmentTypeId);
-				return type ? { shortName: type.shortName, color: type.color } : null;
-			})
-			.filter((b): b is { shortName: string; color: string } => b !== null);
-	}
-
-	function handleCellClick(person: Personnel, date: Date) {
-		onCellClick?.(person, date);
-	}
-
 	// Stats
 	const totalDays = $derived(months.reduce((sum, m) => sum + m.dates.length, 0));
 
@@ -131,11 +115,11 @@
 	}
 </script>
 
-<Modal title="Long Range View" {onClose} width="min(95vw, 1400px)" titleId="longrange-title">
-	<div class="body-wrapper">
-		<div class="nav-bar">
+<div class="long-range-wrapper">
+	<div class="nav-bar">
+		<div class="nav-bar-left">
 			<button class="btn btn-secondary btn-sm" onclick={prevQuarter}>
-				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
 					<path
 						fill-rule="evenodd"
 						d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
@@ -144,15 +128,14 @@
 				</svg>
 				Prev 3 Months
 			</button>
-			<div class="date-range">
+			<div class="date-range" data-testid="long-range-date-label">
 				{months[0].name}
 				{months[0].year} – {months[2].name}
 				{months[2].year}
 			</div>
-			<button class="btn btn-secondary btn-sm" onclick={goToToday}>Today</button>
 			<button class="btn btn-secondary btn-sm" onclick={nextQuarter}>
 				Next 3 Months
-				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" aria-hidden="true">
 					<path
 						fill-rule="evenodd"
 						d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
@@ -160,16 +143,32 @@
 					/>
 				</svg>
 			</button>
+		</div>
+		<div class="nav-bar-right">
+			{#if onToggleViewMode}
+				<button
+					class="view-toggle active"
+					data-testid="long-range-view-toggle"
+					onclick={onToggleViewMode}
+					title="Switch to month view"
+				>
+					<svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" aria-hidden="true">
+						<path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+					</svg>
+					3-Month
+				</button>
+			{/if}
+			<button class="btn btn-secondary btn-sm" onclick={goToToday}>Today</button>
 			<div class="export-buttons">
 				<button class="btn btn-secondary btn-sm" onclick={handleExportCSV} title="Export to Excel">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
 						<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 						<polyline points="14 2 14 8 20 8" />
 					</svg>
 					Excel
 				</button>
 				<button class="btn btn-secondary btn-sm" onclick={handleExportPDF} title="Print / PDF">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
 						<path d="M6 9V2h12v7" />
 						<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
 						<rect x="6" y="14" width="12" height="8" />
@@ -178,103 +177,93 @@
 				</button>
 			</div>
 		</div>
+	</div>
 
-		<div class="scroll-area">
-			<div class="calendar-grid">
-				<!-- Header Row with Months and Days -->
-				<div class="grid-header">
-					<div class="name-cell header-cell">Personnel</div>
-					{#each months as month}
-						<div
-							class="month-header"
-							style="width: {month.dates.length * 24}px; min-width: {month.dates.length * 24}px;"
+	<div class="scroll-area">
+		<div class="calendar-grid">
+			<!-- Header Row with Months and Days -->
+			<div class="grid-header">
+				<div class="name-cell header-cell">Personnel</div>
+				{#each months as month}
+					<div
+						class="month-header"
+						style="width: {month.dates.length * 24}px; min-width: {month.dates.length * 24}px;"
+					>
+						{month.name}
+						{month.year}
+					</div>
+				{/each}
+			</div>
+
+			<!-- Day Numbers Row — clickable to jump to that month -->
+			<div class="day-row">
+				<div class="name-cell day-header-cell"></div>
+				{#each months as month}
+					{#each month.dates as date}
+						{@const weekend = isWeekend(date)}
+						{@const today = isToday(date)}
+						{@const special = getSpecialDay(date)}
+						<button
+							class="day-cell"
+							class:weekend
+							class:today
+							class:holiday={special?.type === 'federal-holiday'}
+							title={special?.name ?? `Jump to ${month.name} ${month.year}`}
+							onclick={() => onDateColumnClick?.(date)}
 						>
-							{month.name}
-							{month.year}
-						</div>
+							<span class="day-num">{date.getDate()}</span>
+						</button>
 					{/each}
-				</div>
+				{/each}
+			</div>
 
-				<!-- Day Numbers Row -->
-				<div class="day-row">
-					<div class="name-cell day-header-cell"></div>
-					{#each months as month}
-						{#each month.dates as date}
-							{@const weekend = isWeekend(date)}
-							{@const today = isToday(date)}
-							{@const special = getSpecialDay(date)}
-							{@const badges = getAssignmentBadges(date)}
-							<div
-								class="day-cell"
-								class:weekend
-								class:today
-								class:holiday={special?.type === 'federal-holiday'}
-								title={special?.name ?? ''}
-							>
-								<span class="day-num">{date.getDate()}</span>
-								{#if badges.length > 0}
-									<div class="day-badges">
-										{#each badges as badge}
-											<span class="mini-badge" style="background-color: {badge.color}" title={badge.shortName}></span>
-										{/each}
-									</div>
-								{/if}
-							</div>
+			<!-- Personnel Rows (read-only) -->
+			{#each personnelByGroup as grp}
+				{#if grp.personnel.length > 0}
+					<!-- Group Header -->
+					<div class="group-row">
+						<div class="name-cell group-name">{grp.group}</div>
+						{#each months as month}
+							{#each month.dates as date}
+								<div class="group-cell"></div>
+							{/each}
 						{/each}
-					{/each}
-				</div>
+					</div>
 
-				<!-- Personnel Rows -->
-				{#each personnelByGroup as grp}
-					{#if grp.personnel.length > 0}
-						<!-- Group Header -->
-						<div class="group-row">
-							<div class="name-cell group-name">{grp.group}</div>
+					<!-- Personnel in Group -->
+					{#each grp.personnel as person}
+						<div class="person-row">
+							<div class="name-cell person-name">
+								<span class="rank">{person.rank}</span>
+								<span class="name">{person.lastName}</span>
+							</div>
 							{#each months as month}
 								{#each month.dates as date}
-									<div class="group-cell"></div>
+									{@const status = getStatusForDate(person.id, date)}
+									{@const weekend = isWeekend(date)}
+									{@const today = isToday(date)}
+									<div
+										class="status-cell"
+										class:weekend
+										class:today
+										class:has-status={status}
+										style={status ? `background-color: ${status.color}` : ''}
+										title={status?.name ?? ''}
+									>
+										{#if status}
+											<span class="status-dot"></span>
+										{/if}
+									</div>
 								{/each}
 							{/each}
 						</div>
-
-						<!-- Personnel in Group -->
-						{#each grp.personnel as person}
-							<div class="person-row">
-								<div class="name-cell person-name">
-									<span class="rank">{person.rank}</span>
-									<span class="name">{person.lastName}</span>
-								</div>
-								{#each months as month}
-									{#each month.dates as date}
-										{@const status = getStatusForDate(person.id, date)}
-										{@const weekend = isWeekend(date)}
-										{@const today = isToday(date)}
-										<button
-											class="status-cell"
-											class:weekend
-											class:today
-											class:has-status={status}
-											style={status ? `background-color: ${status.color}` : ''}
-											title={status?.name ?? ''}
-											onclick={() => handleCellClick(person, date)}
-										>
-											{#if status}
-												<span class="status-dot"></span>
-											{/if}
-										</button>
-									{/each}
-								{/each}
-							</div>
-						{/each}
-					{/if}
-				{/each}
-			</div>
+					{/each}
+				{/if}
+			{/each}
 		</div>
-		<!-- end scroll-area -->
 	</div>
-	<!-- end body-wrapper -->
 
-	{#snippet footer()}
+	<div class="legend-bar">
 		<div class="legend">
 			<span class="legend-label">Status:</span>
 			{#each statusTypes as status}
@@ -284,18 +273,19 @@
 				</span>
 			{/each}
 		</div>
-		<button class="btn btn-primary" onclick={onClose}>Close</button>
-	{/snippet}
-</Modal>
+	</div>
+</div>
 
 <style>
-	/* Body layout: nav bar fixed, calendar scrolls */
-	.body-wrapper {
+	/* Inline layout: fills parent container */
+	.long-range-wrapper {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
 		overflow: hidden;
-		/* Bleed past modal-body padding to fill edge-to-edge */
-		margin: calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg)) calc(-1 * var(--spacing-lg));
 	}
 
 	.scroll-area {
@@ -307,12 +297,24 @@
 	.nav-bar {
 		display: flex;
 		align-items: center;
-		justify-content: center;
+		justify-content: space-between;
 		gap: var(--spacing-md);
-		padding: var(--spacing-md) var(--spacing-lg);
+		padding: var(--spacing-sm) var(--spacing-md);
 		background: var(--color-chrome);
 		color: var(--color-chrome-text);
 		flex-shrink: 0;
+	}
+
+	.nav-bar-left {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-md);
+	}
+
+	.nav-bar-right {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
 	}
 
 	.nav-bar .btn-secondary {
@@ -328,6 +330,33 @@
 		background: rgba(255, 255, 255, 0.2);
 	}
 
+	.view-toggle {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		border-radius: var(--radius-md);
+		background: rgba(255, 255, 255, 0.15);
+		color: var(--color-chrome-text);
+		cursor: pointer;
+		transition:
+			background-color 0.15s ease,
+			border-color 0.15s ease;
+	}
+
+	.view-toggle:hover {
+		background: rgba(255, 255, 255, 0.25);
+		border-color: rgba(255, 255, 255, 0.4);
+	}
+
+	.view-toggle.active {
+		background: rgba(255, 255, 255, 0.2);
+		border-color: rgba(255, 255, 255, 0.4);
+	}
+
 	.date-range {
 		font-size: var(--font-size-lg);
 		font-weight: 600;
@@ -338,8 +367,8 @@
 	.export-buttons {
 		display: flex;
 		gap: var(--spacing-xs);
-		margin-left: var(--spacing-md);
-		padding-left: var(--spacing-md);
+		margin-left: var(--spacing-sm);
+		padding-left: var(--spacing-sm);
 		border-left: 1px solid var(--color-chrome-border);
 	}
 
@@ -427,6 +456,12 @@
 		font-size: 10px;
 		border-left: 1px solid var(--color-border);
 		background: var(--color-surface);
+		cursor: pointer;
+		transition: background-color 0.1s ease;
+	}
+
+	.day-cell:hover {
+		filter: brightness(0.92);
 	}
 
 	.day-cell.weekend {
@@ -446,18 +481,6 @@
 	.day-num {
 		font-weight: 500;
 		color: var(--color-text);
-	}
-
-	.day-badges {
-		display: flex;
-		gap: 1px;
-		margin-top: 1px;
-	}
-
-	.mini-badge {
-		width: 4px;
-		height: 4px;
-		border-radius: 50%;
 	}
 
 	.group-row {
@@ -516,17 +539,9 @@
 		height: 24px;
 		border-left: 1px solid var(--color-border);
 		background: var(--color-surface);
-		cursor: pointer;
-		transition: all 0.1s ease;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-	}
-
-	.status-cell:hover {
-		opacity: 0.8;
-		transform: scale(1.1);
-		z-index: 1;
 	}
 
 	.status-cell.weekend {
@@ -549,7 +564,14 @@
 		background: rgba(255, 255, 255, 0.5);
 	}
 
-	/* Footer */
+	/* Legend bar */
+	.legend-bar {
+		padding: var(--spacing-sm) var(--spacing-md);
+		border-top: 1px solid var(--color-border);
+		background: var(--color-surface);
+		flex-shrink: 0;
+	}
+
 	.legend {
 		display: flex;
 		align-items: center;
@@ -580,19 +602,27 @@
 		.nav-bar {
 			flex-wrap: wrap;
 			gap: var(--spacing-sm);
+			padding: var(--spacing-sm);
+		}
+
+		.nav-bar-left {
+			width: 100%;
+			justify-content: space-between;
 		}
 
 		.date-range {
 			font-size: var(--font-size-base);
 			min-width: unset;
-			order: -1;
-			width: 100%;
 		}
 
 		.export-buttons {
 			margin-left: 0;
 			padding-left: 0;
 			border-left: none;
+		}
+
+		.legend-bar {
+			padding: var(--spacing-xs) var(--spacing-sm);
 		}
 
 		.name-cell {

@@ -5,6 +5,8 @@
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
+	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
+	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -13,6 +15,7 @@
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarPrefsStore } from '$features/calendar/stores/calendarPrefs.svelte';
+	import { groupsStore } from '$lib/stores/groups.svelte';
 
 	interface Props {
 		ctx: CalendarPageContext;
@@ -31,7 +34,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Calendar" helpTopic="calendar" overflowItems={ctx.calendarOverflowItems}>
+	<PageToolbar title="Calendar" helpTopic="calendar">
 		<button
 			class="toolbar-toggle"
 			class:active={ctx.highlightOnboarding}
@@ -130,6 +133,31 @@
 		</main>
 	{/if}
 </div>
+
+{#if ctx.selectedPerson && ctx.selectedDate}
+	<AvailabilityModal
+		person={ctx.selectedPerson}
+		date={ctx.selectedDate}
+		statusTypes={statusTypesStore.items}
+		existingEntries={availabilityStore.items}
+		onAdd={(entry) => ctx.handleAddAvailability(entry)}
+		onRemove={(id) => ctx.handleRemoveAvailability(id)}
+		onClose={() => ctx.closeAvailabilityModal()}
+	/>
+{/if}
+
+{#if ctx.assignmentDate}
+	<DailyAssignmentModal
+		date={ctx.assignmentDate}
+		assignmentTypes={dailyAssignmentsStore.types}
+		assignments={dailyAssignmentsStore.assignments}
+		personnelByGroup={ctx.personnelByGroup}
+		groups={groupsStore.names}
+		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
+		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
+		onClose={() => ctx.closeAssignmentModal()}
+	/>
+{/if}
 
 <style>
 	.page {

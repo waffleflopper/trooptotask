@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SettingsIcon from '$lib/components/ui/icons/SettingsIcon.svelte';
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
@@ -52,6 +53,16 @@
 		<button class="btn btn-sm" onclick={() => modals.open('long-range-view')}> 3-Month View </button>
 		{#if ctx.readOnly}
 			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+		{/if}
+		{#if ctx.canManageConfig}
+			<a
+				href="/org/{data.orgId}/calendar/settings"
+				class="btn btn-sm btn-icon"
+				title="Calendar Settings"
+				aria-label="Calendar Settings"
+			>
+				<SettingsIcon size={16} strokeWidth={2} />
+			</a>
 		{/if}
 	</PageToolbar>
 

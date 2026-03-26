@@ -1059,7 +1059,6 @@
 						</div>
 					</section>
 				{/if}
-
 			</div>
 
 			<div class="sticky-actions section-card card card-flat">
@@ -1070,7 +1069,11 @@
 				<button
 					class="btn btn-primary"
 					onclick={generateRoster}
-					disabled={!selectedAssignmentTypeId || !startDate || !endDate || eligiblePersonnel.length === 0 || isGenerating}
+					disabled={!selectedAssignmentTypeId ||
+						!startDate ||
+						!endDate ||
+						eligiblePersonnel.length === 0 ||
+						isGenerating}
 				>
 					{isGenerating ? 'Generating...' : 'Generate Roster'}
 				</button>

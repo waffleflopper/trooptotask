@@ -59,8 +59,8 @@
 				<p class="eyebrow">Manual scheduling</p>
 				<h1>Plan assignments with room to think.</h1>
 				<p class="hero-description">
-					Use this page for the judgment calls that do not belong in the duty roster flow. Build out the month,
-					make quick fills where they help, and adjust individual days without getting boxed into a modal.
+					Use this page for the judgment calls that do not belong in the duty roster flow. Build out the month, make
+					quick fills where they help, and adjust individual days without getting boxed into a modal.
 				</p>
 				<div class="hero-actions">
 					<a class="btn btn-secondary btn-sm" href={`/org/${org.orgId}/calendar/duty-roster`}>Open Duty Roster</a>
@@ -89,18 +89,20 @@
 					<p class="section-kicker">Assignment grid</p>
 					<h2>Monthly planner</h2>
 				</div>
-				<p class="panel-description">Set daily assignments, quick-fill repeating coverage, or clear a full column when plans change.</p>
+				<p class="panel-description">
+					Set daily assignments, quick-fill repeating coverage, or clear a full column when plans change.
+				</p>
 			</div>
 
-		<MonthlyAssignmentPlanner
-			currentDate={calendarStore.currentDate}
-			assignmentTypes={dailyAssignmentsStore.types}
-			assignments={dailyAssignmentsStore.assignments}
-			personnelByGroup={scopedPBG}
-			groups={groupsStore.names}
-			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
-			onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}
-		/>
+			<MonthlyAssignmentPlanner
+				currentDate={calendarStore.currentDate}
+				assignmentTypes={dailyAssignmentsStore.types}
+				assignments={dailyAssignmentsStore.assignments}
+				personnelByGroup={scopedPBG}
+				groups={groupsStore.names}
+				onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
+				onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}
+			/>
 		</section>
 	{/if}
 </div>

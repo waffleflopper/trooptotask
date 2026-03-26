@@ -109,7 +109,6 @@
 <style>
 	.calendar-header {
 		background: var(--color-surface);
-		border-bottom: 1px solid var(--color-border);
 		position: sticky;
 		top: 0;
 		z-index: 10;
@@ -153,8 +152,8 @@
 		overflow: hidden;
 		padding: var(--spacing-xs) 0;
 		text-align: center;
-		border: 1px solid var(--color-border);
-		border-left: none;
+		border-right: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-border);
 		font-size: var(--font-size-sm);
 		cursor: pointer;
 		transition: background-color 0.1s ease;

@@ -107,8 +107,8 @@
 		min-height: var(--cell-height);
 		min-width: var(--cell-width);
 		overflow: hidden;
-		border: 1px solid var(--color-border);
-		border-left: none;
+		border-right: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-border);
 		cursor: pointer;
 		position: relative;
 		transition: all 0.1s ease;

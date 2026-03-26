@@ -150,11 +150,11 @@
 		gap: var(--spacing-sm);
 		background: var(--color-surface);
 		border-right: 1px solid var(--color-border);
-		transform: translateX(var(--scroll-left, 0px));
+		position: sticky;
+		left: 0;
 		z-index: 2;
 		text-align: left;
 		cursor: pointer;
-		will-change: transform;
 	}
 
 	.personnel-info:hover {

@@ -25,52 +25,47 @@ export async function fetchCalendarData(ctx: UseCaseContext, input: CalendarQuer
 	const orgId = ctx.auth.orgId;
 	const { rangeStart, rangeEnd } = input;
 
-	const [
-		availabilityRows,
-		specialDayRows,
-		assignmentTypeRows,
-		dailyAssignmentRows,
-		pinnedGroupRows
-	] = await Promise.all([
-		// Availability uses two-column overlap: end_date >= rangeStart AND start_date <= rangeEnd
-		ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
-			select: AvailabilityEntryEntity.select,
-			rangeFilters: [
-				{ column: 'end_date', op: 'gte', value: rangeStart },
-				{ column: 'start_date', op: 'lte', value: rangeEnd }
-			]
-		}),
-		// Special days: single-column date range
-		ctx.store.findMany<Record<string, unknown>>('special_days', orgId, undefined, {
-			rangeFilters: [
-				{ column: 'date', op: 'gte', value: rangeStart },
-				{ column: 'date', op: 'lte', value: rangeEnd }
-			],
-			orderBy: [{ column: 'date', ascending: true }]
-		}),
-		// Assignment types: no date filtering
-		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		// Daily assignments: single-column date range
-		ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
-			rangeFilters: [
-				{ column: 'date', op: 'gte', value: rangeStart },
-				{ column: 'date', op: 'lte', value: rangeEnd }
-			]
-		}),
-		// Pinned groups: filtered by userId
-		ctx.auth.userId
-			? ctx.store.findMany<Record<string, unknown>>(
-					'user_pinned_groups',
-					orgId,
-					{ user_id: ctx.auth.userId },
-					{
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					}
-				)
-			: Promise.resolve([])
-	]);
+	const [availabilityRows, specialDayRows, assignmentTypeRows, dailyAssignmentRows, pinnedGroupRows] =
+		await Promise.all([
+			// Availability uses two-column overlap: end_date >= rangeStart AND start_date <= rangeEnd
+			ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
+				select: AvailabilityEntryEntity.select,
+				rangeFilters: [
+					{ column: 'end_date', op: 'gte', value: rangeStart },
+					{ column: 'start_date', op: 'lte', value: rangeEnd }
+				]
+			}),
+			// Special days: single-column date range
+			ctx.store.findMany<Record<string, unknown>>('special_days', orgId, undefined, {
+				rangeFilters: [
+					{ column: 'date', op: 'gte', value: rangeStart },
+					{ column: 'date', op: 'lte', value: rangeEnd }
+				],
+				orderBy: [{ column: 'date', ascending: true }]
+			}),
+			// Assignment types: no date filtering
+			ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}),
+			// Daily assignments: single-column date range
+			ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
+				rangeFilters: [
+					{ column: 'date', op: 'gte', value: rangeStart },
+					{ column: 'date', op: 'lte', value: rangeEnd }
+				]
+			}),
+			// Pinned groups: filtered by userId
+			ctx.auth.userId
+				? ctx.store.findMany<Record<string, unknown>>(
+						'user_pinned_groups',
+						orgId,
+						{ user_id: ctx.auth.userId },
+						{
+							orderBy: [{ column: 'sort_order', ascending: true }]
+						}
+					)
+				: Promise.resolve([])
+		]);
 
 	return {
 		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),

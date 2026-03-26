@@ -130,7 +130,7 @@ describe('fetchCalendarData', () => {
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 
 		// Roster history no longer returned from calendarQuery
-		expect((result as Record<string, unknown>).rosterHistory).toBeUndefined();
+		expect((result as unknown as Record<string, unknown>).rosterHistory).toBeUndefined();
 	});
 
 	it('excludes availability entries outside the date range (overlap logic)', async () => {

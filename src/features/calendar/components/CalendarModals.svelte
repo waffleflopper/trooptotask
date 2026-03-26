@@ -4,13 +4,11 @@
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
 	import TodayBreakdown from '$features/calendar/components/TodayBreakdown.svelte';
 	import MonthlyAssignmentPlanner from '$features/calendar/components/MonthlyAssignmentPlanner.svelte';
-	import DutyRosterGenerator from '$features/duty-roster/components/DutyRosterGenerator.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-	import { dutyRosterHistoryStore } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 
@@ -58,24 +56,6 @@
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
 		onClose={() => modals.close('today-breakdown')}
-	/>
-{/if}
-
-{#if modals.isOpen('duty-roster-generator')}
-	<DutyRosterGenerator
-		assignmentTypes={dailyAssignmentsStore.types}
-		assignments={dailyAssignmentsStore.assignments}
-		personnelByGroup={ctx.scopedPBG}
-		groups={groupsStore.names}
-		availabilityEntries={availabilityStore.items}
-		statusTypes={statusTypesStore.items}
-		rosterHistory={dutyRosterHistoryStore.items}
-		onApplyRoster={(assignments) => ctx.handleApplyRoster(assignments)}
-		onSaveRoster={(payload) => ctx.handleSaveRoster(payload)}
-		onDeleteRoster={(id) => ctx.handleDeleteRoster(id)}
-		onUpdateExemptions={(typeId, ids) => ctx.handleUpdateExemptions(typeId, ids)}
-		specialDays={specialDaysStore.items}
-		onClose={() => modals.close('duty-roster-generator')}
 	/>
 {/if}
 

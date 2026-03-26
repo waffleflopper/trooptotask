@@ -33,22 +33,23 @@
 
 <style>
 	.group-header {
-		display: flex;
+		display: grid;
+		grid-template-columns: var(--personnel-column-width) minmax(calc(var(--cell-width) * var(--dates-count, 31)), 1fr);
+		width: 100%;
+		min-width: calc(var(--personnel-column-width) + (var(--cell-width) * var(--dates-count, 31)));
 		background: var(--color-chrome);
 		color: var(--color-chrome-text);
 		border-bottom: 1px solid var(--color-border);
 	}
 
 	.group-info {
-		width: var(--personnel-column-width);
-		min-width: var(--personnel-column-width);
 		display: flex;
 		align-items: center;
 		background: var(--color-chrome);
 		border-right: 1px solid var(--color-chrome-border);
 		position: sticky;
 		left: 0;
-		z-index: 2;
+		z-index: 4;
 	}
 
 	.group-toggle {

@@ -50,13 +50,16 @@
 		return specialDays.find((d) => d.date === dateStr)?.name;
 	}
 
-	function getFrontDeskGroup(date: Date): string | null {
+	function getHeaderAssignment(date: Date): { assignmentTypeName: string; assigneeId: string } | null {
 		const dateStr = formatDate(date);
-		// Look up by shortName since database generates UUIDs for IDs
-		const fdsType = assignmentTypes.find((t) => t.shortName === 'FDS');
-		if (!fdsType) return null;
-		const assignment = assignments.find((a) => a.date === dateStr && a.assignmentTypeId === fdsType.id);
-		return assignment?.assigneeId || null;
+		const headerType = assignmentTypes.find((t) => t.showInDateHeader);
+		if (!headerType) return null;
+		const assignment = assignments.find((a) => a.date === dateStr && a.assignmentTypeId === headerType.id);
+		if (!assignment?.assigneeId) return null;
+		return {
+			assignmentTypeName: headerType.name,
+			assigneeId: assignment.assigneeId
+		};
 	}
 </script>
 
@@ -79,7 +82,7 @@
 		<div class="date-columns">
 			{#each dates as date (formatDate(date))}
 				{@const holiday = isHoliday(date)}
-				{@const frontDeskGroup = getFrontDeskGroup(date)}
+				{@const headerAssignment = getHeaderAssignment(date)}
 				<button
 					class="date-header"
 					class:weekend={isWeekend(date)}
@@ -90,8 +93,10 @@
 				>
 					<span class="day-name">{getDayName(date)}</span>
 					<span class="day-number">{date.getDate()}</span>
-					{#if frontDeskGroup}
-						<span class="front-desk-group" title="Front Desk: {frontDeskGroup}">{frontDeskGroup}</span>
+					{#if headerAssignment}
+						<span class="front-desk-group" title="{headerAssignment.assignmentTypeName}: {headerAssignment.assigneeId}">
+							{headerAssignment.assigneeId}
+						</span>
 					{/if}
 				</button>
 			{/each}

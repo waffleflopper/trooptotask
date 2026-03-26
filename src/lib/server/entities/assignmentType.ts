@@ -16,6 +16,10 @@ export const AssignmentTypeEntity = defineEntity<AssignmentType>({
 		assignTo: field(z.enum(['personnel', 'group']), { column: 'assign_to' }),
 		color: field(z.string(), { insertDefault: '#6b7280' }),
 		sortOrder: field(z.number().int(), { column: 'sort_order', insertDefault: 0 }),
+		showInDateHeader: field(z.boolean(), {
+			column: 'show_in_date_header',
+			insertDefault: false
+		}),
 		exemptPersonnelIds: field(z.array(z.string()), {
 			column: 'exempt_personnel_ids',
 			insertDefault: [],

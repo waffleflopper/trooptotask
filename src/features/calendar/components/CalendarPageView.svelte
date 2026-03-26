@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Settings } from 'lucide-svelte';
+	import SettingsIcon from '$lib/components/ui/icons/SettingsIcon.svelte';
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
@@ -60,7 +60,7 @@
 				class="btn btn-sm btn-icon"
 				title="Calendar Settings"
 				aria-label="Calendar Settings">
-				<Settings size={16} strokeWidth={2} />
+				<SettingsIcon size={16} strokeWidth={2} />
 			</a
 			>
 		{/if}

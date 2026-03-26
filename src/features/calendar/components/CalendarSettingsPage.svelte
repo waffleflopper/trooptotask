@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { Pencil, Trash2 } from 'lucide-svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import PencilIcon from '$lib/components/ui/icons/PencilIcon.svelte';
+	import Trash2Icon from '$lib/components/ui/icons/Trash2Icon.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -263,10 +264,10 @@
 								<div class="item-actions">
 									{#if canMutate}
 										<button class="item-icon-button" type="button" title="Edit status type" aria-label="Edit status type" onclick={() => startEditStatus(status)}>
-											<Pencil size={16} strokeWidth={2} />
+											<PencilIcon size={16} strokeWidth={2} />
 										</button>
 										<button class="item-icon-button item-icon-button-danger" type="button" title="Delete status type" aria-label="Delete status type" onclick={() => (confirmDeleteStatus = status)}>
-											<Trash2 size={16} strokeWidth={2} />
+											<Trash2Icon size={16} strokeWidth={2} />
 										</button>
 									{/if}
 								</div>
@@ -364,10 +365,10 @@
 								<div class="item-actions">
 									{#if canMutate}
 										<button class="item-icon-button" type="button" title="Edit assignment type" aria-label="Edit assignment type" onclick={() => startEditAssign(type)}>
-											<Pencil size={16} strokeWidth={2} />
+											<PencilIcon size={16} strokeWidth={2} />
 										</button>
 										<button class="item-icon-button item-icon-button-danger" type="button" title="Delete assignment type" aria-label="Delete assignment type" onclick={() => (confirmDeleteAssign = type)}>
-											<Trash2 size={16} strokeWidth={2} />
+											<Trash2Icon size={16} strokeWidth={2} />
 										</button>
 									{/if}
 								</div>
@@ -445,7 +446,7 @@
 							<div class="item-actions">
 								{#if canMutate}
 									<button class="item-icon-button item-icon-button-danger" type="button" title="Delete special day" aria-label="Delete special day" onclick={() => (confirmDeleteSpecial = day)}>
-										<Trash2 size={16} strokeWidth={2} />
+										<Trash2Icon size={16} strokeWidth={2} />
 									</button>
 								{/if}
 							</div>
@@ -709,9 +710,7 @@
 	}
 
 	.add-form-priority {
-		position: sticky;
-		top: 0;
-		z-index: 1;
+		order: 0;
 	}
 
 	.add-form .input {

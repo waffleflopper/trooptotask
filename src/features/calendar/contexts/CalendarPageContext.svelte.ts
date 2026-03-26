@@ -2,17 +2,11 @@ import type { Personnel, AvailabilityEntry } from '$lib/types';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
-import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
-import { calendarPrefsStore } from '$features/calendar/stores/calendarPrefs.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
-import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
-import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
 
 // ---------------------------------------------------------------------------
 // Page data shape (subset of layout + page server data)
@@ -99,53 +93,6 @@ export class CalendarPageContext {
 
 	get allPersonnelFlat(): Personnel[] {
 		return this.scopedPBG.flatMap((g) => g.personnel);
-	}
-
-	// ---- derived: overflow menu items --------------------------------------
-	get calendarOverflowItems(): OverflowItem[] {
-		const items: OverflowItem[] = [];
-
-		// Visible actions duplicated for mobile access
-		items.push({ label: "Today's Breakdown", onclick: () => this.toggleBreakdown() });
-
-		// Additional tools
-		if (this.#data.permissions?.canEditCalendar) {
-			if (this.canManageConfig) {
-				items.push({
-					label: 'Bulk Operations',
-					href: `/org/${this.#data.orgId}/calendar/bulk`,
-					divider: true
-				});
-				items.push({
-					label: 'Duty Roster',
-					href: `/org/${this.#data.orgId}/calendar/duty-roster`
-				});
-			}
-		}
-
-		// Reports (owner/admin only)
-		if (this.#org.isOwner || this.#org.isAdmin) {
-			items.push({
-				label: 'Status Reports',
-				href: `/org/${this.#data.orgId}/calendar/reports`,
-				divider: true
-			});
-		}
-
-		// Export
-		items.push({ label: 'Export to Excel', onclick: () => this.handleExportCSV(), divider: true });
-		items.push({ label: 'Print / PDF', onclick: () => this.handleExportPDF() });
-
-		// Display toggle
-		items.push({
-			label: 'Show Status Text',
-			toggle: true,
-			active: calendarPrefsStore.showStatusText,
-			onclick: () => calendarPrefsStore.toggleShowStatusText(),
-			divider: true
-		});
-
-		return items;
 	}
 
 	// ---- highlight key -----------------------------------------------------
@@ -246,25 +193,4 @@ export class CalendarPageContext {
 		this.assignmentDate = null;
 	}
 
-	handleExportCSV(): void {
-		exportMonthToCSV(calendarStore.year, calendarStore.month, {
-			personnelByGroup: this.scopedPBG,
-			availabilityEntries: availabilityStore.items,
-			statusTypes: statusTypesStore.items,
-			specialDays: specialDaysStore.items,
-			assignmentTypes: dailyAssignmentsStore.types,
-			assignments: dailyAssignmentsStore.assignments
-		});
-	}
-
-	handleExportPDF(): void {
-		printMonthCalendar(calendarStore.year, calendarStore.month, {
-			personnelByGroup: this.scopedPBG,
-			availabilityEntries: availabilityStore.items,
-			statusTypes: statusTypesStore.items,
-			specialDays: specialDaysStore.items,
-			assignmentTypes: dailyAssignmentsStore.types,
-			assignments: dailyAssignmentsStore.assignments
-		});
-	}
 }

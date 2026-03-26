@@ -3,6 +3,7 @@
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import TodayBreakdownPanel from '$features/calendar/components/TodayBreakdownPanel.svelte';
 	import Calendar from '$features/calendar/components/Calendar.svelte';
+	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
@@ -54,7 +55,6 @@
 		{#if data.permissions?.canEditCalendar && ctx.canManageConfig}
 			<a class="btn btn-sm" href={`/org/${data.orgId}/calendar/assignments`}> Assignments </a>
 		{/if}
-		<button class="btn btn-sm" onclick={() => modals.open('long-range-view')}> 3-Month View </button>
 		{#if ctx.readOnly}
 			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
 		{/if}
@@ -88,31 +88,47 @@
 	{:else}
 		<main class="page-content">
 			<section class="calendar-section">
-				<Calendar
-					year={calendarStore.year}
-					monthName={calendarStore.monthName}
-					dates={calendarStore.dates}
-					personnelByGroup={ctx.personnelByGroup}
-					availabilityEntries={availabilityStore.items}
-					statusTypes={statusTypesStore.items}
-					specialDays={specialDaysStore.items}
-					pinnedGroups={pinnedGroupsStore.list}
-					assignmentTypes={dailyAssignmentsStore.types}
-					assignments={dailyAssignmentsStore.assignments}
-					activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
-					highlightOnboarding={ctx.highlightOnboarding}
-					canEdit={data.permissions?.canEditCalendar ?? false}
-					showStatusText={calendarPrefsStore.showStatusText}
-					personnelHref={`/org/${data.orgId}/personnel`}
-					onPrevMonth={() => calendarStore.prevMonth()}
-					onNextMonth={() => calendarStore.nextMonth()}
-					onGoToToday={() => calendarStore.goToToday()}
-					onCellClick={(person, date) => ctx.handleCellClick(person, date)}
-					onPersonClick={(person) => ctx.handlePersonClick(person)}
-					onPinToggle={(group) => ctx.handlePinToggle(group)}
-					onDateClick={(date) => ctx.handleDateClick(date)}
-				/>
-				<StatusLegend statusTypes={statusTypesStore.items} />
+				{#if ctx.viewMode === '3-month'}
+					<LongRangeView
+						startDate={calendarStore.currentDate}
+						personnelByGroup={ctx.scopedPBG}
+						availabilityEntries={availabilityStore.items}
+						statusTypes={statusTypesStore.items}
+						specialDays={specialDaysStore.items}
+						assignmentTypes={dailyAssignmentsStore.types}
+						assignments={dailyAssignmentsStore.assignments}
+						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
+						onToggleViewMode={() => ctx.toggleViewMode()}
+					/>
+				{:else}
+					<Calendar
+						year={calendarStore.year}
+						monthName={calendarStore.monthName}
+						dates={calendarStore.dates}
+						personnelByGroup={ctx.personnelByGroup}
+						availabilityEntries={availabilityStore.items}
+						statusTypes={statusTypesStore.items}
+						specialDays={specialDaysStore.items}
+						pinnedGroups={pinnedGroupsStore.list}
+						assignmentTypes={dailyAssignmentsStore.types}
+						assignments={dailyAssignmentsStore.assignments}
+						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
+						highlightOnboarding={ctx.highlightOnboarding}
+						canEdit={data.permissions?.canEditCalendar ?? false}
+						showStatusText={calendarPrefsStore.showStatusText}
+						personnelHref={`/org/${data.orgId}/personnel`}
+						onPrevMonth={() => calendarStore.prevMonth()}
+						onNextMonth={() => calendarStore.nextMonth()}
+						onGoToToday={() => calendarStore.goToToday()}
+						onCellClick={(person, date) => ctx.handleCellClick(person, date)}
+						onPersonClick={(person) => ctx.handlePersonClick(person)}
+						onPinToggle={(group) => ctx.handlePinToggle(group)}
+						onDateClick={(date) => ctx.handleDateClick(date)}
+						viewMode={ctx.viewMode}
+						onToggleViewMode={() => ctx.toggleViewMode()}
+					/>
+					<StatusLegend statusTypes={statusTypesStore.items} />
+				{/if}
 			</section>
 		</main>
 	{/if}

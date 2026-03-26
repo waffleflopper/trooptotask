@@ -40,7 +40,7 @@ export const helpContent: Record<string, HelpTopic> = {
 			<ul>
 				<li><strong>Today's Breakdown</strong> — summary of who's available, who's out, and today's assignments</li>
 				<li><strong>Assignments</strong> — monthly assignment planner for bulk duty scheduling</li>
-				<li><strong>3-Month View</strong> — long-range view with export and print options</li>
+				<li><strong>3-Month View</strong> — toggle in the month navigation area to switch between month and 3-month views with export and print options</li>
 			</ul>
 
 			<h4>More Tools (overflow menu)</h4>

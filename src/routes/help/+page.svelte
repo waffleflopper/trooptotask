@@ -94,7 +94,7 @@
 				{
 					title: '3-Month View',
 					content:
-						'For long-range planning, open "3-Month View" from the toolbar overflow menu. This displays three months at once so you can spot coverage gaps and plan ahead.'
+						'For long-range planning, click the "3-Month" toggle next to the month navigation buttons. This displays three months at once so you can spot coverage gaps. Click any date column to jump back to that month in the regular view.'
 				},
 				{
 					title: 'Daily Assignments',

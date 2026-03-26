@@ -2,13 +2,10 @@
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
-	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
-	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
-	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
@@ -46,16 +43,3 @@
 	/>
 {/if}
 
-{#if modals.isOpen('long-range-view')}
-	<LongRangeView
-		startDate={calendarStore.currentDate}
-		personnelByGroup={ctx.personnelByGroup}
-		availabilityEntries={availabilityStore.items}
-		statusTypes={statusTypesStore.items}
-		specialDays={specialDaysStore.items}
-		assignmentTypes={dailyAssignmentsStore.types}
-		assignments={dailyAssignmentsStore.assignments}
-		onClose={() => modals.close('long-range-view')}
-		onCellClick={(person, date) => ctx.handleCellClick(person, date)}
-	/>
-{/if}

@@ -522,6 +522,7 @@ Semantic tokens for the header, nav, and app shell. Dark by default, theme-contr
 .text-primary / .text-muted / .text-error / etc.
 .bg-surface / .bg-surface-variant
 .rounded-sm / .rounded-md / .rounded-lg
+.section-card  /* padded vertical stack for card/section content */
 ```
 
 ### Page Layout Utilities
@@ -551,3 +552,7 @@ Semantic tokens for the header, nav, and app shell. Dark by default, theme-contr
 ### Form Classes
 
 `.input` | `.select` | `.label` | `.form-group` | `.form-row` | `.field-stack`
+
+### Section Card Tokens
+
+`--section-card-padding` | `--section-card-gap`

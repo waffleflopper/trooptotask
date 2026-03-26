@@ -141,6 +141,8 @@
 	/* Toolbar tokens */
 	--toolbar-bg: var(--color-surface);
 	--toolbar-border: var(--color-border);
+	--section-card-padding: var(--spacing-xl);
+	--section-card-gap: var(--spacing-md);
 
 	/* Opacity scale */
 	--opacity-subtle: 0.08;
@@ -549,6 +551,7 @@ input[type='checkbox']:focus-visible {
 	border-radius: var(--radius-lg);
 	box-shadow: var(--shadow-1);
 	transition: box-shadow var(--transition-normal);
+	overflow: hidden;
 }
 
 .card:hover {
@@ -580,6 +583,13 @@ input[type='checkbox']:focus-visible {
 .card-flat:hover {
 	box-shadow: none;
 	border-color: var(--color-border-dark);
+}
+
+.section-card {
+	padding: var(--section-card-padding);
+	display: flex;
+	flex-direction: column;
+	gap: var(--section-card-gap);
 }
 
 /* ============================================

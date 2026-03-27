@@ -37,4 +37,4 @@ npm run format
 [[actions]]
 name = "pull"
 icon = "debug"
-command = "git checkout main && git pull"
+command = "git fetch origin main && git merge --ff-only origin/main"

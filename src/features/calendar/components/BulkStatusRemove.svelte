@@ -30,7 +30,7 @@
 	const todayStr = formatDate(new Date());
 
 	// Selection state
-	let selectedStatusId = $state(statusTypes[0]?.id ?? '');
+	let selectedStatusId = $state('');
 	let startDate = $state(todayStr);
 	let endDate = $state(todayStr);
 	let selectedIds = $state<Set<string>>(new Set());
@@ -81,9 +81,13 @@
 		selectedIds = next;
 	}
 
-	function selectAll() {
-		const visibleIds = table.groups.flatMap((g) => g.rows.map((p) => p.id));
-		selectedIds = new Set(visibleIds);
+	function getVisiblePersonnelIds(): string[] {
+		const groupedIds = table.groups.flatMap((g) => g.rows.map((p) => p.id));
+		return groupedIds.length > 0 ? groupedIds : table.rows.map((p) => p.id);
+	}
+
+	function selectVisible() {
+		selectedIds = new Set([...selectedIds, ...getVisiblePersonnelIds()]);
 	}
 
 	function selectNone() {
@@ -129,9 +133,21 @@
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
 	const personnelMap = $derived(new Map(personnelList.map((p) => [p.id, p])));
 
+	$effect(() => {
+		if (!selectedStatusId && statusTypes.length > 0) {
+			selectedStatusId = statusTypes[0].id;
+		}
+	});
+
 	function formatDateDisplay(dateStr: string): string {
 		const date = new Date(dateStr + 'T00:00:00');
 		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+	}
+
+	function handleGroupHeaderKeydown(event: KeyboardEvent, groupKey: string) {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		table.toggleGroup(groupKey);
 	}
 
 	// ---- Two-step flow ----
@@ -194,12 +210,19 @@
 
 <div class="bulk-remove-panel">
 	{#if step === 'select'}
-		<!-- Selection Step -->
-		<div class="panel-content">
-			<!-- Status & Date Configuration -->
-			<div class="config-section">
-				<div class="form-row config-row">
-					<div class="field-stack">
+		<div class="bulk-workspace">
+			<aside class="controls-column">
+				<section class="controls-card">
+					<div class="pane-heading">
+						<span class="pane-eyebrow">Step 1</span>
+						<h2 class="pane-title">Define what to remove</h2>
+						<p class="pane-copy">
+							Pick the status, date range, and people first. We will show you every matching entry before anything is
+							deleted.
+						</p>
+					</div>
+
+					<div class="config-grid">
 						<div class="form-group">
 							<label class="label" for="removeStatusType">Status Type</label>
 							<select id="removeStatusType" class="select" bind:value={selectedStatusId}>
@@ -207,252 +230,371 @@
 									<option value={status.id}>{status.name}</option>
 								{/each}
 							</select>
+							{#if selectedStatus}
+								<div class="field-support">
+									<span
+										class="status-badge"
+										style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
+									>
+										{selectedStatus.name}
+									</span>
+									<span class="field-hint">Selected status</span>
+								</div>
+							{/if}
 						</div>
-						{#if selectedStatus}
-							<div class="field-support">
+
+						<div class="date-grid">
+							<div class="form-group">
+								<label class="label" for="removeStartDate">Start Date</label>
+								<input id="removeStartDate" type="date" class="input" bind:value={startDate} />
+							</div>
+
+							<div class="form-group">
+								<label class="label" for="removeEndDate">End Date</label>
+								<input id="removeEndDate" type="date" class="input" bind:value={endDate} />
+								{#if dayCount > 0}
+									<div class="field-support">
+										<span class="day-count-number">{dayCount}</span>
+										<span class="field-hint">{dayCount === 1 ? 'day selected' : 'days selected'}</span>
+									</div>
+								{/if}
+							</div>
+						</div>
+
+						{#if dateError}
+							<div class="date-error" role="alert">{dateError}</div>
+						{/if}
+					</div>
+
+					<div class="summary-card warning-summary" aria-live="polite">
+						<h3 class="summary-heading">Removal summary</h3>
+						{#if selectedIds.size > 0 && selectedStatus && !dateError}
+							<div class="summary-line">
 								<span
-									class="status-badge"
+									class="summary-badge"
 									style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
 								>
 									{selectedStatus.name}
 								</span>
-								<span class="field-hint">Selected status</span>
+								<span class="summary-copy">
+									<strong>{selectedIds.size}</strong>
+									{selectedIds.size === 1 ? 'person' : 'people'}
+									selected
+								</span>
 							</div>
+							<p class="summary-copy">
+								{#if startDate === endDate}
+									{formatDateDisplay(startDate)}
+								{:else}
+									{formatDateDisplay(startDate)} to {formatDateDisplay(endDate)}
+								{/if}
+							</p>
+							<p class="summary-copy muted">
+								Overlapping entries are removed in full, so the review step is especially important.
+							</p>
+						{:else if selectedIds.size === 0}
+							<p class="summary-copy muted">Choose at least one person from the list to review possible removals.</p>
+						{:else if dateError}
+							<p class="summary-copy error">{dateError}</p>
 						{/if}
+					</div>
+
+					<button class="btn btn-danger btn-lg apply-button" disabled={!isValid} onclick={handleFindMatching}>
+						Review Matching Entries
+					</button>
+				</section>
+			</aside>
+
+			<section class="selection-column">
+				<div class="selection-card">
+					<div class="pane-heading selection-heading">
+						<span class="pane-eyebrow">Step 2</span>
+						<h2 class="pane-title">Choose personnel</h2>
+						<p class="pane-copy">Search by name, select an entire group, or click individual rows.</p>
+						<div class="selection-meta">
+							<span class="selection-chip strong">{selectedIds.size} selected</span>
+							<span class="selection-chip">{allPersonnel.length} available</span>
+						</div>
+					</div>
+
+					<div class="personnel-section">
+						<DataTable
+							{columns}
+							{table}
+							compact
+							showSearch
+							searchPlaceholder="Search by name, rank, MOS, or role..."
+							emptyMessage="No personnel available"
+							onRowClick={(person) => togglePerson(person.id)}
+						>
+							{#snippet toolbar(_state)}
+								<div class="selection-toolbar">
+									<div class="selection-stats">
+										<span class="selected-count">{selectedIds.size} selected</span>
+										<span class="visible-count">{table.totalRows} shown</span>
+									</div>
+									<div class="selection-actions">
+										<button class="btn btn-secondary btn-sm" onclick={selectVisible}>Select shown</button>
+										<button class="btn btn-secondary btn-sm" onclick={selectNone}>Clear</button>
+									</div>
+								</div>
+							{/snippet}
+
+							{#snippet groupHeader(ctx)}
+								{@const selState = getGroupSelectionState(ctx.key)}
+								<div
+									class="group-header-content"
+									role="button"
+									tabindex="0"
+									onclick={() => ctx.toggle()}
+									onkeydown={(event) => handleGroupHeaderKeydown(event, ctx.key)}
+								>
+									<input
+										type="checkbox"
+										checked={selState === 'all'}
+										indeterminate={selState === 'some'}
+										onchange={() => toggleGroup(ctx.key)}
+										onclick={(e) => e.stopPropagation()}
+									/>
+									<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
+										<path
+											fill-rule="evenodd"
+											d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+											clip-rule="evenodd"
+										/>
+									</svg>
+									<span class="group-label">{ctx.label}</span>
+									<span class="group-count">({ctx.count})</span>
+								</div>
+							{/snippet}
+
+							{#snippet cell(row, col)}
+								{#if col.key === 'select'}
+									<input
+										type="checkbox"
+										checked={selectedIds.has(row.id)}
+										onchange={() => togglePerson(row.id)}
+										onclick={(e) => e.stopPropagation()}
+									/>
+								{:else if col.key === 'rank'}
+									<span class="rank-cell">{row.rank}</span>
+								{:else}
+									{String(col.value(row) ?? '')}
+								{/if}
+							{/snippet}
+						</DataTable>
 					</div>
 				</div>
-
-				<div class="form-row config-row dates-row">
-					<div class="field-stack">
-						<div class="form-group">
-							<label class="label" for="removeStartDate">Start Date</label>
-							<input id="removeStartDate" type="date" class="input" bind:value={startDate} />
-						</div>
-					</div>
-					<span class="date-arrow">&rarr;</span>
-					<div class="field-stack">
-						<div class="form-group">
-							<label class="label" for="removeEndDate">End Date</label>
-							<input id="removeEndDate" type="date" class="input" bind:value={endDate} />
-						</div>
-						{#if dayCount > 0}
-							<div class="field-support">
-								<span class="day-count-number">{dayCount}</span>
-								<span class="field-hint">{dayCount === 1 ? 'day selected' : 'days selected'}</span>
-							</div>
-						{/if}
-					</div>
-				</div>
-
-				{#if dateError}
-					<div class="date-error" role="alert">{dateError}</div>
-				{/if}
-			</div>
-
-			<!-- Personnel Selection via DataTable -->
-			<div class="personnel-section">
-				<DataTable
-					{columns}
-					{table}
-					compact
-					showSearch
-					searchPlaceholder="Search by name, rank, MOS, or role..."
-					emptyMessage="No personnel available"
-					onRowClick={(person) => togglePerson(person.id)}
-				>
-					{#snippet toolbar(_state)}
-						<div class="selection-toolbar">
-							<span class="selected-count">{selectedIds.size} of {allPersonnel.length} selected</span>
-							<div class="selection-actions">
-								<button class="btn btn-secondary btn-sm" onclick={selectAll}>All</button>
-								<button class="btn btn-secondary btn-sm" onclick={selectNone}>None</button>
-							</div>
-						</div>
-					{/snippet}
-
-					{#snippet groupHeader(ctx)}
-						{@const selState = getGroupSelectionState(ctx.key)}
-						<div class="group-header-content" onclick={() => ctx.toggle()}>
-							<input
-								type="checkbox"
-								checked={selState === 'all'}
-								indeterminate={selState === 'some'}
-								onchange={() => toggleGroup(ctx.key)}
-								onclick={(e) => e.stopPropagation()}
-							/>
-							<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
-								<path
-									fill-rule="evenodd"
-									d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-									clip-rule="evenodd"
-								/>
-							</svg>
-							<span class="group-label">{ctx.label}</span>
-							<span class="group-count">({ctx.count})</span>
-						</div>
-					{/snippet}
-
-					{#snippet cell(row, col)}
-						{#if col.key === 'select'}
-							<input
-								type="checkbox"
-								checked={selectedIds.has(row.id)}
-								onchange={() => togglePerson(row.id)}
-								onclick={(e) => e.stopPropagation()}
-							/>
-						{:else if col.key === 'rank'}
-							<span class="rank-cell">{row.rank}</span>
-						{:else}
-							{String(col.value(row) ?? '')}
-						{/if}
-					{/snippet}
-				</DataTable>
-			</div>
+			</section>
 		</div>
 	{:else}
-		<!-- Confirmation Step -->
-		<div class="confirm-content">
-			{#if matchResult.exact.length === 0 && matchResult.partial.length === 0}
-				<div class="no-matches">
-					<p>No matching status entries found for the selected criteria.</p>
+		<div class="confirm-stage">
+			<section class="confirm-card">
+				<div class="pane-heading confirm-heading">
+					<span class="pane-eyebrow">Review</span>
+					<h2 class="pane-title">Review matching entries</h2>
+					<p class="pane-copy">
+						Nothing is removed until you confirm. Entries that only partially overlap your selected dates are still
+						removed in full.
+					</p>
 				</div>
-			{:else}
-				{#if matchResult.exact.length > 0}
-					<div class="match-section">
-						<h4 class="match-heading">
-							<span class="match-count">{matchResult.exact.length}</span>
-							exact {matchResult.exact.length === 1 ? 'match' : 'matches'} will be removed
-						</h4>
-					</div>
-				{/if}
 
-				{#if matchResult.partial.length > 0}
-					<div class="match-section partial-section">
-						<h4 class="match-heading warning">
-							<svg class="warning-icon" viewBox="0 0 20 20" fill="currentColor">
-								<path
-									fill-rule="evenodd"
-									d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-									clip-rule="evenodd"
-								/>
-							</svg>
-							<span class="match-count">{matchResult.partial.length}</span>
-							partial {matchResult.partial.length === 1 ? 'overlap' : 'overlaps'} will also be removed entirely
-						</h4>
-						<p class="partial-explanation">These entries extend beyond your selected date range:</p>
-						<div class="partial-list">
-							{#each matchResult.partial as entry (entry.id)}
-								<div class="partial-item">
-									<span class="partial-person">{getPersonName(entry.personnelId)}</span>
-									<span class="partial-dates"
-										>{formatDateDisplay(entry.startDate)} – {formatDateDisplay(entry.endDate)}</span
-									>
-								</div>
-							{/each}
+				<div class="confirm-criteria">
+					{#if selectedStatus}
+						<span
+							class="summary-badge"
+							style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
+						>
+							{selectedStatus.name}
+						</span>
+					{/if}
+					<span class="selection-chip strong">{selectedIds.size} selected</span>
+					<span class="selection-chip">
+						{#if startDate === endDate}
+							{formatDateDisplay(startDate)}
+						{:else}
+							{formatDateDisplay(startDate)} to {formatDateDisplay(endDate)}
+						{/if}
+					</span>
+				</div>
+
+				<div class="confirm-content">
+					{#if matchResult.exact.length === 0 && matchResult.partial.length === 0}
+						<div class="no-matches">
+							<p>No matching status entries were found for the selected criteria.</p>
 						</div>
-					</div>
-				{/if}
+					{:else}
+						{#if matchResult.exact.length > 0}
+							<div class="match-section">
+								<h4 class="match-heading">
+									<span class="match-count">{matchResult.exact.length}</span>
+									exact {matchResult.exact.length === 1 ? 'match' : 'matches'} will be removed
+								</h4>
+							</div>
+						{/if}
 
-				<div class="total-summary">
-					<strong>{matchResult.exact.length + matchResult.partial.length}</strong>
-					total {matchResult.exact.length + matchResult.partial.length === 1 ? 'entry' : 'entries'} will be permanently removed.
+						{#if matchResult.partial.length > 0}
+							<div class="match-section partial-section">
+								<h4 class="match-heading warning">
+									<svg class="warning-icon" viewBox="0 0 20 20" fill="currentColor">
+										<path
+											fill-rule="evenodd"
+											d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+											clip-rule="evenodd"
+										/>
+									</svg>
+									<span class="match-count">{matchResult.partial.length}</span>
+									partial {matchResult.partial.length === 1 ? 'overlap' : 'overlaps'} will also be removed entirely
+								</h4>
+								<p class="partial-explanation">These entries extend beyond your selected date range:</p>
+								<div class="partial-list">
+									{#each matchResult.partial as entry (entry.id)}
+										<div class="partial-item">
+											<span class="partial-person">{getPersonName(entry.personnelId)}</span>
+											<span class="partial-dates"
+												>{formatDateDisplay(entry.startDate)} – {formatDateDisplay(entry.endDate)}</span
+											>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						<div class="total-summary">
+							<strong>{matchResult.exact.length + matchResult.partial.length}</strong>
+							total {matchResult.exact.length + matchResult.partial.length === 1 ? 'entry' : 'entries'} will be permanently
+							removed.
+						</div>
+					{/if}
 				</div>
-			{/if}
+
+				<div class="confirm-footer">
+					<button class="btn btn-secondary" onclick={handleBack}>Back</button>
+					<div class="spacer"></div>
+					{#if matchResult.exact.length > 0 || matchResult.partial.length > 0}
+						<button class="btn btn-danger" disabled={isSubmitting} onclick={handleConfirmRemoval}>
+							{#if isSubmitting}
+								<Spinner />
+								Removing...
+							{:else}
+								Confirm Removal
+							{/if}
+						</button>
+					{/if}
+				</div>
+			</section>
 		</div>
 	{/if}
-
-	<!-- Footer -->
-	<div class="panel-footer">
-		{#if step === 'select'}
-			<div class="footer-summary">
-				{#if selectedIds.size > 0 && selectedStatus && !dateError}
-					<span
-						class="summary-badge"
-						style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-					>
-						{selectedStatus.name}
-					</span>
-					<span class="summary-text">
-						for <strong>{selectedIds.size}</strong>
-						{selectedIds.size === 1 ? 'person' : 'people'}
-					</span>
-				{:else if selectedIds.size === 0}
-					<span class="summary-hint">Select personnel to continue</span>
-				{:else if dateError}
-					<span class="summary-error">{dateError}</span>
-				{/if}
-			</div>
-			<div class="footer-actions">
-				<button class="btn btn-danger" disabled={!isValid} onclick={handleFindMatching}> Find Matching </button>
-			</div>
-		{:else}
-			<button class="btn btn-secondary" onclick={handleBack}>Back</button>
-			<div class="spacer"></div>
-			{#if matchResult.exact.length > 0 || matchResult.partial.length > 0}
-				<button class="btn btn-danger" disabled={isSubmitting} onclick={handleConfirmRemoval}>
-					{#if isSubmitting}
-						<Spinner />
-						Removing...
-					{:else}
-						Confirm Removal
-					{/if}
-				</button>
-			{/if}
-		{/if}
-	</div>
 </div>
 
 <style>
-	/* === Panel Layout === */
 	.bulk-remove-panel {
-		display: flex;
-		flex-direction: column;
-		height: calc(100vh - 240px);
-		min-height: 0;
+		padding: 0;
 	}
 
-	.panel-content {
+	.bulk-workspace {
+		display: grid;
+		grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+		gap: var(--spacing-lg);
+		align-items: start;
+	}
+
+	.controls-column,
+	.selection-column {
+		min-width: 0;
+	}
+
+	.controls-column {
+		align-self: start;
+		position: sticky;
+		top: calc(var(--header-height, 56px) + var(--spacing-lg));
+	}
+
+	.controls-card,
+	.selection-card,
+	.confirm-card {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+	}
+
+	.controls-card {
 		display: flex;
 		flex-direction: column;
-		flex: 1;
-		min-height: 0;
+		gap: var(--spacing-lg);
+		padding: var(--spacing-lg);
+	}
+
+	.selection-card {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.confirm-card {
+		max-width: 980px;
+		margin: 0 auto;
 		overflow: hidden;
 	}
 
-	/* === Config Section === */
-	.config-section {
+	.pane-heading {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-xs);
+	}
+
+	.selection-heading,
+	.confirm-heading {
 		padding: var(--spacing-lg);
 		border-bottom: 1px solid var(--color-border);
-		background: var(--color-bg);
+		background: var(--color-surface-variant);
 	}
 
-	.config-row {
-		margin-bottom: var(--spacing-md);
+	.pane-eyebrow {
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-bold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-error);
 	}
 
-	.config-row:last-child {
+	.pane-title {
+		font-family: var(--font-display);
+		font-size: var(--font-size-xl);
+		font-weight: 400;
+		line-height: 1.1;
+	}
+
+	.pane-copy {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+	}
+
+	.config-grid {
+		display: grid;
+		gap: var(--spacing-md);
+	}
+
+	.config-grid .form-group {
 		margin-bottom: 0;
 	}
 
-	.status-badge {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		font-weight: 500;
-		font-size: var(--font-size-sm);
-		line-height: 1.2;
+	.date-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--spacing-md);
+		align-items: start;
 	}
 
-	.dates-row {
-		align-items: flex-start;
-	}
-
-	.date-arrow {
-		display: flex;
+	.status-badge,
+	.summary-badge,
+	.selection-chip,
+	.selected-count,
+	.visible-count {
+		display: inline-flex;
 		align-items: center;
-		align-self: flex-start;
-		padding-top: 42px;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-lg);
+		border-radius: var(--radius-full);
+		font-size: var(--font-size-sm);
+		line-height: 1;
 	}
 
 	.day-count-number {
@@ -464,55 +606,111 @@
 	.date-error {
 		color: var(--color-error);
 		font-size: var(--font-size-sm);
-		margin-top: var(--spacing-sm);
 		padding: var(--spacing-xs) var(--spacing-sm);
-		background: rgba(244, 67, 54, 0.08);
+		background: var(--color-error-tint);
 		border-radius: var(--radius-sm);
 	}
 
-	@media (max-width: 640px) {
-		.date-arrow {
-			align-self: center;
-			justify-content: center;
-			padding-top: 0;
-		}
+	.status-badge,
+	.summary-badge {
+		padding: var(--spacing-xs) var(--spacing-sm);
+		font-weight: 500;
 	}
 
-	/* === Personnel Section — flex-fill remaining space; DataTable scrolls internally === */
+	.summary-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+		padding: var(--spacing-md);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface-variant);
+		border: 1px solid var(--color-border);
+	}
+
+	.warning-summary {
+		background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface));
+		border-color: color-mix(in srgb, var(--color-warning) 28%, var(--color-border));
+	}
+
+	.summary-heading {
+		font-size: var(--font-size-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
+	}
+
+	.summary-line,
+	.selection-meta,
+	.selection-stats,
+	.selection-toolbar,
+	.confirm-criteria {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: var(--spacing-sm);
+	}
+
+	.summary-copy {
+		font-size: var(--font-size-sm);
+		color: var(--color-text);
+	}
+
+	.summary-copy strong {
+		font-weight: var(--font-weight-bold);
+	}
+
+	.summary-copy.muted {
+		color: var(--color-text-muted);
+	}
+
+	.summary-copy.error {
+		color: var(--color-error);
+	}
+
+	.apply-button {
+		width: 100%;
+	}
+
+	.selection-chip,
+	.selected-count,
+	.visible-count {
+		padding: 8px 12px;
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		background: var(--color-surface-variant);
+		color: var(--color-text-secondary);
+		border: 1px solid var(--color-border);
+	}
+
+	.selection-chip.strong,
+	.selected-count {
+		background: rgba(var(--color-error-rgb), 0.08);
+		border-color: rgba(var(--color-error-rgb), 0.16);
+		color: var(--color-text);
+	}
+
 	.personnel-section {
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
+		padding: 0;
 	}
 
 	.personnel-section :global(.data-table) {
 		border: none;
 		border-radius: 0;
-		height: 100%;
-		overflow-y: auto;
+		overflow: visible;
 	}
 
-	/* Selection toolbar */
 	.selection-toolbar {
-		display: flex;
-		align-items: center;
 		justify-content: space-between;
 		padding: var(--spacing-sm) var(--spacing-md);
 		border-bottom: 1px solid var(--color-divider);
-	}
-
-	.selected-count {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		font-weight: 500;
+		background: var(--color-surface);
 	}
 
 	.selection-actions {
 		display: flex;
 		gap: var(--spacing-xs);
+		flex-wrap: wrap;
 	}
 
-	/* Group header */
 	.group-header-content {
 		display: flex;
 		align-items: center;
@@ -545,14 +743,27 @@
 		font-weight: 400;
 	}
 
-	/* Cell styles */
 	.rank-cell {
 		font-weight: 600;
 		color: var(--color-primary);
 	}
 
-	/* === Panel Footer === */
-	.panel-footer {
+	.confirm-stage {
+		padding: var(--spacing-sm) 0;
+	}
+
+	.confirm-criteria {
+		padding: var(--spacing-md) var(--spacing-lg);
+		border-bottom: 1px solid var(--color-border);
+		background: var(--color-surface-variant);
+	}
+
+	.confirm-content {
+		padding: var(--spacing-lg);
+		min-height: 150px;
+	}
+
+	.confirm-footer {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -561,54 +772,8 @@
 		background: var(--color-surface);
 	}
 
-	.footer-summary {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		font-size: var(--font-size-sm);
-		flex: 1;
-		min-width: 0;
-	}
-
-	.summary-badge {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		font-weight: 500;
-		font-size: var(--font-size-sm);
-		flex-shrink: 0;
-	}
-
-	.summary-text {
-		color: var(--color-text-muted);
-	}
-
-	.summary-text strong {
-		color: var(--color-text);
-	}
-
-	.summary-hint {
-		color: var(--color-text-muted);
-		font-style: italic;
-	}
-
-	.summary-error {
-		color: var(--color-error);
-	}
-
-	.footer-actions {
-		display: flex;
-		gap: var(--spacing-sm);
-		flex-shrink: 0;
-	}
-
 	.spacer {
 		flex: 1;
-	}
-
-	/* === Confirmation Step === */
-	.confirm-content {
-		padding: var(--spacing-lg);
-		min-height: 150px;
 	}
 
 	.no-matches {
@@ -700,5 +865,46 @@
 
 	.total-summary strong {
 		color: var(--color-text);
+	}
+
+	@media (max-width: 1100px) {
+		.bulk-remove-panel {
+			padding: 0;
+		}
+
+		.bulk-workspace {
+			grid-template-columns: 1fr;
+		}
+
+		.controls-column {
+			position: static;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.controls-card,
+		.selection-heading,
+		.confirm-heading,
+		.confirm-content,
+		.confirm-criteria,
+		.confirm-footer {
+			padding-left: var(--spacing-md);
+			padding-right: var(--spacing-md);
+		}
+
+		.date-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.selection-toolbar,
+		.partial-item,
+		.confirm-footer {
+			align-items: flex-start;
+		}
+
+		.partial-item {
+			flex-direction: column;
+			gap: var(--spacing-xs);
+		}
 	}
 </style>

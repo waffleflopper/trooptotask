@@ -1,5 +1,6 @@
 <script lang="ts">
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import SubNav from '$lib/components/ui/SubNav.svelte';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
 	import BulkStatusImport from './BulkStatusImport.svelte';
@@ -31,10 +32,10 @@
 
 	// ---- Tab management ----
 	type Tab = 'add' | 'remove' | 'import';
-	const TABS: { id: Tab; label: string }[] = [
-		{ id: 'add', label: 'Add' },
-		{ id: 'remove', label: 'Remove' },
-		{ id: 'import', label: 'Import' }
+	const TABS: { label: string; value: Tab }[] = [
+		{ value: 'add', label: 'Add' },
+		{ value: 'remove', label: 'Remove' },
+		{ value: 'import', label: 'Import' }
 	];
 
 	const activeTab = $derived.by<Tab>(() => {
@@ -88,6 +89,7 @@
 
 <PageToolbar
 	title="Bulk Status Operations"
+	subtitle="Add, remove, or import status changes for multiple people without opening each record one by one."
 	breadcrumbs={[{ label: 'Calendar', href: `/org/${org.orgId}/calendar` }, { label: 'Bulk Status Operations' }]}
 >
 	<a href="/org/{org.orgId}/calendar" class="btn btn-sm">Back</a>
@@ -100,12 +102,8 @@
 			<p>Only organization admins and full editors can perform bulk status operations.</p>
 		</section>
 	{:else}
-		<div class="tab-bar">
-			{#each TABS as tab (tab.id)}
-				<button class="tab-button" class:active={activeTab === tab.id} onclick={() => switchTab(tab.id)}>
-					{tab.label}
-				</button>
-			{/each}
+		<div class="bulk-tabs">
+			<SubNav tabs={TABS} active={activeTab} onChange={(tab) => switchTab(tab as Tab)} />
 		</div>
 
 		<div class="tab-panel">
@@ -141,14 +139,18 @@
 <style>
 	.bulk-page {
 		padding: var(--spacing-lg);
-		max-width: 800px;
+		max-width: 1480px;
 		margin: 0 auto;
 	}
 
 	.restricted-hero {
 		text-align: center;
-		padding: var(--spacing-xl) var(--spacing-lg);
+		padding: var(--spacing-2xl) var(--spacing-xl);
 		color: var(--color-text-secondary);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-1);
 	}
 
 	.restricted-hero h1 {
@@ -157,42 +159,36 @@
 		margin: 0 0 var(--spacing-sm);
 	}
 
-	.tab-bar {
-		display: flex;
-		gap: var(--spacing-xs);
-		border-bottom: 2px solid var(--color-border);
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.tab-button {
-		padding: var(--spacing-sm) var(--spacing-lg);
-		background: none;
-		border: none;
-		border-bottom: 2px solid transparent;
-		margin-bottom: -2px;
-		font-family: var(--font-mono);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		color: var(--color-text-secondary);
-		cursor: pointer;
-		transition:
-			color var(--transition-fast),
-			border-color var(--transition-fast);
-	}
-
-	.tab-button:hover {
-		color: var(--color-text);
-	}
-
-	.tab-button.active {
-		color: var(--color-primary);
-		border-bottom-color: var(--color-primary);
-	}
-
 	.tab-panel {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		overflow: hidden;
+		margin-top: var(--spacing-md);
+	}
+
+	.bulk-tabs {
+		display: flex;
+		justify-content: center;
+		margin-bottom: var(--spacing-md);
+	}
+
+	.bulk-tabs :global(.sub-nav) {
+		width: min(100%, 760px);
+		justify-content: center;
+	}
+
+	@media (max-width: 768px) {
+		.bulk-page {
+			padding: var(--spacing-md);
+		}
+
+		.restricted-hero {
+			padding: var(--spacing-xl) var(--spacing-lg);
+		}
+
+		.bulk-tabs {
+			justify-content: stretch;
+		}
+
+		.bulk-tabs :global(.sub-nav) {
+			width: 100%;
+		}
 	}
 </style>

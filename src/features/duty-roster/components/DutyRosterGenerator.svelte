@@ -5,6 +5,10 @@
 	import type { RosterHistoryItem, RosterHistoryEntry, DA6Data } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import SubNav from '$lib/components/ui/SubNav.svelte';
+	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
+	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
 	interface Props {
 		assignmentTypes: AssignmentType[];
@@ -47,22 +51,25 @@
 		return formatDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 	}
 
+	type DutyRosterView = 'config' | 'preview' | 'history';
+
 	// View state: 'config' | 'preview' | 'history'
-	let view = $state<'config' | 'preview' | 'history'>('config');
+	let view = $state<DutyRosterView>('config');
 
 	// Configuration state
 	let selectedAssignmentTypeId = $state('');
 	let dutyDuration = $state<'daily' | 'weekly' | 'monthly'>('daily');
 	let startDate = $state(getMonthStart());
 	let endDate = $state(getMonthEnd());
-	let selectedGroups = $state<string[]>([]);
-	let selectedRanks = $state<string[]>([]);
-	let selectedMOS = $state<string[]>([]);
-	let selectedRoles = $state<string[]>([]);
+	let selectedEligibleIds = $state<Set<string>>(new Set());
+	let draftExemptIds = $state<Set<string>>(new Set());
+	let eligibleSelectionScope = $state('');
 	let excludeStatuses = $state<string[]>([]);
 	let excludeWeekends = $state(false);
 	let excludeHolidays = $state(false);
 	let excludeOrgClosures = $state(false);
+	let isSavingExemptions = $state(false);
+	let lastSyncedExemptionScope = '';
 
 	// Generated roster state
 	let generatedRoster = $state<{ date: string; assignee: Personnel | null; reason?: string }[]>([]);
@@ -72,35 +79,7 @@
 	let previewTab = $state<'roster' | 'da6'>('roster');
 	let applyFeedback = $state<{ tone: 'success' | 'error'; message: string } | null>(null);
 
-	// Extract all unique values in single pass for efficiency (O(n) instead of O(4n))
-	const personnelData = $derived.by(() => {
-		const ranks = new Set<string>();
-		const mos = new Set<string>();
-		const roles = new Set<string>();
-		const all: Personnel[] = [];
-
-		for (const group of personnelByGroup) {
-			for (const person of group.personnel) {
-				all.push(person);
-				ranks.add(person.rank);
-				if (person.mos) mos.add(person.mos);
-				if (person.clinicRole) roles.add(person.clinicRole);
-			}
-		}
-
-		return {
-			allPersonnel: all,
-			allRanks: Array.from(ranks).sort(),
-			allMOS: Array.from(mos).sort(),
-			allRoles: Array.from(roles).sort()
-		};
-	});
-
-	// Convenience accessors
-	const allPersonnel = $derived(personnelData.allPersonnel);
-	const allRanks = $derived(personnelData.allRanks);
-	const allMOS = $derived(personnelData.allMOS);
-	const allRoles = $derived(personnelData.allRoles);
+	const allPersonnel = $derived(personnelByGroup.flatMap((group) => group.personnel));
 
 	// Get currently selected assignment type object
 	const selectedAssignmentType = $derived.by(
@@ -110,37 +89,59 @@
 	// Exempt personnel IDs for the currently selected assignment type
 	const currentExemptIds = $derived.by(() => selectedAssignmentType?.exemptPersonnelIds ?? []);
 
-	// Filter personnel based on selection criteria (excluding exempt)
-	const eligiblePersonnel = $derived.by(() => {
-		let personnel = allPersonnel;
+	type PersonnelTableState = ReturnType<typeof useDataTable<Personnel>>;
 
-		// Filter by groups if any selected
-		if (selectedGroups.length > 0) {
-			personnel = personnel.filter((p) => selectedGroups.includes(p.groupName));
-		}
+	const personnelColumns: ColumnDef<Personnel>[] = [
+		{ key: 'select', header: '', value: () => '', searchable: false },
+		{ key: 'rank', header: 'Rank', value: (person) => person.rank },
+		{
+			key: 'name',
+			header: 'Name',
+			value: (person) => `${person.lastName}, ${person.firstName}`,
+			searchValue: (person) => `${person.lastName} ${person.firstName}`
+		},
+		{ key: 'mos', header: 'MOS/Role', value: (person) => person.mos || person.clinicRole || '' }
+	];
 
-		// Filter by ranks if any selected
-		if (selectedRanks.length > 0) {
-			personnel = personnel.filter((p) => selectedRanks.includes(p.rank));
-		}
+	function matchesPersonnelQuery(person: Personnel, query: string) {
+		const q = query.toLowerCase();
+		return (
+			person.lastName.toLowerCase().includes(q) ||
+			person.firstName.toLowerCase().includes(q) ||
+			person.rank.toLowerCase().includes(q) ||
+			(person.groupName ?? '').toLowerCase().includes(q) ||
+			(person.mos ?? '').toLowerCase().includes(q) ||
+			(person.clinicRole ?? '').toLowerCase().includes(q)
+		);
+	}
 
-		// Filter by MOS if any selected
-		if (selectedMOS.length > 0) {
-			personnel = personnel.filter((p) => p.mos && selectedMOS.includes(p.mos));
-		}
+	const availableRosterPool = $derived.by(() => allPersonnel.filter((person) => !draftExemptIds.has(person.id)));
 
-		// Filter by clinic role if any selected
-		if (selectedRoles.length > 0) {
-			personnel = personnel.filter((p) => p.clinicRole && selectedRoles.includes(p.clinicRole));
-		}
+	const eligibleTable = useDataTable<Personnel>({
+		data: () => availableRosterPool,
+		columns: personnelColumns,
+		groupBy: {
+			key: (person) => person.groupName || 'Unassigned'
+		},
+		filterFn: matchesPersonnelQuery
+	});
 
-		// Exclude exempt personnel
-		const exempt = currentExemptIds;
-		if (exempt.length > 0) {
-			personnel = personnel.filter((p) => !exempt.includes(p.id));
-		}
+	const exemptTable = useDataTable<Personnel>({
+		data: () => allPersonnel,
+		columns: personnelColumns,
+		groupBy: {
+			key: (person) => person.groupName || 'Unassigned'
+		},
+		filterFn: matchesPersonnelQuery
+	});
 
-		return personnel;
+	const eligiblePersonnel = $derived.by(() =>
+		availableRosterPool.filter((person) => selectedEligibleIds.has(person.id))
+	);
+
+	const hasExemptionChanges = $derived.by(() => {
+		if (currentExemptIds.length !== draftExemptIds.size) return true;
+		return currentExemptIds.some((id) => !draftExemptIds.has(id));
 	});
 
 	// Calculate duty counts from existing assignments
@@ -324,7 +325,6 @@
 				assigneeId: r.assignee!.id
 			}));
 
-		// Save to history first
 		const assignmentType = assignmentTypes.find((t) => t.id === selectedAssignmentTypeId);
 		const typeName = assignmentType?.name ?? 'Duty';
 		const historyRoster: RosterHistoryEntry[] = generatedRoster.map((r) => ({
@@ -336,45 +336,53 @@
 			reason: r.reason
 		}));
 
-		const saved = await onSaveRoster({
-			assignmentTypeId: selectedAssignmentTypeId,
-			name: `${typeName} – ${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}`,
-			startDate,
-			endDate,
-			roster: historyRoster,
-			da6: generatedDA6 ?? undefined,
-			config: {
-				dutyDuration,
-				assignmentTypeName: typeName,
-				selectedGroups,
-				selectedRanks,
-				selectedMOS,
-				selectedRoles,
-				excludeStatuses,
-				excludeWeekends,
-				excludeHolidays,
-				excludeOrgClosures
+		try {
+			const applied = await onApplyRoster(assignmentsToCreate);
+			if (!applied) {
+				applyFeedback = {
+					tone: 'error',
+					message: 'The roster could not be applied to the calendar. Nothing was changed.'
+				};
+				return;
 			}
-		});
 
-		const applied = await onApplyRoster(assignmentsToCreate);
-		isApplying = false;
+			const saved = await onSaveRoster({
+				assignmentTypeId: selectedAssignmentTypeId,
+				name: `${typeName} – ${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}`,
+				startDate,
+				endDate,
+				roster: historyRoster,
+				da6: generatedDA6 ?? undefined,
+				config: {
+					dutyDuration,
+					assignmentTypeName: typeName,
+					selectedEligibleIds: [...selectedEligibleIds],
+					exemptPersonnelIds: [...draftExemptIds],
+					excludeStatuses,
+					excludeWeekends,
+					excludeHolidays,
+					excludeOrgClosures
+				}
+			});
 
-		if (!applied) {
+			applyFeedback = {
+				tone: 'success',
+				message: saved
+					? 'Roster applied to the calendar and saved to history.'
+					: 'Roster applied to the calendar. History could not be saved.'
+			};
+			view = 'history';
+		} catch (error) {
 			applyFeedback = {
 				tone: 'error',
-				message: 'The roster could not be applied to the calendar. Nothing was changed.'
+				message:
+					error instanceof Error
+						? error.message
+						: 'The roster could not be applied to the calendar. Nothing was changed.'
 			};
-			return;
+		} finally {
+			isApplying = false;
 		}
-
-		applyFeedback = {
-			tone: 'success',
-			message: saved
-				? 'Roster applied to the calendar and saved to history.'
-				: 'Roster applied to the calendar. History could not be saved.'
-		};
-		view = 'history';
 	}
 
 	// Export to Excel (HTML table format) — accepts optional overrides for re-export from history
@@ -568,36 +576,35 @@
 		});
 	}
 
-	function toggleGroup(group: string) {
-		if (selectedGroups.includes(group)) {
-			selectedGroups = selectedGroups.filter((g) => g !== group);
-		} else {
-			selectedGroups = [...selectedGroups, group];
-		}
+	function getVisiblePersonnelIds(table: PersonnelTableState): string[] {
+		const groupedIds = table.groups.flatMap((group) => group.rows.map((person) => person.id));
+		return groupedIds.length > 0 ? groupedIds : table.rows.map((person) => person.id);
 	}
 
-	function toggleRank(rank: string) {
-		if (selectedRanks.includes(rank)) {
-			selectedRanks = selectedRanks.filter((r) => r !== rank);
-		} else {
-			selectedRanks = [...selectedRanks, rank];
-		}
+	function getGroupSelectionState(
+		table: PersonnelTableState,
+		selectedIds: Set<string>,
+		groupKey: string
+	): 'none' | 'some' | 'all' {
+		const group = table.groups.find((entry) => entry.key === groupKey);
+		if (!group || group.rows.length === 0) return 'none';
+		const count = group.rows.filter((person) => selectedIds.has(person.id)).length;
+		if (count === 0) return 'none';
+		if (count === group.rows.length) return 'all';
+		return 'some';
 	}
 
-	function toggleMOS(mos: string) {
-		if (selectedMOS.includes(mos)) {
-			selectedMOS = selectedMOS.filter((m) => m !== mos);
-		} else {
-			selectedMOS = [...selectedMOS, mos];
+	function updateSelection(selectedIds: Set<string>, ids: string[], shouldSelect: boolean) {
+		const next = new Set(selectedIds);
+		for (const id of ids) {
+			if (shouldSelect) next.add(id);
+			else next.delete(id);
 		}
+		return next;
 	}
 
-	function toggleRole(role: string) {
-		if (selectedRoles.includes(role)) {
-			selectedRoles = selectedRoles.filter((r) => r !== role);
-		} else {
-			selectedRoles = [...selectedRoles, role];
-		}
+	function toggleEligiblePerson(personnelId: string) {
+		selectedEligibleIds = updateSelection(selectedEligibleIds, [personnelId], !selectedEligibleIds.has(personnelId));
 	}
 
 	function toggleExcludeStatus(statusId: string) {
@@ -608,10 +615,63 @@
 		}
 	}
 
-	function toggleExempt(personnelId: string) {
-		const current = currentExemptIds;
-		const next = current.includes(personnelId) ? current.filter((id) => id !== personnelId) : [...current, personnelId];
-		onUpdateExemptions(selectedAssignmentTypeId, next);
+	function toggleEligibleGroup(groupKey: string) {
+		const group = eligibleTable.groups.find((entry) => entry.key === groupKey);
+		if (!group) return;
+		const shouldSelect = getGroupSelectionState(eligibleTable, selectedEligibleIds, groupKey) !== 'all';
+		selectedEligibleIds = updateSelection(
+			selectedEligibleIds,
+			group.rows.map((person) => person.id),
+			shouldSelect
+		);
+	}
+
+	function selectVisibleEligible() {
+		selectedEligibleIds = updateSelection(selectedEligibleIds, getVisiblePersonnelIds(eligibleTable), true);
+	}
+
+	function clearEligibleSelection() {
+		selectedEligibleIds = new Set();
+	}
+
+	function resetEligibleSelection() {
+		selectedEligibleIds = new Set(availableRosterPool.map((person) => person.id));
+	}
+
+	function toggleDraftExempt(personnelId: string) {
+		draftExemptIds = updateSelection(draftExemptIds, [personnelId], !draftExemptIds.has(personnelId));
+	}
+
+	function toggleExemptGroup(groupKey: string) {
+		const group = exemptTable.groups.find((entry) => entry.key === groupKey);
+		if (!group) return;
+		const shouldSelect = getGroupSelectionState(exemptTable, draftExemptIds, groupKey) !== 'all';
+		draftExemptIds = updateSelection(
+			draftExemptIds,
+			group.rows.map((person) => person.id),
+			shouldSelect
+		);
+	}
+
+	function selectVisibleExempt() {
+		draftExemptIds = updateSelection(draftExemptIds, getVisiblePersonnelIds(exemptTable), true);
+	}
+
+	function clearDraftExemptions() {
+		draftExemptIds = new Set();
+	}
+
+	async function saveExemptions() {
+		if (!selectedAssignmentTypeId || !hasExemptionChanges || isSavingExemptions) return;
+		isSavingExemptions = true;
+		try {
+			await onUpdateExemptions(selectedAssignmentTypeId, [...draftExemptIds]);
+			toastStore.success('Exempt personnel updated');
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to update exempt personnel');
+		} finally {
+			isSavingExemptions = false;
+		}
 	}
 
 	// Set default excluded statuses (common "unavailable" statuses)
@@ -624,12 +684,55 @@
 		}
 	});
 
+	$effect(() => {
+		const currentScope = `${selectedAssignmentTypeId}:${[...currentExemptIds].sort().join(',')}`;
+		if (currentScope === lastSyncedExemptionScope) return;
+
+		if (lastSyncedExemptionScope && hasExemptionChanges) {
+			toastStore.warning('Unsaved exempt personnel changes were discarded because the duty exemptions changed.');
+		}
+
+		draftExemptIds = new Set(currentExemptIds);
+		lastSyncedExemptionScope = currentScope;
+	});
+
+	// Cache the current assignment-type scope in eligibleSelectionScope so selectedEligibleIds only
+	// resets to the full availableRosterPool when selectedAssignmentTypeId changes. Edits to draftExemptIds
+	// still rerun this effect through availableRosterPool, but those changes only prune stale selectedEligibleIds.
+	$effect(() => {
+		const scope = `${selectedAssignmentTypeId}`;
+		const availableIds = availableRosterPool.map((person) => person.id);
+
+		if (eligibleSelectionScope !== scope) {
+			selectedEligibleIds = new Set(availableIds);
+			eligibleSelectionScope = scope;
+			return;
+		}
+
+		const allowed = new Set(availableIds);
+		const next = new Set([...selectedEligibleIds].filter((id) => allowed.has(id)));
+		if (next.size !== selectedEligibleIds.size) {
+			selectedEligibleIds = next;
+		}
+	});
+
 	// Personnel-only assignment types
 	const personnelAssignmentTypes = $derived(assignmentTypes.filter((t) => t.assignTo === 'personnel'));
 
 	const panelTitle = $derived(
 		view === 'history' ? 'Roster History' : view === 'preview' ? 'Generated Roster Preview' : 'Generate Duty Roster'
 	);
+
+	const rosterTabs = $derived([
+		{ label: 'Configuration', value: 'config' },
+		{ label: 'Preview', value: 'preview' },
+		{ label: 'History', value: 'history', badge: rosterHistory.length > 0 ? rosterHistory.length : undefined }
+	]);
+
+	function setView(next: string) {
+		if (next === 'preview' && generatedRoster.length === 0) return;
+		view = next as DutyRosterView;
+	}
 </script>
 
 <section class="generator-shell">
@@ -642,24 +745,6 @@
 				rosters from one page.
 			</p>
 		</div>
-
-		<div class="view-nav" aria-label="Duty roster views">
-			<button class="view-tab" class:active={view === 'config'} onclick={() => (view = 'config')}>Configuration</button>
-			<button
-				class="view-tab"
-				class:active={view === 'preview'}
-				onclick={() => (view = 'preview')}
-				disabled={generatedRoster.length === 0}
-			>
-				Preview
-			</button>
-			<button class="view-tab" class:active={view === 'history'} onclick={() => (view = 'history')}>
-				History
-				{#if rosterHistory.length > 0}
-					<span class="history-badge">{rosterHistory.length}</span>
-				{/if}
-			</button>
-		</div>
 	</div>
 
 	{#if applyFeedback}
@@ -667,6 +752,10 @@
 			{applyFeedback.message}
 		</div>
 	{/if}
+
+	<div class="generator-nav">
+		<SubNav tabs={rosterTabs} active={view} onChange={setView} />
+	</div>
 
 	<div class="generator-body">
 		{#if view === 'history'}
@@ -885,198 +974,300 @@
 				{/if}
 			</section>
 		{:else}
-			<div class="config-grid">
-				<section class="config-section panel-card section-card card card-flat config-main">
-					<div class="panel-header">
-						<div>
-							<h3>Duty Configuration</h3>
-							<p class="hint">Choose what you are filling and the date range the roster should cover.</p>
-						</div>
-					</div>
-
-					<div class="form-group">
-						<label class="label" for="assignmentType">Assignment Type</label>
-						<select id="assignmentType" class="select" bind:value={selectedAssignmentTypeId}>
-							<option value="">Select duty type...</option>
-							{#each personnelAssignmentTypes as type}
-								<option value={type.id}>{type.name} ({type.shortName})</option>
-							{/each}
-						</select>
-					</div>
-
-					<div class="form-row">
-						<div class="form-group">
-							<label class="label" for="duration">Duty Duration</label>
-							<select id="duration" class="select" bind:value={dutyDuration}>
-								<option value="daily">Daily</option>
-								<option value="weekly">Weekly</option>
-								<option value="monthly">Monthly</option>
-							</select>
-						</div>
-					</div>
-
-					<div class="form-row">
-						<div class="form-group">
-							<label class="label" for="startDate">Start Date</label>
-							<input id="startDate" type="date" class="input" bind:value={startDate} />
-						</div>
-						<div class="form-group">
-							<label class="label" for="endDate">End Date</label>
-							<input id="endDate" type="date" class="input" bind:value={endDate} />
-						</div>
-					</div>
-				</section>
-
-				<section class="config-section panel-card section-card card card-flat">
-					<div class="panel-header">
-						<div>
-							<h3>Schedule Options</h3>
-							<p class="hint">Skip dates you know should not be filled by the auto-rotation.</p>
-						</div>
-					</div>
-
-					<label class="toggle-row">
-						<input type="checkbox" bind:checked={excludeWeekends} />
-						<span>Exclude weekends (Sat & Sun)</span>
-					</label>
-
-					<label class="toggle-row">
-						<input type="checkbox" bind:checked={excludeHolidays} />
-						<span>Exclude federal holidays</span>
-					</label>
-
-					<label class="toggle-row">
-						<input type="checkbox" bind:checked={excludeOrgClosures} />
-						<span>Exclude org closures</span>
-					</label>
-				</section>
-
-				<section class="config-section panel-card section-card card card-flat">
-					<div class="panel-header">
-						<div>
-							<h3>Unavailable Statuses</h3>
-							<p class="hint">Anyone carrying one of these statuses during a duty date will be skipped.</p>
-						</div>
-					</div>
-
-					<div class="chip-list">
-						{#each statusTypes as status}
-							<button
-								class="chip status-chip"
-								class:selected={excludeStatuses.includes(status.id)}
-								style="--chip-color: {status.color}; --chip-text: {status.textColor}"
-								onclick={() => toggleExcludeStatus(status.id)}
-							>
-								{status.name}
-							</button>
-						{/each}
-					</div>
-				</section>
-
-				<section class="config-section panel-card section-card card card-flat config-main">
-					<div class="panel-header">
-						<div>
-							<h3>Eligible Personnel</h3>
-							<p class="hint">Leave everything unselected to include everyone in the current scope.</p>
-						</div>
-						<div class="eligible-count">{eligiblePersonnel.length} eligible</div>
-					</div>
-
-					<div class="filter-group">
-						<div class="label">Groups</div>
-						<div class="chip-list">
-							{#each groups as group}
-								<button class="chip" class:selected={selectedGroups.includes(group)} onclick={() => toggleGroup(group)}>
-									{group || '(No Group)'}
-								</button>
-							{/each}
-						</div>
-					</div>
-
-					<div class="filter-group">
-						<div class="label">Ranks</div>
-						<div class="chip-list">
-							{#each allRanks as rank}
-								<button class="chip" class:selected={selectedRanks.includes(rank)} onclick={() => toggleRank(rank)}>
-									{rank}
-								</button>
-							{/each}
-						</div>
-					</div>
-
-					{#if allMOS.length > 0}
-						<div class="filter-group">
-							<div class="label">MOS</div>
-							<div class="chip-list">
-								{#each allMOS as mos}
-									<button class="chip" class:selected={selectedMOS.includes(mos)} onclick={() => toggleMOS(mos)}>
-										{mos}
-									</button>
-								{/each}
-							</div>
-						</div>
-					{/if}
-
-					{#if allRoles.length > 0}
-						<div class="filter-group">
-							<div class="label">Roles</div>
-							<div class="chip-list">
-								{#each allRoles as role}
-									<button class="chip" class:selected={selectedRoles.includes(role)} onclick={() => toggleRole(role)}>
-										{role}
-									</button>
-								{/each}
-							</div>
-						</div>
-					{/if}
-				</section>
-
-				{#if selectedAssignmentTypeId}
-					<section class="config-section panel-card section-card card card-flat config-main">
+			<div class="roster-workspace">
+				<div class="config-column">
+					<section class="config-section panel-card section-card card card-flat">
 						<div class="panel-header">
 							<div>
-								<h3>Exempt Personnel</h3>
-								<p class="hint">These people will never be assigned this duty type.</p>
+								<p class="pane-eyebrow">Step 1</p>
+								<h3>Duty Configuration</h3>
+								<p class="hint">Choose what you are filling and the date range the roster should cover.</p>
 							</div>
-							{#if currentExemptIds.length > 0}
-								<div class="exempt-count">{currentExemptIds.length} exempted</div>
-							{/if}
+						</div>
+
+						<div class="form-group">
+							<label class="label" for="assignmentType">Assignment Type</label>
+							<select id="assignmentType" class="select" bind:value={selectedAssignmentTypeId}>
+								<option value="">Select duty type...</option>
+								{#each personnelAssignmentTypes as type}
+									<option value={type.id}>{type.name} ({type.shortName})</option>
+								{/each}
+							</select>
+						</div>
+
+						<div class="form-row">
+							<div class="form-group">
+								<label class="label" for="duration">Duty Duration</label>
+								<select id="duration" class="select" bind:value={dutyDuration}>
+									<option value="daily">Daily</option>
+									<option value="weekly">Weekly</option>
+									<option value="monthly">Monthly</option>
+								</select>
+							</div>
+						</div>
+
+						<div class="form-row">
+							<div class="form-group">
+								<label class="label" for="startDate">Start Date</label>
+								<input id="startDate" type="date" class="input" bind:value={startDate} />
+							</div>
+							<div class="form-group">
+								<label class="label" for="endDate">End Date</label>
+								<input id="endDate" type="date" class="input" bind:value={endDate} />
+							</div>
+						</div>
+					</section>
+
+					<section class="config-section panel-card section-card card card-flat">
+						<div class="panel-header">
+							<div>
+								<p class="pane-eyebrow">Scheduling</p>
+								<h3>Schedule Options</h3>
+								<p class="hint">Skip dates you know should not be filled by the auto-rotation.</p>
+							</div>
+						</div>
+
+						<label class="toggle-row">
+							<input type="checkbox" bind:checked={excludeWeekends} />
+							<span>Exclude weekends (Sat & Sun)</span>
+						</label>
+
+						<label class="toggle-row">
+							<input type="checkbox" bind:checked={excludeHolidays} />
+							<span>Exclude federal holidays</span>
+						</label>
+
+						<label class="toggle-row">
+							<input type="checkbox" bind:checked={excludeOrgClosures} />
+							<span>Exclude org closures</span>
+						</label>
+					</section>
+
+					<section class="config-section panel-card section-card card card-flat">
+						<div class="panel-header">
+							<div>
+								<p class="pane-eyebrow">Availability Rules</p>
+								<h3>Unavailable Statuses</h3>
+								<p class="hint">Anyone carrying one of these statuses during a duty date will be skipped.</p>
+							</div>
 						</div>
 
 						<div class="chip-list">
-							{#each personnelByGroup as grp}
-								{#each grp.personnel as person}
-									<button
-										class="chip exempt-chip"
-										class:selected={currentExemptIds.includes(person.id)}
-										onclick={() => toggleExempt(person.id)}
-									>
-										{person.rank}
-										{person.lastName}
-									</button>
-								{/each}
+							{#each statusTypes as status}
+								<button
+									class="chip status-chip"
+									class:selected={excludeStatuses.includes(status.id)}
+									aria-pressed={excludeStatuses.includes(status.id)}
+									style="--chip-color: {status.color}; --chip-text: {status.textColor}"
+									onclick={() => toggleExcludeStatus(status.id)}
+								>
+									{status.name}
+								</button>
 							{/each}
 						</div>
 					</section>
-				{/if}
-			</div>
 
-			<div class="sticky-actions section-card card card-flat">
-				<div>
-					<h3>Ready to generate?</h3>
-					<p class="hint">The preview shows who gets assigned before anything is written to the calendar.</p>
+					<div class="sticky-actions section-card card card-flat">
+						<div>
+							<h3>Ready to generate?</h3>
+							<p class="hint">The preview shows who gets assigned before anything is written to the calendar.</p>
+						</div>
+						<button
+							class="btn btn-primary"
+							onclick={generateRoster}
+							disabled={!selectedAssignmentTypeId ||
+								!startDate ||
+								!endDate ||
+								eligiblePersonnel.length === 0 ||
+								isGenerating}
+						>
+							{isGenerating ? 'Generating...' : 'Generate Roster'}
+						</button>
+					</div>
 				</div>
-				<button
-					class="btn btn-primary"
-					onclick={generateRoster}
-					disabled={!selectedAssignmentTypeId ||
-						!startDate ||
-						!endDate ||
-						eligiblePersonnel.length === 0 ||
-						isGenerating}
-				>
-					{isGenerating ? 'Generating...' : 'Generate Roster'}
-				</button>
+
+				<div class="selection-column">
+					<section class="personnel-card card card-flat">
+						<div class="panel-header personnel-card-header">
+							<div>
+								<p class="pane-eyebrow">Step 2</p>
+								<h3>Eligible Personnel</h3>
+								<p class="hint">Search, select by group, or fine-tune the roster pool directly.</p>
+							</div>
+							<div class="eligible-count">{selectedEligibleIds.size} selected</div>
+						</div>
+
+						<div class="personnel-table-wrap">
+							<DataTable
+								columns={personnelColumns}
+								table={eligibleTable}
+								compact
+								showSearch
+								searchPlaceholder="Search by name, rank, group, MOS, or role..."
+								emptyMessage="No eligible personnel available"
+								onRowClick={(person) => toggleEligiblePerson(person.id)}
+							>
+								{#snippet toolbar(_state)}
+									<div class="selection-toolbar">
+										<div class="selection-stats">
+											<span class="selection-count">{selectedEligibleIds.size} selected</span>
+											<span class="selection-count muted">{eligibleTable.totalRows} shown</span>
+										</div>
+										<div class="selection-actions">
+											<button class="btn btn-secondary btn-sm" onclick={selectVisibleEligible}>Select shown</button>
+											<button class="btn btn-secondary btn-sm" onclick={clearEligibleSelection}>Clear</button>
+											<button class="btn btn-secondary btn-sm" onclick={resetEligibleSelection}>Reset all</button>
+										</div>
+									</div>
+								{/snippet}
+
+								{#snippet groupHeader(ctx)}
+									{@const selectionState = getGroupSelectionState(eligibleTable, selectedEligibleIds, ctx.key)}
+									<div class="group-header-content">
+										<input
+											type="checkbox"
+											aria-label={`Select ${ctx.label} group`}
+											checked={selectionState === 'all'}
+											indeterminate={selectionState === 'some'}
+											onchange={() => toggleEligibleGroup(ctx.key)}
+											onclick={(event) => event.stopPropagation()}
+										/>
+										<button
+											type="button"
+											class="group-toggle"
+											aria-expanded={!ctx.collapsed}
+											aria-label={`Toggle ${ctx.label} group`}
+											onclick={() => ctx.toggle()}
+										>
+											<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
+												<path
+													fill-rule="evenodd"
+													d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+													clip-rule="evenodd"
+												/>
+											</svg>
+											<span class="group-label">{ctx.label}</span>
+											<span class="group-count">({ctx.count})</span>
+										</button>
+									</div>
+								{/snippet}
+
+								{#snippet cell(row, col)}
+									{#if col.key === 'select'}
+										<input
+											type="checkbox"
+											checked={selectedEligibleIds.has(row.id)}
+											onchange={() => toggleEligiblePerson(row.id)}
+											onclick={(event) => event.stopPropagation()}
+										/>
+									{:else if col.key === 'rank'}
+										<span class="assignee-rank">{row.rank}</span>
+									{:else}
+										{String(col.value(row) ?? '')}
+									{/if}
+								{/snippet}
+							</DataTable>
+						</div>
+					</section>
+
+					{#if selectedAssignmentTypeId}
+						<section class="personnel-card card card-flat">
+							<div class="panel-header personnel-card-header">
+								<div>
+									<p class="pane-eyebrow">Step 3</p>
+									<h3>Exempt Personnel</h3>
+									<p class="hint">These people will never be assigned this duty type.</p>
+								</div>
+								<div class="panel-actions">
+									<div class="exempt-count">{draftExemptIds.size} exempted</div>
+									<button
+										class="btn btn-primary btn-sm"
+										onclick={saveExemptions}
+										disabled={!hasExemptionChanges || isSavingExemptions}
+									>
+										{isSavingExemptions ? 'Saving...' : 'Save Exemptions'}
+									</button>
+								</div>
+							</div>
+
+							<div class="personnel-table-wrap">
+								<DataTable
+									columns={personnelColumns}
+									table={exemptTable}
+									compact
+									showSearch
+									searchPlaceholder="Search by name, rank, group, MOS, or role..."
+									emptyMessage="No personnel available"
+									onRowClick={(person) => toggleDraftExempt(person.id)}
+								>
+									{#snippet toolbar(_state)}
+										<div class="selection-toolbar">
+											<div class="selection-stats">
+												<span class="selection-count">{draftExemptIds.size} selected</span>
+												<span class="selection-count muted">{exemptTable.totalRows} shown</span>
+											</div>
+											<div class="selection-actions">
+												<button class="btn btn-secondary btn-sm" onclick={selectVisibleExempt}>Select shown</button>
+												<button class="btn btn-secondary btn-sm" onclick={clearDraftExemptions}>Clear</button>
+											</div>
+										</div>
+									{/snippet}
+
+									{#snippet groupHeader(ctx)}
+										{@const selectionState = getGroupSelectionState(exemptTable, draftExemptIds, ctx.key)}
+										<div class="group-header-content">
+											<input
+												type="checkbox"
+												aria-label={`Select ${ctx.label} group`}
+												checked={selectionState === 'all'}
+												indeterminate={selectionState === 'some'}
+												onchange={() => toggleExemptGroup(ctx.key)}
+												onclick={(event) => event.stopPropagation()}
+											/>
+											<button
+												type="button"
+												class="group-toggle"
+												aria-expanded={!ctx.collapsed}
+												aria-label={`Toggle ${ctx.label} group`}
+												onclick={() => ctx.toggle()}
+											>
+												<svg
+													class="chevron-icon"
+													class:collapsed={ctx.collapsed}
+													viewBox="0 0 20 20"
+													fill="currentColor"
+												>
+													<path
+														fill-rule="evenodd"
+														d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+														clip-rule="evenodd"
+													/>
+												</svg>
+												<span class="group-label">{ctx.label}</span>
+												<span class="group-count">({ctx.count})</span>
+											</button>
+										</div>
+									{/snippet}
+
+									{#snippet cell(row, col)}
+										{#if col.key === 'select'}
+											<input
+												type="checkbox"
+												checked={draftExemptIds.has(row.id)}
+												onchange={() => toggleDraftExempt(row.id)}
+												onclick={(event) => event.stopPropagation()}
+											/>
+										{:else if col.key === 'rank'}
+											<span class="assignee-rank">{row.rank}</span>
+										{:else}
+											{String(col.value(row) ?? '')}
+										{/if}
+									{/snippet}
+								</DataTable>
+							</div>
+						</section>
+					{/if}
+				</div>
 			</div>
 		{/if}
 	</div>
@@ -1155,41 +1346,6 @@
 		color: var(--color-text-secondary);
 	}
 
-	.view-nav {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--spacing-xs);
-		justify-content: flex-end;
-		flex-shrink: 0;
-		margin-left: auto;
-		align-self: center;
-	}
-
-	.view-tab {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-full);
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		cursor: pointer;
-	}
-
-	.view-tab.active {
-		border-color: var(--color-primary);
-		background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
-		color: var(--color-primary);
-	}
-
-	.view-tab:disabled {
-		opacity: 0.55;
-		cursor: not-allowed;
-	}
-
 	.feedback-banner {
 		padding: var(--spacing-sm) var(--spacing-md);
 		border-radius: var(--radius-md);
@@ -1204,6 +1360,16 @@
 		border-color: #b91c1c;
 		background: #fef2f2;
 		color: #b91c1c;
+	}
+
+	.generator-nav {
+		display: flex;
+		justify-content: center;
+	}
+
+	.generator-nav :global(.sub-nav) {
+		width: min(100%, 760px);
+		justify-content: center;
 	}
 
 	.generator-body {
@@ -1231,31 +1397,47 @@
 		justify-content: flex-end;
 	}
 
-	.config-grid {
+	.roster-workspace {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
 		gap: var(--spacing-lg);
-		align-items: stretch;
+		align-items: start;
 	}
 
-	.config-main {
-		grid-column: span 2;
+	.config-column,
+	.selection-column {
+		min-width: 0;
+	}
+
+	.config-column {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-lg);
+	}
+
+	.selection-column {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-lg);
 	}
 
 	.config-section {
 		margin-bottom: 0;
 	}
 
-	.filter-group {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-xs);
-	}
-
 	.chip-list {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--spacing-xs);
+	}
+
+	.pane-eyebrow {
+		margin: 0 0 var(--spacing-xs);
+		font-size: var(--font-size-xs);
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-primary);
 	}
 
 	.chip {
@@ -1285,12 +1467,6 @@
 		color: var(--chip-text);
 	}
 
-	.chip.exempt-chip.selected {
-		background: #dc2626;
-		border-color: #dc2626;
-		color: white;
-	}
-
 	.eligible-count,
 	.exempt-count {
 		font-size: var(--font-size-sm);
@@ -1300,6 +1476,112 @@
 		border-radius: var(--radius-md);
 		text-align: center;
 		margin-top: 0;
+	}
+
+	.personnel-card {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.personnel-card-header {
+		padding: var(--spacing-lg);
+		margin-bottom: 0;
+		border-bottom: 1px solid var(--color-border);
+		background: var(--color-surface-variant);
+	}
+
+	.personnel-table-wrap {
+		padding: 0;
+	}
+
+	.personnel-table-wrap :global(.data-table) {
+		border: none;
+		border-radius: 0;
+		overflow: visible;
+	}
+
+	.selection-toolbar,
+	.selection-stats {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: var(--spacing-sm);
+	}
+
+	.selection-toolbar {
+		justify-content: space-between;
+		padding: var(--spacing-sm) var(--spacing-md);
+		border-bottom: 1px solid var(--color-divider);
+		background: var(--color-surface);
+	}
+
+	.selection-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-xs);
+	}
+
+	.selection-count {
+		display: inline-flex;
+		align-items: center;
+		padding: 8px 12px;
+		border-radius: var(--radius-full);
+		border: 1px solid rgba(var(--color-primary-rgb), 0.18);
+		background: rgba(var(--color-primary-rgb), 0.08);
+		color: var(--color-text);
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+	}
+
+	.selection-count.muted {
+		border-color: var(--color-border);
+		background: var(--color-surface-variant);
+		color: var(--color-text-secondary);
+	}
+
+	.group-header-content {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+	}
+
+	.group-header-content input[type='checkbox'] {
+		cursor: pointer;
+		accent-color: var(--color-primary);
+	}
+
+	.group-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		padding: 0;
+		border: none;
+		background: none;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.chevron-icon {
+		width: 16px;
+		height: 16px;
+		transition: transform 0.15s ease;
+		flex-shrink: 0;
+	}
+
+	.chevron-icon.collapsed {
+		transform: rotate(-90deg);
+	}
+
+	.group-label {
+		font-weight: 600;
+	}
+
+	.group-count {
+		color: var(--color-text-muted);
+		font-weight: 400;
 	}
 
 	.history-panel,
@@ -1374,21 +1656,6 @@
 	.btn-danger:hover {
 		background: #b91c1c;
 		border-color: #b91c1c;
-	}
-
-	.history-badge {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 18px;
-		height: 18px;
-		padding: 0 4px;
-		background: var(--color-primary);
-		color: var(--color-chrome);
-		border-radius: var(--radius-full);
-		font-size: 10px;
-		font-weight: 700;
-		margin-left: 2px;
 	}
 
 	.empty-state {
@@ -1574,8 +1841,6 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: var(--spacing-md);
-		position: sticky;
-		bottom: var(--spacing-md);
 	}
 
 	.sticky-actions h3 {
@@ -1590,17 +1855,18 @@
 			flex-direction: column;
 		}
 
-		.view-nav,
+		.generator-nav :global(.sub-nav),
 		.panel-actions {
 			justify-content: flex-start;
 		}
 
-		.config-grid {
+		.roster-workspace {
 			grid-template-columns: 1fr;
 		}
 
-		.config-main {
-			grid-column: auto;
+		.personnel-card-header,
+		.selection-toolbar {
+			align-items: flex-start;
 		}
 	}
 </style>

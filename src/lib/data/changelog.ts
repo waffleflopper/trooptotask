@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-26-calendar-bulk-workspace',
+		date: '2026-03-26',
+		title: 'Bulk Calendar Updates Have More Room to Breathe',
+		items: [
+			'The bulk add and bulk remove calendar tools now make much better use of wide screens, so you can see a lot more people at once instead of constantly fighting the list',
+			'Status settings now live in a cleaner side panel while the personnel list gets the larger workspace, which makes bulk changes feel a lot less cramped',
+			'Selection controls were cleaned up too, including clearer counts and a better "select shown" action when you are filtering the list'
+		]
+	},
+	{
 		id: '2026-03-26-calendar-month-picker',
 		date: '2026-03-26',
 		title: 'Jump Around the Calendar Much Faster',
@@ -37,24 +47,13 @@ export const changelog: ChangelogEntry[] = [
 		]
 	},
 	{
-		id: '2026-03-25-duty-roster-page',
-		date: '2026-03-25',
-		title: 'Duty Roster Works Like a Real Page Now',
+		id: '2026-03-27-duty-roster-selection',
+		date: '2026-03-27',
+		title: 'Duty Roster Selection Feels More Like the Rest of Calendar',
 		items: [
-			'The Duty Roster tool now opens as a full page instead of feeling like the same old popup crammed into a new route',
-			'Configuration, preview, and history now live in clear page sections, so it is easier to review the roster before applying it',
-			'Applying a roster now keeps you on the page and confirms what happened instead of dumping you back to the calendar mid-workflow'
-		]
-	},
-	{
-		id: '2026-03-24-training-reports',
-		date: '2026-03-24',
-		title: 'Training Reports & Optional Training Types',
-		items: [
-			'Added a brand new Training Reports page — see overall readiness percentages, status breakdowns, worst-performing training types, and group comparisons all in one place',
-			"Training types can now be marked as \"optional\" — optional types won't count against your unit's readiness score, so things like nice-to-have certifications won't drag down your numbers",
-			'You can now save custom column views in the training matrix — set up different views for different purposes and switch between them without reconfiguring every time',
-			"Training matrix columns are now sortable by clicking the header — quickly find who's expired or expiring soon"
+			'Eligible and exempt personnel now use the same searchable grouped table pattern as the bulk calendar tools, so working through large rosters is much easier than dealing with tiny toggle pills',
+			'The duty-roster form was reorganized into clearer planning and selection panels, which makes it easier to review settings and roster scope side by side',
+			'Exemptions are now easier to audit and save for each duty type without hunting through one long wall of chips'
 		]
 	}
 ];

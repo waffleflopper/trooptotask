@@ -109,6 +109,7 @@
 				{:else}
 					<Calendar
 						year={calendarStore.year}
+						month={calendarStore.month}
 						monthName={calendarStore.monthName}
 						dates={calendarStore.dates}
 						personnelByGroup={ctx.personnelByGroup}
@@ -126,6 +127,7 @@
 						onPrevMonth={() => calendarStore.prevMonth()}
 						onNextMonth={() => calendarStore.nextMonth()}
 						onGoToToday={() => calendarStore.goToToday()}
+						onNavigateToMonth={(year, month) => calendarStore.goToMonth(year, month)}
 						onCellClick={(person, date) => ctx.handleCellClick(person, date)}
 						onPersonClick={(person) => ctx.handlePersonClick(person)}
 						onPinToggle={(group) => ctx.handlePinToggle(group)}

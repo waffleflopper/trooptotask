@@ -89,4 +89,19 @@ describe('LongRangeView', () => {
 		expect(onDateColumnClick.mock.calls[0][0]).toBeInstanceOf(Date);
 		expect(onDateColumnClick.mock.calls[0][0].getMonth()).toBe(2);
 	});
+
+	it('opens the picker from the range label and updates the visible quarter start month', async () => {
+		renderView();
+
+		await fireEvent.click(screen.getByTestId('long-range-date-label'));
+
+		expect(screen.getByRole('dialog', { name: 'Month and year picker' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Next year' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Jan' }));
+
+		expect(screen.getByTestId('long-range-date-label').textContent).toContain('January 2027');
+		expect(screen.getByTestId('long-range-date-label').textContent).toContain('March 2027');
+		expect(screen.queryByRole('dialog', { name: 'Month and year picker' })).toBeNull();
+	});
 });

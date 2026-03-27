@@ -77,6 +77,10 @@
 		viewStartDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 	}
 
+	function goToMonth(year: number, month: number) {
+		viewStartDate = new Date(year, month, 1);
+	}
+
 	function getStatusForDate(personnelId: string, date: Date): StatusType | null {
 		const dateStr = formatDate(date);
 		const entry = availabilityEntries.find(
@@ -125,6 +129,9 @@
 		prevLabel="Prev 3 Months"
 		nextLabel="Next 3 Months"
 		titleTestId="long-range-date-label"
+		pickerYear={viewStartDate.getFullYear()}
+		pickerMonth={viewStartDate.getMonth()}
+		onSelectMonthYear={goToMonth}
 	/>
 
 	<div class="scroll-area">

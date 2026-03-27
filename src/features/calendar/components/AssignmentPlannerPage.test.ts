@@ -44,9 +44,20 @@ const assignmentTypes: AssignmentType[] = [
 		shortName: 'CQ',
 		assignTo: 'personnel',
 		color: '#2563eb',
-		exemptPersonnelIds: []
+		exemptPersonnelIds: [],
+		showInDateHeader: false
 	}
 ];
+
+const modType: AssignmentType = {
+	id: 'type-mod',
+	name: 'Manager on Duty',
+	shortName: 'MOD',
+	assignTo: 'personnel',
+	color: '#dc2626',
+	exemptPersonnelIds: [],
+	showInDateHeader: false
+};
 
 const personnel: Personnel[] = [
 	{
@@ -58,6 +69,16 @@ const personnel: Personnel[] = [
 		groupName: 'Alpha',
 		clinicRole: '',
 		mos: '11B'
+	},
+	{
+		id: 'person-2',
+		firstName: 'Jamie',
+		lastName: 'Taylor',
+		rank: 'CPT',
+		groupId: 'group-1',
+		groupName: 'Alpha',
+		clinicRole: 'Provider',
+		mos: 'PA'
 	}
 ];
 
@@ -101,6 +122,42 @@ describe('AssignmentPlannerPage', () => {
 		expect(screen.getByRole('link', { name: 'Back' }).getAttribute('href')).toBe('/org/org-1/calendar');
 		expect(screen.getByText('Quick Fill')).toBeTruthy();
 		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('shows all personnel in assignment dropdowns regardless of assignment type shortName', () => {
+		dailyAssignmentsStore.load([modType], [], 'org-1');
+
+		renderPage({
+			orgId: 'org-1',
+			orgName: 'Test Org',
+			personnel,
+			allPersonnel: personnel,
+			scopedGroupId: null,
+			permissions: { canViewCalendar: true, canEditCalendar: true }
+		});
+
+		// Both personnel should appear as options — no MOS-based filtering
+		const options = screen.getAllByRole('option');
+		const optionTexts = options.map((o) => o.textContent?.trim());
+
+		expect(optionTexts).toContain('SGT Smith');
+		expect(optionTexts).toContain('CPT Taylor');
+	});
+
+	it('does not show a MOD-specific filter hint for any assignment type', () => {
+		dailyAssignmentsStore.load([modType], [], 'org-1');
+
+		renderPage({
+			orgId: 'org-1',
+			orgName: 'Test Org',
+			personnel,
+			allPersonnel: personnel,
+			scopedGroupId: null,
+			permissions: { canViewCalendar: true, canEditCalendar: true }
+		});
+
+		expect(screen.queryByText(/only personnel with MOS/i)).toBeNull();
+		expect(screen.queryByText(/PA or MD/i)).toBeNull();
 	});
 
 	it('shows access restricted when the user cannot manage calendar assignments', () => {

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import MonthYearPicker from './MonthYearPicker.svelte';
+
 	interface Props {
 		title: string;
 		onPrev: () => void;
@@ -9,6 +11,9 @@
 		prevLabel?: string;
 		nextLabel?: string;
 		titleTestId?: string;
+		pickerYear?: number;
+		pickerMonth?: number;
+		onSelectMonthYear?: (year: number, month: number) => void;
 	}
 
 	let {
@@ -20,8 +25,31 @@
 		onToggleViewMode,
 		prevLabel = 'Prev',
 		nextLabel = 'Next',
-		titleTestId
+		titleTestId,
+		pickerYear,
+		pickerMonth,
+		onSelectMonthYear
 	}: Props = $props();
+
+	let pickerOpen = $state(false);
+
+	function togglePicker() {
+		if (!onSelectMonthYear) return;
+		pickerOpen = !pickerOpen;
+	}
+
+	function closePicker() {
+		pickerOpen = false;
+	}
+
+	function handleSelectMonthYear(year: number, month: number) {
+		onSelectMonthYear?.(year, month);
+		closePicker();
+	}
+
+	function stopMouseDownPropagation(event: MouseEvent) {
+		event.stopPropagation();
+	}
 </script>
 
 <div class="navigation">
@@ -29,7 +57,35 @@
 		<button class="btn btn-secondary btn-sm" onclick={onPrev} aria-label={prevLabel}>
 			&larr; {prevLabel}
 		</button>
-		<h2 class="month-title" data-testid={titleTestId}>{title}</h2>
+		<div class="month-title-wrap">
+			<h2 class="month-title">
+				{#if onSelectMonthYear && pickerYear !== undefined && pickerMonth !== undefined}
+					<button
+						class="month-title-trigger"
+						type="button"
+						data-testid={titleTestId}
+						aria-expanded={pickerOpen}
+						aria-haspopup="dialog"
+						onmousedown={stopMouseDownPropagation}
+						onclick={togglePicker}
+					>
+						{title}
+					</button>
+				{:else}
+					<span data-testid={titleTestId}>{title}</span>
+				{/if}
+			</h2>
+			{#if pickerOpen && pickerYear !== undefined && pickerMonth !== undefined}
+				<div class="month-picker-popover">
+					<MonthYearPicker
+						year={pickerYear}
+						month={pickerMonth}
+						onSelect={handleSelectMonthYear}
+						onClose={closePicker}
+					/>
+				</div>
+			{/if}
+		</div>
 		<button class="btn btn-secondary btn-sm" onclick={onNext} aria-label={nextLabel}>
 			{nextLabel} &rarr;
 		</button>
@@ -70,11 +126,52 @@
 		gap: var(--spacing-md);
 	}
 
+	.month-title-wrap {
+		position: relative;
+		display: flex;
+		justify-content: center;
+	}
+
 	.month-title {
 		font-size: var(--font-size-xl);
 		font-weight: 600;
 		min-width: 180px;
 		text-align: center;
+	}
+
+	.month-title-trigger {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-xs);
+		width: 100%;
+		border: none;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+		border-radius: var(--radius-md);
+		padding: var(--spacing-2xs) var(--spacing-xs);
+		transition:
+			background-color var(--transition-fast),
+			color var(--transition-fast);
+	}
+
+	.month-title-trigger:hover {
+		background: var(--color-primary-tint);
+	}
+
+	.month-title-trigger:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
+
+	.month-picker-popover {
+		position: absolute;
+		top: calc(100% + var(--spacing-sm));
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: var(--z-dropdown);
 	}
 
 	.nav-actions {
@@ -125,10 +222,22 @@
 			gap: var(--spacing-sm);
 		}
 
+		.month-title-wrap {
+			flex: 1;
+		}
+
 		.month-title {
 			font-size: var(--font-size-lg);
 			min-width: unset;
 			flex: 1;
+		}
+
+		.month-picker-popover {
+			left: 0;
+			right: 0;
+			transform: none;
+			display: flex;
+			justify-content: center;
 		}
 
 		.nav-actions {

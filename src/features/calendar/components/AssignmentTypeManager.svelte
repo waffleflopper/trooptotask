@@ -41,7 +41,8 @@
 					shortName: newShortName.trim().toUpperCase(),
 					assignTo: newAssignTo,
 					color: newColor,
-					exemptPersonnelIds: []
+					exemptPersonnelIds: [],
+					showInDateHeader: false
 				}
 			: null}
 	resetAddForm={() => {

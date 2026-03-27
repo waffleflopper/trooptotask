@@ -45,36 +45,6 @@
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
-	// MOD-eligible MOS codes
-	const MOD_ELIGIBLE_MOS = ['PA', 'MD'];
-
-	// Filter only personnel-type assignments (MOD, etc.)
-	const personnelAssignmentTypes = $derived(assignmentTypes.filter((t) => t.assignTo === 'personnel'));
-
-	const groupAssignmentTypes = $derived(assignmentTypes.filter((t) => t.assignTo === 'group'));
-
-	// Get eligible personnel for a given assignment type
-	function getEligiblePersonnel(type: AssignmentType): Personnel[] {
-		if (type.shortName === 'MOD') {
-			// Only PA/MD can be MOD
-			return allPersonnel.filter((p) => MOD_ELIGIBLE_MOS.some((mos) => p.mos.toUpperCase().includes(mos)));
-		}
-		return allPersonnel;
-	}
-
-	// Get eligible personnel grouped
-	function getEligiblePersonnelByGroup(type: AssignmentType): GroupData[] {
-		if (type.shortName === 'MOD') {
-			return personnelByGroup
-				.map((g) => ({
-					...g,
-					personnel: g.personnel.filter((p) => MOD_ELIGIBLE_MOS.some((mos) => p.mos.toUpperCase().includes(mos)))
-				}))
-				.filter((g) => g.personnel.length > 0);
-		}
-		return personnelByGroup;
-	}
-
 	// Get the current assignment for a date and type
 	function getAssignment(date: Date, typeId: string): DailyAssignment | undefined {
 		const dateStr = formatDate(date);
@@ -215,10 +185,9 @@
 			</select>
 
 			{#if selectedType?.assignTo === 'personnel'}
-				{@const eligibleGroups = getEligiblePersonnelByGroup(selectedType)}
 				<select class="select" bind:value={quickFillPerson}>
 					<option value="">Select person...</option>
-					{#each eligibleGroups as grp}
+					{#each personnelByGroup as grp}
 						{#if grp.personnel.length > 0}
 							<optgroup label={grp.group}>
 								{#each grp.personnel as person}
@@ -251,9 +220,6 @@
 				{isApplying ? 'Applying...' : 'Apply'}
 			</button>
 		</div>
-		{#if selectedType?.shortName === 'MOD'}
-			<p class="filter-hint">Only personnel with MOS of PA or MD are eligible for MOD.</p>
-		{/if}
 	</div>
 
 	<!-- Assignment Grid -->
@@ -296,7 +262,6 @@
 						</td>
 						{#each assignmentTypes as type}
 							{@const assignment = getAssignment(date, type.id)}
-							{@const eligibleGroups = getEligiblePersonnelByGroup(type)}
 							<td class="assignment-cell">
 								{#if type.assignTo === 'personnel'}
 									<select
@@ -305,7 +270,7 @@
 										onchange={(e) => handleChange(date, type.id, e.currentTarget.value)}
 									>
 										<option value="">-</option>
-										{#each eligibleGroups as grp}
+										{#each personnelByGroup as grp}
 											{#if grp.personnel.length > 0}
 												<optgroup label={grp.group}>
 													{#each grp.personnel as person}
@@ -432,13 +397,6 @@
 
 	.days-select {
 		max-width: 140px;
-	}
-
-	.filter-hint {
-		margin-top: var(--spacing-sm);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		font-style: italic;
 	}
 
 	/* Grid Container */

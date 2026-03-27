@@ -109,7 +109,8 @@
 			shortName: newAssignShortName.trim().toUpperCase(),
 			assignTo: newAssignTo,
 			color: newAssignColor,
-			exemptPersonnelIds: []
+			exemptPersonnelIds: [],
+			showInDateHeader: false
 		});
 		newAssignName = '';
 		newAssignShortName = '';

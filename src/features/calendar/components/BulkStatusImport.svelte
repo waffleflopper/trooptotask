@@ -296,107 +296,160 @@
 
 <div class="bulk-import-panel">
 	{#if step === 'upload'}
-		<div class="upload-section">
-			<div class="upload-option">
-				<h4>Upload a file</h4>
-				<p class="text-muted">CSV or Excel (.xlsx) file</p>
-				<input type="file" accept=".csv,.xlsx,.xls" onchange={handleFileUpload} />
-			</div>
+		<div class="import-workspace">
+			<section class="import-summary-card">
+				<div class="pane-heading">
+					<span class="pane-eyebrow">Step 1</span>
+					<h2 class="pane-title">Bring in status rows</h2>
+					<p class="pane-copy">
+						Upload a CSV or Excel file, or paste raw CSV text. You will review and validate the rows before anything
+						imports.
+					</p>
+				</div>
 
-			<div class="divider-row">
-				<div class="divider-line"></div>
-				<span class="divider-text text-muted">or</span>
-				<div class="divider-line"></div>
-			</div>
+				<div class="summary-list">
+					<div class="summary-item">
+						<span class="summary-label">Required fields</span>
+						<span class="summary-value">Last name, first name, start date, end date, status</span>
+					</div>
+					<div class="summary-item">
+						<span class="summary-label">Optional fields</span>
+						<span class="summary-value">Rank for name conflicts, plus note if you want one carried in</span>
+					</div>
+					<div class="summary-item">
+						<span class="summary-label">Supported files</span>
+						<span class="summary-value">`.csv`, `.xlsx`, and `.xls`</span>
+					</div>
+				</div>
+			</section>
 
-			<div class="upload-option">
-				<h4>Paste CSV data</h4>
-				<textarea
-					class="input"
-					rows="6"
-					placeholder="last name, first name, start date, end date, status&#10;Smith, John, 2026-01-01, 2026-01-05, Leave&#10;..."
-					bind:value={pasteText}
-				></textarea>
-				<button class="btn btn-primary btn-sm" onclick={handlePaste} disabled={!pasteText.trim()}> Parse </button>
-			</div>
+			<section class="import-main-card">
+				<div class="upload-grid">
+					<div class="upload-option upload-card">
+						<h4>Upload a file</h4>
+						<p class="text-muted">Best when you already have a spreadsheet ready to go.</p>
+						<input type="file" accept=".csv,.xlsx,.xls" onchange={handleFileUpload} />
+					</div>
 
-			{#if parseError}
-				<p class="text-error">{parseError}</p>
-			{/if}
+					<div class="divider-row">
+						<div class="divider-line"></div>
+						<span class="divider-text text-muted">or</span>
+						<div class="divider-line"></div>
+					</div>
+
+					<div class="upload-option upload-card">
+						<h4>Paste CSV data</h4>
+						<p class="text-muted">Useful for a quick import from another system or email.</p>
+						<textarea
+							class="input"
+							rows="8"
+							placeholder="last name, first name, start date, end date, status&#10;Smith, John, 2026-01-01, 2026-01-05, Leave&#10;..."
+							bind:value={pasteText}
+						></textarea>
+						<button class="btn btn-primary btn-sm" onclick={handlePaste} disabled={!pasteText.trim()}> Parse </button>
+					</div>
+				</div>
+
+				{#if parseError}
+					<p class="import-error" role="alert">{parseError}</p>
+				{/if}
+			</section>
 		</div>
 	{/if}
 
 	{#if step === 'preview'}
-		<BulkImportTable bind:this={tableRef} {rawRows} columnDefs={STATUS_IMPORT_COLUMNS} {validateRow} />
+		<section class="stage-card">
+			<div class="pane-heading stage-heading">
+				<span class="pane-eyebrow">Step 2</span>
+				<h2 class="pane-title">Review parsed rows</h2>
+				<p class="pane-copy">
+					Check the rows that should be imported, then continue to status matching if anything needs resolution.
+				</p>
+			</div>
+			<BulkImportTable bind:this={tableRef} {rawRows} columnDefs={STATUS_IMPORT_COLUMNS} {validateRow} />
+		</section>
 	{/if}
 
 	{#if step === 'results'}
-		<div class="results-section">
-			{#if importResult}
-				{#if importResult.inserted > 0}
-					<div class="results-success">
-						<strong>{importResult.inserted}</strong> status {importResult.inserted === 1 ? 'entry' : 'entries'} imported successfully.
-					</div>
-				{/if}
+		<section class="stage-card">
+			<div class="pane-heading stage-heading">
+				<span class="pane-eyebrow">Results</span>
+				<h2 class="pane-title">Import complete</h2>
+				<p class="pane-copy">Review what was imported and any rows that still need attention.</p>
+			</div>
+			<div class="results-section">
+				{#if importResult}
+					{#if importResult.inserted > 0}
+						<div class="results-success">
+							<strong>{importResult.inserted}</strong> status {importResult.inserted === 1 ? 'entry' : 'entries'} imported
+							successfully.
+						</div>
+					{/if}
 
-				{#if importResult.errors.length > 0}
-					<div class="results-errors">
-						<h4>Errors</h4>
-						{#each importResult.errors as error, idx (idx)}
-							<div class="results-error-row">
-								{#if error.row > 0}<span class="text-muted">Row {error.row}:</span>{/if}
-								<span>{error.message}</span>
-							</div>
-						{/each}
-					</div>
-				{/if}
+					{#if importResult.errors.length > 0}
+						<div class="results-errors">
+							<h4>Errors</h4>
+							{#each importResult.errors as error, idx (idx)}
+								<div class="results-error-row">
+									{#if error.row > 0}<span class="text-muted">Row {error.row}:</span>{/if}
+									<span>{error.message}</span>
+								</div>
+							{/each}
+						</div>
+					{/if}
 
-				{#if importResult.inserted === 0 && importResult.errors.length === 0}
-					<p class="text-muted">No records were imported.</p>
+					{#if importResult.inserted === 0 && importResult.errors.length === 0}
+						<p class="text-muted">No records were imported.</p>
+					{/if}
 				{/if}
-			{/if}
-		</div>
+			</div>
+		</section>
 	{/if}
 
 	{#if step === 'resolve'}
-		<div class="resolve-section">
-			<p>
-				The following status names from your file don't match any status types in your organization. Please select which
-				status each should map to, or choose "Skip" to exclude those rows.
-			</p>
-
-			<div class="resolve-list">
-				{#each unmatchedStatuses as mapping, i (mapping.csvName)}
-					<div class="resolve-row">
-						<div class="resolve-info">
-							<span class="resolve-name">"{mapping.csvName}"</span>
-							<span class="text-muted">({mapping.count} {mapping.count === 1 ? 'row' : 'rows'})</span>
-						</div>
-						<span class="resolve-arrow">→</span>
-						<select
-							class="select"
-							value={mapping.resolvedId ?? ''}
-							onchange={(e) => {
-								const val = (e.target as HTMLSelectElement).value;
-								unmatchedStatuses[i].resolvedId = val || null;
-							}}
-						>
-							<option value="">— Select —</option>
-							<option value="__skip__">Skip (don't import)</option>
-							{#each statusTypes as st (st.id)}
-								<option value={st.id}>{st.name}</option>
-							{/each}
-						</select>
-						{#if mapping.resolvedId && mapping.resolvedId !== '__skip__'}
-							{@const resolved = statusTypes.find((s) => s.id === mapping.resolvedId)}
-							{#if resolved}
-								<Badge label={resolved.name} color={resolved.color} textColor={resolved.textColor} />
-							{/if}
-						{/if}
-					</div>
-				{/each}
+		<section class="stage-card">
+			<div class="pane-heading stage-heading">
+				<span class="pane-eyebrow">Step 3</span>
+				<h2 class="pane-title">Resolve unmatched statuses</h2>
+				<p class="pane-copy">
+					The following status names do not match a status type in this organization. Map each one or choose skip to
+					leave those rows out.
+				</p>
 			</div>
-		</div>
+			<div class="resolve-section">
+				<div class="resolve-list">
+					{#each unmatchedStatuses as mapping, i (mapping.csvName)}
+						<div class="resolve-row">
+							<div class="resolve-info">
+								<span class="resolve-name">"{mapping.csvName}"</span>
+								<span class="text-muted">({mapping.count} {mapping.count === 1 ? 'row' : 'rows'})</span>
+							</div>
+							<span class="resolve-arrow">→</span>
+							<select
+								class="select"
+								value={mapping.resolvedId ?? ''}
+								onchange={(e) => {
+									const val = (e.target as HTMLSelectElement).value;
+									unmatchedStatuses[i].resolvedId = val || null;
+								}}
+							>
+								<option value="">— Select —</option>
+								<option value="__skip__">Skip (don't import)</option>
+								{#each statusTypes as st (st.id)}
+									<option value={st.id}>{st.name}</option>
+								{/each}
+							</select>
+							{#if mapping.resolvedId && mapping.resolvedId !== '__skip__'}
+								{@const resolved = statusTypes.find((s) => s.id === mapping.resolvedId)}
+								{#if resolved}
+									<Badge label={resolved.name} color={resolved.color} textColor={resolved.textColor} />
+								{/if}
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</div>
+		</section>
 	{/if}
 
 	<div class="panel-footer">
@@ -432,6 +485,7 @@
 	.bulk-import-panel {
 		display: flex;
 		flex-direction: column;
+		gap: var(--spacing-md);
 	}
 
 	.panel-footer {
@@ -444,21 +498,112 @@
 		background: var(--color-surface);
 	}
 
-	.spacer {
-		flex: 1;
+	.import-workspace {
+		display: grid;
+		grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+		gap: var(--spacing-lg);
+		align-items: start;
 	}
 
-	.upload-section {
+	.import-summary-card,
+	.import-main-card,
+	.stage-card {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+	}
+
+	.import-summary-card,
+	.import-main-card {
+		padding: var(--spacing-lg);
+	}
+
+	.stage-heading {
+		padding: var(--spacing-lg);
+		border-bottom: 1px solid var(--color-border);
+		background: var(--color-surface-variant);
+	}
+
+	.pane-heading {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-xs);
+	}
+
+	.pane-eyebrow {
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-bold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-primary);
+	}
+
+	.pane-title {
+		font-family: var(--font-display);
+		font-size: var(--font-size-xl);
+		font-weight: 400;
+		line-height: 1.1;
+	}
+
+	.pane-copy {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+	}
+
+	.summary-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-sm);
+		margin-top: var(--spacing-lg);
+	}
+
+	.summary-item {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-2xs);
+		padding: var(--spacing-sm) 0;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.summary-item:first-child {
+		padding-top: 0;
+		border-top: none;
+	}
+
+	.summary-label {
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-semibold);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--color-text-muted);
+	}
+
+	.summary-value {
+		font-size: var(--font-size-sm);
+		color: var(--color-text);
+	}
+
+	.upload-grid {
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-lg);
-		padding: var(--spacing-lg);
+	}
+
+	.spacer {
+		flex: 1;
 	}
 
 	.upload-option {
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-sm);
+	}
+
+	.upload-card {
+		padding: var(--spacing-md);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface-variant);
 	}
 
 	.upload-option h4 {
@@ -492,17 +637,19 @@
 		font-size: var(--font-size-sm);
 	}
 
+	.import-error {
+		margin-top: var(--spacing-lg);
+		padding: var(--spacing-sm) var(--spacing-md);
+		color: var(--color-error);
+		background: var(--color-error-tint);
+		border-radius: var(--radius-md);
+	}
+
 	.resolve-section {
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
 		padding: var(--spacing-lg);
-	}
-
-	.resolve-section p {
-		margin: 0;
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
 	}
 
 	.resolve-list {
@@ -568,5 +715,36 @@
 		padding: var(--spacing-xs) var(--spacing-sm);
 		background: color-mix(in srgb, var(--color-error) 10%, transparent);
 		border-radius: var(--radius-sm);
+	}
+
+	@media (max-width: 960px) {
+		.import-workspace {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.import-summary-card,
+		.import-main-card,
+		.stage-heading,
+		.resolve-section,
+		.results-section,
+		.panel-footer {
+			padding-left: var(--spacing-md);
+			padding-right: var(--spacing-md);
+		}
+
+		.resolve-row {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.resolve-info {
+			min-width: 0;
+		}
+
+		.resolve-arrow {
+			display: none;
+		}
 	}
 </style>

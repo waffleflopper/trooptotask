@@ -730,7 +730,6 @@
 				rosters from one page.
 			</p>
 		</div>
-
 	</div>
 
 	{#if applyFeedback}

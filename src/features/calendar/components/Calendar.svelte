@@ -18,6 +18,7 @@
 
 	interface Props {
 		year: number;
+		month: number;
 		monthName: string;
 		dates: Date[];
 		personnelByGroup: GroupData[];
@@ -34,6 +35,7 @@
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;
+		onNavigateToMonth?: (year: number, month: number) => void;
 		onCellClick?: (person: Personnel, date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
 		onPinToggle?: (group: string) => void;
@@ -45,6 +47,7 @@
 
 	let {
 		year,
+		month,
 		monthName,
 		dates,
 		personnelByGroup,
@@ -61,6 +64,7 @@
 		onPrevMonth,
 		onNextMonth,
 		onGoToToday,
+		onNavigateToMonth,
 		onCellClick,
 		onPersonClick,
 		onPinToggle,
@@ -134,6 +138,16 @@
 		return map;
 	});
 
+	const personnelById = $derived.by(() => {
+		const map = new Map<string, Personnel>();
+		for (const group of personnelByGroup) {
+			for (const person of group.personnel) {
+				map.set(person.id, person);
+			}
+		}
+		return map;
+	});
+
 	// Pre-index status types by ID for O(1) lookup
 	const statusTypeMap = $derived.by(() => {
 		const map = new Map<string, StatusType>();
@@ -147,14 +161,17 @@
 <div class="calendar">
 	<CalendarHeader
 		{year}
+		{month}
 		{monthName}
 		{dates}
 		{specialDays}
 		{assignmentTypes}
 		{assignments}
+		{personnelById}
 		{onPrevMonth}
 		{onNextMonth}
 		{onGoToToday}
+		{onNavigateToMonth}
 		onDateClick={canEdit ? onDateClick : undefined}
 		{scrollLeft}
 		{scrollbarWidth}

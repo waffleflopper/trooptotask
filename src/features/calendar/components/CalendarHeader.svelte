@@ -1,18 +1,21 @@
 <script lang="ts">
-	import type { SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
+	import type { Personnel, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 	import { isWeekend, isToday, formatDate, getDayName } from '$lib/utils/dates';
 	import CalendarNavigation from './CalendarNavigation.svelte';
 
 	interface Props {
 		year: number;
+		month: number;
 		monthName: string;
 		dates: Date[];
 		specialDays: SpecialDay[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		personnelById: Map<string, Personnel>;
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;
+		onNavigateToMonth?: (year: number, month: number) => void;
 		onDateClick?: (date: Date) => void;
 		scrollLeft?: number;
 		scrollbarWidth?: number;
@@ -22,14 +25,17 @@
 
 	let {
 		year,
+		month,
 		monthName,
 		dates,
 		specialDays,
 		assignmentTypes,
 		assignments,
+		personnelById,
 		onPrevMonth,
 		onNextMonth,
 		onGoToToday,
+		onNavigateToMonth,
 		onDateClick,
 		scrollLeft = 0,
 		scrollbarWidth = 0,
@@ -55,15 +61,24 @@
 		return specialDays.find((d) => d.date === dateStr)?.name;
 	}
 
-	function getHeaderAssignment(date: Date): { assignmentTypeName: string; assigneeId: string } | null {
+	function getHeaderAssignment(date: Date): { assignmentTypeName: string; assigneeLabel: string } | null {
 		const dateStr = formatDate(date);
 		const headerType = assignmentTypes.find((t) => t.showInDateHeader);
 		if (!headerType) return null;
 		const assignment = assignments.find((a) => a.date === dateStr && a.assignmentTypeId === headerType.id);
 		if (!assignment?.assigneeId) return null;
+
+		const assigneeLabel =
+			headerType.assignTo === 'personnel'
+				? (() => {
+						const person = personnelById.get(assignment.assigneeId);
+						return person ? `${person.rank} ${person.lastName}` : assignment.assigneeId;
+					})()
+				: assignment.assigneeId;
+
 		return {
 			assignmentTypeName: headerType.name,
-			assigneeId: assignment.assigneeId
+			assigneeLabel
 		};
 	}
 </script>
@@ -77,6 +92,9 @@
 		{viewMode}
 		{onToggleViewMode}
 		titleTestId="calendar-month-label"
+		pickerYear={year}
+		pickerMonth={month}
+		onSelectMonthYear={onNavigateToMonth}
 	/>
 
 	<div
@@ -102,9 +120,9 @@
 					{#if headerAssignment}
 						<span
 							class="header-assignment-badge"
-							title="{headerAssignment.assignmentTypeName}: {headerAssignment.assigneeId}"
+							title="{headerAssignment.assignmentTypeName}: {headerAssignment.assigneeLabel}"
 						>
-							{headerAssignment.assigneeId}
+							{headerAssignment.assigneeLabel}
 						</span>
 					{/if}
 				</button>

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
@@ -32,13 +32,18 @@ const personnel: Personnel[] = [
 
 const statusTypes: StatusType[] = [];
 const specialDays: SpecialDay[] = [];
-const assignmentTypes: AssignmentType[] = [];
-const assignments: DailyAssignment[] = [];
 
-function renderCalendar() {
+function renderCalendar(
+	overrides: Partial<{
+		assignmentTypes: AssignmentType[];
+		assignments: DailyAssignment[];
+		onNavigateToMonth: (year: number, month: number) => void;
+	}> = {}
+) {
 	return render(Calendar, {
 		props: {
 			year: 2026,
+			month: 2,
 			monthName: 'March',
 			dates: [new Date(2026, 2, 1), new Date(2026, 2, 2)],
 			personnelByGroup: [{ group: 'Alpha', personnel }],
@@ -46,11 +51,12 @@ function renderCalendar() {
 			statusTypes,
 			specialDays,
 			pinnedGroups: [],
-			assignmentTypes,
-			assignments,
+			assignmentTypes: overrides.assignmentTypes ?? [],
+			assignments: overrides.assignments ?? [],
 			onPrevMonth: () => {},
 			onNextMonth: () => {},
-			onGoToToday: () => {}
+			onGoToToday: () => {},
+			onNavigateToMonth: overrides.onNavigateToMonth
 		}
 	});
 }
@@ -109,5 +115,56 @@ describe('Calendar', () => {
 		expect(firstRow.querySelector('.date-cells')).toBeNull();
 		expect(firstRow.children[0]).toBe(firstPersonnelCell);
 		expect(firstRow.querySelectorAll(':scope > .date-cell')).toHaveLength(2);
+	});
+
+	it('shows a readable personnel label in the header badge when the selected header type is person-based', () => {
+		const { container } = renderCalendar({
+			assignmentTypes: [
+				{
+					id: 'type-mod',
+					name: 'Manager on Duty',
+					shortName: 'MOD',
+					assignTo: 'personnel',
+					color: '#dc2626',
+					exemptPersonnelIds: [],
+					showInDateHeader: true
+				}
+			],
+			assignments: [
+				{
+					id: 'assignment-1',
+					date: '2026-03-01',
+					assignmentTypeId: 'type-mod',
+					assigneeId: 'person-1'
+				}
+			]
+		});
+
+		const badge = container.querySelector('.header-assignment-badge') as HTMLElement | null;
+		expect(badge).toBeTruthy();
+
+		if (!badge) {
+			throw new Error('Header badge not rendered');
+		}
+
+		expect(badge.textContent?.trim()).toBe('SGT Smith');
+		expect(badge.title).toBe('Manager on Duty: SGT Smith');
+	});
+
+	it('opens the month picker from the title and forwards the selected month and year', async () => {
+		const onNavigateToMonth = vi.fn();
+		const { container, getByTestId, getByRole, queryByRole } = renderCalendar({ onNavigateToMonth });
+
+		await fireEvent.click(getByTestId('calendar-month-label'));
+
+		expect(getByRole('dialog', { name: 'Month and year picker' })).toBeTruthy();
+
+		await fireEvent.click(getByRole('button', { name: 'Next year' }));
+		await fireEvent.click(getByRole('button', { name: 'Jan' }));
+		await tick();
+
+		expect(onNavigateToMonth).toHaveBeenCalledWith(2027, 0);
+		expect(queryByRole('dialog', { name: 'Month and year picker' })).toBeNull();
+		expect(container.querySelector('.month-picker-popover')).toBeNull();
 	});
 });

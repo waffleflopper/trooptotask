@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-26-calendar-month-picker',
+		date: '2026-03-26',
+		title: 'Jump Around the Calendar Much Faster',
+		items: [
+			'You can now click the month name at the top of the calendar to jump straight to a different month instead of hammering the next and previous buttons over and over',
+			'The same quick-jump picker also works in the 3-month calendar view, so it is easier to move across the year without losing your place',
+			'Keyboard navigation was added too, so the new picker is easier to use without needing to rely on a mouse'
+		]
+	},
+	{
 		id: '2026-03-26-calendar-grid-polish',
 		date: '2026-03-26',
 		title: 'Calendar Grid Scrolling Feels Less Janky',
@@ -45,16 +55,6 @@ export const changelog: ChangelogEntry[] = [
 			"Training types can now be marked as \"optional\" — optional types won't count against your unit's readiness score, so things like nice-to-have certifications won't drag down your numbers",
 			'You can now save custom column views in the training matrix — set up different views for different purposes and switch between them without reconfiguring every time',
 			"Training matrix columns are now sortable by clicking the header — quickly find who's expired or expiring soon"
-		]
-	},
-	{
-		id: '2026-03-23-onboarding-improvements',
-		date: '2026-03-23',
-		title: 'Onboarding Report & Step Improvements',
-		items: [
-			'Fixed a bug where training steps showed as incomplete in the Onboarding Report even when they were actually done — the report now correctly reflects training completion status',
-			'The Onboarding Report can now be filtered by template, so you can focus on just the in-processing checklist for medics, officers, or whatever templates you have set up',
-			'Training steps now show the associated training type name in parentheses when it differs from the step name — so if your "NREMT" onboarding step is tied to the "Credentials/License" training column, you can see both at a glance'
 		]
 	}
 ];

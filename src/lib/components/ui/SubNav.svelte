@@ -35,8 +35,10 @@
 <style>
 	.sub-nav {
 		display: flex;
+		align-items: center;
 		gap: var(--spacing-xs);
 		overflow-x: auto;
+		overflow-y: hidden;
 	}
 
 	.tab {

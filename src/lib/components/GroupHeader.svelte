@@ -84,7 +84,7 @@
 	.pin-btn {
 		padding: var(--spacing-xs);
 		background: transparent;
-		color: white;
+		color: var(--color-chrome-text);
 		opacity: 0.5;
 		font-size: 12px;
 		line-height: 1;

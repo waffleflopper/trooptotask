@@ -325,7 +325,6 @@
 				assigneeId: r.assignee!.id
 			}));
 
-		// Save to history first
 		const assignmentType = assignmentTypes.find((t) => t.id === selectedAssignmentTypeId);
 		const typeName = assignmentType?.name ?? 'Duty';
 		const historyRoster: RosterHistoryEntry[] = generatedRoster.map((r) => ({
@@ -337,43 +336,53 @@
 			reason: r.reason
 		}));
 
-		const saved = await onSaveRoster({
-			assignmentTypeId: selectedAssignmentTypeId,
-			name: `${typeName} – ${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}`,
-			startDate,
-			endDate,
-			roster: historyRoster,
-			da6: generatedDA6 ?? undefined,
-			config: {
-				dutyDuration,
-				assignmentTypeName: typeName,
-				selectedEligibleIds: [...selectedEligibleIds],
-				exemptPersonnelIds: [...draftExemptIds],
-				excludeStatuses,
-				excludeWeekends,
-				excludeHolidays,
-				excludeOrgClosures
+		try {
+			const applied = await onApplyRoster(assignmentsToCreate);
+			if (!applied) {
+				applyFeedback = {
+					tone: 'error',
+					message: 'The roster could not be applied to the calendar. Nothing was changed.'
+				};
+				return;
 			}
-		});
 
-		const applied = await onApplyRoster(assignmentsToCreate);
-		isApplying = false;
+			const saved = await onSaveRoster({
+				assignmentTypeId: selectedAssignmentTypeId,
+				name: `${typeName} – ${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}`,
+				startDate,
+				endDate,
+				roster: historyRoster,
+				da6: generatedDA6 ?? undefined,
+				config: {
+					dutyDuration,
+					assignmentTypeName: typeName,
+					selectedEligibleIds: [...selectedEligibleIds],
+					exemptPersonnelIds: [...draftExemptIds],
+					excludeStatuses,
+					excludeWeekends,
+					excludeHolidays,
+					excludeOrgClosures
+				}
+			});
 
-		if (!applied) {
+			applyFeedback = {
+				tone: 'success',
+				message: saved
+					? 'Roster applied to the calendar and saved to history.'
+					: 'Roster applied to the calendar. History could not be saved.'
+			};
+			view = 'history';
+		} catch (error) {
 			applyFeedback = {
 				tone: 'error',
-				message: 'The roster could not be applied to the calendar. Nothing was changed.'
+				message:
+					error instanceof Error
+						? error.message
+						: 'The roster could not be applied to the calendar. Nothing was changed.'
 			};
-			return;
+		} finally {
+			isApplying = false;
 		}
-
-		applyFeedback = {
-			tone: 'success',
-			message: saved
-				? 'Roster applied to the calendar and saved to history.'
-				: 'Roster applied to the calendar. History could not be saved.'
-		};
-		view = 'history';
 	}
 
 	// Export to Excel (HTML table format) — accepts optional overrides for re-export from history
@@ -652,12 +661,6 @@
 		draftExemptIds = new Set();
 	}
 
-	function handleGroupHeaderKeydown(event: KeyboardEvent, callback: () => void) {
-		if (event.key !== 'Enter' && event.key !== ' ') return;
-		event.preventDefault();
-		callback();
-	}
-
 	async function saveExemptions() {
 		if (!selectedAssignmentTypeId || !hasExemptionChanges || isSavingExemptions) return;
 		isSavingExemptions = true;
@@ -693,11 +696,11 @@
 		lastSyncedExemptionScope = currentScope;
 	});
 
-	// Cache the current eligible-selection scope using selectedAssignmentTypeId and draftExemptIds.
-	// When eligibleSelectionScope no longer matches that scope key, availableRosterPool changed enough
-	// that selectedEligibleIds should reset to the full in-scope pool; otherwise we only prune stale IDs.
+	// Cache the current assignment-type scope in eligibleSelectionScope so selectedEligibleIds only
+	// resets to the full availableRosterPool when selectedAssignmentTypeId changes. Edits to draftExemptIds
+	// still rerun this effect through availableRosterPool, but those changes only prune stale selectedEligibleIds.
 	$effect(() => {
-		const scope = `${selectedAssignmentTypeId}:${[...draftExemptIds].sort().join(',')}`;
+		const scope = `${selectedAssignmentTypeId}`;
 		const availableIds = availableRosterPool.map((person) => person.id);
 
 		if (eligibleSelectionScope !== scope) {
@@ -1054,6 +1057,7 @@
 								<button
 									class="chip status-chip"
 									class:selected={excludeStatuses.includes(status.id)}
+									aria-pressed={excludeStatuses.includes(status.id)}
 									style="--chip-color: {status.color}; --chip-text: {status.textColor}"
 									onclick={() => toggleExcludeStatus(status.id)}
 								>
@@ -1119,29 +1123,32 @@
 
 								{#snippet groupHeader(ctx)}
 									{@const selectionState = getGroupSelectionState(eligibleTable, selectedEligibleIds, ctx.key)}
-									<div
-										class="group-header-content"
-										role="button"
-										tabindex="0"
-										onclick={() => ctx.toggle()}
-										onkeydown={(event) => handleGroupHeaderKeydown(event, () => ctx.toggle())}
-									>
+									<div class="group-header-content">
 										<input
 											type="checkbox"
+											aria-label={`Select ${ctx.label} group`}
 											checked={selectionState === 'all'}
 											indeterminate={selectionState === 'some'}
 											onchange={() => toggleEligibleGroup(ctx.key)}
 											onclick={(event) => event.stopPropagation()}
 										/>
-										<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
-											<path
-												fill-rule="evenodd"
-												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-												clip-rule="evenodd"
-											/>
-										</svg>
-										<span class="group-label">{ctx.label}</span>
-										<span class="group-count">({ctx.count})</span>
+										<button
+											type="button"
+											class="group-toggle"
+											aria-expanded={!ctx.collapsed}
+											aria-label={`Toggle ${ctx.label} group`}
+											onclick={() => ctx.toggle()}
+										>
+											<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
+												<path
+													fill-rule="evenodd"
+													d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+													clip-rule="evenodd"
+												/>
+											</svg>
+											<span class="group-label">{ctx.label}</span>
+											<span class="group-count">({ctx.count})</span>
+										</button>
 									</div>
 								{/snippet}
 
@@ -1208,29 +1215,37 @@
 
 									{#snippet groupHeader(ctx)}
 										{@const selectionState = getGroupSelectionState(exemptTable, draftExemptIds, ctx.key)}
-										<div
-											class="group-header-content"
-											role="button"
-											tabindex="0"
-											onclick={() => ctx.toggle()}
-											onkeydown={(event) => handleGroupHeaderKeydown(event, () => ctx.toggle())}
-										>
+										<div class="group-header-content">
 											<input
 												type="checkbox"
+												aria-label={`Select ${ctx.label} group`}
 												checked={selectionState === 'all'}
 												indeterminate={selectionState === 'some'}
 												onchange={() => toggleExemptGroup(ctx.key)}
 												onclick={(event) => event.stopPropagation()}
 											/>
-											<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
-												<path
-													fill-rule="evenodd"
-													d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-													clip-rule="evenodd"
-												/>
-											</svg>
-											<span class="group-label">{ctx.label}</span>
-											<span class="group-count">({ctx.count})</span>
+											<button
+												type="button"
+												class="group-toggle"
+												aria-expanded={!ctx.collapsed}
+												aria-label={`Toggle ${ctx.label} group`}
+												onclick={() => ctx.toggle()}
+											>
+												<svg
+													class="chevron-icon"
+													class:collapsed={ctx.collapsed}
+													viewBox="0 0 20 20"
+													fill="currentColor"
+												>
+													<path
+														fill-rule="evenodd"
+														d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+														clip-rule="evenodd"
+													/>
+												</svg>
+												<span class="group-label">{ctx.label}</span>
+												<span class="group-count">({ctx.count})</span>
+											</button>
 										</div>
 									{/snippet}
 
@@ -1529,12 +1544,24 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
-		cursor: pointer;
 	}
 
 	.group-header-content input[type='checkbox'] {
 		cursor: pointer;
 		accent-color: var(--color-primary);
+	}
+
+	.group-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		padding: 0;
+		border: none;
+		background: none;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+		text-align: left;
 	}
 
 	.chevron-icon {

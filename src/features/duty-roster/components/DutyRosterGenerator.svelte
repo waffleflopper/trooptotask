@@ -69,6 +69,7 @@
 	let excludeHolidays = $state(false);
 	let excludeOrgClosures = $state(false);
 	let isSavingExemptions = $state(false);
+	let lastSyncedExemptionScope = '';
 
 	// Generated roster state
 	let generatedRoster = $state<{ date: string; assignee: Personnel | null; reason?: string }[]>([]);
@@ -681,9 +682,20 @@
 	});
 
 	$effect(() => {
+		const currentScope = `${selectedAssignmentTypeId}:${[...currentExemptIds].sort().join(',')}`;
+		if (currentScope === lastSyncedExemptionScope) return;
+
+		if (lastSyncedExemptionScope && hasExemptionChanges) {
+			toastStore.warning('Unsaved exempt personnel changes were discarded because the duty exemptions changed.');
+		}
+
 		draftExemptIds = new Set(currentExemptIds);
+		lastSyncedExemptionScope = currentScope;
 	});
 
+	// Cache the current eligible-selection scope using selectedAssignmentTypeId and draftExemptIds.
+	// When eligibleSelectionScope no longer matches that scope key, availableRosterPool changed enough
+	// that selectedEligibleIds should reset to the full in-scope pool; otherwise we only prune stale IDs.
 	$effect(() => {
 		const scope = `${selectedAssignmentTypeId}:${[...draftExemptIds].sort().join(',')}`;
 		const availableIds = availableRosterPool.map((person) => person.id);

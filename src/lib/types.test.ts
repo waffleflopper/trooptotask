@@ -43,7 +43,8 @@ describe('shared calendar types in lib/types', () => {
 			shortName: 'GD',
 			assignTo: 'personnel',
 			color: '#ff0000',
-			exemptPersonnelIds: []
+			exemptPersonnelIds: [],
+			showInDateHeader: false
 		};
 		expect(at.assignTo).toBe('personnel');
 	});

@@ -18,6 +18,7 @@
 
 	interface Props {
 		year: number;
+		month: number;
 		monthName: string;
 		dates: Date[];
 		personnelByGroup: GroupData[];
@@ -34,6 +35,7 @@
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;
+		onNavigateToMonth?: (year: number, month: number) => void;
 		onCellClick?: (person: Personnel, date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
 		onPinToggle?: (group: string) => void;
@@ -45,6 +47,7 @@
 
 	let {
 		year,
+		month,
 		monthName,
 		dates,
 		personnelByGroup,
@@ -61,6 +64,7 @@
 		onPrevMonth,
 		onNextMonth,
 		onGoToToday,
+		onNavigateToMonth,
 		onCellClick,
 		onPersonClick,
 		onPinToggle,
@@ -78,9 +82,6 @@
 	function handleScroll() {
 		if (calendarBodyEl) {
 			scrollLeft = calendarBodyEl.scrollLeft;
-			// Drive the personnel column position via CSS custom property (more reliable than position: sticky on mobile)
-			calendarBodyEl.style.setProperty('--scroll-left', `${scrollLeft}px`);
-			// Calculate scrollbar width (difference between outer and inner width)
 			const newScrollbarWidth = calendarBodyEl.offsetWidth - calendarBodyEl.clientWidth;
 			if (newScrollbarWidth !== scrollbarWidth) {
 				scrollbarWidth = newScrollbarWidth;
@@ -92,7 +93,6 @@
 	$effect(() => {
 		if (calendarBodyEl) {
 			scrollbarWidth = calendarBodyEl.offsetWidth - calendarBodyEl.clientWidth;
-			calendarBodyEl.style.setProperty('--scroll-left', `${calendarBodyEl.scrollLeft}px`);
 		}
 	});
 
@@ -138,6 +138,16 @@
 		return map;
 	});
 
+	const personnelById = $derived.by(() => {
+		const map = new Map<string, Personnel>();
+		for (const group of personnelByGroup) {
+			for (const person of group.personnel) {
+				map.set(person.id, person);
+			}
+		}
+		return map;
+	});
+
 	// Pre-index status types by ID for O(1) lookup
 	const statusTypeMap = $derived.by(() => {
 		const map = new Map<string, StatusType>();
@@ -151,14 +161,17 @@
 <div class="calendar">
 	<CalendarHeader
 		{year}
+		{month}
 		{monthName}
 		{dates}
 		{specialDays}
 		{assignmentTypes}
 		{assignments}
+		{personnelById}
 		{onPrevMonth}
 		{onNextMonth}
 		{onGoToToday}
+		{onNavigateToMonth}
 		onDateClick={canEdit ? onDateClick : undefined}
 		{scrollLeft}
 		{scrollbarWidth}
@@ -167,44 +180,46 @@
 	/>
 
 	<div class="calendar-body" style="--dates-count: {dates.length};" bind:this={calendarBodyEl} onscroll={handleScroll}>
-		{#if totalPersonnel === 0}
-			<div class="empty-state">
-				<p>No personnel added yet.</p>
-				{#if personnelHref}
-					<a class="btn btn-primary btn-sm" href={personnelHref}>Go to Personnel</a>
-				{:else}
-					<p>Go to Personnel to add people to your roster.</p>
-				{/if}
-			</div>
-		{:else}
-			{#each personnelByGroup as grp (grp.group)}
-				<GroupHeader
-					groupName={grp.group}
-					isCollapsed={collapsedGroups.has(grp.group)}
-					isPinned={pinnedGroups.includes(grp.group)}
-					onToggle={() => toggleGroup(grp.group)}
-					onPinToggle={() => onPinToggle?.(grp.group)}
-				/>
-				{#if !collapsedGroups.has(grp.group)}
-					{#each grp.personnel as person (person.id)}
-						<CalendarRow
-							{person}
-							{dates}
-							personAvailability={availabilityByPerson.get(person.id) ?? []}
-							{statusTypeMap}
-							{specialDays}
-							{assignmentTypes}
-							personAssignments={assignmentsByPerson.get(person.id) ?? []}
-							{showStatusText}
-							isOnboarding={onboardingSet.has(person.id)}
-							{highlightOnboarding}
-							onCellClick={canEdit ? onCellClick : undefined}
-							{onPersonClick}
-						/>
-					{/each}
-				{/if}
-			{/each}
-		{/if}
+		<div class="calendar-grid">
+			{#if totalPersonnel === 0}
+				<div class="empty-state">
+					<p>No personnel added yet.</p>
+					{#if personnelHref}
+						<a class="btn btn-primary btn-sm" href={personnelHref}>Go to Personnel</a>
+					{:else}
+						<p>Go to Personnel to add people to your roster.</p>
+					{/if}
+				</div>
+			{:else}
+				{#each personnelByGroup as grp (grp.group)}
+					<GroupHeader
+						groupName={grp.group}
+						isCollapsed={collapsedGroups.has(grp.group)}
+						isPinned={pinnedGroups.includes(grp.group)}
+						onToggle={() => toggleGroup(grp.group)}
+						onPinToggle={() => onPinToggle?.(grp.group)}
+					/>
+					{#if !collapsedGroups.has(grp.group)}
+						{#each grp.personnel as person (person.id)}
+							<CalendarRow
+								{person}
+								{dates}
+								personAvailability={availabilityByPerson.get(person.id) ?? []}
+								{statusTypeMap}
+								{specialDays}
+								{assignmentTypes}
+								personAssignments={assignmentsByPerson.get(person.id) ?? []}
+								{showStatusText}
+								isOnboarding={onboardingSet.has(person.id)}
+								{highlightOnboarding}
+								onCellClick={canEdit ? onCellClick : undefined}
+								{onPersonClick}
+							/>
+						{/each}
+					{/if}
+				{/each}
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -222,6 +237,15 @@
 	.calendar-body {
 		flex: 1;
 		overflow: auto;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior: contain;
+	}
+
+	.calendar-grid {
+		display: flex;
+		flex-direction: column;
+		min-width: 100%;
+		min-height: 100%;
 	}
 
 	.empty-state {

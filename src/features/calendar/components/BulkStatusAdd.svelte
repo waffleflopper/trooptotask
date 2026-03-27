@@ -317,7 +317,8 @@
 	.bulk-add-panel {
 		display: flex;
 		flex-direction: column;
-		max-height: calc(100vh - 240px);
+		height: calc(100vh - 240px);
+		min-height: 0;
 	}
 
 	/* Config Section */

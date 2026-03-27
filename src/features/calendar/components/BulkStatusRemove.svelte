@@ -407,12 +407,15 @@
 	.bulk-remove-panel {
 		display: flex;
 		flex-direction: column;
-		max-height: calc(100vh - 240px);
+		height: calc(100vh - 240px);
+		min-height: 0;
 	}
 
 	.panel-content {
 		display: flex;
 		flex-direction: column;
+		flex: 1;
+		min-height: 0;
 		overflow: hidden;
 	}
 

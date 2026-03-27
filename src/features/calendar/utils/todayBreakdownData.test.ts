@@ -62,7 +62,8 @@ const cqType: AssignmentType = {
 	shortName: 'CQ',
 	assignTo: 'personnel',
 	color: '#000',
-	exemptPersonnelIds: []
+	exemptPersonnelIds: [],
+	showInDateHeader: false
 };
 const sdType: AssignmentType = {
 	id: 'at2',
@@ -70,7 +71,8 @@ const sdType: AssignmentType = {
 	shortName: 'SD',
 	assignTo: 'personnel',
 	color: '#000',
-	exemptPersonnelIds: []
+	exemptPersonnelIds: [],
+	showInDateHeader: false
 };
 const unitType: AssignmentType = {
 	id: 'at3',
@@ -78,7 +80,8 @@ const unitType: AssignmentType = {
 	shortName: 'UD',
 	assignTo: 'group',
 	color: '#000',
-	exemptPersonnelIds: []
+	exemptPersonnelIds: [],
+	showInDateHeader: false
 };
 const assignmentTypes = [cqType, sdType, unitType];
 

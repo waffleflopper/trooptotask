@@ -347,6 +347,56 @@ describe('defineEntity() methods config', () => {
 	});
 });
 
+describe('defineEntity() metadata preservation', () => {
+	it('preserves permission, requireFullEditor, audit, and orderBy when provided', () => {
+		const entity = defineEntity({
+			table: 'with_meta',
+			groupScope: 'none',
+			schema: {
+				id: field(z.string(), { readOnly: true }),
+				name: field(z.string())
+			},
+			permission: 'training',
+			requireFullEditor: true,
+			audit: 'training_type',
+			orderBy: [{ column: 'name', ascending: true }]
+		});
+		expect(entity.permission).toBe('training');
+		expect(entity.requireFullEditor).toBe(true);
+		expect(entity.audit).toBe('training_type');
+		expect(entity.orderBy).toEqual([{ column: 'name', ascending: true }]);
+	});
+
+	it('defaults metadata fields to undefined when not provided', () => {
+		const entity = defineEntity({
+			table: 'no_meta',
+			groupScope: 'none',
+			schema: {
+				id: field(z.string(), { readOnly: true }),
+				name: field(z.string())
+			}
+		});
+		expect(entity.permission).toBeUndefined();
+		expect(entity.requireFullEditor).toBeUndefined();
+		expect(entity.audit).toBeUndefined();
+		expect(entity.orderBy).toBeUndefined();
+	});
+
+	it('preserves complex audit config objects', () => {
+		const auditConfig = { resourceType: 'training_type', action: 'custom_action', detailFields: ['name'] };
+		const entity = defineEntity({
+			table: 'complex_audit',
+			groupScope: 'none',
+			schema: {
+				id: field(z.string(), { readOnly: true }),
+				name: field(z.string())
+			},
+			audit: auditConfig
+		});
+		expect(entity.audit).toEqual(auditConfig);
+	});
+});
+
 describe('defineEntity() customTransform', () => {
 	it('overrides fromDb when provided', () => {
 		const entity = defineEntity({

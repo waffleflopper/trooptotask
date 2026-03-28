@@ -140,6 +140,42 @@ export interface StoragePort {
 	createSignedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string>;
 }
 
+/** The 4 ports every standard write operation needs */
+export interface WritePorts {
+	store: DataStore;
+	auth: AuthContext;
+	audit: AuditPort;
+	readOnlyGuard: ReadOnlyGuard;
+}
+
+/** Write + notifications (e.g., assignment type deletion, rating scheme approval) */
+export interface WriteWithNotificationsPorts extends WritePorts {
+	notifications: NotificationPort;
+}
+
+/** Write + subscription (e.g., personnel create with slot checks) */
+export interface WriteWithSubscriptionPorts extends WritePorts {
+	subscription: SubscriptionPort;
+}
+
+/** User-scoped operations that aren't org-level writes (e.g., pinned groups) */
+export interface UserWritePorts {
+	store: DataStore;
+	auth: AuthContext;
+	audit: AuditPort;
+}
+
+/** Read-only query operations */
+export interface QueryPorts {
+	store: DataStore;
+	auth: AuthContext;
+}
+
+/** Query operations needing unscoped access (e.g., shared data) */
+export interface QueryWithRawStorePorts extends QueryPorts {
+	rawStore: DataStore;
+}
+
 /** Combined context for all use cases */
 export interface UseCaseContext {
 	store: DataStore;

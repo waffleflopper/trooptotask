@@ -5,7 +5,13 @@ import {
 	createTestAuditPort,
 	createTestReadOnlyGuard,
 	createTestContext,
-	createTestSubscriptionPort
+	createTestSubscriptionPort,
+	createWritePortsContext,
+	createWriteWithNotificationsPortsContext,
+	createWriteWithSubscriptionPortsContext,
+	createQueryPortsContext,
+	createQueryWithRawStorePortsContext,
+	createUserWritePortsContext
 } from './inMemory';
 
 describe('InMemoryDataStore', () => {
@@ -509,5 +515,43 @@ describe('createTestContext', () => {
 		const ctx = createTestContext({ subscriptionAllowed: false });
 		const result = await ctx.subscription.canAddPersonnel();
 		expect(result.allowed).toBe(false);
+	});
+});
+
+describe('Port bundle context builders', () => {
+	it('createWritePortsContext returns exactly store, auth, audit, readOnlyGuard', () => {
+		const ctx = createWritePortsContext();
+		const keys = Object.keys(ctx).sort();
+		expect(keys).toEqual(['audit', 'auth', 'readOnlyGuard', 'store']);
+	});
+
+	it('createWriteWithNotificationsPortsContext returns WritePorts + notifications', () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		const keys = Object.keys(ctx).sort();
+		expect(keys).toEqual(['audit', 'auth', 'notifications', 'readOnlyGuard', 'store']);
+	});
+
+	it('createWriteWithSubscriptionPortsContext returns WritePorts + subscription', () => {
+		const ctx = createWriteWithSubscriptionPortsContext();
+		const keys = Object.keys(ctx).sort();
+		expect(keys).toEqual(['audit', 'auth', 'readOnlyGuard', 'store', 'subscription']);
+	});
+
+	it('createUserWritePortsContext returns exactly store, auth, audit', () => {
+		const ctx = createUserWritePortsContext();
+		const keys = Object.keys(ctx).sort();
+		expect(keys).toEqual(['audit', 'auth', 'store']);
+	});
+
+	it('createQueryPortsContext returns exactly store, auth', () => {
+		const ctx = createQueryPortsContext();
+		const keys = Object.keys(ctx).sort();
+		expect(keys).toEqual(['auth', 'store']);
+	});
+
+	it('createQueryWithRawStorePortsContext returns store, auth, rawStore', () => {
+		const ctx = createQueryWithRawStorePortsContext();
+		const keys = Object.keys(ctx).sort();
+		expect(keys).toEqual(['auth', 'rawStore', 'store']);
 	});
 });

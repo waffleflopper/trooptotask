@@ -64,6 +64,10 @@ export interface EntityDefinition<T = unknown> {
 	createSchema: z.ZodObject<z.ZodRawShape>;
 	updateSchema: z.ZodObject<z.ZodRawShape>;
 	select: string;
+	permission?: FeatureArea;
+	requireFullEditor?: boolean;
+	audit?: string | { resourceType: string; action?: string; detailFields?: string[] };
+	orderBy?: Array<{ column: string; ascending?: boolean }>;
 }
 
 export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefinition<T> {
@@ -191,6 +195,10 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		toDbUpdate,
 		createSchema,
 		updateSchema,
-		select
+		select,
+		permission: config.permission,
+		requireFullEditor: config.requireFullEditor,
+		audit: config.audit,
+		orderBy: config.orderBy
 	};
 }

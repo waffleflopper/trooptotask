@@ -1,54 +1,39 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { createCrudUseCases } from './crud';
-import { trainingTypeCrudConfig } from './trainingTypeCrud';
+import { notifyAdminsViaStore } from './notifyAdminsHelper';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
+const TT_ID = '00000000-0000-4000-a000-000000000001';
+const PT_1 = '00000000-0000-4000-a000-000000000011';
+const PT_2 = '00000000-0000-4000-a000-000000000012';
+const PT_3 = '00000000-0000-4000-a000-000000000013';
 
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext(overrides?.auth);
-	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
-
-	const subscription = createTestSubscriptionPort();
-	return {
-		store,
-		rawStore: store,
-		auth,
-		audit: auditPort,
-		readOnlyGuard,
-		subscription,
-		auditPort,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
-}
+// Same config entityHandlers() derives — validates the pattern without HTTP layer
+const useCases = createCrudUseCases({
+	entity: TrainingTypeEntity,
+	permission: TrainingTypeEntity.permission!,
+	auditResource: (TrainingTypeEntity.audit as { resourceType: string }).resourceType,
+	requireFullEditor: TrainingTypeEntity.requireFullEditor,
+	beforeDelete: async (ctx, id) => {
+		await ctx.store.deleteWhere('personnel_trainings', ctx.auth.orgId, {
+			training_type_id: id
+		});
+	},
+	afterDelete: async (ctx) => {
+		await notifyAdminsViaStore(ctx.store, ctx.auth.orgId, ctx.auth.userId, {
+			type: 'config_type_deleted',
+			title: 'Training Type Deleted',
+			message: 'A training type was deleted.'
+		});
+	}
+});
 
 describe('TrainingType CRUD use case', () => {
 	it('creates a training type and audits', async () => {
-		const ctx = buildContext();
-		const { create } = createCrudUseCases(trainingTypeCrudConfig);
+		const ctx = createWritePortsContext();
 
-		const result = (await create(ctx, {
+		const result = (await useCases.create(ctx, {
 			name: 'First Aid',
 			description: 'Basic first aid training',
 			expirationMonths: 12,
@@ -56,14 +41,14 @@ describe('TrainingType CRUD use case', () => {
 		})) as { name: string };
 
 		expect(result).toMatchObject({ name: 'First Aid' });
-		expect(ctx.auditPort.events[0].action).toBe('training_type.created');
+		expect(ctx.audit.events[0].action).toBe('training_type.created');
 	});
 
 	it('cascade-deletes personnel_trainings before deleting training type', async () => {
-		const ctx = buildContext();
+		const ctx = createWritePortsContext();
 		ctx.store.seed('training_types', [
 			{
-				id: 'tt-1',
+				id: TT_ID,
 				name: 'First Aid',
 				description: null,
 				expiration_months: 12,
@@ -84,30 +69,29 @@ describe('TrainingType CRUD use case', () => {
 			}
 		]);
 		ctx.store.seed('personnel_trainings', [
-			{ id: 'pt-1', training_type_id: 'tt-1', organization_id: 'test-org' },
-			{ id: 'pt-2', training_type_id: 'tt-1', organization_id: 'test-org' },
-			{ id: 'pt-3', training_type_id: 'tt-other', organization_id: 'test-org' }
+			{ id: PT_1, training_type_id: TT_ID, organization_id: 'test-org' },
+			{ id: PT_2, training_type_id: TT_ID, organization_id: 'test-org' },
+			{ id: PT_3, training_type_id: 'tt-other', organization_id: 'test-org' }
 		]);
 		ctx.store.seed('organization_memberships', [
 			{ user_id: 'other-admin', organization_id: 'test-org', role: 'admin' }
 		]);
 
-		const { remove } = createCrudUseCases(trainingTypeCrudConfig);
-		await remove(ctx, 'tt-1');
+		await useCases.remove(ctx, TT_ID);
 
 		const remaining = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(remaining).toHaveLength(1);
 		expect((remaining[0] as Record<string, unknown>).training_type_id).toBe('tt-other');
 
-		const stored = await ctx.store.findOne('training_types', 'test-org', { id: 'tt-1' });
+		const stored = await ctx.store.findOne('training_types', 'test-org', { id: TT_ID });
 		expect(stored).toBeNull();
 	});
 
 	it('notifies admins after delete', async () => {
-		const ctx = buildContext();
+		const ctx = createWritePortsContext();
 		ctx.store.seed('training_types', [
 			{
-				id: 'tt-1',
+				id: TT_ID,
 				name: 'First Aid',
 				description: null,
 				expiration_months: 12,
@@ -131,8 +115,7 @@ describe('TrainingType CRUD use case', () => {
 			{ user_id: 'other-admin', organization_id: 'test-org', role: 'admin' }
 		]);
 
-		const { remove } = createCrudUseCases(trainingTypeCrudConfig);
-		await remove(ctx, 'tt-1');
+		await useCases.remove(ctx, TT_ID);
 
 		const notifications = await ctx.store.findMany('notifications', 'test-org');
 		expect(notifications).toHaveLength(1);

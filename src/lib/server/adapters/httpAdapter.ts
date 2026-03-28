@@ -19,7 +19,7 @@ import { defaultScopeRules } from './scopeRules';
 import { createSupabaseNotificationAdapter } from './supabaseNotification';
 import { createStripeBillingAdapter } from './stripeBilling';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
-import type { UseCaseContext, FeatureArea } from '$lib/server/core/ports';
+import type { UseCaseContext, WritePorts, FeatureArea } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
 import type { EntityDefinition } from '$lib/server/entitySchema';
@@ -431,8 +431,8 @@ export function handle<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): R
 // ---------------------------------------------------------------------------
 
 export interface EntityHandlerHooks {
-	beforeDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
-	afterDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
+	beforeDelete?: (ctx: WritePorts, id: string) => Promise<void>;
+	afterDelete?: (ctx: WritePorts, id: string) => Promise<void>;
 }
 
 export interface EntityHandlersResult {

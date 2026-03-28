@@ -42,6 +42,16 @@ describe('entityHandlers()', () => {
 			expect(ctx.auditPort.events[0].action).toBe('widget.created');
 			expect(ctx.auditPort.events[0].resourceType).toBe('widget');
 		});
+
+		it('returns a 400 when entity schema validation fails', async () => {
+			const entity = createTestEntity();
+			const handlers = entityHandlers(entity);
+			const ctx = createTestContext();
+
+			await expect(handleUseCaseRequest(handlers._configs.POST!, ctx, {})).rejects.toMatchObject({
+				status: 400
+			});
+		});
 	});
 
 	describe('PUT updates a record', () => {
@@ -68,6 +78,16 @@ describe('entityHandlers()', () => {
 
 			expect(ctx.auditPort.events).toHaveLength(1);
 			expect(ctx.auditPort.events[0].action).toBe('widget.updated');
+		});
+
+		it('returns a 400 when update payload validation fails', async () => {
+			const entity = createTestEntity();
+			const handlers = entityHandlers(entity);
+			const ctx = createTestContext();
+
+			await expect(handleUseCaseRequest(handlers._configs.PUT!, ctx, {})).rejects.toMatchObject({
+				status: 400
+			});
 		});
 	});
 

@@ -183,6 +183,13 @@ function rethrowOrWrap(err: unknown): never {
 	throw error(500, 'Internal server error');
 }
 
+/**
+ * @deprecated Use `entityHandlers(entity, hooks?)` instead. This function exists
+ * only as a low-level escape hatch for routes that mix standard CRUD with custom
+ * actions and cannot be expressed entirely through `entityHandlers()`. If you're
+ * wiring a standard entity route, use `entityHandlers()` and extend it when
+ * necessary rather than falling back to `crudHandlers()`.
+ */
 export function crudHandlers(config: CrudConfig): {
 	POST: RequestHandler;
 	PUT: RequestHandler;

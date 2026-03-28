@@ -1,16 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { createCrudUseCases } from './crud';
-import { specialDayCrudConfig, createResetFederalHolidaysUseCase } from './specialDayCrud';
+import { SpecialDayEntity } from '$lib/server/entities/specialDay';
+import { createResetFederalHolidaysUseCase } from './specialDayCrud';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
 }
 
+function createSpecialDayCrudUseCases() {
+	return createCrudUseCases({
+		entity: SpecialDayEntity,
+		permission: 'calendar',
+		auditResource: 'special_day'
+	});
+}
+
 describe('SpecialDay CRUD use case', () => {
 	it('creates a special day and audits', async () => {
 		const ctx = buildContext();
-		const { create } = createCrudUseCases(specialDayCrudConfig);
+		const { create } = createSpecialDayCrudUseCases();
 
 		const result = (await create(ctx, {
 			date: '2026-12-25',
@@ -34,7 +43,7 @@ describe('SpecialDay CRUD use case', () => {
 			}
 		]);
 
-		const { remove } = createCrudUseCases(specialDayCrudConfig);
+		const { remove } = createSpecialDayCrudUseCases();
 		await remove(ctx, 'sd-1');
 
 		const stored = await ctx.store.findOne('special_days', 'test-org', { id: 'sd-1' });

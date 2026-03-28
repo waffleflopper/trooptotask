@@ -45,7 +45,7 @@ src/
         ports.ts             — port interfaces (DataStore, AuthContext, AuditPort, etc.)
         useCases/            — pure business logic use cases (no Supabase imports)
       adapters/
-        httpAdapter.ts       — handle(), crudHandlers(), loadWithContext() for SvelteKit routes
+        httpAdapter.ts       — handle(), entityHandlers(), loadWithContext() for SvelteKit routes
         supabaseDataStore.ts — DataStore port implementation using Supabase
         scopedDataStore.ts   — ScopedDataStore wrapper (group-scoped access control)
         supabaseAuthContext.ts — AuthContext port implementation
@@ -92,3 +92,9 @@ These docs contain detailed props, usage examples, and patterns. Read them when 
 
 - **[Component Catalog & CSS Design System](docs/component-catalog.md)** — Shared UI component props (Modal, Badge, Spinner, EmptyState, FileUpload, DataTable, useDataTable), CSS variables, utility classes, button/form classes
 - **[Entity System](docs/entity-system.md)** — `defineEntity()` pattern for database entities, field options, custom transforms, CRUD handlers, barrel exports
+
+---
+
+## Deprecated Patterns — Do Not Use
+
+- `crudHandlers()` / `CrudConfig` — Use `entityHandlers(entity, hooks?)` from `httpAdapter.ts` instead. These remain only as an internal escape hatch for mixed-action routes that cannot be expressed entirely through `entityHandlers()`. If `entityHandlers()` does not support a case, extend it rather than routing new work through `crudHandlers()`.

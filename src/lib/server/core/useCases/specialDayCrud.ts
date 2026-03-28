@@ -1,14 +1,7 @@
 import { fail } from '$lib/server/core/errors';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
-import type { CrudConfig } from './crud';
 import type { WritePorts } from '$lib/server/core/ports';
-
-export const specialDayCrudConfig: CrudConfig = {
-	entity: SpecialDayEntity,
-	permission: 'calendar',
-	auditResource: 'special_day'
-};
 
 export function createResetFederalHolidaysUseCase() {
 	return async (ctx: WritePorts): Promise<unknown[]> => {

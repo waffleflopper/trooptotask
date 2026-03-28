@@ -89,4 +89,14 @@ describe('SpecialDayEntity', () => {
 	it('has groupScope none', () => {
 		expect(SpecialDayEntity.groupScope).toBe('none');
 	});
+
+	it('has permission calendar', () => {
+		expect(SpecialDayEntity.permission).toBe('calendar');
+	});
+
+	it('has audit config for special_day', () => {
+		expect(SpecialDayEntity.audit).toEqual({
+			resourceType: 'special_day'
+		});
+	});
 });

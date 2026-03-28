@@ -1,4 +1,4 @@
-import { onboardingTemplateStepCrudConfig } from '$lib/server/core/useCases/onboardingTemplateCrud';
-import { crudHandlers } from '$lib/server/adapters/httpAdapter';
+import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
+import { entityHandlers } from '$lib/server/adapters/httpAdapter';
 
-export const { POST, PUT, DELETE } = crudHandlers(onboardingTemplateStepCrudConfig);
+export const { POST, PUT, DELETE } = entityHandlers(OnboardingTemplateStepEntity);

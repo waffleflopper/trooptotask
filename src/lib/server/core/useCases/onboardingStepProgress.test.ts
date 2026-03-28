@@ -1,15 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
 	toggleCheckbox,
 	advanceStage,
@@ -18,34 +8,11 @@ import {
 	removeInactiveStep
 } from './onboardingStepProgress';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
-
-function buildContext(overrides?: { readOnly?: boolean }): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext();
-	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
-
-	const subscription = createTestSubscriptionPort();
-	return {
-		store,
-		rawStore: store,
-		auth,
-		audit: auditPort,
-		readOnlyGuard,
-		subscription,
-		auditPort,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
+	return createWritePortsContext(overrides);
 }
 
-function seedStep(ctx: TestContext, overrides?: Record<string, unknown>) {
+function seedStep(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
 	ctx.store.seed('onboarding_step_progress', [
 		{
 			id: 'step-1',
@@ -114,7 +81,7 @@ describe('toggleCheckbox', () => {
 	});
 });
 
-function seedPaperworkStep(ctx: TestContext, overrides?: Record<string, unknown>) {
+function seedPaperworkStep(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
 	ctx.store.seed('onboarding_step_progress', [
 		{
 			id: 'pw-step-1',
@@ -209,8 +176,8 @@ describe('advanceStage', () => {
 
 		await advanceStage(ctx, { stepId: 'pw-step-1', stageName: 'submitted' });
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding_step.stage_advanced',
 			resourceType: 'onboarding_step_progress',
 			resourceId: 'pw-step-1'
@@ -218,7 +185,7 @@ describe('advanceStage', () => {
 	});
 });
 
-function seedTrainingStep(ctx: TestContext, overrides?: Record<string, unknown>) {
+function seedTrainingStep(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
 	ctx.store.seed('onboarding_step_progress', [
 		{
 			id: 'tr-step-1',
@@ -239,7 +206,7 @@ function seedTrainingStep(ctx: TestContext, overrides?: Record<string, unknown>)
 	]);
 }
 
-function seedOnboarding(ctx: TestContext, overrides?: Record<string, unknown>) {
+function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
 	ctx.store.seed('personnel_onboardings', [
 		{
 			id: 'ob-1',
@@ -418,8 +385,8 @@ describe('addNote', () => {
 
 		await addNote(ctx, { stepId: 'step-1', text: 'Note text', userId: 'user-abc' });
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding_step.note_added',
 			resourceType: 'onboarding_step_progress',
 			resourceId: 'step-1',
@@ -466,8 +433,8 @@ describe('removeInactiveStep', () => {
 
 		await removeInactiveStep(ctx, 'step-1');
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding_step.inactive_removed',
 			resourceType: 'onboarding_step_progress',
 			resourceId: 'step-1'

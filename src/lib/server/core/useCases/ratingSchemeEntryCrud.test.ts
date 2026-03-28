@@ -1,45 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { createRatingSchemeEntryUseCases } from './ratingSchemeEntryCrud';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
-
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext(overrides?.auth);
-	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
-
-	const subscription = createTestSubscriptionPort();
-	return {
-		store,
-		rawStore: store,
-		auth,
-		audit: auditPort,
-		readOnlyGuard,
-		subscription,
-		auditPort,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
+	return createWritePortsContext(overrides);
 }
 
 const validInput = {
@@ -66,8 +30,8 @@ describe('Rating scheme entry — create', () => {
 		const stored = await ctx.store.findMany('rating_scheme_entries', 'test-org');
 		expect(stored).toHaveLength(1);
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'rating_scheme.created',
 			resourceType: 'rating_scheme'
 		});
@@ -112,7 +76,7 @@ describe('Rating scheme entry — update', () => {
 		const result = (await update(ctx, { id: 'rs-1', status: 'complete' })) as Record<string, unknown>;
 		expect(result.status).toBe('complete');
 
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'rating_scheme.updated',
 			resourceId: 'rs-1'
 		});
@@ -166,7 +130,7 @@ describe('Rating scheme entry — delete', () => {
 		const stored = await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' });
 		expect(stored).toBeNull();
 
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'rating_scheme.deleted',
 			resourceId: 'rs-1'
 		});

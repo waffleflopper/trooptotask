@@ -1,6 +1,6 @@
 import { fail } from '$lib/server/core/errors';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 import { notifyAdminsViaStore } from './notifyAdminsHelper';
 
 const entity = RatingSchemeEntryEntity;
@@ -16,9 +16,9 @@ function coerceEmptyStrings(data: Record<string, unknown>): Record<string, unkno
 }
 
 export interface RatingSchemeEntryUseCases {
-	create(ctx: UseCaseContext, data: Record<string, unknown>): Promise<unknown>;
-	update(ctx: UseCaseContext, data: Record<string, unknown>): Promise<unknown>;
-	remove(ctx: UseCaseContext, id: string): Promise<{ requiresApproval: boolean } | void>;
+	create(ctx: WritePorts, data: Record<string, unknown>): Promise<unknown>;
+	update(ctx: WritePorts, data: Record<string, unknown>): Promise<unknown>;
+	remove(ctx: WritePorts, id: string): Promise<{ requiresApproval: boolean } | void>;
 }
 
 export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {

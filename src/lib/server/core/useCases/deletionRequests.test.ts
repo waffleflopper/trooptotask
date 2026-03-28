@@ -1,15 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
 	createDeletionRequest,
 	approveDeletionRequest,
@@ -18,29 +8,8 @@ import {
 	listDeletionRequests
 } from './deletionRequests';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-};
-
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
-	const auditPort = createTestAuditPort();
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext(overrides?.auth),
-		audit: auditPort,
-		auditPort,
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
+	return createWritePortsContext(overrides);
 }
 
 describe('createDeletionRequest', () => {
@@ -71,8 +40,8 @@ describe('createDeletionRequest', () => {
 		});
 
 		// Audit logged
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.created',
 			resourceType: 'deletion_request'
 		});
@@ -123,7 +92,7 @@ describe('createDeletionRequest', () => {
 	});
 });
 
-function seedPendingRequest(ctx: TestContext, overrides?: Record<string, unknown>) {
+function seedPendingRequest(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
 	ctx.store.seed('deletion_requests', [
 		{
 			id: 'dr-1',
@@ -174,8 +143,8 @@ describe('approveDeletionRequest', () => {
 		});
 
 		// Audit logged
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.approved',
 			resourceType: 'deletion_request',
 			resourceId: 'dr-1'
@@ -246,8 +215,8 @@ describe('denyDeletionRequest', () => {
 		expect(notifications[0].message as string).toContain('Not approved by commander');
 
 		// Audit logged
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.denied',
 			resourceType: 'deletion_request',
 			resourceId: 'dr-1'
@@ -265,8 +234,8 @@ describe('cancelDeletionRequest', () => {
 		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
 		expect(request).toMatchObject({ status: 'cancelled' });
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.cancelled',
 			resourceType: 'deletion_request',
 			resourceId: 'dr-1'

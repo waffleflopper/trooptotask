@@ -1,6 +1,6 @@
 import { fail } from '$lib/server/core/errors';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
@@ -10,7 +10,7 @@ export interface ReplaceInput {
 	records: Array<{ assignmentTypeId: string; assigneeId: string }>;
 }
 
-export async function replaceDailyAssignments(ctx: UseCaseContext, input: ReplaceInput): Promise<unknown[]> {
+export async function replaceDailyAssignments(ctx: WritePorts, input: ReplaceInput): Promise<unknown[]> {
 	ctx.auth.requireEdit('calendar');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -40,7 +40,7 @@ export async function replaceDailyAssignments(ctx: UseCaseContext, input: Replac
 	return inserted.map((row) => entity.fromDb(row));
 }
 
-export async function createDailyAssignment(ctx: UseCaseContext, input: Record<string, unknown>): Promise<unknown> {
+export async function createDailyAssignment(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
 	ctx.auth.requireEdit('calendar');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -63,7 +63,7 @@ export async function createDailyAssignment(ctx: UseCaseContext, input: Record<s
 	return entity.fromDb(row);
 }
 
-export async function updateDailyAssignment(ctx: UseCaseContext, input: Record<string, unknown>): Promise<unknown> {
+export async function updateDailyAssignment(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
 	ctx.auth.requireEdit('calendar');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -89,7 +89,7 @@ export async function updateDailyAssignment(ctx: UseCaseContext, input: Record<s
 	return entity.fromDb(row);
 }
 
-export async function deleteDailyAssignment(ctx: UseCaseContext, id: string): Promise<void> {
+export async function deleteDailyAssignment(ctx: WritePorts, id: string): Promise<void> {
 	ctx.auth.requireEdit('calendar');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -105,7 +105,7 @@ export async function deleteDailyAssignment(ctx: UseCaseContext, id: string): Pr
 }
 
 export async function clearDailyAssignment(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	input: { date: string; assignmentTypeId: string }
 ): Promise<void> {
 	ctx.auth.requireEdit('calendar');

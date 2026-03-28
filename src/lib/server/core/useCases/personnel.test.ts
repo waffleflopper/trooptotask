@@ -1,47 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWriteWithSubscriptionPortsContext } from '$lib/server/adapters/inMemory';
 import { createPersonnelUseCases } from './personnel';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
-
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-	subscriptionAllowed?: boolean;
-	subscriptionMessage?: string;
-}): TestContext {
-	const auditPort = createTestAuditPort();
-	const subscription = createTestSubscriptionPort(
-		overrides?.subscriptionAllowed ?? true,
-		overrides?.subscriptionMessage
-	);
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext(overrides?.auth),
-		audit: auditPort,
-		auditPort,
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
-		subscription,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWriteWithSubscriptionPortsContext>[0]) {
+	return createWriteWithSubscriptionPortsContext(overrides);
 }
 
 const validInput = {
@@ -71,8 +33,8 @@ describe('Personnel — create', () => {
 
 		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'personnel.created',
 			resourceType: 'personnel'
 		});
@@ -109,7 +71,7 @@ describe('Personnel — create', () => {
 });
 
 describe('Personnel — update', () => {
-	function seedPersonnel(ctx: TestContext) {
+	function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 		ctx.store.seed('personnel', [
 			{
 				id: 'p-1',
@@ -133,7 +95,7 @@ describe('Personnel — update', () => {
 		const result = (await update(ctx, { id: 'p-1', rank: 'SSG' })) as Record<string, unknown>;
 		expect(result.rank).toBe('SSG');
 
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'personnel.updated',
 			resourceId: 'p-1'
 		});
@@ -176,7 +138,7 @@ describe('Personnel — update', () => {
 });
 
 describe('Personnel — archive', () => {
-	function seedPersonnel(ctx: TestContext) {
+	function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 		ctx.store.seed('personnel', [
 			{
 				id: 'p-1',
@@ -204,7 +166,7 @@ describe('Personnel — archive', () => {
 
 		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
 
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'personnel.archived',
 			resourceId: 'p-1'
 		});

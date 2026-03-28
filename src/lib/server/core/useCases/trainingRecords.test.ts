@@ -1,44 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { calculateExpirationDate, createTrainingRecord, deleteTrainingRecord } from './trainingRecords';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-};
-
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
-	const auditPort = createTestAuditPort();
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext(overrides?.auth),
-		audit: auditPort,
-		auditPort,
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
+	return createWritePortsContext(overrides);
 }
 
 function seedTrainingType(
-	ctx: TestContext,
+	ctx: ReturnType<typeof buildContext>,
 	overrides?: Partial<{
 		id: string;
 		expiration_months: number | null;
@@ -95,8 +64,8 @@ describe('createTrainingRecord', () => {
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(1);
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'training_record.created',
 			resourceType: 'training_record'
 		});
@@ -143,7 +112,7 @@ describe('createTrainingRecord', () => {
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(1);
 
-		expect(ctx.auditPort.events[1]).toMatchObject({
+		expect(ctx.audit.events[1]).toMatchObject({
 			action: 'training_record.updated'
 		});
 	});
@@ -180,7 +149,7 @@ describe('createTrainingRecord', () => {
 });
 
 describe('deleteTrainingRecord', () => {
-	function seedRecord(ctx: TestContext) {
+	function seedRecord(ctx: ReturnType<typeof buildContext>) {
 		ctx.store.seed('personnel_trainings', [
 			{
 				id: 'tr-1',
@@ -204,8 +173,8 @@ describe('deleteTrainingRecord', () => {
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(0);
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'training_record.deleted',
 			resourceType: 'training_record',
 			resourceId: 'tr-1'

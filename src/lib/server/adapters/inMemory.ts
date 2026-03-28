@@ -455,27 +455,39 @@ export function createWriteWithNotificationsPortsContext(): WriteWithNotificatio
 	};
 }
 
-export function createWriteWithSubscriptionPortsContext(): WriteWithSubscriptionPorts & {
+export function createWriteWithSubscriptionPortsContext(options?: {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+	readOnly?: boolean;
+	subscriptionAllowed?: boolean;
+	subscriptionMessage?: string;
+	availableSlots?: number | null;
+}): WriteWithSubscriptionPorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	audit: ReturnType<typeof createTestAuditPort>;
 	subscription: ReturnType<typeof createTestSubscriptionPort>;
 } {
 	return {
 		store: createInMemoryDataStore(),
-		auth: createTestAuthContext(),
+		auth: createTestAuthContext(options?.auth),
 		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort()
+		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
+		subscription: createTestSubscriptionPort(
+			options?.subscriptionAllowed ?? true,
+			options?.subscriptionMessage,
+			options?.availableSlots ?? null
+		)
 	};
 }
 
-export function createUserWritePortsContext(): UserWritePorts & {
+export function createUserWritePortsContext(options?: {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+}): UserWritePorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	audit: ReturnType<typeof createTestAuditPort>;
 } {
 	return {
 		store: createInMemoryDataStore(),
-		auth: createTestAuthContext(),
+		auth: createTestAuthContext(options?.auth),
 		audit: createTestAuditPort()
 	};
 }

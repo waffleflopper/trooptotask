@@ -1,11 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestAuthContext, createTestBillingPort } from '$lib/server/adapters/inMemory';
 import { checkout, portal, cancel } from './billing';
+
+function buildContext() {
+	const billing = createTestBillingPort();
+	return {
+		auth: createTestAuthContext(),
+		billing,
+		billingPort: billing
+	};
+}
 
 describe('billing use cases', () => {
 	describe('checkout', () => {
 		it('calls billing port with correct params and returns checkout URL + customerId', async () => {
-			const ctx = createTestContext();
+			const ctx = buildContext();
 
 			const result = await checkout(ctx, {
 				tier: 'team',
@@ -28,7 +37,7 @@ describe('billing use cases', () => {
 		});
 
 		it('passes existingCustomerId when provided', async () => {
-			const ctx = createTestContext();
+			const ctx = buildContext();
 
 			await checkout(ctx, {
 				tier: 'unit',
@@ -45,7 +54,7 @@ describe('billing use cases', () => {
 		});
 
 		it('rejects when customerEmail is empty', async () => {
-			const ctx = createTestContext();
+			const ctx = buildContext();
 
 			await expect(
 				checkout(ctx, {
@@ -61,7 +70,7 @@ describe('billing use cases', () => {
 
 	describe('portal', () => {
 		it('calls billing port and returns portal URL', async () => {
-			const ctx = createTestContext();
+			const ctx = buildContext();
 
 			const result = await portal(ctx, {
 				customerId: 'cus_123',
@@ -75,7 +84,7 @@ describe('billing use cases', () => {
 		});
 
 		it('rejects when customerId is missing', async () => {
-			const ctx = createTestContext();
+			const ctx = buildContext();
 
 			await expect(portal(ctx, { customerId: '', returnUrl: 'http://localhost/billing' })).rejects.toThrow(
 				/subscription/i
@@ -85,7 +94,7 @@ describe('billing use cases', () => {
 
 	describe('cancel', () => {
 		it('calls billing port and returns orgUpdates to reset to free tier', async () => {
-			const ctx = createTestContext();
+			const ctx = buildContext();
 
 			const result = await cancel(ctx, { subscriptionId: 'sub_abc' });
 
@@ -101,7 +110,7 @@ describe('billing use cases', () => {
 		});
 
 		it('rejects when subscriptionId is missing', async () => {
-			const ctx = createTestContext();
+			const ctx = buildContext();
 
 			await expect(cancel(ctx, { subscriptionId: '' })).rejects.toThrow(/subscription/i);
 		});

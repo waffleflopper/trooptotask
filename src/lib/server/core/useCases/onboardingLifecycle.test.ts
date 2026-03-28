@@ -1,45 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { startOnboarding, cancelOnboarding, reopenOnboarding, completeOnboarding } from './onboardingLifecycle';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
-
-function buildContext(overrides?: { readOnly?: boolean; role?: 'owner' | 'admin' | 'member' }): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext({ role: overrides?.role ?? 'owner' });
-	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
-
-	const subscription = createTestSubscriptionPort();
-	return {
-		store,
-		rawStore: store,
-		auth,
-		audit: auditPort,
-		readOnlyGuard,
-		subscription,
-		auditPort,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: { readOnly?: boolean; role?: 'owner' | 'admin' | 'member' }) {
+	return createWritePortsContext({
+		readOnly: overrides?.readOnly,
+		auth: { role: overrides?.role ?? 'owner' }
+	});
 }
 
-function seedTemplateWithSteps(ctx: TestContext) {
+function seedTemplateWithSteps(ctx: ReturnType<typeof buildContext>) {
 	ctx.store.seed('onboarding_templates', [
 		{ id: 'tmpl-1', name: 'New Soldier Checklist', organization_id: 'test-org' }
 	]);
@@ -146,8 +116,8 @@ describe('startOnboarding', () => {
 
 		const result = await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding.started',
 			resourceType: 'personnel_onboarding',
 			resourceId: result.id
@@ -219,7 +189,7 @@ describe('startOnboarding', () => {
 	});
 });
 
-function seedOnboarding(ctx: TestContext, overrides?: Record<string, unknown>) {
+function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
 	ctx.store.seed('personnel_onboardings', [
 		{
 			id: 'ob-1',
@@ -280,8 +250,8 @@ describe('cancelOnboarding', () => {
 
 		await cancelOnboarding(ctx, 'ob-1');
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding.cancelled',
 			resourceType: 'personnel_onboarding',
 			resourceId: 'ob-1'
@@ -320,8 +290,8 @@ describe('reopenOnboarding', () => {
 
 		await reopenOnboarding(ctx, 'ob-1');
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding.reopened',
 			resourceType: 'personnel_onboarding',
 			resourceId: 'ob-1'
@@ -329,7 +299,7 @@ describe('reopenOnboarding', () => {
 	});
 });
 
-function seedSteps(ctx: TestContext, overrides?: Record<string, unknown>[]) {
+function seedSteps(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>[]) {
 	const defaults = [
 		{
 			id: 'step-1',
@@ -452,8 +422,8 @@ describe('completeOnboarding', () => {
 
 		await completeOnboarding(ctx, 'ob-1');
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding.completed',
 			resourceType: 'personnel_onboarding',
 			resourceId: 'ob-1',

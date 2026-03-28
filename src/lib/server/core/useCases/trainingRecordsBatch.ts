@@ -1,7 +1,7 @@
 import { fail } from '$lib/server/core/errors';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { calculateExpirationDate } from './trainingRecords';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
@@ -32,7 +32,7 @@ interface BatchImportResult {
 }
 
 export async function importTrainingRecords(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	input: ImportTrainingRecordsInput
 ): Promise<BatchImportResult> {
 	ctx.auth.requireEdit('training');

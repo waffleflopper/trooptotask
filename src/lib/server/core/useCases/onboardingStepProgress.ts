@@ -1,5 +1,5 @@
 import { fail } from '$lib/server/core/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 
 interface ToggleCheckboxInput {
 	stepId: string;
@@ -20,7 +20,7 @@ interface AdvanceStageInput {
 	stageName: string;
 }
 
-export async function advanceStage(ctx: UseCaseContext, input: AdvanceStageInput): Promise<StepResult> {
+export async function advanceStage(ctx: WritePorts, input: AdvanceStageInput): Promise<StepResult> {
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -97,7 +97,7 @@ interface TrainingStepResult {
 }
 
 export async function refreshTrainingSteps(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	input: RefreshTrainingInput
 ): Promise<TrainingStepResult[]> {
 	// Fetch the onboarding to get the personnel_id
@@ -171,7 +171,7 @@ interface NoteResult {
 	notes: Array<{ text: string; timestamp: string; userId: string }>;
 }
 
-export async function addNote(ctx: UseCaseContext, input: AddNoteInput): Promise<NoteResult> {
+export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<NoteResult> {
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -216,7 +216,7 @@ export async function addNote(ctx: UseCaseContext, input: AddNoteInput): Promise
 	};
 }
 
-export async function removeInactiveStep(ctx: UseCaseContext, stepId: string): Promise<void> {
+export async function removeInactiveStep(ctx: WritePorts, stepId: string): Promise<void> {
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -245,7 +245,7 @@ export async function removeInactiveStep(ctx: UseCaseContext, stepId: string): P
 	});
 }
 
-export async function toggleCheckbox(ctx: UseCaseContext, input: ToggleCheckboxInput): Promise<StepResult> {
+export async function toggleCheckbox(ctx: WritePorts, input: ToggleCheckboxInput): Promise<StepResult> {
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();

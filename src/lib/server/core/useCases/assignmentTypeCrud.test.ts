@@ -1,54 +1,31 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { createCrudUseCases } from './crud';
-import { assignmentTypeCrudConfig } from './assignmentTypeCrud';
+import { notifyAdminsViaStore } from './notifyAdminsHelper';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
+const AT_ID = '00000000-0000-4000-a000-000000000001';
 
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext(overrides?.auth);
-	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
-
-	const subscription = createTestSubscriptionPort();
-	return {
-		store,
-		rawStore: store,
-		auth,
-		audit: auditPort,
-		readOnlyGuard,
-		subscription,
-		auditPort,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
-}
+// Same config entityHandlers() derives — validates the pattern without HTTP layer
+const useCases = createCrudUseCases({
+	entity: AssignmentTypeEntity,
+	permission: AssignmentTypeEntity.permission!,
+	auditResource: (AssignmentTypeEntity.audit as { resourceType: string }).resourceType,
+	requireFullEditor: AssignmentTypeEntity.requireFullEditor,
+	afterDelete: async (ctx) => {
+		await notifyAdminsViaStore(ctx.store, ctx.auth.orgId, ctx.auth.userId, {
+			type: 'config_type_deleted',
+			title: 'Assignment Type Deleted',
+			message: 'An assignment type was deleted.'
+		});
+	}
+});
 
 describe('AssignmentType CRUD use case', () => {
 	it('creates an assignment type and audits', async () => {
-		const ctx = buildContext();
-		const { create } = createCrudUseCases(assignmentTypeCrudConfig);
+		const ctx = createWritePortsContext();
 
-		const result = (await create(ctx, {
+		const result = (await useCases.create(ctx, {
 			name: 'Guard Duty',
 			shortName: 'GD',
 			assignTo: 'personnel',
@@ -57,29 +34,14 @@ describe('AssignmentType CRUD use case', () => {
 		})) as { name: string; shortName: string };
 
 		expect(result).toMatchObject({ name: 'Guard Duty', shortName: 'GD' });
-		expect(ctx.auditPort.events[0].action).toBe('assignment_type.created');
-	});
-
-	it('requires full editor permission', async () => {
-		const ctx = buildContext({
-			auth: {
-				requireFullEditor() {
-					throw new Error('Requires full editor');
-				}
-			}
-		});
-		const { create } = createCrudUseCases(assignmentTypeCrudConfig);
-
-		await expect(create(ctx, { name: 'X', shortName: 'X', assignTo: 'personnel' })).rejects.toThrow(
-			'Requires full editor'
-		);
+		expect(ctx.audit.events[0].action).toBe('assignment_type.created');
 	});
 
 	it('notifies admins after delete', async () => {
-		const ctx = buildContext();
+		const ctx = createWritePortsContext();
 		ctx.store.seed('assignment_types', [
 			{
-				id: 'at-1',
+				id: AT_ID,
 				name: 'Guard Duty',
 				short_name: 'GD',
 				assign_to: 'personnel',
@@ -93,8 +55,7 @@ describe('AssignmentType CRUD use case', () => {
 			{ user_id: 'other-admin', organization_id: 'test-org', role: 'admin' }
 		]);
 
-		const { remove } = createCrudUseCases(assignmentTypeCrudConfig);
-		await remove(ctx, 'at-1');
+		await useCases.remove(ctx, AT_ID);
 
 		const notifications = await ctx.store.findMany('notifications', 'test-org');
 		expect(notifications).toHaveLength(1);

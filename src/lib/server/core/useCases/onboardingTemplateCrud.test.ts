@@ -1,54 +1,42 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
+import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
 import { createCrudUseCases } from './crud';
-import { onboardingTemplateCrudConfig, onboardingTemplateStepCrudConfig } from './onboardingTemplateCrud';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
+const TMPL_ID = '00000000-0000-4000-a000-000000000001';
 
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext(overrides?.auth);
-	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
+// Same config entityHandlers() derives for template — with afterDelete hook
+const templateUseCases = createCrudUseCases({
+	entity: OnboardingTemplateEntity,
+	permission: OnboardingTemplateEntity.permission!,
+	auditResource: (OnboardingTemplateEntity.audit as { resourceType: string }).resourceType,
+	requireFullEditor: OnboardingTemplateEntity.requireFullEditor,
+	afterDelete: async (ctx, id) => {
+		await ctx.store.deleteWhere('onboarding_template_steps', ctx.auth.orgId, { template_id: id });
 
-	const subscription = createTestSubscriptionPort();
-	return {
-		store,
-		rawStore: store,
-		auth,
-		audit: auditPort,
-		readOnlyGuard,
-		subscription,
-		auditPort,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
-}
+		const onboardings = await ctx.store.findMany<{ id: string }>('personnel_onboardings', ctx.auth.orgId, {
+			template_id: id
+		});
+		for (const onboarding of onboardings) {
+			await ctx.store.update('personnel_onboardings', ctx.auth.orgId, onboarding.id, { template_id: null });
+		}
+	}
+});
+
+// Same config entityHandlers() derives for step — no hooks
+const stepUseCases = createCrudUseCases({
+	entity: OnboardingTemplateStepEntity,
+	permission: OnboardingTemplateStepEntity.permission!,
+	auditResource: (OnboardingTemplateStepEntity.audit as { resourceType: string }).resourceType,
+	requireFullEditor: OnboardingTemplateStepEntity.requireFullEditor
+});
 
 describe('Onboarding Template CRUD', () => {
 	it('creates a template and audits', async () => {
-		const ctx = buildContext();
-		const { create } = createCrudUseCases(onboardingTemplateCrudConfig);
+		const ctx = createWritePortsContext();
 
-		const result = (await create(ctx, {
+		const result = (await templateUseCases.create(ctx, {
 			name: 'New Soldier Checklist',
 			description: 'Standard onboarding for new arrivals'
 		})) as { name: string; description: string };
@@ -57,16 +45,15 @@ describe('Onboarding Template CRUD', () => {
 			name: 'New Soldier Checklist',
 			description: 'Standard onboarding for new arrivals'
 		});
-		expect(ctx.auditPort.events[0].action).toBe('onboarding_template.created');
+		expect(ctx.audit.events[0].action).toBe('onboarding_template.created');
 	});
 });
 
 describe('Onboarding Template Step CRUD', () => {
 	it('creates a checkbox step and audits', async () => {
-		const ctx = buildContext();
-		const { create } = createCrudUseCases(onboardingTemplateStepCrudConfig);
+		const ctx = createWritePortsContext();
 
-		const result = (await create(ctx, {
+		const result = (await stepUseCases.create(ctx, {
 			templateId: 'tmpl-1',
 			name: 'Has military email',
 			stepType: 'checkbox',
@@ -78,14 +65,13 @@ describe('Onboarding Template Step CRUD', () => {
 			stepType: 'checkbox',
 			templateId: 'tmpl-1'
 		});
-		expect(ctx.auditPort.events[0].action).toBe('onboarding_template_step.created');
+		expect(ctx.audit.events[0].action).toBe('onboarding_template_step.created');
 	});
 
 	it('creates a paperwork step with stages', async () => {
-		const ctx = buildContext();
-		const { create } = createCrudUseCases(onboardingTemplateStepCrudConfig);
+		const ctx = createWritePortsContext();
 
-		const result = (await create(ctx, {
+		const result = (await stepUseCases.create(ctx, {
 			templateId: 'tmpl-1',
 			name: 'CAC Card Request',
 			stepType: 'paperwork',
@@ -100,10 +86,9 @@ describe('Onboarding Template Step CRUD', () => {
 	});
 
 	it('creates a training step with trainingTypeId', async () => {
-		const ctx = buildContext();
-		const { create } = createCrudUseCases(onboardingTemplateStepCrudConfig);
+		const ctx = createWritePortsContext();
 
-		const result = (await create(ctx, {
+		const result = (await stepUseCases.create(ctx, {
 			templateId: 'tmpl-1',
 			name: 'CPR Certification',
 			stepType: 'training',
@@ -120,16 +105,15 @@ describe('Onboarding Template Step CRUD', () => {
 
 describe('Onboarding Template deletion hooks', () => {
 	it('cascade-deletes template steps when template is deleted', async () => {
-		const ctx = buildContext();
-		ctx.store.seed('onboarding_templates', [{ id: 'tmpl-1', name: 'Checklist A', organization_id: 'test-org' }]);
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, name: 'Checklist A', organization_id: 'test-org' }]);
 		ctx.store.seed('onboarding_template_steps', [
-			{ id: 'ts-1', template_id: 'tmpl-1', name: 'Step A', organization_id: 'test-org' },
-			{ id: 'ts-2', template_id: 'tmpl-1', name: 'Step B', organization_id: 'test-org' },
+			{ id: 'ts-1', template_id: TMPL_ID, name: 'Step A', organization_id: 'test-org' },
+			{ id: 'ts-2', template_id: TMPL_ID, name: 'Step B', organization_id: 'test-org' },
 			{ id: 'ts-other', template_id: 'tmpl-other', name: 'Unrelated', organization_id: 'test-org' }
 		]);
 
-		const { remove } = createCrudUseCases(onboardingTemplateCrudConfig);
-		await remove(ctx, 'tmpl-1');
+		await templateUseCases.remove(ctx, TMPL_ID);
 
 		const remaining = await ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', 'test-org', {});
 		expect(remaining).toHaveLength(1);
@@ -137,16 +121,15 @@ describe('Onboarding Template deletion hooks', () => {
 	});
 
 	it('nulls template_id on referencing onboardings when template is deleted', async () => {
-		const ctx = buildContext();
-		ctx.store.seed('onboarding_templates', [{ id: 'tmpl-1', name: 'Checklist A', organization_id: 'test-org' }]);
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, name: 'Checklist A', organization_id: 'test-org' }]);
 		ctx.store.seed('personnel_onboardings', [
-			{ id: 'ob-1', template_id: 'tmpl-1', personnel_id: 'p-1', status: 'in_progress', organization_id: 'test-org' },
-			{ id: 'ob-2', template_id: 'tmpl-1', personnel_id: 'p-2', status: 'completed', organization_id: 'test-org' },
+			{ id: 'ob-1', template_id: TMPL_ID, personnel_id: 'p-1', status: 'in_progress', organization_id: 'test-org' },
+			{ id: 'ob-2', template_id: TMPL_ID, personnel_id: 'p-2', status: 'completed', organization_id: 'test-org' },
 			{ id: 'ob-3', template_id: 'tmpl-other', personnel_id: 'p-3', status: 'in_progress', organization_id: 'test-org' }
 		]);
 
-		const { remove } = createCrudUseCases(onboardingTemplateCrudConfig);
-		await remove(ctx, 'tmpl-1');
+		await templateUseCases.remove(ctx, TMPL_ID);
 
 		const ob1 = await ctx.store.findOne<Record<string, unknown>>('personnel_onboardings', 'test-org', { id: 'ob-1' });
 		const ob2 = await ctx.store.findOne<Record<string, unknown>>('personnel_onboardings', 'test-org', { id: 'ob-2' });
@@ -158,7 +141,7 @@ describe('Onboarding Template deletion hooks', () => {
 	});
 
 	it('rejects non-full-editor from template CRUD', async () => {
-		const ctx = buildContext({
+		const ctx = createWritePortsContext({
 			auth: {
 				isFullEditor: false,
 				role: 'member',
@@ -168,15 +151,13 @@ describe('Onboarding Template deletion hooks', () => {
 				}
 			}
 		});
-		const { create } = createCrudUseCases(onboardingTemplateCrudConfig);
 
-		await expect(create(ctx, { name: 'Blocked' })).rejects.toMatchObject({ status: 403 });
+		await expect(templateUseCases.create(ctx, { name: 'Blocked' })).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('blocks mutations in read-only mode', async () => {
-		const ctx = buildContext({ readOnly: true });
-		const { create } = createCrudUseCases(onboardingTemplateCrudConfig);
+		const ctx = createWritePortsContext({ readOnly: true });
 
-		await expect(create(ctx, { name: 'Blocked' })).rejects.toMatchObject({ status: 403 });
+		await expect(templateUseCases.create(ctx, { name: 'Blocked' })).rejects.toMatchObject({ status: 403 });
 	});
 });

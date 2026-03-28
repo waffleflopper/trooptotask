@@ -426,15 +426,18 @@ export function createTestBillingPort(): BillingPort & { calls: RecordedBillingC
 // Port bundle context builders — return exactly the ports in each bundle
 // ---------------------------------------------------------------------------
 
-export function createWritePortsContext(): WritePorts & {
+export function createWritePortsContext(options?: {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+	readOnly?: boolean;
+}): WritePorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	audit: ReturnType<typeof createTestAuditPort>;
 } {
 	return {
 		store: createInMemoryDataStore(),
-		auth: createTestAuthContext(),
+		auth: createTestAuthContext(options?.auth),
 		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard()
+		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false)
 	};
 }
 

@@ -1,4 +1,4 @@
-import { trainingViewCrudConfig } from '$lib/server/core/useCases/trainingViewCrud';
-import { crudHandlers } from '$lib/server/adapters/httpAdapter';
+import { TrainingViewEntity } from '$lib/server/entities/trainingView';
+import { entityHandlers } from '$lib/server/adapters/httpAdapter';
 
-export const { POST, PUT, DELETE } = crudHandlers(trainingViewCrudConfig);
+export const { POST, PUT, DELETE } = entityHandlers(TrainingViewEntity);

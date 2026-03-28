@@ -1,4 +1,4 @@
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { QueryPorts } from '$lib/server/core/ports';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
@@ -8,7 +8,7 @@ export interface PersonnelPageData {
 	ratingSchemeEntries: RatingSchemeEntry[];
 }
 
-export async function fetchPersonnelPageData(ctx: UseCaseContext): Promise<PersonnelPageData> {
+export async function fetchPersonnelPageData(ctx: QueryPorts): Promise<PersonnelPageData> {
 	const orgId = ctx.auth.orgId;
 	const userId = ctx.auth.userId;
 

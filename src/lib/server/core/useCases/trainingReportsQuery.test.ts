@@ -1,32 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import { fetchTrainingReportsData } from './trainingReportsQuery';
 
 const ORG = 'test-org';
 
-function buildCtx(): UseCaseContext {
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext({ orgId: ORG }),
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildCtx() {
+	return createQueryPortsContext();
 }
 
 describe('fetchTrainingReportsData', () => {

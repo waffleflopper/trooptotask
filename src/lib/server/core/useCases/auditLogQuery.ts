@@ -1,4 +1,4 @@
-import type { UseCaseContext, DataStore } from '$lib/server/core/ports';
+import type { QueryPorts, DataStore } from '$lib/server/core/ports';
 
 const EXCLUDED_ACTIONS = [
 	'auth.login_success',
@@ -100,7 +100,7 @@ async function resolveNames(
 }
 
 export async function fetchAuditLogs(
-	ctx: UseCaseContext,
+	ctx: QueryPorts,
 	adminStore: DataStore,
 	input: AuditLogQueryInput
 ): Promise<AuditLogQueryResult> {

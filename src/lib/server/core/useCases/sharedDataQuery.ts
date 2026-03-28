@@ -1,4 +1,4 @@
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
 import type { Personnel, StatusType } from '$lib/types';
 import type { TrainingType, TrainingView } from '$features/training/training.types';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -17,7 +17,7 @@ export interface SharedData {
 	trainingViews: TrainingView[];
 }
 
-export async function fetchSharedData(ctx: UseCaseContext): Promise<SharedData> {
+export async function fetchSharedData(ctx: QueryWithRawStorePorts): Promise<SharedData> {
 	ctx.auth.requireView('personnel');
 	const orgId = ctx.auth.orgId;
 

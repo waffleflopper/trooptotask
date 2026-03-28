@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import { fetchOnboardingTemplatesData } from './onboardingTemplatesQuery';
 
 describe('fetchOnboardingTemplatesData', () => {
 	it('returns templates and templateSteps from the store', async () => {
-		const ctx = createTestContext();
+		const ctx = createQueryPortsContext();
 		ctx.store.seed('onboarding_templates', [
 			{ id: 'tmpl-1', name: 'Basic Checklist', organization_id: 'test-org' },
 			{ id: 'tmpl-2', name: 'Advanced Checklist', organization_id: 'test-org' }
@@ -21,7 +21,7 @@ describe('fetchOnboardingTemplatesData', () => {
 	});
 
 	it('returns empty arrays when no data exists', async () => {
-		const ctx = createTestContext();
+		const ctx = createQueryPortsContext();
 
 		const result = await fetchOnboardingTemplatesData(ctx);
 

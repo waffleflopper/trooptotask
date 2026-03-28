@@ -1,4 +1,4 @@
-import type { UseCaseContext, FindOptions } from '$lib/server/core/ports';
+import type { QueryPorts, FindOptions } from '$lib/server/core/ports';
 import type { Personnel } from '$lib/types';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 
@@ -34,7 +34,7 @@ function buildFindOptions(options?: PersonnelQueryOptions): FindOptions {
 	};
 }
 
-export async function queryPersonnel(ctx: UseCaseContext, options?: PersonnelQueryOptions): Promise<Personnel[]> {
+export async function queryPersonnel(ctx: QueryPorts, options?: PersonnelQueryOptions): Promise<Personnel[]> {
 	const rows = await ctx.store.findMany<Record<string, unknown>>(
 		'personnel',
 		ctx.auth.orgId,
@@ -44,7 +44,7 @@ export async function queryPersonnel(ctx: UseCaseContext, options?: PersonnelQue
 	return PersonnelEntity.fromDbArray(rows);
 }
 
-export async function countPersonnel(ctx: UseCaseContext, options?: PersonnelQueryOptions): Promise<number> {
+export async function countPersonnel(ctx: QueryPorts, options?: PersonnelQueryOptions): Promise<number> {
 	const { count } = await ctx.store.findManyWithCount<Record<string, unknown>>(
 		'personnel',
 		ctx.auth.orgId,
@@ -55,7 +55,7 @@ export async function countPersonnel(ctx: UseCaseContext, options?: PersonnelQue
 }
 
 export async function queryPersonnelRaw(
-	ctx: UseCaseContext,
+	ctx: QueryPorts,
 	options?: PersonnelQueryOptions
 ): Promise<Record<string, unknown>[]> {
 	return ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, buildFindOptions(options));

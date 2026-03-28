@@ -10,7 +10,13 @@ import type {
 	NotificationPayload,
 	BillingPort,
 	StoragePort,
-	UseCaseContext
+	UseCaseContext,
+	WritePorts,
+	WriteWithNotificationsPorts,
+	WriteWithSubscriptionPorts,
+	UserWritePorts,
+	QueryPorts,
+	QueryWithRawStorePorts
 } from '../core/ports';
 import type { EffectiveTier } from '$lib/types/subscription';
 
@@ -413,5 +419,81 @@ export function createTestBillingPort(): BillingPort & { calls: RecordedBillingC
 		async resumeSubscription(subscriptionId) {
 			calls.push({ method: 'resumeSubscription', args: [subscriptionId] });
 		}
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Port bundle context builders — return exactly the ports in each bundle
+// ---------------------------------------------------------------------------
+
+export function createWritePortsContext(): WritePorts & {
+	store: ReturnType<typeof createInMemoryDataStore>;
+	audit: ReturnType<typeof createTestAuditPort>;
+} {
+	return {
+		store: createInMemoryDataStore(),
+		auth: createTestAuthContext(),
+		audit: createTestAuditPort(),
+		readOnlyGuard: createTestReadOnlyGuard()
+	};
+}
+
+export function createWriteWithNotificationsPortsContext(): WriteWithNotificationsPorts & {
+	store: ReturnType<typeof createInMemoryDataStore>;
+	audit: ReturnType<typeof createTestAuditPort>;
+	notifications: ReturnType<typeof createTestNotificationPort>;
+} {
+	return {
+		store: createInMemoryDataStore(),
+		auth: createTestAuthContext(),
+		audit: createTestAuditPort(),
+		readOnlyGuard: createTestReadOnlyGuard(),
+		notifications: createTestNotificationPort()
+	};
+}
+
+export function createWriteWithSubscriptionPortsContext(): WriteWithSubscriptionPorts & {
+	store: ReturnType<typeof createInMemoryDataStore>;
+	audit: ReturnType<typeof createTestAuditPort>;
+	subscription: ReturnType<typeof createTestSubscriptionPort>;
+} {
+	return {
+		store: createInMemoryDataStore(),
+		auth: createTestAuthContext(),
+		audit: createTestAuditPort(),
+		readOnlyGuard: createTestReadOnlyGuard(),
+		subscription: createTestSubscriptionPort()
+	};
+}
+
+export function createUserWritePortsContext(): UserWritePorts & {
+	store: ReturnType<typeof createInMemoryDataStore>;
+	audit: ReturnType<typeof createTestAuditPort>;
+} {
+	return {
+		store: createInMemoryDataStore(),
+		auth: createTestAuthContext(),
+		audit: createTestAuditPort()
+	};
+}
+
+export function createQueryPortsContext(): QueryPorts & {
+	store: ReturnType<typeof createInMemoryDataStore>;
+} {
+	return {
+		store: createInMemoryDataStore(),
+		auth: createTestAuthContext()
+	};
+}
+
+export function createQueryWithRawStorePortsContext(): QueryWithRawStorePorts & {
+	store: ReturnType<typeof createInMemoryDataStore>;
+	rawStore: ReturnType<typeof createInMemoryDataStore>;
+} {
+	const store = createInMemoryDataStore();
+	return {
+		store,
+		auth: createTestAuthContext(),
+		rawStore: store
 	};
 }

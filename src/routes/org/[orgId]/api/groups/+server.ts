@@ -1,4 +1,4 @@
-import { groupCrudConfig } from '$lib/server/core/useCases/groupCrud';
-import { crudHandlers } from '$lib/server/adapters/httpAdapter';
+import { GroupEntity } from '$lib/server/entities/group';
+import { entityHandlers } from '$lib/server/adapters/httpAdapter';
 
-export const { POST, PUT, DELETE } = crudHandlers(groupCrudConfig);
+export const { POST, PUT, DELETE } = entityHandlers(GroupEntity);

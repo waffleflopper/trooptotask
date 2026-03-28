@@ -1,6 +1,6 @@
 import { fail } from '$lib/server/core/errors';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
@@ -21,7 +21,7 @@ interface BatchResult {
 	cleared: number;
 }
 
-export async function batchDailyAssignments(ctx: UseCaseContext, input: BatchInput): Promise<BatchResult> {
+export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput): Promise<BatchResult> {
 	ctx.auth.requireEdit('calendar');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();

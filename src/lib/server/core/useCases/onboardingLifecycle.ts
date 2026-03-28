@@ -1,5 +1,5 @@
 import { fail } from '$lib/server/core/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 
 interface StartInput {
 	personnelId: string;
@@ -32,7 +32,7 @@ interface StartResult {
 	steps: StepResult[];
 }
 
-export async function startOnboarding(ctx: UseCaseContext, input: StartInput): Promise<StartResult> {
+export async function startOnboarding(ctx: WritePorts, input: StartInput): Promise<StartResult> {
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -166,7 +166,7 @@ interface LifecycleResult {
 	completedAt: string | null;
 }
 
-export async function cancelOnboarding(ctx: UseCaseContext, id: string): Promise<LifecycleResult> {
+export async function cancelOnboarding(ctx: WritePorts, id: string): Promise<LifecycleResult> {
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -210,7 +210,7 @@ export async function cancelOnboarding(ctx: UseCaseContext, id: string): Promise
 	};
 }
 
-export async function reopenOnboarding(ctx: UseCaseContext, id: string): Promise<LifecycleResult> {
+export async function reopenOnboarding(ctx: WritePorts, id: string): Promise<LifecycleResult> {
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -257,7 +257,7 @@ interface CompleteResult extends LifecycleResult {
 	incompleteCount: number;
 }
 
-export async function completeOnboarding(ctx: UseCaseContext, id: string): Promise<CompleteResult> {
+export async function completeOnboarding(ctx: WritePorts, id: string): Promise<CompleteResult> {
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();

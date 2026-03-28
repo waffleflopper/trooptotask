@@ -1,5 +1,5 @@
 import { fail } from '$lib/server/core/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 import { notifyAdminsViaStore } from './notifyAdminsHelper';
 
 const TABLE = 'deletion_requests';
@@ -14,7 +14,7 @@ export interface CreateDeletionRequestInput {
 }
 
 export async function createDeletionRequest(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	input: CreateDeletionRequestInput
 ): Promise<Record<string, unknown>> {
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -76,7 +76,7 @@ const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {
 	rating_scheme_entry: 'rating_scheme_entries'
 };
 
-async function fetchPendingRequest(ctx: UseCaseContext, requestId: string): Promise<Record<string, unknown>> {
+async function fetchPendingRequest(ctx: WritePorts, requestId: string): Promise<Record<string, unknown>> {
 	const request = await ctx.store.findOne<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
 		id: requestId,
 		status: 'pending'
@@ -90,7 +90,7 @@ async function fetchPendingRequest(ctx: UseCaseContext, requestId: string): Prom
 }
 
 function notifyRequester(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	request: Record<string, unknown>,
 	notification: { type: string; title: string; message: string; link?: string | null }
 ): Promise<Record<string, unknown>> {
@@ -103,7 +103,7 @@ function notifyRequester(
 	});
 }
 
-export async function approveDeletionRequest(ctx: UseCaseContext, requestId: string): Promise<void> {
+export async function approveDeletionRequest(ctx: WritePorts, requestId: string): Promise<void> {
 	ctx.auth.requirePrivileged();
 
 	const request = await fetchPendingRequest(ctx, requestId);
@@ -157,7 +157,7 @@ export async function approveDeletionRequest(ctx: UseCaseContext, requestId: str
 	});
 }
 
-export async function denyDeletionRequest(ctx: UseCaseContext, requestId: string, reason?: string): Promise<void> {
+export async function denyDeletionRequest(ctx: WritePorts, requestId: string, reason?: string): Promise<void> {
 	ctx.auth.requirePrivileged();
 
 	const request = await fetchPendingRequest(ctx, requestId);
@@ -195,7 +195,7 @@ export async function denyDeletionRequest(ctx: UseCaseContext, requestId: string
 	});
 }
 
-export async function cancelDeletionRequest(ctx: UseCaseContext, requestId: string): Promise<void> {
+export async function cancelDeletionRequest(ctx: WritePorts, requestId: string): Promise<void> {
 	const request = await fetchPendingRequest(ctx, requestId);
 
 	if (request.requested_by !== ctx.auth.userId) {
@@ -218,7 +218,7 @@ export interface ListDeletionRequestsOptions {
 }
 
 export async function listDeletionRequests(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	options?: ListDeletionRequestsOptions
 ): Promise<Record<string, unknown>[]> {
 	const filters: Record<string, unknown> = {};

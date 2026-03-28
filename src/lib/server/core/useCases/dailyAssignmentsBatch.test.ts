@@ -1,29 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { batchDailyAssignments } from './dailyAssignmentsBatch';
 
-function buildContext(overrides?: { readOnly?: boolean; auth?: Parameters<typeof createTestAuthContext>[0] }) {
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext(overrides?.auth),
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
+	return createWritePortsContext(overrides);
 }
 
 describe('batchDailyAssignments', () => {

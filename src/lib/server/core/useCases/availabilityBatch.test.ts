@@ -1,40 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { createAvailabilityBatch, deleteAvailabilityBatch } from './availabilityBatch';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-};
-
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
-	const auditPort = createTestAuditPort();
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext(overrides?.auth),
-		audit: auditPort,
-		auditPort,
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
+	return createWritePortsContext(overrides);
 }
 
 describe('createAvailabilityBatch', () => {
@@ -73,8 +42,8 @@ describe('createAvailabilityBatch', () => {
 		expect(stored).toHaveLength(2);
 
 		// Audit logged with count
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'availability.bulk_created',
 			resourceType: 'availability',
 			details: { count: 2 }
@@ -128,7 +97,7 @@ describe('createAvailabilityBatch', () => {
 });
 
 describe('deleteAvailabilityBatch', () => {
-	function seedEntries(ctx: TestContext) {
+	function seedEntries(ctx: ReturnType<typeof buildContext>) {
 		ctx.store.seed('availability_entries', [
 			{
 				id: 'e-1',
@@ -169,8 +138,8 @@ describe('deleteAvailabilityBatch', () => {
 		const remaining = await ctx.store.findMany('availability_entries', 'test-org');
 		expect(remaining).toHaveLength(1);
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'availability.bulk_deleted',
 			resourceType: 'availability',
 			details: { count: 2 }

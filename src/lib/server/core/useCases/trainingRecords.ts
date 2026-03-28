@@ -1,7 +1,7 @@
 import { fail } from '$lib/server/core/errors';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
@@ -18,7 +18,7 @@ interface TrainingTypeRow {
 	expiration_date_only: boolean;
 }
 
-export async function createTrainingRecord(ctx: UseCaseContext, input: Record<string, unknown>): Promise<unknown> {
+export async function createTrainingRecord(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
 	ctx.auth.requireEdit('training');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -77,7 +77,7 @@ export async function createTrainingRecord(ctx: UseCaseContext, input: Record<st
 }
 
 export async function deleteTrainingRecord(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	id: string
 ): Promise<{ requiresApproval: boolean } | void> {
 	ctx.auth.requireEdit('training');

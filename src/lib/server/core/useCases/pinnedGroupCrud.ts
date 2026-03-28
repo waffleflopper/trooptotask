@@ -1,8 +1,8 @@
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { UserWritePorts } from '$lib/server/core/ports';
 
 const TABLE = 'user_pinned_groups';
 
-function isSandbox(ctx: UseCaseContext): boolean {
+function isSandbox(ctx: UserWritePorts): boolean {
 	return ctx.auth.userId === null;
 }
 
@@ -13,12 +13,12 @@ export interface PinnedGroupResult {
 }
 
 export interface PinnedGroupUseCases {
-	replace(ctx: UseCaseContext, groups: string[]): Promise<{ success: true; groups: string[] }>;
+	replace(ctx: UserWritePorts, groups: string[]): Promise<{ success: true; groups: string[] }>;
 	pin(
-		ctx: UseCaseContext,
+		ctx: UserWritePorts,
 		data: { groupName: string; sortOrder?: number }
 	): Promise<{ success: true } | PinnedGroupResult>;
-	unpin(ctx: UseCaseContext, groupName: string): Promise<{ success: true }>;
+	unpin(ctx: UserWritePorts, groupName: string): Promise<{ success: true }>;
 }
 
 export function createPinnedGroupUseCases(): PinnedGroupUseCases {

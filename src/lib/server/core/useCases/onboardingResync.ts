@@ -1,5 +1,5 @@
 import { fail } from '$lib/server/core/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 
 interface StepProgressRow {
 	id: string;
@@ -64,7 +64,7 @@ function mapToResult(row: StepProgressRow): ResyncStepResult {
 	};
 }
 
-async function performDiff(ctx: UseCaseContext, onboardingId: string, templateId: string): Promise<ResyncStepResult[]> {
+async function performDiff(ctx: WritePorts, onboardingId: string, templateId: string): Promise<ResyncStepResult[]> {
 	// Fetch current template steps
 	const templateSteps = await ctx.store.findMany<TemplateStepRow>(
 		'onboarding_template_steps',
@@ -161,7 +161,7 @@ async function performDiff(ctx: UseCaseContext, onboardingId: string, templateId
 	return results;
 }
 
-export async function resyncOnboarding(ctx: UseCaseContext, onboardingId: string): Promise<ResyncResult> {
+export async function resyncOnboarding(ctx: WritePorts, onboardingId: string): Promise<ResyncResult> {
 	ctx.auth.requireFullEditor();
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -212,7 +212,7 @@ interface SwitchResult extends ResyncResult {
 	templateId: string;
 }
 
-export async function switchTemplate(ctx: UseCaseContext, input: SwitchTemplateInput): Promise<SwitchResult> {
+export async function switchTemplate(ctx: WritePorts, input: SwitchTemplateInput): Promise<SwitchResult> {
 	ctx.auth.requireFullEditor();
 
 	const isReadOnly = await ctx.readOnlyGuard.check();

@@ -2,7 +2,7 @@ import { fail } from '$lib/server/core/errors';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { ALL_RANKS } from '$lib/types';
 import { sanitizeString } from '$lib/server/validation';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -33,7 +33,7 @@ interface BatchResult {
 	errors: BatchError[];
 }
 
-export async function importPersonnelBatch(ctx: UseCaseContext, input: BatchInput): Promise<BatchResult> {
+export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, input: BatchInput): Promise<BatchResult> {
 	ctx.auth.requireEdit('personnel');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();

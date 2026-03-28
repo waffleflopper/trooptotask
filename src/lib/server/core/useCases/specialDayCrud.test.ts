@@ -1,46 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { createCrudUseCases } from './crud';
 import { specialDayCrudConfig, createResetFederalHolidaysUseCase } from './specialDayCrud';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
-
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext(overrides?.auth);
-	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
-
-	const subscription = createTestSubscriptionPort();
-	return {
-		store,
-		rawStore: store,
-		auth,
-		audit: auditPort,
-		readOnlyGuard,
-		subscription,
-		auditPort,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
+	return createWritePortsContext(overrides);
 }
 
 describe('SpecialDay CRUD use case', () => {
@@ -55,7 +19,7 @@ describe('SpecialDay CRUD use case', () => {
 		})) as { name: string; date: string };
 
 		expect(result).toMatchObject({ name: 'Christmas', date: '2026-12-25' });
-		expect(ctx.auditPort.events[0].action).toBe('special_day.created');
+		expect(ctx.audit.events[0].action).toBe('special_day.created');
 	});
 
 	it('deletes a special day and audits', async () => {
@@ -75,7 +39,7 @@ describe('SpecialDay CRUD use case', () => {
 
 		const stored = await ctx.store.findOne('special_days', 'test-org', { id: 'sd-1' });
 		expect(stored).toBeNull();
-		expect(ctx.auditPort.events[0].action).toBe('special_day.deleted');
+		expect(ctx.audit.events[0].action).toBe('special_day.deleted');
 	});
 });
 
@@ -121,7 +85,7 @@ describe('resetFederalHolidays use case', () => {
 		expect(result.length).toBeGreaterThan(holidays.length); // holidays + org-closure
 
 		// Should audit the reset
-		expect(ctx.auditPort.events[0].action).toBe('special_day.federal_holidays_reset');
+		expect(ctx.audit.events[0].action).toBe('special_day.federal_holidays_reset');
 	});
 
 	it('rejects when read-only', async () => {

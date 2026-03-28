@@ -1,6 +1,6 @@
 import { fail } from '$lib/server/core/errors';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 
 const entity = AvailabilityEntryEntity;
 const AUDIT_RESOURCE = 'availability';
@@ -17,7 +17,7 @@ interface CreateAvailabilityBatchInput {
 }
 
 export async function createAvailabilityBatch(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	input: CreateAvailabilityBatchInput
 ): Promise<{ inserted: unknown[] }> {
 	ctx.auth.requireEdit('calendar');
@@ -57,7 +57,7 @@ interface DeleteAvailabilityBatchInput {
 }
 
 export async function deleteAvailabilityBatch(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	input: DeleteAvailabilityBatchInput
 ): Promise<{ deleted: number }> {
 	ctx.auth.requireEdit('calendar');

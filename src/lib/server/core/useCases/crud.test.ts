@@ -1,17 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext, WritePorts } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import type { WritePorts } from '$lib/server/core/ports';
 import { createCrudUseCases } from './crud';
 
 // Minimal test entity — like a simplified training record
@@ -31,34 +22,8 @@ const TestEntity = defineEntity<TestRecord>({
 	}
 });
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
-
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext(overrides?.auth);
-	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
-
-	const subscription = createTestSubscriptionPort();
-	return {
-		store,
-		rawStore: store,
-		auth,
-		audit: auditPort,
-		readOnlyGuard,
-		subscription,
-		auditPort,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
+	return createWritePortsContext(overrides);
 }
 
 const crudConfig = {
@@ -82,8 +47,8 @@ describe('createCrudUseCases', () => {
 			expect(stored).not.toBeNull();
 
 			// Verify audit was logged
-			expect(ctx.auditPort.events).toHaveLength(1);
-			expect(ctx.auditPort.events[0]).toMatchObject({
+			expect(ctx.audit.events).toHaveLength(1);
+			expect(ctx.audit.events[0]).toMatchObject({
 				action: 'test_record.created',
 				resourceType: 'test_record'
 			});
@@ -159,8 +124,8 @@ describe('createCrudUseCases', () => {
 			const result = await update(ctx, { id: 'tr-1', notes: 'updated' });
 			expect(result).toMatchObject({ notes: 'updated' });
 
-			expect(ctx.auditPort.events).toHaveLength(1);
-			expect(ctx.auditPort.events[0]).toMatchObject({
+			expect(ctx.audit.events).toHaveLength(1);
+			expect(ctx.audit.events[0]).toMatchObject({
 				action: 'test_record.updated',
 				resourceType: 'test_record',
 				resourceId: 'tr-1'
@@ -225,8 +190,8 @@ describe('createCrudUseCases', () => {
 			const stored = await ctx.store.findOne('test_records', 'test-org', { id: 'tr-1' });
 			expect(stored).toBeNull();
 
-			expect(ctx.auditPort.events).toHaveLength(1);
-			expect(ctx.auditPort.events[0]).toMatchObject({
+			expect(ctx.audit.events).toHaveLength(1);
+			expect(ctx.audit.events[0]).toMatchObject({
 				action: 'test_record.deleted',
 				resourceType: 'test_record',
 				resourceId: 'tr-1'
@@ -384,7 +349,7 @@ describe('createCrudUseCases', () => {
 					});
 					expect(record).toBeNull();
 					// Verify audit already logged
-					expect(ctx.auditPort.events).toHaveLength(1);
+					expect(ctx.audit.events).toHaveLength(1);
 				}
 			};
 

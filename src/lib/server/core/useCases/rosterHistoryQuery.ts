@@ -1,8 +1,8 @@
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { QueryPorts } from '$lib/server/core/ports';
 import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';
 import { RosterHistoryEntity } from '$lib/server/entities/rosterHistory';
 
-export async function fetchRosterHistory(ctx: UseCaseContext): Promise<RosterHistoryItem[]> {
+export async function fetchRosterHistory(ctx: QueryPorts): Promise<RosterHistoryItem[]> {
 	ctx.auth.requireView('calendar');
 
 	const orgId = ctx.auth.orgId;

@@ -1,37 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import { fetchAuditLogs } from './auditLogQuery';
 
 const ORG = 'test-org';
 
-function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): UseCaseContext {
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext({ orgId: ORG, role: 'admin', isPrivileged: true, ...overrides?.auth }),
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
-}
-
 describe('fetchAuditLogs', () => {
 	it('returns audit logs from adminStore scoped to orgId', async () => {
-		const ctx = buildCtx();
+		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
 		adminStore.seed('audit_logs', [
@@ -56,7 +31,7 @@ describe('fetchAuditLogs', () => {
 	});
 
 	it('excludes site-wide auth actions', async () => {
-		const ctx = buildCtx();
+		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
 		adminStore.seed('audit_logs', [
@@ -91,7 +66,7 @@ describe('fetchAuditLogs', () => {
 	});
 
 	it('filters by action when provided', async () => {
-		const ctx = buildCtx();
+		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
 		adminStore.seed('audit_logs', [
@@ -126,7 +101,7 @@ describe('fetchAuditLogs', () => {
 	});
 
 	it('returns available actions for filter dropdown', async () => {
-		const ctx = buildCtx();
+		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
 		adminStore.seed('audit_logs', [

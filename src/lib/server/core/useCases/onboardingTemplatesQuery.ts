@@ -1,8 +1,8 @@
-import type { UseCaseContext } from '../ports';
+import type { QueryPorts } from '../ports';
 import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
 import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
 
-export async function fetchOnboardingTemplatesData(ctx: UseCaseContext) {
+export async function fetchOnboardingTemplatesData(ctx: QueryPorts) {
 	const orgId = ctx.auth.orgId;
 
 	const [rawTemplates, rawSteps] = await Promise.all([

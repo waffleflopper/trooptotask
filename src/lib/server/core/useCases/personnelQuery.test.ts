@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import { queryPersonnel, countPersonnel, queryPersonnelRaw } from './personnelQuery';
 
 const ORG = 'test-org';
 
-function seedPersonnel(ctx: ReturnType<typeof createTestContext>, rows: Record<string, unknown>[]) {
+function seedPersonnel(ctx: ReturnType<typeof createQueryPortsContext>, rows: Record<string, unknown>[]) {
 	ctx.store.seed(
 		'personnel',
 		rows.map((r) => ({ organization_id: ORG, archived_at: null, ...r }))
@@ -13,7 +13,7 @@ function seedPersonnel(ctx: ReturnType<typeof createTestContext>, rows: Record<s
 
 describe('queryPersonnel', () => {
 	it('returns active personnel sorted by last_name', async () => {
-		const ctx = createTestContext();
+		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{ id: 'p1', last_name: 'Zulu', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
 			{
@@ -45,7 +45,7 @@ describe('queryPersonnel', () => {
 	});
 
 	it('returns only archived personnel when archived: true', async () => {
-		const ctx = createTestContext();
+		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{ id: 'p1', last_name: 'Active', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
 			{
@@ -67,7 +67,7 @@ describe('queryPersonnel', () => {
 	});
 
 	it('returns all personnel when archived: all', async () => {
-		const ctx = createTestContext();
+		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{ id: 'p1', last_name: 'Active', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
 			{
@@ -90,7 +90,7 @@ describe('queryPersonnel', () => {
 
 describe('countPersonnel', () => {
 	it('returns count of active personnel without data', async () => {
-		const ctx = createTestContext();
+		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{ id: 'p1', last_name: 'A', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
 			{ id: 'p2', last_name: 'B', first_name: 'B', rank: 'CPT', clinic_role: 'provider', mos: '61H', group_id: null },
@@ -114,7 +114,7 @@ describe('countPersonnel', () => {
 
 describe('queryPersonnel filters and pagination', () => {
 	it('applies filters to narrow results', async () => {
-		const ctx = createTestContext();
+		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{ id: 'p1', last_name: 'Smith', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
 			{
@@ -135,7 +135,7 @@ describe('queryPersonnel filters and pagination', () => {
 	});
 
 	it('applies pagination via range', async () => {
-		const ctx = createTestContext();
+		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{ id: 'p1', last_name: 'A', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
 			{ id: 'p2', last_name: 'B', first_name: 'B', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
@@ -149,7 +149,7 @@ describe('queryPersonnel filters and pagination', () => {
 	});
 
 	it('applies custom orderBy', async () => {
-		const ctx = createTestContext();
+		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{ id: 'p1', last_name: 'A', first_name: 'Z', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null },
 			{ id: 'p2', last_name: 'B', first_name: 'A', rank: 'SGT', clinic_role: 'medic', mos: '68W', group_id: null }
@@ -166,7 +166,7 @@ describe('queryPersonnel filters and pagination', () => {
 
 describe('queryPersonnelRaw', () => {
 	it('returns untransformed rows', async () => {
-		const ctx = createTestContext();
+		const ctx = createQueryPortsContext();
 		seedPersonnel(ctx, [
 			{
 				id: 'p1',

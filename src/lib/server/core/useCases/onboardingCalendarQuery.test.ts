@@ -1,30 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { getActiveOnboardingPersonnelIds } from './onboardingCalendarQuery';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '../../adapters/inMemory';
-import type { UseCaseContext } from '../ports';
+import { createInMemoryDataStore, createQueryPortsContext } from '../../adapters/inMemory';
+import type { QueryPorts } from '../ports';
 
-function makeCtx(overrides?: { store?: ReturnType<typeof createInMemoryDataStore> }): UseCaseContext {
-	const store = overrides?.store ?? createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext(),
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function makeCtx(overrides?: { store?: ReturnType<typeof createInMemoryDataStore> }): QueryPorts & {
+	store: ReturnType<typeof createInMemoryDataStore>;
+} {
+	const ctx = createQueryPortsContext();
+	if (overrides?.store) {
+		return { ...ctx, store: overrides.store };
+	}
+	return ctx;
 }
 
 describe('getActiveOnboardingPersonnelIds', () => {

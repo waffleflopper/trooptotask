@@ -1,31 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
+import { createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import { fetchRosterHistory } from './rosterHistoryQuery';
 
 const ORG = 'test-org';
 
-function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext({ orgId: ORG, ...overrides?.auth }),
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildCtx() {
+	return createQueryPortsContext();
 }
 
 describe('fetchRosterHistory', () => {

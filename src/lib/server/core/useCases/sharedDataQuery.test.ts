@@ -2,12 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
 	createInMemoryDataStore,
 	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
+	createQueryWithRawStorePortsContext
 } from '$lib/server/adapters/inMemory';
 import { createScopedDataStore } from '$lib/server/adapters/scopedDataStore';
 import type { GroupScopeRule } from '$lib/server/core/ports';
@@ -15,21 +10,8 @@ import { fetchSharedData } from './sharedDataQuery';
 
 const ORG = 'test-org';
 
-function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
-	const store = createInMemoryDataStore();
-	const auditPort = createTestAuditPort();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext({ orgId: ORG, ...overrides?.auth }),
-		audit: auditPort,
-		auditPort,
-		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildCtx() {
+	return createQueryWithRawStorePortsContext();
 }
 
 function seedPersonnel(store: ReturnType<typeof createInMemoryDataStore>) {
@@ -200,13 +182,7 @@ describe('fetchSharedData', () => {
 				role: 'member',
 				isPrivileged: false,
 				scopedGroupId: 'g1'
-			}),
-			audit: createTestAuditPort(),
-			readOnlyGuard: createTestReadOnlyGuard(),
-			subscription: createTestSubscriptionPort(),
-			notifications: createTestNotificationPort(),
-			billing: createTestBillingPort(),
-			storage: createTestStoragePort()
+			})
 		};
 
 		const result = await fetchSharedData(ctx);

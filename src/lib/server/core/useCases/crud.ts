@@ -4,6 +4,12 @@ import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { FeatureArea } from '$lib/server/core/ports';
 import type { z } from 'zod';
 
+/**
+ * @deprecated Use `entityHandlers(entity, hooks?)` from `httpAdapter.ts` instead.
+ * This type exists only as a low-level escape hatch for mixed-action routes and
+ * use-case tests that need to exercise `createCrudUseCases()` directly. Do not
+ * introduce new route wiring with `CrudConfig`; prefer entity-driven handlers.
+ */
 export interface CrudConfig {
 	entity: EntityDefinition;
 	permission: FeatureArea;

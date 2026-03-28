@@ -1,5 +1,5 @@
 import { fail } from '$lib/server/core/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { FeatureArea } from '$lib/server/core/ports';
 import type { z } from 'zod';
@@ -9,14 +9,14 @@ export interface CrudConfig {
 	permission: FeatureArea;
 	auditResource: string;
 	requireFullEditor?: boolean;
-	beforeDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
-	afterDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
+	beforeDelete?: (ctx: WritePorts, id: string) => Promise<void>;
+	afterDelete?: (ctx: WritePorts, id: string) => Promise<void>;
 }
 
 export interface CrudUseCases {
-	create(ctx: UseCaseContext, data: Record<string, unknown>): Promise<unknown>;
-	update(ctx: UseCaseContext, data: Record<string, unknown>): Promise<unknown>;
-	remove(ctx: UseCaseContext, id: string): Promise<void>;
+	create(ctx: WritePorts, data: Record<string, unknown>): Promise<unknown>;
+	update(ctx: WritePorts, data: Record<string, unknown>): Promise<unknown>;
+	remove(ctx: WritePorts, id: string): Promise<void>;
 }
 
 function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T {

@@ -11,7 +11,7 @@ import {
 	createTestBillingPort,
 	createTestStoragePort
 } from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { UseCaseContext, WritePorts } from '$lib/server/core/ports';
 import { createCrudUseCases } from './crud';
 
 // Minimal test entity — like a simplified training record
@@ -346,7 +346,7 @@ describe('createCrudUseCases', () => {
 
 			const configWithHook = {
 				...crudConfig,
-				beforeDelete: async (hookCtx: UseCaseContext, id: string) => {
+				beforeDelete: async (hookCtx: WritePorts, id: string) => {
 					callOrder.push('beforeDelete');
 					await hookCtx.store.deleteWhere('related_items', hookCtx.auth.orgId, {
 						test_record_id: id
@@ -376,7 +376,7 @@ describe('createCrudUseCases', () => {
 			let afterDeleteCalled = false;
 			const configWithHook = {
 				...crudConfig,
-				afterDelete: async (hookCtx: UseCaseContext, deletedId: string) => {
+				afterDelete: async (hookCtx: WritePorts, deletedId: string) => {
 					afterDeleteCalled = true;
 					// Verify record is already gone when afterDelete fires
 					const record = await hookCtx.store.findOne('test_records', hookCtx.auth.orgId, {

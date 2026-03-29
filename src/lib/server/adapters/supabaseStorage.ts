@@ -1,3 +1,10 @@
+/**
+ * StoragePort implementation backed by Supabase Storage.
+ * Used for file uploads/downloads within features (e.g., profile photos, attachments).
+ *
+ * Paths should always include a per-org or per-entity prefix to avoid collisions
+ * across orgs. Signed URLs expire; generate them per-request, not for long-term storage.
+ */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { StoragePort } from '../core/ports';
 

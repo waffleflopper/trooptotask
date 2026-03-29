@@ -1,3 +1,13 @@
+/**
+ * Calendar page query — fetches all data needed to render the calendar for a date range.
+ *
+ * `fetchCalendarData(ctx, { rangeStart, rangeEnd })` returns availability entries,
+ * special days, assignment types, daily assignments, and pinned groups for the given
+ * ISO-string date window. All collections are group-scoped if the caller has a
+ * `scopedGroupId` on their AuthContext.
+ *
+ * For onboarding-specific calendar data, see `onboardingCalendarQuery.ts`.
+ */
 import type { QueryPorts } from '$lib/server/core/ports';
 import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';

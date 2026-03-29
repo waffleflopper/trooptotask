@@ -1,5 +1,6 @@
 <script lang="ts">
-	import SmartToolbar, { type SmartToolbarItem } from './SmartToolbar.svelte';
+	import SmartToolbar from './SmartToolbar.svelte';
+	import type { SmartToolbarItem } from './SmartToolbar.types';
 
 	interface Props {
 		items: SmartToolbarItem[];

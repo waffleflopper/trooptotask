@@ -1,3 +1,10 @@
+/**
+ * Personnel page supplemental query — fetches data specific to the personnel page UI.
+ *
+ * Returns `pinnedGroups` (the group names pinned by this user) and `ratingSchemeEntries` (the
+ * rating level definitions for the org). This is kept separate from `personnelQuery.ts`
+ * because this data is page-specific and not needed elsewhere.
+ */
 import type { QueryPorts } from '$lib/server/core/ports';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';

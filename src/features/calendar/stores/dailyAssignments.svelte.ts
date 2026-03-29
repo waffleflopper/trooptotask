@@ -1,3 +1,18 @@
+/**
+ * Daily assignments store — assignment types and daily assignment records for the calendar.
+ *
+ * Combines two collections in one store: `types` (the named duty slots like "CQ", "SDO")
+ * and `assignments` (the actual date-assignee records). Kept together because every
+ * mutation needs both collections in scope.
+ *
+ * Key extended methods:
+ * - `setAssignment(date, assignmentTypeId, assigneeId)` — upserts one assignment
+ * - `removeAssignment(date, assignmentTypeId)` — deletes one assignment
+ * - `setAssignmentBatch(assignments[])` — bulk upsert used by the assignment planner
+ * - `getAssignmentsForDate(date)` — fast lookup for rendering a calendar row
+ *
+ * Loaded by the calendar and dashboard page load functions.
+ */
 import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import type { AssignmentType, DailyAssignment } from '$lib/types';

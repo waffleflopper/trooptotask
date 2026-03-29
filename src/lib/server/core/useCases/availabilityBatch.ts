@@ -1,3 +1,11 @@
+/**
+ * Bulk availability use case — set or clear availability for multiple personnel at once.
+ *
+ * `batchSetAvailability` inserts availability entries for the given personnel IDs
+ * within a date range, up to MAX_BATCH_SIZE (500) entries per call.
+ *
+ * For single-record availability, use the entity CRUD route (AvailabilityEntryEntity).
+ */
 import { fail } from '$lib/server/core/errors';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import type { WritePorts } from '$lib/server/core/ports';

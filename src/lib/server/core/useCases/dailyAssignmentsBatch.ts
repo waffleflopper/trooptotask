@@ -1,3 +1,11 @@
+/**
+ * Bulk daily assignment use case — import assignments across many dates at once.
+ *
+ * `batchImportAssignments` accepts up to MAX_BATCH_SIZE (1000) assignment rows and
+ * upserts them in one round-trip. Intended for duty-roster generation and CSV import.
+ *
+ * For single-day atomic replacement, see `dailyAssignments.ts` (`replaceAssignments`).
+ */
 import { fail } from '$lib/server/core/errors';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import type { WritePorts } from '$lib/server/core/ports';

@@ -1,6 +1,14 @@
-// Demo mode store - tracks whether we're in read-only demo mode
-// and provides a method to show the sandbox modal
-
+/**
+ * Demo mode store — tracks read-only demo and sandbox states.
+ *
+ * Two modes:
+ * - `isReadOnly`: the org is in demo/read-only mode. Calling `requestEdit()` shows the
+ *   sandbox upgrade modal and returns `true` to signal the caller should abort the action.
+ * - `isSandbox`: the org is a sandbox (all permissions granted but data resets). No
+ *   modal is shown; `hasBanner` drives a banner telling the user it's a sandbox.
+ *
+ * `hasBanner` is true in either mode. Load via `demoModeStore.load(isDemoReadOnly, isDemoSandbox)`.
+ */
 class DemoModeStore {
 	#isReadOnly = $state(false);
 	#isSandbox = $state(false);

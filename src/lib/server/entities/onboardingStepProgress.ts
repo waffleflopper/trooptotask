@@ -1,3 +1,10 @@
+/**
+ * Onboarding step progress entity — maps `onboarding_step_progress`.
+ * Step rows are created by `onboardingLifecycle.ts` when starting an onboarding, not
+ * via this entity's CRUD route. `active: false` marks steps removed by a template resync
+ * (see `onboardingResync.ts`) without deleting history. `notes` is a JSONB array of
+ * timestamped note objects appended via `onboardingStepProgress.ts`.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { OnboardingStepProgress } from '$features/onboarding/onboarding.types';

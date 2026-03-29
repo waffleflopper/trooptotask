@@ -1,3 +1,9 @@
+/**
+ * Onboarding template entity — maps `onboarding_templates`.
+ * Templates define the checklist structure for onboarding workflows. Steps are stored
+ * separately in `onboarding_template_steps` (see `OnboardingTemplateStepEntity`).
+ * `requireFullEditor: true` — only full editors can create/modify templates.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { OnboardingTemplate } from '$features/onboarding/onboarding.types';

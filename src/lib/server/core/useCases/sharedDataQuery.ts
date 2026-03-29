@@ -1,3 +1,14 @@
+/**
+ * Shared reference data query — fetches all lookup/reference collections in one shot.
+ *
+ * `fetchSharedData` loads the common data that many features need simultaneously:
+ * group-scoped personnel, all-personnel, groups, status types, training types, and
+ * training views. Used by layout load functions so features can receive this data
+ * via page.data rather than re-fetching individually.
+ *
+ * `allPersonnel` is unscoped (full org list) and is available even when the caller
+ * has a scopedGroupId. Use it for cross-group references like training matrix lookups.
+ */
 import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
 import type { Personnel, StatusType } from '$lib/types';
 import type { TrainingType, TrainingView } from '$features/training/training.types';

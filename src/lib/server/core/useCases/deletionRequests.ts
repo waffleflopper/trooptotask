@@ -1,3 +1,15 @@
+/**
+ * Deletion request use cases — two-step soft-delete workflow for personnel records.
+ *
+ * When archiving a personnel record that has related data (training records, counseling,
+ * etc.), the use case creates a `deletion_request` row and notifies admins instead of
+ * deleting immediately. An admin must then approve or reject the request.
+ *
+ * `approveDeletionRequest` soft-archives personnel rows (sets `archived_at`) or hard-deletes
+ * other resource types. `denyDeletionRequest` cancels the request and notifies the requester.
+ *
+ * Notification sends are fire-and-forget — failures don't block the mutation.
+ */
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts, WriteWithNotificationsPorts } from '$lib/server/core/ports';
 

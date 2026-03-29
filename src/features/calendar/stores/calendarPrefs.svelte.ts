@@ -1,3 +1,10 @@
+/**
+ * Calendar preferences store — per-user display settings persisted to localStorage.
+ *
+ * Currently stores `showStatusText` (whether availability status labels are shown inline
+ * on calendar cells vs. icon-only). Persisted under key `'calendar-prefs'`.
+ * Loaded automatically on construction in the browser.
+ */
 import { browser } from '$app/environment';
 
 const STORAGE_KEY = 'calendar-prefs';

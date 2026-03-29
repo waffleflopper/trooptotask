@@ -1,3 +1,11 @@
+/**
+ * Training summary query — fetches training records and pre-computes summary statistics.
+ *
+ * Returns `TrainingStats` (overall completion rate, expiring-soon count, delinquent list) in
+ * addition to the raw rows. Used by the training matrix page and the dashboard training widget.
+ *
+ * For raw records without aggregation (e.g., the reports export page), use `trainingReportsQuery.ts`.
+ */
 import type { QueryPorts } from '$lib/server/core/ports';
 import type { Personnel } from '$lib/types';
 import type { TrainingType, TrainingStatus, PersonnelTraining } from '$features/training/training.types';

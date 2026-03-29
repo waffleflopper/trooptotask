@@ -13,7 +13,7 @@ import type {
 	OnboardingTemplate
 } from '$features/onboarding/onboarding.types';
 import type { Personnel } from '$lib/types';
-import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
+import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 
 // ── Modal IDs ─────────────────────────────────────────────────
 

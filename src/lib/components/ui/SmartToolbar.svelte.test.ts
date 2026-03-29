@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/svelte';
 import SmartToolbarTest from './SmartToolbarTest.svelte';
-import { computeVisibleItemCount, type SmartToolbarItem } from './SmartToolbar.svelte';
+import { computeVisibleItemCount, type SmartToolbarItem } from './SmartToolbar.types';
 
 function renderToolbar(items: SmartToolbarItem[], opts?: { narrow?: boolean; title?: string; helpTopic?: string }) {
 	return render(SmartToolbarTest, {

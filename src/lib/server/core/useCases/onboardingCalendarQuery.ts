@@ -1,3 +1,9 @@
+/**
+ * Onboarding calendar query — minimal read used by the calendar to show onboarding indicators.
+ *
+ * Returns only the personnel IDs with active (in_progress) onboardings — nothing else.
+ * Kept separate from the full `onboardingQuery.ts` to avoid over-fetching on the calendar page.
+ */
 import type { QueryPorts } from '$lib/server/core/ports';
 
 /**

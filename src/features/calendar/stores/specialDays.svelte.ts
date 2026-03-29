@@ -1,3 +1,14 @@
+/**
+ * Special days store — federal holidays and org closures shown on the calendar.
+ *
+ * Extended methods:
+ * - `getByDate(date)` — returns the SpecialDay for a given date, or undefined
+ * - `isSpecialDay(date)` — boolean check used to render calendar cell indicators
+ * - `getByYear(year)` — all special days for a given year (for the special day manager UI)
+ * - `resetFederalHolidays()` — calls the server to delete and re-seed federal holidays
+ *
+ * Loaded by the calendar and dashboard page load functions.
+ */
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
 import { formatDate } from '$lib/utils/dates';

@@ -1,3 +1,12 @@
+/**
+ * Onboarding retention use case — auto-archives completed onboarding records after a grace period.
+ *
+ * `runOnboardingRetention(store, orgId)` is intended to be called as a background job or from a
+ * scheduled cron. It finds onboarding records that completed beyond `org.retentionMonths` and archives
+ * them, then notifies admins with a summary.
+ *
+ * This uses raw DataStore (not UseCaseContext) so it can run without a user session.
+ */
 import type { DataStore } from '$lib/server/core/ports';
 import { notifyAdminsViaStore } from './notifyAdminsHelper';
 

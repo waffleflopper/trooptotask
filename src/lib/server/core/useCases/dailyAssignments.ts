@@ -1,3 +1,12 @@
+/**
+ * Daily assignment use cases — create, update, delete, and replace assignments for a day.
+ *
+ * `replaceAssignments(ctx, input)` is the primary mutation: it atomically deletes all
+ * assignments for a given date and re-inserts the provided list. This "replace the day"
+ * pattern is how the calendar writes assignment blocks.
+ *
+ * For bulk operations across many dates, see `dailyAssignmentsBatch.ts`.
+ */
 import { fail } from '$lib/server/core/errors';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import type { WritePorts } from '$lib/server/core/ports';

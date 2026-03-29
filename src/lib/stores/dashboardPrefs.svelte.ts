@@ -1,3 +1,13 @@
+/**
+ * Dashboard preferences store — user's card visibility and order on the dashboard.
+ *
+ * Persisted to `localStorage` under key `'dashboard-prefs'`. Loaded automatically on
+ * construction in the browser. On first load, merges stored prefs with defaults so that
+ * newly added card IDs always appear (appended to the end) without wiping the user's order.
+ *
+ * `CardId` union type defines all valid dashboard widgets. Add new IDs to `defaults.cardOrder`
+ * when adding a new dashboard widget.
+ */
 import { browser } from '$app/environment';
 
 const STORAGE_KEY = 'dashboard-prefs';

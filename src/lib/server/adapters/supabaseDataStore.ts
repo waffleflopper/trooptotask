@@ -1,3 +1,12 @@
+/**
+ * Supabase implementation of the DataStore port.
+ *
+ * All reads and writes are automatically scoped to the caller's organization via an org column.
+ * Most tables use `organization_id`; exceptions (audit_logs, data_exports) use `org_id` and
+ * are handled by `getOrgColumn`.
+ *
+ * For group-scoped member access, wrap the returned store with `createScopedDataStore`.
+ */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DataStore, FindOptions, FindResult } from '../core/ports';
 
@@ -11,7 +20,17 @@ function getOrgColumn(table: string): string {
 	}
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase query builder types are complex generics
+/**
+ * Applies filtering, ordering, range and limit constraints to a Supabase query builder.
+ *
+ * Applies equality filters from `filters` and `options.filters`; `in` filters from `options.inFilters`; null checks from `options.isNull`; case-insensitive pattern matches from `options.ilikeFilters`; range comparisons from `options.rangeFilters`; ordering from `options.orderBy`; result range from `options.range`; and a row limit from `options.limit`.
+ *
+ * @param query - Supabase query builder to modify
+ * @param filters - Key/value pairs to apply as equality (`eq`) conditions
+ * @param options - Structured find options controlling additional filters, ordering, range, and limit
+ * @returns The modified Supabase query builder with the requested constraints applied
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyFindOptions(query: any, filters?: Record<string, unknown>, options?: FindOptions) {
 	if (filters) {
 		for (const [key, value] of Object.entries(filters)) {
@@ -66,6 +85,15 @@ function applyFindOptions(query: any, filters?: Record<string, unknown>, options
 	return query;
 }
 
+/**
+ * Creates a server-side DataStore adapter that uses the provided Supabase client.
+ *
+ * The adapter's methods automatically scope operations to an organization column determined by the table:
+ * `org_id` is used for `audit_logs` and `data_exports`; otherwise `organization_id` is used.
+ *
+ * @param supabase - Supabase client used to perform all database operations
+ * @returns A DataStore implementation backed by the given Supabase client
+ */
 export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 	return {
 		async findOne<T>(

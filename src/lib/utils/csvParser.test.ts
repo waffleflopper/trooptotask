@@ -2,21 +2,27 @@ import { describe, it, expect } from 'vitest';
 import { parseCSVText, parseTrainingStatus, parseDateString } from './csvParser';
 
 describe('parseCSVText', () => {
-	it('parses basic CSV', () => {
-		const result = parseCSVText('Name,Rank\nDoe,SGT\nSmith,SPC');
+	it('returns a promise (is async)', async () => {
+		const result = parseCSVText('Name,Rank\nDoe,SGT');
+		expect(result).toBeInstanceOf(Promise);
+		await result;
+	});
+
+	it('parses basic CSV', async () => {
+		const result = await parseCSVText('Name,Rank\nDoe,SGT\nSmith,SPC');
 		expect(result).toHaveLength(3);
 		expect(result[0]).toEqual(['Name', 'Rank']);
 		expect(result[1]).toEqual(['Doe', 'SGT']);
 	});
 
-	it('trims whitespace from cells', () => {
-		const result = parseCSVText('  Name , Rank \n Doe , SGT ');
+	it('trims whitespace from cells', async () => {
+		const result = await parseCSVText('  Name , Rank \n Doe , SGT ');
 		expect(result[0]).toEqual(['Name', 'Rank']);
 		expect(result[1]).toEqual(['Doe', 'SGT']);
 	});
 
-	it('filters out empty rows', () => {
-		const result = parseCSVText('Name,Rank\n\nDoe,SGT\n\n');
+	it('filters out empty rows', async () => {
+		const result = await parseCSVText('Name,Rank\n\nDoe,SGT\n\n');
 		expect(result).toHaveLength(2);
 	});
 });

@@ -80,11 +80,11 @@
 		}
 	}
 
-	function handlePaste() {
+	async function handlePaste() {
 		if (!pasteText.trim()) return;
 		parseError = '';
 		try {
-			rawRows = parseCSVText(pasteText);
+			rawRows = await parseCSVText(pasteText);
 
 			if (rawRows.length < 2) {
 				parseError = 'No data rows found in pasted text.';

@@ -39,7 +39,19 @@
 	let importText = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
 
-	const rawRows = $derived(uploadedFileName ? fileRows : importText.trim() ? parseCSVText(importText) : []);
+	let textRows = $state<string[][]>([]);
+
+	$effect(() => {
+		if (!uploadedFileName && importText.trim()) {
+			parseCSVText(importText).then((rows) => {
+				textRows = rows;
+			});
+		} else {
+			textRows = [];
+		}
+	});
+
+	const rawRows = $derived(uploadedFileName ? fileRows : textRows);
 
 	const dataRowCount = $derived(
 		rawRows.length > 0 && detectHeaderRow(rawRows[0], PERSONNEL_COLUMNS) ? rawRows.length - 1 : rawRows.length

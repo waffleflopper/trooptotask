@@ -1,7 +1,6 @@
 import type { Personnel, AvailabilityEntry, StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
-import { jsPDF } from 'jspdf';
-import autoTable, { type RowInput } from 'jspdf-autotable';
+import type { RowInput } from 'jspdf-autotable';
 
 interface GroupData {
 	group: string;
@@ -380,7 +379,7 @@ function buildCalendarTable(
 /**
  * Generate PDF for month calendar using jsPDF
  */
-export function printMonthCalendar(year: number, month: number, options: ExportOptions): void {
+export async function printMonthCalendar(year: number, month: number, options: ExportOptions): Promise<void> {
 	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
 	const dates = getMonthDates(year, month);
 	const monthName = getMonthName(month);
@@ -396,6 +395,8 @@ export function printMonthCalendar(year: number, month: number, options: ExportO
 		false
 	);
 
+	const { jsPDF } = await import('jspdf');
+	const { default: autoTable } = await import('jspdf-autotable');
 	const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
 	const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -464,7 +465,7 @@ export function printMonthCalendar(year: number, month: number, options: ExportO
 /**
  * Generate PDF for 3-month calendar view using jsPDF
  */
-export function printQuarterCalendar(startDate: Date, options: ExportOptions): void {
+export async function printQuarterCalendar(startDate: Date, options: ExportOptions): Promise<void> {
 	const { personnelByGroup, availabilityEntries, statusTypes, specialDays, assignmentTypes, assignments } = options;
 
 	const months: MonthData[] = [];
@@ -492,6 +493,8 @@ export function printQuarterCalendar(startDate: Date, options: ExportOptions): v
 		true
 	);
 
+	const { jsPDF } = await import('jspdf');
+	const { default: autoTable } = await import('jspdf-autotable');
 	const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
 	const pageWidth = doc.internal.pageSize.getWidth();
 

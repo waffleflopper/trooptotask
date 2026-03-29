@@ -3,8 +3,7 @@
 	import type { SignInRoster } from '../sign-in-rosters.types';
 	import { ARMY_RANKS, ALL_RANKS } from '$lib/types';
 	import { RANK_ORDER } from '$features/personnel/utils/personnelGrouping';
-	import { jsPDF } from 'jspdf';
-	import autoTable, { type RowInput } from 'jspdf-autotable';
+	import type { RowInput } from 'jspdf-autotable';
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -154,7 +153,7 @@
 	}
 
 	// PDF generation using jsPDF
-	function generatePDF(config: {
+	async function generatePDF(config: {
 		title: string;
 		rosterDate: string | null;
 		blankDate: boolean;
@@ -162,6 +161,8 @@
 		sortBy: string;
 		personnelSnapshot: { rank: string; lastName: string; firstName: string; group: string }[];
 	}) {
+		const { jsPDF } = await import('jspdf');
+		const { default: autoTable } = await import('jspdf-autotable');
 		const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
 		const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -262,11 +263,9 @@
 			personnelSnapshot: snapshot
 		};
 
-		// Generate PDF first
-		generatePDF(config);
-
-		// Save to API
 		try {
+			// Generate PDF first
+			await generatePDF(config);
 			const res = await fetch(`/org/${orgId}/api/sign-in-rosters`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -296,15 +295,19 @@
 	}
 
 	// Re-print from saved roster
-	function reprintRoster(roster: SignInRoster) {
-		generatePDF({
-			title: roster.title,
-			rosterDate: roster.rosterDate,
-			blankDate: roster.blankDate,
-			separateByGroup: roster.separateByGroup,
-			sortBy: roster.sortBy,
-			personnelSnapshot: roster.personnelSnapshot
-		});
+	async function reprintRoster(roster: SignInRoster) {
+		try {
+			await generatePDF({
+				title: roster.title,
+				rosterDate: roster.rosterDate,
+				blankDate: roster.blankDate,
+				separateByGroup: roster.separateByGroup,
+				sortBy: roster.sortBy,
+				personnelSnapshot: roster.personnelSnapshot
+			});
+		} catch (err) {
+			alert(err instanceof Error ? err.message : 'Failed to generate PDF');
+		}
 	}
 
 	// Upload signed scan

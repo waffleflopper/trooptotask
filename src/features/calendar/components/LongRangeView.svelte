@@ -106,15 +106,19 @@
 		});
 	}
 
-	function handleExportPDF() {
-		printQuarterCalendar(viewStartDate, {
-			personnelByGroup,
-			availabilityEntries,
-			statusTypes,
-			specialDays,
-			assignmentTypes,
-			assignments
-		});
+	async function handleExportPDF() {
+		try {
+			await printQuarterCalendar(viewStartDate, {
+				personnelByGroup,
+				availabilityEntries,
+				statusTypes,
+				specialDays,
+				assignmentTypes,
+				assignments
+			});
+		} catch (err) {
+			alert(err instanceof Error ? err.message : 'PDF export failed');
+		}
 	}
 </script>
 

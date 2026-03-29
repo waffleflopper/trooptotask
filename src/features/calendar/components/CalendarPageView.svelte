@@ -51,7 +51,13 @@
 			onToggleBreakdown: () => ctx.toggleBreakdown(),
 			onToggleStatusText: () => calendarPrefsStore.toggleShowStatusText(),
 			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
-			onExportPDF: () => printMonthCalendar(calendarStore.year, calendarStore.month, getExportData())
+			onExportPDF: async () => {
+				try {
+					await printMonthCalendar(calendarStore.year, calendarStore.month, getExportData());
+				} catch (err) {
+					alert(err instanceof Error ? err.message : 'PDF export failed');
+				}
+			}
 		})
 	);
 </script>

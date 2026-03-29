@@ -25,6 +25,7 @@
 
 	let { ctx, allPersonnel, permissions }: Props = $props();
 
+	let exportLoading = $state(false);
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 
 	const ratingStats = $derived.by(() => {
@@ -271,9 +272,19 @@
 				{/if}
 				<button
 					class="btn btn-sm btn-secondary"
-					onclick={() => exportRatingScheme(ctx.filteredRatingEntries, personnelStore.items)}
+					disabled={exportLoading}
+					onclick={async () => {
+						exportLoading = true;
+						try {
+							await exportRatingScheme(ctx.filteredRatingEntries, personnelStore.items);
+						} catch (err) {
+							alert(err instanceof Error ? err.message : 'Export failed');
+						} finally {
+							exportLoading = false;
+						}
+					}}
 				>
-					Export
+					{exportLoading ? 'Exporting…' : 'Export'}
 				</button>
 				<div class="spacer"></div>
 				<select class="select rating-filter" bind:value={ctx.evalTypeFilter}>

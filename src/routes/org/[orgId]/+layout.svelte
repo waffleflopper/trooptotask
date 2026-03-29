@@ -13,13 +13,10 @@
 	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
 	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
 	import BannerStack from '$lib/components/BannerStack.svelte';
-	import DemoBanner from '$lib/components/DemoBanner.svelte';
 	import SubscriptionBanner from '$lib/components/SubscriptionBanner.svelte';
 	import DemoSandboxModal from '$lib/components/DemoSandboxModal.svelte';
 	import TopHeader from '$lib/components/TopHeader.svelte';
 	import BottomTabBar from '$lib/components/BottomTabBar.svelte';
-	import FeedbackModal from '$lib/components/FeedbackModal.svelte';
-	import WhatsNewModal from '$lib/components/WhatsNewModal.svelte';
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 	import { changelog } from '$lib/data/changelog';
 	import { browser } from '$app/environment';
@@ -125,7 +122,11 @@
 {:else}
 	<NavigationProgress />
 	<BannerStack>
-		<DemoBanner />
+		{#if demoModeStore.hasBanner}
+			{#await import('$lib/components/DemoBanner.svelte') then { default: DemoBanner }}
+				<DemoBanner />
+			{/await}
+		{/if}
 		<SubscriptionBanner orgId={data.orgId} />
 		{#if data.activeAnnouncements?.length}
 			<AnnouncementBanner announcements={data.activeAnnouncements} onCountChange={(n) => (announcementCount = n)} />
@@ -168,12 +169,14 @@
 	{/if}
 
 	{#if showFeedback}
-		<FeedbackModal
-			onClose={() => (showFeedback = false)}
-			orgId={data.orgId}
-			orgName={data.orgName}
-			pageUrl={$page.url.pathname}
-		/>
+		{#await import('$lib/components/FeedbackModal.svelte') then { default: FeedbackModal }}
+			<FeedbackModal
+				onClose={() => (showFeedback = false)}
+				orgId={data.orgId}
+				orgName={data.orgName}
+				pageUrl={$page.url.pathname}
+			/>
+		{/await}
 	{/if}
 
 	{#if demoModeStore.showSandboxModal}
@@ -181,7 +184,9 @@
 	{/if}
 
 	{#if whatsNewStore.open}
-		<WhatsNewModal onClose={closeWhatsNew} />
+		{#await import('$lib/components/WhatsNewModal.svelte') then { default: WhatsNewModal }}
+			<WhatsNewModal onClose={closeWhatsNew} />
+		{/await}
 	{/if}
 {/if}
 

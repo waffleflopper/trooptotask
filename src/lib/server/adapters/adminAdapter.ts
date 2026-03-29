@@ -1,3 +1,18 @@
+/**
+ * Admin route adapter — the platform-admin equivalent of httpAdapter.ts.
+ *
+ * Provides three wrappers for admin-side SvelteKit routes:
+ * - `loadWithAdminContext` — for +page.server.ts load functions
+ * - `adminAction` — for +page.server.ts form actions
+ * - `adminHandle` — for +server.ts API route handlers
+ *
+ * All three verify the caller is a platform admin (via `getAdminRole`) before
+ * executing the handler. Each also has a testable "core" variant that accepts
+ * a pre-built AdminContext, allowing unit tests without SvelteKit.
+ *
+ * AdminContext is the admin equivalent of UseCaseContext — use it instead of
+ * UseCaseContext in admin routes.
+ */
 import { json, error, redirect, fail } from '@sveltejs/kit';
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 import { canAccessPage, getAdminRole, type AdminRole } from '$lib/server/admin';

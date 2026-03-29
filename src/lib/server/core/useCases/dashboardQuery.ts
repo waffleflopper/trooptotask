@@ -1,3 +1,13 @@
+/**
+ * Dashboard query use case — fetches all data needed to render the dashboard widgets.
+ *
+ * Returns availability entries, daily assignments, assignment types, pinned groups,
+ * rating scheme entries, and active onboarding records for a given date window.
+ * All collections are group-scoped when the caller has a `scopedGroupId`.
+ *
+ * Separate from `calendarQuery.ts` because the dashboard shows different widgets and
+ * includes data (onboarding, rating scheme) the calendar page doesn't need.
+ */
 import type { QueryPorts } from '$lib/server/core/ports';
 import type { AvailabilityEntry, AssignmentType, DailyAssignment } from '$lib/types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';

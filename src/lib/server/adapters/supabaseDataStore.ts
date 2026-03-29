@@ -1,3 +1,12 @@
+/**
+ * Supabase implementation of the DataStore port.
+ *
+ * All reads and writes are automatically scoped to the caller's organization via an org column.
+ * Most tables use `organization_id`; exceptions (audit_logs, data_exports) use `org_id` and
+ * are handled by `getOrgColumn`.
+ *
+ * For group-scoped member access, wrap the returned store with `createScopedDataStore`.
+ */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DataStore, FindOptions, FindResult } from '../core/ports';
 
@@ -66,6 +75,7 @@ function applyFindOptions(query: any, filters?: Record<string, unknown>, options
 	return query;
 }
 
+/** Creates a DataStore backed by the given Supabase client (server-side only). */
 export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 	return {
 		async findOne<T>(

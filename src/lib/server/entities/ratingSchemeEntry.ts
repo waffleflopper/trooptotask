@@ -1,3 +1,9 @@
+/**
+ * Rating scheme entry entity — maps `rating_scheme_entries` (OER/NCOER/WOER evaluation records).
+ * Group-scoped via `rated_person_id`. The many optional rater fields (raterPersonId,
+ * seniorRaterPersonId, etc.) all default to null and can reference other personnel IDs.
+ * Writes go through `ratingSchemeEntryCrud.ts` use case which notifies admins on change.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';

@@ -1,3 +1,11 @@
+/**
+ * Bulk training record import — upserts up to MAX_BATCH_SIZE (500) records at once.
+ *
+ * Used by the CSV bulk-import flow in the training feature. Reuses `calculateExpirationDate`
+ * from `trainingRecords.ts` so expiration logic stays in one place.
+ *
+ * For single-record mutations, see `trainingRecords.ts`.
+ */
 import { fail } from '$lib/server/core/errors';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { calculateExpirationDate } from './trainingRecords';

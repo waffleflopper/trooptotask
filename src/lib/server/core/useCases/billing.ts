@@ -1,3 +1,13 @@
+/**
+ * Billing use cases — checkout, customer portal, and subscription lifecycle.
+ *
+ * All functions require `BillingPorts` (auth + billing). They guard against unauthorized
+ * access at the use-case level and delegate to the BillingPort adapter (Stripe in prod).
+ *
+ * These use cases are only reachable when PUBLIC_BILLING_ENABLED is set; the billing
+ * routes guard that at the route level. Tests use the in-memory BillingPort from
+ * `inMemory.ts`.
+ */
 import type { AuthContext, BillingPort } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 

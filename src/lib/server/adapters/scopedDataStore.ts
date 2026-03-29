@@ -1,3 +1,14 @@
+/**
+ * Group-scoped DataStore wrapper.
+ *
+ * Wraps a DataStore so that reads are filtered to rows belonging to a specific group's
+ * personnel. The column mapping (table → group/personnel column) lives in `scopeRules.ts`.
+ *
+ * When `scopedGroupId` is null (admin/owner context), the inner store is returned as-is
+ * with zero overhead — route code never needs to branch on role.
+ *
+ * Writes are not intercepted. Enforce write authorization at the use-case level.
+ */
 import type { DataStore, FindOptions, FindResult, GroupScopeRule } from '$lib/server/core/ports';
 
 /**

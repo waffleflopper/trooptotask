@@ -1,3 +1,13 @@
+/**
+ * Personnel write use cases — create, update, archive.
+ *
+ * Personnel operations require `WriteWithSubscriptionPorts` because create checks seat
+ * limits against the org's subscription tier. Archive triggers a deletion request
+ * workflow if the personnel record has related data (returns `{ requiresApproval: true }`).
+ *
+ * For bulk import, see `personnelBatch.ts`. For queries, see `personnelQuery.ts`
+ * and `personnelPageQuery.ts`.
+ */
 import { fail } from '$lib/server/core/errors';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';

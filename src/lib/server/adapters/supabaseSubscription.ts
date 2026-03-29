@@ -1,3 +1,11 @@
+/**
+ * SubscriptionPort implementation backed by Supabase.
+ * Wraps `src/lib/server/subscription.ts` for use in UseCaseContext.
+ * Handles personnel seat limits, tier lookups, and monthly export quotas.
+ *
+ * Results are cached by org — call `invalidateTierCache()` after any action
+ * that changes the personnel count (e.g., add/delete personnel).
+ */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SubscriptionPort } from '$lib/server/core/ports';
 import {

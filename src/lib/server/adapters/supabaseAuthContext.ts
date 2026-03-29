@@ -1,3 +1,12 @@
+/**
+ * AuthContext adapter implementations for SvelteKit routes.
+ *
+ * Two variants:
+ * - `createSupabaseAuthContextAdapter` — real implementation backed by a PermissionContext
+ *   (built from the user's membership row). Enforces role and group-scope checks.
+ * - `createSandboxAuthContext` — no-op implementation used in demo/sandbox orgs.
+ *   All permission checks pass silently; userId is null.
+ */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AuthContext, FeatureArea } from '../core/ports';
 import type { PermissionContext } from '$lib/server/permissionContext';

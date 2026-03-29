@@ -1,3 +1,13 @@
+/**
+ * Generic CRUD use cases powering `entityHandlers()`.
+ *
+ * `createCrudUseCases(config)` returns create/update/delete handlers tied to a specific
+ * EntityDefinition. In most cases you don't call this directly — use `entityHandlers(entity)`
+ * in +server.ts, which wires these up automatically.
+ *
+ * Direct use is only needed for mixed-action routes or tests that need to exercise the
+ * use cases in isolation. See `CrudConfig` for the escape-hatch interface.
+ */
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 import type { EntityDefinition } from '$lib/server/entitySchema';

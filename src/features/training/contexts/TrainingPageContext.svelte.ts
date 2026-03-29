@@ -11,7 +11,7 @@ import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
-import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
+import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 
 // ---------------------------------------------------------------------------
 // Page data shape (from +page.server.ts + layout)

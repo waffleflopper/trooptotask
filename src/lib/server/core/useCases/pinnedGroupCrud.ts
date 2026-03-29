@@ -1,3 +1,12 @@
+/**
+ * Pinned group use cases — toggle which groups a user has pinned in the sidebar.
+ *
+ * Pin state is per-user (not per-org), stored in `user_pinned_groups`. Sandbox users
+ * (userId === null) are silently no-opped — their UI state is ephemeral.
+ *
+ * Uses `UserWritePorts` (not `WritePorts`) because this writes user-specific, not
+ * org-scoped, data and doesn't need audit or read-only checks.
+ */
 import type { UserWritePorts } from '$lib/server/core/ports';
 
 const TABLE = 'user_pinned_groups';

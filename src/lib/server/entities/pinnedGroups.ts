@@ -1,3 +1,9 @@
+/**
+ * Pinned groups entity — maps `user_pinned_groups` (per-user sidebar group pins).
+ * `customTransform` flattens rows to just the `group_name` string — the store only
+ * needs the names, not the full row. Writes go through `pinnedGroupCrud.ts` use case
+ * rather than generic CRUD because sandbox users are silently no-opped.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 

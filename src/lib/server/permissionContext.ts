@@ -1,3 +1,17 @@
+/**
+ * PermissionContext — runtime permission state for a single authenticated user in an org.
+ *
+ * Three construction paths:
+ * - `createPermissionContext(supabase, userId, orgId)` — fetches the membership row and builds.
+ *   Use in routes that don't already have the row (rare; prefer the layout-based path).
+ * - `createPermissionContextFromMembership(row)` — builds from an already-fetched membership row.
+ *   This is the standard path; the layout server fetches the row once, all routes reuse it.
+ * - `createSandboxContext()` — all-permissions-true no-op context used in demo/sandbox orgs.
+ *
+ * PermissionContext is consumed by the AuthContext adapter (`supabaseAuthContext.ts`), which
+ * wraps it in the AuthContext port used by use cases. Direct use in routes is discouraged;
+ * go through `ctx.auth` (UseCaseContext) instead.
+ */
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FeatureArea } from './core/ports';

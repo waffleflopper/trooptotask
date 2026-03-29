@@ -1,3 +1,13 @@
+/**
+ * Shared helper for notifying all admins in an org from within a use case.
+ *
+ * `notifyAdminsViaStore(store, orgId, payload, excludeUserId?)` looks up all admin/owner
+ * membership rows for the org and sends each one a notification. The optional `excludeUserId`
+ * prevents the actor who triggered the event from receiving their own notification.
+ *
+ * This uses the raw DataStore (not the NotificationPort) so it can be called from use cases
+ * that don't have a full UseCaseContext — e.g., retention jobs and lifecycle hooks.
+ */
 import type { DataStore } from '$lib/server/core/ports';
 
 interface NotificationPayload {

@@ -1,3 +1,13 @@
+/**
+ * Special day CRUD use cases — create, update, delete calendar special days, and reset holidays.
+ *
+ * Special days mark dates with custom labels on the calendar (training holidays, federal holidays,
+ * unit stand-downs, etc.).
+ *
+ * `createResetFederalHolidaysUseCase()` returns a use case that deletes all current federal
+ * holiday entries for the org and re-inserts the default set from `federalHolidays.ts`.
+ * This is a destructive replace — any custom edits to federal holidays are lost.
+ */
 import { fail } from '$lib/server/core/errors';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';

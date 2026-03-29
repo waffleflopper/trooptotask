@@ -1,3 +1,12 @@
+/**
+ * Onboarding resync use case — reconciles step progress rows when a template is edited.
+ *
+ * When steps are added/removed from an onboarding template after active onboarding records
+ * exist, `resyncOnboardingSteps(ctx, onboardingId)` adds missing step rows and removes
+ * orphaned ones, preserving completion state for steps that still exist in the template.
+ *
+ * This is triggered from the template-edit flow, not from normal lifecycle events.
+ */
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 

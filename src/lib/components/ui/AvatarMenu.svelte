@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import OverflowMenu from './OverflowMenu.svelte';
-	import type { OverflowItem } from './OverflowMenu.svelte';
+	import type { OverflowItem } from './OverflowMenu.types';
 
 	interface OrgInfo {
 		id: string;

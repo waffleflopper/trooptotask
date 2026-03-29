@@ -6,12 +6,6 @@
 <svelte:head>
 	<title>Terms of Use — Troop to Task</title>
 	<meta name="description" content="Terms of Use for TroopToTask, a military personnel management platform." />
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap"
-		rel="stylesheet"
-	/>
 </svelte:head>
 
 <div class="legal-page">

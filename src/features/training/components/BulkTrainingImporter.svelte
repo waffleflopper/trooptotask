@@ -149,11 +149,16 @@
 		}
 	}
 
-	function handleTextParse() {
+	async function handleTextParse() {
 		if (!importText.trim()) return;
-		rawRows = parseCSVText(importText);
-		uploadedFileName = '';
-		importState = 'preview';
+		importError = '';
+		try {
+			rawRows = await parseCSVText(importText);
+			uploadedFileName = '';
+			importState = 'preview';
+		} catch (err) {
+			importError = `Failed to parse text: ${err instanceof Error ? err.message : 'Unknown error'}`;
+		}
 	}
 
 	function handleBack() {

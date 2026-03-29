@@ -1,10 +1,9 @@
 <script lang="ts">
-	import '../app.css';
+	import appCssUrl from '../app.css?url';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { onMount } from 'svelte';
 	import { invalidate } from '$app/navigation';
-	import { inject } from '@vercel/analytics';
-	import { injectSpeedInsights } from '@vercel/speed-insights';
+	import { deferToIdle } from '$lib/utils/deferToIdle';
 	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
 	import HelpPanel from '$lib/components/ui/HelpPanel.svelte';
 
@@ -12,8 +11,28 @@
 
 	onMount(() => {
 		themeStore.init();
-		inject();
-		injectSpeedInsights();
+
+		// Load non-critical styles asynchronously — critical CSS is already inlined in app.html.
+		// media="print" prevents render-blocking; onload swaps to media="all" once downloaded.
+		const link = document.createElement('link');
+		link.rel = 'stylesheet';
+		link.href = appCssUrl;
+		link.media = 'print';
+		link.addEventListener('load', () => {
+			link.media = 'all';
+		});
+		document.head.appendChild(link);
+
+		const cancelIdle = deferToIdle(() => {
+			void Promise.all([import('@vercel/analytics'), import('@vercel/speed-insights')])
+				.then(([{ inject }, { injectSpeedInsights }]) => {
+					inject();
+					injectSpeedInsights();
+				})
+				.catch(() => {
+					// Best-effort: analytics failure should not surface to the user
+				});
+		});
 
 		const {
 			data: { subscription }
@@ -26,27 +45,12 @@
 			}
 		});
 
-		return () => subscription.unsubscribe();
+		return () => {
+			cancelIdle();
+			subscription.unsubscribe();
+		};
 	});
 </script>
-
-<svelte:head>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-	<!-- eslint-disable-next-line svelte/no-at-html-tags -- Static string for async font preload, no XSS risk -->
-	{@html `<link
-		rel="preload"
-		as="style"
-		href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap"
-		onload="this.rel='stylesheet'"
-	/>`}
-	<noscript>
-		<link
-			href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap"
-			rel="stylesheet"
-		/>
-	</noscript>
-</svelte:head>
 
 <div class="app">
 	{@render children()}

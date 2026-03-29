@@ -1,11 +1,11 @@
 // src/lib/utils/csvParser.ts
-import * as XLSX from 'xlsx';
 
 /**
  * Parse CSV text into a 2D array of strings.
  * Handles comma-separated values with basic trimming.
  */
-export function parseCSVText(text: string): string[][] {
+export async function parseCSVText(text: string): Promise<string[][]> {
+	const XLSX = await import('xlsx');
 	const workbook = XLSX.read(text, { type: 'string', raw: true });
 	const sheet = workbook.Sheets[workbook.SheetNames[0]];
 	const raw: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
@@ -21,8 +21,9 @@ export function parseCSVText(text: string): string[][] {
 export function parseFile(file: File): Promise<string[][]> {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
-		reader.onload = (e) => {
+		reader.onload = async (e) => {
 			try {
+				const XLSX = await import('xlsx');
 				const data = new Uint8Array(e.target?.result as ArrayBuffer);
 				const workbook = XLSX.read(data, { type: 'array', raw: true });
 				const sheet = workbook.Sheets[workbook.SheetNames[0]];

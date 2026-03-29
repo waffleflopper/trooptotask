@@ -39,7 +39,42 @@
 	let importText = $state('');
 	let fileInput: HTMLInputElement | undefined = $state();
 
-	const rawRows = $derived(uploadedFileName ? fileRows : importText.trim() ? parseCSVText(importText) : []);
+	let textRows = $state<string[][]>([]);
+	let textError = $state('');
+	let textParseRequestId = 0;
+
+	$effect(() => {
+		const currentText = uploadedFileName ? '' : importText;
+		const requestId = ++textParseRequestId;
+
+		if (!currentText.trim()) {
+			textRows = [];
+			textError = '';
+			return;
+		}
+
+		// Clear stale rows immediately so the preview cannot use data from an older parse.
+		textRows = [];
+		textError = '';
+
+		let active = true;
+		parseCSVText(currentText)
+			.then((rows) => {
+				if (!active || requestId !== textParseRequestId) return;
+				textRows = rows;
+			})
+			.catch((err) => {
+				if (!active || requestId !== textParseRequestId) return;
+				textRows = [];
+				textError = err instanceof Error ? err.message : 'Failed to parse pasted text';
+			});
+
+		return () => {
+			active = false;
+		};
+	});
+
+	const rawRows = $derived(uploadedFileName ? fileRows : textRows);
 
 	const dataRowCount = $derived(
 		rawRows.length > 0 && detectHeaderRow(rawRows[0], PERSONNEL_COLUMNS) ? rawRows.length - 1 : rawRows.length
@@ -337,6 +372,9 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 								disabled={!!uploadedFileName}
 							></textarea>
 						</div>
+						{#if textError}
+							<p class="text-error">{textError}</p>
+						{/if}
 					</div>
 
 					<!-- PREVIEW step -->
@@ -709,6 +747,12 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 		border-radius: var(--radius-md);
 		color: #15803d;
 		font-size: var(--font-size-base);
+	}
+
+	.text-error {
+		color: #dc2626;
+		font-size: var(--font-size-sm);
+		margin-top: var(--spacing-xs);
 	}
 
 	.result-error-banner {

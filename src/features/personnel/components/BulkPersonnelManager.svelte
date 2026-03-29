@@ -40,15 +40,34 @@
 	let fileInput: HTMLInputElement | undefined = $state();
 
 	let textRows = $state<string[][]>([]);
+	let textParseRequestId = 0;
 
 	$effect(() => {
-		if (!uploadedFileName && importText.trim()) {
-			parseCSVText(importText).then((rows) => {
-				textRows = rows;
-			});
-		} else {
+		const currentText = uploadedFileName ? '' : importText;
+		const requestId = ++textParseRequestId;
+
+		if (!currentText.trim()) {
 			textRows = [];
+			return;
 		}
+
+		// Clear stale rows immediately so the preview cannot use data from an older parse.
+		textRows = [];
+
+		let active = true;
+		parseCSVText(currentText)
+			.then((rows) => {
+				if (!active || requestId !== textParseRequestId) return;
+				textRows = rows;
+			})
+			.catch(() => {
+				if (!active || requestId !== textParseRequestId) return;
+				textRows = [];
+			});
+
+		return () => {
+			active = false;
+		};
 	});
 
 	const rawRows = $derived(uploadedFileName ? fileRows : textRows);

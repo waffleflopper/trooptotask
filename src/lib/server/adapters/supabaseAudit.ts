@@ -3,6 +3,7 @@ import { auditLog } from '$lib/server/auditLog';
 
 interface RequestInfo {
 	userId: string | null;
+	userEmail: string | null;
 	ip: string;
 	userAgent: string;
 }

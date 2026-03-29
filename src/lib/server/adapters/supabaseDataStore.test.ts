@@ -99,6 +99,18 @@ describe('SupabaseDataStore', () => {
 			expect(eqCalls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
 		});
 
+		it('uses org_id scoping for audit_logs', async () => {
+			const { builder, calls } = createMockQueryBuilder([]);
+			const supabase = createMockSupabase(builder);
+			const store = createSupabaseDataStore(supabase);
+
+			await store.findMany('audit_logs', 'org-1');
+
+			const eqCalls = calls.filter((c) => c.method === 'eq');
+			expect(eqCalls).toContainEqual({ method: 'eq', args: ['org_id', 'org-1'] });
+			expect(eqCalls).not.toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
+		});
+
 		it('applies eq filters from both filters param and options.filters', async () => {
 			const { builder, calls } = createMockQueryBuilder([]);
 			const supabase = createMockSupabase(builder);
@@ -193,6 +205,27 @@ describe('SupabaseDataStore', () => {
 
 			const selectCalls = calls.filter((c) => c.method === 'select');
 			expect(selectCalls[0].args[0]).toBe('id, name');
+		});
+
+		it('inserts audit logs with org_id', async () => {
+			const row = { id: 'log-1', action: 'personnel.create', org_id: 'org-1' };
+			const { builder, calls } = createMockQueryBuilder(row);
+			const supabase = createMockSupabase(builder);
+			const store = createSupabaseDataStore(supabase);
+
+			const result = await store.insert('audit_logs', 'org-1', {
+				id: 'log-1',
+				action: 'personnel.create'
+			});
+
+			expect(result).toEqual(row);
+
+			const insertCalls = calls.filter((c) => c.method === 'insert');
+			expect(insertCalls[0].args[0]).toEqual({
+				id: 'log-1',
+				action: 'personnel.create',
+				org_id: 'org-1'
+			});
 		});
 
 		it('throws on Supabase error', async () => {

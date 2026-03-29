@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { createCrudUseCases } from './crud';
-import { notifyAdminsViaStore } from './notifyAdminsHelper';
+import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
 
 const ST_ID = '00000000-0000-4000-a000-000000000001';
 
@@ -18,7 +18,7 @@ const useCases = createCrudUseCases({
 		});
 	},
 	afterDelete: async (ctx) => {
-		await notifyAdminsViaStore(ctx.store, ctx.auth.orgId, ctx.auth.userId, {
+		await (ctx as WriteWithNotificationsPorts).notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 			type: 'config_type_deleted',
 			title: 'Status Type Deleted',
 			message: 'A status type was deleted.'
@@ -28,7 +28,7 @@ const useCases = createCrudUseCases({
 
 describe('StatusType CRUD use case', () => {
 	it('creates a status type and audits', async () => {
-		const ctx = createWritePortsContext();
+		const ctx = createWriteWithNotificationsPortsContext();
 
 		const result = (await useCases.create(ctx, {
 			name: 'On Leave',
@@ -42,7 +42,7 @@ describe('StatusType CRUD use case', () => {
 	});
 
 	it('cascade-deletes availability_entries before deleting status type', async () => {
-		const ctx = createWritePortsContext();
+		const ctx = createWriteWithNotificationsPortsContext();
 		ctx.store.seed('status_types', [
 			{
 				id: ST_ID,
@@ -58,10 +58,6 @@ describe('StatusType CRUD use case', () => {
 			{ id: 'ae-2', status_type_id: ST_ID, organization_id: 'test-org' },
 			{ id: 'ae-3', status_type_id: 'st-other', organization_id: 'test-org' }
 		]);
-		ctx.store.seed('organization_memberships', [
-			{ user_id: 'other-admin', organization_id: 'test-org', role: 'admin' }
-		]);
-
 		await useCases.remove(ctx, ST_ID);
 
 		// Related availability entries for ST_ID should be deleted
@@ -75,7 +71,7 @@ describe('StatusType CRUD use case', () => {
 	});
 
 	it('notifies admins after delete', async () => {
-		const ctx = createWritePortsContext();
+		const ctx = createWriteWithNotificationsPortsContext();
 		ctx.store.seed('status_types', [
 			{
 				id: ST_ID,
@@ -86,14 +82,10 @@ describe('StatusType CRUD use case', () => {
 				organization_id: 'test-org'
 			}
 		]);
-		ctx.store.seed('organization_memberships', [
-			{ user_id: 'other-admin', organization_id: 'test-org', role: 'admin' }
-		]);
-
 		await useCases.remove(ctx, ST_ID);
 
-		const notifications = await ctx.store.findMany('notifications', 'test-org');
+		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
-		expect((notifications[0] as Record<string, unknown>).type).toBe('config_type_deleted');
+		expect(notifications[0].notification.type).toBe('config_type_deleted');
 	});
 });

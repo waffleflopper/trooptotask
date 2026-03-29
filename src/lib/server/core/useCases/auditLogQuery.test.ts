@@ -9,10 +9,13 @@ describe('fetchAuditLogs', () => {
 		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
+		adminStore.seed('organization_memberships', [
+			{ id: 'm1', organization_id: ORG, user_id: 'u1', email: 'alice@example.com' }
+		]);
+
 		adminStore.seed('audit_logs', [
 			{
 				id: 'log1',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.create',
@@ -27,6 +30,7 @@ describe('fetchAuditLogs', () => {
 
 		expect(result.logs).toHaveLength(1);
 		expect(result.logs[0].action).toBe('personnel.create');
+		expect(result.logs[0].actor).toBe('alice@example.com');
 		expect(result.totalCount).toBe(1);
 	});
 
@@ -37,7 +41,6 @@ describe('fetchAuditLogs', () => {
 		adminStore.seed('audit_logs', [
 			{
 				id: 'log1',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'auth.login_success',
@@ -48,7 +51,6 @@ describe('fetchAuditLogs', () => {
 			},
 			{
 				id: 'log2',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.create',
@@ -72,7 +74,6 @@ describe('fetchAuditLogs', () => {
 		adminStore.seed('audit_logs', [
 			{
 				id: 'log1',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.create',
@@ -83,7 +84,6 @@ describe('fetchAuditLogs', () => {
 			},
 			{
 				id: 'log2',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.delete',
@@ -107,7 +107,6 @@ describe('fetchAuditLogs', () => {
 		adminStore.seed('audit_logs', [
 			{
 				id: 'log1',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.create',
@@ -118,7 +117,6 @@ describe('fetchAuditLogs', () => {
 			},
 			{
 				id: 'log2',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.delete',
@@ -133,5 +131,31 @@ describe('fetchAuditLogs', () => {
 
 		expect(result.availableActions).toContain('personnel.create');
 		expect(result.availableActions).toContain('personnel.delete');
+	});
+
+	it('prefers actor from details when present', async () => {
+		const ctx = createQueryPortsContext();
+		const adminStore = createInMemoryDataStore();
+
+		adminStore.seed('organization_memberships', [
+			{ id: 'm1', organization_id: ORG, user_id: 'u1', email: 'alice@example.com' }
+		]);
+
+		adminStore.seed('audit_logs', [
+			{
+				id: 'log1',
+				org_id: ORG,
+				user_id: 'u1',
+				action: 'personnel.create',
+				resource_type: 'personnel',
+				resource_id: 'p1',
+				details: { actor: 'override@example.com' },
+				timestamp: '2026-03-23T10:00:00Z'
+			}
+		]);
+
+		const result = await fetchAuditLogs(ctx, adminStore, { page: 1 });
+
+		expect(result.logs[0].actor).toBe('override@example.com');
 	});
 });

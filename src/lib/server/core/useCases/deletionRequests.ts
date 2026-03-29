@@ -1,6 +1,5 @@
 import { fail } from '$lib/server/core/errors';
-import type { WritePorts } from '$lib/server/core/ports';
-import { notifyAdminsViaStore } from './notifyAdminsHelper';
+import type { WritePorts, WriteWithNotificationsPorts } from '$lib/server/core/ports';
 
 const TABLE = 'deletion_requests';
 const AUDIT_RESOURCE = 'deletion_request';
@@ -14,7 +13,7 @@ export interface CreateDeletionRequestInput {
 }
 
 export async function createDeletionRequest(
-	ctx: WritePorts,
+	ctx: WriteWithNotificationsPorts,
 	input: CreateDeletionRequestInput
 ): Promise<Record<string, unknown>> {
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -56,7 +55,7 @@ export async function createDeletionRequest(
 	const isPersonnel = input.resourceType === 'personnel';
 	const actionWord = isPersonnel ? 'archive' : 'delete';
 
-	await notifyAdminsViaStore(ctx.store, ctx.auth.orgId, ctx.auth.userId, {
+	await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 		type: 'deletion_request_pending',
 		title: `${isPersonnel ? 'Archival' : 'Deletion'} Request`,
 		message: `${input.userEmail} requested to ${actionWord} "${input.resourceDescription}". Review in Admin Hub.`,
@@ -90,20 +89,14 @@ async function fetchPendingRequest(ctx: WritePorts, requestId: string): Promise<
 }
 
 function notifyRequester(
-	ctx: WritePorts,
+	ctx: WriteWithNotificationsPorts,
 	request: Record<string, unknown>,
 	notification: { type: string; title: string; message: string; link?: string | null }
-): Promise<Record<string, unknown>> {
-	return ctx.store.insert('notifications', ctx.auth.orgId, {
-		user_id: request.requested_by,
-		type: notification.type,
-		title: notification.title,
-		message: notification.message,
-		link: notification.link ?? null
-	});
+): Promise<void> {
+	return ctx.notifications.notifyUser(ctx.auth.orgId, request.requested_by as string, notification);
 }
 
-export async function approveDeletionRequest(ctx: WritePorts, requestId: string): Promise<void> {
+export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, requestId: string): Promise<void> {
 	ctx.auth.requirePrivileged();
 
 	const request = await fetchPendingRequest(ctx, requestId);
@@ -157,7 +150,11 @@ export async function approveDeletionRequest(ctx: WritePorts, requestId: string)
 	});
 }
 
-export async function denyDeletionRequest(ctx: WritePorts, requestId: string, reason?: string): Promise<void> {
+export async function denyDeletionRequest(
+	ctx: WriteWithNotificationsPorts,
+	requestId: string,
+	reason?: string
+): Promise<void> {
 	ctx.auth.requirePrivileged();
 
 	const request = await fetchPendingRequest(ctx, requestId);

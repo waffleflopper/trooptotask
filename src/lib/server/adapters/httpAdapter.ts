@@ -438,8 +438,8 @@ export function handle<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): R
 // ---------------------------------------------------------------------------
 
 export interface EntityHandlerHooks {
-	beforeDelete?: (ctx: WritePorts, id: string) => Promise<void>;
-	afterDelete?: (ctx: WritePorts, id: string) => Promise<void>;
+	beforeDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
+	afterDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
 }
 
 export interface EntityHandlersResult {
@@ -466,8 +466,12 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		permission: entity.permission,
 		auditResource,
 		requireFullEditor: entity.requireFullEditor,
-		beforeDelete: hooks?.beforeDelete,
+		beforeDelete: hooks?.beforeDelete
+			? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id)
+			: undefined,
 		afterDelete: hooks?.afterDelete
+			? async (ctx, id) => hooks.afterDelete!(ctx as UseCaseContext, id)
+			: undefined
 	};
 
 	const useCases = createCrudUseCases(config);

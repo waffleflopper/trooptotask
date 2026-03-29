@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { createCrudUseCases } from './crud';
-import { notifyAdminsViaStore } from './notifyAdminsHelper';
+import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
 
 const AT_ID = '00000000-0000-4000-a000-000000000001';
 
@@ -13,7 +13,7 @@ const useCases = createCrudUseCases({
 	auditResource: (AssignmentTypeEntity.audit as { resourceType: string }).resourceType,
 	requireFullEditor: AssignmentTypeEntity.requireFullEditor,
 	afterDelete: async (ctx) => {
-		await notifyAdminsViaStore(ctx.store, ctx.auth.orgId, ctx.auth.userId, {
+		await (ctx as WriteWithNotificationsPorts).notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 			type: 'config_type_deleted',
 			title: 'Assignment Type Deleted',
 			message: 'An assignment type was deleted.'
@@ -23,7 +23,7 @@ const useCases = createCrudUseCases({
 
 describe('AssignmentType CRUD use case', () => {
 	it('creates an assignment type and audits', async () => {
-		const ctx = createWritePortsContext();
+		const ctx = createWriteWithNotificationsPortsContext();
 
 		const result = (await useCases.create(ctx, {
 			name: 'Guard Duty',
@@ -38,7 +38,7 @@ describe('AssignmentType CRUD use case', () => {
 	});
 
 	it('notifies admins after delete', async () => {
-		const ctx = createWritePortsContext();
+		const ctx = createWriteWithNotificationsPortsContext();
 		ctx.store.seed('assignment_types', [
 			{
 				id: AT_ID,
@@ -51,13 +51,9 @@ describe('AssignmentType CRUD use case', () => {
 				organization_id: 'test-org'
 			}
 		]);
-		ctx.store.seed('organization_memberships', [
-			{ user_id: 'other-admin', organization_id: 'test-org', role: 'admin' }
-		]);
-
 		await useCases.remove(ctx, AT_ID);
 
-		const notifications = await ctx.store.findMany('notifications', 'test-org');
+		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
 	});
 });

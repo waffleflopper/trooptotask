@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { createCrudUseCases } from './crud';
-import { notifyAdminsViaStore } from './notifyAdminsHelper';
+import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
 
 const TT_ID = '00000000-0000-4000-a000-000000000001';
 const PT_1 = '00000000-0000-4000-a000-000000000011';
@@ -21,7 +21,7 @@ const useCases = createCrudUseCases({
 		});
 	},
 	afterDelete: async (ctx) => {
-		await notifyAdminsViaStore(ctx.store, ctx.auth.orgId, ctx.auth.userId, {
+		await (ctx as WriteWithNotificationsPorts).notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 			type: 'config_type_deleted',
 			title: 'Training Type Deleted',
 			message: 'A training type was deleted.'
@@ -31,7 +31,7 @@ const useCases = createCrudUseCases({
 
 describe('TrainingType CRUD use case', () => {
 	it('creates a training type and audits', async () => {
-		const ctx = createWritePortsContext();
+		const ctx = createWriteWithNotificationsPortsContext();
 
 		const result = (await useCases.create(ctx, {
 			name: 'First Aid',
@@ -45,7 +45,7 @@ describe('TrainingType CRUD use case', () => {
 	});
 
 	it('cascade-deletes personnel_trainings before deleting training type', async () => {
-		const ctx = createWritePortsContext();
+		const ctx = createWriteWithNotificationsPortsContext();
 		ctx.store.seed('training_types', [
 			{
 				id: TT_ID,
@@ -73,10 +73,6 @@ describe('TrainingType CRUD use case', () => {
 			{ id: PT_2, training_type_id: TT_ID, organization_id: 'test-org' },
 			{ id: PT_3, training_type_id: 'tt-other', organization_id: 'test-org' }
 		]);
-		ctx.store.seed('organization_memberships', [
-			{ user_id: 'other-admin', organization_id: 'test-org', role: 'admin' }
-		]);
-
 		await useCases.remove(ctx, TT_ID);
 
 		const remaining = await ctx.store.findMany('personnel_trainings', 'test-org');
@@ -88,7 +84,7 @@ describe('TrainingType CRUD use case', () => {
 	});
 
 	it('notifies admins after delete', async () => {
-		const ctx = createWritePortsContext();
+		const ctx = createWriteWithNotificationsPortsContext();
 		ctx.store.seed('training_types', [
 			{
 				id: TT_ID,
@@ -111,14 +107,10 @@ describe('TrainingType CRUD use case', () => {
 				organization_id: 'test-org'
 			}
 		]);
-		ctx.store.seed('organization_memberships', [
-			{ user_id: 'other-admin', organization_id: 'test-org', role: 'admin' }
-		]);
-
 		await useCases.remove(ctx, TT_ID);
 
-		const notifications = await ctx.store.findMany('notifications', 'test-org');
+		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
-		expect((notifications[0] as Record<string, unknown>).type).toBe('config_type_deleted');
+		expect(notifications[0].notification.type).toBe('config_type_deleted');
 	});
 });

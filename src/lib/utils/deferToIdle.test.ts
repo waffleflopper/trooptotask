@@ -8,6 +8,7 @@ describe('deferToIdle', () => {
 	});
 
 	afterEach(() => {
+		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
 		vi.useRealTimers();
 	});

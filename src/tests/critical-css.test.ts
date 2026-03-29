@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 /**
  * Regression tests: critical CSS must be inlined in app.html so that
@@ -9,9 +10,10 @@ import { resolve } from 'path';
  * This prevents a flash of unstyled content on slow networks (e.g. NIPR).
  */
 
-const APP_HTML = resolve(__dirname, '../../src/app.html');
-const APP_CSS = resolve(__dirname, '../../src/app.css');
-const ROOT_LAYOUT = resolve(__dirname, '../routes/+layout.svelte');
+const currentDir = dirname(fileURLToPath(import.meta.url));
+const APP_HTML = resolve(currentDir, '../../src/app.html');
+const APP_CSS = resolve(currentDir, '../../src/app.css');
+const ROOT_LAYOUT = resolve(currentDir, '../routes/+layout.svelte');
 
 function getInlineStyles(html: string): string {
 	const match = html.match(/<style[^>]*>([\s\S]*?)<\/style>/);
@@ -19,21 +21,18 @@ function getInlineStyles(html: string): string {
 }
 
 describe('critical CSS inlining', () => {
+	const html = readFileSync(APP_HTML, 'utf-8');
+	const inlineStyles = getInlineStyles(html);
+
 	it('app.html contains an inline <style> block with CSS custom properties', () => {
-		const html = readFileSync(APP_HTML, 'utf-8');
-		const inlineStyles = getInlineStyles(html);
 		expect(inlineStyles).toContain('--color-primary');
 	});
 
 	it('app.html inlines dark mode design tokens', () => {
-		const html = readFileSync(APP_HTML, 'utf-8');
-		const inlineStyles = getInlineStyles(html);
 		expect(inlineStyles).toContain("[data-theme='dark']");
 	});
 
 	it('app.html inlines base element resets', () => {
-		const html = readFileSync(APP_HTML, 'utf-8');
-		const inlineStyles = getInlineStyles(html);
 		expect(inlineStyles).toContain('box-sizing: border-box');
 	});
 

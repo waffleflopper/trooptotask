@@ -24,12 +24,14 @@
 		document.head.appendChild(link);
 
 		const cancelIdle = deferToIdle(() => {
-			void Promise.all([import('@vercel/analytics'), import('@vercel/speed-insights')]).then(
-				([{ inject }, { injectSpeedInsights }]) => {
+			void Promise.all([import('@vercel/analytics'), import('@vercel/speed-insights')])
+				.then(([{ inject }, { injectSpeedInsights }]) => {
 					inject();
 					injectSpeedInsights();
-				}
-			);
+				})
+				.catch(() => {
+					// Best-effort: analytics failure should not surface to the user
+				});
 		});
 
 		const {

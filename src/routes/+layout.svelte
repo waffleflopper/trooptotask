@@ -5,6 +5,7 @@
 	import { invalidate } from '$app/navigation';
 	import { inject } from '@vercel/analytics';
 	import { injectSpeedInsights } from '@vercel/speed-insights';
+	import { deferToIdle } from '$lib/utils/deferToIdle';
 	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
 	import HelpPanel from '$lib/components/ui/HelpPanel.svelte';
 
@@ -12,8 +13,10 @@
 
 	onMount(() => {
 		themeStore.init();
-		inject();
-		injectSpeedInsights();
+		const cancelIdle = deferToIdle(() => {
+			inject();
+			injectSpeedInsights();
+		});
 
 		const {
 			data: { subscription }
@@ -26,7 +29,10 @@
 			}
 		});
 
-		return () => subscription.unsubscribe();
+		return () => {
+			cancelIdle();
+			subscription.unsubscribe();
+		};
 	});
 </script>
 

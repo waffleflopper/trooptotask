@@ -19,7 +19,7 @@ import { defaultScopeRules } from './scopeRules';
 import { createSupabaseNotificationAdapter } from './supabaseNotification';
 import { createStripeBillingAdapter } from './stripeBilling';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
-import type { UseCaseContext, WritePorts, FeatureArea } from '$lib/server/core/ports';
+import type { UseCaseContext, FeatureArea } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';

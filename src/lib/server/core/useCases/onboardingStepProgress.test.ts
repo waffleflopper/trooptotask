@@ -12,7 +12,34 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 	return createWritePortsContext(overrides);
 }
 
-function seedStep(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
+interface OnboardingStepFixture {
+	id: string;
+	onboarding_id: string;
+	step_name: string;
+	step_type: 'checkbox' | 'paperwork' | 'training';
+	training_type_id: string | null;
+	stages: string[] | null;
+	sort_order: number;
+	completed: boolean;
+	current_stage: string | null;
+	notes: Array<{ text: string; timestamp: string; userId: string }>;
+	template_step_id: string;
+	active: boolean;
+	organization_id: string;
+}
+
+interface PersonnelOnboardingFixture {
+	id: string;
+	personnel_id: string;
+	template_id: string | null;
+	status: string;
+	started_at: string | null;
+	completed_at: string | null;
+	cancelled_at: string | null;
+	organization_id: string;
+}
+
+function seedStep(ctx: ReturnType<typeof buildContext>, overrides?: Partial<OnboardingStepFixture>) {
 	ctx.store.seed('onboarding_step_progress', [
 		{
 			id: 'step-1',
@@ -81,7 +108,7 @@ describe('toggleCheckbox', () => {
 	});
 });
 
-function seedPaperworkStep(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
+function seedPaperworkStep(ctx: ReturnType<typeof buildContext>, overrides?: Partial<OnboardingStepFixture>) {
 	ctx.store.seed('onboarding_step_progress', [
 		{
 			id: 'pw-step-1',
@@ -185,7 +212,7 @@ describe('advanceStage', () => {
 	});
 });
 
-function seedTrainingStep(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
+function seedTrainingStep(ctx: ReturnType<typeof buildContext>, overrides?: Partial<OnboardingStepFixture>) {
 	ctx.store.seed('onboarding_step_progress', [
 		{
 			id: 'tr-step-1',
@@ -206,7 +233,7 @@ function seedTrainingStep(ctx: ReturnType<typeof buildContext>, overrides?: Reco
 	]);
 }
 
-function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
+function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Partial<PersonnelOnboardingFixture>) {
 	ctx.store.seed('personnel_onboardings', [
 		{
 			id: 'ob-1',

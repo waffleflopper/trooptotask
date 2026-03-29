@@ -171,11 +171,16 @@ describe('deleteAvailabilityBatch', () => {
 		const ctx = buildContext({
 			auth: {
 				scopedGroupId: 'group-a',
-				async requireGroupAccessBatch() {
+				async requireGroupAccessByRecord() {
 					throw groupAccessError;
 				}
 			}
 		});
+		ctx.store.seed('personnel', [
+			{ id: 'p-1', organization_id: 'test-org', group_id: 'group-a' },
+			{ id: 'p-2', organization_id: 'test-org', group_id: 'group-a' },
+			{ id: 'p-3', organization_id: 'test-org', group_id: 'group-a' }
+		]);
 		seedEntries(ctx);
 
 		await expect(deleteAvailabilityBatch(ctx, { ids: ['e-1', 'e-2'] })).rejects.toMatchObject({ status: 403 });

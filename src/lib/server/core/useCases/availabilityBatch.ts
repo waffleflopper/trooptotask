@@ -77,11 +77,7 @@ export async function deleteAvailabilityBatch(
 
 	// Enforce group scope — look up personnel IDs from entries being deleted
 	if (ctx.auth.scopedGroupId) {
-		const entries = await ctx.store.findMany<{ personnel_id: string }>(entity.table, ctx.auth.orgId, undefined, {
-			inFilters: { id: ids }
-		});
-		const personnelIds = [...new Set(entries.map((e) => e.personnel_id))];
-		await ctx.auth.requireGroupAccessBatch(personnelIds);
+		await Promise.all(ids.map((id) => ctx.auth.requireGroupAccessByRecord(entity.table, id, 'personnel_id')));
 	}
 
 	// Batch delete all entries in one round-trip

@@ -24,7 +24,7 @@ describe('createDeletionRequest', () => {
 	it('creates a pending deletion request and audit logs', async () => {
 		const ctx = buildContext();
 
-		const result = await createDeletionRequest(ctx, validInput);
+		await createDeletionRequest(ctx, validInput);
 
 		// Record stored with correct fields
 		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');

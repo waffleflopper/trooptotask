@@ -166,4 +166,18 @@ describe('OnboardingTemplateStepEntity', () => {
 		});
 		expect(invalid.success).toBe(false);
 	});
+
+	it('has permission onboarding', () => {
+		expect(OnboardingTemplateStepEntity.permission).toBe('onboarding');
+	});
+
+	it('requires full editor', () => {
+		expect(OnboardingTemplateStepEntity.requireFullEditor).toBe(true);
+	});
+
+	it('has audit config for onboarding_template_step', () => {
+		expect(OnboardingTemplateStepEntity.audit).toEqual({
+			resourceType: 'onboarding_template_step'
+		});
+	});
 });

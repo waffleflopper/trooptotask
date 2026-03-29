@@ -1,9 +1,16 @@
 import { fail } from '$lib/server/core/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
-import { notifyAdminsViaStore } from './notifyAdminsHelper';
+import type { WritePorts, WriteWithNotificationsPorts } from '$lib/server/core/ports';
 
 const TABLE = 'deletion_requests';
 const AUDIT_RESOURCE = 'deletion_request';
+
+function fireAndForgetNotification(send: () => Promise<void>): void {
+	try {
+		void send().catch(() => {});
+	} catch {
+		// Ignore notification delivery failures — mutations must still succeed.
+	}
+}
 
 export interface CreateDeletionRequestInput {
 	resourceType: string;
@@ -14,7 +21,7 @@ export interface CreateDeletionRequestInput {
 }
 
 export async function createDeletionRequest(
-	ctx: UseCaseContext,
+	ctx: WriteWithNotificationsPorts,
 	input: CreateDeletionRequestInput
 ): Promise<Record<string, unknown>> {
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -56,12 +63,14 @@ export async function createDeletionRequest(
 	const isPersonnel = input.resourceType === 'personnel';
 	const actionWord = isPersonnel ? 'archive' : 'delete';
 
-	await notifyAdminsViaStore(ctx.store, ctx.auth.orgId, ctx.auth.userId, {
-		type: 'deletion_request_pending',
-		title: `${isPersonnel ? 'Archival' : 'Deletion'} Request`,
-		message: `${input.userEmail} requested to ${actionWord} "${input.resourceDescription}". Review in Admin Hub.`,
-		link: `/org/${ctx.auth.orgId}/admin/approvals`
-	});
+	fireAndForgetNotification(() =>
+		ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
+			type: 'deletion_request_pending',
+			title: `${isPersonnel ? 'Archival' : 'Deletion'} Request`,
+			message: `${input.userEmail} requested to ${actionWord} "${input.resourceDescription}". Review in Admin Hub.`,
+			link: `/org/${ctx.auth.orgId}/admin/approvals`
+		})
+	);
 
 	return row;
 }
@@ -76,7 +85,7 @@ const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {
 	rating_scheme_entry: 'rating_scheme_entries'
 };
 
-async function fetchPendingRequest(ctx: UseCaseContext, requestId: string): Promise<Record<string, unknown>> {
+async function fetchPendingRequest(ctx: WritePorts, requestId: string): Promise<Record<string, unknown>> {
 	const request = await ctx.store.findOne<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
 		id: requestId,
 		status: 'pending'
@@ -90,20 +99,19 @@ async function fetchPendingRequest(ctx: UseCaseContext, requestId: string): Prom
 }
 
 function notifyRequester(
-	ctx: UseCaseContext,
+	ctx: WriteWithNotificationsPorts,
 	request: Record<string, unknown>,
 	notification: { type: string; title: string; message: string; link?: string | null }
-): Promise<Record<string, unknown>> {
-	return ctx.store.insert('notifications', ctx.auth.orgId, {
-		user_id: request.requested_by,
-		type: notification.type,
-		title: notification.title,
-		message: notification.message,
-		link: notification.link ?? null
-	});
+): void {
+	const requesterId = request.requested_by;
+	if (typeof requesterId !== 'string' || requesterId.length === 0) {
+		return;
+	}
+
+	fireAndForgetNotification(() => ctx.notifications.notifyUser(ctx.auth.orgId, requesterId, notification));
 }
 
-export async function approveDeletionRequest(ctx: UseCaseContext, requestId: string): Promise<void> {
+export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, requestId: string): Promise<void> {
 	ctx.auth.requirePrivileged();
 
 	const request = await fetchPendingRequest(ctx, requestId);
@@ -138,7 +146,7 @@ export async function approveDeletionRequest(ctx: UseCaseContext, requestId: str
 	const actionWordCap = isPersonnel ? 'Archival' : 'Deletion';
 	const actionWord = isPersonnel ? 'archive' : 'delete';
 
-	await notifyRequester(ctx, request, {
+	notifyRequester(ctx, request, {
 		type: 'deletion_approved',
 		title: `${actionWordCap} Approved`,
 		message: `Your request to ${actionWord} "${request.resource_description}" has been approved.`
@@ -157,7 +165,11 @@ export async function approveDeletionRequest(ctx: UseCaseContext, requestId: str
 	});
 }
 
-export async function denyDeletionRequest(ctx: UseCaseContext, requestId: string, reason?: string): Promise<void> {
+export async function denyDeletionRequest(
+	ctx: WriteWithNotificationsPorts,
+	requestId: string,
+	reason?: string
+): Promise<void> {
 	ctx.auth.requirePrivileged();
 
 	const request = await fetchPendingRequest(ctx, requestId);
@@ -174,7 +186,7 @@ export async function denyDeletionRequest(ctx: UseCaseContext, requestId: string
 	const actionWordCap = isPersonnel ? 'Archival' : 'Deletion';
 	const actionWord = isPersonnel ? 'archive' : 'delete';
 
-	await notifyRequester(ctx, request, {
+	notifyRequester(ctx, request, {
 		type: 'deletion_denied',
 		title: `${actionWordCap} Denied`,
 		message: `Your request to ${actionWord} "${request.resource_description}" has been denied.${reason ? ` Reason: ${reason}` : ''}`,
@@ -195,7 +207,7 @@ export async function denyDeletionRequest(ctx: UseCaseContext, requestId: string
 	});
 }
 
-export async function cancelDeletionRequest(ctx: UseCaseContext, requestId: string): Promise<void> {
+export async function cancelDeletionRequest(ctx: WritePorts, requestId: string): Promise<void> {
 	const request = await fetchPendingRequest(ctx, requestId);
 
 	if (request.requested_by !== ctx.auth.userId) {
@@ -218,7 +230,7 @@ export interface ListDeletionRequestsOptions {
 }
 
 export async function listDeletionRequests(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	options?: ListDeletionRequestsOptions
 ): Promise<Record<string, unknown>[]> {
 	const filters: Record<string, unknown> = {};

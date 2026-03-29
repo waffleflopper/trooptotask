@@ -1,14 +1,14 @@
 import { fail } from '$lib/server/core/errors';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WriteWithSubscriptionPorts } from '$lib/server/core/ports';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
 
 export interface PersonnelUseCases {
-	create(ctx: UseCaseContext, data: Record<string, unknown>): Promise<unknown>;
-	update(ctx: UseCaseContext, data: Record<string, unknown>): Promise<unknown>;
-	archive(ctx: UseCaseContext, id: string): Promise<{ requiresApproval: boolean } | void>;
+	create(ctx: WriteWithSubscriptionPorts, data: Record<string, unknown>): Promise<unknown>;
+	update(ctx: WriteWithSubscriptionPorts, data: Record<string, unknown>): Promise<unknown>;
+	archive(ctx: WriteWithSubscriptionPorts, id: string): Promise<{ requiresApproval: boolean } | void>;
 }
 
 export function createPersonnelUseCases(): PersonnelUseCases {

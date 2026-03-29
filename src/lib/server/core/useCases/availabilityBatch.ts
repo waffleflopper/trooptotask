@@ -1,6 +1,6 @@
 import { fail } from '$lib/server/core/errors';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 
 const entity = AvailabilityEntryEntity;
 const AUDIT_RESOURCE = 'availability';
@@ -17,7 +17,7 @@ interface CreateAvailabilityBatchInput {
 }
 
 export async function createAvailabilityBatch(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	input: CreateAvailabilityBatchInput
 ): Promise<{ inserted: unknown[] }> {
 	ctx.auth.requireEdit('calendar');
@@ -57,7 +57,7 @@ interface DeleteAvailabilityBatchInput {
 }
 
 export async function deleteAvailabilityBatch(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	input: DeleteAvailabilityBatchInput
 ): Promise<{ deleted: number }> {
 	ctx.auth.requireEdit('calendar');
@@ -77,11 +77,7 @@ export async function deleteAvailabilityBatch(
 
 	// Enforce group scope — look up personnel IDs from entries being deleted
 	if (ctx.auth.scopedGroupId) {
-		const entries = await ctx.store.findMany<{ personnel_id: string }>(entity.table, ctx.auth.orgId, undefined, {
-			inFilters: { id: ids }
-		});
-		const personnelIds = [...new Set(entries.map((e) => e.personnel_id))];
-		await ctx.auth.requireGroupAccessBatch(personnelIds);
+		await Promise.all(ids.map((id) => ctx.auth.requireGroupAccessByRecord(entity.table, id, 'personnel_id')));
 	}
 
 	// Batch delete all entries in one round-trip

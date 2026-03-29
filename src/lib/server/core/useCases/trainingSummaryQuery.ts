@@ -1,4 +1,4 @@
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { QueryPorts } from '$lib/server/core/ports';
 import type { Personnel } from '$lib/types';
 import type { TrainingType, TrainingStatus, PersonnelTraining } from '$features/training/training.types';
 import { getTrainingStats, getDelinquentTrainings, type TrainingStats } from '$features/training/utils/trainingStatus';
@@ -28,7 +28,7 @@ export interface TrainingSummaryInput {
 	};
 }
 
-export async function fetchTrainingSummary(ctx: UseCaseContext, input: TrainingSummaryInput): Promise<TrainingSummary> {
+export async function fetchTrainingSummary(ctx: QueryPorts, input: TrainingSummaryInput): Promise<TrainingSummary> {
 	const { personnel, trainingTypes, options = {} } = input;
 	const { issueLimit = 5, issueStatuses = ['expired', 'warning-orange'], includeNotCompleted = false } = options;
 
@@ -54,7 +54,7 @@ export async function fetchTrainingSummary(ctx: UseCaseContext, input: TrainingS
 	return { stats, issues };
 }
 
-async function fetchTrainings(ctx: UseCaseContext): Promise<PersonnelTraining[]> {
+async function fetchTrainings(ctx: QueryPorts): Promise<PersonnelTraining[]> {
 	const rows = await ctx.store.findMany<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId);
 	return PersonnelTrainingEntity.fromDbArray(rows);
 }
@@ -70,7 +70,7 @@ export interface TrainingSummaryByGroupInput {
 }
 
 export async function fetchTrainingSummaryByGroup(
-	ctx: UseCaseContext,
+	ctx: QueryPorts,
 	input: TrainingSummaryByGroupInput
 ): Promise<Map<string, TrainingSummary>> {
 	const { personnel, trainingTypes, options = {} } = input;
@@ -114,7 +114,7 @@ export interface TrainingSummaryByTypeInput {
 }
 
 export async function fetchTrainingSummaryByType(
-	ctx: UseCaseContext,
+	ctx: QueryPorts,
 	input: TrainingSummaryByTypeInput
 ): Promise<Map<string, TrainingStats>> {
 	const { personnel, trainingTypes, options = {} } = input;
@@ -134,7 +134,7 @@ export interface OnboardingTrainingCompletionsInput {
 }
 
 export async function fetchOnboardingTrainingCompletions(
-	ctx: UseCaseContext,
+	ctx: QueryPorts,
 	input: OnboardingTrainingCompletionsInput
 ): Promise<Set<string>> {
 	if (input.personnelIds.length === 0) return new Set();

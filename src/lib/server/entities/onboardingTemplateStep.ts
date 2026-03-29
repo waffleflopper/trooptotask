@@ -4,7 +4,10 @@ import type { OnboardingTemplateStep } from '$features/onboarding/onboarding.typ
 
 export const OnboardingTemplateStepEntity = defineEntity<OnboardingTemplateStep>({
 	table: 'onboarding_template_steps',
+	permission: 'onboarding',
+	requireFullEditor: true,
 	groupScope: 'none',
+	audit: { resourceType: 'onboarding_template_step' },
 	schema: {
 		id: field(z.string(), { readOnly: true }),
 		templateId: field(z.string(), { column: 'template_id' }),

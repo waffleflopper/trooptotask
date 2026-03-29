@@ -1,43 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import { fetchAuditLogs } from './auditLogQuery';
 
 const ORG = 'test-org';
 
-function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): UseCaseContext {
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext({ orgId: ORG, role: 'admin', isPrivileged: true, ...overrides?.auth }),
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
-}
-
 describe('fetchAuditLogs', () => {
 	it('returns audit logs from adminStore scoped to orgId', async () => {
-		const ctx = buildCtx();
+		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
+
+		adminStore.seed('organization_memberships', [
+			{ id: 'm1', organization_id: ORG, user_id: 'u1', email: 'alice@example.com' }
+		]);
 
 		adminStore.seed('audit_logs', [
 			{
 				id: 'log1',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.create',
@@ -52,17 +30,17 @@ describe('fetchAuditLogs', () => {
 
 		expect(result.logs).toHaveLength(1);
 		expect(result.logs[0].action).toBe('personnel.create');
+		expect(result.logs[0].actor).toBe('alice@example.com');
 		expect(result.totalCount).toBe(1);
 	});
 
 	it('excludes site-wide auth actions', async () => {
-		const ctx = buildCtx();
+		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
 		adminStore.seed('audit_logs', [
 			{
 				id: 'log1',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'auth.login_success',
@@ -73,7 +51,6 @@ describe('fetchAuditLogs', () => {
 			},
 			{
 				id: 'log2',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.create',
@@ -91,13 +68,12 @@ describe('fetchAuditLogs', () => {
 	});
 
 	it('filters by action when provided', async () => {
-		const ctx = buildCtx();
+		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
 		adminStore.seed('audit_logs', [
 			{
 				id: 'log1',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.create',
@@ -108,7 +84,6 @@ describe('fetchAuditLogs', () => {
 			},
 			{
 				id: 'log2',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.delete',
@@ -126,13 +101,12 @@ describe('fetchAuditLogs', () => {
 	});
 
 	it('returns available actions for filter dropdown', async () => {
-		const ctx = buildCtx();
+		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
 
 		adminStore.seed('audit_logs', [
 			{
 				id: 'log1',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.create',
@@ -143,7 +117,6 @@ describe('fetchAuditLogs', () => {
 			},
 			{
 				id: 'log2',
-				organization_id: ORG,
 				org_id: ORG,
 				user_id: 'u1',
 				action: 'personnel.delete',
@@ -158,5 +131,31 @@ describe('fetchAuditLogs', () => {
 
 		expect(result.availableActions).toContain('personnel.create');
 		expect(result.availableActions).toContain('personnel.delete');
+	});
+
+	it('prefers actor from details when present', async () => {
+		const ctx = createQueryPortsContext();
+		const adminStore = createInMemoryDataStore();
+
+		adminStore.seed('organization_memberships', [
+			{ id: 'm1', organization_id: ORG, user_id: 'u1', email: 'alice@example.com' }
+		]);
+
+		adminStore.seed('audit_logs', [
+			{
+				id: 'log1',
+				org_id: ORG,
+				user_id: 'u1',
+				action: 'personnel.create',
+				resource_type: 'personnel',
+				resource_id: 'p1',
+				details: { actor: 'override@example.com' },
+				timestamp: '2026-03-23T10:00:00Z'
+			}
+		]);
+
+		const result = await fetchAuditLogs(ctx, adminStore, { page: 1 });
+
+		expect(result.logs[0].actor).toBe('override@example.com');
 	});
 });

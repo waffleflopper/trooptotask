@@ -6,11 +6,16 @@ import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
-import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
+import { entityHandlers, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
-import { specialDayCrudConfig } from '$lib/server/core/useCases/specialDayCrud';
+
+function requireConfig<T>(config: T | undefined, label: string): T {
+	expect(config).toBeDefined();
+	if (!config) {
+		throw new Error(`${label} config missing`);
+	}
+	return config;
+}
 
 describe('Handler → Entity schema compatibility', () => {
 	describe('SpecialDay handler inputs', () => {
@@ -382,15 +387,10 @@ describe('Handler → Entity schema compatibility', () => {
 });
 
 describe('handle() + entity pipeline integration', () => {
-	it('crudHandlers create inserts via entity schema through handle pipeline', async () => {
-		const useCases = createCrudUseCases(specialDayCrudConfig);
+	it('entityHandlers create inserts via entity schema through handle pipeline', async () => {
+		const handlers = entityHandlers(SpecialDayEntity);
 		const ctx = createTestContext();
-
-		const config = {
-			permission: specialDayCrudConfig.permission as 'calendar',
-			mutation: true as const,
-			fn: (c: UseCaseContext, input: Record<string, unknown>) => useCases.create(c, input)
-		};
+		const config = requireConfig(handlers._configs.POST, 'POST');
 
 		const result = (await handleUseCaseRequest(config, ctx, {
 			date: '2026-12-25',
@@ -404,30 +404,8 @@ describe('handle() + entity pipeline integration', () => {
 		expect(stored).toHaveLength(1);
 	});
 
-	it('crudHandlers update modifies entity fields through handle pipeline', async () => {
-		const useCases = createCrudUseCases(specialDayCrudConfig);
-		const ctx = createTestContext();
-
-		ctx.store.seed('special_days', [
-			{ id: 'sd-1', organization_id: 'test-org', date: '2026-12-25', name: 'Christmas', type: 'federal-holiday' }
-		]);
-
-		const config = {
-			permission: specialDayCrudConfig.permission as 'calendar',
-			mutation: true as const,
-			fn: (c: UseCaseContext, input: Record<string, unknown>) => useCases.update(c, input)
-		};
-
-		const result = (await handleUseCaseRequest(config, ctx, {
-			id: 'sd-1',
-			name: 'Christmas Day'
-		})) as Record<string, unknown>;
-
-		expect(result).toMatchObject({ id: 'sd-1', name: 'Christmas Day' });
-	});
-
 	it('handle pipeline enforces permission before entity operations', async () => {
-		const useCases = createCrudUseCases(specialDayCrudConfig);
+		const handlers = entityHandlers(SpecialDayEntity);
 		const ctx = createTestContext({
 			auth: {
 				requireEdit() {
@@ -436,11 +414,7 @@ describe('handle() + entity pipeline integration', () => {
 			}
 		});
 
-		const config = {
-			permission: 'calendar' as const,
-			mutation: true as const,
-			fn: (c: UseCaseContext, input: Record<string, unknown>) => useCases.create(c, input)
-		};
+		const config = requireConfig(handlers._configs.POST, 'POST');
 
 		await expect(
 			handleUseCaseRequest(config, ctx, { date: '2026-12-25', name: 'X', type: 'federal-holiday' })
@@ -451,14 +425,9 @@ describe('handle() + entity pipeline integration', () => {
 	});
 
 	it('handle pipeline blocks mutations when read-only before entity operations', async () => {
-		const useCases = createCrudUseCases(specialDayCrudConfig);
+		const handlers = entityHandlers(SpecialDayEntity);
 		const ctx = createTestContext({ readOnly: true });
-
-		const config = {
-			permission: 'calendar' as const,
-			mutation: true as const,
-			fn: (c: UseCaseContext, input: Record<string, unknown>) => useCases.create(c, input)
-		};
+		const config = requireConfig(handlers._configs.POST, 'POST');
 
 		await expect(
 			handleUseCaseRequest(config, ctx, { date: '2026-12-25', name: 'X', type: 'federal-holiday' })

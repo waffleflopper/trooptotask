@@ -1,30 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
+import { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import type { QueryPorts } from '$lib/server/core/ports';
 import { fetchCalendarData } from './calendarQuery';
 
 const ORG = 'test-org';
 
-function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
-	const store = createInMemoryDataStore();
+function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): QueryPorts & {
+	store: ReturnType<typeof createInMemoryDataStore>;
+} {
 	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext({ orgId: ORG, ...overrides?.auth }),
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
+		store: createInMemoryDataStore(),
+		auth: createTestAuthContext({ orgId: ORG, ...overrides?.auth })
 	};
 }
 

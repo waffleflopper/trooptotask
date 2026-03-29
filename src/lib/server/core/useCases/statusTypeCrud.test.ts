@@ -1,54 +1,37 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
+import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { createCrudUseCases } from './crud';
-import { statusTypeCrudConfig } from './statusTypeCrud';
+import { getEntityAuditResource } from '$lib/server/entitySchema';
+import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
+const ST_ID = '00000000-0000-4000-a000-000000000001';
 
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext(overrides?.auth);
-	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
-
-	const subscription = createTestSubscriptionPort();
-	return {
-		store,
-		rawStore: store,
-		auth,
-		audit: auditPort,
-		readOnlyGuard,
-		subscription,
-		auditPort,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
-}
+// Same config entityHandlers() derives — validates the pattern without HTTP layer
+const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
+	entity: StatusTypeEntity,
+	permission: StatusTypeEntity.permission!,
+	auditResource: getEntityAuditResource(StatusTypeEntity),
+	requireFullEditor: StatusTypeEntity.requireFullEditor,
+	beforeDelete: async (ctx, id) => {
+		await ctx.store.deleteWhere('availability_entries', ctx.auth.orgId, {
+			status_type_id: id
+		});
+	},
+	afterDelete: async (ctx) => {
+		await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
+			type: 'config_type_deleted',
+			title: 'Status Type Deleted',
+			message: 'A status type was deleted.'
+		});
+	}
+});
 
 describe('StatusType CRUD use case', () => {
 	it('creates a status type and audits', async () => {
-		const ctx = buildContext();
-		const { create } = createCrudUseCases(statusTypeCrudConfig);
+		const ctx = createWriteWithNotificationsPortsContext();
 
-		const result = (await create(ctx, {
+		const result = (await useCases.create(ctx, {
 			name: 'On Leave',
 			color: '#00ff00',
 			textColor: '#000000',
@@ -56,14 +39,14 @@ describe('StatusType CRUD use case', () => {
 		})) as { name: string };
 
 		expect(result).toMatchObject({ name: 'On Leave' });
-		expect(ctx.auditPort.events[0].action).toBe('status_type.created');
+		expect(ctx.audit.events[0].action).toBe('status_type.created');
 	});
 
 	it('cascade-deletes availability_entries before deleting status type', async () => {
-		const ctx = buildContext();
+		const ctx = createWriteWithNotificationsPortsContext();
 		ctx.store.seed('status_types', [
 			{
-				id: 'st-1',
+				id: ST_ID,
 				name: 'On Leave',
 				color: '#00ff00',
 				text_color: '#000000',
@@ -72,32 +55,27 @@ describe('StatusType CRUD use case', () => {
 			}
 		]);
 		ctx.store.seed('availability_entries', [
-			{ id: 'ae-1', status_type_id: 'st-1', organization_id: 'test-org' },
-			{ id: 'ae-2', status_type_id: 'st-1', organization_id: 'test-org' },
+			{ id: 'ae-1', status_type_id: ST_ID, organization_id: 'test-org' },
+			{ id: 'ae-2', status_type_id: ST_ID, organization_id: 'test-org' },
 			{ id: 'ae-3', status_type_id: 'st-other', organization_id: 'test-org' }
 		]);
-		ctx.store.seed('organization_memberships', [
-			{ user_id: 'other-admin', organization_id: 'test-org', role: 'admin' }
-		]);
+		await useCases.remove(ctx, ST_ID);
 
-		const { remove } = createCrudUseCases(statusTypeCrudConfig);
-		await remove(ctx, 'st-1');
-
-		// Related availability entries for st-1 should be deleted
+		// Related availability entries for ST_ID should be deleted
 		const remaining = await ctx.store.findMany('availability_entries', 'test-org');
 		expect(remaining).toHaveLength(1);
 		expect((remaining[0] as Record<string, unknown>).status_type_id).toBe('st-other');
 
 		// Status type itself should be deleted
-		const stored = await ctx.store.findOne('status_types', 'test-org', { id: 'st-1' });
+		const stored = await ctx.store.findOne('status_types', 'test-org', { id: ST_ID });
 		expect(stored).toBeNull();
 	});
 
 	it('notifies admins after delete', async () => {
-		const ctx = buildContext();
+		const ctx = createWriteWithNotificationsPortsContext();
 		ctx.store.seed('status_types', [
 			{
-				id: 'st-1',
+				id: ST_ID,
 				name: 'On Leave',
 				color: '#00ff00',
 				text_color: '#000000',
@@ -105,15 +83,10 @@ describe('StatusType CRUD use case', () => {
 				organization_id: 'test-org'
 			}
 		]);
-		ctx.store.seed('organization_memberships', [
-			{ user_id: 'other-admin', organization_id: 'test-org', role: 'admin' }
-		]);
+		await useCases.remove(ctx, ST_ID);
 
-		const { remove } = createCrudUseCases(statusTypeCrudConfig);
-		await remove(ctx, 'st-1');
-
-		const notifications = await ctx.store.findMany('notifications', 'test-org');
+		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
-		expect((notifications[0] as Record<string, unknown>).type).toBe('config_type_deleted');
+		expect(notifications[0].notification.type).toBe('config_type_deleted');
 	});
 });

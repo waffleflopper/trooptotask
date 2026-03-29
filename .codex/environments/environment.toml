@@ -38,3 +38,8 @@ npm run format
 name = "pull"
 icon = "debug"
 command = "git fetch origin main && git merge --ff-only origin/main"
+
+[[actions]]
+name = "format only"
+icon = "tool"
+command = "npm run format"

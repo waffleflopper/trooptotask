@@ -13,6 +13,7 @@ describe('SupabaseAuditAdapter', () => {
 	const orgId = 'org-123';
 	const requestInfo = {
 		userId: 'user-456',
+		userEmail: 'user@example.com',
 		ip: '192.168.1.1',
 		userAgent: 'TestAgent/1.0'
 	};

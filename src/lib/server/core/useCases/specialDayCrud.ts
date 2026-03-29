@@ -1,17 +1,10 @@
 import { fail } from '$lib/server/core/errors';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
-import type { CrudConfig } from './crud';
-import type { UseCaseContext } from '$lib/server/core/ports';
-
-export const specialDayCrudConfig: CrudConfig = {
-	entity: SpecialDayEntity,
-	permission: 'calendar',
-	auditResource: 'special_day'
-};
+import type { WritePorts } from '$lib/server/core/ports';
 
 export function createResetFederalHolidaysUseCase() {
-	return async (ctx: UseCaseContext): Promise<unknown[]> => {
+	return async (ctx: WritePorts): Promise<unknown[]> => {
 		ctx.auth.requireEdit('calendar');
 
 		const isReadOnly = await ctx.readOnlyGuard.check();

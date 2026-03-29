@@ -4,7 +4,10 @@ import type { SpecialDay } from '$lib/types';
 
 export const SpecialDayEntity = defineEntity<SpecialDay>({
 	table: 'special_days',
+	permission: 'calendar',
+	methods: ['POST', 'DELETE'],
 	groupScope: 'none',
+	audit: { resourceType: 'special_day' },
 	orderBy: [{ column: 'date', ascending: true }],
 	schema: {
 		id: field(z.string(), { readOnly: true }),

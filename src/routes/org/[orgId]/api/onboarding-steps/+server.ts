@@ -26,8 +26,7 @@ export const PUT = handle<Record<string, unknown>, unknown>({
 
 			return addNote(ctx, {
 				stepId: input.stepId as string,
-				text: input.text as string,
-				userId
+				text: input.text as string
 			});
 		}
 

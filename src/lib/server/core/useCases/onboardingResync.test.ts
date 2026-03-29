@@ -1,47 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { resyncOnboarding, switchTemplate } from './onboardingResync';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
-
-function buildContext(overrides?: { readOnly?: boolean; isFullEditor?: boolean }): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext({
-		isFullEditor: overrides?.isFullEditor ?? true
+function buildContext(overrides?: { readOnly?: boolean; isFullEditor?: boolean }) {
+	return createWritePortsContext({
+		readOnly: overrides?.readOnly,
+		auth: { isFullEditor: overrides?.isFullEditor ?? true }
 	});
-	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
-
-	const subscription = createTestSubscriptionPort();
-	return {
-		store,
-		rawStore: store,
-		auth,
-		audit: auditPort,
-		readOnlyGuard,
-		subscription,
-		auditPort,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
 }
 
-function seedOnboarding(ctx: TestContext, overrides?: Record<string, unknown>) {
+function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
 	ctx.store.seed('personnel_onboardings', [
 		{
 			id: 'ob-1',
@@ -57,7 +25,7 @@ function seedOnboarding(ctx: TestContext, overrides?: Record<string, unknown>) {
 	]);
 }
 
-function seedTemplateSteps(ctx: TestContext, steps?: Record<string, unknown>[]) {
+function seedTemplateSteps(ctx: ReturnType<typeof buildContext>, steps?: Record<string, unknown>[]) {
 	const defaults = [
 		{
 			id: 'ts-1',
@@ -96,7 +64,7 @@ function seedTemplateSteps(ctx: TestContext, steps?: Record<string, unknown>[]) 
 	ctx.store.seed('onboarding_template_steps', steps ?? defaults);
 }
 
-function seedInstanceSteps(ctx: TestContext, steps?: Record<string, unknown>[]) {
+function seedInstanceSteps(ctx: ReturnType<typeof buildContext>, steps?: Record<string, unknown>[]) {
 	const defaults = [
 		{
 			id: 'sp-1',
@@ -564,8 +532,8 @@ describe('resyncOnboarding', () => {
 
 		await resyncOnboarding(ctx, 'ob-1');
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding.resynced',
 			resourceType: 'personnel_onboarding',
 			resourceId: 'ob-1'
@@ -768,8 +736,8 @@ describe('switchTemplate', () => {
 
 		await switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'tmpl-2' });
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding.template_switched',
 			resourceType: 'personnel_onboarding',
 			resourceId: 'ob-1',

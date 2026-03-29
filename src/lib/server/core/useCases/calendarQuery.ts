@@ -1,4 +1,4 @@
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { QueryPorts } from '$lib/server/core/ports';
 import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
@@ -19,7 +19,7 @@ export interface CalendarData {
 	pinnedGroups: string[];
 }
 
-export async function fetchCalendarData(ctx: UseCaseContext, input: CalendarQueryInput): Promise<CalendarData> {
+export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInput): Promise<CalendarData> {
 	ctx.auth.requireView('calendar');
 
 	const orgId = ctx.auth.orgId;

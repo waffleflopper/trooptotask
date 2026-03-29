@@ -1,5 +1,5 @@
 <script lang="ts">
-	import '../app.css';
+	import appCssUrl from '../app.css?url';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { onMount } from 'svelte';
 	import { invalidate } from '$app/navigation';
@@ -11,6 +11,18 @@
 
 	onMount(() => {
 		themeStore.init();
+
+		// Load non-critical styles asynchronously — critical CSS is already inlined in app.html.
+		// media="print" prevents render-blocking; onload swaps to media="all" once downloaded.
+		const link = document.createElement('link');
+		link.rel = 'stylesheet';
+		link.href = appCssUrl;
+		link.media = 'print';
+		link.addEventListener('load', () => {
+			link.media = 'all';
+		});
+		document.head.appendChild(link);
+
 		const cancelIdle = deferToIdle(() => {
 			void Promise.all([import('@vercel/analytics'), import('@vercel/speed-insights')]).then(
 				([{ inject }, { injectSpeedInsights }]) => {

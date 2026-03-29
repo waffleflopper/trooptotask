@@ -15,10 +15,7 @@ export interface CheckoutInput {
 	cancelUrl: string;
 }
 
-export async function checkout(
-	ctx: BillingPorts,
-	input: CheckoutInput
-): Promise<{ url: string; customerId: string }> {
+export async function checkout(ctx: BillingPorts, input: CheckoutInput): Promise<{ url: string; customerId: string }> {
 	if (!input.customerEmail) fail(400, 'User email not found');
 	return ctx.billing.createCheckoutSession({
 		orgId: ctx.auth.orgId,

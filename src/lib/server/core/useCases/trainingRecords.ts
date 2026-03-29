@@ -76,10 +76,7 @@ export async function createTrainingRecord(ctx: WritePorts, input: Record<string
 	return entity.fromDb(row);
 }
 
-export async function deleteTrainingRecord(
-	ctx: WritePorts,
-	id: string
-): Promise<{ requiresApproval: boolean } | void> {
+export async function deleteTrainingRecord(ctx: WritePorts, id: string): Promise<{ requiresApproval: boolean } | void> {
 	ctx.auth.requireEdit('training');
 
 	await ctx.auth.requireGroupAccessByRecord(entity.table, id, 'personnel_id');

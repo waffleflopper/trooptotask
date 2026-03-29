@@ -100,7 +100,11 @@ async function resolveNames(
 	return map;
 }
 
-async function resolveActorEmails(adminStore: DataStore, userIds: string[], orgId: string): Promise<Map<string, string>> {
+async function resolveActorEmails(
+	adminStore: DataStore,
+	userIds: string[],
+	orgId: string
+): Promise<Map<string, string>> {
 	const map = new Map<string, string>();
 	if (userIds.length === 0) return map;
 
@@ -154,7 +158,9 @@ export async function fetchAuditLogs(
 	const personnelIds = collectIds(paged, 'personnel_id');
 	const trainingTypeIds = collectIds(paged, 'training_type_id');
 	const statusTypeIds = collectIds(paged, 'status_type_id');
-	const actorUserIds = [...new Set(paged.map((log) => log.user_id).filter((id): id is string => typeof id === 'string'))];
+	const actorUserIds = [
+		...new Set(paged.map((log) => log.user_id).filter((id): id is string => typeof id === 'string'))
+	];
 
 	const [personnelNames, trainingTypeNames, statusTypeNames, actorEmails] = await Promise.all([
 		resolveNames(adminStore, 'personnel', personnelIds, orgId),

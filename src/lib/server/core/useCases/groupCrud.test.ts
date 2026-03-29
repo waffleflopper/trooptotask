@@ -1,12 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { GroupEntity } from '$lib/server/entities/group';
+import { getEntityAuditResource } from '$lib/server/entitySchema';
 import { createCrudUseCases } from './crud';
+
+const groupPermission = GroupEntity.permission;
+const groupAudit = GroupEntity.audit;
+if (!groupPermission || !groupAudit) {
+	throw new Error('GroupEntity missing required metadata');
+}
+const groupAuditResource = getEntityAuditResource(GroupEntity);
 
 const useCases = createCrudUseCases({
 	entity: GroupEntity,
-	permission: GroupEntity.permission!,
-	auditResource: (GroupEntity.audit as { resourceType: string }).resourceType
+	permission: groupPermission,
+	auditResource: groupAuditResource
 });
 
 describe('Group CRUD use case', () => {

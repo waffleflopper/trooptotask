@@ -324,17 +324,40 @@ describe('refreshTrainingSteps', () => {
 		expect(cpr?.completed).toBe(true);
 		expect(firstAid?.completed).toBe(false);
 	});
+
+	it('requires onboarding edit permission before refreshing training steps', async () => {
+		const ctx = buildContext({
+			auth: {
+				requireEdit() {
+					throw Object.assign(new Error('Forbidden'), { status: 403 });
+				}
+			}
+		});
+		seedOnboarding(ctx);
+		seedTrainingStep(ctx);
+
+		await expect(refreshTrainingSteps(ctx, { onboardingId: 'ob-1' })).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('blocks refresh when organization is read-only', async () => {
+		const ctx = buildContext({ readOnly: true });
+		seedOnboarding(ctx);
+		seedTrainingStep(ctx);
+
+		await expect(refreshTrainingSteps(ctx, { onboardingId: 'ob-1' })).rejects.toThrow(
+			'Organization is in read-only mode'
+		);
+	});
 });
 
 describe('addNote', () => {
-	it('appends a note with server-generated timestamp and userId', async () => {
-		const ctx = buildContext();
+	it('appends a note with server-generated timestamp and authenticated userId', async () => {
+		const ctx = buildContext({ auth: { userId: 'user-abc' } });
 		seedStep(ctx);
 
 		const result = await addNote(ctx, {
 			stepId: 'step-1',
-			text: 'Emailed soldier about ID card',
-			userId: 'user-abc'
+			text: 'Emailed soldier about ID card'
 		});
 
 		expect(result.notes).toHaveLength(1);
@@ -346,14 +369,13 @@ describe('addNote', () => {
 	});
 
 	it('preserves existing notes when appending', async () => {
-		const ctx = buildContext();
+		const ctx = buildContext({ auth: { userId: 'user-2' } });
 		const existingNote = { text: 'First note', timestamp: '2026-03-01T00:00:00.000Z', userId: 'user-1' };
 		seedStep(ctx, { notes: [existingNote] });
 
 		const result = await addNote(ctx, {
 			stepId: 'step-1',
-			text: 'Second note',
-			userId: 'user-2'
+			text: 'Second note'
 		});
 
 		expect(result.notes).toHaveLength(2);
@@ -363,27 +385,30 @@ describe('addNote', () => {
 	});
 
 	it('rejects when step not found', async () => {
-		const ctx = buildContext();
+		const ctx = buildContext({ auth: { userId: 'user-1' } });
 
-		await expect(addNote(ctx, { stepId: 'nonexistent', text: 'hello', userId: 'user-1' })).rejects.toThrow(
-			'Step not found'
-		);
+		await expect(addNote(ctx, { stepId: 'nonexistent', text: 'hello' })).rejects.toThrow('Step not found');
 	});
 
 	it('blocks when organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
+		const ctx = buildContext({ auth: { userId: 'user-1' }, readOnly: true });
 		seedStep(ctx);
 
-		await expect(addNote(ctx, { stepId: 'step-1', text: 'hello', userId: 'user-1' })).rejects.toThrow(
-			'Organization is in read-only mode'
-		);
+		await expect(addNote(ctx, { stepId: 'step-1', text: 'hello' })).rejects.toThrow('Organization is in read-only mode');
+	});
+
+	it('rejects when the actor is unauthenticated', async () => {
+		const ctx = buildContext({ auth: { userId: null } });
+		seedStep(ctx);
+
+		await expect(addNote(ctx, { stepId: 'step-1', text: 'hello' })).rejects.toThrow('Authentication required');
 	});
 
 	it('emits audit log on note addition', async () => {
-		const ctx = buildContext();
+		const ctx = buildContext({ auth: { userId: 'user-abc' } });
 		seedStep(ctx);
 
-		await addNote(ctx, { stepId: 'step-1', text: 'Note text', userId: 'user-abc' });
+		await addNote(ctx, { stepId: 'step-1', text: 'Note text' });
 
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({

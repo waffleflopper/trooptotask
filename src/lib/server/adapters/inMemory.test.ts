@@ -554,4 +554,31 @@ describe('Port bundle context builders', () => {
 		const keys = Object.keys(ctx).sort();
 		expect(keys).toEqual(['auth', 'rawStore', 'store']);
 	});
+
+	it('scopes createWritePortsContext reads when auth has a scoped group', async () => {
+		const ctx = createWritePortsContext({ auth: { scopedGroupId: 'group-A' } });
+
+		ctx.store.seed('personnel', [
+			{ id: 'p-a', organization_id: 'test-org', group_id: 'group-A' },
+			{ id: 'p-b', organization_id: 'test-org', group_id: 'group-B' }
+		]);
+
+		const visible = await ctx.store.findMany<{ id: string }>('personnel', 'test-org');
+		expect(visible.map((row) => row.id)).toEqual(['p-a']);
+	});
+
+	it('createQueryWithRawStorePortsContext keeps rawStore unscoped', async () => {
+		const ctx = createQueryWithRawStorePortsContext({ auth: { scopedGroupId: 'group-A' } });
+
+		ctx.rawStore.seed('personnel', [
+			{ id: 'p-a', organization_id: 'test-org', group_id: 'group-A' },
+			{ id: 'p-b', organization_id: 'test-org', group_id: 'group-B' }
+		]);
+
+		const scopedRows = await ctx.store.findMany<{ id: string }>('personnel', 'test-org');
+		const rawRows = await ctx.rawStore.findMany<{ id: string }>('personnel', 'test-org');
+
+		expect(scopedRows.map((row) => row.id)).toEqual(['p-a']);
+		expect(rawRows.map((row) => row.id).sort()).toEqual(['p-a', 'p-b']);
+	});
 });

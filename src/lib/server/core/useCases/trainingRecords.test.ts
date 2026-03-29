@@ -210,4 +210,14 @@ describe('deleteTrainingRecord', () => {
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(1);
 	});
+
+	it('blocks hard delete when organization is read-only', async () => {
+		const ctx = buildContext({ readOnly: true });
+		seedRecord(ctx);
+
+		await expect(deleteTrainingRecord(ctx, 'tr-1')).rejects.toMatchObject({ status: 403 });
+
+		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
+		expect(stored).toHaveLength(1);
+	});
 });

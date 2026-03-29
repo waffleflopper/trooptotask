@@ -64,6 +64,20 @@ describe('createDeletionRequest', () => {
 		expect(notifications[0].notification.type).toBe('deletion_request_pending');
 	});
 
+	it('does not fail creation when admin notification delivery fails', async () => {
+		const ctx = buildContext();
+		ctx.notifications.notifyAdmins = async () => {
+			throw new Error('notification failed');
+		};
+
+		await expect(createDeletionRequest(ctx, validInput)).resolves.toMatchObject({
+			resource_type: 'counseling_record'
+		});
+
+		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
+		expect(stored).toHaveLength(1);
+	});
+
 	it('rejects duplicate pending request for the same resource (409)', async () => {
 		const ctx = buildContext();
 
@@ -182,6 +196,30 @@ describe('approveDeletionRequest', () => {
 			title: 'Deletion Approved'
 		});
 	});
+
+	it('does not fail approval when requester notification delivery fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx);
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
+		ctx.notifications.notifyUser = async () => {
+			throw new Error('notification failed');
+		};
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).resolves.toBeUndefined();
+
+		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
+		expect(request).toMatchObject({ status: 'approved' });
+	});
+
+	it('skips requester notification when requested_by is null', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx, { requested_by: null });
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
+
+		await approveDeletionRequest(ctx, 'dr-1');
+
+		expect(ctx.notifications.notifications).toHaveLength(0);
+	});
 });
 
 describe('denyDeletionRequest', () => {
@@ -218,6 +256,19 @@ describe('denyDeletionRequest', () => {
 			resourceType: 'deletion_request',
 			resourceId: 'dr-1'
 		});
+	});
+
+	it('does not fail denial when requester notification delivery fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx);
+		ctx.notifications.notifyUser = async () => {
+			throw new Error('notification failed');
+		};
+
+		await expect(denyDeletionRequest(ctx, 'dr-1', 'No')).resolves.toBeUndefined();
+
+		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
+		expect(request).toMatchObject({ status: 'denied' });
 	});
 });
 

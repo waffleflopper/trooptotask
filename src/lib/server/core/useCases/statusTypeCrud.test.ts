@@ -2,15 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { createCrudUseCases } from './crud';
+import { getEntityAuditResource } from '$lib/server/entitySchema';
 import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
 
 const ST_ID = '00000000-0000-4000-a000-000000000001';
 
 // Same config entityHandlers() derives — validates the pattern without HTTP layer
-const useCases = createCrudUseCases({
+const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	entity: StatusTypeEntity,
 	permission: StatusTypeEntity.permission!,
-	auditResource: (StatusTypeEntity.audit as { resourceType: string }).resourceType,
+	auditResource: getEntityAuditResource(StatusTypeEntity),
 	requireFullEditor: StatusTypeEntity.requireFullEditor,
 	beforeDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('availability_entries', ctx.auth.orgId, {
@@ -18,7 +19,7 @@ const useCases = createCrudUseCases({
 		});
 	},
 	afterDelete: async (ctx) => {
-		await (ctx as WriteWithNotificationsPorts).notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
+		await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 			type: 'config_type_deleted',
 			title: 'Status Type Deleted',
 			message: 'A status type was deleted.'

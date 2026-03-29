@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
 import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
+import { getEntityAuditResource } from '$lib/server/entitySchema';
 import { createCrudUseCases } from './crud';
 
 const TMPL_ID = '00000000-0000-4000-a000-000000000001';
@@ -10,7 +11,7 @@ const TMPL_ID = '00000000-0000-4000-a000-000000000001';
 const templateUseCases = createCrudUseCases({
 	entity: OnboardingTemplateEntity,
 	permission: OnboardingTemplateEntity.permission!,
-	auditResource: (OnboardingTemplateEntity.audit as { resourceType: string }).resourceType,
+	auditResource: getEntityAuditResource(OnboardingTemplateEntity),
 	requireFullEditor: OnboardingTemplateEntity.requireFullEditor,
 	afterDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('onboarding_template_steps', ctx.auth.orgId, { template_id: id });
@@ -28,7 +29,7 @@ const templateUseCases = createCrudUseCases({
 const stepUseCases = createCrudUseCases({
 	entity: OnboardingTemplateStepEntity,
 	permission: OnboardingTemplateStepEntity.permission!,
-	auditResource: (OnboardingTemplateStepEntity.audit as { resourceType: string }).resourceType,
+	auditResource: getEntityAuditResource(OnboardingTemplateStepEntity),
 	requireFullEditor: OnboardingTemplateStepEntity.requireFullEditor
 });
 

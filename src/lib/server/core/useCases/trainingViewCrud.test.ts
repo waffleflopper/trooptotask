@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
-import { createCrudUseCases } from './crud';
+import { getEntityAuditResource } from '$lib/server/entitySchema';
+import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 
 const useCases = createCrudUseCases({
 	entity: TrainingViewEntity,
 	permission: TrainingViewEntity.permission!,
-	auditResource: (TrainingViewEntity.audit as { resourceType: string }).resourceType,
+	auditResource: getEntityAuditResource(TrainingViewEntity),
 	requireFullEditor: TrainingViewEntity.requireFullEditor
 });
 

@@ -12,7 +12,7 @@ Mechanically grepped every file in `src/lib/server/core/useCases/` for `ctx.stor
 | `availabilityBatch.ts` | store, auth, audit, readOnlyGuard | `WritePorts` |
 | `dailyAssignments.ts` | store, auth, audit, readOnlyGuard | `WritePorts` |
 | `dailyAssignmentsBatch.ts` | store, auth, audit, readOnlyGuard | `WritePorts` |
-| `deletionRequests.ts` | store, auth, audit, readOnlyGuard | `WritePorts` |
+| `deletionRequests.ts` | store, auth, audit, readOnlyGuard, notifications | `WriteWithNotificationsPorts` |
 | `personnel.ts` | store, auth, audit, readOnlyGuard, subscription | `WriteWithSubscriptionPorts` |
 | `personnelBatch.ts` | store, auth, audit, readOnlyGuard, subscription | `WriteWithSubscriptionPorts` |
 | `trainingRecords.ts` | store, auth, audit, readOnlyGuard | `WritePorts` |
@@ -36,5 +36,7 @@ Three files differed from the expected assignments in #404:
 
 - **`UserWritePorts`**: store, auth, audit
 - **`WritePorts`**: store, auth, audit, readOnlyGuard
+- **`QueryPorts`**: store, auth. Used by read-only query use cases such as `auditLogQuery.ts`, `calendarQuery.ts`, and similar server queries that need scoped reads without audit, write, or notification ports.
 - **`WriteWithSubscriptionPorts`**: store, auth, audit, readOnlyGuard, subscription
+- **`WriteWithNotificationsPorts`**: store, auth, audit, readOnlyGuard, notifications
 - **`BillingPorts`**: auth, billing (new type defined in `billing.ts`)

@@ -10,7 +10,6 @@
  * - `removeAssignment(date, assignmentTypeId)` — deletes one assignment
  * - `setAssignmentBatch(assignments[])` — bulk upsert used by the assignment planner
  * - `getAssignmentsForDate(date)` — fast lookup for rendering a calendar row
- * - `getAssignmentsForDateRange(start, end)` — used by the long-range view
  *
  * Loaded by the calendar and dashboard page load functions.
  */

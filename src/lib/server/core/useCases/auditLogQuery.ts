@@ -5,7 +5,7 @@
  * they are high-frequency and not useful in the general activity feed. They remain stored
  * in the database and could be queried directly if a dedicated security log view is added.
  *
- * Results are sorted newest-first and support cursor-based pagination via `range`.
+ * Results are sorted newest-first and support offset-based pagination via `page` and `limit`.
  */
 import type { QueryPorts, DataStore } from '$lib/server/core/ports';
 

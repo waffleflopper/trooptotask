@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import OverflowMenu from './ui/OverflowMenu.svelte';
-	import type { OverflowItem } from './ui/OverflowMenu.types';
-	import HelpButton from './ui/HelpButton.svelte';
+	import OverflowMenu from '$lib/components/ui/OverflowMenu.svelte';
+	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
+	import HelpButton from '$lib/components/ui/HelpButton.svelte';
 
 	interface Breadcrumb {
 		label: string;

@@ -1,7 +1,7 @@
 /**
  * Personnel query use cases — fetch personnel with filtering, sorting, and pagination.
  *
- * `fetchPersonnel(ctx, options?)` supports `archived` flag ('all' | true | false),
+ * `queryPersonnel(ctx, options?)` supports `archived` flag ('all' | true | false),
  * custom `orderBy`, and cursor-based `range` for pagination.
  *
  * For the personnel page's supplemental data (pinned groups, rating scheme entries),

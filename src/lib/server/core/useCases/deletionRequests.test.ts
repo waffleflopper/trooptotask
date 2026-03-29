@@ -1,15 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import {
 	createDeletionRequest,
 	approveDeletionRequest,
@@ -18,29 +8,8 @@ import {
 	listDeletionRequests
 } from './deletionRequests';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-};
-
-function buildContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	readOnly?: boolean;
-}): TestContext {
-	const auditPort = createTestAuditPort();
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext(overrides?.auth),
-		audit: auditPort,
-		auditPort,
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
+	return createWriteWithNotificationsPortsContext(overrides);
 }
 
 describe('createDeletionRequest', () => {
@@ -55,7 +24,7 @@ describe('createDeletionRequest', () => {
 	it('creates a pending deletion request and audit logs', async () => {
 		const ctx = buildContext();
 
-		const result = await createDeletionRequest(ctx, validInput);
+		await createDeletionRequest(ctx, validInput);
 
 		// Record stored with correct fields
 		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
@@ -71,8 +40,8 @@ describe('createDeletionRequest', () => {
 		});
 
 		// Audit logged
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.created',
 			resourceType: 'deletion_request'
 		});
@@ -85,19 +54,28 @@ describe('createDeletionRequest', () => {
 
 	it('notifies admins on create', async () => {
 		const ctx = buildContext({ auth: { userId: 'member-user' } });
-		// Seed admin memberships for notifyAdminsViaStore
-		ctx.store.seed('organization_memberships', [
-			{ user_id: 'admin-1', organization_id: 'test-org', role: 'owner' },
-			{ user_id: 'admin-2', organization_id: 'test-org', role: 'admin' },
-			{ user_id: 'member-user', organization_id: 'test-org', role: 'member' }
-		]);
 
 		await createDeletionRequest(ctx, validInput);
 
-		// Admin notifications created (excluding the actor)
-		const notifications = await ctx.store.findMany<Record<string, unknown>>('notifications', 'test-org');
-		expect(notifications).toHaveLength(2);
-		expect(notifications.every((n) => n.type === 'deletion_request_pending')).toBe(true);
+		const notifications = ctx.notifications.notifications;
+		expect(notifications).toHaveLength(1);
+		expect(notifications[0].target).toBe('admins');
+		expect(notifications[0].excludeUserId).toBe('member-user');
+		expect(notifications[0].notification.type).toBe('deletion_request_pending');
+	});
+
+	it('does not fail creation when admin notification delivery fails', async () => {
+		const ctx = buildContext();
+		ctx.notifications.notifyAdmins = async () => {
+			throw new Error('notification failed');
+		};
+
+		await expect(createDeletionRequest(ctx, validInput)).resolves.toMatchObject({
+			resource_type: 'counseling_record'
+		});
+
+		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
+		expect(stored).toHaveLength(1);
 	});
 
 	it('rejects duplicate pending request for the same resource (409)', async () => {
@@ -123,7 +101,7 @@ describe('createDeletionRequest', () => {
 	});
 });
 
-function seedPendingRequest(ctx: TestContext, overrides?: Record<string, unknown>) {
+function seedPendingRequest(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
 	ctx.store.seed('deletion_requests', [
 		{
 			id: 'dr-1',
@@ -165,17 +143,18 @@ describe('approveDeletionRequest', () => {
 		expect(person!.archived_at).toBeTruthy();
 
 		// Notification created for the requester
-		const notifications = await ctx.store.findMany<Record<string, unknown>>('notifications', 'test-org');
+		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
-		expect(notifications[0]).toMatchObject({
-			user_id: 'requester-user',
+		expect(notifications[0].target).toBe('user');
+		expect(notifications[0].userId).toBe('requester-user');
+		expect(notifications[0].notification).toMatchObject({
 			type: 'deletion_approved',
 			title: 'Archival Approved'
 		});
 
 		// Audit logged
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.approved',
 			resourceType: 'deletion_request',
 			resourceId: 'dr-1'
@@ -211,11 +190,35 @@ describe('approveDeletionRequest', () => {
 		expect(record).toBeNull();
 
 		// Notification says "Deletion" not "Archival"
-		const notifications = await ctx.store.findMany<Record<string, unknown>>('notifications', 'test-org');
-		expect(notifications[0]).toMatchObject({
+		const notifications = ctx.notifications.notifications;
+		expect(notifications[0].notification).toMatchObject({
 			type: 'deletion_approved',
 			title: 'Deletion Approved'
 		});
+	});
+
+	it('does not fail approval when requester notification delivery fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx);
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
+		ctx.notifications.notifyUser = async () => {
+			throw new Error('notification failed');
+		};
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).resolves.toBeUndefined();
+
+		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
+		expect(request).toMatchObject({ status: 'approved' });
+	});
+
+	it('skips requester notification when requested_by is null', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx, { requested_by: null });
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
+
+		await approveDeletionRequest(ctx, 'dr-1');
+
+		expect(ctx.notifications.notifications).toHaveLength(0);
 	});
 });
 
@@ -236,22 +239,36 @@ describe('denyDeletionRequest', () => {
 		expect(request!.reviewed_at).toBeTruthy();
 
 		// Notification includes denial reason
-		const notifications = await ctx.store.findMany<Record<string, unknown>>('notifications', 'test-org');
+		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
-		expect(notifications[0]).toMatchObject({
-			user_id: 'requester-user',
+		expect(notifications[0].target).toBe('user');
+		expect(notifications[0].userId).toBe('requester-user');
+		expect(notifications[0].notification).toMatchObject({
 			type: 'deletion_denied',
 			title: 'Archival Denied'
 		});
-		expect(notifications[0].message as string).toContain('Not approved by commander');
+		expect(notifications[0].notification.message).toContain('Not approved by commander');
 
 		// Audit logged
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.denied',
 			resourceType: 'deletion_request',
 			resourceId: 'dr-1'
 		});
+	});
+
+	it('does not fail denial when requester notification delivery fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx);
+		ctx.notifications.notifyUser = async () => {
+			throw new Error('notification failed');
+		};
+
+		await expect(denyDeletionRequest(ctx, 'dr-1', 'No')).resolves.toBeUndefined();
+
+		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
+		expect(request).toMatchObject({ status: 'denied' });
 	});
 });
 
@@ -265,8 +282,8 @@ describe('cancelDeletionRequest', () => {
 		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
 		expect(request).toMatchObject({ status: 'cancelled' });
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.cancelled',
 			resourceType: 'deletion_request',
 			resourceId: 'dr-1'

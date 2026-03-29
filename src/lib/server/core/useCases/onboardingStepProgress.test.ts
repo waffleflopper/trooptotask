@@ -1,15 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
 	toggleCheckbox,
 	advanceStage,
@@ -18,34 +8,38 @@ import {
 	removeInactiveStep
 } from './onboardingStepProgress';
 
-type TestContext = Omit<UseCaseContext, 'store'> & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	subscription: ReturnType<typeof createTestSubscriptionPort>;
-};
-
-function buildContext(overrides?: { readOnly?: boolean }): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext();
-	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
-
-	const subscription = createTestSubscriptionPort();
-	return {
-		store,
-		rawStore: store,
-		auth,
-		audit: auditPort,
-		readOnlyGuard,
-		subscription,
-		auditPort,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
+	return createWritePortsContext(overrides);
 }
 
-function seedStep(ctx: TestContext, overrides?: Record<string, unknown>) {
+interface OnboardingStepFixture {
+	id: string;
+	onboarding_id: string;
+	step_name: string;
+	step_type: 'checkbox' | 'paperwork' | 'training';
+	training_type_id: string | null;
+	stages: string[] | null;
+	sort_order: number;
+	completed: boolean;
+	current_stage: string | null;
+	notes: Array<{ text: string; timestamp: string; userId: string }>;
+	template_step_id: string;
+	active: boolean;
+	organization_id: string;
+}
+
+interface PersonnelOnboardingFixture {
+	id: string;
+	personnel_id: string;
+	template_id: string | null;
+	status: string;
+	started_at: string | null;
+	completed_at: string | null;
+	cancelled_at: string | null;
+	organization_id: string;
+}
+
+function seedStep(ctx: ReturnType<typeof buildContext>, overrides?: Partial<OnboardingStepFixture>) {
 	ctx.store.seed('onboarding_step_progress', [
 		{
 			id: 'step-1',
@@ -114,7 +108,7 @@ describe('toggleCheckbox', () => {
 	});
 });
 
-function seedPaperworkStep(ctx: TestContext, overrides?: Record<string, unknown>) {
+function seedPaperworkStep(ctx: ReturnType<typeof buildContext>, overrides?: Partial<OnboardingStepFixture>) {
 	ctx.store.seed('onboarding_step_progress', [
 		{
 			id: 'pw-step-1',
@@ -209,8 +203,8 @@ describe('advanceStage', () => {
 
 		await advanceStage(ctx, { stepId: 'pw-step-1', stageName: 'submitted' });
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding_step.stage_advanced',
 			resourceType: 'onboarding_step_progress',
 			resourceId: 'pw-step-1'
@@ -218,7 +212,7 @@ describe('advanceStage', () => {
 	});
 });
 
-function seedTrainingStep(ctx: TestContext, overrides?: Record<string, unknown>) {
+function seedTrainingStep(ctx: ReturnType<typeof buildContext>, overrides?: Partial<OnboardingStepFixture>) {
 	ctx.store.seed('onboarding_step_progress', [
 		{
 			id: 'tr-step-1',
@@ -239,7 +233,7 @@ function seedTrainingStep(ctx: TestContext, overrides?: Record<string, unknown>)
 	]);
 }
 
-function seedOnboarding(ctx: TestContext, overrides?: Record<string, unknown>) {
+function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Partial<PersonnelOnboardingFixture>) {
 	ctx.store.seed('personnel_onboardings', [
 		{
 			id: 'ob-1',
@@ -357,17 +351,53 @@ describe('refreshTrainingSteps', () => {
 		expect(cpr?.completed).toBe(true);
 		expect(firstAid?.completed).toBe(false);
 	});
+
+	it('requires onboarding edit permission before refreshing training steps', async () => {
+		const ctx = buildContext({
+			auth: {
+				requireEdit() {
+					throw Object.assign(new Error('Forbidden'), { status: 403 });
+				}
+			}
+		});
+		seedOnboarding(ctx);
+		seedTrainingStep(ctx);
+
+		await expect(refreshTrainingSteps(ctx, { onboardingId: 'ob-1' })).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('returns computed statuses without persisting updates when organization is read-only', async () => {
+		const ctx = buildContext({ readOnly: true });
+		seedOnboarding(ctx);
+		seedTrainingStep(ctx, { completed: false });
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'pt-1',
+				personnel_id: 'p-1',
+				training_type_id: 'tt-cpr',
+				organization_id: 'test-org'
+			}
+		]);
+
+		const result = await refreshTrainingSteps(ctx, { onboardingId: 'ob-1' });
+		expect(result).toHaveLength(1);
+		expect(result[0].completed).toBe(true);
+
+		const stored = await ctx.store.findOne<{ completed: boolean }>('onboarding_step_progress', 'test-org', {
+			id: 'tr-step-1'
+		});
+		expect(stored?.completed).toBe(false);
+	});
 });
 
 describe('addNote', () => {
-	it('appends a note with server-generated timestamp and userId', async () => {
-		const ctx = buildContext();
+	it('appends a note with server-generated timestamp and authenticated userId', async () => {
+		const ctx = buildContext({ auth: { userId: 'user-abc' } });
 		seedStep(ctx);
 
 		const result = await addNote(ctx, {
 			stepId: 'step-1',
-			text: 'Emailed soldier about ID card',
-			userId: 'user-abc'
+			text: 'Emailed soldier about ID card'
 		});
 
 		expect(result.notes).toHaveLength(1);
@@ -379,14 +409,13 @@ describe('addNote', () => {
 	});
 
 	it('preserves existing notes when appending', async () => {
-		const ctx = buildContext();
+		const ctx = buildContext({ auth: { userId: 'user-2' } });
 		const existingNote = { text: 'First note', timestamp: '2026-03-01T00:00:00.000Z', userId: 'user-1' };
 		seedStep(ctx, { notes: [existingNote] });
 
 		const result = await addNote(ctx, {
 			stepId: 'step-1',
-			text: 'Second note',
-			userId: 'user-2'
+			text: 'Second note'
 		});
 
 		expect(result.notes).toHaveLength(2);
@@ -396,30 +425,35 @@ describe('addNote', () => {
 	});
 
 	it('rejects when step not found', async () => {
-		const ctx = buildContext();
+		const ctx = buildContext({ auth: { userId: 'user-1' } });
 
-		await expect(addNote(ctx, { stepId: 'nonexistent', text: 'hello', userId: 'user-1' })).rejects.toThrow(
-			'Step not found'
-		);
+		await expect(addNote(ctx, { stepId: 'nonexistent', text: 'hello' })).rejects.toThrow('Step not found');
 	});
 
 	it('blocks when organization is read-only', async () => {
-		const ctx = buildContext({ readOnly: true });
+		const ctx = buildContext({ auth: { userId: 'user-1' }, readOnly: true });
 		seedStep(ctx);
 
-		await expect(addNote(ctx, { stepId: 'step-1', text: 'hello', userId: 'user-1' })).rejects.toThrow(
+		await expect(addNote(ctx, { stepId: 'step-1', text: 'hello' })).rejects.toThrow(
 			'Organization is in read-only mode'
 		);
 	});
 
-	it('emits audit log on note addition', async () => {
-		const ctx = buildContext();
+	it('rejects when the actor is unauthenticated', async () => {
+		const ctx = buildContext({ auth: { userId: null } });
 		seedStep(ctx);
 
-		await addNote(ctx, { stepId: 'step-1', text: 'Note text', userId: 'user-abc' });
+		await expect(addNote(ctx, { stepId: 'step-1', text: 'hello' })).rejects.toThrow('Authentication required');
+	});
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+	it('emits audit log on note addition', async () => {
+		const ctx = buildContext({ auth: { userId: 'user-abc' } });
+		seedStep(ctx);
+
+		await addNote(ctx, { stepId: 'step-1', text: 'Note text' });
+
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding_step.note_added',
 			resourceType: 'onboarding_step_progress',
 			resourceId: 'step-1',
@@ -466,8 +500,8 @@ describe('removeInactiveStep', () => {
 
 		await removeInactiveStep(ctx, 'step-1');
 
-		expect(ctx.auditPort.events).toHaveLength(1);
-		expect(ctx.auditPort.events[0]).toMatchObject({
+		expect(ctx.audit.events).toHaveLength(1);
+		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding_step.inactive_removed',
 			resourceType: 'onboarding_step_progress',
 			resourceId: 'step-1'

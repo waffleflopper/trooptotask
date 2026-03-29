@@ -1,7 +1,7 @@
 import { fail } from '$lib/server/core/errors';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
@@ -18,7 +18,7 @@ interface TrainingTypeRow {
 	expiration_date_only: boolean;
 }
 
-export async function createTrainingRecord(ctx: UseCaseContext, input: Record<string, unknown>): Promise<unknown> {
+export async function createTrainingRecord(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
 	ctx.auth.requireEdit('training');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -76,10 +76,7 @@ export async function createTrainingRecord(ctx: UseCaseContext, input: Record<st
 	return entity.fromDb(row);
 }
 
-export async function deleteTrainingRecord(
-	ctx: UseCaseContext,
-	id: string
-): Promise<{ requiresApproval: boolean } | void> {
+export async function deleteTrainingRecord(ctx: WritePorts, id: string): Promise<{ requiresApproval: boolean } | void> {
 	ctx.auth.requireEdit('training');
 
 	await ctx.auth.requireGroupAccessByRecord(entity.table, id, 'personnel_id');
@@ -87,6 +84,9 @@ export async function deleteTrainingRecord(
 	if (!ctx.auth.isPrivileged && !ctx.auth.isFullEditor) {
 		return { requiresApproval: true };
 	}
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) fail(403, 'Organization is in read-only mode');
 
 	await ctx.store.delete(entity.table, ctx.auth.orgId, id);
 

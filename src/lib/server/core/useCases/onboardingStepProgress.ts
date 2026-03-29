@@ -1,5 +1,5 @@
 import { fail } from '$lib/server/core/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 
 interface ToggleCheckboxInput {
 	stepId: string;
@@ -20,7 +20,7 @@ interface AdvanceStageInput {
 	stageName: string;
 }
 
-export async function advanceStage(ctx: UseCaseContext, input: AdvanceStageInput): Promise<StepResult> {
+export async function advanceStage(ctx: WritePorts, input: AdvanceStageInput): Promise<StepResult> {
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -97,9 +97,13 @@ interface TrainingStepResult {
 }
 
 export async function refreshTrainingSteps(
-	ctx: UseCaseContext,
+	ctx: WritePorts,
 	input: RefreshTrainingInput
 ): Promise<TrainingStepResult[]> {
+	ctx.auth.requireEdit('onboarding');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+
 	// Fetch the onboarding to get the personnel_id
 	const onboarding = await ctx.store.findOne<{ id: string; personnel_id: string }>(
 		'personnel_onboardings',
@@ -144,7 +148,7 @@ export async function refreshTrainingSteps(
 	const results: TrainingStepResult[] = [];
 	for (const step of trainingSteps) {
 		const completed = completedTypeIds.has(step.training_type_id!);
-		if (step.completed !== completed) {
+		if (!isReadOnly && step.completed !== completed) {
 			await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, step.id, { completed });
 		}
 		results.push({
@@ -163,7 +167,6 @@ export async function refreshTrainingSteps(
 interface AddNoteInput {
 	stepId: string;
 	text: string;
-	userId: string;
 }
 
 interface NoteResult {
@@ -171,8 +174,13 @@ interface NoteResult {
 	notes: Array<{ text: string; timestamp: string; userId: string }>;
 }
 
-export async function addNote(ctx: UseCaseContext, input: AddNoteInput): Promise<NoteResult> {
+export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<NoteResult> {
 	ctx.auth.requireEdit('onboarding');
+
+	const userId = ctx.auth.userId;
+	if (!userId) {
+		fail(401, 'Authentication required');
+	}
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) {
@@ -191,7 +199,7 @@ export async function addNote(ctx: UseCaseContext, input: AddNoteInput): Promise
 	const newNote = {
 		text: input.text,
 		timestamp: new Date().toISOString(),
-		userId: input.userId
+		userId
 	};
 
 	const updatedNotes = [...(step.notes ?? []), newNote];
@@ -207,7 +215,7 @@ export async function addNote(ctx: UseCaseContext, input: AddNoteInput): Promise
 		action: 'onboarding_step.note_added',
 		resourceType: 'onboarding_step_progress',
 		resourceId: input.stepId,
-		details: { userId: input.userId }
+		details: { userId }
 	});
 
 	return {
@@ -216,7 +224,7 @@ export async function addNote(ctx: UseCaseContext, input: AddNoteInput): Promise
 	};
 }
 
-export async function removeInactiveStep(ctx: UseCaseContext, stepId: string): Promise<void> {
+export async function removeInactiveStep(ctx: WritePorts, stepId: string): Promise<void> {
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -245,7 +253,7 @@ export async function removeInactiveStep(ctx: UseCaseContext, stepId: string): P
 	});
 }
 
-export async function toggleCheckbox(ctx: UseCaseContext, input: ToggleCheckboxInput): Promise<StepResult> {
+export async function toggleCheckbox(ctx: WritePorts, input: ToggleCheckboxInput): Promise<StepResult> {
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();

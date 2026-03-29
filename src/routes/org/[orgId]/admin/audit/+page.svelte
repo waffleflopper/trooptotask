@@ -50,7 +50,7 @@
 
 	const columns: ColumnDef<AuditLog>[] = [
 		{ key: 'timestamp', header: 'Timestamp', value: (l) => l.createdAt },
-		{ key: 'user', header: 'User', value: (l) => (l.details as Record<string, unknown>)?.actor ?? '-' },
+		{ key: 'user', header: 'User', value: (l) => l.actor ?? '-' },
 		{ key: 'action', header: 'Action', value: (l) => l.action },
 		{ key: 'description', header: 'Description', value: (l) => getSummary(l.details as Record<string, unknown>) }
 	];
@@ -82,8 +82,8 @@
 			{#if col.key === 'timestamp'}
 				<span class="timestamp">{formatDisplayDateTime(row.createdAt)}</span>
 			{:else if col.key === 'user'}
-				{#if (row.details as Record<string, unknown>)?.actor}
-					<span class="actor">{(row.details as Record<string, unknown>).actor}</span>
+				{#if row.actor}
+					<span class="actor">{row.actor}</span>
 				{:else}
 					<span class="no-target">-</span>
 				{/if}

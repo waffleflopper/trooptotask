@@ -1,24 +1,39 @@
 import { fail } from '$lib/server/core/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { FeatureArea } from '$lib/server/core/ports';
+import type { z } from 'zod';
 
-export interface CrudConfig {
+/**
+ * @deprecated Use `entityHandlers(entity, hooks?)` from `httpAdapter.ts` instead.
+ * This type exists only as a low-level escape hatch for mixed-action routes and
+ * use-case tests that need to exercise `createCrudUseCases()` directly. Do not
+ * introduce new route wiring with `CrudConfig`; prefer entity-driven handlers.
+ */
+export interface CrudConfig<C extends WritePorts = WritePorts> {
 	entity: EntityDefinition;
 	permission: FeatureArea;
 	auditResource: string;
 	requireFullEditor?: boolean;
-	beforeDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
-	afterDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
+	beforeDelete?: (ctx: C, id: string) => Promise<void>;
+	afterDelete?: (ctx: C, id: string) => Promise<void>;
 }
 
-export interface CrudUseCases {
-	create(ctx: UseCaseContext, data: Record<string, unknown>): Promise<unknown>;
-	update(ctx: UseCaseContext, data: Record<string, unknown>): Promise<unknown>;
-	remove(ctx: UseCaseContext, id: string): Promise<void>;
+export interface CrudUseCases<C extends WritePorts = WritePorts> {
+	create(ctx: C, data: Record<string, unknown>): Promise<unknown>;
+	update(ctx: C, data: Record<string, unknown>): Promise<unknown>;
+	remove(ctx: C, id: string): Promise<void>;
 }
 
-export function createCrudUseCases(config: CrudConfig): CrudUseCases {
+function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T {
+	const result = schema.safeParse(data);
+	if (!result.success) {
+		fail(400, result.error.issues.map((issue) => issue.message).join('; '));
+	}
+	return result.data;
+}
+
+export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>): CrudUseCases<C> {
 	const { entity, permission, auditResource } = config;
 
 	return {
@@ -33,7 +48,7 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 				fail(403, 'Organization is in read-only mode');
 			}
 
-			const validated = entity.createSchema.parse(data);
+			const validated = parseOrFail(entity.createSchema, data);
 
 			// Group scope: if entity has a personnelIdField, enforce access
 			if (entity.personnelIdField) {
@@ -66,7 +81,7 @@ export function createCrudUseCases(config: CrudConfig): CrudUseCases {
 				fail(403, 'Organization is in read-only mode');
 			}
 
-			const validated = entity.updateSchema.parse(data);
+			const validated = parseOrFail(entity.updateSchema, data);
 			const { id } = validated as { id: string };
 
 			// Group scope: enforce by record lookup

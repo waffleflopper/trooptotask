@@ -1,6 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DataStore, FindOptions, FindResult } from '../core/ports';
 
+function getOrgColumn(table: string): string {
+	switch (table) {
+		case 'audit_logs':
+		case 'data_exports':
+			return 'org_id';
+		default:
+			return 'organization_id';
+	}
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase query builder types are complex generics
 function applyFindOptions(query: any, filters?: Record<string, unknown>, options?: FindOptions) {
 	if (filters) {
@@ -64,10 +74,11 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			filters: Record<string, unknown>,
 			select?: string
 		): Promise<T | null> {
+			const orgColumn = getOrgColumn(table);
 			let query = supabase
 				.from(table)
 				.select(select ?? '*')
-				.eq('organization_id', orgId);
+				.eq(orgColumn, orgId);
 
 			for (const [key, value] of Object.entries(filters)) {
 				query = query.eq(key, value);
@@ -89,10 +100,11 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			filters?: Record<string, unknown>,
 			options?: FindOptions
 		): Promise<T[]> {
+			const orgColumn = getOrgColumn(table);
 			let query = supabase
 				.from(table)
 				.select(options?.select ?? '*')
-				.eq('organization_id', orgId);
+				.eq(orgColumn, orgId);
 
 			query = applyFindOptions(query, filters, options);
 
@@ -112,10 +124,11 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			options?: FindOptions
 		): Promise<FindResult<T>> {
 			const countMode = options?.count ?? 'exact';
+			const orgColumn = getOrgColumn(table);
 			let query = supabase
 				.from(table)
 				.select(options?.select ?? '*', { count: countMode })
-				.eq('organization_id', orgId);
+				.eq(orgColumn, orgId);
 
 			query = applyFindOptions(query, filters, options);
 
@@ -129,9 +142,10 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 		},
 
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T> {
+			const orgColumn = getOrgColumn(table);
 			const { data: row, error } = await supabase
 				.from(table)
-				.insert({ ...data, organization_id: orgId })
+				.insert({ ...data, [orgColumn]: orgId })
 				.select(select ?? '*')
 				.single();
 
@@ -146,10 +160,11 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			data: Record<string, unknown>,
 			select?: string
 		): Promise<T> {
+			const orgColumn = getOrgColumn(table);
 			const { data: row, error } = await supabase
 				.from(table)
 				.update(data)
-				.eq('organization_id', orgId)
+				.eq(orgColumn, orgId)
 				.eq('id', id)
 				.select(select ?? '*')
 				.single();
@@ -171,27 +186,25 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 		},
 
 		async delete(table: string, orgId: string, id: string): Promise<void> {
-			const { error } = await supabase.from(table).delete().eq('organization_id', orgId).eq('id', id);
+			const orgColumn = getOrgColumn(table);
+			const { error } = await supabase.from(table).delete().eq(orgColumn, orgId).eq('id', id);
 
 			if (error) throw new Error(error.message);
 		},
 
 		async deleteManyByIds(table: string, orgId: string, ids: string[]): Promise<number> {
 			if (ids.length === 0) return 0;
+			const orgColumn = getOrgColumn(table);
 
-			const { data, error } = await supabase
-				.from(table)
-				.delete()
-				.eq('organization_id', orgId)
-				.in('id', ids)
-				.select('id');
+			const { data, error } = await supabase.from(table).delete().eq(orgColumn, orgId).in('id', ids).select('id');
 
 			if (error) throw new Error(error.message);
 			return data?.length ?? 0;
 		},
 
 		async deleteWhere(table: string, orgId: string, filters: Record<string, unknown>): Promise<void> {
-			let query = supabase.from(table).delete().eq('organization_id', orgId);
+			const orgColumn = getOrgColumn(table);
+			let query = supabase.from(table).delete().eq(orgColumn, orgId);
 
 			for (const [key, value] of Object.entries(filters)) {
 				query = query.eq(key, value);
@@ -202,7 +215,8 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 		},
 
 		async insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]> {
-			const withOrg = rows.map((row) => ({ ...row, organization_id: orgId }));
+			const orgColumn = getOrgColumn(table);
+			const withOrg = rows.map((row) => ({ ...row, [orgColumn]: orgId }));
 
 			const { data, error } = await supabase
 				.from(table)

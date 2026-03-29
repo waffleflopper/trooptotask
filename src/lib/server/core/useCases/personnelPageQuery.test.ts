@@ -1,39 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import type { QueryPorts } from '$lib/server/core/ports';
 import { fetchPersonnelPageData } from './personnelPageQuery';
 
 const ORG = 'test-org';
 const USER = 'user-1';
 
-function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): UseCaseContext {
-	const store = createInMemoryDataStore();
+function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): QueryPorts & {
+	store: ReturnType<typeof createInMemoryDataStore>;
+} {
 	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext({ orgId: ORG, userId: USER, ...overrides?.auth }),
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
+		store: createInMemoryDataStore(),
+		auth: createTestAuthContext({ orgId: ORG, userId: USER, ...overrides?.auth })
 	};
 }
 
 describe('fetchPersonnelPageData', () => {
 	it('returns pinned groups and rating scheme entries via ctx.store', async () => {
 		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		const store = ctx.store;
 
 		store.seed('user_pinned_groups', [
 			{ id: 'pg1', organization_id: ORG, user_id: USER, group_name: 'Alpha', sort_order: 0 }
@@ -70,7 +55,7 @@ describe('fetchPersonnelPageData', () => {
 
 	it('returns empty pinned groups when no userId', async () => {
 		const ctx = buildCtx({ auth: { userId: null } });
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		const store = ctx.store;
 
 		store.seed('user_pinned_groups', [
 			{ id: 'pg1', organization_id: ORG, user_id: 'other-user', group_name: 'Alpha', sort_order: 0 }
@@ -83,7 +68,7 @@ describe('fetchPersonnelPageData', () => {
 
 	it('filters pinned groups to current user only', async () => {
 		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		const store = ctx.store;
 
 		store.seed('user_pinned_groups', [
 			{ id: 'pg1', organization_id: ORG, user_id: USER, group_name: 'Alpha', sort_order: 0 },

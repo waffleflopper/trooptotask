@@ -1,39 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
+import { createWriteWithSubscriptionPortsContext } from '$lib/server/adapters/inMemory';
 import { importPersonnelBatch } from './personnelBatch';
 
-function buildContext(overrides?: {
-	readOnly?: boolean;
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	subscriptionAllowed?: boolean;
-	availableSlots?: number | null;
-}) {
-	const store = createInMemoryDataStore();
-	const subscription = createTestSubscriptionPort(
-		overrides?.subscriptionAllowed ?? true,
-		undefined,
-		overrides?.availableSlots ?? null
-	);
-	return {
-		store,
-		rawStore: store,
-		auth: createTestAuthContext(overrides?.auth),
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly),
-		subscription,
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+function buildContext(overrides?: Parameters<typeof createWriteWithSubscriptionPortsContext>[0]) {
+	return createWriteWithSubscriptionPortsContext(overrides);
 }
 
 describe('importPersonnelBatch', () => {

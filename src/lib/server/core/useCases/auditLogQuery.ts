@@ -1,4 +1,4 @@
-import type { UseCaseContext, DataStore } from '$lib/server/core/ports';
+import type { QueryPorts, DataStore } from '$lib/server/core/ports';
 
 const EXCLUDED_ACTIONS = [
 	'auth.login_success',
@@ -12,6 +12,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export interface AuditLogEntry {
 	id: string;
 	userId: string | null;
+	actor: string | null;
 	action: string;
 	resourceType: string | null;
 	resourceId: string | null;
@@ -99,8 +100,32 @@ async function resolveNames(
 	return map;
 }
 
+async function resolveActorEmails(
+	adminStore: DataStore,
+	userIds: string[],
+	orgId: string
+): Promise<Map<string, string>> {
+	const map = new Map<string, string>();
+	if (userIds.length === 0) return map;
+
+	const rows = await adminStore.findMany<Record<string, unknown>>('organization_memberships', orgId, undefined, {
+		inFilters: { user_id: userIds },
+		select: 'user_id, email'
+	});
+
+	for (const row of rows) {
+		const userId = row.user_id;
+		const email = row.email;
+		if (typeof userId === 'string' && typeof email === 'string' && email.length > 0) {
+			map.set(userId, email);
+		}
+	}
+
+	return map;
+}
+
 export async function fetchAuditLogs(
-	ctx: UseCaseContext,
+	ctx: QueryPorts,
 	adminStore: DataStore,
 	input: AuditLogQueryInput
 ): Promise<AuditLogQueryResult> {
@@ -133,16 +158,24 @@ export async function fetchAuditLogs(
 	const personnelIds = collectIds(paged, 'personnel_id');
 	const trainingTypeIds = collectIds(paged, 'training_type_id');
 	const statusTypeIds = collectIds(paged, 'status_type_id');
+	const actorUserIds = [
+		...new Set(paged.map((log) => log.user_id).filter((id): id is string => typeof id === 'string'))
+	];
 
-	const [personnelNames, trainingTypeNames, statusTypeNames] = await Promise.all([
+	const [personnelNames, trainingTypeNames, statusTypeNames, actorEmails] = await Promise.all([
 		resolveNames(adminStore, 'personnel', personnelIds, orgId),
 		resolveNames(adminStore, 'training_types', trainingTypeIds, orgId),
-		resolveNames(adminStore, 'status_types', statusTypeIds, orgId)
+		resolveNames(adminStore, 'status_types', statusTypeIds, orgId),
+		resolveActorEmails(adminStore, actorUserIds, orgId)
 	]);
 
 	const logs: AuditLogEntry[] = paged.map((log) => ({
 		id: log.id as string,
 		userId: (log.user_id as string | null) ?? null,
+		actor:
+			(typeof (log.details as Record<string, unknown> | null)?.actor === 'string'
+				? ((log.details as Record<string, unknown>).actor as string)
+				: actorEmails.get(log.user_id as string)) ?? null,
 		action: log.action as string,
 		resourceType: (log.resource_type as string | null) ?? null,
 		resourceId: (log.resource_id as string | null) ?? null,

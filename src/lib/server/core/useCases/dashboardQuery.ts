@@ -1,4 +1,4 @@
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { QueryPorts } from '$lib/server/core/ports';
 import type { AvailabilityEntry, AssignmentType, DailyAssignment } from '$lib/types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
@@ -19,7 +19,7 @@ export interface DashboardData {
 	activeOnboardings: PersonnelOnboarding[];
 }
 
-export async function fetchDashboardData(ctx: UseCaseContext): Promise<DashboardData> {
+export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData> {
 	const orgId = ctx.auth.orgId;
 	const userId = ctx.auth.userId;
 

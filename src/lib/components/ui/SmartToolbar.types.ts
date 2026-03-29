@@ -31,6 +31,22 @@ export interface SmartToolbarItem {
 	items?: DropdownItem[];
 }
 
+/**
+ * Determine how many leading toolbar items can be shown inside a fixed-width container.
+ *
+ * Calculates the maximum count of items from the start of `itemWidths` that fit within `containerWidth`,
+ * accounting for inter-item gaps, an optional overflow control (its width and a gap before it), and whether
+ * overflow content exists. If `forceCollapse` is true the result is always zero. If `containerWidth` is
+ * less than or equal to zero the function returns the total number of items.
+ *
+ * @param containerWidth - Available width of the container in the same units as item widths
+ * @param itemWidths - Array of widths for each toolbar item in display order
+ * @param overflowWidth - Width reserved for the overflow control when present
+ * @param gapWidth - Width applied between adjacent visible items and between the last visible item and the overflow control when present
+ * @param hasOverflowItems - Whether overflow content exists (causes the overflow control to be reserved even if no items are hidden)
+ * @param forceCollapse - When true, force zero visible items regardless of widths
+ * @returns The number of items (from the start of `itemWidths`) that can be displayed within `containerWidth`
+ */
 export function computeVisibleItemCount({
 	containerWidth,
 	itemWidths,

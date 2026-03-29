@@ -1,9 +1,7 @@
 /**
  * Onboarding step progress use cases — toggle individual step completion.
  *
- * `toggleCheckbox(ctx, input)` marks a step complete or incomplete and updates the
- * parent onboarding record's overall progress percentage. Automatically transitions
- * the onboarding to `completed` when all steps are checked.
+ * `toggleCheckbox(ctx, input)` marks a step complete or incomplete.
  *
  * For lifecycle transitions (start, cancel, complete the whole record), see `onboardingLifecycle.ts`.
  */

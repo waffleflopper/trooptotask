@@ -2,7 +2,7 @@
  * Personnel training entity — maps `personnel_trainings`.
  * Org-scoped only; training records are not filtered by group on reads so the training
  * matrix can show the full org. `expirationDate` is computed from `completionDate +
- * training_type.validity_months` by `calculateExpirationDate` in `trainingRecords.ts`.
+ * training_type.expiration_months` by `calculateExpirationDate` in `trainingRecords.ts`.
  */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';

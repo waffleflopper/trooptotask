@@ -5,8 +5,8 @@
  * etc.), the use case creates a `deletion_request` row and notifies admins instead of
  * deleting immediately. An admin must then approve or reject the request.
  *
- * `approveDeletionRequest` hard-deletes the personnel row and all related records.
- * `rejectDeletionRequest` cancels the request and restores the personnel to active status.
+ * `approveDeletionRequest` soft-archives personnel rows (sets `archived_at`) or hard-deletes
+ * other resource types. `denyDeletionRequest` cancels the request and notifies the requester.
  *
  * Notification sends are fire-and-forget — failures don't block the mutation.
  */

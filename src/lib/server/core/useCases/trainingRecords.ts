@@ -1,7 +1,7 @@
 /**
  * Training record write use cases — create, update, and delete individual training records.
  *
- * `calculateExpirationDate(completionDate, validityMonths)` is a pure utility exported
+ * `calculateExpirationDate(completionDate, expirationMonths)` is a pure utility exported
  * for reuse in the batch import path (`trainingRecordsBatch.ts`) and training reports.
  *
  * For bulk CSV import, see `trainingRecordsBatch.ts`.

@@ -1,8 +1,8 @@
 /**
  * Bulk personnel import — creates up to MAX_BATCH_SIZE personnel records from a CSV upload.
  *
- * Checks the org's subscription seat limit before inserting; rejects the entire batch if
- * it would exceed the allowed headcount. Normalizes rank strings against ALL_RANKS and
+ * Checks the org's subscription seat limit before inserting; excess rows are trimmed to
+ * fit available seats (partial acceptance). Normalizes rank strings against ALL_RANKS and
  * sanitizes all string fields.
  *
  * For single-record personnel mutations, see `personnel.ts`.

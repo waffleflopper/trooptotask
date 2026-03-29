@@ -3,8 +3,6 @@
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { onMount } from 'svelte';
 	import { invalidate } from '$app/navigation';
-	import { inject } from '@vercel/analytics';
-	import { injectSpeedInsights } from '@vercel/speed-insights';
 	import { deferToIdle } from '$lib/utils/deferToIdle';
 	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
 	import HelpPanel from '$lib/components/ui/HelpPanel.svelte';
@@ -14,8 +12,12 @@
 	onMount(() => {
 		themeStore.init();
 		const cancelIdle = deferToIdle(() => {
-			inject();
-			injectSpeedInsights();
+			void Promise.all([import('@vercel/analytics'), import('@vercel/speed-insights')]).then(
+				([{ inject }, { injectSpeedInsights }]) => {
+					inject();
+					injectSpeedInsights();
+				}
+			);
 		});
 
 		const {

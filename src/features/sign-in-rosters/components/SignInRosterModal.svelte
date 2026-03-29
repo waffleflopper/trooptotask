@@ -263,11 +263,9 @@
 			personnelSnapshot: snapshot
 		};
 
-		// Generate PDF first
-		await generatePDF(config);
-
-		// Save to API
 		try {
+			// Generate PDF first
+			await generatePDF(config);
 			const res = await fetch(`/org/${orgId}/api/sign-in-rosters`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -298,14 +296,18 @@
 
 	// Re-print from saved roster
 	async function reprintRoster(roster: SignInRoster) {
-		await generatePDF({
-			title: roster.title,
-			rosterDate: roster.rosterDate,
-			blankDate: roster.blankDate,
-			separateByGroup: roster.separateByGroup,
-			sortBy: roster.sortBy,
-			personnelSnapshot: roster.personnelSnapshot
-		});
+		try {
+			await generatePDF({
+				title: roster.title,
+				rosterDate: roster.rosterDate,
+				blankDate: roster.blankDate,
+				separateByGroup: roster.separateByGroup,
+				sortBy: roster.sortBy,
+				personnelSnapshot: roster.personnelSnapshot
+			});
+		} catch (err) {
+			alert(err instanceof Error ? err.message : 'Failed to generate PDF');
+		}
 	}
 
 	// Upload signed scan

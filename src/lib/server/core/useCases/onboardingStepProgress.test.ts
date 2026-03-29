@@ -366,14 +366,27 @@ describe('refreshTrainingSteps', () => {
 		await expect(refreshTrainingSteps(ctx, { onboardingId: 'ob-1' })).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('blocks refresh when organization is read-only', async () => {
+	it('returns computed statuses without persisting updates when organization is read-only', async () => {
 		const ctx = buildContext({ readOnly: true });
 		seedOnboarding(ctx);
-		seedTrainingStep(ctx);
+		seedTrainingStep(ctx, { completed: false });
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'pt-1',
+				personnel_id: 'p-1',
+				training_type_id: 'tt-cpr',
+				organization_id: 'test-org'
+			}
+		]);
 
-		await expect(refreshTrainingSteps(ctx, { onboardingId: 'ob-1' })).rejects.toThrow(
-			'Organization is in read-only mode'
-		);
+		const result = await refreshTrainingSteps(ctx, { onboardingId: 'ob-1' });
+		expect(result).toHaveLength(1);
+		expect(result[0].completed).toBe(true);
+
+		const stored = await ctx.store.findOne<{ completed: boolean }>('onboarding_step_progress', 'test-org', {
+			id: 'tr-step-1'
+		});
+		expect(stored?.completed).toBe(false);
 	});
 });
 

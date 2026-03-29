@@ -1,3 +1,15 @@
+/**
+ * Personnel store — the org's personnel list, sorted by military rank order then name.
+ *
+ * Extended methods:
+ * - `sortedByRank` (getter) — personnel sorted by RANK_ORDER (PV1 → General) then last name
+ * - `getById(id)` — fast lookup by personnel ID
+ * - `getByGroupId(groupId)` — filtered list for a specific group
+ * - `archive(id)` — marks personnel inactive; may return `{ requiresApproval: true }` if
+ *   a deletion request is created instead of an immediate delete
+ *
+ * Loaded by the personnel page and the shared layout data query.
+ */
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
 import type { Personnel } from '$lib/types';

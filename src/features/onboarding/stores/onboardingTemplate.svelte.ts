@@ -1,3 +1,18 @@
+/**
+ * Onboarding template editor store — draft state for creating/editing onboarding templates.
+ *
+ * This is NOT a data-fetching store. It manages the edit session for a single template:
+ * the in-progress template fields and its step list before the user saves.
+ *
+ * Two underlying `defineStore` instances track mutation state (`hasUnsavedChanges`) for
+ * the template and its steps independently. The composite store exposes:
+ * - `draft` / `draftSteps` — current edit state
+ * - `isDirty` — true if either template or steps have pending changes
+ * - `save()` — persists changes to the server
+ * - `reset()` — discards changes and reverts to loaded state
+ *
+ * For the read-only template+step collections loaded from the server, see `templates.svelte.ts`.
+ */
 import { untrack } from 'svelte';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '../onboarding.types';
 import { defineStore } from '$lib/stores/core';

@@ -1,3 +1,17 @@
+/**
+ * Subscription store — current org's billing tier and seat/quota state.
+ *
+ * Loaded once per layout render with `load(effectiveTier)`. Exposes reactive getters
+ * for gating UI features behind tier checks and displaying subscription banners.
+ *
+ * Key derived values:
+ * - `isReadOnly`: subscription lapsed; all writes should be blocked
+ * - `hasBanner`: true when the subscription warning banner should show (expiring gift or read-only)
+ * - `personnelCap`: max personnel for the current tier (Infinity for unlimited tiers)
+ * - `isGifted`: org is on a gifted tier, not a paid subscription
+ *
+ * Only active when PUBLIC_BILLING_ENABLED is set; `billingEnabled` reflects this.
+ */
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG, type EffectiveTier, type Tier } from '$lib/types/subscription';
 

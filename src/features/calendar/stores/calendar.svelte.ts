@@ -1,3 +1,12 @@
+/**
+ * Calendar navigation store — tracks the currently displayed month and exposes navigation.
+ *
+ * `dates` returns the full array of Date objects for the current month (used to render
+ * calendar grid rows). `rangeStart`/`rangeEnd` are ISO strings for the visible window,
+ * used as query parameters when fetching availability and assignment data.
+ *
+ * Navigation: `nextMonth()`, `prevMonth()`, `goToToday()`.
+ */
 import { getMonthDates, addMonths, getMonthName } from '$lib/utils/dates';
 
 class CalendarStore {

@@ -103,9 +103,6 @@ export async function refreshTrainingSteps(
 	ctx.auth.requireEdit('onboarding');
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
-	if (isReadOnly) {
-		fail(403, 'Organization is in read-only mode');
-	}
 
 	// Fetch the onboarding to get the personnel_id
 	const onboarding = await ctx.store.findOne<{ id: string; personnel_id: string }>(
@@ -151,7 +148,7 @@ export async function refreshTrainingSteps(
 	const results: TrainingStepResult[] = [];
 	for (const step of trainingSteps) {
 		const completed = completedTypeIds.has(step.training_type_id!);
-		if (step.completed !== completed) {
+		if (!isReadOnly && step.completed !== completed) {
 			await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, step.id, { completed });
 		}
 		results.push({

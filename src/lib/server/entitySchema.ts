@@ -70,6 +70,10 @@ export interface EntityDefinition<T = unknown> {
 	orderBy?: Array<{ column: string; ascending?: boolean }>;
 }
 
+export function getEntityAuditResource(entity: EntityDefinition): string {
+	return typeof entity.audit === 'string' ? entity.audit : (entity.audit?.resourceType ?? entity.table);
+}
+
 export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefinition<T> {
 	const { schema, table, groupScope } = config;
 

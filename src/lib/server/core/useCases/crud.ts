@@ -10,19 +10,19 @@ import type { z } from 'zod';
  * use-case tests that need to exercise `createCrudUseCases()` directly. Do not
  * introduce new route wiring with `CrudConfig`; prefer entity-driven handlers.
  */
-export interface CrudConfig {
+export interface CrudConfig<C extends WritePorts = WritePorts> {
 	entity: EntityDefinition;
 	permission: FeatureArea;
 	auditResource: string;
 	requireFullEditor?: boolean;
-	beforeDelete?: (ctx: WritePorts, id: string) => Promise<void>;
-	afterDelete?: (ctx: WritePorts, id: string) => Promise<void>;
+	beforeDelete?: (ctx: C, id: string) => Promise<void>;
+	afterDelete?: (ctx: C, id: string) => Promise<void>;
 }
 
-export interface CrudUseCases {
-	create(ctx: WritePorts, data: Record<string, unknown>): Promise<unknown>;
-	update(ctx: WritePorts, data: Record<string, unknown>): Promise<unknown>;
-	remove(ctx: WritePorts, id: string): Promise<void>;
+export interface CrudUseCases<C extends WritePorts = WritePorts> {
+	create(ctx: C, data: Record<string, unknown>): Promise<unknown>;
+	update(ctx: C, data: Record<string, unknown>): Promise<unknown>;
+	remove(ctx: C, id: string): Promise<void>;
 }
 
 function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T {
@@ -33,7 +33,7 @@ function parseOrFail<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T 
 	return result.data;
 }
 
-export function createCrudUseCases(config: CrudConfig): CrudUseCases {
+export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>): CrudUseCases<C> {
 	const { entity, permission, auditResource } = config;
 
 	return {

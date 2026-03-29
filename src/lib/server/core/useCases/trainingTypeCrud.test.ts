@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { createCrudUseCases } from './crud';
+import { getEntityAuditResource } from '$lib/server/entitySchema';
 import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
 
 const TT_ID = '00000000-0000-4000-a000-000000000001';
@@ -10,10 +11,10 @@ const PT_2 = '00000000-0000-4000-a000-000000000012';
 const PT_3 = '00000000-0000-4000-a000-000000000013';
 
 // Same config entityHandlers() derives — validates the pattern without HTTP layer
-const useCases = createCrudUseCases({
+const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	entity: TrainingTypeEntity,
 	permission: TrainingTypeEntity.permission!,
-	auditResource: (TrainingTypeEntity.audit as { resourceType: string }).resourceType,
+	auditResource: getEntityAuditResource(TrainingTypeEntity),
 	requireFullEditor: TrainingTypeEntity.requireFullEditor,
 	beforeDelete: async (ctx, id) => {
 		await ctx.store.deleteWhere('personnel_trainings', ctx.auth.orgId, {
@@ -21,7 +22,7 @@ const useCases = createCrudUseCases({
 		});
 	},
 	afterDelete: async (ctx) => {
-		await (ctx as WriteWithNotificationsPorts).notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
+		await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 			type: 'config_type_deleted',
 			title: 'Training Type Deleted',
 			message: 'A training type was deleted.'

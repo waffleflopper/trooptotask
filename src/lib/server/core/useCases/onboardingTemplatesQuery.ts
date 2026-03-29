@@ -1,4 +1,4 @@
-import type { QueryPorts } from '../ports';
+import type { QueryPorts } from '$lib/server/core/ports';
 import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
 import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
 

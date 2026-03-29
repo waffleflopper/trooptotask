@@ -22,7 +22,7 @@ import { createSupabaseStorageAdapter } from './supabaseStorage';
 import type { UseCaseContext, WritePorts, FeatureArea } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
-import type { EntityDefinition } from '$lib/server/entitySchema';
+import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
 
 interface BuildContextResult {
 	ctx: UseCaseContext;
@@ -459,12 +459,10 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		throw new Error(`entityHandlers: entity "${entity.table}" must have a permission defined`);
 	}
 
-	const auditResource = typeof entity.audit === 'string' ? entity.audit : (entity.audit?.resourceType ?? entity.table);
-
-	const config: CrudConfig = {
+	const config: CrudConfig<UseCaseContext> = {
 		entity,
 		permission: entity.permission,
-		auditResource,
+		auditResource: getEntityAuditResource(entity),
 		requireFullEditor: entity.requireFullEditor,
 		beforeDelete: hooks?.beforeDelete ? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id) : undefined,
 		afterDelete: hooks?.afterDelete ? async (ctx, id) => hooks.afterDelete!(ctx as UseCaseContext, id) : undefined

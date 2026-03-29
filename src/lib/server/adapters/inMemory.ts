@@ -19,9 +19,12 @@ import type {
 	QueryWithRawStorePorts
 } from '../core/ports';
 import type { EffectiveTier } from '$lib/types/subscription';
+import { createScopedDataStore } from './scopedDataStore';
+import { defaultScopeRules } from './scopeRules';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
+type InMemoryDataStore = ReturnType<typeof createInMemoryDataStore>;
 
 function getOrgColumn(table: string): string {
 	switch (table) {
@@ -319,6 +322,23 @@ export function createTestNotificationPort(): NotificationPort & { notifications
 	};
 }
 
+function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; rawStore: InMemoryDataStore } {
+	const rawStore = createInMemoryDataStore();
+
+	if (!auth.scopedGroupId) {
+		return { store: rawStore, rawStore };
+	}
+
+	const scopedStore = Object.assign(createScopedDataStore(rawStore, auth.scopedGroupId, defaultScopeRules), {
+		seed: rawStore.seed
+	}) as InMemoryDataStore;
+
+	return {
+		store: scopedStore,
+		rawStore
+	};
+}
+
 /** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
 export function createTestContext(overrides?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
@@ -333,7 +353,8 @@ export function createTestContext(overrides?: {
 	billingPort: ReturnType<typeof createTestBillingPort>;
 	storagePort: ReturnType<typeof createTestStoragePort>;
 } {
-	const store = createInMemoryDataStore();
+	const auth = createTestAuthContext(overrides?.auth);
+	const { store, rawStore } = createScopedTestStores(auth);
 	const auditPort = createTestAuditPort();
 	const subscription = createTestSubscriptionPort(overrides?.subscriptionAllowed ?? true);
 	const notificationPort = createTestNotificationPort();
@@ -341,8 +362,8 @@ export function createTestContext(overrides?: {
 	const storagePort = createTestStoragePort();
 	return {
 		store,
-		rawStore: store,
-		auth: createTestAuthContext(overrides?.auth),
+		rawStore,
+		auth,
 		audit: auditPort,
 		auditPort,
 		readOnlyGuard: createTestReadOnlyGuard(overrides?.readOnly ?? false),
@@ -459,9 +480,11 @@ export function createWritePortsContext(options?: {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	audit: ReturnType<typeof createTestAuditPort>;
 } {
+	const auth = createTestAuthContext(options?.auth);
+	const { store } = createScopedTestStores(auth);
 	return {
-		store: createInMemoryDataStore(),
-		auth: createTestAuthContext(options?.auth),
+		store,
+		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false)
 	};
@@ -475,9 +498,11 @@ export function createWriteWithNotificationsPortsContext(options?: {
 	audit: ReturnType<typeof createTestAuditPort>;
 	notifications: ReturnType<typeof createTestNotificationPort>;
 } {
+	const auth = createTestAuthContext(options?.auth);
+	const { store } = createScopedTestStores(auth);
 	return {
-		store: createInMemoryDataStore(),
-		auth: createTestAuthContext(options?.auth),
+		store,
+		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
 		notifications: createTestNotificationPort()
@@ -495,9 +520,11 @@ export function createWriteWithSubscriptionPortsContext(options?: {
 	audit: ReturnType<typeof createTestAuditPort>;
 	subscription: ReturnType<typeof createTestSubscriptionPort>;
 } {
+	const auth = createTestAuthContext(options?.auth);
+	const { store } = createScopedTestStores(auth);
 	return {
-		store: createInMemoryDataStore(),
-		auth: createTestAuthContext(options?.auth),
+		store,
+		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
 		subscription: createTestSubscriptionPort(
@@ -514,30 +541,39 @@ export function createUserWritePortsContext(options?: {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	audit: ReturnType<typeof createTestAuditPort>;
 } {
+	const auth = createTestAuthContext(options?.auth);
+	const { store } = createScopedTestStores(auth);
 	return {
-		store: createInMemoryDataStore(),
-		auth: createTestAuthContext(options?.auth),
+		store,
+		auth,
 		audit: createTestAuditPort()
 	};
 }
 
-export function createQueryPortsContext(): QueryPorts & {
+export function createQueryPortsContext(options?: {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+}): QueryPorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 } {
+	const auth = createTestAuthContext(options?.auth);
+	const { store } = createScopedTestStores(auth);
 	return {
-		store: createInMemoryDataStore(),
-		auth: createTestAuthContext()
+		store,
+		auth
 	};
 }
 
-export function createQueryWithRawStorePortsContext(): QueryWithRawStorePorts & {
+export function createQueryWithRawStorePortsContext(options?: {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+}): QueryWithRawStorePorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
 } {
-	const store = createInMemoryDataStore();
+	const auth = createTestAuthContext(options?.auth);
+	const { store, rawStore } = createScopedTestStores(auth);
 	return {
 		store,
-		auth: createTestAuthContext(),
-		rawStore: store
+		auth,
+		rawStore
 	};
 }

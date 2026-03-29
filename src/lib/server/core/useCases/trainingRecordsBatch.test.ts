@@ -200,6 +200,7 @@ describe('importTrainingRecords', () => {
 		expect(result.errors).toHaveLength(0);
 
 		// Audit reflects both counts
+		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			details: { inserted: 1, updated: 1 }
 		});

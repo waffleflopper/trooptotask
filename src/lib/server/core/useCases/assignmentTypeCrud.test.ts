@@ -2,18 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { createCrudUseCases } from './crud';
+import { getEntityAuditResource } from '$lib/server/entitySchema';
 import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
 
 const AT_ID = '00000000-0000-4000-a000-000000000001';
 
 // Same config entityHandlers() derives — validates the pattern without HTTP layer
-const useCases = createCrudUseCases({
+const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	entity: AssignmentTypeEntity,
 	permission: AssignmentTypeEntity.permission!,
-	auditResource: (AssignmentTypeEntity.audit as { resourceType: string }).resourceType,
+	auditResource: getEntityAuditResource(AssignmentTypeEntity),
 	requireFullEditor: AssignmentTypeEntity.requireFullEditor,
 	afterDelete: async (ctx) => {
-		await (ctx as WriteWithNotificationsPorts).notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
+		await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 			type: 'config_type_deleted',
 			title: 'Assignment Type Deleted',
 			message: 'An assignment type was deleted.'

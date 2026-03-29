@@ -100,6 +100,13 @@ export async function refreshTrainingSteps(
 	ctx: WritePorts,
 	input: RefreshTrainingInput
 ): Promise<TrainingStepResult[]> {
+	ctx.auth.requireEdit('onboarding');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+
 	// Fetch the onboarding to get the personnel_id
 	const onboarding = await ctx.store.findOne<{ id: string; personnel_id: string }>(
 		'personnel_onboardings',
@@ -163,7 +170,6 @@ export async function refreshTrainingSteps(
 interface AddNoteInput {
 	stepId: string;
 	text: string;
-	userId: string;
 }
 
 interface NoteResult {
@@ -173,6 +179,11 @@ interface NoteResult {
 
 export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<NoteResult> {
 	ctx.auth.requireEdit('onboarding');
+
+	const userId = ctx.auth.userId;
+	if (!userId) {
+		fail(401, 'Authentication required');
+	}
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) {
@@ -191,7 +202,7 @@ export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<Not
 	const newNote = {
 		text: input.text,
 		timestamp: new Date().toISOString(),
-		userId: input.userId
+		userId
 	};
 
 	const updatedNotes = [...(step.notes ?? []), newNote];
@@ -207,7 +218,7 @@ export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<Not
 		action: 'onboarding_step.note_added',
 		resourceType: 'onboarding_step_progress',
 		resourceId: input.stepId,
-		details: { userId: input.userId }
+		details: { userId }
 	});
 
 	return {

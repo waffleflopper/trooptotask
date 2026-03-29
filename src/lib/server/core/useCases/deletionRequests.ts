@@ -4,6 +4,14 @@ import type { WritePorts, WriteWithNotificationsPorts } from '$lib/server/core/p
 const TABLE = 'deletion_requests';
 const AUDIT_RESOURCE = 'deletion_request';
 
+function fireAndForgetNotification(send: () => Promise<void>): void {
+	try {
+		void send().catch(() => {});
+	} catch {
+		// Ignore notification delivery failures — mutations must still succeed.
+	}
+}
+
 export interface CreateDeletionRequestInput {
 	resourceType: string;
 	resourceId: string;
@@ -55,12 +63,14 @@ export async function createDeletionRequest(
 	const isPersonnel = input.resourceType === 'personnel';
 	const actionWord = isPersonnel ? 'archive' : 'delete';
 
-	await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
-		type: 'deletion_request_pending',
-		title: `${isPersonnel ? 'Archival' : 'Deletion'} Request`,
-		message: `${input.userEmail} requested to ${actionWord} "${input.resourceDescription}". Review in Admin Hub.`,
-		link: `/org/${ctx.auth.orgId}/admin/approvals`
-	});
+	fireAndForgetNotification(() =>
+		ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
+			type: 'deletion_request_pending',
+			title: `${isPersonnel ? 'Archival' : 'Deletion'} Request`,
+			message: `${input.userEmail} requested to ${actionWord} "${input.resourceDescription}". Review in Admin Hub.`,
+			link: `/org/${ctx.auth.orgId}/admin/approvals`
+		})
+	);
 
 	return row;
 }
@@ -92,8 +102,13 @@ function notifyRequester(
 	ctx: WriteWithNotificationsPorts,
 	request: Record<string, unknown>,
 	notification: { type: string; title: string; message: string; link?: string | null }
-): Promise<void> {
-	return ctx.notifications.notifyUser(ctx.auth.orgId, request.requested_by as string, notification);
+): void {
+	const requesterId = request.requested_by;
+	if (typeof requesterId !== 'string' || requesterId.length === 0) {
+		return;
+	}
+
+	fireAndForgetNotification(() => ctx.notifications.notifyUser(ctx.auth.orgId, requesterId, notification));
 }
 
 export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, requestId: string): Promise<void> {
@@ -131,7 +146,7 @@ export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, r
 	const actionWordCap = isPersonnel ? 'Archival' : 'Deletion';
 	const actionWord = isPersonnel ? 'archive' : 'delete';
 
-	await notifyRequester(ctx, request, {
+	notifyRequester(ctx, request, {
 		type: 'deletion_approved',
 		title: `${actionWordCap} Approved`,
 		message: `Your request to ${actionWord} "${request.resource_description}" has been approved.`
@@ -171,7 +186,7 @@ export async function denyDeletionRequest(
 	const actionWordCap = isPersonnel ? 'Archival' : 'Deletion';
 	const actionWord = isPersonnel ? 'archive' : 'delete';
 
-	await notifyRequester(ctx, request, {
+	notifyRequester(ctx, request, {
 		type: 'deletion_denied',
 		title: `${actionWordCap} Denied`,
 		message: `Your request to ${actionWord} "${request.resource_description}" has been denied.${reason ? ` Reason: ${reason}` : ''}`,

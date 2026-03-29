@@ -96,12 +96,20 @@ This initiative is primarily a visual, structural, and interaction-layer migrati
 - Main-domain routes should remain stable unless a route adjustment is absolutely necessary.
 - A `v2` experience will be introduced to support staged rollout of both public pages and authenticated pages.
 - `v2` will host redesigned public marketing pages and any authenticated pages that have already been migrated.
-- Pages requested in `v2` that have not yet been redesigned will show an interstitial explaining that the page is not available in the redesign yet and will provide a direct link to the equivalent page on the main domain.
-- The current main-domain experience remains the source of truth until the redesign is mature enough to replace it.
+- Pages requested in `v2` that have not yet been redesigned will show an interstitial explaining that the page is not available in the redesign yet and will provide a direct link to the equivalent page on the main domain until the promotion gates below are met.
+- The current main-domain experience remains the source of truth until the redesign meets explicit promotion gates rather than a subjective “mature enough” threshold.
+- Promotion gates for moving the redesigned experience from `v2` to the main path:
+  - at least 80% of targeted routes for the release wave are migrated and routed through the redesigned shell
+  - 7-day rolling server/client error rate stays below 1%
+  - zero open P1/P2 UX defects on migrated routes
+  - 95th-percentile page load on migrated routes stays at or below 3 seconds, with TTFB at or below 600ms on representative government-network test runs
+  - Core Web Vitals stay within budget on migrated routes: LCP <= 2.5s, INP <= 200ms, CLS <= 0.1
+- Promotion action: when every gate above holds for 7 consecutive days after release, promote the migrated route set from `v2` to the primary experience and remove the interstitial for those routes.
+- Rollback trigger: if a promoted route set breaches the error budget, misses the performance SLA for 30 continuous minutes, or accumulates any open P1/P2 UX defect, automatically route affected traffic back through the stable main-domain experience or interstitial until the regression is fixed.
 - The authenticated app visual system will be a productized adaptation of the marketing language rather than a literal copy. This is required to preserve density, readability, and operational usability.
 - Dark mode is required from the start for the authenticated app. The marketing site may remain primarily dark in character, but the system should still define how its surfaces behave intentionally rather than accidentally.
-- Mobile support is required for the public site and major authenticated flows. Tablet support is explicitly required for the authenticated app. The calendar remains tablet/desktop-first, with mobile focused on narrow quick-hit use cases rather than full-grid parity.
-- Performance expectations must account for slower government-connected machines. Visual richness must not depend on heavy interaction patterns or motion that degrade responsiveness.
+- Mobile support is required for the public site and major authenticated flows, with first contentful interaction on supported mobile flows rendering within 3 seconds under 3G-equivalent throttling and first tap-to-paint at or below 100ms. Tablet support is explicitly required for the authenticated app. The calendar remains tablet/desktop-first, with mobile focused on narrow quick-hit use cases rather than full-grid parity.
+- Performance expectations must account for slower government-connected machines. Visual richness must not depend on heavy interaction patterns or motion that degrade responsiveness. Acceptance thresholds for migrated routes are Lighthouse performance >= 90, TTFB <= 600ms on representative government-network testing, full page load <= 3 seconds under 3G-equivalent throttling, LCP <= 2.5s, FID <= 100ms where reported, INP <= 200ms, and CLS <= 0.1.
 
 ### Major Modules
 
@@ -173,6 +181,12 @@ This initiative is primarily a visual, structural, and interaction-layer migrati
   - authenticated shell and navigation behavior
   - shared interactive primitives whose behavior is reused across many pages
 - Accessibility-critical interactions should be part of those tests where relevant, especially navigation, menus, dialogs, focus handling, and route transitions.
+- Accessibility and quality gates for promotion:
+  - WCAG 2.1 AA compliance is required on every migrated route.
+  - Automated axe-core checks must pass on every migrated route in CI.
+  - Manual keyboard-navigation smoke tests must pass for the marketing shell, authenticated shell, navigation menus, dialogs, and route transitions.
+  - Manual screen-reader smoke tests must pass on the landing page, dashboard, and any newly migrated high-traffic authenticated flow.
+  - Text and UI color contrast must meet or exceed 4.5:1 except where WCAG allows a different threshold.
 - Static marketing composition should not receive heavy test investment by default. Light validation is sufficient unless a public page contains meaningful interactive behavior.
 - Prior art for this testing approach should come from existing behavior-focused tests in the codebase, especially shared-component tests and route-level tests that validate outputs and interactions rather than internal implementation shape.
 

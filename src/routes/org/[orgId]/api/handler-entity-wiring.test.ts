@@ -9,6 +9,14 @@ import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTem
 import { entityHandlers, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 
+function requireConfig<T>(config: T | undefined, label: string): T {
+	expect(config).toBeDefined();
+	if (!config) {
+		throw new Error(`${label} config missing`);
+	}
+	return config;
+}
+
 describe('Handler → Entity schema compatibility', () => {
 	describe('SpecialDay handler inputs', () => {
 		it('toDbInsert produces same row as manual mapping in POST handler', () => {
@@ -382,7 +390,7 @@ describe('handle() + entity pipeline integration', () => {
 	it('entityHandlers create inserts via entity schema through handle pipeline', async () => {
 		const handlers = entityHandlers(SpecialDayEntity);
 		const ctx = createTestContext();
-		const config = handlers._configs.POST!;
+		const config = requireConfig(handlers._configs.POST, 'POST');
 
 		const result = (await handleUseCaseRequest(config, ctx, {
 			date: '2026-12-25',
@@ -406,7 +414,7 @@ describe('handle() + entity pipeline integration', () => {
 			}
 		});
 
-		const config = handlers._configs.POST!;
+		const config = requireConfig(handlers._configs.POST, 'POST');
 
 		await expect(
 			handleUseCaseRequest(config, ctx, { date: '2026-12-25', name: 'X', type: 'federal-holiday' })
@@ -419,7 +427,7 @@ describe('handle() + entity pipeline integration', () => {
 	it('handle pipeline blocks mutations when read-only before entity operations', async () => {
 		const handlers = entityHandlers(SpecialDayEntity);
 		const ctx = createTestContext({ readOnly: true });
-		const config = handlers._configs.POST!;
+		const config = requireConfig(handlers._configs.POST, 'POST');
 
 		await expect(
 			handleUseCaseRequest(config, ctx, { date: '2026-12-25', name: 'X', type: 'federal-holiday' })

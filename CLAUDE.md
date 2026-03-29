@@ -97,4 +97,4 @@ These docs contain detailed props, usage examples, and patterns. Read them when 
 
 ## Deprecated Patterns — Do Not Use
 
-- `crudHandlers()` / `CrudConfig` — Use `entityHandlers(entity, hooks?)` from `httpAdapter.ts` instead. These remain only as an internal escape hatch for mixed-action routes that cannot be expressed entirely through `entityHandlers()`. If `entityHandlers()` does not support a case, extend it rather than routing new work through `crudHandlers()`.
+- `crudHandlers()` / `CrudConfig` — Use `entityHandlers(entity, hooks?)` from `httpAdapter.ts` instead. These remain only as an internal escape hatch for mixed-action routes that cannot be expressed entirely through `entityHandlers()`. If `entityHandlers()` does not support a case, extend it rather than routing new work through `crudHandlers()`. Reaching for `crudHandlers()` to bypass a limitation is not acceptable.

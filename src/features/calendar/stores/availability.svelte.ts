@@ -1,3 +1,17 @@
+/**
+ * Availability store — per-personnel availability entries for the visible calendar range.
+ *
+ * Extends the base store with a custom `BatchApiAdapter` so that bulk set/clear operations
+ * hit the `/api/availability` batch endpoint instead of individual CRUD routes.
+ *
+ * Key extended methods:
+ * - `getByPersonnelAndDate(personnelId, date)` — fast lookup for a single cell
+ * - `getByDate(date)` — all entries for a given day
+ * - `setBulk(personnelIds, dateRange, statusTypeId)` — batch set for multiple people
+ * - `clearBulk(personnelIds, dateRange)` — batch clear
+ *
+ * Loaded by the calendar page load function and populated from the server response.
+ */
 import { defineStore } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
 import type { AvailabilityEntry } from '$lib/types';

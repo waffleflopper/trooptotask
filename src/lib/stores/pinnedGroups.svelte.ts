@@ -1,3 +1,14 @@
+/**
+ * Pinned groups store — the ordered list of groups this user has pinned in the sidebar.
+ *
+ * All mutations (pin, unpin, reorder) are optimistic: the UI updates instantly and rolls
+ * back on API failure. A `#pendingMutations` counter prevents server data from overwriting
+ * in-flight client changes during `load()`.
+ *
+ * Persisted server-side per user (see `pinnedGroupCrud.ts`). Loaded from layout data via
+ * `pinnedGroupsStore.load(names, orgId)`. Sandbox users (no userId) are silently no-opped
+ * on the server side.
+ */
 class PinnedGroupsStore {
 	#pinnedGroups = $state.raw<string[]>([]);
 	#orgId = '';

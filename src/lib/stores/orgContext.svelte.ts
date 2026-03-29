@@ -1,3 +1,21 @@
+/**
+ * OrgContext — per-org runtime identity and permission state for the current user.
+ *
+ * Passed through Svelte's component context tree (not a global singleton) so that
+ * multiple orgs can render independently. Set once in the org layout component via
+ * `setOrgContext(createOrgContext(layoutData))` and retrieved anywhere below via
+ * `getOrgContext()`.
+ *
+ * OrgContext is the client-side complement to UseCaseContext on the server. It drives
+ * UI permission checks (show/hide buttons, enable/disable forms). For actual data-access
+ * enforcement, always rely on the server-side AuthContext.
+ *
+ * Key flags:
+ * - `isPrivileged`: owner or admin (full data access)
+ * - `isFullEditor`: non-privileged member with all edit permissions and no group scope
+ * - `scopedGroupId`: non-null means this member can only see their own group's data
+ * - `readOnly`: org subscription has lapsed; all write actions should be blocked
+ */
 import { setContext, getContext } from 'svelte';
 import { isFullEditor as checkFullEditor, type OrganizationMemberPermissions } from '$lib/types';
 

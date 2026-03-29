@@ -8,7 +8,7 @@
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.svelte';
+	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 	import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 	import { exportRatingScheme } from '$features/rating-scheme/utils/ratingSchemeExport';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';

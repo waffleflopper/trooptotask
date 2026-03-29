@@ -1,3 +1,10 @@
+/**
+ * Onboarding templates query — fetches all templates and their steps for the org.
+ *
+ * Returns both collections in one call; the caller joins them by `template_id`.
+ * Used by the template management page and by `onboardingLifecycle.ts` when
+ * instantiating a new onboarding record from a template.
+ */
 import type { QueryPorts } from '$lib/server/core/ports';
 import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
 import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';

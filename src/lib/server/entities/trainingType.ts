@@ -1,3 +1,10 @@
+/**
+ * Training type entity — maps `training_types` (org-defined training requirements).
+ * `expirationMonths` null means the training never expires. Warning thresholds
+ * (`warningDaysYellow`, `warningDaysOrange`) control the color-coded status shown in
+ * the training matrix. The `appliesToRoles/Mos/Ranks` and `excludedRoles/Mos/Ranks`
+ * arrays drive auto-applicability filtering; `exemptPersonnelIds` overrides per-person.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { TrainingType } from '$features/training/training.types';

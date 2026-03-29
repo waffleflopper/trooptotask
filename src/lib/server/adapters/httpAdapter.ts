@@ -1,3 +1,18 @@
+/**
+ * HTTP adapter — the bridge between SvelteKit routes and use cases.
+ *
+ * Three primary exports for route authors:
+ * - `handle(config)` — wraps a use case as a SvelteKit RequestHandler. Builds UseCaseContext,
+ *   parses + validates input, enforces permissions, calls the use case, and formats the response.
+ * - `entityHandlers(entity, hooks?)` — generates POST/PUT/DELETE handlers from an EntityDefinition.
+ *   The standard way to wire up CRUD endpoints; prefer over `handle()` for entity routes.
+ * - `loadWithContext(locals, cookies, orgId, config)` — for page load functions. Builds context
+ *   from a layout-fetched membership row and runs the load fn with permission checks.
+ *
+ * Internal helpers (`buildRouteContext`, `buildLayoutContext`, `getLayoutClient`) are not
+ * intended for direct use in routes — they exist to satisfy the different context-building
+ * needs of route handlers vs. layout servers.
+ */
 import { json, error } from '@sveltejs/kit';
 import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
 import type { z } from 'zod';

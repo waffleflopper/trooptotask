@@ -1,3 +1,10 @@
+/**
+ * Help store — tracks the currently open help topic.
+ *
+ * `activeTopic` is a string key (e.g., `'calendar'`, `'training'`) that maps to a
+ * section in the help panel. Set via `helpStore.open(topic)` — typically called from
+ * `HelpButton.svelte` in the SmartToolbar. Cleared on close.
+ */
 class HelpStore {
 	activeTopic = $state<string | null>(null);
 

@@ -1,3 +1,8 @@
+/**
+ * Status type entity — maps `status_types` (named availability statuses shown on the calendar).
+ * `requireFullEditor: true` — only full editors can add/edit/delete status types.
+ * `color`/`textColor` are hex strings controlling how the status appears on the calendar.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { StatusType } from '$lib/types';

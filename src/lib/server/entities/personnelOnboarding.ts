@@ -1,3 +1,10 @@
+/**
+ * Personnel onboarding entity — maps `personnel_onboardings` with eager-loaded step progress.
+ * `select: '*, onboarding_step_progress(*)'` fetches all step rows in one query.
+ * `customTransform` sorts steps by `sort_order` and maps them into the nested `steps` array.
+ * Lifecycle mutations (start/cancel/complete) live in `onboardingLifecycle.ts` use case;
+ * this entity is used for reads and the initial data shape.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type {

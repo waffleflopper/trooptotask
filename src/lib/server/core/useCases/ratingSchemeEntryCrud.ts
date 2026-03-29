@@ -1,3 +1,12 @@
+/**
+ * Rating scheme entry CRUD use cases — create, update, delete rating level definitions.
+ *
+ * Rating scheme entries define the scoring levels for personnel evaluations (e.g., 1–5 scale
+ * with labels and descriptions). Requires `WriteWithNotificationsPorts` because changes
+ * notify admins so they can update affected personnel records.
+ *
+ * Empty string fields are coerced to null before persistence (optional fields pattern).
+ */
 import { fail } from '$lib/server/core/errors';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';

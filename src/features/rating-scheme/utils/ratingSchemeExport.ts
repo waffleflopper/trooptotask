@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import type { Personnel } from '$lib/types';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
@@ -34,7 +33,8 @@ function getStatusLabel(status: string): string {
 	return status;
 }
 
-export function exportRatingScheme(entries: RatingSchemeEntry[], personnel: Personnel[]) {
+export async function exportRatingScheme(entries: RatingSchemeEntry[], personnel: Personnel[]) {
+	const XLSX = await import('xlsx');
 	const rows = entries.map((entry) => {
 		const rated = personnel.find((p) => p.id === entry.ratedPersonId);
 		return {

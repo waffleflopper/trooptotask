@@ -394,7 +394,9 @@ describe('addNote', () => {
 		const ctx = buildContext({ auth: { userId: 'user-1' }, readOnly: true });
 		seedStep(ctx);
 
-		await expect(addNote(ctx, { stepId: 'step-1', text: 'hello' })).rejects.toThrow('Organization is in read-only mode');
+		await expect(addNote(ctx, { stepId: 'step-1', text: 'hello' })).rejects.toThrow(
+			'Organization is in read-only mode'
+		);
 	});
 
 	it('rejects when the actor is unauthenticated', async () => {

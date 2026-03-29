@@ -6,6 +6,10 @@ import {
 	createInMemoryHydrationPlannerPort
 } from '$lib/server/adapters/inMemoryOrgShell';
 import type {
+	OrgAccessPort,
+	OrgChromePort,
+	OrgWorkspacePort,
+	HydrationPlannerPort,
 	MembershipInfo,
 	OrgState,
 	ChromeData,
@@ -101,7 +105,10 @@ describe('WorkspaceBootstrap contract', () => {
 
 	it('carries a hydration plan when provided', () => {
 		const plan: HydrationPlan = {
-			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 }]
+			groups: {
+				mode: 'preserve-client',
+				items: [{ id: 'g1', name: 'Alpha', sortOrder: 0 }]
+			}
 		};
 		const bootstrap: WorkspaceBootstrap<null> = {
 			workspace: 'personnel',
@@ -109,8 +116,46 @@ describe('WorkspaceBootstrap contract', () => {
 			hydration: plan
 		};
 
-		expect(bootstrap.hydration?.groups).toHaveLength(1);
-		expect((bootstrap.hydration?.groups?.[0] as { name: string }).name).toBe('Alpha');
+		expect(bootstrap.hydration?.groups?.mode).toBe('preserve-client');
+		expect(bootstrap.hydration?.groups?.items).toHaveLength(1);
+		expect((bootstrap.hydration?.groups?.items[0] as { name: string }).name).toBe('Alpha');
+	});
+});
+
+describe('org shell port contract types', () => {
+	it('in-memory adapters satisfy the four shell/workspace port interfaces', () => {
+		function acceptsOrgAccessPort(_port: OrgAccessPort) {}
+		function acceptsOrgChromePort(_port: OrgChromePort) {}
+		function acceptsOrgWorkspacePort(_port: OrgWorkspacePort) {}
+		function acceptsHydrationPlannerPort(_port: HydrationPlannerPort) {}
+
+		const workspaceData = new Map([['calendar', { events: [] }]] as const);
+		const hydrationPlans = new Map([
+			[
+				'calendar',
+				{
+					groups: {
+						mode: 'merge',
+						items: []
+					}
+				} satisfies HydrationPlan
+			]
+		] as const);
+
+		acceptsOrgAccessPort(createInMemoryOrgAccessPort({ membership: baseMembership, orgState: baseOrgState }));
+		acceptsOrgChromePort(
+			createInMemoryOrgChromePort({
+				chrome: {
+					unreadNotificationCount: 0,
+					activeAnnouncements: [],
+					allOrgs: []
+				}
+			})
+		);
+		acceptsOrgWorkspacePort(createInMemoryOrgWorkspacePort(workspaceData));
+		acceptsHydrationPlannerPort(createInMemoryHydrationPlannerPort(hydrationPlans));
+
+		expect(true).toBe(true);
 	});
 });
 
@@ -154,22 +199,29 @@ describe('createInMemoryOrgWorkspacePort', () => {
 	it('rejects for an unseeded workspace key', async () => {
 		const port = createInMemoryOrgWorkspacePort(new Map());
 
-		await expect(port.getWorkspaceData('personnel')).rejects.toThrow("personnel");
+		await expect(port.getWorkspaceData('personnel')).rejects.toThrow('personnel');
 	});
 });
 
 describe('createInMemoryHydrationPlannerPort', () => {
 	it('returns the plan for a seeded workspace', () => {
 		const plan: HydrationPlan = {
-			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 }],
-			statusTypes: []
+			groups: {
+				mode: 'preserve-client',
+				items: [{ id: 'g1', name: 'Alpha', sortOrder: 0 }]
+			},
+			statusTypes: {
+				mode: 'replace',
+				items: []
+			}
 		};
 		const port = createInMemoryHydrationPlannerPort(new Map([['personnel', plan]]));
 
 		const result = port.createPlan('personnel', {});
 
-		expect(result?.groups).toHaveLength(1);
-		expect(result?.statusTypes).toEqual([]);
+		expect(result?.groups?.mode).toBe('preserve-client');
+		expect(result?.groups?.items).toHaveLength(1);
+		expect(result?.statusTypes).toEqual({ mode: 'replace', items: [] });
 	});
 
 	it('returns undefined for an unseeded workspace', () => {

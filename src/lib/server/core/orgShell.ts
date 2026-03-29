@@ -51,16 +51,27 @@ export interface OrgShellData {
 export type WorkspaceKey = 'dashboard' | 'calendar' | 'personnel' | 'training' | 'onboarding';
 
 /**
- * Serializable description of which stores a workspace needs hydrated on the client.
+ * Serializable description of how each client store should be hydrated.
  * The shell layer intentionally uses `unknown[]` slots — workspace assemblers own the
- * concrete types and cast when consuming the plan. This keeps the shell module free of
- * feature-domain imports.
+ * concrete types and cast when consuming the plan. The explicit `mode` field gives
+ * `applyHydration(...)` a typed place to preserve optimistic client state instead of
+ * relying on route-local heuristics.
  */
+export type HydrationMode = 'replace' | 'merge' | 'preserve-client';
+
+export interface HydrationTarget<T = unknown> {
+	mode: HydrationMode;
+	items: T[];
+}
+
 export interface HydrationPlan {
-	personnel?: { scoped: unknown[]; all: unknown[] };
-	groups?: unknown[];
-	statusTypes?: unknown[];
-	trainingTypes?: unknown[];
+	personnel?: {
+		scoped: HydrationTarget;
+		all: HydrationTarget;
+	};
+	groups?: HydrationTarget;
+	statusTypes?: HydrationTarget;
+	trainingTypes?: HydrationTarget;
 }
 
 export interface WorkspaceBootstrap<T> {

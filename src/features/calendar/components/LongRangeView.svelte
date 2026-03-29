@@ -106,8 +106,8 @@
 		});
 	}
 
-	function handleExportPDF() {
-		printQuarterCalendar(viewStartDate, {
+	async function handleExportPDF() {
+		await printQuarterCalendar(viewStartDate, {
 			personnelByGroup,
 			availabilityEntries,
 			statusTypes,

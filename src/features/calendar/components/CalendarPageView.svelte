@@ -51,7 +51,7 @@
 			onToggleBreakdown: () => ctx.toggleBreakdown(),
 			onToggleStatusText: () => calendarPrefsStore.toggleShowStatusText(),
 			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
-			onExportPDF: () => printMonthCalendar(calendarStore.year, calendarStore.month, getExportData())
+			onExportPDF: async () => await printMonthCalendar(calendarStore.year, calendarStore.month, getExportData())
 		})
 	);
 </script>

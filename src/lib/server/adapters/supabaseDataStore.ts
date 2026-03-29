@@ -30,6 +30,7 @@ function getOrgColumn(table: string): string {
  * @param options - Structured find options controlling additional filters, ordering, range, and limit
  * @returns The modified Supabase query builder with the requested constraints applied
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyFindOptions(query: any, filters?: Record<string, unknown>, options?: FindOptions) {
 	if (filters) {
 		for (const [key, value] of Object.entries(filters)) {

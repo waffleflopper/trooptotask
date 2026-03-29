@@ -466,12 +466,8 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		permission: entity.permission,
 		auditResource,
 		requireFullEditor: entity.requireFullEditor,
-		beforeDelete: hooks?.beforeDelete
-			? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id)
-			: undefined,
-		afterDelete: hooks?.afterDelete
-			? async (ctx, id) => hooks.afterDelete!(ctx as UseCaseContext, id)
-			: undefined
+		beforeDelete: hooks?.beforeDelete ? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id) : undefined,
+		afterDelete: hooks?.afterDelete ? async (ctx, id) => hooks.afterDelete!(ctx as UseCaseContext, id) : undefined
 	};
 
 	const useCases = createCrudUseCases(config);

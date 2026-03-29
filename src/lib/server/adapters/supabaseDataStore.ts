@@ -196,12 +196,7 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			if (ids.length === 0) return 0;
 			const orgColumn = getOrgColumn(table);
 
-			const { data, error } = await supabase
-				.from(table)
-				.delete()
-				.eq(orgColumn, orgId)
-				.in('id', ids)
-				.select('id');
+			const { data, error } = await supabase.from(table).delete().eq(orgColumn, orgId).in('id', ids).select('id');
 
 			if (error) throw new Error(error.message);
 			return data?.length ?? 0;

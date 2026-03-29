@@ -23,6 +23,16 @@ import type { EffectiveTier } from '$lib/types/subscription';
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
 
+function getOrgColumn(table: string): string {
+	switch (table) {
+		case 'audit_logs':
+		case 'data_exports':
+			return 'org_id';
+		default:
+			return 'organization_id';
+	}
+}
+
 export function createInMemoryDataStore(): DataStore & { seed(table: string, rows: Row[]): void } {
 	const tables: TableStore = new Map();
 
@@ -33,16 +43,23 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 		return tables.get(table)!;
 	}
 
-	function matchesFilters(row: Row, orgId: string, filters?: Record<string, unknown>): boolean {
-		if (row.organization_id !== orgId) return false;
+	function matchesFilters(table: string, row: Row, orgId: string, filters?: Record<string, unknown>): boolean {
+		const orgColumn = getOrgColumn(table);
+		if (row[orgColumn] !== orgId) return false;
 		if (!filters) return true;
 		return Object.entries(filters).every(([key, value]) => row[key] === value);
 	}
 
-	function applyFilters(rows: Row[], orgId: string, filters?: Record<string, unknown>, options?: FindOptions): Row[] {
+	function applyFilters(
+		table: string,
+		rows: Row[],
+		orgId: string,
+		filters?: Record<string, unknown>,
+		options?: FindOptions
+	): Row[] {
 		const allFilters = { ...filters, ...options?.filters };
 		let results = rows.filter((row) =>
-			matchesFilters(row, orgId, Object.keys(allFilters).length > 0 ? allFilters : undefined)
+			matchesFilters(table, row, orgId, Object.keys(allFilters).length > 0 ? allFilters : undefined)
 		);
 
 		if (options?.inFilters) {
@@ -116,8 +133,14 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 		return sliced as T[];
 	}
 
-	function applyQuery<T>(rows: Row[], orgId: string, filters?: Record<string, unknown>, options?: FindOptions): T[] {
-		const filtered = applyFilters(rows, orgId, filters, options);
+	function applyQuery<T>(
+		table: string,
+		rows: Row[],
+		orgId: string,
+		filters?: Record<string, unknown>,
+		options?: FindOptions
+	): T[] {
+		const filtered = applyFilters(table, rows, orgId, filters, options);
 		const sorted = applySorting(filtered, options);
 		return applyPagination<T>(sorted, options);
 	}
@@ -130,7 +153,7 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 
 		async findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null> {
 			const rows = getRows(table);
-			const match = rows.find((row) => matchesFilters(row, orgId, filters));
+			const match = rows.find((row) => matchesFilters(table, row, orgId, filters));
 			return (match as T) ?? null;
 		},
 
@@ -140,7 +163,7 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			filters?: Record<string, unknown>,
 			options?: FindOptions
 		): Promise<T[]> {
-			return applyQuery<T>(getRows(table), orgId, filters, options);
+			return applyQuery<T>(table, getRows(table), orgId, filters, options);
 		},
 
 		async findManyWithCount<T>(
@@ -149,21 +172,22 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			filters?: Record<string, unknown>,
 			options?: FindOptions
 		): Promise<FindResult<T>> {
-			const filtered = applyFilters(getRows(table), orgId, filters, options);
+			const filtered = applyFilters(table, getRows(table), orgId, filters, options);
 			const count = filtered.length;
 			const data = applyPagination<T>(applySorting(filtered, options), options);
 			return { data, count };
 		},
 
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T> {
-			const row: Row = { id: crypto.randomUUID(), ...data, organization_id: orgId };
+			const row: Row = { id: crypto.randomUUID(), ...data, [getOrgColumn(table)]: orgId };
 			getRows(table).push(row);
 			return row as T;
 		},
 
 		async update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>): Promise<T> {
+			const orgColumn = getOrgColumn(table);
 			const rows = getRows(table);
-			const index = rows.findIndex((row) => row.id === id && row.organization_id === orgId);
+			const index = rows.findIndex((row) => row.id === id && row[orgColumn] === orgId);
 			if (index === -1) {
 				throw new Error(`Record not found: ${table}/${id}`);
 			}
@@ -182,8 +206,9 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 		},
 
 		async delete(table: string, orgId: string, id: string): Promise<void> {
+			const orgColumn = getOrgColumn(table);
 			const rows = getRows(table);
-			const index = rows.findIndex((row) => row.id === id && row.organization_id === orgId);
+			const index = rows.findIndex((row) => row.id === id && row[orgColumn] === orgId);
 			if (index === -1) {
 				throw new Error(`Record not found: ${table}/${id}`);
 			}
@@ -191,11 +216,12 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 		},
 
 		async deleteManyByIds(table: string, orgId: string, ids: string[]): Promise<number> {
+			const orgColumn = getOrgColumn(table);
 			const rows = getRows(table);
 			const idSet = new Set(ids);
 			let deleted = 0;
 			for (let i = rows.length - 1; i >= 0; i--) {
-				if (rows[i].organization_id === orgId && idSet.has(rows[i].id as string)) {
+				if (rows[i][orgColumn] === orgId && idSet.has(rows[i].id as string)) {
 					rows.splice(i, 1);
 					deleted++;
 				}
@@ -206,7 +232,7 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 		async deleteWhere(table: string, orgId: string, filters: Record<string, unknown>): Promise<void> {
 			const rows = getRows(table);
 			for (let i = rows.length - 1; i >= 0; i--) {
-				if (matchesFilters(rows[i], orgId, filters)) {
+				if (matchesFilters(table, rows[i], orgId, filters)) {
 					rows.splice(i, 1);
 				}
 			}
@@ -216,7 +242,7 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			const tableRows = getRows(table);
 			const inserted: Row[] = [];
 			for (const data of rows) {
-				const row: Row = { id: crypto.randomUUID(), ...data, organization_id: orgId };
+				const row: Row = { id: crypto.randomUUID(), ...data, [getOrgColumn(table)]: orgId };
 				tableRows.push(row);
 				inserted.push(row);
 			}
@@ -441,16 +467,19 @@ export function createWritePortsContext(options?: {
 	};
 }
 
-export function createWriteWithNotificationsPortsContext(): WriteWithNotificationsPorts & {
+export function createWriteWithNotificationsPortsContext(options?: {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+	readOnly?: boolean;
+}): WriteWithNotificationsPorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	audit: ReturnType<typeof createTestAuditPort>;
 	notifications: ReturnType<typeof createTestNotificationPort>;
 } {
 	return {
 		store: createInMemoryDataStore(),
-		auth: createTestAuthContext(),
+		auth: createTestAuthContext(options?.auth),
 		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(),
+		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
 		notifications: createTestNotificationPort()
 	};
 }

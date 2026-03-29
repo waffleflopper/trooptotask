@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import { createRatingSchemeEntryUseCases } from './ratingSchemeEntryCrud';
 
-function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
-	return createWritePortsContext(overrides);
+function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
+	return createWriteWithNotificationsPortsContext(overrides);
 }
 
 const validInput = {
@@ -123,8 +123,6 @@ describe('Rating scheme entry — delete', () => {
 				organization_id: 'test-org'
 			}
 		]);
-		ctx.store.seed('organization_memberships', [{ user_id: 'admin-2', organization_id: 'test-org', role: 'admin' }]);
-
 		await remove(ctx, 'rs-1');
 
 		const stored = await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' });
@@ -135,7 +133,7 @@ describe('Rating scheme entry — delete', () => {
 			resourceId: 'rs-1'
 		});
 
-		const notifications = await ctx.store.findMany('notifications', 'test-org');
+		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
 	});
 

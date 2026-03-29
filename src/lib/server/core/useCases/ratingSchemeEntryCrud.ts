@@ -1,7 +1,6 @@
 import { fail } from '$lib/server/core/errors';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
-import type { WritePorts } from '$lib/server/core/ports';
-import { notifyAdminsViaStore } from './notifyAdminsHelper';
+import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
 
 const entity = RatingSchemeEntryEntity;
 const AUDIT_RESOURCE = 'rating_scheme';
@@ -16,9 +15,9 @@ function coerceEmptyStrings(data: Record<string, unknown>): Record<string, unkno
 }
 
 export interface RatingSchemeEntryUseCases {
-	create(ctx: WritePorts, data: Record<string, unknown>): Promise<unknown>;
-	update(ctx: WritePorts, data: Record<string, unknown>): Promise<unknown>;
-	remove(ctx: WritePorts, id: string): Promise<{ requiresApproval: boolean } | void>;
+	create(ctx: WriteWithNotificationsPorts, data: Record<string, unknown>): Promise<unknown>;
+	update(ctx: WriteWithNotificationsPorts, data: Record<string, unknown>): Promise<unknown>;
+	remove(ctx: WriteWithNotificationsPorts, id: string): Promise<{ requiresApproval: boolean } | void>;
 }
 
 export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {
@@ -103,7 +102,7 @@ export function createRatingSchemeEntryUseCases(): RatingSchemeEntryUseCases {
 				resourceId: id
 			});
 
-			await notifyAdminsViaStore(ctx.store, ctx.auth.orgId, ctx.auth.userId, {
+			await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 				type: 'config_type_deleted',
 				title: 'Rating Scheme Entry Deleted',
 				message: 'A rating scheme entry was deleted.'

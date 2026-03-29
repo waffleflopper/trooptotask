@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import {
 	createDeletionRequest,
 	approveDeletionRequest,
@@ -8,8 +8,8 @@ import {
 	listDeletionRequests
 } from './deletionRequests';
 
-function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
-	return createWritePortsContext(overrides);
+function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
+	return createWriteWithNotificationsPortsContext(overrides);
 }
 
 describe('createDeletionRequest', () => {
@@ -54,19 +54,14 @@ describe('createDeletionRequest', () => {
 
 	it('notifies admins on create', async () => {
 		const ctx = buildContext({ auth: { userId: 'member-user' } });
-		// Seed admin memberships for notifyAdminsViaStore
-		ctx.store.seed('organization_memberships', [
-			{ user_id: 'admin-1', organization_id: 'test-org', role: 'owner' },
-			{ user_id: 'admin-2', organization_id: 'test-org', role: 'admin' },
-			{ user_id: 'member-user', organization_id: 'test-org', role: 'member' }
-		]);
 
 		await createDeletionRequest(ctx, validInput);
 
-		// Admin notifications created (excluding the actor)
-		const notifications = await ctx.store.findMany<Record<string, unknown>>('notifications', 'test-org');
-		expect(notifications).toHaveLength(2);
-		expect(notifications.every((n) => n.type === 'deletion_request_pending')).toBe(true);
+		const notifications = ctx.notifications.notifications;
+		expect(notifications).toHaveLength(1);
+		expect(notifications[0].target).toBe('admins');
+		expect(notifications[0].excludeUserId).toBe('member-user');
+		expect(notifications[0].notification.type).toBe('deletion_request_pending');
 	});
 
 	it('rejects duplicate pending request for the same resource (409)', async () => {
@@ -134,10 +129,11 @@ describe('approveDeletionRequest', () => {
 		expect(person!.archived_at).toBeTruthy();
 
 		// Notification created for the requester
-		const notifications = await ctx.store.findMany<Record<string, unknown>>('notifications', 'test-org');
+		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
-		expect(notifications[0]).toMatchObject({
-			user_id: 'requester-user',
+		expect(notifications[0].target).toBe('user');
+		expect(notifications[0].userId).toBe('requester-user');
+		expect(notifications[0].notification).toMatchObject({
 			type: 'deletion_approved',
 			title: 'Archival Approved'
 		});
@@ -180,8 +176,8 @@ describe('approveDeletionRequest', () => {
 		expect(record).toBeNull();
 
 		// Notification says "Deletion" not "Archival"
-		const notifications = await ctx.store.findMany<Record<string, unknown>>('notifications', 'test-org');
-		expect(notifications[0]).toMatchObject({
+		const notifications = ctx.notifications.notifications;
+		expect(notifications[0].notification).toMatchObject({
 			type: 'deletion_approved',
 			title: 'Deletion Approved'
 		});
@@ -205,14 +201,15 @@ describe('denyDeletionRequest', () => {
 		expect(request!.reviewed_at).toBeTruthy();
 
 		// Notification includes denial reason
-		const notifications = await ctx.store.findMany<Record<string, unknown>>('notifications', 'test-org');
+		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
-		expect(notifications[0]).toMatchObject({
-			user_id: 'requester-user',
+		expect(notifications[0].target).toBe('user');
+		expect(notifications[0].userId).toBe('requester-user');
+		expect(notifications[0].notification).toMatchObject({
 			type: 'deletion_denied',
 			title: 'Archival Denied'
 		});
-		expect(notifications[0].message as string).toContain('Not approved by commander');
+		expect(notifications[0].notification.message).toContain('Not approved by commander');
 
 		// Audit logged
 		expect(ctx.audit.events).toHaveLength(1);

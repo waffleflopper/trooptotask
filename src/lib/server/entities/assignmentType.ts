@@ -1,3 +1,9 @@
+/**
+ * Assignment type entity — maps `assignment_types` (the named duty slots, e.g., "CQ", "SDO").
+ * `requireFullEditor: true` — only full editors (not read-only members) can mutate.
+ * `assignTo` controls whether this type assigns to individual `personnel` or a `group`.
+ * `exemptPersonnelIds` is a Postgres array of UUIDs stored directly on the row.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { AssignmentType } from '$lib/types';

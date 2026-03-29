@@ -1,3 +1,11 @@
+/**
+ * Personnel entity — maps the `personnel` table.
+ * `groupScope: 'none'` because personnel rows live at the org level; group filtering
+ * is applied by `ScopedDataStore` based on the `group_id` column via `scopeRules.ts`.
+ * `customTransform` joins `groups(name)` into a flat `groupName` field.
+ * Writes are handled by `personnel.ts` and `personnelBatch.ts` use cases (not generic CRUD)
+ * because create must check subscription seat limits.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { Personnel } from '$lib/types';

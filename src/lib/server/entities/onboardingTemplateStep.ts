@@ -1,3 +1,11 @@
+/**
+ * Onboarding template step entity — maps `onboarding_template_steps`.
+ * Steps belong to a template via `templateId`. `stepType` determines what happens when
+ * the step is started: 'training' links to a TrainingType, 'paperwork' tracks a document,
+ * 'checkbox' is a simple completion toggle. `stages` is only used by 'training' steps
+ * (e.g., ['scheduled', 'attended', 'documented']). When a template is saved, active
+ * onboarding records are resynced via `onboardingResync.ts`.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { OnboardingTemplateStep } from '$features/onboarding/onboarding.types';

@@ -1,3 +1,14 @@
+/**
+ * Entity definition framework — schema-first system for defining database entities.
+ *
+ * Typical usage:
+ * 1. Define fields: `field(z.string(), { readOnly: true })`
+ * 2. Register entity: `defineEntity({ table, groupScope, schema, permission, audit, ... })`
+ * 3. Wire up routes: `entityHandlers(entity)` in +server.ts
+ * 4. Load data: `entity.fromDbArray(rows)` in load functions
+ *
+ * See docs/entity-system.md for full documentation and examples.
+ */
 import { z } from 'zod';
 import type { FeatureArea } from './core/ports';
 

@@ -1,3 +1,7 @@
+/**
+ * Development goal entity — maps `development_goals` (leader's book short/long term goals).
+ * Group-scoped via `personnel_id`. `termType` distinguishes short-term from long-term goals.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import OverflowMenu, { type OverflowItem } from './ui/OverflowMenu.svelte';
+	import OverflowMenu from './ui/OverflowMenu.svelte';
+	import type { OverflowItem } from './ui/OverflowMenu.types';
 	import HelpButton from './ui/HelpButton.svelte';
 
 	interface Breadcrumb {

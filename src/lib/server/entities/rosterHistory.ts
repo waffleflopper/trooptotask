@@ -1,3 +1,9 @@
+/**
+ * Roster history entity — maps `duty_roster_history` (duty roster generation log).
+ * Read-only via the `rosterHistoryQuery.ts` use case; rows are written by the
+ * duty-roster generator, not through this entity's CRUD route.
+ * `roster` and `config` are JSONB columns stored as `z.any()`.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { RosterHistoryItem } from '$features/duty-roster/stores/dutyRosterHistory.svelte';

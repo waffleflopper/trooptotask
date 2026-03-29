@@ -1,3 +1,19 @@
+/**
+ * In-memory implementations of all port interfaces, used in unit and integration tests.
+ *
+ * Key exports:
+ * - `createTestContext()` — full UseCaseContext wired to in-memory adapters.
+ *   Use this as the starting point for most use-case tests.
+ * - `createInMemoryDataStore()` — DataStore with a `.seed(table, rows)` method for
+ *   pre-populating test data. Supports filters, sorting, pagination, and range filters.
+ * - Individual port builders (`createTestAuthContext`, `createTestAuditPort`, etc.) for
+ *   tests that only need specific ports.
+ * - Port bundle builders (`createWritePortsContext`, `createQueryPortsContext`, etc.)
+ *   matching the narrower port subsets accepted by individual use cases.
+ *
+ * Group scoping works automatically: if `auth.scopedGroupId` is set on the test auth context,
+ * the data store is wrapped in `createScopedDataStore` using the production scope rules.
+ */
 import type {
 	DataStore,
 	FindOptions,

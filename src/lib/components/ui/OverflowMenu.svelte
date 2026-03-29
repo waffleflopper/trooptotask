@@ -1,18 +1,6 @@
-<script lang="ts" module>
-	export interface OverflowItem {
-		label: string;
-		onclick?: () => void;
-		href?: string;
-		toggle?: boolean;
-		active?: boolean;
-		divider?: boolean;
-		group?: string;
-		danger?: boolean;
-		disabled?: boolean;
-	}
-</script>
-
 <script lang="ts">
+	import type { OverflowItem } from './OverflowMenu.types';
+
 	interface Props {
 		items: OverflowItem[];
 		open: boolean;

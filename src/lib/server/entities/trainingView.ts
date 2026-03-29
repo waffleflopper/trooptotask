@@ -1,3 +1,8 @@
+/**
+ * Training view entity — maps `training_views` (saved column-selection presets for the matrix).
+ * `columnIds` is an array of `TrainingType` IDs defining which columns to show and their order.
+ * Views are per-org (not per-user). `createdBy` is the user ID of the creator, read-only.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { TrainingView } from '$features/training/training.types';

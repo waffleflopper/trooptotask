@@ -1,3 +1,8 @@
+/**
+ * Availability entry entity — maps `availability_entries`.
+ * Group-scoped via `personnel_id` column. Supports only POST and DELETE (no PUT/PATCH)
+ * since entries are replaced rather than edited. For bulk operations, see `availabilityBatch.ts`.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { AvailabilityEntry } from '$lib/types';

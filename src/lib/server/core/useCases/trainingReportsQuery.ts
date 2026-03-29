@@ -1,3 +1,12 @@
+/**
+ * Training reports query — fetches all personnel training records for report generation.
+ *
+ * Returns the raw `PersonnelTraining` rows without aggregation. The training reports feature
+ * uses these to compute per-type and per-personnel completion metrics client-side.
+ *
+ * Unlike `trainingSummaryQuery.ts` (which pre-aggregates), this gives the full dataset so
+ * the reports UI can filter and group dynamically.
+ */
 import type { QueryPorts } from '$lib/server/core/ports';
 import type { PersonnelTraining } from '$features/training/training.types';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';

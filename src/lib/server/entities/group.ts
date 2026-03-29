@@ -1,3 +1,8 @@
+/**
+ * Group entity — maps the `groups` table.
+ * Groups are org-level (no per-group scoping). Sorted by `sort_order` ascending.
+ * Requires `personnel` permission feature area for writes.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { Group } from '$lib/stores/groups.svelte';

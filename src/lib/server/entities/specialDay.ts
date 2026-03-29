@@ -1,3 +1,9 @@
+/**
+ * Special day entity — maps `special_days` (federal holidays + org closures shown on calendar).
+ * Supports only POST and DELETE (entries are replaced, not edited).
+ * `type` is either `'federal-holiday'` or `'org-closure'`.
+ * Federal holidays can be bulk-reset via `specialDayCrud.ts` `createResetFederalHolidaysUseCase`.
+ */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { SpecialDay } from '$lib/types';

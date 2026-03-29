@@ -1,3 +1,13 @@
+/**
+ * Onboarding lifecycle use cases — start, cancel, and complete an onboarding record.
+ *
+ * `startOnboarding(ctx, input)` instantiates a new onboarding record from a template,
+ * creating step records for each template step. Returns the created record ID.
+ *
+ * Lifecycle transitions (cancel, complete) enforce that the record is in the correct
+ * state before proceeding. For step-level progress, see `onboardingStepProgress.ts`.
+ * For retention logic (auto-archive when complete), see `onboardingRetention.ts`.
+ */
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 

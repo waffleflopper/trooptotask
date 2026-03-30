@@ -13,6 +13,7 @@
 	import { page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
 	import type { Personnel } from '$lib/types';
+	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
 	interface Props {
 		data: {
@@ -20,6 +21,9 @@
 			orgName?: string;
 			personnel?: Personnel[];
 			allPersonnel?: Personnel[];
+			calendar?: {
+				data?: CalendarWorkspaceData;
+			};
 			scopedGroupId?: string | null;
 		};
 	}
@@ -29,6 +33,7 @@
 	const org = getOrgContext();
 	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
 	const canMutate = $derived(!org.readOnly && canManageConfig);
+	const workspaceData = $derived(data.calendar?.data ?? data);
 
 	// ---- Tab management ----
 	type Tab = 'add' | 'remove' | 'import';
@@ -51,7 +56,7 @@
 	}
 
 	// ---- Personnel data ----
-	const calendarPersonnel = $derived(data.allPersonnel ?? data.personnel ?? []);
+	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
 	const personnelByGroup = $derived(
 		groupAndSortPersonnel(calendarPersonnel, {
 			pinnedGroups: pinnedGroupsStore.list,

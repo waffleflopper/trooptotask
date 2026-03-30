@@ -5,11 +5,6 @@
 	import { demoModeStore } from '$lib/stores/demoMode.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
-	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-	import { groupsStore } from '$lib/stores/groups.svelte';
-	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
-	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
 	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
 	import BannerStack from '$lib/components/BannerStack.svelte';
@@ -58,15 +53,6 @@
 			localStorage.setItem(`changelog-last-seen-${data.userId}`, changelog[0].id);
 		}
 	}
-
-	// Hydrate universal stores with server data
-	$effect(() => {
-		personnelStore.load(data.personnel ?? [], data.orgId);
-		groupsStore.load(data.groups ?? [], data.orgId);
-		statusTypesStore.load(data.statusTypes ?? [], data.orgId);
-		trainingTypesStore.load(data.trainingTypes ?? [], data.orgId);
-		trainingViewsStore.load(data.trainingViews ?? [], data.orgId);
-	});
 
 	// Initialize demo mode store with server data
 	$effect(() => {

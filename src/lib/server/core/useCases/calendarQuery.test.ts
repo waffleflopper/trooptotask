@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { QueryPorts } from '$lib/server/core/ports';
-import { fetchCalendarData } from './calendarQuery';
+import { fetchCalendarData, fetchCalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
 
 const ORG = 'test-org';
 
@@ -17,6 +17,39 @@ function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[
 const RANGE = { rangeStart: '2026-03-01', rangeEnd: '2026-03-31' };
 
 function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
+	store.seed('personnel', [
+		{
+			id: 'p1',
+			organization_id: ORG,
+			rank: 'SGT',
+			last_name: 'Smith',
+			first_name: 'John',
+			mos: '11B',
+			clinic_role: 'Medic',
+			group_id: 'g1',
+			groups: { name: 'Alpha' },
+			archived_at: null
+		},
+		{
+			id: 'p2',
+			organization_id: ORG,
+			rank: 'CPL',
+			last_name: 'Jones',
+			first_name: 'Jane',
+			mos: '68W',
+			clinic_role: 'Nurse',
+			group_id: 'g2',
+			groups: { name: 'Bravo' },
+			archived_at: null
+		}
+	]);
+	store.seed('groups', [
+		{ id: 'g1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
+		{ id: 'g2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
+	]);
+	store.seed('status_types', [
+		{ id: 'st1', organization_id: ORG, name: 'Leave', color: '#ff0', text_color: '#000', sort_order: 0 }
+	]);
 	store.seed('availability_entries', [
 		{
 			id: 'a1',
@@ -207,4 +240,21 @@ describe('fetchCalendarData', () => {
 	});
 
 	// roster history limit test moved to rosterHistoryQuery.test.ts
+});
+
+describe('fetchCalendarBootstrap', () => {
+	it('returns calendar reference collections for the workspace boundary', async () => {
+		const ctx = buildCtx();
+		const spy = vi.spyOn(ctx.auth, 'requireView');
+		seedCalendarData(ctx.store);
+
+		const result = await fetchCalendarBootstrap(ctx, RANGE);
+
+		expect(spy).toHaveBeenCalledWith('calendar');
+		expect(result.personnel.map((person) => person.lastName)).toEqual(['Jones', 'Smith']);
+		expect(result.personnel[0].groupName).toBe('Bravo');
+		expect(result.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
+		expect(result.statusTypes.map((statusType) => statusType.name)).toEqual(['Leave']);
+		expect(result.pinnedGroups).toEqual(['Alpha']);
+	});
 });

@@ -1,20 +1,19 @@
 import type { LayoutServerLoad } from './$types';
-import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import type { PersonnelTraining } from '$features/training/training.types';
+import { loadOrgWorkspace } from '$lib/server/core/useCases/loadOrgWorkspace';
+import { createSupabaseTrainingWorkspacePort } from '$lib/server/adapters/supabaseOrgShell';
+import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
+import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
 
 export const load: LayoutServerLoad = async ({ params, locals, cookies, depends }) => {
+	depends('app:org-core');
 	depends('app:training-data');
 	const { orgId } = params;
 
-	const { data: personnelTrainings } = await loadWithContext(locals, cookies, orgId, {
-		permission: 'training',
-		defer: true,
-		fn: async (ctx) => {
-			const rows = await ctx.store.findMany<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId);
-			return PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[];
-		}
-	});
-
-	return { personnelTrainings, orgId };
+	return {
+		training: await loadOrgWorkspace<TrainingBootstrap>(
+			'training',
+			createSupabaseTrainingWorkspacePort(locals, cookies, orgId),
+			createDefaultHydrationPlanner(orgId)
+		)
+	};
 };

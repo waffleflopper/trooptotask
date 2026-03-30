@@ -1,6 +1,5 @@
 import type { PageServerLoad } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { fetchDashboardData } from '$lib/server/core/useCases/dashboardQuery';
 import {
 	fetchTrainingSummary,
 	fetchOnboardingTrainingCompletions
@@ -8,42 +7,36 @@ import {
 
 export const load: PageServerLoad = async ({ params, locals, cookies, depends, parent }) => {
 	depends('app:org-core');
+	depends('app:dashboard-data');
 	const { orgId } = params;
 
 	const parentData = await parent();
+	const workspaceData = parentData.dashboard.data;
 
 	return loadWithContext(locals, cookies, orgId, {
 		permission: 'none',
 		fn: async (ctx) => {
-			const [
-				dashboardData,
-				trainingSummary,
-				onboardingTemplateStepCount,
-				ratingSchemeEntryCount,
-				orgMemberCount,
-				gettingStartedRows
-			] = await Promise.all([
-				fetchDashboardData(ctx),
-				fetchTrainingSummary(ctx, {
-					personnel: parentData.personnel ?? [],
-					trainingTypes: parentData.trainingTypes ?? [],
-					options: {
-						issueLimit: 5,
-						issueStatuses: ['expired', 'warning-orange']
-					}
-				}),
-				ctx.store.findManyWithCount('onboarding_template_steps', ctx.auth.orgId),
-				ctx.store.findManyWithCount('rating_scheme_entries', ctx.auth.orgId),
-				ctx.store.findManyWithCount('organization_memberships', ctx.auth.orgId),
-				ctx.auth.userId
-					? ctx.store.findMany<Record<string, unknown>>('getting_started_progress', ctx.auth.orgId, {
-							user_id: ctx.auth.userId
-						})
-					: Promise.resolve([])
-			]);
+			const [trainingSummary, onboardingTemplateStepCount, ratingSchemeEntryCount, orgMemberCount, gettingStartedRows] =
+				await Promise.all([
+					fetchTrainingSummary(ctx, {
+						personnel: workspaceData.personnel,
+						trainingTypes: workspaceData.trainingTypes,
+						options: {
+							issueLimit: 5,
+							issueStatuses: ['expired', 'warning-orange']
+						}
+					}),
+					ctx.store.findManyWithCount('onboarding_template_steps', ctx.auth.orgId),
+					ctx.store.findManyWithCount('rating_scheme_entries', ctx.auth.orgId),
+					ctx.store.findManyWithCount('organization_memberships', ctx.auth.orgId),
+					ctx.auth.userId
+						? ctx.store.findMany<Record<string, unknown>>('getting_started_progress', ctx.auth.orgId, {
+								user_id: ctx.auth.userId
+							})
+						: Promise.resolve([])
+				]);
 
-			// Get training completions for personnel with active onboardings
-			const onboardingPersonnelIds = (dashboardData.activeOnboardings ?? []).map((o) => o.personnelId);
+			const onboardingPersonnelIds = workspaceData.activeOnboardings.map((o) => o.personnelId);
 			const onboardingTrainingCompletions = await fetchOnboardingTrainingCompletions(ctx, {
 				personnelIds: onboardingPersonnelIds
 			});
@@ -52,7 +45,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies, depends, p
 
 			return {
 				orgId,
-				...dashboardData,
 				trainingSummary,
 				onboardingTrainingCompletions: [...onboardingTrainingCompletions],
 				onboardingTemplateStepCount: onboardingTemplateStepCount.count ?? 0,

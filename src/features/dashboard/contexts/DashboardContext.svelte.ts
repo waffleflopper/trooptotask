@@ -13,6 +13,8 @@ import { getVisibleDashboardCards } from '$lib/utils/dashboardCards';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
 import type { OrganizationMemberPermissions } from '$lib/types';
+import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
+import type { HydrationPlan } from '$lib/server/core/orgShell';
 
 export const HALF_SIZE_CARDS: CardId[] = ['strength', 'duty', 'training', 'upcoming', 'ratings'];
 
@@ -23,20 +25,15 @@ export interface TrainingIssue {
 	label: string;
 }
 
-// Shape of page data from +page.server.ts
+// Shape of page data from (dashboard)/+layout.server.ts + +page.server.ts
 export interface DashboardPageData {
 	orgId: string;
 	orgName: string;
 	userId: string | null;
 	permissions: OrganizationMemberPermissions | null;
-	availabilityEntries: unknown[];
-	assignmentTypes: unknown[];
-	todayAssignments: unknown[];
-	pinnedGroups: unknown[];
+	dashboard: { data: DashboardBootstrap; hydration?: HydrationPlan; workspace: string };
 	trainingSummary: { stats: TrainingStats; issues: TrainingIssue[] } | null;
 	onboardingTrainingCompletions: string[];
-	activeOnboardings: { personnelId: string; steps?: unknown[]; id: string }[];
-	ratingSchemeEntries: { ratingPeriodEnd: string; status: string }[];
 	onboardingTemplateStepCount: number;
 	ratingSchemeEntryCount: number;
 	orgMemberCount: number;
@@ -76,16 +73,14 @@ export class DashboardContext {
 	// Store hydration — call once inside $effect in the route
 	// ---------------------------------------------------------------------------
 	hydrateStores() {
-		availabilityStore.load(
-			this.data.availabilityEntries as Parameters<typeof availabilityStore.load>[0],
-			this.data.orgId
-		);
+		const ws = this.data.dashboard.data;
+		availabilityStore.load(ws.availabilityEntries as Parameters<typeof availabilityStore.load>[0], this.data.orgId);
 		dailyAssignmentsStore.load(
-			this.data.assignmentTypes as Parameters<typeof dailyAssignmentsStore.load>[0],
-			this.data.todayAssignments as Parameters<typeof dailyAssignmentsStore.load>[1],
+			ws.assignmentTypes as Parameters<typeof dailyAssignmentsStore.load>[0],
+			ws.todayAssignments as Parameters<typeof dailyAssignmentsStore.load>[1],
 			this.data.orgId
 		);
-		pinnedGroupsStore.load(this.data.pinnedGroups as Parameters<typeof pinnedGroupsStore.load>[0], this.data.orgId);
+		pinnedGroupsStore.load(ws.pinnedGroups as Parameters<typeof pinnedGroupsStore.load>[0], this.data.orgId);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -113,19 +108,19 @@ export class DashboardContext {
 	// (avoids 'unknown' errors when accessing these in templates)
 	// ---------------------------------------------------------------------------
 	get personnelCount(): number {
-		return (this.data.personnel as unknown[] | undefined)?.length ?? 0;
+		return this.data.dashboard.data.personnel.length;
 	}
 
 	get statusTypeCount(): number {
-		return (this.data.statusTypes as unknown[] | undefined)?.length ?? 0;
+		return this.data.dashboard.data.statusTypes.length;
 	}
 
 	get trainingTypeCount(): number {
-		return (this.data.trainingTypes as unknown[] | undefined)?.length ?? 0;
+		return this.data.dashboard.data.trainingTypes.length;
 	}
 
 	get assignmentTypeCount(): number {
-		return (this.data.assignmentTypes as unknown[])?.length ?? 0;
+		return this.data.dashboard.data.assignmentTypes.length;
 	}
 
 	get userRole(): string | undefined {
@@ -341,7 +336,7 @@ export class DashboardContext {
 		completedSteps: number;
 		pct: number;
 	}[] {
-		const onboardings = (this.data.activeOnboardings ?? []).filter((o) => this.personnelIds.has(o.personnelId));
+		const onboardings = this.data.dashboard.data.activeOnboardings.filter((o) => this.personnelIds.has(o.personnelId));
 		const completionSet = new Set(this.data.onboardingTrainingCompletions ?? []);
 
 		return onboardings.map((o) => {
@@ -432,7 +427,7 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	get ratingStats(): { overdue: number; 'due-30': number; 'due-60': number; current: number } {
 		const counts = { overdue: 0, 'due-30': 0, 'due-60': 0, current: 0 };
-		for (const entry of this.data.ratingSchemeEntries ?? []) {
+		for (const entry of this.data.dashboard.data.ratingSchemeEntries) {
 			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
 			if (status !== 'completed') {
 				counts[status]++;

@@ -16,6 +16,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { Personnel } from '$lib/types';
+	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
 	interface Props {
 		data: {
@@ -23,6 +24,9 @@
 			orgName?: string;
 			personnel?: Personnel[];
 			allPersonnel?: Personnel[];
+			calendar?: {
+				data?: CalendarWorkspaceData;
+			};
 			scopedGroupId?: string | null;
 			rosterHistory: RosterHistoryItem[];
 		};
@@ -33,6 +37,7 @@
 	const org = getOrgContext();
 	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
 	const canMutate = $derived(!org.readOnly && canManageConfig);
+	const workspaceData = $derived(data.calendar?.data ?? data);
 
 	// ---- Load roster history on mount ----
 	$effect(() => {
@@ -40,7 +45,7 @@
 	});
 
 	// ---- Personnel data ----
-	const calendarPersonnel = $derived(data.allPersonnel ?? data.personnel ?? []);
+	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
 	const personnelByGroup = $derived(
 		groupAndSortPersonnel(calendarPersonnel, {
 			pinnedGroups: pinnedGroupsStore.list,

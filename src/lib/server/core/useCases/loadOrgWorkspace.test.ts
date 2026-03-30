@@ -9,6 +9,7 @@ import type { CalendarBootstrap } from './calendarQuery';
 import type { TrainingBootstrap } from './trainingQuery';
 import type { OnboardingBootstrap } from './onboardingQuery';
 import type { DashboardBootstrap } from './dashboardQuery';
+import type { PersonnelBootstrap } from './personnelWorkspaceQuery';
 import { createDefaultHydrationPlanner } from '../hydrationPlanner';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { Personnel, StatusType } from '$lib/types';
@@ -212,6 +213,52 @@ describe('loadOrgWorkspace — onboarding workspace boundary', () => {
 		expect(result.hydration?.personnel).toBeDefined();
 		expect(result.hydration?.groups).toBeDefined();
 		expect(result.hydration?.trainingTypes).toBeDefined();
+	});
+});
+
+describe('loadOrgWorkspace — personnel workspace boundary', () => {
+	const ORG = 'org-personnel';
+	const personnel = [{ id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel];
+	const allPersonnel = [
+		{ id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel,
+		{ id: 'p2', lastName: 'Jones', firstName: 'Jane' } as unknown as Personnel
+	];
+	const groups = [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group];
+	const statusTypes = [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' } as StatusType];
+
+	const personnelData: PersonnelBootstrap = {
+		personnel,
+		allPersonnel,
+		groups,
+		statusTypes
+	};
+
+	it('returns personnel-owned data from workspace port', async () => {
+		const workspacePort = createInMemoryOrgWorkspacePort(
+			new Map<WorkspaceKey, unknown>([['personnel', personnelData]])
+		);
+		const plannerPort = createInMemoryHydrationPlannerPort(new Map());
+
+		const result = await loadOrgWorkspace<PersonnelBootstrap>('personnel', workspacePort, plannerPort);
+
+		expect(result.workspace).toBe('personnel');
+		expect(result.data.personnel).toEqual(personnel);
+		expect(result.data.allPersonnel).toEqual(allPersonnel);
+		expect(result.data.groups).toEqual(groups);
+		expect(result.data.statusTypes).toEqual(statusTypes);
+	});
+
+	it('hydrates personnel reference data explicitly', async () => {
+		const workspacePort = createInMemoryOrgWorkspacePort(
+			new Map<WorkspaceKey, unknown>([['personnel', personnelData]])
+		);
+		const plannerPort = createDefaultHydrationPlanner(ORG);
+
+		const result = await loadOrgWorkspace<PersonnelBootstrap>('personnel', workspacePort, plannerPort);
+
+		expect(result.hydration?.personnel).toBeDefined();
+		expect(result.hydration?.groups).toBeDefined();
+		expect(result.hydration?.statusTypes).toBeDefined();
 	});
 });
 

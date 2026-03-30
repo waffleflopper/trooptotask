@@ -14,6 +14,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	return {
 		orgId,
 		...data,
-		trainingTypes: parentData.trainingTypes
+		trainingTypes: parentData.onboarding.data.trainingTypes
 	};
 };

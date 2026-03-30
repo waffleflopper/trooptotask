@@ -13,6 +13,16 @@
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
+	const workspaceData = data.personnel.data;
+	const pageData: PersonnelPageData = {
+		orgId: data.orgId,
+		orgName: data.orgName,
+		pinnedGroups: data.pinnedGroups,
+		ratingSchemeEntries: data.ratingSchemeEntries,
+		personnel: workspaceData.personnel,
+		permissions: data.permissions,
+		scopedGroupId: data.scopedGroupId
+	};
 
 	// Hydrate personnel-specific stores (universal stores hydrated in org layout)
 	$effect(() => {
@@ -24,15 +34,8 @@
 	// singletons — their reactive `.list` getters are read inside the context's
 	// derived getters, so all computations stay live without recreating the context.
 	// Cast: SvelteKit page data is a superset of PersonnelPageData.
-	const ctx = new PersonnelPageContext(
-		data as PersonnelPageData,
-		modals,
-		org,
-		personnelStore,
-		ratingSchemeStore,
-		pinnedGroupsStore
-	);
+	const ctx = new PersonnelPageContext(pageData, modals, org, personnelStore, ratingSchemeStore, pinnedGroupsStore);
 </script>
 
-<PersonnelPageView {ctx} allPersonnel={data.personnel ?? []} permissions={data.permissions} />
-<PersonnelModals {ctx} {modals} allPersonnel={data.personnel ?? []} />
+<PersonnelPageView {ctx} allPersonnel={workspaceData.allPersonnel} permissions={data.permissions} />
+<PersonnelModals {ctx} {modals} allPersonnel={workspaceData.allPersonnel} />

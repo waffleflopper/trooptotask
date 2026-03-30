@@ -9,7 +9,9 @@
  * includes data (onboarding, rating scheme) the calendar page doesn't need.
  */
 import type { QueryPorts } from '$lib/server/core/ports';
-import type { AvailabilityEntry, AssignmentType, DailyAssignment } from '$lib/types';
+import type { Personnel, StatusType, AvailabilityEntry, AssignmentType, DailyAssignment } from '$lib/types';
+import type { Group } from '$lib/stores/groups.svelte';
+import type { TrainingType } from '$features/training/training.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
@@ -18,6 +20,10 @@ import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { GroupEntity } from '$lib/server/entities/group';
+import { StatusTypeEntity } from '$lib/server/entities/statusType';
+import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { formatDate } from '$lib/utils/dates';
 
 export interface DashboardData {
@@ -27,6 +33,43 @@ export interface DashboardData {
 	pinnedGroups: string[];
 	ratingSchemeEntries: RatingSchemeEntry[];
 	activeOnboardings: PersonnelOnboarding[];
+}
+
+export interface DashboardBootstrap extends DashboardData {
+	personnel: Personnel[];
+	groups: Group[];
+	statusTypes: StatusType[];
+	trainingTypes: TrainingType[];
+}
+
+export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<DashboardBootstrap> {
+	const orgId = ctx.auth.orgId;
+
+	const [dashboardData, personnelRows, groupRows, statusTypeRows, trainingTypeRows] = await Promise.all([
+		fetchDashboardData(ctx),
+		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+			select: PersonnelEntity.select,
+			isNull: { archived_at: true },
+			orderBy: [{ column: 'last_name', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		})
+	]);
+
+	return {
+		...dashboardData,
+		personnel: PersonnelEntity.fromDbArray(personnelRows),
+		groups: GroupEntity.fromDbArray(groupRows),
+		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
+		trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows)
+	};
 }
 
 export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData> {

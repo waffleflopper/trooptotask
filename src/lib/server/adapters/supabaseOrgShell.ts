@@ -25,12 +25,15 @@ import { loadWithContext } from './httpAdapter';
 import { fetchCalendarData } from '../core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '../core/useCases/onboardingCalendarQuery';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
+import { fetchDashboardBootstrap } from '../core/useCases/dashboardQuery';
 import { formatDate } from '$lib/utils/dates';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { GroupEntity } from '$lib/server/entities/group';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import type { Personnel } from '$lib/types';
+import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 
 export function createSupabaseOrgAccessPort(config: {
@@ -240,6 +243,27 @@ export function createSupabaseOnboardingWorkspacePort(
 			const data = await loadWithContext(locals, cookies, orgId, {
 				permission: 'onboarding',
 				fn: async (ctx) => fetchOnboardingBootstrap(ctx)
+			});
+
+			return data as T;
+		}
+	};
+}
+
+export function createSupabaseDashboardWorkspacePort(
+	locals: App.Locals,
+	cookies: Cookies,
+	orgId: string
+): OrgWorkspacePort {
+	return {
+		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
+			if (workspace !== 'dashboard') {
+				throw new Error(`createSupabaseDashboardWorkspacePort: unsupported workspace '${workspace}'`);
+			}
+
+			const data = await loadWithContext(locals, cookies, orgId, {
+				permission: 'none',
+				fn: async (ctx) => fetchDashboardBootstrap(ctx)
 			});
 
 			return data as T;

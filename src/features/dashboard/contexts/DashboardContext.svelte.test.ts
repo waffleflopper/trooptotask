@@ -55,7 +55,23 @@ vi.mock('$lib/utils/dashboardCards', () => ({
 // Helpers to build minimal page data shapes
 // ---------------------------------------------------------------------------
 
-function makeData(overrides: Record<string, unknown> = {}) {
+function makeWorkspaceData(overrides: Record<string, unknown> = {}) {
+	return {
+		availabilityEntries: [],
+		assignmentTypes: [],
+		todayAssignments: [],
+		pinnedGroups: [],
+		activeOnboardings: [],
+		ratingSchemeEntries: [],
+		personnel: [],
+		groups: [],
+		statusTypes: [],
+		trainingTypes: [],
+		...overrides
+	};
+}
+
+function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: Record<string, unknown> = {}) {
 	return {
 		orgId: 'org-1',
 		orgName: 'Test Unit',
@@ -73,14 +89,9 @@ function makeData(overrides: Record<string, unknown> = {}) {
 			canEditLeadersBook: true,
 			canManageMembers: true
 		},
-		availabilityEntries: [],
-		assignmentTypes: [],
-		todayAssignments: [],
-		pinnedGroups: [],
+		dashboard: { data: makeWorkspaceData(workspaceOverrides), hydration: undefined, workspace: 'dashboard' },
 		trainingSummary: null,
 		onboardingTrainingCompletions: [],
-		activeOnboardings: [],
-		ratingSchemeEntries: [],
 		onboardingTemplateStepCount: 0,
 		ratingSchemeEntryCount: 0,
 		orgMemberCount: 0,
@@ -150,6 +161,15 @@ describe('DashboardContext', () => {
 	describe('statusBreakdown', () => {
 		it('returns an empty Map when no availability entries exist', () => {
 			expect(ctx.statusBreakdown.size).toBe(0);
+		});
+	});
+
+	describe('statusTypeCount', () => {
+		it('reads from dashboard workspace data', () => {
+			const c = new DashboardContext(
+				makeData({}, { statusTypes: [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' }] })
+			);
+			expect(c.statusTypeCount).toBe(1);
 		});
 	});
 
@@ -230,7 +250,7 @@ describe('DashboardContext', () => {
 
 		it('does not count completed entries', () => {
 			const entries = [{ ratingPeriodEnd: '2026-01-01', status: 'completed' }];
-			const c = new DashboardContext(makeData({ ratingSchemeEntries: entries }));
+			const c = new DashboardContext(makeData({}, { ratingSchemeEntries: entries }));
 			expect(c.ratingTotal).toBe(0);
 		});
 
@@ -239,7 +259,7 @@ describe('DashboardContext', () => {
 				{ ratingPeriodEnd: '2026-06-01', status: 'pending' },
 				{ ratingPeriodEnd: '2026-07-01', status: 'pending' }
 			];
-			const c = new DashboardContext(makeData({ ratingSchemeEntries: entries }));
+			const c = new DashboardContext(makeData({}, { ratingSchemeEntries: entries }));
 			expect(c.ratingTotal).toBe(2);
 			expect(c.ratingStats.current).toBe(2);
 		});
@@ -250,7 +270,7 @@ describe('DashboardContext', () => {
 				{ ratingPeriodEnd: '2026-05-01', status: 'completed' },
 				{ ratingPeriodEnd: '2026-08-01', status: 'draft' }
 			];
-			const c = new DashboardContext(makeData({ ratingSchemeEntries: entries }));
+			const c = new DashboardContext(makeData({}, { ratingSchemeEntries: entries }));
 			expect(c.ratingTotal).toBe(2);
 		});
 	});
@@ -274,7 +294,7 @@ describe('DashboardContext', () => {
 				{ personnelId: 'p1', steps: [{ completed: true }, { completed: false }], id: 'ob1' },
 				{ personnelId: 'p2', steps: [], id: 'ob2' }
 			];
-			const c = new DashboardContext(makeData({ activeOnboardings: onboardings }));
+			const c = new DashboardContext(makeData({}, { activeOnboardings: onboardings }));
 			// Returns an array (may be empty if personnel store has no matching records)
 			expect(Array.isArray(c.activeOnboardings)).toBe(true);
 		});

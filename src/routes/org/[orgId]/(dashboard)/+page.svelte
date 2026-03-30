@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { DashboardContext, DashboardPageView, DashboardModals } from '$features/dashboard';
 	import type { DashboardPageData } from '$features/dashboard/contexts/DashboardContext.svelte';
-
 	let { data } = $props();
 
 	const ctx = new DashboardContext(data as DashboardPageData);

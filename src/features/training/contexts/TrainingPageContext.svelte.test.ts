@@ -3,7 +3,8 @@ import { TrainingPageContext } from './TrainingPageContext.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
-import type { TrainingType } from '$features/training/training.types';
+import type { Group } from '$lib/stores/groups.svelte';
+import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 
 // ---------------------------------------------------------------------------
 // Minimal stubs
@@ -105,15 +106,15 @@ const mockType: TrainingType = {
 	isOptional: false
 };
 
+const mockGroups: Group[] = [
+	{ id: 'g-1', name: 'Alpha', sortOrder: 0 },
+	{ id: 'g-2', name: 'Bravo', sortOrder: 1 }
+];
+
 function makeData(overrides: Record<string, unknown> = {}) {
 	return {
 		orgId: 'org-1',
 		orgName: 'Test Org',
-		personnel: [mockPerson, mockPerson2],
-		groups: [
-			{ id: 'g-1', name: 'Alpha', sortOrder: 0 },
-			{ id: 'g-2', name: 'Bravo', sortOrder: 1 }
-		],
 		permissions: {
 			canViewTraining: true,
 			canEditTraining: true
@@ -121,7 +122,15 @@ function makeData(overrides: Record<string, unknown> = {}) {
 		isOwner: false,
 		isAdmin: false,
 		isFullEditor: false,
-		trainingTypes: [],
+		training: {
+			data: {
+				personnel: [mockPerson, mockPerson2],
+				groups: mockGroups,
+				trainingTypes: [] as TrainingType[],
+				trainingViews: [] as TrainingView[],
+				personnelTrainings: Promise.resolve([] as PersonnelTraining[])
+			}
+		},
 		...overrides
 	};
 }
@@ -172,10 +181,42 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('returns empty array when no roles', () => {
-			const data = makeData({ personnel: [{ ...mockPerson, clinicRole: null }] });
+			const data = makeData({
+				training: {
+					data: {
+						personnel: [{ ...mockPerson, clinicRole: null }],
+						groups: mockGroups,
+						trainingTypes: [],
+						trainingViews: [],
+						personnelTrainings: Promise.resolve([])
+					}
+				}
+			});
 			const ctx = new TrainingPageContext(data, modals, makeOrg());
 			expect(ctx.availableRoles).toEqual([]);
 		});
+	});
+
+	it('reads personnel from the training workspace bootstrap instead of top-level route data', () => {
+		const workspacePerson = { ...mockPerson, id: 'workspace-person', lastName: 'Workspace' };
+		const shellPerson = { ...mockPerson, id: 'shell-person', lastName: 'Shell' };
+		const data = makeData({
+			personnel: [shellPerson],
+			training: {
+				data: {
+					personnel: [workspacePerson],
+					groups: mockGroups,
+					trainingTypes: [],
+					trainingViews: [],
+					personnelTrainings: Promise.resolve([])
+				}
+			}
+		});
+
+		const ctx = new TrainingPageContext(data, modals, makeOrg());
+
+		expect(ctx.personnel).toEqual([workspacePerson]);
+		expect(ctx.filteredPersonnel[0].id).toBe('workspace-person');
 	});
 
 	describe('filteredPersonnel', () => {
@@ -191,6 +232,15 @@ describe('TrainingPageContext', () => {
 			ctx.selectedGroupId = 'g-1';
 			expect(ctx.filteredPersonnel).toHaveLength(1);
 			expect(ctx.filteredPersonnel[0].id).toBe('p-1');
+		});
+	});
+
+	describe('groups', () => {
+		it('reads groups from the training workspace bootstrap', () => {
+			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+
+			expect(ctx.groups).toEqual(mockGroups);
+			expect(ctx.groupOrder).toEqual(['Alpha', 'Bravo']);
 		});
 	});
 

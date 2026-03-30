@@ -1,5 +1,5 @@
 import { SvelteSet } from 'svelte/reactivity';
-import type { Personnel } from '$lib/types';
+import type { Personnel, OrganizationMemberPermissions } from '$lib/types';
 import type { RatingSchemeEntry, WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
 import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 import type { PersonnelGroup } from '$features/personnel/utils/personnelGrouping';
@@ -15,11 +15,7 @@ export interface PersonnelPageData {
 	pinnedGroups: string[];
 	ratingSchemeEntries: RatingSchemeEntry[];
 	personnel?: Personnel[];
-	permissions?: {
-		canViewPersonnel?: boolean;
-		canEditPersonnel?: boolean;
-		[key: string]: unknown;
-	} | null;
+	permissions?: OrganizationMemberPermissions | null;
 	scopedGroupId?: string | null;
 	[key: string]: unknown;
 }

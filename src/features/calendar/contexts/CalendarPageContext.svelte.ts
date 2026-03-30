@@ -7,6 +7,7 @@ import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGroupi
 import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
 import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
 // ---------------------------------------------------------------------------
 // Page data shape (subset of layout + page server data)
@@ -18,6 +19,9 @@ export interface CalendarPageData {
 	userId?: string | null;
 	personnel?: Personnel[];
 	allPersonnel?: Personnel[];
+	calendar?: {
+		data?: CalendarWorkspaceData;
+	};
 	scopedGroupId?: string | null;
 	permissions?: {
 		canViewCalendar?: boolean;
@@ -54,20 +58,30 @@ export class CalendarPageContext {
 	highlightOnboarding = $state(true);
 	breakdownExpanded = $state(true);
 
+	get #workspaceData() {
+		return this.#data.calendar?.data;
+	}
+
 	// ---- derived: personnel ------------------------------------------------
 	get calendarPersonnel(): Personnel[] {
 		return (
-			(this.#data.allPersonnel as Personnel[] | undefined) ?? (this.#data.personnel as Personnel[] | undefined) ?? []
+			this.#workspaceData?.allPersonnel ??
+			this.#workspaceData?.personnel ??
+			(this.#data.allPersonnel as Personnel[] | undefined) ??
+			(this.#data.personnel as Personnel[] | undefined) ??
+			[]
 		);
 	}
 
 	get scopedPersonnelIds(): Set<string> {
-		return new Set(((this.#data.personnel as Personnel[] | undefined) ?? []).map((p) => p.id));
+		return new Set(
+			(this.#workspaceData?.personnel ?? (this.#data.personnel as Personnel[] | undefined) ?? []).map((p) => p.id)
+		);
 	}
 
 	// ---- derived: onboarding data ------------------------------------------
 	get activeOnboardingPersonnelIds(): string[] {
-		return this.#data.activeOnboardingPersonnelIds ?? [];
+		return this.#workspaceData?.activeOnboardingPersonnelIds ?? this.#data.activeOnboardingPersonnelIds ?? [];
 	}
 
 	// ---- derived: permission flags -----------------------------------------

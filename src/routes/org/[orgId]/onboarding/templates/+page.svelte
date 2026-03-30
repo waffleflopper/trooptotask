@@ -60,7 +60,7 @@
 			: []
 	);
 
-	const trainingTypes: TrainingType[] = $derived(data.trainingTypes ?? []);
+	const trainingTypes: TrainingType[] = $derived(data.onboarding.data.trainingTypes ?? []);
 
 	const canMutate = $derived(!org.readOnly);
 

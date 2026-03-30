@@ -82,8 +82,8 @@ function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
 const RANGE_START = '2026-01-01';
 const RANGE_END = '2026-09-30';
 
-describe('calendar layout server (loadWithContext)', () => {
-	it('returns calendar data and activeOnboardingPersonnelIds via loadWithContext', async () => {
+describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnelIds)', () => {
+	it('returns all CalendarBootstrap fields for the date range', async () => {
 		const ctx = buildCtx();
 		seedCalendarData(ctx.store);
 

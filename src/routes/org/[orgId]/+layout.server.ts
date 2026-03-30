@@ -1,7 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { isFullEditor, type OrganizationMemberPermissions } from '$lib/types';
-import { fetchSharedData } from '$lib/server/core/useCases/sharedDataQuery';
+import { loadOrgShell } from '$lib/server/core/useCases/loadOrgShell';
 import {
 	buildLayoutContext,
 	buildLayoutContextFromMembership,
@@ -10,6 +10,39 @@ import {
 import type { MembershipRow } from '$lib/server/permissionContext';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
+import { createSupabaseOrgAccessPort, createSupabaseOrgChromePort } from '$lib/server/adapters/supabaseOrgShell';
+import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from '$lib/server/adapters/inMemoryOrgShell';
+
+async function buildDemoShell(config: {
+	orgId: string;
+	orgName: string;
+	permissions: OrganizationMemberPermissions;
+	role: 'owner' | 'admin' | 'member';
+	isDemoReadOnly: boolean;
+	isDemoSandbox: boolean;
+	effectiveTier: Awaited<ReturnType<ReturnType<typeof createSupabaseSubscriptionAdapter>['getEffectiveTier']>>;
+}) {
+	return loadOrgShell(
+		createInMemoryOrgAccessPort({
+			membership: {
+				orgId: config.orgId,
+				userId: null,
+				role: config.role,
+				permissions: config.permissions,
+				scopedGroupId: null
+			},
+			orgState: {
+				orgName: config.orgName,
+				isDemoReadOnly: config.isDemoReadOnly,
+				isDemoSandbox: config.isDemoSandbox,
+				effectiveTier: config.effectiveTier
+			}
+		}),
+		createInMemoryOrgChromePort({
+			chrome: { unreadNotificationCount: 0, activeAnnouncements: [], allOrgs: [] }
+		})
+	);
+}
 
 export const load: LayoutServerLoad = async ({ params, locals, cookies, depends }) => {
 	depends('app:org-core');
@@ -113,10 +146,17 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			}
 		};
 
-		const [shared, effectiveTier] = await Promise.all([
-			fetchSharedData(demoCtx),
-			demoCtx.subscription.getEffectiveTier()
-		]);
+		const effectiveTier = await demoCtx.subscription.getEffectiveTier();
+
+		const shell = await buildDemoShell({
+			orgId,
+			orgName: org.name,
+			permissions: readOnlyPermissions,
+			role: 'member',
+			isDemoReadOnly: true,
+			isDemoSandbox: false,
+			effectiveTier
+		});
 
 		return {
 			orgId,
@@ -131,10 +171,9 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			isAdmin: false,
 			allOrgs: [],
 			effectiveTier,
-
 			isDemoReadOnly: true,
 			isDemoSandbox: false,
-			...shared
+			shell
 		};
 	}
 
@@ -158,10 +197,17 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 				};
 
 				const sandboxCtx = await buildLayoutContext(locals, cookies, orgId);
-				const [shared, effectiveTier] = await Promise.all([
-					fetchSharedData(sandboxCtx),
-					sandboxCtx.subscription.getEffectiveTier()
-				]);
+				const effectiveTier = await sandboxCtx.subscription.getEffectiveTier();
+
+				const shell = await buildDemoShell({
+					orgId,
+					orgName: org.name,
+					permissions: fullPermissions,
+					role: 'owner',
+					isDemoReadOnly: false,
+					isDemoSandbox: true,
+					effectiveTier
+				});
 
 				return {
 					orgId,
@@ -176,10 +222,9 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					isAdmin: false,
 					allOrgs: [],
 					effectiveTier,
-
 					isDemoReadOnly: false,
 					isDemoSandbox: true,
-					...shared
+					shell
 				};
 			}
 		} catch {
@@ -190,9 +235,14 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	// For non-demo access, require login
 	if (!user) throw redirect(303, '/auth/login');
 
-	// Parallelize: membership + allOrgs (single query), tier, and announcements
-	// Note: fetchSharedData is called after membership resolves (needs scopedGroupId)
+	// Parallelize: membership + allOrgs (single query), tier, and announcements.
+	// Shell loading starts concurrently — adapters issue their own queries in parallel
+	// with the existing pipeline. Some query overlap is expected during migration.
 	const subscriptionAdapter = createSupabaseSubscriptionAdapter(supabase, orgId);
+
+	// Share the tier promise so both the shell and the existing path resolve it once.
+	const effectiveTierPromise = subscriptionAdapter.getEffectiveTier();
+
 	const [membershipsRes, effectiveTier, notificationCountRes, announcementsRes, dismissalsRes] = await Promise.all([
 		locals.supabase
 			.from('organization_memberships')
@@ -200,7 +250,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 				'organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id, organizations(id, name)'
 			)
 			.eq('user_id', user.id),
-		subscriptionAdapter.getEffectiveTier(),
+		effectiveTierPromise,
 		locals.supabase
 			.from('notifications')
 			.select('id', { count: 'exact', head: true })
@@ -220,6 +270,25 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	if (!membership) {
 		throw error(403, 'You are not a member of this organization');
 	}
+
+	// Start shell loading after membership check so a 403 doesn't leave shellPromise as an unhandled rejection.
+	const shellPromise = loadOrgShell(
+		createSupabaseOrgAccessPort({
+			orgId,
+			userId: user.id,
+			userSupabase: locals.supabase,
+			orgName: org.name,
+			isDemoReadOnly: false,
+			isDemoSandbox: false,
+			getEffectiveTier: () => effectiveTierPromise
+		}),
+		createSupabaseOrgChromePort({
+			orgId,
+			userId: user.id,
+			userSupabase: locals.supabase,
+			supabase
+		})
+	);
 
 	const allOrgs = allMemberships
 		.filter((m: Record<string, unknown>) => m.organizations)
@@ -252,13 +321,14 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	const fullEditor = !isPrivileged && !scopedGroupId && isFullEditor(permissions);
 
 	const ctx = await buildLayoutContextFromMembership(locals, cookies, orgId, membership as MembershipRow);
-	const shared = await fetchSharedData(ctx);
 
 	// Filter out dismissed announcements
 	const dismissedIds = new Set((dismissalsRes.data ?? []).map((d: Record<string, unknown>) => d.announcement_id));
 	const activeAnnouncements = (announcementsRes.data ?? []).filter(
 		(a: Record<string, unknown>) => !dismissedIds.has(a.id)
 	);
+
+	const shell = await shellPromise;
 
 	return {
 		orgId,
@@ -276,6 +346,6 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		isDemoReadOnly: false,
 		isDemoSandbox: false,
 		activeAnnouncements,
-		...shared
+		shell
 	};
 };

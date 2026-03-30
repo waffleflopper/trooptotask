@@ -47,6 +47,14 @@ describe('createDefaultHydrationPlanner', () => {
 		expect(plan?.trainingTypes?.snapshotKey).toEqual(expect.any(String));
 	});
 
+	it('creates trainingViews target when present', () => {
+		const planner = createDefaultHydrationPlanner(ORG);
+		const trainingViews = [{ id: 'tv1', name: 'All Personnel' }];
+		const plan = planner.createPlan('training', { trainingViews });
+		expect(plan?.trainingViews).toMatchObject({ mode: 'replace', items: trainingViews });
+		expect(plan?.trainingViews?.snapshotKey).toEqual(expect.any(String));
+	});
+
 	it('creates personnel.scoped but not personnel.all when only scoped data present', () => {
 		const planner = createDefaultHydrationPlanner(ORG);
 		const personnel = [{ id: 'p1', lastName: 'Smith' }];

@@ -29,6 +29,10 @@ export interface CalendarData {
 	pinnedGroups: string[];
 }
 
+export interface CalendarBootstrap extends CalendarData {
+	activeOnboardingPersonnelIds: string[];
+}
+
 export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInput): Promise<CalendarData> {
 	ctx.auth.requireView('calendar');
 

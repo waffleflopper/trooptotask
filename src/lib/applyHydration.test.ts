@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { defineStore } from '$lib/stores/core';
 import type { Personnel, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingType, TrainingView } from '$features/training/training.types';
 import { applyHydration, resetHydrationState } from './applyHydration.svelte';
 import type { HydrationStores } from './applyHydration.svelte';
 import type { HydrationPlan } from '$lib/server/core/orgShell';
@@ -14,26 +14,38 @@ function createTestStores(): HydrationStores & {
 	groups: ReturnType<typeof defineStore<Group>>;
 	statusTypes: ReturnType<typeof defineStore<StatusType>>;
 	trainingTypes: ReturnType<typeof defineStore<TrainingType>>;
+	trainingViews: ReturnType<typeof defineStore<TrainingView>>;
 } {
 	const personnel = defineStore<Personnel>({ table: 'personnel' });
 	const groups = defineStore<Group>({ table: 'groups' });
 	const statusTypes = defineStore<StatusType>({ table: 'status_types' });
 	const trainingTypes = defineStore<TrainingType>({ table: 'training_types' });
+	const trainingViews = defineStore<TrainingView>({ table: 'training_views' });
 	return {
 		personnelStore: personnel as unknown as HydrationStores['personnelStore'],
 		groupsStore: groups as unknown as HydrationStores['groupsStore'],
 		statusTypesStore: statusTypes as unknown as HydrationStores['statusTypesStore'],
 		trainingTypesStore: trainingTypes as unknown as HydrationStores['trainingTypesStore'],
+		trainingViewsStore: trainingViews as unknown as HydrationStores['trainingViewsStore'],
 		personnel,
 		groups,
 		statusTypes,
-		trainingTypes
+		trainingTypes,
+		trainingViews
 	};
 }
 
 const group: Group = { id: 'g1', name: 'Alpha', sortOrder: 0 };
 const statusType: StatusType = { id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' };
 const trainingType = { id: 'tt1', name: 'CPR', expirationMonths: 12 } as unknown as TrainingType;
+const trainingView = {
+	id: 'tv1',
+	name: 'All Personnel',
+	columnIds: [],
+	createdBy: 'u1',
+	createdAt: '2024-01-01',
+	updatedAt: '2024-01-01'
+} as TrainingView;
 const person = { id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel;
 
 describe('applyHydration', () => {
@@ -75,6 +87,15 @@ describe('applyHydration', () => {
 		};
 		await applyHydration(plan, stores);
 		expect(stores.trainingTypes.items).toEqual([trainingType]);
+	});
+
+	it('hydrates trainingViews store with replace mode', async () => {
+		const plan: HydrationPlan = {
+			orgId: ORG,
+			trainingViews: { mode: 'replace', snapshotKey: 'views:1', items: [trainingView] }
+		};
+		await applyHydration(plan, stores);
+		expect(stores.trainingViews.items).toEqual([trainingView]);
 	});
 
 	it('hydrates personnelStore from personnel.scoped', async () => {
@@ -131,6 +152,36 @@ describe('applyHydration', () => {
 		);
 
 		expect(stores.groups.items).toEqual([first]);
+	});
+
+	it('reloads when returning to a prior org with the same snapshotKey', async () => {
+		const orgAGroup = { id: 'g1', name: 'Alpha', sortOrder: 0 };
+		const orgBGroup = { id: 'g2', name: 'Bravo', sortOrder: 1 };
+
+		await applyHydration(
+			{
+				orgId: 'org-a',
+				groups: { mode: 'replace', snapshotKey: 'groups:stable', items: [orgAGroup] }
+			},
+			stores
+		);
+		await applyHydration(
+			{
+				orgId: 'org-b',
+				groups: { mode: 'replace', snapshotKey: 'groups:other', items: [orgBGroup] }
+			},
+			stores
+		);
+		await applyHydration(
+			{
+				orgId: 'org-a',
+				groups: { mode: 'replace', snapshotKey: 'groups:stable', items: [orgAGroup] }
+			},
+			stores
+		);
+
+		expect(stores.groups.orgId).toBe('org-a');
+		expect(stores.groups.items).toEqual([orgAGroup]);
 	});
 
 	it('hydrates a deferred target once it resolves', async () => {

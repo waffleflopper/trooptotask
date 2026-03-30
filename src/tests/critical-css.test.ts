@@ -4,10 +4,9 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 /**
- * Regression tests: critical CSS must be inlined in app.html so that
- * design tokens and base resets are available before any external stylesheet loads.
- * The non-critical stylesheet must be deferred (not render-blocking).
- * This prevents a flash of unstyled content on slow networks (e.g. NIPR).
+ * Regression tests: design tokens and base resets are inlined in app.html,
+ * and app.css is statically imported in the root layout so all styles are
+ * SSR-delivered. This prevents unstyled flashes on slow networks (e.g. NIPR).
  */
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -42,14 +41,9 @@ describe('critical CSS inlining', () => {
 	});
 });
 
-describe('non-critical CSS deferral', () => {
-	it('root layout does not statically import app.css (render-blocking)', () => {
+describe('global CSS loading', () => {
+	it('root layout statically imports app.css so styles are SSR-delivered', () => {
 		const layout = readFileSync(ROOT_LAYOUT, 'utf-8');
-		expect(layout).not.toMatch(/import\s+['"]\.\.\/app\.css['"]/);
-	});
-
-	it('root layout loads non-critical CSS via deferred ?url mechanism', () => {
-		const layout = readFileSync(ROOT_LAYOUT, 'utf-8');
-		expect(layout).toContain('app.css?url');
+		expect(layout).toMatch(/import\s+['"]\.\.\/app\.css['"]/);
 	});
 });

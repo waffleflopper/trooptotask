@@ -41,18 +41,58 @@ const defaultStores: HydrationStores = {
 	trainingTypesStore
 };
 
-function applyTarget<T>(target: HydrationTarget | undefined, store: Loadable<T>, orgId: string): void {
-	if (!target || target.mode === 'preserve-client') return;
-	store.load(target.items as T[], orgId);
+const appliedSnapshotKeys = new Map<string, string>();
+const pendingSnapshotKeys = new Map<string, string>();
+
+function isPromiseLike<T>(value: unknown): value is Promise<T> {
+	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
 }
 
-export function applyHydration(plan?: HydrationPlan, stores: HydrationStores = defaultStores): void {
+function getTargetCacheKey(orgId: string, targetName: string): string {
+	return `${orgId}:${targetName}`;
+}
+
+async function applyTarget<T>(
+	target: HydrationTarget | undefined,
+	store: Loadable<T>,
+	orgId: string,
+	targetName: string
+): Promise<void> {
+	if (!target || target.mode === 'preserve-client') return;
+
+	const cacheKey = getTargetCacheKey(orgId, targetName);
+	if (appliedSnapshotKeys.get(cacheKey) === target.snapshotKey) return;
+	if (pendingSnapshotKeys.get(cacheKey) === target.snapshotKey) return;
+
+	pendingSnapshotKeys.set(cacheKey, target.snapshotKey);
+
+	if (isPromiseLike<T[]>(target.items)) {
+		const items = await target.items;
+		if (pendingSnapshotKeys.get(cacheKey) !== target.snapshotKey) return;
+		store.load(items, orgId);
+		pendingSnapshotKeys.delete(cacheKey);
+		appliedSnapshotKeys.set(cacheKey, target.snapshotKey);
+		return;
+	}
+
+	store.load(target.items as T[], orgId);
+	appliedSnapshotKeys.set(cacheKey, target.snapshotKey);
+}
+
+export function resetHydrationState(): void {
+	appliedSnapshotKeys.clear();
+	pendingSnapshotKeys.clear();
+}
+
+export async function applyHydration(plan?: HydrationPlan, stores: HydrationStores = defaultStores): Promise<void> {
 	if (!plan) return;
 	const { orgId } = plan;
 
-	applyTarget(plan.personnel?.scoped, stores.personnelStore, orgId);
-	// plan.personnel.all: no allPersonnelStore yet — forward-looking slot in HydrationPlan
-	applyTarget(plan.groups, stores.groupsStore, orgId);
-	applyTarget(plan.statusTypes, stores.statusTypesStore, orgId);
-	applyTarget(plan.trainingTypes, stores.trainingTypesStore, orgId);
+	await Promise.all([
+		applyTarget(plan.personnel?.scoped, stores.personnelStore, orgId, 'personnel.scoped'),
+		// plan.personnel.all: no allPersonnelStore yet — forward-looking slot in HydrationPlan
+		applyTarget(plan.groups, stores.groupsStore, orgId, 'groups'),
+		applyTarget(plan.statusTypes, stores.statusTypesStore, orgId, 'statusTypes'),
+		applyTarget(plan.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes')
+	]);
 }

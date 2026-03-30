@@ -1,5 +1,39 @@
 import type { HydrationPlan, HydrationPlannerPort, WorkspaceKey } from './orgShell';
 
+const deferredSnapshotKeys = new WeakMap<object, string>();
+let deferredSnapshotCounter = 0;
+
+function isPromiseLike<T>(value: unknown): value is Promise<T> {
+	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
+}
+
+function getDeferredSnapshotKey(value: object): string {
+	let key = deferredSnapshotKeys.get(value);
+	if (!key) {
+		deferredSnapshotCounter += 1;
+		key = `deferred:${deferredSnapshotCounter}`;
+		deferredSnapshotKeys.set(value, key);
+	}
+	return key;
+}
+
+function createSnapshotKey(value: unknown): string {
+	if (isPromiseLike(value)) {
+		return getDeferredSnapshotKey(value);
+	}
+
+	try {
+		return `resolved:${JSON.stringify(value)}`;
+	} catch {
+		deferredSnapshotCounter += 1;
+		return `resolved:fallback:${deferredSnapshotCounter}`;
+	}
+}
+
+function isHydratableItems(value: unknown): value is unknown[] | Promise<unknown[]> {
+	return Array.isArray(value) || isPromiseLike<unknown[]>(value);
+}
+
 /**
  * Production `HydrationPlannerPort` implementation.
  *
@@ -14,10 +48,10 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			if (data == null || typeof data !== 'object' || Array.isArray(data)) return undefined;
 			const d = data as Record<string, unknown>;
 
-			const hasPersonnel = d.personnel != null || d.allPersonnel != null;
-			const hasGroups = d.groups != null;
-			const hasStatusTypes = d.statusTypes != null;
-			const hasTrainingTypes = d.trainingTypes != null;
+			const hasPersonnel = isHydratableItems(d.personnel) || isHydratableItems(d.allPersonnel);
+			const hasGroups = isHydratableItems(d.groups);
+			const hasStatusTypes = isHydratableItems(d.statusTypes);
+			const hasTrainingTypes = isHydratableItems(d.trainingTypes);
 
 			if (!hasPersonnel && !hasGroups && !hasStatusTypes && !hasTrainingTypes) {
 				return undefined;
@@ -26,28 +60,48 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			const plan: HydrationPlan = { orgId };
 
 			if (hasPersonnel) {
-				const scoped = (d.personnel ?? []) as unknown[];
+				const scoped = isHydratableItems(d.personnel) ? d.personnel : [];
 				plan.personnel = {
-					scoped: { mode: 'replace', items: scoped },
+					scoped: {
+						mode: 'replace',
+						snapshotKey: createSnapshotKey(scoped),
+						items: scoped
+					},
 					// `all` is only set when explicit all-org data was provided.
 					// Falling back to `personnel` would silently hydrate allPersonnelStore
 					// with scoped-only data once that store exists.
-					...(d.allPersonnel != null && {
-						all: { mode: 'replace', items: d.allPersonnel as unknown[] }
+					...(isHydratableItems(d.allPersonnel) && {
+						all: {
+							mode: 'replace',
+							snapshotKey: createSnapshotKey(d.allPersonnel),
+							items: d.allPersonnel
+						}
 					})
 				};
 			}
 
 			if (hasGroups) {
-				plan.groups = { mode: 'replace', items: d.groups as unknown[] };
+				plan.groups = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.groups),
+					items: d.groups as unknown[] | Promise<unknown[]>
+				};
 			}
 
 			if (hasStatusTypes) {
-				plan.statusTypes = { mode: 'replace', items: d.statusTypes as unknown[] };
+				plan.statusTypes = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.statusTypes),
+					items: d.statusTypes as unknown[] | Promise<unknown[]>
+				};
 			}
 
 			if (hasTrainingTypes) {
-				plan.trainingTypes = { mode: 'replace', items: d.trainingTypes as unknown[] };
+				plan.trainingTypes = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.trainingTypes),
+					items: d.trainingTypes as unknown[] | Promise<unknown[]>
+				};
 			}
 
 			return plan;

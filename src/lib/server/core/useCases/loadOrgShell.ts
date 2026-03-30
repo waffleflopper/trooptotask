@@ -1,10 +1,7 @@
 import { isFullEditor } from '$lib/types';
 import type { OrgAccessPort, OrgChromePort, OrgShellData } from '../orgShell';
 
-export async function loadOrgShell(
-	access: OrgAccessPort,
-	chrome: OrgChromePort
-): Promise<OrgShellData> {
+export async function loadOrgShell(access: OrgAccessPort, chrome: OrgChromePort): Promise<OrgShellData> {
 	const [membership, orgState, chromeData] = await Promise.all([
 		access.getMembership(),
 		access.getOrgState(),

@@ -11,14 +11,8 @@ import {
 import type { MembershipRow } from '$lib/server/permissionContext';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
-import {
-	createSupabaseOrgAccessPort,
-	createSupabaseOrgChromePort
-} from '$lib/server/adapters/supabaseOrgShell';
-import {
-	createInMemoryOrgAccessPort,
-	createInMemoryOrgChromePort
-} from '$lib/server/adapters/inMemoryOrgShell';
+import { createSupabaseOrgAccessPort, createSupabaseOrgChromePort } from '$lib/server/adapters/supabaseOrgShell';
+import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from '$lib/server/adapters/inMemoryOrgShell';
 
 export const load: LayoutServerLoad = async ({ params, locals, cookies, depends }) => {
 	depends('app:org-core');

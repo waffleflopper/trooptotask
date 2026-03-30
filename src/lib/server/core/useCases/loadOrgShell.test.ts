@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryOrgAccessPort,
-	createInMemoryOrgChromePort
-} from '$lib/server/adapters/inMemoryOrgShell';
+import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from '$lib/server/adapters/inMemoryOrgShell';
 import type { MembershipInfo, OrgState, ChromeData } from '../orgShell';
 import { loadOrgShell } from './loadOrgShell';
 

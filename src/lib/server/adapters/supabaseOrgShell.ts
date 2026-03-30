@@ -112,10 +112,7 @@ export function createSupabaseOrgChromePort(config: {
 					.select('id, title, message, type')
 					.eq('is_active', true)
 					.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
-				config.userSupabase
-					.from('announcement_dismissals')
-					.select('announcement_id')
-					.eq('user_id', config.userId)
+				config.userSupabase.from('announcement_dismissals').select('announcement_id').eq('user_id', config.userId)
 			]);
 
 			const allOrgs = (membershipsRes.data ?? [])
@@ -125,9 +122,7 @@ export function createSupabaseOrgChromePort(config: {
 					return { id: org.id as string, name: org.name as string, role: m.role as string };
 				});
 
-			const dismissedIds = new Set(
-				(dismissalsRes.data ?? []).map((d: Record<string, unknown>) => d.announcement_id)
-			);
+			const dismissedIds = new Set((dismissalsRes.data ?? []).map((d: Record<string, unknown>) => d.announcement_id));
 			const activeAnnouncements: Announcement[] = (announcementsRes.data ?? [])
 				.filter((a: Record<string, unknown>) => !dismissedIds.has(a.id))
 				.map((a: Record<string, unknown>) => ({

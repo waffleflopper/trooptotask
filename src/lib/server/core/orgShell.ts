@@ -65,9 +65,11 @@ export interface HydrationTarget<T = unknown> {
 }
 
 export interface HydrationPlan {
+	orgId: string;
 	personnel?: {
 		scoped: HydrationTarget;
-		all: HydrationTarget;
+		/** Only present when explicit all-org data was available. Absent for scoped members. */
+		all?: HydrationTarget;
 	};
 	groups?: HydrationTarget;
 	statusTypes?: HydrationTarget;

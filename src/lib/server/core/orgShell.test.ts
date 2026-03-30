@@ -105,6 +105,7 @@ describe('WorkspaceBootstrap contract', () => {
 
 	it('carries a hydration plan when provided', () => {
 		const plan: HydrationPlan = {
+			orgId: 'test-org',
 			groups: {
 				mode: 'preserve-client',
 				items: [{ id: 'g1', name: 'Alpha', sortOrder: 0 }]
@@ -134,6 +135,7 @@ describe('org shell port contract types', () => {
 			[
 				'calendar',
 				{
+					orgId: 'test-org',
 					groups: {
 						mode: 'merge',
 						items: []
@@ -206,6 +208,7 @@ describe('createInMemoryOrgWorkspacePort', () => {
 describe('createInMemoryHydrationPlannerPort', () => {
 	it('returns the plan for a seeded workspace', () => {
 		const plan: HydrationPlan = {
+			orgId: 'test-org',
 			groups: {
 				mode: 'preserve-client',
 				items: [{ id: 'g1', name: 'Alpha', sortOrder: 0 }]

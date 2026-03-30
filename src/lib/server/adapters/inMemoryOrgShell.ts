@@ -23,10 +23,7 @@ import type {
 	WorkspaceKey
 } from '../core/orgShell';
 
-export function createInMemoryOrgAccessPort(config: {
-	membership: MembershipInfo;
-	orgState: OrgState;
-}): OrgAccessPort {
+export function createInMemoryOrgAccessPort(config: { membership: MembershipInfo; orgState: OrgState }): OrgAccessPort {
 	return {
 		getMembership: () => Promise.resolve(config.membership),
 		getOrgState: () => Promise.resolve(config.orgState)
@@ -39,9 +36,7 @@ export function createInMemoryOrgChromePort(config: { chrome: ChromeData }): Org
 	};
 }
 
-export function createInMemoryOrgWorkspacePort(
-	data: Map<WorkspaceKey, unknown>
-): OrgWorkspacePort {
+export function createInMemoryOrgWorkspacePort(data: Map<WorkspaceKey, unknown>): OrgWorkspacePort {
 	return {
 		getWorkspaceData: <T>(workspace: WorkspaceKey) => {
 			const value = data.get(workspace);
@@ -53,9 +48,7 @@ export function createInMemoryOrgWorkspacePort(
 	};
 }
 
-export function createInMemoryHydrationPlannerPort(
-	plans: Map<WorkspaceKey, HydrationPlan>
-): HydrationPlannerPort {
+export function createInMemoryHydrationPlannerPort(plans: Map<WorkspaceKey, HydrationPlan>): HydrationPlannerPort {
 	return {
 		createPlan: (workspace: WorkspaceKey, _data: unknown) => plans.get(workspace)
 	};

@@ -5,6 +5,7 @@ import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner
 import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
 
 export const load: LayoutServerLoad = async ({ params, locals, cookies, depends }) => {
+	depends('app:org-core');
 	depends('app:onboarding-data');
 	const { orgId } = params;
 

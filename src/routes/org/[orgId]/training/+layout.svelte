@@ -4,33 +4,28 @@
 
 	let { children, data } = $props();
 
-	// Track the promise reference to guard against parent-only invalidation
-	// clobbering optimistic store mutations.
-	// See calendar/+layout.svelte for full explanation.
-	let lastPromiseRef: unknown = null;
-
 	$effect(() => {
 		const { data: trainingData, hydration } = data.training;
 		const orgId = data.orgId;
+		let cancelled = false;
 
 		applyHydration(hydration);
 
-		const promiseRef = trainingData.personnelTrainings;
-
-		if (promiseRef === lastPromiseRef) return;
-		lastPromiseRef = promiseRef;
-
-		// Signal loading immediately so skeletons show during navigation
 		personnelTrainingsStore.startLoading();
 
-		// Hydrate store when deferred data arrives
-		promiseRef
+		trainingData.personnelTrainings
 			.then((items) => {
+				if (cancelled) return;
 				personnelTrainingsStore.load(items ?? [], orgId);
 			})
 			.catch(() => {
+				if (cancelled) return;
 				personnelTrainingsStore.load([], orgId);
 			});
+
+		return () => {
+			cancelled = true;
+		};
 	});
 </script>
 

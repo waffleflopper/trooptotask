@@ -5,6 +5,7 @@ import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner
 import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
 
 export const load: LayoutServerLoad = async ({ params, locals, cookies, depends }) => {
+	depends('app:org-core');
 	depends('app:calendar-data');
 	const { orgId } = params;
 

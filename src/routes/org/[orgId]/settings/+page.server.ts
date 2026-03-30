@@ -4,6 +4,7 @@ import { PERMISSION_PRESETS, type OrganizationMember, type PermissionPreset } fr
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
 import { loadWithContext, buildLayoutContext } from '$lib/server/adapters/httpAdapter';
+import { GroupEntity } from '$lib/server/entities/group';
 import { sanitizeString, validateEmail, validateUUID } from '$lib/server/validation';
 import { auditLog } from '$lib/server/auditLog';
 import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
@@ -13,15 +14,16 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	const parentData = await parent();
 	const { orgName, userRole, allOrgs, isAdmin } = parentData;
 	const permissions = parentData.permissions!;
-	const groups = parentData.groups ?? [];
-
 	return loadWithContext(locals, cookies, orgId, {
 		permission: 'manageMembers',
 		fn: async (ctx) => {
-			const [membershipRows, invitationRows] = await Promise.all([
+			const [membershipRows, invitationRows, groupRows] = await Promise.all([
 				ctx.store.findMany<Record<string, unknown>>('organization_memberships', ctx.auth.orgId),
 				ctx.store.findMany<Record<string, unknown>>('organization_invitations', ctx.auth.orgId, {
 					status: 'pending'
+				}),
+				ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
+					orderBy: [{ column: 'sort_order', ascending: true }]
 				})
 			]);
 
@@ -94,7 +96,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 				isOwner: userRole === 'owner',
 				isAdmin,
 				canManageMembers: permissions.canManageMembers,
-				groups: groups.map((g) => ({ id: g.id, name: g.name })),
+				groups: GroupEntity.fromDbArray(groupRows).map((g) => ({ id: g.id, name: g.name })),
 				exportInfo
 			};
 		}

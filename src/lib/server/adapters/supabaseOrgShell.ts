@@ -24,6 +24,7 @@ import type {
 import { loadWithContext } from './httpAdapter';
 import { fetchCalendarData } from '../core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '../core/useCases/onboardingCalendarQuery';
+import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
 import { formatDate } from '$lib/utils/dates';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
@@ -218,6 +219,27 @@ export function createSupabaseTrainingWorkspacePort(
 						personnelTrainings
 					};
 				}
+			});
+
+			return data as T;
+		}
+	};
+}
+
+export function createSupabaseOnboardingWorkspacePort(
+	locals: App.Locals,
+	cookies: Cookies,
+	orgId: string
+): OrgWorkspacePort {
+	return {
+		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
+			if (workspace !== 'onboarding') {
+				throw new Error(`createSupabaseOnboardingWorkspacePort: unsupported workspace '${workspace}'`);
+			}
+
+			const data = await loadWithContext(locals, cookies, orgId, {
+				permission: 'onboarding',
+				fn: async (ctx) => fetchOnboardingBootstrap(ctx)
 			});
 
 			return data as T;

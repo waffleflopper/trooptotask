@@ -80,7 +80,7 @@ export class TrainingPageContext {
 	}
 
 	get groups(): Group[] {
-		return [];
+		return this.#data.training.data.groups ?? [];
 	}
 
 	// ---- derived: roles ----

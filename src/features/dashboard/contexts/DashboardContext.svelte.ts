@@ -14,6 +14,7 @@ import { formatDate, parseDate } from '$lib/utils/dates';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
+import type { HydrationPlan } from '$lib/server/core/orgShell';
 
 export const HALF_SIZE_CARDS: CardId[] = ['strength', 'duty', 'training', 'upcoming', 'ratings'];
 
@@ -30,7 +31,7 @@ export interface DashboardPageData {
 	orgName: string;
 	userId: string | null;
 	permissions: OrganizationMemberPermissions | null;
-	dashboard: { data: DashboardBootstrap; hydration?: unknown; workspace: string };
+	dashboard: { data: DashboardBootstrap; hydration?: HydrationPlan; workspace: string };
 	trainingSummary: { stats: TrainingStats; issues: TrainingIssue[] } | null;
 	onboardingTrainingCompletions: string[];
 	onboardingTemplateStepCount: number;

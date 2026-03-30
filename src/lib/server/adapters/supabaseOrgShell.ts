@@ -22,7 +22,7 @@ import type {
 	Announcement
 } from '../core/orgShell';
 import { loadWithContext } from './httpAdapter';
-import { fetchCalendarData } from '../core/useCases/calendarQuery';
+import { fetchCalendarBootstrap } from '../core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '../core/useCases/onboardingCalendarQuery';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
 import { fetchDashboardBootstrap } from '../core/useCases/dashboardQuery';
@@ -180,7 +180,7 @@ export function createSupabaseCalendarWorkspacePort(
 				permission: 'calendar',
 				fn: async (ctx) => {
 					const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
-						fetchCalendarData(ctx, { rangeStart, rangeEnd }),
+						fetchCalendarBootstrap(ctx, { rangeStart, rangeEnd }),
 						getActiveOnboardingPersonnelIds(ctx)
 					]);
 					return { ...calendarData, activeOnboardingPersonnelIds };
@@ -206,10 +206,21 @@ export function createSupabaseTrainingWorkspacePort(
 			const data = await loadWithContext(locals, cookies, orgId, {
 				permission: 'training',
 				fn: async (ctx) => {
-					const [personnelRows, trainingTypeRows, trainingViewRows] = await Promise.all([
-						ctx.store.findMany<Record<string, unknown>>('personnel', orgId),
-						ctx.store.findMany<Record<string, unknown>>('training_types', orgId),
-						ctx.store.findMany<Record<string, unknown>>('training_views', orgId)
+					const [personnelRows, groupRows, trainingTypeRows, trainingViewRows] = await Promise.all([
+						ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+							select: PersonnelEntity.select,
+							isNull: { archived_at: true },
+							orderBy: [{ column: 'last_name', ascending: true }]
+						}),
+						ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+							orderBy: [{ column: 'sort_order', ascending: true }]
+						}),
+						ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
+							orderBy: [{ column: 'sort_order', ascending: true }]
+						}),
+						ctx.store.findMany<Record<string, unknown>>('training_views', orgId, undefined, {
+							orderBy: [{ column: 'name', ascending: true }]
+						})
 					]);
 
 					const personnelTrainings: Promise<PersonnelTraining[]> = ctx.store
@@ -218,6 +229,7 @@ export function createSupabaseTrainingWorkspacePort(
 
 					return {
 						personnel: PersonnelEntity.fromDbArray(personnelRows) as Personnel[],
+						groups: GroupEntity.fromDbArray(groupRows) as Group[],
 						trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows) as TrainingType[],
 						trainingViews: TrainingViewEntity.fromDbArray(trainingViewRows) as TrainingView[],
 						personnelTrainings

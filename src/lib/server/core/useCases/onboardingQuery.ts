@@ -77,17 +77,25 @@ export async function fetchOnboardingBootstrap(ctx: WritePorts): Promise<Onboard
 		const refreshResults = await Promise.all(
 			trainingOnboardings.map((o) => refreshTrainingSteps(ctx, { onboardingId: o.id }))
 		);
+		const refreshedStepsByOnboardingId = new Map(
+			trainingOnboardings.map((onboarding, index) => {
+				const refreshMap = new Map(refreshResults[index].map((result) => [result.id, result.completed]));
+				return [
+					onboarding.id,
+					onboarding.steps.map((step) =>
+						step.stepType === 'training' && refreshMap.has(step.id)
+							? { ...step, completed: refreshMap.get(step.id)! }
+							: step
+					)
+				];
+			})
+		);
 
-		for (let i = 0; i < trainingOnboardings.length; i++) {
-			const ob = trainingOnboardings[i];
-			const refreshed = refreshResults[i];
-			const refreshMap = new Map(refreshed.map((r) => [r.id, r.completed]));
-			for (const step of ob.steps) {
-				if (step.stepType === 'training' && refreshMap.has(step.id)) {
-					step.completed = refreshMap.get(step.id)!;
-				}
-			}
-		}
+		onboardings = onboardings.map((onboarding) =>
+			refreshedStepsByOnboardingId.has(onboarding.id)
+				? { ...onboarding, steps: refreshedStepsByOnboardingId.get(onboarding.id)! }
+				: onboarding
+		);
 	}
 
 	return {

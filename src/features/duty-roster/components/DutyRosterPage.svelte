@@ -23,6 +23,12 @@
 			orgName?: string;
 			personnel?: Personnel[];
 			allPersonnel?: Personnel[];
+			calendar?: {
+				data?: {
+					personnel?: Personnel[];
+					allPersonnel?: Personnel[];
+				};
+			};
 			scopedGroupId?: string | null;
 			rosterHistory: RosterHistoryItem[];
 		};
@@ -33,6 +39,7 @@
 	const org = getOrgContext();
 	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
 	const canMutate = $derived(!org.readOnly && canManageConfig);
+	const workspaceData = $derived(data.calendar?.data ?? data);
 
 	// ---- Load roster history on mount ----
 	$effect(() => {
@@ -40,7 +47,7 @@
 	});
 
 	// ---- Personnel data ----
-	const calendarPersonnel = $derived(data.allPersonnel ?? data.personnel ?? []);
+	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
 	const personnelByGroup = $derived(
 		groupAndSortPersonnel(calendarPersonnel, {
 			pinnedGroups: pinnedGroupsStore.list,

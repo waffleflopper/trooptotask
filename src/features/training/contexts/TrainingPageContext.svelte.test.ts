@@ -3,6 +3,7 @@ import { TrainingPageContext } from './TrainingPageContext.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
+import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 
 // ---------------------------------------------------------------------------
@@ -105,6 +106,11 @@ const mockType: TrainingType = {
 	isOptional: false
 };
 
+const mockGroups: Group[] = [
+	{ id: 'g-1', name: 'Alpha', sortOrder: 0 },
+	{ id: 'g-2', name: 'Bravo', sortOrder: 1 }
+];
+
 function makeData(overrides: Record<string, unknown> = {}) {
 	return {
 		orgId: 'org-1',
@@ -119,6 +125,7 @@ function makeData(overrides: Record<string, unknown> = {}) {
 		training: {
 			data: {
 				personnel: [mockPerson, mockPerson2],
+				groups: mockGroups,
 				trainingTypes: [] as TrainingType[],
 				trainingViews: [] as TrainingView[],
 				personnelTrainings: Promise.resolve([] as PersonnelTraining[])
@@ -178,6 +185,7 @@ describe('TrainingPageContext', () => {
 				training: {
 					data: {
 						personnel: [{ ...mockPerson, clinicRole: null }],
+						groups: mockGroups,
 						trainingTypes: [],
 						trainingViews: [],
 						personnelTrainings: Promise.resolve([])
@@ -197,6 +205,7 @@ describe('TrainingPageContext', () => {
 			training: {
 				data: {
 					personnel: [workspacePerson],
+					groups: mockGroups,
 					trainingTypes: [],
 					trainingViews: [],
 					personnelTrainings: Promise.resolve([])
@@ -223,6 +232,15 @@ describe('TrainingPageContext', () => {
 			ctx.selectedGroupId = 'g-1';
 			expect(ctx.filteredPersonnel).toHaveLength(1);
 			expect(ctx.filteredPersonnel[0].id).toBe('p-1');
+		});
+	});
+
+	describe('groups', () => {
+		it('reads groups from the training workspace bootstrap', () => {
+			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+
+			expect(ctx.groups).toEqual(mockGroups);
+			expect(ctx.groupOrder).toEqual(['Alpha', 'Bravo']);
 		});
 	});
 

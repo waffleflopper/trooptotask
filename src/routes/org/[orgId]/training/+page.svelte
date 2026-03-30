@@ -9,16 +9,17 @@
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
-	const ctx = new TrainingPageContext(
-		{
-			orgId: data.orgId,
-			orgName: data.orgName,
-			permissions: data.permissions,
-			training: data.training
-		},
-		modals,
-		org
-	);
+	const pageData = $derived.by(() => ({
+		orgId: data.orgId,
+		orgName: data.orgName,
+		permissions: data.permissions,
+		training: data.training
+	}));
+	let ctx = $state(new TrainingPageContext(pageData, modals, org));
+
+	$effect.pre(() => {
+		ctx = new TrainingPageContext(pageData, modals, org);
+	});
 </script>
 
 <svelte:head>

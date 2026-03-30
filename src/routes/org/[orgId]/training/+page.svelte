@@ -9,7 +9,16 @@
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
-	const ctx = new TrainingPageContext(data, modals, org);
+	const ctx = new TrainingPageContext(
+		{
+			orgId: data.orgId,
+			orgName: data.orgName,
+			permissions: data.permissions,
+			training: data.training
+		},
+		modals,
+		org
+	);
 </script>
 
 <svelte:head>

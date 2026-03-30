@@ -12,6 +12,7 @@ import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
+import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
 
 // ---------------------------------------------------------------------------
 // Page data shape (from +page.server.ts + layout)
@@ -19,13 +20,13 @@ import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 export interface TrainingPageData {
 	orgId: string;
 	orgName: string;
-	personnel?: Personnel[];
-	groups?: Group[];
 	permissions?: {
 		canViewTraining?: boolean;
 		canEditTraining?: boolean;
 	} | null;
-	trainingTypes?: TrainingType[];
+	training: {
+		data: TrainingBootstrap;
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -75,11 +76,11 @@ export class TrainingPageContext {
 	}
 
 	get personnel(): Personnel[] {
-		return this.#data.personnel ?? [];
+		return this.#data.training.data.personnel ?? [];
 	}
 
 	get groups(): Group[] {
-		return this.#data.groups ?? [];
+		return [];
 	}
 
 	// ---- derived: roles ----

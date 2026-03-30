@@ -52,8 +52,9 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			const hasGroups = isHydratableItems(d.groups);
 			const hasStatusTypes = isHydratableItems(d.statusTypes);
 			const hasTrainingTypes = isHydratableItems(d.trainingTypes);
+			const hasTrainingViews = isHydratableItems(d.trainingViews);
 
-			if (!hasPersonnel && !hasGroups && !hasStatusTypes && !hasTrainingTypes) {
+			if (!hasPersonnel && !hasGroups && !hasStatusTypes && !hasTrainingTypes && !hasTrainingViews) {
 				return undefined;
 			}
 
@@ -101,6 +102,14 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 					mode: 'replace',
 					snapshotKey: createSnapshotKey(d.trainingTypes),
 					items: d.trainingTypes as unknown[] | Promise<unknown[]>
+				};
+			}
+
+			if (hasTrainingViews) {
+				plan.trainingViews = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.trainingViews),
+					items: d.trainingViews as unknown[] | Promise<unknown[]>
 				};
 			}
 

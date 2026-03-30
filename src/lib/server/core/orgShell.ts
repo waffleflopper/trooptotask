@@ -80,6 +80,7 @@ export interface HydrationPlan {
 	groups?: HydrationTarget;
 	statusTypes?: HydrationTarget;
 	trainingTypes?: HydrationTarget;
+	trainingViews?: HydrationTarget;
 }
 
 export interface WorkspaceBootstrap<T> {

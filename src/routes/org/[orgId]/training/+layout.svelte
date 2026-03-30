@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { applyHydration } from '$lib/applyHydration.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 
 	let { children, data } = $props();
@@ -9,8 +10,12 @@
 	let lastPromiseRef: unknown = null;
 
 	$effect(() => {
-		const promiseRef = data.personnelTrainings;
+		const { data: trainingData, hydration } = data.training;
 		const orgId = data.orgId;
+
+		applyHydration(hydration);
+
+		const promiseRef = trainingData.personnelTrainings;
 
 		if (promiseRef === lastPromiseRef) return;
 		lastPromiseRef = promiseRef;
@@ -19,9 +24,13 @@
 		personnelTrainingsStore.startLoading();
 
 		// Hydrate store when deferred data arrives
-		promiseRef.then((items) => {
-			personnelTrainingsStore.load(items ?? [], orgId);
-		});
+		promiseRef
+			.then((items) => {
+				personnelTrainingsStore.load(items ?? [], orgId);
+			})
+			.catch(() => {
+				personnelTrainingsStore.load([], orgId);
+			});
 	});
 </script>
 

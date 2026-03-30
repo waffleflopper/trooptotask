@@ -7,17 +7,30 @@
  * issue no DB queries until their port methods are called.
  */
 import { error } from '@sveltejs/kit';
+import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
 import type {
 	OrgAccessPort,
 	OrgChromePort,
+	OrgWorkspacePort,
+	WorkspaceKey,
 	MembershipInfo,
 	OrgState,
 	ChromeData,
 	Announcement
 } from '../core/orgShell';
+import { loadWithContext } from './httpAdapter';
+import { fetchCalendarData } from '../core/useCases/calendarQuery';
+import { getActiveOnboardingPersonnelIds } from '../core/useCases/onboardingCalendarQuery';
+import { formatDate } from '$lib/utils/dates';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
+import { TrainingViewEntity } from '$lib/server/entities/trainingView';
+import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
+import type { Personnel } from '$lib/types';
+import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 
 export function createSupabaseOrgAccessPort(config: {
 	orgId: string;
@@ -137,6 +150,77 @@ export function createSupabaseOrgChromePort(config: {
 				activeAnnouncements,
 				allOrgs
 			};
+		}
+	};
+}
+
+export function createSupabaseCalendarWorkspacePort(
+	locals: App.Locals,
+	cookies: Cookies,
+	orgId: string
+): OrgWorkspacePort {
+	return {
+		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
+			if (workspace !== 'calendar') {
+				throw new Error(`createSupabaseCalendarWorkspacePort: unsupported workspace '${workspace}'`);
+			}
+
+			const now = new Date();
+			// 3 months back (1st of the month) to 6 months forward (last day of month).
+			// month+7, day 0 resolves to the last day of month+6 via JS Date overflow.
+			const rangeStart = formatDate(new Date(now.getFullYear(), now.getMonth() - 3, 1));
+			const rangeEnd = formatDate(new Date(now.getFullYear(), now.getMonth() + 7, 0));
+
+			const data = await loadWithContext(locals, cookies, orgId, {
+				permission: 'calendar',
+				fn: async (ctx) => {
+					const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
+						fetchCalendarData(ctx, { rangeStart, rangeEnd }),
+						getActiveOnboardingPersonnelIds(ctx)
+					]);
+					return { ...calendarData, activeOnboardingPersonnelIds };
+				}
+			});
+
+			return data as T;
+		}
+	};
+}
+
+export function createSupabaseTrainingWorkspacePort(
+	locals: App.Locals,
+	cookies: Cookies,
+	orgId: string
+): OrgWorkspacePort {
+	return {
+		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
+			if (workspace !== 'training') {
+				throw new Error(`createSupabaseTrainingWorkspacePort: unsupported workspace '${workspace}'`);
+			}
+
+			const data = await loadWithContext(locals, cookies, orgId, {
+				permission: 'training',
+				fn: async (ctx) => {
+					const [personnelRows, trainingTypeRows, trainingViewRows] = await Promise.all([
+						ctx.store.findMany<Record<string, unknown>>('personnel', orgId),
+						ctx.store.findMany<Record<string, unknown>>('training_types', orgId),
+						ctx.store.findMany<Record<string, unknown>>('training_views', orgId)
+					]);
+
+					const personnelTrainings: Promise<PersonnelTraining[]> = ctx.store
+						.findMany<Record<string, unknown>>('personnel_trainings', orgId)
+						.then((rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[]);
+
+					return {
+						personnel: PersonnelEntity.fromDbArray(personnelRows) as Personnel[],
+						trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows) as TrainingType[],
+						trainingViews: TrainingViewEntity.fromDbArray(trainingViewRows) as TrainingView[],
+						personnelTrainings
+					};
+				}
+			});
+
+			return data as T;
 		}
 	};
 }

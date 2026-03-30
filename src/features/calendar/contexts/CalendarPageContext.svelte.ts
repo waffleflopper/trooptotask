@@ -7,6 +7,7 @@ import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGroupi
 import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
 import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
 // ---------------------------------------------------------------------------
 // Page data shape (subset of layout + page server data)
@@ -19,11 +20,7 @@ export interface CalendarPageData {
 	personnel?: Personnel[];
 	allPersonnel?: Personnel[];
 	calendar?: {
-		data?: {
-			personnel?: Personnel[];
-			allPersonnel?: Personnel[];
-			activeOnboardingPersonnelIds?: string[];
-		};
+		data?: CalendarWorkspaceData;
 	};
 	scopedGroupId?: string | null;
 	permissions?: {

@@ -51,7 +51,7 @@ export function createSupabaseOrgAccessPort(config: {
 }): OrgAccessPort {
 	return {
 		async getMembership(): Promise<MembershipInfo> {
-			const { data } = await config.userSupabase
+			const { data, error: membershipError } = await config.userSupabase
 				.from('organization_memberships')
 				.select(
 					'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
@@ -59,6 +59,10 @@ export function createSupabaseOrgAccessPort(config: {
 				.eq('user_id', config.userId)
 				.eq('organization_id', config.orgId)
 				.single();
+
+			if (membershipError) {
+				throw error(500, membershipError.message);
+			}
 
 			if (!data) throw error(403, 'You are not a member of this organization');
 

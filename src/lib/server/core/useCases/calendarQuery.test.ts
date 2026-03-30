@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { QueryPorts } from '$lib/server/core/ports';
-import { fetchCalendarData, fetchCalendarBootstrap } from './calendarQuery';
+import { fetchCalendarData, fetchCalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
 
 const ORG = 'test-org';
 

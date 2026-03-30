@@ -16,6 +16,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { Personnel } from '$lib/types';
+	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
 	interface Props {
 		data: {
@@ -24,10 +25,7 @@
 			personnel?: Personnel[];
 			allPersonnel?: Personnel[];
 			calendar?: {
-				data?: {
-					personnel?: Personnel[];
-					allPersonnel?: Personnel[];
-				};
+				data?: CalendarWorkspaceData;
 			};
 			scopedGroupId?: string | null;
 			rosterHistory: RosterHistoryItem[];

@@ -3,7 +3,7 @@ import { defineStore } from '$lib/stores/core';
 import type { Personnel, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { TrainingType } from '$features/training/training.types';
-import { applyHydration } from './applyHydration.svelte';
+import { applyHydration, resetHydrationState } from './applyHydration.svelte';
 import type { HydrationStores } from './applyHydration.svelte';
 import type { HydrationPlan } from '$lib/server/core/orgShell';
 
@@ -41,99 +41,164 @@ describe('applyHydration', () => {
 
 	beforeEach(() => {
 		stores = createTestStores();
+		resetHydrationState();
 	});
 
-	it('is a no-op when plan is undefined', () => {
-		applyHydration(undefined, stores);
+	it('is a no-op when plan is undefined', async () => {
+		await applyHydration(undefined, stores);
 		expect(stores.groups.items).toHaveLength(0);
 		expect(stores.personnel.items).toHaveLength(0);
 	});
 
-	it('hydrates groups store with replace mode', () => {
+	it('hydrates groups store with replace mode', async () => {
 		const plan: HydrationPlan = {
 			orgId: ORG,
-			groups: { mode: 'replace', items: [group] }
+			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [group] }
 		};
-		applyHydration(plan, stores);
+		await applyHydration(plan, stores);
 		expect(stores.groups.items).toEqual([group]);
 	});
 
-	it('hydrates statusTypes store with replace mode', () => {
+	it('hydrates statusTypes store with replace mode', async () => {
 		const plan: HydrationPlan = {
 			orgId: ORG,
-			statusTypes: { mode: 'replace', items: [statusType] }
+			statusTypes: { mode: 'replace', snapshotKey: 'status:1', items: [statusType] }
 		};
-		applyHydration(plan, stores);
+		await applyHydration(plan, stores);
 		expect(stores.statusTypes.items).toEqual([statusType]);
 	});
 
-	it('hydrates trainingTypes store with replace mode', () => {
+	it('hydrates trainingTypes store with replace mode', async () => {
 		const plan: HydrationPlan = {
 			orgId: ORG,
-			trainingTypes: { mode: 'replace', items: [trainingType] }
+			trainingTypes: { mode: 'replace', snapshotKey: 'training:1', items: [trainingType] }
 		};
-		applyHydration(plan, stores);
+		await applyHydration(plan, stores);
 		expect(stores.trainingTypes.items).toEqual([trainingType]);
 	});
 
-	it('hydrates personnelStore from personnel.scoped', () => {
+	it('hydrates personnelStore from personnel.scoped', async () => {
 		const plan: HydrationPlan = {
 			orgId: ORG,
 			personnel: {
-				scoped: { mode: 'replace', items: [person] },
-				all: { mode: 'replace', items: [person] }
+				scoped: { mode: 'replace', snapshotKey: 'personnel:scoped:1', items: [person] },
+				all: { mode: 'replace', snapshotKey: 'personnel:all:1', items: [person] }
 			}
 		};
-		applyHydration(plan, stores);
+		await applyHydration(plan, stores);
 		expect(stores.personnel.items).toEqual([person]);
 	});
 
-	it('skips a target when mode is preserve-client', () => {
+	it('skips a target when mode is preserve-client', async () => {
 		// Pre-load the store with existing data
 		stores.groups.load([group], ORG);
 
 		const plan: HydrationPlan = {
 			orgId: ORG,
-			groups: { mode: 'preserve-client', items: [] }
+			groups: { mode: 'preserve-client', snapshotKey: 'groups:preserve', items: [] }
 		};
-		applyHydration(plan, stores);
+		await applyHydration(plan, stores);
 		// Store should still contain the original data
 		expect(stores.groups.items).toEqual([group]);
 	});
 
-	it('treats merge mode the same as replace', () => {
+	it('treats merge mode the same as replace', async () => {
 		const plan: HydrationPlan = {
 			orgId: ORG,
-			groups: { mode: 'merge', items: [group] }
+			groups: { mode: 'merge', snapshotKey: 'groups:merge:1', items: [group] }
 		};
-		applyHydration(plan, stores);
+		await applyHydration(plan, stores);
 		expect(stores.groups.items).toEqual([group]);
 	});
 
-	it('only hydrates stores present in the plan', () => {
+	it('skips reloading a target when snapshotKey is unchanged', async () => {
+		const first = { id: 'g1', name: 'Alpha', sortOrder: 0 };
+		const second = { id: 'g2', name: 'Bravo', sortOrder: 1 };
+
+		await applyHydration(
+			{
+				orgId: ORG,
+				groups: { mode: 'replace', snapshotKey: 'groups:same', items: [first] }
+			},
+			stores
+		);
+		await applyHydration(
+			{
+				orgId: ORG,
+				groups: { mode: 'replace', snapshotKey: 'groups:same', items: [second] }
+			},
+			stores
+		);
+
+		expect(stores.groups.items).toEqual([first]);
+	});
+
+	it('hydrates a deferred target once it resolves', async () => {
+		const deferredItems = Promise.resolve([group]);
+
+		await applyHydration(
+			{
+				orgId: ORG,
+				groups: { mode: 'replace', snapshotKey: 'groups:deferred:1', items: deferredItems }
+			},
+			stores
+		);
+
+		expect(stores.groups.items).toEqual([group]);
+	});
+
+	it('ignores a stale deferred resolution after a newer snapshot wins', async () => {
+		let resolveFirst!: (items: Group[]) => void;
+		const firstDeferred = new Promise<Group[]>((resolve) => {
+			resolveFirst = resolve;
+		});
+
+		const firstApply = applyHydration(
+			{
+				orgId: ORG,
+				groups: { mode: 'replace', snapshotKey: 'groups:deferred:old', items: firstDeferred }
+			},
+			stores
+		);
+
+		await applyHydration(
+			{
+				orgId: ORG,
+				groups: { mode: 'replace', snapshotKey: 'groups:deferred:new', items: [group] }
+			},
+			stores
+		);
+
+		resolveFirst([{ id: 'g2', name: 'Stale', sortOrder: 1 }]);
+		await firstApply;
+
+		expect(stores.groups.items).toEqual([group]);
+	});
+
+	it('only hydrates stores present in the plan', async () => {
 		const plan: HydrationPlan = {
 			orgId: ORG,
-			groups: { mode: 'replace', items: [group] }
+			groups: { mode: 'replace', snapshotKey: 'groups:only', items: [group] }
 		};
-		applyHydration(plan, stores);
+		await applyHydration(plan, stores);
 		expect(stores.groups.items).toEqual([group]);
 		expect(stores.personnel.items).toHaveLength(0);
 		expect(stores.statusTypes.items).toHaveLength(0);
 		expect(stores.trainingTypes.items).toHaveLength(0);
 	});
 
-	it('hydrates all stores in a full plan', () => {
+	it('hydrates all stores in a full plan', async () => {
 		const plan: HydrationPlan = {
 			orgId: ORG,
 			personnel: {
-				scoped: { mode: 'replace', items: [person] },
-				all: { mode: 'replace', items: [person] }
+				scoped: { mode: 'replace', snapshotKey: 'personnel:scoped:full', items: [person] },
+				all: { mode: 'replace', snapshotKey: 'personnel:all:full', items: [person] }
 			},
-			groups: { mode: 'replace', items: [group] },
-			statusTypes: { mode: 'replace', items: [statusType] },
-			trainingTypes: { mode: 'replace', items: [trainingType] }
+			groups: { mode: 'replace', snapshotKey: 'groups:full', items: [group] },
+			statusTypes: { mode: 'replace', snapshotKey: 'status:full', items: [statusType] },
+			trainingTypes: { mode: 'replace', snapshotKey: 'training:full', items: [trainingType] }
 		};
-		applyHydration(plan, stores);
+		await applyHydration(plan, stores);
 		expect(stores.personnel.items).toHaveLength(1);
 		expect(stores.groups.items).toHaveLength(1);
 		expect(stores.statusTypes.items).toHaveLength(1);

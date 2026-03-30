@@ -108,6 +108,7 @@ describe('WorkspaceBootstrap contract', () => {
 			orgId: 'test-org',
 			groups: {
 				mode: 'preserve-client',
+				snapshotKey: 'groups:1',
 				items: [{ id: 'g1', name: 'Alpha', sortOrder: 0 }]
 			}
 		};
@@ -118,8 +119,9 @@ describe('WorkspaceBootstrap contract', () => {
 		};
 
 		expect(bootstrap.hydration?.groups?.mode).toBe('preserve-client');
-		expect(bootstrap.hydration?.groups?.items).toHaveLength(1);
-		expect((bootstrap.hydration?.groups?.items[0] as { name: string }).name).toBe('Alpha');
+		const groupItems = bootstrap.hydration?.groups?.items as Array<{ name: string }>;
+		expect(groupItems).toHaveLength(1);
+		expect(groupItems[0].name).toBe('Alpha');
 	});
 });
 
@@ -138,6 +140,7 @@ describe('org shell port contract types', () => {
 					orgId: 'test-org',
 					groups: {
 						mode: 'merge',
+						snapshotKey: 'groups:calendar',
 						items: []
 					}
 				} satisfies HydrationPlan
@@ -211,10 +214,12 @@ describe('createInMemoryHydrationPlannerPort', () => {
 			orgId: 'test-org',
 			groups: {
 				mode: 'preserve-client',
+				snapshotKey: 'groups:personnel',
 				items: [{ id: 'g1', name: 'Alpha', sortOrder: 0 }]
 			},
 			statusTypes: {
 				mode: 'replace',
+				snapshotKey: 'status:personnel',
 				items: []
 			}
 		};
@@ -224,7 +229,11 @@ describe('createInMemoryHydrationPlannerPort', () => {
 
 		expect(result?.groups?.mode).toBe('preserve-client');
 		expect(result?.groups?.items).toHaveLength(1);
-		expect(result?.statusTypes).toEqual({ mode: 'replace', items: [] });
+		expect(result?.statusTypes).toEqual({
+			mode: 'replace',
+			snapshotKey: 'status:personnel',
+			items: []
+		});
 	});
 
 	it('returns undefined for an unseeded workspace', () => {

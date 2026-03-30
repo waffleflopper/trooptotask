@@ -9,6 +9,7 @@
 	import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 	import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
 	import type { Personnel } from '$lib/types';
+	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
 	interface Props {
 		data: {
@@ -17,10 +18,7 @@
 			personnel?: Personnel[];
 			allPersonnel?: Personnel[];
 			calendar?: {
-				data?: {
-					personnel?: Personnel[];
-					allPersonnel?: Personnel[];
-				};
+				data?: CalendarWorkspaceData;
 			};
 			scopedGroupId?: string | null;
 			permissions?: { canViewCalendar?: boolean; canEditCalendar?: boolean } | null;

@@ -137,6 +137,26 @@ export function createSupabaseOrgChromePort(config: {
 				config.userSupabase.from('announcement_dismissals').select('announcement_id').eq('user_id', config.userId)
 			]);
 
+			if (membershipsRes.error) {
+				console.error('[org-shell] Failed to load organization memberships for chrome data:', membershipsRes.error);
+				throw new Error(`Failed to load organization memberships: ${membershipsRes.error.message}`);
+			}
+
+			if (notifRes.error) {
+				console.error('[org-shell] Failed to load unread notification count for chrome data:', notifRes.error);
+				throw new Error(`Failed to load unread notification count: ${notifRes.error.message}`);
+			}
+
+			if (announcementsRes.error) {
+				console.error('[org-shell] Failed to load platform announcements for chrome data:', announcementsRes.error);
+				throw new Error(`Failed to load platform announcements: ${announcementsRes.error.message}`);
+			}
+
+			if (dismissalsRes.error) {
+				console.error('[org-shell] Failed to load announcement dismissals for chrome data:', dismissalsRes.error);
+				throw new Error(`Failed to load announcement dismissals: ${dismissalsRes.error.message}`);
+			}
+
 			const allOrgs = (membershipsRes.data ?? [])
 				.filter((m: Record<string, unknown>) => m.organizations)
 				.map((m: Record<string, unknown>) => {

@@ -245,10 +245,12 @@ describe('fetchCalendarData', () => {
 describe('fetchCalendarBootstrap', () => {
 	it('returns calendar reference collections for the workspace boundary', async () => {
 		const ctx = buildCtx();
+		const spy = vi.spyOn(ctx.auth, 'requireView');
 		seedCalendarData(ctx.store);
 
 		const result = await fetchCalendarBootstrap(ctx, RANGE);
 
+		expect(spy).toHaveBeenCalledWith('calendar');
 		expect(result.personnel.map((person) => person.lastName)).toEqual(['Jones', 'Smith']);
 		expect(result.personnel[0].groupName).toBe('Bravo');
 		expect(result.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);

@@ -44,6 +44,20 @@ const baseChrome: ChromeData = {
 	allOrgs: [{ id: 'org-1', name: 'Test Unit', role: 'member' }]
 };
 
+const fullEditorPermissions: MembershipInfo['permissions'] = {
+	canViewCalendar: true,
+	canEditCalendar: true,
+	canViewPersonnel: true,
+	canEditPersonnel: true,
+	canViewTraining: true,
+	canEditTraining: true,
+	canViewOnboarding: true,
+	canEditOnboarding: true,
+	canViewLeadersBook: true,
+	canEditLeadersBook: true,
+	canManageMembers: true
+};
+
 function buildPorts(
 	membership: MembershipInfo = baseMembership,
 	orgState: OrgState = baseOrgState,
@@ -97,19 +111,6 @@ describe('loadOrgShell', () => {
 	});
 
 	it('sets isFullEditor=true when not privileged, no scoped group, and full-editor permissions', async () => {
-		const fullEditorPermissions: MembershipInfo['permissions'] = {
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewTraining: true,
-			canEditTraining: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
-			canManageMembers: true
-		};
 		const { access, chrome } = buildPorts({
 			...baseMembership,
 			role: 'member',
@@ -122,6 +123,19 @@ describe('loadOrgShell', () => {
 		expect(result.isFullEditor).toBe(true);
 		expect(result.isOwner).toBe(false);
 		expect(result.isAdmin).toBe(false);
+	});
+
+	it('does not set isFullEditor when full-editor permissions are scoped to a group', async () => {
+		const { access, chrome } = buildPorts({
+			...baseMembership,
+			role: 'member',
+			permissions: fullEditorPermissions,
+			scopedGroupId: 'group-1'
+		});
+
+		const result = await loadOrgShell(access, chrome);
+
+		expect(result.isFullEditor).toBe(false);
 	});
 
 	it('passes orgSuspended through when set', async () => {

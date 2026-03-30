@@ -93,6 +93,9 @@ describe('loadOrgWorkspace', () => {
 			assignmentTypes: [{ id: 'at1' } as CalendarBootstrap['assignmentTypes'][0]],
 			dailyAssignments: [{ id: 'da1' } as CalendarBootstrap['dailyAssignments'][0]],
 			pinnedGroups: ['Alpha'],
+			personnel: [{ id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel],
+			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
+			statusTypes: [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' } as StatusType],
 			activeOnboardingPersonnelIds: ['p1']
 		};
 		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['calendar', calendarData]]));
@@ -105,6 +108,9 @@ describe('loadOrgWorkspace', () => {
 		expect(result.data.assignmentTypes).toHaveLength(1);
 		expect(result.data.dailyAssignments).toHaveLength(1);
 		expect(result.data.pinnedGroups).toEqual(['Alpha']);
+		expect(result.data.personnel).toHaveLength(1);
+		expect(result.data.groups).toHaveLength(1);
+		expect(result.data.statusTypes).toHaveLength(1);
 		expect(result.data.activeOnboardingPersonnelIds).toEqual(['p1']);
 	});
 });
@@ -123,6 +129,7 @@ describe('loadOrgWorkspace — training workspace boundary', () => {
 		} as TrainingView
 	];
 	const personnel = [{ id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel];
+	const groups = [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group];
 	const personnelTrainings = [
 		{
 			id: 'pt1',
@@ -139,7 +146,8 @@ describe('loadOrgWorkspace — training workspace boundary', () => {
 		personnelTrainings: Promise.resolve(personnelTrainings),
 		trainingTypes,
 		trainingViews,
-		personnel
+		personnel,
+		groups
 	};
 
 	it('returns training-owned data from workspace port', async () => {
@@ -152,10 +160,11 @@ describe('loadOrgWorkspace — training workspace boundary', () => {
 		expect(result.data.trainingTypes).toEqual(trainingTypes);
 		expect(result.data.trainingViews).toEqual(trainingViews);
 		expect(result.data.personnel).toEqual(personnel);
+		expect(result.data.groups).toEqual(groups);
 		await expect(result.data.personnelTrainings).resolves.toEqual(personnelTrainings);
 	});
 
-	it('hydration plan covers trainingViews, trainingTypes, and personnel', async () => {
+	it('hydration plan covers trainingViews, trainingTypes, personnel, and groups', async () => {
 		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['training', trainingData]]));
 		const plannerPort = createDefaultHydrationPlanner(ORG);
 
@@ -164,6 +173,7 @@ describe('loadOrgWorkspace — training workspace boundary', () => {
 		expect(result.hydration?.trainingViews).toBeDefined();
 		expect(result.hydration?.trainingTypes).toBeDefined();
 		expect(result.hydration?.personnel).toBeDefined();
+		expect(result.hydration?.groups).toBeDefined();
 	});
 });
 
@@ -171,7 +181,6 @@ describe('loadOrgWorkspace — onboarding workspace boundary', () => {
 	const ORG = 'org-onboarding';
 	const personnel = [{ id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel];
 	const groups = [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group];
-	const statusTypes = [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' } as StatusType];
 	const trainingTypes = [{ id: 'tt1', name: 'CPR' } as unknown as TrainingType];
 
 	const onboardingData: OnboardingBootstrap = {

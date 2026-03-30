@@ -16,6 +16,12 @@
 			orgName?: string;
 			personnel?: Personnel[];
 			allPersonnel?: Personnel[];
+			calendar?: {
+				data?: {
+					personnel?: Personnel[];
+					allPersonnel?: Personnel[];
+				};
+			};
 			scopedGroupId?: string | null;
 			permissions?: { canViewCalendar?: boolean; canEditCalendar?: boolean } | null;
 		};
@@ -26,8 +32,9 @@
 	const org = getOrgContext();
 	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
 	const canMutate = $derived(!org.readOnly && !!data.permissions?.canEditCalendar && canManageConfig);
+	const workspaceData = $derived(data.calendar?.data ?? data);
 
-	const calendarPersonnel = $derived(data.allPersonnel ?? data.personnel ?? []);
+	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
 	const personnelByGroup = $derived(
 		groupAndSortPersonnel(calendarPersonnel, {
 			pinnedGroups: pinnedGroupsStore.list,

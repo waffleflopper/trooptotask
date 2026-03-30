@@ -13,6 +13,37 @@ import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabase
 import { createSupabaseOrgAccessPort, createSupabaseOrgChromePort } from '$lib/server/adapters/supabaseOrgShell';
 import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from '$lib/server/adapters/inMemoryOrgShell';
 
+async function buildDemoShell(config: {
+	orgId: string;
+	orgName: string;
+	permissions: OrganizationMemberPermissions;
+	role: 'owner' | 'admin' | 'member';
+	isDemoReadOnly: boolean;
+	isDemoSandbox: boolean;
+	effectiveTier: Awaited<ReturnType<ReturnType<typeof createSupabaseSubscriptionAdapter>['getEffectiveTier']>>;
+}) {
+	return loadOrgShell(
+		createInMemoryOrgAccessPort({
+			membership: {
+				orgId: config.orgId,
+				userId: null,
+				role: config.role,
+				permissions: config.permissions,
+				scopedGroupId: null
+			},
+			orgState: {
+				orgName: config.orgName,
+				isDemoReadOnly: config.isDemoReadOnly,
+				isDemoSandbox: config.isDemoSandbox,
+				effectiveTier: config.effectiveTier
+			}
+		}),
+		createInMemoryOrgChromePort({
+			chrome: { unreadNotificationCount: 0, activeAnnouncements: [], allOrgs: [] }
+		})
+	);
+}
+
 export const load: LayoutServerLoad = async ({ params, locals, cookies, depends }) => {
 	depends('app:org-core');
 
@@ -117,26 +148,15 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 
 		const effectiveTier = await demoCtx.subscription.getEffectiveTier();
 
-		const shell = await loadOrgShell(
-			createInMemoryOrgAccessPort({
-				membership: {
-					orgId,
-					userId: null,
-					role: 'member',
-					permissions: readOnlyPermissions,
-					scopedGroupId: null
-				},
-				orgState: {
-					orgName: org.name,
-					isDemoReadOnly: true,
-					isDemoSandbox: false,
-					effectiveTier
-				}
-			}),
-			createInMemoryOrgChromePort({
-				chrome: { unreadNotificationCount: 0, activeAnnouncements: [], allOrgs: [] }
-			})
-		);
+		const shell = await buildDemoShell({
+			orgId,
+			orgName: org.name,
+			permissions: readOnlyPermissions,
+			role: 'member',
+			isDemoReadOnly: true,
+			isDemoSandbox: false,
+			effectiveTier
+		});
 
 		return {
 			orgId,
@@ -179,26 +199,15 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 				const sandboxCtx = await buildLayoutContext(locals, cookies, orgId);
 				const effectiveTier = await sandboxCtx.subscription.getEffectiveTier();
 
-				const shell = await loadOrgShell(
-					createInMemoryOrgAccessPort({
-						membership: {
-							orgId,
-							userId: null,
-							role: 'owner',
-							permissions: fullPermissions,
-							scopedGroupId: null
-						},
-						orgState: {
-							orgName: org.name,
-							isDemoReadOnly: false,
-							isDemoSandbox: true,
-							effectiveTier
-						}
-					}),
-					createInMemoryOrgChromePort({
-						chrome: { unreadNotificationCount: 0, activeAnnouncements: [], allOrgs: [] }
-					})
-				);
+				const shell = await buildDemoShell({
+					orgId,
+					orgName: org.name,
+					permissions: fullPermissions,
+					role: 'owner',
+					isDemoReadOnly: false,
+					isDemoSandbox: true,
+					effectiveTier
+				});
 
 				return {
 					orgId,

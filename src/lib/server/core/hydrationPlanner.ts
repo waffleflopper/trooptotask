@@ -1,7 +1,7 @@
 import type { HydrationPlan, HydrationPlannerPort, WorkspaceKey } from './orgShell';
 
 const deferredSnapshotKeys = new WeakMap<object, string>();
-let deferredSnapshotCounter = 0;
+let fallbackSnapshotCounter = 0;
 
 function isPromiseLike<T>(value: unknown): value is Promise<T> {
 	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
@@ -10,11 +10,20 @@ function isPromiseLike<T>(value: unknown): value is Promise<T> {
 function getDeferredSnapshotKey(value: object): string {
 	let key = deferredSnapshotKeys.get(value);
 	if (!key) {
-		deferredSnapshotCounter += 1;
-		key = `deferred:${deferredSnapshotCounter}`;
+		key = generateDeferredSnapshotId('deferred');
 		deferredSnapshotKeys.set(value, key);
 	}
 	return key;
+}
+
+function generateDeferredSnapshotId(prefix: string): string {
+	const randomId = globalThis.crypto?.randomUUID?.();
+	if (randomId) {
+		return `${prefix}:${randomId}`;
+	}
+
+	fallbackSnapshotCounter = (fallbackSnapshotCounter + 1) % 1_000_000;
+	return `${prefix}:fallback:${fallbackSnapshotCounter}`;
 }
 
 function createSnapshotKey(value: unknown): string {
@@ -25,8 +34,7 @@ function createSnapshotKey(value: unknown): string {
 	try {
 		return `resolved:${JSON.stringify(value)}`;
 	} catch {
-		deferredSnapshotCounter += 1;
-		return `resolved:fallback:${deferredSnapshotCounter}`;
+		return generateDeferredSnapshotId('resolved:fallback');
 	}
 }
 

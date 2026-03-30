@@ -250,6 +250,28 @@ describe('CalendarPageContext', () => {
 	// ---- calendarPersonnel / scopedPersonnelIds ---------------------------
 
 	describe('calendarPersonnel', () => {
+		it('uses workspace personnel when the route data is nested under calendar.data', () => {
+			const workspacePerson = { ...mockPersonnel[0], id: 'workspace-person', lastName: 'Workspace' };
+			const nestedCtx = new CalendarPageContext(
+				{
+					...mockData,
+					personnel: [],
+					allPersonnel: [],
+					calendar: {
+						data: {
+							personnel: [workspacePerson],
+							activeOnboardingPersonnelIds: ['workspace-person']
+						}
+					}
+				},
+				makeMockOrg()
+			);
+
+			expect(nestedCtx.calendarPersonnel).toEqual([workspacePerson]);
+			expect(nestedCtx.scopedPersonnelIds).toEqual(new Set(['workspace-person']));
+			expect(nestedCtx.activeOnboardingPersonnelIds).toEqual(['workspace-person']);
+		});
+
 		it('falls back to personnel when allPersonnel is absent', () => {
 			const ctx2 = new CalendarPageContext({ ...mockData, allPersonnel: undefined }, makeMockOrg());
 			expect(ctx2.calendarPersonnel).toEqual(mockPersonnel);

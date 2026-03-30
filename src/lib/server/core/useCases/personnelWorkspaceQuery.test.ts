@@ -48,8 +48,8 @@ describe('fetchPersonnelBootstrap', () => {
 
 		expect(result.personnel).toHaveLength(2);
 		expect(result.allPersonnel).toHaveLength(2);
-		expect(result.personnel.map((p) => p.lastName).sort()).toEqual(['Jones', 'Smith']);
-		expect(result.allPersonnel.map((p) => p.lastName).sort()).toEqual(['Jones', 'Smith']);
+		expect(result.personnel.map((p) => p.lastName)).toEqual(['Jones', 'Smith']);
+		expect(result.allPersonnel.map((p) => p.lastName)).toEqual(['Jones', 'Smith']);
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
 	});

@@ -35,6 +35,13 @@ export interface DashboardData {
 	activeOnboardings: PersonnelOnboarding[];
 }
 
+/**
+ * `DashboardBootstrap` extends `DashboardData` with the org-scoped reference collections
+ * needed to hydrate dashboard stores and render lookup-backed widgets. Callers receive the
+ * full non-null `personnel`, `groups`, `statusTypes`, and `trainingTypes` arrays for the
+ * organization, with entity IDs unique within each collection, and should treat them as
+ * read-only bootstrap/cache data rather than mutable dashboard state.
+ */
 export interface DashboardBootstrap extends DashboardData {
 	personnel: Personnel[];
 	groups: Group[];

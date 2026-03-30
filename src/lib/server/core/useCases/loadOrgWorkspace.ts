@@ -1,4 +1,9 @@
-import type { WorkspaceKey, WorkspaceBootstrap, OrgWorkspacePort, HydrationPlannerPort } from '../orgShell';
+import type {
+	WorkspaceKey,
+	WorkspaceBootstrap,
+	OrgWorkspacePort,
+	HydrationPlannerPort
+} from '$lib/server/core/orgShell';
 
 export async function loadOrgWorkspace<T>(
 	workspace: WorkspaceKey,

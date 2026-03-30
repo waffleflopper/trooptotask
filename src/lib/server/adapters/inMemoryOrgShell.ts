@@ -21,7 +21,7 @@ import type {
 	ChromeData,
 	HydrationPlan,
 	WorkspaceKey
-} from '../core/orgShell';
+} from '$lib/server/core/orgShell';
 
 export function createInMemoryOrgAccessPort(config: { membership: MembershipInfo; orgState: OrgState }): OrgAccessPort {
 	return {

@@ -20,6 +20,12 @@
 			orgName?: string;
 			personnel?: Personnel[];
 			allPersonnel?: Personnel[];
+			calendar?: {
+				data?: {
+					personnel?: Personnel[];
+					allPersonnel?: Personnel[];
+				};
+			};
 			scopedGroupId?: string | null;
 		};
 	}
@@ -29,6 +35,7 @@
 	const org = getOrgContext();
 	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
 	const canMutate = $derived(!org.readOnly && canManageConfig);
+	const workspaceData = $derived(data.calendar?.data ?? data);
 
 	// ---- Tab management ----
 	type Tab = 'add' | 'remove' | 'import';
@@ -51,7 +58,7 @@
 	}
 
 	// ---- Personnel data ----
-	const calendarPersonnel = $derived(data.allPersonnel ?? data.personnel ?? []);
+	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
 	const personnelByGroup = $derived(
 		groupAndSortPersonnel(calendarPersonnel, {
 			pinnedGroups: pinnedGroupsStore.list,

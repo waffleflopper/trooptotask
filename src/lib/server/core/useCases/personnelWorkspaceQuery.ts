@@ -32,8 +32,8 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 	]);
 
 	return {
-		personnel: PersonnelEntity.fromDbArray(personnelRows) as Personnel[],
-		allPersonnel: PersonnelEntity.fromDbArray(allPersonnelRows) as Personnel[],
+		personnel: PersonnelEntity.fromDbArray(personnelRows),
+		allPersonnel: PersonnelEntity.fromDbArray(allPersonnelRows),
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows)
 	};

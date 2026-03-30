@@ -1,7 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { isFullEditor, type OrganizationMemberPermissions } from '$lib/types';
-import { fetchSharedData } from '$lib/server/core/useCases/sharedDataQuery';
 import { loadOrgShell } from '$lib/server/core/useCases/loadOrgShell';
 import {
 	buildLayoutContext,
@@ -116,10 +115,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			}
 		};
 
-		const [shared, effectiveTier] = await Promise.all([
-			fetchSharedData(demoCtx),
-			demoCtx.subscription.getEffectiveTier()
-		]);
+		const effectiveTier = await demoCtx.subscription.getEffectiveTier();
 
 		const shell = await loadOrgShell(
 			createInMemoryOrgAccessPort({
@@ -157,7 +153,6 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			effectiveTier,
 			isDemoReadOnly: true,
 			isDemoSandbox: false,
-			...shared,
 			shell
 		};
 	}
@@ -182,10 +177,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 				};
 
 				const sandboxCtx = await buildLayoutContext(locals, cookies, orgId);
-				const [shared, effectiveTier] = await Promise.all([
-					fetchSharedData(sandboxCtx),
-					sandboxCtx.subscription.getEffectiveTier()
-				]);
+				const effectiveTier = await sandboxCtx.subscription.getEffectiveTier();
 
 				const shell = await loadOrgShell(
 					createInMemoryOrgAccessPort({
@@ -223,7 +215,6 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					effectiveTier,
 					isDemoReadOnly: false,
 					isDemoSandbox: true,
-					...shared,
 					shell
 				};
 			}
@@ -271,8 +262,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		throw error(403, 'You are not a member of this organization');
 	}
 
-	// Start shell loading in parallel with fetchSharedData. Placed after the membership
-	// check so a 403 on the existing path doesn't leave shellPromise as an unhandled rejection.
+	// Start shell loading after membership check so a 403 doesn't leave shellPromise as an unhandled rejection.
 	const shellPromise = loadOrgShell(
 		createSupabaseOrgAccessPort({
 			orgId,
@@ -329,7 +319,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		(a: Record<string, unknown>) => !dismissedIds.has(a.id)
 	);
 
-	const [shared, shell] = await Promise.all([fetchSharedData(ctx), shellPromise]);
+	const shell = await shellPromise;
 
 	return {
 		orgId,
@@ -347,7 +337,6 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		isDemoReadOnly: false,
 		isDemoSandbox: false,
 		activeAnnouncements,
-		...shared,
 		shell
 	};
 };

@@ -20,6 +20,7 @@
 
 	const org = getOrgContext();
 	const canMutate = $derived(!org.readOnly && (org.isPrivileged || org.isFullEditor));
+	const workspaceData = $derived(data.training?.data);
 
 	// --- State ---
 	let selectedTypeId: string | null = $state(null);
@@ -50,7 +51,7 @@
 	const orderedTypes = $derived([...types].sort((a, b) => a.sortOrder - b.sortOrder));
 	const selectedType = $derived(selectedTypeId ? (types.find((t) => t.id === selectedTypeId) ?? null) : null);
 
-	const personnel = $derived(data.personnel ?? []);
+	const personnel = $derived(workspaceData?.personnel ?? data.personnel ?? []);
 
 	const availableRoles = $derived(
 		[...new Set(personnel.map((p: { clinicRole: string }) => p.clinicRole))].filter(Boolean).sort() as string[]

@@ -7,6 +7,7 @@
 	import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
 	import type { TrainingStatus } from '$features/training/training.types';
 	import type { Personnel } from '$lib/types';
+	import type { Group } from '$lib/stores/groups.svelte';
 	import {
 		filterPersonnel,
 		computeReadinessDashboard,
@@ -18,6 +19,7 @@
 	let { data } = $props();
 
 	const org = getOrgContext();
+	const workspaceData = $derived(data.training?.data);
 
 	// --- Filters ---
 	let filterGroupId = $state('');
@@ -28,8 +30,8 @@
 	let filterTypeIds = $state<string[]>([]);
 
 	// --- Data ---
-	const allPersonnel = $derived<Personnel[]>(data.personnel ?? []);
-	const allGroups = $derived(data.groups ?? []);
+	const allPersonnel = $derived<Personnel[]>(workspaceData?.personnel ?? data.personnel ?? []);
+	const allGroups = $derived<Group[]>(workspaceData?.groups ?? data.groups ?? []);
 	const allTypes = $derived(trainingTypesStore.items);
 	const allTrainings = $derived(personnelTrainingsStore.items);
 

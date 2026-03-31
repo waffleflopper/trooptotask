@@ -59,7 +59,7 @@ export function createSupabaseOrgAccessPort(config: {
 				)
 				.eq('user_id', config.userId)
 				.eq('organization_id', config.orgId)
-				.single();
+				.maybeSingle();
 
 			if (membershipError) {
 				throw error(500, membershipError.message);

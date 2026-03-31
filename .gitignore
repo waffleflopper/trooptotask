@@ -1,7 +1,5 @@
 # Dependencies
 node_modules
-package-lock.json
-pnpm-lock.yaml
 
 # Build outputs
 .svelte-kit
@@ -34,10 +32,6 @@ supabase/seed.sql
 supabase/seed_remote.sql
 supabase/schema_remote.sql
 
-# Presentation
-presentation.html
-dashboard.jpg
-calendar.jpg
 .worktrees/
 
 # Playwright

@@ -11,7 +11,6 @@ import type { OnboardingBootstrap } from './onboardingQuery';
 import type { DashboardBootstrap } from './dashboardQuery';
 import type { PersonnelBootstrap } from './personnelWorkspaceQuery';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
-import { createDefaultHydrationPlanner } from '../hydrationPlanner';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { Personnel, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -167,18 +166,6 @@ describe('loadOrgWorkspace — training workspace boundary', () => {
 		expect(result.data.pinnedGroups).toEqual(pinnedGroups);
 		await expect(result.data.personnelTrainings).resolves.toEqual(personnelTrainings);
 	});
-
-	it('hydration plan covers trainingViews, trainingTypes, personnel, and groups', async () => {
-		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['training', trainingData]]));
-		const plannerPort = createDefaultHydrationPlanner(ORG);
-
-		const result = await loadOrgWorkspace<TrainingBootstrap>('training', workspacePort, plannerPort);
-
-		expect(result.hydration?.trainingViews).toBeDefined();
-		expect(result.hydration?.trainingTypes).toBeDefined();
-		expect(result.hydration?.personnel).toBeDefined();
-		expect(result.hydration?.groups).toBeDefined();
-	});
 });
 
 describe('loadOrgWorkspace — onboarding workspace boundary', () => {
@@ -213,19 +200,6 @@ describe('loadOrgWorkspace — onboarding workspace boundary', () => {
 		expect(result.data.personnel).toEqual(personnel);
 		expect(result.data.groups).toEqual(groups);
 		expect(result.data.trainingTypes).toEqual(trainingTypes);
-	});
-
-	it('hydrates onboarding reference data explicitly', async () => {
-		const workspacePort = createInMemoryOrgWorkspacePort(
-			new Map<WorkspaceKey, unknown>([['onboarding', onboardingData]])
-		);
-		const plannerPort = createDefaultHydrationPlanner(ORG);
-
-		const result = await loadOrgWorkspace<OnboardingBootstrap>('onboarding', workspacePort, plannerPort);
-
-		expect(result.hydration?.personnel).toBeDefined();
-		expect(result.hydration?.groups).toBeDefined();
-		expect(result.hydration?.trainingTypes).toBeDefined();
 	});
 });
 
@@ -285,21 +259,6 @@ describe('loadOrgWorkspace — personnel workspace boundary', () => {
 		expect(result.data.pinnedGroups).toEqual(['Alpha']);
 		expect(result.data.ratingSchemeEntries).toEqual(ratingSchemeEntries);
 	});
-
-	it('hydrates personnel reference data explicitly', async () => {
-		const workspacePort = createInMemoryOrgWorkspacePort(
-			new Map<WorkspaceKey, unknown>([['personnel', personnelData]])
-		);
-		const plannerPort = createDefaultHydrationPlanner(ORG);
-
-		const result = await loadOrgWorkspace<PersonnelBootstrap>('personnel', workspacePort, plannerPort);
-
-		expect(result.hydration?.personnel).toBeDefined();
-		expect(result.hydration?.groups).toBeDefined();
-		expect(result.hydration?.statusTypes).toBeDefined();
-		expect(result.hydration?.pinnedGroups).toBeDefined();
-		expect(result.hydration?.ratingSchemeEntries).toBeDefined();
-	});
 });
 
 describe('loadOrgWorkspace — dashboard workspace boundary', () => {
@@ -342,19 +301,5 @@ describe('loadOrgWorkspace — dashboard workspace boundary', () => {
 		expect(result.data.ratingSchemeEntries).toEqual([]);
 		expect(result.data.activeOnboardings).toEqual([]);
 		expect(result.hydration).toBeUndefined();
-	});
-
-	it('hydrates dashboard reference data explicitly', async () => {
-		const workspacePort = createInMemoryOrgWorkspacePort(
-			new Map<WorkspaceKey, unknown>([['dashboard', dashboardData]])
-		);
-		const plannerPort = createDefaultHydrationPlanner(ORG);
-
-		const result = await loadOrgWorkspace<DashboardBootstrap>('dashboard', workspacePort, plannerPort);
-
-		expect(result.hydration?.personnel).toBeDefined();
-		expect(result.hydration?.groups).toBeDefined();
-		expect(result.hydration?.statusTypes).toBeDefined();
-		expect(result.hydration?.trainingTypes).toBeDefined();
 	});
 });

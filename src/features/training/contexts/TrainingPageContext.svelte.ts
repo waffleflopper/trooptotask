@@ -211,10 +211,4 @@ export class TrainingPageContext {
 		await invalidate('app:training-data');
 		this.#modals.close('bulk-import');
 	}
-
-	// ---- store hydration ----
-	hydrateStores(): void {
-		// trainingTypes already hydrated by layout; personnelTrainings hydrated by training layout
-		// This is a no-op hook for any page-level hydration needed in the future
-	}
 }

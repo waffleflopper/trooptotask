@@ -70,20 +70,6 @@ export class DashboardContext {
 	}
 
 	// ---------------------------------------------------------------------------
-	// Store hydration — call once inside $effect in the route
-	// ---------------------------------------------------------------------------
-	hydrateStores() {
-		const ws = this.data.dashboard.data;
-		availabilityStore.load(ws.availabilityEntries as Parameters<typeof availabilityStore.load>[0], this.data.orgId);
-		dailyAssignmentsStore.load(
-			ws.assignmentTypes as Parameters<typeof dailyAssignmentsStore.load>[0],
-			ws.todayAssignments as Parameters<typeof dailyAssignmentsStore.load>[1],
-			this.data.orgId
-		);
-		pinnedGroupsStore.load(ws.pinnedGroups as Parameters<typeof pinnedGroupsStore.load>[0], this.data.orgId);
-	}
-
-	// ---------------------------------------------------------------------------
 	// localStorage side-effects — call once inside $effect (browser only)
 	// ---------------------------------------------------------------------------
 	initBannerFromStorage() {

@@ -130,6 +130,7 @@ describe('loadOrgWorkspace — training workspace boundary', () => {
 	];
 	const personnel = [{ id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel];
 	const groups = [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group];
+	const pinnedGroups = ['Alpha'];
 	const personnelTrainings = [
 		{
 			id: 'pt1',
@@ -147,7 +148,8 @@ describe('loadOrgWorkspace — training workspace boundary', () => {
 		trainingTypes,
 		trainingViews,
 		personnel,
-		groups
+		groups,
+		pinnedGroups
 	};
 
 	it('returns training-owned data from workspace port', async () => {
@@ -161,6 +163,7 @@ describe('loadOrgWorkspace — training workspace boundary', () => {
 		expect(result.data.trainingViews).toEqual(trainingViews);
 		expect(result.data.personnel).toEqual(personnel);
 		expect(result.data.groups).toEqual(groups);
+		expect(result.data.pinnedGroups).toEqual(pinnedGroups);
 		await expect(result.data.personnelTrainings).resolves.toEqual(personnelTrainings);
 	});
 

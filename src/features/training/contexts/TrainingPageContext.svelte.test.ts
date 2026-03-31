@@ -126,6 +126,7 @@ function makeData(overrides: Record<string, unknown> = {}) {
 			data: {
 				personnel: [mockPerson, mockPerson2],
 				groups: mockGroups,
+				pinnedGroups: [],
 				trainingTypes: [] as TrainingType[],
 				trainingViews: [] as TrainingView[],
 				personnelTrainings: Promise.resolve([] as PersonnelTraining[])
@@ -186,6 +187,7 @@ describe('TrainingPageContext', () => {
 					data: {
 						personnel: [{ ...mockPerson, clinicRole: null }],
 						groups: mockGroups,
+						pinnedGroups: [],
 						trainingTypes: [],
 						trainingViews: [],
 						personnelTrainings: Promise.resolve([])
@@ -206,6 +208,7 @@ describe('TrainingPageContext', () => {
 				data: {
 					personnel: [workspacePerson],
 					groups: mockGroups,
+					pinnedGroups: [],
 					trainingTypes: [],
 					trainingViews: [],
 					personnelTrainings: Promise.resolve([])

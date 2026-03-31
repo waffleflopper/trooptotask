@@ -13,6 +13,13 @@ Military unit management SaaS: personnel tracking, calendar/availability, traini
 - Reset, run migrations on, delete tables, delete entries, or touch the remote production database. I will manually run any migrations or sql code.
 - Reset or delete tables from the local development database. If there's something wrong that requires it to be deleted or reset, you must ask for my permission first no matter what.
 
+## Demo/Sandbox Deprecation
+
+- Demo sandbox and demo-specific access flows are deprecated and being phased out.
+- When you encounter code that exists specifically for demo mode or sandbox behavior, treat it as deprecated for later removal.
+- Do not expand or deepen demo/sandbox-specific behavior unless explicitly asked.
+- If you touch demo/sandbox-specific code, prefer adding or preserving a clear deprecation note/TODO so it is easier to remove in a future cleanup pass.
+
 ## File Organization
 
 ```

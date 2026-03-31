@@ -15,8 +15,9 @@
  */
 import type { Personnel, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
-import type { TrainingType, TrainingView } from '$features/training/training.types';
+import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
+import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -27,6 +28,7 @@ import type { HydrationPlan, HydrationTarget } from '$lib/server/core/orgShell';
 interface Loadable<T> {
 	readonly orgId: string;
 	load(items: T[], orgId: string): void;
+	startLoading?(): void;
 }
 
 export interface HydrationStores {
@@ -35,6 +37,7 @@ export interface HydrationStores {
 	statusTypesStore: Loadable<StatusType>;
 	trainingTypesStore: Loadable<TrainingType>;
 	trainingViewsStore: Loadable<TrainingView>;
+	personnelTrainingsStore: Loadable<PersonnelTraining>;
 }
 
 const defaultStores: HydrationStores = {
@@ -42,7 +45,8 @@ const defaultStores: HydrationStores = {
 	groupsStore,
 	statusTypesStore,
 	trainingTypesStore,
-	trainingViewsStore
+	trainingViewsStore,
+	personnelTrainingsStore
 };
 
 interface TargetSnapshotState {
@@ -76,7 +80,13 @@ async function applyTarget<T>(
 	pendingSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
 
 	if (isPromiseLike<T[]>(target.items)) {
-		const items = await target.items;
+		store.startLoading?.();
+		let items: T[];
+		try {
+			items = await target.items;
+		} catch {
+			items = [];
+		}
 		const latestPending = pendingSnapshotKeys.get(targetName);
 		if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== target.snapshotKey) return;
 		store.load(items, orgId);
@@ -105,6 +115,7 @@ export async function applyHydration(plan?: HydrationPlan, stores: HydrationStor
 		applyTarget(plan.groups, stores.groupsStore, orgId, 'groups'),
 		applyTarget(plan.statusTypes, stores.statusTypesStore, orgId, 'statusTypes'),
 		applyTarget(plan.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
-		applyTarget(plan.trainingViews, stores.trainingViewsStore, orgId, 'trainingViews')
+		applyTarget(plan.trainingViews, stores.trainingViewsStore, orgId, 'trainingViews'),
+		applyTarget(plan.personnelTrainings, stores.personnelTrainingsStore, orgId, 'personnelTrainings')
 	]);
 }

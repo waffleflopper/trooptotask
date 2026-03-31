@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { defineStore } from '$lib/stores/core';
 import type { Personnel, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
-import type { TrainingType, TrainingView } from '$features/training/training.types';
+import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { applyHydration, resetHydrationState } from './applyHydration.svelte';
 import type { HydrationStores } from './applyHydration.svelte';
 import type { HydrationPlan } from '$lib/server/core/orgShell';
@@ -15,23 +15,27 @@ function createTestStores(): HydrationStores & {
 	statusTypes: ReturnType<typeof defineStore<StatusType>>;
 	trainingTypes: ReturnType<typeof defineStore<TrainingType>>;
 	trainingViews: ReturnType<typeof defineStore<TrainingView>>;
+	personnelTrainings: ReturnType<typeof defineStore<PersonnelTraining>>;
 } {
 	const personnel = defineStore<Personnel>({ table: 'personnel' });
 	const groups = defineStore<Group>({ table: 'groups' });
 	const statusTypes = defineStore<StatusType>({ table: 'status_types' });
 	const trainingTypes = defineStore<TrainingType>({ table: 'training_types' });
 	const trainingViews = defineStore<TrainingView>({ table: 'training_views' });
+	const personnelTrainings = defineStore<PersonnelTraining>({ table: 'personnel_trainings' });
 	return {
 		personnelStore: personnel as unknown as HydrationStores['personnelStore'],
 		groupsStore: groups as unknown as HydrationStores['groupsStore'],
 		statusTypesStore: statusTypes as unknown as HydrationStores['statusTypesStore'],
 		trainingTypesStore: trainingTypes as unknown as HydrationStores['trainingTypesStore'],
 		trainingViewsStore: trainingViews as unknown as HydrationStores['trainingViewsStore'],
+		personnelTrainingsStore: personnelTrainings as unknown as HydrationStores['personnelTrainingsStore'],
 		personnel,
 		groups,
 		statusTypes,
 		trainingTypes,
-		trainingViews
+		trainingViews,
+		personnelTrainings
 	};
 }
 
@@ -47,6 +51,15 @@ const trainingView = {
 	updatedAt: '2024-01-01'
 } as TrainingView;
 const person = { id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel;
+const personnelTraining = {
+	id: 'pt1',
+	personnelId: 'p1',
+	trainingTypeId: 'tt1',
+	completionDate: null,
+	expirationDate: null,
+	notes: null,
+	certificateUrl: null
+} as PersonnelTraining;
 
 describe('applyHydration', () => {
 	let stores: ReturnType<typeof createTestStores>;
@@ -96,6 +109,60 @@ describe('applyHydration', () => {
 		};
 		await applyHydration(plan, stores);
 		expect(stores.trainingViews.items).toEqual([trainingView]);
+	});
+
+	it('hydrates deferred personnelTrainings and keeps loading true until resolution', async () => {
+		let resolveTrainings!: (items: PersonnelTraining[]) => void;
+		const deferredTrainings = new Promise<PersonnelTraining[]>((resolve) => {
+			resolveTrainings = resolve;
+		});
+
+		const hydrationPromise = applyHydration(
+			{
+				orgId: ORG,
+				personnelTrainings: {
+					mode: 'replace',
+					snapshotKey: 'personnel-trainings:deferred:1',
+					items: deferredTrainings
+				}
+			},
+			stores
+		);
+
+		expect(stores.personnelTrainings.loading).toBe(true);
+
+		resolveTrainings([personnelTraining]);
+		await hydrationPromise;
+
+		expect(stores.personnelTrainings.items).toEqual([personnelTraining]);
+		expect(stores.personnelTrainings.loading).toBe(false);
+	});
+
+	it('falls back to empty personnelTrainings when deferred hydration rejects', async () => {
+		let rejectTrainings!: (reason?: unknown) => void;
+		const deferredTrainings = new Promise<PersonnelTraining[]>((_, reject) => {
+			rejectTrainings = reject;
+		});
+
+		const hydrationPromise = applyHydration(
+			{
+				orgId: ORG,
+				personnelTrainings: {
+					mode: 'replace',
+					snapshotKey: 'personnel-trainings:deferred:error',
+					items: deferredTrainings
+				}
+			},
+			stores
+		);
+
+		expect(stores.personnelTrainings.loading).toBe(true);
+
+		rejectTrainings(new Error('training bootstrap failed'));
+		await expect(hydrationPromise).resolves.toBeUndefined();
+
+		expect(stores.personnelTrainings.items).toEqual([]);
+		expect(stores.personnelTrainings.loading).toBe(false);
 	});
 
 	it('hydrates personnelStore from personnel.scoped', async () => {

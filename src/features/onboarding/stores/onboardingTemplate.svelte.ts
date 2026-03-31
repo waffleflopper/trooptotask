@@ -77,6 +77,10 @@ export const onboardingTemplateStore = {
 		return templateStore.items;
 	},
 
+	get orgId() {
+		return templateStore.internals.orgId();
+	},
+
 	get activeTemplateId() {
 		return activeTemplateId;
 	},

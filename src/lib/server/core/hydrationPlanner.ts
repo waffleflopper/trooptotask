@@ -1,4 +1,12 @@
-import type { HydrationPlan, HydrationPlannerPort, WorkspaceKey } from './orgShell';
+import type { HydrationItems, HydrationPlan, HydrationPlannerPort, WorkspaceKey } from './orgShell';
+import type {
+	OnboardingTemplate,
+	OnboardingTemplateStep,
+	PersonnelOnboarding
+} from '$features/onboarding/onboarding.types';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
+import type { PersonnelTraining } from '$features/training/training.types';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
 const deferredSnapshotKeys = new WeakMap<object, string>();
 let fallbackSnapshotCounter = 0;
@@ -52,17 +60,48 @@ function isHydratableItems(value: unknown): value is unknown[] | Promise<unknown
  */
 export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPort {
 	return {
-		createPlan(_workspace: WorkspaceKey, data: unknown): HydrationPlan | undefined {
+		createPlan(workspace: WorkspaceKey, data: unknown): HydrationPlan | undefined {
 			if (data == null || typeof data !== 'object' || Array.isArray(data)) return undefined;
 			const d = data as Record<string, unknown>;
 
 			const hasPersonnel = isHydratableItems(d.personnel) || isHydratableItems(d.allPersonnel);
 			const hasGroups = isHydratableItems(d.groups);
 			const hasStatusTypes = isHydratableItems(d.statusTypes);
+			const hasAvailabilityEntries = isHydratableItems(d.availabilityEntries);
+			const hasSpecialDays = isHydratableItems(d.specialDays);
+			const assignmentEntries = Array.isArray(d.dailyAssignments)
+				? d.dailyAssignments
+				: workspace === 'dashboard' && Array.isArray(d.todayAssignments)
+					? d.todayAssignments
+					: undefined;
+			const hasCalendarAssignments = Array.isArray(d.assignmentTypes) && Array.isArray(assignmentEntries);
 			const hasTrainingTypes = isHydratableItems(d.trainingTypes);
 			const hasTrainingViews = isHydratableItems(d.trainingViews);
+			const hasPersonnelTrainings = isHydratableItems(d.personnelTrainings);
+			const hasPinnedGroups = isHydratableItems(d.pinnedGroups);
+			// Dashboard rating-scheme data is a summary-shaped subset, not the canonical store dataset.
+			const hasRatingSchemeEntries = workspace !== 'dashboard' && isHydratableItems(d.ratingSchemeEntries);
+			const hasOnboardingTemplates = Array.isArray(d.onboardingTemplates) || Array.isArray(d.onboardingTemplateSteps);
+			// Dashboard exposes active onboardings for its widgets, but that should not replace the
+			// shared onboarding store, which owns active + completed/cancelled records.
+			const onboardingEntries = isHydratableItems(d.onboardings) ? d.onboardings : undefined;
+			const hasOnboardings = isHydratableItems(onboardingEntries);
 
-			if (!hasPersonnel && !hasGroups && !hasStatusTypes && !hasTrainingTypes && !hasTrainingViews) {
+			if (
+				!hasPersonnel &&
+				!hasGroups &&
+				!hasStatusTypes &&
+				!hasAvailabilityEntries &&
+				!hasSpecialDays &&
+				!hasCalendarAssignments &&
+				!hasTrainingTypes &&
+				!hasTrainingViews &&
+				!hasPersonnelTrainings &&
+				!hasPinnedGroups &&
+				!hasRatingSchemeEntries &&
+				!hasOnboardingTemplates &&
+				!hasOnboardings
+			) {
 				return undefined;
 			}
 
@@ -105,6 +144,34 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 				};
 			}
 
+			if (hasAvailabilityEntries) {
+				plan.availabilityEntries = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.availabilityEntries),
+					items: d.availabilityEntries as HydrationItems<AvailabilityEntry>
+				};
+			}
+
+			if (hasSpecialDays) {
+				plan.specialDays = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.specialDays),
+					items: d.specialDays as HydrationItems<SpecialDay>
+				};
+			}
+
+			if (hasCalendarAssignments) {
+				plan.calendarAssignments = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey({
+						assignmentTypes: d.assignmentTypes,
+						dailyAssignments: assignmentEntries
+					}),
+					types: d.assignmentTypes as AssignmentType[],
+					assignments: assignmentEntries as DailyAssignment[]
+				};
+			}
+
 			if (hasTrainingTypes) {
 				plan.trainingTypes = {
 					mode: 'replace',
@@ -118,6 +185,50 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 					mode: 'replace',
 					snapshotKey: createSnapshotKey(d.trainingViews),
 					items: d.trainingViews as unknown[] | Promise<unknown[]>
+				};
+			}
+
+			if (hasPersonnelTrainings) {
+				plan.personnelTrainings = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.personnelTrainings),
+					items: d.personnelTrainings as HydrationItems<PersonnelTraining>
+				};
+			}
+
+			if (hasPinnedGroups) {
+				plan.pinnedGroups = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.pinnedGroups),
+					items: d.pinnedGroups as HydrationItems<string>
+				};
+			}
+
+			if (hasRatingSchemeEntries) {
+				plan.ratingSchemeEntries = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.ratingSchemeEntries),
+					items: d.ratingSchemeEntries as HydrationItems<RatingSchemeEntry>
+				};
+			}
+
+			if (hasOnboardingTemplates) {
+				plan.onboardingTemplates = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey({
+						onboardingTemplates: d.onboardingTemplates ?? [],
+						onboardingTemplateSteps: d.onboardingTemplateSteps ?? []
+					}),
+					templates: (d.onboardingTemplates as OnboardingTemplate[]) ?? [],
+					steps: (d.onboardingTemplateSteps as OnboardingTemplateStep[]) ?? []
+				};
+			}
+
+			if (hasOnboardings) {
+				plan.onboardings = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(onboardingEntries),
+					items: onboardingEntries as HydrationItems<PersonnelOnboarding>
 				};
 			}
 

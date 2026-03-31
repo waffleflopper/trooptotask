@@ -8,4 +8,5 @@ export interface TrainingBootstrap {
 	trainingViews: TrainingView[];
 	personnel: Personnel[];
 	groups: Group[];
+	pinnedGroups: string[];
 }

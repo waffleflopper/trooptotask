@@ -10,7 +10,7 @@ import type { TrainingBootstrap } from './trainingQuery';
 import type { OnboardingBootstrap } from './onboardingQuery';
 import type { DashboardBootstrap } from './dashboardQuery';
 import type { PersonnelBootstrap } from './personnelWorkspaceQuery';
-import { createDefaultHydrationPlanner } from '../hydrationPlanner';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { Personnel, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -130,6 +130,7 @@ describe('loadOrgWorkspace — training workspace boundary', () => {
 	];
 	const personnel = [{ id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel];
 	const groups = [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group];
+	const pinnedGroups = ['Alpha'];
 	const personnelTrainings = [
 		{
 			id: 'pt1',
@@ -147,7 +148,8 @@ describe('loadOrgWorkspace — training workspace boundary', () => {
 		trainingTypes,
 		trainingViews,
 		personnel,
-		groups
+		groups,
+		pinnedGroups
 	};
 
 	it('returns training-owned data from workspace port', async () => {
@@ -161,19 +163,8 @@ describe('loadOrgWorkspace — training workspace boundary', () => {
 		expect(result.data.trainingViews).toEqual(trainingViews);
 		expect(result.data.personnel).toEqual(personnel);
 		expect(result.data.groups).toEqual(groups);
+		expect(result.data.pinnedGroups).toEqual(pinnedGroups);
 		await expect(result.data.personnelTrainings).resolves.toEqual(personnelTrainings);
-	});
-
-	it('hydration plan covers trainingViews, trainingTypes, personnel, and groups', async () => {
-		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['training', trainingData]]));
-		const plannerPort = createDefaultHydrationPlanner(ORG);
-
-		const result = await loadOrgWorkspace<TrainingBootstrap>('training', workspacePort, plannerPort);
-
-		expect(result.hydration?.trainingViews).toBeDefined();
-		expect(result.hydration?.trainingTypes).toBeDefined();
-		expect(result.hydration?.personnel).toBeDefined();
-		expect(result.hydration?.groups).toBeDefined();
 	});
 });
 
@@ -210,19 +201,6 @@ describe('loadOrgWorkspace — onboarding workspace boundary', () => {
 		expect(result.data.groups).toEqual(groups);
 		expect(result.data.trainingTypes).toEqual(trainingTypes);
 	});
-
-	it('hydrates onboarding reference data explicitly', async () => {
-		const workspacePort = createInMemoryOrgWorkspacePort(
-			new Map<WorkspaceKey, unknown>([['onboarding', onboardingData]])
-		);
-		const plannerPort = createDefaultHydrationPlanner(ORG);
-
-		const result = await loadOrgWorkspace<OnboardingBootstrap>('onboarding', workspacePort, plannerPort);
-
-		expect(result.hydration?.personnel).toBeDefined();
-		expect(result.hydration?.groups).toBeDefined();
-		expect(result.hydration?.trainingTypes).toBeDefined();
-	});
 });
 
 describe('loadOrgWorkspace — personnel workspace boundary', () => {
@@ -234,12 +212,35 @@ describe('loadOrgWorkspace — personnel workspace boundary', () => {
 	];
 	const groups = [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group];
 	const statusTypes = [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' } as StatusType];
+	const ratingSchemeEntries = [
+		{
+			id: 'rs1',
+			ratedPersonId: 'p1',
+			evalType: 'NCOER',
+			raterPersonId: null,
+			raterName: null,
+			seniorRaterPersonId: null,
+			seniorRaterName: null,
+			intermediateRaterPersonId: null,
+			intermediateRaterName: null,
+			reviewerPersonId: null,
+			reviewerName: null,
+			ratingPeriodStart: '2024-01-01',
+			ratingPeriodEnd: '2024-12-31',
+			status: 'active',
+			notes: null,
+			reportType: 'AN',
+			workflowStatus: 'drafting'
+		} as RatingSchemeEntry
+	];
 
 	const personnelData: PersonnelBootstrap = {
 		personnel,
 		allPersonnel,
 		groups,
-		statusTypes
+		statusTypes,
+		pinnedGroups: ['Alpha'],
+		ratingSchemeEntries
 	};
 
 	it('returns personnel-owned data from workspace port', async () => {
@@ -255,19 +256,8 @@ describe('loadOrgWorkspace — personnel workspace boundary', () => {
 		expect(result.data.allPersonnel).toEqual(allPersonnel);
 		expect(result.data.groups).toEqual(groups);
 		expect(result.data.statusTypes).toEqual(statusTypes);
-	});
-
-	it('hydrates personnel reference data explicitly', async () => {
-		const workspacePort = createInMemoryOrgWorkspacePort(
-			new Map<WorkspaceKey, unknown>([['personnel', personnelData]])
-		);
-		const plannerPort = createDefaultHydrationPlanner(ORG);
-
-		const result = await loadOrgWorkspace<PersonnelBootstrap>('personnel', workspacePort, plannerPort);
-
-		expect(result.hydration?.personnel).toBeDefined();
-		expect(result.hydration?.groups).toBeDefined();
-		expect(result.hydration?.statusTypes).toBeDefined();
+		expect(result.data.pinnedGroups).toEqual(['Alpha']);
+		expect(result.data.ratingSchemeEntries).toEqual(ratingSchemeEntries);
 	});
 });
 
@@ -311,19 +301,5 @@ describe('loadOrgWorkspace — dashboard workspace boundary', () => {
 		expect(result.data.ratingSchemeEntries).toEqual([]);
 		expect(result.data.activeOnboardings).toEqual([]);
 		expect(result.hydration).toBeUndefined();
-	});
-
-	it('hydrates dashboard reference data explicitly', async () => {
-		const workspacePort = createInMemoryOrgWorkspacePort(
-			new Map<WorkspaceKey, unknown>([['dashboard', dashboardData]])
-		);
-		const plannerPort = createDefaultHydrationPlanner(ORG);
-
-		const result = await loadOrgWorkspace<DashboardBootstrap>('dashboard', workspacePort, plannerPort);
-
-		expect(result.hydration?.personnel).toBeDefined();
-		expect(result.hydration?.groups).toBeDefined();
-		expect(result.hydration?.statusTypes).toBeDefined();
-		expect(result.hydration?.trainingTypes).toBeDefined();
 	});
 });

@@ -107,6 +107,11 @@ describe('loadOrgWorkspaceRouteData', () => {
 						snapshotKey: expect.any(String),
 						types: calendarData.assignmentTypes,
 						assignments: calendarData.dailyAssignments
+					},
+					pinnedGroups: {
+						mode: 'replace',
+						items: calendarData.pinnedGroups,
+						snapshotKey: expect.any(String)
 					}
 				})
 			} satisfies WorkspaceBootstrap<CalendarBootstrap>
@@ -180,6 +185,11 @@ describe('loadOrgWorkspaceRouteData', () => {
 					personnelTrainings: {
 						mode: 'replace',
 						items: personnelTrainings,
+						snapshotKey: expect.any(String)
+					},
+					pinnedGroups: {
+						mode: 'replace',
+						items: trainingData.pinnedGroups,
 						snapshotKey: expect.any(String)
 					}
 				})
@@ -357,6 +367,133 @@ describe('loadOrgWorkspaceRouteData', () => {
 					}
 				})
 			} satisfies WorkspaceBootstrap<PersonnelBootstrap>
+		});
+	});
+
+	it('returns the canonical dashboard route payload with dashboard-owned hydration targets', async () => {
+		const dashboardData = {
+			availabilityEntries: [
+				{
+					id: 'av1',
+					personnelId: 'p1',
+					statusTypeId: 'st1',
+					startDate: '2024-01-01',
+					endDate: '2024-01-01',
+					note: null
+				} satisfies AvailabilityEntry
+			],
+			assignmentTypes: [
+				{
+					id: 'at1',
+					name: 'CQ',
+					shortName: 'CQ',
+					assignTo: 'personnel',
+					color: '#ef4444',
+					exemptPersonnelIds: [],
+					showInDateHeader: false
+				} satisfies AssignmentType
+			],
+			todayAssignments: [
+				{
+					id: 'da1',
+					date: '2024-01-15',
+					assignmentTypeId: 'at1',
+					assigneeId: 'p1'
+				} satisfies DailyAssignment
+			],
+			pinnedGroups: ['Alpha'],
+			ratingSchemeEntries: [
+				{
+					id: 'rs1',
+					ratedPersonId: 'p1',
+					evalType: 'NCOER',
+					raterPersonId: null,
+					raterName: null,
+					seniorRaterPersonId: null,
+					seniorRaterName: null,
+					intermediateRaterPersonId: null,
+					intermediateRaterName: null,
+					reviewerPersonId: null,
+					reviewerName: null,
+					ratingPeriodStart: '2024-01-01',
+					ratingPeriodEnd: '2024-12-31',
+					status: 'active',
+					notes: null,
+					reportType: 'AN',
+					workflowStatus: 'drafting'
+				} satisfies RatingSchemeEntry
+			],
+			activeOnboardings: [
+				{
+					id: 'ob1',
+					personnelId: 'p1',
+					startedAt: '2024-01-01',
+					completedAt: null,
+					cancelledAt: null,
+					status: 'in_progress',
+					steps: [],
+					templateId: 'tpl1'
+				} satisfies PersonnelOnboarding
+			],
+			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
+			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
+			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
+			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType]
+		};
+
+		const workspacePort = createInMemoryOrgWorkspacePort(
+			new Map<WorkspaceKey, unknown>([['dashboard', dashboardData]])
+		);
+		const plannerPort = createDefaultHydrationPlanner('org-1');
+
+		const result = await loadOrgWorkspaceRouteData('dashboard', workspacePort, plannerPort);
+
+		expect(result).toEqual({
+			dashboard: {
+				workspace: 'dashboard',
+				data: dashboardData,
+				hydration: expect.objectContaining({
+					orgId: 'org-1',
+					personnel: {
+						scoped: {
+							mode: 'replace',
+							items: dashboardData.personnel,
+							snapshotKey: expect.any(String)
+						}
+					},
+					groups: {
+						mode: 'replace',
+						items: dashboardData.groups,
+						snapshotKey: expect.any(String)
+					},
+					statusTypes: {
+						mode: 'replace',
+						items: dashboardData.statusTypes,
+						snapshotKey: expect.any(String)
+					},
+					availabilityEntries: {
+						mode: 'replace',
+						items: dashboardData.availabilityEntries,
+						snapshotKey: expect.any(String)
+					},
+					calendarAssignments: {
+						mode: 'replace',
+						snapshotKey: expect.any(String),
+						types: dashboardData.assignmentTypes,
+						assignments: dashboardData.todayAssignments
+					},
+					trainingTypes: {
+						mode: 'replace',
+						items: dashboardData.trainingTypes,
+						snapshotKey: expect.any(String)
+					},
+					pinnedGroups: {
+						mode: 'replace',
+						items: dashboardData.pinnedGroups,
+						snapshotKey: expect.any(String)
+					}
+				})
+			} satisfies WorkspaceBootstrap<typeof dashboardData>
 		});
 	});
 });

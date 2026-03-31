@@ -60,7 +60,7 @@ function isHydratableItems(value: unknown): value is unknown[] | Promise<unknown
  */
 export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPort {
 	return {
-		createPlan(_workspace: WorkspaceKey, data: unknown): HydrationPlan | undefined {
+		createPlan(workspace: WorkspaceKey, data: unknown): HydrationPlan | undefined {
 			if (data == null || typeof data !== 'object' || Array.isArray(data)) return undefined;
 			const d = data as Record<string, unknown>;
 
@@ -69,14 +69,23 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			const hasStatusTypes = isHydratableItems(d.statusTypes);
 			const hasAvailabilityEntries = isHydratableItems(d.availabilityEntries);
 			const hasSpecialDays = isHydratableItems(d.specialDays);
-			const hasCalendarAssignments = Array.isArray(d.assignmentTypes) && Array.isArray(d.dailyAssignments);
+			const assignmentEntries = Array.isArray(d.dailyAssignments)
+				? d.dailyAssignments
+				: workspace === 'dashboard' && Array.isArray(d.todayAssignments)
+					? d.todayAssignments
+					: undefined;
+			const hasCalendarAssignments = Array.isArray(d.assignmentTypes) && Array.isArray(assignmentEntries);
 			const hasTrainingTypes = isHydratableItems(d.trainingTypes);
 			const hasTrainingViews = isHydratableItems(d.trainingViews);
 			const hasPersonnelTrainings = isHydratableItems(d.personnelTrainings);
 			const hasPinnedGroups = isHydratableItems(d.pinnedGroups);
-			const hasRatingSchemeEntries = isHydratableItems(d.ratingSchemeEntries);
+			// Dashboard rating-scheme data is a summary-shaped subset, not the canonical store dataset.
+			const hasRatingSchemeEntries = workspace !== 'dashboard' && isHydratableItems(d.ratingSchemeEntries);
 			const hasOnboardingTemplates = Array.isArray(d.onboardingTemplates) || Array.isArray(d.onboardingTemplateSteps);
-			const hasOnboardings = isHydratableItems(d.onboardings);
+			// Dashboard exposes active onboardings for its widgets, but that should not replace the
+			// shared onboarding store, which owns active + completed/cancelled records.
+			const onboardingEntries = isHydratableItems(d.onboardings) ? d.onboardings : undefined;
+			const hasOnboardings = isHydratableItems(onboardingEntries);
 
 			if (
 				!hasPersonnel &&
@@ -156,10 +165,10 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 					mode: 'replace',
 					snapshotKey: createSnapshotKey({
 						assignmentTypes: d.assignmentTypes,
-						dailyAssignments: d.dailyAssignments
+						dailyAssignments: assignmentEntries
 					}),
 					types: d.assignmentTypes as AssignmentType[],
-					assignments: d.dailyAssignments as DailyAssignment[]
+					assignments: assignmentEntries as DailyAssignment[]
 				};
 			}
 
@@ -218,8 +227,8 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			if (hasOnboardings) {
 				plan.onboardings = {
 					mode: 'replace',
-					snapshotKey: createSnapshotKey(d.onboardings),
-					items: d.onboardings as HydrationItems<PersonnelOnboarding>
+					snapshotKey: createSnapshotKey(onboardingEntries),
+					items: onboardingEntries as HydrationItems<PersonnelOnboarding>
 				};
 			}
 

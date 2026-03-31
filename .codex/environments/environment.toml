@@ -6,40 +6,37 @@ name = "trooptotask"
 script = ""
 
 [[actions]]
-name = "Run"
+name = "dev server"
 icon = "run"
 command = '''
-npm format
-npm check
-npm lint
-npm test:e2e
+npm run dev 
 '''
 
 [[actions]]
-name = "Fixed"
+name = "Checks and Format"
 icon = "tool"
 command = '''
-npm run format
-npm run lint
 npm run check
-npm run test:e2e
+npm run lint
+npm run format 
 '''
 
 [[actions]]
-name = "lint and format"
+name = "Tests"
+icon = "test"
+command = '''
+npm run test
+npm run test:e2e  
+''' 
+
+[[actions]]
+name = "Pull"
 icon = "debug"
 command = '''
-npm run lint
-npm run check
-npm run format
+git pull 
 '''
 
 [[actions]]
-name = "pull"
+name = "pull main"
 icon = "debug"
 command = "git fetch origin main && git merge --ff-only origin/main"
-
-[[actions]]
-name = "format only"
-icon = "tool"
-command = "npm run format"

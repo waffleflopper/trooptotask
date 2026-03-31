@@ -9,10 +9,6 @@
 	const hasAutoShownWhatsNew = { value: false };
 
 	$effect(() => {
-		ctx.hydrateStores();
-	});
-
-	$effect(() => {
 		ctx.initBannerFromStorage();
 	});
 

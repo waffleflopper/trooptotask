@@ -18,19 +18,13 @@
 		(): PersonnelPageData => ({
 			orgId: data.orgId,
 			orgName: data.orgName,
-			pinnedGroups: data.pinnedGroups,
-			ratingSchemeEntries: data.ratingSchemeEntries,
+			pinnedGroups: workspaceData.pinnedGroups,
+			ratingSchemeEntries: workspaceData.ratingSchemeEntries,
 			personnel: workspaceData.personnel,
 			permissions: data.permissions,
 			scopedGroupId: data.scopedGroupId
 		})
 	);
-
-	// Hydrate personnel-specific stores (universal stores hydrated in org layout)
-	$effect(() => {
-		pinnedGroupsStore.load(data.pinnedGroups, data.orgId);
-		ratingSchemeStore.load(data.ratingSchemeEntries, data.orgId);
-	});
 
 	let ctx = $state(
 		new PersonnelPageContext(pageData, modals, org, personnelStore, ratingSchemeStore, pinnedGroupsStore)

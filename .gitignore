@@ -32,10 +32,6 @@ supabase/seed.sql
 supabase/seed_remote.sql
 supabase/schema_remote.sql
 
-# Presentation
-presentation.html
-dashboard.jpg
-calendar.jpg
 .worktrees/
 
 # Playwright

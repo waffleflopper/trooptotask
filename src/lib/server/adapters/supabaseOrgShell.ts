@@ -33,6 +33,7 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
+import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
@@ -58,7 +59,7 @@ export function createSupabaseOrgAccessPort(config: {
 				)
 				.eq('user_id', config.userId)
 				.eq('organization_id', config.orgId)
-				.single();
+				.maybeSingle();
 
 			if (membershipError) {
 				throw error(500, membershipError.message);
@@ -171,7 +172,7 @@ export function createSupabaseOrgChromePort(config: {
 					id: a.id as string,
 					title: a.title as string,
 					message: a.message as string,
-					type: a.type as 'info' | 'warning' | 'critical'
+					type: a.type as 'info' | 'warning' | 'maintenance'
 				}));
 
 			return {
@@ -230,7 +231,7 @@ export function createSupabaseTrainingWorkspacePort(
 			const data = await loadWithContext(locals, cookies, orgId, {
 				permission: 'training',
 				fn: async (ctx) => {
-					const [personnelRows, groupRows, trainingTypeRows, trainingViewRows] = await Promise.all([
+					const [personnelRows, groupRows, trainingTypeRows, trainingViewRows, pinnedGroupRows] = await Promise.all([
 						ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
 							select: PersonnelEntity.select,
 							isNull: { archived_at: true },
@@ -244,7 +245,17 @@ export function createSupabaseTrainingWorkspacePort(
 						}),
 						ctx.store.findMany<Record<string, unknown>>('training_views', orgId, undefined, {
 							orderBy: [{ column: 'name', ascending: true }]
-						})
+						}),
+						ctx.auth.userId
+							? ctx.store.findMany<Record<string, unknown>>(
+									'user_pinned_groups',
+									orgId,
+									{ user_id: ctx.auth.userId },
+									{
+										orderBy: [{ column: 'sort_order', ascending: true }]
+									}
+								)
+							: Promise.resolve([])
 					]);
 
 					const personnelTrainings: Promise<PersonnelTraining[]> = ctx.store
@@ -254,6 +265,7 @@ export function createSupabaseTrainingWorkspacePort(
 					return {
 						personnel: PersonnelEntity.fromDbArray(personnelRows) as Personnel[],
 						groups: GroupEntity.fromDbArray(groupRows) as Group[],
+						pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
 						trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows) as TrainingType[],
 						trainingViews: TrainingViewEntity.fromDbArray(trainingViewRows) as TrainingView[],
 						personnelTrainings

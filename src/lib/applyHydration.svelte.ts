@@ -15,7 +15,10 @@
  */
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
+import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from '$features/onboarding/onboarding.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
+import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
+import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -25,7 +28,12 @@ import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import type { CalendarAssignmentsHydrationTarget, HydrationPlan, HydrationTarget } from '$lib/server/core/orgShell';
+import type {
+	CalendarAssignmentsHydrationTarget,
+	HydrationPlan,
+	HydrationTarget,
+	OnboardingTemplatesHydrationTarget
+} from '$lib/server/core/orgShell';
 
 // Structural type — only the load method is needed; avoids coupling to full Store<T>.
 interface Loadable<T> {
@@ -39,6 +47,11 @@ interface CalendarAssignmentsLoadable {
 	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string): void;
 }
 
+interface OnboardingTemplatesLoadable {
+	readonly orgId: string;
+	load(templates: OnboardingTemplate[], steps: OnboardingTemplateStep[], orgId: string): void;
+}
+
 export interface HydrationStores {
 	personnelStore: Loadable<Personnel>;
 	groupsStore: Loadable<Group>;
@@ -49,6 +62,8 @@ export interface HydrationStores {
 	trainingTypesStore: Loadable<TrainingType>;
 	trainingViewsStore: Loadable<TrainingView>;
 	personnelTrainingsStore: Loadable<PersonnelTraining>;
+	onboardingTemplateStore: OnboardingTemplatesLoadable;
+	onboardingStore: Loadable<PersonnelOnboarding>;
 }
 
 const defaultStores: HydrationStores = {
@@ -60,7 +75,9 @@ const defaultStores: HydrationStores = {
 	calendarAssignmentsStore: dailyAssignmentsStore,
 	trainingTypesStore,
 	trainingViewsStore,
-	personnelTrainingsStore
+	personnelTrainingsStore,
+	onboardingTemplateStore,
+	onboardingStore
 };
 
 interface TargetSnapshotState {
@@ -136,6 +153,28 @@ function applyCalendarAssignmentsTarget(
 	appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
 }
 
+function applyOnboardingTemplatesTarget(
+	target: OnboardingTemplatesHydrationTarget | undefined,
+	store: OnboardingTemplatesLoadable,
+	orgId: string,
+	targetName: string
+): void {
+	if (!target || target.mode === 'preserve-client') return;
+
+	const appliedState = appliedSnapshotKeys.get(targetName);
+	if (store.orgId === orgId && appliedState?.orgId === orgId && appliedState.snapshotKey === target.snapshotKey) {
+		return;
+	}
+
+	const pendingState = pendingSnapshotKeys.get(targetName);
+	if (pendingState?.orgId === orgId && pendingState.snapshotKey === target.snapshotKey) return;
+
+	pendingSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
+	store.load(target.templates, target.steps, orgId);
+	pendingSnapshotKeys.delete(targetName);
+	appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
+}
+
 export function resetHydrationState(): void {
 	appliedSnapshotKeys.clear();
 	pendingSnapshotKeys.clear();
@@ -157,6 +196,15 @@ export async function applyHydration(plan?: HydrationPlan, stores: HydrationStor
 		),
 		applyTarget(plan.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
 		applyTarget(plan.trainingViews, stores.trainingViewsStore, orgId, 'trainingViews'),
-		applyTarget(plan.personnelTrainings, stores.personnelTrainingsStore, orgId, 'personnelTrainings')
+		applyTarget(plan.personnelTrainings, stores.personnelTrainingsStore, orgId, 'personnelTrainings'),
+		Promise.resolve(
+			applyOnboardingTemplatesTarget(
+				plan.onboardingTemplates,
+				stores.onboardingTemplateStore,
+				orgId,
+				'onboardingTemplates'
+			)
+		),
+		applyTarget(plan.onboardings, stores.onboardingStore, orgId, 'onboardings')
 	]);
 }

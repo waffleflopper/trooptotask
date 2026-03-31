@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { defineStore } from '$lib/stores/core';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
+import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from '$features/onboarding/onboarding.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { applyHydration, resetHydrationState } from './applyHydration.svelte';
 import type { HydrationStores } from './applyHydration.svelte';
@@ -32,6 +33,13 @@ function createTestStores(): HydrationStores & {
 	trainingTypes: ReturnType<typeof defineStore<TrainingType>>;
 	trainingViews: ReturnType<typeof defineStore<TrainingView>>;
 	personnelTrainings: ReturnType<typeof defineStore<PersonnelTraining>>;
+	onboardingTemplates: {
+		orgId: string;
+		templates: OnboardingTemplate[];
+		steps: OnboardingTemplateStep[];
+		load: (templates: OnboardingTemplate[], steps: OnboardingTemplateStep[], orgId: string) => void;
+	};
+	onboardings: ReturnType<typeof defineStore<PersonnelOnboarding>>;
 } {
 	const personnel = defineStore<Personnel>({ table: 'personnel' });
 	const groups = defineStore<Group>({ table: 'groups' });
@@ -42,6 +50,17 @@ function createTestStores(): HydrationStores & {
 	const trainingTypes = defineStore<TrainingType>({ table: 'training_types' });
 	const trainingViews = defineStore<TrainingView>({ table: 'training_views' });
 	const personnelTrainings = defineStore<PersonnelTraining>({ table: 'personnel_trainings' });
+	const onboardingTemplates = {
+		orgId: '',
+		templates: [] as OnboardingTemplate[],
+		steps: [] as OnboardingTemplateStep[],
+		load(templates: OnboardingTemplate[], steps: OnboardingTemplateStep[], orgId: string) {
+			this.templates = templates;
+			this.steps = steps;
+			this.orgId = orgId;
+		}
+	};
+	const onboardings = defineStore<PersonnelOnboarding>({ table: 'personnel_onboardings' });
 	return {
 		personnelStore: personnel as unknown as HydrationStores['personnelStore'],
 		groupsStore: groups as unknown as HydrationStores['groupsStore'],
@@ -52,6 +71,8 @@ function createTestStores(): HydrationStores & {
 		trainingTypesStore: trainingTypes as unknown as HydrationStores['trainingTypesStore'],
 		trainingViewsStore: trainingViews as unknown as HydrationStores['trainingViewsStore'],
 		personnelTrainingsStore: personnelTrainings as unknown as HydrationStores['personnelTrainingsStore'],
+		onboardingTemplateStore: onboardingTemplates as unknown as HydrationStores['onboardingTemplateStore'],
+		onboardingStore: onboardings as unknown as HydrationStores['onboardingStore'],
 		personnel,
 		groups,
 		statusTypes,
@@ -60,7 +81,9 @@ function createTestStores(): HydrationStores & {
 		calendarAssignments,
 		trainingTypes,
 		trainingViews,
-		personnelTrainings
+		personnelTrainings,
+		onboardingTemplates,
+		onboardings
 	};
 }
 
@@ -114,6 +137,33 @@ const personnelTraining = {
 	notes: null,
 	certificateUrl: null
 } as PersonnelTraining;
+const onboardingTemplate = {
+	id: 'tpl1',
+	orgId: ORG,
+	name: 'Reception',
+	description: null,
+	createdAt: '2024-01-01'
+} satisfies OnboardingTemplate;
+const onboardingTemplateStep = {
+	id: 'step1',
+	templateId: 'tpl1',
+	name: 'Sign in',
+	description: null,
+	stepType: 'checkbox',
+	trainingTypeId: null,
+	stages: null,
+	sortOrder: 0
+} satisfies OnboardingTemplateStep;
+const onboardingRecord = {
+	id: 'ob1',
+	personnelId: 'p1',
+	startedAt: '2024-01-01',
+	completedAt: null,
+	cancelledAt: null,
+	status: 'in_progress',
+	steps: [],
+	templateId: 'tpl1'
+} satisfies PersonnelOnboarding;
 
 describe('applyHydration', () => {
 	let stores: ReturnType<typeof createTestStores>;
@@ -185,6 +235,30 @@ describe('applyHydration', () => {
 		};
 		await applyHydration(plan, stores);
 		expect(stores.trainingViews.items).toEqual([trainingView]);
+	});
+
+	it('hydrates onboarding-owned stores through the declared contract', async () => {
+		const plan = {
+			orgId: ORG,
+			onboardingTemplates: {
+				mode: 'replace',
+				snapshotKey: 'onboarding-templates:1',
+				templates: [onboardingTemplate],
+				steps: [onboardingTemplateStep]
+			},
+			onboardings: {
+				mode: 'replace',
+				snapshotKey: 'onboardings:1',
+				items: [onboardingRecord]
+			}
+		} as unknown as HydrationPlan;
+
+		await applyHydration(plan, stores as unknown as HydrationStores);
+
+		expect(stores.onboardingTemplates.templates).toEqual([onboardingTemplate]);
+		expect(stores.onboardingTemplates.steps).toEqual([onboardingTemplateStep]);
+		expect(stores.onboardingTemplates.orgId).toBe(ORG);
+		expect(stores.onboardings.items).toEqual([onboardingRecord]);
 	});
 
 	it('hydrates deferred personnelTrainings and keeps loading true until resolution', async () => {

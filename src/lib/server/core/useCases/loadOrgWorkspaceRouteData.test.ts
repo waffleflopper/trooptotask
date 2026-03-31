@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { createInMemoryOrgWorkspacePort } from '$lib/server/adapters/inMemoryOrgShell';
 import type { WorkspaceKey, WorkspaceBootstrap } from '../orgShell';
 import type { CalendarBootstrap } from './calendarQuery';
+import type { OnboardingBootstrap } from './onboardingQuery';
 import type { TrainingBootstrap } from './trainingQuery';
+import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from '$features/onboarding/onboarding.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -176,6 +178,93 @@ describe('loadOrgWorkspaceRouteData', () => {
 					}
 				})
 			} satisfies WorkspaceBootstrap<TrainingBootstrap>
+		});
+	});
+
+	it('returns the canonical onboarding route payload with onboarding-owned hydration targets', async () => {
+		const onboardingTemplates = [
+			{
+				id: 'tpl1',
+				orgId: 'org-1',
+				name: 'Reception',
+				description: null,
+				createdAt: '2024-01-01'
+			} satisfies OnboardingTemplate
+		];
+		const onboardingTemplateSteps = [
+			{
+				id: 'step1',
+				templateId: 'tpl1',
+				name: 'Sign in',
+				description: null,
+				stepType: 'checkbox',
+				trainingTypeId: null,
+				stages: null,
+				sortOrder: 0
+			} satisfies OnboardingTemplateStep
+		];
+		const onboardings = [
+			{
+				id: 'ob1',
+				personnelId: 'p1',
+				startedAt: '2024-01-01',
+				completedAt: null,
+				cancelledAt: null,
+				status: 'in_progress',
+				steps: [],
+				templateId: 'tpl1'
+			} satisfies PersonnelOnboarding
+		];
+		const onboardingData: OnboardingBootstrap = {
+			onboardingTemplates,
+			onboardingTemplateSteps,
+			onboardings,
+			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType],
+			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
+			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group]
+		};
+
+		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['onboarding', onboardingData]]));
+		const plannerPort = createDefaultHydrationPlanner('org-1');
+
+		const result = await loadOrgWorkspaceRouteData('onboarding', workspacePort, plannerPort);
+
+		expect(result).toEqual({
+			onboarding: {
+				workspace: 'onboarding',
+				data: onboardingData,
+				hydration: expect.objectContaining({
+					orgId: 'org-1',
+					groups: {
+						mode: 'replace',
+						items: onboardingData.groups,
+						snapshotKey: expect.any(String)
+					},
+					personnel: {
+						scoped: {
+							mode: 'replace',
+							items: onboardingData.personnel,
+							snapshotKey: expect.any(String)
+						}
+					},
+					trainingTypes: {
+						mode: 'replace',
+						items: onboardingData.trainingTypes,
+						snapshotKey: expect.any(String)
+					},
+					onboardingTemplates: {
+						mode: 'replace',
+						templates: onboardingData.onboardingTemplates,
+						steps: onboardingData.onboardingTemplateSteps,
+						snapshotKey: expect.any(String)
+					},
+					onboardings: {
+						mode: 'replace',
+						items: onboardingData.onboardings,
+						snapshotKey: expect.any(String)
+					}
+				})
+			} satisfies WorkspaceBootstrap<OnboardingBootstrap>
 		});
 	});
 });

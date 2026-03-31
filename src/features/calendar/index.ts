@@ -10,7 +10,6 @@ export { calendarStore } from './stores/calendar.svelte';
 export { specialDaysStore } from './stores/specialDays.svelte';
 export { statusTypesStore } from './stores/statusTypes.svelte';
 export { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
-export { calendarPrefsStore } from './stores/calendarPrefs.svelte';
 
 // Utils
 export { getDefaultFederalHolidays } from './utils/federalHolidays';

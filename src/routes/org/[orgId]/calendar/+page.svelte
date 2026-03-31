@@ -12,6 +12,7 @@
 			orgId: data.orgId,
 			orgName: data.orgName ?? 'Troop to Task',
 			userId: data.userId,
+			userPreferences: data.userPreferences,
 			calendar: data.calendar ? { data: data.calendar.data } : undefined,
 			scopedGroupId: data.scopedGroupId,
 			permissions: data.permissions,
@@ -26,10 +27,7 @@
 	const ctx = new CalendarPageContext(() => pageData, org);
 
 	$effect(() => {
-		ctx.initBreakdownPreference();
-	});
-	$effect(() => {
-		ctx.initFromStorage();
+		ctx.syncUserPreferences(pageData.userPreferences);
 	});
 	$effect(() => {
 		ctx.markCalendarVisited();

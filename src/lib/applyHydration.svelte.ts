@@ -13,16 +13,19 @@
  * The optional `stores` parameter is the injection point for tests; production callers
  * rely on the default binding to the real module-level singletons.
  */
-import type { Personnel, StatusType } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
+import { availabilityStore } from '$features/calendar/stores/availability.svelte';
+import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
+import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import type { HydrationPlan, HydrationTarget } from '$lib/server/core/orgShell';
+import type { CalendarAssignmentsHydrationTarget, HydrationPlan, HydrationTarget } from '$lib/server/core/orgShell';
 
 // Structural type — only the load method is needed; avoids coupling to full Store<T>.
 interface Loadable<T> {
@@ -31,10 +34,18 @@ interface Loadable<T> {
 	startLoading?(): void;
 }
 
+interface CalendarAssignmentsLoadable {
+	readonly orgId: string;
+	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string): void;
+}
+
 export interface HydrationStores {
 	personnelStore: Loadable<Personnel>;
 	groupsStore: Loadable<Group>;
 	statusTypesStore: Loadable<StatusType>;
+	availabilityEntriesStore: Loadable<AvailabilityEntry>;
+	specialDaysStore: Loadable<SpecialDay>;
+	calendarAssignmentsStore: CalendarAssignmentsLoadable;
 	trainingTypesStore: Loadable<TrainingType>;
 	trainingViewsStore: Loadable<TrainingView>;
 	personnelTrainingsStore: Loadable<PersonnelTraining>;
@@ -44,6 +55,9 @@ const defaultStores: HydrationStores = {
 	personnelStore,
 	groupsStore,
 	statusTypesStore,
+	availabilityEntriesStore: availabilityStore,
+	specialDaysStore,
+	calendarAssignmentsStore: dailyAssignmentsStore,
 	trainingTypesStore,
 	trainingViewsStore,
 	personnelTrainingsStore
@@ -100,6 +114,28 @@ async function applyTarget<T>(
 	appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
 }
 
+function applyCalendarAssignmentsTarget(
+	target: CalendarAssignmentsHydrationTarget | undefined,
+	store: CalendarAssignmentsLoadable,
+	orgId: string,
+	targetName: string
+): void {
+	if (!target || target.mode === 'preserve-client') return;
+
+	const appliedState = appliedSnapshotKeys.get(targetName);
+	if (store.orgId === orgId && appliedState?.orgId === orgId && appliedState.snapshotKey === target.snapshotKey) {
+		return;
+	}
+
+	const pendingState = pendingSnapshotKeys.get(targetName);
+	if (pendingState?.orgId === orgId && pendingState.snapshotKey === target.snapshotKey) return;
+
+	pendingSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
+	store.load(target.types, target.assignments, orgId);
+	pendingSnapshotKeys.delete(targetName);
+	appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
+}
+
 export function resetHydrationState(): void {
 	appliedSnapshotKeys.clear();
 	pendingSnapshotKeys.clear();
@@ -114,6 +150,11 @@ export async function applyHydration(plan?: HydrationPlan, stores: HydrationStor
 		// plan.personnel.all: no allPersonnelStore yet — forward-looking slot in HydrationPlan
 		applyTarget(plan.groups, stores.groupsStore, orgId, 'groups'),
 		applyTarget(plan.statusTypes, stores.statusTypesStore, orgId, 'statusTypes'),
+		applyTarget(plan.availabilityEntries, stores.availabilityEntriesStore, orgId, 'availabilityEntries'),
+		applyTarget(plan.specialDays, stores.specialDaysStore, orgId, 'specialDays'),
+		Promise.resolve(
+			applyCalendarAssignmentsTarget(plan.calendarAssignments, stores.calendarAssignmentsStore, orgId, 'calendarAssignments')
+		),
 		applyTarget(plan.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
 		applyTarget(plan.trainingViews, stores.trainingViewsStore, orgId, 'trainingViews'),
 		applyTarget(plan.personnelTrainings, stores.personnelTrainingsStore, orgId, 'personnelTrainings')

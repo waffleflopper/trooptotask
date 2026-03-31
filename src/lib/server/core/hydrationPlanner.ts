@@ -1,5 +1,6 @@
 import type { HydrationItems, HydrationPlan, HydrationPlannerPort, WorkspaceKey } from './orgShell';
 import type { PersonnelTraining } from '$features/training/training.types';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
 const deferredSnapshotKeys = new WeakMap<object, string>();
 let fallbackSnapshotCounter = 0;
@@ -60,6 +61,9 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			const hasPersonnel = isHydratableItems(d.personnel) || isHydratableItems(d.allPersonnel);
 			const hasGroups = isHydratableItems(d.groups);
 			const hasStatusTypes = isHydratableItems(d.statusTypes);
+			const hasAvailabilityEntries = isHydratableItems(d.availabilityEntries);
+			const hasSpecialDays = isHydratableItems(d.specialDays);
+			const hasCalendarAssignments = Array.isArray(d.assignmentTypes) && Array.isArray(d.dailyAssignments);
 			const hasTrainingTypes = isHydratableItems(d.trainingTypes);
 			const hasTrainingViews = isHydratableItems(d.trainingViews);
 			const hasPersonnelTrainings = isHydratableItems(d.personnelTrainings);
@@ -68,6 +72,9 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 				!hasPersonnel &&
 				!hasGroups &&
 				!hasStatusTypes &&
+				!hasAvailabilityEntries &&
+				!hasSpecialDays &&
+				!hasCalendarAssignments &&
 				!hasTrainingTypes &&
 				!hasTrainingViews &&
 				!hasPersonnelTrainings
@@ -111,6 +118,34 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 					mode: 'replace',
 					snapshotKey: createSnapshotKey(d.statusTypes),
 					items: d.statusTypes as unknown[] | Promise<unknown[]>
+				};
+			}
+
+			if (hasAvailabilityEntries) {
+				plan.availabilityEntries = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.availabilityEntries),
+					items: d.availabilityEntries as HydrationItems<AvailabilityEntry>
+				};
+			}
+
+			if (hasSpecialDays) {
+				plan.specialDays = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.specialDays),
+					items: d.specialDays as HydrationItems<SpecialDay>
+				};
+			}
+
+			if (hasCalendarAssignments) {
+				plan.calendarAssignments = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey({
+						assignmentTypes: d.assignmentTypes,
+						dailyAssignments: d.dailyAssignments
+					}),
+					types: d.assignmentTypes as AssignmentType[],
+					assignments: d.dailyAssignments as DailyAssignment[]
 				};
 			}
 

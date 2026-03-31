@@ -10,6 +10,7 @@
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
 import type { PersonnelTraining } from '$features/training/training.types';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
 // ---------------------------------------------------------------------------
 // Announcement — defined here as a domain type (not tied to the DB query)
@@ -71,6 +72,13 @@ export interface HydrationTarget<T = unknown> {
 	items: HydrationItems<T>;
 }
 
+export interface CalendarAssignmentsHydrationTarget {
+	mode: HydrationMode;
+	snapshotKey: string;
+	types: AssignmentType[];
+	assignments: DailyAssignment[];
+}
+
 export interface HydrationPlan {
 	orgId: string;
 	personnel?: {
@@ -80,6 +88,9 @@ export interface HydrationPlan {
 	};
 	groups?: HydrationTarget;
 	statusTypes?: HydrationTarget;
+	availabilityEntries?: HydrationTarget<AvailabilityEntry>;
+	specialDays?: HydrationTarget<SpecialDay>;
+	calendarAssignments?: CalendarAssignmentsHydrationTarget;
 	trainingTypes?: HydrationTarget;
 	trainingViews?: HydrationTarget;
 	personnelTrainings?: HydrationTarget<PersonnelTraining>;

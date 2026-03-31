@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { defineStore } from '$lib/stores/core';
-import type { Personnel, StatusType } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { applyHydration, resetHydrationState } from './applyHydration.svelte';
@@ -9,10 +9,26 @@ import type { HydrationPlan } from '$lib/server/core/orgShell';
 
 const ORG = 'test-org';
 
+function createCalendarAssignmentsStore() {
+	return {
+		orgId: '',
+		types: [] as AssignmentType[],
+		assignments: [] as DailyAssignment[],
+		load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
+			this.types = types;
+			this.assignments = assignments;
+			this.orgId = orgId;
+		}
+	};
+}
+
 function createTestStores(): HydrationStores & {
 	personnel: ReturnType<typeof defineStore<Personnel>>;
 	groups: ReturnType<typeof defineStore<Group>>;
 	statusTypes: ReturnType<typeof defineStore<StatusType>>;
+	availabilityEntries: ReturnType<typeof defineStore<AvailabilityEntry>>;
+	specialDays: ReturnType<typeof defineStore<SpecialDay>>;
+	calendarAssignments: ReturnType<typeof createCalendarAssignmentsStore>;
 	trainingTypes: ReturnType<typeof defineStore<TrainingType>>;
 	trainingViews: ReturnType<typeof defineStore<TrainingView>>;
 	personnelTrainings: ReturnType<typeof defineStore<PersonnelTraining>>;
@@ -20,6 +36,9 @@ function createTestStores(): HydrationStores & {
 	const personnel = defineStore<Personnel>({ table: 'personnel' });
 	const groups = defineStore<Group>({ table: 'groups' });
 	const statusTypes = defineStore<StatusType>({ table: 'status_types' });
+	const availabilityEntries = defineStore<AvailabilityEntry>({ table: 'availability_entries' });
+	const specialDays = defineStore<SpecialDay>({ table: 'special_days' });
+	const calendarAssignments = createCalendarAssignmentsStore();
 	const trainingTypes = defineStore<TrainingType>({ table: 'training_types' });
 	const trainingViews = defineStore<TrainingView>({ table: 'training_views' });
 	const personnelTrainings = defineStore<PersonnelTraining>({ table: 'personnel_trainings' });
@@ -27,12 +46,18 @@ function createTestStores(): HydrationStores & {
 		personnelStore: personnel as unknown as HydrationStores['personnelStore'],
 		groupsStore: groups as unknown as HydrationStores['groupsStore'],
 		statusTypesStore: statusTypes as unknown as HydrationStores['statusTypesStore'],
+		availabilityEntriesStore: availabilityEntries as unknown as HydrationStores['availabilityEntriesStore'],
+		specialDaysStore: specialDays as unknown as HydrationStores['specialDaysStore'],
+		calendarAssignmentsStore: calendarAssignments as unknown as HydrationStores['calendarAssignmentsStore'],
 		trainingTypesStore: trainingTypes as unknown as HydrationStores['trainingTypesStore'],
 		trainingViewsStore: trainingViews as unknown as HydrationStores['trainingViewsStore'],
 		personnelTrainingsStore: personnelTrainings as unknown as HydrationStores['personnelTrainingsStore'],
 		personnel,
 		groups,
 		statusTypes,
+		availabilityEntries,
+		specialDays,
+		calendarAssignments,
 		trainingTypes,
 		trainingViews,
 		personnelTrainings
@@ -41,6 +66,35 @@ function createTestStores(): HydrationStores & {
 
 const group: Group = { id: 'g1', name: 'Alpha', sortOrder: 0 };
 const statusType: StatusType = { id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' };
+const availabilityEntry: AvailabilityEntry = {
+	id: 'a1',
+	personnelId: 'p1',
+	statusTypeId: 'st1',
+	startDate: '2024-01-01',
+	endDate: '2024-01-02',
+	note: null
+};
+const specialDay: SpecialDay = {
+	id: 'sd1',
+	name: 'Training Holiday',
+	date: '2024-01-15',
+	type: 'org-closure'
+};
+const assignmentType: AssignmentType = {
+	id: 'at1',
+	name: 'CQ',
+	shortName: 'CQ',
+	assignTo: 'personnel',
+	color: '#ef4444',
+	exemptPersonnelIds: [],
+	showInDateHeader: false
+};
+const dailyAssignment: DailyAssignment = {
+	id: 'da1',
+	date: '2024-01-15',
+	assignmentTypeId: 'at1',
+	assigneeId: 'p1'
+};
 const trainingType = { id: 'tt1', name: 'CPR', expirationMonths: 12 } as unknown as TrainingType;
 const trainingView = {
 	id: 'tv1',
@@ -91,6 +145,28 @@ describe('applyHydration', () => {
 		};
 		await applyHydration(plan, stores);
 		expect(stores.statusTypes.items).toEqual([statusType]);
+	});
+
+	it('hydrates calendar-owned stores through the declared contract', async () => {
+		const plan: HydrationPlan = {
+			orgId: ORG,
+			availabilityEntries: { mode: 'replace', snapshotKey: 'availability:1', items: [availabilityEntry] },
+			specialDays: { mode: 'replace', snapshotKey: 'special-days:1', items: [specialDay] },
+			calendarAssignments: {
+				mode: 'replace',
+				snapshotKey: 'calendar-assignments:1',
+				types: [assignmentType],
+				assignments: [dailyAssignment]
+			}
+		};
+
+		await applyHydration(plan, stores);
+
+		expect(stores.availabilityEntries.items).toEqual([availabilityEntry]);
+		expect(stores.specialDays.items).toEqual([specialDay]);
+		expect(stores.calendarAssignments.types).toEqual([assignmentType]);
+		expect(stores.calendarAssignments.assignments).toEqual([dailyAssignment]);
+		expect(stores.calendarAssignments.orgId).toBe(ORG);
 	});
 
 	it('hydrates trainingTypes store with replace mode', async () => {

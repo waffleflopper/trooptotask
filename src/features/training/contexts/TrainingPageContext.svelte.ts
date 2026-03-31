@@ -3,9 +3,16 @@ import { invalidate, goto } from '$app/navigation';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
+import { toastStore } from '$lib/stores/toast.svelte';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
 import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 import { submitDeletionRequest } from '$lib/utils/deletionRequests';
+import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
+import type {
+	TrainingMatrixViewMode,
+	UserOrgPreferences,
+	UserOrgPreferencesPatch
+} from '$lib/preferences/userPreferences';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
@@ -20,6 +27,7 @@ import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery'
 export interface TrainingPageData {
 	orgId: string;
 	orgName: string;
+	userPreferences?: UserOrgPreferences;
 	permissions?: {
 		canViewTraining?: boolean;
 		canEditTraining?: boolean;
@@ -40,13 +48,15 @@ export class TrainingPageContext {
 
 	// ---- mutable UI state ----
 	selectedGroupId = $state<string>('');
-	viewMode = $state<'alphabetical' | 'by-group'>('by-group');
+	selectedViewId = $state<string | null>(null);
+	viewMode = $state<TrainingMatrixViewMode>('by-group');
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
 
 	constructor(data: TrainingPageData, modals: ModalRegistry, org: OrgContext) {
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
+		this.applyUserPreferences(data.userPreferences);
 	}
 
 	// ---- permission flags ----
@@ -81,6 +91,10 @@ export class TrainingPageContext {
 
 	get groups(): Group[] {
 		return this.#data.training.data.groups ?? [];
+	}
+
+	get savedViewIds(): Set<string> {
+		return new Set((this.#data.training.data.trainingViews ?? []).map((view) => view.id));
 	}
 
 	// ---- derived: roles ----
@@ -159,6 +173,33 @@ export class TrainingPageContext {
 		this.#modals.open('person-editor', { person });
 	}
 
+	setSelectedGroupId(groupId: string): void {
+		this.selectedGroupId = this.isValidGroupId(groupId) ? groupId : '';
+		void this.persistPreferences({
+			training: {
+				selectedGroupId: this.selectedGroupId || null
+			}
+		});
+	}
+
+	setSelectedViewId(viewId: string | null): void {
+		this.selectedViewId = viewId && this.savedViewIds.has(viewId) ? viewId : null;
+		void this.persistPreferences({
+			training: {
+				selectedViewId: this.selectedViewId
+			}
+		});
+	}
+
+	setViewMode(viewMode: TrainingMatrixViewMode): void {
+		this.viewMode = viewMode;
+		void this.persistPreferences({
+			training: {
+				matrixViewMode: viewMode
+			}
+		});
+	}
+
 	// ---- async handlers ----
 	async handleSaveTraining(data: Omit<PersonnelTraining, 'id'>): Promise<void> {
 		await personnelTrainingsStore.add(data);
@@ -210,5 +251,27 @@ export class TrainingPageContext {
 	async handleBulkImportComplete(): Promise<void> {
 		await invalidate('app:training-data');
 		this.#modals.close('bulk-import');
+	}
+
+	private applyUserPreferences(preferences?: UserOrgPreferences): void {
+		const trainingPrefs = preferences?.training;
+		const selectedGroupId = trainingPrefs?.selectedGroupId ?? null;
+		const selectedViewId = trainingPrefs?.selectedViewId ?? null;
+
+		this.selectedGroupId = selectedGroupId && this.isValidGroupId(selectedGroupId) ? selectedGroupId : '';
+		this.selectedViewId = selectedViewId && this.savedViewIds.has(selectedViewId) ? selectedViewId : null;
+		this.viewMode = trainingPrefs?.matrixViewMode ?? 'by-group';
+	}
+
+	private isValidGroupId(groupId: string | null): boolean {
+		return !!groupId && this.groups.some((group) => group.id === groupId);
+	}
+
+	private async persistPreferences(preferences: UserOrgPreferencesPatch): Promise<void> {
+		try {
+			await queueUserPreferencesPatch(this.orgId, preferences);
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to save your training preferences');
+		}
 	}
 }

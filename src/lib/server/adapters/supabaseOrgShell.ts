@@ -11,6 +11,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
+import { getDefaultUserOrgPreferences, normalizeUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type {
 	OrgAccessPort,
 	OrgChromePort,
@@ -119,7 +120,7 @@ export function createSupabaseOrgChromePort(config: {
 }): OrgChromePort {
 	return {
 		async getChromeData(): Promise<ChromeData> {
-			const [membershipsRes, notifRes, announcementsRes, dismissalsRes] = await Promise.all([
+			const [membershipsRes, notifRes, announcementsRes, dismissalsRes, userPrefsRes] = await Promise.all([
 				config.userSupabase
 					.from('organization_memberships')
 					.select('role, organizations(id, name)')
@@ -135,7 +136,13 @@ export function createSupabaseOrgChromePort(config: {
 					.select('id, title, message, type')
 					.eq('is_active', true)
 					.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
-				config.userSupabase.from('announcement_dismissals').select('announcement_id').eq('user_id', config.userId)
+				config.userSupabase.from('announcement_dismissals').select('announcement_id').eq('user_id', config.userId),
+				config.userSupabase
+					.from('user_org_preferences')
+					.select('preferences')
+					.eq('organization_id', config.orgId)
+					.eq('user_id', config.userId)
+					.maybeSingle()
 			]);
 
 			if (membershipsRes.error) {
@@ -158,6 +165,11 @@ export function createSupabaseOrgChromePort(config: {
 				throw new Error(`Failed to load announcement dismissals: ${dismissalsRes.error.message}`);
 			}
 
+			if (userPrefsRes.error) {
+				console.error('[org-shell] Failed to load user preferences for chrome data:', userPrefsRes.error);
+				throw new Error(`Failed to load user preferences: ${userPrefsRes.error.message}`);
+			}
+
 			const allOrgs = (membershipsRes.data ?? [])
 				.filter((m: Record<string, unknown>) => m.organizations)
 				.map((m: Record<string, unknown>) => {
@@ -178,7 +190,10 @@ export function createSupabaseOrgChromePort(config: {
 			return {
 				unreadNotificationCount: notifRes.count ?? 0,
 				activeAnnouncements,
-				allOrgs
+				allOrgs,
+				userPreferences: userPrefsRes.data
+					? normalizeUserOrgPreferences(userPrefsRes.data.preferences)
+					: getDefaultUserOrgPreferences()
 			};
 		}
 	};

@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-31-preferences-follow-your-account',
+		date: '2026-03-31',
+		title: 'Your Calendar and Training Preferences Stick Around Better',
+		items: [
+			"Calendar display choices like showing status text and keeping Today's Summary open or closed now follow your account instead of depending on that computer remembering local settings",
+			'The training page now remembers your selected saved view, group filter, and layout view after refreshes so you do not have to keep setting the page back up',
+			'This is especially helpful on locked-down government machines that like to forget browser storage whenever they feel like it'
+		]
+	},
+	{
 		id: '2026-03-26-calendar-bulk-workspace',
 		date: '2026-03-26',
 		title: 'Bulk Calendar Updates Have More Room to Breathe',
@@ -24,16 +34,6 @@ export const changelog: ChangelogEntry[] = [
 			'You can now click the month name at the top of the calendar to jump straight to a different month instead of hammering the next and previous buttons over and over',
 			'The same quick-jump picker also works in the 3-month calendar view, so it is easier to move across the year without losing your place',
 			'Keyboard navigation was added too, so the new picker is easier to use without needing to rely on a mouse'
-		]
-	},
-	{
-		id: '2026-03-26-calendar-grid-polish',
-		date: '2026-03-26',
-		title: 'Calendar Grid Scrolling Feels Less Janky',
-		items: [
-			'Cleaned up the calendar grid so row lines no longer stack on top of each other and create that double-border look',
-			'Improved horizontal scrolling so the personnel column is meant to stay anchored while you move across the month, especially on smaller screens',
-			'Tightened up the calendar layout under the hood so the header and body stay lined up better while you scroll'
 		]
 	},
 	{

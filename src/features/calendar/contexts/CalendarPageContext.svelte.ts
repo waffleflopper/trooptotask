@@ -5,6 +5,13 @@ import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
+import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
+import {
+	getDefaultUserOrgPreferences,
+	type UserOrgPreferences,
+	type UserOrgPreferencesPatch
+} from '$lib/preferences/userPreferences';
+import { toastStore } from '$lib/stores/toast.svelte';
 import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -17,6 +24,7 @@ export interface CalendarPageData {
 	orgId: string;
 	orgName?: string;
 	userId?: string | null;
+	userPreferences?: UserOrgPreferences;
 	personnel?: Personnel[];
 	allPersonnel?: Personnel[];
 	calendar?: {
@@ -55,6 +63,7 @@ export class CalendarPageContext {
 	viewMode = $state<'month' | '3-month'>('month');
 
 	// ---- display prefs -----------------------------------------------------
+	showStatusText = $state(false);
 	highlightOnboarding = $state(true);
 	breakdownExpanded = $state(true);
 
@@ -109,11 +118,6 @@ export class CalendarPageContext {
 		return this.scopedPBG.flatMap((g) => g.personnel);
 	}
 
-	// ---- highlight key -----------------------------------------------------
-	get highlightKey(): string {
-		return `calendar-highlight-onboarding-${this.#data.userId ?? ''}`;
-	}
-
 	// ---- constructor -------------------------------------------------------
 	constructor(getData: CalendarPageData | (() => CalendarPageData), org: OrgContext) {
 		this.#getData = typeof getData === 'function' ? getData : () => getData;
@@ -122,21 +126,15 @@ export class CalendarPageContext {
 
 	// ---- lifecycle methods (called from route $effect) ---------------------
 
-	/** Restore persisted highlight preference from localStorage. */
-	initFromStorage(): void {
-		if (browser) {
-			const stored = localStorage.getItem(this.highlightKey);
-			if (stored !== null) {
-				this.highlightOnboarding = stored !== 'false';
-			}
-		}
-	}
-
-	initBreakdownPreference(
+	syncUserPreferences(
+		preferences: UserOrgPreferences | undefined,
 		matchMediaFn: ((query: string) => { matches: boolean }) | null = browser ? window.matchMedia.bind(window) : null
 	): void {
-		if (!matchMediaFn) return;
-		this.breakdownExpanded = !matchMediaFn('(max-width: 640px)').matches;
+		const current = preferences ?? getDefaultUserOrgPreferences();
+		this.showStatusText = current.calendar.showStatusText;
+		this.highlightOnboarding = current.calendar.highlightOnboarding;
+		this.breakdownExpanded =
+			current.calendar.todaySummaryExpanded ?? (matchMediaFn ? !matchMediaFn('(max-width: 640px)').matches : true);
 	}
 
 	/** Mark calendar as explored for Getting Started checklist. */
@@ -159,13 +157,29 @@ export class CalendarPageContext {
 
 	toggleBreakdown(): void {
 		this.breakdownExpanded = !this.breakdownExpanded;
+		void this.persistPreferences({
+			calendar: {
+				todaySummaryExpanded: this.breakdownExpanded
+			}
+		});
 	}
 
 	toggleHighlightOnboarding(): void {
 		this.highlightOnboarding = !this.highlightOnboarding;
-		if (browser) {
-			localStorage.setItem(this.highlightKey, String(this.highlightOnboarding));
-		}
+		void this.persistPreferences({
+			calendar: {
+				highlightOnboarding: this.highlightOnboarding
+			}
+		});
+	}
+
+	toggleShowStatusText(): void {
+		this.showStatusText = !this.showStatusText;
+		void this.persistPreferences({
+			calendar: {
+				showStatusText: this.showStatusText
+			}
+		});
 	}
 
 	handlePinToggle(group: string): void {
@@ -205,5 +219,13 @@ export class CalendarPageContext {
 
 	closeAssignmentModal(): void {
 		this.assignmentDate = null;
+	}
+
+	private async persistPreferences(preferences: UserOrgPreferencesPatch): Promise<void> {
+		try {
+			await queueUserPreferencesPatch(this.#data.orgId, preferences);
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to save your calendar preferences');
+		}
 	}
 }

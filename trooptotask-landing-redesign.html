@@ -1,1962 +1,2206 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TroopToTask — Unit Readiness, Organized</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&display=swap" rel="stylesheet">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>TroopToTask — Unit Readiness, Organized</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&display=swap"
+			rel="stylesheet"
+		/>
 
-<style>
-/* ============================================================
+		<style>
+			/* ============================================================
    DESIGN SYSTEM — TROOPTOTASK
    Aesthetic: Utilitarian Precision / Military Field Document
    ============================================================ */
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    TOKENS — Light Mode
    ---------------------------------------------------------- */
-:root {
-  /* Color Palette */
-  --ink:           #0e0e0d;        /* primary text, near-black */
-  --ink-60:        #4a4a47;        /* secondary text */
-  --ink-35:        #8e8e8a;        /* tertiary / dimmed */
-  --ink-15:        #d6d5d0;        /* borders, rules */
-  --ink-06:        #f0efeb;        /* subtle surface */
-  --ink-03:        #f8f7f4;        /* page background */
-  --paper:         #fafaf8;        /* card / panel surface */
-  --white:         #ffffff;
+			:root {
+				/* Color Palette */
+				--ink: #0e0e0d; /* primary text, near-black */
+				--ink-60: #4a4a47; /* secondary text */
+				--ink-35: #8e8e8a; /* tertiary / dimmed */
+				--ink-15: #d6d5d0; /* borders, rules */
+				--ink-06: #f0efeb; /* subtle surface */
+				--ink-03: #f8f7f4; /* page background */
+				--paper: #fafaf8; /* card / panel surface */
+				--white: #ffffff;
 
-  /* Accent — single operational amber */
-  --amber:         #c47f00;        /* primary accent */
-  --amber-light:   #fdf3dc;        /* amber tint surface */
-  --amber-dark:    #8a5800;        /* amber on light bg text */
-  --amber-vivid:   #e09200;        /* hover / active state */
+				/* Accent — single operational amber */
+				--amber: #c47f00; /* primary accent */
+				--amber-light: #fdf3dc; /* amber tint surface */
+				--amber-dark: #8a5800; /* amber on light bg text */
+				--amber-vivid: #e09200; /* hover / active state */
 
-  /* Semantic */
-  --danger:        #b83232;
-  --danger-bg:     #faeaea;
-  --success:       #2a6e3f;
-  --success-bg:    #e8f4ed;
-  --info:          #1d4e8a;
-  --info-bg:       #e8f0fb;
+				/* Semantic */
+				--danger: #b83232;
+				--danger-bg: #faeaea;
+				--success: #2a6e3f;
+				--success-bg: #e8f4ed;
+				--info: #1d4e8a;
+				--info-bg: #e8f0fb;
 
-  /* Typography */
-  --font-display:  'Barlow Condensed', sans-serif;
-  --font-body:     'Source Serif 4', serif;
-  --font-mono:     'IBM Plex Mono', monospace;
+				/* Typography */
+				--font-display: 'Barlow Condensed', sans-serif;
+				--font-body: 'Source Serif 4', serif;
+				--font-mono: 'IBM Plex Mono', monospace;
 
-  /* Type Scale */
-  --text-xs:    11px;
-  --text-sm:    13px;
-  --text-base:  16px;
-  --text-lg:    19px;
-  --text-xl:    22px;
-  --text-2xl:   28px;
-  --text-3xl:   36px;
-  --text-4xl:   52px;
-  --text-5xl:   72px;
-  --text-6xl:   96px;
+				/* Type Scale */
+				--text-xs: 11px;
+				--text-sm: 13px;
+				--text-base: 16px;
+				--text-lg: 19px;
+				--text-xl: 22px;
+				--text-2xl: 28px;
+				--text-3xl: 36px;
+				--text-4xl: 52px;
+				--text-5xl: 72px;
+				--text-6xl: 96px;
 
-  /* Spacing Scale */
-  --sp-1:    4px;
-  --sp-2:    8px;
-  --sp-3:    12px;
-  --sp-4:    16px;
-  --sp-5:    20px;
-  --sp-6:    24px;
-  --sp-8:    32px;
-  --sp-10:   40px;
-  --sp-12:   48px;
-  --sp-16:   64px;
-  --sp-20:   80px;
-  --sp-24:   96px;
-  --sp-32:   128px;
+				/* Spacing Scale */
+				--sp-1: 4px;
+				--sp-2: 8px;
+				--sp-3: 12px;
+				--sp-4: 16px;
+				--sp-5: 20px;
+				--sp-6: 24px;
+				--sp-8: 32px;
+				--sp-10: 40px;
+				--sp-12: 48px;
+				--sp-16: 64px;
+				--sp-20: 80px;
+				--sp-24: 96px;
+				--sp-32: 128px;
 
-  /* Shadows — minimal, functional */
-  --shadow-sm:  0 1px 3px rgba(14,14,13,0.08);
-  --shadow-md:  0 2px 8px rgba(14,14,13,0.10), 0 1px 2px rgba(14,14,13,0.06);
-  --shadow-lg:  0 4px 20px rgba(14,14,13,0.12), 0 2px 6px rgba(14,14,13,0.07);
+				/* Shadows — minimal, functional */
+				--shadow-sm: 0 1px 3px rgba(14, 14, 13, 0.08);
+				--shadow-md: 0 2px 8px rgba(14, 14, 13, 0.1), 0 1px 2px rgba(14, 14, 13, 0.06);
+				--shadow-lg: 0 4px 20px rgba(14, 14, 13, 0.12), 0 2px 6px rgba(14, 14, 13, 0.07);
 
-  /* Borders */
-  --border-thin:   1px solid var(--ink-15);
-  --border-rule:   1px solid var(--ink-06);
+				/* Borders */
+				--border-thin: 1px solid var(--ink-15);
+				--border-rule: 1px solid var(--ink-06);
 
-  /* Radius — restrained, not pill-heavy */
-  --radius-sm:  2px;
-  --radius-md:  4px;
-  --radius-lg:  6px;
+				/* Radius — restrained, not pill-heavy */
+				--radius-sm: 2px;
+				--radius-md: 4px;
+				--radius-lg: 6px;
 
-  /* Transitions */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-}
+				/* Transitions */
+				--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    TOKENS — Dark Mode
    ---------------------------------------------------------- */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink:           #f0efe9;
-    --ink-60:        #b0afa8;
-    --ink-35:        #72716c;
-    --ink-15:        #3a3936;
-    --ink-06:        #252421;
-    --ink-03:        #1a1917;
-    --paper:         #211f1d;
-    --white:         #1a1917;
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--ink: #f0efe9;
+					--ink-60: #b0afa8;
+					--ink-35: #72716c;
+					--ink-15: #3a3936;
+					--ink-06: #252421;
+					--ink-03: #1a1917;
+					--paper: #211f1d;
+					--white: #1a1917;
 
-    --amber:         #e5a000;
-    --amber-light:   #2e2206;
-    --amber-dark:    #f5c84a;
-    --amber-vivid:   #f0b020;
+					--amber: #e5a000;
+					--amber-light: #2e2206;
+					--amber-dark: #f5c84a;
+					--amber-vivid: #f0b020;
 
-    --danger:        #e06060;
-    --danger-bg:     #2a1515;
-    --success:       #5aad78;
-    --success-bg:    #112318;
-    --info:          #6898d8;
-    --info-bg:       #0d1e38;
+					--danger: #e06060;
+					--danger-bg: #2a1515;
+					--success: #5aad78;
+					--success-bg: #112318;
+					--info: #6898d8;
+					--info-bg: #0d1e38;
 
-    --shadow-sm:  0 1px 3px rgba(0,0,0,0.30);
-    --shadow-md:  0 2px 8px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.25);
-    --shadow-lg:  0 4px 20px rgba(0,0,0,0.50), 0 2px 6px rgba(0,0,0,0.30);
-  }
-}
+					--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+					--shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.25);
+					--shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+				}
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    RESET & BASE
    ---------------------------------------------------------- */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+			*,
+			*::before,
+			*::after {
+				box-sizing: border-box;
+				margin: 0;
+				padding: 0;
+			}
 
-html {
-  font-size: 16px;
-  scroll-behavior: smooth;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+			html {
+				font-size: 16px;
+				scroll-behavior: smooth;
+				-webkit-font-smoothing: antialiased;
+				-moz-osx-font-smoothing: grayscale;
+			}
 
-body {
-  background-color: var(--ink-03);
-  color: var(--ink);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 300;
-  line-height: 1.65;
-  min-height: 100vh;
-  overflow-x: hidden;
-}
+			body {
+				background-color: var(--ink-03);
+				color: var(--ink);
+				font-family: var(--font-body);
+				font-size: var(--text-base);
+				font-weight: 300;
+				line-height: 1.65;
+				min-height: 100vh;
+				overflow-x: hidden;
+			}
 
-img, svg { display: block; max-width: 100%; }
-a { color: inherit; text-decoration: none; }
-button { cursor: pointer; border: none; background: none; font: inherit; }
-ul, ol { list-style: none; }
+			img,
+			svg {
+				display: block;
+				max-width: 100%;
+			}
+			a {
+				color: inherit;
+				text-decoration: none;
+			}
+			button {
+				cursor: pointer;
+				border: none;
+				background: none;
+				font: inherit;
+			}
+			ul,
+			ol {
+				list-style: none;
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    TYPOGRAPHY UTILITIES
    ---------------------------------------------------------- */
-.font-display { font-family: var(--font-display); }
-.font-mono    { font-family: var(--font-mono); }
-.font-body    { font-family: var(--font-body); }
+			.font-display {
+				font-family: var(--font-display);
+			}
+			.font-mono {
+				font-family: var(--font-mono);
+			}
+			.font-body {
+				font-family: var(--font-body);
+			}
 
-.label {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-35);
-}
+			.label {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				font-weight: 500;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+				color: var(--ink-35);
+			}
 
-.label-amber {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--amber);
-}
+			.label-amber {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				font-weight: 600;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+				color: var(--amber);
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    LAYOUT
    ---------------------------------------------------------- */
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 var(--sp-8);
-}
+			.container {
+				max-width: 1200px;
+				margin: 0 auto;
+				padding: 0 var(--sp-8);
+			}
 
-.container--wide {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 var(--sp-8);
-}
+			.container--wide {
+				max-width: 1400px;
+				margin: 0 auto;
+				padding: 0 var(--sp-8);
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    RULE LINES (structural, not decorative)
    ---------------------------------------------------------- */
-.h-rule {
-  height: 1px;
-  background: var(--ink-15);
-  border: none;
-}
+			.h-rule {
+				height: 1px;
+				background: var(--ink-15);
+				border: none;
+			}
 
-.h-rule--amber {
-  height: 2px;
-  background: var(--amber);
-  border: none;
-  width: 40px;
-}
+			.h-rule--amber {
+				height: 2px;
+				background: var(--amber);
+				border: none;
+				width: 40px;
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    COMPONENTS
    ---------------------------------------------------------- */
 
-/* Badge */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 3px 8px;
-  border: 1px solid var(--ink-15);
-  border-radius: var(--radius-sm);
-  color: var(--ink-60);
-  background: var(--paper);
-}
+			/* Badge */
+			.badge {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--sp-1);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				font-weight: 500;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				padding: 3px 8px;
+				border: 1px solid var(--ink-15);
+				border-radius: var(--radius-sm);
+				color: var(--ink-60);
+				background: var(--paper);
+			}
 
-.badge--amber {
-  border-color: var(--amber);
-  color: var(--amber-dark);
-  background: var(--amber-light);
-}
+			.badge--amber {
+				border-color: var(--amber);
+				color: var(--amber-dark);
+				background: var(--amber-light);
+			}
 
-.badge--dot::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  display: inline-block;
-}
+			.badge--dot::before {
+				content: '';
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: currentColor;
+				display: inline-block;
+			}
 
-/* Buttons */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 10px var(--sp-6);
-  border-radius: var(--radius-md);
-  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
-  line-height: 1;
-}
+			/* Buttons */
+			.btn {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--sp-2);
+				font-family: var(--font-display);
+				font-size: var(--text-lg);
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				padding: 10px var(--sp-6);
+				border-radius: var(--radius-md);
+				transition:
+					background 0.15s var(--ease-out),
+					color 0.15s var(--ease-out),
+					border-color 0.15s var(--ease-out);
+				line-height: 1;
+			}
 
-.btn--primary {
-  background: var(--ink);
-  color: var(--ink-03);
-  border: 1px solid var(--ink);
-}
-.btn--primary:hover {
-  background: var(--ink-60);
-  border-color: var(--ink-60);
-}
+			.btn--primary {
+				background: var(--ink);
+				color: var(--ink-03);
+				border: 1px solid var(--ink);
+			}
+			.btn--primary:hover {
+				background: var(--ink-60);
+				border-color: var(--ink-60);
+			}
 
-.btn--amber {
-  background: var(--amber);
-  color: var(--white);
-  border: 1px solid var(--amber);
-}
-.btn--amber:hover {
-  background: var(--amber-vivid);
-  border-color: var(--amber-vivid);
-}
+			.btn--amber {
+				background: var(--amber);
+				color: var(--white);
+				border: 1px solid var(--amber);
+			}
+			.btn--amber:hover {
+				background: var(--amber-vivid);
+				border-color: var(--amber-vivid);
+			}
 
-.btn--outline {
-  background: transparent;
-  color: var(--ink);
-  border: 1px solid var(--ink-15);
-}
-.btn--outline:hover {
-  border-color: var(--ink-60);
-  background: var(--ink-06);
-}
+			.btn--outline {
+				background: transparent;
+				color: var(--ink);
+				border: 1px solid var(--ink-15);
+			}
+			.btn--outline:hover {
+				border-color: var(--ink-60);
+				background: var(--ink-06);
+			}
 
-/* Nav link */
-.nav-link {
-  font-family: var(--font-display);
-  font-size: var(--text-base);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--ink-60);
-  padding: var(--sp-2) 0;
-  border-bottom: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
-}
-.nav-link:hover {
-  color: var(--ink);
-  border-bottom-color: var(--amber);
-}
+			/* Nav link */
+			.nav-link {
+				font-family: var(--font-display);
+				font-size: var(--text-base);
+				font-weight: 500;
+				letter-spacing: 0.04em;
+				color: var(--ink-60);
+				padding: var(--sp-2) 0;
+				border-bottom: 2px solid transparent;
+				transition:
+					color 0.15s,
+					border-color 0.15s;
+			}
+			.nav-link:hover {
+				color: var(--ink);
+				border-bottom-color: var(--amber);
+			}
 
-/* Status pill (roster-style) */
-.status {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-}
+			/* Status pill (roster-style) */
+			.status {
+				display: inline-flex;
+				align-items: center;
+				gap: 5px;
+				font-family: var(--font-mono);
+				font-size: 11px;
+				font-weight: 500;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				padding: 2px 7px;
+				border-radius: var(--radius-sm);
+				border: 1px solid transparent;
+			}
 
-.status--present {
-  background: var(--success-bg);
-  color: var(--success);
-  border-color: rgba(42,110,63,0.2);
-}
-.status--leave {
-  background: var(--amber-light);
-  color: var(--amber-dark);
-  border-color: rgba(196,127,0,0.25);
-}
-.status--tdy {
-  background: var(--info-bg);
-  color: var(--info);
-  border-color: rgba(29,78,138,0.2);
-}
-.status--unavail {
-  background: var(--danger-bg);
-  color: var(--danger);
-  border-color: rgba(184,50,50,0.2);
-}
-.status--school {
-  background: var(--ink-06);
-  color: var(--ink-60);
-  border-color: var(--ink-15);
-}
+			.status--present {
+				background: var(--success-bg);
+				color: var(--success);
+				border-color: rgba(42, 110, 63, 0.2);
+			}
+			.status--leave {
+				background: var(--amber-light);
+				color: var(--amber-dark);
+				border-color: rgba(196, 127, 0, 0.25);
+			}
+			.status--tdy {
+				background: var(--info-bg);
+				color: var(--info);
+				border-color: rgba(29, 78, 138, 0.2);
+			}
+			.status--unavail {
+				background: var(--danger-bg);
+				color: var(--danger);
+				border-color: rgba(184, 50, 50, 0.2);
+			}
+			.status--school {
+				background: var(--ink-06);
+				color: var(--ink-60);
+				border-color: var(--ink-15);
+			}
 
-/* Data table */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-.data-table th {
-  text-align: left;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-35);
-  padding: var(--sp-2) var(--sp-3);
-  border-bottom: 1px solid var(--ink-15);
-}
-.data-table td {
-  padding: var(--sp-2) var(--sp-3);
-  border-bottom: 1px solid var(--ink-06);
-  color: var(--ink-60);
-  vertical-align: middle;
-}
-.data-table tr:last-child td { border-bottom: none; }
-.data-table .td-name {
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--ink);
-}
-.data-table .td-rank {
-  color: var(--ink-35);
-  font-size: 10px;
-}
+			/* Data table */
+			.data-table {
+				width: 100%;
+				border-collapse: collapse;
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+			}
+			.data-table th {
+				text-align: left;
+				font-size: 10px;
+				font-weight: 600;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+				color: var(--ink-35);
+				padding: var(--sp-2) var(--sp-3);
+				border-bottom: 1px solid var(--ink-15);
+			}
+			.data-table td {
+				padding: var(--sp-2) var(--sp-3);
+				border-bottom: 1px solid var(--ink-06);
+				color: var(--ink-60);
+				vertical-align: middle;
+			}
+			.data-table tr:last-child td {
+				border-bottom: none;
+			}
+			.data-table .td-name {
+				font-family: var(--font-display);
+				font-size: var(--text-sm);
+				font-weight: 600;
+				color: var(--ink);
+			}
+			.data-table .td-rank {
+				color: var(--ink-35);
+				font-size: 10px;
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    NAV
    ---------------------------------------------------------- */
-.site-nav {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: var(--ink-03);
-  border-bottom: var(--border-thin);
-}
+			.site-nav {
+				position: sticky;
+				top: 0;
+				z-index: 100;
+				background: var(--ink-03);
+				border-bottom: var(--border-thin);
+			}
 
-.site-nav__inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 56px;
-  gap: var(--sp-8);
-}
+			.site-nav__inner {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				height: 56px;
+				gap: var(--sp-8);
+			}
 
-.site-nav__logo {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex-shrink: 0;
-}
+			.site-nav__logo {
+				display: flex;
+				align-items: baseline;
+				gap: 6px;
+				flex-shrink: 0;
+			}
 
-.site-nav__wordmark {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: var(--ink);
-  line-height: 1;
-}
+			.site-nav__wordmark {
+				font-family: var(--font-display);
+				font-size: 22px;
+				font-weight: 800;
+				letter-spacing: 0.02em;
+				color: var(--ink);
+				line-height: 1;
+			}
 
-.site-nav__wordmark span {
-  color: var(--amber);
-}
+			.site-nav__wordmark span {
+				color: var(--amber);
+			}
 
-.site-nav__subtitle {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-35);
-}
+			.site-nav__subtitle {
+				font-family: var(--font-mono);
+				font-size: 10px;
+				font-weight: 500;
+				letter-spacing: 0.14em;
+				text-transform: uppercase;
+				color: var(--ink-35);
+			}
 
-.site-nav__links {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-8);
-  flex: 1;
-  justify-content: center;
-}
+			.site-nav__links {
+				display: flex;
+				align-items: center;
+				gap: var(--sp-8);
+				flex: 1;
+				justify-content: center;
+			}
 
-.site-nav__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  flex-shrink: 0;
-}
+			.site-nav__actions {
+				display: flex;
+				align-items: center;
+				gap: var(--sp-3);
+				flex-shrink: 0;
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    HERO
    ---------------------------------------------------------- */
-.hero {
-  padding: var(--sp-24) 0 var(--sp-20);
-  border-bottom: var(--border-thin);
-  position: relative;
-  overflow: hidden;
-}
+			.hero {
+				padding: var(--sp-24) 0 var(--sp-20);
+				border-bottom: var(--border-thin);
+				position: relative;
+				overflow: hidden;
+			}
 
-/* Structural grid background lines — document-inspired */
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    repeating-linear-gradient(
-      to right,
-      var(--ink-06) 0px,
-      var(--ink-06) 1px,
-      transparent 1px,
-      transparent calc(100% / 12)
-    );
-  pointer-events: none;
-  opacity: 0.7;
-}
+			/* Structural grid background lines — document-inspired */
+			.hero::before {
+				content: '';
+				position: absolute;
+				inset: 0;
+				background-image: repeating-linear-gradient(
+					to right,
+					var(--ink-06) 0px,
+					var(--ink-06) 1px,
+					transparent 1px,
+					transparent calc(100% / 12)
+				);
+				pointer-events: none;
+				opacity: 0.7;
+			}
 
-.hero__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--sp-20);
-  align-items: start;
-  position: relative;
-}
+			.hero__grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: var(--sp-20);
+				align-items: start;
+				position: relative;
+			}
 
-.hero__eyebrow {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-bottom: var(--sp-6);
-}
+			.hero__eyebrow {
+				display: flex;
+				align-items: center;
+				gap: var(--sp-3);
+				margin-bottom: var(--sp-6);
+			}
 
-.hero__eyebrow-line {
-  width: 24px;
-  height: 2px;
-  background: var(--amber);
-}
+			.hero__eyebrow-line {
+				width: 24px;
+				height: 2px;
+				background: var(--amber);
+			}
 
-.hero__heading {
-  font-family: var(--font-display);
-  font-size: clamp(52px, 7vw, 80px);
-  font-weight: 800;
-  line-height: 0.92;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  text-transform: uppercase;
-  margin-bottom: var(--sp-8);
-}
+			.hero__heading {
+				font-family: var(--font-display);
+				font-size: clamp(52px, 7vw, 80px);
+				font-weight: 800;
+				line-height: 0.92;
+				letter-spacing: -0.01em;
+				color: var(--ink);
+				text-transform: uppercase;
+				margin-bottom: var(--sp-8);
+			}
 
-.hero__heading em {
-  font-style: italic;
-  font-weight: 300;
-  color: var(--ink-60);
-}
+			.hero__heading em {
+				font-style: italic;
+				font-weight: 300;
+				color: var(--ink-60);
+			}
 
-.hero__body {
-  font-size: var(--text-lg);
-  font-weight: 300;
-  color: var(--ink-60);
-  line-height: 1.55;
-  max-width: 480px;
-  margin-bottom: var(--sp-8);
-}
+			.hero__body {
+				font-size: var(--text-lg);
+				font-weight: 300;
+				color: var(--ink-60);
+				line-height: 1.55;
+				max-width: 480px;
+				margin-bottom: var(--sp-8);
+			}
 
-.hero__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-}
+			.hero__actions {
+				display: flex;
+				align-items: center;
+				gap: var(--sp-4);
+			}
 
-.hero__meta {
-  display: flex;
-  gap: var(--sp-8);
-  margin-top: var(--sp-10);
-  padding-top: var(--sp-8);
-  border-top: var(--border-thin);
-}
+			.hero__meta {
+				display: flex;
+				gap: var(--sp-8);
+				margin-top: var(--sp-10);
+				padding-top: var(--sp-8);
+				border-top: var(--border-thin);
+			}
 
-.hero__meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-}
+			.hero__meta-item {
+				display: flex;
+				flex-direction: column;
+				gap: var(--sp-1);
+			}
 
-.hero__meta-value {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  color: var(--ink);
-  line-height: 1;
-}
+			.hero__meta-value {
+				font-family: var(--font-display);
+				font-size: var(--text-2xl);
+				font-weight: 700;
+				color: var(--ink);
+				line-height: 1;
+			}
 
-.hero__meta-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-35);
-}
+			.hero__meta-label {
+				font-family: var(--font-mono);
+				font-size: 10px;
+				font-weight: 500;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+				color: var(--ink-35);
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    HERO RIGHT — Product Preview Panel
    ---------------------------------------------------------- */
-.hero__preview {
-  background: var(--paper);
-  border: var(--border-thin);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-lg);
-  position: relative;
-}
+			.hero__preview {
+				background: var(--paper);
+				border: var(--border-thin);
+				border-radius: var(--radius-lg);
+				overflow: hidden;
+				box-shadow: var(--shadow-lg);
+				position: relative;
+			}
 
-.preview__topbar {
-  background: var(--ink);
-  color: var(--ink-03);
-  padding: 10px var(--sp-4);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-4);
-}
+			.preview__topbar {
+				background: var(--ink);
+				color: var(--ink-03);
+				padding: 10px var(--sp-4);
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: var(--sp-4);
+			}
 
-.preview__topbar-title {
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
+			.preview__topbar-title {
+				font-family: var(--font-display);
+				font-size: var(--text-sm);
+				font-weight: 600;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+			}
 
-.preview__topbar-date {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: rgba(240,239,233,0.5);
-}
+			.preview__topbar-date {
+				font-family: var(--font-mono);
+				font-size: 11px;
+				color: rgba(240, 239, 233, 0.5);
+			}
 
-.preview__summary {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border-bottom: var(--border-thin);
-}
+			.preview__summary {
+				display: grid;
+				grid-template-columns: repeat(4, 1fr);
+				border-bottom: var(--border-thin);
+			}
 
-.preview__summary-cell {
-  padding: 10px var(--sp-3);
-  border-right: var(--border-thin);
-  text-align: center;
-}
-.preview__summary-cell:last-child { border-right: none; }
+			.preview__summary-cell {
+				padding: 10px var(--sp-3);
+				border-right: var(--border-thin);
+				text-align: center;
+			}
+			.preview__summary-cell:last-child {
+				border-right: none;
+			}
 
-.preview__summary-num {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 700;
-  line-height: 1;
-  color: var(--ink);
-}
+			.preview__summary-num {
+				font-family: var(--font-display);
+				font-size: var(--text-xl);
+				font-weight: 700;
+				line-height: 1;
+				color: var(--ink);
+			}
 
-.preview__summary-lbl {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  color: var(--ink-35);
-  margin-top: 3px;
-}
+			.preview__summary-lbl {
+				font-family: var(--font-mono);
+				font-size: 9px;
+				font-weight: 600;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				color: var(--ink-35);
+				margin-top: 3px;
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    SECTION: WHAT IT SOLVES
    ---------------------------------------------------------- */
-.section-solves {
-  padding: var(--sp-24) 0;
-  border-bottom: var(--border-thin);
-}
+			.section-solves {
+				padding: var(--sp-24) 0;
+				border-bottom: var(--border-thin);
+			}
 
-.solves__grid {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: var(--sp-20);
-  align-items: start;
-}
+			.solves__grid {
+				display: grid;
+				grid-template-columns: 280px 1fr;
+				gap: var(--sp-20);
+				align-items: start;
+			}
 
-.solves__sidebar {
-  position: sticky;
-  top: calc(56px + var(--sp-8));
-}
+			.solves__sidebar {
+				position: sticky;
+				top: calc(56px + var(--sp-8));
+			}
 
-.solves__sidebar-heading {
-  font-family: var(--font-display);
-  font-size: var(--text-4xl);
-  font-weight: 800;
-  line-height: 0.95;
-  text-transform: uppercase;
-  color: var(--ink);
-  margin-top: var(--sp-4);
-}
+			.solves__sidebar-heading {
+				font-family: var(--font-display);
+				font-size: var(--text-4xl);
+				font-weight: 800;
+				line-height: 0.95;
+				text-transform: uppercase;
+				color: var(--ink);
+				margin-top: var(--sp-4);
+			}
 
-.solves__sidebar-heading em {
-  font-style: italic;
-  font-weight: 300;
-  color: var(--ink-35);
-}
+			.solves__sidebar-heading em {
+				font-style: italic;
+				font-weight: 300;
+				color: var(--ink-35);
+			}
 
-.solves__questions {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
+			.solves__questions {
+				display: flex;
+				flex-direction: column;
+				gap: 0;
+			}
 
-.question-row {
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: var(--sp-5);
-  padding: var(--sp-6) 0;
-  border-bottom: var(--border-thin);
-  align-items: start;
-}
+			.question-row {
+				display: grid;
+				grid-template-columns: 28px 1fr;
+				gap: var(--sp-5);
+				padding: var(--sp-6) 0;
+				border-bottom: var(--border-thin);
+				align-items: start;
+			}
 
-.question-row:first-child { border-top: var(--border-thin); }
+			.question-row:first-child {
+				border-top: var(--border-thin);
+			}
 
-.question-num {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--amber);
-  letter-spacing: 0.08em;
-  padding-top: 3px;
-}
+			.question-num {
+				font-family: var(--font-mono);
+				font-size: 10px;
+				font-weight: 600;
+				color: var(--amber);
+				letter-spacing: 0.08em;
+				padding-top: 3px;
+			}
 
-.question-text {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--ink);
-  letter-spacing: 0.01em;
-  line-height: 1.25;
-}
+			.question-text {
+				font-family: var(--font-display);
+				font-size: var(--text-xl);
+				font-weight: 600;
+				color: var(--ink);
+				letter-spacing: 0.01em;
+				line-height: 1.25;
+			}
 
-.question-detail {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 300;
-  color: var(--ink-60);
-  margin-top: var(--sp-2);
-  line-height: 1.6;
-}
+			.question-detail {
+				font-family: var(--font-body);
+				font-size: var(--text-sm);
+				font-weight: 300;
+				color: var(--ink-60);
+				margin-top: var(--sp-2);
+				line-height: 1.6;
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    SECTION: CAPABILITIES
    ---------------------------------------------------------- */
-.section-capabilities {
-  padding: var(--sp-24) 0;
-  border-bottom: var(--border-thin);
-}
+			.section-capabilities {
+				padding: var(--sp-24) 0;
+				border-bottom: var(--border-thin);
+			}
 
-.caps__header {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--sp-20);
-  align-items: end;
-  margin-bottom: var(--sp-16);
-  padding-bottom: var(--sp-8);
-  border-bottom: var(--border-thin);
-}
+			.caps__header {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: var(--sp-20);
+				align-items: end;
+				margin-bottom: var(--sp-16);
+				padding-bottom: var(--sp-8);
+				border-bottom: var(--border-thin);
+			}
 
-.caps__heading {
-  font-family: var(--font-display);
-  font-size: var(--text-4xl);
-  font-weight: 800;
-  line-height: 0.95;
-  text-transform: uppercase;
-  color: var(--ink);
-}
+			.caps__heading {
+				font-family: var(--font-display);
+				font-size: var(--text-4xl);
+				font-weight: 800;
+				line-height: 0.95;
+				text-transform: uppercase;
+				color: var(--ink);
+			}
 
-.caps__intro {
-  font-size: var(--text-base);
-  font-weight: 300;
-  color: var(--ink-60);
-  line-height: 1.65;
-}
+			.caps__intro {
+				font-size: var(--text-base);
+				font-weight: 300;
+				color: var(--ink-60);
+				line-height: 1.65;
+			}
 
-.caps__grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0;
-  border: var(--border-thin);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
+			.caps__grid {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: 0;
+				border: var(--border-thin);
+				border-radius: var(--radius-lg);
+				overflow: hidden;
+			}
 
-.cap-card {
-  padding: var(--sp-8);
-  border-right: var(--border-thin);
-  border-bottom: var(--border-thin);
-  background: var(--paper);
-  transition: background 0.15s;
-}
-.cap-card:hover { background: var(--ink-06); }
-.cap-card:nth-child(3n) { border-right: none; }
-.cap-card:nth-child(n+4) { border-bottom: none; }
+			.cap-card {
+				padding: var(--sp-8);
+				border-right: var(--border-thin);
+				border-bottom: var(--border-thin);
+				background: var(--paper);
+				transition: background 0.15s;
+			}
+			.cap-card:hover {
+				background: var(--ink-06);
+			}
+			.cap-card:nth-child(3n) {
+				border-right: none;
+			}
+			.cap-card:nth-child(n + 4) {
+				border-bottom: none;
+			}
 
-.cap-card__index {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--amber);
-  letter-spacing: 0.12em;
-  margin-bottom: var(--sp-5);
-}
+			.cap-card__index {
+				font-family: var(--font-mono);
+				font-size: 10px;
+				font-weight: 600;
+				color: var(--amber);
+				letter-spacing: 0.12em;
+				margin-bottom: var(--sp-5);
+			}
 
-.cap-card__title {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--ink);
-  margin-bottom: var(--sp-3);
-  line-height: 1.15;
-}
+			.cap-card__title {
+				font-family: var(--font-display);
+				font-size: var(--text-lg);
+				font-weight: 700;
+				letter-spacing: 0.02em;
+				text-transform: uppercase;
+				color: var(--ink);
+				margin-bottom: var(--sp-3);
+				line-height: 1.15;
+			}
 
-.cap-card__body {
-  font-size: var(--text-sm);
-  font-weight: 300;
-  color: var(--ink-60);
-  line-height: 1.6;
-}
+			.cap-card__body {
+				font-size: var(--text-sm);
+				font-weight: 300;
+				color: var(--ink-60);
+				line-height: 1.6;
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    SECTION: ROSTER PREVIEW (full-width table demo)
    ---------------------------------------------------------- */
-.section-roster {
-  padding: var(--sp-24) 0;
-  border-bottom: var(--border-thin);
-}
+			.section-roster {
+				padding: var(--sp-24) 0;
+				border-bottom: var(--border-thin);
+			}
 
-.roster__header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: var(--sp-10);
-}
+			.roster__header {
+				display: flex;
+				align-items: flex-end;
+				justify-content: space-between;
+				margin-bottom: var(--sp-10);
+			}
 
-.roster__heading {
-  font-family: var(--font-display);
-  font-size: var(--text-3xl);
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--ink);
-  line-height: 1;
-}
+			.roster__heading {
+				font-family: var(--font-display);
+				font-size: var(--text-3xl);
+				font-weight: 800;
+				text-transform: uppercase;
+				color: var(--ink);
+				line-height: 1;
+			}
 
-.roster__panel {
-  background: var(--paper);
-  border: var(--border-thin);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-md);
-}
+			.roster__panel {
+				background: var(--paper);
+				border: var(--border-thin);
+				border-radius: var(--radius-lg);
+				overflow: hidden;
+				box-shadow: var(--shadow-md);
+			}
 
-.roster__toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--sp-3) var(--sp-5);
-  border-bottom: var(--border-thin);
-  background: var(--ink-06);
-  gap: var(--sp-4);
-}
+			.roster__toolbar {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: var(--sp-3) var(--sp-5);
+				border-bottom: var(--border-thin);
+				background: var(--ink-06);
+				gap: var(--sp-4);
+			}
 
-.roster__toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-}
+			.roster__toolbar-left {
+				display: flex;
+				align-items: center;
+				gap: var(--sp-4);
+			}
 
-.roster__unit-label {
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink);
-}
+			.roster__unit-label {
+				font-family: var(--font-display);
+				font-size: var(--text-sm);
+				font-weight: 700;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: var(--ink);
+			}
 
-.roster__date {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--ink-35);
-}
+			.roster__date {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-35);
+			}
 
-.roster__availability {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-6);
-}
+			.roster__availability {
+				display: flex;
+				align-items: center;
+				gap: var(--sp-6);
+			}
 
-.avail-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-.avail-stat__num {
-  font-family: var(--font-display);
-  font-size: var(--text-base);
-  font-weight: 700;
-  line-height: 1;
-  color: var(--ink);
-}
-.avail-stat__lbl {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-35);
-}
+			.avail-stat {
+				display: flex;
+				flex-direction: column;
+				align-items: flex-end;
+			}
+			.avail-stat__num {
+				font-family: var(--font-display);
+				font-size: var(--text-base);
+				font-weight: 700;
+				line-height: 1;
+				color: var(--ink);
+			}
+			.avail-stat__lbl {
+				font-family: var(--font-mono);
+				font-size: 9px;
+				font-weight: 600;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				color: var(--ink-35);
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    SECTION: WHO IT'S FOR
    ---------------------------------------------------------- */
-.section-audience {
-  padding: var(--sp-24) 0;
-  border-bottom: var(--border-thin);
-}
+			.section-audience {
+				padding: var(--sp-24) 0;
+				border-bottom: var(--border-thin);
+			}
 
-.audience__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--sp-20);
-  align-items: center;
-}
+			.audience__grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: var(--sp-20);
+				align-items: center;
+			}
 
-.audience__heading {
-  font-family: var(--font-display);
-  font-size: var(--text-4xl);
-  font-weight: 800;
-  text-transform: uppercase;
-  line-height: 0.95;
-  color: var(--ink);
-}
+			.audience__heading {
+				font-family: var(--font-display);
+				font-size: var(--text-4xl);
+				font-weight: 800;
+				text-transform: uppercase;
+				line-height: 0.95;
+				color: var(--ink);
+			}
 
-.audience__heading em {
-  font-style: italic;
-  font-weight: 300;
-  color: var(--ink-35);
-}
+			.audience__heading em {
+				font-style: italic;
+				font-weight: 300;
+				color: var(--ink-35);
+			}
 
-.audience__roles {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
+			.audience__roles {
+				display: flex;
+				flex-direction: column;
+				gap: 0;
+			}
 
-.role-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--sp-3) 0;
-  border-bottom: var(--border-thin);
-}
-.role-row:first-child { border-top: var(--border-thin); }
+			.role-row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: var(--sp-3) 0;
+				border-bottom: var(--border-thin);
+			}
+			.role-row:first-child {
+				border-top: var(--border-thin);
+			}
 
-.role-name {
-  font-family: var(--font-display);
-  font-size: var(--text-base);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink);
-}
+			.role-name {
+				font-family: var(--font-display);
+				font-size: var(--text-base);
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+				color: var(--ink);
+			}
 
-.role-badge {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: var(--radius-sm);
-  background: var(--ink-06);
-  color: var(--ink-60);
-  border: 1px solid var(--ink-15);
-}
+			.role-badge {
+				font-family: var(--font-mono);
+				font-size: 10px;
+				font-weight: 500;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				padding: 2px 7px;
+				border-radius: var(--radius-sm);
+				background: var(--ink-06);
+				color: var(--ink-60);
+				border: 1px solid var(--ink-15);
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    SECTION: QUOTE / PROOF
    ---------------------------------------------------------- */
-.section-proof {
-  padding: var(--sp-24) 0;
-  border-bottom: var(--border-thin);
-  background: var(--ink);
-  color: var(--ink-03);
-}
+			.section-proof {
+				padding: var(--sp-24) 0;
+				border-bottom: var(--border-thin);
+				background: var(--ink);
+				color: var(--ink-03);
+			}
 
-.proof__inner {
-  display: grid;
-  grid-template-columns: 1fr 480px;
-  gap: var(--sp-20);
-  align-items: center;
-}
+			.proof__inner {
+				display: grid;
+				grid-template-columns: 1fr 480px;
+				gap: var(--sp-20);
+				align-items: center;
+			}
 
-.proof__quote {
-  font-family: var(--font-body);
-  font-size: clamp(22px, 3vw, 32px);
-  font-weight: 300;
-  font-style: italic;
-  line-height: 1.4;
-  color: var(--ink-03);
-}
+			.proof__quote {
+				font-family: var(--font-body);
+				font-size: clamp(22px, 3vw, 32px);
+				font-weight: 300;
+				font-style: italic;
+				line-height: 1.4;
+				color: var(--ink-03);
+			}
 
-.proof__quote strong {
-  font-style: normal;
-  font-weight: 600;
-  color: var(--amber);
-}
+			.proof__quote strong {
+				font-style: normal;
+				font-weight: 600;
+				color: var(--amber);
+			}
 
-.proof__attribution {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: rgba(240,239,233,0.45);
-  margin-top: var(--sp-6);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
+			.proof__attribution {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: rgba(240, 239, 233, 0.45);
+				margin-top: var(--sp-6);
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+			}
 
-.proof__points {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
+			.proof__points {
+				display: flex;
+				flex-direction: column;
+				gap: 0;
+			}
 
-.proof__point {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-4);
-  padding: var(--sp-5) 0;
-  border-bottom: 1px solid rgba(240,239,233,0.10);
-}
-.proof__point:first-child { border-top: 1px solid rgba(240,239,233,0.10); }
+			.proof__point {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--sp-4);
+				padding: var(--sp-5) 0;
+				border-bottom: 1px solid rgba(240, 239, 233, 0.1);
+			}
+			.proof__point:first-child {
+				border-top: 1px solid rgba(240, 239, 233, 0.1);
+			}
 
-.proof__point-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: var(--amber);
-}
+			.proof__point-icon {
+				width: 20px;
+				height: 20px;
+				flex-shrink: 0;
+				margin-top: 2px;
+				color: var(--amber);
+			}
 
-.proof__point-text {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 300;
-  color: rgba(240,239,233,0.7);
-  line-height: 1.6;
-}
+			.proof__point-text {
+				font-family: var(--font-body);
+				font-size: var(--text-sm);
+				font-weight: 300;
+				color: rgba(240, 239, 233, 0.7);
+				line-height: 1.6;
+			}
 
-.proof__point-text strong {
-  color: var(--ink-03);
-  font-weight: 600;
-  font-style: normal;
-}
+			.proof__point-text strong {
+				color: var(--ink-03);
+				font-weight: 600;
+				font-style: normal;
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    SECTION: CTA
    ---------------------------------------------------------- */
-.section-cta {
-  padding: var(--sp-24) 0;
-}
+			.section-cta {
+				padding: var(--sp-24) 0;
+			}
 
-.cta__inner {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--sp-20);
-  align-items: center;
-  padding: var(--sp-16) var(--sp-20);
-  background: var(--paper);
-  border: var(--border-thin);
-  border-radius: var(--radius-lg);
-  position: relative;
-  overflow: hidden;
-}
+			.cta__inner {
+				display: grid;
+				grid-template-columns: 1fr auto;
+				gap: var(--sp-20);
+				align-items: center;
+				padding: var(--sp-16) var(--sp-20);
+				background: var(--paper);
+				border: var(--border-thin);
+				border-radius: var(--radius-lg);
+				position: relative;
+				overflow: hidden;
+			}
 
-/* Amber rule accent on CTA */
-.cta__inner::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--amber);
-}
+			/* Amber rule accent on CTA */
+			.cta__inner::before {
+				content: '';
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				height: 3px;
+				background: var(--amber);
+			}
 
-.cta__heading {
-  font-family: var(--font-display);
-  font-size: clamp(32px, 5vw, 60px);
-  font-weight: 800;
-  text-transform: uppercase;
-  line-height: 0.95;
-  color: var(--ink);
-  margin-bottom: var(--sp-4);
-}
+			.cta__heading {
+				font-family: var(--font-display);
+				font-size: clamp(32px, 5vw, 60px);
+				font-weight: 800;
+				text-transform: uppercase;
+				line-height: 0.95;
+				color: var(--ink);
+				margin-bottom: var(--sp-4);
+			}
 
-.cta__subtext {
-  font-size: var(--text-base);
-  font-weight: 300;
-  color: var(--ink-60);
-  max-width: 480px;
-  line-height: 1.6;
-}
+			.cta__subtext {
+				font-size: var(--text-base);
+				font-weight: 300;
+				color: var(--ink-60);
+				max-width: 480px;
+				line-height: 1.6;
+			}
 
-.cta__actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sp-3);
-  flex-shrink: 0;
-}
+			.cta__actions {
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
+				gap: var(--sp-3);
+				flex-shrink: 0;
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    FOOTER
    ---------------------------------------------------------- */
-.site-footer {
-  border-top: var(--border-thin);
-  padding: var(--sp-12) 0 var(--sp-10);
-}
+			.site-footer {
+				border-top: var(--border-thin);
+				padding: var(--sp-12) 0 var(--sp-10);
+			}
 
-.footer__inner {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--sp-16);
-  align-items: start;
-}
+			.footer__inner {
+				display: grid;
+				grid-template-columns: auto 1fr auto;
+				gap: var(--sp-16);
+				align-items: start;
+			}
 
-.footer__brand {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: var(--ink);
-}
+			.footer__brand {
+				font-family: var(--font-display);
+				font-size: 20px;
+				font-weight: 800;
+				letter-spacing: 0.02em;
+				color: var(--ink);
+			}
 
-.footer__brand span { color: var(--amber); }
+			.footer__brand span {
+				color: var(--amber);
+			}
 
-.footer__tagline {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-35);
-  margin-top: var(--sp-2);
-}
+			.footer__tagline {
+				font-family: var(--font-mono);
+				font-size: 10px;
+				font-weight: 500;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+				color: var(--ink-35);
+				margin-top: var(--sp-2);
+			}
 
-.footer__links {
-  display: flex;
-  gap: var(--sp-12);
-}
+			.footer__links {
+				display: flex;
+				gap: var(--sp-12);
+			}
 
-.footer__links-col { display: flex; flex-direction: column; gap: var(--sp-3); }
+			.footer__links-col {
+				display: flex;
+				flex-direction: column;
+				gap: var(--sp-3);
+			}
 
-.footer__link-heading {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-35);
-  margin-bottom: var(--sp-1);
-}
+			.footer__link-heading {
+				font-family: var(--font-mono);
+				font-size: 10px;
+				font-weight: 600;
+				letter-spacing: 0.14em;
+				text-transform: uppercase;
+				color: var(--ink-35);
+				margin-bottom: var(--sp-1);
+			}
 
-.footer__link {
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  letter-spacing: 0.03em;
-  color: var(--ink-60);
-  transition: color 0.12s;
-}
-.footer__link:hover { color: var(--ink); }
+			.footer__link {
+				font-family: var(--font-display);
+				font-size: var(--text-sm);
+				font-weight: 500;
+				letter-spacing: 0.03em;
+				color: var(--ink-60);
+				transition: color 0.12s;
+			}
+			.footer__link:hover {
+				color: var(--ink);
+			}
 
-.footer__legal {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--ink-35);
-  line-height: 1.7;
-  text-align: right;
-}
+			.footer__legal {
+				font-family: var(--font-mono);
+				font-size: 10px;
+				color: var(--ink-35);
+				line-height: 1.7;
+				text-align: right;
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    ANIMATIONS
    ---------------------------------------------------------- */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+			@keyframes fadeUp {
+				from {
+					opacity: 0;
+					transform: translateY(16px);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
+			}
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
+			@keyframes fadeIn {
+				from {
+					opacity: 0;
+				}
+				to {
+					opacity: 1;
+				}
+			}
 
-.anim-fade-up {
-  animation: fadeUp 0.55s var(--ease-out) both;
-}
+			.anim-fade-up {
+				animation: fadeUp 0.55s var(--ease-out) both;
+			}
 
-.anim-delay-1 { animation-delay: 0.08s; }
-.anim-delay-2 { animation-delay: 0.16s; }
-.anim-delay-3 { animation-delay: 0.24s; }
-.anim-delay-4 { animation-delay: 0.32s; }
-.anim-delay-5 { animation-delay: 0.42s; }
+			.anim-delay-1 {
+				animation-delay: 0.08s;
+			}
+			.anim-delay-2 {
+				animation-delay: 0.16s;
+			}
+			.anim-delay-3 {
+				animation-delay: 0.24s;
+			}
+			.anim-delay-4 {
+				animation-delay: 0.32s;
+			}
+			.anim-delay-5 {
+				animation-delay: 0.42s;
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    PROGRESS BAR (availability visualization)
    ---------------------------------------------------------- */
-.progress-bar {
-  height: 4px;
-  background: var(--ink-15);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-.progress-bar__fill {
-  height: 100%;
-  background: var(--success);
-  border-radius: var(--radius-sm);
-  transition: width 1s var(--ease-out);
-}
-.progress-bar__fill--amber { background: var(--amber); }
-.progress-bar__fill--danger { background: var(--danger); }
+			.progress-bar {
+				height: 4px;
+				background: var(--ink-15);
+				border-radius: var(--radius-sm);
+				overflow: hidden;
+			}
+			.progress-bar__fill {
+				height: 100%;
+				background: var(--success);
+				border-radius: var(--radius-sm);
+				transition: width 1s var(--ease-out);
+			}
+			.progress-bar__fill--amber {
+				background: var(--amber);
+			}
+			.progress-bar__fill--danger {
+				background: var(--danger);
+			}
 
-/* ----------------------------------------------------------
+			/* ----------------------------------------------------------
    RESPONSIVE
    ---------------------------------------------------------- */
-@media (max-width: 900px) {
-  .hero__grid,
-  .solves__grid,
-  .caps__header,
-  .audience__grid,
-  .proof__inner,
-  .cta__inner,
-  .footer__inner {
-    grid-template-columns: 1fr;
-    gap: var(--sp-10);
-  }
+			@media (max-width: 900px) {
+				.hero__grid,
+				.solves__grid,
+				.caps__header,
+				.audience__grid,
+				.proof__inner,
+				.cta__inner,
+				.footer__inner {
+					grid-template-columns: 1fr;
+					gap: var(--sp-10);
+				}
 
-  .hero__preview { display: none; }
-  .caps__grid { grid-template-columns: 1fr 1fr; }
+				.hero__preview {
+					display: none;
+				}
+				.caps__grid {
+					grid-template-columns: 1fr 1fr;
+				}
 
-  .site-nav__links { display: none; }
+				.site-nav__links {
+					display: none;
+				}
 
-  .hero {
-    padding: var(--sp-16) 0;
-  }
+				.hero {
+					padding: var(--sp-16) 0;
+				}
 
-  .cta__inner { padding: var(--sp-10) var(--sp-8); }
+				.cta__inner {
+					padding: var(--sp-10) var(--sp-8);
+				}
 
-  .footer__inner { grid-template-columns: 1fr; }
-  .footer__legal { text-align: left; }
-}
+				.footer__inner {
+					grid-template-columns: 1fr;
+				}
+				.footer__legal {
+					text-align: left;
+				}
+			}
 
-@media (max-width: 600px) {
-  .caps__grid { grid-template-columns: 1fr; }
-  .cap-card:nth-child(3n) { border-right: var(--border-thin); }
-  .cap-card:nth-child(2n) { border-right: none; }
-}
-</style>
-</head>
-<body>
-
-<!-- ============================================================
+			@media (max-width: 600px) {
+				.caps__grid {
+					grid-template-columns: 1fr;
+				}
+				.cap-card:nth-child(3n) {
+					border-right: var(--border-thin);
+				}
+				.cap-card:nth-child(2n) {
+					border-right: none;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<!-- ============================================================
      NAV
      ============================================================ -->
-<nav class="site-nav">
-  <div class="container site-nav__inner">
+		<nav class="site-nav">
+			<div class="container site-nav__inner">
+				<div class="site-nav__logo">
+					<div>
+						<div class="site-nav__wordmark">Troop<span>To</span>Task</div>
+						<div class="site-nav__subtitle">Unit Readiness Platform</div>
+					</div>
+				</div>
 
-    <div class="site-nav__logo">
-      <div>
-        <div class="site-nav__wordmark">Troop<span>To</span>Task</div>
-        <div class="site-nav__subtitle">Unit Readiness Platform</div>
-      </div>
-    </div>
+				<div class="site-nav__links">
+					<a href="#capabilities" class="nav-link">Capabilities</a>
+					<a href="#roster" class="nav-link">Roster</a>
+					<a href="#audience" class="nav-link">Who It's For</a>
+					<a href="#pricing" class="nav-link">Pricing</a>
+				</div>
 
-    <div class="site-nav__links">
-      <a href="#capabilities" class="nav-link">Capabilities</a>
-      <a href="#roster" class="nav-link">Roster</a>
-      <a href="#audience" class="nav-link">Who It's For</a>
-      <a href="#pricing" class="nav-link">Pricing</a>
-    </div>
+				<div class="site-nav__actions">
+					<a href="/login" class="btn btn--outline" style="font-size: 14px; padding: 7px 16px">Sign In</a>
+					<a href="/request-access" class="btn btn--amber" style="font-size: 14px; padding: 7px 16px">Request Access</a>
+				</div>
+			</div>
+		</nav>
 
-    <div class="site-nav__actions">
-      <a href="/login" class="btn btn--outline" style="font-size: 14px; padding: 7px 16px;">Sign In</a>
-      <a href="/request-access" class="btn btn--amber" style="font-size: 14px; padding: 7px 16px;">Request Access</a>
-    </div>
-
-  </div>
-</nav>
-
-<!-- ============================================================
+		<!-- ============================================================
      HERO
      ============================================================ -->
-<section class="hero">
-  <div class="container">
-    <div class="hero__grid">
+		<section class="hero">
+			<div class="container">
+				<div class="hero__grid">
+					<!-- Left: Headline + Copy -->
+					<div>
+						<div class="hero__eyebrow anim-fade-up">
+							<div class="hero__eyebrow-line"></div>
+							<span class="label-amber">Unit Management Software</span>
+						</div>
 
-      <!-- Left: Headline + Copy -->
-      <div>
-        <div class="hero__eyebrow anim-fade-up">
-          <div class="hero__eyebrow-line"></div>
-          <span class="label-amber">Unit Management Software</span>
-        </div>
+						<h1 class="hero__heading anim-fade-up anim-delay-1">
+							Command<br />
+							<em>clarity,</em><br />
+							every<br />
+							formation.
+						</h1>
 
-        <h1 class="hero__heading anim-fade-up anim-delay-1">
-          Command<br>
-          <em>clarity,</em><br>
-          every<br>
-          formation.
-        </h1>
+						<p class="hero__body anim-fade-up anim-delay-2">
+							TroopToTask replaces scattered spreadsheets, whiteboards, and shared-drive chaos with a structured digital
+							workspace built for how units actually operate — from morning accountability to end-of-cycle reporting.
+						</p>
 
-        <p class="hero__body anim-fade-up anim-delay-2">
-          TroopToTask replaces scattered spreadsheets, whiteboards, and shared-drive chaos with a structured digital workspace built for how units actually operate — from morning accountability to end-of-cycle reporting.
-        </p>
+						<div class="hero__actions anim-fade-up anim-delay-3">
+							<a href="/request-access" class="btn btn--amber">Request Access</a>
+							<a href="/demo" class="btn btn--outline">Watch Demo</a>
+						</div>
 
-        <div class="hero__actions anim-fade-up anim-delay-3">
-          <a href="/request-access" class="btn btn--amber">Request Access</a>
-          <a href="/demo" class="btn btn--outline">Watch Demo</a>
-        </div>
+						<div class="hero__meta anim-fade-up anim-delay-4">
+							<div class="hero__meta-item">
+								<div class="hero__meta-value">100%</div>
+								<div class="hero__meta-label">Web-Based</div>
+							</div>
+							<div class="hero__meta-item">
+								<div class="hero__meta-value">DoD</div>
+								<div class="hero__meta-label">Focused Design</div>
+							</div>
+							<div class="hero__meta-item">
+								<div class="hero__meta-value">Multi</div>
+								<div class="hero__meta-label">Org Support</div>
+							</div>
+							<div class="hero__meta-item">
+								<div class="hero__meta-value">Role</div>
+								<div class="hero__meta-label">Based Permissions</div>
+							</div>
+						</div>
+					</div>
 
-        <div class="hero__meta anim-fade-up anim-delay-4">
-          <div class="hero__meta-item">
-            <div class="hero__meta-value">100%</div>
-            <div class="hero__meta-label">Web-Based</div>
-          </div>
-          <div class="hero__meta-item">
-            <div class="hero__meta-value">DoD</div>
-            <div class="hero__meta-label">Focused Design</div>
-          </div>
-          <div class="hero__meta-item">
-            <div class="hero__meta-value">Multi</div>
-            <div class="hero__meta-label">Org Support</div>
-          </div>
-          <div class="hero__meta-item">
-            <div class="hero__meta-value">Role</div>
-            <div class="hero__meta-label">Based Permissions</div>
-          </div>
-        </div>
-      </div>
+					<!-- Right: Product Preview -->
+					<div class="anim-fade-up anim-delay-3">
+						<div class="hero__preview">
+							<!-- Topbar -->
+							<div class="preview__topbar">
+								<div class="preview__topbar-title">1st Platoon — Alpha Company</div>
+								<div class="preview__topbar-date" id="preview-date">MON 0600 — MORNING ACCOUNTABILITY</div>
+							</div>
 
-      <!-- Right: Product Preview -->
-      <div class="anim-fade-up anim-delay-3">
-        <div class="hero__preview">
+							<!-- Summary Stats -->
+							<div class="preview__summary">
+								<div class="preview__summary-cell">
+									<div class="preview__summary-num" style="color: var(--success)">31</div>
+									<div class="preview__summary-lbl">Present</div>
+								</div>
+								<div class="preview__summary-cell">
+									<div class="preview__summary-num" style="color: var(--amber)">4</div>
+									<div class="preview__summary-lbl">Leave</div>
+								</div>
+								<div class="preview__summary-cell">
+									<div class="preview__summary-num" style="color: var(--info)">2</div>
+									<div class="preview__summary-lbl">TDY</div>
+								</div>
+								<div class="preview__summary-cell">
+									<div class="preview__summary-num" style="color: var(--danger)">1</div>
+									<div class="preview__summary-lbl">Unavail</div>
+								</div>
+							</div>
 
-          <!-- Topbar -->
-          <div class="preview__topbar">
-            <div class="preview__topbar-title">1st Platoon — Alpha Company</div>
-            <div class="preview__topbar-date" id="preview-date">MON 0600 — MORNING ACCOUNTABILITY</div>
-          </div>
+							<!-- Roster Table -->
+							<table class="data-table">
+								<thead>
+									<tr>
+										<th>Name</th>
+										<th>Rank</th>
+										<th>Position</th>
+										<th>Status</th>
+										<th>Returns</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td class="td-name">Mitchell, A.</td>
+										<td class="td-rank">SSG</td>
+										<td style="font-size: 11px; color: var(--ink-60)">Plt Sgt</td>
+										<td><span class="status status--present">● Present</span></td>
+										<td style="font-size: 11px; color: var(--ink-35)">—</td>
+									</tr>
+									<tr>
+										<td class="td-name">Torres, R.</td>
+										<td class="td-rank">SGT</td>
+										<td style="font-size: 11px; color: var(--ink-60)">Tm Ldr</td>
+										<td><span class="status status--leave">Leave</span></td>
+										<td style="font-size: 11px; color: var(--ink-60); font-family: var(--font-mono)">12 JAN</td>
+									</tr>
+									<tr>
+										<td class="td-name">Okafor, D.</td>
+										<td class="td-rank">SPC</td>
+										<td style="font-size: 11px; color: var(--ink-60)">Rifleman</td>
+										<td><span class="status status--tdy">TDY</span></td>
+										<td style="font-size: 11px; color: var(--ink-60); font-family: var(--font-mono)">18 JAN</td>
+									</tr>
+									<tr>
+										<td class="td-name">Vasquez, M.</td>
+										<td class="td-rank">PFC</td>
+										<td style="font-size: 11px; color: var(--ink-60)">Driver</td>
+										<td><span class="status status--school">School</span></td>
+										<td style="font-size: 11px; color: var(--ink-60); font-family: var(--font-mono)">03 FEB</td>
+									</tr>
+									<tr>
+										<td class="td-name">Reinhart, J.</td>
+										<td class="td-rank">SPC</td>
+										<td style="font-size: 11px; color: var(--ink-60)">Gunner</td>
+										<td><span class="status status--present">● Present</span></td>
+										<td style="font-size: 11px; color: var(--ink-35)">—</td>
+									</tr>
+									<tr>
+										<td class="td-name">Huang, L.</td>
+										<td class="td-rank">CPL</td>
+										<td style="font-size: 11px; color: var(--ink-60)">Tm Ldr</td>
+										<td><span class="status status--present">● Present</span></td>
+										<td style="font-size: 11px; color: var(--ink-35)">—</td>
+									</tr>
+								</tbody>
+							</table>
 
-          <!-- Summary Stats -->
-          <div class="preview__summary">
-            <div class="preview__summary-cell">
-              <div class="preview__summary-num" style="color: var(--success);">31</div>
-              <div class="preview__summary-lbl">Present</div>
-            </div>
-            <div class="preview__summary-cell">
-              <div class="preview__summary-num" style="color: var(--amber);">4</div>
-              <div class="preview__summary-lbl">Leave</div>
-            </div>
-            <div class="preview__summary-cell">
-              <div class="preview__summary-num" style="color: var(--info);">2</div>
-              <div class="preview__summary-lbl">TDY</div>
-            </div>
-            <div class="preview__summary-cell">
-              <div class="preview__summary-num" style="color: var(--danger);">1</div>
-              <div class="preview__summary-lbl">Unavail</div>
-            </div>
-          </div>
+							<!-- Footer bar -->
+							<div
+								style="
+									padding: var(--sp-3) var(--sp-4);
+									border-top: var(--border-thin);
+									background: var(--ink-06);
+									display: flex;
+									align-items: center;
+									justify-content: space-between;
+									gap: var(--sp-4);
+								"
+							>
+								<div style="display: flex; align-items: center; gap: var(--sp-6)">
+									<div style="font-family: var(--font-mono); font-size: 10px; color: var(--ink-35)">STRENGTH: 38</div>
+									<div style="font-family: var(--font-mono); font-size: 10px; color: var(--ink-35)">
+										PRES RATE: <span style="color: var(--success); font-weight: 600">81.6%</span>
+									</div>
+								</div>
+								<div style="display: flex; gap: var(--sp-2)">
+									<span class="badge">Export</span>
+									<span class="badge">Print DA Form</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
 
-          <!-- Roster Table -->
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Rank</th>
-                <th>Position</th>
-                <th>Status</th>
-                <th>Returns</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="td-name">Mitchell, A.</td>
-                <td class="td-rank">SSG</td>
-                <td style="font-size:11px; color: var(--ink-60);">Plt Sgt</td>
-                <td><span class="status status--present">● Present</span></td>
-                <td style="font-size:11px; color: var(--ink-35);">—</td>
-              </tr>
-              <tr>
-                <td class="td-name">Torres, R.</td>
-                <td class="td-rank">SGT</td>
-                <td style="font-size:11px; color: var(--ink-60);">Tm Ldr</td>
-                <td><span class="status status--leave">Leave</span></td>
-                <td style="font-size:11px; color: var(--ink-60); font-family: var(--font-mono);">12 JAN</td>
-              </tr>
-              <tr>
-                <td class="td-name">Okafor, D.</td>
-                <td class="td-rank">SPC</td>
-                <td style="font-size:11px; color: var(--ink-60);">Rifleman</td>
-                <td><span class="status status--tdy">TDY</span></td>
-                <td style="font-size:11px; color: var(--ink-60); font-family: var(--font-mono);">18 JAN</td>
-              </tr>
-              <tr>
-                <td class="td-name">Vasquez, M.</td>
-                <td class="td-rank">PFC</td>
-                <td style="font-size:11px; color: var(--ink-60);">Driver</td>
-                <td><span class="status status--school">School</span></td>
-                <td style="font-size:11px; color: var(--ink-60); font-family: var(--font-mono);">03 FEB</td>
-              </tr>
-              <tr>
-                <td class="td-name">Reinhart, J.</td>
-                <td class="td-rank">SPC</td>
-                <td style="font-size:11px; color: var(--ink-60);">Gunner</td>
-                <td><span class="status status--present">● Present</span></td>
-                <td style="font-size:11px; color: var(--ink-35);">—</td>
-              </tr>
-              <tr>
-                <td class="td-name">Huang, L.</td>
-                <td class="td-rank">CPL</td>
-                <td style="font-size:11px; color: var(--ink-60);">Tm Ldr</td>
-                <td><span class="status status--present">● Present</span></td>
-                <td style="font-size:11px; color: var(--ink-35);">—</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <!-- Footer bar -->
-          <div style="padding: var(--sp-3) var(--sp-4); border-top: var(--border-thin); background: var(--ink-06); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);">
-            <div style="display: flex; align-items: center; gap: var(--sp-6);">
-              <div style="font-family: var(--font-mono); font-size: 10px; color: var(--ink-35);">STRENGTH: 38</div>
-              <div style="font-family: var(--font-mono); font-size: 10px; color: var(--ink-35);">PRES RATE: <span style="color: var(--success); font-weight: 600;">81.6%</span></div>
-            </div>
-            <div style="display: flex; gap: var(--sp-2);">
-              <span class="badge">Export</span>
-              <span class="badge">Print DA Form</span>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================
+		<!-- ============================================================
      WHAT IT SOLVES
      ============================================================ -->
-<section class="section-solves">
-  <div class="container">
-    <div class="solves__grid">
+		<section class="section-solves">
+			<div class="container">
+				<div class="solves__grid">
+					<div class="solves__sidebar">
+						<div class="label-amber">The Questions That Matter</div>
+						<h2 class="solves__sidebar-heading" style="margin-top: var(--sp-4)">
+							Answer<br />
+							<em>faster.</em><br />Brief<br />
+							<em>better.</em>
+						</h2>
+						<p style="font-size: var(--text-sm); color: var(--ink-60); margin-top: var(--sp-6); line-height: 1.65">
+							Every formation, every brief, every handoff — the same questions come up. TroopToTask puts the answers one
+							click away, not buried in four different spreadsheets.
+						</p>
+					</div>
 
-      <div class="solves__sidebar">
-        <div class="label-amber">The Questions That Matter</div>
-        <h2 class="solves__sidebar-heading" style="margin-top: var(--sp-4);">
-          Answer<br>
-          <em>faster.</em><br>Brief<br>
-          <em>better.</em>
-        </h2>
-        <p style="font-size: var(--text-sm); color: var(--ink-60); margin-top: var(--sp-6); line-height: 1.65;">
-          Every formation, every brief, every handoff — the same questions come up. TroopToTask puts the answers one click away, not buried in four different spreadsheets.
-        </p>
-      </div>
+					<div class="solves__questions">
+						<div class="question-row">
+							<div class="question-num">01</div>
+							<div>
+								<div class="question-text">Who is here today?</div>
+								<div class="question-detail">
+									Real-time accountability view. Sorted by platoon, section, or unit. Updated when statuses change — not
+									when someone remembers to update a spreadsheet.
+								</div>
+							</div>
+						</div>
+						<div class="question-row">
+							<div class="question-num">02</div>
+							<div>
+								<div class="question-text">Who is unavailable and why?</div>
+								<div class="question-detail">
+									Leave, TDY, medical, school, profile, appointment, custom — each tracked with expected return date and
+									authorized reason visible to leaders with access.
+								</div>
+							</div>
+						</div>
+						<div class="question-row">
+							<div class="question-num">03</div>
+							<div>
+								<div class="question-text">What duties are filled or uncovered?</div>
+								<div class="question-detail">
+									Daily duty assignment board shows every position — CQ, SDO, details — alongside who is assigned, gaps
+									flagged, and the next scheduled rotation.
+								</div>
+							</div>
+						</div>
+						<div class="question-row">
+							<div class="question-num">04</div>
+							<div>
+								<div class="question-text">What training is coming due?</div>
+								<div class="question-detail">
+									Track certifications, recurring training requirements, and readiness deadlines. See what expires this
+									week, this month, or for a specific individual.
+								</div>
+							</div>
+						</div>
+						<div class="question-row">
+							<div class="question-num">05</div>
+							<div>
+								<div class="question-text">Where are the personnel gaps?</div>
+								<div class="question-detail">
+									Readiness summary surfaces availability rate by element, understrength billets, and personnel pending
+									action — at a glance, not a data pull.
+								</div>
+							</div>
+						</div>
+						<div class="question-row">
+							<div class="question-num">06</div>
+							<div>
+								<div class="question-text">What needs action before the next brief?</div>
+								<div class="question-detail">
+									Expiring evals, pending counselings, open onboarding tasks, and unfiled documents — consolidated into
+									a prioritized action queue for each leader.
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
 
-      <div class="solves__questions">
-        <div class="question-row">
-          <div class="question-num">01</div>
-          <div>
-            <div class="question-text">Who is here today?</div>
-            <div class="question-detail">Real-time accountability view. Sorted by platoon, section, or unit. Updated when statuses change — not when someone remembers to update a spreadsheet.</div>
-          </div>
-        </div>
-        <div class="question-row">
-          <div class="question-num">02</div>
-          <div>
-            <div class="question-text">Who is unavailable and why?</div>
-            <div class="question-detail">Leave, TDY, medical, school, profile, appointment, custom — each tracked with expected return date and authorized reason visible to leaders with access.</div>
-          </div>
-        </div>
-        <div class="question-row">
-          <div class="question-num">03</div>
-          <div>
-            <div class="question-text">What duties are filled or uncovered?</div>
-            <div class="question-detail">Daily duty assignment board shows every position — CQ, SDO, details — alongside who is assigned, gaps flagged, and the next scheduled rotation.</div>
-          </div>
-        </div>
-        <div class="question-row">
-          <div class="question-num">04</div>
-          <div>
-            <div class="question-text">What training is coming due?</div>
-            <div class="question-detail">Track certifications, recurring training requirements, and readiness deadlines. See what expires this week, this month, or for a specific individual.</div>
-          </div>
-        </div>
-        <div class="question-row">
-          <div class="question-num">05</div>
-          <div>
-            <div class="question-text">Where are the personnel gaps?</div>
-            <div class="question-detail">Readiness summary surfaces availability rate by element, understrength billets, and personnel pending action — at a glance, not a data pull.</div>
-          </div>
-        </div>
-        <div class="question-row">
-          <div class="question-num">06</div>
-          <div>
-            <div class="question-text">What needs action before the next brief?</div>
-            <div class="question-detail">Expiring evals, pending counselings, open onboarding tasks, and unfiled documents — consolidated into a prioritized action queue for each leader.</div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================
+		<!-- ============================================================
      CAPABILITIES
      ============================================================ -->
-<section class="section-capabilities" id="capabilities">
-  <div class="container">
+		<section class="section-capabilities" id="capabilities">
+			<div class="container">
+				<div class="caps__header">
+					<div>
+						<div class="label-amber" style="margin-bottom: var(--sp-4)">Platform Capabilities</div>
+						<h2 class="caps__heading">Built for<br />unit work.</h2>
+					</div>
+					<p class="caps__intro">
+						Not adapted from a corporate project management tool. Not a generic HR system repurposed for military use.
+						TroopToTask is built around the actual workflows of unit leadership — from roster management to rating
+						scheme tracking.
+					</p>
+				</div>
 
-    <div class="caps__header">
-      <div>
-        <div class="label-amber" style="margin-bottom: var(--sp-4);">Platform Capabilities</div>
-        <h2 class="caps__heading">Built for<br>unit work.</h2>
-      </div>
-      <p class="caps__intro">
-        Not adapted from a corporate project management tool. Not a generic HR system repurposed for military use. TroopToTask is built around the actual workflows of unit leadership — from roster management to rating scheme tracking.
-      </p>
-    </div>
+				<div class="caps__grid">
+					<div class="cap-card">
+						<div class="cap-card__index">CAP 01</div>
+						<div class="cap-card__title">Personnel Roster</div>
+						<div class="cap-card__body">
+							Manage personnel organized by platoon, section, or custom group. Track assignment, position, and contact
+							data. Export to standard formats on demand.
+						</div>
+					</div>
 
-    <div class="caps__grid">
+					<div class="cap-card">
+						<div class="cap-card__index">CAP 02</div>
+						<div class="cap-card__title">Availability Calendar</div>
+						<div class="cap-card__body">
+							Visual unit calendar showing who is present, on leave, TDY, at school, or on profile. Navigate by date
+							range or filter by element to answer accountability questions immediately.
+						</div>
+					</div>
 
-      <div class="cap-card">
-        <div class="cap-card__index">CAP 01</div>
-        <div class="cap-card__title">Personnel Roster</div>
-        <div class="cap-card__body">Manage personnel organized by platoon, section, or custom group. Track assignment, position, and contact data. Export to standard formats on demand.</div>
-      </div>
+					<div class="cap-card">
+						<div class="cap-card__index">CAP 03</div>
+						<div class="cap-card__title">Status Tracking</div>
+						<div class="cap-card__body">
+							Structured statuses — present, leave, TDY, school, appointment, profile, and custom — each with start
+							date, expected return, authorizing leader, and remarks.
+						</div>
+					</div>
 
-      <div class="cap-card">
-        <div class="cap-card__index">CAP 02</div>
-        <div class="cap-card__title">Availability Calendar</div>
-        <div class="cap-card__body">Visual unit calendar showing who is present, on leave, TDY, at school, or on profile. Navigate by date range or filter by element to answer accountability questions immediately.</div>
-      </div>
+					<div class="cap-card">
+						<div class="cap-card__index">CAP 04</div>
+						<div class="cap-card__title">Duty Assignment</div>
+						<div class="cap-card__body">
+							Plan and assign daily duties: CQ, SDO, details, and any custom position. See today's roster against
+							available personnel, flag gaps, and maintain a duty history log.
+						</div>
+					</div>
 
-      <div class="cap-card">
-        <div class="cap-card__index">CAP 03</div>
-        <div class="cap-card__title">Status Tracking</div>
-        <div class="cap-card__body">Structured statuses — present, leave, TDY, school, appointment, profile, and custom — each with start date, expected return, authorizing leader, and remarks.</div>
-      </div>
+					<div class="cap-card">
+						<div class="cap-card__index">CAP 05</div>
+						<div class="cap-card__title">Training &amp; Readiness</div>
+						<div class="cap-card__body">
+							Track certifications, recurring training requirements, and readiness deadlines by individual. Get
+							visibility on what is current, expiring, or overdue across the unit.
+						</div>
+					</div>
 
-      <div class="cap-card">
-        <div class="cap-card__index">CAP 04</div>
-        <div class="cap-card__title">Duty Assignment</div>
-        <div class="cap-card__body">Plan and assign daily duties: CQ, SDO, details, and any custom position. See today's roster against available personnel, flag gaps, and maintain a duty history log.</div>
-      </div>
+					<div class="cap-card">
+						<div class="cap-card__index">CAP 06</div>
+						<div class="cap-card__title">Counseling Records</div>
+						<div class="cap-card__body">
+							Maintain counseling and leader's book entries by Soldier. Track initial, periodic, and event-driven
+							counselings. Flag overdue requirements. Exportable for continuity.
+						</div>
+					</div>
 
-      <div class="cap-card">
-        <div class="cap-card__index">CAP 05</div>
-        <div class="cap-card__title">Training &amp; Readiness</div>
-        <div class="cap-card__body">Track certifications, recurring training requirements, and readiness deadlines by individual. Get visibility on what is current, expiring, or overdue across the unit.</div>
-      </div>
+					<div class="cap-card">
+						<div class="cap-card__index">CAP 07</div>
+						<div class="cap-card__title">In-Processing &amp; Onboarding</div>
+						<div class="cap-card__body">
+							Structured workflows for in-processing new arrivals. Checklist-driven tasks assigned across sections.
+							Track completion status and hold leaders accountable to deadlines.
+						</div>
+					</div>
 
-      <div class="cap-card">
-        <div class="cap-card__index">CAP 06</div>
-        <div class="cap-card__title">Counseling Records</div>
-        <div class="cap-card__body">Maintain counseling and leader's book entries by Soldier. Track initial, periodic, and event-driven counselings. Flag overdue requirements. Exportable for continuity.</div>
-      </div>
+					<div class="cap-card">
+						<div class="cap-card__index">CAP 08</div>
+						<div class="cap-card__title">Rating Scheme Tracking</div>
+						<div class="cap-card__body">
+							Monitor OER, NCOER, and WOER timelines. Track rating chain assignments, scheduled dates, and submission
+							status. Surface upcoming and overdue evaluations by unit.
+						</div>
+					</div>
 
-      <div class="cap-card">
-        <div class="cap-card__index">CAP 07</div>
-        <div class="cap-card__title">In-Processing &amp; Onboarding</div>
-        <div class="cap-card__body">Structured workflows for in-processing new arrivals. Checklist-driven tasks assigned across sections. Track completion status and hold leaders accountable to deadlines.</div>
-      </div>
+					<div class="cap-card">
+						<div class="cap-card__index">CAP 09</div>
+						<div class="cap-card__title">Permissions &amp; Audit</div>
+						<div class="cap-card__body">
+							Role-based access controls align with unit structure. Full audit log tracks who made what change and when.
+							Multi-organization support for higher and adjacent units.
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
 
-      <div class="cap-card">
-        <div class="cap-card__index">CAP 08</div>
-        <div class="cap-card__title">Rating Scheme Tracking</div>
-        <div class="cap-card__body">Monitor OER, NCOER, and WOER timelines. Track rating chain assignments, scheduled dates, and submission status. Surface upcoming and overdue evaluations by unit.</div>
-      </div>
-
-      <div class="cap-card">
-        <div class="cap-card__index">CAP 09</div>
-        <div class="cap-card__title">Permissions &amp; Audit</div>
-        <div class="cap-card__body">Role-based access controls align with unit structure. Full audit log tracks who made what change and when. Multi-organization support for higher and adjacent units.</div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================
+		<!-- ============================================================
      ROSTER SECTION (feature showcase)
      ============================================================ -->
-<section class="section-roster" id="roster">
-  <div class="container--wide">
+		<section class="section-roster" id="roster">
+			<div class="container--wide">
+				<div class="roster__header">
+					<div>
+						<div class="label-amber" style="margin-bottom: var(--sp-3)">Roster &amp; Accountability</div>
+						<h2 class="roster__heading">Morning accountability.<br />Any formation. Instantly.</h2>
+					</div>
+					<div style="text-align: right">
+						<p style="font-size: var(--text-sm); color: var(--ink-60); max-width: 320px; line-height: 1.6">
+							The roster is the source of truth. Every status update flows back to it. Print a DA Form 1594 or export
+							for the S1 — no reformatting required.
+						</p>
+					</div>
+				</div>
 
-    <div class="roster__header">
-      <div>
-        <div class="label-amber" style="margin-bottom: var(--sp-3);">Roster &amp; Accountability</div>
-        <h2 class="roster__heading">Morning accountability.<br>Any formation. Instantly.</h2>
-      </div>
-      <div style="text-align: right;">
-        <p style="font-size: var(--text-sm); color: var(--ink-60); max-width: 320px; line-height: 1.6;">The roster is the source of truth. Every status update flows back to it. Print a DA Form 1594 or export for the S1 — no reformatting required.</p>
-      </div>
-    </div>
+				<div class="roster__panel">
+					<!-- Toolbar -->
+					<div class="roster__toolbar">
+						<div class="roster__toolbar-left">
+							<div class="roster__unit-label">Bravo Company — 2-87 IN</div>
+							<div class="roster__date" id="roster-date-display">Loading...</div>
+							<span class="badge badge--amber badge--dot">Live View</span>
+						</div>
+						<div class="roster__availability">
+							<div class="avail-stat">
+								<div class="avail-stat__num">142</div>
+								<div class="avail-stat__lbl">Assigned</div>
+							</div>
+							<div class="avail-stat">
+								<div class="avail-stat__num" style="color: var(--success)">127</div>
+								<div class="avail-stat__lbl">Present</div>
+							</div>
+							<div class="avail-stat">
+								<div class="avail-stat__num" style="color: var(--amber)">9</div>
+								<div class="avail-stat__lbl">Leave / TDY</div>
+							</div>
+							<div class="avail-stat">
+								<div class="avail-stat__num" style="color: var(--danger)">6</div>
+								<div class="avail-stat__lbl">Unavail</div>
+							</div>
+							<div style="width: 1px; height: 32px; background: var(--ink-15)"></div>
+							<div class="avail-stat">
+								<div class="avail-stat__num">89.4%</div>
+								<div class="avail-stat__lbl">Pres Rate</div>
+							</div>
+						</div>
+					</div>
 
-    <div class="roster__panel">
+					<!-- Full roster table -->
+					<div style="overflow-x: auto">
+						<table class="data-table" style="min-width: 700px">
+							<thead>
+								<tr>
+									<th style="width: 28px">#</th>
+									<th>Name</th>
+									<th>Rank</th>
+									<th>MOS</th>
+									<th>Element</th>
+									<th>Position</th>
+									<th>Status</th>
+									<th>BASD</th>
+									<th>ETS</th>
+									<th>Returns</th>
+									<th>Counseled</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td style="color: var(--ink-35); font-size: 10px">01</td>
+									<td class="td-name">Anderson, K.L.</td>
+									<td class="td-rank">CPT</td>
+									<td style="font-size: 11px; color: var(--ink-60)">11A</td>
+									<td style="font-size: 11px; color: var(--ink-60)">HHC</td>
+									<td style="font-size: 11px; color: var(--ink-60)">CO CDR</td>
+									<td><span class="status status--present">● Present</span></td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">15 MAR 19</td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">14 MAR 27</td>
+									<td style="font-size: 11px; color: var(--ink-35)">—</td>
+									<td>
+										<span
+											class="badge"
+											style="background: var(--success-bg); color: var(--success); border-color: rgba(42, 110, 63, 0.2)"
+											>Current</span
+										>
+									</td>
+								</tr>
+								<tr>
+									<td style="color: var(--ink-35); font-size: 10px">02</td>
+									<td class="td-name">Williams, D.J.</td>
+									<td class="td-rank">1SG</td>
+									<td style="font-size: 11px; color: var(--ink-60)">11Z</td>
+									<td style="font-size: 11px; color: var(--ink-60)">HHC</td>
+									<td style="font-size: 11px; color: var(--ink-60)">First Sgt</td>
+									<td><span class="status status--present">● Present</span></td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">03 JUN 10</td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">02 JUN 28</td>
+									<td style="font-size: 11px; color: var(--ink-35)">—</td>
+									<td>
+										<span
+											class="badge"
+											style="background: var(--success-bg); color: var(--success); border-color: rgba(42, 110, 63, 0.2)"
+											>Current</span
+										>
+									</td>
+								</tr>
+								<tr>
+									<td style="color: var(--ink-35); font-size: 10px">03</td>
+									<td class="td-name">Patel, S.R.</td>
+									<td class="td-rank">SSG</td>
+									<td style="font-size: 11px; color: var(--ink-60)">11B</td>
+									<td style="font-size: 11px; color: var(--ink-60)">1st PLT</td>
+									<td style="font-size: 11px; color: var(--ink-60)">Plt Sgt</td>
+									<td><span class="status status--leave">Leave</span></td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">17 SEP 16</td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">16 SEP 25</td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--amber-dark)">05 APR</td>
+									<td>
+										<span
+											class="badge"
+											style="background: var(--success-bg); color: var(--success); border-color: rgba(42, 110, 63, 0.2)"
+											>Current</span
+										>
+									</td>
+								</tr>
+								<tr>
+									<td style="color: var(--ink-35); font-size: 10px">04</td>
+									<td class="td-name">Jackson, T.M.</td>
+									<td class="td-rank">SGT</td>
+									<td style="font-size: 11px; color: var(--ink-60)">11B</td>
+									<td style="font-size: 11px; color: var(--ink-60)">1st PLT</td>
+									<td style="font-size: 11px; color: var(--ink-60)">Tm Ldr</td>
+									<td><span class="status status--present">● Present</span></td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">22 JAN 20</td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">21 JAN 26</td>
+									<td style="font-size: 11px; color: var(--ink-35)">—</td>
+									<td>
+										<span
+											class="badge"
+											style="
+												background: var(--amber-light);
+												color: var(--amber-dark);
+												border-color: rgba(196, 127, 0, 0.25);
+											"
+											>Due Soon</span
+										>
+									</td>
+								</tr>
+								<tr>
+									<td style="color: var(--ink-35); font-size: 10px">05</td>
+									<td class="td-name">Kowalski, B.A.</td>
+									<td class="td-rank">SPC</td>
+									<td style="font-size: 11px; color: var(--ink-60)">11B</td>
+									<td style="font-size: 11px; color: var(--ink-60)">1st PLT</td>
+									<td style="font-size: 11px; color: var(--ink-60)">Rifleman</td>
+									<td><span class="status status--tdy">TDY</span></td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">08 AUG 22</td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">07 AUG 26</td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-60)">14 APR</td>
+									<td>
+										<span
+											class="badge"
+											style="background: var(--success-bg); color: var(--success); border-color: rgba(42, 110, 63, 0.2)"
+											>Current</span
+										>
+									</td>
+								</tr>
+								<tr>
+									<td style="color: var(--ink-35); font-size: 10px">06</td>
+									<td class="td-name">Reyes, C.F.</td>
+									<td class="td-rank">PFC</td>
+									<td style="font-size: 11px; color: var(--ink-60)">11C</td>
+									<td style="font-size: 11px; color: var(--ink-60)">2nd PLT</td>
+									<td style="font-size: 11px; color: var(--ink-60)">Mortarman</td>
+									<td><span class="status status--school">School</span></td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">11 MAR 24</td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">10 MAR 27</td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-60)">30 MAY</td>
+									<td>
+										<span
+											class="badge"
+											style="background: var(--success-bg); color: var(--success); border-color: rgba(42, 110, 63, 0.2)"
+											>Current</span
+										>
+									</td>
+								</tr>
+								<tr>
+									<td style="color: var(--ink-35); font-size: 10px">07</td>
+									<td class="td-name">Okonkwo, E.N.</td>
+									<td class="td-rank">SPC</td>
+									<td style="font-size: 11px; color: var(--ink-60)">11B</td>
+									<td style="font-size: 11px; color: var(--ink-60)">2nd PLT</td>
+									<td style="font-size: 11px; color: var(--ink-60)">Gunner</td>
+									<td><span class="status status--unavail">Unavail</span></td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">29 NOV 21</td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--ink-35)">28 NOV 25</td>
+									<td style="font-size: 11px; font-family: var(--font-mono); color: var(--danger)">See Remarks</td>
+									<td>
+										<span
+											class="badge"
+											style="background: var(--danger-bg); color: var(--danger); border-color: rgba(184, 50, 50, 0.2)"
+											>Overdue</span
+										>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
 
-      <!-- Toolbar -->
-      <div class="roster__toolbar">
-        <div class="roster__toolbar-left">
-          <div class="roster__unit-label">Bravo Company — 2-87 IN</div>
-          <div class="roster__date" id="roster-date-display">Loading...</div>
-          <span class="badge badge--amber badge--dot">Live View</span>
-        </div>
-        <div class="roster__availability">
-          <div class="avail-stat">
-            <div class="avail-stat__num">142</div>
-            <div class="avail-stat__lbl">Assigned</div>
-          </div>
-          <div class="avail-stat">
-            <div class="avail-stat__num" style="color: var(--success);">127</div>
-            <div class="avail-stat__lbl">Present</div>
-          </div>
-          <div class="avail-stat">
-            <div class="avail-stat__num" style="color: var(--amber);">9</div>
-            <div class="avail-stat__lbl">Leave / TDY</div>
-          </div>
-          <div class="avail-stat">
-            <div class="avail-stat__num" style="color: var(--danger);">6</div>
-            <div class="avail-stat__lbl">Unavail</div>
-          </div>
-          <div style="width: 1px; height: 32px; background: var(--ink-15);"></div>
-          <div class="avail-stat">
-            <div class="avail-stat__num">89.4%</div>
-            <div class="avail-stat__lbl">Pres Rate</div>
-          </div>
-        </div>
-      </div>
+					<!-- Table footer -->
+					<div
+						style="
+							display: flex;
+							align-items: center;
+							justify-content: space-between;
+							padding: var(--sp-3) var(--sp-5);
+							border-top: var(--border-thin);
+							background: var(--ink-06);
+							gap: var(--sp-4);
+						"
+					>
+						<div style="font-family: var(--font-mono); font-size: 10px; color: var(--ink-35)">
+							Showing 7 of 142 personnel · Sorted: Rank ↑
+						</div>
+						<div style="display: flex; gap: var(--sp-2)">
+							<span class="badge">Filter</span>
+							<span class="badge">Sort</span>
+							<span class="badge badge--amber">Export Roster</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
 
-      <!-- Full roster table -->
-      <div style="overflow-x: auto;">
-        <table class="data-table" style="min-width: 700px;">
-          <thead>
-            <tr>
-              <th style="width: 28px;">#</th>
-              <th>Name</th>
-              <th>Rank</th>
-              <th>MOS</th>
-              <th>Element</th>
-              <th>Position</th>
-              <th>Status</th>
-              <th>BASD</th>
-              <th>ETS</th>
-              <th>Returns</th>
-              <th>Counseled</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style="color: var(--ink-35); font-size: 10px;">01</td>
-              <td class="td-name">Anderson, K.L.</td>
-              <td class="td-rank">CPT</td>
-              <td style="font-size:11px; color: var(--ink-60);">11A</td>
-              <td style="font-size:11px; color: var(--ink-60);">HHC</td>
-              <td style="font-size:11px; color: var(--ink-60);">CO CDR</td>
-              <td><span class="status status--present">● Present</span></td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">15 MAR 19</td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">14 MAR 27</td>
-              <td style="font-size:11px; color: var(--ink-35);">—</td>
-              <td><span class="badge" style="background: var(--success-bg); color: var(--success); border-color: rgba(42,110,63,0.2);">Current</span></td>
-            </tr>
-            <tr>
-              <td style="color: var(--ink-35); font-size: 10px;">02</td>
-              <td class="td-name">Williams, D.J.</td>
-              <td class="td-rank">1SG</td>
-              <td style="font-size:11px; color: var(--ink-60);">11Z</td>
-              <td style="font-size:11px; color: var(--ink-60);">HHC</td>
-              <td style="font-size:11px; color: var(--ink-60);">First Sgt</td>
-              <td><span class="status status--present">● Present</span></td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">03 JUN 10</td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">02 JUN 28</td>
-              <td style="font-size:11px; color: var(--ink-35);">—</td>
-              <td><span class="badge" style="background: var(--success-bg); color: var(--success); border-color: rgba(42,110,63,0.2);">Current</span></td>
-            </tr>
-            <tr>
-              <td style="color: var(--ink-35); font-size: 10px;">03</td>
-              <td class="td-name">Patel, S.R.</td>
-              <td class="td-rank">SSG</td>
-              <td style="font-size:11px; color: var(--ink-60);">11B</td>
-              <td style="font-size:11px; color: var(--ink-60);">1st PLT</td>
-              <td style="font-size:11px; color: var(--ink-60);">Plt Sgt</td>
-              <td><span class="status status--leave">Leave</span></td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">17 SEP 16</td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">16 SEP 25</td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--amber-dark);">05 APR</td>
-              <td><span class="badge" style="background: var(--success-bg); color: var(--success); border-color: rgba(42,110,63,0.2);">Current</span></td>
-            </tr>
-            <tr>
-              <td style="color: var(--ink-35); font-size: 10px;">04</td>
-              <td class="td-name">Jackson, T.M.</td>
-              <td class="td-rank">SGT</td>
-              <td style="font-size:11px; color: var(--ink-60);">11B</td>
-              <td style="font-size:11px; color: var(--ink-60);">1st PLT</td>
-              <td style="font-size:11px; color: var(--ink-60);">Tm Ldr</td>
-              <td><span class="status status--present">● Present</span></td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">22 JAN 20</td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">21 JAN 26</td>
-              <td style="font-size:11px; color: var(--ink-35);">—</td>
-              <td><span class="badge" style="background: var(--amber-light); color: var(--amber-dark); border-color: rgba(196,127,0,0.25);">Due Soon</span></td>
-            </tr>
-            <tr>
-              <td style="color: var(--ink-35); font-size: 10px;">05</td>
-              <td class="td-name">Kowalski, B.A.</td>
-              <td class="td-rank">SPC</td>
-              <td style="font-size:11px; color: var(--ink-60);">11B</td>
-              <td style="font-size:11px; color: var(--ink-60);">1st PLT</td>
-              <td style="font-size:11px; color: var(--ink-60);">Rifleman</td>
-              <td><span class="status status--tdy">TDY</span></td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">08 AUG 22</td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">07 AUG 26</td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-60);">14 APR</td>
-              <td><span class="badge" style="background: var(--success-bg); color: var(--success); border-color: rgba(42,110,63,0.2);">Current</span></td>
-            </tr>
-            <tr>
-              <td style="color: var(--ink-35); font-size: 10px;">06</td>
-              <td class="td-name">Reyes, C.F.</td>
-              <td class="td-rank">PFC</td>
-              <td style="font-size:11px; color: var(--ink-60);">11C</td>
-              <td style="font-size:11px; color: var(--ink-60);">2nd PLT</td>
-              <td style="font-size:11px; color: var(--ink-60);">Mortarman</td>
-              <td><span class="status status--school">School</span></td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">11 MAR 24</td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">10 MAR 27</td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-60);">30 MAY</td>
-              <td><span class="badge" style="background: var(--success-bg); color: var(--success); border-color: rgba(42,110,63,0.2);">Current</span></td>
-            </tr>
-            <tr>
-              <td style="color: var(--ink-35); font-size: 10px;">07</td>
-              <td class="td-name">Okonkwo, E.N.</td>
-              <td class="td-rank">SPC</td>
-              <td style="font-size:11px; color: var(--ink-60);">11B</td>
-              <td style="font-size:11px; color: var(--ink-60);">2nd PLT</td>
-              <td style="font-size:11px; color: var(--ink-60);">Gunner</td>
-              <td><span class="status status--unavail">Unavail</span></td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">29 NOV 21</td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--ink-35);">28 NOV 25</td>
-              <td style="font-size:11px; font-family: var(--font-mono); color: var(--danger);">See Remarks</td>
-              <td><span class="badge" style="background: var(--danger-bg); color: var(--danger); border-color: rgba(184,50,50,0.2);">Overdue</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Table footer -->
-      <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--sp-3) var(--sp-5); border-top: var(--border-thin); background: var(--ink-06); gap: var(--sp-4);">
-        <div style="font-family: var(--font-mono); font-size: 10px; color: var(--ink-35);">
-          Showing 7 of 142 personnel · Sorted: Rank ↑
-        </div>
-        <div style="display: flex; gap: var(--sp-2);">
-          <span class="badge">Filter</span>
-          <span class="badge">Sort</span>
-          <span class="badge badge--amber">Export Roster</span>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================
+		<!-- ============================================================
      WHO IT'S FOR
      ============================================================ -->
-<section class="section-audience" id="audience">
-  <div class="container">
-    <div class="audience__grid">
+		<section class="section-audience" id="audience">
+			<div class="container">
+				<div class="audience__grid">
+					<div>
+						<div class="label-amber" style="margin-bottom: var(--sp-4)">Designed For Leadership</div>
+						<h2 class="audience__heading">
+							Built for<br />
+							the people<br />
+							<em>running</em><br />
+							the unit.
+						</h2>
+						<p
+							style="
+								font-size: var(--text-base);
+								color: var(--ink-60);
+								margin-top: var(--sp-6);
+								line-height: 1.65;
+								max-width: 380px;
+							"
+						>
+							TroopToTask is designed around actual military leader roles — not abstract organizational charts. Access
+							and visibility are scoped to your level of responsibility.
+						</p>
+					</div>
 
-      <div>
-        <div class="label-amber" style="margin-bottom: var(--sp-4);">Designed For Leadership</div>
-        <h2 class="audience__heading">
-          Built for<br>
-          the people<br>
-          <em>running</em><br>
-          the unit.
-        </h2>
-        <p style="font-size: var(--text-base); color: var(--ink-60); margin-top: var(--sp-6); line-height: 1.65; max-width: 380px;">
-          TroopToTask is designed around actual military leader roles — not abstract organizational charts. Access and visibility are scoped to your level of responsibility.
-        </p>
-      </div>
+					<div class="audience__roles">
+						<div class="role-row">
+							<div class="role-name">Commander / XO</div>
+							<span class="role-badge">Full Unit Visibility</span>
+						</div>
+						<div class="role-row">
+							<div class="role-name">First Sergeant</div>
+							<span class="role-badge">Enlisted Oversight</span>
+						</div>
+						<div class="role-row">
+							<div class="role-name">Platoon Leader / PSG</div>
+							<span class="role-badge">Platoon Scope</span>
+						</div>
+						<div class="role-row">
+							<div class="role-name">Section Leader</div>
+							<span class="role-badge">Section Scope</span>
+						</div>
+						<div class="role-row">
+							<div class="role-name">Training Room NCO</div>
+							<span class="role-badge">Training Admin Access</span>
+						</div>
+						<div class="role-row">
+							<div class="role-name">S1 / Admin Staff</div>
+							<span class="role-badge">Readiness Admin</span>
+						</div>
+						<div class="role-row">
+							<div class="role-name">Higher Headquarters</div>
+							<span class="role-badge">Multi-Org Read Access</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
 
-      <div class="audience__roles">
-        <div class="role-row">
-          <div class="role-name">Commander / XO</div>
-          <span class="role-badge">Full Unit Visibility</span>
-        </div>
-        <div class="role-row">
-          <div class="role-name">First Sergeant</div>
-          <span class="role-badge">Enlisted Oversight</span>
-        </div>
-        <div class="role-row">
-          <div class="role-name">Platoon Leader / PSG</div>
-          <span class="role-badge">Platoon Scope</span>
-        </div>
-        <div class="role-row">
-          <div class="role-name">Section Leader</div>
-          <span class="role-badge">Section Scope</span>
-        </div>
-        <div class="role-row">
-          <div class="role-name">Training Room NCO</div>
-          <span class="role-badge">Training Admin Access</span>
-        </div>
-        <div class="role-row">
-          <div class="role-name">S1 / Admin Staff</div>
-          <span class="role-badge">Readiness Admin</span>
-        </div>
-        <div class="role-row">
-          <div class="role-name">Higher Headquarters</div>
-          <span class="role-badge">Multi-Org Read Access</span>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================
+		<!-- ============================================================
      PROOF / QUOTE
      ============================================================ -->
-<section class="section-proof">
-  <div class="container">
-    <div class="proof__inner">
+		<section class="section-proof">
+			<div class="container">
+				<div class="proof__inner">
+					<div>
+						<div style="width: 32px; height: 2px; background: var(--amber); margin-bottom: var(--sp-8)"></div>
+						<p class="proof__quote">
+							"The whiteboard gets erased. The shared drive is a mess. Someone always has
+							<strong>a different version</strong> of the roster. TroopToTask is the one place every leader looks."
+						</p>
+						<div class="proof__attribution">— Company Commander, Active Duty Infantry Unit</div>
+					</div>
 
-      <div>
-        <div style="width: 32px; height: 2px; background: var(--amber); margin-bottom: var(--sp-8);"></div>
-        <p class="proof__quote">
-          "The whiteboard gets erased. The shared drive is a mess. Someone always has <strong>a different version</strong> of the roster. TroopToTask is the one place every leader looks."
-        </p>
-        <div class="proof__attribution">— Company Commander, Active Duty Infantry Unit</div>
-      </div>
+					<div class="proof__points">
+						<div class="proof__point">
+							<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+								<polyline points="4 10 8 14 16 6"></polyline>
+							</svg>
+							<div class="proof__point-text">
+								<strong>Replaces the whiteboard.</strong> Statuses update in the system. No marker, no erasing, no
+								confusion about what's current.
+							</div>
+						</div>
+						<div class="proof__point">
+							<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+								<polyline points="4 10 8 14 16 6"></polyline>
+							</svg>
+							<div class="proof__point-text">
+								<strong>Replaces the spreadsheet.</strong> Roster data lives in one structured system. Exports are
+								format-ready. No reformatting for the S1.
+							</div>
+						</div>
+						<div class="proof__point">
+							<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+								<polyline points="4 10 8 14 16 6"></polyline>
+							</svg>
+							<div class="proof__point-text">
+								<strong>Replaces scattered shared drives.</strong> Counselings, training records, and onboarding
+								checklists in one permission-controlled location.
+							</div>
+						</div>
+						<div class="proof__point">
+							<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+								<polyline points="4 10 8 14 16 6"></polyline>
+							</svg>
+							<div class="proof__point-text">
+								<strong>Built for leader transitions.</strong> Full audit log and continuity records mean incoming
+								leaders have context from day one.
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
 
-      <div class="proof__points">
-        <div class="proof__point">
-          <svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-            <polyline points="4 10 8 14 16 6"></polyline>
-          </svg>
-          <div class="proof__point-text"><strong>Replaces the whiteboard.</strong> Statuses update in the system. No marker, no erasing, no confusion about what's current.</div>
-        </div>
-        <div class="proof__point">
-          <svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-            <polyline points="4 10 8 14 16 6"></polyline>
-          </svg>
-          <div class="proof__point-text"><strong>Replaces the spreadsheet.</strong> Roster data lives in one structured system. Exports are format-ready. No reformatting for the S1.</div>
-        </div>
-        <div class="proof__point">
-          <svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-            <polyline points="4 10 8 14 16 6"></polyline>
-          </svg>
-          <div class="proof__point-text"><strong>Replaces scattered shared drives.</strong> Counselings, training records, and onboarding checklists in one permission-controlled location.</div>
-        </div>
-        <div class="proof__point">
-          <svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-            <polyline points="4 10 8 14 16 6"></polyline>
-          </svg>
-          <div class="proof__point-text"><strong>Built for leader transitions.</strong> Full audit log and continuity records mean incoming leaders have context from day one.</div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================
+		<!-- ============================================================
      CTA
      ============================================================ -->
-<section class="section-cta" id="pricing">
-  <div class="container">
-    <div class="cta__inner">
-      <div>
-        <div class="label-amber" style="margin-bottom: var(--sp-5);">Get Started</div>
-        <h2 class="cta__heading">Ready to run<br>a tighter unit?</h2>
-        <p class="cta__subtext" style="margin-top: var(--sp-5);">
-          Request access for your unit. TroopToTask is onboarded by organization — we work with you to configure your structure, import your roster, and train your team leads.
-        </p>
-      </div>
-      <div class="cta__actions">
-        <a href="/request-access" class="btn btn--amber" style="font-size: var(--text-lg); padding: 12px 28px;">Request Access</a>
-        <a href="/demo" class="btn btn--outline">Schedule a Demo</a>
-        <div style="font-family: var(--font-mono); font-size: 10px; color: var(--ink-35); letter-spacing: 0.08em; text-align: center; margin-top: var(--sp-2);">No credit card required</div>
-      </div>
-    </div>
-  </div>
-</section>
+		<section class="section-cta" id="pricing">
+			<div class="container">
+				<div class="cta__inner">
+					<div>
+						<div class="label-amber" style="margin-bottom: var(--sp-5)">Get Started</div>
+						<h2 class="cta__heading">Ready to run<br />a tighter unit?</h2>
+						<p class="cta__subtext" style="margin-top: var(--sp-5)">
+							Request access for your unit. TroopToTask is onboarded by organization — we work with you to configure
+							your structure, import your roster, and train your team leads.
+						</p>
+					</div>
+					<div class="cta__actions">
+						<a href="/request-access" class="btn btn--amber" style="font-size: var(--text-lg); padding: 12px 28px"
+							>Request Access</a
+						>
+						<a href="/demo" class="btn btn--outline">Schedule a Demo</a>
+						<div
+							style="
+								font-family: var(--font-mono);
+								font-size: 10px;
+								color: var(--ink-35);
+								letter-spacing: 0.08em;
+								text-align: center;
+								margin-top: var(--sp-2);
+							"
+						>
+							No credit card required
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
 
-<!-- ============================================================
+		<!-- ============================================================
      FOOTER
      ============================================================ -->
-<footer class="site-footer">
-  <div class="container">
-    <div class="footer__inner">
+		<footer class="site-footer">
+			<div class="container">
+				<div class="footer__inner">
+					<div>
+						<div class="footer__brand">Troop<span>To</span>Task</div>
+						<div class="footer__tagline">Unit Readiness Platform</div>
+					</div>
 
-      <div>
-        <div class="footer__brand">Troop<span>To</span>Task</div>
-        <div class="footer__tagline">Unit Readiness Platform</div>
-      </div>
+					<div class="footer__links">
+						<div class="footer__links-col">
+							<div class="footer__link-heading">Product</div>
+							<a href="#capabilities" class="footer__link">Capabilities</a>
+							<a href="#roster" class="footer__link">Roster Demo</a>
+							<a href="/changelog" class="footer__link">Changelog</a>
+							<a href="/security" class="footer__link">Security</a>
+						</div>
+						<div class="footer__links-col">
+							<div class="footer__link-heading">Access</div>
+							<a href="/request-access" class="footer__link">Request Access</a>
+							<a href="/demo" class="footer__link">Schedule Demo</a>
+							<a href="/login" class="footer__link">Sign In</a>
+						</div>
+						<div class="footer__links-col">
+							<div class="footer__link-heading">Legal</div>
+							<a href="/privacy" class="footer__link">Privacy Policy</a>
+							<a href="/terms" class="footer__link">Terms of Use</a>
+							<a href="/accessibility" class="footer__link">Accessibility</a>
+						</div>
+					</div>
 
-      <div class="footer__links">
-        <div class="footer__links-col">
-          <div class="footer__link-heading">Product</div>
-          <a href="#capabilities" class="footer__link">Capabilities</a>
-          <a href="#roster" class="footer__link">Roster Demo</a>
-          <a href="/changelog" class="footer__link">Changelog</a>
-          <a href="/security" class="footer__link">Security</a>
-        </div>
-        <div class="footer__links-col">
-          <div class="footer__link-heading">Access</div>
-          <a href="/request-access" class="footer__link">Request Access</a>
-          <a href="/demo" class="footer__link">Schedule Demo</a>
-          <a href="/login" class="footer__link">Sign In</a>
-        </div>
-        <div class="footer__links-col">
-          <div class="footer__link-heading">Legal</div>
-          <a href="/privacy" class="footer__link">Privacy Policy</a>
-          <a href="/terms" class="footer__link">Terms of Use</a>
-          <a href="/accessibility" class="footer__link">Accessibility</a>
-        </div>
-      </div>
+					<div class="footer__legal">
+						<div>© 2026 TroopToTask. All rights reserved.</div>
+						<div style="margin-top: var(--sp-2)">Not affiliated with the U.S. Department of Defense.</div>
+						<div>Designed for DoD personnel use.</div>
+					</div>
+				</div>
 
-      <div class="footer__legal">
-        <div>© 2026 TroopToTask. All rights reserved.</div>
-        <div style="margin-top: var(--sp-2);">Not affiliated with the U.S. Department of Defense.</div>
-        <div>Designed for DoD personnel use.</div>
-      </div>
+				<div
+					style="
+						margin-top: var(--sp-8);
+						padding-top: var(--sp-6);
+						border-top: var(--border-thin);
+						display: flex;
+						align-items: center;
+						gap: var(--sp-6);
+					"
+				>
+					<div class="label" style="font-size: 9px">trooptotask.org</div>
+					<div style="width: 1px; height: 12px; background: var(--ink-15)"></div>
+					<div class="label" style="font-size: 9px">Version 2.0</div>
+					<div style="width: 1px; height: 12px; background: var(--ink-15)"></div>
+					<div class="label" style="font-size: 9px">Built for unit leaders</div>
+				</div>
+			</div>
+		</footer>
 
-    </div>
-
-    <div style="margin-top: var(--sp-8); padding-top: var(--sp-6); border-top: var(--border-thin); display: flex; align-items: center; gap: var(--sp-6);">
-      <div class="label" style="font-size: 9px;">trooptotask.org</div>
-      <div style="width: 1px; height: 12px; background: var(--ink-15);"></div>
-      <div class="label" style="font-size: 9px;">Version 2.0</div>
-      <div style="width: 1px; height: 12px; background: var(--ink-15);"></div>
-      <div class="label" style="font-size: 9px;">Built for unit leaders</div>
-    </div>
-  </div>
-</footer>
-
-<!-- ============================================================
+		<!-- ============================================================
      SCRIPTS
      ============================================================ -->
-<script>
-(function() {
-  /* Live date display */
-  function formatMilDate(d) {
-    const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
-    const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-    const h = d.getHours().toString().padStart(2,'0');
-    const m = d.getMinutes().toString().padStart(2,'0');
-    return days[d.getDay()] + ' ' + h + m + 'L — ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
-  }
+		<script>
+			(function () {
+				/* Live date display */
+				function formatMilDate(d) {
+					const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+					const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+					const h = d.getHours().toString().padStart(2, '0');
+					const m = d.getMinutes().toString().padStart(2, '0');
+					return (
+						days[d.getDay()] + ' ' + h + m + 'L — ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear()
+					);
+				}
 
-  const rdd = document.getElementById('roster-date-display');
-  if (rdd) rdd.textContent = formatMilDate(new Date());
+				const rdd = document.getElementById('roster-date-display');
+				if (rdd) rdd.textContent = formatMilDate(new Date());
 
-  const pvd = document.getElementById('preview-date');
-  if (pvd) {
-    const d = new Date();
-    const h = d.getHours().toString().padStart(2,'0');
-    const m = d.getMinutes().toString().padStart(2,'0');
-    const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
-    pvd.textContent = days[d.getDay()] + ' ' + h + m + ' — MORNING ACCOUNTABILITY';
-  }
+				const pvd = document.getElementById('preview-date');
+				if (pvd) {
+					const d = new Date();
+					const h = d.getHours().toString().padStart(2, '0');
+					const m = d.getMinutes().toString().padStart(2, '0');
+					const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+					pvd.textContent = days[d.getDay()] + ' ' + h + m + ' — MORNING ACCOUNTABILITY';
+				}
 
-  /* Scroll-driven fade-in for sections below the fold */
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.style.opacity = '1';
-        entry.target.style.transform = 'translateY(0)';
-        observer.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.08 });
+				/* Scroll-driven fade-in for sections below the fold */
+				const observer = new IntersectionObserver(
+					(entries) => {
+						entries.forEach((entry) => {
+							if (entry.isIntersecting) {
+								entry.target.style.opacity = '1';
+								entry.target.style.transform = 'translateY(0)';
+								observer.unobserve(entry.target);
+							}
+						});
+					},
+					{ threshold: 0.08 }
+				);
 
-  document.querySelectorAll('.question-row, .cap-card, .role-row, .proof__point').forEach((el, i) => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(10px)';
-    el.style.transition = `opacity 0.4s ease ${i * 0.04}s, transform 0.4s ease ${i * 0.04}s`;
-    observer.observe(el);
-  });
-})();
-</script>
-
-</body>
+				document.querySelectorAll('.question-row, .cap-card, .role-row, .proof__point').forEach((el, i) => {
+					el.style.opacity = '0';
+					el.style.transform = 'translateY(10px)';
+					el.style.transition = `opacity 0.4s ease ${i * 0.04}s, transform 0.4s ease ${i * 0.04}s`;
+					observer.observe(el);
+				});
+			})();
+		</script>
+	</body>
 </html>

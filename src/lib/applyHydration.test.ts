@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { defineStore } from '$lib/stores/core';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
-import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from '$features/onboarding/onboarding.types';
+import type {
+	OnboardingTemplate,
+	OnboardingTemplateStep,
+	PersonnelOnboarding
+} from '$features/onboarding/onboarding.types';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { applyHydration, resetHydrationState } from './applyHydration.svelte';
 import type { HydrationStores } from './applyHydration.svelte';
@@ -33,6 +38,12 @@ function createTestStores(): HydrationStores & {
 	trainingTypes: ReturnType<typeof defineStore<TrainingType>>;
 	trainingViews: ReturnType<typeof defineStore<TrainingView>>;
 	personnelTrainings: ReturnType<typeof defineStore<PersonnelTraining>>;
+	pinnedGroups: {
+		orgId: string;
+		list: string[];
+		load: (items: string[], orgId: string) => void;
+	};
+	ratingSchemeEntries: ReturnType<typeof defineStore<RatingSchemeEntry>>;
 	onboardingTemplates: {
 		orgId: string;
 		templates: OnboardingTemplate[];
@@ -50,6 +61,15 @@ function createTestStores(): HydrationStores & {
 	const trainingTypes = defineStore<TrainingType>({ table: 'training_types' });
 	const trainingViews = defineStore<TrainingView>({ table: 'training_views' });
 	const personnelTrainings = defineStore<PersonnelTraining>({ table: 'personnel_trainings' });
+	const pinnedGroups = {
+		orgId: '',
+		list: [] as string[],
+		load(items: string[], orgId: string) {
+			this.list = items;
+			this.orgId = orgId;
+		}
+	};
+	const ratingSchemeEntries = defineStore<RatingSchemeEntry>({ table: 'rating_scheme_entries' });
 	const onboardingTemplates = {
 		orgId: '',
 		templates: [] as OnboardingTemplate[],
@@ -71,6 +91,8 @@ function createTestStores(): HydrationStores & {
 		trainingTypesStore: trainingTypes as unknown as HydrationStores['trainingTypesStore'],
 		trainingViewsStore: trainingViews as unknown as HydrationStores['trainingViewsStore'],
 		personnelTrainingsStore: personnelTrainings as unknown as HydrationStores['personnelTrainingsStore'],
+		pinnedGroupsStore: pinnedGroups as unknown as HydrationStores['pinnedGroupsStore'],
+		ratingSchemeStore: ratingSchemeEntries as unknown as HydrationStores['ratingSchemeStore'],
 		onboardingTemplateStore: onboardingTemplates as unknown as HydrationStores['onboardingTemplateStore'],
 		onboardingStore: onboardings as unknown as HydrationStores['onboardingStore'],
 		personnel,
@@ -82,6 +104,8 @@ function createTestStores(): HydrationStores & {
 		trainingTypes,
 		trainingViews,
 		personnelTrainings,
+		pinnedGroups,
+		ratingSchemeEntries,
 		onboardingTemplates,
 		onboardings
 	};
@@ -164,6 +188,25 @@ const onboardingRecord = {
 	steps: [],
 	templateId: 'tpl1'
 } satisfies PersonnelOnboarding;
+const ratingSchemeEntry = {
+	id: 'rs1',
+	ratedPersonId: 'p1',
+	evalType: 'NCOER',
+	raterPersonId: null,
+	raterName: null,
+	seniorRaterPersonId: null,
+	seniorRaterName: null,
+	intermediateRaterPersonId: null,
+	intermediateRaterName: null,
+	reviewerPersonId: null,
+	reviewerName: null,
+	ratingPeriodStart: '2024-01-01',
+	ratingPeriodEnd: '2024-12-31',
+	status: 'active',
+	notes: null,
+	reportType: 'AN',
+	workflowStatus: 'drafting'
+} satisfies RatingSchemeEntry;
 
 describe('applyHydration', () => {
 	let stores: ReturnType<typeof createTestStores>;
@@ -259,6 +302,28 @@ describe('applyHydration', () => {
 		expect(stores.onboardingTemplates.steps).toEqual([onboardingTemplateStep]);
 		expect(stores.onboardingTemplates.orgId).toBe(ORG);
 		expect(stores.onboardings.items).toEqual([onboardingRecord]);
+	});
+
+	it('hydrates personnel-owned pinned groups and rating scheme stores through the declared contract', async () => {
+		const plan = {
+			orgId: ORG,
+			pinnedGroups: {
+				mode: 'replace',
+				snapshotKey: 'pinned-groups:1',
+				items: ['Alpha']
+			},
+			ratingSchemeEntries: {
+				mode: 'replace',
+				snapshotKey: 'rating-scheme:1',
+				items: [ratingSchemeEntry]
+			}
+		} as unknown as HydrationPlan;
+
+		await applyHydration(plan, stores as unknown as HydrationStores);
+
+		expect(stores.pinnedGroups.list).toEqual(['Alpha']);
+		expect(stores.pinnedGroups.orgId).toBe(ORG);
+		expect(stores.ratingSchemeEntries.items).toEqual([ratingSchemeEntry]);
 	});
 
 	it('hydrates deferred personnelTrainings and keeps loading true until resolution', async () => {

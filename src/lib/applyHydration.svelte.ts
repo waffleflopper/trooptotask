@@ -15,14 +15,21 @@
  */
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
-import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from '$features/onboarding/onboarding.types';
+import type {
+	OnboardingTemplate,
+	OnboardingTemplateStep,
+	PersonnelOnboarding
+} from '$features/onboarding/onboarding.types';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
+import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
+import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -62,6 +69,8 @@ export interface HydrationStores {
 	trainingTypesStore: Loadable<TrainingType>;
 	trainingViewsStore: Loadable<TrainingView>;
 	personnelTrainingsStore: Loadable<PersonnelTraining>;
+	pinnedGroupsStore: Loadable<string>;
+	ratingSchemeStore: Loadable<RatingSchemeEntry>;
 	onboardingTemplateStore: OnboardingTemplatesLoadable;
 	onboardingStore: Loadable<PersonnelOnboarding>;
 }
@@ -76,6 +85,8 @@ const defaultStores: HydrationStores = {
 	trainingTypesStore,
 	trainingViewsStore,
 	personnelTrainingsStore,
+	pinnedGroupsStore,
+	ratingSchemeStore,
 	onboardingTemplateStore,
 	onboardingStore
 };
@@ -192,11 +203,18 @@ export async function applyHydration(plan?: HydrationPlan, stores: HydrationStor
 		applyTarget(plan.availabilityEntries, stores.availabilityEntriesStore, orgId, 'availabilityEntries'),
 		applyTarget(plan.specialDays, stores.specialDaysStore, orgId, 'specialDays'),
 		Promise.resolve(
-			applyCalendarAssignmentsTarget(plan.calendarAssignments, stores.calendarAssignmentsStore, orgId, 'calendarAssignments')
+			applyCalendarAssignmentsTarget(
+				plan.calendarAssignments,
+				stores.calendarAssignmentsStore,
+				orgId,
+				'calendarAssignments'
+			)
 		),
 		applyTarget(plan.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
 		applyTarget(plan.trainingViews, stores.trainingViewsStore, orgId, 'trainingViews'),
 		applyTarget(plan.personnelTrainings, stores.personnelTrainingsStore, orgId, 'personnelTrainings'),
+		applyTarget(plan.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups'),
+		applyTarget(plan.ratingSchemeEntries, stores.ratingSchemeStore, orgId, 'ratingSchemeEntries'),
 		Promise.resolve(
 			applyOnboardingTemplatesTarget(
 				plan.onboardingTemplates,

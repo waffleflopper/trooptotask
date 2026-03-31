@@ -10,6 +10,7 @@ import type { TrainingBootstrap } from './trainingQuery';
 import type { OnboardingBootstrap } from './onboardingQuery';
 import type { DashboardBootstrap } from './dashboardQuery';
 import type { PersonnelBootstrap } from './personnelWorkspaceQuery';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import { createDefaultHydrationPlanner } from '../hydrationPlanner';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { Personnel, StatusType } from '$lib/types';
@@ -237,12 +238,35 @@ describe('loadOrgWorkspace — personnel workspace boundary', () => {
 	];
 	const groups = [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group];
 	const statusTypes = [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' } as StatusType];
+	const ratingSchemeEntries = [
+		{
+			id: 'rs1',
+			ratedPersonId: 'p1',
+			evalType: 'NCOER',
+			raterPersonId: null,
+			raterName: null,
+			seniorRaterPersonId: null,
+			seniorRaterName: null,
+			intermediateRaterPersonId: null,
+			intermediateRaterName: null,
+			reviewerPersonId: null,
+			reviewerName: null,
+			ratingPeriodStart: '2024-01-01',
+			ratingPeriodEnd: '2024-12-31',
+			status: 'active',
+			notes: null,
+			reportType: 'AN',
+			workflowStatus: 'drafting'
+		} as RatingSchemeEntry
+	];
 
 	const personnelData: PersonnelBootstrap = {
 		personnel,
 		allPersonnel,
 		groups,
-		statusTypes
+		statusTypes,
+		pinnedGroups: ['Alpha'],
+		ratingSchemeEntries
 	};
 
 	it('returns personnel-owned data from workspace port', async () => {
@@ -258,6 +282,8 @@ describe('loadOrgWorkspace — personnel workspace boundary', () => {
 		expect(result.data.allPersonnel).toEqual(allPersonnel);
 		expect(result.data.groups).toEqual(groups);
 		expect(result.data.statusTypes).toEqual(statusTypes);
+		expect(result.data.pinnedGroups).toEqual(['Alpha']);
+		expect(result.data.ratingSchemeEntries).toEqual(ratingSchemeEntries);
 	});
 
 	it('hydrates personnel reference data explicitly', async () => {
@@ -271,6 +297,8 @@ describe('loadOrgWorkspace — personnel workspace boundary', () => {
 		expect(result.hydration?.personnel).toBeDefined();
 		expect(result.hydration?.groups).toBeDefined();
 		expect(result.hydration?.statusTypes).toBeDefined();
+		expect(result.hydration?.pinnedGroups).toBeDefined();
+		expect(result.hydration?.ratingSchemeEntries).toBeDefined();
 	});
 });
 

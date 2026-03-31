@@ -6,7 +6,7 @@
  * workflow if the personnel record has related data (returns `{ requiresApproval: true }`).
  *
  * For bulk import, see `personnelBatch.ts`. For queries, see `personnelQuery.ts`
- * and `personnelPageQuery.ts`.
+ * and `personnelWorkspaceQuery.ts`.
  */
 import { fail } from '$lib/server/core/errors';
 import { PersonnelEntity } from '$lib/server/entities/personnel';

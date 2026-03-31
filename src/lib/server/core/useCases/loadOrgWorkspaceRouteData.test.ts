@@ -3,8 +3,14 @@ import { createInMemoryOrgWorkspacePort } from '$lib/server/adapters/inMemoryOrg
 import type { WorkspaceKey, WorkspaceBootstrap } from '../orgShell';
 import type { CalendarBootstrap } from './calendarQuery';
 import type { OnboardingBootstrap } from './onboardingQuery';
+import type { PersonnelBootstrap } from './personnelWorkspaceQuery';
 import type { TrainingBootstrap } from './trainingQuery';
-import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from '$features/onboarding/onboarding.types';
+import type {
+	OnboardingTemplate,
+	OnboardingTemplateStep,
+	PersonnelOnboarding
+} from '$features/onboarding/onboarding.types';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -224,7 +230,9 @@ describe('loadOrgWorkspaceRouteData', () => {
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group]
 		};
 
-		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['onboarding', onboardingData]]));
+		const workspacePort = createInMemoryOrgWorkspacePort(
+			new Map<WorkspaceKey, unknown>([['onboarding', onboardingData]])
+		);
 		const plannerPort = createDefaultHydrationPlanner('org-1');
 
 		const result = await loadOrgWorkspaceRouteData('onboarding', workspacePort, plannerPort);
@@ -265,6 +273,90 @@ describe('loadOrgWorkspaceRouteData', () => {
 					}
 				})
 			} satisfies WorkspaceBootstrap<OnboardingBootstrap>
+		});
+	});
+
+	it('returns the canonical personnel route payload with personnel-owned hydration targets', async () => {
+		const ratingSchemeEntries = [
+			{
+				id: 'rs1',
+				ratedPersonId: 'p1',
+				evalType: 'NCOER',
+				raterPersonId: null,
+				raterName: null,
+				seniorRaterPersonId: null,
+				seniorRaterName: null,
+				intermediateRaterPersonId: null,
+				intermediateRaterName: null,
+				reviewerPersonId: null,
+				reviewerName: null,
+				ratingPeriodStart: '2024-01-01',
+				ratingPeriodEnd: '2024-12-31',
+				status: 'active',
+				notes: null,
+				reportType: 'AN',
+				workflowStatus: 'drafting'
+			} satisfies RatingSchemeEntry
+		];
+		const personnelData: PersonnelBootstrap = {
+			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
+			allPersonnel: [
+				{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel,
+				{ id: 'p2', firstName: 'Jane', lastName: 'Jones' } as Personnel
+			],
+			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
+			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
+			pinnedGroups: ['Alpha'],
+			ratingSchemeEntries
+		};
+
+		const workspacePort = createInMemoryOrgWorkspacePort(
+			new Map<WorkspaceKey, unknown>([['personnel', personnelData]])
+		);
+		const plannerPort = createDefaultHydrationPlanner('org-1');
+
+		const result = await loadOrgWorkspaceRouteData('personnel', workspacePort, plannerPort);
+
+		expect(result).toEqual({
+			personnel: {
+				workspace: 'personnel',
+				data: personnelData,
+				hydration: expect.objectContaining({
+					orgId: 'org-1',
+					personnel: {
+						scoped: {
+							mode: 'replace',
+							items: personnelData.personnel,
+							snapshotKey: expect.any(String)
+						},
+						all: {
+							mode: 'replace',
+							items: personnelData.allPersonnel,
+							snapshotKey: expect.any(String)
+						}
+					},
+					groups: {
+						mode: 'replace',
+						items: personnelData.groups,
+						snapshotKey: expect.any(String)
+					},
+					statusTypes: {
+						mode: 'replace',
+						items: personnelData.statusTypes,
+						snapshotKey: expect.any(String)
+					},
+					pinnedGroups: {
+						mode: 'replace',
+						items: personnelData.pinnedGroups,
+						snapshotKey: expect.any(String)
+					},
+					ratingSchemeEntries: {
+						mode: 'replace',
+						items: personnelData.ratingSchemeEntries,
+						snapshotKey: expect.any(String)
+					}
+				})
+			} satisfies WorkspaceBootstrap<PersonnelBootstrap>
 		});
 	});
 });

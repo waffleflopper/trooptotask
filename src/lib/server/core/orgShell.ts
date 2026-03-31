@@ -9,7 +9,12 @@
  */
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
-import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from '$features/onboarding/onboarding.types';
+import type {
+	OnboardingTemplate,
+	OnboardingTemplateStep,
+	PersonnelOnboarding
+} from '$features/onboarding/onboarding.types';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining } from '$features/training/training.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
@@ -102,6 +107,8 @@ export interface HydrationPlan {
 	trainingTypes?: HydrationTarget;
 	trainingViews?: HydrationTarget;
 	personnelTrainings?: HydrationTarget<PersonnelTraining>;
+	pinnedGroups?: HydrationTarget<string>;
+	ratingSchemeEntries?: HydrationTarget<RatingSchemeEntry>;
 	onboardingTemplates?: OnboardingTemplatesHydrationTarget;
 	onboardings?: HydrationTarget<PersonnelOnboarding>;
 }

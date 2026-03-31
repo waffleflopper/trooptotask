@@ -18,6 +18,10 @@ class PinnedGroupsStore {
 		return this.#pinnedGroups;
 	}
 
+	get orgId() {
+		return this.#orgId;
+	}
+
 	load(pinnedGroups: string[], orgId: string) {
 		if (this.#pendingMutations > 0 && orgId === this.#orgId) return;
 		this.#pinnedGroups = pinnedGroups;

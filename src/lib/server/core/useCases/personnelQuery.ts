@@ -4,9 +4,9 @@
  * `queryPersonnel(ctx, options?)` supports `archived` flag ('all' | true | false),
  * custom `orderBy`, and cursor-based `range` for pagination.
  *
- * For the personnel page's supplemental data (pinned groups, rating scheme entries),
- * see `personnelPageQuery.ts`. For the shared layout query (all personnel + groups),
- * see `sharedDataQuery.ts`.
+ * Workspace-owned personnel bootstraps such as pinned groups and rating scheme entries
+ * are loaded through `personnelWorkspaceQuery.ts`. For the shared layout query
+ * (all personnel + groups), see `sharedDataQuery.ts`.
  */
 import type { QueryPorts, FindOptions } from '$lib/server/core/ports';
 import type { Personnel } from '$lib/types';

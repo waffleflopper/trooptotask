@@ -37,6 +37,31 @@ function seedPersonnel(store: ReturnType<typeof createInMemoryDataStore>) {
 		{ id: 'st1', organization_id: ORG, name: 'Leave', color: '#000000', text_color: '#ffffff', sort_order: 0 },
 		{ id: 'st2', organization_id: ORG, name: 'TDY', color: '#111111', text_color: '#eeeeee', sort_order: 1 }
 	]);
+	store.seed('user_pinned_groups', [
+		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 0 }
+	]);
+	store.seed('rating_scheme_entries', [
+		{
+			id: 'rs1',
+			organization_id: ORG,
+			rated_person_id: 'p1',
+			eval_type: 'NCOER',
+			rater_person_id: null,
+			rater_name: null,
+			senior_rater_person_id: null,
+			senior_rater_name: null,
+			intermediate_rater_person_id: null,
+			intermediate_rater_name: null,
+			reviewer_person_id: null,
+			reviewer_name: null,
+			rating_period_start: '2024-01-01',
+			rating_period_end: '2024-12-31',
+			status: 'active',
+			notes: null,
+			report_type: 'AN',
+			workflow_status: 'drafting'
+		}
+	]);
 }
 
 describe('fetchPersonnelBootstrap', () => {
@@ -52,6 +77,8 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result.allPersonnel.map((p) => p.lastName)).toEqual(['Jones', 'Smith']);
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
+		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.ratingSchemeEntries).toHaveLength(1);
 	});
 
 	it('excludes archived personnel from both arrays', async () => {
@@ -115,6 +142,31 @@ describe('fetchPersonnelBootstrap', () => {
 			{ id: 'st1', organization_id: ORG, name: 'Leave', color: '#000000', text_color: '#ffffff', sort_order: 0 },
 			{ id: 'st2', organization_id: ORG, name: 'TDY', color: '#111111', text_color: '#eeeeee', sort_order: 1 }
 		]);
+		ctx.rawStore.seed('user_pinned_groups', [
+			{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 0 }
+		]);
+		ctx.rawStore.seed('rating_scheme_entries', [
+			{
+				id: 'rs1',
+				organization_id: ORG,
+				rated_person_id: 'p1',
+				eval_type: 'NCOER',
+				rater_person_id: null,
+				rater_name: null,
+				senior_rater_person_id: null,
+				senior_rater_name: null,
+				intermediate_rater_person_id: null,
+				intermediate_rater_name: null,
+				reviewer_person_id: null,
+				reviewer_name: null,
+				rating_period_start: '2024-01-01',
+				rating_period_end: '2024-12-31',
+				status: 'active',
+				notes: null,
+				report_type: 'AN',
+				workflow_status: 'drafting'
+			}
+		]);
 
 		const result = await fetchPersonnelBootstrap(ctx);
 
@@ -126,5 +178,7 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result.allPersonnel).toHaveLength(2);
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
+		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.ratingSchemeEntries).toHaveLength(1);
 	});
 });

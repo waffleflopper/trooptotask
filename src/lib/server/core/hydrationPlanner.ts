@@ -1,5 +1,10 @@
 import type { HydrationItems, HydrationPlan, HydrationPlannerPort, WorkspaceKey } from './orgShell';
-import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from '$features/onboarding/onboarding.types';
+import type {
+	OnboardingTemplate,
+	OnboardingTemplateStep,
+	PersonnelOnboarding
+} from '$features/onboarding/onboarding.types';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining } from '$features/training/training.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
@@ -68,8 +73,9 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			const hasTrainingTypes = isHydratableItems(d.trainingTypes);
 			const hasTrainingViews = isHydratableItems(d.trainingViews);
 			const hasPersonnelTrainings = isHydratableItems(d.personnelTrainings);
-			const hasOnboardingTemplates =
-				Array.isArray(d.onboardingTemplates) || Array.isArray(d.onboardingTemplateSteps);
+			const hasPinnedGroups = isHydratableItems(d.pinnedGroups);
+			const hasRatingSchemeEntries = isHydratableItems(d.ratingSchemeEntries);
+			const hasOnboardingTemplates = Array.isArray(d.onboardingTemplates) || Array.isArray(d.onboardingTemplateSteps);
 			const hasOnboardings = isHydratableItems(d.onboardings);
 
 			if (
@@ -82,6 +88,8 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 				!hasTrainingTypes &&
 				!hasTrainingViews &&
 				!hasPersonnelTrainings &&
+				!hasPinnedGroups &&
+				!hasRatingSchemeEntries &&
 				!hasOnboardingTemplates &&
 				!hasOnboardings
 			) {
@@ -176,6 +184,22 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 					mode: 'replace',
 					snapshotKey: createSnapshotKey(d.personnelTrainings),
 					items: d.personnelTrainings as HydrationItems<PersonnelTraining>
+				};
+			}
+
+			if (hasPinnedGroups) {
+				plan.pinnedGroups = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.pinnedGroups),
+					items: d.pinnedGroups as HydrationItems<string>
+				};
+			}
+
+			if (hasRatingSchemeEntries) {
+				plan.ratingSchemeEntries = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.ratingSchemeEntries),
+					items: d.ratingSchemeEntries as HydrationItems<RatingSchemeEntry>
 				};
 			}
 

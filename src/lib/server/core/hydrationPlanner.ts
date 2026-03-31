@@ -1,4 +1,5 @@
-import type { HydrationPlan, HydrationPlannerPort, WorkspaceKey } from './orgShell';
+import type { HydrationItems, HydrationPlan, HydrationPlannerPort, WorkspaceKey } from './orgShell';
+import type { PersonnelTraining } from '$features/training/training.types';
 
 const deferredSnapshotKeys = new WeakMap<object, string>();
 let fallbackSnapshotCounter = 0;
@@ -61,8 +62,16 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			const hasStatusTypes = isHydratableItems(d.statusTypes);
 			const hasTrainingTypes = isHydratableItems(d.trainingTypes);
 			const hasTrainingViews = isHydratableItems(d.trainingViews);
+			const hasPersonnelTrainings = isHydratableItems(d.personnelTrainings);
 
-			if (!hasPersonnel && !hasGroups && !hasStatusTypes && !hasTrainingTypes && !hasTrainingViews) {
+			if (
+				!hasPersonnel &&
+				!hasGroups &&
+				!hasStatusTypes &&
+				!hasTrainingTypes &&
+				!hasTrainingViews &&
+				!hasPersonnelTrainings
+			) {
 				return undefined;
 			}
 
@@ -118,6 +127,14 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 					mode: 'replace',
 					snapshotKey: createSnapshotKey(d.trainingViews),
 					items: d.trainingViews as unknown[] | Promise<unknown[]>
+				};
+			}
+
+			if (hasPersonnelTrainings) {
+				plan.personnelTrainings = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.personnelTrainings),
+					items: d.personnelTrainings as HydrationItems<PersonnelTraining>
 				};
 			}
 

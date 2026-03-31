@@ -9,6 +9,7 @@
  */
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
+import type { PersonnelTraining } from '$features/training/training.types';
 
 // ---------------------------------------------------------------------------
 // Announcement — defined here as a domain type (not tied to the DB query)
@@ -18,7 +19,7 @@ export interface Announcement {
 	id: string;
 	title: string;
 	message: string;
-	type: 'info' | 'warning' | 'critical';
+	type: 'info' | 'warning' | 'maintenance';
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +82,7 @@ export interface HydrationPlan {
 	statusTypes?: HydrationTarget;
 	trainingTypes?: HydrationTarget;
 	trainingViews?: HydrationTarget;
+	personnelTrainings?: HydrationTarget<PersonnelTraining>;
 }
 
 export interface WorkspaceBootstrap<T> {

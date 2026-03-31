@@ -1,19 +1,17 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { isFullEditor, type OrganizationMemberPermissions } from '$lib/types';
-import { loadOrgShell } from '$lib/server/core/useCases/loadOrgShell';
-import {
-	buildLayoutContext,
-	buildLayoutContextFromMembership,
-	getLayoutClient
-} from '$lib/server/adapters/httpAdapter';
-import type { MembershipRow } from '$lib/server/permissionContext';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import type { OrganizationMemberPermissions } from '$lib/types';
+import { loadRootOrgShellRouteData } from '$lib/server/core/useCases/loadRootOrgShell';
+import { getLayoutClient } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import { createSupabaseOrgAccessPort, createSupabaseOrgChromePort } from '$lib/server/adapters/supabaseOrgShell';
 import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from '$lib/server/adapters/inMemoryOrgShell';
 
-async function buildDemoShell(config: {
+/**
+ * Deprecated demo-only shell path kept temporarily while demo sandbox access is phased out.
+ * Do not expand this path; prefer removal when demo sandbox cleanup work is scheduled.
+ */
+async function loadDemoRootOrgShellRouteData(config: {
 	orgId: string;
 	orgName: string;
 	permissions: OrganizationMemberPermissions;
@@ -22,7 +20,7 @@ async function buildDemoShell(config: {
 	isDemoSandbox: boolean;
 	effectiveTier: Awaited<ReturnType<ReturnType<typeof createSupabaseSubscriptionAdapter>['getEffectiveTier']>>;
 }) {
-	return loadOrgShell(
+	return loadRootOrgShellRouteData(
 		createInMemoryOrgAccessPort({
 			membership: {
 				orgId: config.orgId,
@@ -78,7 +76,7 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 		};
 	}
 
-	// Handle demo showcase access (no login required for read-only viewing)
+	// Deprecated demo showcase path retained temporarily during demo cleanup.
 	if (org.demo_type === 'showcase' && isDemoReadOnly) {
 		const readOnlyPermissions: OrganizationMemberPermissions = {
 			canViewCalendar: true,
@@ -94,61 +92,9 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			canManageMembers: false
 		};
 
-		const demoStore = createSupabaseDataStore(supabase);
-		const demoCtx = {
-			store: demoStore,
-			rawStore: demoStore,
-			auth: {
-				userId: null,
-				orgId,
-				role: 'member' as const,
-				isPrivileged: false,
-				isFullEditor: false,
-				scopedGroupId: null,
-				requireEdit() {},
-				requireView() {},
-				requirePrivileged() {},
-				requireOwner() {},
-				requireFullEditor() {},
-				requireManageMembers() {},
-				async requireGroupAccess() {},
-				async requireGroupAccessBatch() {},
-				async requireGroupAccessByRecord() {}
-			},
-			audit: { log() {} },
-			readOnlyGuard: {
-				async check() {
-					return false;
-				}
-			},
-			subscription: createSupabaseSubscriptionAdapter(supabase, orgId),
-			notifications: {
-				async notifyUser() {},
-				async notifyAdmins() {}
-			},
-			billing: {
-				async createCheckoutSession() {
-					return { url: '', customerId: '' };
-				},
-				async createPortalSession() {
-					return { url: '' };
-				},
-				async cancelSubscription() {},
-				async pauseSubscription() {},
-				async resumeSubscription() {}
-			},
-			storage: {
-				async upload() {},
-				async remove() {},
-				async createSignedUrl() {
-					return '';
-				}
-			}
-		};
+		const effectiveTier = await createSupabaseSubscriptionAdapter(supabase, orgId).getEffectiveTier();
 
-		const effectiveTier = await demoCtx.subscription.getEffectiveTier();
-
-		const shell = await buildDemoShell({
+		return loadDemoRootOrgShellRouteData({
 			orgId,
 			orgName: org.name,
 			permissions: readOnlyPermissions,
@@ -157,27 +103,10 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			isDemoSandbox: false,
 			effectiveTier
 		});
-
-		return {
-			orgId,
-			orgName: org.name,
-			userRole: 'member' as const,
-			userId: null,
-			permissions: readOnlyPermissions,
-			isFullEditor: false,
-			unreadNotificationCount: 0,
-			scopedGroupId: null,
-			isOwner: false,
-			isAdmin: false,
-			allOrgs: [],
-			effectiveTier,
-			isDemoReadOnly: true,
-			isDemoSandbox: false,
-			shell
-		};
 	}
 
-	// Handle demo sandbox access (no login required, full access to sandbox)
+	// Deprecated demo sandbox path retained temporarily during demo cleanup.
+	// This flow is already unavailable in production and should not gain new behavior.
 	if (org.demo_type === 'sandbox' && demoSandboxCookie) {
 		try {
 			const sandboxInfo = JSON.parse(demoSandboxCookie);
@@ -196,10 +125,9 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					canManageMembers: true
 				};
 
-				const sandboxCtx = await buildLayoutContext(locals, cookies, orgId);
-				const effectiveTier = await sandboxCtx.subscription.getEffectiveTier();
+				const effectiveTier = await createSupabaseSubscriptionAdapter(supabase, orgId).getEffectiveTier();
 
-				const shell = await buildDemoShell({
+				return loadDemoRootOrgShellRouteData({
 					orgId,
 					orgName: org.name,
 					permissions: fullPermissions,
@@ -208,24 +136,6 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 					isDemoSandbox: true,
 					effectiveTier
 				});
-
-				return {
-					orgId,
-					orgName: org.name,
-					userRole: 'owner' as const,
-					userId: null,
-					permissions: fullPermissions,
-					isFullEditor: true,
-					unreadNotificationCount: 0,
-					scopedGroupId: null,
-					isOwner: true,
-					isAdmin: false,
-					allOrgs: [],
-					effectiveTier,
-					isDemoReadOnly: false,
-					isDemoSandbox: true,
-					shell
-				};
 			}
 		} catch {
 			// Invalid cookie, ignore
@@ -235,44 +145,10 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 	// For non-demo access, require login
 	if (!user) throw redirect(303, '/auth/login');
 
-	// Parallelize: membership + allOrgs (single query), tier, and announcements.
-	// Shell loading starts concurrently — adapters issue their own queries in parallel
-	// with the existing pipeline. Some query overlap is expected during migration.
 	const subscriptionAdapter = createSupabaseSubscriptionAdapter(supabase, orgId);
-
-	// Share the tier promise so both the shell and the existing path resolve it once.
 	const effectiveTierPromise = subscriptionAdapter.getEffectiveTier();
 
-	const [membershipsRes, effectiveTier, notificationCountRes, announcementsRes, dismissalsRes] = await Promise.all([
-		locals.supabase
-			.from('organization_memberships')
-			.select(
-				'organization_id, role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id, organizations(id, name)'
-			)
-			.eq('user_id', user.id),
-		effectiveTierPromise,
-		locals.supabase
-			.from('notifications')
-			.select('id', { count: 'exact', head: true })
-			.eq('user_id', user.id)
-			.eq('organization_id', orgId)
-			.eq('read', false),
-		supabase
-			.from('platform_announcements')
-			.select('id, title, message, type')
-			.eq('is_active', true)
-			.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
-		locals.supabase.from('announcement_dismissals').select('announcement_id').eq('user_id', user.id)
-	]);
-
-	const allMemberships = membershipsRes.data ?? [];
-	const membership = allMemberships.find((m: Record<string, unknown>) => m.organization_id === orgId);
-	if (!membership) {
-		throw error(403, 'You are not a member of this organization');
-	}
-
-	// Start shell loading after membership check so a 403 doesn't leave shellPromise as an unhandled rejection.
-	const shellPromise = loadOrgShell(
+	return loadRootOrgShellRouteData(
 		createSupabaseOrgAccessPort({
 			orgId,
 			userId: user.id,
@@ -289,63 +165,4 @@ export const load: LayoutServerLoad = async ({ params, locals, cookies, depends 
 			supabase
 		})
 	);
-
-	const allOrgs = allMemberships
-		.filter((m: Record<string, unknown>) => m.organizations)
-		.map((m: Record<string, unknown>) => {
-			const org = m.organizations as Record<string, unknown>;
-			return { id: org.id as string, name: org.name as string, role: m.role as string };
-		});
-
-	const isOwner = membership.role === 'owner';
-	const isAdmin = membership.role === 'admin';
-	const isPrivileged = isOwner || isAdmin;
-
-	// Build permissions object - owners and admins always have full access
-	const permissions: OrganizationMemberPermissions = {
-		canViewCalendar: isPrivileged || membership.can_view_calendar,
-		canEditCalendar: isPrivileged || membership.can_edit_calendar,
-		canViewPersonnel: isPrivileged || membership.can_view_personnel,
-		canEditPersonnel: isPrivileged || membership.can_edit_personnel,
-		canViewTraining: isPrivileged || membership.can_view_training,
-		canEditTraining: isPrivileged || membership.can_edit_training,
-		canViewOnboarding: isPrivileged || membership.can_view_onboarding,
-		canEditOnboarding: isPrivileged || membership.can_edit_onboarding,
-		canViewLeadersBook: isPrivileged || membership.can_view_leaders_book,
-		canEditLeadersBook: isPrivileged || membership.can_edit_leaders_book,
-		canManageMembers: isPrivileged || membership.can_manage_members
-	};
-
-	const scopedGroupId: string | null = isPrivileged ? null : (membership.scoped_group_id ?? null);
-
-	const fullEditor = !isPrivileged && !scopedGroupId && isFullEditor(permissions);
-
-	const ctx = await buildLayoutContextFromMembership(locals, cookies, orgId, membership as MembershipRow);
-
-	// Filter out dismissed announcements
-	const dismissedIds = new Set((dismissalsRes.data ?? []).map((d: Record<string, unknown>) => d.announcement_id));
-	const activeAnnouncements = (announcementsRes.data ?? []).filter(
-		(a: Record<string, unknown>) => !dismissedIds.has(a.id)
-	);
-
-	const shell = await shellPromise;
-
-	return {
-		orgId,
-		orgName: org.name,
-		userRole: membership.role as 'owner' | 'admin' | 'member',
-		userId: user.id,
-		permissions,
-		isFullEditor: fullEditor,
-		unreadNotificationCount: notificationCountRes.count ?? 0,
-		scopedGroupId,
-		isOwner,
-		isAdmin,
-		allOrgs,
-		effectiveTier,
-		isDemoReadOnly: false,
-		isDemoSandbox: false,
-		activeAnnouncements,
-		shell
-	};
 };

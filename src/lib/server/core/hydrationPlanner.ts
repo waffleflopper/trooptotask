@@ -1,4 +1,5 @@
 import type { HydrationItems, HydrationPlan, HydrationPlannerPort, WorkspaceKey } from './orgShell';
+import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from '$features/onboarding/onboarding.types';
 import type { PersonnelTraining } from '$features/training/training.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
@@ -67,6 +68,9 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			const hasTrainingTypes = isHydratableItems(d.trainingTypes);
 			const hasTrainingViews = isHydratableItems(d.trainingViews);
 			const hasPersonnelTrainings = isHydratableItems(d.personnelTrainings);
+			const hasOnboardingTemplates =
+				Array.isArray(d.onboardingTemplates) || Array.isArray(d.onboardingTemplateSteps);
+			const hasOnboardings = isHydratableItems(d.onboardings);
 
 			if (
 				!hasPersonnel &&
@@ -77,7 +81,9 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 				!hasCalendarAssignments &&
 				!hasTrainingTypes &&
 				!hasTrainingViews &&
-				!hasPersonnelTrainings
+				!hasPersonnelTrainings &&
+				!hasOnboardingTemplates &&
+				!hasOnboardings
 			) {
 				return undefined;
 			}
@@ -170,6 +176,26 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 					mode: 'replace',
 					snapshotKey: createSnapshotKey(d.personnelTrainings),
 					items: d.personnelTrainings as HydrationItems<PersonnelTraining>
+				};
+			}
+
+			if (hasOnboardingTemplates) {
+				plan.onboardingTemplates = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey({
+						onboardingTemplates: d.onboardingTemplates ?? [],
+						onboardingTemplateSteps: d.onboardingTemplateSteps ?? []
+					}),
+					templates: (d.onboardingTemplates as OnboardingTemplate[]) ?? [],
+					steps: (d.onboardingTemplateSteps as OnboardingTemplateStep[]) ?? []
+				};
+			}
+
+			if (hasOnboardings) {
+				plan.onboardings = {
+					mode: 'replace',
+					snapshotKey: createSnapshotKey(d.onboardings),
+					items: d.onboardings as HydrationItems<PersonnelOnboarding>
 				};
 			}
 

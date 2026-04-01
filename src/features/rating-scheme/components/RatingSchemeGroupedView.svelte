@@ -93,6 +93,12 @@
 	function getWorkflowLabel(status: string): string {
 		return WORKFLOW_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
 	}
+
+	function getEvalTypeColor(evalType: string): string {
+		if (evalType === 'OER') return 'var(--info)';
+		if (evalType === 'WOER') return 'var(--amber)';
+		return 'var(--success)';
+	}
 </script>
 
 {#if entries.length === 0}
@@ -117,11 +123,7 @@
 								<span class="rated-name">{getRatedPersonLabel(entry.ratedPersonId)}</span>
 								<Badge
 									label={entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType}
-									color={entry.evalType === 'OER'
-										? 'var(--color-info)'
-										: entry.evalType === 'WOER'
-											? 'var(--color-primary)'
-											: 'var(--color-success)'}
+									color={getEvalTypeColor(entry.evalType)}
 								/>
 								{#if entry.workflowStatus}
 									<Badge
@@ -144,73 +146,85 @@
 	.grouped-view {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 	}
 
 	.sr-group {
-		border: 1px solid var(--color-border);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
 		overflow: hidden;
+		background: var(--surface-panel);
 	}
 
 	.sr-header {
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface-variant);
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text);
+		padding: var(--sp-3) var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 74%, var(--surface-panel) 26%);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--text-primary);
 	}
 
 	.sr-label {
-		color: var(--color-text-muted);
-		font-weight: 400;
+		color: var(--amber-dark);
 	}
 
 	.rater-group {
-		border-top: 1px solid var(--color-divider);
+		border-top: var(--border-thin);
 	}
 
 	.rater-header {
-		padding: var(--spacing-xs) var(--spacing-md);
-		padding-left: var(--spacing-xl);
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		background: var(--color-surface);
+		padding: var(--sp-2) var(--sp-4);
+		padding-left: var(--sp-8);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
 	}
 
 	.rater-label {
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 	}
 
 	.entry-row {
+		appearance: none;
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		padding: var(--sp-3) var(--sp-4);
 		padding-left: 48px;
 		width: 100%;
-		background: none;
+		background: transparent;
 		border: none;
-		border-top: 1px solid var(--color-divider);
+		border-top: var(--border-rule);
 		cursor: pointer;
 		text-align: left;
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
-		transition: background 0.1s;
+		font-size: var(--text-sm);
+		color: var(--text-primary);
+		transition: background-color var(--transition-fast);
 	}
 
 	.entry-row:hover {
-		background: var(--color-surface-variant);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
 	.rated-name {
-		font-weight: 500;
+		font-weight: var(--font-weight-semibold);
 		min-width: 140px;
 	}
 
 	.period {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-xs);
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 		margin-left: auto;
 	}
 </style>

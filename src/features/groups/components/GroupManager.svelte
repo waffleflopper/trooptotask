@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Group } from '$lib/stores/groups.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	interface Props {
 		groups: Group[];
@@ -16,9 +17,9 @@
 	let editingId = $state<string | null>(null);
 	let editName = $state('');
 
-	function handleAdd() {
+	async function handleAdd() {
 		if (newGroupName.trim()) {
-			onAdd(newGroupName.trim());
+			await onAdd(newGroupName.trim());
 			newGroupName = '';
 		}
 	}
@@ -28,9 +29,9 @@
 		editName = group.name;
 	}
 
-	function saveEdit() {
+	async function saveEdit() {
 		if (editingId && editName.trim()) {
-			onRename(editingId, editName.trim());
+			await onRename(editingId, editName.trim());
 		}
 		cancelEdit();
 	}
@@ -46,9 +47,9 @@
 		confirmRemove = group;
 	}
 
-	function doRemove() {
+	async function doRemove() {
 		if (confirmRemove) {
-			onRemove(confirmRemove.id);
+			await onRemove(confirmRemove.id);
 			confirmRemove = null;
 		}
 	}
@@ -60,23 +61,13 @@
 	}
 </script>
 
-<div
-	class="modal-overlay"
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="groups-title"
-	tabindex="-1"
-	onkeydown={(e) => e.key === 'Escape' && onClose()}
->
-	<button class="modal-backdrop" onclick={onClose} tabindex="-1" aria-label="Close dialog"></button>
-	<div class="modal" style="width: 400px;" role="document">
-		<div class="modal-header">
-			<h2 id="groups-title">Manage Groups</h2>
-			<button class="btn btn-secondary btn-sm" onclick={onClose}>&times;</button>
-		</div>
-
-		<div class="modal-body">
-			<div class="add-form">
+<Modal title="Manage Groups" {onClose} width="440px" titleId="groups-title">
+	<div class="group-manager">
+		<div class="add-form">
+			<div class="add-copy">
+				<span class="add-kicker">Organization groups</span>
+			</div>
+			<div class="add-controls">
 				<input
 					type="text"
 					class="input"
@@ -84,40 +75,40 @@
 					placeholder="New group name"
 					onkeydown={handleKeydown}
 				/>
-				<button class="btn btn-primary btn-sm" onclick={handleAdd} disabled={!newGroupName.trim()}> Add </button>
-			</div>
-
-			<div class="group-list">
-				{#each groups as group (group.id)}
-					<div class="group-item">
-						{#if editingId === group.id}
-							<input
-								type="text"
-								class="input"
-								bind:value={editName}
-								onkeydown={(e) => e.key === 'Enter' && saveEdit()}
-							/>
-							<div class="group-actions">
-								<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
-								<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
-							</div>
-						{:else}
-							<span class="group-name">{group.name}</span>
-							<div class="group-actions">
-								<button class="btn btn-secondary btn-sm" onclick={() => startEdit(group)}> Edit </button>
-								<button class="btn btn-danger btn-sm" onclick={() => handleRemove(group)}> &times; </button>
-							</div>
-						{/if}
-					</div>
-				{/each}
+				<button class="btn btn-primary btn-sm" type="button" onclick={handleAdd} disabled={!newGroupName.trim()}>
+					Add
+				</button>
 			</div>
 		</div>
 
-		<div class="modal-footer">
-			<button class="btn btn-primary" onclick={onClose}>Done</button>
+		<div class="group-list">
+			{#each groups as group (group.id)}
+				<div class="group-item">
+					{#if editingId === group.id}
+						<input type="text" class="input" bind:value={editName} onkeydown={(e) => e.key === 'Enter' && saveEdit()} />
+						<div class="group-actions">
+							<button class="btn btn-primary btn-sm" type="button" onclick={saveEdit}>Save</button>
+							<button class="btn btn-secondary btn-sm" type="button" onclick={cancelEdit}>Cancel</button>
+						</div>
+					{:else}
+						<div class="group-meta">
+							<span class="group-name">{group.name}</span>
+						</div>
+						<div class="group-actions">
+							<button class="btn btn-secondary btn-sm" type="button" onclick={() => startEdit(group)}>Edit</button>
+							<button class="btn btn-danger btn-sm" type="button" onclick={() => handleRemove(group)}>Remove</button>
+						</div>
+					{/if}
+				</div>
+			{/each}
 		</div>
 	</div>
-</div>
+
+	{#snippet footer()}
+		<div class="spacer"></div>
+		<button class="btn btn-primary" type="button" onclick={onClose}>Done</button>
+	{/snippet}
+</Modal>
 
 {#if confirmRemove}
 	<ConfirmDialog
@@ -131,22 +122,49 @@
 {/if}
 
 <style>
-	.add-form {
+	.group-manager {
 		display: flex;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-md);
-		padding-bottom: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
+		flex-direction: column;
+		gap: var(--sp-4);
 	}
 
-	.add-form .input {
+	.add-form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
+	}
+
+	.add-copy {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.add-kicker {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
+	}
+
+	.add-controls {
+		display: flex;
+		gap: var(--sp-2);
+	}
+
+	.add-controls .input {
 		flex: 1;
 	}
 
 	.group-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 		max-height: 350px;
 		overflow-y: auto;
 	}
@@ -155,9 +173,10 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
+		gap: var(--sp-3);
+		padding: var(--sp-3) var(--sp-4);
+		background: var(--surface-panel);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
 	}
 
@@ -165,14 +184,36 @@
 		flex: 1;
 	}
 
+	.group-meta {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		min-width: 0;
+		flex: 1;
+	}
+
 	.group-name {
 		flex: 1;
-		font-weight: 500;
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
 	}
 
 	.group-actions {
 		display: flex;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 		flex-shrink: 0;
+	}
+
+	@media (max-width: 640px) {
+		.add-controls,
+		.group-item {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.group-actions {
+			justify-content: flex-end;
+		}
 	}
 </style>

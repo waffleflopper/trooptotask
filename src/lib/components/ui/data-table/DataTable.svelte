@@ -257,7 +257,7 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: var(--sp-2);
-		padding: 11px 14px;
+		padding: 10px 14px;
 		border: none;
 		background: transparent;
 		color: var(--text-tertiary);
@@ -281,27 +281,28 @@
 	}
 
 	td {
-		padding: 11px 14px;
+		padding: 10px 14px;
 		border-bottom: var(--border-rule);
 		color: var(--text-secondary);
 		line-height: 1.45;
 		vertical-align: top;
+		transition: background-color var(--transition-fast);
 	}
 
 	tbody tr:last-child td {
 		border-bottom: none;
 	}
 
-	tbody tr:hover {
-		background: color-mix(in srgb, var(--surface-subtle) 52%, transparent);
+	tbody tr:hover > td {
+		background: color-mix(in srgb, var(--surface-subtle) 76%, var(--surface-panel) 24%);
 	}
 
 	tr.clickable {
 		cursor: pointer;
 	}
 
-	tr.clickable:hover {
-		background: color-mix(in srgb, var(--amber-light) 62%, var(--surface-panel) 38%);
+	tr.clickable:hover > td {
+		background: color-mix(in srgb, var(--surface-subtle) 64%, var(--surface-panel) 36%);
 	}
 
 	tr.group-header {
@@ -355,12 +356,12 @@
 		padding: 8px 10px;
 	}
 
-	.striped tbody tr:nth-child(even):not(.group-header) {
+	.striped tbody tr:nth-child(even):not(.group-header) > td {
 		background: color-mix(in srgb, var(--surface-subtle) 36%, var(--surface-panel) 64%);
 	}
 
-	.striped tbody tr:nth-child(even):not(.group-header):hover {
-		background: color-mix(in srgb, var(--amber-light) 56%, var(--surface-panel) 44%);
+	.striped tbody tr:nth-child(even):not(.group-header):hover > td {
+		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
 	}
 
 	.sticky-first-column th:first-child,

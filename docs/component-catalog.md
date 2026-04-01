@@ -7,7 +7,7 @@ Layout components (Modal, PageToolbar) live in `src/lib/components/`. Import via
 
 ## `PageToolbar.svelte`
 
-Page header toolbar with title, actions, breadcrumbs, and variant support.
+Page header toolbar with title, actions, breadcrumbs, and optional below-content. The refreshed toolbar uses a field-document hierarchy: mono breadcrumbs, condensed uppercase title, serif-supporting subtitle, and restrained action framing.
 
 ```svelte
 <!-- Basic usage -->
@@ -42,11 +42,16 @@ Page header toolbar with title, actions, breadcrumbs, and variant support.
 
 Props: `title: string`, `helpTopic?: string`, `overflowItems?: OverflowItem[]`, `variant?: 'default' | 'compact' | 'transparent'`, `sticky?: boolean`, `breadcrumbs?: { label: string; href?: string }[]`, `subtitle?: string`, `children?: Snippet` (actions), `leading?: Snippet`, `below?: Snippet`
 
+Toolbar guidance:
+- Use `variant="default"` for normal product pages and `variant="compact"` for denser detail views.
+- Keep breadcrumbs short and structural; they render as mono navigation labels.
+- Prefer `subtitle` for context or counts rather than adding decorative badges beside the title.
+
 ---
 
 ## `Modal.svelte`
 
-Base modal wrapper. Use for all modals. Default width is `480px`.
+Base modal wrapper. Use for all modals. Default width is `480px`. The refreshed modal shell uses a structured document-style header/footer, dark close affordance, and shared focus treatment.
 
 ```svelte
 <Modal title="Edit Foo" {onClose} width="500px" titleId="foo-title">
@@ -73,7 +78,7 @@ Base modal wrapper. Use for all modals. Default width is `480px`.
 </Modal>
 ```
 
-**Modal footer convention**: `[Delete] [spacer] [Cancel] [Save]`
+**Modal footer convention**: `[Delete] [spacer] [Cancel/Close] [Primary or amber confirm]`
 
 Props: `title: string`, `onClose: () => void`, `width?: string` (default `'480px'`), `titleId?: string`, `canClose?: boolean` (default `true` — set to `false` during async ops to block Escape/backdrop), `showCloseButton?: boolean` (default `true`), `headerActions?: Snippet`, `children: Snippet`, `footer?: Snippet`
 
@@ -104,16 +109,21 @@ The confirm button shows a spinner and both buttons are disabled while `onConfir
 
 ## `ui/Badge.svelte`
 
-Colored label pill.
+Compact metadata or status label. Badges are now intentionally mono and uppercase so they read like labels instead of decorative pills.
 
 ```svelte
-<Badge label="CPR/BLS" color="var(--color-info)" />
+<Badge label="TDY" color="var(--color-info)" />
 <Badge label="Leave" color={status.color} textColor={status.textColor} />
-<Badge label="ADMIN" color="var(--color-info)" bold={true} />
-<Badge label="Freeform" variant="outlined" />
+<Badge label="Admin" color="var(--color-info)" bold={true} />
+<Badge label="Draft" variant="outlined" />
 ```
 
-Props: `label: string`, `color?: string`, `textColor?: string` (default `'white'`), `bold?: boolean`, `variant?: 'filled' | 'outlined'`
+Props: `label: string`, `color?: string`, `textColor?: string` (default `'white'` when a custom filled color is passed), `bold?: boolean`, `variant?: 'filled' | 'outlined'`
+
+Badge guidance:
+- Reserve filled badges for real state or metadata labels.
+- Use `variant="outlined"` for neutral, low-emphasis labels.
+- Prefer shared semantic tokens (`--color-success`, `--color-warning`, `--color-error`, `--color-info`) over arbitrary decorative colors when possible.
 
 ---
 
@@ -155,7 +165,7 @@ Stage states: `completed` (before current — filled dot, primary connector), `c
 
 ## `ui/FormField.svelte`
 
-Labeled form field with error/hint states and accessibility wiring.
+Labeled form field with mono label treatment, error/hint states, and accessibility wiring.
 
 ```svelte
 <!-- Simple text input -->
@@ -183,13 +193,17 @@ Props: `label: string`, `id: string`, `inputElement?: 'input' | 'select' | 'text
 
 Accessibility: `label[for]` wired to `id`, `aria-describedby` for error/hint, `aria-invalid` when error, `required` forwarded to native element.
 
+Field guidance:
+- Labels render as mono utility labels by default; keep them short and specific.
+- Hints and errors occupy a reserved support row so layouts do not jump as much when validation appears.
+
 **Children escape hatch**: When using `children`, manually wire `aria-describedby="{id}-error"` or `"{id}-hint"` on your custom input — FormField renders those spans but can't auto-apply them to custom children.
 
 ---
 
 ## `ui/SearchSelect.svelte`
 
-Searchable single-select with keyboard navigation and clear button. Use when `<select>` is too limiting.
+Searchable single-select with keyboard navigation and clear button. Use when `<select>` is too limiting but you still want a shared field treatment.
 
 ```svelte
 <SearchSelect
@@ -205,12 +219,13 @@ Props: `options: { value: string; label: string }[]`, `value: string` (bindable)
 - Typing filters the dropdown; keyboard arrows + Enter to navigate; Escape to close
 - Shows a × clear button when a value is selected
 - Clears to `''` when cleared
+- The control reuses shared field density/focus treatment, so prefer it over custom searchable listboxes
 
 ---
 
 ## `ui/SubNav.svelte`
 
-Secondary tab navigation with badge counts.
+Secondary tab navigation with badge counts. Default styling is underline-driven and product-dense; the `pill` variant is now a restrained segmented treatment rather than decorative bubbles.
 
 ```svelte
 <SubNav
@@ -225,6 +240,11 @@ Secondary tab navigation with badge counts.
 ```
 
 Props: `tabs: { label: string; value: string; badge?: number }[]`, `active: string`, `onChange: (value: string) => void`, `variant?: 'underline' | 'pill'` (default `'underline'`)
+
+Sub-nav guidance:
+- Use `underline` for page-level mode switches.
+- Use `pill` only when the tabs need stronger container separation inside dense settings or modal contexts.
+- Badge counts are mono status counts, not decorative accents.
 
 ---
 
@@ -397,7 +417,7 @@ All three use the `.skeleton-pulse` animation class and are `aria-hidden`.
 
 ## `ui/data-table/DataTable.svelte`
 
-Visual table component with sorting, search, pagination, grouping, and custom cell rendering.
+Visual table component with sorting, search, pagination, grouping, and custom cell rendering. The refreshed table uses mono headers, restrained row rules, keyboard-reachable sort buttons, and document-style group toggles.
 
 ```svelte
 <!-- Simple usage -->
@@ -423,6 +443,11 @@ Props: `data?: T[]`, `columns: ColumnDef<T>[]`, `table?: DataTableState<T>`, `in
 Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 
 Import: `import { DataTable } from '$lib/components/ui/data-table';`
+
+Table guidance:
+- Use the built-in header sort buttons instead of rolling your own sortable chrome.
+- Prefer custom `cell` snippets for semantic emphasis such as person-name columns, badges, or actions.
+- Reserve `striped` for especially dense matrix-like views; default tables now intentionally rely on rules and hover states instead.
 
 ---
 
@@ -586,7 +611,13 @@ These are still available for in-flight migrations:
 
 ### Button Classes
 
-`.btn .btn-primary` | `.btn .btn-secondary` | `.btn .btn-danger` | `.btn .btn-sm`
+`.btn .btn-primary` | `.btn .btn-secondary` | `.btn .btn-amber` / `.btn .btn-warning` | `.btn .btn-danger` | `.btn .btn-sm`
+
+Button guidance:
+- `btn-primary`: dark filled action for the default strong action on product surfaces.
+- `btn-amber` / `btn-warning`: reserved signal action for confirms, requests, exports, or actions that need deliberate emphasis.
+- `btn-secondary`: restrained outline action for cancel, back, close, and secondary utility actions.
+- `btn-danger`: destructive action only.
 
 ### Form Classes
 

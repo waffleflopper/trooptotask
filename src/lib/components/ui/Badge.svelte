@@ -10,27 +10,43 @@
 	let { label, color, textColor = 'white', bold = false, variant = 'filled' }: Props = $props();
 </script>
 
-{#if variant === 'outlined'}
-	<span class="badge outlined" style:font-weight={bold ? '700' : '500'}>
-		{label}
-	</span>
-{:else}
-	<span class="badge" style:background-color={color} style:color={textColor} style:font-weight={bold ? '700' : '500'}>
-		{label}
-	</span>
-{/if}
+<span
+	class="badge"
+	class:outlined={variant === 'outlined'}
+	class:custom-filled={variant === 'filled' && !!color}
+	style:background-color={variant === 'filled' && color ? color : undefined}
+	style:color={variant === 'filled' && color ? textColor : undefined}
+	style:font-weight={bold ? '700' : '600'}
+>
+	{label}
+</span>
 
 <style>
 	.badge {
-		padding: var(--spacing-xs) var(--spacing-sm);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 22px;
+		padding: 3px 8px;
 		border-radius: var(--radius-sm);
-		font-size: var(--font-size-sm);
+		border: 1px solid transparent;
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.1em;
+		line-height: 1;
+		text-transform: uppercase;
 		white-space: nowrap;
 	}
 
+	.badge.custom-filled {
+		box-shadow: inset 0 0 0 1px rgba(14, 14, 13, 0.06);
+	}
+
 	.badge.outlined {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		color: var(--color-text-muted);
+		background: transparent;
+		border-color: var(--border-default);
+		color: var(--text-secondary);
 	}
 </style>

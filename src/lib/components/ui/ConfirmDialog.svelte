@@ -42,7 +42,7 @@
 		<div class="spacer"></div>
 		<button class="btn btn-secondary" onclick={onCancel} disabled={confirming}>{cancelLabel}</button>
 		<button
-			class="btn {variant === 'danger' ? 'btn-danger' : 'btn-warning'}"
+			class="btn {variant === 'danger' ? 'btn-danger' : 'btn-amber'}"
 			onclick={handleConfirm}
 			disabled={confirming}
 		>
@@ -54,18 +54,9 @@
 
 <style>
 	.confirm-message {
-		color: var(--color-text-secondary);
-		line-height: 1.5;
-	}
-
-	.btn-warning {
-		background-color: var(--color-warning);
-		color: white;
-		box-shadow: var(--shadow-1);
-	}
-
-	.btn-warning:hover {
-		background-color: #e68900;
-		box-shadow: var(--shadow-2);
+		margin: 0;
+		color: var(--text-secondary);
+		font-family: var(--font-body);
+		line-height: 1.6;
 	}
 </style>

@@ -66,16 +66,16 @@
 	}
 </script>
 
-<Modal title="Daily Assignments" {onClose} width="450px" titleId="daily-assign-title">
+<Modal title="Daily Assignments" {onClose} width="520px" titleId="daily-assign-title">
 	<div class="date-display">{dateDisplay}</div>
 
 	<div class="assignments-list">
 		{#each assignmentTypes as type (type.id)}
 			<div class="assignment-row">
-				<label class="assignment-label">
+				<div class="assignment-label">
 					<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
 					<span class="assignment-name">{type.name}</span>
-				</label>
+				</div>
 
 				{#if type.assignTo === 'personnel'}
 					<select
@@ -141,30 +141,37 @@
 
 <style>
 	.date-display {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
-		margin-bottom: var(--spacing-lg);
-		padding-bottom: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
+		margin-bottom: var(--sp-4);
+		padding-bottom: var(--sp-4);
+		border-bottom: var(--border-thin);
+		font-family: var(--font-display);
+		font-size: clamp(1.35rem, 1.1rem + 0.6vw, 1.8rem);
+		font-weight: var(--font-weight-display);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
 	}
 
 	.assignments-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-3);
 	}
 
 	.assignment-row {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
+		padding: var(--sp-3);
+		background: var(--surface-subtle);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
 	}
 
 	.assignment-label {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		font-weight: 500;
+		gap: var(--sp-2);
+		flex-wrap: wrap;
 	}
 
 	.assignment-badge {
@@ -173,32 +180,45 @@
 		justify-content: center;
 		padding: 2px 6px;
 		border-radius: var(--radius-sm);
-		font-size: 10px;
-		font-weight: 700;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
 		color: white;
 	}
 
 	.assignment-name {
-		font-size: var(--font-size-sm);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.current-assignments {
-		margin-top: var(--spacing-lg);
-		padding-top: var(--spacing-md);
-		border-top: 1px solid var(--color-border);
+		margin-top: var(--sp-4);
+		padding-top: var(--sp-4);
+		border-top: var(--border-thin);
 	}
 
 	.current-assignments h4 {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		margin-bottom: var(--spacing-sm);
+		margin: 0 0 var(--sp-3);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.current-assignment {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-xs) 0;
-		font-size: var(--font-size-sm);
+		gap: var(--sp-2);
+		padding: var(--sp-1) 0;
+		font-size: var(--text-sm);
+		color: var(--text-primary);
 	}
 </style>

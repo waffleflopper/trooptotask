@@ -228,10 +228,11 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: var(--border-thin);
 		border-radius: var(--radius-lg);
 		overflow: hidden;
+		box-shadow: var(--shadow-sm);
 	}
 
 	.calendar-body {
@@ -253,13 +254,17 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: var(--spacing-xl);
-		color: var(--color-text-muted);
+		gap: var(--sp-2);
+		padding: var(--sp-12);
+		color: var(--text-secondary);
 		text-align: center;
 		min-height: 200px;
 	}
 
 	.empty-state p {
-		margin: var(--spacing-xs) 0;
+		margin: 0;
+		max-width: 36ch;
+		font-family: var(--font-body);
+		line-height: var(--line-height-copy);
 	}
 </style>

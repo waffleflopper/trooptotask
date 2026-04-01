@@ -24,9 +24,7 @@ describe('queueUserPreferencesPatch', () => {
 		} as unknown as Response);
 		invalidateMock.mockResolvedValue(undefined);
 
-		await expect(
-			queueUserPreferencesPatch('org-123', { calendar: { showStatusText: true } })
-		).resolves.toEqual(
+		await expect(queueUserPreferencesPatch('org-123', { calendar: { showStatusText: true } })).resolves.toEqual(
 			preferences
 		);
 

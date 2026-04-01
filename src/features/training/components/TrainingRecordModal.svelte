@@ -33,13 +33,13 @@
 		onToggleExempt
 	}: Props = $props();
 
-	const neverExpires = trainingType.expirationMonths === null && !trainingType.expirationDateOnly;
-	const expirationDateOnly = trainingType.expirationDateOnly;
+	const neverExpires = $derived(trainingType.expirationMonths === null && !trainingType.expirationDateOnly);
+	const expirationDateOnly = $derived(trainingType.expirationDateOnly);
 	const todayStr = formatDate(new Date());
 
 	// Initialize state
 	let isComplete = $state(false);
-	let completionDate = $state(neverExpires ? '' : todayStr);
+	let completionDate = $state('');
 	// For expiration-date-only types, seed directly from the stored expiration date
 	let directExpirationDate = $state('');
 	let notes = $state('');
@@ -149,11 +149,15 @@
 
 	{#if canBeExempted && onToggleExempt}
 		<div class="exempt-toggle">
-			<button class="btn {isExempt ? 'btn-danger' : 'btn-secondary'} btn-sm" onclick={() => onToggleExempt(!isExempt)}>
+			<button
+				class="btn {isExempt ? 'btn-danger' : 'btn-secondary'} btn-sm"
+				type="button"
+				onclick={() => onToggleExempt(!isExempt)}
+			>
 				{isExempt ? 'Remove Exemption' : 'Mark as Exempt'}
 			</button>
 			{#if isExempt}
-				<Badge label="Exempt" color="#9ca3af" />
+				<Badge label="Exempt" variant="outlined" />
 			{/if}
 		</div>
 	{/if}
@@ -232,12 +236,18 @@
 
 	{#snippet footer()}
 		{#if !isExempt && existingTraining}
-			<button class="btn btn-danger" onclick={handleRemove}>Delete</button>
+			<button class="btn btn-danger" type="button" onclick={handleRemove}>Delete</button>
 		{/if}
 		<div class="spacer"></div>
-		<button class="btn btn-secondary" onclick={onClose}>{isExempt ? 'Close' : 'Cancel'}</button>
+		<button class="btn btn-secondary" type="button" onclick={onClose}>{isExempt ? 'Close' : 'Cancel'}</button>
 		{#if !isExempt}
-			<button class="btn btn-primary" data-testid="training-save" onclick={handleSave} disabled={!canSave}>
+			<button
+				class="btn btn-primary"
+				type="button"
+				data-testid="training-save"
+				onclick={handleSave}
+				disabled={!canSave}
+			>
 				Save
 			</button>
 		{/if}
@@ -259,124 +269,146 @@
 	.person-info {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-md);
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
+		gap: var(--sp-3);
+		margin-bottom: var(--sp-4);
+		padding: var(--sp-3) var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
 	}
 
 	.person-rank {
-		font-weight: 600;
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--amber-dark);
 	}
 
 	.person-name {
-		font-weight: 500;
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
 	}
 
 	.training-info {
-		margin-bottom: var(--spacing-md);
+		display: flex;
+		flex-direction: column;
+		align-items: start;
+		gap: var(--sp-3);
+		margin-bottom: var(--sp-4);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
 	}
 
 	.training-description {
-		margin-top: var(--spacing-xs);
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		margin: 0;
+		font-size: var(--text-sm);
+		line-height: 1.65;
+		color: var(--text-secondary);
 	}
 
 	.preview-row {
 		display: flex;
-		gap: var(--spacing-lg);
-		margin-bottom: var(--spacing-md);
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
+		flex-wrap: wrap;
+		gap: var(--sp-4);
+		margin-bottom: var(--sp-4);
+		padding: var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
 	}
 
 	.preview-item {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 	}
 
 	.preview-label {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.preview-value {
-		font-weight: 500;
-	}
-
-	.textarea {
-		resize: vertical;
-		min-height: 60px;
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
 	}
 
 	.never-expires-badge {
 		display: inline-block;
-		margin-left: var(--spacing-sm);
-		padding: 2px var(--spacing-xs);
-		background: var(--color-bg);
-		border: 1px solid var(--color-border);
+		padding: var(--sp-1) var(--sp-2);
+		background: color-mix(in srgb, var(--surface-subtle) 62%, var(--surface-panel) 38%);
+		border: var(--border-thin);
 		border-radius: var(--radius-sm);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.checkbox-group {
-		margin-bottom: var(--spacing-md);
+		margin-bottom: var(--sp-4);
 	}
 
 	.checkbox-label {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 		cursor: pointer;
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
-		border: 1px solid var(--color-border);
+		padding: var(--sp-3) var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
+		border-radius: var(--radius-lg);
+		border: var(--border-thin);
 	}
 
 	.checkbox-label:hover {
-		border-color: var(--color-primary);
+		border-color: var(--border-strong);
 	}
 
 	.checkbox-label input[type='checkbox'] {
 		width: 18px;
 		height: 18px;
-		accent-color: var(--color-primary);
+		accent-color: var(--amber);
 		cursor: pointer;
 	}
 
 	.checkbox-text {
-		font-weight: 500;
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
 	}
 
 	.exempt-toggle {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-md);
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
-		border: 1px solid var(--color-border);
+		gap: var(--sp-3);
+		margin-bottom: var(--sp-4);
+		padding: var(--sp-3) var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
+		border-radius: var(--radius-lg);
+		border: var(--border-thin);
 	}
 
 	.exempt-notice {
-		padding: var(--spacing-md);
-		background: rgba(156, 163, 175, 0.1);
-		border: 1px solid #9ca3af;
-		border-radius: var(--radius-md);
-		margin-bottom: var(--spacing-md);
+		padding: var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 60%, var(--surface-panel) 40%);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		margin-bottom: var(--sp-4);
 	}
 
 	.exempt-notice p {
 		margin: 0;
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+		line-height: 1.65;
+		color: var(--text-secondary);
 	}
 </style>

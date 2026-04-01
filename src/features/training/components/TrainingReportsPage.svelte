@@ -1,6 +1,7 @@
 <script lang="ts">
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
@@ -21,7 +22,6 @@
 	const org = getOrgContext();
 	const workspaceData = $derived(data.training?.data);
 
-	// --- Filters ---
 	let filterGroupId = $state('');
 	let filterMos = $state('');
 	let filterRole = $state('');
@@ -29,18 +29,15 @@
 	let filterStatus = $state<TrainingStatus | ''>('');
 	let filterTypeIds = $state<string[]>([]);
 
-	// --- Data ---
 	const allPersonnel = $derived<Personnel[]>(workspaceData?.personnel ?? data.personnel ?? []);
 	const allGroups = $derived<Group[]>(workspaceData?.groups ?? data.groups ?? []);
 	const allTypes = $derived(trainingTypesStore.items);
 	const allTrainings = $derived(personnelTrainingsStore.items);
 
-	// --- Derived filter options ---
 	const availableMos = $derived([...new Set(allPersonnel.map((p) => p.mos))].filter(Boolean).sort());
 	const availableRoles = $derived([...new Set(allPersonnel.map((p) => p.clinicRole))].filter(Boolean).sort());
 	const availableRanks = $derived([...new Set(allPersonnel.map((p) => p.rank))].filter(Boolean).sort());
 
-	// --- Apply filters ---
 	const filters = $derived<ReportFilters>({
 		groupId: filterGroupId || undefined,
 		mos: filterMos || undefined,
@@ -53,7 +50,6 @@
 		filterTypeIds.length > 0 ? allTypes.filter((t) => filterTypeIds.includes(t.id)) : allTypes
 	);
 
-	// --- Dashboard & Pivot (both use same filtered data) ---
 	const dashboard = $derived(computeReadinessDashboard(filteredPersonnel, filteredTypes, allTrainings));
 	const pivotRows = $derived.by(() => {
 		const rows = buildPivotTable(filteredPersonnel, filteredTypes, allTrainings);
@@ -66,7 +62,6 @@
 		});
 	});
 
-	// --- Sort ---
 	let sortColumn = $state<string>('name');
 	let sortAsc = $state(true);
 
@@ -103,6 +98,18 @@
 		return rows;
 	});
 
+	const statusOptions: { value: TrainingStatus; label: string }[] = [
+		{ value: 'current', label: 'Current' },
+		{ value: 'warning-yellow', label: 'Expiring 60d' },
+		{ value: 'warning-orange', label: 'Expiring 30d' },
+		{ value: 'expired', label: 'Expired' },
+		{ value: 'not-completed', label: 'Not Done' }
+	];
+
+	const hasActiveFilters = $derived(
+		!!filterGroupId || !!filterMos || !!filterRole || !!filterRank || !!filterStatus || filterTypeIds.length > 0
+	);
+
 	function toggleSort(col: string) {
 		if (sortColumn === col) {
 			sortAsc = !sortAsc;
@@ -114,19 +121,9 @@
 
 	function sortIndicator(col: string): string {
 		if (sortColumn !== col) return '';
-		return sortAsc ? ' \u25B2' : ' \u25BC';
+		return sortAsc ? ' \u25b2' : ' \u25bc';
 	}
 
-	// --- Status filter helpers ---
-	const statusOptions: { value: TrainingStatus; label: string }[] = [
-		{ value: 'current', label: 'Current' },
-		{ value: 'warning-yellow', label: 'Expiring 60d' },
-		{ value: 'warning-orange', label: 'Expiring 30d' },
-		{ value: 'expired', label: 'Expired' },
-		{ value: 'not-completed', label: 'Not Done' }
-	];
-
-	// --- Export ---
 	function exportCSV() {
 		const rows = pivotRows;
 		const csv = generatePivotCSV(rows, filteredTypes);
@@ -151,10 +148,6 @@
 		filterTypeIds = [];
 	}
 
-	const hasActiveFilters = $derived(
-		!!filterGroupId || !!filterMos || !!filterRole || !!filterRank || !!filterStatus || filterTypeIds.length > 0
-	);
-
 	function toggleTypeFilter(typeId: string) {
 		if (filterTypeIds.includes(typeId)) {
 			filterTypeIds = filterTypeIds.filter((id) => id !== typeId);
@@ -164,9 +157,9 @@
 	}
 
 	function getReadinessColor(pct: number): string {
-		if (pct >= 80) return 'var(--color-success, #22c55e)';
-		if (pct >= 60) return 'var(--color-warning, #eab308)';
-		return 'var(--color-danger, #ef4444)';
+		if (pct >= 80) return 'var(--success)';
+		if (pct >= 60) return 'var(--amber)';
+		return 'var(--danger)';
 	}
 </script>
 
@@ -174,85 +167,106 @@
 	title="Training Reports"
 	breadcrumbs={[{ label: 'Training', href: `/org/${org.orgId}/training` }, { label: 'Reports' }]}
 >
-	<button class="btn btn-sm" onclick={exportCSV} disabled={pivotRows.length === 0}> Export CSV </button>
+	<button class="btn btn-sm" type="button" onclick={exportCSV} disabled={pivotRows.length === 0}>Export CSV</button>
 	<a href={`/org/${org.orgId}/training`} class="btn btn-sm">Back</a>
 </PageToolbar>
 
 {#if allTypes.length === 0}
 	<EmptyState message="No training types configured. Create training types first." />
 {:else}
-	<!-- Filters -->
 	<div class="report-filters">
 		<div class="filter-row">
-			<select class="input filter-select" bind:value={filterGroupId}>
-				<option value="">All Groups</option>
-				{#each allGroups as group (group.id)}
-					<option value={group.id}>{group.name}</option>
-				{/each}
-			</select>
+			<label class="filter-field">
+				<span class="filter-label">Group</span>
+				<select class="input filter-select" bind:value={filterGroupId}>
+					<option value="">All Groups</option>
+					{#each allGroups as group (group.id)}
+						<option value={group.id}>{group.name}</option>
+					{/each}
+				</select>
+			</label>
 
-			<select class="input filter-select" bind:value={filterRank}>
-				<option value="">All Ranks</option>
-				{#each availableRanks as rank (rank)}
-					<option value={rank}>{rank}</option>
-				{/each}
-			</select>
+			<label class="filter-field">
+				<span class="filter-label">Rank</span>
+				<select class="input filter-select" bind:value={filterRank}>
+					<option value="">All Ranks</option>
+					{#each availableRanks as rank (rank)}
+						<option value={rank}>{rank}</option>
+					{/each}
+				</select>
+			</label>
 
-			<select class="input filter-select" bind:value={filterMos}>
-				<option value="">All MOS</option>
-				{#each availableMos as mos (mos)}
-					<option value={mos}>{mos}</option>
-				{/each}
-			</select>
+			<label class="filter-field">
+				<span class="filter-label">MOS</span>
+				<select class="input filter-select" bind:value={filterMos}>
+					<option value="">All MOS</option>
+					{#each availableMos as mos (mos)}
+						<option value={mos}>{mos}</option>
+					{/each}
+				</select>
+			</label>
 
-			<select class="input filter-select" bind:value={filterRole}>
-				<option value="">All Roles</option>
-				{#each availableRoles as role (role)}
-					<option value={role}>{role}</option>
-				{/each}
-			</select>
+			<label class="filter-field">
+				<span class="filter-label">Role</span>
+				<select class="input filter-select" bind:value={filterRole}>
+					<option value="">All Roles</option>
+					{#each availableRoles as role (role)}
+						<option value={role}>{role}</option>
+					{/each}
+				</select>
+			</label>
 
-			<select class="input filter-select" bind:value={filterStatus}>
-				<option value="">All Statuses</option>
-				{#each statusOptions as opt (opt.value)}
-					<option value={opt.value}>{opt.label}</option>
-				{/each}
-			</select>
+			<label class="filter-field">
+				<span class="filter-label">Status</span>
+				<select class="input filter-select" bind:value={filterStatus}>
+					<option value="">All Statuses</option>
+					{#each statusOptions as opt (opt.value)}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+			</label>
 
-			{#if hasActiveFilters}
-				<button class="btn btn-sm" onclick={clearFilters}>Clear</button>
-			{/if}
+			<div class="filter-actions">
+				<Badge label={`${filteredPersonnel.length} personnel`} variant="outlined" />
+				{#if hasActiveFilters}
+					<button class="btn btn-sm" type="button" onclick={clearFilters}>Clear filters</button>
+				{/if}
+			</div>
 		</div>
 
 		{#if allTypes.length > 1}
 			<div class="type-filter-chips">
-				<span class="filter-label">Training types:</span>
+				<span class="filter-label">Training types</span>
 				{#each allTypes as type (type.id)}
-					<button class="chip" class:active={filterTypeIds.includes(type.id)} onclick={() => toggleTypeFilter(type.id)}>
+					<button
+						class="type-filter-chip"
+						class:active={filterTypeIds.includes(type.id)}
+						type="button"
+						onclick={() => toggleTypeFilter(type.id)}
+					>
 						<span class="chip-dot" style="background-color: {type.color}"></span>
 						{type.name}
 					</button>
 				{/each}
 				{#if filterTypeIds.length > 0}
-					<button class="chip chip-clear" onclick={() => (filterTypeIds = [])}>Clear</button>
+					<button class="type-filter-chip type-filter-chip-clear" type="button" onclick={() => (filterTypeIds = [])}>
+						Clear
+					</button>
 				{/if}
 			</div>
 		{/if}
 	</div>
 
-	<!-- Readiness Dashboard -->
 	<div class="dashboard">
 		<div class="dashboard-row">
-			<!-- Overall Readiness -->
-			<div class="card card-readiness">
+			<div class="dashboard-card">
 				<div class="card-label">Overall Readiness</div>
 				<div class="readiness-value" style="color: {getReadinessColor(dashboard.readinessPercent)}">
 					{dashboard.readinessPercent}%
 				</div>
 			</div>
 
-			<!-- Status Breakdown -->
-			<div class="card card-status">
+			<div class="dashboard-card">
 				<div class="card-label">Status Breakdown</div>
 				<div class="status-cards">
 					<div class="status-card">
@@ -285,9 +299,8 @@
 		</div>
 
 		<div class="dashboard-row">
-			<!-- Worst Training Types -->
 			{#if dashboard.worstTypes.length > 0}
-				<div class="card card-worst">
+				<div class="dashboard-card">
 					<div class="card-label">Worst Training Types</div>
 					<div class="worst-list">
 						{#each dashboard.worstTypes as wt (wt.typeId)}
@@ -308,9 +321,8 @@
 				</div>
 			{/if}
 
-			<!-- Group Comparison -->
 			{#if dashboard.groupComparison.length > 1}
-				<div class="card card-groups">
+				<div class="dashboard-card">
 					<div class="card-label">Group Comparison</div>
 					<div class="group-list">
 						{#each dashboard.groupComparison as gc (gc.groupId)}
@@ -331,11 +343,10 @@
 		</div>
 	</div>
 
-	<!-- Detail Table -->
 	<div class="detail-section">
 		<div class="detail-header">
 			<h3 class="section-title">Detail Table</h3>
-			<span class="result-count">{sortedRows.length} personnel</span>
+			<Badge label={`${sortedRows.length} personnel`} variant="outlined" />
 		</div>
 
 		{#if sortedRows.length === 0}
@@ -345,19 +356,27 @@
 				<table class="report-table">
 					<thead>
 						<tr>
-							<th class="col-name sortable" onclick={() => toggleSort('name')}>
-								Name{sortIndicator('name')}
+							<th class="col-name">
+								<button class="sort-button" type="button" onclick={() => toggleSort('name')}>
+									Name{sortIndicator('name')}
+								</button>
 							</th>
-							<th class="col-rank sortable" onclick={() => toggleSort('rank')}>
-								Rank{sortIndicator('rank')}
+							<th class="col-rank">
+								<button class="sort-button" type="button" onclick={() => toggleSort('rank')}>
+									Rank{sortIndicator('rank')}
+								</button>
 							</th>
-							<th class="col-group sortable" onclick={() => toggleSort('group')}>
-								Group{sortIndicator('group')}
+							<th class="col-group">
+								<button class="sort-button" type="button" onclick={() => toggleSort('group')}>
+									Group{sortIndicator('group')}
+								</button>
 							</th>
 							{#each filteredTypes as type (type.id)}
-								<th class="col-type sortable" onclick={() => toggleSort(type.id)}>
-									<span class="type-dot" style="background-color: {type.color}"></span>
-									{type.name}{sortIndicator(type.id)}
+								<th class="col-type">
+									<button class="sort-button sort-button-type" type="button" onclick={() => toggleSort(type.id)}>
+										<span class="type-dot" style="background-color: {type.color}"></span>
+										{type.name}{sortIndicator(type.id)}
+									</button>
 								</th>
 							{/each}
 						</tr>
@@ -372,9 +391,11 @@
 									{@const cell = row.cells.get(type.id)}
 									<td
 										class="col-type cell-status"
-										style="background-color: {cell ? TRAINING_STATUS_COLORS[cell.status] + '18' : ''}"
+										style="background-color: {cell ? TRAINING_STATUS_COLORS[cell.status] + '18' : undefined}"
 									>
-										<span class="cell-dot" style="background-color: {cell ? TRAINING_STATUS_COLORS[cell.status] : ''}"
+										<span
+											class="cell-dot"
+											style="background-color: {cell ? TRAINING_STATUS_COLORS[cell.status] : undefined}"
 										></span>
 										<span class="cell-label">{cell?.label ?? ''}</span>
 										{#if cell?.date}
@@ -392,163 +413,192 @@
 {/if}
 
 <style>
-	/* Filters */
 	.report-filters {
-		padding: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-4);
+		margin-bottom: var(--sp-5);
+		padding: var(--sp-5) var(--sp-6);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
 	}
 
 	.filter-row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-sm);
-		align-items: center;
+		align-items: end;
+		gap: var(--sp-4);
+	}
+
+	.filter-field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.filter-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.filter-select {
-		min-width: 140px;
-		max-width: 180px;
-		font-size: var(--font-size-sm);
-		padding: 6px 8px;
+		min-width: 9.5rem;
+		max-width: 12rem;
+	}
+
+	.filter-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-3);
+		margin-left: auto;
 	}
 
 	.type-filter-chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-xs);
 		align-items: center;
+		gap: var(--sp-2);
 	}
 
-	.filter-label {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		font-weight: 500;
-	}
-
-	.chip {
+	.type-filter-chip {
 		display: inline-flex;
 		align-items: center;
-		gap: 4px;
-		padding: 3px 10px;
-		border: 1px solid var(--color-border);
-		border-radius: 999px;
-		background: var(--color-bg);
-		font-size: var(--font-size-xs);
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 		cursor: pointer;
-		transition: all var(--transition-fast);
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
-	.chip:hover {
-		border-color: var(--color-primary);
+	.type-filter-chip:hover {
+		border-color: var(--border-strong);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
-	.chip.active {
-		background: var(--color-primary);
-		color: white;
-		border-color: var(--color-primary);
-	}
-
-	.chip-clear {
-		color: var(--color-text-muted);
-		font-style: italic;
+	.type-filter-chip.active {
+		border-color: color-mix(in srgb, var(--amber) 38%, var(--border-default));
+		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
+		color: var(--amber-dark);
 	}
 
 	.chip-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
+		width: 0.625rem;
+		height: 0.625rem;
+		border-radius: 2px;
 		flex-shrink: 0;
 	}
 
-	/* Dashboard */
 	.dashboard {
-		padding: var(--spacing-md);
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-5);
+		margin-bottom: var(--sp-5);
 	}
 
 	.dashboard-row {
-		display: flex;
-		gap: var(--spacing-md);
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--sp-5);
 	}
 
-	.card {
-		flex: 1;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		padding: var(--spacing-md);
+	.dashboard-card {
+		min-width: 0;
+		padding: var(--sp-5);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
 	}
 
 	.card-label {
-		font-size: var(--font-size-xs);
-		font-weight: 600;
-		color: var(--color-text-muted);
+		margin-bottom: var(--sp-3);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		margin-bottom: var(--spacing-sm);
+		color: var(--text-secondary);
 	}
 
 	.readiness-value {
 		font-family: var(--font-display);
-		font-size: 2.5rem;
-		font-weight: 700;
+		font-size: clamp(2.6rem, 2.2rem + 1vw, 3.2rem);
+		font-weight: var(--font-weight-display);
 		line-height: 1;
 	}
 
 	.status-cards {
-		display: flex;
-		gap: var(--spacing-md);
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+		gap: var(--sp-3);
 	}
 
 	.status-card {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		gap: 2px;
-		min-width: 60px;
+		gap: var(--sp-1);
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-subtle) 52%, var(--surface-panel) 48%);
 	}
 
 	.status-dot {
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
+		width: 0.625rem;
+		height: 0.625rem;
+		border-radius: 2px;
 	}
 
 	.status-count {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
+		font-family: var(--font-display);
+		font-size: clamp(1.6rem, 1.35rem + 0.3vw, 1.9rem);
+		font-weight: var(--font-weight-display);
+		color: var(--text-primary);
 	}
 
 	.status-name {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		text-align: center;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
-	/* Worst types */
 	.worst-list,
 	.group-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-3);
 	}
 
 	.worst-item,
 	.group-item {
 		display: grid;
-		grid-template-columns: 120px 1fr 50px;
+		grid-template-columns: minmax(0, 180px) minmax(0, 1fr) auto;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 	}
 
 	.worst-name,
 	.group-name {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -556,113 +606,137 @@
 
 	.worst-bar-container,
 	.group-bar-container {
-		height: 8px;
-		background: var(--color-surface-variant);
-		border-radius: 4px;
+		height: 0.75rem;
 		overflow: hidden;
+		border: 1px solid color-mix(in srgb, var(--border-default) 65%, transparent);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
 	.worst-bar,
 	.group-bar {
 		height: 100%;
-		border-radius: 4px;
-		transition: width 0.3s ease;
+		border-radius: inherit;
 	}
 
 	.worst-rate,
 	.group-rate {
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		text-align: right;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
-	/* Detail Table */
 	.detail-section {
-		padding: var(--spacing-md);
+		overflow: hidden;
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
 	}
 
 	.detail-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-bottom: var(--spacing-md);
+		gap: var(--sp-3);
+		padding: var(--sp-4) var(--sp-6);
+		border-bottom: var(--border-thin);
+		background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface-panel) 52%);
 	}
 
 	.section-title {
-		font-family: var(--font-display);
-		font-size: var(--font-size-base);
-		font-weight: 500;
 		margin: 0;
-	}
-
-	.result-count {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-primary);
 	}
 
 	.table-container {
 		overflow-x: auto;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
 	}
 
 	.report-table {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
 	}
 
 	.report-table th {
 		position: sticky;
 		top: 0;
-		background: var(--color-surface-variant);
-		font-weight: 500;
+		padding: 0;
+		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
+		border-bottom: var(--border-thin);
 		text-align: left;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-bottom: 2px solid var(--color-border);
-		white-space: nowrap;
-	}
-
-	.report-table th.sortable {
-		cursor: pointer;
-		user-select: none;
-	}
-
-	.report-table th.sortable:hover {
-		background: var(--color-border);
 	}
 
 	.report-table td {
-		padding: var(--spacing-xs) var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
+		padding: var(--sp-3) var(--sp-4);
+		border-bottom: var(--border-thin);
 		white-space: nowrap;
+		vertical-align: top;
 	}
 
 	.report-table tbody tr:hover {
-		background: var(--color-surface-variant);
+		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
+	}
+
+	.sort-button {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		width: 100%;
+		padding: var(--sp-3) var(--sp-4);
+		border: 0;
+		background: transparent;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		cursor: pointer;
+	}
+
+	.sort-button:hover {
+		color: var(--text-primary);
+		background: color-mix(in srgb, var(--surface-subtle) 56%, transparent);
+	}
+
+	.sort-button-type {
+		justify-content: center;
 	}
 
 	.col-name {
-		min-width: 150px;
+		min-width: 180px;
 	}
 
 	.col-rank,
 	.col-group {
-		min-width: 80px;
+		min-width: 90px;
 	}
 
 	.col-type {
-		min-width: 120px;
+		min-width: 130px;
+		text-align: center;
 	}
 
 	.type-dot,
 	.cell-dot {
 		display: inline-block;
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		margin-right: 4px;
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 2px;
 		vertical-align: middle;
+	}
+
+	.cell-dot {
+		margin-right: var(--sp-2);
 	}
 
 	.cell-status {
@@ -670,36 +744,52 @@
 	}
 
 	.cell-label {
-		font-size: var(--font-size-xs);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
 	}
 
 	.cell-date {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		display: block;
+		margin-top: var(--sp-1);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 
-	/* Responsive */
-	@media (max-width: 768px) {
+	@media (max-width: 960px) {
+		.report-filters,
+		.detail-header {
+			padding-inline: var(--sp-4);
+		}
+
 		.dashboard-row {
-			flex-direction: column;
-		}
-
-		.filter-row {
-			flex-direction: column;
-		}
-
-		.filter-select {
-			max-width: none;
-			width: 100%;
+			grid-template-columns: 1fr;
 		}
 
 		.worst-item,
 		.group-item {
-			grid-template-columns: 100px 1fr 40px;
+			grid-template-columns: 1fr;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.report-filters {
+			padding: var(--sp-4);
+		}
+
+		.filter-field,
+		.filter-select {
+			width: 100%;
+			max-width: none;
+		}
+
+		.filter-actions {
+			width: 100%;
+			margin-left: 0;
+			justify-content: space-between;
 		}
 
 		.status-cards {
-			gap: var(--spacing-sm);
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
 </style>

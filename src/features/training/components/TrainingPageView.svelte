@@ -9,6 +9,7 @@
 	import ViewSelector from '$features/training/components/ViewSelector.svelte';
 	import ViewEditorModal from '$features/training/components/ViewEditorModal.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
@@ -30,13 +31,13 @@
 
 <div class="page">
 	<PageToolbar title="Training & Certifications" helpTopic="training-records" overflowItems={ctx.trainingOverflowItems}>
-		<button class="btn btn-sm" onclick={() => modals.open('sign-in-rosters')}> Sign-In Rosters </button>
+		<button class="btn btn-sm" type="button" onclick={() => modals.open('sign-in-rosters')}>Sign-In Rosters</button>
 		<a href={`/org/${ctx.orgId}/training/reports`} class="btn btn-sm"> Reports </a>
 		{#if ctx.canManageConfig}
 			<a href={`/org/${ctx.orgId}/training/types`} class="btn btn-sm"> Manage Types </a>
 		{/if}
 		{#if ctx.readOnly}
-			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+			<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
 		{/if}
 	</PageToolbar>
 
@@ -52,23 +53,23 @@
 					<SkeletonBlock width="100px" height="52px" />
 				{/each}
 			{:else}
-				<div class="stat current">
+				<div class="stat-card current">
 					<span class="stat-value">{viewStats.current}</span>
 					<span class="stat-label">Current</span>
 				</div>
-				<div class="stat warning-yellow">
+				<div class="stat-card warning-yellow">
 					<span class="stat-value">{viewStats.warningYellow}</span>
 					<span class="stat-label">Expiring (60d)</span>
 				</div>
-				<div class="stat warning-orange">
+				<div class="stat-card warning-orange">
 					<span class="stat-value">{viewStats.warningOrange}</span>
 					<span class="stat-label">Expiring (30d)</span>
 				</div>
-				<div class="stat expired">
+				<div class="stat-card expired">
 					<span class="stat-value">{viewStats.expired}</span>
 					<span class="stat-label">Expired</span>
 				</div>
-				<div class="stat not-completed">
+				<div class="stat-card not-completed">
 					<span class="stat-value">{viewStats.notCompleted}</span>
 					<span class="stat-label">Not Done</span>
 				</div>
@@ -76,39 +77,51 @@
 		</div>
 
 		<div class="filter-bar">
-			<ViewSelector
-				selectedViewId={ctx.selectedViewId}
-				onSelect={(viewId) => ctx.setSelectedViewId(viewId)}
-				canEdit={ctx.canManageConfig && !ctx.readOnly}
-				onEditClick={() => (showViewEditor = true)}
-			/>
-			<label class="filter-label">
-				Group:
-				<select
-					class="select"
-					value={ctx.selectedGroupId}
-					onchange={(event) => ctx.setSelectedGroupId((event.currentTarget as HTMLSelectElement).value)}
-				>
-					<option value="">All Groups</option>
-					{#each ctx.groups as group (group.id)}
-						<option value={group.id}>{group.name}</option>
-					{/each}
-				</select>
-			</label>
+			<div class="filter-controls">
+				<ViewSelector
+					selectedViewId={ctx.selectedViewId}
+					onSelect={(viewId) => ctx.setSelectedViewId(viewId)}
+					canEdit={ctx.canManageConfig && !ctx.readOnly}
+					onEditClick={() => (showViewEditor = true)}
+				/>
+				<label class="filter-label">
+					<span class="filter-label-text">Group</span>
+					<select
+						class="select"
+						value={ctx.selectedGroupId}
+						onchange={(event) => ctx.setSelectedGroupId((event.currentTarget as HTMLSelectElement).value)}
+					>
+						<option value="">All Groups</option>
+						{#each ctx.groups as group (group.id)}
+							<option value={group.id}>{group.name}</option>
+						{/each}
+					</select>
+				</label>
+			</div>
 			<div class="view-toggle">
 				<span class="view-label">View:</span>
-				<button
-					class="view-btn"
-					class:active={ctx.viewMode === 'alphabetical'}
-					onclick={() => ctx.setViewMode('alphabetical')}
-				>
-					A-Z
-				</button>
-				<button class="view-btn" class:active={ctx.viewMode === 'by-group'} onclick={() => ctx.setViewMode('by-group')}>
-					By Group
-				</button>
+				<div class="view-toggle-controls" role="group" aria-label="Training matrix view mode">
+					<button
+						class="view-btn"
+						type="button"
+						class:active={ctx.viewMode === 'alphabetical'}
+						onclick={() => ctx.setViewMode('alphabetical')}
+					>
+						A-Z
+					</button>
+					<button
+						class="view-btn"
+						type="button"
+						class:active={ctx.viewMode === 'by-group'}
+						onclick={() => ctx.setViewMode('by-group')}
+					>
+						By Group
+					</button>
+				</div>
 			</div>
-			<span class="filter-count">{ctx.filteredPersonnel.length} personnel</span>
+			<div class="filter-meta">
+				<Badge label={`${ctx.filteredPersonnel.length} personnel`} variant="outlined" />
+			</div>
 		</div>
 
 		<main class="page-content">
@@ -163,131 +176,168 @@
 
 <style>
 	.page {
-		height: calc(100dvh - var(--header-height, 56px));
+		height: 100%;
 		display: flex;
 		flex-direction: column;
-		background: var(--color-bg);
+		background: var(--surface-page);
 	}
 
 	.stats-bar {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-3);
+		background: color-mix(in srgb, var(--surface-panel) 94%, var(--surface-subtle) 6%);
+		border-bottom: var(--border-thin);
+	}
+
+	.stat-card {
 		display: flex;
-		gap: var(--spacing-md);
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-surface);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.stat {
-		padding: var(--spacing-sm) var(--spacing-md);
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--sp-1);
+		padding: var(--sp-2) var(--sp-3);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		text-align: center;
-		min-width: 100px;
+		background: var(--surface-panel);
+		--stat-color: var(--text-secondary);
 	}
 
-	.stat.current {
-		background-color: color-mix(in srgb, var(--color-success) 10%, transparent);
-		border: 1px solid var(--color-success);
+	.stat-card.current {
+		--stat-color: var(--success);
 	}
 
-	.stat.warning-yellow {
-		background-color: color-mix(in srgb, var(--color-warning) 10%, transparent);
-		border: 1px solid var(--color-warning);
+	.stat-card.warning-yellow,
+	.stat-card.warning-orange {
+		--stat-color: var(--amber-dark);
 	}
 
-	.stat.warning-orange {
-		background-color: color-mix(in srgb, var(--color-warning) 15%, transparent);
-		border: 1px solid var(--color-warning);
+	.stat-card.expired {
+		--stat-color: var(--danger);
 	}
 
-	.stat.expired {
-		background-color: color-mix(in srgb, var(--color-error) 10%, transparent);
-		border: 1px solid var(--color-error);
-	}
-
-	.stat.not-completed {
-		background-color: color-mix(in srgb, var(--color-text-muted) 10%, transparent);
-		border: 1px solid var(--color-text-muted);
+	.stat-card.not-completed {
+		--stat-color: var(--text-secondary);
 	}
 
 	.stat-value {
 		display: block;
-		font-family: var(--font-mono);
-		font-size: var(--font-size-lg);
-		font-weight: 500;
+		font-family: var(--font-display);
+		font-size: clamp(1.35rem, 1.1rem + 0.4vw, 1.8rem);
+		font-weight: var(--font-weight-display);
+		line-height: 1;
+		color: var(--stat-color);
 	}
 
 	.stat-label {
 		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
 		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--color-text-muted);
+		letter-spacing: 0.1em;
+		color: var(--text-tertiary);
 	}
 
 	.filter-bar {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-lg);
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-surface);
-		border-bottom: 1px solid var(--color-border);
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-3);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		border-bottom: var(--border-thin);
+	}
+
+	.filter-controls {
+		display: flex;
+		align-items: flex-end;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		margin-right: auto;
+		min-width: 0;
 	}
 
 	.filter-label {
 		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		font-size: var(--font-size-sm);
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--sp-2);
 	}
 
 	.filter-label .select {
 		width: 200px;
 	}
 
-	.filter-count {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		margin-left: auto;
+	.filter-label-text {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
 	.view-toggle {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
+	}
+
+	.view-toggle-controls {
+		display: inline-flex;
+		align-items: stretch;
+	}
+
+	.view-toggle-controls .view-btn + .view-btn {
+		margin-left: -1px;
 	}
 
 	.view-label {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
 	.view-btn {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-		color: var(--color-text);
+		appearance: none;
+		min-height: 32px;
+		padding: 0 12px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		border: var(--border-thin);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.view-btn:first-of-type {
-		border-radius: var(--radius-md) 0 0 var(--radius-md);
+		border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 	}
 
 	.view-btn:last-of-type {
-		border-radius: 0 var(--radius-md) var(--radius-md) 0;
-		border-left: none;
+		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 	}
 
 	.view-btn:hover {
-		background: var(--color-bg);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
 	}
 
 	.view-btn.active {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
-		color: white;
+		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
+		border-color: var(--amber);
+		color: var(--amber-dark);
 	}
 
 	.no-permission {
@@ -295,15 +345,29 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		min-height: 300px;
+		min-height: 320px;
+		margin: var(--sp-6);
+		padding: var(--sp-8);
 		text-align: center;
-		color: var(--color-text-muted);
+		color: var(--text-secondary);
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
 	}
 
 	.no-permission h2 {
-		font-size: var(--font-size-lg);
-		margin-bottom: var(--spacing-sm);
-		color: var(--color-text);
+		margin: 0 0 var(--sp-2);
+		font-family: var(--font-display);
+		font-size: clamp(1.5rem, 1.2rem + 0.8vw, 2.1rem);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--text-primary);
+	}
+
+	.no-permission p {
+		margin: 0;
+		max-width: 44ch;
+		line-height: var(--line-height-copy);
 	}
 
 	.page-content {
@@ -315,6 +379,7 @@
 	.view-panel {
 		height: 100%;
 		overflow: auto;
+		padding: 0;
 	}
 
 	.hidden-view {
@@ -322,40 +387,28 @@
 	}
 
 	.skeleton-matrix-wrapper {
-		padding: var(--spacing-md) var(--spacing-lg);
+		padding: var(--sp-2) var(--sp-3);
 		overflow: hidden;
 	}
 
-	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
 		.stats-bar {
-			flex-wrap: wrap;
-			justify-content: center;
-			padding: var(--spacing-sm) var(--spacing-md);
-			gap: var(--spacing-sm);
+			padding: var(--sp-2);
 		}
 
-		.stat {
-			min-width: 70px;
-			padding: var(--spacing-xs) var(--spacing-sm);
-		}
-
-		.stat-value {
-			font-size: var(--font-size-base);
-		}
-
-		.stat-label {
-			font-size: var(--font-size-xs);
+		.filter-bar,
+		.view-panel,
+		.skeleton-matrix-wrapper {
+			padding-left: var(--sp-2);
+			padding-right: var(--sp-2);
 		}
 
 		.filter-bar {
-			flex-wrap: wrap;
-			padding: var(--spacing-sm) var(--spacing-md);
+			align-items: stretch;
 		}
 
+		.filter-controls,
 		.filter-label {
-			flex-direction: column;
-			align-items: flex-start;
 			width: 100%;
 		}
 
@@ -363,26 +416,22 @@
 			width: 100%;
 		}
 
-		.view-toggle {
-			width: 100%;
-			justify-content: flex-start;
+		.filter-controls {
+			margin-right: 0;
 		}
 
-		.filter-count {
-			width: 100%;
-			margin-left: 0;
+		.view-toggle {
+			justify-content: space-between;
 		}
 	}
 
-	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
-		.stats-bar {
-			flex-wrap: wrap;
-			justify-content: flex-start;
-		}
-
-		.stat {
-			min-width: 90px;
+		.stats-bar,
+		.filter-bar,
+		.view-panel,
+		.skeleton-matrix-wrapper {
+			padding-left: var(--sp-3);
+			padding-right: var(--sp-3);
 		}
 	}
 </style>

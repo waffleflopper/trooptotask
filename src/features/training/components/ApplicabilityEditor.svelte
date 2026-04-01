@@ -90,13 +90,23 @@
 
 	<!-- Presets -->
 	<div class="preset-row">
-		<button class="preset-btn" class:active={currentMode === 'everyone'} onclick={() => applyPreset('everyone')}>
+		<button
+			class="preset-btn"
+			class:active={currentMode === 'everyone'}
+			type="button"
+			onclick={() => applyPreset('everyone')}
+		>
 			Everyone
 		</button>
-		<button class="preset-btn" class:active={currentMode === 'optional'} onclick={() => applyPreset('optional')}>
+		<button
+			class="preset-btn"
+			class:active={currentMode === 'optional'}
+			type="button"
+			onclick={() => applyPreset('optional')}
+		>
 			Optional
 		</button>
-		<button class="preset-btn" class:active={currentMode === 'custom'} disabled> Custom </button>
+		<button class="preset-btn" class:active={currentMode === 'custom'} type="button" disabled>Custom</button>
 	</div>
 
 	{#if isOptional}
@@ -123,6 +133,7 @@
 							<button
 								class="chip"
 								class:active={appliesToRoles.includes(role)}
+								type="button"
 								onclick={() => toggleChip('appliesToRoles', role, appliesToRoles)}>{role}</button
 							>
 						{/each}
@@ -138,6 +149,7 @@
 							<button
 								class="chip"
 								class:active={appliesToMos.includes(mos)}
+								type="button"
 								onclick={() => toggleChip('appliesToMos', mos, appliesToMos)}>{mos}</button
 							>
 						{/each}
@@ -153,6 +165,7 @@
 							<button
 								class="chip"
 								class:active={appliesToRanks.includes(rank)}
+								type="button"
 								onclick={() => toggleChip('appliesToRanks', rank, appliesToRanks)}>{rank}</button
 							>
 						{/each}
@@ -163,7 +176,7 @@
 
 		<!-- Exclusions -->
 		<div class="exclusions">
-			<button class="exclusion-toggle" onclick={() => (showExclusions = !showExclusions)}>
+			<button class="exclusion-toggle" type="button" onclick={() => (showExclusions = !showExclusions)}>
 				<span class="toggle-icon">{showExclusions ? '▾' : '▸'}</span>
 				<span class="toggle-label">Exclude specific roles, MOS, or ranks</span>
 				{#if !showExclusions && excludedRoles.length + excludedMos.length + excludedRanks.length > 0}
@@ -183,6 +196,7 @@
 									<button
 										class="chip chip-exclude"
 										class:active={excludedRoles.includes(role)}
+										type="button"
 										onclick={() => toggleChip('excludedRoles', role, excludedRoles)}>{role}</button
 									>
 								{/each}
@@ -198,6 +212,7 @@
 									<button
 										class="chip chip-exclude"
 										class:active={excludedMos.includes(mos)}
+										type="button"
 										onclick={() => toggleChip('excludedMos', mos, excludedMos)}>{mos}</button
 									>
 								{/each}
@@ -213,6 +228,7 @@
 									<button
 										class="chip chip-exclude"
 										class:active={excludedRanks.includes(rank)}
+										type="button"
 										onclick={() => toggleChip('excludedRanks', rank, excludedRanks)}>{rank}</button
 									>
 								{/each}
@@ -229,75 +245,106 @@
 	.applicability-editor {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-4);
 	}
 
 	.section-heading {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-secondary);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: var(--letter-spacing-mono);
 	}
 
-	/* Preset buttons */
 	.preset-row {
 		display: flex;
-		gap: var(--spacing-xs);
+		flex-wrap: wrap;
+		gap: 0;
 	}
 
 	.preset-btn {
-		padding: 4px 12px;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-bg);
-		font-size: var(--font-size-sm);
+		padding: var(--sp-2) var(--sp-4);
+		border: var(--border-thin);
+		border-radius: 0;
+		background: var(--surface-panel);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 		cursor: pointer;
-		transition: all var(--transition-fast);
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
+		margin-left: -1px;
+	}
+
+	.preset-btn:first-child {
+		margin-left: 0;
+		border-top-left-radius: var(--radius-sm);
+		border-bottom-left-radius: var(--radius-sm);
+	}
+
+	.preset-btn:last-child {
+		border-top-right-radius: var(--radius-sm);
+		border-bottom-right-radius: var(--radius-sm);
 	}
 
 	.preset-btn:hover:not(:disabled) {
-		border-color: var(--color-primary);
+		border-color: var(--border-strong);
+		color: var(--text-primary);
+		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
 	}
 
 	.preset-btn.active {
-		background: var(--color-primary);
-		color: white;
-		border-color: var(--color-primary);
+		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
+		color: var(--amber-dark);
+		border-color: color-mix(in srgb, var(--amber) 30%, var(--border-default));
 	}
 
 	.preset-btn:disabled {
-		opacity: 0.4;
+		opacity: 1;
 		cursor: default;
 	}
 
-	/* Chip selectors */
 	.chip-selector {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 	}
 
 	.chip {
 		display: inline-flex;
 		align-items: center;
-		padding: 4px 12px;
-		border: 1px solid var(--color-border);
-		border-radius: 999px;
-		background: var(--color-bg);
-		font-size: var(--font-size-sm);
+		padding: var(--sp-2) var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 		cursor: pointer;
-		transition: all var(--transition-fast);
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.chip:hover:not(:disabled) {
-		border-color: var(--color-primary);
+		border-color: var(--border-strong);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
 	.chip.active {
-		background: var(--color-primary);
-		color: white;
-		border-color: var(--color-primary);
+		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
+		color: var(--amber-dark);
+		border-color: color-mix(in srgb, var(--amber) 30%, var(--border-default));
 	}
 
 	.chip:disabled {
@@ -306,69 +353,71 @@
 	}
 
 	.chip-exclude.active {
-		background: var(--color-danger);
-		color: white;
-		border-color: var(--color-danger);
-	}
-
-	/* Layout */
-	.applicability-group {
-		margin-bottom: 0.5rem;
+		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
+		color: var(--danger);
+		border-color: color-mix(in srgb, var(--danger) 30%, var(--border-default));
 	}
 
 	.group-label {
-		font-size: var(--font-size-xs);
-		font-weight: 600;
-		color: var(--color-text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-secondary);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: var(--letter-spacing-mono);
 	}
 
 	.hint {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		font-style: italic;
-		margin: 0.25rem 0 0;
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		line-height: 1.5;
+		margin: var(--sp-2) 0 0;
 	}
 
 	.dimension {
-		margin-top: 0.5rem;
+		margin-top: var(--sp-3);
 	}
 
 	.dimension-label {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		margin-bottom: 0.25rem;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		margin-bottom: var(--sp-2);
 		display: block;
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.exclusions {
-		border-top: 1px solid var(--color-border);
-		padding-top: var(--spacing-sm);
+		border-top: var(--border-thin);
+		padding-top: var(--sp-4);
 	}
 
 	.exclusion-toggle {
-		background: none;
-		border: 1px solid var(--color-border);
+		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
+		color: var(--text-secondary);
+		font-size: var(--text-sm);
 		cursor: pointer;
-		padding: var(--spacing-xs) var(--spacing-sm);
+		padding: var(--sp-3) var(--sp-4);
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 		width: 100%;
-		transition: all var(--transition-fast);
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.exclusion-toggle:hover {
-		border-color: var(--color-primary);
-		color: var(--color-text);
+		border-color: var(--border-strong);
+		color: var(--text-primary);
 	}
 
 	.toggle-icon {
-		font-size: var(--font-size-xs);
+		font-size: var(--text-xs);
 	}
 
 	.toggle-label {
@@ -377,12 +426,15 @@
 	}
 
 	.exclusion-count {
-		font-size: var(--font-size-xs);
-		color: var(--color-danger);
-		font-weight: 600;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--danger);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.exclusion-content {
-		margin-top: var(--spacing-sm);
+		margin-top: var(--sp-3);
 	}
 </style>

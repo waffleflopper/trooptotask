@@ -17,6 +17,7 @@ export interface PersonnelPageData {
 	personnel?: Personnel[];
 	permissions?: OrganizationMemberPermissions | null;
 	scopedGroupId?: string | null;
+	initialPageView?: 'roster' | 'rating-scheme';
 	[key: string]: unknown;
 }
 
@@ -94,6 +95,8 @@ export class PersonnelPageContext {
 					}
 				}
 			: (pinnedGroupsStore as PinnedGroupsAccessor);
+
+		this.pageView = data.initialPageView ?? 'roster';
 	}
 
 	// ---- Permission flags ----

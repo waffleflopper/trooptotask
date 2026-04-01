@@ -49,9 +49,9 @@
 	}
 
 	function getEvalTypeColor(evalType: string): string {
-		if (evalType === 'OER') return 'var(--color-info)';
-		if (evalType === 'WOER') return 'var(--color-primary)';
-		return 'var(--color-success)';
+		if (evalType === 'OER') return 'var(--info)';
+		if (evalType === 'WOER') return 'var(--amber)';
+		return 'var(--success)';
 	}
 
 	const columns: ColumnDef<RatingSchemeEntry>[] = [
@@ -143,8 +143,12 @@
 
 <style>
 	.rank {
-		font-weight: 600;
-		color: var(--color-text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
 	}
 
 	.rater-cell {
@@ -156,19 +160,20 @@
 	}
 
 	.report-cell {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
+		color: var(--text-secondary);
+		font-size: var(--text-sm);
 		white-space: nowrap;
 	}
 
 	.status-cell {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	.unknown {
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		font-style: italic;
 	}
 </style>

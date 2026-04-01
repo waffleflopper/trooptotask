@@ -82,8 +82,8 @@
 	}
 </script>
 
-<div class="modal-overlay" tabindex="-1" onkeydown={handleKeydown} bind:this={overlayEl}>
-	<button class="modal-backdrop" onclick={handleClose} tabindex="-1" aria-hidden="true"></button>
+<div class="modal-overlay" role="presentation" tabindex="-1" onkeydown={handleKeydown} bind:this={overlayEl}>
+	<button type="button" class="modal-backdrop" onclick={handleClose} tabindex="-1" aria-hidden="true"></button>
 	<div class="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} style:width style:max-width="95vw">
 		<div class="modal-header">
 			<h2 id={titleId}>{title}</h2>
@@ -93,7 +93,9 @@
 						{@render headerActions()}
 					{/if}
 					{#if showCloseButton && canClose}
-						<button class="btn btn-secondary btn-sm close-btn" onclick={handleClose} aria-label="Close">&times;</button>
+						<button type="button" class="close-btn" onclick={handleClose} aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
 					{/if}
 				</div>
 			{/if}
@@ -115,18 +117,44 @@
 	.header-actions {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
+		margin-left: auto;
 	}
 
 	.close-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		padding: 0;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--text-secondary);
 		font-size: 1.25rem;
 		line-height: 1;
-		padding: var(--spacing-xs) var(--spacing-sm);
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
+	}
+
+	.close-btn:hover {
+		background: var(--surface-subtle);
+		border-color: var(--ink-35);
+		color: var(--text-primary);
+	}
+
+	.close-btn:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+		box-shadow: var(--focus-ring);
 	}
 
 	.modal-footer {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 	}
 </style>

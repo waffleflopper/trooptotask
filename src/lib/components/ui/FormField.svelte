@@ -35,102 +35,108 @@
 		children
 	}: Props = $props();
 
-	const describedBy = $derived(error ? `${id}-error` : hint ? `${id}-hint` : undefined);
+	const errorId = $derived(`${id}-error`);
+	const hintId = $derived(`${id}-hint`);
+	const describedBy = $derived(error ? errorId : hint ? hintId : undefined);
 	const inputClass = $derived(error ? 'input input-error' : 'input');
 </script>
 
 <div class="form-field">
-	<label for={id}>
+	<label class="field-label" for={id}>
 		{label}
 		{#if required}<span class="required" aria-hidden="true">*</span>{/if}
 	</label>
 
 	{#if children}
-		{@render children()}
+		<div class="field-control custom-control">
+			{@render children()}
+		</div>
 	{:else if inputElement === 'select'}
-		<select
-			{id}
-			{name}
-			{disabled}
-			{required}
-			class={inputClass}
-			aria-invalid={error ? true : undefined}
-			aria-describedby={describedBy}
-			bind:value
-		>
-			{#each options as opt}
-				<option value={opt.value}>{opt.label}</option>
-			{/each}
-		</select>
+		<div class="field-control">
+			<select
+				{id}
+				{name}
+				{disabled}
+				{required}
+				class={`${inputClass} select`}
+				aria-invalid={error ? true : undefined}
+				aria-describedby={describedBy}
+				bind:value
+			>
+				{#each options as opt}
+					<option value={opt.value}>{opt.label}</option>
+				{/each}
+			</select>
+		</div>
 	{:else if inputElement === 'textarea'}
-		<textarea
-			{id}
-			{name}
-			{placeholder}
-			{disabled}
-			{required}
-			{rows}
-			class={inputClass}
-			aria-invalid={error ? true : undefined}
-			aria-describedby={describedBy}
-			bind:value
-		></textarea>
+		<div class="field-control">
+			<textarea
+				{id}
+				{name}
+				{placeholder}
+				{disabled}
+				{required}
+				{rows}
+				class={inputClass}
+				aria-invalid={error ? true : undefined}
+				aria-describedby={describedBy}
+				bind:value
+			></textarea>
+		</div>
 	{:else}
-		<input
-			{id}
-			{name}
-			{type}
-			{placeholder}
-			{disabled}
-			{required}
-			class={inputClass}
-			aria-invalid={error ? true : undefined}
-			aria-describedby={describedBy}
-			bind:value
-		/>
+		<div class="field-control">
+			<input
+				{id}
+				{name}
+				{type}
+				{placeholder}
+				{disabled}
+				{required}
+				class={inputClass}
+				aria-invalid={error ? true : undefined}
+				aria-describedby={describedBy}
+				bind:value
+			/>
+		</div>
 	{/if}
 
-	{#if error}
-		<span class="field-error" id="{id}-error">{error}</span>
-	{:else if hint}
-		<span class="field-hint" id="{id}-hint">{hint}</span>
-	{/if}
+	<div class="field-support" aria-live={error ? 'polite' : undefined}>
+		{#if error}
+			<span class="field-error" id={errorId}>{error}</span>
+		{:else if hint}
+			<span class="field-hint" id={hintId}>{hint}</span>
+		{/if}
+	</div>
 </div>
 
 <style>
 	.form-field {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--field-stack-gap);
 	}
 
-	label {
-		font-family: var(--font-family);
-		font-size: var(--font-size-sm);
-		font-weight: var(--font-weight-medium);
+	.field-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 		color: var(--field-label);
 	}
 
 	.required {
 		color: var(--field-error);
-		margin-left: 2px;
+		margin-left: var(--sp-1);
 	}
 
-	.input {
-		width: 100%;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border: 1px solid var(--field-border);
-		border-radius: var(--radius-md);
-		background: var(--field-bg);
-		color: var(--color-text);
-		font-family: var(--font-family);
-		font-size: var(--font-size-base);
-		transition: border-color var(--transition-fast);
+	.field-control {
+		position: relative;
 	}
 
-	.input:focus {
-		outline: none;
-		border-color: var(--field-border-focus);
+	.field-control :global(textarea.input) {
+		min-height: 112px;
+		resize: vertical;
 	}
 
 	.input-error {
@@ -138,12 +144,14 @@
 	}
 
 	.field-error {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-xs);
+		line-height: 1.4;
 		color: var(--field-error);
 	}
 
 	.field-hint {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-xs);
+		line-height: 1.4;
 		color: var(--field-help);
 	}
 </style>

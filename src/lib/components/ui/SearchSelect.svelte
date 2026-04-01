@@ -27,6 +27,8 @@
 	let inputEl = $state<HTMLInputElement | null>(null);
 	let listEl = $state<HTMLUListElement | null>(null);
 	let highlightIndex = $state(-1);
+	const listboxId = $derived(`${id}-listbox`);
+	const activeDescendant = $derived(highlightIndex >= 0 ? `${id}-option-${highlightIndex}` : undefined);
 
 	const selectedLabel = $derived(options.find((o) => o.value === value)?.label ?? '');
 
@@ -108,6 +110,7 @@
 		{#if open}
 			<input
 				bind:this={inputEl}
+				{id}
 				class="input search-input"
 				type="text"
 				bind:value={query}
@@ -118,12 +121,13 @@
 				{disabled}
 				role="combobox"
 				aria-expanded={open}
-				aria-controls="{id}-listbox"
+				aria-controls={listboxId}
 				aria-autocomplete="list"
-				aria-activedescendant={highlightIndex >= 0 ? `${id}-option-${highlightIndex}` : undefined}
+				aria-activedescendant={activeDescendant}
 			/>
 		{:else}
 			<button
+				{id}
 				class="display-btn"
 				class:has-value={!!value}
 				onclick={() => {
@@ -133,25 +137,31 @@
 				}}
 				{disabled}
 				type="button"
+				aria-haspopup="listbox"
+				aria-expanded={open}
+				aria-controls={listboxId}
 			>
-				{selectedLabel || placeholder}
+				<span class="display-copy">{selectedLabel || placeholder}</span>
+				<svg class="display-icon" viewBox="0 0 24 24" aria-hidden="true">
+					<polyline points="6 9 12 15 18 9"></polyline>
+				</svg>
 			</button>
 			{#if value && !disabled}
-				<button class="clear-btn" type="button" onmousedown={clearSelection} tabindex="-1" aria-label="Clear selection"
-					>&times;</button
-				>
+				<button class="clear-btn" type="button" onmousedown={clearSelection} tabindex="-1" aria-label="Clear selection">
+					<span aria-hidden="true">&times;</span>
+				</button>
 			{/if}
 		{/if}
 	</div>
 
 	{#if open}
-		<ul class="dropdown" bind:this={listEl} id="{id}-listbox" role="listbox">
+		<ul class="dropdown" bind:this={listEl} id={listboxId} role="listbox">
 			{#if filtered.length === 0}
 				<li class="no-results">No matches</li>
 			{:else}
 				{#each filtered as opt, i (opt.value)}
 					<li
-						id="{id}-option-{i}"
+						id={`${id}-option-${i}`}
 						class="dropdown-item"
 						class:highlighted={i === highlightIndex}
 						class:selected={opt.value === value}
@@ -181,92 +191,146 @@
 		position: relative;
 		display: flex;
 		align-items: center;
+		border: 1px solid var(--field-border);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--field-bg) 92%, var(--surface-page) 8%);
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+		transition:
+			border-color var(--transition-fast),
+			box-shadow var(--transition-fast),
+			background-color var(--transition-fast);
+	}
+
+	.input-wrapper:hover {
+		border-color: var(--ink-35);
+	}
+
+	.input-wrapper.open {
+		border-color: var(--field-border-focus);
+		box-shadow: var(--focus-ring);
 	}
 
 	.search-input {
 		width: 100%;
+		border: none;
+		background: transparent;
+		box-shadow: none;
+		padding-right: 40px;
+	}
+
+	.search-input:focus {
+		box-shadow: none;
 	}
 
 	.display-btn {
 		width: 100%;
 		text-align: left;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		color: var(--color-text-muted);
-		font-size: var(--font-size-base);
+		display: inline-flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-2);
+		min-height: 42px;
+		padding: 11px 12px;
+		border: none;
+		border-radius: calc(var(--radius-md) - 1px);
+		background: transparent;
+		color: var(--text-tertiary);
+		font-size: var(--text-base);
 		cursor: pointer;
-		min-height: 36px;
 	}
 
 	.display-btn.has-value {
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
-	.display-btn:hover {
-		border-color: var(--color-text-muted);
+	.display-copy {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.display-icon {
+		width: 16px;
+		height: 16px;
+		flex: 0 0 auto;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.8;
+		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 
 	.clear-btn {
 		position: absolute;
 		right: 8px;
-		background: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		background: transparent;
 		border: none;
-		color: var(--color-text-muted);
+		border-radius: var(--radius-sm);
+		color: var(--text-tertiary);
 		font-size: 16px;
 		cursor: pointer;
-		padding: 2px 4px;
+		padding: 0;
 		line-height: 1;
 	}
 
 	.clear-btn:hover {
-		color: var(--color-text);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
 	}
 
 	.dropdown {
 		position: absolute;
-		top: 100%;
+		top: calc(100% + 4px);
 		left: 0;
 		right: 0;
-		z-index: 100;
-		max-height: 200px;
+		z-index: var(--z-dropdown);
+		max-height: 240px;
 		overflow-y: auto;
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-top: none;
-		border-radius: 0 0 var(--radius-md) var(--radius-md);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
 		list-style: none;
 		margin: 0;
-		padding: 0;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+		padding: 4px;
+		box-shadow: var(--shadow-lg);
 	}
 
 	.dropdown-item {
 		width: 100%;
 		text-align: left;
-		padding: var(--spacing-xs) var(--spacing-md);
+		padding: 9px 10px;
 		background: none;
-		border: none;
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
+		border: 1px solid transparent;
+		border-radius: var(--radius-sm);
+		font-size: var(--text-sm);
+		color: var(--text-primary);
 		cursor: pointer;
 	}
 
 	.dropdown-item:hover,
 	.dropdown-item.highlighted {
-		background: var(--color-surface-variant);
+		background: var(--surface-subtle);
+		border-color: color-mix(in srgb, var(--border-default) 74%, var(--amber) 26%);
 	}
 
 	.dropdown-item.selected {
-		font-weight: 600;
-		color: var(--color-primary);
+		background: color-mix(in srgb, var(--amber-light) 70%, var(--surface-panel) 30%);
+		border-color: color-mix(in srgb, var(--amber) 42%, var(--border-default) 58%);
+		color: var(--amber-dark);
+		font-weight: var(--font-weight-semibold);
 	}
 
 	.no-results {
-		padding: var(--spacing-sm) var(--spacing-md);
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		font-style: italic;
+		padding: 10px 12px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 </style>

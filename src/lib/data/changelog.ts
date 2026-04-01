@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-04-01-dashboard-entry-refresh',
+		date: '2026-04-01',
+		title: 'The Dashboard and Sign-In Landing Screens Got a Much Better First Impression',
+		items: [
+			'The main dashboard was rebuilt with cleaner section framing, clearer summary modules, and a more readable daily snapshot of readiness, tasking, and follow-up items',
+			'The organization selection screen after sign-in now does a better job surfacing invitations, available workspaces, and next-step actions without feeling like an older leftover page',
+			'Dashboard setup and customization panels were cleaned up too, so getting a new workspace off the ground should feel less like you are rummaging through a supply closet'
+		]
+	},
+	{
 		id: '2026-03-31-marketing-pages-rollout',
 		date: '2026-03-31',
 		title: 'The Rest of the Public Site Now Feels Like the Same Product',
@@ -44,16 +54,6 @@ export const changelog: ChangelogEntry[] = [
 			'The bulk add and bulk remove calendar tools now make much better use of wide screens, so you can see a lot more people at once instead of constantly fighting the list',
 			'Status settings now live in a cleaner side panel while the personnel list gets the larger workspace, which makes bulk changes feel a lot less cramped',
 			'Selection controls were cleaned up too, including clearer counts and a better "select shown" action when you are filtering the list'
-		]
-	},
-	{
-		id: '2026-03-26-calendar-month-picker',
-		date: '2026-03-26',
-		title: 'Jump Around the Calendar Much Faster',
-		items: [
-			'You can now click the month name at the top of the calendar to jump straight to a different month instead of hammering the next and previous buttons over and over',
-			'The same quick-jump picker also works in the 3-month calendar view, so it is easier to move across the year without losing your place',
-			'Keyboard navigation was added too, so the new picker is easier to use without needing to rely on a mouse'
 		]
 	}
 ];

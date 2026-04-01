@@ -1,12 +1,95 @@
 <script lang="ts">
+	import PublicContentSection from '$lib/components/public/PublicContentSection.svelte';
 	import PublicPageHeader from '$lib/components/public/PublicPageHeader.svelte';
+	import PublicPricingTier from '$lib/components/public/PublicPricingTier.svelte';
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
 
 	let { data } = $props();
+
+	const plans = [
+		{
+			name: 'Free',
+			price: '$0',
+			description: 'For squad leaders and small teams that need a clean roster, calendar, and readiness picture fast.',
+			features: ['Up to 15 personnel', '1 organization', '3 exports per month', 'Full platform access during beta'],
+			ctaLabel: 'Get Started Free',
+			ctaHref: '/auth/login'
+		},
+		{
+			name: 'Team',
+			price: '$15',
+			description:
+				'For platoon-level leadership keeping one formation aligned without juggling spreadsheets and whiteboards.',
+			features: [
+				'Up to 80 personnel',
+				'1 organization',
+				'Unlimited exports',
+				'Full platform access with team-scale capacity'
+			],
+			ctaLabel: 'Get Started',
+			ctaHref: '/auth/login',
+			highlighted: true,
+			badge: 'Most Popular'
+		},
+		{
+			name: 'Unit',
+			price: '$30',
+			description:
+				'For company commanders and staff sections managing multiple elements under one operational picture.',
+			features: [
+				'Unlimited personnel',
+				'Unlimited organizations',
+				'Unlimited exports',
+				'Full platform access across the unit'
+			],
+			ctaLabel: 'Get Started',
+			ctaHref: '/auth/login'
+		}
+	];
+
+	const billingNotes = [
+		{
+			title: 'No feature gating',
+			body: 'Plans scale by formation size, not by holding back core workflows. Calendar, training, counseling, onboarding, and assignments stay available at every tier.'
+		},
+		{
+			title: 'Beta stays simple',
+			body: 'The beta period is fully free. No credit card is required now, and beta organizations get clear notice plus a grace period before any subscription is enforced.'
+		},
+		{
+			title: 'Read-only if you outgrow a plan',
+			body: 'If your organization exceeds its cap, the workspace stays visible and exportable. You just cannot add or edit more records until the tier matches your size again.'
+		}
+	];
+
+	const faqs = [
+		{
+			question: 'Is the beta really free?',
+			answer:
+				'Yes. During the beta phase every feature and plan is free, with no credit card required. If pricing activates later, beta users get advance notice and a grace period before any charge.'
+		},
+		{
+			question: 'What happens if I exceed my personnel cap?',
+			answer:
+				'Your organization moves into read-only mode. Leaders can still view and export everything, but new records and edits pause until the tier fits your formation again.'
+		},
+		{
+			question: 'Can I cancel anytime?',
+			answer:
+				'Yes. You can cancel at any time. Your organization drops back to the free tier limits, and your data stays accessible for review and export.'
+		},
+		{
+			question: 'Are any workflows restricted by plan?',
+			answer:
+				'No. Plans differ by scale, not by feature list. The full platform stays available across tiers so leadership workflows stay consistent as you grow.'
+		}
+	];
+
+	const trustSignals = ['NIST 800-171 aligned', 'AES-256 encryption', 'Audit logged by default'];
 </script>
 
 <svelte:head>
-	<title>Pricing — Troop to Task</title>
+	<title>Pricing - Troop to Task</title>
 	<meta
 		name="description"
 		content="Simple, transparent pricing for Troop to Task. Free for small teams, affordable plans for larger units."
@@ -20,488 +103,251 @@
 	roadmapHref="/#roadmap"
 	ctaTitleBefore="Ready to get"
 	ctaEmphasis="organized?"
-	ctaSubtitle="Free during beta — no strings attached. Beta testers get a generous grace period before any subscription is needed."
+	ctaSubtitle="Free during beta. Set up fast, keep the whole unit aligned, and worry about billing later."
 >
 	<PublicPageHeader label="Pricing">
 		{#snippet title()}Simple, transparent <em>pricing.</em>{/snippet}
-		<p>No feature gating. Every plan gets the full platform. Pick the size that fits your formation.</p>
+		<p>No feature gating. One platform, sized for the formation you are actually leading.</p>
 		<div class="beta-banner">
-			<span class="beta-badge">BETA</span>
-			<span>
-				All features are <strong>completely free</strong> during the beta period. When
-				pricing goes live, beta testers will receive a generous grace period before any
-				subscription is required.
-			</span>
+			<span class="beta-banner__label">Beta Status</span>
+			<p>
+				All plans are currently free. When paid subscriptions begin, beta organizations will receive advance notice and
+				a generous grace period before anything changes.
+			</p>
 		</div>
 	</PublicPageHeader>
 
-	<!-- Pricing Grid -->
-	<section class="pricing-section">
-		<div class="pricing-container">
+	<section class="pricing-overview">
+		<div class="pricing-overview__inner">
+			<div class="pricing-brief">
+				<div class="pricing-brief__intro">
+					<div class="pricing-brief__label">Pricing Brief</div>
+					<h2>Built for the same platform, scaled for different formations.</h2>
+				</div>
+				<p>
+					TroopToTask does not hide core workflows behind higher tiers. The plan changes with your headcount and
+					reporting needs, not with which features leadership is allowed to use.
+				</p>
+
+				<div class="pricing-brief__signals">
+					{#each trustSignals as signal}
+						<div>{signal}</div>
+					{/each}
+				</div>
+			</div>
+
 			<div class="pricing-grid">
-				<!-- Free -->
-				<div class="pricing-card">
-					<div class="card-header">
-						<span class="tier-label">Free</span>
-						<div class="price">$0<span class="price-period">/mo</span></div>
-					</div>
-					<p class="card-description">Perfect for squad leaders and small teams getting started.</p>
-					<ul class="feature-list">
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							Up to <strong>15</strong> personnel
-						</li>
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							<strong>1</strong> organization
-						</li>
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							<strong>3</strong> exports per month
-						</li>
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							All platform features
-						</li>
-					</ul>
-					<a href="/auth/login" class="card-cta card-cta-secondary">Get Started Free</a>
-				</div>
-
-				<!-- Team (highlighted) -->
-				<div class="pricing-card highlighted">
-					<div class="popular-badge">Most Popular</div>
-					<div class="card-header">
-						<span class="tier-label">Team</span>
-						<div class="price">$15<span class="price-period">/mo</span></div>
-					</div>
-					<p class="card-description">For platoon-level leaders managing a full team.</p>
-					<ul class="feature-list">
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							Up to <strong>80</strong> personnel
-						</li>
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							<strong>1</strong> organization
-						</li>
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							<strong>Unlimited</strong> exports
-						</li>
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							All platform features
-						</li>
-					</ul>
-					<a href="/auth/login" class="card-cta card-cta-primary">Get Started</a>
-				</div>
-
-				<!-- Unit -->
-				<div class="pricing-card">
-					<div class="card-header">
-						<span class="tier-label">Unit</span>
-						<div class="price">$30<span class="price-period">/mo</span></div>
-					</div>
-					<p class="card-description">For company commanders and staff managing multiple elements.</p>
-					<ul class="feature-list">
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							<strong>Unlimited</strong> personnel
-						</li>
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							<strong>Unlimited</strong> organizations
-						</li>
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							<strong>Unlimited</strong> exports
-						</li>
-						<li>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
-								><polyline points="20 6 9 17 4 12" /></svg
-							>
-							All platform features
-						</li>
-					</ul>
-					<a href="/auth/login" class="card-cta card-cta-primary">Get Started</a>
-				</div>
+				{#each plans as plan}
+					<PublicPricingTier {...plan} />
+				{/each}
 			</div>
 		</div>
 	</section>
 
-	<div class="trust-badges">
-		<div class="trust-badge">
-			<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-			</svg>
-			<span>NIST 800-171 Aligned</span>
+	<PublicContentSection label="01 // How Billing Works">
+		{#snippet title()}Operationally simple, <em>not padded.</em>{/snippet}
+		<div class="pricing-note-grid">
+			{#each billingNotes as note}
+				<article class="pricing-note">
+					<h3>{note.title}</h3>
+					<p>{note.body}</p>
+				</article>
+			{/each}
 		</div>
-		<div class="trust-badge">
-			<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-				<rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
-			</svg>
-			<span>256-bit Encryption</span>
-		</div>
-		<div class="trust-badge">
-			<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-			</svg>
-			<span>Audit Logged</span>
-		</div>
-	</div>
+	</PublicContentSection>
 
-	<!-- FAQ Section -->
-	<section class="faq-section">
-		<div class="faq-container">
-			<div class="section-label">FAQ</div>
-			<h2>Common questions</h2>
-
-			<div class="faq-grid">
-				<div class="faq-item">
-					<h3>Is the beta really free?</h3>
-					<p>
-						Yes. During the beta testing phase, all features and tiers are completely free with no credit card required.
-						When pricing goes live, every beta tester will receive a generous grace period to decide on a plan — you
-						won't be charged without notice.
-					</p>
-				</div>
-				<div class="faq-item">
-					<h3>What happens if I exceed my personnel cap?</h3>
-					<p>
-						Your organization enters read-only mode. You can still view and export all data, but you won't be able to
-						add or edit records until you upgrade or remove personnel.
-					</p>
-				</div>
-				<div class="faq-item">
-					<h3>Can I cancel anytime?</h3>
-					<p>
-						Yes. You can cancel your subscription at any time. Your data remains accessible, and your organization
-						reverts to the Free tier limits.
-					</p>
-				</div>
-				<div class="faq-item">
-					<h3>Are there any feature differences between plans?</h3>
-					<p>
-						No. Every plan includes the full platform — calendar, training tracker, leader's book, assignments,
-						onboarding, and more. Plans differ only in personnel capacity and export limits.
-					</p>
-				</div>
-			</div>
+	<PublicContentSection label="02 // Common Questions" alternate>
+		{#snippet title()}What leaders usually ask <em>first.</em>{/snippet}
+		<div class="faq-list">
+			{#each faqs as item}
+				<article class="faq-item">
+					<h3>{item.question}</h3>
+					<p>{item.answer}</p>
+				</article>
+			{/each}
 		</div>
-	</section>
-
+	</PublicContentSection>
 </PublicShell>
 
 <style>
-	/* ============================================
-	   Pricing Page — reuses "Operations Directive" design system
-	   Typography: Instrument Serif + DM Sans + DM Mono
-	   ============================================ */
-
 	.beta-banner {
-		display: flex;
-		align-items: center;
+		display: grid;
 		gap: 0.75rem;
-		max-width: 620px;
+		max-width: 38rem;
 		margin: 1.5rem auto 0;
-		padding: 0.875rem 1.25rem;
-		background: rgba(184, 148, 62, 0.1);
-		border: 1px solid rgba(184, 148, 62, 0.3);
-		border-radius: 8px;
-		font-size: 0.9375rem;
-		color: var(--hero-text);
-		line-height: 1.6;
+		padding: 1rem 1.2rem;
+		border: 1px solid color-mix(in srgb, var(--hero-text) 14%, transparent);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--hero-text) 4%, transparent);
 		text-align: left;
 	}
 
-	.beta-badge {
+	.beta-banner__label {
+		width: fit-content;
+		padding: 3px 8px;
+		border: 1px solid var(--amber);
+		border-radius: var(--radius-sm);
+		background: var(--amber-light);
 		font-family: var(--font-mono);
-		font-size: 0.6875rem;
-		font-weight: 500;
-		letter-spacing: 0.1em;
-		background: var(--brass);
-		color: var(--ink);
-		padding: 0.2rem 0.625rem;
-		border-radius: 4px;
-		white-space: nowrap;
-		flex-shrink: 0;
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
 	}
 
-	.section-label {
+	.beta-banner p {
+		margin: 0;
+		font-size: var(--text-base);
+		line-height: 1.7;
+		color: var(--hero-muted);
+	}
+
+	.pricing-overview {
+		padding: clamp(3.5rem, 7vw, 5.5rem) 2rem;
+		background: var(--paper);
+		border-bottom: 1px solid var(--border-default);
+	}
+
+	.pricing-overview__inner {
+		max-width: 1180px;
+		margin: 0 auto;
+		display: grid;
+		gap: clamp(2rem, 4vw, 3rem);
+	}
+
+	.pricing-brief {
+		display: grid;
+		gap: 1.5rem;
+		padding-bottom: 1.5rem;
+		border-bottom: 1px solid var(--border-default);
+	}
+
+	.pricing-brief__intro {
+		display: grid;
+		gap: 1rem;
+		max-width: 780px;
+	}
+
+	.pricing-brief__label {
 		font-family: var(--font-mono);
-		font-size: 0.6875rem;
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		color: var(--brass);
-		margin-bottom: 0.75rem;
 	}
 
-	/* ---- Pricing Section ---- */
-	.pricing-section {
-		padding: 5rem 0;
+	.pricing-brief h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(2rem, 4vw, 3rem);
+		font-weight: var(--font-weight-bold);
+		line-height: 0.98;
+		letter-spacing: 0.03em;
+		text-transform: uppercase;
+		color: var(--text-primary);
+	}
+
+	.pricing-brief p {
+		margin: 0;
+		font-size: var(--text-base);
+		line-height: 1.8;
+		color: var(--text-secondary);
+	}
+
+	.pricing-brief__signals {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0.75rem;
+		margin-top: 0.25rem;
+	}
+
+	.pricing-brief__signals div {
+		padding: 0.85rem 0.9rem;
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
 		background: var(--paper);
-	}
-
-	:global([data-theme='dark']) .pricing-section {
-		background: var(--color-bg);
-	}
-
-	.pricing-container {
-		max-width: 1100px;
-		margin: 0 auto;
-		padding: 0 2rem;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.pricing-grid {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 2rem;
-		align-items: start;
-	}
-
-	.pricing-card {
-		position: relative;
-		background: var(--color-surface, #fff);
-		border: 1px solid var(--color-border, #e2e2e2);
-		border-radius: 12px;
-		padding: 2.5rem 2rem;
-		display: flex;
-		flex-direction: column;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 1.5rem;
+		align-items: stretch;
 	}
 
-	.pricing-card.highlighted {
-		border: 2px solid var(--brass);
-		box-shadow: 0 8px 32px rgba(184, 148, 62, 0.12);
+	.pricing-note-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 1rem;
+		margin-top: 1.5rem;
 	}
 
-	.popular-badge {
-		position: absolute;
-		top: -12px;
-		left: 50%;
-		transform: translateX(-50%);
-		background: var(--brass);
-		color: var(--ink);
-		font-family: var(--font-mono);
-		font-size: 0.6875rem;
-		font-weight: 500;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		padding: 0.25rem 1rem;
-		border-radius: 999px;
-		white-space: nowrap;
+	.pricing-note {
+		padding: 1.25rem 1.1rem;
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: var(--paper);
 	}
 
-	.card-header {
-		text-align: center;
-	}
-
-	.tier-label {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--color-text-secondary, #666);
-	}
-
-	.price {
-		font-family: var(--font-display);
-		font-size: 3.5rem;
-		font-weight: 400;
-		color: var(--color-text);
-		line-height: 1.1;
-		margin-top: 0.5rem;
-	}
-
-	.price-period {
-		font-family: var(--font-body);
-		font-size: 1rem;
-		color: var(--color-text-secondary, #666);
-		font-weight: 400;
-	}
-
-	.card-description {
-		font-size: 0.9375rem;
-		color: var(--color-text-secondary, #666);
-		line-height: 1.6;
-		text-align: center;
-		margin: 0;
-	}
-
-	.feature-list {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.875rem;
-		flex: 1;
-	}
-
-	.feature-list li {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		font-size: 0.9375rem;
-		color: var(--color-text);
-	}
-
-	.feature-list li svg {
-		flex-shrink: 0;
-		color: var(--brass);
-	}
-
-	.card-cta {
-		display: block;
-		text-align: center;
-		padding: 0.875rem 1.5rem;
-		border-radius: 8px;
-		font-family: var(--font-body);
-		font-size: 0.9375rem;
-		font-weight: 500;
-		text-decoration: none;
-		transition: all 0.2s;
-		letter-spacing: 0.01em;
-	}
-
-	.card-cta-primary {
-		background: var(--brass);
-		color: var(--ink);
-	}
-
-	.card-cta-primary:hover {
-		background: var(--brass-light);
-		transform: translateY(-1px);
-	}
-
-	.card-cta-secondary {
-		background: transparent;
-		color: var(--color-text);
-		border: 1px solid var(--color-border, #e2e2e2);
-	}
-
-	.card-cta-secondary:hover {
-		border-color: var(--brass);
-		color: var(--brass);
-	}
-
-	/* ---- Trust Badges ---- */
-	.trust-badges {
-		display: flex;
-		justify-content: center;
-		gap: 40px;
-		padding: 24px 0;
-		margin-top: 24px;
-	}
-
-	.trust-badge {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		color: var(--color-text-secondary);
-		font-size: 12px;
-		font-family: var(--font-mono);
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-	}
-
-	.trust-badge svg {
-		color: var(--brass);
-		flex-shrink: 0;
-	}
-
-	/* ---- FAQ Section ---- */
-	.faq-section {
-		padding: 5rem 0;
-		background: var(--paper-warm);
-		border-top: 1px solid var(--color-border, #e2e2e2);
-	}
-
-	:global([data-theme='dark']) .faq-section {
-		background: var(--color-surface);
-	}
-
-	.faq-container {
-		max-width: 800px;
-		margin: 0 auto;
-		padding: 0 2rem;
-	}
-
-	.faq-container h2 {
-		font-family: var(--font-display);
-		font-size: 2rem;
-		font-weight: 400;
-		margin-bottom: 2.5rem;
-		color: var(--color-text);
-	}
-
-	.faq-grid {
-		display: flex;
-		flex-direction: column;
-		gap: 2rem;
-	}
-
+	.pricing-note h3,
 	.faq-item h3 {
-		font-family: var(--font-body);
-		font-size: 1.0625rem;
-		font-weight: 600;
-		margin-bottom: 0.5rem;
-		color: var(--color-text);
+		margin: 0 0 0.5rem;
+		font-family: var(--font-display);
+		font-size: 1.5rem;
+		font-weight: var(--font-weight-semibold);
+		line-height: 1;
+		letter-spacing: 0.03em;
+		text-transform: uppercase;
+		color: var(--text-primary);
 	}
 
+	.pricing-note p,
 	.faq-item p {
-		font-size: 0.9375rem;
-		color: var(--color-text-secondary, #666);
-		line-height: 1.7;
 		margin: 0;
+		font-size: var(--text-base);
+		line-height: 1.75;
+		color: var(--text-secondary);
 	}
 
-	/* ---- Mobile Responsive ---- */
-	@media (max-width: 768px) {
-		.pricing-grid {
+	.faq-list {
+		display: grid;
+		gap: 1rem;
+		margin-top: 1.5rem;
+	}
+
+	.faq-item {
+		padding: 1rem 0 0;
+		border-top: 1px solid var(--border-default);
+	}
+
+	@media (max-width: 980px) {
+		.pricing-grid,
+		.pricing-note-grid,
+		.pricing-brief__signals {
 			grid-template-columns: 1fr;
-			max-width: 400px;
-			margin: 0 auto;
 		}
 
-		.pricing-card.highlighted {
-			order: -1;
-		}
-
-		.faq-container h2 {
-			font-size: 1.5rem;
+		.pricing-brief {
+			gap: 1.25rem;
 		}
 	}
 
-	@media (min-width: 769px) and (max-width: 1024px) {
-		.pricing-container {
-			padding: 0 1.5rem;
+	@media (max-width: 640px) {
+		.pricing-overview {
+			padding-inline: 1rem;
 		}
 
-		.pricing-card {
-			padding: 2rem 1.5rem;
+		.pricing-brief p,
+		.beta-banner p {
+			font-size: var(--text-base);
 		}
 	}
 </style>

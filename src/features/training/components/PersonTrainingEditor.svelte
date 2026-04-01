@@ -338,7 +338,7 @@
 		</div>
 	{/snippet}
 	{#snippet footer()}
-		<button class="btn btn-secondary" onclick={onClose}>Close</button>
+		<button class="btn btn-secondary" type="button" onclick={onClose}>Close</button>
 	{/snippet}
 
 	<div class="stats-summary">
@@ -365,7 +365,9 @@
 	</div>
 
 	<div class="bulk-actions">
-		<button class="btn btn-primary btn-sm" onclick={markAllCompletedToday}> Mark All Completed Today </button>
+		<button class="btn btn-primary btn-sm" type="button" onclick={markAllCompletedToday}>
+			Mark All Completed Today
+		</button>
 	</div>
 
 	<div class="modal-body">
@@ -390,6 +392,7 @@
 								{#if type.canBeExempted && onToggleExempt}
 									<button
 										class="btn btn-sm {isExempt ? 'btn-danger' : 'btn-secondary'}"
+										type="button"
 										onclick={() => onToggleExempt(type.id, !isExempt)}
 										title={isExempt ? 'Remove exemption' : 'Mark as exempt'}
 									>
@@ -403,6 +406,7 @@
 									{:else if neverExpires && !existing}
 										<button
 											class="btn btn-primary btn-sm"
+											type="button"
 											onclick={() => markComplete(type.id)}
 											title="Mark as complete"
 										>
@@ -411,17 +415,23 @@
 									{:else}
 										<button
 											class="btn btn-primary btn-sm"
+											type="button"
 											onclick={() => markCompletedToday(type.id)}
 											title="Mark as completed today"
 										>
 											Today
 										</button>
 									{/if}
-									<button class="btn btn-secondary btn-sm" onclick={() => toggleEdit(type.id)}>
+									<button class="btn btn-secondary btn-sm" type="button" onclick={() => toggleEdit(type.id)}>
 										{existing ? 'Edit' : 'Add'}
 									</button>
 									{#if existing}
-										<button class="btn btn-danger btn-sm" onclick={() => removeTraining(type.id)} title="Remove record">
+										<button
+											class="btn btn-danger btn-sm"
+											type="button"
+											onclick={() => removeTraining(type.id)}
+											title="Remove record"
+										>
 											&times;
 										</button>
 									{/if}
@@ -557,9 +567,12 @@
 								/>
 							</div>
 							<div class="edit-actions">
-								<button class="btn btn-secondary btn-sm" onclick={() => cancelEdit(type.id)}> Cancel </button>
+								<button class="btn btn-secondary btn-sm" type="button" onclick={() => cancelEdit(type.id)}>
+									Cancel
+								</button>
 								<button
 									class="btn btn-primary btn-sm"
+									type="button"
 									onclick={() => saveTraining(type.id)}
 									disabled={type.expirationDateOnly
 										? !state.directExpirationDate
@@ -605,136 +618,155 @@
 	.person-badge {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		font-size: var(--font-size-sm);
+		gap: var(--sp-3);
+		font-size: var(--text-sm);
 	}
 
 	.person-rank {
-		font-weight: 600;
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--amber-dark);
 	}
 
 	.person-name {
-		font-weight: 500;
+		font-weight: var(--font-weight-semibold);
 	}
 
 	.stats-summary {
-		display: flex;
-		justify-content: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-bg);
-		border-bottom: 1px solid var(--color-border);
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+		gap: var(--sp-3);
+		padding: var(--sp-4) var(--sp-5);
+		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
+		border-bottom: var(--border-thin);
 	}
 
 	.stat {
 		text-align: center;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
+		padding: var(--sp-3);
+		border-radius: var(--radius-md);
 		min-width: 50px;
+		border: var(--border-thin);
 	}
 
 	.stat.current {
-		background-color: rgba(34, 197, 94, 0.1);
-		border: 1px solid #22c55e;
+		background: color-mix(in srgb, var(--success-bg) 82%, var(--surface-panel) 18%);
+		border-color: color-mix(in srgb, var(--success) 28%, var(--border-default));
 	}
 	.stat.warning-yellow {
-		background-color: rgba(234, 179, 8, 0.1);
-		border: 1px solid #eab308;
+		background: color-mix(in srgb, var(--amber-light) 84%, var(--surface-panel) 16%);
+		border-color: color-mix(in srgb, var(--amber) 28%, var(--border-default));
 	}
 	.stat.warning-orange {
-		background-color: rgba(249, 115, 22, 0.1);
-		border: 1px solid #f97316;
+		background: color-mix(in srgb, var(--warning-bg) 84%, var(--surface-panel) 16%);
+		border-color: color-mix(in srgb, var(--warning) 28%, var(--border-default));
 	}
 	.stat.expired {
-		background-color: rgba(239, 68, 68, 0.1);
-		border: 1px solid #ef4444;
+		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
+		border-color: color-mix(in srgb, var(--danger) 28%, var(--border-default));
 	}
 	.stat.not-done {
-		background-color: rgba(107, 114, 128, 0.1);
-		border: 1px solid var(--color-text-muted);
+		background: color-mix(in srgb, var(--surface-subtle) 66%, var(--surface-panel) 34%);
+		border-color: var(--border-default);
 	}
 
 	.stat-value {
 		display: block;
-		font-weight: 700;
-		font-size: var(--font-size-base);
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-display);
+		font-size: clamp(1.45rem, 1.15rem + 0.35vw, 1.7rem);
 	}
 
 	.stat-label {
-		font-size: 10px;
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.bulk-actions {
 		display: flex;
 		justify-content: flex-end;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
+		padding: var(--sp-4) var(--sp-5);
+		border-bottom: var(--border-thin);
 	}
 
 	.training-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 	}
 
 	.training-item {
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
 		overflow: hidden;
 	}
 
 	.training-item.has-record {
-		border-left: 3px solid var(--color-primary);
+		border-color: color-mix(in srgb, var(--amber) 20%, var(--border-default));
 	}
 
 	.training-item.editing {
-		border-color: var(--color-primary);
+		border-color: color-mix(in srgb, var(--amber) 34%, var(--border-default));
 	}
 
 	.training-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-bg);
+		gap: var(--sp-3);
+		padding: var(--sp-3) var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
 	}
 
 	.training-info {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
 	}
 
 	.training-badge {
-		padding: var(--spacing-xs) var(--spacing-sm);
+		padding: var(--sp-2) var(--sp-3);
 		border-radius: var(--radius-sm);
 		color: white;
-		font-weight: 500;
-		font-size: var(--font-size-sm);
+		font-family: var(--font-mono);
+		font-weight: var(--font-weight-semibold);
+		font-size: var(--text-xs);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.status-badge {
-		padding: 2px var(--spacing-xs);
+		padding: var(--sp-1) var(--sp-2);
 		border-radius: var(--radius-sm);
 		color: white;
-		font-size: 11px;
-		font-weight: 500;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	.training-actions {
 		display: flex;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
+		justify-content: flex-end;
 	}
 
 	.training-details {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-md);
-		padding: var(--spacing-sm) var(--spacing-md);
-		font-size: var(--font-size-sm);
+		gap: var(--sp-4);
+		padding: var(--sp-3) var(--sp-4);
+		font-size: var(--text-sm);
 	}
 
 	.detail-item {
@@ -747,17 +779,21 @@
 	}
 
 	.detail-label {
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.detail-value {
-		font-weight: 500;
+		font-weight: var(--font-weight-semibold);
 	}
 
 	.edit-form {
-		padding: var(--spacing-md);
-		background: var(--color-surface);
-		border-top: 1px solid var(--color-border);
+		padding: var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 26%, var(--surface-panel) 74%);
+		border-top: var(--border-thin);
 	}
 
 	.form-row {

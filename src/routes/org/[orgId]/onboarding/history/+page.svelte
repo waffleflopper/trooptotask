@@ -24,6 +24,8 @@
 	const historyOnboardings = $derived(
 		onboardingStore.items.filter((o) => o.status === 'completed' || o.status === 'cancelled')
 	);
+	const completedCount = $derived(historyOnboardings.filter((item) => item.status === 'completed').length);
+	const cancelledCount = $derived(historyOnboardings.filter((item) => item.status === 'cancelled').length);
 
 	function toggleExpand(id: string) {
 		expandedOnboardingId = expandedOnboardingId === id ? null : id;
@@ -47,10 +49,28 @@
 		helpTopic="onboarding"
 		breadcrumbs={[{ label: 'Onboarding', href: `/org/${data.orgId}/onboarding` }, { label: 'History' }]}
 	>
-		<a href={`/org/${data.orgId}/onboarding`} class="btn-ghost">Back</a>
+		<a href={`/org/${data.orgId}/onboarding`} class="btn btn-sm" data-quiet-button>Back</a>
 	</PageToolbar>
 
 	<main class="page-content">
+		<div class="history-summary">
+			<div class="summary-card">
+				<span class="summary-label">Archived</span>
+				<strong class="summary-value">{historyOnboardings.length}</strong>
+				<span class="summary-meta">Completed or cancelled onboarding records</span>
+			</div>
+			<div class="summary-card">
+				<span class="summary-label">Completed</span>
+				<strong class="summary-value">{completedCount}</strong>
+				<span class="summary-meta">Packets closed successfully</span>
+			</div>
+			<div class="summary-card">
+				<span class="summary-label">Cancelled</span>
+				<strong class="summary-value">{cancelledCount}</strong>
+				<span class="summary-meta">Packets stopped before completion</span>
+			</div>
+		</div>
+
 		{#if historyOnboardings.length === 0}
 			<EmptyState message="No completed or cancelled onboardings yet." />
 		{:else}
@@ -61,7 +81,12 @@
 					{@const isExpanded = expandedOnboardingId === onboarding.id}
 					{@const groupName = getPersonGroupDisplayName(onboarding.personnelId, personnelStore.items)}
 					<div class="onboarding-card" class:expanded={isExpanded}>
-						<button class="card-summary" onclick={() => toggleExpand(onboarding.id)} aria-expanded={isExpanded}>
+						<button
+							class="card-summary"
+							type="button"
+							onclick={() => toggleExpand(onboarding.id)}
+							aria-expanded={isExpanded}
+						>
 							<div class="card-main">
 								<span class="expand-icon">{isExpanded ? '▼' : '▶'}</span>
 								<div class="card-info">
@@ -72,31 +97,32 @@
 										>
 										{#if groupName}
 											<span class="meta-sep">·</span>
-											<span class="group-name">{groupName}</span>
+											<span>{groupName}</span>
 										{/if}
 										<span class="meta-sep">·</span>
-										<span class="date-info">Started {formatDisplayDate(onboarding.startedAt)}</span>
+										<span>Started {formatDisplayDate(onboarding.startedAt)}</span>
 										{#if onboarding.completedAt}
 											<span class="meta-sep">·</span>
-											<span class="date-info">Completed {formatDisplayDate(onboarding.completedAt)}</span>
+											<span>Completed {formatDisplayDate(onboarding.completedAt)}</span>
 										{/if}
 										{#if onboarding.cancelledAt}
 											<span class="meta-sep">·</span>
-											<span class="date-info">Cancelled {formatDisplayDate(onboarding.cancelledAt)}</span>
+											<span>Cancelled {formatDisplayDate(onboarding.cancelledAt)}</span>
 										{/if}
 									</div>
 								</div>
 							</div>
 							<div class="card-progress">
+								<span class="summary-label">Final Progress</span>
 								<div class="progress-bar">
 									<div class="progress-fill" class:progress-complete={pct === 100} style="width: {pct}%"></div>
 								</div>
-								<span class="progress-text">{progress.completed}/{progress.total}</span>
+								<span class="progress-text">{progress.completed}/{progress.total} complete</span>
 							</div>
 							<div class="card-status">
 								<Badge
 									label={onboarding.status === 'completed' ? 'Completed' : 'Cancelled'}
-									color={onboarding.status === 'completed' ? 'var(--color-success)' : 'var(--color-text-muted)'}
+									color={onboarding.status === 'completed' ? 'var(--success)' : 'var(--text-secondary)'}
 								/>
 							</div>
 						</button>
@@ -118,15 +144,15 @@
 												<span class="step-name">{step.stepName}</span>
 
 												{#if isInactive}
-													<span class="inactive-note">
-														{step.completed ? 'Previously completed' : 'Removed from template'}
-													</span>
+													<span class="inactive-note"
+														>{step.completed ? 'Previously completed' : 'Removed from template'}</span
+													>
 												{:else}
 													<div class="step-status">
 														{#if step.stepType === 'checkbox' || step.stepType === 'training'}
-															<span class="status-icon" class:complete={step.completed}>
-																{step.completed ? '✓' : '—'}
-															</span>
+															<span class="status-icon" class:complete={step.completed}
+																>{step.completed ? '✓' : '—'}</span
+															>
 														{:else if step.stepType === 'paperwork'}
 															<div class="stage-indicator">
 																<Stepper
@@ -141,7 +167,12 @@
 											</div>
 
 											{#if !isInactive && step.notes.length > 0}
-												<button class="notes-toggle" onclick={() => toggleNotes(step.id)} aria-label="Toggle notes">
+												<button
+													class="notes-toggle"
+													type="button"
+													onclick={() => toggleNotes(step.id)}
+													aria-label="Toggle notes"
+												>
 													<svg
 														viewBox="0 0 24 24"
 														fill="none"
@@ -180,96 +211,124 @@
 </div>
 
 <style>
-	.btn-ghost {
-		background: none;
-		border: none;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		transition: all 0.15s;
-		text-decoration: none;
-	}
-
-	.btn-ghost:hover {
-		color: var(--color-text);
-		background: var(--color-surface-variant);
-	}
-
 	.page {
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-		background: var(--color-bg);
+		background: var(--surface-page);
+	}
+
+	[data-quiet-button] {
+		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
+	}
+
+	.history-summary {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-3);
+	}
+
+	.summary-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
+	}
+
+	.summary-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+
+	.summary-value {
+		font-family: var(--font-display);
+		font-size: clamp(1.45rem, 1.2rem + 0.5vw, 2rem);
+		font-weight: var(--font-weight-display);
+		line-height: 0.95;
+		color: var(--text-primary);
+	}
+
+	.summary-meta {
+		font-size: var(--text-sm);
+		line-height: 1.45;
+		color: var(--text-secondary);
 	}
 
 	.onboarding-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 	}
 
 	.onboarding-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: var(--border-thin);
 		border-radius: var(--radius-lg);
 		overflow: hidden;
-		transition: box-shadow 0.15s ease;
+		transition:
+			border-color var(--transition-fast),
+			box-shadow var(--transition-fast);
 	}
 
 	.onboarding-card:hover {
-		box-shadow: var(--shadow-2);
+		box-shadow: var(--shadow-sm);
 	}
 
 	.onboarding-card.expanded {
-		border-color: var(--color-primary);
+		border-color: var(--amber-dark);
 	}
 
 	.card-summary {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
+		gap: var(--sp-3);
 		width: 100%;
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: none;
+		padding: var(--sp-3) var(--sp-4);
+		background: var(--surface-panel);
 		border: none;
 		cursor: pointer;
 		text-align: left;
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.card-summary:hover {
-		background: var(--color-hover);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
 	.card-main {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		flex: 1;
 		min-width: 0;
 	}
 
 	.expand-icon {
-		font-size: 10px;
 		width: 14px;
+		font-size: 10px;
 		flex-shrink: 0;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 	}
 
 	.card-info {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--sp-1);
 		min-width: 0;
 	}
 
 	.person-name {
+		font-size: var(--text-lg);
 		font-weight: 600;
-		font-size: var(--font-size-base);
-		color: var(--color-text);
+		color: var(--text-primary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -278,193 +337,178 @@
 	.card-meta {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		gap: var(--sp-1);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 500;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
 	.meta-sep {
-		color: var(--color-text-muted);
 		opacity: 0.5;
 	}
 
-	.template-name,
-	.group-name {
-		color: var(--color-text-secondary);
-	}
-
-	.date-info {
-		font-family: var(--font-mono);
+	.template-name {
+		color: var(--amber-dark);
 	}
 
 	.card-progress {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-1);
 		flex-shrink: 0;
-		min-width: 140px;
+		min-width: 168px;
 	}
 
 	.progress-bar {
-		flex: 1;
+		width: 100%;
 		height: 6px;
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-full);
+		background: var(--surface-subtle);
+		border-radius: 999px;
 		overflow: hidden;
 	}
 
 	.progress-fill {
 		height: 100%;
-		border-radius: var(--radius-full);
+		border-radius: 999px;
+		background: var(--amber-dark);
 		transition: width 0.3s ease;
-		background: var(--color-primary);
 	}
 
 	.progress-fill.progress-complete {
-		background: var(--color-success);
+		background: var(--success);
 	}
 
 	.progress-text {
 		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-secondary);
-		white-space: nowrap;
-	}
-
-	.card-status {
-		flex-shrink: 0;
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 
 	.card-detail {
-		border-top: 1px solid var(--color-divider);
-		padding: var(--spacing-md) var(--spacing-lg);
+		padding: var(--sp-4);
+		border-top: var(--border-thin);
+		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
 	}
 
 	.step-list {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--sp-2);
 	}
 
 	.step-row {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
+		gap: var(--sp-2);
+		padding: var(--sp-3);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		background: var(--color-bg);
-		transition: opacity 0.15s ease;
+		background: var(--surface-panel);
 	}
 
 	.step-row.step-complete {
-		opacity: 0.6;
+		opacity: 0.62;
 	}
 
 	.step-row.step-inactive {
-		opacity: 0.5;
-		background: var(--color-surface-variant);
+		opacity: 0.56;
+		background: color-mix(in srgb, var(--surface-subtle) 76%, var(--surface-panel) 24%);
 	}
 
 	.step-main {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		flex: 1;
 		min-width: 0;
 	}
 
 	.step-type-indicator {
-		font-size: var(--font-size-xs);
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-		padding: 2px var(--spacing-xs);
-		border-radius: var(--radius-sm);
 		flex-shrink: 0;
+		padding: 3px 6px;
+		border-radius: var(--radius-sm);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	.step-type-checkbox {
-		color: var(--color-text-muted);
-		background: var(--color-surface-variant);
+		color: var(--text-secondary);
+		background: var(--surface-subtle);
 	}
 
 	.step-type-paperwork {
-		color: var(--color-warning, #f59e0b);
-		background: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
+		color: var(--amber-dark);
+		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
 	}
 
 	.step-type-training {
-		color: var(--color-info);
-		background: var(--color-info-bg, rgba(59, 130, 246, 0.1));
+		color: var(--info);
+		background: color-mix(in srgb, var(--info-bg) 84%, var(--surface-panel) 16%);
 	}
 
 	.step-type-inactive {
-		color: var(--color-text-muted);
-		background: var(--color-surface-variant);
+		color: var(--text-tertiary);
+		background: var(--surface-subtle);
 		font-style: italic;
 		text-transform: none;
 	}
 
 	.step-name {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
 		font-weight: 500;
-		color: var(--color-text);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+		line-height: 1.35;
+		color: var(--text-primary);
 	}
 
 	.inactive-note {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
 		font-style: italic;
 	}
 
 	.step-status {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 		margin-left: auto;
-		flex-shrink: 0;
 	}
 
 	.status-icon {
-		font-size: var(--font-size-base);
+		font-size: var(--text-base);
 		font-weight: 700;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 	}
 
 	.status-icon.complete {
-		color: var(--color-success);
-	}
-
-	.stage-indicator {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
+		color: var(--success);
 	}
 
 	.notes-toggle {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		gap: 2px;
-		padding: var(--spacing-xs);
-		background: none;
-		border: none;
-		color: var(--color-text-muted);
-		cursor: pointer;
+		padding: var(--sp-1);
+		border: var(--border-thin);
 		border-radius: var(--radius-sm);
-		transition: all 0.15s ease;
-		flex-shrink: 0;
+		background: transparent;
+		color: var(--text-tertiary);
+		cursor: pointer;
 	}
 
 	.notes-toggle:hover {
-		background: var(--color-surface-variant);
-		color: var(--color-text);
+		background: var(--surface-subtle);
 	}
 
 	.notes-icon {
@@ -474,25 +518,25 @@
 
 	.notes-count {
 		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
-		font-weight: 600;
-		color: var(--color-primary);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--amber-dark);
 	}
 
 	.step-notes {
 		width: 100%;
-		margin-top: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface);
+		margin-top: var(--sp-2);
+		padding: var(--sp-3);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		border: 1px solid var(--color-divider);
+		background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface-panel) 52%);
 	}
 
 	.notes-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
-		max-height: 200px;
+		gap: var(--sp-2);
+		max-height: 220px;
 		overflow-y: auto;
 	}
 
@@ -500,9 +544,9 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-start;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-xs) 0;
-		border-bottom: 1px solid var(--color-divider);
+		gap: var(--sp-2);
+		padding: var(--sp-2) 0;
+		border-bottom: var(--border-rule);
 	}
 
 	.note-item:last-child {
@@ -510,47 +554,57 @@
 	}
 
 	.note-text {
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
 		flex: 1;
+		font-size: var(--text-sm);
 		line-height: 1.4;
+		color: var(--text-primary);
 	}
 
 	.note-time {
-		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		white-space: nowrap;
 		flex-shrink: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
+		white-space: nowrap;
 	}
 
-	@media (max-width: 640px) {
+	@media (max-width: 820px) {
 		.card-summary {
 			flex-wrap: wrap;
-			padding: var(--spacing-sm) var(--spacing-md);
-			gap: var(--spacing-sm);
-		}
-
-		.card-main {
-			width: 100%;
+			align-items: flex-start;
 		}
 
 		.card-progress {
-			min-width: 0;
-			flex: 1;
-		}
-
-		.card-detail {
-			padding: var(--spacing-sm) var(--spacing-md);
-		}
-
-		.step-main {
-			flex-wrap: wrap;
-		}
-
-		.stage-indicator {
+			align-items: flex-start;
 			width: 100%;
-			margin-top: var(--spacing-xs);
+			min-width: 0;
+		}
+
+		.card-status {
+			margin-left: auto;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.history-summary {
+			grid-template-columns: 1fr;
+		}
+
+		.card-summary,
+		.card-detail {
+			padding: var(--sp-3);
+		}
+
+		.card-meta {
+			flex-wrap: wrap;
+			white-space: normal;
+		}
+
+		.step-main,
+		.step-status {
+			flex-wrap: wrap;
+			width: 100%;
+			margin-left: 0;
 		}
 	}
 </style>

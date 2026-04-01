@@ -33,7 +33,7 @@
 	};
 
 	// ── Template management state ──────────────────────────────────
-	let showNewTemplateForm = $state(templates.length === 0);
+	let showNewTemplateForm = $state(false);
 	let newTemplateName = $state('');
 	let newTemplateDescription = $state('');
 	let creatingTemplate = $state(false);
@@ -210,6 +210,12 @@
 		orderedSteps = [...stepList];
 	});
 
+	$effect(() => {
+		if (templates.length === 0) {
+			showNewTemplateForm = true;
+		}
+	});
+
 	function moveUp(index: number) {
 		if (index === 0) return;
 		const next = orderedSteps.map((s, i) => ({ ...s, sortOrder: i }));
@@ -262,8 +268,15 @@
 			<div class="template-select-row">
 				{#if editingTemplateId != null && editingTemplateId === activeTemplateId}
 					<div class="rename-form">
-						<input type="text" class="input" bind:value={editTemplateName} placeholder="Template name..." />
 						<input
+							id="rename-template-name"
+							type="text"
+							class="input"
+							bind:value={editTemplateName}
+							placeholder="Template name..."
+						/>
+						<input
+							id="rename-template-description"
 							type="text"
 							class="input"
 							bind:value={editTemplateDescription}
@@ -275,13 +288,14 @@
 						<div class="rename-actions">
 							<button
 								class="btn btn-primary btn-sm"
+								type="button"
 								onclick={saveRenameTemplate}
 								disabled={!editTemplateName.trim() || renamingTemplate}
 							>
 								{#if renamingTemplate}<Spinner />{/if}
 								Save
 							</button>
-							<button class="btn btn-secondary btn-sm" onclick={cancelRenameTemplate}>Cancel</button>
+							<button class="btn btn-secondary btn-sm" type="button" onclick={cancelRenameTemplate}>Cancel</button>
 						</div>
 					</div>
 				{:else}
@@ -296,12 +310,13 @@
 							<option value={t.id}>{t.name}</option>
 						{/each}
 					</select>
-					<button class="btn btn-secondary btn-sm" onclick={startRenameTemplate} title="Rename template">
+					<button class="btn btn-secondary btn-sm" type="button" onclick={startRenameTemplate} title="Rename template">
 						Rename
 					</button>
 					{#if canDeleteTemplate}
 						<button
 							class="btn btn-danger btn-sm"
+							type="button"
 							onclick={() =>
 								activeTemplate && (confirmDeleteTemplate = { id: activeTemplate.id, name: activeTemplate.name })}
 							title="Delete template"
@@ -312,6 +327,7 @@
 					{#if !showNewTemplateForm}
 						<button
 							class="btn btn-secondary btn-sm new-template-btn"
+							type="button"
 							onclick={() => {
 								showNewTemplateForm = true;
 								templateError = '';
@@ -334,13 +350,25 @@
 			<h3>New Template</h3>
 			<div class="form-row">
 				<div class="form-group flex-1">
-					<label class="label">Name</label>
-					<input type="text" class="input" bind:value={newTemplateName} placeholder="e.g., Enlisted Onboarding" />
+					<label class="label" for="new-template-name">Name</label>
+					<input
+						id="new-template-name"
+						type="text"
+						class="input"
+						bind:value={newTemplateName}
+						placeholder="e.g., Enlisted Onboarding"
+					/>
 				</div>
 			</div>
 			<div class="form-group">
-				<label class="label">Description (optional)</label>
-				<input type="text" class="input" bind:value={newTemplateDescription} placeholder="Brief description..." />
+				<label class="label" for="new-template-description">Description (optional)</label>
+				<input
+					id="new-template-description"
+					type="text"
+					class="input"
+					bind:value={newTemplateDescription}
+					placeholder="Brief description..."
+				/>
 			</div>
 			{#if templateError}
 				<p class="error-text">{templateError}</p>
@@ -348,6 +376,7 @@
 			<div class="form-actions">
 				<button
 					class="btn btn-primary btn-sm"
+					type="button"
 					onclick={handleCreateTemplate}
 					disabled={!newTemplateName.trim() || creatingTemplate}
 				>
@@ -356,6 +385,7 @@
 				</button>
 				<button
 					class="btn btn-secondary btn-sm"
+					type="button"
 					onclick={() => {
 						showNewTemplateForm = false;
 						templateError = '';
@@ -372,23 +402,29 @@
 		<div class="add-form">
 			<div class="form-row">
 				<div class="form-group">
-					<label class="label">Step Type</label>
-					<select class="select" bind:value={newStepType}>
+					<label class="label" for="new-step-type">Step Type</label>
+					<select id="new-step-type" class="select" bind:value={newStepType}>
 						<option value="training">Training</option>
 						<option value="paperwork">Paperwork</option>
 						<option value="checkbox">Checkbox</option>
 					</select>
 				</div>
 				<div class="form-group flex-1">
-					<label class="label">Name</label>
-					<input type="text" class="input" bind:value={newName} placeholder="e.g., Complete safety briefing" />
+					<label class="label" for="new-step-name">Name</label>
+					<input
+						id="new-step-name"
+						type="text"
+						class="input"
+						bind:value={newName}
+						placeholder="e.g., Complete safety briefing"
+					/>
 				</div>
 			</div>
 
 			{#if newStepType === 'training'}
 				<div class="form-group">
-					<label class="label">Training Type</label>
-					<select class="select" bind:value={newTrainingTypeId}>
+					<label class="label" for="new-training-type">Training Type</label>
+					<select id="new-training-type" class="select" bind:value={newTrainingTypeId}>
 						<option value={null}>-- Select training type --</option>
 						{#each trainingTypes as tt}
 							<option value={tt.id}>{tt.name}</option>
@@ -397,25 +433,33 @@
 				</div>
 			{:else if newStepType === 'paperwork'}
 				<div class="form-group">
-					<label class="label">Stages</label>
+					<p class="label">Stages</p>
 					<div class="stages-list">
 						{#each newStages as stage, index}
 							<div class="stage-row">
 								<input type="text" class="input flex-1" bind:value={newStages[index]} placeholder="Stage name..." />
-								<button class="btn btn-danger btn-sm" onclick={() => removeNewStage(index)}>&times;</button>
+								<button class="btn btn-danger btn-sm" type="button" onclick={() => removeNewStage(index)}
+									>&times;</button
+								>
 							</div>
 						{/each}
-						<button class="btn btn-secondary btn-sm" onclick={addNewStage}>Add Stage</button>
+						<button class="btn btn-secondary btn-sm" type="button" onclick={addNewStage}>Add Stage</button>
 					</div>
 				</div>
 			{:else if newStepType === 'checkbox'}
 				<div class="form-group">
-					<label class="label">Description (optional)</label>
-					<input type="text" class="input" bind:value={newDescription} placeholder="Brief description..." />
+					<label class="label" for="new-step-description">Description (optional)</label>
+					<input
+						id="new-step-description"
+						type="text"
+						class="input"
+						bind:value={newDescription}
+						placeholder="Brief description..."
+					/>
 				</div>
 			{/if}
 
-			<button class="btn btn-primary" onclick={handleAdd} disabled={!newName.trim()}> Add Step </button>
+			<button class="btn btn-primary" type="button" onclick={handleAdd} disabled={!newName.trim()}> Add Step </button>
 		</div>
 	</div>
 
@@ -433,23 +477,23 @@
 						<div class="edit-form">
 							<div class="form-row">
 								<div class="form-group">
-									<label class="label">Step Type</label>
-									<select class="select" bind:value={editStepType}>
+									<label class="label" for="edit-step-type">Step Type</label>
+									<select id="edit-step-type" class="select" bind:value={editStepType}>
 										<option value="training">Training</option>
 										<option value="paperwork">Paperwork</option>
 										<option value="checkbox">Checkbox</option>
 									</select>
 								</div>
 								<div class="form-group flex-1">
-									<label class="label">Name</label>
-									<input type="text" class="input" bind:value={editName} />
+									<label class="label" for="edit-step-name">Name</label>
+									<input id="edit-step-name" type="text" class="input" bind:value={editName} />
 								</div>
 							</div>
 
 							{#if editStepType === 'training'}
 								<div class="form-group">
-									<label class="label">Training Type</label>
-									<select class="select" bind:value={editTrainingTypeId}>
+									<label class="label" for="edit-training-type">Training Type</label>
+									<select id="edit-training-type" class="select" bind:value={editTrainingTypeId}>
 										<option value={null}>-- Select training type --</option>
 										{#each trainingTypes as tt}
 											<option value={tt.id}>{tt.name}</option>
@@ -458,7 +502,7 @@
 								</div>
 							{:else if editStepType === 'paperwork'}
 								<div class="form-group">
-									<label class="label">Stages</label>
+									<p class="label">Stages</p>
 									<div class="stages-list">
 										{#each editStages as stage, index}
 											<div class="stage-row">
@@ -468,22 +512,24 @@
 													bind:value={editStages[index]}
 													placeholder="Stage name..."
 												/>
-												<button class="btn btn-danger btn-sm" onclick={() => removeEditStage(index)}>&times;</button>
+												<button class="btn btn-danger btn-sm" type="button" onclick={() => removeEditStage(index)}
+													>&times;</button
+												>
 											</div>
 										{/each}
-										<button class="btn btn-secondary btn-sm" onclick={addEditStage}>Add Stage</button>
+										<button class="btn btn-secondary btn-sm" type="button" onclick={addEditStage}>Add Stage</button>
 									</div>
 								</div>
 							{:else if editStepType === 'checkbox'}
 								<div class="form-group">
-									<label class="label">Description (optional)</label>
-									<input type="text" class="input" bind:value={editDescription} />
+									<label class="label" for="edit-step-description">Description (optional)</label>
+									<input id="edit-step-description" type="text" class="input" bind:value={editDescription} />
 								</div>
 							{/if}
 
 							<div class="edit-actions">
-								<button class="btn btn-primary btn-sm" onclick={saveEdit}>Save</button>
-								<button class="btn btn-secondary btn-sm" onclick={cancelEdit}>Cancel</button>
+								<button class="btn btn-primary btn-sm" type="button" onclick={saveEdit}>Save</button>
+								<button class="btn btn-secondary btn-sm" type="button" onclick={cancelEdit}>Cancel</button>
 							</div>
 						</div>
 					{:else}
@@ -496,13 +542,20 @@
 						</div>
 						<div class="type-actions">
 							<div class="move-btns">
-								<button class="btn-move" onclick={() => moveUp(index)} disabled={index === 0} title="Move up">
+								<button
+									class="btn-move"
+									type="button"
+									onclick={() => moveUp(index)}
+									disabled={index === 0}
+									title="Move up"
+								>
 									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
 										><polyline points="18 15 12 9 6 15" /></svg
 									>
 								</button>
 								<button
 									class="btn-move"
+									type="button"
 									onclick={() => moveDown(index)}
 									disabled={index === orderedSteps.length - 1}
 									title="Move down"
@@ -512,8 +565,10 @@
 									>
 								</button>
 							</div>
-							<button class="btn btn-secondary btn-sm" onclick={() => startEdit(step)}> Edit </button>
-							<button class="btn btn-danger btn-sm" onclick={() => handleRemove(step.id, step.name)}> &times; </button>
+							<button class="btn btn-secondary btn-sm" type="button" onclick={() => startEdit(step)}> Edit </button>
+							<button class="btn btn-danger btn-sm" type="button" onclick={() => handleRemove(step.id, step.name)}>
+								&times;
+							</button>
 						</div>
 					{/if}
 				</div>
@@ -527,7 +582,7 @@
 
 	{#snippet footer()}
 		<div class="spacer"></div>
-		<button class="btn btn-secondary" onclick={onClose}>Close</button>
+		<button class="btn btn-secondary" type="button" onclick={onClose}>Close</button>
 	{/snippet}
 </Modal>
 
@@ -558,9 +613,11 @@
 
 <style>
 	.template-header {
-		margin-bottom: var(--spacing-md);
-		padding-bottom: var(--spacing-md);
-		border-bottom: 1px solid var(--color-divider);
+		margin-bottom: var(--sp-3);
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
 	}
 
 	.template-selector {
@@ -569,9 +626,9 @@
 
 	.template-select-row {
 		display: flex;
-		gap: var(--spacing-xs);
 		align-items: center;
-		margin-top: var(--spacing-xs);
+		gap: var(--sp-2);
+		margin-top: var(--sp-1);
 	}
 
 	.new-template-btn {
@@ -582,94 +639,85 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 	}
 
-	.rename-actions {
+	.rename-actions,
+	.form-actions,
+	.edit-actions {
 		display: flex;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
+		margin-top: var(--sp-2);
+	}
+
+	.new-template-form,
+	.add-form,
+	.edit-form {
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface-panel) 52%);
 	}
 
 	.new-template-form {
-		padding: var(--spacing-md);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
-		margin-bottom: var(--spacing-md);
+		margin-bottom: var(--sp-3);
 	}
 
-	.new-template-form h3 {
-		font-size: var(--font-size-base);
-		font-weight: 600;
-		margin-bottom: var(--spacing-sm);
-		color: var(--color-text-muted);
-	}
-
-	.form-actions {
-		display: flex;
-		gap: var(--spacing-xs);
-		margin-top: var(--spacing-sm);
+	.new-template-form h3,
+	.add-section h3,
+	.list-section h3 {
+		margin: 0 0 var(--sp-2);
+		font-family: var(--font-display);
+		font-size: var(--text-xl);
+		font-weight: var(--font-weight-display);
+		line-height: 0.95;
+		text-transform: uppercase;
+		color: var(--text-primary);
 	}
 
 	.error-text {
-		font-size: var(--font-size-sm);
-		color: var(--color-error);
-		margin: var(--spacing-xs) 0 0;
+		margin: var(--sp-1) 0 0;
+		font-size: var(--text-sm);
+		color: var(--danger);
 	}
 
 	.add-section,
 	.list-section {
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.add-section h3,
-	.list-section h3 {
-		font-size: var(--font-size-base);
-		font-weight: 600;
-		margin-bottom: var(--spacing-sm);
-		color: var(--color-text-muted);
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
+		margin-bottom: var(--sp-4);
 	}
 
 	.template-description {
-		font-size: var(--font-size-sm);
-		font-weight: 400;
-		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		line-height: 1.45;
+		color: var(--text-secondary);
 		font-style: italic;
-	}
-
-	.add-form,
-	.edit-form {
-		padding: var(--spacing-md);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
 	}
 
 	.form-row {
 		display: flex;
-		gap: var(--spacing-md);
-		margin-bottom: var(--spacing-sm);
+		gap: var(--sp-3);
+		margin-bottom: var(--sp-2);
 	}
 
 	.form-group {
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: var(--sp-2);
 	}
 
 	.form-group.flex-1 {
 		flex: 1;
 	}
 
-	.stages-list {
+	.stages-list,
+	.type-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 	}
 
 	.stage-row {
 		display: flex;
-		gap: var(--spacing-xs);
 		align-items: center;
+		gap: var(--sp-2);
 	}
 
 	.stage-row .flex-1 {
@@ -677,10 +725,7 @@
 	}
 
 	.type-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-		max-height: 300px;
+		max-height: 320px;
 		overflow-y: auto;
 	}
 
@@ -688,32 +733,35 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
+		gap: var(--sp-2);
+		padding: var(--sp-3);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
+		background: var(--surface-panel);
 	}
 
 	.type-info {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
+		gap: var(--sp-2);
 		flex-wrap: wrap;
 		min-width: 0;
 	}
 
 	.step-name {
-		font-size: var(--font-size-base);
+		font-size: var(--text-base);
 		font-weight: 500;
+		color: var(--text-primary);
 	}
 
 	.type-meta {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 	}
 
 	.type-actions {
 		display: flex;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 		flex-shrink: 0;
 	}
 
@@ -721,17 +769,11 @@
 		width: 100%;
 	}
 
-	.edit-actions {
-		display: flex;
-		gap: var(--spacing-xs);
-		margin-top: var(--spacing-sm);
-	}
-
 	.move-btns {
 		display: flex;
 		flex-direction: column;
 		gap: 1px;
-		margin-right: var(--spacing-xs);
+		margin-right: var(--sp-1);
 	}
 
 	.btn-move {
@@ -741,18 +783,18 @@
 		width: 22px;
 		height: 22px;
 		padding: 0;
-		background: none;
-		border: 1px solid var(--color-border);
+		background: transparent;
+		border: var(--border-thin);
 		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		cursor: pointer;
 		transition: all var(--transition-fast);
 	}
 
 	.btn-move:hover:not(:disabled) {
-		background: var(--color-surface-variant);
-		border-color: var(--color-primary);
-		color: var(--color-primary);
+		background: var(--surface-subtle);
+		border-color: var(--amber-dark);
+		color: var(--amber-dark);
 	}
 
 	.btn-move:disabled {
@@ -763,5 +805,22 @@
 	.btn-move svg {
 		width: 12px;
 		height: 12px;
+	}
+
+	@media (max-width: 640px) {
+		.template-select-row,
+		.form-row,
+		.form-actions,
+		.edit-actions,
+		.rename-actions,
+		.type-item {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.type-actions {
+			width: 100%;
+			justify-content: space-between;
+		}
 	}
 </style>

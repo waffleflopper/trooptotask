@@ -51,6 +51,7 @@
 	// --- Derived ---
 	const templates = $derived(templateStore.items);
 	const allSteps = $derived(templateStepStore.items);
+	const totalStepCount = $derived(allSteps.length);
 
 	const selectedTemplate = $derived(selectedTemplateId ? templateStore.getById(selectedTemplateId) : null);
 
@@ -279,237 +280,267 @@
 	title="Manage Templates"
 	breadcrumbs={[{ label: 'Onboarding', href: `/org/${org.orgId}/onboarding` }, { label: 'Manage Templates' }]}
 >
-	<a href={`/org/${org.orgId}/onboarding`} class="btn-ghost">Back</a>
+	<a href={`/org/${org.orgId}/onboarding`} class="btn btn-sm" data-quiet-button>Back</a>
 </PageToolbar>
 
-<div class="templates-layout">
-	<!-- Left panel: Template list -->
-	<div class="panel template-list-panel">
-		<div class="panel-header">
-			<h3 class="panel-title">Templates</h3>
-			{#if canMutate}
-				<button class="btn btn-primary btn-sm" onclick={() => (addingTemplate = true)} disabled={addingTemplate}>
-					+ Add Template
-				</button>
-			{/if}
+<div class="templates-page">
+	<div class="templates-summary">
+		<div class="summary-card">
+			<span class="summary-label">Templates</span>
+			<strong class="summary-value">{templates.length}</strong>
+			<span class="summary-meta">Reusable onboarding packet definitions</span>
 		</div>
-
-		{#if addingTemplate}
-			<div class="add-template-form">
-				<input
-					class="input"
-					type="text"
-					placeholder="Template name"
-					bind:value={newTemplateName}
-					onkeydown={(e) => e.key === 'Enter' && addTemplate()}
-				/>
-				<textarea class="input" placeholder="Description (optional)" rows="2" bind:value={newTemplateDescription}
-				></textarea>
-				<div class="form-actions">
-					<button class="btn btn-secondary btn-sm" onclick={cancelAddTemplate}>Cancel</button>
-					<button
-						class="btn btn-primary btn-sm"
-						onclick={addTemplate}
-						disabled={!newTemplateName.trim() || savingTemplate}
-					>
-						{#if savingTemplate}<Spinner size={12} />{/if}
-						Save
-					</button>
-				</div>
-			</div>
-		{/if}
-
-		{#if templates.length === 0 && !addingTemplate}
-			<EmptyState
-				message="No templates yet. Create one to get started."
-				actionLabel={canMutate ? '+ Add Template' : undefined}
-				onAction={canMutate ? () => (addingTemplate = true) : undefined}
-			/>
-		{:else}
-			<ul class="template-list" role="listbox" aria-label="Onboarding templates">
-				{#each templates as template (template.id)}
-					{@const stepCount = allSteps.filter((s) => s.templateId === template.id).length}
-					<li
-						class="template-item"
-						class:selected={selectedTemplateId === template.id}
-						role="option"
-						aria-selected={selectedTemplateId === template.id}
-						onclick={() => selectTemplate(template.id)}
-						onkeydown={(e) => e.key === 'Enter' && selectTemplate(template.id)}
-						tabindex="0"
-					>
-						{#if renamingTemplateId === template.id}
-							<input
-								class="input rename-input"
-								type="text"
-								bind:value={renameValue}
-								onblur={commitRename}
-								onkeydown={handleRenameKeydown}
-								onclick={(e) => e.stopPropagation()}
-							/>
-						{:else}
-							<div class="template-info">
-								<span class="template-name">{template.name}</span>
-								<span class="template-meta">
-									{stepCount} step{stepCount !== 1 ? 's' : ''}
-								</span>
-							</div>
-						{/if}
-
-						{#if canMutate && renamingTemplateId !== template.id}
-							<div
-								class="template-actions"
-								onclick={(e) => e.stopPropagation()}
-								onkeydown={(e) => e.stopPropagation()}
-								role="toolbar"
-								tabindex="-1"
-							>
-								<button
-									class="btn-ghost btn-icon"
-									title="Rename"
-									onclick={() => startRename(template)}
-									aria-label="Rename template"
-								>
-									&#9998;
-								</button>
-								<button
-									class="btn-ghost btn-icon btn-icon-danger"
-									title="Delete"
-									onclick={() =>
-										(confirmDelete = {
-											type: 'template',
-											id: template.id,
-											name: template.name
-										})}
-									aria-label="Delete template"
-								>
-									&#128465;
-								</button>
-							</div>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
+		<div class="summary-card">
+			<span class="summary-label">Steps</span>
+			<strong class="summary-value">{totalStepCount}</strong>
+			<span class="summary-meta">Template steps currently configured</span>
+		</div>
+		<div class="summary-card">
+			<span class="summary-label">Editor</span>
+			<strong class="summary-value">{selectedTemplate ? selectedSteps.length : 0}</strong>
+			<span class="summary-meta"
+				>{selectedTemplate
+					? `${selectedTemplate.name} currently selected`
+					: 'Select a template to edit its steps'}</span
+			>
+		</div>
 	</div>
 
-	<!-- Right panel: Step editor -->
-	<div class="panel step-editor-panel">
-		{#if !selectedTemplate}
-			<div class="panel-placeholder">
-				<p class="placeholder-text">Select a template to manage its steps</p>
-			</div>
-		{:else}
+	<div class="templates-layout">
+		<!-- Left panel: Template list -->
+		<div class="panel template-list-panel">
 			<div class="panel-header">
-				<h3 class="panel-title">{selectedTemplate.name} &mdash; Steps</h3>
+				<div class="panel-heading">
+					<p class="panel-eyebrow">Library</p>
+					<h3 class="panel-title">Templates</h3>
+				</div>
 				{#if canMutate}
-					<button class="btn btn-primary btn-sm" onclick={startAddStep} disabled={addingStep}> + Add Step </button>
+					<button class="btn btn-primary btn-sm" onclick={() => (addingTemplate = true)} disabled={addingTemplate}>
+						+ Add Template
+					</button>
 				{/if}
 			</div>
 
-			{#if selectedTemplate.description}
-				<p class="template-description">{selectedTemplate.description}</p>
+			{#if addingTemplate}
+				<div class="add-template-form">
+					<input
+						class="input"
+						type="text"
+						placeholder="Template name"
+						bind:value={newTemplateName}
+						onkeydown={(e) => e.key === 'Enter' && addTemplate()}
+					/>
+					<textarea class="input" placeholder="Description (optional)" rows="2" bind:value={newTemplateDescription}
+					></textarea>
+					<div class="form-actions">
+						<button class="btn btn-secondary btn-sm" onclick={cancelAddTemplate}>Cancel</button>
+						<button
+							class="btn btn-primary btn-sm"
+							onclick={addTemplate}
+							disabled={!newTemplateName.trim() || savingTemplate}
+						>
+							{#if savingTemplate}<Spinner size={12} />{/if}
+							Save
+						</button>
+					</div>
+				</div>
 			{/if}
 
-			{#if selectedSteps.length === 0 && !addingStep}
+			{#if templates.length === 0 && !addingTemplate}
 				<EmptyState
-					message="No steps in this template yet."
-					variant="simple"
-					actionLabel={canMutate ? '+ Add Step' : undefined}
-					onAction={canMutate ? startAddStep : undefined}
+					message="No templates yet. Create one to get started."
+					actionLabel={canMutate ? '+ Add Template' : undefined}
+					onAction={canMutate ? () => (addingTemplate = true) : undefined}
 				/>
 			{:else}
-				<ul class="step-list">
-					{#each selectedSteps as step, idx (step.id)}
-						{#if editingStepId === step.id}
-							<!-- Inline edit form -->
-							<li class="step-item step-item-editing">
-								{@render stepForm(saveEditStep, cancelEditStep, 'Save Changes')}
-							</li>
-						{:else}
-							<li class="step-item">
-								<div class="step-header">
-									<div class="step-info">
-										<span class="step-order">{idx + 1}.</span>
-										<span class="step-name">{step.name}</span>
-										<Badge label={STEP_TYPE_LABELS[step.stepType]} color={STEP_TYPE_COLORS[step.stepType]} />
-									</div>
-									{#if canMutate}
-										<div class="step-actions">
-											<button
-												class="btn-ghost btn-icon"
-												title="Move up"
-												disabled={idx === 0}
-												onclick={() => moveStep(step, 'up')}
-												aria-label="Move step up"
-											>
-												&#9650;
-											</button>
-											<button
-												class="btn-ghost btn-icon"
-												title="Move down"
-												disabled={idx === selectedSteps.length - 1}
-												onclick={() => moveStep(step, 'down')}
-												aria-label="Move step down"
-											>
-												&#9660;
-											</button>
-											<button
-												class="btn-ghost btn-icon"
-												title="Edit"
-												onclick={() => startEditStep(step)}
-												aria-label="Edit step"
-											>
-												&#9998;
-											</button>
-											<button
-												class="btn-ghost btn-icon btn-icon-danger"
-												title="Delete"
-												onclick={() =>
-													(confirmDelete = {
-														type: 'step',
-														id: step.id,
-														name: step.name
-													})}
-												aria-label="Delete step"
-											>
-												&#128465;
-											</button>
-										</div>
-									{/if}
+				<ul class="template-list" role="listbox" aria-label="Onboarding templates">
+					{#each templates as template (template.id)}
+						{@const stepCount = allSteps.filter((s) => s.templateId === template.id).length}
+						<li
+							class="template-item"
+							class:selected={selectedTemplateId === template.id}
+							role="option"
+							aria-selected={selectedTemplateId === template.id}
+							onclick={() => selectTemplate(template.id)}
+							onkeydown={(e) => e.key === 'Enter' && selectTemplate(template.id)}
+							tabindex="0"
+						>
+							{#if renamingTemplateId === template.id}
+								<input
+									class="input rename-input"
+									type="text"
+									bind:value={renameValue}
+									onblur={commitRename}
+									onkeydown={handleRenameKeydown}
+									onclick={(e) => e.stopPropagation()}
+								/>
+							{:else}
+								<div class="template-info">
+									<span class="template-name">{template.name}</span>
+									<span class="template-meta">
+										{stepCount} step{stepCount !== 1 ? 's' : ''}
+									</span>
 								</div>
-								{#if step.description}
-									<p class="step-description">{step.description}</p>
-								{/if}
-								{#if step.stepType === 'paperwork' && step.stages && step.stages.length > 0}
-									<div class="step-stages-preview">
-										<span class="stages-label">Stages:</span>
-										{#each step.stages as stage, stageIdx (stageIdx)}
-											<Badge label={stage} variant="outlined" />
-										{/each}
-									</div>
-								{/if}
-								{#if step.stepType === 'training' && step.trainingTypeId}
-									{@const tt = trainingTypes.find((t) => t.id === step.trainingTypeId)}
-									{#if tt}
-										<div class="step-training-preview">
-											<span class="stages-label">Training:</span>
-											<Badge label={tt.name} color={tt.color} />
-										</div>
-									{/if}
-								{/if}
-							</li>
-						{/if}
+							{/if}
+
+							{#if canMutate && renamingTemplateId !== template.id}
+								<div
+									class="template-actions"
+									onclick={(e) => e.stopPropagation()}
+									onkeydown={(e) => e.stopPropagation()}
+									role="toolbar"
+									tabindex="-1"
+								>
+									<button
+										class="btn-ghost btn-icon"
+										title="Rename"
+										onclick={() => startRename(template)}
+										aria-label="Rename template"
+									>
+										&#9998;
+									</button>
+									<button
+										class="btn-ghost btn-icon btn-icon-danger"
+										title="Delete"
+										onclick={() =>
+											(confirmDelete = {
+												type: 'template',
+												id: template.id,
+												name: template.name
+											})}
+										aria-label="Delete template"
+									>
+										&#128465;
+									</button>
+								</div>
+							{/if}
+						</li>
 					{/each}
 				</ul>
 			{/if}
+		</div>
 
-			{#if addingStep}
-				<div class="add-step-form">
-					{@render stepForm(saveNewStep, cancelAddStep, 'Add Step')}
+		<!-- Right panel: Step editor -->
+		<div class="panel step-editor-panel">
+			{#if !selectedTemplate}
+				<div class="panel-placeholder">
+					<p class="placeholder-text">Select a template to manage its steps</p>
 				</div>
+			{:else}
+				<div class="panel-header">
+					<div class="panel-heading">
+						<p class="panel-eyebrow">Template Editor</p>
+						<h3 class="panel-title">{selectedTemplate.name} &mdash; Steps</h3>
+					</div>
+					{#if canMutate}
+						<button class="btn btn-primary btn-sm" onclick={startAddStep} disabled={addingStep}> + Add Step </button>
+					{/if}
+				</div>
+
+				{#if selectedTemplate.description}
+					<p class="template-description">{selectedTemplate.description}</p>
+				{/if}
+
+				{#if selectedSteps.length === 0 && !addingStep}
+					<EmptyState
+						message="No steps in this template yet."
+						variant="simple"
+						actionLabel={canMutate ? '+ Add Step' : undefined}
+						onAction={canMutate ? startAddStep : undefined}
+					/>
+				{:else}
+					<ul class="step-list">
+						{#each selectedSteps as step, idx (step.id)}
+							{#if editingStepId === step.id}
+								<!-- Inline edit form -->
+								<li class="step-item step-item-editing">
+									{@render stepForm(saveEditStep, cancelEditStep, 'Save Changes')}
+								</li>
+							{:else}
+								<li class="step-item">
+									<div class="step-header">
+										<div class="step-info">
+											<span class="step-order">{idx + 1}.</span>
+											<span class="step-name">{step.name}</span>
+											<Badge label={STEP_TYPE_LABELS[step.stepType]} color={STEP_TYPE_COLORS[step.stepType]} />
+										</div>
+										{#if canMutate}
+											<div class="step-actions">
+												<button
+													class="btn-ghost btn-icon"
+													title="Move up"
+													disabled={idx === 0}
+													onclick={() => moveStep(step, 'up')}
+													aria-label="Move step up"
+												>
+													&#9650;
+												</button>
+												<button
+													class="btn-ghost btn-icon"
+													title="Move down"
+													disabled={idx === selectedSteps.length - 1}
+													onclick={() => moveStep(step, 'down')}
+													aria-label="Move step down"
+												>
+													&#9660;
+												</button>
+												<button
+													class="btn-ghost btn-icon"
+													title="Edit"
+													onclick={() => startEditStep(step)}
+													aria-label="Edit step"
+												>
+													&#9998;
+												</button>
+												<button
+													class="btn-ghost btn-icon btn-icon-danger"
+													title="Delete"
+													onclick={() =>
+														(confirmDelete = {
+															type: 'step',
+															id: step.id,
+															name: step.name
+														})}
+													aria-label="Delete step"
+												>
+													&#128465;
+												</button>
+											</div>
+										{/if}
+									</div>
+									{#if step.description}
+										<p class="step-description">{step.description}</p>
+									{/if}
+									{#if step.stepType === 'paperwork' && step.stages && step.stages.length > 0}
+										<div class="step-stages-preview">
+											<span class="stages-label">Stages:</span>
+											{#each step.stages as stage, stageIdx (stageIdx)}
+												<Badge label={stage} variant="outlined" />
+											{/each}
+										</div>
+									{/if}
+									{#if step.stepType === 'training' && step.trainingTypeId}
+										{@const tt = trainingTypes.find((t) => t.id === step.trainingTypeId)}
+										{#if tt}
+											<div class="step-training-preview">
+												<span class="stages-label">Training:</span>
+												<Badge label={tt.name} color={tt.color} />
+											</div>
+										{/if}
+									{/if}
+								</li>
+							{/if}
+						{/each}
+					</ul>
+				{/if}
+
+				{#if addingStep}
+					<div class="add-step-form">
+						{@render stepForm(saveNewStep, cancelAddStep, 'Add Step')}
+					</div>
+				{/if}
 			{/if}
-		{/if}
+		</div>
 	</div>
 </div>
 
@@ -618,58 +649,109 @@
 {/snippet}
 
 <style>
-	.btn-ghost {
-		background: none;
-		border: none;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		transition: all 0.15s;
-		text-decoration: none;
+	[data-quiet-button] {
+		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
 	}
 
-	.btn-ghost:hover {
-		color: var(--color-text);
-		background: var(--color-surface-variant);
-	}
-
-	/* Layout */
-	.templates-layout {
-		display: grid;
-		grid-template-columns: 320px 1fr;
-		gap: var(--spacing-lg);
+	.templates-page {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
 		padding: var(--spacing-lg);
+		background: var(--surface-page);
 		min-height: calc(100vh - 120px);
 	}
 
-	/* Panels */
-	.panel {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		padding: var(--spacing-md);
+	.templates-summary {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: var(--sp-2);
+	}
+
+	.summary-card {
 		display: flex;
 		flex-direction: column;
+		gap: var(--sp-1);
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
+	}
+
+	.summary-label,
+	.panel-eyebrow,
+	.form-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
+
+	.summary-label,
+	.form-label {
+		color: var(--text-tertiary);
+	}
+
+	.summary-value {
+		font-family: var(--font-display);
+		font-size: clamp(1.45rem, 1.2rem + 0.5vw, 2rem);
+		font-weight: var(--font-weight-display);
+		line-height: 0.95;
+		color: var(--text-primary);
+	}
+
+	.summary-meta {
+		font-size: var(--text-sm);
+		line-height: 1.45;
+		color: var(--text-secondary);
+	}
+
+	.templates-layout {
+		display: grid;
+		grid-template-columns: 320px 1fr;
+		gap: var(--sp-3);
+		min-height: 0;
+	}
+
+	.panel {
+		display: flex;
+		flex-direction: column;
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
 	}
 
 	.panel-header {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		justify-content: space-between;
-		margin-bottom: var(--spacing-md);
-		padding-bottom: var(--spacing-sm);
-		border-bottom: 1px solid var(--color-border);
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-3);
+		padding-bottom: var(--sp-2);
+		border-bottom: var(--border-thin);
+	}
+
+	.panel-heading {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
 	}
 
 	.panel-title {
-		font-family: var(--font-display);
-		font-size: var(--font-size-base);
-		font-weight: 500;
-		color: var(--color-text);
 		margin: 0;
+		font-family: var(--font-display);
+		font-size: var(--text-xl);
+		font-weight: var(--font-weight-display);
+		line-height: 0.95;
+		text-transform: uppercase;
+		color: var(--text-primary);
+	}
+
+	.panel-eyebrow {
+		margin: 0;
+		color: var(--amber);
 	}
 
 	.panel-placeholder {
@@ -680,59 +762,64 @@
 	}
 
 	.placeholder-text {
-		color: var(--color-text-muted);
-		font-style: italic;
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 	}
 
-	/* Template list */
 	.template-list {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 	}
 
 	.template-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-sm);
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
 		cursor: pointer;
-		transition: background var(--transition-fast);
-		border: 1px solid transparent;
+		transition:
+			background var(--transition-fast),
+			border-color var(--transition-fast);
 	}
 
 	.template-item:hover {
-		background: var(--color-surface-variant);
+		background: var(--surface-subtle);
 	}
 
 	.template-item.selected {
-		background: var(--color-primary-surface);
-		border-color: var(--color-primary);
+		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
+		border-color: var(--amber-dark);
 	}
 
 	.template-info {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--sp-1);
 		min-width: 0;
 		flex: 1;
 	}
 
 	.template-name {
-		font-weight: 500;
-		color: var(--color-text);
+		font-weight: 600;
+		color: var(--text-primary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
 	.template-meta {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
 	.template-actions {
@@ -747,101 +834,104 @@
 	}
 
 	.template-description {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		margin: 0 0 var(--spacing-md) 0;
-		line-height: 1.4;
+		margin: 0 0 var(--sp-3);
+		font-size: var(--text-sm);
+		line-height: 1.5;
+		color: var(--text-secondary);
 	}
 
 	.rename-input {
 		flex: 1;
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
 	}
 
-	/* Add template form */
-	.add-template-form {
+	.add-template-form,
+	.add-step-form {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-md);
-		margin-bottom: var(--spacing-sm);
-		background: var(--color-bg);
-		border-radius: var(--radius-sm);
-		border: 1px dashed var(--color-border);
+		gap: var(--sp-2);
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface-panel) 52%);
 	}
 
-	/* Step list */
+	.add-template-form {
+		margin-bottom: var(--sp-2);
+	}
+
 	.step-list {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.step-item {
-		padding: var(--spacing-sm) var(--spacing-md);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		background: var(--color-bg);
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
 	}
 
 	.step-item-editing {
-		border-color: var(--color-primary);
-		background: var(--color-primary-surface);
+		border-color: var(--amber-dark);
+		background: color-mix(in srgb, var(--amber-light) 84%, var(--surface-panel) 16%);
 	}
 
 	.step-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.step-info {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		min-width: 0;
 		flex: 1;
 	}
 
 	.step-order {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		font-weight: 600;
 		min-width: 20px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		color: var(--amber-dark);
 	}
 
 	.step-name {
 		font-weight: 500;
-		color: var(--color-text);
+		color: var(--text-primary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
 	.step-description {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		margin: var(--spacing-xs) 0 0 28px;
+		margin: var(--sp-2) 0 0 28px;
+		font-size: var(--text-sm);
 		line-height: 1.4;
+		color: var(--text-secondary);
 	}
 
 	.step-stages-preview,
 	.step-training-preview {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
-		margin-top: var(--spacing-xs);
-		margin-left: 28px;
+		gap: var(--sp-1);
 		flex-wrap: wrap;
+		margin-top: var(--sp-2);
+		margin-left: 28px;
 	}
 
 	.stages-label {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 	}
 
 	.step-actions {
@@ -850,85 +940,72 @@
 		flex-shrink: 0;
 	}
 
-	/* Step form */
-	.step-form,
-	.add-step-form {
+	.step-form {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.add-step-form {
-		margin-top: var(--spacing-md);
-		padding: var(--spacing-md);
-		background: var(--color-bg);
-		border-radius: var(--radius-sm);
-		border: 1px dashed var(--color-border);
+		margin-top: var(--sp-3);
 	}
 
 	.form-field {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		border: none;
 		margin: 0;
 		padding: 0;
 	}
 
-	.form-label {
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		color: var(--color-text-secondary);
-	}
-
 	.required {
-		color: var(--color-danger);
+		color: var(--danger);
 	}
 
 	.form-actions {
 		display: flex;
 		justify-content: flex-end;
-		gap: var(--spacing-sm);
-		margin-top: var(--spacing-xs);
+		gap: var(--sp-2);
+		margin-top: var(--sp-1);
 	}
 
-	/* Type picker */
 	.type-options {
 		display: flex;
-		gap: var(--spacing-sm);
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	.type-option {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		cursor: pointer;
 	}
 
 	.type-option input[type='radio'] {
-		accent-color: var(--color-primary);
+		accent-color: var(--amber-dark);
 	}
 
-	/* Stages editor */
 	.stages-editor {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 	}
 
 	.stage-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		padding: var(--sp-2);
+		border: var(--border-thin);
 		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
 	}
 
 	.stage-name {
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
+		font-size: var(--text-sm);
+		color: var(--text-primary);
 	}
 
 	.stage-actions {
@@ -938,15 +1015,14 @@
 
 	.stage-add-row {
 		display: flex;
-		gap: var(--spacing-sm);
 		align-items: center;
+		gap: var(--sp-2);
 	}
 
 	.stage-add-row .input {
 		flex: 1;
 	}
 
-	/* Button icons */
 	.btn-icon {
 		display: inline-flex;
 		align-items: center;
@@ -954,11 +1030,10 @@
 		width: 28px;
 		height: 28px;
 		padding: 0;
-		font-size: var(--font-size-sm);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
-		background: transparent;
 		border: none;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--text-tertiary);
 		cursor: pointer;
 		transition:
 			color var(--transition-fast),
@@ -966,8 +1041,8 @@
 	}
 
 	.btn-icon:hover {
-		color: var(--color-text);
-		background: var(--color-surface-variant);
+		color: var(--text-primary);
+		background: var(--surface-subtle);
 	}
 
 	.btn-icon:disabled {
@@ -976,21 +1051,37 @@
 	}
 
 	.btn-icon-danger:hover {
-		color: var(--color-danger);
+		color: var(--danger);
 	}
 
 	.btn-icon-sm {
 		width: 24px;
 		height: 24px;
-		font-size: var(--font-size-xs);
+		font-size: var(--text-xs);
 	}
 
-	/* Responsive */
-	@media (max-width: 768px) {
+	@media (max-width: 820px) {
 		.templates-layout {
 			grid-template-columns: 1fr;
-			gap: var(--spacing-md);
-			padding: var(--spacing-md);
+		}
+	}
+
+	@media (max-width: 640px) {
+		.templates-page {
+			padding: var(--spacing-sm);
+		}
+
+		.templates-summary {
+			grid-template-columns: 1fr;
+		}
+
+		.panel-header,
+		.step-header,
+		.step-info,
+		.stage-add-row,
+		.form-actions {
+			flex-direction: column;
+			align-items: stretch;
 		}
 	}
 </style>

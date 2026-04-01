@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-04-01-onboarding-workspace-refresh',
+		date: '2026-04-01',
+		title: 'Onboarding Workflows Are Easier to Scan and Manage',
+		items: [
+			'The main onboarding workspace, history view, and template library were cleaned up so they feel like one connected system instead of a collection of older admin screens',
+			'Starting, reviewing, and managing onboarding packets should now be easier to follow, with clearer progress framing and better-organized action panels',
+			'Onboarding reports and template dialogs were refreshed too, so the admin side of getting new people settled in should feel a lot less clunky'
+		]
+	},
+	{
 		id: '2026-04-01-calendar-workspace-finish-pass',
 		date: '2026-04-01',
 		title: 'The Calendar Workspace Looks More Intentional From End to End',
@@ -44,26 +54,6 @@ export const changelog: ChangelogEntry[] = [
 			'The homepage was rebuilt with a cleaner layout, clearer section flow, and a more polished first impression for new visitors',
 			'Feature highlights, roadmap details, and common questions are now easier to scan instead of feeling like one long wall of marketing copy',
 			'The public landing page should also feel better on mobile and in dark mode now, instead of acting like those views were invited out of pity'
-		]
-	},
-	{
-		id: '2026-03-31-preferences-follow-your-account',
-		date: '2026-03-31',
-		title: 'Your Calendar and Training Preferences Stick Around Better',
-		items: [
-			"Calendar display choices like showing status text and keeping Today's Summary open or closed now follow your account instead of depending on that computer remembering local settings",
-			'The training page now remembers your selected saved view, group filter, and layout view after refreshes so you do not have to keep setting the page back up',
-			'This is especially helpful on locked-down government machines that like to forget browser storage whenever they feel like it'
-		]
-	},
-	{
-		id: '2026-03-26-calendar-bulk-workspace',
-		date: '2026-03-26',
-		title: 'Bulk Calendar Updates Have More Room to Breathe',
-		items: [
-			'The bulk add and bulk remove calendar tools now make much better use of wide screens, so you can see a lot more people at once instead of constantly fighting the list',
-			'Status settings now live in a cleaner side panel while the personnel list gets the larger workspace, which makes bulk changes feel a lot less cramped',
-			'Selection controls were cleaned up too, including clearer counts and a better "select shown" action when you are filtering the list'
 		]
 	}
 ];

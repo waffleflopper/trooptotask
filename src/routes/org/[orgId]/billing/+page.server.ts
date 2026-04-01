@@ -17,9 +17,15 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 		permission: 'owner',
 		fn: async (ctx) => {
 			const effectiveTier = parentData.effectiveTier!;
-			const org = await ctx.store.findOne<Record<string, unknown>>('organizations', ctx.auth.orgId, {
-				id: ctx.auth.orgId
-			});
+			const { data: org, error: orgError } = await locals.supabase
+				.from('organizations')
+				.select('id, name, stripe_customer_id, stripe_subscription_id, subscription_status')
+				.eq('id', ctx.auth.orgId)
+				.single();
+
+			if (orgError) {
+				throw error(500, orgError.message);
+			}
 
 			if (!org) {
 				throw error(404, 'Organization not found');

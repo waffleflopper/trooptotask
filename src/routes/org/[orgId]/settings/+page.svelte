@@ -16,6 +16,10 @@
 	let exportError = $state('');
 	let exportSuccess = $state(false);
 
+	const memberCount = $derived(data.members?.length ?? 0);
+	const invitationCount = $derived(data.invitations?.length ?? 0);
+	const groupCount = $derived(data.groups?.length ?? 0);
+
 	async function handleExport() {
 		if (exporting) return;
 		exporting = true;
@@ -108,8 +112,29 @@
 	<PageToolbar title="Organization Settings" helpTopic="settings" />
 
 	<main class="page-content">
+		<div class="overview-strip">
+			<div class="overview-card">
+				<span class="overview-label">Members</span>
+				<strong class="overview-value">{memberCount}</strong>
+				<span class="overview-meta">Active people with access to this organization</span>
+			</div>
+			<div class="overview-card">
+				<span class="overview-label">Pending Invites</span>
+				<strong class="overview-value">{invitationCount}</strong>
+				<span class="overview-meta">Outstanding invitations waiting to be accepted</span>
+			</div>
+			<div class="overview-card">
+				<span class="overview-label">Groups</span>
+				<strong class="overview-value">{groupCount}</strong>
+				<span class="overview-meta">Sections available for personnel scoping and organization</span>
+			</div>
+		</div>
+
 		<div class="settings-card">
-			<h2>Organization Information</h2>
+			<div class="section-heading">
+				<p class="section-label">Organization Profile</p>
+				<h2>Organization Information</h2>
+			</div>
 
 			{#if data.isOwner || data.isAdmin}
 				<form
@@ -157,23 +182,37 @@
 		/>
 
 		<div class="settings-card">
-			<h2>Your Account</h2>
-			<a href="/auth/logout" class="btn btn-secondary">Sign Out</a>
-			<a href="/dashboard?show=all" class="btn btn-secondary">Switch Organization</a>
+			<div class="section-heading">
+				<p class="section-label">Account</p>
+				<h2>Your Account</h2>
+			</div>
+			<p class="section-description">
+				Use these shortcuts when you need to leave this workspace or move to another organization.
+			</p>
+			<div class="action-row">
+				<a href="/auth/logout" class="btn btn-secondary">Sign Out</a>
+				<a href="/dashboard?show=all" class="btn btn-secondary">Switch Organization</a>
+			</div>
 		</div>
 
 		{#if (data.isOwner || data.isAdmin) && isBillingEnabled}
 			<div class="settings-card">
-				<h2>Billing & Subscription</h2>
-				<p class="billing-description">Manage your subscription plan, view usage, and update payment information.</p>
+				<div class="section-heading">
+					<p class="section-label">Subscription</p>
+					<h2>Billing & Subscription</h2>
+				</div>
+				<p class="section-description">Review your plan, usage, and payment details from the billing workspace.</p>
 				<a href="/org/{data.orgId}/billing" class="btn btn-primary">Manage Billing</a>
 			</div>
 		{/if}
 
 		{#if data.isOwner || data.isAdmin || data.permissions?.canManageMembers}
 			<div class="settings-card">
-				<h2>Data Export</h2>
-				<p class="export-description">
+				<div class="section-heading">
+					<p class="section-label">Data Control</p>
+					<h2>Data Export</h2>
+				</div>
+				<p class="section-description">
 					Download all organization data. JSON for backups and integrations, or Excel for a human-readable workbook with
 					named sheets.
 				</p>
@@ -221,7 +260,10 @@
 
 		{#if data.isOwner}
 			<div class="settings-card danger-zone">
-				<h2>Danger Zone</h2>
+				<div class="section-heading">
+					<p class="section-label">Destructive Action</p>
+					<h2>Danger Zone</h2>
+				</div>
 				<p class="danger-warning">
 					Deleting an organization is permanent and cannot be undone. All personnel, calendar data, training records,
 					and settings will be permanently deleted.
@@ -296,145 +338,182 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-		background: var(--color-bg);
+		background: var(--surface-page);
 	}
 
 	.page-content {
 		flex: 1;
-		max-width: 800px;
+		max-width: 1040px;
 		margin: 0 auto;
-		padding: var(--spacing-lg);
+		padding: var(--sp-5);
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-lg);
+		gap: var(--sp-4);
 		width: 100%;
 	}
 
+	.overview-strip {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: var(--sp-3);
+	}
+
+	.overview-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
+	}
+
+	.overview-label,
+	.section-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+
+	.overview-label {
+		color: var(--text-muted);
+	}
+
+	.overview-value {
+		font-family: var(--font-display);
+		font-size: clamp(1.9rem, 4vw, 2.5rem);
+		line-height: 0.95;
+		text-transform: uppercase;
+		color: var(--text-strong);
+	}
+
+	.overview-meta {
+		font-size: var(--text-sm);
+		line-height: 1.5;
+		color: var(--text-secondary);
+	}
+
 	.settings-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: var(--border-thin);
 		border-radius: var(--radius-lg);
-		padding: var(--spacing-lg);
+		padding: var(--sp-5);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+	}
+
+	.section-heading {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+		padding-bottom: var(--sp-3);
+		border-bottom: var(--border-thin);
+	}
+
+	.section-label {
+		color: var(--amber);
 	}
 
 	.settings-card h2 {
+		margin: 0;
 		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-		margin-bottom: var(--spacing-md);
+		font-size: clamp(2rem, 4vw, 2.8rem);
+		line-height: 0.98;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.section-description {
+		margin: 0;
+		font-size: var(--text-sm);
+		line-height: 1.55;
+		color: var(--text-secondary);
 	}
 
 	.hint {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		margin-bottom: var(--spacing-md);
+		margin: 0;
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 	}
 
 	.org-name-display {
-		font-size: var(--font-size-lg);
+		font-size: var(--text-lg);
 		font-weight: 600;
+		margin: 0;
 	}
 
 	.error-message {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
-		padding: var(--spacing-sm) var(--spacing-md);
+		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
+		border: var(--border-thin);
+		color: var(--danger);
+		padding: var(--sp-3) var(--sp-4);
 		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
+		font-size: var(--text-sm);
 	}
 
 	.success-message {
-		background: #f0fdf4;
-		border: 1px solid #bbf7d0;
-		color: #16a34a;
-		padding: var(--spacing-sm) var(--spacing-md);
+		background: color-mix(in srgb, var(--success-bg) 84%, var(--surface-panel) 16%);
+		border: var(--border-thin);
+		color: var(--success);
+		padding: var(--sp-3) var(--sp-4);
 		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
+		font-size: var(--text-sm);
 	}
 
-	.settings-card .btn + .btn {
-		margin-left: var(--spacing-sm);
-	}
-
-	.billing-description {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		margin-bottom: var(--spacing-md);
-		line-height: 1.5;
-	}
-
-	.export-description {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		margin-bottom: var(--spacing-md);
-		line-height: 1.5;
-	}
-
-	.export-usage {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		margin-bottom: var(--spacing-sm);
-	}
-
+	.action-row,
 	.export-buttons {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 		flex-wrap: wrap;
 	}
 
+	.export-usage {
+		margin: 0;
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+	}
+
 	.export-limit-warning {
-		font-size: var(--font-size-sm);
-		color: var(--color-warning, #d97706);
-		margin-bottom: var(--spacing-md);
+		margin: 0;
+		padding: var(--sp-3) var(--sp-4);
+		font-size: var(--text-sm);
+		color: var(--amber-dark);
+		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
 	}
 
 	.danger-zone {
-		border-color: #fecaca;
+		border-color: color-mix(in srgb, var(--danger) 34%, var(--ink-15) 66%);
+		background: color-mix(in srgb, var(--danger-bg) 30%, var(--surface-panel) 70%);
 	}
 
 	.danger-zone h2 {
-		color: #dc2626;
+		color: var(--danger);
 	}
 
 	.danger-warning {
-		color: #dc2626;
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
+		margin: 0;
+		color: var(--danger);
+		font-size: var(--text-sm);
+		line-height: 1.55;
 	}
 
-	.btn-danger {
-		background: #dc2626;
-		color: white;
-		border: none;
-	}
-
-	.btn-danger:hover:not(:disabled) {
-		background: #b91c1c;
-	}
-
-	.btn-danger:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
 		.page-content {
-			padding: var(--spacing-md);
+			padding: var(--sp-4);
 		}
 
 		.settings-card {
-			padding: var(--spacing-md);
+			padding: var(--sp-4);
 		}
-	}
 
-	/* Tablet Responsive Styles */
-	@media (min-width: 641px) and (max-width: 1024px) {
-		.page-content {
-			padding: var(--spacing-md);
+		.action-row,
+		.export-buttons {
+			flex-direction: column;
 		}
 	}
 </style>

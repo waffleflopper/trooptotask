@@ -168,11 +168,11 @@
 									<span class="member-id">{member.userId.slice(0, 8)}...</span>
 								{/if}
 								{#if member.role === 'owner'}
-									<Badge label="OWNER" color="#d4a017" />
+									<Badge label="OWNER" color="var(--amber-dark)" />
 								{:else if member.role === 'admin'}
-									<Badge label="ADMIN" color="#3b82f6" bold={true} />
+									<Badge label="ADMIN" color="var(--info)" bold={true} />
 								{:else}
-									<Badge label="MEMBER" color="#6b7280" />
+									<Badge label="MEMBER" color="var(--ink-60)" />
 								{/if}
 								{#if member.scopedGroupId}
 									<span class="scope-label"
@@ -263,7 +263,7 @@
 									</button>
 								</form>
 							{:else}
-								<Badge label={getPresetLabel(preset)} color="var(--color-border)" textColor="var(--color-text)" />
+								<Badge label={getPresetLabel(preset)} variant="outlined" />
 							{/if}
 
 							{#if isOwner && member.role !== 'owner'}
@@ -563,133 +563,157 @@
 	.member-manager {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-lg);
+		gap: var(--sp-4);
 	}
 
 	.section {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: var(--border-thin);
 		border-radius: var(--radius-lg);
-		padding: var(--spacing-lg);
+		padding: var(--sp-5);
 	}
 
 	.section h2 {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
-		margin-bottom: var(--spacing-md);
+		margin: 0 0 var(--sp-4);
+		font-family: var(--font-display);
+		font-size: clamp(1.9rem, 3vw, 2.5rem);
+		line-height: 0.98;
+		font-weight: 700;
+		text-transform: uppercase;
+		color: var(--text-strong);
 	}
 
 	.member-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.member-card {
-		background: var(--color-bg);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
 		overflow: hidden;
 	}
 
 	.member-card.expanded {
-		border: 1px solid var(--color-primary);
+		border-color: var(--amber);
 	}
 
 	.member-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		gap: var(--spacing-md);
+		padding: var(--sp-3) var(--sp-4);
+		gap: var(--sp-4);
 	}
 
 	.member-info {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--sp-1);
 	}
 
 	.member-name-row {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
 	}
 
 	.scope-label {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 		margin-left: 4px;
 	}
 
 	.member-id {
-		font-family: monospace;
-		font-size: var(--font-size-sm);
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
 	}
 
 	.member-email {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		color: var(--text-strong);
 	}
 
 	.member-actions {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
 	}
 
 	.preset-form {
 		display: inline-flex;
+		gap: var(--sp-2);
+		flex-wrap: wrap;
 	}
 
 	.preset-select {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border: 1px solid var(--color-border);
+		padding: 0.625rem 0.8rem;
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
+		background: var(--field-bg);
+		color: var(--text-strong);
+		font-size: var(--text-sm);
 		cursor: pointer;
+		min-height: 2.5rem;
 	}
 
 	.expand-btn {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		background: transparent;
-		border: 1px solid var(--color-border);
+		padding: 0.625rem 0.8rem;
+		background: var(--surface-panel);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
 		cursor: pointer;
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		font-family: var(--font-mono);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		min-height: 2.5rem;
 	}
 
 	.expand-btn:hover {
-		background: var(--color-bg);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
 	.permissions-form {
-		padding: var(--spacing-md);
-		border-top: 1px solid var(--color-border);
-		background: var(--color-surface);
+		padding: var(--sp-4);
+		border-top: var(--border-thin);
+		background: var(--surface-panel);
 	}
 
 	.permission-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-		gap: var(--spacing-md);
-		margin-bottom: var(--spacing-md);
+		gap: var(--sp-3);
+		margin-bottom: var(--sp-4);
+	}
+
+	.permission-section {
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
 	}
 
 	.permission-section h4 {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
+		font-family: var(--font-mono);
 		font-weight: 600;
-		margin-bottom: var(--spacing-xs);
-		color: var(--color-text);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		margin-bottom: var(--sp-2);
+		color: var(--text-strong);
 	}
 
 	.permission-description {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		margin: 0 0 var(--spacing-xs);
-		line-height: 1.4;
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		margin: 0 0 var(--sp-2);
+		line-height: 1.5;
 	}
 
 	/* .checkbox-label base in app.css */
@@ -700,22 +724,23 @@
 
 	.permission-actions {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 		justify-content: flex-end;
 	}
 
 	.invite-note {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		margin-bottom: var(--spacing-md);
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+		margin-bottom: var(--sp-4);
+		padding: var(--sp-3) var(--sp-4);
+		background: color-mix(in srgb, var(--amber-light) 84%, var(--surface-panel) 16%);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
 	}
 
 	.invite-form {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 		flex-wrap: wrap;
 	}
 
@@ -727,55 +752,58 @@
 	.invitation-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 	}
 
 	.invitation-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-bg);
+		padding: var(--sp-3) var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
+		gap: var(--sp-3);
 	}
 
 	.invite-info {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--sp-1);
 	}
 
 	.invite-email {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
+		color: var(--text-strong);
 	}
 
 	.invite-meta {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 
 	.error-message {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
-		padding: var(--spacing-sm) var(--spacing-md);
+		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
+		border: var(--border-thin);
+		color: var(--danger);
+		padding: var(--sp-3) var(--sp-4);
 		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
+		font-size: var(--text-sm);
+		margin-top: var(--sp-3);
 	}
 
 	.success-message {
-		background: #f0fdf4;
-		border: 1px solid #bbf7d0;
-		color: #16a34a;
-		padding: var(--spacing-sm) var(--spacing-md);
+		background: color-mix(in srgb, var(--success-bg) 84%, var(--surface-panel) 16%);
+		border: var(--border-thin);
+		color: var(--success);
+		padding: var(--sp-3) var(--sp-4);
 		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
+		font-size: var(--text-sm);
+		margin-top: var(--sp-3);
 	}
 
 	.warning {
-		color: #dc2626;
+		color: var(--danger);
 		font-weight: 500;
 	}
 
@@ -801,6 +829,12 @@
 
 		.permission-grid {
 			grid-template-columns: repeat(2, 1fr);
+		}
+
+		.invitation-item,
+		.permission-actions {
+			flex-direction: column;
+			align-items: stretch;
 		}
 	}
 </style>

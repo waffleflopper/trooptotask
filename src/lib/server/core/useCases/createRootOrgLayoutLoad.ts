@@ -1,5 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { OrganizationMemberPermissions } from '$lib/types';
+import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import { loadRootOrgShellRouteData } from './loadRootOrgShell';
 import { getLayoutClient } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
@@ -36,7 +37,12 @@ async function loadDemoRootOrgShellRouteData(config: {
 			}
 		}),
 		createInMemoryOrgChromePort({
-			chrome: { unreadNotificationCount: 0, activeAnnouncements: [], allOrgs: [] }
+			chrome: {
+				unreadNotificationCount: 0,
+				activeAnnouncements: [],
+				allOrgs: [],
+				userPreferences: getDefaultUserOrgPreferences()
+			}
 		})
 	);
 }

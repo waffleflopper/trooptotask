@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from '$lib/server/adapters/inMemoryOrgShell';
+import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { ChromeData, MembershipInfo, OrgState } from '../orgShell';
 import { loadRootOrgShellRouteData } from './loadRootOrgShell';
 
@@ -41,7 +42,8 @@ const baseOrgState: OrgState = {
 const baseChrome: ChromeData = {
 	unreadNotificationCount: 3,
 	activeAnnouncements: [{ id: 'a1', title: 'Heads up', message: 'Check this', type: 'info' }],
-	allOrgs: [{ id: 'org-1', name: 'Test Unit', role: 'member' }]
+	allOrgs: [{ id: 'org-1', name: 'Test Unit', role: 'member' }],
+	userPreferences: getDefaultUserOrgPreferences()
 };
 
 describe('loadRootOrgShellRouteData', () => {
@@ -55,6 +57,7 @@ describe('loadRootOrgShellRouteData', () => {
 		expect(result.orgName).toBe('Test Unit');
 		expect(result.userRole).toBe('member');
 		expect(result.userId).toBe('user-1');
+		expect(result.userPreferences).toEqual(baseChrome.userPreferences);
 		expect(result.permissions).toEqual(baseMembership.permissions);
 		expect(result.scopedGroupId).toBeNull();
 		expect(result.isOwner).toBe(false);
@@ -70,6 +73,7 @@ describe('loadRootOrgShellRouteData', () => {
 			orgId: result.orgId,
 			orgName: result.orgName,
 			userId: result.userId,
+			userPreferences: result.userPreferences,
 			userRole: result.userRole,
 			permissions: result.permissions,
 			scopedGroupId: result.scopedGroupId,

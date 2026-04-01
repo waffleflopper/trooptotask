@@ -15,7 +15,6 @@
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-	import { calendarPrefsStore } from '$features/calendar/stores/calendarPrefs.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 
 	interface Props {
@@ -47,9 +46,9 @@
 			canManageConfig: ctx.canManageConfig,
 			readOnly: ctx.readOnly,
 			breakdownExpanded: ctx.breakdownExpanded,
-			showStatusText: calendarPrefsStore.showStatusText,
+			showStatusText: ctx.showStatusText,
 			onToggleBreakdown: () => ctx.toggleBreakdown(),
-			onToggleStatusText: () => calendarPrefsStore.toggleShowStatusText(),
+			onToggleStatusText: () => ctx.toggleShowStatusText(),
 			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
 			onExportPDF: async () => {
 				try {
@@ -128,7 +127,7 @@
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={data.permissions?.canEditCalendar ?? false}
-						showStatusText={calendarPrefsStore.showStatusText}
+						showStatusText={ctx.showStatusText}
 						personnelHref={`/org/${data.orgId}/personnel`}
 						onPrevMonth={() => calendarStore.prevMonth()}
 						onNextMonth={() => calendarStore.nextMonth()}

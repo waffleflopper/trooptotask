@@ -9,6 +9,7 @@
  */
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
+import type { UserOrgPreferences } from '$lib/preferences/userPreferences';
 import type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,
@@ -37,6 +38,7 @@ export interface OrgShellData {
 	orgId: string;
 	orgName: string;
 	userId: string | null;
+	userPreferences: UserOrgPreferences;
 	userRole: 'owner' | 'admin' | 'member';
 	permissions: OrganizationMemberPermissions;
 	scopedGroupId: string | null;
@@ -143,6 +145,7 @@ export interface ChromeData {
 	unreadNotificationCount: number;
 	activeAnnouncements: Announcement[];
 	allOrgs: Array<{ id: string; name: string; role: string }>;
+	userPreferences: UserOrgPreferences;
 }
 
 // ---------------------------------------------------------------------------

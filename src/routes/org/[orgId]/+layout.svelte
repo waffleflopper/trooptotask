@@ -66,24 +66,39 @@
 		}
 	});
 
-	// Re-fetch shared data when the window regains focus (handles idle tabs,
-	// switching apps, and multi-user changes). Uses focus/blur instead of
-	// visibilitychange so it also catches alt-tabbing between windows.
-	// Debounced to 2s so rapid tab-switching doesn't trigger multiple refetches.
+	const FOCUS_REFRESH_AWAY_MS = 60_000;
+	const FOCUS_REFRESH_COOLDOWN_MS = 90_000;
+
+	// Re-fetch shared data only after a meaningful absence. This still catches
+	// idle tabs and cross-user changes, but avoids refreshing every time someone
+	// alt-tabs to Excel or email for a few seconds.
 	onMount(() => {
-		let wasAway = false;
+		let blurredAt = 0;
+		let lastRefreshAt = Date.now();
 		let debounceTimer: ReturnType<typeof setTimeout>;
+
 		const handleBlur = () => {
-			wasAway = true;
+			blurredAt = Date.now();
 			clearTimeout(debounceTimer);
 		};
+
 		const handleFocus = () => {
-			if (wasAway) {
-				wasAway = false;
-				clearTimeout(debounceTimer);
-				debounceTimer = setTimeout(() => invalidate('app:org-core'), 2000);
-			}
+			if (!blurredAt) return;
+
+			const now = Date.now();
+			const awayMs = now - blurredAt;
+			blurredAt = 0;
+
+			if (awayMs < FOCUS_REFRESH_AWAY_MS) return;
+			if (now - lastRefreshAt < FOCUS_REFRESH_COOLDOWN_MS) return;
+
+			clearTimeout(debounceTimer);
+			debounceTimer = setTimeout(() => {
+				lastRefreshAt = Date.now();
+				void invalidate('app:org-core');
+			}, 750);
 		};
+
 		window.addEventListener('blur', handleBlur);
 		window.addEventListener('focus', handleFocus);
 		return () => {

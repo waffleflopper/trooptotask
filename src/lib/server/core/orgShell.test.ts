@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import {
 	createInMemoryOrgAccessPort,
 	createInMemoryOrgChromePort,
@@ -153,7 +154,8 @@ describe('org shell port contract types', () => {
 				chrome: {
 					unreadNotificationCount: 0,
 					activeAnnouncements: [],
-					allOrgs: []
+					allOrgs: [],
+					userPreferences: getDefaultUserOrgPreferences()
 				}
 			})
 		);
@@ -168,7 +170,8 @@ describe('createInMemoryOrgChromePort', () => {
 	const chrome: ChromeData = {
 		unreadNotificationCount: 3,
 		activeAnnouncements: [{ id: 'a1', title: 'Hello', message: 'World', type: 'info' as const }],
-		allOrgs: [{ id: 'org-1', name: 'Test Unit', role: 'owner' }]
+		allOrgs: [{ id: 'org-1', name: 'Test Unit', role: 'owner' }],
+		userPreferences: getDefaultUserOrgPreferences()
 	};
 
 	it('returns configured notification count', async () => {

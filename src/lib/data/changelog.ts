@@ -7,53 +7,64 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
-		id: '2026-04-01-onboarding-workspace-refresh',
-		date: '2026-04-01',
-		title: 'Onboarding Workflows Are Easier to Scan and Manage',
+		id: '2026-03-22-under-the-hood',
+		date: '2026-03-22',
+		title: 'Under the Hood Improvements',
 		items: [
-			'The main onboarding workspace, history view, and template library were cleaned up so they feel like one connected system instead of a collection of older admin screens',
-			'Starting, reviewing, and managing onboarding packets should now be easier to follow, with clearer progress framing and better-organized action panels',
-			'Onboarding reports and template dialogs were refreshed too, so the admin side of getting new people settled in should feel a lot less clunky'
+			'Made a bunch of behind-the-scenes changes to improve how the app handles requests — things should feel snappier and more reliable overall',
+			'Tightened up error handling so the app recovers more gracefully when something goes wrong instead of showing a confusing error page',
+			'Improved how bulk operations (like importing personnel or updating assignments) handle edge cases — fewer surprises when working with large batches',
+			"If you run into anything weird or notice something that doesn't look right, please don't hesitate to report it — we'll make it a high priority to fix"
 		]
 	},
 	{
-		id: '2026-04-01-calendar-workspace-finish-pass',
-		date: '2026-04-01',
-		title: 'The Calendar Workspace Looks More Intentional From End to End',
+		id: '2026-03-22-table-improvements',
+		date: '2026-03-22',
+		title: 'Tables Got a Glow-Up',
 		items: [
-			'The main calendar, long-range view, settings pages, and report picker were cleaned up so they feel like parts of the same product instead of a mix of old and new layouts',
-			'Bulk status tools and duty-roster lists now use calmer hover states and cleaner status badges, which makes scanning personnel lists a lot less visually weird',
-			'Calendar rows were tightened up a bit too, so you can see a little more of the month without the grid feeling squashed'
+			'All tables across the app now have a consistent look and feel — reports, training matrix, admin pages, rating scheme, the works',
+			'You can now click column headers to sort most tables — finally, no more squinting to find someone buried in a long list',
+			'Fixed a bug where editing a rating scheme entry would create a duplicate instead of actually saving your changes'
 		]
 	},
 	{
-		id: '2026-04-01-dashboard-entry-refresh',
-		date: '2026-04-01',
-		title: 'The Dashboard and Sign-In Landing Screens Got a Much Better First Impression',
+		id: '2026-03-19-leaders-book-redesign',
+		date: '2026-03-19',
+		title: "Leader's Book Redesign In Progress",
 		items: [
-			'The main dashboard was rebuilt with cleaner section framing, clearer summary modules, and a more readable daily snapshot of readiness, tasking, and follow-up items',
-			'The organization selection screen after sign-in now does a better job surfacing invitations, available workspaces, and next-step actions without feeling like an older leftover page',
-			'Dashboard setup and customization panels were cleaned up too, so getting a new workspace off the ground should feel less like you are rummaging through a supply closet'
+			"We've temporarily removed the Leader's Book while we rebuild it from the ground up — the new version will be more intuitive and better integrated with the rest of the app",
+			'Your existing data (counseling records, development goals, extended info) is safely preserved and will carry over to the new version',
+			'The Rating Scheme is still fully available on the Personnel page — nothing changed there'
 		]
 	},
 	{
-		id: '2026-03-31-marketing-pages-rollout',
-		date: '2026-03-31',
-		title: 'The Rest of the Public Site Now Feels Like the Same Product',
+		id: '2026-03-17-training-manage-types-button',
+		date: '2026-03-17',
+		title: 'Training Types Button is Now Always Visible',
 		items: [
-			'The Features and Pricing pages were rebuilt to match the new public site design instead of feeling like older standalone pages',
-			'Pricing information is now easier to scan, with cleaner plan comparisons and simpler explanations of how billing works during beta',
-			'The public site should also feel more consistent from page to page now, instead of acting like five different people designed it during five different lunch breaks'
+			'The "Manage Types" button on the Training page is now permanently visible in the toolbar for admins and editors — no more hunting through the overflow menu or wondering where it went after you added your first training type'
 		]
 	},
 	{
-		id: '2026-03-31-landing-page-rollout',
-		date: '2026-03-31',
-		title: 'The Public Site Has a Better Front Door',
+		id: '2026-03-15-accessibility-improvements',
+		date: '2026-03-15',
+		title: 'Accessibility Improvements',
 		items: [
-			'The homepage was rebuilt with a cleaner layout, clearer section flow, and a more polished first impression for new visitors',
-			'Feature highlights, roadmap details, and common questions are now easier to scan instead of feeling like one long wall of marketing copy',
-			'The public landing page should also feel better on mobile and in dark mode now, instead of acting like those views were invited out of pity'
+			'Improved keyboard navigation throughout the app — you can now tab through all interactive elements and use Escape to close menus and modals',
+			'Added a "Skip to main content" link for keyboard and screen reader users',
+			'Better color contrast across the board, in both light and dark mode',
+			'Screen readers now properly announce notifications, form errors, and loading states',
+			'Added support for reduced motion and high contrast display modes'
+		]
+	},
+	{
+		id: '2026-03-15-multi-template-onboarding',
+		date: '2026-03-15',
+		title: 'Multiple Onboarding Templates',
+		items: [
+			'You can now create multiple onboarding templates — one for officers, one for enlisted, one for civilians, whatever your unit needs',
+			"Pick which template to use when you start someone's onboarding, so the right checklist shows up for the right person",
+			"Use the Re-sync button to update someone's in-progress onboarding when the template changes — completed steps are never touched, only incomplete ones get updated"
 		]
 	}
 ];

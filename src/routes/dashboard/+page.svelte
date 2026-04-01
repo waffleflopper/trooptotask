@@ -12,7 +12,7 @@
 </svelte:head>
 
 <div class="selector-page">
-	<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
+	<button class="theme-toggle btn btn-secondary btn-icon" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 		{#if themeStore.isDark}
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<circle cx="12" cy="12" r="5" />
@@ -31,345 +31,450 @@
 			</svg>
 		{/if}
 	</button>
-	<div class="selector-card">
-		<h1>Troop to Task</h1>
-		<p class="subtitle">Select an organization to manage</p>
 
-		{#if form?.error}
-			<div class="error-message">{form.error}</div>
-		{/if}
+	<div class="selector-shell">
+		<section class="selector-intro">
+			<p class="selector-kicker">Command Access</p>
+			<h1>Choose where to work.</h1>
+			<p class="selector-copy">
+				Move into an organization, process pending invitations, or create a new workspace before the next handoff.
+			</p>
 
-		{#if data.pendingInvitations.length > 0}
-			<div class="invitations-section">
-				<h2>Pending Invitations</h2>
-				<div class="invitation-list">
-					{#each data.pendingInvitations as invitation (invitation.id)}
-						<div class="invitation-item">
-							<div class="invitation-info">
-								<span class="invitation-org">{invitation.organizationName}</span>
-								<span class="invitation-meta">Invited {formatRelativeDate(invitation.createdAt)}</span>
-							</div>
-							<div class="invitation-actions">
-								<form
-									method="POST"
-									action="?/acceptInvitation"
-									use:enhance={() => {
-										loading = invitation.id;
-										return async ({ update }) => {
-											loading = null;
-											await update();
-										};
-									}}
-								>
-									<input type="hidden" name="invitationId" value={invitation.id} />
-									<button type="submit" class="btn btn-primary btn-sm" disabled={loading === invitation.id}>
-										{loading === invitation.id ? 'Accepting...' : 'Accept'}
-									</button>
-								</form>
-								<form
-									method="POST"
-									action="?/declineInvitation"
-									use:enhance={() => {
-										loading = invitation.id;
-										return async ({ update }) => {
-											loading = null;
-											await update();
-										};
-									}}
-								>
-									<input type="hidden" name="invitationId" value={invitation.id} />
-									<button type="submit" class="btn btn-secondary btn-sm" disabled={loading === invitation.id}>
-										Decline
-									</button>
-								</form>
-							</div>
-						</div>
-					{/each}
+			<dl class="selector-facts">
+				<div class="selector-fact">
+					<dt>Organizations</dt>
+					<dd>{data.organizations.length}</dd>
 				</div>
+				<div class="selector-fact">
+					<dt>Pending Invitations</dt>
+					<dd>{data.pendingInvitations.length}</dd>
+				</div>
+			</dl>
+
+			<div class="selector-help">
+				<a href="/help">Need a quick refresher? Open the field guide.</a>
 			</div>
-		{/if}
+		</section>
 
-		{#if data.organizations.length > 0}
-			<div class="org-list">
-				{#each data.organizations as org}
-					<a href="/org/{org.id}" class="org-item">
-						<span class="org-name">{org.name}</span>
-						<span class="org-role">{org.role}</span>
-					</a>
-				{/each}
+		<section class="selector-panel">
+			<header class="selector-panel-header">
+				<p class="selector-panel-kicker">Troop to Task</p>
+				<h2>Available workspaces</h2>
+				<p>Select an organization to continue, or process any pending access requests first.</p>
+			</header>
+
+			{#if form?.error}
+				<div class="selector-alert" role="alert">{form.error}</div>
+			{/if}
+
+			{#if data.pendingInvitations.length > 0}
+				<section class="selector-section">
+					<div class="selector-section-header">
+						<p class="selector-section-kicker">Pending Invitations</p>
+						<span class="selector-section-count">{data.pendingInvitations.length}</span>
+					</div>
+
+					<div class="invitation-list">
+						{#each data.pendingInvitations as invitation (invitation.id)}
+							<div class="invitation-item">
+								<div class="invitation-copy">
+									<span class="invitation-org">{invitation.organizationName}</span>
+									<span class="invitation-meta">Invited {formatRelativeDate(invitation.createdAt)}</span>
+								</div>
+
+								<div class="invitation-actions">
+									<form
+										method="POST"
+										action="?/acceptInvitation"
+										use:enhance={() => {
+											loading = invitation.id;
+											return async ({ update }) => {
+												loading = null;
+												await update();
+											};
+										}}
+									>
+										<input type="hidden" name="invitationId" value={invitation.id} />
+										<button type="submit" class="btn btn-amber btn-sm" disabled={loading === invitation.id}>
+											{loading === invitation.id ? 'Accepting...' : 'Accept'}
+										</button>
+									</form>
+									<form
+										method="POST"
+										action="?/declineInvitation"
+										use:enhance={() => {
+											loading = invitation.id;
+											return async ({ update }) => {
+												loading = null;
+												await update();
+											};
+										}}
+									>
+										<input type="hidden" name="invitationId" value={invitation.id} />
+										<button type="submit" class="btn btn-secondary btn-sm" disabled={loading === invitation.id}>
+											Decline
+										</button>
+									</form>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
+			<section class="selector-section">
+				<div class="selector-section-header">
+					<p class="selector-section-kicker">Organizations</p>
+					{#if data.organizations.length > 0}
+						<span class="selector-section-count">{data.organizations.length}</span>
+					{/if}
+				</div>
+
+				{#if data.organizations.length > 0}
+					<div class="org-list">
+						{#each data.organizations as org}
+							<a href="/org/{org.id}" class="org-item">
+								<div class="org-copy">
+									<span class="org-name">{org.name}</span>
+									<span class="org-role">{org.role}</span>
+								</div>
+								<span class="org-arrow" aria-hidden="true">Open</span>
+							</a>
+						{/each}
+					</div>
+				{:else}
+					<div class="selector-empty">
+						<p>You are not a member of any organizations yet.</p>
+						<span>Create a new organization below to start building the workspace.</span>
+					</div>
+				{/if}
+			</section>
+
+			<div class="selector-actions">
+				<a href="/org/new" class="btn btn-amber">Create Organization</a>
+				<a href="/auth/logout" class="btn btn-secondary">Sign Out</a>
 			</div>
-		{:else}
-			<p class="no-orgs">You are not a member of any organizations yet.</p>
-		{/if}
-
-		<div class="actions">
-			<a href="/org/new" class="btn btn-primary">Create New Organization</a>
-			<a href="/auth/logout" class="btn btn-secondary">Sign Out</a>
-		</div>
-
-		<div class="help-link">
-			<a href="/help">Need help? View documentation</a>
-		</div>
+		</section>
 	</div>
 </div>
 
 <style>
 	.selector-page {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: var(--color-bg);
-		padding: var(--spacing-lg);
 		min-height: 100vh;
+		padding: clamp(var(--sp-6), 4vw, var(--sp-12));
+		background:
+			linear-gradient(to bottom, rgba(14, 14, 13, 0.03), rgba(14, 14, 13, 0)) 0 0 / 100% 12rem no-repeat,
+			var(--surface-page);
 	}
 
-	.selector-card {
-		background: var(--color-surface);
-		border-radius: var(--radius-xl);
-		padding: var(--spacing-2xl);
-		width: 100%;
-		max-width: 480px;
-		box-shadow: var(--shadow-3);
+	.selector-shell {
+		display: grid;
+		grid-template-columns: minmax(0, 0.9fr) minmax(20rem, 32rem);
+		gap: clamp(var(--sp-8), 5vw, var(--sp-16));
+		align-items: start;
+		max-width: 1120px;
+		margin: 0 auto;
+		padding-top: clamp(var(--sp-12), 10vh, var(--sp-20));
 	}
 
-	.selector-card h1 {
-		font-size: var(--font-size-2xl);
-		font-weight: 600;
-		color: var(--color-primary);
-		text-align: center;
-		margin-bottom: var(--spacing-xs);
-		letter-spacing: -0.02em;
-	}
-
-	.subtitle {
-		text-align: center;
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-base);
-		margin-bottom: var(--spacing-xl);
-	}
-
-	.error-message {
-		background: rgba(244, 67, 54, 0.08);
-		border-left: 4px solid var(--color-error);
-		color: var(--color-error);
-		padding: var(--spacing-md);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.invitations-section {
-		margin-bottom: var(--spacing-lg);
-		padding-bottom: var(--spacing-lg);
-		border-bottom: 1px solid var(--color-divider);
-	}
-
-	.invitations-section h2 {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-success);
-		margin-bottom: var(--spacing-md);
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-	}
-
-	.invitations-section h2::before {
-		content: '';
-		width: 8px;
-		height: 8px;
-		background: var(--color-success);
-		border-radius: 50%;
-		animation: pulse 2s infinite;
-	}
-
-	@keyframes pulse {
-		0%,
-		100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.5;
-		}
-	}
-
-	.invitation-list {
+	.selector-intro {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-5);
+		max-width: 36rem;
 	}
 
-	.invitation-item {
+	.selector-kicker,
+	.selector-panel-kicker,
+	.selector-section-kicker,
+	.selector-fact dt,
+	.org-role,
+	.org-arrow {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+	}
+
+	.selector-kicker,
+	.selector-panel-kicker {
+		margin: 0;
+		color: var(--amber);
+	}
+
+	.selector-intro h1,
+	.selector-panel-header h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-display);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		line-height: 0.95;
+		color: var(--text-primary);
+	}
+
+	.selector-intro h1 {
+		font-size: clamp(3rem, 2.3rem + 2vw, 4.7rem);
+		max-width: 10ch;
+	}
+
+	.selector-panel-header h2 {
+		font-size: clamp(2rem, 1.6rem + 1vw, 2.8rem);
+	}
+
+	.selector-copy,
+	.selector-panel-header p {
+		margin: 0;
+		font-size: var(--text-base);
+		line-height: var(--line-height-copy);
+		color: var(--text-secondary);
+		max-width: 34rem;
+	}
+
+	.selector-facts {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--sp-4);
+		margin: 0;
+	}
+
+	.selector-fact {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding-top: var(--sp-4);
+		border-top: var(--border-thin);
+	}
+
+	.selector-fact dt {
+		color: var(--text-tertiary);
+	}
+
+	.selector-fact dd {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(1.8rem, 1.4rem + 0.8vw, 2.6rem);
+		font-weight: var(--font-weight-display);
+		line-height: 0.95;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--text-primary);
+	}
+
+	.selector-help a {
+		color: var(--text-secondary);
+	}
+
+	.selector-help a:hover {
+		color: var(--amber-dark);
+	}
+
+	.selector-panel {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-6);
+		padding: clamp(var(--sp-5), 2vw, var(--sp-8));
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-md);
+	}
+
+	.selector-panel-header {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
+	}
+
+	.selector-alert {
+		padding: var(--sp-4);
+		border-left: 3px solid var(--danger);
+		background: color-mix(in srgb, var(--danger-bg) 72%, var(--surface-panel));
+		color: var(--danger);
+		font-size: var(--text-sm);
+		line-height: 1.55;
+	}
+
+	.selector-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+	}
+
+	.selector-section-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-md);
-		background: rgba(76, 175, 80, 0.08);
-		border-radius: var(--radius-lg);
-		gap: var(--spacing-md);
-		transition: all var(--transition-fast);
+		gap: var(--sp-3);
+		padding-top: var(--sp-4);
+		border-top: var(--border-thin);
 	}
 
-	.invitation-item:hover {
-		background: rgba(76, 175, 80, 0.12);
+	.selector-section-count {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.75rem;
+		height: 1.75rem;
+		padding: 0 0.4rem;
+		border: 1px solid rgba(var(--amber-rgb), 0.35);
+		border-radius: var(--radius-md);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		color: var(--amber-dark);
 	}
 
-	:global([data-theme='dark']) .invitation-item {
-		background: rgba(76, 175, 80, 0.12);
+	.invitation-list,
+	.org-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
 	}
 
-	:global([data-theme='dark']) .invitation-item:hover {
-		background: rgba(76, 175, 80, 0.18);
+	.invitation-item,
+	.org-item,
+	.selector-empty {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-4);
+		padding: var(--sp-4);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
 	}
 
-	.invitation-info {
+	.invitation-item {
+		align-items: flex-start;
+	}
+
+	.invitation-copy,
+	.org-copy,
+	.selector-empty {
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
+		min-width: 0;
 	}
 
-	.invitation-org {
-		font-weight: 600;
-		color: var(--color-text);
+	.invitation-org,
+	.org-name {
+		font-size: var(--text-base);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
 	}
 
 	.invitation-meta {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		color: var(--text-tertiary);
 	}
 
 	.invitation-actions {
 		display: flex;
-		gap: var(--spacing-sm);
-	}
-
-	.org-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-xl);
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		justify-content: flex-end;
 	}
 
 	.org-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		text-decoration: none;
-		color: var(--color-text);
-		transition: all var(--transition-fast);
+		color: inherit;
+		transition:
+			border-color var(--transition-fast),
+			background var(--transition-fast),
+			box-shadow var(--transition-fast);
 	}
 
 	.org-item:hover {
-		border-color: var(--color-primary);
-		background: rgba(var(--color-primary-rgb), 0.04);
-		box-shadow: var(--shadow-1);
-		transform: translateY(-1px);
-	}
-
-	.org-name {
-		font-weight: 600;
-		font-size: var(--font-size-base);
+		border-color: rgba(var(--amber-rgb), 0.34);
+		background: color-mix(in srgb, var(--surface-panel) 82%, var(--amber-light) 18%);
+		box-shadow: var(--shadow-sm);
 	}
 
 	.org-role {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		text-transform: capitalize;
-		padding: 4px 12px;
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-full);
+		color: var(--text-tertiary);
 	}
 
-	.no-orgs {
-		text-align: center;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-base);
-		margin-bottom: var(--spacing-xl);
-		padding: var(--spacing-xl);
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-lg);
+	.org-arrow {
+		color: var(--amber-dark);
+		flex-shrink: 0;
 	}
 
-	.actions {
+	.selector-empty {
+		align-items: flex-start;
+	}
+
+	.selector-empty p,
+	.selector-empty span {
+		margin: 0;
+	}
+
+	.selector-empty p {
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
+	}
+
+	.selector-empty span {
+		font-size: var(--text-sm);
+		line-height: 1.55;
+		color: var(--text-secondary);
+	}
+
+	.selector-actions {
 		display: flex;
-		gap: var(--spacing-md);
-		justify-content: center;
+		flex-wrap: wrap;
+		gap: var(--sp-3);
+		padding-top: var(--sp-4);
+		border-top: var(--border-thin);
 	}
 
 	.theme-toggle {
 		position: fixed;
-		top: var(--spacing-lg);
-		right: var(--spacing-lg);
-		width: 48px;
-		height: 48px;
-		border-radius: var(--radius-full);
-		background: var(--color-surface);
-		border: none;
-		color: var(--color-text-secondary);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		transition: all var(--transition-fast);
-		box-shadow: var(--shadow-2);
-	}
-
-	.theme-toggle:hover {
-		background: var(--color-surface);
-		color: var(--color-primary);
-		box-shadow: var(--shadow-3);
-		transform: scale(1.05);
+		top: var(--sp-5);
+		right: var(--sp-5);
+		z-index: 1;
 	}
 
 	.theme-toggle svg {
-		width: 22px;
-		height: 22px;
+		width: 18px;
+		height: 18px;
 	}
 
-	.help-link {
-		margin-top: var(--spacing-xl);
-		text-align: center;
+	@media (max-width: 900px) {
+		.selector-shell {
+			grid-template-columns: 1fr;
+			padding-top: calc(var(--sp-12) + var(--sp-6));
+		}
 	}
 
-	.help-link a {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		text-decoration: none;
-		transition: color var(--transition-fast);
-	}
-
-	.help-link a:hover {
-		color: var(--color-primary);
-	}
-
-	@media (max-width: 480px) {
-		.selector-card {
-			padding: var(--spacing-lg);
-			border-radius: var(--radius-lg);
+	@media (max-width: 640px) {
+		.selector-page {
+			padding: var(--sp-4);
 		}
 
-		.invitation-item {
+		.selector-facts {
+			grid-template-columns: 1fr;
+		}
+
+		.invitation-item,
+		.org-item {
 			flex-direction: column;
 			align-items: flex-start;
 		}
 
-		.invitation-actions {
+		.invitation-actions,
+		.selector-actions {
 			width: 100%;
-			justify-content: flex-end;
 		}
 
-		.actions {
-			flex-direction: column;
+		.invitation-actions :global(form) {
+			flex: 1;
 		}
 
-		.actions .btn {
+		.invitation-actions :global(form button),
+		.selector-actions .btn {
 			width: 100%;
 		}
 	}

@@ -30,7 +30,7 @@
 </script>
 
 {#if visibleAnnouncements.length > 0}
-	{#each visibleAnnouncements as announcement, i (announcement.id)}
+	{#each visibleAnnouncements as announcement (announcement.id)}
 		<div class="announcement-banner announcement-{announcement.type}" role="alert">
 			<div class="banner-content">
 				<span class="banner-text">
@@ -49,62 +49,101 @@
 <style>
 	.announcement-banner {
 		width: 100%;
-		padding: var(--spacing-sm) var(--spacing-lg);
+		padding: 0;
 		box-sizing: border-box;
+		border-bottom: 1px solid var(--border-default);
+		background: var(--surface-panel);
 	}
 
 	.banner-content {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-md);
-		max-width: 1200px;
+		max-width: 1680px;
 		margin: 0 auto;
+		padding: 0.75rem clamp(var(--spacing-md), 2vw, var(--spacing-lg));
+	}
+
+	.banner-content::before {
+		content: '';
+		width: 3px;
+		align-self: stretch;
+		border-radius: 999px;
+		background: var(--info);
+		flex-shrink: 0;
 	}
 
 	.banner-text {
 		flex: 1;
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
+		color: var(--text-primary);
+		line-height: 1.5;
+	}
+
+	.banner-text strong {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.banner-separator {
 		margin: 0 var(--spacing-xs);
-		opacity: 0.7;
+		color: var(--text-tertiary);
 	}
 
 	.dismiss-btn {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		background: rgba(255, 255, 255, 0.2);
-		border: 1px solid rgba(255, 255, 255, 0.3);
-		border-radius: var(--radius-sm);
-		color: inherit;
-		font-size: var(--font-size-xs);
-		font-weight: 500;
-		cursor: pointer;
-		transition: background 0.15s ease;
-		flex-shrink: 0;
+		padding: 0;
+		background: none;
+		border: none;
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: var(--letter-spacing-mono);
 		text-transform: uppercase;
-		letter-spacing: 0.5px;
+		cursor: pointer;
+		transition: color var(--transition-fast);
+		flex-shrink: 0;
 	}
 
 	.dismiss-btn:hover {
-		background: rgba(255, 255, 255, 0.3);
+		color: var(--text-primary);
 	}
 
-	/* Info */
 	.announcement-info {
-		background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-		color: white;
+		background: color-mix(in srgb, var(--info-bg) 55%, var(--surface-panel));
 	}
 
-	/* Warning */
+	.announcement-info .banner-content::before {
+		background: var(--info);
+	}
+
 	.announcement-warning {
-		background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-		color: white;
+		background: color-mix(in srgb, var(--amber-light) 78%, var(--surface-panel));
 	}
 
-	/* Maintenance */
+	.announcement-warning .banner-content::before {
+		background: var(--amber);
+	}
+
 	.announcement-maintenance {
-		background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-		color: white;
+		background: color-mix(in srgb, var(--danger-bg) 72%, var(--surface-panel));
+	}
+
+	.announcement-maintenance .banner-content::before {
+		background: var(--danger);
+	}
+
+	@media (max-width: 640px) {
+		.banner-content {
+			align-items: flex-start;
+			flex-wrap: wrap;
+		}
+
+		.dismiss-btn {
+			padding-left: calc(3px + var(--spacing-md));
+		}
 	}
 </style>

@@ -3,6 +3,7 @@
 	import type { OrganizationMemberPermissions } from '$lib/types';
 	import AvatarMenu from './ui/AvatarMenu.svelte';
 	import NotificationBell from './ui/NotificationBell.svelte';
+	import { getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
 
 	interface OrgInfo {
 		id: string;
@@ -35,87 +36,51 @@
 	}: Props = $props();
 
 	const pathname = $derived($page.url.pathname);
-
-	const isDashboardActive = $derived(pathname === `/org/${orgId}`);
-	const isCalendarActive = $derived(pathname.startsWith(`/org/${orgId}/calendar`));
-	const isPersonnelActive = $derived(pathname.startsWith(`/org/${orgId}/personnel`));
-	const isTrainingActive = $derived(pathname.startsWith(`/org/${orgId}/training`));
-	const isOnboardingActive = $derived(pathname.startsWith(`/org/${orgId}/onboarding`));
-	// Leaders Book temporarily hidden during redesign
-	// const isLeadersBookActive = $derived(pathname.startsWith(`/org/${orgId}/leaders-book`));
+	const navItems = $derived(getOrgNavigation(orgId, permissions).filter((item) => item.visible));
+	const activeNavItem = $derived(navItems.find((item) => isOrgNavItemActive(pathname, item)) ?? navItems[0]);
 </script>
 
 <header class="top-header">
 	<a href="#main-content" class="skip-link">Skip to main content</a>
-	<div class="header-left">
-		<a href="/org/{orgId}" class="logo-link">
-			<span class="header-mark">T2T</span>
-			<span class="header-logotype">Troop to Task</span>
-		</a>
-		<span class="header-org-name">{orgName}</span>
-	</div>
+	<div class="header-shell">
+		<div class="header-left">
+			<a href="/org/{orgId}" class="logo-link" aria-label="Troop to Task dashboard">
+				<span class="header-mark">T2T</span>
+				<span class="header-brand-text">
+					<span class="header-logotype">Troop to Task</span>
+					<span class="header-active-label">{activeNavItem?.label ?? 'Dashboard'}</span>
+				</span>
+			</a>
 
-	<nav class="header-nav">
-		<a
-			href="/org/{orgId}"
-			class="nav-tab"
-			class:active={isDashboardActive}
-			aria-current={isDashboardActive ? 'page' : undefined}
-		>
-			Dashboard
-		</a>
-		{#if permissions.canViewCalendar}
-			<a
-				href="/org/{orgId}/calendar"
-				class="nav-tab"
-				class:active={isCalendarActive}
-				aria-current={isCalendarActive ? 'page' : undefined}
-			>
-				Calendar
-			</a>
-		{/if}
-		{#if permissions.canViewPersonnel}
-			<a
-				href="/org/{orgId}/personnel"
-				class="nav-tab"
-				class:active={isPersonnelActive}
-				aria-current={isPersonnelActive ? 'page' : undefined}
-			>
-				Personnel
-			</a>
-		{/if}
-		{#if permissions.canViewTraining}
-			<a
-				href="/org/{orgId}/training"
-				class="nav-tab"
-				class:active={isTrainingActive}
-				aria-current={isTrainingActive ? 'page' : undefined}
-			>
-				Training
-			</a>
-		{/if}
-		{#if permissions.canViewOnboarding}
-			<a
-				href="/org/{orgId}/onboarding"
-				class="nav-tab"
-				class:active={isOnboardingActive}
-				aria-current={isOnboardingActive ? 'page' : undefined}
-			>
-				Onboarding
-			</a>
-		{/if}
-		<!-- Leaders Book temporarily hidden during redesign -->
-	</nav>
+			<div class="header-org-block" aria-label="Current organization">
+				<span class="header-org-kicker">Organization</span>
+				<span class="header-org-name">{orgName}</span>
+			</div>
+		</div>
 
-	<div class="header-right">
-		<NotificationBell {orgId} unreadCount={unreadNotificationCount} />
-		<AvatarMenu {orgId} {orgName} {userRole} {allOrgs} {onToggleTheme} {isDarkTheme} {onWhatsNew} />
+		<nav class="header-nav" aria-label="Primary navigation">
+			{#each navItems as item (item.href)}
+				<a
+					href={item.href}
+					class="nav-tab"
+					class:active={isOrgNavItemActive(pathname, item)}
+					aria-current={isOrgNavItemActive(pathname, item) ? 'page' : undefined}
+				>
+					{item.label}
+				</a>
+			{/each}
+		</nav>
+
+		<div class="header-right">
+			<NotificationBell {orgId} unreadCount={unreadNotificationCount} />
+			<AvatarMenu {orgId} {orgName} {userRole} {allOrgs} {onToggleTheme} {isDarkTheme} {onWhatsNew} />
+		</div>
 	</div>
 </header>
 
 <style>
 	:global(:root) {
-		--header-height: 56px;
+		--header-height: 68px;
 	}
 
 	.top-header {
@@ -127,20 +92,26 @@
 		background: var(--color-chrome);
 		color: var(--color-chrome-text);
 		border-bottom: 1px solid var(--color-chrome-border);
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0 var(--spacing-lg);
 		z-index: calc(var(--z-sticky) + 100);
 		box-sizing: border-box;
 	}
 
-	/* Left zone */
+	.header-shell {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		gap: clamp(var(--spacing-md), 2vw, var(--spacing-xl));
+		height: 100%;
+		max-width: 1680px;
+		margin: 0 auto;
+		padding: 0 clamp(var(--spacing-md), 2vw, var(--spacing-lg));
+	}
+
 	.header-left {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
-		flex-shrink: 0;
+		gap: clamp(var(--spacing-sm), 1.5vw, var(--spacing-lg));
+		min-width: 0;
 	}
 
 	.logo-link {
@@ -149,95 +120,144 @@
 		gap: var(--spacing-sm);
 		text-decoration: none;
 		color: var(--color-chrome-text);
+		min-width: 0;
 	}
 
 	.header-mark {
 		font-family: var(--font-mono);
-		font-size: 0.6875rem;
-		font-weight: 500;
-		letter-spacing: 0.05em;
-		background: var(--color-chrome-active);
-		color: var(--color-chrome);
-		padding: 0.2rem 0.4rem;
-		border-radius: 4px;
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		border: 1px solid rgba(var(--amber-rgb), 0.4);
+		color: var(--color-chrome-active);
+		padding: 0.4rem 0.5rem;
+		border-radius: var(--radius-md);
 		line-height: 1;
+		flex-shrink: 0;
+	}
+
+	.header-brand-text {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
 	}
 
 	.header-logotype {
 		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 400;
-		letter-spacing: -0.01em;
+		font-size: 1.25rem;
+		font-weight: var(--font-weight-display);
+		letter-spacing: 0.02em;
+		text-transform: uppercase;
+		line-height: 0.95;
+	}
+
+	.header-active-label,
+	.header-org-kicker {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		line-height: 1.3;
+	}
+
+	.header-active-label {
+		color: var(--color-chrome-text-muted);
+	}
+
+	.header-org-block {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding-left: clamp(var(--spacing-sm), 1vw, var(--spacing-md));
+		border-left: 1px solid var(--color-chrome-border);
+		min-width: 0;
+	}
+
+	.header-org-kicker {
+		color: var(--color-chrome-text-muted);
 	}
 
 	.header-org-name {
-		color: var(--color-chrome-text-muted);
-		font-size: var(--font-size-xs);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-chrome-text);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
-	/* Center zone */
 	.header-nav {
 		display: flex;
 		align-items: center;
-		height: 100%;
-		gap: var(--spacing-xs);
+		justify-content: center;
+		gap: 0;
+		min-width: 0;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.header-nav::-webkit-scrollbar {
+		display: none;
 	}
 
 	.nav-tab {
 		display: flex;
 		align-items: center;
-		height: 100%;
-		padding: 0 var(--spacing-md);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
+		justify-content: center;
+		height: 2.5rem;
+		padding: 0 0.875rem;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 		color: var(--color-chrome-text-muted);
 		text-decoration: none;
-		border-bottom: 3px solid transparent;
+		border: 1px solid transparent;
+		border-radius: var(--radius-md);
 		box-sizing: border-box;
-		transition: color var(--transition-fast);
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast),
+			background var(--transition-fast);
 		white-space: nowrap;
 	}
 
 	.nav-tab:hover {
 		color: var(--color-chrome-text);
+		border-color: rgba(240, 239, 233, 0.12);
+		background: rgba(240, 239, 233, 0.03);
 	}
 
 	.nav-tab.active {
 		color: var(--color-chrome-active);
-		border-bottom-color: var(--color-chrome-active);
+		border-color: rgba(var(--amber-rgb), 0.42);
+		background: rgba(var(--amber-rgb), 0.08);
 	}
 
-	.beta-badge {
-		font-family: var(--font-mono);
-		font-size: 9px;
-		font-weight: 500;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		background: rgba(184, 148, 62, var(--opacity-medium));
-		color: var(--color-chrome-active);
-		padding: 2px 6px;
-		border-radius: 3px;
-		margin-left: 6px;
-	}
-
-	/* Right zone */
 	.header-right {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-sm);
-		flex-shrink: 0;
+		justify-self: end;
 	}
 
 	.skip-link {
 		position: absolute;
 		top: -100%;
 		left: var(--spacing-md);
-		background: var(--color-primary);
-		color: white;
+		background: var(--surface-panel);
+		color: var(--text-primary);
 		padding: var(--spacing-sm) var(--spacing-md);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
 		z-index: 200;
-		font-weight: 600;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 		text-decoration: none;
 	}
 
@@ -245,19 +265,63 @@
 		top: var(--spacing-sm);
 	}
 
-	/* Mobile (< 640px) */
-	@media (max-width: 640px) {
+	@media (max-width: 920px) {
+		.header-shell {
+			grid-template-columns: minmax(0, 1fr) auto;
+		}
+
 		.header-nav {
 			display: none;
 		}
+	}
 
-		.header-logotype,
-		.header-org-name {
-			display: none;
+	@media (max-width: 640px) {
+		:global(:root) {
+			--header-height: 60px;
 		}
 
 		.top-header {
-			padding: 0 var(--spacing-md);
+			height: var(--header-height);
+		}
+
+		.header-shell {
+			padding-inline: var(--spacing-md);
+			gap: var(--spacing-sm);
+		}
+
+		.header-left {
+			gap: var(--spacing-sm);
+		}
+
+		.header-logotype {
+			font-size: 1.05rem;
+		}
+
+		.header-active-label {
+			display: none;
+		}
+
+		.header-org-block {
+			min-width: 0;
+			padding-left: var(--spacing-sm);
+		}
+
+		.header-org-kicker {
+			display: none;
+		}
+
+		.header-org-name {
+			font-size: var(--text-xs);
+		}
+
+		.header-right {
+			gap: var(--spacing-xs);
+		}
+	}
+
+	@media (max-width: 480px) {
+		.header-org-block {
+			display: none;
 		}
 	}
 </style>

@@ -248,6 +248,21 @@
 <Modal title="Bulk Training Import" {onClose} width="800px" titleId="bulk-training-title" canClose={!isSubmitting}>
 	{#if importState === 'input'}
 		<div class="input-section">
+			<div class="import-summary">
+				<div class="summary-copy">
+					<p class="summary-eyebrow">Import Records</p>
+					<p class="summary-text">
+						Bring in completions or exemptions in bulk, then validate the rows before anything is saved.
+					</p>
+				</div>
+				<div class="summary-meta">
+					<span class="summary-chip">{trainingTypes.length} training types</span>
+					{#if uploadedFileName}
+						<span class="summary-chip">{uploadedFileName}</span>
+					{/if}
+				</div>
+			</div>
+
 			<!-- Available training types -->
 			<div class="info-box">
 				<h4>Available Training Types</h4>
@@ -307,6 +322,7 @@
 					<h4>Paste Data</h4>
 					<button
 						class="btn btn-secondary btn-sm"
+						type="button"
 						onclick={() => {
 							importText = exampleCsv;
 						}}
@@ -326,10 +342,16 @@
 		</div>
 	{:else if importState === 'preview'}
 		<div class="preview-section">
-			<p class="hint">
-				Review the data below. Double-click any cell to edit. Rows with errors are shown with red highlighting and will
-				not be imported unless fixed.
-			</p>
+			<div class="import-summary">
+				<div class="summary-copy">
+					<p class="summary-eyebrow">Preview</p>
+					<p class="summary-text">Double-click any cell to correct it before importing the checked rows.</p>
+				</div>
+				<div class="summary-meta">
+					<span class="summary-chip">{rawRows.length} rows loaded</span>
+				</div>
+			</div>
+			<p class="hint">Rows with errors are highlighted and will stay out of the import until they’re fixed.</p>
 			<BulkImportTable bind:this={bulkTable} {rawRows} columnDefs={TRAINING_COLUMNS} {validateRow} />
 			{#if importError}
 				<p class="text-error" style="margin-top: var(--spacing-sm); font-size: var(--font-size-sm);">
@@ -375,22 +397,24 @@
 
 	{#snippet footer()}
 		{#if importState === 'input'}
-			<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-			<button class="btn btn-primary" onclick={handleTextParse} disabled={!importText.trim()}> Preview </button>
+			<button class="btn btn-secondary" type="button" onclick={onClose}>Cancel</button>
+			<button class="btn btn-primary" type="button" onclick={handleTextParse} disabled={!importText.trim()}>
+				Preview
+			</button>
 		{:else if importState === 'preview'}
-			<button class="btn btn-secondary" onclick={handleBack}>Back</button>
-			<button class="btn btn-primary" onclick={handleImport} disabled={isSubmitting}>
+			<button class="btn btn-secondary" type="button" onclick={handleBack}>Back</button>
+			<button class="btn btn-primary" type="button" onclick={handleImport} disabled={isSubmitting}>
 				{#if isSubmitting}<Spinner />{/if}
 				Import
 			</button>
 		{:else if importState === 'importing'}
-			<button class="btn btn-secondary" disabled>Back</button>
-			<button class="btn btn-primary" disabled>
+			<button class="btn btn-secondary" type="button" disabled>Back</button>
+			<button class="btn btn-primary" type="button" disabled>
 				<Spinner />
 				Importing...
 			</button>
 		{:else if importState === 'results'}
-			<button class="btn btn-primary" onclick={handleDone}>Done</button>
+			<button class="btn btn-primary" type="button" onclick={handleDone}>Done</button>
 		{/if}
 	{/snippet}
 </Modal>
@@ -402,6 +426,61 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
+	}
+
+	.import-summary {
+		display: flex;
+		align-items: start;
+		justify-content: space-between;
+		gap: var(--sp-4);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
+	}
+
+	.summary-copy {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.summary-eyebrow {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
+	}
+
+	.summary-text {
+		margin: 0;
+		font-size: var(--text-sm);
+		line-height: 1.65;
+		color: var(--text-secondary);
+	}
+
+	.summary-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	.summary-chip {
+		display: inline-flex;
+		align-items: center;
+		padding: var(--sp-2) var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.importing-state {
@@ -416,58 +495,68 @@
 	}
 
 	.info-box {
-		padding: var(--spacing-md);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
+		padding: var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
 	}
 
 	.info-box h4 {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-sm);
+		margin: 0 0 var(--sp-3);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-secondary);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.type-chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 	}
 
 	.type-chip {
-		padding: 2px 8px;
+		padding: var(--sp-1) var(--sp-2);
 		border-radius: var(--radius-sm);
-		font-size: var(--font-size-xs);
-		font-weight: 500;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 		color: white;
 	}
 
 	.type-hint {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		margin: var(--spacing-sm) 0 0;
-		font-style: italic;
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		margin: var(--sp-3) 0 0;
+		line-height: 1.5;
 	}
 
 	.upload-section {
-		padding: var(--spacing-md);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
-		border: 2px dashed var(--color-border);
+		padding: var(--sp-4);
+		background: var(--surface-panel);
+		border-radius: var(--radius-lg);
+		border: 1px dashed var(--border-strong);
 	}
 
 	.upload-section h4 {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-xs);
+		margin: 0 0 var(--sp-2);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-secondary);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.upload-row {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		margin: var(--spacing-sm) 0;
+		gap: var(--sp-3);
+		margin: var(--sp-3) 0;
 	}
 
 	.file-input {
@@ -482,22 +571,28 @@
 	}
 
 	.format-hint {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 		margin: 0;
+		line-height: 1.5;
 	}
 
 	.hint {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 		margin: 0;
+		line-height: 1.65;
 	}
 
 	.divider {
 		display: flex;
 		align-items: center;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.divider::before,
@@ -509,38 +604,43 @@
 	}
 
 	.divider span {
-		padding: 0 var(--spacing-md);
+		padding: 0 var(--sp-4);
 	}
 
 	.paste-section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 	}
 
 	.example-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		gap: var(--sp-3);
 	}
 
 	.example-header h4 {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text);
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-secondary);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 		margin: 0;
 	}
 
 	.import-textarea {
-		font-family: monospace;
-		font-size: var(--font-size-sm);
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
 		resize: vertical;
 	}
 
 	/* Results */
 	.result-grid {
 		display: flex;
-		gap: var(--spacing-md);
+		gap: var(--sp-3);
 		flex-wrap: wrap;
 	}
 
@@ -548,41 +648,51 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding: var(--spacing-md) var(--spacing-lg);
-		border-radius: var(--radius-md);
+		padding: var(--sp-4) var(--sp-5);
+		border-radius: var(--radius-lg);
 		min-width: 100px;
+		border: var(--border-thin);
 	}
 
 	.result-card.inserted {
-		background: rgba(34, 197, 94, 0.1);
-		border: 1px solid #22c55e;
+		background: color-mix(in srgb, var(--success-bg) 84%, var(--surface-panel) 16%);
+		border-color: color-mix(in srgb, var(--success) 28%, var(--border-default));
 	}
 
 	.result-card.updated {
-		background: rgba(59, 130, 246, 0.1);
-		border: 1px solid var(--color-info);
+		background: color-mix(in srgb, var(--info-bg) 84%, var(--surface-panel) 16%);
+		border-color: color-mix(in srgb, var(--info) 28%, var(--border-default));
 	}
 
 	.result-card.exempted {
-		background: rgba(168, 85, 247, 0.1);
-		border: 1px solid #a855f7;
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		border-color: var(--border-default);
 	}
 
 	.result-card.errored {
-		background: rgba(239, 68, 68, 0.1);
-		border: 1px solid #ef4444;
+		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
+		border-color: color-mix(in srgb, var(--danger) 28%, var(--border-default));
 	}
 
 	.result-value {
-		font-size: var(--font-size-lg);
-		font-weight: 700;
-		color: var(--color-text);
+		font-family: var(--font-display);
+		font-size: clamp(1.5rem, 1.3rem + 0.2vw, 1.75rem);
+		font-weight: var(--font-weight-display);
+		color: var(--text-primary);
 	}
 
 	.result-label {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: var(--letter-spacing-mono);
+	}
+
+	@media (max-width: 640px) {
+		.import-summary {
+			flex-direction: column;
+			align-items: stretch;
+		}
 	}
 </style>

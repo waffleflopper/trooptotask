@@ -24,14 +24,16 @@ describe('queueUserPreferencesPatch', () => {
 		} as unknown as Response);
 		invalidateMock.mockResolvedValue(undefined);
 
-		await expect(queueUserPreferencesPatch('org-123', { calendar: { lastViewed: 'month' } })).resolves.toEqual(
+		await expect(
+			queueUserPreferencesPatch('org-123', { calendar: { showStatusText: true } })
+		).resolves.toEqual(
 			preferences
 		);
 
 		expect(globalThis.fetch).toHaveBeenCalledWith('/org/org-123/api/user-preferences', {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ calendar: { lastViewed: 'month' } })
+			body: JSON.stringify({ calendar: { showStatusText: true } })
 		});
 		expect(invalidateMock).toHaveBeenCalledWith('app:org-core');
 	});

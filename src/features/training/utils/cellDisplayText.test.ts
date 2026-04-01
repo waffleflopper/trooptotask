@@ -27,49 +27,49 @@ function makeTraining(overrides: Partial<PersonnelTraining> = {}): PersonnelTrai
 }
 
 describe('getCellDisplayText', () => {
-	it('returns completion date for current status with a completion date', () => {
+	it('returns an inline current label with compact expiration date when available', () => {
 		const result = getCellDisplayText(
 			makeStatusInfo({ status: 'current' }),
 			makeTraining({ completionDate: '2026-01-15' }),
 			false
 		);
-		expect(result).toBe('2026-01-15');
+		expect(result).toBe('Current 01/2027');
 	});
 
-	it('returns expiration date for expiration-date-only types', () => {
+	it('returns an inline current label for expiration-date-only types', () => {
 		const result = getCellDisplayText(
 			makeStatusInfo({ status: 'current' }),
 			makeTraining({ expirationDate: '2027-01-15', completionDate: null }),
 			true
 		);
-		expect(result).toBe('2027-01-15');
+		expect(result).toBe('Current 01/2027');
 	});
 
-	it('returns completion date for warning-yellow status', () => {
+	it('returns warning label with compact date for warning-yellow status', () => {
 		const result = getCellDisplayText(
 			makeStatusInfo({ status: 'warning-yellow', label: '45d left', daysUntilExpiration: 45 }),
 			makeTraining({ completionDate: '2025-12-01' }),
 			false
 		);
-		expect(result).toBe('2025-12-01');
+		expect(result).toBe('45d left 01/2027');
 	});
 
-	it('returns completion date for warning-orange status', () => {
+	it('returns warning label with compact date for warning-orange status', () => {
 		const result = getCellDisplayText(
 			makeStatusInfo({ status: 'warning-orange', label: '15d left', daysUntilExpiration: 15 }),
 			makeTraining({ completionDate: '2025-11-01' }),
 			false
 		);
-		expect(result).toBe('2025-11-01');
+		expect(result).toBe('15d left 01/2027');
 	});
 
-	it('returns completion date for expired status', () => {
+	it('returns expired label with compact date for expired status', () => {
 		const result = getCellDisplayText(
-			makeStatusInfo({ status: 'expired' }),
+			makeStatusInfo({ status: 'expired', label: 'Expired 2d ago' }),
 			makeTraining({ completionDate: '2024-06-01' }),
 			false
 		);
-		expect(result).toBe('2024-06-01');
+		expect(result).toBe('Expired 2d ago 01/2027');
 	});
 
 	it('returns "Current" for never-expires training (no date)', () => {
@@ -91,9 +91,9 @@ describe('getCellDisplayText', () => {
 		expect(result).toBe('Exempt');
 	});
 
-	it('returns "N/R" for not-required status', () => {
+	it('returns "N/A" for not-required status', () => {
 		const result = getCellDisplayText(makeStatusInfo({ status: 'not-required' }), undefined, false);
-		expect(result).toBe('N/R');
+		expect(result).toBe('N/A');
 	});
 
 	it('returns "Not Done" when no training record exists for required training', () => {

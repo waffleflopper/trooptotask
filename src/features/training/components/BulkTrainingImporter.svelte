@@ -248,6 +248,21 @@
 <Modal title="Bulk Training Import" {onClose} width="800px" titleId="bulk-training-title" canClose={!isSubmitting}>
 	{#if importState === 'input'}
 		<div class="input-section">
+			<div class="import-summary">
+				<div class="summary-copy">
+					<p class="summary-eyebrow">Import Records</p>
+					<p class="summary-text">
+						Bring in completions or exemptions in bulk, then validate the rows before anything is saved.
+					</p>
+				</div>
+				<div class="summary-meta">
+					<span class="summary-chip">{trainingTypes.length} training types</span>
+					{#if uploadedFileName}
+						<span class="summary-chip">{uploadedFileName}</span>
+					{/if}
+				</div>
+			</div>
+
 			<!-- Available training types -->
 			<div class="info-box">
 				<h4>Available Training Types</h4>
@@ -327,10 +342,16 @@
 		</div>
 	{:else if importState === 'preview'}
 		<div class="preview-section">
-			<p class="hint">
-				Review the data below. Double-click any cell to edit. Rows with errors are shown with red highlighting and will
-				not be imported unless fixed.
-			</p>
+			<div class="import-summary">
+				<div class="summary-copy">
+					<p class="summary-eyebrow">Preview</p>
+					<p class="summary-text">Double-click any cell to correct it before importing the checked rows.</p>
+				</div>
+				<div class="summary-meta">
+					<span class="summary-chip">{rawRows.length} rows loaded</span>
+				</div>
+			</div>
+			<p class="hint">Rows with errors are highlighted and will stay out of the import until they’re fixed.</p>
 			<BulkImportTable bind:this={bulkTable} {rawRows} columnDefs={TRAINING_COLUMNS} {validateRow} />
 			{#if importError}
 				<p class="text-error" style="margin-top: var(--spacing-sm); font-size: var(--font-size-sm);">
@@ -405,6 +426,61 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
+	}
+
+	.import-summary {
+		display: flex;
+		align-items: start;
+		justify-content: space-between;
+		gap: var(--sp-4);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
+	}
+
+	.summary-copy {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.summary-eyebrow {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
+	}
+
+	.summary-text {
+		margin: 0;
+		font-size: var(--text-sm);
+		line-height: 1.65;
+		color: var(--text-secondary);
+	}
+
+	.summary-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	.summary-chip {
+		display: inline-flex;
+		align-items: center;
+		padding: var(--sp-2) var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.importing-state {
@@ -611,5 +687,12 @@
 		color: var(--text-secondary);
 		text-transform: uppercase;
 		letter-spacing: var(--letter-spacing-mono);
+	}
+
+	@media (max-width: 640px) {
+		.import-summary {
+			flex-direction: column;
+			align-items: stretch;
+		}
 	}
 </style>

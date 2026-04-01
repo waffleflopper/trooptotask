@@ -374,6 +374,7 @@
 		flex: 1;
 		min-height: 0;
 		overflow: hidden;
+		padding: var(--sp-2);
 	}
 
 	.view-panel {
@@ -399,8 +400,12 @@
 		.filter-bar,
 		.view-panel,
 		.skeleton-matrix-wrapper {
-			padding-left: var(--sp-2);
-			padding-right: var(--sp-2);
+			padding-left: 0;
+			padding-right: 0;
+		}
+
+		.page-content {
+			padding: var(--sp-2);
 		}
 
 		.filter-bar {
@@ -430,8 +435,8 @@
 		.filter-bar,
 		.view-panel,
 		.skeleton-matrix-wrapper {
-			padding-left: var(--sp-3);
-			padding-right: var(--sp-3);
+			padding-left: 0;
+			padding-right: 0;
 		}
 	}
 </style>

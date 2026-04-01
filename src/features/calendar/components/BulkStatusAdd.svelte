@@ -3,6 +3,7 @@
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 
@@ -178,12 +179,7 @@
 						</select>
 						{#if selectedStatus}
 							<div class="field-support">
-								<span
-									class="status-badge"
-									style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-								>
-									{selectedStatus.name}
-								</span>
+								<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
 								<span class="field-hint">Selected status</span>
 							</div>
 						{/if}
@@ -235,12 +231,7 @@
 					<h3 class="summary-heading">Ready to apply</h3>
 					{#if selectedIds.size > 0 && selectedStatus && !dateError}
 						<div class="summary-line">
-							<span
-								class="summary-badge"
-								style="background-color: {selectedStatus.color}; color: {selectedStatus.textColor}"
-							>
-								{selectedStatus.name}
-							</span>
+							<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
 							<span class="summary-copy">
 								<strong>{selectedIds.size}</strong>
 								{selectedIds.size === 1 ? 'person' : 'people'}
@@ -278,10 +269,6 @@
 					<span class="pane-eyebrow">Step 2</span>
 					<h2 class="pane-title">Choose personnel</h2>
 					<p class="pane-copy">Search by name, select an entire group, or click individual rows.</p>
-					<div class="selection-meta">
-						<span class="selection-chip strong">{selectedIds.size} selected</span>
-						<span class="selection-chip">{allPersonnel.length} available</span>
-					</div>
 				</div>
 
 				<div class="personnel-section">
@@ -297,8 +284,8 @@
 						{#snippet toolbar(_state)}
 							<div class="selection-toolbar">
 								<div class="selection-stats">
-									<span class="selected-count">{selectedIds.size} selected</span>
-									<span class="visible-count">{table.totalRows} shown</span>
+									<Badge label={`${selectedIds.size} selected`} variant="outlined" />
+									<Badge label={`${table.totalRows} shown`} variant="outlined" />
 								</div>
 								<div class="selection-actions">
 									<button class="btn btn-secondary btn-sm" onclick={selectVisible}>Select shown</button>
@@ -446,18 +433,6 @@
 		align-items: start;
 	}
 
-	.status-badge,
-	.summary-badge,
-	.selection-chip,
-	.selected-count,
-	.visible-count {
-		display: inline-flex;
-		align-items: center;
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-sm);
-		line-height: 1;
-	}
-
 	.day-count-number {
 		font-size: var(--font-size-sm);
 		font-weight: 600;
@@ -470,12 +445,6 @@
 		padding: var(--spacing-xs) var(--spacing-sm);
 		background: var(--color-error-tint);
 		border-radius: var(--radius-sm);
-	}
-
-	.status-badge,
-	.summary-badge {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-weight: 500;
 	}
 
 	.summary-card {
@@ -495,7 +464,6 @@
 	}
 
 	.summary-line,
-	.selection-meta,
 	.selection-stats,
 	.selection-toolbar {
 		display: flex;
@@ -523,24 +491,6 @@
 
 	.apply-button {
 		width: 100%;
-	}
-
-	.selection-chip,
-	.selected-count,
-	.visible-count {
-		padding: 8px 12px;
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		background: var(--color-surface-variant);
-		color: var(--color-text-secondary);
-		border: 1px solid var(--color-border);
-	}
-
-	.selection-chip.strong,
-	.selected-count {
-		background: rgba(var(--color-primary-rgb), 0.12);
-		border-color: rgba(var(--color-primary-rgb), 0.22);
-		color: var(--color-text);
 	}
 
 	.personnel-section {

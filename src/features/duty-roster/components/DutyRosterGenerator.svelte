@@ -5,6 +5,7 @@
 	import type { RosterHistoryItem, RosterHistoryEntry, DA6Data } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import SubNav from '$lib/components/ui/SubNav.svelte';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
@@ -1094,7 +1095,6 @@
 								<h3>Eligible Personnel</h3>
 								<p class="hint">Search, select by group, or fine-tune the roster pool directly.</p>
 							</div>
-							<div class="eligible-count">{selectedEligibleIds.size} selected</div>
 						</div>
 
 						<div class="personnel-table-wrap">
@@ -1110,8 +1110,8 @@
 								{#snippet toolbar(_state)}
 									<div class="selection-toolbar">
 										<div class="selection-stats">
-											<span class="selection-count">{selectedEligibleIds.size} selected</span>
-											<span class="selection-count muted">{eligibleTable.totalRows} shown</span>
+											<Badge label={`${selectedEligibleIds.size} selected`} variant="outlined" />
+											<Badge label={`${eligibleTable.totalRows} shown`} variant="outlined" />
 										</div>
 										<div class="selection-actions">
 											<button class="btn btn-secondary btn-sm" onclick={selectVisibleEligible}>Select shown</button>
@@ -1179,7 +1179,6 @@
 									<p class="hint">These people will never be assigned this duty type.</p>
 								</div>
 								<div class="panel-actions">
-									<div class="exempt-count">{draftExemptIds.size} exempted</div>
 									<button
 										class="btn btn-primary btn-sm"
 										onclick={saveExemptions}
@@ -1203,8 +1202,8 @@
 									{#snippet toolbar(_state)}
 										<div class="selection-toolbar">
 											<div class="selection-stats">
-												<span class="selection-count">{draftExemptIds.size} selected</span>
-												<span class="selection-count muted">{exemptTable.totalRows} shown</span>
+												<Badge label={`${draftExemptIds.size} selected`} variant="outlined" />
+												<Badge label={`${exemptTable.totalRows} shown`} variant="outlined" />
 											</div>
 											<div class="selection-actions">
 												<button class="btn btn-secondary btn-sm" onclick={selectVisibleExempt}>Select shown</button>
@@ -1428,54 +1427,54 @@
 	.chip-list {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 	}
 
 	.pane-eyebrow {
 		margin: 0 0 var(--spacing-xs);
-		font-size: var(--font-size-xs);
-		font-weight: 700;
-		letter-spacing: 0.08em;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
 		text-transform: uppercase;
-		color: var(--color-primary);
+		color: var(--amber-dark);
 	}
 
 	.chip {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-xs);
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-		color: var(--color-text);
+		appearance: none;
+		padding: 4px 8px;
+		border-radius: var(--radius-sm);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		border: 1px solid var(--border-default);
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.chip:hover {
-		border-color: var(--color-primary);
+		border-color: var(--ink-35);
+		background: var(--surface-panel);
+		color: var(--text-primary);
 	}
 
 	.chip.selected {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
-		color: var(--color-chrome);
+		background: var(--amber-light);
+		border-color: var(--amber);
+		color: var(--amber-dark);
 	}
 
 	.chip.status-chip.selected {
 		background: var(--chip-color);
 		border-color: var(--chip-color);
 		color: var(--chip-text);
-	}
-
-	.eligible-count,
-	.exempt-count {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
-		text-align: center;
-		margin-top: 0;
 	}
 
 	.personnel-card {
@@ -1520,24 +1519,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--spacing-xs);
-	}
-
-	.selection-count {
-		display: inline-flex;
-		align-items: center;
-		padding: 8px 12px;
-		border-radius: var(--radius-full);
-		border: 1px solid rgba(var(--color-primary-rgb), 0.18);
-		background: rgba(var(--color-primary-rgb), 0.08);
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-	}
-
-	.selection-count.muted {
-		border-color: var(--color-border);
-		background: var(--color-surface-variant);
-		color: var(--color-text-secondary);
 	}
 
 	.group-header-content {

@@ -108,7 +108,7 @@
 	--border-default: var(--ink-15);
 
 	--cell-width: 36px;
-	--cell-height: 32px;
+	--cell-height: 30px;
 	--personnel-column-width: 200px;
 	--header-height: 56px;
 	--field-row-gap: var(--sp-4);
@@ -860,7 +860,7 @@ input[type='checkbox']:focus-visible {
 @media (max-width: 640px) {
 	:root {
 		--cell-width: 32px;
-		--cell-height: 36px;
+		--cell-height: 34px;
 		--personnel-column-width: 120px;
 		--spacing-lg: 16px;
 		--spacing-xl: 24px;
@@ -902,7 +902,7 @@ input[type='checkbox']:focus-visible {
 @media (min-width: 641px) and (max-width: 1024px) {
 	:root {
 		--cell-width: 36px;
-		--cell-height: 34px;
+		--cell-height: 32px;
 		--personnel-column-width: 160px;
 	}
 }

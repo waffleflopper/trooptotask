@@ -177,18 +177,22 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-		background: var(--color-bg);
+		background: var(--surface-page);
 	}
 
 	.page-content {
+		flex: 1;
+		display: flex;
 		overflow: hidden;
+		padding: var(--sp-5) var(--sp-6) var(--sp-6);
 	}
 
 	.calendar-section {
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-4);
+		width: 100%;
 		overflow: hidden;
 	}
 
@@ -197,54 +201,86 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		min-height: 300px;
+		min-height: 320px;
+		margin: var(--sp-6);
+		padding: var(--sp-8);
 		text-align: center;
-		color: var(--color-text-muted);
+		color: var(--text-secondary);
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
 	}
 
 	.no-permission h2 {
-		font-size: var(--font-size-lg);
-		margin-bottom: var(--spacing-sm);
-		color: var(--color-text);
+		margin: 0 0 var(--sp-2);
+		font-family: var(--font-display);
+		font-size: clamp(1.5rem, 1.2rem + 0.8vw, 2.1rem);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--text-primary);
+	}
+
+	.no-permission p {
+		margin: 0;
+		max-width: 44ch;
+		font-family: var(--font-body);
+		line-height: var(--line-height-copy);
 	}
 
 	.toolbar-toggle {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		color: var(--color-text-muted);
+		gap: var(--sp-2);
+		min-height: 34px;
+		padding: 7px 12px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--text-secondary);
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.toolbar-toggle:hover {
-		border-color: var(--color-primary);
-		color: var(--color-text);
+		border-color: var(--ink-35);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
 	}
 
 	.toolbar-toggle.active {
-		border-color: var(--color-primary);
-		color: var(--color-primary);
-		background: var(--color-onboarding-tint);
+		border-color: var(--amber);
+		color: var(--amber-dark);
+		background: var(--amber-light);
 	}
 
 	.toggle-dot {
-		width: 7px;
-		height: 7px;
-		border-radius: 50%;
-		background: var(--color-border);
-		transition: background 0.15s ease;
+		width: 8px;
+		height: 8px;
+		border-radius: 1px;
+		background: var(--border-default);
+		transition: background-color var(--transition-fast);
 	}
 
 	.toolbar-toggle.active .toggle-dot {
-		background: var(--color-primary);
+		background: var(--amber);
 	}
 
-	/* Mobile styles — .page-content mobile in app.css */
+	@media (max-width: 640px) {
+		.page-content {
+			padding: var(--sp-4);
+		}
+
+		.no-permission {
+			margin: var(--sp-4);
+			padding: var(--sp-6) var(--sp-4);
+		}
+	}
 </style>

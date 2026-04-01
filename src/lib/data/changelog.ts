@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-04-01-calendar-workspace-finish-pass',
+		date: '2026-04-01',
+		title: 'The Calendar Workspace Looks More Intentional From End to End',
+		items: [
+			'The main calendar, long-range view, settings pages, and report picker were cleaned up so they feel like parts of the same product instead of a mix of old and new layouts',
+			'Bulk status tools and duty-roster lists now use calmer hover states and cleaner status badges, which makes scanning personnel lists a lot less visually weird',
+			'Calendar rows were tightened up a bit too, so you can see a little more of the month without the grid feeling squashed'
+		]
+	},
+	{
 		id: '2026-04-01-dashboard-entry-refresh',
 		date: '2026-04-01',
 		title: 'The Dashboard and Sign-In Landing Screens Got a Much Better First Impression',

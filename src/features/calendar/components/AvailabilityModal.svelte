@@ -160,7 +160,7 @@
 	}
 </script>
 
-<Modal title="Set Status" {onClose} width="480px" titleId="availability-title">
+<Modal title="Set Personnel Status" {onClose} width="520px" titleId="availability-title">
 	<!-- Person Info -->
 	<div class="person-info">
 		<div class="person-name">
@@ -309,59 +309,71 @@
 	.person-info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
-		padding-bottom: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
-		margin-bottom: var(--spacing-md);
+		gap: var(--sp-2);
+		padding-bottom: var(--sp-4);
+		border-bottom: var(--border-thin);
+		margin-bottom: var(--sp-4);
 	}
 
 	.person-name {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		font-size: var(--font-size-lg);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
 	}
 
 	.person-name .rank {
-		font-weight: 700;
-		color: var(--color-primary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
 	}
 
 	.person-name .name {
-		font-weight: 600;
+		font-family: var(--font-display);
+		font-size: clamp(1.35rem, 1.1rem + 0.6vw, 1.8rem);
+		font-weight: var(--font-weight-display);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
 	}
 
 	.clicked-date {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-family: var(--font-body);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 	}
 
 	.existing-entries {
-		margin-bottom: var(--spacing-md);
-		padding-bottom: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
+		margin-bottom: var(--sp-4);
+		padding-bottom: var(--sp-4);
+		border-bottom: var(--border-thin);
 	}
 
 	.existing-entries h4,
 	.add-section h4 {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text-muted);
+		margin: 0 0 var(--sp-3);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-secondary);
 		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		margin-bottom: var(--spacing-sm);
+		letter-spacing: var(--letter-spacing-mono);
 	}
 
 	.entry-item {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
-		margin-bottom: var(--spacing-xs);
-		border: 2px solid transparent;
-		transition: border-color 0.15s;
+		gap: var(--sp-3);
+		padding: var(--sp-3);
+		background: var(--surface-subtle);
+		border-radius: var(--radius-sm);
+		margin-bottom: var(--sp-2);
+		border: 1px solid transparent;
+		transition:
+			border-color var(--transition-fast),
+			background-color var(--transition-fast);
 	}
 
 	.entry-item:last-child {
@@ -369,36 +381,41 @@
 	}
 
 	.entry-item.is-editing {
-		border-color: var(--color-primary);
-		background: var(--color-surface);
+		border-color: var(--amber);
+		background: var(--amber-light);
 	}
 
 	.entry-details {
 		flex: 1;
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	.entry-dates {
-		font-size: var(--font-size-sm);
-		font-weight: 500;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
 	}
 
 	.entry-days {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 	}
 
 	.icon-btn {
-		padding: var(--spacing-xs);
+		padding: var(--sp-1);
 		flex-shrink: 0;
 	}
 
 	.status-select-row {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	.status-select-row .select {
@@ -408,7 +425,8 @@
 	.date-range {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	.date-range .form-group {
@@ -417,47 +435,50 @@
 	}
 
 	.date-arrow {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-lg);
-		padding-top: var(--spacing-lg);
+		color: var(--text-tertiary);
+		font-size: 1.1rem;
+		padding-top: 32px;
 	}
 
 	.day-count {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		background: var(--color-bg);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		min-width: 50px;
-		margin-top: var(--spacing-lg);
+		padding: var(--sp-2) var(--sp-3);
+		background: var(--surface-subtle);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		min-width: 60px;
+		margin-top: 28px;
 	}
 
 	.day-count-number {
-		font-size: var(--font-size-lg);
-		font-weight: 700;
-		color: var(--color-primary);
+		font-family: var(--font-display);
+		font-size: 1.5rem;
+		font-weight: var(--font-weight-display);
+		color: var(--amber-dark);
 		line-height: 1;
 	}
 
 	.day-count-label {
-		font-size: 10px;
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
 	}
 
 	.add-section {
-		padding-top: var(--spacing-sm);
+		padding-top: var(--sp-2);
 	}
 
 	.entry-note {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		font-style: italic;
+		font-family: var(--font-body);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		max-width: 120px;
+		max-width: 180px;
 	}
 </style>

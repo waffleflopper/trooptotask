@@ -132,6 +132,7 @@
 						aria-label="{person.lastName} {type.name}: {statusInfo.label}"
 						onclick={() => onCellClick(person, type, training)}
 					>
+						<span class="cell-status-dot" style="background-color: {statusInfo.color}"></span>
 						{displayText}
 					</button>
 				</td>
@@ -142,6 +143,7 @@
 					data-status={statusInfo.status}
 					aria-label="{person.lastName} {type.name}: {statusInfo.label}"
 				>
+					<span class="cell-status-dot" style="background-color: {statusInfo.color}"></span>
 					<span class="heatmap-text">{displayText}</span>
 				</td>
 			{/if}
@@ -292,9 +294,9 @@
 
 	.matrix th,
 	.matrix td {
-		padding: 8px 8px;
+		padding: 4px 8px;
 		border-bottom: var(--border-rule);
-		text-align: center;
+		text-align: left;
 		white-space: nowrap;
 	}
 
@@ -305,9 +307,9 @@
 		background: var(--surface-panel);
 		z-index: 5;
 		text-align: left;
-		width: 196px;
-		min-width: 196px;
-		max-width: 220px;
+		width: 220px;
+		min-width: 220px;
+		max-width: 240px;
 		border-right: var(--border-thin);
 		color: var(--text-primary);
 	}
@@ -349,7 +351,7 @@
 	}
 
 	.type-header {
-		min-width: 80px;
+		min-width: 164px;
 		vertical-align: bottom;
 		background: var(--surface-subtle);
 	}
@@ -448,7 +450,7 @@
 
 	.heatmap-cell {
 		vertical-align: middle;
-		min-width: 80px;
+		min-width: 164px;
 		transition: background-color var(--transition-fast);
 		border-left: var(--border-rule);
 	}
@@ -460,30 +462,37 @@
 	.heatmap-btn {
 		display: flex;
 		align-items: center;
-		justify-content: center;
+		justify-content: flex-start;
 		width: 100%;
 		height: 100%;
-		padding: 6px 4px;
+		padding: 4px 2px;
 		background: transparent;
 		border: none;
 		cursor: pointer;
 		color: var(--text-primary);
-		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		font-weight: var(--font-weight-medium);
 		white-space: nowrap;
+		gap: var(--sp-2);
 	}
 
 	.heatmap-text {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
-		justify-content: center;
-		padding: 6px 4px;
-		font-family: var(--font-mono);
+		padding: 4px 2px;
 		font-size: var(--text-xs);
 		font-weight: var(--font-weight-medium);
 		color: var(--text-primary);
 		white-space: nowrap;
+		gap: var(--sp-2);
+	}
+
+	.cell-status-dot {
+		display: inline-block;
+		width: 0.75rem;
+		height: 0.75rem;
+		border-radius: 999px;
+		flex-shrink: 0;
 	}
 
 	tr:hover .name-cell,
@@ -507,18 +516,18 @@
 		}
 
 		.type-header {
-			min-width: 56px;
+			min-width: 120px;
 		}
 
 		.heatmap-cell {
-			min-width: 56px;
-			min-height: 40px;
+			min-width: 120px;
+			min-height: 32px;
 		}
 
 		.heatmap-btn,
 		.heatmap-text {
 			font-size: 9px;
-			padding: var(--sp-2);
+			padding: 3px 2px;
 		}
 	}
 
@@ -529,7 +538,7 @@
 		}
 
 		.type-header {
-			min-width: 72px;
+			min-width: 144px;
 		}
 	}
 

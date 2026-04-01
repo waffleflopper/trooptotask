@@ -7,6 +7,7 @@
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
 	import type { TrainingStatus } from '$features/training/training.types';
+	import { formatTrainingCellText } from '$features/training/utils/cellDisplayText';
 	import type { Personnel } from '$lib/types';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import {
@@ -174,251 +175,255 @@
 {#if allTypes.length === 0}
 	<EmptyState message="No training types configured. Create training types first." />
 {:else}
-	<div class="report-filters">
-		<div class="filter-row">
-			<label class="filter-field">
-				<span class="filter-label">Group</span>
-				<select class="input filter-select" bind:value={filterGroupId}>
+	<div class="reports-page-shell">
+		<div class="report-filters">
+			<div class="filter-row">
+				<select class="input filter-select" bind:value={filterGroupId} aria-label="Filter by group">
 					<option value="">All Groups</option>
 					{#each allGroups as group (group.id)}
 						<option value={group.id}>{group.name}</option>
 					{/each}
 				</select>
-			</label>
 
-			<label class="filter-field">
-				<span class="filter-label">Rank</span>
-				<select class="input filter-select" bind:value={filterRank}>
+				<select class="input filter-select" bind:value={filterRank} aria-label="Filter by rank">
 					<option value="">All Ranks</option>
 					{#each availableRanks as rank (rank)}
 						<option value={rank}>{rank}</option>
 					{/each}
 				</select>
-			</label>
 
-			<label class="filter-field">
-				<span class="filter-label">MOS</span>
-				<select class="input filter-select" bind:value={filterMos}>
+				<select class="input filter-select" bind:value={filterMos} aria-label="Filter by MOS">
 					<option value="">All MOS</option>
 					{#each availableMos as mos (mos)}
 						<option value={mos}>{mos}</option>
 					{/each}
 				</select>
-			</label>
 
-			<label class="filter-field">
-				<span class="filter-label">Role</span>
-				<select class="input filter-select" bind:value={filterRole}>
+				<select class="input filter-select" bind:value={filterRole} aria-label="Filter by role">
 					<option value="">All Roles</option>
 					{#each availableRoles as role (role)}
 						<option value={role}>{role}</option>
 					{/each}
 				</select>
-			</label>
 
-			<label class="filter-field">
-				<span class="filter-label">Status</span>
-				<select class="input filter-select" bind:value={filterStatus}>
+				<select class="input filter-select" bind:value={filterStatus} aria-label="Filter by status">
 					<option value="">All Statuses</option>
 					{#each statusOptions as opt (opt.value)}
 						<option value={opt.value}>{opt.label}</option>
 					{/each}
 				</select>
-			</label>
 
-			<div class="filter-actions">
-				<Badge label={`${filteredPersonnel.length} personnel`} variant="outlined" />
-				{#if hasActiveFilters}
-					<button class="btn btn-sm" type="button" onclick={clearFilters}>Clear filters</button>
+				<div class="filter-actions">
+					<Badge label={`${filteredPersonnel.length} personnel`} variant="outlined" />
+					{#if hasActiveFilters}
+						<button class="btn btn-sm" type="button" onclick={clearFilters}>Clear filters</button>
+					{/if}
+				</div>
+			</div>
+
+			{#if allTypes.length > 1}
+				<div class="type-filter-chips">
+					<span class="filter-label">Training types</span>
+					{#each allTypes as type (type.id)}
+						<button
+							class="type-filter-chip"
+							class:active={filterTypeIds.includes(type.id)}
+							type="button"
+							onclick={() => toggleTypeFilter(type.id)}
+						>
+							<span class="chip-dot" style="background-color: {type.color}"></span>
+							{type.name}
+						</button>
+					{/each}
+					{#if filterTypeIds.length > 0}
+						<button class="type-filter-chip type-filter-chip-clear" type="button" onclick={() => (filterTypeIds = [])}>
+							Clear
+						</button>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		<div class="dashboard">
+			<div class="dashboard-row">
+				<div class="dashboard-card">
+					<div class="card-label">Overall Readiness</div>
+					<div class="readiness-value" style="color: {getReadinessColor(dashboard.readinessPercent)}">
+						{dashboard.readinessPercent}%
+					</div>
+				</div>
+
+				<div class="dashboard-card">
+					<div class="card-label">Status Breakdown</div>
+					<div class="status-cards">
+						<div class="status-card">
+							<div class="status-header">
+								<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS.current}"></span>
+								<span class="status-name">Current</span>
+							</div>
+							<span class="status-count">{dashboard.statusCounts.current}</span>
+						</div>
+						<div class="status-card">
+							<div class="status-header">
+								<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS['warning-yellow']}"></span>
+								<span class="status-name">60d</span>
+							</div>
+							<span class="status-count">{dashboard.statusCounts.warningYellow}</span>
+						</div>
+						<div class="status-card">
+							<div class="status-header">
+								<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS['warning-orange']}"></span>
+								<span class="status-name">30d</span>
+							</div>
+							<span class="status-count">{dashboard.statusCounts.warningOrange}</span>
+						</div>
+						<div class="status-card">
+							<div class="status-header">
+								<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS.expired}"></span>
+								<span class="status-name">Expired</span>
+							</div>
+							<span class="status-count">{dashboard.statusCounts.expired}</span>
+						</div>
+						<div class="status-card">
+							<div class="status-header">
+								<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS['not-completed']}"></span>
+								<span class="status-name">Not Done</span>
+							</div>
+							<span class="status-count">{dashboard.statusCounts.notCompleted}</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="dashboard-row">
+				{#if dashboard.worstTypes.length > 0}
+					<div class="dashboard-card">
+						<div class="card-label">Worst Training Types</div>
+						<div class="worst-list">
+							{#each dashboard.worstTypes as wt (wt.typeId)}
+								<div class="worst-item">
+									<span class="worst-name">{wt.typeName}</span>
+									<div class="worst-bar-container">
+										<div
+											class="worst-bar"
+											style="width: {wt.nonComplianceRate}%; background-color: {getReadinessColor(
+												100 - wt.nonComplianceRate
+											)}"
+										></div>
+									</div>
+									<span class="worst-rate">{wt.nonComplianceRate}%</span>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				{#if dashboard.groupComparison.length > 1}
+					<div class="dashboard-card">
+						<div class="card-label">Group Comparison</div>
+						<div class="group-list">
+							{#each dashboard.groupComparison as gc (gc.groupId)}
+								<div class="group-item">
+									<span class="group-name">{gc.groupName}</span>
+									<div class="group-bar-container">
+										<div
+											class="group-bar"
+											style="width: {gc.readinessPercent}%; background-color: {getReadinessColor(gc.readinessPercent)}"
+										></div>
+									</div>
+									<span class="group-rate">{gc.readinessPercent}%</span>
+								</div>
+							{/each}
+						</div>
+					</div>
 				{/if}
 			</div>
 		</div>
 
-		{#if allTypes.length > 1}
-			<div class="type-filter-chips">
-				<span class="filter-label">Training types</span>
-				{#each allTypes as type (type.id)}
-					<button
-						class="type-filter-chip"
-						class:active={filterTypeIds.includes(type.id)}
-						type="button"
-						onclick={() => toggleTypeFilter(type.id)}
-					>
-						<span class="chip-dot" style="background-color: {type.color}"></span>
-						{type.name}
-					</button>
-				{/each}
-				{#if filterTypeIds.length > 0}
-					<button class="type-filter-chip type-filter-chip-clear" type="button" onclick={() => (filterTypeIds = [])}>
-						Clear
-					</button>
-				{/if}
-			</div>
-		{/if}
-	</div>
-
-	<div class="dashboard">
-		<div class="dashboard-row">
-			<div class="dashboard-card">
-				<div class="card-label">Overall Readiness</div>
-				<div class="readiness-value" style="color: {getReadinessColor(dashboard.readinessPercent)}">
-					{dashboard.readinessPercent}%
-				</div>
+		<div class="detail-section">
+			<div class="detail-header">
+				<h3 class="section-title">Detail Table</h3>
+				<Badge label={`${sortedRows.length} personnel`} variant="outlined" />
 			</div>
 
-			<div class="dashboard-card">
-				<div class="card-label">Status Breakdown</div>
-				<div class="status-cards">
-					<div class="status-card">
-						<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS.current}"></span>
-						<span class="status-count">{dashboard.statusCounts.current}</span>
-						<span class="status-name">Current</span>
-					</div>
-					<div class="status-card">
-						<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS['warning-yellow']}"></span>
-						<span class="status-count">{dashboard.statusCounts.warningYellow}</span>
-						<span class="status-name">Expiring 60d</span>
-					</div>
-					<div class="status-card">
-						<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS['warning-orange']}"></span>
-						<span class="status-count">{dashboard.statusCounts.warningOrange}</span>
-						<span class="status-name">Expiring 30d</span>
-					</div>
-					<div class="status-card">
-						<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS.expired}"></span>
-						<span class="status-count">{dashboard.statusCounts.expired}</span>
-						<span class="status-name">Expired</span>
-					</div>
-					<div class="status-card">
-						<span class="status-dot" style="background-color: {TRAINING_STATUS_COLORS['not-completed']}"></span>
-						<span class="status-count">{dashboard.statusCounts.notCompleted}</span>
-						<span class="status-name">Not Done</span>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<div class="dashboard-row">
-			{#if dashboard.worstTypes.length > 0}
-				<div class="dashboard-card">
-					<div class="card-label">Worst Training Types</div>
-					<div class="worst-list">
-						{#each dashboard.worstTypes as wt (wt.typeId)}
-							<div class="worst-item">
-								<span class="worst-name">{wt.typeName}</span>
-								<div class="worst-bar-container">
-									<div
-										class="worst-bar"
-										style="width: {wt.nonComplianceRate}%; background-color: {getReadinessColor(
-											100 - wt.nonComplianceRate
-										)}"
-									></div>
-								</div>
-								<span class="worst-rate">{wt.nonComplianceRate}%</span>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			{#if dashboard.groupComparison.length > 1}
-				<div class="dashboard-card">
-					<div class="card-label">Group Comparison</div>
-					<div class="group-list">
-						{#each dashboard.groupComparison as gc (gc.groupId)}
-							<div class="group-item">
-								<span class="group-name">{gc.groupName}</span>
-								<div class="group-bar-container">
-									<div
-										class="group-bar"
-										style="width: {gc.readinessPercent}%; background-color: {getReadinessColor(gc.readinessPercent)}"
-									></div>
-								</div>
-								<span class="group-rate">{gc.readinessPercent}%</span>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-		</div>
-	</div>
-
-	<div class="detail-section">
-		<div class="detail-header">
-			<h3 class="section-title">Detail Table</h3>
-			<Badge label={`${sortedRows.length} personnel`} variant="outlined" />
-		</div>
-
-		{#if sortedRows.length === 0}
-			<EmptyState message="No personnel match the current filters." />
-		{:else}
-			<div class="table-container">
-				<table class="report-table">
-					<thead>
-						<tr>
-							<th class="col-name">
-								<button class="sort-button" type="button" onclick={() => toggleSort('name')}>
-									Name{sortIndicator('name')}
-								</button>
-							</th>
-							<th class="col-rank">
-								<button class="sort-button" type="button" onclick={() => toggleSort('rank')}>
-									Rank{sortIndicator('rank')}
-								</button>
-							</th>
-							<th class="col-group">
-								<button class="sort-button" type="button" onclick={() => toggleSort('group')}>
-									Group{sortIndicator('group')}
-								</button>
-							</th>
-							{#each filteredTypes as type (type.id)}
-								<th class="col-type">
-									<button class="sort-button sort-button-type" type="button" onclick={() => toggleSort(type.id)}>
-										<span class="type-dot" style="background-color: {type.color}"></span>
-										{type.name}{sortIndicator(type.id)}
+			{#if sortedRows.length === 0}
+				<EmptyState message="No personnel match the current filters." />
+			{:else}
+				<div class="table-container">
+					<table class="report-table">
+						<thead>
+							<tr>
+								<th class="col-name">
+									<button class="sort-button" type="button" onclick={() => toggleSort('name')}>
+										Name{sortIndicator('name')}
 									</button>
 								</th>
-							{/each}
-						</tr>
-					</thead>
-					<tbody>
-						{#each sortedRows as row (row.person.id)}
-							<tr>
-								<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
-								<td class="col-rank">{row.person.rank}</td>
-								<td class="col-group">{row.person.groupName}</td>
+								<th class="col-rank">
+									<button class="sort-button" type="button" onclick={() => toggleSort('rank')}>
+										Rank{sortIndicator('rank')}
+									</button>
+								</th>
+								<th class="col-group">
+									<button class="sort-button" type="button" onclick={() => toggleSort('group')}>
+										Group{sortIndicator('group')}
+									</button>
+								</th>
 								{#each filteredTypes as type (type.id)}
-									{@const cell = row.cells.get(type.id)}
-									<td
-										class="col-type cell-status"
-										style="background-color: {cell ? TRAINING_STATUS_COLORS[cell.status] + '18' : undefined}"
-									>
-										<span
-											class="cell-dot"
-											style="background-color: {cell ? TRAINING_STATUS_COLORS[cell.status] : undefined}"
-										></span>
-										<span class="cell-label">{cell?.label ?? ''}</span>
-										{#if cell?.date}
-											<span class="cell-date">{cell.date}</span>
-										{/if}
-									</td>
+									<th class="col-type">
+										<button class="sort-button sort-button-type" type="button" onclick={() => toggleSort(type.id)}>
+											<span class="type-dot" style="background-color: {type.color}"></span>
+											{type.name}{sortIndicator(type.id)}
+										</button>
+									</th>
 								{/each}
 							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{/if}
+						</thead>
+						<tbody>
+							{#each sortedRows as row (row.person.id)}
+								<tr>
+									<td class="col-name">{row.person.lastName}, {row.person.firstName}</td>
+									<td class="col-rank">{row.person.rank}</td>
+									<td class="col-group">{row.person.groupName}</td>
+									{#each filteredTypes as type (type.id)}
+										{@const cell = row.cells.get(type.id)}
+										<td
+											class="col-type cell-status"
+											style="background-color: {cell ? TRAINING_STATUS_COLORS[cell.status] + '18' : undefined}"
+										>
+											<span class="cell-content">
+												<span
+													class="cell-dot"
+													style="background-color: {cell ? TRAINING_STATUS_COLORS[cell.status] : undefined}"
+												></span>
+												<span class="cell-text">
+													{cell ? formatTrainingCellText(cell.label, cell.date) : ''}
+												</span>
+											</span>
+										</td>
+									{/each}
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</div>
 	</div>
 {/if}
 
 <style>
-	.report-filters {
+	.reports-page-shell {
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-4);
-		margin-bottom: var(--sp-5);
-		padding: var(--sp-5) var(--sp-6);
+		padding: var(--sp-3);
+	}
+
+	.report-filters {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+		padding: var(--sp-3);
 		border: var(--border-thin);
 		border-radius: var(--radius-lg);
 		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
@@ -428,22 +433,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: end;
-		gap: var(--sp-4);
-	}
-
-	.filter-field {
-		display: flex;
-		flex-direction: column;
 		gap: var(--sp-2);
-	}
-
-	.filter-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
 	}
 
 	.filter-select {
@@ -454,7 +444,7 @@
 	.filter-actions {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-3);
+		gap: var(--sp-2);
 		margin-left: auto;
 	}
 
@@ -507,19 +497,19 @@
 	.dashboard {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-5);
-		margin-bottom: var(--sp-5);
+		gap: var(--sp-4);
+		margin-bottom: var(--sp-4);
 	}
 
 	.dashboard-row {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-5);
+		gap: var(--sp-4);
 	}
 
 	.dashboard-card {
 		min-width: 0;
-		padding: var(--sp-5);
+		padding: var(--sp-4);
 		border: var(--border-thin);
 		border-radius: var(--radius-lg);
 		background: var(--surface-panel);
@@ -545,17 +535,23 @@
 	.status-cards {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-		gap: var(--sp-3);
+		gap: var(--sp-2);
 	}
 
 	.status-card {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-1);
-		padding: var(--sp-3);
+		gap: 2px;
+		padding: var(--sp-2);
 		border: var(--border-thin);
 		border-radius: var(--radius-md);
 		background: color-mix(in srgb, var(--surface-subtle) 52%, var(--surface-panel) 48%);
+	}
+
+	.status-header {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
 	}
 
 	.status-dot {
@@ -569,6 +565,7 @@
 		font-size: clamp(1.6rem, 1.35rem + 0.3vw, 1.9rem);
 		font-weight: var(--font-weight-display);
 		color: var(--text-primary);
+		line-height: 1;
 	}
 
 	.status-name {
@@ -583,7 +580,7 @@
 	.group-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-3);
+		gap: var(--sp-2);
 	}
 
 	.worst-item,
@@ -591,7 +588,7 @@
 		display: grid;
 		grid-template-columns: minmax(0, 180px) minmax(0, 1fr) auto;
 		align-items: center;
-		gap: var(--sp-3);
+		gap: var(--sp-2);
 	}
 
 	.worst-name,
@@ -722,8 +719,8 @@
 	}
 
 	.col-type {
-		min-width: 130px;
-		text-align: center;
+		min-width: 164px;
+		text-align: left;
 	}
 
 	.type-dot,
@@ -743,22 +740,20 @@
 		white-space: nowrap;
 	}
 
-	.cell-label {
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
+	.cell-content {
+		display: inline-flex;
+		align-items: center;
 	}
 
-	.cell-date {
-		display: block;
-		margin-top: var(--sp-1);
+	.cell-text {
 		font-size: var(--text-xs);
-		color: var(--text-secondary);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
 	}
 
 	@media (max-width: 960px) {
-		.report-filters,
-		.detail-header {
-			padding-inline: var(--sp-4);
+		.reports-page-shell {
+			padding: var(--sp-2);
 		}
 
 		.dashboard-row {
@@ -772,11 +767,10 @@
 	}
 
 	@media (max-width: 640px) {
-		.report-filters {
-			padding: var(--sp-4);
+		.reports-page-shell {
+			padding: var(--sp-2);
 		}
 
-		.filter-field,
 		.filter-select {
 			width: 100%;
 			max-width: none;

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
+import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
@@ -277,6 +278,39 @@ describe('TrainingPageContext', () => {
 		it('defaults to by-group', () => {
 			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
 			expect(ctx.viewMode).toBe('by-group');
+		});
+
+		it('hydrates persisted training preferences when available', () => {
+			const ctx = new TrainingPageContext(
+				makeData({
+					userPreferences: {
+						...getDefaultUserOrgPreferences(),
+						training: {
+							selectedGroupId: 'g-1',
+							selectedViewId: 'view-1',
+							matrixViewMode: 'alphabetical'
+						}
+					},
+					training: {
+						data: {
+							personnel: [mockPerson, mockPerson2],
+							groups: mockGroups,
+							pinnedGroups: [],
+							trainingTypes: [] as TrainingType[],
+							trainingViews: [
+								{ id: 'view-1', name: 'Required', columnIds: [], createdBy: 'u1', createdAt: '', updatedAt: '' }
+							],
+							personnelTrainings: Promise.resolve([] as PersonnelTraining[])
+						}
+					}
+				}),
+				modals,
+				makeOrg()
+			);
+
+			expect(ctx.selectedGroupId).toBe('g-1');
+			expect(ctx.selectedViewId).toBe('view-1');
+			expect(ctx.viewMode).toBe('alphabetical');
 		});
 	});
 

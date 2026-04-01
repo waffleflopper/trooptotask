@@ -12,6 +12,7 @@
 	const pageData = $derived.by(() => ({
 		orgId: data.orgId,
 		orgName: data.orgName,
+		userPreferences: data.userPreferences,
 		permissions: data.permissions,
 		training: data.training
 	}));

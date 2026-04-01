@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CalendarPageContext, type CalendarPageData } from './CalendarPageContext.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
+import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
 
@@ -100,14 +101,22 @@ describe('CalendarPageContext', () => {
 			expect(ctx.breakdownExpanded).toBe(true);
 		});
 
-		it('initBreakdownPreference collapses the panel on mobile viewports', () => {
-			ctx.initBreakdownPreference(() => ({ matches: true }));
+		it('syncUserPreferences collapses the panel on mobile when no explicit preference is saved', () => {
+			ctx.syncUserPreferences(getDefaultUserOrgPreferences(), () => ({ matches: true }));
 			expect(ctx.breakdownExpanded).toBe(false);
 		});
 
-		it('initBreakdownPreference keeps the panel expanded on desktop viewports', () => {
-			ctx.breakdownExpanded = false;
-			ctx.initBreakdownPreference(() => ({ matches: false }));
+		it('syncUserPreferences honors an explicit saved today-summary preference', () => {
+			ctx.syncUserPreferences(
+				{
+					...getDefaultUserOrgPreferences(),
+					calendar: {
+						...getDefaultUserOrgPreferences().calendar,
+						todaySummaryExpanded: true
+					}
+				},
+				() => ({ matches: true })
+			);
 			expect(ctx.breakdownExpanded).toBe(true);
 		});
 
@@ -153,6 +162,7 @@ describe('CalendarPageContext', () => {
 		it('selectedPerson starts null', () => expect(ctx.selectedPerson).toBeNull());
 		it('selectedDate starts null', () => expect(ctx.selectedDate).toBeNull());
 		it('assignmentDate starts null', () => expect(ctx.assignmentDate).toBeNull());
+		it('showStatusText starts false', () => expect(ctx.showStatusText).toBe(false));
 		it('highlightOnboarding starts true', () => expect(ctx.highlightOnboarding).toBe(true));
 	});
 
@@ -244,6 +254,16 @@ describe('CalendarPageContext', () => {
 			expect(ctx.highlightOnboarding).toBe(false);
 			ctx.toggleHighlightOnboarding();
 			expect(ctx.highlightOnboarding).toBe(true);
+		});
+	});
+
+	describe('toggleShowStatusText', () => {
+		it('flips showStatusText', () => {
+			expect(ctx.showStatusText).toBe(false);
+			ctx.toggleShowStatusText();
+			expect(ctx.showStatusText).toBe(true);
+			ctx.toggleShowStatusText();
+			expect(ctx.showStatusText).toBe(false);
 		});
 	});
 

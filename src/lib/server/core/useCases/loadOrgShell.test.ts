@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from '$lib/server/adapters/inMemoryOrgShell';
+import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { MembershipInfo, OrgState, ChromeData } from '../orgShell';
 import { loadOrgShell } from './loadOrgShell';
 
@@ -41,7 +42,8 @@ const baseOrgState: OrgState = {
 const baseChrome: ChromeData = {
 	unreadNotificationCount: 2,
 	activeAnnouncements: [{ id: 'a1', title: 'Heads up', message: 'Something changed', type: 'info' }],
-	allOrgs: [{ id: 'org-1', name: 'Test Unit', role: 'member' }]
+	allOrgs: [{ id: 'org-1', name: 'Test Unit', role: 'member' }],
+	userPreferences: getDefaultUserOrgPreferences()
 };
 
 const fullEditorPermissions: MembershipInfo['permissions'] = {
@@ -78,6 +80,7 @@ describe('loadOrgShell', () => {
 		expect(result.orgId).toBe('org-1');
 		expect(result.orgName).toBe('Test Unit');
 		expect(result.userId).toBe('user-1');
+		expect(result.userPreferences).toEqual(baseChrome.userPreferences);
 		expect(result.userRole).toBe('member');
 		expect(result.permissions).toEqual(baseMembership.permissions);
 		expect(result.scopedGroupId).toBeNull();

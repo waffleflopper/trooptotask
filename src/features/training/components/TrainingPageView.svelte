@@ -16,29 +16,12 @@
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
-	const STORAGE_KEY = 'trooptotask:training-view';
-
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 
 	const loading = $derived(personnelTrainingsStore.loading);
-
-	let selectedViewId: string | null = $state(
-		typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
-	);
 	let showViewEditor = $state(false);
 
-	function handleViewSelect(viewId: string | null) {
-		selectedViewId = viewId;
-		if (typeof localStorage !== 'undefined') {
-			if (viewId) {
-				localStorage.setItem(STORAGE_KEY, viewId);
-			} else {
-				localStorage.removeItem(STORAGE_KEY);
-			}
-		}
-	}
-
-	const activeView = $derived(selectedViewId ? (trainingViewsStore.getById(selectedViewId) ?? null) : null);
+	const activeView = $derived(ctx.selectedViewId ? (trainingViewsStore.getById(ctx.selectedViewId) ?? null) : null);
 
 	const filteredTypes = $derived(filterColumnsByView(trainingTypesStore.items, activeView));
 
@@ -94,14 +77,18 @@
 
 		<div class="filter-bar">
 			<ViewSelector
-				{selectedViewId}
-				onSelect={handleViewSelect}
+				selectedViewId={ctx.selectedViewId}
+				onSelect={(viewId) => ctx.setSelectedViewId(viewId)}
 				canEdit={ctx.canManageConfig && !ctx.readOnly}
 				onEditClick={() => (showViewEditor = true)}
 			/>
 			<label class="filter-label">
 				Group:
-				<select class="select" bind:value={ctx.selectedGroupId}>
+				<select
+					class="select"
+					value={ctx.selectedGroupId}
+					onchange={(event) => ctx.setSelectedGroupId((event.currentTarget as HTMLSelectElement).value)}
+				>
 					<option value="">All Groups</option>
 					{#each ctx.groups as group (group.id)}
 						<option value={group.id}>{group.name}</option>
@@ -113,11 +100,11 @@
 				<button
 					class="view-btn"
 					class:active={ctx.viewMode === 'alphabetical'}
-					onclick={() => (ctx.viewMode = 'alphabetical')}
+					onclick={() => ctx.setViewMode('alphabetical')}
 				>
 					A-Z
 				</button>
-				<button class="view-btn" class:active={ctx.viewMode === 'by-group'} onclick={() => (ctx.viewMode = 'by-group')}>
+				<button class="view-btn" class:active={ctx.viewMode === 'by-group'} onclick={() => ctx.setViewMode('by-group')}>
 					By Group
 				</button>
 			</div>

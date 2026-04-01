@@ -2,6 +2,62 @@
 
 Shared UI primitives live in `src/lib/components/ui/`. Import via `$lib/components/ui/...`.
 Layout components (Modal, PageToolbar) live in `src/lib/components/`. Import via `$lib/components/...`.
+Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
+
+---
+
+## Public Marketing Shell
+
+Use these for any top-level marketing, legal, or trust page so the public site keeps one shared shell and one navigation/footer contract.
+
+```svelte
+<PublicShell user={data.user} active="pricing" bodyClass="pricing-page" roadmapHref="/#roadmap">
+	<PublicPageHeader label="Pricing">
+		{#snippet title()}Simple, transparent <em>pricing.</em>{/snippet}
+		<p>No feature gating. Every plan gets the full platform.</p>
+	</PublicPageHeader>
+
+	<PublicContentSection label="01 // Tiering" alternate>
+		{#snippet title()}Sized for the formation.{/snippet}
+		<p>Section body...</p>
+	</PublicContentSection>
+</PublicShell>
+```
+
+### `public/PublicShell.svelte`
+
+Shared public wrapper that renders the classification bar, site nav, optional CTA, and footer around page content.
+
+Props: `user?: unknown`, `active?: 'features' | 'pricing' | 'security'`, `bodyClass?: string`, `roadmapHref?: string`, `faqHref?: string`, `showFaqLink?: boolean`, `showCta?: boolean`, `ctaTitleBefore?: string`, `ctaEmphasis?: string`, `ctaSubtitle?: string`, `children: Snippet`, `cta?: Snippet`
+
+Guidance:
+- Prefer this over duplicating nav/footer/CTA markup in public routes.
+- Use `roadmapHref="#roadmap"` and `faqHref="#faq"` on the landing page; use `/#roadmap` for inner pages.
+- Pass a custom `cta` snippet only when the default shared CTA is not enough.
+
+### `public/PublicPageHeader.svelte`
+
+Shared inner-page hero/header for marketing, legal, pricing, and trust pages.
+
+Props: `label: string`, `title: Snippet`, `children?: Snippet`
+
+Guidance:
+- Keep `label` short, mono, and structural.
+- Put supporting copy and metadata like effective dates in `children`; use `.page-meta` for low-emphasis header metadata.
+
+### `public/PublicContentSection.svelte`
+
+Shared section framing for legal/trust/public longform pages.
+
+Props: `label: string`, `alternate?: boolean`, `title?: Snippet`, `children: Snippet`
+
+Guidance:
+- Alternate sections with `alternate` when you need rhythm across long-form pages.
+- Use `.contact-card` inside section content for disclosure/support email callouts.
+
+### `public/PublicSiteNav.svelte`, `public/PublicCta.svelte`, `public/PublicFooter.svelte`
+
+Lower-level shell primitives used internally by `PublicShell`. Reach for these directly only if you have a compelling reason to diverge from the standard public page wrapper.
 
 ---
 

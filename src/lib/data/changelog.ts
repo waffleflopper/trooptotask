@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-31-marketing-pages-rollout',
+		date: '2026-03-31',
+		title: 'The Rest of the Public Site Now Feels Like the Same Product',
+		items: [
+			'The Features and Pricing pages were rebuilt to match the new public site design instead of feeling like older standalone pages',
+			'Pricing information is now easier to scan, with cleaner plan comparisons and simpler explanations of how billing works during beta',
+			'The public site should also feel more consistent from page to page now, instead of acting like five different people designed it during five different lunch breaks'
+		]
+	},
+	{
 		id: '2026-03-31-landing-page-rollout',
 		date: '2026-03-31',
 		title: 'The Public Site Has a Better Front Door',
@@ -44,16 +54,6 @@ export const changelog: ChangelogEntry[] = [
 			'You can now click the month name at the top of the calendar to jump straight to a different month instead of hammering the next and previous buttons over and over',
 			'The same quick-jump picker also works in the 3-month calendar view, so it is easier to move across the year without losing your place',
 			'Keyboard navigation was added too, so the new picker is easier to use without needing to rely on a mouse'
-		]
-	},
-	{
-		id: '2026-03-27-duty-roster-selection',
-		date: '2026-03-27',
-		title: 'Duty Roster Selection Feels More Like the Rest of Calendar',
-		items: [
-			'Eligible and exempt personnel now use the same searchable grouped table pattern as the bulk calendar tools, so working through large rosters is much easier than dealing with tiny toggle pills',
-			'The duty-roster form was reorganized into clearer planning and selection panels, which makes it easier to review settings and roster scope side by side',
-			'Exemptions are now easier to audit and save for each duty type without hunting through one long wall of chips'
 		]
 	}
 ];

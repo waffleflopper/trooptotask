@@ -1,337 +1,279 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
 
 	let { data } = $props();
 
-	const features = [
+	let previewDate = $state('MON 0600 — MORNING ACCOUNTABILITY');
+	let rosterDate = $state('Loading...');
+
+	const faqs = [
 		{
-			icon: 'lock',
-			title: 'Security & Compliance',
-			description:
-				'NIST 800-171 aligned. Your personnel data is encrypted at rest and in transit, access-controlled with role-based permissions, and every action is audit-logged. Built for the standards military leaders expect.',
-			lead: true
+			question: 'Are the calendar statuses fixed — like "Leave" or "TDY" — or can I change them?',
+			answer:
+				'Absolutely not — customizing statuses is usually one of the first things a new unit admin does. You define every status yourself: the name, the color, and whether it marks a day as a unit closure (like a training holiday or DONSA). If your unit has a status called "PDHA/PDHRA" or "Rear D," that\'s exactly what you\'ll see on the calendar. Your formation, your language.'
 		},
 		{
-			icon: 'calendar',
-			title: 'Visual Calendar',
-			description:
-				"See your entire unit's availability at a glance with color-coded statuses for leave, TDY, training, and more."
+			question:
+				"I want my squad leaders to manage their people without seeing everyone else's business. Is that possible?",
+			answer:
+				"Yes — and this is one of the most powerful things T2T does. When you invite someone to your organization, you can scope their access to a specific group. A Team Leader role can update statuses for their Soldiers and track their training, but they won't see counseling records, onboarding checklists, or personnel data for anyone outside their group. They get exactly the visibility they need to do their job, and nothing they shouldn't have."
 		},
 		{
-			icon: 'users',
-			title: 'Personnel Management',
-			description: 'Organize by groups and sections. Track rank, MOS, and roles. Bulk import from spreadsheets.'
+			question: 'I already have my roster in a spreadsheet. Do I have to re-enter everyone by hand?',
+			answer:
+				"Please don't. T2T's bulk import tool lets you paste your spreadsheet directly and walks you through mapping your columns to the right fields — name, rank, MOS, section, assignment, whatever you have. You can be up and running with a full roster in a few minutes, not a few hours. If your spreadsheet is a mess, the column mapper is forgiving enough to handle it."
 		},
 		{
-			icon: 'star',
-			title: 'Rating Scheme Tracker',
-			description: "Track OER, NCOER, and WOER evaluations. See who's overdue, due in 30/60 days, and export to Excel."
+			question: 'What is the "Leaders Book" and when is it coming back?',
+			answer:
+				"The Leaders Book is a digital replacement for that notebook every NCO keeps in their left cargo pocket — counseling records, development goals, extended soldier info, and everything else that doesn't have a home on a standard form. We're currently rebuilding it from the ground up to be more intuitive and better integrated with the rest of the app. The Rating Scheme tracker is still fully available on the Personnel page in the meantime."
 		},
 		{
-			icon: 'checklist',
-			title: 'In-Processing Checklist',
-			description:
-				'Custom onboarding templates with step-by-step tracking. See progress by person or pivot by step to find gaps.'
+			question: 'How does the duty roster generator actually work?',
+			answer:
+				"It runs the same logic that's supposed to be behind a DA Form 6 — fair rotation based on availability, eligibility, and how many times each person has already pulled the duty — without the hours of manual cross-referencing. You set who's eligible (rank requirements, exemptions, availability), and T2T builds the roster and tracks cumulative duty counts so the same three Soldiers aren't always on the list. The output is print-ready for the board or shareable digitally with your HQ."
 		},
 		{
-			icon: 'roster',
-			title: 'Duty Roster Generator',
-			description: 'Auto-generate fair duty rosters based on availability, eligibility, and past assignment counts.'
+			question: 'What kind of training data can I track?',
+			answer:
+				'Anything your unit requires. You create the training types — Weapons Qual, ACFT, CPR/BLS, SHARP, you name it — and set an expiration window for each one. T2T then tracks every Soldier against it and color-codes the matrix: green for current, yellow at 60 days, orange at 30, red for overdue. You can mark individual Soldiers as exempt, track pass/fail or just attendance, and export the whole thing to Excel for your training briefing. No more digging through a shared drive full of outdated spreadsheets.'
 		},
 		{
-			icon: 'clipboard',
-			title: 'Daily Assignments',
-			description:
-				'Assign MOD, front desk support, and custom duties. Plan the entire month with the assignment planner.'
+			question: "What does the in-processing checklist actually do that a shared doc can't?",
+			answer:
+				'It turns your in-processing SOP into a living workflow. Build a template once — equipment issue, clearing finance, initial counseling, ID card appointment, whatever your steps are — and every new arrival gets their own checklist generated from that template automatically. You can see progress by person ("where is SGT Johnson in the process?") or pivot and view it by step ("who across the whole platoon hasn\'t done their initial counseling?"). No more chasing people down the hallway trying to piece together who\'s done what.'
 		},
 		{
-			icon: 'chart',
-			title: '3-Month View',
-			description: 'Long-range planning made easy. See coverage gaps before they become problems.'
+			question: 'Can I manage more than one unit from the same account?',
+			answer:
+				"Yes. One login, multiple organizations — and you can switch between them without signing out. Whether you're managing a company and a detachment, you're in a higher HQ role overseeing subordinate units, or you just PCS'd and want to keep your old organization's data accessible during the transition, everything lives under the same account."
 		},
 		{
-			icon: 'certificate',
-			title: 'Training Tracker',
-			description: 'Track certifications with color-coded warnings at 60, 30, and 0 days before expiration.'
+			question: 'Can I export data, or does everything stay locked inside the app?',
+			answer:
+				"Both — the data lives in T2T so it's always current, and you can pull it out whenever you need it. Personnel rosters, training matrices, and calendar exports all go to Excel with color-coding intact. Duty rosters and sign-in sheets are designed to print cleanly straight from the browser. If the XO walks in and wants a personnel readiness brief, you have it in about 30 seconds."
 		},
 		{
-			icon: 'shield',
-			title: 'Granular Permissions',
-			description:
-				'Owner, admin, and member roles with 11 permission toggles. Scope team leaders to specific groups. Approval workflows for deletions.'
-		},
-		{
-			icon: 'building',
-			title: 'Multi-Organization',
-			description: 'Manage multiple units from one account. Invite members and control access levels.'
-		},
-		{
-			icon: 'download',
-			title: 'Export & Print',
-			description: 'Export to Excel with color-coding intact. Print-ready PDF for posting on the board.'
+			question: 'Is this secure enough to hold personal information about my Soldiers?',
+			answer:
+				'T2T is built to a military standard, not a startup standard. It aligns to NIST 800-171 — the federal framework for protecting Controlled Unclassified Information — with AES-256 encryption at rest, TLS 1.2+ in transit, role-based access control with group scoping, and a full audit log of every action in the system (exportable for IG inspections). T2T is not authorized for classified information, but for the administrative and personnel data that runs your day-to-day operations, the controls are where they need to be.'
 		}
 	];
 
-	const shipped = [
-		{
-			title: 'Digital Leaders Book',
-			description: 'Counseling records, development goals, and soldier info — currently being redesigned.'
-		},
-		{
-			title: 'Rating Scheme Tracker',
-			description: 'OER, NCOER, and WOER evaluation tracking with due-status alerts and Excel export.'
-		},
-		{
-			title: 'In-Processing Checklist',
-			description: 'Custom onboarding templates with step-by-step progress tracking per person.'
-		}
-	];
-
-	const roadmap = [
-		{
-			title: 'Email Notifications',
-			description:
-				'Get alerts for expiring training, coverage gaps, and assignment conflicts — plus timed daily, weekly, and monthly readiness reports delivered straight to your inbox.',
-			status: 'Planned',
-			statusClass: 'planned'
-		},
-		{
-			title: 'ACFT Score Tracking & Trends',
-			description:
-				'Log ACFT scores for each Soldier and visualize fitness trends over time to spot readiness gaps and highlight top performers.',
-			status: 'Planned',
-			statusClass: 'planned'
-		},
-		{
-			title: 'Event Sign-ups',
-			description: 'Coordinate range days, ACFT, and unit events with built-in sign-up sheets.',
-			status: 'Exploring',
-			statusClass: 'exploring'
-		},
-		{
-			title: 'ICTL Tracking',
-			description:
-				'Track Individual Critical Task List progress for each Soldier to ensure MOS and unit task proficiency.',
-			status: 'Exploring',
-			statusClass: 'exploring'
-		}
-	];
-
-	function getFeatureIcon(icon: string) {
-		const icons: Record<string, string> = {
-			calendar: 'M3 4h18a2 2 0 012 2v14a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2zm13-2v4M8 2v4M1 10h22',
-			users:
-				'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm14 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75',
-			clipboard:
-				'M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M8 2h8a1 1 0 011 1v2a1 1 0 01-1 1H8a1 1 0 01-1-1V3a1 1 0 011-1zM9 14l2 2 4-4',
-			roster: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
-			chart: 'M3 4h18a2 2 0 012 2v14a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2zM9 4v18M15 4v18M3 10h18M3 16h18',
-			certificate: 'M12 15a7 7 0 100-14 7 7 0 000 14zM8.21 13.89L7 23l5-3 5 3-1.21-9.12',
-			shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4',
-			building:
-				'M4 2h16a2 2 0 012 2v16a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2zM9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01',
-			download: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3',
-			star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
-			checklist:
-				'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5h6M9 14l2 2 4-4M9 11h.01',
-			lock: 'M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4M12 16v2'
-		};
-		return icons[icon] || '';
+	function formatMilDate(d: Date) {
+		const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+		const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+		const h = d.getHours().toString().padStart(2, '0');
+		const m = d.getMinutes().toString().padStart(2, '0');
+		return `${days[d.getDay()]} ${h}${m}L — ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 	}
+
+	onMount(() => {
+		const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+		const d = new Date();
+		const h = d.getHours().toString().padStart(2, '0');
+		const m = d.getMinutes().toString().padStart(2, '0');
+
+		previewDate = `${days[d.getDay()]} ${h}${m} — MORNING ACCOUNTABILITY`;
+		rosterDate = formatMilDate(d);
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (!entry.isIntersecting) continue;
+					const el = entry.target as HTMLElement;
+					el.style.opacity = '1';
+					el.style.transform = 'translateY(0)';
+					observer.unobserve(el);
+				}
+			},
+			{ threshold: 0.08 }
+		);
+
+		for (const [index, el] of Array.from(document.querySelectorAll<HTMLElement>('.observe-in')).entries()) {
+			el.style.opacity = '0';
+			el.style.transform = 'translateY(10px)';
+			el.style.transition = `opacity 0.4s ease ${index * 0.04}s, transform 0.4s ease ${index * 0.04}s`;
+			observer.observe(el);
+		}
+
+		return () => observer.disconnect();
+	});
 </script>
 
 <svelte:head>
-	<title>Troop to Task — Military Unit Management</title>
+	<title>TroopToTask — Unit Readiness, Organized</title>
 	<meta
 		name="description"
-		content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments — all in one secure platform."
+		content="TroopToTask replaces scattered spreadsheets, whiteboards, and shared-drive chaos with a structured digital workspace built for how units actually operate."
 	/>
-	<!-- Open Graph -->
 	<meta property="og:type" content="website" />
-	<meta property="og:site_name" content="Troop to Task" />
-	<meta property="og:title" content="Troop to Task — Military Unit Management" />
+	<meta property="og:site_name" content="TroopToTask" />
+	<meta property="og:title" content="TroopToTask — Unit Readiness, Organized" />
 	<meta
 		property="og:description"
-		content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments."
+		content="Command clarity, every formation. Personnel tracking, accountability, training, onboarding, and readiness in one disciplined system."
 	/>
 	<meta property="og:url" content="https://trooptotask.org" />
 	<meta property="og:image" content="https://trooptotask.org/og-image.png" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary_large_image" />
-	<meta name="twitter:title" content="Troop to Task — Military Unit Management" />
+	<meta name="twitter:title" content="TroopToTask — Unit Readiness, Organized" />
 	<meta
 		name="twitter:description"
-		content="Modern military unit management software. Track personnel, training, availability, counseling, and daily assignments."
+		content="A structured digital workspace built for how units actually operate — from morning accountability to end-of-cycle reporting."
 	/>
 	<meta name="twitter:image" content="https://trooptotask.org/og-image.png" />
 </svelte:head>
 
 <PublicShell
 	user={data.user}
-	bodyClass="landing"
+	bodyClass="landing-redesign"
 	roadmapHref="#roadmap"
 	faqHref="#faq"
 	showFaqLink
-	ctaSubtitle="Currently free during beta — no credit card required. Beta testers will receive a generous grace period before any subscription is needed."
+	showCta={false}
 >
-
-	<!-- Hero Section -->
 	<section class="hero">
-		<div class="hero-noise"></div>
-		<div class="hero-container">
-			<div class="hero-content">
-				<p class="hero-eyebrow">Replace the whiteboard. Retire the spreadsheet.</p>
-				<h1 class="hero-title">
-					Personnel management<br />
-					<em>that actually works.</em>
-				</h1>
-				<p class="hero-subtitle">
-					Troop to Task gives Army leaders a visual calendar, training tracker, and assignment planner — one tool
-					instead of five. Free during beta.
-				</p>
-				<div class="hero-actions">
-					{#if data.user}
-						<a href="/dashboard?show=all" class="hero-btn-primary">
-							Go to Dashboard
-							<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
-								><path
-									fill-rule="evenodd"
-									d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-									clip-rule="evenodd"
-								/></svg
-							>
-						</a>
-					{:else}
-						<a href="/auth/login" class="hero-btn-primary">
-							Get Started Free
-							<svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18"
-								><path
-									fill-rule="evenodd"
-									d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-									clip-rule="evenodd"
-								/></svg
-							>
-						</a>
-					{/if}
-					<a href="#features" class="hero-btn-ghost">See what's included</a>
+		<div class="container">
+			<div class="hero__grid">
+				<div>
+					<div class="hero__eyebrow anim-fade-up">
+						<div class="hero__eyebrow-line"></div>
+						<span class="label-amber">Unit Management Software</span>
+					</div>
+
+					<h1 class="hero__heading anim-fade-up anim-delay-1">
+						Command<br />
+						<em>clarity,</em><br />
+						every<br />
+						formation.
+					</h1>
+
+					<p class="hero__body anim-fade-up anim-delay-2">
+						TroopToTask replaces scattered spreadsheets, whiteboards, and shared-drive chaos with a structured digital
+						workspace built for how units actually operate — from morning accountability to end-of-cycle reporting.
+					</p>
+
+					<div class="hero__actions anim-fade-up anim-delay-3">
+						<a href="/auth/request-access" class="btn btn--amber">Request Access</a>
+						<a href="/demo" class="btn btn--outline">Watch Demo</a>
+					</div>
+
+					<div class="hero__meta anim-fade-up anim-delay-4">
+						<div class="hero__meta-item">
+							<div class="hero__meta-value">100%</div>
+							<div class="hero__meta-label">Web-Based</div>
+						</div>
+						<div class="hero__meta-item">
+							<div class="hero__meta-value">DoD</div>
+							<div class="hero__meta-label">Focused Design</div>
+						</div>
+						<div class="hero__meta-item">
+							<div class="hero__meta-value">Multi</div>
+							<div class="hero__meta-label">Org Support</div>
+						</div>
+						<div class="hero__meta-item">
+							<div class="hero__meta-value">Role</div>
+							<div class="hero__meta-label">Based Permissions</div>
+						</div>
+					</div>
 				</div>
 
-				<div class="hero-proof">
-					<div class="proof-item">
-						<span class="proof-value">Free Beta</span>
-						<span class="proof-label">No credit card</span>
-					</div>
-					<div class="proof-divider"></div>
-					<div class="proof-item">
-						<span class="proof-value">5 min</span>
-						<span class="proof-label">Setup time</span>
-					</div>
-					<div class="proof-divider"></div>
-					<div class="proof-item">
-						<span class="proof-value">24/7</span>
-						<span class="proof-label">Availability</span>
-					</div>
-				</div>
-			</div>
+				<div class="anim-fade-up anim-delay-3">
+					<div class="hero__preview">
+						<div class="preview__topbar">
+							<div class="preview__topbar-title">1st Platoon — Alpha Company</div>
+							<div class="preview__topbar-date">{previewDate}</div>
+						</div>
 
-			<!-- Dashboard Preview -->
-			<div class="hero-visual">
-				<div class="dashboard-preview">
-					<div class="compliance-sash">NIST 800-171</div>
-					<div class="dash-chrome">
-						<div class="dash-dots">
-							<span></span><span></span><span></span>
-						</div>
-						<span class="dash-url">app.trooptotask.com</span>
-					</div>
-					<div class="dash-body">
-						<div class="dash-panel dash-calendar">
-							<div class="dash-panel-head">
-								<span class="dash-panel-title">Calendar</span>
-								<span class="dash-live">LIVE</span>
+						<div class="preview__summary">
+							<div class="preview__summary-cell">
+								<div class="preview__summary-num" style="color: var(--success)">31</div>
+								<div class="preview__summary-lbl">Present</div>
 							</div>
-							<div class="mini-calendar">
-								<div class="cal-row cal-header">
-									<span>M</span><span>T</span><span>W</span><span>T</span><span>F</span>
-								</div>
-								<div class="cal-row">
-									<span class="cal-empty"></span><span class="cal-leave"></span><span class="cal-leave"></span><span
-										class="cal-empty"
-									></span><span class="cal-empty"></span>
-								</div>
-								<div class="cal-row">
-									<span class="cal-tdy"></span><span class="cal-tdy"></span><span class="cal-empty"></span><span
-										class="cal-empty"
-									></span><span class="cal-appt"></span>
-								</div>
-								<div class="cal-row">
-									<span class="cal-empty"></span><span class="cal-empty"></span><span class="cal-school"></span><span
-										class="cal-school"
-									></span><span class="cal-school"></span>
-								</div>
+							<div class="preview__summary-cell">
+								<div class="preview__summary-num" style="color: var(--amber)">4</div>
+								<div class="preview__summary-lbl">Leave</div>
 							</div>
-							<div class="cal-legend">
-								<span class="legend-item"><span class="legend-dot cal-leave"></span>Leave</span>
-								<span class="legend-item"><span class="legend-dot cal-tdy"></span>TDY</span>
-								<span class="legend-item"><span class="legend-dot cal-school"></span>School</span>
-								<span class="legend-item"><span class="legend-dot cal-appt"></span>Appt</span>
+							<div class="preview__summary-cell">
+								<div class="preview__summary-num" style="color: var(--info)">2</div>
+								<div class="preview__summary-lbl">TDY</div>
+							</div>
+							<div class="preview__summary-cell">
+								<div class="preview__summary-num" style="color: var(--danger)">1</div>
+								<div class="preview__summary-lbl">Unavail</div>
 							</div>
 						</div>
-						<div class="dash-panel dash-training">
-							<div class="dash-panel-head">
-								<span class="dash-panel-title">Training</span>
-							</div>
-							<div class="training-bars">
-								<div class="training-item">
-									<div class="training-meta">
-										<span class="training-name">Weapons Qual</span><span class="training-pct">85%</span>
-									</div>
-									<div class="training-bar"><div class="training-fill fill-good" style="width: 85%"></div></div>
+
+						<table class="data-table">
+							<thead>
+								<tr>
+									<th>Name</th>
+									<th>Rank</th>
+									<th>Position</th>
+									<th>Status</th>
+									<th>Returns</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td class="td-name">Mitchell, A.</td>
+									<td class="td-rank">SSG</td>
+									<td style="font-size: 11px; color: var(--ink-60)">Plt Sgt</td>
+									<td><span class="status status--present">● Present</span></td>
+									<td style="font-size: 11px; color: var(--ink-35)">—</td>
+								</tr>
+								<tr>
+									<td class="td-name">Torres, R.</td>
+									<td class="td-rank">SGT</td>
+									<td style="font-size: 11px; color: var(--ink-60)">Tm Ldr</td>
+									<td><span class="status status--leave">Leave</span></td>
+									<td style="font-size: 11px; color: var(--ink-60); font-family: var(--font-mono)">12 JAN</td>
+								</tr>
+								<tr>
+									<td class="td-name">Okafor, D.</td>
+									<td class="td-rank">SPC</td>
+									<td style="font-size: 11px; color: var(--ink-60)">Rifleman</td>
+									<td><span class="status status--tdy">TDY</span></td>
+									<td style="font-size: 11px; color: var(--ink-60); font-family: var(--font-mono)">18 JAN</td>
+								</tr>
+								<tr>
+									<td class="td-name">Vasquez, M.</td>
+									<td class="td-rank">PFC</td>
+									<td style="font-size: 11px; color: var(--ink-60)">Driver</td>
+									<td><span class="status status--school">School</span></td>
+									<td style="font-size: 11px; color: var(--ink-60); font-family: var(--font-mono)">03 FEB</td>
+								</tr>
+								<tr>
+									<td class="td-name">Reinhart, J.</td>
+									<td class="td-rank">SPC</td>
+									<td style="font-size: 11px; color: var(--ink-60)">Gunner</td>
+									<td><span class="status status--present">● Present</span></td>
+									<td style="font-size: 11px; color: var(--ink-35)">—</td>
+								</tr>
+								<tr>
+									<td class="td-name">Huang, L.</td>
+									<td class="td-rank">CPL</td>
+									<td style="font-size: 11px; color: var(--ink-60)">Tm Ldr</td>
+									<td><span class="status status--present">● Present</span></td>
+									<td style="font-size: 11px; color: var(--ink-35)">—</td>
+								</tr>
+							</tbody>
+						</table>
+
+						<div class="preview__footer">
+							<div class="preview__footer-meta">
+								<div>STRENGTH: 38</div>
+								<div>
+									PRES RATE: <span style="color: var(--success); font-weight: 600">81.6%</span>
 								</div>
-								<div class="training-item">
-									<div class="training-meta">
-										<span class="training-name">ACFT</span><span class="training-pct">60%</span>
-									</div>
-									<div class="training-bar"><div class="training-fill fill-warn" style="width: 60%"></div></div>
-								</div>
-								<div class="training-item">
-									<div class="training-meta">
-										<span class="training-name">First Aid</span><span class="training-pct">25%</span>
-									</div>
-									<div class="training-bar"><div class="training-fill fill-crit" style="width: 25%"></div></div>
-								</div>
 							</div>
-						</div>
-						<div class="dash-panel dash-duty">
-							<div class="dash-panel-head">
-								<span class="dash-panel-title">Today's Duty</span>
-							</div>
-							<div class="duty-list">
-								<div class="duty-row">
-									<span class="duty-role">MOD</span><span class="duty-name">CPT Rodriguez</span>
-								</div>
-								<div class="duty-row"><span class="duty-role">CQ</span><span class="duty-name">SSG Thompson</span></div>
-							</div>
-						</div>
-						<div class="dash-panel dash-coverage">
-							<div class="dash-panel-head">
-								<span class="dash-panel-title">Coverage</span>
-							</div>
-							<div class="coverage-ring">
-								<svg viewBox="0 0 36 36">
-									<path
-										class="ring-bg"
-										d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-									/>
-									<path
-										class="ring-fill"
-										stroke-dasharray="78, 100"
-										d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-									/>
-								</svg>
-								<span class="coverage-value">78%</span>
+							<div class="preview__footer-actions">
+								<span class="badge">Export</span>
+								<span class="badge">Print DA Form</span>
 							</div>
 						</div>
 					</div>
@@ -340,1274 +282,1364 @@
 		</div>
 	</section>
 
-	<!-- Security Trust Strip -->
-	<section class="trust-strip">
-		<div class="section-container">
-			<div class="trust-grid">
-				<div class="trust-item">
-					<svg
-						class="trust-icon"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-						<path d="M9 12l2 2 4-4" />
-					</svg>
-					<div>
-						<strong>NIST 800-171 Aligned</strong>
-						<p>Security controls mapped to federal CUI protection standards.</p>
-					</div>
+	<section class="section-solves">
+		<div class="container">
+			<div class="solves__grid">
+				<div class="solves__sidebar">
+					<div class="label-amber">The Questions That Matter</div>
+					<h2 class="solves__sidebar-heading">
+						Answer<br />
+						<em>faster.</em><br />Brief<br />
+						<em>better.</em>
+					</h2>
+					<p class="solves__sidebar-copy">
+						Every formation, every brief, every handoff — the same questions come up. TroopToTask puts the answers one
+						click away, not buried in four different spreadsheets.
+					</p>
 				</div>
-				<div class="trust-item">
-					<svg
-						class="trust-icon"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-						<path d="M7 11V7a5 5 0 0110 0v4" />
-					</svg>
-					<div>
-						<strong>Encrypted at Rest & In Transit</strong>
-						<p>AES-256 encryption for stored data. TLS 1.2+ for all connections.</p>
-					</div>
-				</div>
-				<div class="trust-item">
-					<svg
-						class="trust-icon"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-						<polyline points="14 2 14 8 20 8" />
-						<line x1="16" y1="13" x2="8" y2="13" />
-						<line x1="16" y1="17" x2="8" y2="17" />
-					</svg>
-					<div>
-						<strong>Full Audit Trail</strong>
-						<p>Every access and change is logged. Exportable for IG inspections.</p>
-					</div>
-				</div>
-				<div class="trust-item">
-					<svg
-						class="trust-icon"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-						<circle cx="9" cy="7" r="4" />
-						<path d="M23 21v-2a4 4 0 00-3-3.87" />
-						<path d="M16 3.13a4 4 0 010 7.75" />
-					</svg>
-					<div>
-						<strong>Role-Based Access Control</strong>
-						<p>Granular permissions with group scoping. See only what you need.</p>
-					</div>
-				</div>
-			</div>
-		</div>
-	</section>
 
-	<!-- Features Section -->
-	<section id="features" class="features">
-		<div class="section-container">
-			<div class="section-label">Capabilities</div>
-			<h2 class="section-title">Everything your unit needs,<br /><em>nothing it doesn't.</em></h2>
-
-			<div class="features-grid">
-				{#each features as feature, i}
-					<div class="feature-card" class:feature-lead={feature.lead}>
-						<div class="feature-number">{String(i + 1).padStart(2, '0')}</div>
-						<div class="feature-body">
-							<h3 class="feature-title">{feature.title}</h3>
-							<p class="feature-description">{feature.description}</p>
-						</div>
-					</div>
-				{/each}
-			</div>
-
-			<div class="features-cta">
-				<a href="/features" class="features-link">
-					See all features
-					<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"
-						><path
-							fill-rule="evenodd"
-							d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-							clip-rule="evenodd"
-						/></svg
-					>
-				</a>
-			</div>
-		</div>
-	</section>
-
-	<!-- How It Works — compact inline -->
-	<section class="onboarding">
-		<div class="section-container">
-			<div class="onboarding-track">
-				<div class="onboarding-step">
-					<span class="onboarding-num">01</span>
-					<div>
-						<strong>Create Your Organization</strong>
-						<p>Sign up and create your unit's workspace in under a minute.</p>
-					</div>
-				</div>
-				<div class="onboarding-connector"></div>
-				<div class="onboarding-step">
-					<span class="onboarding-num">02</span>
-					<div>
-						<strong>Add Your Personnel</strong>
-						<p>Enter your roster manually or bulk import from any spreadsheet.</p>
-					</div>
-				</div>
-				<div class="onboarding-connector"></div>
-				<div class="onboarding-step">
-					<span class="onboarding-num">03</span>
-					<div>
-						<strong>Start Tracking</strong>
-						<p>Log availability, assign duties, and monitor training — live.</p>
-					</div>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<!-- Roadmap Section -->
-	<section id="roadmap" class="roadmap">
-		<div class="section-container">
-			<div class="section-label">Roadmap</div>
-			<h2 class="section-title">What we've built,<br /><em>and what's next.</em></h2>
-
-			<div class="roadmap-shipped">
-				<h3 class="roadmap-group-title">Recently Shipped</h3>
-				{#each shipped as item}
-					<div class="shipped-entry">
-						<div class="shipped-check">
-							<svg
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2.5"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								width="14"
-								height="14"
-								aria-hidden="true"
-							>
-								<polyline points="20 6 9 17 4 12" />
-							</svg>
-						</div>
+				<div class="solves__questions">
+					<div class="question-row observe-in">
+						<div class="question-num">01</div>
 						<div>
-							<h4 class="shipped-title">{item.title}</h4>
-							<p class="shipped-description">{item.description}</p>
+							<div class="question-text">Who is here today?</div>
+							<div class="question-detail">
+								Real-time accountability view. Sorted by platoon, section, or unit. Updated when statuses change — not
+								when someone remembers to update a spreadsheet.
+							</div>
 						</div>
 					</div>
-				{/each}
+					<div class="question-row observe-in">
+						<div class="question-num">02</div>
+						<div>
+							<div class="question-text">Who is unavailable and why?</div>
+							<div class="question-detail">
+								Leave, TDY, medical, school, profile, appointment, custom — each tracked with expected return date and
+								authorized reason visible to leaders with access.
+							</div>
+						</div>
+					</div>
+					<div class="question-row observe-in">
+						<div class="question-num">03</div>
+						<div>
+							<div class="question-text">What duties are filled or uncovered?</div>
+							<div class="question-detail">
+								Daily duty assignment board shows every position — CQ, SDO, details — alongside who is assigned, gaps
+								flagged, and the next scheduled rotation.
+							</div>
+						</div>
+					</div>
+					<div class="question-row observe-in">
+						<div class="question-num">04</div>
+						<div>
+							<div class="question-text">What training is coming due?</div>
+							<div class="question-detail">
+								Track certifications, recurring training requirements, and readiness deadlines. See what expires this
+								week, this month, or for a specific individual.
+							</div>
+						</div>
+					</div>
+					<div class="question-row observe-in">
+						<div class="question-num">05</div>
+						<div>
+							<div class="question-text">Where are the personnel gaps?</div>
+							<div class="question-detail">
+								Readiness summary surfaces availability rate by element, understrength billets, and personnel pending
+								action — at a glance, not a data pull.
+							</div>
+						</div>
+					</div>
+					<div class="question-row observe-in">
+						<div class="question-num">06</div>
+						<div>
+							<div class="question-text">What needs action before the next brief?</div>
+							<div class="question-detail">
+								Expiring evals, pending counselings, open onboarding tasks, and unfiled documents — consolidated into a
+								prioritized action queue for each leader.
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="section-capabilities" id="capabilities">
+		<div class="container">
+			<div class="caps__header">
+				<div>
+					<div class="label-amber caps__label">Platform Capabilities</div>
+					<h2 class="caps__heading">Built for<br />unit work.</h2>
+				</div>
+				<p class="caps__intro">
+					Not adapted from a corporate project management tool. Not a generic HR system repurposed for military use.
+					TroopToTask is built around the actual workflows of unit leadership — from roster management to rating scheme
+					tracking.
+				</p>
 			</div>
 
-			<div class="roadmap-timeline">
-				<h3 class="roadmap-group-title">Coming Next</h3>
-				{#each roadmap as item, i}
-					<div class="roadmap-entry">
-						<div class="roadmap-marker">
-							<div class="marker-dot {item.statusClass}"></div>
-							{#if i < roadmap.length - 1}
-								<div class="marker-line"></div>
-							{/if}
+			<div class="caps__grid">
+				<div class="cap-card observe-in">
+					<div class="cap-card__index">CAP 01</div>
+					<div class="cap-card__title">Personnel Roster</div>
+					<div class="cap-card__body">
+						Manage personnel organized by platoon, section, or custom group. Track assignment, position, and contact
+						data. Export to standard formats on demand.
+					</div>
+				</div>
+
+				<div class="cap-card observe-in">
+					<div class="cap-card__index">CAP 02</div>
+					<div class="cap-card__title">Availability Calendar</div>
+					<div class="cap-card__body">
+						Visual unit calendar showing who is present, on leave, TDY, at school, or on profile. Navigate by date range
+						or filter by element to answer accountability questions immediately.
+					</div>
+				</div>
+
+				<div class="cap-card observe-in">
+					<div class="cap-card__index">CAP 03</div>
+					<div class="cap-card__title">Status Tracking</div>
+					<div class="cap-card__body">
+						Structured statuses — present, leave, TDY, school, appointment, profile, and custom — each with start date,
+						expected return, authorizing leader, and remarks.
+					</div>
+				</div>
+
+				<div class="cap-card observe-in">
+					<div class="cap-card__index">CAP 04</div>
+					<div class="cap-card__title">Duty Assignment</div>
+					<div class="cap-card__body">
+						Plan and assign daily duties: CQ, SDO, details, and any custom position. See today&apos;s roster against
+						available personnel, flag gaps, and maintain a duty history log.
+					</div>
+				</div>
+
+				<div class="cap-card observe-in">
+					<div class="cap-card__index">CAP 05</div>
+					<div class="cap-card__title">Training &amp; Readiness</div>
+					<div class="cap-card__body">
+						Track certifications, recurring training requirements, and readiness deadlines by individual. Get visibility
+						on what is current, expiring, or overdue across the unit.
+					</div>
+				</div>
+
+				<div class="cap-card observe-in">
+					<div class="cap-card__index">CAP 06</div>
+					<div class="cap-card__title">Counseling Records</div>
+					<div class="cap-card__body">
+						Maintain counseling and leader&apos;s book entries by Soldier. Track initial, periodic, and event-driven
+						counselings. Flag overdue requirements. Exportable for continuity.
+					</div>
+				</div>
+
+				<div class="cap-card observe-in">
+					<div class="cap-card__index">CAP 07</div>
+					<div class="cap-card__title">In-Processing &amp; Onboarding</div>
+					<div class="cap-card__body">
+						Structured workflows for in-processing new arrivals. Checklist-driven tasks assigned across sections. Track
+						completion status and hold leaders accountable to deadlines.
+					</div>
+				</div>
+
+				<div class="cap-card observe-in">
+					<div class="cap-card__index">CAP 08</div>
+					<div class="cap-card__title">Rating Scheme Tracking</div>
+					<div class="cap-card__body">
+						Monitor OER, NCOER, and WOER timelines. Track rating chain assignments, scheduled dates, and submission
+						status. Surface upcoming and overdue evaluations by unit.
+					</div>
+				</div>
+
+				<div class="cap-card observe-in">
+					<div class="cap-card__index">CAP 09</div>
+					<div class="cap-card__title">Permissions &amp; Audit</div>
+					<div class="cap-card__body">
+						Role-based access controls align with unit structure. Full audit log tracks who made what change and when.
+						Multi-organization support for higher and adjacent units.
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="section-roster" id="roster">
+		<div class="container--wide">
+			<div class="roster__header">
+				<div>
+					<div class="label-amber roster__label">Roster &amp; Accountability</div>
+					<h2 class="roster__heading">Morning accountability.<br />Any formation. Instantly.</h2>
+				</div>
+				<div class="roster__header-copy">
+					<p>
+						The roster is the source of truth. Every status update flows back to it. Print a DA Form 1594 or export for
+						the S1 — no reformatting required.
+					</p>
+				</div>
+			</div>
+
+			<div class="roster__panel">
+				<div class="roster__toolbar">
+					<div class="roster__toolbar-left">
+						<div class="roster__unit-label">Bravo Company — 2-87 IN</div>
+						<div class="roster__date">{rosterDate}</div>
+						<span class="badge badge--amber badge--dot">Live View</span>
+					</div>
+					<div class="roster__availability">
+						<div class="avail-stat">
+							<div class="avail-stat__num">142</div>
+							<div class="avail-stat__lbl">Assigned</div>
 						</div>
-						<div class="roadmap-content">
-							<div class="roadmap-status-badge {item.statusClass}">{item.status}</div>
-							<h3 class="roadmap-title">{item.title}</h3>
-							<p class="roadmap-description">{item.description}</p>
+						<div class="avail-stat">
+							<div class="avail-stat__num" style="color: var(--success)">127</div>
+							<div class="avail-stat__lbl">Present</div>
+						</div>
+						<div class="avail-stat">
+							<div class="avail-stat__num" style="color: var(--amber)">9</div>
+							<div class="avail-stat__lbl">Leave / TDY</div>
+						</div>
+						<div class="avail-stat">
+							<div class="avail-stat__num" style="color: var(--danger)">6</div>
+							<div class="avail-stat__lbl">Unavail</div>
+						</div>
+						<div class="roster__divider"></div>
+						<div class="avail-stat">
+							<div class="avail-stat__num">89.4%</div>
+							<div class="avail-stat__lbl">Pres Rate</div>
 						</div>
 					</div>
+				</div>
+
+				<div class="roster__table-wrap">
+					<table class="data-table roster__table">
+						<thead>
+							<tr>
+								<th style="width: 28px">#</th>
+								<th>Name</th>
+								<th>Rank</th>
+								<th>MOS</th>
+								<th>Element</th>
+								<th>Position</th>
+								<th>Status</th>
+								<th>BASD</th>
+								<th>ETS</th>
+								<th>Returns</th>
+								<th>Counseled</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="row-count">01</td>
+								<td class="td-name">Anderson, K.L.</td>
+								<td class="td-rank">CPT</td>
+								<td class="table-mono">11A</td>
+								<td class="table-mono">HHC</td>
+								<td class="table-mono">CO CDR</td>
+								<td><span class="status status--present">● Present</span></td>
+								<td class="table-date">15 MAR 19</td>
+								<td class="table-date">14 MAR 27</td>
+								<td class="table-muted">—</td>
+								<td><span class="badge badge-success">Current</span></td>
+							</tr>
+							<tr>
+								<td class="row-count">02</td>
+								<td class="td-name">Williams, D.J.</td>
+								<td class="td-rank">1SG</td>
+								<td class="table-mono">11Z</td>
+								<td class="table-mono">HHC</td>
+								<td class="table-mono">First Sgt</td>
+								<td><span class="status status--present">● Present</span></td>
+								<td class="table-date">03 JUN 10</td>
+								<td class="table-date">02 JUN 28</td>
+								<td class="table-muted">—</td>
+								<td><span class="badge badge-success">Current</span></td>
+							</tr>
+							<tr>
+								<td class="row-count">03</td>
+								<td class="td-name">Patel, S.R.</td>
+								<td class="td-rank">SSG</td>
+								<td class="table-mono">11B</td>
+								<td class="table-mono">1st PLT</td>
+								<td class="table-mono">Plt Sgt</td>
+								<td><span class="status status--leave">Leave</span></td>
+								<td class="table-date">17 SEP 16</td>
+								<td class="table-date">16 SEP 25</td>
+								<td class="table-date table-date-amber">05 APR</td>
+								<td><span class="badge badge-success">Current</span></td>
+							</tr>
+							<tr>
+								<td class="row-count">04</td>
+								<td class="td-name">Jackson, T.M.</td>
+								<td class="td-rank">SGT</td>
+								<td class="table-mono">11B</td>
+								<td class="table-mono">1st PLT</td>
+								<td class="table-mono">Tm Ldr</td>
+								<td><span class="status status--present">● Present</span></td>
+								<td class="table-date">22 JAN 20</td>
+								<td class="table-date">21 JAN 26</td>
+								<td class="table-muted">—</td>
+								<td><span class="badge badge-warning">Due Soon</span></td>
+							</tr>
+							<tr>
+								<td class="row-count">05</td>
+								<td class="td-name">Kowalski, B.A.</td>
+								<td class="td-rank">SPC</td>
+								<td class="table-mono">11B</td>
+								<td class="table-mono">1st PLT</td>
+								<td class="table-mono">Rifleman</td>
+								<td><span class="status status--tdy">TDY</span></td>
+								<td class="table-date">08 AUG 22</td>
+								<td class="table-date">07 AUG 26</td>
+								<td class="table-date">14 APR</td>
+								<td><span class="badge badge-success">Current</span></td>
+							</tr>
+							<tr>
+								<td class="row-count">06</td>
+								<td class="td-name">Reyes, C.F.</td>
+								<td class="td-rank">PFC</td>
+								<td class="table-mono">11C</td>
+								<td class="table-mono">2nd PLT</td>
+								<td class="table-mono">Mortarman</td>
+								<td><span class="status status--school">School</span></td>
+								<td class="table-date">11 MAR 24</td>
+								<td class="table-date">10 MAR 27</td>
+								<td class="table-date">30 MAY</td>
+								<td><span class="badge badge-success">Current</span></td>
+							</tr>
+							<tr>
+								<td class="row-count">07</td>
+								<td class="td-name">Okonkwo, E.N.</td>
+								<td class="td-rank">SPC</td>
+								<td class="table-mono">11B</td>
+								<td class="table-mono">2nd PLT</td>
+								<td class="table-mono">Gunner</td>
+								<td><span class="status status--unavail">Unavail</span></td>
+								<td class="table-date">29 NOV 21</td>
+								<td class="table-date">28 NOV 25</td>
+								<td class="table-date table-date-danger">See Remarks</td>
+								<td><span class="badge badge-danger">Overdue</span></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<div class="roster__table-footer">
+					<div class="roster__table-status">Showing 7 of 142 personnel · Sorted: Rank ↑</div>
+					<div class="roster__table-actions">
+						<span class="badge">Filter</span>
+						<span class="badge">Sort</span>
+						<span class="badge badge--amber">Export Roster</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="section-audience">
+		<div class="container">
+			<div class="audience__grid">
+				<div>
+					<div class="label-amber audience__label">Designed For Leadership</div>
+					<h2 class="audience__heading">
+						Built for<br />
+						the people<br />
+						<em>running</em><br />
+						the unit.
+					</h2>
+					<p class="audience__copy">
+						TroopToTask is designed around actual military leader roles — not abstract organizational charts. Access and
+						visibility are scoped to your level of responsibility.
+					</p>
+				</div>
+
+				<div class="audience__roles">
+					<div class="role-row observe-in">
+						<div class="role-name">Commander / XO</div>
+						<span class="role-badge">Full Unit Visibility</span>
+					</div>
+					<div class="role-row observe-in">
+						<div class="role-name">First Sergeant</div>
+						<span class="role-badge">Enlisted Oversight</span>
+					</div>
+					<div class="role-row observe-in">
+						<div class="role-name">Platoon Leader / PSG</div>
+						<span class="role-badge">Platoon Scope</span>
+					</div>
+					<div class="role-row observe-in">
+						<div class="role-name">Section Leader</div>
+						<span class="role-badge">Section Scope</span>
+					</div>
+					<div class="role-row observe-in">
+						<div class="role-name">Training Room NCO</div>
+						<span class="role-badge">Training Admin Access</span>
+					</div>
+					<div class="role-row observe-in">
+						<div class="role-name">S1 / Admin Staff</div>
+						<span class="role-badge">Readiness Admin</span>
+					</div>
+					<div class="role-row observe-in">
+						<div class="role-name">Higher Headquarters</div>
+						<span class="role-badge">Multi-Org Read Access</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="section-proof">
+		<div class="container">
+			<div class="proof__inner">
+				<div>
+					<div class="proof__rule"></div>
+					<p class="proof__quote">
+						&quot;The whiteboard gets erased. The shared drive is a mess. Someone always has
+						<strong>a different version</strong> of the roster. TroopToTask is the one place every leader looks.&quot;
+					</p>
+					<div class="proof__attribution">— Company Commander, Active Duty Infantry Unit</div>
+				</div>
+
+				<div class="proof__points">
+					<div class="proof__point observe-in">
+						<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+							<polyline points="4 10 8 14 16 6"></polyline>
+						</svg>
+						<div class="proof__point-text">
+							<strong>Replaces the whiteboard.</strong> Statuses update in the system. No marker, no erasing, no confusion
+							about what&apos;s current.
+						</div>
+					</div>
+					<div class="proof__point observe-in">
+						<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+							<polyline points="4 10 8 14 16 6"></polyline>
+						</svg>
+						<div class="proof__point-text">
+							<strong>Replaces the spreadsheet.</strong> Roster data lives in one structured system. Exports are format-ready.
+							No reformatting for the S1.
+						</div>
+					</div>
+					<div class="proof__point observe-in">
+						<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+							<polyline points="4 10 8 14 16 6"></polyline>
+						</svg>
+						<div class="proof__point-text">
+							<strong>Replaces scattered shared drives.</strong> Counselings, training records, and onboarding checklists
+							in one permission-controlled location.
+						</div>
+					</div>
+					<div class="proof__point observe-in">
+						<svg class="proof__point-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+							<polyline points="4 10 8 14 16 6"></polyline>
+						</svg>
+						<div class="proof__point-text">
+							<strong>Built for leader transitions.</strong> Full audit log and continuity records mean incoming leaders have
+							context from day one.
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="section-faq" id="faq">
+		<div class="container">
+			<div class="faq__header">
+				<div class="label-amber faq__label">Frequently Asked Questions</div>
+				<h2 class="faq__heading">
+					The questions people ask
+					<br />
+					<em>before they hand over the roster.</em>
+				</h2>
+			</div>
+
+			<div class="faq__list">
+				{#each faqs as item}
+					<details class="faq-item">
+						<summary class="faq-question">
+							<span>{item.question}</span>
+							<span class="faq-icon" aria-hidden="true"></span>
+						</summary>
+						<div class="faq-answer">
+							<p>{item.answer}</p>
+						</div>
+					</details>
 				{/each}
 			</div>
 		</div>
 	</section>
 
-	<!-- FAQ Section -->
-	<section id="faq" class="faq">
-		<div class="section-container">
-			<div class="section-label">FAQ</div>
-			<h2 class="section-title">Questions worth asking<br /><em>before you commit.</em></h2>
-
-			<div class="faq-list">
-				<details class="faq-item">
-					<summary class="faq-question">
-						Are the calendar statuses fixed — like "Leave" or "TDY" — or can I change them?
-						<span class="faq-icon" aria-hidden="true"></span>
-					</summary>
-					<div class="faq-answer">
-						<p>
-							Absolutely not — customizing statuses is usually one of the first things a new unit admin does. You define
-							every status yourself: the name, the color, and whether it marks a day as a unit closure (like a training
-							holiday or DONSA). If your unit has a status called "PDHA/PDHRA" or "Rear D," that's exactly what you'll
-							see on the calendar. Your formation, your language.
-						</p>
-					</div>
-				</details>
-
-				<details class="faq-item">
-					<summary class="faq-question">
-						I want my squad leaders to manage their people without seeing everyone else's business. Is that possible?
-						<span class="faq-icon" aria-hidden="true"></span>
-					</summary>
-					<div class="faq-answer">
-						<p>
-							Yes — and this is one of the most powerful things T2T does. When you invite someone to your organization,
-							you can scope their access to a specific group. A Team Leader role can update statuses for their Soldiers
-							and track their training, but they won't see counseling records, onboarding checklists, or personnel data
-							for anyone outside their group. They get exactly the visibility they need to do their job, and nothing
-							they shouldn't have.
-						</p>
-					</div>
-				</details>
-
-				<details class="faq-item">
-					<summary class="faq-question">
-						I already have my roster in a spreadsheet. Do I have to re-enter everyone by hand?
-						<span class="faq-icon" aria-hidden="true"></span>
-					</summary>
-					<div class="faq-answer">
-						<p>
-							Please don't. T2T's bulk import tool lets you paste your spreadsheet directly and walks you through
-							mapping your columns to the right fields — name, rank, MOS, section, assignment, whatever you have. You
-							can be up and running with a full roster in a few minutes, not a few hours. If your spreadsheet is a mess,
-							the column mapper is forgiving enough to handle it.
-						</p>
-					</div>
-				</details>
-
-				<details class="faq-item">
-					<summary class="faq-question">
-						What is the "Leaders Book" and when is it coming back?
-						<span class="faq-icon" aria-hidden="true"></span>
-					</summary>
-					<div class="faq-answer">
-						<p>
-							The Leaders Book is a digital replacement for that notebook every NCO keeps in their left cargo pocket —
-							counseling records, development goals, extended soldier info, and everything else that doesn't have a home
-							on a standard form. We're currently rebuilding it from the ground up to be more intuitive and better
-							integrated with the rest of the app. The Rating Scheme tracker is still fully available on the Personnel
-							page in the meantime.
-						</p>
-					</div>
-				</details>
-
-				<details class="faq-item">
-					<summary class="faq-question">
-						How does the duty roster generator actually work?
-						<span class="faq-icon" aria-hidden="true"></span>
-					</summary>
-					<div class="faq-answer">
-						<p>
-							It runs the same logic that's supposed to be behind a DA Form 6 — fair rotation based on availability,
-							eligibility, and how many times each person has already pulled the duty — without the hours of manual
-							cross-referencing. You set who's eligible (rank requirements, exemptions, availability), and T2T builds
-							the roster and tracks cumulative duty counts so the same three Soldiers aren't always on the list. The
-							output is print-ready for the board or shareable digitally with your HQ.
-						</p>
-					</div>
-				</details>
-
-				<details class="faq-item">
-					<summary class="faq-question">
-						What kind of training data can I track?
-						<span class="faq-icon" aria-hidden="true"></span>
-					</summary>
-					<div class="faq-answer">
-						<p>
-							Anything your unit requires. You create the training types — Weapons Qual, ACFT, CPR/BLS, SHARP, you name
-							it — and set an expiration window for each one. T2T then tracks every Soldier against it and color-codes
-							the matrix: green for current, yellow at 60 days, orange at 30, red for overdue. You can mark individual
-							Soldiers as exempt, track pass/fail or just attendance, and export the whole thing to Excel for your
-							training briefing. No more digging through a shared drive full of outdated spreadsheets.
-						</p>
-					</div>
-				</details>
-
-				<details class="faq-item">
-					<summary class="faq-question">
-						What does the in-processing checklist actually do that a shared doc can't?
-						<span class="faq-icon" aria-hidden="true"></span>
-					</summary>
-					<div class="faq-answer">
-						<p>
-							It turns your in-processing SOP into a living workflow. Build a template once — equipment issue, clearing
-							finance, initial counseling, ID card appointment, whatever your steps are — and every new arrival gets
-							their own checklist generated from that template automatically. You can see progress by person ("where is
-							SGT Johnson in the process?") or pivot and view it by step ("who across the whole platoon hasn't done
-							their initial counseling?"). No more chasing people down the hallway trying to piece together who's done
-							what.
-						</p>
-					</div>
-				</details>
-
-				<details class="faq-item">
-					<summary class="faq-question">
-						Can I manage more than one unit from the same account?
-						<span class="faq-icon" aria-hidden="true"></span>
-					</summary>
-					<div class="faq-answer">
-						<p>
-							Yes. One login, multiple organizations — and you can switch between them without signing out. Whether
-							you're managing a company and a detachment, you're in a higher HQ role overseeing subordinate units, or
-							you just PCS'd and want to keep your old organization's data accessible during the transition, everything
-							lives under the same account.
-						</p>
-					</div>
-				</details>
-
-				<details class="faq-item">
-					<summary class="faq-question">
-						Can I export data, or does everything stay locked inside the app?
-						<span class="faq-icon" aria-hidden="true"></span>
-					</summary>
-					<div class="faq-answer">
-						<p>
-							Both — the data lives in T2T so it's always current, and you can pull it out whenever you need it.
-							Personnel rosters, training matrices, and calendar exports all go to Excel with color-coding intact. Duty
-							rosters and sign-in sheets are designed to print cleanly straight from the browser. If the XO walks in and
-							wants a personnel readiness brief, you have it in about 30 seconds.
-						</p>
-					</div>
-				</details>
-
-				<details class="faq-item">
-					<summary class="faq-question">
-						Is this secure enough to hold personal information about my Soldiers?
-						<span class="faq-icon" aria-hidden="true"></span>
-					</summary>
-					<div class="faq-answer">
-						<p>
-							T2T is built to a military standard, not a startup standard. It aligns to NIST 800-171 — the federal
-							framework for protecting Controlled Unclassified Information — with AES-256 encryption at rest, TLS 1.2+
-							in transit, role-based access control with group scoping, and a full audit log of every action in the
-							system (exportable for IG inspections). T2T is not authorized for classified information, but for the
-							administrative and personnel data that runs your day-to-day operations, the controls are where they need
-							to be.
-						</p>
-					</div>
-				</details>
+	<section class="section-cta" id="roadmap">
+		<div class="container">
+			<div class="cta__inner">
+				<div>
+					<div class="label-amber cta__label">Get Started</div>
+					<h2 class="cta__heading">Ready to run<br />a tighter unit?</h2>
+					<p class="cta__subtext">
+						Request access for your unit. TroopToTask is onboarded by organization — we work with you to configure your
+						structure, import your roster, and train your team leads.
+					</p>
+				</div>
+				<div class="cta__actions">
+					<a href="/auth/request-access" class="btn btn--amber cta__action-primary">Request Access</a>
+					<a href="/demo" class="btn btn--outline">Schedule a Demo</a>
+					<div class="cta__note">No credit card required</div>
+				</div>
 			</div>
 		</div>
 	</section>
-
 </PublicShell>
 
 <style>
-	/* ============================================
-	   Landing Page — "Operations Directive"
-	   Typography: Instrument Serif + DM Sans + DM Mono
-	   ============================================ */
-
-	/* ---- Hero ---- */
-	.hero {
-		position: relative;
-		background: var(--hero-bg);
-		padding: 6rem 2rem 5rem;
-		overflow: hidden;
-	}
-
-	.hero-noise {
-		position: absolute;
-		inset: 0;
-		opacity: 0.03;
-		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-		background-size: 256px 256px;
-		pointer-events: none;
-	}
-
-	.hero-container {
-		position: relative;
-		z-index: 1;
+	.container {
 		max-width: 1200px;
 		margin: 0 auto;
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 5rem;
-		align-items: center;
+		padding: 0 var(--sp-8);
 	}
 
-	.hero-eyebrow {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		color: var(--brass);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		margin-bottom: 1.5rem;
-	}
-
-	.hero-title {
-		font-family: var(--font-display);
-		font-size: 3.75rem;
-		font-weight: 400;
-		line-height: 1.08;
-		color: var(--hero-text);
-		margin-bottom: 1.75rem;
-		letter-spacing: -0.01em;
-	}
-
-	.hero-title em {
-		font-style: italic;
-		color: var(--brass);
-	}
-
-	.hero-subtitle {
-		font-size: 1.0625rem;
-		color: var(--hero-muted);
-		line-height: 1.7;
-		margin-bottom: 2.5rem;
-		max-width: 480px;
-	}
-
-	.hero-actions {
-		display: flex;
-		align-items: center;
-		gap: 1.5rem;
-		margin-bottom: 3.5rem;
-	}
-
-	.hero-btn-primary {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-family: var(--font-body);
-		font-size: 0.9375rem;
-		font-weight: 500;
-		color: var(--ink);
-		background: var(--brass);
-		padding: 0.75rem 1.75rem;
-		border-radius: 8px;
-		text-decoration: none;
-		transition: all 0.2s;
-	}
-
-	.hero-btn-primary:hover {
-		background: var(--brass-light);
-		transform: translateY(-1px);
-	}
-
-	.hero-btn-primary svg {
-		width: 16px;
-		height: 16px;
-	}
-
-	.hero-btn-ghost {
-		font-size: 0.9375rem;
-		color: var(--hero-muted);
-		text-decoration: none;
-		border-bottom: 1px solid var(--ink-border);
-		padding-bottom: 2px;
-		transition: all 0.15s;
-	}
-
-	.hero-btn-ghost:hover {
-		color: var(--hero-text);
-		border-color: var(--hero-text);
-	}
-
-	.hero-proof {
-		display: flex;
-		align-items: center;
-		gap: 1.5rem;
-	}
-
-	.proof-item {
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-	}
-
-	.proof-value {
-		font-family: var(--font-mono);
-		font-size: 1rem;
-		font-weight: 500;
-		color: var(--hero-text);
-	}
-
-	.proof-label {
-		font-size: 0.75rem;
-		color: var(--hero-muted);
-	}
-
-	.proof-divider {
-		width: 1px;
-		height: 28px;
-		background: var(--ink-border);
-	}
-
-	/* ---- Dashboard Preview ---- */
-	.hero-visual {
-		display: flex;
-		justify-content: center;
-	}
-
-	.dashboard-preview {
-		position: relative;
-		width: 100%;
-		max-width: 480px;
-		background: var(--ink-light);
-		border: 1px solid var(--ink-border);
-		border-radius: 12px;
-		overflow: hidden;
-		box-shadow:
-			0 0 0 1px rgba(255, 255, 255, 0.03),
-			0 20px 60px rgba(0, 0, 0, 0.4);
-	}
-
-	.compliance-sash {
-		position: absolute;
-		top: 18px;
-		right: -34px;
-		z-index: 10;
-		width: 160px;
-		text-align: center;
-		padding: 4px 0;
-		background: var(--brass);
-		color: var(--ink);
-		font-family: var(--font-mono);
-		font-size: 0.5625rem;
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		transform: rotate(45deg);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-	}
-
-	.dash-chrome {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.625rem 1rem;
-		border-bottom: 1px solid var(--ink-border);
-		background: rgba(255, 255, 255, 0.02);
-	}
-
-	.dash-dots {
-		display: flex;
-		gap: 5px;
-	}
-
-	.dash-dots span {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background: var(--ink-border);
-	}
-
-	.dash-url {
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		color: var(--hero-muted);
-		letter-spacing: 0.02em;
-	}
-
-	.dash-body {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 0.625rem;
-		padding: 0.75rem;
-	}
-
-	.dash-panel {
-		background: rgba(255, 255, 255, 0.03);
-		border: 1px solid rgba(255, 255, 255, 0.06);
-		border-radius: 8px;
-		padding: 0.875rem;
-	}
-
-	.dash-calendar {
-		grid-column: span 2;
-	}
-
-	.dash-panel-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 0.625rem;
-	}
-
-	.dash-panel-title {
-		font-family: var(--font-mono);
-		font-size: 0.6875rem;
-		font-weight: 500;
-		color: var(--hero-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-	}
-
-	.dash-live {
-		font-family: var(--font-mono);
-		font-size: 0.5625rem;
-		font-weight: 500;
-		color: #4caf50;
-		letter-spacing: 0.1em;
-		padding: 0.125rem 0.375rem;
-		border: 1px solid rgba(76, 175, 80, 0.3);
-		border-radius: 3px;
-	}
-
-	/* Mini Calendar inside dashboard */
-	.mini-calendar {
-		display: flex;
-		flex-direction: column;
-		gap: 3px;
-	}
-
-	.cal-row {
-		display: flex;
-		gap: 3px;
-	}
-
-	.cal-row span {
-		flex: 1;
-		height: 20px;
-		border-radius: 3px;
-	}
-
-	.cal-row.cal-header span {
-		background: transparent;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-family: var(--font-mono);
-		font-size: 0.5625rem;
-		color: var(--hero-muted);
-		height: auto;
-		padding-bottom: 2px;
-	}
-
-	.cal-empty {
-		background: rgba(255, 255, 255, 0.04);
-	}
-	.cal-leave {
-		background: #4caf50;
-	}
-	.cal-tdy {
-		background: #7c4dff;
-	}
-	.cal-school {
-		background: #2196f3;
-	}
-	.cal-appt {
-		background: #ff9800;
-	}
-
-	.cal-legend {
-		display: flex;
-		gap: 0.75rem;
-		margin-top: 0.5rem;
-	}
-
-	.legend-item {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-		font-size: 0.5625rem;
-		color: var(--hero-muted);
-		font-family: var(--font-mono);
-	}
-
-	.legend-dot {
-		width: 6px;
-		height: 6px;
-		border-radius: 2px;
-		flex-shrink: 0;
-	}
-
-	/* Training Bars inside dashboard */
-	.training-bars {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.training-item {
-		display: flex;
-		flex-direction: column;
-		gap: 3px;
-	}
-
-	.training-meta {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.training-name {
-		font-size: 0.625rem;
-		color: var(--hero-muted);
-	}
-
-	.training-pct {
-		font-family: var(--font-mono);
-		font-size: 0.5625rem;
-		color: var(--hero-muted);
-	}
-
-	.training-bar {
-		height: 4px;
-		background: rgba(255, 255, 255, 0.06);
-		border-radius: 2px;
-		overflow: hidden;
-	}
-
-	.training-fill {
-		height: 100%;
-		border-radius: 2px;
-	}
-
-	.fill-good {
-		background: #4caf50;
-	}
-	.fill-warn {
-		background: #ff9800;
-	}
-	.fill-crit {
-		background: #f44336;
-	}
-
-	/* Duty inside dashboard */
-	.duty-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.375rem;
-	}
-
-	.duty-row {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.duty-role {
-		font-family: var(--font-mono);
-		font-size: 0.5625rem;
-		font-weight: 500;
-		padding: 0.125rem 0.375rem;
-		background: var(--color-primary);
-		color: #0f0f0f;
-		border-radius: 3px;
-		letter-spacing: 0.05em;
-	}
-
-	.duty-name {
-		font-size: 0.6875rem;
-		color: var(--hero-muted);
-	}
-
-	/* Coverage ring */
-	.dash-coverage {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-	}
-
-	.coverage-ring {
-		position: relative;
-		width: 64px;
-		height: 64px;
-	}
-
-	.coverage-ring svg {
-		transform: rotate(-90deg);
-		width: 100%;
-		height: 100%;
-	}
-
-	.ring-bg {
-		fill: none;
-		stroke: rgba(255, 255, 255, 0.06);
-		stroke-width: 3;
-	}
-
-	.ring-fill {
-		fill: none;
-		stroke: var(--brass);
-		stroke-width: 3;
-		stroke-linecap: round;
-	}
-
-	.coverage-value {
-		position: absolute;
-		inset: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-family: var(--font-mono);
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--hero-text);
-	}
-
-	/* ---- Sections (shared) ---- */
-	.section-container {
-		max-width: 1200px;
+	.container--wide {
+		max-width: 1400px;
 		margin: 0 auto;
-		padding: 0 2rem;
+		padding: 0 var(--sp-8);
 	}
 
-	.section-label {
+	.label-amber {
 		font-family: var(--font-mono);
-		font-size: 0.6875rem;
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: var(--brass);
-		margin-bottom: 0.75rem;
+		color: var(--text-tertiary);
 	}
 
-	.section-title {
-		font-family: var(--font-display);
-		font-size: 2.75rem;
-		font-weight: 400;
-		line-height: 1.15;
-		letter-spacing: -0.01em;
-		margin-bottom: 1rem;
+	.label-amber {
+		color: var(--amber);
 	}
 
-	.section-title em {
-		font-style: italic;
-	}
-
-	.section-subtitle {
-		font-size: 1.0625rem;
-		color: var(--color-text-secondary);
-		max-width: 520px;
-		line-height: 1.6;
-		margin: 0;
-	}
-
-	/* ---- Features ---- */
-	.features {
-		padding: 6rem 0;
+	.badge {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-1);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		padding: 3px 8px;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		color: var(--text-secondary);
 		background: var(--paper);
 	}
 
-	:global([data-theme='dark']) .features {
-		background: var(--color-bg);
+	.badge--amber {
+		border-color: var(--amber);
+		color: var(--amber-dark);
+		background: var(--amber-light);
 	}
 
-	.features-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 1px;
-		background: var(--color-border);
-		border: 1px solid var(--color-border);
-		border-radius: 12px;
-		overflow: hidden;
-		margin-top: 3rem;
+	.badge--dot::before {
+		content: '';
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: currentColor;
+		display: inline-block;
 	}
 
-	.feature-card {
-		background: var(--color-surface);
-		padding: 2rem;
-		display: flex;
-		gap: 1.25rem;
-		transition: background 0.2s;
+	.badge-success {
+		background: var(--success-bg);
+		color: var(--success);
+		border-color: color-mix(in srgb, var(--success) 20%, transparent);
 	}
 
-	.feature-card:hover {
-		background: var(--paper-warm);
+	.badge-warning {
+		background: var(--amber-light);
+		color: var(--amber-dark);
+		border-color: color-mix(in srgb, var(--amber) 24%, transparent);
 	}
 
-	:global([data-theme='dark']) .feature-card:hover {
-		background: var(--color-surface-variant);
+	.badge-danger {
+		background: var(--danger-bg);
+		color: var(--danger);
+		border-color: color-mix(in srgb, var(--danger) 20%, transparent);
 	}
 
-	.feature-lead {
-		grid-column: span 3;
-		padding: 2.5rem;
-	}
-
-	.feature-number {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		color: var(--brass);
-		flex-shrink: 0;
-		padding-top: 0.125rem;
-		letter-spacing: 0.02em;
-	}
-
-	.feature-body {
-		min-width: 0;
-	}
-
-	.feature-title {
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
 		font-family: var(--font-display);
-		font-size: 1.25rem;
-		font-weight: 400;
-		margin-bottom: 0.375rem;
-		color: var(--color-text);
+		font-size: var(--text-lg);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.04em;
+		padding: 10px var(--sp-6);
+		border-radius: var(--radius-md);
+		line-height: 1;
+		text-decoration: none;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease,
+			border-color 0.15s ease;
 	}
 
-	.feature-lead .feature-title {
-		font-size: 1.5rem;
+	.btn--amber {
+		background: var(--amber);
+		color: var(--white);
+		border: 1px solid var(--amber);
 	}
 
-	.feature-description {
-		color: var(--color-text-secondary);
-		line-height: 1.6;
-		font-size: 0.9375rem;
-		margin: 0;
+	.btn--amber:hover {
+		background: var(--amber-vivid);
+		border-color: var(--amber-vivid);
 	}
 
-	.features-cta {
-		margin-top: 2rem;
+	.btn--outline {
+		background: transparent;
+		color: var(--text-primary);
+		border: 1px solid var(--border-default);
+	}
+
+	.btn--outline:hover {
+		border-color: var(--text-secondary);
+		background: var(--surface-subtle);
+	}
+
+	.status {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		padding: 2px 7px;
+		border-radius: var(--radius-sm);
+		border: 1px solid transparent;
+	}
+
+	.status--present {
+		background: var(--success-bg);
+		color: var(--success);
+		border-color: color-mix(in srgb, var(--success) 20%, transparent);
+	}
+
+	.status--leave {
+		background: var(--amber-light);
+		color: var(--amber-dark);
+		border-color: color-mix(in srgb, var(--amber) 24%, transparent);
+	}
+
+	.status--tdy {
+		background: var(--info-bg);
+		color: var(--info);
+		border-color: color-mix(in srgb, var(--info) 20%, transparent);
+	}
+
+	.status--unavail {
+		background: var(--danger-bg);
+		color: var(--danger);
+		border-color: color-mix(in srgb, var(--danger) 20%, transparent);
+	}
+
+	.status--school {
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
+		border-color: var(--border-default);
+	}
+
+	.data-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+	}
+
+	.data-table th {
+		text-align: left;
+		font-size: 10px;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+		padding: var(--sp-2) var(--sp-3);
+		border-bottom: 1px solid var(--border-default);
+	}
+
+	.data-table td {
+		padding: var(--sp-2) var(--sp-3);
+		border-bottom: 1px solid var(--surface-subtle);
+		color: var(--text-secondary);
+		vertical-align: middle;
+	}
+
+	.data-table tr:last-child td {
+		border-bottom: none;
+	}
+
+	.td-name {
+		font-family: var(--font-display);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
+	}
+
+	.td-rank,
+	.table-mono,
+	.table-date,
+	.table-muted,
+	.row-count {
+		font-size: 11px;
+		color: var(--text-secondary);
+	}
+
+	.td-rank,
+	.row-count,
+	.table-muted {
+		color: var(--text-tertiary);
+	}
+
+	.table-date {
+		font-family: var(--font-mono);
+		color: var(--text-tertiary);
+	}
+
+	.table-date-amber {
+		color: var(--amber-dark);
+	}
+
+	.table-date-danger {
+		color: var(--danger);
+	}
+
+	.hero {
+		padding: var(--sp-24) 0 var(--sp-20);
+		border-bottom: var(--border-thin);
+		position: relative;
+		overflow: hidden;
+	}
+
+	.hero::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background-image: repeating-linear-gradient(
+			to right,
+			var(--surface-subtle) 0px,
+			var(--surface-subtle) 1px,
+			transparent 1px,
+			transparent calc(100% / 12)
+		);
+		pointer-events: none;
+		opacity: 0.7;
+	}
+
+	.hero__grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--sp-20);
+		align-items: start;
+		position: relative;
+	}
+
+	.hero__eyebrow {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-3);
+		margin-bottom: var(--sp-6);
+	}
+
+	.hero__eyebrow-line,
+	.proof__rule {
+		width: 24px;
+		height: 2px;
+		background: var(--amber);
+	}
+
+	.proof__rule {
+		width: 32px;
+		margin-bottom: var(--sp-8);
+	}
+
+	.hero__heading {
+		font-family: var(--font-display);
+		font-size: clamp(52px, 7vw, 80px);
+		font-weight: var(--font-weight-display);
+		line-height: 0.92;
+		letter-spacing: -0.01em;
+		color: var(--text-primary);
+		text-transform: uppercase;
+		margin: 0 0 var(--sp-8);
+	}
+
+	.hero__heading em,
+	.solves__sidebar-heading em,
+	.audience__heading em,
+	.faq__heading em {
+		font-style: italic;
+		font-weight: var(--font-weight-light);
+		color: var(--text-tertiary);
+	}
+
+	.hero__body {
+		font-size: var(--text-lg);
+		font-weight: var(--font-weight-light);
+		color: var(--text-secondary);
+		line-height: 1.55;
+		max-width: 480px;
+		margin: 0 0 var(--sp-8);
+	}
+
+	.hero__actions {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-4);
+	}
+
+	.hero__meta {
+		display: flex;
+		gap: var(--sp-8);
+		margin-top: var(--sp-10);
+		padding-top: var(--sp-8);
+		border-top: var(--border-thin);
+	}
+
+	.hero__meta-item {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+	}
+
+	.hero__meta-value {
+		font-family: var(--font-display);
+		font-size: var(--text-2xl);
+		font-weight: var(--font-weight-bold);
+		color: var(--text-primary);
+		line-height: 1;
+	}
+
+	.hero__meta-label {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+
+	.hero__preview,
+	.roster__panel,
+	.cta__inner {
+		background: var(--paper);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+		box-shadow: var(--shadow-lg);
+		position: relative;
+	}
+
+	.preview__topbar {
+		background: var(--ink);
+		color: var(--ink-03);
+		padding: 10px var(--sp-4);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-4);
+	}
+
+	.preview__topbar-title {
+		font-family: var(--font-display);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.preview__topbar-date {
+		font-family: var(--font-mono);
+		font-size: 11px;
+		color: color-mix(in srgb, var(--hero-muted) 60%, transparent);
+	}
+
+	.preview__summary {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		border-bottom: var(--border-thin);
+	}
+
+	.preview__summary-cell {
+		padding: 10px var(--sp-3);
+		border-right: var(--border-thin);
 		text-align: center;
 	}
 
-	.features-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-family: var(--font-mono);
-		font-size: 0.875rem;
-		color: var(--brass);
-		text-decoration: none;
-		letter-spacing: 0.02em;
-		transition: color 0.15s;
+	.preview__summary-cell:last-child {
+		border-right: none;
 	}
 
-	.features-link:hover {
-		color: var(--brass-light);
-	}
-
-	.features-link svg {
-		width: 14px;
-		height: 14px;
-	}
-
-	/* ---- Onboarding (How it works) ---- */
-	.onboarding {
-		padding: 4rem 0;
-		background: var(--paper-warm);
-		border-top: 1px solid var(--color-border);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	:global([data-theme='dark']) .onboarding {
-		background: var(--color-surface);
-	}
-
-	.onboarding-track {
-		display: flex;
-		align-items: flex-start;
-		gap: 0;
-		max-width: 960px;
-		margin: 0 auto;
-	}
-
-	.onboarding-step {
-		flex: 1;
-		display: flex;
-		gap: 1rem;
-		align-items: flex-start;
-	}
-
-	.onboarding-num {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		color: var(--brass);
-		padding-top: 0.125rem;
-		flex-shrink: 0;
-	}
-
-	.onboarding-step strong {
-		display: block;
+	.preview__summary-num {
 		font-family: var(--font-display);
-		font-size: 1.125rem;
-		font-weight: 400;
-		margin-bottom: 0.25rem;
+		font-size: var(--text-xl);
+		font-weight: var(--font-weight-bold);
+		line-height: 1;
 	}
 
-	.onboarding-step p {
-		font-size: 0.875rem;
-		color: var(--color-text-secondary);
-		line-height: 1.5;
+	.preview__summary-lbl {
+		font-family: var(--font-mono);
+		font-size: 9px;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+		margin-top: 3px;
+	}
+
+	.preview__footer {
+		padding: var(--sp-3) var(--sp-4);
+		border-top: var(--border-thin);
+		background: var(--surface-subtle);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-4);
+	}
+
+	.preview__footer-meta {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-6);
+		font-family: var(--font-mono);
+		font-size: 10px;
+		color: var(--text-tertiary);
+	}
+
+	.preview__footer-actions,
+	.roster__table-actions {
+		display: flex;
+		gap: var(--sp-2);
+	}
+
+	.section-solves,
+	.section-capabilities,
+	.section-roster,
+	.section-audience,
+	.section-proof,
+	.section-faq,
+	.section-cta {
+		padding: var(--sp-24) 0;
+		border-bottom: var(--border-thin);
+	}
+
+	.solves__grid {
+		display: grid;
+		grid-template-columns: 280px 1fr;
+		gap: var(--sp-20);
+		align-items: start;
+	}
+
+	.solves__sidebar {
+		position: sticky;
+		top: calc(56px + var(--sp-8));
+	}
+
+	.solves__sidebar-heading,
+	.caps__heading,
+	.roster__heading,
+	.audience__heading,
+	.faq__heading,
+	.cta__heading {
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-display);
+		line-height: 0.95;
+		text-transform: uppercase;
+		color: var(--text-primary);
 		margin: 0;
 	}
 
-	.onboarding-connector {
-		width: 2rem;
-		flex-shrink: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding-top: 0.5rem;
+	.solves__sidebar-heading,
+	.caps__heading,
+	.audience__heading {
+		font-size: var(--text-4xl);
 	}
 
-	.onboarding-connector::after {
-		content: '';
-		display: block;
-		width: 100%;
-		height: 1px;
-		background: var(--color-border);
+	.solves__sidebar-copy,
+	.caps__intro,
+	.roster__header-copy p,
+	.audience__copy,
+	.cta__subtext {
+		font-size: var(--text-base);
+		font-weight: var(--font-weight-light);
+		color: var(--text-secondary);
+		line-height: 1.65;
 	}
 
-	/* ---- Roadmap ---- */
-	.roadmap {
-		padding: 6rem 0;
-		background: var(--paper);
+	.solves__sidebar-copy,
+	.audience__copy {
+		margin-top: var(--sp-6);
+		max-width: 380px;
 	}
 
-	:global([data-theme='dark']) .roadmap {
-		background: var(--color-bg);
-	}
-
-	.roadmap-timeline {
-		margin-top: 3rem;
-		max-width: 640px;
-	}
-
-	.roadmap-entry {
-		display: flex;
-		gap: 1.5rem;
-	}
-
-	.roadmap-marker {
+	.solves__questions,
+	.audience__roles,
+	.proof__points {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		flex-shrink: 0;
-		width: 20px;
+		gap: 0;
 	}
 
-	.marker-dot {
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		border: 2px solid var(--color-border);
-		background: var(--color-surface);
-		flex-shrink: 0;
-		margin-top: 0.375rem;
-	}
-
-	.marker-dot.active {
-		border-color: var(--brass);
-		background: var(--brass);
-	}
-
-	.marker-dot.planned {
-		border-color: var(--color-primary);
-	}
-
-	.marker-dot.exploring {
-		border-color: var(--color-text-muted);
-	}
-
-	.marker-line {
-		width: 1px;
-		flex: 1;
-		background: var(--color-border);
-		min-height: 2rem;
-	}
-
-	.roadmap-content {
-		padding-bottom: 2rem;
-	}
-
-	.roadmap-status-badge {
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		font-weight: 500;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		padding: 0.125rem 0.5rem;
-		border-radius: 3px;
-		display: inline-block;
-		margin-bottom: 0.5rem;
-	}
-
-	.roadmap-status-badge.active {
-		background: var(--brass-muted);
-		color: var(--brass);
-	}
-
-	.roadmap-status-badge.planned {
-		background: rgba(var(--color-primary-rgb), 0.1);
-		color: var(--color-primary);
-	}
-
-	.roadmap-status-badge.exploring {
-		background: var(--color-surface-variant);
-		color: var(--color-text-muted);
-	}
-
-	.roadmap-title {
-		font-family: var(--font-display);
-		font-size: 1.25rem;
-		font-weight: 400;
-		margin-bottom: 0.25rem;
-	}
-
-	.roadmap-description {
-		font-size: 0.9375rem;
-		color: var(--color-text-secondary);
-		line-height: 1.6;
-		margin: 0;
-	}
-
-	.roadmap-group-title {
-		font-family: var(--font-mono);
-		font-size: 0.6875rem;
-		font-weight: 500;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--color-text-secondary);
-		margin-bottom: 1.25rem;
-	}
-
-	.roadmap-shipped {
-		margin-top: 3rem;
-		margin-bottom: 3rem;
-		max-width: 640px;
-	}
-
-	.shipped-entry {
-		display: flex;
-		gap: 1rem;
-		align-items: flex-start;
-		margin-bottom: 1.25rem;
-	}
-
-	.shipped-check {
-		flex-shrink: 0;
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		background: rgba(76, 175, 80, 0.15);
-		color: #4caf50;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-top: 0.125rem;
-	}
-
-	.shipped-title {
-		font-family: var(--font-display);
-		font-size: 1.125rem;
-		font-weight: 400;
-		margin-bottom: 0.125rem;
-	}
-
-	.shipped-description {
-		font-size: 0.875rem;
-		color: var(--color-text-secondary);
-		line-height: 1.5;
-		margin: 0;
-	}
-
-	/* ---- Trust Strip ---- */
-	.trust-strip {
-		padding: 3.5rem 0;
-		background: var(--ink);
-		border-bottom: 1px solid var(--ink-border);
-	}
-
-	.trust-grid {
+	.question-row,
+	.role-row,
+	.proof__point {
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		gap: 2rem;
+		align-items: start;
 	}
 
-	.trust-item {
-		display: flex;
-		gap: 0.875rem;
-		align-items: flex-start;
+	.question-row {
+		grid-template-columns: 28px 1fr;
+		gap: var(--sp-5);
+		padding: var(--sp-6) 0;
+		border-bottom: var(--border-thin);
 	}
 
-	.trust-icon {
-		width: 28px;
-		height: 28px;
-		flex-shrink: 0;
-		color: var(--brass);
-		margin-top: 0.125rem;
+	.question-row:first-child,
+	.role-row:first-child,
+	.proof__point:first-child {
+		border-top: var(--border-thin);
 	}
 
-	.trust-item strong {
-		display: block;
-		font-family: var(--font-body);
-		font-size: 0.8125rem;
-		font-weight: 600;
-		color: var(--hero-text);
-		margin-bottom: 0.25rem;
+	.question-num {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: var(--font-weight-semibold);
+		color: var(--amber);
+		letter-spacing: 0.08em;
+		padding-top: 3px;
+	}
+
+	.question-text,
+	.cap-card__title,
+	.role-name {
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
 		letter-spacing: 0.01em;
+		text-transform: uppercase;
 	}
 
-	.trust-item p {
-		font-size: 0.75rem;
-		color: var(--hero-muted);
-		line-height: 1.5;
+	.question-text {
+		font-size: var(--text-xl);
+		line-height: 1.25;
+	}
+
+	.question-detail,
+	.cap-card__body,
+	.proof__point-text,
+	.faq-answer p {
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-light);
+		color: var(--text-secondary);
+		line-height: 1.6;
+		margin-top: var(--sp-2);
+	}
+
+	.caps__header,
+	.audience__grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--sp-20);
+	}
+
+	.caps__header {
+		align-items: end;
+		margin-bottom: var(--sp-16);
+		padding-bottom: var(--sp-8);
+		border-bottom: var(--border-thin);
+	}
+
+	.caps__label,
+	.audience__label,
+	.roster__label,
+	.faq__label,
+	.cta__label {
+		margin-bottom: var(--sp-4);
+	}
+
+	.caps__grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0;
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+	}
+
+	.cap-card {
+		padding: var(--sp-8);
+		border-right: var(--border-thin);
+		border-bottom: var(--border-thin);
+		background: var(--paper);
+		transition: background 0.15s;
+	}
+
+	.cap-card:hover {
+		background: var(--surface-subtle);
+	}
+
+	.cap-card:nth-child(3n) {
+		border-right: none;
+	}
+
+	.cap-card:nth-child(n + 7) {
+		border-bottom: none;
+	}
+
+	.cap-card__index {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: var(--font-weight-semibold);
+		color: var(--amber);
+		letter-spacing: 0.12em;
+		margin-bottom: var(--sp-5);
+	}
+
+	.cap-card__title {
+		font-size: var(--text-lg);
+		margin-bottom: var(--sp-3);
+		line-height: 1.15;
+	}
+
+	.roster__header {
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		margin-bottom: var(--sp-10);
+		gap: var(--sp-10);
+	}
+
+	.roster__heading {
+		font-size: var(--text-3xl);
+		line-height: 1;
+	}
+
+	.roster__header-copy {
+		text-align: right;
+	}
+
+	.roster__header-copy p {
+		max-width: 320px;
 		margin: 0;
 	}
 
-	/* ---- FAQ ---- */
-	.faq {
-		padding: 6rem 0;
-		background: var(--paper-warm);
-		border-top: 1px solid var(--color-border);
+	.roster__toolbar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--sp-3) var(--sp-5);
+		border-bottom: var(--border-thin);
+		background: var(--surface-subtle);
+		gap: var(--sp-4);
 	}
 
-	:global([data-theme='dark']) .faq {
-		background: var(--color-surface);
+	.roster__toolbar-left {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-4);
+		flex-wrap: wrap;
 	}
 
-	.faq .section-title {
-		margin-bottom: 3rem;
+	.roster__unit-label,
+	.role-name {
+		font-size: var(--text-sm);
+		letter-spacing: 0.06em;
 	}
 
-	.faq-list {
-		max-width: 760px;
-		border-top: 1px solid var(--color-border);
+	.roster__date {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
+	}
+
+	.roster__availability {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-6);
+		flex-wrap: wrap;
+	}
+
+	.avail-stat {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+	}
+
+	.avail-stat__num {
+		font-family: var(--font-display);
+		font-size: var(--text-base);
+		font-weight: var(--font-weight-bold);
+		line-height: 1;
+		color: var(--text-primary);
+	}
+
+	.avail-stat__lbl {
+		font-family: var(--font-mono);
+		font-size: 9px;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+
+	.roster__divider {
+		width: 1px;
+		height: 32px;
+		background: var(--border-default);
+	}
+
+	.roster__table-wrap {
+		overflow-x: auto;
+	}
+
+	.roster__table {
+		min-width: 700px;
+	}
+
+	.roster__table-footer {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--sp-3) var(--sp-5);
+		border-top: var(--border-thin);
+		background: var(--surface-subtle);
+		gap: var(--sp-4);
+	}
+
+	.roster__table-status {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		color: var(--text-tertiary);
+	}
+
+	.role-row {
+		grid-template-columns: 1fr auto;
+		padding: var(--sp-3) 0;
+		border-bottom: var(--border-thin);
+	}
+
+	.role-badge {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		padding: 2px 7px;
+		border-radius: var(--radius-sm);
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
+		border: 1px solid var(--border-default);
+	}
+
+	.section-proof {
+		background: var(--ink);
+		color: var(--ink-03);
+	}
+
+	.proof__inner {
+		display: grid;
+		grid-template-columns: 1fr 480px;
+		gap: var(--sp-20);
+		align-items: center;
+	}
+
+	.proof__quote {
+		font-size: clamp(22px, 3vw, 32px);
+		font-weight: var(--font-weight-light);
+		font-style: italic;
+		line-height: 1.4;
+		color: var(--ink-03);
+		margin: 0;
+	}
+
+	.proof__quote strong {
+		font-style: normal;
+		font-weight: var(--font-weight-semibold);
+		color: var(--amber);
+	}
+
+	.proof__attribution {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: color-mix(in srgb, var(--ink-03) 45%, transparent);
+		margin-top: var(--sp-6);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
+
+	.proof__point {
+		grid-template-columns: 20px 1fr;
+		gap: var(--sp-4);
+		padding: var(--sp-5) 0;
+		border-bottom: 1px solid color-mix(in srgb, var(--ink-03) 10%, transparent);
+	}
+
+	.proof__point:first-child {
+		border-top: 1px solid color-mix(in srgb, var(--ink-03) 10%, transparent);
+	}
+
+	.proof__point-icon {
+		width: 20px;
+		height: 20px;
+		flex-shrink: 0;
+		margin-top: 2px;
+		color: var(--amber);
+	}
+
+	.proof__point-text {
+		margin-top: 0;
+		color: color-mix(in srgb, var(--ink-03) 70%, transparent);
+	}
+
+	.proof__point-text strong {
+		color: var(--ink-03);
+		font-weight: var(--font-weight-semibold);
+		font-style: normal;
+	}
+
+	.section-faq {
+		background: var(--surface-page);
+	}
+
+	.faq__header {
+		margin-bottom: var(--sp-12);
+	}
+
+	.faq__heading {
+		font-size: clamp(32px, 5vw, 60px);
+	}
+
+	.faq__list {
+		border-top: var(--border-thin);
+		max-width: 960px;
 	}
 
 	.faq-item {
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.faq-item[open] .faq-icon::before {
-		content: '×';
-	}
-
-	.faq-icon::before {
-		content: '+';
-		font-size: 1.375rem;
-		font-weight: 300;
-		color: var(--brass);
-		line-height: 1;
-		transition: none;
+		border-bottom: var(--border-thin);
 	}
 
 	.faq-question {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 1.5rem;
-		padding: 1.375rem 0;
+		gap: var(--sp-6);
+		padding: var(--sp-6) 0;
 		cursor: pointer;
 		list-style: none;
 		font-family: var(--font-display);
-		font-size: 1.125rem;
-		font-weight: 400;
-		color: var(--color-text);
-		line-height: 1.35;
+		font-size: var(--text-xl);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.01em;
+		line-height: 1.2;
+		text-transform: uppercase;
+		color: var(--text-primary);
 	}
 
 	.faq-question::-webkit-details-marker {
@@ -1615,250 +1647,215 @@
 	}
 
 	.faq-question:hover {
-		color: var(--brass);
+		color: var(--amber);
 	}
 
-	.faq-icon {
-		flex-shrink: 0;
-		width: 24px;
-		height: 24px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
+	.faq-question:focus-visible,
+	.btn:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+	}
+
+	.faq-icon::before {
+		content: '+';
+		font-size: 1.375rem;
+		font-weight: var(--font-weight-light);
+		color: var(--amber);
+		line-height: 1;
+	}
+
+	.faq-item[open] .faq-icon::before {
+		content: '×';
 	}
 
 	.faq-answer {
-		padding-bottom: 1.375rem;
+		padding-bottom: var(--sp-6);
+		max-width: 900px;
 	}
 
 	.faq-answer p {
-		font-size: 0.9875rem;
-		color: var(--color-text-secondary);
-		line-height: 1.75;
 		margin: 0;
+		font-size: var(--text-base);
+		line-height: 1.75;
 	}
 
-	/* ============================================
-	   Responsive — Tablet
-	   ============================================ */
-	@media (max-width: 1024px) {
-		.hero {
-			padding: 4rem 1.5rem 3.5rem;
-		}
+	.section-cta {
+		padding-top: var(--sp-20);
+	}
 
-		.hero-container {
+	.cta__inner {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--sp-20);
+		align-items: center;
+		padding: var(--sp-16) var(--sp-20);
+	}
+
+	.cta__inner::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: var(--amber);
+	}
+
+	.cta__heading {
+		font-size: clamp(32px, 5vw, 60px);
+		margin-bottom: var(--sp-4);
+	}
+
+	.cta__subtext {
+		margin: var(--sp-5) 0 0;
+		max-width: 480px;
+		line-height: 1.6;
+	}
+
+	.cta__actions {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--sp-3);
+		flex-shrink: 0;
+	}
+
+	.cta__action-primary {
+		font-size: var(--text-lg);
+		padding: 12px 28px;
+	}
+
+	.cta__note {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		color: var(--text-tertiary);
+		letter-spacing: 0.08em;
+		text-align: center;
+		margin-top: var(--sp-2);
+	}
+
+	@keyframes fadeUp {
+		from {
+			opacity: 0;
+			transform: translateY(16px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	.anim-fade-up {
+		animation: fadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+
+	.anim-delay-1 {
+		animation-delay: 0.08s;
+	}
+
+	.anim-delay-2 {
+		animation-delay: 0.16s;
+	}
+
+	.anim-delay-3 {
+		animation-delay: 0.24s;
+	}
+
+	.anim-delay-4 {
+		animation-delay: 0.32s;
+	}
+
+	@media (max-width: 900px) {
+		.hero__grid,
+		.solves__grid,
+		.caps__header,
+		.audience__grid,
+		.proof__inner,
+		.cta__inner {
 			grid-template-columns: 1fr;
-			gap: 3rem;
+			gap: var(--sp-10);
 		}
 
-		.hero-title {
-			font-size: 2.75rem;
-		}
-
-		.hero-visual {
-			order: 1;
-		}
-
-		.hero-content {
-			order: 0;
-		}
-
-		.dashboard-preview {
-			max-width: 440px;
-			margin: 0 auto;
-		}
-
-		.features-grid {
-			grid-template-columns: repeat(2, 1fr);
-		}
-
-		.feature-lead {
-			grid-column: span 2;
-		}
-
-		.trust-grid {
-			grid-template-columns: repeat(2, 1fr);
-		}
-
-		.onboarding-track {
-			flex-direction: column;
-			gap: 1.5rem;
-		}
-
-		.onboarding-connector {
-			width: auto;
-			height: 0;
+		.hero__preview {
 			display: none;
 		}
 
-		.section-title {
-			font-size: 2.25rem;
+		.caps__grid {
+			grid-template-columns: 1fr 1fr;
+		}
+
+		.hero {
+			padding: var(--sp-16) 0;
+		}
+
+		.cta__inner {
+			padding: var(--sp-10) var(--sp-8);
 		}
 	}
 
-	/* ============================================
-	   Responsive — Mobile
-	   ============================================ */
-	@media (max-width: 640px) {
-		.hero {
-			padding: 3rem 1rem 2.5rem;
-		}
-
-		.hero-container {
-			gap: 2rem;
-		}
-
-		.hero-content {
-			order: -1;
-		}
-
-		.hero-visual {
-			order: 0;
-		}
-
-		.hero-eyebrow {
-			font-size: 0.6875rem;
-			margin-bottom: 1rem;
-		}
-
-		.hero-title {
-			font-size: 2.125rem;
-			margin-bottom: 1.25rem;
-		}
-
-		.hero-subtitle {
-			font-size: 0.9375rem;
-			margin-bottom: 2rem;
-		}
-
-		.hero-actions {
+	@media (max-width: 700px) {
+		.roster__header,
+		.roster__toolbar,
+		.roster__table-footer,
+		.preview__footer,
+		.hero__actions,
+		.hero__meta {
 			flex-direction: column;
 			align-items: flex-start;
-			gap: 1rem;
-			margin-bottom: 2.5rem;
 		}
 
-		.hero-proof {
-			gap: 1rem;
+		.avail-stat {
+			align-items: flex-start;
 		}
 
-		.proof-value {
-			font-size: 0.875rem;
+		.roster__header-copy {
+			text-align: left;
 		}
+	}
 
-		.proof-label {
-			font-size: 0.6875rem;
-		}
-
-		.proof-divider {
-			height: 20px;
-		}
-
-		.dashboard-preview {
-			max-width: 100%;
-		}
-
-		.dash-body {
-			gap: 0.5rem;
-			padding: 0.5rem;
-		}
-
-		.dash-panel {
-			padding: 0.625rem;
-		}
-
-		.cal-row span {
-			height: 16px;
-		}
-
-		.cal-legend {
-			gap: 0.5rem;
-		}
-
-		.coverage-ring {
-			width: 52px;
-			height: 52px;
-		}
-
-		.coverage-value {
-			font-size: 0.75rem;
-		}
-
-		/* Sections */
-		.section-container {
+	@media (max-width: 600px) {
+		.container,
+		.container--wide {
 			padding: 0 1rem;
 		}
 
-		.section-title {
-			font-size: 1.75rem;
-		}
-
-		.features,
-		.roadmap {
-			padding: 4rem 0;
-		}
-
-		.features-grid {
+		.caps__grid {
 			grid-template-columns: 1fr;
-			margin-top: 2rem;
 		}
 
-		.feature-lead {
-			grid-column: span 1;
+		.cap-card {
+			border-right: none;
 		}
 
-		.feature-card {
-			padding: 1.25rem;
+		.cap-card:nth-child(n + 7) {
+			border-bottom: var(--border-thin);
 		}
 
-		.feature-title {
-			font-size: 1.0625rem;
+		.cap-card:last-child {
+			border-bottom: none;
 		}
 
-		.feature-lead .feature-title {
-			font-size: 1.25rem;
+		.hero__heading,
+		.faq__heading,
+		.cta__heading {
+			font-size: clamp(40px, 16vw, 60px);
 		}
 
-		.feature-description {
-			font-size: 0.875rem;
-		}
-
-		.onboarding {
-			padding: 3rem 0;
-		}
-
-		.roadmap-timeline {
-			margin-top: 2rem;
-		}
-
-		.roadmap-title {
-			font-size: 1.0625rem;
-		}
-
-		.roadmap-description {
-			font-size: 0.875rem;
-		}
-
-		.faq {
-			padding: 4rem 0;
-		}
-
-		.faq-question {
-			font-size: 1rem;
-		}
-
-		.trust-grid {
-			grid-template-columns: 1fr;
-			gap: 1.5rem;
+		.solves__sidebar-heading,
+		.caps__heading,
+		.audience__heading {
+			font-size: clamp(30px, 12vw, 42px);
 		}
 	}
 
-	/* ============================================
-	   Reduced Motion
-	   ============================================ */
 	@media (prefers-reduced-motion: reduce) {
-		.hero-btn-primary:hover {
-			transform: none;
+		.anim-fade-up {
+			animation: none;
+		}
+
+		.cap-card,
+		.btn {
+			transition: none;
 		}
 	}
 </style>

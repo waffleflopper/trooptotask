@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-03-31-landing-page-rollout',
+		date: '2026-03-31',
+		title: 'The Public Site Has a Better Front Door',
+		items: [
+			'The homepage was rebuilt with a cleaner layout, clearer section flow, and a more polished first impression for new visitors',
+			'Feature highlights, roadmap details, and common questions are now easier to scan instead of feeling like one long wall of marketing copy',
+			'The public landing page should also feel better on mobile and in dark mode now, instead of acting like those views were invited out of pity'
+		]
+	},
+	{
 		id: '2026-03-31-preferences-follow-your-account',
 		date: '2026-03-31',
 		title: 'Your Calendar and Training Preferences Stick Around Better',
@@ -34,16 +44,6 @@ export const changelog: ChangelogEntry[] = [
 			'You can now click the month name at the top of the calendar to jump straight to a different month instead of hammering the next and previous buttons over and over',
 			'The same quick-jump picker also works in the 3-month calendar view, so it is easier to move across the year without losing your place',
 			'Keyboard navigation was added too, so the new picker is easier to use without needing to rely on a mouse'
-		]
-	},
-	{
-		id: '2026-03-25-assignment-planner-page',
-		date: '2026-03-25',
-		title: 'Assignment Planning Has Its Own Page Now',
-		items: [
-			'The monthly assignment planner now opens as a full page instead of being squeezed into a popup',
-			'You now get a full month grid with more room to work through manual scheduling decisions without constant scrolling',
-			'Assignment changes still feed straight back into the main calendar, so you can plan on one page and verify on the other without any extra cleanup'
 		]
 	},
 	{

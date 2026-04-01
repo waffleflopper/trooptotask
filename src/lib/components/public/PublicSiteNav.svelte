@@ -9,20 +9,16 @@
 		showFaqLink?: boolean;
 	}
 
-	let {
-		user,
-		active,
-		roadmapHref = '/#roadmap',
-		faqHref = '/#faq',
-		showFaqLink = false
-	}: Props = $props();
+	let { user, active, roadmapHref = '/#roadmap', faqHref = '/#faq', showFaqLink = false }: Props = $props();
 </script>
 
 <nav class="public-nav">
 	<div class="nav-container">
 		<a href="/" class="nav-brand">
-			<div class="nav-mark">T2T</div>
-			<span class="nav-wordmark">Troop to Task</span>
+			<div>
+				<div class="nav-wordmark">Troop<span>To</span>Task</div>
+				<div class="nav-subtitle">Unit Readiness Platform</div>
+			</div>
 		</a>
 
 		<div class="nav-links">
@@ -33,6 +29,9 @@
 			{#if showFaqLink}
 				<a href={faqHref} class="nav-link">FAQ</a>
 			{/if}
+		</div>
+
+		<div class="nav-actions">
 			<button class="theme-toggle" type="button" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
 				{#if themeStore.isDark}
 					<svg
@@ -62,28 +61,10 @@
 				{/if}
 			</button>
 			{#if user}
-				<a href="/dashboard?show=all" class="nav-cta">Dashboard</a>
+				<a href="/dashboard?show=all" class="nav-button nav-button-outline">Dashboard</a>
 			{:else}
-				<a href="/auth/login" class="nav-cta">Get Started</a>
-			{/if}
-		</div>
-
-		<div class="mobile-actions">
-			<button class="theme-toggle" type="button" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
-				{#if themeStore.isDark}
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<circle cx="12" cy="12" r="5" />
-					</svg>
-				{:else}
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-					</svg>
-				{/if}
-			</button>
-			{#if user}
-				<a href="/dashboard?show=all" class="nav-cta">Dashboard</a>
-			{:else}
-				<a href="/auth/login" class="nav-cta">Sign In</a>
+				<a href="/auth/login" class="nav-button nav-button-outline">Sign In</a>
+				<a href="/auth/request-access" class="nav-button nav-button-amber">Request Access</a>
 			{/if}
 		</div>
 	</div>
@@ -94,9 +75,8 @@
 		position: sticky;
 		top: 0;
 		z-index: 100;
-		background: var(--ink);
-		border-bottom: 1px solid var(--ink-border);
-		backdrop-filter: blur(12px);
+		background: var(--surface-page);
+		border-bottom: var(--border-thin);
 	}
 
 	.nav-container {
@@ -107,90 +87,93 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 1rem;
+		gap: 2rem;
 	}
 
 	.nav-brand {
 		display: flex;
-		align-items: center;
-		gap: 0.75rem;
+		align-items: baseline;
 		text-decoration: none;
-		color: var(--hero-text);
+		color: var(--text-primary);
 		flex-shrink: 0;
-	}
-
-	.nav-mark {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		background: var(--brass);
-		color: var(--ink);
-		padding: 0.3rem 0.5rem;
-		border-radius: var(--radius-sm);
-		line-height: 1;
 	}
 
 	.nav-wordmark {
 		font-family: var(--font-display);
-		font-size: 1.5rem;
-		font-weight: var(--font-weight-bold);
-		letter-spacing: 0.04em;
+		font-size: 22px;
+		font-weight: 800;
+		letter-spacing: 0.02em;
 		line-height: 1;
+	}
+
+	.nav-wordmark span {
+		color: var(--brass);
+	}
+
+	.nav-subtitle {
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.14em;
 		text-transform: uppercase;
+		color: var(--text-tertiary);
+		margin-top: 0.25rem;
 	}
 
 	.nav-links {
 		display: flex;
 		align-items: center;
-		gap: 1.25rem;
+		gap: 2rem;
+		flex: 1;
+		justify-content: center;
 	}
 
 	.nav-link {
-		color: var(--hero-muted);
+		padding: 0.5rem 0;
 		text-decoration: none;
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
+		font-family: var(--font-display);
+		font-size: var(--text-base);
 		font-weight: var(--font-weight-medium);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		transition: color var(--transition-fast);
+		letter-spacing: 0.04em;
+		color: var(--text-secondary);
+		border-bottom: 2px solid transparent;
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast);
 	}
 
 	.nav-link:hover,
 	.nav-link.active {
-		color: var(--hero-text);
+		color: var(--text-primary);
+		border-bottom-color: var(--brass);
+	}
+
+	.nav-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		flex-shrink: 0;
 	}
 
 	.theme-toggle {
 		width: 36px;
 		height: 36px;
 		border-radius: var(--radius-md);
-		border: 1px solid var(--ink-border);
+		border: none;
 		background: transparent;
-		color: var(--hero-muted);
+		color: var(--text-secondary);
 		cursor: pointer;
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		transition:
 			color var(--transition-fast),
-			border-color var(--transition-fast),
 			background-color var(--transition-fast);
 	}
 
 	.theme-toggle:hover {
-		color: var(--hero-text);
-		border-color: var(--hero-muted);
-		background: rgba(255, 255, 255, 0.03);
-	}
-
-	.theme-toggle:focus-visible,
-	.nav-cta:focus-visible,
-	.nav-link:focus-visible,
-	.nav-brand:focus-visible {
-		outline: var(--focus-outline);
-		outline-offset: var(--focus-outline-offset);
+		color: var(--text-primary);
+		background: var(--surface-subtle);
 	}
 
 	.theme-toggle svg {
@@ -198,55 +181,82 @@
 		height: 16px;
 	}
 
-	.nav-cta {
-		font-family: var(--font-display);
-		font-size: var(--text-base);
-		font-weight: var(--font-weight-semibold);
-		color: var(--ink);
-		background: var(--brass);
+	.nav-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		padding: 0.45rem 1rem;
 		border-radius: var(--radius-md);
-		text-decoration: none;
-		letter-spacing: 0.06em;
+		border: 1px solid transparent;
+		font-family: var(--font-display);
+		font-size: 14px;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.04em;
 		line-height: 1;
-		text-transform: uppercase;
+		text-decoration: none;
 		transition:
 			background-color var(--transition-fast),
-			transform var(--transition-fast);
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
-	.nav-cta:hover {
+	.nav-button-outline {
+		background: transparent;
+		border-color: var(--border-default);
+		color: var(--text-primary);
+	}
+
+	.nav-button-outline:hover {
+		border-color: var(--text-secondary);
+		background: var(--surface-subtle);
+	}
+
+	.nav-button-amber {
+		background: var(--brass);
+		border-color: var(--brass);
+		color: var(--white);
+	}
+
+	.nav-button-amber:hover {
 		background: var(--brass-light);
-		transform: translateY(-1px);
+		border-color: var(--brass-light);
 	}
 
-	.mobile-actions {
-		display: none;
-		align-items: center;
-		gap: 0.75rem;
+	.nav-brand:focus-visible,
+	.nav-link:focus-visible,
+	.theme-toggle:focus-visible,
+	.nav-button:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
 	}
 
-	@media (max-width: 980px) {
+	@media (max-width: 900px) {
 		.nav-links {
 			display: none;
-		}
-
-		.mobile-actions {
-			display: flex;
 		}
 	}
 
 	@media (max-width: 640px) {
 		.nav-container {
 			padding: 0 1rem;
+			gap: 1rem;
 		}
 
 		.nav-wordmark {
-			font-size: 1.25rem;
+			font-size: 18px;
 		}
 
-		.nav-cta {
-			padding-inline: 0.8rem;
+		.nav-subtitle {
+			display: none;
+		}
+
+		.nav-button {
+			padding-inline: 0.75rem;
+		}
+
+		.theme-toggle {
+			width: 34px;
+			height: 34px;
 		}
 	}
 </style>

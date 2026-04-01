@@ -19,7 +19,7 @@
 
 <div class="view-selector">
 	<label class="filter-label">
-		View:
+		<span class="filter-label-text">View</span>
 		<select class="select" value={selectedViewId ?? ''} onchange={handleChange}>
 			<option value="">All Trainings</option>
 			{#each trainingViewsStore.items as view (view.id)}
@@ -28,7 +28,7 @@
 		</select>
 	</label>
 	{#if canEdit}
-		<button class="btn btn-sm btn-ghost edit-btn" onclick={onEditClick} title="Manage views">
+		<button class="btn btn-sm btn-ghost edit-btn" type="button" onclick={onEditClick} title="Manage views">
 			<svg
 				width="16"
 				height="16"
@@ -50,24 +50,35 @@
 	.view-selector {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
 	}
 
 	.filter-label {
 		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		font-size: var(--font-size-sm);
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--sp-2);
+		min-width: 0;
 	}
 
 	.filter-label .select {
 		width: 200px;
 	}
 
+	.filter-label-text {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+
 	.edit-btn {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		padding: 4px;
+		padding: 6px;
 	}
 </style>

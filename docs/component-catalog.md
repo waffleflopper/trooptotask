@@ -459,17 +459,56 @@ const table = useDataTable({
 
 ## CSS Design System (`app.css`)
 
-### Spacing (8px grid)
+### Canonical Tokens
 
-`--spacing-2xs: 2px` | `--spacing-xs: 4px` | `--spacing-sm: 8px` | `--spacing-md: 16px` | `--spacing-lg: 24px` | `--spacing-xl: 32px`
+New work should use the canonical design-system tokens from `src/app.css`.
 
-### Colors
+### Palette
 
-- **Primary**: `--color-primary: #b8943e` (brass)
-- **Surface**: `--color-bg`, `--color-surface`, `--color-surface-variant`
-- **Text**: `--color-text`, `--color-text-secondary`, `--color-text-muted`
-- **Border**: `--color-border`, `--color-divider`
-- **Status**: `--color-success`, `--color-warning`, `--color-error`, `--color-info`
+Light mode:
+`--ink` | `--ink-60` | `--ink-35` | `--ink-15` | `--ink-06` | `--ink-03` | `--paper` | `--white`
+
+Dark mode remaps the same token names through `:root[data-theme='dark']`.
+
+Accent + semantic states:
+`--amber` | `--amber-light` | `--amber-dark` | `--amber-vivid` | `--success` / `--success-bg` | `--danger` / `--danger-bg` | `--info` / `--info-bg`
+
+### Typography
+
+`--font-display: 'Barlow Condensed'`
+`--font-body: 'Source Serif 4'`
+`--font-mono: 'IBM Plex Mono'`
+
+Primary scale:
+`--text-xs` | `--text-sm` | `--text-base` | `--text-lg` | `--text-xl` | `--text-2xl` | `--text-3xl`
+
+### Spacing / Border / Elevation
+
+Spacing:
+`--sp-1: 4px` | `--sp-2: 8px` | `--sp-3: 12px` | `--sp-4: 16px` | `--sp-6: 24px` | `--sp-8: 32px` | `--sp-12: 48px`
+
+Borders and radius:
+`--border-thin` | `--border-rule` | `--radius-sm: 2px` | `--radius-md: 4px` | `--radius-lg: 6px`
+
+Elevation:
+`--shadow-sm` | `--shadow-md` | `--shadow-lg`
+
+Focus:
+`--focus-outline` | `--focus-ring`
+
+### Migration Alias Layer
+
+Legacy token names still exist as a migration bridge for unmigrated routes and shared components. Examples:
+
+`--color-primary` -> `--amber`
+`--color-bg` -> `--surface-page`
+`--color-surface` -> `--surface-panel`
+`--color-text` -> `--text-primary`
+`--font-family` -> `--font-ui`
+`--spacing-md` -> `--sp-4`
+`--shadow-1` -> `--shadow-sm`
+
+Treat these aliases as deprecated scaffolding, not the long-term API for new components.
 
 ### Chrome / App Shell Tokens
 
@@ -507,13 +546,13 @@ Semantic tokens for the header, nav, and app shell. Dark by default, theme-contr
 | `--opacity-medium` | `0.15` | Active states |
 | `--opacity-heavy` | `0.45` | Disabled states |
 
-### Typography
+### Legacy Compatibility Tokens
 
-`--font-size-xs: 11px` | `--font-size-sm: 12px` | `--font-size-base: 14px` | `--font-size-lg: 16px`
+These are still available for in-flight migrations:
 
-### Border Radius
-
-`--radius-sm: 4px` | `--radius-md: 8px` | `--radius-lg: 12px` | `--radius-full: 9999px`
+`--font-size-xs` | `--font-size-sm` | `--font-size-base` | `--font-size-lg`
+`--radius-sm` | `--radius-md` | `--radius-lg` | `--radius-full`
+`--spacing-xs` | `--spacing-sm` | `--spacing-md` | `--spacing-lg` | `--spacing-xl`
 
 ### Utility Classes
 

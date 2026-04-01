@@ -43,9 +43,9 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"@fontsource/dm-mono": "^5.2.7",
-		"@fontsource/dm-sans": "^5.2.8",
-		"@fontsource/instrument-serif": "^5.2.8",
+		"@fontsource/barlow-condensed": "^5.2.8",
+		"@fontsource/ibm-plex-mono": "^5.2.7",
+		"@fontsource/source-serif-4": "^5.2.9",
 		"@supabase/ssr": "^0.8.0",
 		"@supabase/supabase-js": "^2.94.1",
 		"@sveltejs/adapter-vercel": "^6.3.1",

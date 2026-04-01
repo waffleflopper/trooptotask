@@ -76,4 +76,41 @@ describe('BulkPersonnelManager', () => {
 		expect(previewButton.textContent).toContain('Preview');
 		expect(previewButton.textContent).not.toContain('1');
 	});
+
+	it('renders archive personnel rows after switching tabs', async () => {
+		render(BulkPersonnelManager, {
+			props: {
+				personnelByGroup: [
+					{
+						group: 'Leadership',
+						personnel: [
+							{
+								id: 'p1',
+								firstName: 'Jamie',
+								lastName: 'Smith',
+								rank: 'SGT',
+								mos: '68W',
+								clinicRole: 'Medic',
+								groupId: 'g1',
+								groupName: 'Leadership',
+								archivedAt: null
+							}
+						]
+					}
+				],
+				groups: [{ id: 'g1', name: 'Leadership', sortOrder: 0 }],
+				orgId: 'org-1',
+				onImportComplete: vi.fn(),
+				onBulkDelete: vi.fn(),
+				onClose: vi.fn()
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+		expect(screen.getByRole('searchbox')).toBeTruthy();
+		expect(screen.getAllByText('Leadership').length).toBeGreaterThan(0);
+		expect(screen.getByText('Smith, Jamie')).toBeTruthy();
+		expect(screen.getByText('Medic')).toBeTruthy();
+	});
 });

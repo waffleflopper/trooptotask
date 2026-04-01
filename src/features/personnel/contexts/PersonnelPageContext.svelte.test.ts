@@ -121,6 +121,11 @@ describe('PersonnelPageContext', () => {
 			expect(ctx.evalTypeFilter).toBe('all');
 		});
 
+		it('initialises pageView from incoming page data when provided', () => {
+			const ctx = new PersonnelPageContext(makeData({ initialPageView: 'rating-scheme' }), makeModals(), makeOrg());
+			expect(ctx.pageView).toBe('rating-scheme');
+		});
+
 		it('initialises with no modals open', () => {
 			const modals = makeModals();
 			new PersonnelPageContext(makeData(), modals, makeOrg());

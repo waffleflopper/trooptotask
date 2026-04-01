@@ -68,7 +68,7 @@
 	}
 </script>
 
-<Modal title={isEditing ? 'Edit Personnel' : 'Add Personnel'} {onClose} titleId="personnel-title">
+<Modal title={isEditing ? 'Edit Person' : 'Add Person'} {onClose} titleId="personnel-title">
 	<form class="personnel-form" onsubmit={handleSubmit}>
 		<FormField label="Rank" id="rank">
 			<select id="rank" class="input" data-testid="personnel-rank" bind:value={rank}>
@@ -119,21 +119,37 @@
 
 		<!-- Preview -->
 		<div class="preview">
-			<span class="preview-label">Preview:</span>
-			<span class="preview-rank">{rank}</span>
-			<span class="preview-name">{lastName || 'Last'}, {firstName || 'First'}</span>
-			{#if mos}
-				<span class="preview-mos">{mos}</span>
-			{/if}
-			{#if clinicRole}
-				<span class="preview-role">{clinicRole}</span>
-			{/if}
+			<span class="preview-label">Roster Preview</span>
+			<div class="preview-main">
+				<span class="preview-rank">{rank}</span>
+				<span class="preview-name">{lastName || 'Last'}, {firstName || 'First'}</span>
+			</div>
+			<div class="preview-meta">
+				{#if mos}
+					<span class="preview-detail">
+						<span class="preview-detail-label">MOS</span>
+						<span>{mos}</span>
+					</span>
+				{/if}
+				{#if clinicRole}
+					<span class="preview-detail">
+						<span class="preview-detail-label">Role</span>
+						<span>{clinicRole}</span>
+					</span>
+				{/if}
+				{#if selectedGroupName}
+					<span class="preview-detail">
+						<span class="preview-detail-label">Group</span>
+						<span>{selectedGroupName}</span>
+					</span>
+				{/if}
+			</div>
 		</div>
 	</form>
 
 	{#snippet footer()}
 		{#if isEditing && onRemove}
-			<button type="button" class="btn btn-warning" data-testid="personnel-archive" onclick={handleArchive}>
+			<button type="button" class="btn btn-warning archive-btn" data-testid="personnel-archive" onclick={handleArchive}>
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
 					<path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
 					<path
@@ -171,58 +187,100 @@
 {/if}
 
 <style>
+	.personnel-form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+	}
+
 	.form-row {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 	}
 
 	.preview {
 		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-md);
-		background: var(--color-bg);
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--sp-3);
+		padding: var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		margin-top: var(--spacing-sm);
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
 	}
 
 	.preview-label {
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
+	}
+
+	.preview-main {
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	.preview-rank {
-		font-weight: 700;
-		color: var(--color-primary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
 	}
 
 	.preview-name {
-		font-weight: 500;
+		font-family: var(--font-display);
+		font-size: clamp(1.2rem, 1rem + 0.3vw, 1.5rem);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--text-primary);
 	}
 
-	.preview-mos {
-		color: var(--color-primary);
-		font-weight: 500;
+	.preview-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
-	.preview-role {
-		padding: 2px var(--spacing-sm);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+	.preview-detail {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		min-height: 24px;
+		padding: 3px 8px;
+		background: var(--surface-panel);
+		border: var(--border-thin);
 		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 
-	.btn-warning {
+	.preview-detail-label {
+		font-family: var(--font-mono);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+
+	.archive-btn {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
-		background-color: var(--color-warning);
-		color: white;
+		gap: var(--sp-2);
 	}
 
-	.btn-warning:hover {
-		background-color: #e68900;
+	@media (max-width: 640px) {
+		.form-row {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

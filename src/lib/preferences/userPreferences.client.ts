@@ -1,3 +1,4 @@
+import { invalidate } from '$app/navigation';
 import type { UserOrgPreferences, UserOrgPreferencesPatch } from './userPreferences';
 
 let patchQueue: Promise<void> = Promise.resolve();
@@ -20,7 +21,9 @@ async function sendPatch(orgId: string, patch: UserOrgPreferencesPatch): Promise
 		throw new Error(message);
 	}
 
-	return (await res.json()) as UserOrgPreferences;
+	const preferences = (await res.json()) as UserOrgPreferences;
+	await invalidate('app:org-core');
+	return preferences;
 }
 
 export function queueUserPreferencesPatch(orgId: string, patch: UserOrgPreferencesPatch): Promise<UserOrgPreferences> {

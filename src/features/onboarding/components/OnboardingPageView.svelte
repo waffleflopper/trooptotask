@@ -13,6 +13,15 @@
 	}
 
 	let { ctx }: Props = $props();
+
+	const activeOnboardingCount = $derived(ctx.filteredOnboardings.length);
+	const configuredTemplateCount = $derived(ctx.templates.length);
+	const incompleteStepCount = $derived.by(() =>
+		ctx.filteredOnboardings.reduce((total, onboarding) => {
+			const progress = ctx.getProgress(onboarding);
+			return total + Math.max(progress.total - progress.completed, 0);
+		}, 0)
+	);
 </script>
 
 <svelte:head>
@@ -21,13 +30,16 @@
 
 <div class="page">
 	<PageToolbar title="Onboarding" helpTopic="onboarding" overflowItems={ctx.overflowItems}>
-		<a href={ctx.historyUrl} class="btn-ghost">History</a>
+		<a href={ctx.historyUrl} class="btn btn-sm" data-quiet-button>History</a>
 		{#if ctx.canEditOnboarding}
 			{#if ctx.canManageConfig}
-				<a href={ctx.templatesUrl} class="btn-ghost" class:disabled={ctx.readOnly}>Manage Templates</a>
+				<a href={ctx.templatesUrl} class="btn btn-sm" data-quiet-button class:disabled={ctx.readOnly}
+					>Manage Templates</a
+				>
 			{/if}
 			<button
 				class="btn btn-primary btn-sm"
+				type="button"
 				onclick={() => ctx.modals.open(MODAL_IDS.startOnboarding)}
 				disabled={!ctx.hasTemplateSteps || ctx.readOnly}
 				title={!ctx.hasTemplateSteps ? 'Set up template steps before starting an onboarding' : ''}
@@ -35,7 +47,7 @@
 				Start Onboarding
 			</button>
 			{#if ctx.readOnly}
-				<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+				<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
 			{/if}
 		{/if}
 	</PageToolbar>
@@ -47,9 +59,34 @@
 		</div>
 	{:else}
 		<main class="page-content">
+			<div class="overview-strip">
+				<div class="overview-card">
+					<span class="overview-label">Active</span>
+					<strong class="overview-value">{activeOnboardingCount}</strong>
+					<span class="overview-meta">Members currently moving through onboarding</span>
+				</div>
+				<div class="overview-card">
+					<span class="overview-label">Open Steps</span>
+					<strong class="overview-value">{incompleteStepCount}</strong>
+					<span class="overview-meta">Requirements still incomplete across active packets</span>
+				</div>
+				<div class="overview-card">
+					<span class="overview-label">Templates</span>
+					<strong class="overview-value">{configuredTemplateCount}</strong>
+					<span class="overview-meta">
+						{ctx.hasTemplateSteps
+							? 'Reusable onboarding templates are configured and available'
+							: 'No reusable onboarding template has been defined yet'}
+					</span>
+				</div>
+			</div>
+
 			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
-				<div class="warning-banner">
-					<span>No template steps defined — new onboardings cannot be started until steps are added.</span>
+				<div class="notice-banner notice-banner--warning">
+					<div class="notice-copy">
+						<p class="notice-label">Configuration Required</p>
+						<p>No template steps are defined, so new onboardings cannot be started until a template is built.</p>
+					</div>
 					{#if ctx.canEditOnboarding}
 						<a href={ctx.templatesUrl} class="btn btn-sm btn-secondary">Manage Templates</a>
 					{/if}
@@ -57,9 +94,14 @@
 			{/if}
 
 			{#if ctx.resyncError}
-				<div class="error-banner">
-					<span>{ctx.resyncError}</span>
-					<button class="btn btn-sm btn-secondary" onclick={() => (ctx.resyncError = null)}>Dismiss</button>
+				<div class="notice-banner notice-banner--danger">
+					<div class="notice-copy">
+						<p class="notice-label">Sync Problem</p>
+						<p>{ctx.resyncError}</p>
+					</div>
+					<button class="btn btn-sm btn-secondary" type="button" onclick={() => (ctx.resyncError = null)}
+						>Dismiss</button
+					>
 				</div>
 			{/if}
 
@@ -67,7 +109,7 @@
 				{#if !ctx.hasTemplateSteps && ctx.onboardings.length === 0}
 					{#if ctx.canEditOnboarding}
 						<EmptyState
-							message="Set up your onboarding template to get started. Define the steps new members need to complete."
+							message="Set up your onboarding template to get started. Define the requirements new members need to complete."
 							actionLabel="Set Up Template"
 							actionHref={ctx.templatesUrl}
 						/>
@@ -85,7 +127,12 @@
 						{@const isExpanded = ctx.expandedOnboardingId === onboarding.id}
 						{@const groupName = ctx.getPersonGroupName(onboarding.personnelId)}
 						<div class="onboarding-card" class:expanded={isExpanded}>
-							<button class="card-summary" onclick={() => ctx.toggleExpand(onboarding.id)} aria-expanded={isExpanded}>
+							<button
+								class="card-summary"
+								type="button"
+								onclick={() => ctx.toggleExpand(onboarding.id)}
+								aria-expanded={isExpanded}
+							>
 								<div class="card-main">
 									<span class="expand-icon">{isExpanded ? '▼' : '▶'}</span>
 									<div class="card-info">
@@ -94,32 +141,22 @@
 											<span class="template-name">{ctx.getTemplateName(onboarding.templateId)}</span>
 											{#if groupName}
 												<span class="meta-sep">·</span>
-												<span class="group-name">{groupName}</span>
+												<span>{groupName}</span>
 											{/if}
 											<span class="meta-sep">·</span>
-											<span class="started-date">Started {formatDisplayDate(onboarding.startedAt)}</span>
+											<span>Started {formatDisplayDate(onboarding.startedAt)}</span>
 										</div>
 									</div>
 								</div>
 								<div class="card-progress">
+									<span class="progress-label">Progress</span>
 									<div class="progress-bar">
 										<div class="progress-fill" class:progress-complete={pct === 100} style="width: {pct}%"></div>
 									</div>
-									<span class="progress-text">{progress.completed}/{progress.total}</span>
+									<span class="progress-text">{progress.completed}/{progress.total} complete</span>
 								</div>
 								<div class="card-status">
-									<Badge
-										label={onboarding.status === 'in_progress'
-											? 'In Progress'
-											: onboarding.status === 'completed'
-												? 'Completed'
-												: 'Cancelled'}
-										color={onboarding.status === 'in_progress'
-											? 'var(--color-info)'
-											: onboarding.status === 'completed'
-												? 'var(--color-success)'
-												: 'var(--color-text-muted)'}
-									/>
+									<Badge label="In Progress" color="var(--info)" />
 								</div>
 							</button>
 
@@ -129,6 +166,7 @@
 										<div class="detail-actions">
 											<button
 												class="btn btn-primary btn-sm"
+												type="button"
 												onclick={() => ctx.promptCompleteOnboarding(onboarding.id)}
 											>
 												Mark Complete
@@ -136,6 +174,7 @@
 											{#if onboarding.templateId === null}
 												<button
 													class="btn btn-secondary btn-sm"
+													type="button"
 													onclick={() => ctx.openAssignTemplate(onboarding.id)}
 													title="Assign a template to enable re-sync"
 												>
@@ -144,12 +183,13 @@
 											{:else}
 												<button
 													class="btn btn-secondary btn-sm sync-btn"
+													type="button"
 													onclick={() => ctx.handleResync(onboarding.id)}
 													disabled={ctx.resyncingId === onboarding.id}
 													title="Sync with current template"
 												>
 													{#if ctx.resyncingId === onboarding.id}
-														<Spinner color="var(--color-text-secondary)" />
+														<Spinner color="var(--text-secondary)" />
 													{:else}
 														<svg
 															viewBox="0 0 24 24"
@@ -158,7 +198,8 @@
 															stroke-width="2"
 															class="sync-icon"
 														>
-															<path d="M23 4v6h-6" /><path d="M1 20v-6h6" />
+															<path d="M23 4v6h-6" />
+															<path d="M1 20v-6h6" />
 															<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
 														</svg>
 													{/if}
@@ -167,6 +208,7 @@
 												{#if ctx.canManageConfig}
 													<button
 														class="btn btn-secondary btn-sm"
+														type="button"
 														onclick={() => ctx.openSwitchTemplate(onboarding.id)}
 														title="Switch to a different template"
 													>
@@ -174,7 +216,11 @@
 													</button>
 												{/if}
 											{/if}
-											<button class="btn btn-danger btn-sm" onclick={() => (ctx.cancellingId = onboarding.id)}>
+											<button
+												class="btn btn-danger btn-sm"
+												type="button"
+												onclick={() => (ctx.cancellingId = onboarding.id)}
+											>
 												Cancel
 											</button>
 										</div>
@@ -192,6 +238,7 @@
 															>{STEP_TYPE_LABELS[step.stepType]}</span
 														>
 													{/if}
+
 													<span class="step-name">
 														{step.stepName}
 														{#if ctx.getTrainingTypeName(step)}
@@ -205,6 +252,7 @@
 														{:else if ctx.canEditOnboarding && onboarding.status === 'in_progress'}
 															<button
 																class="btn btn-danger btn-sm"
+																type="button"
 																onclick={() => ctx.handleRemoveDeprecatedStep(step.id)}
 																disabled={ctx.removingDeprecatedStepId === step.id}
 															>
@@ -221,6 +269,7 @@
 																	<button
 																		class="checkbox-toggle"
 																		class:checked={step.completed}
+																		type="button"
 																		onclick={() => ctx.handleToggleCheckbox(step)}
 																		aria-label={step.completed ? 'Mark incomplete' : 'Mark complete'}
 																	>
@@ -231,9 +280,9 @@
 																		{/if}
 																	</button>
 																{:else}
-																	<span class="status-icon" class:complete={step.completed}>
-																		{step.completed ? '✓' : '—'}
-																	</span>
+																	<span class="status-icon" class:complete={step.completed}
+																		>{step.completed ? '✓' : '—'}</span
+																	>
 																{/if}
 															{:else if step.stepType === 'training'}
 																<span
@@ -265,6 +314,7 @@
 												{#if !isInactive}
 													<button
 														class="notes-toggle"
+														type="button"
 														onclick={() => ctx.toggleNotes(step.id)}
 														aria-label="Toggle notes"
 													>
@@ -297,6 +347,7 @@
 																	/>
 																	<button
 																		class="btn btn-primary btn-sm"
+																		type="button"
 																		onclick={() => ctx.handleAddNote(step)}
 																		disabled={!ctx.noteInputs[step.id]?.trim()}
 																	>
@@ -337,7 +388,7 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-		background: var(--color-bg);
+		background: var(--surface-page);
 	}
 
 	.no-permission {
@@ -345,139 +396,170 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		min-height: 300px;
+		min-height: 320px;
 		text-align: center;
-		color: var(--color-text-muted);
+		color: var(--text-secondary);
 	}
+
 	.no-permission h2 {
-		font-size: var(--font-size-lg);
-		margin-bottom: var(--spacing-sm);
-		color: var(--color-text);
+		margin: 0 0 var(--sp-2);
+		font-family: var(--font-display);
+		font-size: var(--text-2xl);
+		font-weight: var(--font-weight-display);
+		line-height: 0.95;
+		text-transform: uppercase;
 	}
 
-	.btn-ghost {
-		background: none;
-		border: none;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		transition: all 0.15s;
+	[data-quiet-button] {
+		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
 	}
 
-	.btn-ghost:hover {
-		color: var(--color-text);
-		background: var(--color-surface-variant);
-	}
-
-	.btn-ghost.disabled {
+	[data-quiet-button].disabled {
 		opacity: 0.5;
 		pointer-events: none;
 	}
 
-	.warning-banner {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-		padding: var(--spacing-sm) var(--spacing-lg);
-		background: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
-		border: 1px solid var(--color-warning, #f59e0b);
-		border-radius: var(--radius-md);
-		color: var(--color-warning, #f59e0b);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
+	.overview-strip {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-3);
 	}
 
-	.warning-banner span {
+	.overview-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
+	}
+
+	.overview-label,
+	.notice-label,
+	.progress-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+
+	.overview-value {
+		font-family: var(--font-display);
+		font-size: clamp(1.45rem, 1.2rem + 0.5vw, 2rem);
+		font-weight: var(--font-weight-display);
+		line-height: 0.95;
+		color: var(--text-primary);
+	}
+
+	.overview-meta {
+		font-size: var(--text-sm);
+		line-height: 1.45;
+		color: var(--text-secondary);
+	}
+
+	.notice-banner {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--sp-3);
+		margin-bottom: var(--sp-3);
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+	}
+
+	.notice-banner--warning {
+		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
+	}
+
+	.notice-banner--danger {
+		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
+	}
+
+	.notice-copy {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
 		flex: 1;
 	}
 
-	.error-banner {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-		padding: var(--spacing-sm) var(--spacing-lg);
-		background: var(--color-error-bg, rgba(239, 68, 68, 0.1));
-		border: 1px solid var(--color-error);
-		border-radius: var(--radius-md);
-		color: var(--color-error);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
+	.notice-copy p {
+		margin: 0;
+		font-size: var(--text-sm);
+		line-height: 1.5;
+		color: var(--text-secondary);
 	}
 
-	.error-banner span {
-		flex: 1;
-	}
-
-	/* Onboarding list */
 	.onboarding-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 	}
 
-	/* Onboarding card */
 	.onboarding-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: var(--border-thin);
 		border-radius: var(--radius-lg);
 		overflow: hidden;
-		transition: box-shadow 0.15s ease;
+		transition:
+			border-color var(--transition-fast),
+			box-shadow var(--transition-fast);
 	}
 
 	.onboarding-card:hover {
-		box-shadow: var(--shadow-2);
+		box-shadow: var(--shadow-sm);
 	}
 
 	.onboarding-card.expanded {
-		border-color: var(--color-primary);
+		border-color: var(--amber-dark);
 	}
 
 	.card-summary {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
+		gap: var(--sp-3);
 		width: 100%;
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: none;
+		padding: var(--sp-3) var(--sp-4);
+		background: var(--surface-panel);
 		border: none;
 		cursor: pointer;
 		text-align: left;
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.card-summary:hover {
-		background: var(--color-hover);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
 	.card-main {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		flex: 1;
 		min-width: 0;
 	}
 
 	.expand-icon {
-		font-size: 10px;
 		width: 14px;
+		font-size: 10px;
 		flex-shrink: 0;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 	}
 
 	.card-info {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--sp-1);
 		min-width: 0;
 	}
 
 	.person-name {
+		font-size: var(--text-lg);
 		font-weight: 600;
-		font-size: var(--font-size-base);
-		color: var(--color-text);
+		color: var(--text-primary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -486,62 +568,58 @@
 	.card-meta {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		gap: var(--sp-1);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 500;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
 	.meta-sep {
-		color: var(--color-text-muted);
 		opacity: 0.5;
 	}
 
 	.template-name {
-		color: var(--color-text-secondary);
-	}
-
-	.group-name {
-		color: var(--color-text-secondary);
-	}
-
-	.started-date {
-		font-family: var(--font-mono);
+		color: var(--amber-dark);
 	}
 
 	.card-progress {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-1);
 		flex-shrink: 0;
-		min-width: 140px;
+		min-width: 168px;
 	}
 
 	.progress-bar {
-		flex: 1;
+		width: 100%;
 		height: 6px;
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-full);
+		background: var(--surface-subtle);
+		border-radius: 999px;
 		overflow: hidden;
 	}
 
 	.progress-fill {
 		height: 100%;
-		border-radius: var(--radius-full);
+		border-radius: 999px;
+		background: var(--amber-dark);
 		transition: width 0.3s ease;
-		background: var(--color-primary);
 	}
 
 	.progress-fill.progress-complete {
-		background: var(--color-success);
+		background: var(--success);
 	}
 
 	.progress-text {
 		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-secondary);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 		white-space: nowrap;
 	}
 
@@ -549,24 +627,26 @@
 		flex-shrink: 0;
 	}
 
-	/* Expanded detail */
 	.card-detail {
-		border-top: 1px solid var(--color-divider);
-		padding: var(--spacing-md) var(--spacing-lg);
+		padding: var(--sp-4);
+		border-top: var(--border-thin);
+		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
 	}
 
 	.detail-actions {
 		display: flex;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-md);
-		justify-content: flex-end;
 		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-3);
+		padding-bottom: var(--sp-3);
+		border-bottom: var(--border-rule);
 	}
 
 	.sync-btn {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 	}
 
 	.sync-icon {
@@ -575,184 +655,166 @@
 		flex-shrink: 0;
 	}
 
-	/* Step list */
 	.step-list {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--sp-2);
 	}
 
 	.step-row {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
+		gap: var(--sp-2);
+		padding: var(--sp-3);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		background: var(--color-bg);
+		background: var(--surface-panel);
 		transition: opacity 0.15s ease;
 	}
 
 	.step-row.step-complete {
-		opacity: 0.6;
+		opacity: 0.62;
 	}
 
 	.step-row.step-inactive {
-		opacity: 0.5;
-		background: var(--color-surface-variant);
+		opacity: 0.56;
+		background: color-mix(in srgb, var(--surface-subtle) 76%, var(--surface-panel) 24%);
 	}
 
 	.step-main {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		flex: 1;
 		min-width: 0;
 	}
 
 	.step-type-indicator {
-		font-size: var(--font-size-xs);
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-		padding: 2px var(--spacing-xs);
-		border-radius: var(--radius-sm);
 		flex-shrink: 0;
+		padding: 3px 6px;
+		border-radius: var(--radius-sm);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	.step-type-checkbox {
-		color: var(--color-text-muted);
-		background: var(--color-surface-variant);
+		color: var(--text-secondary);
+		background: var(--surface-subtle);
 	}
 
 	.step-type-paperwork {
-		color: var(--color-warning, #f59e0b);
-		background: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
+		color: var(--amber-dark);
+		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
 	}
 
 	.step-type-training {
-		color: var(--color-info);
-		background: var(--color-info-bg, rgba(59, 130, 246, 0.1));
+		color: var(--info);
+		background: color-mix(in srgb, var(--info-bg) 84%, var(--surface-panel) 16%);
 	}
 
 	.step-type-inactive {
-		color: var(--color-text-muted);
-		background: var(--color-surface-variant);
+		color: var(--text-tertiary);
+		background: var(--surface-subtle);
 		font-style: italic;
 		text-transform: none;
 	}
 
 	.step-name {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
 		font-weight: 500;
-		color: var(--color-text);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+		line-height: 1.35;
+		color: var(--text-primary);
 	}
 
 	.training-type-hint {
+		font-family: var(--font-body);
+		font-size: var(--text-sm);
 		font-weight: 400;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-xs);
+		color: var(--text-secondary);
 	}
 
 	.inactive-note {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
 		font-style: italic;
 	}
 
 	.step-status {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 		margin-left: auto;
 		flex-shrink: 0;
 	}
 
-	/* Checkbox toggle */
 	.checkbox-toggle {
-		width: 22px;
-		height: 22px;
-		border: 2px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		background: var(--color-surface);
-		cursor: pointer;
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		width: 24px;
+		height: 24px;
 		padding: 0;
-		transition: all 0.15s ease;
-	}
-
-	.checkbox-toggle:hover {
-		border-color: var(--color-primary);
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		color: white;
+		cursor: pointer;
 	}
 
 	.checkbox-toggle.checked {
-		background: var(--color-success);
-		border-color: var(--color-success);
+		background: var(--success);
+		border-color: var(--success);
 	}
 
 	.checkbox-toggle svg {
 		width: 14px;
 		height: 14px;
-		color: white;
 	}
 
-	/* Status icons */
 	.status-icon {
-		font-size: var(--font-size-base);
+		font-size: var(--text-base);
 		font-weight: 700;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 	}
 
 	.status-icon.complete {
-		color: var(--color-success);
+		color: var(--success);
 	}
 
 	.status-icon.incomplete {
-		color: var(--color-error);
+		color: var(--danger);
 	}
 
-	/* Training link */
 	.training-link {
-		font-size: var(--font-size-xs);
-		color: var(--color-primary);
-		text-decoration: none;
-		font-weight: 500;
-	}
-
-	.training-link:hover {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
 		text-decoration: underline;
 	}
 
-	/* Stage indicator */
-	.stage-indicator {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-	}
-
-	/* Notes toggle */
 	.notes-toggle {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		gap: 2px;
-		padding: var(--spacing-xs);
-		background: none;
-		border: none;
-		color: var(--color-text-muted);
-		cursor: pointer;
+		padding: var(--sp-1);
+		border: var(--border-thin);
 		border-radius: var(--radius-sm);
-		transition: all 0.15s ease;
-		flex-shrink: 0;
+		background: transparent;
+		color: var(--text-tertiary);
+		cursor: pointer;
+		transition: all var(--transition-fast);
 	}
 
 	.notes-toggle:hover {
-		background: var(--color-surface-variant);
-		color: var(--color-text);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
 	}
 
 	.notes-icon {
@@ -762,44 +824,41 @@
 
 	.notes-count {
 		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
-		font-weight: 600;
-		color: var(--color-primary);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--amber-dark);
 	}
 
-	/* Step notes */
 	.step-notes {
 		width: 100%;
-		margin-top: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface);
+		margin-top: var(--sp-2);
+		padding: var(--sp-3);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		border: 1px solid var(--color-divider);
+		background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface-panel) 52%);
 	}
 
 	.note-input-row {
 		display: flex;
-		gap: var(--spacing-xs);
-		margin-bottom: var(--spacing-sm);
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-2);
 	}
 
 	.note-input {
 		flex: 1;
-		font-size: var(--font-size-sm);
 	}
 
 	.no-notes {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		font-style: italic;
-		padding: var(--spacing-xs) 0;
+		margin: 0;
+		font-size: var(--text-sm);
+		color: var(--text-tertiary);
 	}
 
 	.notes-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
-		max-height: 200px;
+		gap: var(--sp-2);
+		max-height: 220px;
 		overflow-y: auto;
 	}
 
@@ -807,9 +866,9 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-start;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-xs) 0;
-		border-bottom: 1px solid var(--color-divider);
+		gap: var(--sp-2);
+		padding: var(--sp-2) 0;
+		border-bottom: var(--border-rule);
 	}
 
 	.note-item:last-child {
@@ -817,48 +876,61 @@
 	}
 
 	.note-text {
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
 		flex: 1;
+		font-size: var(--text-sm);
 		line-height: 1.4;
+		color: var(--text-primary);
 	}
 
 	.note-time {
-		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		white-space: nowrap;
 		flex-shrink: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
+		white-space: nowrap;
 	}
 
-	/* Mobile Responsive */
-	@media (max-width: 640px) {
+	@media (max-width: 820px) {
 		.card-summary {
 			flex-wrap: wrap;
-			padding: var(--spacing-sm) var(--spacing-md);
-			gap: var(--spacing-sm);
-		}
-
-		.card-main {
-			width: 100%;
+			align-items: flex-start;
 		}
 
 		.card-progress {
+			align-items: flex-start;
+			width: 100%;
 			min-width: 0;
-			flex: 1;
 		}
 
+		.card-status {
+			margin-left: auto;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.overview-strip {
+			grid-template-columns: 1fr;
+		}
+
+		.notice-banner,
+		.card-summary,
 		.card-detail {
-			padding: var(--spacing-sm) var(--spacing-md);
+			padding: var(--sp-3);
+		}
+
+		.card-meta {
+			flex-wrap: wrap;
+			white-space: normal;
 		}
 
 		.step-main {
 			flex-wrap: wrap;
 		}
 
-		.stage-indicator {
+		.step-status {
 			width: 100%;
-			margin-top: var(--spacing-xs);
+			margin-left: 0;
+			justify-content: flex-start;
 		}
 
 		.note-input-row {

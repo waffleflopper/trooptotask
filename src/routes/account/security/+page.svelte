@@ -1,10 +1,9 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	const supabase = $derived($page.data.supabase);
-	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -136,19 +135,49 @@
 <div class="security-page">
 	<div class="security-container">
 		<header class="page-header">
-			<h1>Account Security</h1>
+			<div class="header-copy">
+				<p class="eyebrow">Account Controls</p>
+				<h1>Account Security</h1>
+				<p class="page-intro">Manage sign-in protection for your Troop to Task account.</p>
+			</div>
 			<a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
 		</header>
 
 		{#if error}
-			<div class="alert alert-error">{error}</div>
+			<div class="alert alert-error">
+				<p class="alert-label">Security Issue</p>
+				<p>{error}</p>
+			</div>
 		{/if}
 		{#if success}
-			<div class="alert alert-success">{success}</div>
+			<div class="alert alert-success">
+				<p class="alert-label">Security Updated</p>
+				<p>{success}</p>
+			</div>
 		{/if}
 
+		<div class="overview-strip">
+			<div class="overview-card">
+				<span class="overview-label">MFA</span>
+				<strong class="overview-value">{mfaEnabled ? 'Enabled' : 'Disabled'}</strong>
+				<span class="overview-meta"
+					>{mfaEnabled
+						? 'Account sign-in is protected with a second factor'
+						: 'Only password-based sign-in is active right now'}</span
+				>
+			</div>
+			<div class="overview-card">
+				<span class="overview-label">Method</span>
+				<strong class="overview-value">{enrolling ? 'TOTP Setup' : 'Authenticator App'}</strong>
+				<span class="overview-meta">Use Google Authenticator, Authy, 1Password, or another TOTP-compatible app</span>
+			</div>
+		</div>
+
 		<section class="security-section">
-			<h2>Two-Factor Authentication (MFA)</h2>
+			<div class="section-heading">
+				<p class="section-label">Two-Factor Authentication</p>
+				<h2>Require an Authenticator Code at Sign-In</h2>
+			</div>
 			<p class="section-description">
 				Add an extra layer of security to your account by requiring a verification code from your authenticator app when
 				signing in.
@@ -170,14 +199,19 @@
 
 			{#if enrolling && qrCode}
 				<div class="enroll-section">
-					<h3>Set up your authenticator</h3>
-					<p class="enroll-instructions">
-						Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.), then enter the
-						6-digit verification code below.
-					</p>
+					<div class="setup-panel">
+						<div class="setup-copy">
+							<p class="section-label">Setup In Progress</p>
+							<h3>Scan the QR Code With Your Authenticator</h3>
+							<p class="enroll-instructions">
+								Use Google Authenticator, Authy, 1Password, or another compatible app, then enter the 6-digit code it
+								generates to finish setup.
+							</p>
+						</div>
 
-					<div class="qr-container">
-						<img src={qrCode} alt="MFA QR Code" class="qr-code" />
+						<div class="qr-container">
+							<img src={qrCode} alt="MFA QR Code" class="qr-code" />
+						</div>
 					</div>
 
 					<form
@@ -202,7 +236,7 @@
 							/>
 						</div>
 						<div class="enroll-actions">
-							<button type="button" class="btn btn-secondary" onclick={cancelEnroll}> Cancel </button>
+							<button type="button" class="btn btn-secondary" onclick={cancelEnroll}>Cancel</button>
 							<button type="submit" class="btn btn-primary" disabled={loading || verifyCode.length !== 6}>
 								{#if loading}<Spinner />{/if}
 								Verify & Enable
@@ -225,156 +259,279 @@
 <style>
 	.security-page {
 		min-height: 100vh;
-		background: var(--color-bg);
-		padding: var(--spacing-xl);
+		background: var(--surface-page);
+		padding: var(--sp-6);
 	}
 
 	.security-container {
-		max-width: 600px;
+		max-width: 860px;
 		margin: 0 auto;
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
 	}
 
 	.page-header {
 		display: flex;
-		align-items: center;
+		align-items: flex-end;
 		justify-content: space-between;
-		margin-bottom: var(--spacing-xl);
+		gap: var(--sp-4);
+		padding-bottom: var(--sp-4);
+		border-bottom: var(--border-thin);
+	}
+
+	.header-copy {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.eyebrow,
+	.section-label,
+	.alert-label,
+	.overview-label {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+
+	.eyebrow,
+	.section-label {
+		color: var(--amber);
 	}
 
 	.page-header h1 {
-		font-size: 1.5rem;
-		font-weight: 600;
-		color: var(--color-text);
 		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(2.4rem, 5vw, 3.4rem);
+		line-height: 0.94;
+		font-weight: 800;
+		text-transform: uppercase;
+		color: var(--text-strong);
+	}
+
+	.page-intro {
+		margin: 0;
+		color: var(--text-secondary);
+		font-size: var(--text-base);
+		line-height: 1.55;
+	}
+
+	.overview-strip {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: var(--sp-3);
+	}
+
+	.overview-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
+	}
+
+	.overview-value {
+		font-family: var(--font-display);
+		font-size: clamp(1.9rem, 4vw, 2.5rem);
+		line-height: 0.95;
+		text-transform: uppercase;
+	}
+
+	.overview-meta {
+		font-size: var(--text-sm);
+		line-height: 1.5;
+		color: var(--text-secondary);
 	}
 
 	.security-section {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		padding: var(--spacing-lg);
+		padding: var(--sp-5);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+	}
+
+	.section-heading {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
 	}
 
 	.security-section h2 {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
-		color: var(--color-text);
-		margin: 0 0 var(--spacing-sm) 0;
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(2rem, 4vw, 2.8rem);
+		line-height: 0.98;
+		font-weight: 700;
+		text-transform: uppercase;
+		color: var(--text-strong);
 	}
 
 	.section-description {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
-		margin: 0 0 var(--spacing-md) 0;
-		line-height: 1.5;
-	}
-
-	.mfa-status {
-		margin-bottom: var(--spacing-md);
+		color: var(--text-secondary);
+		font-size: var(--text-base);
+		margin: 0;
+		line-height: 1.6;
 	}
 
 	.status-indicator {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		color: var(--color-text-secondary);
+		gap: var(--sp-2);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		padding: var(--sp-2) var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
 	.status-dot {
-		width: 8px;
-		height: 8px;
+		width: 9px;
+		height: 9px;
 		border-radius: 50%;
-		background: var(--color-text-muted);
+		background: var(--text-muted);
 	}
 
 	.status-indicator.enabled .status-dot {
-		background: var(--color-success);
+		background: var(--success);
 	}
 
 	.status-indicator.enabled {
-		color: var(--color-success);
+		color: var(--success);
+		background: color-mix(in srgb, var(--success-bg) 82%, var(--surface-panel) 18%);
 	}
 
 	.alert {
-		padding: var(--spacing-sm) var(--spacing-md);
+		padding: var(--sp-3) var(--sp-4);
 		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
+		font-size: var(--text-sm);
+		border: var(--border-thin);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+	}
+
+	.alert p {
+		margin: 0;
 	}
 
 	.alert-error {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
+		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
+		color: var(--danger);
 	}
 
 	.alert-success {
-		background: #f0fdf4;
-		border: 1px solid #bbf7d0;
-		color: #16a34a;
-	}
-
-	:global([data-theme='dark']) .alert-error {
-		background: #450a0a;
-		border-color: #7f1d1d;
-		color: #fca5a5;
-	}
-
-	:global([data-theme='dark']) .alert-success {
-		background: #14532d;
-		border-color: #166534;
-		color: #4ade80;
+		background: color-mix(in srgb, var(--success-bg) 84%, var(--surface-panel) 16%);
+		color: var(--success);
 	}
 
 	.enroll-section {
-		margin-top: var(--spacing-md);
-		padding-top: var(--spacing-md);
-		border-top: 1px solid var(--color-border);
+		padding-top: var(--sp-4);
+		border-top: var(--border-thin);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+	}
+
+	.setup-panel {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: var(--sp-5);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
+	}
+
+	.setup-copy {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
 	}
 
 	.enroll-section h3 {
-		font-size: var(--font-size-base);
-		font-weight: 600;
-		color: var(--color-text);
-		margin: 0 0 var(--spacing-sm) 0;
+		font-size: clamp(1.6rem, 3vw, 2.2rem);
+		font-family: var(--font-display);
+		font-weight: 700;
+		line-height: 0.98;
+		text-transform: uppercase;
+		color: var(--text-strong);
+		margin: 0;
 	}
 
 	.enroll-instructions {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
-		margin: 0 0 var(--spacing-md) 0;
-		line-height: 1.5;
+		color: var(--text-secondary);
+		font-size: var(--text-sm);
+		margin: 0;
+		line-height: 1.6;
 	}
 
 	.qr-container {
 		display: flex;
 		justify-content: center;
-		margin-bottom: var(--spacing-lg);
+		align-items: center;
 	}
 
 	.qr-code {
 		width: 200px;
 		height: 200px;
-		border-radius: var(--radius-sm);
-		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		border: var(--border-thin);
+		background: var(--surface-panel);
+		padding: var(--sp-2);
 	}
 
 	.verify-form {
-		max-width: 300px;
+		max-width: 360px;
 	}
 
 	.code-input {
 		font-family: var(--font-mono);
-		font-size: var(--font-size-lg);
-		letter-spacing: 0.3em;
+		font-size: var(--text-xl);
+		letter-spacing: 0.18em;
 		text-align: center;
 	}
 
 	.enroll-actions {
 		display: flex;
-		gap: var(--spacing-sm);
-		margin-top: var(--spacing-md);
+		gap: var(--sp-3);
+		margin-top: var(--sp-4);
+	}
+
+	@media (max-width: 720px) {
+		.security-page {
+			padding: var(--sp-4);
+		}
+
+		.page-header {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+
+		.setup-panel {
+			grid-template-columns: 1fr;
+		}
+
+		.enroll-actions {
+			flex-direction: column-reverse;
+		}
+
+		.enroll-actions :global(.btn),
+		.page-header :global(.btn) {
+			width: 100%;
+		}
 	}
 </style>

@@ -459,6 +459,7 @@
 				</svg>
 				Back to Dashboard
 			</a>
+			<p class="eyebrow">Reference Guide</p>
 			<h1>Platform Guide</h1>
 			<p class="subtitle">Learn how to use Troop to Task — organized by feature with role-specific tips</p>
 		</header>
@@ -523,36 +524,55 @@
 <style>
 	.help-page {
 		min-height: 100vh;
-		background: var(--color-bg);
-		padding: var(--spacing-xl) var(--spacing-lg);
+		background: var(--surface-page);
+		padding: var(--sp-6) var(--sp-5);
 	}
 
 	.help-container {
-		max-width: 800px;
+		max-width: 960px;
 		margin: 0 auto;
 	}
 
 	.help-header {
-		text-align: center;
-		margin-bottom: var(--spacing-2xl);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-6);
+		padding-bottom: var(--sp-5);
+		border-bottom: var(--border-thin);
+	}
+
+	.eyebrow,
+	.role-callout-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+
+	.eyebrow {
+		margin: 0;
+		color: var(--amber);
 	}
 
 	.back-link {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		color: var(--color-primary);
+		gap: var(--sp-2);
+		color: var(--text-secondary);
 		text-decoration: none;
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
 		font-weight: 500;
-		margin-bottom: var(--spacing-lg);
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-full);
-		transition: all var(--transition-fast);
+		width: fit-content;
+		padding: 0.625rem 0.85rem;
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
 	}
 
 	.back-link:hover {
-		background: rgba(var(--color-primary-rgb), 0.08);
+		color: var(--text-strong);
 	}
 
 	.back-link svg {
@@ -561,38 +581,38 @@
 	}
 
 	.help-header h1 {
-		font-size: var(--font-size-3xl);
-		font-weight: 600;
-		color: var(--color-primary);
-		margin-bottom: var(--spacing-sm);
-		letter-spacing: -0.02em;
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(2.8rem, 5vw, 4rem);
+		font-weight: 800;
+		line-height: 0.94;
+		text-transform: uppercase;
+		color: var(--text-strong);
 	}
 
 	.subtitle {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-lg);
+		margin: 0;
+		max-width: 54rem;
+		color: var(--text-secondary);
+		font-size: var(--text-base);
+		line-height: 1.6;
 	}
 
 	.sections {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-3);
 	}
 
 	.section {
-		background: var(--color-surface);
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-1);
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
 		overflow: hidden;
-		transition: all var(--transition-normal);
-	}
-
-	.section:hover {
-		box-shadow: var(--shadow-2);
 	}
 
 	.section.expanded {
-		box-shadow: var(--shadow-2);
+		border-color: color-mix(in srgb, var(--amber) 36%, var(--ink-15) 64%);
 	}
 
 	.section-header {
@@ -600,45 +620,48 @@
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
-		padding: var(--spacing-lg);
+		padding: var(--sp-4);
 		background: none;
 		border: none;
 		cursor: pointer;
 		text-align: left;
-		transition: background var(--transition-fast);
 	}
 
 	.section-header:hover {
-		background: rgba(var(--color-primary-rgb), 0.04);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
 	.section-title {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
+		gap: var(--sp-3);
 	}
 
 	.section-title svg {
 		width: 28px;
 		height: 28px;
-		color: var(--color-primary);
-		padding: 4px;
-		background: rgba(var(--color-primary-rgb), 0.1);
+		color: var(--amber-dark);
+		padding: 5px;
+		background: color-mix(in srgb, var(--amber-light) 84%, var(--surface-panel) 16%);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
 	}
 
 	.section-title h2 {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
-		color: var(--color-text);
+		font-size: clamp(1.8rem, 3vw, 2.3rem);
+		font-family: var(--font-display);
+		font-weight: 700;
+		line-height: 0.98;
+		text-transform: uppercase;
+		color: var(--text-strong);
 		margin: 0;
 	}
 
 	.chevron {
 		width: 24px;
 		height: 24px;
-		color: var(--color-text-muted);
-		transition: transform var(--transition-normal);
+		color: var(--text-secondary);
+		transition: transform 160ms ease;
 	}
 
 	.chevron.rotated {
@@ -646,111 +669,93 @@
 	}
 
 	.section-content {
-		padding: 0 var(--spacing-lg) var(--spacing-lg);
+		padding: 0 var(--sp-4) var(--sp-4);
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
-		animation: slideDown var(--transition-normal) ease-out;
-	}
-
-	@keyframes slideDown {
-		from {
-			opacity: 0;
-			transform: translateY(-8px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
+		gap: var(--sp-3);
 	}
 
 	.help-item {
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-lg);
-		border-left: 3px solid var(--color-primary);
+		padding: var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
+		border-radius: var(--radius-md);
+		border: var(--border-thin);
 	}
 
 	.help-item h3 {
-		font-size: var(--font-size-base);
+		font-size: var(--text-lg);
+		font-family: var(--font-display);
 		font-weight: 600;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-xs);
+		line-height: 1;
+		text-transform: uppercase;
+		color: var(--text-strong);
+		margin: 0 0 var(--sp-2);
 	}
 
 	.help-item p {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		line-height: 1.7;
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+		line-height: 1.65;
 		margin: 0;
 	}
 
-	/* Role callouts */
 	.role-callout {
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-lg);
-		border-left: 3px solid var(--color-primary);
+		padding: var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
+		border-radius: var(--radius-md);
+		border: var(--border-thin);
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 		align-items: flex-start;
 	}
 
 	.role-callout--admin {
-		border-left-color: var(--color-primary);
+		background: color-mix(in srgb, var(--surface-subtle) 60%, var(--surface-panel) 40%);
 	}
 
 	.role-callout--team-leader {
-		border-left-color: #b8943e;
+		background: color-mix(in srgb, var(--amber-light) 60%, var(--surface-panel) 40%);
 	}
 
 	.role-callout--viewer {
-		border-left-color: var(--color-text-muted);
-	}
-
-	.role-callout-label {
-		font-size: var(--font-size-xs);
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		white-space: nowrap;
-		padding-top: 1px;
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
 	.role-callout--admin .role-callout-label {
-		color: var(--color-primary);
+		color: var(--amber-dark);
 	}
 
 	.role-callout--team-leader .role-callout-label {
-		color: #b8943e;
+		color: var(--amber-dark);
 	}
 
 	.role-callout--viewer .role-callout-label {
-		color: var(--color-text-muted);
+		color: var(--text-secondary);
 	}
 
 	.role-callout-text {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		line-height: 1.7;
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+		line-height: 1.65;
 	}
 
 	.help-footer {
-		margin-top: var(--spacing-2xl);
-		padding: var(--spacing-xl);
-		background: var(--color-surface);
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-1);
-		text-align: center;
+		margin-top: var(--sp-5);
+		padding: var(--sp-5);
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
 	}
 
 	.help-footer p {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+		line-height: 1.6;
+		margin: 0;
 	}
 
 	.help-footer a {
-		color: var(--color-primary);
+		color: var(--amber-dark);
 		font-weight: 500;
 		text-decoration: none;
 	}
@@ -761,27 +766,24 @@
 
 	.theme-toggle {
 		position: fixed;
-		top: var(--spacing-lg);
-		right: var(--spacing-lg);
-		width: 48px;
-		height: 48px;
-		border-radius: var(--radius-full);
-		background: var(--color-surface);
-		border: none;
-		color: var(--color-text-secondary);
+		top: var(--sp-4);
+		right: var(--sp-4);
+		width: 44px;
+		height: 44px;
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		color: var(--text-secondary);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		transition: all var(--transition-fast);
-		box-shadow: var(--shadow-2);
+		box-shadow: var(--shadow-md);
 		z-index: 100;
 	}
 
 	.theme-toggle:hover {
-		color: var(--color-primary);
-		box-shadow: var(--shadow-3);
-		transform: scale(1.05);
+		color: var(--text-strong);
 	}
 
 	.theme-toggle svg {
@@ -791,23 +793,23 @@
 
 	@media (max-width: 640px) {
 		.help-page {
-			padding: var(--spacing-md);
+			padding: var(--sp-4);
 		}
 
 		.help-header h1 {
-			font-size: var(--font-size-2xl);
+			font-size: clamp(2.2rem, 9vw, 3rem);
 		}
 
 		.section-header {
-			padding: var(--spacing-md);
+			padding: var(--sp-3);
 		}
 
 		.section-content {
-			padding: 0 var(--spacing-md) var(--spacing-md);
+			padding: 0 var(--sp-3) var(--sp-3);
 		}
 
 		.section-title h2 {
-			font-size: var(--font-size-base);
+			font-size: 1.8rem;
 		}
 
 		.section-title svg {
@@ -816,7 +818,11 @@
 		}
 
 		.help-item {
-			padding: var(--spacing-md);
+			padding: var(--sp-3);
+		}
+
+		.role-callout {
+			flex-direction: column;
 		}
 	}
 </style>

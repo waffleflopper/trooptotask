@@ -6,6 +6,7 @@
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
+	import PageToolbar from '$lib/components/PageToolbar.svelte';
 
 	let { data } = $props();
 	const orgId = $derived($page.params.orgId);
@@ -127,61 +128,85 @@
 </script>
 
 <div class="archived-page">
-	<div class="page-header">
-		<h2>Archived Personnel</h2>
-		<p class="header-description">
-			Archived personnel are retained for {data.retentionMonths} months before automatic permanent deletion.
-		</p>
-	</div>
+	<PageToolbar title="Archived Personnel" helpTopic="settings" />
 
-	<DataTable
-		data={data.archivedPersonnel}
-		{columns}
-		initialSortKey="name"
-		ariaLabel="Archived personnel"
-		emptyMessage="No archived personnel."
-	>
-		{#snippet cell(row, col)}
-			{#if col.key === 'name'}
-				<span class="name-cell">{row.rank} {row.lastName}, {row.firstName}</span>
-			{:else if col.key === 'archived'}
-				{formatDate(row.archivedAt)}
-			{:else if col.key === 'autoDelete'}
-				{@const days = daysUntilAutoDelete(row.archivedAt, data.retentionMonths)}
-				{@const countdownClass = days <= 0 ? 'overdue' : days < 30 ? 'critical' : days < 90 ? 'warning' : ''}
-				<span class="countdown {countdownClass}">
-					{formatCountdown(days)}
-				</span>
-			{:else if col.key === 'actions'}
-				<div class="actions-cell">
-					<button class="btn btn-primary btn-sm" onclick={() => handleRestore(row.id)} disabled={restoring === row.id}>
-						{#if restoring === row.id}<Spinner />{/if}
-						Restore
-					</button>
-					<button
-						class="btn btn-secondary btn-sm"
-						onclick={() => handleExport(row.id, `${row.rank}-${row.lastName}`)}
-						disabled={exporting === row.id}
-					>
-						{#if exporting === row.id}<Spinner />{/if}
-						Export
-					</button>
-					<button
-						class="btn btn-danger btn-sm"
-						onclick={() =>
-							(confirmPermanentDelete = {
-								id: row.id,
-								name: `${row.rank} ${row.lastName}, ${row.firstName}`
-							})}
-					>
-						Delete
-					</button>
-				</div>
-			{:else}
-				{String(col.value(row) ?? '')}
-			{/if}
-		{/snippet}
-	</DataTable>
+	<main class="page-content">
+		<div class="overview-strip">
+			<div class="overview-card">
+				<span class="overview-label">Archived</span>
+				<strong class="overview-value">{data.archivedPersonnel.length}</strong>
+				<span class="overview-meta">Personnel records currently held in archive</span>
+			</div>
+			<div class="overview-card">
+				<span class="overview-label">Retention</span>
+				<strong class="overview-value">{data.retentionMonths} mo</strong>
+				<span class="overview-meta">Automatic cleanup window before permanent deletion</span>
+			</div>
+		</div>
+
+		<div class="table-shell">
+			<div class="section-heading">
+				<p class="section-label">Archive</p>
+				<h2>Archived Personnel</h2>
+			</div>
+			<p class="header-description">
+				Archived personnel are retained for {data.retentionMonths} months before automatic permanent deletion.
+			</p>
+
+			<DataTable
+				data={data.archivedPersonnel}
+				{columns}
+				initialSortKey="name"
+				ariaLabel="Archived personnel"
+				emptyMessage="No archived personnel."
+			>
+				{#snippet cell(row, col)}
+					{#if col.key === 'name'}
+						<span class="name-cell">{row.rank} {row.lastName}, {row.firstName}</span>
+					{:else if col.key === 'archived'}
+						{formatDate(row.archivedAt)}
+					{:else if col.key === 'autoDelete'}
+						{@const days = daysUntilAutoDelete(row.archivedAt, data.retentionMonths)}
+						{@const countdownClass = days <= 0 ? 'overdue' : days < 30 ? 'critical' : days < 90 ? 'warning' : ''}
+						<span class="countdown {countdownClass}">
+							{formatCountdown(days)}
+						</span>
+					{:else if col.key === 'actions'}
+						<div class="actions-cell">
+							<button
+								class="btn btn-primary btn-sm"
+								onclick={() => handleRestore(row.id)}
+								disabled={restoring === row.id}
+							>
+								{#if restoring === row.id}<Spinner />{/if}
+								Restore
+							</button>
+							<button
+								class="btn btn-secondary btn-sm"
+								onclick={() => handleExport(row.id, `${row.rank}-${row.lastName}`)}
+								disabled={exporting === row.id}
+							>
+								{#if exporting === row.id}<Spinner />{/if}
+								Export
+							</button>
+							<button
+								class="btn btn-danger btn-sm"
+								onclick={() =>
+									(confirmPermanentDelete = {
+										id: row.id,
+										name: `${row.rank} ${row.lastName}, ${row.firstName}`
+									})}
+							>
+								Delete
+							</button>
+						</div>
+					{:else}
+						{String(col.value(row) ?? '')}
+					{/if}
+				{/snippet}
+			</DataTable>
+		</div>
+	</main>
 </div>
 
 {#if confirmPermanentDelete}
@@ -197,20 +222,100 @@
 
 <style>
 	.archived-page {
+		min-height: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-lg);
+		background: var(--surface-page);
 	}
 
-	.page-header h2 {
-		margin: 0 0 var(--spacing-xs) 0;
-		font-size: var(--font-size-lg);
+	.page-content {
+		width: min(1120px, 100%);
+		margin: 0 auto;
+		padding: var(--sp-5);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+	}
+
+	.overview-strip {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: var(--sp-3);
+	}
+
+	.overview-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
+	}
+
+	.overview-label,
+	.section-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+
+	.overview-label {
+		color: var(--text-muted);
+	}
+
+	.section-label {
+		margin: 0;
+		color: var(--amber);
+	}
+
+	.overview-value {
+		font-family: var(--font-display);
+		font-size: clamp(1.9rem, 4vw, 2.5rem);
+		line-height: 0.95;
+		text-transform: uppercase;
+		color: var(--text-strong);
+	}
+
+	.overview-meta {
+		font-size: var(--text-sm);
+		line-height: 1.5;
+		color: var(--text-secondary);
+	}
+
+	.table-shell {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+		padding: var(--sp-5);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
+	}
+
+	.section-heading {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.table-shell h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(2rem, 4vw, 2.8rem);
+		line-height: 0.98;
+		font-weight: 700;
+		text-transform: uppercase;
+		color: var(--text-strong);
 	}
 
 	.header-description {
 		margin: 0;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
+		color: var(--text-secondary);
+		font-size: var(--text-sm);
+		line-height: 1.55;
 	}
 
 	.name-cell {
@@ -220,9 +325,10 @@
 
 	.actions-cell {
 		display: flex;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 		align-items: center;
 		white-space: nowrap;
+		flex-wrap: wrap;
 	}
 
 	.countdown {
@@ -230,15 +336,25 @@
 	}
 
 	.countdown.critical {
-		color: var(--color-error);
+		color: var(--danger);
 	}
 
 	.countdown.warning {
-		color: var(--color-warning);
+		color: var(--amber-dark);
 	}
 
 	.countdown.overdue {
-		color: var(--color-error);
+		color: var(--danger);
 		font-weight: 700;
+	}
+
+	@media (max-width: 640px) {
+		.page-content {
+			padding: var(--sp-4);
+		}
+
+		.table-shell {
+			padding: var(--sp-4);
+		}
 	}
 </style>

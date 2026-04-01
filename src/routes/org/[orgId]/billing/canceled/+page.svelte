@@ -11,15 +11,16 @@
 <div class="page">
 	<main class="page-content">
 		<div class="result-card">
+			<p class="eyebrow">Billing Update</p>
 			<div class="result-icon canceled">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="36" height="36">
 					<circle cx="12" cy="12" r="10" />
 					<line x1="15" y1="9" x2="9" y2="15" />
 					<line x1="9" y1="9" x2="15" y2="15" />
 				</svg>
 			</div>
 			<h1>Subscription Setup Canceled</h1>
-			<p>No charges were made. You can try again anytime from the billing page.</p>
+			<p class="message">No charges were made. You can return to billing and try again whenever you are ready.</p>
 			<div class="result-actions">
 				<a href="/org/{orgId}/billing" class="btn btn-primary">Back to Billing</a>
 				<a href="/org/{orgId}" class="btn btn-secondary">Go to Dashboard</a>
@@ -33,7 +34,7 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-		background: var(--color-bg);
+		background: var(--surface-page);
 	}
 
 	.page-content {
@@ -41,49 +42,80 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: var(--spacing-lg);
+		padding: var(--sp-6);
 	}
 
 	.result-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+		background: var(--surface-panel);
+		border: var(--border-thin);
 		border-radius: var(--radius-lg);
-		padding: var(--spacing-xl);
-		text-align: center;
-		max-width: 480px;
+		box-shadow: var(--shadow-lg);
+		padding: var(--sp-6);
+		max-width: 520px;
 		width: 100%;
 	}
 
+	.eyebrow {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--amber);
+	}
+
 	.result-icon {
-		margin-bottom: var(--spacing-md);
+		width: 72px;
+		height: 72px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: var(--radius-lg);
 	}
 
 	.result-icon.canceled {
-		color: var(--color-text-muted);
+		color: var(--text-secondary);
+		background: color-mix(in srgb, var(--surface-subtle) 76%, var(--surface-panel) 24%);
+		border: var(--border-thin);
 	}
 
 	h1 {
 		font-family: var(--font-display);
-		font-size: 24px;
-		font-weight: 600;
-		margin-bottom: var(--spacing-md);
-		color: var(--color-text);
+		font-size: clamp(2.2rem, 5vw, 3rem);
+		line-height: 0.95;
+		font-weight: 800;
+		text-transform: uppercase;
+		margin: 0;
+		color: var(--text-strong);
 	}
 
-	p {
-		font-size: var(--font-size-base);
-		color: var(--color-text-secondary);
-		line-height: 1.5;
-		margin-bottom: var(--spacing-lg);
+	.message {
+		margin: 0;
+		font-size: var(--text-base);
+		color: var(--text-secondary);
+		line-height: 1.6;
 	}
 
 	.result-actions {
 		display: flex;
-		gap: var(--spacing-sm);
-		justify-content: center;
+		gap: var(--sp-3);
+		padding-top: var(--sp-4);
+		border-top: var(--border-thin);
 	}
 
 	@media (max-width: 640px) {
+		.page-content {
+			padding: var(--sp-4);
+		}
+
+		.result-card {
+			padding: var(--sp-5);
+		}
+
 		.result-actions {
 			flex-direction: column;
 		}

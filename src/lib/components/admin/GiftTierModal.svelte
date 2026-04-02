@@ -1,8 +1,9 @@
 <script lang="ts">
-	import Modal from '$lib/components/Modal.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import { enhance } from '$app/forms';
+	import Modal from '$lib/components/Modal.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let {
 		orgId,
@@ -28,9 +29,9 @@
 
 	const hasActiveGift = $derived(!!currentGiftTier && !!giftExpiresAt && new Date(giftExpiresAt) > new Date());
 
-	function formatDate(d: string | null): string {
-		if (!d) return 'N/A';
-		return new Date(d).toLocaleDateString('en-US', {
+	function formatDate(dateValue: string | null): string {
+		if (!dateValue) return 'N/A';
+		return new Date(dateValue).toLocaleDateString('en-US', {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric'
@@ -38,203 +39,215 @@
 	}
 </script>
 
-<Modal title="Gift Tier — {orgName}" {onClose} width="460px">
-	{#if errorMsg}
-		<div class="error-msg">{errorMsg}</div>
-	{/if}
-
-	{#if hasActiveGift}
-		<div class="current-gift">
-			<span class="current-label">Current Gift:</span>
-			<Badge label={currentGiftTier ?? ''} color={currentGiftTier === 'unit' ? '#7c4dff' : '#3f51b5'} />
-			<span class="expires-label">expires {formatDate(giftExpiresAt)}</span>
-		</div>
-
-		<div class="action-section">
-			<h3>Extend Gift</h3>
-			<form
-				method="POST"
-				action="?/extendGift"
-				use:enhance={() => {
-					saving = true;
-					errorMsg = '';
-					return async ({ result }) => {
-						saving = false;
-						if (result.type === 'failure') {
-							// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
-							errorMsg = (result.data as any)?.error?.message ?? 'Failed to extend gift';
-						} else {
-							onComplete();
-						}
-					};
-				}}
-			>
-				<input type="hidden" name="orgId" value={orgId} />
-				<div class="form-row">
-					<label class="label" for="extend-days">Days to add</label>
-					<input
-						id="extend-days"
-						type="number"
-						name="days"
-						class="input"
-						bind:value={extendDays}
-						min="1"
-						max="365"
-						style="width: 100px;"
+<Modal title="Gift Tier" {onClose} width="500px">
+	<div class="modal-stack">
+		<div class="context-box">
+			<p class="context-box__label">Organization</p>
+			<strong>{orgName}</strong>
+			{#if hasActiveGift}
+				<div class="context-box__meta">
+					<Badge
+						label={formatAdminLabel(currentGiftTier ?? '')}
+						color={ADMIN_TIER_COLORS[currentGiftTier ?? ''] ?? 'var(--ink-35)'}
 					/>
-					<button type="submit" class="btn btn-primary btn-sm" disabled={saving}>
-						{#if saving}<Spinner />{/if}
-						Extend
-					</button>
+					<span>Expires {formatDate(giftExpiresAt)}</span>
 				</div>
-			</form>
+			{/if}
 		</div>
 
-		<div class="action-section">
-			<h3>Revoke Gift</h3>
-			<p class="hint">
-				Removes the gift and reverts to the org's base tier. If a Stripe subscription was paused, it will be resumed.
-			</p>
-			<form
-				method="POST"
-				action="?/revokeGift"
-				use:enhance={() => {
-					saving = true;
-					errorMsg = '';
-					return async ({ result }) => {
-						saving = false;
-						if (result.type === 'failure') {
-							// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
-							errorMsg = (result.data as any)?.error?.message ?? 'Failed to revoke gift';
-						} else {
-							onComplete();
-						}
-					};
-				}}
-			>
-				<input type="hidden" name="orgId" value={orgId} />
-				<button type="submit" class="btn btn-danger btn-sm" disabled={saving}>
-					{#if saving}<Spinner />{/if}
-					Revoke Gift
-				</button>
-			</form>
-		</div>
-	{:else}
-		<div class="action-section">
-			<h3>Apply Gift</h3>
-			<form
-				method="POST"
-				action="?/giftTier"
-				use:enhance={() => {
-					saving = true;
-					errorMsg = '';
-					return async ({ result }) => {
-						saving = false;
-						if (result.type === 'failure') {
-							// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
-							errorMsg = (result.data as any)?.error?.message ?? 'Failed to apply gift';
-						} else {
-							onComplete();
-						}
-					};
-				}}
-			>
-				<input type="hidden" name="orgId" value={orgId} />
-				<div class="form-group">
-					<label class="label" for="gift-tier">Tier</label>
-					<select id="gift-tier" name="giftTier" class="select" bind:value={giftTier}>
-						<option value="team">Team ($15/mo equivalent)</option>
-						<option value="unit">Unit ($30/mo equivalent)</option>
-					</select>
+		{#if errorMsg}
+			<div class="error-box">{errorMsg}</div>
+		{/if}
+
+		{#if hasActiveGift}
+			<section class="action-section">
+				<div class="action-section__header">
+					<h3>Extend Gift</h3>
+					<p>Add time to the current gifted plan without changing the tier.</p>
 				</div>
-				<div class="form-group">
-					<label class="label" for="gift-days">Duration (days)</label>
-					<input id="gift-days" type="number" name="days" class="input" bind:value={days} min="1" max="365" />
+				<form
+					method="POST"
+					action="?/extendGift"
+					class="stack-form"
+					use:enhance={() => {
+						saving = true;
+						errorMsg = '';
+						return async ({ result }) => {
+							saving = false;
+							if (result.type === 'failure') {
+								// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
+								errorMsg = (result.data as any)?.error?.message ?? 'Failed to extend gift';
+							} else {
+								onComplete();
+							}
+						};
+					}}
+				>
+					<input type="hidden" name="orgId" value={orgId} />
+					<div class="admin-toolbar__field">
+						<label class="label" for="extend-days">Days to add</label>
+						<input id="extend-days" type="number" name="days" class="input" bind:value={extendDays} min="1" max="365" />
+					</div>
+					<button type="submit" class="btn btn-primary" disabled={saving}>
+						{#if saving}<Spinner />{/if}
+						Extend Gift
+					</button>
+				</form>
+			</section>
+
+			<section class="action-section">
+				<div class="action-section__header">
+					<h3>Revoke Gift</h3>
+					<p>Remove the gifted plan and return the organization to its base subscription.</p>
 				</div>
-				<button type="submit" class="btn btn-primary" disabled={saving} style="margin-top: var(--spacing-sm);">
-					{#if saving}<Spinner />{/if}
-					{saving ? 'Applying...' : 'Apply Gift'}
-				</button>
-			</form>
-		</div>
-	{/if}
+				<form
+					method="POST"
+					action="?/revokeGift"
+					use:enhance={() => {
+						saving = true;
+						errorMsg = '';
+						return async ({ result }) => {
+							saving = false;
+							if (result.type === 'failure') {
+								// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
+								errorMsg = (result.data as any)?.error?.message ?? 'Failed to revoke gift';
+							} else {
+								onComplete();
+							}
+						};
+					}}
+				>
+					<input type="hidden" name="orgId" value={orgId} />
+					<button type="submit" class="btn btn-danger" disabled={saving}>
+						{#if saving}<Spinner />{/if}
+						Revoke Gift
+					</button>
+				</form>
+			</section>
+		{:else}
+			<section class="action-section">
+				<div class="action-section__header">
+					<h3>Apply Gift</h3>
+					<p>Grant temporary access to a paid plan without changing the stored base subscription.</p>
+				</div>
+				<form
+					method="POST"
+					action="?/giftTier"
+					class="stack-form"
+					use:enhance={() => {
+						saving = true;
+						errorMsg = '';
+						return async ({ result }) => {
+							saving = false;
+							if (result.type === 'failure') {
+								// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SvelteKit form action failure data shape is loosely typed
+								errorMsg = (result.data as any)?.error?.message ?? 'Failed to apply gift';
+							} else {
+								onComplete();
+							}
+						};
+					}}
+				>
+					<input type="hidden" name="orgId" value={orgId} />
+					<div class="admin-toolbar__field">
+						<label class="label" for="gift-tier">Tier</label>
+						<select id="gift-tier" name="giftTier" class="select" bind:value={giftTier}>
+							<option value="team">Team</option>
+							<option value="unit">Unit</option>
+						</select>
+					</div>
+					<div class="admin-toolbar__field">
+						<label class="label" for="gift-days">Duration (days)</label>
+						<input id="gift-days" type="number" name="days" class="input" bind:value={days} min="1" max="365" />
+					</div>
+					<button type="submit" class="btn btn-primary" disabled={saving}>
+						{#if saving}<Spinner />{/if}
+						Apply Gift
+					</button>
+				</form>
+			</section>
+		{/if}
+	</div>
 
 	{#snippet footer()}
-		<div class="spacer"></div>
+		<div class="footer-spacer"></div>
 		<button class="btn btn-secondary" onclick={onClose}>Close</button>
 	{/snippet}
 </Modal>
 
 <style>
-	.error-msg {
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
-	}
-
-	:global([data-theme='dark']) .error-msg {
-		background: #450a0a;
-		border-color: #7f1d1d;
-		color: #fca5a5;
-	}
-
-	.current-gift {
+	.modal-stack,
+	.stack-form {
 		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-md);
-		margin-bottom: var(--spacing-lg);
+		flex-direction: column;
+		gap: var(--sp-4);
 	}
 
-	.current-label {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text);
-	}
-
-	.expires-label {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-	}
-
+	.context-box,
 	.action-section {
-		margin-bottom: var(--spacing-lg);
-		padding-bottom: var(--spacing-lg);
-		border-bottom: 1px solid var(--color-divider);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
 	}
 
-	.action-section:last-of-type {
-		border-bottom: none;
-		margin-bottom: 0;
-		padding-bottom: 0;
-	}
-
-	.action-section h3 {
-		font-size: var(--font-size-sm);
+	.context-box__label {
+		margin: 0 0 var(--sp-1);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
 		font-weight: 600;
-		color: var(--color-text);
-		margin: 0 0 var(--spacing-sm);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
-	.hint {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		margin: 0 0 var(--spacing-sm);
+	.context-box strong,
+	.context-box__meta span,
+	.action-section__header h3,
+	.action-section__header p {
+		margin: 0;
 	}
 
-	.form-row {
+	.context-box__meta {
+		margin-top: var(--sp-3);
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 	}
 
-	.form-group {
-		margin-bottom: var(--spacing-sm);
+	.action-section__header {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-3);
+	}
+
+	.action-section__header h3 {
+		font-family: var(--font-display);
+		font-size: 1.5rem;
+		line-height: 0.98;
+		text-transform: uppercase;
+	}
+
+	.action-section__header p {
+		font-size: var(--text-sm);
+		line-height: 1.6;
+		color: var(--text-secondary);
+	}
+
+	.error-box {
+		padding: var(--sp-4);
+		border: 1px solid color-mix(in srgb, var(--danger) 34%, var(--ink-15) 66%);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--danger-bg) 84%, var(--surface-panel) 16%);
+		color: var(--danger);
+		font-size: var(--text-sm);
+	}
+
+	.footer-spacer {
+		flex: 1;
 	}
 </style>

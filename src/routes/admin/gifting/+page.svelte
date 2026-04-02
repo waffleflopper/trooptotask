@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import { ADMIN_STATUS_COLORS, ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
@@ -8,10 +9,6 @@
 	let { data, form } = $props();
 
 	let searchInput = $state('');
-
-	$effect(() => {
-		searchInput = data.search;
-	});
 	let loadingId = $state<string | null>(null);
 	let giftingOrgId = $state<string | null>(null);
 	let extendingOrgId = $state<string | null>(null);
@@ -19,21 +16,14 @@
 	let giftDays = $state(30);
 	let extendDays = $state(30);
 
+	$effect(() => {
+		searchInput = data.search;
+	});
+
 	function applySearch() {
 		const params = new URLSearchParams();
 		if (searchInput) params.set('search', searchInput);
 		goto(`/admin/gifting?${params.toString()}`);
-	}
-
-	function tierColor(tier: string): string {
-		switch (tier) {
-			case 'unit':
-				return 'var(--color-primary)';
-			case 'team':
-				return 'var(--color-success)';
-			default:
-				return 'var(--color-text-muted)';
-		}
 	}
 
 	function isGiftActive(org: (typeof data.organizations)[0]): boolean {
@@ -49,20 +39,32 @@
 	<title>Gifting - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="gifting-page">
-	<header class="page-header">
-		<div>
-			<h1>Org Gifting</h1>
-			<p class="subtitle">Gift subscription tiers to organizations</p>
+<div class="admin-page-shell">
+	<header class="admin-page-header">
+		<div class="admin-page-header__copy">
+			<p class="admin-page-eyebrow">Plan Overrides</p>
+			<h1 class="admin-page-title">Organization Gifting</h1>
+			<p class="admin-page-subtitle">
+				Apply temporary paid access, extend an existing gift, or revoke an override without leaving the platform admin
+				workspace.
+			</p>
 		</div>
 	</header>
 
+	<div class="admin-overview-grid">
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">Tracked Orgs</p>
+			<p class="admin-overview-card__value">{data.organizations.length}</p>
+			<p class="admin-overview-card__meta">Organizations currently returned by the gifting search.</p>
+		</div>
+	</div>
+
 	{#if form?.error}
-		<div class="alert alert-error">{form.error}</div>
+		<div class="admin-alert admin-alert--error">{form.error}</div>
 	{/if}
 
 	{#if form?.success}
-		<div class="alert alert-success">
+		<div class="admin-alert admin-alert--success">
 			{#if form.action === 'gift'}
 				Gift applied successfully.
 			{:else if form.action === 'revoke'}
@@ -73,28 +75,30 @@
 		</div>
 	{/if}
 
-	<!-- Search -->
-	<div class="filters">
+	<div class="admin-toolbar">
 		<form
-			class="search-form"
-			onsubmit={(e) => {
-				e.preventDefault();
+			class="admin-toolbar__group"
+			onsubmit={(event) => {
+				event.preventDefault();
 				applySearch();
 			}}
 		>
-			<input
-				type="text"
-				placeholder="Search by org name or owner email..."
-				bind:value={searchInput}
-				class="search-input"
-			/>
-			<button type="submit" class="search-btn">Search</button>
+			<div class="admin-toolbar__field admin-toolbar__field--search">
+				<label class="label" for="gifting-search">Search</label>
+				<input
+					id="gifting-search"
+					type="text"
+					placeholder="Search by org name or owner email..."
+					bind:value={searchInput}
+					class="input"
+				/>
+			</div>
+			<button type="submit" class="btn btn-secondary">Apply</button>
 		</form>
 	</div>
 
-	<!-- Orgs Table -->
-	<div class="table-container">
-		<table class="orgs-table">
+	<div class="admin-table-shell admin-table-shell--scroll">
+		<table class="admin-table gifting-table">
 			<thead>
 				<tr>
 					<th>Organization</th>
@@ -108,46 +112,43 @@
 			<tbody>
 				{#each data.organizations as org (org.id)}
 					<tr>
-						<td class="org-cell">
-							<span class="org-name">{org.name}</span>
-							<code class="org-id">{org.id.slice(0, 8)}...</code>
+						<td>
+							<div class="entity-cell">
+								<strong>{org.name}</strong>
+								<span class="admin-code">{org.id.slice(0, 8)}...</span>
+							</div>
 						</td>
 						<td class="owner-cell">{org.ownerEmail}</td>
 						<td>
-							<Badge label={org.tier} color={tierColor(org.tier)} bold />
-							{#if org.hasActiveSubscription}
-								<Badge label="Stripe" color="var(--color-info)" />
-							{/if}
+							<div class="tier-cell">
+								<Badge label={formatAdminLabel(org.tier)} color={ADMIN_TIER_COLORS[org.tier] ?? 'var(--ink-35)'} />
+								{#if org.hasActiveSubscription}<Badge label="Stripe" color="var(--info)" />{/if}
+							</div>
 						</td>
 						<td>{org.personnelCount}</td>
 						<td>
 							{#if isGiftActive(org)}
-								<div class="gift-info">
-									<Badge label="Gift: {org.giftTier}" color="var(--color-warning)" />
-									<span class="gift-expiry">
-										Expires {formatDisplayDateTime(org.giftExpiresAt)}
-									</span>
+								<div class="gift-cell">
+									<Badge label={`Gift: ${formatAdminLabel(org.giftTier ?? '')}`} color={ADMIN_STATUS_COLORS.gifted} />
+									<span class="text-muted">Expires {formatDisplayDateTime(org.giftExpiresAt)}</span>
 								</div>
 							{:else if isGiftExpired(org)}
-								<div class="gift-info">
-									<Badge label="Expired" color="var(--color-error)" />
-									<span class="gift-expiry">
-										Was: {org.giftTier}
-									</span>
+								<div class="gift-cell">
+									<Badge label="Expired" color={ADMIN_STATUS_COLORS.expired} />
+									<span class="text-muted">Was {formatAdminLabel(org.giftTier ?? '')}</span>
 								</div>
 							{:else}
-								<span class="no-gift">No gift</span>
+								<span class="text-muted">No gift</span>
 							{/if}
 						</td>
 						<td class="actions-cell">
 							{#if giftingOrgId === org.id}
-								<!-- Gift form inline -->
 								<form
 									method="POST"
 									action="?/giftTier"
 									class="inline-form"
 									use:enhance={() => {
-										loadingId = org.id + '-gift';
+										loadingId = `${org.id}-gift`;
 										return async ({ update }) => {
 											loadingId = null;
 											giftingOrgId = null;
@@ -156,7 +157,7 @@
 									}}
 								>
 									<input type="hidden" name="orgId" value={org.id} />
-									<select name="giftTier" bind:value={giftTier} class="select select-sm">
+									<select name="giftTier" bind:value={giftTier} class="select">
 										<option value="team">Team</option>
 										<option value="unit">Unit</option>
 									</select>
@@ -166,27 +167,24 @@
 										bind:value={giftDays}
 										min="1"
 										max="365"
-										class="input input-sm days-input"
+										class="input days-input"
 										placeholder="Days"
 									/>
 									<button type="submit" class="btn btn-primary btn-sm" disabled={loadingId !== null}>
-										{#if loadingId === org.id + '-gift'}
-											<Spinner />
-										{/if}
+										{#if loadingId === `${org.id}-gift`}<Spinner />{/if}
 										Apply
 									</button>
-									<button type="button" class="btn btn-secondary btn-sm" onclick={() => (giftingOrgId = null)}>
-										Cancel
-									</button>
+									<button type="button" class="btn btn-secondary btn-sm" onclick={() => (giftingOrgId = null)}
+										>Cancel</button
+									>
 								</form>
 							{:else if extendingOrgId === org.id}
-								<!-- Extend form inline -->
 								<form
 									method="POST"
 									action="?/extendGift"
 									class="inline-form"
 									use:enhance={() => {
-										loadingId = org.id + '-extend';
+										loadingId = `${org.id}-extend`;
 										return async ({ update }) => {
 											loadingId = null;
 											extendingOrgId = null;
@@ -201,18 +199,16 @@
 										bind:value={extendDays}
 										min="1"
 										max="365"
-										class="input input-sm days-input"
+										class="input days-input"
 										placeholder="Days"
 									/>
 									<button type="submit" class="btn btn-primary btn-sm" disabled={loadingId !== null}>
-										{#if loadingId === org.id + '-extend'}
-											<Spinner />
-										{/if}
+										{#if loadingId === `${org.id}-extend`}<Spinner />{/if}
 										Extend
 									</button>
-									<button type="button" class="btn btn-secondary btn-sm" onclick={() => (extendingOrgId = null)}>
-										Cancel
-									</button>
+									<button type="button" class="btn btn-secondary btn-sm" onclick={() => (extendingOrgId = null)}
+										>Cancel</button
+									>
 								</form>
 							{:else}
 								<div class="action-buttons">
@@ -238,9 +234,8 @@
 										<form
 											method="POST"
 											action="?/revokeGift"
-											class="inline"
 											use:enhance={() => {
-												loadingId = org.id + '-revoke';
+												loadingId = `${org.id}-revoke`;
 												return async ({ update }) => {
 													loadingId = null;
 													await update();
@@ -249,9 +244,7 @@
 										>
 											<input type="hidden" name="orgId" value={org.id} />
 											<button type="submit" class="btn btn-danger btn-sm" disabled={loadingId !== null}>
-												{#if loadingId === org.id + '-revoke'}
-													<Spinner />
-												{/if}
+												{#if loadingId === `${org.id}-revoke`}<Spinner />{/if}
 												Revoke
 											</button>
 										</form>
@@ -262,7 +255,7 @@
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="6" class="empty-state">No organizations found</td>
+						<td colspan="6" class="admin-empty">No organizations found.</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -271,239 +264,33 @@
 </div>
 
 <style>
-	.gifting-page {
-		max-width: 1200px;
-		margin: 0 auto;
-	}
-
-	.page-header {
-		margin-bottom: var(--spacing-xl);
-	}
-
-	.page-header h1 {
-		font-size: var(--font-size-2xl);
-		font-weight: 700;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-xs);
-	}
-
-	.subtitle {
-		color: var(--color-text-muted);
-	}
-
-	/* Alerts */
-	.alert {
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
-	}
-
-	.alert-error {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
-	}
-
-	.alert-success {
-		background: #f0fdf4;
-		border: 1px solid #bbf7d0;
-		color: #16a34a;
-	}
-
-	/* Filters */
-	.filters {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--spacing-md);
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.search-form {
-		display: flex;
-		flex: 1;
-		min-width: 250px;
-		gap: var(--spacing-sm);
-	}
-
-	.search-input {
-		flex: 1;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
-	}
-
-	.search-input:focus {
-		outline: none;
-		border-color: var(--color-primary);
-	}
-
-	.search-btn {
-		padding: var(--spacing-sm) var(--spacing-lg);
-		background: var(--color-primary);
-		color: #0f0f0f;
-		border: none;
-		border-radius: var(--radius-md);
-		font-weight: 500;
-		cursor: pointer;
-	}
-
-	.search-btn:hover {
-		background: var(--color-primary-hover);
-	}
-
-	/* Table */
-	.table-container {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		overflow-x: auto;
-	}
-
-	.orgs-table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-
-	.orgs-table th,
-	.orgs-table td {
-		padding: var(--spacing-sm) var(--spacing-md);
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.orgs-table th {
-		font-size: var(--font-size-xs);
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-text-muted);
-		background: var(--color-surface-variant);
-		white-space: nowrap;
-	}
-
-	.orgs-table td {
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
-		vertical-align: middle;
-	}
-
-	.orgs-table tbody tr:hover {
-		background: var(--color-surface-variant);
-	}
-
-	.org-cell {
+	.entity-cell,
+	.gift-cell {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
-	}
-
-	.org-name {
-		font-weight: 500;
-	}
-
-	.org-id {
-		font-size: var(--font-size-xs);
-		padding: 2px 6px;
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
-		width: fit-content;
+		gap: var(--sp-1);
 	}
 
 	.owner-cell {
-		max-width: 200px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		max-width: 220px;
+		word-break: break-word;
+		color: var(--text-secondary);
 	}
 
-	/* Gift status */
-	.gift-info {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.gift-expiry {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-	}
-
-	.no-gift {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-	}
-
-	/* Actions */
-	.actions-cell {
-		min-width: 200px;
-	}
-
-	.action-buttons {
-		display: flex;
-		gap: var(--spacing-xs);
-		flex-wrap: wrap;
-	}
-
+	.tier-cell,
+	.action-buttons,
 	.inline-form {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 		flex-wrap: wrap;
 	}
 
-	.inline {
-		display: inline;
-	}
-
-	.select-sm {
-		padding: 4px 8px;
-		font-size: var(--font-size-sm);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		background: var(--color-surface);
-		color: var(--color-text);
-	}
-
-	.input-sm {
-		padding: 4px 8px;
-		font-size: var(--font-size-sm);
-	}
-
 	.days-input {
-		width: 70px;
+		width: 92px;
 	}
 
-	.empty-state {
-		text-align: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-xl) !important;
-	}
-
-	:global([data-theme='dark']) .alert-error {
-		background: #450a0a;
-		border-color: #7f1d1d;
-		color: #fca5a5;
-	}
-
-	:global([data-theme='dark']) .alert-success {
-		background: #052e16;
-		border-color: #14532d;
-		color: #86efac;
-	}
-
-	@media (max-width: 768px) {
-		.orgs-table th:nth-child(2),
-		.orgs-table td:nth-child(2) {
-			display: none;
-		}
-
-		.actions-cell {
-			min-width: 150px;
-		}
+	.actions-cell {
+		min-width: 260px;
 	}
 </style>

@@ -23,9 +23,7 @@
 	let saving = $state(false);
 	let errorMsg = $state('');
 
-	// Exclude the current owner
-	const eligibleMembers = $derived(members.filter((m) => m.role !== 'owner'));
-
+	const eligibleMembers = $derived(members.filter((member) => member.role !== 'owner'));
 	const canConfirm = $derived(selectedUserId !== '' && confirmName.trim() === orgName && !saving);
 
 	async function handleTransfer() {
@@ -57,10 +55,11 @@
 </script>
 
 <Modal title="Transfer Ownership" {onClose} width="500px" canClose={!saving}>
-	<div class="body">
-		<p class="warning">
-			<strong>Warning:</strong> This action is irreversible. The current owner will be demoted to admin.
-		</p>
+	<div class="modal-stack">
+		<div class="warning-box">
+			<strong>Irreversible action</strong>
+			<p>The current owner will be demoted to admin as soon as the transfer completes.</p>
+		</div>
 
 		<div class="form-group">
 			<label for="new-owner" class="label">New Owner</label>
@@ -73,9 +72,7 @@
 		</div>
 
 		<div class="form-group">
-			<label for="confirm-name" class="label">
-				Type <strong>{orgName}</strong> to confirm
-			</label>
+			<label for="confirm-name" class="label">Type {orgName} to confirm</label>
 			<input
 				id="confirm-name"
 				type="text"
@@ -88,7 +85,7 @@
 		</div>
 
 		{#if errorMsg}
-			<p class="error-msg">{errorMsg}</p>
+			<p class="text-error error-msg">{errorMsg}</p>
 		{/if}
 	</div>
 
@@ -102,25 +99,37 @@
 </Modal>
 
 <style>
-	.body {
+	.modal-stack {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 	}
 
-	.warning {
-		background: color-mix(in srgb, var(--color-warning) 12%, transparent);
-		border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+	.warning-box {
+		padding: var(--sp-4);
+		border: 1px solid color-mix(in srgb, var(--amber-dark) 36%, var(--ink-15) 64%);
 		border-radius: var(--radius-md);
-		padding: var(--spacing-sm) var(--spacing-md);
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
+		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
+	}
+
+	.warning-box strong,
+	.warning-box p,
+	.error-msg {
 		margin: 0;
 	}
 
-	.error-msg {
-		color: var(--color-error);
-		font-size: var(--font-size-sm);
-		margin: 0;
+	.warning-box strong {
+		display: block;
+		margin-bottom: var(--sp-1);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
+	}
+
+	.warning-box p {
+		font-size: var(--text-sm);
+		line-height: 1.6;
 	}
 </style>

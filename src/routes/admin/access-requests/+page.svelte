@@ -3,80 +3,73 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
+	import { ADMIN_STATUS_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let { data, form } = $props();
 	let activeTab = $state<'pending' | 'reviewed'>('pending');
 	let loadingId = $state<string | null>(null);
-
-	function statusColor(status: string): string {
-		switch (status) {
-			case 'approved':
-				return 'var(--color-success)';
-			case 'rejected':
-				return 'var(--color-error)';
-			default:
-				return 'var(--color-text-muted)';
-		}
-	}
 </script>
 
 <svelte:head>
 	<title>Access Requests - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="access-requests-page">
-	<header class="page-header">
-		<div class="header-row">
-			<h1>Access Requests</h1>
-			{#if data.pending.length > 0}
-				<Badge label="{data.pending.length} pending" color="var(--color-warning)" />
-			{/if}
+<div class="admin-page-shell admin-page-shell--compact">
+	<header class="admin-page-header">
+		<div class="admin-page-header__copy">
+			<p class="admin-page-eyebrow">Trust Queue</p>
+			<h1 class="admin-page-title">Access Requests</h1>
+			<p class="admin-page-subtitle">Review inbound requests from potential users before they enter the platform.</p>
 		</div>
-		<p class="subtitle">Review and approve requests from potential users</p>
 	</header>
 
+	<div class="admin-overview-grid">
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">Pending</p>
+			<p class="admin-overview-card__value">{data.pending.length}</p>
+			<p class="admin-overview-card__meta">Requests waiting for approval or rejection.</p>
+		</div>
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">Reviewed</p>
+			<p class="admin-overview-card__value">{data.reviewed.length}</p>
+			<p class="admin-overview-card__meta">Requests already processed and logged.</p>
+		</div>
+	</div>
+
 	{#if form?.error}
-		<div class="alert alert-error">{form.error}</div>
+		<div class="admin-alert admin-alert--error">{form.error}</div>
 	{/if}
 
-	<div class="tabs">
-		<button class="tab" class:active={activeTab === 'pending'} onclick={() => (activeTab = 'pending')}>
+	<div class="admin-segmented" aria-label="Access request tabs">
+		<button class:active={activeTab === 'pending'} onclick={() => (activeTab = 'pending')}>
 			Pending
-			{#if data.pending.length > 0}
-				<span class="tab-count">{data.pending.length}</span>
-			{/if}
+			{#if data.pending.length > 0}<span>{data.pending.length}</span>{/if}
 		</button>
-		<button class="tab" class:active={activeTab === 'reviewed'} onclick={() => (activeTab = 'reviewed')}>
+		<button class:active={activeTab === 'reviewed'} onclick={() => (activeTab = 'reviewed')}>
 			Reviewed
-			{#if data.reviewed.length > 0}
-				<span class="tab-count">{data.reviewed.length}</span>
-			{/if}
+			{#if data.reviewed.length > 0}<span>{data.reviewed.length}</span>{/if}
 		</button>
 	</div>
 
 	{#if activeTab === 'pending'}
 		{#if data.pending.length === 0}
-			<div class="empty-card">
-				<p>No pending requests</p>
-			</div>
+			<div class="admin-panel"><div class="admin-empty">No pending requests.</div></div>
 		{:else}
-			<div class="request-list">
+			<div class="request-stack">
 				{#each data.pending as req (req.id)}
-					<div class="request-card">
-						<div class="request-info">
-							<div class="request-name">{req.name}</div>
-							<div class="request-email">{req.email}</div>
-							{#if req.reason}
-								<div class="request-reason">{req.reason}</div>
-							{/if}
-							<div class="request-date">Submitted {formatDisplayDateTime(req.created_at)}</div>
+					<section class="admin-panel request-card">
+						<div class="request-card__main">
+							<p class="request-card__name">{req.name}</p>
+							<p class="request-card__email">{req.email}</p>
+							{#if req.reason}<p class="request-card__reason">{req.reason}</p>{/if}
+							<p class="request-card__meta">Submitted {formatDisplayDateTime(req.created_at)}</p>
 						</div>
-						<div class="request-actions">
+						<div class="request-card__actions">
 							<form
 								method="POST"
 								action="?/approve"
 								use:enhance={() => {
-									loadingId = req.id + '-approve';
+									loadingId = `${req.id}-approve`;
 									return async ({ update }) => {
 										loadingId = null;
 										await update();
@@ -85,9 +78,7 @@
 							>
 								<input type="hidden" name="requestId" value={req.id} />
 								<button type="submit" class="btn btn-primary btn-sm" disabled={loadingId !== null}>
-									{#if loadingId === req.id + '-approve'}
-										<Spinner />
-									{/if}
+									{#if loadingId === `${req.id}-approve`}<Spinner />{/if}
 									Approve
 								</button>
 							</form>
@@ -95,7 +86,7 @@
 								method="POST"
 								action="?/reject"
 								use:enhance={() => {
-									loadingId = req.id + '-reject';
+									loadingId = `${req.id}-reject`;
 									return async ({ update }) => {
 										loadingId = null;
 										await update();
@@ -104,48 +95,41 @@
 							>
 								<input type="hidden" name="requestId" value={req.id} />
 								<button type="submit" class="btn btn-danger btn-sm" disabled={loadingId !== null}>
-									{#if loadingId === req.id + '-reject'}
-										<Spinner />
-									{/if}
+									{#if loadingId === `${req.id}-reject`}<Spinner />{/if}
 									Reject
 								</button>
 							</form>
 						</div>
-					</div>
+					</section>
 				{/each}
 			</div>
 		{/if}
 	{:else if data.reviewed.length === 0}
-		<div class="empty-card">
-			<p>No reviewed requests yet</p>
-		</div>
+		<div class="admin-panel"><div class="admin-empty">No reviewed requests yet.</div></div>
 	{:else}
-		<div class="request-list">
+		<div class="request-stack">
 			{#each data.reviewed as req (req.id)}
-				<div class="request-card reviewed">
-					<div class="request-info">
-						<div class="request-header-row">
-							<span class="request-name">{req.name}</span>
-							<Badge label={req.status} color={statusColor(req.status)} />
+				<section class="admin-panel request-card">
+					<div class="request-card__main">
+						<div class="request-card__row">
+							<p class="request-card__name">{req.name}</p>
+							<Badge label={formatAdminLabel(req.status)} color={ADMIN_STATUS_COLORS[req.status] ?? 'var(--ink-35)'} />
 						</div>
-						<div class="request-email">{req.email}</div>
-						{#if req.reason}
-							<div class="request-reason">{req.reason}</div>
-						{/if}
-						<div class="request-date">
+						<p class="request-card__email">{req.email}</p>
+						{#if req.reason}<p class="request-card__reason">{req.reason}</p>{/if}
+						<p class="request-card__meta">
 							Submitted {formatDisplayDateTime(req.created_at)}
 							{#if req.reviewed_at}
-								&middot; Reviewed {formatDisplayDateTime(req.reviewed_at)}
-							{/if}
-						</div>
+								• Reviewed {formatDisplayDateTime(req.reviewed_at)}{/if}
+						</p>
 					</div>
 					{#if req.status === 'approved' && req.registration_invites && !req.registration_invites.used_by}
-						<div class="request-actions">
+						<div class="request-card__actions">
 							<form
 								method="POST"
 								action="?/resend"
 								use:enhance={() => {
-									loadingId = req.id + '-resend';
+									loadingId = `${req.id}-resend`;
 									return async ({ update }) => {
 										loadingId = null;
 										await update();
@@ -154,197 +138,81 @@
 							>
 								<input type="hidden" name="requestId" value={req.id} />
 								<button type="submit" class="btn btn-secondary btn-sm" disabled={loadingId !== null}>
-									{#if loadingId === req.id + '-resend'}
-										<Spinner color="var(--color-text-muted)" />
-									{/if}
-									Resend
+									{#if loadingId === `${req.id}-resend`}<Spinner color="currentColor" />{/if}
+									Resend Invite
 								</button>
 							</form>
 						</div>
 					{/if}
-				</div>
+				</section>
 			{/each}
 		</div>
 	{/if}
 </div>
 
 <style>
-	.access-requests-page {
-		max-width: 800px;
-		margin: 0 auto;
-	}
-
-	.page-header {
-		margin-bottom: var(--spacing-xl);
-	}
-
-	.header-row {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-	}
-
-	.page-header h1 {
-		font-size: var(--font-size-2xl);
-		font-weight: 700;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-xs);
-	}
-
-	.subtitle {
-		color: var(--color-text-muted);
-	}
-
-	.alert-error {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
-	}
-
-	/* Tabs */
-	.tabs {
-		display: flex;
-		gap: var(--spacing-xs);
-		margin-bottom: var(--spacing-lg);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.tab {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: none;
-		border: none;
-		border-bottom: 2px solid transparent;
-		color: var(--color-text-muted);
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.tab:hover {
-		color: var(--color-text);
-	}
-
-	.tab.active {
-		color: var(--color-primary);
-		border-bottom-color: var(--color-primary);
-	}
-
-	.tab-count {
-		background: var(--color-surface-variant);
-		padding: 1px 8px;
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-xs);
-	}
-
-	.tab.active .tab-count {
-		background: var(--color-primary);
-		color: #0f0f0f;
-	}
-
-	/* Request cards */
-	.request-list {
+	.request-stack {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-3);
 	}
 
 	.request-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-lg);
 		display: flex;
-		justify-content: space-between;
 		align-items: flex-start;
-		gap: var(--spacing-lg);
+		justify-content: space-between;
+		gap: var(--sp-4);
+		flex-wrap: wrap;
 	}
 
-	.request-card.reviewed {
-		opacity: 0.85;
-	}
-
-	.request-info {
-		flex: 1;
+	.request-card__main {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
 		min-width: 0;
+		flex: 1;
 	}
 
-	.request-header-row {
+	.request-card__row {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
 	}
 
-	.request-name {
-		font-weight: 600;
-		color: var(--color-text);
-		font-size: var(--font-size-base);
+	.request-card__name,
+	.request-card__email,
+	.request-card__reason,
+	.request-card__meta {
+		margin: 0;
 	}
 
-	.request-email {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
-		margin-top: 2px;
+	.request-card__name {
+		font-family: var(--font-display);
+		font-size: 1.55rem;
+		line-height: 0.96;
+		text-transform: uppercase;
 	}
 
-	.request-reason {
-		margin-top: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		line-height: 1.5;
+	.request-card__email {
+		color: var(--text-secondary);
 	}
 
-	.request-date {
-		margin-top: var(--spacing-sm);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+	.request-card__reason {
+		line-height: 1.6;
 	}
 
-	.request-actions {
+	.request-card__meta {
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+	}
+
+	.request-card__actions {
 		display: flex;
-		gap: var(--spacing-sm);
-		flex-shrink: 0;
-	}
-
-	.empty-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-xl);
-		text-align: center;
-		color: var(--color-text-muted);
-	}
-
-	:global([data-theme='dark']) .alert-error {
-		background: #450a0a;
-		border-color: #7f1d1d;
-		color: #fca5a5;
-	}
-
-	@media (max-width: 600px) {
-		.request-card {
-			flex-direction: column;
-		}
-
-		.request-actions {
-			width: 100%;
-		}
-
-		.request-actions form {
-			flex: 1;
-		}
-
-		.request-actions .btn {
-			width: 100%;
-		}
+		gap: var(--sp-2);
+		flex-wrap: wrap;
 	}
 </style>

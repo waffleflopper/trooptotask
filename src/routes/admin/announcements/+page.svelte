@@ -4,7 +4,8 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import type { PageData, ActionData } from './$types';
+	import { ADMIN_STATUS_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -13,57 +14,62 @@
 	let togglingId = $state<string | null>(null);
 	let deletingId = $state<string | null>(null);
 
-	function getTypeColor(type: string): string {
-		if (type === 'info') return '#3b82f6';
-		if (type === 'warning') return '#f59e0b';
-		if (type === 'maintenance') return '#ef4444';
-		return '#6b7280';
-	}
-
-	function getStatus(announcement: { is_active: boolean; expires_at: string | null }): {
-		label: string;
-		color: string;
-	} {
+	function getStatus(announcement: { is_active: boolean; expires_at: string | null }) {
 		if (announcement.expires_at && new Date(announcement.expires_at) < new Date()) {
-			return { label: 'EXPIRED', color: '#9ca3af' };
+			return { label: 'Expired', color: ADMIN_STATUS_COLORS.expired };
 		}
-		if (announcement.is_active) {
-			return { label: 'ACTIVE', color: '#22c55e' };
-		}
-		return { label: 'INACTIVE', color: '#6b7280' };
+		return announcement.is_active
+			? { label: 'Active', color: ADMIN_STATUS_COLORS.active }
+			: { label: 'Inactive', color: ADMIN_STATUS_COLORS.reviewed };
 	}
 </script>
 
-<div class="announcements-page">
-	<div class="page-header">
-		<h1>Announcements</h1>
-		{#if !showCreateForm}
-			<button class="btn btn-primary" onclick={() => (showCreateForm = true)}> Create Announcement </button>
-		{/if}
-	</div>
+<svelte:head>
+	<title>Announcements - Admin - Troop to Task</title>
+</svelte:head>
+
+<div class="admin-page-shell admin-page-shell--compact">
+	<header class="admin-page-header">
+		<div class="admin-page-header__copy">
+			<p class="admin-page-eyebrow">Platform Messaging</p>
+			<h1 class="admin-page-title">Announcements</h1>
+			<p class="admin-page-subtitle">
+				Publish and retire platform-wide messages without leaving the internal admin workspace.
+			</p>
+		</div>
+		<div class="admin-page-actions">
+			{#if !showCreateForm}
+				<button class="btn btn-primary" onclick={() => (showCreateForm = true)}>Create Announcement</button>
+			{/if}
+		</div>
+	</header>
 
 	{#if form?.error}
-		<div class="error-banner">{form.error}</div>
+		<div class="admin-alert admin-alert--error">{form.error}</div>
 	{/if}
 
 	{#if showCreateForm}
-		<div class="create-form-card">
-			<h2>New Announcement</h2>
+		<section class="admin-panel">
+			<div class="admin-panel__header">
+				<div>
+					<h2 class="admin-panel__title">New Announcement</h2>
+					<p class="admin-panel__meta">Keep the message short, direct, and operationally clear.</p>
+				</div>
+			</div>
 			<form
 				method="POST"
 				action="?/create"
+				class="announcement-form"
 				use:enhance={() => {
 					creating = true;
 					return async ({ update }) => {
 						await update();
 						creating = false;
-						if (!form?.error) {
-							showCreateForm = false;
-						}
+						if (!form?.error) showCreateForm = false;
 					};
 				}}
 			>
-				<div class="form-group">
+				<div class="admin-toolbar__field">
 					<label class="label" for="title">Title</label>
 					<input
 						id="title"
@@ -75,22 +81,20 @@
 						required
 					/>
 				</div>
-
-				<div class="form-group">
+				<div class="admin-toolbar__field">
 					<label class="label" for="message">Message</label>
 					<textarea
 						id="message"
 						name="message"
-						class="input"
+						class="input textarea"
 						rows="4"
 						maxlength="1000"
 						placeholder="Announcement message"
 						required
 					></textarea>
 				</div>
-
-				<div class="form-row">
-					<div class="form-group">
+				<div class="announcement-form__row">
+					<div class="admin-toolbar__field">
 						<label class="label" for="type">Type</label>
 						<select id="type" name="type" class="select" required>
 							<option value="info">Info</option>
@@ -98,40 +102,41 @@
 							<option value="maintenance">Maintenance</option>
 						</select>
 					</div>
-
-					<div class="form-group">
-						<label class="label" for="expiresAt">Expires At (optional)</label>
+					<div class="admin-toolbar__field">
+						<label class="label" for="expiresAt">Expires At</label>
 						<input id="expiresAt" name="expiresAt" class="input" type="datetime-local" />
 					</div>
 				</div>
-
-				<div class="form-actions">
-					<button type="button" class="btn btn-secondary" onclick={() => (showCreateForm = false)}> Cancel </button>
+				<div class="announcement-form__actions">
+					<button type="button" class="btn btn-secondary" onclick={() => (showCreateForm = false)}>Cancel</button>
 					<button class="btn btn-primary" type="submit" disabled={creating}>
 						{#if creating}<Spinner />{/if}
 						{creating ? 'Saving...' : 'Save'}
 					</button>
 				</div>
 			</form>
-		</div>
+		</section>
 	{/if}
 
-	<div class="announcements-list">
+	<div class="announcement-stack">
 		{#if data.announcements.length === 0}
-			<EmptyState message="No announcements yet." />
+			<section class="admin-panel"><EmptyState message="No announcements yet." /></section>
 		{:else}
 			{#each data.announcements as announcement (announcement.id)}
 				{@const status = getStatus(announcement)}
-				<div class="announcement-card">
-					<div class="announcement-header">
-						<div class="announcement-meta">
-							<span class="announcement-title">{announcement.title}</span>
-							<div class="badges">
-								<Badge label={announcement.type.toUpperCase()} color={getTypeColor(announcement.type)} bold={true} />
+				<section class="admin-panel announcement-card">
+					<div class="announcement-card__header">
+						<div class="announcement-card__copy">
+							<h2>{announcement.title}</h2>
+							<div class="announcement-card__badges">
+								<Badge
+									label={formatAdminLabel(announcement.type)}
+									color={ADMIN_STATUS_COLORS[announcement.type] ?? 'var(--ink-35)'}
+								/>
 								<Badge label={status.label} color={status.color} />
 							</div>
 						</div>
-						<div class="announcement-actions">
+						<div class="announcement-card__actions">
 							<form
 								method="POST"
 								action="?/toggle"
@@ -145,11 +150,10 @@
 							>
 								<input type="hidden" name="id" value={announcement.id} />
 								<button class="btn btn-secondary btn-sm" type="submit" disabled={togglingId === announcement.id}>
-									{#if togglingId === announcement.id}<Spinner color="#333" />{/if}
+									{#if togglingId === announcement.id}<Spinner color="currentColor" />{/if}
 									{announcement.is_active ? 'Deactivate' : 'Activate'}
 								</button>
 							</form>
-
 							<form
 								method="POST"
 								action="?/delete"
@@ -160,10 +164,8 @@
 										deletingId = null;
 									};
 								}}
-								onsubmit={(e) => {
-									if (!confirm('Delete this announcement? This cannot be undone.')) {
-										e.preventDefault();
-									}
+								onsubmit={(event) => {
+									if (!confirm('Delete this announcement? This cannot be undone.')) event.preventDefault();
 								}}
 							>
 								<input type="hidden" name="id" value={announcement.id} />
@@ -174,125 +176,87 @@
 							</form>
 						</div>
 					</div>
-
-					<p class="announcement-message">{announcement.message}</p>
-
-					<div class="announcement-footer">
-						<span class="text-muted">Created {formatDisplayDate(announcement.created_at)}</span>
+					<p class="announcement-card__message">{announcement.message}</p>
+					<p class="announcement-card__meta">
+						Created {formatDisplayDate(announcement.created_at)}
 						{#if announcement.expires_at}
-							<span class="text-muted">Expires {formatDisplayDate(announcement.expires_at)}</span>
-						{/if}
-					</div>
-				</div>
+							• Expires {formatDisplayDate(announcement.expires_at)}{/if}
+					</p>
+				</section>
 			{/each}
 		{/if}
 	</div>
 </div>
 
 <style>
-	.announcements-page {
-		padding: var(--spacing-lg);
-		max-width: 900px;
-		margin: 0 auto;
-	}
-
-	.page-header {
+	.announcement-stack {
 		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: var(--spacing-lg);
+		flex-direction: column;
+		gap: var(--sp-3);
 	}
 
-	.page-header h1 {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
+	.announcement-form,
+	.announcement-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+	}
+
+	.announcement-form__row,
+	.announcement-form__actions,
+	.announcement-card__header,
+	.announcement-card__actions,
+	.announcement-card__badges {
+		display: flex;
+		gap: var(--sp-3);
+		flex-wrap: wrap;
+	}
+
+	.announcement-form__actions,
+	.announcement-card__header {
+		justify-content: space-between;
+	}
+
+	.announcement-card__copy {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.announcement-card__copy h2,
+	.announcement-card__message,
+	.announcement-card__meta {
 		margin: 0;
 	}
 
-	.error-banner {
-		background: #fef2f2;
-		border: 1px solid var(--color-error);
-		color: var(--color-error);
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-md);
-		margin-bottom: var(--spacing-md);
-		font-size: var(--font-size-sm);
+	.announcement-card__copy h2 {
+		font-family: var(--font-display);
+		font-size: 1.7rem;
+		line-height: 0.98;
+		text-transform: uppercase;
 	}
 
-	.create-form-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-lg);
-		margin-bottom: var(--spacing-lg);
+	.announcement-card__message {
+		line-height: 1.6;
 	}
 
-	.create-form-card h2 {
-		font-size: var(--font-size-base);
+	.announcement-card__meta {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
 		font-weight: 600;
-		margin: 0 0 var(--spacing-md) 0;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
-	.form-actions {
-		display: flex;
-		gap: var(--spacing-sm);
-		justify-content: flex-end;
-		margin-top: var(--spacing-md);
+	.textarea {
+		resize: vertical;
+		min-height: 110px;
 	}
 
-	.announcements-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-md);
-	}
-
-	.announcement-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-md);
-	}
-
-	.announcement-header {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: var(--spacing-md);
-		margin-bottom: var(--spacing-sm);
-	}
-
-	.announcement-meta {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-xs);
-	}
-
-	.announcement-title {
-		font-weight: 600;
-		font-size: var(--font-size-base);
-	}
-
-	.badges {
-		display: flex;
-		gap: var(--spacing-xs);
-	}
-
-	.announcement-actions {
-		display: flex;
-		gap: var(--spacing-sm);
-		flex-shrink: 0;
-	}
-
-	.announcement-message {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
-		margin: 0 0 var(--spacing-sm) 0;
-		line-height: 1.5;
-	}
-
-	.announcement-footer {
-		display: flex;
-		gap: var(--spacing-md);
-		font-size: var(--font-size-xs);
+	@media (max-width: 700px) {
+		.announcement-form__row {
+			flex-direction: column;
+		}
 	}
 </style>

@@ -249,7 +249,7 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	// Derived: upcomingChanges (entries starting or ending within 7 days)
 	// ---------------------------------------------------------------------------
-get upcomingChanges(): {
+	get upcomingChanges(): {
 		key: string;
 		date: string;
 		personName: string;

@@ -19,11 +19,9 @@
 	description="Password reset should be one short detour, not a second workflow to learn."
 	panelEyebrow="Recovery"
 	panelTitle={form?.success ? 'Check your email' : 'Reset your password'}
-	panelDescription={
-		form?.success
-			? 'A reset link is on the way.'
-			: 'Enter the email address tied to your account and we\'ll send a reset link.'
-	}
+	panelDescription={form?.success
+		? 'A reset link is on the way.'
+		: "Enter the email address tied to your account and we'll send a reset link."}
 	supportLabel="What happens next"
 	supportTitle="Check your email."
 	supportDescription="If the account exists, you'll receive a password reset link at that address."

@@ -22,11 +22,9 @@
 	description="Use the invite code from an organization invite to create your account and join that organization."
 	panelEyebrow="New account"
 	panelTitle={form?.confirmEmail ? 'Check your email' : 'Create your account'}
-	panelDescription={
-		form?.confirmEmail
-			? 'One more step remains before you can sign in.'
-			: 'Enter the invite code you received and choose a password that meets policy.'
-	}
+	panelDescription={form?.confirmEmail
+		? 'One more step remains before you can sign in.'
+		: 'Enter the invite code you received and choose a password that meets policy.'}
 	supportLabel="Joining an organization"
 	supportTitle="This page is for invited users."
 	supportDescription="If an organization invited you by email, use the invite code from that email to create your account."

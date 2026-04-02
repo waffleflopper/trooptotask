@@ -169,7 +169,13 @@
 			<div class="invite-link-display">
 				<label for="invite-registration-link">Registration Link</label>
 				<div class="link-box">
-					<input id="invite-registration-link" type="text" readonly value={createdInvite.registrationUrl} class="input" />
+					<input
+						id="invite-registration-link"
+						type="text"
+						readonly
+						value={createdInvite.registrationUrl}
+						class="input"
+					/>
 					<button class="btn btn-secondary btn-sm" onclick={() => copyToClipboard(createdInvite!.registrationUrl)}>
 						Copy
 					</button>

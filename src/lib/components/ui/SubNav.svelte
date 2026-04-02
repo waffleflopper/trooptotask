@@ -102,5 +102,4 @@
 		font-weight: var(--font-weight-semibold);
 		line-height: 1;
 	}
-
 </style>

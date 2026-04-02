@@ -265,7 +265,12 @@ describe('DashboardContext', () => {
 
 			const keys = ctx.upcomingChanges.map((change) => change.key);
 
-			expect(keys).toEqual(['a1-departing-2099-01-01', 'a2-departing-2099-01-01', 'a1-returning-2099-01-03', 'a2-returning-2099-01-03']);
+			expect(keys).toEqual([
+				'a1-departing-2099-01-01',
+				'a2-departing-2099-01-01',
+				'a1-returning-2099-01-03',
+				'a2-returning-2099-01-03'
+			]);
 			expect(new Set(keys).size).toBe(keys.length);
 		});
 	});

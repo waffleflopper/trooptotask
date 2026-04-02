@@ -50,11 +50,7 @@
 	description="This form is only for getting access to the beta."
 	panelEyebrow="Beta request"
 	panelTitle={submitted ? 'Request submitted' : 'Request beta access'}
-	panelDescription={
-		submitted
-			? 'Your beta request is in the queue.'
-			: 'Tell us who you are and how to reach you.'
-	}
+	panelDescription={submitted ? 'Your beta request is in the queue.' : 'Tell us who you are and how to reach you.'}
 	supportLabel="What this is for"
 	supportTitle="Beta access only."
 	supportDescription="If you already have an invite code, use Create Account instead. If you already have an account, sign in."

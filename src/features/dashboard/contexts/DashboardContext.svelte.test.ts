@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DashboardContext, HALF_SIZE_CARDS } from './DashboardContext.svelte';
 import type { CardId } from '$lib/stores/dashboardPrefs.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -132,6 +132,10 @@ describe('DashboardContext', () => {
 		ctx = new DashboardContext(makeData());
 	});
 
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	// -------------------------------------------------------------------------
 	// today / todayDisplay
 	// -------------------------------------------------------------------------
@@ -241,6 +245,8 @@ describe('DashboardContext', () => {
 		});
 
 		it('assigns unique keys when repeated changes land on the same day', () => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2098-12-31T12:00:00Z'));
 			mutablePersonnelStore.items = [
 				{ id: 'p1', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Alex' },
 				{ id: 'p2', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Avery' }
@@ -263,9 +269,15 @@ describe('DashboardContext', () => {
 				}
 			];
 
-			const keys = ctx.upcomingChanges.map((change) => change.key);
+			const dashboardCtx = new DashboardContext(makeData());
+			const keys = dashboardCtx.upcomingChanges.map((change) => change.key);
 
-			expect(keys).toEqual(['a1-departing-2099-01-01', 'a2-departing-2099-01-01', 'a1-returning-2099-01-03', 'a2-returning-2099-01-03']);
+			expect(keys).toEqual([
+				'a1-departing-2099-01-01',
+				'a2-departing-2099-01-01',
+				'a1-returning-2099-01-03',
+				'a2-returning-2099-01-03'
+			]);
 			expect(new Set(keys).size).toBe(keys.length);
 		});
 	});

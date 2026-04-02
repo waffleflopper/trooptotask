@@ -1358,10 +1358,13 @@ input[type='checkbox']:focus-visible {
    ============================================ */
 .auth-shell {
 	position: relative;
+	flex: 1;
 	min-height: 100vh;
 	background: var(--surface-page);
 	color: var(--text-primary);
-	overflow: hidden;
+	overflow-x: hidden;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
 }
 
 .auth-shell__backdrop {
@@ -1371,7 +1374,7 @@ input[type='checkbox']:focus-visible {
 .auth-shell__frame {
 	position: relative;
 	display: flex;
-	min-height: 100vh;
+	min-height: 100%;
 	flex-direction: column;
 	max-width: 1240px;
 	margin: 0 auto;
@@ -1851,7 +1854,7 @@ input[type='checkbox']:focus-visible {
 
 @media (max-width: 640px) {
 	.auth-shell__frame {
-		padding-inline: 0.9rem;
+		padding: var(--sp-4) 0.9rem var(--sp-5);
 	}
 
 	.auth-shell__topbar {
@@ -1868,9 +1871,17 @@ input[type='checkbox']:focus-visible {
 		flex: 1;
 	}
 
+	.auth-shell__main {
+		padding: var(--sp-5) 0 var(--sp-4);
+	}
+
+	.auth-shell__intro {
+		display: none;
+	}
+
 	.auth-shell__panel-header,
 	.auth-shell__panel-body {
-		padding-inline: var(--sp-5);
+		padding-inline: var(--sp-4);
 	}
 
 	.auth-shell__footer {

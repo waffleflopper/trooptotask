@@ -13,9 +13,9 @@
 	const orgId = $derived($page.params.orgId);
 
 	const STATUS_COLORS: Record<string, { color: string; textColor?: string }> = {
-		pending: { color: 'var(--color-warning)' },
-		approved: { color: 'var(--color-success)' },
-		denied: { color: 'var(--color-error)' }
+		pending: { color: 'var(--amber-dark)' },
+		approved: { color: 'var(--success)' },
+		denied: { color: 'var(--danger)' }
 	};
 
 	const filters = [

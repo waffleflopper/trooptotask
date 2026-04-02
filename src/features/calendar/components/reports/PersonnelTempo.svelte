@@ -306,27 +306,27 @@
 
 <style>
 	.report-config {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
-		padding: var(--spacing-md);
+		padding: var(--sp-4);
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 	}
 
 	.config-section h3 {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 		font-weight: 600;
-		color: var(--color-text-secondary);
+		color: var(--text-secondary);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		margin: 0 0 var(--spacing-sm) 0;
+		margin: 0 0 var(--sp-2) 0;
 	}
 
 	.date-row {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		align-items: flex-end;
 		flex-wrap: wrap;
 	}
@@ -347,29 +347,29 @@
 	.status-filter-header {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-sm);
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-2);
 	}
 
 	.personnel-count {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-ui-sm);
+		color: var(--text-tertiary);
 	}
 
 	.status-chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 	}
 
 	.status-chip {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-sm);
+		padding: var(--sp-1) var(--sp-2);
+		border-radius: var(--radius-pill);
+		font-size: var(--text-ui-sm);
 		cursor: pointer;
 		border: 2px solid var(--chip-color);
 		background: transparent;
-		color: var(--color-text);
+		color: var(--text-primary);
 		transition: all 0.15s ease;
 	}
 
@@ -384,78 +384,78 @@
 	}
 
 	.report-error {
-		color: var(--color-error);
-		font-size: var(--font-size-sm);
-		padding: var(--spacing-sm);
-		background: color-mix(in srgb, var(--color-error) 10%, transparent);
+		color: var(--danger);
+		font-size: var(--text-ui-sm);
+		padding: var(--sp-2);
+		background: color-mix(in srgb, var(--danger) 10%, transparent);
 		border-radius: var(--radius-sm);
-		margin-top: var(--spacing-sm);
+		margin-top: var(--sp-2);
 	}
 
 	.report-output {
-		margin-top: var(--spacing-md);
+		margin-top: var(--sp-4);
 	}
 
 	.report-toolbar {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: var(--sp-2);
 	}
 
 	.report-summary {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
+		font-size: var(--text-ui-sm);
+		color: var(--text-secondary);
 	}
 
 	.no-data {
 		text-align: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-xl);
+		color: var(--text-tertiary);
+		padding: var(--sp-8);
 		font-style: italic;
 	}
 
 	/* DataTable-compatible table styles */
 	.data-table {
 		overflow-x: auto;
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-lg);
-		background: var(--color-surface);
+		background: var(--surface-panel);
 	}
 
 	table {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 	}
 
 	thead {
-		background: var(--color-surface-variant);
+		background: var(--surface-subtle);
 	}
 
 	th {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-xs);
+		padding: var(--sp-1) var(--sp-2);
+		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		border-bottom: 2px solid var(--color-border);
+		border-bottom: 2px solid var(--border-default);
 		cursor: pointer;
 		user-select: none;
 		white-space: nowrap;
-		background: var(--color-surface-variant);
+		background: var(--surface-subtle);
 		text-align: center;
 	}
 
 	th:hover {
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	td {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-bottom: 1px solid var(--color-divider);
-		color: var(--color-text);
+		padding: var(--sp-1) var(--sp-2);
+		border-bottom: 1px solid var(--divider-color);
+		color: var(--text-primary);
 		text-align: center;
 	}
 
@@ -464,21 +464,21 @@
 	}
 
 	tbody tr:hover {
-		background: var(--color-bg);
+		background: var(--surface-page);
 	}
 
 	tbody tr.flagged {
-		background: color-mix(in srgb, var(--color-error) 8%, transparent);
+		background: color-mix(in srgb, var(--danger) 8%, transparent);
 	}
 
 	tbody tr.flagged:hover {
-		background: color-mix(in srgb, var(--color-error) 12%, transparent);
+		background: color-mix(in srgb, var(--danger) 12%, transparent);
 	}
 
 	.col-rank {
 		width: 60px;
 		font-weight: 600;
-		color: var(--color-primary);
+		color: var(--amber);
 		text-align: left;
 	}
 
@@ -515,8 +515,8 @@
 
 		th,
 		td {
-			padding: var(--spacing-xs) var(--spacing-sm);
-			font-size: var(--font-size-sm);
+			padding: var(--sp-1) var(--sp-2);
+			font-size: var(--text-ui-sm);
 		}
 	}
 </style>

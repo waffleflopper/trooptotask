@@ -171,7 +171,7 @@
 	}
 
 	.month-title-trigger:focus-visible {
-		outline: 2px solid var(--color-primary);
+		outline: 2px solid var(--amber);
 		outline-offset: 2px;
 	}
 

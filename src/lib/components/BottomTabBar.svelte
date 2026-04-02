@@ -66,7 +66,7 @@
 		display: none;
 	}
 
-	@media (max-width: 640px) {
+	@media (max-width: 920px) {
 		.bottom-tab-bar {
 			display: flex;
 			position: fixed;
@@ -130,6 +130,13 @@
 
 		.tab.active::before {
 			background: var(--color-chrome-active);
+		}
+	}
+
+	@media (max-width: 640px) {
+		.tab svg {
+			width: 20px;
+			height: 20px;
 		}
 	}
 </style>

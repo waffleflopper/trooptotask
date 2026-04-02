@@ -444,7 +444,7 @@
 
 			{#if loading && rosters.length === 0}
 				<div class="loading-center">
-					<Spinner size={20} color="var(--color-text-muted)" />
+					<Spinner size={20} color="var(--text-tertiary)" />
 				</div>
 			{:else if rosters.length === 0}
 				<EmptyState message="No sign-in rosters yet." />

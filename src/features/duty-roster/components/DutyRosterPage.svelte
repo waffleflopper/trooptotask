@@ -133,20 +133,20 @@
 
 <style>
 	.duty-roster-page {
-		padding: var(--spacing-lg);
+		padding: var(--sp-6);
 		max-width: 1200px;
 		margin: 0 auto;
 	}
 
 	.restricted-hero {
 		text-align: center;
-		padding: var(--spacing-xl) var(--spacing-lg);
-		color: var(--color-text-secondary);
+		padding: var(--sp-8) var(--sp-6);
+		color: var(--text-secondary);
 	}
 
 	.restricted-hero h1 {
 		font-family: var(--font-display);
-		font-size: var(--font-size-xl);
-		margin: 0 0 var(--spacing-sm);
+		font-size: var(--text-ui-xl);
+		margin: 0 0 var(--sp-2);
 	}
 </style>

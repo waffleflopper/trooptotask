@@ -127,7 +127,7 @@
 	}
 
 	.date-cell:not(.has-status):hover {
-		background-color: rgba(var(--color-primary-rgb), 0.06);
+		background-color: rgba(var(--amber-rgb), 0.06);
 	}
 
 	.date-cell.has-status:hover {

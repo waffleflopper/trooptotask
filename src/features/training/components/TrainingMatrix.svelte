@@ -544,7 +544,7 @@
 
 	:global([data-theme='dark']) .heatmap-cell[data-status='not-required'],
 	:global([data-theme='dark']) .heatmap-cell[data-status='exempt'] {
-		background-color: color-mix(in srgb, var(--color-text-muted) 10%, transparent) !important;
+		background-color: color-mix(in srgb, var(--text-tertiary) 10%, transparent) !important;
 	}
 
 	:global([data-theme='dark']) .heatmap-cell[data-status='expired'] {

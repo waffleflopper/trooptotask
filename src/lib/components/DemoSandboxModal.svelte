@@ -107,9 +107,9 @@
 <style>
 	.info-section {
 		display: flex;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 		align-items: flex-start;
-		margin-bottom: var(--spacing-lg);
+		margin-bottom: var(--sp-6);
 	}
 
 	.icon {
@@ -131,47 +131,47 @@
 
 	.info-section p {
 		margin: 0;
-		color: var(--color-text-secondary);
+		color: var(--text-secondary);
 		line-height: 1.5;
 	}
 
 	.features {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-md);
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-4);
 	}
 
 	.feature {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
+		gap: var(--sp-2);
+		padding: var(--sp-2);
+		background: var(--surface-page);
 		border-radius: var(--radius-md);
 	}
 
 	.feature svg {
 		width: 20px;
 		height: 20px;
-		color: var(--color-success);
+		color: var(--success);
 		flex-shrink: 0;
 	}
 
 	.feature.warning svg {
-		color: var(--color-warning);
+		color: var(--amber-dark);
 	}
 
 	.feature span {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 	}
 
 	.error-message {
-		padding: var(--spacing-sm);
+		padding: var(--sp-2);
 		background: rgba(239, 68, 68, 0.1);
 		border: 1px solid #ef4444;
 		border-radius: var(--radius-md);
 		color: #ef4444;
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 	}
 </style>

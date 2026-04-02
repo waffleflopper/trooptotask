@@ -23,6 +23,6 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-		background: var(--color-bg);
+		background: var(--surface-page);
 	}
 </style>

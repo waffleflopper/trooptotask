@@ -5,10 +5,9 @@
 		tabs: { label: string; value: string; badge?: number }[];
 		active: string;
 		onChange: (value: string) => void;
-		variant?: 'underline' | 'pill';
 	}
 
-	let { tabs, active, onChange, variant }: Props = $props();
+	let { tabs, active, onChange }: Props = $props();
 </script>
 
-<SubNav {tabs} {active} {onChange} {variant} />
+<SubNav {tabs} {active} {onChange} />

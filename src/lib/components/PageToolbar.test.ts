@@ -30,12 +30,6 @@ describe('PageToolbar', () => {
 			const toolbar = screen.getByTestId('page-toolbar');
 			expect(toolbar.className).toContain('compact');
 		});
-
-		it('should apply transparent class', () => {
-			renderToolbar({ variant: 'transparent' });
-			const toolbar = screen.getByTestId('page-toolbar');
-			expect(toolbar.className).toContain('transparent');
-		});
 	});
 
 	describe('sticky', () => {

@@ -485,7 +485,7 @@
 		align-items: center;
 		min-height: 22px;
 		padding: 0 12px;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		font-size: var(--text-sm);
 	}
 

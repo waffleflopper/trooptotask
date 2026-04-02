@@ -771,7 +771,7 @@
 
 	.detail-item {
 		display: flex;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 	}
 
 	.detail-item.notes {
@@ -798,9 +798,9 @@
 
 	.form-row {
 		display: flex;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 		align-items: flex-end;
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: var(--sp-2);
 	}
 
 	.form-row .form-group {
@@ -808,7 +808,7 @@
 	}
 
 	.form-group {
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: var(--sp-2);
 	}
 
 	.form-group:last-of-type {
@@ -818,44 +818,44 @@
 	.expiration-preview {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 	}
 
 	.preview-value {
 		font-weight: 500;
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.edit-actions {
 		display: flex;
 		justify-content: flex-end;
-		gap: var(--spacing-sm);
-		margin-top: var(--spacing-md);
+		gap: var(--sp-2);
+		margin-top: var(--sp-4);
 	}
 
 	.checkbox-group {
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: var(--sp-2);
 	}
 
 	.checkbox-label {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		cursor: pointer;
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
+		padding: var(--sp-2);
+		background: var(--surface-page);
 		border-radius: var(--radius-md);
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--border-default);
 	}
 
 	.checkbox-label:hover {
-		border-color: var(--color-primary);
+		border-color: var(--amber);
 	}
 
 	.checkbox-label input[type='checkbox'] {
 		width: 18px;
 		height: 18px;
-		accent-color: var(--color-primary);
+		accent-color: var(--amber);
 		cursor: pointer;
 	}
 
@@ -867,22 +867,22 @@
 	@media (max-width: 640px) {
 		.stats-summary {
 			flex-wrap: wrap;
-			gap: var(--spacing-xs);
+			gap: var(--sp-1);
 		}
 
 		.stat {
 			min-width: 45px;
-			padding: var(--spacing-xs);
+			padding: var(--sp-1);
 		}
 
 		.stat-value {
-			font-size: var(--font-size-sm);
+			font-size: var(--text-ui-sm);
 		}
 
 		.training-header {
 			flex-direction: column;
 			align-items: flex-start;
-			gap: var(--spacing-sm);
+			gap: var(--sp-2);
 		}
 
 		.training-actions {
@@ -896,7 +896,7 @@
 
 		.training-details {
 			flex-direction: column;
-			gap: var(--spacing-xs);
+			gap: var(--sp-1);
 		}
 	}
 
@@ -906,6 +906,6 @@
 	}
 
 	:global([data-theme='dark']) .status-badge[data-status='exempt'] {
-		background-color: var(--color-text-muted) !important;
+		background-color: var(--text-tertiary) !important;
 	}
 </style>

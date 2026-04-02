@@ -13,7 +13,7 @@
 		title: string;
 		helpTopic?: string;
 		overflowItems?: OverflowItem[];
-		variant?: 'default' | 'compact' | 'transparent';
+		variant?: 'default' | 'compact';
 		sticky?: boolean;
 		breadcrumbs?: Breadcrumb[];
 		subtitle?: string;
@@ -38,7 +38,7 @@
 	let showOverflow = $state(false);
 
 	const toolbarClass = $derived(
-		['page-toolbar', variant !== 'default' ? variant : '', sticky ? 'sticky' : ''].filter(Boolean).join(' ')
+		['page-toolbar', variant === 'compact' ? variant : '', sticky ? 'sticky' : ''].filter(Boolean).join(' ')
 	);
 </script>
 
@@ -134,11 +134,6 @@
 
 	.page-toolbar.compact .toolbar-title {
 		font-size: var(--text-xl);
-	}
-
-	.page-toolbar.transparent {
-		background: transparent;
-		border-bottom: none;
 	}
 
 	.page-toolbar.sticky {

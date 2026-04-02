@@ -96,7 +96,7 @@ Page header toolbar with title, actions, breadcrumbs, and optional below-content
 </PageToolbar>
 ```
 
-Props: `title: string`, `helpTopic?: string`, `overflowItems?: OverflowItem[]`, `variant?: 'default' | 'compact' | 'transparent'`, `sticky?: boolean`, `breadcrumbs?: { label: string; href?: string }[]`, `subtitle?: string`, `children?: Snippet` (actions), `leading?: Snippet`, `below?: Snippet`
+Props: `title: string`, `helpTopic?: string`, `overflowItems?: OverflowItem[]`, `variant?: 'default' | 'compact'`, `sticky?: boolean`, `breadcrumbs?: { label: string; href?: string }[]`, `subtitle?: string`, `children?: Snippet` (actions), `leading?: Snippet`, `below?: Snippet`
 
 Toolbar guidance:
 - Use `variant="default"` for normal product pages and `variant="compact"` for denser detail views.
@@ -281,7 +281,7 @@ Props: `options: { value: string; label: string }[]`, `value: string` (bindable)
 
 ## `ui/SubNav.svelte`
 
-Secondary tab navigation with badge counts. Default styling is underline-driven and product-dense; the `pill` variant is now a restrained segmented treatment rather than decorative bubbles.
+Secondary tab navigation with badge counts. Styling is underline-driven and product-dense so sub-page mode switches do not drift back into pill-heavy treatment.
 
 ```svelte
 <SubNav
@@ -291,15 +291,13 @@ Secondary tab navigation with badge counts. Default styling is underline-driven 
 	]}
 	active={currentTab}
 	onChange={(tab) => goto(`/org/${orgId}/admin/${tab}`)}
-	variant="underline"
 />
 ```
 
-Props: `tabs: { label: string; value: string; badge?: number }[]`, `active: string`, `onChange: (value: string) => void`, `variant?: 'underline' | 'pill'` (default `'underline'`)
+Props: `tabs: { label: string; value: string; badge?: number }[]`, `active: string`, `onChange: (value: string) => void`
 
 Sub-nav guidance:
-- Use `underline` for page-level mode switches.
-- Use `pill` only when the tabs need stronger container separation inside dense settings or modal contexts.
+- Use this for page-level mode switches and sibling sub-routes.
 - Badge counts are mono status counts, not decorative accents.
 
 ---
@@ -577,19 +575,9 @@ Elevation:
 Focus:
 `--focus-outline` | `--focus-ring`
 
-### Migration Alias Layer
+### Cleanup Status
 
-Legacy token names still exist as a migration bridge for unmigrated routes and shared components. Examples:
-
-`--color-primary` -> `--amber`
-`--color-bg` -> `--surface-page`
-`--color-surface` -> `--surface-panel`
-`--color-text` -> `--text-primary`
-`--font-family` -> `--font-ui`
-`--spacing-md` -> `--sp-4`
-`--shadow-1` -> `--shadow-sm`
-
-Treat these aliases as deprecated scaffolding, not the long-term API for new components.
+The migration alias bridge has been removed from `src/app.css`. New work should use canonical tokens directly instead of older `--color-*`, `--spacing-*`, `--font-size-*`, or `--shadow-*` compatibility names.
 
 ### Chrome / App Shell Tokens
 
@@ -601,7 +589,7 @@ Semantic tokens for the header, nav, and app shell. Dark by default, theme-contr
 | `--color-chrome-text` | App shell text |
 | `--color-chrome-text-muted` | App shell secondary text |
 | `--color-chrome-border` | App shell borders |
-| `--color-chrome-active` | Active nav item (`var(--color-primary)`) |
+| `--color-chrome-active` | Active nav item (`var(--amber)`) |
 
 ### Form Field Tokens
 
@@ -618,6 +606,15 @@ Semantic tokens for the header, nav, and app shell. Dark by default, theme-contr
 
 `--toolbar-bg` | `--toolbar-border`
 
+### Compact UI Tokens
+
+These are canonical density helpers retained after the cleanup because they express product-specific sizing, not migration scaffolding.
+
+`--text-ui-sm: 0.75rem` | `--text-ui-base: 1rem` | `--text-ui-xl: 1.25rem`
+`--radius-pill: 9999px`
+`--divider-color`
+`--danger-tint`
+
 ### Opacity Scale
 
 | Token | Value | Use case |
@@ -627,13 +624,25 @@ Semantic tokens for the header, nav, and app shell. Dark by default, theme-contr
 | `--opacity-medium` | `0.15` | Active states |
 | `--opacity-heavy` | `0.45` | Disabled states |
 
-### Legacy Compatibility Tokens
+### #454 Grep Allowlist
 
-These are still available for in-flight migrations:
+If you run the hard-exit grep from issue `#454`, the expected matches are canonical tokens only:
 
-`--font-size-xs` | `--font-size-sm` | `--font-size-base` | `--font-size-lg`
-`--radius-sm` | `--radius-md` | `--radius-lg` | `--radius-full`
-`--spacing-xs` | `--spacing-sm` | `--spacing-md` | `--spacing-lg` | `--spacing-xl`
+- `--color-chrome*`
+- `--radius-sm` / `--radius-md` / `--radius-lg` / `--radius-pill`
+- `--shadow-sm` / `--shadow-md` / `--shadow-lg`
+- `--text-ui-sm` / `--text-ui-base` / `--text-ui-xl`
+- `--divider-color`
+- `--danger-tint`
+
+Reason for retention:
+These tokens are part of the current design system and still have active consumers across the authenticated shell, dense reporting surfaces, toast/menu primitives, and compact utility layouts.
+
+Current consumer groups:
+Public shell chrome, authenticated app chrome, dense calendar/duty-roster reports, shared utility components, and notification/toast surfaces.
+
+Follow-up removal issue:
+None. These are canonical tokens, not temporary aliases.
 
 ### Utility Classes
 

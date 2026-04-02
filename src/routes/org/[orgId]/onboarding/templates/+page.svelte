@@ -657,7 +657,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-3);
-		padding: var(--spacing-lg);
+		padding: var(--sp-6);
 		background: var(--surface-page);
 		min-height: calc(100vh - 120px);
 	}
@@ -1068,7 +1068,7 @@
 
 	@media (max-width: 640px) {
 		.templates-page {
-			padding: var(--spacing-sm);
+			padding: var(--sp-2);
 		}
 
 		.templates-summary {

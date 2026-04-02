@@ -58,10 +58,10 @@
 	.banner-content {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 		max-width: 1680px;
 		margin: 0 auto;
-		padding: 0.75rem clamp(var(--spacing-md), 2vw, var(--spacing-lg));
+		padding: 0.75rem clamp(var(--sp-4), 2vw, var(--sp-6));
 	}
 
 	.banner-content::before {
@@ -89,7 +89,7 @@
 	}
 
 	.banner-separator {
-		margin: 0 var(--spacing-xs);
+		margin: 0 var(--sp-1);
 		color: var(--text-tertiary);
 	}
 
@@ -143,7 +143,7 @@
 		}
 
 		.dismiss-btn {
-			padding-left: calc(3px + var(--spacing-md));
+			padding-left: calc(3px + var(--sp-4));
 		}
 	}
 </style>

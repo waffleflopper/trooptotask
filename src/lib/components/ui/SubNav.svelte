@@ -9,13 +9,12 @@
 		tabs: Tab[];
 		active: string;
 		onChange: (value: string) => void;
-		variant?: 'underline' | 'pill';
 	}
 
-	let { tabs, active, onChange, variant = 'underline' }: Props = $props();
+	let { tabs, active, onChange }: Props = $props();
 </script>
 
-<nav class="sub-nav {variant}" aria-label="Secondary navigation">
+<nav class="sub-nav" aria-label="Secondary navigation">
 	{#each tabs as tab}
 		<button
 			type="button"
@@ -36,9 +35,10 @@
 	.sub-nav {
 		display: flex;
 		align-items: center;
-		gap: var(--sp-2);
+		gap: 0;
 		overflow-x: auto;
 		overflow-y: hidden;
+		border-bottom: 1px solid var(--border-default);
 	}
 
 	.tab {
@@ -70,51 +70,20 @@
 		box-shadow: var(--focus-ring);
 	}
 
-	/* Underline variant */
-	.underline {
-		border-bottom: 1px solid var(--border-default);
-		gap: 0;
-	}
-
-	.underline .tab {
+	.sub-nav .tab {
 		padding: 10px 14px 11px;
 		border-bottom: 2px solid transparent;
 		margin-bottom: -1px;
 	}
 
-	.underline .tab:hover {
+	.sub-nav .tab:hover {
 		background: color-mix(in srgb, var(--surface-subtle) 70%, transparent);
 		color: var(--text-primary);
 	}
 
-	.underline .tab.active {
+	.sub-nav .tab.active {
 		color: var(--amber-dark);
 		border-bottom-color: var(--amber);
-	}
-
-	/* Pill variant */
-	.pill {
-		gap: var(--sp-2);
-		padding: 4px;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 78%, var(--surface-subtle) 22%);
-	}
-
-	.pill .tab {
-		border-radius: var(--radius-sm);
-		padding: 8px 12px;
-	}
-
-	.pill .tab:hover {
-		background: var(--surface-panel);
-		color: var(--text-primary);
-	}
-
-	.pill .tab.active {
-		background: var(--color-chrome);
-		border-color: var(--color-chrome);
-		color: var(--color-chrome-text);
 	}
 
 	.tab-badge {
@@ -134,9 +103,4 @@
 		line-height: 1;
 	}
 
-	.pill .tab.active .tab-badge {
-		background: rgba(255, 255, 255, 0.12);
-		border-color: rgba(255, 255, 255, 0.16);
-		color: var(--color-chrome-text);
-	}
 </style>

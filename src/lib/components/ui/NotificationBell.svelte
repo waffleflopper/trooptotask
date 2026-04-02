@@ -283,7 +283,7 @@
 
 	.dropdown {
 		position: absolute;
-		top: calc(100% + var(--spacing-sm));
+		top: calc(100% + var(--sp-2));
 		right: 0;
 		width: min(360px, calc(100vw - 2rem));
 		max-height: 400px;
@@ -301,10 +301,10 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
+		padding: var(--sp-2) var(--sp-4);
 		border-bottom: 1px solid var(--border-default);
 		flex-shrink: 0;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.dropdown-title {
@@ -321,7 +321,7 @@
 		align-items: center;
 		flex-wrap: wrap;
 		justify-content: flex-end;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.mark-all-btn {
@@ -351,7 +351,7 @@
 	}
 
 	.dropdown-empty {
-		padding: var(--spacing-xl) var(--spacing-md);
+		padding: var(--sp-8) var(--sp-4);
 		text-align: center;
 		color: var(--text-tertiary);
 		font-size: var(--text-sm);
@@ -360,9 +360,9 @@
 	.notification-item {
 		display: flex;
 		align-items: flex-start;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-bottom: 1px solid var(--color-divider);
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-4);
+		border-bottom: 1px solid var(--divider-color);
 		transition: background var(--transition-fast);
 	}
 
@@ -402,7 +402,7 @@
 
 	.notification-time {
 		display: inline-block;
-		margin-top: var(--spacing-xs);
+		margin-top: var(--sp-1);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		color: var(--text-tertiary);

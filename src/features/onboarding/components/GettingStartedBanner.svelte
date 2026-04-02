@@ -129,7 +129,7 @@
 					<span class="step-icon">
 						{#if step.complete}
 							<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-								<circle cx="9" cy="9" r="9" fill="var(--color-success)" />
+								<circle cx="9" cy="9" r="9" fill="var(--success)" />
 								<path
 									d="M5 9L8 12L13 6"
 									stroke="white"
@@ -140,7 +140,7 @@
 							</svg>
 						{:else}
 							<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-								<circle cx="9" cy="9" r="8" stroke="var(--color-border)" stroke-width="2" />
+								<circle cx="9" cy="9" r="8" stroke="var(--border-default)" stroke-width="2" />
 							</svg>
 						{/if}
 					</span>
@@ -163,7 +163,7 @@
 		border: var(--border-thin);
 		border-radius: var(--radius-lg);
 		padding: clamp(var(--sp-5), 2vw, var(--sp-6));
-		margin-bottom: var(--spacing-lg);
+		margin-bottom: var(--sp-6);
 		box-shadow: var(--shadow-sm);
 	}
 
@@ -171,8 +171,8 @@
 		display: flex;
 		align-items: flex-start;
 		justify-content: space-between;
-		gap: var(--spacing-md);
-		margin-bottom: var(--spacing-lg);
+		gap: var(--sp-4);
+		margin-bottom: var(--sp-6);
 	}
 
 	.getting-started-heading {
@@ -215,7 +215,7 @@
 		background: transparent;
 		border: 1px solid var(--border-default);
 		cursor: pointer;
-		padding: var(--spacing-xs);
+		padding: var(--sp-1);
 		color: var(--text-tertiary);
 		border-radius: var(--radius-md);
 		display: flex;
@@ -232,7 +232,7 @@
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		font-size: var(--text-sm);
 		color: var(--text-secondary);
 		justify-content: flex-end;
@@ -241,18 +241,18 @@
 	.progress-section {
 		display: grid;
 		grid-template-columns: auto minmax(0, 1fr);
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 		align-items: center;
-		padding: var(--spacing-md) 0;
+		padding: var(--sp-4) 0;
 		border-top: var(--border-rule);
 		border-bottom: var(--border-rule);
-		margin-bottom: var(--spacing-lg);
+		margin-bottom: var(--sp-6);
 	}
 
 	.progress-summary {
 		display: flex;
 		align-items: baseline;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		flex-shrink: 0;
 	}
 
@@ -272,14 +272,14 @@
 		margin: 0;
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.step {
 		min-width: 0;
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		padding: 0.8rem 0.9rem;
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);

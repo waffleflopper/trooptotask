@@ -81,10 +81,10 @@
 	.banner-content {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 		max-width: 1680px;
 		margin: 0 auto;
-		padding: 0.75rem clamp(var(--spacing-md), 2vw, var(--spacing-lg));
+		padding: 0.75rem clamp(var(--sp-4), 2vw, var(--sp-6));
 	}
 
 	.banner-content::before {
@@ -130,7 +130,7 @@
 	.banner-btn {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		padding: 0.45rem 0.75rem;
 		background: var(--surface-panel);
 		border: 1px solid var(--border-default);
@@ -160,7 +160,7 @@
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	@media (max-width: 640px) {

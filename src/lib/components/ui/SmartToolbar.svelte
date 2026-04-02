@@ -544,7 +544,7 @@
 
 	.divider {
 		height: 1px;
-		background: var(--color-divider);
+		background: var(--divider-color);
 		margin: 4px 0;
 	}
 
@@ -565,7 +565,7 @@
 		top: 0;
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		visibility: hidden;
 		pointer-events: none;
 		white-space: nowrap;

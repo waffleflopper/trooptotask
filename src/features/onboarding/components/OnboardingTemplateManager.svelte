@@ -342,7 +342,7 @@
 	</div>
 
 	{#if deleteTemplateError}
-		<p class="error-text" style="margin-bottom: var(--spacing-sm);">{deleteTemplateError}</p>
+		<p class="error-text" style="margin-bottom: var(--sp-2);">{deleteTemplateError}</p>
 	{/if}
 
 	{#if showNewTemplateForm}

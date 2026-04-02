@@ -133,7 +133,7 @@
 
 <style>
 	.calendar-header {
-		background: var(--color-surface);
+		background: var(--surface-panel);
 		position: sticky;
 		top: 0;
 		z-index: 10;
@@ -151,47 +151,65 @@
 	}
 
 	.personnel-header-spacer {
-		padding: var(--spacing-sm);
-		font-weight: 600;
-		font-size: var(--font-size-sm);
-		background: var(--color-surface);
-		border-right: 1px solid var(--color-border);
-		border-bottom: 1px solid var(--color-border);
+		display: flex;
+		align-items: center;
+		padding: var(--sp-3) var(--sp-4);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		background: var(--surface-subtle);
+		border-right: var(--border-thin);
+		border-bottom: var(--border-thin);
 		position: sticky;
 		left: 0;
 		z-index: 3;
-		color: var(--color-text);
+		color: var(--text-secondary);
 	}
 
 	.date-header {
+		appearance: none;
+		border: none;
 		min-width: 0;
 		overflow: hidden;
-		padding: var(--spacing-xs) 0;
+		padding: var(--sp-2) 0;
 		text-align: center;
-		border-right: 1px solid var(--color-border);
-		border-bottom: 1px solid var(--color-border);
-		font-size: var(--font-size-sm);
+		border-right: var(--border-thin);
+		border-bottom: var(--border-thin);
+		background: var(--surface-panel);
 		cursor: pointer;
-		transition: background-color 0.1s ease;
+		transition:
+			background-color var(--transition-fast),
+			color var(--transition-fast),
+			box-shadow var(--transition-fast);
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		gap: 1px;
 	}
 
 	.date-header:hover {
-		filter: brightness(0.95);
+		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
 	}
 
 	.day-name {
 		display: block;
-		font-size: 10px;
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
 	.day-number {
 		display: block;
-		font-weight: 600;
-		color: var(--color-text);
+		font-family: var(--font-display);
+		font-size: clamp(1rem, 0.9rem + 0.4vw, 1.3rem);
+		font-weight: var(--font-weight-display);
+		line-height: 1;
+		color: var(--text-primary);
 	}
 
 	.weekend {
@@ -208,15 +226,19 @@
 	}
 
 	.header-assignment-badge {
-		font-size: 7px;
-		font-weight: 600;
-		color: var(--color-text-muted);
-		background: var(--color-border);
-		padding: 1px 3px;
+		max-width: calc(100% - 6px);
+		padding: 1px 4px;
+		border: 1px solid color-mix(in srgb, var(--border-default) 70%, var(--amber) 30%);
 		border-radius: 2px;
+		background: color-mix(in srgb, var(--amber-light) 78%, var(--surface-panel) 22%);
+		font-family: var(--font-mono);
+		font-size: 9px;
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
 		line-height: 1;
 		margin-top: 2px;
-		max-width: 100%;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -232,20 +254,19 @@
 		.personnel-header-spacer {
 			width: var(--personnel-column-width);
 			min-width: var(--personnel-column-width);
-			font-size: var(--font-size-xs);
-			padding: var(--spacing-xs);
+			padding: var(--sp-2) var(--sp-3);
 		}
 
 		.day-name {
-			font-size: 8px;
+			font-size: 9px;
 		}
 
 		.day-number {
-			font-size: var(--font-size-xs);
+			font-size: 1rem;
 		}
 
 		.header-assignment-badge {
-			font-size: 6px;
+			font-size: 8px;
 			padding: 0 2px;
 		}
 	}

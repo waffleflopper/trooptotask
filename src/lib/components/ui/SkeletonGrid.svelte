@@ -7,7 +7,7 @@
 		gap?: string;
 	}
 
-	let { rows = 3, columns = 5, cellWidth = '100px', cellHeight = '38px', gap = 'var(--spacing-sm)' }: Props = $props();
+	let { rows = 3, columns = 5, cellWidth = '100px', cellHeight = '38px', gap = 'var(--sp-2)' }: Props = $props();
 
 	const cellCount = $derived(rows * columns);
 </script>

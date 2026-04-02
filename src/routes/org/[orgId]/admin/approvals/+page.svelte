@@ -13,9 +13,9 @@
 	const orgId = $derived($page.params.orgId);
 
 	const STATUS_COLORS: Record<string, { color: string; textColor?: string }> = {
-		pending: { color: 'var(--color-warning)' },
-		approved: { color: 'var(--color-success)' },
-		denied: { color: 'var(--color-error)' }
+		pending: { color: 'var(--amber-dark)' },
+		approved: { color: 'var(--success)' },
+		denied: { color: 'var(--danger)' }
 	};
 
 	const filters = [
@@ -98,148 +98,241 @@
 </svelte:head>
 
 <div class="approvals-page">
-	<header class="page-header">
-		<h1>Approvals</h1>
-		<p class="subtitle">Review deletion requests from team members</p>
-	</header>
+	<div class="overview-strip">
+		<div class="overview-card">
+			<span class="overview-label">Pending</span>
+			<strong class="overview-value">{data.requests.filter((r) => r.status === 'pending').length}</strong>
+			<span class="overview-meta">Requests still waiting on an admin decision</span>
+		</div>
+		<div class="overview-card">
+			<span class="overview-label">Resolved</span>
+			<strong class="overview-value">{data.requests.filter((r) => r.status !== 'pending').length}</strong>
+			<span class="overview-meta">Requests already approved or denied</span>
+		</div>
+	</div>
 
-	<DataTable
-		{table}
-		{columns}
-		ariaLabel="Approval requests"
-		emptyMessage="No {statusFilter === 'all' ? '' : statusFilter} requests"
-	>
-		{#snippet toolbar(_tbl)}
-			<div class="filter-tabs">
-				{#each filters as f}
-					<button class="filter-tab" class:active={statusFilter === f.value} onclick={() => (statusFilter = f.value)}>
-						{f.label}
-					</button>
-				{/each}
-			</div>
-		{/snippet}
-		{#snippet cell(row, col)}
-			{#if col.key === 'requester'}
-				<span class="requester-cell">{row.requester_email ?? '-'}</span>
-			{:else if col.key === 'description'}
-				<span class="description-cell">
-					{#if row.resource_url}
-						<a href={row.resource_url} class="resource-link">
+	<div class="table-shell">
+		<div class="page-header">
+			<p class="eyebrow">Review Queue</p>
+			<h2>Approvals</h2>
+			<p class="subtitle">Review deletion requests from team members.</p>
+		</div>
+
+		<DataTable
+			{table}
+			{columns}
+			ariaLabel="Approval requests"
+			emptyMessage="No {statusFilter === 'all' ? '' : statusFilter} requests"
+		>
+			{#snippet toolbar(_tbl)}
+				<div class="filter-tabs">
+					{#each filters as f}
+						<button class="filter-tab" class:active={statusFilter === f.value} onclick={() => (statusFilter = f.value)}>
+							{f.label}
+						</button>
+					{/each}
+				</div>
+			{/snippet}
+			{#snippet cell(row, col)}
+				{#if col.key === 'requester'}
+					<span class="requester-cell">{row.requester_email ?? '-'}</span>
+				{:else if col.key === 'description'}
+					<span class="description-cell">
+						{#if row.resource_url}
+							<a href={row.resource_url} class="resource-link">
+								{row.resource_description ?? row.resource_type}
+							</a>
+						{:else}
 							{row.resource_description ?? row.resource_type}
-						</a>
-					{:else}
-						{row.resource_description ?? row.resource_type}
+						{/if}
+					</span>
+				{:else if col.key === 'requested'}
+					<span class="date-cell">{formatRelativeDate(row.created_at)}</span>
+				{:else if col.key === 'status'}
+					<Badge
+						label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+						color={STATUS_COLORS[row.status]?.color ?? 'var(--ink-60)'}
+					/>
+				{:else if col.key === 'actions'}
+					{#if row.status === 'pending'}
+						{#if denyingId === row.id}
+							<div class="deny-form">
+								<input
+									type="text"
+									class="input deny-input"
+									placeholder="Reason (optional)"
+									bind:value={denialReason}
+									onkeydown={(e) => {
+										if (e.key === 'Enter') handleAction(row.id, 'deny', denialReason);
+										if (e.key === 'Escape') cancelDeny();
+									}}
+								/>
+								<button
+									class="btn btn-danger btn-sm"
+									disabled={processing === row.id}
+									onclick={() => handleAction(row.id, 'deny', denialReason)}
+								>
+									{#if processing === row.id}<Spinner />{/if}
+									Confirm
+								</button>
+								<button class="btn btn-secondary btn-sm" onclick={cancelDeny}> Cancel </button>
+							</div>
+						{:else}
+							<div class="actions-cell">
+								<button
+									class="btn btn-primary btn-sm"
+									disabled={processing === row.id}
+									onclick={() => handleAction(row.id, 'approve')}
+								>
+									{#if processing === row.id}<Spinner />{/if}
+									Approve
+								</button>
+								<button class="btn btn-secondary btn-sm" onclick={() => startDeny(row.id)}> Deny </button>
+							</div>
+						{/if}
+					{:else if row.status === 'denied' && row.denial_reason}
+						<span class="denial-reason">{row.denial_reason}</span>
 					{/if}
-				</span>
-			{:else if col.key === 'requested'}
-				<span class="date-cell">{formatRelativeDate(row.created_at)}</span>
-			{:else if col.key === 'status'}
-				<Badge
-					label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-					color={STATUS_COLORS[row.status]?.color ?? 'var(--color-text-muted)'}
-				/>
-			{:else if col.key === 'actions'}
-				{#if row.status === 'pending'}
-					{#if denyingId === row.id}
-						<div class="deny-form">
-							<input
-								type="text"
-								class="input deny-input"
-								placeholder="Reason (optional)"
-								bind:value={denialReason}
-								onkeydown={(e) => {
-									if (e.key === 'Enter') handleAction(row.id, 'deny', denialReason);
-									if (e.key === 'Escape') cancelDeny();
-								}}
-							/>
-							<button
-								class="btn btn-danger btn-sm"
-								disabled={processing === row.id}
-								onclick={() => handleAction(row.id, 'deny', denialReason)}
-							>
-								{#if processing === row.id}<Spinner />{/if}
-								Confirm
-							</button>
-							<button class="btn btn-secondary btn-sm" onclick={cancelDeny}> Cancel </button>
-						</div>
-					{:else}
-						<div class="actions-cell">
-							<button
-								class="btn btn-primary btn-sm"
-								disabled={processing === row.id}
-								onclick={() => handleAction(row.id, 'approve')}
-							>
-								{#if processing === row.id}<Spinner />{/if}
-								Approve
-							</button>
-							<button class="btn btn-secondary btn-sm" onclick={() => startDeny(row.id)}> Deny </button>
-						</div>
-					{/if}
-				{:else if row.status === 'denied' && row.denial_reason}
-					<span class="denial-reason">{row.denial_reason}</span>
+				{:else}
+					{String(col.value(row) ?? '')}
 				{/if}
-			{:else}
-				{String(col.value(row) ?? '')}
-			{/if}
-		{/snippet}
-	</DataTable>
+			{/snippet}
+		</DataTable>
+	</div>
 </div>
 
 <style>
 	.approvals-page {
-		max-width: 900px;
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+	}
+
+	.overview-strip {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: var(--sp-3);
+	}
+
+	.overview-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
+	}
+
+	.overview-label,
+	.eyebrow {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+
+	.overview-label {
+		color: var(--text-muted);
+	}
+
+	.eyebrow {
+		margin: 0;
+		color: var(--amber);
+	}
+
+	.overview-value {
+		font-family: var(--font-display);
+		font-size: clamp(1.9rem, 4vw, 2.5rem);
+		line-height: 0.95;
+		text-transform: uppercase;
+		color: var(--text-strong);
+	}
+
+	.overview-meta {
+		font-size: var(--text-sm);
+		line-height: 1.5;
+		color: var(--text-secondary);
+	}
+
+	.table-shell {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+		padding: var(--sp-5);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
 	}
 
 	.page-header {
-		margin-bottom: var(--spacing-lg);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
 	}
 
-	.page-header h1 {
-		font-size: var(--font-size-2xl);
+	.page-header h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(2rem, 4vw, 2.8rem);
+		line-height: 0.98;
 		font-weight: 700;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-xs);
+		text-transform: uppercase;
+		color: var(--text-strong);
 	}
 
 	.subtitle {
-		color: var(--color-text-muted);
+		margin: 0;
+		color: var(--text-secondary);
+		line-height: 1.55;
 	}
 
-	/* Filter tabs */
 	.filter-tabs {
 		display: flex;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-bottom: 1px solid var(--color-divider);
+		gap: 0;
+		flex-wrap: wrap;
+		padding-bottom: var(--sp-3);
+		border-bottom: var(--border-thin);
 	}
 
 	.filter-tab {
-		padding: var(--spacing-xs) var(--spacing-md);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		color: var(--color-text-muted);
-		background: none;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-full);
+		padding: 0.7rem 0.95rem;
+		font-size: var(--text-xs);
+		font-family: var(--font-mono);
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		border: var(--border-thin);
+		border-right: none;
 		cursor: pointer;
-		transition: all var(--transition-fast);
+		border-radius: 0;
+	}
+
+	.filter-tab:first-child {
+		border-radius: var(--radius-md) 0 0 var(--radius-md);
+	}
+
+	.filter-tab:last-child {
+		border-right: var(--border-thin);
+		border-radius: 0 var(--radius-md) var(--radius-md) 0;
 	}
 
 	.filter-tab:hover {
-		color: var(--color-text);
-		background: var(--color-surface-variant);
+		color: var(--text-strong);
 	}
 
 	.filter-tab.active {
-		color: var(--color-primary);
-		border-color: var(--color-primary);
-		background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+		color: var(--text-strong);
+		background: var(--surface-panel);
 	}
 
 	.requester-cell {
 		white-space: nowrap;
-		font-size: var(--font-size-xs);
-		color: var(--color-text-secondary);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 
 	.description-cell {
@@ -247,7 +340,7 @@
 	}
 
 	.resource-link {
-		color: var(--color-primary);
+		color: var(--amber-dark);
 		text-decoration: none;
 	}
 
@@ -257,32 +350,39 @@
 
 	.date-cell {
 		white-space: nowrap;
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 
 	.actions-cell {
 		display: flex;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 		align-items: center;
 		white-space: nowrap;
+		flex-wrap: wrap;
 	}
 
 	.deny-form {
 		display: flex;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 		align-items: center;
+		flex-wrap: wrap;
 	}
 
 	.deny-input {
 		width: 160px;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
 	}
 
 	.denial-reason {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 		font-style: italic;
+	}
+
+	@media (max-width: 640px) {
+		.table-shell {
+			padding: var(--sp-4);
+		}
 	}
 </style>

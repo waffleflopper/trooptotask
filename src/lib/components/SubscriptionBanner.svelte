@@ -27,9 +27,11 @@
 					Your org has <strong>{personnelCount}</strong> personnel but your current plan allows
 					<strong>{personnelCap === Infinity ? 'unlimited' : personnelCap}</strong>. Your data is read-only.
 				</span>
-				<a href="/org/{orgId}/billing" class="banner-btn">Subscribe</a>
-				<a href="/org/{orgId}/personnel" class="banner-btn">Manage Personnel</a>
-				<a href="/org/{orgId}/settings" class="banner-btn">Export Data</a>
+				<div class="banner-actions">
+					<a href="/org/{orgId}/billing" class="banner-btn">Subscribe</a>
+					<a href="/org/{orgId}/personnel" class="banner-btn">Manage Personnel</a>
+					<a href="/org/{orgId}/settings" class="banner-btn">Export Data</a>
+				</div>
 			{:else if showGiftWarning}
 				<span class="banner-icon">
 					{#if isUrgent}
@@ -54,7 +56,9 @@
 						{daysRemaining === 1 ? 'day' : 'days'}. Set up a subscription to keep your data.
 					{/if}
 				</span>
-				<a href="/org/{orgId}/billing" class="banner-btn">Subscribe</a>
+				<div class="banner-actions">
+					<a href="/org/{orgId}/billing" class="banner-btn">Subscribe</a>
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -62,24 +66,38 @@
 
 <style>
 	.subscription-banner {
-		background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-		color: white;
-		padding: var(--spacing-sm) var(--spacing-lg);
+		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel));
+		color: var(--text-primary);
+		padding: 0;
 		width: 100%;
 		box-sizing: border-box;
+		border-bottom: 1px solid var(--border-default);
 	}
 
 	.subscription-banner.urgent {
-		background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+		background: color-mix(in srgb, var(--danger-bg) 74%, var(--surface-panel));
 	}
 
 	.banner-content {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		gap: var(--spacing-md);
-		max-width: 1200px;
+		gap: var(--sp-4);
+		max-width: 1680px;
 		margin: 0 auto;
+		padding: 0.75rem clamp(var(--sp-4), 2vw, var(--sp-6));
+	}
+
+	.banner-content::before {
+		content: '';
+		width: 3px;
+		align-self: stretch;
+		border-radius: 999px;
+		background: var(--amber);
+		flex-shrink: 0;
+	}
+
+	.subscription-banner.urgent .banner-content::before {
+		background: var(--danger);
 	}
 
 	.banner-icon {
@@ -87,43 +105,68 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
+		color: inherit;
 	}
 
 	.banner-icon svg {
-		width: 20px;
-		height: 20px;
+		width: 18px;
+		height: 18px;
 	}
 
 	.banner-text {
-		font-size: var(--font-size-sm);
+		flex: 1;
+		font-size: var(--text-sm);
+		line-height: 1.5;
+	}
+
+	.banner-text strong {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.banner-btn {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-xs) var(--spacing-sm);
-		background: rgba(255, 255, 255, 0.2);
-		border: 1px solid rgba(255, 255, 255, 0.3);
+		gap: var(--sp-1);
+		padding: 0.45rem 0.75rem;
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
-		color: white;
-		font-size: var(--font-size-sm);
-		font-weight: 500;
+		color: var(--text-primary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition:
+			border-color var(--transition-fast),
+			background var(--transition-fast),
+			color var(--transition-fast);
 		text-decoration: none;
 		white-space: nowrap;
 		flex-shrink: 0;
 	}
 
 	.banner-btn:hover {
-		background: rgba(255, 255, 255, 0.3);
+		border-color: rgba(var(--amber-rgb), 0.4);
+		color: var(--amber-dark);
+	}
+
+	.banner-actions {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	@media (max-width: 640px) {
 		.banner-content {
 			flex-wrap: wrap;
-			text-align: center;
+			align-items: flex-start;
 		}
 
 		.banner-text {

@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { themeStore } from '$lib/stores/theme.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
+	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
+	import AuthShell from '$lib/components/auth/AuthShell.svelte';
+	import FormField from '$lib/components/ui/FormField.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { onMount } from 'svelte';
 
 	const supabase = $derived($page.data.supabase);
@@ -17,7 +19,6 @@
 	let authSubscription: { unsubscribe: () => void } | null = null;
 
 	onMount(() => {
-		// Check existing session first
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase auth getSession returns complex internal type
 		supabase.auth.getSession().then(({ data: { session } }: any) => {
 			if (session) {
@@ -25,7 +26,6 @@
 			}
 		});
 
-		// Listen for auth state change (token exchange happens async from URL hash)
 		const {
 			data: { subscription }
 		} = supabase.auth.onAuthStateChange((event: string) => {
@@ -73,325 +73,83 @@
 	<title>Reset Password - Troop to Task</title>
 </svelte:head>
 
-<div class="auth-page">
-	<div class="auth-noise"></div>
-	<button class="theme-toggle" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
-		{#if themeStore.isDark}
-			<svg viewBox="0 0 24 24" fill="currentColor">
-				<path
-					d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-				/>
-			</svg>
-		{:else}
-			<svg viewBox="0 0 24 24" fill="currentColor">
-				<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-			</svg>
-		{/if}
-	</button>
-	<div class="auth-card">
-		<div class="brand">
-			<div class="brand-mark">T2T</div>
-			<h1>Troop to Task</h1>
-			<p class="subtitle">Personnel Management System</p>
-		</div>
-
+<AuthShell
+	eyebrow="Credential Recovery"
+	title="Set a new password and move on."
+	description="Once the recovery link is verified, this screen should be the last stop before you're back inside the platform."
+	panelEyebrow="Password reset"
+	panelTitle={success ? 'Password updated' : sessionReady ? 'Choose a new password' : 'Verifying reset link'}
+	panelDescription={success
+		? "You'll be redirected to sign in shortly."
+		: sessionReady
+			? 'Enter the new password you want to use for future sign-ins.'
+			: "We're confirming the recovery session before allowing a password change."}
+	supportLabel="Reset session"
+	supportTitle="Use the link, then set the password."
+	supportDescription="You can only change the password here after the reset link has been verified."
+	supportPoints={[
+		'Choose the new password you want to use going forward.',
+		'If the link is no longer valid, request a new reset email.',
+		'After updating the password, sign in normally.'
+	]}
+>
+	<div class="auth-stack">
 		{#if success}
-			<div class="success-section">
-				<div class="success-icon">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M20 6L9 17l-5-5" />
-					</svg>
-				</div>
-				<h2 class="success-title">Password updated</h2>
-				<p class="success-text">Your password has been reset successfully. Redirecting to sign in...</p>
-			</div>
+			<AuthNotice tone="success" title="Password updated" centered>
+				<p>Your password has been reset successfully.</p>
+				<p>Redirecting you to sign in now.</p>
+			</AuthNotice>
 		{:else if !sessionReady}
-			<div class="loading-section">
-				<Spinner />
-				<p class="loading-text">Verifying reset link...</p>
+			<div class="auth-loading">
+				<Spinner color="var(--amber)" />
+				<p class="auth-note">Verifying reset link...</p>
 			</div>
 		{:else}
-			<form onsubmit={handleSubmit}>
-				{#if error}
-					<div class="error-message">
-						<svg viewBox="0 0 20 20" fill="currentColor" class="error-icon">
-							<path
-								fill-rule="evenodd"
-								d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-								clip-rule="evenodd"
-							/>
-						</svg>
-						{error}
-					</div>
-				{/if}
+			{#if error}
+				<AuthNotice tone="error" message={error} />
+			{/if}
 
-				<div class="form-group">
-					<label class="label" for="password">New Password</label>
-					<input
-						id="password"
-						type="password"
-						class="input"
-						bind:value={password}
-						required
-						minlength="6"
-						autocomplete="new-password"
-						placeholder="At least 6 characters"
-					/>
+			<form onsubmit={handleSubmit} class="auth-stack">
+				<FormField
+					label="New Password"
+					id="password"
+					type="password"
+					bind:value={password}
+					required
+					placeholder="At least 6 characters"
+					hint="Use at least 6 characters for your new password."
+				/>
+
+				<FormField
+					label="Confirm New Password"
+					id="confirmPassword"
+					type="password"
+					bind:value={confirmPassword}
+					required
+					placeholder="Re-enter your password"
+				/>
+
+				<div class="auth-actions">
+					<button type="submit" class="btn btn-primary" disabled={loading}>
+						{#if loading}
+							<Spinner />
+							Updating Password...
+						{:else}
+							Update Password
+						{/if}
+					</button>
 				</div>
-
-				<div class="form-group">
-					<label class="label" for="confirmPassword">Confirm New Password</label>
-					<input
-						id="confirmPassword"
-						type="password"
-						class="input"
-						bind:value={confirmPassword}
-						required
-						minlength="6"
-						autocomplete="new-password"
-						placeholder="Re-enter your password"
-					/>
-				</div>
-
-				<button type="submit" class="btn btn-primary btn-full" disabled={loading}>
-					{#if loading}
-						<Spinner />
-						Updating...
-					{:else}
-						Update Password
-					{/if}
-				</button>
 			</form>
 		{/if}
 
-		<div class="divider">
-			<span>or</span>
+		<div class="auth-divider">
+			<span>Need a different path?</span>
 		</div>
 
-		<p class="auth-link">
-			<a href="/auth/login">Back to sign in</a>
-		</p>
+		<div class="auth-link-list">
+			<p>
+				Back to <a href="/auth/login">sign in</a>.
+			</p>
+		</div>
 	</div>
-
-	<footer class="auth-footer">
-		<p>Built for Army leaders, by Army leaders.</p>
-	</footer>
-</div>
-
-<style>
-	.auth-page {
-		min-height: 100vh;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		background: #0f0f0f;
-		padding: var(--spacing-lg);
-	}
-
-	.auth-noise {
-		position: absolute;
-		inset: 0;
-		opacity: 0.03;
-		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-		background-size: 256px 256px;
-		pointer-events: none;
-	}
-
-	.auth-card {
-		background: var(--color-surface);
-		border-radius: 12px;
-		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-		padding: var(--spacing-xl);
-		width: 100%;
-		max-width: 400px;
-	}
-
-	.brand {
-		text-align: center;
-		margin-bottom: var(--spacing-xl);
-	}
-
-	.brand-mark {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		font-weight: 500;
-		letter-spacing: 0.05em;
-		background: #b8943e;
-		color: #0f0f0f;
-		padding: 0.35rem 0.625rem;
-		border-radius: 5px;
-		display: inline-block;
-		margin-bottom: var(--spacing-sm);
-		line-height: 1;
-	}
-
-	.brand h1 {
-		font-family: var(--font-display);
-		font-size: 1.5rem;
-		font-weight: 400;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-xs);
-	}
-
-	.subtitle {
-		color: var(--color-text-muted);
-		font-family: var(--font-mono);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		font-size: 0.6875rem;
-	}
-
-	.error-message {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
-	}
-
-	.error-icon {
-		width: 18px;
-		height: 18px;
-		flex-shrink: 0;
-	}
-
-	.success-section {
-		text-align: center;
-		padding: var(--spacing-md) 0;
-	}
-
-	.success-icon {
-		width: 64px;
-		height: 64px;
-		margin: 0 auto var(--spacing-md);
-		background: #dcfce7;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: #16a34a;
-	}
-
-	.success-icon svg {
-		width: 32px;
-		height: 32px;
-	}
-
-	.success-title {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
-		margin-bottom: var(--spacing-md);
-		color: var(--color-text);
-	}
-
-	.success-text {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		line-height: 1.5;
-	}
-
-	:global([data-theme='dark']) .success-icon {
-		background: #14532d;
-		color: #4ade80;
-	}
-
-	.loading-section {
-		text-align: center;
-		padding: var(--spacing-xl) 0;
-	}
-
-	.loading-text {
-		margin-top: var(--spacing-md);
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-	}
-
-	.btn-full {
-		width: 100%;
-		margin-top: var(--spacing-sm);
-		padding: var(--spacing-md);
-	}
-
-	.divider {
-		display: flex;
-		align-items: center;
-		margin: var(--spacing-lg) 0;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-	}
-
-	.divider::before,
-	.divider::after {
-		content: '';
-		flex: 1;
-		height: 1px;
-		background: var(--color-border);
-	}
-
-	.divider span {
-		padding: 0 var(--spacing-md);
-	}
-
-	.auth-link {
-		text-align: center;
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-	}
-
-	.auth-link a {
-		color: var(--color-primary);
-		font-weight: 600;
-		text-decoration: none;
-	}
-
-	.auth-link a:hover {
-		text-decoration: underline;
-	}
-
-	.auth-footer {
-		margin-top: var(--spacing-xl);
-		text-align: center;
-		color: rgba(255, 255, 255, 0.2);
-		font-size: 0.75rem;
-		position: relative;
-	}
-
-	.theme-toggle {
-		position: fixed;
-		top: var(--spacing-lg);
-		right: var(--spacing-lg);
-		width: 40px;
-		height: 40px;
-		border-radius: 6px;
-		background: transparent;
-		border: 1px solid #2a2a2a;
-		color: #8a8780;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.theme-toggle:hover {
-		background: rgba(255, 255, 255, 0.3);
-		transform: scale(1.05);
-	}
-
-	.theme-toggle svg {
-		width: 20px;
-		height: 20px;
-	}
-
-	:global([data-theme='dark']) .error-message {
-		background: #450a0a;
-		border-color: #7f1d1d;
-		color: #fca5a5;
-	}
-</style>
+</AuthShell>

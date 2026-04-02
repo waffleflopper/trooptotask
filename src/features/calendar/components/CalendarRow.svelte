@@ -142,13 +142,16 @@
 	}
 
 	.personnel-info {
-		padding: var(--spacing-xs) var(--spacing-sm);
+		appearance: none;
+		border: none;
+		min-height: var(--cell-height);
+		padding: 5px var(--sp-3);
 		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-sm);
-		background: var(--color-surface);
-		border-right: 1px solid var(--color-border);
-		border-bottom: 1px solid var(--color-border);
+		align-items: center;
+		gap: var(--sp-2);
+		background: var(--surface-panel);
+		border-right: var(--border-thin);
+		border-bottom: var(--border-thin);
 		position: sticky;
 		left: 0;
 		z-index: 3;
@@ -161,15 +164,17 @@
 	}
 
 	.personnel-info:hover {
-		background-color: var(--color-bg);
+		background-color: var(--surface-subtle);
 	}
 
 	.rank {
-		font-weight: 600;
-		font-size: var(--font-size-sm);
-		color: var(--color-primary);
-		min-width: 35px;
-		padding-top: 1px;
+		min-width: 42px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
 	}
 
 	.name-block {
@@ -182,29 +187,33 @@
 	.name-line {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		gap: 6px;
 		min-width: 0;
 	}
 
 	.name {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.onboarding-dot {
-		width: 7px;
-		height: 7px;
-		border-radius: 50%;
-		background: var(--color-primary);
+		width: 8px;
+		height: 8px;
+		border-radius: 1px;
+		background: var(--amber);
 		flex-shrink: 0;
 	}
 
 	.role {
+		font-family: var(--font-mono);
 		font-size: 10px;
-		color: var(--color-text-muted);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -213,16 +222,15 @@
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
 		.personnel-info {
-			padding: var(--spacing-xs);
+			padding: 6px var(--sp-2);
 		}
 
 		.rank {
-			font-size: var(--font-size-xs);
-			min-width: 28px;
+			min-width: 34px;
 		}
 
 		.name {
-			font-size: var(--font-size-xs);
+			font-size: var(--text-xs);
 		}
 
 		.role {

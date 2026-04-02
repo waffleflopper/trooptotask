@@ -2,12 +2,68 @@
 
 Shared UI primitives live in `src/lib/components/ui/`. Import via `$lib/components/ui/...`.
 Layout components (Modal, PageToolbar) live in `src/lib/components/`. Import via `$lib/components/...`.
+Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
+
+---
+
+## Public Marketing Shell
+
+Use these for any top-level marketing, legal, or trust page so the public site keeps one shared shell and one navigation/footer contract.
+
+```svelte
+<PublicShell user={data.user} active="pricing" bodyClass="pricing-page" roadmapHref="/#roadmap">
+	<PublicPageHeader label="Pricing">
+		{#snippet title()}Simple, transparent <em>pricing.</em>{/snippet}
+		<p>No feature gating. Every plan gets the full platform.</p>
+	</PublicPageHeader>
+
+	<PublicContentSection label="01 // Tiering" alternate>
+		{#snippet title()}Sized for the formation.{/snippet}
+		<p>Section body...</p>
+	</PublicContentSection>
+</PublicShell>
+```
+
+### `public/PublicShell.svelte`
+
+Shared public wrapper that renders the classification bar, site nav, optional CTA, and footer around page content.
+
+Props: `user?: unknown`, `active?: 'features' | 'pricing' | 'security'`, `bodyClass?: string`, `roadmapHref?: string`, `faqHref?: string`, `showFaqLink?: boolean`, `showCta?: boolean`, `ctaTitleBefore?: string`, `ctaEmphasis?: string`, `ctaSubtitle?: string`, `children: Snippet`, `cta?: Snippet`
+
+Guidance:
+- Prefer this over duplicating nav/footer/CTA markup in public routes.
+- Use `roadmapHref="#roadmap"` and `faqHref="#faq"` on the landing page; use `/#roadmap` for inner pages.
+- Pass a custom `cta` snippet only when the default shared CTA is not enough.
+
+### `public/PublicPageHeader.svelte`
+
+Shared inner-page hero/header for marketing, legal, pricing, and trust pages.
+
+Props: `label: string`, `title: Snippet`, `children?: Snippet`
+
+Guidance:
+- Keep `label` short, mono, and structural.
+- Put supporting copy and metadata like effective dates in `children`; use `.page-meta` for low-emphasis header metadata.
+
+### `public/PublicContentSection.svelte`
+
+Shared section framing for legal/trust/public longform pages.
+
+Props: `label: string`, `alternate?: boolean`, `title?: Snippet`, `children: Snippet`
+
+Guidance:
+- Alternate sections with `alternate` when you need rhythm across long-form pages.
+- Use `.contact-card` inside section content for disclosure/support email callouts.
+
+### `public/PublicSiteNav.svelte`, `public/PublicCta.svelte`, `public/PublicFooter.svelte`
+
+Lower-level shell primitives used internally by `PublicShell`. Reach for these directly only if you have a compelling reason to diverge from the standard public page wrapper.
 
 ---
 
 ## `PageToolbar.svelte`
 
-Page header toolbar with title, actions, breadcrumbs, and variant support.
+Page header toolbar with title, actions, breadcrumbs, and optional below-content. The refreshed toolbar uses a field-document hierarchy: mono breadcrumbs, condensed uppercase title, serif-supporting subtitle, and restrained action framing.
 
 ```svelte
 <!-- Basic usage -->
@@ -40,13 +96,18 @@ Page header toolbar with title, actions, breadcrumbs, and variant support.
 </PageToolbar>
 ```
 
-Props: `title: string`, `helpTopic?: string`, `overflowItems?: OverflowItem[]`, `variant?: 'default' | 'compact' | 'transparent'`, `sticky?: boolean`, `breadcrumbs?: { label: string; href?: string }[]`, `subtitle?: string`, `children?: Snippet` (actions), `leading?: Snippet`, `below?: Snippet`
+Props: `title: string`, `helpTopic?: string`, `overflowItems?: OverflowItem[]`, `variant?: 'default' | 'compact'`, `sticky?: boolean`, `breadcrumbs?: { label: string; href?: string }[]`, `subtitle?: string`, `children?: Snippet` (actions), `leading?: Snippet`, `below?: Snippet`
+
+Toolbar guidance:
+- Use `variant="default"` for normal product pages and `variant="compact"` for denser detail views.
+- Keep breadcrumbs short and structural; they render as mono navigation labels.
+- Prefer `subtitle` for context or counts rather than adding decorative badges beside the title.
 
 ---
 
 ## `Modal.svelte`
 
-Base modal wrapper. Use for all modals. Default width is `480px`.
+Base modal wrapper. Use for all modals. Default width is `480px`. The refreshed modal shell uses a structured document-style header/footer, dark close affordance, and shared focus treatment.
 
 ```svelte
 <Modal title="Edit Foo" {onClose} width="500px" titleId="foo-title">
@@ -73,7 +134,7 @@ Base modal wrapper. Use for all modals. Default width is `480px`.
 </Modal>
 ```
 
-**Modal footer convention**: `[Delete] [spacer] [Cancel] [Save]`
+**Modal footer convention**: `[Delete] [spacer] [Cancel/Close] [Primary or amber confirm]`
 
 Props: `title: string`, `onClose: () => void`, `width?: string` (default `'480px'`), `titleId?: string`, `canClose?: boolean` (default `true` — set to `false` during async ops to block Escape/backdrop), `showCloseButton?: boolean` (default `true`), `headerActions?: Snippet`, `children: Snippet`, `footer?: Snippet`
 
@@ -104,16 +165,21 @@ The confirm button shows a spinner and both buttons are disabled while `onConfir
 
 ## `ui/Badge.svelte`
 
-Colored label pill.
+Compact metadata or status label. Badges are now intentionally mono and uppercase so they read like labels instead of decorative pills.
 
 ```svelte
-<Badge label="CPR/BLS" color="var(--color-info)" />
+<Badge label="TDY" color="var(--color-info)" />
 <Badge label="Leave" color={status.color} textColor={status.textColor} />
-<Badge label="ADMIN" color="var(--color-info)" bold={true} />
-<Badge label="Freeform" variant="outlined" />
+<Badge label="Admin" color="var(--color-info)" bold={true} />
+<Badge label="Draft" variant="outlined" />
 ```
 
-Props: `label: string`, `color?: string`, `textColor?: string` (default `'white'`), `bold?: boolean`, `variant?: 'filled' | 'outlined'`
+Props: `label: string`, `color?: string`, `textColor?: string` (default `'white'` when a custom filled color is passed), `bold?: boolean`, `variant?: 'filled' | 'outlined'`
+
+Badge guidance:
+- Reserve filled badges for real state or metadata labels.
+- Use `variant="outlined"` for neutral, low-emphasis labels.
+- Prefer shared semantic tokens (`--color-success`, `--color-warning`, `--color-error`, `--color-info`) over arbitrary decorative colors when possible.
 
 ---
 
@@ -155,7 +221,7 @@ Stage states: `completed` (before current — filled dot, primary connector), `c
 
 ## `ui/FormField.svelte`
 
-Labeled form field with error/hint states and accessibility wiring.
+Labeled form field with mono label treatment, error/hint states, and accessibility wiring.
 
 ```svelte
 <!-- Simple text input -->
@@ -183,13 +249,17 @@ Props: `label: string`, `id: string`, `inputElement?: 'input' | 'select' | 'text
 
 Accessibility: `label[for]` wired to `id`, `aria-describedby` for error/hint, `aria-invalid` when error, `required` forwarded to native element.
 
+Field guidance:
+- Labels render as mono utility labels by default; keep them short and specific.
+- Hints and errors occupy a reserved support row so layouts do not jump as much when validation appears.
+
 **Children escape hatch**: When using `children`, manually wire `aria-describedby="{id}-error"` or `"{id}-hint"` on your custom input — FormField renders those spans but can't auto-apply them to custom children.
 
 ---
 
 ## `ui/SearchSelect.svelte`
 
-Searchable single-select with keyboard navigation and clear button. Use when `<select>` is too limiting.
+Searchable single-select with keyboard navigation and clear button. Use when `<select>` is too limiting but you still want a shared field treatment.
 
 ```svelte
 <SearchSelect
@@ -205,12 +275,13 @@ Props: `options: { value: string; label: string }[]`, `value: string` (bindable)
 - Typing filters the dropdown; keyboard arrows + Enter to navigate; Escape to close
 - Shows a × clear button when a value is selected
 - Clears to `''` when cleared
+- The control reuses shared field density/focus treatment, so prefer it over custom searchable listboxes
 
 ---
 
 ## `ui/SubNav.svelte`
 
-Secondary tab navigation with badge counts.
+Secondary tab navigation with badge counts. Styling is underline-driven and product-dense so sub-page mode switches do not drift back into pill-heavy treatment.
 
 ```svelte
 <SubNav
@@ -220,11 +291,14 @@ Secondary tab navigation with badge counts.
 	]}
 	active={currentTab}
 	onChange={(tab) => goto(`/org/${orgId}/admin/${tab}`)}
-	variant="underline"
 />
 ```
 
-Props: `tabs: { label: string; value: string; badge?: number }[]`, `active: string`, `onChange: (value: string) => void`, `variant?: 'underline' | 'pill'` (default `'underline'`)
+Props: `tabs: { label: string; value: string; badge?: number }[]`, `active: string`, `onChange: (value: string) => void`
+
+Sub-nav guidance:
+- Use this for page-level mode switches and sibling sub-routes.
+- Badge counts are mono status counts, not decorative accents.
 
 ---
 
@@ -397,7 +471,7 @@ All three use the `.skeleton-pulse` animation class and are `aria-hidden`.
 
 ## `ui/data-table/DataTable.svelte`
 
-Visual table component with sorting, search, pagination, grouping, and custom cell rendering.
+Visual table component with sorting, search, pagination, grouping, and custom cell rendering. The refreshed table uses mono headers, restrained row rules, keyboard-reachable sort buttons, and document-style group toggles.
 
 ```svelte
 <!-- Simple usage -->
@@ -423,6 +497,11 @@ Props: `data?: T[]`, `columns: ColumnDef<T>[]`, `table?: DataTableState<T>`, `in
 Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 
 Import: `import { DataTable } from '$lib/components/ui/data-table';`
+
+Table guidance:
+- Use the built-in header sort buttons instead of rolling your own sortable chrome.
+- Prefer custom `cell` snippets for semantic emphasis such as person-name columns, badges, or actions.
+- Reserve `striped` for especially dense matrix-like views; default tables now intentionally rely on rules and hover states instead.
 
 ---
 
@@ -459,17 +538,46 @@ const table = useDataTable({
 
 ## CSS Design System (`app.css`)
 
-### Spacing (8px grid)
+### Canonical Tokens
 
-`--spacing-2xs: 2px` | `--spacing-xs: 4px` | `--spacing-sm: 8px` | `--spacing-md: 16px` | `--spacing-lg: 24px` | `--spacing-xl: 32px`
+New work should use the canonical design-system tokens from `src/app.css`.
 
-### Colors
+### Palette
 
-- **Primary**: `--color-primary: #b8943e` (brass)
-- **Surface**: `--color-bg`, `--color-surface`, `--color-surface-variant`
-- **Text**: `--color-text`, `--color-text-secondary`, `--color-text-muted`
-- **Border**: `--color-border`, `--color-divider`
-- **Status**: `--color-success`, `--color-warning`, `--color-error`, `--color-info`
+Light mode:
+`--ink` | `--ink-60` | `--ink-35` | `--ink-15` | `--ink-06` | `--ink-03` | `--paper` | `--white`
+
+Dark mode remaps the same token names through `:root[data-theme='dark']`.
+
+Accent + semantic states:
+`--amber` | `--amber-light` | `--amber-dark` | `--amber-vivid` | `--success` / `--success-bg` | `--danger` / `--danger-bg` | `--info` / `--info-bg`
+
+### Typography
+
+`--font-display: 'Barlow Condensed'`
+`--font-body: 'Source Serif 4'`
+`--font-mono: 'IBM Plex Mono'`
+
+Primary scale:
+`--text-xs` | `--text-sm` | `--text-base` | `--text-lg` | `--text-xl` | `--text-2xl` | `--text-3xl`
+
+### Spacing / Border / Elevation
+
+Spacing:
+`--sp-1: 4px` | `--sp-2: 8px` | `--sp-3: 12px` | `--sp-4: 16px` | `--sp-6: 24px` | `--sp-8: 32px` | `--sp-12: 48px`
+
+Borders and radius:
+`--border-thin` | `--border-rule` | `--radius-sm: 2px` | `--radius-md: 4px` | `--radius-lg: 6px`
+
+Elevation:
+`--shadow-sm` | `--shadow-md` | `--shadow-lg`
+
+Focus:
+`--focus-outline` | `--focus-ring`
+
+### Cleanup Status
+
+The migration alias bridge has been removed from `src/app.css`. New work should use canonical tokens directly instead of older `--color-*`, `--spacing-*`, `--font-size-*`, or `--shadow-*` compatibility names.
 
 ### Chrome / App Shell Tokens
 
@@ -481,7 +589,7 @@ Semantic tokens for the header, nav, and app shell. Dark by default, theme-contr
 | `--color-chrome-text` | App shell text |
 | `--color-chrome-text-muted` | App shell secondary text |
 | `--color-chrome-border` | App shell borders |
-| `--color-chrome-active` | Active nav item (`var(--color-primary)`) |
+| `--color-chrome-active` | Active nav item (`var(--amber)`) |
 
 ### Form Field Tokens
 
@@ -498,6 +606,15 @@ Semantic tokens for the header, nav, and app shell. Dark by default, theme-contr
 
 `--toolbar-bg` | `--toolbar-border`
 
+### Compact UI Tokens
+
+These are canonical density helpers retained after the cleanup because they express product-specific sizing, not migration scaffolding.
+
+`--text-ui-sm: 0.75rem` | `--text-ui-base: 1rem` | `--text-ui-xl: 1.25rem`
+`--radius-pill: 9999px`
+`--divider-color`
+`--danger-tint`
+
 ### Opacity Scale
 
 | Token | Value | Use case |
@@ -507,13 +624,25 @@ Semantic tokens for the header, nav, and app shell. Dark by default, theme-contr
 | `--opacity-medium` | `0.15` | Active states |
 | `--opacity-heavy` | `0.45` | Disabled states |
 
-### Typography
+### #454 Grep Allowlist
 
-`--font-size-xs: 11px` | `--font-size-sm: 12px` | `--font-size-base: 14px` | `--font-size-lg: 16px`
+If you run the hard-exit grep from issue `#454`, the expected matches are canonical tokens only:
 
-### Border Radius
+- `--color-chrome*`
+- `--radius-sm` / `--radius-md` / `--radius-lg` / `--radius-pill`
+- `--shadow-sm` / `--shadow-md` / `--shadow-lg`
+- `--text-ui-sm` / `--text-ui-base` / `--text-ui-xl`
+- `--divider-color`
+- `--danger-tint`
 
-`--radius-sm: 4px` | `--radius-md: 8px` | `--radius-lg: 12px` | `--radius-full: 9999px`
+Reason for retention:
+These tokens are part of the current design system and still have active consumers across the authenticated shell, dense reporting surfaces, toast/menu primitives, and compact utility layouts.
+
+Current consumer groups:
+Public shell chrome, authenticated app chrome, dense calendar/duty-roster reports, shared utility components, and notification/toast surfaces.
+
+Follow-up removal issue:
+None. These are canonical tokens, not temporary aliases.
 
 ### Utility Classes
 
@@ -547,7 +676,13 @@ Semantic tokens for the header, nav, and app shell. Dark by default, theme-contr
 
 ### Button Classes
 
-`.btn .btn-primary` | `.btn .btn-secondary` | `.btn .btn-danger` | `.btn .btn-sm`
+`.btn .btn-primary` | `.btn .btn-secondary` | `.btn .btn-amber` / `.btn .btn-warning` | `.btn .btn-danger` | `.btn .btn-sm`
+
+Button guidance:
+- `btn-primary`: dark filled action for the default strong action on product surfaces.
+- `btn-amber` / `btn-warning`: reserved signal action for confirms, requests, exports, or actions that need deliberate emphasis.
+- `btn-secondary`: restrained outline action for cancel, back, close, and secondary utility actions.
+- `btn-danger`: destructive action only.
 
 ### Form Classes
 

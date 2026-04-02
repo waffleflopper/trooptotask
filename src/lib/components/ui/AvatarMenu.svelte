@@ -109,6 +109,7 @@
 <div class="avatar-menu-wrapper">
 	<button
 		class="avatar-circle"
+		class:open={menuOpen}
 		type="button"
 		onclick={toggleMenu}
 		aria-label="Account menu"
@@ -130,23 +131,36 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 32px;
-		height: 32px;
-		border-radius: 50%;
-		background: var(--color-chrome-active);
-		color: var(--color-chrome);
+		min-width: 2.25rem;
+		height: 2.25rem;
+		padding: 0 0.7rem;
+		border-radius: var(--radius-md);
+		background: rgba(240, 239, 233, 0.03);
+		color: var(--color-chrome-text);
 		font-family: var(--font-mono);
-		font-weight: 700;
-		font-size: 14px;
+		font-weight: var(--font-weight-medium);
+		font-size: var(--text-xs);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 		line-height: 1;
-		border: none;
+		border: 1px solid var(--color-chrome-border);
 		cursor: pointer;
-		padding: 0;
-		transition: opacity var(--transition-fast);
+		transition:
+			border-color var(--transition-fast),
+			background var(--transition-fast),
+			color var(--transition-fast);
 		user-select: none;
 	}
 
 	.avatar-circle:hover {
-		opacity: 0.85;
+		color: var(--color-chrome-text);
+		border-color: rgba(240, 239, 233, 0.16);
+		background: rgba(240, 239, 233, 0.06);
+	}
+
+	.avatar-circle.open {
+		color: var(--color-chrome-active);
+		border-color: rgba(var(--amber-rgb), 0.42);
+		background: rgba(var(--amber-rgb), 0.08);
 	}
 </style>

@@ -42,5 +42,6 @@
 		z-index: 90;
 		display: flex;
 		flex-direction: column;
+		background: transparent;
 	}
 </style>

@@ -28,21 +28,21 @@
 		justify-content: center;
 		min-height: 60vh;
 		text-align: center;
-		padding: var(--spacing-xl);
+		padding: var(--sp-8);
 	}
 
 	h1 {
 		font-size: 72px;
 		font-weight: 700;
-		color: var(--color-primary);
-		margin: 0 0 var(--spacing-sm);
+		color: var(--amber);
+		margin: 0 0 var(--sp-2);
 		line-height: 1;
 	}
 
 	.error-message {
-		font-size: var(--font-size-lg);
-		color: var(--color-text-secondary);
-		margin: 0 0 var(--spacing-lg);
+		font-size: var(--text-base);
+		color: var(--text-secondary);
+		margin: 0 0 var(--sp-6);
 		max-width: 400px;
 	}
 </style>

@@ -7,6 +7,7 @@
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 	import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
@@ -21,9 +22,10 @@
 		ctx: PersonnelPageContext;
 		allPersonnel: import('$lib/types').Personnel[];
 		permissions: import('$lib/types').OrganizationMemberPermissions | null | undefined;
+		onPageViewChange: (view: 'roster' | 'rating-scheme') => void;
 	}
 
-	let { ctx, allPersonnel, permissions }: Props = $props();
+	let { ctx, allPersonnel, permissions, onPageViewChange }: Props = $props();
 
 	let exportLoading = $state(false);
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
@@ -114,9 +116,12 @@
 		overflowItems={personnelOverflowItems}
 	>
 		{#if ctx.canAddPersonnel}
-			<button class="btn-ghost" onclick={() => ctx.openGroupManager()} disabled={readOnly}> Manage Groups </button>
+			<button class="btn-ghost" type="button" onclick={() => ctx.openGroupManager()} disabled={readOnly}>
+				Manage Groups
+			</button>
 			<button
 				class="btn btn-sm btn-primary"
+				type="button"
 				data-testid="add-personnel-btn"
 				onclick={() => ctx.handleAdd()}
 				disabled={readOnly}
@@ -124,7 +129,7 @@
 				Add Person
 			</button>
 			{#if readOnly}
-				<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+				<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
 			{/if}
 		{/if}
 	</PageToolbar>
@@ -135,17 +140,29 @@
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
 		</div>
 	{:else}
-		<div class="page-view-toggle">
-			<button class="page-view-btn" class:active={ctx.pageView === 'roster'} onclick={() => (ctx.pageView = 'roster')}>
-				Roster
-			</button>
-			<button
-				class="page-view-btn"
-				class:active={ctx.pageView === 'rating-scheme'}
-				onclick={() => (ctx.pageView = 'rating-scheme')}
-			>
-				Rating Scheme
-			</button>
+		<div class="page-view-shell">
+			<div class="page-view-toggle" role="tablist" aria-label="Personnel page views">
+				<button
+					class="page-view-btn"
+					type="button"
+					role="tab"
+					aria-selected={ctx.pageView === 'roster'}
+					class:active={ctx.pageView === 'roster'}
+					onclick={() => onPageViewChange('roster')}
+				>
+					Roster
+				</button>
+				<button
+					class="page-view-btn"
+					type="button"
+					role="tab"
+					aria-selected={ctx.pageView === 'rating-scheme'}
+					class:active={ctx.pageView === 'rating-scheme'}
+					onclick={() => onPageViewChange('rating-scheme')}
+				>
+					Rating Scheme
+				</button>
+			</div>
 		</div>
 
 		{#if ctx.pageView === 'roster'}
@@ -167,7 +184,15 @@
 						>
 							{#snippet toolbar(tbl)}
 								<div class="roster-toolbar">
-									<span class="roster-count">({personnelStore.items.length})</span>
+									<div class="roster-toolbar-copy">
+										<span class="roster-kicker">Personnel roster</span>
+										<div class="roster-meta">
+											<Badge label={`${personnelStore.items.length} total`} variant="outlined" />
+											{#if tbl.search && tbl.totalRows !== personnelStore.items.length}
+												<Badge label={`${tbl.totalRows} shown`} />
+											{/if}
+										</div>
+									</div>
 									<input
 										type="search"
 										class="input roster-search"
@@ -177,24 +202,25 @@
 									/>
 									<div class="view-toggle">
 										<span class="view-label">View:</span>
-										<button
-											class="view-btn"
-											class:active={ctx.viewMode === 'alphabetical'}
-											onclick={() => (ctx.viewMode = 'alphabetical')}
-										>
-											A-Z
-										</button>
-										<button
-											class="view-btn"
-											class:active={ctx.viewMode === 'by-group'}
-											onclick={() => (ctx.viewMode = 'by-group')}
-										>
-											By Group
-										</button>
+										<div class="view-toggle-controls" role="group" aria-label="Roster sort mode">
+											<button
+												class="view-btn"
+												type="button"
+												class:active={ctx.viewMode === 'alphabetical'}
+												onclick={() => (ctx.viewMode = 'alphabetical')}
+											>
+												A-Z
+											</button>
+											<button
+												class="view-btn"
+												type="button"
+												class:active={ctx.viewMode === 'by-group'}
+												onclick={() => (ctx.viewMode = 'by-group')}
+											>
+												By Group
+											</button>
+										</div>
 									</div>
-									{#if tbl.search && tbl.totalRows !== personnelStore.items.length}
-										<span class="roster-filter-info">Showing {tbl.totalRows} of {personnelStore.items.length}</span>
-									{/if}
 								</div>
 							{/snippet}
 							{#snippet cell(row, col)}
@@ -218,18 +244,19 @@
 							{/snippet}
 							{#snippet groupHeader(group)}
 								<div class="dt-group-header">
-									<button class="dt-group-toggle" onclick={group.toggle}>
+									<button class="dt-group-toggle" type="button" onclick={group.toggle}>
 										<span class="dt-toggle-icon">{group.collapsed ? '▶' : '▼'}</span>
-										<span>{group.label}</span>
-										<span class="dt-group-count">({group.count})</span>
+										<span class="dt-group-label">{group.label}</span>
+										<span class="dt-group-count">{group.count}</span>
 									</button>
 									<button
 										class="dt-pin-btn"
+										type="button"
 										class:pinned={pinnedGroupsStore.list.includes(group.key)}
 										onclick={() => pinnedGroupsStore.toggle(group.key)}
 										title={pinnedGroupsStore.list.includes(group.key) ? 'Unpin group' : 'Pin group to top'}
 									>
-										{pinnedGroupsStore.list.includes(group.key) ? '📌' : '📍'}
+										{pinnedGroupsStore.list.includes(group.key) ? 'Pinned' : 'Pin'}
 									</button>
 								</div>
 							{/snippet}
@@ -267,11 +294,12 @@
 						Add Entry
 					</button>
 					{#if readOnly}
-						<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+						<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
 					{/if}
 				{/if}
 				<button
 					class="btn btn-sm btn-secondary"
+					type="button"
 					disabled={exportLoading}
 					onclick={async () => {
 						exportLoading = true;
@@ -308,20 +336,24 @@
 					</select>
 				{/if}
 				<div class="view-toggle">
-					<button
-						class="view-btn"
-						class:active={ctx.ratingViewMode === 'grouped'}
-						onclick={() => (ctx.ratingViewMode = 'grouped')}
-					>
-						Grouped
-					</button>
-					<button
-						class="view-btn"
-						class:active={ctx.ratingViewMode === 'table'}
-						onclick={() => (ctx.ratingViewMode = 'table')}
-					>
-						Table
-					</button>
+					<div class="view-toggle-controls" role="group" aria-label="Rating scheme view mode">
+						<button
+							class="view-btn"
+							type="button"
+							class:active={ctx.ratingViewMode === 'grouped'}
+							onclick={() => (ctx.ratingViewMode = 'grouped')}
+						>
+							Grouped
+						</button>
+						<button
+							class="view-btn"
+							type="button"
+							class:active={ctx.ratingViewMode === 'table'}
+							onclick={() => (ctx.ratingViewMode = 'table')}
+						>
+							Table
+						</button>
+					</div>
 				</div>
 			</div>
 
@@ -349,162 +381,228 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-		background: var(--color-bg);
+		background: var(--surface-page);
+	}
+
+	.page-view-shell {
+		padding: var(--sp-4) var(--sp-6);
+		border-bottom: var(--border-thin);
+		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
 	}
 
 	.page-view-toggle {
-		display: flex;
-		justify-content: center;
-		gap: 0;
-		padding: var(--spacing-sm) var(--spacing-lg);
-		border-bottom: 1px solid var(--color-border);
-		background: var(--color-surface);
+		display: inline-flex;
+		align-items: stretch;
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+		background: var(--surface-panel);
 	}
 
 	.btn-ghost {
-		background: none;
-		border: none;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		padding: var(--spacing-xs) var(--spacing-sm);
+		appearance: none;
+		display: flex;
+		align-items: center;
+		min-height: 34px;
+		padding: 7px 12px;
+		border: 1px solid transparent;
 		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 		cursor: pointer;
-		transition: all 0.15s;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.btn-ghost:hover {
-		color: var(--color-text);
-		background: var(--color-surface-variant);
+		color: var(--text-primary);
+		border-color: var(--border-default);
+		background: var(--surface-subtle);
 	}
 
 	.page-view-btn {
-		padding: var(--spacing-xs) var(--spacing-lg);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		border: 1px solid var(--color-border);
+		appearance: none;
+		min-height: 36px;
+		padding: 0 16px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		border: none;
 		background: transparent;
-		color: var(--color-text-secondary);
+		color: var(--text-secondary);
 		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.page-view-btn:first-child {
-		border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-	}
-
-	.page-view-btn:last-child {
-		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-		border-left: none;
+		transition:
+			background-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.page-view-btn.active {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
-		color: white;
+		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
+		color: var(--amber-dark);
 	}
 
 	.rating-stats-bar {
-		display: flex;
-		gap: var(--spacing-md);
-		padding: var(--spacing-md) var(--spacing-lg);
-		border-bottom: 1px solid var(--color-border);
-		background: var(--color-surface);
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+		gap: var(--sp-3);
+		padding: var(--sp-4) var(--sp-6);
+		border-bottom: var(--border-thin);
+		background: color-mix(in srgb, var(--surface-panel) 94%, var(--surface-subtle) 6%);
 	}
 
 	.rating-stat {
 		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		font-size: var(--font-size-sm);
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--sp-1);
+		padding: var(--sp-3) var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
 	}
 
 	.stat-count {
-		font-weight: 600;
+		font-family: var(--font-display);
+		font-size: clamp(1.35rem, 1.1rem + 0.4vw, 1.8rem);
+		font-weight: var(--font-weight-display);
+		line-height: 1;
 		color: var(--stat-color);
 	}
 
 	.stat-label {
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
 	.rating-toolbar {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-lg);
-		border-bottom: 1px solid var(--color-border);
-		background: var(--color-surface);
+		flex-wrap: wrap;
+		gap: var(--sp-3);
+		padding: var(--sp-3) var(--sp-6);
+		border-bottom: var(--border-thin);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
 	.rating-filter {
 		width: auto;
-		font-size: var(--font-size-sm);
+		min-width: 136px;
+		font-size: var(--text-sm);
 	}
 
-	/* Personnel Roster Toolbar */
 	.roster-toolbar {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
-		padding: var(--spacing-md) var(--spacing-lg);
-		border-bottom: 1px solid var(--color-divider);
+		flex-wrap: wrap;
+		gap: var(--sp-3);
+		padding: var(--sp-4) var(--sp-5);
+		border-bottom: var(--border-thin);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
-	.roster-count {
+	.roster-toolbar-copy {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+		margin-right: auto;
+		min-width: 0;
+	}
+
+	.roster-kicker {
 		font-family: var(--font-mono);
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
+	}
+
+	.roster-meta {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	.roster-search {
-		flex: 1;
-		max-width: 400px;
-	}
-
-	.roster-filter-info {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		flex: 1 1 260px;
+		max-width: 360px;
 	}
 
 	.view-toggle {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
+	}
+
+	.view-toggle-controls {
+		display: inline-flex;
+		align-items: stretch;
+	}
+
+	.view-toggle-controls .view-btn + .view-btn {
+		margin-left: -1px;
 	}
 
 	.view-label {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
 	.view-btn {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-		color: var(--color-text);
+		appearance: none;
+		min-height: 32px;
+		padding: 0 12px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		border: var(--border-thin);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.view-btn:first-of-type {
-		border-radius: var(--radius-md) 0 0 var(--radius-md);
+		border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 	}
 
 	.view-btn:last-of-type {
-		border-radius: 0 var(--radius-md) var(--radius-md) 0;
-		border-left: none;
+		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 	}
 
 	.view-btn:hover {
-		background: var(--color-bg);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
 	}
 
 	.view-btn.active {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
-		color: white;
+		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
+		border-color: var(--amber);
+		color: var(--amber-dark);
 	}
 
 	.no-permission {
@@ -512,32 +610,51 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		min-height: 300px;
+		min-height: 320px;
+		margin: var(--sp-6);
+		padding: var(--sp-8);
 		text-align: center;
-		color: var(--color-text-muted);
+		color: var(--text-secondary);
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
 	}
+
 	.no-permission h2 {
-		font-size: var(--font-size-lg);
-		margin-bottom: var(--spacing-sm);
-		color: var(--color-text);
+		margin: 0 0 var(--sp-2);
+		font-family: var(--font-display);
+		font-size: clamp(1.5rem, 1.2rem + 0.8vw, 2.1rem);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--text-primary);
 	}
 
-	/* .page-content base + mobile in app.css */
+	.no-permission p {
+		margin: 0;
+		max-width: 44ch;
+		line-height: var(--line-height-copy);
+	}
 
-	/* DataTable cell styles */
 	.cell-rank {
-		font-weight: 600;
-		color: var(--color-primary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
 	}
 
 	.cell-name {
-		font-weight: 500;
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
 	}
 
-	/* DataTable group header styles */
 	.dt-group-header {
 		display: flex;
 		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-3);
 		width: 100%;
 	}
 
@@ -545,13 +662,16 @@
 		flex: 1;
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-xs) 0;
+		gap: var(--sp-2);
+		padding: 9px 0;
 		background: transparent;
 		border: none;
-		color: inherit;
-		font: inherit;
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
 		cursor: pointer;
 		text-align: left;
 	}
@@ -559,36 +679,71 @@
 	.dt-toggle-icon {
 		font-size: 10px;
 		width: 12px;
+		color: var(--amber-dark);
+	}
+
+	.dt-group-label {
+		color: var(--text-primary);
 	}
 
 	.dt-group-count {
-		font-weight: 400;
-		opacity: 0.8;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 22px;
+		min-height: 22px;
+		padding: 3px 6px;
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
+		font-size: var(--text-xs);
+		letter-spacing: 0.08em;
 	}
 
 	.dt-pin-btn {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		background: transparent;
-		border: none;
-		opacity: 0.5;
-		font-size: 14px;
+		appearance: none;
+		min-height: 28px;
+		padding: 0 10px;
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 		cursor: pointer;
-		transition: opacity 0.15s ease;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.dt-pin-btn:hover {
-		opacity: 1;
+		background: var(--surface-subtle);
+		border-color: var(--ink-35);
+		color: var(--text-primary);
 	}
 
 	.dt-pin-btn.pinned {
-		opacity: 1;
+		border-color: var(--amber);
+		background: var(--amber-light);
+		color: var(--amber-dark);
 	}
 
-	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
+		.page-view-shell,
+		.rating-stats-bar,
+		.rating-toolbar {
+			padding-left: var(--sp-4);
+			padding-right: var(--sp-4);
+		}
+
 		.roster-toolbar {
 			flex-wrap: wrap;
-			padding: var(--spacing-sm) var(--spacing-md);
+			padding: var(--sp-4);
 		}
 
 		.roster-search {
@@ -600,9 +755,13 @@
 			width: 100%;
 			justify-content: flex-start;
 		}
+
+		.rating-filter {
+			min-width: unset;
+			width: 100%;
+		}
 	}
 
-	/* Tablet Responsive Styles */
 	@media (min-width: 641px) and (max-width: 1024px) {
 		.roster-search {
 			max-width: 300px;

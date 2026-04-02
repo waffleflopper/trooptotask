@@ -102,14 +102,20 @@
 
 <style>
 	.date-cell {
+		appearance: none;
+		border: none;
+		background-color: transparent;
 		min-height: var(--cell-height);
 		min-width: 0;
 		overflow: hidden;
-		border-right: 1px solid var(--color-border);
-		border-bottom: 1px solid var(--color-border);
+		border-right: var(--border-thin);
+		border-bottom: var(--border-thin);
 		cursor: pointer;
 		position: relative;
-		transition: all 0.1s ease;
+		transition:
+			background-color var(--transition-fast),
+			box-shadow var(--transition-fast),
+			filter var(--transition-fast);
 		display: flex;
 		align-items: flex-start;
 		justify-content: center;
@@ -117,15 +123,15 @@
 	}
 
 	.date-cell:hover {
-		box-shadow: inset 0 0 0 2px var(--color-primary);
+		box-shadow: inset 0 0 0 1px var(--amber);
 	}
 
 	.date-cell:not(.has-status):hover {
-		background-color: rgba(var(--color-primary-rgb), 0.06);
+		background-color: rgba(var(--amber-rgb), 0.06);
 	}
 
 	.date-cell.has-status:hover {
-		filter: brightness(0.92);
+		filter: brightness(0.96);
 	}
 
 	.weekend {
@@ -137,16 +143,16 @@
 	}
 
 	.today {
-		box-shadow: inset 0 0 0 2px var(--color-today-border);
+		box-shadow: inset 0 0 0 1px var(--color-today-border);
 		z-index: 1;
 	}
 
 	.has-status.today {
-		box-shadow: inset 0 0 0 2px var(--color-today-border);
+		box-shadow: inset 0 0 0 1px var(--color-today-border);
 	}
 
 	.has-assignment {
-		box-shadow: inset 0 0 0 2px var(--color-primary);
+		box-shadow: inset 0 0 0 1px var(--amber);
 	}
 
 	.assignment-badges {
@@ -157,8 +163,11 @@
 	}
 
 	.assignment-badge {
+		font-family: var(--font-mono);
 		font-size: 7px;
-		font-weight: 700;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
 		color: white;
 		padding: 1px 2px;
 		border-radius: 2px;
@@ -169,17 +178,21 @@
 		position: absolute;
 		bottom: 1px;
 		right: 1px;
+		font-family: var(--font-mono);
 		font-size: 9px;
-		background: rgba(0, 0, 0, 0.6);
-		color: white;
+		background: rgba(14, 14, 13, 0.78);
+		color: var(--paper);
 		border-radius: 2px;
 		padding: 0 3px;
 		line-height: 1.2;
 	}
 
 	.status-text {
+		font-family: var(--font-mono);
 		font-size: 8px;
-		font-weight: 600;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;

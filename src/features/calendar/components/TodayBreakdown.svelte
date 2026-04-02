@@ -283,12 +283,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-lg);
-		background: var(--color-primary);
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-6);
+		background: var(--amber);
 		color: var(--color-chrome);
 		/* Bleed past modal-body padding to fill edge-to-edge */
-		margin: calc(-1 * var(--spacing-md)) calc(-1 * var(--spacing-lg)) 0;
+		margin: calc(-1 * var(--sp-4)) calc(-1 * var(--sp-6)) 0;
 		position: relative;
 	}
 
@@ -315,10 +315,10 @@
 		background: transparent;
 		border: none;
 		color: var(--color-chrome);
-		font-size: var(--font-size-lg);
+		font-size: var(--text-base);
 		font-weight: 600;
 		cursor: pointer;
-		padding: var(--spacing-xs) var(--spacing-sm);
+		padding: var(--sp-1) var(--sp-2);
 		border-radius: var(--radius-md);
 		transition: background 0.15s ease;
 	}
@@ -339,12 +339,12 @@
 	.stats-row {
 		display: flex;
 		justify-content: center;
-		gap: var(--spacing-xl);
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-bg);
-		border-bottom: 1px solid var(--color-border);
+		gap: var(--sp-8);
+		padding: var(--sp-4) var(--sp-6);
+		background: var(--surface-page);
+		border-bottom: 1px solid var(--border-default);
 		/* Bleed past modal-body padding to fill edge-to-edge */
-		margin: 0 calc(-1 * var(--spacing-lg));
+		margin: 0 calc(-1 * var(--sp-6));
 	}
 
 	.stat {
@@ -368,30 +368,30 @@
 	}
 
 	.stat-value.total {
-		color: var(--color-primary);
+		color: var(--amber);
 	}
 
 	.stat-label {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		margin-top: var(--spacing-xs);
+		font-size: var(--text-ui-sm);
+		color: var(--text-tertiary);
+		margin-top: var(--sp-1);
 	}
 
 	/* Content */
 	.breakdown-content {
-		padding: var(--spacing-lg);
+		padding: var(--sp-6);
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-lg);
+		gap: var(--sp-6);
 	}
 
 	.section h3 {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		font-size: var(--font-size-base);
+		gap: var(--sp-2);
+		font-size: var(--text-ui-base);
 		font-weight: 600;
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: var(--sp-2);
 	}
 
 	.section-icon {
@@ -416,9 +416,9 @@
 	}
 
 	.count {
-		background: var(--color-primary);
+		background: var(--amber);
 		color: var(--color-chrome);
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 		padding: 2px 8px;
 		border-radius: 10px;
 		font-weight: 500;
@@ -429,37 +429,37 @@
 	.assignment-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.assignment-card {
-		padding: var(--spacing-md);
+		padding: var(--sp-4);
 		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		border: 2px solid var(--color-primary);
+		background: var(--surface-panel);
+		border: 2px solid var(--amber);
 	}
 
 	.assignment-card.not-assigned {
-		border-color: var(--color-border);
-		background: var(--color-bg);
+		border-color: var(--border-default);
+		background: var(--surface-page);
 	}
 
 	.assignment-type {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-xs);
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-1);
 	}
 
 	.assignment-short {
 		font-weight: 700;
-		font-size: var(--font-size-sm);
-		color: var(--color-primary);
+		font-size: var(--text-ui-sm);
+		color: var(--amber);
 	}
 
 	.assignment-name {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-ui-sm);
+		color: var(--text-tertiary);
 	}
 
 	.assignment-value {
@@ -469,16 +469,16 @@
 
 	.assignee-name {
 		font-weight: 600;
-		font-size: var(--font-size-base);
+		font-size: var(--text-ui-base);
 	}
 
 	.assignee-details {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-ui-sm);
+		color: var(--text-tertiary);
 	}
 
 	.not-assigned-text {
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		font-style: italic;
 	}
 
@@ -486,26 +486,26 @@
 	.personnel-groups {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.group-block {
-		background: var(--color-bg);
+		background: var(--surface-page);
 		border-radius: var(--radius-md);
-		padding: var(--spacing-sm);
+		padding: var(--sp-2);
 	}
 
 	.group-label {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 		font-weight: 600;
-		color: var(--color-primary);
-		margin-bottom: var(--spacing-xs);
+		color: var(--amber);
+		margin-bottom: var(--sp-1);
 	}
 
 	.personnel-chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 	}
 
 	.person-chip {
@@ -513,24 +513,24 @@
 		align-items: center;
 		gap: 4px;
 		padding: 4px 8px;
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-sm);
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 	}
 
 	.person-chip.has-assignment {
-		border-color: var(--color-primary);
+		border-color: var(--amber);
 		background: #ebf8ff;
 	}
 
 	.chip-rank {
 		font-weight: 600;
-		color: var(--color-primary);
+		color: var(--amber);
 	}
 
 	.assignment-badge {
-		background: var(--color-primary);
+		background: var(--amber);
 		color: var(--color-chrome);
 		font-size: 9px;
 		font-weight: 700;
@@ -540,18 +540,18 @@
 	}
 
 	.person-chip.out {
-		background: var(--color-surface);
+		background: var(--surface-panel);
 	}
 
 	/* Status Groups */
 	.status-groups {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.status-group {
-		background: var(--color-bg);
+		background: var(--surface-page);
 		border-radius: var(--radius-md);
 		overflow: hidden;
 	}
@@ -560,8 +560,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
+		padding: var(--sp-1) var(--sp-2);
+		font-size: var(--text-ui-sm);
 		font-weight: 600;
 	}
 
@@ -572,16 +572,16 @@
 	.status-personnel {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-sm);
+		gap: var(--sp-1);
+		padding: var(--sp-2);
 	}
 
 	.empty-message {
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		font-style: italic;
-		padding: var(--spacing-md);
+		padding: var(--sp-4);
 		text-align: center;
-		background: var(--color-bg);
+		background: var(--surface-page);
 		border-radius: var(--radius-md);
 	}
 

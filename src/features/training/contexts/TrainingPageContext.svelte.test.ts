@@ -7,6 +7,16 @@ import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 
+const { gotoMock, invalidateMock } = vi.hoisted(() => ({
+	gotoMock: vi.fn(),
+	invalidateMock: vi.fn()
+}));
+
+vi.mock('$app/navigation', () => ({
+	goto: gotoMock,
+	invalidate: invalidateMock
+}));
+
 // ---------------------------------------------------------------------------
 // Minimal stubs
 // ---------------------------------------------------------------------------

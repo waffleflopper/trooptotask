@@ -114,11 +114,11 @@
 
 <style>
 	.month-year-picker {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-2);
-		padding: var(--spacing-md);
+		box-shadow: var(--shadow-md);
+		padding: var(--sp-4);
 		width: 240px;
 		z-index: var(--z-dropdown);
 	}
@@ -127,13 +127,13 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: var(--sp-2);
 	}
 
 	.year-label {
-		font-size: var(--font-size-md);
+		font-size: var(--text-base);
 		font-weight: 600;
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.year-btn {
@@ -142,35 +142,35 @@
 		justify-content: center;
 		width: 28px;
 		height: 28px;
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		color: var(--color-text);
+		background: var(--surface-panel);
+		color: var(--text-primary);
 		cursor: pointer;
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
 	}
 
 	.year-btn:hover {
-		border-color: var(--color-primary);
-		background: var(--color-primary-tint);
+		border-color: var(--amber);
+		background: rgba(var(--amber-rgb), var(--opacity-light));
 	}
 
 	.month-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 	}
 
 	.month-btn {
-		padding: var(--spacing-sm) var(--spacing-xs);
+		padding: var(--sp-2) var(--sp-1);
 		border: 1px solid transparent;
 		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
+		background: var(--surface-panel);
+		color: var(--text-primary);
+		font-size: var(--text-ui-sm);
 		font-weight: var(--font-weight-medium);
 		cursor: pointer;
 		transition:
@@ -180,13 +180,13 @@
 	}
 
 	.month-btn:hover {
-		background: var(--color-primary-tint);
-		border-color: var(--color-primary);
+		background: rgba(var(--amber-rgb), var(--opacity-light));
+		border-color: var(--amber);
 	}
 
 	.month-btn.current {
-		background: var(--color-primary);
-		color: var(--color-primary-contrast);
+		background: var(--amber);
+		color: var(--accent-contrast);
 		font-weight: var(--font-weight-bold);
 	}
 </style>

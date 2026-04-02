@@ -14,14 +14,14 @@
 		width: 18px;
 		height: 18px;
 		border-radius: 50%;
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--border-default);
 		background: transparent;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		font-size: 11px;
 		font-weight: 600;
 		cursor: pointer;
 		vertical-align: middle;
-		margin-left: var(--spacing-xs);
+		margin-left: var(--sp-1);
 		padding: 0;
 		line-height: 1;
 		transition: all 0.15s;
@@ -29,8 +29,8 @@
 	}
 
 	.help-btn:hover {
-		border-color: var(--color-primary);
-		color: var(--color-primary);
+		border-color: var(--amber);
+		color: var(--amber);
 		background: rgba(63, 81, 181, 0.08);
 	}
 </style>

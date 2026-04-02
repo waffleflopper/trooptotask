@@ -159,7 +159,7 @@
 			{/if}
 
 			<div class="invite-code-display">
-				<label>Invite Code</label>
+				<p class="label">Invite Code</p>
 				<div class="code-box">
 					<code>{createdInvite.code}</code>
 					<button class="btn btn-secondary btn-sm" onclick={() => copyToClipboard(createdInvite!.code)}> Copy </button>
@@ -167,9 +167,15 @@
 			</div>
 
 			<div class="invite-link-display">
-				<label>Registration Link</label>
+				<label for="invite-registration-link">Registration Link</label>
 				<div class="link-box">
-					<input type="text" readonly value={createdInvite.registrationUrl} class="input" />
+					<input
+						id="invite-registration-link"
+						type="text"
+						readonly
+						value={createdInvite.registrationUrl}
+						class="input"
+					/>
 					<button class="btn btn-secondary btn-sm" onclick={() => copyToClipboard(createdInvite!.registrationUrl)}>
 						Copy
 					</button>
@@ -295,53 +301,53 @@
 
 <style>
 	h4 {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 		font-weight: 600;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
-		margin-bottom: var(--spacing-md);
+		margin-bottom: var(--sp-4);
 	}
 
 	.field-hint {
 		display: block;
-		margin-top: var(--spacing-xs);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		margin-top: var(--sp-1);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
 	}
 
 	.error-message {
 		background: #fef2f2;
 		border: 1px solid #fecaca;
 		color: #dc2626;
-		padding: var(--spacing-sm) var(--spacing-md);
+		padding: var(--sp-2) var(--sp-4);
 		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
+		font-size: var(--text-ui-sm);
+		margin-bottom: var(--sp-4);
 	}
 
 	/* Create Section */
 	.create-section {
-		padding-bottom: var(--spacing-lg);
-		margin-bottom: var(--spacing-lg);
-		border-bottom: 1px solid var(--color-border);
+		padding-bottom: var(--sp-6);
+		margin-bottom: var(--sp-6);
+		border-bottom: 1px solid var(--border-default);
 	}
 
 	.create-section .btn-primary {
 		width: 100%;
-		margin-top: var(--spacing-sm);
+		margin-top: var(--sp-2);
 	}
 
 	/* Success Section */
 	.success-section {
 		text-align: center;
-		padding: var(--spacing-lg) 0;
+		padding: var(--sp-6) 0;
 	}
 
 	.success-icon {
 		width: 64px;
 		height: 64px;
-		margin: 0 auto var(--spacing-md);
+		margin: 0 auto var(--sp-4);
 		background: #dcfce7;
 		border-radius: 50%;
 		display: flex;
@@ -356,96 +362,96 @@
 	}
 
 	.success-section h3 {
-		font-size: var(--font-size-lg);
+		font-size: var(--text-base);
 		font-weight: 600;
-		margin-bottom: var(--spacing-md);
+		margin-bottom: var(--sp-4);
 	}
 
 	.invite-email {
-		color: var(--color-text-muted);
-		margin-bottom: var(--spacing-lg);
+		color: var(--text-tertiary);
+		margin-bottom: var(--sp-6);
 	}
 
 	.invite-code-display,
 	.invite-link-display {
 		text-align: left;
-		margin-bottom: var(--spacing-md);
+		margin-bottom: var(--sp-4);
 	}
 
-	.invite-code-display label,
+	.invite-code-display .label,
 	.invite-link-display label {
 		display: block;
-		font-size: var(--font-size-xs);
+		font-size: var(--text-xs);
 		font-weight: 600;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		text-transform: uppercase;
-		margin-bottom: var(--spacing-xs);
+		margin-bottom: var(--sp-1);
 	}
 
 	.code-box,
 	.link-box {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		align-items: center;
 	}
 
 	.code-box code {
 		flex: 1;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-bg);
-		border: 1px solid var(--color-border);
+		padding: var(--sp-2) var(--sp-4);
+		background: var(--surface-page);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
-		font-size: var(--font-size-lg);
+		font-size: var(--text-base);
 		font-weight: 600;
 		letter-spacing: 2px;
 	}
 
 	.link-box .input {
 		flex: 1;
-		font-size: var(--font-size-xs);
+		font-size: var(--text-xs);
 	}
 
 	.copy-success {
 		color: #16a34a;
-		font-size: var(--font-size-sm);
-		margin: var(--spacing-sm) 0;
+		font-size: var(--text-ui-sm);
+		margin: var(--sp-2) 0;
 	}
 
 	.action-buttons {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		justify-content: center;
-		margin-top: var(--spacing-lg);
+		margin-top: var(--sp-6);
 	}
 
 	.action-buttons .btn svg {
-		margin-right: var(--spacing-xs);
+		margin-right: var(--sp-1);
 	}
 
 	/* Invites List */
 	.invites-section {
-		margin-top: var(--spacing-md);
+		margin-top: var(--sp-4);
 	}
 
 	.loading,
 	.empty-state {
 		text-align: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-lg);
+		color: var(--text-tertiary);
+		padding: var(--sp-6);
 	}
 
 	.invites-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 	}
 
 	.invite-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-bg);
+		padding: var(--sp-2) var(--sp-4);
+		background: var(--surface-page);
 		border-radius: var(--radius-md);
 	}
 
@@ -466,20 +472,20 @@
 
 	.invite-code {
 		font-weight: 600;
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 	}
 
 	.invite-target {
-		font-size: var(--font-size-xs);
-		color: var(--color-text);
+		font-size: var(--text-xs);
+		color: var(--text-primary);
 	}
 
 	.invite-date {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
 	}
 
 	.invite-item .btn {
-		padding: var(--spacing-xs);
+		padding: var(--sp-1);
 	}
 </style>

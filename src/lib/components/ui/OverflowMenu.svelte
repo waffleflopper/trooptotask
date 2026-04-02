@@ -97,15 +97,15 @@
 		position: absolute;
 		top: 100%;
 		z-index: 1000;
-		min-width: 180px;
+		min-width: 220px;
 		max-height: 400px;
 		overflow-y: auto;
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-3);
-		padding: 4px 0;
-		margin-top: 4px;
+		box-shadow: var(--shadow-md);
+		padding: 6px 0;
+		margin-top: 6px;
 	}
 
 	.align-right {
@@ -120,34 +120,36 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
-		padding: 8px 12px;
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
+		padding: 9px 14px;
+		font-size: var(--text-sm);
+		color: var(--text-primary);
 		background: none;
 		border: none;
 		text-align: left;
 		cursor: pointer;
 		text-decoration: none;
-		transition: background var(--transition-fast);
+		transition:
+			background var(--transition-fast),
+			color var(--transition-fast);
 		gap: 8px;
 	}
 
 	.menu-item:hover:not(.disabled) {
-		background: var(--color-surface-variant, rgba(0, 0, 0, 0.04));
+		background: var(--surface-subtle);
 	}
 
 	.menu-item.danger {
-		color: var(--color-error);
+		color: var(--danger);
 	}
 
 	.menu-item.disabled {
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		cursor: default;
 		pointer-events: none;
 	}
 
 	button.menu-item:disabled {
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		cursor: default;
 	}
 
@@ -156,24 +158,25 @@
 	}
 
 	.checkmark {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--amber-dark);
 		flex-shrink: 0;
 	}
 
 	.divider {
 		height: 1px;
-		background: var(--color-divider);
-		margin: 4px 0;
+		background: var(--divider-color);
+		margin: 6px 0;
 	}
 
 	.group-label {
 		font-family: var(--font-mono);
-		font-size: 10px;
+		font-size: var(--text-xs);
 		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		color: var(--color-text-muted);
-		padding: 8px 12px 4px;
+		letter-spacing: var(--letter-spacing-mono);
+		color: var(--text-tertiary);
+		padding: 8px 14px 6px;
 		user-select: none;
 	}
 </style>

@@ -84,8 +84,8 @@
 	</div>
 
 	<div class="filter-bar">
-		<label class="label">Year:</label>
-		<select class="select" bind:value={filterYear} style="width: 100px;">
+		<label class="label" for="special-day-filter-year">Year:</label>
+		<select id="special-day-filter-year" class="select" bind:value={filterYear} style="width: 100px;">
 			{#each yearOptions as year}
 				<option value={year}>{year}</option>
 			{/each}
@@ -141,18 +141,18 @@
 <style>
 	.add-form {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		align-items: center;
-		margin-bottom: var(--spacing-md);
-		padding-bottom: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
+		margin-bottom: var(--sp-4);
+		padding-bottom: var(--sp-4);
+		border-bottom: 1px solid var(--border-default);
 	}
 
 	.filter-bar {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-md);
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-4);
 	}
 
 	.filter-bar .label {
@@ -161,14 +161,14 @@
 
 	.count {
 		margin-left: auto;
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-ui-sm);
+		color: var(--text-tertiary);
 	}
 
 	.day-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		max-height: 350px;
 		overflow-y: auto;
 	}
@@ -177,20 +177,20 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-sm);
-		background: var(--color-bg);
+		padding: var(--sp-2);
+		background: var(--surface-page);
 		border-radius: var(--radius-md);
 	}
 
 	.day-info {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 	}
 
 	.day-date {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-ui-sm);
+		color: var(--text-tertiary);
 		min-width: 100px;
 	}
 
@@ -199,21 +199,21 @@
 	}
 
 	.day-type {
-		font-size: var(--font-size-sm);
-		padding: 2px var(--spacing-sm);
+		font-size: var(--text-ui-sm);
+		padding: 2px var(--sp-2);
 		border-radius: var(--radius-sm);
-		background: var(--color-border);
-		color: var(--color-text-muted);
+		background: var(--border-default);
+		color: var(--text-tertiary);
 	}
 
 	.day-type.holiday {
 		background: var(--color-holiday);
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.empty-state {
 		text-align: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-lg);
+		color: var(--text-tertiary);
+		padding: var(--sp-6);
 	}
 </style>

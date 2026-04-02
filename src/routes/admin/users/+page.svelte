@@ -4,10 +4,10 @@
 	import PlatformInviteManager from '$features/groups/components/PlatformInviteManager.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import { ADMIN_STATUS_COLORS } from '$lib/components/admin/adminTheme';
 
 	let { data } = $props();
 	let showPlatformInvite = $state(false);
-
 	let searchInput = $state('');
 
 	$effect(() => {
@@ -34,49 +34,58 @@
 	<title>Users - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="users-page">
-	<header class="page-header">
-		<div class="header-content">
-			<div>
-				<h1>Users</h1>
-				<p class="subtitle">{data.totalCount} total users</p>
-			</div>
-			<button class="btn btn-primary" onclick={() => (showPlatformInvite = true)}>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-					<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-					<circle cx="8.5" cy="7" r="4" />
-					<line x1="20" y1="8" x2="20" y2="14" />
-					<line x1="23" y1="11" x2="17" y2="11" />
-				</svg>
-				Invite User
-			</button>
+<div class="admin-page-shell">
+	<header class="admin-page-header">
+		<div class="admin-page-header__copy">
+			<p class="admin-page-eyebrow">Identity Ledger</p>
+			<h1 class="admin-page-title">Users</h1>
+			<p class="admin-page-subtitle">Search, inspect, and manage platform identities across every organization.</p>
+		</div>
+		<div class="admin-page-actions">
+			<button class="btn btn-primary" onclick={() => (showPlatformInvite = true)}>Invite User</button>
 		</div>
 	</header>
 
-	{#if data.authError}
-		<div class="auth-error">
-			<strong>Failed to load users:</strong>
-			{data.authError}
+	<div class="admin-overview-grid">
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">Directory Size</p>
+			<p class="admin-overview-card__value">{data.totalCount}</p>
+			<p class="admin-overview-card__meta">Total user accounts currently indexed by the platform.</p>
 		</div>
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">Page</p>
+			<p class="admin-overview-card__value">{data.page}</p>
+			<p class="admin-overview-card__meta">
+				Reviewing page {data.page} of {Math.max(totalPages, 1)} in the user ledger.
+			</p>
+		</div>
+	</div>
+
+	{#if data.authError}
+		<div class="admin-alert admin-alert--error"><strong>Failed to load users:</strong> {data.authError}</div>
 	{/if}
 
-	<!-- Filters -->
-	<div class="filters">
+	<div class="admin-toolbar">
 		<form
-			class="search-form"
-			onsubmit={(e) => {
-				e.preventDefault();
+			class="admin-toolbar__group"
+			onsubmit={(event) => {
+				event.preventDefault();
 				applyFilters();
 			}}
 		>
-			<input type="text" placeholder="Search by email..." bind:value={searchInput} class="search-input" />
-			<button type="submit" class="search-btn">Search</button>
+			<div class="admin-toolbar__field admin-toolbar__field--search">
+				<label class="label" for="users-search">Search</label>
+				<input id="users-search" type="text" placeholder="Search by email..." bind:value={searchInput} class="input" />
+			</div>
+			<button type="submit" class="btn btn-secondary">Apply</button>
 		</form>
+		<div class="admin-toolbar__meta">
+			<span>{data.users.length} shown</span>
+		</div>
 	</div>
 
-	<!-- Users Table -->
-	<div class="users-table-container">
-		<table class="users-table">
+	<div class="admin-table-shell admin-table-shell--scroll">
+		<table class="admin-table users-table">
 			<thead>
 				<tr>
 					<th>User</th>
@@ -89,44 +98,44 @@
 			<tbody>
 				{#each data.users as user (user.id)}
 					<tr>
-						<td class="user-cell">
-							<span class="user-email">{user.email || 'No email'}</span>
-							<code class="user-id">{user.id.slice(0, 8)}...</code>
+						<td>
+							<div class="entity-cell">
+								<strong>{user.email || 'No email'}</strong>
+								<span class="admin-code">{user.id.slice(0, 8)}...</span>
+							</div>
 						</td>
 						<td>{user.organizationCount}</td>
 						<td>{formatDisplayDate(user.createdAt)}</td>
 						<td>
-							{#if user.isSuspended}
-								<Badge label="SUSPENDED" color="#dc2626" />
-							{:else}
-								<Badge label="ACTIVE" color="#16a34a" />
-							{/if}
+							<Badge
+								label={user.isSuspended ? 'Suspended' : 'Active'}
+								color={user.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
+							/>
 						</td>
-						<td>
-							<a href="/admin/users/{user.id}" class="view-btn">View</a>
+						<td class="actions-cell">
+							<a href="/admin/users/{user.id}" class="btn btn-secondary btn-sm">Inspect</a>
 						</td>
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="5" class="empty-state">No users found</td>
+						<td colspan="5" class="admin-empty">No users found.</td>
 					</tr>
 				{/each}
 			</tbody>
 		</table>
 	</div>
 
-	<!-- Pagination -->
 	{#if totalPages > 1}
-		<div class="pagination">
-			<button class="page-btn" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}> Previous </button>
-
-			<span class="page-info">
-				Page {data.page} of {totalPages}
-			</span>
-
-			<button class="page-btn" disabled={data.page >= totalPages} onclick={() => goToPage(data.page + 1)}>
-				Next
-			</button>
+		<div class="pagination-row">
+			<button class="btn btn-secondary btn-sm" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}
+				>Previous</button
+			>
+			<span>Page {data.page} of {totalPages}</span>
+			<button
+				class="btn btn-secondary btn-sm"
+				disabled={data.page >= totalPages}
+				onclick={() => goToPage(data.page + 1)}>Next</button
+			>
 		</div>
 	{/if}
 </div>
@@ -136,196 +145,27 @@
 {/if}
 
 <style>
-	.users-page {
-		max-width: 1200px;
-		margin: 0 auto;
-	}
-
-	.page-header {
-		margin-bottom: var(--spacing-xl);
-	}
-
-	.header-content {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		gap: var(--spacing-md);
-	}
-
-	.header-content .btn {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-	}
-
-	.page-header h1 {
-		font-size: var(--font-size-2xl);
-		font-weight: 700;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-xs);
-	}
-
-	.subtitle {
-		color: var(--color-text-muted);
-	}
-
-	.auth-error {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
-	}
-
-	/* Filters */
-	.filters {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--spacing-md);
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.search-form {
-		display: flex;
-		flex: 1;
-		min-width: 250px;
-		gap: var(--spacing-sm);
-	}
-
-	.search-input {
-		flex: 1;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
-	}
-
-	.search-input:focus {
-		outline: none;
-		border-color: var(--color-primary);
-	}
-
-	.search-btn {
-		padding: var(--spacing-sm) var(--spacing-lg);
-		background: var(--color-primary);
-		color: #0f0f0f;
-		border: none;
-		border-radius: var(--radius-md);
-		font-weight: 500;
-		cursor: pointer;
-	}
-
-	.search-btn:hover {
-		background: var(--color-primary-hover);
-	}
-
-	/* Table */
-	.users-table-container {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		overflow-x: auto;
-	}
-
-	.users-table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-
-	.users-table th,
-	.users-table td {
-		padding: var(--spacing-sm) var(--spacing-md);
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.users-table th {
-		font-size: var(--font-size-xs);
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-text-muted);
-		background: var(--color-surface-variant);
-	}
-
-	.users-table td {
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
-	}
-
-	.users-table tbody tr:hover {
-		background: var(--color-surface-variant);
-	}
-
-	.user-cell {
+	.entity-cell {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--sp-1);
 	}
 
-	.user-email {
-		font-weight: 500;
+	.entity-cell strong {
+		font-size: var(--text-sm);
 	}
 
-	.user-id {
-		font-size: var(--font-size-xs);
-		padding: 2px 6px;
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
-		width: fit-content;
+	.actions-cell {
+		width: 1%;
+		white-space: nowrap;
 	}
 
-	.view-btn {
-		font-size: var(--font-size-sm);
-		color: var(--color-primary);
-		text-decoration: none;
-	}
-
-	.view-btn:hover {
-		text-decoration: underline;
-	}
-
-	.empty-state {
-		text-align: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-xl) !important;
-	}
-
-	/* Pagination */
-	.pagination {
+	.pagination-row {
 		display: flex;
-		justify-content: center;
 		align-items: center;
-		gap: var(--spacing-md);
-		margin-top: var(--spacing-lg);
-	}
-
-	.page-btn {
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
-		cursor: pointer;
-	}
-
-	.page-btn:hover:not(:disabled) {
-		background: var(--color-surface-variant);
-	}
-
-	.page-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.page-info {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		justify-content: flex-end;
+		gap: var(--sp-3);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 	}
 </style>

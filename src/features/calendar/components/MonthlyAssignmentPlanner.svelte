@@ -316,11 +316,10 @@
 
 <style>
 	.planner-shell {
-		background: color-mix(in srgb, var(--color-surface) 88%, white 12%);
-		border: 1px solid color-mix(in srgb, var(--color-border) 75%, white 25%);
-		border-radius: var(--radius-xl);
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
 		overflow: hidden;
-		box-shadow: var(--shadow-sm);
 	}
 
 	/* Month Navigation */
@@ -329,37 +328,39 @@
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 9%, white 91%), var(--color-surface));
-		color: var(--color-text);
-		border-bottom: 1px solid var(--color-divider);
+		gap: var(--sp-3);
+		padding: var(--sp-4) var(--sp-5);
+		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
+		color: var(--text-primary);
+		border-bottom: var(--border-thin);
 	}
 
 	.month-nav h3 {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
+		font-size: clamp(1.3rem, 1.1rem + 0.5vw, 1.7rem);
+		font-weight: var(--font-weight-display);
 		min-width: 180px;
 		text-align: center;
 		margin: 0;
 		font-family: var(--font-display);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 	}
 
 	.month-nav .btn-secondary {
-		background: var(--color-surface);
-		border-color: var(--color-border);
-		color: var(--color-text);
+		background: var(--surface-panel);
+		border-color: var(--border-default);
+		color: var(--text-primary);
 	}
 
 	.month-nav .btn-secondary:hover {
-		background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
-		border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+		background: var(--surface-subtle);
+		border-color: var(--ink-35);
 	}
 
 	.month-controls {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		flex-wrap: wrap;
 	}
 
@@ -369,23 +370,24 @@
 
 	/* Quick Fill */
 	.quick-fill {
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: color-mix(in srgb, var(--color-primary) 3%, var(--color-bg));
-		border-bottom: 1px solid var(--color-divider);
+		padding: var(--sp-4) var(--sp-5);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		border-bottom: var(--border-thin);
 	}
 
 	.quick-fill h4 {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-secondary);
 		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		margin-bottom: var(--spacing-sm);
+		letter-spacing: var(--letter-spacing-mono);
+		margin: 0 0 var(--sp-3);
 	}
 
 	.quick-fill-row {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		align-items: center;
 		flex-wrap: wrap;
 	}
@@ -402,26 +404,31 @@
 	/* Grid Container */
 	.grid-container {
 		overflow: auto;
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: var(--color-surface);
+		padding: var(--sp-4) var(--sp-5);
+		background: var(--surface-panel);
 	}
 
 	.assignment-grid {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
 	}
 
 	.assignment-grid th,
 	.assignment-grid td {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border: 1px solid var(--color-border);
+		padding: var(--sp-2) var(--sp-3);
+		border: var(--border-thin);
 		text-align: left;
 	}
 
 	.assignment-grid th {
-		background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
-		font-weight: 600;
+		background: color-mix(in srgb, var(--surface-subtle) 86%, var(--surface-panel) 14%);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
 		position: sticky;
 		top: 0;
 		z-index: 1;
@@ -444,37 +451,50 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 	}
 
 	.type-badge {
 		padding: 2px 6px;
 		border-radius: var(--radius-sm);
-		font-size: 10px;
-		font-weight: 700;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
 		color: white;
 	}
 
 	.clear-btn {
 		padding: 2px;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		border-radius: var(--radius-sm);
-		opacity: 0.5;
-		transition: opacity 0.15s ease;
+		opacity: 0.6;
+		transition:
+			opacity var(--transition-fast),
+			color var(--transition-fast),
+			background-color var(--transition-fast);
 	}
 
 	.clear-btn:hover {
 		opacity: 1;
-		color: #dc2626;
+		color: var(--danger);
+		background: var(--danger-bg);
 	}
 
 	.date-num {
-		font-weight: 600;
-		color: var(--color-text);
+		font-family: var(--font-display);
+		font-size: 1.15rem;
+		font-weight: var(--font-weight-display);
+		color: var(--text-primary);
 	}
 
 	.day-name {
-		color: var(--color-text);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.assignment-grid tr.weekend {
@@ -482,8 +502,7 @@
 	}
 
 	.assignment-grid tr.weekend .day-name {
-		color: var(--color-primary);
-		font-weight: 500;
+		color: var(--amber-dark);
 	}
 
 	.assignment-grid tr.today {
@@ -500,49 +519,54 @@
 
 	.cell-select {
 		width: 100%;
-		padding: var(--spacing-xs);
+		padding: var(--sp-2);
 		border: 1px solid transparent;
 		border-radius: var(--radius-sm);
 		background: transparent;
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
 		cursor: pointer;
-		transition: all 0.15s ease;
-		color: var(--color-text);
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast);
+		color: var(--text-primary);
 	}
 
 	.cell-select:hover {
-		background: var(--color-surface);
-		border-color: var(--color-border);
+		background: var(--surface-panel);
+		border-color: var(--border-default);
 	}
 
 	.cell-select:focus {
 		outline: none;
-		border-color: var(--color-primary);
-		background: var(--color-surface);
+		border-color: var(--amber);
+		background: var(--surface-panel);
 	}
 
 	.planner-footer {
-		padding: var(--spacing-md) var(--spacing-lg);
-		border-top: 1px solid var(--color-divider);
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		background: color-mix(in srgb, var(--color-primary) 3%, var(--color-surface));
+		padding: var(--sp-4) var(--sp-5);
+		border-top: var(--border-thin);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
 	/* Mobile Responsive Styles */
 	@media (max-width: 640px) {
 		.month-nav {
-			padding: var(--spacing-sm) var(--spacing-md);
+			padding: var(--sp-3) var(--sp-4);
 			justify-content: center;
 		}
 
 		.month-nav h3 {
-			font-size: var(--font-size-base);
+			font-size: 1.2rem;
 			min-width: unset;
 		}
 
 		.quick-fill {
-			padding: var(--spacing-sm) var(--spacing-md);
+			padding: var(--sp-4);
 		}
 
 		.quick-fill-row {
@@ -559,12 +583,12 @@
 		}
 
 		.grid-container {
-			padding: var(--spacing-sm);
+			padding: var(--sp-3);
 		}
 
 		.assignment-grid th,
 		.assignment-grid td {
-			padding: 2px var(--spacing-xs);
+			padding: 2px var(--sp-2);
 		}
 
 		.date-col {
@@ -585,11 +609,11 @@
 		}
 
 		.type-badge {
-			font-size: 8px;
+			font-size: 9px;
 		}
 
 		.cell-select {
-			font-size: var(--font-size-xs);
+			font-size: var(--text-xs);
 			padding: 2px;
 		}
 	}

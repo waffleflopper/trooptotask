@@ -1,9 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CalendarPageContext, type CalendarPageData } from './CalendarPageContext.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
+
+vi.mock('$lib/preferences/userPreferences.client', () => ({
+	queueUserPreferencesPatch: vi.fn()
+}));
 
 // ---------------------------------------------------------------------------
 // Minimal mock data

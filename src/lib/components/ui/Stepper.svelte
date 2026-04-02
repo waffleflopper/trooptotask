@@ -48,23 +48,23 @@
 	.connector {
 		flex: 1;
 		height: 2px;
-		min-width: var(--spacing-sm);
-		background-color: var(--color-border);
+		min-width: var(--sp-2);
+		background-color: var(--border-default);
 		transition: background-color 0.2s ease;
 	}
 
 	.connector.completed {
-		background-color: var(--color-primary);
+		background-color: var(--amber);
 	}
 
 	.stage {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		background: none;
 		border: none;
-		padding: var(--spacing-xs);
+		padding: var(--sp-1);
 		cursor: pointer;
 		min-width: 0;
 		transition: opacity 0.2s ease;
@@ -82,31 +82,31 @@
 		width: 12px;
 		height: 12px;
 		border-radius: 50%;
-		border: 2px solid var(--color-border);
-		background: var(--color-surface);
+		border: 2px solid var(--border-default);
+		background: var(--surface-panel);
 		transition: all 0.2s ease;
 		flex-shrink: 0;
 	}
 
 	.stage.completed .stage-dot {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
+		background: var(--amber);
+		border-color: var(--amber);
 	}
 
 	.stage.current .stage-dot {
-		border-color: var(--color-primary);
-		background: var(--color-primary);
-		box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.25);
+		border-color: var(--amber);
+		background: var(--amber);
+		box-shadow: 0 0 0 3px rgba(var(--amber-rgb), 0.25);
 	}
 
 	.stage.upcoming .stage-dot {
-		background: var(--color-surface);
-		border-color: var(--color-border);
+		background: var(--surface-panel);
+		border-color: var(--border-default);
 	}
 
 	.stage-label {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
 		text-align: center;
 		white-space: nowrap;
 		overflow: hidden;
@@ -115,11 +115,11 @@
 	}
 
 	.stage.current .stage-label {
-		color: var(--color-primary);
+		color: var(--amber);
 		font-weight: 600;
 	}
 
 	.stage.completed .stage-label {
-		color: var(--color-text-secondary);
+		color: var(--text-secondary);
 	}
 </style>

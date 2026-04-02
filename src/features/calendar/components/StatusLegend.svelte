@@ -23,41 +23,57 @@
 <style>
 	.status-legend {
 		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
+		flex-wrap: wrap;
+		align-items: flex-start;
+		gap: var(--sp-3) var(--sp-4);
+		padding: var(--sp-4) var(--sp-5);
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
 	}
 
 	.legend-label {
-		font-weight: 600;
-		color: var(--color-text-muted);
+		padding-top: 2px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
 		white-space: nowrap;
 	}
 
 	.legend-items {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--spacing-sm) var(--spacing-md);
+		gap: var(--sp-2) var(--sp-3);
 	}
 
 	.legend-item {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
+		min-height: 28px;
+		padding: 4px 8px;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: var(--surface-subtle);
 	}
 
 	.legend-color {
-		width: 14px;
-		height: 14px;
-		border-radius: 3px;
+		width: 12px;
+		height: 12px;
+		border-radius: 2px;
+		box-shadow: inset 0 0 0 1px rgba(14, 14, 13, 0.12);
 		flex-shrink: 0;
 	}
 
 	.legend-name {
-		color: var(--color-text);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-primary);
 	}
 </style>

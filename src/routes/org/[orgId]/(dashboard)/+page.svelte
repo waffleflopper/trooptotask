@@ -14,10 +14,6 @@
 	});
 
 	$effect(() => {
-		ctx.initBannerFromStorage();
-	});
-
-	$effect(() => {
 		ctx.autoShowWhatsNew(hasAutoShownWhatsNew);
 	});
 </script>

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { RATING_STATUS_COLORS } from '$features/rating-scheme/rating-scheme.types';
 	import GettingStartedBanner from '$features/onboarding/components/GettingStartedBanner.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
@@ -8,6 +7,7 @@
 	import type { DashboardContext } from '../contexts/DashboardContext.svelte';
 
 	let { ctx }: { ctx: DashboardContext } = $props();
+	let workspaceSetupOpen = $state(false);
 
 	const greeting = $derived.by(() => {
 		const hour = new Date().getHours();
@@ -22,6 +22,86 @@
 			? ctx.trainingStats.expired + ctx.trainingStats.warningOrange + ctx.trainingStats.warningYellow
 			: 0
 	);
+	const ratingAttentionCount = $derived.by(() => ctx.ratingStats.overdue + ctx.ratingStats['due-30']);
+	const visibleCards = $derived.by(() => ctx.cardRows.flat());
+	const topBandCardOrder: CardId[] = ['duty'];
+	const leftColumnCardOrder: CardId[] = ['strength', 'onboardings', 'ratings'];
+	const rightColumnCardOrder: CardId[] = ['training', 'upcoming'];
+	const dashboardCards = $derived.by(() => visibleCards.filter((cardId) => cardHasSignal(cardId)));
+	const topBandCards = $derived.by(() => topBandCardOrder.filter((cardId) => dashboardCards.includes(cardId)));
+	const leftColumnCards = $derived.by(() => leftColumnCardOrder.filter((cardId) => dashboardCards.includes(cardId)));
+	const rightColumnCards = $derived.by(() => rightColumnCardOrder.filter((cardId) => dashboardCards.includes(cardId)));
+	const onboardingWatchList = $derived.by(() =>
+		[...ctx.activeOnboardings]
+			.sort((a, b) => a.pct - b.pct || a.completedSteps - b.completedSteps || a.personName.localeCompare(b.personName))
+			.slice(0, 5)
+	);
+	const hiddenOnboardingsCount = $derived.by(() =>
+		Math.max(ctx.activeOnboardings.length - onboardingWatchList.length, 0)
+	);
+	const showWorkspaceSetup = $derived(
+		(ctx.userRole === 'owner' || ctx.userRole === 'admin') &&
+			!ctx.isDemoSandbox &&
+			!ctx.isDemoReadOnly &&
+			!ctx.gettingStartedDismissed
+	);
+
+	function cardHasSignal(cardId: CardId): boolean {
+		if (cardId === 'ratings') {
+			return ratingAttentionCount > 0;
+		}
+
+		if (cardId === 'onboardings') {
+			return ctx.activeOnboardings.length > 0;
+		}
+
+		if (cardId === 'groups') {
+			return false;
+		}
+
+		return true;
+	}
+
+	function moduleClasses(cardId: CardId, options: { full?: boolean } = {}): string {
+		const classes = ['dashboard-module'];
+
+		if (options.full) {
+			classes.push('dashboard-module--full');
+		}
+
+		if (cardId === 'strength') {
+			classes.push('dashboard-module--lead');
+			if (ctx.dutyStrengthPct < 80) {
+				classes.push('dashboard-module--priority');
+				classes.push(ctx.dutyStrengthPct < 60 ? 'dashboard-module--critical' : 'dashboard-module--watch');
+			}
+		}
+
+		if (cardId === 'training' && trainingAttentionCount > 0) {
+			classes.push('dashboard-module--priority', 'dashboard-module--critical');
+		}
+
+		if (cardId === 'upcoming' && ctx.upcomingChanges.length > 0) {
+			classes.push('dashboard-module--priority', 'dashboard-module--watch', 'dashboard-module--feed');
+		} else if (cardId === 'upcoming') {
+			classes.push('dashboard-module--feed');
+		}
+
+		if (cardId === 'ratings' && ratingAttentionCount > 0) {
+			classes.push('dashboard-module--priority', 'dashboard-module--critical');
+		}
+
+		if (
+			(cardId === 'duty' && ctx.dutyAssignments.length === 0) ||
+			(cardId === 'training' && trainingAttentionCount === 0) ||
+			(cardId === 'upcoming' && ctx.upcomingChanges.length === 0) ||
+			(cardId === 'ratings' && ratingAttentionCount === 0)
+		) {
+			classes.push('dashboard-module--quiet');
+		}
+
+		return classes.join(' ');
+	}
 </script>
 
 <svelte:head>
@@ -30,90 +110,58 @@
 
 <div class="dashboard-page">
 	<PageToolbar title="Dashboard" subtitle="Daily readiness and tasking snapshot" helpTopic="dashboard">
-		<a class="btn btn-secondary btn-sm" href="/help">Field Guide</a>
 		<button class="btn btn-secondary btn-sm" onclick={() => ctx.openCustomizeModal()}>Customize</button>
 	</PageToolbar>
 
 	<main class="dashboard-shell">
-		<section class="dashboard-briefing">
-			<div class="briefing-header">
-				<div class="briefing-copy">
-					<p class="section-kicker">Daily Brief</p>
-					<h2>{ctx.data.orgName}</h2>
-					<p>Good {greeting}. Review readiness, tasking, and follow-up items before the next formation.</p>
+		{#if dashboardCards.length > 0}
+			<div class="dashboard-layout">
+				<div class="dashboard-top-band" class:dashboard-top-band--single={topBandCards.length === 0}>
+					<section class="dashboard-briefing">
+						<div class="briefing-header">
+							<div class="briefing-copy">
+								<p class="section-kicker">Daily Brief</p>
+								<h2>{ctx.data.orgName}</h2>
+								<p>Good {greeting}. Review readiness, tasking, and follow-up items before the next formation.</p>
+							</div>
+
+							<div class="briefing-date" aria-label="Current date">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="date-icon">
+									<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+									<line x1="16" y1="2" x2="16" y2="6" />
+									<line x1="8" y1="2" x2="8" y2="6" />
+									<line x1="3" y1="10" x2="21" y2="10" />
+								</svg>
+								<span>{ctx.todayDisplay}</span>
+							</div>
+						</div>
+					</section>
+
+					{#each topBandCards as cardId (cardId)}
+						{@render cardContent(cardId)}
+					{/each}
 				</div>
 
-				<div class="briefing-date" aria-label="Current date">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="date-icon">
-						<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-						<line x1="16" y1="2" x2="16" y2="6" />
-						<line x1="8" y1="2" x2="8" y2="6" />
-						<line x1="3" y1="10" x2="21" y2="10" />
-					</svg>
-					<span>{ctx.todayDisplay}</span>
-				</div>
-			</div>
+				<div
+					class="dashboard-columns"
+					class:dashboard-columns--single={leftColumnCards.length === 0 || rightColumnCards.length === 0}
+				>
+					{#if leftColumnCards.length > 0}
+						<div class="dashboard-column">
+							{#each leftColumnCards as cardId (cardId)}
+								{@render cardContent(cardId)}
+							{/each}
+						</div>
+					{/if}
 
-			<dl class="briefing-metrics">
-				<div class="briefing-metric">
-					<dt>Ready Now</dt>
-					<dd>{ctx.availableCount}/{ctx.totalPersonnel}</dd>
-					<span>{ctx.dutyStrengthPct}% present today</span>
+					{#if rightColumnCards.length > 0}
+						<div class="dashboard-column">
+							{#each rightColumnCards as cardId (cardId)}
+								{@render cardContent(cardId)}
+							{/each}
+						</div>
+					{/if}
 				</div>
-				<div class="briefing-metric">
-					<dt>Tasked</dt>
-					<dd>{ctx.dutyAssignments.length}</dd>
-					<span>{ctx.dutyAssignments.length === 1 ? 'assignment posted' : 'assignments posted'}</span>
-				</div>
-				<div class="briefing-metric" class:attention={trainingAttentionCount > 0}>
-					<dt>Training Watch</dt>
-					<dd>{trainingAttentionCount}</dd>
-					<span>{trainingAttentionCount === 1 ? 'record needs action' : 'records need action'}</span>
-				</div>
-				<div class="briefing-metric" class:attention={ctx.upcomingChanges.length > 0}>
-					<dt>Movement</dt>
-					<dd>{ctx.upcomingChanges.length}</dd>
-					<span>changes in the next 7 days</span>
-				</div>
-			</dl>
-		</section>
-
-		{#if !ctx.bannerDismissed}
-			<section class="dashboard-notice">
-				<div class="notice-copy">
-					<p class="section-kicker">Field Guide</p>
-					<h3>New to the workspace?</h3>
-					<p>Open the platform guide for a quick walkthrough of the core jobs you can do from the dashboard.</p>
-				</div>
-				<div class="notice-actions">
-					<a href="/help" class="btn btn-amber btn-sm">Open Guide</a>
-					<button class="btn btn-secondary btn-sm" onclick={() => ctx.dismissBanner()}>Dismiss</button>
-				</div>
-			</section>
-		{/if}
-
-		{#if (ctx.userRole === 'owner' || ctx.userRole === 'admin') && !ctx.isDemoSandbox && !ctx.isDemoReadOnly}
-			<div class="dashboard-stack">
-				<GettingStartedBanner
-					orgId={ctx.data.orgId}
-					personnelCount={ctx.personnelCount}
-					statusTypeCount={ctx.statusTypeCount}
-					trainingTypeCount={ctx.trainingTypeCount}
-					assignmentTypeCount={ctx.assignmentTypeCount}
-					onboardingTemplateStepCount={ctx.data.onboardingTemplateStepCount}
-					ratingSchemeEntryCount={ctx.data.ratingSchemeEntryCount}
-					orgMemberCount={ctx.data.orgMemberCount}
-					dismissed={ctx.gettingStartedDismissed}
-					onDismiss={() => ctx.dismissGettingStarted()}
-				/>
-			</div>
-		{/if}
-
-		{#each ctx.cardRows as row (row.join('-'))}
-			<div class="module-row" class:module-row--paired={row.length === 2}>
-				{#each row as cardId (cardId)}
-					{@render cardContent(cardId)}
-				{/each}
 			</div>
 		{:else}
 			<div class="dashboard-empty">
@@ -125,13 +173,57 @@
 					<EmptyState message="No dashboard modules are visible. Use Customize to restore the default layout." />
 				{/if}
 			</div>
-		{/each}
+		{/if}
+
+		{#if showWorkspaceSetup}
+			<aside class="dashboard-support" aria-labelledby="workspace-support-title">
+				<div class="support-summary">
+					<div class="support-copy">
+						<p class="section-kicker">Workspace support</p>
+						<h3 id="workspace-support-title">Finish setup after the daily brief.</h3>
+						<p>
+							Keep the dashboard focused on readiness first. Open the checklist when you are ready to work on setup.
+						</p>
+					</div>
+
+					<div class="support-actions">
+						<button
+							type="button"
+							class="btn btn-amber btn-sm"
+							onclick={() => (workspaceSetupOpen = !workspaceSetupOpen)}
+							aria-controls="workspace-setup-panel"
+							aria-expanded={workspaceSetupOpen}
+						>
+							{workspaceSetupOpen ? 'Hide checklist' : 'Review checklist'}
+						</button>
+						<a class="btn btn-secondary btn-sm" href="/help">Field Guide</a>
+					</div>
+				</div>
+
+				{#if workspaceSetupOpen}
+					<div class="support-panel" id="workspace-setup-panel">
+						<GettingStartedBanner
+							orgId={ctx.data.orgId}
+							personnelCount={ctx.personnelCount}
+							statusTypeCount={ctx.statusTypeCount}
+							trainingTypeCount={ctx.trainingTypeCount}
+							assignmentTypeCount={ctx.assignmentTypeCount}
+							onboardingTemplateStepCount={ctx.data.onboardingTemplateStepCount}
+							ratingSchemeEntryCount={ctx.data.ratingSchemeEntryCount}
+							orgMemberCount={ctx.data.orgMemberCount}
+							dismissed={ctx.gettingStartedDismissed}
+							onDismiss={() => ctx.dismissGettingStarted()}
+						/>
+					</div>
+				{/if}
+			</aside>
+		{/if}
 	</main>
 </div>
 
 {#snippet cardContent(cardId: CardId)}
 	{#if cardId === 'strength'}
-		<section class="dashboard-module">
+		<section class={moduleClasses(cardId)}>
 			<header class="module-header">
 				<div class="module-heading">
 					<span class="module-icon" aria-hidden="true">
@@ -147,6 +239,13 @@
 						<h3>Today's strength</h3>
 					</div>
 				</div>
+				{#if ctx.dutyStrengthPct < 80}
+					<div class="module-header-meta">
+						<span class="header-flag" class:header-flag--critical={ctx.dutyStrengthPct < 60}>
+							{ctx.dutyStrengthPct < 60 ? 'Strength risk' : 'Strength watch'}
+						</span>
+					</div>
+				{/if}
 			</header>
 
 			<div class="module-body">
@@ -198,7 +297,7 @@
 			</div>
 		</section>
 	{:else if cardId === 'duty'}
-		<section class="dashboard-module">
+		<section class={moduleClasses(cardId)}>
 			<header class="module-header">
 				<div class="module-heading">
 					<span class="module-icon" aria-hidden="true">
@@ -240,7 +339,7 @@
 			</div>
 		</section>
 	{:else if cardId === 'training'}
-		<section class="dashboard-module">
+		<section class={moduleClasses(cardId)}>
 			<header class="module-header">
 				<div class="module-heading">
 					<span class="module-icon" aria-hidden="true">
@@ -254,7 +353,17 @@
 						<h3>Training watch</h3>
 					</div>
 				</div>
-				<a href="/org/{ctx.data.orgId}/training" class="module-action">Full report</a>
+				<div class="module-header-meta">
+					{#if trainingAttentionCount > 0}
+						<span
+							class="header-flag"
+							class:header-flag--critical={ctx.trainingStats?.expired && ctx.trainingStats.expired > 0}
+						>
+							{trainingAttentionCount} need action
+						</span>
+					{/if}
+					<a href="/org/{ctx.data.orgId}/training" class="module-action">Full report</a>
+				</div>
 			</header>
 
 			<div class="module-body">
@@ -311,7 +420,7 @@
 			</div>
 		</section>
 	{:else if cardId === 'upcoming'}
-		<section class="dashboard-module">
+		<section class={moduleClasses(cardId)}>
 			<header class="module-header">
 				<div class="module-heading">
 					<span class="module-icon" aria-hidden="true">
@@ -325,7 +434,12 @@
 						<h3>Upcoming changes</h3>
 					</div>
 				</div>
-				<a href="/org/{ctx.data.orgId}/calendar" class="module-action">View calendar</a>
+				<div class="module-header-meta">
+					{#if ctx.upcomingChanges.length > 0}
+						<span class="header-flag">{ctx.upcomingChanges.length} scheduled</span>
+					{/if}
+					<a href="/org/{ctx.data.orgId}/calendar" class="module-action">View calendar</a>
+				</div>
 			</header>
 
 			<div class="module-body">
@@ -356,7 +470,7 @@
 			</div>
 		</section>
 	{:else if cardId === 'ratings'}
-		<section class="dashboard-module">
+		<section class={moduleClasses(cardId)}>
 			<header class="module-header">
 				<div class="module-heading">
 					<span class="module-icon" aria-hidden="true">
@@ -367,10 +481,17 @@
 					</span>
 					<div>
 						<p class="module-kicker">Readiness</p>
-						<h3>Rating scheme</h3>
+						<h3>Rating watch</h3>
 					</div>
 				</div>
-				<a href="/org/{ctx.data.orgId}/personnel" class="module-action">Open personnel</a>
+				<div class="module-header-meta">
+					{#if ratingAttentionCount > 0}
+						<span class="header-flag" class:header-flag--critical={ctx.ratingStats.overdue > 0}>
+							{ratingAttentionCount} due now
+						</span>
+					{/if}
+					<a href="/org/{ctx.data.orgId}/personnel" class="module-action">Open personnel</a>
+				</div>
 			</header>
 
 			<div class="module-body">
@@ -403,7 +524,7 @@
 		</section>
 	{:else if cardId === 'onboardings'}
 		{#if ctx.data.permissions?.canViewPersonnel}
-			<section class="dashboard-module dashboard-module--full">
+			<section class={moduleClasses(cardId, { full: true })}>
 				<header class="module-header">
 					<div class="module-heading">
 						<span class="module-icon" aria-hidden="true">
@@ -428,9 +549,9 @@
 				</header>
 
 				<div class="module-body">
-					{#if ctx.activeOnboardings.length > 0}
+					{#if onboardingWatchList.length > 0}
 						<div class="progress-list">
-							{#each ctx.activeOnboardings as ob (ob.id)}
+							{#each onboardingWatchList as ob (ob.id)}
 								<div class="progress-row">
 									<div class="progress-copy">
 										<span class="progress-name">{ob.personName}</span>
@@ -445,88 +566,17 @@
 								</div>
 							{/each}
 						</div>
+						{#if hiddenOnboardingsCount > 0}
+							<p class="module-note module-footnote">
+								Showing {onboardingWatchList.length} of {ctx.activeOnboardings.length} active onboardings.
+							</p>
+						{/if}
 					{:else}
 						<div class="module-empty">
 							<p>No onboardings are active right now.</p>
 							<a href="/org/{ctx.data.orgId}/onboarding" class="btn btn-secondary btn-sm">Open onboarding</a>
 						</div>
 					{/if}
-				</div>
-			</section>
-		{/if}
-	{:else if cardId === 'groups'}
-		{#if ctx.groupBreakdown.length > 0}
-			<section class="dashboard-module dashboard-module--full">
-				<header class="module-header">
-					<div class="module-heading">
-						<span class="module-icon" aria-hidden="true">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-								<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-								<circle cx="9" cy="7" r="4" />
-								<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-								<path d="M16 3.13a4 4 0 0 1 0 7.75" />
-							</svg>
-						</span>
-						<div>
-							<p class="module-kicker">Groups</p>
-							<h3>Per-group breakdown</h3>
-						</div>
-					</div>
-				</header>
-
-				<div class="module-table-wrap">
-					<table class="group-table">
-						<thead>
-							<tr>
-								<th class="col-group">Group</th>
-								<th class="col-num">Total</th>
-								<th class="col-num">Present</th>
-								{#each statusTypesStore.items as st (st.id)}
-									<th class="col-num col-status">{st.name}</th>
-								{/each}
-								<th class="col-num">Ready %</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each ctx.groupBreakdown as group (group.id)}
-								<tr class:pinned={group.isPinned}>
-									<td class="col-group">
-										<div class="group-name">
-											{#if group.isPinned}
-												<svg class="pin-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-													<path
-														d="M12 2C8.686 2 6 4.686 6 8c0 4.5 6 12 6 12s6-7.5 6-12c0-3.314-2.686-6-6-6zm0 8c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2z"
-													/>
-												</svg>
-											{/if}
-											<span>{group.name}</span>
-										</div>
-									</td>
-									<td class="col-num">{group.total}</td>
-									<td class="col-num col-present">{group.available}</td>
-									{#each statusTypesStore.items as st (st.id)}
-										<td class="col-num">
-											{#if (group.statusCounts.get(st.id) ?? 0) > 0}
-												<span class="table-chip">{group.statusCounts.get(st.id)}</span>
-											{:else}
-												<span class="col-zero">—</span>
-											{/if}
-										</td>
-									{/each}
-									<td class="col-num">
-										<span
-											class="pct-badge"
-											class:pct-high={group.pct >= 80}
-											class:pct-mid={group.pct >= 60 && group.pct < 80}
-											class:pct-low={group.pct < 60}
-										>
-											{group.pct}%
-										</span>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
 				</div>
 			</section>
 		{/if}
@@ -561,8 +611,7 @@
 	.stack-meta,
 	.progress-meta,
 	.progress-pct,
-	.header-count,
-	.group-table th {
+	.header-count {
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
@@ -570,8 +619,7 @@
 		text-transform: uppercase;
 	}
 
-	.dashboard-briefing,
-	.dashboard-notice {
+	.dashboard-briefing {
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-5);
@@ -604,8 +652,7 @@
 	}
 
 	.briefing-copy h2,
-	.module-heading h3,
-	.notice-copy h3 {
+	.module-heading h3 {
 		margin: 0;
 		font-family: var(--font-display);
 		font-weight: var(--font-weight-display);
@@ -620,7 +667,7 @@
 	}
 
 	.briefing-copy p,
-	.notice-copy p {
+	.support-copy p {
 		margin: 0;
 		font-size: var(--text-base);
 		line-height: var(--line-height-copy);
@@ -684,48 +731,113 @@
 		color: var(--amber-dark);
 	}
 
-	.dashboard-notice {
-		flex-direction: row;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-5);
-		background: color-mix(in srgb, var(--surface-panel) 82%, var(--amber-light) 18%);
-	}
-
-	.notice-copy {
+	.support-copy {
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-2);
 		max-width: 44rem;
 	}
 
-	.notice-actions {
+	.support-copy h3 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(1.4rem, 1.15rem + 0.6vw, 1.9rem);
+		font-weight: var(--font-weight-display);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		line-height: 0.95;
+		color: var(--text-primary);
+	}
+
+	.dashboard-support {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+		padding-top: var(--sp-2);
+		border-top: var(--border-rule);
+	}
+
+	.support-summary {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--sp-5);
+	}
+
+	.support-actions {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--sp-3);
 		flex-shrink: 0;
 	}
 
-	.dashboard-stack :global(.getting-started) {
+	.support-panel {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.support-panel :global(.getting-started) {
 		margin-bottom: 0;
 	}
 
-	.module-row {
-		display: grid;
-		grid-template-columns: 1fr;
+	.dashboard-layout {
+		display: flex;
+		flex-direction: column;
 		gap: var(--sp-6);
 	}
 
-	.module-row--paired {
+	.dashboard-top-band {
+		--top-band-height: clamp(16rem, 30vh, 18.5rem);
+		display: grid;
+		grid-template-columns: minmax(0, 1.55fr) minmax(19rem, 0.75fr);
+		gap: var(--sp-6);
+		align-items: stretch;
+	}
+
+	.dashboard-top-band--single {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.dashboard-top-band > * {
+		height: var(--top-band-height);
+	}
+
+	.dashboard-top-band .dashboard-module {
+		height: var(--top-band-height);
+	}
+
+	.dashboard-top-band .dashboard-module .module-body {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
+
+	.dashboard-columns {
+		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--sp-6);
+		align-items: start;
+	}
+
+	.dashboard-columns--single {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.dashboard-column {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-6);
 	}
 
 	.dashboard-module {
+		--module-border: var(--border-default);
+		--module-header-bg: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
+		--module-panel-bg: var(--surface-panel);
 		display: flex;
 		flex-direction: column;
 		min-width: 0;
-		background: var(--surface-panel);
-		border: var(--border-thin);
+		background: var(--module-panel-bg);
+		border: 1px solid var(--module-border);
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-sm);
 		overflow: hidden;
@@ -738,7 +850,7 @@
 		gap: var(--sp-4);
 		padding: var(--sp-5) var(--sp-6) var(--sp-4);
 		border-bottom: var(--border-rule);
-		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
+		background: var(--module-header-bg);
 	}
 
 	.module-heading {
@@ -781,8 +893,33 @@
 	.module-header-meta {
 		display: flex;
 		align-items: center;
+		flex-wrap: wrap;
 		gap: var(--sp-3);
 		flex-shrink: 0;
+	}
+
+	.header-flag {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 1.75rem;
+		padding: 0 0.6rem;
+		border-radius: var(--radius-md);
+		border: 1px solid rgba(var(--amber-rgb), 0.3);
+		background: color-mix(in srgb, var(--amber-light) 72%, var(--surface-panel));
+		color: var(--amber-dark);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+
+	.header-flag--critical {
+		border-color: color-mix(in srgb, var(--danger) 40%, var(--border-default));
+		background: color-mix(in srgb, var(--danger-bg) 78%, var(--surface-panel));
+		color: var(--danger);
 	}
 
 	.header-count {
@@ -832,6 +969,25 @@
 		color: var(--text-secondary);
 	}
 
+	@media (max-width: 920px) {
+		.support-summary {
+			flex-direction: column;
+		}
+
+		.support-actions {
+			width: 100%;
+		}
+
+		.dashboard-top-band,
+		.dashboard-columns {
+			grid-template-columns: 1fr;
+		}
+
+		.dashboard-top-band > * {
+			height: auto;
+		}
+	}
+
 	.strength-grid {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) auto;
@@ -853,6 +1009,68 @@
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
 		color: var(--text-primary);
+	}
+
+	.dashboard-module--lead {
+		--module-border: color-mix(in srgb, var(--color-chrome) 14%, var(--border-default));
+		--module-header-bg: color-mix(in srgb, var(--surface-panel) 76%, var(--surface-subtle) 24%);
+		box-shadow: var(--shadow-md);
+	}
+
+	.dashboard-module--lead .module-body {
+		gap: var(--sp-5);
+		padding: var(--sp-6);
+	}
+
+	.dashboard-module--priority {
+		--module-border: color-mix(in srgb, var(--amber) 32%, var(--border-default));
+		box-shadow:
+			0 0 0 1px rgba(var(--amber-rgb), 0.1),
+			var(--shadow-md);
+	}
+
+	.dashboard-module--watch {
+		--module-header-bg: color-mix(in srgb, var(--surface-panel) 72%, var(--amber-light) 28%);
+	}
+
+	.dashboard-module--critical {
+		--module-border: color-mix(in srgb, var(--danger) 24%, var(--border-default));
+		--module-header-bg: color-mix(in srgb, var(--surface-panel) 78%, var(--danger-bg) 22%);
+	}
+
+	.dashboard-module--quiet {
+		box-shadow: none;
+	}
+
+	.dashboard-module--quiet .module-action {
+		color: var(--text-tertiary);
+	}
+
+	.dashboard-module--feed {
+		height: clamp(22rem, 52vh, 30rem);
+	}
+
+	.dashboard-module--feed .module-body {
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.dashboard-module--feed .upcoming-list {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		padding-right: var(--sp-2);
+		scrollbar-gutter: stable;
+	}
+
+	.dashboard-module--feed .upcoming-list::-webkit-scrollbar {
+		width: 10px;
+	}
+
+	.dashboard-module--feed .upcoming-list::-webkit-scrollbar-thumb {
+		background: color-mix(in srgb, var(--ink-15) 80%, var(--amber-light) 20%);
+		border-radius: 999px;
+		border: 2px solid var(--surface-panel);
 	}
 
 	.strength-meta,
@@ -1012,6 +1230,11 @@
 		line-height: 1.45;
 	}
 
+	.module-footnote {
+		padding-top: var(--sp-1);
+		border-top: var(--border-rule);
+	}
+
 	.module-subsection {
 		display: flex;
 		flex-direction: column;
@@ -1117,70 +1340,11 @@
 		line-height: 1.4;
 	}
 
-	.group-table {
-		width: 100%;
-		border-collapse: collapse;
-		min-width: 720px;
-	}
-
-	.group-table th {
-		padding: var(--sp-3) var(--sp-2);
-		text-align: left;
-		color: var(--text-tertiary);
-		border-bottom: var(--border-thin);
-	}
-
-	.group-table td {
-		padding: var(--sp-3) var(--sp-2);
-		border-bottom: var(--border-rule);
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-	}
-
-	.group-table tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.group-table tr.pinned {
-		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
-	}
-
-	.group-name {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		font-weight: var(--font-weight-semibold);
-	}
-
 	.pin-icon {
 		width: 12px;
 		height: 12px;
 		color: var(--amber-dark);
 		flex-shrink: 0;
-	}
-
-	.col-group {
-		min-width: 140px;
-	}
-
-	.col-num {
-		text-align: center;
-		width: 72px;
-	}
-
-	.col-present {
-		color: var(--success);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.col-zero {
-		color: var(--text-tertiary);
-	}
-
-	.table-chip {
-		background: var(--surface-subtle);
-		color: var(--text-secondary);
-		min-width: 1.75rem;
 	}
 
 	.pct-badge {
@@ -1209,18 +1373,12 @@
 	}
 
 	@media (max-width: 1100px) {
-		.briefing-metrics,
 		.metric-grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
 
 	@media (max-width: 900px) {
-		.module-row--paired {
-			grid-template-columns: 1fr;
-		}
-
-		.dashboard-notice,
 		.briefing-header,
 		.module-header,
 		.ledger-item,
@@ -1233,13 +1391,11 @@
 		}
 
 		.briefing-date,
-		.notice-actions,
 		.module-header-meta,
 		.progress-track-wrap {
 			width: 100%;
 		}
 
-		.notice-actions,
 		.module-header-meta {
 			justify-content: flex-start;
 		}
@@ -1260,8 +1416,7 @@
 		.module-body,
 		.module-header,
 		.module-table-wrap,
-		.dashboard-briefing,
-		.dashboard-notice {
+		.dashboard-briefing {
 			padding-left: var(--sp-4);
 			padding-right: var(--sp-4);
 		}

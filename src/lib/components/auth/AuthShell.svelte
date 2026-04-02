@@ -86,9 +86,9 @@
 		</header>
 
 		<main class="auth-shell__main">
-			<section class="auth-shell__intro" aria-labelledby="auth-shell-title">
+			<section class="auth-shell__intro" aria-labelledby="auth-shell-intro-title">
 				<p class="auth-shell__eyebrow">{eyebrow}</p>
-				<h1 id="auth-shell-title" class="auth-shell__title">{title}</h1>
+				<h2 id="auth-shell-intro-title" class="auth-shell__title">{title}</h2>
 				{#if description}
 					<p class="auth-shell__description">{description}</p>
 				{/if}
@@ -119,7 +119,7 @@
 					{#if panelEyebrow}
 						<p class="auth-shell__panel-eyebrow">{panelEyebrow}</p>
 					{/if}
-					<h2 id="auth-panel-title" class="auth-shell__panel-title">{resolvedPanelTitle}</h2>
+					<h1 id="auth-panel-title" class="auth-shell__panel-title">{resolvedPanelTitle}</h1>
 					{#if panelDescription}
 						<p class="auth-shell__panel-description">{panelDescription}</p>
 					{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { RATING_STATUS_COLORS } from '$features/rating-scheme/rating-scheme.types';
 	import GettingStartedBanner from '$features/onboarding/components/GettingStartedBanner.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
@@ -23,14 +24,14 @@
 			: 0
 	);
 	const ratingAttentionCount = $derived.by(() => ctx.ratingStats.overdue + ctx.ratingStats['due-30']);
+	const topBandCardIds = new Set<CardId>(['duty']);
+	const leftColumnCardIds = new Set<CardId>(['strength', 'onboardings', 'ratings', 'groups']);
+	const rightColumnCardIds = new Set<CardId>(['training', 'upcoming']);
 	const visibleCards = $derived.by(() => ctx.cardRows.flat());
-	const topBandCardOrder: CardId[] = ['duty'];
-	const leftColumnCardOrder: CardId[] = ['strength', 'onboardings', 'ratings'];
-	const rightColumnCardOrder: CardId[] = ['training', 'upcoming'];
 	const dashboardCards = $derived.by(() => visibleCards.filter((cardId) => cardHasSignal(cardId)));
-	const topBandCards = $derived.by(() => topBandCardOrder.filter((cardId) => dashboardCards.includes(cardId)));
-	const leftColumnCards = $derived.by(() => leftColumnCardOrder.filter((cardId) => dashboardCards.includes(cardId)));
-	const rightColumnCards = $derived.by(() => rightColumnCardOrder.filter((cardId) => dashboardCards.includes(cardId)));
+	const topBandCards = $derived.by(() => dashboardCards.filter((cardId) => topBandCardIds.has(cardId)));
+	const leftColumnCards = $derived.by(() => dashboardCards.filter((cardId) => leftColumnCardIds.has(cardId)));
+	const rightColumnCards = $derived.by(() => dashboardCards.filter((cardId) => rightColumnCardIds.has(cardId)));
 	const onboardingWatchList = $derived.by(() =>
 		[...ctx.activeOnboardings]
 			.sort((a, b) => a.pct - b.pct || a.completedSteps - b.completedSteps || a.personName.localeCompare(b.personName))
@@ -53,10 +54,6 @@
 
 		if (cardId === 'onboardings') {
 			return true;
-		}
-
-		if (cardId === 'groups') {
-			return false;
 		}
 
 		return true;
@@ -577,6 +574,82 @@
 							<a href="/org/{ctx.data.orgId}/onboarding" class="btn btn-secondary btn-sm">Open onboarding</a>
 						</div>
 					{/if}
+				</div>
+			</section>
+		{/if}
+	{:else if cardId === 'groups'}
+		{#if ctx.groupBreakdown.length > 0}
+			<section class={moduleClasses(cardId, { full: true })}>
+				<header class="module-header">
+					<div class="module-heading">
+						<span class="module-icon" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+								<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+								<circle cx="9" cy="7" r="4" />
+								<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+								<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+							</svg>
+						</span>
+						<div>
+							<p class="module-kicker">Groups</p>
+							<h3>Per-group breakdown</h3>
+						</div>
+					</div>
+				</header>
+
+				<div class="module-table-wrap">
+					<table class="group-table">
+						<thead>
+							<tr>
+								<th class="col-group">Group</th>
+								<th class="col-num">Total</th>
+								<th class="col-num">Present</th>
+								{#each statusTypesStore.items as st (st.id)}
+									<th class="col-num col-status">{st.name}</th>
+								{/each}
+								<th class="col-num">Ready %</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each ctx.groupBreakdown as group (group.id)}
+								<tr class:pinned={group.isPinned}>
+									<td class="col-group">
+										<div class="group-name">
+											{#if group.isPinned}
+												<svg class="pin-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+													<path
+														d="M12 2C8.686 2 6 4.686 6 8c0 4.5 6 12 6 12s6-7.5 6-12c0-3.314-2.686-6-6-6zm0 8c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2z"
+													/>
+												</svg>
+											{/if}
+											<span>{group.name}</span>
+										</div>
+									</td>
+									<td class="col-num">{group.total}</td>
+									<td class="col-num col-present">{group.available}</td>
+									{#each statusTypesStore.items as st (st.id)}
+										<td class="col-num">
+											{#if (group.statusCounts.get(st.id) ?? 0) > 0}
+												<span class="table-chip">{group.statusCounts.get(st.id)}</span>
+											{:else}
+												<span class="col-zero">-</span>
+											{/if}
+										</td>
+									{/each}
+									<td class="col-num">
+										<span
+											class="pct-badge"
+											class:pct-high={group.pct >= 80}
+											class:pct-mid={group.pct >= 60 && group.pct < 80}
+											class:pct-low={group.pct < 60}
+										>
+											{group.pct}%
+										</span>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
 				</div>
 			</section>
 		{/if}
@@ -1340,11 +1413,64 @@
 		line-height: 1.4;
 	}
 
+	.group-table {
+		width: 100%;
+		border-collapse: collapse;
+		min-width: 720px;
+	}
+
+	.group-table th {
+		padding: var(--sp-3) var(--sp-2);
+		text-align: left;
+		color: var(--text-tertiary);
+		border-bottom: var(--border-thin);
+	}
+
+	.group-table td {
+		padding: var(--sp-3) var(--sp-2);
+		border-bottom: var(--border-rule);
+		font-size: var(--text-sm);
+		color: var(--text-primary);
+	}
+
+	.group-table tbody tr:last-child td {
+		border-bottom: none;
+	}
+
+	.group-table tr.pinned {
+		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
+	}
+
+	.group-name {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-weight: var(--font-weight-semibold);
+	}
+
 	.pin-icon {
 		width: 12px;
 		height: 12px;
 		color: var(--amber-dark);
 		flex-shrink: 0;
+	}
+
+	.col-group {
+		min-width: 140px;
+	}
+
+	.col-num {
+		text-align: center;
+		width: 72px;
+	}
+
+	.col-present {
+		color: var(--success);
+		font-weight: var(--font-weight-semibold);
+	}
+
+	.col-zero {
+		color: var(--text-tertiary);
 	}
 
 	.pct-badge {

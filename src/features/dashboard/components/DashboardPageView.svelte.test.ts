@@ -88,7 +88,7 @@ describe('DashboardPageView', () => {
 			.getAllByRole('heading', { level: 3 })
 			.map((heading) => heading.textContent?.trim())
 			.filter((text): text is string =>
-				["Active onboardings", 'Rating watch', "Today's strength"].includes(text ?? '')
+				['Active onboardings', 'Rating watch', "Today's strength"].includes(text ?? '')
 			);
 
 		expect(cardHeadings).toEqual(['Active onboardings', 'Rating watch', "Today's strength"]);

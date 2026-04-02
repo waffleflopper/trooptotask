@@ -128,6 +128,14 @@ A military unit management platform for personnel tracking, calendar/availabilit
 
 6. Open [http://localhost:5173](http://localhost:5173)
 
+### Local Auth Testing
+
+- Local Supabase auth emails are captured at [http://127.0.0.1:54324](http://127.0.0.1:54324) via Mailpit.
+- Use `supabase status -o env` to copy the current local keys into `.env.local` if needed.
+- Run `npm run test:e2e:auth` for invite/password-reset coverage and `npm run test:e2e:access-requests` for access-request approval coverage.
+- The Playwright auth suites boot their own isolated app server on `127.0.0.1:4173`, so you can keep your normal dev server running on `localhost:5173` while the tests execute.
+- See [docs/local-auth-testing.md](docs/local-auth-testing.md) for the full workflow.
+
 ### Scripts
 
 ```bash

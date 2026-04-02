@@ -123,7 +123,7 @@
 								• Reviewed {formatDisplayDateTime(req.reviewed_at)}{/if}
 						</p>
 					</div>
-					{#if req.status === 'approved' && req.registration_invites && !req.registration_invites.used_by}
+					{#if req.status === 'approved' && !req.registration_invites?.used_at}
 						<div class="request-card__actions">
 							<form
 								method="POST"
@@ -143,6 +143,10 @@
 								</button>
 							</form>
 						</div>
+					{:else if req.status === 'approved' && req.registration_invites?.used_at}
+						<p class="request-card__meta">
+							Account setup completed {formatDisplayDateTime(req.registration_invites.used_at)}
+						</p>
 					{/if}
 				</section>
 			{/each}

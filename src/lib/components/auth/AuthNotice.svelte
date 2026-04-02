@@ -14,7 +14,12 @@
 	let { tone = 'info', title, message, centered = false, children }: Props = $props();
 </script>
 
-<div class:auth-alert--centered={centered} class="auth-alert" data-tone={tone} role={tone === 'error' ? 'alert' : 'status'}>
+<div
+	class:auth-alert--centered={centered}
+	class="auth-alert"
+	data-tone={tone}
+	role={tone === 'error' ? 'alert' : 'status'}
+>
 	<div class="auth-alert__icon" aria-hidden="true">
 		{#if tone === 'error'}
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

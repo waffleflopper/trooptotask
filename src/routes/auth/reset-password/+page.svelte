@@ -79,13 +79,11 @@
 	description="Once the recovery link is verified, this screen should be the last stop before you're back inside the platform."
 	panelEyebrow="Password reset"
 	panelTitle={success ? 'Password updated' : sessionReady ? 'Choose a new password' : 'Verifying reset link'}
-	panelDescription={
-		success
-			? 'You\'ll be redirected to sign in shortly.'
-			: sessionReady
-				? 'Enter the new password you want to use for future sign-ins.'
-				: 'We\'re confirming the recovery session before allowing a password change.'
-	}
+	panelDescription={success
+		? "You'll be redirected to sign in shortly."
+		: sessionReady
+			? 'Enter the new password you want to use for future sign-ins.'
+			: "We're confirming the recovery session before allowing a password change."}
 	supportLabel="Reset session"
 	supportTitle="Use the link, then set the password."
 	supportDescription="You can only change the password here after the reset link has been verified."

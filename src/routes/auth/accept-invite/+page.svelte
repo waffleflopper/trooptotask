@@ -24,9 +24,7 @@
 	const hasLowercase = $derived(/[a-z]/.test(password));
 	const hasDigit = $derived(/\d/.test(password));
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
-	const canSubmit = $derived(
-		hasMinLength && hasUppercase && hasLowercase && hasDigit && passwordsMatch && !loading
-	);
+	const canSubmit = $derived(hasMinLength && hasUppercase && hasLowercase && hasDigit && passwordsMatch && !loading);
 
 	onMount(async () => {
 		if (hasSession) {
@@ -76,24 +74,20 @@
 	title="Activate the account behind your invite."
 	description="This flow exchanges the invite token for a live session, then lets you set the password that will carry you into the product."
 	panelEyebrow="Invite acceptance"
-	panelTitle={
-		success
-			? 'Account activated'
-			: tokenError
-				? 'Invite unavailable'
-				: sessionReady
-					? 'Set your password'
-					: 'Verifying invite link'
-	}
-	panelDescription={
-		success
-			? 'Redirecting you to your dashboard.'
-			: tokenError
-				? 'This invite link can no longer be used.'
-				: sessionReady
-					? 'Choose a password that satisfies the current invite policy.'
-					: 'We\'re validating the invite token before exposing the activation form.'
-	}
+	panelTitle={success
+		? 'Account activated'
+		: tokenError
+			? 'Invite unavailable'
+			: sessionReady
+				? 'Set your password'
+				: 'Verifying invite link'}
+	panelDescription={success
+		? 'Redirecting you to your dashboard.'
+		: tokenError
+			? 'This invite link can no longer be used.'
+			: sessionReady
+				? 'Choose a password that satisfies the current invite policy.'
+				: "We're validating the invite token before exposing the activation form."}
 	supportLabel="Joining an organization"
 	supportTitle="Finish the invite."
 	supportDescription="This page is for invited users who are setting their password for the first time."

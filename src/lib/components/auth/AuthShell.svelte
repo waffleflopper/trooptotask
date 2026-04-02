@@ -49,7 +49,12 @@
 
 			<div class="auth-shell__topbar-actions">
 				<a href="/" class="auth-shell__back-link">Back to site</a>
-				<button class="auth-shell__theme-toggle" type="button" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
+				<button
+					class="auth-shell__theme-toggle"
+					type="button"
+					onclick={() => themeStore.toggle()}
+					aria-label="Toggle theme"
+				>
 					{#if themeStore.isDark}
 						<svg
 							viewBox="0 0 24 24"

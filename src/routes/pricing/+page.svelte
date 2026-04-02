@@ -130,14 +130,14 @@
 				</p>
 
 				<div class="pricing-brief__signals">
-					{#each trustSignals as signal}
+					{#each trustSignals as signal (signal)}
 						<div>{signal}</div>
 					{/each}
 				</div>
 			</div>
 
 			<div class="pricing-grid">
-				{#each plans as plan}
+				{#each plans as plan (plan.name)}
 					<PublicPricingTier {...plan} />
 				{/each}
 			</div>
@@ -147,7 +147,7 @@
 	<PublicContentSection label="01 // How Billing Works">
 		{#snippet title()}Operationally simple, <em>not padded.</em>{/snippet}
 		<div class="pricing-note-grid">
-			{#each billingNotes as note}
+			{#each billingNotes as note (note.title)}
 				<article class="pricing-note">
 					<h3>{note.title}</h3>
 					<p>{note.body}</p>
@@ -159,7 +159,7 @@
 	<PublicContentSection label="02 // Common Questions" alternate>
 		{#snippet title()}What leaders usually ask <em>first.</em>{/snippet}
 		<div class="faq-list">
-			{#each faqs as item}
+			{#each faqs as item (item.question)}
 				<article class="faq-item">
 					<h3>{item.question}</h3>
 					<p>{item.answer}</p>

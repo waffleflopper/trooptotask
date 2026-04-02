@@ -289,7 +289,7 @@
 						<div class="module-subsection">
 							<p class="subsection-label">Needs attention</p>
 							<div class="issue-list">
-								{#each ctx.topTrainingIssues as issue}
+								{#each ctx.topTrainingIssues as issue (`${issue.personName}-${issue.typeName}-${issue.status}-${issue.label}`)}
 									<div class="issue-row">
 										<div class="issue-copy">
 											<span class="issue-name">{issue.personName}</span>

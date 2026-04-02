@@ -51,7 +51,7 @@
 			<p class="feature-band__description">{description}</p>
 
 			<ul class="feature-band__list">
-				{#each bullets as bullet}
+				{#each bullets as bullet (bullet)}
 					<li>{bullet}</li>
 				{/each}
 			</ul>

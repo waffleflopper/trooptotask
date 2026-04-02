@@ -50,9 +50,9 @@
 
 	<PublicSiteNav {user} {active} {roadmapHref} {faqHref} {showFaqLink} />
 
-	<div class={`public-body ${bodyClass}`.trim()}>
+	<main class={`public-body ${bodyClass}`.trim()}>
 		{@render children()}
-	</div>
+	</main>
 
 	{#if showCta}
 		{#if cta}

@@ -450,7 +450,7 @@
 		{/if}
 	</button>
 
-	<div class="help-container">
+	<main class="help-container">
 		<header class="help-header">
 			<a href="/dashboard" class="back-link">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -518,7 +518,7 @@
 				<a href="https://github.com/waffleflopper/trooptotask" target="_blank" rel="noopener">project repository</a>.
 			</p>
 		</footer>
-	</div>
+	</main>
 </div>
 
 <style>

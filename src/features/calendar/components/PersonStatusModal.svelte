@@ -181,16 +181,16 @@
 	.person-info {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-bg);
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-4);
+		background: var(--surface-page);
 		border-radius: var(--radius-md);
-		margin-bottom: var(--spacing-lg);
+		margin-bottom: var(--sp-6);
 	}
 
 	.person-rank {
 		font-weight: 700;
-		color: var(--color-primary);
+		color: var(--amber);
 	}
 
 	.person-name {
@@ -198,13 +198,13 @@
 	}
 
 	.status-preview {
-		margin-top: var(--spacing-sm);
+		margin-top: var(--sp-2);
 	}
 
 	.dates-row {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 	}
 
 	.dates-row .form-group {
@@ -213,39 +213,39 @@
 	}
 
 	.date-arrow {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-lg);
-		padding-top: var(--spacing-lg);
+		color: var(--text-tertiary);
+		font-size: var(--text-base);
+		padding-top: var(--sp-6);
 	}
 
 	.day-count {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		padding: var(--sp-1) var(--sp-2);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
 		min-width: 50px;
-		margin-top: var(--spacing-lg);
+		margin-top: var(--sp-6);
 	}
 
 	.day-count-number {
-		font-size: var(--font-size-lg);
+		font-size: var(--text-base);
 		font-weight: 700;
-		color: var(--color-primary);
+		color: var(--amber);
 		line-height: 1;
 	}
 
 	.day-count-label {
 		font-size: 10px;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		text-transform: uppercase;
 	}
 
 	.footer-right {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		margin-left: auto;
 	}
 

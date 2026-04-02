@@ -24,7 +24,7 @@ describe('critical CSS inlining', () => {
 	const inlineStyles = getInlineStyles(html);
 
 	it('app.html contains an inline <style> block with CSS custom properties', () => {
-		expect(inlineStyles).toContain('--color-primary');
+		expect(inlineStyles).toContain('--amber');
 	});
 
 	it('app.html inlines dark mode design tokens', () => {
@@ -35,9 +35,11 @@ describe('critical CSS inlining', () => {
 		expect(inlineStyles).toContain('box-sizing: border-box');
 	});
 
-	it('app.css no longer contains the :root design token block (no duplication)', () => {
+	it('app.css no longer carries migration alias definitions', () => {
 		const css = readFileSync(APP_CSS, 'utf-8');
+		expect(css).not.toContain('Migration aliases');
 		expect(css).not.toContain('--color-primary:');
+		expect(css).not.toContain('--color-bg:');
 	});
 });
 

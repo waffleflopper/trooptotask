@@ -58,15 +58,9 @@ describe('SubNav', () => {
 		expect(badge.className).toContain('tab-badge');
 	});
 
-	it('should apply pill variant class', () => {
-		renderSubNav({ variant: 'pill' });
-		const nav = screen.getByRole('navigation');
-		expect(nav.className).toContain('pill');
-	});
-
-	it('should default to underline variant', () => {
+	it('should render the standard sub-nav shell', () => {
 		renderSubNav();
 		const nav = screen.getByRole('navigation');
-		expect(nav.className).toContain('underline');
+		expect(nav.className).toContain('sub-nav');
 	});
 });

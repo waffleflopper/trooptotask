@@ -139,7 +139,7 @@
 	}
 
 	.menu-item.danger {
-		color: var(--color-error);
+		color: var(--danger);
 	}
 
 	.menu-item.disabled {
@@ -166,7 +166,7 @@
 
 	.divider {
 		height: 1px;
-		background: var(--color-divider);
+		background: var(--divider-color);
 		margin: 6px 0;
 	}
 

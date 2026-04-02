@@ -77,7 +77,7 @@
 			Onboarding
 		</button>
 		{#if ctx.readOnly}
-			<span class="text-muted" style="font-size: var(--font-size-xs);">Upgrade to edit</span>
+			<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
 		{/if}
 	</SmartToolbar>
 

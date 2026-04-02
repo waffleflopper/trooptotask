@@ -279,7 +279,7 @@
 				</div>
 				<p class="type-hint">* = accepts "yes/no" instead of date (never expires). Use "exempt" to exempt a person.</p>
 				{#if trainingTypes.length === 0}
-					<p class="text-error" style="margin: var(--spacing-sm) 0 0; font-size: var(--font-size-sm);">
+					<p class="text-error" style="margin: var(--sp-2) 0 0; font-size: var(--text-ui-sm);">
 						No training types defined. Please add training types first.
 					</p>
 				{/if}
@@ -335,7 +335,7 @@
 			</div>
 
 			{#if importError}
-				<p class="text-error" style="margin-top: var(--spacing-sm); font-size: var(--font-size-sm);">
+				<p class="text-error" style="margin-top: var(--sp-2); font-size: var(--text-ui-sm);">
 					{importError}
 				</p>
 			{/if}
@@ -354,14 +354,14 @@
 			<p class="hint">Rows with errors are highlighted and will stay out of the import until they’re fixed.</p>
 			<BulkImportTable bind:this={bulkTable} {rawRows} columnDefs={TRAINING_COLUMNS} {validateRow} />
 			{#if importError}
-				<p class="text-error" style="margin-top: var(--spacing-sm); font-size: var(--font-size-sm);">
+				<p class="text-error" style="margin-top: var(--sp-2); font-size: var(--text-ui-sm);">
 					{importError}
 				</p>
 			{/if}
 		</div>
 	{:else if importState === 'importing'}
 		<div class="importing-state">
-			<Spinner size={20} color="var(--color-primary)" />
+			<Spinner size={20} color="var(--amber)" />
 			<span>Importing records...</span>
 		</div>
 	{:else if importState === 'results' && results}
@@ -387,7 +387,7 @@
 				{/if}
 			</div>
 			{#if results.errors > 0}
-				<p class="hint" style="margin-top: var(--spacing-md);">
+				<p class="hint" style="margin-top: var(--sp-4);">
 					Some records could not be imported. They may have been missing required data or referenced personnel outside
 					your assigned group.
 				</p>
@@ -425,7 +425,7 @@
 	.results-section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 	}
 
 	.import-summary {
@@ -488,10 +488,10 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: var(--spacing-md);
-		padding: var(--spacing-xl) 0;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
+		gap: var(--sp-4);
+		padding: var(--sp-8) 0;
+		color: var(--text-tertiary);
+		font-size: var(--text-ui-sm);
 	}
 
 	.info-box {
@@ -566,7 +566,7 @@
 	.upload-btn {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		cursor: pointer;
 	}
 
@@ -600,7 +600,7 @@
 		content: '';
 		flex: 1;
 		height: 1px;
-		background: var(--color-border);
+		background: var(--border-default);
 	}
 
 	.divider span {

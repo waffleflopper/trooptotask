@@ -167,24 +167,24 @@
 
 <style>
 	h4 {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 		font-weight: 600;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: var(--sp-2);
 	}
 
 	.add-section {
-		padding-bottom: var(--spacing-md);
-		margin-bottom: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
+		padding-bottom: var(--sp-4);
+		margin-bottom: var(--sp-4);
+		border-bottom: 1px solid var(--border-default);
 	}
 
 	.add-form {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		overflow: hidden;
 	}
 
@@ -199,28 +199,28 @@
 	.type-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 	}
 
 	.type-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-bg);
+		padding: var(--sp-2) var(--sp-4);
+		background: var(--surface-page);
 		border-radius: var(--radius-md);
 		transition: background-color 0.15s ease;
 	}
 
 	.type-item:hover {
-		background: var(--color-surface);
+		background: var(--surface-panel);
 		box-shadow: var(--shadow-sm);
 	}
 
 	.type-item.editing {
-		background: var(--color-surface);
+		background: var(--surface-panel);
 		box-shadow: var(--shadow-sm);
-		border: 1px solid var(--color-primary);
+		border: 1px solid var(--amber);
 	}
 
 	.type-display {
@@ -230,7 +230,7 @@
 
 	.type-actions {
 		display: flex;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		opacity: 0;
 		transition: opacity 0.15s ease;
 	}
@@ -240,13 +240,13 @@
 	}
 
 	.type-actions .btn {
-		padding: var(--spacing-xs);
+		padding: var(--sp-1);
 	}
 
 	.edit-form {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		width: 100%;
 		overflow: hidden;
 	}
@@ -258,6 +258,6 @@
 
 	.edit-actions {
 		display: flex;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 	}
 </style>

@@ -100,24 +100,24 @@
 		display: grid;
 		grid-template-columns: auto minmax(0, 1fr) auto;
 		align-items: center;
-		gap: clamp(var(--spacing-md), 2vw, var(--spacing-xl));
+		gap: clamp(var(--sp-4), 2vw, var(--sp-8));
 		height: 100%;
 		width: 100%;
 		box-sizing: border-box;
-		padding: 0 clamp(var(--spacing-md), 2vw, var(--spacing-lg));
+		padding: 0 clamp(var(--sp-4), 2vw, var(--sp-6));
 	}
 
 	.header-left {
 		display: flex;
 		align-items: center;
-		gap: clamp(var(--spacing-sm), 1.5vw, var(--spacing-lg));
+		gap: clamp(var(--sp-2), 1.5vw, var(--sp-6));
 		min-width: 0;
 	}
 
 	.logo-link {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		text-decoration: none;
 		color: var(--color-chrome-text);
 		min-width: 0;
@@ -169,7 +169,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		padding-left: clamp(var(--spacing-sm), 1vw, var(--spacing-md));
+		padding-left: clamp(var(--sp-2), 1vw, var(--sp-4));
 		border-left: 1px solid var(--color-chrome-border);
 		min-width: 0;
 	}
@@ -239,17 +239,17 @@
 	.header-right {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		justify-self: end;
 	}
 
 	.skip-link {
 		position: absolute;
 		top: -100%;
-		left: var(--spacing-md);
+		left: var(--sp-4);
 		background: var(--surface-panel);
 		color: var(--text-primary);
-		padding: var(--spacing-sm) var(--spacing-md);
+		padding: var(--sp-2) var(--sp-4);
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
 		z-index: 200;
@@ -262,7 +262,7 @@
 	}
 
 	.skip-link:focus {
-		top: var(--spacing-sm);
+		top: var(--sp-2);
 	}
 
 	@media (max-width: 920px) {
@@ -285,12 +285,12 @@
 		}
 
 		.header-shell {
-			padding-inline: var(--spacing-md);
-			gap: var(--spacing-sm);
+			padding-inline: var(--sp-4);
+			gap: var(--sp-2);
 		}
 
 		.header-left {
-			gap: var(--spacing-sm);
+			gap: var(--sp-2);
 		}
 
 		.header-logotype {
@@ -303,7 +303,7 @@
 
 		.header-org-block {
 			min-width: 0;
-			padding-left: var(--spacing-sm);
+			padding-left: var(--sp-2);
 		}
 
 		.header-org-kicker {
@@ -315,7 +315,7 @@
 		}
 
 		.header-right {
-			gap: var(--spacing-xs);
+			gap: var(--sp-1);
 		}
 	}
 

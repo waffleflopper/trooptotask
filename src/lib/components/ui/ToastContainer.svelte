@@ -2,10 +2,10 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 
 	const typeColors: Record<string, string> = {
-		success: 'var(--color-success)',
-		error: 'var(--color-error)',
-		warning: 'var(--color-warning)',
-		info: 'var(--color-info)'
+		success: 'var(--success)',
+		error: 'var(--danger)',
+		warning: 'var(--amber-dark)',
+		info: 'var(--info)'
 	};
 
 	const typeIcons: Record<string, string> = {
@@ -33,11 +33,11 @@
 <style>
 	.toast-container {
 		position: fixed;
-		bottom: var(--spacing-lg);
-		right: var(--spacing-lg);
+		bottom: var(--sp-6);
+		right: var(--sp-6);
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		z-index: 1200;
 		pointer-events: none;
 	}
@@ -45,13 +45,13 @@
 	.toast {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-4);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
 		border-left: 4px solid var(--toast-color);
 		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-3);
+		box-shadow: var(--shadow-lg);
 		min-width: 280px;
 		max-width: 420px;
 		pointer-events: auto;
@@ -75,18 +75,18 @@
 		justify-content: center;
 		width: 22px;
 		height: 22px;
-		border-radius: var(--radius-full);
+		border-radius: var(--radius-pill);
 		background: var(--toast-color);
 		color: white;
-		font-size: var(--font-size-xs);
+		font-size: var(--text-xs);
 		font-weight: 700;
 		flex-shrink: 0;
 	}
 
 	.toast-message {
 		flex: 1;
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
+		font-size: var(--text-ui-sm);
+		color: var(--text-primary);
 		line-height: 1.4;
 	}
 
@@ -98,22 +98,22 @@
 		align-items: center;
 		justify-content: center;
 		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
-		font-size: var(--font-size-lg);
+		color: var(--text-tertiary);
+		font-size: var(--text-base);
 		cursor: pointer;
 		transition: background var(--transition-fast);
 	}
 
 	.toast-dismiss:hover {
-		background: var(--color-surface-variant);
-		color: var(--color-text);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
 	}
 
 	@media (max-width: 640px) {
 		.toast-container {
-			bottom: var(--spacing-md);
-			right: var(--spacing-md);
-			left: var(--spacing-md);
+			bottom: var(--sp-4);
+			right: var(--sp-4);
+			left: var(--sp-4);
 		}
 
 		.toast {

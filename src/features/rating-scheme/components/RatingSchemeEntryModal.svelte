@@ -180,8 +180,9 @@
 
 <Modal title={entry ? 'Edit Rating Entry' : 'Add Rating Entry'} {onClose} width="550px" titleId="rating-entry-title">
 	<div class="form-group">
-		<label class="label">Rated Individual</label>
+		<label class="label" for="rated-individual">Rated Individual</label>
 		<SearchSelect
+			id="rated-individual"
 			options={personnelOptions}
 			bind:value={ratedPersonId}
 			placeholder="Search personnel..."

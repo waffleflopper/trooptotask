@@ -30,6 +30,7 @@
 	let dragOver = $state(false);
 	let errorMsg = $state('');
 	let fileInput = $state<HTMLInputElement | null>(null);
+	const labelId = $derived(`file-upload-${sanitizeFilename(`${orgId}-${storagePath}`).replace(/\./g, '-')}`);
 
 	function sanitizeFilename(name: string): string {
 		return name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -113,12 +114,12 @@
 	}
 </script>
 
-<div class="file-upload">
-	<label class="label">{label}</label>
+<div class="file-upload" role="group" aria-labelledby={labelId}>
+	<p class="label" id={labelId}>{label}</p>
 
 	{#if uploading}
 		<div class="upload-status">
-			<Spinner size={16} color="var(--color-primary)" />
+			<Spinner size={16} color="var(--amber)" />
 			<span>Uploading...</span>
 		</div>
 	{:else if filePath}
@@ -140,7 +141,8 @@
 			class:drag-over={dragOver}
 			class:disabled
 			role="button"
-			tabindex="0"
+			tabindex={disabled ? -1 : 0}
+			aria-disabled={disabled}
 			aria-label="Drop file here or press Enter to choose"
 			ondrop={handleDrop}
 			ondragover={handleDragOver}
@@ -172,25 +174,25 @@
 
 <style>
 	.file-upload {
-		margin-bottom: var(--spacing-md);
+		margin-bottom: var(--sp-4);
 	}
 
 	.drop-zone {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-lg);
-		border: 2px dashed var(--color-border);
+		gap: var(--sp-2);
+		padding: var(--sp-6);
+		border: 2px dashed var(--border-default);
 		border-radius: var(--radius-md);
-		background: var(--color-bg);
+		background: var(--surface-page);
 		transition: all 0.15s ease;
 		cursor: pointer;
 	}
 
 	.drop-zone.drag-over {
-		border-color: var(--color-primary);
-		background: rgba(63, 81, 181, 0.05);
+		border-color: var(--amber);
+		background: rgba(var(--amber-rgb), var(--opacity-light));
 	}
 
 	.drop-zone.disabled {
@@ -201,12 +203,12 @@
 	.upload-icon {
 		width: 24px;
 		height: 24px;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 	}
 
 	.drop-text {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-ui-sm);
+		color: var(--text-tertiary);
 	}
 
 	.choose-btn {
@@ -216,30 +218,30 @@
 	.upload-status {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-md);
-		background: var(--color-bg);
+		gap: var(--sp-2);
+		padding: var(--sp-4);
+		background: var(--surface-page);
 		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-ui-sm);
+		color: var(--text-tertiary);
 	}
 
 	.file-info {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-bg);
-		border: 1px solid var(--color-border);
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-4);
+		background: var(--surface-page);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
 	}
 
 	.file-link {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		color: var(--color-primary);
-		font-size: var(--font-size-sm);
+		gap: var(--sp-2);
+		color: var(--amber);
+		font-size: var(--text-ui-sm);
 		font-weight: 500;
 		background: none;
 		border: none;
@@ -266,12 +268,12 @@
 	}
 
 	.btn-remove {
-		font-size: var(--font-size-xs);
-		color: var(--color-error);
+		font-size: var(--text-xs);
+		color: var(--danger);
 		background: none;
 		border: none;
 		cursor: pointer;
-		padding: var(--spacing-xs);
+		padding: var(--sp-1);
 		flex-shrink: 0;
 	}
 
@@ -281,8 +283,8 @@
 
 	.error-msg {
 		display: block;
-		margin-top: var(--spacing-xs);
-		font-size: var(--font-size-xs);
-		color: var(--color-error);
+		margin-top: var(--sp-1);
+		font-size: var(--text-xs);
+		color: var(--danger);
 	}
 </style>

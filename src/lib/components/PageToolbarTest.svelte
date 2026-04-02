@@ -3,7 +3,7 @@
 
 	interface Props {
 		title: string;
-		variant?: 'default' | 'compact' | 'transparent';
+		variant?: 'default' | 'compact';
 		sticky?: boolean;
 		breadcrumbs?: { label: string; href?: string }[];
 		subtitle?: string;

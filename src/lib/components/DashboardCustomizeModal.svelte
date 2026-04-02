@@ -102,8 +102,8 @@
 	.customize-intro {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
-		margin-bottom: var(--spacing-md);
+		gap: var(--sp-1);
+		margin-bottom: var(--sp-4);
 	}
 
 	.customize-kicker {
@@ -126,15 +126,15 @@
 	.card-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.card-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--spacing-md);
-		padding: var(--spacing-md);
+		gap: var(--sp-4);
+		padding: var(--sp-4);
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
 		background: color-mix(in srgb, var(--surface-panel) 86%, var(--surface-subtle) 14%);
@@ -155,7 +155,7 @@
 	.card-row-actions {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.card-row-main {

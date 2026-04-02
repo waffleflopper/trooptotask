@@ -197,32 +197,32 @@
 		align-items: center;
 		justify-content: center;
 		min-height: 100vh;
-		background: var(--color-bg);
-		padding: var(--spacing-lg);
+		background: var(--surface-page);
+		padding: var(--sp-6);
 	}
 
 	.suspended-org-card {
 		text-align: center;
 		max-width: 440px;
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-lg);
-		padding: var(--spacing-xl);
+		padding: var(--sp-8);
 	}
 
 	.suspended-org-card h1 {
-		color: var(--color-error);
-		margin-bottom: var(--spacing-md);
+		color: var(--danger);
+		margin-bottom: var(--sp-4);
 	}
 
 	.suspended-org-card p {
-		color: var(--color-text-secondary);
-		margin-bottom: var(--spacing-md);
+		color: var(--text-secondary);
+		margin-bottom: var(--sp-4);
 	}
 
 	.suspended-org-card .contact {
 		font-weight: 600;
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.app-content {
@@ -233,7 +233,7 @@
 			var(--surface-page);
 	}
 
-	@media (max-width: 640px) {
+	@media (max-width: 920px) {
 		.app-content {
 			padding-bottom: calc(64px + env(safe-area-inset-bottom));
 		}
@@ -245,11 +245,11 @@
 
 	.feedback-pill {
 		position: fixed;
-		bottom: var(--spacing-lg);
-		right: var(--spacing-lg);
+		bottom: var(--sp-6);
+		right: var(--sp-6);
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		padding: 0.55rem 0.8rem;
 		background: var(--surface-panel);
 		color: var(--text-secondary);

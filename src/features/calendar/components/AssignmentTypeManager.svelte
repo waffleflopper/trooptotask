@@ -146,7 +146,7 @@
 	.form-row {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		flex-wrap: wrap;
 	}
 
@@ -166,9 +166,9 @@
 	}
 
 	.hint {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		margin-top: var(--spacing-sm);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
+		margin-top: var(--sp-2);
 		line-height: 1.5;
 	}
 
@@ -178,14 +178,14 @@
 		align-items: center;
 		gap: 2px;
 		font-size: 10px;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		text-transform: uppercase;
 	}
 
 	.color-picker input[type='color'] {
 		width: 32px;
 		height: 32px;
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-sm);
 		cursor: pointer;
 		padding: 0;
@@ -198,11 +198,11 @@
 
 	.type-name {
 		font-weight: 500;
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.type-assign-to {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
 	}
 </style>

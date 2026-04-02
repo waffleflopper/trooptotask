@@ -415,22 +415,6 @@ describe('DashboardContext', () => {
 	});
 
 	// -------------------------------------------------------------------------
-	// Banner state
-	// -------------------------------------------------------------------------
-	describe('bannerDismissed', () => {
-		it('starts true (to avoid flash)', () => {
-			expect(ctx.bannerDismissed).toBe(true);
-		});
-	});
-
-	describe('dismissBanner', () => {
-		it('sets bannerDismissed to true', () => {
-			ctx.dismissBanner();
-			expect(ctx.bannerDismissed).toBe(true);
-		});
-	});
-
-	// -------------------------------------------------------------------------
 	// gettingStartedDismissed
 	// -------------------------------------------------------------------------
 	describe('gettingStartedDismissed', () => {

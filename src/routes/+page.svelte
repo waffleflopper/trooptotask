@@ -752,7 +752,7 @@
 			</div>
 
 			<div class="faq__list">
-				{#each faqs as item}
+				{#each faqs as item (item.question)}
 					<details class="faq-item">
 						<summary class="faq-question">
 							<span>{item.question}</span>

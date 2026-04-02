@@ -1,4 +1,3 @@
-import { invalidate } from '$app/navigation';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';

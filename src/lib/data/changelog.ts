@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-04-01-refresh-pass',
+		date: '2026-04-01',
+		title: 'A Cleaner, Easier-to-Read Refresh',
+		items: [
+			'Refreshed the overall look of the app and public site so screens feel more consistent from page to page',
+			'Improved text sizing and spacing across key areas like dashboards, modals, and marketing pages so things are easier to scan without feeling oversized',
+			'Smoothed out navigation and layout behavior across desktop, tablet, and mobile so menus stay available where you expect them'
+		]
+	},
+	{
 		id: '2026-03-22-under-the-hood',
 		date: '2026-03-22',
 		title: 'Under the Hood Improvements',
@@ -43,28 +53,6 @@ export const changelog: ChangelogEntry[] = [
 		title: 'Training Types Button is Now Always Visible',
 		items: [
 			'The "Manage Types" button on the Training page is now permanently visible in the toolbar for admins and editors — no more hunting through the overflow menu or wondering where it went after you added your first training type'
-		]
-	},
-	{
-		id: '2026-03-15-accessibility-improvements',
-		date: '2026-03-15',
-		title: 'Accessibility Improvements',
-		items: [
-			'Improved keyboard navigation throughout the app — you can now tab through all interactive elements and use Escape to close menus and modals',
-			'Added a "Skip to main content" link for keyboard and screen reader users',
-			'Better color contrast across the board, in both light and dark mode',
-			'Screen readers now properly announce notifications, form errors, and loading states',
-			'Added support for reduced motion and high contrast display modes'
-		]
-	},
-	{
-		id: '2026-03-15-multi-template-onboarding',
-		date: '2026-03-15',
-		title: 'Multiple Onboarding Templates',
-		items: [
-			'You can now create multiple onboarding templates — one for officers, one for enlisted, one for civilians, whatever your unit needs',
-			"Pick which template to use when you start someone's onboarding, so the right checklist shows up for the right person",
-			"Use the Re-sync button to update someone's in-progress onboarding when the template changes — completed steps are never touched, only incomplete ones get updated"
 		]
 	}
 ];

@@ -39,7 +39,7 @@
 	</div>
 
 	<ul class="pricing-tier__features">
-		{#each features as feature}
+		{#each features as feature (feature)}
 			<li>{feature}</li>
 		{/each}
 	</ul>

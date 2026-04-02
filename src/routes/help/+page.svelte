@@ -31,17 +31,17 @@
 				{
 					title: 'Dashboard',
 					content:
-						'The Dashboard is your home base inside an organization. It shows today\'s strength, duty assignments, training status, upcoming changes, and active onboardings at a glance. Click "Customize" to show, hide, or reorder dashboard cards.'
+						'The Dashboard is your home base inside an organization. It shows today\'s strength, duty assignments, training watch, upcoming changes, and onboarding or rating follow-up where it matters. Click "Customize" to show, hide, or reorder dashboard cards.'
 				},
 				{
 					title: 'Navigation',
 					content:
-						'Use the top navigation bar to move between Dashboard, Calendar, Personnel, Training, Onboarding, and Leaders Book. On mobile, the bottom tab bar provides the same navigation. The avatar menu in the top-right gives access to Settings, Billing, Help, and Admin (if you have access).'
+						'Use the top navigation bar to move between Dashboard, Calendar, Personnel, Training, and Onboarding. On mobile, the bottom tab bar provides the same core navigation. The avatar menu in the top-right gives access to organization switching, Org Settings, Help, theme controls, and Admin (if you have access).'
 				},
 				{
 					title: 'Multiple Organizations',
 					content:
-						'You can belong to multiple organizations. Click the organization name in the top-left header to switch between them, or go to the main Dashboard to see all your organizations and pending invitations.'
+						'You can belong to multiple organizations. Open the avatar menu in the top-right to switch between them. If you need the full list of organizations or pending invitations, use "Manage Organizations" from that same menu.'
 				},
 				{
 					title: 'Theme Toggle',
@@ -58,17 +58,12 @@
 				{
 					title: 'Dashboard Cards',
 					content:
-						"The dashboard shows cards for: Today's Strength (available vs. total personnel), Duty Assignments, Training Status, Upcoming Changes (next 7 days), Rating Scheme status, Active Onboardings, and Per-Group Breakdown."
+						"The dashboard centers on Today's Strength, Duty Assignments, Training Watch, Upcoming Changes, and Active Onboardings. Rating follow-up appears when there is open action or when you choose to keep it visible."
 				},
 				{
 					title: 'Customization',
 					content:
 						'Click "Customize" in the toolbar to show, hide, or reorder dashboard cards. Your preferences are saved in the browser.'
-				},
-				{
-					title: 'Per-Group Breakdown',
-					content:
-						"The group breakdown table shows each group's total personnel, present count, per-status counts, and availability percentage. Pinned groups appear at the top."
 				},
 				{
 					content: 'If you are scoped to a specific group, your dashboard only reflects personnel in that group.',
@@ -264,7 +259,7 @@
 				{
 					title: 'Counseling Records',
 					content:
-						'Track counseling sessions for each person: initial, monthly, quarterly, or event-driven. Each record can include a PDF document upload. Access the Leaders Book from the top navigation.'
+						'Track counseling sessions for each person: initial, monthly, quarterly, or event-driven. Each record can include a PDF document upload. Leader\'s Book is temporarily hidden from the main navigation while that area is being redesigned.'
 				},
 				{
 					title: 'Development Goals',
@@ -397,12 +392,12 @@
 				{
 					title: 'Quick Organization Switch',
 					content:
-						'Click the organization name in the top-left header to switch between organizations without going back to the main Dashboard.'
+						'Open the avatar menu in the top-right to switch organizations without leaving your current page. Troop to Task keeps you on the same section when that page exists in the destination organization.'
 				},
 				{
 					title: 'Pin Groups',
 					content:
-						'Pin frequently used groups to always appear at the top of personnel lists and the dashboard breakdown. Look for the pin icon when managing groups.'
+						'Pin frequently used groups to keep them at the top of personnel lists. Look for the pin icon when managing groups.'
 				},
 				{
 					title: 'Keyboard Navigation',

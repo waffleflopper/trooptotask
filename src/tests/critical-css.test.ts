@@ -23,8 +23,9 @@ describe('critical CSS inlining', () => {
 	const html = readFileSync(APP_HTML, 'utf-8');
 	const inlineStyles = getInlineStyles(html);
 
-	it('app.html contains an inline <style> block with CSS custom properties', () => {
-		expect(inlineStyles).toContain('--amber');
+	it('app.html contains inline theme fallback styles for first paint', () => {
+		expect(inlineStyles).toContain('color-scheme: light');
+		expect(inlineStyles).toContain('background: #f8f7f4');
 	});
 
 	it('app.html inlines dark mode design tokens', () => {
@@ -32,7 +33,8 @@ describe('critical CSS inlining', () => {
 	});
 
 	it('app.html inlines base element resets', () => {
-		expect(inlineStyles).toContain('box-sizing: border-box');
+		expect(inlineStyles).toContain('min-height: 100%');
+		expect(inlineStyles).toContain('margin: 0');
 	});
 
 	it('app.css no longer carries migration alias definitions', () => {

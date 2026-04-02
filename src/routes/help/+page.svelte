@@ -259,7 +259,7 @@
 				{
 					title: 'Counseling Records',
 					content:
-						'Track counseling sessions for each person: initial, monthly, quarterly, or event-driven. Each record can include a PDF document upload. Leader\'s Book is temporarily hidden from the main navigation while that area is being redesigned.'
+						"Track counseling sessions for each person: initial, monthly, quarterly, or event-driven. Each record can include a PDF document upload. Leader's Book is temporarily hidden from the main navigation while that area is being redesigned."
 				},
 				{
 					title: 'Development Goals',

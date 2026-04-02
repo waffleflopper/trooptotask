@@ -46,13 +46,5 @@ export const changelog: ChangelogEntry[] = [
 			'Your existing data (counseling records, development goals, extended info) is safely preserved and will carry over to the new version',
 			'The Rating Scheme is still fully available on the Personnel page — nothing changed there'
 		]
-	},
-	{
-		id: '2026-03-17-training-manage-types-button',
-		date: '2026-03-17',
-		title: 'Training Types Button is Now Always Visible',
-		items: [
-			'The "Manage Types" button on the Training page is now permanently visible in the toolbar for admins and editors — no more hunting through the overflow menu or wondering where it went after you added your first training type'
-		]
 	}
 ];

@@ -55,7 +55,6 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	// Banner state
 	// ---------------------------------------------------------------------------
-	bannerDismissed = $state(true); // default true to avoid flash
 	gettingStartedDismissed = $state(false);
 
 	// ---------------------------------------------------------------------------
@@ -72,13 +71,6 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	// localStorage side-effects — call once inside $effect (browser only)
 	// ---------------------------------------------------------------------------
-	initBannerFromStorage() {
-		if (browser) {
-			const key = `guide-dismissed-${this.data.userId}-${this.data.orgId}`;
-			this.bannerDismissed = localStorage.getItem(key) === 'true';
-		}
-	}
-
 	autoShowWhatsNew(hasShown: { value: boolean }) {
 		if (browser && !hasShown.value && changelog.length > 0 && this.data.userId) {
 			const lastSeen = localStorage.getItem(`changelog-last-seen-${this.data.userId}`);
@@ -135,14 +127,6 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	// Banner handlers
 	// ---------------------------------------------------------------------------
-	dismissBanner() {
-		this.bannerDismissed = true;
-		if (browser) {
-			const key = `guide-dismissed-${this.data.userId}-${this.data.orgId}`;
-			localStorage.setItem(key, 'true');
-		}
-	}
-
 	async dismissGettingStarted() {
 		this.gettingStartedDismissed = true;
 		await fetch(`/org/${this.data.orgId}/api/getting-started`, { method: 'POST' });

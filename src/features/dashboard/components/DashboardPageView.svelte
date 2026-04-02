@@ -52,7 +52,7 @@
 		}
 
 		if (cardId === 'onboardings') {
-			return ctx.activeOnboardings.length > 0;
+			return true;
 		}
 
 		if (cardId === 'groups') {

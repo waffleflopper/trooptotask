@@ -4,6 +4,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
+	import { ADMIN_STATUS_COLORS, ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let { data, form } = $props();
 
@@ -13,12 +14,12 @@
 	let toastMessage = $state<string | null>(null);
 	let toastError = $state<string | null>(null);
 
-	function showToast(msg: string, isError = false) {
+	function showToast(message: string, isError = false) {
 		if (isError) {
-			toastError = msg;
+			toastError = message;
 			toastMessage = null;
 		} else {
-			toastMessage = msg;
+			toastMessage = message;
 			toastError = null;
 		}
 		setTimeout(() => {
@@ -28,78 +29,55 @@
 	}
 
 	$effect(() => {
-		if (form?.success && form?.message) {
-			showToast(form.message as string);
-		} else if (form && 'error' in form && form.error) {
-			showToast(form.error as string, true);
-		}
+		if (form?.success && form?.message) showToast(form.message as string);
+		else if (form && 'error' in form && form.error) showToast(form.error as string, true);
 	});
 
 	const initials = $derived(data.user.email.slice(0, 2).toUpperCase());
-
-	const tierColor: Record<string, string> = {
-		free: '#6b7280',
-		team: '#3b82f6',
-		unit: '#8b5cf6'
-	};
 </script>
 
 <svelte:head>
 	<title>User Details - Admin - Troop to Task</title>
 </svelte:head>
 
-{#if toastMessage}
-	<div class="toast toast-success">{toastMessage}</div>
-{/if}
-{#if toastError}
-	<div class="toast toast-error">{toastError}</div>
-{/if}
+<div class="admin-page-shell admin-page-shell--compact">
+	{#if toastMessage}<div class="admin-alert admin-alert--success">{toastMessage}</div>{/if}
+	{#if toastError}<div class="admin-alert admin-alert--error">{toastError}</div>{/if}
 
-<div class="user-detail-page">
-	<header class="page-header">
-		<a href="/admin/users" class="back-link">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<path d="M19 12H5M12 19l-7-7 7-7" />
-			</svg>
-			Back to Users
-		</a>
-
-		<div class="user-header">
+	<header class="admin-page-header">
+		<div class="admin-page-header__copy">
+			<a href="/admin/users" class="back-link">Back to Users</a>
+			<p class="admin-page-eyebrow">Identity Record</p>
+			<h1 class="admin-page-title">{data.user.email}</h1>
+			<p class="admin-page-subtitle">
+				Joined {formatDisplayDate(data.user.createdAt)}
+				{#if data.user.lastSignInAt}
+					• Last sign-in {formatDisplayDateTime(data.user.lastSignInAt)}{:else}
+					• Never signed in{/if}
+			</p>
+		</div>
+		<div class="admin-page-actions">
 			<div class="avatar-circle">{initials}</div>
-			<div class="user-meta">
-				<div class="user-email-row">
-					<h1>{data.user.email}</h1>
-					{#if data.isSuspended}
-						<Badge label="SUSPENDED" color="#dc2626" />
-					{:else}
-						<Badge label="ACTIVE" color="#16a34a" />
-					{/if}
-				</div>
-				<div class="user-timestamps">
-					<span>Joined {formatDisplayDate(data.user.createdAt)}</span>
-					{#if data.user.lastSignInAt}
-						<span class="separator">·</span>
-						<span>Last sign-in {formatDisplayDateTime(data.user.lastSignInAt)}</span>
-					{:else}
-						<span class="separator">·</span>
-						<span class="text-muted">Never signed in</span>
-					{/if}
-				</div>
-				<code class="user-id-code">{data.user.id}</code>
-			</div>
+			<Badge
+				label={data.isSuspended ? 'Suspended' : 'Active'}
+				color={data.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
+			/>
 		</div>
 	</header>
 
-	<!-- Quick Actions -->
-	<div class="actions-bar">
+	<div class="admin-overview-grid">
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">User ID</p>
+			<p class="admin-overview-card__meta"><span class="admin-code">{data.user.id}</span></p>
+		</div>
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">Organizations</p>
+			<p class="admin-overview-card__value">{data.organizations.length}</p>
+			<p class="admin-overview-card__meta">Organizations where this account currently holds membership.</p>
+		</div>
+	</div>
+
+	<div class="action-strip">
 		<form
 			method="POST"
 			action="?/resetPassword"
@@ -139,12 +117,16 @@
 		</button>
 	</div>
 
-	<div class="content-grid">
-		<!-- Organizations -->
-		<section class="card">
-			<h2>Organizations ({data.organizations.length})</h2>
-			{#if data.organizations.length > 0}
-				<table class="inner-table">
+	<div class="detail-grid">
+		<section class="admin-panel">
+			<div class="admin-panel__header">
+				<div>
+					<h2 class="admin-panel__title">Organizations</h2>
+					<p class="admin-panel__meta">Memberships and plan context for this account.</p>
+				</div>
+			</div>
+			<div class="admin-table-shell admin-table-shell--scroll embedded-table">
+				<table class="admin-table">
 					<thead>
 						<tr>
 							<th>Name</th>
@@ -158,33 +140,37 @@
 							<tr>
 								<td>
 									{#if org.id}
-										<a href="/admin/organizations/{org.id}" class="org-link">{org.name}</a>
+										<a href="/admin/organizations/{org.id}" class="entity-link">{org.name}</a>
 									{:else}
 										{org.name}
 									{/if}
 								</td>
-								<td class="capitalize">{org.role}</td>
+								<td><Badge label={formatAdminLabel(org.role)} color="var(--ink-35)" /></td>
 								<td>{org.personnelCount}</td>
-								<td>
-									<Badge
-										label={org.subscriptionTier.toUpperCase()}
-										color={tierColor[org.subscriptionTier] ?? '#6b7280'}
-									/>
-								</td>
+								<td
+									><Badge
+										label={formatAdminLabel(org.subscriptionTier)}
+										color={ADMIN_TIER_COLORS[org.subscriptionTier] ?? 'var(--ink-35)'}
+									/></td
+								>
 							</tr>
+						{:else}
+							<tr><td colspan="4" class="admin-empty">No organizations.</td></tr>
 						{/each}
 					</tbody>
 				</table>
-			{:else}
-				<p class="empty-state">No organizations</p>
-			{/if}
+			</div>
 		</section>
 
-		<!-- Recent Activity -->
-		<section class="card">
-			<h2>Recent Activity</h2>
-			{#if data.recentActivity.length > 0}
-				<table class="inner-table">
+		<section class="admin-panel">
+			<div class="admin-panel__header">
+				<div>
+					<h2 class="admin-panel__title">Recent Activity</h2>
+					<p class="admin-panel__meta">Latest audit events tied to this identity.</p>
+				</div>
+			</div>
+			<div class="admin-table-shell admin-table-shell--scroll embedded-table">
+				<table class="admin-table">
 					<thead>
 						<tr>
 							<th>Timestamp</th>
@@ -196,19 +182,19 @@
 					<tbody>
 						{#each data.recentActivity as event (event.id)}
 							<tr>
-								<td class="nowrap">{formatDisplayDateTime(event.timestamp)}</td>
-								<td><code class="action-code">{event.action}</code></td>
+								<td class="timestamp-cell">{formatDisplayDateTime(event.timestamp)}</td>
+								<td><span class="admin-code">{event.action}</span></td>
 								<td class="text-muted"
-									>{event.resourceType}{event.resourceId ? ` · ${event.resourceId.slice(0, 8)}…` : ''}</td
+									>{event.resourceType}{event.resourceId ? ` • ${event.resourceId.slice(0, 8)}…` : ''}</td
 								>
-								<td class="text-muted">{event.orgId ? event.orgId.slice(0, 8) + '…' : '—'}</td>
+								<td class="text-muted">{event.orgId ? `${event.orgId.slice(0, 8)}…` : '—'}</td>
 							</tr>
+						{:else}
+							<tr><td colspan="4" class="admin-empty">No recent activity.</td></tr>
 						{/each}
 					</tbody>
 				</table>
-			{:else}
-				<p class="empty-state">No recent activity</p>
-			{/if}
+			</div>
 		</section>
 	</div>
 </div>
@@ -228,207 +214,55 @@
 {/if}
 
 <style>
-	.user-detail-page {
-		max-width: 1000px;
-		margin: 0 auto;
-	}
-
-	.page-header {
-		margin-bottom: var(--spacing-xl);
-	}
-
 	.back-link {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		color: var(--color-text-muted);
-		text-decoration: none;
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
-	}
-
-	.back-link:hover {
-		color: var(--color-primary);
-	}
-
-	.user-header {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-md);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 	}
 
 	.avatar-circle {
-		width: 56px;
-		height: 56px;
-		min-width: 56px;
-		border-radius: 50%;
-		background: var(--color-primary);
-		color: white;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: var(--font-size-lg);
-		font-weight: 700;
-		letter-spacing: 0.05em;
-	}
-
-	.user-meta {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.user-email-row {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		flex-wrap: wrap;
-	}
-
-	.user-email-row h1 {
-		font-size: var(--font-size-lg);
-		font-weight: 700;
-		color: var(--color-text);
-	}
-
-	.user-timestamps {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-	}
-
-	.separator {
-		color: var(--color-border);
-	}
-
-	.user-id-code {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		background: var(--color-surface-variant);
-		padding: 2px 6px;
-		border-radius: var(--radius-sm);
-		width: fit-content;
-	}
-
-	/* Actions Bar */
-	.actions-bar {
-		display: flex;
-		gap: var(--spacing-sm);
-		flex-wrap: wrap;
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.actions-bar .btn {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--spacing-xs);
-	}
-
-	/* Content Grid */
-	.content-grid {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-lg);
-	}
-
-	.card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-lg);
-	}
-
-	.card h2 {
-		font-size: var(--font-size-lg);
-		font-weight: 600;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-md);
-	}
-
-	/* Inner Table */
-	.inner-table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-
-	.inner-table th,
-	.inner-table td {
-		padding: var(--spacing-sm) var(--spacing-md);
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
-		font-size: var(--font-size-sm);
-	}
-
-	.inner-table th {
-		font-size: var(--font-size-xs);
-		font-weight: 600;
+		justify-content: center;
+		width: 56px;
+		height: 56px;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--amber-light) 74%, var(--surface-panel) 26%);
+		border: 1px solid color-mix(in srgb, var(--amber-dark) 32%, var(--ink-15) 68%);
+		font-family: var(--font-display);
+		font-size: 1.55rem;
+		font-weight: 700;
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-text-muted);
-		background: var(--color-surface-variant);
+		color: var(--amber-dark);
 	}
 
-	.inner-table tbody tr:last-child td {
-		border-bottom: none;
+	.action-strip,
+	.detail-grid {
+		display: flex;
+		gap: var(--sp-3);
+		flex-wrap: wrap;
 	}
 
-	.org-link {
-		color: var(--color-primary);
-		text-decoration: none;
-		font-weight: 500;
+	.detail-grid {
+		display: grid;
+		grid-template-columns: 1fr;
 	}
 
-	.org-link:hover {
-		text-decoration: underline;
+	.embedded-table {
+		border: none;
+		border-radius: 0;
 	}
 
-	.capitalize {
-		text-transform: capitalize;
+	.entity-link {
+		font-size: var(--text-sm);
+		font-weight: 600;
 	}
 
-	.text-muted {
-		color: var(--color-text-muted);
-	}
-
-	.nowrap {
-		white-space: nowrap;
-	}
-
-	.action-code {
-		font-size: var(--font-size-xs);
-		background: var(--color-surface-variant);
-		padding: 2px 6px;
-		border-radius: var(--radius-sm);
-	}
-
-	.empty-state {
-		text-align: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-lg);
-	}
-
-	/* Toast */
-	.toast {
-		position: fixed;
-		bottom: var(--spacing-lg);
-		right: var(--spacing-lg);
-		z-index: 9999;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-	}
-
-	.toast-success {
-		background: var(--color-success);
-		color: white;
-	}
-
-	.toast-error {
-		background: var(--color-error);
-		color: white;
+	.timestamp-cell {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 </style>

@@ -253,8 +253,8 @@ describe('DataTable', () => {
 		test('renders group header rows with label and count', () => {
 			render(Table, { props: { data: testData, columns, groupBy } });
 
-			expect(screen.getByText('Group A (2)')).toBeTruthy();
-			expect(screen.getByText('Group B (1)')).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Group A (2)' })).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Group B (1)' })).toBeTruthy();
 		});
 
 		test('clicking group header collapses the group', async () => {
@@ -266,7 +266,7 @@ describe('DataTable', () => {
 			expect(screen.getByText('Bob')).toBeTruthy();
 
 			// Click Group A header to collapse
-			await fireEvent.click(screen.getByText('Group A (2)'));
+			await fireEvent.click(screen.getByRole('button', { name: 'Group A (2)' }));
 
 			// Group A rows should be hidden
 			expect(screen.queryByText('Alice')).toBeNull();
@@ -279,8 +279,8 @@ describe('DataTable', () => {
 			render(Table, { props: { data: testData, columns, groupBy } });
 
 			// Collapse then expand
-			await fireEvent.click(screen.getByText('Group A (2)'));
-			await fireEvent.click(screen.getByText('Group A (2)'));
+			await fireEvent.click(screen.getByRole('button', { name: 'Group A (2)' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Group A (2)' }));
 
 			expect(screen.getByText('Alice')).toBeTruthy();
 			expect(screen.getByText('Charlie')).toBeTruthy();

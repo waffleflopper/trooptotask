@@ -1,4 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+const { invalidateMock } = vi.hoisted(() => ({
+	invalidateMock: vi.fn()
+}));
+
+vi.mock('$app/navigation', () => ({
+	invalidate: invalidateMock
+}));
+
 import {
 	getProgress,
 	isStepDeprecated,

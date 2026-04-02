@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DashboardContext, HALF_SIZE_CARDS } from './DashboardContext.svelte';
 import type { CardId } from '$lib/stores/dashboardPrefs.svelte';
+import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+import { availabilityStore } from '$features/calendar/stores/availability.svelte';
+
+const mutablePersonnelStore = personnelStore as unknown as { items: Array<Record<string, unknown>> };
+const mutableStatusTypesStore = statusTypesStore as unknown as { items: Array<Record<string, unknown>> };
+const mutableAvailabilityStore = availabilityStore as unknown as { items: Array<Record<string, unknown>> };
 
 // ---------------------------------------------------------------------------
 // Minimal stubs for stores & browser APIs
@@ -119,6 +126,9 @@ describe('DashboardContext', () => {
 
 	beforeEach(() => {
 		vi.restoreAllMocks();
+		mutablePersonnelStore.items = [];
+		mutableStatusTypesStore.items = [];
+		mutableAvailabilityStore.items = [];
 		ctx = new DashboardContext(makeData());
 	});
 
@@ -228,6 +238,35 @@ describe('DashboardContext', () => {
 	describe('upcomingChanges', () => {
 		it('returns an empty array when no availability entries', () => {
 			expect(ctx.upcomingChanges).toHaveLength(0);
+		});
+
+		it('assigns unique keys when repeated changes land on the same day', () => {
+			mutablePersonnelStore.items = [
+				{ id: 'p1', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Alex' },
+				{ id: 'p2', rank: 'MAJ', lastName: 'Allumbaugh', firstName: 'Avery' }
+			];
+			mutableStatusTypesStore.items = [{ id: 'st1', name: 'Unit', color: '#111111', textColor: '#ffffff' }];
+			mutableAvailabilityStore.items = [
+				{
+					id: 'a1',
+					personnelId: 'p1',
+					statusTypeId: 'st1',
+					startDate: '2099-01-01',
+					endDate: '2099-01-03'
+				},
+				{
+					id: 'a2',
+					personnelId: 'p2',
+					statusTypeId: 'st1',
+					startDate: '2099-01-01',
+					endDate: '2099-01-03'
+				}
+			];
+
+			const keys = ctx.upcomingChanges.map((change) => change.key);
+
+			expect(keys).toEqual(['a1-departing-2099-01-01', 'a2-departing-2099-01-01', 'a1-returning-2099-01-03', 'a2-returning-2099-01-03']);
+			expect(new Set(keys).size).toBe(keys.length);
 		});
 	});
 

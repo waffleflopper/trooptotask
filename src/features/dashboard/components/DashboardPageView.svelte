@@ -289,7 +289,7 @@
 						<div class="module-subsection">
 							<p class="subsection-label">Needs attention</p>
 							<div class="issue-list">
-								{#each ctx.topTrainingIssues as issue (`${issue.personName}-${issue.typeName}`)}
+								{#each ctx.topTrainingIssues as issue}
 									<div class="issue-row">
 										<div class="issue-copy">
 											<span class="issue-name">{issue.personName}</span>
@@ -340,7 +340,7 @@
 							<section class="upcoming-group">
 								<h4>{ctx.formatShortDate(date)}</h4>
 								<div class="upcoming-group-items">
-									{#each changes as change (`${change.direction}-${change.personName}-${change.statusName}`)}
+									{#each changes as change (change.key)}
 										<div class="upcoming-item">
 											<span class="upcoming-person">{change.personName}</span>
 											<span class="upcoming-detail">

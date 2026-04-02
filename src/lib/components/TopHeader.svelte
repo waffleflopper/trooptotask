@@ -102,8 +102,8 @@
 		align-items: center;
 		gap: clamp(var(--spacing-md), 2vw, var(--spacing-xl));
 		height: 100%;
-		max-width: 1680px;
-		margin: 0 auto;
+		width: 100%;
+		box-sizing: border-box;
 		padding: 0 clamp(var(--spacing-md), 2vw, var(--spacing-lg));
 	}
 

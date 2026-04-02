@@ -3,38 +3,16 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
+	import { ADMIN_STATUS_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
 
 	let { data, form } = $props();
 	let activeTab = $state<'new' | 'reviewed' | 'resolved'>('new');
 	let expandedId = $state<string | null>(null);
 	let savingId = $state<string | null>(null);
 
-	function categoryColor(category: string): string {
-		switch (category) {
-			case 'bug':
-				return 'var(--color-error)';
-			case 'feature':
-				return 'var(--color-info)';
-			default:
-				return 'var(--color-text-muted)';
-		}
-	}
-
-	function categoryLabel(category: string): string {
-		switch (category) {
-			case 'bug':
-				return 'Bug';
-			case 'feature':
-				return 'Feature';
-			default:
-				return 'General';
-		}
-	}
-
 	const currentItems = $derived(
 		activeTab === 'new' ? data.newItems : activeTab === 'reviewed' ? data.reviewedItems : data.resolvedItems
 	);
-
 	const totalCount = $derived(data.newItems.length + data.reviewedItems.length + data.resolvedItems.length);
 </script>
 
@@ -42,91 +20,80 @@
 	<title>Beta Feedback - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="feedback-page">
-	<header class="page-header">
-		<div class="header-row">
-			<h1>Beta Feedback</h1>
-			{#if totalCount > 0}
-				<Badge label="{totalCount} total" color="var(--color-primary)" />
-			{/if}
+<div class="admin-page-shell admin-page-shell--compact">
+	<header class="admin-page-header">
+		<div class="admin-page-header__copy">
+			<p class="admin-page-eyebrow">Feedback Queue</p>
+			<h1 class="admin-page-title">Beta Feedback</h1>
+			<p class="admin-page-subtitle">
+				Sort incoming bug reports, feature requests, and tester notes without losing the audit trail.
+			</p>
 		</div>
-		<p class="subtitle">Bug reports, feature requests, and feedback from beta testers</p>
 	</header>
 
+	<div class="admin-overview-grid">
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">Total Items</p>
+			<p class="admin-overview-card__value">{totalCount}</p>
+			<p class="admin-overview-card__meta">Every feedback item currently retained in the platform queue.</p>
+		</div>
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">New Items</p>
+			<p class="admin-overview-card__value">{data.newItems.length}</p>
+			<p class="admin-overview-card__meta">Unread items still waiting on first review.</p>
+		</div>
+	</div>
+
 	{#if form?.error}
-		<div class="alert alert-error">{form.error}</div>
+		<div class="admin-alert admin-alert--error">{form.error}</div>
 	{/if}
 
-	<div class="tabs">
-		<button class="tab" class:active={activeTab === 'new'} onclick={() => (activeTab = 'new')}>
-			New
-			{#if data.newItems.length > 0}
-				<span class="tab-count">{data.newItems.length}</span>
-			{/if}
-		</button>
-		<button class="tab" class:active={activeTab === 'reviewed'} onclick={() => (activeTab = 'reviewed')}>
-			Reviewed
-			{#if data.reviewedItems.length > 0}
-				<span class="tab-count">{data.reviewedItems.length}</span>
-			{/if}
-		</button>
-		<button class="tab" class:active={activeTab === 'resolved'} onclick={() => (activeTab = 'resolved')}>
-			Resolved
-			{#if data.resolvedItems.length > 0}
-				<span class="tab-count">{data.resolvedItems.length}</span>
-			{/if}
-		</button>
+	<div class="admin-segmented" aria-label="Feedback tabs">
+		<button class:active={activeTab === 'new'} onclick={() => (activeTab = 'new')}
+			>New {#if data.newItems.length > 0}<span>{data.newItems.length}</span>{/if}</button
+		>
+		<button class:active={activeTab === 'reviewed'} onclick={() => (activeTab = 'reviewed')}
+			>Reviewed {#if data.reviewedItems.length > 0}<span>{data.reviewedItems.length}</span>{/if}</button
+		>
+		<button class:active={activeTab === 'resolved'} onclick={() => (activeTab = 'resolved')}
+			>Resolved {#if data.resolvedItems.length > 0}<span>{data.resolvedItems.length}</span>{/if}</button
+		>
 	</div>
 
 	{#if currentItems.length === 0}
-		<div class="empty-card">
-			<p>No {activeTab} feedback</p>
-		</div>
+		<div class="admin-panel"><div class="admin-empty">No {activeTab} feedback.</div></div>
 	{:else}
-		<div class="feedback-list">
+		<div class="feedback-stack">
 			{#each currentItems as item (item.id)}
-				<div class="feedback-card">
-					<button class="feedback-summary" onclick={() => (expandedId = expandedId === item.id ? null : item.id)}>
-						<div class="feedback-info">
-							<div class="feedback-header-row">
-								<span class="feedback-email">{item.user_email}</span>
-								<Badge label={categoryLabel(item.category)} color={categoryColor(item.category)} />
+				<section class="admin-panel feedback-card">
+					<button class="feedback-card__summary" onclick={() => (expandedId = expandedId === item.id ? null : item.id)}>
+						<div class="feedback-card__copy">
+							<div class="feedback-card__headline">
+								<strong>{item.user_email}</strong>
+								<Badge
+									label={formatAdminLabel(item.category)}
+									color={ADMIN_STATUS_COLORS[item.category] ?? 'var(--ink-35)'}
+								/>
 							</div>
-							<div class="feedback-message-preview">
-								{item.message.length > 120 ? item.message.slice(0, 120) + '...' : item.message}
-							</div>
-							<div class="feedback-meta">
+							<p class="feedback-card__preview">
+								{item.message.length > 140 ? `${item.message.slice(0, 140)}...` : item.message}
+							</p>
+							<p class="feedback-card__meta">
 								{formatDisplayDateTime(item.created_at)}
 								{#if item.organization_name}
-									<span class="meta-separator">&middot;</span>
-									<span>{item.organization_name}</span>
-								{/if}
+									• {item.organization_name}{/if}
 								{#if item.page_url}
-									<span class="meta-separator">&middot;</span>
-									<span class="page-url">{item.page_url}</span>
-								{/if}
-							</div>
+									• {item.page_url}{/if}
+							</p>
 						</div>
-						<svg
-							class="expand-icon"
-							class:expanded={expandedId === item.id}
-							xmlns="http://www.w3.org/2000/svg"
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<polyline points="6 9 12 15 18 9"></polyline>
-						</svg>
+						<span class="feedback-card__toggle">{expandedId === item.id ? 'Hide' : 'Open'}</span>
 					</button>
 
 					{#if expandedId === item.id}
-						<div class="feedback-detail">
-							<div class="detail-section">
-								<div class="detail-label">Full Message</div>
-								<div class="detail-message">{item.message}</div>
+						<div class="feedback-card__detail">
+							<div class="feedback-card__section">
+								<p class="label">Full Message</p>
+								<p class="feedback-card__message">{item.message}</p>
 							</div>
 
 							<form
@@ -141,9 +108,8 @@
 								}}
 							>
 								<input type="hidden" name="feedbackId" value={item.id} />
-
-								<div class="detail-row">
-									<div class="form-group">
+								<div class="feedback-card__form">
+									<div class="admin-toolbar__field">
 										<label class="label" for="status-{item.id}">Status</label>
 										<select id="status-{item.id}" name="status" class="select" value={item.status}>
 											<option value="new">New</option>
@@ -151,270 +117,133 @@
 											<option value="resolved">Resolved</option>
 										</select>
 									</div>
+									<div class="admin-toolbar__field feedback-card__notes">
+										<label class="label" for="notes-{item.id}">Admin Notes</label>
+										<textarea
+											id="notes-{item.id}"
+											name="adminNotes"
+											class="input feedback-card__textarea"
+											rows="4"
+											placeholder="Internal notes about this feedback..."
+											value={item.admin_notes || ''}
+										></textarea>
+									</div>
 								</div>
 
-								<div class="form-group">
-									<label class="label" for="notes-{item.id}">Admin Notes</label>
-									<textarea
-										id="notes-{item.id}"
-										name="adminNotes"
-										class="input"
-										rows="3"
-										placeholder="Internal notes about this feedback..."
-										value={item.admin_notes || ''}
-									></textarea>
-								</div>
-
-								<div class="detail-actions">
+								<div class="feedback-card__actions">
 									<button type="submit" class="btn btn-primary btn-sm" disabled={savingId !== null}>
-										{#if savingId === item.id}
-											<Spinner />
-										{/if}
-										Save
+										{#if savingId === item.id}<Spinner />{/if}
+										Save Notes
 									</button>
 								</div>
 							</form>
 						</div>
 					{/if}
-				</div>
+				</section>
 			{/each}
 		</div>
 	{/if}
 </div>
 
 <style>
-	.feedback-page {
-		max-width: 800px;
-		margin: 0 auto;
-	}
-
-	.page-header {
-		margin-bottom: var(--spacing-xl);
-	}
-
-	.header-row {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-	}
-
-	.page-header h1 {
-		font-size: var(--font-size-2xl);
-		font-weight: 700;
-		color: var(--color-text);
-		margin-bottom: var(--spacing-xs);
-	}
-
-	.subtitle {
-		color: var(--color-text-muted);
-	}
-
-	.alert-error {
-		background: #fef2f2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		margin-bottom: var(--spacing-md);
-	}
-
-	/* Tabs */
-	.tabs {
-		display: flex;
-		gap: var(--spacing-xs);
-		margin-bottom: var(--spacing-lg);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.tab {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: none;
-		border: none;
-		border-bottom: 2px solid transparent;
-		color: var(--color-text-muted);
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.tab:hover {
-		color: var(--color-text);
-	}
-
-	.tab.active {
-		color: var(--color-primary);
-		border-bottom-color: var(--color-primary);
-	}
-
-	.tab-count {
-		background: var(--color-surface-variant);
-		padding: 1px 8px;
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-xs);
-	}
-
-	.tab.active .tab-count {
-		background: var(--color-primary);
-		color: #0f0f0f;
-	}
-
-	/* Feedback cards */
-	.feedback-list {
+	.feedback-stack {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-3);
 	}
 
-	.feedback-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		overflow: hidden;
-	}
-
-	.feedback-summary {
-		width: 100%;
+	.feedback-card,
+	.feedback-card__detail {
 		display: flex;
-		justify-content: space-between;
+		flex-direction: column;
+		gap: var(--sp-4);
+	}
+
+	.feedback-card__summary {
+		display: flex;
 		align-items: flex-start;
-		gap: var(--spacing-md);
-		padding: var(--spacing-lg);
-		background: none;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		width: 100%;
+		padding: 0;
 		border: none;
+		background: transparent;
 		text-align: left;
-		cursor: pointer;
-		color: inherit;
 	}
 
-	.feedback-summary:hover {
-		background: var(--color-surface-variant);
-	}
-
-	.feedback-info {
-		flex: 1;
+	.feedback-card__copy {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
 		min-width: 0;
 	}
 
-	.feedback-header-row {
+	.feedback-card__headline {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-xs);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
 	}
 
-	.feedback-email {
-		font-weight: 600;
-		color: var(--color-text);
-		font-size: var(--font-size-base);
+	.feedback-card__headline strong {
+		font-size: var(--text-base);
 	}
 
-	.feedback-message-preview {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
-		line-height: 1.5;
-		margin-bottom: var(--spacing-sm);
+	.feedback-card__preview,
+	.feedback-card__meta,
+	.feedback-card__message {
+		margin: 0;
 	}
 
-	.feedback-meta {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-	}
-
-	.meta-separator {
-		margin: 0 var(--spacing-xs);
-	}
-
-	.page-url {
-		font-family: monospace;
-		font-size: var(--font-size-xs);
-	}
-
-	.expand-icon {
-		flex-shrink: 0;
-		color: var(--color-text-muted);
-		transition: transform 0.15s;
-		margin-top: 2px;
-	}
-
-	.expand-icon.expanded {
-		transform: rotate(180deg);
-	}
-
-	/* Expanded detail */
-	.feedback-detail {
-		border-top: 1px solid var(--color-border);
-		padding: var(--spacing-lg);
-	}
-
-	.detail-section {
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.detail-label {
-		font-size: var(--font-size-xs);
-		font-weight: 600;
-		color: var(--color-text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		margin-bottom: var(--spacing-xs);
-	}
-
-	.detail-message {
-		background: var(--color-surface-variant);
-		padding: var(--spacing-md);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
+	.feedback-card__preview,
+	.feedback-card__message {
 		line-height: 1.6;
-		white-space: pre-wrap;
 	}
 
-	.detail-row {
-		margin-bottom: var(--spacing-md);
+	.feedback-card__meta,
+	.feedback-card__toggle {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
-	.detail-row .form-group {
-		max-width: 200px;
+	.feedback-card__toggle {
+		padding-top: 2px;
 	}
 
-	.detail-actions {
+	.feedback-card__section {
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
+	}
+
+	.feedback-card__form {
+		display: grid;
+		grid-template-columns: 180px minmax(0, 1fr);
+		gap: var(--sp-3);
+	}
+
+	.feedback-card__notes {
+		flex: none;
+	}
+
+	.feedback-card__textarea {
+		min-height: 112px;
+		resize: vertical;
+	}
+
+	.feedback-card__actions {
 		display: flex;
 		justify-content: flex-end;
-		margin-top: var(--spacing-md);
 	}
 
-	textarea.input {
-		resize: vertical;
-		min-height: 60px;
-		font-family: inherit;
-	}
-
-	.empty-card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-xl);
-		text-align: center;
-		color: var(--color-text-muted);
-	}
-
-	:global([data-theme='dark']) .alert-error {
-		background: #450a0a;
-		border-color: #7f1d1d;
-		color: #fca5a5;
-	}
-
-	@media (max-width: 600px) {
-		.feedback-summary {
-			padding: var(--spacing-md);
-		}
-
-		.feedback-detail {
-			padding: var(--spacing-md);
+	@media (max-width: 700px) {
+		.feedback-card__form {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

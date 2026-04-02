@@ -143,35 +143,35 @@
 
 <style>
 	.bulk-page {
-		padding: var(--spacing-lg);
+		padding: var(--sp-6);
 		max-width: 1480px;
 		margin: 0 auto;
 	}
 
 	.restricted-hero {
 		text-align: center;
-		padding: var(--spacing-2xl) var(--spacing-xl);
-		color: var(--color-text-secondary);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		padding: var(--sp-12) var(--sp-8);
+		color: var(--text-secondary);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-1);
+		box-shadow: var(--shadow-sm);
 	}
 
 	.restricted-hero h1 {
 		font-family: var(--font-display);
-		font-size: var(--font-size-xl);
-		margin: 0 0 var(--spacing-sm);
+		font-size: var(--text-ui-xl);
+		margin: 0 0 var(--sp-2);
 	}
 
 	.tab-panel {
-		margin-top: var(--spacing-md);
+		margin-top: var(--sp-4);
 	}
 
 	.bulk-tabs {
 		display: flex;
 		justify-content: center;
-		margin-bottom: var(--spacing-md);
+		margin-bottom: var(--sp-4);
 	}
 
 	.bulk-tabs :global(.sub-nav) {
@@ -181,11 +181,11 @@
 
 	@media (max-width: 768px) {
 		.bulk-page {
-			padding: var(--spacing-md);
+			padding: var(--sp-4);
 		}
 
 		.restricted-hero {
-			padding: var(--spacing-xl) var(--spacing-lg);
+			padding: var(--sp-8) var(--sp-6);
 		}
 
 		.bulk-tabs {

@@ -197,71 +197,81 @@
 		align-items: center;
 		justify-content: center;
 		min-height: 100vh;
-		background: var(--color-bg);
-		padding: var(--spacing-lg);
+		background: var(--surface-page);
+		padding: var(--sp-6);
 	}
 
 	.suspended-org-card {
 		text-align: center;
 		max-width: 440px;
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-lg);
-		padding: var(--spacing-xl);
+		padding: var(--sp-8);
 	}
 
 	.suspended-org-card h1 {
-		color: var(--color-error);
-		margin-bottom: var(--spacing-md);
+		color: var(--danger);
+		margin-bottom: var(--sp-4);
 	}
 
 	.suspended-org-card p {
-		color: var(--color-text-secondary);
-		margin-bottom: var(--spacing-md);
+		color: var(--text-secondary);
+		margin-bottom: var(--sp-4);
 	}
 
 	.suspended-org-card .contact {
 		font-weight: 600;
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.app-content {
 		padding-top: calc(var(--header-height, 56px) + var(--banner-height, 0px));
 		min-height: 100vh;
+		background:
+			linear-gradient(to bottom, rgba(14, 14, 13, 0.03), rgba(14, 14, 13, 0)) 0 0 / 100% 7rem no-repeat,
+			var(--surface-page);
 	}
 
-	@media (max-width: 640px) {
+	@media (max-width: 920px) {
 		.app-content {
-			padding-bottom: 56px;
+			padding-bottom: calc(64px + env(safe-area-inset-bottom));
 		}
 
 		.feedback-pill {
-			bottom: 68px;
+			bottom: calc(76px + env(safe-area-inset-bottom));
 		}
 	}
 
 	.feedback-pill {
 		position: fixed;
-		bottom: var(--spacing-lg);
-		right: var(--spacing-lg);
+		bottom: var(--sp-6);
+		right: var(--sp-6);
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-xs) var(--spacing-md);
-		background: var(--color-surface);
-		color: var(--color-text-muted);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-sm);
+		gap: var(--sp-1);
+		padding: 0.55rem 0.8rem;
+		background: var(--surface-panel);
+		color: var(--text-secondary);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 		cursor: pointer;
 		z-index: 50;
-		transition: all 0.15s;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		transition:
+			border-color var(--transition-fast),
+			color var(--transition-fast),
+			box-shadow var(--transition-fast);
+		box-shadow: var(--shadow-sm);
 	}
 
 	.feedback-pill:hover {
-		color: var(--color-text);
-		border-color: var(--color-primary);
-		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+		color: var(--text-primary);
+		border-color: rgba(var(--amber-rgb), 0.4);
+		box-shadow: var(--shadow-md);
 	}
 </style>

@@ -7,6 +7,9 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
 	interface Props {
 		orgId: string;
@@ -34,6 +37,7 @@
 	let expandedId = $state<string | null>(null);
 	let uploading = $state<string | null>(null);
 	let deleting = $state<string | null>(null);
+	let confirmDeleteRoster = $state<SignInRoster | null>(null);
 
 	// Create view state
 	let title = $state('');
@@ -306,7 +310,7 @@
 				personnelSnapshot: roster.personnelSnapshot
 			});
 		} catch (err) {
-			alert(err instanceof Error ? err.message : 'Failed to generate PDF');
+			toastStore.error(err instanceof Error ? err.message : 'Failed to generate PDF');
 		}
 	}
 
@@ -325,6 +329,7 @@
 			if (res.ok) {
 				roster.signedFilePath = data.signedFilePath;
 				rosters = [...rosters];
+				toastStore.success('Signed scan uploaded');
 			}
 		} finally {
 			uploading = null;
@@ -339,6 +344,7 @@
 		if (res.ok) {
 			roster.signedFilePath = null;
 			rosters = [...rosters];
+			toastStore.success('Signed scan removed');
 		}
 	}
 
@@ -354,7 +360,6 @@
 
 	// Delete roster
 	async function deleteRoster(roster: SignInRoster) {
-		if (!confirm(`Delete roster "${roster.title}"?`)) return;
 		deleting = roster.id;
 		try {
 			const res = await fetch(`/org/${orgId}/api/sign-in-rosters/${roster.id}`, {
@@ -364,6 +369,8 @@
 				rosters = rosters.filter((r) => r.id !== roster.id);
 				total--;
 				if (expandedId === roster.id) expandedId = null;
+				confirmDeleteRoster = null;
+				toastStore.success('Roster deleted');
 			}
 		} finally {
 			deleting = null;
@@ -379,31 +386,65 @@
 	}
 
 	const canGenerate = $derived(title.trim().length > 0 && filteredPersonnel.length > 0);
+	const selectedRankCount = $derived(selectedRanks.size);
+	const selectedGroupCount = $derived(selectedGroups.size);
+	const hasActiveListFilters = $derived(!!searchTitle || !!dateFrom || !!dateTo);
+	const hasActiveCreateFilters = $derived(selectedRanks.size !== ALL_RANKS.length || selectedGroups.size > 0);
+
+	function resetListFilters() {
+		searchTitle = '';
+		dateFrom = '';
+		dateTo = '';
+		fetchRosters(true);
+	}
+
+	function resetCreateFilters() {
+		selectedRanks = new Set(ALL_RANKS);
+		selectedGroups = new Set();
+	}
 </script>
 
 <Modal title={view === 'list' ? 'Sign-In Rosters' : 'New Sign-In Roster'} {onClose} width="700px">
 	{#if view === 'list'}
-		<!-- LIST VIEW -->
 		<div class="list-view">
+			<div class="list-summary">
+				<div class="summary-copy">
+					<p class="eyebrow">Saved Rosters</p>
+					<p class="summary-text">Generate, reprint, and track signed attendance sheets from one place.</p>
+				</div>
+				<Badge label={`${total} total`} variant="outlined" />
+			</div>
+
 			<div class="filter-bar">
-				<input
-					class="input"
-					type="text"
-					placeholder="Search by title..."
-					bind:value={searchTitle}
-					oninput={handleSearch}
-				/>
-				<input class="input date-input" type="date" bind:value={dateFrom} onchange={() => fetchRosters(true)} />
-				<span class="date-sep">to</span>
-				<input class="input date-input" type="date" bind:value={dateTo} onchange={() => fetchRosters(true)} />
+				<label class="filter-field filter-field-search">
+					<span class="field-label">Title</span>
+					<input
+						class="input"
+						type="text"
+						placeholder="Search by title..."
+						bind:value={searchTitle}
+						oninput={handleSearch}
+					/>
+				</label>
+				<label class="filter-field">
+					<span class="field-label">From</span>
+					<input class="input date-input" type="date" bind:value={dateFrom} onchange={() => fetchRosters(true)} />
+				</label>
+				<label class="filter-field">
+					<span class="field-label">To</span>
+					<input class="input date-input" type="date" bind:value={dateTo} onchange={() => fetchRosters(true)} />
+				</label>
+				{#if hasActiveListFilters}
+					<button class="btn btn-sm" type="button" onclick={resetListFilters}>Clear filters</button>
+				{/if}
 				{#if canEdit}
-					<button class="btn btn-primary btn-sm" onclick={() => (view = 'create')}> New Roster </button>
+					<button class="btn btn-primary btn-sm" type="button" onclick={() => (view = 'create')}>New Roster</button>
 				{/if}
 			</div>
 
 			{#if loading && rosters.length === 0}
 				<div class="loading-center">
-					<Spinner size={20} color="var(--color-text-muted)" />
+					<Spinner size={20} color="var(--text-tertiary)" />
 				</div>
 			{:else if rosters.length === 0}
 				<EmptyState message="No sign-in rosters yet." />
@@ -411,20 +452,27 @@
 				<div class="roster-list">
 					{#each rosters as roster (roster.id)}
 						<div class="roster-row" class:expanded={expandedId === roster.id}>
-							<button class="roster-header" onclick={() => (expandedId = expandedId === roster.id ? null : roster.id)}>
+							<button
+								class="roster-header"
+								type="button"
+								onclick={() => (expandedId = expandedId === roster.id ? null : roster.id)}
+							>
 								<div class="roster-info">
 									<span class="roster-title">{roster.title}</span>
-									<span class="roster-meta">
-										{roster.blankDate
-											? 'Blank date'
-											: roster.rosterDate
-												? formatDate(roster.rosterDate + 'T00:00:00')
-												: 'No date'}
-										&middot; {roster.personnelSnapshot.length} personnel
+									<div class="roster-meta">
+										<Badge
+											label={roster.blankDate
+												? 'Blank date'
+												: roster.rosterDate
+													? formatDate(roster.rosterDate + 'T00:00:00')
+													: 'No date'}
+											variant="outlined"
+										/>
+										<Badge label={`${roster.personnelSnapshot.length} personnel`} variant="outlined" />
 										{#if roster.signedFilePath}
-											&middot; <span class="signed-indicator">Signed</span>
+											<Badge label="Signed" variant="outlined" />
 										{/if}
-									</span>
+									</div>
 								</div>
 								<span class="expand-icon">{expandedId === roster.id ? '\u25B2' : '\u25BC'}</span>
 							</button>
@@ -439,13 +487,15 @@
 										<span>&middot; Created {formatDate(roster.createdAt)}</span>
 									</div>
 									<div class="detail-actions">
-										<button class="btn btn-sm btn-secondary" onclick={() => reprintRoster(roster)}> Re-print </button>
+										<button class="btn btn-sm btn-secondary" type="button" onclick={() => reprintRoster(roster)}>
+											Re-print
+										</button>
 										{#if canEdit}
 											{#if roster.signedFilePath}
-												<button class="btn btn-sm btn-secondary" onclick={() => downloadScan(roster)}>
+												<button class="btn btn-sm btn-secondary" type="button" onclick={() => downloadScan(roster)}>
 													Download Scan
 												</button>
-												<button class="btn btn-sm btn-secondary" onclick={() => removeScan(roster)}>
+												<button class="btn btn-sm btn-secondary" type="button" onclick={() => removeScan(roster)}>
 													Remove Scan
 												</button>
 											{:else}
@@ -471,8 +521,9 @@
 											{/if}
 											<button
 												class="btn btn-sm btn-danger"
+												type="button"
 												disabled={deleting === roster.id}
-												onclick={() => deleteRoster(roster)}
+												onclick={() => (confirmDeleteRoster = roster)}
 											>
 												{#if deleting === roster.id}
 													<Spinner size={12} /> Deleting...
@@ -490,7 +541,12 @@
 
 				{#if rosters.length < total}
 					<div class="load-more">
-						<button class="btn btn-sm btn-secondary" disabled={loading} onclick={() => fetchRosters(false)}>
+						<button
+							class="btn btn-sm btn-secondary"
+							type="button"
+							disabled={loading}
+							onclick={() => fetchRosters(false)}
+						>
 							{#if loading}<Spinner size={12} />{/if}
 							Load more
 						</button>
@@ -499,16 +555,23 @@
 			{/if}
 		</div>
 	{:else}
-		<!-- CREATE VIEW -->
 		<div class="create-view">
-			<div class="form-group">
+			<div class="create-summary">
+				<div class="summary-copy">
+					<p class="eyebrow">New Roster</p>
+					<p class="summary-text">Build a printable sign-in sheet from the current personnel snapshot.</p>
+				</div>
+				<Badge label={`${filteredPersonnel.length} included`} variant="outlined" />
+			</div>
+
+			<div class="editor-section">
+				<div class="section-heading">Basics</div>
 				<label class="label" for="roster-title">Title <span class="required">*</span></label>
 				<input id="roster-title" class="input" type="text" placeholder="e.g. Annual AT Sign-In" bind:value={title} />
 			</div>
 
-			<div class="form-group">
-				<!-- svelte-ignore a11y_label_has_associated_control -->
-				<label class="label">Date</label>
+			<div class="editor-section">
+				<div class="section-heading">Date</div>
 				<div class="radio-group">
 					<label class="radio-label">
 						<input type="radio" value="specific" bind:group={dateOption} />
@@ -525,9 +588,8 @@
 			</div>
 
 			<div class="form-row">
-				<div class="form-group">
-					<!-- svelte-ignore a11y_label_has_associated_control -->
-					<label class="label">Sort By</label>
+				<div class="editor-section">
+					<div class="section-heading">Sort</div>
 					<div class="radio-group">
 						<label class="radio-label">
 							<input type="radio" value="alphabetical" bind:group={sortBy} />
@@ -539,7 +601,8 @@
 						</label>
 					</div>
 				</div>
-				<div class="form-group">
+				<div class="editor-section editor-section-compact">
+					<div class="section-heading">Layout</div>
 					<label class="checkbox-label">
 						<input type="checkbox" bind:checked={separateByGroup} />
 						Separate by group
@@ -547,26 +610,53 @@
 				</div>
 			</div>
 
-			<div class="form-group">
-				<!-- svelte-ignore a11y_label_has_associated_control -->
-				<label class="label">Filter by Rank</label>
+			<div class="editor-section">
+				<div class="section-header">
+					<div class="section-heading">Filter by Rank</div>
+					<Badge label={`${selectedRankCount} selected`} variant="outlined" />
+				</div>
 				<div class="category-toggles">
-					<button class="chip" class:active={allOfficersSelected} onclick={() => toggleCategory(ARMY_RANKS.officer)}>
+					<button
+						class="chip"
+						class:active={allOfficersSelected}
+						type="button"
+						onclick={() => toggleCategory(ARMY_RANKS.officer)}
+					>
 						All Officers
 					</button>
-					<button class="chip" class:active={allWarrantSelected} onclick={() => toggleCategory(ARMY_RANKS.warrant)}>
+					<button
+						class="chip"
+						class:active={allWarrantSelected}
+						type="button"
+						onclick={() => toggleCategory(ARMY_RANKS.warrant)}
+					>
 						All Warrant
 					</button>
-					<button class="chip" class:active={allEnlistedSelected} onclick={() => toggleCategory(enlistedAndNco)}>
+					<button
+						class="chip"
+						class:active={allEnlistedSelected}
+						type="button"
+						onclick={() => toggleCategory(enlistedAndNco)}
+					>
 						All Enlisted
 					</button>
-					<button class="chip" class:active={allCiviliansSelected} onclick={() => toggleCategory(ARMY_RANKS.civilian)}>
+					<button
+						class="chip"
+						class:active={allCiviliansSelected}
+						type="button"
+						onclick={() => toggleCategory(ARMY_RANKS.civilian)}
+					>
 						Civilians
 					</button>
 				</div>
 				<div class="rank-chips">
 					{#each ALL_RANKS as rank (rank)}
-						<button class="rank-chip" class:active={selectedRanks.has(rank)} onclick={() => toggleRank(rank)}>
+						<button
+							class="rank-chip"
+							class:active={selectedRanks.has(rank)}
+							type="button"
+							onclick={() => toggleRank(rank)}
+						>
 							{rank}
 						</button>
 					{/each}
@@ -574,17 +664,21 @@
 			</div>
 
 			{#if groups.length > 0}
-				<div class="form-group">
-					<!-- svelte-ignore a11y_label_has_associated_control -->
-					<label class="label"
-						>Filter by Group
-						<span class="hint">(none selected = all)</span></label
-					>
+				<div class="editor-section">
+					<div class="section-header">
+						<div class="section-heading">Filter by Group</div>
+						<Badge
+							label={selectedGroupCount > 0 ? `${selectedGroupCount} selected` : 'All groups'}
+							variant="outlined"
+						/>
+					</div>
+					<p class="hint">Leave every group unselected to include the full roster.</p>
 					<div class="rank-chips">
 						{#each groups as group (group.id)}
 							<button
 								class="rank-chip"
 								class:active={selectedGroups.has(group.name)}
+								type="button"
 								onclick={() => toggleGroup(group.name)}
 							>
 								{group.name}
@@ -595,17 +689,23 @@
 			{/if}
 
 			<div class="personnel-preview">
-				{filteredPersonnel.length} personnel will be included
+				<div class="summary-copy">
+					<div class="section-heading">Snapshot</div>
+					<p class="preview-text">{filteredPersonnel.length} personnel will be included in the roster.</p>
+				</div>
+				{#if hasActiveCreateFilters}
+					<button class="btn btn-sm" type="button" onclick={resetCreateFilters}>Reset filters</button>
+				{/if}
 			</div>
 		</div>
 	{/if}
 
 	{#snippet footer()}
 		{#if view === 'list'}
-			<button class="btn btn-secondary" onclick={onClose}>Close</button>
+			<button class="btn btn-secondary" type="button" onclick={onClose}>Close</button>
 		{:else}
-			<button class="btn btn-secondary" onclick={() => (view = 'list')}>Cancel</button>
-			<button class="btn btn-primary" disabled={!canGenerate || saving} onclick={handleGenerate}>
+			<button class="btn btn-secondary" type="button" onclick={() => (view = 'list')}>Cancel</button>
+			<button class="btn btn-primary" type="button" disabled={!canGenerate || saving} onclick={handleGenerate}>
 				{#if saving}<Spinner />{/if}
 				{saving ? 'Saving...' : 'Generate & Print'}
 			</button>
@@ -613,22 +713,99 @@
 	{/snippet}
 </Modal>
 
+{#if confirmDeleteRoster}
+	<ConfirmDialog
+		title="Delete Roster"
+		message={`Delete "${confirmDeleteRoster.title}"? This removes the saved roster record.`}
+		confirmLabel="Delete"
+		variant="danger"
+		onConfirm={() => {
+			if (confirmDeleteRoster) deleteRoster(confirmDeleteRoster);
+		}}
+		onCancel={() => (confirmDeleteRoster = null)}
+	/>
+{/if}
+
 <style>
 	.list-view {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
 		min-height: 300px;
+	}
+
+	.create-view {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+	}
+
+	.list-summary,
+	.create-summary,
+	.personnel-preview {
+		display: flex;
+		align-items: start;
+		justify-content: space-between;
+		gap: var(--sp-4);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
+	}
+
+	.summary-copy {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.eyebrow,
+	.field-label,
+	.section-heading,
+	.label {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
+	}
+
+	.summary-text,
+	.preview-text,
+	.hint {
+		margin: 0;
+		font-size: var(--text-sm);
+		line-height: 1.65;
+		color: var(--text-secondary);
+	}
+
+	.hint {
+		font-size: var(--text-xs);
+		line-height: 1.5;
 	}
 
 	.filter-bar {
 		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-md);
+		align-items: end;
 		flex-wrap: wrap;
+		gap: var(--sp-3);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
 	}
 
-	.filter-bar .input {
+	.filter-field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.filter-field-search {
 		flex: 1;
-		min-width: 120px;
+		min-width: 220px;
 	}
 
 	.date-input {
@@ -636,94 +813,86 @@
 		flex: none !important;
 	}
 
-	.date-sep {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-	}
-
 	.loading-center {
 		display: flex;
 		justify-content: center;
-		padding: var(--spacing-xl);
+		padding: var(--sp-8);
 	}
 
 	.roster-list {
 		display: flex;
 		flex-direction: column;
-		gap: 1px;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		overflow: hidden;
+		gap: var(--sp-3);
 	}
 
 	.roster-row {
-		background: var(--color-surface);
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		overflow: hidden;
 	}
 
 	.roster-row.expanded {
-		background: var(--color-surface-variant, var(--color-surface));
+		border-color: color-mix(in srgb, var(--amber) 24%, var(--border-default));
 	}
 
 	.roster-header {
 		display: flex;
 		align-items: center;
 		width: 100%;
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: none;
+		padding: var(--sp-4);
+		background: transparent;
 		border: none;
-		border-bottom: 1px solid var(--color-border);
 		cursor: pointer;
 		text-align: left;
-		color: var(--color-text);
-		gap: var(--spacing-sm);
+		color: var(--text-primary);
+		gap: var(--sp-3);
 		font-family: inherit;
 	}
 
 	.roster-header:hover {
-		background: var(--color-bg);
+		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
 	}
 
 	.roster-info {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--sp-2);
 	}
 
 	.roster-title {
-		font-weight: 500;
-		font-size: var(--font-size-base);
+		font-size: var(--text-base);
+		font-weight: var(--font-weight-semibold);
 	}
 
 	.roster-meta {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-	}
-
-	.signed-indicator {
-		color: var(--color-success, #22c55e);
-		font-weight: 500;
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	.expand-icon {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 
 	.roster-detail {
-		padding: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
+		padding: 0 var(--sp-4) var(--sp-4);
 	}
 
 	.detail-meta {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		margin-bottom: var(--spacing-sm);
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-3);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 	}
 
 	.detail-actions {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		flex-wrap: wrap;
 	}
 
@@ -731,7 +900,7 @@
 		cursor: pointer;
 		display: inline-flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 	}
 
 	.hidden-input {
@@ -741,118 +910,110 @@
 	.load-more {
 		display: flex;
 		justify-content: center;
-		padding: var(--spacing-md);
+		padding-top: var(--sp-2);
 	}
 
-	/* Create view */
-	.create-view {
+	.editor-section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-3);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
+	}
+
+	.editor-section-compact {
+		justify-content: center;
+		min-width: 220px;
+	}
+
+	.section-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-3);
 	}
 
 	.required {
-		color: var(--color-error, #ef4444);
-	}
-
-	.hint {
-		font-weight: 400;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-xs);
+		color: var(--danger);
 	}
 
 	.radio-group {
 		display: flex;
-		gap: var(--spacing-md);
-		margin-top: var(--spacing-xs);
+		flex-wrap: wrap;
+		gap: var(--sp-3);
 	}
 
-	.radio-label {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		font-size: var(--font-size-sm);
-		cursor: pointer;
-	}
-
+	.radio-label,
 	.checkbox-label {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		font-size: var(--font-size-sm);
+		gap: var(--sp-2);
+		padding: var(--sp-3) var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
+		font-size: var(--text-sm);
 		cursor: pointer;
-		margin-top: var(--spacing-lg);
 	}
 
 	.form-row {
 		display: flex;
-		gap: var(--spacing-lg);
+		gap: var(--sp-4);
 		align-items: flex-start;
 	}
 
-	.category-toggles {
-		display: flex;
-		gap: var(--spacing-sm);
-		flex-wrap: wrap;
-		margin-bottom: var(--spacing-sm);
-	}
-
-	.chip {
-		padding: var(--spacing-xs) var(--spacing-sm);
-		border-radius: var(--radius-full);
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font-size: var(--font-size-sm);
-		cursor: pointer;
-		transition: all 0.15s ease;
-		font-family: inherit;
-	}
-
-	.chip:hover {
-		border-color: var(--color-primary);
-	}
-
-	.chip.active {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
-		color: white;
-	}
-
+	.category-toggles,
 	.rank-chips {
 		display: flex;
-		gap: var(--spacing-xs);
 		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
+	.chip,
 	.rank-chip {
-		padding: 2px var(--spacing-sm);
-		border-radius: var(--radius-full);
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-		color: var(--color-text-muted);
-		font-size: var(--font-size-xs);
+		padding: var(--sp-2) var(--sp-3);
+		border-radius: var(--radius-sm);
+		border: var(--border-thin);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 		cursor: pointer;
-		transition: all 0.15s ease;
-		font-family: inherit;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
+	.chip:hover,
 	.rank-chip:hover {
-		border-color: var(--color-primary);
+		border-color: var(--border-strong);
 	}
 
+	.chip.active,
 	.rank-chip.active {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
-		color: white;
+		background: color-mix(in srgb, var(--amber-light) 82%, var(--surface-panel) 18%);
+		border-color: color-mix(in srgb, var(--amber) 30%, var(--border-default));
+		color: var(--amber-dark);
 	}
 
-	.personnel-preview {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-bg);
-		border-radius: var(--radius-md);
-		text-align: center;
+	@media (max-width: 640px) {
+		.list-summary,
+		.create-summary,
+		.personnel-preview,
+		.form-row,
+		.section-header {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.filter-field-search {
+			min-width: 100%;
+		}
 	}
 </style>

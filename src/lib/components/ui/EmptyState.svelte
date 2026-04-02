@@ -39,25 +39,25 @@
 <style>
 	.empty-box {
 		text-align: center;
-		color: var(--color-text-muted);
-		padding: var(--spacing-xl);
-		background: var(--color-bg);
+		color: var(--text-tertiary);
+		padding: var(--sp-8);
+		background: var(--surface-page);
 		border-radius: var(--radius-md);
 	}
 
 	.empty-simple {
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		font-style: italic;
-		padding: var(--spacing-md);
+		padding: var(--sp-4);
 		text-align: center;
 	}
 
 	.empty-action {
-		margin-top: var(--spacing-md);
+		margin-top: var(--sp-4);
 	}
 
 	.empty-action.simple {
 		text-align: center;
-		padding-bottom: var(--spacing-md);
+		padding-bottom: var(--sp-4);
 	}
 </style>

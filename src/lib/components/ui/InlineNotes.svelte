@@ -86,29 +86,29 @@
 
 <style>
 	.inline-notes {
-		margin-top: var(--spacing-sm);
+		margin-top: var(--sp-2);
 	}
 
 	.toggle-btn {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		background: none;
 		border: none;
-		padding: var(--spacing-xs) 0;
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
+		padding: var(--sp-1) 0;
+		font-size: var(--text-ui-sm);
+		color: var(--text-secondary);
 		cursor: pointer;
 	}
 
 	.toggle-btn:hover {
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.toggle-icon {
 		display: inline-block;
 		transition: transform 0.15s ease;
-		font-size: var(--font-size-xs);
+		font-size: var(--text-xs);
 	}
 
 	.toggle-icon.expanded {
@@ -116,17 +116,17 @@
 	}
 
 	.count {
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 	}
 
 	.notes-body {
-		padding-left: var(--spacing-md);
-		margin-top: var(--spacing-xs);
+		padding-left: var(--sp-4);
+		margin-top: var(--sp-1);
 	}
 
 	.empty {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-ui-sm);
+		color: var(--text-tertiary);
 		margin: 0;
 	}
 
@@ -136,44 +136,44 @@
 		margin: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.note-item {
-		padding: var(--spacing-sm);
-		background: var(--color-surface-variant);
+		padding: var(--sp-2);
+		background: var(--surface-subtle);
 		border-radius: var(--radius-sm);
 	}
 
 	.note-header {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-xs);
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-1);
 	}
 
 	.note-author {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 		font-weight: 600;
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.note-time {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
 	}
 
 	.note-text {
-		font-size: var(--font-size-base);
-		color: var(--color-text);
+		font-size: var(--text-ui-base);
+		color: var(--text-primary);
 		margin: 0;
 		white-space: pre-wrap;
 	}
 
 	.add-note {
 		display: flex;
-		gap: var(--spacing-sm);
-		margin-top: var(--spacing-sm);
+		gap: var(--sp-2);
+		margin-top: var(--sp-2);
 	}
 
 	.add-note .input {

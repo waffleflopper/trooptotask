@@ -137,6 +137,7 @@
 <div class="notification-bell-wrapper">
 	<button
 		class="bell-button"
+		class:open
 		type="button"
 		onclick={toggle}
 		aria-label={localUnreadCount > 0 ? `Notifications, ${localUnreadCount} unread` : 'Notifications'}
@@ -166,12 +167,14 @@
 		<div class="dropdown" role="region" aria-label="Notifications" bind:this={dropdownEl}>
 			<div class="dropdown-header">
 				<span class="dropdown-title">Notifications</span>
-				{#if localUnreadCount > 0}
-					<button class="mark-all-btn" type="button" onclick={markAllRead}> Mark all read </button>
-				{/if}
-				{#if notifications.length > 0}
-					<button class="mark-all-btn clear-all-btn" type="button" onclick={dismissAll}> Clear all </button>
-				{/if}
+				<div class="dropdown-actions">
+					{#if localUnreadCount > 0}
+						<button class="mark-all-btn" type="button" onclick={markAllRead}> Mark all read </button>
+					{/if}
+					{#if notifications.length > 0}
+						<button class="mark-all-btn clear-all-btn" type="button" onclick={dismissAll}> Clear all </button>
+					{/if}
+				</div>
 			</div>
 			<div class="dropdown-body">
 				{#if loading}
@@ -233,48 +236,61 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 32px;
-		height: 32px;
-		border: none;
-		background: transparent;
+		width: 2.25rem;
+		height: 2.25rem;
+		border: 1px solid var(--color-chrome-border);
+		background: rgba(240, 239, 233, 0.03);
 		color: var(--color-chrome-text-muted);
 		cursor: pointer;
-		border-radius: var(--radius-sm);
-		transition: color var(--transition-fast);
+		border-radius: var(--radius-md);
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast),
+			background var(--transition-fast);
 		padding: 0;
 	}
 
 	.bell-button:hover {
 		color: var(--color-chrome-text);
+		border-color: rgba(240, 239, 233, 0.16);
+		background: rgba(240, 239, 233, 0.06);
+	}
+
+	.bell-button.open {
+		color: var(--color-chrome-active);
+		border-color: rgba(var(--amber-rgb), 0.42);
+		background: rgba(var(--amber-rgb), 0.08);
 	}
 
 	.badge-count {
 		position: absolute;
-		top: 2px;
-		right: 2px;
-		min-width: 16px;
-		height: 16px;
+		top: -4px;
+		right: -4px;
+		min-width: 18px;
+		height: 18px;
 		padding: 0 4px;
 		background: var(--color-error, #ef4444);
-		color: white;
-		font-size: 10px;
-		font-weight: 700;
-		line-height: 16px;
+		color: var(--white);
+		font-family: var(--font-mono);
+		font-size: 9px;
+		font-weight: var(--font-weight-semibold);
+		line-height: 18px;
 		text-align: center;
-		border-radius: var(--radius-full);
+		border: 1px solid var(--color-chrome);
+		border-radius: 999px;
 		pointer-events: none;
 	}
 
 	.dropdown {
 		position: absolute;
-		top: calc(100% + var(--spacing-sm));
+		top: calc(100% + var(--sp-2));
 		right: 0;
-		width: 320px;
+		width: min(360px, calc(100vw - 2rem));
 		max-height: 400px;
-		background: var(--color-surface, #fff);
-		border: 1px solid var(--color-border, #e0e0e0);
+		background: var(--surface-panel);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
-		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+		box-shadow: var(--shadow-md);
 		z-index: 1000;
 		display: flex;
 		flex-direction: column;
@@ -285,33 +301,48 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-bottom: 1px solid var(--color-border, #e0e0e0);
+		padding: var(--sp-2) var(--sp-4);
+		border-bottom: 1px solid var(--border-default);
 		flex-shrink: 0;
+		gap: var(--sp-2);
 	}
 
 	.dropdown-title {
-		font-size: var(--font-size-base);
-		font-weight: 600;
-		color: var(--color-text);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
+	}
+
+	.dropdown-actions {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: var(--sp-2);
 	}
 
 	.mark-all-btn {
 		border: none;
 		background: none;
-		color: var(--color-primary);
-		font-size: var(--font-size-sm);
+		color: var(--amber-dark);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 		cursor: pointer;
-		padding: 2px 4px;
+		padding: 2px 0;
 		border-radius: var(--radius-sm);
 	}
 
 	.mark-all-btn:hover {
-		text-decoration: underline;
+		color: var(--amber);
 	}
 
 	.clear-all-btn {
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 	}
 
 	.dropdown-body {
@@ -320,18 +351,18 @@
 	}
 
 	.dropdown-empty {
-		padding: var(--spacing-xl) var(--spacing-md);
+		padding: var(--sp-8) var(--sp-4);
 		text-align: center;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
+		color: var(--text-tertiary);
+		font-size: var(--text-sm);
 	}
 
 	.notification-item {
 		display: flex;
 		align-items: flex-start;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-bottom: 1px solid var(--color-divider, #f0f0f0);
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-4);
+		border-bottom: 1px solid var(--divider-color);
 		transition: background var(--transition-fast);
 	}
 
@@ -340,7 +371,8 @@
 	}
 
 	.notification-item.unread {
-		background: rgba(var(--color-primary-rgb), var(--opacity-subtle));
+		background: rgba(var(--amber-rgb), 0.06);
+		box-shadow: inset 2px 0 0 var(--amber);
 	}
 
 	.notification-content {
@@ -350,28 +382,31 @@
 
 	.notification-title {
 		display: block;
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
 		text-decoration: none;
 		line-height: 1.3;
 	}
 
 	a.notification-title:hover {
-		text-decoration: underline;
-		color: var(--color-primary);
+		color: var(--amber-dark);
 	}
 
 	.notification-message {
 		margin: 2px 0 0;
-		font-size: var(--font-size-xs);
-		color: var(--color-text-secondary);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 		line-height: 1.4;
 	}
 
 	.notification-time {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		display: inline-block;
+		margin-top: var(--sp-1);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
+		letter-spacing: 0.04em;
 	}
 
 	.dismiss-btn {
@@ -383,7 +418,7 @@
 		height: 24px;
 		border: none;
 		background: transparent;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		cursor: pointer;
 		border-radius: var(--radius-sm);
 		padding: 0;
@@ -392,6 +427,6 @@
 
 	.dismiss-btn:hover {
 		color: var(--color-error, #ef4444);
-		background: var(--color-surface-variant, #f5f5f5);
+		background: var(--surface-subtle);
 	}
 </style>

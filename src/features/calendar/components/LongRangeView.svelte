@@ -65,6 +65,38 @@
 		return result;
 	});
 
+	const visibleDateKeys = $derived.by(() => months.flatMap((month) => month.dates.map((date) => formatDate(date))));
+
+	const statusTypeById = $derived.by(() => {
+		const map = new Map<string, StatusType>();
+		for (const statusType of statusTypes) {
+			map.set(statusType.id, statusType);
+		}
+		return map;
+	});
+
+	const specialDayByDate = $derived.by(() => {
+		const map = new Map<string, SpecialDay>();
+		for (const specialDay of specialDays) {
+			map.set(specialDay.date, specialDay);
+		}
+		return map;
+	});
+
+	const statusByPersonnelDate = $derived.by(() => {
+		const map = new Map<string, StatusType>();
+		for (const entry of availabilityEntries) {
+			const statusType = statusTypeById.get(entry.statusTypeId);
+			if (!statusType) continue;
+			for (const dateKey of visibleDateKeys) {
+				if (dateKey >= entry.startDate && dateKey <= entry.endDate) {
+					map.set(`${entry.personnelId}:${dateKey}`, statusType);
+				}
+			}
+		}
+		return map;
+	});
+
 	function prevQuarter() {
 		viewStartDate = addMonths(viewStartDate, -3);
 	}
@@ -79,20 +111,6 @@
 
 	function goToMonth(year: number, month: number) {
 		viewStartDate = new Date(year, month, 1);
-	}
-
-	function getStatusForDate(personnelId: string, date: Date): StatusType | null {
-		const dateStr = formatDate(date);
-		const entry = availabilityEntries.find(
-			(e) => e.personnelId === personnelId && dateStr >= e.startDate && dateStr <= e.endDate
-		);
-		if (!entry) return null;
-		return statusTypes.find((s) => s.id === entry.statusTypeId) ?? null;
-	}
-
-	function getSpecialDay(date: Date): SpecialDay | null {
-		const dateStr = formatDate(date);
-		return specialDays.find((s) => s.date === dateStr) ?? null;
 	}
 
 	function handleExportCSV() {
@@ -159,9 +177,10 @@
 				<div class="name-cell day-header-cell"></div>
 				{#each months as month}
 					{#each month.dates as date}
+						{@const dateKey = formatDate(date)}
 						{@const weekend = isWeekend(date)}
 						{@const today = isToday(date)}
-						{@const special = getSpecialDay(date)}
+						{@const special = specialDayByDate.get(dateKey)}
 						<button
 							class="day-cell"
 							class:weekend
@@ -198,7 +217,8 @@
 							</div>
 							{#each months as month}
 								{#each month.dates as date}
-									{@const status = getStatusForDate(person.id, date)}
+									{@const dateKey = formatDate(date)}
+									{@const status = statusByPersonnelDate.get(`${person.id}:${dateKey}`)}
 									{@const weekend = isWeekend(date)}
 									{@const today = isToday(date)}
 									<div
@@ -272,19 +292,22 @@
 	/* Inline layout: fills parent container */
 	.long-range-wrapper {
 		--long-range-col-width: 24px;
+		--long-range-header-height: 36px;
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		background: var(--surface-panel);
+		border: var(--border-thin);
 		border-radius: var(--radius-lg);
 		overflow: hidden;
+		box-shadow: var(--shadow-sm);
 	}
 
 	.scroll-area {
 		flex: 1;
 		overflow: auto;
 		scrollbar-gutter: stable;
+		background: var(--surface-panel);
 	}
 
 	.calendar-grid {
@@ -304,13 +327,16 @@
 		position: sticky;
 		top: 0;
 		z-index: 10;
+		background: color-mix(in srgb, var(--surface-subtle) 88%, var(--surface-panel) 12%);
+		border-bottom: var(--border-thin);
 	}
 
 	.day-row {
 		position: sticky;
-		top: 29px; /* Height of grid-header */
+		top: var(--long-range-header-height);
 		z-index: 9;
-		box-shadow: var(--shadow-1);
+		background: var(--surface-panel);
+		border-bottom: var(--border-thin);
 	}
 
 	.name-cell {
@@ -318,47 +344,63 @@
 		min-width: var(--personnel-column-width);
 		max-width: var(--personnel-column-width);
 		flex-shrink: 0;
-		padding: var(--spacing-xs) var(--spacing-sm);
 		position: sticky;
 		left: 0;
 		z-index: 2;
-		background: var(--color-surface);
-		border-right: 2px solid var(--color-border);
+		background: var(--surface-panel);
+		border-right: var(--border-thin);
+		box-sizing: border-box;
 	}
 
 	.header-cell {
-		font-weight: 600;
-		background: var(--color-bg);
-		color: var(--color-text);
-		border-right-color: var(--color-border);
+		display: flex;
+		align-items: center;
+		min-height: var(--long-range-header-height);
+		padding: 7px 12px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		background: color-mix(in srgb, var(--surface-subtle) 90%, var(--surface-panel) 10%);
+		color: var(--text-secondary);
+		border-right-color: var(--border-default);
 		z-index: 11;
 	}
 
 	.month-header {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		text-align: center;
-		padding: var(--spacing-xs);
-		background: var(--color-bg);
-		color: var(--color-text);
-		font-weight: 600;
-		font-size: var(--font-size-sm);
-		border-left: 1px solid var(--color-border);
+		min-height: var(--long-range-header-height);
+		padding: 7px 0;
+		background: color-mix(in srgb, var(--surface-subtle) 90%, var(--surface-panel) 10%);
+		color: var(--text-primary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		border-left: var(--border-rule);
 		flex-shrink: 0;
+		box-sizing: border-box;
 	}
 
 	.month-header:first-of-type {
 		border-left: none;
 	}
 
-	.day-row {
-		border-bottom: 1px solid var(--color-border);
-	}
-
 	.day-header-cell {
-		background: var(--color-surface);
+		padding: 0 12px;
+		min-height: 32px;
+		background: var(--surface-panel);
 		z-index: 10;
 	}
 
 	.day-cell {
+		appearance: none;
+		border: none;
 		width: var(--long-range-col-width);
 		min-width: var(--long-range-col-width);
 		max-width: var(--long-range-col-width);
@@ -368,45 +410,55 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		font-size: var(--font-size-xs);
-		border-left: 1px solid var(--color-border);
-		background: var(--color-surface);
+		font-size: var(--text-xs);
+		border-left: var(--border-rule);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
 		cursor: pointer;
 		transition: background-color var(--transition-fast);
 	}
 
 	.day-cell:hover {
-		filter: brightness(0.92);
+		background: color-mix(in srgb, var(--surface-subtle) 74%, var(--surface-panel) 26%);
 	}
 
 	.day-cell.weekend {
-		background: var(--color-weekend);
+		background: color-mix(in srgb, var(--color-weekend) 56%, var(--surface-panel) 44%);
 	}
 
 	.day-cell.today {
-		background: var(--color-today-bg);
-		border-left-color: var(--color-today-border);
-		border-right: 1px solid var(--color-today-border);
+		background: color-mix(in srgb, var(--amber-light) 54%, var(--surface-panel) 46%);
+		box-shadow: inset 0 0 0 1px var(--amber);
+		position: relative;
+		z-index: 1;
 	}
 
 	.day-cell.holiday {
-		background: var(--color-holiday);
+		background: color-mix(in srgb, var(--color-holiday) 78%, var(--surface-panel) 22%);
 	}
 
 	.day-num {
-		font-weight: 500;
-		color: var(--color-text);
+		font-family: var(--font-mono);
+		font-weight: var(--font-weight-semibold);
+		color: currentColor;
 	}
 
 	.group-row {
-		background: var(--color-chrome);
+		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
 	}
 
 	.group-name {
-		font-weight: 600;
-		font-size: var(--font-size-sm);
-		color: var(--color-chrome-text);
-		background: var(--color-chrome);
+		display: flex;
+		align-items: center;
+		min-height: 18px;
+		padding: 0 12px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
 	}
 
 	.group-cell {
@@ -414,36 +466,43 @@
 		min-width: 24px;
 		max-width: 24px;
 		flex-shrink: 0;
-		height: 20px;
-		background: var(--color-chrome);
-		border-left: 1px solid var(--color-chrome-border);
+		height: 18px;
+		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
+		border-left: var(--border-rule);
 	}
 
 	.person-row {
-		border-bottom: 1px solid var(--color-border);
+		border-bottom: var(--border-rule);
 	}
 
-	.person-row:hover .name-cell {
-		background: var(--color-bg);
+	.person-row:hover .name-cell,
+	.person-row:hover .status-cell:not(.has-status) {
+		background: color-mix(in srgb, var(--surface-subtle) 74%, var(--surface-panel) 26%);
 	}
 
 	.person-name {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
-		font-size: var(--font-size-sm);
+		min-height: 22px;
+		padding: 0 12px;
+		gap: var(--sp-1);
+		font-size: var(--text-sm);
 	}
 
 	.person-name .rank {
-		font-weight: 600;
-		color: var(--color-primary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
 	}
 
 	.person-name .name {
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		color: var(--color-text);
+		color: var(--text-primary);
 	}
 
 	.status-cell {
@@ -451,21 +510,23 @@
 		min-width: 24px;
 		max-width: 24px;
 		flex-shrink: 0;
-		height: 24px;
-		border-left: 1px solid var(--color-border);
-		background: var(--color-surface);
+		height: 22px;
+		border-left: var(--border-rule);
+		background: var(--surface-panel);
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		transition: background-color var(--transition-fast);
 	}
 
 	.status-cell.weekend {
-		background: var(--color-weekend);
+		background: color-mix(in srgb, var(--color-weekend) 56%, var(--surface-panel) 44%);
 	}
 
 	.status-cell.today {
-		border-left-color: var(--color-today-border);
-		border-right: 1px solid var(--color-today-border);
+		box-shadow: inset 0 0 0 1px var(--amber);
+		position: relative;
+		z-index: 1;
 	}
 
 	.status-cell.has-status {
@@ -484,42 +545,56 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--spacing-md);
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-top: 1px solid var(--color-border);
-		background: var(--color-surface);
+		gap: var(--sp-4);
+		padding: var(--sp-4) var(--sp-5);
+		border-top: var(--border-thin);
+		background: color-mix(in srgb, var(--surface-panel) 86%, var(--surface-subtle) 14%);
 		flex-shrink: 0;
 	}
 
 	.legend {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
-		font-size: var(--font-size-sm);
+		gap: var(--sp-3);
+		font-size: var(--text-sm);
 		flex-wrap: wrap;
 	}
 
 	.legend-label {
-		font-weight: 600;
-		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
 	.legend-item {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
+		padding: 4px 8px;
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.legend-color {
-		width: 12px;
-		height: 12px;
-		border-radius: 2px;
+		width: 8px;
+		height: 8px;
+		border-radius: 1px;
+		box-shadow: inset 0 0 0 1px rgba(14, 14, 13, 0.08);
 	}
 
 	.legend-actions {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 		flex-shrink: 0;
 	}
 
@@ -527,11 +602,11 @@
 	@media (max-width: 640px) {
 		.legend-bar {
 			flex-wrap: wrap;
-			padding: var(--spacing-xs) var(--spacing-sm);
+			padding: var(--sp-3) var(--sp-4);
 		}
 
 		.name-cell {
-			font-size: var(--font-size-xs);
+			font-size: var(--text-xs);
 		}
 
 		.day-cell {
@@ -559,15 +634,15 @@
 		}
 
 		.month-header {
-			font-size: var(--font-size-xs);
+			font-size: var(--text-xs);
 		}
 
 		.person-name .rank {
-			font-size: var(--font-size-xs);
+			font-size: var(--text-xs);
 		}
 
 		.person-name .name {
-			font-size: var(--font-size-xs);
+			font-size: var(--text-xs);
 		}
 
 		.legend {
@@ -584,7 +659,7 @@
 	@media (min-width: 641px) and (max-width: 1024px) {
 		.legend {
 			flex-wrap: wrap;
-			gap: var(--spacing-sm);
+			gap: var(--sp-2);
 		}
 	}
 </style>

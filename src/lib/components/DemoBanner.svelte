@@ -48,7 +48,7 @@
 	.demo-banner {
 		background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
 		color: white;
-		padding: var(--spacing-sm) var(--spacing-lg);
+		padding: var(--sp-2) var(--sp-6);
 		width: 100%;
 		box-sizing: border-box;
 	}
@@ -61,7 +61,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 		max-width: 1200px;
 		margin: 0 auto;
 	}
@@ -78,19 +78,19 @@
 	}
 
 	.banner-text {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 	}
 
 	.try-editing-btn {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-xs) var(--spacing-sm);
+		gap: var(--sp-1);
+		padding: var(--sp-1) var(--sp-2);
 		background: rgba(255, 255, 255, 0.2);
 		border: 1px solid rgba(255, 255, 255, 0.3);
 		border-radius: var(--radius-md);
 		color: white;
-		font-size: var(--font-size-sm);
+		font-size: var(--text-ui-sm);
 		font-weight: 500;
 		cursor: pointer;
 		transition: all 0.15s ease;

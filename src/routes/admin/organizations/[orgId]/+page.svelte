@@ -1,18 +1,18 @@
 <script lang="ts">
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { invalidateAll } from '$app/navigation';
+	import GiftTierModal from '$lib/components/admin/GiftTierModal.svelte';
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
 	import TransferOwnershipModal from '$lib/components/admin/TransferOwnershipModal.svelte';
-	import GiftTierModal from '$lib/components/admin/GiftTierModal.svelte';
+	import {
+		ADMIN_ROLE_COLORS,
+		ADMIN_STATUS_COLORS,
+		ADMIN_TIER_COLORS,
+		formatAdminLabel
+	} from '$lib/components/admin/adminTheme';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
-	import { invalidateAll } from '$app/navigation';
 
 	let { data } = $props();
-
-	const TIER_COLORS: Record<string, string> = {
-		free: '#6b7280',
-		team: '#3f51b5',
-		unit: '#7c4dff'
-	};
 
 	const PERSONNEL_CAPS: Record<string, string> = {
 		free: '15',
@@ -23,10 +23,6 @@
 	let showSuspendModal = $state(false);
 	let showTransferModal = $state(false);
 	let showGiftModal = $state(false);
-
-	function tierLabel(tier: string) {
-		return tier.charAt(0).toUpperCase() + tier.slice(1);
-	}
 
 	async function handleSuspendComplete() {
 		showSuspendModal = false;
@@ -48,84 +44,111 @@
 	<title>{data.org.name} - Organizations - Admin - Troop to Task</title>
 </svelte:head>
 
-<div class="detail-page">
-	<!-- Back link -->
-	<a href="/admin/organizations" class="back-link">← Back to Organizations</a>
-
-	<!-- Header -->
-	<header class="page-header">
-		<div class="header-main">
-			<div>
-				<h1>{data.org.name}</h1>
-				<p class="subtitle">
-					Created {formatDisplayDate(data.org.createdAt)} &middot;
-					{data.members.length} member{data.members.length === 1 ? '' : 's'} &middot;
-					{data.personnelCount} personnel
-				</p>
-			</div>
-			<div class="header-badges">
-				<Badge label={tierLabel(data.org.effectiveTier)} color={TIER_COLORS[data.org.effectiveTier] ?? '#6b7280'} />
-				{#if data.org.giftTier}
-					<Badge label="Gifted" color="#f59e0b" textColor="#1f2937" />
-				{/if}
-				{#if data.org.isSuspended}
-					<Badge label="Suspended" color="#dc2626" />
-				{:else}
-					<Badge label="Active" color="#16a34a" />
-				{/if}
-			</div>
+<div class="admin-page-shell">
+	<header class="admin-page-header">
+		<div class="admin-page-header__copy">
+			<a href="/admin/organizations" class="back-link">Back to Organizations</a>
+			<p class="admin-page-eyebrow">Organization Record</p>
+			<h1 class="admin-page-title">{data.org.name}</h1>
+			<p class="admin-page-subtitle">
+				Created {formatDisplayDate(data.org.createdAt)} • {data.members.length} member{data.members.length === 1
+					? ''
+					: 's'} • {data.personnelCount} personnel
+			</p>
 		</div>
-
-		<!-- Quick Actions -->
-		<div class="actions-bar">
-			<button class="btn btn-secondary btn-sm" onclick={() => (showGiftModal = true)}>Gift Tier</button>
-			<button class="btn btn-secondary btn-sm" onclick={() => (showTransferModal = true)}> Transfer Ownership </button>
-			<button
-				class="btn btn-sm {data.org.isSuspended ? 'btn-primary' : 'btn-danger'}"
-				onclick={() => (showSuspendModal = true)}
-			>
-				{data.org.isSuspended ? 'Unsuspend' : 'Suspend'}
-			</button>
+		<div class="admin-page-actions">
+			<Badge
+				label={formatAdminLabel(data.org.effectiveTier)}
+				color={ADMIN_TIER_COLORS[data.org.effectiveTier] ?? 'var(--ink-35)'}
+			/>
+			{#if data.org.giftTier}<Badge label="Gifted" color={ADMIN_STATUS_COLORS.gifted} />{/if}
+			<Badge
+				label={data.org.isSuspended ? 'Suspended' : 'Active'}
+				color={data.org.isSuspended ? ADMIN_STATUS_COLORS.suspended : ADMIN_STATUS_COLORS.active}
+			/>
 		</div>
 	</header>
 
-	<div class="content-grid">
-		<!-- Subscription Card -->
-		<section class="card">
-			<h2 class="card-title">Subscription</h2>
-			<dl class="info-grid">
-				<div class="info-row">
+	<div class="action-strip">
+		<button class="btn btn-secondary btn-sm" onclick={() => (showGiftModal = true)}>Gift Tier</button>
+		<button class="btn btn-secondary btn-sm" onclick={() => (showTransferModal = true)}>Transfer Ownership</button>
+		<button
+			class="btn btn-sm {data.org.isSuspended ? 'btn-secondary' : 'btn-danger'}"
+			onclick={() => (showSuspendModal = true)}
+		>
+			{data.org.isSuspended ? 'Unsuspend' : 'Suspend'}
+		</button>
+	</div>
+
+	<div class="admin-overview-grid">
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">Effective Tier</p>
+			<p class="admin-overview-card__value">{formatAdminLabel(data.org.effectiveTier)}</p>
+			<p class="admin-overview-card__meta">Base subscription plus any active gifted override.</p>
+		</div>
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">Personnel</p>
+			<p class="admin-overview-card__value">{data.personnelCount}</p>
+			<p class="admin-overview-card__meta">
+				{data.personnelCount} of {PERSONNEL_CAPS[data.org.effectiveTier] ?? '?'} slots currently used.
+			</p>
+		</div>
+		<div class="admin-overview-card">
+			<p class="admin-overview-card__label">Gift Expires</p>
+			<p class="admin-overview-card__value">
+				{data.org.giftExpiresAt ? formatDisplayDate(data.org.giftExpiresAt) : 'None'}
+			</p>
+			<p class="admin-overview-card__meta">Current gifted plan expiry if one is active.</p>
+		</div>
+	</div>
+
+	<div class="detail-grid">
+		<section class="admin-panel">
+			<div class="admin-panel__header">
+				<div>
+					<h2 class="admin-panel__title">Subscription</h2>
+					<p class="admin-panel__meta">Plan and suspension state for this organization.</p>
+				</div>
+			</div>
+			<dl class="detail-list">
+				<div>
 					<dt>Tier</dt>
 					<dd>
-						<Badge label={tierLabel(data.org.effectiveTier)} color={TIER_COLORS[data.org.effectiveTier] ?? '#6b7280'} />
+						<Badge
+							label={formatAdminLabel(data.org.effectiveTier)}
+							color={ADMIN_TIER_COLORS[data.org.effectiveTier] ?? 'var(--ink-35)'}
+						/>
 					</dd>
 				</div>
-				<div class="info-row">
+				<div>
 					<dt>Base Tier</dt>
-					<dd>{tierLabel(data.org.subscriptionTier)}</dd>
+					<dd>{formatAdminLabel(data.org.subscriptionTier)}</dd>
 				</div>
-				<div class="info-row">
+				<div>
 					<dt>Personnel Count</dt>
 					<dd>{data.personnelCount} / {PERSONNEL_CAPS[data.org.effectiveTier] ?? '?'}</dd>
 				</div>
-				<div class="info-row">
+				<div>
 					<dt>Member Since</dt>
 					<dd>{formatDisplayDate(data.org.createdAt)}</dd>
 				</div>
 				{#if data.org.giftTier}
-					<div class="info-row">
+					<div>
 						<dt>Gift Tier</dt>
 						<dd>
-							<Badge label={tierLabel(data.org.giftTier)} color={TIER_COLORS[data.org.giftTier] ?? '#6b7280'} />
+							<Badge
+								label={formatAdminLabel(data.org.giftTier)}
+								color={ADMIN_TIER_COLORS[data.org.giftTier] ?? 'var(--ink-35)'}
+							/>
 						</dd>
 					</div>
-					<div class="info-row">
+					<div>
 						<dt>Gift Expires</dt>
 						<dd>{data.org.giftExpiresAt ? formatDisplayDate(data.org.giftExpiresAt) : 'Never'}</dd>
 					</div>
 				{/if}
 				{#if data.org.isSuspended}
-					<div class="info-row">
+					<div>
 						<dt>Suspended At</dt>
 						<dd class="text-error">{formatDisplayDateTime(data.org.suspendedAt)}</dd>
 					</div>
@@ -133,67 +156,67 @@
 			</dl>
 		</section>
 
-		<!-- Members Card -->
-		<section class="card">
-			<h2 class="card-title">Members ({data.members.length})</h2>
-			{#if data.members.length === 0}
-				<p class="empty-note">No members found.</p>
-			{:else}
-				<ul class="member-list">
-					{#each data.members as member (member.userId)}
-						<li class="member-row">
-							<div class="member-info">
-								<a href="/admin/users/{member.userId}" class="member-email">{member.email}</a>
-							</div>
-							<Badge
-								label={member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-								color={member.role === 'owner' ? '#7c3aed' : member.role === 'admin' ? '#3f51b5' : '#6b7280'}
-							/>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</section>
-
-		<!-- Audit Log Card -->
-		<section class="card full-width">
-			<h2 class="card-title">Recent Audit Events</h2>
-			{#if data.auditEvents.length === 0}
-				<p class="empty-note">No audit events recorded for this organization.</p>
-			{:else}
-				<table class="audit-table">
-					<thead>
-						<tr>
-							<th>Timestamp</th>
-							<th>Action</th>
-							<th>Resource</th>
-							<th>Severity</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each data.auditEvents as evt (evt.id)}
-							<tr>
-								<td class="ts-cell">{formatDisplayDateTime(evt.timestamp)}</td>
-								<td><code class="action-code">{evt.action}</code></td>
-								<td class="resource-cell">
-									{evt.resourceType ?? ''}
-									{#if evt.resourceId}
-										<span class="resource-id">{evt.resourceId.slice(0, 8)}…</span>
-									{/if}
-								</td>
-								<td>
-									<Badge
-										label={evt.severity}
-										color={evt.severity === 'critical' ? '#dc2626' : evt.severity === 'warning' ? '#f59e0b' : '#6b7280'}
-									/>
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			{/if}
+		<section class="admin-panel">
+			<div class="admin-panel__header">
+				<div>
+					<h2 class="admin-panel__title">Members</h2>
+					<p class="admin-panel__meta">Current membership roster for this organization.</p>
+				</div>
+			</div>
+			<div class="member-stack">
+				{#each data.members as member (member.userId)}
+					<div class="member-row">
+						<a href="/admin/users/{member.userId}" class="member-row__email">{member.email}</a>
+						<Badge label={formatAdminLabel(member.role)} color={ADMIN_ROLE_COLORS[member.role] ?? 'var(--ink-35)'} />
+					</div>
+				{:else}
+					<div class="admin-empty">No members found.</div>
+				{/each}
+			</div>
 		</section>
 	</div>
+
+	<section class="admin-panel">
+		<div class="admin-panel__header">
+			<div>
+				<h2 class="admin-panel__title">Recent Audit Events</h2>
+				<p class="admin-panel__meta">Latest platform activity recorded against this organization.</p>
+			</div>
+		</div>
+		<div class="admin-table-shell admin-table-shell--scroll embedded-table">
+			<table class="admin-table">
+				<thead>
+					<tr>
+						<th>Timestamp</th>
+						<th>Action</th>
+						<th>Resource</th>
+						<th>Severity</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each data.auditEvents as evt (evt.id)}
+						<tr>
+							<td class="timestamp-cell">{formatDisplayDateTime(evt.timestamp)}</td>
+							<td><span class="admin-code">{evt.action}</span></td>
+							<td
+								>{evt.resourceType ?? ''}{#if evt.resourceId}<span class="resource-id">
+										• {evt.resourceId.slice(0, 8)}…</span
+									>{/if}</td
+							>
+							<td
+								><Badge
+									label={formatAdminLabel(evt.severity)}
+									color={ADMIN_STATUS_COLORS[evt.severity] ?? 'var(--ink-35)'}
+								/></td
+							>
+						</tr>
+					{:else}
+						<tr><td colspan="4" class="admin-empty">No audit events recorded for this organization.</td></tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	</section>
 </div>
 
 {#if showSuspendModal}
@@ -229,232 +252,86 @@
 {/if}
 
 <style>
-	.detail-page {
-		max-width: 1100px;
-		margin: 0 auto;
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-lg);
-	}
-
 	.back-link {
-		color: var(--color-primary);
-		text-decoration: none;
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-	}
-
-	.back-link:hover {
-		text-decoration: underline;
-	}
-
-	/* Header */
-	.page-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-md);
-	}
-
-	.header-main {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: var(--spacing-md);
-		flex-wrap: wrap;
-	}
-
-	.page-header h1 {
-		font-size: var(--font-size-2xl);
-		font-weight: 700;
-		color: var(--color-text);
-		margin: 0 0 var(--spacing-xs);
-	}
-
-	.subtitle {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
-		margin: 0;
-	}
-
-	.header-badges {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		flex-wrap: wrap;
-	}
-
-	.actions-bar {
-		display: flex;
-		gap: var(--spacing-sm);
-		flex-wrap: wrap;
-	}
-
-	/* Grid layout */
-	.content-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--spacing-lg);
-	}
-
-	.full-width {
-		grid-column: 1 / -1;
-	}
-
-	/* Cards */
-	.card {
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-lg);
-	}
-
-	.card-title {
-		font-size: var(--font-size-base);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
 		font-weight: 600;
-		color: var(--color-text);
-		margin: 0 0 var(--spacing-md);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 	}
 
-	/* Info grid (dl) */
-	.info-grid {
+	.action-strip {
+		display: flex;
+		gap: var(--sp-3);
+		flex-wrap: wrap;
+	}
+
+	.detail-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--sp-4);
+	}
+
+	.detail-list,
+	.member-stack {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 	}
 
-	.info-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--spacing-md);
-	}
-
-	.info-row dt {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		flex-shrink: 0;
-	}
-
-	.info-row dd {
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
-		margin: 0;
-		text-align: right;
-	}
-
-	.text-error {
-		color: var(--color-error);
-	}
-
-	/* Members */
-	.member-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0;
-	}
-
+	.detail-list div,
 	.member-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--spacing-md);
-		padding: var(--spacing-sm) 0;
-		border-bottom: 1px solid var(--color-border);
+		gap: var(--sp-3);
+		padding-top: var(--sp-3);
+		border-top: var(--border-rule);
 	}
 
-	.member-row:last-child {
-		border-bottom: none;
+	.detail-list div:first-child,
+	.member-row:first-child {
+		padding-top: 0;
+		border-top: none;
 	}
 
-	.member-info {
-		min-width: 0;
-		flex: 1;
-	}
-
-	.member-email {
-		font-size: var(--font-size-sm);
-		color: var(--color-primary);
-		text-decoration: none;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		display: block;
-	}
-
-	.member-email:hover {
-		text-decoration: underline;
-	}
-
-	.empty-note {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
-		margin: 0;
-	}
-
-	/* Audit table */
-	.audit-table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-
-	.audit-table th,
-	.audit-table td {
-		padding: var(--spacing-sm) var(--spacing-md);
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.audit-table th {
-		font-size: var(--font-size-xs);
+	.detail-list dt {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
 		font-weight: 600;
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-text-muted);
-		background: var(--color-surface-variant);
+		color: var(--text-tertiary);
 	}
 
-	.audit-table td {
-		font-size: var(--font-size-sm);
-		color: var(--color-text);
-		vertical-align: middle;
+	.detail-list dd {
+		margin: 0;
+		text-align: right;
 	}
 
-	.audit-table tbody tr:last-child td {
-		border-bottom: none;
+	.member-row__email {
+		font-size: var(--text-sm);
+		font-weight: 600;
+		word-break: break-word;
 	}
 
-	.ts-cell {
-		white-space: nowrap;
-		color: var(--color-text-muted);
-		font-size: var(--font-size-xs);
+	.embedded-table {
+		border: none;
+		border-radius: 0;
 	}
 
-	.action-code {
-		font-size: var(--font-size-xs);
-		padding: 2px 6px;
-		background: var(--color-surface-variant);
-		border-radius: var(--radius-sm);
-		color: var(--color-text);
-	}
-
-	.resource-cell {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		font-size: var(--font-size-sm);
+	.timestamp-cell {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 
 	.resource-id {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		font-family: monospace;
+		color: var(--text-tertiary);
 	}
 
-	@media (max-width: 768px) {
-		.content-grid {
+	@media (max-width: 800px) {
+		.detail-grid {
 			grid-template-columns: 1fr;
 		}
 	}

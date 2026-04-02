@@ -9,13 +9,12 @@
 		tabs: Tab[];
 		active: string;
 		onChange: (value: string) => void;
-		variant?: 'underline' | 'pill';
 	}
 
-	let { tabs, active, onChange, variant = 'underline' }: Props = $props();
+	let { tabs, active, onChange }: Props = $props();
 </script>
 
-<nav class="sub-nav {variant}" aria-label="Secondary navigation">
+<nav class="sub-nav" aria-label="Secondary navigation">
 	{#each tabs as tab}
 		<button
 			type="button"
@@ -36,19 +35,28 @@
 	.sub-nav {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
+		gap: 0;
 		overflow-x: auto;
 		overflow-y: hidden;
+		border-bottom: 1px solid var(--border-default);
 	}
 
 	.tab {
-		padding: var(--spacing-xs) var(--spacing-sm);
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		padding: 10px 12px;
 		background: none;
-		border: none;
-		font-family: var(--font-family);
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		border: 1px solid transparent;
+		border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 		cursor: pointer;
+		flex-shrink: 0;
 		white-space: nowrap;
 		transition:
 			color var(--transition-fast),
@@ -56,59 +64,42 @@
 			background var(--transition-fast);
 	}
 
-	/* Underline variant */
-	.underline {
-		border-bottom: 1px solid var(--color-border);
-		gap: 0;
+	.tab:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+		box-shadow: var(--focus-ring);
 	}
 
-	.underline .tab {
-		padding: var(--spacing-sm) var(--spacing-md);
+	.sub-nav .tab {
+		padding: 10px 14px 11px;
 		border-bottom: 2px solid transparent;
 		margin-bottom: -1px;
 	}
 
-	.underline .tab:hover {
-		color: var(--color-text);
+	.sub-nav .tab:hover {
+		background: color-mix(in srgb, var(--surface-subtle) 70%, transparent);
+		color: var(--text-primary);
 	}
 
-	.underline .tab.active {
-		color: var(--color-primary);
-		border-bottom-color: var(--color-primary);
-	}
-
-	/* Pill variant */
-	.pill .tab {
-		border-radius: var(--radius-full);
-		padding: var(--spacing-xs) var(--spacing-md);
-	}
-
-	.pill .tab:hover {
-		background: var(--color-surface-variant);
-		color: var(--color-text);
-	}
-
-	.pill .tab.active {
-		background: var(--color-primary);
-		color: white;
+	.sub-nav .tab.active {
+		color: var(--amber-dark);
+		border-bottom-color: var(--amber);
 	}
 
 	.tab-badge {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 18px;
+		min-width: 20px;
 		height: 18px;
-		padding: 0 var(--spacing-xs);
-		border-radius: var(--radius-full);
-		background: var(--color-primary);
-		color: white;
-		font-size: var(--font-size-xs);
+		padding: 0 5px;
+		border-radius: var(--radius-sm);
+		border: 1px solid color-mix(in srgb, var(--border-default) 70%, var(--amber) 30%);
+		background: color-mix(in srgb, var(--amber-light) 72%, var(--surface-panel) 28%);
+		color: var(--amber-dark);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
-		margin-left: var(--spacing-xs);
-	}
-
-	.pill .tab.active .tab-badge {
-		background: rgba(255, 255, 255, 0.3);
+		line-height: 1;
 	}
 </style>

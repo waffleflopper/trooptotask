@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { ADMIN_TIER_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+
 	let query = $state('');
 	let results = $state<{
 		users: Array<{ id: string; email: string; orgCount: number }>;
@@ -26,7 +28,7 @@
 			} finally {
 				loading = false;
 			}
-		}, 300);
+		}, 250);
 	}
 
 	function close() {
@@ -37,33 +39,46 @@
 </script>
 
 <div class="admin-search">
-	<input
-		type="text"
-		class="input search-input"
-		placeholder="Search users by email or orgs by name..."
-		bind:value={query}
-		oninput={handleInput}
-		onblur={close}
-	/>
+	<div class="admin-search__field">
+		<input
+			id="platform-admin-search"
+			type="text"
+			class="input admin-search__input"
+			aria-label="Search platform admin records"
+			placeholder="Search users by email or organizations by name..."
+			bind:value={query}
+			oninput={handleInput}
+			onblur={close}
+		/>
+		{#if loading}
+			<span class="admin-search__status">Searching</span>
+		{:else}
+			<span class="admin-search__hint">3+ chars</span>
+		{/if}
+	</div>
+
 	{#if isOpen}
-		<div class="search-dropdown">
+		<div class="admin-search__dropdown">
 			{#if results.users.length > 0}
-				<div class="search-section-label">Users</div>
+				<p class="admin-search__section">Users</p>
 				{#each results.users as user}
-					<a href="/admin/users/{user.id}" class="search-result">
-						<span class="search-result-primary">{user.email}</span>
-						<span class="search-result-secondary">{user.orgCount} org{user.orgCount !== 1 ? 's' : ''}</span>
+					<a href="/admin/users/{user.id}" class="admin-search__result">
+						<span class="admin-search__primary">{user.email}</span>
+						<span class="admin-search__secondary">{user.orgCount} org{user.orgCount === 1 ? '' : 's'}</span>
 					</a>
 				{/each}
 			{/if}
+
 			{#if results.organizations.length > 0}
-				<div class="search-section-label">Organizations</div>
+				<p class="admin-search__section">Organizations</p>
 				{#each results.organizations as org}
-					<a href="/admin/organizations/{org.id}" class="search-result">
-						<span class="search-result-primary">{org.name}</span>
-						<span class="search-result-meta">
-							<span class="tier-badge tier-{org.tier}">{org.tier}</span>
-							<span class="search-result-secondary">{org.personnelCount} personnel</span>
+					<a href="/admin/organizations/{org.id}" class="admin-search__result">
+						<span class="admin-search__primary">{org.name}</span>
+						<span class="admin-search__meta">
+							<span class="admin-search__badge" style="color: {ADMIN_TIER_COLORS[org.tier] ?? 'var(--ink-35)'}">
+								{formatAdminLabel(org.tier)}
+							</span>
+							<span class="admin-search__secondary">{org.personnelCount} personnel</span>
 						</span>
 					</a>
 				{/each}
@@ -76,86 +91,104 @@
 	.admin-search {
 		position: relative;
 		flex: 1;
-		max-width: 500px;
+		max-width: 560px;
+		min-width: 240px;
 	}
 
-	.search-input {
-		width: 100%;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-md);
+	.admin-search__field {
+		position: relative;
 	}
 
-	.search-dropdown {
+	.admin-search__input {
+		padding-right: 86px;
+	}
+
+	.admin-search__status,
+	.admin-search__hint,
+	.admin-search__section,
+	.admin-search__badge {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
+
+	.admin-search__status,
+	.admin-search__hint {
 		position: absolute;
-		top: 100%;
+		top: 50%;
+		right: var(--sp-3);
+		transform: translateY(-50%);
+		color: var(--text-tertiary);
+		pointer-events: none;
+	}
+
+	.admin-search__dropdown {
+		position: absolute;
+		top: calc(100% + 6px);
 		left: 0;
 		right: 0;
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		padding: var(--sp-2);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		margin-top: 4px;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-		z-index: 100;
-		max-height: 400px;
+		background: var(--surface-panel);
+		box-shadow: var(--shadow-lg);
+		z-index: 50;
+		max-height: 420px;
 		overflow-y: auto;
 	}
 
-	.search-section-label {
-		padding: var(--spacing-xs) var(--spacing-md);
-		font-size: var(--font-size-xs);
-		text-transform: uppercase;
-		color: var(--color-text-muted);
-		letter-spacing: 0.5px;
-		border-bottom: 1px solid var(--color-divider);
+	.admin-search__section {
+		margin: var(--sp-2) var(--sp-2) var(--sp-1);
+		color: var(--text-tertiary);
 	}
 
-	.search-result {
+	.admin-search__result {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		text-decoration: none;
-		color: var(--color-text);
-		border-bottom: 1px solid var(--color-divider);
+		gap: var(--sp-3);
+		padding: 0.8rem 0.9rem;
+		border-radius: var(--radius-md);
+		color: var(--text-primary);
 	}
 
-	.search-result:hover {
-		background: var(--color-surface-variant);
+	.admin-search__result:hover {
+		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
 	}
 
-	.search-result-primary {
-		font-size: var(--font-size-sm);
+	.admin-search__primary {
+		font-size: var(--text-sm);
+		line-height: 1.4;
 	}
 
-	.search-result-secondary {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+	.admin-search__secondary {
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 
-	.search-result-meta {
-		display: flex;
+	.admin-search__meta {
+		display: inline-flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
+		flex-wrap: wrap;
+		justify-content: flex-end;
 	}
 
-	.tier-badge {
-		font-size: 10px;
-		padding: 1px 6px;
+	.admin-search__badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.18rem 0.45rem;
+		border: var(--border-thin);
 		border-radius: var(--radius-sm);
-		font-weight: 600;
-		text-transform: uppercase;
+		background: color-mix(in srgb, var(--surface-subtle) 76%, var(--surface-panel) 24%);
 	}
 
-	.tier-free {
-		background: var(--color-surface-variant);
-		color: var(--color-text-muted);
-	}
-	.tier-team {
-		background: var(--color-primary);
-		color: white;
-	}
-	.tier-unit {
-		background: #7c4dff;
-		color: white;
+	@media (max-width: 900px) {
+		.admin-search {
+			max-width: none;
+			min-width: 0;
+		}
 	}
 </style>

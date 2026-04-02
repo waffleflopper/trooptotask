@@ -97,7 +97,7 @@
 	.inline-form {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 		flex-wrap: wrap;
 	}
 
@@ -108,7 +108,7 @@
 
 	.color-pickers {
 		display: flex;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
 	}
 
 	.color-picker {
@@ -117,14 +117,14 @@
 		align-items: center;
 		gap: 2px;
 		font-size: 10px;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		text-transform: uppercase;
 	}
 
 	.color-picker input[type='color'] {
 		width: 32px;
 		height: 32px;
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--border-default);
 		border-radius: var(--radius-sm);
 		cursor: pointer;
 		padding: 0;

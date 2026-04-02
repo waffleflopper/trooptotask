@@ -116,14 +116,17 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-md);
-		border-bottom: 1px solid var(--color-border);
+		gap: var(--sp-4);
+		padding: var(--sp-4) var(--sp-5);
+		border-bottom: var(--border-thin);
+		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
 	}
 
 	.month-nav {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
+		flex-wrap: wrap;
+		gap: var(--sp-3);
 	}
 
 	.month-title-wrap {
@@ -133,8 +136,13 @@
 	}
 
 	.month-title {
-		font-size: var(--font-size-xl);
-		font-weight: 600;
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(1.5rem, 1.25rem + 0.7vw, 2rem);
+		font-weight: var(--font-weight-display);
+		letter-spacing: 0.05em;
+		line-height: var(--line-height-tight);
+		text-transform: uppercase;
 		min-width: 180px;
 		text-align: center;
 	}
@@ -143,32 +151,33 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 		width: 100%;
 		border: none;
 		background: transparent;
 		color: inherit;
 		font: inherit;
 		cursor: pointer;
-		border-radius: var(--radius-md);
-		padding: var(--spacing-2xs) var(--spacing-xs);
+		border-radius: var(--radius-sm);
+		padding: 2px 6px;
 		transition:
 			background-color var(--transition-fast),
 			color var(--transition-fast);
 	}
 
 	.month-title-trigger:hover {
-		background: var(--color-primary-tint);
+		background: var(--amber-light);
+		color: var(--amber-dark);
 	}
 
 	.month-title-trigger:focus-visible {
-		outline: 2px solid var(--color-primary);
+		outline: 2px solid var(--amber);
 		outline-offset: 2px;
 	}
 
 	.month-picker-popover {
 		position: absolute;
-		top: calc(100% + var(--spacing-sm));
+		top: calc(100% + var(--sp-2));
 		left: 50%;
 		transform: translateX(-50%);
 		z-index: var(--z-dropdown);
@@ -177,20 +186,25 @@
 	.nav-actions {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	.view-toggle {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-xs);
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-sm);
+		gap: var(--sp-1);
+		min-height: 34px;
+		padding: 7px 12px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
 		font-weight: var(--font-weight-medium);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		color: var(--color-text-muted);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--text-secondary);
 		cursor: pointer;
 		transition:
 			background-color var(--transition-fast),
@@ -199,27 +213,26 @@
 	}
 
 	.view-toggle:hover {
-		border-color: var(--color-primary);
-		color: var(--color-text);
+		border-color: var(--ink-35);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
 	}
 
 	.view-toggle.active {
-		border-color: var(--color-primary);
-		background: var(--color-primary);
-		color: var(--color-primary-contrast);
+		border-color: var(--amber);
+		background: var(--amber-light);
+		color: var(--amber-dark);
 	}
 
 	@media (max-width: 640px) {
 		.navigation {
-			flex-wrap: wrap;
-			gap: var(--spacing-sm);
-			padding: var(--spacing-sm);
+			padding: var(--sp-4);
 		}
 
 		.month-nav {
 			width: 100%;
 			justify-content: space-between;
-			gap: var(--spacing-sm);
+			gap: var(--sp-2);
 		}
 
 		.month-title-wrap {
@@ -227,7 +240,7 @@
 		}
 
 		.month-title {
-			font-size: var(--font-size-lg);
+			font-size: clamp(1.25rem, 1rem + 1vw, 1.7rem);
 			min-width: unset;
 			flex: 1;
 		}
@@ -242,7 +255,7 @@
 
 		.nav-actions {
 			width: 100%;
-			justify-content: flex-end;
+			justify-content: flex-start;
 		}
 	}
 </style>

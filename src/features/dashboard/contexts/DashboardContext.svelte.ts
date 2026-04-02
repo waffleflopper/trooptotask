@@ -250,6 +250,7 @@ export class DashboardContext {
 	// Derived: upcomingChanges (entries starting or ending within 7 days)
 	// ---------------------------------------------------------------------------
 	get upcomingChanges(): {
+		key: string;
 		date: string;
 		personName: string;
 		statusName: string;
@@ -260,6 +261,7 @@ export class DashboardContext {
 		const twoWeeksStr = `${sevenDaysOut.getFullYear()}-${String(sevenDaysOut.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysOut.getDate()).padStart(2, '0')}`;
 
 		const changes: {
+			key: string;
 			date: string;
 			personName: string;
 			statusName: string;
@@ -275,6 +277,7 @@ export class DashboardContext {
 			// Starting soon (departing)
 			if (entry.startDate > this.today && entry.startDate <= twoWeeksStr) {
 				changes.push({
+					key: `${entry.id}-departing-${entry.startDate}`,
 					date: entry.startDate,
 					personName: `${person.rank} ${person.lastName}`,
 					statusName: st.name,
@@ -286,6 +289,7 @@ export class DashboardContext {
 			// Ending soon (returning)
 			if (entry.endDate >= this.today && entry.endDate <= twoWeeksStr) {
 				changes.push({
+					key: `${entry.id}-returning-${entry.endDate}`,
 					date: entry.endDate,
 					personName: `${person.rank} ${person.lastName}`,
 					statusName: st.name,

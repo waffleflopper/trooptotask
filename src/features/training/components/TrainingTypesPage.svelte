@@ -3,6 +3,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import {
@@ -215,9 +216,12 @@
 	<!-- Left panel: Type list -->
 	<div class="panel type-list-panel">
 		<div class="panel-header">
-			<h3 class="panel-title">Training Types</h3>
+			<div class="panel-header-copy">
+				<h3 class="panel-title">Training Types</h3>
+				<Badge label={`${orderedTypes.length} configured`} variant="outlined" />
+			</div>
 			{#if canMutate}
-				<button class="btn btn-primary btn-sm" onclick={startCreate} disabled={creating || editing}>
+				<button class="btn btn-primary btn-sm" type="button" onclick={startCreate} disabled={creating || editing}>
 					+ New Type
 				</button>
 			{/if}
@@ -256,11 +260,12 @@
 								role="toolbar"
 								tabindex="-1"
 							>
-								<button class="btn-move" onclick={() => moveUp(i)} disabled={i === 0} aria-label="Move up"
+								<button class="btn-move" type="button" onclick={() => moveUp(i)} disabled={i === 0} aria-label="Move up"
 									>&#9650;</button
 								>
 								<button
 									class="btn-move"
+									type="button"
 									onclick={() => moveDown(i)}
 									disabled={i === orderedTypes.length - 1}
 									aria-label="Move down">&#9660;</button
@@ -378,13 +383,14 @@
 					{#if !creating && selectedTypeId && canMutate}
 						<button
 							class="btn btn-danger btn-sm"
+							type="button"
 							onclick={() => (confirmDelete = selectedType ? { id: selectedType.id, name: selectedType.name } : null)}
 							>Delete</button
 						>
 					{/if}
 					<div class="spacer"></div>
-					<button class="btn btn-sm" onclick={cancelEdit}>Cancel</button>
-					<button class="btn btn-primary btn-sm" onclick={saveEdit} disabled={!editName.trim() || saving}>
+					<button class="btn btn-sm" type="button" onclick={cancelEdit}>Cancel</button>
+					<button class="btn btn-primary btn-sm" type="button" onclick={saveEdit} disabled={!editName.trim() || saving}>
 						{#if saving}<Spinner size={12} />{/if}
 						{creating ? 'Create' : 'Save'}
 					</button>
@@ -399,7 +405,7 @@
 						<h3 class="detail-name">{selectedType.name}</h3>
 					</div>
 					{#if canMutate}
-						<button class="btn btn-sm" onclick={startEdit}>Edit</button>
+						<button class="btn btn-sm" type="button" onclick={startEdit}>Edit</button>
 					{/if}
 				</div>
 
@@ -442,6 +448,7 @@
 					<div class="detail-actions">
 						<button
 							class="btn btn-danger btn-sm"
+							type="button"
 							onclick={() => (confirmDelete = { id: selectedType.id, name: selectedType.name })}>Delete Type</button
 						>
 					</div>
@@ -471,32 +478,48 @@
 <style>
 	.types-layout {
 		display: grid;
-		grid-template-columns: 320px 1fr;
-		gap: 0;
-		height: calc(100vh - var(--header-height, 56px) - 60px);
+		grid-template-columns: minmax(290px, 340px) minmax(0, 1fr);
+		gap: var(--sp-5);
+		align-items: start;
+		height: calc(100vh - var(--header-height, 56px) - 72px);
 		overflow: hidden;
 	}
 
 	.panel {
 		overflow-y: auto;
-		padding: var(--spacing-md);
+		padding: var(--sp-5);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
 	}
 
 	.type-list-panel {
-		border-right: 1px solid var(--color-border);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
 	}
 
 	.panel-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-bottom: var(--spacing-md);
+		gap: var(--sp-3);
+		padding-bottom: var(--sp-4);
+		border-bottom: var(--border-thin);
+	}
+
+	.panel-header-copy {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
 	}
 
 	.panel-title {
 		font-family: var(--font-display);
-		font-size: var(--font-size-base);
-		font-weight: 500;
+		font-size: clamp(1.3rem, 1.1rem + 0.4vw, 1.55rem);
+		font-weight: var(--font-weight-display);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
 		margin: 0;
 	}
 
@@ -506,95 +529,103 @@
 		margin: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 	}
 
 	.type-item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border: 1px solid var(--color-border);
+		padding: var(--sp-3) var(--sp-4);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
 		cursor: pointer;
-		transition: background var(--transition-fast);
+		background: color-mix(in srgb, var(--surface-panel) 90%, var(--surface-subtle) 10%);
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast);
 	}
 
 	.type-item:hover {
-		background: var(--color-surface-variant);
+		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
 	}
 
 	.type-item.selected {
-		background: var(--color-surface-variant);
-		border-color: var(--color-primary);
+		border-color: color-mix(in srgb, var(--amber) 32%, var(--border-default));
+		background: color-mix(in srgb, var(--amber-light) 78%, var(--surface-panel) 22%);
 	}
 
 	.type-item-main {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 		min-width: 0;
 		flex: 1;
 	}
 
 	.type-color-swatch {
-		width: 12px;
-		height: 12px;
-		border-radius: 50%;
+		width: 0.75rem;
+		height: 0.75rem;
+		border-radius: 2px;
 		flex-shrink: 0;
 	}
 
 	.type-color-swatch.large {
-		width: 16px;
-		height: 16px;
+		width: 0.875rem;
+		height: 0.875rem;
 	}
 
 	.type-info {
 		display: flex;
 		flex-direction: column;
 		min-width: 0;
+		gap: var(--sp-1);
 	}
 
 	.type-name {
-		font-size: var(--font-size-sm);
-		font-weight: 500;
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		color: var(--text-primary);
 	}
 
 	.type-summary {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 
 	.type-reorder {
 		display: flex;
 		flex-direction: column;
 		gap: 1px;
-		margin-left: var(--spacing-xs);
+		margin-left: var(--sp-2);
 	}
 
 	.btn-move {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 22px;
-		height: 22px;
+		width: 1.5rem;
+		height: 1.5rem;
 		padding: 0;
 		background: none;
-		border: 1px solid var(--color-border);
+		border: var(--border-thin);
 		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
+		color: var(--text-secondary);
 		cursor: pointer;
 		font-size: 10px;
-		transition: all var(--transition-fast);
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.btn-move:hover:not(:disabled) {
-		background: var(--color-surface-variant);
-		border-color: var(--color-primary);
-		color: var(--color-primary);
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		border-color: var(--border-strong);
+		color: var(--text-primary);
 	}
 
 	.btn-move:disabled {
@@ -602,7 +633,6 @@
 		cursor: default;
 	}
 
-	/* Detail panel */
 	.panel-placeholder {
 		display: flex;
 		align-items: center;
@@ -611,233 +641,224 @@
 	}
 
 	.placeholder-text {
-		color: var(--color-text-muted);
-		font-size: var(--font-size-sm);
+		color: var(--text-secondary);
+		font-size: var(--text-sm);
 	}
 
 	.detail-view {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-5);
 	}
 
 	.detail-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		gap: var(--sp-3);
+		padding-bottom: var(--sp-4);
+		border-bottom: var(--border-thin);
 	}
 
 	.detail-title-row {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 	}
 
 	.detail-name {
 		font-family: var(--font-display);
-		font-size: var(--font-size-lg);
-		font-weight: 500;
+		font-size: clamp(1.4rem, 1.2rem + 0.4vw, 1.7rem);
+		font-weight: var(--font-weight-display);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
 		margin: 0;
 	}
 
 	.detail-description {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
+		color: var(--text-secondary);
+		font-size: var(--text-sm);
+		line-height: 1.65;
 		margin: 0;
 	}
 
 	.detail-fields {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 		margin: 0;
 	}
 
 	.detail-field {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--sp-1);
+		padding: var(--sp-3) var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface-subtle) 46%, var(--surface-panel) 54%);
 	}
 
 	.detail-field dt {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		font-weight: 500;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		font-weight: var(--font-weight-semibold);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: var(--letter-spacing-mono);
 	}
 
 	.detail-field dd {
-		font-size: var(--font-size-sm);
+		font-size: var(--text-sm);
 		margin: 0;
+		color: var(--text-primary);
 	}
 
 	.detail-actions {
-		padding-top: var(--spacing-md);
-		border-top: 1px solid var(--color-border);
+		padding-top: var(--sp-4);
+		border-top: var(--border-thin);
 	}
 
-	/* Editor */
 	.editor {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-lg);
-		padding-bottom: 3rem;
+		gap: var(--sp-5);
+		padding-bottom: var(--sp-8);
 	}
 
 	.editor-section {
-		border: none;
-		padding: 0;
+		padding: var(--sp-4);
 		margin: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: color-mix(in srgb, var(--surface-subtle) 42%, var(--surface-panel) 58%);
 	}
 
 	.section-title {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text-secondary);
+		padding: 0 0 var(--sp-3);
+		margin: 0 0 var(--sp-1);
+		border-bottom: var(--border-thin);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-secondary);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		padding-bottom: var(--spacing-xs);
-		border-bottom: 1px solid var(--color-border);
-		margin-bottom: var(--spacing-xs);
+		letter-spacing: var(--letter-spacing-mono);
 	}
 
 	.form-field {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: var(--sp-2);
 	}
 
 	.form-label {
-		font-size: var(--font-size-sm);
-		font-weight: 500;
-		color: var(--color-text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-secondary);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
 	}
 
 	.color-picker {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 	}
 
 	.color-picker input[type='color'] {
-		width: 36px;
-		height: 36px;
+		width: 2.5rem;
+		height: 2.5rem;
 		padding: 2px;
-		border: 1px solid var(--color-border);
+		border: var(--border-thin);
 		border-radius: var(--radius-sm);
 		cursor: pointer;
+		background: var(--surface-panel);
 	}
 
 	.color-value {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
 		font-family: var(--font-mono);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
 	}
 
 	.radio-group {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-2);
 	}
 
 	.radio-option {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		font-size: var(--font-size-sm);
+		gap: var(--sp-3);
+		padding: var(--sp-3) var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
+		font-size: var(--text-sm);
 		cursor: pointer;
 	}
 
 	.inline-field {
 		flex-direction: row;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-3);
 	}
 
 	.input-sm {
-		width: 80px;
+		width: 5.5rem;
 	}
 
 	.threshold-fields {
 		display: flex;
-		gap: var(--spacing-lg);
-	}
-
-	.chip-selector {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--spacing-xs);
-	}
-
-	.chip {
-		display: inline-flex;
-		align-items: center;
-		padding: 4px 12px;
-		border: 1px solid var(--color-border);
-		border-radius: 999px;
-		background: var(--color-bg);
-		font-size: var(--font-size-sm);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.chip:hover:not(:disabled) {
-		border-color: var(--color-primary);
-	}
-
-	.chip.active {
-		background: var(--color-primary);
-		color: white;
-		border-color: var(--color-primary);
-	}
-
-	.chip:disabled {
-		opacity: 0.4;
-		cursor: default;
-	}
-
-	.hint {
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
-		font-style: italic;
-		margin: 0;
+		gap: var(--sp-5);
 	}
 
 	.toggle-option {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		font-size: var(--font-size-sm);
+		gap: var(--sp-3);
+		padding: var(--sp-3) var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
+		font-size: var(--text-sm);
 		cursor: pointer;
 	}
 
 	.editor-actions {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
-		padding-top: var(--spacing-md);
-		border-top: 1px solid var(--color-border);
+		gap: var(--sp-3);
+		padding-top: var(--sp-4);
+		border-top: var(--border-thin);
 	}
 
 	@media (max-width: 768px) {
 		.types-layout {
 			grid-template-columns: 1fr;
 			height: auto;
+			overflow: visible;
 		}
 
 		.type-list-panel {
-			border-right: none;
-			border-bottom: 1px solid var(--color-border);
 			max-height: 300px;
 		}
 
 		.threshold-fields {
 			flex-direction: column;
-			gap: var(--spacing-sm);
+			gap: var(--sp-3);
+		}
+
+		.panel {
+			padding: var(--sp-4);
 		}
 	}
 </style>

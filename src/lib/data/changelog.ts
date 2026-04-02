@@ -7,53 +7,52 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
-		id: '2026-03-31-preferences-follow-your-account',
-		date: '2026-03-31',
-		title: 'Your Calendar and Training Preferences Stick Around Better',
+		id: '2026-04-01-refresh-pass',
+		date: '2026-04-01',
+		title: 'A Cleaner, Easier-to-Read Refresh',
 		items: [
-			"Calendar display choices like showing status text and keeping Today's Summary open or closed now follow your account instead of depending on that computer remembering local settings",
-			'The training page now remembers your selected saved view, group filter, and layout view after refreshes so you do not have to keep setting the page back up',
-			'This is especially helpful on locked-down government machines that like to forget browser storage whenever they feel like it'
+			'Refreshed the overall look of the app and public site so screens feel more consistent from page to page',
+			'Improved text sizing and spacing across key areas like dashboards, modals, and marketing pages so things are easier to scan without feeling oversized',
+			'Smoothed out navigation and layout behavior across desktop, tablet, and mobile so menus stay available where you expect them'
 		]
 	},
 	{
-		id: '2026-03-26-calendar-bulk-workspace',
-		date: '2026-03-26',
-		title: 'Bulk Calendar Updates Have More Room to Breathe',
+		id: '2026-03-22-under-the-hood',
+		date: '2026-03-22',
+		title: 'Under the Hood Improvements',
 		items: [
-			'The bulk add and bulk remove calendar tools now make much better use of wide screens, so you can see a lot more people at once instead of constantly fighting the list',
-			'Status settings now live in a cleaner side panel while the personnel list gets the larger workspace, which makes bulk changes feel a lot less cramped',
-			'Selection controls were cleaned up too, including clearer counts and a better "select shown" action when you are filtering the list'
+			'Made a bunch of behind-the-scenes changes to improve how the app handles requests — things should feel snappier and more reliable overall',
+			'Tightened up error handling so the app recovers more gracefully when something goes wrong instead of showing a confusing error page',
+			'Improved how bulk operations (like importing personnel or updating assignments) handle edge cases — fewer surprises when working with large batches',
+			"If you run into anything weird or notice something that doesn't look right, please don't hesitate to report it — we'll make it a high priority to fix"
 		]
 	},
 	{
-		id: '2026-03-26-calendar-month-picker',
-		date: '2026-03-26',
-		title: 'Jump Around the Calendar Much Faster',
+		id: '2026-03-22-table-improvements',
+		date: '2026-03-22',
+		title: 'Tables Got a Glow-Up',
 		items: [
-			'You can now click the month name at the top of the calendar to jump straight to a different month instead of hammering the next and previous buttons over and over',
-			'The same quick-jump picker also works in the 3-month calendar view, so it is easier to move across the year without losing your place',
-			'Keyboard navigation was added too, so the new picker is easier to use without needing to rely on a mouse'
+			'All tables across the app now have a consistent look and feel — reports, training matrix, admin pages, rating scheme, the works',
+			'You can now click column headers to sort most tables — finally, no more squinting to find someone buried in a long list',
+			'Fixed a bug where editing a rating scheme entry would create a duplicate instead of actually saving your changes'
 		]
 	},
 	{
-		id: '2026-03-25-assignment-planner-page',
-		date: '2026-03-25',
-		title: 'Assignment Planning Has Its Own Page Now',
+		id: '2026-03-19-leaders-book-redesign',
+		date: '2026-03-19',
+		title: "Leader's Book Redesign In Progress",
 		items: [
-			'The monthly assignment planner now opens as a full page instead of being squeezed into a popup',
-			'You now get a full month grid with more room to work through manual scheduling decisions without constant scrolling',
-			'Assignment changes still feed straight back into the main calendar, so you can plan on one page and verify on the other without any extra cleanup'
+			"We've temporarily removed the Leader's Book while we rebuild it from the ground up — the new version will be more intuitive and better integrated with the rest of the app",
+			'Your existing data (counseling records, development goals, extended info) is safely preserved and will carry over to the new version',
+			'The Rating Scheme is still fully available on the Personnel page — nothing changed there'
 		]
 	},
 	{
-		id: '2026-03-27-duty-roster-selection',
-		date: '2026-03-27',
-		title: 'Duty Roster Selection Feels More Like the Rest of Calendar',
+		id: '2026-03-17-training-manage-types-button',
+		date: '2026-03-17',
+		title: 'Training Types Button is Now Always Visible',
 		items: [
-			'Eligible and exempt personnel now use the same searchable grouped table pattern as the bulk calendar tools, so working through large rosters is much easier than dealing with tiny toggle pills',
-			'The duty-roster form was reorganized into clearer planning and selection panels, which makes it easier to review settings and roster scope side by side',
-			'Exemptions are now easier to audit and save for each duty type without hunting through one long wall of chips'
+			'The "Manage Types" button on the Training page is now permanently visible in the toolbar for admins and editors — no more hunting through the overflow menu or wondering where it went after you added your first training type'
 		]
 	}
 ];

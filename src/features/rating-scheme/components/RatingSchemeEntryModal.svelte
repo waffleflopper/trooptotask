@@ -166,10 +166,11 @@
 	}
 
 	async function handleDelete() {
-		if (!entry || !onDelete) return;
+		const deleteHandler = onDelete;
+		if (!entry || typeof deleteHandler !== 'function') return;
 		const id = entry.id;
+		await deleteHandler(id);
 		onClose();
-		await onDelete(id);
 	}
 
 	function formatPersonLabel(p: Personnel): string {
@@ -179,8 +180,9 @@
 
 <Modal title={entry ? 'Edit Rating Entry' : 'Add Rating Entry'} {onClose} width="550px" titleId="rating-entry-title">
 	<div class="form-group">
-		<label class="label">Rated Individual</label>
+		<label class="label" for="rated-individual">Rated Individual</label>
 		<SearchSelect
+			id="rated-individual"
 			options={personnelOptions}
 			bind:value={ratedPersonId}
 			placeholder="Search personnel..."
@@ -211,11 +213,17 @@
 	<fieldset class="rater-section">
 		<legend class="section-legend">Rater <span class="required">*</span></legend>
 		<div class="mode-toggle">
-			<button class="toggle-btn" class:active={raterMode === 'internal'} onclick={() => (raterMode = 'internal')}
-				>From Org</button
+			<button
+				class="toggle-btn"
+				type="button"
+				class:active={raterMode === 'internal'}
+				onclick={() => (raterMode = 'internal')}>From Org</button
 			>
-			<button class="toggle-btn" class:active={raterMode === 'external'} onclick={() => (raterMode = 'external')}
-				>External</button
+			<button
+				class="toggle-btn"
+				type="button"
+				class:active={raterMode === 'external'}
+				onclick={() => (raterMode = 'external')}>External</button
 			>
 		</div>
 		{#if raterMode === 'internal'}
@@ -233,11 +241,17 @@
 	<fieldset class="rater-section">
 		<legend class="section-legend">Senior Rater <span class="required">*</span></legend>
 		<div class="mode-toggle">
-			<button class="toggle-btn" class:active={srMode === 'internal'} onclick={() => (srMode = 'internal')}
-				>From Org</button
+			<button
+				class="toggle-btn"
+				type="button"
+				class:active={srMode === 'internal'}
+				onclick={() => (srMode = 'internal')}>From Org</button
 			>
-			<button class="toggle-btn" class:active={srMode === 'external'} onclick={() => (srMode = 'external')}
-				>External</button
+			<button
+				class="toggle-btn"
+				type="button"
+				class:active={srMode === 'external'}
+				onclick={() => (srMode = 'external')}>External</button
 			>
 		</div>
 		{#if srMode === 'internal'}
@@ -253,13 +267,14 @@
 	</fieldset>
 
 	{#if !showIntermediate}
-		<button class="btn-link" onclick={() => (showIntermediate = true)}>+ Add Intermediate Rater</button>
+		<button class="btn-link" type="button" onclick={() => (showIntermediate = true)}>+ Add Intermediate Rater</button>
 	{:else}
 		<fieldset class="rater-section">
 			<legend class="section-legend">
 				Intermediate Rater
 				<button
 					class="btn-remove-section"
+					type="button"
 					onclick={() => {
 						showIntermediate = false;
 						intermediateRaterPersonId = '';
@@ -268,11 +283,17 @@
 				>
 			</legend>
 			<div class="mode-toggle">
-				<button class="toggle-btn" class:active={irMode === 'internal'} onclick={() => (irMode = 'internal')}
-					>From Org</button
+				<button
+					class="toggle-btn"
+					type="button"
+					class:active={irMode === 'internal'}
+					onclick={() => (irMode = 'internal')}>From Org</button
 				>
-				<button class="toggle-btn" class:active={irMode === 'external'} onclick={() => (irMode = 'external')}
-					>External</button
+				<button
+					class="toggle-btn"
+					type="button"
+					class:active={irMode === 'external'}
+					onclick={() => (irMode = 'external')}>External</button
 				>
 			</div>
 			{#if irMode === 'internal'}
@@ -288,13 +309,14 @@
 	{/if}
 
 	{#if !showReviewer}
-		<button class="btn-link" onclick={() => (showReviewer = true)}>+ Add Reviewer</button>
+		<button class="btn-link" type="button" onclick={() => (showReviewer = true)}>+ Add Reviewer</button>
 	{:else}
 		<fieldset class="rater-section">
 			<legend class="section-legend">
 				Reviewer
 				<button
 					class="btn-remove-section"
+					type="button"
 					onclick={() => {
 						showReviewer = false;
 						reviewerPersonId = '';
@@ -303,11 +325,17 @@
 				>
 			</legend>
 			<div class="mode-toggle">
-				<button class="toggle-btn" class:active={rvMode === 'internal'} onclick={() => (rvMode = 'internal')}
-					>From Org</button
+				<button
+					class="toggle-btn"
+					type="button"
+					class:active={rvMode === 'internal'}
+					onclick={() => (rvMode = 'internal')}>From Org</button
 				>
-				<button class="toggle-btn" class:active={rvMode === 'external'} onclick={() => (rvMode = 'external')}
-					>External</button
+				<button
+					class="toggle-btn"
+					type="button"
+					class:active={rvMode === 'external'}
+					onclick={() => (rvMode = 'external')}>External</button
 				>
 			</div>
 			{#if rvMode === 'internal'}
@@ -343,13 +371,14 @@
 	</div>
 
 	{#if !showWorkflow}
-		<button class="btn-link" onclick={() => (showWorkflow = true)}>+ Track Workflow</button>
+		<button class="btn-link" type="button" onclick={() => (showWorkflow = true)}>+ Track Workflow</button>
 	{:else}
 		<div class="form-group workflow-group">
 			<div class="workflow-header">
 				<label class="label" for="workflow-status">Workflow Status</label>
 				<button
 					class="btn-remove-section"
+					type="button"
 					onclick={() => {
 						showWorkflow = false;
 						workflowStatus = '';
@@ -374,60 +403,90 @@
 		{#if entry && onDelete}
 			{#if showDeleteConfirm}
 				<span class="delete-confirm-text">Delete this entry?</span>
-				<button class="btn btn-danger btn-sm" onclick={handleDelete}>Yes, Delete</button>
-				<button class="btn btn-secondary btn-sm" onclick={() => (showDeleteConfirm = false)}>No</button>
+				<button class="btn btn-danger btn-sm" type="button" onclick={handleDelete}>Yes, Delete</button>
+				<button class="btn btn-secondary btn-sm" type="button" onclick={() => (showDeleteConfirm = false)}>No</button>
 			{:else}
-				<button class="btn btn-danger" onclick={() => (showDeleteConfirm = true)}>Delete</button>
+				<button class="btn btn-danger" type="button" onclick={() => (showDeleteConfirm = true)}>Delete</button>
 			{/if}
 		{/if}
 		<div class="spacer"></div>
-		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-		<button class="btn btn-primary" disabled={!canSave} onclick={handleSave}> Save </button>
+		<button class="btn btn-secondary" type="button" onclick={onClose}>Cancel</button>
+		<button class="btn btn-primary" type="button" disabled={!canSave} onclick={handleSave}>Save</button>
 	{/snippet}
 </Modal>
 
 <style>
+	.form-group {
+		display: flex;
+		flex-direction: column;
+		gap: var(--field-stack-gap);
+		margin-bottom: var(--sp-4);
+	}
+
+	.label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--field-label);
+	}
+
 	.form-row {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
+		margin-bottom: var(--sp-4);
 	}
 
 	.rater-section {
-		border: 1px solid var(--color-border);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		padding: var(--spacing-md);
-		margin-bottom: var(--spacing-md);
+		padding: var(--sp-4);
+		margin-bottom: var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
 	}
 
 	.section-legend {
-		font-size: var(--font-size-sm);
-		font-weight: 600;
-		color: var(--color-text);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-sm);
+		gap: var(--sp-2);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
 	}
 
 	.required {
-		color: var(--color-error);
+		color: var(--danger);
 	}
 
 	.mode-toggle {
 		display: flex;
 		gap: 0;
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: var(--sp-3);
 	}
 
 	.toggle-btn {
+		appearance: none;
 		flex: 1;
-		padding: var(--spacing-xs) var(--spacing-sm);
-		font-size: var(--font-size-xs);
-		border: 1px solid var(--color-border);
-		background: transparent;
-		color: var(--color-text-secondary);
+		min-height: 32px;
+		padding: 0 var(--sp-3);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		border: var(--border-thin);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
 		cursor: pointer;
-		transition: all 0.15s;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	.toggle-btn:first-child {
@@ -440,19 +499,24 @@
 	}
 
 	.toggle-btn.active {
-		background: var(--color-primary);
-		border-color: var(--color-primary);
-		color: white;
+		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
+		border-color: var(--amber);
+		color: var(--amber-dark);
 	}
 
 	.btn-link {
+		appearance: none;
 		background: none;
 		border: none;
-		color: var(--color-primary);
-		font-size: var(--font-size-sm);
+		color: var(--amber-dark);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 		cursor: pointer;
-		padding: var(--spacing-xs) 0;
-		margin-bottom: var(--spacing-md);
+		padding: 0;
+		margin-bottom: var(--sp-4);
 	}
 
 	.btn-link:hover {
@@ -460,10 +524,15 @@
 	}
 
 	.btn-remove-section {
+		appearance: none;
 		background: none;
 		border: none;
-		color: var(--color-error);
-		font-size: var(--font-size-xs);
+		color: var(--danger);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 		cursor: pointer;
 		margin-left: auto;
 	}
@@ -473,33 +542,40 @@
 	}
 
 	.delete-confirm-text {
-		font-size: var(--font-size-sm);
-		color: var(--color-error);
+		font-size: var(--text-sm);
+		color: var(--danger);
 	}
 
 	.warning-banner {
-		background: color-mix(in srgb, var(--color-warning) 15%, transparent);
-		border: 1px solid var(--color-warning);
+		background: color-mix(in srgb, var(--amber-light) 76%, var(--surface-panel) 24%);
+		border: 1px solid color-mix(in srgb, var(--amber) 28%, transparent);
 		border-radius: var(--radius-md);
-		padding: var(--spacing-sm) var(--spacing-md);
-		font-size: var(--font-size-sm);
-		color: var(--color-warning);
-		margin-bottom: var(--spacing-md);
+		padding: var(--sp-3) var(--sp-4);
+		font-size: var(--text-sm);
+		color: var(--amber-dark);
+		margin-bottom: var(--sp-4);
 	}
 
 	.workflow-group {
-		border: 1px solid var(--color-border);
+		border: var(--border-thin);
 		border-radius: var(--radius-md);
-		padding: var(--spacing-md);
+		padding: var(--sp-4);
+		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
 	}
 
 	.workflow-header {
 		display: flex;
 		align-items: center;
-		margin-bottom: var(--spacing-sm);
+		margin-bottom: var(--sp-3);
 	}
 
 	.workflow-header .label {
 		margin-bottom: 0;
+	}
+
+	@media (max-width: 640px) {
+		.form-row {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

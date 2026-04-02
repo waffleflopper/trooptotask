@@ -60,28 +60,28 @@
 	}
 
 	.latest-entry {
-		margin-bottom: var(--spacing-md);
+		margin-bottom: var(--sp-4);
 	}
 
 	.entry-header {
 		display: flex;
 		align-items: baseline;
 		justify-content: space-between;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-sm);
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-2);
 	}
 
 	.entry-title {
-		font-size: var(--font-size-lg);
+		font-size: var(--text-base);
 		font-weight: 600;
-		color: var(--color-text);
+		color: var(--text-primary);
 		margin: 0;
 	}
 
 	.entry-date {
 		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
 		white-space: nowrap;
 	}
 
@@ -91,14 +91,14 @@
 		margin: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-xs);
+		gap: var(--sp-1);
 	}
 
 	.entry-items li {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
+		font-size: var(--text-ui-sm);
+		color: var(--text-secondary);
 		line-height: 1.6;
-		padding-left: var(--spacing-md);
+		padding-left: var(--sp-4);
 		position: relative;
 	}
 
@@ -106,7 +106,7 @@
 		content: '•';
 		position: absolute;
 		left: 0;
-		color: var(--color-primary);
+		color: var(--amber);
 		font-weight: 700;
 	}
 
@@ -114,14 +114,14 @@
 	.older-section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-md);
+		gap: var(--sp-4);
 	}
 
 	.older-divider {
 		display: flex;
 		align-items: center;
-		gap: var(--spacing-md);
-		padding: var(--spacing-sm) 0;
+		gap: var(--sp-4);
+		padding: var(--sp-2) 0;
 	}
 
 	.older-divider::before,
@@ -129,32 +129,32 @@
 		content: '';
 		flex: 1;
 		height: 1px;
-		background: var(--color-divider);
+		background: var(--divider-color);
 	}
 
 	.older-label {
 		font-family: var(--font-mono);
-		font-size: var(--font-size-xs);
+		font-size: var(--text-xs);
 		font-weight: 500;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: var(--color-text-muted);
+		color: var(--text-tertiary);
 		white-space: nowrap;
 	}
 
 	.older-entry {
-		padding: var(--spacing-sm) 0;
+		padding: var(--sp-2) 0;
 	}
 
 	.older-title {
-		font-size: var(--font-size-base);
+		font-size: var(--text-ui-base);
 		font-weight: 600;
-		color: var(--color-text);
+		color: var(--text-primary);
 		margin: 0;
 	}
 
 	.entry-items--compact li {
-		font-size: var(--font-size-xs);
+		font-size: var(--text-xs);
 		line-height: 1.5;
 	}
 </style>

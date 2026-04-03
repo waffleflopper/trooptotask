@@ -26,7 +26,8 @@ export const POST: RequestHandler = async ({ locals }) => {
 		console.error('Failed to finalize invite activation:', error);
 		return json(
 			{
-				error: 'Your password was set, but we could not finish connecting your account. Please try the invite link again or contact support.'
+				error:
+					'Your password was set, but we could not finish connecting your account. Please try the invite link again or contact support.'
 			},
 			{ status: 500 }
 		);

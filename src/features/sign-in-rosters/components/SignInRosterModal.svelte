@@ -9,6 +9,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import FileUpload from '$lib/components/ui/FileUpload.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 
 	interface Props {
@@ -35,7 +36,6 @@
 	let dateFrom = $state('');
 	let dateTo = $state('');
 	let expandedId = $state<string | null>(null);
-	let uploading = $state<string | null>(null);
 	let deleting = $state<string | null>(null);
 	let confirmDeleteRoster = $state<SignInRoster | null>(null);
 
@@ -314,48 +314,16 @@
 		}
 	}
 
-	// Upload signed scan
-	async function uploadScan(roster: SignInRoster, file: File) {
-		uploading = roster.id;
-		const formData = new FormData();
-		formData.append('file', file);
-
-		try {
-			const res = await fetch(`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`, {
-				method: 'POST',
-				body: formData
-			});
-			const data = await res.json();
-			if (res.ok) {
-				roster.signedFilePath = data.signedFilePath;
-				rosters = [...rosters];
-				toastStore.success('Signed scan uploaded');
-			}
-		} finally {
-			uploading = null;
-		}
+	function handleSignedScanUploaded(roster: SignInRoster, path: string) {
+		roster.signedFilePath = path;
+		rosters = [...rosters];
+		toastStore.success('Signed scan uploaded');
 	}
 
-	// Remove signed scan
-	async function removeScan(roster: SignInRoster) {
-		const res = await fetch(`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`, {
-			method: 'DELETE'
-		});
-		if (res.ok) {
-			roster.signedFilePath = null;
-			rosters = [...rosters];
-			toastStore.success('Signed scan removed');
-		}
-	}
-
-	// Download signed scan
-	async function downloadScan(roster: SignInRoster) {
-		if (!roster.signedFilePath) return;
-		const res = await fetch(`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`);
-		const data = await res.json();
-		if (data.url) {
-			window.open(data.url, '_blank');
-		}
+	function handleSignedScanRemoved(roster: SignInRoster) {
+		roster.signedFilePath = null;
+		rosters = [...rosters];
+		toastStore.success('Signed scan removed');
 	}
 
 	// Delete roster
@@ -491,34 +459,6 @@
 											Re-print
 										</button>
 										{#if canEdit}
-											{#if roster.signedFilePath}
-												<button class="btn btn-sm btn-secondary" type="button" onclick={() => downloadScan(roster)}>
-													Download Scan
-												</button>
-												<button class="btn btn-sm btn-secondary" type="button" onclick={() => removeScan(roster)}>
-													Remove Scan
-												</button>
-											{:else}
-												<label class="btn btn-sm btn-secondary upload-label">
-													{#if uploading === roster.id}
-														<Spinner size={12} /> Uploading...
-													{:else}
-														Upload Signed Scan
-													{/if}
-													<input
-														type="file"
-														accept="application/pdf,image/*"
-														class="hidden-input"
-														disabled={uploading === roster.id}
-														onchange={(e) => {
-															const target = e.target as HTMLInputElement;
-															const file = target.files?.[0];
-															if (file) uploadScan(roster, file);
-															target.value = '';
-														}}
-													/>
-												</label>
-											{/if}
 											<button
 												class="btn btn-sm btn-danger"
 												type="button"
@@ -533,6 +473,19 @@
 											</button>
 										{/if}
 									</div>
+									{#if canEdit}
+										<div class="detail-upload">
+											<FileUpload
+												filePath={roster.signedFilePath}
+												uploadUrl={`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`}
+												downloadUrl={`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`}
+												removeUrl={`/org/${orgId}/api/sign-in-rosters/${roster.id}/upload`}
+												onUpload={(path) => handleSignedScanUploaded(roster, path)}
+												onRemove={() => handleSignedScanRemoved(roster)}
+												label="Signed Scan"
+											/>
+										</div>
+									{/if}
 								</div>
 							{/if}
 						</div>
@@ -896,15 +849,9 @@
 		flex-wrap: wrap;
 	}
 
-	.upload-label {
-		cursor: pointer;
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.hidden-input {
-		display: none;
+	.detail-upload {
+		margin-top: var(--sp-3);
+		max-width: 420px;
 	}
 
 	.load-more {

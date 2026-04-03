@@ -12,6 +12,7 @@
  */
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts, WriteWithNotificationsPorts } from '$lib/server/core/ports';
+import { reviewerDetails, subjectDetails } from '$lib/server/auditDetails';
 
 const TABLE = 'deletion_requests';
 const AUDIT_RESOURCE = 'deletion_request';
@@ -64,11 +65,11 @@ export async function createDeletionRequest(
 		action: `${AUDIT_RESOURCE}.created`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: row.id as string | undefined,
-		details: {
-			resource_type: input.resourceType,
-			resource_id: input.resourceId,
-			resource_description: input.resourceDescription
-		}
+		details: subjectDetails({
+			subjectType: input.resourceType,
+			subjectId: input.resourceId,
+			subjectLabel: input.resourceDescription
+		})
 	});
 
 	// Notify admins/owners about the pending request
@@ -169,10 +170,12 @@ export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, r
 		resourceType: AUDIT_RESOURCE,
 		resourceId: requestId,
 		details: {
-			reviewer: ctx.auth.userId,
-			resource_type: resourceType,
-			resource_id: resourceId,
-			resource_description: request.resource_description
+			...reviewerDetails(ctx.auth.userId),
+			...subjectDetails({
+				subjectType: resourceType,
+				subjectId: resourceId,
+				subjectLabel: request.resource_description as string | null
+			})
 		}
 	});
 }
@@ -210,10 +213,12 @@ export async function denyDeletionRequest(
 		resourceType: AUDIT_RESOURCE,
 		resourceId: requestId,
 		details: {
-			reviewer: ctx.auth.userId,
-			resource_type: resourceType,
-			resource_id: request.resource_id,
-			resource_description: request.resource_description,
+			...reviewerDetails(ctx.auth.userId),
+			...subjectDetails({
+				subjectType: resourceType,
+				subjectId: request.resource_id as string,
+				subjectLabel: request.resource_description as string | null
+			}),
 			denial_reason: reason ?? null
 		}
 	});

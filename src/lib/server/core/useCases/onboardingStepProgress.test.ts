@@ -207,7 +207,8 @@ describe('advanceStage', () => {
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding_step.stage_advanced',
 			resourceType: 'onboarding_step_progress',
-			resourceId: 'pw-step-1'
+			resourceId: 'pw-step-1',
+			details: { stage_name: 'submitted', completed: false }
 		});
 	});
 });
@@ -457,7 +458,7 @@ describe('addNote', () => {
 			action: 'onboarding_step.note_added',
 			resourceType: 'onboarding_step_progress',
 			resourceId: 'step-1',
-			details: { userId: 'user-abc' }
+			details: { note_author_user_id: 'user-abc' }
 		});
 	});
 });

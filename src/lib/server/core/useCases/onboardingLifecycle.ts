@@ -10,6 +10,7 @@
  */
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
+import { subjectDetails } from '$lib/server/auditDetails';
 
 interface StartInput {
 	personnelId: string;
@@ -141,7 +142,10 @@ export async function startOnboarding(ctx: WritePorts, input: StartInput): Promi
 		action: 'onboarding.started',
 		resourceType: 'personnel_onboarding',
 		resourceId: onboarding.id,
-		details: { personnelId: input.personnelId, templateId: input.templateId }
+		details: {
+			...subjectDetails({ subjectType: 'personnel', subjectId: input.personnelId }),
+			template_id: input.templateId
+		}
 	});
 
 	return {
@@ -308,7 +312,7 @@ export async function completeOnboarding(ctx: WritePorts, id: string): Promise<C
 		action: 'onboarding.completed',
 		resourceType: 'personnel_onboarding',
 		resourceId: id,
-		details: { incompleteCount: incompleteSteps.length }
+		details: { incomplete_count: incompleteSteps.length }
 	});
 
 	return {

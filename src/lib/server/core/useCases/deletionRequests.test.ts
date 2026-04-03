@@ -43,7 +43,12 @@ describe('createDeletionRequest', () => {
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.created',
-			resourceType: 'deletion_request'
+			resourceType: 'deletion_request',
+			details: {
+				subject_type: 'counseling_record',
+				subject_id: 'rec-1',
+				subject_label: 'Counseling session with SGT Smith'
+			}
 		});
 	});
 
@@ -157,7 +162,13 @@ describe('approveDeletionRequest', () => {
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.approved',
 			resourceType: 'deletion_request',
-			resourceId: 'dr-1'
+			resourceId: 'dr-1',
+			details: {
+				reviewer_user_id: 'test-user',
+				subject_type: 'personnel',
+				subject_id: 'person-1',
+				subject_label: 'SGT Smith'
+			}
 		});
 	});
 
@@ -254,7 +265,14 @@ describe('denyDeletionRequest', () => {
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'deletion_request.denied',
 			resourceType: 'deletion_request',
-			resourceId: 'dr-1'
+			resourceId: 'dr-1',
+			details: {
+				reviewer_user_id: 'test-user',
+				subject_type: 'personnel',
+				subject_id: 'person-1',
+				subject_label: 'SGT Smith',
+				denial_reason: 'Not approved by commander'
+			}
 		});
 	});
 

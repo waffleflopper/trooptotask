@@ -34,7 +34,19 @@ const SAFE_STRING_KEYS = new Set([
 	'title',
 	'name',
 	'preset',
-	'stagename'
+	'stagename',
+	'stage_name',
+	'template_id',
+	'subjecttype',
+	'subject_type',
+	'subjectid',
+	'subject_id',
+	'subjectlabel',
+	'subject_label',
+	'revieweruserid',
+	'reviewer_user_id',
+	'noteauthoruserid',
+	'note_author_user_id'
 ]);
 const REDACTED_KEY_PARTS = [
 	'phone',

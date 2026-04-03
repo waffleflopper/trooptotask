@@ -12,7 +12,7 @@ import type { DashboardBootstrap } from './dashboardQuery';
 import type { PersonnelBootstrap } from './personnelWorkspaceQuery';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
-import type { Personnel, StatusType } from '$lib/types';
+import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 
 const ORG = 'test-org';
@@ -206,9 +206,9 @@ describe('loadOrgWorkspace — onboarding workspace boundary', () => {
 describe('loadOrgWorkspace — personnel workspace boundary', () => {
 	const ORG = 'org-personnel';
 	const personnel = [{ id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel];
-	const allPersonnel = [
-		{ id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel,
-		{ id: 'p2', lastName: 'Jones', firstName: 'Jane' } as unknown as Personnel
+	const personnelLookup = [
+		{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' } as PersonnelLookup,
+		{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' } as PersonnelLookup
 	];
 	const groups = [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group];
 	const statusTypes = [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' } as StatusType];
@@ -236,7 +236,7 @@ describe('loadOrgWorkspace — personnel workspace boundary', () => {
 
 	const personnelData: PersonnelBootstrap = {
 		personnel,
-		allPersonnel,
+		personnelLookup,
 		groups,
 		statusTypes,
 		pinnedGroups: ['Alpha'],
@@ -253,7 +253,7 @@ describe('loadOrgWorkspace — personnel workspace boundary', () => {
 
 		expect(result.workspace).toBe('personnel');
 		expect(result.data.personnel).toEqual(personnel);
-		expect(result.data.allPersonnel).toEqual(allPersonnel);
+		expect(result.data.personnelLookup).toEqual(personnelLookup);
 		expect(result.data.groups).toEqual(groups);
 		expect(result.data.statusTypes).toEqual(statusTypes);
 		expect(result.data.pinnedGroups).toEqual(['Alpha']);

@@ -16,16 +16,16 @@
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel, PersonnelLookup } from '$lib/types';
 
 	interface Props {
 		ctx: PersonnelPageContext;
-		allPersonnel: import('$lib/types').Personnel[];
+		personnelLookup: PersonnelLookup[];
 		permissions: import('$lib/types').OrganizationMemberPermissions | null | undefined;
 		onPageViewChange: (view: 'roster' | 'rating-scheme') => void;
 	}
 
-	let { ctx, allPersonnel, permissions, onPageViewChange }: Props = $props();
+	let { ctx, personnelLookup, permissions, onPageViewChange }: Props = $props();
 
 	let exportLoading = $state(false);
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
@@ -361,13 +361,13 @@
 				{#if ctx.ratingViewMode === 'grouped'}
 					<RatingSchemeGroupedView
 						entries={ctx.filteredRatingEntries}
-						personnel={allPersonnel}
+						personnel={personnelLookup}
 						onEdit={(entry) => ctx.handleEditRatingEntry(entry)}
 					/>
 				{:else}
 					<RatingSchemeTableView
 						entries={ctx.filteredRatingEntries}
-						personnel={allPersonnel}
+						personnel={personnelLookup}
 						onEdit={(entry) => ctx.handleEditRatingEntry(entry)}
 					/>
 				{/if}

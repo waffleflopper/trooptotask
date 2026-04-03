@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
+	import type { PersonnelLookup } from '$lib/types';
 	import type { RatingSchemeEntry } from '../rating-scheme.types';
 	import { RATING_STATUS_COLORS, WORKFLOW_STATUS_OPTIONS, WORKFLOW_STATUS_COLORS } from '../rating-scheme.types';
 	import { getRatingDueStatus, getDaysUntilDue } from '$features/rating-scheme/utils/ratingScheme';
@@ -8,7 +8,7 @@
 
 	interface Props {
 		entries: RatingSchemeEntry[];
-		personnel: Personnel[];
+		personnel: PersonnelLookup[];
 		onEdit: (entry: RatingSchemeEntry) => void;
 	}
 

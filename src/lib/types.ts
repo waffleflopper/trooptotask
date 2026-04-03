@@ -10,6 +10,13 @@ export interface Personnel {
 	archivedAt?: string | null;
 }
 
+export interface PersonnelLookup {
+	id: string;
+	rank: string;
+	lastName: string;
+	firstName: string;
+}
+
 // ============================================================
 // Organization Member Permissions
 // ============================================================

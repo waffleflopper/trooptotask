@@ -107,7 +107,7 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result.allPersonnel.every((p) => p.id !== 'p-archived')).toBe(true);
 	});
 
-	it('scoped member sees only their group in personnel but full org in allPersonnel', async () => {
+	it('scoped member receives only their scoped personnel in both personnel arrays', async () => {
 		const ctx = createQueryWithRawStorePortsContext({ auth: { scopedGroupId: 'g1' } });
 		// Seed through rawStore — the scoped store filters from the same underlying data
 		ctx.rawStore.seed('personnel', [
@@ -174,8 +174,9 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result.personnel).toHaveLength(1);
 		expect(result.personnel[0].lastName).toBe('Smith');
 
-		// Raw store returns all personnel
-		expect(result.allPersonnel).toHaveLength(2);
+		// The broader bootstrap path should not overexpose off-scope personnel
+		expect(result.allPersonnel).toHaveLength(1);
+		expect(result.allPersonnel[0].lastName).toBe('Smith');
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
 		expect(result.pinnedGroups).toEqual(['Alpha']);

@@ -51,9 +51,11 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 			})
 		]);
 
+	const scopedAllPersonnelRows = ctx.auth.scopedGroupId ? personnelRows : allPersonnelRows;
+
 	return {
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
-		allPersonnel: PersonnelEntity.fromDbArray(allPersonnelRows),
+		allPersonnel: PersonnelEntity.fromDbArray(scopedAllPersonnelRows),
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),

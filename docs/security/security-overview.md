@@ -18,9 +18,10 @@ TroopToTask handles Controlled Unclassified Information (CUI) including:
 ## Access Control
 
 - **Authentication:** Email/password with optional TOTP multi-factor authentication
+- **Password policy:** 12-character minimum with uppercase, lowercase, and numeric characters
 - **Authorization:** Role-based (owner/member) with granular permission flags per data category
 - **Organization isolation:** Row-Level Security (RLS) on every database table ensures no cross-organization data access
-- **Session management:** 8-hour idle timeout, 24-hour absolute session limit
+- **Session management:** 24-hour absolute session limit
 
 ## Audit Logging
 
@@ -33,6 +34,12 @@ All security-relevant events are logged:
 - Administrative actions
 
 Audit logs are append-only and retained for 1 year.
+
+## Environment-managed rollout notes
+
+- Email confirmation is disabled in local development so invite and recovery flows can be exercised without depending on outbound mail delivery. Hosted production rollout is enabled separately when launch readiness allows.
+- TOTP MFA support exists in the app, but hosted enablement may differ by environment while rollout is in progress.
+- Local Supabase config is kept aligned with the intended hosted baseline for password strength and secure password change requirements so security reviews do not rely on weaker dev-only defaults.
 
 ## Infrastructure
 

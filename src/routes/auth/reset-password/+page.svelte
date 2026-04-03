@@ -78,11 +78,8 @@
 			}
 
 			if (!sessionReady) {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase auth getSession returns complex internal type
-				const {
-					data: { session }
-				} = (await supabase.auth.getSession()) as any;
-				if (session) {
+				const { data } = await supabase.auth.getSession();
+				if (data.session) {
 					sessionReady = true;
 				}
 			}

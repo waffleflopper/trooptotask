@@ -14,6 +14,37 @@ import type { WritePorts } from '$lib/server/core/ports';
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
 
+async function requireExistingAssignmentAccess(ctx: WritePorts, filters: Record<string, unknown>): Promise<void> {
+	if (!ctx.auth.scopedGroupId) return;
+
+	const existingRows = await ctx.store.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, filters, {
+		select: 'assignee_id'
+	});
+	const assigneeIds = [
+		...new Set(existingRows.map((row) => row.assignee_id).filter((id): id is string => typeof id === 'string'))
+	];
+
+	if (assigneeIds.length > 0) {
+		await ctx.auth.requireGroupAccessBatch(assigneeIds);
+	}
+}
+
+async function requireExistingAssignmentAccessById(ctx: WritePorts, id: string): Promise<void> {
+	if (!ctx.auth.scopedGroupId) return;
+
+	const existingRow = await ctx.store.findOne<Record<string, unknown>>(
+		entity.table,
+		ctx.auth.orgId,
+		{ id },
+		'assignee_id'
+	);
+	const assigneeId = existingRow?.assignee_id;
+
+	if (typeof assigneeId === 'string') {
+		await ctx.auth.requireGroupAccess(assigneeId);
+	}
+}
+
 export interface ReplaceInput {
 	date: string;
 	records: Array<{ assignmentTypeId: string; assigneeId: string }>;
@@ -32,6 +63,8 @@ export async function replaceDailyAssignments(ctx: WritePorts, input: ReplaceInp
 	if (assigneeIds.length > 0) {
 		await ctx.auth.requireGroupAccessBatch(assigneeIds);
 	}
+
+	await requireExistingAssignmentAccess(ctx, { date });
 
 	// Delete all existing assignments for this date
 	await ctx.store.deleteWhere(entity.table, ctx.auth.orgId, { date });
@@ -82,6 +115,8 @@ export async function updateDailyAssignment(ctx: WritePorts, input: Record<strin
 	const { id } = validated as { id: string };
 	const assigneeId = validated.assigneeId as string | undefined;
 
+	await requireExistingAssignmentAccessById(ctx, id);
+
 	if (assigneeId) {
 		await ctx.auth.requireGroupAccess(assigneeId);
 	}
@@ -104,6 +139,8 @@ export async function deleteDailyAssignment(ctx: WritePorts, id: string): Promis
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) fail(403, 'Organization is in read-only mode');
 
+	await requireExistingAssignmentAccessById(ctx, id);
+
 	await ctx.store.delete(entity.table, ctx.auth.orgId, id);
 
 	ctx.audit.log({
@@ -121,6 +158,11 @@ export async function clearDailyAssignment(
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) fail(403, 'Organization is in read-only mode');
+
+	await requireExistingAssignmentAccess(ctx, {
+		date: input.date,
+		assignment_type_id: input.assignmentTypeId
+	});
 
 	await ctx.store.deleteWhere(entity.table, ctx.auth.orgId, {
 		date: input.date,

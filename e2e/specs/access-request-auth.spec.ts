@@ -75,6 +75,79 @@ async function expectPasswordLogin(email: string, password: string, timeoutMs: n
 }
 
 test.describe('Access request auth hardening', () => {
+	test('approved users can self-serve a fresh invite from the renew page', async ({ browser, page }) => {
+		const adminEmail = `platform-admin-${Date.now()}-renew@example.test`;
+		const requesterEmail = `requester-renew-${Date.now()}@example.test`;
+		const adminPassword = 'PlatformAdmin123';
+		let adminUserId: string | null = null;
+		let requesterUserId: string | null = null;
+
+		try {
+			await clearMailbox();
+
+			const { data: adminUserData, error: adminUserError } = await adminClient.auth.admin.createUser({
+				email: adminEmail,
+				password: adminPassword,
+				email_confirm: true
+			});
+			expect(adminUserError).toBeNull();
+			adminUserId = adminUserData.user.id;
+
+			const { error: platformAdminError } = await adminClient.from('platform_admins').insert({
+				user_id: adminUserId,
+				role: 'support',
+				is_active: true
+			});
+			expect(platformAdminError).toBeNull();
+
+			const { error: accessRequestError } = await adminClient.from('access_requests').insert({
+				email: requesterEmail.toLowerCase(),
+				name: 'Access Request Renew',
+				reason: 'Regression test for self-serve invite renewal.'
+			});
+			expect(accessRequestError).toBeNull();
+
+			const adminContext = await createAuthenticatedContext(browser, adminEmail, adminPassword);
+			const adminPage = await adminContext.newPage();
+			await adminPage.goto('/admin/access-requests');
+
+			const pendingCard = adminPage.locator('.request-card').filter({ hasText: requesterEmail });
+			await pendingCard.getByRole('button', { name: 'Approve' }).click();
+
+			const invitedUsers = await adminClient.auth.admin.listUsers({ page: 1, perPage: 200 });
+			requesterUserId =
+				invitedUsers.data.users.find((user) => user.email?.toLowerCase() === requesterEmail.toLowerCase())?.id ?? null;
+
+			await clearMailbox();
+
+			await page.goto(`/auth/renew-invite?email=${encodeURIComponent(requesterEmail)}`);
+			await expect(page.getByLabel('Email Address')).toHaveValue(requesterEmail);
+			await page.getByRole('button', { name: 'Email Me a Fresh Invite' }).click();
+
+			await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
+			await expect(page.getByText('a fresh setup email is on the way')).toBeVisible();
+
+			const inviteEmail = await waitForMessage(requesterEmail, ['invited', 'trooptotask invite is ready']);
+			const inviteLink = extractFirstLink(inviteEmail);
+			expect(decodeURIComponent(inviteLink)).toContain(`redirect_to=${appBaseUrl}/auth/accept-invite`);
+
+			await adminContext.close();
+		} finally {
+			await clearMailbox();
+			await adminClient.from('registration_invites').delete().eq('email', requesterEmail);
+			await adminClient.from('access_requests').delete().eq('email', requesterEmail);
+			if (adminUserId) {
+				await adminClient.from('platform_admins').delete().eq('user_id', adminUserId);
+			}
+			if (requesterUserId) {
+				await adminClient.auth.admin.deleteUser(requesterUserId);
+			}
+			if (adminUserId) {
+				await adminClient.auth.admin.deleteUser(adminUserId);
+			}
+		}
+	});
+
 	test('approved requests stay resendable until invite acceptance is completed', async ({ browser }) => {
 		const adminEmail = `platform-admin-${Date.now()}@example.test`;
 		const requesterEmail = `requester-invite-${Date.now()}@example.test`;

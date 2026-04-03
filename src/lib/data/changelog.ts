@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-04-02-invite-recovery',
+		date: '2026-04-02',
+		title: 'Less Guesswork Around Invite Emails',
+		items: [
+			'Made it much clearer on access request pages that approved setup links expire after 24 hours for security reasons',
+			'Added a simpler way to ask for a fresh invite if your original access email expired before you could use it'
+		]
+	},
+	{
 		id: '2026-04-02-training-types-scroll',
 		date: '2026-04-02',
 		title: 'A Couple of Rough Edges Smoothed Out',
@@ -44,16 +53,6 @@ export const changelog: ChangelogEntry[] = [
 			'Tightened up error handling so the app recovers more gracefully when something goes wrong instead of showing a confusing error page',
 			'Improved how bulk operations (like importing personnel or updating assignments) handle edge cases — fewer surprises when working with large batches',
 			"If you run into anything weird or notice something that doesn't look right, please don't hesitate to report it — we'll make it a high priority to fix"
-		]
-	},
-	{
-		id: '2026-03-22-table-improvements',
-		date: '2026-03-22',
-		title: 'Tables Got a Glow-Up',
-		items: [
-			'All tables across the app now have a consistent look and feel — reports, training matrix, admin pages, rating scheme, the works',
-			'You can now click column headers to sort most tables — finally, no more squinting to find someone buried in a long list',
-			'Fixed a bug where editing a rating scheme entry would create a duplicate instead of actually saving your changes'
 		]
 	}
 ];

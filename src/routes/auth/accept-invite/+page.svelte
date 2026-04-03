@@ -150,7 +150,7 @@
 	supportTitle="Finish the invite."
 	supportDescription="This page is for invited users who are setting their password for the first time."
 	supportPoints={[
-		'The invite link must still be valid.',
+		'The invite link must still be valid and only lasts 24 hours.',
 		'Set the password you want to use for future sign-ins.',
 		'After this step, sign in with your email and password as usual.'
 	]}
@@ -164,6 +164,7 @@
 		{:else if tokenError}
 			<AuthNotice tone="error" title="Invite unavailable" centered>
 				<p>This invite link is invalid or has expired.</p>
+				<p><a href="/auth/renew-invite">Need a fresh invite? Renew it here.</a></p>
 			</AuthNotice>
 		{:else if !sessionReady}
 			<div class="auth-loading">

@@ -10,6 +10,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 import { execSync } from 'child_process';
 import fs from 'fs';
+import { appHost } from './fixtures/app';
 
 async function globalSetup() {
 	// env vars loaded by supabase.ts via dotenv/config
@@ -176,7 +177,7 @@ async function globalSetup() {
 			cookies.push({
 				name: cookieName,
 				value: `base64-${Buffer.from(sessionStr).toString('base64url')}`,
-				domain: 'localhost',
+				domain: appHost,
 				path: '/',
 				httpOnly: false,
 				secure: false,
@@ -191,7 +192,7 @@ async function globalSetup() {
 				cookies.push({
 					name: `${cookieName}.${i}`,
 					value: encoded.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
-					domain: 'localhost',
+					domain: appHost,
 					path: '/',
 					httpOnly: false,
 					secure: false,

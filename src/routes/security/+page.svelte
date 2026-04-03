@@ -62,11 +62,12 @@
 		<p>
 			TroopToTask maintains structured audit logs for security-relevant events including authentication attempts,
 			permission changes, data modifications, and administrative actions. Logs capture the actor, action, resource,
-			timestamp, and contextual metadata.
+			timestamp, and limited contextual metadata needed for accountability and review.
 		</p>
 		<p>
-			Audit records are retained for 90 days, with automated cleanup of expired entries. Personally identifiable
-			information is filtered from log details to maintain data minimization principles.
+			Audit records are retained for 1 year, with automated cleanup of expired entries. Audit details exclude full
+			record contents and unnecessary sensitive fields while preserving the limited identifiers needed to answer who did
+			what to which record.
 		</p>
 	</PublicContentSection>
 
@@ -92,7 +93,9 @@
 		<p>TroopToTask's security controls align with the following NIST SP 800-171 Rev 2 control families:</p>
 		<ul>
 			<li><strong>Access Control (3.1)</strong> — RBAC, RLS, session management, least privilege</li>
-			<li><strong>Audit &amp; Accountability (3.3)</strong> — Structured logging, retention policies, PII filtering</li>
+			<li>
+				<strong>Audit &amp; Accountability (3.3)</strong> — Structured logging, retention policies, and minimized audit details
+			</li>
 			<li>
 				<strong>Identification &amp; Authentication (3.5)</strong> — MFA support, password policies, session timeouts
 			</li>

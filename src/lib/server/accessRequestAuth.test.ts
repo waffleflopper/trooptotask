@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- mock Supabase chains are intentionally partial */
 import { describe, expect, it, vi } from 'vitest';
-import { markApprovedAccessRequestCompleted, sendAccessRequestSetupEmail } from './accessRequestAuth';
+import {
+	markApprovedAccessRequestCompleted,
+	renewApprovedAccessRequestInvite,
+	sendAccessRequestSetupEmail
+} from './accessRequestAuth';
 
 describe('sendAccessRequestSetupEmail', () => {
 	it('sends a fresh invite when the user does not exist yet', async () => {
@@ -138,5 +142,96 @@ describe('markApprovedAccessRequestCompleted', () => {
 
 		expect(result).toEqual({ updated: 0 });
 		expect(update).not.toHaveBeenCalled();
+	});
+});
+
+describe('renewApprovedAccessRequestInvite', () => {
+	it('resends setup email for approved requests that are still incomplete', async () => {
+		const inviteUserByEmail = vi.fn().mockResolvedValue({ error: null });
+		const select = vi.fn().mockReturnValue({
+			eq: vi.fn().mockReturnValue({
+				eq: vi.fn().mockResolvedValue({
+					data: [{ id: 'request-1', registration_invites: { used_at: null } }],
+					error: null
+				})
+			})
+		});
+
+		const adminClient = {
+			auth: {
+				admin: { inviteUserByEmail },
+				resetPasswordForEmail: vi.fn()
+			},
+			from: vi.fn(() => ({ select }))
+		};
+
+		const result = await renewApprovedAccessRequestInvite(
+			adminClient as any,
+			'Test@Example.com',
+			'http://localhost:5173'
+		);
+
+		expect(result).toEqual({ attempted: true, deliveryMethod: 'invite' });
+		expect(inviteUserByEmail).toHaveBeenCalledWith('test@example.com', {
+			redirectTo: 'http://localhost:5173/auth/accept-invite'
+		});
+	});
+
+	it('does not resend when there is no approved request for the email', async () => {
+		const inviteUserByEmail = vi.fn();
+		const select = vi.fn().mockReturnValue({
+			eq: vi.fn().mockReturnValue({
+				eq: vi.fn().mockResolvedValue({
+					data: [],
+					error: null
+				})
+			})
+		});
+
+		const adminClient = {
+			auth: {
+				admin: { inviteUserByEmail },
+				resetPasswordForEmail: vi.fn()
+			},
+			from: vi.fn(() => ({ select }))
+		};
+
+		const result = await renewApprovedAccessRequestInvite(
+			adminClient as any,
+			'test@example.com',
+			'http://localhost:5173'
+		);
+
+		expect(result).toEqual({ attempted: false });
+		expect(inviteUserByEmail).not.toHaveBeenCalled();
+	});
+
+	it('does not resend when account setup was already completed', async () => {
+		const inviteUserByEmail = vi.fn();
+		const select = vi.fn().mockReturnValue({
+			eq: vi.fn().mockReturnValue({
+				eq: vi.fn().mockResolvedValue({
+					data: [{ id: 'request-1', registration_invites: { used_at: '2026-04-02T00:00:00.000Z' } }],
+					error: null
+				})
+			})
+		});
+
+		const adminClient = {
+			auth: {
+				admin: { inviteUserByEmail },
+				resetPasswordForEmail: vi.fn()
+			},
+			from: vi.fn(() => ({ select }))
+		};
+
+		const result = await renewApprovedAccessRequestInvite(
+			adminClient as any,
+			'test@example.com',
+			'http://localhost:5173'
+		);
+
+		expect(result).toEqual({ attempted: false });
+		expect(inviteUserByEmail).not.toHaveBeenCalled();
 	});
 });

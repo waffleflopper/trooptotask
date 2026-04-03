@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type AccessRequestDeliveryMethod = 'invite' | 'recovery';
+export type AccessRequestRenewalResult =
+	| { attempted: false }
+	| { attempted: true; deliveryMethod: AccessRequestDeliveryMethod };
+
+type AccessRequestInviteJoin = { used_at: string | null } | Array<{ used_at: string | null }> | null | undefined;
 
 function normalizeEmail(email: string): string {
 	return email.trim().toLowerCase();
@@ -9,6 +14,18 @@ function normalizeEmail(email: string): string {
 function isExistingUserInviteError(message: string | undefined): boolean {
 	const normalized = message?.toLowerCase() ?? '';
 	return normalized.includes('already been registered') || normalized.includes('already exists');
+}
+
+function hasInviteBeenUsed(inviteJoin: AccessRequestInviteJoin): boolean {
+	if (!inviteJoin) {
+		return false;
+	}
+
+	if (Array.isArray(inviteJoin)) {
+		return inviteJoin.some((invite) => !!invite.used_at);
+	}
+
+	return !!inviteJoin.used_at;
 }
 
 export async function sendAccessRequestSetupEmail(
@@ -41,6 +58,35 @@ export async function sendAccessRequestSetupEmail(
 	}
 
 	return { deliveryMethod: 'recovery' };
+}
+
+export async function renewApprovedAccessRequestInvite(
+	adminClient: SupabaseClient,
+	email: string,
+	origin: string
+): Promise<AccessRequestRenewalResult> {
+	const normalizedEmail = normalizeEmail(email);
+	const { data: approvedRequests, error: fetchError } = await adminClient
+		.from('access_requests')
+		.select('id, registration_invites(used_at)')
+		.eq('status', 'approved')
+		.eq('email', normalizedEmail);
+
+	if (fetchError) {
+		throw fetchError;
+	}
+
+	if (!approvedRequests?.length) {
+		return { attempted: false };
+	}
+
+	const hasCompletedSetup = approvedRequests.some((request) => hasInviteBeenUsed(request.registration_invites));
+	if (hasCompletedSetup) {
+		return { attempted: false };
+	}
+
+	const delivery = await sendAccessRequestSetupEmail(adminClient, normalizedEmail, origin);
+	return { attempted: true, deliveryMethod: delivery.deliveryMethod };
 }
 
 export async function markApprovedAccessRequestCompleted(

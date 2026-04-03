@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Your TroopToTask Invite</title>
+	</head>
+	<body style="margin: 0; padding: 0; background: #f4efe4; color: #1f2937; font-family: Arial, sans-serif">
+		<table
+			role="presentation"
+			width="100%"
+			cellspacing="0"
+			cellpadding="0"
+			style="background: #f4efe4; padding: 24px 0"
+		>
+			<tr>
+				<td align="center">
+					<table
+						role="presentation"
+						width="100%"
+						cellspacing="0"
+						cellpadding="0"
+						style="
+							max-width: 640px;
+							background: #fffdf8;
+							border: 1px solid #d6c8ab;
+							border-radius: 18px;
+							overflow: hidden;
+						"
+					>
+						<tr>
+							<td style="padding: 32px 32px 12px; background: #1f2937; color: #f9f5eb">
+								<p
+									style="
+										margin: 0 0 10px;
+										font-size: 12px;
+										letter-spacing: 0.2em;
+										text-transform: uppercase;
+										color: #d6c8ab;
+									"
+								>
+									TroopToTask
+								</p>
+								<h1 style="margin: 0; font-size: 30px; line-height: 1.15">Your invite is ready</h1>
+							</td>
+						</tr>
+						<tr>
+							<td style="padding: 28px 32px 12px">
+								<p style="margin: 0 0 16px; font-size: 16px; line-height: 1.65">
+									Use the button below to finish setting up your TroopToTask account for <strong>{{ .Email }}</strong>.
+								</p>
+								<p style="margin: 0 0 22px; font-size: 16px; line-height: 1.65">
+									For security reasons, this invite link is only good for <strong>24 hours</strong>.
+								</p>
+								<p style="margin: 0 0 28px">
+									<a
+										href="{{ .ConfirmationURL }}"
+										style="
+											display: inline-block;
+											padding: 14px 22px;
+											border-radius: 999px;
+											background: #c48a3a;
+											color: #101828;
+											text-decoration: none;
+											font-size: 15px;
+											font-weight: 700;
+										"
+									>
+										Accept Invite
+									</a>
+								</p>
+								<p style="margin: 0 0 12px; font-size: 15px; line-height: 1.65">
+									Did your invite expire?
+									<a
+										href="{{ .SiteURL }}/auth/renew-invite?email={{ .Email }}"
+										style="color: #8b5e1a; font-weight: 700"
+									>
+										Click here to renew it </a
+									>.
+								</p>
+								<p style="margin: 0 0 28px; font-size: 14px; line-height: 1.65; color: #475467">
+									If you already finished setting up your account, you can ignore this email and sign in normally.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td style="padding: 0 32px 28px">
+								<div style="padding: 16px 18px; border-radius: 14px; background: #f9f5eb; border: 1px solid #eadfc8">
+									<p
+										style="
+											margin: 0 0 8px;
+											font-size: 13px;
+											font-weight: 700;
+											letter-spacing: 0.12em;
+											text-transform: uppercase;
+											color: #8b5e1a;
+										"
+									>
+										Heads up
+									</p>
+									<p style="margin: 0; font-size: 14px; line-height: 1.65; color: #475467">
+										If the button above does not work, copy and paste this link into your browser:
+									</p>
+									<p style="margin: 12px 0 0; font-size: 13px; line-height: 1.7; word-break: break-all; color: #1f2937">
+										{{ .ConfirmationURL }}
+									</p>
+								</div>
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>

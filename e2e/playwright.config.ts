@@ -1,5 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
+const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:4173';
+const port = Number(new URL(baseURL).port || '4173');
+
 export default defineConfig({
 	testDir: './specs',
 	fullyParallel: false,
@@ -9,7 +12,7 @@ export default defineConfig({
 	globalSetup: './global-setup.ts',
 	globalTeardown: './global-teardown.ts',
 	use: {
-		baseURL: 'http://localhost:5173',
+		baseURL,
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure'
 	},
@@ -20,9 +23,9 @@ export default defineConfig({
 		}
 	],
 	webServer: {
-		command: 'npm run dev',
-		port: 5173,
-		reuseExistingServer: true,
+		command: `npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,
+		port,
+		reuseExistingServer: false,
 		env: {
 			E2E_TESTING: 'true'
 		}

@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
-import { createDailyAssignment, deleteDailyAssignment, replaceDailyAssignments } from './dailyAssignments';
+import {
+	clearDailyAssignment,
+	createDailyAssignment,
+	deleteDailyAssignment,
+	replaceDailyAssignments
+} from './dailyAssignments';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
@@ -78,6 +83,42 @@ describe('replaceDailyAssignments', () => {
 		const stored = await ctx.store.findMany('daily_assignments', 'test-org');
 		expect(stored).toHaveLength(0);
 	});
+
+	it('rejects replacing a day when an existing assignment is outside the scoped group', async () => {
+		const groupAccessError = new Error('Group access denied');
+		(groupAccessError as unknown as Record<string, unknown>).status = 403;
+		const ctx = buildContext({
+			auth: {
+				scopedGroupId: 'group-a',
+				async requireGroupAccessBatch(personnelIds: string[]) {
+					if (personnelIds.includes('p-outside-group')) {
+						throw groupAccessError;
+					}
+				}
+			}
+		});
+
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'old-1',
+				organization_id: 'test-org',
+				date: '2025-04-01',
+				assignment_type_id: 'at-1',
+				assignee_id: 'p-outside-group'
+			}
+		]);
+
+		await expect(
+			replaceDailyAssignments(ctx, {
+				date: '2025-04-01',
+				records: [{ assignmentTypeId: 'at-2', assigneeId: 'p-in-group' }]
+			})
+		).rejects.toMatchObject({ status: 403 });
+
+		const stored = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
+		expect(stored).toHaveLength(1);
+		expect(stored[0]?.id).toBe('old-1');
+	});
 });
 
 describe('createDailyAssignment', () => {
@@ -149,6 +190,41 @@ describe('deleteDailyAssignment', () => {
 			resourceType: 'daily_assignment',
 			resourceId: 'da-1'
 		});
+	});
+});
+
+describe('clearDailyAssignment', () => {
+	it('rejects clearing an assignment slot when the existing assignee is outside the scoped group', async () => {
+		const groupAccessError = new Error('Group access denied');
+		(groupAccessError as unknown as Record<string, unknown>).status = 403;
+		const ctx = buildContext({
+			auth: {
+				scopedGroupId: 'group-a',
+				async requireGroupAccessBatch(personnelIds: string[]) {
+					if (personnelIds.includes('p-outside-group')) {
+						throw groupAccessError;
+					}
+				}
+			}
+		});
+
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'da-1',
+				organization_id: 'test-org',
+				date: '2025-04-01',
+				assignment_type_id: 'at-1',
+				assignee_id: 'p-outside-group'
+			}
+		]);
+
+		await expect(clearDailyAssignment(ctx, { date: '2025-04-01', assignmentTypeId: 'at-1' })).rejects.toMatchObject({
+			status: 403
+		});
+
+		const stored = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
+		expect(stored).toHaveLength(1);
+		expect(stored[0]?.id).toBe('da-1');
 	});
 });
 

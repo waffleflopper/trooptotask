@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { browser } from '$app/environment';
+	import { getBrowserSupabaseClient } from '$lib/supabase';
 	import Spinner from './Spinner.svelte';
 
-	const supabase = $derived($page.data.supabase);
+	const supabase = browser ? getBrowserSupabaseClient() : null;
 
 	interface Props {
 		filePath: string | null;
@@ -37,6 +38,7 @@
 	}
 
 	async function uploadFile(file: File) {
+		if (!supabase) return;
 		if (uploading || disabled) return;
 
 		if (accept === 'application/pdf' && file.type !== 'application/pdf') {
@@ -89,6 +91,7 @@
 	}
 
 	async function handleDownload() {
+		if (!supabase) return;
 		if (!filePath) return;
 		const { data, error } = await supabase.storage.from('counseling-files').createSignedUrl(filePath, 60);
 
@@ -100,6 +103,7 @@
 	}
 
 	async function handleRemove() {
+		if (!supabase) return;
 		if (!filePath || disabled) return;
 		try {
 			await supabase.storage.from('counseling-files').remove([filePath]);

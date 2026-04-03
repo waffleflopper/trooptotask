@@ -46,13 +46,14 @@
 		{#snippet title()}Every request is authorized.{/snippet}
 		<p>
 			Authentication is handled via Supabase Auth with support for email/password and multi-factor authentication
-			(TOTP). Sessions are enforced with a 24-hour absolute timeout and secure, HttpOnly cookies.
+			(TOTP). Sessions are enforced with a 24-hour absolute timeout and secure cookie handling.
 		</p>
 		<p>
 			Authorization uses a layered approach: role-based access control (RBAC) at the application level with admin,
 			editor, and viewer roles, combined with PostgreSQL Row-Level Security (RLS) policies that enforce tenant isolation
 			at the database layer. Every API endpoint validates organization membership and role permissions server-side
-			before processing requests.
+			before processing requests. Sensitive document uploads and downloads are mediated through application endpoints,
+			with private storage access enforced by explicit policies and short-lived signed URLs.
 		</p>
 	</PublicContentSection>
 

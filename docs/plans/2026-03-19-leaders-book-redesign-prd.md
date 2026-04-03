@@ -111,7 +111,7 @@ Drop: `category`, `priority`, `target_date`, and whichever of `description`/`pro
 
 - Subject field uses placeholder text to guide format: e.g., "Event-Oriented: Late to PT"
 - Notes field is nullable and hidden by default behind an "Add Note" button to keep the form clean
-- PDF upload uses existing `FileUpload` component and `counseling-files` Supabase storage bucket
+- PDF upload uses the shared `FileUpload` component with server-mediated upload/download/delete endpoints backed by the `counseling-files` Supabase storage bucket
 - Entries displayed in reverse chronological order
 
 ### API Routes
@@ -162,7 +162,7 @@ Good tests verify external behavior (API contracts, rendered output, navigation)
 ## Further Notes
 
 - The Leaders Book redesign aligns with the ongoing work to make data loading selective per route. The list page should declare that it does NOT need training data loaded in the layout.
-- The `counseling-files` Supabase storage bucket and its RLS policies remain unchanged — the FileUpload component works as-is.
+- The `counseling-files` Supabase storage bucket uses explicit versioned `storage.objects` policies, and the shared `FileUpload` component talks to app endpoints rather than browser-direct Storage APIs.
 - Demo/sandbox data should be recreated to showcase the new simplified model with realistic-looking Soldier Data Sheet entries, a few counseling PDFs, and sample goals.
 - The existing `src/features/counseling/` directory is being cleaned out by the user. The new feature module will be `src/features/leaders-book/` with its own components, stores, types, and utils following the established feature module pattern.
 - All new API routes must use the `apiRoute` wrapper with proper permission, audit, and validation configuration per existing conventions.

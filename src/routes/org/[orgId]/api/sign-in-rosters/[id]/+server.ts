@@ -1,6 +1,7 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
+import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
 
 export const DELETE = handle<{ rosterId: string }, unknown>({
 	permission: 'personnel',
@@ -18,7 +19,7 @@ export const DELETE = handle<{ rosterId: string }, unknown>({
 		if (!roster) fail(404, 'Roster not found');
 
 		if (roster.signed_file_path) {
-			await ctx.storage.remove('counseling-files', [roster.signed_file_path]);
+			await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [roster.signed_file_path]);
 		}
 
 		await ctx.store.delete('sign_in_rosters', ctx.auth.orgId, input.rosterId);

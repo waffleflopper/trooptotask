@@ -13,7 +13,7 @@ TroopToTask handles Controlled Unclassified Information (CUI) including:
 
 - **In transit:** All data encrypted via TLS 1.2+ (Vercel edge network + Supabase)
 - **At rest:** Database encrypted via AES-256 (Supabase managed PostgreSQL)
-- **File storage:** Encrypted at rest in Supabase Storage
+- **File storage:** Encrypted at rest in private Supabase Storage, with sensitive file access mediated by app endpoints and short-lived signed URLs
 
 ## Access Control
 

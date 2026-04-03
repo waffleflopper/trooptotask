@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
+import { sendAccessRequestSetupEmail } from '$lib/server/accessRequestAuth';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'access-requests',
@@ -9,7 +10,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		const { data: requests, error: fetchError } = await supabase
 			.from('access_requests')
-			.select('*, registration_invites(code, used_by, expires_at)')
+			.select('*, registration_invites(id, code, used_by, used_at, expires_at)')
 			.order('created_at', { ascending: false });
 
 		if (fetchError) {
@@ -48,22 +49,10 @@ export const actions: Actions = {
 				return fail(404, { error: 'Request not found or already reviewed' });
 			}
 
-			const redirectTo = `${event.url.origin}/auth/accept-invite`;
-			const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
-				accessRequest.email,
-				{ redirectTo }
-			);
-
-			if (inviteError) {
-				console.error('Supabase invite error:', inviteError.message, inviteError);
-				if (
-					inviteError.message?.includes('already been registered') ||
-					inviteError.message?.includes('already exists')
-				) {
-					return fail(400, {
-						error: 'This email is already registered. The user may need to log in or reset their password.'
-					});
-				}
+			try {
+				await sendAccessRequestSetupEmail(adminClient, accessRequest.email, event.url.origin);
+			} catch (inviteError) {
+				console.error('Supabase invite error:', inviteError);
 				return fail(500, { error: 'Failed to send invite. Please try again.' });
 			}
 
@@ -73,7 +62,8 @@ export const actions: Actions = {
 					code: `supabase-invite-${Date.now()}`,
 					email: accessRequest.email,
 					created_by: ctx.adminUser.id,
-					used_by: inviteData.user?.id ?? null,
+					used_by: null,
+					used_at: null,
 					expires_at: null
 				})
 				.select()
@@ -156,7 +146,7 @@ export const actions: Actions = {
 
 			const { data: accessRequest, error: fetchErr } = await supabase
 				.from('access_requests')
-				.select('*, registration_invites(code, used_by, expires_at)')
+				.select('*, registration_invites(id, code, used_by, used_at, expires_at)')
 				.eq('id', requestId)
 				.eq('status', 'approved')
 				.single();
@@ -165,20 +155,15 @@ export const actions: Actions = {
 				return fail(404, { error: 'Approved request not found' });
 			}
 
-			const redirectTo = `${event.url.origin}/auth/accept-invite`;
-			const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(accessRequest.email, {
-				redirectTo
-			});
+			if (accessRequest.registration_invites?.used_at) {
+				return fail(400, {
+					error: 'This user has already completed account setup. They can sign in or use reset password if needed.'
+				});
+			}
 
-			if (inviteError) {
-				if (
-					inviteError.message?.includes('already been registered') ||
-					inviteError.message?.includes('already exists')
-				) {
-					return fail(400, {
-						error: 'This user has already completed registration. They may need to log in or reset their password.'
-					});
-				}
+			try {
+				await sendAccessRequestSetupEmail(adminClient, accessRequest.email, event.url.origin);
+			} catch {
 				return fail(500, { error: 'Failed to resend invite. Please try again.' });
 			}
 

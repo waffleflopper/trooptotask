@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-04-02-auth-reliability',
+		date: '2026-04-02',
+		title: 'Sign-In and Invite Flow Reliability Improvements',
+		items: [
+			'Improved account invite and password reset flows so setup links are more reliable and less likely to leave people stuck halfway through',
+			'Tightened up password setup rules so account creation and password recovery now follow the same policy instead of behaving differently',
+			'Cleaned up some of the behind-the-scenes auth handling so retries and follow-up steps are less brittle when connections are slow or links are reopened'
+		]
+	},
+	{
 		id: '2026-04-01-refresh-pass',
 		date: '2026-04-01',
 		title: 'A Cleaner, Easier-to-Read Refresh',

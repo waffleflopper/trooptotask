@@ -147,9 +147,17 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
-# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+site_url = "http://localhost:5173"
+# Local auth emails need to round-trip back into the active Vite dev server instead of falling back
+# to the old port 3000 defaults.
+additional_redirect_urls = [
+  "http://localhost:5173/**",
+  "http://127.0.0.1:5173/**",
+  "http://localhost:4173/**",
+  "http://127.0.0.1:4173/**",
+  "http://localhost:3000/**",
+  "http://127.0.0.1:3000/**"
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).
@@ -175,7 +183,9 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+# Local Mailpit delivery is only used for testing, so keep the ceiling high enough to exercise
+# retries and repeated auth flows without tripping the built-in hosted-project limit.
+email_sent = 120
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.

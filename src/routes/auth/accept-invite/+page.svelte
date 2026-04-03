@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { enhance } from '$app/forms';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import FormField from '$lib/components/ui/FormField.svelte';
@@ -25,6 +24,19 @@
 	const hasDigit = $derived(/\d/.test(password));
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
 	const canSubmit = $derived(hasMinLength && hasUppercase && hasLowercase && hasDigit && passwordsMatch && !loading);
+
+	function getPasswordError(value: string): string | null {
+		if (!value || value.length < 12) {
+			return 'Password must be at least 12 characters';
+		}
+		if (value.length > 128) {
+			return 'Password must be 128 characters or fewer';
+		}
+		if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/[0-9]/.test(value)) {
+			return 'Password must include uppercase, lowercase, and a number';
+		}
+		return null;
+	}
 
 	onMount(async () => {
 		if (hasSession) {
@@ -63,6 +75,52 @@
 
 		tokenError = true;
 	});
+
+	async function handleSubmit(event: Event) {
+		event.preventDefault();
+		error = '';
+
+		const passwordError = getPasswordError(password);
+		if (passwordError) {
+			error = passwordError;
+			return;
+		}
+
+		if (password !== confirmPassword) {
+			error = 'Passwords do not match';
+			return;
+		}
+
+		loading = true;
+		try {
+			const { error: updateError } = await supabase.auth.updateUser({ password });
+			if (updateError) {
+				error = updateError.message || 'Failed to set password. Please try again.';
+				return;
+			}
+
+			const finalizeResponse = await fetch('/api/auth/finalize-invite', { method: 'POST' });
+			if (!finalizeResponse.ok) {
+				let message =
+					'Your password was set, but we could not finish account activation. Please try the invite link again or contact support.';
+				try {
+					const payload = (await finalizeResponse.json()) as { error?: string };
+					if (payload.error) {
+						message = payload.error;
+					}
+				} catch {
+					// Fall back to the default message when the server does not return JSON.
+				}
+				error = message;
+				return;
+			}
+
+			success = true;
+			setTimeout(() => goto('/dashboard'), 2000);
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -117,23 +175,7 @@
 				<AuthNotice tone="error" message={error} />
 			{/if}
 
-			<form
-				method="POST"
-				use:enhance={() => {
-					loading = true;
-					error = '';
-					return async ({ result }) => {
-						loading = false;
-						if (result.type === 'failure') {
-							error = (result.data as { error?: string })?.error ?? 'Something went wrong';
-						} else if (result.type === 'redirect') {
-							success = true;
-							setTimeout(() => goto(result.location), 2000);
-						}
-					};
-				}}
-				class="auth-stack"
-			>
+			<form onsubmit={handleSubmit} class="auth-stack">
 				<FormField
 					label="Password"
 					id="password"

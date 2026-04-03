@@ -479,13 +479,14 @@
 	.types-layout {
 		display: grid;
 		grid-template-columns: minmax(290px, 340px) minmax(0, 1fr);
+		grid-template-rows: minmax(0, 1fr);
 		gap: var(--sp-5);
-		align-items: start;
 		height: calc(100vh - var(--header-height, 56px) - 72px);
 		overflow: hidden;
 	}
 
 	.panel {
+		min-height: 0;
 		overflow-y: auto;
 		padding: var(--sp-5);
 		border: var(--border-thin);
@@ -844,6 +845,7 @@
 	@media (max-width: 768px) {
 		.types-layout {
 			grid-template-columns: 1fr;
+			grid-template-rows: auto;
 			height: auto;
 			overflow: visible;
 		}

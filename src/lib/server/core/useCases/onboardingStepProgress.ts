@@ -77,7 +77,7 @@ export async function advanceStage(ctx: WritePorts, input: AdvanceStageInput): P
 		action: 'onboarding_step.stage_advanced',
 		resourceType: 'onboarding_step_progress',
 		resourceId: input.stepId,
-		details: { stageName: input.stageName, completed }
+		details: { stage_name: input.stageName, completed }
 	});
 
 	return {
@@ -222,7 +222,7 @@ export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<Not
 		action: 'onboarding_step.note_added',
 		resourceType: 'onboarding_step_progress',
 		resourceId: input.stepId,
-		details: { userId }
+		details: { note_author_user_id: userId }
 	});
 
 	return {

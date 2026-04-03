@@ -7,7 +7,6 @@
 
 	let { form, data } = $props();
 	let loading = $state(false);
-	let demoLoading = $state(false);
 </script>
 
 <svelte:head>
@@ -93,35 +92,6 @@
 		{#if data.demoError}
 			<AuthNotice tone="warning" message={data.demoError} />
 		{/if}
-
-		<div class="auth-divider">
-			<span>Alternate access</span>
-		</div>
-
-		<!-- TODO: Demo access is deprecated along with the remaining sandbox flows and should be removed in cleanup. -->
-		<form
-			method="POST"
-			action="?/demo"
-			use:enhance={() => {
-				demoLoading = true;
-				return async ({ update }) => {
-					demoLoading = false;
-					await update();
-				};
-			}}
-			class="auth-actions"
-		>
-			<button type="submit" class="btn btn-secondary" disabled={demoLoading || loading}>
-				{#if demoLoading}
-					<Spinner color="var(--text-secondary)" />
-					Loading Demo...
-				{:else}
-					Try Demo
-				{/if}
-			</button>
-		</form>
-
-		<p class="auth-note">Explore sample data while the legacy demo path remains available.</p>
 
 		<div class="auth-divider">
 			<span>Need access?</span>

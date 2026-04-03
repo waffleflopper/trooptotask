@@ -158,14 +158,17 @@
 					</p>
 
 					<div class="hero__actions anim-fade-up anim-delay-3">
-						<a href="/auth/request-access" class="btn btn--amber">Request Access</a>
-						<a href="/demo" class="btn btn--outline">Watch Demo</a>
+						<a href="/auth/request-access" class="btn btn--amber">Join Free Beta</a>
 					</div>
 
-					<div class="hero__meta anim-fade-up anim-delay-4">
+					<div class="hero__beta anim-fade-up anim-delay-4">
+						<p>Help us tighten the product around real-world use and earn free time when we go live.</p>
+					</div>
+
+					<div class="hero__meta anim-fade-up anim-delay-5">
 						<div class="hero__meta-item">
-							<div class="hero__meta-value">100%</div>
-							<div class="hero__meta-label">Web-Based</div>
+							<div class="hero__meta-value">Free</div>
+							<div class="hero__meta-label">During Beta</div>
 						</div>
 						<div class="hero__meta-item">
 							<div class="hero__meta-value">DoD</div>
@@ -774,14 +777,14 @@
 					<div class="label-amber cta__label">Get Started</div>
 					<h2 class="cta__heading">Ready to run<br />a tighter unit?</h2>
 					<p class="cta__subtext">
-						Request access for your unit. TroopToTask is onboarded by organization — we work with you to configure your
-						structure, import your roster, and train your team leads.
+						Request free beta access for your unit. TroopToTask is onboarded by organization — we work with you to
+						configure your structure, import your roster, and train your team leads before broader paid rollout.
 					</p>
 				</div>
 				<div class="cta__actions">
-					<a href="/auth/request-access" class="btn btn--amber cta__action-primary">Request Access</a>
-					<a href="/demo" class="btn btn--outline">Schedule a Demo</a>
-					<div class="cta__note">No credit card required</div>
+					<a href="/auth/request-access" class="btn btn--amber cta__action-primary">Join Free Beta</a>
+					<a href="/pricing" class="btn btn--outline">View Pricing</a>
+					<div class="cta__note">Free during beta · paid plans later</div>
 				</div>
 			</div>
 		</div>
@@ -1093,6 +1096,22 @@
 		display: flex;
 		align-items: center;
 		gap: var(--sp-4);
+	}
+
+	.hero__beta {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-4);
+		margin-top: var(--sp-6);
+		max-width: 520px;
+	}
+
+	.hero__beta p {
+		margin: 0;
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-light);
+		line-height: 1.6;
+		color: var(--text-secondary);
 	}
 
 	.hero__meta {
@@ -1765,6 +1784,10 @@
 		animation-delay: 0.32s;
 	}
 
+	.anim-delay-5 {
+		animation-delay: 0.4s;
+	}
+
 	@media (max-width: 900px) {
 		.hero__grid,
 		.solves__grid,
@@ -1799,6 +1822,7 @@
 		.roster__table-footer,
 		.preview__footer,
 		.hero__actions,
+		.hero__beta,
 		.hero__meta {
 			flex-direction: column;
 			align-items: flex-start;

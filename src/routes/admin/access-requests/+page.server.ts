@@ -88,10 +88,11 @@ export const actions: Actions = {
 				return fail(500, { error: 'Failed to approve request' });
 			}
 
-			await supabase.rpc('log_admin_action', {
-				p_target_user_id: ctx.adminUser.id,
-				p_action: 'approve_access_request',
-				p_details: { request_id: requestId, email: accessRequest.email }
+			ctx.audit({
+				action: 'access_request.approved',
+				resourceType: 'access_request',
+				resourceId: requestId,
+				details: { email: accessRequest.email }
 			});
 
 			return { success: true, action: 'approve' };
@@ -123,10 +124,10 @@ export const actions: Actions = {
 				return fail(500, { error: 'Failed to reject request' });
 			}
 
-			await supabase.rpc('log_admin_action', {
-				p_target_user_id: ctx.adminUser.id,
-				p_action: 'reject_access_request',
-				p_details: { request_id: requestId }
+			ctx.audit({
+				action: 'access_request.rejected',
+				resourceType: 'access_request',
+				resourceId: requestId
 			});
 
 			return { success: true, action: 'reject' };

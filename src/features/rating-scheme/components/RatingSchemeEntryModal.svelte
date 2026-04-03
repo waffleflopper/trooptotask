@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
+	import type { PersonnelLookup } from '$lib/types';
 	import type { RatingSchemeEntry, ReportType, WorkflowStatus } from '../rating-scheme.types';
 	import { WORKFLOW_STATUS_OPTIONS, WORKFLOW_STATUS_COLORS } from '../rating-scheme.types';
 	import {
@@ -14,7 +14,7 @@
 
 	interface Props {
 		entry: RatingSchemeEntry | null;
-		personnel: Personnel[];
+		personnel: PersonnelLookup[];
 		onSave: (data: Omit<RatingSchemeEntry, 'id'>) => Promise<void>;
 		onDelete?: (id: string) => Promise<void>;
 		onClose: () => void;
@@ -173,7 +173,7 @@
 		onClose();
 	}
 
-	function formatPersonLabel(p: Personnel): string {
+	function formatPersonLabel(p: PersonnelLookup): string {
 		return `${p.rank} ${p.lastName}, ${p.firstName}`;
 	}
 </script>

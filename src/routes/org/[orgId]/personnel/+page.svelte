@@ -58,8 +58,8 @@
 
 <PersonnelPageView
 	{ctx}
-	allPersonnel={workspaceData.allPersonnel}
+	personnelLookup={workspaceData.personnelLookup}
 	permissions={data.permissions}
 	onPageViewChange={setPageView}
 />
-<PersonnelModals {ctx} {modals} allPersonnel={workspaceData.allPersonnel} />
+<PersonnelModals {ctx} {modals} personnelLookup={workspaceData.personnelLookup} />

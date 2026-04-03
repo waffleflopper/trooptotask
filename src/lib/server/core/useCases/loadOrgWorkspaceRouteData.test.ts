@@ -12,7 +12,15 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	DailyAssignment,
+	Personnel,
+	PersonnelLookup,
+	SpecialDay,
+	StatusType
+} from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import { loadOrgWorkspaceRouteData } from './loadOrgWorkspaceRouteData';
 import { createDefaultHydrationPlanner } from '../hydrationPlanner';
@@ -310,9 +318,9 @@ describe('loadOrgWorkspaceRouteData', () => {
 		];
 		const personnelData: PersonnelBootstrap = {
 			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
-			allPersonnel: [
-				{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel,
-				{ id: 'p2', firstName: 'Jane', lastName: 'Jones' } as Personnel
+			personnelLookup: [
+				{ id: 'p1', rank: 'SGT', firstName: 'John', lastName: 'Smith' } as PersonnelLookup,
+				{ id: 'p2', rank: 'CPT', firstName: 'Jane', lastName: 'Jones' } as PersonnelLookup
 			],
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
@@ -337,11 +345,6 @@ describe('loadOrgWorkspaceRouteData', () => {
 						scoped: {
 							mode: 'replace',
 							items: personnelData.personnel,
-							snapshotKey: expect.any(String)
-						},
-						all: {
-							mode: 'replace',
-							items: personnelData.allPersonnel,
 							snapshotKey: expect.any(String)
 						}
 					},

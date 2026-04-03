@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
+	import type { Personnel, PersonnelLookup } from '$lib/types';
 	import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
@@ -17,10 +17,10 @@
 	interface Props {
 		ctx: PersonnelPageContext;
 		modals: ModalRegistry;
-		allPersonnel: Personnel[];
+		personnelLookup: PersonnelLookup[];
 	}
 
-	let { ctx, modals, allPersonnel }: Props = $props();
+	let { ctx, modals, personnelLookup }: Props = $props();
 
 	const personnelPayload = $derived(modals.payload<{ person: Personnel | null }>('personnel-modal'));
 	const ratingPayload = $derived(modals.payload<{ entry: RatingSchemeEntry | null }>('rating-modal'));
@@ -96,7 +96,7 @@
 		const entry = ratingSchemeStore.items.find((e) => e.id === id);
 		const result = await ratingSchemeStore.remove(id);
 		if (result === 'approval_required' && entry) {
-			const person = allPersonnel.find((p) => p.id === entry.ratedPersonId);
+			const person = personnelLookup.find((p) => p.id === entry.ratedPersonId);
 			const desc = person ? `Rating scheme entry for ${person.rank} ${person.lastName}` : 'Rating scheme entry';
 			await submitDeletionRequest(ctx.orgId, 'rating_scheme_entry', id, desc, `/org/${ctx.orgId}/personnel`);
 		}
@@ -106,7 +106,7 @@
 {#if modals.isOpen('rating-modal')}
 	<RatingSchemeEntryModal
 		entry={editingEntry}
-		personnel={allPersonnel}
+		personnel={personnelLookup}
 		onSave={handleSaveRatingEntry}
 		onDelete={editingEntry ? handleDeleteRatingEntry : undefined}
 		onClose={modals.closerFor('rating-modal')}

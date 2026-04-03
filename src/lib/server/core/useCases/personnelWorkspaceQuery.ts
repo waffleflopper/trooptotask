@@ -1,6 +1,6 @@
 import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
-import type { Personnel, StatusType } from '$lib/types';
+import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
@@ -10,11 +10,20 @@ import { StatusTypeEntity } from '$lib/server/entities/statusType';
 
 export interface PersonnelBootstrap {
 	personnel: Personnel[];
-	allPersonnel: Personnel[];
+	personnelLookup: PersonnelLookup[];
 	groups: Group[];
 	statusTypes: StatusType[];
 	pinnedGroups: string[];
 	ratingSchemeEntries: RatingSchemeEntry[];
+}
+
+function toPersonnelLookup(rows: Personnel[]): PersonnelLookup[] {
+	return rows.map((person) => ({
+		id: person.id,
+		rank: person.rank,
+		lastName: person.lastName,
+		firstName: person.firstName
+	}));
 }
 
 export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Promise<PersonnelBootstrap> {
@@ -55,7 +64,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 
 	return {
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
-		allPersonnel: PersonnelEntity.fromDbArray(scopedAllPersonnelRows),
+		personnelLookup: toPersonnelLookup(PersonnelEntity.fromDbArray(scopedAllPersonnelRows)),
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),

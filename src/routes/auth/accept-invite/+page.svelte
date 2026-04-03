@@ -99,10 +99,20 @@
 				return;
 			}
 
-			try {
-				await fetch('/api/auth/finalize-invite', { method: 'POST' });
-			} catch (finalizeError) {
-				console.error('Failed to finalize invite after setting password:', finalizeError);
+			const finalizeResponse = await fetch('/api/auth/finalize-invite', { method: 'POST' });
+			if (!finalizeResponse.ok) {
+				let message =
+					'Your password was set, but we could not finish account activation. Please try the invite link again or contact support.';
+				try {
+					const payload = (await finalizeResponse.json()) as { error?: string };
+					if (payload.error) {
+						message = payload.error;
+					}
+				} catch {
+					// Fall back to the default message when the server does not return JSON.
+				}
+				error = message;
+				return;
 			}
 
 			success = true;

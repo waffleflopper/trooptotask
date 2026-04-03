@@ -110,4 +110,55 @@ test.describe('Auth email flows', () => {
 			await clearMailbox();
 		}
 	});
+
+	test('invite acceptance stays on the page and shows an error when finalization fails', async ({ page }) => {
+		const email = `invite-finalize-fail-${Date.now()}@example.test`;
+		const password = 'InvitePassword123';
+		let userId: string | null = null;
+
+		try {
+			await clearMailbox();
+
+			const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
+				redirectTo: `${appBaseUrl}/auth/accept-invite`
+			});
+
+			expect(error).toBeNull();
+			userId = data.user?.id ?? null;
+
+			const inviteEmail = await waitForMessage(email, 'invited');
+			const inviteLink = extractFirstLink(inviteEmail);
+
+			await page.route('**/api/auth/finalize-invite', async (route) => {
+				await route.fulfill({
+					status: 500,
+					contentType: 'application/json',
+					body: JSON.stringify({
+						error:
+							'Your password was set, but we could not finish connecting your account. Please try the invite link again or contact support.'
+					})
+				});
+			});
+
+			await page.goto(inviteLink);
+			await expect(page).toHaveURL(/\/auth\/accept-invite/);
+
+			await page.locator('input#password').fill(password);
+			await page.locator('input#confirmPassword').fill(password);
+			await page.getByRole('button', { name: 'Set Password' }).click();
+
+			await expect(
+				page.getByText(
+					'Your password was set, but we could not finish connecting your account. Please try the invite link again or contact support.'
+				)
+			).toBeVisible();
+			await expect(page).toHaveURL(/\/auth\/accept-invite/);
+			await expect(page.getByRole('heading', { name: 'Account activated' })).toHaveCount(0);
+		} finally {
+			if (userId) {
+				await adminClient.auth.admin.deleteUser(userId);
+			}
+			await clearMailbox();
+		}
+	});
 });

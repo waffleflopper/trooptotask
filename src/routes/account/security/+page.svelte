@@ -1,9 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { page } from '$app/stores';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-
-	const supabase = $derived($page.data.supabase);
 
 	let { data }: { data: PageData } = $props();
 
@@ -23,23 +20,24 @@
 
 	async function startEnroll() {
 		error = '';
+		success = '';
 		enrolling = true;
 		loading = true;
 		try {
-			const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({
-				factorType: 'totp'
+			const response = await fetch('/api/auth/mfa/enroll', {
+				method: 'POST'
 			});
 
-			if (enrollError) {
-				error = enrollError.message;
+			const payload = (await response.json()) as { factorId?: string; qrCode?: string; error?: string };
+
+			if (!response.ok || !payload.factorId || !payload.qrCode) {
+				error = payload.error ?? 'Failed to start MFA enrollment';
 				enrolling = false;
 				return;
 			}
 
-			if (enrollData) {
-				factorId = enrollData.id;
-				qrCode = enrollData.totp.qr_code;
-			}
+			factorId = payload.factorId;
+			qrCode = payload.qrCode;
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Failed to start MFA enrollment';
 			enrolling = false;
@@ -57,13 +55,18 @@
 		error = '';
 		loading = true;
 		try {
-			const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challengeAndVerify({
-				factorId,
-				code: verifyCode
+			const response = await fetch('/api/auth/mfa/enroll/verify', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					factorId,
+					code: verifyCode
+				})
 			});
 
-			if (challengeError) {
-				error = challengeError.message;
+			if (!response.ok) {
+				const payload = (await response.json()) as { error?: string };
+				error = payload.error ?? 'Verification failed';
 				return;
 			}
 
@@ -81,7 +84,15 @@
 
 	async function cancelEnroll() {
 		if (factorId) {
-			await supabase.auth.mfa.unenroll({ factorId });
+			try {
+				await fetch('/api/auth/mfa/enroll/cancel', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ factorId })
+				});
+			} catch {
+				// Best effort cleanup; local state should still reset
+			}
 		}
 		enrolling = false;
 		qrCode = '';
@@ -95,21 +106,13 @@
 		success = '';
 		disabling = true;
 		try {
-			const { data: factors } = await supabase.auth.mfa.listFactors();
-			const totpFactors = factors?.totp ?? [];
-			const verifiedFactor = totpFactors.find((f: Record<string, unknown>) => f.status === 'verified');
-
-			if (!verifiedFactor) {
-				error = 'No verified MFA factor found';
-				return;
-			}
-
-			const { error: unenrollError } = await supabase.auth.mfa.unenroll({
-				factorId: verifiedFactor.id
+			const response = await fetch('/api/auth/mfa/disable', {
+				method: 'POST'
 			});
 
-			if (unenrollError) {
-				error = unenrollError.message;
+			if (!response.ok) {
+				const payload = (await response.json()) as { error?: string };
+				error = payload.error ?? 'Failed to disable MFA';
 				return;
 			}
 

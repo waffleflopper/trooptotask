@@ -2,12 +2,11 @@
 	import '../app.css';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { onMount } from 'svelte';
-	import { invalidate } from '$app/navigation';
 	import { deferToIdle } from '$lib/utils/deferToIdle';
 	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
 	import HelpPanel from '$lib/components/ui/HelpPanel.svelte';
 
-	let { children, data } = $props();
+	let { children } = $props();
 
 	onMount(() => {
 		themeStore.init();
@@ -23,20 +22,8 @@
 				});
 		});
 
-		const {
-			data: { subscription }
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase onAuthStateChange session param has complex internal type
-		} = data.supabase.auth.onAuthStateChange((event: string, newSession: any) => {
-			// Only invalidate on real auth changes, not the initial session detection
-			// which fires SIGNED_IN on page load and would cause unnecessary re-fetches
-			if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-				invalidate('supabase:auth');
-			}
-		});
-
 		return () => {
 			cancelIdle();
-			subscription.unsubscribe();
 		};
 	});
 </script>

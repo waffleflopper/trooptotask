@@ -1,12 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import FormField from '$lib/components/ui/FormField.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-
-	const supabase = $derived($page.data.supabase);
 
 	let code = $state('');
 	let error = $state('');
@@ -28,22 +25,15 @@
 		error = '';
 		loading = true;
 		try {
-			const { data: factors } = await supabase.auth.mfa.listFactors();
-			const totpFactors = factors?.totp ?? [];
-			const verifiedFactor = totpFactors.find((f: Record<string, unknown>) => f.status === 'verified');
-
-			if (!verifiedFactor) {
-				error = 'No MFA factor found. Please contact support.';
-				return;
-			}
-
-			const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-				factorId: verifiedFactor.id,
-				code
+			const response = await fetch('/api/auth/mfa/verify', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code })
 			});
 
-			if (verifyError) {
-				error = verifyError.message;
+			if (!response.ok) {
+				const payload = (await response.json()) as { error?: string };
+				error = payload.error ?? 'Verification failed';
 				return;
 			}
 

@@ -7,7 +7,6 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { onMount } from 'svelte';
 
-	const supabase = $derived($page.data.supabase);
 	const hasSession = $derived($page.data.hasSession);
 
 	let password = $state('');
@@ -51,26 +50,30 @@
 			const refreshToken = params.get('refresh_token');
 
 			if (accessToken && refreshToken) {
-				const { error: sessionError } = await supabase.auth.setSession({
-					access_token: accessToken,
-					refresh_token: refreshToken
+				const response = await fetch('/api/auth/establish-session', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						accessToken,
+						refreshToken
+					})
 				});
-				if (!sessionError) {
+
+				if (response.ok) {
 					sessionReady = true;
 					window.history.replaceState(null, '', window.location.pathname);
 					return;
 				}
-			}
-		}
 
-		const {
-			data: { session: existingSession }
-		} =
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase auth getSession returns complex internal type
-			(await supabase.auth.getSession()) as any;
-		if (existingSession) {
-			sessionReady = true;
-			return;
+				try {
+					const payload = (await response.json()) as { error?: string };
+					if (payload.error) {
+						error = payload.error;
+					}
+				} catch {
+					error = 'We could not verify your invite session. Please try the invite link again.';
+				}
+			}
 		}
 
 		tokenError = true;
@@ -93,9 +96,14 @@
 
 		loading = true;
 		try {
-			const { error: updateError } = await supabase.auth.updateUser({ password });
-			if (updateError) {
-				error = updateError.message || 'Failed to set password. Please try again.';
+			const updateResponse = await fetch('/api/auth/update-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ password })
+			});
+			if (!updateResponse.ok) {
+				const payload = (await updateResponse.json()) as { error?: string };
+				error = payload.error || 'Failed to set password. Please try again.';
 				return;
 			}
 

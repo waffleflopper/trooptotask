@@ -1,11 +1,18 @@
-/**
- * Get the Supabase browser client from page data.
- *
- * The client is created in +layout.ts (standard Supabase SSR pattern)
- * and available on every page via $page.data.supabase.
- *
- * For components that can't easily access page data, use:
- *   import { page } from '$app/stores';
- *   const supabase = $page.data.supabase;
- */
-export {};
+import { browser } from '$app/environment';
+import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+let browserClient: SupabaseClient | null = null;
+
+export function getBrowserSupabaseClient(): SupabaseClient {
+	if (!browser) {
+		throw new Error('Supabase browser client is only available in the browser.');
+	}
+
+	if (!browserClient) {
+		browserClient = createBrowserClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
+	}
+
+	return browserClient;
+}

@@ -7,7 +7,6 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { onMount } from 'svelte';
 
-	const supabase = $derived($page.data.supabase);
 	const hasSession = $derived($page.data.hasSession);
 
 	let password = $state('');
@@ -17,8 +16,6 @@
 	let success = $state(false);
 	let sessionReady = $state(false);
 	let tokenError = $state(false);
-
-	let authSubscription: { unsubscribe: () => void } | null = null;
 
 	const hasMinLength = $derived(password.length >= 12);
 	const hasUppercase = $derived(/[A-Z]/.test(password));
@@ -41,16 +38,6 @@
 	}
 
 	onMount(() => {
-		const {
-			data: { subscription }
-		} = supabase.auth.onAuthStateChange((event: string) => {
-			if (event === 'PASSWORD_RECOVERY') {
-				sessionReady = true;
-				tokenError = false;
-			}
-		});
-		authSubscription = subscription;
-
 		void (async () => {
 			if (hasSession) {
 				sessionReady = true;
@@ -64,23 +51,29 @@
 					const refreshToken = params.get('refresh_token');
 
 					if (accessToken && refreshToken) {
-						const { error: sessionError } = await supabase.auth.setSession({
-							access_token: accessToken,
-							refresh_token: refreshToken
+						const response = await fetch('/api/auth/establish-session', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								accessToken,
+								refreshToken
+							})
 						});
 
-						if (!sessionError) {
+						if (response.ok) {
 							sessionReady = true;
 							window.history.replaceState(null, '', window.location.pathname);
+						} else {
+							try {
+								const payload = (await response.json()) as { error?: string };
+								if (payload.error) {
+									error = payload.error;
+								}
+							} catch {
+								error = 'We could not verify your reset session. Please request a new reset link.';
+							}
 						}
 					}
-				}
-			}
-
-			if (!sessionReady) {
-				const { data } = await supabase.auth.getSession();
-				if (data.session) {
-					sessionReady = true;
 				}
 			}
 
@@ -88,8 +81,6 @@
 				tokenError = true;
 			}
 		})();
-
-		return () => authSubscription?.unsubscribe();
 	});
 
 	async function handleSubmit(e: Event) {
@@ -109,10 +100,15 @@
 
 		loading = true;
 		try {
-			const { error: updateError } = await supabase.auth.updateUser({ password });
+			const updateResponse = await fetch('/api/auth/update-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ password })
+			});
 
-			if (updateError) {
-				error = updateError.message;
+			if (!updateResponse.ok) {
+				const payload = (await updateResponse.json()) as { error?: string };
+				error = payload.error ?? 'Failed to update password.';
 				return;
 			}
 

@@ -7,15 +7,6 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
-		id: '2026-04-02-invite-recovery',
-		date: '2026-04-02',
-		title: 'Less Guesswork Around Invite Emails',
-		items: [
-			'Made it much clearer on access request pages that approved setup links expire after 24 hours for security reasons',
-			'Added a simpler way to ask for a fresh invite if your original access email expired before you could use it'
-		]
-	},
-	{
 		id: '2026-04-02-training-types-scroll',
 		date: '2026-04-02',
 		title: 'A Couple of Rough Edges Smoothed Out',

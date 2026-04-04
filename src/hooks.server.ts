@@ -4,6 +4,7 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/publi
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthCookieOptions } from '$lib/server/authCookies';
+import { isPublicRoute } from '$lib/server/publicRoutes';
 import '$lib/server/env'; // validate env vars on startup
 
 const securityHeaders: Record<string, string> = {
@@ -68,26 +69,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return cachedSession;
 	};
 
-	// Define public routes that don't require authentication
-	const publicRoutes = [
-		'/',
-		'/auth',
-		'/api/webhooks',
-		'/demo',
-		'/api/create-demo-sandbox',
-		'/api/access-requests',
-		'/features',
-		'/pricing',
-		'/security',
-		'/terms',
-		'/privacy',
-		'/help',
-		'/dashboard'
-	];
-	const isPublicRoute = publicRoutes.some(
-		(route) => event.url.pathname === route || event.url.pathname.startsWith(route + '/')
-	);
-
 	// Check for demo mode - allow unauthenticated access to /org/* routes if in demo mode
 	const isDemoMode = event.cookies.get('demo_mode') === 'readonly' || event.cookies.get('demo_sandbox');
 	const isOrgRoute = event.url.pathname.startsWith('/org/');
@@ -109,7 +90,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// Protect routes — redirect unauthenticated users to login (skip public routes and demo mode)
-	if (!event.locals.session && !isPublicRoute && !(isDemoMode && isOrgRoute)) {
+	if (!event.locals.session && !isPublicRoute(event.url.pathname) && !(isDemoMode && isOrgRoute)) {
 		redirect(303, '/auth/login');
 	}
 

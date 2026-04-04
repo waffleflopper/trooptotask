@@ -32,6 +32,10 @@
 				<div>© 2026 TroopToTask. All rights reserved.</div>
 				<div class="footer__legal-spacer">Not affiliated with the U.S. Department of Defense.</div>
 				<div>Designed for DoD personnel use.</div>
+				<div class="footer__legal-note">
+					Formal government adoption may involve additional review. Day-to-day use should follow local policy and
+					data-handling guidance.
+				</div>
 			</div>
 		</div>
 
@@ -146,6 +150,11 @@
 
 	.footer__legal-spacer {
 		margin-top: var(--sp-2);
+	}
+
+	.footer__legal-note {
+		margin-top: var(--sp-2);
+		max-width: 34ch;
 	}
 
 	.footer__meta {

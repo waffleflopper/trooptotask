@@ -106,11 +106,43 @@
 			<li><strong>Incident Response (3.6)</strong> — Documented response procedures, contact channels</li>
 		</ul>
 		<p>
-			While we are not FedRAMP authorized, we continuously improve our posture to support organizations that handle CUI.
+			TroopToTask is built for military leaders who need a practical, secure way to stay on top of personnel and
+			readiness without creating more administrative drag.
+		</p>
+		<p>
+			FedRAMP is mainly a factor in formal government procurement and officially sanctioned enterprise adoption. It does
+			not, by itself, determine whether a commercial platform can be useful to military leaders working within local
+			policy, command guidance, and common-sense data handling.
+		</p>
+		<p>
+			Like any operational tool, TroopToTask should be used in a way that matches your organization's guidance. That
+			means keeping classified information and any data required to remain in approved government systems out of the
+			platform.
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="07 // Responsible Disclosure">
+	<PublicContentSection label="07 // Use Guidance">
+		{#snippet title()}Built to help leaders, used with common sense.{/snippet}
+		<p>
+			TroopToTask exists to make unit management easier for leaders who are tired of piecing together personnel,
+			training, readiness, and day-to-day tracking across too many disconnected tools. We focus on strong security,
+			careful handling of personnel information, and practical controls that support responsible use.
+		</p>
+		<p>
+			The goal is simple: give leaders better visibility, less friction, and a more reliable way to manage the work they
+			are already doing. Formal federal procurement and enterprise adoption can involve additional compliance review,
+			but that is a separate question from whether a platform is useful, secure, and workable for leaders operating
+			within their local policies, approval chain, and mission needs.
+		</p>
+		<p>
+			We recommend using TroopToTask in ways that match local policy and sound judgment. That means avoiding classified
+			information, highly sensitive operational details, or anything your command or cybersecurity office has directed
+			to stay inside approved government systems. Our aim is to give leaders a secure, helpful platform they can trust
+			today while continuing to strengthen the product for more demanding compliance environments over time.
+		</p>
+	</PublicContentSection>
+
+	<PublicContentSection label="08 // Responsible Disclosure" alternate>
 		{#snippet title()}Report a vulnerability.{/snippet}
 		<p>
 			If you discover a security vulnerability in TroopToTask, we encourage responsible disclosure. Please report

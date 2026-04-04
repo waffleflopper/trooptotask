@@ -22,6 +22,7 @@ describe('isPublicRoute', () => {
 
 	it('keeps protected application routes private', () => {
 		expect(isPublicRoute('/api/admin/users')).toBe(false);
+		expect(isPublicRoute('/dashboard')).toBe(false);
 		expect(isPublicRoute('/org/test-org/settings')).toBe(false);
 	});
 });

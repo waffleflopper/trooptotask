@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-04-03-account-security-hardening',
+		date: '2026-04-03',
+		title: 'Safer Account Security Changes',
+		items: [
+			'Turning off multi-factor authentication now requires a fresh authenticator code, so it is much harder for someone with a stray session to quietly remove that protection',
+			'Improved password reset and invite recovery handling so account setup is less likely to get tripped up by stale or conflicting session state',
+			'Tightened a few behind-the-scenes access checks so public pages stay public without accidentally making app-only routes more open than they should be'
+		]
+	},
+	{
 		id: '2026-04-02-training-types-scroll',
 		date: '2026-04-02',
 		title: 'A Couple of Rough Edges Smoothed Out',

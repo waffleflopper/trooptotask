@@ -17,6 +17,8 @@
 	let success = $state('');
 	let loading = $state(false);
 	let disabling = $state(false);
+	let confirmingDisable = $state(false);
+	let disableCode = $state('');
 
 	async function startEnroll() {
 		error = '';
@@ -102,12 +104,19 @@
 	}
 
 	async function disableMFA() {
+		if (!disableCode || disableCode.length !== 6) {
+			error = 'Please enter the 6-digit code from your authenticator app.';
+			return;
+		}
+
 		error = '';
 		success = '';
 		disabling = true;
 		try {
 			const response = await fetch('/api/auth/mfa/disable', {
-				method: 'POST'
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code: disableCode })
 			});
 
 			if (!response.ok) {
@@ -118,6 +127,8 @@
 
 			success = 'MFA has been disabled.';
 			mfaEnabled = false;
+			confirmingDisable = false;
+			disableCode = '';
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Failed to disable MFA';
 		} finally {
@@ -128,6 +139,24 @@
 	function handleCodeInput(e: Event) {
 		const input = e.target as HTMLInputElement;
 		verifyCode = input.value.replace(/\D/g, '').slice(0, 6);
+	}
+
+	function handleDisableCodeInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		disableCode = input.value.replace(/\D/g, '').slice(0, 6);
+	}
+
+	function startDisableMFA() {
+		error = '';
+		success = '';
+		confirmingDisable = true;
+		disableCode = '';
+	}
+
+	function cancelDisableMFA() {
+		confirmingDisable = false;
+		disableCode = '';
+		error = '';
 	}
 </script>
 
@@ -249,11 +278,49 @@
 				</div>
 			{/if}
 
-			{#if mfaEnabled && !enrolling}
-				<button class="btn btn-danger" onclick={disableMFA} disabled={disabling}>
-					{#if disabling}<Spinner />{/if}
-					Disable MFA
-				</button>
+			{#if mfaEnabled && !enrolling && !confirmingDisable}
+				<button class="btn btn-danger" onclick={startDisableMFA} disabled={disabling}> Disable MFA </button>
+			{/if}
+
+			{#if mfaEnabled && confirmingDisable}
+				<form
+					class="verify-form disable-form"
+					onsubmit={(e) => {
+						e.preventDefault();
+						disableMFA();
+					}}
+				>
+					<div class="setup-copy">
+						<p class="section-label">Disable Protection</p>
+						<h3>Confirm With Your Authenticator Code</h3>
+						<p class="enroll-instructions">
+							Enter a fresh 6-digit code from your authenticator app before MFA can be removed from this account.
+						</p>
+					</div>
+					<div class="form-group">
+						<label class="label" for="disable-code">Authenticator Code</label>
+						<input
+							id="disable-code"
+							type="text"
+							class="input code-input"
+							value={disableCode}
+							oninput={handleDisableCodeInput}
+							placeholder="000000"
+							maxlength="6"
+							autocomplete="one-time-code"
+							inputmode="numeric"
+						/>
+					</div>
+					<div class="enroll-actions">
+						<button type="button" class="btn btn-secondary" onclick={cancelDisableMFA} disabled={disabling}>
+							Keep MFA Enabled
+						</button>
+						<button type="submit" class="btn btn-danger" disabled={disabling || disableCode.length !== 6}>
+							{#if disabling}<Spinner />{/if}
+							Confirm & Disable
+						</button>
+					</div>
+				</form>
 			{/if}
 		</section>
 	</div>
@@ -465,7 +532,7 @@
 		gap: var(--sp-2);
 	}
 
-	.enroll-section h3 {
+	.security-section h3 {
 		font-size: clamp(1.6rem, 3vw, 2.2rem);
 		font-family: var(--font-display);
 		font-weight: 700;
@@ -499,6 +566,11 @@
 
 	.verify-form {
 		max-width: 360px;
+	}
+
+	.disable-form {
+		padding-top: var(--sp-4);
+		border-top: var(--border-thin);
 	}
 
 	.code-input {

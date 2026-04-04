@@ -141,4 +141,35 @@ describe('POST /api/auth/update-password', () => {
 		});
 		expect(updateUser).not.toHaveBeenCalled();
 	});
+
+	it('does not override an already-established session with caller-supplied tokens', async () => {
+		const setSession = vi.fn();
+		const updateUser = vi.fn().mockResolvedValue({ error: null });
+
+		const response = await POST({
+			request: new Request('http://localhost/api/auth/update-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					password: 'SecurePass12',
+					accessToken: 'access-token',
+					refreshToken: 'refresh-token'
+				})
+			}),
+			locals: {
+				session: { user: { id: 'user-123' } },
+				supabase: {
+					auth: {
+						setSession,
+						updateUser
+					}
+				}
+			}
+		} as unknown as Parameters<typeof POST>[0]);
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ ok: true });
+		expect(setSession).not.toHaveBeenCalled();
+		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
+	});
 });

@@ -19,7 +19,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		);
 	}
 
-	if (accessToken && refreshToken) {
+	if (!locals.session && accessToken && refreshToken) {
 		const { error: sessionError } = await locals.supabase.auth.setSession({
 			access_token: accessToken,
 			refresh_token: refreshToken

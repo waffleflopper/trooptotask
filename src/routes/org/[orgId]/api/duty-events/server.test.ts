@@ -1,0 +1,174 @@
+import { describe, expect, it } from 'vitest';
+import { createTestContext } from '$lib/server/adapters/inMemory';
+import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { createDutyTemplate } from '$lib/server/core/useCases/dutyTemplateCrud';
+import { _postConfig as applyConfig } from './+server';
+import { _postConfig as previewConfig } from './preview/+server';
+import { _postConfig as applySeriesConfig } from './series/+server';
+import { _postConfig as previewSeriesConfig } from './series/preview/+server';
+
+async function seedTemplate(ctx: ReturnType<typeof createTestContext>) {
+	ctx.store.seed('personnel', [
+		{
+			id: 'person-nco',
+			organization_id: ctx.auth.orgId,
+			rank: 'SGT',
+			last_name: 'Nolan',
+			first_name: 'Casey',
+			mos: '11B',
+			clinic_role: 'Squad Leader',
+			group_id: 'group-hq',
+			group_name: 'Headquarters'
+		},
+		{
+			id: 'person-runner',
+			organization_id: ctx.auth.orgId,
+			rank: 'SPC',
+			last_name: 'Baker',
+			first_name: 'Jordan',
+			mos: '11B',
+			clinic_role: 'Driver',
+			group_id: 'group-hq',
+			group_name: 'Headquarters'
+		}
+	]);
+
+	return createDutyTemplate(ctx, {
+		status: 'active',
+		name: 'Battalion Staff Duty',
+		scopeType: 'groups',
+		scopeGroupIds: ['group-hq'],
+		coverageMode: 'timed',
+		startTime: '08:00',
+		endTime: '08:00',
+		isBlocking: true,
+		cooldownHours: 24,
+		slots: [
+			{
+				roleLabel: 'NCO',
+				quantity: 1,
+				allowedRanks: ['SGT'],
+				allowedGroupIds: ['group-hq'],
+				allowedMosValues: ['11B'],
+				allowedRoleValues: ['Squad Leader']
+			},
+			{
+				roleLabel: 'Runner',
+				quantity: 1,
+				allowedRanks: ['SPC'],
+				allowedGroupIds: ['group-hq'],
+				allowedMosValues: ['11B'],
+				allowedRoleValues: []
+			}
+		]
+	});
+}
+
+describe('POST /api/duty-events/preview', () => {
+	it('exports a privileged preview route config', () => {
+		expect(previewConfig.permission).toBe('privileged');
+		expect(previewConfig.mutation).toBeFalsy();
+	});
+
+	it('returns one generated advanced duty event preview', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		const result = await handleUseCaseRequest(previewConfig, ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		expect(result).toMatchObject({
+			templateId: template.id,
+			templateName: 'Battalion Staff Duty',
+			coverageStart: '2026-04-10T08:00:00',
+			coverageEnd: '2026-04-11T08:00:00'
+		});
+		expect(result.slotInstances).toHaveLength(2);
+	});
+});
+
+describe('POST /api/duty-events', () => {
+	it('exports a privileged mutation route config', () => {
+		expect(applyConfig.permission).toBe('privileged');
+		expect(applyConfig.mutation).toBe(true);
+	});
+
+	it('applies one advanced duty event aggregate', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		const result = await handleUseCaseRequest(applyConfig, ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		expect(result).toMatchObject({
+			templateId: template.id,
+			templateName: 'Battalion Staff Duty'
+		});
+		expect(result.slotInstances).toHaveLength(2);
+	});
+});
+
+describe('POST /api/duty-events/series/preview', () => {
+	it('exports a privileged preview route config', () => {
+		expect(previewSeriesConfig.permission).toBe('privileged');
+		expect(previewSeriesConfig.mutation).toBeFalsy();
+	});
+
+	it('returns a recurring series preview for selected weekdays', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		const result = await handleUseCaseRequest(previewSeriesConfig, ctx, {
+			templateId: template.id,
+			startDate: '2026-04-06',
+			endDate: '2026-04-12',
+			pattern: 'selected-weekdays',
+			selectedWeekdays: [1, 3, 5]
+		});
+
+		expect(result.pattern).toBe('selected-weekdays');
+		expect(result.eventDates).toEqual(['2026-04-06', '2026-04-08', '2026-04-10']);
+		expect(result.events).toHaveLength(3);
+	});
+
+	it('returns a recurring series preview for daily runs', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		const result = await handleUseCaseRequest(previewSeriesConfig, ctx, {
+			templateId: template.id,
+			startDate: '2026-04-06',
+			endDate: '2026-04-08',
+			pattern: 'daily'
+		});
+
+		expect(result.pattern).toBe('daily');
+		expect(result.eventDates).toEqual(['2026-04-06', '2026-04-07', '2026-04-08']);
+		expect(result.events).toHaveLength(3);
+	});
+});
+
+describe('POST /api/duty-events/series', () => {
+	it('exports a privileged mutation route config', () => {
+		expect(applySeriesConfig.permission).toBe('privileged');
+		expect(applySeriesConfig.mutation).toBe(true);
+	});
+
+	it('applies a recurring series for custom dates', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		const result = await handleUseCaseRequest(applySeriesConfig, ctx, {
+			templateId: template.id,
+			pattern: 'custom-dates',
+			customDates: ['2026-04-04', '2026-04-10']
+		});
+
+		expect(result.eventDates).toEqual(['2026-04-04', '2026-04-10']);
+		expect(result.events).toHaveLength(2);
+	});
+});

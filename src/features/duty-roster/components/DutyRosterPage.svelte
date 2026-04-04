@@ -1,6 +1,8 @@
 <script lang="ts">
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
-	import DutyRosterGenerator from './DutyRosterGenerator.svelte';
+	import SubNav from '$lib/components/ui/SubNav.svelte';
+	import DutyRosterWizard from './DutyRosterWizard.svelte';
+	import AdvancedDutyTemplateBuilder from './AdvancedDutyTemplateBuilder.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -17,6 +19,16 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { Personnel } from '$lib/types';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
+	import type {
+		DutyEvent,
+		DutyEventApplyInput,
+		DutyEventPreview,
+		DutyEventSeriesApplyResult,
+		DutyEventSeriesInput,
+		DutyEventSeriesPreview,
+		DutyTemplate,
+		DutyTemplateWriteInput
+	} from '../duty-roster.types';
 
 	interface Props {
 		data: {
@@ -29,6 +41,8 @@
 			};
 			scopedGroupId?: string | null;
 			rosterHistory: RosterHistoryItem[];
+			advancedDutyTemplates: DutyTemplate[];
+			advancedDutyEvents: DutyEvent[];
 		};
 	}
 
@@ -37,11 +51,28 @@
 	const org = getOrgContext();
 	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
 	const canMutate = $derived(!org.readOnly && canManageConfig);
+	const canManageAdvancedTemplates = $derived(!org.readOnly && org.isPrivileged);
 	const workspaceData = $derived(data.calendar?.data ?? data);
+	let activeTab = $state<'wizard' | 'advanced-templates'>('wizard');
+	let advancedDutyTemplates = $state<DutyTemplate[]>([]);
+	let advancedDutyEvents = $state<DutyEvent[]>([]);
+
+	const dutyRosterTabs = $derived.by(() => [
+		{ label: 'Wizard', value: 'wizard' },
+		{ label: 'Advanced Templates', value: 'advanced-templates', badge: advancedDutyTemplates.length }
+	]);
 
 	// ---- Load roster history on mount ----
 	$effect(() => {
 		dutyRosterHistoryStore.load(data.rosterHistory);
+	});
+
+	$effect(() => {
+		advancedDutyTemplates = data.advancedDutyTemplates;
+	});
+
+	$effect(() => {
+		advancedDutyEvents = [...data.advancedDutyEvents].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
 	});
 
 	// ---- Personnel data ----
@@ -53,6 +84,10 @@
 		})
 	);
 	const scopedPBG = $derived(scopePersonnelByGroup(personnelByGroup, data.scopedGroupId ?? null));
+
+	function sortTemplates(items: DutyTemplate[]): DutyTemplate[] {
+		return [...items].sort((a, b) => a.name.localeCompare(b.name));
+	}
 
 	// ---- Handlers ----
 	async function handleApplyRoster(
@@ -98,6 +133,142 @@
 			exemptPersonnelIds: personnelIds
 		});
 	}
+
+	async function handleCreateAdvancedTemplate(payload: DutyTemplateWriteInput): Promise<DutyTemplate | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-templates`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+
+			if (!res.ok) {
+				throw new Error(await res.text());
+			}
+
+			const item: DutyTemplate = await res.json();
+			advancedDutyTemplates = sortTemplates([...advancedDutyTemplates, item]);
+			toastStore.success('Advanced duty template saved');
+			return item;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to save advanced duty template');
+			return null;
+		}
+	}
+
+	async function handleUpdateAdvancedTemplate(payload: DutyTemplateWriteInput & { id: string }): Promise<DutyTemplate | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-templates`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+
+			if (!res.ok) {
+				throw new Error(await res.text());
+			}
+
+			const item: DutyTemplate = await res.json();
+			advancedDutyTemplates = sortTemplates(
+				advancedDutyTemplates.map((template) => (template.id === item.id ? item : template))
+			);
+			toastStore.success('Advanced duty template updated');
+			return item;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to update advanced duty template');
+			return null;
+		}
+	}
+
+	function handleManageAdvancedTemplates() {
+		activeTab = 'advanced-templates';
+	}
+
+	async function handlePreviewAdvancedEvent(payload: DutyEventApplyInput): Promise<DutyEventPreview | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/preview`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+
+			if (!res.ok) {
+				throw new Error(await res.text());
+			}
+
+			return (await res.json()) as DutyEventPreview;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to preview advanced duty event');
+			return null;
+		}
+	}
+
+	async function handleApplyAdvancedEvent(payload: DutyEventApplyInput): Promise<DutyEvent | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+
+			if (!res.ok) {
+				throw new Error(await res.text());
+			}
+
+			const event = (await res.json()) as DutyEvent;
+			advancedDutyEvents = [event, ...advancedDutyEvents.filter((item) => item.id !== event.id)].sort(
+				(a, b) => b.coverageStart.localeCompare(a.coverageStart)
+			);
+			toastStore.success('Advanced duty event applied');
+			return event;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to apply advanced duty event');
+			return null;
+		}
+	}
+
+	async function handlePreviewAdvancedSeries(payload: DutyEventSeriesInput): Promise<DutyEventSeriesPreview | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/series/preview`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+
+			if (!res.ok) {
+				throw new Error(await res.text());
+			}
+
+			return (await res.json()) as DutyEventSeriesPreview;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to preview advanced duty series');
+			return null;
+		}
+	}
+
+	async function handleApplyAdvancedSeries(payload: DutyEventSeriesInput): Promise<DutyEventSeriesApplyResult | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/series`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+
+			if (!res.ok) {
+				throw new Error(await res.text());
+			}
+
+			const result = (await res.json()) as DutyEventSeriesApplyResult;
+			advancedDutyEvents = [...result.events, ...advancedDutyEvents.filter((existing) => !result.events.some((event) => event.id === existing.id))].sort(
+				(a, b) => b.coverageStart.localeCompare(a.coverageStart)
+			);
+			toastStore.success(`Applied ${result.events.length} advanced duty event${result.events.length === 1 ? '' : 's'}`);
+			return result;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to apply advanced duty series');
+			return null;
+		}
+	}
 </script>
 
 <PageToolbar
@@ -114,20 +285,41 @@
 			<p>Only organization admins and full editors can manage duty rosters.</p>
 		</section>
 	{:else}
-		<DutyRosterGenerator
-			assignmentTypes={dailyAssignmentsStore.types}
-			assignments={dailyAssignmentsStore.assignments}
-			personnelByGroup={scopedPBG}
-			groups={groupsStore.names}
-			availabilityEntries={availabilityStore.items}
-			statusTypes={statusTypesStore.items}
-			specialDays={specialDaysStore.items}
-			rosterHistory={dutyRosterHistoryStore.items}
-			onApplyRoster={handleApplyRoster}
-			onSaveRoster={handleSaveRoster}
-			onDeleteRoster={handleDeleteRoster}
-			onUpdateExemptions={handleUpdateExemptions}
-		/>
+		<SubNav tabs={dutyRosterTabs} active={activeTab} onChange={(value) => (activeTab = value as typeof activeTab)} />
+
+		{#if activeTab === 'wizard'}
+			<DutyRosterWizard
+				assignmentTypes={dailyAssignmentsStore.types}
+				assignments={dailyAssignmentsStore.assignments}
+				personnelByGroup={scopedPBG}
+				groups={groupsStore.names}
+				availabilityEntries={availabilityStore.items}
+				statusTypes={statusTypesStore.items}
+				specialDays={specialDaysStore.items}
+				rosterHistory={dutyRosterHistoryStore.items}
+				advancedDutyTemplates={advancedDutyTemplates}
+				advancedDutyEvents={advancedDutyEvents}
+				onApplyRoster={handleApplyRoster}
+				onSaveRoster={handleSaveRoster}
+				onDeleteRoster={handleDeleteRoster}
+				onUpdateExemptions={handleUpdateExemptions}
+				onPreviewAdvancedEvent={handlePreviewAdvancedEvent}
+				onApplyAdvancedEvent={handleApplyAdvancedEvent}
+				onPreviewAdvancedSeries={handlePreviewAdvancedSeries}
+				onApplyAdvancedSeries={handleApplyAdvancedSeries}
+				canManageAdvancedTemplates={canManageAdvancedTemplates}
+				onManageAdvancedTemplates={handleManageAdvancedTemplates}
+			/>
+		{:else}
+			<AdvancedDutyTemplateBuilder
+				templates={advancedDutyTemplates}
+				groups={groupsStore.items}
+				personnel={calendarPersonnel}
+				canManageTemplates={canManageAdvancedTemplates}
+				onCreateTemplate={handleCreateAdvancedTemplate}
+				onUpdateTemplate={handleUpdateAdvancedTemplate}
+			/>
+		{/if}
 	{/if}
 </div>
 

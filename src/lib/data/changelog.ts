@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-04-04-calendar-training-responsiveness',
+		date: '2026-04-04',
+		title: 'Smoother Calendar and Training Controls',
+		items: [
+			'Improved calendar preference toggles so they behave much better on slower connections instead of getting grumpy when clicked a few times in a row',
+			'Fixed training filters and view switches so they no longer kick the page back into a distracting loading flash just for changing how you want to look at the data',
+			'Cleaned up some behind-the-scenes preference saving so quick changes are bundled together more reliably before they get sent off to the server'
+		]
+	},
+	{
 		id: '2026-04-03-account-security-hardening',
 		date: '2026-04-03',
 		title: 'Safer Account Security Changes',
@@ -43,17 +53,6 @@ export const changelog: ChangelogEntry[] = [
 			'Refreshed the overall look of the app and public site so screens feel more consistent from page to page',
 			'Improved text sizing and spacing across key areas like dashboards, modals, and marketing pages so things are easier to scan without feeling oversized',
 			'Smoothed out navigation and layout behavior across desktop, tablet, and mobile so menus stay available where you expect them'
-		]
-	},
-	{
-		id: '2026-03-22-under-the-hood',
-		date: '2026-03-22',
-		title: 'Under the Hood Improvements',
-		items: [
-			'Made a bunch of behind-the-scenes changes to improve how the app handles requests — things should feel snappier and more reliable overall',
-			'Tightened up error handling so the app recovers more gracefully when something goes wrong instead of showing a confusing error page',
-			'Improved how bulk operations (like importing personnel or updating assignments) handle edge cases — fewer surprises when working with large batches',
-			"If you run into anything weird or notice something that doesn't look right, please don't hesitate to report it — we'll make it a high priority to fix"
 		]
 	}
 ];

@@ -16,6 +16,7 @@
 	let success = $state(false);
 	let sessionReady = $state(false);
 	let tokenError = $state(false);
+	let recoverySessionTokens = $state<{ accessToken: string; refreshToken: string } | null>(null);
 
 	const hasMinLength = $derived(password.length >= 12);
 	const hasUppercase = $derived(/[A-Z]/.test(password));
@@ -51,6 +52,11 @@
 					const refreshToken = params.get('refresh_token');
 
 					if (accessToken && refreshToken) {
+						recoverySessionTokens = {
+							accessToken,
+							refreshToken
+						};
+
 						const response = await fetch('/api/auth/establish-session', {
 							method: 'POST',
 							headers: { 'Content-Type': 'application/json' },
@@ -103,7 +109,11 @@
 			const updateResponse = await fetch('/api/auth/update-password', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ password })
+				body: JSON.stringify({
+					password,
+					accessToken: recoverySessionTokens?.accessToken,
+					refreshToken: recoverySessionTokens?.refreshToken
+				})
 			});
 
 			if (!updateResponse.ok) {

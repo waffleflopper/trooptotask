@@ -3,8 +3,10 @@ import type { RequestHandler } from './$types';
 import { validatePassword } from '$lib/server/validation';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const { password } = (await request.json()) as {
+	const { password, accessToken, refreshToken } = (await request.json()) as {
 		password?: string;
+		accessToken?: string;
+		refreshToken?: string;
 	};
 
 	const passwordError = validatePassword(password ?? '');
@@ -15,6 +17,22 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			},
 			{ status: 400 }
 		);
+	}
+
+	if (accessToken && refreshToken) {
+		const { error: sessionError } = await locals.supabase.auth.setSession({
+			access_token: accessToken,
+			refresh_token: refreshToken
+		});
+
+		if (sessionError) {
+			return json(
+				{
+					error: sessionError.message
+				},
+				{ status: 401 }
+			);
+		}
 	}
 
 	const { error } = await locals.supabase.auth.updateUser({ password });

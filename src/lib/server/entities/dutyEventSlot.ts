@@ -22,6 +22,11 @@ export const DutyEventSlotEntity = defineEntity<DutyEventSlotInstance>({
 			column: 'warning_state',
 			insertDefault: 'none'
 		}),
+		fairnessConfidence: field(z.enum(['high', 'low']), {
+			column: 'fairness_confidence',
+			insertDefault: 'low'
+		}),
+		selectionReason: field(z.string().nullable(), { column: 'selection_reason', insertDefault: null }),
 		unfilledReason: field(z.string().nullable(), { column: 'unfilled_reason', insertDefault: null }),
 		sortOrder: field(z.number().int().min(0), { column: 'sort_order', insertDefault: 0 })
 	}

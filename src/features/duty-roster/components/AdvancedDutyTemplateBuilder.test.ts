@@ -10,8 +10,8 @@ const groups = [
 ];
 
 const personnel = [
-	{ id: 'p-1', mos: '11B', clinicRole: 'Squad Leader' },
-	{ id: 'p-2', mos: '68W', clinicRole: 'Medic' }
+	{ id: 'p-1', rank: 'SGT', lastName: 'Nolan', firstName: 'Casey', groupId: 'group-alpha', mos: '11B', clinicRole: 'Squad Leader' },
+	{ id: 'p-2', rank: 'SPC', lastName: 'Baker', firstName: 'Jordan', groupId: 'group-hq', mos: '68W', clinicRole: 'Medic' }
 ];
 
 function makeTemplate(overrides: Partial<DutyTemplate> = {}): DutyTemplate {
@@ -39,11 +39,14 @@ function makeTemplate(overrides: Partial<DutyTemplate> = {}): DutyTemplate {
 				quantity: 1,
 				allowedRanks: ['SGT'],
 				allowedGroupIds: ['group-alpha'],
+				preferredGroupIds: ['group-alpha'],
 				allowedMosValues: ['11B'],
 				allowedRoleValues: ['Squad Leader'],
+				rotationPoolKey: 'staff-duty-primary',
 				sortOrder: 0
 			}
 		],
+		rotationBaselines: [],
 		...overrides
 	};
 }
@@ -91,6 +94,22 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		await fireEvent.input(screen.getByLabelText('Role label'), {
 			target: { value: 'Runner' }
 		});
+		await fireEvent.input(screen.getByLabelText('Rotation pool key'), {
+			target: { value: 'staff-duty-primary' }
+		});
+		const preferredGroupsSelect = screen.getByLabelText('Preferred groups') as HTMLSelectElement;
+		preferredGroupsSelect.options[0].selected = true;
+		await fireEvent.change(preferredGroupsSelect);
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Baseline' }));
+		await fireEvent.input(screen.getAllByLabelText('Rotation pool key')[1], {
+			target: { value: 'staff-duty-primary' }
+		});
+		await fireEvent.change(screen.getByLabelText('Person'), {
+			target: { value: 'p-1' }
+		});
+		await fireEvent.input(screen.getByLabelText('Last served date'), {
+			target: { value: '2026-03-10' }
+		});
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
 
 		await waitFor(() => {
@@ -99,7 +118,22 @@ describe('AdvancedDutyTemplateBuilder', () => {
 					mode: 'advanced',
 					status: 'draft',
 					name: 'Company CQ',
-					slots: [expect.objectContaining({ roleLabel: 'Runner', quantity: 1, sortOrder: 0 })]
+					slots: [
+						expect.objectContaining({
+							roleLabel: 'Runner',
+							quantity: 1,
+							preferredGroupIds: ['group-alpha'],
+							rotationPoolKey: 'staff-duty-primary',
+							sortOrder: 0
+						})
+					],
+					rotationBaselines: [
+						expect.objectContaining({
+							rotationPoolKey: 'staff-duty-primary',
+							personId: 'p-1',
+							lastServedDate: '2026-03-10'
+						})
+					]
 				})
 			);
 		});

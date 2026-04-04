@@ -51,11 +51,14 @@ function makeAdvancedTemplate(overrides: Partial<DutyTemplate> = {}): DutyTempla
 				quantity: 1,
 				allowedRanks: ['SGT'],
 				allowedGroupIds: ['group-hq'],
+				preferredGroupIds: ['group-hq'],
 				allowedMosValues: ['11B'],
 				allowedRoleValues: ['Squad Leader'],
+				rotationPoolKey: 'staff-duty-primary',
 				sortOrder: 0
 			}
 		],
+		rotationBaselines: [],
 		...overrides
 	};
 }
@@ -88,8 +91,10 @@ function makePreview(overrides: Partial<DutyEventPreview> = {}): DutyEventPrevie
 					quantity: 1,
 					allowedRanks: ['SGT'],
 					allowedGroupIds: ['group-hq'],
+					preferredGroupIds: ['group-hq'],
 					allowedMosValues: ['11B'],
 					allowedRoleValues: ['Squad Leader'],
+					rotationPoolKey: 'staff-duty-primary',
 					sortOrder: 0
 				}
 			]
@@ -110,7 +115,9 @@ function makePreview(overrides: Partial<DutyEventPreview> = {}): DutyEventPrevie
 				slotIndex: 0,
 				assigneeId: 'person-nco',
 				assignmentSource: 'generated',
-				warningState: 'none',
+				warningState: 'warning',
+				fairnessConfidence: 'low',
+				selectionReason: 'Selected by longest break in rotation pool "staff-duty-primary". Fairness confidence is low because not every eligible person has seeded or historical service data yet.',
 				unfilledReason: null,
 				sortOrder: 0
 			}
@@ -152,7 +159,9 @@ function makeAppliedEvent(overrides: Partial<DutyEvent> = {}): DutyEvent {
 				slotIndex: 0,
 				assigneeId: 'person-nco',
 				assignmentSource: 'generated',
-				warningState: 'none',
+				warningState: 'warning',
+				fairnessConfidence: 'low',
+				selectionReason: 'Selected by longest break in rotation pool "staff-duty-primary". Fairness confidence is low because not every eligible person has seeded or historical service data yet.',
 				unfilledReason: null,
 				sortOrder: 0
 			}
@@ -300,8 +309,14 @@ describe('DutyRosterWizard', () => {
 		});
 
 		expect(screen.getByText('Series preview ready')).toBeTruthy();
+		expect(screen.getAllByText(/Fairness confidence:/).length).toBeGreaterThan(0);
 		expect(screen.getByText('2026-04-07T08:00:00 to 2026-04-08T08:00:00')).toBeTruthy();
 		expect(screen.getByText('2026-04-09T08:00:00 to 2026-04-10T08:00:00')).toBeTruthy();
+		expect(
+			screen.getAllByText(
+				'Selected by longest break in rotation pool "staff-duty-primary". Fairness confidence is low because not every eligible person has seeded or historical service data yet.'
+			).length
+		).toBeGreaterThan(0);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Apply Series' }));
 

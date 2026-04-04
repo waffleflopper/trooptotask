@@ -2,10 +2,13 @@ import { z } from 'zod';
 import { fail } from '$lib/server/core/errors';
 import type { QueryPorts, WritePorts } from '$lib/server/core/ports';
 import { DutyTemplateEntity } from '$lib/server/entities/dutyTemplate';
+import { DutyTemplateRotationBaselineEntity } from '$lib/server/entities/dutyTemplateRotationBaseline';
 import { DutyTemplateSlotEntity } from '$lib/server/entities/dutyTemplateSlot';
 import type {
 	DutyTemplate,
 	DutyTemplateRecord,
+	DutyTemplateRotationBaseline,
+	DutyTemplateRotationBaselineInput,
 	DutyTemplateSlot,
 	DutyTemplateSlotInput,
 	DutyTemplateWriteInput
@@ -17,9 +20,17 @@ const slotInputSchema = z.object({
 	quantity: z.number().int().min(1).max(99),
 	allowedRanks: z.array(z.string()).optional().default([]),
 	allowedGroupIds: z.array(z.string()).optional().default([]),
+	preferredGroupIds: z.array(z.string()).optional().default([]),
 	allowedMosValues: z.array(z.string()).optional().default([]),
 	allowedRoleValues: z.array(z.string()).optional().default([]),
+	rotationPoolKey: z.string().trim().min(1).max(120).optional(),
 	sortOrder: z.number().int().min(0).optional()
+});
+
+const rotationBaselineInputSchema = z.object({
+	rotationPoolKey: z.string().trim().min(1).max(120),
+	personId: z.string().trim().min(1),
+	lastServedDate: z.string().trim().min(1)
 });
 
 const createTemplateSchema = z.object({
@@ -34,7 +45,8 @@ const createTemplateSchema = z.object({
 	endTime: z.string().nullable().optional().default(null),
 	isBlocking: z.boolean().optional().default(false),
 	cooldownHours: z.number().int().min(0).max(168).optional().default(0),
-	slots: z.array(slotInputSchema).optional().default([])
+	slots: z.array(slotInputSchema).optional().default([]),
+	rotationBaselines: z.array(rotationBaselineInputSchema).optional().default([])
 });
 
 const updateTemplateSchema = createTemplateSchema.extend({
@@ -60,18 +72,41 @@ function normalizeSlots(slots: DutyTemplateSlotInput[]): Omit<DutyTemplateSlot, 
 			quantity: slot.quantity,
 			allowedRanks: normalizeList(slot.allowedRanks ?? []),
 			allowedGroupIds: normalizeList(slot.allowedGroupIds ?? []),
+			preferredGroupIds: normalizeList(slot.preferredGroupIds ?? []),
 			allowedMosValues: normalizeList(slot.allowedMosValues ?? []),
 			allowedRoleValues: normalizeList(slot.allowedRoleValues ?? []),
+			rotationPoolKey: slot.rotationPoolKey?.trim() || `slot-${index + 1}`,
 			sortOrder: slot.sortOrder ?? index
 		}))
 		.sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+function normalizeRotationBaselines(
+	values: DutyTemplateRotationBaselineInput[]
+): Omit<DutyTemplateRotationBaseline, 'id' | 'templateId'>[] {
+	return values
+		.map((value) => ({
+			rotationPoolKey: value.rotationPoolKey.trim(),
+			personId: value.personId.trim(),
+			lastServedDate: value.lastServedDate.trim()
+		}))
+		.filter((value) => value.rotationPoolKey && value.personId && value.lastServedDate)
+		.sort((a, b) =>
+			a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
+			a.lastServedDate.localeCompare(b.lastServedDate) ||
+			a.personId.localeCompare(b.personId)
+		);
+}
+
 function normalizeTemplateInput(
 	input: z.infer<typeof createTemplateSchema> | z.infer<typeof updateTemplateSchema>
-): Omit<z.infer<typeof createTemplateSchema>, 'slots'> & { slots: Omit<DutyTemplateSlot, 'id' | 'templateId'>[] } {
+): Omit<z.infer<typeof createTemplateSchema>, 'slots' | 'rotationBaselines'> & {
+	slots: Omit<DutyTemplateSlot, 'id' | 'templateId'>[];
+	rotationBaselines: Omit<DutyTemplateRotationBaseline, 'id' | 'templateId'>[];
+} {
 	const coverageMode = input.coverageMode;
 	const slots = normalizeSlots(input.slots);
+	const rotationBaselines = normalizeRotationBaselines(input.rotationBaselines);
 	const scopeGroupIds = input.scopeType === 'organization' ? [] : normalizeList(input.scopeGroupIds);
 	const normalized = {
 		mode: input.mode,
@@ -85,7 +120,8 @@ function normalizeTemplateInput(
 		endTime: coverageMode === 'timed' ? input.endTime : null,
 		isBlocking: input.isBlocking,
 		cooldownHours: input.cooldownHours,
-		slots
+		slots,
+		rotationBaselines
 	};
 
 	if (normalized.status === 'active' && normalized.slots.length === 0) {
@@ -109,16 +145,30 @@ function hydrateSlots(rows: Record<string, unknown>[]): DutyTemplateSlot[] {
 
 function hydrateTemplate(
 	templateRow: Record<string, unknown>,
-	slotRows: Record<string, unknown>[] | DutyTemplateSlot[]
+	slotRows: Record<string, unknown>[] | DutyTemplateSlot[],
+	baselineRows: Record<string, unknown>[] | DutyTemplateRotationBaseline[] = []
 ): DutyTemplate {
 	const template = DutyTemplateEntity.fromDb(templateRow);
 	const slots = Array.isArray(slotRows) && slotRows.length > 0 && 'templateId' in slotRows[0]
 		? ([...slotRows] as DutyTemplateSlot[]).sort((a, b) => a.sortOrder - b.sortOrder)
 		: hydrateSlots(slotRows as Record<string, unknown>[]);
+	const rotationBaselines =
+		Array.isArray(baselineRows) && baselineRows.length > 0 && 'templateId' in baselineRows[0]
+			? ([...baselineRows] as DutyTemplateRotationBaseline[]).sort((a, b) =>
+					a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
+					a.lastServedDate.localeCompare(b.lastServedDate) ||
+					a.personId.localeCompare(b.personId)
+				)
+			: DutyTemplateRotationBaselineEntity.fromDbArray(baselineRows as Record<string, unknown>[]).sort((a, b) =>
+					a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
+					a.lastServedDate.localeCompare(b.lastServedDate) ||
+					a.personId.localeCompare(b.personId)
+				);
 
 	return {
 		...template,
-		slots
+		slots,
+		rotationBaselines
 	};
 }
 
@@ -142,8 +192,10 @@ async function createSlotRows(
 					quantity: slot.quantity,
 					allowedRanks: slot.allowedRanks,
 					allowedGroupIds: slot.allowedGroupIds,
+					preferredGroupIds: slot.preferredGroupIds,
 					allowedMosValues: slot.allowedMosValues,
 					allowedRoleValues: slot.allowedRoleValues,
+					rotationPoolKey: slot.rotationPoolKey,
 					sortOrder: slot.sortOrder
 				},
 				ctx.auth.orgId
@@ -153,6 +205,39 @@ async function createSlotRows(
 	);
 
 	return hydrateSlots(inserted);
+}
+
+async function createRotationBaselineRows(
+	ctx: WritePorts,
+	templateId: string,
+	baselines: Omit<DutyTemplateRotationBaseline, 'id' | 'templateId'>[]
+): Promise<DutyTemplateRotationBaseline[]> {
+	if (baselines.length === 0) {
+		return [];
+	}
+
+	const inserted = await ctx.store.insertMany<Record<string, unknown>>(
+		'duty_template_rotation_baselines',
+		ctx.auth.orgId,
+		baselines.map((baseline) => ({
+			...DutyTemplateRotationBaselineEntity.toDbInsert(
+				{
+					templateId,
+					rotationPoolKey: baseline.rotationPoolKey,
+					personId: baseline.personId,
+					lastServedDate: baseline.lastServedDate
+				},
+				ctx.auth.orgId
+			),
+			template_id: templateId
+		}))
+	);
+
+	return DutyTemplateRotationBaselineEntity.fromDbArray(inserted).sort((a, b) =>
+		a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
+		a.lastServedDate.localeCompare(b.lastServedDate) ||
+		a.personId.localeCompare(b.personId)
+	);
 }
 
 export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWriteInput): Promise<DutyTemplate> {
@@ -173,6 +258,7 @@ export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 	};
 	const row = await ctx.store.insert<Record<string, unknown>>('duty_templates', ctx.auth.orgId, templateData);
 	const slots = await createSlotRows(ctx, row.id as string, normalized.slots);
+	const rotationBaselines = await createRotationBaselineRows(ctx, row.id as string, normalized.rotationBaselines);
 
 	ctx.audit.log({
 		action: 'duty_template.created',
@@ -180,7 +266,7 @@ export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 		resourceId: row.id as string
 	});
 
-	return hydrateTemplate(row, slots);
+	return hydrateTemplate(row, slots, rotationBaselines);
 }
 
 export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWriteInput): Promise<DutyTemplate> {
@@ -213,6 +299,8 @@ export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 
 	await ctx.store.deleteWhere('duty_template_slots', ctx.auth.orgId, { template_id: parsed.id });
 	const slots = await createSlotRows(ctx, parsed.id, normalized.slots);
+	await ctx.store.deleteWhere('duty_template_rotation_baselines', ctx.auth.orgId, { template_id: parsed.id });
+	const rotationBaselines = await createRotationBaselineRows(ctx, parsed.id, normalized.rotationBaselines);
 
 	ctx.audit.log({
 		action: 'duty_template.updated',
@@ -220,7 +308,7 @@ export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 		resourceId: parsed.id
 	});
 
-	return hydrateTemplate(row, slots);
+	return hydrateTemplate(row, slots, rotationBaselines);
 }
 
 export async function listDutyTemplates(ctx: QueryPorts): Promise<DutyTemplate[]> {
@@ -248,6 +336,19 @@ export async function listDutyTemplates(ctx: QueryPorts): Promise<DutyTemplate[]
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}
 	);
+	const baselineRows = await ctx.store.findMany<Record<string, unknown>>(
+		'duty_template_rotation_baselines',
+		ctx.auth.orgId,
+		{},
+		{
+			inFilters: { template_id: ids },
+			orderBy: [
+				{ column: 'rotation_pool_key', ascending: true },
+				{ column: 'last_served_date', ascending: true },
+				{ column: 'person_id', ascending: true }
+			]
+		}
+	);
 
 	const slotsByTemplate = new Map<string, DutyTemplateSlot[]>();
 	for (const slot of hydrateSlots(slotRows)) {
@@ -255,6 +356,18 @@ export async function listDutyTemplates(ctx: QueryPorts): Promise<DutyTemplate[]
 		existing.push(slot);
 		slotsByTemplate.set(slot.templateId, existing);
 	}
+	const baselinesByTemplate = new Map<string, DutyTemplateRotationBaseline[]>();
+	for (const baseline of DutyTemplateRotationBaselineEntity.fromDbArray(baselineRows)) {
+		const existing = baselinesByTemplate.get(baseline.templateId) ?? [];
+		existing.push(baseline);
+		baselinesByTemplate.set(baseline.templateId, existing);
+	}
 
-	return templateRows.map((row) => hydrateTemplate(row, slotsByTemplate.get(row.id as string) ?? []));
+	return templateRows.map((row) =>
+		hydrateTemplate(
+			row,
+			slotsByTemplate.get(row.id as string) ?? [],
+			baselinesByTemplate.get(row.id as string) ?? []
+		)
+	);
 }

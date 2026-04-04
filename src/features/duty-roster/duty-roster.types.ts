@@ -17,9 +17,19 @@ export interface DutyTemplateSlot {
 	quantity: number;
 	allowedRanks: string[];
 	allowedGroupIds: string[];
+	preferredGroupIds: string[];
 	allowedMosValues: string[];
 	allowedRoleValues: string[];
+	rotationPoolKey: string;
 	sortOrder: number;
+}
+
+export interface DutyTemplateRotationBaseline {
+	id: string;
+	templateId: string;
+	rotationPoolKey: string;
+	personId: string;
+	lastServedDate: string;
 }
 
 export interface DutyTemplateRecord {
@@ -42,6 +52,7 @@ export interface DutyTemplateRecord {
 
 export interface DutyTemplate extends DutyTemplateRecord {
 	slots: DutyTemplateSlot[];
+	rotationBaselines: DutyTemplateRotationBaseline[];
 }
 
 export interface DutyTemplateSlotInput {
@@ -50,9 +61,17 @@ export interface DutyTemplateSlotInput {
 	quantity: number;
 	allowedRanks?: string[];
 	allowedGroupIds?: string[];
+	preferredGroupIds?: string[];
 	allowedMosValues?: string[];
 	allowedRoleValues?: string[];
+	rotationPoolKey?: string;
 	sortOrder?: number;
+}
+
+export interface DutyTemplateRotationBaselineInput {
+	rotationPoolKey: string;
+	personId: string;
+	lastServedDate: string;
 }
 
 export interface DutyTemplateWriteInput {
@@ -69,6 +88,7 @@ export interface DutyTemplateWriteInput {
 	isBlocking?: boolean;
 	cooldownHours?: number;
 	slots?: DutyTemplateSlotInput[];
+	rotationBaselines?: DutyTemplateRotationBaselineInput[];
 }
 
 export interface DutyEventRulesSnapshot {
@@ -87,11 +107,13 @@ export interface DutyEventRulesSnapshot {
 		roleLabel: string;
 		quantity: number;
 		allowedRanks: string[];
-		allowedGroupIds: string[];
-		allowedMosValues: string[];
-		allowedRoleValues: string[];
-		sortOrder: number;
-	}>;
+	allowedGroupIds: string[];
+	preferredGroupIds: string[];
+	allowedMosValues: string[];
+	allowedRoleValues: string[];
+	rotationPoolKey: string;
+	sortOrder: number;
+}>;
 }
 
 export interface DutyEventFillSummary {
@@ -107,6 +129,7 @@ export interface DutyEventCollisionSummary {
 
 export type DutyEventAssignmentSource = 'generated' | 'manual' | 'locked';
 export type DutyEventWarningState = 'none' | 'warning';
+export type DutyEventFairnessConfidence = 'high' | 'low';
 
 export interface DutyEventSlotInstance {
 	id: string;
@@ -117,6 +140,8 @@ export interface DutyEventSlotInstance {
 	assigneeId: string | null;
 	assignmentSource: DutyEventAssignmentSource;
 	warningState: DutyEventWarningState;
+	fairnessConfidence: DutyEventFairnessConfidence;
+	selectionReason: string | null;
 	unfilledReason: string | null;
 	sortOrder: number;
 }
@@ -128,6 +153,8 @@ export interface DutyEventPreviewSlotInstance {
 	assigneeId: string | null;
 	assignmentSource: DutyEventAssignmentSource;
 	warningState: DutyEventWarningState;
+	fairnessConfidence: DutyEventFairnessConfidence;
+	selectionReason: string | null;
 	unfilledReason: string | null;
 	sortOrder: number;
 }

@@ -87,4 +87,32 @@ describe('auditLog', () => {
 			}
 		});
 	});
+
+	it('preserves allowlisted audit identifiers even when their keys include redacted substrings', async () => {
+		await auditLog(
+			{
+				action: 'onboarding.note_viewed',
+				resourceType: 'onboarding',
+				details: {
+					note_author_user_id: 'user-456',
+					note: 'Needs a follow-up call this afternoon'
+				}
+			},
+			{
+				userId: 'user-123',
+				userEmail: 'owner@example.mil',
+				ip: '127.0.0.1',
+				userAgent: 'Vitest'
+			}
+		);
+
+		expect(insert).toHaveBeenCalledTimes(1);
+		expect(insert.mock.calls[0]?.[0]).toMatchObject({
+			details: {
+				note_author_user_id: 'user-456',
+				note: '[redacted]',
+				redacted_fields: ['note']
+			}
+		});
+	});
 });

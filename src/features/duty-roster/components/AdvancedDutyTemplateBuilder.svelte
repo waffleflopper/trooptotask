@@ -5,6 +5,7 @@
 	import { ALL_RANKS } from '$lib/types';
 	import type {
 		DutyTemplate,
+		DutyTemplateRotationBaselineInput,
 		DutyTemplateSlotInput,
 		DutyTemplateWriteInput
 	} from '../duty-roster.types';
@@ -16,6 +17,10 @@
 
 	interface PersonnelOption {
 		id: string;
+		rank?: string;
+		lastName?: string;
+		firstName?: string;
+		groupId?: string | null;
 		mos: string;
 		clinicRole: string;
 	}
@@ -35,8 +40,17 @@
 		quantity: number;
 		allowedRanks: string[];
 		allowedGroupIds: string[];
+		preferredGroupIds: string[];
 		allowedMosValuesText: string;
 		allowedRoleValuesText: string;
+		rotationPoolKey: string;
+	}
+
+	interface EditableBaseline {
+		key: string;
+		rotationPoolKey: string;
+		personId: string;
+		lastServedDate: string;
 	}
 
 	let { templates, groups, personnel, canManageTemplates, onCreateTemplate, onUpdateTemplate }: Props = $props();
@@ -59,6 +73,7 @@
 	let isBlocking = $state(false);
 	let cooldownHours = $state(0);
 	let draftSlots = $state<EditableSlot[]>([]);
+	let draftRotationBaselines = $state<EditableBaseline[]>([]);
 
 	const availableMosValues = $derived(
 		[...new Set(personnel.map((person) => person.mos.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))
@@ -69,6 +84,9 @@
 	const selectedTemplate = $derived(templates.find((template) => template.id === selectedTemplateId) ?? null);
 	const hasInvalidSlots = $derived(draftSlots.some((slot) => !slot.roleLabel.trim() || slot.quantity < 1));
 	const canSave = $derived(templateName.trim().length > 0 && !hasInvalidSlots);
+	const rotationPoolOptions = $derived(
+		[...new Set(draftSlots.map((slot) => slot.rotationPoolKey.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+	);
 
 	function nextSlotKey(): string {
 		slotKeyIndex += 1;
@@ -90,9 +108,30 @@
 			quantity: 1,
 			allowedRanks: [],
 			allowedGroupIds: [],
+			preferredGroupIds: [],
 			allowedMosValuesText: '',
-			allowedRoleValuesText: ''
+			allowedRoleValuesText: '',
+			rotationPoolKey: ''
 		};
+	}
+
+	function makeBlankBaseline(): EditableBaseline {
+		return {
+			key: nextSlotKey(),
+			rotationPoolKey: rotationPoolOptions[0] ?? '',
+			personId: '',
+			lastServedDate: ''
+		};
+	}
+
+	function formatPersonLabel(person: PersonnelOption): string {
+		if (person.rank && person.lastName) {
+			return `${person.rank} ${person.lastName}`;
+		}
+		if (person.lastName && person.firstName) {
+			return `${person.lastName}, ${person.firstName}`;
+		}
+		return person.id;
 	}
 
 	function loadTemplate(template: DutyTemplate) {
@@ -115,8 +154,16 @@
 			quantity: slot.quantity,
 			allowedRanks: [...slot.allowedRanks],
 			allowedGroupIds: [...slot.allowedGroupIds],
+			preferredGroupIds: [...slot.preferredGroupIds],
 			allowedMosValuesText: listToText(slot.allowedMosValues),
-			allowedRoleValuesText: listToText(slot.allowedRoleValues)
+			allowedRoleValuesText: listToText(slot.allowedRoleValues),
+			rotationPoolKey: slot.rotationPoolKey
+		}));
+		draftRotationBaselines = template.rotationBaselines.map((baseline) => ({
+			key: nextSlotKey(),
+			rotationPoolKey: baseline.rotationPoolKey,
+			personId: baseline.personId,
+			lastServedDate: baseline.lastServedDate
 		}));
 	}
 
@@ -135,6 +182,7 @@
 		isBlocking = false;
 		cooldownHours = 0;
 		draftSlots = [];
+		draftRotationBaselines = [];
 	}
 
 	$effect(() => {
@@ -172,16 +220,39 @@
 		draftSlots = draftSlots.map((slot) => (slot.key === key ? { ...slot, ...patch } : slot));
 	}
 
+	function addBaseline() {
+		draftRotationBaselines = [...draftRotationBaselines, makeBlankBaseline()];
+	}
+
+	function removeBaseline(key: string) {
+		draftRotationBaselines = draftRotationBaselines.filter((baseline) => baseline.key !== key);
+	}
+
+	function updateBaseline(key: string, patch: Partial<EditableBaseline>) {
+		draftRotationBaselines = draftRotationBaselines.map((baseline) =>
+			baseline.key === key ? { ...baseline, ...patch } : baseline
+		);
+	}
+
 	function buildPayload(): DutyTemplateWriteInput {
 		const slots: DutyTemplateSlotInput[] = draftSlots.map((slot, index) => ({
 			roleLabel: slot.roleLabel.trim(),
 			quantity: slot.quantity,
 			allowedRanks: slot.allowedRanks,
 			allowedGroupIds: slot.allowedGroupIds,
+			preferredGroupIds: slot.preferredGroupIds,
 			allowedMosValues: textToList(slot.allowedMosValuesText),
 			allowedRoleValues: textToList(slot.allowedRoleValuesText),
+			rotationPoolKey: slot.rotationPoolKey.trim() || `slot-${index + 1}`,
 			sortOrder: index
 		}));
+		const rotationBaselines: DutyTemplateRotationBaselineInput[] = draftRotationBaselines
+			.map((baseline) => ({
+				rotationPoolKey: baseline.rotationPoolKey.trim(),
+				personId: baseline.personId,
+				lastServedDate: baseline.lastServedDate
+			}))
+			.filter((baseline) => baseline.rotationPoolKey && baseline.personId && baseline.lastServedDate);
 
 		return {
 			mode: 'advanced',
@@ -195,7 +266,8 @@
 			endTime: coverageMode === 'timed' ? endTime || null : null,
 			isBlocking,
 			cooldownHours,
-			slots
+			slots,
+			rotationBaselines
 		};
 	}
 
@@ -444,6 +516,25 @@
 										</label>
 
 										<label class="field">
+											<span>Preferred groups</span>
+											<select
+												class="input"
+												multiple
+												value={slot.preferredGroupIds}
+												onchange={(event) => {
+													const target = event.currentTarget as HTMLSelectElement;
+													updateSlot(slot.key, {
+														preferredGroupIds: [...target.selectedOptions].map((option) => option.value)
+													});
+												}}
+											>
+												{#each groups as group (group.id)}
+													<option value={group.id}>{group.name}</option>
+												{/each}
+											</select>
+										</label>
+
+										<label class="field">
 											<span>Allowed MOS values</span>
 											<input
 												class="input"
@@ -482,6 +573,99 @@
 												{/each}
 											</datalist>
 										</label>
+
+										<label class="field">
+											<span>Rotation pool key</span>
+											<input
+												class="input"
+												type="text"
+												value={slot.rotationPoolKey}
+												placeholder="e.g. staff-duty-primary"
+												oninput={(event) =>
+													updateSlot(slot.key, {
+														rotationPoolKey: (event.currentTarget as HTMLInputElement).value
+													})}
+											/>
+										</label>
+									</div>
+								</article>
+							{/each}
+						</div>
+					{/if}
+				</section>
+
+				<section class="builder-card">
+					<div class="section-header">
+						<div>
+							<p class="eyebrow">Fairness Baselines</p>
+							<h3>Seed rotation pools when history is incomplete.</h3>
+						</div>
+						<button class="btn btn-sm" type="button" onclick={addBaseline}>Add Baseline</button>
+					</div>
+
+					{#if draftRotationBaselines.length === 0}
+						<EmptyState
+							message="No manual baselines yet. Add one when a rotation pool needs a seeded last-served date."
+							variant="simple"
+						/>
+					{:else}
+						<div class="slot-list">
+							{#each draftRotationBaselines as baseline, index (baseline.key)}
+								<article class="slot-card">
+									<div class="slot-header">
+										<h4>Baseline {index + 1}</h4>
+										<button class="btn btn-sm" type="button" onclick={() => removeBaseline(baseline.key)}>Remove</button>
+									</div>
+
+									<div class="form-grid">
+										<label class="field">
+											<span>Rotation pool key</span>
+											<input
+												class="input"
+												type="text"
+												list={`rotation-pool-${baseline.key}`}
+												value={baseline.rotationPoolKey}
+												oninput={(event) =>
+													updateBaseline(baseline.key, {
+														rotationPoolKey: (event.currentTarget as HTMLInputElement).value
+													})}
+											/>
+											<datalist id={`rotation-pool-${baseline.key}`}>
+												{#each rotationPoolOptions as option (option)}
+													<option value={option}></option>
+												{/each}
+											</datalist>
+										</label>
+
+										<label class="field">
+											<span>Person</span>
+											<select
+												class="input"
+												value={baseline.personId}
+												onchange={(event) =>
+													updateBaseline(baseline.key, {
+														personId: (event.currentTarget as HTMLSelectElement).value
+													})}
+											>
+												<option value="">Select person</option>
+												{#each personnel as person (person.id)}
+													<option value={person.id}>{formatPersonLabel(person)}</option>
+												{/each}
+											</select>
+										</label>
+
+										<label class="field">
+											<span>Last served date</span>
+											<input
+												class="input"
+												type="date"
+												value={baseline.lastServedDate}
+												oninput={(event) =>
+													updateBaseline(baseline.key, {
+														lastServedDate: (event.currentTarget as HTMLInputElement).value
+													})}
+											/>
+										</label>
 									</div>
 								</article>
 							{/each}
@@ -499,6 +683,7 @@
 				<p class="summary-line">Conflict policy: <strong>{isBlocking ? 'blocking duty' : 'non-blocking duty'}</strong></p>
 				<p class="summary-line">Cooldown: <strong>{cooldownHours} hour{cooldownHours === 1 ? '' : 's'}</strong></p>
 				<p class="summary-line">Slot definitions: <strong>{draftSlots.length}</strong></p>
+				<p class="summary-line">Fairness baselines: <strong>{draftRotationBaselines.length}</strong></p>
 
 				{#if draftSlots.length === 0}
 					<p class="summary-empty">No slot definitions yet.</p>

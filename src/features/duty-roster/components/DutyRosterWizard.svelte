@@ -486,6 +486,7 @@
 
 						<div class="slot-preview-list">
 							{#each advancedSeriesPreview.events as event (event.eventDate)}
+								{@const hasLowConfidence = event.slotInstances.some((slot) => slot.fairnessConfidence === 'low')}
 								<article class="slot-preview-item">
 									<div>
 										<h5>{event.eventDate}</h5>
@@ -494,13 +495,16 @@
 											Blocking: <strong>{event.isBlocking ? 'Yes' : 'No'}</strong> · Fill:
 											<strong>{event.fillSummary.filledSlots}/{event.fillSummary.totalSlots}</strong>
 										</p>
+										{#if hasLowConfidence}
+											<p class="summary-line">Fairness confidence: <strong>Low</strong></p>
+										{/if}
 									</div>
 									<div class="slot-preview-list nested-list">
 										{#each event.slotInstances as slot (`${event.eventDate}-${slot.roleLabel}-${slot.slotIndex}`)}
 											<div class="slot-preview-subitem">
 												<strong>{slot.roleLabel} #{slot.slotIndex + 1}</strong>
 												<span>{formatSlotAssignee(slot.assigneeId)}</span>
-												<span>{slot.unfilledReason ?? 'Generated assignment ready to apply.'}</span>
+												<span>{slot.unfilledReason ?? slot.selectionReason ?? 'Generated assignment ready to apply.'}</span>
 											</div>
 										{/each}
 									</div>

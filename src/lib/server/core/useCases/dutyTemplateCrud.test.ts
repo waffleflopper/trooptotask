@@ -79,6 +79,67 @@ describe('duty template CRUD use cases', () => {
 		);
 	});
 
+	it('persists rotation pools, preferred groups, and manual fairness baselines on advanced templates', async () => {
+		const ctx = createTestContext();
+
+		const result = await createDutyTemplate(
+			ctx,
+			makeInput({
+				slots: [
+					{
+						roleLabel: 'NCO',
+						quantity: 1,
+						allowedRanks: ['SGT', 'SSG'],
+						allowedGroupIds: ['group-alpha', 'group-hq'],
+						preferredGroupIds: ['group-alpha'],
+						rotationPoolKey: 'staff-duty-primary',
+						allowedMosValues: ['11B'],
+						allowedRoleValues: ['Squad Leader']
+					},
+					{
+						roleLabel: 'Runner',
+						quantity: 1,
+						allowedRanks: ['PFC', 'SPC'],
+						allowedGroupIds: ['group-alpha', 'group-hq'],
+						preferredGroupIds: ['group-hq'],
+						rotationPoolKey: 'staff-duty-primary',
+						allowedMosValues: ['11B'],
+						allowedRoleValues: []
+					}
+				],
+				rotationBaselines: [
+					{
+						rotationPoolKey: 'staff-duty-primary',
+						personId: 'person-1',
+						lastServedDate: '2026-03-10'
+					}
+				]
+			})
+		);
+
+		expect(result.slots).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					roleLabel: 'NCO',
+					rotationPoolKey: 'staff-duty-primary',
+					preferredGroupIds: ['group-alpha']
+				}),
+				expect.objectContaining({
+					roleLabel: 'Runner',
+					rotationPoolKey: 'staff-duty-primary',
+					preferredGroupIds: ['group-hq']
+				})
+			])
+		);
+		expect(result.rotationBaselines).toEqual([
+			expect.objectContaining({
+				rotationPoolKey: 'staff-duty-primary',
+				personId: 'person-1',
+				lastServedDate: '2026-03-10'
+			})
+		]);
+	});
+
 	it('rejects activating a template without any slots', async () => {
 		const ctx = createTestContext();
 

@@ -13,7 +13,8 @@ export const changelog: ChangelogEntry[] = [
 		items: [
 			'Added a new duty roster wizard that can pick up your existing one-person duty types instead of making you rebuild them from scratch',
 			'Simple duties now stay on the familiar roster flow while still living inside the new rebuild path, so current setup and calendar records remain usable',
-			'Admins can now preview and apply recurring advanced duty runs from saved templates using daily, weekday, weekend, selected weekday, holiday or closure, and custom-date patterns'
+			'Admins can now preview and apply recurring advanced duty runs from saved templates using daily, weekday, weekend, selected weekday, holiday or closure, and custom-date patterns',
+			'Advanced duty templates can now share or split rotation pools, seed fairness baselines, and explain when a duty pick is running on thin history instead of pretending the queue is more certain than it is'
 		]
 	},
 	{

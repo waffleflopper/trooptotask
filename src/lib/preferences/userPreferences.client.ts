@@ -1,3 +1,4 @@
+import { invalidate } from '$app/navigation';
 import type { UserOrgPreferences, UserOrgPreferencesPatch } from './userPreferences';
 
 const PREFERENCE_PATCH_DEBOUNCE_MS = 350;
@@ -35,6 +36,7 @@ async function sendPatch(orgId: string, patch: UserOrgPreferencesPatch): Promise
 	}
 
 	const preferences = (await res.json()) as UserOrgPreferences;
+	await invalidate('app:org-preferences');
 	return preferences;
 }
 

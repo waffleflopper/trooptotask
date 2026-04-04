@@ -59,7 +59,7 @@ export function createRootOrgLayoutLoad() {
 		cookies: import('@sveltejs/kit').Cookies;
 		depends: (...deps: string[]) => void;
 	}) => {
-		depends('app:org-core');
+		depends('app:org-core', 'app:org-preferences');
 
 		const user = locals.user;
 		const { orgId } = params;

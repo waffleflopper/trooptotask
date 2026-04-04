@@ -2,10 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __resetUserPreferencesPatchStateForTests, queueUserPreferencesPatch } from './userPreferences.client';
 import { getDefaultUserOrgPreferences } from './userPreferences';
 
+const { invalidateMock } = vi.hoisted(() => ({
+	invalidateMock: vi.fn()
+}));
+
+vi.mock('$app/navigation', () => ({
+	invalidate: invalidateMock
+}));
+
 describe('queueUserPreferencesPatch', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		__resetUserPreferencesPatchStateForTests();
+		invalidateMock.mockReset();
+		invalidateMock.mockResolvedValue(undefined);
 		globalThis.fetch = vi.fn();
 	});
 
@@ -35,6 +45,8 @@ describe('queueUserPreferencesPatch', () => {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ calendar: { showStatusText: true } })
 		});
+		expect(invalidateMock).toHaveBeenCalledTimes(1);
+		expect(invalidateMock).toHaveBeenCalledWith('app:org-preferences');
 	});
 
 	it('coalesces rapid preference updates into one request and keeps the latest values', async () => {
@@ -62,6 +74,8 @@ describe('queueUserPreferencesPatch', () => {
 				training: { selectedGroupId: 'g-1', matrixViewMode: 'alphabetical' }
 			})
 		});
+		expect(invalidateMock).toHaveBeenCalledTimes(1);
+		expect(invalidateMock).toHaveBeenCalledWith('app:org-preferences');
 	});
 
 	it('rejects all queued callers when the debounced patch fails', async () => {
@@ -96,5 +110,6 @@ describe('queueUserPreferencesPatch', () => {
 				}
 			})
 		});
+		expect(invalidateMock).not.toHaveBeenCalled();
 	});
 });

@@ -4,6 +4,7 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/publi
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthCookieOptions } from '$lib/server/authCookies';
+import { buildTrustedUserFromClaims, getSupabaseAuthStorageKey, hasSupabaseAuthCookie } from '$lib/server/authSession';
 import { isPublicRoute } from '$lib/server/publicRoutes';
 import {
 	getAuthenticatedRedirectPath,
@@ -23,6 +24,8 @@ const securityHeaders: Record<string, string> = {
 	'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
 	'X-DNS-Prefetch-Control': 'off'
 };
+
+const SUPABASE_AUTH_STORAGE_KEY = getSupabaseAuthStorageKey(PUBLIC_SUPABASE_URL);
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// Rate limiting — skip for e2e tests (dev mode only, tree-shaken in production)
@@ -67,12 +70,34 @@ export const handle: Handle = async ({ event, resolve }) => {
 	let cachedSession: any = null;
 	event.locals.safeGetSession = async () => {
 		if (cachedSession) return cachedSession;
-		const {
-			data: { user },
-			error
-		} = await event.locals.supabase.auth.getUser();
+		const hasAuthCookie = hasSupabaseAuthCookie(
+			event.cookies.getAll().map(({ name }) => name),
+			SUPABASE_AUTH_STORAGE_KEY
+		);
 
-		cachedSession = error || !user ? { session: null, user: null } : { session: { user }, user };
+		if (!hasAuthCookie) {
+			cachedSession = { session: null, user: null };
+			return cachedSession;
+		}
+
+		const {
+			data: { session },
+			error: sessionError
+		} = await event.locals.supabase.auth.getSession();
+
+		if (sessionError || !session?.access_token) {
+			cachedSession = { session: null, user: null };
+			return cachedSession;
+		}
+
+		const { data: claimsData, error: claimsError } = await event.locals.supabase.auth.getClaims(session.access_token);
+		if (claimsError || !claimsData?.claims) {
+			cachedSession = { session: null, user: null };
+			return cachedSession;
+		}
+
+		const user = buildTrustedUserFromClaims(claimsData.claims, session.user);
+		cachedSession = { session: { ...session, user }, user };
 		return cachedSession;
 	};
 	// Check for demo mode - allow unauthenticated access to /org/* routes if in demo mode

@@ -16,6 +16,9 @@
 	let success = $state(false);
 	let sessionReady = $state(false);
 	let tokenError = $state(false);
+	let requiresMfa = $state(false);
+	let mfaCode = $state('');
+	let mfaVerified = $state(false);
 	let recoverySessionTokens = $state<{ accessToken: string; refreshToken: string } | null>(null);
 
 	const hasMinLength = $derived(password.length >= 12);
@@ -50,10 +53,38 @@
 		}
 	}
 
+	async function loadMfaStatus() {
+		const response = await fetch('/api/auth/mfa/status');
+		if (!response.ok) {
+			try {
+				const payload = (await response.json()) as { error?: string };
+				error = payload.error ?? 'We could not verify your account security settings. Please request a new reset link.';
+			} catch {
+				error = 'We could not verify your account security settings. Please request a new reset link.';
+			}
+			return false;
+		}
+
+		const payload = (await response.json()) as {
+			currentLevel?: string | null;
+			nextLevel?: string | null;
+		};
+
+		requiresMfa = payload.currentLevel === 'aal1' && payload.nextLevel === 'aal2';
+		mfaVerified = !requiresMfa;
+		sessionReady = true;
+		return true;
+	}
+
+	function handleMfaCodeInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		mfaCode = input.value.replace(/\D/g, '').slice(0, 6);
+	}
+
 	onMount(() => {
 		void (async () => {
 			if (hasSession) {
-				sessionReady = true;
+				await loadMfaStatus();
 			}
 
 			if (!sessionReady) {
@@ -74,14 +105,18 @@
 							headers: { 'Content-Type': 'application/json' },
 							body: JSON.stringify({
 								accessToken,
-								refreshToken
+								refreshToken,
+								flow: 'recovery'
 							})
 						});
 
 						const result = await readJsonResult(response);
 						if (result.ok) {
-							sessionReady = true;
+							const mfaLoaded = await loadMfaStatus();
 							window.history.replaceState(null, '', window.location.pathname);
+							if (!mfaLoaded) {
+								return;
+							}
 						} else {
 							error = result.error ?? 'We could not verify your reset session. Please request a new reset link.';
 						}
@@ -140,6 +175,37 @@
 			loading = false;
 		}
 	}
+
+	async function handleMfaVerify(e: Event) {
+		e.preventDefault();
+		error = '';
+
+		if (mfaCode.length !== 6) {
+			error = 'Please enter the 6-digit code from your authenticator app.';
+			return;
+		}
+
+		loading = true;
+		try {
+			const response = await fetch('/api/auth/mfa/verify', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code: mfaCode })
+			});
+
+			const result = await readJsonResult(response);
+			if (!result.ok) {
+				error = result.error ?? 'Verification failed.';
+				return;
+			}
+
+			requiresMfa = false;
+			mfaVerified = true;
+			mfaCode = '';
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -155,16 +221,20 @@
 		? 'Password updated'
 		: tokenError
 			? 'Reset link unavailable'
-			: sessionReady
-				? 'Choose a new password'
-				: 'Verifying reset link'}
+			: sessionReady && requiresMfa
+				? 'Verify your authenticator'
+				: sessionReady
+					? 'Choose a new password'
+					: 'Verifying reset link'}
 	panelDescription={success
 		? "You'll be redirected to sign in shortly."
 		: tokenError
 			? 'This reset link can no longer be used.'
-			: sessionReady
-				? 'Enter the new password you want to use for future sign-ins.'
-				: "We're confirming the recovery session before allowing a password change."}
+			: sessionReady && requiresMfa
+				? 'Enter the current 6-digit code from your authenticator app before setting a new password.'
+				: sessionReady
+					? 'Enter the new password you want to use for future sign-ins.'
+					: "We're confirming the recovery session before allowing a password change."}
 	supportLabel="Reset session"
 	supportTitle="Use the link, then set the password."
 	supportDescription="You can only change the password here after the reset link has been verified."
@@ -189,6 +259,41 @@
 				<Spinner color="var(--amber)" />
 				<p class="auth-note">Verifying reset link...</p>
 			</div>
+		{:else if requiresMfa && !mfaVerified}
+			{#if error}
+				<AuthNotice tone="error" message={error} />
+			{/if}
+
+			<form onsubmit={handleMfaVerify} class="auth-stack">
+				<FormField
+					label="Authenticator Code"
+					id="mfa-code"
+					hint="Enter the current 6-digit code from your authenticator app before you reset the password."
+				>
+					<input
+						id="mfa-code"
+						type="text"
+						class="input auth-code-input"
+						value={mfaCode}
+						oninput={handleMfaCodeInput}
+						placeholder="000000"
+						maxlength="6"
+						autocomplete="one-time-code"
+						inputmode="numeric"
+					/>
+				</FormField>
+
+				<div class="auth-actions">
+					<button type="submit" class="btn btn-primary" disabled={loading || mfaCode.length !== 6}>
+						{#if loading}
+							<Spinner />
+							Verifying...
+						{:else}
+							Verify Code
+						{/if}
+					</button>
+				</div>
+			</form>
 		{:else}
 			{#if error}
 				<AuthNotice tone="error" message={error} />

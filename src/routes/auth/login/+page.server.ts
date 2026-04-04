@@ -2,6 +2,7 @@ import { fail, redirect, isRedirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { sanitizeString } from '$lib/server/validation';
 import { auditLog } from '$lib/server/auditLog';
+import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	// Check for demo unavailable error from redirect
@@ -11,7 +12,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	if (locals.session) {
-		redirect(303, '/dashboard');
+		redirect(303, getAuthenticatedRedirectPath(locals.authFlow, locals.mfaPending));
 	}
 
 	return {};

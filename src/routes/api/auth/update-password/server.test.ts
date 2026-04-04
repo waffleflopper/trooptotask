@@ -4,6 +4,7 @@ import { POST } from './+server';
 describe('POST /api/auth/update-password', () => {
 	it('updates the current user password when the new password passes policy', async () => {
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const cookies = { delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -17,16 +18,19 @@ describe('POST /api/auth/update-password', () => {
 						updateUser
 					}
 				}
-			}
+			},
+			cookies
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ ok: true });
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
+		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
 	it('rejects passwords that do not meet policy', async () => {
 		const updateUser = vi.fn();
+		const cookies = { delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -40,7 +44,8 @@ describe('POST /api/auth/update-password', () => {
 						updateUser
 					}
 				}
-			}
+			},
+			cookies
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(400);
@@ -48,12 +53,14 @@ describe('POST /api/auth/update-password', () => {
 			error: 'Password must be at least 12 characters'
 		});
 		expect(updateUser).not.toHaveBeenCalled();
+		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
 	it('returns an auth error when Supabase rejects the password update', async () => {
 		const updateUser = vi.fn().mockResolvedValue({
 			error: { message: 'Password update failed.' }
 		});
+		const cookies = { delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -67,18 +74,21 @@ describe('POST /api/auth/update-password', () => {
 						updateUser
 					}
 				}
-			}
+			},
+			cookies
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(401);
 		expect(await response.json()).toEqual({
 			error: 'Password update failed.'
 		});
+		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
 	it('re-establishes the incoming recovery or invite session before updating the password', async () => {
 		const setSession = vi.fn().mockResolvedValue({ error: null });
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const cookies = { delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -91,13 +101,15 @@ describe('POST /api/auth/update-password', () => {
 				})
 			}),
 			locals: {
+				authFlow: 'recovery',
 				supabase: {
 					auth: {
 						setSession,
 						updateUser
 					}
 				}
-			}
+			},
+			cookies
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(200);
@@ -107,6 +119,7 @@ describe('POST /api/auth/update-password', () => {
 			refresh_token: 'refresh-token'
 		});
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
+		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
 	});
 
 	it('returns an auth error when the recovery or invite session cannot be re-established', async () => {
@@ -114,6 +127,7 @@ describe('POST /api/auth/update-password', () => {
 			error: { message: 'Session is invalid or has expired.' }
 		});
 		const updateUser = vi.fn();
+		const cookies = { delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -132,7 +146,8 @@ describe('POST /api/auth/update-password', () => {
 						updateUser
 					}
 				}
-			}
+			},
+			cookies
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(401);
@@ -140,11 +155,13 @@ describe('POST /api/auth/update-password', () => {
 			error: 'Session is invalid or has expired.'
 		});
 		expect(updateUser).not.toHaveBeenCalled();
+		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
 	it('does not override an already-established session with caller-supplied tokens', async () => {
 		const setSession = vi.fn();
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
+		const cookies = { delete: vi.fn() };
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/update-password', {
@@ -158,18 +175,21 @@ describe('POST /api/auth/update-password', () => {
 			}),
 			locals: {
 				session: { user: { id: 'user-123' } },
+				authFlow: 'invite',
 				supabase: {
 					auth: {
 						setSession,
 						updateUser
 					}
 				}
-			}
+			},
+			cookies
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ ok: true });
 		expect(setSession).not.toHaveBeenCalled();
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
+		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 });

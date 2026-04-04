@@ -13,7 +13,7 @@ export const changelog: ChangelogEntry[] = [
 		items: [
 			'Turning off multi-factor authentication now requires a fresh authenticator code, so it is much harder for someone with a stray session to quietly remove that protection',
 			'Improved password reset for two-factor accounts so recovery now asks for your authenticator code instead of leaving you stuck at an access error',
-			'Tightened a few behind-the-scenes access checks so public pages stay public without accidentally making app-only routes more open than they should be'
+			'Tightened recovery, invite, and verification flows so incomplete sign-ins stay contained, while still giving you a clear sign-out escape hatch if you want to back out'
 		]
 	},
 	{

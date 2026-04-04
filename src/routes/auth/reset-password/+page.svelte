@@ -19,7 +19,6 @@
 	let requiresMfa = $state(false);
 	let mfaCode = $state('');
 	let mfaVerified = $state(false);
-	let recoverySessionTokens = $state<{ accessToken: string; refreshToken: string } | null>(null);
 
 	const hasMinLength = $derived(password.length >= 12);
 	const hasUppercase = $derived(/[A-Z]/.test(password));
@@ -95,11 +94,6 @@
 					const refreshToken = params.get('refresh_token');
 
 					if (accessToken && refreshToken) {
-						recoverySessionTokens = {
-							accessToken,
-							refreshToken
-						};
-
 						const response = await fetch('/api/auth/establish-session', {
 							method: 'POST',
 							headers: { 'Content-Type': 'application/json' },
@@ -151,9 +145,7 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					password,
-					accessToken: recoverySessionTokens?.accessToken,
-					refreshToken: recoverySessionTokens?.refreshToken
+					password
 				})
 			});
 
@@ -341,12 +333,12 @@
 		{/if}
 
 		<div class="auth-divider">
-			<span>Need a different path?</span>
+			<span>Need to exit?</span>
 		</div>
 
 		<div class="auth-link-list">
 			<p>
-				Back to <a href="/auth/login">sign in</a>.
+				Stop this recovery session and <a href="/auth/logout">sign out</a>.
 			</p>
 		</div>
 	</div>

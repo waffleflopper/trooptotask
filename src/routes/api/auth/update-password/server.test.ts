@@ -13,6 +13,7 @@ describe('POST /api/auth/update-password', () => {
 				body: JSON.stringify({ password: 'SecurePass12' })
 			}),
 			locals: {
+				session: { user: { id: 'user-123' } },
 				supabase: {
 					auth: {
 						updateUser
@@ -39,6 +40,7 @@ describe('POST /api/auth/update-password', () => {
 				body: JSON.stringify({ password: 'short' })
 			}),
 			locals: {
+				session: { user: { id: 'user-123' } },
 				supabase: {
 					auth: {
 						updateUser
@@ -69,6 +71,7 @@ describe('POST /api/auth/update-password', () => {
 				body: JSON.stringify({ password: 'SecurePass12' })
 			}),
 			locals: {
+				session: { user: { id: 'user-123' } },
 				supabase: {
 					auth: {
 						updateUser
@@ -85,8 +88,7 @@ describe('POST /api/auth/update-password', () => {
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
-	it('re-establishes the incoming recovery or invite session before updating the password', async () => {
-		const setSession = vi.fn().mockResolvedValue({ error: null });
+	it('updates the password for an active recovery session and clears the recovery flow marker', async () => {
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
 
@@ -94,17 +96,13 @@ describe('POST /api/auth/update-password', () => {
 			request: new Request('http://localhost/api/auth/update-password', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					password: 'SecurePass12',
-					accessToken: 'access-token',
-					refreshToken: 'refresh-token'
-				})
+				body: JSON.stringify({ password: 'SecurePass12' })
 			}),
 			locals: {
+				session: { user: { id: 'user-123' } },
 				authFlow: 'recovery',
 				supabase: {
 					auth: {
-						setSession,
 						updateUser
 					}
 				}
@@ -114,18 +112,11 @@ describe('POST /api/auth/update-password', () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ ok: true });
-		expect(setSession).toHaveBeenCalledWith({
-			access_token: 'access-token',
-			refresh_token: 'refresh-token'
-		});
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
 		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
 	});
 
-	it('returns an auth error when the recovery or invite session cannot be re-established', async () => {
-		const setSession = vi.fn().mockResolvedValue({
-			error: { message: 'Session is invalid or has expired.' }
-		});
+	it('returns an auth error when the recovery or invite session is missing', async () => {
 		const updateUser = vi.fn();
 		const cookies = { delete: vi.fn() };
 
@@ -133,16 +124,11 @@ describe('POST /api/auth/update-password', () => {
 			request: new Request('http://localhost/api/auth/update-password', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					password: 'SecurePass12',
-					accessToken: 'access-token',
-					refreshToken: 'refresh-token'
-				})
+				body: JSON.stringify({ password: 'SecurePass12' })
 			}),
 			locals: {
 				supabase: {
 					auth: {
-						setSession,
 						updateUser
 					}
 				}
@@ -152,14 +138,13 @@ describe('POST /api/auth/update-password', () => {
 
 		expect(response.status).toBe(401);
 		expect(await response.json()).toEqual({
-			error: 'Session is invalid or has expired.'
+			error: 'Your account recovery session is no longer active. Please reopen the link and try again.'
 		});
 		expect(updateUser).not.toHaveBeenCalled();
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
-	it('does not override an already-established session with caller-supplied tokens', async () => {
-		const setSession = vi.fn();
+	it('does not clear the pending flow marker for invite sessions before invite finalization finishes', async () => {
 		const updateUser = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { delete: vi.fn() };
 
@@ -167,18 +152,13 @@ describe('POST /api/auth/update-password', () => {
 			request: new Request('http://localhost/api/auth/update-password', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					password: 'SecurePass12',
-					accessToken: 'access-token',
-					refreshToken: 'refresh-token'
-				})
+				body: JSON.stringify({ password: 'SecurePass12' })
 			}),
 			locals: {
 				session: { user: { id: 'user-123' } },
 				authFlow: 'invite',
 				supabase: {
 					auth: {
-						setSession,
 						updateUser
 					}
 				}
@@ -188,7 +168,6 @@ describe('POST /api/auth/update-password', () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ ok: true });
-		expect(setSession).not.toHaveBeenCalled();
 		expect(updateUser).toHaveBeenCalledWith({ password: 'SecurePass12' });
 		expect(cookies.delete).not.toHaveBeenCalled();
 	});

@@ -105,7 +105,7 @@
 
 		<div class="auth-link-list">
 			<p>
-				Back to <a href="/auth/login">sign in</a>.
+				Leave this verification step and <a href="/auth/logout">sign out</a>.
 			</p>
 		</div>
 	</div>

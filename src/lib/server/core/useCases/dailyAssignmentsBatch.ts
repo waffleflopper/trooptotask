@@ -8,7 +8,9 @@
  */
 import { fail } from '$lib/server/core/errors';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WritePorts } from '$lib/server/core/ports';
+import { findDutyCoverageConflicts } from './dutyAvailability';
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
@@ -52,6 +54,27 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 	const assigneeIds = upserts.map((r) => r.assigneeId);
 	if (assigneeIds.length > 0) {
 		await ctx.auth.requireGroupAccessBatch(assigneeIds);
+	}
+
+	if (assigneeIds.length > 0) {
+		const personnelRows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+			inFilters: { id: [...new Set(assigneeIds)] }
+		});
+		const personnelById = new Map(PersonnelEntity.fromDbArray(personnelRows).map((person) => [person.id, person]));
+
+		for (const record of upserts) {
+			const conflicts = await findDutyCoverageConflicts(ctx, {
+				assigneeIds: [record.assigneeId],
+				coverageStart: `${record.date}T00:00:00`,
+				coverageEnd: `${record.date}T23:59:59`,
+				cooldownHours: 0,
+				personnelById
+			});
+			const conflictMessage = conflicts.get(record.assigneeId)?.[0];
+			if (conflictMessage) {
+				fail(409, conflictMessage);
+			}
+		}
 	}
 
 	// Clear all affected slots first

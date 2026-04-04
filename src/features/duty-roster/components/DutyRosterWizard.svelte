@@ -10,10 +10,13 @@
 		DutyEvent,
 		DutyEventApplyInput,
 		DutyEventPreview,
+		DutyEventPreviewSlotInstance,
 		DutyEventSeriesApplyResult,
+		DutyEventSeriesEventOverrideInput,
 		DutyEventSeriesInput,
 		DutyEventSeriesPattern,
 		DutyEventSeriesPreview,
+		DutyEventSlotOverrideInput,
 		DutyTemplate
 	} from '../duty-roster.types';
 
@@ -80,7 +83,10 @@
 	let customDateDraft = $state('');
 	let customDateEntries = $state<string[]>([]);
 	let advancedSeriesPreview = $state<DutyEventSeriesPreview | null>(null);
+	let advancedSeriesOverrides = $state<DutyEventSeriesEventOverrideInput[]>([]);
+	let collisionReviewConfirmed = $state(false);
 	let isPreviewingAdvancedSeries = $state(false);
+	let isRefreshingAdvancedSeriesPreview = $state(false);
 	let isApplyingAdvancedSeries = $state(false);
 	let appliedAdvancedEvents = $state<DutyEvent[]>([]);
 
@@ -106,6 +112,14 @@
 	const selectedAdvancedTemplate = $derived(
 		activeAdvancedTemplates.find((template) => template.id === selectedAdvancedTemplateId) ?? null
 	);
+	const previewCollisionMessages = $derived.by(() => {
+		if (!advancedSeriesPreview) {
+			return [];
+		}
+
+		return [...new Set(advancedSeriesPreview.events.flatMap((event) => event.collisionSummary.conflicts))];
+	});
+	const previewRequiresCollisionReview = $derived(previewCollisionMessages.length > 0);
 	const personnelById = $derived.by(() => {
 		const map = new Map<string, Personnel>();
 		for (const group of personnelByGroup) {
@@ -114,6 +128,40 @@
 			}
 		}
 		return map;
+	});
+	const previewPersonnelOptions = $derived.by(() =>
+		[...personnelById.values()].sort(
+			(a, b) =>
+				a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName) || a.id.localeCompare(b.id)
+		)
+	);
+	const appliedEventGroups = $derived.by(() => {
+		const groups = new Map<
+			string,
+			{
+				key: string;
+				templateName: string;
+				events: DutyEvent[];
+			}
+		>();
+
+		for (const event of appliedAdvancedEvents) {
+			const key = `${event.templateId}::${event.templateName}`;
+			const group = groups.get(key);
+			if (group) {
+				group.events.push(event);
+				continue;
+			}
+			groups.set(key, {
+				key,
+				templateName: event.templateName,
+				events: [event]
+			});
+		}
+
+		return [...groups.values()].sort(
+			(a, b) => (b.events[0]?.coverageStart ?? '').localeCompare(a.events[0]?.coverageStart ?? '')
+		);
 	});
 
 	$effect(() => {
@@ -146,6 +194,8 @@
 		customDateDraft = '';
 		customDateEntries = [];
 		advancedSeriesPreview = null;
+		advancedSeriesOverrides = [];
+		collisionReviewConfirmed = false;
 		view = 'advanced-generator';
 	}
 
@@ -155,6 +205,8 @@
 
 	function goBackToAdvancedTemplates() {
 		advancedSeriesPreview = null;
+		advancedSeriesOverrides = [];
+		collisionReviewConfirmed = false;
 		view = 'advanced-template-list';
 	}
 
@@ -168,6 +220,42 @@
 		if (!assigneeId) return 'Unfilled';
 		const person = personnelById.get(assigneeId);
 		return person ? `${person.rank} ${person.lastName}` : assigneeId;
+	}
+
+	function formatDisplayDate(date: string): string {
+		return new Intl.DateTimeFormat('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		}).format(new Date(`${date}T00:00:00`));
+	}
+
+	function formatCoverageTimeLabel(dateTime: string): string {
+		return dateTime.slice(11, 16).replace(':', '');
+	}
+
+	function formatEventCoverageLabel(event: DutyEvent): string {
+		if (event.coverageMode === 'all-day') {
+			return 'All day';
+		}
+
+		const startsOn = event.coverageStart.slice(0, 10);
+		const endsOn = event.coverageEnd.slice(0, 10);
+		const start = formatCoverageTimeLabel(event.coverageStart);
+		const end = formatCoverageTimeLabel(event.coverageEnd);
+		return startsOn === endsOn ? `${start}-${end}` : `${start}-${end} next day`;
+	}
+
+	function formatAppliedGroupRange(events: DutyEvent[]): string {
+		if (events.length === 0) return '';
+		const orderedDates = [...events].map((event) => event.eventDate).sort((a, b) => a.localeCompare(b));
+		const first = orderedDates[0];
+		const last = orderedDates[orderedDates.length - 1];
+		return first === last ? formatDisplayDate(first) : `${formatDisplayDate(first)} to ${formatDisplayDate(last)}`;
+	}
+
+	function formatAppliedFillSummary(event: DutyEvent): string {
+		return `${event.fillSummary.filledSlots}/${event.fillSummary.totalSlots} filled`;
 	}
 
 	function toggleWeekday(day: number) {
@@ -198,7 +286,8 @@
 			return {
 				templateId: selectedAdvancedTemplateId,
 				pattern: advancedPattern,
-				customDates: customDateEntries
+				customDates: customDateEntries,
+				eventOverrides: advancedSeriesOverrides.length > 0 ? advancedSeriesOverrides : undefined
 			};
 		}
 
@@ -209,7 +298,9 @@
 			startDate: advancedStartDate,
 			endDate: advancedEndDate,
 			pattern: advancedPattern,
-			selectedWeekdays: advancedPattern === 'selected-weekdays' ? [...selectedWeekdays].sort((a, b) => a - b) : undefined
+			selectedWeekdays:
+				advancedPattern === 'selected-weekdays' ? [...selectedWeekdays].sort((a, b) => a - b) : undefined,
+			eventOverrides: advancedSeriesOverrides.length > 0 ? advancedSeriesOverrides : undefined
 		};
 	}
 
@@ -219,9 +310,126 @@
 		isPreviewingAdvancedSeries = true;
 		try {
 			advancedSeriesPreview = await onPreviewAdvancedSeries(input);
+			collisionReviewConfirmed = false;
 		} finally {
 			isPreviewingAdvancedSeries = false;
 		}
+	}
+
+	function findSeriesSlotOverride(eventDate: string, slot: DutyEventPreviewSlotInstance): DutyEventSlotOverrideInput | null {
+		return (
+			advancedSeriesOverrides
+				.find((entry) => entry.eventDate === eventDate)
+				?.slotOverrides.find(
+					(override) => override.templateSlotId === slot.templateSlotId && override.slotIndex === slot.slotIndex
+				) ?? null
+		);
+	}
+
+	function buildNextSeriesOverrides(
+		eventDate: string,
+		slot: DutyEventPreviewSlotInstance,
+		nextOverride: DutyEventSlotOverrideInput | null
+	): DutyEventSeriesEventOverrideInput[] {
+		const nextEntries = advancedSeriesOverrides.map((entry) =>
+			entry.eventDate === eventDate ? { ...entry, slotOverrides: [...entry.slotOverrides] } : entry
+		);
+		const entryIndex = nextEntries.findIndex((entry) => entry.eventDate === eventDate);
+		const currentEntry =
+			entryIndex >= 0
+				? nextEntries[entryIndex]
+				: {
+						eventDate,
+						slotOverrides: []
+					};
+		const filteredSlotOverrides = currentEntry.slotOverrides.filter(
+			(override) => !(override.templateSlotId === slot.templateSlotId && override.slotIndex === slot.slotIndex)
+		);
+		if (nextOverride) {
+			filteredSlotOverrides.push(nextOverride);
+		}
+		if (filteredSlotOverrides.length === 0) {
+			return entryIndex >= 0
+				? nextEntries.filter((entry) => entry.eventDate !== eventDate)
+				: nextEntries;
+		}
+		const nextEntry = { eventDate, slotOverrides: filteredSlotOverrides };
+		if (entryIndex >= 0) {
+			nextEntries[entryIndex] = nextEntry;
+			return nextEntries;
+		}
+		return [...nextEntries, nextEntry];
+	}
+
+	async function refreshSeriesPreviewWithOverrides(nextOverrides: DutyEventSeriesEventOverrideInput[]) {
+		const input = buildSeriesInput();
+		if (!input) return;
+		isRefreshingAdvancedSeriesPreview = true;
+		advancedSeriesOverrides = nextOverrides;
+		try {
+			advancedSeriesPreview = await onPreviewAdvancedSeries({
+				...input,
+				eventOverrides: nextOverrides.length > 0 ? nextOverrides : undefined
+			});
+			collisionReviewConfirmed = false;
+		} finally {
+			isRefreshingAdvancedSeriesPreview = false;
+		}
+	}
+
+	async function updateSeriesSlotAssignee(
+		eventDate: string,
+		slot: DutyEventPreviewSlotInstance,
+		assigneeId: string | null
+	) {
+		const existingOverride = findSeriesSlotOverride(eventDate, slot);
+		const nextOverride: DutyEventSlotOverrideInput = {
+			templateSlotId: slot.templateSlotId,
+			slotIndex: slot.slotIndex,
+			assigneeId,
+			assignmentSource:
+				existingOverride?.assignmentSource === 'locked' || slot.assignmentSource === 'locked' ? 'locked' : 'manual'
+		};
+		await refreshSeriesPreviewWithOverrides(buildNextSeriesOverrides(eventDate, slot, nextOverride));
+	}
+
+	async function toggleSeriesSlotLock(eventDate: string, slot: DutyEventPreviewSlotInstance) {
+		const existingOverride = findSeriesSlotOverride(eventDate, slot);
+		const nextAssignmentSource =
+			existingOverride?.assignmentSource === 'locked' || slot.assignmentSource === 'locked' ? 'manual' : 'locked';
+		await refreshSeriesPreviewWithOverrides(
+			buildNextSeriesOverrides(eventDate, slot, {
+				templateSlotId: slot.templateSlotId,
+				slotIndex: slot.slotIndex,
+				assigneeId: slot.assigneeId,
+				assignmentSource: nextAssignmentSource
+			})
+		);
+	}
+
+	async function clearSeriesSlot(eventDate: string, slot: DutyEventPreviewSlotInstance) {
+		const existingOverride = findSeriesSlotOverride(eventDate, slot);
+		await refreshSeriesPreviewWithOverrides(
+			buildNextSeriesOverrides(eventDate, slot, {
+				templateSlotId: slot.templateSlotId,
+				slotIndex: slot.slotIndex,
+				assigneeId: null,
+				assignmentSource:
+					existingOverride?.assignmentSource === 'locked' || slot.assignmentSource === 'locked' ? 'locked' : 'manual'
+			})
+		);
+	}
+
+	async function resetSeriesSlot(eventDate: string, slot: DutyEventPreviewSlotInstance) {
+		await refreshSeriesPreviewWithOverrides(buildNextSeriesOverrides(eventDate, slot, null));
+	}
+
+	function slotEditorLabel(eventDate: string, slot: DutyEventPreviewSlotInstance): string {
+		return `Assignee for ${eventDate} ${slot.roleLabel} #${slot.slotIndex + 1}`;
+	}
+
+	function hasSeriesSlotOverride(eventDate: string, slot: DutyEventPreviewSlotInstance): boolean {
+		return !!findSeriesSlotOverride(eventDate, slot);
 	}
 
 	async function handleApplyAdvancedSeries() {
@@ -229,12 +437,17 @@
 		if (!input) return;
 		isApplyingAdvancedSeries = true;
 		try {
-			const result = await onApplyAdvancedSeries(input);
+			const result = await onApplyAdvancedSeries({
+				...input,
+				collisionReviewConfirmed: previewRequiresCollisionReview ? collisionReviewConfirmed : undefined
+			});
 			if (result) {
-				appliedAdvancedEvents = [...result.events, ...appliedAdvancedEvents.filter((existing) => !result.events.some((event) => event.id === existing.id))].sort(
-					(a, b) => b.coverageStart.localeCompare(a.coverageStart)
-				);
+				appliedAdvancedEvents = [
+					...result.events,
+					...appliedAdvancedEvents.filter((existing) => !result.events.some((event) => event.id === existing.id))
+				].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
 				advancedSeriesPreview = null;
+				collisionReviewConfirmed = false;
 			}
 		} finally {
 			isApplyingAdvancedSeries = false;
@@ -248,6 +461,8 @@
 	function handlePatternChange(nextPattern: DutyEventSeriesPattern) {
 		advancedPattern = nextPattern;
 		advancedSeriesPreview = null;
+		advancedSeriesOverrides = [];
+		collisionReviewConfirmed = false;
 
 		if (nextPattern === 'selected-weekdays') {
 			selectedWeekdays = new Set();
@@ -261,25 +476,27 @@
 			<div>
 				<p class="eyebrow">Simple Lane</p>
 				<h2>{selectedSimpleTemplate?.name ?? 'Simple duty roster'}</h2>
-				<p class="wizard-copy">This path keeps the current one-person DA6-style behavior and existing calendar records intact.</p>
+				<p class="wizard-copy">
+					This path keeps the current one-person DA6-style behavior and existing calendar records intact.
+				</p>
 			</div>
 			<button class="btn btn-secondary" type="button" onclick={goBackToTemplates}>Back to Simple Templates</button>
 		</div>
 
 		<DutyRosterGenerator
 			initialAssignmentTypeId={selectedSimpleAssignmentTypeId}
-			assignmentTypes={assignmentTypes}
-			assignments={assignments}
-			personnelByGroup={personnelByGroup}
-			groups={groups}
-			availabilityEntries={availabilityEntries}
-			statusTypes={statusTypes}
-			specialDays={specialDays}
-			rosterHistory={rosterHistory}
-			onApplyRoster={onApplyRoster}
-			onSaveRoster={onSaveRoster}
-			onDeleteRoster={onDeleteRoster}
-			onUpdateExemptions={onUpdateExemptions}
+			{assignmentTypes}
+			{assignments}
+			{personnelByGroup}
+			{groups}
+			{availabilityEntries}
+			{statusTypes}
+			{specialDays}
+			{rosterHistory}
+			{onApplyRoster}
+			{onSaveRoster}
+			{onDeleteRoster}
+			{onUpdateExemptions}
 		/>
 	{:else}
 		<div class="wizard-hero card card-flat">
@@ -287,7 +504,8 @@
 				<p class="eyebrow">Duty wizard</p>
 				<h2>Choose the lane that matches the duty.</h2>
 				<p class="wizard-copy">
-					Simple duties keep the existing one-person roster behavior. Advanced duties use reusable templates for the rebuilt flow.
+					Simple duties keep the existing one-person roster behavior. Advanced duties use reusable templates for the
+					rebuilt flow.
 				</p>
 			</div>
 		</div>
@@ -297,14 +515,18 @@
 				<article class="lane-card card card-flat">
 					<p class="eyebrow">Simple</p>
 					<h3>Reuse an existing one-person duty.</h3>
-					<p class="lane-copy">Bridge current assignment types into the new flow without migrating or rewriting legacy calendar data.</p>
+					<p class="lane-copy">
+						Bridge current assignment types into the new flow without migrating or rewriting legacy calendar data.
+					</p>
 					<button class="btn btn-primary" type="button" onclick={openSimpleLane}>Use Simple Duty</button>
 				</article>
 
 				<article class="lane-card card card-flat">
 					<p class="eyebrow">Advanced</p>
 					<h3>Build toward team-based duties.</h3>
-					<p class="lane-copy">Select an advanced template, preview a recurring team duty series, and apply it as first-class duty events.</p>
+					<p class="lane-copy">
+						Select an advanced template, preview a recurring team duty series, and apply it as first-class duty events.
+					</p>
 					<button
 						class="btn btn-secondary"
 						type="button"
@@ -344,7 +566,11 @@
 									<p class="template-meta">{template.shortName} · {template.exemptPersonnelCount} exempt</p>
 									<p class="template-description">{template.description}</p>
 								</div>
-								<button class="btn btn-primary btn-sm" type="button" onclick={() => chooseSimpleTemplate(template.assignmentTypeId)}>
+								<button
+									class="btn btn-primary btn-sm"
+									type="button"
+									onclick={() => chooseSimpleTemplate(template.assignmentTypeId)}
+								>
 									Continue with {template.name}
 								</button>
 							</article>
@@ -363,7 +589,9 @@
 					</div>
 					<div class="header-actions">
 						<button class="btn btn-secondary btn-sm" type="button" onclick={() => (view = 'choose-lane')}>Back</button>
-						<button class="btn btn-secondary btn-sm" type="button" onclick={onManageAdvancedTemplates}>Manage Templates</button>
+						<button class="btn btn-secondary btn-sm" type="button" onclick={onManageAdvancedTemplates}
+							>Manage Templates</button
+						>
 					</div>
 				</div>
 
@@ -379,12 +607,16 @@
 								<div>
 									<h4>{template.name}</h4>
 									<p class="template-meta">
-						{template.coverageMode === 'timed' ? `${template.startTime} to ${template.endTime}` : 'All day'}
+										{template.coverageMode === 'timed' ? `${template.startTime} to ${template.endTime}` : 'All day'}
 										· {template.slots.length} slot definition{template.slots.length === 1 ? '' : 's'}
 									</p>
 									<p class="template-description">{template.description ?? 'No description yet.'}</p>
 								</div>
-								<button class="btn btn-primary btn-sm" type="button" onclick={() => chooseAdvancedTemplate(template.id)}>
+								<button
+									class="btn btn-primary btn-sm"
+									type="button"
+									onclick={() => chooseAdvancedTemplate(template.id)}
+								>
 									Generate Series
 								</button>
 							</article>
@@ -400,11 +632,16 @@
 					<div>
 						<p class="eyebrow">Advanced series</p>
 						<h3>{selectedAdvancedTemplate.name}</h3>
-						<p class="template-description">Choose a date pattern, preview the resulting event series, and apply the run as first-class team duty events.</p>
+						<p class="template-description">
+							Choose a date pattern, preview the resulting event series, and apply the run as first-class team duty
+							events.
+						</p>
 					</div>
 					<div class="header-actions">
 						<button class="btn btn-secondary btn-sm" type="button" onclick={goBackToAdvancedTemplates}>Back</button>
-						<button class="btn btn-secondary btn-sm" type="button" onclick={onManageAdvancedTemplates}>Manage Templates</button>
+						<button class="btn btn-secondary btn-sm" type="button" onclick={onManageAdvancedTemplates}
+							>Manage Templates</button
+						>
 					</div>
 				</div>
 
@@ -425,7 +662,8 @@
 							class="select"
 							value={advancedPattern}
 							aria-label="Date Pattern"
-							onchange={(event) => handlePatternChange((event.currentTarget as HTMLSelectElement).value as DutyEventSeriesPattern)}
+							onchange={(event) =>
+								handlePatternChange((event.currentTarget as HTMLSelectElement).value as DutyEventSeriesPattern)}
 						>
 							<option value="daily">Daily</option>
 							<option value="weekday-only">Weekdays Only</option>
@@ -435,7 +673,12 @@
 							<option value="custom-dates">Custom Dates</option>
 						</select>
 					</label>
-					<button class="btn btn-primary" type="button" disabled={!buildSeriesInput() || isPreviewingAdvancedSeries} onclick={handlePreviewAdvancedSeries}>
+					<button
+						class="btn btn-primary"
+						type="button"
+						disabled={!buildSeriesInput() || isPreviewingAdvancedSeries}
+						onclick={handlePreviewAdvancedSeries}
+					>
 						{isPreviewingAdvancedSeries ? 'Preparing Preview...' : 'Preview Series'}
 					</button>
 				</div>
@@ -465,7 +708,9 @@
 						<button class="btn btn-secondary" type="button" onclick={addCustomDate}>Add Date</button>
 						<div class="slot-chip-list">
 							{#each customDateEntries as date (date)}
-								<button class="slot-chip slot-chip-action" type="button" onclick={() => removeCustomDate(date)}>{date}</button>
+								<button class="slot-chip slot-chip-action" type="button" onclick={() => removeCustomDate(date)}
+									>{date}</button
+								>
 							{/each}
 						</div>
 					</div>
@@ -477,12 +722,50 @@
 							<div>
 								<p class="eyebrow">Series preview ready</p>
 								<h4>{advancedSeriesPreview.templateName}</h4>
-								<p class="template-meta">{advancedSeriesPreview.eventDates.length} event{advancedSeriesPreview.eventDates.length === 1 ? '' : 's'} · {advancedSeriesPreview.pattern}</p>
+								<p class="template-meta">
+									{advancedSeriesPreview.eventDates.length} event{advancedSeriesPreview.eventDates.length === 1
+										? ''
+										: 's'} · {advancedSeriesPreview.pattern}
+								</p>
+								{#if isRefreshingAdvancedSeriesPreview}
+									<p class="template-meta">Refreshing preview around your edits...</p>
+								{/if}
 							</div>
-							<button class="btn btn-primary" type="button" disabled={isApplyingAdvancedSeries} onclick={handleApplyAdvancedSeries}>
+							<button
+								class="btn btn-primary"
+								type="button"
+								disabled={
+									isApplyingAdvancedSeries ||
+									isRefreshingAdvancedSeriesPreview ||
+									(previewRequiresCollisionReview && !collisionReviewConfirmed)
+								}
+								onclick={handleApplyAdvancedSeries}
+							>
 								{isApplyingAdvancedSeries ? 'Applying Series...' : 'Apply Series'}
 							</button>
 						</div>
+
+						{#if previewRequiresCollisionReview}
+							<section class="collision-review-panel" aria-label="Collision review">
+								<div>
+									<p class="eyebrow">Collision review required</p>
+									<h5>Review these conflicts before you apply the run.</h5>
+								</div>
+								<div class="collision-list">
+									{#each previewCollisionMessages as conflict (conflict)}
+										<p class="collision-item">{conflict}</p>
+									{/each}
+								</div>
+								<label class="collision-checkbox">
+									<input
+										type="checkbox"
+										bind:checked={collisionReviewConfirmed}
+										aria-label="I reviewed the conflicts for this run"
+									/>
+									<span>I reviewed the conflicts for this run</span>
+								</label>
+							</section>
+						{/if}
 
 						<div class="slot-preview-list">
 							{#each advancedSeriesPreview.events as event (event.eventDate)}
@@ -502,9 +785,87 @@
 									<div class="slot-preview-list nested-list">
 										{#each event.slotInstances as slot (`${event.eventDate}-${slot.roleLabel}-${slot.slotIndex}`)}
 											<div class="slot-preview-subitem">
-												<strong>{slot.roleLabel} #{slot.slotIndex + 1}</strong>
+												<div class="slot-preview-heading">
+													<strong>{slot.roleLabel} #{slot.slotIndex + 1}</strong>
+													<div class="slot-status-badges">
+														{#if slot.assignmentSource === 'locked'}
+															<span class="slot-status slot-status-lock">Locked</span>
+														{:else if slot.assignmentSource === 'manual'}
+															<span class="slot-status slot-status-manual">Manual</span>
+														{/if}
+														{#if slot.warningState === 'warning'}
+															<span class="slot-status slot-status-warning">Soft warning</span>
+														{:else if slot.warningState === 'conflict'}
+															<span class="slot-status slot-status-conflict">Hard conflict</span>
+														{/if}
+													</div>
+												</div>
 												<span>{formatSlotAssignee(slot.assigneeId)}</span>
-												<span>{slot.unfilledReason ?? slot.selectionReason ?? 'Generated assignment ready to apply.'}</span>
+												<label class="field">
+													<span class="label sr-only">{slotEditorLabel(event.eventDate, slot)}</span>
+													<select
+														class="select"
+														aria-label={slotEditorLabel(event.eventDate, slot)}
+														value={slot.assigneeId ?? ''}
+														disabled={isRefreshingAdvancedSeriesPreview || isApplyingAdvancedSeries}
+														onchange={(changeEvent) =>
+															updateSeriesSlotAssignee(
+																event.eventDate,
+																slot,
+																(changeEvent.currentTarget as HTMLSelectElement).value || null
+															)}
+													>
+														<option value="">Leave Unfilled</option>
+														{#each previewPersonnelOptions as person (person.id)}
+															<option value={person.id}>{person.rank} {person.lastName}</option>
+														{/each}
+													</select>
+												</label>
+												<div class="slot-action-row">
+													<button
+														class="btn btn-secondary btn-sm"
+														type="button"
+														disabled={isRefreshingAdvancedSeriesPreview || isApplyingAdvancedSeries}
+														aria-label={`${slot.assignmentSource === 'locked' ? 'Unlock' : 'Lock'} ${event.eventDate} ${slot.roleLabel} #${slot.slotIndex + 1}`}
+														onclick={() => toggleSeriesSlotLock(event.eventDate, slot)}
+													>
+														{slot.assignmentSource === 'locked' ? 'Unlock' : 'Lock'}
+													</button>
+													<button
+														class="btn btn-secondary btn-sm"
+														type="button"
+														disabled={isRefreshingAdvancedSeriesPreview || isApplyingAdvancedSeries}
+														aria-label={`Clear ${event.eventDate} ${slot.roleLabel} #${slot.slotIndex + 1}`}
+														onclick={() => clearSeriesSlot(event.eventDate, slot)}
+													>
+														Clear
+													</button>
+													<button
+														class="btn btn-secondary btn-sm"
+														type="button"
+														disabled={
+															isRefreshingAdvancedSeriesPreview ||
+															isApplyingAdvancedSeries ||
+															!hasSeriesSlotOverride(event.eventDate, slot)
+														}
+														aria-label={`Reset ${event.eventDate} ${slot.roleLabel} #${slot.slotIndex + 1}`}
+														onclick={() => resetSeriesSlot(event.eventDate, slot)}
+													>
+														Reset
+													</button>
+												</div>
+												{#if slot.overrideMessages && slot.overrideMessages.length > 0}
+													<div class="slot-message-list">
+														{#each slot.overrideMessages as message (`${event.eventDate}-${slot.slotIndex}-${message}`)}
+															<span
+																class={`slot-message ${slot.warningState === 'conflict' ? 'slot-message-conflict' : slot.warningState === 'warning' ? 'slot-message-warning' : ''}`}
+																>{message}</span
+															>
+														{/each}
+													</div>
+												{:else}
+													<span>{slot.unfilledReason ?? slot.selectionReason ?? 'Generated assignment ready to apply.'}</span>
+												{/if}
 											</div>
 										{/each}
 									</div>
@@ -531,22 +892,38 @@
 				variant="simple"
 			/>
 		{:else}
-			<div class="template-grid">
-				{#each appliedAdvancedEvents as event (event.id)}
-					<article class="template-card">
-						<div>
-							<h4>{event.templateName}</h4>
-							<p class="template-meta">{event.coverageStart} to {event.coverageEnd}</p>
-							<p class="template-description">
-								{event.fillSummary.filledSlots}/{event.fillSummary.totalSlots} slot{event.fillSummary.totalSlots === 1 ? '' : 's'} filled
-							</p>
-						</div>
-						<div class="slot-chip-list">
-							{#each event.slotInstances as slot (slot.id)}
-								<span class="slot-chip">{slot.roleLabel} #{slot.slotIndex + 1}: {formatSlotAssignee(slot.assigneeId)}</span>
+			<div class="applied-group-list">
+				{#each appliedEventGroups as group, groupIndex (group.key)}
+					<details class="applied-group" open={groupIndex === 0}>
+						<summary class="applied-group-summary">
+							<div>
+								<h4>{group.templateName}</h4>
+								<p class="template-meta">
+									{group.events.length} applied event{group.events.length === 1 ? '' : 's'} · {formatAppliedGroupRange(group.events)}
+								</p>
+							</div>
+							<span class="applied-group-hint">Show run</span>
+						</summary>
+						<div class="applied-ledger">
+							{#each group.events as event (event.id)}
+								<article class="applied-ledger-row">
+									<div class="applied-ledger-primary">
+										<strong>{formatDisplayDate(event.eventDate)}</strong>
+										<p class="template-meta">
+											{formatEventCoverageLabel(event)} · {formatAppliedFillSummary(event)}
+										</p>
+									</div>
+									<div class="applied-assignment-list">
+										{#each event.slotInstances as slot (slot.id)}
+											<span class="slot-chip">
+												{slot.roleLabel} #{slot.slotIndex + 1}: {formatSlotAssignee(slot.assigneeId)}
+											</span>
+										{/each}
+									</div>
+								</article>
 							{/each}
 						</div>
-					</article>
+					</details>
 				{/each}
 			</div>
 		{/if}
@@ -571,7 +948,11 @@
 	.wizard-banner {
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-lg);
-		background: linear-gradient(135deg, color-mix(in srgb, var(--surface-panel) 88%, var(--amber-light) 12%), var(--surface-panel));
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--surface-panel) 88%, var(--amber-light) 12%),
+			var(--surface-panel)
+		);
 	}
 
 	.wizard-banner,
@@ -639,6 +1020,21 @@
 		background: var(--surface-panel);
 	}
 
+	.lane-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
+	}
+
+	.lane-card .lane-copy {
+		flex: 1;
+	}
+
+	.lane-card > .btn {
+		align-self: flex-start;
+		margin-top: auto;
+	}
+
 	.lane-card,
 	.template-card,
 	.preview-card,
@@ -657,6 +1053,33 @@
 		display: flex;
 		gap: var(--sp-3);
 		flex-wrap: wrap;
+	}
+
+	.collision-review-panel {
+		display: grid;
+		gap: var(--sp-3);
+		margin-top: var(--sp-4);
+		padding: var(--sp-4);
+		border: 1px solid color-mix(in srgb, var(--border-danger) 55%, var(--border-default));
+		border-radius: var(--radius-lg);
+		background: color-mix(in srgb, var(--surface-panel) 82%, var(--danger-light) 18%);
+	}
+
+	.collision-list {
+		display: grid;
+		gap: var(--sp-2);
+	}
+
+	.collision-item {
+		margin: 0;
+		color: var(--text-primary);
+	}
+
+	.collision-checkbox {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+		color: var(--text-primary);
 	}
 
 	.advanced-form {
@@ -729,18 +1152,138 @@
 		cursor: pointer;
 	}
 
+	.applied-group-list {
+		display: grid;
+		gap: var(--sp-3);
+		margin-top: var(--sp-4);
+	}
+
+	.applied-group {
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
+		overflow: clip;
+	}
+
+	.applied-group-summary {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		padding: var(--sp-4);
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.applied-group-summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.applied-group-hint {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+
+	.applied-ledger {
+		display: grid;
+		border-top: 1px solid var(--border-subtle);
+	}
+
+	.applied-ledger-row {
+		display: grid;
+		grid-template-columns: minmax(170px, 220px) minmax(0, 1fr);
+		gap: var(--sp-3);
+		padding: var(--sp-4);
+		border-top: 1px solid var(--border-subtle);
+	}
+
+	.applied-ledger-row:first-child {
+		border-top: none;
+	}
+
+	.applied-ledger-primary {
+		display: grid;
+		align-content: start;
+		gap: 4px;
+	}
+
+	.applied-assignment-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		align-content: start;
+	}
+
 	.nested-list {
 		margin-top: 0;
 	}
 
 	.slot-preview-subitem {
 		display: grid;
-		gap: 2px;
+		gap: var(--sp-2);
 		padding: 10px 12px;
 		border: 1px solid var(--border-subtle);
 		border-radius: var(--radius-sm);
 		background: var(--surface-panel);
 		color: var(--text-secondary);
+	}
+
+	.slot-preview-heading,
+	.slot-status-badges,
+	.slot-action-row,
+	.slot-message-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	.slot-preview-heading {
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.slot-status {
+		display: inline-flex;
+		align-items: center;
+		padding: 2px 8px;
+		border-radius: 999px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+	}
+
+	.slot-status-lock,
+	.slot-status-manual {
+		background: color-mix(in srgb, var(--surface-subtle) 55%, var(--surface-panel) 45%);
+		color: var(--text-secondary);
+	}
+
+	.slot-status-warning {
+		background: color-mix(in srgb, var(--amber-light) 78%, var(--surface-panel) 22%);
+		color: var(--amber-dark);
+	}
+
+	.slot-status-conflict {
+		background: color-mix(in srgb, var(--danger-light) 82%, var(--surface-panel) 18%);
+		color: var(--danger-dark);
+	}
+
+	.slot-message {
+		display: block;
+		width: 100%;
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+	}
+
+	.slot-message-warning {
+		color: var(--amber-dark);
+	}
+
+	.slot-message-conflict {
+		color: var(--danger-dark);
 	}
 
 	@media (max-width: 720px) {
@@ -758,6 +1301,10 @@
 
 		.header-actions :global(.btn) {
 			flex: 1;
+		}
+
+		.applied-ledger-row {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

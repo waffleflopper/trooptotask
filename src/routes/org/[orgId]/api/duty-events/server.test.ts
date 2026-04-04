@@ -110,6 +110,46 @@ describe('POST /api/duty-events', () => {
 		});
 		expect(result.slotInstances).toHaveLength(2);
 	});
+
+	it('returns the final manual result and preserved original proposal when apply includes slot overrides', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alt-nco',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Zimmer',
+				first_name: 'Taylor',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const result = await handleUseCaseRequest(applyConfig, ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10',
+			slotOverrides: [{ templateSlotId: template.slots[0]?.id ?? null, slotIndex: 0, assigneeId: 'person-alt-nco' }]
+		});
+
+		expect(result.slotInstances[0]).toMatchObject({
+			templateSlotId: template.slots[0]?.id,
+			assigneeId: 'person-alt-nco',
+			assignmentSource: 'manual'
+		});
+		expect(result.originalProposal).toMatchObject({
+			slotInstances: expect.arrayContaining([
+				expect.objectContaining({
+					templateSlotId: template.slots[0]?.id,
+					assigneeId: 'person-nco',
+					assignmentSource: 'generated'
+				})
+			])
+		});
+	});
 });
 
 describe('POST /api/duty-events/series/preview', () => {
@@ -150,6 +190,50 @@ describe('POST /api/duty-events/series/preview', () => {
 		expect(result.eventDates).toEqual(['2026-04-06', '2026-04-07', '2026-04-08']);
 		expect(result.events).toHaveLength(3);
 	});
+
+	it('returns edited series previews when event overrides are provided', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alt-nco',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Zimmer',
+				first_name: 'Taylor',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const result = await handleUseCaseRequest(previewSeriesConfig, ctx, {
+			templateId: template.id,
+			pattern: 'custom-dates',
+			customDates: ['2026-04-10'],
+			eventOverrides: [
+				{
+					eventDate: '2026-04-10',
+					slotOverrides: [
+						{
+							templateSlotId: template.slots[0]?.id ?? null,
+							slotIndex: 0,
+							assigneeId: 'person-alt-nco',
+							assignmentSource: 'locked'
+						}
+					]
+				}
+			]
+		});
+
+		expect(result.events[0]?.slotInstances[0]).toMatchObject({
+			templateSlotId: template.slots[0]?.id,
+			assigneeId: 'person-alt-nco',
+			assignmentSource: 'locked'
+		});
+	});
 });
 
 describe('POST /api/duty-events/series', () => {
@@ -170,5 +254,57 @@ describe('POST /api/duty-events/series', () => {
 
 		expect(result.eventDates).toEqual(['2026-04-04', '2026-04-10']);
 		expect(result.events).toHaveLength(2);
+	});
+
+	it('applies series-level slot overrides and preserves the original generated proposal', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alt-nco',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Zimmer',
+				first_name: 'Taylor',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const result = await handleUseCaseRequest(applySeriesConfig, ctx, {
+			templateId: template.id,
+			pattern: 'custom-dates',
+			customDates: ['2026-04-10'],
+			eventOverrides: [
+				{
+					eventDate: '2026-04-10',
+					slotOverrides: [
+						{
+							templateSlotId: template.slots[0]?.id ?? null,
+							slotIndex: 0,
+							assigneeId: 'person-alt-nco'
+						}
+					]
+				}
+			]
+		});
+
+		expect(result.events[0]?.slotInstances[0]).toMatchObject({
+			templateSlotId: template.slots[0]?.id,
+			assigneeId: 'person-alt-nco',
+			assignmentSource: 'manual'
+		});
+		expect(result.events[0]?.originalProposal).toMatchObject({
+			slotInstances: expect.arrayContaining([
+				expect.objectContaining({
+					templateSlotId: template.slots[0]?.id,
+					assigneeId: 'person-nco',
+					assignmentSource: 'generated'
+				})
+			])
+		});
 	});
 });

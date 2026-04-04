@@ -9,9 +9,25 @@ import type {
 	DutyEvent,
 	DutyEventPreview,
 	DutyEventSeriesApplyResult,
+	DutyEventSeriesInput,
 	DutyEventSeriesPreview,
 	DutyTemplate
 } from '../duty-roster.types';
+
+function makePersonnel(overrides: Partial<Personnel> = {}): Personnel {
+	return {
+		id: 'person-nco',
+		firstName: 'Casey',
+		lastName: 'Nolan',
+		rank: 'SGT',
+		groupId: 'group-hq',
+		groupName: 'Headquarters',
+		mos: '11B',
+		clinicRole: 'Squad Leader',
+		archivedAt: null,
+		...overrides
+	};
+}
 
 function makeAssignmentType(overrides: Partial<AssignmentType> = {}): AssignmentType {
 	return {
@@ -117,7 +133,8 @@ function makePreview(overrides: Partial<DutyEventPreview> = {}): DutyEventPrevie
 				assignmentSource: 'generated',
 				warningState: 'warning',
 				fairnessConfidence: 'low',
-				selectionReason: 'Selected by longest break in rotation pool "staff-duty-primary". Fairness confidence is low because not every eligible person has seeded or historical service data yet.',
+				selectionReason:
+					'Selected by longest break in rotation pool "staff-duty-primary". Fairness confidence is low because not every eligible person has seeded or historical service data yet.',
 				unfilledReason: null,
 				sortOrder: 0
 			}
@@ -148,6 +165,7 @@ function makeAppliedEvent(overrides: Partial<DutyEvent> = {}): DutyEvent {
 			hasConflicts: false,
 			conflicts: []
 		},
+		originalProposal: null,
 		createdAt: '2026-04-04T12:00:00.000Z',
 		updatedAt: '2026-04-04T12:00:00.000Z',
 		slotInstances: [
@@ -161,7 +179,8 @@ function makeAppliedEvent(overrides: Partial<DutyEvent> = {}): DutyEvent {
 				assignmentSource: 'generated',
 				warningState: 'warning',
 				fairnessConfidence: 'low',
-				selectionReason: 'Selected by longest break in rotation pool "staff-duty-primary". Fairness confidence is low because not every eligible person has seeded or historical service data yet.',
+				selectionReason:
+					'Selected by longest break in rotation pool "staff-duty-primary". Fairness confidence is low because not every eligible person has seeded or historical service data yet.',
 				unfilledReason: null,
 				sortOrder: 0
 			}
@@ -177,7 +196,11 @@ function makeSeriesPreview(overrides: Partial<DutyEventSeriesPreview> = {}): Dut
 		pattern: 'selected-weekdays',
 		eventDates: ['2026-04-07', '2026-04-09'],
 		events: [
-			makePreview({ eventDate: '2026-04-07', coverageStart: '2026-04-07T08:00:00', coverageEnd: '2026-04-08T08:00:00' }),
+			makePreview({
+				eventDate: '2026-04-07',
+				coverageStart: '2026-04-07T08:00:00',
+				coverageEnd: '2026-04-08T08:00:00'
+			}),
 			makePreview({ eventDate: '2026-04-09', coverageStart: '2026-04-09T08:00:00', coverageEnd: '2026-04-10T08:00:00' })
 		],
 		...overrides
@@ -217,7 +240,24 @@ function renderWizard(overrides: Partial<ComponentProps<typeof DutyRosterWizard>
 				makeAssignmentType({ id: 'at-group', name: 'Manager on Duty', shortName: 'MOD', assignTo: 'group' })
 			],
 			assignments: [] as DailyAssignment[],
-			personnelByGroup: [] as { group: string; personnel: Personnel[] }[],
+			personnelByGroup: [
+				{
+					group: 'Headquarters',
+					personnel: [
+						makePersonnel(),
+						makePersonnel({
+							id: 'person-alt',
+							firstName: 'Blake',
+							lastName: 'Zimmer'
+						}),
+						makePersonnel({
+							id: 'person-conflict',
+							firstName: 'Jordan',
+							lastName: 'Hayes'
+						})
+					]
+				}
+			] as { group: string; personnel: Personnel[] }[],
 			groups: [],
 			availabilityEntries: [] as AvailabilityEntry[],
 			statusTypes: [] as StatusType[],
@@ -333,8 +373,11 @@ describe('DutyRosterWizard', () => {
 		});
 
 		expect(screen.getByText('Applied advanced duty events')).toBeTruthy();
-		expect(screen.getByText('2026-04-07T08:00:00 to 2026-04-08T08:00:00')).toBeTruthy();
-		expect(screen.getByText('2026-04-09T08:00:00 to 2026-04-10T08:00:00')).toBeTruthy();
+		expect(screen.getAllByText('Battalion Staff Duty').length).toBeGreaterThan(0);
+		expect(screen.getByText('2 applied events · Apr 7, 2026 to Apr 9, 2026')).toBeTruthy();
+		expect(screen.getByText('Apr 7, 2026')).toBeTruthy();
+		expect(screen.getAllByText('0800-0800 next day · 1/1 filled').length).toBeGreaterThan(0);
+		expect(screen.queryByText('2026-04-07T08:00:00 to 2026-04-08T08:00:00')).toBeNull();
 	});
 
 	it('supports a daily recurring pattern for advanced duty series', async () => {
@@ -392,5 +435,413 @@ describe('DutyRosterWizard', () => {
 		});
 
 		expect(screen.getByText('2026-04-08T08:00:00 to 2026-04-09T08:00:00')).toBeTruthy();
+	});
+
+	it('requires explicit collision review before applying an advanced series preview', async () => {
+		const previewHandler = vi.fn(async () =>
+			makeSeriesPreview({
+				eventDates: ['2026-04-07'],
+				events: [
+					makePreview({
+						eventDate: '2026-04-07',
+						coverageStart: '2026-04-07T08:00:00',
+						coverageEnd: '2026-04-08T08:00:00',
+						collisionSummary: {
+							hasConflicts: true,
+							conflicts: ['SGT Nolan already has a daily assignment on 2026-04-07. Review this collision before apply.']
+						}
+					})
+				]
+			})
+		);
+		const applyHandler = vi.fn(async () => makeSeriesApplyResult());
+
+		renderWizard({
+			onPreviewAdvancedSeries: previewHandler,
+			onApplyAdvancedSeries: applyHandler
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
+			target: { value: '2026-04-07' }
+		});
+		await fireEvent.input(screen.getByLabelText('End Date'), {
+			target: { value: '2026-04-07' }
+		});
+		await fireEvent.change(screen.getByLabelText('Date Pattern'), {
+			target: { value: 'daily' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(
+				screen.getByText('SGT Nolan already has a daily assignment on 2026-04-07. Review this collision before apply.')
+			).toBeTruthy();
+		});
+
+		const applyButton = screen.getByRole('button', { name: 'Apply Series' }) as HTMLButtonElement;
+		expect(applyButton.disabled).toBe(true);
+
+		await fireEvent.click(screen.getByLabelText('I reviewed the conflicts for this run'));
+
+		expect(applyButton.disabled).toBe(false);
+
+		await fireEvent.click(applyButton);
+
+		await waitFor(() => {
+			expect(applyHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					templateId: 'tmpl-staff-duty',
+					startDate: '2026-04-07',
+					endDate: '2026-04-07',
+					pattern: 'daily',
+					collisionReviewConfirmed: true
+				})
+			);
+		});
+	});
+
+	it('lets users lock and clear previewed assignments before applying an advanced series', async () => {
+		const previewHandler = vi.fn(async (input: DutyEventSeriesInput) => {
+			const override = input.eventOverrides?.[0]?.slotOverrides?.[0];
+			const baseSlot = makePreview().slotInstances[0];
+
+			if (!override) {
+				return makeSeriesPreview({
+					eventDates: ['2026-04-07'],
+					events: [
+						makePreview({
+							eventDate: '2026-04-07',
+							coverageStart: '2026-04-07T08:00:00',
+							coverageEnd: '2026-04-08T08:00:00'
+						})
+					]
+				});
+			}
+
+			return makeSeriesPreview({
+				eventDates: ['2026-04-07'],
+				events: [
+					makePreview({
+						eventDate: '2026-04-07',
+						coverageStart: '2026-04-07T08:00:00',
+						coverageEnd: '2026-04-08T08:00:00',
+						slotInstances: [
+							{
+								...baseSlot,
+								assigneeId: override.assigneeId ?? null,
+								assignmentSource: override.assignmentSource ?? 'manual',
+								selectionReason:
+									override.assigneeId == null
+										? override.assignmentSource === 'locked'
+											? 'Assignment was locked open in preview.'
+											: 'Assignment was cleared in preview.'
+										: override.assignmentSource === 'locked'
+											? 'Assignment was locked in preview.'
+											: 'Assignment was manually overridden in preview.',
+								unfilledReason: override.assigneeId == null ? 'Assignment was cleared in preview.' : null,
+								overrideMessages: [],
+								warningState: 'none'
+							}
+						]
+					})
+				]
+			});
+		});
+		const applyHandler = vi.fn(async () => makeSeriesApplyResult());
+
+		renderWizard({
+			onPreviewAdvancedSeries: previewHandler,
+			onApplyAdvancedSeries: applyHandler
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText('Assignee for 2026-04-07 NCO #1')).toBeTruthy();
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Lock 2026-04-07 NCO #1' }));
+
+		await waitFor(() => {
+			expect(previewHandler).toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					eventOverrides: [
+						{
+							eventDate: '2026-04-07',
+							slotOverrides: [
+								{
+									templateSlotId: 'slot-1',
+									slotIndex: 0,
+									assigneeId: 'person-nco',
+									assignmentSource: 'locked'
+								}
+							]
+						}
+					]
+				})
+			);
+		});
+
+		expect(screen.getByText('Assignment was locked in preview.')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Clear 2026-04-07 NCO #1' }));
+
+		await waitFor(() => {
+			expect(previewHandler).toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					eventOverrides: [
+						{
+							eventDate: '2026-04-07',
+							slotOverrides: [
+								{
+									templateSlotId: 'slot-1',
+									slotIndex: 0,
+									assigneeId: null,
+									assignmentSource: 'locked'
+								}
+							]
+						}
+					]
+				})
+			);
+		});
+
+		expect(screen.getByText('Assignment was cleared in preview.')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Apply Series' }));
+
+		await waitFor(() => {
+			expect(applyHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					eventOverrides: [
+						{
+							eventDate: '2026-04-07',
+							slotOverrides: [
+								{
+									templateSlotId: 'slot-1',
+									slotIndex: 0,
+									assigneeId: null,
+									assignmentSource: 'locked'
+								}
+							]
+						}
+					]
+				})
+			);
+		});
+	});
+
+	it('shows soft warnings and hard conflicts when preview overrides change slot assignments', async () => {
+		const previewHandler = vi.fn(async (input: DutyEventSeriesInput) => {
+			const override = input.eventOverrides?.[0]?.slotOverrides?.[0];
+			const baseSlot = makePreview().slotInstances[0];
+
+			if (!override) {
+				return makeSeriesPreview({
+					eventDates: ['2026-04-07'],
+					events: [
+						makePreview({
+							eventDate: '2026-04-07',
+							coverageStart: '2026-04-07T08:00:00',
+							coverageEnd: '2026-04-08T08:00:00',
+							slotInstances: [{ ...baseSlot, overrideMessages: [] }]
+						})
+					]
+				});
+			}
+
+			if (override.assigneeId === 'person-conflict') {
+				return makeSeriesPreview({
+					eventDates: ['2026-04-07'],
+					events: [
+						makePreview({
+							eventDate: '2026-04-07',
+							coverageStart: '2026-04-07T08:00:00',
+							coverageEnd: '2026-04-08T08:00:00',
+							collisionSummary: {
+								hasConflicts: true,
+								conflicts: ['SGT Hayes is still in cooldown until 2026-04-07T20:00:00. Review this collision before apply.']
+							},
+							slotInstances: [
+								{
+									...baseSlot,
+									assigneeId: 'person-conflict',
+									assignmentSource: 'manual',
+									warningState: 'conflict',
+									selectionReason: 'Assignment was manually overridden in preview.',
+									overrideMessages: [
+										'SGT Hayes is still in cooldown until 2026-04-07T20:00:00. Review this collision before apply.'
+									]
+								}
+							]
+						})
+					]
+				});
+			}
+
+			return makeSeriesPreview({
+				eventDates: ['2026-04-07'],
+				events: [
+					makePreview({
+						eventDate: '2026-04-07',
+						coverageStart: '2026-04-07T08:00:00',
+						coverageEnd: '2026-04-08T08:00:00',
+						slotInstances: [
+							{
+								...baseSlot,
+								assigneeId: 'person-alt',
+								assignmentSource: 'manual',
+								warningState: 'warning',
+								selectionReason: 'Assignment was manually overridden in preview.',
+								overrideMessages: ['Manual override bypasses the generator fairness order for this slot.']
+							}
+						]
+					})
+				]
+			});
+		});
+		const applyHandler = vi.fn(async () => makeSeriesApplyResult());
+
+		renderWizard({
+			onPreviewAdvancedSeries: previewHandler,
+			onApplyAdvancedSeries: applyHandler
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText('Assignee for 2026-04-07 NCO #1')).toBeTruthy();
+		});
+
+		await fireEvent.change(screen.getByLabelText('Assignee for 2026-04-07 NCO #1'), {
+			target: { value: 'person-alt' }
+		});
+
+		await waitFor(() => {
+			expect(previewHandler).toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					eventOverrides: [
+						{
+							eventDate: '2026-04-07',
+							slotOverrides: [
+								{
+									templateSlotId: 'slot-1',
+									slotIndex: 0,
+									assigneeId: 'person-alt',
+									assignmentSource: 'manual'
+								}
+							]
+						}
+					]
+				})
+			);
+		});
+
+		expect(screen.getByText('Soft warning')).toBeTruthy();
+		expect(screen.getByText('Manual override bypasses the generator fairness order for this slot.')).toBeTruthy();
+
+		await fireEvent.change(screen.getByLabelText('Assignee for 2026-04-07 NCO #1'), {
+			target: { value: 'person-conflict' }
+		});
+
+		await waitFor(() => {
+			expect(previewHandler).toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					eventOverrides: [
+						{
+							eventDate: '2026-04-07',
+							slotOverrides: [
+								{
+									templateSlotId: 'slot-1',
+									slotIndex: 0,
+									assigneeId: 'person-conflict',
+									assignmentSource: 'manual'
+								}
+							]
+						}
+					]
+				})
+			);
+		});
+
+		expect(screen.getByText('Hard conflict')).toBeTruthy();
+		expect(
+			screen.getAllByText('SGT Hayes is still in cooldown until 2026-04-07T20:00:00. Review this collision before apply.')
+				.length
+		).toBeGreaterThan(0);
+
+		await fireEvent.click(screen.getByLabelText('I reviewed the conflicts for this run'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Apply Series' }));
+
+		await waitFor(() => {
+			expect(applyHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					collisionReviewConfirmed: true,
+					eventOverrides: [
+						{
+							eventDate: '2026-04-07',
+							slotOverrides: [
+								{
+									templateSlotId: 'slot-1',
+									slotIndex: 0,
+									assigneeId: 'person-conflict',
+									assignmentSource: 'manual'
+								}
+							]
+						}
+					]
+				})
+			);
+		});
+	});
+
+	it('groups applied advanced duty events into compact duty ledgers with readable coverage labels', async () => {
+		renderWizard({
+			advancedDutyEvents: [
+				makeAppliedEvent({
+					id: 'cq-event-1',
+					templateId: 'tmpl-cq',
+					templateName: 'CQ',
+					eventDate: '2026-04-10',
+					coverageMode: 'all-day',
+					coverageStart: '2026-04-10T00:00:00',
+					coverageEnd: '2026-04-10T23:59:59'
+				}),
+				makeAppliedEvent({
+					id: 'cq-event-2',
+					templateId: 'tmpl-cq',
+					templateName: 'CQ',
+					eventDate: '2026-04-09',
+					coverageMode: 'all-day',
+					coverageStart: '2026-04-09T00:00:00',
+					coverageEnd: '2026-04-09T23:59:59'
+				}),
+				makeAppliedEvent({
+					id: 'staff-duty-1',
+					templateId: 'tmpl-sd',
+					templateName: 'Staff Duty',
+					eventDate: '2026-04-08',
+					coverageMode: 'timed',
+					coverageStart: '2026-04-08T08:00:00',
+					coverageEnd: '2026-04-09T08:00:00'
+				})
+			]
+		});
+
+		expect(screen.getByText('CQ')).toBeTruthy();
+		expect(screen.getByText('2 applied events · Apr 9, 2026 to Apr 10, 2026')).toBeTruthy();
+		expect(screen.getByText('Apr 10, 2026')).toBeTruthy();
+		expect(screen.getAllByText('All day · 1/1 filled')).toHaveLength(2);
+		expect(screen.getByText('Staff Duty')).toBeTruthy();
+		expect(screen.getByText('1 applied event · Apr 8, 2026')).toBeTruthy();
+		expect(screen.getByText('0800-0800 next day · 1/1 filled')).toBeTruthy();
+		expect(screen.queryByText(/T00:00:00/)).toBeNull();
 	});
 });

@@ -15,6 +15,7 @@
  */
 import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
+import { toastStore } from '$lib/stores/toast.svelte';
 import type { AssignmentType, DailyAssignment } from '$lib/types';
 
 export type { AssignmentType, DailyAssignment } from '$lib/types';
@@ -44,6 +45,17 @@ interface AssignmentExtensions extends Record<string, unknown> {
 function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAssignment>): AssignmentExtensions {
 	function getAssignmentSnapshot(): DailyAssignment[] {
 		return internals.snapshot();
+	}
+
+	async function readResponseErrorMessage(res: Response, fallback: string): Promise<string> {
+		const raw = await res.text();
+		if (!raw) return fallback;
+		try {
+			const parsed = JSON.parse(raw) as { message?: string; error?: string };
+			return parsed.message ?? parsed.error ?? raw;
+		} catch {
+			return raw;
+		}
 	}
 
 	return {
@@ -133,7 +145,9 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ date, assignmentTypeId, assigneeId })
 				});
-				if (!res.ok) throw new Error('Failed to set assignment');
+				if (!res.ok) {
+					throw new Error(await readResponseErrorMessage(res, 'Failed to set assignment'));
+				}
 
 				// Update serverState
 				let current = internals.serverState.getSnapshot();
@@ -151,9 +165,10 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				if (removeMutationId) internals.log.resolve(removeMutationId);
 				if (addMutationId) internals.log.resolve(addMutationId);
 				return true;
-			} catch {
+			} catch (error) {
 				if (removeMutationId) internals.log.resolve(removeMutationId);
 				if (addMutationId) internals.log.resolve(addMutationId);
+				toastStore.error(error instanceof Error ? error.message : 'Failed to set assignment');
 				return false;
 			}
 		},
@@ -223,7 +238,9 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ records: assignments })
 				});
-				if (!res.ok) throw new Error('Failed to batch update assignments');
+				if (!res.ok) {
+					throw new Error(await readResponseErrorMessage(res, 'Failed to batch update assignments'));
+				}
 
 				const data = await res.json();
 				const inserted: DailyAssignment[] = data.inserted;
@@ -239,9 +256,10 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				for (const rmId of removeMutationIds) internals.log.resolve(rmId);
 				if (addMutationId) internals.log.resolve(addMutationId);
 				return true;
-			} catch {
+			} catch (error) {
 				for (const rmId of removeMutationIds) internals.log.resolve(rmId);
 				if (addMutationId) internals.log.resolve(addMutationId);
+				toastStore.error(error instanceof Error ? error.message : 'Failed to batch update assignments');
 				return false;
 			}
 		},

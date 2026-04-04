@@ -18,7 +18,7 @@ export const DutyEventSlotEntity = defineEntity<DutyEventSlotInstance>({
 			column: 'assignment_source',
 			insertDefault: 'generated'
 		}),
-		warningState: field(z.enum(['none', 'warning']), {
+		warningState: field(z.enum(['none', 'warning', 'conflict']), {
 			column: 'warning_state',
 			insertDefault: 'none'
 		}),

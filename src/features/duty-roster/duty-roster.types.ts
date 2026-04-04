@@ -107,13 +107,13 @@ export interface DutyEventRulesSnapshot {
 		roleLabel: string;
 		quantity: number;
 		allowedRanks: string[];
-	allowedGroupIds: string[];
-	preferredGroupIds: string[];
-	allowedMosValues: string[];
-	allowedRoleValues: string[];
-	rotationPoolKey: string;
-	sortOrder: number;
-}>;
+		allowedGroupIds: string[];
+		preferredGroupIds: string[];
+		allowedMosValues: string[];
+		allowedRoleValues: string[];
+		rotationPoolKey: string;
+		sortOrder: number;
+	}>;
 }
 
 export interface DutyEventFillSummary {
@@ -128,8 +128,14 @@ export interface DutyEventCollisionSummary {
 }
 
 export type DutyEventAssignmentSource = 'generated' | 'manual' | 'locked';
-export type DutyEventWarningState = 'none' | 'warning';
+export type DutyEventWarningState = 'none' | 'warning' | 'conflict';
 export type DutyEventFairnessConfidence = 'high' | 'low';
+
+export interface DutyEventOriginalProposal {
+	fillSummary: DutyEventFillSummary;
+	collisionSummary: DutyEventCollisionSummary;
+	slotInstances: DutyEventPreviewSlotInstance[];
+}
 
 export interface DutyEventSlotInstance {
 	id: string;
@@ -143,6 +149,7 @@ export interface DutyEventSlotInstance {
 	fairnessConfidence: DutyEventFairnessConfidence;
 	selectionReason: string | null;
 	unfilledReason: string | null;
+	overrideMessages?: string[];
 	sortOrder: number;
 }
 
@@ -156,6 +163,7 @@ export interface DutyEventPreviewSlotInstance {
 	fairnessConfidence: DutyEventFairnessConfidence;
 	selectionReason: string | null;
 	unfilledReason: string | null;
+	overrideMessages?: string[];
 	sortOrder: number;
 }
 
@@ -173,6 +181,7 @@ export interface DutyEventRecord {
 	rulesSnapshot: DutyEventRulesSnapshot;
 	fillSummary: DutyEventFillSummary;
 	collisionSummary: DutyEventCollisionSummary;
+	originalProposal: DutyEventOriginalProposal | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -181,9 +190,23 @@ export interface DutyEvent extends DutyEventRecord {
 	slotInstances: DutyEventSlotInstance[];
 }
 
+export interface DutyEventSlotOverrideInput {
+	templateSlotId: string | null;
+	slotIndex: number;
+	assigneeId: string | null;
+	assignmentSource?: Exclude<DutyEventAssignmentSource, 'generated'>;
+}
+
 export interface DutyEventApplyInput {
 	templateId: string;
 	eventDate: string;
+	collisionReviewConfirmed?: boolean;
+	slotOverrides?: DutyEventSlotOverrideInput[];
+}
+
+export interface DutyEventSeriesEventOverrideInput {
+	eventDate: string;
+	slotOverrides: DutyEventSlotOverrideInput[];
 }
 
 export interface DutyEventPreview {
@@ -208,6 +231,8 @@ export interface DutyEventSeriesInput {
 	pattern: DutyEventSeriesPattern;
 	selectedWeekdays?: number[];
 	customDates?: string[];
+	collisionReviewConfirmed?: boolean;
+	eventOverrides?: DutyEventSeriesEventOverrideInput[];
 }
 
 export interface DutyEventSeriesPreview {

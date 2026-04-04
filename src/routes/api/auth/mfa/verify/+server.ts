@@ -6,6 +6,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		code?: string;
 	};
 
+	if (!code || !/^\d{6}$/.test(code)) {
+		return json(
+			{
+				error: 'Enter the 6-digit code from your authenticator app.'
+			},
+			{ status: 400 }
+		);
+	}
+
 	const { data: factors } = await locals.supabase.auth.mfa.listFactors();
 	const totpFactors = factors?.totp ?? [];
 	const verifiedFactor = totpFactors.find((factor: Record<string, unknown>) => factor.status === 'verified');
@@ -21,7 +30,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const { error } = await locals.supabase.auth.mfa.challengeAndVerify({
 		factorId: verifiedFactor.id as string,
-		code: code ?? ''
+		code
 	});
 
 	if (error) {

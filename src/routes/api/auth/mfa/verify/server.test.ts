@@ -39,6 +39,36 @@ describe('POST /api/auth/mfa/verify', () => {
 		});
 	});
 
+	it('rejects verification when the code is missing or malformed', async () => {
+		const listFactors = vi.fn();
+		const challengeAndVerify = vi.fn();
+
+		const response = await POST({
+			request: new Request('http://localhost/api/auth/mfa/verify', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code: '12ab' })
+			}),
+			locals: {
+				supabase: {
+					auth: {
+						mfa: {
+							listFactors,
+							challengeAndVerify
+						}
+					}
+				}
+			}
+		} as unknown as Parameters<typeof POST>[0]);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			error: 'Enter the 6-digit code from your authenticator app.'
+		});
+		expect(listFactors).not.toHaveBeenCalled();
+		expect(challengeAndVerify).not.toHaveBeenCalled();
+	});
+
 	it('rejects verification when no verified MFA factor exists', async () => {
 		const listFactors = vi.fn().mockResolvedValue({
 			data: {

@@ -4,10 +4,8 @@ import { validatePassword } from '$lib/server/validation';
 import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
 
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
-	const { password, accessToken, refreshToken } = (await request.json()) as {
+	const { password } = (await request.json()) as {
 		password?: string;
-		accessToken?: string;
-		refreshToken?: string;
 	};
 
 	const passwordError = validatePassword(password ?? '');
@@ -20,20 +18,13 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 		);
 	}
 
-	if (!locals.session && accessToken && refreshToken) {
-		const { error: sessionError } = await locals.supabase.auth.setSession({
-			access_token: accessToken,
-			refresh_token: refreshToken
-		});
-
-		if (sessionError) {
-			return json(
-				{
-					error: sessionError.message
-				},
-				{ status: 401 }
-			);
-		}
+	if (!locals.session) {
+		return json(
+			{
+				error: 'Your account recovery session is no longer active. Please reopen the link and try again.'
+			},
+			{ status: 401 }
+		);
 	}
 
 	const { error } = await locals.supabase.auth.updateUser({ password });

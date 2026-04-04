@@ -141,6 +141,8 @@
 	}
 
 	.footer__legal {
+		justify-self: end;
+		max-width: 36ch;
 		font-family: var(--font-mono);
 		font-size: 10px;
 		color: var(--text-tertiary);
@@ -154,7 +156,6 @@
 
 	.footer__legal-note {
 		margin-top: var(--sp-2);
-		max-width: 34ch;
 	}
 
 	.footer__meta {
@@ -180,6 +181,8 @@
 		}
 
 		.footer__legal {
+			justify-self: start;
+			max-width: none;
 			text-align: left;
 		}
 	}

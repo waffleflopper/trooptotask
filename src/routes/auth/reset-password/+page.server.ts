@@ -19,8 +19,8 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	}
 
 	const {
-		data: { user }
-	} = await locals.supabase.auth.getUser();
+		data: { session }
+	} = await locals.supabase.auth.getSession();
 
-	return { hasSession: !!user };
+	return { hasSession: !!session?.access_token };
 };

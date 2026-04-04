@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-04-04-duty-roster-wizard',
+		date: '2026-04-04',
+		title: 'Duty Roster Wizard Now Recognizes Existing Duties',
+		items: [
+			'Added a new duty roster wizard that can pick up your existing one-person duty types instead of making you rebuild them from scratch',
+			'Simple duties now stay on the familiar roster flow while still living inside the new rebuild path, so current setup and calendar records remain usable',
+			'Admins can now preview and apply recurring advanced duty runs from saved templates using daily, weekday, weekend, selected weekday, holiday or closure, and custom-date patterns'
+		]
+	},
+	{
 		id: '2026-04-04-calendar-training-responsiveness',
 		date: '2026-04-04',
 		title: 'Smoother Calendar and Training Controls',
@@ -43,16 +53,6 @@ export const changelog: ChangelogEntry[] = [
 			'Improved account invite and password reset flows so setup links are more reliable and less likely to leave people stuck halfway through',
 			'Tightened up password setup rules so account creation and password recovery now follow the same policy instead of behaving differently',
 			'Cleaned up some of the behind-the-scenes auth handling so retries and follow-up steps are less brittle when connections are slow or links are reopened'
-		]
-	},
-	{
-		id: '2026-04-01-refresh-pass',
-		date: '2026-04-01',
-		title: 'A Cleaner, Easier-to-Read Refresh',
-		items: [
-			'Refreshed the overall look of the app and public site so screens feel more consistent from page to page',
-			'Improved text sizing and spacing across key areas like dashboards, modals, and marketing pages so things are easier to scan without feeling oversized',
-			'Smoothed out navigation and layout behavior across desktop, tablet, and mobile so menus stay available where you expect them'
 		]
 	}
 ];

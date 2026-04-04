@@ -12,6 +12,7 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 
 	interface Props {
+		initialAssignmentTypeId?: string;
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		personnelByGroup: { group: string; personnel: Personnel[] }[];
@@ -27,6 +28,7 @@
 	}
 
 	let {
+		initialAssignmentTypeId = undefined,
 		assignmentTypes,
 		assignments,
 		personnelByGroup,
@@ -719,6 +721,16 @@
 
 	// Personnel-only assignment types
 	const personnelAssignmentTypes = $derived(assignmentTypes.filter((t) => t.assignTo === 'personnel'));
+	let lastAppliedInitialAssignmentTypeId = $state<string | null>(null);
+
+	$effect(() => {
+		const nextInitialId = initialAssignmentTypeId?.trim() || null;
+		if (!nextInitialId || nextInitialId === lastAppliedInitialAssignmentTypeId) return;
+		if (!personnelAssignmentTypes.some((type) => type.id === nextInitialId)) return;
+
+		selectedAssignmentTypeId = nextInitialId;
+		lastAppliedInitialAssignmentTypeId = nextInitialId;
+	});
 
 	const panelTitle = $derived(
 		view === 'history' ? 'Roster History' : view === 'preview' ? 'Generated Roster Preview' : 'Generate Duty Roster'

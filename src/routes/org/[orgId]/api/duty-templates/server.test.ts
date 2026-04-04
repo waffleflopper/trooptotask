@@ -1,0 +1,75 @@
+import { describe, expect, it } from 'vitest';
+import { createTestContext } from '$lib/server/adapters/inMemory';
+import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { _postConfig, _putConfig } from './+server';
+
+function makePayload(overrides: Record<string, unknown> = {}) {
+	return {
+		status: 'draft',
+		name: 'Company CQ',
+		scopeType: 'groups',
+		scopeGroupIds: ['group-hq'],
+		coverageMode: 'timed',
+		startTime: '09:00',
+		endTime: '09:00',
+		isBlocking: true,
+		cooldownHours: 8,
+		slots: [
+			{
+				roleLabel: 'NCO',
+				quantity: 1,
+				allowedRanks: ['SGT'],
+				allowedGroupIds: ['group-hq'],
+				allowedMosValues: [],
+				allowedRoleValues: []
+			}
+		],
+		...overrides
+	};
+}
+
+describe('POST /api/duty-templates', () => {
+	it('exports a privileged mutation route config', () => {
+		expect(_postConfig.permission).toBe('privileged');
+		expect(_postConfig.mutation).toBe(true);
+	});
+
+	it('creates a template aggregate', async () => {
+		const ctx = createTestContext();
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, makePayload());
+
+		expect(result).toMatchObject({
+			name: 'Company CQ',
+			status: 'draft'
+		});
+		expect(result.slots).toHaveLength(1);
+	});
+
+	it('rejects non-privileged users', async () => {
+		const ctx = createTestContext({
+			auth: {
+				isPrivileged: false,
+				requirePrivileged() {
+					throw { status: 403 };
+				}
+			}
+		});
+
+		await expect(handleUseCaseRequest(_postConfig, ctx, makePayload())).rejects.toMatchObject({ status: 403 });
+	});
+});
+
+describe('PUT /api/duty-templates', () => {
+	it('updates an existing template aggregate', async () => {
+		const ctx = createTestContext();
+		const created = await handleUseCaseRequest(_postConfig, ctx, makePayload());
+
+		const updated = await handleUseCaseRequest(_putConfig, ctx, makePayload({ id: created.id, status: 'active' }));
+
+		expect(updated).toMatchObject({
+			id: created.id,
+			status: 'active'
+		});
+	});
+});

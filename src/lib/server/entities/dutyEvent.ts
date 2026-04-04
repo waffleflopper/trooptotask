@@ -21,6 +21,7 @@ export const DutyEventEntity = defineEntity<DutyEvent>({
 		rulesSnapshot: field(z.any(), { column: 'rules_snapshot' }),
 		fillSummary: field(z.any(), { column: 'fill_summary' }),
 		collisionSummary: field(z.any(), { column: 'collision_summary' }),
+		originalProposal: field(z.any().nullable(), { column: 'original_proposal', insertDefault: null }),
 		createdAt: field(z.string(), { column: 'created_at', readOnly: true }),
 		updatedAt: field(z.string(), { column: 'updated_at', readOnly: true })
 	}

@@ -41,8 +41,8 @@
 		allowedRanks: string[];
 		allowedGroupIds: string[];
 		preferredGroupIds: string[];
-		allowedMosValuesText: string;
-		allowedRoleValuesText: string;
+		allowedMosValues: string[];
+		allowedRoleValues: string[];
 		rotationPoolKey: string;
 	}
 
@@ -85,20 +85,14 @@
 	const hasInvalidSlots = $derived(draftSlots.some((slot) => !slot.roleLabel.trim() || slot.quantity < 1));
 	const canSave = $derived(templateName.trim().length > 0 && !hasInvalidSlots);
 	const rotationPoolOptions = $derived(
-		[...new Set(draftSlots.map((slot) => slot.rotationPoolKey.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+		[...new Set(draftSlots.map((slot) => slot.rotationPoolKey.trim()).filter(Boolean))].sort((a, b) =>
+			a.localeCompare(b)
+		)
 	);
 
 	function nextSlotKey(): string {
 		slotKeyIndex += 1;
 		return `slot-${slotKeyIndex}`;
-	}
-
-	function listToText(values: string[]): string {
-		return values.join(', ');
-	}
-
-	function textToList(value: string): string[] {
-		return [...new Set(value.split(',').map((entry) => entry.trim()).filter(Boolean))];
 	}
 
 	function makeBlankSlot(): EditableSlot {
@@ -109,8 +103,8 @@
 			allowedRanks: [],
 			allowedGroupIds: [],
 			preferredGroupIds: [],
-			allowedMosValuesText: '',
-			allowedRoleValuesText: '',
+			allowedMosValues: [],
+			allowedRoleValues: [],
 			rotationPoolKey: ''
 		};
 	}
@@ -155,8 +149,8 @@
 			allowedRanks: [...slot.allowedRanks],
 			allowedGroupIds: [...slot.allowedGroupIds],
 			preferredGroupIds: [...slot.preferredGroupIds],
-			allowedMosValuesText: listToText(slot.allowedMosValues),
-			allowedRoleValuesText: listToText(slot.allowedRoleValues),
+			allowedMosValues: [...slot.allowedMosValues],
+			allowedRoleValues: [...slot.allowedRoleValues],
 			rotationPoolKey: slot.rotationPoolKey
 		}));
 		draftRotationBaselines = template.rotationBaselines.map((baseline) => ({
@@ -241,8 +235,8 @@
 			allowedRanks: slot.allowedRanks,
 			allowedGroupIds: slot.allowedGroupIds,
 			preferredGroupIds: slot.preferredGroupIds,
-			allowedMosValues: textToList(slot.allowedMosValuesText),
-			allowedRoleValues: textToList(slot.allowedRoleValuesText),
+			allowedMosValues: slot.allowedMosValues,
+			allowedRoleValues: slot.allowedRoleValues,
 			rotationPoolKey: slot.rotationPoolKey.trim() || `slot-${index + 1}`,
 			sortOrder: index
 		}));
@@ -315,7 +309,10 @@
 	{#if !canManageTemplates}
 		<section class="restricted-state">
 			<h3>Advanced templates are admin-only right now.</h3>
-			<p>Owners and admins can create or edit reusable advanced duty templates. Full editors can still use the current duty roster generator.</p>
+			<p>
+				Owners and admins can create or edit reusable advanced duty templates. Full editors can still use the current
+				duty roster generator.
+			</p>
 		</section>
 	{:else}
 		<div class="builder-layout">
@@ -473,7 +470,9 @@
 												min="1"
 												value={slot.quantity}
 												oninput={(event) =>
-													updateSlot(slot.key, { quantity: Number((event.currentTarget as HTMLInputElement).value) || 1 })}
+													updateSlot(slot.key, {
+														quantity: Number((event.currentTarget as HTMLInputElement).value) || 1
+													})}
 											/>
 										</label>
 
@@ -535,57 +534,58 @@
 										</label>
 
 										<label class="field">
-											<span>Allowed MOS values</span>
-											<input
+											<span>MOS filter</span>
+											<select
 												class="input"
-												type="text"
-												list={`slot-mos-${slot.key}`}
-												value={slot.allowedMosValuesText}
-												placeholder="Comma-separated"
-												oninput={(event) =>
+												multiple
+												value={slot.allowedMosValues}
+												onchange={(event) => {
+													const target = event.currentTarget as HTMLSelectElement;
 													updateSlot(slot.key, {
-														allowedMosValuesText: (event.currentTarget as HTMLInputElement).value
-													})}
-											/>
-											<datalist id={`slot-mos-${slot.key}`}>
+														allowedMosValues: [...target.selectedOptions].map((option) => option.value)
+													});
+												}}
+											>
 												{#each availableMosValues as mos (mos)}
-													<option value={mos}></option>
+													<option value={mos}>{mos}</option>
 												{/each}
-											</datalist>
+											</select>
 										</label>
 
 										<label class="field">
-											<span>Allowed role values</span>
-											<input
+											<span>Personnel role filter</span>
+											<select
 												class="input"
-												type="text"
-												list={`slot-role-${slot.key}`}
-												value={slot.allowedRoleValuesText}
-												placeholder="Comma-separated"
-												oninput={(event) =>
+												multiple
+												value={slot.allowedRoleValues}
+												onchange={(event) => {
+													const target = event.currentTarget as HTMLSelectElement;
 													updateSlot(slot.key, {
-														allowedRoleValuesText: (event.currentTarget as HTMLInputElement).value
-													})}
-											/>
-											<datalist id={`slot-role-${slot.key}`}>
+														allowedRoleValues: [...target.selectedOptions].map((option) => option.value)
+													});
+												}}
+											>
 												{#each availableRoleValues as role (role)}
-													<option value={role}></option>
+													<option value={role}>{role}</option>
 												{/each}
-											</datalist>
+											</select>
 										</label>
 
 										<label class="field">
-											<span>Rotation pool key</span>
+											<span>Rotation group</span>
 											<input
 												class="input"
 												type="text"
 												value={slot.rotationPoolKey}
-												placeholder="e.g. staff-duty-primary"
+												placeholder="Leave blank to keep this slot on its own rotation"
 												oninput={(event) =>
 													updateSlot(slot.key, {
 														rotationPoolKey: (event.currentTarget as HTMLInputElement).value
 													})}
 											/>
+											<span class="field-hint"
+												>Use the same rotation group on multiple slots when those positions should rotate together.</span
+											>
 										</label>
 									</div>
 								</article>
@@ -597,15 +597,15 @@
 				<section class="builder-card">
 					<div class="section-header">
 						<div>
-							<p class="eyebrow">Fairness Baselines</p>
-							<h3>Seed rotation pools when history is incomplete.</h3>
+							<p class="eyebrow">Rotation Starting Points</p>
+							<h3>Set a starting point when you do not have enough duty history yet.</h3>
 						</div>
 						<button class="btn btn-sm" type="button" onclick={addBaseline}>Add Baseline</button>
 					</div>
 
 					{#if draftRotationBaselines.length === 0}
 						<EmptyState
-							message="No manual baselines yet. Add one when a rotation pool needs a seeded last-served date."
+							message="No manual starting points yet. Add one when a rotation group needs a last-served date to start from."
 							variant="simple"
 						/>
 					{:else}
@@ -614,12 +614,13 @@
 								<article class="slot-card">
 									<div class="slot-header">
 										<h4>Baseline {index + 1}</h4>
-										<button class="btn btn-sm" type="button" onclick={() => removeBaseline(baseline.key)}>Remove</button>
+										<button class="btn btn-sm" type="button" onclick={() => removeBaseline(baseline.key)}>Remove</button
+										>
 									</div>
 
 									<div class="form-grid">
 										<label class="field">
-											<span>Rotation pool key</span>
+											<span>Rotation group</span>
 											<input
 												class="input"
 												type="text"
@@ -630,6 +631,8 @@
 														rotationPoolKey: (event.currentTarget as HTMLInputElement).value
 													})}
 											/>
+											<span class="field-hint">Match this to the rotation group used on the slot you want to seed.</span
+											>
 											<datalist id={`rotation-pool-${baseline.key}`}>
 												{#each rotationPoolOptions as option (option)}
 													<option value={option}></option>
@@ -678,12 +681,24 @@
 				<p class="eyebrow">Review</p>
 				<h3>{templateName || 'Untitled advanced duty template'}</h3>
 				<p class="summary-line">Status: <strong>{templateStatus}</strong></p>
-				<p class="summary-line">Scope: <strong>{scopeType === 'organization' ? 'whole organization' : `${scopeGroupIds.length} selected group${scopeGroupIds.length === 1 ? '' : 's'}`}</strong></p>
-				<p class="summary-line">Coverage: <strong>{coverageMode === 'timed' ? `${startTime || '--:--'} to ${endTime || '--:--'}` : 'all day'}</strong></p>
-				<p class="summary-line">Conflict policy: <strong>{isBlocking ? 'blocking duty' : 'non-blocking duty'}</strong></p>
+				<p class="summary-line">
+					Scope: <strong
+						>{scopeType === 'organization'
+							? 'whole organization'
+							: `${scopeGroupIds.length} selected group${scopeGroupIds.length === 1 ? '' : 's'}`}</strong
+					>
+				</p>
+				<p class="summary-line">
+					Coverage: <strong
+						>{coverageMode === 'timed' ? `${startTime || '--:--'} to ${endTime || '--:--'}` : 'all day'}</strong
+					>
+				</p>
+				<p class="summary-line">
+					Conflict policy: <strong>{isBlocking ? 'blocking duty' : 'non-blocking duty'}</strong>
+				</p>
 				<p class="summary-line">Cooldown: <strong>{cooldownHours} hour{cooldownHours === 1 ? '' : 's'}</strong></p>
 				<p class="summary-line">Slot definitions: <strong>{draftSlots.length}</strong></p>
-				<p class="summary-line">Fairness baselines: <strong>{draftRotationBaselines.length}</strong></p>
+				<p class="summary-line">Rotation starting points: <strong>{draftRotationBaselines.length}</strong></p>
 
 				{#if draftSlots.length === 0}
 					<p class="summary-empty">No slot definitions yet.</p>
@@ -722,7 +737,11 @@
 		padding: var(--sp-5);
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-lg);
-		background: linear-gradient(135deg, color-mix(in srgb, var(--surface-panel) 88%, var(--amber-light) 12%), var(--surface-panel));
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--surface-panel) 88%, var(--amber-light) 12%),
+			var(--surface-panel)
+		);
 	}
 
 	.eyebrow {

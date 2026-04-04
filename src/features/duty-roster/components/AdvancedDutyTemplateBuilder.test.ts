@@ -10,8 +10,24 @@ const groups = [
 ];
 
 const personnel = [
-	{ id: 'p-1', rank: 'SGT', lastName: 'Nolan', firstName: 'Casey', groupId: 'group-alpha', mos: '11B', clinicRole: 'Squad Leader' },
-	{ id: 'p-2', rank: 'SPC', lastName: 'Baker', firstName: 'Jordan', groupId: 'group-hq', mos: '68W', clinicRole: 'Medic' }
+	{
+		id: 'p-1',
+		rank: 'SGT',
+		lastName: 'Nolan',
+		firstName: 'Casey',
+		groupId: 'group-alpha',
+		mos: '11B',
+		clinicRole: 'Squad Leader'
+	},
+	{
+		id: 'p-2',
+		rank: 'SPC',
+		lastName: 'Baker',
+		firstName: 'Jordan',
+		groupId: 'group-hq',
+		mos: '68W',
+		clinicRole: 'Medic'
+	}
 ];
 
 function makeTemplate(overrides: Partial<DutyTemplate> = {}): DutyTemplate {
@@ -94,14 +110,22 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		await fireEvent.input(screen.getByLabelText('Role label'), {
 			target: { value: 'Runner' }
 		});
-		await fireEvent.input(screen.getByLabelText('Rotation pool key'), {
+		const mosSelect = screen.getByLabelText('MOS filter') as HTMLSelectElement;
+		mosSelect.options[0].selected = true;
+		mosSelect.options[1].selected = true;
+		await fireEvent.change(mosSelect);
+		const roleSelect = screen.getByLabelText('Personnel role filter') as HTMLSelectElement;
+		roleSelect.options[0].selected = true;
+		roleSelect.options[1].selected = true;
+		await fireEvent.change(roleSelect);
+		await fireEvent.input(screen.getByLabelText(/^Rotation group/), {
 			target: { value: 'staff-duty-primary' }
 		});
 		const preferredGroupsSelect = screen.getByLabelText('Preferred groups') as HTMLSelectElement;
 		preferredGroupsSelect.options[0].selected = true;
 		await fireEvent.change(preferredGroupsSelect);
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Baseline' }));
-		await fireEvent.input(screen.getAllByLabelText('Rotation pool key')[1], {
+		await fireEvent.input(screen.getAllByLabelText(/^Rotation group/)[1], {
 			target: { value: 'staff-duty-primary' }
 		});
 		await fireEvent.change(screen.getByLabelText('Person'), {
@@ -122,6 +146,8 @@ describe('AdvancedDutyTemplateBuilder', () => {
 						expect.objectContaining({
 							roleLabel: 'Runner',
 							quantity: 1,
+							allowedMosValues: ['11B', '68W'],
+							allowedRoleValues: ['Medic', 'Squad Leader'],
 							preferredGroupIds: ['group-alpha'],
 							rotationPoolKey: 'staff-duty-primary',
 							sortOrder: 0
@@ -137,6 +163,27 @@ describe('AdvancedDutyTemplateBuilder', () => {
 				})
 			);
 		});
+	});
+
+	it('uses plain-language copy for rotation groups and manual filters', () => {
+		render(AdvancedDutyTemplateBuilder, {
+			props: {
+				templates: [makeTemplate()],
+				groups,
+				personnel,
+				canManageTemplates: true,
+				onCreateTemplate: vi.fn(),
+				onUpdateTemplate: vi.fn()
+			}
+		});
+
+		expect(screen.getByLabelText('MOS filter')).toBeTruthy();
+		expect(screen.getByLabelText('Personnel role filter')).toBeTruthy();
+		expect(screen.getByLabelText(/^Rotation group/)).toBeTruthy();
+		expect(
+			screen.getByText('Use the same rotation group on multiple slots when those positions should rotate together.')
+		).toBeTruthy();
+		expect(screen.getByText('Set a starting point when you do not have enough duty history yet.')).toBeTruthy();
 	});
 
 	it('loads an existing template into the review panel and updates it', async () => {

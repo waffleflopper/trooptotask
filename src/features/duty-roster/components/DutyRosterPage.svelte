@@ -89,6 +89,17 @@
 		return [...items].sort((a, b) => a.name.localeCompare(b.name));
 	}
 
+	async function readResponseErrorMessage(res: Response, fallback: string): Promise<string> {
+		const raw = await res.text();
+		if (!raw) return fallback;
+		try {
+			const parsed = JSON.parse(raw) as { message?: string; error?: string };
+			return parsed.message ?? parsed.error ?? raw;
+		} catch {
+			return raw;
+		}
+	}
+
 	// ---- Handlers ----
 	async function handleApplyRoster(
 		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
@@ -143,7 +154,7 @@
 			});
 
 			if (!res.ok) {
-				throw new Error(await res.text());
+				throw new Error(await readResponseErrorMessage(res, 'Failed to save advanced duty template'));
 			}
 
 			const item: DutyTemplate = await res.json();
@@ -165,7 +176,7 @@
 			});
 
 			if (!res.ok) {
-				throw new Error(await res.text());
+				throw new Error(await readResponseErrorMessage(res, 'Failed to update advanced duty template'));
 			}
 
 			const item: DutyTemplate = await res.json();
@@ -193,7 +204,7 @@
 			});
 
 			if (!res.ok) {
-				throw new Error(await res.text());
+				throw new Error(await readResponseErrorMessage(res, 'Failed to preview advanced duty event'));
 			}
 
 			return (await res.json()) as DutyEventPreview;
@@ -212,7 +223,7 @@
 			});
 
 			if (!res.ok) {
-				throw new Error(await res.text());
+				throw new Error(await readResponseErrorMessage(res, 'Failed to apply advanced duty event'));
 			}
 
 			const event = (await res.json()) as DutyEvent;
@@ -236,7 +247,7 @@
 			});
 
 			if (!res.ok) {
-				throw new Error(await res.text());
+				throw new Error(await readResponseErrorMessage(res, 'Failed to preview advanced duty series'));
 			}
 
 			return (await res.json()) as DutyEventSeriesPreview;
@@ -255,7 +266,7 @@
 			});
 
 			if (!res.ok) {
-				throw new Error(await res.text());
+				throw new Error(await readResponseErrorMessage(res, 'Failed to apply advanced duty series'));
 			}
 
 			const result = (await res.json()) as DutyEventSeriesApplyResult;

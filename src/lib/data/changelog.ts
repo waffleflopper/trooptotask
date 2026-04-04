@@ -14,7 +14,11 @@ export const changelog: ChangelogEntry[] = [
 			'Added a new duty roster wizard that can pick up your existing one-person duty types instead of making you rebuild them from scratch',
 			'Simple duties now stay on the familiar roster flow while still living inside the new rebuild path, so current setup and calendar records remain usable',
 			'Admins can now preview and apply recurring advanced duty runs from saved templates using daily, weekday, weekend, selected weekday, holiday or closure, and custom-date patterns',
-			'Advanced duty templates can now share or split rotation pools, seed fairness baselines, and explain when a duty pick is running on thin history instead of pretending the queue is more certain than it is'
+			'Advanced duty templates can now share or split rotation pools, seed fairness baselines, and explain when a duty pick is running on thin history instead of pretending the queue is more certain than it is',
+			'Cleaned up the advanced duty template builder so rotation settings, MOS filters, and role filters are easier to understand without decoding builder jargon',
+			'Advanced duty previews can now be edited before apply, including locking positions, swapping or clearing people, and seeing the difference between a soft scheduling warning and a hard conflict before you commit the run',
+			'Applied advanced duty runs are now grouped into a tighter, easier-to-read ledger so month-long CQ and staff duty schedules no longer turn into a wall of timestamp cards',
+			'Manual calendar assignments now stop and explain when someone is already on conflicting duty coverage or still inside a duty cooldown window, instead of leaving you to guess why the schedule does not make sense'
 		]
 	},
 	{

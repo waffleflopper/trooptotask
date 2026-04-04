@@ -9,7 +9,9 @@
  */
 import { fail } from '$lib/server/core/errors';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WritePorts } from '$lib/server/core/ports';
+import { findDutyCoverageConflicts } from './dutyAvailability';
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
@@ -103,6 +105,48 @@ export async function createDailyAssignment(ctx: WritePorts, input: Record<strin
 	});
 
 	return entity.fromDb(row);
+}
+
+async function ensureManualAssignmentAvailability(
+	ctx: WritePorts,
+	input: {
+		date: string;
+		assigneeId: string;
+	}
+): Promise<void> {
+	const personnelRows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+		inFilters: { id: [input.assigneeId] }
+	});
+	const personnelById = new Map(PersonnelEntity.fromDbArray(personnelRows).map((person) => [person.id, person]));
+	const conflicts = await findDutyCoverageConflicts(ctx, {
+		assigneeIds: [input.assigneeId],
+		coverageStart: `${input.date}T00:00:00`,
+		coverageEnd: `${input.date}T23:59:59`,
+		cooldownHours: 0,
+		personnelById
+	});
+	const conflictMessage = conflicts.get(input.assigneeId)?.[0];
+	if (conflictMessage) {
+		fail(409, conflictMessage);
+	}
+}
+
+export async function setDailyAssignment(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
+	ctx.auth.requireEdit('calendar');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) fail(403, 'Organization is in read-only mode');
+
+	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
+	const date = validated.date as string;
+	const assignmentTypeId = validated.assignmentTypeId as string;
+	const assigneeId = validated.assigneeId as string;
+
+	await ctx.auth.requireGroupAccess(assigneeId);
+	await ensureManualAssignmentAvailability(ctx, { date, assigneeId });
+	await clearDailyAssignment(ctx, { date, assignmentTypeId });
+
+	return createDailyAssignment(ctx, validated);
 }
 
 export async function updateDailyAssignment(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {

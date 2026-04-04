@@ -1,13 +1,12 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { SENSITIVE_FILE_ACCEPT, validateSensitiveFileSelection } from '$lib/storage/sensitiveFiles';
 	import Spinner from './Spinner.svelte';
-
-	const supabase = $derived($page.data.supabase);
 
 	interface Props {
 		filePath: string | null;
-		orgId: string;
-		storagePath: string;
+		uploadUrl: string;
+		downloadUrl: string;
+		removeUrl: string;
 		onUpload: (path: string) => void;
 		onRemove: () => void;
 		accept?: string;
@@ -17,11 +16,12 @@
 
 	let {
 		filePath,
-		orgId,
-		storagePath,
+		uploadUrl,
+		downloadUrl,
+		removeUrl,
 		onUpload,
 		onRemove,
-		accept = 'application/pdf',
+		accept = SENSITIVE_FILE_ACCEPT,
 		label = 'PDF Document',
 		disabled = false
 	}: Props = $props();
@@ -30,7 +30,7 @@
 	let dragOver = $state(false);
 	let errorMsg = $state('');
 	let fileInput = $state<HTMLInputElement | null>(null);
-	const labelId = $derived(`file-upload-${sanitizeFilename(`${orgId}-${storagePath}`).replace(/\./g, '-')}`);
+	const labelId = $derived(`file-upload-${sanitizeFilename(uploadUrl).replace(/\./g, '-')}`);
 
 	function sanitizeFilename(name: string): string {
 		return name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -39,13 +39,9 @@
 	async function uploadFile(file: File) {
 		if (uploading || disabled) return;
 
-		if (accept === 'application/pdf' && file.type !== 'application/pdf') {
-			errorMsg = 'Only PDF files are allowed.';
-			return;
-		}
-
-		if (file.size > 10 * 1024 * 1024) {
-			errorMsg = 'File must be under 10MB.';
+		const validationError = accept === SENSITIVE_FILE_ACCEPT ? validateSensitiveFileSelection(file) : null;
+		if (validationError) {
+			errorMsg = validationError;
 			return;
 		}
 
@@ -53,11 +49,23 @@
 		uploading = true;
 
 		try {
-			const path = `${orgId}/${storagePath}/${sanitizeFilename(file.name)}`;
-			const { error } = await supabase.storage.from('counseling-files').upload(path, file, { upsert: true });
+			const formData = new FormData();
+			formData.append('file', file);
 
-			if (error) throw error;
-			onUpload(path);
+			const response = await fetch(uploadUrl, {
+				method: 'POST',
+				body: formData
+			});
+			const payload = (await response.json()) as {
+				filePath?: string;
+				error?: string;
+			};
+
+			if (!response.ok || !payload.filePath) {
+				throw new Error(payload.error ?? 'Upload failed.');
+			}
+
+			onUpload(payload.filePath);
 		} catch (err: unknown) {
 			errorMsg = err instanceof Error ? err.message : 'Upload failed.';
 		} finally {
@@ -90,23 +98,33 @@
 
 	async function handleDownload() {
 		if (!filePath) return;
-		const { data, error } = await supabase.storage.from('counseling-files').createSignedUrl(filePath, 60);
+		const response = await fetch(downloadUrl);
+		const payload = (await response.json()) as { url?: string; error?: string };
 
-		if (error || !data?.signedUrl) {
+		if (!response.ok || !payload.url) {
 			errorMsg = 'Could not generate download link.';
 			return;
 		}
-		window.open(data.signedUrl, '_blank');
+		window.open(payload.url, '_blank');
 	}
 
 	async function handleRemove() {
 		if (!filePath || disabled) return;
 		try {
-			await supabase.storage.from('counseling-files').remove([filePath]);
-		} catch {
-			// Best effort — file may already be gone
+			const response = await fetch(removeUrl, {
+				method: 'DELETE'
+			});
+
+			if (!response.ok) {
+				const payload = (await response.json()) as { error?: string };
+				throw new Error(payload.error ?? 'Remove failed.');
+			}
+
+			errorMsg = '';
+			onRemove();
+		} catch (err: unknown) {
+			errorMsg = err instanceof Error ? err.message : 'Remove failed.';
 		}
-		onRemove();
 	}
 
 	function getFilename(path: string): string {

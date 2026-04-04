@@ -3,8 +3,9 @@ import type { RequestHandler } from './$types';
 import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
 import { getAdminClient } from '$lib/server/supabase';
 import { markApprovedAccessRequestCompleted } from '$lib/server/accessRequestAuth';
+import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
 
-export const POST: RequestHandler = async ({ locals }) => {
+export const POST: RequestHandler = async ({ locals, cookies }) => {
 	const user = locals.user;
 	if (!user?.email) {
 		return json(
@@ -20,8 +21,9 @@ export const POST: RequestHandler = async ({ locals }) => {
 	try {
 		const accepted = await autoAcceptOrgInvites(locals.supabase, user.id, user.email);
 		const completion = await markApprovedAccessRequestCompleted(getAdminClient(), user.email, user.id);
+		cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
 
-		return json({ accepted: accepted.accepted, completed: completion.updated });
+		return json({ ok: true, accepted: accepted.accepted, completed: completion.updated });
 	} catch (error) {
 		console.error('Failed to finalize invite activation:', error);
 		return json(

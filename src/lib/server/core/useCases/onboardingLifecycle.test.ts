@@ -120,7 +120,12 @@ describe('startOnboarding', () => {
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding.started',
 			resourceType: 'personnel_onboarding',
-			resourceId: result.id
+			resourceId: result.id,
+			details: {
+				subject_type: 'personnel',
+				subject_id: 'p-1',
+				template_id: 'tmpl-1'
+			}
 		});
 	});
 
@@ -427,7 +432,7 @@ describe('completeOnboarding', () => {
 			action: 'onboarding.completed',
 			resourceType: 'personnel_onboarding',
 			resourceId: 'ob-1',
-			details: { incompleteCount: 2 }
+			details: { incomplete_count: 2 }
 		});
 	});
 });

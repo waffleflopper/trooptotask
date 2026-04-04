@@ -1,9 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { page } from '$app/stores';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-
-	const supabase = $derived($page.data.supabase);
 
 	let { data }: { data: PageData } = $props();
 
@@ -20,26 +17,29 @@
 	let success = $state('');
 	let loading = $state(false);
 	let disabling = $state(false);
+	let confirmingDisable = $state(false);
+	let disableCode = $state('');
 
 	async function startEnroll() {
 		error = '';
+		success = '';
 		enrolling = true;
 		loading = true;
 		try {
-			const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({
-				factorType: 'totp'
+			const response = await fetch('/api/auth/mfa/enroll', {
+				method: 'POST'
 			});
 
-			if (enrollError) {
-				error = enrollError.message;
+			const payload = (await response.json()) as { factorId?: string; qrCode?: string; error?: string };
+
+			if (!response.ok || !payload.factorId || !payload.qrCode) {
+				error = payload.error ?? 'Failed to start MFA enrollment';
 				enrolling = false;
 				return;
 			}
 
-			if (enrollData) {
-				factorId = enrollData.id;
-				qrCode = enrollData.totp.qr_code;
-			}
+			factorId = payload.factorId;
+			qrCode = payload.qrCode;
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Failed to start MFA enrollment';
 			enrolling = false;
@@ -57,13 +57,18 @@
 		error = '';
 		loading = true;
 		try {
-			const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challengeAndVerify({
-				factorId,
-				code: verifyCode
+			const response = await fetch('/api/auth/mfa/enroll/verify', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					factorId,
+					code: verifyCode
+				})
 			});
 
-			if (challengeError) {
-				error = challengeError.message;
+			if (!response.ok) {
+				const payload = (await response.json()) as { error?: string };
+				error = payload.error ?? 'Verification failed';
 				return;
 			}
 
@@ -81,7 +86,15 @@
 
 	async function cancelEnroll() {
 		if (factorId) {
-			await supabase.auth.mfa.unenroll({ factorId });
+			try {
+				await fetch('/api/auth/mfa/enroll/cancel', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ factorId })
+				});
+			} catch {
+				// Best effort cleanup; local state should still reset
+			}
 		}
 		enrolling = false;
 		qrCode = '';
@@ -91,30 +104,31 @@
 	}
 
 	async function disableMFA() {
+		if (!disableCode || disableCode.length !== 6) {
+			error = 'Please enter the 6-digit code from your authenticator app.';
+			return;
+		}
+
 		error = '';
 		success = '';
 		disabling = true;
 		try {
-			const { data: factors } = await supabase.auth.mfa.listFactors();
-			const totpFactors = factors?.totp ?? [];
-			const verifiedFactor = totpFactors.find((f: Record<string, unknown>) => f.status === 'verified');
-
-			if (!verifiedFactor) {
-				error = 'No verified MFA factor found';
-				return;
-			}
-
-			const { error: unenrollError } = await supabase.auth.mfa.unenroll({
-				factorId: verifiedFactor.id
+			const response = await fetch('/api/auth/mfa/disable', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code: disableCode })
 			});
 
-			if (unenrollError) {
-				error = unenrollError.message;
+			if (!response.ok) {
+				const payload = (await response.json()) as { error?: string };
+				error = payload.error ?? 'Failed to disable MFA';
 				return;
 			}
 
 			success = 'MFA has been disabled.';
 			mfaEnabled = false;
+			confirmingDisable = false;
+			disableCode = '';
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Failed to disable MFA';
 		} finally {
@@ -125,6 +139,24 @@
 	function handleCodeInput(e: Event) {
 		const input = e.target as HTMLInputElement;
 		verifyCode = input.value.replace(/\D/g, '').slice(0, 6);
+	}
+
+	function handleDisableCodeInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		disableCode = input.value.replace(/\D/g, '').slice(0, 6);
+	}
+
+	function startDisableMFA() {
+		error = '';
+		success = '';
+		confirmingDisable = true;
+		disableCode = '';
+	}
+
+	function cancelDisableMFA() {
+		confirmingDisable = false;
+		disableCode = '';
+		error = '';
 	}
 </script>
 
@@ -246,11 +278,49 @@
 				</div>
 			{/if}
 
-			{#if mfaEnabled && !enrolling}
-				<button class="btn btn-danger" onclick={disableMFA} disabled={disabling}>
-					{#if disabling}<Spinner />{/if}
-					Disable MFA
-				</button>
+			{#if mfaEnabled && !enrolling && !confirmingDisable}
+				<button class="btn btn-danger" onclick={startDisableMFA} disabled={disabling}> Disable MFA </button>
+			{/if}
+
+			{#if mfaEnabled && confirmingDisable}
+				<form
+					class="verify-form disable-form"
+					onsubmit={(e) => {
+						e.preventDefault();
+						disableMFA();
+					}}
+				>
+					<div class="setup-copy">
+						<p class="section-label">Disable Protection</p>
+						<h3>Confirm With Your Authenticator Code</h3>
+						<p class="enroll-instructions">
+							Enter a fresh 6-digit code from your authenticator app before MFA can be removed from this account.
+						</p>
+					</div>
+					<div class="form-group">
+						<label class="label" for="disable-code">Authenticator Code</label>
+						<input
+							id="disable-code"
+							type="text"
+							class="input code-input"
+							value={disableCode}
+							oninput={handleDisableCodeInput}
+							placeholder="000000"
+							maxlength="6"
+							autocomplete="one-time-code"
+							inputmode="numeric"
+						/>
+					</div>
+					<div class="enroll-actions">
+						<button type="button" class="btn btn-secondary" onclick={cancelDisableMFA} disabled={disabling}>
+							Keep MFA Enabled
+						</button>
+						<button type="submit" class="btn btn-danger" disabled={disabling || disableCode.length !== 6}>
+							{#if disabling}<Spinner />{/if}
+							Confirm & Disable
+						</button>
+					</div>
+				</form>
 			{/if}
 		</section>
 	</div>
@@ -462,7 +532,7 @@
 		gap: var(--sp-2);
 	}
 
-	.enroll-section h3 {
+	.security-section h3 {
 		font-size: clamp(1.6rem, 3vw, 2.2rem);
 		font-family: var(--font-display);
 		font-weight: 700;
@@ -496,6 +566,11 @@
 
 	.verify-form {
 		max-width: 360px;
+	}
+
+	.disable-form {
+		padding-top: var(--sp-4);
+		border-top: var(--border-thin);
 	}
 
 	.code-input {

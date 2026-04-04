@@ -7,7 +7,6 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { onMount } from 'svelte';
 
-	const supabase = $derived($page.data.supabase);
 	const hasSession = $derived($page.data.hasSession);
 
 	let password = $state('');
@@ -38,6 +37,18 @@
 		return null;
 	}
 
+	async function readJsonResult(response: Response): Promise<{ ok: boolean; error?: string }> {
+		try {
+			const payload = (await response.json()) as { ok?: boolean; error?: string };
+			return {
+				ok: response.ok && payload.ok === true,
+				error: payload.error
+			};
+		} catch {
+			return { ok: false };
+		}
+	}
+
 	onMount(async () => {
 		if (hasSession) {
 			sessionReady = true;
@@ -51,26 +62,24 @@
 			const refreshToken = params.get('refresh_token');
 
 			if (accessToken && refreshToken) {
-				const { error: sessionError } = await supabase.auth.setSession({
-					access_token: accessToken,
-					refresh_token: refreshToken
+				const response = await fetch('/api/auth/establish-session', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						accessToken,
+						refreshToken,
+						flow: 'invite'
+					})
 				});
-				if (!sessionError) {
+
+				const result = await readJsonResult(response);
+				if (result.ok) {
 					sessionReady = true;
 					window.history.replaceState(null, '', window.location.pathname);
 					return;
 				}
+				error = result.error ?? 'We could not verify your invite session. Please try the invite link again.';
 			}
-		}
-
-		const {
-			data: { session: existingSession }
-		} =
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase auth getSession returns complex internal type
-			(await supabase.auth.getSession()) as any;
-		if (existingSession) {
-			sessionReady = true;
-			return;
 		}
 
 		tokenError = true;
@@ -93,23 +102,24 @@
 
 		loading = true;
 		try {
-			const { error: updateError } = await supabase.auth.updateUser({ password });
-			if (updateError) {
-				error = updateError.message || 'Failed to set password. Please try again.';
+			const updateResponse = await fetch('/api/auth/update-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ password })
+			});
+			const updateResult = await readJsonResult(updateResponse);
+			if (!updateResult.ok) {
+				error = updateResult.error || 'Failed to set password. Please try again.';
 				return;
 			}
 
 			const finalizeResponse = await fetch('/api/auth/finalize-invite', { method: 'POST' });
-			if (!finalizeResponse.ok) {
+			const finalizeResult = await readJsonResult(finalizeResponse);
+			if (!finalizeResult.ok) {
 				let message =
 					'Your password was set, but we could not finish account activation. Please try the invite link again or contact support.';
-				try {
-					const payload = (await finalizeResponse.json()) as { error?: string };
-					if (payload.error) {
-						message = payload.error;
-					}
-				} catch {
-					// Fall back to the default message when the server does not return JSON.
+				if (finalizeResult.error) {
+					message = finalizeResult.error;
 				}
 				error = message;
 				return;
@@ -224,7 +234,7 @@
 
 		<div class="auth-link-list">
 			<p>
-				Back to <a href="/auth/login">sign in</a>.
+				Leave this invite flow and <a href="/auth/logout">sign out</a>.
 			</p>
 		</div>
 	</div>

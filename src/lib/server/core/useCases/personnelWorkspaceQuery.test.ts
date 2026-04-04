@@ -65,16 +65,19 @@ function seedPersonnel(store: ReturnType<typeof createInMemoryDataStore>) {
 }
 
 describe('fetchPersonnelBootstrap', () => {
-	it('returns personnel and allPersonnel for an unscoped member', async () => {
+	it('returns scoped personnel plus a minimal lookup projection for an unscoped member', async () => {
 		const ctx = createQueryWithRawStorePortsContext();
 		seedPersonnel(ctx.store);
 
 		const result = await fetchPersonnelBootstrap(ctx);
 
 		expect(result.personnel).toHaveLength(2);
-		expect(result.allPersonnel).toHaveLength(2);
 		expect(result.personnel.map((p) => p.lastName)).toEqual(['Jones', 'Smith']);
-		expect(result.allPersonnel.map((p) => p.lastName)).toEqual(['Jones', 'Smith']);
+		expect(result.personnelLookup).toEqual([
+			{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' },
+			{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }
+		]);
+		expect(result).not.toHaveProperty('allPersonnel');
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
@@ -102,12 +105,11 @@ describe('fetchPersonnelBootstrap', () => {
 		const result = await fetchPersonnelBootstrap(ctx);
 
 		expect(result.personnel).toHaveLength(2);
-		expect(result.allPersonnel).toHaveLength(2);
 		expect(result.personnel.every((p) => p.id !== 'p-archived')).toBe(true);
-		expect(result.allPersonnel.every((p) => p.id !== 'p-archived')).toBe(true);
+		expect(result.personnelLookup.every((p) => p.id !== 'p-archived')).toBe(true);
 	});
 
-	it('scoped member sees only their group in personnel but full org in allPersonnel', async () => {
+	it('scoped member receives only scoped records in the lookup projection', async () => {
 		const ctx = createQueryWithRawStorePortsContext({ auth: { scopedGroupId: 'g1' } });
 		// Seed through rawStore — the scoped store filters from the same underlying data
 		ctx.rawStore.seed('personnel', [
@@ -174,8 +176,9 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result.personnel).toHaveLength(1);
 		expect(result.personnel[0].lastName).toBe('Smith');
 
-		// Raw store returns all personnel
-		expect(result.allPersonnel).toHaveLength(2);
+		// The lookup path should not overexpose off-scope personnel either
+		expect(result.personnelLookup).toEqual([{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }]);
+		expect(result).not.toHaveProperty('allPersonnel');
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
 		expect(result.pinnedGroups).toEqual(['Alpha']);

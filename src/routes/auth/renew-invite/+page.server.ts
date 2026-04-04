@@ -3,10 +3,11 @@ import type { Actions, PageServerLoad } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
 import { renewApprovedAccessRequestInvite } from '$lib/server/accessRequestAuth';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
+import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.session) {
-		redirect(303, '/dashboard');
+		redirect(303, getAuthenticatedRedirectPath(locals.authFlow, locals.mfaPending));
 	}
 
 	return {

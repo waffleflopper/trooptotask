@@ -46,13 +46,14 @@
 		{#snippet title()}Every request is authorized.{/snippet}
 		<p>
 			Authentication is handled via Supabase Auth with support for email/password and multi-factor authentication
-			(TOTP). Sessions are enforced with a 24-hour absolute timeout and secure, HttpOnly cookies.
+			(TOTP). Sessions are enforced with a 24-hour absolute timeout and secure cookie handling.
 		</p>
 		<p>
 			Authorization uses a layered approach: role-based access control (RBAC) at the application level with admin,
 			editor, and viewer roles, combined with PostgreSQL Row-Level Security (RLS) policies that enforce tenant isolation
 			at the database layer. Every API endpoint validates organization membership and role permissions server-side
-			before processing requests.
+			before processing requests. Sensitive document uploads and downloads are mediated through application endpoints,
+			with private storage access enforced by explicit policies and short-lived signed URLs.
 		</p>
 	</PublicContentSection>
 
@@ -61,11 +62,12 @@
 		<p>
 			TroopToTask maintains structured audit logs for security-relevant events including authentication attempts,
 			permission changes, data modifications, and administrative actions. Logs capture the actor, action, resource,
-			timestamp, and contextual metadata.
+			timestamp, and limited contextual metadata needed for accountability and review.
 		</p>
 		<p>
-			Audit records are retained for 90 days, with automated cleanup of expired entries. Personally identifiable
-			information is filtered from log details to maintain data minimization principles.
+			Audit records are retained for 1 year, with automated cleanup of expired entries. Audit details exclude full
+			record contents and unnecessary sensitive fields while preserving the limited identifiers needed to answer who did
+			what to which record.
 		</p>
 	</PublicContentSection>
 
@@ -91,7 +93,9 @@
 		<p>TroopToTask's security controls align with the following NIST SP 800-171 Rev 2 control families:</p>
 		<ul>
 			<li><strong>Access Control (3.1)</strong> — RBAC, RLS, session management, least privilege</li>
-			<li><strong>Audit &amp; Accountability (3.3)</strong> — Structured logging, retention policies, PII filtering</li>
+			<li>
+				<strong>Audit &amp; Accountability (3.3)</strong> — Structured logging, retention policies, and minimized audit details
+			</li>
 			<li>
 				<strong>Identification &amp; Authentication (3.5)</strong> — MFA support, password policies, session timeouts
 			</li>
@@ -102,11 +106,43 @@
 			<li><strong>Incident Response (3.6)</strong> — Documented response procedures, contact channels</li>
 		</ul>
 		<p>
-			While we are not FedRAMP authorized, we continuously improve our posture to support organizations that handle CUI.
+			TroopToTask is built for military leaders who need a practical, secure way to stay on top of personnel and
+			readiness without creating more administrative drag.
+		</p>
+		<p>
+			FedRAMP is mainly a factor in formal government procurement and officially sanctioned enterprise adoption. It does
+			not, by itself, determine whether a commercial platform can be useful to military leaders working within local
+			policy, command guidance, and common-sense data handling.
+		</p>
+		<p>
+			Like any operational tool, TroopToTask should be used in a way that matches your organization's guidance. That
+			means keeping classified information and any data required to remain in approved government systems out of the
+			platform.
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="07 // Responsible Disclosure">
+	<PublicContentSection label="07 // Use Guidance">
+		{#snippet title()}Built to help leaders, used with common sense.{/snippet}
+		<p>
+			TroopToTask exists to make unit management easier for leaders who are tired of piecing together personnel,
+			training, readiness, and day-to-day tracking across too many disconnected tools. We focus on strong security,
+			careful handling of personnel information, and practical controls that support responsible use.
+		</p>
+		<p>
+			The goal is simple: give leaders better visibility, less friction, and a more reliable way to manage the work they
+			are already doing. Formal federal procurement and enterprise adoption can involve additional compliance review,
+			but that is a separate question from whether a platform is useful, secure, and workable for leaders operating
+			within their local policies, approval chain, and mission needs.
+		</p>
+		<p>
+			We recommend using TroopToTask in ways that match local policy and sound judgment. That means avoiding classified
+			information, highly sensitive operational details, or anything your command or cybersecurity office has directed
+			to stay inside approved government systems. Our aim is to give leaders a secure, helpful platform they can trust
+			today while continuing to strengthen the product for more demanding compliance environments over time.
+		</p>
+	</PublicContentSection>
+
+	<PublicContentSection label="08 // Responsible Disclosure" alternate>
 		{#snippet title()}Report a vulnerability.{/snippet}
 		<p>
 			If you discover a security vulnerability in TroopToTask, we encourage responsible disclosure. Please report

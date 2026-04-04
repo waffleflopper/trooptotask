@@ -3,6 +3,16 @@ import { type Handle, redirect } from '@sveltejs/kit';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
+import { getAuthCookieOptions } from '$lib/server/authCookies';
+import { buildTrustedUserFromClaims, getSupabaseAuthStorageKey, hasSupabaseAuthCookie } from '$lib/server/authSession';
+import { isPublicRoute } from '$lib/server/publicRoutes';
+import {
+	getAuthenticatedRedirectPath,
+	getPendingAuthFlowCookieName,
+	isMfaStepUpRequired,
+	sanitizePendingAuthFlow,
+	shouldRedirectIncompleteAuthSession
+} from '$lib/server/mfaGate';
 import '$lib/server/env'; // validate env vars on startup
 
 const securityHeaders: Record<string, string> = {
@@ -14,6 +24,8 @@ const securityHeaders: Record<string, string> = {
 	'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
 	'X-DNS-Prefetch-Control': 'off'
 };
+
+const SUPABASE_AUTH_STORAGE_KEY = getSupabaseAuthStorageKey(PUBLIC_SUPABASE_URL);
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// Rate limiting — skip for e2e tests (dev mode only, tree-shaken in production)
@@ -47,7 +59,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			getAll: () => event.cookies.getAll(),
 			setAll: (cookiesToSet) => {
 				cookiesToSet.forEach(({ name, value, options }) => {
-					event.cookies.set(name, value, { ...options, path: '/' });
+					event.cookies.set(name, value, getAuthCookieOptions(options));
 				});
 			}
 		}
@@ -58,35 +70,36 @@ export const handle: Handle = async ({ event, resolve }) => {
 	let cachedSession: any = null;
 	event.locals.safeGetSession = async () => {
 		if (cachedSession) return cachedSession;
-		const {
-			data: { user },
-			error
-		} = await event.locals.supabase.auth.getUser();
+		const hasAuthCookie = hasSupabaseAuthCookie(
+			event.cookies.getAll().map(({ name }) => name),
+			SUPABASE_AUTH_STORAGE_KEY
+		);
 
-		cachedSession = error || !user ? { session: null, user: null } : { session: { user }, user };
+		if (!hasAuthCookie) {
+			cachedSession = { session: null, user: null };
+			return cachedSession;
+		}
+
+		const {
+			data: { session },
+			error: sessionError
+		} = await event.locals.supabase.auth.getSession();
+
+		if (sessionError || !session?.access_token) {
+			cachedSession = { session: null, user: null };
+			return cachedSession;
+		}
+
+		const { data: claimsData, error: claimsError } = await event.locals.supabase.auth.getClaims(session.access_token);
+		if (claimsError || !claimsData?.claims) {
+			cachedSession = { session: null, user: null };
+			return cachedSession;
+		}
+
+		const user = buildTrustedUserFromClaims(claimsData.claims, session.user);
+		cachedSession = { session: { ...session, user }, user };
 		return cachedSession;
 	};
-
-	// Define public routes that don't require authentication
-	const publicRoutes = [
-		'/',
-		'/auth',
-		'/api/webhooks',
-		'/demo',
-		'/api/create-demo-sandbox',
-		'/api/access-requests',
-		'/features',
-		'/pricing',
-		'/security',
-		'/terms',
-		'/privacy',
-		'/help',
-		'/dashboard'
-	];
-	const isPublicRoute = publicRoutes.some(
-		(route) => event.url.pathname === route || event.url.pathname.startsWith(route + '/')
-	);
-
 	// Check for demo mode - allow unauthenticated access to /org/* routes if in demo mode
 	const isDemoMode = event.cookies.get('demo_mode') === 'readonly' || event.cookies.get('demo_sandbox');
 	const isOrgRoute = event.url.pathname.startsWith('/org/');
@@ -95,6 +108,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const { session, user } = await event.locals.safeGetSession();
 	event.locals.session = session;
 	event.locals.user = user;
+	event.locals.mfaPending = false;
+	event.locals.authFlow = sanitizePendingAuthFlow(event.cookies.get(getPendingAuthFlowCookieName()));
 
 	if (session && user?.last_sign_in_at) {
 		// Enforce 24-hour absolute session timeout
@@ -102,14 +117,43 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
 		if (Date.now() - sessionCreated > maxSessionAge) {
 			await event.locals.supabase.auth.signOut();
+			event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
 			event.locals.session = null;
 			event.locals.user = null;
+			event.locals.authFlow = null;
+		}
+	}
+
+	if (!event.locals.session && event.locals.authFlow) {
+		event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+		event.locals.authFlow = null;
+	}
+
+	if (event.locals.session) {
+		const { data: assuranceData, error: assuranceError } =
+			await event.locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+		if (assuranceError) {
+			console.error('Failed to read authenticator assurance level:', assuranceError.message);
+		} else {
+			event.locals.mfaPending = isMfaStepUpRequired(assuranceData);
 		}
 	}
 
 	// Protect routes — redirect unauthenticated users to login (skip public routes and demo mode)
-	if (!event.locals.session && !isPublicRoute && !(isDemoMode && isOrgRoute)) {
+	if (!event.locals.session && !isPublicRoute(event.url.pathname) && !(isDemoMode && isOrgRoute)) {
 		redirect(303, '/auth/login');
+	}
+
+	if (
+		shouldRedirectIncompleteAuthSession(
+			event.url.pathname,
+			!!event.locals.session,
+			event.locals.mfaPending,
+			event.locals.authFlow
+		)
+	) {
+		redirect(303, getAuthenticatedRedirectPath(event.locals.authFlow, event.locals.mfaPending));
 	}
 
 	// Check user suspension (skip for auth routes, api routes, and the suspended page itself)

@@ -1,8 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validatePassword } from '$lib/server/validation';
+import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 	const { password, accessToken, refreshToken } = (await request.json()) as {
 		password?: string;
 		accessToken?: string;
@@ -44,6 +45,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			},
 			{ status: 401 }
 		);
+	}
+
+	if (locals.authFlow === 'recovery') {
+		cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
 	}
 
 	return json({ ok: true });

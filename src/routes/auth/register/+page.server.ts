@@ -2,10 +2,11 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { sanitizeString, validateEmail, validatePassword } from '$lib/server/validation';
 import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
+import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.session) {
-		redirect(303, '/dashboard');
+		redirect(303, getAuthenticatedRedirectPath(locals.authFlow, locals.mfaPending));
 	}
 
 	// Get prefill values from URL params

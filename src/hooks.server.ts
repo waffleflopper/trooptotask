@@ -5,6 +5,13 @@ import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthCookieOptions } from '$lib/server/authCookies';
 import { isPublicRoute } from '$lib/server/publicRoutes';
+import {
+	getAuthenticatedRedirectPath,
+	getPendingAuthFlowCookieName,
+	isMfaStepUpRequired,
+	sanitizePendingAuthFlow,
+	shouldRedirectIncompleteAuthSession
+} from '$lib/server/mfaGate';
 import '$lib/server/env'; // validate env vars on startup
 
 const securityHeaders: Record<string, string> = {
@@ -76,6 +83,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const { session, user } = await event.locals.safeGetSession();
 	event.locals.session = session;
 	event.locals.user = user;
+	event.locals.mfaPending = false;
+	event.locals.authFlow = sanitizePendingAuthFlow(event.cookies.get(getPendingAuthFlowCookieName()));
 
 	if (session && user?.last_sign_in_at) {
 		// Enforce 24-hour absolute session timeout
@@ -83,14 +92,43 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
 		if (Date.now() - sessionCreated > maxSessionAge) {
 			await event.locals.supabase.auth.signOut();
+			event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
 			event.locals.session = null;
 			event.locals.user = null;
+			event.locals.authFlow = null;
+		}
+	}
+
+	if (!event.locals.session && event.locals.authFlow) {
+		event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+		event.locals.authFlow = null;
+	}
+
+	if (event.locals.session) {
+		const { data: assuranceData, error: assuranceError } =
+			await event.locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+		if (assuranceError) {
+			console.error('Failed to read authenticator assurance level:', assuranceError.message);
+		} else {
+			event.locals.mfaPending = isMfaStepUpRequired(assuranceData);
 		}
 	}
 
 	// Protect routes — redirect unauthenticated users to login (skip public routes and demo mode)
 	if (!event.locals.session && !isPublicRoute(event.url.pathname) && !(isDemoMode && isOrgRoute)) {
 		redirect(303, '/auth/login');
+	}
+
+	if (
+		shouldRedirectIncompleteAuthSession(
+			event.url.pathname,
+			!!event.locals.session,
+			event.locals.mfaPending,
+			event.locals.authFlow
+		)
+	) {
+		redirect(303, getAuthenticatedRedirectPath(event.locals.authFlow, event.locals.mfaPending));
 	}
 
 	// Check user suspension (skip for auth routes, api routes, and the suspended page itself)

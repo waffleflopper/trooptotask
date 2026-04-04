@@ -106,6 +106,8 @@ function sanitizeDetails(
 		if (value === undefined) continue;
 		if (key === 'actor') continue;
 
+		const normalizedKey = normalizeKey(key);
+
 		if (event.resourceType === 'personnel' && key === 'name' && typeof value === 'string') {
 			sanitized.subject_label = toPersonnelSubjectLabel(value);
 			continue;
@@ -120,6 +122,11 @@ function sanitizeDetails(
 			continue;
 		}
 
+		if (SAFE_STRING_KEYS.has(normalizedKey)) {
+			sanitized[key] = value;
+			continue;
+		}
+
 		if (shouldRedactKey(key)) {
 			sanitized[key] = '[redacted]';
 			redactedFields.push(key);
@@ -127,12 +134,11 @@ function sanitizeDetails(
 		}
 
 		if (typeof value === 'string') {
-			const normalizedKey = normalizeKey(key);
 			if (EMAIL_RE.test(value.trim())) {
 				sanitized[key] = maskEmail(value);
 				continue;
 			}
-			if (UUID_RE.test(value) || SAFE_STRING_KEYS.has(normalizedKey)) {
+			if (UUID_RE.test(value)) {
 				sanitized[key] = value;
 				continue;
 			}

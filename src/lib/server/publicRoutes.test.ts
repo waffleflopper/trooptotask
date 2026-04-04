@@ -8,6 +8,12 @@ describe('isPublicRoute', () => {
 		expect(isPublicRoute('/api/auth/mfa/verify')).toBe(true);
 	});
 
+	it('keeps privileged auth mutations behind an established session', () => {
+		expect(isPublicRoute('/api/auth/finalize-invite')).toBe(false);
+		expect(isPublicRoute('/api/auth/complete-access-request')).toBe(false);
+		expect(isPublicRoute('/api/auth/mfa/enroll')).toBe(false);
+	});
+
 	it('allows the existing public site and auth routes', () => {
 		expect(isPublicRoute('/')).toBe(true);
 		expect(isPublicRoute('/auth/login')).toBe(true);

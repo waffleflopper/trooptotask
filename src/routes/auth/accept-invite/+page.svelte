@@ -38,6 +38,18 @@
 		return null;
 	}
 
+	async function readJsonResult(response: Response): Promise<{ ok: boolean; error?: string }> {
+		try {
+			const payload = (await response.json()) as { ok?: boolean; error?: string };
+			return {
+				ok: response.ok && payload.ok === true,
+				error: payload.error
+			};
+		} catch {
+			return { ok: false };
+		}
+	}
+
 	onMount(async () => {
 		if (hasSession) {
 			sessionReady = true;
@@ -65,20 +77,13 @@
 					})
 				});
 
-				if (response.ok) {
+				const result = await readJsonResult(response);
+				if (result.ok) {
 					sessionReady = true;
 					window.history.replaceState(null, '', window.location.pathname);
 					return;
 				}
-
-				try {
-					const payload = (await response.json()) as { error?: string };
-					if (payload.error) {
-						error = payload.error;
-					}
-				} catch {
-					error = 'We could not verify your invite session. Please try the invite link again.';
-				}
+				error = result.error ?? 'We could not verify your invite session. Please try the invite link again.';
 			}
 		}
 
@@ -111,23 +116,19 @@
 					refreshToken: inviteSessionTokens?.refreshToken
 				})
 			});
-			if (!updateResponse.ok) {
-				const payload = (await updateResponse.json()) as { error?: string };
-				error = payload.error || 'Failed to set password. Please try again.';
+			const updateResult = await readJsonResult(updateResponse);
+			if (!updateResult.ok) {
+				error = updateResult.error || 'Failed to set password. Please try again.';
 				return;
 			}
 
 			const finalizeResponse = await fetch('/api/auth/finalize-invite', { method: 'POST' });
-			if (!finalizeResponse.ok) {
+			const finalizeResult = await readJsonResult(finalizeResponse);
+			if (!finalizeResult.ok) {
 				let message =
 					'Your password was set, but we could not finish account activation. Please try the invite link again or contact support.';
-				try {
-					const payload = (await finalizeResponse.json()) as { error?: string };
-					if (payload.error) {
-						message = payload.error;
-					}
-				} catch {
-					// Fall back to the default message when the server does not return JSON.
+				if (finalizeResult.error) {
+					message = finalizeResult.error;
 				}
 				error = message;
 				return;

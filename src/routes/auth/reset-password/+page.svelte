@@ -38,6 +38,18 @@
 		return null;
 	}
 
+	async function readJsonResult(response: Response): Promise<{ ok: boolean; error?: string }> {
+		try {
+			const payload = (await response.json()) as { ok?: boolean; error?: string };
+			return {
+				ok: response.ok && payload.ok === true,
+				error: payload.error
+			};
+		} catch {
+			return { ok: false };
+		}
+	}
+
 	onMount(() => {
 		void (async () => {
 			if (hasSession) {
@@ -66,18 +78,12 @@
 							})
 						});
 
-						if (response.ok) {
+						const result = await readJsonResult(response);
+						if (result.ok) {
 							sessionReady = true;
 							window.history.replaceState(null, '', window.location.pathname);
 						} else {
-							try {
-								const payload = (await response.json()) as { error?: string };
-								if (payload.error) {
-									error = payload.error;
-								}
-							} catch {
-								error = 'We could not verify your reset session. Please request a new reset link.';
-							}
+							error = result.error ?? 'We could not verify your reset session. Please request a new reset link.';
 						}
 					}
 				}
@@ -116,9 +122,9 @@
 				})
 			});
 
-			if (!updateResponse.ok) {
-				const payload = (await updateResponse.json()) as { error?: string };
-				error = payload.error ?? 'Failed to update password.';
+			const updateResult = await readJsonResult(updateResponse);
+			if (!updateResult.ok) {
+				error = updateResult.error ?? 'Failed to update password.';
 				return;
 			}
 

@@ -68,7 +68,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 		cachedSession = error || !user ? { session: null, user: null } : { session: { user }, user };
 		return cachedSession;
 	};
-
 	// Check for demo mode - allow unauthenticated access to /org/* routes if in demo mode
 	const isDemoMode = event.cookies.get('demo_mode') === 'readonly' || event.cookies.get('demo_sandbox');
 	const isOrgRoute = event.url.pathname.startsWith('/org/');

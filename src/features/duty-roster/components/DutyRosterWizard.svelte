@@ -826,6 +826,41 @@
 					</div>
 				</div>
 
+				<section class="preview-card policy-card" aria-label="Policy Summary">
+					<div class="preview-header">
+						<div>
+							<p class="eyebrow">Policy Summary</p>
+							<h4>Review what this duty means before you preview the run.</h4>
+						</div>
+					</div>
+					<div class="policy-summary-list">
+						<p class="summary-line">
+							Coverage: <strong>{selectedAdvancedTemplate.coverageMode === 'timed'
+								? `${selectedAdvancedTemplate.startTime ?? '--:--'} to ${selectedAdvancedTemplate.endTime ?? '--:--'}`
+								: 'All day coverage'}</strong>
+						</p>
+						<p class="summary-line">
+							Longest break: <strong>The generator starts with the eligible Soldier who has gone the longest since serving in that rotation group.</strong>
+						</p>
+						<p class="summary-line">
+							Blocking duty: <strong>{selectedAdvancedTemplate.isBlocking
+								? 'Anyone placed on this shift is treated as unavailable for overlapping duties.'
+								: 'This duty does not block overlapping assignments on its own.'}</strong>
+						</p>
+						<p class="summary-line">
+							Cooldown: <strong>{selectedAdvancedTemplate.cooldownHours > 0
+								? `After the shift ends, that Soldier stays protected for ${selectedAdvancedTemplate.cooldownHours} hour${selectedAdvancedTemplate.cooldownHours === 1 ? '' : 's'}.`
+								: 'There is no extra recovery window after the shift ends.'}</strong>
+						</p>
+						<p class="summary-line">
+							Fairness confidence: <strong>Low confidence means the queue is working from thin history or only a few manual starting points.</strong>
+						</p>
+						<p class="summary-line">
+							Slots to fill: <strong>{selectedAdvancedTemplate.slots.reduce((total, slot) => total + slot.quantity, 0)} total position{selectedAdvancedTemplate.slots.reduce((total, slot) => total + slot.quantity, 0) === 1 ? '' : 's'} across {selectedAdvancedTemplate.slots.length} slot definition{selectedAdvancedTemplate.slots.length === 1 ? '' : 's'}.</strong>
+						</p>
+					</div>
+				</section>
+
 				<div class="advanced-form">
 					{#if patternNeedsRange(advancedPattern)}
 						<label class="field">
@@ -1453,6 +1488,11 @@
 	.preview-card,
 	.slot-preview-list {
 		margin-top: var(--sp-4);
+	}
+
+	.policy-summary-list {
+		display: grid;
+		gap: var(--sp-2);
 	}
 
 	.weekday-picker,

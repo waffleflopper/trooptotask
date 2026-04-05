@@ -53,6 +53,33 @@
 		lastServedDate: string;
 	}
 
+	type SetupMode = 'quick' | 'full';
+
+	interface TemplateStarterPreset {
+		id: string;
+		label: string;
+		description: string;
+		name: string;
+		templateDescription: string;
+		scopeType: 'organization' | 'groups';
+		scopeGroupIds: string[];
+		coverageMode: 'all-day' | 'timed';
+		startTime: string;
+		endTime: string;
+		isBlocking: boolean;
+		cooldownHours: number;
+		slots: Array<{
+			roleLabel: string;
+			quantity: number;
+			allowedRanks: string[];
+			allowedGroupIds: string[];
+			preferredGroupIds: string[];
+			allowedMosValues: string[];
+			allowedRoleValues: string[];
+			rotationPoolKey: string;
+		}>;
+	}
+
 	let { templates, groups, personnel, canManageTemplates, onCreateTemplate, onUpdateTemplate }: Props = $props();
 
 	let selectedTemplateId = $state<string | null>(null);
@@ -61,6 +88,7 @@
 	let saveError = $state('');
 	let isSaving = $state(false);
 	let slotKeyIndex = 0;
+	let setupMode = $state<SetupMode>('quick');
 
 	let templateName = $state('');
 	let templateDescription = $state('');
@@ -74,6 +102,85 @@
 	let cooldownHours = $state(0);
 	let draftSlots = $state<EditableSlot[]>([]);
 	let draftRotationBaselines = $state<EditableBaseline[]>([]);
+
+	const templateStarterPresets = $derived.by<TemplateStarterPreset[]>(() => {
+		const primaryGroupId = groups[0]?.id ?? '';
+
+		return [
+			{
+				id: 'battalion-staff-duty',
+				label: 'Battalion Staff Duty',
+				description: 'Two-person overnight coverage with a shared rotation group for the core team.',
+				name: 'Battalion Staff Duty',
+				templateDescription: 'Overnight battalion staff duty with one NCO and one runner rotating together.',
+				scopeType: 'organization',
+				scopeGroupIds: [],
+				coverageMode: 'timed',
+				startTime: '08:00',
+				endTime: '08:00',
+				isBlocking: true,
+				cooldownHours: 24,
+				slots: [
+					{
+						roleLabel: 'NCO',
+						quantity: 1,
+						allowedRanks: ['SGT', 'SSG', 'SFC'],
+						allowedGroupIds: [],
+						preferredGroupIds: [],
+						allowedMosValues: [],
+						allowedRoleValues: [],
+						rotationPoolKey: 'staff-duty-core'
+					},
+					{
+						roleLabel: 'Runner',
+						quantity: 1,
+						allowedRanks: ['PFC', 'SPC', 'CPL'],
+						allowedGroupIds: [],
+						preferredGroupIds: [],
+						allowedMosValues: [],
+						allowedRoleValues: [],
+						rotationPoolKey: 'staff-duty-core'
+					}
+				]
+			},
+			{
+				id: 'company-cq',
+				label: 'Company CQ',
+				description: 'A common CQ starting point with one desk NCO and one runner.',
+				name: 'Company CQ',
+				templateDescription: 'Company charge of quarters with overnight desk coverage and one runner.',
+				scopeType: 'groups',
+				scopeGroupIds: primaryGroupId ? [primaryGroupId] : [],
+				coverageMode: 'timed',
+				startTime: '17:00',
+				endTime: '09:00',
+				isBlocking: true,
+				cooldownHours: 12,
+				slots: [
+					{
+						roleLabel: 'CQ NCO',
+						quantity: 1,
+						allowedRanks: ['SGT', 'SSG'],
+						allowedGroupIds: primaryGroupId ? [primaryGroupId] : [],
+						preferredGroupIds: primaryGroupId ? [primaryGroupId] : [],
+						allowedMosValues: [],
+						allowedRoleValues: [],
+						rotationPoolKey: 'cq-core'
+					},
+					{
+						roleLabel: 'Runner',
+						quantity: 1,
+						allowedRanks: ['PFC', 'SPC', 'CPL'],
+						allowedGroupIds: primaryGroupId ? [primaryGroupId] : [],
+						preferredGroupIds: primaryGroupId ? [primaryGroupId] : [],
+						allowedMosValues: [],
+						allowedRoleValues: [],
+						rotationPoolKey: 'cq-core'
+					}
+				]
+			}
+		];
+	});
 
 	const availableMosValues = $derived(
 		[...new Set(personnel.map((person) => person.mos.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))
@@ -131,6 +238,7 @@
 	function loadTemplate(template: DutyTemplate) {
 		selectedTemplateId = template.id;
 		isCreatingNew = false;
+		setupMode = 'full';
 		saveError = '';
 		templateName = template.name;
 		templateDescription = template.description ?? '';
@@ -164,6 +272,7 @@
 	function resetForNew() {
 		selectedTemplateId = null;
 		isCreatingNew = true;
+		setupMode = 'quick';
 		saveError = '';
 		templateName = '';
 		templateDescription = '';
@@ -177,6 +286,35 @@
 		cooldownHours = 0;
 		draftSlots = [];
 		draftRotationBaselines = [];
+	}
+
+	function applyStarterPreset(presetId: string | null) {
+		resetForNew();
+		const preset = templateStarterPresets.find((candidate) => candidate.id === presetId);
+		if (!preset) {
+			return;
+		}
+
+		templateName = preset.name;
+		templateDescription = preset.templateDescription;
+		scopeType = preset.scopeType;
+		scopeGroupIds = [...preset.scopeGroupIds];
+		coverageMode = preset.coverageMode;
+		startTime = preset.startTime;
+		endTime = preset.endTime;
+		isBlocking = preset.isBlocking;
+		cooldownHours = preset.cooldownHours;
+		draftSlots = preset.slots.map((slot) => ({
+			key: nextSlotKey(),
+			roleLabel: slot.roleLabel,
+			quantity: slot.quantity,
+			allowedRanks: [...slot.allowedRanks],
+			allowedGroupIds: [...slot.allowedGroupIds],
+			preferredGroupIds: [...slot.preferredGroupIds],
+			allowedMosValues: [...slot.allowedMosValues],
+			allowedRoleValues: [...slot.allowedRoleValues],
+			rotationPoolKey: slot.rotationPoolKey
+		}));
 	}
 
 	$effect(() => {
@@ -302,7 +440,7 @@
 			</p>
 		</div>
 		{#if canManageTemplates}
-			<button class="btn btn-primary" type="button" onclick={resetForNew}>New Advanced Template</button>
+			<button class="btn btn-primary" type="button" onclick={() => applyStarterPreset(null)}>New Advanced Template</button>
 		{/if}
 	</header>
 
@@ -338,6 +476,58 @@
 			</aside>
 
 			<div class="builder-main">
+				<section class="builder-card starter-card">
+					<div class="section-header">
+						<div>
+							<p class="eyebrow">Advanced Setup</p>
+							<h3>Choose a starting point.</h3>
+							<p class="builder-copy">
+								Start from a common Army-style preset or build from a blank policy, then pick how much detail you
+								want to work through right now.
+							</p>
+						</div>
+					</div>
+
+					<div class="setup-mode-toggle" role="group" aria-label="Setup mode">
+						<button
+							class="mode-chip"
+							class:active={setupMode === 'quick'}
+							type="button"
+							aria-pressed={setupMode === 'quick'}
+							onclick={() => (setupMode = 'quick')}
+						>
+							Quick Setup
+						</button>
+						<button
+							class="mode-chip"
+							class:active={setupMode === 'full'}
+							type="button"
+							aria-pressed={setupMode === 'full'}
+							onclick={() => (setupMode = 'full')}
+						>
+							Full Configuration
+						</button>
+					</div>
+
+					<div class="starter-grid">
+						{#each templateStarterPresets as preset (preset.id)}
+							<button class="starter-option" type="button" onclick={() => applyStarterPreset(preset.id)}>
+								<strong>Use {preset.label} Preset</strong>
+								<span>{preset.description}</span>
+							</button>
+						{/each}
+						<button class="starter-option" type="button" onclick={() => applyStarterPreset(null)}>
+							<strong>Build from Blank</strong>
+							<span>Start with an empty advanced duty and shape the policy around your local SOP.</span>
+						</button>
+					</div>
+
+					<p class="field-hint">
+						Quick setup keeps the form to the essentials. Full configuration unlocks slot filters, preferred groups,
+						and manual rotation starting points.
+					</p>
+				</section>
+
 				<section class="builder-card">
 					<div class="form-grid">
 						<label class="field">
@@ -514,62 +704,64 @@
 											</select>
 										</label>
 
-										<label class="field">
-											<span>Preferred groups</span>
-											<select
-												class="input"
-												multiple
-												value={slot.preferredGroupIds}
-												onchange={(event) => {
-													const target = event.currentTarget as HTMLSelectElement;
-													updateSlot(slot.key, {
-														preferredGroupIds: [...target.selectedOptions].map((option) => option.value)
-													});
-												}}
-											>
-												{#each groups as group (group.id)}
-													<option value={group.id}>{group.name}</option>
-												{/each}
-											</select>
-										</label>
+										{#if setupMode === 'full'}
+											<label class="field">
+												<span>Preferred groups</span>
+												<select
+													class="input"
+													multiple
+													value={slot.preferredGroupIds}
+													onchange={(event) => {
+														const target = event.currentTarget as HTMLSelectElement;
+														updateSlot(slot.key, {
+															preferredGroupIds: [...target.selectedOptions].map((option) => option.value)
+														});
+													}}
+												>
+													{#each groups as group (group.id)}
+														<option value={group.id}>{group.name}</option>
+													{/each}
+												</select>
+											</label>
 
-										<label class="field">
-											<span>MOS filter</span>
-											<select
-												class="input"
-												multiple
-												value={slot.allowedMosValues}
-												onchange={(event) => {
-													const target = event.currentTarget as HTMLSelectElement;
-													updateSlot(slot.key, {
-														allowedMosValues: [...target.selectedOptions].map((option) => option.value)
-													});
-												}}
-											>
-												{#each availableMosValues as mos (mos)}
-													<option value={mos}>{mos}</option>
-												{/each}
-											</select>
-										</label>
+											<label class="field">
+												<span>MOS filter</span>
+												<select
+													class="input"
+													multiple
+													value={slot.allowedMosValues}
+													onchange={(event) => {
+														const target = event.currentTarget as HTMLSelectElement;
+														updateSlot(slot.key, {
+															allowedMosValues: [...target.selectedOptions].map((option) => option.value)
+														});
+													}}
+												>
+													{#each availableMosValues as mos (mos)}
+														<option value={mos}>{mos}</option>
+													{/each}
+												</select>
+											</label>
 
-										<label class="field">
-											<span>Personnel role filter</span>
-											<select
-												class="input"
-												multiple
-												value={slot.allowedRoleValues}
-												onchange={(event) => {
-													const target = event.currentTarget as HTMLSelectElement;
-													updateSlot(slot.key, {
-														allowedRoleValues: [...target.selectedOptions].map((option) => option.value)
-													});
-												}}
-											>
-												{#each availableRoleValues as role (role)}
-													<option value={role}>{role}</option>
-												{/each}
-											</select>
-										</label>
+											<label class="field">
+												<span>Personnel role filter</span>
+												<select
+													class="input"
+													multiple
+													value={slot.allowedRoleValues}
+													onchange={(event) => {
+														const target = event.currentTarget as HTMLSelectElement;
+														updateSlot(slot.key, {
+															allowedRoleValues: [...target.selectedOptions].map((option) => option.value)
+														});
+													}}
+												>
+													{#each availableRoleValues as role (role)}
+														<option value={role}>{role}</option>
+													{/each}
+												</select>
+											</label>
+										{/if}
 
 										<label class="field">
 											<span>Rotation group</span>
@@ -594,87 +786,89 @@
 					{/if}
 				</section>
 
-				<section class="builder-card">
-					<div class="section-header">
-						<div>
-							<p class="eyebrow">Rotation Starting Points</p>
-							<h3>Set a starting point when you do not have enough duty history yet.</h3>
+				{#if setupMode === 'full'}
+					<section class="builder-card">
+						<div class="section-header">
+							<div>
+								<p class="eyebrow">Rotation Starting Points</p>
+								<h3>Set a starting point when you do not have enough duty history yet.</h3>
+							</div>
+							<button class="btn btn-sm" type="button" onclick={addBaseline}>Add Baseline</button>
 						</div>
-						<button class="btn btn-sm" type="button" onclick={addBaseline}>Add Baseline</button>
-					</div>
 
-					{#if draftRotationBaselines.length === 0}
-						<EmptyState
-							message="No manual starting points yet. Add one when a rotation group needs a last-served date to start from."
-							variant="simple"
-						/>
-					{:else}
-						<div class="slot-list">
-							{#each draftRotationBaselines as baseline, index (baseline.key)}
-								<article class="slot-card">
-									<div class="slot-header">
-										<h4>Baseline {index + 1}</h4>
-										<button class="btn btn-sm" type="button" onclick={() => removeBaseline(baseline.key)}>Remove</button
-										>
-									</div>
-
-									<div class="form-grid">
-										<label class="field">
-											<span>Rotation group</span>
-											<input
-												class="input"
-												type="text"
-												list={`rotation-pool-${baseline.key}`}
-												value={baseline.rotationPoolKey}
-												oninput={(event) =>
-													updateBaseline(baseline.key, {
-														rotationPoolKey: (event.currentTarget as HTMLInputElement).value
-													})}
-											/>
-											<span class="field-hint">Match this to the rotation group used on the slot you want to seed.</span
+						{#if draftRotationBaselines.length === 0}
+							<EmptyState
+								message="No manual starting points yet. Add one when a rotation group needs a last-served date to start from."
+								variant="simple"
+							/>
+						{:else}
+							<div class="slot-list">
+								{#each draftRotationBaselines as baseline, index (baseline.key)}
+									<article class="slot-card">
+										<div class="slot-header">
+											<h4>Baseline {index + 1}</h4>
+											<button class="btn btn-sm" type="button" onclick={() => removeBaseline(baseline.key)}>Remove</button
 											>
-											<datalist id={`rotation-pool-${baseline.key}`}>
-												{#each rotationPoolOptions as option (option)}
-													<option value={option}></option>
-												{/each}
-											</datalist>
-										</label>
+										</div>
 
-										<label class="field">
-											<span>Person</span>
-											<select
-												class="input"
-												value={baseline.personId}
-												onchange={(event) =>
-													updateBaseline(baseline.key, {
-														personId: (event.currentTarget as HTMLSelectElement).value
-													})}
-											>
-												<option value="">Select person</option>
-												{#each personnel as person (person.id)}
-													<option value={person.id}>{formatPersonLabel(person)}</option>
-												{/each}
-											</select>
-										</label>
+										<div class="form-grid">
+											<label class="field">
+												<span>Rotation group</span>
+												<input
+													class="input"
+													type="text"
+													list={`rotation-pool-${baseline.key}`}
+													value={baseline.rotationPoolKey}
+													oninput={(event) =>
+														updateBaseline(baseline.key, {
+															rotationPoolKey: (event.currentTarget as HTMLInputElement).value
+														})}
+												/>
+												<span class="field-hint">Match this to the rotation group used on the slot you want to seed.</span
+												>
+												<datalist id={`rotation-pool-${baseline.key}`}>
+													{#each rotationPoolOptions as option (option)}
+														<option value={option}></option>
+													{/each}
+												</datalist>
+											</label>
 
-										<label class="field">
-											<span>Last served date</span>
-											<input
-												class="input"
-												type="date"
-												value={baseline.lastServedDate}
-												oninput={(event) =>
-													updateBaseline(baseline.key, {
-														lastServedDate: (event.currentTarget as HTMLInputElement).value
-													})}
-											/>
-										</label>
-									</div>
-								</article>
-							{/each}
-						</div>
-					{/if}
-				</section>
+											<label class="field">
+												<span>Person</span>
+												<select
+													class="input"
+													value={baseline.personId}
+													onchange={(event) =>
+														updateBaseline(baseline.key, {
+															personId: (event.currentTarget as HTMLSelectElement).value
+														})}
+												>
+													<option value="">Select person</option>
+													{#each personnel as person (person.id)}
+														<option value={person.id}>{formatPersonLabel(person)}</option>
+													{/each}
+												</select>
+											</label>
+
+											<label class="field">
+												<span>Last served date</span>
+												<input
+													class="input"
+													type="date"
+													value={baseline.lastServedDate}
+													oninput={(event) =>
+														updateBaseline(baseline.key, {
+															lastServedDate: (event.currentTarget as HTMLInputElement).value
+														})}
+												/>
+											</label>
+										</div>
+									</article>
+								{/each}
+							</div>
+						{/if}
+					</section>
+				{/if}
 			</div>
 
 			<aside class="summary-card" aria-label="Template summary">
@@ -699,6 +893,22 @@
 				<p class="summary-line">Cooldown: <strong>{cooldownHours} hour{cooldownHours === 1 ? '' : 's'}</strong></p>
 				<p class="summary-line">Slot definitions: <strong>{draftSlots.length}</strong></p>
 				<p class="summary-line">Rotation starting points: <strong>{draftRotationBaselines.length}</strong></p>
+
+				<div class="policy-summary">
+					<p class="eyebrow">Policy summary</p>
+					<p class="summary-line">
+						Longest break: <strong>The system starts with whoever has gone the longest since this rotation group last served.</strong>
+					</p>
+					<p class="summary-line">
+						Blocking duty: <strong>{isBlocking ? 'People on this duty are treated as unavailable for overlapping duties.' : 'This duty does not block overlapping assignments.'}</strong>
+					</p>
+					<p class="summary-line">
+						Cooldown: <strong>{cooldownHours > 0 ? `After the shift ends, the same person stays protected for ${cooldownHours} hour${cooldownHours === 1 ? '' : 's'}.` : 'No extra recovery window is enforced after the shift ends.'}</strong>
+					</p>
+					<p class="summary-line">
+						Fairness confidence: <strong>Low confidence means the queue is still learning because history or starting points are thin.</strong>
+					</p>
+				</div>
 
 				{#if draftSlots.length === 0}
 					<p class="summary-empty">No slot definitions yet.</p>
@@ -798,6 +1008,59 @@
 
 	.builder-card {
 		padding: var(--sp-4);
+	}
+
+	.starter-card {
+		display: grid;
+		gap: var(--sp-4);
+	}
+
+	.setup-mode-toggle {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	.mode-chip,
+	.starter-option {
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+		background: var(--surface-page);
+	}
+
+	.mode-chip {
+		padding: var(--sp-2) var(--sp-3);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.mode-chip.active {
+		border-color: var(--amber);
+		background: color-mix(in srgb, var(--surface-panel) 80%, var(--amber-light) 20%);
+	}
+
+	.starter-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: var(--sp-3);
+	}
+
+	.starter-option {
+		display: grid;
+		gap: var(--sp-2);
+		padding: var(--sp-4);
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.starter-option strong {
+		font-size: var(--text-sm);
+	}
+
+	.starter-option span {
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+		line-height: 1.5;
 	}
 
 	.template-chip {
@@ -911,6 +1174,13 @@
 		margin: var(--sp-3) 0 0;
 		padding-left: 18px;
 		color: var(--text-secondary);
+	}
+
+	.policy-summary {
+		display: grid;
+		gap: var(--sp-2);
+		padding-top: var(--sp-2);
+		border-top: 1px solid var(--border-subtle);
 	}
 
 	.save-btn {

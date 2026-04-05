@@ -313,6 +313,19 @@ describe('DutyRosterWizard', () => {
 		expect(select.value).toBe('at-sd');
 	});
 
+	it('shows a plain-language policy summary before previewing an advanced run', async () => {
+		renderWizard();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+
+		expect(screen.getByText('Policy Summary')).toBeTruthy();
+		expect(screen.getByText(/Longest break/)).toBeTruthy();
+		expect(screen.getByText(/Blocking duty/)).toBeTruthy();
+		expect(screen.getByText(/Cooldown/)).toBeTruthy();
+		expect(screen.getByText(/Fairness confidence/)).toBeTruthy();
+	});
+
 	it('keeps existing simple-duty roster history visible through the simple lane bridge', async () => {
 		const applyRoster = vi.fn(async () => true);
 

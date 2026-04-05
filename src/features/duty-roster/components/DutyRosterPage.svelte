@@ -98,6 +98,7 @@
 			...template,
 			scopeGroupIds: Array.isArray(template.scopeGroupIds) ? template.scopeGroupIds : [],
 			exemptPersonnelIds: Array.isArray(template.exemptPersonnelIds) ? template.exemptPersonnelIds : [],
+			exemptStatusTypeIds: Array.isArray(template.exemptStatusTypeIds) ? template.exemptStatusTypeIds : [],
 			softPreferences:
 				Array.isArray(template.softPreferences) && template.softPreferences.length > 0
 					? template.softPreferences
@@ -475,6 +476,7 @@
 				templates={advancedDutyTemplates}
 				groups={groupsStore.items}
 				personnel={calendarPersonnel}
+				statusTypes={statusTypesStore.items}
 				canManageTemplates={canManageAdvancedTemplates}
 				onCreateTemplate={handleCreateAdvancedTemplate}
 				onUpdateTemplate={handleUpdateAdvancedTemplate}

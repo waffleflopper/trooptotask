@@ -585,6 +585,185 @@ describe('duty event apply use case', () => {
 		expect(result.events[0].slotInstances[0].selectionReason).toContain('Fairness confidence is low');
 	});
 
+	it('treats configured calendar statuses as day-scoped exemptions during advanced generation', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-exempt-on-day-one',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-available',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Zulu',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+		ctx.store.seed('availability_entries', [
+			{
+				id: 'availability-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-exempt-on-day-one',
+				status_type_id: 'status-leave',
+				start_date: '2026-04-10',
+				end_date: '2026-04-10'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			exemptStatusTypeIds: ['status-leave'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader'],
+					rotationPoolKey: 'nco-pool'
+				}
+			]
+		});
+
+		const preview = await previewDutyEventSeriesFromTemplate(ctx, {
+			templateId: template.id,
+			pattern: 'daily',
+			startDate: '2026-04-10',
+			endDate: '2026-04-11'
+		});
+
+		expect(preview.events[0].eventDate).toBe('2026-04-10');
+		expect(preview.events[0].slotInstances[0].assigneeId).toBe('person-available');
+		expect(preview.events[1].eventDate).toBe('2026-04-11');
+		expect(preview.events[1].slotInstances[0].assigneeId).toBe('person-exempt-on-day-one');
+	});
+
+	it('retries slot persistence with legacy fairness constraints without failing the apply', async () => {
+		const ctx = createTestContext();
+		let failedLegacyConstraintOnce = false;
+
+		const originalInsertMany = ctx.store.insertMany.bind(ctx.store);
+		ctx.store.insertMany = (async (...args) => {
+			const [table, , rows] = args as [string, string, Array<Record<string, unknown>>];
+			if (
+				!failedLegacyConstraintOnce &&
+				table === 'duty_event_slots' &&
+				rows.some((row) => row.fairness_confidence === 'medium')
+			) {
+				failedLegacyConstraintOnce = true;
+				throw new Error(
+					'new row for relation "duty_event_slots" violates check constraint "duty_event_slots_fairness_confidence_check"'
+				);
+			}
+			return await originalInsertMany(...(args as Parameters<typeof originalInsertMany>));
+		}) as typeof ctx.store.insertMany;
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-a',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-b',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Bravo',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-c',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Charlie',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader'],
+					rotationPoolKey: 'nco-pool'
+				}
+			],
+			rotationBaselines: [
+				{
+					rotationPoolKey: 'nco-pool',
+					personId: 'person-a',
+					lastServedDate: '2026-03-01'
+				},
+				{
+					rotationPoolKey: 'nco-pool',
+					personId: 'person-b',
+					lastServedDate: '2026-03-05'
+				}
+			]
+		});
+
+		const applied = await applyDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		expect(failedLegacyConstraintOnce).toBe(true);
+		expect(applied.slotInstances[0].fairnessConfidence).toBe('low');
+
+		const storedSlots = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId);
+		expect(storedSlots).toHaveLength(1);
+		expect(storedSlots[0].fairness_confidence).toBe('low');
+	});
+
 	it('uses the final manually applied assignee as the fairness-driving history for future previews', async () => {
 		const ctx = createTestContext();
 
@@ -1899,6 +2078,100 @@ describe('duty event apply use case', () => {
 		expect(result.events).toHaveLength(7);
 	});
 
+	it('uses prior dates in the same series preview as fairness history even with no persisted events', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-a',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Adams',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-b',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Baker',
+				first_name: 'Blair',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-c',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Carter',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-d',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Davis',
+				first_name: 'Drew',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Company CQ',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'CQ',
+					quantity: 2,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader']
+				}
+			]
+		});
+
+		const result = await previewDutyEventSeriesFromTemplate(ctx, {
+			templateId: template.id,
+			startDate: '2026-04-06',
+			endDate: '2026-04-07',
+			pattern: 'daily'
+		});
+
+		expect(result.events).toHaveLength(2);
+		const dayOneAssignees = result.events[0].slotInstances
+			.map((slot) => slot.assigneeId)
+			.filter((id): id is string => !!id);
+		const dayTwoAssignees = result.events[1].slotInstances
+			.map((slot) => slot.assigneeId)
+			.filter((id): id is string => !!id);
+
+		expect(dayOneAssignees).toHaveLength(2);
+		expect(dayTwoAssignees).toHaveLength(2);
+		for (const assigneeId of dayOneAssignees) {
+			expect(dayTwoAssignees).not.toContain(assigneeId);
+		}
+	});
+
 	it('supports holiday and closure only recurring runs', async () => {
 		const ctx = createTestContext();
 
@@ -2024,6 +2297,87 @@ describe('duty event apply use case', () => {
 
 		const storedEvents = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId);
 		expect(storedEvents).toHaveLength(2);
+	});
+
+	it('applies an overlapping series without failing and splits run history boundaries', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-nco',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Nolan',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 0,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader']
+				}
+			]
+		});
+
+		const firstRun = await applyDutyEventSeriesFromTemplate(ctx, {
+			templateId: template.id,
+			pattern: 'daily',
+			startDate: '2026-04-05',
+			endDate: '2026-04-11'
+		});
+		expect(firstRun.events).toHaveLength(7);
+
+		const overlappingRun = await applyDutyEventSeriesFromTemplate(ctx, {
+			templateId: template.id,
+			pattern: 'daily',
+			startDate: '2026-04-10',
+			endDate: '2026-04-12'
+		});
+
+		expect(overlappingRun.events.map((event) => event.eventDate)).toEqual(['2026-04-10', '2026-04-11', '2026-04-12']);
+		expect(overlappingRun.run).toMatchObject({
+			startDate: '2026-04-10',
+			endDate: '2026-04-12',
+			eventCount: 3
+		});
+
+		const dutyEvents = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+			template_id: template.id
+		});
+		expect(dutyEvents).toHaveLength(8);
+
+		const runRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId);
+		const runById = new Map(runRows.map((row) => [String(row.id), row]));
+		const previousRunRow = runById.get(firstRun.run.id);
+		expect(previousRunRow).toMatchObject({
+			start_date: '2026-04-05',
+			end_date: '2026-04-09',
+			event_count: 5
+		});
+		expect(runById.get(overlappingRun.run.id)).toMatchObject({
+			start_date: '2026-04-10',
+			end_date: '2026-04-12',
+			event_count: 3
+		});
 	});
 });
 

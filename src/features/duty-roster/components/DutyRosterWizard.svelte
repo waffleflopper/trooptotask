@@ -1,6 +1,7 @@
 <script lang="ts">
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import DutyRosterGenerator from './DutyRosterGenerator.svelte';
 	import WizardStepper from './WizardStepper.svelte';
 	import SeriesPreviewPanel from './SeriesPreviewPanel.svelte';
@@ -274,6 +275,13 @@
 				a.id.localeCompare(b.id)
 		)
 	);
+	const statusTypeNameById = $derived.by(() => {
+		const map = new Map<string, string>();
+		for (const statusType of statusTypes) {
+			map.set(statusType.id, statusType.name);
+		}
+		return map;
+	});
 	const appliedEventGroups = $derived.by<AppliedEventRunGroup[]>(() => {
 		const groupMap = new Map<string, AppliedEventRunGroup>();
 		for (const event of appliedAdvancedEvents) {
@@ -800,35 +808,44 @@
 	}
 
 	async function openAppliedEventEditor(event: DutyEvent) {
-		selectedAppliedEventId = event.id;
+		const eventId = event.id;
+		selectedAppliedEventId = eventId;
+		appliedEventPreview = null;
+		appliedEventOverrides = [];
+		appliedEventCollisionReviewConfirmed = false;
 		isLoadingAppliedEventPreview = true;
 		try {
 			const preview = await onPreviewExistingAdvancedEvent({ dutyEventId: event.id });
-			if (preview) {
+			if (preview && selectedAppliedEventId === eventId) {
 				appliedEventPreview = preview;
 				appliedEventOverrides = buildSlotOverridesFromPreview(preview.slotInstances);
 				appliedEventCollisionReviewConfirmed = false;
 			}
 		} finally {
-			isLoadingAppliedEventPreview = false;
+			if (selectedAppliedEventId === eventId) {
+				isLoadingAppliedEventPreview = false;
+			}
 		}
 	}
 
 	async function refreshAppliedEventPreview(nextOverrides: DutyEventSlotOverrideInput[]) {
 		if (!selectedAppliedEventId) return;
+		const eventId = selectedAppliedEventId;
 		isRefreshingAppliedEventPreview = true;
 		appliedEventOverrides = nextOverrides;
 		try {
 			const preview = await onPreviewExistingAdvancedEvent({
-				dutyEventId: selectedAppliedEventId,
+				dutyEventId: eventId,
 				slotOverrides: nextOverrides
 			});
-			if (preview) {
+			if (preview && selectedAppliedEventId === eventId) {
 				appliedEventPreview = preview;
 				appliedEventCollisionReviewConfirmed = false;
 			}
 		} finally {
-			isRefreshingAppliedEventPreview = false;
+			if (selectedAppliedEventId === eventId) {
+				isRefreshingAppliedEventPreview = false;
+			}
 		}
 	}
 
@@ -938,6 +955,15 @@
 	function cancelPendingDelete() {
 		pendingEventDelete = null;
 		pendingRunDelete = null;
+	}
+
+	function closeAppliedEventEditor() {
+		selectedAppliedEventId = null;
+		appliedEventPreview = null;
+		appliedEventOverrides = [];
+		appliedEventCollisionReviewConfirmed = false;
+		isLoadingAppliedEventPreview = false;
+		isRefreshingAppliedEventPreview = false;
 	}
 
 	async function confirmDeleteAppliedEvent() {
@@ -1270,6 +1296,18 @@
 						</p>
 					</div>
 					<div class="policy-item">
+						<p class="policy-label">Status exemptions</p>
+						<p class="policy-value">
+							{#if (selectedAdvancedTemplate.exemptStatusTypeIds ?? []).length > 0}
+								{(selectedAdvancedTemplate.exemptStatusTypeIds ?? [])
+									.map((statusTypeId) => statusTypeNameById.get(statusTypeId) ?? statusTypeId)
+									.join(', ')}
+							{:else}
+								None configured.
+							{/if}
+						</p>
+					</div>
+					<div class="policy-item">
 						<p class="policy-label">Positions to fill</p>
 						<p class="policy-value">
 							{selectedAdvancedTemplate.slots.reduce((total, slot) => total + slot.quantity, 0)} total across {selectedAdvancedTemplate
@@ -1432,9 +1470,17 @@
 			onRequestDeleteRun={requestDeleteAppliedRun}
 			selectedEventId={selectedAppliedEventId}
 		/>
+	</section>
 
-		{#if selectedAppliedEvent && appliedEventPreview}
-			<div class="applied-editor-wrapper">
+	{#if selectedAppliedEvent}
+		<Modal
+			title={`Edit applied event: ${selectedAppliedEvent.templateName} · ${formatDisplayDate(selectedAppliedEvent.eventDate)}`}
+			onClose={closeAppliedEventEditor}
+			width="1100px"
+			titleId="applied-event-editor-title"
+			canClose={!isRefreshingAppliedEventPreview && !isSavingAppliedEvent}
+		>
+			{#if appliedEventPreview}
 				<AppliedEventEditor
 					event={selectedAppliedEvent}
 					preview={appliedEventPreview}
@@ -1457,9 +1503,13 @@
 					onClearSlot={clearAppliedEventSlot}
 					onRegenerateSlot={regenerateAppliedEventSlot}
 				/>
-			</div>
-		{/if}
-	</section>
+			{:else}
+				<div class="applied-editor-loading" aria-live="polite">
+					<p>Loading applied event editor...</p>
+				</div>
+			{/if}
+		</Modal>
+	{/if}
 
 	{#if pendingRunDelete}
 		<ConfirmDialog
@@ -1746,8 +1796,11 @@
 		justify-content: flex-start;
 	}
 
-	.applied-editor-wrapper {
-		margin-top: var(--sp-4);
+	.applied-editor-loading {
+		min-height: 180px;
+		display: grid;
+		place-items: center;
+		color: var(--text-secondary);
 	}
 
 	@media (max-width: 720px) {

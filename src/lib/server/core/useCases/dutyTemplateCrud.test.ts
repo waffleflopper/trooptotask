@@ -88,7 +88,7 @@ describe('duty template CRUD use cases', () => {
 		ctx.store.insert = (async (...args) => {
 			if (!attemptedTemplateInsert && args[0] === 'duty_templates') {
 				attemptedTemplateInsert = true;
-				throw new Error("Could not find the 'exempt_personnel_ids' column of 'duty_templates' in the schema cache");
+				throw new Error("Could not find the 'exempt_status_type_ids' column of 'duty_templates' in the schema cache");
 			}
 			return await originalInsert(...(args as Parameters<typeof originalInsert>));
 		}) as typeof ctx.store.insert;
@@ -97,6 +97,7 @@ describe('duty template CRUD use cases', () => {
 
 		expect(result.name).toBe('Battalion Staff Duty');
 		expect(result.exemptPersonnelIds).toEqual([]);
+		expect(result.exemptStatusTypeIds).toEqual([]);
 		expect(result.softPreferences).toEqual(cloneDefaultSoftPreferences());
 	});
 
@@ -277,6 +278,7 @@ describe('duty template CRUD use cases', () => {
 		expect(updated.id).toBe(created.id);
 		expect(updated.name).toBe('Battalion Staff Duty (Updated)');
 		expect(updated.exemptPersonnelIds).toEqual([]);
+		expect(updated.exemptStatusTypeIds).toEqual([]);
 		expect(updated.softPreferences).toEqual(cloneDefaultSoftPreferences());
 	});
 

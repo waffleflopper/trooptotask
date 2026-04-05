@@ -384,8 +384,13 @@ describe('DutyRosterWizard', () => {
 	});
 
 	it('keeps DA Form 6 style preview and export available through the simple lane bridge', async () => {
-		const createObjectUrl = vi.fn(() => 'blob:test-roster');
-		const revokeObjectUrl = vi.fn();
+		const createObjectUrl = vi.fn((object: Blob | MediaSource) => {
+			void object;
+			return 'blob:test-roster';
+		});
+		const revokeObjectUrl = vi.fn((url: string) => {
+			void url;
+		});
 		const anchorClick = vi.fn();
 		const originalCreateObjectURL = URL.createObjectURL;
 		const originalRevokeObjectURL = URL.revokeObjectURL;
@@ -1029,5 +1034,261 @@ describe('DutyRosterWizard', () => {
 		});
 
 		expect(screen.getByText('NCO #1: SGT Zimmer')).toBeTruthy();
+	});
+
+	it('exports a reopened applied duty event as a team duty packet', async () => {
+		const createObjectUrl = vi.fn((object: Blob | MediaSource) => {
+			void object;
+			return 'blob:advanced-duty-packet';
+		});
+		const revokeObjectUrl = vi.fn((url: string) => {
+			void url;
+		});
+		const anchorClick = vi.fn();
+		const originalCreateObjectURL = URL.createObjectURL;
+		const originalRevokeObjectURL = URL.revokeObjectURL;
+		const originalAnchorClick = HTMLAnchorElement.prototype.click;
+
+		URL.createObjectURL = createObjectUrl;
+		URL.revokeObjectURL = revokeObjectUrl;
+		HTMLAnchorElement.prototype.click = anchorClick;
+
+		try {
+			renderWizard({
+				advancedDutyEvents: [
+					makeAppliedEvent({
+						templateName: 'CQ',
+						coverageMode: 'all-day',
+						coverageStart: '2026-04-10T00:00:00',
+						coverageEnd: '2026-04-10T23:59:59',
+						fillSummary: {
+							totalSlots: 2,
+							filledSlots: 1,
+							unfilledSlots: 1
+						},
+						slotInstances: [
+							{
+								...makeAppliedEvent().slotInstances[0],
+								roleLabel: 'Runner',
+								assigneeId: 'person-nco',
+								selectionReason: 'Selected by longest break in the CQ runner queue.',
+								overrideMessages: ['Manual override bypassed the normal fairness pick.']
+							},
+							{
+								...makeAppliedEvent().slotInstances[0],
+								id: 'event-slot-2',
+								templateSlotId: 'slot-2',
+								roleLabel: 'NCO',
+								slotIndex: 1,
+								assigneeId: null,
+								assignmentSource: 'manual',
+								warningState: 'conflict',
+								selectionReason: null,
+								unfilledReason: 'No eligible Soldier remained after overlap and cooldown checks.',
+								overrideMessages: ['SSG Hartney is already covering Staff Duty during this window.']
+							}
+						]
+					})
+				],
+				onPreviewExistingAdvancedEvent: vi.fn(async () =>
+					makePreview({
+						templateName: 'CQ',
+						coverageMode: 'all-day',
+						coverageStart: '2026-04-10T00:00:00',
+						coverageEnd: '2026-04-10T23:59:59',
+						fillSummary: {
+							totalSlots: 2,
+							filledSlots: 1,
+							unfilledSlots: 1
+						},
+						slotInstances: [
+							{
+								...makePreview().slotInstances[0],
+								roleLabel: 'Runner',
+								selectionReason: 'Selected by longest break in the CQ runner queue.',
+								overrideMessages: ['Manual override bypassed the normal fairness pick.']
+							},
+							{
+								...makePreview().slotInstances[0],
+								templateSlotId: 'slot-2',
+								roleLabel: 'NCO',
+								slotIndex: 1,
+								assigneeId: null,
+								assignmentSource: 'manual',
+								warningState: 'conflict',
+								selectionReason: null,
+								unfilledReason: 'No eligible Soldier remained after overlap and cooldown checks.',
+								overrideMessages: ['SSG Hartney is already covering Staff Duty during this window.']
+							}
+						]
+					})
+				)
+			});
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Open Event Apr 10, 2026' }));
+
+			await waitFor(() => {
+				expect(screen.getByText('Edit applied duty event')).toBeTruthy();
+			});
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Export Duty Packet' }));
+
+			await waitFor(async () => {
+				expect(createObjectUrl).toHaveBeenCalledTimes(1);
+				const firstCall = createObjectUrl.mock.calls[0];
+				expect(firstCall).toBeTruthy();
+				if (!firstCall) {
+					throw new Error('Expected export to create a packet blob.');
+				}
+				const packetBlob = firstCall[0] as unknown as Blob;
+				expect(packetBlob).toBeInstanceOf(Blob);
+				const packetText = await packetBlob.text();
+				expect(packetText).toContain('Team Duty Packet');
+				expect(packetText).toContain('CQ');
+				expect(packetText).toContain('Apr 10, 2026');
+				expect(packetText).toContain('All day');
+				expect(packetText).toContain('Runner #1');
+				expect(packetText).toContain('SGT Nolan');
+				expect(packetText).toContain('Selected by longest break in the CQ runner queue.');
+				expect(packetText).toContain('No eligible Soldier remained after overlap and cooldown checks.');
+				expect(packetText).toContain('SSG Hartney is already covering Staff Duty during this window.');
+			});
+
+			expect(anchorClick).toHaveBeenCalled();
+			expect(revokeObjectUrl).toHaveBeenCalledWith('blob:advanced-duty-packet');
+		} finally {
+			URL.createObjectURL = originalCreateObjectURL;
+			URL.revokeObjectURL = originalRevokeObjectURL;
+			HTMLAnchorElement.prototype.click = originalAnchorClick;
+		}
+	});
+
+	it('renders structured explanation sections for generated, warning, and unfilled advanced slots', async () => {
+		renderWizard({
+			onPreviewAdvancedSeries: vi.fn(async () =>
+				makeSeriesPreview({
+					eventDates: ['2026-04-07'],
+					events: [
+						makePreview({
+							eventDate: '2026-04-07',
+							coverageStart: '2026-04-07T08:00:00',
+							coverageEnd: '2026-04-08T08:00:00',
+							fillSummary: {
+								totalSlots: 2,
+								filledSlots: 1,
+								unfilledSlots: 1
+							},
+							slotInstances: [
+								{
+									...makePreview().slotInstances[0],
+									roleLabel: 'Runner',
+									fairnessConfidence: 'low',
+									selectionReason: 'Selected by longest break in the runner rotation group.',
+									overrideMessages: ['SPC Foley was skipped because he already covered CQ yesterday.']
+								},
+								{
+									...makePreview().slotInstances[0],
+									templateSlotId: 'slot-2',
+									roleLabel: 'NCO',
+									slotIndex: 1,
+									assigneeId: null,
+									assignmentSource: 'manual',
+									warningState: 'conflict',
+									fairnessConfidence: 'low',
+									selectionReason: null,
+									unfilledReason: 'No eligible NCO remained after overlap and cooldown checks.',
+									overrideMessages: ['SSG Hartney is already covering Staff Duty during this window.']
+								}
+							]
+						})
+					]
+				})
+			),
+			advancedDutyEvents: [
+				makeAppliedEvent({
+					slotInstances: [
+						{
+							...makeAppliedEvent().slotInstances[0],
+							roleLabel: 'Runner',
+							fairnessConfidence: 'low',
+							selectionReason: 'Selected by longest break in the runner rotation group.',
+							overrideMessages: ['SPC Foley was skipped because he already covered CQ yesterday.']
+						},
+						{
+							...makeAppliedEvent().slotInstances[0],
+							id: 'event-slot-2',
+							templateSlotId: 'slot-2',
+							roleLabel: 'NCO',
+							slotIndex: 1,
+							assigneeId: null,
+							assignmentSource: 'manual',
+							warningState: 'conflict',
+							fairnessConfidence: 'low',
+							selectionReason: null,
+							unfilledReason: 'No eligible NCO remained after overlap and cooldown checks.',
+							overrideMessages: ['SSG Hartney is already covering Staff Duty during this window.']
+						}
+					]
+				})
+			],
+			onPreviewExistingAdvancedEvent: vi.fn(async () =>
+				makePreview({
+					fillSummary: {
+						totalSlots: 2,
+						filledSlots: 1,
+						unfilledSlots: 1
+					},
+					slotInstances: [
+						{
+							...makePreview().slotInstances[0],
+							roleLabel: 'Runner',
+							fairnessConfidence: 'low',
+							selectionReason: 'Selected by longest break in the runner rotation group.',
+							overrideMessages: ['SPC Foley was skipped because he already covered CQ yesterday.']
+						},
+						{
+							...makePreview().slotInstances[0],
+							templateSlotId: 'slot-2',
+							roleLabel: 'NCO',
+							slotIndex: 1,
+							assigneeId: null,
+							assignmentSource: 'manual',
+							warningState: 'conflict',
+							fairnessConfidence: 'low',
+							selectionReason: null,
+							unfilledReason: 'No eligible NCO remained after overlap and cooldown checks.',
+							overrideMessages: ['SSG Hartney is already covering Staff Duty during this window.']
+						}
+					]
+				})
+			)
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('Series preview ready')).toBeTruthy();
+		});
+
+		expect(screen.getAllByText('Why this pick').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Warnings and skips').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Unfilled outcome').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Fairness confidence').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Selected by longest break in the runner rotation group.').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('SPC Foley was skipped because he already covered CQ yesterday.').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('No eligible NCO remained after overlap and cooldown checks.').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('SSG Hartney is already covering Staff Duty during this window.').length).toBeGreaterThan(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Open Event Apr 10, 2026' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('Edit applied duty event')).toBeTruthy();
+		});
+
+		expect(screen.getAllByText('Why this pick').length).toBeGreaterThan(1);
+		expect(screen.getAllByText('Warnings and skips').length).toBeGreaterThan(1);
+		expect(screen.getAllByText('Unfilled outcome').length).toBeGreaterThan(1);
 	});
 });

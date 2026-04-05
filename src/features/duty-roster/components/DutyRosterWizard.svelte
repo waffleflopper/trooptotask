@@ -79,6 +79,13 @@
 		| 'advanced-template-list'
 		| 'advanced-generator';
 
+	type CoverageDisplay = Pick<DutyEvent, 'coverageMode' | 'coverageStart' | 'coverageEnd'>;
+	type SlotExplanationSection = {
+		label: string;
+		tone: 'default' | 'warning' | 'conflict';
+		lines: string[];
+	};
+
 	let view = $state<WizardView>('choose-lane');
 	let selectedSimpleAssignmentTypeId = $state<string | null>(null);
 	let selectedAdvancedTemplateId = $state<string | null>(null);
@@ -261,7 +268,7 @@
 		return dateTime.slice(11, 16).replace(':', '');
 	}
 
-	function formatEventCoverageLabel(event: DutyEvent): string {
+	function formatCoverageLabel(event: CoverageDisplay): string {
 		if (event.coverageMode === 'all-day') {
 			return 'All day';
 		}
@@ -271,6 +278,10 @@
 		const start = formatCoverageTimeLabel(event.coverageStart);
 		const end = formatCoverageTimeLabel(event.coverageEnd);
 		return startsOn === endsOn ? `${start}-${end}` : `${start}-${end} next day`;
+	}
+
+	function formatEventCoverageLabel(event: DutyEvent): string {
+		return formatCoverageLabel(event);
 	}
 
 	function formatAppliedGroupRange(events: DutyEvent[]): string {
@@ -283,6 +294,161 @@
 
 	function formatAppliedFillSummary(event: DutyEvent): string {
 		return `${event.fillSummary.filledSlots}/${event.fillSummary.totalSlots} filled`;
+	}
+
+	function escapePacketHtml(value: string): string {
+		return value
+			.replaceAll('&', '&amp;')
+			.replaceAll('<', '&lt;')
+			.replaceAll('>', '&gt;')
+			.replaceAll('"', '&quot;')
+			.replaceAll("'", '&#39;');
+	}
+
+	function describeFairnessConfidence(confidence: DutyEventPreviewSlotInstance['fairnessConfidence']): string {
+		if (confidence === 'low') {
+			return 'Low confidence: the queue is working from thin history or limited starting data.';
+		}
+		if (confidence === 'high') {
+			return 'High confidence: this pick comes from a well-established rotation history.';
+		}
+		return 'Normal confidence: the queue has enough history to make a stable fairness call.';
+	}
+
+	function getSlotExplanationSections(slot: DutyEventPreviewSlotInstance): SlotExplanationSection[] {
+		const sections: SlotExplanationSection[] = [
+			{
+				label: 'Fairness confidence',
+				tone: 'default',
+				lines: [describeFairnessConfidence(slot.fairnessConfidence)]
+			}
+		];
+
+		if (slot.selectionReason) {
+			sections.push({
+				label: 'Why this pick',
+				tone: 'default',
+				lines: [slot.selectionReason]
+			});
+		}
+
+		if (slot.overrideMessages && slot.overrideMessages.length > 0) {
+			sections.push({
+				label: 'Warnings and skips',
+				tone: slot.warningState === 'conflict' ? 'conflict' : slot.warningState === 'warning' ? 'warning' : 'default',
+				lines: [...slot.overrideMessages]
+			});
+		}
+
+		if (slot.unfilledReason) {
+			sections.push({
+				label: 'Unfilled outcome',
+				tone: slot.warningState === 'conflict' ? 'conflict' : 'default',
+				lines: [slot.unfilledReason]
+			});
+		}
+
+		return sections;
+	}
+
+	function buildDutyPacketMarkup(
+		event: DutyEvent,
+		preview: DutyEventPreview,
+		personnelLookup: Map<string, Personnel>
+	): string {
+		const slotSections = preview.slotInstances
+			.map((slot) => {
+				const explanationMarkup = getSlotExplanationSections(slot)
+					.map(
+						(section) => `
+							<div class="slot-section">
+								<p><strong>${escapePacketHtml(section.label)}</strong></p>
+								<ul>${section.lines.map((line) => `<li>${escapePacketHtml(line)}</li>`).join('')}</ul>
+							</div>
+						`
+					)
+					.join('');
+				return `
+					<section class="slot-card">
+						<div class="slot-heading">
+							<h3>${escapePacketHtml(`${slot.roleLabel} #${slot.slotIndex + 1}`)}</h3>
+							<p>${escapePacketHtml(formatSlotAssignee(slot.assigneeId))}</p>
+						</div>
+						<p class="slot-meta">Source: ${escapePacketHtml(slot.assignmentSource)}${
+							slot.warningState !== 'none' ? ` · ${escapePacketHtml(slot.warningState)}` : ''
+						}</p>
+						${explanationMarkup || '<p>No extra explanation recorded for this slot.</p>'}
+					</section>
+				`;
+			})
+			.join('');
+
+		const assignedPersonnel = preview.slotInstances
+			.map((slot) => slot.assigneeId)
+			.filter((assigneeId): assigneeId is string => Boolean(assigneeId))
+			.map((assigneeId) => personnelLookup.get(assigneeId))
+			.filter((person): person is Personnel => Boolean(person));
+		const rosterLine =
+			assignedPersonnel.length > 0
+				? assignedPersonnel
+						.map((person) => `${person.rank} ${person.lastName}`)
+						.sort((a, b) => a.localeCompare(b))
+						.join(', ')
+				: 'No Soldier assigned yet';
+
+		return `<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>${escapePacketHtml(`${event.templateName} Team Duty Packet`)}</title>
+		<style>
+			body { font-family: Georgia, "Times New Roman", serif; margin: 32px; color: #1f2937; }
+			h1, h2, h3, p { margin: 0; }
+			header, section { margin-bottom: 24px; }
+			.meta-grid { display: grid; gap: 8px; margin-top: 12px; }
+			.roster-line { margin-top: 12px; font-weight: 600; }
+			.slot-grid { display: grid; gap: 16px; }
+			.slot-card { border: 1px solid #d6d3d1; border-radius: 12px; padding: 16px; background: #fafaf9; }
+			.slot-heading { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+			.slot-meta { margin-top: 6px; color: #57534e; font-size: 14px; }
+			ul { margin: 12px 0 0 18px; padding: 0; }
+			li + li { margin-top: 6px; }
+		</style>
+	</head>
+	<body>
+		<header>
+			<p>Team Duty Packet</p>
+			<h1>${escapePacketHtml(event.templateName)}</h1>
+			<div class="meta-grid">
+				<p>Date: ${escapePacketHtml(formatDisplayDate(preview.eventDate))}</p>
+				<p>Coverage: ${escapePacketHtml(formatCoverageLabel(preview))}</p>
+				<p>Fill status: ${escapePacketHtml(`${preview.fillSummary.filledSlots}/${preview.fillSummary.totalSlots} filled`)}</p>
+				<p>Blocking duty: ${escapePacketHtml(preview.isBlocking ? 'Yes' : 'No')}</p>
+			</div>
+			<p class="roster-line">Assigned team: ${escapePacketHtml(rosterLine)}</p>
+		</header>
+
+		<section>
+			<h2>Duty team</h2>
+			<div class="slot-grid">${slotSections}</div>
+		</section>
+	</body>
+</html>`;
+	}
+
+	function exportAppliedDutyPacket() {
+		if (!selectedAppliedEvent || !appliedEventPreview) return;
+		const packetMarkup = buildDutyPacketMarkup(selectedAppliedEvent, appliedEventPreview, personnelById);
+		const fileDate = appliedEventPreview.eventDate.replaceAll('-', '');
+		const blob = new Blob([packetMarkup], { type: 'text/html;charset=utf-8' });
+		const url = URL.createObjectURL(blob);
+		const anchor = document.createElement('a');
+		anchor.href = url;
+		anchor.download = `${selectedAppliedEvent.templateName.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}-${fileDate}-team-duty-packet.html`;
+		document.body.append(anchor);
+		anchor.click();
+		anchor.remove();
+		URL.revokeObjectURL(url);
 	}
 
 	function toggleWeekday(day: number) {
@@ -1070,18 +1236,21 @@
 														Reset
 													</button>
 												</div>
-												{#if slot.overrideMessages && slot.overrideMessages.length > 0}
-													<div class="slot-message-list">
-														{#each slot.overrideMessages as message (`${event.eventDate}-${slot.slotIndex}-${message}`)}
-															<span
-																class={`slot-message ${slot.warningState === 'conflict' ? 'slot-message-conflict' : slot.warningState === 'warning' ? 'slot-message-warning' : ''}`}
-																>{message}</span
-															>
-														{/each}
-													</div>
-												{:else}
-													<span>{slot.unfilledReason ?? slot.selectionReason ?? 'Generated assignment ready to apply.'}</span>
-												{/if}
+												<div class="slot-explanation-list">
+													{#each getSlotExplanationSections(slot) as section (`${event.eventDate}-${slot.slotIndex}-${section.label}`)}
+														<div class="slot-explanation-card">
+															<p class="slot-explanation-label">{section.label}</p>
+															<div class="slot-message-list">
+																{#each section.lines as line (`${section.label}-${line}`)}
+																	<span
+																		class={`slot-message ${section.tone === 'conflict' ? 'slot-message-conflict' : section.tone === 'warning' ? 'slot-message-warning' : ''}`}
+																		>{line}</span
+																	>
+																{/each}
+															</div>
+														</div>
+													{/each}
+												</div>
 											</div>
 										{/each}
 									</div>
@@ -1169,6 +1338,14 @@
 						{/if}
 					</div>
 					<div class="header-actions">
+						<button
+							class="btn btn-secondary btn-sm"
+							type="button"
+							disabled={isLoadingAppliedEventPreview || isRefreshingAppliedEventPreview || isSavingAppliedEvent}
+							onclick={exportAppliedDutyPacket}
+						>
+							Export Duty Packet
+						</button>
 						<button
 							class="btn btn-secondary btn-sm"
 							type="button"
@@ -1291,18 +1468,21 @@
 											Regenerate Slot
 										</button>
 									</div>
-									{#if slot.overrideMessages && slot.overrideMessages.length > 0}
-										<div class="slot-message-list">
-											{#each slot.overrideMessages as message (`${slot.slotIndex}-${message}`)}
-												<span
-													class={`slot-message ${slot.warningState === 'conflict' ? 'slot-message-conflict' : slot.warningState === 'warning' ? 'slot-message-warning' : ''}`}
-													>{message}</span
-												>
-											{/each}
-										</div>
-									{:else}
-										<span>{slot.unfilledReason ?? slot.selectionReason ?? 'Assignment ready to save.'}</span>
-									{/if}
+									<div class="slot-explanation-list">
+										{#each getSlotExplanationSections(slot) as section (`${slot.slotIndex}-${section.label}`)}
+											<div class="slot-explanation-card">
+												<p class="slot-explanation-label">{section.label}</p>
+												<div class="slot-message-list">
+													{#each section.lines as line (`${section.label}-${line}`)}
+														<span
+															class={`slot-message ${section.tone === 'conflict' ? 'slot-message-conflict' : section.tone === 'warning' ? 'slot-message-warning' : ''}`}
+															>{line}</span
+														>
+													{/each}
+												</div>
+											</div>
+										{/each}
+									</div>
 								</div>
 							{/each}
 						</div>
@@ -1636,6 +1816,35 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--sp-2);
+	}
+
+	.slot-message-list {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.slot-explanation-list {
+		display: grid;
+		gap: var(--sp-2);
+	}
+
+	.slot-explanation-card {
+		display: grid;
+		gap: 4px;
+		padding: 10px 12px;
+		border: 1px solid var(--border-subtle);
+		border-radius: var(--radius-sm);
+		background: color-mix(in srgb, var(--surface-subtle) 65%, var(--surface-panel) 35%);
+	}
+
+	.slot-explanation-label {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
 	.slot-preview-heading {

@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import type { DutyTemplateRecord } from '$features/duty-roster/duty-roster.types';
+import { cloneDefaultSoftPreferences, type DutyTemplateRecord } from '$features/duty-roster/duty-roster.types';
+
+const softPreferenceConfigSchema = z.object({
+	type: z.enum(['longest-break', 'holiday-closure', 'weekend', 'preferred-group']),
+	enabled: z.boolean()
+});
+
+const defaultSoftPreferences = cloneDefaultSoftPreferences();
 
 export const DutyTemplateEntity = defineEntity<DutyTemplateRecord>({
 	table: 'duty_templates',
@@ -18,6 +25,11 @@ export const DutyTemplateEntity = defineEntity<DutyTemplateRecord>({
 			insertDefault: [],
 			nullDefault: []
 		}),
+		exemptPersonnelIds: field(z.array(z.string()), {
+			column: 'exempt_personnel_ids',
+			insertDefault: [],
+			nullDefault: []
+		}),
 		coverageMode: field(z.enum(['all-day', 'timed']), {
 			column: 'coverage_mode',
 			insertDefault: 'all-day'
@@ -28,6 +40,11 @@ export const DutyTemplateEntity = defineEntity<DutyTemplateRecord>({
 		cooldownHours: field(z.number().int().min(0), {
 			column: 'cooldown_hours',
 			insertDefault: 0
+		}),
+		softPreferences: field(z.array(softPreferenceConfigSchema), {
+			column: 'soft_preferences',
+			insertDefault: defaultSoftPreferences,
+			nullDefault: defaultSoftPreferences
 		}),
 		createdAt: field(z.string(), { column: 'created_at', readOnly: true }),
 		updatedAt: field(z.string(), { column: 'updated_at', readOnly: true })

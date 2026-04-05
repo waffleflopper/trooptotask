@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import type { DutyTemplateWriteInput } from '$features/duty-roster/duty-roster.types';
-import { createDutyTemplate, listDutyTemplates, updateDutyTemplate } from './dutyTemplateCrud';
+import { cloneDefaultSoftPreferences, type DutyTemplateWriteInput } from '$features/duty-roster/duty-roster.types';
+import { archiveDutyTemplate, createDutyTemplate, listDutyTemplates, updateDutyTemplate } from './dutyTemplateCrud';
 
 function makeInput(overrides: Partial<DutyTemplateWriteInput> = {}): DutyTemplateWriteInput {
 	return {
@@ -53,7 +53,8 @@ describe('duty template CRUD use cases', () => {
 			startTime: '17:00',
 			endTime: '09:00',
 			isBlocking: true,
-			cooldownHours: 12
+			cooldownHours: 12,
+			softPreferences: cloneDefaultSoftPreferences()
 		});
 		expect(result.slots).toHaveLength(2);
 		expect(result.slots[0]).toMatchObject({
@@ -113,6 +114,12 @@ describe('duty template CRUD use cases', () => {
 						personId: 'person-1',
 						lastServedDate: '2026-03-10'
 					}
+				],
+				softPreferences: [
+					{ type: 'preferred-group', enabled: true },
+					{ type: 'longest-break', enabled: true },
+					{ type: 'holiday-closure', enabled: true },
+					{ type: 'weekend', enabled: false }
 				]
 			})
 		);
@@ -137,6 +144,12 @@ describe('duty template CRUD use cases', () => {
 				personId: 'person-1',
 				lastServedDate: '2026-03-10'
 			})
+		]);
+		expect(result.softPreferences).toEqual([
+			{ type: 'preferred-group', enabled: true },
+			{ type: 'longest-break', enabled: true },
+			{ type: 'holiday-closure', enabled: true },
+			{ type: 'weekend', enabled: false }
 		]);
 	});
 
@@ -247,5 +260,126 @@ describe('duty template CRUD use cases', () => {
 		expect(results).toHaveLength(2);
 		expect(results[1].name).toBe('Template B');
 		expect(results[1].slots.map((slot) => slot.roleLabel)).toEqual(['NCO', 'Runner']);
+	});
+
+	it('archives an existing advanced template', async () => {
+		const ctx = createTestContext();
+		const created = await createDutyTemplate(ctx, makeInput({ status: 'active' }));
+
+		const archived = await archiveDutyTemplate(ctx, { templateId: created.id });
+
+		expect(archived).toMatchObject({
+			id: created.id,
+			status: 'archived'
+		});
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'duty_template.archived',
+				resourceType: 'duty_template',
+				resourceId: created.id
+			})
+		);
+	});
+});
+
+describe('updateDutyTemplate — group scope enforcement', () => {
+	it('allows a group-scoped user to update a template whose scope includes their group', async () => {
+		const ctx = createTestContext();
+		const template = await createDutyTemplate(ctx, makeInput({ scopeType: 'groups', scopeGroupIds: ['group-alpha'] }));
+
+		const scopedCtx = createTestContext({ auth: { scopedGroupId: 'group-alpha' } });
+		// Pre-seed the template into the scoped store so findOne can find it
+		scopedCtx.store.seed('duty_templates', [
+			{
+				id: template.id,
+				organization_id: scopedCtx.auth.orgId,
+				mode: 'advanced',
+				status: 'draft',
+				name: template.name,
+				description: template.description ?? null,
+				scope_type: 'groups',
+				scope_group_ids: ['group-alpha'],
+				coverage_mode: template.coverageMode,
+				start_time: '17:00',
+				end_time: '09:00',
+				is_blocking: template.isBlocking,
+				cooldown_hours: template.cooldownHours,
+				rotation_baselines: null,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString()
+			}
+		]);
+
+		await expect(
+			updateDutyTemplate(scopedCtx, {
+				...makeInput({ scopeType: 'groups', scopeGroupIds: ['group-alpha'] }),
+				id: template.id
+			})
+		).resolves.toBeTruthy();
+	});
+
+	it('denies a group-scoped user from updating a template for a different group', async () => {
+		const ctx = createTestContext();
+		const template = await createDutyTemplate(ctx, makeInput({ scopeType: 'groups', scopeGroupIds: ['group-bravo'] }));
+
+		const scopedCtx = createTestContext({ auth: { scopedGroupId: 'group-alpha' } });
+		scopedCtx.store.seed('duty_templates', [
+			{
+				id: template.id,
+				organization_id: scopedCtx.auth.orgId,
+				mode: 'advanced',
+				status: 'draft',
+				name: template.name,
+				description: template.description ?? null,
+				scope_type: 'groups',
+				scope_group_ids: ['group-bravo'],
+				coverage_mode: template.coverageMode,
+				start_time: '17:00',
+				end_time: '09:00',
+				is_blocking: template.isBlocking,
+				cooldown_hours: template.cooldownHours,
+				rotation_baselines: null,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString()
+			}
+		]);
+
+		await expect(
+			updateDutyTemplate(scopedCtx, {
+				...makeInput({ scopeType: 'groups', scopeGroupIds: ['group-bravo'] }),
+				id: template.id
+			})
+		).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('denies a group-scoped user from updating an org-scoped template', async () => {
+		const ctx = createTestContext();
+		const template = await createDutyTemplate(ctx, makeInput({ scopeType: 'organization', scopeGroupIds: [] }));
+
+		const scopedCtx = createTestContext({ auth: { scopedGroupId: 'group-alpha' } });
+		scopedCtx.store.seed('duty_templates', [
+			{
+				id: template.id,
+				organization_id: scopedCtx.auth.orgId,
+				mode: 'advanced',
+				status: 'draft',
+				name: template.name,
+				description: template.description ?? null,
+				scope_type: 'organization',
+				scope_group_ids: [],
+				coverage_mode: template.coverageMode,
+				start_time: '17:00',
+				end_time: '09:00',
+				is_blocking: template.isBlocking,
+				cooldown_hours: template.cooldownHours,
+				rotation_baselines: null,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString()
+			}
+		]);
+
+		await expect(
+			updateDutyTemplate(scopedCtx, { ...makeInput({ scopeType: 'organization', scopeGroupIds: [] }), id: template.id })
+		).rejects.toMatchObject({ status: 403 });
 	});
 });

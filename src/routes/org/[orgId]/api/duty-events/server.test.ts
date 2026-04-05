@@ -3,9 +3,11 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { createDutyTemplate } from '$lib/server/core/useCases/dutyTemplateCrud';
 import { _postConfig as applyConfig } from './+server';
-import { _putConfig as updateExistingConfig } from './[eventId]/+server';
+import { _deleteConfig as deleteEventConfig, _putConfig as updateExistingConfig } from './[eventId]/+server';
 import { _postConfig as previewExistingConfig } from './[eventId]/preview/+server';
 import { _postConfig as previewConfig } from './preview/+server';
+import { _deleteConfig as deleteRunConfig } from './runs/[runId]/+server';
+import { _postConfig as deleteLegacyGroupConfig } from './runs/legacy/+server';
 import { _postConfig as applySeriesConfig } from './series/+server';
 import { _postConfig as previewSeriesConfig } from './series/preview/+server';
 
@@ -108,7 +110,12 @@ describe('POST /api/duty-events', () => {
 
 		expect(result).toMatchObject({
 			templateId: template.id,
-			templateName: 'Battalion Staff Duty'
+			templateName: 'Battalion Staff Duty',
+			run: expect.objectContaining({
+				templateId: template.id,
+				pattern: 'single',
+				eventCount: 1
+			})
 		});
 		expect(result.slotInstances).toHaveLength(2);
 	});
@@ -150,6 +157,31 @@ describe('POST /api/duty-events', () => {
 					assignmentSource: 'generated'
 				})
 			])
+		});
+	});
+
+	it('blocks apply at the route layer until collision review is confirmed', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'assignment-existing',
+				organization_id: ctx.auth.orgId,
+				date: '2026-04-10',
+				assignment_type_id: 'at-existing',
+				assignee_id: 'person-nco'
+			}
+		]);
+
+		await expect(
+			handleUseCaseRequest(applyConfig, ctx, {
+				templateId: template.id,
+				eventDate: '2026-04-10'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Collision review is required before applying this duty event.'
 		});
 	});
 });
@@ -225,6 +257,34 @@ describe('PUT /api/duty-events/[eventId]', () => {
 			templateSlotId: template.slots[0]?.id,
 			assigneeId: 'person-alt-nco',
 			assignmentSource: 'manual'
+		});
+	});
+
+	it('blocks update at the route layer until collision review is confirmed', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+		const applied = await handleUseCaseRequest(applyConfig, ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'assignment-existing',
+				organization_id: ctx.auth.orgId,
+				date: '2026-04-10',
+				assignment_type_id: 'at-existing',
+				assignee_id: 'person-nco'
+			}
+		]);
+
+		await expect(
+			handleUseCaseRequest(updateExistingConfig, ctx, {
+				dutyEventId: applied.id
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Collision review is required before saving this duty event.'
 		});
 	});
 });
@@ -331,6 +391,37 @@ describe('POST /api/duty-events/series', () => {
 
 		expect(result.eventDates).toEqual(['2026-04-04', '2026-04-10']);
 		expect(result.events).toHaveLength(2);
+		expect(result.run).toMatchObject({
+			templateId: template.id,
+			pattern: 'custom-dates',
+			eventCount: 2
+		});
+	});
+
+	it('blocks series apply at the route layer until collision review is confirmed', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		ctx.store.seed('daily_assignments', [
+			{
+				id: 'assignment-existing',
+				organization_id: ctx.auth.orgId,
+				date: '2026-04-10',
+				assignment_type_id: 'at-existing',
+				assignee_id: 'person-nco'
+			}
+		]);
+
+		await expect(
+			handleUseCaseRequest(applySeriesConfig, ctx, {
+				templateId: template.id,
+				pattern: 'custom-dates',
+				customDates: ['2026-04-10']
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Collision review is required before applying this duty series.'
+		});
 	});
 
 	it('applies series-level slot overrides and preserves the original generated proposal', async () => {
@@ -383,5 +474,97 @@ describe('POST /api/duty-events/series', () => {
 				})
 			])
 		});
+	});
+});
+
+describe('DELETE /api/duty-events/[eventId]', () => {
+	it('deletes one applied duty event', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+		const applied = await handleUseCaseRequest(applyConfig, ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		const result = await handleUseCaseRequest(deleteEventConfig, ctx, {
+			dutyEventId: applied.id
+		});
+
+		expect(result).toMatchObject({ deletedEvents: 1 });
+		const remaining = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId);
+		expect(remaining).toHaveLength(0);
+	});
+});
+
+describe('DELETE /api/duty-events/runs/[runId]', () => {
+	it('deletes a full run and cascades all of its events', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+		const result = await handleUseCaseRequest(applySeriesConfig, ctx, {
+			templateId: template.id,
+			pattern: 'custom-dates',
+			customDates: ['2026-04-04', '2026-04-10']
+		});
+
+		const deleted = await handleUseCaseRequest(deleteRunConfig, ctx, {
+			runId: result.run.id
+		});
+
+		expect(deleted).toMatchObject({ deletedEvents: 2 });
+		const remainingEvents = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId);
+		const remainingRuns = await ctx.store.findMany<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId);
+		expect(remainingEvents).toHaveLength(0);
+		expect(remainingRuns).toHaveLength(0);
+	});
+});
+
+describe('POST /api/duty-events/runs/legacy', () => {
+	it('deletes a list of legacy duty events without run ids', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('duty_events', [
+			{
+				id: 'legacy-1',
+				organization_id: ctx.auth.orgId,
+				run_id: null,
+				template_id: 'template-legacy',
+				template_name: 'Legacy CQ',
+				event_date: '2026-04-10',
+				coverage_mode: 'all-day',
+				coverage_start: '2026-04-10T00:00:00',
+				coverage_end: '2026-04-10T23:59:59',
+				is_blocking: true,
+				cooldown_hours: 0,
+				rules_snapshot: {},
+				fill_summary: {},
+				collision_summary: {},
+				created_at: '2026-04-01T00:00:00.000Z',
+				updated_at: '2026-04-01T00:00:00.000Z'
+			},
+			{
+				id: 'legacy-2',
+				organization_id: ctx.auth.orgId,
+				run_id: null,
+				template_id: 'template-legacy',
+				template_name: 'Legacy CQ',
+				event_date: '2026-04-11',
+				coverage_mode: 'all-day',
+				coverage_start: '2026-04-11T00:00:00',
+				coverage_end: '2026-04-11T23:59:59',
+				is_blocking: true,
+				cooldown_hours: 0,
+				rules_snapshot: {},
+				fill_summary: {},
+				collision_summary: {},
+				created_at: '2026-04-01T00:00:00.000Z',
+				updated_at: '2026-04-01T00:00:00.000Z'
+			}
+		]);
+
+		const result = await handleUseCaseRequest(deleteLegacyGroupConfig, ctx, {
+			eventIds: ['legacy-1', 'legacy-2']
+		});
+		expect(result).toMatchObject({ deletedEvents: 2 });
+		const remaining = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId);
+		expect(remaining).toHaveLength(0);
 	});
 });

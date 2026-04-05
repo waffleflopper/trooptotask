@@ -2,6 +2,7 @@ export type DutyTemplateMode = 'simple' | 'advanced';
 export type DutyTemplateStatus = 'draft' | 'active' | 'archived';
 export type DutyTemplateScopeType = 'organization' | 'groups';
 export type DutyTemplateCoverageMode = 'all-day' | 'timed';
+export type SoftPreferenceType = 'longest-break' | 'holiday-closure' | 'weekend' | 'preferred-group';
 export type DutyEventSeriesPattern =
 	| 'daily'
 	| 'weekday-only'
@@ -9,6 +10,23 @@ export type DutyEventSeriesPattern =
 	| 'selected-weekdays'
 	| 'holiday-closure-only'
 	| 'custom-dates';
+export type DutyEventRunPattern = DutyEventSeriesPattern | 'single';
+
+export interface SoftPreferenceConfig {
+	type: SoftPreferenceType;
+	enabled: boolean;
+}
+
+export const DEFAULT_SOFT_PREFERENCE_ORDER = [
+	'longest-break',
+	'holiday-closure',
+	'weekend',
+	'preferred-group'
+] as const satisfies readonly SoftPreferenceType[];
+
+export function cloneDefaultSoftPreferences(): SoftPreferenceConfig[] {
+	return DEFAULT_SOFT_PREFERENCE_ORDER.map((type) => ({ type, enabled: true }));
+}
 
 export interface DutyTemplateSlot {
 	id: string;
@@ -41,11 +59,13 @@ export interface DutyTemplateRecord {
 	description: string | null;
 	scopeType: DutyTemplateScopeType;
 	scopeGroupIds: string[];
+	exemptPersonnelIds: string[];
 	coverageMode: DutyTemplateCoverageMode;
 	startTime: string | null;
 	endTime: string | null;
 	isBlocking: boolean;
 	cooldownHours: number;
+	softPreferences: SoftPreferenceConfig[];
 	createdAt: string;
 	updatedAt: string;
 }
@@ -82,11 +102,13 @@ export interface DutyTemplateWriteInput {
 	description?: string | null;
 	scopeType?: DutyTemplateScopeType;
 	scopeGroupIds?: string[];
+	exemptPersonnelIds?: string[];
 	coverageMode?: DutyTemplateCoverageMode;
 	startTime?: string | null;
 	endTime?: string | null;
 	isBlocking?: boolean;
 	cooldownHours?: number;
+	softPreferences?: SoftPreferenceConfig[];
 	slots?: DutyTemplateSlotInput[];
 	rotationBaselines?: DutyTemplateRotationBaselineInput[];
 }
@@ -100,8 +122,10 @@ export interface DutyEventRulesSnapshot {
 	endTime: string | null;
 	scopeType: DutyTemplateScopeType;
 	scopeGroupIds: string[];
+	exemptPersonnelIds?: string[];
 	isBlocking: boolean;
 	cooldownHours: number;
+	softPreferences?: SoftPreferenceConfig[];
 	rotationBaselines?: Array<{
 		rotationPoolKey: string;
 		personId: string;
@@ -134,7 +158,7 @@ export interface DutyEventCollisionSummary {
 
 export type DutyEventAssignmentSource = 'generated' | 'manual' | 'locked';
 export type DutyEventWarningState = 'none' | 'warning' | 'conflict';
-export type DutyEventFairnessConfidence = 'high' | 'low';
+export type DutyEventFairnessConfidence = 'high' | 'medium' | 'low';
 
 export interface DutyEventOriginalProposal {
 	fillSummary: DutyEventFillSummary;
@@ -154,7 +178,6 @@ export interface DutyEventSlotInstance {
 	fairnessConfidence: DutyEventFairnessConfidence;
 	selectionReason: string | null;
 	unfilledReason: string | null;
-	overrideMessages?: string[];
 	sortOrder: number;
 }
 
@@ -175,6 +198,7 @@ export interface DutyEventPreviewSlotInstance {
 export interface DutyEventRecord {
 	id: string;
 	orgId: string;
+	runId: string | null;
 	templateId: string;
 	templateName: string;
 	eventDate: string;
@@ -193,6 +217,21 @@ export interface DutyEventRecord {
 
 export interface DutyEvent extends DutyEventRecord {
 	slotInstances: DutyEventSlotInstance[];
+	run?: DutyEventRunRecord | null;
+}
+
+export interface DutyEventRunRecord {
+	id: string;
+	orgId: string;
+	templateId: string | null;
+	templateName: string;
+	pattern: DutyEventRunPattern;
+	startDate: string;
+	endDate: string;
+	eventCount: number;
+	isLegacy: boolean;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface DutyEventSlotOverrideInput {
@@ -258,9 +297,14 @@ export interface DutyEventSeriesPreview {
 }
 
 export interface DutyEventSeriesApplyResult {
+	run: DutyEventRunRecord;
 	templateId: string;
 	templateName: string;
 	pattern: DutyEventSeriesPattern;
 	eventDates: string[];
 	events: DutyEvent[];
+}
+
+export interface DutyEventRunDeleteResult {
+	deletedEvents: number;
 }

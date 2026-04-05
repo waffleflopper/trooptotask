@@ -11,7 +11,9 @@ export const _postConfig: RouteConfig<ExistingDutyEventInput, DutyEventPreview> 
 export const POST = handle<ExistingDutyEventInput, DutyEventPreview>({
 	..._postConfig,
 	parseInput: async (event) => {
-		const body = (await event.request.json().catch(() => ({}))) as { slotOverrides?: ExistingDutyEventInput['slotOverrides'] };
+		const body = (await event.request.json().catch(() => ({}))) as {
+			slotOverrides?: ExistingDutyEventInput['slotOverrides'];
+		};
 		return {
 			dutyEventId: event.params.eventId as string,
 			slotOverrides: body.slotOverrides

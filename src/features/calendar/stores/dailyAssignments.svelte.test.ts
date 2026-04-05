@@ -352,7 +352,12 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 		it('shows the server conflict message when a manual assignment is blocked by duty coverage', async () => {
 			vi.stubGlobal(
 				'fetch',
-				mockFetch({ message: 'SGT Nolan is already assigned to duty coverage from 2026-03-20T06:00:00 to 2026-03-20T18:00:00.' }, 409)
+				mockFetch(
+					{
+						message: 'SGT Nolan is already assigned to duty coverage from 2026-03-20T06:00:00 to 2026-03-20T18:00:00.'
+					},
+					409
+				)
 			);
 
 			const result = await dailyAssignmentsStore.setAssignment('2026-03-20', 'type-1', 'p1');
@@ -489,10 +494,7 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 		});
 
 		it('shows the server conflict message when a batch assignment is blocked by duty cooldown', async () => {
-			vi.stubGlobal(
-				'fetch',
-				mockFetch({ message: 'SGT Nolan is still in cooldown until 2026-03-21T20:00:00.' }, 409)
-			);
+			vi.stubGlobal('fetch', mockFetch({ message: 'SGT Nolan is still in cooldown until 2026-03-21T20:00:00.' }, 409));
 
 			const result = await dailyAssignmentsStore.setAssignmentBatch([
 				{ date: '2026-03-21', assignmentTypeId: 'type-1', assigneeId: 'p1' }

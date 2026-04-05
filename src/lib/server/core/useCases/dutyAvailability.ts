@@ -6,6 +6,7 @@ export interface TransientDutyCoverage {
 	coverageStart: string;
 	coverageEnd: string;
 	cooldownHours: number;
+	isBlocking?: boolean;
 }
 
 function formatLocalDateTime(value: Date): string {
@@ -77,13 +78,18 @@ export async function findDutyCoverageConflicts(
 				continue;
 			}
 
+			if (eventRow.is_blocking === false) {
+				continue;
+			}
+
 			const existingCoverageStart = String(eventRow.coverage_start);
 			const existingCoverageEnd = String(eventRow.coverage_end);
 			const existingCooldownHours = Number(eventRow.cooldown_hours ?? 0);
 			const existingCooldownEnd = addHours(existingCoverageEnd, existingCooldownHours);
 			const overlaps = existingCoverageStart < coverageEnd && existingCoverageEnd > coverageStart;
 			const priorCooldownBlocks = existingCoverageEnd <= coverageStart && existingCooldownEnd > coverageStart;
-			const newCooldownBlocks = cooldownHours > 0 && coverageEnd <= existingCoverageStart && newCooldownEnd > existingCoverageStart;
+			const newCooldownBlocks =
+				cooldownHours > 0 && coverageEnd <= existingCoverageStart && newCooldownEnd > existingCoverageStart;
 
 			let message: string | null = null;
 			if (overlaps) {
@@ -109,6 +115,10 @@ export async function findDutyCoverageConflicts(
 	const newCooldownEnd = addHours(coverageEnd, cooldownHours);
 	for (const existingCoverage of transientCoverage) {
 		if (!assigneeIds.includes(existingCoverage.assigneeId)) {
+			continue;
+		}
+
+		if (existingCoverage.isBlocking === false) {
 			continue;
 		}
 

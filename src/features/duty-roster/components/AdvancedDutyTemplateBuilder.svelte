@@ -1,13 +1,20 @@
 <script lang="ts">
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import WizardStepper from './WizardStepper.svelte';
+	import MultiTagSelect from './MultiTagSelect.svelte';
+	import type { TagOption } from './MultiTagSelect.svelte';
 	import { ALL_RANKS } from '$lib/types';
-	import type {
-		DutyTemplate,
-		DutyTemplateRotationBaselineInput,
-		DutyTemplateSlotInput,
-		DutyTemplateWriteInput
+	import {
+		cloneDefaultSoftPreferences,
+		type DutyTemplate,
+		type DutyTemplateRotationBaselineInput,
+		type DutyTemplateSlotInput,
+		type DutyTemplateWriteInput,
+		type SoftPreferenceConfig,
+		type SoftPreferenceType
 	} from '../duty-roster.types';
 
 	interface GroupOption {
@@ -32,6 +39,7 @@
 		canManageTemplates: boolean;
 		onCreateTemplate: (payload: DutyTemplateWriteInput) => Promise<DutyTemplate | null>;
 		onUpdateTemplate: (payload: DutyTemplateWriteInput & { id: string }) => Promise<DutyTemplate | null>;
+		onArchiveTemplate: (templateId: string) => Promise<DutyTemplate | null>;
 	}
 
 	interface EditableSlot {
@@ -54,6 +62,13 @@
 	}
 
 	type SetupMode = 'quick' | 'full';
+	type BuilderStep = 'basics' | 'policy' | 'series' | 'review';
+
+	interface SoftPreferenceOption {
+		type: SoftPreferenceType;
+		label: string;
+		description: string;
+	}
 
 	interface TemplateStarterPreset {
 		id: string;
@@ -80,28 +95,66 @@
 		}>;
 	}
 
-	let { templates, groups, personnel, canManageTemplates, onCreateTemplate, onUpdateTemplate }: Props = $props();
+	let {
+		templates,
+		groups,
+		personnel,
+		canManageTemplates,
+		onCreateTemplate,
+		onUpdateTemplate,
+		onArchiveTemplate
+	}: Props = $props();
 
 	let selectedTemplateId = $state<string | null>(null);
 	let isCreatingNew = $state(false);
 	let initialized = false;
 	let saveError = $state('');
 	let isSaving = $state(false);
+	let isDirty = $state(false);
 	let slotKeyIndex = 0;
 	let setupMode = $state<SetupMode>('quick');
+	let builderStep = $state<BuilderStep>('basics');
+	let showArchivedTemplates = $state(false);
+	let collapsedSlots = $state<Set<string>>(new Set());
+	let pendingArchiveTemplateId = $state<string | null>(null);
 
 	let templateName = $state('');
 	let templateDescription = $state('');
 	let templateStatus = $state<'draft' | 'active' | 'archived'>('draft');
 	let scopeType = $state<'organization' | 'groups'>('organization');
 	let scopeGroupIds = $state<string[]>([]);
+	let exemptPersonnelIds = $state<string[]>([]);
 	let coverageMode = $state<'all-day' | 'timed'>('all-day');
 	let startTime = $state('');
 	let endTime = $state('');
 	let isBlocking = $state(false);
 	let cooldownHours = $state(0);
+	let draftSoftPreferences = $state<SoftPreferenceConfig[]>(cloneDefaultSoftPreferences());
 	let draftSlots = $state<EditableSlot[]>([]);
 	let draftRotationBaselines = $state<EditableBaseline[]>([]);
+
+	const softPreferenceOptions: SoftPreferenceOption[] = [
+		{
+			type: 'longest-break',
+			label: 'Longest break',
+			description: 'Prefer whoever has gone the longest since this rotation group last served.'
+		},
+		{
+			type: 'holiday-closure',
+			label: 'Holiday / closure spacing',
+			description: 'On holidays or closures, avoid sending the same person back too soon.'
+		},
+		{
+			type: 'weekend',
+			label: 'Weekend spacing',
+			description: 'On weekends, avoid handing recent weekend duty back to the same person.'
+		},
+		{
+			type: 'preferred-group',
+			label: 'Preferred groups',
+			description: 'Use preferred groups as a soft tie-break instead of a hard eligibility rule.'
+		}
+	];
 
 	const templateStarterPresets = $derived.by<TemplateStarterPreset[]>(() => {
 		const primaryGroupId = groups[0]?.id ?? '';
@@ -188,14 +241,40 @@
 	const availableRoleValues = $derived(
 		[...new Set(personnel.map((person) => person.clinicRole.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))
 	);
+	const visibleTemplates = $derived(
+		showArchivedTemplates ? templates : templates.filter((template) => template.status !== 'archived')
+	);
 	const selectedTemplate = $derived(templates.find((template) => template.id === selectedTemplateId) ?? null);
 	const hasInvalidSlots = $derived(draftSlots.some((slot) => !slot.roleLabel.trim() || slot.quantity < 1));
 	const canSave = $derived(templateName.trim().length > 0 && !hasInvalidSlots);
+	const canSaveDraft = $derived(templateName.trim().length > 0);
 	const rotationPoolOptions = $derived(
 		[...new Set(draftSlots.map((slot) => slot.rotationPoolKey.trim()).filter(Boolean))].sort((a, b) =>
 			a.localeCompare(b)
 		)
 	);
+	const rankTagOptions = $derived<TagOption[]>(ALL_RANKS.map((r) => ({ value: r, label: r })));
+	const groupTagOptions = $derived<TagOption[]>(groups.map((g) => ({ value: g.id, label: g.name })));
+	const mosTagOptions = $derived<TagOption[]>(availableMosValues.map((v) => ({ value: v, label: v })));
+	const roleTagOptions = $derived<TagOption[]>(availableRoleValues.map((v) => ({ value: v, label: v })));
+	const personnelTagOptions = $derived<TagOption[]>(
+		personnel.map((p) => ({ value: p.id, label: formatPersonLabel(p) }))
+	);
+	const enabledSoftPreferenceSummary = $derived.by(() => {
+		const labels = draftSoftPreferences
+			.filter((preference) => preference.enabled)
+			.map(
+				(preference) =>
+					softPreferenceOptions.find((option) => option.type === preference.type)?.label ?? preference.type
+			);
+		return labels.length > 0 ? labels.join(' -> ') : 'Eligibility rules and name tie-breakers only';
+	});
+	const BUILDER_STEPS: Array<{ id: BuilderStep; label: string }> = [
+		{ id: 'basics', label: 'Template Basics' },
+		{ id: 'policy', label: 'Duty Rules' },
+		{ id: 'series', label: 'Series Setup' },
+		{ id: 'review', label: 'Review & Save' }
+	];
 
 	function nextSlotKey(): string {
 		slotKeyIndex += 1;
@@ -238,18 +317,28 @@
 	function loadTemplate(template: DutyTemplate) {
 		selectedTemplateId = template.id;
 		isCreatingNew = false;
+		isDirty = false;
 		setupMode = 'full';
+		builderStep = 'basics';
 		saveError = '';
 		templateName = template.name;
 		templateDescription = template.description ?? '';
 		templateStatus = template.status;
 		scopeType = template.scopeType;
 		scopeGroupIds = [...template.scopeGroupIds];
+		exemptPersonnelIds = [...template.exemptPersonnelIds];
 		coverageMode = template.coverageMode;
 		startTime = template.startTime ?? '';
 		endTime = template.endTime ?? '';
 		isBlocking = template.isBlocking;
 		cooldownHours = template.cooldownHours;
+		draftSoftPreferences =
+			template.softPreferences?.length > 0
+				? template.softPreferences.map((preference) => ({
+						type: preference.type,
+						enabled: preference.enabled
+					}))
+				: cloneDefaultSoftPreferences();
 		draftSlots = template.slots.map((slot) => ({
 			key: nextSlotKey(),
 			roleLabel: slot.roleLabel,
@@ -272,18 +361,22 @@
 	function resetForNew() {
 		selectedTemplateId = null;
 		isCreatingNew = true;
+		isDirty = false;
 		setupMode = 'quick';
+		builderStep = 'basics';
 		saveError = '';
 		templateName = '';
 		templateDescription = '';
 		templateStatus = 'draft';
 		scopeType = 'organization';
 		scopeGroupIds = [];
+		exemptPersonnelIds = [];
 		coverageMode = 'all-day';
 		startTime = '';
 		endTime = '';
 		isBlocking = false;
 		cooldownHours = 0;
+		draftSoftPreferences = cloneDefaultSoftPreferences();
 		draftSlots = [];
 		draftRotationBaselines = [];
 	}
@@ -304,6 +397,7 @@
 		endTime = preset.endTime;
 		isBlocking = preset.isBlocking;
 		cooldownHours = preset.cooldownHours;
+		draftSoftPreferences = cloneDefaultSoftPreferences();
 		draftSlots = preset.slots.map((slot) => ({
 			key: nextSlotKey(),
 			roleLabel: slot.roleLabel,
@@ -321,8 +415,8 @@
 		if (initialized) return;
 		initialized = true;
 
-		if (templates.length > 0) {
-			loadTemplate(templates[0]);
+		if (visibleTemplates.length > 0) {
+			loadTemplate(visibleTemplates[0]);
 			return;
 		}
 
@@ -331,38 +425,87 @@
 
 	$effect(() => {
 		if (!selectedTemplateId) return;
-		if (templates.some((template) => template.id === selectedTemplateId)) return;
+		if (visibleTemplates.some((template) => template.id === selectedTemplateId)) return;
 
-		if (templates.length > 0) {
-			loadTemplate(templates[0]);
+		if (visibleTemplates.length > 0) {
+			loadTemplate(visibleTemplates[0]);
 		} else {
 			resetForNew();
 		}
 	});
 
 	function addSlot() {
-		draftSlots = [...draftSlots, makeBlankSlot()];
+		isDirty = true;
+		const newSlot = makeBlankSlot();
+		// Collapse all existing slots, leave the new one expanded
+		const next = new Set(draftSlots.map((s) => s.key));
+		collapsedSlots = next;
+		draftSlots = [...draftSlots, newSlot];
 	}
 
 	function removeSlot(key: string) {
+		isDirty = true;
+		collapsedSlots = new Set([...collapsedSlots].filter((k) => k !== key));
 		draftSlots = draftSlots.filter((slot) => slot.key !== key);
 	}
 
+	function toggleSlotCollapsed(key: string) {
+		const next = new Set(collapsedSlots);
+		if (next.has(key)) next.delete(key);
+		else next.add(key);
+		collapsedSlots = next;
+	}
+
+	function slotSummaryLine(slot: EditableSlot): string {
+		const parts: string[] = [`${slot.quantity}×`];
+		if (slot.roleLabel) parts.push(slot.roleLabel);
+		if (slot.allowedRanks.length)
+			parts.push(`Ranks: ${slot.allowedRanks.slice(0, 3).join(', ')}${slot.allowedRanks.length > 3 ? '…' : ''}`);
+		if (slot.allowedGroupIds.length) {
+			const names = slot.allowedGroupIds.slice(0, 2).map((id) => groups.find((g) => g.id === id)?.name ?? id);
+			parts.push(`Groups: ${names.join(', ')}${slot.allowedGroupIds.length > 2 ? '…' : ''}`);
+		}
+		if (slot.rotationPoolKey) parts.push(`Pool: ${slot.rotationPoolKey}`);
+		return parts.join(' · ');
+	}
+
 	function updateSlot(key: string, patch: Partial<EditableSlot>) {
+		isDirty = true;
 		draftSlots = draftSlots.map((slot) => (slot.key === key ? { ...slot, ...patch } : slot));
 	}
 
 	function addBaseline() {
+		isDirty = true;
 		draftRotationBaselines = [...draftRotationBaselines, makeBlankBaseline()];
 	}
 
 	function removeBaseline(key: string) {
+		isDirty = true;
 		draftRotationBaselines = draftRotationBaselines.filter((baseline) => baseline.key !== key);
 	}
 
 	function updateBaseline(key: string, patch: Partial<EditableBaseline>) {
+		isDirty = true;
 		draftRotationBaselines = draftRotationBaselines.map((baseline) =>
 			baseline.key === key ? { ...baseline, ...patch } : baseline
+		);
+	}
+
+	function moveSoftPreference(type: SoftPreferenceType, direction: -1 | 1) {
+		const index = draftSoftPreferences.findIndex((preference) => preference.type === type);
+		const nextIndex = index + direction;
+		if (index === -1 || nextIndex < 0 || nextIndex >= draftSoftPreferences.length) {
+			return;
+		}
+		const next = [...draftSoftPreferences];
+		const [item] = next.splice(index, 1);
+		next.splice(nextIndex, 0, item);
+		draftSoftPreferences = next;
+	}
+
+	function updateSoftPreference(type: SoftPreferenceType, enabled: boolean) {
+		draftSoftPreferences = draftSoftPreferences.map((preference) =>
+			preference.type === type ? { ...preference, enabled } : preference
 		);
 	}
 
@@ -393,11 +536,16 @@
 			description: templateDescription.trim() || null,
 			scopeType,
 			scopeGroupIds: scopeType === 'groups' ? scopeGroupIds : [],
+			exemptPersonnelIds,
 			coverageMode,
 			startTime: coverageMode === 'timed' ? startTime || null : null,
 			endTime: coverageMode === 'timed' ? endTime || null : null,
 			isBlocking,
 			cooldownHours,
+			softPreferences: draftSoftPreferences.map((preference) => ({
+				type: preference.type,
+				enabled: preference.enabled
+			})),
 			slots,
 			rotationBaselines
 		};
@@ -428,6 +576,64 @@
 			isSaving = false;
 		}
 	}
+
+	async function handleSaveDraft() {
+		if (!canSaveDraft) return;
+
+		saveError = '';
+		isSaving = true;
+
+		try {
+			const payload = { ...buildPayload(), status: 'draft' as const };
+			const saved =
+				selectedTemplateId && !isCreatingNew
+					? await onUpdateTemplate({ ...payload, id: selectedTemplateId })
+					: await onCreateTemplate(payload);
+
+			if (saved) {
+				loadTemplate(saved);
+				return;
+			}
+
+			saveError = 'The draft could not be saved.';
+		} catch (error) {
+			saveError = error instanceof Error ? error.message : 'The draft could not be saved.';
+		} finally {
+			isSaving = false;
+		}
+	}
+
+	function goToPreviousStep() {
+		const index = BUILDER_STEPS.findIndex((step) => step.id === builderStep);
+		if (index <= 0) return;
+		builderStep = BUILDER_STEPS[index - 1].id;
+	}
+
+	function goToNextStep() {
+		const index = BUILDER_STEPS.findIndex((step) => step.id === builderStep);
+		if (index < 0 || index >= BUILDER_STEPS.length - 1) return;
+		builderStep = BUILDER_STEPS[index + 1].id;
+	}
+
+	async function handleArchiveSelectedTemplate() {
+		const templateId = pendingArchiveTemplateId ?? selectedTemplateId;
+		if (!templateId) return;
+		const archived = await onArchiveTemplate(templateId);
+		if (archived) {
+			loadTemplate(archived);
+		}
+		pendingArchiveTemplateId = null;
+	}
+
+	$effect(() => {
+		function handleBeforeUnload(event: BeforeUnloadEvent) {
+			if (isDirty) {
+				event.preventDefault();
+			}
+		}
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+	});
 </script>
 
 <section class="advanced-builder">
@@ -440,9 +646,15 @@
 			</p>
 		</div>
 		{#if canManageTemplates}
-			<button class="btn btn-primary" type="button" onclick={() => applyStarterPreset(null)}>New Advanced Template</button>
+			<button class="btn btn-primary" type="button" onclick={() => applyStarterPreset(null)}
+				>New Advanced Template</button
+			>
 		{/if}
 	</header>
+
+	{#if canManageTemplates}
+		<WizardStepper steps={BUILDER_STEPS} current={builderStep} />
+	{/if}
 
 	{#if !canManageTemplates}
 		<section class="restricted-state">
@@ -455,13 +667,20 @@
 	{:else}
 		<div class="builder-layout">
 			<aside class="template-rail" aria-label="Saved duty templates">
-				{#if templates.length === 0}
+				<div class="rail-header">
+					<p class="eyebrow">Saved templates</p>
+					<label class="field field-checkbox">
+						<input type="checkbox" bind:checked={showArchivedTemplates} />
+						<span>Show archived</span>
+					</label>
+				</div>
+				{#if visibleTemplates.length === 0}
 					<EmptyState
 						message="No advanced duty templates yet. Start with a draft so you can shape the policy before generation exists."
 						variant="simple"
 					/>
 				{:else}
-					{#each templates as template (template.id)}
+					{#each visibleTemplates as template (template.id)}
 						<button
 							type="button"
 							class="template-chip"
@@ -476,317 +695,395 @@
 			</aside>
 
 			<div class="builder-main">
-				<section class="builder-card starter-card">
-					<div class="section-header">
-						<div>
-							<p class="eyebrow">Advanced Setup</p>
-							<h3>Choose a starting point.</h3>
-							<p class="builder-copy">
-								Start from a common Army-style preset or build from a blank policy, then pick how much detail you
-								want to work through right now.
-							</p>
-						</div>
-					</div>
-
-					<div class="setup-mode-toggle" role="group" aria-label="Setup mode">
-						<button
-							class="mode-chip"
-							class:active={setupMode === 'quick'}
-							type="button"
-							aria-pressed={setupMode === 'quick'}
-							onclick={() => (setupMode = 'quick')}
-						>
-							Quick Setup
-						</button>
-						<button
-							class="mode-chip"
-							class:active={setupMode === 'full'}
-							type="button"
-							aria-pressed={setupMode === 'full'}
-							onclick={() => (setupMode = 'full')}
-						>
-							Full Configuration
-						</button>
-					</div>
-
-					<div class="starter-grid">
-						{#each templateStarterPresets as preset (preset.id)}
-							<button class="starter-option" type="button" onclick={() => applyStarterPreset(preset.id)}>
-								<strong>Use {preset.label} Preset</strong>
-								<span>{preset.description}</span>
-							</button>
-						{/each}
-						<button class="starter-option" type="button" onclick={() => applyStarterPreset(null)}>
-							<strong>Build from Blank</strong>
-							<span>Start with an empty advanced duty and shape the policy around your local SOP.</span>
-						</button>
-					</div>
-
-					<p class="field-hint">
-						Quick setup keeps the form to the essentials. Full configuration unlocks slot filters, preferred groups,
-						and manual rotation starting points.
-					</p>
-				</section>
-
-				<section class="builder-card">
-					<div class="form-grid">
-						<label class="field">
-							<span>Name</span>
-							<input class="input" type="text" bind:value={templateName} placeholder="e.g. Battalion Staff Duty" />
-						</label>
-
-						<label class="field">
-							<span>Status</span>
-							<select class="input" bind:value={templateStatus}>
-								<option value="draft">Draft</option>
-								<option value="active">Active</option>
-								<option value="archived">Archived</option>
-							</select>
-						</label>
-
-						<label class="field field-wide">
-							<span>Description</span>
-							<textarea
-								class="input"
-								rows="3"
-								bind:value={templateDescription}
-								placeholder="Plain-language context for the policy or SOP this duty template represents."
-							></textarea>
-						</label>
-
-						<label class="field">
-							<span>Scope</span>
-							<select class="input" bind:value={scopeType}>
-								<option value="organization">Whole organization</option>
-								<option value="groups">Selected groups</option>
-							</select>
-						</label>
-
-						<label class="field">
-							<span>Coverage mode</span>
-							<select class="input" bind:value={coverageMode}>
-								<option value="all-day">All day</option>
-								<option value="timed">Timed shift</option>
-							</select>
-						</label>
-
-						{#if coverageMode === 'timed'}
-							<label class="field">
-								<span>Start time</span>
-								<input class="input" type="time" bind:value={startTime} />
-							</label>
-
-							<label class="field">
-								<span>End time</span>
-								<input class="input" type="time" bind:value={endTime} />
-							</label>
-						{/if}
-
-						<label class="field field-checkbox">
-							<input type="checkbox" bind:checked={isBlocking} />
-							<span>Blocking duty</span>
-						</label>
-
-						<label class="field">
-							<span>Cooldown hours</span>
-							<input class="input" type="number" min="0" bind:value={cooldownHours} />
-						</label>
-					</div>
-
-					{#if scopeType === 'groups'}
-						<div class="selection-block">
-							<p class="selection-label">Template scope groups</p>
-							<div class="pill-grid">
-								{#each groups as group (group.id)}
-									<label class="pill-check">
-										<input
-											type="checkbox"
-											checked={scopeGroupIds.includes(group.id)}
-											onchange={(event) => {
-												const checked = (event.currentTarget as HTMLInputElement).checked;
-												scopeGroupIds = checked
-													? [...scopeGroupIds, group.id]
-													: scopeGroupIds.filter((id) => id !== group.id);
-											}}
-										/>
-										<span>{group.name}</span>
-									</label>
-								{/each}
+				{#if builderStep === 'basics'}
+					<section class="builder-card starter-card">
+						<div class="section-header">
+							<div>
+								<p class="eyebrow">Advanced Setup</p>
+								<h3>Choose a starting point.</h3>
+								<p class="builder-copy">
+									Start from a common Army-style preset or build from a blank policy, then pick how much detail you want
+									to work through right now.
+								</p>
 							</div>
 						</div>
-					{/if}
-				</section>
 
-				<section class="builder-card">
-					<div class="section-header">
-						<div>
-							<p class="eyebrow">Slot Builder</p>
-							<h3>Define the roles this duty needs.</h3>
+						<div class="setup-mode-toggle" role="group" aria-label="Setup mode">
+							<button
+								class="mode-chip"
+								class:active={setupMode === 'quick'}
+								type="button"
+								aria-pressed={setupMode === 'quick'}
+								onclick={() => (setupMode = 'quick')}
+							>
+								Quick Setup
+							</button>
+							<button
+								class="mode-chip"
+								class:active={setupMode === 'full'}
+								type="button"
+								aria-pressed={setupMode === 'full'}
+								onclick={() => (setupMode = 'full')}
+							>
+								Full Configuration
+							</button>
 						</div>
-						<button class="btn btn-sm" type="button" onclick={addSlot}>Add Slot</button>
-					</div>
 
-					{#if draftSlots.length === 0}
-						<EmptyState
-							message="No slot definitions yet. Add the first slot so the template can describe who this duty needs."
-							variant="simple"
-						/>
-					{:else}
+						<div class="starter-grid">
+							{#each templateStarterPresets as preset (preset.id)}
+								<button class="starter-option" type="button" onclick={() => applyStarterPreset(preset.id)}>
+									<strong>Use {preset.label} Preset</strong>
+									<span>{preset.description}</span>
+								</button>
+							{/each}
+							<button class="starter-option" type="button" onclick={() => applyStarterPreset(null)}>
+								<strong>Build from Blank</strong>
+								<span>Start with an empty advanced duty and shape the policy around your local SOP.</span>
+							</button>
+						</div>
+
+						<p class="field-hint">
+							Quick setup keeps the form to the essentials. Full configuration unlocks slot filters, preferred groups,
+							and manual rotation starting points.
+						</p>
+					</section>
+				{/if}
+
+				{#if builderStep === 'basics' || builderStep === 'policy'}
+					<section class="builder-card">
+						<div class="form-grid">
+							<label class="field">
+								<span>Name</span>
+								<input
+									class="input"
+									type="text"
+									bind:value={templateName}
+									placeholder="e.g. Battalion Staff Duty"
+									oninput={() => (isDirty = true)}
+								/>
+							</label>
+
+							<label class="field">
+								<span>Status</span>
+								<select class="input" bind:value={templateStatus} onchange={() => (isDirty = true)}>
+									<option value="draft">Draft</option>
+									<option value="active">Active</option>
+									<option value="archived">Archived</option>
+								</select>
+							</label>
+
+							<label class="field field-wide">
+								<span>Description</span>
+								<textarea
+									class="input"
+									rows="3"
+									bind:value={templateDescription}
+									oninput={() => (isDirty = true)}
+									placeholder="Plain-language context for the policy or SOP this duty template represents."
+								></textarea>
+							</label>
+
+							{#if builderStep === 'policy'}
+								<label class="field">
+									<span>Scope</span>
+									<select class="input" bind:value={scopeType}>
+										<option value="organization">Whole organization</option>
+										<option value="groups">Selected groups</option>
+									</select>
+								</label>
+
+								<label class="field">
+									<span>Coverage mode</span>
+									<select class="input" bind:value={coverageMode}>
+										<option value="all-day">All day</option>
+										<option value="timed">Timed shift</option>
+									</select>
+								</label>
+
+								{#if coverageMode === 'timed'}
+									<label class="field">
+										<span>Start time</span>
+										<input class="input" type="time" bind:value={startTime} />
+									</label>
+
+									<label class="field">
+										<span>End time</span>
+										<input class="input" type="time" bind:value={endTime} />
+									</label>
+								{/if}
+
+								<label class="field field-checkbox">
+									<input type="checkbox" bind:checked={isBlocking} />
+									<span>Blocking duty</span>
+								</label>
+
+								<label class="field">
+									<span>Cooldown hours</span>
+									<input class="input" type="number" min="0" bind:value={cooldownHours} />
+								</label>
+							{/if}
+						</div>
+
+						{#if builderStep === 'policy' && scopeType === 'groups'}
+							<div class="selection-block">
+								<p class="selection-label">Template scope groups</p>
+								<MultiTagSelect
+									options={groupTagOptions}
+									value={scopeGroupIds}
+									placeholder="Select groups..."
+									ariaLabel="Template scope groups"
+									onChange={(ids) => {
+										scopeGroupIds = ids;
+										isDirty = true;
+									}}
+								/>
+							</div>
+						{/if}
+
+						{#if builderStep === 'policy' && personnel.length > 0}
+							<div class="selection-block">
+								<p class="selection-label">Permanently exempt personnel</p>
+								<p class="selection-hint">
+									These people are never selected by the generator, regardless of rotation order or slot eligibility
+									rules.
+								</p>
+								<MultiTagSelect
+									options={personnelTagOptions}
+									value={exemptPersonnelIds}
+									placeholder="Search and select exempt personnel..."
+									ariaLabel="Exempt personnel"
+									onChange={(ids) => {
+										exemptPersonnelIds = ids;
+										isDirty = true;
+									}}
+								/>
+							</div>
+						{/if}
+					</section>
+				{/if}
+
+				{#if builderStep === 'series'}
+					<section class="builder-card">
+						<div class="section-header">
+							<div>
+								<p class="eyebrow">Slot Builder</p>
+								<h3>Define the roles this duty needs.</h3>
+							</div>
+							<button class="btn btn-sm" type="button" onclick={addSlot}>Add Slot</button>
+						</div>
+
+						{#if draftSlots.length === 0}
+							<EmptyState
+								message="No slot definitions yet. Add the first slot so the template can describe who this duty needs."
+								variant="simple"
+							/>
+						{:else}
+							<div class="slot-list">
+								{#each draftSlots as slot, index (slot.key)}
+									{@const isCollapsed = collapsedSlots.has(slot.key)}
+									<article class="slot-card" class:slot-collapsed={isCollapsed}>
+										<div class="slot-header">
+											<button
+												class="slot-collapse-btn"
+												type="button"
+												aria-label={isCollapsed ? 'Expand slot' : 'Collapse slot'}
+												aria-expanded={!isCollapsed}
+												onclick={() => toggleSlotCollapsed(slot.key)}
+											>
+												<svg
+													class="collapse-chevron"
+													class:collapsed={isCollapsed}
+													viewBox="0 0 20 20"
+													fill="currentColor"
+													width="14"
+													height="14"
+												>
+													<path
+														fill-rule="evenodd"
+														d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+														clip-rule="evenodd"
+													/>
+												</svg>
+											</button>
+											<div class="slot-title">
+												<h4>{slot.roleLabel || `Slot ${index + 1}`}</h4>
+												{#if isCollapsed}
+													<p class="slot-summary-line">{slotSummaryLine(slot)}</p>
+												{/if}
+											</div>
+											<button class="btn btn-sm" type="button" onclick={() => removeSlot(slot.key)}>Remove</button>
+										</div>
+
+										{#if !isCollapsed}
+											<div class="form-grid">
+												<label class="field">
+													<span>Role label</span>
+													<input
+														class="input"
+														type="text"
+														value={slot.roleLabel}
+														oninput={(event) =>
+															updateSlot(slot.key, { roleLabel: (event.currentTarget as HTMLInputElement).value })}
+													/>
+												</label>
+
+												<label class="field">
+													<span>Quantity</span>
+													<input
+														class="input"
+														type="number"
+														min="1"
+														value={slot.quantity}
+														oninput={(event) =>
+															updateSlot(slot.key, {
+																quantity: Number((event.currentTarget as HTMLInputElement).value) || 1
+															})}
+													/>
+												</label>
+
+												<label class="field">
+													<span>Allowed ranks</span>
+													<MultiTagSelect
+														options={rankTagOptions}
+														value={slot.allowedRanks}
+														placeholder="Any rank..."
+														ariaLabel="Allowed ranks"
+														onChange={(ids) => updateSlot(slot.key, { allowedRanks: ids })}
+													/>
+												</label>
+
+												<label class="field">
+													<span>Allowed groups</span>
+													<MultiTagSelect
+														options={groupTagOptions}
+														value={slot.allowedGroupIds}
+														placeholder="Any group..."
+														ariaLabel="Allowed groups"
+														onChange={(ids) => updateSlot(slot.key, { allowedGroupIds: ids })}
+													/>
+												</label>
+
+												{#if setupMode === 'full'}
+													<label class="field">
+														<span>Preferred groups</span>
+														<MultiTagSelect
+															options={groupTagOptions}
+															value={slot.preferredGroupIds}
+															placeholder="Any group..."
+															ariaLabel="Preferred groups"
+															onChange={(ids) => updateSlot(slot.key, { preferredGroupIds: ids })}
+														/>
+													</label>
+
+													<label class="field">
+														<span>MOS filter</span>
+														<MultiTagSelect
+															options={mosTagOptions}
+															value={slot.allowedMosValues}
+															placeholder="Any MOS..."
+															ariaLabel="MOS filter"
+															onChange={(ids) => updateSlot(slot.key, { allowedMosValues: ids })}
+														/>
+													</label>
+
+													<label class="field">
+														<span>Personnel role filter</span>
+														<MultiTagSelect
+															options={roleTagOptions}
+															value={slot.allowedRoleValues}
+															placeholder="Any role..."
+															ariaLabel="Personnel role filter"
+															onChange={(ids) => updateSlot(slot.key, { allowedRoleValues: ids })}
+														/>
+													</label>
+												{/if}
+
+												<label class="field">
+													<span>Rotation group</span>
+													<input
+														class="input"
+														type="text"
+														value={slot.rotationPoolKey}
+														placeholder="Leave blank to keep this slot on its own rotation"
+														oninput={(event) =>
+															updateSlot(slot.key, {
+																rotationPoolKey: (event.currentTarget as HTMLInputElement).value
+															})}
+													/>
+													<span class="field-hint"
+														>Use the same rotation group on multiple slots when those positions should rotate together.</span
+													>
+												</label>
+											</div>
+										{/if}
+									</article>
+								{/each}
+							</div>
+						{/if}
+					</section>
+				{/if}
+
+				{#if builderStep === 'policy' && setupMode === 'full'}
+					<section class="builder-card">
+						<div class="section-header">
+							<div>
+								<p class="eyebrow">Soft Preference Order</p>
+								<h3>Choose how the generator breaks ties.</h3>
+								<p class="builder-copy">
+									Move the enabled preferences into the order you want the generator to consider them.
+								</p>
+							</div>
+						</div>
+
 						<div class="slot-list">
-							{#each draftSlots as slot, index (slot.key)}
+							{#each draftSoftPreferences as preference, index (preference.type)}
 								<article class="slot-card">
 									<div class="slot-header">
-										<h4>Slot {index + 1}</h4>
-										<button class="btn btn-sm" type="button" onclick={() => removeSlot(slot.key)}>Remove</button>
+										<div>
+											<h4>
+												{softPreferenceOptions.find((option) => option.type === preference.type)?.label ??
+													preference.type}
+											</h4>
+											<p class="field-hint">
+												{softPreferenceOptions.find((option) => option.type === preference.type)?.description}
+											</p>
+										</div>
+										<div class="slot-actions">
+											<button
+												class="btn btn-sm"
+												type="button"
+												disabled={index === 0}
+												onclick={() => moveSoftPreference(preference.type, -1)}
+											>
+												Move Up
+											</button>
+											<button
+												class="btn btn-sm"
+												type="button"
+												disabled={index === draftSoftPreferences.length - 1}
+												onclick={() => moveSoftPreference(preference.type, 1)}
+											>
+												Move Down
+											</button>
+										</div>
 									</div>
 
-									<div class="form-grid">
-										<label class="field">
-											<span>Role label</span>
-											<input
-												class="input"
-												type="text"
-												value={slot.roleLabel}
-												oninput={(event) =>
-													updateSlot(slot.key, { roleLabel: (event.currentTarget as HTMLInputElement).value })}
-											/>
-										</label>
-
-										<label class="field">
-											<span>Quantity</span>
-											<input
-												class="input"
-												type="number"
-												min="1"
-												value={slot.quantity}
-												oninput={(event) =>
-													updateSlot(slot.key, {
-														quantity: Number((event.currentTarget as HTMLInputElement).value) || 1
-													})}
-											/>
-										</label>
-
-										<label class="field">
-											<span>Allowed ranks</span>
-											<select
-												class="input"
-												multiple
-												value={slot.allowedRanks}
-												onchange={(event) => {
-													const target = event.currentTarget as HTMLSelectElement;
-													updateSlot(slot.key, {
-														allowedRanks: [...target.selectedOptions].map((option) => option.value)
-													});
-												}}
-											>
-												{#each ALL_RANKS as rank (rank)}
-													<option value={rank}>{rank}</option>
-												{/each}
-											</select>
-										</label>
-
-										<label class="field">
-											<span>Allowed groups</span>
-											<select
-												class="input"
-												multiple
-												value={slot.allowedGroupIds}
-												onchange={(event) => {
-													const target = event.currentTarget as HTMLSelectElement;
-													updateSlot(slot.key, {
-														allowedGroupIds: [...target.selectedOptions].map((option) => option.value)
-													});
-												}}
-											>
-												{#each groups as group (group.id)}
-													<option value={group.id}>{group.name}</option>
-												{/each}
-											</select>
-										</label>
-
-										{#if setupMode === 'full'}
-											<label class="field">
-												<span>Preferred groups</span>
-												<select
-													class="input"
-													multiple
-													value={slot.preferredGroupIds}
-													onchange={(event) => {
-														const target = event.currentTarget as HTMLSelectElement;
-														updateSlot(slot.key, {
-															preferredGroupIds: [...target.selectedOptions].map((option) => option.value)
-														});
-													}}
-												>
-													{#each groups as group (group.id)}
-														<option value={group.id}>{group.name}</option>
-													{/each}
-												</select>
-											</label>
-
-											<label class="field">
-												<span>MOS filter</span>
-												<select
-													class="input"
-													multiple
-													value={slot.allowedMosValues}
-													onchange={(event) => {
-														const target = event.currentTarget as HTMLSelectElement;
-														updateSlot(slot.key, {
-															allowedMosValues: [...target.selectedOptions].map((option) => option.value)
-														});
-													}}
-												>
-													{#each availableMosValues as mos (mos)}
-														<option value={mos}>{mos}</option>
-													{/each}
-												</select>
-											</label>
-
-											<label class="field">
-												<span>Personnel role filter</span>
-												<select
-													class="input"
-													multiple
-													value={slot.allowedRoleValues}
-													onchange={(event) => {
-														const target = event.currentTarget as HTMLSelectElement;
-														updateSlot(slot.key, {
-															allowedRoleValues: [...target.selectedOptions].map((option) => option.value)
-														});
-													}}
-												>
-													{#each availableRoleValues as role (role)}
-														<option value={role}>{role}</option>
-													{/each}
-												</select>
-											</label>
-										{/if}
-
-										<label class="field">
-											<span>Rotation group</span>
-											<input
-												class="input"
-												type="text"
-												value={slot.rotationPoolKey}
-												placeholder="Leave blank to keep this slot on its own rotation"
-												oninput={(event) =>
-													updateSlot(slot.key, {
-														rotationPoolKey: (event.currentTarget as HTMLInputElement).value
-													})}
-											/>
-											<span class="field-hint"
-												>Use the same rotation group on multiple slots when those positions should rotate together.</span
-											>
-										</label>
-									</div>
+									<label class="field field-checkbox">
+										<input
+											type="checkbox"
+											checked={preference.enabled}
+											onchange={(event) =>
+												updateSoftPreference(preference.type, (event.currentTarget as HTMLInputElement).checked)}
+										/>
+										<span>Enabled</span>
+									</label>
 								</article>
 							{/each}
 						</div>
-					{/if}
-				</section>
+					</section>
+				{/if}
 
-				{#if setupMode === 'full'}
+				{#if builderStep === 'series' && setupMode === 'full'}
 					<section class="builder-card">
 						<div class="section-header">
 							<div>
@@ -807,7 +1104,8 @@
 									<article class="slot-card">
 										<div class="slot-header">
 											<h4>Baseline {index + 1}</h4>
-											<button class="btn btn-sm" type="button" onclick={() => removeBaseline(baseline.key)}>Remove</button
+											<button class="btn btn-sm" type="button" onclick={() => removeBaseline(baseline.key)}
+												>Remove</button
 											>
 										</div>
 
@@ -824,7 +1122,8 @@
 															rotationPoolKey: (event.currentTarget as HTMLInputElement).value
 														})}
 												/>
-												<span class="field-hint">Match this to the rotation group used on the slot you want to seed.</span
+												<span class="field-hint"
+													>Match this to the rotation group used on the slot you want to seed.</span
 												>
 												<datalist id={`rotation-pool-${baseline.key}`}>
 													{#each rotationPoolOptions as option (option)}
@@ -869,6 +1168,22 @@
 						{/if}
 					</section>
 				{/if}
+
+				<div class="step-actions">
+					{#if builderStep !== 'basics'}
+						<button class="btn btn-secondary" type="button" onclick={goToPreviousStep}>Back</button>
+					{/if}
+					{#if builderStep !== 'review'}
+						<button
+							class="btn btn-primary"
+							type="button"
+							disabled={builderStep === 'basics' && !canSaveDraft}
+							onclick={goToNextStep}
+						>
+							{builderStep === 'series' ? 'Review Template' : 'Next'}
+						</button>
+					{/if}
+				</div>
 			</div>
 
 			<aside class="summary-card" aria-label="Template summary">
@@ -897,16 +1212,26 @@
 				<div class="policy-summary">
 					<p class="eyebrow">Policy summary</p>
 					<p class="summary-line">
-						Longest break: <strong>The system starts with whoever has gone the longest since this rotation group last served.</strong>
+						Soft order: <strong>{enabledSoftPreferenceSummary}</strong>
 					</p>
 					<p class="summary-line">
-						Blocking duty: <strong>{isBlocking ? 'People on this duty are treated as unavailable for overlapping duties.' : 'This duty does not block overlapping assignments.'}</strong>
+						Blocking duty: <strong
+							>{isBlocking
+								? 'People on this duty are treated as unavailable for overlapping duties.'
+								: 'This duty does not block overlapping assignments.'}</strong
+						>
 					</p>
 					<p class="summary-line">
-						Cooldown: <strong>{cooldownHours > 0 ? `After the shift ends, the same person stays protected for ${cooldownHours} hour${cooldownHours === 1 ? '' : 's'}.` : 'No extra recovery window is enforced after the shift ends.'}</strong>
+						Cooldown: <strong
+							>{cooldownHours > 0
+								? `After the shift ends, the same person stays protected for ${cooldownHours} hour${cooldownHours === 1 ? '' : 's'}.`
+								: 'No extra recovery window is enforced after the shift ends.'}</strong
+						>
 					</p>
 					<p class="summary-line">
-						Fairness confidence: <strong>Low confidence means the queue is still learning because history or starting points are thin.</strong>
+						Fairness confidence: <strong
+							>Low confidence means the queue is still learning because history or starting points are thin.</strong
+						>
 					</p>
 				</div>
 
@@ -924,14 +1249,65 @@
 					<p class="error-message">{saveError}</p>
 				{/if}
 
-				<button class="btn btn-primary save-btn" type="button" disabled={!canSave || isSaving} onclick={handleSave}>
-					{#if isSaving}<Spinner />{/if}
-					Save Template
-				</button>
+				{#if isDirty}
+					<p class="unsaved-notice">You have unsaved changes.</p>
+				{/if}
+
+				{#if selectedTemplateId && !isCreatingNew && selectedTemplate?.status !== 'archived'}
+					<button
+						class="btn btn-danger"
+						type="button"
+						onclick={() => {
+							pendingArchiveTemplateId = selectedTemplateId;
+						}}
+					>
+						Archive Template
+					</button>
+				{/if}
+
+				<div class="save-actions">
+					<button
+						class="btn btn-secondary"
+						type="button"
+						disabled={!canSaveDraft || isSaving}
+						aria-disabled={builderStep !== 'review'}
+						onclick={handleSaveDraft}
+					>
+						{#if isSaving}<Spinner />{/if}
+						Save Draft
+					</button>
+					<button
+						class="btn btn-primary"
+						type="button"
+						disabled={!canSave || isSaving || builderStep !== 'review'}
+						aria-disabled={builderStep !== 'review'}
+						onclick={handleSave}
+					>
+						{#if isSaving}<Spinner />{/if}
+						Save Template
+					</button>
+				</div>
+				{#if builderStep !== 'review'}
+					<p class="field-hint">Finish the wizard steps, then save from Review &amp; Save.</p>
+				{/if}
 			</aside>
 		</div>
 	{/if}
 </section>
+
+{#if pendingArchiveTemplateId}
+	<ConfirmDialog
+		title="Archive Template?"
+		message="Archive this advanced template? Existing applied history remains, but this template is hidden from apply pickers until reactivated."
+		confirmLabel="Archive Template"
+		cancelLabel="Cancel"
+		variant="warning"
+		onConfirm={handleArchiveSelectedTemplate}
+		onCancel={() => {
+			pendingArchiveTemplateId = null;
+		}}
+	/>
+{/if}
 
 <style>
 	.advanced-builder {
@@ -1001,6 +1377,12 @@
 		padding: var(--sp-4);
 	}
 
+	.rail-header {
+		display: grid;
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-3);
+	}
+
 	.builder-main {
 		display: grid;
 		gap: var(--sp-4);
@@ -1063,6 +1445,12 @@
 		line-height: 1.5;
 	}
 
+	.step-actions {
+		display: flex;
+		justify-content: space-between;
+		gap: var(--sp-2);
+	}
+
 	.template-chip {
 		width: 100%;
 		display: flex;
@@ -1119,21 +1507,11 @@
 		margin-top: var(--sp-4);
 	}
 
-	.pill-grid {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		margin-top: var(--sp-2);
-	}
-
-	.pill-check {
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		padding: 8px 10px;
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		background: var(--surface-page);
+	.selection-hint {
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+		margin-top: var(--sp-1);
+		margin-bottom: var(--sp-2);
 	}
 
 	.section-header,
@@ -1157,12 +1535,64 @@
 		background: var(--surface-page);
 	}
 
+	.slot-card.slot-collapsed {
+		padding: var(--sp-3) var(--sp-4);
+	}
+
 	.slot-header {
 		margin-bottom: var(--sp-3);
 	}
 
+	.slot-card.slot-collapsed .slot-header {
+		margin-bottom: 0;
+	}
+
+	.slot-collapse-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		border: none;
+		background: none;
+		color: var(--text-tertiary);
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.slot-collapse-btn:hover {
+		color: var(--text-primary);
+	}
+
+	.collapse-chevron {
+		transition: transform 0.15s ease;
+	}
+
+	.collapse-chevron.collapsed {
+		transform: rotate(-90deg);
+	}
+
+	.slot-title {
+		flex: 1;
+		min-width: 0;
+	}
+
 	.slot-header h4 {
 		margin: 0;
+	}
+
+	.slot-summary-line {
+		margin: 2px 0 0;
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.slot-actions {
+		display: flex;
+		gap: var(--sp-2);
+		flex-wrap: wrap;
 	}
 
 	.summary-line {
@@ -1183,10 +1613,21 @@
 		border-top: 1px solid var(--border-subtle);
 	}
 
-	.save-btn {
-		width: 100%;
+	.save-actions {
+		display: flex;
+		gap: var(--sp-2);
 		margin-top: var(--sp-4);
+	}
+
+	.save-actions .btn {
+		flex: 1;
 		justify-content: center;
+	}
+
+	.unsaved-notice {
+		margin: 0;
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
 	}
 
 	.error-message {

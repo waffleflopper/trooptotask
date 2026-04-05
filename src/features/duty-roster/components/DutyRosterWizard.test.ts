@@ -5,15 +5,16 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import DutyRosterWizard from './DutyRosterWizard.svelte';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { RosterHistoryItem } from '../stores/dutyRosterHistory.svelte';
-import type {
-	DutyEvent,
-	DutyEventPreview,
-	DutyEventSeriesApplyResult,
-	DutyEventSeriesInput,
-	DutyEventSeriesPreview,
-	DutyTemplate,
-	ExistingDutyEventInput,
-	ExistingDutyEventUpdateInput
+import {
+	cloneDefaultSoftPreferences,
+	type DutyEvent,
+	type DutyEventPreview,
+	type DutyEventSeriesApplyResult,
+	type DutyEventSeriesInput,
+	type DutyEventSeriesPreview,
+	type DutyTemplate,
+	type ExistingDutyEventInput,
+	type ExistingDutyEventUpdateInput
 } from '../duty-roster.types';
 
 function makePersonnel(overrides: Partial<Personnel> = {}): Personnel {
@@ -54,11 +55,13 @@ function makeAdvancedTemplate(overrides: Partial<DutyTemplate> = {}): DutyTempla
 		description: 'Overnight command coverage',
 		scopeType: 'groups',
 		scopeGroupIds: ['group-hq'],
+		exemptPersonnelIds: [],
 		coverageMode: 'timed',
 		startTime: '08:00',
 		endTime: '08:00',
 		isBlocking: true,
 		cooldownHours: 24,
+		softPreferences: cloneDefaultSoftPreferences(),
 		createdAt: '2026-04-04T00:00:00.000Z',
 		updatedAt: '2026-04-04T00:00:00.000Z',
 		slots: [
@@ -102,6 +105,7 @@ function makePreview(overrides: Partial<DutyEventPreview> = {}): DutyEventPrevie
 			scopeGroupIds: ['group-hq'],
 			isBlocking: true,
 			cooldownHours: 24,
+			softPreferences: cloneDefaultSoftPreferences(),
 			slots: [
 				{
 					templateSlotId: 'slot-1',
@@ -146,15 +150,35 @@ function makePreview(overrides: Partial<DutyEventPreview> = {}): DutyEventPrevie
 }
 
 function makeAppliedEvent(overrides: Partial<DutyEvent> = {}): DutyEvent {
-	return {
-		id: 'event-1',
+	const eventId = overrides.id ?? 'event-1';
+	const eventDate = overrides.eventDate ?? '2026-04-10';
+	const templateId = overrides.templateId ?? 'tmpl-staff-duty';
+	const templateName = overrides.templateName ?? 'Battalion Staff Duty';
+	const runId = overrides.runId ?? `run-${eventId}`;
+	const defaultRun = {
+		id: runId,
 		orgId: 'test-org',
-		templateId: 'tmpl-staff-duty',
-		templateName: 'Battalion Staff Duty',
-		eventDate: '2026-04-10',
+		templateId,
+		templateName,
+		pattern: 'selected-weekdays' as const,
+		startDate: eventDate,
+		endDate: eventDate,
+		eventCount: 1,
+		isLegacy: false,
+		createdAt: '2026-04-04T12:00:00.000Z',
+		updatedAt: '2026-04-04T12:00:00.000Z'
+	};
+
+	return {
+		id: eventId,
+		orgId: 'test-org',
+		runId,
+		templateId,
+		templateName,
+		eventDate,
 		coverageMode: 'timed',
-		coverageStart: '2026-04-10T08:00:00',
-		coverageEnd: '2026-04-11T08:00:00',
+		coverageStart: `${eventDate}T08:00:00`,
+		coverageEnd: `${eventDate}T08:00:00`,
 		isBlocking: true,
 		cooldownHours: 24,
 		rulesSnapshot: makePreview().rulesSnapshot,
@@ -170,10 +194,11 @@ function makeAppliedEvent(overrides: Partial<DutyEvent> = {}): DutyEvent {
 		originalProposal: null,
 		createdAt: '2026-04-04T12:00:00.000Z',
 		updatedAt: '2026-04-04T12:00:00.000Z',
+		run: overrides.run ?? defaultRun,
 		slotInstances: [
 			{
 				id: 'event-slot-1',
-				dutyEventId: 'event-1',
+				dutyEventId: eventId,
 				templateSlotId: 'slot-1',
 				roleLabel: 'NCO',
 				slotIndex: 0,
@@ -210,25 +235,45 @@ function makeSeriesPreview(overrides: Partial<DutyEventSeriesPreview> = {}): Dut
 }
 
 function makeSeriesApplyResult(overrides: Partial<DutyEventSeriesApplyResult> = {}): DutyEventSeriesApplyResult {
+	const run = overrides.run ?? {
+		id: 'run-series-1',
+		orgId: 'test-org',
+		templateId: 'tmpl-staff-duty',
+		templateName: 'Battalion Staff Duty',
+		pattern: 'selected-weekdays',
+		startDate: '2026-04-07',
+		endDate: '2026-04-09',
+		eventCount: 2,
+		isLegacy: false,
+		createdAt: '2026-04-04T12:00:00.000Z',
+		updatedAt: '2026-04-04T12:00:00.000Z'
+	};
+	const events = overrides.events ?? [
+		makeAppliedEvent({
+			id: 'event-1',
+			eventDate: '2026-04-07',
+			coverageStart: '2026-04-07T08:00:00',
+			coverageEnd: '2026-04-08T08:00:00',
+			runId: run.id,
+			run
+		}),
+		makeAppliedEvent({
+			id: 'event-2',
+			eventDate: '2026-04-09',
+			coverageStart: '2026-04-09T08:00:00',
+			coverageEnd: '2026-04-10T08:00:00',
+			runId: run.id,
+			run
+		})
+	];
+
 	return {
+		run,
 		templateId: 'tmpl-staff-duty',
 		templateName: 'Battalion Staff Duty',
 		pattern: 'selected-weekdays',
 		eventDates: ['2026-04-07', '2026-04-09'],
-		events: [
-			makeAppliedEvent({
-				id: 'event-1',
-				eventDate: '2026-04-07',
-				coverageStart: '2026-04-07T08:00:00',
-				coverageEnd: '2026-04-08T08:00:00'
-			}),
-			makeAppliedEvent({
-				id: 'event-2',
-				eventDate: '2026-04-09',
-				coverageStart: '2026-04-09T08:00:00',
-				coverageEnd: '2026-04-10T08:00:00'
-			})
-		],
+		events,
 		...overrides
 	};
 }
@@ -277,10 +322,30 @@ function renderWizard(overrides: Partial<ComponentProps<typeof DutyRosterWizard>
 			onApplyAdvancedSeries: vi.fn(async () => makeSeriesApplyResult()),
 			onPreviewExistingAdvancedEvent: vi.fn(async () => makePreview()),
 			onUpdateExistingAdvancedEvent: vi.fn(async () => makeAppliedEvent()),
+			onDeleteAdvancedEvent: vi.fn(async () => true),
+			onDeleteAdvancedRun: vi.fn(async () => ({ deletedEvents: 1 })),
+			onDeleteLegacyAdvancedGroup: vi.fn(async () => ({ deletedEvents: 1 })),
+			onCreateAdvancedTemplate: vi.fn(async () => makeAdvancedTemplate()),
 			canManageAdvancedTemplates: true,
 			onManageAdvancedTemplates: vi.fn(),
 			...overrides
 		}
+	});
+}
+
+async function openAdvancedPolicyReview() {
+	await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Use This Template' }));
+	await waitFor(() => {
+		expect(screen.getByText('Step 2 of 4 · Review policy')).toBeTruthy();
+	});
+}
+
+async function openAdvancedDatePattern() {
+	await openAdvancedPolicyReview();
+	await fireEvent.click(screen.getByRole('button', { name: 'Looks Good — Set Date Pattern' }));
+	await waitFor(() => {
+		expect(screen.getByText('Step 3 of 4 · Date pattern')).toBeTruthy();
 	});
 }
 
@@ -316,14 +381,14 @@ describe('DutyRosterWizard', () => {
 	it('shows a plain-language policy summary before previewing an advanced run', async () => {
 		renderWizard();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+		await openAdvancedPolicyReview();
 
-		expect(screen.getByText('Policy Summary')).toBeTruthy();
-		expect(screen.getByText(/Longest break/)).toBeTruthy();
+		expect(screen.getByText('Step 2 of 4 · Review policy')).toBeTruthy();
 		expect(screen.getByText(/Blocking duty/)).toBeTruthy();
 		expect(screen.getByText(/Cooldown/)).toBeTruthy();
-		expect(screen.getByText(/Fairness confidence/)).toBeTruthy();
+		expect(screen.getByText(/Positions to fill/)).toBeTruthy();
+		expect(screen.getByText(/Pool: staff-duty-primary/)).toBeTruthy();
+		expect(screen.getByText(/24 hours after the shift ends\./)).toBeTruthy();
 	});
 
 	it('keeps existing simple-duty roster history visible through the simple lane bridge', async () => {
@@ -405,6 +470,7 @@ describe('DutyRosterWizard', () => {
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Use Simple Duty' }));
 			await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
+			await fireEvent.click(screen.getByRole('button', { name: /Continue to Personnel/ }));
 			await fireEvent.click(screen.getByRole('button', { name: 'Generate Roster' }));
 
 			await waitFor(() => {
@@ -435,8 +501,7 @@ describe('DutyRosterWizard', () => {
 			onApplyAdvancedSeries: applyHandler
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+		await openAdvancedDatePattern();
 
 		await fireEvent.input(screen.getByLabelText('Start Date'), {
 			target: { value: '2026-04-07' }
@@ -467,9 +532,10 @@ describe('DutyRosterWizard', () => {
 		});
 
 		expect(screen.getByText('Series preview ready')).toBeTruthy();
-		expect(screen.getAllByText(/Fairness confidence:/).length).toBeGreaterThan(0);
-		expect(screen.getByText('2026-04-07T08:00:00 to 2026-04-08T08:00:00')).toBeTruthy();
-		expect(screen.getByText('2026-04-09T08:00:00 to 2026-04-10T08:00:00')).toBeTruthy();
+		expect(screen.getAllByText('Fairness confidence').length).toBeGreaterThan(0);
+		expect(screen.getByText('2026-04-07')).toBeTruthy();
+		expect(screen.getByText('2026-04-09')).toBeTruthy();
+		expect(screen.getAllByText('0800-0800 next day').length).toBeGreaterThan(0);
 		expect(
 			screen.getAllByText(
 				'Selected by longest break in rotation pool "staff-duty-primary". Fairness confidence is low because not every eligible person has seeded or historical service data yet.'
@@ -527,8 +593,7 @@ describe('DutyRosterWizard', () => {
 			onPreviewAdvancedSeries: previewHandler
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+		await openAdvancedDatePattern();
 
 		await fireEvent.input(screen.getByLabelText('Start Date'), {
 			target: { value: '2026-04-07' }
@@ -552,7 +617,7 @@ describe('DutyRosterWizard', () => {
 			);
 		});
 
-		expect(screen.getByText('2026-04-08T08:00:00 to 2026-04-09T08:00:00')).toBeTruthy();
+		expect(screen.getByText('2026-04-08')).toBeTruthy();
 	});
 
 	it('requires explicit collision review before applying an advanced series preview', async () => {
@@ -579,8 +644,7 @@ describe('DutyRosterWizard', () => {
 			onApplyAdvancedSeries: applyHandler
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+		await openAdvancedDatePattern();
 
 		await fireEvent.input(screen.getByLabelText('Start Date'), {
 			target: { value: '2026-04-07' }
@@ -602,7 +666,7 @@ describe('DutyRosterWizard', () => {
 		const applyButton = screen.getByRole('button', { name: 'Apply Series' }) as HTMLButtonElement;
 		expect(applyButton.disabled).toBe(true);
 
-		await fireEvent.click(screen.getByLabelText('I reviewed the conflicts for this run'));
+		await fireEvent.click(screen.getByLabelText('I reviewed the conflicts for applying the run'));
 
 		expect(applyButton.disabled).toBe(false);
 
@@ -675,8 +739,7 @@ describe('DutyRosterWizard', () => {
 			onApplyAdvancedSeries: applyHandler
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+		await openAdvancedDatePattern();
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
@@ -783,7 +846,9 @@ describe('DutyRosterWizard', () => {
 							coverageEnd: '2026-04-08T08:00:00',
 							collisionSummary: {
 								hasConflicts: true,
-								conflicts: ['SGT Hayes is still in cooldown until 2026-04-07T20:00:00. Review this collision before apply.']
+								conflicts: [
+									'SGT Hayes is still in cooldown until 2026-04-07T20:00:00. Review this collision before apply.'
+								]
 							},
 							slotInstances: [
 								{
@@ -830,8 +895,7 @@ describe('DutyRosterWizard', () => {
 			onApplyAdvancedSeries: applyHandler
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+		await openAdvancedDatePattern();
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
@@ -891,11 +955,12 @@ describe('DutyRosterWizard', () => {
 
 		expect(screen.getByText('Hard conflict')).toBeTruthy();
 		expect(
-			screen.getAllByText('SGT Hayes is still in cooldown until 2026-04-07T20:00:00. Review this collision before apply.')
-				.length
+			screen.getAllByText(
+				'SGT Hayes is still in cooldown until 2026-04-07T20:00:00. Review this collision before apply.'
+			).length
 		).toBeGreaterThan(0);
 
-		await fireEvent.click(screen.getByLabelText('I reviewed the conflicts for this run'));
+		await fireEvent.click(screen.getByLabelText('I reviewed the conflicts for applying the run'));
 		await fireEvent.click(screen.getByRole('button', { name: 'Apply Series' }));
 
 		await waitFor(() => {
@@ -921,6 +986,33 @@ describe('DutyRosterWizard', () => {
 	});
 
 	it('groups applied advanced duty events into compact duty ledgers with readable coverage labels', async () => {
+		const cqRun = {
+			id: 'run-cq-1',
+			orgId: 'test-org',
+			templateId: 'tmpl-cq',
+			templateName: 'CQ',
+			pattern: 'selected-weekdays' as const,
+			startDate: '2026-04-09',
+			endDate: '2026-04-10',
+			eventCount: 2,
+			isLegacy: false,
+			createdAt: '2026-04-04T12:00:00.000Z',
+			updatedAt: '2026-04-04T12:00:00.000Z'
+		};
+		const staffRun = {
+			id: 'run-sd-1',
+			orgId: 'test-org',
+			templateId: 'tmpl-sd',
+			templateName: 'Staff Duty',
+			pattern: 'selected-weekdays' as const,
+			startDate: '2026-04-08',
+			endDate: '2026-04-08',
+			eventCount: 1,
+			isLegacy: false,
+			createdAt: '2026-04-04T12:00:00.000Z',
+			updatedAt: '2026-04-04T12:00:00.000Z'
+		};
+
 		renderWizard({
 			advancedDutyEvents: [
 				makeAppliedEvent({
@@ -930,7 +1022,9 @@ describe('DutyRosterWizard', () => {
 					eventDate: '2026-04-10',
 					coverageMode: 'all-day',
 					coverageStart: '2026-04-10T00:00:00',
-					coverageEnd: '2026-04-10T23:59:59'
+					coverageEnd: '2026-04-10T23:59:59',
+					runId: cqRun.id,
+					run: cqRun
 				}),
 				makeAppliedEvent({
 					id: 'cq-event-2',
@@ -939,7 +1033,9 @@ describe('DutyRosterWizard', () => {
 					eventDate: '2026-04-09',
 					coverageMode: 'all-day',
 					coverageStart: '2026-04-09T00:00:00',
-					coverageEnd: '2026-04-09T23:59:59'
+					coverageEnd: '2026-04-09T23:59:59',
+					runId: cqRun.id,
+					run: cqRun
 				}),
 				makeAppliedEvent({
 					id: 'staff-duty-1',
@@ -948,12 +1044,14 @@ describe('DutyRosterWizard', () => {
 					eventDate: '2026-04-08',
 					coverageMode: 'timed',
 					coverageStart: '2026-04-08T08:00:00',
-					coverageEnd: '2026-04-09T08:00:00'
+					coverageEnd: '2026-04-09T08:00:00',
+					runId: staffRun.id,
+					run: staffRun
 				})
 			]
 		});
 
-		expect(screen.getByText('CQ')).toBeTruthy();
+		expect(screen.getAllByText('CQ').length).toBeGreaterThan(0);
 		expect(screen.getByText('2 applied events · Apr 9, 2026 to Apr 10, 2026')).toBeTruthy();
 		expect(screen.getByText('Apr 10, 2026')).toBeTruthy();
 		expect(screen.getAllByText('All day · 1/1 filled')).toHaveLength(2);
@@ -1071,8 +1169,7 @@ describe('DutyRosterWizard', () => {
 								...makeAppliedEvent().slotInstances[0],
 								roleLabel: 'Runner',
 								assigneeId: 'person-nco',
-								selectionReason: 'Selected by longest break in the CQ runner queue.',
-								overrideMessages: ['Manual override bypassed the normal fairness pick.']
+								selectionReason: 'Selected by longest break in the CQ runner queue.'
 							},
 							{
 								...makeAppliedEvent().slotInstances[0],
@@ -1084,8 +1181,7 @@ describe('DutyRosterWizard', () => {
 								assignmentSource: 'manual',
 								warningState: 'conflict',
 								selectionReason: null,
-								unfilledReason: 'No eligible Soldier remained after overlap and cooldown checks.',
-								overrideMessages: ['SSG Hartney is already covering Staff Duty during this window.']
+								unfilledReason: 'No eligible Soldier remained after overlap and cooldown checks.'
 							}
 						]
 					})
@@ -1211,8 +1307,7 @@ describe('DutyRosterWizard', () => {
 							...makeAppliedEvent().slotInstances[0],
 							roleLabel: 'Runner',
 							fairnessConfidence: 'low',
-							selectionReason: 'Selected by longest break in the runner rotation group.',
-							overrideMessages: ['SPC Foley was skipped because he already covered CQ yesterday.']
+							selectionReason: 'Selected by longest break in the runner rotation group.'
 						},
 						{
 							...makeAppliedEvent().slotInstances[0],
@@ -1225,8 +1320,7 @@ describe('DutyRosterWizard', () => {
 							warningState: 'conflict',
 							fairnessConfidence: 'low',
 							selectionReason: null,
-							unfilledReason: 'No eligible NCO remained after overlap and cooldown checks.',
-							overrideMessages: ['SSG Hartney is already covering Staff Duty during this window.']
+							unfilledReason: 'No eligible NCO remained after overlap and cooldown checks.'
 						}
 					]
 				})
@@ -1264,8 +1358,7 @@ describe('DutyRosterWizard', () => {
 			)
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Generate Series' }));
+		await openAdvancedDatePattern();
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
@@ -1277,9 +1370,15 @@ describe('DutyRosterWizard', () => {
 		expect(screen.getAllByText('Unfilled outcome').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('Fairness confidence').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('Selected by longest break in the runner rotation group.').length).toBeGreaterThan(0);
-		expect(screen.getAllByText('SPC Foley was skipped because he already covered CQ yesterday.').length).toBeGreaterThan(0);
-		expect(screen.getAllByText('No eligible NCO remained after overlap and cooldown checks.').length).toBeGreaterThan(0);
-		expect(screen.getAllByText('SSG Hartney is already covering Staff Duty during this window.').length).toBeGreaterThan(0);
+		expect(
+			screen.getAllByText('SPC Foley was skipped because he already covered CQ yesterday.').length
+		).toBeGreaterThan(0);
+		expect(screen.getAllByText('No eligible NCO remained after overlap and cooldown checks.').length).toBeGreaterThan(
+			0
+		);
+		expect(
+			screen.getAllByText('SSG Hartney is already covering Staff Duty during this window.').length
+		).toBeGreaterThan(0);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Open Event Apr 10, 2026' }));
 

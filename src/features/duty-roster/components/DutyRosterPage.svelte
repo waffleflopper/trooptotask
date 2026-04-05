@@ -26,6 +26,8 @@
 		DutyEventSeriesApplyResult,
 		DutyEventSeriesInput,
 		DutyEventSeriesPreview,
+		ExistingDutyEventInput,
+		ExistingDutyEventUpdateInput,
 		DutyTemplate,
 		DutyTemplateWriteInput
 	} from '../duty-roster.types';
@@ -280,6 +282,54 @@
 			return null;
 		}
 	}
+
+	async function handlePreviewExistingAdvancedEvent(payload: ExistingDutyEventInput): Promise<DutyEventPreview | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/${payload.dutyEventId}/preview`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					slotOverrides: payload.slotOverrides
+				})
+			});
+
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to preview applied duty event'));
+			}
+
+			return (await res.json()) as DutyEventPreview;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to preview applied duty event');
+			return null;
+		}
+	}
+
+	async function handleUpdateExistingAdvancedEvent(payload: ExistingDutyEventUpdateInput): Promise<DutyEvent | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/${payload.dutyEventId}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					slotOverrides: payload.slotOverrides,
+					collisionReviewConfirmed: payload.collisionReviewConfirmed
+				})
+			});
+
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to save applied duty event'));
+			}
+
+			const event = (await res.json()) as DutyEvent;
+			advancedDutyEvents = [event, ...advancedDutyEvents.filter((existing) => existing.id !== event.id)].sort(
+				(a, b) => b.coverageStart.localeCompare(a.coverageStart)
+			);
+			toastStore.success('Applied duty event updated');
+			return event;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to save applied duty event');
+			return null;
+		}
+	}
 </script>
 
 <PageToolbar
@@ -318,6 +368,8 @@
 				onApplyAdvancedEvent={handleApplyAdvancedEvent}
 				onPreviewAdvancedSeries={handlePreviewAdvancedSeries}
 				onApplyAdvancedSeries={handleApplyAdvancedSeries}
+				onPreviewExistingAdvancedEvent={handlePreviewExistingAdvancedEvent}
+				onUpdateExistingAdvancedEvent={handleUpdateExistingAdvancedEvent}
 				canManageAdvancedTemplates={canManageAdvancedTemplates}
 				onManageAdvancedTemplates={handleManageAdvancedTemplates}
 			/>

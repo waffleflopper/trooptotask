@@ -11,7 +11,9 @@ import type {
 	DutyEventSeriesApplyResult,
 	DutyEventSeriesInput,
 	DutyEventSeriesPreview,
-	DutyTemplate
+	DutyTemplate,
+	ExistingDutyEventInput,
+	ExistingDutyEventUpdateInput
 } from '../duty-roster.types';
 
 function makePersonnel(overrides: Partial<Personnel> = {}): Personnel {
@@ -273,6 +275,8 @@ function renderWizard(overrides: Partial<ComponentProps<typeof DutyRosterWizard>
 			onApplyAdvancedEvent: vi.fn(async () => makeAppliedEvent()),
 			onPreviewAdvancedSeries: vi.fn(async () => makeSeriesPreview()),
 			onApplyAdvancedSeries: vi.fn(async () => makeSeriesApplyResult()),
+			onPreviewExistingAdvancedEvent: vi.fn(async () => makePreview()),
+			onUpdateExistingAdvancedEvent: vi.fn(async () => makeAppliedEvent()),
 			canManageAdvancedTemplates: true,
 			onManageAdvancedTemplates: vi.fn(),
 			...overrides
@@ -843,5 +847,78 @@ describe('DutyRosterWizard', () => {
 		expect(screen.getByText('1 applied event · Apr 8, 2026')).toBeTruthy();
 		expect(screen.getByText('0800-0800 next day · 1/1 filled')).toBeTruthy();
 		expect(screen.queryByText(/T00:00:00/)).toBeNull();
+	});
+
+	it('reopens an applied duty event and lets the user regenerate and save that one event', async () => {
+		const previewExistingHandler = vi.fn(async (input: ExistingDutyEventInput) => {
+			if (input.slotOverrides?.length === 0) {
+				return makePreview({
+					slotInstances: [
+						{
+							...makePreview().slotInstances[0],
+							assigneeId: 'person-alt',
+							assignmentSource: 'generated',
+							warningState: 'none',
+							fairnessConfidence: 'high',
+							selectionReason: 'Selected by longest break in rotation pool "staff-duty-primary".',
+							overrideMessages: []
+						}
+					]
+				});
+			}
+
+			return makePreview();
+		});
+		const updateExistingHandler = vi.fn(async (input: ExistingDutyEventUpdateInput) =>
+			makeAppliedEvent({
+				id: input.dutyEventId,
+				slotInstances: [
+					{
+						...makeAppliedEvent().slotInstances[0],
+						assigneeId: input.slotOverrides?.length === 0 ? 'person-alt' : 'person-nco',
+						assignmentSource: 'generated'
+					}
+				]
+			})
+		);
+
+		renderWizard({
+			advancedDutyEvents: [makeAppliedEvent()],
+			onPreviewExistingAdvancedEvent: previewExistingHandler,
+			onUpdateExistingAdvancedEvent: updateExistingHandler
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Open Event Apr 10, 2026' }));
+
+		await waitFor(() => {
+			expect(previewExistingHandler).toHaveBeenCalledWith({
+				dutyEventId: 'event-1'
+			});
+		});
+
+		expect(screen.getByText('Edit applied duty event')).toBeTruthy();
+		expect(screen.getAllByText('SGT Nolan').length).toBeGreaterThan(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Regenerate Event' }));
+
+		await waitFor(() => {
+			expect(previewExistingHandler).toHaveBeenLastCalledWith({
+				dutyEventId: 'event-1',
+				slotOverrides: []
+			});
+		});
+
+		expect(screen.getAllByText('SGT Zimmer').length).toBeGreaterThan(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Save Event' }));
+
+		await waitFor(() => {
+			expect(updateExistingHandler).toHaveBeenCalledWith({
+				dutyEventId: 'event-1',
+				slotOverrides: []
+			});
+		});
+
+		expect(screen.getByText('NCO #1: SGT Zimmer')).toBeTruthy();
 	});
 });

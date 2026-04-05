@@ -17,7 +17,9 @@
 		DutyEventSeriesPattern,
 		DutyEventSeriesPreview,
 		DutyEventSlotOverrideInput,
-		DutyTemplate
+		DutyTemplate,
+		ExistingDutyEventInput,
+		ExistingDutyEventUpdateInput
 	} from '../duty-roster.types';
 
 	interface Props {
@@ -39,6 +41,8 @@
 		onApplyAdvancedEvent: (input: DutyEventApplyInput) => Promise<DutyEvent | null>;
 		onPreviewAdvancedSeries: (input: DutyEventSeriesInput) => Promise<DutyEventSeriesPreview | null>;
 		onApplyAdvancedSeries: (input: DutyEventSeriesInput) => Promise<DutyEventSeriesApplyResult | null>;
+		onPreviewExistingAdvancedEvent: (input: ExistingDutyEventInput) => Promise<DutyEventPreview | null>;
+		onUpdateExistingAdvancedEvent: (input: ExistingDutyEventUpdateInput) => Promise<DutyEvent | null>;
 		canManageAdvancedTemplates: boolean;
 		onManageAdvancedTemplates: () => void;
 	}
@@ -62,6 +66,8 @@
 		onApplyAdvancedEvent,
 		onPreviewAdvancedSeries,
 		onApplyAdvancedSeries,
+		onPreviewExistingAdvancedEvent,
+		onUpdateExistingAdvancedEvent,
 		canManageAdvancedTemplates,
 		onManageAdvancedTemplates
 	}: Props = $props();
@@ -89,6 +95,13 @@
 	let isRefreshingAdvancedSeriesPreview = $state(false);
 	let isApplyingAdvancedSeries = $state(false);
 	let appliedAdvancedEvents = $state<DutyEvent[]>([]);
+	let selectedAppliedEventId = $state<string | null>(null);
+	let appliedEventPreview = $state<DutyEventPreview | null>(null);
+	let appliedEventOverrides = $state<DutyEventSlotOverrideInput[]>([]);
+	let appliedEventCollisionReviewConfirmed = $state(false);
+	let isLoadingAppliedEventPreview = $state(false);
+	let isRefreshingAppliedEventPreview = $state(false);
+	let isSavingAppliedEvent = $state(false);
 
 	const weekdayOptions = [
 		{ value: 0, label: 'Sunday' },
@@ -163,6 +176,11 @@
 			(a, b) => (b.events[0]?.coverageStart ?? '').localeCompare(a.events[0]?.coverageStart ?? '')
 		);
 	});
+	const selectedAppliedEvent = $derived(
+		selectedAppliedEventId ? appliedAdvancedEvents.find((event) => event.id === selectedAppliedEventId) ?? null : null
+	);
+	const appliedEventCollisionMessages = $derived(appliedEventPreview?.collisionSummary.conflicts ?? []);
+	const appliedEventRequiresCollisionReview = $derived(appliedEventCollisionMessages.length > 0);
 
 	$effect(() => {
 		appliedAdvancedEvents = [...advancedDutyEvents].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
@@ -220,6 +238,15 @@
 		if (!assigneeId) return 'Unfilled';
 		const person = personnelById.get(assigneeId);
 		return person ? `${person.rank} ${person.lastName}` : assigneeId;
+	}
+
+	function buildSlotOverridesFromPreview(slotInstances: DutyEventPreviewSlotInstance[]): DutyEventSlotOverrideInput[] {
+		return slotInstances.map((slot) => ({
+			templateSlotId: slot.templateSlotId,
+			slotIndex: slot.slotIndex,
+			assigneeId: slot.assigneeId,
+			assignmentSource: slot.assignmentSource === 'generated' ? undefined : slot.assignmentSource
+		}));
 	}
 
 	function formatDisplayDate(date: string): string {
@@ -430,6 +457,160 @@
 
 	function hasSeriesSlotOverride(eventDate: string, slot: DutyEventPreviewSlotInstance): boolean {
 		return !!findSeriesSlotOverride(eventDate, slot);
+	}
+
+	function findAppliedEventSlotOverride(slot: DutyEventPreviewSlotInstance): DutyEventSlotOverrideInput | null {
+		return (
+			appliedEventOverrides.find(
+				(override) => override.templateSlotId === slot.templateSlotId && override.slotIndex === slot.slotIndex
+			) ?? null
+		);
+	}
+
+	function buildNextAppliedEventOverrides(
+		slot: DutyEventPreviewSlotInstance,
+		nextOverride: DutyEventSlotOverrideInput | null
+	): DutyEventSlotOverrideInput[] {
+		const filteredOverrides = appliedEventOverrides.filter(
+			(override) => !(override.templateSlotId === slot.templateSlotId && override.slotIndex === slot.slotIndex)
+		);
+		if (!nextOverride) {
+			return filteredOverrides;
+		}
+		return [...filteredOverrides, nextOverride];
+	}
+
+	async function openAppliedEventEditor(event: DutyEvent) {
+		selectedAppliedEventId = event.id;
+		isLoadingAppliedEventPreview = true;
+		try {
+			const preview = await onPreviewExistingAdvancedEvent({
+				dutyEventId: event.id
+			});
+			if (preview) {
+				appliedEventPreview = preview;
+				appliedEventOverrides = buildSlotOverridesFromPreview(preview.slotInstances);
+				appliedEventCollisionReviewConfirmed = false;
+			}
+		} finally {
+			isLoadingAppliedEventPreview = false;
+		}
+	}
+
+	async function refreshAppliedEventPreview(nextOverrides: DutyEventSlotOverrideInput[]) {
+		if (!selectedAppliedEventId) return;
+		isRefreshingAppliedEventPreview = true;
+		appliedEventOverrides = nextOverrides;
+		try {
+			const preview = await onPreviewExistingAdvancedEvent({
+				dutyEventId: selectedAppliedEventId,
+				slotOverrides: nextOverrides
+			});
+			if (preview) {
+				appliedEventPreview = preview;
+				appliedEventCollisionReviewConfirmed = false;
+			}
+		} finally {
+			isRefreshingAppliedEventPreview = false;
+		}
+	}
+
+	async function updateAppliedEventSlotAssignee(slot: DutyEventPreviewSlotInstance, assigneeId: string | null) {
+		const existingOverride = findAppliedEventSlotOverride(slot);
+		await refreshAppliedEventPreview(
+			buildNextAppliedEventOverrides(slot, {
+				templateSlotId: slot.templateSlotId,
+				slotIndex: slot.slotIndex,
+				assigneeId,
+				assignmentSource:
+					existingOverride?.assignmentSource === 'locked' || slot.assignmentSource === 'locked' ? 'locked' : 'manual'
+			})
+		);
+	}
+
+	async function toggleAppliedEventSlotLock(slot: DutyEventPreviewSlotInstance) {
+		const existingOverride = findAppliedEventSlotOverride(slot);
+		const nextAssignmentSource =
+			existingOverride?.assignmentSource === 'locked' || slot.assignmentSource === 'locked' ? 'manual' : 'locked';
+		await refreshAppliedEventPreview(
+			buildNextAppliedEventOverrides(slot, {
+				templateSlotId: slot.templateSlotId,
+				slotIndex: slot.slotIndex,
+				assigneeId: slot.assigneeId,
+				assignmentSource: nextAssignmentSource
+			})
+		);
+	}
+
+	async function clearAppliedEventSlot(slot: DutyEventPreviewSlotInstance) {
+		const existingOverride = findAppliedEventSlotOverride(slot);
+		await refreshAppliedEventPreview(
+			buildNextAppliedEventOverrides(slot, {
+				templateSlotId: slot.templateSlotId,
+				slotIndex: slot.slotIndex,
+				assigneeId: null,
+				assignmentSource:
+					existingOverride?.assignmentSource === 'locked' || slot.assignmentSource === 'locked' ? 'locked' : 'manual'
+			})
+		);
+	}
+
+	async function regenerateAppliedEventSlot(slot: DutyEventPreviewSlotInstance) {
+		await refreshAppliedEventPreview(buildNextAppliedEventOverrides(slot, null));
+	}
+
+	async function regenerateAppliedEvent() {
+		await refreshAppliedEventPreview([]);
+	}
+
+	async function handleSaveAppliedEvent() {
+		if (!selectedAppliedEventId) return;
+		isSavingAppliedEvent = true;
+		try {
+			const result = await onUpdateExistingAdvancedEvent({
+				dutyEventId: selectedAppliedEventId,
+				slotOverrides: appliedEventOverrides,
+				collisionReviewConfirmed: appliedEventRequiresCollisionReview
+					? appliedEventCollisionReviewConfirmed
+					: undefined
+			});
+			if (result) {
+				appliedAdvancedEvents = [
+					result,
+					...appliedAdvancedEvents.filter((existing) => existing.id !== result.id)
+				].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
+				appliedEventPreview = {
+					templateId: result.templateId,
+					templateName: result.templateName,
+					eventDate: result.eventDate,
+					coverageMode: result.coverageMode,
+					coverageStart: result.coverageStart,
+					coverageEnd: result.coverageEnd,
+					isBlocking: result.isBlocking,
+					cooldownHours: result.cooldownHours,
+					rulesSnapshot: result.rulesSnapshot,
+					fillSummary: result.fillSummary,
+					collisionSummary: result.collisionSummary,
+					slotInstances: result.slotInstances.map((slot) => ({
+						templateSlotId: slot.templateSlotId,
+						roleLabel: slot.roleLabel,
+						slotIndex: slot.slotIndex,
+						assigneeId: slot.assigneeId,
+						assignmentSource: slot.assignmentSource,
+						warningState: slot.warningState,
+						fairnessConfidence: slot.fairnessConfidence,
+						selectionReason: slot.selectionReason,
+						unfilledReason: slot.unfilledReason,
+						overrideMessages: slot.overrideMessages,
+						sortOrder: slot.sortOrder
+					}))
+				};
+				appliedEventOverrides = buildSlotOverridesFromPreview(appliedEventPreview.slotInstances);
+				appliedEventCollisionReviewConfirmed = false;
+			}
+		} finally {
+			isSavingAppliedEvent = false;
+		}
 	}
 
 	async function handleApplyAdvancedSeries() {
@@ -920,12 +1101,179 @@
 											</span>
 										{/each}
 									</div>
+									<div class="applied-ledger-actions">
+										<button
+											class="btn btn-secondary btn-sm"
+											type="button"
+											aria-label={`Open Event ${formatDisplayDate(event.eventDate)}`}
+											onclick={() => openAppliedEventEditor(event)}
+										>
+											Open Event
+										</button>
+									</div>
 								</article>
 							{/each}
 						</div>
 					</details>
 				{/each}
 			</div>
+		{/if}
+
+		{#if selectedAppliedEvent && appliedEventPreview}
+			<section class="preview-card applied-event-editor" aria-label="Applied duty event editor">
+				<div class="preview-header">
+					<div>
+						<p class="eyebrow">Applied event editor</p>
+						<h4>Edit applied duty event</h4>
+						<p class="template-meta">
+							{selectedAppliedEvent.templateName} · {formatDisplayDate(selectedAppliedEvent.eventDate)} ·
+							{formatEventCoverageLabel(selectedAppliedEvent)}
+						</p>
+						{#if isLoadingAppliedEventPreview || isRefreshingAppliedEventPreview}
+							<p class="template-meta">Refreshing this event around your edits...</p>
+						{/if}
+					</div>
+					<div class="header-actions">
+						<button
+							class="btn btn-secondary btn-sm"
+							type="button"
+							disabled={isRefreshingAppliedEventPreview || isSavingAppliedEvent}
+							onclick={regenerateAppliedEvent}
+						>
+							Regenerate Event
+						</button>
+						<button
+							class="btn btn-primary"
+							type="button"
+							disabled={
+								isLoadingAppliedEventPreview ||
+								isRefreshingAppliedEventPreview ||
+								isSavingAppliedEvent ||
+								(appliedEventRequiresCollisionReview && !appliedEventCollisionReviewConfirmed)
+							}
+							onclick={handleSaveAppliedEvent}
+						>
+							{isSavingAppliedEvent ? 'Saving Event...' : 'Save Event'}
+						</button>
+					</div>
+				</div>
+
+				{#if appliedEventRequiresCollisionReview}
+					<section class="collision-review-panel" aria-label="Applied event collision review">
+						<div>
+							<p class="eyebrow">Collision review required</p>
+							<h5>Review these conflicts before you save this event.</h5>
+						</div>
+						<div class="collision-list">
+							{#each appliedEventCollisionMessages as conflict (conflict)}
+								<p class="collision-item">{conflict}</p>
+							{/each}
+						</div>
+						<label class="collision-checkbox">
+							<input
+								type="checkbox"
+								bind:checked={appliedEventCollisionReviewConfirmed}
+								aria-label="I reviewed the conflicts for this event"
+							/>
+							<span>I reviewed the conflicts for this event</span>
+						</label>
+					</section>
+				{/if}
+
+				<div class="slot-preview-list">
+					<article class="slot-preview-item">
+						<div>
+							<h5>{formatDisplayDate(appliedEventPreview.eventDate)}</h5>
+							<p class="template-meta">
+								{formatEventCoverageLabel(selectedAppliedEvent)} · {appliedEventPreview.fillSummary.filledSlots}/
+								{appliedEventPreview.fillSummary.totalSlots} filled
+							</p>
+						</div>
+						<div class="slot-preview-list nested-list">
+							{#each appliedEventPreview.slotInstances as slot (`${slot.roleLabel}-${slot.slotIndex}`)}
+								<div class="slot-preview-subitem">
+									<div class="slot-preview-heading">
+										<strong>{slot.roleLabel} #{slot.slotIndex + 1}</strong>
+										<div class="slot-status-badges">
+											{#if slot.assignmentSource === 'locked'}
+												<span class="slot-status slot-status-lock">Locked</span>
+											{:else if slot.assignmentSource === 'manual'}
+												<span class="slot-status slot-status-manual">Manual</span>
+											{/if}
+											{#if slot.warningState === 'warning'}
+												<span class="slot-status slot-status-warning">Soft warning</span>
+											{:else if slot.warningState === 'conflict'}
+												<span class="slot-status slot-status-conflict">Hard conflict</span>
+											{/if}
+										</div>
+									</div>
+									<span>{formatSlotAssignee(slot.assigneeId)}</span>
+									<label class="field">
+										<span class="label sr-only">{slotEditorLabel(appliedEventPreview.eventDate, slot)}</span>
+										<select
+											class="select"
+											aria-label={slotEditorLabel(appliedEventPreview.eventDate, slot)}
+											value={slot.assigneeId ?? ''}
+											disabled={isLoadingAppliedEventPreview || isRefreshingAppliedEventPreview || isSavingAppliedEvent}
+											onchange={(changeEvent) =>
+												updateAppliedEventSlotAssignee(
+													slot,
+													(changeEvent.currentTarget as HTMLSelectElement).value || null
+												)}
+										>
+											<option value="">Leave Unfilled</option>
+											{#each previewPersonnelOptions as person (person.id)}
+												<option value={person.id}>{person.rank} {person.lastName}</option>
+											{/each}
+										</select>
+									</label>
+									<div class="slot-action-row">
+										<button
+											class="btn btn-secondary btn-sm"
+											type="button"
+											disabled={isLoadingAppliedEventPreview || isRefreshingAppliedEventPreview || isSavingAppliedEvent}
+											aria-label={`${slot.assignmentSource === 'locked' ? 'Unlock' : 'Lock'} ${appliedEventPreview.eventDate} ${slot.roleLabel} #${slot.slotIndex + 1}`}
+											onclick={() => toggleAppliedEventSlotLock(slot)}
+										>
+											{slot.assignmentSource === 'locked' ? 'Unlock' : 'Lock'}
+										</button>
+										<button
+											class="btn btn-secondary btn-sm"
+											type="button"
+											disabled={isLoadingAppliedEventPreview || isRefreshingAppliedEventPreview || isSavingAppliedEvent}
+											aria-label={`Clear ${appliedEventPreview.eventDate} ${slot.roleLabel} #${slot.slotIndex + 1}`}
+											onclick={() => clearAppliedEventSlot(slot)}
+										>
+											Clear
+										</button>
+										<button
+											class="btn btn-secondary btn-sm"
+											type="button"
+											disabled={isLoadingAppliedEventPreview || isRefreshingAppliedEventPreview || isSavingAppliedEvent}
+											aria-label={`Regenerate ${appliedEventPreview.eventDate} ${slot.roleLabel} #${slot.slotIndex + 1}`}
+											onclick={() => regenerateAppliedEventSlot(slot)}
+										>
+											Regenerate Slot
+										</button>
+									</div>
+									{#if slot.overrideMessages && slot.overrideMessages.length > 0}
+										<div class="slot-message-list">
+											{#each slot.overrideMessages as message (`${slot.slotIndex}-${message}`)}
+												<span
+													class={`slot-message ${slot.warningState === 'conflict' ? 'slot-message-conflict' : slot.warningState === 'warning' ? 'slot-message-warning' : ''}`}
+													>{message}</span
+												>
+											{/each}
+										</div>
+									{:else}
+										<span>{slot.unfilledReason ?? slot.selectionReason ?? 'Assignment ready to save.'}</span>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					</article>
+				</div>
+			</section>
 		{/if}
 	</section>
 </section>
@@ -1194,7 +1542,7 @@
 
 	.applied-ledger-row {
 		display: grid;
-		grid-template-columns: minmax(170px, 220px) minmax(0, 1fr);
+		grid-template-columns: minmax(170px, 220px) minmax(0, 1fr) auto;
 		gap: var(--sp-3);
 		padding: var(--sp-4);
 		border-top: 1px solid var(--border-subtle);
@@ -1215,6 +1563,16 @@
 		flex-wrap: wrap;
 		gap: var(--sp-2);
 		align-content: start;
+	}
+
+	.applied-ledger-actions {
+		display: flex;
+		align-items: flex-start;
+		justify-content: flex-end;
+	}
+
+	.applied-event-editor {
+		margin-top: var(--sp-4);
 	}
 
 	.nested-list {

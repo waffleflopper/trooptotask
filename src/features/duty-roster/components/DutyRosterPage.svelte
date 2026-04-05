@@ -32,6 +32,7 @@
 		DutyTemplate,
 		DutyTemplateWriteInput
 	} from '../duty-roster.types';
+	import { cloneDefaultSoftPreferences } from '../duty-roster.types';
 
 	interface Props {
 		data: {
@@ -71,7 +72,7 @@
 	});
 
 	$effect(() => {
-		advancedDutyTemplates = data.advancedDutyTemplates;
+		advancedDutyTemplates = sortTemplates((data.advancedDutyTemplates ?? []).map(normalizeTemplate));
 	});
 
 	$effect(() => {
@@ -90,6 +91,20 @@
 
 	function sortTemplates(items: DutyTemplate[]): DutyTemplate[] {
 		return [...items].sort((a, b) => a.name.localeCompare(b.name));
+	}
+
+	function normalizeTemplate(template: DutyTemplate): DutyTemplate {
+		return {
+			...template,
+			scopeGroupIds: Array.isArray(template.scopeGroupIds) ? template.scopeGroupIds : [],
+			exemptPersonnelIds: Array.isArray(template.exemptPersonnelIds) ? template.exemptPersonnelIds : [],
+			softPreferences:
+				Array.isArray(template.softPreferences) && template.softPreferences.length > 0
+					? template.softPreferences
+					: cloneDefaultSoftPreferences(),
+			slots: Array.isArray(template.slots) ? template.slots : [],
+			rotationBaselines: Array.isArray(template.rotationBaselines) ? template.rotationBaselines : []
+		};
 	}
 
 	async function readResponseErrorMessage(res: Response, fallback: string): Promise<string> {
@@ -160,7 +175,7 @@
 				throw new Error(await readResponseErrorMessage(res, 'Failed to save advanced duty template'));
 			}
 
-			const item: DutyTemplate = await res.json();
+			const item = normalizeTemplate((await res.json()) as DutyTemplate);
 			advancedDutyTemplates = sortTemplates([...advancedDutyTemplates, item]);
 			toastStore.success('Advanced duty template saved');
 			return item;
@@ -184,7 +199,7 @@
 				throw new Error(await readResponseErrorMessage(res, 'Failed to update advanced duty template'));
 			}
 
-			const item: DutyTemplate = await res.json();
+			const item = normalizeTemplate((await res.json()) as DutyTemplate);
 			advancedDutyTemplates = sortTemplates(
 				advancedDutyTemplates.map((template) => (template.id === item.id ? item : template))
 			);
@@ -397,7 +412,7 @@
 			if (!res.ok) {
 				throw new Error(await readResponseErrorMessage(res, 'Failed to archive duty template'));
 			}
-			const item = (await res.json()) as DutyTemplate;
+			const item = normalizeTemplate((await res.json()) as DutyTemplate);
 			advancedDutyTemplates = sortTemplates(
 				advancedDutyTemplates.map((template) => (template.id === item.id ? item : template))
 			);

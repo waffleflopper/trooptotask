@@ -325,21 +325,21 @@
 		templateDescription = template.description ?? '';
 		templateStatus = template.status;
 		scopeType = template.scopeType;
-		scopeGroupIds = [...template.scopeGroupIds];
-		exemptPersonnelIds = [...template.exemptPersonnelIds];
+		scopeGroupIds = Array.isArray(template.scopeGroupIds) ? [...template.scopeGroupIds] : [];
+		exemptPersonnelIds = Array.isArray(template.exemptPersonnelIds) ? [...template.exemptPersonnelIds] : [];
 		coverageMode = template.coverageMode;
 		startTime = template.startTime ?? '';
 		endTime = template.endTime ?? '';
 		isBlocking = template.isBlocking;
 		cooldownHours = template.cooldownHours;
 		draftSoftPreferences =
-			template.softPreferences?.length > 0
+			Array.isArray(template.softPreferences) && template.softPreferences.length > 0
 				? template.softPreferences.map((preference) => ({
 						type: preference.type,
 						enabled: preference.enabled
 					}))
 				: cloneDefaultSoftPreferences();
-		draftSlots = template.slots.map((slot) => ({
+		draftSlots = (Array.isArray(template.slots) ? template.slots : []).map((slot) => ({
 			key: nextSlotKey(),
 			roleLabel: slot.roleLabel,
 			quantity: slot.quantity,
@@ -350,12 +350,14 @@
 			allowedRoleValues: [...slot.allowedRoleValues],
 			rotationPoolKey: slot.rotationPoolKey
 		}));
-		draftRotationBaselines = template.rotationBaselines.map((baseline) => ({
-			key: nextSlotKey(),
-			rotationPoolKey: baseline.rotationPoolKey,
-			personId: baseline.personId,
-			lastServedDate: baseline.lastServedDate
-		}));
+		draftRotationBaselines = (Array.isArray(template.rotationBaselines) ? template.rotationBaselines : []).map(
+			(baseline) => ({
+				key: nextSlotKey(),
+				rotationPoolKey: baseline.rotationPoolKey,
+				personId: baseline.personId,
+				lastServedDate: baseline.lastServedDate
+			})
+		);
 	}
 
 	function resetForNew() {
@@ -1184,113 +1186,104 @@
 						</button>
 					{/if}
 				</div>
+				{#if builderStep === 'review'}
+					<section class="builder-card summary-card" aria-label="Template summary">
+						<p class="eyebrow">Review</p>
+						<h3>{templateName || 'Untitled advanced duty template'}</h3>
+						<p class="summary-line">Status: <strong>{templateStatus}</strong></p>
+						<p class="summary-line">
+							Scope: <strong
+								>{scopeType === 'organization'
+									? 'whole organization'
+									: `${scopeGroupIds.length} selected group${scopeGroupIds.length === 1 ? '' : 's'}`}</strong
+							>
+						</p>
+						<p class="summary-line">
+							Coverage: <strong
+								>{coverageMode === 'timed' ? `${startTime || '--:--'} to ${endTime || '--:--'}` : 'all day'}</strong
+							>
+						</p>
+						<p class="summary-line">
+							Conflict policy: <strong>{isBlocking ? 'blocking duty' : 'non-blocking duty'}</strong>
+						</p>
+						<p class="summary-line">Cooldown: <strong>{cooldownHours} hour{cooldownHours === 1 ? '' : 's'}</strong></p>
+						<p class="summary-line">Slot definitions: <strong>{draftSlots.length}</strong></p>
+						<p class="summary-line">Rotation starting points: <strong>{draftRotationBaselines.length}</strong></p>
+
+						<div class="policy-summary">
+							<p class="eyebrow">Policy summary</p>
+							<p class="summary-line">
+								Soft order: <strong>{enabledSoftPreferenceSummary}</strong>
+							</p>
+							<p class="summary-line">
+								Blocking duty: <strong
+									>{isBlocking
+										? 'People on this duty are treated as unavailable for overlapping duties.'
+										: 'This duty does not block overlapping assignments.'}</strong
+								>
+							</p>
+							<p class="summary-line">
+								Cooldown: <strong
+									>{cooldownHours > 0
+										? `After the shift ends, the same person stays protected for ${cooldownHours} hour${cooldownHours === 1 ? '' : 's'}.`
+										: 'No extra recovery window is enforced after the shift ends.'}</strong
+								>
+							</p>
+							<p class="summary-line">
+								Fairness confidence: <strong
+									>Low confidence means the queue is still learning because history or starting points are thin.</strong
+								>
+							</p>
+						</div>
+
+						{#if draftSlots.length === 0}
+							<p class="summary-empty">No slot definitions yet.</p>
+						{:else}
+							<ul class="summary-slots">
+								{#each draftSlots as slot (slot.key)}
+									<li>{slot.quantity} x {slot.roleLabel || 'Unnamed slot'}</li>
+								{/each}
+							</ul>
+						{/if}
+
+						{#if saveError}
+							<p class="error-message">{saveError}</p>
+						{/if}
+
+						{#if isDirty}
+							<p class="unsaved-notice">You have unsaved changes.</p>
+						{/if}
+
+						{#if selectedTemplateId && !isCreatingNew && selectedTemplate?.status !== 'archived'}
+							<button
+								class="btn btn-danger"
+								type="button"
+								onclick={() => {
+									pendingArchiveTemplateId = selectedTemplateId;
+								}}
+							>
+								Archive Template
+							</button>
+						{/if}
+
+						<div class="save-actions">
+							<button
+								class="btn btn-secondary"
+								type="button"
+								disabled={!canSaveDraft || isSaving}
+								onclick={handleSaveDraft}
+							>
+								{#if isSaving}<Spinner />{/if}
+								Save Draft
+							</button>
+							<button class="btn btn-primary" type="button" disabled={!canSave || isSaving} onclick={handleSave}>
+								{#if isSaving}<Spinner />{/if}
+								Save Template
+							</button>
+						</div>
+					</section>
+				{/if}
 			</div>
-
-			<aside class="summary-card" aria-label="Template summary">
-				<p class="eyebrow">Review</p>
-				<h3>{templateName || 'Untitled advanced duty template'}</h3>
-				<p class="summary-line">Status: <strong>{templateStatus}</strong></p>
-				<p class="summary-line">
-					Scope: <strong
-						>{scopeType === 'organization'
-							? 'whole organization'
-							: `${scopeGroupIds.length} selected group${scopeGroupIds.length === 1 ? '' : 's'}`}</strong
-					>
-				</p>
-				<p class="summary-line">
-					Coverage: <strong
-						>{coverageMode === 'timed' ? `${startTime || '--:--'} to ${endTime || '--:--'}` : 'all day'}</strong
-					>
-				</p>
-				<p class="summary-line">
-					Conflict policy: <strong>{isBlocking ? 'blocking duty' : 'non-blocking duty'}</strong>
-				</p>
-				<p class="summary-line">Cooldown: <strong>{cooldownHours} hour{cooldownHours === 1 ? '' : 's'}</strong></p>
-				<p class="summary-line">Slot definitions: <strong>{draftSlots.length}</strong></p>
-				<p class="summary-line">Rotation starting points: <strong>{draftRotationBaselines.length}</strong></p>
-
-				<div class="policy-summary">
-					<p class="eyebrow">Policy summary</p>
-					<p class="summary-line">
-						Soft order: <strong>{enabledSoftPreferenceSummary}</strong>
-					</p>
-					<p class="summary-line">
-						Blocking duty: <strong
-							>{isBlocking
-								? 'People on this duty are treated as unavailable for overlapping duties.'
-								: 'This duty does not block overlapping assignments.'}</strong
-						>
-					</p>
-					<p class="summary-line">
-						Cooldown: <strong
-							>{cooldownHours > 0
-								? `After the shift ends, the same person stays protected for ${cooldownHours} hour${cooldownHours === 1 ? '' : 's'}.`
-								: 'No extra recovery window is enforced after the shift ends.'}</strong
-						>
-					</p>
-					<p class="summary-line">
-						Fairness confidence: <strong
-							>Low confidence means the queue is still learning because history or starting points are thin.</strong
-						>
-					</p>
-				</div>
-
-				{#if draftSlots.length === 0}
-					<p class="summary-empty">No slot definitions yet.</p>
-				{:else}
-					<ul class="summary-slots">
-						{#each draftSlots as slot (slot.key)}
-							<li>{slot.quantity} x {slot.roleLabel || 'Unnamed slot'}</li>
-						{/each}
-					</ul>
-				{/if}
-
-				{#if saveError}
-					<p class="error-message">{saveError}</p>
-				{/if}
-
-				{#if isDirty}
-					<p class="unsaved-notice">You have unsaved changes.</p>
-				{/if}
-
-				{#if selectedTemplateId && !isCreatingNew && selectedTemplate?.status !== 'archived'}
-					<button
-						class="btn btn-danger"
-						type="button"
-						onclick={() => {
-							pendingArchiveTemplateId = selectedTemplateId;
-						}}
-					>
-						Archive Template
-					</button>
-				{/if}
-
-				<div class="save-actions">
-					<button
-						class="btn btn-secondary"
-						type="button"
-						disabled={!canSaveDraft || isSaving}
-						aria-disabled={builderStep !== 'review'}
-						onclick={handleSaveDraft}
-					>
-						{#if isSaving}<Spinner />{/if}
-						Save Draft
-					</button>
-					<button
-						class="btn btn-primary"
-						type="button"
-						disabled={!canSave || isSaving || builderStep !== 'review'}
-						aria-disabled={builderStep !== 'review'}
-						onclick={handleSave}
-					>
-						{#if isSaving}<Spinner />{/if}
-						Save Template
-					</button>
-				</div>
-				{#if builderStep !== 'review'}
-					<p class="field-hint">Finish the wizard steps, then save from Review &amp; Save.</p>
-				{/if}
-			</aside>
 		</div>
 	{/if}
 </section>
@@ -1358,7 +1351,7 @@
 
 	.builder-layout {
 		display: grid;
-		grid-template-columns: 220px minmax(0, 1fr) 300px;
+		grid-template-columns: 220px minmax(0, 1fr);
 		gap: var(--sp-4);
 		align-items: start;
 	}

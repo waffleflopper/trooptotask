@@ -30,6 +30,11 @@ const personnel = [
 	}
 ];
 
+const statusTypes = [
+	{ id: 'st-leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' },
+	{ id: 'st-tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff' }
+];
+
 function makeTemplate(overrides: Partial<DutyTemplate> = {}): DutyTemplate {
 	return {
 		id: 'tmpl-1',
@@ -41,6 +46,7 @@ function makeTemplate(overrides: Partial<DutyTemplate> = {}): DutyTemplate {
 		scopeType: 'groups',
 		scopeGroupIds: ['group-alpha'],
 		exemptPersonnelIds: [],
+		exemptStatusTypeIds: [],
 		coverageMode: 'timed',
 		startTime: '17:00',
 		endTime: '09:00',
@@ -106,6 +112,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [],
 				groups,
+				statusTypes,
 				personnel,
 				canManageTemplates: false,
 				onCreateTemplate: vi.fn(),
@@ -123,6 +130,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [],
 				groups,
+				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
@@ -157,6 +165,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [],
 				groups,
+				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate,
@@ -232,6 +241,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [existing],
 				groups,
+				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
@@ -262,11 +272,45 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		});
 	});
 
+	it('persists status-based exemption selections in template payloads', async () => {
+		const existing = makeTemplate();
+		const onUpdateTemplate = vi.fn().mockResolvedValue(existing);
+
+		render(AdvancedDutyTemplateBuilder, {
+			props: {
+				templates: [existing],
+				groups,
+				statusTypes,
+				personnel,
+				canManageTemplates: true,
+				onCreateTemplate: vi.fn(),
+				onUpdateTemplate,
+				onArchiveTemplate: vi.fn()
+			}
+		});
+
+		await goToPolicyStep();
+		await selectMultiTagOptions('Status exemptions', ['Leave', 'TDY']);
+		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
+
+		await waitFor(() => {
+			expect(onUpdateTemplate).toHaveBeenCalledWith(
+				expect.objectContaining({
+					id: 'tmpl-1',
+					exemptStatusTypeIds: ['st-leave', 'st-tdy']
+				})
+			);
+		});
+	});
+
 	it('uses plain-language copy for rotation groups and manual filters', async () => {
 		render(AdvancedDutyTemplateBuilder, {
 			props: {
 				templates: [makeTemplate()],
 				groups,
+				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
@@ -293,6 +337,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			props: {
 				templates: [existing],
 				groups,
+				statusTypes,
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),

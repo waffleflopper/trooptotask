@@ -7,6 +7,7 @@
 	import MultiTagSelect from './MultiTagSelect.svelte';
 	import type { TagOption } from './MultiTagSelect.svelte';
 	import { ALL_RANKS } from '$lib/types';
+	import type { StatusType } from '$lib/types';
 	import {
 		cloneDefaultSoftPreferences,
 		type DutyTemplate,
@@ -36,6 +37,7 @@
 		templates: DutyTemplate[];
 		groups: GroupOption[];
 		personnel: PersonnelOption[];
+		statusTypes: StatusType[];
 		canManageTemplates: boolean;
 		onCreateTemplate: (payload: DutyTemplateWriteInput) => Promise<DutyTemplate | null>;
 		onUpdateTemplate: (payload: DutyTemplateWriteInput & { id: string }) => Promise<DutyTemplate | null>;
@@ -99,6 +101,7 @@
 		templates,
 		groups,
 		personnel,
+		statusTypes,
 		canManageTemplates,
 		onCreateTemplate,
 		onUpdateTemplate,
@@ -124,6 +127,7 @@
 	let scopeType = $state<'organization' | 'groups'>('organization');
 	let scopeGroupIds = $state<string[]>([]);
 	let exemptPersonnelIds = $state<string[]>([]);
+	let exemptStatusTypeIds = $state<string[]>([]);
 	let coverageMode = $state<'all-day' | 'timed'>('all-day');
 	let startTime = $state('');
 	let endTime = $state('');
@@ -260,6 +264,9 @@
 	const personnelTagOptions = $derived<TagOption[]>(
 		personnel.map((p) => ({ value: p.id, label: formatPersonLabel(p) }))
 	);
+	const statusTagOptions = $derived<TagOption[]>(
+		statusTypes.map((statusType) => ({ value: statusType.id, label: statusType.name }))
+	);
 	const enabledSoftPreferenceSummary = $derived.by(() => {
 		const labels = draftSoftPreferences
 			.filter((preference) => preference.enabled)
@@ -327,6 +334,7 @@
 		scopeType = template.scopeType;
 		scopeGroupIds = Array.isArray(template.scopeGroupIds) ? [...template.scopeGroupIds] : [];
 		exemptPersonnelIds = Array.isArray(template.exemptPersonnelIds) ? [...template.exemptPersonnelIds] : [];
+		exemptStatusTypeIds = Array.isArray(template.exemptStatusTypeIds) ? [...template.exemptStatusTypeIds] : [];
 		coverageMode = template.coverageMode;
 		startTime = template.startTime ?? '';
 		endTime = template.endTime ?? '';
@@ -373,6 +381,7 @@
 		scopeType = 'organization';
 		scopeGroupIds = [];
 		exemptPersonnelIds = [];
+		exemptStatusTypeIds = [];
 		coverageMode = 'all-day';
 		startTime = '';
 		endTime = '';
@@ -539,6 +548,7 @@
 			scopeType,
 			scopeGroupIds: scopeType === 'groups' ? scopeGroupIds : [],
 			exemptPersonnelIds,
+			exemptStatusTypeIds,
 			coverageMode,
 			startTime: coverageMode === 'timed' ? startTime || null : null,
 			endTime: coverageMode === 'timed' ? endTime || null : null,
@@ -856,6 +866,26 @@
 									ariaLabel="Exempt personnel"
 									onChange={(ids) => {
 										exemptPersonnelIds = ids;
+										isDirty = true;
+									}}
+								/>
+							</div>
+						{/if}
+
+						{#if builderStep === 'policy' && statusTypes.length > 0}
+							<div class="selection-block">
+								<p class="selection-label">Status-based exemptions</p>
+								<p class="selection-hint">
+									If someone has one of these calendar statuses on a duty day, they are treated as exempt for that day
+									only and re-enter rotation automatically when the status no longer applies.
+								</p>
+								<MultiTagSelect
+									options={statusTagOptions}
+									value={exemptStatusTypeIds}
+									placeholder="Select statuses that exempt personnel..."
+									ariaLabel="Status exemptions"
+									onChange={(ids) => {
+										exemptStatusTypeIds = ids;
 										isDirty = true;
 									}}
 								/>
@@ -1209,6 +1239,9 @@
 						<p class="summary-line">Cooldown: <strong>{cooldownHours} hour{cooldownHours === 1 ? '' : 's'}</strong></p>
 						<p class="summary-line">Slot definitions: <strong>{draftSlots.length}</strong></p>
 						<p class="summary-line">Rotation starting points: <strong>{draftRotationBaselines.length}</strong></p>
+						<p class="summary-line">
+							Status-based exemptions: <strong>{exemptStatusTypeIds.length}</strong>
+						</p>
 
 						<div class="policy-summary">
 							<p class="eyebrow">Policy summary</p>

@@ -60,6 +60,7 @@ export interface DutyTemplateRecord {
 	scopeType: DutyTemplateScopeType;
 	scopeGroupIds: string[];
 	exemptPersonnelIds: string[];
+	exemptStatusTypeIds?: string[];
 	coverageMode: DutyTemplateCoverageMode;
 	startTime: string | null;
 	endTime: string | null;
@@ -103,6 +104,7 @@ export interface DutyTemplateWriteInput {
 	scopeType?: DutyTemplateScopeType;
 	scopeGroupIds?: string[];
 	exemptPersonnelIds?: string[];
+	exemptStatusTypeIds?: string[];
 	coverageMode?: DutyTemplateCoverageMode;
 	startTime?: string | null;
 	endTime?: string | null;
@@ -123,6 +125,7 @@ export interface DutyEventRulesSnapshot {
 	scopeType: DutyTemplateScopeType;
 	scopeGroupIds: string[];
 	exemptPersonnelIds?: string[];
+	exemptStatusTypeIds?: string[];
 	isBlocking: boolean;
 	cooldownHours: number;
 	softPreferences?: SoftPreferenceConfig[];

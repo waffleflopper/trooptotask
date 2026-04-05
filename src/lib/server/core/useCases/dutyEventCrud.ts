@@ -83,6 +83,22 @@ function buildSlotKey(templateSlotId: string | null, slotIndex: number): string 
 	return `${templateSlotId ?? 'null'}::${slotIndex}`;
 }
 
+function normalizePersistedFairnessConfidence(
+	confidence: DutyEventFairnessConfidence
+): DutyEventSlotInstance['fairnessConfidence'] {
+	return confidence === 'medium' ? 'low' : confidence;
+}
+
+function isLegacyFairnessConstraintError(error: unknown): boolean {
+	if (!(error instanceof Error)) {
+		return false;
+	}
+	return (
+		error.message.includes('duty_event_slots_fairness_confidence_check') ||
+		error.message.includes('fairness_confidence')
+	);
+}
+
 function eachDate(startDate: string, endDate: string): string[] {
 	const dates: string[] = [];
 	let current = startDate;
@@ -125,8 +141,12 @@ function normalizeTemplate(
 	slotRows: Record<string, unknown>[],
 	baselineRows: Record<string, unknown>[] = []
 ): DutyTemplate {
+	const template = DutyTemplateEntity.fromDb(templateRow);
 	return {
-		...DutyTemplateEntity.fromDb(templateRow),
+		...template,
+		scopeGroupIds: Array.isArray(template.scopeGroupIds) ? template.scopeGroupIds : [],
+		exemptPersonnelIds: Array.isArray(template.exemptPersonnelIds) ? template.exemptPersonnelIds : [],
+		exemptStatusTypeIds: Array.isArray(template.exemptStatusTypeIds) ? template.exemptStatusTypeIds : [],
 		slots: DutyTemplateSlotEntity.fromDbArray(slotRows).sort((a, b) => a.sortOrder - b.sortOrder),
 		rotationBaselines: DutyTemplateRotationBaselineEntity.fromDbArray(baselineRows).sort(
 			(a, b) =>
@@ -148,6 +168,7 @@ function buildRulesSnapshot(template: DutyTemplate): DutyEventRulesSnapshot {
 		scopeType: template.scopeType,
 		scopeGroupIds: [...template.scopeGroupIds],
 		exemptPersonnelIds: [...(template.exemptPersonnelIds ?? [])],
+		exemptStatusTypeIds: [...(template.exemptStatusTypeIds ?? [])],
 		isBlocking: template.isBlocking,
 		cooldownHours: template.cooldownHours,
 		softPreferences: normalizeSoftPreferencesForRanking(template.softPreferences),
@@ -182,6 +203,7 @@ function buildTemplateFromRulesSnapshot(snapshot: DutyEventRulesSnapshot): DutyT
 		scopeType: snapshot.scopeType,
 		scopeGroupIds: [...snapshot.scopeGroupIds],
 		exemptPersonnelIds: [...(snapshot.exemptPersonnelIds ?? [])],
+		exemptStatusTypeIds: [...(snapshot.exemptStatusTypeIds ?? [])],
 		coverageMode: snapshot.coverageMode,
 		startTime: snapshot.startTime,
 		endTime: snapshot.endTime,
@@ -385,43 +407,45 @@ async function buildPoolHistoryIndex(
 	});
 	const excludedEventIds = new Set(excludeDutyEventIds);
 	const filteredEventRows = eventRows.filter((row) => !excludedEventIds.has(String(row.id)));
-	if (filteredEventRows.length === 0) {
-		return historyByPoolPerson;
-	}
+	if (filteredEventRows.length > 0) {
+		const eventIds = filteredEventRows.map((row) => String(row.id));
+		const slotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
+			inFilters: { duty_event_id: eventIds }
+		});
+		const eventById = new Map(filteredEventRows.map((row) => [String(row.id), row]));
+		for (const slotRow of slotRows) {
+			const assigneeId = slotRow.assignee_id;
+			const templateSlotId = slotRow.template_slot_id;
+			const dutyEventId = String(slotRow.duty_event_id);
+			if (!assigneeId || !templateSlotId) {
+				continue;
+			}
 
-	const eventIds = filteredEventRows.map((row) => String(row.id));
-	const slotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
-		inFilters: { duty_event_id: eventIds }
-	});
-	const eventById = new Map(filteredEventRows.map((row) => [String(row.id), row]));
-	for (const slotRow of slotRows) {
-		const assigneeId = slotRow.assignee_id;
-		const templateSlotId = slotRow.template_slot_id;
-		const dutyEventId = String(slotRow.duty_event_id);
-		if (!assigneeId || !templateSlotId) {
-			continue;
+			const eventRow = eventById.get(dutyEventId);
+			if (!eventRow) {
+				continue;
+			}
+
+			const rulesSnapshot = eventRow.rules_snapshot as
+				| { slots?: Array<{ templateSlotId?: string; rotationPoolKey?: string }> }
+				| undefined;
+			const snapshotSlot = rulesSnapshot?.slots?.find((slot) => slot.templateSlotId === templateSlotId);
+			const rotationPoolKey = snapshotSlot?.rotationPoolKey;
+			if (!rotationPoolKey) {
+				continue;
+			}
+
+			const eventDate = String(eventRow.event_date);
+			const key = `${rotationPoolKey}::${String(assigneeId)}`;
+			historyByPoolPerson.set(
+				key,
+				recordServiceDate(
+					historyByPoolPerson.get(key) ?? createEmptyPoolHistorySummary(),
+					eventDate,
+					holidayClosureDates
+				)
+			);
 		}
-
-		const eventRow = eventById.get(dutyEventId);
-		if (!eventRow) {
-			continue;
-		}
-
-		const rulesSnapshot = eventRow.rules_snapshot as
-			| { slots?: Array<{ templateSlotId?: string; rotationPoolKey?: string }> }
-			| undefined;
-		const snapshotSlot = rulesSnapshot?.slots?.find((slot) => slot.templateSlotId === templateSlotId);
-		const rotationPoolKey = snapshotSlot?.rotationPoolKey;
-		if (!rotationPoolKey) {
-			continue;
-		}
-
-		const eventDate = String(eventRow.event_date);
-		const key = `${rotationPoolKey}::${String(assigneeId)}`;
-		historyByPoolPerson.set(
-			key,
-			recordServiceDate(historyByPoolPerson.get(key) ?? createEmptyPoolHistorySummary(), eventDate, holidayClosureDates)
-		);
 	}
 
 	for (const event of transientEvents) {
@@ -563,6 +587,7 @@ function generateSlotInstances(
 	historyByPoolPerson: Map<string, PoolHistorySummary>,
 	eventDate: string,
 	holidayClosureDates: Set<string>,
+	statusExemptPersonnelIds: Set<string>,
 	slotOverrides: DutyEventSlotOverrideInput[] = []
 ): RankedSlotPreviewInstance[] {
 	const overrideMap = normalizeSlotOverrides(slotOverrides);
@@ -573,8 +598,11 @@ function generateSlotInstances(
 	const slotInstances: RankedSlotPreviewInstance[] = [];
 
 	// Permanently exempt personnel are excluded from all slot candidate pools for this template.
-	const exemptIds = new Set(template.exemptPersonnelIds ?? []);
-	const eligiblePersonnel = exemptIds.size > 0 ? personnel.filter((p) => !exemptIds.has(p.id)) : personnel;
+	const permanentExemptIds = new Set(template.exemptPersonnelIds ?? []);
+	const hasAnyExemptions = permanentExemptIds.size > 0 || statusExemptPersonnelIds.size > 0;
+	const eligiblePersonnel = hasAnyExemptions
+		? personnel.filter((person) => !permanentExemptIds.has(person.id) && !statusExemptPersonnelIds.has(person.id))
+		: personnel;
 
 	// Expand all (slot, slotIndex) pairs into a flat work list and pre-compute each slot's
 	// static eligible-candidate pool. This count drives the hardest-slot-first fill order:
@@ -767,6 +795,11 @@ async function buildDutyEventPreviewFromResolvedTemplate(
 		transientEvents,
 		excludeDutyEventIds
 	);
+	const statusExemptPersonnelIds = await listStatusExemptPersonnelIdsForDate(
+		ctx,
+		eventDate,
+		template.exemptStatusTypeIds ?? []
+	);
 	const slotInstances = generateSlotInstances(
 		template,
 		personnel,
@@ -774,6 +807,7 @@ async function buildDutyEventPreviewFromResolvedTemplate(
 		historyByPoolPerson,
 		eventDate,
 		holidayClosureDates,
+		statusExemptPersonnelIds,
 		slotOverrides
 	);
 	const fillSummary = buildFillSummary(slotInstances);
@@ -894,6 +928,52 @@ function getEventSlotOverrides(
 	eventDate: string
 ): DutyEventSlotOverrideInput[] | undefined {
 	return input.eventOverrides?.find((entry) => entry.eventDate === eventDate)?.slotOverrides;
+}
+
+async function insertDutyEventSlots(
+	ctx: WritePorts,
+	input: {
+		dutyEventId: string;
+		slotInstances: DutyEventPreviewSlotInstance[];
+		createdAt: string;
+	}
+): Promise<Record<string, unknown>[]> {
+	if (input.slotInstances.length === 0) {
+		return [];
+	}
+
+	const buildRows = (normalizeFairnessForLegacyDb: boolean) =>
+		input.slotInstances.map((slot) => ({
+			...DutyEventSlotEntity.toDbInsert(
+				{
+					dutyEventId: input.dutyEventId,
+					templateSlotId: slot.templateSlotId,
+					roleLabel: slot.roleLabel,
+					slotIndex: slot.slotIndex,
+					assigneeId: slot.assigneeId,
+					assignmentSource: slot.assignmentSource,
+					warningState: slot.warningState,
+					fairnessConfidence: normalizeFairnessForLegacyDb
+						? normalizePersistedFairnessConfidence(slot.fairnessConfidence)
+						: slot.fairnessConfidence,
+					selectionReason: slot.selectionReason,
+					unfilledReason: slot.unfilledReason,
+					sortOrder: slot.sortOrder
+				},
+				ctx.auth.orgId
+			),
+			duty_event_id: input.dutyEventId,
+			created_at: input.createdAt
+		}));
+
+	try {
+		return await ctx.store.insertMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, buildRows(false));
+	} catch (error) {
+		if (!isLegacyFairnessConstraintError(error)) {
+			throw error;
+		}
+		return await ctx.store.insertMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, buildRows(true));
+	}
 }
 
 function buildFillSummary(slotInstances: Array<{ assigneeId: string | null }>): DutyEventFillSummary {
@@ -1109,6 +1189,16 @@ async function reconcileDutyEventRun(ctx: WritePorts, runId: string | null | und
 	});
 }
 
+async function reconcileDutyEventRunBestEffort(ctx: WritePorts, runId: string | null | undefined): Promise<void> {
+	// Run metadata is display bookkeeping. If this refresh fails after event writes
+	// succeeded, do not fail the entire request and strand the wizard UI.
+	try {
+		await reconcileDutyEventRun(ctx, runId);
+	} catch {
+		// Intentionally swallowed.
+	}
+}
+
 async function createDutyEventRun(
 	ctx: WritePorts,
 	input: {
@@ -1249,6 +1339,31 @@ async function listPersonnel(ctx: QueryPorts): Promise<Personnel[]> {
 	return PersonnelEntity.fromDbArray(rows);
 }
 
+async function listStatusExemptPersonnelIdsForDate(
+	ctx: QueryPorts,
+	eventDate: string,
+	exemptStatusTypeIds: string[]
+): Promise<Set<string>> {
+	const statusTypeIds = [...new Set(exemptStatusTypeIds.map((statusTypeId) => statusTypeId.trim()).filter(Boolean))];
+	if (statusTypeIds.length === 0) {
+		return new Set();
+	}
+
+	const rows = await ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
+		inFilters: { status_type_id: statusTypeIds },
+		rangeFilters: [
+			{ column: 'start_date', op: 'lte', value: eventDate },
+			{ column: 'end_date', op: 'gte', value: eventDate }
+		]
+	});
+
+	return new Set(
+		rows
+			.map((row) => (row.personnel_id == null ? '' : String(row.personnel_id)))
+			.filter((personnelId) => personnelId.length > 0)
+	);
+}
+
 export async function applyDutyEventFromTemplate(
 	ctx: WritePorts,
 	input: DutyEventApplyInput & { runId?: string }
@@ -1352,38 +1467,16 @@ export async function applyDutyEventFromTemplate(
 		});
 	}
 
-	const insertedSlotRows =
-		preview.slotInstances.length === 0
-			? []
-			: await ctx.store.insertMany<Record<string, unknown>>(
-					'duty_event_slots',
-					ctx.auth.orgId,
-					preview.slotInstances.map((slot) => ({
-						...DutyEventSlotEntity.toDbInsert(
-							{
-								dutyEventId: eventRow.id as string,
-								templateSlotId: slot.templateSlotId,
-								roleLabel: slot.roleLabel,
-								slotIndex: slot.slotIndex,
-								assigneeId: slot.assigneeId,
-								assignmentSource: slot.assignmentSource,
-								warningState: slot.warningState,
-								fairnessConfidence: slot.fairnessConfidence,
-								selectionReason: slot.selectionReason,
-								unfilledReason: slot.unfilledReason,
-								sortOrder: slot.sortOrder
-							},
-							ctx.auth.orgId
-						),
-						duty_event_id: eventRow.id as string,
-						created_at: now
-					}))
-				);
+	const insertedSlotRows = await insertDutyEventSlots(ctx, {
+		dutyEventId: eventRow.id as string,
+		slotInstances: preview.slotInstances,
+		createdAt: now
+	});
 
 	if (previousRunId && previousRunId !== runId) {
-		await reconcileDutyEventRun(ctx, previousRunId);
+		await reconcileDutyEventRunBestEffort(ctx, previousRunId);
 	}
-	await reconcileDutyEventRun(ctx, runId);
+	await reconcileDutyEventRunBestEffort(ctx, runId);
 
 	ctx.audit.log({
 		action: existingEventRow ? 'duty_event.updated' : 'duty_event.applied',
@@ -1391,7 +1484,12 @@ export async function applyDutyEventFromTemplate(
 		resourceId: eventRow.id as string
 	});
 
-	const runById = await loadDutyEventRunsByIds(ctx, [runId]);
+	let runById = new Map<string, DutyEventRunRecord>();
+	try {
+		runById = await loadDutyEventRunsByIds(ctx, [runId]);
+	} catch {
+		// If run hydration fails after successful writes, still return the event payload.
+	}
 	return hydrateDutyEvent(eventRow, insertedSlotRows, runById);
 }
 
@@ -1465,33 +1563,11 @@ export async function updateExistingDutyEvent(
 	await ctx.store.deleteWhere('duty_event_slots', ctx.auth.orgId, {
 		duty_event_id: existingEvent.id
 	});
-	const insertedSlotRows =
-		preview.slotInstances.length === 0
-			? []
-			: await ctx.store.insertMany<Record<string, unknown>>(
-					'duty_event_slots',
-					ctx.auth.orgId,
-					preview.slotInstances.map((slot) => ({
-						...DutyEventSlotEntity.toDbInsert(
-							{
-								dutyEventId: existingEvent.id,
-								templateSlotId: slot.templateSlotId,
-								roleLabel: slot.roleLabel,
-								slotIndex: slot.slotIndex,
-								assigneeId: slot.assigneeId,
-								assignmentSource: slot.assignmentSource,
-								warningState: slot.warningState,
-								fairnessConfidence: slot.fairnessConfidence,
-								selectionReason: slot.selectionReason,
-								unfilledReason: slot.unfilledReason,
-								sortOrder: slot.sortOrder
-							},
-							ctx.auth.orgId
-						),
-						duty_event_id: existingEvent.id,
-						created_at: now
-					}))
-				);
+	const insertedSlotRows = await insertDutyEventSlots(ctx, {
+		dutyEventId: existingEvent.id,
+		slotInstances: preview.slotInstances,
+		createdAt: now
+	});
 
 	ctx.audit.log({
 		action: 'duty_event.updated',
@@ -1589,13 +1665,21 @@ export async function applyDutyEventSeriesFromTemplate(
 		);
 	}
 
-	await reconcileDutyEventRun(ctx, run.id);
-	const refreshedRunRow = await ctx.store.findOne<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId, {
-		id: run.id
-	});
+	let resolvedRun = run;
+	try {
+		await reconcileDutyEventRunBestEffort(ctx, run.id);
+		const refreshedRunRow = await ctx.store.findOne<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId, {
+			id: run.id
+		});
+		if (refreshedRunRow) {
+			resolvedRun = hydrateDutyEventRun(refreshedRunRow);
+		}
+	} catch {
+		// Keep the originally created run payload if post-write refresh fails.
+	}
 
 	return {
-		run: refreshedRunRow ? hydrateDutyEventRun(refreshedRunRow) : run,
+		run: resolvedRun,
 		templateId: template.id,
 		templateName: template.name,
 		pattern: input.pattern,

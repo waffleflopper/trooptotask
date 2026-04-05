@@ -23,6 +23,9 @@ export const changelog: ChangelogEntry[] = [
 		items: [
 			'Replaced checkbox piles in the advanced template manager with filterable multi-select controls — type a name to narrow it down instead of scrolling through everyone',
 			'Applied advanced duty events are now shown one month at a time with prev/next navigation, so the list stays manageable as the months stack up',
+			'Opening an applied advanced duty event now launches the editor in a modal so you can edit immediately without jumping to the bottom of a long history list',
+			'Fixed another advanced-series edge case that could still throw a server 500 even though the run had already saved',
+			'Advanced templates can now mark calendar statuses (like Leave/TDY) as day-level exemptions so the generator skips those people only on affected days and rotates them back in automatically later',
 			'The simple duty wizard now walks you through Setup, Personnel, and Preview as separate steps instead of presenting everything as one giant form at once',
 			'Slot definitions in the template builder can now be collapsed down to a one-line summary so you can manage several slots without endless scrolling',
 			'Re-applying a duty template series to overlapping dates now replaces the existing assignments instead of stacking duplicates on top — same behavior as how simple daily duties work'

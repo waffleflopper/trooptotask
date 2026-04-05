@@ -30,6 +30,11 @@ export const DutyTemplateEntity = defineEntity<DutyTemplateRecord>({
 			insertDefault: [],
 			nullDefault: []
 		}),
+		exemptStatusTypeIds: field(z.array(z.string()), {
+			column: 'exempt_status_type_ids',
+			insertDefault: [],
+			nullDefault: []
+		}),
 		coverageMode: field(z.enum(['all-day', 'timed']), {
 			column: 'coverage_mode',
 			insertDefault: 'all-day'

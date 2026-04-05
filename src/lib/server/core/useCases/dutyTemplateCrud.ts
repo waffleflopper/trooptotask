@@ -48,6 +48,7 @@ const createTemplateSchema = z.object({
 	scopeType: z.enum(['organization', 'groups']).optional().default('organization'),
 	scopeGroupIds: z.array(z.string()).optional().default([]),
 	exemptPersonnelIds: z.array(z.string()).optional().default([]),
+	exemptStatusTypeIds: z.array(z.string()).optional().default([]),
 	coverageMode: z.enum(['all-day', 'timed']).optional().default('all-day'),
 	startTime: z.string().nullable().optional().default(null),
 	endTime: z.string().nullable().optional().default(null),
@@ -74,13 +75,18 @@ function isMissingDutyTemplatePolicyColumnError(error: unknown): boolean {
 	if (!(error instanceof Error)) {
 		return false;
 	}
-	return error.message.includes('exempt_personnel_ids') || error.message.includes('soft_preferences');
+	return (
+		error.message.includes('exempt_personnel_ids') ||
+		error.message.includes('soft_preferences') ||
+		error.message.includes('exempt_status_type_ids')
+	);
 }
 
 function stripMissingPolicyColumns(payload: Record<string, unknown>): Record<string, unknown> {
 	const next = { ...payload };
 	delete next.exempt_personnel_ids;
 	delete next.soft_preferences;
+	delete next.exempt_status_type_ids;
 	return next;
 }
 
@@ -159,6 +165,7 @@ function normalizeTemplateInput(
 	const softPreferences = normalizeSoftPreferences(input.softPreferences);
 	const scopeGroupIds = input.scopeType === 'organization' ? [] : normalizeList(input.scopeGroupIds);
 	const exemptPersonnelIds = normalizeList(input.exemptPersonnelIds);
+	const exemptStatusTypeIds = normalizeList(input.exemptStatusTypeIds);
 	const normalized = {
 		mode: input.mode,
 		status: input.status,
@@ -167,6 +174,7 @@ function normalizeTemplateInput(
 		scopeType: input.scopeType,
 		scopeGroupIds,
 		exemptPersonnelIds,
+		exemptStatusTypeIds,
 		coverageMode,
 		startTime: coverageMode === 'timed' ? input.startTime : null,
 		endTime: coverageMode === 'timed' ? input.endTime : null,
@@ -206,6 +214,7 @@ function hydrateTemplate(
 		...template,
 		scopeGroupIds: Array.isArray(template.scopeGroupIds) ? template.scopeGroupIds : [],
 		exemptPersonnelIds: Array.isArray(template.exemptPersonnelIds) ? template.exemptPersonnelIds : [],
+		exemptStatusTypeIds: Array.isArray(template.exemptStatusTypeIds) ? template.exemptStatusTypeIds : [],
 		softPreferences:
 			Array.isArray(template.softPreferences) && template.softPreferences.length > 0
 				? template.softPreferences

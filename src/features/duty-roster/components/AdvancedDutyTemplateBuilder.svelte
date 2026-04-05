@@ -264,9 +264,6 @@
 	const personnelTagOptions = $derived<TagOption[]>(
 		personnel.map((p) => ({ value: p.id, label: formatPersonLabel(p) }))
 	);
-	const statusTagOptions = $derived<TagOption[]>(
-		statusTypes.map((statusType) => ({ value: statusType.id, label: statusType.name }))
-	);
 	const enabledSoftPreferenceSummary = $derived.by(() => {
 		const labels = draftSoftPreferences
 			.filter((preference) => preference.enabled)
@@ -518,6 +515,15 @@
 		draftSoftPreferences = draftSoftPreferences.map((preference) =>
 			preference.type === type ? { ...preference, enabled } : preference
 		);
+	}
+
+	function toggleExemptStatusType(statusTypeId: string) {
+		isDirty = true;
+		if (exemptStatusTypeIds.includes(statusTypeId)) {
+			exemptStatusTypeIds = exemptStatusTypeIds.filter((id) => id !== statusTypeId);
+			return;
+		}
+		exemptStatusTypeIds = [...exemptStatusTypeIds, statusTypeId];
 	}
 
 	function buildPayload(): DutyTemplateWriteInput {
@@ -879,16 +885,19 @@
 									If someone has one of these calendar statuses on a duty day, they are treated as exempt for that day
 									only and re-enter rotation automatically when the status no longer applies.
 								</p>
-								<MultiTagSelect
-									options={statusTagOptions}
-									value={exemptStatusTypeIds}
-									placeholder="Select statuses that exempt personnel..."
-									ariaLabel="Status exemptions"
-									onChange={(ids) => {
-										exemptStatusTypeIds = ids;
-										isDirty = true;
-									}}
-								/>
+								<div class="chip-list">
+									{#each statusTypes as statusType (statusType.id)}
+										<button
+											class="chip status-chip"
+											class:selected={exemptStatusTypeIds.includes(statusType.id)}
+											aria-pressed={exemptStatusTypeIds.includes(statusType.id)}
+											style="--chip-color: {statusType.color}; --chip-text: {statusType.textColor}"
+											onclick={() => toggleExemptStatusType(statusType.id)}
+										>
+											{statusType.name}
+										</button>
+									{/each}
+								</div>
 							</div>
 						{/if}
 					</section>
@@ -1202,18 +1211,26 @@
 				{/if}
 
 				<div class="step-actions">
-					{#if builderStep !== 'basics'}
+					{#if builderStep === 'basics'}
+						<button class="btn btn-primary" type="button" disabled={!canSaveDraft} onclick={goToNextStep}>Next</button>
+						{#if selectedTemplateId && !isCreatingNew && selectedTemplate?.status !== 'archived'}
+							<button
+								class="btn btn-danger"
+								type="button"
+								onclick={() => {
+									pendingArchiveTemplateId = selectedTemplateId;
+								}}
+							>
+								Archive Template
+							</button>
+						{/if}
+					{:else}
 						<button class="btn btn-secondary" type="button" onclick={goToPreviousStep}>Back</button>
-					{/if}
-					{#if builderStep !== 'review'}
-						<button
-							class="btn btn-primary"
-							type="button"
-							disabled={builderStep === 'basics' && !canSaveDraft}
-							onclick={goToNextStep}
-						>
-							{builderStep === 'series' ? 'Review Template' : 'Next'}
-						</button>
+						{#if builderStep !== 'review'}
+							<button class="btn btn-primary" type="button" onclick={goToNextStep}>
+								{builderStep === 'series' ? 'Review Template' : 'Next'}
+							</button>
+						{/if}
 					{/if}
 				</div>
 				{#if builderStep === 'review'}
@@ -1285,18 +1302,6 @@
 
 						{#if isDirty}
 							<p class="unsaved-notice">You have unsaved changes.</p>
-						{/if}
-
-						{#if selectedTemplateId && !isCreatingNew && selectedTemplate?.status !== 'archived'}
-							<button
-								class="btn btn-danger"
-								type="button"
-								onclick={() => {
-									pendingArchiveTemplateId = selectedTemplateId;
-								}}
-							>
-								Archive Template
-							</button>
 						{/if}
 
 						<div class="save-actions">
@@ -1475,6 +1480,49 @@
 		display: flex;
 		justify-content: space-between;
 		gap: var(--sp-2);
+	}
+
+	.chip-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	.chip {
+		appearance: none;
+		padding: 4px 8px;
+		border-radius: var(--radius-sm);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		border: 1px solid var(--border-default);
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
+		cursor: pointer;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
+	}
+
+	.chip:hover {
+		border-color: var(--ink-35);
+		background: var(--surface-page);
+		color: var(--text-primary);
+	}
+
+	.chip.selected {
+		background: var(--amber-light);
+		border-color: var(--amber);
+		color: var(--amber-dark);
+	}
+
+	.chip.status-chip.selected {
+		background: var(--chip-color);
+		border-color: var(--chip-color);
+		color: var(--chip-text);
 	}
 
 	.template-chip {

@@ -10,6 +10,7 @@ export const DutyEventEntity = defineEntity<DutyEvent>({
 	schema: {
 		id: field(z.string(), { readOnly: true }),
 		orgId: field(z.string(), { column: 'organization_id', readOnly: true }),
+		runId: field(z.string().nullable(), { column: 'run_id', insertDefault: null }),
 		templateId: field(z.string(), { column: 'template_id' }),
 		templateName: field(z.string(), { column: 'template_name' }),
 		eventDate: field(z.string(), { column: 'event_date' }),

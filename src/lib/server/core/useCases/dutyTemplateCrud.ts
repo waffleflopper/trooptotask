@@ -11,8 +11,15 @@ import type {
 	DutyTemplateRotationBaselineInput,
 	DutyTemplateSlot,
 	DutyTemplateSlotInput,
-	DutyTemplateWriteInput
+	DutyTemplateWriteInput,
+	SoftPreferenceConfig
 } from '$features/duty-roster/duty-roster.types';
+import { DEFAULT_SOFT_PREFERENCE_ORDER, cloneDefaultSoftPreferences } from '$features/duty-roster/duty-roster.types';
+
+const softPreferenceConfigSchema = z.object({
+	type: z.enum(DEFAULT_SOFT_PREFERENCE_ORDER),
+	enabled: z.boolean()
+});
 
 const slotInputSchema = z.object({
 	id: z.string().optional(),
@@ -40,11 +47,13 @@ const createTemplateSchema = z.object({
 	description: z.string().trim().nullable().optional().default(null),
 	scopeType: z.enum(['organization', 'groups']).optional().default('organization'),
 	scopeGroupIds: z.array(z.string()).optional().default([]),
+	exemptPersonnelIds: z.array(z.string()).optional().default([]),
 	coverageMode: z.enum(['all-day', 'timed']).optional().default('all-day'),
 	startTime: z.string().nullable().optional().default(null),
 	endTime: z.string().nullable().optional().default(null),
 	isBlocking: z.boolean().optional().default(false),
 	cooldownHours: z.number().int().min(0).max(168).optional().default(0),
+	softPreferences: z.array(softPreferenceConfigSchema).optional().default(cloneDefaultSoftPreferences()),
 	slots: z.array(slotInputSchema).optional().default([]),
 	rotationBaselines: z.array(rotationBaselineInputSchema).optional().default([])
 });
@@ -91,11 +100,37 @@ function normalizeRotationBaselines(
 			lastServedDate: value.lastServedDate.trim()
 		}))
 		.filter((value) => value.rotationPoolKey && value.personId && value.lastServedDate)
-		.sort((a, b) =>
-			a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
-			a.lastServedDate.localeCompare(b.lastServedDate) ||
-			a.personId.localeCompare(b.personId)
+		.sort(
+			(a, b) =>
+				a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
+				a.lastServedDate.localeCompare(b.lastServedDate) ||
+				a.personId.localeCompare(b.personId)
 		);
+}
+
+function normalizeSoftPreferences(values: SoftPreferenceConfig[] | undefined): SoftPreferenceConfig[] {
+	const provided = values ?? cloneDefaultSoftPreferences();
+	const byType = new Map<SoftPreferenceConfig['type'], SoftPreferenceConfig>();
+	const orderedTypes: SoftPreferenceConfig['type'][] = [];
+
+	for (const preference of provided) {
+		if (byType.has(preference.type)) {
+			byType.set(preference.type, { type: preference.type, enabled: preference.enabled });
+			continue;
+		}
+		orderedTypes.push(preference.type);
+		byType.set(preference.type, { type: preference.type, enabled: preference.enabled });
+	}
+
+	for (const type of DEFAULT_SOFT_PREFERENCE_ORDER) {
+		if (byType.has(type)) {
+			continue;
+		}
+		orderedTypes.push(type);
+		byType.set(type, { type, enabled: true });
+	}
+
+	return orderedTypes.map((type) => byType.get(type) as SoftPreferenceConfig);
 }
 
 function normalizeTemplateInput(
@@ -107,7 +142,9 @@ function normalizeTemplateInput(
 	const coverageMode = input.coverageMode;
 	const slots = normalizeSlots(input.slots);
 	const rotationBaselines = normalizeRotationBaselines(input.rotationBaselines);
+	const softPreferences = normalizeSoftPreferences(input.softPreferences);
 	const scopeGroupIds = input.scopeType === 'organization' ? [] : normalizeList(input.scopeGroupIds);
+	const exemptPersonnelIds = normalizeList(input.exemptPersonnelIds);
 	const normalized = {
 		mode: input.mode,
 		status: input.status,
@@ -115,11 +152,13 @@ function normalizeTemplateInput(
 		description: input.description?.trim() || null,
 		scopeType: input.scopeType,
 		scopeGroupIds,
+		exemptPersonnelIds,
 		coverageMode,
 		startTime: coverageMode === 'timed' ? input.startTime : null,
 		endTime: coverageMode === 'timed' ? input.endTime : null,
 		isBlocking: input.isBlocking,
 		cooldownHours: input.cooldownHours,
+		softPreferences,
 		slots,
 		rotationBaselines
 	};
@@ -149,20 +188,23 @@ function hydrateTemplate(
 	baselineRows: Record<string, unknown>[] | DutyTemplateRotationBaseline[] = []
 ): DutyTemplate {
 	const template = DutyTemplateEntity.fromDb(templateRow);
-	const slots = Array.isArray(slotRows) && slotRows.length > 0 && 'templateId' in slotRows[0]
-		? ([...slotRows] as DutyTemplateSlot[]).sort((a, b) => a.sortOrder - b.sortOrder)
-		: hydrateSlots(slotRows as Record<string, unknown>[]);
+	const slots =
+		Array.isArray(slotRows) && slotRows.length > 0 && 'templateId' in slotRows[0]
+			? ([...slotRows] as DutyTemplateSlot[]).sort((a, b) => a.sortOrder - b.sortOrder)
+			: hydrateSlots(slotRows as Record<string, unknown>[]);
 	const rotationBaselines =
 		Array.isArray(baselineRows) && baselineRows.length > 0 && 'templateId' in baselineRows[0]
-			? ([...baselineRows] as DutyTemplateRotationBaseline[]).sort((a, b) =>
-					a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
-					a.lastServedDate.localeCompare(b.lastServedDate) ||
-					a.personId.localeCompare(b.personId)
+			? ([...baselineRows] as DutyTemplateRotationBaseline[]).sort(
+					(a, b) =>
+						a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
+						a.lastServedDate.localeCompare(b.lastServedDate) ||
+						a.personId.localeCompare(b.personId)
 				)
-			: DutyTemplateRotationBaselineEntity.fromDbArray(baselineRows as Record<string, unknown>[]).sort((a, b) =>
-					a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
-					a.lastServedDate.localeCompare(b.lastServedDate) ||
-					a.personId.localeCompare(b.personId)
+			: DutyTemplateRotationBaselineEntity.fromDbArray(baselineRows as Record<string, unknown>[]).sort(
+					(a, b) =>
+						a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
+						a.lastServedDate.localeCompare(b.lastServedDate) ||
+						a.personId.localeCompare(b.personId)
 				);
 
 	return {
@@ -216,6 +258,7 @@ async function createRotationBaselineRows(
 		return [];
 	}
 
+	const now = new Date().toISOString();
 	const inserted = await ctx.store.insertMany<Record<string, unknown>>(
 		'duty_template_rotation_baselines',
 		ctx.auth.orgId,
@@ -229,14 +272,16 @@ async function createRotationBaselineRows(
 				},
 				ctx.auth.orgId
 			),
-			template_id: templateId
+			template_id: templateId,
+			created_at: now
 		}))
 	);
 
-	return DutyTemplateRotationBaselineEntity.fromDbArray(inserted).sort((a, b) =>
-		a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
-		a.lastServedDate.localeCompare(b.lastServedDate) ||
-		a.personId.localeCompare(b.personId)
+	return DutyTemplateRotationBaselineEntity.fromDbArray(inserted).sort(
+		(a, b) =>
+			a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
+			a.lastServedDate.localeCompare(b.lastServedDate) ||
+			a.personId.localeCompare(b.personId)
 	);
 }
 
@@ -286,16 +331,22 @@ export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 		fail(404, 'Duty template not found');
 	}
 
-	const normalized = normalizeTemplateInput(parsed);
-	const row = await ctx.store.update<Record<string, unknown>>(
-		'duty_templates',
-		ctx.auth.orgId,
-		parsed.id,
-		{
-			...DutyTemplateEntity.toDbUpdate(normalized),
-			updated_at: new Date().toISOString()
+	const scopedGroupId = ctx.auth.scopedGroupId;
+	if (scopedGroupId) {
+		const existingScope = String(existing.scope_type ?? 'organization');
+		const existingGroupIds: string[] = Array.isArray(existing.scope_group_ids)
+			? (existing.scope_group_ids as string[])
+			: [];
+		if (existingScope === 'organization' || !existingGroupIds.includes(scopedGroupId)) {
+			fail(403, 'You do not have access to this duty template.');
 		}
-	);
+	}
+
+	const normalized = normalizeTemplateInput(parsed);
+	const row = await ctx.store.update<Record<string, unknown>>('duty_templates', ctx.auth.orgId, parsed.id, {
+		...DutyTemplateEntity.toDbUpdate(normalized),
+		updated_at: new Date().toISOString()
+	});
 
 	await ctx.store.deleteWhere('duty_template_slots', ctx.auth.orgId, { template_id: parsed.id });
 	const slots = await createSlotRows(ctx, parsed.id, normalized.slots);
@@ -364,10 +415,66 @@ export async function listDutyTemplates(ctx: QueryPorts): Promise<DutyTemplate[]
 	}
 
 	return templateRows.map((row) =>
-		hydrateTemplate(
-			row,
-			slotsByTemplate.get(row.id as string) ?? [],
-			baselinesByTemplate.get(row.id as string) ?? []
-		)
+		hydrateTemplate(row, slotsByTemplate.get(row.id as string) ?? [], baselinesByTemplate.get(row.id as string) ?? [])
 	);
+}
+
+export async function archiveDutyTemplate(ctx: WritePorts, input: { templateId: string }): Promise<DutyTemplate> {
+	ctx.auth.requirePrivileged();
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+
+	const existing = await ctx.store.findOne<Record<string, unknown>>('duty_templates', ctx.auth.orgId, {
+		id: input.templateId,
+		mode: 'advanced'
+	});
+	if (!existing) {
+		fail(404, 'Duty template not found');
+	}
+
+	const scopedGroupId = ctx.auth.scopedGroupId;
+	if (scopedGroupId) {
+		const existingScope = String(existing.scope_type ?? 'organization');
+		const existingGroupIds: string[] = Array.isArray(existing.scope_group_ids)
+			? (existing.scope_group_ids as string[])
+			: [];
+		if (existingScope === 'organization' || !existingGroupIds.includes(scopedGroupId)) {
+			fail(403, 'You do not have access to this duty template.');
+		}
+	}
+
+	const now = new Date().toISOString();
+	const row = await ctx.store.update<Record<string, unknown>>('duty_templates', ctx.auth.orgId, input.templateId, {
+		status: 'archived',
+		updated_at: now
+	});
+	const slotRows = await ctx.store.findMany<Record<string, unknown>>(
+		'duty_template_slots',
+		ctx.auth.orgId,
+		{ template_id: input.templateId },
+		{ orderBy: [{ column: 'sort_order', ascending: true }] }
+	);
+	const baselineRows = await ctx.store.findMany<Record<string, unknown>>(
+		'duty_template_rotation_baselines',
+		ctx.auth.orgId,
+		{ template_id: input.templateId },
+		{
+			orderBy: [
+				{ column: 'rotation_pool_key', ascending: true },
+				{ column: 'last_served_date', ascending: true },
+				{ column: 'person_id', ascending: true }
+			]
+		}
+	);
+
+	ctx.audit.log({
+		action: 'duty_template.archived',
+		resourceType: 'duty_template',
+		resourceId: input.templateId
+	});
+
+	return hydrateTemplate(row, slotRows, baselineRows);
 }

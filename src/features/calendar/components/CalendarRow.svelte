@@ -7,6 +7,7 @@
 		AssignmentType,
 		DailyAssignment
 	} from '$lib/types';
+	import type { DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 	import { isWeekend, isToday, formatDate } from '$lib/utils/dates';
 	import DateCell from '$lib/components/ui/DateCell.svelte';
 
@@ -18,6 +19,7 @@
 		specialDays: SpecialDay[];
 		assignmentTypes: AssignmentType[];
 		personAssignments: DailyAssignment[];
+		personDutyBadges?: Map<string, DutyEventBadge[]>;
 		showStatusText?: boolean;
 		isOnboarding?: boolean;
 		highlightOnboarding?: boolean;
@@ -33,6 +35,7 @@
 		specialDays,
 		assignmentTypes,
 		personAssignments,
+		personDutyBadges,
 		showStatusText = false,
 		isOnboarding = false,
 		highlightOnboarding = true,
@@ -121,6 +124,7 @@
 			entries={availabilityByDate.get(dateStr) ?? []}
 			{statusTypeMap}
 			assignments={assignmentsByDate.get(dateStr) ?? []}
+			dutyBadges={personDutyBadges?.get(dateStr) ?? []}
 			{showStatusText}
 			isOnboarding={isOnboarding && highlightOnboarding}
 			onclick={() => handleCellClick(date)}

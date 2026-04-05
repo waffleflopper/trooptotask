@@ -11,8 +11,16 @@ UPDATE public.duty_template_slots
 SET rotation_pool_key = COALESCE(NULLIF(rotation_pool_key, ''), CONCAT('slot-', GREATEST(sort_order, 0) + 1))
 WHERE rotation_pool_key IS NULL OR rotation_pool_key = '';
 
-ALTER TABLE public.duty_template_slots
-  ALTER COLUMN rotation_pool_key SET NOT NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.duty_template_slots
+    WHERE rotation_pool_key IS NULL OR rotation_pool_key = ''
+  ) THEN
+    EXECUTE 'ALTER TABLE public.duty_template_slots ALTER COLUMN rotation_pool_key SET NOT NULL';
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.duty_template_rotation_baselines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -29,6 +37,9 @@ CREATE INDEX IF NOT EXISTS duty_template_rotation_baselines_org_idx
 
 CREATE INDEX IF NOT EXISTS duty_template_rotation_baselines_template_pool_idx
   ON public.duty_template_rotation_baselines(template_id, rotation_pool_key, last_served_date DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS duty_template_rotation_baselines_template_pool_person_uidx
+  ON public.duty_template_rotation_baselines(template_id, rotation_pool_key, person_id);
 
 ALTER TABLE public.duty_template_rotation_baselines ENABLE ROW LEVEL SECURITY;
 

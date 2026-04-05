@@ -23,6 +23,7 @@
 		DutyEvent,
 		DutyEventApplyInput,
 		DutyEventPreview,
+		DutyEventRunDeleteResult,
 		DutyEventSeriesApplyResult,
 		DutyEventSeriesInput,
 		DutyEventSeriesPreview,
@@ -169,7 +170,9 @@
 		}
 	}
 
-	async function handleUpdateAdvancedTemplate(payload: DutyTemplateWriteInput & { id: string }): Promise<DutyTemplate | null> {
+	async function handleUpdateAdvancedTemplate(
+		payload: DutyTemplateWriteInput & { id: string }
+	): Promise<DutyTemplate | null> {
 		try {
 			const res = await fetch(`/org/${org.orgId}/api/duty-templates`, {
 				method: 'PUT',
@@ -229,8 +232,8 @@
 			}
 
 			const event = (await res.json()) as DutyEvent;
-			advancedDutyEvents = [event, ...advancedDutyEvents.filter((item) => item.id !== event.id)].sort(
-				(a, b) => b.coverageStart.localeCompare(a.coverageStart)
+			advancedDutyEvents = [event, ...advancedDutyEvents.filter((item) => item.id !== event.id)].sort((a, b) =>
+				b.coverageStart.localeCompare(a.coverageStart)
 			);
 			toastStore.success('Advanced duty event applied');
 			return event;
@@ -272,9 +275,10 @@
 			}
 
 			const result = (await res.json()) as DutyEventSeriesApplyResult;
-			advancedDutyEvents = [...result.events, ...advancedDutyEvents.filter((existing) => !result.events.some((event) => event.id === existing.id))].sort(
-				(a, b) => b.coverageStart.localeCompare(a.coverageStart)
-			);
+			advancedDutyEvents = [
+				...result.events,
+				...advancedDutyEvents.filter((existing) => !result.events.some((event) => event.id === existing.id))
+			].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
 			toastStore.success(`Applied ${result.events.length} advanced duty event${result.events.length === 1 ? '' : 's'}`);
 			return result;
 		} catch (error) {
@@ -320,13 +324,87 @@
 			}
 
 			const event = (await res.json()) as DutyEvent;
-			advancedDutyEvents = [event, ...advancedDutyEvents.filter((existing) => existing.id !== event.id)].sort(
-				(a, b) => b.coverageStart.localeCompare(a.coverageStart)
+			advancedDutyEvents = [event, ...advancedDutyEvents.filter((existing) => existing.id !== event.id)].sort((a, b) =>
+				b.coverageStart.localeCompare(a.coverageStart)
 			);
 			toastStore.success('Applied duty event updated');
 			return event;
 		} catch (error) {
 			toastStore.error(error instanceof Error ? error.message : 'Failed to save applied duty event');
+			return null;
+		}
+	}
+
+	async function handleDeleteAdvancedEvent(dutyEventId: string): Promise<boolean> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/${dutyEventId}`, { method: 'DELETE' });
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to delete applied duty event'));
+			}
+			advancedDutyEvents = advancedDutyEvents.filter((event) => event.id !== dutyEventId);
+			toastStore.success('Applied duty event deleted');
+			return true;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to delete applied duty event');
+			return false;
+		}
+	}
+
+	async function handleDeleteAdvancedRun(runId: string): Promise<DutyEventRunDeleteResult | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/runs/${runId}`, { method: 'DELETE' });
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to delete applied duty run'));
+			}
+			const result = (await res.json()) as DutyEventRunDeleteResult;
+			advancedDutyEvents = advancedDutyEvents.filter((event) => event.runId !== runId);
+			toastStore.success(
+				`Deleted ${result.deletedEvents} applied duty event${result.deletedEvents === 1 ? '' : 's'} from history`
+			);
+			return result;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to delete applied duty run');
+			return null;
+		}
+	}
+
+	async function handleDeleteLegacyAdvancedGroup(eventIds: string[]): Promise<DutyEventRunDeleteResult | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-events/runs/legacy`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ eventIds })
+			});
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to delete legacy duty history group'));
+			}
+			const result = (await res.json()) as DutyEventRunDeleteResult;
+			const removed = new Set(eventIds);
+			advancedDutyEvents = advancedDutyEvents.filter((event) => !removed.has(event.id));
+			toastStore.success(
+				`Deleted ${result.deletedEvents} legacy duty event${result.deletedEvents === 1 ? '' : 's'} from history`
+			);
+			return result;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to delete legacy duty history group');
+			return null;
+		}
+	}
+
+	async function handleArchiveAdvancedTemplate(templateId: string): Promise<DutyTemplate | null> {
+		try {
+			const res = await fetch(`/org/${org.orgId}/api/duty-templates/${templateId}`, { method: 'DELETE' });
+			if (!res.ok) {
+				throw new Error(await readResponseErrorMessage(res, 'Failed to archive duty template'));
+			}
+			const item = (await res.json()) as DutyTemplate;
+			advancedDutyTemplates = sortTemplates(
+				advancedDutyTemplates.map((template) => (template.id === item.id ? item : template))
+			);
+			toastStore.success('Duty template archived');
+			return item;
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to archive duty template');
 			return null;
 		}
 	}
@@ -358,8 +436,8 @@
 				statusTypes={statusTypesStore.items}
 				specialDays={specialDaysStore.items}
 				rosterHistory={dutyRosterHistoryStore.items}
-				advancedDutyTemplates={advancedDutyTemplates}
-				advancedDutyEvents={advancedDutyEvents}
+				{advancedDutyTemplates}
+				{advancedDutyEvents}
 				onApplyRoster={handleApplyRoster}
 				onSaveRoster={handleSaveRoster}
 				onDeleteRoster={handleDeleteRoster}
@@ -370,7 +448,11 @@
 				onApplyAdvancedSeries={handleApplyAdvancedSeries}
 				onPreviewExistingAdvancedEvent={handlePreviewExistingAdvancedEvent}
 				onUpdateExistingAdvancedEvent={handleUpdateExistingAdvancedEvent}
-				canManageAdvancedTemplates={canManageAdvancedTemplates}
+				onDeleteAdvancedEvent={handleDeleteAdvancedEvent}
+				onDeleteAdvancedRun={handleDeleteAdvancedRun}
+				onDeleteLegacyAdvancedGroup={handleDeleteLegacyAdvancedGroup}
+				onCreateAdvancedTemplate={handleCreateAdvancedTemplate}
+				{canManageAdvancedTemplates}
 				onManageAdvancedTemplates={handleManageAdvancedTemplates}
 			/>
 		{:else}
@@ -381,6 +463,7 @@
 				canManageTemplates={canManageAdvancedTemplates}
 				onCreateTemplate={handleCreateAdvancedTemplate}
 				onUpdateTemplate={handleUpdateAdvancedTemplate}
+				onArchiveTemplate={handleArchiveAdvancedTemplate}
 			/>
 		{/if}
 	{/if}

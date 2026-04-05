@@ -1,6 +1,7 @@
 import { fail } from '$lib/server/core/errors';
 import type { QueryPorts, WritePorts } from '$lib/server/core/ports';
 import { DutyEventEntity } from '$lib/server/entities/dutyEvent';
+import { DutyEventRunEntity } from '$lib/server/entities/dutyEventRun';
 import { DutyEventSlotEntity } from '$lib/server/entities/dutyEventSlot';
 import { DutyTemplateEntity } from '$lib/server/entities/dutyTemplate';
 import { DutyTemplateRotationBaselineEntity } from '$lib/server/entities/dutyTemplateRotationBaseline';
@@ -14,6 +15,9 @@ import type {
 	DutyEventSeriesApplyResult,
 	DutyEventSeriesInput,
 	DutyEventSeriesPattern,
+	DutyEventRunPattern,
+	DutyEventRunRecord,
+	DutyEventRunDeleteResult,
 	DutyEventSeriesPreview,
 	DutyEventCollisionSummary,
 	DutyEventFillSummary,
@@ -24,9 +28,15 @@ import type {
 	DutyEventSlotInstance,
 	ExistingDutyEventInput,
 	ExistingDutyEventUpdateInput,
+	SoftPreferenceConfig,
 	DutyTemplate,
 	DutyTemplateRotationBaseline,
-	DutyTemplateSlot
+	DutyTemplateSlot,
+	DutyEventFairnessConfidence
+} from '$features/duty-roster/duty-roster.types';
+import {
+	cloneDefaultSoftPreferences,
+	DEFAULT_SOFT_PREFERENCE_ORDER as defaultSoftPreferenceOrder
 } from '$features/duty-roster/duty-roster.types';
 
 interface PoolHistorySummary {
@@ -49,6 +59,7 @@ interface TransientPreviewEvent {
 	coverageStart: string;
 	coverageEnd: string;
 	cooldownHours: number;
+	isBlocking: boolean;
 	slotInstances: Array<{
 		templateSlotId: string | null;
 		slotIndex: number;
@@ -56,13 +67,15 @@ interface TransientPreviewEvent {
 	}>;
 }
 
+type RankedSlotPreviewInstance = DutyEventPreviewSlotInstance;
+
 function buildCoverageDateTime(date: string, time: string): string {
 	return `${date}T${time}:00`;
 }
 
 function addDays(date: string, days: number): string {
-	const value = new Date(`${date}T00:00:00`);
-	value.setDate(value.getDate() + days);
+	const value = new Date(`${date}T00:00:00Z`);
+	value.setUTCDate(value.getUTCDate() + days);
 	return value.toISOString().slice(0, 10);
 }
 
@@ -104,7 +117,7 @@ function buildCoverageWindow(template: DutyTemplate, eventDate: string) {
 }
 
 function getDayOfWeek(date: string): number {
-	return new Date(`${date}T00:00:00`).getDay();
+	return new Date(`${date}T00:00:00Z`).getUTCDay();
 }
 
 function normalizeTemplate(
@@ -134,8 +147,10 @@ function buildRulesSnapshot(template: DutyTemplate): DutyEventRulesSnapshot {
 		endTime: template.endTime,
 		scopeType: template.scopeType,
 		scopeGroupIds: [...template.scopeGroupIds],
+		exemptPersonnelIds: [...(template.exemptPersonnelIds ?? [])],
 		isBlocking: template.isBlocking,
 		cooldownHours: template.cooldownHours,
+		softPreferences: normalizeSoftPreferencesForRanking(template.softPreferences),
 		rotationBaselines: template.rotationBaselines.map((baseline) => ({
 			rotationPoolKey: baseline.rotationPoolKey,
 			personId: baseline.personId,
@@ -166,11 +181,13 @@ function buildTemplateFromRulesSnapshot(snapshot: DutyEventRulesSnapshot): DutyT
 		description: null,
 		scopeType: snapshot.scopeType,
 		scopeGroupIds: [...snapshot.scopeGroupIds],
+		exemptPersonnelIds: [...(snapshot.exemptPersonnelIds ?? [])],
 		coverageMode: snapshot.coverageMode,
 		startTime: snapshot.startTime,
 		endTime: snapshot.endTime,
 		isBlocking: snapshot.isBlocking,
 		cooldownHours: snapshot.cooldownHours,
+		softPreferences: normalizeSoftPreferencesForRanking(snapshot.softPreferences),
 		createdAt: '',
 		updatedAt: '',
 		slots: snapshot.slots.map((slot) => ({
@@ -218,11 +235,89 @@ function matchesSlot(person: Personnel, template: DutyTemplate, slot: DutyTempla
 
 function sortPersonnel(a: Personnel, b: Personnel): number {
 	return (
-		a.lastName.localeCompare(b.lastName) ||
-		a.firstName.localeCompare(b.firstName) ||
-		a.rank.localeCompare(b.rank) ||
+		a.lastName.localeCompare(b.lastName, 'en-US') ||
+		a.firstName.localeCompare(b.firstName, 'en-US') ||
+		a.rank.localeCompare(b.rank, 'en-US') ||
 		a.id.localeCompare(b.id)
 	);
+}
+
+function compareOldestFirst(a: string | null, b: string | null): number {
+	if (a && b && a !== b) {
+		return a.localeCompare(b);
+	}
+	if (a && !b) {
+		return 1;
+	}
+	if (!a && b) {
+		return -1;
+	}
+	return 0;
+}
+
+function normalizeSoftPreferencesForRanking(
+	softPreferences: SoftPreferenceConfig[] | undefined
+): SoftPreferenceConfig[] {
+	const defaults = cloneDefaultSoftPreferences();
+	if (!softPreferences || softPreferences.length === 0) {
+		return defaults;
+	}
+
+	const provided = new Map(softPreferences.map((preference) => [preference.type, preference]));
+	const orderedTypes = [
+		...softPreferences.map((preference) => preference.type),
+		...defaultSoftPreferenceOrder.filter((type) => !provided.has(type))
+	];
+
+	return [...new Set(orderedTypes)].map(
+		(type) => provided.get(type) ?? { type, enabled: defaults.find((item) => item.type === type)?.enabled ?? true }
+	);
+}
+
+function usesDefaultSoftPreferenceOrder(template: DutyTemplate): boolean {
+	const resolved = normalizeSoftPreferencesForRanking(template.softPreferences);
+	return resolved.every(
+		(preference, index) => preference.enabled === true && preference.type === defaultSoftPreferenceOrder[index]
+	);
+}
+
+function describeSoftPreferenceOrder(template: DutyTemplate): string {
+	const enabled = normalizeSoftPreferencesForRanking(template.softPreferences).filter(
+		(preference) => preference.enabled
+	);
+	if (enabled.length === 0) {
+		return 'eligibility rules and name tie-breakers only';
+	}
+
+	const labels: Record<SoftPreferenceConfig['type'], string> = {
+		'longest-break': 'longest break',
+		'holiday-closure': 'holiday and closure spacing',
+		weekend: 'weekend spacing',
+		'preferred-group': 'preferred groups'
+	};
+
+	return enabled.map((preference) => labels[preference.type]).join(', then ');
+}
+
+function buildGeneratedSelectionReason(
+	template: DutyTemplate,
+	slot: DutyTemplateSlot,
+	fairnessConfidence: DutyEventFairnessConfidence,
+	missingHistoryCount: number,
+	eligibleCount: number
+): string {
+	let fairnessSuffix = '';
+	if (fairnessConfidence === 'low') {
+		fairnessSuffix = ` Fairness confidence is low: ${missingHistoryCount} of ${eligibleCount} eligible Soldier${eligibleCount === 1 ? '' : 's'} lack rotation history. Seed starting baselines in the template builder to improve ranking accuracy.`;
+	} else if (fairnessConfidence === 'medium') {
+		fairnessSuffix = ` Fairness confidence is medium: ${missingHistoryCount} of ${eligibleCount} eligible Soldier${eligibleCount === 1 ? '' : 's'} lack rotation history.`;
+	}
+
+	if (usesDefaultSoftPreferenceOrder(template)) {
+		return `Selected by longest break in rotation pool "${slot.rotationPoolKey}".${fairnessSuffix}`;
+	}
+
+	return `Selected using this template's soft-preference order for rotation pool "${slot.rotationPoolKey}": ${describeSoftPreferenceOrder(template)}.${fairnessSuffix}`;
 }
 
 function formatPersonLabel(personnelById: Map<string, Personnel>, personId: string): string {
@@ -343,7 +438,11 @@ async function buildPoolHistoryIndex(
 			const key = `${templateSlot.rotationPoolKey}::${slot.assigneeId}`;
 			historyByPoolPerson.set(
 				key,
-				recordServiceDate(historyByPoolPerson.get(key) ?? createEmptyPoolHistorySummary(), event.eventDate, holidayClosureDates)
+				recordServiceDate(
+					historyByPoolPerson.get(key) ?? createEmptyPoolHistorySummary(),
+					event.eventDate,
+					holidayClosureDates
+				)
 			);
 		}
 	}
@@ -361,75 +460,83 @@ function rankCandidatesForSlot(
 ): Personnel[] {
 	const isHolidayClosure = holidayClosureDates.has(eventDate);
 	const isWeekend = new Set([0, 6]).has(getDayOfWeek(eventDate));
+	const softPreferences = normalizeSoftPreferencesForRanking(template.softPreferences).filter(
+		(preference) => preference.enabled
+	);
 	return [...personnel].sort((a, b) => {
 		const aSummary = historyByPoolPerson.get(`${slot.rotationPoolKey}::${a.id}`) ?? createEmptyPoolHistorySummary();
 		const bSummary = historyByPoolPerson.get(`${slot.rotationPoolKey}::${b.id}`) ?? createEmptyPoolHistorySummary();
-		const aLastServed = aSummary.lastServedDate;
-		const bLastServed = bSummary.lastServedDate;
 
-		if (aLastServed && bLastServed && aLastServed !== bLastServed) {
-			return aLastServed.localeCompare(bLastServed);
-		}
-		if (aLastServed && !bLastServed) {
-			return 1;
-		}
-		if (!aLastServed && bLastServed) {
-			return -1;
-		}
-		if (isHolidayClosure) {
-			if (
-				aSummary.lastHolidayClosureDate &&
-				bSummary.lastHolidayClosureDate &&
-				aSummary.lastHolidayClosureDate !== bSummary.lastHolidayClosureDate
-			) {
-				return aSummary.lastHolidayClosureDate.localeCompare(bSummary.lastHolidayClosureDate);
+		for (const preference of softPreferences) {
+			switch (preference.type) {
+				case 'longest-break': {
+					const diff = compareOldestFirst(aSummary.lastServedDate, bSummary.lastServedDate);
+					if (diff !== 0) {
+						return diff;
+					}
+					break;
+				}
+				case 'holiday-closure': {
+					if (!isHolidayClosure) {
+						break;
+					}
+					const diff = compareOldestFirst(aSummary.lastHolidayClosureDate, bSummary.lastHolidayClosureDate);
+					if (diff !== 0) {
+						return diff;
+					}
+					break;
+				}
+				case 'weekend': {
+					if (!isWeekend) {
+						break;
+					}
+					const diff = compareOldestFirst(aSummary.lastWeekendDate, bSummary.lastWeekendDate);
+					if (diff !== 0) {
+						return diff;
+					}
+					break;
+				}
+				case 'preferred-group': {
+					const aPreferred =
+						slot.preferredGroupIds.length > 0 && !!a.groupId && slot.preferredGroupIds.includes(a.groupId);
+					const bPreferred =
+						slot.preferredGroupIds.length > 0 && !!b.groupId && slot.preferredGroupIds.includes(b.groupId);
+					if (aPreferred !== bPreferred) {
+						return aPreferred ? -1 : 1;
+					}
+					break;
+				}
 			}
-			if (aSummary.lastHolidayClosureDate && !bSummary.lastHolidayClosureDate) {
-				return 1;
-			}
-			if (!aSummary.lastHolidayClosureDate && bSummary.lastHolidayClosureDate) {
-				return -1;
-			}
-		}
-		if (isWeekend) {
-			if (
-				aSummary.lastWeekendDate &&
-				bSummary.lastWeekendDate &&
-				aSummary.lastWeekendDate !== bSummary.lastWeekendDate
-			) {
-				return aSummary.lastWeekendDate.localeCompare(bSummary.lastWeekendDate);
-			}
-			if (aSummary.lastWeekendDate && !bSummary.lastWeekendDate) {
-				return 1;
-			}
-			if (!aSummary.lastWeekendDate && bSummary.lastWeekendDate) {
-				return -1;
-			}
-		}
-		const aPreferred = slot.preferredGroupIds.length > 0 && !!a.groupId && slot.preferredGroupIds.includes(a.groupId);
-		const bPreferred = slot.preferredGroupIds.length > 0 && !!b.groupId && slot.preferredGroupIds.includes(b.groupId);
-		if (aPreferred !== bPreferred) {
-			return aPreferred ? -1 : 1;
 		}
 
 		return sortPersonnel(a, b);
 	});
 }
 
-function buildFairnessConfidence(
+interface FairnessResult {
+	confidence: DutyEventFairnessConfidence;
+	missingHistoryCount: number;
+	eligibleCount: number;
+}
+
+function buildFairnessResult(
 	template: DutyTemplate,
 	slot: DutyTemplateSlot,
 	personnel: Personnel[],
 	historyByPoolPerson: Map<string, PoolHistorySummary>
-): 'high' | 'low' {
+): FairnessResult {
 	const eligibleCandidates = personnel.filter((person) => matchesSlot(person, template, slot));
-	if (eligibleCandidates.length === 0) {
-		return 'low';
+	const eligibleCount = eligibleCandidates.length;
+	if (eligibleCount === 0) {
+		return { confidence: 'low', missingHistoryCount: 0, eligibleCount: 0 };
 	}
-
-	return eligibleCandidates.every((person) => getLastServedDate(slot.rotationPoolKey, person.id, historyByPoolPerson))
-		? 'high'
-		: 'low';
+	const seededCount = eligibleCandidates.filter((person) =>
+		getLastServedDate(slot.rotationPoolKey, person.id, historyByPoolPerson)
+	).length;
+	const missingHistoryCount = eligibleCount - seededCount;
+	const ratio = seededCount / eligibleCount;
+	const confidence: DutyEventFairnessConfidence = ratio === 1 ? 'high' : ratio >= 0.6 ? 'medium' : 'low';
+	return { confidence, missingHistoryCount, eligibleCount };
 }
 
 function normalizeSlotOverrides(slotOverrides: DutyEventSlotOverrideInput[] = []): Map<string, NormalizedSlotOverride> {
@@ -457,133 +564,189 @@ function generateSlotInstances(
 	eventDate: string,
 	holidayClosureDates: Set<string>,
 	slotOverrides: DutyEventSlotOverrideInput[] = []
-): Omit<DutyEventSlotInstance, 'id' | 'dutyEventId'>[] {
+): RankedSlotPreviewInstance[] {
 	const overrideMap = normalizeSlotOverrides(slotOverrides);
 	const assignedIds = new Set(
 		[...overrideMap.values()].map((override) => override.assigneeId).filter((value): value is string => !!value)
 	);
 	const matchedOverrideKeys = new Set<string>();
-	const slotInstances: Omit<DutyEventSlotInstance, 'id' | 'dutyEventId'>[] = [];
+	const slotInstances: RankedSlotPreviewInstance[] = [];
 
-	for (const slot of [...template.slots].sort((a, b) => a.sortOrder - b.sortOrder)) {
+	// Permanently exempt personnel are excluded from all slot candidate pools for this template.
+	const exemptIds = new Set(template.exemptPersonnelIds ?? []);
+	const eligiblePersonnel = exemptIds.size > 0 ? personnel.filter((p) => !exemptIds.has(p.id)) : personnel;
+
+	// Expand all (slot, slotIndex) pairs into a flat work list and pre-compute each slot's
+	// static eligible-candidate pool. This count drives the hardest-slot-first fill order:
+	// slots with fewer eligible people are filled before slots with larger pools, so the
+	// rarest candidates are reserved for the positions that need them most.
+	type WorkItem = {
+		slot: DutyTemplateSlot;
+		slotIndex: number;
+		rankedPersonnel: Personnel[];
+		eligibleCandidates: Personnel[];
+		fairnessConfidence: DutyEventFairnessConfidence;
+		missingHistoryCount: number;
+		eligibleCount: number;
+		displayOrder: number;
+	};
+
+	const workItems: WorkItem[] = [];
+	for (const slot of template.slots) {
 		const rankedPersonnel = rankCandidatesForSlot(
 			template,
 			slot,
-			personnel,
+			eligiblePersonnel,
 			historyByPoolPerson,
 			eventDate,
 			holidayClosureDates
 		);
-		const fairnessConfidence = buildFairnessConfidence(template, slot, personnel, historyByPoolPerson);
+		const eligibleCandidates = rankedPersonnel.filter((person) => matchesSlot(person, template, slot));
+		const fairnessResult = buildFairnessResult(template, slot, eligiblePersonnel, historyByPoolPerson);
 		for (let slotIndex = 0; slotIndex < slot.quantity; slotIndex += 1) {
-			const override = overrideMap.get(buildSlotKey(slot.id, slotIndex));
-			const eligibleCandidates = rankedPersonnel.filter((person) => matchesSlot(person, template, slot));
-			const recommendedAvailabilityIds = new Set(assignedIds);
-			if (override?.assigneeId) {
-				recommendedAvailabilityIds.delete(override.assigneeId);
-			}
-			const availableCandidates = eligibleCandidates.filter((person) => !assignedIds.has(person.id));
-			const recommendedCandidates = eligibleCandidates.filter((person) => !recommendedAvailabilityIds.has(person.id));
-			const assignee = availableCandidates[0] ?? null;
-			const recommendedAssignee = recommendedCandidates[0] ?? null;
+			workItems.push({
+				slot,
+				slotIndex,
+				rankedPersonnel,
+				eligibleCandidates,
+				fairnessConfidence: fairnessResult.confidence,
+				missingHistoryCount: fairnessResult.missingHistoryCount,
+				eligibleCount: fairnessResult.eligibleCount,
+				displayOrder: slot.sortOrder * 100 + slotIndex
+			});
+		}
+	}
 
-			if (override) {
-				matchedOverrideKeys.add(override.key);
+	// Sort hardest first (fewest eligible candidates), with displayOrder as the tie-breaker
+	// so slots that are equally difficult preserve their authored sequence.
+	workItems.sort((a, b) => {
+		const diff = a.eligibleCandidates.length - b.eligibleCandidates.length;
+		if (diff !== 0) return diff;
+		return a.displayOrder - b.displayOrder;
+	});
 
-				const overrideMessages: string[] = [];
-				let warningState: DutyEventSlotInstance['warningState'] = fairnessConfidence === 'low' ? 'warning' : 'none';
-				let selectionReason: string | null =
-					override.assigneeId == null
-						? override.assignmentSource === 'locked'
-							? 'Assignment was locked open in preview.'
-							: 'Assignment was cleared in preview.'
-						: override.assignmentSource === 'locked'
-							? 'Assignment was locked in preview.'
-							: 'Assignment was manually overridden in preview.';
-				let unfilledReason: string | null = override.assigneeId == null ? 'Assignment was cleared in preview.' : null;
+	for (const {
+		slot,
+		slotIndex,
+		eligibleCandidates,
+		fairnessConfidence,
+		missingHistoryCount,
+		eligibleCount,
+		displayOrder
+	} of workItems) {
+		const override = overrideMap.get(buildSlotKey(slot.id, slotIndex));
+		const recommendedAvailabilityIds = new Set(assignedIds);
+		if (override?.assigneeId) {
+			recommendedAvailabilityIds.delete(override.assigneeId);
+		}
+		const availableCandidates = eligibleCandidates.filter((person) => !assignedIds.has(person.id));
+		const recommendedCandidates = eligibleCandidates.filter((person) => !recommendedAvailabilityIds.has(person.id));
+		const assignee = availableCandidates[0] ?? null;
+		const recommendedAssignee = recommendedCandidates[0] ?? null;
 
-				if (override.assigneeId) {
-					const overridePerson = personnelById.get(override.assigneeId);
-					if (!overridePerson) {
-						fail(400, 'Slot override assignee was not found.');
-					}
+		if (override) {
+			matchedOverrideKeys.add(override.key);
 
-					if (!matchesSlot(overridePerson, template, slot)) {
-						warningState = 'conflict';
-						overrideMessages.push(
-							`${formatPersonLabel(personnelById, override.assigneeId)} does not match this slot's eligibility rules.`
-						);
-					} else if (recommendedAssignee && override.assigneeId !== recommendedAssignee.id) {
-						warningState = 'warning';
-						overrideMessages.push(
-							override.assignmentSource === 'locked'
-								? 'Locked assignment bypasses the generator fairness order for this slot.'
-								: 'Manual override bypasses the generator fairness order for this slot.'
-						);
-					}
+			const overrideMessages: string[] = [];
+			let warningState: DutyEventSlotInstance['warningState'] = fairnessConfidence === 'low' ? 'warning' : 'none';
+			const selectionReason: string | null =
+				override.assigneeId == null
+					? override.assignmentSource === 'locked'
+						? 'Assignment was locked open in preview.'
+						: 'Assignment was cleared in preview.'
+					: override.assignmentSource === 'locked'
+						? 'Assignment was locked in preview.'
+						: 'Assignment was manually overridden in preview.';
+			const unfilledReason: string | null = override.assigneeId == null ? 'Assignment was cleared in preview.' : null;
+
+			if (override.assigneeId) {
+				const overridePerson = personnelById.get(override.assigneeId);
+				if (!overridePerson) {
+					fail(400, 'Slot override assignee was not found.');
 				}
 
-				slotInstances.push({
-					templateSlotId: slot.id,
-					roleLabel: slot.roleLabel,
-					slotIndex,
-					assigneeId: override.assigneeId,
-					assignmentSource: override.assignmentSource ?? 'manual',
-					warningState,
-					fairnessConfidence,
-					selectionReason,
-					unfilledReason,
-					overrideMessages,
-					sortOrder: slot.sortOrder * 100 + slotIndex
-				});
-				continue;
-			}
-
-			if (assignee) {
-				assignedIds.add(assignee.id);
+				if (!matchesSlot(overridePerson, template, slot)) {
+					warningState = 'conflict';
+					overrideMessages.push(
+						`${formatPersonLabel(personnelById, override.assigneeId)} does not match this slot's eligibility rules.`
+					);
+				} else if (recommendedAssignee && override.assigneeId !== recommendedAssignee.id) {
+					warningState = 'warning';
+					overrideMessages.push(
+						override.assignmentSource === 'locked'
+							? 'Locked assignment bypasses the generator fairness order for this slot.'
+							: 'Manual override bypasses the generator fairness order for this slot.'
+					);
+				}
 			}
 
 			slotInstances.push({
 				templateSlotId: slot.id,
 				roleLabel: slot.roleLabel,
 				slotIndex,
-				assigneeId: assignee?.id ?? null,
-				assignmentSource: 'generated',
-				warningState: fairnessConfidence === 'low' ? 'warning' : 'none',
+				assigneeId: override.assigneeId,
+				assignmentSource: override.assignmentSource ?? 'manual',
+				warningState,
 				fairnessConfidence,
-				selectionReason: assignee
-					? fairnessConfidence === 'low'
-						? `Selected by longest break in rotation pool "${slot.rotationPoolKey}". Fairness confidence is low because not every eligible person has seeded or historical service data yet.`
-						: `Selected by longest break in rotation pool "${slot.rotationPoolKey}".`
-					: null,
-				unfilledReason: assignee
-					? null
-					: eligibleCandidates.length === 0
-						? 'No personnel matched this slot eligibility rules.'
-						: 'Every eligible person was already assigned elsewhere in this duty event.',
-				overrideMessages: [],
-				sortOrder: slot.sortOrder * 100 + slotIndex
+				selectionReason,
+				unfilledReason,
+				overrideMessages,
+				sortOrder: displayOrder
 			});
+			continue;
 		}
+
+		if (assignee) {
+			assignedIds.add(assignee.id);
+		}
+
+		slotInstances.push({
+			templateSlotId: slot.id,
+			roleLabel: slot.roleLabel,
+			slotIndex,
+			assigneeId: assignee?.id ?? null,
+			assignmentSource: 'generated',
+			warningState: fairnessConfidence === 'low' ? 'warning' : 'none',
+			fairnessConfidence,
+			selectionReason: assignee
+				? buildGeneratedSelectionReason(template, slot, fairnessConfidence, missingHistoryCount, eligibleCount)
+				: null,
+			unfilledReason: assignee
+				? null
+				: eligibleCandidates.length === 0
+					? 'No personnel matched this slot eligibility rules.'
+					: 'Every eligible person was already assigned elsewhere in this duty event.',
+			overrideMessages: [],
+			sortOrder: displayOrder
+		});
 	}
 
 	if (matchedOverrideKeys.size !== overrideMap.size) {
 		fail(400, 'Slot override target was not found in the generated preview.');
 	}
 
-	return slotInstances;
+	// Return in display order regardless of fill order.
+	return slotInstances.sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 async function buildDutyEventPreview(
 	ctx: QueryPorts,
 	input: DutyEventApplyInput,
-	transientEvents: TransientPreviewEvent[] = []
+	transientEvents: TransientPreviewEvent[] = [],
+	excludeDutyEventIds: string[] = []
 ): Promise<DutyEventPreview> {
 	const template = await getTemplate(ctx, input.templateId);
 	if (template.status !== 'active') {
 		fail(400, 'Only active advanced duty templates can be applied.');
 	}
-	return buildDutyEventPreviewFromResolvedTemplate(ctx, template, input.eventDate, input.slotOverrides, transientEvents);
+	return buildDutyEventPreviewFromResolvedTemplate(
+		ctx,
+		template,
+		input.eventDate,
+		input.slotOverrides,
+		transientEvents,
+		excludeDutyEventIds
+	);
 }
 
 async function buildDutyEventPreviewFromResolvedTemplate(
@@ -726,7 +889,10 @@ async function expandSeriesDates(ctx: QueryPorts, input: DutyEventSeriesInput): 
 	}
 }
 
-function getEventSlotOverrides(input: DutyEventSeriesInput, eventDate: string): DutyEventSlotOverrideInput[] | undefined {
+function getEventSlotOverrides(
+	input: DutyEventSeriesInput,
+	eventDate: string
+): DutyEventSlotOverrideInput[] | undefined {
 	return input.eventOverrides?.find((entry) => entry.eventDate === eventDate)?.slotOverrides;
 }
 
@@ -769,7 +935,9 @@ async function buildCollisionSummary(
 	transientEvents: TransientPreviewEvent[] = [],
 	excludeDutyEventIds: string[] = []
 ): Promise<SlotCollisionCheckResult> {
-	const filledSlots = slotInstances.filter((slot): slot is typeof slotInstances[number] & { assigneeId: string } => !!slot.assigneeId);
+	const filledSlots = slotInstances.filter(
+		(slot): slot is (typeof slotInstances)[number] & { assigneeId: string } => !!slot.assigneeId
+	);
 	const assigneeIds = [...new Set(filledSlots.map((slot) => slot.assigneeId))];
 	const slotMessages = new Map<string, string[]>();
 	if (assigneeIds.length === 0) {
@@ -797,7 +965,13 @@ async function buildCollisionSummary(
 		}
 		const message = `${formatPersonLabel(personnelById, assigneeId)} is assigned to multiple slots in the same duty preview.`;
 		for (const slot of slots) {
-			addSlotConflict(slotMessages, conflicts, seenConflicts, buildSlotKey(slot.templateSlotId, slot.slotIndex), message);
+			addSlotConflict(
+				slotMessages,
+				conflicts,
+				seenConflicts,
+				buildSlotKey(slot.templateSlotId, slot.slotIndex),
+				message
+			);
 		}
 	}
 
@@ -812,7 +986,13 @@ async function buildCollisionSummary(
 		const assigneeId = String(row.assignee_id);
 		const message = `${formatPersonLabel(personnelById, assigneeId)} already has a daily assignment on ${eventDate}. Review this collision before apply.`;
 		for (const slot of slotsByAssignee.get(assigneeId) ?? []) {
-			addSlotConflict(slotMessages, conflicts, seenConflicts, buildSlotKey(slot.templateSlotId, slot.slotIndex), message);
+			addSlotConflict(
+				slotMessages,
+				conflicts,
+				seenConflicts,
+				buildSlotKey(slot.templateSlotId, slot.slotIndex),
+				message
+			);
 		}
 	}
 
@@ -830,7 +1010,8 @@ async function buildCollisionSummary(
 					assigneeId: slot.assigneeId,
 					coverageStart: event.coverageStart,
 					coverageEnd: event.coverageEnd,
-					cooldownHours: event.cooldownHours
+					cooldownHours: event.cooldownHours,
+					isBlocking: event.isBlocking
 				}))
 		)
 	});
@@ -858,19 +1039,108 @@ async function buildCollisionSummary(
 	};
 }
 
+function hydrateDutyEventRun(row: Record<string, unknown>): DutyEventRunRecord {
+	return DutyEventRunEntity.fromDb(row);
+}
+
 function hydrateDutyEvent(
 	eventRow: Record<string, unknown>,
-	slotRows: Record<string, unknown>[] | DutyEventSlotInstance[]
+	slotRows: Record<string, unknown>[] | DutyEventSlotInstance[],
+	runById = new Map<string, DutyEventRunRecord>()
 ): DutyEvent {
+	const event = DutyEventEntity.fromDb(eventRow);
 	return {
-		...DutyEventEntity.fromDb(eventRow),
+		...event,
 		slotInstances:
 			Array.isArray(slotRows) && slotRows.length > 0 && 'dutyEventId' in slotRows[0]
 				? ([...slotRows] as DutyEventSlotInstance[]).sort((a, b) => a.sortOrder - b.sortOrder)
 				: DutyEventSlotEntity.fromDbArray(slotRows as Record<string, unknown>[]).sort(
 						(a, b) => a.sortOrder - b.sortOrder
-					)
+					),
+		run: event.runId ? (runById.get(event.runId) ?? null) : null
 	};
+}
+
+async function loadDutyEventRunsByIds(ctx: QueryPorts, runIds: string[]): Promise<Map<string, DutyEventRunRecord>> {
+	if (runIds.length === 0) {
+		return new Map();
+	}
+
+	const rows = await ctx.store.findMany<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId, undefined, {
+		inFilters: { id: [...new Set(runIds)] }
+	});
+	const runById = new Map<string, DutyEventRunRecord>();
+	for (const row of rows) {
+		const run = hydrateDutyEventRun(row);
+		runById.set(run.id, run);
+	}
+	return runById;
+}
+
+async function reconcileDutyEventRun(ctx: WritePorts, runId: string | null | undefined): Promise<void> {
+	if (!runId) {
+		return;
+	}
+
+	const runRow = await ctx.store.findOne<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId, { id: runId });
+	if (!runRow) {
+		return;
+	}
+
+	const eventRows = await ctx.store.findMany<Record<string, unknown>>(
+		'duty_events',
+		ctx.auth.orgId,
+		{ run_id: runId },
+		{
+			orderBy: [{ column: 'event_date', ascending: true }]
+		}
+	);
+	if (eventRows.length === 0) {
+		await ctx.store.delete('duty_event_runs', ctx.auth.orgId, runId);
+		return;
+	}
+
+	const orderedDates = eventRows.map((row) => String(row.event_date)).sort((a, b) => a.localeCompare(b));
+	await ctx.store.update<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId, runId, {
+		start_date: orderedDates[0],
+		end_date: orderedDates[orderedDates.length - 1],
+		event_count: eventRows.length,
+		updated_at: new Date().toISOString()
+	});
+}
+
+async function createDutyEventRun(
+	ctx: WritePorts,
+	input: {
+		template: DutyTemplate;
+		pattern: DutyEventRunPattern;
+		eventDates: string[];
+		isLegacy?: boolean;
+	}
+): Promise<DutyEventRunRecord> {
+	const orderedDates = [...input.eventDates].sort((a, b) => a.localeCompare(b));
+	if (orderedDates.length === 0) {
+		fail(400, 'Duty runs require at least one event date.');
+	}
+	const now = new Date().toISOString();
+	const row = await ctx.store.insert<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId, {
+		...DutyEventRunEntity.toDbInsert(
+			{
+				templateId: input.template.id,
+				templateName: input.template.name,
+				pattern: input.pattern,
+				startDate: orderedDates[0],
+				endDate: orderedDates[orderedDates.length - 1],
+				eventCount: orderedDates.length,
+				isLegacy: input.isLegacy ?? false
+			},
+			ctx.auth.orgId
+		),
+		created_at: now,
+		updated_at: now
+	});
+
+	return hydrateDutyEventRun(row);
 }
 
 function buildPreviewFromDutyEvent(event: DutyEvent): DutyEventPreview {
@@ -896,7 +1166,6 @@ function buildPreviewFromDutyEvent(event: DutyEvent): DutyEventPreview {
 			fairnessConfidence: slot.fairnessConfidence,
 			selectionReason: slot.selectionReason,
 			unfilledReason: slot.unfilledReason,
-			overrideMessages: slot.overrideMessages,
 			sortOrder: slot.sortOrder
 		}))
 	};
@@ -925,8 +1194,17 @@ async function getDutyEventById(ctx: QueryPorts, dutyEventId: string): Promise<D
 		{ duty_event_id: dutyEventId },
 		{ orderBy: [{ column: 'sort_order', ascending: true }] }
 	);
+	const runId = eventRow.run_id ? String(eventRow.run_id) : null;
+	const runById = runId ? await loadDutyEventRunsByIds(ctx, [runId]) : new Map<string, DutyEventRunRecord>();
 
-	return hydrateDutyEvent(eventRow, slotRows);
+	return hydrateDutyEvent(eventRow, slotRows, runById);
+}
+
+function assertTemplateScopeAccess(scopedGroupId: string | null, template: DutyTemplate): void {
+	if (!scopedGroupId) return;
+	if (template.scopeType === 'organization' || !template.scopeGroupIds.includes(scopedGroupId)) {
+		fail(403, 'You do not have access to this duty template.');
+	}
 }
 
 async function getTemplate(ctx: QueryPorts, templateId: string): Promise<DutyTemplate> {
@@ -971,7 +1249,10 @@ async function listPersonnel(ctx: QueryPorts): Promise<Personnel[]> {
 	return PersonnelEntity.fromDbArray(rows);
 }
 
-export async function applyDutyEventFromTemplate(ctx: WritePorts, input: DutyEventApplyInput): Promise<DutyEvent> {
+export async function applyDutyEventFromTemplate(
+	ctx: WritePorts,
+	input: DutyEventApplyInput & { runId?: string }
+): Promise<DutyEvent> {
 	ctx.auth.requirePrivileged();
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -979,24 +1260,57 @@ export async function applyDutyEventFromTemplate(ctx: WritePorts, input: DutyEve
 		fail(403, 'Organization is in read-only mode');
 	}
 
-	const generatedPreview = await buildDutyEventPreview(ctx, {
-		templateId: input.templateId,
-		eventDate: input.eventDate
+	const template = await getTemplate(ctx, input.templateId);
+	assertTemplateScopeAccess(ctx.auth.scopedGroupId, template);
+	const runId =
+		input.runId ??
+		(
+			await createDutyEventRun(ctx, {
+				template,
+				pattern: 'single',
+				eventDates: [input.eventDate]
+			})
+		).id;
+
+	// Look up any existing event for this template + date BEFORE building the preview so we can
+	// exclude it from the collision check — otherwise its own stored assignments would show as
+	// blocking conflicts against themselves.
+	const existingEventRow = await ctx.store.findOne<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+		template_id: input.templateId,
+		event_date: input.eventDate
 	});
+	const excludeIds = existingEventRow ? [existingEventRow.id as string] : [];
+
+	const generatedPreview = await buildDutyEventPreview(
+		ctx,
+		{
+			templateId: input.templateId,
+			eventDate: input.eventDate
+		},
+		[],
+		excludeIds
+	);
 	const originalProposal = {
 		fillSummary: generatedPreview.fillSummary,
 		collisionSummary: generatedPreview.collisionSummary,
 		slotInstances: generatedPreview.slotInstances
 	};
-	const preview = input.slotOverrides?.length ? await buildDutyEventPreview(ctx, input) : generatedPreview;
+	const preview = input.slotOverrides?.length
+		? await buildDutyEventPreview(ctx, input, [], excludeIds)
+		: generatedPreview;
 	if (preview.collisionSummary.hasConflicts && !input.collisionReviewConfirmed) {
-		fail(409, 'Collision review is required before applying this duty event.');
+		fail(400, 'Collision review is required before applying this duty event.');
 	}
 	const now = new Date().toISOString();
 
-	const eventRow = await ctx.store.insert<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
-		...DutyEventEntity.toDbInsert(
-			{
+	let eventRow: Record<string, unknown>;
+	const previousRunId = existingEventRow?.run_id ? String(existingEventRow.run_id) : null;
+
+	if (existingEventRow) {
+		const existingId = existingEventRow.id as string;
+		eventRow = await ctx.store.update<Record<string, unknown>>('duty_events', ctx.auth.orgId, existingId, {
+			...DutyEventEntity.toDbUpdate({
+				runId,
 				templateId: preview.templateId,
 				templateName: preview.templateName,
 				eventDate: input.eventDate,
@@ -1007,14 +1321,36 @@ export async function applyDutyEventFromTemplate(ctx: WritePorts, input: DutyEve
 				cooldownHours: preview.cooldownHours,
 				rulesSnapshot: preview.rulesSnapshot,
 				fillSummary: preview.fillSummary,
-				collisionSummary: preview.collisionSummary,
-				originalProposal
-			},
-			ctx.auth.orgId
-		),
-		created_at: now,
-		updated_at: now
-	});
+				collisionSummary: preview.collisionSummary
+			}),
+			original_proposal: originalProposal,
+			updated_at: now
+		});
+		await ctx.store.deleteWhere('duty_event_slots', ctx.auth.orgId, { duty_event_id: existingId });
+	} else {
+		eventRow = await ctx.store.insert<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+			...DutyEventEntity.toDbInsert(
+				{
+					runId,
+					templateId: preview.templateId,
+					templateName: preview.templateName,
+					eventDate: input.eventDate,
+					coverageMode: preview.coverageMode,
+					coverageStart: preview.coverageStart,
+					coverageEnd: preview.coverageEnd,
+					isBlocking: preview.isBlocking,
+					cooldownHours: preview.cooldownHours,
+					rulesSnapshot: preview.rulesSnapshot,
+					fillSummary: preview.fillSummary,
+					collisionSummary: preview.collisionSummary,
+					originalProposal
+				},
+				ctx.auth.orgId
+			),
+			created_at: now,
+			updated_at: now
+		});
+	}
 
 	const insertedSlotRows =
 		preview.slotInstances.length === 0
@@ -1039,17 +1375,24 @@ export async function applyDutyEventFromTemplate(ctx: WritePorts, input: DutyEve
 							},
 							ctx.auth.orgId
 						),
-						duty_event_id: eventRow.id as string
+						duty_event_id: eventRow.id as string,
+						created_at: now
 					}))
 				);
 
+	if (previousRunId && previousRunId !== runId) {
+		await reconcileDutyEventRun(ctx, previousRunId);
+	}
+	await reconcileDutyEventRun(ctx, runId);
+
 	ctx.audit.log({
-		action: 'duty_event.applied',
+		action: existingEventRow ? 'duty_event.updated' : 'duty_event.applied',
 		resourceType: 'duty_event',
 		resourceId: eventRow.id as string
 	});
 
-	return hydrateDutyEvent(eventRow, insertedSlotRows);
+	const runById = await loadDutyEventRunsByIds(ctx, [runId]);
+	return hydrateDutyEvent(eventRow, insertedSlotRows, runById);
 }
 
 export async function previewDutyEventFromTemplate(
@@ -1098,31 +1441,26 @@ export async function updateExistingDutyEvent(
 	);
 
 	if (preview.collisionSummary.hasConflicts && !input.collisionReviewConfirmed) {
-		fail(409, 'Collision review is required before saving this duty event.');
+		fail(400, 'Collision review is required before saving this duty event.');
 	}
 
 	const now = new Date().toISOString();
-	const eventRow = await ctx.store.update<Record<string, unknown>>(
-		'duty_events',
-		ctx.auth.orgId,
-		existingEvent.id,
-		{
-			...DutyEventEntity.toDbUpdate({
-				templateId: preview.templateId,
-				templateName: preview.templateName,
-				eventDate: existingEvent.eventDate,
-				coverageMode: preview.coverageMode,
-				coverageStart: preview.coverageStart,
-				coverageEnd: preview.coverageEnd,
-				isBlocking: preview.isBlocking,
-				cooldownHours: preview.cooldownHours,
-				rulesSnapshot: preview.rulesSnapshot,
-				fillSummary: preview.fillSummary,
-				collisionSummary: preview.collisionSummary
-			}),
-			updated_at: now
-		}
-	);
+	const eventRow = await ctx.store.update<Record<string, unknown>>('duty_events', ctx.auth.orgId, existingEvent.id, {
+		...DutyEventEntity.toDbUpdate({
+			templateId: preview.templateId,
+			templateName: preview.templateName,
+			eventDate: existingEvent.eventDate,
+			coverageMode: preview.coverageMode,
+			coverageStart: preview.coverageStart,
+			coverageEnd: preview.coverageEnd,
+			isBlocking: preview.isBlocking,
+			cooldownHours: preview.cooldownHours,
+			rulesSnapshot: preview.rulesSnapshot,
+			fillSummary: preview.fillSummary,
+			collisionSummary: preview.collisionSummary
+		}),
+		updated_at: now
+	});
 
 	await ctx.store.deleteWhere('duty_event_slots', ctx.auth.orgId, {
 		duty_event_id: existingEvent.id
@@ -1150,7 +1488,8 @@ export async function updateExistingDutyEvent(
 							},
 							ctx.auth.orgId
 						),
-						duty_event_id: existingEvent.id
+						duty_event_id: existingEvent.id,
+						created_at: now
 					}))
 				);
 
@@ -1160,7 +1499,8 @@ export async function updateExistingDutyEvent(
 		resourceId: existingEvent.id
 	});
 
-	return hydrateDutyEvent(eventRow, insertedSlotRows);
+	const runById = existingEvent.runId ? await loadDutyEventRunsByIds(ctx, [existingEvent.runId]) : new Map();
+	return hydrateDutyEvent(eventRow, insertedSlotRows, runById);
 }
 
 export async function previewDutyEventSeriesFromTemplate(
@@ -1174,7 +1514,17 @@ export async function previewDutyEventSeriesFromTemplate(
 	const events: DutyEventPreview[] = [];
 	const transientEvents: TransientPreviewEvent[] = [];
 
+	// Fetch all existing events for this template so we can exclude each one from its own
+	// collision check — prevents phantom conflicts when previewing a re-apply over existing dates.
+	const existingEventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+		template_id: input.templateId
+	});
+	const existingIdByDate = new Map<string, string>(
+		existingEventRows.map((row) => [row.event_date as string, row.id as string])
+	);
+
 	for (const eventDate of eventDates) {
+		const existingId = existingIdByDate.get(eventDate);
 		const preview = await buildDutyEventPreview(
 			ctx,
 			{
@@ -1182,7 +1532,8 @@ export async function previewDutyEventSeriesFromTemplate(
 				eventDate,
 				slotOverrides: getEventSlotOverrides(input, eventDate)
 			},
-			transientEvents
+			transientEvents,
+			existingId ? [existingId] : []
 		);
 		events.push(preview);
 		transientEvents.push({
@@ -1190,6 +1541,7 @@ export async function previewDutyEventSeriesFromTemplate(
 			coverageStart: preview.coverageStart,
 			coverageEnd: preview.coverageEnd,
 			cooldownHours: preview.cooldownHours,
+			isBlocking: preview.isBlocking,
 			slotInstances: preview.slotInstances.map((slot) => ({
 				templateSlotId: slot.templateSlotId,
 				slotIndex: slot.slotIndex,
@@ -1214,12 +1566,21 @@ export async function applyDutyEventSeriesFromTemplate(
 	ctx.auth.requirePrivileged();
 
 	const eventDates = await expandSeriesDates(ctx, input);
+	if (eventDates.length === 0) {
+		fail(400, 'No dates matched the selected pattern.');
+	}
 	const template = await getTemplate(ctx, input.templateId);
+	const run = await createDutyEventRun(ctx, {
+		template,
+		pattern: input.pattern,
+		eventDates
+	});
 	const events: DutyEvent[] = [];
 
 	for (const eventDate of eventDates) {
 		events.push(
 			await applyDutyEventFromTemplate(ctx, {
+				runId: run.id,
 				templateId: input.templateId,
 				eventDate,
 				collisionReviewConfirmed: input.collisionReviewConfirmed,
@@ -1228,7 +1589,13 @@ export async function applyDutyEventSeriesFromTemplate(
 		);
 	}
 
+	await reconcileDutyEventRun(ctx, run.id);
+	const refreshedRunRow = await ctx.store.findOne<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId, {
+		id: run.id
+	});
+
 	return {
+		run: refreshedRunRow ? hydrateDutyEventRun(refreshedRunRow) : run,
 		templateId: template.id,
 		templateName: template.name,
 		pattern: input.pattern,
@@ -1252,6 +1619,10 @@ export async function listDutyEvents(ctx: QueryPorts): Promise<DutyEvent[]> {
 	}
 
 	const eventIds = eventRows.map((row) => row.id as string);
+	const runById = await loadDutyEventRunsByIds(
+		ctx,
+		eventRows.map((row) => String(row.run_id ?? '')).filter((runId) => runId.length > 0)
+	);
 	const slotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
 		inFilters: { duty_event_id: eventIds },
 		orderBy: [{ column: 'sort_order', ascending: true }]
@@ -1264,5 +1635,158 @@ export async function listDutyEvents(ctx: QueryPorts): Promise<DutyEvent[]> {
 		slotsByEvent.set(slot.dutyEventId, existing);
 	}
 
-	return eventRows.map((row) => hydrateDutyEvent(row, slotsByEvent.get(row.id as string) ?? []));
+	return eventRows.map((row) => hydrateDutyEvent(row, slotsByEvent.get(row.id as string) ?? [], runById));
+}
+
+export async function listDutyEventsInRange(
+	ctx: QueryPorts,
+	input: { rangeStart: string; rangeEnd: string }
+): Promise<DutyEvent[]> {
+	ctx.auth.requireView('calendar');
+
+	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
+		rangeFilters: [
+			{ column: 'event_date', op: 'gte', value: input.rangeStart },
+			{ column: 'event_date', op: 'lte', value: input.rangeEnd }
+		],
+		orderBy: [
+			{ column: 'event_date', ascending: true },
+			{ column: 'coverage_start', ascending: true }
+		]
+	});
+
+	if (eventRows.length === 0) {
+		return [];
+	}
+
+	const eventIds = eventRows.map((row) => row.id as string);
+	const runById = await loadDutyEventRunsByIds(
+		ctx,
+		eventRows.map((row) => String(row.run_id ?? '')).filter((runId) => runId.length > 0)
+	);
+	const slotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
+		inFilters: { duty_event_id: eventIds },
+		orderBy: [{ column: 'sort_order', ascending: true }]
+	});
+
+	const slotsByEvent = new Map<string, DutyEventSlotInstance[]>();
+	for (const slot of DutyEventSlotEntity.fromDbArray(slotRows)) {
+		const existing = slotsByEvent.get(slot.dutyEventId) ?? [];
+		existing.push(slot);
+		slotsByEvent.set(slot.dutyEventId, existing);
+	}
+
+	return eventRows.map((row) => hydrateDutyEvent(row, slotsByEvent.get(row.id as string) ?? [], runById));
+}
+
+export async function deleteDutyEventById(
+	ctx: WritePorts,
+	input: { dutyEventId: string }
+): Promise<DutyEventRunDeleteResult> {
+	ctx.auth.requirePrivileged();
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+
+	const eventRow = await ctx.store.findOne<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+		id: input.dutyEventId
+	});
+	if (!eventRow) {
+		fail(404, 'Duty event not found');
+	}
+
+	const runId = eventRow.run_id ? String(eventRow.run_id) : null;
+	await ctx.store.deleteWhere('duty_event_slots', ctx.auth.orgId, { duty_event_id: input.dutyEventId });
+	await ctx.store.delete('duty_events', ctx.auth.orgId, input.dutyEventId);
+	await reconcileDutyEventRun(ctx, runId);
+
+	ctx.audit.log({
+		action: 'duty_event.deleted',
+		resourceType: 'duty_event',
+		resourceId: input.dutyEventId
+	});
+
+	return { deletedEvents: 1 };
+}
+
+export async function deleteDutyEventRun(ctx: WritePorts, input: { runId: string }): Promise<DutyEventRunDeleteResult> {
+	ctx.auth.requirePrivileged();
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+
+	const runRow = await ctx.store.findOne<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId, {
+		id: input.runId
+	});
+	if (!runRow) {
+		fail(404, 'Duty event run not found');
+	}
+
+	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+		run_id: input.runId
+	});
+	const eventIds = eventRows.map((row) => String(row.id));
+	for (const eventId of eventIds) {
+		await ctx.store.deleteWhere('duty_event_slots', ctx.auth.orgId, { duty_event_id: eventId });
+	}
+	if (eventIds.length > 0) {
+		await ctx.store.deleteManyByIds('duty_events', ctx.auth.orgId, eventIds);
+	}
+	await ctx.store.delete('duty_event_runs', ctx.auth.orgId, input.runId);
+
+	ctx.audit.log({
+		action: 'duty_event_run.deleted',
+		resourceType: 'duty_event_run',
+		resourceId: input.runId,
+		details: { deletedEvents: eventIds.length }
+	});
+
+	return { deletedEvents: eventIds.length };
+}
+
+export async function deleteLegacyDutyEventGroup(
+	ctx: WritePorts,
+	input: { eventIds: string[] }
+): Promise<DutyEventRunDeleteResult> {
+	ctx.auth.requirePrivileged();
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+
+	const eventIds = [...new Set(input.eventIds.map((id) => id.trim()).filter(Boolean))];
+	if (eventIds.length === 0) {
+		fail(400, 'At least one duty event id is required.');
+	}
+
+	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
+		inFilters: { id: eventIds }
+	});
+	const runIds = new Set(
+		eventRows
+			.map((row) => row.run_id)
+			.filter((value): value is string => typeof value === 'string' && value.length > 0)
+			.map((value) => String(value))
+	);
+	if (runIds.size > 0) {
+		fail(400, 'Legacy delete only supports events that are not attached to a run.');
+	}
+
+	for (const eventId of eventIds) {
+		await ctx.store.deleteWhere('duty_event_slots', ctx.auth.orgId, { duty_event_id: eventId });
+	}
+	const deletedEvents = await ctx.store.deleteManyByIds('duty_events', ctx.auth.orgId, eventIds);
+
+	ctx.audit.log({
+		action: 'duty_event.legacy_group_deleted',
+		resourceType: 'duty_event',
+		details: { deletedEvents }
+	});
+
+	return { deletedEvents };
 }

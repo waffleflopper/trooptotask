@@ -124,6 +124,7 @@
 						pinnedGroups={pinnedGroupsStore.list}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
+						dutyEvents={ctx.advancedDutyEvents}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={data.permissions?.canEditCalendar ?? false}

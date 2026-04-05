@@ -8,6 +8,7 @@ function renderGenerator() {
 		props: {
 			assignmentTypes: [],
 			assignments: [],
+			advancedDutyEvents: [],
 			personnelByGroup: [],
 			groups: [],
 			availabilityEntries: [],
@@ -31,7 +32,8 @@ describe('DutyRosterGenerator', () => {
 		renderGenerator();
 
 		expect(screen.getByText('Duty planning')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Configuration' })).toBeTruthy();
+		expect(screen.getByText('Setup')).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Continue to Personnel/ })).toBeTruthy();
 		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 });

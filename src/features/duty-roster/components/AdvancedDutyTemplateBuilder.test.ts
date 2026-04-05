@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import AdvancedDutyTemplateBuilder from './AdvancedDutyTemplateBuilder.svelte';
-import type { DutyTemplate } from '../duty-roster.types';
+import { cloneDefaultSoftPreferences, type DutyTemplate } from '../duty-roster.types';
 
 const groups = [
 	{ id: 'group-alpha', name: 'Alpha' },
@@ -40,11 +40,13 @@ function makeTemplate(overrides: Partial<DutyTemplate> = {}): DutyTemplate {
 		description: 'Primary overnight duty',
 		scopeType: 'groups',
 		scopeGroupIds: ['group-alpha'],
+		exemptPersonnelIds: [],
 		coverageMode: 'timed',
 		startTime: '17:00',
 		endTime: '09:00',
 		isBlocking: true,
 		cooldownHours: 12,
+		softPreferences: cloneDefaultSoftPreferences(),
 		createdAt: '2026-04-04T00:00:00.000Z',
 		updatedAt: '2026-04-04T00:00:00.000Z',
 		slots: [
@@ -67,6 +69,33 @@ function makeTemplate(overrides: Partial<DutyTemplate> = {}): DutyTemplate {
 	};
 }
 
+async function selectMultiTagOptions(ariaLabel: string, labels: string[]) {
+	const input = screen.getByLabelText(ariaLabel);
+	await fireEvent.focus(input);
+	for (const label of labels) {
+		const listbox = await screen.findByRole('listbox', { name: ariaLabel });
+		const option = Array.from(listbox.querySelectorAll('[role="option"]')).find(
+			(el) => el.textContent?.trim() === label
+		);
+		if (!option) throw new Error(`Option "${label}" not found in ${ariaLabel}`);
+		await fireEvent.mouseDown(option);
+	}
+}
+
+async function goToPolicyStep() {
+	await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+}
+
+async function goToSeriesStep() {
+	await goToPolicyStep();
+	await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+}
+
+async function goToReviewStep() {
+	await goToSeriesStep();
+	await fireEvent.click(screen.getByRole('button', { name: 'Review Template' }));
+}
+
 describe('AdvancedDutyTemplateBuilder', () => {
 	beforeEach(() => {
 		cleanup();
@@ -80,7 +109,8 @@ describe('AdvancedDutyTemplateBuilder', () => {
 				personnel,
 				canManageTemplates: false,
 				onCreateTemplate: vi.fn(),
-				onUpdateTemplate: vi.fn()
+				onUpdateTemplate: vi.fn(),
+				onArchiveTemplate: vi.fn()
 			}
 		});
 
@@ -96,7 +126,8 @@ describe('AdvancedDutyTemplateBuilder', () => {
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
-				onUpdateTemplate: vi.fn()
+				onUpdateTemplate: vi.fn(),
+				onArchiveTemplate: vi.fn()
 			}
 		});
 
@@ -112,6 +143,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		expect(screen.queryByText('Rotation Starting Points')).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Full Configuration' }));
+		await goToSeriesStep();
 
 		expect(screen.getAllByLabelText('MOS filter').length).toBeGreaterThan(0);
 		expect(screen.getByText('Rotation Starting Points')).toBeTruthy();
@@ -128,7 +160,8 @@ describe('AdvancedDutyTemplateBuilder', () => {
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate,
-				onUpdateTemplate: vi.fn()
+				onUpdateTemplate: vi.fn(),
+				onArchiveTemplate: vi.fn()
 			}
 		});
 
@@ -137,24 +170,17 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			target: { value: 'Company CQ' }
 		});
 		await fireEvent.click(screen.getByRole('button', { name: 'Full Configuration' }));
+		await goToSeriesStep();
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Slot' }));
 		await fireEvent.input(screen.getByLabelText('Role label'), {
 			target: { value: 'Runner' }
 		});
-		const mosSelect = screen.getByLabelText('MOS filter') as HTMLSelectElement;
-		mosSelect.options[0].selected = true;
-		mosSelect.options[1].selected = true;
-		await fireEvent.change(mosSelect);
-		const roleSelect = screen.getByLabelText('Personnel role filter') as HTMLSelectElement;
-		roleSelect.options[0].selected = true;
-		roleSelect.options[1].selected = true;
-		await fireEvent.change(roleSelect);
+		await selectMultiTagOptions('MOS filter', ['11B', '68W']);
+		await selectMultiTagOptions('Personnel role filter', ['Medic', 'Squad Leader']);
 		await fireEvent.input(screen.getByLabelText(/^Rotation group/), {
 			target: { value: 'staff-duty-primary' }
 		});
-		const preferredGroupsSelect = screen.getByLabelText('Preferred groups') as HTMLSelectElement;
-		preferredGroupsSelect.options[0].selected = true;
-		await fireEvent.change(preferredGroupsSelect);
+		await selectMultiTagOptions('Preferred groups', ['Alpha']);
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Baseline' }));
 		await fireEvent.input(screen.getAllByLabelText(/^Rotation group/)[1], {
 			target: { value: 'staff-duty-primary' }
@@ -165,6 +191,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		await fireEvent.input(screen.getByLabelText('Last served date'), {
 			target: { value: '2026-03-10' }
 		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Template' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
 
 		await waitFor(() => {
@@ -173,6 +200,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 					mode: 'advanced',
 					status: 'draft',
 					name: 'Company CQ',
+					softPreferences: cloneDefaultSoftPreferences(),
 					slots: [
 						expect.objectContaining({
 							roleLabel: 'Runner',
@@ -196,7 +224,45 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		});
 	});
 
-	it('uses plain-language copy for rotation groups and manual filters', () => {
+	it('lets full configuration reorder and disable soft preferences before save', async () => {
+		const existing = makeTemplate();
+		const onUpdateTemplate = vi.fn().mockResolvedValue(existing);
+
+		render(AdvancedDutyTemplateBuilder, {
+			props: {
+				templates: [existing],
+				groups,
+				personnel,
+				canManageTemplates: true,
+				onCreateTemplate: vi.fn(),
+				onUpdateTemplate,
+				onArchiveTemplate: vi.fn()
+			}
+		});
+
+		await goToPolicyStep();
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Move Down' })[0]);
+		await fireEvent.click(screen.getAllByLabelText('Enabled')[2]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
+
+		await waitFor(() => {
+			expect(onUpdateTemplate).toHaveBeenCalledWith(
+				expect.objectContaining({
+					id: 'tmpl-1',
+					softPreferences: [
+						{ type: 'holiday-closure', enabled: true },
+						{ type: 'longest-break', enabled: true },
+						{ type: 'weekend', enabled: false },
+						{ type: 'preferred-group', enabled: true }
+					]
+				})
+			);
+		});
+	});
+
+	it('uses plain-language copy for rotation groups and manual filters', async () => {
 		render(AdvancedDutyTemplateBuilder, {
 			props: {
 				templates: [makeTemplate()],
@@ -204,10 +270,12 @@ describe('AdvancedDutyTemplateBuilder', () => {
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
-				onUpdateTemplate: vi.fn()
+				onUpdateTemplate: vi.fn(),
+				onArchiveTemplate: vi.fn()
 			}
 		});
 
+		await goToSeriesStep();
 		expect(screen.getByLabelText('MOS filter')).toBeTruthy();
 		expect(screen.getByLabelText('Personnel role filter')).toBeTruthy();
 		expect(screen.getByLabelText(/^Rotation group/)).toBeTruthy();
@@ -228,7 +296,8 @@ describe('AdvancedDutyTemplateBuilder', () => {
 				personnel,
 				canManageTemplates: true,
 				onCreateTemplate: vi.fn(),
-				onUpdateTemplate
+				onUpdateTemplate,
+				onArchiveTemplate: vi.fn()
 			}
 		});
 
@@ -238,6 +307,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		await fireEvent.input(screen.getByLabelText('Description'), {
 			target: { value: 'Updated overnight policy' }
 		});
+		await goToReviewStep();
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
 
 		await waitFor(() => {

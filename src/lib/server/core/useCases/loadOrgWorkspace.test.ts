@@ -93,6 +93,7 @@ describe('loadOrgWorkspace', () => {
 			assignmentTypes: [{ id: 'at1' } as CalendarBootstrap['assignmentTypes'][0]],
 			dailyAssignments: [{ id: 'da1' } as CalendarBootstrap['dailyAssignments'][0]],
 			pinnedGroups: ['Alpha'],
+			advancedDutyEvents: [],
 			personnel: [{ id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel],
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' } as StatusType],

@@ -38,9 +38,18 @@ export async function findDutyCoverageConflicts(
 		cooldownHours: number;
 		personnelById: Map<string, Personnel>;
 		transientCoverage?: TransientDutyCoverage[];
+		excludeDutyEventIds?: string[];
 	}
 ): Promise<Map<string, string[]>> {
-	const { assigneeIds, coverageStart, coverageEnd, cooldownHours, personnelById, transientCoverage = [] } = input;
+	const {
+		assigneeIds,
+		coverageStart,
+		coverageEnd,
+		cooldownHours,
+		personnelById,
+		transientCoverage = [],
+		excludeDutyEventIds = []
+	} = input;
 	const conflictsByAssignee = new Map<string, string[]>();
 
 	if (assigneeIds.length === 0) {
@@ -48,15 +57,17 @@ export async function findDutyCoverageConflicts(
 	}
 
 	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId);
-	if (eventRows.length > 0) {
-		const eventIds = eventRows.map((row) => String(row.id));
+	const excludedEventIds = new Set(excludeDutyEventIds);
+	const filteredEventRows = eventRows.filter((row) => !excludedEventIds.has(String(row.id)));
+	if (filteredEventRows.length > 0) {
+		const eventIds = filteredEventRows.map((row) => String(row.id));
 		const slotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
 			inFilters: {
 				duty_event_id: eventIds,
 				assignee_id: assigneeIds
 			}
 		});
-		const eventById = new Map(eventRows.map((row) => [String(row.id), row]));
+		const eventById = new Map(filteredEventRows.map((row) => [String(row.id), row]));
 		const newCooldownEnd = addHours(coverageEnd, cooldownHours);
 
 		for (const row of slotRows) {

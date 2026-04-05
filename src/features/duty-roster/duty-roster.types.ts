@@ -102,6 +102,11 @@ export interface DutyEventRulesSnapshot {
 	scopeGroupIds: string[];
 	isBlocking: boolean;
 	cooldownHours: number;
+	rotationBaselines?: Array<{
+		rotationPoolKey: string;
+		personId: string;
+		lastServedDate: string;
+	}>;
 	slots: Array<{
 		templateSlotId: string;
 		roleLabel: string;
@@ -202,6 +207,15 @@ export interface DutyEventApplyInput {
 	eventDate: string;
 	collisionReviewConfirmed?: boolean;
 	slotOverrides?: DutyEventSlotOverrideInput[];
+}
+
+export interface ExistingDutyEventInput {
+	dutyEventId: string;
+	slotOverrides?: DutyEventSlotOverrideInput[];
+}
+
+export interface ExistingDutyEventUpdateInput extends ExistingDutyEventInput {
+	collisionReviewConfirmed?: boolean;
 }
 
 export interface DutyEventSeriesEventOverrideInput {

@@ -22,6 +22,8 @@ import type {
 	DutyEventRulesSnapshot,
 	DutyEventSlotOverrideInput,
 	DutyEventSlotInstance,
+	ExistingDutyEventInput,
+	ExistingDutyEventUpdateInput,
 	DutyTemplate,
 	DutyTemplateRotationBaseline,
 	DutyTemplateSlot
@@ -134,6 +136,11 @@ function buildRulesSnapshot(template: DutyTemplate): DutyEventRulesSnapshot {
 		scopeGroupIds: [...template.scopeGroupIds],
 		isBlocking: template.isBlocking,
 		cooldownHours: template.cooldownHours,
+		rotationBaselines: template.rotationBaselines.map((baseline) => ({
+			rotationPoolKey: baseline.rotationPoolKey,
+			personId: baseline.personId,
+			lastServedDate: baseline.lastServedDate
+		})),
 		slots: template.slots.map((slot) => ({
 			templateSlotId: slot.id,
 			roleLabel: slot.roleLabel,
@@ -145,6 +152,46 @@ function buildRulesSnapshot(template: DutyTemplate): DutyEventRulesSnapshot {
 			allowedRoleValues: [...slot.allowedRoleValues],
 			rotationPoolKey: slot.rotationPoolKey,
 			sortOrder: slot.sortOrder
+		}))
+	};
+}
+
+function buildTemplateFromRulesSnapshot(snapshot: DutyEventRulesSnapshot): DutyTemplate {
+	return {
+		id: snapshot.templateId,
+		orgId: '',
+		mode: 'advanced',
+		status: snapshot.templateStatus,
+		name: snapshot.templateName,
+		description: null,
+		scopeType: snapshot.scopeType,
+		scopeGroupIds: [...snapshot.scopeGroupIds],
+		coverageMode: snapshot.coverageMode,
+		startTime: snapshot.startTime,
+		endTime: snapshot.endTime,
+		isBlocking: snapshot.isBlocking,
+		cooldownHours: snapshot.cooldownHours,
+		createdAt: '',
+		updatedAt: '',
+		slots: snapshot.slots.map((slot) => ({
+			id: slot.templateSlotId,
+			templateId: snapshot.templateId,
+			roleLabel: slot.roleLabel,
+			quantity: slot.quantity,
+			allowedRanks: [...slot.allowedRanks],
+			allowedGroupIds: [...slot.allowedGroupIds],
+			preferredGroupIds: [...slot.preferredGroupIds],
+			allowedMosValues: [...slot.allowedMosValues],
+			allowedRoleValues: [...slot.allowedRoleValues],
+			rotationPoolKey: slot.rotationPoolKey,
+			sortOrder: slot.sortOrder
+		})),
+		rotationBaselines: (snapshot.rotationBaselines ?? []).map((baseline, index) => ({
+			id: `snapshot-baseline-${index}`,
+			templateId: snapshot.templateId,
+			rotationPoolKey: baseline.rotationPoolKey,
+			personId: baseline.personId,
+			lastServedDate: baseline.lastServedDate
 		}))
 	};
 }
@@ -221,7 +268,8 @@ async function buildPoolHistoryIndex(
 	ctx: QueryPorts,
 	template: DutyTemplate,
 	holidayClosureDates: Set<string>,
-	transientEvents: TransientPreviewEvent[] = []
+	transientEvents: TransientPreviewEvent[] = [],
+	excludeDutyEventIds: string[] = []
 ): Promise<Map<string, PoolHistorySummary>> {
 	const historyByPoolPerson = new Map<string, PoolHistorySummary>();
 
@@ -240,15 +288,17 @@ async function buildPoolHistoryIndex(
 	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
 		template_id: template.id
 	});
-	if (eventRows.length === 0) {
+	const excludedEventIds = new Set(excludeDutyEventIds);
+	const filteredEventRows = eventRows.filter((row) => !excludedEventIds.has(String(row.id)));
+	if (filteredEventRows.length === 0) {
 		return historyByPoolPerson;
 	}
 
-	const eventIds = eventRows.map((row) => String(row.id));
+	const eventIds = filteredEventRows.map((row) => String(row.id));
 	const slotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
 		inFilters: { duty_event_id: eventIds }
 	});
-	const eventById = new Map(eventRows.map((row) => [String(row.id), row]));
+	const eventById = new Map(filteredEventRows.map((row) => [String(row.id), row]));
 	for (const slotRow of slotRows) {
 		const assigneeId = slotRow.assignee_id;
 		const templateSlotId = slotRow.template_slot_id;
@@ -533,32 +583,49 @@ async function buildDutyEventPreview(
 	if (template.status !== 'active') {
 		fail(400, 'Only active advanced duty templates can be applied.');
 	}
+	return buildDutyEventPreviewFromResolvedTemplate(ctx, template, input.eventDate, input.slotOverrides, transientEvents);
+}
 
+async function buildDutyEventPreviewFromResolvedTemplate(
+	ctx: QueryPorts,
+	template: DutyTemplate,
+	eventDate: string,
+	slotOverrides: DutyEventSlotOverrideInput[] | undefined,
+	transientEvents: TransientPreviewEvent[] = [],
+	excludeDutyEventIds: string[] = []
+): Promise<DutyEventPreview> {
 	const personnel = await listPersonnel(ctx);
 	const personnelById = new Map(personnel.map((person) => [person.id, person]));
 	const holidayClosureDates = await listHolidayClosureDateSet(ctx);
-	const historyByPoolPerson = await buildPoolHistoryIndex(ctx, template, holidayClosureDates, transientEvents);
+	const historyByPoolPerson = await buildPoolHistoryIndex(
+		ctx,
+		template,
+		holidayClosureDates,
+		transientEvents,
+		excludeDutyEventIds
+	);
 	const slotInstances = generateSlotInstances(
 		template,
 		personnel,
 		personnelById,
 		historyByPoolPerson,
-		input.eventDate,
+		eventDate,
 		holidayClosureDates,
-		input.slotOverrides
+		slotOverrides
 	);
 	const fillSummary = buildFillSummary(slotInstances);
 	const rulesSnapshot = buildRulesSnapshot(template);
-	const coverage = buildCoverageWindow(template, input.eventDate);
+	const coverage = buildCoverageWindow(template, eventDate);
 	const collisionCheck = await buildCollisionSummary(
 		ctx,
 		slotInstances,
-		input.eventDate,
+		eventDate,
 		coverage.coverageStart,
 		coverage.coverageEnd,
 		template.cooldownHours,
 		personnelById,
-		transientEvents
+		transientEvents,
+		excludeDutyEventIds
 	);
 	const finalSlotInstances = slotInstances.map((slot) => {
 		const collisionMessages = collisionCheck.slotMessages.get(buildSlotKey(slot.templateSlotId, slot.slotIndex)) ?? [];
@@ -572,7 +639,7 @@ async function buildDutyEventPreview(
 	return {
 		templateId: template.id,
 		templateName: template.name,
-		eventDate: input.eventDate,
+		eventDate,
 		coverageMode: template.coverageMode,
 		coverageStart: coverage.coverageStart,
 		coverageEnd: coverage.coverageEnd,
@@ -699,7 +766,8 @@ async function buildCollisionSummary(
 	coverageEnd: string,
 	cooldownHours: number,
 	personnelById: Map<string, Personnel>,
-	transientEvents: TransientPreviewEvent[] = []
+	transientEvents: TransientPreviewEvent[] = [],
+	excludeDutyEventIds: string[] = []
 ): Promise<SlotCollisionCheckResult> {
 	const filledSlots = slotInstances.filter((slot): slot is typeof slotInstances[number] & { assigneeId: string } => !!slot.assigneeId);
 	const assigneeIds = [...new Set(filledSlots.map((slot) => slot.assigneeId))];
@@ -754,6 +822,7 @@ async function buildCollisionSummary(
 		coverageEnd,
 		cooldownHours,
 		personnelById,
+		excludeDutyEventIds,
 		transientCoverage: transientEvents.flatMap((event) =>
 			event.slotInstances
 				.filter((slot): slot is typeof slot & { assigneeId: string } => !!slot.assigneeId)
@@ -802,6 +871,62 @@ function hydrateDutyEvent(
 						(a, b) => a.sortOrder - b.sortOrder
 					)
 	};
+}
+
+function buildPreviewFromDutyEvent(event: DutyEvent): DutyEventPreview {
+	return {
+		templateId: event.templateId,
+		templateName: event.templateName,
+		eventDate: event.eventDate,
+		coverageMode: event.coverageMode,
+		coverageStart: event.coverageStart,
+		coverageEnd: event.coverageEnd,
+		isBlocking: event.isBlocking,
+		cooldownHours: event.cooldownHours,
+		rulesSnapshot: event.rulesSnapshot,
+		fillSummary: event.fillSummary,
+		collisionSummary: event.collisionSummary,
+		slotInstances: event.slotInstances.map((slot) => ({
+			templateSlotId: slot.templateSlotId,
+			roleLabel: slot.roleLabel,
+			slotIndex: slot.slotIndex,
+			assigneeId: slot.assigneeId,
+			assignmentSource: slot.assignmentSource,
+			warningState: slot.warningState,
+			fairnessConfidence: slot.fairnessConfidence,
+			selectionReason: slot.selectionReason,
+			unfilledReason: slot.unfilledReason,
+			overrideMessages: slot.overrideMessages,
+			sortOrder: slot.sortOrder
+		}))
+	};
+}
+
+function buildSlotOverridesFromDutyEvent(event: DutyEvent): DutyEventSlotOverrideInput[] {
+	return event.slotInstances.map((slot) => ({
+		templateSlotId: slot.templateSlotId,
+		slotIndex: slot.slotIndex,
+		assigneeId: slot.assigneeId,
+		assignmentSource: slot.assignmentSource === 'generated' ? undefined : slot.assignmentSource
+	}));
+}
+
+async function getDutyEventById(ctx: QueryPorts, dutyEventId: string): Promise<DutyEvent> {
+	const eventRow = await ctx.store.findOne<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+		id: dutyEventId
+	});
+	if (!eventRow) {
+		fail(404, 'Duty event not found');
+	}
+
+	const slotRows = await ctx.store.findMany<Record<string, unknown>>(
+		'duty_event_slots',
+		ctx.auth.orgId,
+		{ duty_event_id: dutyEventId },
+		{ orderBy: [{ column: 'sort_order', ascending: true }] }
+	);
+
+	return hydrateDutyEvent(eventRow, slotRows);
 }
 
 async function getTemplate(ctx: QueryPorts, templateId: string): Promise<DutyTemplate> {
@@ -933,6 +1058,109 @@ export async function previewDutyEventFromTemplate(
 ): Promise<DutyEventPreview> {
 	ctx.auth.requirePrivileged();
 	return buildDutyEventPreview(ctx, input);
+}
+
+export async function previewExistingDutyEvent(
+	ctx: QueryPorts,
+	input: ExistingDutyEventInput
+): Promise<DutyEventPreview> {
+	ctx.auth.requirePrivileged();
+
+	const event = await getDutyEventById(ctx, input.dutyEventId);
+	if (input.slotOverrides === undefined) {
+		return buildPreviewFromDutyEvent(event);
+	}
+
+	const template = buildTemplateFromRulesSnapshot(event.rulesSnapshot);
+	return buildDutyEventPreviewFromResolvedTemplate(ctx, template, event.eventDate, input.slotOverrides, [], [event.id]);
+}
+
+export async function updateExistingDutyEvent(
+	ctx: WritePorts,
+	input: ExistingDutyEventUpdateInput
+): Promise<DutyEvent> {
+	ctx.auth.requirePrivileged();
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) {
+		fail(403, 'Organization is in read-only mode');
+	}
+
+	const existingEvent = await getDutyEventById(ctx, input.dutyEventId);
+	const template = buildTemplateFromRulesSnapshot(existingEvent.rulesSnapshot);
+	const preview = await buildDutyEventPreviewFromResolvedTemplate(
+		ctx,
+		template,
+		existingEvent.eventDate,
+		input.slotOverrides ?? buildSlotOverridesFromDutyEvent(existingEvent),
+		[],
+		[existingEvent.id]
+	);
+
+	if (preview.collisionSummary.hasConflicts && !input.collisionReviewConfirmed) {
+		fail(409, 'Collision review is required before saving this duty event.');
+	}
+
+	const now = new Date().toISOString();
+	const eventRow = await ctx.store.update<Record<string, unknown>>(
+		'duty_events',
+		ctx.auth.orgId,
+		existingEvent.id,
+		{
+			...DutyEventEntity.toDbUpdate({
+				templateId: preview.templateId,
+				templateName: preview.templateName,
+				eventDate: existingEvent.eventDate,
+				coverageMode: preview.coverageMode,
+				coverageStart: preview.coverageStart,
+				coverageEnd: preview.coverageEnd,
+				isBlocking: preview.isBlocking,
+				cooldownHours: preview.cooldownHours,
+				rulesSnapshot: preview.rulesSnapshot,
+				fillSummary: preview.fillSummary,
+				collisionSummary: preview.collisionSummary
+			}),
+			updated_at: now
+		}
+	);
+
+	await ctx.store.deleteWhere('duty_event_slots', ctx.auth.orgId, {
+		duty_event_id: existingEvent.id
+	});
+	const insertedSlotRows =
+		preview.slotInstances.length === 0
+			? []
+			: await ctx.store.insertMany<Record<string, unknown>>(
+					'duty_event_slots',
+					ctx.auth.orgId,
+					preview.slotInstances.map((slot) => ({
+						...DutyEventSlotEntity.toDbInsert(
+							{
+								dutyEventId: existingEvent.id,
+								templateSlotId: slot.templateSlotId,
+								roleLabel: slot.roleLabel,
+								slotIndex: slot.slotIndex,
+								assigneeId: slot.assigneeId,
+								assignmentSource: slot.assignmentSource,
+								warningState: slot.warningState,
+								fairnessConfidence: slot.fairnessConfidence,
+								selectionReason: slot.selectionReason,
+								unfilledReason: slot.unfilledReason,
+								sortOrder: slot.sortOrder
+							},
+							ctx.auth.orgId
+						),
+						duty_event_id: existingEvent.id
+					}))
+				);
+
+	ctx.audit.log({
+		action: 'duty_event.updated',
+		resourceType: 'duty_event',
+		resourceId: existingEvent.id
+	});
+
+	return hydrateDutyEvent(eventRow, insertedSlotRows);
 }
 
 export async function previewDutyEventSeriesFromTemplate(

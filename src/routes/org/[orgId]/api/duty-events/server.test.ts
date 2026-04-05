@@ -3,6 +3,8 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { createDutyTemplate } from '$lib/server/core/useCases/dutyTemplateCrud';
 import { _postConfig as applyConfig } from './+server';
+import { _putConfig as updateExistingConfig } from './[eventId]/+server';
+import { _postConfig as previewExistingConfig } from './[eventId]/preview/+server';
 import { _postConfig as previewConfig } from './preview/+server';
 import { _postConfig as applySeriesConfig } from './series/+server';
 import { _postConfig as previewSeriesConfig } from './series/preview/+server';
@@ -148,6 +150,81 @@ describe('POST /api/duty-events', () => {
 					assignmentSource: 'generated'
 				})
 			])
+		});
+	});
+});
+
+describe('POST /api/duty-events/[eventId]/preview', () => {
+	it('exports a privileged preview route config', () => {
+		expect(previewExistingConfig.permission).toBe('privileged');
+		expect(previewExistingConfig.mutation).toBeFalsy();
+	});
+
+	it('reopens an applied advanced duty event for editing', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+		const applied = await handleUseCaseRequest(applyConfig, ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		const result = await handleUseCaseRequest(previewExistingConfig, ctx, {
+			dutyEventId: applied.id
+		});
+
+		expect(result).toMatchObject({
+			templateId: template.id,
+			eventDate: '2026-04-10',
+			collisionSummary: {
+				hasConflicts: false,
+				conflicts: []
+			}
+		});
+		expect(result.slotInstances).toHaveLength(2);
+	});
+});
+
+describe('PUT /api/duty-events/[eventId]', () => {
+	it('exports a privileged mutation route config', () => {
+		expect(updateExistingConfig.permission).toBe('privileged');
+		expect(updateExistingConfig.mutation).toBe(true);
+	});
+
+	it('updates an applied advanced duty event in place', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+		const applied = await handleUseCaseRequest(applyConfig, ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alt-nco',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Zimmer',
+				first_name: 'Taylor',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const result = await handleUseCaseRequest(updateExistingConfig, ctx, {
+			dutyEventId: applied.id,
+			slotOverrides: [{ templateSlotId: template.slots[0]?.id ?? null, slotIndex: 0, assigneeId: 'person-alt-nco' }]
+		});
+
+		expect(result).toMatchObject({
+			id: applied.id,
+			eventDate: '2026-04-10'
+		});
+		expect(result.slotInstances[0]).toMatchObject({
+			templateSlotId: template.slots[0]?.id,
+			assigneeId: 'person-alt-nco',
+			assignmentSource: 'manual'
 		});
 	});
 });

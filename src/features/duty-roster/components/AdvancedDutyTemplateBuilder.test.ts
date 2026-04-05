@@ -290,7 +290,8 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		});
 
 		await goToPolicyStep();
-		await selectMultiTagOptions('Status exemptions', ['Leave', 'TDY']);
+		await fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'TDY' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Review Template' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
@@ -303,6 +304,25 @@ describe('AdvancedDutyTemplateBuilder', () => {
 				})
 			);
 		});
+	});
+
+	it('shows archive on step 1 and not on the final review step', async () => {
+		render(AdvancedDutyTemplateBuilder, {
+			props: {
+				templates: [makeTemplate()],
+				groups,
+				statusTypes,
+				personnel,
+				canManageTemplates: true,
+				onCreateTemplate: vi.fn(),
+				onUpdateTemplate: vi.fn(),
+				onArchiveTemplate: vi.fn()
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Archive Template' })).toBeTruthy();
+		await goToReviewStep();
+		expect(screen.queryByRole('button', { name: 'Archive Template' })).toBeNull();
 	});
 
 	it('uses plain-language copy for rotation groups and manual filters', async () => {

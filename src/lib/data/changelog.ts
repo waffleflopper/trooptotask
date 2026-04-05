@@ -20,7 +20,8 @@ export const changelog: ChangelogEntry[] = [
 			'Applied advanced duty events can now be reopened as a team, regenerated one slot or one event at a time, and saved back without rerunning the whole series',
 			'Applied advanced duty runs are now grouped into a tighter, easier-to-read ledger so month-long CQ and staff duty schedules no longer turn into a wall of timestamp cards',
 			'Manual calendar assignments now stop and explain when someone is already on conflicting duty coverage or still inside a duty cooldown window, instead of leaving you to guess why the schedule does not make sense',
-			'Advanced duty setup now starts with clearer preset and blank-template options, plus a quick setup path and plain-language policy summary so you do not need to decode roster jargon before building a run'
+			'Advanced duty setup now starts with clearer preset and blank-template options, plus a quick setup path and plain-language policy summary so you do not need to decode roster jargon before building a run',
+			'Applied advanced duty events can now export as a readable team duty packet, and the preview/editor now breaks out why someone was picked, who got skipped, and why a slot stayed unfilled instead of burying that logic in one vague sentence'
 		]
 	},
 	{

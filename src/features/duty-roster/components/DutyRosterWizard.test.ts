@@ -313,6 +313,102 @@ describe('DutyRosterWizard', () => {
 		expect(select.value).toBe('at-sd');
 	});
 
+	it('keeps existing simple-duty roster history visible through the simple lane bridge', async () => {
+		const applyRoster = vi.fn(async () => true);
+
+		renderWizard({
+			onApplyRoster: applyRoster,
+			rosterHistory: [
+				{
+					id: 'history-1',
+					assignmentTypeId: 'at-sd',
+					name: 'Staff Duty - Apr 1, 2026 to Apr 7, 2026',
+					startDate: '2026-04-01',
+					endDate: '2026-04-07',
+					roster: [
+						{
+							date: '2026-04-01',
+							assigneeId: 'person-nco',
+							assigneeName: 'Nolan, Casey',
+							assigneeRank: 'SGT',
+							assigneeGroup: 'Headquarters'
+						}
+					],
+					da6: {
+						personnel: [{ id: 'person-nco', name: 'Nolan, Casey', rank: 'SGT', group: 'Headquarters' }],
+						dates: [{ date: '2026-04-01', positions: [1] }]
+					},
+					config: {},
+					createdAt: '2026-04-04T12:00:00.000Z'
+				}
+			]
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Simple Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: /History/ }));
+
+		expect(screen.getAllByText('Roster History').length).toBeGreaterThan(0);
+		expect(screen.getByText('Staff Duty - Apr 1, 2026 to Apr 7, 2026')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Export' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Re-apply' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Re-apply' }));
+
+		expect(screen.getByText(/overwrite any existing assignments for those dates/i)).toBeTruthy();
+
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Re-apply' }).at(-1)!);
+
+		await waitFor(() => {
+			expect(applyRoster).toHaveBeenCalledWith([
+				{
+					date: '2026-04-01',
+					assignmentTypeId: 'at-sd',
+					assigneeId: 'person-nco'
+				}
+			]);
+		});
+	});
+
+	it('keeps DA Form 6 style preview and export available through the simple lane bridge', async () => {
+		const createObjectUrl = vi.fn(() => 'blob:test-roster');
+		const revokeObjectUrl = vi.fn();
+		const anchorClick = vi.fn();
+		const originalCreateObjectURL = URL.createObjectURL;
+		const originalRevokeObjectURL = URL.revokeObjectURL;
+		const originalAnchorClick = HTMLAnchorElement.prototype.click;
+
+		URL.createObjectURL = createObjectUrl;
+		URL.revokeObjectURL = revokeObjectUrl;
+		HTMLAnchorElement.prototype.click = anchorClick;
+
+		try {
+			renderWizard();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Use Simple Duty' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Generate Roster' }));
+
+			await waitFor(() => {
+				expect(screen.getByRole('button', { name: 'Export to Excel' })).toBeTruthy();
+			});
+
+			await fireEvent.click(screen.getByRole('button', { name: 'DA6 Order' }));
+
+			expect(screen.getByText(/Queue positions reflect each person's priority/)).toBeTruthy();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Export to Excel' }));
+
+			expect(createObjectUrl).toHaveBeenCalled();
+			expect(anchorClick).toHaveBeenCalled();
+			expect(revokeObjectUrl).toHaveBeenCalledWith('blob:test-roster');
+		} finally {
+			URL.createObjectURL = originalCreateObjectURL;
+			URL.revokeObjectURL = originalRevokeObjectURL;
+			HTMLAnchorElement.prototype.click = originalAnchorClick;
+		}
+	});
+
 	it('generates and applies a recurring advanced duty series from a saved template', async () => {
 		const previewHandler = vi.fn(async () => makeSeriesPreview());
 		const applyHandler = vi.fn(async () => makeSeriesApplyResult());

@@ -88,6 +88,35 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		expect(screen.queryByRole('button', { name: 'Save Template' })).toBeNull();
 	});
 
+	it('starts a new advanced setup from a preset in quick setup, then expands to full configuration', async () => {
+		render(AdvancedDutyTemplateBuilder, {
+			props: {
+				templates: [],
+				groups,
+				personnel,
+				canManageTemplates: true,
+				onCreateTemplate: vi.fn(),
+				onUpdateTemplate: vi.fn()
+			}
+		});
+
+		expect(screen.getByText(/Choose a starting point/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Use Battalion Staff Duty Preset/ })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Build from Blank/ })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: /Use Battalion Staff Duty Preset/ }));
+
+		expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Battalion Staff Duty');
+		expect(screen.getByText('Quick Setup')).toBeTruthy();
+		expect(screen.queryByLabelText('MOS filter')).toBeNull();
+		expect(screen.queryByText('Rotation Starting Points')).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Full Configuration' }));
+
+		expect(screen.getAllByLabelText('MOS filter').length).toBeGreaterThan(0);
+		expect(screen.getByText('Rotation Starting Points')).toBeTruthy();
+	});
+
 	it('creates a new advanced template from the builder form', async () => {
 		const created = makeTemplate({ id: 'tmpl-created', name: 'Company CQ', slots: [] });
 		const onCreateTemplate = vi.fn().mockResolvedValue(created);
@@ -103,9 +132,11 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			}
 		});
 
+		await fireEvent.click(screen.getByRole('button', { name: /Build from Blank/ }));
 		await fireEvent.input(screen.getByLabelText('Name'), {
 			target: { value: 'Company CQ' }
 		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Full Configuration' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Slot' }));
 		await fireEvent.input(screen.getByLabelText('Role label'), {
 			target: { value: 'Runner' }

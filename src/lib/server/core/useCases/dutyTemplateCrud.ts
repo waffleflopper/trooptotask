@@ -70,6 +70,20 @@ function parseOrFail<T>(schema: z.ZodType<T>, input: DutyTemplateWriteInput): T 
 	return result.data;
 }
 
+function isMissingDutyTemplatePolicyColumnError(error: unknown): boolean {
+	if (!(error instanceof Error)) {
+		return false;
+	}
+	return error.message.includes('exempt_personnel_ids') || error.message.includes('soft_preferences');
+}
+
+function stripMissingPolicyColumns(payload: Record<string, unknown>): Record<string, unknown> {
+	const next = { ...payload };
+	delete next.exempt_personnel_ids;
+	delete next.soft_preferences;
+	return next;
+}
+
 function normalizeList(values: string[]): string[] {
 	return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
@@ -188,6 +202,17 @@ function hydrateTemplate(
 	baselineRows: Record<string, unknown>[] | DutyTemplateRotationBaseline[] = []
 ): DutyTemplate {
 	const template = DutyTemplateEntity.fromDb(templateRow);
+	const normalizedTemplate: DutyTemplate = {
+		...template,
+		scopeGroupIds: Array.isArray(template.scopeGroupIds) ? template.scopeGroupIds : [],
+		exemptPersonnelIds: Array.isArray(template.exemptPersonnelIds) ? template.exemptPersonnelIds : [],
+		softPreferences:
+			Array.isArray(template.softPreferences) && template.softPreferences.length > 0
+				? template.softPreferences
+				: cloneDefaultSoftPreferences(),
+		slots: [],
+		rotationBaselines: []
+	};
 	const slots =
 		Array.isArray(slotRows) && slotRows.length > 0 && 'templateId' in slotRows[0]
 			? ([...slotRows] as DutyTemplateSlot[]).sort((a, b) => a.sortOrder - b.sortOrder)
@@ -208,7 +233,7 @@ function hydrateTemplate(
 				);
 
 	return {
-		...template,
+		...normalizedTemplate,
 		slots,
 		rotationBaselines
 	};
@@ -301,7 +326,19 @@ export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 		created_at: now,
 		updated_at: now
 	};
-	const row = await ctx.store.insert<Record<string, unknown>>('duty_templates', ctx.auth.orgId, templateData);
+	let row: Record<string, unknown>;
+	try {
+		row = await ctx.store.insert<Record<string, unknown>>('duty_templates', ctx.auth.orgId, templateData);
+	} catch (error) {
+		if (!isMissingDutyTemplatePolicyColumnError(error)) {
+			throw error;
+		}
+		row = await ctx.store.insert<Record<string, unknown>>(
+			'duty_templates',
+			ctx.auth.orgId,
+			stripMissingPolicyColumns(templateData)
+		);
+	}
 	const slots = await createSlotRows(ctx, row.id as string, normalized.slots);
 	const rotationBaselines = await createRotationBaselineRows(ctx, row.id as string, normalized.rotationBaselines);
 
@@ -343,10 +380,24 @@ export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 	}
 
 	const normalized = normalizeTemplateInput(parsed);
-	const row = await ctx.store.update<Record<string, unknown>>('duty_templates', ctx.auth.orgId, parsed.id, {
+	const templateUpdate = {
 		...DutyTemplateEntity.toDbUpdate(normalized),
 		updated_at: new Date().toISOString()
-	});
+	};
+	let row: Record<string, unknown>;
+	try {
+		row = await ctx.store.update<Record<string, unknown>>('duty_templates', ctx.auth.orgId, parsed.id, templateUpdate);
+	} catch (error) {
+		if (!isMissingDutyTemplatePolicyColumnError(error)) {
+			throw error;
+		}
+		row = await ctx.store.update<Record<string, unknown>>(
+			'duty_templates',
+			ctx.auth.orgId,
+			parsed.id,
+			stripMissingPolicyColumns(templateUpdate)
+		);
+	}
 
 	await ctx.store.deleteWhere('duty_template_slots', ctx.auth.orgId, { template_id: parsed.id });
 	const slots = await createSlotRows(ctx, parsed.id, normalized.slots);

@@ -301,13 +301,12 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			}
 		});
 
-		expect(screen.getByLabelText('Template summary').textContent).toContain('Battalion Staff Duty');
-		expect(screen.getByLabelText('Template summary').textContent).toContain('1 x NCO');
-
 		await fireEvent.input(screen.getByLabelText('Description'), {
 			target: { value: 'Updated overnight policy' }
 		});
 		await goToReviewStep();
+		expect(screen.getByLabelText('Template summary').textContent).toContain('Battalion Staff Duty');
+		expect(screen.getByLabelText('Template summary').textContent).toContain('1 x NCO');
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
 
 		await waitFor(() => {
@@ -320,7 +319,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		});
 
 		await waitFor(() => {
-			expect(screen.getByLabelText('Template summary').textContent).toContain('Status: active');
+			expect((screen.getByLabelText('Status') as HTMLSelectElement).value).toBe('active');
 		});
 	});
 });

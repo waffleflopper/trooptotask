@@ -1,4 +1,21 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllSupabaseRows } from './supabasePagination';
+
+interface PendingOrgInvitation {
+	organization_id: string;
+	can_view_calendar: boolean | null;
+	can_edit_calendar: boolean | null;
+	can_view_personnel: boolean | null;
+	can_edit_personnel: boolean | null;
+	can_view_training: boolean | null;
+	can_edit_training: boolean | null;
+	can_view_onboarding: boolean | null;
+	can_edit_onboarding: boolean | null;
+	can_view_leaders_book: boolean | null;
+	can_edit_leaders_book: boolean | null;
+	can_manage_members: boolean | null;
+	scoped_group_id: string | null;
+}
 
 export async function autoAcceptOrgInvites(
 	supabase: SupabaseClient,
@@ -7,13 +24,20 @@ export async function autoAcceptOrgInvites(
 ): Promise<{ accepted: number }> {
 	const normalizedEmail = email.toLowerCase();
 
-	const { data: invitations } = await supabase
-		.from('organization_invitations')
-		.select(
-			'organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
-		)
-		.eq('email', normalizedEmail)
-		.eq('status', 'pending');
+	const { data: invitations } = await selectAllSupabaseRows<PendingOrgInvitation>(
+		(from, to) =>
+			supabase
+				.from('organization_invitations')
+				.select(
+					'organization_id, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
+				)
+				.eq('email', normalizedEmail)
+				.eq('status', 'pending')
+				.range(from, to) as unknown as Promise<{
+				data: PendingOrgInvitation[] | null;
+				error: unknown;
+			}>
+	);
 
 	if (!invitations || invitations.length === 0) {
 		return { accepted: 0 };

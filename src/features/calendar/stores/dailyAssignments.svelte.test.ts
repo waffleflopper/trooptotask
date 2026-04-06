@@ -168,16 +168,17 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 		it('should rollback on failure', async () => {
 			vi.stubGlobal('fetch', mockFetch(null, 500));
 
-			const result = await dailyAssignmentsStore.addType({
-				name: 'CQ',
-				shortName: 'CQ',
-				assignTo: 'personnel',
-				color: '#fff',
-				exemptPersonnelIds: [],
-				showInDateHeader: false
-			});
+			await expect(
+				dailyAssignmentsStore.addType({
+					name: 'CQ',
+					shortName: 'CQ',
+					assignTo: 'personnel',
+					color: '#fff',
+					exemptPersonnelIds: [],
+					showInDateHeader: false
+				})
+			).rejects.toThrow('POST assignment-types failed (500)');
 
-			expect(result).toBeNull();
 			expect(dailyAssignmentsStore.types).toEqual([]);
 		});
 

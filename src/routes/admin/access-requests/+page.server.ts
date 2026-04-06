@@ -2,22 +2,70 @@ import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { sendAccessRequestSetupEmail } from '$lib/server/accessRequestAuth';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+
+interface AccessRequestInvite {
+	used_at: string | null;
+}
+
+interface AccessRequestRow {
+	id: string;
+	name: string;
+	email: string;
+	reason: string | null;
+	status: 'pending' | 'approved' | 'rejected';
+	created_at: string;
+	reviewed_at: string | null;
+	registration_invites: AccessRequestInvite | AccessRequestInvite[] | null;
+}
+
+interface AccessRequestItem {
+	id: string;
+	name: string;
+	email: string;
+	reason: string | null;
+	status: 'pending' | 'approved' | 'rejected';
+	created_at: string;
+	reviewed_at: string | null;
+	registration_invites: AccessRequestInvite | null;
+}
+
+function normalizeInvite(invite: AccessRequestRow['registration_invites']): AccessRequestInvite | null {
+	if (Array.isArray(invite)) return invite[0] ?? null;
+	return invite ?? null;
+}
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'access-requests',
 	fn: async (ctx, event) => {
 		const supabase = event.locals.supabase;
 
-		const { data: requests, error: fetchError } = await supabase
-			.from('access_requests')
-			.select('*, registration_invites(id, code, used_by, used_at, expires_at)')
-			.order('created_at', { ascending: false });
+		const { data: requests, error: fetchError } = await selectAllSupabaseRows<AccessRequestRow>(
+			(from, to) =>
+				supabase
+					.from('access_requests')
+					.select('*, registration_invites(id, code, used_by, used_at, expires_at)')
+					.order('created_at', { ascending: false })
+					.range(from, to) as unknown as Promise<{
+					data: AccessRequestRow[] | null;
+					error: unknown;
+				}>
+		);
 
 		if (fetchError) {
 			console.error('Failed to fetch access requests:', fetchError);
 		}
 
-		const allRequests = requests ?? [];
+		const allRequests: AccessRequestItem[] = (requests ?? []).map((request) => ({
+			id: request.id,
+			name: request.name,
+			email: request.email,
+			reason: request.reason,
+			status: request.status,
+			created_at: request.created_at,
+			reviewed_at: request.reviewed_at,
+			registration_invites: normalizeInvite(request.registration_invites)
+		}));
 
 		return {
 			pending: allRequests.filter((r) => r.status === 'pending'),

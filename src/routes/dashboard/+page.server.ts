@@ -2,6 +2,7 @@ import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { PERMISSION_PRESETS } from '$lib/types';
 import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const user = locals.user;
@@ -11,10 +12,17 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const forceShow = url.searchParams.get('show') === 'all';
 
 	// Get organizations the user belongs to
-	const { data: memberships } = await locals.supabase
-		.from('organization_memberships')
-		.select('organization_id, role, organizations(id, name)')
-		.eq('user_id', user.id);
+	const { data: memberships } = await selectAllSupabaseRows<Record<string, unknown>>(
+		(from, to) =>
+			locals.supabase
+				.from('organization_memberships')
+				.select('organization_id, role, organizations(id, name)')
+				.eq('user_id', user.id)
+				.range(from, to) as unknown as Promise<{
+				data: Record<string, unknown>[] | null;
+				error: unknown;
+			}>
+	);
 
 	const organizations = (memberships ?? [])
 		.filter((m: Record<string, unknown>) => m.organizations)
@@ -24,12 +32,19 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		});
 
 	// Get pending invitations for this user's email
-	const { data: invitations } = await locals.supabase
-		.from('organization_invitations')
-		.select('id, organization_id, email, status, created_at, organizations(id, name)')
-		.eq('email', user.email?.toLowerCase())
-		.eq('status', 'pending')
-		.order('created_at', { ascending: false });
+	const { data: invitations } = await selectAllSupabaseRows<Record<string, unknown>>(
+		(from, to) =>
+			locals.supabase
+				.from('organization_invitations')
+				.select('id, organization_id, email, status, created_at, organizations(id, name)')
+				.eq('email', user.email?.toLowerCase())
+				.eq('status', 'pending')
+				.order('created_at', { ascending: false })
+				.range(from, to) as unknown as Promise<{
+				data: Record<string, unknown>[] | null;
+				error: unknown;
+			}>
+	);
 
 	const pendingInvitations = (invitations ?? [])
 		.filter((inv: Record<string, unknown>) => inv.organizations)

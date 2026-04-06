@@ -3,23 +3,49 @@ import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { validateAnnouncement } from '$lib/server/admin';
 import { validateUUID } from '$lib/server/validation';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+
+interface AnnouncementRow {
+	id: string;
+	title: string;
+	message: string;
+	type: string;
+	is_active: boolean;
+	created_at: string;
+	expires_at: string | null;
+}
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'announcements',
 	fn: async (ctx) => {
 		const { adminClient } = ctx;
 
-		const { data: announcements, error: err } = await adminClient
-			.from('platform_announcements')
-			.select('*')
-			.order('created_at', { ascending: false });
+		const { data: announcements, error: err } = await selectAllSupabaseRows<AnnouncementRow>(
+			(from, to) =>
+				adminClient
+					.from('platform_announcements')
+					.select('*')
+					.order('created_at', { ascending: false })
+					.range(from, to) as unknown as Promise<{
+					data: AnnouncementRow[] | null;
+					error: unknown;
+				}>
+		);
 
 		if (err) {
 			console.error('Failed to load announcements');
 		}
 
 		return {
-			announcements: announcements ?? []
+			announcements: (announcements ?? []).map((announcement) => ({
+				id: announcement.id,
+				title: announcement.title,
+				message: announcement.message,
+				type: announcement.type,
+				is_active: announcement.is_active,
+				created_at: announcement.created_at,
+				expires_at: announcement.expires_at
+			}))
 		};
 	}
 });

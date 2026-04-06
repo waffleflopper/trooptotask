@@ -41,7 +41,7 @@ function createMockSupabase(builder: Record<string, unknown>): SupabaseClient {
 	} as unknown as SupabaseClient;
 }
 
-function createPagedMockSupabase(results: Array<{ data: unknown; error?: unknown }>): {
+function createPagedMockSupabase(results: Array<{ data: unknown; error?: unknown; count?: number | null }>): {
 	supabase: SupabaseClient;
 	calls: Call[];
 	fromCalls: ReturnType<typeof vi.fn>;
@@ -49,9 +49,12 @@ function createPagedMockSupabase(results: Array<{ data: unknown; error?: unknown
 	const calls: Call[] = [];
 	let index = 0;
 	const fromCalls = vi.fn(() => {
-		const current = results[Math.min(index, results.length - 1)] ?? { data: [], error: null };
+		const current = results[Math.min(index, results.length - 1)] ?? { data: [], error: null, count: null };
 		index += 1;
-		return createMockQueryBuilder(current.data, current.error ?? null, calls).builder;
+		const { builder } = createMockQueryBuilder(current.data, current.error ?? null, calls);
+		builder.then = (resolve: (val: unknown) => void) =>
+			resolve({ data: current.data, error: current.error ?? null, count: current.count ?? null });
+		return builder;
 	});
 
 	return {

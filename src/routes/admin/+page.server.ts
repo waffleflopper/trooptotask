@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	fn: async (ctx) => {
@@ -13,7 +14,17 @@ export const load: PageServerLoad = loadWithAdminContext({
 			.select('*', { count: 'exact', head: true })
 			.is('demo_type', null);
 
-		const { data: orgTiers } = await adminClient.from('organizations').select('tier, gift_tier').is('demo_type', null);
+		const { data: orgTiers } = await selectAllSupabaseRows<{ tier: string | null; gift_tier: string | null }>(
+			(from, to) =>
+				adminClient
+					.from('organizations')
+					.select('tier, gift_tier')
+					.is('demo_type', null)
+					.range(from, to) as unknown as Promise<{
+					data: { tier: string | null; gift_tier: string | null }[] | null;
+					error: unknown;
+				}>
+		);
 
 		const tierCounts = { free: 0, team: 0, unit: 0 };
 		for (const org of orgTiers ?? []) {

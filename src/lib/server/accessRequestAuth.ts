@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllSupabaseRows } from './supabasePagination';
 
 export type AccessRequestDeliveryMethod = 'invite' | 'recovery';
 export type AccessRequestRenewalResult =
@@ -66,11 +67,21 @@ export async function renewApprovedAccessRequestInvite(
 	origin: string
 ): Promise<AccessRequestRenewalResult> {
 	const normalizedEmail = normalizeEmail(email);
-	const { data: approvedRequests, error: fetchError } = await adminClient
-		.from('access_requests')
-		.select('id, registration_invites(used_at)')
-		.eq('status', 'approved')
-		.eq('email', normalizedEmail);
+	const { data: approvedRequests, error: fetchError } = await selectAllSupabaseRows<{
+		id: string;
+		registration_invites: AccessRequestInviteJoin;
+	}>(
+		(from, to) =>
+			adminClient
+				.from('access_requests')
+				.select('id, registration_invites(used_at)')
+				.eq('status', 'approved')
+				.eq('email', normalizedEmail)
+				.range(from, to) as unknown as Promise<{
+				data: { id: string; registration_invites: AccessRequestInviteJoin }[] | null;
+				error: unknown;
+			}>
+	);
 
 	if (fetchError) {
 		throw fetchError;
@@ -95,12 +106,19 @@ export async function markApprovedAccessRequestCompleted(
 	userId: string
 ): Promise<{ updated: number }> {
 	const normalizedEmail = normalizeEmail(email);
-	const { data: approvedRequests, error: fetchError } = await adminClient
-		.from('access_requests')
-		.select('invite_id')
-		.eq('status', 'approved')
-		.eq('email', normalizedEmail)
-		.not('invite_id', 'is', null);
+	const { data: approvedRequests, error: fetchError } = await selectAllSupabaseRows<{ invite_id: string | null }>(
+		(from, to) =>
+			adminClient
+				.from('access_requests')
+				.select('invite_id')
+				.eq('status', 'approved')
+				.eq('email', normalizedEmail)
+				.not('invite_id', 'is', null)
+				.range(from, to) as unknown as Promise<{
+				data: { invite_id: string | null }[] | null;
+				error: unknown;
+			}>
+	);
 
 	if (fetchError) {
 		throw fetchError;

@@ -9,7 +9,7 @@
 	interface Props {
 		personnel?: Personnel | null;
 		groups: Group[];
-		onSubmit: (data: Omit<Personnel, 'id'>) => void;
+		onSubmit: (data: Omit<Personnel, 'id'>) => void | Promise<void>;
 		onRemove?: (id: string) => void;
 		onClose: () => void;
 	}
@@ -36,22 +36,36 @@
 	const isValid = $derived(firstName.trim() !== '' && lastName.trim() !== '');
 
 	const selectedGroupName = $derived(groups.find((g) => g.id === groupId)?.name ?? '');
+	let isSaving = $state(false);
 
-	function handleSubmit(e: Event) {
+	function getErrorMessage(error: unknown): string {
+		if (error instanceof Error && error.message.trim()) return error.message;
+		return isEditing ? 'Failed to update personnel' : 'Failed to add personnel';
+	}
+
+	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		if (!isValid) return;
+		if (!isValid || isSaving) return;
 
-		onSubmit({
-			rank,
-			firstName: firstName.trim(),
-			lastName: lastName.trim(),
-			mos: mos.trim(),
-			clinicRole: clinicRole.trim(),
-			groupId: groupId || null,
-			groupName: selectedGroupName
-		});
-		toastStore.success(isEditing ? 'Personnel updated' : 'Personnel added');
-		onClose();
+		isSaving = true;
+
+		try {
+			await onSubmit({
+				rank,
+				firstName: firstName.trim(),
+				lastName: lastName.trim(),
+				mos: mos.trim(),
+				clinicRole: clinicRole.trim(),
+				groupId: groupId || null,
+				groupName: selectedGroupName
+			});
+			toastStore.success(isEditing ? 'Personnel updated' : 'Personnel added');
+			onClose();
+		} catch (error) {
+			toastStore.error(getErrorMessage(error));
+		} finally {
+			isSaving = false;
+		}
 	}
 
 	let showArchiveConfirm = $state(false);
@@ -167,10 +181,14 @@
 			type="button"
 			class="btn btn-primary"
 			data-testid="personnel-save"
-			disabled={!isValid}
+			disabled={!isValid || isSaving}
 			onclick={handleSubmit}
 		>
-			{isEditing ? 'Save Changes' : 'Add Personnel'}
+			{#if isSaving}
+				Saving...
+			{:else}
+				{isEditing ? 'Save Changes' : 'Add Personnel'}
+			{/if}
 		</button>
 	{/snippet}
 </Modal>

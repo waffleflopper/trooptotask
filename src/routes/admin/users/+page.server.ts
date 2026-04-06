@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'users',
@@ -57,7 +58,13 @@ export const load: PageServerLoad = loadWithAdminContext({
 		const userIds = pagedUsers.map((u) => u.id);
 		const [orgMembershipsResult, suspensionsResult] = await Promise.all([
 			adminClient.from('organization_memberships').select('user_id').in('user_id', userIds),
-			adminClient.from('user_suspensions').select('user_id')
+			selectAllSupabaseRows<{ user_id: string }>(
+				(from, to) =>
+					adminClient.from('user_suspensions').select('user_id').range(from, to) as unknown as Promise<{
+						data: { user_id: string }[] | null;
+						error: unknown;
+					}>
+			)
 		]);
 
 		const orgCountMap: Record<string, number> = {};

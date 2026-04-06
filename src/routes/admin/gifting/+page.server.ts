@@ -4,6 +4,7 @@ import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAda
 import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
 import type { Tier } from '$lib/types/subscription';
 import { invalidateTierCache } from '$lib/server/subscription';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 
@@ -27,13 +28,20 @@ export const load: PageServerLoad = loadWithAdminContext({
 		const { adminClient } = ctx;
 		const search = event.url.searchParams.get('search') || '';
 
-		const { data: orgs, error: orgsError } = await adminClient
-			.from('organizations')
-			.select(
-				'id, name, created_by, tier, gift_tier, gift_expires_at, gifted_by, stripe_subscription_id, subscription_status, stripe_customer_id, demo_type'
-			)
-			.is('demo_type', null)
-			.order('name');
+		const { data: orgs, error: orgsError } = await selectAllSupabaseRows<OrgRow>(
+			(from, to) =>
+				adminClient
+					.from('organizations')
+					.select(
+						'id, name, created_by, tier, gift_tier, gift_expires_at, gifted_by, stripe_subscription_id, subscription_status, stripe_customer_id, demo_type'
+					)
+					.is('demo_type', null)
+					.order('name')
+					.range(from, to) as unknown as Promise<{
+					data: OrgRow[] | null;
+					error: unknown;
+				}>
+		);
 
 		if (orgsError) {
 			console.error('[admin/gifting] Failed to fetch organizations:', orgsError);
@@ -42,9 +50,20 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		const allOrgs = (orgs ?? []) as OrgRow[];
 
-		const { data: authResult } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+		let authUsers: Array<{ id: string; email?: string | null }> = [];
+		let fetchPage = 1;
+		let hasMoreUsers = true;
+
+		while (hasMoreUsers) {
+			const { data: authResult } = await adminClient.auth.admin.listUsers({ page: fetchPage, perPage: 1000 });
+			const users = authResult?.users ?? [];
+			authUsers = authUsers.concat(users);
+			hasMoreUsers = users.length === 1000;
+			fetchPage += 1;
+		}
+
 		const emailMap: Record<string, string> = {};
-		(authResult?.users ?? []).forEach((u) => {
+		authUsers.forEach((u) => {
 			emailMap[u.id] = u.email || 'Unknown';
 		});
 

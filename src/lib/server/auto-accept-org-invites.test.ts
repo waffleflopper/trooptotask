@@ -12,7 +12,9 @@ function createMockSupabase(invitations: Record<string, unknown>[] = []) {
 				return {
 					select: vi.fn().mockReturnValue({
 						eq: vi.fn().mockReturnValue({
-							eq: vi.fn().mockResolvedValue({ data: invitations, error: null })
+							eq: vi.fn().mockReturnValue({
+								range: vi.fn().mockResolvedValue({ data: invitations, error: null })
+							})
 						})
 					}),
 					update: vi.fn().mockReturnValue({
@@ -202,7 +204,9 @@ describe('autoAcceptOrgInvites', () => {
 					return {
 						select: vi.fn().mockReturnValue({
 							eq: vi.fn().mockReturnValue({
-								eq: vi.fn().mockResolvedValue({ data: invitations, error: null })
+								eq: vi.fn().mockReturnValue({
+									range: vi.fn().mockResolvedValue({ data: invitations, error: null })
+								})
 							})
 						}),
 						update: vi.fn().mockReturnValue({

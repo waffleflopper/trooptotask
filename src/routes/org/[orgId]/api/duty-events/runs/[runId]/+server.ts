@@ -3,7 +3,7 @@ import type { DutyEventRunDeleteResult } from '$features/duty-roster/duty-roster
 import { deleteDutyEventRun } from '$lib/server/core/useCases/dutyEventCrud';
 
 export const _deleteConfig: RouteConfig<{ runId: string }, DutyEventRunDeleteResult> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	mutation: true,
 	fn: (ctx, input) => deleteDutyEventRun(ctx, input)
 };

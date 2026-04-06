@@ -5,7 +5,8 @@ import {
 	createDailyAssignment,
 	deleteDailyAssignment,
 	replaceDailyAssignments,
-	setDailyAssignment
+	setDailyAssignment,
+	updateDailyAssignment
 } from './dailyAssignments';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
@@ -119,6 +120,80 @@ describe('replaceDailyAssignments', () => {
 		const stored = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
 		expect(stored).toHaveLength(1);
 		expect(stored[0]?.id).toBe('old-1');
+	});
+
+	it('rejects replacing a day when a new assignee already has overlapping duty coverage', async () => {
+		const ctx = buildContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-1',
+				organization_id: 'test-org',
+				rank: 'SGT',
+				last_name: 'Nolan',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+		ctx.store.seed('daily_assignments', [
+			{ id: 'old-1', organization_id: 'test-org', date: '2025-04-01', assignment_type_id: 'at-1', assignee_id: 'p-old' }
+		]);
+		ctx.store.seed('duty_events', [
+			{
+				id: 'duty-event-1',
+				organization_id: 'test-org',
+				template_id: 'tmpl-1',
+				template_name: 'Battalion Staff Duty',
+				event_date: '2025-04-01',
+				coverage_start: '2025-04-01T06:00:00',
+				coverage_end: '2025-04-01T18:00:00',
+				coverage_mode: 'timed',
+				start_time: '06:00',
+				end_time: '18:00',
+				is_blocking: true,
+				cooldown_hours: 12,
+				fill_summary: {},
+				collision_summary: {},
+				rules_snapshot: {}
+			}
+		]);
+		ctx.store.seed('duty_event_slots', [
+			{
+				id: 'duty-slot-1',
+				organization_id: 'test-org',
+				duty_event_id: 'duty-event-1',
+				template_slot_id: 'slot-nco',
+				role_label: 'NCO',
+				slot_index: 0,
+				assignee_id: 'p-1',
+				assignment_source: 'generated',
+				warning_state: 'none',
+				fairness_confidence: 'high',
+				selection_reason: null,
+				unfilled_reason: null,
+				sort_order: 0
+			}
+		]);
+
+		await expect(
+			replaceDailyAssignments(ctx, {
+				date: '2025-04-01',
+				records: [{ assignmentTypeId: 'at-1', assigneeId: 'p-1' }]
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: 'SGT Nolan is already assigned to duty coverage from 2025-04-01T06:00:00 to 2025-04-01T18:00:00.'
+		});
+
+		const stored = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
+		expect(stored).toHaveLength(1);
+		expect(stored[0]).toMatchObject({
+			id: 'old-1',
+			assignee_id: 'p-old'
+		});
 	});
 });
 
@@ -329,6 +404,82 @@ describe('setDailyAssignment', () => {
 		).rejects.toMatchObject({
 			status: 409,
 			message: 'SGT Nolan is still in cooldown until 2025-04-01T20:00:00.'
+		});
+	});
+});
+
+describe('updateDailyAssignment', () => {
+	it('rejects updating an assignment when the new assignee already has overlapping duty coverage', async () => {
+		const ctx = buildContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-1',
+				organization_id: 'test-org',
+				rank: 'SGT',
+				last_name: 'Nolan',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+		ctx.store.seed('daily_assignments', [
+			{ id: 'da-1', organization_id: 'test-org', date: '2025-04-01', assignment_type_id: 'at-1', assignee_id: 'p-old' }
+		]);
+		ctx.store.seed('duty_events', [
+			{
+				id: 'duty-event-1',
+				organization_id: 'test-org',
+				template_id: 'tmpl-1',
+				template_name: 'Battalion Staff Duty',
+				event_date: '2025-04-01',
+				coverage_start: '2025-04-01T06:00:00',
+				coverage_end: '2025-04-01T18:00:00',
+				coverage_mode: 'timed',
+				start_time: '06:00',
+				end_time: '18:00',
+				is_blocking: true,
+				cooldown_hours: 12,
+				fill_summary: {},
+				collision_summary: {},
+				rules_snapshot: {}
+			}
+		]);
+		ctx.store.seed('duty_event_slots', [
+			{
+				id: 'duty-slot-1',
+				organization_id: 'test-org',
+				duty_event_id: 'duty-event-1',
+				template_slot_id: 'slot-nco',
+				role_label: 'NCO',
+				slot_index: 0,
+				assignee_id: 'p-1',
+				assignment_source: 'generated',
+				warning_state: 'none',
+				fairness_confidence: 'high',
+				selection_reason: null,
+				unfilled_reason: null,
+				sort_order: 0
+			}
+		]);
+
+		await expect(
+			updateDailyAssignment(ctx, {
+				id: 'da-1',
+				assigneeId: 'p-1'
+			})
+		).rejects.toMatchObject({
+			status: 409,
+			message: 'SGT Nolan is already assigned to duty coverage from 2025-04-01T06:00:00 to 2025-04-01T18:00:00.'
+		});
+
+		const stored = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
+		expect(stored).toHaveLength(1);
+		expect(stored[0]).toMatchObject({
+			id: 'da-1',
+			assignee_id: 'p-old'
 		});
 	});
 });

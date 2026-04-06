@@ -3,7 +3,7 @@ import type { DutyEventRunDeleteResult } from '$features/duty-roster/duty-roster
 import { deleteLegacyDutyEventGroup } from '$lib/server/core/useCases/dutyEventCrud';
 
 export const _postConfig: RouteConfig<{ eventIds: string[] }, DutyEventRunDeleteResult> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	mutation: true,
 	fn: (ctx, input) => deleteLegacyDutyEventGroup(ctx, input)
 };

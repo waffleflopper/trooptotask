@@ -3,13 +3,13 @@ import type { DutyTemplate, DutyTemplateWriteInput } from '$features/duty-roster
 import { createDutyTemplate, updateDutyTemplate } from '$lib/server/core/useCases/dutyTemplateCrud';
 
 export const _postConfig: RouteConfig<DutyTemplateWriteInput, DutyTemplate> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	mutation: true,
 	fn: (ctx, input) => createDutyTemplate(ctx, input)
 };
 
 export const _putConfig: RouteConfig<DutyTemplateWriteInput, DutyTemplate> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	mutation: true,
 	fn: (ctx, input) => updateDutyTemplate(ctx, input)
 };

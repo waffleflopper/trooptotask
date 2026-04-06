@@ -3,7 +3,7 @@ import type { DutyEventApplyInput, DutyEventPreview } from '$features/duty-roste
 import { previewDutyEventFromTemplate } from '$lib/server/core/useCases/dutyEventCrud';
 
 export const _postConfig: RouteConfig<DutyEventApplyInput, DutyEventPreview> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	fn: (ctx, input) => previewDutyEventFromTemplate(ctx, input)
 };
 

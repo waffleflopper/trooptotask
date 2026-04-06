@@ -1089,7 +1089,7 @@
 						Use Advanced Duty
 					</button>
 					{#if !canManageAdvancedTemplates}
-						<p class="lane-note">Advanced duty generation is limited to organization admins.</p>
+						<p class="lane-note">Advanced duty is limited to full-organization admins and full editors.</p>
 					{/if}
 				</article>
 			</div>

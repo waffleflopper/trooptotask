@@ -3,7 +3,7 @@ import type { DutyEventPreview, ExistingDutyEventInput } from '$features/duty-ro
 import { previewExistingDutyEvent } from '$lib/server/core/useCases/dutyEventCrud';
 
 export const _postConfig: RouteConfig<ExistingDutyEventInput, DutyEventPreview> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	mutation: false,
 	fn: (ctx, input) => previewExistingDutyEvent(ctx, input)
 };

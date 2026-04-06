@@ -3,7 +3,7 @@ import type { DutyEventSeriesInput, DutyEventSeriesPreview } from '$features/dut
 import { previewDutyEventSeriesFromTemplate } from '$lib/server/core/useCases/dutyEventCrud';
 
 export const _postConfig: RouteConfig<DutyEventSeriesInput, DutyEventSeriesPreview> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	fn: (ctx, input) => previewDutyEventSeriesFromTemplate(ctx, input)
 };
 

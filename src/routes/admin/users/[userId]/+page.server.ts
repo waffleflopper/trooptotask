@@ -1,6 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'users',
@@ -14,10 +15,17 @@ export const load: PageServerLoad = loadWithAdminContext({
 		}
 
 		const [orgsResult, suspensionResult, auditResult] = await Promise.all([
-			adminClient
-				.from('organization_memberships')
-				.select('organization_id, role, organizations(id, name, tier, gift_tier)')
-				.eq('user_id', userId),
+			selectAllSupabaseRows<Record<string, unknown>>(
+				(from, to) =>
+					adminClient
+						.from('organization_memberships')
+						.select('organization_id, role, organizations(id, name, tier, gift_tier)')
+						.eq('user_id', userId)
+						.range(from, to) as unknown as Promise<{
+						data: Record<string, unknown>[] | null;
+						error: unknown;
+					}>
+			),
 			adminClient
 				.from('user_suspensions')
 				.select('user_id, suspended_at, suspended_by, reason')

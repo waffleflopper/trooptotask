@@ -9,8 +9,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DataStore, FindOptions, FindResult } from '../core/ports';
-
-const SUPABASE_PAGE_SIZE = 1000;
+import { selectAllSupabaseRows, SUPABASE_PAGE_SIZE } from '$lib/server/supabasePagination';
 
 function getOrgColumn(table: string): string {
 	switch (table) {
@@ -174,20 +173,39 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 		): Promise<FindResult<T>> {
 			const countMode = options?.count ?? 'exact';
 			const orgColumn = getOrgColumn(table);
-			let query = supabase
-				.from(table)
-				.select(options?.select ?? '*', { count: countMode })
-				.eq(orgColumn, orgId);
 
-			query = applyFindOptions(query, filters, options);
+			async function fetchPage(range?: { from: number; to: number }) {
+				let query = supabase
+					.from(table)
+					.select(options?.select ?? '*', { count: countMode })
+					.eq(orgColumn, orgId);
 
-			const { data, error, count } = await query;
+				query = applyFindOptions(query, filters, range ? { ...options, range } : options);
 
-			if (error) {
-				throw new Error(error.message);
+				return query as unknown as Promise<{
+					data: T[] | null;
+					error: { message?: string } | null;
+					count: number | null;
+				}>;
 			}
 
-			return { data: (data ?? []) as T[], count: count ?? null };
+			if (options?.range || options?.limit !== undefined) {
+				const { data, error, count } = await fetchPage();
+
+				if (error) {
+					throw new Error(error.message);
+				}
+
+				return { data: (data ?? []) as T[], count: count ?? null };
+			}
+
+			const result = await selectAllSupabaseRows<T>((from, to) => fetchPage({ from, to }));
+
+			if (result.error) {
+				throw new Error((result.error as { message?: string }).message ?? 'Supabase query failed');
+			}
+
+			return { data: result.data ?? [], count: result.count ?? null };
 		},
 
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T> {

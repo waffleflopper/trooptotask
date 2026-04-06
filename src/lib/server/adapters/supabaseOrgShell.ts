@@ -29,6 +29,7 @@ import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
 import { fetchDashboardBootstrap } from '../core/useCases/dashboardQuery';
 import { fetchPersonnelBootstrap } from '../core/useCases/personnelWorkspaceQuery';
 import { formatDate } from '$lib/utils/dates';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
@@ -121,22 +122,46 @@ export function createSupabaseOrgChromePort(config: {
 	return {
 		async getChromeData(): Promise<ChromeData> {
 			const [membershipsRes, notifRes, announcementsRes, dismissalsRes, userPrefsRes] = await Promise.all([
-				config.userSupabase
-					.from('organization_memberships')
-					.select('role, organizations(id, name)')
-					.eq('user_id', config.userId),
+				selectAllSupabaseRows<Record<string, unknown>>(
+					(from, to) =>
+						config.userSupabase
+							.from('organization_memberships')
+							.select('role, organizations(id, name)')
+							.eq('user_id', config.userId)
+							.range(from, to) as unknown as Promise<{
+							data: Record<string, unknown>[] | null;
+							error: unknown;
+						}>
+				),
 				config.userSupabase
 					.from('notifications')
 					.select('id', { count: 'exact', head: true })
 					.eq('user_id', config.userId)
 					.eq('organization_id', config.orgId)
 					.eq('read', false),
-				config.supabase
-					.from('platform_announcements')
-					.select('id, title, message, type')
-					.eq('is_active', true)
-					.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
-				config.userSupabase.from('announcement_dismissals').select('announcement_id').eq('user_id', config.userId),
+				selectAllSupabaseRows<Record<string, unknown>>(
+					(from, to) =>
+						config.supabase
+							.from('platform_announcements')
+							.select('id, title, message, type')
+							.eq('is_active', true)
+							.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+							.range(from, to) as unknown as Promise<{
+							data: Record<string, unknown>[] | null;
+							error: unknown;
+						}>
+				),
+				selectAllSupabaseRows<Record<string, unknown>>(
+					(from, to) =>
+						config.userSupabase
+							.from('announcement_dismissals')
+							.select('announcement_id')
+							.eq('user_id', config.userId)
+							.range(from, to) as unknown as Promise<{
+							data: Record<string, unknown>[] | null;
+							error: unknown;
+						}>
+				),
 				config.userSupabase
 					.from('user_org_preferences')
 					.select('preferences')
@@ -147,7 +172,9 @@ export function createSupabaseOrgChromePort(config: {
 
 			if (membershipsRes.error) {
 				console.error('[org-shell] Failed to load organization memberships for chrome data:', membershipsRes.error);
-				throw new Error(`Failed to load organization memberships: ${membershipsRes.error.message}`);
+				throw new Error(
+					`Failed to load organization memberships: ${(membershipsRes.error as { message?: string }).message ?? 'Unknown error'}`
+				);
 			}
 
 			if (notifRes.error) {
@@ -157,12 +184,16 @@ export function createSupabaseOrgChromePort(config: {
 
 			if (announcementsRes.error) {
 				console.error('[org-shell] Failed to load platform announcements for chrome data:', announcementsRes.error);
-				throw new Error(`Failed to load platform announcements: ${announcementsRes.error.message}`);
+				throw new Error(
+					`Failed to load platform announcements: ${(announcementsRes.error as { message?: string }).message ?? 'Unknown error'}`
+				);
 			}
 
 			if (dismissalsRes.error) {
 				console.error('[org-shell] Failed to load announcement dismissals for chrome data:', dismissalsRes.error);
-				throw new Error(`Failed to load announcement dismissals: ${dismissalsRes.error.message}`);
+				throw new Error(
+					`Failed to load announcement dismissals: ${(dismissalsRes.error as { message?: string }).message ?? 'Unknown error'}`
+				);
 			}
 
 			if (userPrefsRes.error) {

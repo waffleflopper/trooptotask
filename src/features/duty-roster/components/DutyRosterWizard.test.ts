@@ -357,7 +357,7 @@ describe('DutyRosterWizard', () => {
 	it('surfaces legacy one-person duties as simple template options in the wizard', async () => {
 		renderWizard();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Use Simple Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
 
 		expect(screen.getByRole('button', { name: 'Continue with Charge of Quarters' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Continue with Staff Duty' })).toBeTruthy();
@@ -367,7 +367,7 @@ describe('DutyRosterWizard', () => {
 	it('opens the existing simple generator with the selected legacy duty preselected', async () => {
 		renderWizard();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Use Simple Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
 
 		await waitFor(() => {
@@ -422,7 +422,7 @@ describe('DutyRosterWizard', () => {
 			]
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Use Simple Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
 		await fireEvent.click(screen.getByRole('button', { name: /History/ }));
 
@@ -468,7 +468,7 @@ describe('DutyRosterWizard', () => {
 		try {
 			renderWizard();
 
-			await fireEvent.click(screen.getByRole('button', { name: 'Use Simple Duty' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
 			await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
 			await fireEvent.click(screen.getByRole('button', { name: /Continue to Personnel/ }));
 			await fireEvent.click(screen.getByRole('button', { name: 'Generate Roster' }));

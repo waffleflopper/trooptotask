@@ -99,6 +99,24 @@ describe('duty template CRUD use cases', () => {
 		});
 	});
 
+	it('creates templates when legacy schemas are missing exempt personnel policy column', async () => {
+		const ctx = createTestContext();
+		const originalInsert = ctx.store.insert.bind(ctx.store);
+		let attemptedTemplateInsert = false;
+
+		ctx.store.insert = (async (...args) => {
+			if (!attemptedTemplateInsert && args[0] === 'duty_templates') {
+				attemptedTemplateInsert = true;
+				throw new Error("Could not find the 'exempt_personnel_ids' column of 'duty_templates' in the schema cache");
+			}
+			return await originalInsert(...(args as Parameters<typeof originalInsert>));
+		}) as typeof ctx.store.insert;
+
+		const created = await createDutyTemplate(ctx, makeInput());
+
+		expect(created.name).toBe('Battalion Staff Duty');
+	});
+
 	it('persists rotation pools, preferred groups, and manual fairness baselines on advanced templates', async () => {
 		const ctx = createTestContext();
 
@@ -277,6 +295,32 @@ describe('duty template CRUD use cases', () => {
 			status: 500,
 			message: expect.stringContaining('Duty template policy settings could not be saved')
 		});
+	});
+
+	it('updates templates when legacy schemas are missing exempt personnel policy column', async () => {
+		const ctx = createTestContext();
+		const created = await createDutyTemplate(ctx, makeInput());
+		const originalUpdate = ctx.store.update.bind(ctx.store);
+		let attemptedTemplateUpdate = false;
+
+		ctx.store.update = (async (...args) => {
+			if (!attemptedTemplateUpdate && args[0] === 'duty_templates') {
+				attemptedTemplateUpdate = true;
+				throw new Error('column "exempt_personnel_ids" of relation "duty_templates" does not exist');
+			}
+			return await originalUpdate(...(args as Parameters<typeof originalUpdate>));
+		}) as typeof ctx.store.update;
+
+		const updated = await updateDutyTemplate(
+			ctx,
+			makeInput({
+				id: created.id,
+				name: 'Battalion Staff Duty (Updated)'
+			})
+		);
+
+		expect(updated.id).toBe(created.id);
+		expect(updated.name).toBe('Battalion Staff Duty (Updated)');
 	});
 
 	it('returns advanced templates with slots sorted for review', async () => {

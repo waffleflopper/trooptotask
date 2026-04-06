@@ -71,15 +71,18 @@ function parseOrFail<T>(schema: z.ZodType<T>, input: DutyTemplateWriteInput): T 
 	return result.data;
 }
 
-function isDutyTemplatePolicyWriteError(error: unknown): boolean {
+function isMissingExemptPersonnelColumnError(error: unknown): boolean {
 	if (!(error instanceof Error)) {
 		return false;
 	}
-	return (
-		error.message.includes('exempt_personnel_ids') ||
-		error.message.includes('soft_preferences') ||
-		error.message.includes('exempt_status_type_ids')
-	);
+	return error.message.includes('exempt_personnel_ids');
+}
+
+function isMissingStatusOrSoftPreferenceColumnError(error: unknown): boolean {
+	if (!(error instanceof Error)) {
+		return false;
+	}
+	return error.message.includes('soft_preferences') || error.message.includes('exempt_status_type_ids');
 }
 
 function isHttpLikeError(error: unknown): error is { status: number } {
@@ -343,13 +346,18 @@ export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 		try {
 			row = await ctx.store.insert<Record<string, unknown>>('duty_templates', ctx.auth.orgId, templateData);
 		} catch (error) {
-			if (!isDutyTemplatePolicyWriteError(error)) {
+			if (isMissingExemptPersonnelColumnError(error)) {
+				const fallbackData: Record<string, unknown> = { ...templateData };
+				delete fallbackData.exempt_personnel_ids;
+				row = await ctx.store.insert<Record<string, unknown>>('duty_templates', ctx.auth.orgId, fallbackData);
+			} else if (isMissingStatusOrSoftPreferenceColumnError(error)) {
+				fail(
+					500,
+					`Duty template policy settings could not be saved. Verify duty template migrations are current and retry. (${getErrorMessage(error)})`
+				);
+			} else {
 				fail(500, `Failed to save duty template: ${getErrorMessage(error)}`);
 			}
-			fail(
-				500,
-				`Duty template policy settings could not be saved. Verify duty template migrations are current and retry. (${getErrorMessage(error)})`
-			);
 		}
 		const slots = await createSlotRows(ctx, row.id as string, normalized.slots);
 		const rotationBaselines = await createRotationBaselineRows(ctx, row.id as string, normalized.rotationBaselines);
@@ -412,13 +420,23 @@ export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 				templateUpdate
 			);
 		} catch (error) {
-			if (!isDutyTemplatePolicyWriteError(error)) {
+			if (isMissingExemptPersonnelColumnError(error)) {
+				const fallbackUpdate: Record<string, unknown> = { ...templateUpdate };
+				delete fallbackUpdate.exempt_personnel_ids;
+				row = await ctx.store.update<Record<string, unknown>>(
+					'duty_templates',
+					ctx.auth.orgId,
+					parsed.id,
+					fallbackUpdate
+				);
+			} else if (isMissingStatusOrSoftPreferenceColumnError(error)) {
+				fail(
+					500,
+					`Duty template policy settings could not be saved. Verify duty template migrations are current and retry. (${getErrorMessage(error)})`
+				);
+			} else {
 				fail(500, `Failed to update duty template: ${getErrorMessage(error)}`);
 			}
-			fail(
-				500,
-				`Duty template policy settings could not be saved. Verify duty template migrations are current and retry. (${getErrorMessage(error)})`
-			);
 		}
 
 		await ctx.store.deleteWhere('duty_template_slots', ctx.auth.orgId, { template_id: parsed.id });

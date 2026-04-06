@@ -1,22 +1,52 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+
+interface FeedbackItem {
+	id: string;
+	user_email: string;
+	category: string;
+	message: string;
+	created_at: string;
+	organization_name: string | null;
+	page_url: string | null;
+	status: 'new' | 'reviewed' | 'resolved';
+	admin_notes: string | null;
+}
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'feedback',
 	fn: async (ctx) => {
 		const { adminClient } = ctx;
 
-		const { data: feedback, error: fetchError } = await adminClient
-			.from('beta_feedback')
-			.select('*')
-			.order('created_at', { ascending: false });
+		const { data: feedback, error: fetchError } = await selectAllSupabaseRows<FeedbackItem>(
+			(from, to) =>
+				adminClient
+					.from('beta_feedback')
+					.select('*')
+					.order('created_at', { ascending: false })
+					.range(from, to) as unknown as Promise<{
+					data: FeedbackItem[] | null;
+					error: unknown;
+				}>
+		);
 
 		if (fetchError) {
 			console.error('Failed to fetch feedback:', fetchError);
 		}
 
-		const all = feedback ?? [];
+		const all: FeedbackItem[] = (feedback ?? []).map((item) => ({
+			id: item.id,
+			user_email: item.user_email,
+			category: item.category,
+			message: item.message,
+			created_at: item.created_at,
+			organization_name: item.organization_name,
+			page_url: item.page_url,
+			status: item.status,
+			admin_notes: item.admin_notes
+		}));
 
 		return {
 			newItems: all.filter((f) => f.status === 'new'),

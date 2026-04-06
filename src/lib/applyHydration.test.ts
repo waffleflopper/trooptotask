@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { defineStore } from '$lib/stores/core';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -353,11 +353,12 @@ describe('applyHydration', () => {
 		expect(stores.personnelTrainings.loading).toBe(false);
 	});
 
-	it('falls back to empty personnelTrainings when deferred hydration rejects', async () => {
+	it('rejects and logs when deferred personnelTrainings hydration fails', async () => {
 		let rejectTrainings!: (reason?: unknown) => void;
 		const deferredTrainings = new Promise<PersonnelTraining[]>((_, reject) => {
 			rejectTrainings = reject;
 		});
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
 		const hydrationPromise = applyHydration(
 			{
@@ -374,10 +375,15 @@ describe('applyHydration', () => {
 		expect(stores.personnelTrainings.loading).toBe(true);
 
 		rejectTrainings(new Error('training bootstrap failed'));
-		await expect(hydrationPromise).resolves.toBeUndefined();
+		await expect(hydrationPromise).rejects.toThrow('training bootstrap failed');
 
 		expect(stores.personnelTrainings.items).toEqual([]);
-		expect(stores.personnelTrainings.loading).toBe(false);
+		expect(stores.personnelTrainings.loading).toBe(true);
+		expect(errorSpy).toHaveBeenCalledWith(
+			`[hydration] Failed to load personnelTrainings for org ${ORG}`,
+			expect.any(Error)
+		);
+		errorSpy.mockRestore();
 	});
 
 	it('hydrates personnelStore from personnel.scoped', async () => {

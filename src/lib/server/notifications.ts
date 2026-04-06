@@ -1,4 +1,5 @@
 import { getAdminClient } from './supabase';
+import { selectAllSupabaseRows } from './supabasePagination';
 
 interface NotificationPayload {
 	type: string;
@@ -34,11 +35,18 @@ export async function notifyAdmins(
 	notification: NotificationPayload
 ): Promise<void> {
 	const adminClient = getAdminClient();
-	const { data: admins } = await adminClient
-		.from('organization_memberships')
-		.select('user_id')
-		.eq('organization_id', orgId)
-		.in('role', ['owner', 'admin']);
+	const { data: admins } = await selectAllSupabaseRows<{ user_id: string }>(
+		(from, to) =>
+			adminClient
+				.from('organization_memberships')
+				.select('user_id')
+				.eq('organization_id', orgId)
+				.in('role', ['owner', 'admin'])
+				.range(from, to) as unknown as Promise<{
+				data: { user_id: string }[] | null;
+				error: unknown;
+			}>
+	);
 
 	const rows = (admins ?? [])
 		.filter((adm) => !excludeUserId || adm.user_id !== excludeUserId)

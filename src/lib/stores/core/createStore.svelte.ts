@@ -140,7 +140,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 			} catch (e) {
 				config.onError?.('add', e);
 				log.resolve(mutationId);
-				return null;
+				throw e;
 			}
 		},
 

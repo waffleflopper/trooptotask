@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG, type EffectiveTier, type Tier } from '$lib/types/subscription';
+import { selectAllSupabaseRows } from './supabasePagination';
 
 /** In-memory TTL cache for tier queries (per-process, resets on cold start) */
 const tierCache = new Map<string, { data: EffectiveTier; expiresAt: number }>();
@@ -100,10 +101,33 @@ export async function canCreateOrg(
 
 	const ownedCount = await getUserOwnedOrgCount(supabase, userId);
 
-	const { data: orgs } = await supabase
-		.from('organizations')
-		.select('id, tier, gift_tier, gift_expires_at, stripe_subscription_id, subscription_status')
-		.eq('created_by', userId);
+	const { data: orgs } = await selectAllSupabaseRows<{
+		id: string;
+		tier: Tier;
+		gift_tier: Tier | null;
+		gift_expires_at: string | null;
+		stripe_subscription_id: string | null;
+		subscription_status: string | null;
+	}>(
+		(from, to) =>
+			supabase
+				.from('organizations')
+				.select('id, tier, gift_tier, gift_expires_at, stripe_subscription_id, subscription_status')
+				.eq('created_by', userId)
+				.range(from, to) as unknown as Promise<{
+				data:
+					| {
+							id: string;
+							tier: Tier;
+							gift_tier: Tier | null;
+							gift_expires_at: string | null;
+							stripe_subscription_id: string | null;
+							subscription_status: string | null;
+					  }[]
+					| null;
+				error: unknown;
+			}>
+	);
 
 	let highestMaxOrgs = TIER_CONFIG.free.maxOrgsOwned;
 	for (const org of orgs ?? []) {

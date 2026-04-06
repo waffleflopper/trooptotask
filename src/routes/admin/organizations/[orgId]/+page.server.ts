@@ -3,6 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { validateUUID } from '$lib/server/validation';
 import { pauseSubscription, resumeSubscription } from '$lib/server/stripe';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 
 const TIER_RANK: Record<string, number> = { free: 1, team: 2, unit: 3 };
 
@@ -21,11 +22,18 @@ export const load: PageServerLoad = loadWithAdminContext({
 
 		if (orgError || !org) throw error(404, 'Organization not found');
 
-		const { data: memberships } = await adminClient
-			.from('organization_memberships')
-			.select('user_id, role')
-			.eq('organization_id', orgId)
-			.order('role');
+		const { data: memberships } = await selectAllSupabaseRows<{ user_id: string; role: string }>(
+			(from, to) =>
+				adminClient
+					.from('organization_memberships')
+					.select('user_id, role')
+					.eq('organization_id', orgId)
+					.order('role')
+					.range(from, to) as unknown as Promise<{
+					data: { user_id: string; role: string }[] | null;
+					error: unknown;
+				}>
+		);
 
 		const members = await Promise.all(
 			(memberships ?? []).map(async (m) => {

@@ -110,9 +110,7 @@ describe('createStore', () => {
 			});
 			store.load([existing], 'org-1');
 
-			const result = await store.add({ name: 'New' });
-
-			expect(result).toBeNull();
+			await expect(store.add({ name: 'New' })).rejects.toThrow('Network error');
 			expect(store.items).toEqual([existing]);
 		});
 	});
@@ -274,9 +272,7 @@ describe('createStore', () => {
 			});
 			store.load([displaced], 'org-1');
 
-			const result = await store.add({ name: 'Alpha' });
-
-			expect(result).toBeNull();
+			await expect(store.add({ name: 'Alpha' })).rejects.toThrow('fail');
 			expect(store.items).toEqual([displaced]);
 		});
 	});
@@ -990,7 +986,7 @@ describe('createStore', () => {
 
 			// A fails — B's optimistic item must survive
 			rejectA(new Error('fail'));
-			await addA;
+			await expect(addA).rejects.toThrow('fail');
 
 			expect(store.items.length).toBe(1);
 			expect(store.items[0].name).toBe('Bravo');
@@ -1163,7 +1159,7 @@ describe('createStore', () => {
 			});
 			store.load([], 'org-1');
 
-			await store.add({ name: 'Fail' });
+			await expect(store.add({ name: 'Fail' })).rejects.toThrow('network error');
 
 			expect(onError).toHaveBeenCalledWith('add', expect.any(Error));
 		});

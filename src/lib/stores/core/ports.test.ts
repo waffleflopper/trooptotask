@@ -49,6 +49,13 @@ describe('createRestAdapter', () => {
 			const adapter = makeAdapter();
 			await expect(adapter.create({ name: 'Fail' })).rejects.toThrow();
 		});
+
+		it('should surface backend error details on non-ok response', async () => {
+			vi.stubGlobal('fetch', mockFetch({ message: 'duplicate key value violates unique constraint' }, 409));
+
+			const adapter = makeAdapter();
+			await expect(adapter.create({ name: 'Fail' })).rejects.toThrow('duplicate key value violates unique constraint');
+		});
 	});
 
 	describe('update', () => {

@@ -86,6 +86,11 @@
 
 	const canSave = $derived(expirationDateOnly ? !!directExpirationDate : neverExpires ? isComplete : !!completionDate);
 
+	function getErrorMessage(error: unknown): string {
+		if (error instanceof Error && error.message.trim()) return error.message;
+		return 'Failed to save training record';
+	}
+
 	async function handleSave() {
 		if (!canSave) return;
 		const saveData = {
@@ -97,12 +102,12 @@
 			certificateUrl: certificateUrl.trim() || null
 		};
 		const isUpdate = !!existingTraining;
-		onClose();
 		try {
 			await onSave(saveData);
 			toastStore.success(isUpdate ? 'Training record updated' : 'Training record saved');
-		} catch {
-			toastStore.error('Failed to save training record');
+			onClose();
+		} catch (error) {
+			toastStore.error(getErrorMessage(error));
 		}
 	}
 

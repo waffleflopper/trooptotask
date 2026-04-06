@@ -11,6 +11,7 @@
 	import {
 		cloneDefaultSoftPreferences,
 		type DutyTemplate,
+		type DutyTemplateSlotBlockingMode,
 		type DutyTemplateRotationBaselineInput,
 		type DutyTemplateSlotInput,
 		type DutyTemplateWriteInput,
@@ -54,6 +55,7 @@
 		allowedMosValues: string[];
 		allowedRoleValues: string[];
 		rotationPoolKey: string;
+		blockingMode: DutyTemplateSlotBlockingMode;
 	}
 
 	interface EditableBaseline {
@@ -94,6 +96,7 @@
 			allowedMosValues: string[];
 			allowedRoleValues: string[];
 			rotationPoolKey: string;
+			blockingMode: DutyTemplateSlotBlockingMode;
 		}>;
 	}
 
@@ -186,7 +189,8 @@
 						preferredGroupIds: [],
 						allowedMosValues: [],
 						allowedRoleValues: [],
-						rotationPoolKey: 'staff-duty-core'
+						rotationPoolKey: 'staff-duty-core',
+						blockingMode: 'inherit'
 					},
 					{
 						roleLabel: 'Runner',
@@ -196,7 +200,8 @@
 						preferredGroupIds: [],
 						allowedMosValues: [],
 						allowedRoleValues: [],
-						rotationPoolKey: 'staff-duty-core'
+						rotationPoolKey: 'staff-duty-core',
+						blockingMode: 'inherit'
 					}
 				]
 			},
@@ -222,7 +227,8 @@
 						preferredGroupIds: primaryGroupId ? [primaryGroupId] : [],
 						allowedMosValues: [],
 						allowedRoleValues: [],
-						rotationPoolKey: 'cq-core'
+						rotationPoolKey: 'cq-core',
+						blockingMode: 'inherit'
 					},
 					{
 						roleLabel: 'Runner',
@@ -232,7 +238,8 @@
 						preferredGroupIds: primaryGroupId ? [primaryGroupId] : [],
 						allowedMosValues: [],
 						allowedRoleValues: [],
-						rotationPoolKey: 'cq-core'
+						rotationPoolKey: 'cq-core',
+						blockingMode: 'inherit'
 					}
 				]
 			}
@@ -295,7 +302,8 @@
 			preferredGroupIds: [],
 			allowedMosValues: [],
 			allowedRoleValues: [],
-			rotationPoolKey: ''
+			rotationPoolKey: '',
+			blockingMode: 'inherit'
 		};
 	}
 
@@ -353,7 +361,8 @@
 			preferredGroupIds: [...slot.preferredGroupIds],
 			allowedMosValues: [...slot.allowedMosValues],
 			allowedRoleValues: [...slot.allowedRoleValues],
-			rotationPoolKey: slot.rotationPoolKey
+			rotationPoolKey: slot.rotationPoolKey,
+			blockingMode: slot.blockingMode ?? 'inherit'
 		}));
 		draftRotationBaselines = (Array.isArray(template.rotationBaselines) ? template.rotationBaselines : []).map(
 			(baseline) => ({
@@ -415,7 +424,8 @@
 			preferredGroupIds: [...slot.preferredGroupIds],
 			allowedMosValues: [...slot.allowedMosValues],
 			allowedRoleValues: [...slot.allowedRoleValues],
-			rotationPoolKey: slot.rotationPoolKey
+			rotationPoolKey: slot.rotationPoolKey,
+			blockingMode: slot.blockingMode
 		}));
 	}
 
@@ -474,6 +484,9 @@
 			parts.push(`Groups: ${names.join(', ')}${slot.allowedGroupIds.length > 2 ? '…' : ''}`);
 		}
 		if (slot.rotationPoolKey) parts.push(`Pool: ${slot.rotationPoolKey}`);
+		if (slot.blockingMode !== 'inherit') {
+			parts.push(slot.blockingMode === 'blocking' ? 'Force blocking' : 'Force non-blocking');
+		}
 		return parts.join(' · ');
 	}
 
@@ -538,6 +551,7 @@
 			allowedMosValues: slot.allowedMosValues,
 			allowedRoleValues: slot.allowedRoleValues,
 			rotationPoolKey: slot.rotationPoolKey.trim() || `slot-${index + 1}`,
+			blockingMode: slot.blockingMode,
 			sortOrder: index
 		}));
 		const rotationBaselines: DutyTemplateRotationBaselineInput[] = draftRotationBaselines
@@ -1055,6 +1069,27 @@
 													/>
 													<span class="field-hint"
 														>Use the same rotation group on multiple slots when those positions should rotate together.</span
+													>
+												</label>
+
+												<label class="field">
+													<span>Conflict behavior for this slot</span>
+													<select
+														class="select"
+														aria-label="Conflict behavior for this slot"
+														value={slot.blockingMode}
+														onchange={(event) =>
+															updateSlot(slot.key, {
+																blockingMode: (event.currentTarget as HTMLSelectElement)
+																	.value as DutyTemplateSlotBlockingMode
+															})}
+													>
+														<option value="inherit">Inherit template policy</option>
+														<option value="blocking">Force blocking</option>
+														<option value="non-blocking">Force non-blocking</option>
+													</select>
+													<span class="field-hint"
+														>Override the template-wide blocking rule for this slot only when needed.</span
 													>
 												</label>
 											</div>

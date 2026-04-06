@@ -32,6 +32,7 @@ const slotInputSchema = z.object({
 	allowedMosValues: z.array(z.string()).optional().default([]),
 	allowedRoleValues: z.array(z.string()).optional().default([]),
 	rotationPoolKey: z.string().trim().min(1).max(120).optional(),
+	blockingMode: z.enum(['inherit', 'blocking', 'non-blocking']).optional().default('inherit'),
 	sortOrder: z.number().int().min(0).optional()
 });
 
@@ -112,6 +113,7 @@ function normalizeSlots(slots: DutyTemplateSlotInput[]): Omit<DutyTemplateSlot, 
 			allowedMosValues: normalizeList(slot.allowedMosValues ?? []),
 			allowedRoleValues: normalizeList(slot.allowedRoleValues ?? []),
 			rotationPoolKey: slot.rotationPoolKey?.trim() || `slot-${index + 1}`,
+			blockingMode: slot.blockingMode ?? 'inherit',
 			sortOrder: slot.sortOrder ?? index
 		}))
 		.sort((a, b) => a.sortOrder - b.sortOrder);
@@ -279,6 +281,7 @@ async function createSlotRows(
 					allowedMosValues: slot.allowedMosValues,
 					allowedRoleValues: slot.allowedRoleValues,
 					rotationPoolKey: slot.rotationPoolKey,
+					blockingMode: slot.blockingMode,
 					sortOrder: slot.sortOrder
 				},
 				ctx.auth.orgId

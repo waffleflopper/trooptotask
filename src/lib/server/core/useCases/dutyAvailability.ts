@@ -1,4 +1,5 @@
 import type { QueryPorts } from '$lib/server/core/ports';
+import type { DutyEventRulesSnapshot, DutyTemplateSlotBlockingMode } from '$features/duty-roster/duty-roster.types';
 import type { Personnel } from '$lib/types';
 
 export interface TransientDutyCoverage {
@@ -28,6 +29,37 @@ function addHours(dateTime: string, hours: number): string {
 function formatPersonLabel(personnelById: Map<string, Personnel>, personId: string): string {
 	const person = personnelById.get(personId);
 	return person ? `${person.rank} ${person.lastName}` : personId;
+}
+
+function resolveSlotBlockingMode(
+	templateIsBlocking: boolean,
+	blockingMode: DutyTemplateSlotBlockingMode | undefined
+): boolean {
+	if (blockingMode === 'blocking') {
+		return true;
+	}
+	if (blockingMode === 'non-blocking') {
+		return false;
+	}
+	return templateIsBlocking;
+}
+
+function getPersistedSlotBlocking(eventRow: Record<string, unknown>, slotRow: Record<string, unknown>): boolean {
+	const eventIsBlocking = eventRow.is_blocking !== false;
+	const rulesSnapshot = eventRow.rules_snapshot;
+	if (
+		!rulesSnapshot ||
+		typeof rulesSnapshot !== 'object' ||
+		!Array.isArray((rulesSnapshot as DutyEventRulesSnapshot).slots)
+	) {
+		return eventIsBlocking;
+	}
+
+	const templateSlotId = slotRow.template_slot_id == null ? null : String(slotRow.template_slot_id);
+	const matchingSlot = (rulesSnapshot as DutyEventRulesSnapshot).slots.find(
+		(slot) => slot.templateSlotId === templateSlotId
+	);
+	return resolveSlotBlockingMode(eventIsBlocking, matchingSlot?.blockingMode);
 }
 
 export async function findDutyCoverageConflicts(
@@ -78,7 +110,7 @@ export async function findDutyCoverageConflicts(
 				continue;
 			}
 
-			if (eventRow.is_blocking === false) {
+			if (!getPersistedSlotBlocking(eventRow, row)) {
 				continue;
 			}
 

@@ -2,6 +2,7 @@ export type DutyTemplateMode = 'simple' | 'advanced';
 export type DutyTemplateStatus = 'draft' | 'active' | 'archived';
 export type DutyTemplateScopeType = 'organization' | 'groups';
 export type DutyTemplateCoverageMode = 'all-day' | 'timed';
+export type DutyTemplateSlotBlockingMode = 'inherit' | 'blocking' | 'non-blocking';
 export type SoftPreferenceType = 'longest-break' | 'holiday-closure' | 'weekend' | 'preferred-group';
 export type DutyEventSeriesPattern =
 	| 'daily'
@@ -39,6 +40,7 @@ export interface DutyTemplateSlot {
 	allowedMosValues: string[];
 	allowedRoleValues: string[];
 	rotationPoolKey: string;
+	blockingMode?: DutyTemplateSlotBlockingMode;
 	sortOrder: number;
 }
 
@@ -86,6 +88,7 @@ export interface DutyTemplateSlotInput {
 	allowedMosValues?: string[];
 	allowedRoleValues?: string[];
 	rotationPoolKey?: string;
+	blockingMode?: DutyTemplateSlotBlockingMode;
 	sortOrder?: number;
 }
 
@@ -144,6 +147,7 @@ export interface DutyEventRulesSnapshot {
 		allowedMosValues: string[];
 		allowedRoleValues: string[];
 		rotationPoolKey: string;
+		blockingMode?: DutyTemplateSlotBlockingMode;
 		sortOrder: number;
 	}>;
 }
@@ -248,6 +252,7 @@ export interface DutyEventApplyInput {
 	templateId: string;
 	eventDate: string;
 	collisionReviewConfirmed?: boolean;
+	candidatePersonnelIds?: string[];
 	slotOverrides?: DutyEventSlotOverrideInput[];
 }
 
@@ -288,6 +293,7 @@ export interface DutyEventSeriesInput {
 	selectedWeekdays?: number[];
 	customDates?: string[];
 	collisionReviewConfirmed?: boolean;
+	candidatePersonnelIds?: string[];
 	eventOverrides?: DutyEventSeriesEventOverrideInput[];
 }
 

@@ -30,7 +30,8 @@ function makeInput(overrides: Partial<DutyTemplateWriteInput> = {}): DutyTemplat
 				allowedRanks: ['PFC', 'SPC'],
 				allowedGroupIds: ['group-alpha'],
 				allowedMosValues: ['11B'],
-				allowedRoleValues: []
+				allowedRoleValues: [],
+				blockingMode: 'non-blocking'
 			}
 		],
 		...overrides
@@ -69,6 +70,7 @@ describe('duty template CRUD use cases', () => {
 		expect(result.slots[1]).toMatchObject({
 			roleLabel: 'Runner',
 			quantity: 2,
+			blockingMode: 'non-blocking',
 			sortOrder: 1
 		});
 		expect(ctx.auditPort.events).toContainEqual(

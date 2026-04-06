@@ -14,9 +14,14 @@
 		preview: DutyEventSeriesPreview;
 		template: DutyTemplate;
 		overrides: DutyEventSeriesEventOverrideInput[];
+		eyebrow?: string;
+		meta?: string;
+		applyLabel?: string;
+		applyingLabel?: string;
 		isRefreshing: boolean;
 		isApplying: boolean;
 		collisionReviewConfirmed: boolean;
+		shortfallReviewConfirmed: boolean;
 		previewCollisionMessages: string[];
 		personnelOptions: Personnel[];
 		formatAssignee: (id: string | null) => string;
@@ -29,6 +34,7 @@
 		hasSeriesSlotOverride: (eventDate: string, slot: DutyEventPreviewSlotInstance) => boolean;
 		onApply: () => void;
 		onCollisionConfirmedChange: (confirmed: boolean) => void;
+		onShortfallConfirmedChange: (confirmed: boolean) => void;
 		onUpdateSlotAssignee: (eventDate: string, slot: DutyEventPreviewSlotInstance, assigneeId: string | null) => void;
 		onToggleSlotLock: (eventDate: string, slot: DutyEventPreviewSlotInstance) => void;
 		onClearSlot: (eventDate: string, slot: DutyEventPreviewSlotInstance) => void;
@@ -39,9 +45,14 @@
 		preview,
 		template,
 		overrides,
+		eyebrow = 'Series preview ready',
+		meta = `${preview.eventDates.length} event${preview.eventDates.length === 1 ? '' : 's'} · ${preview.pattern}`,
+		applyLabel = 'Apply Series',
+		applyingLabel = 'Applying Series...',
 		isRefreshing,
 		isApplying,
 		collisionReviewConfirmed,
+		shortfallReviewConfirmed,
 		previewCollisionMessages,
 		personnelOptions,
 		formatAssignee,
@@ -50,6 +61,7 @@
 		hasSeriesSlotOverride,
 		onApply,
 		onCollisionConfirmedChange,
+		onShortfallConfirmedChange,
 		onUpdateSlotAssignee,
 		onToggleSlotLock,
 		onClearSlot,
@@ -60,8 +72,12 @@
 	let viewMode = $state<ViewMode>('by-date');
 
 	const previewRequiresCollisionReview = $derived(previewCollisionMessages.length > 0);
+	const previewHasShortfalls = $derived(preview.events.some((event) => event.fillSummary.unfilledSlots > 0));
 	const canApply = $derived(
-		!isApplying && !isRefreshing && !(previewRequiresCollisionReview && !collisionReviewConfirmed)
+		!isApplying &&
+			!isRefreshing &&
+			!(previewRequiresCollisionReview && !collisionReviewConfirmed) &&
+			!(previewHasShortfalls && !shortfallReviewConfirmed)
 	);
 
 	// Build pool-based view data
@@ -89,17 +105,15 @@
 <section class="preview-card" aria-label="Advanced event preview">
 	<div class="preview-header">
 		<div>
-			<p class="eyebrow">Series preview ready</p>
+			<p class="eyebrow">{eyebrow}</p>
 			<h4>{preview.templateName}</h4>
-			<p class="template-meta">
-				{preview.eventDates.length} event{preview.eventDates.length === 1 ? '' : 's'} · {preview.pattern}
-			</p>
+			<p class="template-meta">{meta}</p>
 			{#if isRefreshing}
 				<p class="template-meta">Refreshing preview around your edits...</p>
 			{/if}
 		</div>
 		<button class="btn btn-primary" type="button" disabled={!canApply} onclick={onApply}>
-			{isApplying ? 'Applying Series...' : 'Apply Series'}
+			{isApplying ? applyingLabel : applyLabel}
 		</button>
 	</div>
 
@@ -111,6 +125,19 @@
 				onConfirmedChange={onCollisionConfirmedChange}
 				applyLabel="applying the run"
 			/>
+		</div>
+	{/if}
+
+	{#if previewHasShortfalls}
+		<div class="collision-wrapper">
+			<label class="checkbox-row">
+				<input
+					type="checkbox"
+					checked={shortfallReviewConfirmed}
+					onchange={(event) => onShortfallConfirmedChange((event.currentTarget as HTMLInputElement).checked)}
+				/>
+				<span>I understand this run still has unfilled duty slots</span>
+			</label>
 		</div>
 	{/if}
 

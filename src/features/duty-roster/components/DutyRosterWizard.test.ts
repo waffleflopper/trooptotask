@@ -349,6 +349,14 @@ async function openAdvancedDatePattern() {
 	});
 }
 
+async function openAdvancedCandidateReview() {
+	await openAdvancedDatePattern();
+	await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+	await waitFor(() => {
+		expect(screen.getByText('Choose who can be considered for this run.')).toBeTruthy();
+	});
+}
+
 describe('DutyRosterWizard', () => {
 	beforeEach(() => {
 		cleanup();
@@ -389,6 +397,26 @@ describe('DutyRosterWizard', () => {
 		expect(screen.getByText(/Positions to fill/)).toBeTruthy();
 		expect(screen.getByText(/Pool: staff-duty-primary/)).toBeTruthy();
 		expect(screen.getByText(/24 hours after the shift ends\./)).toBeTruthy();
+	});
+
+	it('shows existing templates plus a build-from-scratch entry on advanced step one', async () => {
+		const manageTemplates = vi.fn();
+
+		renderWizard({
+			onManageAdvancedTemplates: manageTemplates
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
+
+		expect(screen.getByText('Step 1 of 4 · Choose template')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Use This Template' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Build from scratch' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Use Battalion Staff Duty' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Use Company CQ' })).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Build from scratch' }));
+
+		expect(manageTemplates).toHaveBeenCalledTimes(1);
 	});
 
 	it('keeps existing simple-duty roster history visible through the simple lane bridge', async () => {
@@ -517,6 +545,7 @@ describe('DutyRosterWizard', () => {
 		});
 		await fireEvent.click(screen.getByLabelText('Tuesday'));
 		await fireEvent.click(screen.getByLabelText('Thursday'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
@@ -604,6 +633,7 @@ describe('DutyRosterWizard', () => {
 		await fireEvent.change(screen.getByLabelText('Date Pattern'), {
 			target: { value: 'daily' }
 		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
@@ -618,6 +648,43 @@ describe('DutyRosterWizard', () => {
 		});
 
 		expect(screen.getByText('2026-04-08')).toBeTruthy();
+	});
+
+	it('shows plain-language pattern labels in the advanced series preview header', async () => {
+		const previewHandler = vi.fn(async () =>
+			makeSeriesPreview({
+				pattern: 'selected-weekdays',
+				eventDates: ['2026-04-07', '2026-04-09']
+			})
+		);
+
+		renderWizard({
+			onPreviewAdvancedSeries: previewHandler
+		});
+
+		await openAdvancedDatePattern();
+
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
+			target: { value: '2026-04-07' }
+		});
+		await fireEvent.input(screen.getByLabelText('End Date'), {
+			target: { value: '2026-04-10' }
+		});
+		await fireEvent.change(screen.getByLabelText('Date Pattern'), {
+			target: { value: 'selected-weekdays' }
+		});
+		await waitFor(() => {
+			expect(screen.getByLabelText('Tuesday')).toBeTruthy();
+		});
+		await fireEvent.click(screen.getByLabelText('Tuesday'));
+		await fireEvent.click(screen.getByLabelText('Thursday'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('2 events · Selected weekdays')).toBeTruthy();
+		});
+		expect(screen.queryByText('2 events · selected-weekdays')).toBeNull();
 	});
 
 	it('requires explicit collision review before applying an advanced series preview', async () => {
@@ -655,6 +722,7 @@ describe('DutyRosterWizard', () => {
 		await fireEvent.change(screen.getByLabelText('Date Pattern'), {
 			target: { value: 'daily' }
 		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
@@ -680,6 +748,276 @@ describe('DutyRosterWizard', () => {
 					endDate: '2026-04-07',
 					pattern: 'daily',
 					collisionReviewConfirmed: true
+				})
+			);
+		});
+	});
+
+	it('requires explicit shortfall acknowledgement before applying a partially unfilled advanced series preview', async () => {
+		const previewHandler = vi.fn(async () =>
+			makeSeriesPreview({
+				eventDates: ['2026-04-07'],
+				events: [
+					makePreview({
+						eventDate: '2026-04-07',
+						coverageStart: '2026-04-07T08:00:00',
+						coverageEnd: '2026-04-08T08:00:00',
+						fillSummary: {
+							totalSlots: 2,
+							filledSlots: 1,
+							unfilledSlots: 1
+						},
+						slotInstances: [
+							{
+								...makePreview().slotInstances[0],
+								assigneeId: 'person-nco',
+								unfilledReason: null
+							},
+							{
+								...makePreview().slotInstances[0],
+								roleLabel: 'Runner',
+								slotIndex: 1,
+								assigneeId: null,
+								unfilledReason: 'No personnel matched this slot eligibility rules.'
+							}
+						]
+					})
+				]
+			})
+		);
+		const applyHandler = vi.fn(async () => makeSeriesApplyResult());
+
+		renderWizard({
+			onPreviewAdvancedSeries: previewHandler,
+			onApplyAdvancedSeries: applyHandler
+		});
+
+		await openAdvancedDatePattern();
+
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
+			target: { value: '2026-04-07' }
+		});
+		await fireEvent.input(screen.getByLabelText('End Date'), {
+			target: { value: '2026-04-07' }
+		});
+		await fireEvent.change(screen.getByLabelText('Date Pattern'), {
+			target: { value: 'daily' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('Fill:')).toBeTruthy();
+			expect(screen.getByText('1/2')).toBeTruthy();
+		});
+
+		const applyButton = screen.getByRole('button', { name: 'Apply Series' }) as HTMLButtonElement;
+		expect(applyButton.disabled).toBe(true);
+
+		await fireEvent.click(screen.getByLabelText('I understand this run still has unfilled duty slots'));
+
+		expect(applyButton.disabled).toBe(false);
+
+		await fireEvent.click(applyButton);
+
+		await waitFor(() => {
+			expect(applyHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					templateId: 'tmpl-staff-duty',
+					startDate: '2026-04-07',
+					endDate: '2026-04-07',
+					pattern: 'daily'
+				})
+			);
+		});
+	});
+
+	it('previews and applies a one-time advanced duty event without using the series handlers', async () => {
+		const previewEventHandler = vi.fn(async () =>
+			makePreview({
+				eventDate: '2026-04-07',
+				coverageStart: '2026-04-07T08:00:00',
+				coverageEnd: '2026-04-08T08:00:00'
+			})
+		);
+		const applyEventHandler = vi.fn(async () =>
+			makeAppliedEvent({
+				id: 'event-single-1',
+				eventDate: '2026-04-07',
+				coverageStart: '2026-04-07T08:00:00',
+				coverageEnd: '2026-04-08T08:00:00'
+			})
+		);
+		const previewSeriesHandler = vi.fn(async () => makeSeriesPreview());
+		const applySeriesHandler = vi.fn(async () => makeSeriesApplyResult());
+
+		renderWizard({
+			onPreviewAdvancedEvent: previewEventHandler,
+			onApplyAdvancedEvent: applyEventHandler,
+			onPreviewAdvancedSeries: previewSeriesHandler,
+			onApplyAdvancedSeries: applySeriesHandler
+		});
+
+		await openAdvancedDatePattern();
+
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
+			target: { value: '2026-04-07' }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview One-Time Event' }));
+
+		await waitFor(() => {
+			expect(previewEventHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					templateId: 'tmpl-staff-duty',
+					eventDate: '2026-04-07'
+				})
+			);
+		});
+
+		expect(previewSeriesHandler).not.toHaveBeenCalled();
+		expect(screen.getByText('One-time preview ready')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Apply Event' }));
+
+		await waitFor(() => {
+			expect(applyEventHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					templateId: 'tmpl-staff-duty',
+					eventDate: '2026-04-07'
+				})
+			);
+		});
+
+		expect(applySeriesHandler).not.toHaveBeenCalled();
+	});
+
+	it('lets users exclude candidates for a run before previewing an advanced series', async () => {
+		const previewHandler = vi.fn(async () => makeSeriesPreview());
+
+		renderWizard({
+			onPreviewAdvancedSeries: previewHandler
+		});
+
+		await openAdvancedDatePattern();
+
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
+			target: { value: '2026-04-07' }
+		});
+		await fireEvent.input(screen.getByLabelText('End Date'), {
+			target: { value: '2026-04-07' }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('Step 3 of 4 · Candidate review')).toBeTruthy();
+		});
+
+		await fireEvent.click(screen.getByLabelText('Include SGT Nolan, Casey in this run'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(previewHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					templateId: 'tmpl-staff-duty',
+					startDate: '2026-04-07',
+					endDate: '2026-04-07',
+					pattern: 'daily',
+					candidatePersonnelIds: ['person-conflict', 'person-alt']
+				})
+			);
+		});
+	});
+
+	it('renders candidate review in a searchable table with checkbox selection', async () => {
+		renderWizard();
+
+		await openAdvancedDatePattern();
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('3 of 3 candidates included')).toBeTruthy();
+		});
+
+		expect(screen.getByRole('table', { name: 'Candidate review table' })).toBeTruthy();
+		expect(screen.getByPlaceholderText('Search candidates by name, group, MOS, or role...')).toBeTruthy();
+		const caseyToggle = screen.getByLabelText('Include SGT Nolan, Casey in this run') as HTMLInputElement;
+		expect(caseyToggle.checked).toBe(true);
+		expect(screen.getAllByText('Headquarters · 11B · Squad Leader').length).toBeGreaterThan(0);
+
+		await fireEvent.click(caseyToggle);
+
+		await waitFor(() => {
+			expect(screen.getByText('2 of 3 candidates included')).toBeTruthy();
+		});
+
+		expect(caseyToggle.checked).toBe(false);
+	});
+
+	it('limits preview assignee choices to the reviewed candidate set', async () => {
+		renderWizard();
+
+		await openAdvancedDatePattern();
+
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
+			target: { value: '2026-04-07' }
+		});
+		await fireEvent.input(screen.getByLabelText('End Date'), {
+			target: { value: '2026-04-07' }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+		await fireEvent.click(screen.getByLabelText('Include SGT Nolan, Casey in this run'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText('Assignee for 2026-04-07 NCO #1')).toBeTruthy();
+		});
+
+		const assigneeSelect = screen.getByLabelText('Assignee for 2026-04-07 NCO #1') as HTMLSelectElement;
+		const optionLabels = Array.from(assigneeSelect.options).map((option) => option.textContent ?? '');
+
+		expect(optionLabels).toContain('Leave Unfilled');
+		expect(optionLabels).not.toContain('SGT Nolan');
+		expect(optionLabels).toContain('SGT Hayes');
+		expect(optionLabels).toContain('SGT Zimmer');
+	});
+
+	it('requires candidate review before previewing an advanced series from the date-pattern step', async () => {
+		const previewHandler = vi.fn(async () => makeSeriesPreview());
+
+		renderWizard({
+			onPreviewAdvancedSeries: previewHandler
+		});
+
+		await openAdvancedDatePattern();
+
+		await fireEvent.input(screen.getByLabelText('Start Date'), {
+			target: { value: '2026-04-07' }
+		});
+		await fireEvent.input(screen.getByLabelText('End Date'), {
+			target: { value: '2026-04-07' }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		expect(previewHandler).not.toHaveBeenCalled();
+
+		await waitFor(() => {
+			expect(screen.getByText('Choose who can be considered for this run.')).toBeTruthy();
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(previewHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					templateId: 'tmpl-staff-duty',
+					startDate: '2026-04-07',
+					endDate: '2026-04-07',
+					pattern: 'daily'
 				})
 			);
 		});
@@ -739,7 +1077,7 @@ describe('DutyRosterWizard', () => {
 			onApplyAdvancedSeries: applyHandler
 		});
 
-		await openAdvancedDatePattern();
+		await openAdvancedCandidateReview();
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
@@ -815,6 +1153,101 @@ describe('DutyRosterWizard', () => {
 				})
 			);
 		});
+	});
+
+	it('does not show preview swap controls for advanced event assignments', async () => {
+		const advancedTemplate = makeAdvancedTemplate({
+			slots: [
+				makeAdvancedTemplate().slots[0],
+				{
+					id: 'slot-2',
+					templateId: 'tmpl-staff-duty',
+					roleLabel: 'Runner',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					preferredGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader'],
+					rotationPoolKey: 'staff-duty-runner',
+					sortOrder: 1
+				}
+			]
+		});
+		const basePreview = makePreview({
+			eventDate: '2026-04-07',
+			coverageStart: '2026-04-07T08:00:00',
+			coverageEnd: '2026-04-08T08:00:00',
+			rulesSnapshot: {
+				...makePreview().rulesSnapshot,
+				slots: [
+					makePreview().rulesSnapshot.slots[0],
+					{
+						templateSlotId: 'slot-2',
+						roleLabel: 'Runner',
+						quantity: 1,
+						allowedRanks: ['SGT'],
+						allowedGroupIds: ['group-hq'],
+						preferredGroupIds: ['group-hq'],
+						allowedMosValues: ['11B'],
+						allowedRoleValues: ['Squad Leader'],
+						rotationPoolKey: 'staff-duty-runner',
+						sortOrder: 1
+					}
+				]
+			},
+			fillSummary: {
+				totalSlots: 2,
+				filledSlots: 2,
+				unfilledSlots: 0
+			},
+			slotInstances: [
+				{
+					...makePreview().slotInstances[0],
+					templateSlotId: 'slot-1',
+					roleLabel: 'NCO',
+					slotIndex: 0,
+					assigneeId: 'person-nco',
+					assignmentSource: 'generated',
+					sortOrder: 0
+				},
+				{
+					...makePreview().slotInstances[0],
+					templateSlotId: 'slot-2',
+					roleLabel: 'Runner',
+					slotIndex: 0,
+					assigneeId: 'person-alt',
+					assignmentSource: 'generated',
+					sortOrder: 1
+				}
+			]
+		});
+		const previewHandler = vi.fn(async () => {
+			return makeSeriesPreview({
+				eventDates: ['2026-04-07'],
+				events: [
+					makePreview({
+						...basePreview,
+						slotInstances: basePreview.slotInstances
+					})
+				]
+			});
+		});
+
+		renderWizard({
+			advancedDutyTemplates: [advancedTemplate],
+			onPreviewAdvancedSeries: previewHandler
+		});
+
+		await openAdvancedCandidateReview();
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText('Assignee for 2026-04-07 NCO #1')).toBeTruthy();
+		});
+
+		expect(screen.queryByLabelText('Swap target for 2026-04-07 NCO #1')).toBeNull();
+		expect(screen.queryByText('Swap with...')).toBeNull();
 	});
 
 	it('shows soft warnings and hard conflicts when preview overrides change slot assignments', async () => {
@@ -895,7 +1328,7 @@ describe('DutyRosterWizard', () => {
 			onApplyAdvancedSeries: applyHandler
 		});
 
-		await openAdvancedDatePattern();
+		await openAdvancedCandidateReview();
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
@@ -1358,16 +1791,16 @@ describe('DutyRosterWizard', () => {
 			)
 		});
 
-		await openAdvancedDatePattern();
+		await openAdvancedCandidateReview();
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
 
 		await waitFor(() => {
 			expect(screen.getByText('Series preview ready')).toBeTruthy();
 		});
 
-		expect(screen.getAllByText('Why this pick').length).toBeGreaterThan(0);
-		expect(screen.getAllByText('Warnings and skips').length).toBeGreaterThan(0);
-		expect(screen.getAllByText('Unfilled outcome').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Why this Soldier was selected').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Why others were skipped').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Why this slot stayed unfilled').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('Fairness confidence').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('Selected by longest break in the runner rotation group.').length).toBeGreaterThan(0);
 		expect(
@@ -1386,8 +1819,94 @@ describe('DutyRosterWizard', () => {
 			expect(screen.getByText('Edit applied duty event')).toBeTruthy();
 		});
 
-		expect(screen.getAllByText('Why this pick').length).toBeGreaterThan(1);
-		expect(screen.getAllByText('Warnings and skips').length).toBeGreaterThan(1);
-		expect(screen.getAllByText('Unfilled outcome').length).toBeGreaterThan(1);
+		expect(screen.getAllByText('Why this Soldier was selected').length).toBeGreaterThan(1);
+		expect(screen.getAllByText('Why others were skipped').length).toBeGreaterThan(1);
+		expect(screen.getAllByText('Why this slot stayed unfilled').length).toBeGreaterThan(1);
+	});
+
+	it('uses clearer explanation labels for skipped candidates and unfilled slots', async () => {
+		renderWizard({
+			onPreviewAdvancedSeries: vi.fn(async () =>
+				makeSeriesPreview({
+					eventDates: ['2026-04-07'],
+					events: [
+						makePreview({
+							eventDate: '2026-04-07',
+							coverageStart: '2026-04-07T08:00:00',
+							coverageEnd: '2026-04-08T08:00:00',
+							fillSummary: {
+								totalSlots: 2,
+								filledSlots: 1,
+								unfilledSlots: 1
+							},
+							slotInstances: [
+								{
+									...makePreview().slotInstances[0],
+									roleLabel: 'Runner',
+									overrideMessages: ['SPC Foley was skipped because he already covered CQ yesterday.']
+								},
+								{
+									...makePreview().slotInstances[0],
+									templateSlotId: 'slot-2',
+									roleLabel: 'NCO',
+									slotIndex: 1,
+									assigneeId: null,
+									assignmentSource: 'manual',
+									warningState: 'conflict',
+									selectionReason: null,
+									unfilledReason: 'No eligible NCO remained after overlap and cooldown checks.',
+									overrideMessages: ['SSG Hartney is already covering Staff Duty during this window.']
+								}
+							]
+						})
+					]
+				})
+			)
+		});
+
+		await openAdvancedCandidateReview();
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('Series preview ready')).toBeTruthy();
+		});
+
+		expect(screen.getAllByText('Why others were skipped').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Why this slot stayed unfilled').length).toBeGreaterThan(0);
+		expect(screen.queryByText('Warnings and skips')).toBeNull();
+		expect(screen.queryByText('Unfilled outcome')).toBeNull();
+	});
+
+	it('uses a clearer label for the selection explanation section', async () => {
+		renderWizard({
+			onPreviewAdvancedSeries: vi.fn(async () =>
+				makeSeriesPreview({
+					eventDates: ['2026-04-07'],
+					events: [
+						makePreview({
+							eventDate: '2026-04-07',
+							coverageStart: '2026-04-07T08:00:00',
+							coverageEnd: '2026-04-08T08:00:00',
+							slotInstances: [
+								{
+									...makePreview().slotInstances[0],
+									selectionReason: 'Selected by longest break in the runner rotation group.'
+								}
+							]
+						})
+					]
+				})
+			)
+		});
+
+		await openAdvancedCandidateReview();
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('Series preview ready')).toBeTruthy();
+		});
+
+		expect(screen.getAllByText('Why this Soldier was selected').length).toBeGreaterThan(0);
+		expect(screen.queryByText('Why this pick')).toBeNull();
 	});
 });

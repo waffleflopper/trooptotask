@@ -6,6 +6,7 @@ import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
+import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 
 const { gotoMock, invalidateMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
@@ -282,6 +283,22 @@ describe('TrainingPageContext', () => {
 			expect(labels).toContain('Bulk Import');
 			expect(labels).toContain('Manage Types');
 		});
+	});
+
+	it('propagates training save failures', async () => {
+		const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+		vi.spyOn(personnelTrainingsStore, 'add').mockRejectedValueOnce(new Error('insert blocked by policy'));
+
+		await expect(
+			ctx.handleSaveTraining({
+				personnelId: mockPerson.id,
+				trainingTypeId: mockType.id,
+				completionDate: '2026-04-06',
+				expirationDate: '2027-04-06',
+				notes: null,
+				certificateUrl: null
+			})
+		).rejects.toThrow('insert blocked by policy');
 	});
 
 	describe('default viewMode', () => {

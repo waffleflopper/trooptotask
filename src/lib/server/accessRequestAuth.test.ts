@@ -70,9 +70,11 @@ describe('markApprovedAccessRequestCompleted', () => {
 		const select = vi.fn().mockReturnValue({
 			eq: vi.fn().mockReturnValue({
 				eq: vi.fn().mockReturnValue({
-					not: vi.fn().mockResolvedValue({
-						data: [{ invite_id: 'invite-1' }, { invite_id: 'invite-2' }, { invite_id: 'invite-2' }],
-						error: null
+					not: vi.fn().mockReturnValue({
+						range: vi.fn().mockResolvedValue({
+							data: [{ invite_id: 'invite-1' }, { invite_id: 'invite-2' }, { invite_id: 'invite-2' }],
+							error: null
+						})
 					})
 				})
 			})
@@ -117,9 +119,11 @@ describe('markApprovedAccessRequestCompleted', () => {
 		const select = vi.fn().mockReturnValue({
 			eq: vi.fn().mockReturnValue({
 				eq: vi.fn().mockReturnValue({
-					not: vi.fn().mockResolvedValue({
-						data: [],
-						error: null
+					not: vi.fn().mockReturnValue({
+						range: vi.fn().mockResolvedValue({
+							data: [],
+							error: null
+						})
 					})
 				})
 			})
@@ -150,9 +154,11 @@ describe('renewApprovedAccessRequestInvite', () => {
 		const inviteUserByEmail = vi.fn().mockResolvedValue({ error: null });
 		const select = vi.fn().mockReturnValue({
 			eq: vi.fn().mockReturnValue({
-				eq: vi.fn().mockResolvedValue({
-					data: [{ id: 'request-1', registration_invites: { used_at: null } }],
-					error: null
+				eq: vi.fn().mockReturnValue({
+					range: vi.fn().mockResolvedValue({
+						data: [{ id: 'request-1', registration_invites: { used_at: null } }],
+						error: null
+					})
 				})
 			})
 		});
@@ -181,9 +187,11 @@ describe('renewApprovedAccessRequestInvite', () => {
 		const inviteUserByEmail = vi.fn();
 		const select = vi.fn().mockReturnValue({
 			eq: vi.fn().mockReturnValue({
-				eq: vi.fn().mockResolvedValue({
-					data: [],
-					error: null
+				eq: vi.fn().mockReturnValue({
+					range: vi.fn().mockResolvedValue({
+						data: [],
+						error: null
+					})
 				})
 			})
 		});
@@ -210,9 +218,11 @@ describe('renewApprovedAccessRequestInvite', () => {
 		const inviteUserByEmail = vi.fn();
 		const select = vi.fn().mockReturnValue({
 			eq: vi.fn().mockReturnValue({
-				eq: vi.fn().mockResolvedValue({
-					data: [{ id: 'request-1', registration_invites: { used_at: '2026-04-02T00:00:00.000Z' } }],
-					error: null
+				eq: vi.fn().mockReturnValue({
+					range: vi.fn().mockResolvedValue({
+						data: [{ id: 'request-1', registration_invites: { used_at: '2026-04-02T00:00:00.000Z' } }],
+						error: null
+					})
 				})
 			})
 		});

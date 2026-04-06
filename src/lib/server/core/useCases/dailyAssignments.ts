@@ -65,6 +65,12 @@ export async function replaceDailyAssignments(ctx: WritePorts, input: ReplaceInp
 	if (assigneeIds.length > 0) {
 		await ctx.auth.requireGroupAccessBatch(assigneeIds);
 	}
+	for (const record of records) {
+		await ensureManualAssignmentAvailability(ctx, {
+			date,
+			assigneeId: record.assigneeId
+		});
+	}
 
 	await requireExistingAssignmentAccess(ctx, { date });
 
@@ -163,6 +169,12 @@ export async function updateDailyAssignment(ctx: WritePorts, input: Record<strin
 
 	if (assigneeId) {
 		await ctx.auth.requireGroupAccess(assigneeId);
+		const existingRow = await ctx.store.findOne<Record<string, unknown>>(entity.table, ctx.auth.orgId, { id }, 'date');
+		const date = typeof validated.date === 'string' ? validated.date : String(existingRow?.date ?? '');
+		if (!date) {
+			fail(404, 'Daily assignment not found');
+		}
+		await ensureManualAssignmentAvailability(ctx, { date, assigneeId });
 	}
 
 	const dbData = entity.toDbUpdate(validated);

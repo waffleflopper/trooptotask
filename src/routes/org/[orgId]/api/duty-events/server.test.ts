@@ -69,8 +69,8 @@ async function seedTemplate(ctx: ReturnType<typeof createTestContext>) {
 }
 
 describe('POST /api/duty-events/preview', () => {
-	it('exports a privileged preview route config', () => {
-		expect(previewConfig.permission).toBe('privileged');
+	it('exports a calendar preview route config', () => {
+		expect(previewConfig.permission).toBe('calendar');
 		expect(previewConfig.mutation).toBeFalsy();
 	});
 
@@ -91,11 +91,31 @@ describe('POST /api/duty-events/preview', () => {
 		});
 		expect(result.slotInstances).toHaveLength(2);
 	});
+
+	it('rejects scoped full editors from previewing advanced duty events', async () => {
+		const ctx = createTestContext({
+			auth: {
+				isPrivileged: true,
+				isFullEditor: true,
+				scopedGroupId: 'group-hq'
+			}
+		});
+
+		await expect(
+			handleUseCaseRequest(previewConfig, ctx, {
+				templateId: 'template-1',
+				eventDate: '2026-04-10'
+			})
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Advanced duty is only available to full-organization editors.'
+		});
+	});
 });
 
 describe('POST /api/duty-events', () => {
-	it('exports a privileged mutation route config', () => {
-		expect(applyConfig.permission).toBe('privileged');
+	it('exports a calendar mutation route config', () => {
+		expect(applyConfig.permission).toBe('calendar');
 		expect(applyConfig.mutation).toBe(true);
 	});
 
@@ -118,6 +138,25 @@ describe('POST /api/duty-events', () => {
 			})
 		});
 		expect(result.slotInstances).toHaveLength(2);
+	});
+
+	it('allows unscoped full editors who are not privileged to apply advanced duty events', async () => {
+		const ctx = createTestContext({
+			auth: {
+				isPrivileged: false,
+				isFullEditor: true
+			}
+		});
+		const template = await seedTemplate(ctx);
+
+		const result = await handleUseCaseRequest(applyConfig, ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		expect(result).toMatchObject({
+			templateId: template.id
+		});
 	});
 
 	it('returns the final manual result and preserved original proposal when apply includes slot overrides', async () => {
@@ -187,8 +226,8 @@ describe('POST /api/duty-events', () => {
 });
 
 describe('POST /api/duty-events/[eventId]/preview', () => {
-	it('exports a privileged preview route config', () => {
-		expect(previewExistingConfig.permission).toBe('privileged');
+	it('exports a calendar preview route config', () => {
+		expect(previewExistingConfig.permission).toBe('calendar');
 		expect(previewExistingConfig.mutation).toBeFalsy();
 	});
 
@@ -217,8 +256,8 @@ describe('POST /api/duty-events/[eventId]/preview', () => {
 });
 
 describe('PUT /api/duty-events/[eventId]', () => {
-	it('exports a privileged mutation route config', () => {
-		expect(updateExistingConfig.permission).toBe('privileged');
+	it('exports a calendar mutation route config', () => {
+		expect(updateExistingConfig.permission).toBe('calendar');
 		expect(updateExistingConfig.mutation).toBe(true);
 	});
 
@@ -290,8 +329,8 @@ describe('PUT /api/duty-events/[eventId]', () => {
 });
 
 describe('POST /api/duty-events/series/preview', () => {
-	it('exports a privileged preview route config', () => {
-		expect(previewSeriesConfig.permission).toBe('privileged');
+	it('exports a calendar preview route config', () => {
+		expect(previewSeriesConfig.permission).toBe('calendar');
 		expect(previewSeriesConfig.mutation).toBeFalsy();
 	});
 
@@ -374,8 +413,8 @@ describe('POST /api/duty-events/series/preview', () => {
 });
 
 describe('POST /api/duty-events/series', () => {
-	it('exports a privileged mutation route config', () => {
-		expect(applySeriesConfig.permission).toBe('privileged');
+	it('exports a calendar mutation route config', () => {
+		expect(applySeriesConfig.permission).toBe('calendar');
 		expect(applySeriesConfig.mutation).toBe(true);
 	});
 

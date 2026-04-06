@@ -55,16 +55,26 @@
 	const org = getOrgContext();
 	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
 	const canMutate = $derived(!org.readOnly && canManageConfig);
-	const canManageAdvancedTemplates = $derived(!org.readOnly && org.isPrivileged);
+	const canAccessAdvancedDuty = $derived(!data.scopedGroupId && (org.isPrivileged || org.isFullEditor));
+	const canManageAdvancedTemplates = $derived(!org.readOnly && canAccessAdvancedDuty);
 	const workspaceData = $derived(data.calendar?.data ?? data);
 	let activeTab = $state<'wizard' | 'advanced-templates'>('wizard');
 	let advancedDutyTemplates = $state<DutyTemplate[]>([]);
 	let advancedDutyEvents = $state<DutyEvent[]>([]);
 
-	const dutyRosterTabs = $derived.by(() => [
-		{ label: 'Wizard', value: 'wizard' },
-		{ label: 'Advanced Templates', value: 'advanced-templates', badge: advancedDutyTemplates.length }
-	]);
+	const dutyRosterTabs = $derived.by(() => {
+		const tabs = [{ label: 'Wizard', value: 'wizard' }];
+		if (canManageAdvancedTemplates) {
+			tabs.push({ label: 'Advanced Templates', value: 'advanced-templates', badge: advancedDutyTemplates.length });
+		}
+		return tabs;
+	});
+
+	$effect(() => {
+		if (!canManageAdvancedTemplates && activeTab === 'advanced-templates') {
+			activeTab = 'wizard';
+		}
+	});
 
 	// ---- Load roster history on mount ----
 	$effect(() => {

@@ -30,8 +30,8 @@ function makePayload(overrides: Record<string, unknown> = {}) {
 }
 
 describe('POST /api/duty-templates', () => {
-	it('exports a privileged mutation route config', () => {
-		expect(_postConfig.permission).toBe('privileged');
+	it('exports a calendar mutation route config', () => {
+		expect(_postConfig.permission).toBe('calendar');
 		expect(_postConfig.mutation).toBe(true);
 	});
 
@@ -47,17 +47,32 @@ describe('POST /api/duty-templates', () => {
 		expect(result.slots).toHaveLength(1);
 	});
 
-	it('rejects non-privileged users', async () => {
+	it('allows unscoped full editors who are not privileged', async () => {
 		const ctx = createTestContext({
 			auth: {
 				isPrivileged: false,
-				requirePrivileged() {
-					throw { status: 403 };
-				}
+				isFullEditor: true
 			}
 		});
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, makePayload())).rejects.toMatchObject({ status: 403 });
+		await expect(handleUseCaseRequest(_postConfig, ctx, makePayload())).resolves.toMatchObject({
+			name: 'Company CQ'
+		});
+	});
+
+	it('rejects scoped full editors from advanced duty routes', async () => {
+		const ctx = createTestContext({
+			auth: {
+				isPrivileged: true,
+				isFullEditor: true,
+				scopedGroupId: 'group-hq'
+			}
+		});
+
+		await expect(handleUseCaseRequest(_postConfig, ctx, makePayload())).rejects.toMatchObject({
+			status: 403,
+			message: 'Advanced duty is only available to full-organization editors.'
+		});
 	});
 });
 

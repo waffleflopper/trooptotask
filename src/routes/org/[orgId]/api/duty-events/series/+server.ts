@@ -7,7 +7,7 @@ import {
 } from '$lib/server/core/useCases/dutyEventCrud';
 
 export const _postConfig: RouteConfig<DutyEventSeriesInput, DutyEventSeriesApplyResult> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	mutation: true,
 	fn: async (ctx, input) => {
 		if (!input.collisionReviewConfirmed) {

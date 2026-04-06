@@ -204,11 +204,25 @@ describe('duty template CRUD use cases', () => {
 		).rejects.toMatchObject({ status: 400 });
 	});
 
-	it('blocks non-privileged users from creating templates', async () => {
+	it('allows unscoped full editors to create templates without privileged access', async () => {
 		const ctx = createTestContext({
 			auth: {
 				isPrivileged: false,
-				requirePrivileged() {
+				isFullEditor: true
+			}
+		});
+
+		await expect(createDutyTemplate(ctx, makeInput())).resolves.toMatchObject({
+			name: 'Battalion Staff Duty'
+		});
+	});
+
+	it('denies users who are not full editors from creating templates', async () => {
+		const ctx = createTestContext({
+			auth: {
+				isPrivileged: false,
+				isFullEditor: false,
+				requireFullEditor() {
 					throw { status: 403 };
 				}
 			}
@@ -372,104 +386,60 @@ describe('duty template CRUD use cases', () => {
 	});
 });
 
-describe('updateDutyTemplate — group scope enforcement', () => {
-	it('allows a group-scoped user to update a template whose scope includes their group', async () => {
-		const ctx = createTestContext();
-		const template = await createDutyTemplate(ctx, makeInput({ scopeType: 'groups', scopeGroupIds: ['group-alpha'] }));
-
-		const scopedCtx = createTestContext({ auth: { scopedGroupId: 'group-alpha' } });
-		// Pre-seed the template into the scoped store so findOne can find it
-		scopedCtx.store.seed('duty_templates', [
-			{
-				id: template.id,
-				organization_id: scopedCtx.auth.orgId,
-				mode: 'advanced',
-				status: 'draft',
-				name: template.name,
-				description: template.description ?? null,
-				scope_type: 'groups',
-				scope_group_ids: ['group-alpha'],
-				coverage_mode: template.coverageMode,
-				start_time: '17:00',
-				end_time: '09:00',
-				is_blocking: template.isBlocking,
-				cooldown_hours: template.cooldownHours,
-				rotation_baselines: null,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString()
+describe('advanced duty template access enforcement', () => {
+	it('allows unscoped full editors to manage advanced templates without privileged access', async () => {
+		const ctx = createTestContext({
+			auth: {
+				isPrivileged: false,
+				isFullEditor: true
 			}
-		]);
+		});
 
-		await expect(
-			updateDutyTemplate(scopedCtx, {
-				...makeInput({ scopeType: 'groups', scopeGroupIds: ['group-alpha'] }),
-				id: template.id
+		const created = await createDutyTemplate(ctx, makeInput());
+		const listed = await listDutyTemplates(ctx);
+		const updated = await updateDutyTemplate(
+			ctx,
+			makeInput({
+				id: created.id,
+				name: 'Battalion Staff Duty (Updated)'
 			})
-		).resolves.toBeTruthy();
+		);
+		const archived = await archiveDutyTemplate(ctx, { templateId: created.id });
+
+		expect(listed).toHaveLength(1);
+		expect(updated.name).toBe('Battalion Staff Duty (Updated)');
+		expect(archived.status).toBe('archived');
 	});
 
-	it('denies a group-scoped user from updating a template for a different group', async () => {
-		const ctx = createTestContext();
-		const template = await createDutyTemplate(ctx, makeInput({ scopeType: 'groups', scopeGroupIds: ['group-bravo'] }));
-
-		const scopedCtx = createTestContext({ auth: { scopedGroupId: 'group-alpha' } });
-		scopedCtx.store.seed('duty_templates', [
-			{
-				id: template.id,
-				organization_id: scopedCtx.auth.orgId,
-				mode: 'advanced',
-				status: 'draft',
-				name: template.name,
-				description: template.description ?? null,
-				scope_type: 'groups',
-				scope_group_ids: ['group-bravo'],
-				coverage_mode: template.coverageMode,
-				start_time: '17:00',
-				end_time: '09:00',
-				is_blocking: template.isBlocking,
-				cooldown_hours: template.cooldownHours,
-				rotation_baselines: null,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString()
+	it('denies scoped full editors from advanced template management', async () => {
+		const scopedCtx = createTestContext({
+			auth: {
+				isPrivileged: true,
+				isFullEditor: true,
+				scopedGroupId: 'group-alpha'
 			}
-		]);
+		});
 
+		await expect(createDutyTemplate(scopedCtx, makeInput())).rejects.toMatchObject({
+			status: 403,
+			message: 'Advanced duty is only available to full-organization editors.'
+		});
+		await expect(listDutyTemplates(scopedCtx)).rejects.toMatchObject({
+			status: 403,
+			message: 'Advanced duty is only available to full-organization editors.'
+		});
 		await expect(
 			updateDutyTemplate(scopedCtx, {
-				...makeInput({ scopeType: 'groups', scopeGroupIds: ['group-bravo'] }),
-				id: template.id
+				...makeInput(),
+				id: 'template-1'
 			})
-		).rejects.toMatchObject({ status: 403 });
-	});
-
-	it('denies a group-scoped user from updating an org-scoped template', async () => {
-		const ctx = createTestContext();
-		const template = await createDutyTemplate(ctx, makeInput({ scopeType: 'organization', scopeGroupIds: [] }));
-
-		const scopedCtx = createTestContext({ auth: { scopedGroupId: 'group-alpha' } });
-		scopedCtx.store.seed('duty_templates', [
-			{
-				id: template.id,
-				organization_id: scopedCtx.auth.orgId,
-				mode: 'advanced',
-				status: 'draft',
-				name: template.name,
-				description: template.description ?? null,
-				scope_type: 'organization',
-				scope_group_ids: [],
-				coverage_mode: template.coverageMode,
-				start_time: '17:00',
-				end_time: '09:00',
-				is_blocking: template.isBlocking,
-				cooldown_hours: template.cooldownHours,
-				rotation_baselines: null,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString()
-			}
-		]);
-
-		await expect(
-			updateDutyTemplate(scopedCtx, { ...makeInput({ scopeType: 'organization', scopeGroupIds: [] }), id: template.id })
-		).rejects.toMatchObject({ status: 403 });
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Advanced duty is only available to full-organization editors.'
+		});
+		await expect(archiveDutyTemplate(scopedCtx, { templateId: 'template-1' })).rejects.toMatchObject({
+			status: 403,
+			message: 'Advanced duty is only available to full-organization editors.'
+		});
 	});
 });

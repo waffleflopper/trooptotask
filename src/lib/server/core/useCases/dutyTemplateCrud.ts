@@ -4,6 +4,7 @@ import type { QueryPorts, WritePorts } from '$lib/server/core/ports';
 import { DutyTemplateEntity } from '$lib/server/entities/dutyTemplate';
 import { DutyTemplateRotationBaselineEntity } from '$lib/server/entities/dutyTemplateRotationBaseline';
 import { DutyTemplateSlotEntity } from '$lib/server/entities/dutyTemplateSlot';
+import { requireAdvancedDutyAccess } from './advancedDutyAccess';
 import type {
 	DutyTemplate,
 	DutyTemplateRecord,
@@ -326,7 +327,7 @@ async function createRotationBaselineRows(
 }
 
 export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWriteInput): Promise<DutyTemplate> {
-	ctx.auth.requirePrivileged();
+	requireAdvancedDutyAccess(ctx.auth);
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) {
@@ -378,7 +379,7 @@ export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 }
 
 export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWriteInput): Promise<DutyTemplate> {
-	ctx.auth.requirePrivileged();
+	requireAdvancedDutyAccess(ctx.auth);
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) {
@@ -393,17 +394,6 @@ export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 		});
 		if (!existing) {
 			fail(404, 'Duty template not found');
-		}
-
-		const scopedGroupId = ctx.auth.scopedGroupId;
-		if (scopedGroupId) {
-			const existingScope = String(existing.scope_type ?? 'organization');
-			const existingGroupIds: string[] = Array.isArray(existing.scope_group_ids)
-				? (existing.scope_group_ids as string[])
-				: [];
-			if (existingScope === 'organization' || !existingGroupIds.includes(scopedGroupId)) {
-				fail(403, 'You do not have access to this duty template.');
-			}
 		}
 
 		const normalized = normalizeTemplateInput(parsed);
@@ -460,7 +450,7 @@ export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 }
 
 export async function listDutyTemplates(ctx: QueryPorts): Promise<DutyTemplate[]> {
-	ctx.auth.requireView('calendar');
+	requireAdvancedDutyAccess(ctx.auth);
 
 	const templateRows = await ctx.store.findMany<Record<string, unknown>>(
 		'duty_templates',
@@ -517,7 +507,7 @@ export async function listDutyTemplates(ctx: QueryPorts): Promise<DutyTemplate[]
 }
 
 export async function archiveDutyTemplate(ctx: WritePorts, input: { templateId: string }): Promise<DutyTemplate> {
-	ctx.auth.requirePrivileged();
+	requireAdvancedDutyAccess(ctx.auth);
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) {
@@ -530,17 +520,6 @@ export async function archiveDutyTemplate(ctx: WritePorts, input: { templateId: 
 	});
 	if (!existing) {
 		fail(404, 'Duty template not found');
-	}
-
-	const scopedGroupId = ctx.auth.scopedGroupId;
-	if (scopedGroupId) {
-		const existingScope = String(existing.scope_type ?? 'organization');
-		const existingGroupIds: string[] = Array.isArray(existing.scope_group_ids)
-			? (existing.scope_group_ids as string[])
-			: [];
-		if (existingScope === 'organization' || !existingGroupIds.includes(scopedGroupId)) {
-			fail(403, 'You do not have access to this duty template.');
-		}
 	}
 
 	const now = new Date().toISOString();

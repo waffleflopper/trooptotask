@@ -3,7 +3,7 @@ import type { DutyTemplate } from '$features/duty-roster/duty-roster.types';
 import { archiveDutyTemplate } from '$lib/server/core/useCases/dutyTemplateCrud';
 
 export const _deleteConfig: RouteConfig<{ templateId: string }, DutyTemplate> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	mutation: true,
 	fn: (ctx, input) => archiveDutyTemplate(ctx, input)
 };

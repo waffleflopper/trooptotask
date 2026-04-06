@@ -4,7 +4,7 @@ import type { DutyEvent, DutyEventApplyInput } from '$features/duty-roster/duty-
 import { applyDutyEventFromTemplate, previewDutyEventFromTemplate } from '$lib/server/core/useCases/dutyEventCrud';
 
 export const _postConfig: RouteConfig<DutyEventApplyInput, DutyEvent> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	mutation: true,
 	fn: async (ctx, input) => {
 		if (!input.collisionReviewConfirmed) {

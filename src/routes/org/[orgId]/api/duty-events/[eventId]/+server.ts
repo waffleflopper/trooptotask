@@ -12,7 +12,7 @@ import {
 } from '$lib/server/core/useCases/dutyEventCrud';
 
 export const _putConfig: RouteConfig<ExistingDutyEventUpdateInput, DutyEvent> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	mutation: true,
 	fn: async (ctx, input) => {
 		if (!input.collisionReviewConfirmed) {
@@ -42,7 +42,7 @@ export const PUT = handle<ExistingDutyEventUpdateInput, DutyEvent>({
 });
 
 export const _deleteConfig: RouteConfig<{ dutyEventId: string }, DutyEventRunDeleteResult> = {
-	permission: 'privileged',
+	permission: 'calendar',
 	mutation: true,
 	fn: (ctx, input) => deleteDutyEventById(ctx, input)
 };

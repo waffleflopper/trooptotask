@@ -6,7 +6,6 @@
 	import { TRAINING_STATUS_COLORS, type TrainingStatus } from '$features/training/training.types';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table/useDataTable.svelte';
-	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		personnel: Personnel[];
@@ -59,12 +58,12 @@
 				key: type.id,
 				header: type.name,
 				value: (p: Personnel) => {
-					const t = getTraining(p.id, type.id);
+					const t = trainingLookup.get(createTrainingKey(p.id, type.id));
 					return getTrainingStatus(t, type, p).status;
 				},
 				compare: (a: Personnel, b: Personnel) => {
-					const aInfo = getTrainingStatus(getTraining(a.id, type.id), type, a);
-					const bInfo = getTrainingStatus(getTraining(b.id, type.id), type, b);
+					const aInfo = getTrainingStatus(trainingLookup.get(createTrainingKey(a.id, type.id)), type, a);
+					const bInfo = getTrainingStatus(trainingLookup.get(createTrainingKey(b.id, type.id)), type, b);
 					return statusOrder[aInfo.status] - statusOrder[bInfo.status];
 				}
 			};
@@ -76,18 +75,17 @@
 		return table.sortDirection === 'asc' ? ' \u25B2' : ' \u25BC';
 	}
 
-	// Create a map for quick training lookup
-	const trainingMap = $derived.by(() => {
-		const map = new SvelteMap<string, PersonnelTraining>();
+	function createTrainingKey(personnelId: string, typeId: string): string {
+		return `${personnelId}-${typeId}`;
+	}
+
+	const trainingLookup = $derived.by(() => {
+		const map = new Map<string, PersonnelTraining>();
 		for (const t of trainings) {
-			map.set(`${t.personnelId}-${t.trainingTypeId}`, t);
+			map.set(createTrainingKey(t.personnelId, t.trainingTypeId), t);
 		}
 		return map;
 	});
-
-	function getTraining(personnelId: string, typeId: string) {
-		return trainingMap.get(`${personnelId}-${typeId}`);
-	}
 
 	const totalCols = $derived(trainingTypes.length + 1);
 
@@ -116,7 +114,7 @@
 			{/if}
 		</th>
 		{#each trainingTypes as type (type.id)}
-			{@const training = getTraining(person.id, type.id)}
+			{@const training = trainingLookup.get(createTrainingKey(person.id, type.id))}
 			{@const statusInfo = getTrainingStatus(training, type, person)}
 			{@const displayText = getCellDisplayText(statusInfo, training, type.expirationDateOnly)}
 			{#if onCellClick}

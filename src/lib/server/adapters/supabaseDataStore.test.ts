@@ -4,9 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Call = { method: string; args: unknown[] };
 
-function createMockQueryBuilder(returnData: unknown = null, returnError: unknown = null) {
-	const calls: Call[] = [];
-
+function createMockQueryBuilder(returnData: unknown = null, returnError: unknown = null, calls: Call[] = []) {
 	function track(method: string) {
 		return (...args: unknown[]) => {
 			calls.push({ method, args });
@@ -21,6 +19,7 @@ function createMockQueryBuilder(returnData: unknown = null, returnError: unknown
 		eq: track('eq'),
 		in: track('in'),
 		order: track('order'),
+		range: track('range'),
 		limit: track('limit'),
 		insert: track('insert'),
 		update: track('update'),
@@ -40,6 +39,26 @@ function createMockSupabase(builder: Record<string, unknown>): SupabaseClient {
 	return {
 		from: vi.fn(() => builder)
 	} as unknown as SupabaseClient;
+}
+
+function createPagedMockSupabase(results: Array<{ data: unknown; error?: unknown }>): {
+	supabase: SupabaseClient;
+	calls: Call[];
+	fromCalls: ReturnType<typeof vi.fn>;
+} {
+	const calls: Call[] = [];
+	let index = 0;
+	const fromCalls = vi.fn(() => {
+		const current = results[Math.min(index, results.length - 1)] ?? { data: [], error: null };
+		index += 1;
+		return createMockQueryBuilder(current.data, current.error ?? null, calls).builder;
+	});
+
+	return {
+		supabase: { from: fromCalls } as unknown as SupabaseClient,
+		calls,
+		fromCalls
+	};
 }
 
 describe('SupabaseDataStore', () => {
@@ -182,6 +201,25 @@ describe('SupabaseDataStore', () => {
 			const store = createSupabaseDataStore(supabase);
 
 			await expect(store.findMany('bad', 'org-1')).rejects.toThrow('query failed');
+		});
+
+		it('pages through results when a table has more than 1000 rows', async () => {
+			const firstPage = Array.from({ length: 1000 }, (_, index) => ({ id: `row-${index + 1}` }));
+			const secondPage = [{ id: 'row-1001' }, { id: 'row-1002' }];
+			const { supabase, calls, fromCalls } = createPagedMockSupabase([{ data: firstPage }, { data: secondPage }]);
+			const store = createSupabaseDataStore(supabase);
+
+			const result = await store.findMany('personnel_trainings', 'org-1');
+
+			expect(result).toHaveLength(1002);
+			expect(result[0]).toEqual({ id: 'row-1' });
+			expect(result[1001]).toEqual({ id: 'row-1002' });
+			expect(fromCalls).toHaveBeenCalledTimes(2);
+			const rangeCalls = calls.filter((c) => c.method === 'range');
+			expect(rangeCalls).toEqual([
+				{ method: 'range', args: [0, 999] },
+				{ method: 'range', args: [1000, 1999] }
+			]);
 		});
 	});
 

@@ -10,6 +10,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DataStore, FindOptions, FindResult } from '../core/ports';
 
+const SUPABASE_PAGE_SIZE = 1000;
+
 function getOrgColumn(table: string): string {
 	switch (table) {
 		case 'audit_logs':
@@ -129,20 +131,39 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			options?: FindOptions
 		): Promise<T[]> {
 			const orgColumn = getOrgColumn(table);
-			let query = supabase
-				.from(table)
-				.select(options?.select ?? '*')
-				.eq(orgColumn, orgId);
 
-			query = applyFindOptions(query, filters, options);
+			async function fetchPage(range?: { from: number; to: number }): Promise<T[]> {
+				let query = supabase
+					.from(table)
+					.select(options?.select ?? '*')
+					.eq(orgColumn, orgId);
 
-			const { data, error } = await query;
+				query = applyFindOptions(query, filters, range ? { ...options, range } : options);
 
-			if (error) {
-				throw new Error(error.message);
+				const { data, error } = await query;
+
+				if (error) {
+					throw new Error(error.message);
+				}
+
+				return (data ?? []) as T[];
 			}
 
-			return (data ?? []) as T[];
+			if (options?.range || options?.limit !== undefined) {
+				return fetchPage();
+			}
+
+			const rows: T[] = [];
+			let from = 0;
+
+			while (true) {
+				const page = await fetchPage({ from, to: from + SUPABASE_PAGE_SIZE - 1 });
+				rows.push(...page);
+				if (page.length < SUPABASE_PAGE_SIZE) break;
+				from += SUPABASE_PAGE_SIZE;
+			}
+
+			return rows;
 		},
 
 		async findManyWithCount<T>(

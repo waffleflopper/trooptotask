@@ -1015,14 +1015,14 @@
 	{#if view === 'simple-generator' && selectedSimpleAssignmentTypeId}
 		<div class="wizard-banner">
 			<div>
-				<p class="eyebrow">Simple Lane</p>
-				<h2>{selectedSimpleTemplate?.name ?? 'Simple duty roster'}</h2>
+				<p class="eyebrow">Automatic Assignment Generator</p>
+				<h2>{selectedSimpleTemplate?.name ?? 'Automatic Assignment Generator'}</h2>
 				<p class="wizard-copy">
-					This path keeps the current one-person DA6-style behavior and existing calendar records intact.
+					This path keeps the current one-person DA6-style assignment behavior and existing calendar records intact.
 				</p>
 			</div>
 			<button class="btn btn-secondary" type="button" onclick={() => (view = 'simple-template-list')}
-				>Back to Templates</button
+				>Back to Assignment Types</button
 			>
 		</div>
 
@@ -1049,7 +1049,8 @@
 				<p class="eyebrow">Duty wizard</p>
 				<h2>Choose the lane that matches the duty.</h2>
 				<p class="wizard-copy">
-					Simple duties use the existing one-person roster flow. Advanced duties use reusable templates.
+					The automatic assignment generator uses the existing one-person assignment flow. Advanced duties use reusable
+					templates.
 				</p>
 			</div>
 		</div>
@@ -1063,12 +1064,14 @@
 		{#if view === 'choose-lane'}
 			<div class="lane-grid">
 				<article class="lane-card card card-flat">
-					<p class="eyebrow">Simple</p>
-					<h3>Reuse an existing one-person duty.</h3>
+					<p class="eyebrow">Automatic Assignment</p>
+					<h3>Reuse an existing one-person assignment type.</h3>
 					<p class="lane-copy">
 						Bridge current assignment types into the new flow without migrating legacy calendar data.
 					</p>
-					<button class="btn btn-primary" type="button" onclick={openSimpleLane}>Use Simple Duty</button>
+					<button class="btn btn-primary" type="button" onclick={openSimpleLane}>
+						Use Automatic Assignment Generator
+					</button>
 				</article>
 
 				<article class="lane-card card card-flat">
@@ -1097,15 +1100,15 @@
 			<section class="step-card card card-flat">
 				<div class="list-header">
 					<div>
-						<p class="eyebrow">Simple templates</p>
-						<h3>Select an existing duty type.</h3>
+						<p class="eyebrow">Assignment templates</p>
+						<h3>Select an existing assignment type.</h3>
 					</div>
 					<button class="btn btn-secondary btn-sm" type="button" onclick={goBackToLane}>Back</button>
 				</div>
 
 				{#if simpleTemplates.length === 0}
 					<EmptyState
-						message="No one-person duty types available yet. Add a personnel assignment type first."
+						message="No one-person assignment types available yet. Add a personnel assignment type first."
 						variant="simple"
 					/>
 				{:else}

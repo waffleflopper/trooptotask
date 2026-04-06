@@ -505,6 +505,7 @@
 		if (index === -1 || nextIndex < 0 || nextIndex >= draftSoftPreferences.length) {
 			return;
 		}
+		isDirty = true;
 		const next = [...draftSoftPreferences];
 		const [item] = next.splice(index, 1);
 		next.splice(nextIndex, 0, item);
@@ -512,6 +513,7 @@
 	}
 
 	function updateSoftPreference(type: SoftPreferenceType, enabled: boolean) {
+		isDirty = true;
 		draftSoftPreferences = draftSoftPreferences.map((preference) =>
 			preference.type === type ? { ...preference, enabled } : preference
 		);

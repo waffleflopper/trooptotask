@@ -71,7 +71,7 @@ function parseOrFail<T>(schema: z.ZodType<T>, input: DutyTemplateWriteInput): T 
 	return result.data;
 }
 
-function isMissingDutyTemplatePolicyColumnError(error: unknown): boolean {
+function isDutyTemplatePolicyWriteError(error: unknown): boolean {
 	if (!(error instanceof Error)) {
 		return false;
 	}
@@ -82,12 +82,15 @@ function isMissingDutyTemplatePolicyColumnError(error: unknown): boolean {
 	);
 }
 
-function stripMissingPolicyColumns(payload: Record<string, unknown>): Record<string, unknown> {
-	const next = { ...payload };
-	delete next.exempt_personnel_ids;
-	delete next.soft_preferences;
-	delete next.exempt_status_type_ids;
-	return next;
+function isHttpLikeError(error: unknown): error is { status: number } {
+	return Boolean(error && typeof error === 'object' && 'status' in error);
+}
+
+function getErrorMessage(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	return 'Unknown error';
 }
 
 function normalizeList(values: string[]): string[] {
@@ -327,37 +330,43 @@ export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 		fail(403, 'Organization is in read-only mode');
 	}
 
-	const parsed = parseOrFail(createTemplateSchema, input);
-	const normalized = normalizeTemplateInput(parsed);
-	const now = new Date().toISOString();
-	const templateData = {
-		...DutyTemplateEntity.toDbInsert(normalized, ctx.auth.orgId),
-		created_at: now,
-		updated_at: now
-	};
-	let row: Record<string, unknown>;
 	try {
-		row = await ctx.store.insert<Record<string, unknown>>('duty_templates', ctx.auth.orgId, templateData);
+		const parsed = parseOrFail(createTemplateSchema, input);
+		const normalized = normalizeTemplateInput(parsed);
+		const now = new Date().toISOString();
+		const templateData = {
+			...DutyTemplateEntity.toDbInsert(normalized, ctx.auth.orgId),
+			created_at: now,
+			updated_at: now
+		};
+		let row: Record<string, unknown>;
+		try {
+			row = await ctx.store.insert<Record<string, unknown>>('duty_templates', ctx.auth.orgId, templateData);
+		} catch (error) {
+			if (!isDutyTemplatePolicyWriteError(error)) {
+				fail(500, `Failed to save duty template: ${getErrorMessage(error)}`);
+			}
+			fail(
+				500,
+				`Duty template policy settings could not be saved. Verify duty template migrations are current and retry. (${getErrorMessage(error)})`
+			);
+		}
+		const slots = await createSlotRows(ctx, row.id as string, normalized.slots);
+		const rotationBaselines = await createRotationBaselineRows(ctx, row.id as string, normalized.rotationBaselines);
+
+		ctx.audit.log({
+			action: 'duty_template.created',
+			resourceType: 'duty_template',
+			resourceId: row.id as string
+		});
+
+		return hydrateTemplate(row, slots, rotationBaselines);
 	} catch (error) {
-		if (!isMissingDutyTemplatePolicyColumnError(error)) {
+		if (isHttpLikeError(error)) {
 			throw error;
 		}
-		row = await ctx.store.insert<Record<string, unknown>>(
-			'duty_templates',
-			ctx.auth.orgId,
-			stripMissingPolicyColumns(templateData)
-		);
+		fail(500, `Failed to save duty template: ${getErrorMessage(error)}`);
 	}
-	const slots = await createSlotRows(ctx, row.id as string, normalized.slots);
-	const rotationBaselines = await createRotationBaselineRows(ctx, row.id as string, normalized.rotationBaselines);
-
-	ctx.audit.log({
-		action: 'duty_template.created',
-		resourceType: 'duty_template',
-		resourceId: row.id as string
-	});
-
-	return hydrateTemplate(row, slots, rotationBaselines);
 }
 
 export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWriteInput): Promise<DutyTemplate> {
@@ -368,58 +377,68 @@ export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 		fail(403, 'Organization is in read-only mode');
 	}
 
-	const parsed = parseOrFail(updateTemplateSchema, input);
-	const existing = await ctx.store.findOne<Record<string, unknown>>('duty_templates', ctx.auth.orgId, {
-		id: parsed.id,
-		mode: 'advanced'
-	});
-	if (!existing) {
-		fail(404, 'Duty template not found');
-	}
-
-	const scopedGroupId = ctx.auth.scopedGroupId;
-	if (scopedGroupId) {
-		const existingScope = String(existing.scope_type ?? 'organization');
-		const existingGroupIds: string[] = Array.isArray(existing.scope_group_ids)
-			? (existing.scope_group_ids as string[])
-			: [];
-		if (existingScope === 'organization' || !existingGroupIds.includes(scopedGroupId)) {
-			fail(403, 'You do not have access to this duty template.');
-		}
-	}
-
-	const normalized = normalizeTemplateInput(parsed);
-	const templateUpdate = {
-		...DutyTemplateEntity.toDbUpdate(normalized),
-		updated_at: new Date().toISOString()
-	};
-	let row: Record<string, unknown>;
 	try {
-		row = await ctx.store.update<Record<string, unknown>>('duty_templates', ctx.auth.orgId, parsed.id, templateUpdate);
+		const parsed = parseOrFail(updateTemplateSchema, input);
+		const existing = await ctx.store.findOne<Record<string, unknown>>('duty_templates', ctx.auth.orgId, {
+			id: parsed.id,
+			mode: 'advanced'
+		});
+		if (!existing) {
+			fail(404, 'Duty template not found');
+		}
+
+		const scopedGroupId = ctx.auth.scopedGroupId;
+		if (scopedGroupId) {
+			const existingScope = String(existing.scope_type ?? 'organization');
+			const existingGroupIds: string[] = Array.isArray(existing.scope_group_ids)
+				? (existing.scope_group_ids as string[])
+				: [];
+			if (existingScope === 'organization' || !existingGroupIds.includes(scopedGroupId)) {
+				fail(403, 'You do not have access to this duty template.');
+			}
+		}
+
+		const normalized = normalizeTemplateInput(parsed);
+		const templateUpdate = {
+			...DutyTemplateEntity.toDbUpdate(normalized),
+			updated_at: new Date().toISOString()
+		};
+		let row: Record<string, unknown>;
+		try {
+			row = await ctx.store.update<Record<string, unknown>>(
+				'duty_templates',
+				ctx.auth.orgId,
+				parsed.id,
+				templateUpdate
+			);
+		} catch (error) {
+			if (!isDutyTemplatePolicyWriteError(error)) {
+				fail(500, `Failed to update duty template: ${getErrorMessage(error)}`);
+			}
+			fail(
+				500,
+				`Duty template policy settings could not be saved. Verify duty template migrations are current and retry. (${getErrorMessage(error)})`
+			);
+		}
+
+		await ctx.store.deleteWhere('duty_template_slots', ctx.auth.orgId, { template_id: parsed.id });
+		const slots = await createSlotRows(ctx, parsed.id, normalized.slots);
+		await ctx.store.deleteWhere('duty_template_rotation_baselines', ctx.auth.orgId, { template_id: parsed.id });
+		const rotationBaselines = await createRotationBaselineRows(ctx, parsed.id, normalized.rotationBaselines);
+
+		ctx.audit.log({
+			action: 'duty_template.updated',
+			resourceType: 'duty_template',
+			resourceId: parsed.id
+		});
+
+		return hydrateTemplate(row, slots, rotationBaselines);
 	} catch (error) {
-		if (!isMissingDutyTemplatePolicyColumnError(error)) {
+		if (isHttpLikeError(error)) {
 			throw error;
 		}
-		row = await ctx.store.update<Record<string, unknown>>(
-			'duty_templates',
-			ctx.auth.orgId,
-			parsed.id,
-			stripMissingPolicyColumns(templateUpdate)
-		);
+		fail(500, `Failed to update duty template: ${getErrorMessage(error)}`);
 	}
-
-	await ctx.store.deleteWhere('duty_template_slots', ctx.auth.orgId, { template_id: parsed.id });
-	const slots = await createSlotRows(ctx, parsed.id, normalized.slots);
-	await ctx.store.deleteWhere('duty_template_rotation_baselines', ctx.auth.orgId, { template_id: parsed.id });
-	const rotationBaselines = await createRotationBaselineRows(ctx, parsed.id, normalized.rotationBaselines);
-
-	ctx.audit.log({
-		action: 'duty_template.updated',
-		resourceType: 'duty_template',
-		resourceId: parsed.id
-	});
-
-	return hydrateTemplate(row, slots, rotationBaselines);
 }
 
 export async function listDutyTemplates(ctx: QueryPorts): Promise<DutyTemplate[]> {

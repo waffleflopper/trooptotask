@@ -85,6 +85,7 @@
 	});
 
 	const canSave = $derived(expirationDateOnly ? !!directExpirationDate : neverExpires ? isComplete : !!completionDate);
+	let isSaving = $state(false);
 
 	function getErrorMessage(error: unknown): string {
 		if (error instanceof Error && error.message.trim()) return error.message;
@@ -92,7 +93,7 @@
 	}
 
 	async function handleSave() {
-		if (!canSave) return;
+		if (!canSave || isSaving) return;
 		const saveData = {
 			personnelId: person.id,
 			trainingTypeId: trainingType.id,
@@ -102,12 +103,15 @@
 			certificateUrl: certificateUrl.trim() || null
 		};
 		const isUpdate = !!existingTraining;
+		isSaving = true;
 		try {
 			await onSave(saveData);
 			toastStore.success(isUpdate ? 'Training record updated' : 'Training record saved');
 			onClose();
 		} catch (error) {
 			toastStore.error(getErrorMessage(error));
+		} finally {
+			isSaving = false;
 		}
 	}
 
@@ -251,9 +255,9 @@
 				type="button"
 				data-testid="training-save"
 				onclick={handleSave}
-				disabled={!canSave}
+				disabled={!canSave || isSaving}
 			>
-				Save
+				{isSaving ? 'Saving...' : 'Save'}
 			</button>
 		{/if}
 	{/snippet}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import SubNav from '$lib/components/ui/SubNav.svelte';
 	import DutyRosterWizard from './DutyRosterWizard.svelte';
@@ -61,11 +62,16 @@
 	let activeTab = $state<'wizard' | 'advanced-templates'>('wizard');
 	let advancedDutyTemplates = $state<DutyTemplate[]>([]);
 	let advancedDutyEvents = $state<DutyEvent[]>([]);
+	const visibleAdvancedTemplateCount = $derived(
+		advancedDutyTemplates.filter((template) => template.status !== 'archived').length
+	);
 
 	const dutyRosterTabs = $derived.by(() => {
-		const tabs = [{ label: 'Wizard', value: 'wizard' }];
+		const tabs: Array<{ label: string; value: 'wizard' | 'advanced-templates'; badge?: number }> = [
+			{ label: 'Wizard', value: 'wizard' }
+		];
 		if (canManageAdvancedTemplates) {
-			tabs.push({ label: 'Advanced Templates', value: 'advanced-templates', badge: advancedDutyTemplates.length });
+			tabs.push({ label: 'Advanced Templates', value: 'advanced-templates', badge: visibleAdvancedTemplateCount });
 		}
 		return tabs;
 	});
@@ -129,6 +135,10 @@
 		}
 	}
 
+	async function refreshAdvancedDutyData(): Promise<void> {
+		await invalidateAll();
+	}
+
 	// ---- Handlers ----
 	async function handleApplyRoster(
 		assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
@@ -188,6 +198,7 @@
 
 			const item = normalizeTemplate((await res.json()) as DutyTemplate);
 			advancedDutyTemplates = sortTemplates([...advancedDutyTemplates, item]);
+			await refreshAdvancedDutyData();
 			toastStore.success('Advanced duty template saved');
 			return item;
 		} catch (error) {
@@ -214,6 +225,7 @@
 			advancedDutyTemplates = sortTemplates(
 				advancedDutyTemplates.map((template) => (template.id === item.id ? item : template))
 			);
+			await refreshAdvancedDutyData();
 			toastStore.success('Advanced duty template updated');
 			return item;
 		} catch (error) {
@@ -261,6 +273,7 @@
 			advancedDutyEvents = [event, ...advancedDutyEvents.filter((item) => item.id !== event.id)].sort((a, b) =>
 				b.coverageStart.localeCompare(a.coverageStart)
 			);
+			await refreshAdvancedDutyData();
 			toastStore.success('Advanced duty event applied');
 			return event;
 		} catch (error) {
@@ -305,6 +318,7 @@
 				...result.events,
 				...advancedDutyEvents.filter((existing) => !result.events.some((event) => event.id === existing.id))
 			].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
+			await refreshAdvancedDutyData();
 			toastStore.success(`Applied ${result.events.length} advanced duty event${result.events.length === 1 ? '' : 's'}`);
 			return result;
 		} catch (error) {
@@ -353,6 +367,7 @@
 			advancedDutyEvents = [event, ...advancedDutyEvents.filter((existing) => existing.id !== event.id)].sort((a, b) =>
 				b.coverageStart.localeCompare(a.coverageStart)
 			);
+			await refreshAdvancedDutyData();
 			toastStore.success('Applied duty event updated');
 			return event;
 		} catch (error) {
@@ -368,6 +383,7 @@
 				throw new Error(await readResponseErrorMessage(res, 'Failed to delete applied duty event'));
 			}
 			advancedDutyEvents = advancedDutyEvents.filter((event) => event.id !== dutyEventId);
+			await refreshAdvancedDutyData();
 			toastStore.success('Applied duty event deleted');
 			return true;
 		} catch (error) {
@@ -384,6 +400,7 @@
 			}
 			const result = (await res.json()) as DutyEventRunDeleteResult;
 			advancedDutyEvents = advancedDutyEvents.filter((event) => event.runId !== runId);
+			await refreshAdvancedDutyData();
 			toastStore.success(
 				`Deleted ${result.deletedEvents} applied duty event${result.deletedEvents === 1 ? '' : 's'} from history`
 			);
@@ -407,6 +424,7 @@
 			const result = (await res.json()) as DutyEventRunDeleteResult;
 			const removed = new Set(eventIds);
 			advancedDutyEvents = advancedDutyEvents.filter((event) => !removed.has(event.id));
+			await refreshAdvancedDutyData();
 			toastStore.success(
 				`Deleted ${result.deletedEvents} legacy duty event${result.deletedEvents === 1 ? '' : 's'} from history`
 			);
@@ -427,6 +445,7 @@
 			advancedDutyTemplates = sortTemplates(
 				advancedDutyTemplates.map((template) => (template.id === item.id ? item : template))
 			);
+			await refreshAdvancedDutyData();
 			toastStore.success('Duty template archived');
 			return item;
 		} catch (error) {

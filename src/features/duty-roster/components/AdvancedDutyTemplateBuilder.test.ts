@@ -233,6 +233,53 @@ describe('AdvancedDutyTemplateBuilder', () => {
 		});
 	});
 
+	it('lets a slot override the template conflict policy before save', async () => {
+		const created = makeTemplate({ id: 'tmpl-created', name: 'Company CQ', slots: [] });
+		const onCreateTemplate = vi.fn().mockResolvedValue(created);
+
+		render(AdvancedDutyTemplateBuilder, {
+			props: {
+				templates: [],
+				groups,
+				statusTypes,
+				personnel,
+				canManageTemplates: true,
+				onCreateTemplate,
+				onUpdateTemplate: vi.fn(),
+				onArchiveTemplate: vi.fn()
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /Build from Blank/ }));
+		await fireEvent.input(screen.getByLabelText('Name'), {
+			target: { value: 'Company CQ' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Full Configuration' }));
+		await goToSeriesStep();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Slot' }));
+		await fireEvent.input(screen.getByLabelText('Role label'), {
+			target: { value: 'Runner' }
+		});
+		await fireEvent.change(screen.getByLabelText('Conflict behavior for this slot'), {
+			target: { value: 'non-blocking' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Template' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save Template' }));
+
+		await waitFor(() => {
+			expect(onCreateTemplate).toHaveBeenCalledWith(
+				expect.objectContaining({
+					slots: [
+						expect.objectContaining({
+							roleLabel: 'Runner',
+							blockingMode: 'non-blocking'
+						})
+					]
+				})
+			);
+		});
+	});
+
 	it('lets full configuration reorder and disable soft preferences before save', async () => {
 		const existing = makeTemplate();
 		const onUpdateTemplate = vi.fn().mockResolvedValue(existing);

@@ -35,7 +35,7 @@
 						{index + 1}
 					{/if}
 				</span>
-				<span class="step-label">{step.label}</span>
+				<span class="step-label" aria-current={isActive ? 'step' : undefined}>{step.label}</span>
 				{#if index < steps.length - 1}
 					<span class="step-connector" aria-hidden="true"></span>
 				{/if}

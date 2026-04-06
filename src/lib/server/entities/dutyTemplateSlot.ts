@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
 import type { DutyTemplateSlot } from '$features/duty-roster/duty-roster.types';
 
+const blockingModeSchema = z.enum(['inherit', 'blocking', 'non-blocking']);
+
 export const DutyTemplateSlotEntity = defineEntity<DutyTemplateSlot>({
 	table: 'duty_template_slots',
 	groupScope: 'none',
@@ -38,6 +40,11 @@ export const DutyTemplateSlotEntity = defineEntity<DutyTemplateSlot>({
 		rotationPoolKey: field(z.string().min(1).max(120), {
 			column: 'rotation_pool_key',
 			insertDefault: 'default'
+		}),
+		blockingMode: field(blockingModeSchema, {
+			column: 'blocking_mode',
+			insertDefault: 'inherit',
+			nullDefault: 'inherit'
 		}),
 		sortOrder: field(z.number().int().min(0), { column: 'sort_order', insertDefault: 0 })
 	}

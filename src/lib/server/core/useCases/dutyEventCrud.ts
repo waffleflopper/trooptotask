@@ -66,11 +66,13 @@ interface TransientPreviewEvent {
 		templateSlotId: string | null;
 		slotIndex: number;
 		assigneeId: string | null;
+		isBlocking: boolean;
 	}>;
 }
 
 type RankedSlotPreviewInstance = DutyEventPreviewSlotInstance & {
 	blockingMessages: string[];
+	isBlocking: boolean;
 };
 
 type InternalDutyEventPreview = Omit<DutyEventPreview, 'slotInstances'> & {
@@ -80,6 +82,19 @@ type InternalDutyEventPreview = Omit<DutyEventPreview, 'slotInstances'> & {
 
 function buildCoverageDateTime(date: string, time: string): string {
 	return `${date}T${time}:00`;
+}
+
+function resolveSlotBlockingMode(
+	templateIsBlocking: boolean,
+	blockingMode: DutyTemplate['slots'][number]['blockingMode'] | undefined
+): boolean {
+	if (blockingMode === 'blocking') {
+		return true;
+	}
+	if (blockingMode === 'non-blocking') {
+		return false;
+	}
+	return templateIsBlocking;
 }
 
 function addDays(date: string, days: number): string {
@@ -234,6 +249,7 @@ function buildRulesSnapshot(template: DutyTemplate): DutyEventRulesSnapshot {
 			preferredGroupIds: [...slot.preferredGroupIds],
 			allowedMosValues: [...slot.allowedMosValues],
 			allowedRoleValues: [...slot.allowedRoleValues],
+			blockingMode: slot.blockingMode ?? 'inherit',
 			rotationPoolKey: slot.rotationPoolKey,
 			sortOrder: slot.sortOrder
 		}))
@@ -270,6 +286,7 @@ function buildTemplateFromRulesSnapshot(snapshot: DutyEventRulesSnapshot): DutyT
 			preferredGroupIds: [...slot.preferredGroupIds],
 			allowedMosValues: [...slot.allowedMosValues],
 			allowedRoleValues: [...slot.allowedRoleValues],
+			blockingMode: slot.blockingMode ?? 'inherit',
 			rotationPoolKey: slot.rotationPoolKey,
 			sortOrder: slot.sortOrder
 		})),
@@ -717,6 +734,7 @@ function generateSlotInstances(
 		eligibleCount,
 		displayOrder
 	} of workItems) {
+		const isBlocking = resolveSlotBlockingMode(template.isBlocking, slot.blockingMode);
 		const override = overrideMap.get(buildSlotKey(slot.id, slotIndex));
 		const recommendedAvailabilityIds = new Set(assignedIds);
 		if (override?.assigneeId) {
@@ -786,6 +804,7 @@ function generateSlotInstances(
 				unfilledReason,
 				overrideMessages,
 				blockingMessages,
+				isBlocking,
 				sortOrder: displayOrder
 			});
 			continue;
@@ -813,6 +832,7 @@ function generateSlotInstances(
 					: 'Every eligible person was already assigned elsewhere in this duty event.',
 			overrideMessages: [],
 			blockingMessages: [],
+			isBlocking,
 			sortOrder: displayOrder
 		});
 	}
@@ -839,6 +859,7 @@ async function buildDutyEventPreview(
 		ctx,
 		template,
 		input.eventDate,
+		input.candidatePersonnelIds,
 		input.slotOverrides,
 		transientEvents,
 		excludeDutyEventIds
@@ -849,12 +870,16 @@ async function buildDutyEventPreviewFromResolvedTemplate(
 	ctx: QueryPorts,
 	template: DutyTemplate,
 	eventDate: string,
+	candidatePersonnelIds: string[] | undefined,
 	slotOverrides: DutyEventSlotOverrideInput[] | undefined,
 	transientEvents: TransientPreviewEvent[] = [],
 	excludeDutyEventIds: string[] = []
 ): Promise<InternalDutyEventPreview> {
-	const personnel = await listPersonnel(ctx);
-	const personnelById = new Map(personnel.map((person) => [person.id, person]));
+	const allPersonnel = await listPersonnel(ctx);
+	const personnelById = new Map(allPersonnel.map((person) => [person.id, person]));
+	const personnel = candidatePersonnelIds?.length
+		? allPersonnel.filter((person) => candidatePersonnelIds.includes(person.id))
+		: allPersonnel;
 	const holidayClosureDates = await listHolidayClosureDateSet(ctx);
 	const coverage = buildCoverageWindow(template, eventDate);
 	const historyByPoolPerson = await buildPoolHistoryIndex(
@@ -1067,7 +1092,12 @@ function addSlotConflict(
 
 async function buildCollisionSummary(
 	ctx: QueryPorts,
-	slotInstances: Array<{ templateSlotId: string | null; slotIndex: number; assigneeId: string | null }>,
+	slotInstances: Array<{
+		templateSlotId: string | null;
+		slotIndex: number;
+		assigneeId: string | null;
+		isBlocking: boolean;
+	}>,
 	eventDate: string,
 	coverageStart: string,
 	coverageEnd: string,
@@ -1076,12 +1106,11 @@ async function buildCollisionSummary(
 	transientEvents: TransientPreviewEvent[] = [],
 	excludeDutyEventIds: string[] = []
 ): Promise<SlotCollisionCheckResult> {
+	const slotMessages = new Map<string, string[]>();
 	const filledSlots = slotInstances.filter(
 		(slot): slot is (typeof slotInstances)[number] & { assigneeId: string } => !!slot.assigneeId
 	);
-	const assigneeIds = [...new Set(filledSlots.map((slot) => slot.assigneeId))];
-	const slotMessages = new Map<string, string[]>();
-	if (assigneeIds.length === 0) {
+	if (filledSlots.length === 0) {
 		return {
 			summary: {
 				hasConflicts: false,
@@ -1092,6 +1121,9 @@ async function buildCollisionSummary(
 		};
 	}
 
+	const blockingFilledSlots = filledSlots.filter((slot) => slot.isBlocking);
+	const assigneeIds = [...new Set(blockingFilledSlots.map((slot) => slot.assigneeId))];
+
 	const conflicts: string[] = [];
 	const seenConflicts = new Set<string>();
 	const blockingConflicts: string[] = [];
@@ -1101,6 +1133,12 @@ async function buildCollisionSummary(
 		const items = slotsByAssignee.get(slot.assigneeId) ?? [];
 		items.push(slot);
 		slotsByAssignee.set(slot.assigneeId, items);
+	}
+	const blockingSlotsByAssignee = new Map<string, Array<(typeof blockingFilledSlots)[number]>>();
+	for (const slot of blockingFilledSlots) {
+		const items = blockingSlotsByAssignee.get(slot.assigneeId) ?? [];
+		items.push(slot);
+		blockingSlotsByAssignee.set(slot.assigneeId, items);
 	}
 
 	for (const [assigneeId, slots] of slotsByAssignee) {
@@ -1123,6 +1161,17 @@ async function buildCollisionSummary(
 		}
 	}
 
+	if (assigneeIds.length === 0) {
+		return {
+			summary: {
+				hasConflicts: conflicts.length > 0,
+				conflicts
+			},
+			slotMessages,
+			blockingConflicts
+		};
+	}
+
 	const dailyAssignmentRows = await ctx.store.findMany<Record<string, unknown>>(
 		'daily_assignments',
 		ctx.auth.orgId,
@@ -1135,7 +1184,7 @@ async function buildCollisionSummary(
 	for (const row of dailyAssignmentRows) {
 		const assigneeId = String(row.assignee_id);
 		const message = `${formatPersonLabel(personnelById, assigneeId)} already has a daily assignment on ${String(row.date)}. Review this collision before apply.`;
-		for (const slot of slotsByAssignee.get(assigneeId) ?? []) {
+		for (const slot of blockingSlotsByAssignee.get(assigneeId) ?? []) {
 			addSlotConflict(
 				slotMessages,
 				conflicts,
@@ -1161,14 +1210,14 @@ async function buildCollisionSummary(
 					coverageStart: event.coverageStart,
 					coverageEnd: event.coverageEnd,
 					cooldownHours: event.cooldownHours,
-					isBlocking: event.isBlocking
+					isBlocking: slot.isBlocking
 				}))
 		)
 	});
 
 	for (const [assigneeId, messages] of dutyCoverageConflicts) {
 		for (const message of messages) {
-			for (const slot of slotsByAssignee.get(assigneeId) ?? []) {
+			for (const slot of blockingSlotsByAssignee.get(assigneeId) ?? []) {
 				addSlotConflict(
 					slotMessages,
 					conflicts,
@@ -1492,7 +1541,8 @@ export async function applyDutyEventFromTemplate(
 		ctx,
 		{
 			templateId: input.templateId,
-			eventDate: input.eventDate
+			eventDate: input.eventDate,
+			candidatePersonnelIds: input.candidatePersonnelIds
 		},
 		[],
 		excludeIds
@@ -1607,7 +1657,15 @@ export async function previewExistingDutyEvent(
 
 	const template = buildTemplateFromRulesSnapshot(event.rulesSnapshot);
 	return toPublicDutyEventPreview(
-		await buildDutyEventPreviewFromResolvedTemplate(ctx, template, event.eventDate, input.slotOverrides, [], [event.id])
+		await buildDutyEventPreviewFromResolvedTemplate(
+			ctx,
+			template,
+			event.eventDate,
+			undefined,
+			input.slotOverrides,
+			[],
+			[event.id]
+		)
 	);
 }
 
@@ -1628,6 +1686,7 @@ export async function updateExistingDutyEvent(
 		ctx,
 		template,
 		existingEvent.eventDate,
+		undefined,
 		input.slotOverrides ?? buildSlotOverridesFromDutyEvent(existingEvent),
 		[],
 		[existingEvent.id]
@@ -1702,6 +1761,7 @@ export async function previewDutyEventSeriesFromTemplate(
 			{
 				templateId: input.templateId,
 				eventDate,
+				candidatePersonnelIds: input.candidatePersonnelIds,
 				slotOverrides: getEventSlotOverrides(input, eventDate)
 			},
 			transientEvents,
@@ -1717,7 +1777,8 @@ export async function previewDutyEventSeriesFromTemplate(
 			slotInstances: preview.slotInstances.map((slot) => ({
 				templateSlotId: slot.templateSlotId,
 				slotIndex: slot.slotIndex,
-				assigneeId: slot.assigneeId
+				assigneeId: slot.assigneeId,
+				isBlocking: slot.isBlocking
 			}))
 		});
 	}
@@ -1763,6 +1824,7 @@ export async function applyDutyEventSeriesFromTemplate(
 					templateId: input.templateId,
 					eventDate,
 					collisionReviewConfirmed: input.collisionReviewConfirmed,
+					candidatePersonnelIds: input.candidatePersonnelIds,
 					slotOverrides: getEventSlotOverrides(input, eventDate)
 				})
 			);

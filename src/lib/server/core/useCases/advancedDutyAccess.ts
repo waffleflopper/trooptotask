@@ -9,6 +9,8 @@ export function requireAdvancedDutyAccess(auth: AuthContext): void {
 	}
 }
 
-export function canAccessAdvancedDuty(auth: Pick<AuthContext, 'isFullEditor' | 'scopedGroupId'>): boolean {
-	return auth.isFullEditor && !auth.scopedGroupId;
+export function canAccessAdvancedDuty(
+	auth: Pick<AuthContext, 'isPrivileged' | 'isFullEditor' | 'scopedGroupId'>
+): boolean {
+	return !auth.scopedGroupId && (auth.isPrivileged || auth.isFullEditor);
 }

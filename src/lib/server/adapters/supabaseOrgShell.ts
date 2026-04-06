@@ -275,7 +275,14 @@ export function createSupabaseTrainingWorkspacePort(
 
 					const personnelTrainings: Promise<PersonnelTraining[]> = ctx.store
 						.findMany<Record<string, unknown>>('personnel_trainings', orgId)
-						.then((rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[]);
+						.then((rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[])
+						.catch((error) => {
+							console.error('[training-workspace] Failed to load personnel trainings', {
+								orgId,
+								error
+							});
+							throw error;
+						});
 
 					return {
 						personnel: PersonnelEntity.fromDbArray(personnelRows) as Personnel[],

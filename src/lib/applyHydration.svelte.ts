@@ -123,18 +123,19 @@ async function applyTarget<T>(
 
 	if (isPromiseLike<T[]>(target.items)) {
 		store.startLoading?.();
-		let items: T[];
 		try {
-			items = await target.items;
-		} catch {
-			items = [];
+			const items = await target.items;
+			const latestPending = pendingSnapshotKeys.get(targetName);
+			if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== target.snapshotKey) return;
+			store.load(items, orgId);
+			pendingSnapshotKeys.delete(targetName);
+			appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
+			return;
+		} catch (error) {
+			pendingSnapshotKeys.delete(targetName);
+			console.error(`[hydration] Failed to load ${targetName} for org ${orgId}`, error);
+			throw error;
 		}
-		const latestPending = pendingSnapshotKeys.get(targetName);
-		if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== target.snapshotKey) return;
-		store.load(items, orgId);
-		pendingSnapshotKeys.delete(targetName);
-		appliedSnapshotKeys.set(targetName, { orgId, snapshotKey: target.snapshotKey });
-		return;
 	}
 
 	store.load(target.items as T[], orgId);

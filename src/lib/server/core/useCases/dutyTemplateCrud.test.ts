@@ -80,7 +80,7 @@ describe('duty template CRUD use cases', () => {
 		);
 	});
 
-	it('creates templates even when policy columns are missing in the database schema', async () => {
+	it('fails create when policy fields cannot be written', async () => {
 		const ctx = createTestContext();
 		const originalInsert = ctx.store.insert.bind(ctx.store);
 		let attemptedTemplateInsert = false;
@@ -93,12 +93,10 @@ describe('duty template CRUD use cases', () => {
 			return await originalInsert(...(args as Parameters<typeof originalInsert>));
 		}) as typeof ctx.store.insert;
 
-		const result = await createDutyTemplate(ctx, makeInput());
-
-		expect(result.name).toBe('Battalion Staff Duty');
-		expect(result.exemptPersonnelIds).toEqual([]);
-		expect(result.exemptStatusTypeIds).toEqual([]);
-		expect(result.softPreferences).toEqual(cloneDefaultSoftPreferences());
+		await expect(createDutyTemplate(ctx, makeInput())).rejects.toMatchObject({
+			status: 500,
+			message: expect.stringContaining('Duty template policy settings could not be saved')
+		});
 	});
 
 	it('persists rotation pools, preferred groups, and manual fairness baselines on advanced templates', async () => {
@@ -254,7 +252,7 @@ describe('duty template CRUD use cases', () => {
 		);
 	});
 
-	it('updates templates even when policy columns are missing in the database schema', async () => {
+	it('fails update when policy fields cannot be written', async () => {
 		const ctx = createTestContext();
 		const created = await createDutyTemplate(ctx, makeInput());
 		const originalUpdate = ctx.store.update.bind(ctx.store);
@@ -268,18 +266,17 @@ describe('duty template CRUD use cases', () => {
 			return await originalUpdate(...(args as Parameters<typeof originalUpdate>));
 		}) as typeof ctx.store.update;
 
-		const updated = await updateDutyTemplate(ctx, {
-			...makeInput({
-				id: created.id,
-				name: 'Battalion Staff Duty (Updated)'
+		await expect(
+			updateDutyTemplate(ctx, {
+				...makeInput({
+					id: created.id,
+					name: 'Battalion Staff Duty (Updated)'
+				})
 			})
+		).rejects.toMatchObject({
+			status: 500,
+			message: expect.stringContaining('Duty template policy settings could not be saved')
 		});
-
-		expect(updated.id).toBe(created.id);
-		expect(updated.name).toBe('Battalion Staff Duty (Updated)');
-		expect(updated.exemptPersonnelIds).toEqual([]);
-		expect(updated.exemptStatusTypeIds).toEqual([]);
-		expect(updated.softPreferences).toEqual(cloneDefaultSoftPreferences());
 	});
 
 	it('returns advanced templates with slots sorted for review', async () => {

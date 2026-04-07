@@ -50,6 +50,7 @@ function makeTemplate(overrides: Partial<DutyTemplate> = {}): DutyTemplate {
 		coverageMode: 'timed',
 		startTime: '17:00',
 		endTime: '09:00',
+		spansMidnight: false,
 		isBlocking: true,
 		cooldownHours: 12,
 		softPreferences: cloneDefaultSoftPreferences(),

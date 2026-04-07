@@ -11,6 +11,7 @@ const defaultSoftPreferences = cloneDefaultSoftPreferences();
 
 export const DutyTemplateEntity = defineEntity<DutyTemplateRecord>({
 	table: 'duty_templates',
+	permission: 'calendar',
 	groupScope: 'none',
 	schema: {
 		id: field(z.string(), { readOnly: true }),
@@ -41,6 +42,7 @@ export const DutyTemplateEntity = defineEntity<DutyTemplateRecord>({
 		}),
 		startTime: field(z.string().nullable(), { column: 'start_time', insertDefault: null }),
 		endTime: field(z.string().nullable(), { column: 'end_time', insertDefault: null }),
+		spansMidnight: field(z.boolean(), { column: 'spans_midnight', insertDefault: false, nullDefault: false }),
 		isBlocking: field(z.boolean(), { column: 'is_blocking', insertDefault: false }),
 		cooldownHours: field(z.number().int().min(0), {
 			column: 'cooldown_hours',

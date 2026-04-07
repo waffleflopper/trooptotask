@@ -2,18 +2,22 @@
 	import type { Personnel } from '$lib/types';
 	import type { AvailabilityEntry, SpecialDay, StatusType } from '$lib/types';
 	import type { AssignmentType, DailyAssignment } from '$lib/types';
+	import type { DutyEvent } from '../duty-roster.types';
+	import { resolveSlotBlockingMode } from '../blockingMode';
 	import type { RosterHistoryItem, RosterHistoryEntry, DA6Data } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import SubNav from '$lib/components/ui/SubNav.svelte';
+	import WizardStepper from './WizardStepper.svelte';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 
 	interface Props {
+		initialAssignmentTypeId?: string;
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		advancedDutyEvents: DutyEvent[];
 		personnelByGroup: { group: string; personnel: Personnel[] }[];
 		groups: string[];
 		availabilityEntries: AvailabilityEntry[];
@@ -27,8 +31,10 @@
 	}
 
 	let {
+		initialAssignmentTypeId = undefined,
 		assignmentTypes,
 		assignments,
+		advancedDutyEvents,
 		personnelByGroup,
 		groups,
 		availabilityEntries,
@@ -52,10 +58,15 @@
 		return formatDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 	}
 
-	type DutyRosterView = 'config' | 'preview' | 'history';
+	type DutyRosterView = 'setup' | 'personnel' | 'preview' | 'history';
 
-	// View state: 'config' | 'preview' | 'history'
-	let view = $state<DutyRosterView>('config');
+	const WIZARD_STEPS = [
+		{ id: 'setup', label: 'Setup' },
+		{ id: 'personnel', label: 'Personnel' },
+		{ id: 'preview', label: 'Preview & Apply' }
+	];
+
+	let view = $state<DutyRosterView>('setup');
 
 	// Configuration state
 	let selectedAssignmentTypeId = $state('');
@@ -184,7 +195,49 @@
 	}
 
 	// Check if person is available on a given date
+	function formatDateTime(value: Date): string {
+		const year = value.getFullYear();
+		const month = String(value.getMonth() + 1).padStart(2, '0');
+		const day = String(value.getDate()).padStart(2, '0');
+		const hours = String(value.getHours()).padStart(2, '0');
+		const minutes = String(value.getMinutes()).padStart(2, '0');
+		const seconds = String(value.getSeconds()).padStart(2, '0');
+		return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+	}
+
+	function addHours(dateTime: string, hours: number): string {
+		const value = new Date(dateTime);
+		value.setHours(value.getHours() + hours);
+		return formatDateTime(value);
+	}
+
+	function hasBlockingAdvancedDuty(personnelId: string, date: string): boolean {
+		const dayStart = `${date}T00:00:00`;
+		const dayEnd = `${date}T23:59:59`;
+		return advancedDutyEvents.some((event) => {
+			const hasBlockingAssignee = event.slotInstances.some((slot) => {
+				if (slot.assigneeId !== personnelId) {
+					return false;
+				}
+
+				const snapshotSlot = event.rulesSnapshot.slots.find(
+					(candidate) => candidate.templateSlotId === slot.templateSlotId
+				);
+				return resolveSlotBlockingMode(event.isBlocking, snapshotSlot?.blockingMode);
+			});
+			if (!hasBlockingAssignee) return false;
+			const overlaps = event.coverageStart < dayEnd && event.coverageEnd > dayStart;
+			const cooldownBlocks =
+				event.coverageEnd <= dayStart && addHours(event.coverageEnd, event.cooldownHours) > dayStart;
+			return overlaps || cooldownBlocks;
+		});
+	}
+
 	function isPersonAvailable(person: Personnel, date: string): boolean {
+		if (hasBlockingAdvancedDuty(person.id, date)) {
+			return false;
+		}
+
 		const entries = availabilityEntries.filter(
 			(e) => e.personnelId === person.id && date >= e.startDate && date <= e.endDate
 		);
@@ -719,21 +772,22 @@
 
 	// Personnel-only assignment types
 	const personnelAssignmentTypes = $derived(assignmentTypes.filter((t) => t.assignTo === 'personnel'));
+	let lastAppliedInitialAssignmentTypeId = $state<string | null>(null);
+
+	$effect(() => {
+		const nextInitialId = initialAssignmentTypeId?.trim() || null;
+		if (!nextInitialId || nextInitialId === lastAppliedInitialAssignmentTypeId) return;
+		if (!personnelAssignmentTypes.some((type) => type.id === nextInitialId)) return;
+
+		selectedAssignmentTypeId = nextInitialId;
+		lastAppliedInitialAssignmentTypeId = nextInitialId;
+	});
 
 	const panelTitle = $derived(
 		view === 'history' ? 'Roster History' : view === 'preview' ? 'Generated Roster Preview' : 'Generate Duty Roster'
 	);
 
-	const rosterTabs = $derived([
-		{ label: 'Configuration', value: 'config' },
-		{ label: 'Preview', value: 'preview' },
-		{ label: 'History', value: 'history', badge: rosterHistory.length > 0 ? rosterHistory.length : undefined }
-	]);
-
-	function setView(next: string) {
-		if (next === 'preview' && generatedRoster.length === 0) return;
-		view = next as DutyRosterView;
-	}
+	const canProceedToPersonnel = $derived(!!selectedAssignmentTypeId && !!startDate && !!endDate);
 </script>
 
 <section class="generator-shell">
@@ -746,6 +800,11 @@
 				rosters from one page.
 			</p>
 		</div>
+		{#if view !== 'history'}
+			<button class="btn btn-secondary btn-sm" onclick={() => (view = 'history')}>
+				View History{rosterHistory.length > 0 ? ` (${rosterHistory.length})` : ''}
+			</button>
+		{/if}
 	</div>
 
 	{#if applyFeedback}
@@ -754,9 +813,12 @@
 		</div>
 	{/if}
 
-	<div class="generator-nav">
-		<SubNav tabs={rosterTabs} active={view} onChange={setView} />
-	</div>
+	{#if view !== 'history'}
+		<WizardStepper
+			steps={WIZARD_STEPS}
+			current={view === 'preview' ? 'preview' : view === 'personnel' ? 'personnel' : 'setup'}
+		/>
+	{/if}
 
 	<div class="generator-body">
 		{#if view === 'history'}
@@ -766,7 +828,7 @@
 						<h3>Roster History</h3>
 						<p class="hint">Past rosters, most recent first.</p>
 					</div>
-					<button class="btn btn-secondary btn-sm" onclick={() => (view = 'config')}>Back to Config</button>
+					<button class="btn btn-secondary btn-sm" onclick={() => (view = 'setup')}>Back to Setup</button>
 				</div>
 
 				{#if rosterHistory.length === 0}
@@ -837,7 +899,7 @@
 						<p class="hint">Review coverage, export the roster, then push it to the calendar when it looks right.</p>
 					</div>
 					<div class="panel-actions">
-						<button class="btn btn-secondary" onclick={() => (view = 'config')}>Back to Config</button>
+						<button class="btn btn-secondary" onclick={() => (view = 'personnel')}>← Back</button>
 						<button class="btn btn-secondary" onclick={() => exportToExcel()}>
 							<svg
 								viewBox="0 0 24 24"
@@ -974,162 +1036,239 @@
 					</div>
 				{/if}
 			</section>
-		{:else}
-			<div class="roster-workspace">
-				<div class="config-column">
-					<section class="config-section panel-card section-card card card-flat">
-						<div class="panel-header">
-							<div>
-								<p class="pane-eyebrow">Step 1</p>
-								<h3>Duty Configuration</h3>
-								<p class="hint">Choose what you are filling and the date range the roster should cover.</p>
-							</div>
+		{:else if view === 'setup'}
+			<div class="wizard-step">
+				<section class="config-section panel-card section-card card card-flat">
+					<div class="panel-header">
+						<div>
+							<h3>Duty Configuration</h3>
+							<p class="hint">Choose what you are filling and the date range the roster should cover.</p>
 						</div>
+					</div>
 
+					<div class="form-group">
+						<label class="label" for="assignmentType">Assignment Type</label>
+						<select id="assignmentType" class="select" bind:value={selectedAssignmentTypeId}>
+							<option value="">Select duty type...</option>
+							{#each personnelAssignmentTypes as type}
+								<option value={type.id}>{type.name} ({type.shortName})</option>
+							{/each}
+						</select>
+					</div>
+
+					<div class="form-row">
 						<div class="form-group">
-							<label class="label" for="assignmentType">Assignment Type</label>
-							<select id="assignmentType" class="select" bind:value={selectedAssignmentTypeId}>
-								<option value="">Select duty type...</option>
-								{#each personnelAssignmentTypes as type}
-									<option value={type.id}>{type.name} ({type.shortName})</option>
-								{/each}
+							<label class="label" for="duration">Duty Duration</label>
+							<select id="duration" class="select" bind:value={dutyDuration}>
+								<option value="daily">Daily</option>
+								<option value="weekly">Weekly</option>
+								<option value="monthly">Monthly</option>
 							</select>
 						</div>
-
-						<div class="form-row">
-							<div class="form-group">
-								<label class="label" for="duration">Duty Duration</label>
-								<select id="duration" class="select" bind:value={dutyDuration}>
-									<option value="daily">Daily</option>
-									<option value="weekly">Weekly</option>
-									<option value="monthly">Monthly</option>
-								</select>
-							</div>
-						</div>
-
-						<div class="form-row">
-							<div class="form-group">
-								<label class="label" for="startDate">Start Date</label>
-								<input id="startDate" type="date" class="input" bind:value={startDate} />
-							</div>
-							<div class="form-group">
-								<label class="label" for="endDate">End Date</label>
-								<input id="endDate" type="date" class="input" bind:value={endDate} />
-							</div>
-						</div>
-					</section>
-
-					<section class="config-section panel-card section-card card card-flat">
-						<div class="panel-header">
-							<div>
-								<p class="pane-eyebrow">Scheduling</p>
-								<h3>Schedule Options</h3>
-								<p class="hint">Skip dates you know should not be filled by the auto-rotation.</p>
-							</div>
-						</div>
-
-						<label class="toggle-row">
-							<input type="checkbox" bind:checked={excludeWeekends} />
-							<span>Exclude weekends (Sat & Sun)</span>
-						</label>
-
-						<label class="toggle-row">
-							<input type="checkbox" bind:checked={excludeHolidays} />
-							<span>Exclude federal holidays</span>
-						</label>
-
-						<label class="toggle-row">
-							<input type="checkbox" bind:checked={excludeOrgClosures} />
-							<span>Exclude org closures</span>
-						</label>
-					</section>
-
-					<section class="config-section panel-card section-card card card-flat">
-						<div class="panel-header">
-							<div>
-								<p class="pane-eyebrow">Availability Rules</p>
-								<h3>Unavailable Statuses</h3>
-								<p class="hint">Anyone carrying one of these statuses during a duty date will be skipped.</p>
-							</div>
-						</div>
-
-						<div class="chip-list">
-							{#each statusTypes as status}
-								<button
-									class="chip status-chip"
-									class:selected={excludeStatuses.includes(status.id)}
-									aria-pressed={excludeStatuses.includes(status.id)}
-									style="--chip-color: {status.color}; --chip-text: {status.textColor}"
-									onclick={() => toggleExcludeStatus(status.id)}
-								>
-									{status.name}
-								</button>
-							{/each}
-						</div>
-					</section>
-
-					<div class="sticky-actions section-card card card-flat">
-						<div>
-							<h3>Ready to generate?</h3>
-							<p class="hint">The preview shows who gets assigned before anything is written to the calendar.</p>
-						</div>
-						<button
-							class="btn btn-primary"
-							onclick={generateRoster}
-							disabled={!selectedAssignmentTypeId ||
-								!startDate ||
-								!endDate ||
-								eligiblePersonnel.length === 0 ||
-								isGenerating}
-						>
-							{isGenerating ? 'Generating...' : 'Generate Roster'}
-						</button>
 					</div>
-				</div>
 
-				<div class="selection-column">
+					<div class="form-row">
+						<div class="form-group">
+							<label class="label" for="startDate">Start Date</label>
+							<input id="startDate" type="date" class="input" bind:value={startDate} />
+						</div>
+						<div class="form-group">
+							<label class="label" for="endDate">End Date</label>
+							<input id="endDate" type="date" class="input" bind:value={endDate} />
+						</div>
+					</div>
+				</section>
+
+				<section class="config-section panel-card section-card card card-flat">
+					<div class="panel-header">
+						<div>
+							<p class="pane-eyebrow">Scheduling</p>
+							<h3>Schedule Options</h3>
+							<p class="hint">Skip dates you know should not be filled by the auto-rotation.</p>
+						</div>
+					</div>
+
+					<label class="toggle-row">
+						<input type="checkbox" bind:checked={excludeWeekends} />
+						<span>Exclude weekends (Sat & Sun)</span>
+					</label>
+
+					<label class="toggle-row">
+						<input type="checkbox" bind:checked={excludeHolidays} />
+						<span>Exclude federal holidays</span>
+					</label>
+
+					<label class="toggle-row">
+						<input type="checkbox" bind:checked={excludeOrgClosures} />
+						<span>Exclude org closures</span>
+					</label>
+				</section>
+
+				<section class="config-section panel-card section-card card card-flat">
+					<div class="panel-header">
+						<div>
+							<p class="pane-eyebrow">Availability Rules</p>
+							<h3>Unavailable Statuses</h3>
+							<p class="hint">Anyone carrying one of these statuses during a duty date will be skipped.</p>
+						</div>
+					</div>
+
+					<div class="chip-list">
+						{#each statusTypes as status}
+							<button
+								class="chip status-chip"
+								class:selected={excludeStatuses.includes(status.id)}
+								aria-pressed={excludeStatuses.includes(status.id)}
+								style="--chip-color: {status.color}; --chip-text: {status.textColor}"
+								onclick={() => toggleExcludeStatus(status.id)}
+							>
+								{status.name}
+							</button>
+						{/each}
+					</div>
+				</section>
+
+				<div class="step-cta card card-flat">
+					<button class="btn btn-primary" disabled={!canProceedToPersonnel} onclick={() => (view = 'personnel')}>
+						Continue to Personnel →
+					</button>
+				</div>
+			</div>
+		{:else if view === 'personnel'}
+			<div class="wizard-step">
+				<section class="personnel-card card card-flat">
+					<div class="panel-header personnel-card-header">
+						<div>
+							<p class="pane-eyebrow">Step 2</p>
+							<h3>Eligible Personnel</h3>
+							<p class="hint">Search, select by group, or fine-tune the roster pool directly.</p>
+						</div>
+					</div>
+
+					<div class="personnel-table-wrap">
+						<DataTable
+							columns={personnelColumns}
+							table={eligibleTable}
+							compact
+							showSearch
+							searchPlaceholder="Search by name, rank, group, MOS, or role..."
+							emptyMessage="No eligible personnel available"
+							onRowClick={(person) => toggleEligiblePerson(person.id)}
+						>
+							{#snippet toolbar(_state)}
+								<div class="selection-toolbar">
+									<div class="selection-stats">
+										<Badge label={`${selectedEligibleIds.size} selected`} variant="outlined" />
+										<Badge label={`${eligibleTable.totalRows} shown`} variant="outlined" />
+									</div>
+									<div class="selection-actions">
+										<button class="btn btn-secondary btn-sm" onclick={selectVisibleEligible}>Select shown</button>
+										<button class="btn btn-secondary btn-sm" onclick={clearEligibleSelection}>Clear</button>
+										<button class="btn btn-secondary btn-sm" onclick={resetEligibleSelection}>Reset all</button>
+									</div>
+								</div>
+							{/snippet}
+
+							{#snippet groupHeader(ctx)}
+								{@const selectionState = getGroupSelectionState(eligibleTable, selectedEligibleIds, ctx.key)}
+								<div class="group-header-content">
+									<input
+										type="checkbox"
+										aria-label={`Select ${ctx.label} group`}
+										checked={selectionState === 'all'}
+										indeterminate={selectionState === 'some'}
+										onchange={() => toggleEligibleGroup(ctx.key)}
+										onclick={(event) => event.stopPropagation()}
+									/>
+									<button
+										type="button"
+										class="group-toggle"
+										aria-expanded={!ctx.collapsed}
+										aria-label={`Toggle ${ctx.label} group`}
+										onclick={() => ctx.toggle()}
+									>
+										<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
+											<path
+												fill-rule="evenodd"
+												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+												clip-rule="evenodd"
+											/>
+										</svg>
+										<span class="group-label">{ctx.label}</span>
+										<span class="group-count">({ctx.count})</span>
+									</button>
+								</div>
+							{/snippet}
+
+							{#snippet cell(row, col)}
+								{#if col.key === 'select'}
+									<input
+										type="checkbox"
+										checked={selectedEligibleIds.has(row.id)}
+										onchange={() => toggleEligiblePerson(row.id)}
+										onclick={(event) => event.stopPropagation()}
+									/>
+								{:else if col.key === 'rank'}
+									<span class="assignee-rank">{row.rank}</span>
+								{:else}
+									{String(col.value(row) ?? '')}
+								{/if}
+							{/snippet}
+						</DataTable>
+					</div>
+				</section>
+
+				{#if selectedAssignmentTypeId}
 					<section class="personnel-card card card-flat">
 						<div class="panel-header personnel-card-header">
 							<div>
-								<p class="pane-eyebrow">Step 2</p>
-								<h3>Eligible Personnel</h3>
-								<p class="hint">Search, select by group, or fine-tune the roster pool directly.</p>
+								<p class="pane-eyebrow">Step 3</p>
+								<h3>Exempt Personnel</h3>
+								<p class="hint">These people will never be assigned this duty type.</p>
+							</div>
+							<div class="panel-actions">
+								<button
+									class="btn btn-primary btn-sm"
+									onclick={saveExemptions}
+									disabled={!hasExemptionChanges || isSavingExemptions}
+								>
+									{isSavingExemptions ? 'Saving...' : 'Save Exemptions'}
+								</button>
 							</div>
 						</div>
 
 						<div class="personnel-table-wrap">
 							<DataTable
 								columns={personnelColumns}
-								table={eligibleTable}
+								table={exemptTable}
 								compact
 								showSearch
 								searchPlaceholder="Search by name, rank, group, MOS, or role..."
-								emptyMessage="No eligible personnel available"
-								onRowClick={(person) => toggleEligiblePerson(person.id)}
+								emptyMessage="No personnel available"
+								onRowClick={(person) => toggleDraftExempt(person.id)}
 							>
 								{#snippet toolbar(_state)}
 									<div class="selection-toolbar">
 										<div class="selection-stats">
-											<Badge label={`${selectedEligibleIds.size} selected`} variant="outlined" />
-											<Badge label={`${eligibleTable.totalRows} shown`} variant="outlined" />
+											<Badge label={`${draftExemptIds.size} selected`} variant="outlined" />
+											<Badge label={`${exemptTable.totalRows} shown`} variant="outlined" />
 										</div>
 										<div class="selection-actions">
-											<button class="btn btn-secondary btn-sm" onclick={selectVisibleEligible}>Select shown</button>
-											<button class="btn btn-secondary btn-sm" onclick={clearEligibleSelection}>Clear</button>
-											<button class="btn btn-secondary btn-sm" onclick={resetEligibleSelection}>Reset all</button>
+											<button class="btn btn-secondary btn-sm" onclick={selectVisibleExempt}>Select shown</button>
+											<button class="btn btn-secondary btn-sm" onclick={clearDraftExemptions}>Clear</button>
 										</div>
 									</div>
 								{/snippet}
 
 								{#snippet groupHeader(ctx)}
-									{@const selectionState = getGroupSelectionState(eligibleTable, selectedEligibleIds, ctx.key)}
+									{@const selectionState = getGroupSelectionState(exemptTable, draftExemptIds, ctx.key)}
 									<div class="group-header-content">
 										<input
 											type="checkbox"
 											aria-label={`Select ${ctx.label} group`}
 											checked={selectionState === 'all'}
 											indeterminate={selectionState === 'some'}
-											onchange={() => toggleEligibleGroup(ctx.key)}
+											onchange={() => toggleExemptGroup(ctx.key)}
 											onclick={(event) => event.stopPropagation()}
 										/>
 										<button
@@ -1156,8 +1295,8 @@
 									{#if col.key === 'select'}
 										<input
 											type="checkbox"
-											checked={selectedEligibleIds.has(row.id)}
-											onchange={() => toggleEligiblePerson(row.id)}
+											checked={draftExemptIds.has(row.id)}
+											onchange={() => toggleDraftExempt(row.id)}
 											onclick={(event) => event.stopPropagation()}
 										/>
 									{:else if col.key === 'rank'}
@@ -1169,103 +1308,16 @@
 							</DataTable>
 						</div>
 					</section>
-
-					{#if selectedAssignmentTypeId}
-						<section class="personnel-card card card-flat">
-							<div class="panel-header personnel-card-header">
-								<div>
-									<p class="pane-eyebrow">Step 3</p>
-									<h3>Exempt Personnel</h3>
-									<p class="hint">These people will never be assigned this duty type.</p>
-								</div>
-								<div class="panel-actions">
-									<button
-										class="btn btn-primary btn-sm"
-										onclick={saveExemptions}
-										disabled={!hasExemptionChanges || isSavingExemptions}
-									>
-										{isSavingExemptions ? 'Saving...' : 'Save Exemptions'}
-									</button>
-								</div>
-							</div>
-
-							<div class="personnel-table-wrap">
-								<DataTable
-									columns={personnelColumns}
-									table={exemptTable}
-									compact
-									showSearch
-									searchPlaceholder="Search by name, rank, group, MOS, or role..."
-									emptyMessage="No personnel available"
-									onRowClick={(person) => toggleDraftExempt(person.id)}
-								>
-									{#snippet toolbar(_state)}
-										<div class="selection-toolbar">
-											<div class="selection-stats">
-												<Badge label={`${draftExemptIds.size} selected`} variant="outlined" />
-												<Badge label={`${exemptTable.totalRows} shown`} variant="outlined" />
-											</div>
-											<div class="selection-actions">
-												<button class="btn btn-secondary btn-sm" onclick={selectVisibleExempt}>Select shown</button>
-												<button class="btn btn-secondary btn-sm" onclick={clearDraftExemptions}>Clear</button>
-											</div>
-										</div>
-									{/snippet}
-
-									{#snippet groupHeader(ctx)}
-										{@const selectionState = getGroupSelectionState(exemptTable, draftExemptIds, ctx.key)}
-										<div class="group-header-content">
-											<input
-												type="checkbox"
-												aria-label={`Select ${ctx.label} group`}
-												checked={selectionState === 'all'}
-												indeterminate={selectionState === 'some'}
-												onchange={() => toggleExemptGroup(ctx.key)}
-												onclick={(event) => event.stopPropagation()}
-											/>
-											<button
-												type="button"
-												class="group-toggle"
-												aria-expanded={!ctx.collapsed}
-												aria-label={`Toggle ${ctx.label} group`}
-												onclick={() => ctx.toggle()}
-											>
-												<svg
-													class="chevron-icon"
-													class:collapsed={ctx.collapsed}
-													viewBox="0 0 20 20"
-													fill="currentColor"
-												>
-													<path
-														fill-rule="evenodd"
-														d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-														clip-rule="evenodd"
-													/>
-												</svg>
-												<span class="group-label">{ctx.label}</span>
-												<span class="group-count">({ctx.count})</span>
-											</button>
-										</div>
-									{/snippet}
-
-									{#snippet cell(row, col)}
-										{#if col.key === 'select'}
-											<input
-												type="checkbox"
-												checked={draftExemptIds.has(row.id)}
-												onchange={() => toggleDraftExempt(row.id)}
-												onclick={(event) => event.stopPropagation()}
-											/>
-										{:else if col.key === 'rank'}
-											<span class="assignee-rank">{row.rank}</span>
-										{:else}
-											{String(col.value(row) ?? '')}
-										{/if}
-									{/snippet}
-								</DataTable>
-							</div>
-						</section>
-					{/if}
+				{/if}
+				<div class="step-cta card card-flat">
+					<button class="btn btn-secondary" type="button" onclick={() => (view = 'setup')}> ← Back </button>
+					<button
+						class="btn btn-primary"
+						onclick={generateRoster}
+						disabled={eligiblePersonnel.length === 0 || isGenerating}
+					>
+						{isGenerating ? 'Generating...' : 'Generate Roster'}
+					</button>
 				</div>
 			</div>
 		{/if}
@@ -1320,8 +1372,7 @@
 	}
 
 	.hero-copy h2,
-	.panel-header h3,
-	.sticky-actions h3 {
+	.panel-header h3 {
 		margin: 0;
 		font-family: var(--font-display);
 	}
@@ -1361,14 +1412,18 @@
 		color: #b91c1c;
 	}
 
-	.generator-nav {
+	.wizard-step {
 		display: flex;
-		justify-content: center;
+		flex-direction: column;
+		gap: var(--sp-6);
 	}
 
-	.generator-nav :global(.sub-nav) {
-		width: min(100%, 760px);
-		justify-content: center;
+	.step-cta {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: var(--sp-3);
+		padding: var(--sp-4) var(--sp-5);
 	}
 
 	.generator-body {
@@ -1394,30 +1449,6 @@
 		flex-wrap: wrap;
 		gap: var(--sp-2);
 		justify-content: flex-end;
-	}
-
-	.roster-workspace {
-		display: grid;
-		grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
-		gap: var(--sp-6);
-		align-items: start;
-	}
-
-	.config-column,
-	.selection-column {
-		min-width: 0;
-	}
-
-	.config-column {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-6);
-	}
-
-	.selection-column {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-6);
 	}
 
 	.config-section {
@@ -1817,32 +1848,17 @@
 		opacity: 0.5;
 	}
 
-	.sticky-actions {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-4);
-	}
-
-	.sticky-actions h3 {
-		font-size: var(--text-base);
-		margin-bottom: var(--sp-1);
-	}
-
 	@media (max-width: 900px) {
 		.generator-hero,
 		.panel-header,
-		.sticky-actions {
+		.step-cta {
 			flex-direction: column;
+			align-items: flex-start;
 		}
 
-		.generator-nav :global(.sub-nav),
-		.panel-actions {
+		.panel-actions,
+		.step-cta {
 			justify-content: flex-start;
-		}
-
-		.roster-workspace {
-			grid-template-columns: 1fr;
 		}
 
 		.personnel-card-header,

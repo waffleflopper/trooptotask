@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Personnel, AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$lib/types';
+	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
 	import { computeTodayBreakdownData } from '$features/calendar/utils/todayBreakdownData';
 
@@ -16,15 +17,46 @@
 		statusTypes: StatusType[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		dutyEvents?: DutyEvent[];
 	}
 
-	let { expanded, onToggle, personnelByGroup, availabilityEntries, statusTypes, assignmentTypes, assignments }: Props =
-		$props();
+	let {
+		expanded,
+		onToggle,
+		personnelByGroup,
+		availabilityEntries,
+		statusTypes,
+		assignmentTypes,
+		assignments,
+		dutyEvents = []
+	}: Props = $props();
 
 	const today = $derived(formatDate(new Date()));
 
 	const data = $derived(
 		computeTodayBreakdownData(today, personnelByGroup, availabilityEntries, statusTypes, assignmentTypes, assignments)
+	);
+
+	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
+
+	const todayDutyChips = $derived(
+		dutyEvents
+			.filter((e) => e.eventDate === today)
+			.map((e) => {
+				const names = e.slotInstances
+					.filter((s) => s.assigneeId !== null)
+					.sort((a, b) => a.sortOrder - b.sortOrder)
+					.map((s) => {
+						const person = allPersonnel.find((p) => p.id === s.assigneeId);
+						return person ? `${person.rank} ${person.lastName}` : '';
+					})
+					.filter(Boolean);
+				return {
+					id: e.id,
+					templateName: e.templateName,
+					assigneeText: names.length > 0 ? names.join(', ') : 'No one assigned'
+				};
+			})
 	);
 </script>
 
@@ -83,7 +115,7 @@
 			</div>
 
 			<!-- Assignment coverage -->
-			{#if data.assignmentCoverage.length > 0}
+			{#if data.assignmentCoverage.length > 0 || todayDutyChips.length > 0}
 				<div class="section">
 					<span class="section-label">Duty:</span>
 					<div class="chip-list">
@@ -91,6 +123,12 @@
 							<span class="chip" class:chip-unassigned={!coverage.isAssigned}>
 								<strong>{coverage.type.shortName}:</strong>
 								{coverage.isAssigned ? coverage.assigneeName : 'Unassigned'}
+							</span>
+						{/each}
+						{#each todayDutyChips as chip (chip.id)}
+							<span class="chip">
+								<strong>{chip.templateName}:</strong>
+								{chip.assigneeText}
 							</span>
 						{/each}
 					</div>

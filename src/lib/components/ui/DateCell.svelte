@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$lib/types';
+	import type { DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 
 	interface Props {
 		date: Date;
@@ -10,6 +11,7 @@
 		entries: AvailabilityEntry[];
 		statusTypeMap: Map<string, StatusType>;
 		assignments?: { type: AssignmentType; assignment: DailyAssignment }[];
+		dutyBadges?: DutyEventBadge[];
 		showStatusText?: boolean;
 		isOnboarding?: boolean;
 		onclick?: () => void;
@@ -24,6 +26,7 @@
 		entries,
 		statusTypeMap,
 		assignments = [],
+		dutyBadges = [],
 		showStatusText = false,
 		isOnboarding = false,
 		onclick
@@ -40,6 +43,9 @@
 		const parts: string[] = [];
 		if (assignments.length > 0) {
 			parts.push(...assignments.map((a) => a.type.name));
+		}
+		if (dutyBadges.length > 0) {
+			parts.push(...dutyBadges.map((b) => b.title));
 		}
 		if (holidayName) {
 			parts.push(holidayName);
@@ -79,15 +85,20 @@
 	class:today={isToday}
 	class:holiday={isHoliday}
 	class:has-status={statusColors.length > 0}
-	class:has-assignment={assignments.length > 0}
+	class:has-assignment={assignments.length > 0 || dutyBadges.length > 0}
 	style:background={getBackground()}
 	title={tooltipText}
 	{onclick}
 >
-	{#if assignments.length > 0}
+	{#if assignments.length > 0 || dutyBadges.length > 0}
 		<div class="assignment-badges">
 			{#each assignments as { type }}
 				<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
+			{/each}
+			{#each dutyBadges as badge (badge.slotId)}
+				<span class="assignment-badge duty-badge" style="background-color: {badge.color}; color: {badge.textColor};">
+					{badge.shortName}
+				</span>
 			{/each}
 		</div>
 	{/if}
@@ -172,6 +183,12 @@
 		padding: 1px 2px;
 		border-radius: 2px;
 		line-height: 1;
+	}
+
+	.duty-badge {
+		/* Subtle ring to distinguish advanced-duty badges from assignment-type badges
+		   while keeping them in the same row with identical dimensions. */
+		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
 	}
 
 	.multi-indicator {

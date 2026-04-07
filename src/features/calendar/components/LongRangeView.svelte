@@ -10,6 +10,8 @@
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, isToday } from '$lib/utils/dates';
 	import { exportQuarterToCSV, printQuarterCalendar } from '../utils/calendarExport';
 	import CalendarNavigation from './CalendarNavigation.svelte';
+	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
+	import { buildDutyEventBadgesByPerson } from '$features/calendar/utils/dutyEventBadges';
 
 	/** Must match --long-range-col-width in CSS */
 	const COL_WIDTH = 24;
@@ -27,6 +29,8 @@
 		specialDays: SpecialDay[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		dutyEvents?: DutyEvent[];
+		dutyStartDayOnly?: boolean;
 		onDateColumnClick?: (date: Date) => void;
 		onToggleViewMode?: () => void;
 	}
@@ -39,6 +43,8 @@
 		specialDays,
 		assignmentTypes,
 		assignments,
+		dutyEvents = [],
+		dutyStartDayOnly = true,
 		onDateColumnClick,
 		onToggleViewMode
 	}: Props = $props();
@@ -82,6 +88,10 @@
 		}
 		return map;
 	});
+
+	const dutyBadgesByPerson = $derived.by(() =>
+		buildDutyEventBadgesByPerson(dutyEvents, { startDayOnly: dutyStartDayOnly })
+	);
 
 	const statusByPersonnelDate = $derived.by(() => {
 		const map = new Map<string, StatusType>();
@@ -221,16 +231,21 @@
 									{@const status = statusByPersonnelDate.get(`${person.id}:${dateKey}`)}
 									{@const weekend = isWeekend(date)}
 									{@const today = isToday(date)}
+									{@const dutyBadges = dutyBadgesByPerson.get(person.id)?.get(dateKey) ?? []}
 									<div
 										class="status-cell"
 										class:weekend
 										class:today
 										class:has-status={status}
+										class:has-duty={dutyBadges.length > 0}
 										style={status ? `background-color: ${status.color}` : ''}
-										title={status?.name ?? ''}
+										title={[status?.name, dutyBadges.map((b) => b.title).join(', ')].filter(Boolean).join(' | ')}
 									>
 										{#if status}
 											<span class="status-dot"></span>
+										{/if}
+										{#if dutyBadges.length > 0}
+											<span class="duty-indicator" style="background-color: {dutyBadges[0].color}"></span>
 										{/if}
 									</div>
 								{/each}
@@ -517,6 +532,7 @@
 		align-items: center;
 		justify-content: center;
 		transition: background-color var(--transition-fast);
+		position: relative;
 	}
 
 	.status-cell.weekend {
@@ -538,6 +554,14 @@
 		height: 6px;
 		border-radius: 50%;
 		background: rgba(255, 255, 255, var(--opacity-heavy));
+	}
+
+	.duty-indicator {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
 	}
 
 	/* Legend bar */

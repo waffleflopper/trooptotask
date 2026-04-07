@@ -8,11 +8,39 @@
  */
 import { fail } from '$lib/server/core/errors';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WritePorts } from '$lib/server/core/ports';
+import { findDutyCoverageConflicts } from './dutyAvailability';
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
 const MAX_BATCH_SIZE = 1000;
+
+type AssignmentTarget = 'personnel' | 'group';
+
+async function getAssignmentTargets(
+	ctx: WritePorts,
+	assignmentTypeIds: string[]
+): Promise<Map<string, AssignmentTarget>> {
+	const uniqueIds = [...new Set(assignmentTypeIds.filter((id) => typeof id === 'string' && id.length > 0))];
+	const targets = new Map<string, AssignmentTarget>(uniqueIds.map((id) => [id, 'personnel']));
+
+	if (uniqueIds.length === 0) {
+		return targets;
+	}
+
+	const rows = await ctx.store.findMany<Record<string, unknown>>('assignment_types', ctx.auth.orgId, undefined, {
+		inFilters: { id: uniqueIds },
+		select: 'id, assign_to'
+	});
+
+	for (const row of rows) {
+		if (typeof row.id !== 'string') continue;
+		targets.set(row.id, row.assign_to === 'group' ? 'group' : 'personnel');
+	}
+
+	return targets;
+}
 
 interface BatchRecord {
 	date: string;
@@ -47,11 +75,43 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 
 	const upserts = records.filter((r) => r.assigneeId);
 	const clears = records.filter((r) => !r.assigneeId);
+	const assignmentTargets = await getAssignmentTargets(
+		ctx,
+		upserts.map((record) => record.assignmentTypeId)
+	);
 
 	// Enforce group scope on all assignee personnel IDs
-	const assigneeIds = upserts.map((r) => r.assigneeId);
+	const assigneeIds = [
+		...new Set(
+			upserts
+				.filter((record) => assignmentTargets.get(record.assignmentTypeId) !== 'group')
+				.map((record) => record.assigneeId)
+		)
+	];
 	if (assigneeIds.length > 0) {
 		await ctx.auth.requireGroupAccessBatch(assigneeIds);
+	}
+
+	if (assigneeIds.length > 0) {
+		const personnelRows = await ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+			inFilters: { id: [...new Set(assigneeIds)] }
+		});
+		const personnelById = new Map(PersonnelEntity.fromDbArray(personnelRows).map((person) => [person.id, person]));
+
+		for (const record of upserts) {
+			if (assignmentTargets.get(record.assignmentTypeId) === 'group') continue;
+			const conflicts = await findDutyCoverageConflicts(ctx, {
+				assigneeIds: [record.assigneeId],
+				coverageStart: `${record.date}T00:00:00`,
+				coverageEnd: `${record.date}T23:59:59`,
+				cooldownHours: 0,
+				personnelById
+			});
+			const conflictMessage = conflicts.get(record.assigneeId)?.[0];
+			if (conflictMessage) {
+				fail(409, conflictMessage);
+			}
+		}
 	}
 
 	// Clear all affected slots first

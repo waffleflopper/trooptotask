@@ -1,0 +1,121 @@
+Rank,Last Name,First Name,MOS,Role,Group
+COL,Carter,Evelyn,01A,Commander,Leadership
+LTC,Harris,Marcus,01A,Executive Officer,Leadership
+MAJ,Kelly,Rachel,42A,S1 OIC,Leadership
+CPT,Lewis,Jordan,90A,S4 OIC,Leadership
+CPT,Nguyen,Priya,70B,Medical OIC,Leadership
+1SG,Turner,Andre,11Z,First Sergeant,Leadership
+MSG,Simmons,Carla,11Z,Operations NCOIC,Leadership
+SFC,Patel,Mason,11B,Training NCO,Leadership
+SFC,Reed,Olivia,42A,HR NCO,Leadership
+CW2,Foster,Grant,915A,Maintenance Tech,Leadership
+WO1,Diaz,Elena,920A,Supply Tech,Leadership
+CIV,Baker,Thomas,GS-09,Admin Lead,Leadership
+1LT,Adams,Aaron,11A,Alpha Platoon Leader 1,Alpha
+SFC,Adams,Brianna,11B,Alpha Platoon Sergeant 1,Alpha
+SSG,Adams,Caleb,11B,1st Squad Leader,Alpha
+SGT,Adams,Danielle,11B,1st Squad Leader,Alpha
+SGT,Adams,Ethan,11B,1st Team Leader,Alpha
+CPL,Adams,Faith,11B,1st Team Leader,Alpha
+SPC,Brooks,Aaron,11B,Rifleman 1,Alpha
+SPC,Brooks,Brianna,11B,Grenadier 1,Alpha
+SPC,Brooks,Caleb,11B,Gunner 1,Alpha
+PFC,Brooks,Danielle,11B,Rifleman 1,Alpha
+PFC,Brooks,Ethan,11B,SAW Gunner 1,Alpha
+PV2,Brooks,Faith,11B,Rifleman 1,Alpha
+PV2,Collins,Aaron,25U,RTO 1,Alpha
+SGT,Collins,Brianna,68W,Medic 1,Alpha
+SGT,Collins,Caleb,91F,Armorer 1,Alpha
+SPC,Collins,Danielle,88M,Driver 1,Alpha
+SGT,Collins,Ethan,92Y,Supply Clerk 1,Alpha
+SGT,Collins,Faith,42A,Training Room 1,Alpha
+1LT,Davis,Aaron,11A,Alpha Platoon Leader 2,Alpha
+SFC,Davis,Brianna,11B,Alpha Platoon Sergeant 2,Alpha
+SSG,Davis,Caleb,11B,2nd Squad Leader,Alpha
+SGT,Davis,Danielle,11B,2nd Squad Leader,Alpha
+SGT,Davis,Ethan,11B,2nd Team Leader,Alpha
+CPL,Davis,Faith,11B,2nd Team Leader,Alpha
+SPC,Edwards,Aaron,11B,Rifleman 2,Alpha
+SPC,Edwards,Brianna,11B,Grenadier 2,Alpha
+SPC,Edwards,Caleb,11B,Gunner 2,Alpha
+PFC,Edwards,Danielle,11B,Rifleman 2,Alpha
+PFC,Edwards,Ethan,11B,SAW Gunner 2,Alpha
+PV2,Edwards,Faith,11B,Rifleman 2,Alpha
+PV2,Flores,Aaron,25U,RTO 2,Alpha
+SGT,Flores,Brianna,68W,Medic 2,Alpha
+SGT,Flores,Caleb,91F,Armorer 2,Alpha
+SPC,Flores,Danielle,88M,Driver 2,Alpha
+SGT,Flores,Ethan,92Y,Supply Clerk 2,Alpha
+SGT,Flores,Faith,42A,Training Room 2,Alpha
+1LT,Graham,Aaron,11A,Alpha Platoon Leader 3,Alpha
+SFC,Graham,Brianna,11B,Alpha Platoon Sergeant 3,Alpha
+SSG,Graham,Caleb,11B,3rd Squad Leader,Alpha
+SGT,Graham,Danielle,11B,3rd Squad Leader,Alpha
+SGT,Graham,Ethan,11B,3rd Team Leader,Alpha
+CPL,Graham,Faith,11B,3rd Team Leader,Alpha
+SPC,Hughes,Aaron,11B,Rifleman 3,Alpha
+SPC,Hughes,Brianna,11B,Grenadier 3,Alpha
+SPC,Hughes,Caleb,11B,Gunner 3,Alpha
+PFC,Hughes,Danielle,11B,Rifleman 3,Alpha
+PFC,Hughes,Ethan,11B,SAW Gunner 3,Alpha
+PV2,Hughes,Faith,11B,Rifleman 3,Alpha
+PV2,Ingram,Aaron,25U,RTO 3,Alpha
+SGT,Ingram,Brianna,68W,Medic 3,Alpha
+SGT,Ingram,Caleb,91F,Armorer 3,Alpha
+SPC,Ingram,Danielle,88M,Driver 3,Alpha
+SGT,Ingram,Ethan,92Y,Supply Clerk 3,Alpha
+SGT,Ingram,Faith,42A,Training Room 3,Alpha
+1LT,Jackson,Aaron,11A,Bravo Platoon Leader 1,Bravo
+SFC,Jackson,Brianna,11B,Bravo Platoon Sergeant 1,Bravo
+SSG,Jackson,Caleb,11B,1st Squad Leader,Bravo
+SGT,Jackson,Danielle,11B,1st Squad Leader,Bravo
+SGT,Jackson,Ethan,11B,1st Team Leader,Bravo
+CPL,Jackson,Faith,11B,1st Team Leader,Bravo
+SPC,King,Aaron,11B,Rifleman 1,Bravo
+SPC,King,Brianna,11B,Grenadier 1,Bravo
+SPC,King,Caleb,11B,Gunner 1,Bravo
+PFC,King,Danielle,11B,Rifleman 1,Bravo
+PFC,King,Ethan,11B,SAW Gunner 1,Bravo
+PV2,King,Faith,11B,Rifleman 1,Bravo
+PV2,Lopez,Aaron,25U,RTO 1,Bravo
+SGT,Lopez,Brianna,68W,Medic 1,Bravo
+SGT,Lopez,Caleb,91F,Armorer 1,Bravo
+SPC,Lopez,Danielle,88M,Driver 1,Bravo
+SGT,Lopez,Ethan,92Y,Supply Clerk 1,Bravo
+SGT,Lopez,Faith,42A,Training Room 1,Bravo
+1LT,Mitchell,Aaron,11A,Bravo Platoon Leader 2,Bravo
+SFC,Mitchell,Brianna,11B,Bravo Platoon Sergeant 2,Bravo
+SSG,Mitchell,Caleb,11B,2nd Squad Leader,Bravo
+SGT,Mitchell,Danielle,11B,2nd Squad Leader,Bravo
+SGT,Mitchell,Ethan,11B,2nd Team Leader,Bravo
+CPL,Mitchell,Faith,11B,2nd Team Leader,Bravo
+SPC,Ortiz,Aaron,11B,Rifleman 2,Bravo
+SPC,Ortiz,Brianna,11B,Grenadier 2,Bravo
+SPC,Ortiz,Caleb,11B,Gunner 2,Bravo
+PFC,Ortiz,Danielle,11B,Rifleman 2,Bravo
+PFC,Ortiz,Ethan,11B,SAW Gunner 2,Bravo
+PV2,Ortiz,Faith,11B,Rifleman 2,Bravo
+PV2,Price,Aaron,25U,RTO 2,Bravo
+SGT,Price,Brianna,68W,Medic 2,Bravo
+SGT,Price,Caleb,91F,Armorer 2,Bravo
+SPC,Price,Danielle,88M,Driver 2,Bravo
+SGT,Price,Ethan,92Y,Supply Clerk 2,Bravo
+SGT,Price,Faith,42A,Training Room 2,Bravo
+1LT,Quinn,Aaron,11A,Bravo Platoon Leader 3,Bravo
+SFC,Quinn,Brianna,11B,Bravo Platoon Sergeant 3,Bravo
+SSG,Quinn,Caleb,11B,3rd Squad Leader,Bravo
+SGT,Quinn,Danielle,11B,3rd Squad Leader,Bravo
+SGT,Quinn,Ethan,11B,3rd Team Leader,Bravo
+CPL,Quinn,Faith,11B,3rd Team Leader,Bravo
+SPC,Russell,Aaron,11B,Rifleman 3,Bravo
+SPC,Russell,Brianna,11B,Grenadier 3,Bravo
+SPC,Russell,Caleb,11B,Gunner 3,Bravo
+PFC,Russell,Danielle,11B,Rifleman 3,Bravo
+PFC,Russell,Ethan,11B,SAW Gunner 3,Bravo
+PV2,Russell,Faith,11B,Rifleman 3,Bravo
+PV2,Sanders,Aaron,25U,RTO 3,Bravo
+SGT,Sanders,Brianna,68W,Medic 3,Bravo
+SGT,Sanders,Caleb,91F,Armorer 3,Bravo
+SPC,Sanders,Danielle,88M,Driver 3,Bravo
+SGT,Sanders,Ethan,92Y,Supply Clerk 3,Bravo
+SGT,Sanders,Faith,42A,Training Room 3,Bravo

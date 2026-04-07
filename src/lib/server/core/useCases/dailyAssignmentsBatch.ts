@@ -16,6 +16,32 @@ const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
 const MAX_BATCH_SIZE = 1000;
 
+type AssignmentTarget = 'personnel' | 'group';
+
+async function getAssignmentTargets(
+	ctx: WritePorts,
+	assignmentTypeIds: string[]
+): Promise<Map<string, AssignmentTarget>> {
+	const uniqueIds = [...new Set(assignmentTypeIds.filter((id) => typeof id === 'string' && id.length > 0))];
+	const targets = new Map<string, AssignmentTarget>(uniqueIds.map((id) => [id, 'personnel']));
+
+	if (uniqueIds.length === 0) {
+		return targets;
+	}
+
+	const rows = await ctx.store.findMany<Record<string, unknown>>('assignment_types', ctx.auth.orgId, undefined, {
+		inFilters: { id: uniqueIds },
+		select: 'id, assign_to'
+	});
+
+	for (const row of rows) {
+		if (typeof row.id !== 'string') continue;
+		targets.set(row.id, row.assign_to === 'group' ? 'group' : 'personnel');
+	}
+
+	return targets;
+}
+
 interface BatchRecord {
 	date: string;
 	assignmentTypeId: string;
@@ -49,9 +75,19 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 
 	const upserts = records.filter((r) => r.assigneeId);
 	const clears = records.filter((r) => !r.assigneeId);
+	const assignmentTargets = await getAssignmentTargets(
+		ctx,
+		upserts.map((record) => record.assignmentTypeId)
+	);
 
 	// Enforce group scope on all assignee personnel IDs
-	const assigneeIds = upserts.map((r) => r.assigneeId);
+	const assigneeIds = [
+		...new Set(
+			upserts
+				.filter((record) => assignmentTargets.get(record.assignmentTypeId) !== 'group')
+				.map((record) => record.assigneeId)
+		)
+	];
 	if (assigneeIds.length > 0) {
 		await ctx.auth.requireGroupAccessBatch(assigneeIds);
 	}
@@ -63,6 +99,7 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 		const personnelById = new Map(PersonnelEntity.fromDbArray(personnelRows).map((person) => [person.id, person]));
 
 		for (const record of upserts) {
+			if (assignmentTargets.get(record.assignmentTypeId) === 'group') continue;
 			const conflicts = await findDutyCoverageConflicts(ctx, {
 				assigneeIds: [record.assigneeId],
 				coverageStart: `${record.date}T00:00:00`,

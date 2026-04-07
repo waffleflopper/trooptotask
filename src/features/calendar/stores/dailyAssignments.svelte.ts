@@ -20,7 +20,15 @@ import type { AssignmentType, DailyAssignment } from '$lib/types';
 
 export type { AssignmentType, DailyAssignment } from '$lib/types';
 
-const typesStore = defineStore<AssignmentType>({ table: 'assignment_types' });
+const typesStore = defineStore<AssignmentType>({
+	table: 'assignment_types',
+	overrides: {
+		onError: (operation, error) => {
+			const action = operation === 'add' ? 'create' : operation === 'update' ? 'update' : 'delete';
+			toastStore.error(error instanceof Error ? error.message : `Failed to ${action} assignment type`);
+		}
+	}
+});
 
 interface AssignmentExtensions extends Record<string, unknown> {
 	readonly types: AssignmentType[];

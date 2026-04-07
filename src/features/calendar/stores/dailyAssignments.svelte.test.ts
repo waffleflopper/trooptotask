@@ -249,6 +249,7 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			const result = await dailyAssignmentsStore.updateType('1', { name: 'Failed' });
 			expect(result).toBe(false);
 			expect(dailyAssignmentsStore.types[0].name).toBe('Guard');
+			expect(toastStore.list).toHaveLength(1);
 		});
 
 		it('should return false for non-existent id', async () => {

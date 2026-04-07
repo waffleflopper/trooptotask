@@ -36,6 +36,34 @@ describe('resolveSlotBlockingMode', () => {
 	});
 });
 
+describe('findDutyCoverageConflicts query scoping', () => {
+	it('queries duty events within the relevant coverage and cooldown window', async () => {
+		const ctx = buildCtx();
+		const originalFindMany = ctx.store.findMany.bind(ctx.store);
+		let dutyEventQueryOptions: Parameters<typeof originalFindMany>[3] | undefined;
+
+		ctx.store.findMany = (async (...args: Parameters<typeof originalFindMany>) => {
+			const [table, , , options] = args;
+			if (table === 'duty_events') {
+				dutyEventQueryOptions = options;
+			}
+			return originalFindMany(...args);
+		}) as typeof ctx.store.findMany;
+
+		await findDutyCoverageConflicts(ctx, {
+			assigneeIds: ['p1'],
+			coverageStart: '2026-04-10T08:00:00',
+			coverageEnd: '2026-04-10T20:00:00',
+			cooldownHours: 12,
+			personnelById
+		});
+
+		expect(dutyEventQueryOptions).toMatchObject({
+			rangeFilters: [{ column: 'coverage_start', op: 'lt', value: '2026-04-11T08:00:00' }]
+		});
+	});
+});
+
 function seedBlockingEvent(
 	store: ReturnType<typeof createInMemoryDataStore>,
 	overrides?: Partial<{ is_blocking: boolean; cooldown_hours: number }>

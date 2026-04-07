@@ -13,7 +13,18 @@ function uuidField(label: string) {
 }
 
 function dateField(label: string) {
-	return stringField(label).pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, `${label} must be in YYYY-MM-DD format.`));
+	return stringField(label).pipe(
+		z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/, `${label} must be in YYYY-MM-DD format.`)
+			.refine(isValidCalendarDate, `${label} must be a real calendar date.`)
+	);
+}
+
+function isValidCalendarDate(value: string): boolean {
+	const [year, month, day] = value.split('-').map(Number);
+	const parsed = new Date(Date.UTC(year, month - 1, day));
+	return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
 }
 
 const slotOverrideSchema = z.object({

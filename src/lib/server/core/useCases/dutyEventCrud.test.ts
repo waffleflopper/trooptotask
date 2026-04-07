@@ -777,6 +777,84 @@ describe('duty event apply use case', () => {
 		expect(await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId)).toHaveLength(1);
 	});
 
+	it('keeps a replaced single date in its existing series run', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-zulu',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Zulu',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader'],
+					rotationPoolKey: 'nco-pool'
+				}
+			]
+		});
+
+		const appliedSeries = await applyDutyEventSeriesFromTemplate(ctx, {
+			templateId: template.id,
+			pattern: 'custom-dates',
+			customDates: ['2026-04-10', '2026-04-11']
+		});
+
+		const originalRunId = appliedSeries.run.id;
+		const eventToReplace = appliedSeries.events.find((event) => event.eventDate === '2026-04-10');
+
+		const replaced = await applyDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10',
+			collisionReviewConfirmed: true
+		});
+
+		expect(replaced.runId).toBe(originalRunId);
+
+		const storedRuns = await ctx.store.findMany<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId);
+		expect(storedRuns).toHaveLength(1);
+		expect(storedRuns[0]?.id).toBe(originalRunId);
+
+		const storedEventRow = await ctx.store.findOne<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+			id: eventToReplace?.id ?? replaced.id
+		});
+		expect(storedEventRow?.run_id).toBe(originalRunId);
+	});
+
 	it('ranks candidates by longest break within a rotation pool using manual baselines', async () => {
 		const ctx = createTestContext();
 
@@ -3231,6 +3309,79 @@ describe('duty event apply use case', () => {
 		expect(result.events.map((event) => event.eventDate)).toEqual(['2026-04-09', '2026-04-10']);
 	});
 
+	it('reuses shared personnel and holiday fetches across a series preview', async () => {
+		const ctx = createTestContext();
+		const originalFindMany = ctx.store.findMany.bind(ctx.store);
+		let personnelQueries = 0;
+		let specialDayQueries = 0;
+
+		ctx.store.findMany = (async (...args) => {
+			const [table] = args as Parameters<typeof originalFindMany>;
+			if (table === 'personnel') {
+				personnelQueries += 1;
+			}
+			if (table === 'special_days') {
+				specialDayQueries += 1;
+			}
+			return originalFindMany(...args);
+		}) as typeof ctx.store.findMany;
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-nco',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Nolan',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+		ctx.store.seed('special_days', [
+			{
+				id: 'holiday-1',
+				organization_id: ctx.auth.orgId,
+				date: '2026-04-09',
+				name: 'Training Holiday',
+				type: 'federal-holiday'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader']
+				}
+			]
+		});
+
+		await previewDutyEventSeriesFromTemplate(ctx, {
+			templateId: template.id,
+			startDate: '2026-04-10',
+			endDate: '2026-04-11',
+			pattern: 'daily'
+		});
+
+		expect(personnelQueries).toBe(1);
+		expect(specialDayQueries).toBe(1);
+	});
+
 	it('applies a recurring custom-date series as multiple parent duty events', async () => {
 		const ctx = createTestContext();
 
@@ -3350,9 +3501,10 @@ describe('duty event apply use case', () => {
 	it('does not leave an orphan run when single-event apply fails during slot persistence', async () => {
 		const ctx = createTestContext();
 		const originalInsertMany = ctx.store.insertMany.bind(ctx.store);
+		let slotInsertAttempts = 0;
 		ctx.store.insertMany = (async (...args) => {
 			const [table] = args as [string, string, Array<Record<string, unknown>>];
-			if (table === 'duty_event_slots') {
+			if (table === 'duty_event_slots' && slotInsertAttempts++ === 0) {
 				throw new Error('Simulated slot persistence failure');
 			}
 
@@ -3403,6 +3555,105 @@ describe('duty event apply use case', () => {
 		).rejects.toThrow('Simulated slot persistence failure');
 
 		expect(await ctx.store.findMany<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId)).toHaveLength(0);
+	});
+
+	it('restores an existing event when replacement slot persistence fails', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-zulu',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Zulu',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader'],
+					rotationPoolKey: 'nco-pool'
+				}
+			]
+		});
+
+		const applied = await applyDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		const previousEventRow = JSON.parse(
+			JSON.stringify(
+				await ctx.store.findOne<Record<string, unknown>>('duty_events', ctx.auth.orgId, { id: applied.id })
+			)
+		) as Record<string, unknown>;
+		const previousSlotRows = JSON.parse(
+			JSON.stringify(
+				await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, {
+					duty_event_id: applied.id
+				})
+			)
+		) as Record<string, unknown>[];
+
+		const originalInsertMany = ctx.store.insertMany.bind(ctx.store);
+		let slotInsertAttempts = 0;
+		ctx.store.insertMany = (async (...args) => {
+			const [table] = args as [string, string, Array<Record<string, unknown>>];
+			if (table === 'duty_event_slots' && slotInsertAttempts++ === 0) {
+				throw new Error('Simulated slot persistence failure');
+			}
+
+			return originalInsertMany(...args);
+		}) as typeof ctx.store.insertMany;
+
+		await expect(
+			applyDutyEventFromTemplate(ctx, {
+				templateId: template.id,
+				eventDate: '2026-04-10',
+				collisionReviewConfirmed: true
+			})
+		).rejects.toThrow('Simulated slot persistence failure');
+
+		const restoredEventRow = await ctx.store.findOne<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+			id: applied.id
+		});
+		const restoredSlotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, {
+			duty_event_id: applied.id
+		});
+
+		expect(restoredEventRow).toEqual(previousEventRow);
+		expect(restoredSlotRows).toEqual(previousSlotRows);
 	});
 
 	it('cleans up the run and applied events if a later series event fails to persist', async () => {

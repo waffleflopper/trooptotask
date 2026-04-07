@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { batchDailyAssignments } from './dailyAssignmentsBatch';
 
@@ -50,6 +50,34 @@ describe('batchDailyAssignments', () => {
 				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' }]
 			})
 		).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('allows group assignees without running personnel group checks', async () => {
+		const requireGroupAccessBatch = vi.fn(async () => {
+			throw Object.assign(new Error('should not be called'), { status: 403 });
+		});
+		const ctx = buildContext({ auth: { scopedGroupId: 'group-a', requireGroupAccessBatch } });
+
+		ctx.store.seed('assignment_types', [
+			{
+				id: 'type-group',
+				organization_id: 'test-org',
+				name: 'Front Desk',
+				short_name: 'FD',
+				assign_to: 'group',
+				color: '#123456',
+				sort_order: 0,
+				exempt_personnel_ids: [],
+				show_in_date_header: false
+			}
+		]);
+
+		const result = await batchDailyAssignments(ctx, {
+			records: [{ date: '2026-03-22', assignmentTypeId: 'type-group', assigneeId: 'Front Desk' }]
+		});
+
+		expect(result.inserted).toHaveLength(1);
+		expect(requireGroupAccessBatch).not.toHaveBeenCalled();
 	});
 
 	it('logs an audit event', async () => {

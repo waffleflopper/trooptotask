@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
 	clearDailyAssignment,
@@ -242,6 +242,36 @@ describe('createDailyAssignment', () => {
 		const stored = await ctx.store.findMany('daily_assignments', 'test-org');
 		expect(stored).toHaveLength(0);
 	});
+
+	it('allows group assignees without running personnel group checks', async () => {
+		const requireGroupAccess = vi.fn(async () => {
+			throw Object.assign(new Error('should not be called'), { status: 403 });
+		});
+		const ctx = buildContext({ auth: { scopedGroupId: 'group-a', requireGroupAccess } });
+
+		ctx.store.seed('assignment_types', [
+			{
+				id: 'at-group',
+				organization_id: 'test-org',
+				name: 'Front Desk',
+				short_name: 'FD',
+				assign_to: 'group',
+				color: '#123456',
+				sort_order: 0,
+				exempt_personnel_ids: [],
+				show_in_date_header: false
+			}
+		]);
+
+		const result = (await createDailyAssignment(ctx, {
+			date: '2025-04-01',
+			assignmentTypeId: 'at-group',
+			assigneeId: 'Front Desk'
+		})) as Record<string, unknown>;
+
+		expect(result).toMatchObject({ assigneeId: 'Front Desk', assignmentTypeId: 'at-group' });
+		expect(requireGroupAccess).not.toHaveBeenCalled();
+	});
 });
 
 describe('setDailyAssignment', () => {
@@ -405,6 +435,36 @@ describe('setDailyAssignment', () => {
 			status: 409,
 			message: 'SGT Nolan is still in cooldown until 2025-04-01T20:00:00.'
 		});
+	});
+
+	it('allows assigning a group without running personnel availability checks', async () => {
+		const requireGroupAccess = vi.fn(async () => {
+			throw Object.assign(new Error('should not be called'), { status: 403 });
+		});
+		const ctx = buildContext({ auth: { scopedGroupId: 'group-a', requireGroupAccess } });
+
+		ctx.store.seed('assignment_types', [
+			{
+				id: 'at-group',
+				organization_id: 'test-org',
+				name: 'Front Desk',
+				short_name: 'FD',
+				assign_to: 'group',
+				color: '#123456',
+				sort_order: 0,
+				exempt_personnel_ids: [],
+				show_in_date_header: false
+			}
+		]);
+
+		const result = (await setDailyAssignment(ctx, {
+			date: '2025-04-01',
+			assignmentTypeId: 'at-group',
+			assigneeId: 'Front Desk'
+		})) as Record<string, unknown>;
+
+		expect(result).toMatchObject({ assigneeId: 'Front Desk', assignmentTypeId: 'at-group' });
+		expect(requireGroupAccess).not.toHaveBeenCalled();
 	});
 });
 

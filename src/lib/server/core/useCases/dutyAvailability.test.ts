@@ -59,14 +59,22 @@ describe('findDutyCoverageConflicts query scoping', () => {
 		});
 
 		expect(dutyEventQueryOptions).toMatchObject({
-			rangeFilters: [{ column: 'coverage_start', op: 'lt', value: '2026-04-11T08:00:00' }]
+			rangeFilters: [
+				{ column: 'coverage_start', op: 'lt', value: '2026-04-11T08:00:00' },
+				{ column: 'coverage_end', op: 'gt', value: '2026-04-03T08:00:00' }
+			]
 		});
 	});
 });
 
 function seedBlockingEvent(
 	store: ReturnType<typeof createInMemoryDataStore>,
-	overrides?: Partial<{ is_blocking: boolean; cooldown_hours: number }>
+	overrides?: Partial<{
+		is_blocking: boolean;
+		cooldown_hours: number;
+		coverage_start: string;
+		coverage_end: string;
+	}>
 ) {
 	store.seed('duty_events', [
 		{
@@ -74,8 +82,8 @@ function seedBlockingEvent(
 			organization_id: ORG,
 			template_id: 'tpl-1',
 			event_date: '2026-04-10',
-			coverage_start: '2026-04-10T08:00:00',
-			coverage_end: '2026-04-10T20:00:00',
+			coverage_start: overrides?.coverage_start ?? '2026-04-10T08:00:00',
+			coverage_end: overrides?.coverage_end ?? '2026-04-10T20:00:00',
 			is_blocking: overrides?.is_blocking ?? true,
 			cooldown_hours: overrides?.cooldown_hours ?? 12,
 			coverage_mode: 'timed',
@@ -139,6 +147,26 @@ describe('findDutyCoverageConflicts — blocking events', () => {
 
 		expect(result.get('p1')).toHaveLength(1);
 		expect(result.get('p1')![0]).toContain('still in cooldown');
+	});
+
+	it('still finds longer persisted cooldown conflicts when the new event cooldown is shorter', async () => {
+		const ctx = buildCtx();
+		seedBlockingEvent(ctx.store, {
+			coverage_start: '2026-04-09T00:00:00',
+			coverage_end: '2026-04-09T12:00:00',
+			cooldown_hours: 24
+		});
+
+		const result = await findDutyCoverageConflicts(ctx, {
+			assigneeIds: ['p1'],
+			coverageStart: '2026-04-10T08:00:00',
+			coverageEnd: '2026-04-10T16:00:00',
+			cooldownHours: 4,
+			personnelById
+		});
+
+		expect(result.get('p1')).toHaveLength(1);
+		expect(result.get('p1')![0]).toContain('still in cooldown until 2026-04-10T12:00:00');
 	});
 
 	it('returns empty when no overlap or cooldown conflict exists', async () => {

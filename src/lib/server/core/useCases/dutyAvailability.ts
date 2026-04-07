@@ -12,6 +12,8 @@ export interface TransientDutyCoverage {
 	isBlocking?: boolean;
 }
 
+const MAX_DUTY_EVENT_COOLDOWN_HOURS = 168;
+
 function formatLocalDateTime(value: Date): string {
 	const year = value.getFullYear();
 	const month = String(value.getMonth() + 1).padStart(2, '0');
@@ -78,9 +80,15 @@ export async function findDutyCoverageConflicts(
 		return conflictsByAssignee;
 	}
 
+	const queryWindowStart = addHours(coverageStart, -MAX_DUTY_EVENT_COOLDOWN_HOURS);
 	const queryWindowEnd = addHours(coverageEnd, cooldownHours);
 	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
-		rangeFilters: [{ column: 'coverage_start', op: 'lt', value: queryWindowEnd }]
+		// Use the maximum allowed persisted cooldown so shorter incoming cooldowns
+		// do not hide older events whose own cooldown still overlaps this window.
+		rangeFilters: [
+			{ column: 'coverage_start', op: 'lt', value: queryWindowEnd },
+			{ column: 'coverage_end', op: 'gt', value: queryWindowStart }
+		]
 	});
 	const excludedEventIds = new Set(excludeDutyEventIds);
 	const filteredEventRows = eventRows.filter((row) => !excludedEventIds.has(String(row.id)));

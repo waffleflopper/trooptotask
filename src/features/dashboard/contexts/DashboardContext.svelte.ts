@@ -9,6 +9,7 @@ import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { dashboardPrefsStore, type CardId } from '$lib/stores/dashboardPrefs.svelte';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
+import { deriveShortName, deriveBadgeColor } from '$features/calendar/utils/dutyEventBadges';
 import { getVisibleDashboardCards } from '$lib/utils/dashboardCards';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
@@ -217,6 +218,40 @@ export class DashboardContext {
 					assigneeName
 				};
 			});
+	}
+
+	// ---------------------------------------------------------------------------
+	// Derived: todayAdvancedDuty
+	// ---------------------------------------------------------------------------
+	get todayAdvancedDuty(): Array<{
+		id: string;
+		templateName: string;
+		shortName: string;
+		color: string;
+		textColor: string;
+		slots: Array<{ key: string; roleLabel: string; assigneeName: string }>;
+	}> {
+		return (this.data.dashboard.data.todayDutyEvents ?? [])
+			.filter((event) => event.eventDate === this.today)
+			.map((event) => ({
+				id: event.id,
+				templateName: event.templateName,
+				shortName: deriveShortName(event.templateName),
+				...deriveBadgeColor(event.templateId),
+				slots: [...event.slotInstances]
+					.sort((a, b) => a.sortOrder - b.sortOrder)
+					.map((slot) => {
+						let assigneeName = 'Unfilled';
+						if (slot.assigneeId) {
+							const person = personnelStore.items.find((p) => p.id === slot.assigneeId);
+							if (person) {
+								assigneeName = `${person.rank} ${person.lastName}`;
+								if (person.firstName) assigneeName += `, ${person.firstName[0]}`;
+							}
+						}
+						return { key: `${slot.roleLabel}-${slot.slotIndex}`, roleLabel: slot.roleLabel, assigneeName };
+					})
+			}));
 	}
 
 	// ---------------------------------------------------------------------------

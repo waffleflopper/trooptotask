@@ -47,8 +47,10 @@
 			readOnly: ctx.readOnly,
 			breakdownExpanded: ctx.breakdownExpanded,
 			showStatusText: ctx.showStatusText,
+			dutyStartDayOnly: ctx.dutyStartDayOnly,
 			onToggleBreakdown: () => ctx.toggleBreakdown(),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
+			onToggleDutyStartDayOnly: () => ctx.toggleDutyStartDayOnly(),
 			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
 			onExportPDF: async () => {
 				try {
@@ -89,6 +91,7 @@
 		statusTypes={statusTypesStore.items}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
+		dutyEvents={ctx.advancedDutyEvents}
 	/>
 
 	{#if !data.permissions?.canViewCalendar}
@@ -108,6 +111,8 @@
 						specialDays={specialDaysStore.items}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
+						dutyEvents={ctx.advancedDutyEvents}
+						dutyStartDayOnly={ctx.dutyStartDayOnly}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
 						onToggleViewMode={() => ctx.toggleViewMode()}
 					/>
@@ -124,6 +129,8 @@
 						pinnedGroups={pinnedGroupsStore.list}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
+						dutyEvents={ctx.advancedDutyEvents}
+						dutyStartDayOnly={ctx.dutyStartDayOnly}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={data.permissions?.canEditCalendar ?? false}
@@ -156,6 +163,8 @@
 		onAdd={(entry) => ctx.handleAddAvailability(entry)}
 		onRemove={(id) => ctx.handleRemoveAvailability(id)}
 		onClose={() => ctx.closeAvailabilityModal()}
+		dutyEvents={ctx.advancedDutyEvents}
+		dutyRosterHref={`/org/${data.orgId}/calendar/duty-roster/`}
 	/>
 {/if}
 
@@ -169,6 +178,8 @@
 		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 		onClose={() => ctx.closeAssignmentModal()}
+		dutyEvents={ctx.advancedDutyEvents}
+		dutyRosterHref={`/org/${data.orgId}/calendar/duty-roster/`}
 	/>
 {/if}
 

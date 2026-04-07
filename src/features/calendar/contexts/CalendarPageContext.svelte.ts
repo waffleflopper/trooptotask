@@ -66,6 +66,7 @@ export class CalendarPageContext {
 	showStatusText = $state(false);
 	highlightOnboarding = $state(true);
 	breakdownExpanded = $state(true);
+	dutyStartDayOnly = $state(true);
 
 	get #workspaceData() {
 		return this.#data.calendar?.data;
@@ -91,6 +92,11 @@ export class CalendarPageContext {
 	// ---- derived: onboarding data ------------------------------------------
 	get activeOnboardingPersonnelIds(): string[] {
 		return this.#workspaceData?.activeOnboardingPersonnelIds ?? this.#data.activeOnboardingPersonnelIds ?? [];
+	}
+
+	// ---- derived: advanced duty events -------------------------------------
+	get advancedDutyEvents() {
+		return this.#workspaceData?.advancedDutyEvents ?? [];
 	}
 
 	// ---- derived: permission flags -----------------------------------------
@@ -133,6 +139,7 @@ export class CalendarPageContext {
 		const current = preferences ?? getDefaultUserOrgPreferences();
 		this.showStatusText = current.calendar.showStatusText;
 		this.highlightOnboarding = current.calendar.highlightOnboarding;
+		this.dutyStartDayOnly = current.calendar.dutyStartDayOnly ?? true;
 		this.breakdownExpanded =
 			current.calendar.todaySummaryExpanded ?? (matchMediaFn ? !matchMediaFn('(max-width: 640px)').matches : true);
 	}
@@ -178,6 +185,15 @@ export class CalendarPageContext {
 		void this.persistPreferences({
 			calendar: {
 				showStatusText: this.showStatusText
+			}
+		});
+	}
+
+	toggleDutyStartDayOnly(): void {
+		this.dutyStartDayOnly = !this.dutyStartDayOnly;
+		void this.persistPreferences({
+			calendar: {
+				dutyStartDayOnly: this.dutyStartDayOnly
 			}
 		});
 	}

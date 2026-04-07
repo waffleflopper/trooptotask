@@ -8,7 +8,9 @@
 		orgName: data.orgName,
 		calendar: data.calendar ? { data: data.calendar.data } : undefined,
 		scopedGroupId: data.scopedGroupId,
-		rosterHistory: data.rosterHistory
+		rosterHistory: data.rosterHistory,
+		advancedDutyTemplates: data.advancedDutyTemplates,
+		advancedDutyEvents: data.advancedDutyEvents
 	}));
 </script>
 

@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { dailyAssignmentsStore } from './dailyAssignments.svelte';
+import { toastStore } from '$lib/stores/toast.svelte';
 
 function mockFetch(response: unknown, status = 200) {
 	return vi.fn().mockResolvedValue({
 		ok: status >= 200 && status < 300,
 		status,
-		json: () => Promise.resolve(response)
+		json: () => Promise.resolve(response),
+		text: () => Promise.resolve(typeof response === 'string' ? response : JSON.stringify(response))
 	});
 }
 
@@ -73,6 +75,7 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		dailyAssignmentsStore.load([], [], 'org-1');
+		toastStore.list = [];
 	});
 
 	describe('load', () => {
@@ -246,6 +249,7 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			const result = await dailyAssignmentsStore.updateType('1', { name: 'Failed' });
 			expect(result).toBe(false);
 			expect(dailyAssignmentsStore.types[0].name).toBe('Guard');
+			expect(toastStore.list).toHaveLength(1);
 		});
 
 		it('should return false for non-existent id', async () => {
@@ -345,6 +349,27 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			const result = await dailyAssignmentsStore.setAssignment('2026-03-20', 'type-1', 'p1');
 			expect(result).toBe(false);
 			expect(dailyAssignmentsStore.assignments).toEqual([]);
+		});
+
+		it('shows the server conflict message when a manual assignment is blocked by duty coverage', async () => {
+			vi.stubGlobal(
+				'fetch',
+				mockFetch(
+					{
+						message: 'SGT Nolan is already assigned to duty coverage from 2026-03-20T06:00:00 to 2026-03-20T18:00:00.'
+					},
+					409
+				)
+			);
+
+			const result = await dailyAssignmentsStore.setAssignment('2026-03-20', 'type-1', 'p1');
+
+			expect(result).toBe(false);
+			expect(toastStore.list).toHaveLength(1);
+			expect(toastStore.list[0]).toMatchObject({
+				type: 'error',
+				message: 'SGT Nolan is already assigned to duty coverage from 2026-03-20T06:00:00 to 2026-03-20T18:00:00.'
+			});
 		});
 	});
 
@@ -468,6 +493,21 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 
 			expect(result).toBe(false);
 			expect(dailyAssignmentsStore.assignments).toEqual([existing]);
+		});
+
+		it('shows the server conflict message when a batch assignment is blocked by duty cooldown', async () => {
+			vi.stubGlobal('fetch', mockFetch({ message: 'SGT Nolan is still in cooldown until 2026-03-21T20:00:00.' }, 409));
+
+			const result = await dailyAssignmentsStore.setAssignmentBatch([
+				{ date: '2026-03-21', assignmentTypeId: 'type-1', assigneeId: 'p1' }
+			]);
+
+			expect(result).toBe(false);
+			expect(toastStore.list).toHaveLength(1);
+			expect(toastStore.list[0]).toMatchObject({
+				type: 'error',
+				message: 'SGT Nolan is still in cooldown until 2026-03-21T20:00:00.'
+			});
 		});
 	});
 });

@@ -313,7 +313,7 @@
 			</header>
 
 			<div class="module-body">
-				{#if ctx.dutyAssignments.length > 0}
+				{#if ctx.dutyAssignments.length > 0 || ctx.todayAdvancedDuty.length > 0}
 					<div class="stack-list">
 						{#each ctx.dutyAssignments as assignment (assignment.id)}
 							<div class="stack-row">
@@ -325,6 +325,19 @@
 								</div>
 								<span class="stack-meta">{assignment.assigneeName || 'Unassigned'}</span>
 							</div>
+						{/each}
+						{#each ctx.todayAdvancedDuty as event (event.id)}
+							{#each event.slots as slot (slot.key)}
+								<div class="stack-row">
+									<div class="stack-row-main">
+										<span class="inline-badge" style="background: {event.color}; color: {event.textColor}"
+											>{event.shortName}</span
+										>
+										<span class="stack-title">{slot.roleLabel}</span>
+									</div>
+									<span class="stack-meta">{slot.assigneeName}</span>
+								</div>
+							{/each}
 						{/each}
 					</div>
 				{:else}

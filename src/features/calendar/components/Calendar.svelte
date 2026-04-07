@@ -7,9 +7,11 @@
 		AssignmentType,
 		DailyAssignment
 	} from '$lib/types';
+	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import CalendarHeader from './CalendarHeader.svelte';
 	import CalendarRow from './CalendarRow.svelte';
 	import GroupHeader from '$lib/components/GroupHeader.svelte';
+	import { buildDutyEventBadgesByPerson, type DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 
 	interface GroupData {
 		group: string;
@@ -28,6 +30,8 @@
 		pinnedGroups: string[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		dutyEvents?: DutyEvent[];
+		dutyStartDayOnly?: boolean;
 		activeOnboardingPersonnelIds?: string[];
 		highlightOnboarding?: boolean;
 		canEdit?: boolean;
@@ -57,6 +61,8 @@
 		pinnedGroups,
 		assignmentTypes,
 		assignments,
+		dutyEvents = [],
+		dutyStartDayOnly = true,
 		activeOnboardingPersonnelIds = [],
 		highlightOnboarding = true,
 		canEdit = true,
@@ -138,6 +144,11 @@
 		return map;
 	});
 
+	// Pre-index advanced-duty-event badges by personnel ID → date string
+	const dutyBadgesByPerson = $derived.by(() =>
+		buildDutyEventBadgesByPerson(dutyEvents, { startDayOnly: dutyStartDayOnly })
+	);
+
 	const personnelById = $derived.by(() => {
 		const map = new Map<string, Personnel>();
 		for (const group of personnelByGroup) {
@@ -209,6 +220,7 @@
 								{specialDays}
 								{assignmentTypes}
 								personAssignments={assignmentsByPerson.get(person.id) ?? []}
+								personDutyBadges={dutyBadgesByPerson.get(person.id) ?? new Map<string, DutyEventBadge[]>()}
 								{showStatusText}
 								isOnboarding={onboardingSet.has(person.id)}
 								{highlightOnboarding}

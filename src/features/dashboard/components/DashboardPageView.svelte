@@ -327,17 +327,15 @@
 							</div>
 						{/each}
 						{#each ctx.todayAdvancedDuty as event (event.id)}
-							<div class="advanced-duty-block">
-								<p class="advanced-duty-name">{event.templateName}</p>
-								<div class="advanced-duty-slots">
-									{#each event.slots as slot (slot.key)}
-										<div class="advanced-slot">
-											<span class="slot-role">{slot.roleLabel}:</span>
-											<span class="slot-assignee">{slot.assigneeName}</span>
-										</div>
-									{/each}
+							{#each event.slots as slot (slot.key)}
+								<div class="stack-row">
+									<div class="stack-row-main">
+										<span class="inline-badge" style="background: {event.color}; color: {event.textColor}">{event.shortName}</span>
+										<span class="stack-title">{slot.roleLabel}</span>
+									</div>
+									<span class="stack-meta">{slot.assigneeName}</span>
 								</div>
-							</div>
+							{/each}
 						{/each}
 					</div>
 				{:else}
@@ -1260,48 +1258,9 @@
 	.stack-row:last-child,
 	.issue-row:last-child,
 	.progress-row:last-child,
-	.upcoming-item:last-child,
-	.advanced-duty-block:last-child {
+	.upcoming-item:last-child {
 		padding-bottom: 0;
 		border-bottom: none;
-	}
-
-	.advanced-duty-block {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		padding-bottom: var(--sp-3);
-		border-bottom: var(--border-rule);
-	}
-
-	.advanced-duty-name {
-		margin: 0;
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-primary);
-	}
-
-	.advanced-duty-slots {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		padding-left: var(--sp-3);
-	}
-
-	.advanced-slot {
-		display: flex;
-		gap: var(--sp-2);
-		font-size: var(--text-sm);
-	}
-
-	.slot-role {
-		font-weight: var(--font-weight-semibold);
-		color: var(--text-secondary);
-		min-width: 80px;
-	}
-
-	.slot-assignee {
-		color: var(--text-primary);
 	}
 
 	.ledger-label,

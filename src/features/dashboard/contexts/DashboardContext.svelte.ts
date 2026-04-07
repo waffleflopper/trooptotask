@@ -9,6 +9,7 @@ import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { dashboardPrefsStore, type CardId } from '$lib/stores/dashboardPrefs.svelte';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
+import { deriveShortName, deriveBadgeColor } from '$features/calendar/utils/dutyEventBadges';
 import { getVisibleDashboardCards } from '$lib/utils/dashboardCards';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
@@ -225,6 +226,9 @@ export class DashboardContext {
 	get todayAdvancedDuty(): Array<{
 		id: string;
 		templateName: string;
+		shortName: string;
+		color: string;
+		textColor: string;
 		slots: Array<{ key: string; roleLabel: string; assigneeName: string }>;
 	}> {
 		return (this.data.dashboard.data.todayDutyEvents ?? [])
@@ -232,6 +236,8 @@ export class DashboardContext {
 			.map((event) => ({
 			id: event.id,
 			templateName: event.templateName,
+			shortName: deriveShortName(event.templateName),
+			...deriveBadgeColor(event.templateId),
 			slots: [...event.slotInstances]
 				.sort((a, b) => a.sortOrder - b.sortOrder)
 				.map((slot) => {

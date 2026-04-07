@@ -47,8 +47,10 @@
 			readOnly: ctx.readOnly,
 			breakdownExpanded: ctx.breakdownExpanded,
 			showStatusText: ctx.showStatusText,
+			dutyStartDayOnly: ctx.dutyStartDayOnly,
 			onToggleBreakdown: () => ctx.toggleBreakdown(),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
+			onToggleDutyStartDayOnly: () => ctx.toggleDutyStartDayOnly(),
 			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
 			onExportPDF: async () => {
 				try {
@@ -110,6 +112,7 @@
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
 						dutyEvents={ctx.advancedDutyEvents}
+						dutyStartDayOnly={ctx.dutyStartDayOnly}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
 						onToggleViewMode={() => ctx.toggleViewMode()}
 					/>
@@ -127,6 +130,7 @@
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
 						dutyEvents={ctx.advancedDutyEvents}
+						dutyStartDayOnly={ctx.dutyStartDayOnly}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={data.permissions?.canEditCalendar ?? false}

@@ -208,7 +208,7 @@ describe('AdvancedDutyTemplateBuilder', () => {
 			expect(onCreateTemplate).toHaveBeenCalledWith(
 				expect.objectContaining({
 					mode: 'advanced',
-					status: 'draft',
+					status: 'active',
 					name: 'Company CQ',
 					softPreferences: cloneDefaultSoftPreferences(),
 					slots: [

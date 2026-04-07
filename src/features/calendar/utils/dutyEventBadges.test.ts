@@ -129,4 +129,75 @@ describe('buildDutyEventBadgesByPerson', () => {
 		expect(badge.shortName).toBe('CC');
 		expect(badge.color).toBe(deriveBadgeColor('tpl-xyz').color);
 	});
+
+	it('generates badges on every day the coverage window spans, not just eventDate', () => {
+		const event = makeEvent({
+			eventDate: '2026-04-06',
+			coverageStart: '2026-04-06T20:00:00',
+			coverageEnd: '2026-04-07T06:00:00'
+		});
+		const result = buildDutyEventBadgesByPerson([event]);
+		expect(result.get('person-1')?.get('2026-04-06')).toHaveLength(1);
+		expect(result.get('person-1')?.get('2026-04-07')).toHaveLength(1);
+	});
+
+	it('does not add a badge on the end date when coverage ends exactly at midnight', () => {
+		const event = makeEvent({
+			eventDate: '2026-04-06',
+			coverageStart: '2026-04-06T20:00:00',
+			coverageEnd: '2026-04-07T00:00:00'
+		});
+		const result = buildDutyEventBadgesByPerson([event]);
+		expect(result.get('person-1')?.get('2026-04-06')).toHaveLength(1);
+		expect(result.get('person-1')?.get('2026-04-07')).toBeUndefined();
+	});
+
+	it('generates badges on every day for a multi-night event', () => {
+		const event = makeEvent({
+			eventDate: '2026-04-06',
+			coverageStart: '2026-04-06T18:00:00',
+			coverageEnd: '2026-04-08T06:00:00'
+		});
+		const result = buildDutyEventBadgesByPerson([event]);
+		expect(result.get('person-1')?.get('2026-04-06')).toHaveLength(1);
+		expect(result.get('person-1')?.get('2026-04-07')).toHaveLength(1);
+		expect(result.get('person-1')?.get('2026-04-08')).toHaveLength(1);
+	});
+
+	describe('startDayOnly option', () => {
+		it('only places a badge on eventDate when startDayOnly is true', () => {
+			const event = makeEvent({
+				eventDate: '2026-04-06',
+				coverageStart: '2026-04-06T20:00:00',
+				coverageEnd: '2026-04-07T06:00:00'
+			});
+			const result = buildDutyEventBadgesByPerson([event], { startDayOnly: true });
+			expect(result.get('person-1')?.get('2026-04-06')).toHaveLength(1);
+			expect(result.get('person-1')?.get('2026-04-07')).toBeUndefined();
+		});
+
+		it('only places badges on eventDate for multi-night events when startDayOnly is true', () => {
+			const event = makeEvent({
+				eventDate: '2026-04-06',
+				coverageStart: '2026-04-06T18:00:00',
+				coverageEnd: '2026-04-08T06:00:00'
+			});
+			const result = buildDutyEventBadgesByPerson([event], { startDayOnly: true });
+			expect(result.get('person-1')?.get('2026-04-06')).toHaveLength(1);
+			expect(result.get('person-1')?.get('2026-04-07')).toBeUndefined();
+			expect(result.get('person-1')?.get('2026-04-08')).toBeUndefined();
+		});
+
+		it('behaves identically to default when startDayOnly is false', () => {
+			const event = makeEvent({
+				eventDate: '2026-04-06',
+				coverageStart: '2026-04-06T20:00:00',
+				coverageEnd: '2026-04-07T06:00:00'
+			});
+			const withFalse = buildDutyEventBadgesByPerson([event], { startDayOnly: false });
+			const withDefault = buildDutyEventBadgesByPerson([event]);
+			expect(withFalse.get('person-1')?.get('2026-04-07')).toHaveLength(1);
+			expect(withDefault.get('person-1')?.get('2026-04-07')).toHaveLength(1);
+		});
+	});
 });

@@ -11,10 +11,14 @@ import { _postConfig as deleteLegacyGroupConfig } from './runs/legacy/+server';
 import { _postConfig as applySeriesConfig } from './series/+server';
 import { _postConfig as previewSeriesConfig } from './series/preview/+server';
 
+const PERSON_NCO_ID = '11111111-1111-4111-8111-111111111111';
+const PERSON_RUNNER_ID = '22222222-2222-4222-8222-222222222222';
+const PERSON_ALT_NCO_ID = '33333333-3333-4333-8333-333333333333';
+
 async function seedTemplate(ctx: ReturnType<typeof createTestContext>) {
 	ctx.store.seed('personnel', [
 		{
-			id: 'person-nco',
+			id: PERSON_NCO_ID,
 			organization_id: ctx.auth.orgId,
 			rank: 'SGT',
 			last_name: 'Nolan',
@@ -25,7 +29,7 @@ async function seedTemplate(ctx: ReturnType<typeof createTestContext>) {
 			group_name: 'Headquarters'
 		},
 		{
-			id: 'person-runner',
+			id: PERSON_RUNNER_ID,
 			organization_id: ctx.auth.orgId,
 			rank: 'SPC',
 			last_name: 'Baker',
@@ -92,6 +96,20 @@ describe('POST /api/duty-events/preview', () => {
 		expect(result.slotInstances).toHaveLength(2);
 	});
 
+	it('rejects malformed preview payloads before they reach the use case', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		await expect(
+			handleUseCaseRequest(previewConfig, ctx, {
+				templateId: template.id
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Event date is required.'
+		});
+	});
+
 	it('rejects scoped full editors from previewing advanced duty events', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -103,7 +121,7 @@ describe('POST /api/duty-events/preview', () => {
 
 		await expect(
 			handleUseCaseRequest(previewConfig, ctx, {
-				templateId: 'template-1',
+				templateId: '44444444-4444-4444-8444-444444444444',
 				eventDate: '2026-04-10'
 			})
 		).rejects.toMatchObject({
@@ -141,13 +159,23 @@ describe('POST /api/duty-events', () => {
 	});
 
 	it('allows unscoped full editors who are not privileged to apply advanced duty events', async () => {
+		const templateCtx = createTestContext();
 		const ctx = createTestContext({
 			auth: {
 				isPrivileged: false,
 				isFullEditor: true
 			}
 		});
-		const template = await seedTemplate(ctx);
+		const template = await seedTemplate(templateCtx);
+		ctx.store.seed('duty_templates', await templateCtx.rawStore.findMany('duty_templates', templateCtx.auth.orgId));
+		ctx.store.seed(
+			'duty_template_slots',
+			await templateCtx.rawStore.findMany('duty_template_slots', templateCtx.auth.orgId)
+		);
+		ctx.store.seed(
+			'duty_template_rotation_baselines',
+			await templateCtx.rawStore.findMany('duty_template_rotation_baselines', templateCtx.auth.orgId)
+		);
 
 		const result = await handleUseCaseRequest(applyConfig, ctx, {
 			templateId: template.id,
@@ -165,7 +193,7 @@ describe('POST /api/duty-events', () => {
 
 		ctx.store.seed('personnel', [
 			{
-				id: 'person-alt-nco',
+				id: PERSON_ALT_NCO_ID,
 				organization_id: ctx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Zimmer',
@@ -180,19 +208,19 @@ describe('POST /api/duty-events', () => {
 		const result = await handleUseCaseRequest(applyConfig, ctx, {
 			templateId: template.id,
 			eventDate: '2026-04-10',
-			slotOverrides: [{ templateSlotId: template.slots[0]?.id ?? null, slotIndex: 0, assigneeId: 'person-alt-nco' }]
+			slotOverrides: [{ templateSlotId: template.slots[0]?.id ?? null, slotIndex: 0, assigneeId: PERSON_ALT_NCO_ID }]
 		});
 
 		expect(result.slotInstances[0]).toMatchObject({
 			templateSlotId: template.slots[0]?.id,
-			assigneeId: 'person-alt-nco',
+			assigneeId: PERSON_ALT_NCO_ID,
 			assignmentSource: 'manual'
 		});
 		expect(result.originalProposal).toMatchObject({
 			slotInstances: expect.arrayContaining([
 				expect.objectContaining({
 					templateSlotId: template.slots[0]?.id,
-					assigneeId: 'person-nco',
+					assigneeId: PERSON_NCO_ID,
 					assignmentSource: 'generated'
 				})
 			])
@@ -209,7 +237,7 @@ describe('POST /api/duty-events', () => {
 				organization_id: ctx.auth.orgId,
 				date: '2026-04-10',
 				assignment_type_id: 'at-existing',
-				assignee_id: 'person-nco'
+				assignee_id: PERSON_NCO_ID
 			}
 		]);
 
@@ -271,7 +299,7 @@ describe('PUT /api/duty-events/[eventId]', () => {
 
 		ctx.store.seed('personnel', [
 			{
-				id: 'person-alt-nco',
+				id: PERSON_ALT_NCO_ID,
 				organization_id: ctx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Zimmer',
@@ -285,7 +313,7 @@ describe('PUT /api/duty-events/[eventId]', () => {
 
 		const result = await handleUseCaseRequest(updateExistingConfig, ctx, {
 			dutyEventId: applied.id,
-			slotOverrides: [{ templateSlotId: template.slots[0]?.id ?? null, slotIndex: 0, assigneeId: 'person-alt-nco' }]
+			slotOverrides: [{ templateSlotId: template.slots[0]?.id ?? null, slotIndex: 0, assigneeId: PERSON_ALT_NCO_ID }]
 		});
 
 		expect(result).toMatchObject({
@@ -294,7 +322,7 @@ describe('PUT /api/duty-events/[eventId]', () => {
 		});
 		expect(result.slotInstances[0]).toMatchObject({
 			templateSlotId: template.slots[0]?.id,
-			assigneeId: 'person-alt-nco',
+			assigneeId: PERSON_ALT_NCO_ID,
 			assignmentSource: 'manual'
 		});
 	});
@@ -313,7 +341,7 @@ describe('PUT /api/duty-events/[eventId]', () => {
 				organization_id: ctx.auth.orgId,
 				date: '2026-04-10',
 				assignment_type_id: 'at-existing',
-				assignee_id: 'person-nco'
+				assignee_id: PERSON_NCO_ID
 			}
 		]);
 
@@ -373,7 +401,7 @@ describe('POST /api/duty-events/series/preview', () => {
 
 		ctx.store.seed('personnel', [
 			{
-				id: 'person-alt-nco',
+				id: PERSON_ALT_NCO_ID,
 				organization_id: ctx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Zimmer',
@@ -396,7 +424,7 @@ describe('POST /api/duty-events/series/preview', () => {
 						{
 							templateSlotId: template.slots[0]?.id ?? null,
 							slotIndex: 0,
-							assigneeId: 'person-alt-nco',
+							assigneeId: PERSON_ALT_NCO_ID,
 							assignmentSource: 'locked'
 						}
 					]
@@ -406,7 +434,7 @@ describe('POST /api/duty-events/series/preview', () => {
 
 		expect(result.events[0]?.slotInstances[0]).toMatchObject({
 			templateSlotId: template.slots[0]?.id,
-			assigneeId: 'person-alt-nco',
+			assigneeId: PERSON_ALT_NCO_ID,
 			assignmentSource: 'locked'
 		});
 	});
@@ -447,7 +475,7 @@ describe('POST /api/duty-events/series', () => {
 				organization_id: ctx.auth.orgId,
 				date: '2026-04-10',
 				assignment_type_id: 'at-existing',
-				assignee_id: 'person-nco'
+				assignee_id: PERSON_NCO_ID
 			}
 		]);
 
@@ -469,7 +497,7 @@ describe('POST /api/duty-events/series', () => {
 
 		ctx.store.seed('personnel', [
 			{
-				id: 'person-alt-nco',
+				id: PERSON_ALT_NCO_ID,
 				organization_id: ctx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Zimmer',
@@ -492,7 +520,7 @@ describe('POST /api/duty-events/series', () => {
 						{
 							templateSlotId: template.slots[0]?.id ?? null,
 							slotIndex: 0,
-							assigneeId: 'person-alt-nco'
+							assigneeId: PERSON_ALT_NCO_ID
 						}
 					]
 				}
@@ -501,14 +529,14 @@ describe('POST /api/duty-events/series', () => {
 
 		expect(result.events[0]?.slotInstances[0]).toMatchObject({
 			templateSlotId: template.slots[0]?.id,
-			assigneeId: 'person-alt-nco',
+			assigneeId: PERSON_ALT_NCO_ID,
 			assignmentSource: 'manual'
 		});
 		expect(result.events[0]?.originalProposal).toMatchObject({
 			slotInstances: expect.arrayContaining([
 				expect.objectContaining({
 					templateSlotId: template.slots[0]?.id,
-					assigneeId: 'person-nco',
+					assigneeId: PERSON_NCO_ID,
 					assignmentSource: 'generated'
 				})
 			])
@@ -532,6 +560,19 @@ describe('DELETE /api/duty-events/[eventId]', () => {
 		expect(result).toMatchObject({ deletedEvents: 1 });
 		const remaining = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId);
 		expect(remaining).toHaveLength(0);
+	});
+
+	it('rejects invalid duty event ids before deletion reaches the use case', async () => {
+		const ctx = createTestContext();
+
+		await expect(
+			handleUseCaseRequest(deleteEventConfig, ctx, {
+				dutyEventId: 'not-a-uuid'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Duty event ID must be a valid UUID.'
+		});
 	});
 });
 
@@ -562,7 +603,7 @@ describe('POST /api/duty-events/runs/legacy', () => {
 		const ctx = createTestContext();
 		ctx.store.seed('duty_events', [
 			{
-				id: 'legacy-1',
+				id: '11111111-1111-4111-8111-111111111111',
 				organization_id: ctx.auth.orgId,
 				run_id: null,
 				template_id: 'template-legacy',
@@ -580,7 +621,7 @@ describe('POST /api/duty-events/runs/legacy', () => {
 				updated_at: '2026-04-01T00:00:00.000Z'
 			},
 			{
-				id: 'legacy-2',
+				id: '22222222-2222-4222-8222-222222222222',
 				organization_id: ctx.auth.orgId,
 				run_id: null,
 				template_id: 'template-legacy',
@@ -600,7 +641,7 @@ describe('POST /api/duty-events/runs/legacy', () => {
 		]);
 
 		const result = await handleUseCaseRequest(deleteLegacyGroupConfig, ctx, {
-			eventIds: ['legacy-1', 'legacy-2']
+			eventIds: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
 		});
 		expect(result).toMatchObject({ deletedEvents: 2 });
 		const remaining = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId);

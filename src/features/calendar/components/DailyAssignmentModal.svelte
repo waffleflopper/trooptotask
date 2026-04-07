@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Personnel, AssignmentType, DailyAssignment } from '$lib/types';
+	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
 	import Modal from '$lib/components/Modal.svelte';
 
@@ -14,6 +15,8 @@
 		assignments: DailyAssignment[];
 		personnelByGroup: GroupData[];
 		groups: string[];
+		dutyEvents?: DutyEvent[];
+		dutyRosterHref?: string;
 		onSetAssignment: (date: string, typeId: string, assigneeId: string) => void;
 		onRemoveAssignment: (date: string, typeId: string) => void;
 		onClose: () => void;
@@ -25,10 +28,34 @@
 		assignments,
 		personnelByGroup,
 		groups,
+		dutyEvents = [],
+		dutyRosterHref,
 		onSetAssignment,
 		onRemoveAssignment,
 		onClose
 	}: Props = $props();
+
+	function eventCoversDate(event: DutyEvent, d: string): boolean {
+		const startDate = event.coverageStart.slice(0, 10);
+		const endDateRaw = event.coverageEnd.slice(0, 10);
+		const endTime = event.coverageEnd.slice(11, 19);
+		const endDate = endTime === '00:00:00' ? null : endDateRaw;
+		if (d < startDate) return false;
+		if (!endDate) return d === startDate;
+		return d <= endDate;
+	}
+
+	function formatCoverage(event: DutyEvent): string {
+		const fmt = (iso: string) => {
+			const [datePart, timePart] = iso.split('T');
+			const [y, m, day] = datePart.split('-');
+			const [h, min] = (timePart ?? '').split(':');
+			const d = new Date(Number(y), Number(m) - 1, Number(day));
+			const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+			return `${label} ${h}:${min}`;
+		};
+		return `${fmt(event.coverageStart)} – ${fmt(event.coverageEnd)}`;
+	}
 
 	const dateStr = $derived(formatDate(date));
 	const dateDisplay = $derived(
@@ -41,6 +68,7 @@
 	);
 
 	const assignmentsForDate = $derived(assignments.filter((a) => a.date === dateStr));
+	const dutyEventsForDate = $derived(dutyEvents.filter((e) => eventCoversDate(e, dateStr)));
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
@@ -68,6 +96,24 @@
 
 <Modal title="Daily Assignments" {onClose} width="520px" titleId="daily-assign-title">
 	<div class="date-display">{dateDisplay}</div>
+
+	{#if dutyEventsForDate.length > 0}
+		<div class="duty-events-section">
+			<h4 class="duty-events-heading">Advanced duty events</h4>
+			{#each dutyEventsForDate as event (event.id)}
+				<div class="duty-event-row">
+					{#if dutyRosterHref}
+						<a href={dutyRosterHref} class="duty-event-name">{event.templateName}</a>
+					{:else}
+						<span class="duty-event-name">{event.templateName}</span>
+					{/if}
+					<span class="duty-event-meta"
+						>{formatCoverage(event)} · {event.fillSummary.filledSlots} of {event.fillSummary.totalSlots} filled</span
+					>
+				</div>
+			{/each}
+		</div>
+	{/if}
 
 	<div class="assignments-list">
 		{#each assignmentTypes as type (type.id)}
@@ -149,6 +195,47 @@
 		font-weight: var(--font-weight-display);
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
+	}
+
+	.duty-events-section {
+		margin-bottom: var(--sp-4);
+		padding-bottom: var(--sp-4);
+		border-bottom: var(--border-thin);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.duty-events-heading {
+		margin: 0 0 var(--sp-1);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
+	}
+
+	.duty-event-row {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.duty-event-name {
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-medium);
+		color: var(--text-primary);
+		text-decoration: none;
+	}
+
+	a.duty-event-name:hover {
+		text-decoration: underline;
+	}
+
+	.duty-event-meta {
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
 	}
 
 	.assignments-list {

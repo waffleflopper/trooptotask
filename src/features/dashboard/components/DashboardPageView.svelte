@@ -330,7 +330,9 @@
 							{#each event.slots as slot (slot.key)}
 								<div class="stack-row">
 									<div class="stack-row-main">
-										<span class="inline-badge" style="background: {event.color}; color: {event.textColor}">{event.shortName}</span>
+										<span class="inline-badge" style="background: {event.color}; color: {event.textColor}"
+											>{event.shortName}</span
+										>
 										<span class="stack-title">{slot.roleLabel}</span>
 									</div>
 									<span class="stack-meta">{slot.assigneeName}</span>

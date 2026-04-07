@@ -8,6 +8,8 @@ import {
 	deleteDutyEventRun,
 	deleteLegacyDutyEventGroup,
 	listDutyEvents,
+	listDutyEventsForCalendar,
+	listDutyEventsInRange,
 	previewDutyEventFromTemplate,
 	previewExistingDutyEvent,
 	previewDutyEventSeriesFromTemplate,
@@ -630,6 +632,151 @@ describe('duty event apply use case', () => {
 		});
 	});
 
+	it('surfaces re-applying the same template and date as a replacement collision', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-zulu',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Zulu',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader'],
+					rotationPoolKey: 'nco-pool'
+				}
+			]
+		});
+
+		await applyDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		const preview = await previewDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		expect(preview.collisionSummary).toEqual({
+			hasConflicts: true,
+			conflicts: [
+				'An applied advanced duty event already exists for Battalion Staff Duty on 2026-04-10. Applying again will replace its current team assignments. Review this replacement before apply.'
+			]
+		});
+	});
+
+	it('requires confirmation before replacing an applied event for the same template and date', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-zulu',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Zulu',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader'],
+					rotationPoolKey: 'nco-pool'
+				}
+			]
+		});
+
+		const firstApply = await applyDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		await expect(
+			applyDutyEventFromTemplate(ctx, {
+				templateId: template.id,
+				eventDate: '2026-04-10'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Collision review is required before applying this duty event.'
+		});
+
+		const replaced = await applyDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10',
+			collisionReviewConfirmed: true
+		});
+
+		expect(replaced.id).toBe(firstApply.id);
+		expect(await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId)).toHaveLength(1);
+	});
+
 	it('ranks candidates by longest break within a rotation pool using manual baselines', async () => {
 		const ctx = createTestContext();
 
@@ -1179,6 +1326,13 @@ describe('duty event apply use case', () => {
 				}
 			]
 		});
+
+		const preview = await previewDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		expect(preview.slotInstances[0].fairnessConfidence).toBe('medium');
 
 		const applied = await applyDutyEventFromTemplate(ctx, {
 			templateId: template.id,
@@ -3193,6 +3347,64 @@ describe('duty event apply use case', () => {
 		expect(await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId)).toHaveLength(0);
 	});
 
+	it('does not leave an orphan run when single-event apply fails during slot persistence', async () => {
+		const ctx = createTestContext();
+		const originalInsertMany = ctx.store.insertMany.bind(ctx.store);
+		ctx.store.insertMany = (async (...args) => {
+			const [table] = args as [string, string, Array<Record<string, unknown>>];
+			if (table === 'duty_event_slots') {
+				throw new Error('Simulated slot persistence failure');
+			}
+
+			return originalInsertMany(...args);
+		}) as typeof ctx.store.insertMany;
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-nco',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Nolan',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader']
+				}
+			]
+		});
+
+		await expect(
+			applyDutyEventFromTemplate(ctx, {
+				templateId: template.id,
+				eventDate: '2026-04-10'
+			})
+		).rejects.toThrow('Simulated slot persistence failure');
+
+		expect(await ctx.store.findMany<Record<string, unknown>>('duty_event_runs', ctx.auth.orgId)).toHaveLength(0);
+	});
+
 	it('cleans up the run and applied events if a later series event fails to persist', async () => {
 		const ctx = createTestContext();
 		let slotInsertCalls = 0;
@@ -3309,7 +3521,8 @@ describe('duty event apply use case', () => {
 			templateId: template.id,
 			pattern: 'daily',
 			startDate: '2026-04-10',
-			endDate: '2026-04-12'
+			endDate: '2026-04-12',
+			collisionReviewConfirmed: true
 		});
 
 		expect(overlappingRun.events.map((event) => event.eventDate)).toEqual(['2026-04-10', '2026-04-11', '2026-04-12']);
@@ -3595,6 +3808,90 @@ describe('existing duty event editing', () => {
 		});
 	});
 
+	it('preserves the original proposal when an applied duty event is re-saved', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-earlier',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-later',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Zulu',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader'],
+					rotationPoolKey: 'nco-pool'
+				}
+			]
+		});
+
+		const applied = await applyDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		const originalProposal = applied.originalProposal;
+		expect(originalProposal).not.toBeNull();
+
+		const originalUpdate = ctx.store.update.bind(ctx.store);
+		ctx.store.update = (async (...args) => {
+			const [table, orgId, id, data] = args as [string, string, string, Record<string, unknown>];
+			if (table === 'duty_events' && id === applied.id && !Object.hasOwn(data, 'original_proposal')) {
+				return originalUpdate(table, orgId, id, {
+					...data,
+					original_proposal: null
+				});
+			}
+			return originalUpdate(...args);
+		}) as typeof ctx.store.update;
+
+		const updated = await updateExistingDutyEvent(ctx, {
+			dutyEventId: applied.id,
+			slotOverrides: []
+		});
+
+		expect(updated.originalProposal).toEqual(originalProposal);
+
+		const storedEvent = await ctx.store.findOne<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+			id: applied.id
+		});
+		expect(storedEvent?.original_proposal).toEqual(originalProposal);
+	});
+
 	it('regenerates one slot while preserving the rest of the applied event team context', async () => {
 		const ctx = createTestContext();
 
@@ -3719,17 +4016,12 @@ async function copyTemplateTo(from: ReturnType<typeof createTestContext>, to: Re
 }
 
 describe('advanced duty event access enforcement', () => {
-	it('allows unscoped full editors to manage advanced duty events without privileged access', async () => {
-		const ctx = createTestContext({
-			auth: {
-				isPrivileged: false,
-				isFullEditor: true
-			}
-		});
-		ctx.store.seed('personnel', [
+	it('allows calendar viewers to load applied advanced duty events for simple-lane availability checks', async () => {
+		const adminCtx = createTestContext();
+		adminCtx.store.seed('personnel', [
 			{
 				id: 'person-nco',
-				organization_id: ctx.auth.orgId,
+				organization_id: adminCtx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Nolan',
 				first_name: 'Casey',
@@ -3739,7 +4031,7 @@ describe('advanced duty event access enforcement', () => {
 				group_name: 'Headquarters'
 			}
 		]);
-		const template = await createDutyTemplate(ctx, {
+		const template = await createDutyTemplate(adminCtx, {
 			status: 'active',
 			name: 'Scoped Duty',
 			scopeType: 'groups',
@@ -3760,6 +4052,69 @@ describe('advanced duty event access enforcement', () => {
 				}
 			]
 		});
+		await applyDutyEventFromTemplate(adminCtx, { templateId: template.id, eventDate: '2026-04-15' });
+
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				isFullEditor: false,
+				requireView() {}
+			}
+		});
+		ctx.store.seed('duty_events', await adminCtx.rawStore.findMany('duty_events', adminCtx.auth.orgId));
+		ctx.store.seed('duty_event_slots', await adminCtx.rawStore.findMany('duty_event_slots', adminCtx.auth.orgId));
+		ctx.store.seed('duty_event_runs', await adminCtx.rawStore.findMany('duty_event_runs', adminCtx.auth.orgId));
+
+		const listed = await listDutyEventsForCalendar(ctx);
+
+		expect(listed).toHaveLength(1);
+		expect(listed[0]?.templateId).toBe(template.id);
+	});
+
+	it('allows unscoped full editors to manage advanced duty events without privileged access', async () => {
+		const templateCtx = createTestContext();
+		const ctx = createTestContext({
+			auth: {
+				isPrivileged: false,
+				isFullEditor: true
+			}
+		});
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-nco',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Nolan',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+		const template = await createDutyTemplate(templateCtx, {
+			status: 'active',
+			name: 'Scoped Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '20:00',
+			isBlocking: true,
+			cooldownHours: 0,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: [],
+					allowedMosValues: [],
+					allowedRoleValues: []
+				}
+			]
+		});
+		await copyTemplateTo(templateCtx, ctx);
 
 		const preview = await previewDutyEventFromTemplate(ctx, {
 			templateId: template.id,
@@ -4250,5 +4605,125 @@ describe('duty event run deletion', () => {
 
 		const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId);
 		expect(eventRows).toHaveLength(0);
+	});
+});
+
+describe('listDutyEventsInRange — coverage overlap query', () => {
+	const personnelRow = {
+		id: 'person-nco',
+		organization_id: 'test-org',
+		rank: 'SGT',
+		last_name: 'Nolan',
+		first_name: 'Casey',
+		mos: '11B',
+		clinic_role: 'Squad Leader',
+		group_id: 'group-hq',
+		group_name: 'Headquarters'
+	};
+
+	it('returns an overnight event when the query range covers only the overnight day', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('personnel', [personnelRow]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Staff Duty',
+			description: '',
+			scopeType: 'organization',
+			scopeGroupIds: [],
+			coverageMode: 'timed',
+			startTime: '20:00',
+			endTime: '06:00',
+			isBlocking: true,
+			cooldownHours: 12,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: [],
+					allowedMosValues: [],
+					allowedRoleValues: []
+				}
+			]
+		});
+
+		// Apply on Mon Apr 6 → coverage Apr 6 20:00 – Apr 7 06:00
+		await applyDutyEventFromTemplate(ctx, { templateId: template.id, eventDate: '2026-04-06' });
+
+		// Query only for Apr 7 — event_date is Apr 6, but coverage overlaps Apr 7
+		const results = await listDutyEventsInRange(ctx, { rangeStart: '2026-04-07', rangeEnd: '2026-04-07' });
+		expect(results).toHaveLength(1);
+		expect(results[0].eventDate).toBe('2026-04-06');
+		expect(results[0].coverageEnd).toBe('2026-04-07T06:00:00');
+	});
+
+	it('does not return a same-day event whose coverage ends before the query range starts', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('personnel', [personnelRow]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Morning Formation',
+			description: '',
+			scopeType: 'organization',
+			scopeGroupIds: [],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '17:00',
+			isBlocking: false,
+			cooldownHours: 0,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: [],
+					allowedMosValues: [],
+					allowedRoleValues: []
+				}
+			]
+		});
+
+		// Apply on Apr 6 → coverage Apr 6 08:00 – Apr 6 17:00
+		await applyDutyEventFromTemplate(ctx, { templateId: template.id, eventDate: '2026-04-06' });
+
+		// Query only for Apr 7 — event ends Apr 6 17:00, no overlap
+		const results = await listDutyEventsInRange(ctx, { rangeStart: '2026-04-07', rangeEnd: '2026-04-07' });
+		expect(results).toHaveLength(0);
+	});
+
+	it('returns a normal event that falls within the query range', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('personnel', [personnelRow]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Staff Duty',
+			description: '',
+			scopeType: 'organization',
+			scopeGroupIds: [],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: [],
+					allowedMosValues: [],
+					allowedRoleValues: []
+				}
+			]
+		});
+
+		await applyDutyEventFromTemplate(ctx, { templateId: template.id, eventDate: '2026-04-07' });
+
+		const results = await listDutyEventsInRange(ctx, { rangeStart: '2026-04-07', rangeEnd: '2026-04-07' });
+		expect(results).toHaveLength(1);
+		expect(results[0].eventDate).toBe('2026-04-07');
 	});
 });

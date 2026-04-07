@@ -47,7 +47,7 @@ describe('POST /api/duty-templates', () => {
 		expect(result.slots).toHaveLength(1);
 	});
 
-	it('allows unscoped full editors who are not privileged', async () => {
+	it('rejects unscoped full editors who are not privileged from creating templates', async () => {
 		const ctx = createTestContext({
 			auth: {
 				isPrivileged: false,
@@ -55,8 +55,9 @@ describe('POST /api/duty-templates', () => {
 			}
 		});
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, makePayload())).resolves.toMatchObject({
-			name: 'Company CQ'
+		await expect(handleUseCaseRequest(_postConfig, ctx, makePayload())).rejects.toMatchObject({
+			status: 403,
+			message: 'Advanced duty templates can only be managed by organization admins and owners.'
 		});
 	});
 
@@ -102,6 +103,19 @@ describe('DELETE /api/duty-templates/[templateId]', () => {
 		expect(archived).toMatchObject({
 			id: created.id,
 			status: 'archived'
+		});
+	});
+
+	it('rejects invalid template ids before archive reaches the use case', async () => {
+		const ctx = createTestContext();
+
+		await expect(
+			handleUseCaseRequest(archiveTemplateConfig, ctx, {
+				templateId: 'not-a-uuid'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Template ID must be a valid UUID.'
 		});
 	});
 });

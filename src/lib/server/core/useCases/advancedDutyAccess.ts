@@ -9,6 +9,14 @@ export function requireAdvancedDutyAccess(auth: AuthContext): void {
 	}
 }
 
+export function requireAdvancedDutyTemplateManagement(auth: AuthContext): void {
+	requireAdvancedDutyAccess(auth);
+
+	if (!auth.isPrivileged) {
+		fail(403, 'Advanced duty templates can only be managed by organization admins and owners.');
+	}
+}
+
 export function canAccessAdvancedDuty(
 	auth: Pick<AuthContext, 'isPrivileged' | 'isFullEditor' | 'scopedGroupId'>
 ): boolean {

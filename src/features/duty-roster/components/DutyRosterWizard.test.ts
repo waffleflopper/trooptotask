@@ -1950,7 +1950,13 @@ describe('DutyRosterWizard', () => {
 			advancedDutyTemplates: [
 				makeAdvancedTemplate({
 					rotationBaselines: [
-						{ id: 'bl-1', templateId: 'tmpl-staff-duty', rotationPoolKey: 'staff-duty-primary', personId: 'person-nco', lastServedDate: '2026-03-01' }
+						{
+							id: 'bl-1',
+							templateId: 'tmpl-staff-duty',
+							rotationPoolKey: 'staff-duty-primary',
+							personId: 'person-nco',
+							lastServedDate: '2026-03-01'
+						}
 					]
 				})
 			]

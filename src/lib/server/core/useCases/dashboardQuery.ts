@@ -91,43 +91,50 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
 
-	const [availabilityRows, assignmentTypeRows, dailyAssignmentRows, pinnedGroupRows, ratingSchemeRows, onboardingRows, todayDutyEvents] =
-		await Promise.all([
-			ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
-				select: AvailabilityEntryEntity.select,
-				rangeFilters: [
-					{ column: 'end_date', op: 'gte', value: yesterday },
-					{ column: 'start_date', op: 'lte', value: twoWeeksOut }
-				]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
-				rangeFilters: [
-					{ column: 'date', op: 'gte', value: yesterday },
-					{ column: 'date', op: 'lte', value: twoWeeksOut }
-				]
-			}),
-			userId
-				? ctx.store.findMany<Record<string, unknown>>(
-						'user_pinned_groups',
-						orgId,
-						{ user_id: userId },
-						{
-							orderBy: [{ column: 'sort_order', ascending: true }]
-						}
-					)
-				: Promise.resolve([]),
-			ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
-				select: 'id, rated_person_id, eval_type, rating_period_end, status',
-				orderBy: [{ column: 'rating_period_end', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, undefined, {
-				select: PersonnelOnboardingEntity.select
-			}),
-			listDutyEventsInRange(ctx, { rangeStart: today, rangeEnd: today }).catch(() => [] as DutyEvent[])
-		]);
+	const [
+		availabilityRows,
+		assignmentTypeRows,
+		dailyAssignmentRows,
+		pinnedGroupRows,
+		ratingSchemeRows,
+		onboardingRows,
+		todayDutyEvents
+	] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
+			select: AvailabilityEntryEntity.select,
+			rangeFilters: [
+				{ column: 'end_date', op: 'gte', value: yesterday },
+				{ column: 'start_date', op: 'lte', value: twoWeeksOut }
+			]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
+			rangeFilters: [
+				{ column: 'date', op: 'gte', value: yesterday },
+				{ column: 'date', op: 'lte', value: twoWeeksOut }
+			]
+		}),
+		userId
+			? ctx.store.findMany<Record<string, unknown>>(
+					'user_pinned_groups',
+					orgId,
+					{ user_id: userId },
+					{
+						orderBy: [{ column: 'sort_order', ascending: true }]
+					}
+				)
+			: Promise.resolve([]),
+		ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
+			select: 'id, rated_person_id, eval_type, rating_period_end, status',
+			orderBy: [{ column: 'rating_period_end', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, undefined, {
+			select: PersonnelOnboardingEntity.select
+		}),
+		listDutyEventsInRange(ctx, { rangeStart: today, rangeEnd: today }).catch(() => [] as DutyEvent[])
+	]);
 
 	const allOnboardings = PersonnelOnboardingEntity.fromDbArray(onboardingRows);
 	const activeOnboardings = allOnboardings.filter((o) => o.status === 'in_progress');

@@ -101,7 +101,17 @@
 	});
 </script>
 
-<div class="mts" class:is-open={isOpen} class:is-disabled={disabled} bind:this={containerEl}>
+<div
+	class="mts"
+	class:is-open={isOpen}
+	class:is-disabled={disabled}
+	bind:this={containerEl}
+	onfocusout={(e) => {
+		if (!containerEl?.contains(e.relatedTarget as Node | null)) {
+			close();
+		}
+	}}
+>
 	<div
 		class="mts-control"
 		role="none"

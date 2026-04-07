@@ -1,10 +1,12 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import type { DutyEventRunDeleteResult } from '$features/duty-roster/duty-roster.types';
 import { deleteDutyEventRun } from '$lib/server/core/useCases/dutyEventCrud';
+import { dutyEventRunIdInputSchema } from '../../schemas';
 
 export const _deleteConfig: RouteConfig<{ runId: string }, DutyEventRunDeleteResult> = {
 	permission: 'calendar',
 	mutation: true,
+	input: dutyEventRunIdInputSchema,
 	fn: (ctx, input) => deleteDutyEventRun(ctx, input)
 };
 

@@ -3,7 +3,7 @@ import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { fetchRosterHistory } from '$lib/server/core/useCases/rosterHistoryQuery';
 import { canAccessAdvancedDuty } from '$lib/server/core/useCases/advancedDutyAccess';
 import { listDutyTemplates } from '$lib/server/core/useCases/dutyTemplateCrud';
-import { listDutyEvents } from '$lib/server/core/useCases/dutyEventCrud';
+import { listDutyEventsForCalendar } from '$lib/server/core/useCases/dutyEventCrud';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const { orgId } = params;
@@ -12,9 +12,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		permission: 'calendar',
 		fn: async (ctx) => {
 			const rosterHistory = await fetchRosterHistory(ctx);
-			const [advancedDutyEvents, advancedDutyTemplates] = canAccessAdvancedDuty(ctx.auth)
-				? await Promise.all([listDutyEvents(ctx), listDutyTemplates(ctx)])
-				: [[], []];
+			const advancedDutyEvents = await listDutyEventsForCalendar(ctx);
+			const advancedDutyTemplates = canAccessAdvancedDuty(ctx.auth) ? await listDutyTemplates(ctx) : [];
 			return { rosterHistory, advancedDutyTemplates, advancedDutyEvents };
 		}
 	});

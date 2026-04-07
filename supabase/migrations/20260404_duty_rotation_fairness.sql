@@ -81,6 +81,11 @@ ALTER TABLE public.duty_event_slots
 ALTER TABLE public.duty_event_slots
   DROP CONSTRAINT IF EXISTS duty_event_slots_fairness_confidence_check;
 
-ALTER TABLE public.duty_event_slots
-  ADD CONSTRAINT duty_event_slots_fairness_confidence_check
-  CHECK (fairness_confidence IN ('high', 'low'));
+DO $$
+BEGIN
+  ALTER TABLE public.duty_event_slots
+    ADD CONSTRAINT duty_event_slots_fairness_confidence_check
+    CHECK (fairness_confidence IN ('high', 'low'));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;

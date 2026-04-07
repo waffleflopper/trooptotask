@@ -29,15 +29,11 @@ ALTER TABLE public.duty_events
 
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'duty_events_run_id_fkey'
-  ) THEN
-    ALTER TABLE public.duty_events
-      ADD CONSTRAINT duty_events_run_id_fkey
-      FOREIGN KEY (run_id) REFERENCES public.duty_event_runs(id) ON DELETE CASCADE;
-  END IF;
+  ALTER TABLE public.duty_events
+    ADD CONSTRAINT duty_events_run_id_fkey
+    FOREIGN KEY (run_id) REFERENCES public.duty_event_runs(id) ON DELETE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
 END $$;
 
 CREATE INDEX IF NOT EXISTS duty_events_run_idx ON public.duty_events(run_id, event_date);
@@ -84,7 +80,6 @@ WHERE NOT EXISTS (
   FROM public.duty_event_runs existing
   WHERE existing.organization_id = grouped.organization_id
     AND existing.template_id IS NOT DISTINCT FROM grouped.template_id
-    AND existing.template_name = grouped.template_name
     AND existing.is_legacy = true
 );
 
@@ -94,7 +89,6 @@ FROM public.duty_event_runs runs
 WHERE events.run_id IS NULL
   AND runs.organization_id = events.organization_id
   AND runs.template_id IS NOT DISTINCT FROM events.template_id
-  AND runs.template_name = events.template_name
   AND runs.is_legacy = true;
 
 ALTER TABLE public.duty_event_runs ENABLE ROW LEVEL SECURITY;

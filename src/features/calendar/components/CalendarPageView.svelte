@@ -89,6 +89,7 @@
 		statusTypes={statusTypesStore.items}
 		assignmentTypes={dailyAssignmentsStore.types}
 		assignments={dailyAssignmentsStore.assignments}
+		dutyEvents={ctx.advancedDutyEvents}
 	/>
 
 	{#if !data.permissions?.canViewCalendar}
@@ -108,6 +109,7 @@
 						specialDays={specialDaysStore.items}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
+						dutyEvents={ctx.advancedDutyEvents}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
 						onToggleViewMode={() => ctx.toggleViewMode()}
 					/>
@@ -157,6 +159,8 @@
 		onAdd={(entry) => ctx.handleAddAvailability(entry)}
 		onRemove={(id) => ctx.handleRemoveAvailability(id)}
 		onClose={() => ctx.closeAvailabilityModal()}
+		dutyEvents={ctx.advancedDutyEvents}
+		dutyRosterHref={`/org/${data.orgId}/calendar/duty-roster/`}
 	/>
 {/if}
 
@@ -170,6 +174,8 @@
 		onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 		onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 		onClose={() => ctx.closeAssignmentModal()}
+		dutyEvents={ctx.advancedDutyEvents}
+		dutyRosterHref={`/org/${data.orgId}/calendar/duty-roster/`}
 	/>
 {/if}
 

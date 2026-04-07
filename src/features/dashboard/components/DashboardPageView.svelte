@@ -313,7 +313,7 @@
 			</header>
 
 			<div class="module-body">
-				{#if ctx.dutyAssignments.length > 0}
+				{#if ctx.dutyAssignments.length > 0 || ctx.todayAdvancedDuty.length > 0}
 					<div class="stack-list">
 						{#each ctx.dutyAssignments as assignment (assignment.id)}
 							<div class="stack-row">
@@ -324,6 +324,19 @@
 									<span class="stack-title">{assignment.typeName}</span>
 								</div>
 								<span class="stack-meta">{assignment.assigneeName || 'Unassigned'}</span>
+							</div>
+						{/each}
+						{#each ctx.todayAdvancedDuty as event (event.id)}
+							<div class="advanced-duty-block">
+								<p class="advanced-duty-name">{event.templateName}</p>
+								<div class="advanced-duty-slots">
+									{#each event.slots as slot (slot.key)}
+										<div class="advanced-slot">
+											<span class="slot-role">{slot.roleLabel}:</span>
+											<span class="slot-assignee">{slot.assigneeName}</span>
+										</div>
+									{/each}
+								</div>
 							</div>
 						{/each}
 					</div>
@@ -1247,9 +1260,48 @@
 	.stack-row:last-child,
 	.issue-row:last-child,
 	.progress-row:last-child,
-	.upcoming-item:last-child {
+	.upcoming-item:last-child,
+	.advanced-duty-block:last-child {
 		padding-bottom: 0;
 		border-bottom: none;
+	}
+
+	.advanced-duty-block {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+		padding-bottom: var(--sp-3);
+		border-bottom: var(--border-rule);
+	}
+
+	.advanced-duty-name {
+		margin: 0;
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
+	}
+
+	.advanced-duty-slots {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		padding-left: var(--sp-3);
+	}
+
+	.advanced-slot {
+		display: flex;
+		gap: var(--sp-2);
+		font-size: var(--text-sm);
+	}
+
+	.slot-role {
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-secondary);
+		min-width: 80px;
+	}
+
+	.slot-assignee {
+		color: var(--text-primary);
 	}
 
 	.ledger-label,

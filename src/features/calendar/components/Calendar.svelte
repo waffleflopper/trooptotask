@@ -31,6 +31,7 @@
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		dutyEvents?: DutyEvent[];
+		dutyStartDayOnly?: boolean;
 		activeOnboardingPersonnelIds?: string[];
 		highlightOnboarding?: boolean;
 		canEdit?: boolean;
@@ -61,6 +62,7 @@
 		assignmentTypes,
 		assignments,
 		dutyEvents = [],
+		dutyStartDayOnly = true,
 		activeOnboardingPersonnelIds = [],
 		highlightOnboarding = true,
 		canEdit = true,
@@ -143,7 +145,7 @@
 	});
 
 	// Pre-index advanced-duty-event badges by personnel ID → date string
-	const dutyBadgesByPerson = $derived.by(() => buildDutyEventBadgesByPerson(dutyEvents));
+	const dutyBadgesByPerson = $derived.by(() => buildDutyEventBadgesByPerson(dutyEvents, { startDayOnly: dutyStartDayOnly }));
 
 	const personnelById = $derived.by(() => {
 		const map = new Map<string, Personnel>();

@@ -61,14 +61,45 @@ export function deriveBadgeColor(templateId: string): { color: string; textColor
 }
 
 /**
- * Indexes duty event slot assignments as lightweight render-ready badges, keyed by
- * personnel id and then by event date string. Unfilled slots are skipped.
+ * Returns every calendar date string covered by the given coverage window.
+ * A day is covered if the window has any non-zero presence on it — midnight
+ * endings (e.g. 00:00:00) are treated as ending at the start of that day,
+ * so the end date is excluded in that case.
  */
-export function buildDutyEventBadgesByPerson(events: DutyEvent[]): Map<string, Map<string, DutyEventBadge[]>> {
+function getCoveredDates(coverageStart: string, coverageEnd: string): string[] {
+	const startDate = coverageStart.slice(0, 10);
+	const endDateRaw = coverageEnd.slice(0, 10);
+	const endTime = coverageEnd.slice(11, 19);
+	const endDate = endTime === '00:00:00' ? null : endDateRaw;
+
+	if (!endDate || startDate === endDate) return [startDate];
+
+	const dates: string[] = [];
+	const cursor = new Date(startDate + 'T00:00:00Z');
+	const last = new Date(endDate + 'T00:00:00Z');
+	while (cursor <= last) {
+		dates.push(cursor.toISOString().slice(0, 10));
+		cursor.setUTCDate(cursor.getUTCDate() + 1);
+	}
+	return dates;
+}
+
+/**
+ * Indexes duty event slot assignments as lightweight render-ready badges, keyed by
+ * personnel id and then by date string. Overnight events produce badges on every
+ * calendar day their coverage window touches unless `startDayOnly` is true, in which
+ * case the badge only appears on the event's start date. Unfilled slots are skipped.
+ */
+export function buildDutyEventBadgesByPerson(
+	events: DutyEvent[],
+	options: { startDayOnly?: boolean } = {}
+): Map<string, Map<string, DutyEventBadge[]>> {
+	const { startDayOnly = false } = options;
 	const byPerson = new Map<string, Map<string, DutyEventBadge[]>>();
 	for (const event of events) {
 		const shortName = deriveShortName(event.templateName);
 		const { color, textColor } = deriveBadgeColor(event.templateId);
+		const coveredDates = startDayOnly ? [event.eventDate] : getCoveredDates(event.coverageStart, event.coverageEnd);
 		for (const slot of event.slotInstances) {
 			if (!slot.assigneeId) continue;
 			let dateMap = byPerson.get(slot.assigneeId);
@@ -76,19 +107,22 @@ export function buildDutyEventBadgesByPerson(events: DutyEvent[]): Map<string, M
 				dateMap = new Map<string, DutyEventBadge[]>();
 				byPerson.set(slot.assigneeId, dateMap);
 			}
-			let list = dateMap.get(event.eventDate);
-			if (!list) {
-				list = [];
-				dateMap.set(event.eventDate, list);
-			}
-			list.push({
+			const badge: DutyEventBadge = {
 				shortName,
 				color,
 				textColor,
 				title: `${event.templateName} — ${slot.roleLabel}`,
 				eventId: event.id,
 				slotId: slot.id
-			});
+			};
+			for (const date of coveredDates) {
+				let list = dateMap.get(date);
+				if (!list) {
+					list = [];
+					dateMap.set(date, list);
+				}
+				list.push(badge);
+			}
 		}
 	}
 	return byPerson;

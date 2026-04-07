@@ -227,7 +227,9 @@ export class DashboardContext {
 		templateName: string;
 		slots: Array<{ key: string; roleLabel: string; assigneeName: string }>;
 	}> {
-		return (this.data.dashboard.data.todayDutyEvents ?? []).map((event) => ({
+		return (this.data.dashboard.data.todayDutyEvents ?? [])
+			.filter((event) => event.eventDate === this.today)
+			.map((event) => ({
 			id: event.id,
 			templateName: event.templateName,
 			slots: [...event.slotInstances]

@@ -9,8 +9,10 @@ function makeInput(overrides: Partial<Parameters<typeof buildCalendarToolbarItem
 		readOnly: false,
 		breakdownExpanded: false,
 		showStatusText: false,
+		dutyStartDayOnly: false,
 		onToggleBreakdown: () => {},
 		onToggleStatusText: () => {},
+		onToggleDutyStartDayOnly: () => {},
 		onExportCSV: () => {},
 		onExportPDF: () => {},
 		...overrides

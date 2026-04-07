@@ -145,7 +145,9 @@
 	});
 
 	// Pre-index advanced-duty-event badges by personnel ID → date string
-	const dutyBadgesByPerson = $derived.by(() => buildDutyEventBadgesByPerson(dutyEvents, { startDayOnly: dutyStartDayOnly }));
+	const dutyBadgesByPerson = $derived.by(() =>
+		buildDutyEventBadgesByPerson(dutyEvents, { startDayOnly: dutyStartDayOnly })
+	);
 
 	const personnelById = $derived.by(() => {
 		const map = new Map<string, Personnel>();

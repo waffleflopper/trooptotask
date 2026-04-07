@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Personnel, StatusType, AvailabilityEntry } from '$lib/types';
+	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -14,11 +15,38 @@
 		onAdd: (data: Omit<AvailabilityEntry, 'id'>) => void;
 		onRemove: (id: string) => void;
 		onClose: () => void;
+		dutyEvents?: DutyEvent[];
+		dutyRosterHref?: string;
 	}
 
-	let { person, date, statusTypes, existingEntries, onAdd, onRemove, onClose }: Props = $props();
+	let {
+		person,
+		date,
+		statusTypes,
+		existingEntries,
+		onAdd,
+		onRemove,
+		onClose,
+		dutyEvents = [],
+		dutyRosterHref
+	}: Props = $props();
+
+	function eventCoversDate(event: DutyEvent, d: string): boolean {
+		const startDate = event.coverageStart.slice(0, 10);
+		const endDateRaw = event.coverageEnd.slice(0, 10);
+		const endTime = event.coverageEnd.slice(11, 19);
+		const endDate = endTime === '00:00:00' ? null : endDateRaw;
+		if (d < startDate) return false;
+		if (!endDate) return d === startDate;
+		return d <= endDate;
+	}
+
+	function isPersonAssigned(event: DutyEvent): boolean {
+		return event.slotInstances.some((slot) => slot.assigneeId === person.id);
+	}
 
 	const dateStr = $derived(formatDate(date));
+	const dutyEventsForPerson = $derived(dutyEvents.filter((e) => isPersonAssigned(e) && eventCoversDate(e, dateStr)));
 
 	// Local state for the entries list — updated immediately on add/remove to avoid
 	// reactive prop propagation timing issues (notably in Firefox)
@@ -169,6 +197,22 @@
 		</div>
 		<div class="clicked-date">{dateDisplay}</div>
 	</div>
+
+	<!-- Duty Events -->
+	{#if dutyEventsForPerson.length > 0}
+		<div class="duty-events-section">
+			<h4 class="duty-events-heading">On duty</h4>
+			{#each dutyEventsForPerson as event (event.id)}
+				<div class="duty-event-row">
+					{#if dutyRosterHref}
+						<a href={dutyRosterHref} class="duty-event-name">{event.templateName}</a>
+					{:else}
+						<span class="duty-event-name">{event.templateName}</span>
+					{/if}
+				</div>
+			{/each}
+		</div>
+	{/if}
 
 	<!-- Existing Entries -->
 	{#if localEntries.length > 0}
@@ -343,6 +387,42 @@
 		font-family: var(--font-body);
 		font-size: var(--text-sm);
 		color: var(--text-secondary);
+	}
+
+	.duty-events-section {
+		margin-bottom: var(--sp-4);
+		padding-bottom: var(--sp-4);
+		border-bottom: var(--border-thin);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.duty-events-heading {
+		margin: 0 0 var(--sp-1);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
+	}
+
+	.duty-event-row {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+	}
+
+	.duty-event-name {
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-medium);
+		color: var(--text-primary);
+		text-decoration: none;
+	}
+
+	a.duty-event-name:hover {
+		text-decoration: underline;
 	}
 
 	.existing-entries {

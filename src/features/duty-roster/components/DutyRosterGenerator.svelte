@@ -3,6 +3,7 @@
 	import type { AvailabilityEntry, SpecialDay, StatusType } from '$lib/types';
 	import type { AssignmentType, DailyAssignment } from '$lib/types';
 	import type { DutyEvent } from '../duty-roster.types';
+	import { resolveSlotBlockingMode } from '../blockingMode';
 	import type { RosterHistoryItem, RosterHistoryEntry, DA6Data } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -214,9 +215,17 @@
 		const dayStart = `${date}T00:00:00`;
 		const dayEnd = `${date}T23:59:59`;
 		return advancedDutyEvents.some((event) => {
-			if (!event.isBlocking) return false;
-			const hasAssignee = event.slotInstances.some((slot) => slot.assigneeId === personnelId);
-			if (!hasAssignee) return false;
+			const hasBlockingAssignee = event.slotInstances.some((slot) => {
+				if (slot.assigneeId !== personnelId) {
+					return false;
+				}
+
+				const snapshotSlot = event.rulesSnapshot.slots.find(
+					(candidate) => candidate.templateSlotId === slot.templateSlotId
+				);
+				return resolveSlotBlockingMode(event.isBlocking, snapshotSlot?.blockingMode);
+			});
+			if (!hasBlockingAssignee) return false;
 			const overlaps = event.coverageStart < dayEnd && event.coverageEnd > dayStart;
 			const cooldownBlocks =
 				event.coverageEnd <= dayStart && addHours(event.coverageEnd, event.cooldownHours) > dayStart;

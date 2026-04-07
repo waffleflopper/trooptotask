@@ -89,7 +89,9 @@
 		return map;
 	});
 
-	const dutyBadgesByPerson = $derived.by(() => buildDutyEventBadgesByPerson(dutyEvents, { startDayOnly: dutyStartDayOnly }));
+	const dutyBadgesByPerson = $derived.by(() =>
+		buildDutyEventBadgesByPerson(dutyEvents, { startDayOnly: dutyStartDayOnly })
+	);
 
 	const statusByPersonnelDate = $derived.by(() => {
 		const map = new Map<string, StatusType>();

@@ -101,6 +101,25 @@ describe('duty template CRUD use cases', () => {
 		});
 	});
 
+	it('returns a static create failure when template persistence throws an unexpected error', async () => {
+		const ctx = createTestContext();
+		const originalInsert = ctx.store.insert.bind(ctx.store);
+		let attemptedTemplateInsert = false;
+
+		ctx.store.insert = (async (...args) => {
+			if (!attemptedTemplateInsert && args[0] === 'duty_templates') {
+				attemptedTemplateInsert = true;
+				throw new Error('relation "duty_templates" does not exist');
+			}
+			return await originalInsert(...(args as Parameters<typeof originalInsert>));
+		}) as typeof ctx.store.insert;
+
+		await expect(createDutyTemplate(ctx, makeInput())).rejects.toMatchObject({
+			status: 500,
+			message: 'Failed to save duty template.'
+		});
+	});
+
 	it('creates templates when legacy schemas are missing exempt personnel policy column', async () => {
 		const ctx = createTestContext();
 		const originalInsert = ctx.store.insert.bind(ctx.store);
@@ -206,7 +225,7 @@ describe('duty template CRUD use cases', () => {
 		).rejects.toMatchObject({ status: 400 });
 	});
 
-	it('allows unscoped full editors to create templates without privileged access', async () => {
+	it('rejects unscoped full editors from creating templates without admin access', async () => {
 		const ctx = createTestContext({
 			auth: {
 				isPrivileged: false,
@@ -214,8 +233,9 @@ describe('duty template CRUD use cases', () => {
 			}
 		});
 
-		await expect(createDutyTemplate(ctx, makeInput())).resolves.toMatchObject({
-			name: 'Battalion Staff Duty'
+		await expect(createDutyTemplate(ctx, makeInput())).rejects.toMatchObject({
+			status: 403,
+			message: 'Advanced duty templates can only be managed by organization admins and owners.'
 		});
 	});
 
@@ -389,16 +409,17 @@ describe('duty template CRUD use cases', () => {
 });
 
 describe('advanced duty template access enforcement', () => {
-	it('allows unscoped full editors to manage advanced templates without privileged access', async () => {
+	it('allows org admins to manage advanced templates', async () => {
 		const ctx = createTestContext({
 			auth: {
-				isPrivileged: false,
-				isFullEditor: true
+				role: 'admin',
+				isPrivileged: true,
+				isFullEditor: false,
+				scopedGroupId: null
 			}
 		});
 
 		const created = await createDutyTemplate(ctx, makeInput());
-		const listed = await listDutyTemplates(ctx);
 		const updated = await updateDutyTemplate(
 			ctx,
 			makeInput({
@@ -408,9 +429,43 @@ describe('advanced duty template access enforcement', () => {
 		);
 		const archived = await archiveDutyTemplate(ctx, { templateId: created.id });
 
-		expect(listed).toHaveLength(1);
 		expect(updated.name).toBe('Battalion Staff Duty (Updated)');
 		expect(archived.status).toBe('archived');
+	});
+
+	it('rejects unscoped full editors from managing advanced templates without admin access', async () => {
+		const ctx = createTestContext({
+			auth: {
+				isPrivileged: false,
+				isFullEditor: true
+			}
+		});
+
+		await expect(createDutyTemplate(ctx, makeInput())).rejects.toMatchObject({
+			status: 403,
+			message: 'Advanced duty templates can only be managed by organization admins and owners.'
+		});
+
+		const privilegedCtx = createTestContext();
+		const created = await createDutyTemplate(privilegedCtx, makeInput());
+
+		await expect(listDutyTemplates(ctx)).resolves.toHaveLength(0);
+		await expect(
+			updateDutyTemplate(
+				ctx,
+				makeInput({
+					id: created.id,
+					name: 'Battalion Staff Duty (Updated)'
+				})
+			)
+		).rejects.toMatchObject({
+			status: 403,
+			message: 'Advanced duty templates can only be managed by organization admins and owners.'
+		});
+		await expect(archiveDutyTemplate(ctx, { templateId: created.id })).rejects.toMatchObject({
+			status: 403,
+			message: 'Advanced duty templates can only be managed by organization admins and owners.'
+		});
 	});
 
 	it('denies scoped full editors from advanced template management', async () => {

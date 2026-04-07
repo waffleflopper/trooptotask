@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { QueryPorts } from '$lib/server/core/ports';
-import { findDutyCoverageConflicts } from './dutyAvailability';
+import { findDutyCoverageConflicts, resolveSlotBlockingMode } from './dutyAvailability';
 import type { Personnel } from '$lib/types';
 
 const ORG = 'test-org';
@@ -25,6 +25,16 @@ const PERSON: Personnel = {
 };
 
 const personnelById = new Map([['p1', PERSON]]);
+
+describe('resolveSlotBlockingMode', () => {
+	it('resolves inherit, blocking, and non-blocking consistently', () => {
+		expect(resolveSlotBlockingMode(true, 'inherit')).toBe(true);
+		expect(resolveSlotBlockingMode(false, 'inherit')).toBe(false);
+		expect(resolveSlotBlockingMode(false, 'blocking')).toBe(true);
+		expect(resolveSlotBlockingMode(true, 'non-blocking')).toBe(false);
+		expect(resolveSlotBlockingMode(true, undefined)).toBe(true);
+	});
+});
 
 function seedBlockingEvent(
 	store: ReturnType<typeof createInMemoryDataStore>,

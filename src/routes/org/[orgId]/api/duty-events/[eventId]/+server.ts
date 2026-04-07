@@ -10,10 +10,12 @@ import {
 	previewExistingDutyEvent,
 	updateExistingDutyEvent
 } from '$lib/server/core/useCases/dutyEventCrud';
+import { dutyEventIdInputSchema, existingDutyEventUpdateInputSchema } from '../schemas';
 
 export const _putConfig: RouteConfig<ExistingDutyEventUpdateInput, DutyEvent> = {
 	permission: 'calendar',
 	mutation: true,
+	input: existingDutyEventUpdateInputSchema,
 	fn: async (ctx, input) => {
 		if (!input.collisionReviewConfirmed) {
 			const preview = await previewExistingDutyEvent(ctx, input);
@@ -44,6 +46,7 @@ export const PUT = handle<ExistingDutyEventUpdateInput, DutyEvent>({
 export const _deleteConfig: RouteConfig<{ dutyEventId: string }, DutyEventRunDeleteResult> = {
 	permission: 'calendar',
 	mutation: true,
+	input: dutyEventIdInputSchema,
 	fn: (ctx, input) => deleteDutyEventById(ctx, input)
 };
 

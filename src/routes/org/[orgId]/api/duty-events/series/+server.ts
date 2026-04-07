@@ -5,10 +5,12 @@ import {
 	applyDutyEventSeriesFromTemplate,
 	previewDutyEventSeriesFromTemplate
 } from '$lib/server/core/useCases/dutyEventCrud';
+import { dutyEventSeriesInputSchema } from '../schemas';
 
 export const _postConfig: RouteConfig<DutyEventSeriesInput, DutyEventSeriesApplyResult> = {
 	permission: 'calendar',
 	mutation: true,
+	input: dutyEventSeriesInputSchema,
 	fn: async (ctx, input) => {
 		if (!input.collisionReviewConfirmed) {
 			const preview = await previewDutyEventSeriesFromTemplate(ctx, input);

@@ -376,4 +376,12 @@
 	.confidence-warn {
 		color: var(--amber-dark);
 	}
+
+	@media (max-width: 640px) {
+		.pool-entry-row {
+			grid-template-columns: 1fr;
+			gap: var(--sp-1);
+			padding: var(--sp-3);
+		}
+	}
 </style>

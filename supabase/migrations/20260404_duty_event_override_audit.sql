@@ -9,6 +9,11 @@ ALTER TABLE public.duty_events
 ALTER TABLE public.duty_event_slots
   DROP CONSTRAINT IF EXISTS duty_event_slots_warning_state_check;
 
-ALTER TABLE public.duty_event_slots
-  ADD CONSTRAINT duty_event_slots_warning_state_check
-  CHECK (warning_state IN ('none', 'warning', 'conflict'));
+DO $$
+BEGIN
+  ALTER TABLE public.duty_event_slots
+    ADD CONSTRAINT duty_event_slots_warning_state_check
+    CHECK (warning_state IN ('none', 'warning', 'conflict'));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;

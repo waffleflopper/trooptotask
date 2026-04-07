@@ -1,5 +1,7 @@
 import type { QueryPorts } from '$lib/server/core/ports';
-import type { DutyEventRulesSnapshot, DutyTemplateSlotBlockingMode } from '$features/duty-roster/duty-roster.types';
+import type { DutyEventRulesSnapshot } from '$features/duty-roster/duty-roster.types';
+export { resolveSlotBlockingMode } from '$features/duty-roster/blockingMode';
+import { resolveSlotBlockingMode } from '$features/duty-roster/blockingMode';
 import type { Personnel } from '$lib/types';
 
 export interface TransientDutyCoverage {
@@ -29,19 +31,6 @@ function addHours(dateTime: string, hours: number): string {
 function formatPersonLabel(personnelById: Map<string, Personnel>, personId: string): string {
 	const person = personnelById.get(personId);
 	return person ? `${person.rank} ${person.lastName}` : personId;
-}
-
-function resolveSlotBlockingMode(
-	templateIsBlocking: boolean,
-	blockingMode: DutyTemplateSlotBlockingMode | undefined
-): boolean {
-	if (blockingMode === 'blocking') {
-		return true;
-	}
-	if (blockingMode === 'non-blocking') {
-		return false;
-	}
-	return templateIsBlocking;
 }
 
 function getPersistedSlotBlocking(eventRow: Record<string, unknown>, slotRow: Record<string, unknown>): boolean {

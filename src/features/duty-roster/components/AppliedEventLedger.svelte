@@ -231,4 +231,15 @@
 		font-size: var(--text-xs);
 		color: var(--amber-dark);
 	}
+
+	@media (max-width: 640px) {
+		.applied-ledger-row {
+			grid-template-columns: 1fr;
+			gap: var(--sp-2);
+		}
+
+		.applied-ledger-actions {
+			justify-content: flex-start;
+		}
+	}
 </style>

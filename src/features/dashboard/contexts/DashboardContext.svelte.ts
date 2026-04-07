@@ -234,24 +234,24 @@ export class DashboardContext {
 		return (this.data.dashboard.data.todayDutyEvents ?? [])
 			.filter((event) => event.eventDate === this.today)
 			.map((event) => ({
-			id: event.id,
-			templateName: event.templateName,
-			shortName: deriveShortName(event.templateName),
-			...deriveBadgeColor(event.templateId),
-			slots: [...event.slotInstances]
-				.sort((a, b) => a.sortOrder - b.sortOrder)
-				.map((slot) => {
-					let assigneeName = 'Unfilled';
-					if (slot.assigneeId) {
-						const person = personnelStore.items.find((p) => p.id === slot.assigneeId);
-						if (person) {
-							assigneeName = `${person.rank} ${person.lastName}`;
-							if (person.firstName) assigneeName += `, ${person.firstName[0]}`;
+				id: event.id,
+				templateName: event.templateName,
+				shortName: deriveShortName(event.templateName),
+				...deriveBadgeColor(event.templateId),
+				slots: [...event.slotInstances]
+					.sort((a, b) => a.sortOrder - b.sortOrder)
+					.map((slot) => {
+						let assigneeName = 'Unfilled';
+						if (slot.assigneeId) {
+							const person = personnelStore.items.find((p) => p.id === slot.assigneeId);
+							if (person) {
+								assigneeName = `${person.rank} ${person.lastName}`;
+								if (person.firstName) assigneeName += `, ${person.firstName[0]}`;
+							}
 						}
-					}
-					return { key: `${slot.roleLabel}-${slot.slotIndex}`, roleLabel: slot.roleLabel, assigneeName };
-				})
-		}));
+						return { key: `${slot.roleLabel}-${slot.slotIndex}`, roleLabel: slot.roleLabel, assigneeName };
+					})
+			}));
 	}
 
 	// ---------------------------------------------------------------------------

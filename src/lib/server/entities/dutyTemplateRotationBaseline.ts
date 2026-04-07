@@ -9,6 +9,7 @@ type DutyTemplateRotationBaselineEntityRecord = DutyTemplateRotationBaseline & {
 
 export const DutyTemplateRotationBaselineEntity = defineEntity<DutyTemplateRotationBaselineEntityRecord>({
 	table: 'duty_template_rotation_baselines',
+	permission: 'calendar',
 	groupScope: 'none',
 	schema: {
 		id: field(z.string(), { readOnly: true }),

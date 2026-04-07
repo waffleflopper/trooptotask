@@ -6,6 +6,7 @@ const blockingModeSchema = z.enum(['inherit', 'blocking', 'non-blocking']);
 
 export const DutyTemplateSlotEntity = defineEntity<DutyTemplateSlot>({
 	table: 'duty_template_slots',
+	permission: 'calendar',
 	groupScope: 'none',
 	schema: {
 		id: field(z.string(), { readOnly: true }),

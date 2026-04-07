@@ -110,13 +110,21 @@ export function buildAppliedEventGroups(appliedAdvancedEvents: DutyEvent[]): App
 }
 
 export function getTodayDate(): string {
-	return new Date().toISOString().slice(0, 10);
+	return formatLocalDate(new Date());
 }
 
 export function addCalendarDays(date: string, days: number): string {
-	const value = new Date(`${date}T00:00:00`);
+	const [year, month, day] = date.split('-').map(Number);
+	const value = new Date(year, month - 1, day);
 	value.setDate(value.getDate() + days);
-	return value.toISOString().slice(0, 10);
+	return formatLocalDate(value);
+}
+
+function formatLocalDate(value: Date): string {
+	const year = value.getFullYear();
+	const month = String(value.getMonth() + 1).padStart(2, '0');
+	const day = String(value.getDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
 }
 
 export function formatDisplayDate(date: string): string {

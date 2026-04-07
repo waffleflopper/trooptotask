@@ -78,7 +78,10 @@ export async function findDutyCoverageConflicts(
 		return conflictsByAssignee;
 	}
 
-	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId);
+	const queryWindowEnd = addHours(coverageEnd, cooldownHours);
+	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
+		rangeFilters: [{ column: 'coverage_start', op: 'lt', value: queryWindowEnd }]
+	});
 	const excludedEventIds = new Set(excludeDutyEventIds);
 	const filteredEventRows = eventRows.filter((row) => !excludedEventIds.has(String(row.id)));
 	if (filteredEventRows.length > 0) {

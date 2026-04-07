@@ -71,6 +71,13 @@ interface TransientPreviewEvent {
 	}>;
 }
 
+interface ResolvedPreviewData {
+	allPersonnel?: Personnel[];
+	holidayClosureDates?: Set<string>;
+	templateHistoryRows?: Record<string, unknown>[];
+	templateHistorySlotRows?: Record<string, unknown>[];
+}
+
 type RankedSlotPreviewInstance = DutyEventPreviewSlotInstance & {
 	blockingMessages: string[];
 	isBlocking: boolean;
@@ -441,7 +448,8 @@ async function buildPoolHistoryIndex(
 	cutoffDate: string,
 	holidayClosureDates: Set<string>,
 	transientEvents: TransientPreviewEvent[] = [],
-	excludeDutyEventIds: string[] = []
+	excludeDutyEventIds: string[] = [],
+	resolvedData: ResolvedPreviewData = {}
 ): Promise<Map<string, PoolHistorySummary>> {
 	const historyByPoolPerson = new Map<string, PoolHistorySummary>();
 
@@ -457,18 +465,22 @@ async function buildPoolHistoryIndex(
 		);
 	}
 
-	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
-		template_id: template.id
-	});
+	const eventRows =
+		resolvedData.templateHistoryRows ??
+		(await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+			template_id: template.id
+		}));
 	const excludedEventIds = new Set(excludeDutyEventIds);
 	const filteredEventRows = eventRows.filter(
 		(row) => !excludedEventIds.has(String(row.id)) && String(row.event_date) <= cutoffDate
 	);
 	if (filteredEventRows.length > 0) {
-		const eventIds = filteredEventRows.map((row) => String(row.id));
-		const slotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
-			inFilters: { duty_event_id: eventIds }
-		});
+		const eventIds = new Set(filteredEventRows.map((row) => String(row.id)));
+		const slotRows = resolvedData.templateHistorySlotRows
+			? resolvedData.templateHistorySlotRows.filter((row) => eventIds.has(String(row.duty_event_id)))
+			: await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
+					inFilters: { duty_event_id: [...eventIds] }
+				});
 		const eventById = new Map(filteredEventRows.map((row) => [String(row.id), row]));
 		for (const slotRow of slotRows) {
 			const assigneeId = slotRow.assignee_id;
@@ -838,7 +850,8 @@ async function buildDutyEventPreview(
 	ctx: QueryPorts,
 	input: DutyEventApplyInput,
 	transientEvents: TransientPreviewEvent[] = [],
-	excludeDutyEventIds: string[] = []
+	excludeDutyEventIds: string[] = [],
+	resolvedData: ResolvedPreviewData = {}
 ): Promise<InternalDutyEventPreview> {
 	const template = await getTemplate(ctx, input.templateId);
 	if (template.status !== 'active') {
@@ -851,7 +864,8 @@ async function buildDutyEventPreview(
 		input.candidatePersonnelIds,
 		input.slotOverrides,
 		transientEvents,
-		excludeDutyEventIds
+		excludeDutyEventIds,
+		resolvedData
 	);
 }
 
@@ -862,14 +876,15 @@ async function buildDutyEventPreviewFromResolvedTemplate(
 	candidatePersonnelIds: string[] | undefined,
 	slotOverrides: DutyEventSlotOverrideInput[] | undefined,
 	transientEvents: TransientPreviewEvent[] = [],
-	excludeDutyEventIds: string[] = []
+	excludeDutyEventIds: string[] = [],
+	resolvedData: ResolvedPreviewData = {}
 ): Promise<InternalDutyEventPreview> {
-	const allPersonnel = await listPersonnel(ctx);
+	const allPersonnel = resolvedData.allPersonnel ?? (await listPersonnel(ctx));
 	const personnelById = new Map(allPersonnel.map((person) => [person.id, person]));
 	const personnel = candidatePersonnelIds?.length
 		? allPersonnel.filter((person) => candidatePersonnelIds.includes(person.id))
 		: allPersonnel;
-	const holidayClosureDates = await listHolidayClosureDateSet(ctx);
+	const holidayClosureDates = resolvedData.holidayClosureDates ?? (await listHolidayClosureDateSet(ctx));
 	const coverage = buildCoverageWindow(template, eventDate);
 	const historyByPoolPerson = await buildPoolHistoryIndex(
 		ctx,
@@ -877,7 +892,8 @@ async function buildDutyEventPreviewFromResolvedTemplate(
 		eventDate,
 		holidayClosureDates,
 		transientEvents,
-		excludeDutyEventIds
+		excludeDutyEventIds,
+		resolvedData
 	);
 	const statusExemptPersonnelDates = await listStatusExemptPersonnelDatesForCoverage(
 		ctx,
@@ -1395,6 +1411,25 @@ function buildReplacementCollisionMessage(templateName: string, eventDate: strin
 	return `An applied advanced duty event already exists for ${templateName} on ${eventDate}. Applying again will replace its current team assignments. Review this replacement before apply.`;
 }
 
+function buildDutyEventRestorePayload(eventRow: Record<string, unknown>): Record<string, unknown> {
+	return {
+		run_id: eventRow.run_id ?? null,
+		template_id: eventRow.template_id,
+		template_name: eventRow.template_name,
+		event_date: eventRow.event_date,
+		coverage_mode: eventRow.coverage_mode,
+		coverage_start: eventRow.coverage_start,
+		coverage_end: eventRow.coverage_end,
+		is_blocking: eventRow.is_blocking,
+		cooldown_hours: eventRow.cooldown_hours,
+		rules_snapshot: eventRow.rules_snapshot,
+		fill_summary: eventRow.fill_summary,
+		collision_summary: eventRow.collision_summary,
+		original_proposal: eventRow.original_proposal ?? null,
+		updated_at: eventRow.updated_at
+	};
+}
+
 function withCollisionMessage(preview: InternalDutyEventPreview, message: string): InternalDutyEventPreview {
 	if (preview.collisionSummary.conflicts.includes(message)) {
 		return preview;
@@ -1576,6 +1611,18 @@ export async function applyDutyEventFromTemplate(
 	let eventRow: Record<string, unknown>;
 	const previousRunId = existingEventRow?.run_id ? String(existingEventRow.run_id) : null;
 	let runId = input.runId ?? previousRunId;
+	const previousEventSnapshot = existingEventRow
+		? (JSON.parse(JSON.stringify(existingEventRow)) as Record<string, unknown>)
+		: null;
+	const previousSlotSnapshots = existingEventRow
+		? ((JSON.parse(
+				JSON.stringify(
+					await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, {
+						duty_event_id: String(existingEventRow.id)
+					})
+				)
+			) as Record<string, unknown>[]) ?? [])
+		: [];
 
 	if (existingEventRow) {
 		const existingId = existingEventRow.id as string;
@@ -1631,7 +1678,7 @@ export async function applyDutyEventFromTemplate(
 			createdAt: now
 		});
 
-		if (!input.runId) {
+		if (!input.runId && !previousRunId) {
 			const createdRun = await createDutyEventRun(ctx, {
 				template,
 				pattern: 'single',
@@ -1647,6 +1694,23 @@ export async function applyDutyEventFromTemplate(
 		if (!input.runId && !existingEventRow) {
 			await ctx.store.deleteWhere('duty_event_slots', ctx.auth.orgId, { duty_event_id: String(eventRow.id) });
 			await ctx.store.delete('duty_events', ctx.auth.orgId, String(eventRow.id));
+		} else if (previousEventSnapshot) {
+			try {
+				await ctx.store.update<Record<string, unknown>>(
+					'duty_events',
+					ctx.auth.orgId,
+					String(previousEventSnapshot.id),
+					buildDutyEventRestorePayload(previousEventSnapshot)
+				);
+				await ctx.store.deleteWhere('duty_event_slots', ctx.auth.orgId, {
+					duty_event_id: String(previousEventSnapshot.id)
+				});
+				if (previousSlotSnapshots.length > 0) {
+					await ctx.store.insertMany('duty_event_slots', ctx.auth.orgId, previousSlotSnapshots);
+				}
+			} catch (restoreError) {
+				console.error('Failed to restore duty event after slot persistence error', restoreError);
+			}
 		}
 		throw error;
 	}
@@ -1795,6 +1859,18 @@ export async function previewDutyEventSeriesFromTemplate(
 	const existingIdByDate = new Map<string, string>(
 		existingEventRows.map((row) => [row.event_date as string, row.id as string])
 	);
+	const templateHistoryIds = existingEventRows.map((row) => String(row.id));
+	const resolvedPreviewData: ResolvedPreviewData = {
+		allPersonnel: await listPersonnel(ctx),
+		holidayClosureDates: await listHolidayClosureDateSet(ctx),
+		templateHistoryRows: existingEventRows,
+		templateHistorySlotRows:
+			templateHistoryIds.length > 0
+				? await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
+						inFilters: { duty_event_id: templateHistoryIds }
+					})
+				: []
+	};
 
 	for (const eventDate of eventDates) {
 		const existingId = existingIdByDate.get(eventDate);
@@ -1807,7 +1883,8 @@ export async function previewDutyEventSeriesFromTemplate(
 				slotOverrides: getEventSlotOverrides(input, eventDate)
 			},
 			transientEvents,
-			existingId ? [existingId] : []
+			existingId ? [existingId] : [],
+			resolvedPreviewData
 		);
 		events.push(
 			toPublicDutyEventPreview(

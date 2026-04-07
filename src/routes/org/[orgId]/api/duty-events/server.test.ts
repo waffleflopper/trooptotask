@@ -110,6 +110,21 @@ describe('POST /api/duty-events/preview', () => {
 		});
 	});
 
+	it('rejects impossible preview dates before they reach the use case', async () => {
+		const ctx = createTestContext();
+		const template = await seedTemplate(ctx);
+
+		await expect(
+			handleUseCaseRequest(previewConfig, ctx, {
+				templateId: template.id,
+				eventDate: '2026-13-45'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Event date must be a real calendar date.'
+		});
+	});
+
 	it('rejects scoped full editors from previewing advanced duty events', async () => {
 		const ctx = createTestContext({
 			auth: {

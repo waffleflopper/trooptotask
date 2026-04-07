@@ -25,6 +25,8 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { formatDate } from '$lib/utils/dates';
+import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
+import { listDutyEventsInRange } from './dutyEventCrud';
 
 export interface DashboardData {
 	availabilityEntries: AvailabilityEntry[];
@@ -33,6 +35,7 @@ export interface DashboardData {
 	pinnedGroups: string[];
 	ratingSchemeEntries: RatingSchemeEntry[];
 	activeOnboardings: PersonnelOnboarding[];
+	todayDutyEvents: DutyEvent[];
 }
 
 /**
@@ -84,10 +87,11 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 	const userId = ctx.auth.userId;
 
 	const serverNow = new Date();
+	const today = formatDate(serverNow);
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
 
-	const [availabilityRows, assignmentTypeRows, dailyAssignmentRows, pinnedGroupRows, ratingSchemeRows, onboardingRows] =
+	const [availabilityRows, assignmentTypeRows, dailyAssignmentRows, pinnedGroupRows, ratingSchemeRows, onboardingRows, todayDutyEvents] =
 		await Promise.all([
 			ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
 				select: AvailabilityEntryEntity.select,
@@ -121,7 +125,8 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 			}),
 			ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, undefined, {
 				select: PersonnelOnboardingEntity.select
-			})
+			}),
+			listDutyEventsInRange(ctx, { rangeStart: today, rangeEnd: today }).catch(() => [] as DutyEvent[])
 		]);
 
 	const allOnboardings = PersonnelOnboardingEntity.fromDbArray(onboardingRows);
@@ -133,6 +138,7 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 		todayAssignments: DailyAssignmentEntity.fromDbArray(dailyAssignmentRows),
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
 		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
-		activeOnboardings
+		activeOnboardings,
+		todayDutyEvents
 	};
 }

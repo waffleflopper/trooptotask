@@ -220,6 +220,33 @@ export class DashboardContext {
 	}
 
 	// ---------------------------------------------------------------------------
+	// Derived: todayAdvancedDuty
+	// ---------------------------------------------------------------------------
+	get todayAdvancedDuty(): Array<{
+		id: string;
+		templateName: string;
+		slots: Array<{ key: string; roleLabel: string; assigneeName: string }>;
+	}> {
+		return (this.data.dashboard.data.todayDutyEvents ?? []).map((event) => ({
+			id: event.id,
+			templateName: event.templateName,
+			slots: [...event.slotInstances]
+				.sort((a, b) => a.sortOrder - b.sortOrder)
+				.map((slot) => {
+					let assigneeName = 'Unfilled';
+					if (slot.assigneeId) {
+						const person = personnelStore.items.find((p) => p.id === slot.assigneeId);
+						if (person) {
+							assigneeName = `${person.rank} ${person.lastName}`;
+							if (person.firstName) assigneeName += `, ${person.firstName[0]}`;
+						}
+					}
+					return { key: `${slot.roleLabel}-${slot.slotIndex}`, roleLabel: slot.roleLabel, assigneeName };
+				})
+		}));
+	}
+
+	// ---------------------------------------------------------------------------
 	// Derived: trainingStats / topTrainingIssues (server-provided)
 	// ---------------------------------------------------------------------------
 	get trainingStats(): TrainingStats | null {

@@ -276,6 +276,7 @@ describe('loadOrgWorkspace — dashboard workspace boundary', () => {
 		pinnedGroups: [],
 		ratingSchemeEntries: [],
 		activeOnboardings: [],
+		todayDutyEvents: [],
 		personnel,
 		groups,
 		statusTypes,

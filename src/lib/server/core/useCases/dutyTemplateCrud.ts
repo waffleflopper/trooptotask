@@ -4,7 +4,7 @@ import type { QueryPorts, WritePorts } from '$lib/server/core/ports';
 import { DutyTemplateEntity } from '$lib/server/entities/dutyTemplate';
 import { DutyTemplateRotationBaselineEntity } from '$lib/server/entities/dutyTemplateRotationBaseline';
 import { DutyTemplateSlotEntity } from '$lib/server/entities/dutyTemplateSlot';
-import { requireAdvancedDutyAccess } from './advancedDutyAccess';
+import { requireAdvancedDutyAccess, requireAdvancedDutyTemplateManagement } from './advancedDutyAccess';
 import type {
 	DutyTemplate,
 	DutyTemplateRecord,
@@ -54,6 +54,7 @@ const createTemplateSchema = z.object({
 	coverageMode: z.enum(['all-day', 'timed']).optional().default('all-day'),
 	startTime: z.string().nullable().optional().default(null),
 	endTime: z.string().nullable().optional().default(null),
+	spansMidnight: z.boolean().optional().default(false),
 	isBlocking: z.boolean().optional().default(false),
 	cooldownHours: z.number().int().min(0).max(168).optional().default(0),
 	softPreferences: z.array(softPreferenceConfigSchema).optional().default(cloneDefaultSoftPreferences()),
@@ -91,11 +92,8 @@ function isHttpLikeError(error: unknown): error is { status: number } {
 	return Boolean(error && typeof error === 'object' && 'status' in error);
 }
 
-function getErrorMessage(error: unknown): string {
-	if (error instanceof Error) {
-		return error.message;
-	}
-	return 'Unknown error';
+function logDutyTemplateError(message: string, error: unknown): void {
+	console.error(message, error);
 }
 
 function normalizeList(values: string[]): string[] {
@@ -187,6 +185,7 @@ function normalizeTemplateInput(
 		coverageMode,
 		startTime: coverageMode === 'timed' ? input.startTime : null,
 		endTime: coverageMode === 'timed' ? input.endTime : null,
+		spansMidnight: coverageMode === 'timed' ? input.spansMidnight : false,
 		isBlocking: input.isBlocking,
 		cooldownHours: input.cooldownHours,
 		softPreferences,
@@ -330,7 +329,7 @@ async function createRotationBaselineRows(
 }
 
 export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWriteInput): Promise<DutyTemplate> {
-	requireAdvancedDutyAccess(ctx.auth);
+	requireAdvancedDutyTemplateManagement(ctx.auth);
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) {
@@ -355,12 +354,14 @@ export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 				delete fallbackData.exempt_personnel_ids;
 				row = await ctx.store.insert<Record<string, unknown>>('duty_templates', ctx.auth.orgId, fallbackData);
 			} else if (isMissingStatusOrSoftPreferenceColumnError(error)) {
+				logDutyTemplateError('Failed to save duty template policy settings', error);
 				fail(
 					500,
-					`Duty template policy settings could not be saved. Verify duty template migrations are current and retry. (${getErrorMessage(error)})`
+					'Duty template policy settings could not be saved. Verify duty template migrations are current and retry.'
 				);
 			} else {
-				fail(500, `Failed to save duty template: ${getErrorMessage(error)}`);
+				logDutyTemplateError('Failed to save duty template', error);
+				fail(500, 'Failed to save duty template.');
 			}
 		}
 		const slots = await createSlotRows(ctx, row.id as string, normalized.slots);
@@ -377,12 +378,13 @@ export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 		if (isHttpLikeError(error)) {
 			throw error;
 		}
-		fail(500, `Failed to save duty template: ${getErrorMessage(error)}`);
+		logDutyTemplateError('Failed to save duty template', error);
+		fail(500, 'Failed to save duty template.');
 	}
 }
 
 export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWriteInput): Promise<DutyTemplate> {
-	requireAdvancedDutyAccess(ctx.auth);
+	requireAdvancedDutyTemplateManagement(ctx.auth);
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) {
@@ -423,12 +425,14 @@ export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 					fallbackUpdate
 				);
 			} else if (isMissingStatusOrSoftPreferenceColumnError(error)) {
+				logDutyTemplateError('Failed to update duty template policy settings', error);
 				fail(
 					500,
-					`Duty template policy settings could not be saved. Verify duty template migrations are current and retry. (${getErrorMessage(error)})`
+					'Duty template policy settings could not be saved. Verify duty template migrations are current and retry.'
 				);
 			} else {
-				fail(500, `Failed to update duty template: ${getErrorMessage(error)}`);
+				logDutyTemplateError('Failed to update duty template', error);
+				fail(500, 'Failed to update duty template.');
 			}
 		}
 
@@ -448,7 +452,8 @@ export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 		if (isHttpLikeError(error)) {
 			throw error;
 		}
-		fail(500, `Failed to update duty template: ${getErrorMessage(error)}`);
+		logDutyTemplateError('Failed to update duty template', error);
+		fail(500, 'Failed to update duty template.');
 	}
 }
 
@@ -510,7 +515,7 @@ export async function listDutyTemplates(ctx: QueryPorts): Promise<DutyTemplate[]
 }
 
 export async function archiveDutyTemplate(ctx: WritePorts, input: { templateId: string }): Promise<DutyTemplate> {
-	requireAdvancedDutyAccess(ctx.auth);
+	requireAdvancedDutyTemplateManagement(ctx.auth);
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
 	if (isReadOnly) {

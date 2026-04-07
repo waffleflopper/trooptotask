@@ -9,7 +9,7 @@ import { DutyTemplateSlotEntity } from '$lib/server/entities/dutyTemplateSlot';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { Personnel } from '$lib/types';
 import { requireAdvancedDutyAccess } from './advancedDutyAccess';
-import { findDutyCoverageConflicts } from './dutyAvailability';
+import { findDutyCoverageConflicts, resolveSlotBlockingMode } from './dutyAvailability';
 import type {
 	DutyEvent,
 	DutyEventApplyInput,
@@ -27,6 +27,7 @@ import type {
 	DutyEventRulesSnapshot,
 	DutyEventSlotOverrideInput,
 	DutyEventSlotInstance,
+	DutyEventPersistedFairnessConfidence,
 	ExistingDutyEventInput,
 	ExistingDutyEventUpdateInput,
 	SoftPreferenceConfig,
@@ -84,19 +85,6 @@ function buildCoverageDateTime(date: string, time: string): string {
 	return `${date}T${time}:00`;
 }
 
-function resolveSlotBlockingMode(
-	templateIsBlocking: boolean,
-	blockingMode: DutyTemplate['slots'][number]['blockingMode'] | undefined
-): boolean {
-	if (blockingMode === 'blocking') {
-		return true;
-	}
-	if (blockingMode === 'non-blocking') {
-		return false;
-	}
-	return templateIsBlocking;
-}
-
 function addDays(date: string, days: number): string {
 	const value = new Date(`${date}T00:00:00Z`);
 	value.setUTCDate(value.getUTCDate() + days);
@@ -109,7 +97,7 @@ function buildSlotKey(templateSlotId: string | null, slotIndex: number): string 
 
 function normalizePersistedFairnessConfidence(
 	confidence: DutyEventFairnessConfidence
-): DutyEventSlotInstance['fairnessConfidence'] {
+): DutyEventPersistedFairnessConfidence {
 	return confidence === 'medium' ? 'low' : confidence;
 }
 
@@ -271,6 +259,7 @@ function buildTemplateFromRulesSnapshot(snapshot: DutyEventRulesSnapshot): DutyT
 		coverageMode: snapshot.coverageMode,
 		startTime: snapshot.startTime,
 		endTime: snapshot.endTime,
+		spansMidnight: snapshot.spansMidnight ?? false,
 		isBlocking: snapshot.isBlocking,
 		cooldownHours: snapshot.cooldownHours,
 		softPreferences: normalizeSoftPreferencesForRanking(snapshot.softPreferences),
@@ -1402,6 +1391,24 @@ function buildPreviewFromDutyEvent(event: DutyEvent): DutyEventPreview {
 	};
 }
 
+function buildReplacementCollisionMessage(templateName: string, eventDate: string): string {
+	return `An applied advanced duty event already exists for ${templateName} on ${eventDate}. Applying again will replace its current team assignments. Review this replacement before apply.`;
+}
+
+function withCollisionMessage(preview: InternalDutyEventPreview, message: string): InternalDutyEventPreview {
+	if (preview.collisionSummary.conflicts.includes(message)) {
+		return preview;
+	}
+
+	return {
+		...preview,
+		collisionSummary: {
+			hasConflicts: true,
+			conflicts: [message, ...preview.collisionSummary.conflicts]
+		}
+	};
+}
+
 function buildSlotOverridesFromDutyEvent(event: DutyEvent): DutyEventSlotOverrideInput[] {
 	return event.slotInstances.map((slot) => ({
 		templateSlotId: slot.templateSlotId,
@@ -1429,6 +1436,17 @@ async function getDutyEventById(ctx: QueryPorts, dutyEventId: string): Promise<D
 	const runById = runId ? await loadDutyEventRunsByIds(ctx, [runId]) : new Map<string, DutyEventRunRecord>();
 
 	return hydrateDutyEvent(eventRow, slotRows, runById);
+}
+
+async function findExistingTemplateDutyEvent(
+	ctx: QueryPorts,
+	templateId: string,
+	eventDate: string
+): Promise<Record<string, unknown> | null> {
+	return ctx.store.findOne<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
+		template_id: templateId,
+		event_date: eventDate
+	});
 }
 
 async function getTemplate(ctx: QueryPorts, templateId: string): Promise<DutyTemplate> {
@@ -1518,24 +1536,15 @@ export async function applyDutyEventFromTemplate(
 	}
 
 	const template = await getTemplate(ctx, input.templateId);
-	const runId =
-		input.runId ??
-		(
-			await createDutyEventRun(ctx, {
-				template,
-				pattern: 'single',
-				eventDates: [input.eventDate]
-			})
-		).id;
 
 	// Look up any existing event for this template + date BEFORE building the preview so we can
 	// exclude it from the collision check — otherwise its own stored assignments would show as
 	// blocking conflicts against themselves.
-	const existingEventRow = await ctx.store.findOne<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
-		template_id: input.templateId,
-		event_date: input.eventDate
-	});
+	const existingEventRow = await findExistingTemplateDutyEvent(ctx, input.templateId, input.eventDate);
 	const excludeIds = existingEventRow ? [existingEventRow.id as string] : [];
+	const replacementCollisionMessage = existingEventRow
+		? buildReplacementCollisionMessage(template.name, input.eventDate)
+		: null;
 
 	const generatedPreview = await buildDutyEventPreview(
 		ctx,
@@ -1555,14 +1564,18 @@ export async function applyDutyEventFromTemplate(
 	const preview = input.slotOverrides?.length
 		? await buildDutyEventPreview(ctx, input, [], excludeIds)
 		: generatedPreview;
+	const collisionReviewPreview = replacementCollisionMessage
+		? withCollisionMessage(preview, replacementCollisionMessage)
+		: preview;
 	failForHardRuleConflicts('Resolve hard-rule assignment conflicts before applying this duty event.', preview);
-	if (preview.collisionSummary.hasConflicts && !input.collisionReviewConfirmed) {
+	if (collisionReviewPreview.collisionSummary.hasConflicts && !input.collisionReviewConfirmed) {
 		fail(400, 'Collision review is required before applying this duty event.');
 	}
 	const now = new Date().toISOString();
 
 	let eventRow: Record<string, unknown>;
 	const previousRunId = existingEventRow?.run_id ? String(existingEventRow.run_id) : null;
+	let runId = input.runId ?? previousRunId;
 
 	if (existingEventRow) {
 		const existingId = existingEventRow.id as string;
@@ -1589,7 +1602,7 @@ export async function applyDutyEventFromTemplate(
 		eventRow = await ctx.store.insert<Record<string, unknown>>('duty_events', ctx.auth.orgId, {
 			...DutyEventEntity.toDbInsert(
 				{
-					runId,
+					runId: runId ?? null,
 					templateId: preview.templateId,
 					templateName: preview.templateName,
 					eventDate: input.eventDate,
@@ -1610,11 +1623,33 @@ export async function applyDutyEventFromTemplate(
 		});
 	}
 
-	const insertedSlotRows = await insertDutyEventSlots(ctx, {
-		dutyEventId: eventRow.id as string,
-		slotInstances: preview.slotInstances,
-		createdAt: now
-	});
+	let insertedSlotRows: Record<string, unknown>[] = [];
+	try {
+		insertedSlotRows = await insertDutyEventSlots(ctx, {
+			dutyEventId: eventRow.id as string,
+			slotInstances: preview.slotInstances,
+			createdAt: now
+		});
+
+		if (!input.runId) {
+			const createdRun = await createDutyEventRun(ctx, {
+				template,
+				pattern: 'single',
+				eventDates: [input.eventDate]
+			});
+			runId = createdRun.id;
+			eventRow = await ctx.store.update<Record<string, unknown>>('duty_events', ctx.auth.orgId, eventRow.id as string, {
+				run_id: runId,
+				updated_at: new Date().toISOString()
+			});
+		}
+	} catch (error) {
+		if (!input.runId && !existingEventRow) {
+			await ctx.store.deleteWhere('duty_event_slots', ctx.auth.orgId, { duty_event_id: String(eventRow.id) });
+			await ctx.store.delete('duty_events', ctx.auth.orgId, String(eventRow.id));
+		}
+		throw error;
+	}
 
 	if (previousRunId && previousRunId !== runId) {
 		await reconcileDutyEventRunBestEffort(ctx, previousRunId);
@@ -1629,7 +1664,7 @@ export async function applyDutyEventFromTemplate(
 
 	let runById = new Map<string, DutyEventRunRecord>();
 	try {
-		runById = await loadDutyEventRunsByIds(ctx, [runId]);
+		runById = runId ? await loadDutyEventRunsByIds(ctx, [runId]) : new Map();
 	} catch {
 		// If run hydration fails after successful writes, still return the event payload.
 	}
@@ -1641,7 +1676,13 @@ export async function previewDutyEventFromTemplate(
 	input: DutyEventApplyInput
 ): Promise<DutyEventPreview> {
 	requireAdvancedDutyAccess(ctx.auth);
-	return toPublicDutyEventPreview(await buildDutyEventPreview(ctx, input));
+	const existingEventRow = await findExistingTemplateDutyEvent(ctx, input.templateId, input.eventDate);
+	const preview = await buildDutyEventPreview(ctx, input, [], existingEventRow ? [String(existingEventRow.id)] : []);
+	return toPublicDutyEventPreview(
+		existingEventRow
+			? withCollisionMessage(preview, buildReplacementCollisionMessage(preview.templateName, input.eventDate))
+			: preview
+	);
 }
 
 export async function previewExistingDutyEvent(
@@ -1710,7 +1751,8 @@ export async function updateExistingDutyEvent(
 			cooldownHours: preview.cooldownHours,
 			rulesSnapshot: preview.rulesSnapshot,
 			fillSummary: preview.fillSummary,
-			collisionSummary: preview.collisionSummary
+			collisionSummary: preview.collisionSummary,
+			originalProposal: existingEvent.originalProposal
 		}),
 		updated_at: now
 	});
@@ -1767,7 +1809,11 @@ export async function previewDutyEventSeriesFromTemplate(
 			transientEvents,
 			existingId ? [existingId] : []
 		);
-		events.push(toPublicDutyEventPreview(preview));
+		events.push(
+			toPublicDutyEventPreview(
+				existingId ? withCollisionMessage(preview, buildReplacementCollisionMessage(template.name, eventDate)) : preview
+			)
+		);
 		transientEvents.push({
 			eventDate: preview.eventDate,
 			coverageStart: preview.coverageStart,
@@ -1857,16 +1903,7 @@ export async function applyDutyEventSeriesFromTemplate(
 	}
 }
 
-export async function listDutyEvents(ctx: QueryPorts): Promise<DutyEvent[]> {
-	requireAdvancedDutyAccess(ctx.auth);
-
-	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
-		orderBy: [
-			{ column: 'coverage_start', ascending: false },
-			{ column: 'created_at', ascending: false }
-		]
-	});
-
+async function hydrateDutyEventRows(ctx: QueryPorts, eventRows: Record<string, unknown>[]): Promise<DutyEvent[]> {
 	if (eventRows.length === 0) {
 		return [];
 	}
@@ -1891,16 +1928,47 @@ export async function listDutyEvents(ctx: QueryPorts): Promise<DutyEvent[]> {
 	return eventRows.map((row) => hydrateDutyEvent(row, slotsByEvent.get(row.id as string) ?? [], runById));
 }
 
+export async function listDutyEvents(ctx: QueryPorts): Promise<DutyEvent[]> {
+	requireAdvancedDutyAccess(ctx.auth);
+
+	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
+		orderBy: [
+			{ column: 'coverage_start', ascending: false },
+			{ column: 'created_at', ascending: false }
+		]
+	});
+
+	return hydrateDutyEventRows(ctx, eventRows);
+}
+
+export async function listDutyEventsForCalendar(ctx: QueryPorts): Promise<DutyEvent[]> {
+	ctx.auth.requireView('calendar');
+
+	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
+		orderBy: [
+			{ column: 'coverage_start', ascending: false },
+			{ column: 'created_at', ascending: false }
+		]
+	});
+
+	return hydrateDutyEventRows(ctx, eventRows);
+}
+
 export async function listDutyEventsInRange(
 	ctx: QueryPorts,
 	input: { rangeStart: string; rangeEnd: string }
 ): Promise<DutyEvent[]> {
 	ctx.auth.requireView('calendar');
 
+	// Use coverage window overlap rather than event_date equality so that overnight
+	// duty events (coverage spanning into the next calendar day) appear on every day
+	// their window touches. An event overlaps the range when its coverage starts
+	// before the end of the range AND ends after the start of the range.
+	const rangeEndNextDay = addDays(input.rangeEnd, 1);
 	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
 		rangeFilters: [
-			{ column: 'event_date', op: 'gte', value: input.rangeStart },
-			{ column: 'event_date', op: 'lte', value: input.rangeEnd }
+			{ column: 'coverage_start', op: 'lt', value: rangeEndNextDay },
+			{ column: 'coverage_end', op: 'gt', value: input.rangeStart }
 		],
 		orderBy: [
 			{ column: 'event_date', ascending: true },
@@ -1908,28 +1976,7 @@ export async function listDutyEventsInRange(
 		]
 	});
 
-	if (eventRows.length === 0) {
-		return [];
-	}
-
-	const eventIds = eventRows.map((row) => row.id as string);
-	const runById = await loadDutyEventRunsByIds(
-		ctx,
-		eventRows.map((row) => String(row.run_id ?? '')).filter((runId) => runId.length > 0)
-	);
-	const slotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
-		inFilters: { duty_event_id: eventIds },
-		orderBy: [{ column: 'sort_order', ascending: true }]
-	});
-
-	const slotsByEvent = new Map<string, DutyEventSlotInstance[]>();
-	for (const slot of DutyEventSlotEntity.fromDbArray(slotRows)) {
-		const existing = slotsByEvent.get(slot.dutyEventId) ?? [];
-		existing.push(slot);
-		slotsByEvent.set(slot.dutyEventId, existing);
-	}
-
-	return eventRows.map((row) => hydrateDutyEvent(row, slotsByEvent.get(row.id as string) ?? [], runById));
+	return hydrateDutyEventRows(ctx, eventRows);
 }
 
 export async function deleteDutyEventById(

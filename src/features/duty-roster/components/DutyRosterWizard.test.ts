@@ -59,6 +59,7 @@ function makeAdvancedTemplate(overrides: Partial<DutyTemplate> = {}): DutyTempla
 		coverageMode: 'timed',
 		startTime: '08:00',
 		endTime: '08:00',
+		spansMidnight: false,
 		isBlocking: true,
 		cooldownHours: 24,
 		softPreferences: cloneDefaultSoftPreferences(),
@@ -1908,5 +1909,82 @@ describe('DutyRosterWizard', () => {
 
 		expect(screen.getAllByText('Why this Soldier was selected').length).toBeGreaterThan(0);
 		expect(screen.queryByText('Why this pick')).toBeNull();
+	});
+
+	it('renders the active soft-preference order as a numbered list in the policy summary step', async () => {
+		renderWizard({
+			advancedDutyTemplates: [
+				makeAdvancedTemplate({
+					softPreferences: [
+						{ type: 'longest-break', enabled: true },
+						{ type: 'holiday-closure', enabled: false },
+						{ type: 'weekend', enabled: true },
+						{ type: 'preferred-group', enabled: false }
+					]
+				})
+			]
+		});
+
+		await openAdvancedPolicyReview();
+
+		// Only enabled preferences should appear, in order
+		expect(screen.getByText(/Longest break since last duty/)).toBeTruthy();
+		expect(screen.getByText(/Weekend volunteers preferred/)).toBeTruthy();
+		// Disabled preferences should not appear
+		expect(screen.queryByText(/Holiday or closure/)).toBeNull();
+		expect(screen.queryByText(/Preferred group/)).toBeNull();
+	});
+
+	it('shows a fairness baseline notice when the template has no rotation baselines', async () => {
+		renderWizard({
+			advancedDutyTemplates: [makeAdvancedTemplate({ rotationBaselines: [] })]
+		});
+
+		await openAdvancedPolicyReview();
+
+		expect(screen.getByText(/No baseline duty history/i)).toBeTruthy();
+	});
+
+	it('does not show a fairness baseline notice when the template has rotation baselines', async () => {
+		renderWizard({
+			advancedDutyTemplates: [
+				makeAdvancedTemplate({
+					rotationBaselines: [
+						{ id: 'bl-1', templateId: 'tmpl-staff-duty', rotationPoolKey: 'staff-duty-primary', personId: 'person-nco', lastServedDate: '2026-03-01' }
+					]
+				})
+			]
+		});
+
+		await openAdvancedPolicyReview();
+
+		expect(screen.queryByText(/No baseline duty history/i)).toBeNull();
+	});
+
+	it('shows candidate review as a distinct labeled step in the wizard stepper', async () => {
+		renderWizard();
+
+		await openAdvancedCandidateReview();
+
+		// The stepper should have a "Candidate Review" step and it should be active
+		const activeStepLabel = document.querySelector('.step-label[aria-current="step"]');
+		expect(activeStepLabel?.textContent).toContain('Candidate Review');
+	});
+
+	it('hides the applied events ledger when the simple generator lane is active', async () => {
+		renderWizard();
+
+		// Before entering any lane, applied events section is visible
+		expect(screen.getByText('Applied advanced duty events')).toBeTruthy();
+
+		// Enter the simple generator lane
+		await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
+		await waitFor(() => {
+			expect(screen.getByText('Duty planning')).toBeTruthy();
+		});
+
+		// Applied events section should be hidden
+		expect(screen.queryByText('Applied advanced duty events')).toBeNull();
 	});
 });

@@ -66,6 +66,7 @@ export interface DutyTemplateRecord {
 	coverageMode: DutyTemplateCoverageMode;
 	startTime: string | null;
 	endTime: string | null;
+	spansMidnight: boolean;
 	isBlocking: boolean;
 	cooldownHours: number;
 	softPreferences: SoftPreferenceConfig[];
@@ -111,6 +112,7 @@ export interface DutyTemplateWriteInput {
 	coverageMode?: DutyTemplateCoverageMode;
 	startTime?: string | null;
 	endTime?: string | null;
+	spansMidnight?: boolean;
 	isBlocking?: boolean;
 	cooldownHours?: number;
 	softPreferences?: SoftPreferenceConfig[];
@@ -125,6 +127,7 @@ export interface DutyEventRulesSnapshot {
 	coverageMode: DutyTemplateCoverageMode;
 	startTime: string | null;
 	endTime: string | null;
+	spansMidnight?: boolean;
 	scopeType: DutyTemplateScopeType;
 	scopeGroupIds: string[];
 	exemptPersonnelIds?: string[];
@@ -165,6 +168,7 @@ export interface DutyEventCollisionSummary {
 
 export type DutyEventAssignmentSource = 'generated' | 'manual' | 'locked';
 export type DutyEventWarningState = 'none' | 'warning' | 'conflict';
+export type DutyEventPersistedFairnessConfidence = 'high' | 'low';
 export type DutyEventFairnessConfidence = 'high' | 'medium' | 'low';
 
 export interface DutyEventOriginalProposal {
@@ -182,7 +186,7 @@ export interface DutyEventSlotInstance {
 	assigneeId: string | null;
 	assignmentSource: DutyEventAssignmentSource;
 	warningState: DutyEventWarningState;
-	fairnessConfidence: DutyEventFairnessConfidence;
+	fairnessConfidence: DutyEventPersistedFairnessConfidence;
 	selectionReason: string | null;
 	unfilledReason: string | null;
 	sortOrder: number;

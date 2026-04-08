@@ -7,10 +7,8 @@
 	import type { RosterHistoryItem, RosterHistoryEntry, DA6Data } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import WizardStepper from './WizardStepper.svelte';
-	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
-	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import MultiTagSelect from './MultiTagSelect.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 
 	interface Props {
@@ -19,7 +17,6 @@
 		assignments: DailyAssignment[];
 		advancedDutyEvents: DutyEvent[];
 		personnelByGroup: { group: string; personnel: Personnel[] }[];
-		groups: string[];
 		availabilityEntries: AvailabilityEntry[];
 		statusTypes: StatusType[];
 		specialDays: SpecialDay[];
@@ -36,7 +33,6 @@
 		assignments,
 		advancedDutyEvents,
 		personnelByGroup,
-		groups,
 		availabilityEntries,
 		statusTypes,
 		specialDays,
@@ -58,11 +54,10 @@
 		return formatDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 	}
 
-	type DutyRosterView = 'setup' | 'personnel' | 'preview' | 'history';
+	type DutyRosterView = 'setup' | 'preview' | 'history';
 
 	const WIZARD_STEPS = [
 		{ id: 'setup', label: 'Setup' },
-		{ id: 'personnel', label: 'Personnel' },
 		{ id: 'preview', label: 'Preview & Apply' }
 	];
 
@@ -73,9 +68,7 @@
 	let dutyDuration = $state<'daily' | 'weekly' | 'monthly'>('daily');
 	let startDate = $state(getMonthStart());
 	let endDate = $state(getMonthEnd());
-	let selectedEligibleIds = $state<Set<string>>(new Set());
 	let draftExemptIds = $state<Set<string>>(new Set());
-	let eligibleSelectionScope = $state('');
 	let excludeStatuses = $state<string[]>([]);
 	let excludeWeekends = $state(false);
 	let excludeHolidays = $state(false);
@@ -93,6 +86,12 @@
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((group) => group.personnel));
 
+	const exemptPersonnelOptions = $derived(
+		[...allPersonnel]
+			.sort((a, b) => a.lastName.localeCompare(b.lastName, 'en-US') || a.firstName.localeCompare(b.firstName, 'en-US'))
+			.map((p) => ({ value: p.id, label: `${p.rank} ${p.lastName}, ${p.firstName}` }))
+	);
+
 	// Get currently selected assignment type object
 	const selectedAssignmentType = $derived.by(
 		() => assignmentTypes.find((t) => t.id === selectedAssignmentTypeId) ?? null
@@ -101,55 +100,9 @@
 	// Exempt personnel IDs for the currently selected assignment type
 	const currentExemptIds = $derived.by(() => selectedAssignmentType?.exemptPersonnelIds ?? []);
 
-	type PersonnelTableState = ReturnType<typeof useDataTable<Personnel>>;
-
-	const personnelColumns: ColumnDef<Personnel>[] = [
-		{ key: 'select', header: '', value: () => '', searchable: false },
-		{ key: 'rank', header: 'Rank', value: (person) => person.rank },
-		{
-			key: 'name',
-			header: 'Name',
-			value: (person) => `${person.lastName}, ${person.firstName}`,
-			searchValue: (person) => `${person.lastName} ${person.firstName}`
-		},
-		{ key: 'mos', header: 'MOS/Role', value: (person) => person.mos || person.clinicRole || '' }
-	];
-
-	function matchesPersonnelQuery(person: Personnel, query: string) {
-		const q = query.toLowerCase();
-		return (
-			person.lastName.toLowerCase().includes(q) ||
-			person.firstName.toLowerCase().includes(q) ||
-			person.rank.toLowerCase().includes(q) ||
-			(person.groupName ?? '').toLowerCase().includes(q) ||
-			(person.mos ?? '').toLowerCase().includes(q) ||
-			(person.clinicRole ?? '').toLowerCase().includes(q)
-		);
-	}
-
 	const availableRosterPool = $derived.by(() => allPersonnel.filter((person) => !draftExemptIds.has(person.id)));
 
-	const eligibleTable = useDataTable<Personnel>({
-		data: () => availableRosterPool,
-		columns: personnelColumns,
-		groupBy: {
-			key: (person) => person.groupName || 'Unassigned'
-		},
-		filterFn: matchesPersonnelQuery
-	});
-
-	const exemptTable = useDataTable<Personnel>({
-		data: () => allPersonnel,
-		columns: personnelColumns,
-		groupBy: {
-			key: (person) => person.groupName || 'Unassigned'
-		},
-		filterFn: matchesPersonnelQuery
-	});
-
-	const eligiblePersonnel = $derived.by(() =>
-		availableRosterPool.filter((person) => selectedEligibleIds.has(person.id))
-	);
+	const eligiblePersonnel = $derived(availableRosterPool);
 
 	const hasExemptionChanges = $derived.by(() => {
 		if (currentExemptIds.length !== draftExemptIds.size) return true;
@@ -410,7 +363,6 @@
 				config: {
 					dutyDuration,
 					assignmentTypeName: typeName,
-					selectedEligibleIds: [...selectedEligibleIds],
 					exemptPersonnelIds: [...draftExemptIds],
 					excludeStatuses,
 					excludeWeekends,
@@ -630,89 +582,12 @@
 		});
 	}
 
-	function getVisiblePersonnelIds(table: PersonnelTableState): string[] {
-		const groupedIds = table.groups.flatMap((group) => group.rows.map((person) => person.id));
-		return groupedIds.length > 0 ? groupedIds : table.rows.map((person) => person.id);
-	}
-
-	function getGroupSelectionState(
-		table: PersonnelTableState,
-		selectedIds: Set<string>,
-		groupKey: string
-	): 'none' | 'some' | 'all' {
-		const group = table.groups.find((entry) => entry.key === groupKey);
-		if (!group || group.rows.length === 0) return 'none';
-		const count = group.rows.filter((person) => selectedIds.has(person.id)).length;
-		if (count === 0) return 'none';
-		if (count === group.rows.length) return 'all';
-		return 'some';
-	}
-
-	function updateSelection(selectedIds: Set<string>, ids: string[], shouldSelect: boolean) {
-		const next = new Set(selectedIds);
-		for (const id of ids) {
-			if (shouldSelect) next.add(id);
-			else next.delete(id);
-		}
-		return next;
-	}
-
-	function toggleEligiblePerson(personnelId: string) {
-		selectedEligibleIds = updateSelection(selectedEligibleIds, [personnelId], !selectedEligibleIds.has(personnelId));
-	}
-
 	function toggleExcludeStatus(statusId: string) {
 		if (excludeStatuses.includes(statusId)) {
 			excludeStatuses = excludeStatuses.filter((s) => s !== statusId);
 		} else {
 			excludeStatuses = [...excludeStatuses, statusId];
 		}
-	}
-
-	function toggleEligibleGroup(groupKey: string) {
-		const group = eligibleTable.groups.find((entry) => entry.key === groupKey);
-		if (!group) return;
-		const shouldSelect = getGroupSelectionState(eligibleTable, selectedEligibleIds, groupKey) !== 'all';
-		selectedEligibleIds = updateSelection(
-			selectedEligibleIds,
-			group.rows.map((person) => person.id),
-			shouldSelect
-		);
-	}
-
-	function selectVisibleEligible() {
-		selectedEligibleIds = updateSelection(selectedEligibleIds, getVisiblePersonnelIds(eligibleTable), true);
-	}
-
-	function clearEligibleSelection() {
-		selectedEligibleIds = new Set();
-	}
-
-	function resetEligibleSelection() {
-		selectedEligibleIds = new Set(availableRosterPool.map((person) => person.id));
-	}
-
-	function toggleDraftExempt(personnelId: string) {
-		draftExemptIds = updateSelection(draftExemptIds, [personnelId], !draftExemptIds.has(personnelId));
-	}
-
-	function toggleExemptGroup(groupKey: string) {
-		const group = exemptTable.groups.find((entry) => entry.key === groupKey);
-		if (!group) return;
-		const shouldSelect = getGroupSelectionState(exemptTable, draftExemptIds, groupKey) !== 'all';
-		draftExemptIds = updateSelection(
-			draftExemptIds,
-			group.rows.map((person) => person.id),
-			shouldSelect
-		);
-	}
-
-	function selectVisibleExempt() {
-		draftExemptIds = updateSelection(draftExemptIds, getVisiblePersonnelIds(exemptTable), true);
-	}
-
-	function clearDraftExemptions() {
-		draftExemptIds = new Set();
 	}
 
 	async function saveExemptions() {
@@ -728,13 +603,10 @@
 		}
 	}
 
-	// Set default excluded statuses (common "unavailable" statuses)
+	// Default to all statuses excluded — users click off the ones they want to allow
 	$effect(() => {
 		if (excludeStatuses.length === 0 && statusTypes.length > 0) {
-			const unavailableNames = ['leave', 'tdy', 'school', 'sick', 'appointment'];
-			excludeStatuses = statusTypes
-				.filter((s) => unavailableNames.some((n) => s.name.toLowerCase().includes(n)))
-				.map((s) => s.id);
+			excludeStatuses = statusTypes.map((s) => s.id);
 		}
 	});
 
@@ -748,26 +620,6 @@
 
 		draftExemptIds = new Set(currentExemptIds);
 		lastSyncedExemptionScope = currentScope;
-	});
-
-	// Cache the current assignment-type scope in eligibleSelectionScope so selectedEligibleIds only
-	// resets to the full availableRosterPool when selectedAssignmentTypeId changes. Edits to draftExemptIds
-	// still rerun this effect through availableRosterPool, but those changes only prune stale selectedEligibleIds.
-	$effect(() => {
-		const scope = `${selectedAssignmentTypeId}`;
-		const availableIds = availableRosterPool.map((person) => person.id);
-
-		if (eligibleSelectionScope !== scope) {
-			selectedEligibleIds = new Set(availableIds);
-			eligibleSelectionScope = scope;
-			return;
-		}
-
-		const allowed = new Set(availableIds);
-		const next = new Set([...selectedEligibleIds].filter((id) => allowed.has(id)));
-		if (next.size !== selectedEligibleIds.size) {
-			selectedEligibleIds = next;
-		}
 	});
 
 	// Personnel-only assignment types
@@ -787,7 +639,7 @@
 		view === 'history' ? 'Roster History' : view === 'preview' ? 'Generated Roster Preview' : 'Generate Duty Roster'
 	);
 
-	const canProceedToPersonnel = $derived(!!selectedAssignmentTypeId && !!startDate && !!endDate);
+	const canGenerate = $derived(!!selectedAssignmentTypeId && !!startDate && !!endDate && eligiblePersonnel.length > 0);
 </script>
 
 <section class="generator-shell">
@@ -814,10 +666,7 @@
 	{/if}
 
 	{#if view !== 'history'}
-		<WizardStepper
-			steps={WIZARD_STEPS}
-			current={view === 'preview' ? 'preview' : view === 'personnel' ? 'personnel' : 'setup'}
-		/>
+		<WizardStepper steps={WIZARD_STEPS} current={view === 'preview' ? 'preview' : 'setup'} />
 	{/if}
 
 	<div class="generator-body">
@@ -899,7 +748,7 @@
 						<p class="hint">Review coverage, export the roster, then push it to the calendar when it looks right.</p>
 					</div>
 					<div class="panel-actions">
-						<button class="btn btn-secondary" onclick={() => (view = 'personnel')}>← Back</button>
+						<button class="btn btn-secondary" onclick={() => (view = 'setup')}>← Back</button>
 						<button class="btn btn-secondary" onclick={() => exportToExcel()}>
 							<svg
 								viewBox="0 0 24 24"
@@ -1044,6 +893,11 @@
 							<h3>Duty Configuration</h3>
 							<p class="hint">Choose what you are filling and the date range the roster should cover.</p>
 						</div>
+						<div class="panel-actions">
+							<button class="btn btn-primary" onclick={generateRoster} disabled={!canGenerate || isGenerating}>
+								{isGenerating ? 'Generating...' : 'Generate Roster'}
+							</button>
+						</div>
 					</div>
 
 					<div class="form-group">
@@ -1128,197 +982,33 @@
 					</div>
 				</section>
 
-				<div class="step-cta card card-flat">
-					<button class="btn btn-primary" disabled={!canProceedToPersonnel} onclick={() => (view = 'personnel')}>
-						Continue to Personnel →
-					</button>
-				</div>
-			</div>
-		{:else if view === 'personnel'}
-			<div class="wizard-step">
-				<section class="personnel-card card card-flat">
-					<div class="panel-header personnel-card-header">
-						<div>
-							<p class="pane-eyebrow">Step 2</p>
-							<h3>Eligible Personnel</h3>
-							<p class="hint">Search, select by group, or fine-tune the roster pool directly.</p>
-						</div>
-					</div>
-
-					<div class="personnel-table-wrap">
-						<DataTable
-							columns={personnelColumns}
-							table={eligibleTable}
-							compact
-							showSearch
-							searchPlaceholder="Search by name, rank, group, MOS, or role..."
-							emptyMessage="No eligible personnel available"
-							onRowClick={(person) => toggleEligiblePerson(person.id)}
-						>
-							{#snippet toolbar(_state)}
-								<div class="selection-toolbar">
-									<div class="selection-stats">
-										<Badge label={`${selectedEligibleIds.size} selected`} variant="outlined" />
-										<Badge label={`${eligibleTable.totalRows} shown`} variant="outlined" />
-									</div>
-									<div class="selection-actions">
-										<button class="btn btn-secondary btn-sm" onclick={selectVisibleEligible}>Select shown</button>
-										<button class="btn btn-secondary btn-sm" onclick={clearEligibleSelection}>Clear</button>
-										<button class="btn btn-secondary btn-sm" onclick={resetEligibleSelection}>Reset all</button>
-									</div>
-								</div>
-							{/snippet}
-
-							{#snippet groupHeader(ctx)}
-								{@const selectionState = getGroupSelectionState(eligibleTable, selectedEligibleIds, ctx.key)}
-								<div class="group-header-content">
-									<input
-										type="checkbox"
-										aria-label={`Select ${ctx.label} group`}
-										checked={selectionState === 'all'}
-										indeterminate={selectionState === 'some'}
-										onchange={() => toggleEligibleGroup(ctx.key)}
-										onclick={(event) => event.stopPropagation()}
-									/>
-									<button
-										type="button"
-										class="group-toggle"
-										aria-expanded={!ctx.collapsed}
-										aria-label={`Toggle ${ctx.label} group`}
-										onclick={() => ctx.toggle()}
-									>
-										<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
-											<path
-												fill-rule="evenodd"
-												d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-												clip-rule="evenodd"
-											/>
-										</svg>
-										<span class="group-label">{ctx.label}</span>
-										<span class="group-count">({ctx.count})</span>
+				{#if selectedAssignmentTypeId}
+					<section class="config-section panel-card section-card card card-flat">
+						<div class="panel-header">
+							<div>
+								<p class="pane-eyebrow">Exemptions</p>
+								<h3>Exempt Personnel</h3>
+								<p class="hint">
+									These people will never be assigned this duty type. Everyone else is eligible by default.
+								</p>
+							</div>
+							{#if hasExemptionChanges}
+								<div class="panel-actions">
+									<button class="btn btn-primary btn-sm" onclick={saveExemptions} disabled={isSavingExemptions}>
+										{isSavingExemptions ? 'Saving...' : 'Save Exemptions'}
 									</button>
 								</div>
-							{/snippet}
-
-							{#snippet cell(row, col)}
-								{#if col.key === 'select'}
-									<input
-										type="checkbox"
-										checked={selectedEligibleIds.has(row.id)}
-										onchange={() => toggleEligiblePerson(row.id)}
-										onclick={(event) => event.stopPropagation()}
-									/>
-								{:else if col.key === 'rank'}
-									<span class="assignee-rank">{row.rank}</span>
-								{:else}
-									{String(col.value(row) ?? '')}
-								{/if}
-							{/snippet}
-						</DataTable>
-					</div>
-				</section>
-
-				{#if selectedAssignmentTypeId}
-					<section class="personnel-card card card-flat">
-						<div class="panel-header personnel-card-header">
-							<div>
-								<p class="pane-eyebrow">Step 3</p>
-								<h3>Exempt Personnel</h3>
-								<p class="hint">These people will never be assigned this duty type.</p>
-							</div>
-							<div class="panel-actions">
-								<button
-									class="btn btn-primary btn-sm"
-									onclick={saveExemptions}
-									disabled={!hasExemptionChanges || isSavingExemptions}
-								>
-									{isSavingExemptions ? 'Saving...' : 'Save Exemptions'}
-								</button>
-							</div>
+							{/if}
 						</div>
-
-						<div class="personnel-table-wrap">
-							<DataTable
-								columns={personnelColumns}
-								table={exemptTable}
-								compact
-								showSearch
-								searchPlaceholder="Search by name, rank, group, MOS, or role..."
-								emptyMessage="No personnel available"
-								onRowClick={(person) => toggleDraftExempt(person.id)}
-							>
-								{#snippet toolbar(_state)}
-									<div class="selection-toolbar">
-										<div class="selection-stats">
-											<Badge label={`${draftExemptIds.size} selected`} variant="outlined" />
-											<Badge label={`${exemptTable.totalRows} shown`} variant="outlined" />
-										</div>
-										<div class="selection-actions">
-											<button class="btn btn-secondary btn-sm" onclick={selectVisibleExempt}>Select shown</button>
-											<button class="btn btn-secondary btn-sm" onclick={clearDraftExemptions}>Clear</button>
-										</div>
-									</div>
-								{/snippet}
-
-								{#snippet groupHeader(ctx)}
-									{@const selectionState = getGroupSelectionState(exemptTable, draftExemptIds, ctx.key)}
-									<div class="group-header-content">
-										<input
-											type="checkbox"
-											aria-label={`Select ${ctx.label} group`}
-											checked={selectionState === 'all'}
-											indeterminate={selectionState === 'some'}
-											onchange={() => toggleExemptGroup(ctx.key)}
-											onclick={(event) => event.stopPropagation()}
-										/>
-										<button
-											type="button"
-											class="group-toggle"
-											aria-expanded={!ctx.collapsed}
-											aria-label={`Toggle ${ctx.label} group`}
-											onclick={() => ctx.toggle()}
-										>
-											<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
-												<path
-													fill-rule="evenodd"
-													d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-													clip-rule="evenodd"
-												/>
-											</svg>
-											<span class="group-label">{ctx.label}</span>
-											<span class="group-count">({ctx.count})</span>
-										</button>
-									</div>
-								{/snippet}
-
-								{#snippet cell(row, col)}
-									{#if col.key === 'select'}
-										<input
-											type="checkbox"
-											checked={draftExemptIds.has(row.id)}
-											onchange={() => toggleDraftExempt(row.id)}
-											onclick={(event) => event.stopPropagation()}
-										/>
-									{:else if col.key === 'rank'}
-										<span class="assignee-rank">{row.rank}</span>
-									{:else}
-										{String(col.value(row) ?? '')}
-									{/if}
-								{/snippet}
-							</DataTable>
-						</div>
+						<MultiTagSelect
+							options={exemptPersonnelOptions}
+							value={[...draftExemptIds]}
+							placeholder="Search to add exempt personnel..."
+							ariaLabel="Exempt personnel"
+							onChange={(ids) => (draftExemptIds = new Set(ids))}
+						/>
 					</section>
 				{/if}
-				<div class="step-cta card card-flat">
-					<button class="btn btn-secondary" type="button" onclick={() => (view = 'setup')}> ← Back </button>
-					<button
-						class="btn btn-primary"
-						onclick={generateRoster}
-						disabled={eligiblePersonnel.length === 0 || isGenerating}
-					>
-						{isGenerating ? 'Generating...' : 'Generate Roster'}
-					</button>
-				</div>
 			</div>
 		{/if}
 	</div>
@@ -1418,14 +1108,6 @@
 		gap: var(--sp-6);
 	}
 
-	.step-cta {
-		display: flex;
-		align-items: center;
-		justify-content: flex-end;
-		gap: var(--sp-3);
-		padding: var(--sp-4) var(--sp-5);
-	}
-
 	.generator-body {
 		display: flex;
 		flex-direction: column;
@@ -1506,94 +1188,6 @@
 		background: var(--chip-color);
 		border-color: var(--chip-color);
 		color: var(--chip-text);
-	}
-
-	.personnel-card {
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.personnel-card-header {
-		padding: var(--sp-6);
-		margin-bottom: 0;
-		border-bottom: 1px solid var(--border-default);
-		background: var(--surface-subtle);
-	}
-
-	.personnel-table-wrap {
-		padding: 0;
-	}
-
-	.personnel-table-wrap :global(.data-table) {
-		border: none;
-		border-radius: 0;
-		overflow: visible;
-	}
-
-	.selection-toolbar,
-	.selection-stats {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.selection-toolbar {
-		justify-content: space-between;
-		padding: var(--sp-2) var(--sp-4);
-		border-bottom: 1px solid var(--divider-color);
-		background: var(--surface-panel);
-	}
-
-	.selection-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-1);
-	}
-
-	.group-header-content {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.group-header-content input[type='checkbox'] {
-		cursor: pointer;
-		accent-color: var(--amber);
-	}
-
-	.group-toggle {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: 0;
-		border: none;
-		background: none;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-		text-align: left;
-	}
-
-	.chevron-icon {
-		width: 16px;
-		height: 16px;
-		transition: transform 0.15s ease;
-		flex-shrink: 0;
-	}
-
-	.chevron-icon.collapsed {
-		transform: rotate(-90deg);
-	}
-
-	.group-label {
-		font-weight: 600;
-	}
-
-	.group-count {
-		color: var(--text-tertiary);
-		font-weight: 400;
 	}
 
 	.history-panel,
@@ -1850,20 +1444,13 @@
 
 	@media (max-width: 900px) {
 		.generator-hero,
-		.panel-header,
-		.step-cta {
+		.panel-header {
 			flex-direction: column;
 			align-items: flex-start;
 		}
 
-		.panel-actions,
-		.step-cta {
+		.panel-actions {
 			justify-content: flex-start;
-		}
-
-		.personnel-card-header,
-		.selection-toolbar {
-			align-items: flex-start;
 		}
 	}
 </style>

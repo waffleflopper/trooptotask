@@ -18,6 +18,7 @@
 	let inputEl = $state<HTMLInputElement | null>(null);
 	let containerEl = $state<HTMLDivElement | null>(null);
 	let isOpen = $state(false);
+	let dropdownStyle = $state('');
 	let query = $state('');
 	let activeIndex = $state(-1);
 
@@ -36,6 +37,15 @@
 
 	function open() {
 		if (disabled) return;
+		if (containerEl) {
+			const rect = containerEl.getBoundingClientRect();
+			const spaceBelow = window.innerHeight - rect.bottom;
+			if (spaceBelow < 260) {
+				dropdownStyle = `position:fixed;top:auto;bottom:${window.innerHeight - rect.top + 4}px;left:${rect.left}px;right:auto;width:${rect.width}px;`;
+			} else {
+				dropdownStyle = `position:fixed;top:${rect.bottom + 4}px;bottom:auto;left:${rect.left}px;right:auto;width:${rect.width}px;`;
+			}
+		}
 		isOpen = true;
 		activeIndex = -1;
 	}
@@ -96,8 +106,15 @@
 				close();
 			}
 		}
+		function onScroll() {
+			if (isOpen) close();
+		}
 		document.addEventListener('mousedown', onMousedown);
-		return () => document.removeEventListener('mousedown', onMousedown);
+		window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+		return () => {
+			document.removeEventListener('mousedown', onMousedown);
+			window.removeEventListener('scroll', onScroll, { capture: true });
+		};
 	});
 </script>
 
@@ -158,7 +175,14 @@
 	</div>
 
 	{#if isOpen}
-		<ul id={listId} class="mts-dropdown" role="listbox" aria-multiselectable="true" aria-label={ariaLabel ?? 'Options'}>
+		<ul
+			id={listId}
+			class="mts-dropdown"
+			style={dropdownStyle}
+			role="listbox"
+			aria-multiselectable="true"
+			aria-label={ariaLabel ?? 'Options'}
+		>
 			{#if filteredOptions.length === 0}
 				<li class="mts-no-options" role="option" aria-selected="false">
 					No options match "{query}"
@@ -288,7 +312,7 @@
 		top: calc(100% + 4px);
 		left: 0;
 		right: 0;
-		z-index: 50;
+		z-index: 500;
 		margin: 0;
 		padding: var(--sp-1) 0;
 		list-style: none;

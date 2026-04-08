@@ -48,15 +48,7 @@
 	);
 
 	function cardHasSignal(cardId: CardId): boolean {
-		if (cardId === 'ratings') {
-			return ratingAttentionCount > 0;
-		}
-
-		if (cardId === 'onboardings') {
-			return true;
-		}
-
-		return true;
+		return cardId !== 'ratings' || ratingAttentionCount > 0;
 	}
 
 	function moduleClasses(cardId: CardId, options: { full?: boolean } = {}): string {
@@ -114,11 +106,11 @@
 		{#if dashboardCards.length > 0}
 			<div class="dashboard-layout">
 				<div class="dashboard-top-band" class:dashboard-top-band--single={topBandCards.length === 0}>
-					<section class="dashboard-briefing">
+					<section class="dashboard-briefing" aria-labelledby="briefing-org-name">
 						<div class="briefing-header">
 							<div class="briefing-copy">
 								<p class="section-kicker">Daily Brief</p>
-								<h2>{ctx.data.orgName}</h2>
+								<h2 id="briefing-org-name">{ctx.data.orgName}</h2>
 								<p>Good {greeting}. Review readiness, tasking, and follow-up items before the next formation.</p>
 							</div>
 
@@ -265,7 +257,14 @@
 				</div>
 
 				<div class="meter-row">
-					<div class="meter-track" aria-hidden="true">
+					<div
+						class="meter-track"
+						role="meter"
+						aria-valuenow={ctx.dutyStrengthPct}
+						aria-valuemin={0}
+						aria-valuemax={100}
+						aria-label="{ctx.dutyStrengthPct}% of personnel present"
+					>
 						<div
 							class="meter-fill"
 							class:meter-fill--good={ctx.dutyStrengthPct >= 80}
@@ -318,7 +317,7 @@
 						{#each ctx.dutyAssignments as assignment (assignment.id)}
 							<div class="stack-row">
 								<div class="stack-row-main">
-									<span class="inline-badge" style="background: {assignment.color}; color: white">
+									<span class="inline-badge" style="background: {assignment.color}; color: {assignment.textColor}">
 										{assignment.shortName || assignment.typeName}
 									</span>
 									<span class="stack-title">{assignment.typeName}</span>
@@ -461,7 +460,7 @@
 				{:else}
 					<div class="upcoming-list">
 						{#each [...ctx.upcomingByDate.entries()] as [date, changes] (date)}
-							<section class="upcoming-group">
+							<section class="upcoming-group" aria-label="Changes on {ctx.formatShortDate(date)}">
 								<h4>{ctx.formatShortDate(date)}</h4>
 								<div class="upcoming-group-items">
 									{#each changes as change (change.key)}
@@ -568,7 +567,14 @@
 										<span class="progress-meta">{ob.completedSteps}/{ob.totalSteps} steps complete</span>
 									</div>
 									<div class="progress-track-wrap">
-										<div class="progress-track" aria-hidden="true">
+										<div
+											class="progress-track"
+											role="progressbar"
+											aria-valuenow={ob.pct}
+											aria-valuemin={0}
+											aria-valuemax={100}
+											aria-label="{ob.personName} onboarding: {ob.pct}% complete"
+										>
 											<div class="progress-track-fill" style="width: {ob.pct}%"></div>
 										</div>
 										<span class="progress-pct">{ob.pct}%</span>
@@ -641,7 +647,7 @@
 									<td class="col-num">{group.total}</td>
 									<td class="col-num col-present">{group.available}</td>
 									{#each statusTypesStore.items as st (st.id)}
-										<td class="col-num">
+										<td class="col-num col-status">
 											{#if (group.statusCounts.get(st.id) ?? 0) > 0}
 												<span class="table-chip">{group.statusCounts.get(st.id)}</span>
 											{:else}
@@ -776,45 +782,6 @@
 		width: 16px;
 		height: 16px;
 		flex-shrink: 0;
-	}
-
-	.briefing-metrics {
-		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: var(--sp-4);
-		margin: 0;
-	}
-
-	.briefing-metric {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		padding-top: var(--sp-4);
-		border-top: var(--border-thin);
-	}
-
-	.briefing-metric dt {
-		color: var(--text-tertiary);
-	}
-
-	.briefing-metric dd {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: clamp(1.8rem, 1.5rem + 0.7vw, 2.6rem);
-		font-weight: var(--font-weight-display);
-		line-height: 0.92;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.briefing-metric span {
-		color: var(--text-tertiary);
-	}
-
-	.briefing-metric.attention dd,
-	.briefing-metric.attention span {
-		color: var(--amber-dark);
 	}
 
 	.support-copy {
@@ -952,7 +919,7 @@
 		justify-content: center;
 		width: 2rem;
 		height: 2rem;
-		border: 1px solid rgba(var(--amber-rgb), 0.3);
+		border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
 		border-radius: var(--radius-md);
 		color: var(--amber-dark);
 		flex-shrink: 0;
@@ -991,7 +958,7 @@
 		min-height: 1.75rem;
 		padding: 0 0.6rem;
 		border-radius: var(--radius-md);
-		border: 1px solid rgba(var(--amber-rgb), 0.3);
+		border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
 		background: color-mix(in srgb, var(--amber-light) 72%, var(--surface-panel));
 		color: var(--amber-dark);
 		font-family: var(--font-mono);
@@ -1015,7 +982,7 @@
 		min-width: 1.75rem;
 		height: 1.75rem;
 		padding: 0 0.45rem;
-		border: 1px solid rgba(var(--amber-rgb), 0.35);
+		border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
 		border-radius: var(--radius-md);
 		color: var(--amber-dark);
 	}
@@ -1111,7 +1078,7 @@
 	.dashboard-module--priority {
 		--module-border: color-mix(in srgb, var(--amber) 32%, var(--border-default));
 		box-shadow:
-			0 0 0 1px rgba(var(--amber-rgb), 0.1),
+			0 0 0 1px color-mix(in srgb, var(--amber) 10%, transparent),
 			var(--shadow-md);
 	}
 
@@ -1178,7 +1145,7 @@
 	.strength-facts div {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: var(--sp-1);
 		padding-top: var(--sp-3);
 		border-top: var(--border-thin);
 	}
@@ -1338,7 +1305,7 @@
 	.metric-cell {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: var(--sp-1);
 		padding: var(--sp-4);
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
@@ -1457,7 +1424,7 @@
 	.group-name {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: var(--sp-1);
 		font-weight: var(--font-weight-semibold);
 	}
 
@@ -1545,9 +1512,7 @@
 			padding: var(--sp-4);
 		}
 
-		.briefing-metrics,
 		.metric-grid,
-		.strength-grid,
 		.strength-facts {
 			grid-template-columns: 1fr;
 		}
@@ -1558,6 +1523,16 @@
 		.dashboard-briefing {
 			padding-left: var(--sp-4);
 			padding-right: var(--sp-4);
+		}
+
+		.col-status {
+			display: none;
+		}
+	}
+
+	@media (max-width: 400px) {
+		.strength-grid {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

@@ -1,8 +1,12 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, afterEach } from 'vitest';
-import { cleanup, fireEvent, render } from '@testing-library/svelte';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import MultiTagSelect from './MultiTagSelect.svelte';
-import type { TagOption } from './MultiTagSelect.svelte';
+
+interface TagOption {
+	value: string;
+	label: string;
+}
 
 const options: TagOption[] = [
 	{ value: 'alpha', label: 'Alpha' },
@@ -77,5 +81,67 @@ describe('MultiTagSelect', () => {
 		await fireEvent.focusOut(input, { relatedTarget: null });
 
 		expect(container.querySelector('.mts-dropdown')).toBeNull();
+	});
+
+	it('keeps the dropdown open while the options list scrolls', async () => {
+		const { container } = renderSelect();
+		const input = container.querySelector('.mts-input') as HTMLElement;
+
+		await fireEvent.focus(input);
+		const dropdown = container.querySelector('.mts-dropdown') as HTMLElement;
+		expect(dropdown).toBeTruthy();
+
+		await fireEvent.scroll(dropdown);
+
+		expect(container.querySelector('.mts-dropdown')).toBeTruthy();
+	});
+
+	it('repositions the dropdown when selected tags change while open', async () => {
+		const originalInnerHeight = window.innerHeight;
+		window.innerHeight = 800;
+
+		let rect = {
+			left: 24,
+			top: 100,
+			right: 264,
+			bottom: 140,
+			width: 240,
+			height: 40,
+			x: 24,
+			y: 100,
+			toJSON: () => ({})
+		};
+
+		const { container, rerender } = renderSelect();
+		const root = container.querySelector('.mts') as HTMLDivElement;
+		vi.spyOn(root, 'getBoundingClientRect').mockImplementation(() => rect as DOMRect);
+
+		const input = container.querySelector('.mts-input') as HTMLElement;
+		await fireEvent.focus(input);
+
+		let dropdown = container.querySelector('.mts-dropdown') as HTMLElement;
+		expect(dropdown.getAttribute('style')).toContain('top: 144px');
+
+		rect = {
+			...rect,
+			top: 100,
+			bottom: 184,
+			height: 84,
+			y: 100
+		};
+
+		await rerender({
+			options,
+			value: ['alpha', 'bravo', 'charlie'],
+			placeholder: 'Select...',
+			onChange: () => {}
+		});
+
+		await waitFor(() => {
+			dropdown = container.querySelector('.mts-dropdown') as HTMLElement;
+			expect(dropdown.getAttribute('style')).toContain('top: 188px');
+		});
+
+		window.innerHeight = originalInnerHeight;
 	});
 });

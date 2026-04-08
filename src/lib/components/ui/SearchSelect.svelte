@@ -9,6 +9,7 @@
 		value: string;
 		placeholder?: string;
 		disabled?: boolean;
+		clearable?: boolean;
 		onchange?: (value: string) => void;
 		id?: string;
 	}
@@ -18,6 +19,7 @@
 		value = $bindable(),
 		placeholder = 'Search...',
 		disabled = false,
+		clearable = true,
 		onchange,
 		id = 'ss-' + Math.random().toString(36).slice(2, 8)
 	}: Props = $props();
@@ -146,7 +148,7 @@
 					<polyline points="6 9 12 15 18 9"></polyline>
 				</svg>
 			</button>
-			{#if value && !disabled}
+			{#if value && !disabled && clearable}
 				<button class="clear-btn" type="button" onmousedown={clearSelection} tabindex="-1" aria-label="Clear selection">
 					<span aria-hidden="true">&times;</span>
 				</button>

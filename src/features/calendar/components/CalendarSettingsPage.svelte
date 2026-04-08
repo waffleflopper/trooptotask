@@ -18,8 +18,8 @@
 
 	// ---- Status Types ----
 	let newStatusName = $state('');
-	let newStatusColor = $state('#6b7280');
-	let newStatusTextColor = $state('#ffffff');
+	let newStatusColor = $state('#4a4a47');
+	let newStatusTextColor = $state('#f8f7f4');
 	let editingStatus = $state<StatusType | null>(null);
 	let editStatusName = $state('');
 	let editStatusColor = $state('');
@@ -52,8 +52,8 @@
 		if (!newStatusName.trim()) return;
 		await statusTypesStore.add({ name: newStatusName.trim(), color: newStatusColor, textColor: newStatusTextColor });
 		newStatusName = '';
-		newStatusColor = '#6b7280';
-		newStatusTextColor = '#ffffff';
+		newStatusColor = '#4a4a47';
+		newStatusTextColor = '#f8f7f4';
 	}
 
 	async function deleteStatus(s: StatusType) {
@@ -67,7 +67,7 @@
 	let newAssignName = $state('');
 	let newAssignShortName = $state('');
 	let newAssignTo = $state<'personnel' | 'group'>('personnel');
-	let newAssignColor = $state('#3b82f6');
+	let newAssignColor = $state('#c47f00');
 	let editingAssign = $state<AssignmentType | null>(null);
 	let editAssignName = $state('');
 	let editAssignShortName = $state('');
@@ -115,7 +115,7 @@
 		newAssignName = '';
 		newAssignShortName = '';
 		newAssignTo = 'personnel';
-		newAssignColor = '#3b82f6';
+		newAssignColor = '#c47f00';
 	}
 
 	async function deleteAssignType(t: AssignmentType) {
@@ -194,17 +194,6 @@
 			</div>
 		</section>
 	{:else}
-		<section class="settings-hero">
-			<div class="hero-copy">
-				<p class="eyebrow">Calendar configuration</p>
-				<h1>Keep the calendar rules easy to scan and easy to update.</h1>
-				<p class="hero-description">
-					Statuses, duty labels, and special days all shape the calendar differently. Splitting them into dedicated
-					panels makes it easier to review what exists and make changes without losing your place.
-				</p>
-			</div>
-		</section>
-
 		<div class="settings-grid">
 			<!-- ===== STATUS TYPES ===== -->
 			<section class="settings-section card card-flat">
@@ -245,7 +234,13 @@
 						<div class="item-row status-item-row">
 							{#if editingStatus?.id === status.id}
 								<div class="inline-edit">
-									<input class="input" type="text" bind:value={editStatusName} placeholder="Status name" />
+									<input
+										class="input"
+										type="text"
+										bind:value={editStatusName}
+										placeholder="Status name"
+										aria-label="Status name"
+									/>
 									<label class="color-picker">
 										<span>BG</span>
 										<input type="color" bind:value={editStatusColor} />
@@ -340,15 +335,22 @@
 						<div class="item-row">
 							{#if editingAssign?.id === type.id}
 								<div class="inline-edit">
-									<input class="input" type="text" bind:value={editAssignName} placeholder="Full name" />
+									<input
+										class="input"
+										type="text"
+										bind:value={editAssignName}
+										placeholder="Full name"
+										aria-label="Assignment full name"
+									/>
 									<input
 										class="input short-input"
 										type="text"
 										bind:value={editAssignShortName}
 										placeholder="Short"
 										maxlength="5"
+										aria-label="Assignment short name"
 									/>
-									<select class="select" bind:value={editAssignTo}>
+									<select class="select" bind:value={editAssignTo} aria-label="Assign to">
 										<option value="personnel">Person</option>
 										<option value="group">Group</option>
 									</select>
@@ -371,6 +373,7 @@
 										value={type.id}
 										checked={headerTypeId === type.id}
 										disabled={!canMutate}
+										aria-label="Show {type.name} in date header"
 										onchange={() => setShowInDateHeader(type.id)}
 									/>
 								</label>
@@ -489,7 +492,10 @@
 							</div>
 						</div>
 					{:else}
-						<p class="empty-msg">No holidays or closures for {filterYear}.</p>
+						<p class="empty-msg">
+							No holidays or closures for {filterYear}. Use the form above to add a closure, or reset federal holidays
+							to populate defaults.
+						</p>
 					{/each}
 				</div>
 			</section>
@@ -681,10 +687,6 @@
 		border-color: color-mix(in srgb, var(--border-default) 84%, var(--ink-35) 16%);
 	}
 
-	.status-item-row {
-		flex-wrap: nowrap;
-	}
-
 	.inline-edit {
 		display: flex;
 		align-items: center;
@@ -726,8 +728,8 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 36px;
-		min-height: 36px;
+		min-width: 44px;
+		min-height: 44px;
 		padding: 0 var(--sp-3);
 		border: var(--border-thin);
 		border-radius: var(--radius-md);

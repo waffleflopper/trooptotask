@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { fail } from '$lib/server/core/errors';
-import type { QueryPorts, WritePorts } from '$lib/server/core/ports';
+import type { AdvancedDutyPersistencePort, QueryPorts, WritePorts } from '$lib/server/core/ports';
 import { DutyTemplateEntity } from '$lib/server/entities/dutyTemplate';
 import { DutyTemplateRotationBaselineEntity } from '$lib/server/entities/dutyTemplateRotationBaseline';
 import { DutyTemplateSlotEntity } from '$lib/server/entities/dutyTemplateSlot';
@@ -268,28 +268,40 @@ async function createSlotRows(
 	const inserted = await ctx.store.insertMany<Record<string, unknown>>(
 		'duty_template_slots',
 		ctx.auth.orgId,
-		slots.map((slot) => ({
-			...DutyTemplateSlotEntity.toDbInsert(
-				{
-					templateId,
-					roleLabel: slot.roleLabel,
-					quantity: slot.quantity,
-					allowedRanks: slot.allowedRanks,
-					allowedGroupIds: slot.allowedGroupIds,
-					preferredGroupIds: slot.preferredGroupIds,
-					allowedMosValues: slot.allowedMosValues,
-					allowedRoleValues: slot.allowedRoleValues,
-					rotationPoolKey: slot.rotationPoolKey,
-					blockingMode: slot.blockingMode,
-					sortOrder: slot.sortOrder
-				},
-				ctx.auth.orgId
-			),
-			template_id: templateId
-		}))
+		buildDutyTemplateSlotRows(ctx.auth.orgId, templateId, slots)
 	);
 
 	return hydrateSlots(inserted);
+}
+
+function buildDutyTemplateSlotRows(
+	orgId: string,
+	templateId: string,
+	slots: Omit<DutyTemplateSlot, 'id' | 'templateId'>[]
+): Record<string, unknown>[] {
+	if (slots.length === 0) {
+		return [];
+	}
+
+	return slots.map((slot) => ({
+		...DutyTemplateSlotEntity.toDbInsert(
+			{
+				templateId,
+				roleLabel: slot.roleLabel,
+				quantity: slot.quantity,
+				allowedRanks: slot.allowedRanks,
+				allowedGroupIds: slot.allowedGroupIds,
+				preferredGroupIds: slot.preferredGroupIds,
+				allowedMosValues: slot.allowedMosValues,
+				allowedRoleValues: slot.allowedRoleValues,
+				rotationPoolKey: slot.rotationPoolKey,
+				blockingMode: slot.blockingMode,
+				sortOrder: slot.sortOrder
+			},
+			orgId
+		),
+		template_id: templateId
+	}));
 }
 
 async function createRotationBaselineRows(
@@ -301,23 +313,10 @@ async function createRotationBaselineRows(
 		return [];
 	}
 
-	const now = new Date().toISOString();
 	const inserted = await ctx.store.insertMany<Record<string, unknown>>(
 		'duty_template_rotation_baselines',
 		ctx.auth.orgId,
-		baselines.map((baseline) => ({
-			...DutyTemplateRotationBaselineEntity.toDbInsert(
-				{
-					templateId,
-					rotationPoolKey: baseline.rotationPoolKey,
-					personId: baseline.personId,
-					lastServedDate: baseline.lastServedDate
-				},
-				ctx.auth.orgId
-			),
-			template_id: templateId,
-			created_at: now
-		}))
+		buildDutyTemplateRotationBaselineRows(ctx.auth.orgId, templateId, baselines)
 	);
 
 	return DutyTemplateRotationBaselineEntity.fromDbArray(inserted).sort(
@@ -326,6 +325,31 @@ async function createRotationBaselineRows(
 			a.lastServedDate.localeCompare(b.lastServedDate) ||
 			a.personId.localeCompare(b.personId)
 	);
+}
+
+function buildDutyTemplateRotationBaselineRows(
+	orgId: string,
+	templateId: string,
+	baselines: Omit<DutyTemplateRotationBaseline, 'id' | 'templateId'>[]
+): Record<string, unknown>[] {
+	if (baselines.length === 0) {
+		return [];
+	}
+
+	const now = new Date().toISOString();
+	return baselines.map((baseline) => ({
+		...DutyTemplateRotationBaselineEntity.toDbInsert(
+			{
+				templateId,
+				rotationPoolKey: baseline.rotationPoolKey,
+				personId: baseline.personId,
+				lastServedDate: baseline.lastServedDate
+			},
+			orgId
+		),
+		template_id: templateId,
+		created_at: now
+	}));
 }
 
 export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWriteInput): Promise<DutyTemplate> {
@@ -383,7 +407,10 @@ export async function createDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 	}
 }
 
-export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWriteInput): Promise<DutyTemplate> {
+export async function updateDutyTemplate(
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
+	input: DutyTemplateWriteInput
+): Promise<DutyTemplate> {
 	requireAdvancedDutyTemplateManagement(ctx.auth);
 
 	const isReadOnly = await ctx.readOnlyGuard.check();
@@ -406,48 +433,65 @@ export async function updateDutyTemplate(ctx: WritePorts, input: DutyTemplateWri
 			...DutyTemplateEntity.toDbUpdate(normalized),
 			updated_at: new Date().toISOString()
 		};
-		let row: Record<string, unknown>;
+		const slotRows = buildDutyTemplateSlotRows(ctx.auth.orgId, parsed.id, normalized.slots);
+		const rotationBaselineRows = buildDutyTemplateRotationBaselineRows(
+			ctx.auth.orgId,
+			parsed.id,
+			normalized.rotationBaselines
+		);
+		const persistAggregate = (templateData: Record<string, unknown>) =>
+			ctx.advancedDutyPersistence.updateDutyTemplateAggregate({
+				orgId: ctx.auth.orgId,
+				templateId: parsed.id,
+				templateData,
+				slotRows,
+				rotationBaselineRows
+			});
 		try {
-			row = await ctx.store.update<Record<string, unknown>>(
-				'duty_templates',
-				ctx.auth.orgId,
-				parsed.id,
-				templateUpdate
-			);
-		} catch (error) {
-			if (isMissingExemptPersonnelColumnError(error)) {
+			let aggregate;
+			try {
+				aggregate = await persistAggregate(templateUpdate);
+			} catch (error) {
+				if (!isMissingExemptPersonnelColumnError(error)) {
+					throw error;
+				}
+
 				const fallbackUpdate: Record<string, unknown> = { ...templateUpdate };
 				delete fallbackUpdate.exempt_personnel_ids;
-				row = await ctx.store.update<Record<string, unknown>>(
-					'duty_templates',
-					ctx.auth.orgId,
-					parsed.id,
-					fallbackUpdate
-				);
-			} else if (isMissingStatusOrSoftPreferenceColumnError(error)) {
+				aggregate = await persistAggregate(fallbackUpdate);
+			}
+
+			ctx.audit.log({
+				action: 'duty_template.updated',
+				resourceType: 'duty_template',
+				resourceId: parsed.id
+			});
+
+			return hydrateTemplate(
+				aggregate.templateRow,
+				hydrateSlots(aggregate.slotRows),
+				DutyTemplateRotationBaselineEntity.fromDbArray(aggregate.rotationBaselineRows).sort(
+					(a, b) =>
+						a.rotationPoolKey.localeCompare(b.rotationPoolKey) ||
+						a.lastServedDate.localeCompare(b.lastServedDate) ||
+						a.personId.localeCompare(b.personId)
+				)
+			);
+		} catch (error) {
+			if (isMissingStatusOrSoftPreferenceColumnError(error)) {
 				logDutyTemplateError('Failed to update duty template policy settings', error);
 				fail(
 					500,
 					'Duty template policy settings could not be saved. Verify duty template migrations are current and retry.'
 				);
+			} else if (error instanceof Error && error.message.includes('update_advanced_duty_template_aggregate')) {
+				logDutyTemplateError('Failed to update duty template aggregate', error);
+				fail(500, 'Failed to update duty template. Verify duty template migrations are current and retry.');
 			} else {
 				logDutyTemplateError('Failed to update duty template', error);
 				fail(500, 'Failed to update duty template.');
 			}
 		}
-
-		await ctx.store.deleteWhere('duty_template_slots', ctx.auth.orgId, { template_id: parsed.id });
-		const slots = await createSlotRows(ctx, parsed.id, normalized.slots);
-		await ctx.store.deleteWhere('duty_template_rotation_baselines', ctx.auth.orgId, { template_id: parsed.id });
-		const rotationBaselines = await createRotationBaselineRows(ctx, parsed.id, normalized.rotationBaselines);
-
-		ctx.audit.log({
-			action: 'duty_template.updated',
-			resourceType: 'duty_template',
-			resourceId: parsed.id
-		});
-
-		return hydrateTemplate(row, slots, rotationBaselines);
 	} catch (error) {
 		if (isHttpLikeError(error)) {
 			throw error;

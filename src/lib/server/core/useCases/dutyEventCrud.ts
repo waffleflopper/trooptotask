@@ -15,7 +15,6 @@ import type {
 	DutyEventApplyInput,
 	DutyEventSeriesApplyResult,
 	DutyEventSeriesInput,
-	DutyEventSeriesPattern,
 	DutyEventRunPattern,
 	DutyEventRunRecord,
 	DutyEventRunDeleteResult,
@@ -32,7 +31,6 @@ import type {
 	ExistingDutyEventUpdateInput,
 	SoftPreferenceConfig,
 	DutyTemplate,
-	DutyTemplateRotationBaseline,
 	DutyTemplateSlot,
 	DutyEventFairnessConfidence
 } from '$features/duty-roster/duty-roster.types';
@@ -1088,6 +1086,44 @@ function buildDutyEventSlotRows(
 	}));
 }
 
+async function updateDutyEventAggregateWithLegacyFairnessFallback(
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
+	input: {
+		dutyEventId: string;
+		eventData: Record<string, unknown>;
+		slotInstances: DutyEventPreviewSlotInstance[];
+		createdAt: string;
+	}
+) {
+	const buildSlotRows = (normalizeFairnessForLegacyDb: boolean) =>
+		buildDutyEventSlotRows(ctx.auth.orgId, {
+			dutyEventId: input.dutyEventId,
+			slotInstances: input.slotInstances,
+			createdAt: input.createdAt,
+			normalizeFairnessForLegacyDb
+		});
+
+	try {
+		return await ctx.advancedDutyPersistence.updateDutyEventAggregate({
+			orgId: ctx.auth.orgId,
+			dutyEventId: input.dutyEventId,
+			eventData: input.eventData,
+			slotRows: buildSlotRows(false)
+		});
+	} catch (error) {
+		if (!isLegacyFairnessConstraintError(error)) {
+			throw error;
+		}
+
+		return await ctx.advancedDutyPersistence.updateDutyEventAggregate({
+			orgId: ctx.auth.orgId,
+			dutyEventId: input.dutyEventId,
+			eventData: input.eventData,
+			slotRows: buildSlotRows(true)
+		});
+	}
+}
+
 function buildFillSummary(slotInstances: Array<{ assigneeId: string | null }>): DutyEventFillSummary {
 	const totalSlots = slotInstances.length;
 	const filledSlots = slotInstances.filter((slot) => slot.assigneeId).length;
@@ -1826,8 +1862,7 @@ export async function updateExistingDutyEvent(
 	const now = new Date().toISOString();
 	let aggregate;
 	try {
-		aggregate = await ctx.advancedDutyPersistence.updateDutyEventAggregate({
-			orgId: ctx.auth.orgId,
+		aggregate = await updateDutyEventAggregateWithLegacyFairnessFallback(ctx, {
 			dutyEventId: existingEvent.id,
 			eventData: {
 				...DutyEventEntity.toDbUpdate({
@@ -1846,12 +1881,8 @@ export async function updateExistingDutyEvent(
 				}),
 				updated_at: now
 			},
-			slotRows: buildDutyEventSlotRows(ctx.auth.orgId, {
-				dutyEventId: existingEvent.id,
-				slotInstances: preview.slotInstances,
-				createdAt: now,
-				normalizeFairnessForLegacyDb: true
-			})
+			slotInstances: preview.slotInstances,
+			createdAt: now
 		});
 	} catch (error) {
 		if (error instanceof Error && error.message.includes('update_advanced_duty_event_aggregate')) {

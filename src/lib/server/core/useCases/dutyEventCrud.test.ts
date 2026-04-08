@@ -4143,6 +4143,100 @@ describe('existing duty event editing', () => {
 		expect(storedEvent?.original_proposal).toEqual(originalProposal);
 	});
 
+	it('preserves medium fairness confidence on event updates when the database accepts it', async () => {
+		const ctx = createTestContext();
+
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-a',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Alex',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-b',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Bravo',
+				first_name: 'Blake',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			},
+			{
+				id: 'person-c',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Charlie',
+				first_name: 'Casey',
+				mos: '11B',
+				clinic_role: 'Squad Leader',
+				group_id: 'group-hq',
+				group_name: 'Headquarters'
+			}
+		]);
+
+		const template = await createDutyTemplate(ctx, {
+			status: 'active',
+			name: 'Battalion Staff Duty',
+			scopeType: 'groups',
+			scopeGroupIds: ['group-hq'],
+			coverageMode: 'timed',
+			startTime: '08:00',
+			endTime: '08:00',
+			isBlocking: true,
+			cooldownHours: 24,
+			slots: [
+				{
+					roleLabel: 'NCO',
+					quantity: 1,
+					allowedRanks: ['SGT'],
+					allowedGroupIds: ['group-hq'],
+					allowedMosValues: ['11B'],
+					allowedRoleValues: ['Squad Leader'],
+					rotationPoolKey: 'nco-pool'
+				}
+			],
+			rotationBaselines: [
+				{
+					rotationPoolKey: 'nco-pool',
+					personId: 'person-a',
+					lastServedDate: '2026-03-01'
+				},
+				{
+					rotationPoolKey: 'nco-pool',
+					personId: 'person-b',
+					lastServedDate: '2026-03-05'
+				}
+			]
+		});
+
+		const applied = await applyDutyEventFromTemplate(ctx, {
+			templateId: template.id,
+			eventDate: '2026-04-10'
+		});
+
+		expect(applied.slotInstances[0].fairnessConfidence).toBe('medium');
+
+		const updated = await updateExistingDutyEvent(ctx, {
+			dutyEventId: applied.id,
+			slotOverrides: []
+		});
+
+		expect(updated.slotInstances[0].fairnessConfidence).toBe('medium');
+
+		const storedSlots = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, {
+			duty_event_id: applied.id
+		});
+		expect(storedSlots[0]?.fairness_confidence).toBe('medium');
+	});
+
 	it('preserves the existing event aggregate when replacement slot persistence fails during update', async () => {
 		const ctx = createTestContext();
 

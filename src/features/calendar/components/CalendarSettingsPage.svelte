@@ -728,17 +728,26 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 44px;
-		min-height: 44px;
-		padding: 0 var(--sp-3);
+		width: 28px;
+		height: 28px;
+		padding: 0;
 		border: var(--border-thin);
 		border-radius: var(--radius-md);
 		background: var(--surface-panel);
 		color: var(--text-tertiary);
+		position: relative;
+		flex-shrink: 0;
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
 			color var(--transition-fast);
+	}
+
+	/* Expand hit area to 44px without inflating the visual button size */
+	.item-icon-button::before {
+		content: '';
+		position: absolute;
+		inset: -8px;
 	}
 
 	.item-icon-button:hover:not(:disabled) {

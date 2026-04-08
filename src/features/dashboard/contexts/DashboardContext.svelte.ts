@@ -42,6 +42,17 @@ export interface DashboardPageData {
 	[key: string]: unknown;
 }
 
+/** Returns '#ffffff' or '#1a1a1a' based on WCAG relative luminance of a hex color. */
+function hexToTextColor(hex: string): string {
+	const clean = hex.replace('#', '');
+	const r = parseInt(clean.slice(0, 2), 16) / 255;
+	const g = parseInt(clean.slice(2, 4), 16) / 255;
+	const b = parseInt(clean.slice(4, 6), 16) / 255;
+	const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+	const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+	return L > 0.179 ? '#1a1a1a' : '#ffffff';
+}
+
 export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	// Raw page data (injected from route)
@@ -198,7 +209,14 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	// Derived: dutyAssignments
 	// ---------------------------------------------------------------------------
-	get dutyAssignments(): { id: string; typeName: string; shortName: string; color: string; assigneeName: string }[] {
+	get dutyAssignments(): {
+		id: string;
+		typeName: string;
+		shortName: string;
+		color: string;
+		textColor: string;
+		assigneeName: string;
+	}[] {
 		return dailyAssignmentsStore.assignments
 			.filter((a) => a.date === this.today)
 			.map((a) => {
@@ -210,11 +228,13 @@ export class DashboardContext {
 				} else {
 					assigneeName = a.assigneeId;
 				}
+				const color = type?.color ?? '#9e9e9e';
 				return {
 					id: a.id,
 					typeName: type?.name ?? 'Unknown',
 					shortName: type?.shortName ?? '',
-					color: type?.color ?? '#9e9e9e',
+					color,
+					textColor: hexToTextColor(color),
 					assigneeName
 				};
 			});

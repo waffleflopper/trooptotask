@@ -10,6 +10,7 @@ import {
 	createTestBillingPort,
 	createTestStoragePort
 } from './inMemory';
+import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { handleUseCaseRequest, type RouteConfig } from './httpAdapter';
 
@@ -35,6 +36,7 @@ function toUseCaseCtx(t: TestContext): UseCaseContext {
 	return {
 		store: t.store,
 		rawStore: t.store,
+		advancedDutyPersistence: createInMemoryAdvancedDutyPersistenceAdapter(t.store),
 		auth: t.auth,
 		audit: t.auditPort,
 		readOnlyGuard: t.readOnlyGuard,

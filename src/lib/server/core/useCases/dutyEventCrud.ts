@@ -1,5 +1,5 @@
 import { fail } from '$lib/server/core/errors';
-import type { QueryPorts, WritePorts } from '$lib/server/core/ports';
+import type { AdvancedDutyPersistencePort, QueryPorts, WritePorts } from '$lib/server/core/ports';
 import { DutyEventEntity } from '$lib/server/entities/dutyEvent';
 import { DutyEventRunEntity } from '$lib/server/entities/dutyEventRun';
 import { DutyEventSlotEntity } from '$lib/server/entities/dutyEventSlot';
@@ -15,7 +15,6 @@ import type {
 	DutyEventApplyInput,
 	DutyEventSeriesApplyResult,
 	DutyEventSeriesInput,
-	DutyEventSeriesPattern,
 	DutyEventRunPattern,
 	DutyEventRunRecord,
 	DutyEventRunDeleteResult,
@@ -32,7 +31,6 @@ import type {
 	ExistingDutyEventUpdateInput,
 	SoftPreferenceConfig,
 	DutyTemplate,
-	DutyTemplateRotationBaseline,
 	DutyTemplateSlot,
 	DutyEventFairnessConfidence
 } from '$features/duty-roster/duty-roster.types';
@@ -1034,28 +1032,12 @@ async function insertDutyEventSlots(
 	}
 
 	const buildRows = (normalizeFairnessForLegacyDb: boolean) =>
-		input.slotInstances.map((slot) => ({
-			...DutyEventSlotEntity.toDbInsert(
-				{
-					dutyEventId: input.dutyEventId,
-					templateSlotId: slot.templateSlotId,
-					roleLabel: slot.roleLabel,
-					slotIndex: slot.slotIndex,
-					assigneeId: slot.assigneeId,
-					assignmentSource: slot.assignmentSource,
-					warningState: slot.warningState,
-					fairnessConfidence: normalizeFairnessForLegacyDb
-						? normalizePersistedFairnessConfidence(slot.fairnessConfidence)
-						: slot.fairnessConfidence,
-					selectionReason: slot.selectionReason,
-					unfilledReason: slot.unfilledReason,
-					sortOrder: slot.sortOrder
-				},
-				ctx.auth.orgId
-			),
-			duty_event_id: input.dutyEventId,
-			created_at: input.createdAt
-		}));
+		buildDutyEventSlotRows(ctx.auth.orgId, {
+			dutyEventId: input.dutyEventId,
+			slotInstances: input.slotInstances,
+			createdAt: input.createdAt,
+			normalizeFairnessForLegacyDb
+		});
 
 	try {
 		return await ctx.store.insertMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, buildRows(false));
@@ -1064,6 +1046,81 @@ async function insertDutyEventSlots(
 			throw error;
 		}
 		return await ctx.store.insertMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, buildRows(true));
+	}
+}
+
+function buildDutyEventSlotRows(
+	orgId: string,
+	input: {
+		dutyEventId: string;
+		slotInstances: DutyEventPreviewSlotInstance[];
+		createdAt: string;
+		normalizeFairnessForLegacyDb: boolean;
+	}
+): Record<string, unknown>[] {
+	if (input.slotInstances.length === 0) {
+		return [];
+	}
+
+	return input.slotInstances.map((slot) => ({
+		...DutyEventSlotEntity.toDbInsert(
+			{
+				dutyEventId: input.dutyEventId,
+				templateSlotId: slot.templateSlotId,
+				roleLabel: slot.roleLabel,
+				slotIndex: slot.slotIndex,
+				assigneeId: slot.assigneeId,
+				assignmentSource: slot.assignmentSource,
+				warningState: slot.warningState,
+				fairnessConfidence: input.normalizeFairnessForLegacyDb
+					? normalizePersistedFairnessConfidence(slot.fairnessConfidence)
+					: slot.fairnessConfidence,
+				selectionReason: slot.selectionReason,
+				unfilledReason: slot.unfilledReason,
+				sortOrder: slot.sortOrder
+			},
+			orgId
+		),
+		duty_event_id: input.dutyEventId,
+		created_at: input.createdAt
+	}));
+}
+
+async function updateDutyEventAggregateWithLegacyFairnessFallback(
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
+	input: {
+		dutyEventId: string;
+		eventData: Record<string, unknown>;
+		slotInstances: DutyEventPreviewSlotInstance[];
+		createdAt: string;
+	}
+) {
+	const buildSlotRows = (normalizeFairnessForLegacyDb: boolean) =>
+		buildDutyEventSlotRows(ctx.auth.orgId, {
+			dutyEventId: input.dutyEventId,
+			slotInstances: input.slotInstances,
+			createdAt: input.createdAt,
+			normalizeFairnessForLegacyDb
+		});
+
+	try {
+		return await ctx.advancedDutyPersistence.updateDutyEventAggregate({
+			orgId: ctx.auth.orgId,
+			dutyEventId: input.dutyEventId,
+			eventData: input.eventData,
+			slotRows: buildSlotRows(false)
+		});
+	} catch (error) {
+		if (!isLegacyFairnessConstraintError(error)) {
+			throw error;
+		}
+
+		return await ctx.advancedDutyPersistence.updateDutyEventAggregate({
+			orgId: ctx.auth.orgId,
+			dutyEventId: input.dutyEventId,
+			eventData: input.eventData,
+			slotRows: buildSlotRows(true)
+		});
 	}
 }
 
@@ -1775,7 +1832,7 @@ export async function previewExistingDutyEvent(
 }
 
 export async function updateExistingDutyEvent(
-	ctx: WritePorts,
+	ctx: WritePorts & { advancedDutyPersistence: AdvancedDutyPersistencePort },
 	input: ExistingDutyEventUpdateInput
 ): Promise<DutyEvent> {
 	requireAdvancedDutyAccess(ctx.auth);
@@ -1803,32 +1860,36 @@ export async function updateExistingDutyEvent(
 	}
 
 	const now = new Date().toISOString();
-	const eventRow = await ctx.store.update<Record<string, unknown>>('duty_events', ctx.auth.orgId, existingEvent.id, {
-		...DutyEventEntity.toDbUpdate({
-			templateId: preview.templateId,
-			templateName: preview.templateName,
-			eventDate: existingEvent.eventDate,
-			coverageMode: preview.coverageMode,
-			coverageStart: preview.coverageStart,
-			coverageEnd: preview.coverageEnd,
-			isBlocking: preview.isBlocking,
-			cooldownHours: preview.cooldownHours,
-			rulesSnapshot: preview.rulesSnapshot,
-			fillSummary: preview.fillSummary,
-			collisionSummary: preview.collisionSummary,
-			originalProposal: existingEvent.originalProposal
-		}),
-		updated_at: now
-	});
-
-	await ctx.store.deleteWhere('duty_event_slots', ctx.auth.orgId, {
-		duty_event_id: existingEvent.id
-	});
-	const insertedSlotRows = await insertDutyEventSlots(ctx, {
-		dutyEventId: existingEvent.id,
-		slotInstances: preview.slotInstances,
-		createdAt: now
-	});
+	let aggregate;
+	try {
+		aggregate = await updateDutyEventAggregateWithLegacyFairnessFallback(ctx, {
+			dutyEventId: existingEvent.id,
+			eventData: {
+				...DutyEventEntity.toDbUpdate({
+					templateId: preview.templateId,
+					templateName: preview.templateName,
+					eventDate: existingEvent.eventDate,
+					coverageMode: preview.coverageMode,
+					coverageStart: preview.coverageStart,
+					coverageEnd: preview.coverageEnd,
+					isBlocking: preview.isBlocking,
+					cooldownHours: preview.cooldownHours,
+					rulesSnapshot: preview.rulesSnapshot,
+					fillSummary: preview.fillSummary,
+					collisionSummary: preview.collisionSummary,
+					originalProposal: existingEvent.originalProposal
+				}),
+				updated_at: now
+			},
+			slotInstances: preview.slotInstances,
+			createdAt: now
+		});
+	} catch (error) {
+		if (error instanceof Error && error.message.includes('update_advanced_duty_event_aggregate')) {
+			fail(500, 'Failed to update duty event. Verify duty event migrations are current and retry.');
+		}
+		throw error;
+	}
 
 	ctx.audit.log({
 		action: 'duty_event.updated',
@@ -1837,7 +1898,7 @@ export async function updateExistingDutyEvent(
 	});
 
 	const runById = existingEvent.runId ? await loadDutyEventRunsByIds(ctx, [existingEvent.runId]) : new Map();
-	return hydrateDutyEvent(eventRow, insertedSlotRows, runById);
+	return hydrateDutyEvent(aggregate.eventRow, aggregate.slotRows, runById);
 }
 
 export async function previewDutyEventSeriesFromTemplate(

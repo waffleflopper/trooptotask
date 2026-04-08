@@ -9,6 +9,7 @@ import {
 	createTestBillingPort,
 	createTestStoragePort
 } from './inMemory';
+import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadWithContextCore } from './httpAdapter';
 
@@ -17,6 +18,7 @@ function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[
 	return {
 		store,
 		rawStore: store,
+		advancedDutyPersistence: createInMemoryAdvancedDutyPersistenceAdapter(store),
 		auth: createTestAuthContext(overrides?.auth),
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(),

@@ -359,6 +359,106 @@ describe('duty template CRUD use cases', () => {
 		expect(updated.name).toBe('Battalion Staff Duty (Updated)');
 	});
 
+	it('preserves the existing template aggregate when replacement slot persistence fails', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId
+			}
+		]);
+
+		const created = await createDutyTemplate(
+			ctx,
+			makeInput({
+				rotationBaselines: [
+					{
+						rotationPoolKey: 'nco-pool',
+						personId: 'person-alpha',
+						lastServedDate: '2026-04-01'
+					}
+				]
+			})
+		);
+
+		const previousTemplateRow = JSON.parse(
+			JSON.stringify(
+				await ctx.store.findOne<Record<string, unknown>>('duty_templates', ctx.auth.orgId, { id: created.id })
+			)
+		) as Record<string, unknown>;
+		const previousSlotRows = JSON.parse(
+			JSON.stringify(
+				await ctx.store.findMany<Record<string, unknown>>('duty_template_slots', ctx.auth.orgId, {
+					template_id: created.id
+				})
+			)
+		) as Record<string, unknown>[];
+		const previousBaselineRows = JSON.parse(
+			JSON.stringify(
+				await ctx.store.findMany<Record<string, unknown>>('duty_template_rotation_baselines', ctx.auth.orgId, {
+					template_id: created.id
+				})
+			)
+		) as Record<string, unknown>[];
+
+		const originalInsertMany = ctx.store.insertMany.bind(ctx.store);
+		let slotInsertAttempts = 0;
+		ctx.store.insertMany = (async (...args) => {
+			const [table] = args as [string, string, Array<Record<string, unknown>>];
+			if (table === 'duty_template_slots' && slotInsertAttempts++ === 0) {
+				throw new Error('Simulated template slot persistence failure');
+			}
+
+			return originalInsertMany(...args);
+		}) as typeof ctx.store.insertMany;
+
+		await expect(
+			updateDutyTemplate(
+				ctx,
+				makeInput({
+					id: created.id,
+					name: 'Battalion Staff Duty (Updated)',
+					slots: [
+						{
+							roleLabel: 'Officer',
+							quantity: 1,
+							allowedRanks: ['1LT'],
+							allowedGroupIds: [],
+							allowedMosValues: [],
+							allowedRoleValues: []
+						}
+					],
+					rotationBaselines: [
+						{
+							rotationPoolKey: 'officer-pool',
+							personId: 'person-alpha',
+							lastServedDate: '2026-04-07'
+						}
+					]
+				})
+			)
+		).rejects.toMatchObject({
+			status: 500,
+			message: 'Failed to update duty template.'
+		});
+
+		const restoredTemplateRow = await ctx.store.findOne<Record<string, unknown>>('duty_templates', ctx.auth.orgId, {
+			id: created.id
+		});
+		const restoredSlotRows = await ctx.store.findMany<Record<string, unknown>>('duty_template_slots', ctx.auth.orgId, {
+			template_id: created.id
+		});
+		const restoredBaselineRows = await ctx.store.findMany<Record<string, unknown>>(
+			'duty_template_rotation_baselines',
+			ctx.auth.orgId,
+			{ template_id: created.id }
+		);
+
+		expect(restoredTemplateRow).toEqual(previousTemplateRow);
+		expect(restoredSlotRows).toEqual(previousSlotRows);
+		expect(restoredBaselineRows).toEqual(previousBaselineRows);
+	});
+
 	it('returns advanced templates with slots sorted for review', async () => {
 		const ctx = createTestContext();
 		await createDutyTemplate(ctx, makeInput({ name: 'Template A' }));

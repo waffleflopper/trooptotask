@@ -34,6 +34,7 @@ import { defaultScopeRules } from './scopeRules';
 import { createSupabaseNotificationAdapter } from './supabaseNotification';
 import { createStripeBillingAdapter } from './stripeBilling';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
+import { createSupabaseAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 import type { UseCaseContext, FeatureArea } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import { createCrudUseCases, type CrudConfig } from '$lib/server/core/useCases/crud';
@@ -70,10 +71,12 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
 	const billing = createStripeBillingAdapter();
+	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
 	return {
 		ctx: {
 			store: scopedStore,
+			advancedDutyPersistence,
 			auth,
 			audit,
 			readOnlyGuard,
@@ -131,9 +134,11 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const notifications = createSupabaseNotificationAdapter();
 	const billing = createStripeBillingAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
+	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
 	return {
 		store: scopedStore,
+		advancedDutyPersistence,
 		auth,
 		audit,
 		readOnlyGuard,
@@ -177,9 +182,11 @@ export async function buildLayoutContextFromMembership(
 	const notifications = createSupabaseNotificationAdapter();
 	const billing = createStripeBillingAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
+	const advancedDutyPersistence = createSupabaseAdvancedDutyPersistenceAdapter(supabase);
 	const scopedStore = createScopedDataStore(store, auth.scopedGroupId, defaultScopeRules);
 	return {
 		store: scopedStore,
+		advancedDutyPersistence,
 		auth,
 		audit,
 		readOnlyGuard,

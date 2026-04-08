@@ -18,6 +18,7 @@ import type {
 	DataStore,
 	FindOptions,
 	FindResult,
+	AdvancedDutyPersistencePort,
 	AuthContext,
 	AuditPort,
 	ReadOnlyGuard,
@@ -37,6 +38,7 @@ import type {
 import type { EffectiveTier } from '$lib/types/subscription';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
+import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
@@ -363,6 +365,7 @@ export function createTestContext(overrides?: {
 }): UseCaseContext & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
+	advancedDutyPersistence: AdvancedDutyPersistencePort;
 	auditPort: ReturnType<typeof createTestAuditPort>;
 	subscription: ReturnType<typeof createTestSubscriptionPort>;
 	notificationPort: ReturnType<typeof createTestNotificationPort>;
@@ -376,9 +379,11 @@ export function createTestContext(overrides?: {
 	const notificationPort = createTestNotificationPort();
 	const billingPort = createTestBillingPort();
 	const storagePort = createTestStoragePort();
+	const advancedDutyPersistence = createInMemoryAdvancedDutyPersistenceAdapter(rawStore);
 	return {
 		store,
 		rawStore,
+		advancedDutyPersistence,
 		auth,
 		audit: auditPort,
 		auditPort,

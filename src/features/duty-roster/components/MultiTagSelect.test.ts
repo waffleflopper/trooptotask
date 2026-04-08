@@ -121,6 +121,7 @@ describe('MultiTagSelect', () => {
 
 		let dropdown = container.querySelector('.mts-dropdown') as HTMLElement;
 		expect(dropdown.getAttribute('style')).toContain('top: 144px');
+		expect(dropdown.getAttribute('style')).toContain('max-height: 240px');
 
 		rect = {
 			...rect,
@@ -140,7 +141,40 @@ describe('MultiTagSelect', () => {
 		await waitFor(() => {
 			dropdown = container.querySelector('.mts-dropdown') as HTMLElement;
 			expect(dropdown.getAttribute('style')).toContain('top: 188px');
+			expect(dropdown.getAttribute('style')).toContain('max-height: 240px');
 		});
+
+		window.innerHeight = originalInnerHeight;
+	});
+
+	it('keeps the dropdown below the control when above has less space than below', async () => {
+		const originalInnerHeight = window.innerHeight;
+		window.innerHeight = 220;
+
+		const rect = {
+			left: 24,
+			top: 32,
+			right: 264,
+			bottom: 72,
+			width: 240,
+			height: 40,
+			x: 24,
+			y: 32,
+			toJSON: () => ({})
+		};
+
+		const { container } = renderSelect();
+		const root = container.querySelector('.mts') as HTMLDivElement;
+		vi.spyOn(root, 'getBoundingClientRect').mockImplementation(() => rect as DOMRect);
+
+		const input = container.querySelector('.mts-input') as HTMLElement;
+		await fireEvent.focus(input);
+
+		const dropdown = container.querySelector('.mts-dropdown') as HTMLElement;
+		const style = dropdown.getAttribute('style') ?? '';
+		expect(style).toContain('top: 76px');
+		expect(style).toContain('max-height: 140px');
+		expect(style).not.toContain('bottom: 192px');
 
 		window.innerHeight = originalInnerHeight;
 	});

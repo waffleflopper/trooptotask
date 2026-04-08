@@ -23,6 +23,10 @@
 	let query = $state('');
 	let activeIndex = $state(-1);
 
+	const dropdownGap = 4;
+	const dropdownViewportPadding = 8;
+	const dropdownMaxHeight = 240;
+
 	const uid = Math.random().toString(36).slice(2, 8);
 	const listId = `mts-list-${uid}`;
 
@@ -40,13 +44,18 @@
 		if (!containerEl) return;
 
 		const rect = containerEl.getBoundingClientRect();
-		const spaceBelow = window.innerHeight - rect.bottom;
-		if (spaceBelow < 260) {
-			dropdownStyle = `position:fixed;top:auto;bottom:${window.innerHeight - rect.top + 4}px;left:${rect.left}px;right:auto;width:${rect.width}px;`;
+		const spaceAbove = Math.max(rect.top - dropdownViewportPadding, 0);
+		const spaceBelow = Math.max(window.innerHeight - rect.bottom - dropdownViewportPadding, 0);
+		const openAbove = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+		const availableSpace = openAbove ? spaceAbove : spaceBelow;
+		const maxHeight = Math.min(dropdownMaxHeight, availableSpace);
+
+		if (openAbove) {
+			dropdownStyle = `position:fixed;top:auto;bottom:${window.innerHeight - rect.top + dropdownGap}px;left:${rect.left}px;right:auto;width:${rect.width}px;max-height:${maxHeight}px;`;
 			return;
 		}
 
-		dropdownStyle = `position:fixed;top:${rect.bottom + 4}px;bottom:auto;left:${rect.left}px;right:auto;width:${rect.width}px;`;
+		dropdownStyle = `position:fixed;top:${rect.bottom + dropdownGap}px;bottom:auto;left:${rect.left}px;right:auto;width:${rect.width}px;max-height:${maxHeight}px;`;
 	}
 
 	function open() {

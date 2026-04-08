@@ -4,7 +4,9 @@ import { createResetFederalHolidaysUseCase } from '$lib/server/core/useCases/spe
 
 const handlers = entityHandlers(SpecialDayEntity);
 const createSpecialDayConfig = handlers._configs.POST!;
+export const _putConfig = handlers._configs.PUT!;
 const resetFederalHolidays = createResetFederalHolidaysUseCase();
+export const PUT = handlers.PUT!;
 export const DELETE = handlers.DELETE;
 
 export const POST = handle<Record<string, unknown>, unknown>({

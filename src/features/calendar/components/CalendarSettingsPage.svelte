@@ -187,11 +187,13 @@
 
 	async function saveEditSpecialDay() {
 		if (!editingSpecialDay || !editSpecialName.trim()) return;
-		await specialDaysStore.update(editingSpecialDay.id, {
+		const updated = await specialDaysStore.update(editingSpecialDay.id, {
 			name: editSpecialName.trim(),
 			type: editSpecialType
 		});
-		editingSpecialDay = null;
+		if (updated) {
+			editingSpecialDay = null;
+		}
 	}
 
 	function formatDisplayDate(dateStr: string): string {

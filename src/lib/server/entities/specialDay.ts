@@ -1,6 +1,6 @@
 /**
  * Special day entity — maps `special_days` (federal holidays + org closures shown on calendar).
- * Supports only POST and DELETE (entries are replaced, not edited).
+ * Supports create, inline edit, and delete operations.
  * `type` is either `'federal-holiday'` or `'org-closure'`.
  * Federal holidays can be bulk-reset via `specialDayCrud.ts` `createResetFederalHolidaysUseCase`.
  */
@@ -11,7 +11,7 @@ import type { SpecialDay } from '$lib/types';
 export const SpecialDayEntity = defineEntity<SpecialDay>({
 	table: 'special_days',
 	permission: 'calendar',
-	methods: ['POST', 'DELETE'],
+	methods: ['POST', 'PUT', 'DELETE'],
 	groupScope: 'none',
 	audit: { resourceType: 'special_day' },
 	orderBy: [{ column: 'date', ascending: true }],

@@ -788,7 +788,8 @@
 	.item-actions {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--sp-2);
+		row-gap: var(--sp-2);
+		column-gap: max(var(--sp-4), 16px);
 		margin-left: auto;
 	}
 

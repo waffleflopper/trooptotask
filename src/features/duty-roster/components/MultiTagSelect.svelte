@@ -17,9 +17,15 @@
 
 	let inputEl = $state<HTMLInputElement | null>(null);
 	let containerEl = $state<HTMLDivElement | null>(null);
+	let dropdownEl = $state<HTMLUListElement | null>(null);
 	let isOpen = $state(false);
+	let dropdownStyle = $state('');
 	let query = $state('');
 	let activeIndex = $state(-1);
+
+	const dropdownGap = 4;
+	const dropdownViewportPadding = 8;
+	const dropdownMaxHeight = 240;
 
 	const uid = Math.random().toString(36).slice(2, 8);
 	const listId = `mts-list-${uid}`;
@@ -34,8 +40,27 @@
 		return options.filter((opt) => opt.label.toLowerCase().includes(q));
 	});
 
+	function updateDropdownPosition() {
+		if (!containerEl) return;
+
+		const rect = containerEl.getBoundingClientRect();
+		const spaceAbove = Math.max(rect.top - dropdownViewportPadding, 0);
+		const spaceBelow = Math.max(window.innerHeight - rect.bottom - dropdownViewportPadding, 0);
+		const openAbove = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+		const availableSpace = openAbove ? spaceAbove : spaceBelow;
+		const maxHeight = Math.min(dropdownMaxHeight, availableSpace);
+
+		if (openAbove) {
+			dropdownStyle = `position:fixed;top:auto;bottom:${window.innerHeight - rect.top + dropdownGap}px;left:${rect.left}px;right:auto;width:${rect.width}px;max-height:${maxHeight}px;`;
+			return;
+		}
+
+		dropdownStyle = `position:fixed;top:${rect.bottom + dropdownGap}px;bottom:auto;left:${rect.left}px;right:auto;width:${rect.width}px;max-height:${maxHeight}px;`;
+	}
+
 	function open() {
 		if (disabled) return;
+		updateDropdownPosition();
 		isOpen = true;
 		activeIndex = -1;
 	}
@@ -97,7 +122,46 @@
 			}
 		}
 		document.addEventListener('mousedown', onMousedown);
-		return () => document.removeEventListener('mousedown', onMousedown);
+		return () => {
+			document.removeEventListener('mousedown', onMousedown);
+		};
+	});
+
+	$effect(() => {
+		if (!isOpen) return;
+
+		value;
+		query;
+		updateDropdownPosition();
+	});
+
+	$effect(() => {
+		if (!isOpen) return;
+
+		const handleViewportChange = (event?: Event) => {
+			if (event?.target instanceof Node && dropdownEl?.contains(event.target)) {
+				return;
+			}
+
+			updateDropdownPosition();
+		};
+
+		window.addEventListener('resize', handleViewportChange);
+		window.addEventListener('scroll', handleViewportChange, { capture: true, passive: true });
+
+		let resizeObserver: ResizeObserver | null = null;
+		if (typeof ResizeObserver !== 'undefined' && containerEl) {
+			resizeObserver = new ResizeObserver(() => {
+				updateDropdownPosition();
+			});
+			resizeObserver.observe(containerEl);
+		}
+
+		return () => {
+			window.removeEventListener('resize', handleViewportChange);
+			window.removeEventListener('scroll', handleViewportChange, { capture: true });
+			resizeObserver?.disconnect();
+		};
 	});
 </script>
 
@@ -158,7 +222,15 @@
 	</div>
 
 	{#if isOpen}
-		<ul id={listId} class="mts-dropdown" role="listbox" aria-multiselectable="true" aria-label={ariaLabel ?? 'Options'}>
+		<ul
+			id={listId}
+			bind:this={dropdownEl}
+			class="mts-dropdown"
+			style={dropdownStyle}
+			role="listbox"
+			aria-multiselectable="true"
+			aria-label={ariaLabel ?? 'Options'}
+		>
 			{#if filteredOptions.length === 0}
 				<li class="mts-no-options" role="option" aria-selected="false">
 					No options match "{query}"
@@ -288,7 +360,7 @@
 		top: calc(100% + 4px);
 		left: 0;
 		right: 0;
-		z-index: 50;
+		z-index: 500;
 		margin: 0;
 		padding: var(--sp-1) 0;
 		list-style: none;

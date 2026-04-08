@@ -2,7 +2,6 @@ import { error, redirect } from '@sveltejs/kit';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import { createOrgShellCoordinator, type OrgShellCoordinator } from '../orgShellCoordinator';
-import { loadRootOrgShellRouteData } from './loadRootOrgShell';
 import { getLayoutClient } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
 import { createSupabaseOrgAccessPort, createSupabaseOrgChromePort } from '$lib/server/adapters/supabaseOrgShell';
@@ -12,7 +11,7 @@ import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from '$lib/s
  * Deprecated demo-only shell path kept temporarily while demo sandbox access is phased out.
  * Do not expand this path; prefer removal when demo sandbox cleanup work is scheduled.
  */
-async function loadDemoRootOrgShellRouteData(config: {
+function createDemoRootOrgShellPorts(config: {
 	orgId: string;
 	orgName: string;
 	permissions: OrganizationMemberPermissions;
@@ -21,8 +20,8 @@ async function loadDemoRootOrgShellRouteData(config: {
 	isDemoSandbox: boolean;
 	effectiveTier: Awaited<ReturnType<ReturnType<typeof createSupabaseSubscriptionAdapter>['getEffectiveTier']>>;
 }) {
-	return loadRootOrgShellRouteData(
-		createInMemoryOrgAccessPort({
+	return {
+		access: createInMemoryOrgAccessPort({
 			membership: {
 				orgId: config.orgId,
 				userId: null,
@@ -37,7 +36,7 @@ async function loadDemoRootOrgShellRouteData(config: {
 				effectiveTier: config.effectiveTier
 			}
 		}),
-		createInMemoryOrgChromePort({
+		chrome: createInMemoryOrgChromePort({
 			chrome: {
 				unreadNotificationCount: 0,
 				activeAnnouncements: [],
@@ -45,7 +44,7 @@ async function loadDemoRootOrgShellRouteData(config: {
 				userPreferences: getDefaultUserOrgPreferences()
 			}
 		})
-	);
+	};
 }
 
 export interface RootOrgLayoutLoadDeps {
@@ -96,11 +95,11 @@ export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
 		}
 
 		if (org.suspended_at) {
-			return {
-				orgSuspended: true,
+			return coordinator.loadRoot({
+				kind: 'suspended',
 				orgId,
 				orgName: org.name
-			};
+			});
 		}
 
 		if (org.demo_type === 'showcase' && isDemoReadOnly) {
@@ -120,14 +119,17 @@ export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
 
 			const effectiveTier = await createSubscriptionAdapterFn(supabase, orgId).getEffectiveTier();
 
-			return loadDemoRootOrgShellRouteData({
-				orgId,
-				orgName: org.name,
-				permissions: readOnlyPermissions,
-				role: 'member',
-				isDemoReadOnly: true,
-				isDemoSandbox: false,
-				effectiveTier
+			return coordinator.loadRoot({
+				kind: 'shell',
+				...createDemoRootOrgShellPorts({
+					orgId,
+					orgName: org.name,
+					permissions: readOnlyPermissions,
+					role: 'member',
+					isDemoReadOnly: true,
+					isDemoSandbox: false,
+					effectiveTier
+				})
 			});
 		}
 
@@ -151,14 +153,17 @@ export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
 
 					const effectiveTier = await createSubscriptionAdapterFn(supabase, orgId).getEffectiveTier();
 
-					return loadDemoRootOrgShellRouteData({
-						orgId,
-						orgName: org.name,
-						permissions: fullPermissions,
-						role: 'owner',
-						isDemoReadOnly: false,
-						isDemoSandbox: true,
-						effectiveTier
+					return coordinator.loadRoot({
+						kind: 'shell',
+						...createDemoRootOrgShellPorts({
+							orgId,
+							orgName: org.name,
+							permissions: fullPermissions,
+							role: 'owner',
+							isDemoReadOnly: false,
+							isDemoSandbox: true,
+							effectiveTier
+						})
 					});
 				}
 			} catch {
@@ -172,6 +177,7 @@ export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
 		const effectiveTierPromise = subscriptionAdapter.getEffectiveTier();
 
 		return coordinator.loadRoot({
+			kind: 'shell',
 			access: createOrgAccessPortFn({
 				orgId,
 				userId: user.id,

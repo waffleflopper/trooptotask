@@ -1,15 +1,23 @@
 import type { OrgAccessPort, OrgChromePort } from './orgShell';
-import type { RootOrgShellRouteData } from './useCases/loadRootOrgShell';
-import { loadRootOrgShellRouteData } from './useCases/loadRootOrgShell';
+import type { RootOrgShellLoadResult } from './useCases/loadRootOrgShell';
+import { loadRootOrgShellRouteData, projectSuspendedRootOrgShellRouteData } from './useCases/loadRootOrgShell';
+
+export type RootOrgShellRequest =
+	| { kind: 'shell'; access: OrgAccessPort; chrome: OrgChromePort }
+	| { kind: 'suspended'; orgId: string; orgName: string };
 
 export interface OrgShellCoordinator {
-	loadRoot(ports: { access: OrgAccessPort; chrome: OrgChromePort }): Promise<RootOrgShellRouteData>;
+	loadRoot(request: RootOrgShellRequest): Promise<RootOrgShellLoadResult>;
 }
 
 export function createOrgShellCoordinator(): OrgShellCoordinator {
 	return {
-		loadRoot({ access, chrome }) {
-			return loadRootOrgShellRouteData(access, chrome);
+		loadRoot(request) {
+			if (request.kind === 'suspended') {
+				return Promise.resolve(projectSuspendedRootOrgShellRouteData(request.orgId, request.orgName));
+			}
+
+			return loadRootOrgShellRouteData(request.access, request.chrome);
 		}
 	};
 }

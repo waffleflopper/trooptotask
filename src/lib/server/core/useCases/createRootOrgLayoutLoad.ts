@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
+import { createOrgShellCoordinator, type OrgShellCoordinator } from '../orgShellCoordinator';
 import { loadRootOrgShellRouteData } from './loadRootOrgShell';
 import { getLayoutClient } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseSubscriptionAdapter } from '$lib/server/adapters/supabaseSubscription';
@@ -47,7 +48,21 @@ async function loadDemoRootOrgShellRouteData(config: {
 	);
 }
 
-export function createRootOrgLayoutLoad() {
+export interface RootOrgLayoutLoadDeps {
+	coordinator?: OrgShellCoordinator;
+	getLayoutClient?: typeof getLayoutClient;
+	createSubscriptionAdapter?: typeof createSupabaseSubscriptionAdapter;
+	createOrgAccessPort?: typeof createSupabaseOrgAccessPort;
+	createOrgChromePort?: typeof createSupabaseOrgChromePort;
+}
+
+export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
+	const coordinator = deps.coordinator ?? createOrgShellCoordinator();
+	const getLayoutClientFn = deps.getLayoutClient ?? getLayoutClient;
+	const createSubscriptionAdapterFn = deps.createSubscriptionAdapter ?? createSupabaseSubscriptionAdapter;
+	const createOrgAccessPortFn = deps.createOrgAccessPort ?? createSupabaseOrgAccessPort;
+	const createOrgChromePortFn = deps.createOrgChromePort ?? createSupabaseOrgChromePort;
+
 	return async ({
 		params,
 		locals,
@@ -68,7 +83,7 @@ export function createRootOrgLayoutLoad() {
 		const demoSandboxCookie = cookies.get('demo_sandbox');
 		const isDemoReadOnly = demoMode === 'readonly';
 
-		const { supabase } = getLayoutClient(locals, cookies, orgId);
+		const { supabase } = getLayoutClientFn(locals, cookies, orgId);
 
 		const { data: org } = await supabase
 			.from('organizations')
@@ -103,7 +118,7 @@ export function createRootOrgLayoutLoad() {
 				canManageMembers: false
 			};
 
-			const effectiveTier = await createSupabaseSubscriptionAdapter(supabase, orgId).getEffectiveTier();
+			const effectiveTier = await createSubscriptionAdapterFn(supabase, orgId).getEffectiveTier();
 
 			return loadDemoRootOrgShellRouteData({
 				orgId,
@@ -134,7 +149,7 @@ export function createRootOrgLayoutLoad() {
 						canManageMembers: true
 					};
 
-					const effectiveTier = await createSupabaseSubscriptionAdapter(supabase, orgId).getEffectiveTier();
+					const effectiveTier = await createSubscriptionAdapterFn(supabase, orgId).getEffectiveTier();
 
 					return loadDemoRootOrgShellRouteData({
 						orgId,
@@ -153,11 +168,11 @@ export function createRootOrgLayoutLoad() {
 
 		if (!user) throw redirect(303, '/auth/login');
 
-		const subscriptionAdapter = createSupabaseSubscriptionAdapter(supabase, orgId);
+		const subscriptionAdapter = createSubscriptionAdapterFn(supabase, orgId);
 		const effectiveTierPromise = subscriptionAdapter.getEffectiveTier();
 
-		return loadRootOrgShellRouteData(
-			createSupabaseOrgAccessPort({
+		return coordinator.loadRoot({
+			access: createOrgAccessPortFn({
 				orgId,
 				userId: user.id,
 				userSupabase: locals.supabase,
@@ -166,12 +181,12 @@ export function createRootOrgLayoutLoad() {
 				isDemoSandbox: false,
 				getEffectiveTier: () => effectiveTierPromise
 			}),
-			createSupabaseOrgChromePort({
+			chrome: createOrgChromePortFn({
 				orgId,
 				userId: user.id,
 				userSupabase: locals.supabase,
 				supabase
 			})
-		);
+		});
 	};
 }

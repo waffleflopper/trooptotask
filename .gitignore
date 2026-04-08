@@ -31,6 +31,7 @@ npm-debug.log*
 supabase/seed.sql
 supabase/seed_remote.sql
 supabase/schema_remote.sql
+supabase/schema_remote_live.sql
 
 .worktrees/
 

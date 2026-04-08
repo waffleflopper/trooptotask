@@ -11,15 +11,21 @@
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import type { StatusType, AssignmentType, SpecialDay } from '$lib/types';
+	import { fly } from 'svelte/transition';
+	import { expoOut, cubicIn } from 'svelte/easing';
 
 	const org = getOrgContext();
+	const reducedMotion =
+		typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false;
+	const rowIn = reducedMotion ? { y: 0, duration: 0 } : { y: -8, duration: 180, easing: expoOut };
+	const rowOut = reducedMotion ? { y: 0, duration: 0 } : { y: -4, duration: 120, easing: cubicIn };
 	const canManageConfig = $derived(org.isPrivileged || org.isFullEditor);
 	const canMutate = $derived(!org.readOnly && (org.isPrivileged || org.isFullEditor));
 
 	// ---- Status Types ----
 	let newStatusName = $state('');
-	let newStatusColor = $state('#6b7280');
-	let newStatusTextColor = $state('#ffffff');
+	let newStatusColor = $state('#4a4a47');
+	let newStatusTextColor = $state('#f8f7f4');
 	let editingStatus = $state<StatusType | null>(null);
 	let editStatusName = $state('');
 	let editStatusColor = $state('');
@@ -52,8 +58,8 @@
 		if (!newStatusName.trim()) return;
 		await statusTypesStore.add({ name: newStatusName.trim(), color: newStatusColor, textColor: newStatusTextColor });
 		newStatusName = '';
-		newStatusColor = '#6b7280';
-		newStatusTextColor = '#ffffff';
+		newStatusColor = '#4a4a47';
+		newStatusTextColor = '#f8f7f4';
 	}
 
 	async function deleteStatus(s: StatusType) {
@@ -67,7 +73,7 @@
 	let newAssignName = $state('');
 	let newAssignShortName = $state('');
 	let newAssignTo = $state<'personnel' | 'group'>('personnel');
-	let newAssignColor = $state('#3b82f6');
+	let newAssignColor = $state('#c47f00');
 	let editingAssign = $state<AssignmentType | null>(null);
 	let editAssignName = $state('');
 	let editAssignShortName = $state('');
@@ -115,7 +121,7 @@
 		newAssignName = '';
 		newAssignShortName = '';
 		newAssignTo = 'personnel';
-		newAssignColor = '#3b82f6';
+		newAssignColor = '#c47f00';
 	}
 
 	async function deleteAssignType(t: AssignmentType) {
@@ -141,6 +147,9 @@
 	let newSpecialType = $state<'federal-holiday' | 'org-closure'>('org-closure');
 	let filterYear = $state(new Date().getFullYear());
 	let confirmDeleteSpecial = $state<SpecialDay | null>(null);
+	let editingSpecialDay = $state<SpecialDay | null>(null);
+	let editSpecialName = $state('');
+	let editSpecialType = $state<'federal-holiday' | 'org-closure'>('org-closure');
 
 	const yearOptions = $derived.by(() => {
 		const y = new Date().getFullYear();
@@ -164,6 +173,27 @@
 		if (!canMutate) return;
 		await specialDaysStore.remove(d.id);
 		confirmDeleteSpecial = null;
+	}
+
+	function startEditSpecialDay(d: SpecialDay) {
+		editingSpecialDay = d;
+		editSpecialName = d.name;
+		editSpecialType = d.type;
+	}
+
+	function cancelEditSpecialDay() {
+		editingSpecialDay = null;
+	}
+
+	async function saveEditSpecialDay() {
+		if (!editingSpecialDay || !editSpecialName.trim()) return;
+		const updated = await specialDaysStore.update(editingSpecialDay.id, {
+			name: editSpecialName.trim(),
+			type: editSpecialType
+		});
+		if (updated) {
+			editingSpecialDay = null;
+		}
 	}
 
 	function formatDisplayDate(dateStr: string): string {
@@ -191,20 +221,10 @@
 				<p class="hero-description">
 					You can view the calendar, but only organization admins and full editors can manage calendar settings.
 				</p>
+				<a href="/org/{org.orgId}/calendar" class="btn btn-sm hero-action">View calendar</a>
 			</div>
 		</section>
 	{:else}
-		<section class="settings-hero">
-			<div class="hero-copy">
-				<p class="eyebrow">Calendar configuration</p>
-				<h1>Keep the calendar rules easy to scan and easy to update.</h1>
-				<p class="hero-description">
-					Statuses, duty labels, and special days all shape the calendar differently. Splitting them into dedicated
-					panels makes it easier to review what exists and make changes without losing your place.
-				</p>
-			</div>
-		</section>
-
 		<div class="settings-grid">
 			<!-- ===== STATUS TYPES ===== -->
 			<section class="settings-section card card-flat">
@@ -242,12 +262,18 @@
 
 				<div class="item-list">
 					{#each statusTypesStore.items as status (status.id)}
-						<div class="item-row status-item-row">
+						<div class="item-row status-item-row" in:fly={rowIn} out:fly={rowOut}>
 							{#if editingStatus?.id === status.id}
 								<div class="inline-edit">
-									<input class="input" type="text" bind:value={editStatusName} placeholder="Status name" />
+									<input
+										class="input"
+										type="text"
+										bind:value={editStatusName}
+										placeholder="Status name"
+										aria-label="Status name"
+									/>
 									<label class="color-picker">
-										<span>BG</span>
+										<span>Background</span>
 										<input type="color" bind:value={editStatusColor} />
 									</label>
 									<label class="color-picker">
@@ -328,6 +354,9 @@
 						<span>Color</span>
 						<input type="color" bind:value={newAssignColor} disabled={!canMutate} />
 					</label>
+					{#if newAssignShortName.trim()}
+						<Badge label={newAssignShortName.trim().toUpperCase()} color={newAssignColor} bold={true} />
+					{/if}
 					<button
 						class="btn btn-primary btn-sm"
 						onclick={addAssignType}
@@ -335,20 +364,36 @@
 					>
 				</div>
 
+				<p class="hint">
+					Select which assignment type's assignee appears in each calendar date column.
+					{#if headerTypeId}
+						Currently showing: <strong>{dailyAssignmentsStore.types.find((t) => t.id === headerTypeId)?.name}</strong>
+					{:else}
+						None selected — no assignee shown in date columns.
+					{/if}
+				</p>
+
 				<div class="item-list">
 					{#each dailyAssignmentsStore.types as type (type.id)}
-						<div class="item-row">
+						<div class="item-row" in:fly={rowIn} out:fly={rowOut}>
 							{#if editingAssign?.id === type.id}
 								<div class="inline-edit">
-									<input class="input" type="text" bind:value={editAssignName} placeholder="Full name" />
+									<input
+										class="input"
+										type="text"
+										bind:value={editAssignName}
+										placeholder="Full name"
+										aria-label="Assignment full name"
+									/>
 									<input
 										class="input short-input"
 										type="text"
 										bind:value={editAssignShortName}
 										placeholder="Short"
 										maxlength="5"
+										aria-label="Assignment short name"
 									/>
-									<select class="select" bind:value={editAssignTo}>
+									<select class="select" bind:value={editAssignTo} aria-label="Assign to">
 										<option value="personnel">Person</option>
 										<option value="group">Group</option>
 									</select>
@@ -356,6 +401,7 @@
 										<span>Color</span>
 										<input type="color" bind:value={editAssignColor} />
 									</label>
+									<Badge label={editAssignShortName.trim().toUpperCase() || '?'} color={editAssignColor} bold={true} />
 									<button
 										class="btn btn-primary btn-sm"
 										onclick={saveEditAssign}
@@ -364,15 +410,17 @@
 									<button class="btn btn-sm" onclick={cancelEditAssign}>Cancel</button>
 								</div>
 							{:else}
-								<label class="header-radio" title="Show in date header">
+								<label class="header-radio">
 									<input
 										type="radio"
 										name="showInDateHeader"
 										value={type.id}
 										checked={headerTypeId === type.id}
 										disabled={!canMutate}
+										aria-label="Show {type.name} in date header"
 										onchange={() => setShowInDateHeader(type.id)}
 									/>
+									<span class="radio-label-text">Date header</span>
 								</label>
 								<Badge label={type.shortName} color={type.color} bold={true} />
 								<span class="item-name">{type.name}</span>
@@ -403,16 +451,6 @@
 						</div>
 					{/each}
 				</div>
-
-				<p class="hint">
-					<strong>Show in date header:</strong> Select the assignment type whose assignee name appears in each date
-					column of the calendar grid.
-					{#if headerTypeId}
-						Currently showing: <strong>{dailyAssignmentsStore.types.find((t) => t.id === headerTypeId)?.name}</strong>
-					{:else}
-						None selected (no assignee shown in date headers).
-					{/if}
-				</p>
 			</section>
 
 			<!-- ===== HOLIDAYS & SPECIAL DAYS ===== -->
@@ -435,13 +473,12 @@
 						{/each}
 					</select>
 					<span class="count">{filteredDays.length} days</span>
-					<button
-						class="btn btn-secondary btn-sm reset-button"
-						onclick={() => (showResetConfirm = true)}
-						disabled={!canMutate}
-					>
-						Reset Federal Holidays
-					</button>
+					<div class="reset-block">
+						<button class="btn btn-secondary btn-sm" onclick={() => (showResetConfirm = true)} disabled={!canMutate}>
+							Reset Federal Holidays
+						</button>
+						<span class="reset-note">Preserves your custom closures</span>
+					</div>
 				</div>
 
 				<div class="add-form add-form-priority">
@@ -468,28 +505,63 @@
 
 				<div class="item-list">
 					{#each filteredDays as day (day.id)}
-						<div class="item-row">
-							<span class="day-date">{formatDisplayDate(day.date)}</span>
-							<span class="item-name">{day.name}</span>
-							<span class="day-type" class:holiday={day.type === 'federal-holiday'}>
-								{day.type === 'federal-holiday' ? 'Holiday' : 'Closure'}
-							</span>
-							<div class="item-actions">
-								{#if canMutate}
+						<div class="item-row" in:fly={rowIn} out:fly={rowOut}>
+							{#if editingSpecialDay?.id === day.id}
+								<div class="inline-edit">
+									<span class="day-date">{formatDisplayDate(day.date)}</span>
+									<input
+										class="input flexible-input"
+										type="text"
+										bind:value={editSpecialName}
+										placeholder="Name"
+										aria-label="Special day name"
+									/>
+									<select class="select type-select" bind:value={editSpecialType} aria-label="Type">
+										<option value="org-closure">Closure</option>
+										<option value="federal-holiday">Federal Holiday</option>
+									</select>
 									<button
-										class="item-icon-button item-icon-button-danger"
-										type="button"
-										title="Delete special day"
-										aria-label="Delete special day"
-										onclick={() => (confirmDeleteSpecial = day)}
+										class="btn btn-primary btn-sm"
+										onclick={saveEditSpecialDay}
+										disabled={!canMutate || !editSpecialName.trim()}>Save</button
 									>
-										<Trash2Icon size={16} strokeWidth={2} />
-									</button>
-								{/if}
-							</div>
+									<button class="btn btn-sm" onclick={cancelEditSpecialDay}>Cancel</button>
+								</div>
+							{:else}
+								<span class="day-date">{formatDisplayDate(day.date)}</span>
+								<span class="item-name">{day.name}</span>
+								<span class="day-type" class:holiday={day.type === 'federal-holiday'}>
+									{day.type === 'federal-holiday' ? 'Holiday' : 'Closure'}
+								</span>
+								<div class="item-actions">
+									{#if canMutate}
+										<button
+											class="item-icon-button"
+											type="button"
+											title="Edit special day"
+											aria-label="Edit special day"
+											onclick={() => startEditSpecialDay(day)}
+										>
+											<PencilIcon size={16} strokeWidth={2} />
+										</button>
+										<button
+											class="item-icon-button item-icon-button-danger"
+											type="button"
+											title="Delete special day"
+											aria-label="Delete special day"
+											onclick={() => (confirmDeleteSpecial = day)}
+										>
+											<Trash2Icon size={16} strokeWidth={2} />
+										</button>
+									{/if}
+								</div>
+							{/if}
 						</div>
 					{:else}
-						<p class="empty-msg">No holidays or closures for {filterYear}.</p>
+						<p class="empty-msg">
+							No holidays or closures for {filterYear}. Use the form above to add a closure, or reset federal holidays
+							to populate defaults.
+						</p>
 					{/each}
 				</div>
 			</section>
@@ -599,6 +671,11 @@
 		color: var(--text-secondary);
 	}
 
+	.hero-action {
+		margin-top: var(--sp-4);
+		display: inline-flex;
+	}
+
 	.settings-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -656,14 +733,12 @@
 		flex-direction: column;
 		gap: var(--sp-2);
 		min-width: 0;
-		max-height: min(26rem, 42vh);
-		overflow-y: auto;
-		padding-right: var(--sp-2);
 	}
 
 	.item-row {
 		display: flex;
 		align-items: center;
+		align-content: center;
 		flex-wrap: wrap;
 		gap: var(--sp-3);
 		padding: var(--sp-3) var(--sp-4);
@@ -679,10 +754,6 @@
 	.item-row:hover {
 		background: color-mix(in srgb, var(--surface-panel) 82%, var(--surface-subtle) 18%);
 		border-color: color-mix(in srgb, var(--border-default) 84%, var(--ink-35) 16%);
-	}
-
-	.status-item-row {
-		flex-wrap: nowrap;
 	}
 
 	.inline-edit {
@@ -711,7 +782,7 @@
 		font-size: var(--text-xs);
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--text-tertiary);
+		color: var(--text-secondary);
 	}
 
 	.item-actions {
@@ -726,17 +797,26 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 36px;
-		min-height: 36px;
-		padding: 0 var(--sp-3);
+		width: 28px;
+		height: 28px;
+		padding: 0;
 		border: var(--border-thin);
 		border-radius: var(--radius-md);
 		background: var(--surface-panel);
 		color: var(--text-tertiary);
+		position: relative;
+		flex-shrink: 0;
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
 			color var(--transition-fast);
+	}
+
+	/* Expand hit area to 44px without inflating the visual button size */
+	.item-icon-button::before {
+		content: '';
+		position: absolute;
+		inset: -8px;
 	}
 
 	.item-icon-button:hover:not(:disabled) {
@@ -804,12 +884,25 @@
 
 	.header-radio {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
+		gap: 3px;
 		cursor: pointer;
 	}
 
 	.header-radio input {
 		accent-color: var(--amber);
+	}
+
+	.radio-label-text {
+		font-family: var(--font-mono);
+		font-size: 9px;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+		white-space: nowrap;
+		line-height: 1;
 	}
 
 	.hint {
@@ -896,8 +989,21 @@
 		width: 100px;
 	}
 
-	.reset-button {
+	.reset-block {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 3px;
 		margin-left: auto;
+	}
+
+	.reset-note {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+		white-space: nowrap;
 	}
 
 	.date-input {
@@ -932,12 +1038,6 @@
 			padding: var(--sp-4);
 		}
 
-		.item-list {
-			max-height: none;
-			overflow-y: visible;
-			padding-right: 0;
-		}
-
 		.item-row {
 			align-items: flex-start;
 		}
@@ -947,8 +1047,13 @@
 			width: 100%;
 		}
 
-		.reset-button {
+		.reset-block {
 			margin-left: 0;
+			align-items: flex-start;
+			width: 100%;
+		}
+
+		.reset-block .btn {
 			width: 100%;
 		}
 

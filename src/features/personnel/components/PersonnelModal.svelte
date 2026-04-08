@@ -122,7 +122,7 @@
 <Modal title={isEditing ? 'Edit Person' : 'Add Person'} {onClose} titleId="personnel-title">
 	<form class="personnel-form" onsubmit={handleSubmit}>
 		<FormField label="Rank" id="rank">
-			<SearchSelect id="rank" options={rankOptions} bind:value={rank} placeholder="Select rank..." />
+			<SearchSelect id="rank" options={rankOptions} bind:value={rank} placeholder="Select rank..." clearable={false} />
 		</FormField>
 
 		<div class="form-row">

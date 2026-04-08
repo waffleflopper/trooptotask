@@ -670,6 +670,7 @@
 	.item-row {
 		display: flex;
 		align-items: center;
+		align-content: center;
 		flex-wrap: wrap;
 		gap: var(--sp-3);
 		padding: var(--sp-3) var(--sp-4);

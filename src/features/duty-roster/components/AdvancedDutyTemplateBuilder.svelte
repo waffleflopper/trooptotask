@@ -163,6 +163,7 @@
 		builderStep = 'basics';
 		saveError = '';
 		applyState(createBlankBuilderState());
+		exemptStatusTypeIds = statusTypes.map((s) => s.id);
 	}
 
 	function applyStarterPreset(presetId: string | null) {
@@ -170,6 +171,7 @@
 		const preset = templateStarterPresets.find((candidate) => candidate.id === presetId);
 		if (!preset) return;
 		applyState(createBuilderStateFromPreset(preset, nextSlotKey));
+		exemptStatusTypeIds = statusTypes.map((s) => s.id);
 	}
 
 	$effect(() => {

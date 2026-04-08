@@ -278,8 +278,38 @@
 		gap: var(--sp-2);
 		margin-top: var(--sp-3);
 	}
+	.chip {
+		appearance: none;
+		padding: 4px 8px;
+		border-radius: var(--radius-sm);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		border: 1px solid var(--border-default);
+		background: var(--surface-subtle);
+		color: var(--text-secondary);
+		cursor: pointer;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
+	}
+	.chip:hover {
+		border-color: var(--ink-35);
+		background: var(--surface-panel);
+		color: var(--text-primary);
+	}
+	.chip.selected {
+		background: var(--amber-light);
+		border-color: var(--amber);
+		color: var(--amber-dark);
+	}
 	.status-chip.selected {
-		outline: 2px solid var(--amber);
+		background: var(--chip-color);
+		border-color: var(--chip-color);
+		color: var(--chip-text);
 	}
 	.section-header,
 	.slot-header {

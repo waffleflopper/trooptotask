@@ -64,4 +64,39 @@ describe('AdvancedDutyPersistenceAdapter', () => {
 			p_slot_rows: [{ role_label: 'NCO' }]
 		});
 	});
+
+	it('prefixes template RPC errors with the function name', async () => {
+		const rpc = vi.fn().mockResolvedValue({
+			data: null,
+			error: { message: 'function does not exist' }
+		});
+		const adapter = createSupabaseAdvancedDutyPersistenceAdapter({ rpc } as unknown as SupabaseClient);
+
+		await expect(
+			adapter.updateDutyTemplateAggregate({
+				orgId: 'org-1',
+				templateId: 'template-1',
+				templateData: {},
+				slotRows: [],
+				rotationBaselineRows: []
+			})
+		).rejects.toThrow('update_advanced_duty_template_aggregate: function does not exist');
+	});
+
+	it('prefixes event RPC errors with the function name', async () => {
+		const rpc = vi.fn().mockResolvedValue({
+			data: null,
+			error: { message: 'function does not exist' }
+		});
+		const adapter = createSupabaseAdvancedDutyPersistenceAdapter({ rpc } as unknown as SupabaseClient);
+
+		await expect(
+			adapter.updateDutyEventAggregate({
+				orgId: 'org-1',
+				dutyEventId: 'event-1',
+				eventData: {},
+				slotRows: []
+			})
+		).rejects.toThrow('update_advanced_duty_event_aggregate: function does not exist');
+	});
 });

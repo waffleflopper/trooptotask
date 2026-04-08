@@ -10,6 +10,10 @@ function cloneRow<T>(value: T): T {
 	return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function buildRpcError(rpcName: string, message: string): Error {
+	return new Error(`${rpcName}: ${message}`);
+}
+
 function asTemplateAggregate(value: unknown): PersistedDutyTemplateAggregate {
 	const aggregate = value as PersistedDutyTemplateAggregate | null;
 	if (!aggregate?.templateRow || !Array.isArray(aggregate.slotRows) || !Array.isArray(aggregate.rotationBaselineRows)) {
@@ -29,6 +33,7 @@ function asEventAggregate(value: unknown): PersistedDutyEventAggregate {
 export function createSupabaseAdvancedDutyPersistenceAdapter(supabase: SupabaseClient): AdvancedDutyPersistencePort {
 	return {
 		async updateDutyTemplateAggregate(input) {
+			const rpcName = 'update_advanced_duty_template_aggregate';
 			const { data, error } = await supabase.rpc('update_advanced_duty_template_aggregate', {
 				p_org_id: input.orgId,
 				p_template_id: input.templateId,
@@ -38,13 +43,14 @@ export function createSupabaseAdvancedDutyPersistenceAdapter(supabase: SupabaseC
 			});
 
 			if (error) {
-				throw new Error(error.message);
+				throw buildRpcError(rpcName, error.message);
 			}
 
 			return asTemplateAggregate(data);
 		},
 
 		async updateDutyEventAggregate(input) {
+			const rpcName = 'update_advanced_duty_event_aggregate';
 			const { data, error } = await supabase.rpc('update_advanced_duty_event_aggregate', {
 				p_org_id: input.orgId,
 				p_duty_event_id: input.dutyEventId,
@@ -53,7 +59,7 @@ export function createSupabaseAdvancedDutyPersistenceAdapter(supabase: SupabaseC
 			});
 
 			if (error) {
-				throw new Error(error.message);
+				throw buildRpcError(rpcName, error.message);
 			}
 
 			return asEventAggregate(data);

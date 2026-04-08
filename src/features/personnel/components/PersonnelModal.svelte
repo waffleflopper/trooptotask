@@ -5,6 +5,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import FormField from '$lib/components/ui/FormField.svelte';
+	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 
 	interface Props {
 		personnel?: Personnel | null;
@@ -37,6 +38,42 @@
 
 	const selectedGroupName = $derived(groups.find((g) => g.id === groupId)?.name ?? '');
 	let isSaving = $state(false);
+
+	const rankOptions = [
+		'GEN',
+		'LTG',
+		'MG',
+		'BG',
+		'COL',
+		'LTC',
+		'MAJ',
+		'CPT',
+		'1LT',
+		'2LT',
+		'CW5',
+		'CW4',
+		'CW3',
+		'CW2',
+		'WO1',
+		'CSM',
+		'SGM',
+		'1SG',
+		'MSG',
+		'SFC',
+		'SSG',
+		'SGT',
+		'CPL',
+		'SPC',
+		'PFC',
+		'PV2',
+		'PV1',
+		'CIV'
+	].map((r) => ({ value: r, label: r }));
+
+	const groupOptions = $derived([
+		{ value: '', label: 'No Group Assigned' },
+		...groups.map((g) => ({ value: g.id, label: g.name }))
+	]);
 
 	function getErrorMessage(error: unknown): string {
 		if (error instanceof Error && error.message.trim()) return error.message;
@@ -85,31 +122,7 @@
 <Modal title={isEditing ? 'Edit Person' : 'Add Person'} {onClose} titleId="personnel-title">
 	<form class="personnel-form" onsubmit={handleSubmit}>
 		<FormField label="Rank" id="rank">
-			<select id="rank" class="input" data-testid="personnel-rank" bind:value={rank}>
-				<optgroup label="Commissioned Officer">
-					{#each ['GEN', 'LTG', 'MG', 'BG', 'COL', 'LTC', 'MAJ', 'CPT', '1LT', '2LT'] as r}
-						<option value={r}>{r}</option>
-					{/each}
-				</optgroup>
-				<optgroup label="Warrant Officer">
-					{#each ['CW5', 'CW4', 'CW3', 'CW2', 'WO1'] as r}
-						<option value={r}>{r}</option>
-					{/each}
-				</optgroup>
-				<optgroup label="NCO">
-					{#each ['CSM', 'SGM', '1SG', 'MSG', 'SFC', 'SSG', 'SGT'] as r}
-						<option value={r}>{r}</option>
-					{/each}
-				</optgroup>
-				<optgroup label="Enlisted">
-					{#each ['CPL', 'SPC', 'PFC', 'PV2', 'PV1'] as r}
-						<option value={r}>{r}</option>
-					{/each}
-				</optgroup>
-				<optgroup label="Civilian">
-					<option value="CIV">CIV</option>
-				</optgroup>
-			</select>
+			<SearchSelect id="rank" options={rankOptions} bind:value={rank} placeholder="Select rank..." clearable={false} />
 		</FormField>
 
 		<div class="form-row">
@@ -122,13 +135,8 @@
 			<FormField label="Role" id="clinicRole" placeholder="e.g., Medic, Physician" bind:value={clinicRole} />
 		</div>
 
-		<FormField label="Group" id="group" inputElement="select" bind:value={groupId}>
-			<select id="group" class="input" bind:value={groupId}>
-				<option value="">No Group Assigned</option>
-				{#each groups as g}
-					<option value={g.id}>{g.name}</option>
-				{/each}
-			</select>
+		<FormField label="Group" id="group">
+			<SearchSelect id="group" options={groupOptions} bind:value={groupId} placeholder="No Group Assigned" />
 		</FormField>
 
 		<!-- Preview -->

@@ -433,7 +433,6 @@
 			assignmentTypes={props.assignmentTypes}
 			assignments={props.assignments}
 			personnelByGroup={props.personnelByGroup}
-			groups={props.groups}
 			availabilityEntries={props.availabilityEntries}
 			statusTypes={props.statusTypes}
 			specialDays={props.specialDays}

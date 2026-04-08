@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { AssignmentType, Personnel } from '$lib/types';
 import type { DutyEvent } from '../duty-roster.types';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup, waitFor } from '@testing-library/svelte';
 import DutyRosterGenerator from './DutyRosterGenerator.svelte';
 
@@ -125,7 +125,6 @@ function renderGenerator(overrides: Parameters<typeof render>[1]['props'] = {}) 
 async function generateSimpleRoster(date = '2026-04-10') {
 	await fireEvent.input(screen.getByLabelText('Start Date'), { target: { value: date } });
 	await fireEvent.input(screen.getByLabelText('End Date'), { target: { value: date } });
-	await fireEvent.click(screen.getByRole('button', { name: /Continue to Personnel/ }));
 	await fireEvent.click(screen.getByRole('button', { name: 'Generate Roster' }));
 	await waitFor(() => expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy());
 }
@@ -140,8 +139,67 @@ describe('DutyRosterGenerator', () => {
 
 		expect(screen.getByText('Duty planning')).toBeTruthy();
 		expect(screen.getByText('Setup')).toBeTruthy();
-		expect(screen.getByRole('button', { name: /Continue to Personnel/ })).toBeTruthy();
 		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('shows Generate Roster in the setup panel header with no Personnel step', () => {
+		renderGenerator();
+
+		expect(screen.getByRole('button', { name: 'Generate Roster' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /Continue to Personnel/ })).toBeNull();
+	});
+
+	it('shows existing exempt personnel as tags in the setup panel', () => {
+		const exemptPerson = makePersonnel({ id: 'person-2', firstName: 'Alex', lastName: 'Rivera', rank: 'SPC' });
+		renderGenerator({
+			assignmentTypes: [makeAssignmentType({ exemptPersonnelIds: ['person-2'] })],
+			personnelByGroup: [
+				{
+					group: 'Headquarters',
+					personnel: [makePersonnel(), exemptPerson]
+				}
+			]
+		});
+
+		expect(screen.getByText(/Rivera/)).toBeTruthy();
+	});
+
+	it('shows Save Exemptions button only when draft differs from saved', async () => {
+		renderGenerator();
+
+		expect(screen.queryByRole('button', { name: /Save Exemptions/ })).toBeNull();
+	});
+
+	it('calls onUpdateExemptions with the correct ids when Save Exemptions is clicked', async () => {
+		const onUpdateExemptions = vi.fn(async () => {});
+		const exemptPerson = makePersonnel({ id: 'person-2', firstName: 'Alex', lastName: 'Rivera', rank: 'SPC' });
+		renderGenerator({
+			assignmentTypes: [makeAssignmentType({ exemptPersonnelIds: ['person-2'] })],
+			personnelByGroup: [{ group: 'HQ', personnel: [makePersonnel(), exemptPerson] }],
+			onUpdateExemptions
+		});
+
+		// Remove Rivera from exemptions by clicking the × on the tag
+		const removeBtn = screen.getByRole('button', { name: 'Remove SPC Rivera, Alex' });
+		await fireEvent.mouseDown(removeBtn);
+
+		const saveBtn = screen.getByRole('button', { name: 'Save Exemptions' });
+		await fireEvent.click(saveBtn);
+
+		expect(onUpdateExemptions).toHaveBeenCalledWith('at-1', []);
+	});
+
+	it('excludes an exempt person from the generated roster', async () => {
+		const exemptPerson = makePersonnel({ id: 'person-exempt', firstName: 'Dana', lastName: 'Kim', rank: 'SPC' });
+		renderGenerator({
+			assignmentTypes: [makeAssignmentType({ exemptPersonnelIds: ['person-exempt'] })],
+			personnelByGroup: [{ group: 'HQ', personnel: [makePersonnel(), exemptPerson] }]
+		});
+
+		await generateSimpleRoster();
+
+		expect(screen.queryByText(/Kim/)).toBeNull();
+		expect(screen.getByText(/Nolan/)).toBeTruthy();
 	});
 
 	it('keeps a soldier available when they are assigned to a non-blocking advanced duty slot', async () => {

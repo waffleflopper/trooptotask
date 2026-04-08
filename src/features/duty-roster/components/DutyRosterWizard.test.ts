@@ -499,7 +499,6 @@ describe('DutyRosterWizard', () => {
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Use Automatic Assignment Generator' }));
 			await fireEvent.click(screen.getByRole('button', { name: 'Continue with Staff Duty' }));
-			await fireEvent.click(screen.getByRole('button', { name: /Continue to Personnel/ }));
 			await fireEvent.click(screen.getByRole('button', { name: 'Generate Roster' }));
 
 			await waitFor(() => {

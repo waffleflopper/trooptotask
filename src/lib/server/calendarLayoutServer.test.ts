@@ -9,6 +9,7 @@ import {
 	createTestBillingPort,
 	createTestStoragePort
 } from '$lib/server/adapters/inMemory';
+import { createInMemoryAdvancedDutyPersistenceAdapter } from '$lib/server/adapters/advancedDutyPersistence';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { fetchCalendarData } from '$lib/server/core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '$lib/server/core/useCases/onboardingCalendarQuery';
@@ -21,6 +22,7 @@ function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[
 	return {
 		store,
 		rawStore: store,
+		advancedDutyPersistence: createInMemoryAdvancedDutyPersistenceAdapter(store),
 		auth: createTestAuthContext({ orgId: ORG, ...overrides?.auth }),
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(),

@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { applyHydration } from '$lib/applyHydration.svelte';
+	import { orgShellHydrationCoordinator } from '$lib/orgShellHydrationCoordinator.svelte';
+
+	const coordinator = orgShellHydrationCoordinator;
 
 	let { children, data } = $props();
 
 	$effect(() => {
-		applyHydration(data.dashboard.hydration);
+		void coordinator.hydrate(data.dashboard?.hydration);
 	});
 </script>
 

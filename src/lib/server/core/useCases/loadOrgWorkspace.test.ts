@@ -12,7 +12,15 @@ import type { DashboardBootstrap } from './dashboardQuery';
 import type { PersonnelBootstrap } from './personnelWorkspaceQuery';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
-import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	DailyAssignment,
+	Personnel,
+	PersonnelLookup,
+	SpecialDay,
+	StatusType
+} from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 
 const ORG = 'test-org';
@@ -87,18 +95,18 @@ describe('loadOrgWorkspace', () => {
 	});
 
 	it('preserves all CalendarBootstrap fields in data', async () => {
-		const calendarData: CalendarBootstrap = {
-			availabilityEntries: [{ id: 'a1' } as CalendarBootstrap['availabilityEntries'][0]],
-			specialDays: [{ id: 'sd1' } as CalendarBootstrap['specialDays'][0]],
-			assignmentTypes: [{ id: 'at1' } as CalendarBootstrap['assignmentTypes'][0]],
-			dailyAssignments: [{ id: 'da1' } as CalendarBootstrap['dailyAssignments'][0]],
+		const calendarData = {
+			availabilityEntries: [{ id: 'a1' } as AvailabilityEntry],
+			specialDays: [{ id: 'sd1' } as SpecialDay],
+			assignmentTypes: [{ id: 'at1' } as AssignmentType],
+			dailyAssignments: [{ id: 'da1' } as DailyAssignment],
 			pinnedGroups: ['Alpha'],
 			advancedDutyEvents: [],
 			personnel: [{ id: 'p1', lastName: 'Smith', firstName: 'John' } as unknown as Personnel],
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#000', textColor: '#fff' } as StatusType],
 			activeOnboardingPersonnelIds: ['p1']
-		};
+		} satisfies CalendarBootstrap;
 		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['calendar', calendarData]]));
 		const plannerPort = createInMemoryHydrationPlannerPort(new Map());
 

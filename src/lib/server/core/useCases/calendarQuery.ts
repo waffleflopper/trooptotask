@@ -36,7 +36,13 @@ export interface CalendarData {
 	advancedDutyEvents: DutyEvent[];
 }
 
-export interface CalendarBootstrap extends CalendarData {
+export interface CalendarBootstrap {
+	availabilityEntries: AvailabilityEntry[] | Promise<AvailabilityEntry[]>;
+	specialDays: SpecialDay[] | Promise<SpecialDay[]>;
+	assignmentTypes: AssignmentType[];
+	dailyAssignments: DailyAssignment[] | Promise<DailyAssignment[]>;
+	pinnedGroups: string[];
+	advancedDutyEvents: DutyEvent[];
 	personnel: Personnel[];
 	groups: Group[];
 	statusTypes: StatusType[];
@@ -113,24 +119,73 @@ export async function fetchCalendarBootstrap(
 	ctx: QueryPorts,
 	input: CalendarQueryInput
 ): Promise<Omit<CalendarBootstrap, 'activeOnboardingPersonnelIds'>> {
+	ctx.auth.requireView('calendar');
+
 	const orgId = ctx.auth.orgId;
-	const [calendarData, personnelRows, groupRows, statusTypeRows] = await Promise.all([
-		fetchCalendarData(ctx, input),
-		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-			select: PersonnelEntity.select,
-			isNull: { archived_at: true },
-			orderBy: [{ column: 'last_name', ascending: true }]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
+	const { rangeStart, rangeEnd } = input;
+	const availabilityEntries = ctx.store
+		.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
+			select: AvailabilityEntryEntity.select,
+			rangeFilters: [
+				{ column: 'end_date', op: 'gte', value: rangeStart },
+				{ column: 'start_date', op: 'lte', value: rangeEnd }
+			]
 		})
-	]);
+		.then((rows) => AvailabilityEntryEntity.fromDbArray(rows));
+	const specialDays = ctx.store
+		.findMany<Record<string, unknown>>('special_days', orgId, undefined, {
+			rangeFilters: [
+				{ column: 'date', op: 'gte', value: rangeStart },
+				{ column: 'date', op: 'lte', value: rangeEnd }
+			],
+			orderBy: [{ column: 'date', ascending: true }]
+		})
+		.then((rows) => SpecialDayEntity.fromDbArray(rows));
+	const dailyAssignments = ctx.store
+		.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
+			rangeFilters: [
+				{ column: 'date', op: 'gte', value: rangeStart },
+				{ column: 'date', op: 'lte', value: rangeEnd }
+			]
+		})
+		.then((rows) => DailyAssignmentEntity.fromDbArray(rows));
+
+	const [assignmentTypeRows, pinnedGroupRows, advancedDutyEvents, personnelRows, groupRows, statusTypeRows] =
+		await Promise.all([
+			ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}),
+			ctx.auth.userId
+				? ctx.store.findMany<Record<string, unknown>>(
+						'user_pinned_groups',
+						orgId,
+						{ user_id: ctx.auth.userId },
+						{
+							orderBy: [{ column: 'sort_order', ascending: true }]
+						}
+					)
+				: Promise.resolve([]),
+			listDutyEventsInRange(ctx, { rangeStart, rangeEnd }),
+			ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+				select: PersonnelEntity.select,
+				isNull: { archived_at: true },
+				orderBy: [{ column: 'last_name', ascending: true }]
+			}),
+			ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}),
+			ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			})
+		]);
 
 	return {
-		...calendarData,
+		availabilityEntries,
+		specialDays,
+		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),
+		dailyAssignments,
+		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
+		advancedDutyEvents,
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows)

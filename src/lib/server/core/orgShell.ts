@@ -70,8 +70,14 @@ export type WorkspaceKey = 'dashboard' | 'calendar' | 'personnel' | 'training' |
 export type HydrationMode = 'replace' | 'merge' | 'preserve-client';
 export type HydrationItems<T = unknown> = T[] | Promise<T[]>;
 
+export interface CalendarAssignmentsHydrationItems {
+	types: AssignmentType[];
+	assignments: DailyAssignment[];
+}
+
 export interface HydrationTarget<T = unknown> {
 	mode: HydrationMode;
+	deferred?: boolean;
 	/**
 	 * Stable identity for the server snapshot backing this target.
 	 * `applyHydration(...)` uses this to avoid re-loading unchanged data.
@@ -82,13 +88,14 @@ export interface HydrationTarget<T = unknown> {
 
 export interface CalendarAssignmentsHydrationTarget {
 	mode: HydrationMode;
+	deferred?: boolean;
 	snapshotKey: string;
-	types: AssignmentType[];
-	assignments: DailyAssignment[];
+	items: CalendarAssignmentsHydrationItems | Promise<CalendarAssignmentsHydrationItems>;
 }
 
 export interface OnboardingTemplatesHydrationTarget {
 	mode: HydrationMode;
+	deferred?: boolean;
 	snapshotKey: string;
 	templates: OnboardingTemplate[];
 	steps: OnboardingTemplateStep[];

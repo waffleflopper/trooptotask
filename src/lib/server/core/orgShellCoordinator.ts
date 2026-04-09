@@ -1,4 +1,5 @@
 import type {
+	HydrationPlan,
 	HydrationPlannerPort,
 	OrgAccessPort,
 	OrgChromePort,
@@ -7,6 +8,7 @@ import type {
 	WorkspaceKey
 } from './orgShell';
 import type { RootOrgShellLoadResult } from './useCases/loadRootOrgShell';
+import { createOrgShellHydrationCoordinator, type HydrationStores } from '$lib/orgShellHydrationCoordinator.svelte';
 import { loadRootOrgShellRouteData, projectSuspendedRootOrgShellRouteData } from './useCases/loadRootOrgShell';
 
 export type RootOrgShellRequest =
@@ -14,9 +16,7 @@ export type RootOrgShellRequest =
 	| { kind: 'suspended'; orgId: string; orgName: string };
 
 /**
- * Server-side orchestration boundary for org shell/workspace bootstrap data.
- * Applying the emitted `HydrationPlan` remains a client concern via
- * `src/lib/applyHydration.svelte.ts` from each workspace `+layout.svelte`.
+ * Orchestration boundary for org shell/workspace bootstrap data and client hydration.
  */
 export interface OrgShellCoordinator {
 	loadRoot(request: RootOrgShellRequest): Promise<RootOrgShellLoadResult>;
@@ -27,9 +27,12 @@ export interface OrgShellCoordinator {
 			planner: HydrationPlannerPort;
 		}
 	): Promise<Record<K, WorkspaceBootstrap<T>>>;
+	hydrate(plan?: HydrationPlan, stores?: HydrationStores): Promise<void>;
 }
 
 export function createOrgShellCoordinator(): OrgShellCoordinator {
+	const hydrationCoordinator = createOrgShellHydrationCoordinator();
+
 	return {
 		loadRoot(request) {
 			if (request.kind === 'suspended') {
@@ -52,6 +55,10 @@ export function createOrgShellCoordinator(): OrgShellCoordinator {
 			const result = {} as Record<K, WorkspaceBootstrap<T>>;
 			result[workspace] = bootstrap;
 			return result;
+		},
+
+		hydrate(plan, stores) {
+			return hydrationCoordinator.hydrate(plan, stores);
 		}
 	};
 }

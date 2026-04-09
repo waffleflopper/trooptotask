@@ -50,6 +50,32 @@ function isHydratableItems(value: unknown): value is unknown[] | Promise<unknown
 	return Array.isArray(value) || isPromiseLike<unknown[]>(value);
 }
 
+function createCalendarAssignmentsItems(
+	assignmentTypes: AssignmentType[] | Promise<AssignmentType[]>,
+	assignmentEntries: DailyAssignment[] | Promise<DailyAssignment[]>
+) {
+	if (isPromiseLike(assignmentTypes) || isPromiseLike(assignmentEntries)) {
+		return Promise.all([assignmentTypes, assignmentEntries]).then(([types, assignments]) => ({
+			types,
+			assignments
+		}));
+	}
+
+	return {
+		types: assignmentTypes,
+		assignments: assignmentEntries
+	};
+}
+
+function createHydrationTarget<T>(items: HydrationItems<T>) {
+	return {
+		mode: 'replace' as const,
+		deferred: isPromiseLike(items),
+		snapshotKey: createSnapshotKey(items),
+		items
+	};
+}
+
 /**
  * Production `HydrationPlannerPort` implementation.
  *
@@ -69,12 +95,12 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			const hasStatusTypes = isHydratableItems(d.statusTypes);
 			const hasAvailabilityEntries = isHydratableItems(d.availabilityEntries);
 			const hasSpecialDays = isHydratableItems(d.specialDays);
-			const assignmentEntries = Array.isArray(d.dailyAssignments)
+			const assignmentEntries = isHydratableItems(d.dailyAssignments)
 				? d.dailyAssignments
-				: workspace === 'dashboard' && Array.isArray(d.todayAssignments)
+				: workspace === 'dashboard' && isHydratableItems(d.todayAssignments)
 					? d.todayAssignments
 					: undefined;
-			const hasCalendarAssignments = Array.isArray(d.assignmentTypes) && Array.isArray(assignmentEntries);
+			const hasCalendarAssignments = isHydratableItems(d.assignmentTypes) && isHydratableItems(assignmentEntries);
 			const hasTrainingTypes = isHydratableItems(d.trainingTypes);
 			const hasTrainingViews = isHydratableItems(d.trainingViews);
 			const hasPersonnelTrainings = isHydratableItems(d.personnelTrainings);
@@ -110,106 +136,63 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			if (hasPersonnel) {
 				const scoped = isHydratableItems(d.personnel) ? d.personnel : [];
 				plan.personnel = {
-					scoped: {
-						mode: 'replace',
-						snapshotKey: createSnapshotKey(scoped),
-						items: scoped
-					},
+					scoped: createHydrationTarget(scoped),
 					// `all` is only set when explicit all-org data was provided.
 					// Falling back to `personnel` would silently hydrate allPersonnelStore
 					// with scoped-only data once that store exists.
 					...(isHydratableItems(d.allPersonnel) && {
-						all: {
-							mode: 'replace',
-							snapshotKey: createSnapshotKey(d.allPersonnel),
-							items: d.allPersonnel
-						}
+						all: createHydrationTarget(d.allPersonnel)
 					})
 				};
 			}
 
 			if (hasGroups) {
-				plan.groups = {
-					mode: 'replace',
-					snapshotKey: createSnapshotKey(d.groups),
-					items: d.groups as unknown[] | Promise<unknown[]>
-				};
+				plan.groups = createHydrationTarget(d.groups as unknown[] | Promise<unknown[]>);
 			}
 
 			if (hasStatusTypes) {
-				plan.statusTypes = {
-					mode: 'replace',
-					snapshotKey: createSnapshotKey(d.statusTypes),
-					items: d.statusTypes as unknown[] | Promise<unknown[]>
-				};
+				plan.statusTypes = createHydrationTarget(d.statusTypes as unknown[] | Promise<unknown[]>);
 			}
 
 			if (hasAvailabilityEntries) {
-				plan.availabilityEntries = {
-					mode: 'replace',
-					snapshotKey: createSnapshotKey(d.availabilityEntries),
-					items: d.availabilityEntries as HydrationItems<AvailabilityEntry>
-				};
+				plan.availabilityEntries = createHydrationTarget(d.availabilityEntries as HydrationItems<AvailabilityEntry>);
 			}
 
 			if (hasSpecialDays) {
-				plan.specialDays = {
-					mode: 'replace',
-					snapshotKey: createSnapshotKey(d.specialDays),
-					items: d.specialDays as HydrationItems<SpecialDay>
-				};
+				plan.specialDays = createHydrationTarget(d.specialDays as HydrationItems<SpecialDay>);
 			}
 
 			if (hasCalendarAssignments) {
+				const items = createCalendarAssignmentsItems(
+					d.assignmentTypes as AssignmentType[] | Promise<AssignmentType[]>,
+					assignmentEntries as DailyAssignment[] | Promise<DailyAssignment[]>
+				);
 				plan.calendarAssignments = {
 					mode: 'replace',
-					snapshotKey: createSnapshotKey({
-						assignmentTypes: d.assignmentTypes,
-						dailyAssignments: assignmentEntries
-					}),
-					types: d.assignmentTypes as AssignmentType[],
-					assignments: assignmentEntries as DailyAssignment[]
+					deferred: isPromiseLike(items),
+					snapshotKey: createSnapshotKey(items),
+					items
 				};
 			}
 
 			if (hasTrainingTypes) {
-				plan.trainingTypes = {
-					mode: 'replace',
-					snapshotKey: createSnapshotKey(d.trainingTypes),
-					items: d.trainingTypes as unknown[] | Promise<unknown[]>
-				};
+				plan.trainingTypes = createHydrationTarget(d.trainingTypes as unknown[] | Promise<unknown[]>);
 			}
 
 			if (hasTrainingViews) {
-				plan.trainingViews = {
-					mode: 'replace',
-					snapshotKey: createSnapshotKey(d.trainingViews),
-					items: d.trainingViews as unknown[] | Promise<unknown[]>
-				};
+				plan.trainingViews = createHydrationTarget(d.trainingViews as unknown[] | Promise<unknown[]>);
 			}
 
 			if (hasPersonnelTrainings) {
-				plan.personnelTrainings = {
-					mode: 'replace',
-					snapshotKey: createSnapshotKey(d.personnelTrainings),
-					items: d.personnelTrainings as HydrationItems<PersonnelTraining>
-				};
+				plan.personnelTrainings = createHydrationTarget(d.personnelTrainings as HydrationItems<PersonnelTraining>);
 			}
 
 			if (hasPinnedGroups) {
-				plan.pinnedGroups = {
-					mode: 'replace',
-					snapshotKey: createSnapshotKey(d.pinnedGroups),
-					items: d.pinnedGroups as HydrationItems<string>
-				};
+				plan.pinnedGroups = createHydrationTarget(d.pinnedGroups as HydrationItems<string>);
 			}
 
 			if (hasRatingSchemeEntries) {
-				plan.ratingSchemeEntries = {
-					mode: 'replace',
-					snapshotKey: createSnapshotKey(d.ratingSchemeEntries),
-					items: d.ratingSchemeEntries as HydrationItems<RatingSchemeEntry>
-				};
+				plan.ratingSchemeEntries = createHydrationTarget(d.ratingSchemeEntries as HydrationItems<RatingSchemeEntry>);
 			}
 
 			if (hasOnboardingTemplates) {
@@ -225,11 +208,7 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			}
 
 			if (hasOnboardings) {
-				plan.onboardings = {
-					mode: 'replace',
-					snapshotKey: createSnapshotKey(onboardingEntries),
-					items: onboardingEntries as HydrationItems<PersonnelOnboarding>
-				};
+				plan.onboardings = createHydrationTarget(onboardingEntries as HydrationItems<PersonnelOnboarding>);
 			}
 
 			return plan;

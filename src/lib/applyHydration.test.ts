@@ -18,12 +18,17 @@ const ORG = 'test-org';
 function createCalendarAssignmentsStore() {
 	return {
 		orgId: '',
+		loading: false,
 		types: [] as AssignmentType[],
 		assignments: [] as DailyAssignment[],
 		load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
 			this.types = types;
 			this.assignments = assignments;
 			this.orgId = orgId;
+			this.loading = false;
+		},
+		startLoading() {
+			this.loading = true;
 		}
 	};
 }
@@ -248,8 +253,10 @@ describe('applyHydration', () => {
 			calendarAssignments: {
 				mode: 'replace',
 				snapshotKey: 'calendar-assignments:1',
-				types: [assignmentType],
-				assignments: [dailyAssignment]
+				items: {
+					types: [assignmentType],
+					assignments: [dailyAssignment]
+				}
 			}
 		};
 

@@ -70,6 +70,22 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 }
 
 describe('DashboardPageView', () => {
+	it('renders a loading placeholder while composite data is hydrating', () => {
+		const ctx = makeCtx({
+			isHydrating: true
+		});
+
+		render(DashboardPageView, { props: { ctx } });
+
+		expect(screen.getByText('Loading dashboard data')).toBeTruthy();
+		expect(screen.getAllByTestId('skeleton-block').length).toBeGreaterThan(0);
+		expect(screen.getAllByTestId('skeleton-line').length).toBeGreaterThan(0);
+		expect(
+			screen.queryByText('No dashboard modules are visible. Use Customize to restore the default layout.')
+		).toBeNull();
+		expect(screen.queryByText('Test Unit')).toBeNull();
+	});
+
 	it('preserves customized card order when rendering dashboard columns', () => {
 		const ctx = makeCtx({
 			cardRows: [['onboardings'], ['ratings'], ['strength']],

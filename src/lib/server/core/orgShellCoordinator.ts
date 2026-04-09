@@ -8,7 +8,7 @@ import type {
 	WorkspaceBootstrap,
 	WorkspaceKey
 } from './orgShell';
-import { createOrgShellHydrationCoordinator, type HydrationStores } from '$lib/orgShellHydrationCoordinator.svelte';
+import type { HydrationStores, OrgShellHydrator } from '$lib/orgShellCoordinator';
 import { loadOrgShell } from './useCases/loadOrgShell';
 
 export type RootOrgShellRouteData = OrgShellData & {
@@ -27,11 +27,23 @@ export type RootOrgShellRequest =
 	| { kind: 'shell'; access: OrgAccessPort; chrome: OrgChromePort }
 	| { kind: 'suspended'; orgId: string; orgName: string };
 
+export interface RootOrgLoadPort {
+	resolveRequest(): Promise<RootOrgShellRequest>;
+}
+
+export interface OrgShellCoordinatorDeps {
+	hydrationCoordinator?: Pick<OrgShellHydrator, 'hydrate'>;
+}
+
+function isRootOrgLoadPort(request: RootOrgShellRequest | RootOrgLoadPort): request is RootOrgLoadPort {
+	return 'resolveRequest' in request;
+}
+
 /**
  * Orchestration boundary for org shell/workspace bootstrap data and client hydration.
  */
 export interface OrgShellCoordinator {
-	loadRoot(request: RootOrgShellRequest): Promise<RootOrgShellLoadResult>;
+	loadRoot(request: RootOrgShellRequest | RootOrgLoadPort): Promise<RootOrgShellLoadResult>;
 	loadWorkspace<T, K extends WorkspaceKey>(
 		workspace: K,
 		ports: {
@@ -42,17 +54,17 @@ export interface OrgShellCoordinator {
 	hydrate(plan?: HydrationPlan, stores?: HydrationStores): Promise<void>;
 }
 
-export function createOrgShellCoordinator(): OrgShellCoordinator {
-	const hydrationCoordinator = createOrgShellHydrationCoordinator();
-
+export function createOrgShellCoordinator(deps: OrgShellCoordinatorDeps = {}): OrgShellCoordinator {
 	return {
-		loadRoot(request) {
+		async loadRoot(input) {
+			const request = isRootOrgLoadPort(input) ? await input.resolveRequest() : input;
+
 			if (request.kind === 'suspended') {
-				return Promise.resolve({
+				return {
 					orgSuspended: true,
 					orgId: request.orgId,
 					orgName: request.orgName
-				});
+				};
 			}
 
 			return loadOrgShell(request.access, request.chrome).then((shell) => ({
@@ -77,7 +89,11 @@ export function createOrgShellCoordinator(): OrgShellCoordinator {
 		},
 
 		hydrate(plan, stores) {
-			return hydrationCoordinator.hydrate(plan, stores);
+			if (!deps.hydrationCoordinator) {
+				throw new Error('OrgShellCoordinator hydrate() requires an injected hydration coordinator');
+			}
+
+			return deps.hydrationCoordinator.hydrate(plan, stores);
 		}
 	};
 }

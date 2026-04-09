@@ -128,7 +128,14 @@ describe('createRootOrgLayoutLoad', () => {
 
 		expect(result).toEqual(routePayload);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:org-preferences');
-		expect(coordinator.loadRoot).toHaveBeenCalledWith({
+		expect(coordinator.loadRoot).toHaveBeenCalledWith(
+			expect.objectContaining({
+				resolveRequest: expect.any(Function)
+			})
+		);
+
+		const request = await coordinator.loadRoot.mock.calls[0][0].resolveRequest();
+		expect(request).toEqual({
 			kind: 'shell',
 			access: accessPort,
 			chrome: chromePort
@@ -199,7 +206,14 @@ describe('createRootOrgLayoutLoad', () => {
 		});
 
 		expect(result).toEqual(suspendedPayload);
-		expect(coordinator.loadRoot).toHaveBeenCalledWith({
+		expect(coordinator.loadRoot).toHaveBeenCalledWith(
+			expect.objectContaining({
+				resolveRequest: expect.any(Function)
+			})
+		);
+
+		const request = await coordinator.loadRoot.mock.calls[0][0].resolveRequest();
+		expect(request).toEqual({
 			kind: 'suspended',
 			orgId: 'org-1',
 			orgName: 'Suspended Unit'
@@ -329,13 +343,11 @@ describe('createRootOrgLayoutLoad', () => {
 		expect(coordinator.loadRoot).toHaveBeenCalledTimes(1);
 		expect(coordinator.loadRoot).toHaveBeenCalledWith(
 			expect.objectContaining({
-				kind: 'shell',
-				access: expect.any(Object),
-				chrome: expect.any(Object)
+				resolveRequest: expect.any(Function)
 			})
 		);
 
-		const request = coordinator.loadRoot.mock.calls[0][0];
+		const request = await coordinator.loadRoot.mock.calls[0][0].resolveRequest();
 		const membership = await request.access.getMembership();
 		const orgState = await request.access.getOrgState();
 		const chrome = await request.chrome.getChromeData();
@@ -483,13 +495,11 @@ describe('createRootOrgLayoutLoad', () => {
 		expect(coordinator.loadRoot).toHaveBeenCalledTimes(1);
 		expect(coordinator.loadRoot).toHaveBeenCalledWith(
 			expect.objectContaining({
-				kind: 'shell',
-				access: expect.any(Object),
-				chrome: expect.any(Object)
+				resolveRequest: expect.any(Function)
 			})
 		);
 
-		const request = coordinator.loadRoot.mock.calls[0][0];
+		const request = await coordinator.loadRoot.mock.calls[0][0].resolveRequest();
 		const membership = await request.access.getMembership();
 		const orgState = await request.access.getOrgState();
 

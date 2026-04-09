@@ -39,13 +39,20 @@ export interface DashboardData {
 }
 
 /**
- * `DashboardBootstrap` extends `DashboardData` with the org-scoped reference collections
+ * `DashboardBootstrap` includes the org-scoped reference collections
  * needed to hydrate dashboard stores and render lookup-backed widgets. Callers receive the
  * full non-null `personnel`, `groups`, `statusTypes`, and `trainingTypes` arrays for the
  * organization, with entity IDs unique within each collection, and should treat them as
  * read-only bootstrap/cache data rather than mutable dashboard state.
  */
-export interface DashboardBootstrap extends DashboardData {
+export interface DashboardBootstrap {
+	availabilityEntries: AvailabilityEntry[] | Promise<AvailabilityEntry[]>;
+	assignmentTypes: AssignmentType[];
+	todayAssignments: DailyAssignment[] | Promise<DailyAssignment[]>;
+	pinnedGroups: string[];
+	ratingSchemeEntries: RatingSchemeEntry[];
+	activeOnboardings: PersonnelOnboarding[];
+	todayDutyEvents: DutyEvent[];
 	personnel: Personnel[];
 	groups: Group[];
 	statusTypes: StatusType[];
@@ -54,9 +61,61 @@ export interface DashboardBootstrap extends DashboardData {
 
 export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<DashboardBootstrap> {
 	const orgId = ctx.auth.orgId;
+	const userId = ctx.auth.userId;
+	const serverNow = new Date();
+	const today = formatDate(serverNow);
+	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
+	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
+	const availabilityEntries = ctx.store
+		.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
+			select: AvailabilityEntryEntity.select,
+			rangeFilters: [
+				{ column: 'end_date', op: 'gte', value: yesterday },
+				{ column: 'start_date', op: 'lte', value: twoWeeksOut }
+			]
+		})
+		.then((rows) => AvailabilityEntryEntity.fromDbArray(rows));
+	const todayAssignments = ctx.store
+		.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
+			rangeFilters: [
+				{ column: 'date', op: 'gte', value: yesterday },
+				{ column: 'date', op: 'lte', value: twoWeeksOut }
+			]
+		})
+		.then((rows) => DailyAssignmentEntity.fromDbArray(rows));
 
-	const [dashboardData, personnelRows, groupRows, statusTypeRows, trainingTypeRows] = await Promise.all([
-		fetchDashboardData(ctx),
+	const [
+		assignmentTypeRows,
+		pinnedGroupRows,
+		ratingSchemeRows,
+		onboardingRows,
+		todayDutyEvents,
+		personnelRows,
+		groupRows,
+		statusTypeRows,
+		trainingTypeRows
+	] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		userId
+			? ctx.store.findMany<Record<string, unknown>>(
+					'user_pinned_groups',
+					orgId,
+					{ user_id: userId },
+					{
+						orderBy: [{ column: 'sort_order', ascending: true }]
+					}
+				)
+			: Promise.resolve([]),
+		ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
+			select: 'id, rated_person_id, eval_type, rating_period_end, status',
+			orderBy: [{ column: 'rating_period_end', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, undefined, {
+			select: PersonnelOnboardingEntity.select
+		}),
+		listDutyEventsInRange(ctx, { rangeStart: today, rangeEnd: today }).catch(() => [] as DutyEvent[]),
 		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
 			select: PersonnelEntity.select,
 			isNull: { archived_at: true },
@@ -72,9 +131,17 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		})
 	]);
+	const allOnboardings = PersonnelOnboardingEntity.fromDbArray(onboardingRows);
+	const activeOnboardings = allOnboardings.filter((o) => o.status === 'in_progress');
 
 	return {
-		...dashboardData,
+		availabilityEntries,
+		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),
+		todayAssignments,
+		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
+		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
+		activeOnboardings,
+		todayDutyEvents,
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),

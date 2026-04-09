@@ -1,12 +1,32 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CalendarPageContext, type CalendarPageData } from './CalendarPageContext.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
+import { availabilityStore } from '$features/calendar/stores/availability.svelte';
+import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
+import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+import { groupsStore } from '$lib/stores/groups.svelte';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
 
 vi.mock('$lib/preferences/userPreferences.client', () => ({
 	queueUserPreferencesPatch: vi.fn()
+}));
+vi.mock('$features/calendar/stores/availability.svelte', () => ({
+	availabilityStore: { items: [], loading: false, load: vi.fn() }
+}));
+vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
+	dailyAssignmentsStore: { assignments: [], types: [], loading: false, load: vi.fn() }
+}));
+vi.mock('$features/calendar/stores/specialDays.svelte', () => ({
+	specialDaysStore: { items: [], loading: false, load: vi.fn() }
+}));
+vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
+	statusTypesStore: { items: [], loading: false, load: vi.fn() }
+}));
+vi.mock('$lib/stores/groups.svelte', () => ({
+	groupsStore: { items: [], loading: false }
 }));
 
 // ---------------------------------------------------------------------------
@@ -39,6 +59,12 @@ const mockData: CalendarPageData = {
 	}
 };
 
+const mutableAvailabilityStore = availabilityStore as unknown as { loading: boolean };
+const mutableDailyAssignmentsStore = dailyAssignmentsStore as unknown as { loading: boolean };
+const mutableSpecialDaysStore = specialDaysStore as unknown as { loading: boolean };
+const mutableStatusTypesStore = statusTypesStore as unknown as { loading: boolean };
+const mutableGroupsStore = groupsStore as unknown as { loading: boolean };
+
 function makeMockOrg(overrides: Partial<OrgContext> = {}): OrgContext {
 	return {
 		orgId: 'org1',
@@ -66,6 +92,11 @@ describe('CalendarPageContext', () => {
 
 	beforeEach(() => {
 		org = makeMockOrg();
+		mutableAvailabilityStore.loading = false;
+		mutableDailyAssignmentsStore.loading = false;
+		mutableSpecialDaysStore.loading = false;
+		mutableStatusTypesStore.loading = false;
+		mutableGroupsStore.loading = false;
 		ctx = new CalendarPageContext(mockData, org);
 	});
 
@@ -93,6 +124,17 @@ describe('CalendarPageContext', () => {
 		it('canManageConfig is true for fullEditor', () => {
 			const editorCtx = new CalendarPageContext(mockData, makeMockOrg({ isFullEditor: true }));
 			expect(editorCtx.canManageConfig).toBe(true);
+		});
+	});
+
+	describe('isHydrating', () => {
+		it('is false once the composite stores are loaded', () => {
+			expect(ctx.isHydrating).toBe(false);
+		});
+
+		it('is true while any composite store is still loading', () => {
+			mutableSpecialDaysStore.loading = true;
+			expect(new CalendarPageContext(mockData, org).isHydrating).toBe(true);
 		});
 	});
 

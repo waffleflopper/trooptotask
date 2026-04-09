@@ -4,10 +4,17 @@ import type { CardId } from '$lib/stores/dashboardPrefs.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
+import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+import { groupsStore } from '$lib/stores/groups.svelte';
 
 const mutablePersonnelStore = personnelStore as unknown as { items: Array<Record<string, unknown>> };
 const mutableStatusTypesStore = statusTypesStore as unknown as { items: Array<Record<string, unknown>> };
-const mutableAvailabilityStore = availabilityStore as unknown as { items: Array<Record<string, unknown>> };
+const mutableAvailabilityStore = availabilityStore as unknown as {
+	items: Array<Record<string, unknown>>;
+	loading: boolean;
+};
+const mutableDailyAssignmentsStore = dailyAssignmentsStore as unknown as { loading: boolean };
+const mutableGroupsStore = groupsStore as unknown as { loading: boolean };
 
 // ---------------------------------------------------------------------------
 // Minimal stubs for stores & browser APIs
@@ -25,10 +32,10 @@ vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: { items: [] }
 }));
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
-	availabilityStore: { items: [], load: vi.fn() }
+	availabilityStore: { items: [], loading: false, load: vi.fn() }
 }));
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
-	dailyAssignmentsStore: { assignments: [], types: [], load: vi.fn() }
+	dailyAssignmentsStore: { assignments: [], types: [], loading: false, load: vi.fn() }
 }));
 vi.mock('$features/training/stores/trainingTypes.svelte', () => ({
 	trainingTypesStore: { items: [] }
@@ -37,7 +44,7 @@ vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
 	pinnedGroupsStore: { list: [], load: vi.fn() }
 }));
 vi.mock('$lib/stores/groups.svelte', () => ({
-	groupsStore: { items: [] }
+	groupsStore: { items: [], loading: false }
 }));
 vi.mock('$lib/stores/dashboardPrefs.svelte', () => ({
 	dashboardPrefsStore: {
@@ -130,6 +137,8 @@ describe('DashboardContext', () => {
 		mutablePersonnelStore.items = [];
 		mutableStatusTypesStore.items = [];
 		mutableAvailabilityStore.items = [];
+		mutableDailyAssignmentsStore.loading = false;
+		mutableGroupsStore.loading = false;
 		ctx = new DashboardContext(makeData());
 	});
 
@@ -194,6 +203,17 @@ describe('DashboardContext', () => {
 	describe('dutyAssignments', () => {
 		it('returns an empty array when no assignments exist', () => {
 			expect(ctx.dutyAssignments).toHaveLength(0);
+		});
+	});
+
+	describe('isHydrating', () => {
+		it('is false once the composite stores are loaded', () => {
+			expect(ctx.isHydrating).toBe(false);
+		});
+
+		it('is true while any composite store is still loading', () => {
+			mutableAvailabilityStore.loading = true;
+			expect(new DashboardContext(makeData()).isHydrating).toBe(true);
 		});
 	});
 

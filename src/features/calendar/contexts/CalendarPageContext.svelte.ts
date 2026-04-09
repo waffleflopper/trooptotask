@@ -1,7 +1,11 @@
 import type { Personnel, AvailabilityEntry } from '$lib/types';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
+import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
+import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+import { groupsStore } from '$lib/stores/groups.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 import { scopePersonnelByGroup } from '$lib/utils/scopePersonnel';
@@ -102,6 +106,16 @@ export class CalendarPageContext {
 	// ---- derived: permission flags -----------------------------------------
 	get readOnly(): boolean {
 		return subscriptionStore.billingEnabled && subscriptionStore.isReadOnly;
+	}
+
+	get isHydrating(): boolean {
+		return (
+			availabilityStore.loading ||
+			statusTypesStore.loading ||
+			specialDaysStore.loading ||
+			dailyAssignmentsStore.loading ||
+			groupsStore.loading
+		);
 	}
 
 	get canManageConfig(): boolean {

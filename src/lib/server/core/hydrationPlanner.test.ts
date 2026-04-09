@@ -134,4 +134,23 @@ describe('createDefaultHydrationPlanner', () => {
 		expect(first?.groups?.items).toBe(groups);
 		expect(first?.groups?.snapshotKey).toBe(second?.groups?.snapshotKey);
 	});
+
+	it('creates explicit deferred metadata for calendar assignment hydration targets', async () => {
+		const planner = createDefaultHydrationPlanner(ORG);
+		const assignmentTypes = Promise.resolve([{ id: 'at1', name: 'Staff Duty' }]);
+		const dailyAssignments = Promise.resolve([{ id: 'da1', assignmentTypeId: 'at1' }]);
+
+		const plan = planner.createPlan('calendar', {
+			assignmentTypes,
+			dailyAssignments
+		});
+
+		expect(plan?.calendarAssignments?.deferred).toBe(true);
+		expect(plan?.calendarAssignments?.items).toBeInstanceOf(Promise);
+		expect(plan?.calendarAssignments?.snapshotKey).toEqual(expect.any(String));
+		await expect(plan?.calendarAssignments?.items).resolves.toEqual({
+			types: await assignmentTypes,
+			assignments: await dailyAssignments
+		});
+	});
 });

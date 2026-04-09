@@ -101,7 +101,8 @@ describe('createRootOrgLayoutLoad', () => {
 		const createOrgChromePort = vi.fn().mockReturnValue(chromePort);
 		const coordinator = {
 			loadRoot: vi.fn().mockResolvedValue(routePayload),
-			loadWorkspace: vi.fn()
+			loadWorkspace: vi.fn(),
+			hydrate: vi.fn()
 		};
 
 		const load = createRootOrgLayoutLoad({
@@ -176,7 +177,8 @@ describe('createRootOrgLayoutLoad', () => {
 		const createOrgChromePort = vi.fn();
 		const coordinator = {
 			loadRoot: vi.fn().mockResolvedValue(suspendedPayload),
-			loadWorkspace: vi.fn()
+			loadWorkspace: vi.fn(),
+			hydrate: vi.fn()
 		};
 
 		const load = createRootOrgLayoutLoad({
@@ -302,7 +304,8 @@ describe('createRootOrgLayoutLoad', () => {
 		const createOrgChromePort = vi.fn();
 		const coordinator = {
 			loadRoot: vi.fn().mockResolvedValue(routePayload),
-			loadWorkspace: vi.fn()
+			loadWorkspace: vi.fn(),
+			hydrate: vi.fn()
 		};
 
 		const load = createRootOrgLayoutLoad({
@@ -453,7 +456,8 @@ describe('createRootOrgLayoutLoad', () => {
 		const createOrgChromePort = vi.fn();
 		const coordinator = {
 			loadRoot: vi.fn().mockResolvedValue(routePayload),
-			loadWorkspace: vi.fn()
+			loadWorkspace: vi.fn(),
+			hydrate: vi.fn()
 		};
 
 		const load = createRootOrgLayoutLoad({

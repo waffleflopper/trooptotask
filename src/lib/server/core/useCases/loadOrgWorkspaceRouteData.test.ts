@@ -25,9 +25,39 @@ import type { Group } from '$lib/stores/groups.svelte';
 import { loadOrgWorkspaceRouteData } from './loadOrgWorkspaceRouteData';
 import { createDefaultHydrationPlanner } from '../hydrationPlanner';
 
+function expectHydrationTarget<T>(items: T, deferred = false) {
+	return expect.objectContaining({
+		mode: 'replace',
+		items,
+		deferred,
+		snapshotKey: expect.any(String)
+	});
+}
+
+function expectCalendarAssignmentsTarget(
+	items: { types: AssignmentType[]; assignments: DailyAssignment[] },
+	deferred = false
+) {
+	return expect.objectContaining({
+		mode: 'replace',
+		items,
+		deferred,
+		snapshotKey: expect.any(String)
+	});
+}
+
+function expectOnboardingTemplatesTarget(templates: OnboardingTemplate[], steps: OnboardingTemplateStep[]) {
+	return expect.objectContaining({
+		mode: 'replace',
+		templates,
+		steps,
+		snapshotKey: expect.any(String)
+	});
+}
+
 describe('loadOrgWorkspaceRouteData', () => {
 	it('returns the canonical calendar route payload with calendar-owned hydration targets', async () => {
-		const calendarData: CalendarBootstrap = {
+		const calendarData = {
 			availabilityEntries: [
 				{
 					id: 'av1',
@@ -71,58 +101,32 @@ describe('loadOrgWorkspaceRouteData', () => {
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
 			activeOnboardingPersonnelIds: ['p1']
-		};
+		} satisfies CalendarBootstrap;
 
 		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['calendar', calendarData]]));
 		const plannerPort = createDefaultHydrationPlanner('org-1');
 
 		const result = await loadOrgWorkspaceRouteData('calendar', workspacePort, plannerPort);
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			calendar: {
 				workspace: 'calendar',
 				data: calendarData,
-				hydration: expect.objectContaining({
+				hydration: {
 					orgId: 'org-1',
-					groups: {
-						mode: 'replace',
-						items: calendarData.groups,
-						snapshotKey: expect.any(String)
-					},
+					groups: expectHydrationTarget(calendarData.groups),
 					personnel: {
-						scoped: {
-							mode: 'replace',
-							items: calendarData.personnel,
-							snapshotKey: expect.any(String)
-						}
+						scoped: expectHydrationTarget(calendarData.personnel)
 					},
-					statusTypes: {
-						mode: 'replace',
-						items: calendarData.statusTypes,
-						snapshotKey: expect.any(String)
-					},
-					availabilityEntries: {
-						mode: 'replace',
-						items: calendarData.availabilityEntries,
-						snapshotKey: expect.any(String)
-					},
-					specialDays: {
-						mode: 'replace',
-						items: calendarData.specialDays,
-						snapshotKey: expect.any(String)
-					},
-					calendarAssignments: {
-						mode: 'replace',
-						snapshotKey: expect.any(String),
+					statusTypes: expectHydrationTarget(calendarData.statusTypes),
+					availabilityEntries: expectHydrationTarget(calendarData.availabilityEntries),
+					specialDays: expectHydrationTarget(calendarData.specialDays),
+					calendarAssignments: expectCalendarAssignmentsTarget({
 						types: calendarData.assignmentTypes,
 						assignments: calendarData.dailyAssignments
-					},
-					pinnedGroups: {
-						mode: 'replace',
-						items: calendarData.pinnedGroups,
-						snapshotKey: expect.any(String)
-					}
-				})
+					}),
+					pinnedGroups: expectHydrationTarget(calendarData.pinnedGroups)
+				}
 			} satisfies WorkspaceBootstrap<CalendarBootstrap>
 		});
 	});
@@ -163,45 +167,21 @@ describe('loadOrgWorkspaceRouteData', () => {
 
 		const result = await loadOrgWorkspaceRouteData('training', workspacePort, plannerPort);
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			training: {
 				workspace: 'training',
 				data: trainingData,
-				hydration: expect.objectContaining({
+				hydration: {
 					orgId: 'org-1',
-					groups: {
-						mode: 'replace',
-						items: trainingData.groups,
-						snapshotKey: expect.any(String)
-					},
+					groups: expectHydrationTarget(trainingData.groups),
 					personnel: {
-						scoped: {
-							mode: 'replace',
-							items: trainingData.personnel,
-							snapshotKey: expect.any(String)
-						}
+						scoped: expectHydrationTarget(trainingData.personnel)
 					},
-					trainingTypes: {
-						mode: 'replace',
-						items: trainingData.trainingTypes,
-						snapshotKey: expect.any(String)
-					},
-					trainingViews: {
-						mode: 'replace',
-						items: trainingData.trainingViews,
-						snapshotKey: expect.any(String)
-					},
-					personnelTrainings: {
-						mode: 'replace',
-						items: personnelTrainings,
-						snapshotKey: expect.any(String)
-					},
-					pinnedGroups: {
-						mode: 'replace',
-						items: trainingData.pinnedGroups,
-						snapshotKey: expect.any(String)
-					}
-				})
+					trainingTypes: expectHydrationTarget(trainingData.trainingTypes),
+					trainingViews: expectHydrationTarget(trainingData.trainingViews),
+					personnelTrainings: expectHydrationTarget(personnelTrainings, true),
+					pinnedGroups: expectHydrationTarget(trainingData.pinnedGroups)
+				}
 			} satisfies WorkspaceBootstrap<TrainingBootstrap>
 		});
 	});
@@ -256,41 +236,23 @@ describe('loadOrgWorkspaceRouteData', () => {
 
 		const result = await loadOrgWorkspaceRouteData('onboarding', workspacePort, plannerPort);
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			onboarding: {
 				workspace: 'onboarding',
 				data: onboardingData,
-				hydration: expect.objectContaining({
+				hydration: {
 					orgId: 'org-1',
-					groups: {
-						mode: 'replace',
-						items: onboardingData.groups,
-						snapshotKey: expect.any(String)
-					},
+					groups: expectHydrationTarget(onboardingData.groups),
 					personnel: {
-						scoped: {
-							mode: 'replace',
-							items: onboardingData.personnel,
-							snapshotKey: expect.any(String)
-						}
+						scoped: expectHydrationTarget(onboardingData.personnel)
 					},
-					trainingTypes: {
-						mode: 'replace',
-						items: onboardingData.trainingTypes,
-						snapshotKey: expect.any(String)
-					},
-					onboardingTemplates: {
-						mode: 'replace',
-						templates: onboardingData.onboardingTemplates,
-						steps: onboardingData.onboardingTemplateSteps,
-						snapshotKey: expect.any(String)
-					},
-					onboardings: {
-						mode: 'replace',
-						items: onboardingData.onboardings,
-						snapshotKey: expect.any(String)
-					}
-				})
+					trainingTypes: expectHydrationTarget(onboardingData.trainingTypes),
+					onboardingTemplates: expectOnboardingTemplatesTarget(
+						onboardingData.onboardingTemplates,
+						onboardingData.onboardingTemplateSteps
+					),
+					onboardings: expectHydrationTarget(onboardingData.onboardings)
+				}
 			} satisfies WorkspaceBootstrap<OnboardingBootstrap>
 		});
 	});
@@ -336,40 +298,20 @@ describe('loadOrgWorkspaceRouteData', () => {
 
 		const result = await loadOrgWorkspaceRouteData('personnel', workspacePort, plannerPort);
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			personnel: {
 				workspace: 'personnel',
 				data: personnelData,
-				hydration: expect.objectContaining({
+				hydration: {
 					orgId: 'org-1',
 					personnel: {
-						scoped: {
-							mode: 'replace',
-							items: personnelData.personnel,
-							snapshotKey: expect.any(String)
-						}
+						scoped: expectHydrationTarget(personnelData.personnel)
 					},
-					groups: {
-						mode: 'replace',
-						items: personnelData.groups,
-						snapshotKey: expect.any(String)
-					},
-					statusTypes: {
-						mode: 'replace',
-						items: personnelData.statusTypes,
-						snapshotKey: expect.any(String)
-					},
-					pinnedGroups: {
-						mode: 'replace',
-						items: personnelData.pinnedGroups,
-						snapshotKey: expect.any(String)
-					},
-					ratingSchemeEntries: {
-						mode: 'replace',
-						items: personnelData.ratingSchemeEntries,
-						snapshotKey: expect.any(String)
-					}
-				})
+					groups: expectHydrationTarget(personnelData.groups),
+					statusTypes: expectHydrationTarget(personnelData.statusTypes),
+					pinnedGroups: expectHydrationTarget(personnelData.pinnedGroups),
+					ratingSchemeEntries: expectHydrationTarget(personnelData.ratingSchemeEntries)
+				}
 			} satisfies WorkspaceBootstrap<PersonnelBootstrap>
 		});
 	});
@@ -452,51 +394,25 @@ describe('loadOrgWorkspaceRouteData', () => {
 
 		const result = await loadOrgWorkspaceRouteData('dashboard', workspacePort, plannerPort);
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			dashboard: {
 				workspace: 'dashboard',
 				data: dashboardData,
-				hydration: expect.objectContaining({
+				hydration: {
 					orgId: 'org-1',
 					personnel: {
-						scoped: {
-							mode: 'replace',
-							items: dashboardData.personnel,
-							snapshotKey: expect.any(String)
-						}
+						scoped: expectHydrationTarget(dashboardData.personnel)
 					},
-					groups: {
-						mode: 'replace',
-						items: dashboardData.groups,
-						snapshotKey: expect.any(String)
-					},
-					statusTypes: {
-						mode: 'replace',
-						items: dashboardData.statusTypes,
-						snapshotKey: expect.any(String)
-					},
-					availabilityEntries: {
-						mode: 'replace',
-						items: dashboardData.availabilityEntries,
-						snapshotKey: expect.any(String)
-					},
-					calendarAssignments: {
-						mode: 'replace',
-						snapshotKey: expect.any(String),
+					groups: expectHydrationTarget(dashboardData.groups),
+					statusTypes: expectHydrationTarget(dashboardData.statusTypes),
+					availabilityEntries: expectHydrationTarget(dashboardData.availabilityEntries),
+					calendarAssignments: expectCalendarAssignmentsTarget({
 						types: dashboardData.assignmentTypes,
 						assignments: dashboardData.todayAssignments
-					},
-					trainingTypes: {
-						mode: 'replace',
-						items: dashboardData.trainingTypes,
-						snapshotKey: expect.any(String)
-					},
-					pinnedGroups: {
-						mode: 'replace',
-						items: dashboardData.pinnedGroups,
-						snapshotKey: expect.any(String)
-					}
-				})
+					}),
+					trainingTypes: expectHydrationTarget(dashboardData.trainingTypes),
+					pinnedGroups: expectHydrationTarget(dashboardData.pinnedGroups)
+				}
 			} satisfies WorkspaceBootstrap<typeof dashboardData>
 		});
 	});

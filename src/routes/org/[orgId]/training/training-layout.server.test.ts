@@ -62,18 +62,19 @@ describe('training layout server load', () => {
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:training-data');
 		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			training: {
 				workspace: 'training',
 				data: trainingData,
-				hydration: expect.objectContaining({
+				hydration: {
 					orgId: 'org-1',
-					personnelTrainings: {
+					personnelTrainings: expect.objectContaining({
 						mode: 'replace',
 						items: personnelTrainings,
+						deferred: true,
 						snapshotKey: expect.any(String)
-					}
-				})
+					})
+				}
 			} satisfies WorkspaceBootstrap<TrainingBootstrap>
 		});
 	});

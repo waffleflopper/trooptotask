@@ -1,17 +1,18 @@
-import type { PageServerLoad } from './$types';
+import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import {
 	fetchTrainingSummary,
 	fetchOnboardingTrainingCompletions
 } from '$lib/server/core/useCases/trainingSummaryQuery';
 
-export const load: PageServerLoad = async ({ params, locals, cookies, depends, parent }) => {
+export const load = async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {
 	depends('app:org-core');
 	depends('app:dashboard-data');
 	const { orgId } = params;
 
 	const parentData = await parent();
-	const workspaceData = parentData.dashboard.data;
+	const workspaceData = parentData.dashboard.data as DashboardBootstrap;
 
 	return loadWithContext(locals, cookies, orgId, {
 		permission: 'none',

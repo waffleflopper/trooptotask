@@ -1,9 +1,9 @@
 import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { fetchCalendarReportData } from '$lib/server/core/useCases/calendarReportQuery';
 
-export const load: PageServerLoad = async ({ params, locals, cookies, parent, depends }) => {
+export const load = async ({ params, locals, cookies, parent, depends }: PageServerLoadEvent) => {
 	depends('app:org-core');
 	const { orgId } = params;
 	const data = await parent();

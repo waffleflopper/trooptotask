@@ -6,7 +6,7 @@
  * Both factories are pre-configured at construction time (orgId, userId, supabase clients) and
  * issue no DB queries until their port methods are called.
  */
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrganizationMemberPermissions } from '$lib/types';
@@ -22,7 +22,8 @@ import type {
 	ChromeData,
 	Announcement
 } from '../core/orgShell';
-import { loadWithContext } from './httpAdapter';
+import type { RootOrgLoadPort, RootOrgShellRequest } from '../core/orgShellCoordinator';
+import { loadWithContext, getLayoutClient } from './httpAdapter';
 import { fetchCalendarBootstrap } from '../core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '../core/useCases/onboardingCalendarQuery';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
@@ -39,6 +40,180 @@ import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
+import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
+import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from './inMemoryOrgShell';
+
+/**
+ * Deprecated demo-only shell path kept temporarily while demo sandbox access is phased out.
+ * Do not expand this path; prefer removal when demo sandbox cleanup work is scheduled.
+ */
+function createDemoRootOrgShellRequest(config: {
+	orgId: string;
+	orgName: string;
+	permissions: OrganizationMemberPermissions;
+	role: 'owner' | 'admin' | 'member';
+	isDemoReadOnly: boolean;
+	isDemoSandbox: boolean;
+	effectiveTier: EffectiveTier;
+}): RootOrgShellRequest {
+	return {
+		kind: 'shell',
+		access: createInMemoryOrgAccessPort({
+			membership: {
+				orgId: config.orgId,
+				userId: null,
+				role: config.role,
+				permissions: config.permissions,
+				scopedGroupId: null
+			},
+			orgState: {
+				orgName: config.orgName,
+				isDemoReadOnly: config.isDemoReadOnly,
+				isDemoSandbox: config.isDemoSandbox,
+				effectiveTier: config.effectiveTier
+			}
+		}),
+		chrome: createInMemoryOrgChromePort({
+			chrome: {
+				unreadNotificationCount: 0,
+				activeAnnouncements: [],
+				allOrgs: [],
+				userPreferences: getDefaultUserOrgPreferences()
+			}
+		})
+	};
+}
+
+export interface SupabaseRootOrgLoadPortDeps {
+	getLayoutClient?: typeof getLayoutClient;
+	createSubscriptionAdapter?: typeof createSupabaseSubscriptionAdapter;
+	createOrgAccessPort?: typeof createSupabaseOrgAccessPort;
+	createOrgChromePort?: typeof createSupabaseOrgChromePort;
+}
+
+export function createSupabaseRootOrgLoadPort(
+	config: {
+		locals: App.Locals;
+		cookies: Cookies;
+		orgId: string;
+	},
+	deps: SupabaseRootOrgLoadPortDeps = {}
+): RootOrgLoadPort {
+	const getLayoutClientFn = deps.getLayoutClient ?? getLayoutClient;
+	const createSubscriptionAdapterFn = deps.createSubscriptionAdapter ?? createSupabaseSubscriptionAdapter;
+	const createOrgAccessPortFn = deps.createOrgAccessPort ?? createSupabaseOrgAccessPort;
+	const createOrgChromePortFn = deps.createOrgChromePort ?? createSupabaseOrgChromePort;
+
+	return {
+		async resolveRequest(): Promise<RootOrgShellRequest> {
+			const demoMode = config.cookies.get('demo_mode');
+			const demoSandboxCookie = config.cookies.get('demo_sandbox');
+			const isDemoReadOnly = demoMode === 'readonly';
+			const { supabase } = getLayoutClientFn(config.locals, config.cookies, config.orgId);
+
+			const { data: org } = await supabase
+				.from('organizations')
+				.select('id, name, demo_type, suspended_at')
+				.eq('id', config.orgId)
+				.single();
+
+			if (!org) {
+				throw error(404, 'Organization not found');
+			}
+
+			if (org.suspended_at) {
+				return {
+					kind: 'suspended',
+					orgId: config.orgId,
+					orgName: org.name
+				};
+			}
+
+			if (org.demo_type === 'showcase' && isDemoReadOnly) {
+				const effectiveTier = await createSubscriptionAdapterFn(supabase, config.orgId).getEffectiveTier();
+				return createDemoRootOrgShellRequest({
+					orgId: config.orgId,
+					orgName: org.name,
+					permissions: {
+						canViewCalendar: true,
+						canEditCalendar: false,
+						canViewPersonnel: true,
+						canEditPersonnel: false,
+						canViewTraining: true,
+						canEditTraining: false,
+						canViewOnboarding: true,
+						canEditOnboarding: false,
+						canViewLeadersBook: true,
+						canEditLeadersBook: false,
+						canManageMembers: false
+					},
+					role: 'member',
+					isDemoReadOnly: true,
+					isDemoSandbox: false,
+					effectiveTier
+				});
+			}
+
+			if (org.demo_type === 'sandbox' && demoSandboxCookie) {
+				try {
+					const sandboxInfo = JSON.parse(demoSandboxCookie);
+					if (sandboxInfo.orgId === config.orgId) {
+						const effectiveTier = await createSubscriptionAdapterFn(supabase, config.orgId).getEffectiveTier();
+						return createDemoRootOrgShellRequest({
+							orgId: config.orgId,
+							orgName: org.name,
+							permissions: {
+								canViewCalendar: true,
+								canEditCalendar: true,
+								canViewPersonnel: true,
+								canEditPersonnel: true,
+								canViewTraining: true,
+								canEditTraining: true,
+								canViewOnboarding: true,
+								canEditOnboarding: true,
+								canViewLeadersBook: true,
+								canEditLeadersBook: true,
+								canManageMembers: true
+							},
+							role: 'owner',
+							isDemoReadOnly: false,
+							isDemoSandbox: true,
+							effectiveTier
+						});
+					}
+				} catch {
+					// Invalid cookie, ignore.
+				}
+			}
+
+			if (!config.locals.user) {
+				throw redirect(303, '/auth/login');
+			}
+
+			const subscriptionAdapter = createSubscriptionAdapterFn(supabase, config.orgId);
+			const effectiveTierPromise = subscriptionAdapter.getEffectiveTier();
+
+			return {
+				kind: 'shell',
+				access: createOrgAccessPortFn({
+					orgId: config.orgId,
+					userId: config.locals.user.id,
+					userSupabase: config.locals.supabase,
+					orgName: org.name,
+					isDemoReadOnly: false,
+					isDemoSandbox: false,
+					getEffectiveTier: () => effectiveTierPromise
+				}),
+				chrome: createOrgChromePortFn({
+					orgId: config.orgId,
+					userId: config.locals.user.id,
+					userSupabase: config.locals.supabase,
+					supabase
+				})
+			};
+		}
+	};
+}
 
 export function createSupabaseOrgAccessPort(config: {
 	orgId: string;

@@ -4,6 +4,8 @@
 	import GettingStartedBanner from '$features/onboarding/components/GettingStartedBanner.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
+	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
 	import type { CardId } from '$lib/stores/dashboardPrefs.svelte';
 	import type { DashboardContext } from '../contexts/DashboardContext.svelte';
 
@@ -103,7 +105,29 @@
 	</PageToolbar>
 
 	<main class="dashboard-shell">
-		{#if dashboardCards.length > 0}
+		{#if ctx.isHydrating}
+			<section class="dashboard-loading" aria-busy="true" aria-live="polite" role="status">
+				<p class="loading-kicker">Loading dashboard data</p>
+
+				<div class="dashboard-loading-hero">
+					<div class="dashboard-loading-copy">
+						<SkeletonLine width="92px" height="12px" />
+						<SkeletonBlock height="56px" />
+						<SkeletonLine width="78%" height="18px" />
+						<SkeletonLine width="62%" height="18px" />
+					</div>
+
+					<SkeletonBlock width="136px" height="88px" />
+				</div>
+
+				<div class="dashboard-loading-grid">
+					<SkeletonBlock height="200px" />
+					<SkeletonBlock height="200px" />
+					<SkeletonBlock height="240px" />
+					<SkeletonBlock height="240px" />
+				</div>
+			</section>
+		{:else if dashboardCards.length > 0}
 			<div class="dashboard-layout">
 				<div class="dashboard-top-band" class:dashboard-top-band--single={topBandCards.length === 0}>
 					<section class="dashboard-briefing" aria-labelledby="briefing-org-name">
@@ -688,6 +712,52 @@
 		max-width: 1520px;
 		margin: 0 auto;
 		padding: clamp(var(--sp-4), 2.5vw, var(--sp-8));
+	}
+
+	.dashboard-loading {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-6);
+	}
+
+	.loading-kicker {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--amber);
+	}
+
+	.dashboard-loading-hero {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--sp-5);
+		padding: clamp(var(--sp-5), 2vw, var(--sp-6));
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+
+	.dashboard-loading-copy {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
+		max-width: 48rem;
+		flex: 1;
+	}
+
+	.dashboard-loading-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--sp-6);
+	}
+
+	.dashboard-loading-grid :global(.skeleton-block) {
+		min-height: 200px;
 	}
 
 	.section-kicker,
@@ -1505,11 +1575,19 @@
 		.module-header-meta {
 			justify-content: flex-start;
 		}
+
+		.dashboard-loading-hero {
+			flex-direction: column;
+		}
 	}
 
 	@media (max-width: 640px) {
 		.dashboard-shell {
 			padding: var(--sp-4);
+		}
+
+		.dashboard-loading-grid {
+			grid-template-columns: 1fr;
 		}
 
 		.metric-grid,

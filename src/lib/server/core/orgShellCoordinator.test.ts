@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { defineStore } from '$lib/stores/core';
+import { createOrgShellCoordinator as createClientOrgShellCoordinator } from '$lib/orgShellCoordinator.svelte';
+import type { HydrationStores } from '$lib/orgShellCoordinator';
 import {
 	createInMemoryOrgAccessPort,
 	createInMemoryOrgChromePort,
 	createInMemoryOrgWorkspacePort
 } from '$lib/server/adapters/inMemoryOrgShell';
-import type { HydrationStores } from '$lib/orgShellHydrationCoordinator.svelte';
 import { createDefaultHydrationPlanner } from './hydrationPlanner';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -149,9 +150,15 @@ function createHydrationStores() {
 	};
 }
 
+function createTestCoordinator() {
+	return createOrgShellCoordinator({
+		hydrationCoordinator: createClientOrgShellCoordinator()
+	});
+}
+
 describe('OrgShellCoordinator', () => {
 	it('loads the canonical root org shell payload for the authenticated happy path', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 
 		const result = await coordinator.loadRoot({
 			kind: 'shell',
@@ -198,7 +205,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('returns the suspended root-shell payload through the coordinator boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 
 		const result = await coordinator.loadRoot({
 			kind: 'suspended',
@@ -214,7 +221,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('preserves the deprecated demo read-only path through the coordinator boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 
 		const result = await coordinator.loadRoot({
 			kind: 'shell',
@@ -242,7 +249,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('preserves the deprecated demo sandbox path through the coordinator boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 
 		const result = await coordinator.loadRoot({
 			kind: 'shell',
@@ -288,7 +295,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('returns the canonical calendar workspace payload with composite calendar hydration through the coordinator boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const deferredAssignments = Promise.resolve([
 			{
 				id: 'da1',
@@ -404,7 +411,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('returns the canonical training workspace payload with deferred personnelTrainings hydration', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const personnelTrainings = Promise.resolve([
 			{
 				id: 'pt1',
@@ -491,7 +498,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('returns the canonical onboarding workspace payload with onboarding hydration through the coordinator boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const onboardingData: OnboardingBootstrap = {
 			onboardingTemplates: [
 				{
@@ -584,7 +591,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('returns the canonical personnel workspace payload with personnel hydration through the coordinator boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const personnelData: PersonnelBootstrap = {
 			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
 			personnelLookup: [
@@ -644,7 +651,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('returns the canonical dashboard workspace payload while keeping summary-only dashboard data out of shared hydration', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const deferredAssignments = Promise.resolve([
 			{
 				id: 'da1',
@@ -790,7 +797,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('omits workspace hydration when the planner returns no plan', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const trainingData: TrainingBootstrap = {
 			personnelTrainings: Promise.resolve([]),
 			trainingTypes: [],
@@ -817,7 +824,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('marks deferred personnelTrainings as loading before coordinator hydration resolves', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const { stores, personnelTrainings } = createHydrationStores();
 		let resolveTrainings!: (items: PersonnelTraining[]) => void;
 		const deferredTrainings = new Promise<PersonnelTraining[]>((resolve) => {
@@ -855,7 +862,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('marks deferred calendarAssignments as loading before coordinator hydration resolves', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const { stores, calendarAssignments } = createHydrationStores();
 		let resolveAssignments!: (items: { types: AssignmentType[]; assignments: DailyAssignment[] }) => void;
 		const deferredAssignments = new Promise<{
@@ -904,7 +911,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('hydrates onboarding templates and onboardings through the coordinator boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const { stores, onboardingTemplates, onboardings } = createHydrationStores();
 		const template = {
 			id: 'tpl1',
@@ -959,7 +966,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('hydrates personnel, groups, and pinned groups through the coordinator boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const { stores, personnel, groups, pinnedGroups } = createHydrationStores();
 		const person = { id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel;
 		const group = { id: 'g1', name: 'Alpha', sortOrder: 0 } as Group;
@@ -995,7 +1002,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('skips unchanged personnelTrainings snapshot keys through the coordinator hydrate boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const { stores, personnelTrainings } = createHydrationStores();
 		const firstTraining = {
 			id: 'pt1',
@@ -1043,7 +1050,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('skips unchanged onboardings snapshot keys so optimistic onboarding state survives through the coordinator hydrate boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const { stores, onboardings } = createHydrationStores();
 		const serverOnboarding = {
 			id: 'ob1',
@@ -1096,7 +1103,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('skips unchanged personnel snapshot keys so optimistic personnel state survives through the coordinator hydrate boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const { stores, personnel } = createHydrationStores();
 		const serverPerson = { id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel;
 		const optimisticPerson = { id: 'temp-p2', firstName: 'Jane', lastName: 'Jones' } as Personnel;
@@ -1135,7 +1142,7 @@ describe('OrgShellCoordinator', () => {
 	});
 
 	it('ignores stale deferred personnelTrainings after a newer snapshot wins through the coordinator hydrate boundary', async () => {
-		const coordinator = createOrgShellCoordinator();
+		const coordinator = createTestCoordinator();
 		const { stores, personnelTrainings } = createHydrationStores();
 		let resolveFirst!: (items: PersonnelTraining[]) => void;
 		const firstDeferred = new Promise<PersonnelTraining[]>((resolve) => {

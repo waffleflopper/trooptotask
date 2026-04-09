@@ -1,12 +1,3 @@
-import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
-import type { Group } from '$lib/stores/groups.svelte';
-import type {
-	OnboardingTemplate,
-	OnboardingTemplateStep,
-	PersonnelOnboarding
-} from '$features/onboarding/onboarding.types';
-import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
-import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
@@ -27,40 +18,14 @@ import type {
 	HydrationTarget,
 	OnboardingTemplatesHydrationTarget
 } from '$lib/server/core/orgShell';
-
-// Structural type — only the load method is needed; avoids coupling to full Store<T>.
-interface Loadable<T> {
-	readonly orgId: string;
-	load(items: T[], orgId: string): void;
-	startLoading?(): void;
-}
-
-interface CalendarAssignmentsLoadable {
-	readonly orgId: string;
-	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string): void;
-	startLoading?(): void;
-}
-
-interface OnboardingTemplatesLoadable {
-	readonly orgId: string;
-	load(templates: OnboardingTemplate[], steps: OnboardingTemplateStep[], orgId: string): void;
-}
-
-export interface HydrationStores {
-	personnelStore: Loadable<Personnel>;
-	groupsStore: Loadable<Group>;
-	statusTypesStore: Loadable<StatusType>;
-	availabilityEntriesStore: Loadable<AvailabilityEntry>;
-	specialDaysStore: Loadable<SpecialDay>;
-	calendarAssignmentsStore: CalendarAssignmentsLoadable;
-	trainingTypesStore: Loadable<TrainingType>;
-	trainingViewsStore: Loadable<TrainingView>;
-	personnelTrainingsStore: Loadable<PersonnelTraining>;
-	pinnedGroupsStore: Loadable<string>;
-	ratingSchemeStore: Loadable<RatingSchemeEntry>;
-	onboardingTemplateStore: OnboardingTemplatesLoadable;
-	onboardingStore: Loadable<PersonnelOnboarding>;
-}
+import type {
+	CalendarAssignmentsLoadable,
+	HydrationStores,
+	Loadable,
+	OnboardingTemplatesLoadable,
+	OrgShellHydrator
+} from '$lib/orgShellCoordinator';
+export type { HydrationStores } from '$lib/orgShellCoordinator';
 
 const defaultStores: HydrationStores = {
 	personnelStore,
@@ -87,10 +52,7 @@ function isPromiseLike<T>(value: unknown): value is Promise<T> {
 	return !!value && typeof value === 'object' && typeof (value as { then?: unknown }).then === 'function';
 }
 
-export interface OrgShellHydrationCoordinator {
-	hydrate(plan?: HydrationPlan, stores?: HydrationStores): Promise<void>;
-	reset(): void;
-}
+export type OrgShellHydrationCoordinator = OrgShellHydrator;
 
 export function createOrgShellHydrationCoordinator(): OrgShellHydrationCoordinator {
 	const appliedSnapshotKeys = new Map<string, TargetSnapshotState>();

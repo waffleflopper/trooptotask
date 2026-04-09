@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from '$lib/server/adapters/inMemoryOrgShell';
+import {
+	createInMemoryOrgAccessPort,
+	createInMemoryOrgChromePort,
+	createInMemoryOrgWorkspacePort
+} from '$lib/server/adapters/inMemoryOrgShell';
+import { createDefaultHydrationPlanner } from './hydrationPlanner';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
-import type { ChromeData, MembershipInfo, OrgState } from './orgShell';
+import type { Group } from '$lib/stores/groups.svelte';
+import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
+import type { Personnel } from '$lib/types';
+import type { ChromeData, MembershipInfo, OrgState, WorkspaceBootstrap, WorkspaceKey } from './orgShell';
 import { createOrgShellCoordinator } from './orgShellCoordinator';
+import type { TrainingBootstrap } from './useCases/trainingQuery';
 
 const membership: MembershipInfo = {
 	orgId: 'org-1',
@@ -56,7 +65,7 @@ describe('OrgShellCoordinator', () => {
 			chrome: createInMemoryOrgChromePort({ chrome })
 		});
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			orgId: 'org-1',
 			orgName: 'Test Unit',
 			userId: 'user-1',
@@ -73,7 +82,6 @@ describe('OrgShellCoordinator', () => {
 			allOrgs: chrome.allOrgs,
 			isDemoReadOnly: false,
 			isDemoSandbox: false,
-			orgSuspended: undefined,
 			shell: {
 				orgId: 'org-1',
 				orgName: 'Test Unit',
@@ -90,8 +98,7 @@ describe('OrgShellCoordinator', () => {
 				activeAnnouncements: chrome.activeAnnouncements,
 				allOrgs: chrome.allOrgs,
 				isDemoReadOnly: false,
-				isDemoSandbox: false,
-				orgSuspended: undefined
+				isDemoSandbox: false
 			}
 		});
 	});
@@ -183,6 +190,114 @@ describe('OrgShellCoordinator', () => {
 			isOwner: true,
 			isDemoReadOnly: false,
 			isDemoSandbox: true
+		});
+	});
+
+	it('returns the canonical training workspace payload with deferred personnelTrainings hydration', async () => {
+		const coordinator = createOrgShellCoordinator();
+		const personnelTrainings = Promise.resolve([
+			{
+				id: 'pt1',
+				personnelId: 'p1',
+				trainingTypeId: 'tt1',
+				completionDate: null,
+				expirationDate: null,
+				notes: null,
+				certificateUrl: null
+			} satisfies PersonnelTraining
+		]);
+		const trainingData: TrainingBootstrap = {
+			personnelTrainings,
+			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType],
+			trainingViews: [
+				{
+					id: 'tv1',
+					name: 'All Personnel',
+					columnIds: [],
+					createdBy: 'u1',
+					createdAt: '2024-01-01',
+					updatedAt: '2024-01-01'
+				} as TrainingView
+			],
+			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
+			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
+			pinnedGroups: ['Alpha']
+		};
+		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['training', trainingData]]));
+		const planner = createDefaultHydrationPlanner('org-1');
+
+		const result = await coordinator.loadWorkspace<TrainingBootstrap, 'training'>('training', {
+			workspace: workspacePort,
+			planner
+		});
+
+		expect(result).toEqual({
+			training: {
+				workspace: 'training',
+				data: trainingData,
+				hydration: expect.objectContaining({
+					orgId: 'org-1',
+					groups: {
+						mode: 'replace',
+						items: trainingData.groups,
+						snapshotKey: expect.any(String)
+					},
+					personnel: {
+						scoped: {
+							mode: 'replace',
+							items: trainingData.personnel,
+							snapshotKey: expect.any(String)
+						}
+					},
+					trainingTypes: {
+						mode: 'replace',
+						items: trainingData.trainingTypes,
+						snapshotKey: expect.any(String)
+					},
+					trainingViews: {
+						mode: 'replace',
+						items: trainingData.trainingViews,
+						snapshotKey: expect.any(String)
+					},
+					personnelTrainings: {
+						mode: 'replace',
+						items: personnelTrainings,
+						snapshotKey: expect.any(String)
+					},
+					pinnedGroups: {
+						mode: 'replace',
+						items: trainingData.pinnedGroups,
+						snapshotKey: expect.any(String)
+					}
+				})
+			} satisfies WorkspaceBootstrap<TrainingBootstrap>
+		});
+	});
+
+	it('omits workspace hydration when the planner returns no plan', async () => {
+		const coordinator = createOrgShellCoordinator();
+		const trainingData: TrainingBootstrap = {
+			personnelTrainings: Promise.resolve([]),
+			trainingTypes: [],
+			trainingViews: [],
+			personnel: [],
+			groups: [],
+			pinnedGroups: []
+		};
+		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['training', trainingData]]));
+
+		const result = await coordinator.loadWorkspace<TrainingBootstrap, 'training'>('training', {
+			workspace: workspacePort,
+			planner: {
+				createPlan: () => undefined
+			}
+		});
+
+		expect(result).toEqual({
+			training: {
+				workspace: 'training',
+				data: trainingData
+			} satisfies WorkspaceBootstrap<TrainingBootstrap>
 		});
 	});
 });

@@ -7,6 +7,9 @@
 	import AvailabilityModal from '$features/calendar/components/AvailabilityModal.svelte';
 	import DailyAssignmentModal from '$features/calendar/components/DailyAssignmentModal.svelte';
 	import SmartToolbar from '$lib/components/ui/SmartToolbar.svelte';
+	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
+	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
+	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
 	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
@@ -83,23 +86,48 @@
 		{/if}
 	</SmartToolbar>
 
-	<TodayBreakdownPanel
-		expanded={ctx.breakdownExpanded}
-		onToggle={() => ctx.toggleBreakdown()}
-		personnelByGroup={ctx.personnelByGroup}
-		availabilityEntries={availabilityStore.items}
-		statusTypes={statusTypesStore.items}
-		assignmentTypes={dailyAssignmentsStore.types}
-		assignments={dailyAssignmentsStore.assignments}
-		dutyEvents={ctx.advancedDutyEvents}
-	/>
-
 	{#if !data.permissions?.canViewCalendar}
 		<div class="no-permission">
 			<h2>Access Restricted</h2>
 			<p>You don't have permission to view this area. Contact your organization admin for access.</p>
 		</div>
+	{:else if ctx.isHydrating}
+		<main class="page-content" aria-busy="true">
+			<section class="calendar-section calendar-section--loading" aria-live="polite" role="status">
+				<p class="loading-kicker">Loading calendar data</p>
+
+				<section class="breakdown-placeholder" aria-hidden="true">
+					<div class="breakdown-placeholder__header">
+						<SkeletonLine width="132px" height="12px" />
+						<SkeletonLine width="90px" height="12px" />
+					</div>
+					<div class="breakdown-placeholder__chips">
+						<SkeletonBlock height="28px" />
+						<SkeletonBlock height="28px" />
+						<SkeletonBlock height="28px" />
+						<SkeletonBlock height="28px" />
+					</div>
+				</section>
+
+				{#if ctx.viewMode === '3-month'}
+					<SkeletonBlock height="820px" />
+				{:else}
+					<SkeletonGrid rows={7} columns={7} cellWidth="minmax(0, 1fr)" cellHeight="82px" />
+				{/if}
+			</section>
+		</main>
 	{:else}
+		<TodayBreakdownPanel
+			expanded={ctx.breakdownExpanded}
+			onToggle={() => ctx.toggleBreakdown()}
+			personnelByGroup={ctx.personnelByGroup}
+			availabilityEntries={availabilityStore.items}
+			statusTypes={statusTypesStore.items}
+			assignmentTypes={dailyAssignmentsStore.types}
+			assignments={dailyAssignmentsStore.assignments}
+			dutyEvents={ctx.advancedDutyEvents}
+		/>
+
 		<main class="page-content">
 			<section class="calendar-section">
 				{#if ctx.viewMode === '3-month'}
@@ -207,6 +235,48 @@
 		overflow: hidden;
 	}
 
+	.calendar-section--loading {
+		overflow: visible;
+	}
+
+	.loading-kicker {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--amber);
+	}
+
+	.breakdown-placeholder {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
+		padding: var(--sp-4) var(--sp-5);
+		background: var(--surface-panel);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+
+	.breakdown-placeholder__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-4);
+	}
+
+	.breakdown-placeholder__chips {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: var(--sp-2);
+	}
+
+	.breakdown-placeholder__chips :global(.skeleton-block) {
+		min-height: 28px;
+	}
+
 	.no-permission {
 		display: flex;
 		flex-direction: column;
@@ -287,6 +357,10 @@
 	@media (max-width: 640px) {
 		.page-content {
 			padding: var(--sp-4);
+		}
+
+		.breakdown-placeholder__chips {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 
 		.no-permission {

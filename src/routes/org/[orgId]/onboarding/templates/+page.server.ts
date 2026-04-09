@@ -12,6 +12,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 	});
 
 	return {
+		session: locals.session,
 		orgId,
 		...data,
 		trainingTypes: parentData.onboarding.data.trainingTypes

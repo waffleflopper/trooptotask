@@ -125,6 +125,16 @@ export class DashboardContext {
 		return !!(this.data.isDemoReadOnly as boolean | undefined);
 	}
 
+	get isHydrating(): boolean {
+		return (
+			personnelStore.loading ||
+			statusTypesStore.loading ||
+			availabilityStore.loading ||
+			dailyAssignmentsStore.loading ||
+			groupsStore.loading
+		);
+	}
+
 	// ---------------------------------------------------------------------------
 	// Modal helpers
 	// ---------------------------------------------------------------------------

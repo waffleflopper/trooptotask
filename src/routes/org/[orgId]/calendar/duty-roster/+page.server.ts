@@ -1,11 +1,11 @@
-import type { PageServerLoad } from './$types';
+import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { fetchRosterHistory } from '$lib/server/core/useCases/rosterHistoryQuery';
 import { canAccessAdvancedDuty } from '$lib/server/core/useCases/advancedDutyAccess';
 import { listDutyTemplates } from '$lib/server/core/useCases/dutyTemplateCrud';
 import { listDutyEventsForCalendar } from '$lib/server/core/useCases/dutyEventCrud';
 
-export const load: PageServerLoad = async ({ params, locals, cookies }) => {
+export const load = async ({ params, locals, cookies }: PageServerLoadEvent) => {
 	const { orgId } = params;
 
 	return loadWithContext(locals, cookies, orgId, {

@@ -46,6 +46,12 @@ function createSnapshotKey(value: unknown): string {
 	}
 }
 
+function createCompositeSnapshotKey(parts: Record<string, unknown>): string {
+	return createSnapshotKey(
+		Object.fromEntries(Object.entries(parts).map(([key, value]) => [key, createSnapshotKey(value)]))
+	);
+}
+
 function isHydratableItems(value: unknown): value is unknown[] | Promise<unknown[]> {
 	return Array.isArray(value) || isPromiseLike<unknown[]>(value);
 }
@@ -64,6 +70,23 @@ function createCalendarAssignmentsItems(
 	return {
 		types: assignmentTypes,
 		assignments: assignmentEntries
+	};
+}
+
+function createCalendarAssignmentsTarget(
+	assignmentTypes: AssignmentType[] | Promise<AssignmentType[]>,
+	assignmentEntries: DailyAssignment[] | Promise<DailyAssignment[]>
+) {
+	const items = createCalendarAssignmentsItems(assignmentTypes, assignmentEntries);
+
+	return {
+		mode: 'replace' as const,
+		deferred: isPromiseLike(items),
+		snapshotKey: createCompositeSnapshotKey({
+			assignmentTypes,
+			assignmentEntries
+		}),
+		items
 	};
 }
 
@@ -163,16 +186,10 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			}
 
 			if (hasCalendarAssignments) {
-				const items = createCalendarAssignmentsItems(
+				plan.calendarAssignments = createCalendarAssignmentsTarget(
 					d.assignmentTypes as AssignmentType[] | Promise<AssignmentType[]>,
 					assignmentEntries as DailyAssignment[] | Promise<DailyAssignment[]>
 				);
-				plan.calendarAssignments = {
-					mode: 'replace',
-					deferred: isPromiseLike(items),
-					snapshotKey: createSnapshotKey(items),
-					items
-				};
 			}
 
 			if (hasTrainingTypes) {

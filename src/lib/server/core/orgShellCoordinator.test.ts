@@ -14,10 +14,13 @@ import type {
 	OnboardingTemplateStep,
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
+import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
-import type { AssignmentType, DailyAssignment, Personnel } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import type { ChromeData, MembershipInfo, OrgState, WorkspaceBootstrap, WorkspaceKey } from './orgShell';
 import { createOrgShellCoordinator } from './orgShellCoordinator';
+import type { CalendarBootstrap } from './useCases/calendarQuery';
+import type { DashboardBootstrap } from './useCases/dashboardQuery';
 import type { OnboardingBootstrap } from './useCases/onboardingQuery';
 import type { PersonnelBootstrap } from './useCases/personnelWorkspaceQuery';
 import type { TrainingBootstrap } from './useCases/trainingQuery';
@@ -284,6 +287,122 @@ describe('OrgShellCoordinator', () => {
 		});
 	});
 
+	it('returns the canonical calendar workspace payload with composite calendar hydration through the coordinator boundary', async () => {
+		const coordinator = createOrgShellCoordinator();
+		const deferredAssignments = Promise.resolve([
+			{
+				id: 'da1',
+				date: '2024-01-01',
+				assignmentTypeId: 'at1',
+				assigneeId: 'p1'
+			} satisfies DailyAssignment
+		]);
+		const calendarData: CalendarBootstrap = {
+			availabilityEntries: [
+				{
+					id: 'avail1',
+					personnelId: 'p1',
+					statusTypeId: 'st1',
+					startDate: '2024-01-01',
+					endDate: '2024-01-02',
+					note: null
+				} satisfies AvailabilityEntry
+			],
+			specialDays: [
+				{
+					id: 'special1',
+					name: 'Training Holiday',
+					date: '2024-01-15',
+					type: 'org-closure'
+				} satisfies SpecialDay
+			],
+			assignmentTypes: [
+				{
+					id: 'at1',
+					name: 'Staff Duty',
+					shortName: 'SD',
+					assignTo: 'personnel',
+					color: '#111111',
+					exemptPersonnelIds: [],
+					showInDateHeader: false
+				} satisfies AssignmentType
+			],
+			dailyAssignments: deferredAssignments,
+			pinnedGroups: ['Alpha'],
+			advancedDutyEvents: [],
+			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
+			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
+			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
+			activeOnboardingPersonnelIds: ['p1']
+		};
+		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['calendar', calendarData]]));
+		const planner = createDefaultHydrationPlanner('org-1');
+
+		const result = await coordinator.loadWorkspace<CalendarBootstrap, 'calendar'>('calendar', {
+			workspace: workspacePort,
+			planner
+		});
+
+		expect(result).toMatchObject({
+			calendar: {
+				workspace: 'calendar',
+				data: calendarData,
+				hydration: {
+					orgId: 'org-1',
+					availabilityEntries: expect.objectContaining({
+						mode: 'replace',
+						items: calendarData.availabilityEntries,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					specialDays: expect.objectContaining({
+						mode: 'replace',
+						items: calendarData.specialDays,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					calendarAssignments: expect.objectContaining({
+						mode: 'replace',
+						deferred: true,
+						snapshotKey: expect.any(String)
+					}),
+					personnel: {
+						scoped: expect.objectContaining({
+							mode: 'replace',
+							items: calendarData.personnel,
+							deferred: false,
+							snapshotKey: expect.any(String)
+						})
+					},
+					groups: expect.objectContaining({
+						mode: 'replace',
+						items: calendarData.groups,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					statusTypes: expect.objectContaining({
+						mode: 'replace',
+						items: calendarData.statusTypes,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					pinnedGroups: expect.objectContaining({
+						mode: 'replace',
+						items: calendarData.pinnedGroups,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					})
+				}
+			} satisfies WorkspaceBootstrap<CalendarBootstrap>
+		});
+
+		await expect(result.calendar.hydration?.calendarAssignments?.items).resolves.toEqual({
+			types: calendarData.assignmentTypes,
+			assignments: await deferredAssignments
+		});
+		expect(result.calendar.data.activeOnboardingPersonnelIds).toEqual(['p1']);
+	});
+
 	it('returns the canonical training workspace payload with deferred personnelTrainings hydration', async () => {
 		const coordinator = createOrgShellCoordinator();
 		const personnelTrainings = Promise.resolve([
@@ -522,6 +641,152 @@ describe('OrgShellCoordinator', () => {
 				}
 			} satisfies WorkspaceBootstrap<PersonnelBootstrap>
 		});
+	});
+
+	it('returns the canonical dashboard workspace payload while keeping summary-only dashboard data out of shared hydration', async () => {
+		const coordinator = createOrgShellCoordinator();
+		const deferredAssignments = Promise.resolve([
+			{
+				id: 'da1',
+				date: '2024-01-01',
+				assignmentTypeId: 'at1',
+				assigneeId: 'p1'
+			} satisfies DailyAssignment
+		]);
+		const dashboardData: DashboardBootstrap = {
+			availabilityEntries: [
+				{
+					id: 'avail1',
+					personnelId: 'p1',
+					statusTypeId: 'st1',
+					startDate: '2024-01-01',
+					endDate: '2024-01-02',
+					note: null
+				} satisfies AvailabilityEntry
+			],
+			assignmentTypes: [
+				{
+					id: 'at1',
+					name: 'Staff Duty',
+					shortName: 'SD',
+					assignTo: 'personnel',
+					color: '#111111',
+					exemptPersonnelIds: [],
+					showInDateHeader: false
+				} satisfies AssignmentType
+			],
+			todayAssignments: deferredAssignments,
+			pinnedGroups: ['Alpha'],
+			ratingSchemeEntries: [
+				{
+					id: 'rs1',
+					ratedPersonId: 'p1',
+					evalType: 'NCOER',
+					raterPersonId: null,
+					raterName: null,
+					seniorRaterPersonId: null,
+					seniorRaterName: null,
+					intermediateRaterPersonId: null,
+					intermediateRaterName: null,
+					reviewerPersonId: null,
+					reviewerName: null,
+					ratingPeriodStart: '2024-01-01',
+					ratingPeriodEnd: '2024-12-31',
+					status: 'active',
+					notes: null,
+					reportType: 'AN',
+					workflowStatus: 'drafting'
+				} satisfies RatingSchemeEntry
+			],
+			activeOnboardings: [
+				{
+					id: 'ob1',
+					personnelId: 'p1',
+					startedAt: '2024-01-01',
+					completedAt: null,
+					cancelledAt: null,
+					status: 'in_progress',
+					steps: [],
+					templateId: 'tpl1'
+				} satisfies PersonnelOnboarding
+			],
+			todayDutyEvents: [],
+			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
+			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
+			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
+			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType]
+		};
+		const workspacePort = createInMemoryOrgWorkspacePort(
+			new Map<WorkspaceKey, unknown>([['dashboard', dashboardData]])
+		);
+		const planner = createDefaultHydrationPlanner('org-1');
+
+		const result = await coordinator.loadWorkspace<DashboardBootstrap, 'dashboard'>('dashboard', {
+			workspace: workspacePort,
+			planner
+		});
+
+		expect(result).toMatchObject({
+			dashboard: {
+				workspace: 'dashboard',
+				data: dashboardData,
+				hydration: {
+					orgId: 'org-1',
+					availabilityEntries: expect.objectContaining({
+						mode: 'replace',
+						items: dashboardData.availabilityEntries,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					calendarAssignments: expect.objectContaining({
+						mode: 'replace',
+						deferred: true,
+						snapshotKey: expect.any(String)
+					}),
+					personnel: {
+						scoped: expect.objectContaining({
+							mode: 'replace',
+							items: dashboardData.personnel,
+							deferred: false,
+							snapshotKey: expect.any(String)
+						})
+					},
+					groups: expect.objectContaining({
+						mode: 'replace',
+						items: dashboardData.groups,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					statusTypes: expect.objectContaining({
+						mode: 'replace',
+						items: dashboardData.statusTypes,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					trainingTypes: expect.objectContaining({
+						mode: 'replace',
+						items: dashboardData.trainingTypes,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					pinnedGroups: expect.objectContaining({
+						mode: 'replace',
+						items: dashboardData.pinnedGroups,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					})
+				}
+			} satisfies WorkspaceBootstrap<DashboardBootstrap>
+		});
+
+		expect(result.dashboard.hydration?.ratingSchemeEntries).toBeUndefined();
+		expect(result.dashboard.hydration?.onboardings).toBeUndefined();
+		await expect(result.dashboard.hydration?.calendarAssignments?.items).resolves.toEqual({
+			types: dashboardData.assignmentTypes,
+			assignments: await deferredAssignments
+		});
+		expect(result.dashboard.data.ratingSchemeEntries).toHaveLength(1);
+		expect(result.dashboard.data.activeOnboardings).toHaveLength(1);
 	});
 
 	it('omits workspace hydration when the planner returns no plan', async () => {

@@ -64,8 +64,9 @@ export type WorkspaceKey = 'dashboard' | 'calendar' | 'personnel' | 'training' |
  * Serializable description of how each client store should be hydrated.
  * The shell layer intentionally uses `unknown[]` slots — workspace assemblers own the
  * concrete types and cast when consuming the plan. The explicit `mode` and `snapshotKey`
- * fields give `applyHydration(...)` a typed place to preserve optimistic client state and
- * skip unchanged server snapshots instead of relying on route-local heuristics.
+ * fields give the coordinator hydration boundary a typed place to preserve optimistic
+ * client state and skip unchanged server snapshots instead of relying on route-local
+ * heuristics.
  */
 export type HydrationMode = 'replace' | 'merge' | 'preserve-client';
 export type HydrationItems<T = unknown> = T[] | Promise<T[]>;
@@ -80,7 +81,7 @@ export interface HydrationTarget<T = unknown> {
 	deferred?: boolean;
 	/**
 	 * Stable identity for the server snapshot backing this target.
-	 * `applyHydration(...)` uses this to avoid re-loading unchanged data.
+	 * The coordinator hydration boundary uses this to avoid re-loading unchanged data.
 	 */
 	snapshotKey: string;
 	items: HydrationItems<T>;

@@ -3,13 +3,25 @@ import type {
 	HydrationPlannerPort,
 	OrgAccessPort,
 	OrgChromePort,
+	OrgShellData,
 	OrgWorkspacePort,
 	WorkspaceBootstrap,
 	WorkspaceKey
 } from './orgShell';
-import type { RootOrgShellLoadResult } from './useCases/loadRootOrgShell';
 import { createOrgShellHydrationCoordinator, type HydrationStores } from '$lib/orgShellHydrationCoordinator.svelte';
-import { loadRootOrgShellRouteData, projectSuspendedRootOrgShellRouteData } from './useCases/loadRootOrgShell';
+import { loadOrgShell } from './useCases/loadOrgShell';
+
+export type RootOrgShellRouteData = OrgShellData & {
+	shell: OrgShellData;
+};
+
+export interface SuspendedRootOrgShellRouteData {
+	orgSuspended: true;
+	orgId: string;
+	orgName: string;
+}
+
+export type RootOrgShellLoadResult = RootOrgShellRouteData | SuspendedRootOrgShellRouteData;
 
 export type RootOrgShellRequest =
 	| { kind: 'shell'; access: OrgAccessPort; chrome: OrgChromePort }
@@ -36,10 +48,17 @@ export function createOrgShellCoordinator(): OrgShellCoordinator {
 	return {
 		loadRoot(request) {
 			if (request.kind === 'suspended') {
-				return Promise.resolve(projectSuspendedRootOrgShellRouteData(request.orgId, request.orgName));
+				return Promise.resolve({
+					orgSuspended: true,
+					orgId: request.orgId,
+					orgName: request.orgName
+				});
 			}
 
-			return loadRootOrgShellRouteData(request.access, request.chrome);
+			return loadOrgShell(request.access, request.chrome).then((shell) => ({
+				...shell,
+				shell
+			}));
 		},
 
 		async loadWorkspace<T, K extends WorkspaceKey>(

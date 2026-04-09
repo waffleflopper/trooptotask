@@ -12,15 +12,15 @@ Use these for any top-level marketing, legal, or trust page so the public site k
 
 ```svelte
 <PublicShell user={data.user} active="pricing" bodyClass="pricing-page" roadmapHref="/#roadmap">
-	<PublicPageHeader label="Pricing">
-		{#snippet title()}Simple, transparent <em>pricing.</em>{/snippet}
-		<p>No feature gating. Every plan gets the full platform.</p>
-	</PublicPageHeader>
+    <PublicPageHeader label="Pricing">
+        {#snippet title()}Simple, transparent <em>pricing.</em>{/snippet}
+        <p>No feature gating. Every plan gets the full platform.</p>
+    </PublicPageHeader>
 
-	<PublicContentSection label="01 // Tiering" alternate>
-		{#snippet title()}Sized for the formation.{/snippet}
-		<p>Section body...</p>
-	</PublicContentSection>
+    <PublicContentSection label="01 // Tiering" alternate>
+        {#snippet title()}Sized for the formation.{/snippet}
+        <p>Section body...</p>
+    </PublicContentSection>
 </PublicShell>
 ```
 
@@ -31,6 +31,7 @@ Shared public wrapper that renders the classification bar, site nav, optional CT
 Props: `user?: unknown`, `active?: 'features' | 'pricing' | 'security'`, `bodyClass?: string`, `roadmapHref?: string`, `faqHref?: string`, `showFaqLink?: boolean`, `showCta?: boolean`, `ctaTitleBefore?: string`, `ctaEmphasis?: string`, `ctaSubtitle?: string`, `children: Snippet`, `cta?: Snippet`
 
 Guidance:
+
 - Prefer this over duplicating nav/footer/CTA markup in public routes.
 - Use `roadmapHref="#roadmap"` and `faqHref="#faq"` on the landing page; use `/#roadmap` for inner pages.
 - Pass a custom `cta` snippet only when the default shared CTA is not enough.
@@ -42,6 +43,7 @@ Shared inner-page hero/header for marketing, legal, pricing, and trust pages.
 Props: `label: string`, `title: Snippet`, `children?: Snippet`
 
 Guidance:
+
 - Keep `label` short, mono, and structural.
 - Put supporting copy and metadata like effective dates in `children`; use `.page-meta` for low-emphasis header metadata.
 
@@ -52,6 +54,7 @@ Shared section framing for legal/trust/public longform pages.
 Props: `label: string`, `alternate?: boolean`, `title?: Snippet`, `children: Snippet`
 
 Guidance:
+
 - Alternate sections with `alternate` when you need rhythm across long-form pages.
 - Use `.contact-card` inside section content for disclosure/support email callouts.
 
@@ -68,14 +71,14 @@ Page header toolbar with title, actions, breadcrumbs, and optional below-content
 ```svelte
 <!-- Basic usage -->
 <PageToolbar title="Personnel">
-	<button class="btn btn-primary" onclick={handleAdd}>Add</button>
+    <button class="btn btn-primary" onclick={handleAdd}>Add</button>
 </PageToolbar>
 
 <!-- With breadcrumbs and subtitle -->
 <PageToolbar
-	title="Training Records"
-	subtitle="42 total"
-	breadcrumbs={[{ label: 'Personnel', href: '/personnel' }, { label: 'John Smith' }]}
+    title="Training Records"
+    subtitle="42 total"
+    breadcrumbs={[{ label: 'Personnel', href: '/personnel' }, { label: 'John Smith' }]}
 />
 
 <!-- Compact variant, sticky -->
@@ -83,22 +86,23 @@ Page header toolbar with title, actions, breadcrumbs, and optional below-content
 
 <!-- With below slot for filters/sub-nav -->
 <PageToolbar title="Calendar">
-	{#snippet below()}
-		<SubNav tabs={tabs} active={currentTab} onChange={handleTab} />
-	{/snippet}
+    {#snippet below()}
+        <SubNav tabs={tabs} active={currentTab} onChange={handleTab} />
+    {/snippet}
 </PageToolbar>
 
 <!-- Leading snippet replaces title area -->
 <PageToolbar title="Dashboard">
-	{#snippet leading()}
-		<CustomHeader />
-	{/snippet}
+    {#snippet leading()}
+        <CustomHeader />
+    {/snippet}
 </PageToolbar>
 ```
 
 Props: `title: string`, `helpTopic?: string`, `overflowItems?: OverflowItem[]`, `variant?: 'default' | 'compact'`, `sticky?: boolean`, `breadcrumbs?: { label: string; href?: string }[]`, `subtitle?: string`, `children?: Snippet` (actions), `leading?: Snippet`, `below?: Snippet`
 
 Toolbar guidance:
+
 - Use `variant="default"` for normal product pages and `variant="compact"` for denser detail views.
 - Keep breadcrumbs short and structural; they render as mono navigation labels.
 - Prefer `subtitle` for context or counts rather than adding decorative badges beside the title.
@@ -111,26 +115,26 @@ Base modal wrapper. Use for all modals. Default width is `480px`. The refreshed 
 
 ```svelte
 <Modal title="Edit Foo" {onClose} width="500px" titleId="foo-title">
-	<!-- body content -->
-	{#snippet footer()}
-		<button class="btn btn-danger" onclick={handleDelete}>Delete</button>
-		<div class="spacer"></div>
-		<button class="btn btn-secondary" onclick={onClose}>Cancel</button>
-		<button class="btn btn-primary" onclick={handleSave}>Save</button>
-	{/snippet}
+    <!-- body content -->
+    {#snippet footer()}
+        <button class="btn btn-danger" onclick={handleDelete}>Delete</button>
+        <div class="spacer"></div>
+        <button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+        <button class="btn btn-primary" onclick={handleSave}>Save</button>
+    {/snippet}
 </Modal>
 
 <!-- Locked during async operation -->
 <Modal title="Processing" {onClose} canClose={!saving} showCloseButton={false}>
-	...
+    ...
 </Modal>
 
 <!-- With header actions (e.g. a status badge next to the title) -->
 <Modal title="Review" {onClose}>
-	{#snippet headerActions()}
-		<Badge label="Pending" color="var(--color-warning)" />
-	{/snippet}
-	...
+    {#snippet headerActions()}
+        <Badge label="Pending" color="var(--color-warning)" />
+    {/snippet}
+    ...
 </Modal>
 ```
 
@@ -146,14 +150,14 @@ Pre-wired confirmation modal. Handles its own loading state during async `onConf
 
 ```svelte
 {#if showConfirm}
-	<ConfirmDialog
-		title="Delete Item"
-		message="This action cannot be undone."
-		confirmLabel="Delete"
-		variant="danger"
-		onConfirm={handleDelete}
-		onCancel={() => (showConfirm = false)}
-	/>
+    <ConfirmDialog
+        title="Delete Item"
+        message="This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => (showConfirm = false)}
+    />
 {/if}
 ```
 
@@ -177,6 +181,7 @@ Compact metadata or status label. Badges are now intentionally mono and uppercas
 Props: `label: string`, `color?: string`, `textColor?: string` (default `'white'` when a custom filled color is passed), `bold?: boolean`, `variant?: 'filled' | 'outlined'`
 
 Badge guidance:
+
 - Reserve filled badges for real state or metadata labels.
 - Use `variant="outlined"` for neutral, low-emphasis labels.
 - Prefer shared semantic tokens (`--color-success`, `--color-warning`, `--color-error`, `--color-info`) over arbitrary decorative colors when possible.
@@ -189,8 +194,8 @@ Loading spinner for async buttons.
 
 ```svelte
 <button disabled={saving}>
-	{#if saving}<Spinner />{/if}
-	{saving ? 'Saving...' : 'Save'}
+    {#if saving}<Spinner />{/if}
+    {saving ? 'Saving...' : 'Save'}
 </button>
 ```
 
@@ -204,9 +209,9 @@ Linear stage indicator for multi-step workflows. Shows stages as connected dots 
 
 ```svelte
 <Stepper
-	stages={['with soldier', 'submitted', 'approved']}
-	currentStage="submitted"
-	onStageClick={(stage) => handleStageClick(step, stage)}
+    stages={['with soldier', 'submitted', 'approved']}
+    currentStage="submitted"
+    onStageClick={(stage) => handleStageClick(step, stage)}
 />
 
 <!-- Read-only -->
@@ -239,9 +244,9 @@ Labeled form field with mono label treatment, error/hint states, and accessibili
 
 <!-- Escape hatch: custom children (e.g. optgroups) -->
 <FormField label="Rank" id="rank">
-	<select id="rank" class="input" bind:value={rank}>
-		<optgroup label="NCO"><option value="SGT">SGT</option></optgroup>
-	</select>
+    <select id="rank" class="input" bind:value={rank}>
+        <optgroup label="NCO"><option value="SGT">SGT</option></optgroup>
+    </select>
 </FormField>
 ```
 
@@ -250,6 +255,7 @@ Props: `label: string`, `id: string`, `inputElement?: 'input' | 'select' | 'text
 Accessibility: `label[for]` wired to `id`, `aria-describedby` for error/hint, `aria-invalid` when error, `required` forwarded to native element.
 
 Field guidance:
+
 - Labels render as mono utility labels by default; keep them short and specific.
 - Hints and errors occupy a reserved support row so layouts do not jump as much when validation appears.
 
@@ -263,10 +269,10 @@ Searchable single-select with keyboard navigation and clear button. Use when `<s
 
 ```svelte
 <SearchSelect
-	options={personnel.map((p) => ({ value: p.id, label: p.name }))}
-	bind:value={selectedId}
-	placeholder="Search personnel..."
-	onchange={(v) => console.log(v)}
+    options={personnel.map((p) => ({ value: p.id, label: p.name }))}
+    bind:value={selectedId}
+    placeholder="Search personnel..."
+    onchange={(v) => console.log(v)}
 />
 ```
 
@@ -285,18 +291,19 @@ Secondary tab navigation with badge counts. Styling is underline-driven and prod
 
 ```svelte
 <SubNav
-	tabs={[
-		{ label: 'Approvals', value: 'approvals', badge: pendingCount },
-		{ label: 'Archived', value: 'archived' }
-	]}
-	active={currentTab}
-	onChange={(tab) => goto(`/org/${orgId}/admin/${tab}`)}
+    tabs={[
+        { label: 'Approvals', value: 'approvals', badge: pendingCount },
+        { label: 'Archived', value: 'archived' }
+    ]}
+    active={currentTab}
+    onChange={(tab) => goto(`/org/${orgId}/admin/${tab}`)}
 />
 ```
 
 Props: `tabs: { label: string; value: string; badge?: number }[]`, `active: string`, `onChange: (value: string) => void`
 
 Sub-nav guidance:
+
 - Use this for page-level mode switches and sibling sub-routes.
 - Badge counts are mono status counts, not decorative accents.
 
@@ -329,13 +336,13 @@ File upload/download with drag-and-drop. Uses application endpoints for upload, 
 
 ```svelte
 <FileUpload
-	{filePath}
-	uploadUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
-	downloadUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
-	removeUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
-	onUpload={(path) => (filePath = path)}
-	onRemove={() => (filePath = null)}
-	label="PDF Document"
+    {filePath}
+    uploadUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
+    downloadUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
+    removeUrl={`/org/${orgId}/api/sign-in-rosters/${rosterId}/upload`}
+    onUpload={(path) => (filePath = path)}
+    onRemove={() => (filePath = null)}
+    label="PDF Document"
 />
 ```
 
@@ -343,6 +350,7 @@ Props: `filePath: string | null`, `uploadUrl: string`, `downloadUrl: string`, `r
 
 **States**: empty (dashed drop zone + "Choose PDF" button), uploading (Spinner + filename), file exists (download link + "Remove" button).
 **Endpoint contract**:
+
 - `POST uploadUrl` with `FormData(file)` returns `{ filePath: string }`
 - `GET downloadUrl` returns `{ url: string }`
 - `DELETE removeUrl` returns `200 OK`
@@ -357,20 +365,20 @@ Declarative action toolbar that renders buttons, icon-buttons, dropdown menus, a
 
 ```svelte
 <SmartToolbar
-	items={[
-		{ type: 'button', label: 'Export', onclick: handleExport },
-		{ type: 'icon-button', label: 'Settings', icon: settingsIconSvg, onclick: openSettings },
-		{
-			type: 'dropdown',
-			label: 'Add',
-			items: [
-				{ label: 'Single', onclick: addOne },
-				{ label: 'Bulk Import', href: '/import' }
-			]
-		},
-		{ type: 'overflow', label: 'Archive', onclick: handleArchive }
-	]}
-	narrow={isMobile}
+    items={[
+        { type: 'button', label: 'Export', onclick: handleExport },
+        { type: 'icon-button', label: 'Settings', icon: settingsIconSvg, onclick: openSettings },
+        {
+            type: 'dropdown',
+            label: 'Add',
+            items: [
+                { label: 'Single', onclick: addOne },
+                { label: 'Bulk Import', href: '/import' }
+            ]
+        },
+        { type: 'overflow', label: 'Archive', onclick: handleArchive }
+    ]}
+    narrow={isMobile}
 />
 ```
 
@@ -378,16 +386,16 @@ Props: `items: SmartToolbarItem[]`, `narrow?: boolean` (default `false`)
 
 `SmartToolbarItem` shape:
 
-| Field | Type | Description |
-|---|---|---|
-| `type` | `'button' \| 'dropdown' \| 'icon-button' \| 'overflow'` | Render style |
-| `label` | `string` | Button text or aria-label for icon-buttons |
-| `id?` | `string` | Key for dropdown open/close tracking (defaults to label) |
-| `icon?` | `string` | SVG markup (use `{@html}` internally — must be trusted app content) |
-| `href?` | `string` | Renders as `<a>` instead of `<button>` |
-| `onclick?` | `() => void` | Click handler |
-| `disabled?` | `boolean` | |
-| `items?` | `DropdownItem[]` | Sub-items for `type: 'dropdown'` |
+| Field       | Type                                                    | Description                                                         |
+| ----------- | ------------------------------------------------------- | ------------------------------------------------------------------- |
+| `type`      | `'button' \| 'dropdown' \| 'icon-button' \| 'overflow'` | Render style                                                        |
+| `label`     | `string`                                                | Button text or aria-label for icon-buttons                          |
+| `id?`       | `string`                                                | Key for dropdown open/close tracking (defaults to label)            |
+| `icon?`     | `string`                                                | SVG markup (use `{@html}` internally — must be trusted app content) |
+| `href?`     | `string`                                                | Renders as `<a>` instead of `<button>`                              |
+| `onclick?`  | `() => void`                                            | Click handler                                                       |
+| `disabled?` | `boolean`                                               |                                                                     |
+| `items?`    | `DropdownItem[]`                                        | Sub-items for `type: 'dropdown'`                                    |
 
 `type: 'overflow'` items always appear in the "More" dropdown. In `narrow` mode, all non-overflow items also collapse into it.
 
@@ -401,17 +409,17 @@ Controlled dropdown menu. Used as an escape hatch when SmartToolbar doesn't fit 
 
 ```svelte
 <script>
-	let menuOpen = $state(false);
+    let menuOpen = $state(false);
 </script>
 
 <div style="position: relative">
-	<button onclick={() => (menuOpen = !menuOpen)}>⋮</button>
-	<OverflowMenu
-		{items}
-		open={menuOpen}
-		onClose={() => (menuOpen = false)}
-		align="right"
-	/>
+    <button onclick={() => (menuOpen = !menuOpen)}>⋮</button>
+    <OverflowMenu
+        {items}
+        open={menuOpen}
+        onClose={() => (menuOpen = false)}
+        align="right"
+    />
 </div>
 ```
 
@@ -429,9 +437,9 @@ Collapsible inline notes thread with add-note input. Used for per-record notes w
 
 ```svelte
 <InlineNotes
-	{notes}
-	resolveAuthor={(userId) => personnelMap[userId]?.name ?? 'Unknown'}
-	onAddNote={(text) => addNote(recordId, text)}
+    {notes}
+    resolveAuthor={(userId) => personnelMap[userId]?.name ?? 'Unknown'}
+    onAddNote={(text) => addNote(recordId, text)}
 />
 
 <!-- Read-only -->
@@ -485,13 +493,13 @@ Visual table component with sorting, search, pagination, grouping, and custom ce
 
 <!-- With custom cell rendering -->
 <DataTable data={entries} {columns} onRowClick={(row) => edit(row)} compact striped>
-	{#snippet cell(row, col)}
-		{#if col.key === 'status'}
-			<Badge label={row.status} color={statusColor(row)} />
-		{:else}
-			{String(col.value(row) ?? '')}
-		{/if}
-	{/snippet}
+    {#snippet cell(row, col)}
+        {#if col.key === 'status'}
+            <Badge label={row.status} color={statusColor(row)} />
+        {:else}
+            {String(col.value(row) ?? '')}
+        {/if}
+    {/snippet}
 </DataTable>
 
 <!-- With external useDataTable instance -->
@@ -505,6 +513,7 @@ Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<
 Import: `import { DataTable } from '$lib/components/ui/data-table';`
 
 Table guidance:
+
 - Use the built-in header sort buttons instead of rolling your own sortable chrome.
 - Prefer custom `cell` snippets for semantic emphasis such as person-name columns, badges, or actions.
 - Reserve `striped` for especially dense matrix-like views; default tables now intentionally rely on rules and hover states instead.
@@ -522,15 +531,15 @@ import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte'
 import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 
 const columns: ColumnDef<MyRow>[] = [
-	{ key: 'name', header: 'Name', value: (r) => r.name, compare: (a, b) => a.name.localeCompare(b.name) },
-	{ key: 'count', header: 'Count', value: (r) => r.count }
+    { key: 'name', header: 'Name', value: (r) => r.name, compare: (a, b) => a.name.localeCompare(b.name) },
+    { key: 'count', header: 'Count', value: (r) => r.count }
 ];
 
 const table = useDataTable({
-	data: () => myReactiveData,
-	columns,
-	initialSortKey: 'name',
-	groupBy: { key: (r) => r.category, label: (k) => k }
+    data: () => myReactiveData,
+    columns,
+    initialSortKey: 'name',
+    groupBy: { key: (r) => r.category, label: (k) => k }
 });
 
 // table.rows, table.toggleSort('name'), table.setSearch('query')
@@ -546,7 +555,7 @@ const table = useDataTable({
 
 ### Canonical Tokens
 
-New work should use the canonical design-system tokens from `src/app.css`.
+New work should use the canonical design-system tokens from `src/app.css`. Additional design system information can be found in `/trooptotask-design-system.md`
 
 ### Palette
 
@@ -589,24 +598,24 @@ The migration alias bridge has been removed from `src/app.css`. New work should 
 
 Semantic tokens for the header, nav, and app shell. Dark by default, theme-controllable.
 
-| Token | Purpose |
-|-------|---------|
-| `--color-chrome` | App shell background |
-| `--color-chrome-text` | App shell text |
-| `--color-chrome-text-muted` | App shell secondary text |
-| `--color-chrome-border` | App shell borders |
-| `--color-chrome-active` | Active nav item (`var(--amber)`) |
+| Token                       | Purpose                          |
+| --------------------------- | -------------------------------- |
+| `--color-chrome`            | App shell background             |
+| `--color-chrome-text`       | App shell text                   |
+| `--color-chrome-text-muted` | App shell secondary text         |
+| `--color-chrome-border`     | App shell borders                |
+| `--color-chrome-active`     | Active nav item (`var(--amber)`) |
 
 ### Form Field Tokens
 
-| Token | Purpose |
-|-------|---------|
-| `--field-bg` | Input background |
-| `--field-border` | Input border |
-| `--field-border-focus` | Focused input border |
-| `--field-label` | Label text color |
-| `--field-error` | Error text/border color |
-| `--field-help` | Hint text color |
+| Token                  | Purpose                 |
+| ---------------------- | ----------------------- |
+| `--field-bg`           | Input background        |
+| `--field-border`       | Input border            |
+| `--field-border-focus` | Focused input border    |
+| `--field-label`        | Label text color        |
+| `--field-error`        | Error text/border color |
+| `--field-help`         | Hint text color         |
 
 ### Toolbar Tokens
 
@@ -623,12 +632,12 @@ These are canonical density helpers retained after the cleanup because they expr
 
 ### Opacity Scale
 
-| Token | Value | Use case |
-|-------|-------|----------|
-| `--opacity-subtle` | `0.08` | Hover states, tints |
-| `--opacity-light` | `0.12` | Chip backgrounds, light overlays |
-| `--opacity-medium` | `0.15` | Active states |
-| `--opacity-heavy` | `0.45` | Disabled states |
+| Token              | Value  | Use case                         |
+| ------------------ | ------ | -------------------------------- |
+| `--opacity-subtle` | `0.08` | Hover states, tints              |
+| `--opacity-light`  | `0.12` | Chip backgrounds, light overlays |
+| `--opacity-medium` | `0.15` | Active states                    |
+| `--opacity-heavy`  | `0.45` | Disabled states                  |
 
 ### #454 Grep Allowlist
 
@@ -685,6 +694,7 @@ None. These are canonical tokens, not temporary aliases.
 `.btn .btn-primary` | `.btn .btn-secondary` | `.btn .btn-amber` / `.btn .btn-warning` | `.btn .btn-danger` | `.btn .btn-sm`
 
 Button guidance:
+
 - `btn-primary`: dark filled action for the default strong action on product surfaces.
 - `btn-amber` / `btn-warning`: reserved signal action for confirms, requests, exports, or actions that need deliberate emphasis.
 - `btn-secondary`: restrained outline action for cancel, back, close, and secondary utility actions.

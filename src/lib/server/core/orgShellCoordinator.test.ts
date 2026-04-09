@@ -9,10 +9,17 @@ import type { HydrationStores } from '$lib/orgShellHydrationCoordinator.svelte';
 import { createDefaultHydrationPlanner } from './hydrationPlanner';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { Group } from '$lib/stores/groups.svelte';
+import type {
+	OnboardingTemplate,
+	OnboardingTemplateStep,
+	PersonnelOnboarding
+} from '$features/onboarding/onboarding.types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import type { AssignmentType, DailyAssignment, Personnel } from '$lib/types';
 import type { ChromeData, MembershipInfo, OrgState, WorkspaceBootstrap, WorkspaceKey } from './orgShell';
 import { createOrgShellCoordinator } from './orgShellCoordinator';
+import type { OnboardingBootstrap } from './useCases/onboardingQuery';
+import type { PersonnelBootstrap } from './useCases/personnelWorkspaceQuery';
 import type { TrainingBootstrap } from './useCases/trainingQuery';
 
 const membership: MembershipInfo = {
@@ -57,11 +64,18 @@ const chrome: ChromeData = {
 	userPreferences: getDefaultUserOrgPreferences()
 };
 
-function createNoopLoadable<T>() {
+function createInspectableLoadable<T>() {
 	return {
 		orgId: '',
+		items: [] as T[],
+		loading: false,
 		load(_items: T[], orgId: string) {
+			this.items = _items;
 			this.orgId = orgId;
+			this.loading = false;
+		},
+		startLoading() {
+			this.loading = true;
 		}
 	};
 }
@@ -87,7 +101,11 @@ function createNoopCalendarAssignmentsStore() {
 function createNoopOnboardingTemplatesStore() {
 	return {
 		orgId: '',
+		templates: [] as unknown[],
+		steps: [] as unknown[],
 		load(_templates: unknown[], _steps: unknown[], orgId: string) {
+			this.templates = _templates;
+			this.steps = _steps;
 			this.orgId = orgId;
 		}
 	};
@@ -96,23 +114,33 @@ function createNoopOnboardingTemplatesStore() {
 function createHydrationStores() {
 	const personnelTrainings = defineStore<PersonnelTraining>({ table: 'personnel_trainings' });
 	const calendarAssignments = createNoopCalendarAssignmentsStore();
+	const personnel = defineStore<Personnel>({ table: 'personnel' });
+	const groups = defineStore<Group>({ table: 'groups' });
+	const pinnedGroups = createInspectableLoadable<string>();
+	const onboardingTemplates = createNoopOnboardingTemplatesStore();
+	const onboardings = defineStore<PersonnelOnboarding>({ table: 'personnel_onboardings' });
 
 	return {
 		stores: {
-			personnelStore: createNoopLoadable<Personnel>() as HydrationStores['personnelStore'],
-			groupsStore: createNoopLoadable<Group>() as HydrationStores['groupsStore'],
-			statusTypesStore: createNoopLoadable<never>() as HydrationStores['statusTypesStore'],
-			availabilityEntriesStore: createNoopLoadable<never>() as HydrationStores['availabilityEntriesStore'],
-			specialDaysStore: createNoopLoadable<never>() as HydrationStores['specialDaysStore'],
+			personnelStore: personnel as unknown as HydrationStores['personnelStore'],
+			groupsStore: groups as unknown as HydrationStores['groupsStore'],
+			statusTypesStore: createInspectableLoadable<never>() as HydrationStores['statusTypesStore'],
+			availabilityEntriesStore: createInspectableLoadable<never>() as HydrationStores['availabilityEntriesStore'],
+			specialDaysStore: createInspectableLoadable<never>() as HydrationStores['specialDaysStore'],
 			calendarAssignmentsStore: calendarAssignments as HydrationStores['calendarAssignmentsStore'],
-			trainingTypesStore: createNoopLoadable<TrainingType>() as HydrationStores['trainingTypesStore'],
-			trainingViewsStore: createNoopLoadable<TrainingView>() as HydrationStores['trainingViewsStore'],
+			trainingTypesStore: createInspectableLoadable<TrainingType>() as HydrationStores['trainingTypesStore'],
+			trainingViewsStore: createInspectableLoadable<TrainingView>() as HydrationStores['trainingViewsStore'],
 			personnelTrainingsStore: personnelTrainings as unknown as HydrationStores['personnelTrainingsStore'],
-			pinnedGroupsStore: createNoopLoadable<string>() as HydrationStores['pinnedGroupsStore'],
-			ratingSchemeStore: createNoopLoadable<never>() as HydrationStores['ratingSchemeStore'],
-			onboardingTemplateStore: createNoopOnboardingTemplatesStore() as HydrationStores['onboardingTemplateStore'],
-			onboardingStore: createNoopLoadable<never>() as HydrationStores['onboardingStore']
+			pinnedGroupsStore: pinnedGroups as HydrationStores['pinnedGroupsStore'],
+			ratingSchemeStore: createInspectableLoadable<never>() as HydrationStores['ratingSchemeStore'],
+			onboardingTemplateStore: onboardingTemplates as HydrationStores['onboardingTemplateStore'],
+			onboardingStore: onboardings as unknown as HydrationStores['onboardingStore']
 		} satisfies HydrationStores,
+		personnel,
+		groups,
+		pinnedGroups,
+		onboardingTemplates,
+		onboardings,
 		personnelTrainings,
 		calendarAssignments
 	};
@@ -343,6 +371,159 @@ describe('OrgShellCoordinator', () => {
 		});
 	});
 
+	it('returns the canonical onboarding workspace payload with onboarding hydration through the coordinator boundary', async () => {
+		const coordinator = createOrgShellCoordinator();
+		const onboardingData: OnboardingBootstrap = {
+			onboardingTemplates: [
+				{
+					id: 'tpl1',
+					orgId: 'org-1',
+					name: 'Reception',
+					description: null,
+					createdAt: '2024-01-01'
+				} satisfies OnboardingTemplate
+			],
+			onboardingTemplateSteps: [
+				{
+					id: 'step1',
+					templateId: 'tpl1',
+					name: 'Sign in',
+					description: null,
+					stepType: 'checkbox',
+					trainingTypeId: null,
+					stages: null,
+					sortOrder: 0
+				} satisfies OnboardingTemplateStep
+			],
+			onboardings: [
+				{
+					id: 'ob1',
+					personnelId: 'p1',
+					startedAt: '2024-01-01',
+					completedAt: null,
+					cancelledAt: null,
+					status: 'in_progress',
+					steps: [],
+					templateId: 'tpl1'
+				} satisfies PersonnelOnboarding
+			],
+			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType],
+			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
+			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group]
+		};
+		const workspacePort = createInMemoryOrgWorkspacePort(
+			new Map<WorkspaceKey, unknown>([['onboarding', onboardingData]])
+		);
+		const planner = createDefaultHydrationPlanner('org-1');
+
+		const result = await coordinator.loadWorkspace<OnboardingBootstrap, 'onboarding'>('onboarding', {
+			workspace: workspacePort,
+			planner
+		});
+
+		expect(result).toMatchObject({
+			onboarding: {
+				workspace: 'onboarding',
+				data: onboardingData,
+				hydration: {
+					orgId: 'org-1',
+					groups: expect.objectContaining({
+						mode: 'replace',
+						items: onboardingData.groups,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					personnel: {
+						scoped: expect.objectContaining({
+							mode: 'replace',
+							items: onboardingData.personnel,
+							deferred: false,
+							snapshotKey: expect.any(String)
+						})
+					},
+					trainingTypes: expect.objectContaining({
+						mode: 'replace',
+						items: onboardingData.trainingTypes,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					onboardingTemplates: expect.objectContaining({
+						mode: 'replace',
+						templates: onboardingData.onboardingTemplates,
+						steps: onboardingData.onboardingTemplateSteps,
+						snapshotKey: expect.any(String)
+					}),
+					onboardings: expect.objectContaining({
+						mode: 'replace',
+						items: onboardingData.onboardings,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					})
+				}
+			} satisfies WorkspaceBootstrap<OnboardingBootstrap>
+		});
+	});
+
+	it('returns the canonical personnel workspace payload with personnel hydration through the coordinator boundary', async () => {
+		const coordinator = createOrgShellCoordinator();
+		const personnelData: PersonnelBootstrap = {
+			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
+			personnelLookup: [
+				{ id: 'p1', rank: 'SGT', firstName: 'John', lastName: 'Smith' },
+				{ id: 'p2', rank: 'CPT', firstName: 'Jane', lastName: 'Jones' }
+			],
+			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
+			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' }],
+			pinnedGroups: ['Alpha'],
+			ratingSchemeEntries: []
+		};
+		const workspacePort = createInMemoryOrgWorkspacePort(
+			new Map<WorkspaceKey, unknown>([['personnel', personnelData]])
+		);
+		const planner = createDefaultHydrationPlanner('org-1');
+
+		const result = await coordinator.loadWorkspace<PersonnelBootstrap, 'personnel'>('personnel', {
+			workspace: workspacePort,
+			planner
+		});
+
+		expect(result).toMatchObject({
+			personnel: {
+				workspace: 'personnel',
+				data: personnelData,
+				hydration: {
+					orgId: 'org-1',
+					personnel: {
+						scoped: expect.objectContaining({
+							mode: 'replace',
+							items: personnelData.personnel,
+							deferred: false,
+							snapshotKey: expect.any(String)
+						})
+					},
+					groups: expect.objectContaining({
+						mode: 'replace',
+						items: personnelData.groups,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					statusTypes: expect.objectContaining({
+						mode: 'replace',
+						items: personnelData.statusTypes,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					}),
+					pinnedGroups: expect.objectContaining({
+						mode: 'replace',
+						items: personnelData.pinnedGroups,
+						deferred: false,
+						snapshotKey: expect.any(String)
+					})
+				}
+			} satisfies WorkspaceBootstrap<PersonnelBootstrap>
+		});
+	});
+
 	it('omits workspace hydration when the planner returns no plan', async () => {
 		const coordinator = createOrgShellCoordinator();
 		const trainingData: TrainingBootstrap = {
@@ -457,6 +638,97 @@ describe('OrgShellCoordinator', () => {
 		expect(calendarAssignments.loading).toBe(false);
 	});
 
+	it('hydrates onboarding templates and onboardings through the coordinator boundary', async () => {
+		const coordinator = createOrgShellCoordinator();
+		const { stores, onboardingTemplates, onboardings } = createHydrationStores();
+		const template = {
+			id: 'tpl1',
+			orgId: 'org-1',
+			name: 'Reception',
+			description: null,
+			createdAt: '2024-01-01'
+		} satisfies OnboardingTemplate;
+		const step = {
+			id: 'step1',
+			templateId: 'tpl1',
+			name: 'Sign in',
+			description: null,
+			stepType: 'checkbox',
+			trainingTypeId: null,
+			stages: null,
+			sortOrder: 0
+		} satisfies OnboardingTemplateStep;
+		const onboarding = {
+			id: 'ob1',
+			personnelId: 'p1',
+			startedAt: '2024-01-01',
+			completedAt: null,
+			cancelledAt: null,
+			status: 'in_progress',
+			steps: [],
+			templateId: 'tpl1'
+		} satisfies PersonnelOnboarding;
+
+		await coordinator.hydrate(
+			{
+				orgId: 'org-1',
+				onboardingTemplates: {
+					mode: 'replace',
+					snapshotKey: 'onboarding-templates:1',
+					templates: [template],
+					steps: [step]
+				},
+				onboardings: {
+					mode: 'replace',
+					snapshotKey: 'onboardings:1',
+					items: [onboarding]
+				}
+			},
+			stores
+		);
+
+		expect(onboardingTemplates.templates).toEqual([template]);
+		expect(onboardingTemplates.steps).toEqual([step]);
+		expect(onboardingTemplates.orgId).toBe('org-1');
+		expect(onboardings.items).toEqual([onboarding]);
+	});
+
+	it('hydrates personnel, groups, and pinned groups through the coordinator boundary', async () => {
+		const coordinator = createOrgShellCoordinator();
+		const { stores, personnel, groups, pinnedGroups } = createHydrationStores();
+		const person = { id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel;
+		const group = { id: 'g1', name: 'Alpha', sortOrder: 0 } as Group;
+
+		await coordinator.hydrate(
+			{
+				orgId: 'org-1',
+				personnel: {
+					scoped: {
+						mode: 'replace',
+						snapshotKey: 'personnel:1',
+						items: [person]
+					}
+				},
+				groups: {
+					mode: 'replace',
+					snapshotKey: 'groups:1',
+					items: [group]
+				},
+				pinnedGroups: {
+					mode: 'replace',
+					snapshotKey: 'pinned-groups:1',
+					items: ['Alpha']
+				}
+			},
+			stores
+		);
+
+		expect(personnel.items).toEqual([person]);
+		expect(groups.items).toEqual([group]);
+		expect(pinnedGroups.items).toEqual(['Alpha']);
+		expect(pinnedGroups.orgId).toBe('org-1');
+	});
+
 	it('skips unchanged personnelTrainings snapshot keys through the coordinator hydrate boundary', async () => {
 		const coordinator = createOrgShellCoordinator();
 		const { stores, personnelTrainings } = createHydrationStores();
@@ -503,6 +775,98 @@ describe('OrgShellCoordinator', () => {
 		);
 
 		expect(personnelTrainings.items).toEqual([firstTraining]);
+	});
+
+	it('skips unchanged onboardings snapshot keys so optimistic onboarding state survives through the coordinator hydrate boundary', async () => {
+		const coordinator = createOrgShellCoordinator();
+		const { stores, onboardings } = createHydrationStores();
+		const serverOnboarding = {
+			id: 'ob1',
+			personnelId: 'p1',
+			startedAt: '2024-01-01',
+			completedAt: null,
+			cancelledAt: null,
+			status: 'in_progress',
+			steps: [],
+			templateId: 'tpl1'
+		} satisfies PersonnelOnboarding;
+		const optimisticOnboarding = {
+			id: 'temp-ob-2',
+			personnelId: 'p2',
+			startedAt: '2024-01-02',
+			completedAt: null,
+			cancelledAt: null,
+			status: 'in_progress',
+			steps: [],
+			templateId: null
+		} satisfies PersonnelOnboarding;
+
+		await coordinator.hydrate(
+			{
+				orgId: 'org-1',
+				onboardings: {
+					mode: 'replace',
+					snapshotKey: 'onboardings:stable',
+					items: [serverOnboarding]
+				}
+			},
+			stores
+		);
+
+		onboardings.appendLocal([optimisticOnboarding]);
+
+		await coordinator.hydrate(
+			{
+				orgId: 'org-1',
+				onboardings: {
+					mode: 'replace',
+					snapshotKey: 'onboardings:stable',
+					items: [serverOnboarding]
+				}
+			},
+			stores
+		);
+
+		expect(onboardings.items).toEqual([serverOnboarding, optimisticOnboarding]);
+	});
+
+	it('skips unchanged personnel snapshot keys so optimistic personnel state survives through the coordinator hydrate boundary', async () => {
+		const coordinator = createOrgShellCoordinator();
+		const { stores, personnel } = createHydrationStores();
+		const serverPerson = { id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel;
+		const optimisticPerson = { id: 'temp-p2', firstName: 'Jane', lastName: 'Jones' } as Personnel;
+
+		await coordinator.hydrate(
+			{
+				orgId: 'org-1',
+				personnel: {
+					scoped: {
+						mode: 'replace',
+						snapshotKey: 'personnel:stable',
+						items: [serverPerson]
+					}
+				}
+			},
+			stores
+		);
+
+		personnel.appendLocal([optimisticPerson]);
+
+		await coordinator.hydrate(
+			{
+				orgId: 'org-1',
+				personnel: {
+					scoped: {
+						mode: 'replace',
+						snapshotKey: 'personnel:stable',
+						items: [serverPerson]
+					}
+				}
+			},
+			stores
+		);
+
+		expect(personnel.items).toEqual([serverPerson, optimisticPerson]);
 	});
 
 	it('ignores stale deferred personnelTrainings after a newer snapshot wins through the coordinator hydrate boundary', async () => {

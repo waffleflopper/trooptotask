@@ -5,6 +5,7 @@ import { fetchOnboardingTemplatesData } from '$lib/server/core/useCases/onboardi
 export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
 	const { orgId } = params;
 	const parentData = await parent();
+	const onboardingWorkspace = await parentData.onboarding.data;
 
 	const data = await loadWithContext(locals, cookies, orgId, {
 		permission: 'onboarding',
@@ -15,6 +16,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 		session: locals.session,
 		orgId,
 		...data,
-		trainingTypes: parentData.onboarding.data.trainingTypes
+		trainingTypes: onboardingWorkspace.data.trainingTypes
 	};
 };

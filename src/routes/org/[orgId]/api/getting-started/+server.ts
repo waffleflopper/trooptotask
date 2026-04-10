@@ -1,5 +1,43 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
+import type { UseCaseContext } from '$lib/server/core/ports';
+import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
+
+interface GettingStartedSupportData {
+	onboardingTemplateStepCount: number;
+	ratingSchemeEntryCount: number;
+	orgMemberCount: number;
+	gettingStartedDismissed: boolean;
+}
+
+async function fetchGettingStartedSupport(ctx: UseCaseContext) {
+	const [onboardingTemplateStepCount, ratingSchemeEntryCount, orgMemberCount, gettingStartedRows] = await Promise.all([
+		ctx.store.findManyWithCount('onboarding_template_steps', ctx.auth.orgId),
+		ctx.store.findManyWithCount('rating_scheme_entries', ctx.auth.orgId),
+		ctx.store.findManyWithCount('organization_memberships', ctx.auth.orgId),
+		ctx.auth.userId
+			? ctx.store.findMany<Record<string, unknown>>('getting_started_progress', ctx.auth.orgId, {
+					user_id: ctx.auth.userId
+				})
+			: Promise.resolve([])
+	]);
+
+	const gettingStartedData = gettingStartedRows.length > 0 ? gettingStartedRows[0] : null;
+
+	return {
+		onboardingTemplateStepCount: onboardingTemplateStepCount.count ?? 0,
+		ratingSchemeEntryCount: ratingSchemeEntryCount.count ?? 0,
+		orgMemberCount: orgMemberCount.count ?? 0,
+		gettingStartedDismissed: (gettingStartedData as Record<string, unknown> | null)?.dismissed_at != null
+	} satisfies GettingStartedSupportData;
+}
+
+export const _getConfig: RouteConfig<void, GettingStartedSupportData> = {
+	permission: 'privileged',
+	fn: async (ctx) => withDashboardTiming(ctx.auth.orgId, 'support', () => fetchGettingStartedSupport(ctx))
+};
+
+export const GET = handle(_getConfig);
 
 export const POST = handle<void, unknown>({
 	permission: 'personnel',

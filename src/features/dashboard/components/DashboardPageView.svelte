@@ -46,6 +46,7 @@
 		(ctx.userRole === 'owner' || ctx.userRole === 'admin') &&
 			!ctx.isDemoSandbox &&
 			!ctx.isDemoReadOnly &&
+			ctx.hasSupportData &&
 			!ctx.gettingStartedDismissed
 	);
 
@@ -221,9 +222,9 @@
 							statusTypeCount={ctx.statusTypeCount}
 							trainingTypeCount={ctx.trainingTypeCount}
 							assignmentTypeCount={ctx.assignmentTypeCount}
-							onboardingTemplateStepCount={ctx.data.onboardingTemplateStepCount}
-							ratingSchemeEntryCount={ctx.data.ratingSchemeEntryCount}
-							orgMemberCount={ctx.data.orgMemberCount}
+							onboardingTemplateStepCount={ctx.onboardingTemplateStepCount}
+							ratingSchemeEntryCount={ctx.ratingSchemeEntryCount}
+							orgMemberCount={ctx.orgMemberCount}
 							dismissed={ctx.gettingStartedDismissed}
 							onDismiss={() => ctx.dismissGettingStarted()}
 						/>

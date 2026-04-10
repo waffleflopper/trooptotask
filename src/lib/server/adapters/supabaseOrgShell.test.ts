@@ -106,7 +106,7 @@ describe('createSupabaseOrgAccessPort', () => {
 		} satisfies MembershipRow;
 		const { builder } = createMembershipQueryBuilder(membershipRow);
 		const userSupabase = createMockSupabase(builder);
-		const getMembershipRow = vi.fn(async (loadMembershipRow: () => Promise<MembershipRow>) => loadMembershipRow());
+		const wrapMembershipLoad = vi.fn(async (loadMembershipRow: () => Promise<MembershipRow>) => loadMembershipRow());
 		const port = createSupabaseOrgAccessPort({
 			orgId: 'org-1',
 			userId: 'user-1',
@@ -115,12 +115,12 @@ describe('createSupabaseOrgAccessPort', () => {
 			isDemoReadOnly: false,
 			isDemoSandbox: false,
 			getEffectiveTier: async () => effectiveTier,
-			getMembershipRow
+			wrapMembershipLoad
 		});
 
 		const result = await port.getMembership();
 
-		expect(getMembershipRow).toHaveBeenCalledTimes(1);
+		expect(wrapMembershipLoad).toHaveBeenCalledTimes(1);
 		expect(result).toEqual({
 			orgId: 'org-1',
 			userId: 'user-1',

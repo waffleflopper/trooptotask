@@ -30,6 +30,8 @@ export function cacheRequestMembership(
 	const key = getRequestMembershipKey(userId, orgId);
 	const membershipPromise = Promise.resolve(membership);
 
+	// The rejection handler closes over `trackedPromise` before assignment, but by the
+	// time it runs the binding is initialized and can safely guard against stale eviction.
 	const trackedPromise = membershipPromise.catch((err) => {
 		if (cache.get(key) === trackedPromise) {
 			cache.delete(key);

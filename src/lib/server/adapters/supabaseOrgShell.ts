@@ -49,6 +49,7 @@ import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from './inMemoryOrgShell';
 import type { TrainingBootstrap } from '../core/useCases/trainingQuery';
 import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
+import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 
 /**
  * Deprecated demo-only shell path kept temporarily while demo sandbox access is phased out.
@@ -436,7 +437,8 @@ export function createSupabaseCalendarWorkspacePort(
 	function getCalendarData(): Promise<CalendarBootstrap>;
 	function getCalendarData(defer: true): Promise<DeferredData<CalendarBootstrap>>;
 	function getCalendarData(defer = false) {
-		const { rangeStart, rangeEnd } = createInitialCalendarBufferedRange(new Date());
+		const anchorDate = resolveCalendarAnchorDate(cookies.get(CALENDAR_ANCHOR_COOKIE), new Date());
+		const { rangeStart, rangeEnd } = createInitialCalendarBufferedRange(anchorDate);
 
 		const fn = async (ctx: UseCaseContext) =>
 			withCalendarTiming(orgId, 'workspace-bootstrap', async () => {

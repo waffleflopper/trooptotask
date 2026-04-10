@@ -21,7 +21,7 @@ export async function withCalendarTiming<T>(
 		});
 		return result;
 	} catch (error) {
-		console.info('[calendar-load]', {
+		console.error('[calendar-load]', {
 			orgId,
 			phase,
 			durationMs: Math.round(getNowMs() - startedAt),

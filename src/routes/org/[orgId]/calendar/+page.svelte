@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import type { CalendarPageData } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
@@ -11,6 +11,7 @@
 		getCalendarRangeGaps,
 		type CalendarBufferedRange
 	} from '$features/calendar/utils/calendarRange';
+	import { buildCalendarAnchorCookie } from '$features/calendar/utils/calendarAnchorDate';
 	import { loadCalendarRange, mergeCalendarRangeIntoStores } from '$features/calendar/utils/calendarRangeLoader';
 	import { mergeById } from '$features/calendar/utils/mergeById';
 	import CalendarPageView from '$features/calendar/components/CalendarPageView.svelte';
@@ -207,6 +208,10 @@
 		permissions: pageData.permissions
 	}));
 	const ctx = new CalendarPageContext(() => pageData, org);
+
+	onMount(() => {
+		document.cookie = buildCalendarAnchorCookie(new Date());
+	});
 
 	$effect(() => {
 		ctx.syncUserPreferences(pageData.userPreferences);

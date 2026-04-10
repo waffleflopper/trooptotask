@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
+import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
 
 const { loadWithContextMock, fetchCalendarBootstrapMock, getActiveOnboardingPersonnelIdsMock } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn(),
@@ -39,6 +40,9 @@ vi.mock('../core/useCases/onboardingCalendarQuery', async () => {
 import { createSupabaseCalendarWorkspacePort } from './supabaseOrgShell';
 
 describe('createSupabaseCalendarWorkspacePort', () => {
+	const emptyCookies = {
+		get: vi.fn(() => undefined)
+	} as unknown as Cookies;
 	const calendarBootstrap: Omit<CalendarBootstrap, 'activeOnboardingPersonnelIds'> = {
 		rangeStart: '2026-03-01',
 		rangeEnd: '2026-05-31',
@@ -73,7 +77,7 @@ describe('createSupabaseCalendarWorkspacePort', () => {
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 		const port = createSupabaseCalendarWorkspacePort(
 			{} as App.Locals,
-			{} as Cookies,
+			emptyCookies,
 			'11111111-1111-1111-1111-111111111111'
 		);
 
@@ -95,6 +99,25 @@ describe('createSupabaseCalendarWorkspacePort', () => {
 				phase: 'workspace-bootstrap',
 				status: 'ok',
 				durationMs: expect.any(Number)
+			})
+		);
+	});
+
+	it('prefers a client-local date anchor cookie when sizing the initial bootstrap range', async () => {
+		const cookies = {
+			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2026-05-01' : undefined))
+		} as unknown as Cookies;
+		const port = createSupabaseCalendarWorkspacePort({} as App.Locals, cookies, '11111111-1111-1111-1111-111111111111');
+
+		const streamed = await port.streamWorkspaceData<CalendarBootstrap>('calendar');
+
+		await streamed.data;
+
+		expect(fetchCalendarBootstrapMock).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				rangeStart: '2026-04-01',
+				rangeEnd: '2026-06-30'
 			})
 		);
 	});

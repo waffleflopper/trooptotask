@@ -9,6 +9,39 @@ describe('GET /api/calendar-range', () => {
 		expect(_getConfig.mutation).toBeUndefined();
 	});
 
+	it('rejects malformed calendar range dates', async () => {
+		const ctx = createTestContext();
+
+		await expect(
+			handleUseCaseRequest(_getConfig, ctx, {
+				rangeStart: '03/01/2026',
+				rangeEnd: '2026-03-31'
+			})
+		).rejects.toThrow('Dates must use YYYY-MM-DD format');
+	});
+
+	it('rejects inverted calendar ranges', async () => {
+		const ctx = createTestContext();
+
+		await expect(
+			handleUseCaseRequest(_getConfig, ctx, {
+				rangeStart: '2026-04-01',
+				rangeEnd: '2026-03-31'
+			})
+		).rejects.toThrow('rangeStart must not exceed rangeEnd');
+	});
+
+	it('rejects calendar ranges longer than one year', async () => {
+		const ctx = createTestContext();
+
+		await expect(
+			handleUseCaseRequest(_getConfig, ctx, {
+				rangeStart: '2026-01-01',
+				rangeEnd: '2027-01-02'
+			})
+		).rejects.toThrow('Calendar range cannot exceed 366 days');
+	});
+
 	it('returns only the ranged calendar payload for the requested window', async () => {
 		const ctx = createTestContext();
 

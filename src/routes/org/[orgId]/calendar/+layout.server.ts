@@ -2,7 +2,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { createSupabaseCalendarWorkspacePort } from '$lib/server/adapters/supabaseOrgShell';
 import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
-import type { HydrationPlannerPort, OrgWorkspacePort } from '$lib/server/core/orgShell';
+import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
 import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
 import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
 
@@ -14,7 +14,7 @@ interface CalendarLayoutRequestContext {
 
 export interface CalendarLayoutLoadDeps {
 	coordinator?: OrgShellCoordinator;
-	createWorkspacePort?: (context: CalendarLayoutRequestContext) => OrgWorkspacePort;
+	createWorkspacePort?: (context: CalendarLayoutRequestContext) => StreamableOrgWorkspacePort;
 	createPlannerPort?: (orgId: string) => HydrationPlannerPort;
 }
 
@@ -33,7 +33,7 @@ export function _createCalendarLayoutLoad(deps: CalendarLayoutLoadDeps = {}): La
 		const workspacePort = createWorkspacePort({ locals, cookies, orgId });
 		const plannerPort = createPlannerPort(orgId);
 
-		return coordinator.loadWorkspace<CalendarBootstrap, 'calendar'>('calendar', {
+		return coordinator.streamWorkspace<CalendarBootstrap, 'calendar'>('calendar', {
 			workspace: workspacePort,
 			planner: plannerPort
 		});

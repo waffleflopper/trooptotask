@@ -1,10 +1,12 @@
 import type {
+	DeferredData,
 	HydrationPlan,
 	HydrationPlannerPort,
 	OrgAccessPort,
 	OrgChromePort,
 	OrgShellData,
 	OrgWorkspacePort,
+	StreamableOrgWorkspacePort,
 	WorkspaceBootstrap,
 	WorkspaceKey
 } from './orgShell';
@@ -39,6 +41,10 @@ function isRootOrgLoadPort(request: RootOrgShellRequest | RootOrgLoadPort): requ
 	return 'resolveRequest' in request;
 }
 
+function isStreamableOrgWorkspacePort(port: OrgWorkspacePort): port is StreamableOrgWorkspacePort {
+	return 'streamWorkspaceData' in port;
+}
+
 /**
  * Orchestration boundary for org shell/workspace bootstrap data and client hydration.
  */
@@ -51,6 +57,13 @@ export interface OrgShellCoordinator {
 			planner: HydrationPlannerPort;
 		}
 	): Promise<Record<K, WorkspaceBootstrap<T>>>;
+	streamWorkspace<T, K extends WorkspaceKey>(
+		workspace: K,
+		ports: {
+			workspace: OrgWorkspacePort;
+			planner: HydrationPlannerPort;
+		}
+	): Promise<Record<K, DeferredData<WorkspaceBootstrap<T>>>>;
 	hydrate(plan?: HydrationPlan, stores?: HydrationStores): Promise<void>;
 }
 
@@ -85,6 +98,27 @@ export function createOrgShellCoordinator(deps: OrgShellCoordinatorDeps = {}): O
 			const bootstrap: WorkspaceBootstrap<T> = hydration ? { workspace, data, hydration } : { workspace, data };
 			const result = {} as Record<K, WorkspaceBootstrap<T>>;
 			result[workspace] = bootstrap;
+			return result;
+		},
+
+		async streamWorkspace<T, K extends WorkspaceKey>(
+			workspace: K,
+			ports: {
+				workspace: OrgWorkspacePort;
+				planner: HydrationPlannerPort;
+			}
+		): Promise<Record<K, DeferredData<WorkspaceBootstrap<T>>>> {
+			if (!isStreamableOrgWorkspacePort(ports.workspace)) {
+				throw new Error(`OrgShellCoordinator streamWorkspace() requires a stream-capable port for '${workspace}'`);
+			}
+
+			const deferred = await ports.workspace.streamWorkspaceData<T>(workspace);
+			const bootstrap = deferred.data.then((data) => {
+				const hydration = ports.planner.createPlan(workspace, data);
+				return hydration ? { workspace, data, hydration } : { workspace, data };
+			});
+			const result = {} as Record<K, DeferredData<WorkspaceBootstrap<T>>>;
+			result[workspace] = { data: bootstrap };
 			return result;
 		},
 

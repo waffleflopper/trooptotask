@@ -15,6 +15,7 @@ import type {
 	OrgAccessPort,
 	OrgChromePort,
 	OrgWorkspacePort,
+	StreamableOrgWorkspacePort,
 	HydrationPlannerPort,
 	MembershipInfo,
 	OrgState,
@@ -36,7 +37,7 @@ export function createInMemoryOrgChromePort(config: { chrome: ChromeData }): Org
 	};
 }
 
-export function createInMemoryOrgWorkspacePort(data: Map<WorkspaceKey, unknown>): OrgWorkspacePort {
+export function createInMemoryOrgWorkspacePort(data: Map<WorkspaceKey, unknown>): StreamableOrgWorkspacePort {
 	return {
 		getWorkspaceData: <T>(workspace: WorkspaceKey) => {
 			const value = data.get(workspace);
@@ -44,6 +45,13 @@ export function createInMemoryOrgWorkspacePort(data: Map<WorkspaceKey, unknown>)
 				return Promise.reject(new Error(`No workspace data seeded for '${workspace}'`));
 			}
 			return Promise.resolve(value as T);
+		},
+		streamWorkspaceData: <T>(workspace: WorkspaceKey) => {
+			const value = data.get(workspace);
+			if (value === undefined) {
+				return Promise.reject(new Error(`No workspace data seeded for '${workspace}'`));
+			}
+			return Promise.resolve({ data: Promise.resolve(value as T) });
 		}
 	};
 }

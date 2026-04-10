@@ -1,23 +1,31 @@
 <script lang="ts">
 	import { DashboardContext, DashboardPageView, DashboardModals } from '$features/dashboard';
-	import type { DashboardPageData } from '$features/dashboard/contexts/DashboardContext.svelte';
+	import type { DashboardPageData, DashboardSupportData } from '$features/dashboard/contexts/DashboardContext.svelte';
 	import type { PageData } from './$types';
-	import type { DashboardPageSummaryData, DashboardPageSupportData } from './+page.server';
+	import type { DashboardPageSummaryData } from './+page.server';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 	import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
-	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
+	import {
+		isPromiseLike,
+		normalizeDeferredError,
+		observeDeferred,
+		throwRenderError
+	} from '$lib/utils/streamedRouteData';
 
-	let {
-		data
-	}: {
-		data: PageData & { summary?: Promise<DashboardPageSummaryData>; support?: Promise<DashboardPageSupportData> };
-	} = $props();
+	type DashboardRouteData = Omit<PageData, 'summary'> & {
+		summary?: DashboardPageSummaryData | Promise<DashboardPageSummaryData>;
+	};
+
+	let { data }: { data: DashboardRouteData } = $props();
 
 	let dashboardBootstrap = $state<WorkspaceBootstrap<DashboardBootstrap> | null>(null);
 	let summaryData = $state<DashboardPageSummaryData | null>(null);
-	let supportData = $state<DashboardPageSupportData | null>(null);
+	let supportData = $state<DashboardSupportData | null>(null);
+	let supportLoading = $state(false);
+	let supportError = $state<Error | null>(null);
+	let supportRequestVersion = 0;
 	let workspaceError = $state<Error | null>(null);
 	let summaryError = $state<Error | null>(null);
 	const renderLoadError = $derived.by(() => {
@@ -61,37 +69,17 @@
 	});
 
 	$effect(() => {
-		let cancelled = false;
-
-		supportData = null;
-
-		if (!data.support) {
-			return;
-		}
-
-		if (!isPromiseLike(data.support)) {
-			supportData = data.support;
-			return;
-		}
-
-		void observeDeferred(data.support, {
-			fallbackMessage: 'Failed to load dashboard support data',
-			onResolve: (support) => {
-				supportData = support;
-			},
-			onReject: () => {},
-			isCancelled: () => cancelled
-		});
-
-		return () => {
-			cancelled = true;
-		};
-	});
-
-	$effect(() => {
 		if (ctx && supportData) {
 			ctx.applySupportData(supportData);
 		}
+	});
+
+	$effect(() => {
+		data.orgId;
+		supportRequestVersion += 1;
+		supportData = null;
+		supportLoading = false;
+		supportError = null;
 	});
 
 	$effect(() => {
@@ -126,7 +114,7 @@
 	});
 
 	function toDashboardPageData(
-		data: PageData,
+		data: DashboardRouteData,
 		dashboard: WorkspaceBootstrap<DashboardBootstrap>,
 		summary: DashboardPageSummaryData
 	): DashboardPageData {
@@ -140,6 +128,42 @@
 			trainingSummary: summary.trainingSummary,
 			onboardingTrainingCompletions: summary.onboardingTrainingCompletions
 		};
+	}
+
+	function shouldLoadWorkspaceSupport(ctx: DashboardContext): boolean {
+		return (ctx.userRole === 'owner' || ctx.userRole === 'admin') && !ctx.isDemoSandbox && !ctx.isDemoReadOnly;
+	}
+
+	async function loadSupportData(ctx: DashboardContext): Promise<void> {
+		const requestVersion = ++supportRequestVersion;
+		const orgId = ctx.data.orgId;
+		supportLoading = true;
+		supportError = null;
+
+		try {
+			const response = await fetch(`/org/${orgId}/api/getting-started`);
+			if (!response.ok) {
+				const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+				throw new Error(payload?.message ?? 'Failed to load workspace support');
+			}
+
+			const nextSupportData = (await response.json()) as DashboardSupportData;
+			if (requestVersion !== supportRequestVersion) {
+				return;
+			}
+
+			supportData = nextSupportData;
+		} catch (error) {
+			if (requestVersion !== supportRequestVersion) {
+				return;
+			}
+
+			supportError = normalizeDeferredError(error, 'Failed to load workspace support');
+		} finally {
+			if (requestVersion === supportRequestVersion) {
+				supportLoading = false;
+			}
+		}
 	}
 
 	const loadError = $derived(workspaceError ?? summaryError);
@@ -160,6 +184,14 @@
 
 	$effect(() => {
 		ctx?.autoShowWhatsNew(hasAutoShownWhatsNew);
+	});
+
+	$effect(() => {
+		if (!ctx || !shouldLoadWorkspaceSupport(ctx) || ctx.hasSupportData || supportLoading || supportError) {
+			return;
+		}
+
+		void loadSupportData(ctx);
 	});
 </script>
 
@@ -185,6 +217,25 @@
 	</section>
 {:else if ctx}
 	<DashboardPageView {ctx} />
+	{#if shouldLoadWorkspaceSupport(ctx) && supportLoading && !ctx.hasSupportData}
+		<section class="workspace-support-notice" aria-live="polite" role="status">
+			<p>Loading workspace support...</p>
+		</section>
+	{:else if shouldLoadWorkspaceSupport(ctx) && supportError}
+		<section class="workspace-support-notice workspace-support-notice--error" aria-live="polite" role="status">
+			<p>Workspace support is temporarily unavailable.</p>
+			<button
+				class="btn btn-secondary btn-sm"
+				onclick={() => {
+					if (ctx) {
+						void loadSupportData(ctx);
+					}
+				}}
+			>
+				Retry checklist
+			</button>
+		</section>
+	{/if}
 	<DashboardModals {ctx} />
 {/if}
 
@@ -213,9 +264,33 @@
 		gap: var(--sp-4);
 	}
 
+	.workspace-support-notice {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		margin: 0 var(--sp-4) var(--sp-4);
+		padding: var(--sp-3) var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
+	}
+
+	.workspace-support-notice p {
+		margin: 0;
+	}
+
+	.workspace-support-notice--error {
+		border-color: var(--warning);
+		background: color-mix(in srgb, var(--warning) 8%, var(--surface-panel));
+		color: var(--text-primary);
+	}
+
 	@media (max-width: 720px) {
 		.workspace-loading__hero,
-		.workspace-loading__grid {
+		.workspace-loading__grid,
+		.workspace-support-notice {
 			grid-template-columns: 1fr;
 		}
 	}

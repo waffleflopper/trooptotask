@@ -14,12 +14,29 @@
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+	import { groupsStore } from '$lib/stores/groups.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 
-	const loading = $derived(personnelTrainingsStore.loading);
+	const storesHydratedForOrg = $derived(
+		personnelStore.orgId === ctx.orgId &&
+			groupsStore.orgId === ctx.orgId &&
+			trainingTypesStore.orgId === ctx.orgId &&
+			trainingViewsStore.orgId === ctx.orgId &&
+			personnelTrainingsStore.orgId === ctx.orgId
+	);
+
+	const loading = $derived(
+		!storesHydratedForOrg ||
+			personnelStore.loading ||
+			groupsStore.loading ||
+			trainingTypesStore.loading ||
+			trainingViewsStore.loading ||
+			personnelTrainingsStore.loading
+	);
 	let showViewEditor = $state(false);
 
 	const activeView = $derived(ctx.selectedViewId ? (trainingViewsStore.getById(ctx.selectedViewId) ?? null) : null);
@@ -138,32 +155,33 @@
 			{:else if ctx.filteredPersonnel.length === 0}
 				<EmptyState message="No personnel found." />
 			{:else}
-				<div class="view-panel" data-testid="training-matrix" class:hidden-view={ctx.viewMode !== 'alphabetical'}>
-					<TrainingMatrix
-						personnel={ctx.filteredPersonnel}
-						trainingTypes={filteredTypes}
-						trainings={personnelTrainingsStore.items}
-						onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
-						onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
-					/>
-				</div>
-				<div class="view-panel" class:hidden-view={ctx.viewMode !== 'by-group'}>
-					<TrainingMatrix
-						personnel={ctx.filteredPersonnel}
-						trainingTypes={filteredTypes}
-						trainings={personnelTrainingsStore.items}
-						onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
-						onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
-						groupBy={{
-							key: (p) => p.groupName || 'Unassigned',
-							compare: (a, b) => {
-								const aPin = pinnedGroupsStore.list.includes(a) ? 0 : 1;
-								const bPin = pinnedGroupsStore.list.includes(b) ? 0 : 1;
-								if (aPin !== bPin) return aPin - bPin;
-								return a.localeCompare(b);
-							}
-						}}
-					/>
+				<div class="view-panel" data-testid="training-matrix">
+					{#if ctx.viewMode === 'alphabetical'}
+						<TrainingMatrix
+							personnel={ctx.filteredPersonnel}
+							trainingTypes={filteredTypes}
+							trainings={personnelTrainingsStore.items}
+							onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
+							onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
+						/>
+					{:else}
+						<TrainingMatrix
+							personnel={ctx.filteredPersonnel}
+							trainingTypes={filteredTypes}
+							trainings={personnelTrainingsStore.items}
+							onCellClick={ctx.canEditTraining ? ctx.handleCellClick.bind(ctx) : undefined}
+							onPersonClick={ctx.canEditTraining ? ctx.handlePersonClick.bind(ctx) : undefined}
+							groupBy={{
+								key: (p) => p.groupName || 'Unassigned',
+								compare: (a, b) => {
+									const aPin = pinnedGroupsStore.list.includes(a) ? 0 : 1;
+									const bPin = pinnedGroupsStore.list.includes(b) ? 0 : 1;
+									if (aPin !== bPin) return aPin - bPin;
+									return a.localeCompare(b);
+								}
+							}}
+						/>
+					{/if}
 				</div>
 			{/if}
 		</main>
@@ -381,10 +399,6 @@
 		height: 100%;
 		overflow: auto;
 		padding: 0;
-	}
-
-	.hidden-view {
-		display: none;
 	}
 
 	.skeleton-matrix-wrapper {

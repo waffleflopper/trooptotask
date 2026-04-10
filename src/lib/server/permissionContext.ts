@@ -238,6 +238,15 @@ export async function createPermissionContext(
 	userId: string,
 	orgId: string
 ): Promise<PermissionContext> {
+	const membership = await getMembershipRow(supabase, userId, orgId);
+	return createPermissionContextFromMembership(membership);
+}
+
+export async function getMembershipRow(
+	supabase: SupabaseClient,
+	userId: string,
+	orgId: string
+): Promise<MembershipRow> {
 	const { data: membership } = await supabase
 		.from('organization_memberships')
 		.select(
@@ -251,5 +260,5 @@ export async function createPermissionContext(
 		throw error(403, 'Not a member of this organization');
 	}
 
-	return createPermissionContextFromMembership(membership as MembershipRow);
+	return membership as MembershipRow;
 }

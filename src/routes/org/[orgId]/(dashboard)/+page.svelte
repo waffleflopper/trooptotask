@@ -2,17 +2,22 @@
 	import { DashboardContext, DashboardPageView, DashboardModals } from '$features/dashboard';
 	import type { DashboardPageData } from '$features/dashboard/contexts/DashboardContext.svelte';
 	import type { PageData } from './$types';
-	import type { DashboardPageSummaryData } from './+page.server';
+	import type { DashboardPageSummaryData, DashboardPageSupportData } from './+page.server';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 	import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 	import SkeletonBlock from '$lib/components/ui/SkeletonBlock.svelte';
 	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
-	let { data }: { data: PageData & { summary?: Promise<DashboardPageSummaryData> } } = $props();
+	let {
+		data
+	}: {
+		data: PageData & { summary?: Promise<DashboardPageSummaryData>; support?: Promise<DashboardPageSupportData> };
+	} = $props();
 
 	let dashboardBootstrap = $state<WorkspaceBootstrap<DashboardBootstrap> | null>(null);
 	let summaryData = $state<DashboardPageSummaryData | null>(null);
+	let supportData = $state<DashboardPageSupportData | null>(null);
 	let workspaceError = $state<Error | null>(null);
 	let summaryError = $state<Error | null>(null);
 	const renderLoadError = $derived.by(() => {
@@ -53,6 +58,40 @@
 		return () => {
 			cancelled = true;
 		};
+	});
+
+	$effect(() => {
+		let cancelled = false;
+
+		supportData = null;
+
+		if (!data.support) {
+			return;
+		}
+
+		if (!isPromiseLike(data.support)) {
+			supportData = data.support;
+			return;
+		}
+
+		void observeDeferred(data.support, {
+			fallbackMessage: 'Failed to load dashboard support data',
+			onResolve: (support) => {
+				supportData = support;
+			},
+			onReject: () => {},
+			isCancelled: () => cancelled
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	$effect(() => {
+		if (ctx && supportData) {
+			ctx.applySupportData(supportData);
+		}
 	});
 
 	$effect(() => {
@@ -99,11 +138,7 @@
 			permissions: data.permissions ?? null,
 			dashboard,
 			trainingSummary: summary.trainingSummary,
-			onboardingTrainingCompletions: summary.onboardingTrainingCompletions,
-			onboardingTemplateStepCount: summary.onboardingTemplateStepCount,
-			ratingSchemeEntryCount: summary.ratingSchemeEntryCount,
-			orgMemberCount: summary.orgMemberCount,
-			gettingStartedDismissed: summary.gettingStartedDismissed
+			onboardingTrainingCompletions: summary.onboardingTrainingCompletions
 		};
 	}
 

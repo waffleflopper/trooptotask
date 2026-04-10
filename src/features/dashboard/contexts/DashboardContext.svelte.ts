@@ -26,6 +26,13 @@ export interface TrainingIssue {
 	label: string;
 }
 
+export interface DashboardSupportData {
+	onboardingTemplateStepCount: number;
+	ratingSchemeEntryCount: number;
+	orgMemberCount: number;
+	gettingStartedDismissed: boolean;
+}
+
 // Shape of page data from (dashboard)/+layout.server.ts + +page.server.ts
 export interface DashboardPageData {
 	orgId: string;
@@ -35,10 +42,10 @@ export interface DashboardPageData {
 	dashboard: { data: DashboardBootstrap; hydration?: HydrationPlan; workspace: string };
 	trainingSummary: { stats: TrainingStats; issues: TrainingIssue[] } | null;
 	onboardingTrainingCompletions: string[];
-	onboardingTemplateStepCount: number;
-	ratingSchemeEntryCount: number;
-	orgMemberCount: number;
-	gettingStartedDismissed: boolean;
+	onboardingTemplateStepCount?: number;
+	ratingSchemeEntryCount?: number;
+	orgMemberCount?: number;
+	gettingStartedDismissed?: boolean;
 	[key: string]: unknown;
 }
 
@@ -68,6 +75,7 @@ export class DashboardContext {
 	// Banner state
 	// ---------------------------------------------------------------------------
 	gettingStartedDismissed = $state(false);
+	private supportData = $state<DashboardSupportData | null>(null);
 
 	// ---------------------------------------------------------------------------
 	// "Today" (client local timezone)
@@ -77,7 +85,20 @@ export class DashboardContext {
 	constructor(data: DashboardPageData) {
 		this.data = data;
 		this.today = formatDate(new Date());
-		this.gettingStartedDismissed = data.gettingStartedDismissed;
+
+		if (
+			typeof data.onboardingTemplateStepCount === 'number' &&
+			typeof data.ratingSchemeEntryCount === 'number' &&
+			typeof data.orgMemberCount === 'number' &&
+			typeof data.gettingStartedDismissed === 'boolean'
+		) {
+			this.applySupportData({
+				onboardingTemplateStepCount: data.onboardingTemplateStepCount,
+				ratingSchemeEntryCount: data.ratingSchemeEntryCount,
+				orgMemberCount: data.orgMemberCount,
+				gettingStartedDismissed: data.gettingStartedDismissed
+			});
+		}
 	}
 
 	// ---------------------------------------------------------------------------
@@ -111,6 +132,22 @@ export class DashboardContext {
 
 	get assignmentTypeCount(): number {
 		return this.data.dashboard.data.assignmentTypes.length;
+	}
+
+	get hasSupportData(): boolean {
+		return this.supportData !== null;
+	}
+
+	get onboardingTemplateStepCount(): number {
+		return this.supportData?.onboardingTemplateStepCount ?? 0;
+	}
+
+	get ratingSchemeEntryCount(): number {
+		return this.supportData?.ratingSchemeEntryCount ?? 0;
+	}
+
+	get orgMemberCount(): number {
+		return this.supportData?.orgMemberCount ?? 0;
 	}
 
 	get userRole(): string | undefined {
@@ -152,6 +189,11 @@ export class DashboardContext {
 	async dismissGettingStarted() {
 		this.gettingStartedDismissed = true;
 		await fetch(`/org/${this.data.orgId}/api/getting-started`, { method: 'POST' });
+	}
+
+	applySupportData(data: DashboardSupportData) {
+		this.supportData = data;
+		this.gettingStartedDismissed = data.gettingStartedDismissed;
 	}
 
 	// ---------------------------------------------------------------------------

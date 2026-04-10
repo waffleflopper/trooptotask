@@ -14,9 +14,9 @@
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
-	const ctx = new OnboardingPageContext(modals, org);
 	let onboardingBootstrap = $state<WorkspaceBootstrap<OnboardingBootstrap> | null>(null);
 	let loadError = $state<Error | null>(null);
+	let ctx = $state<OnboardingPageContext | null>(null);
 	const renderLoadError = $derived.by(() => {
 		if (loadError) {
 			throwRenderError(loadError, 'Failed to load onboarding workspace');
@@ -57,6 +57,10 @@
 	});
 
 	const workspacePending = $derived(!!data.onboarding?.data && onboardingBootstrap === null && loadError === null);
+
+	$effect.pre(() => {
+		ctx = onboardingBootstrap ? new OnboardingPageContext(modals, org) : null;
+	});
 </script>
 
 <svelte:head>
@@ -82,7 +86,7 @@
 			{/each}
 		</div>
 	</section>
-{:else if onboardingBootstrap}
+{:else if ctx}
 	<OnboardingPageView {ctx} />
 	<OnboardingModals {ctx} />
 {/if}

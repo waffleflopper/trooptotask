@@ -1,16 +1,18 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
-import PassiveStub from '$features/duty-roster/components/test-stubs/PassiveStub.svelte';
+import VisibleStub from '$features/duty-roster/components/test-stubs/VisibleStub.svelte';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
 
+const throwRenderErrorMock = vi.fn();
+
 vi.mock('$features/onboarding/components/OnboardingPageView.svelte', () => ({
-	default: PassiveStub
+	default: VisibleStub
 }));
 
 vi.mock('$features/onboarding/components/OnboardingModals.svelte', () => ({
-	default: PassiveStub
+	default: VisibleStub
 }));
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
@@ -41,10 +43,23 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 	})
 }));
 
+vi.mock('$lib/utils/streamedRouteData', async () => {
+	const actual = await vi.importActual<typeof import('$lib/utils/streamedRouteData')>('$lib/utils/streamedRouteData');
+
+	return {
+		...actual,
+		throwRenderError: (error: unknown, fallbackMessage: string) => {
+			throwRenderErrorMock(error, fallbackMessage);
+			return undefined as never;
+		}
+	};
+});
+
 import Page from './+page.svelte';
 
 afterEach(() => {
 	cleanup();
+	throwRenderErrorMock.mockReset();
 });
 
 function createDeferred<T>() {
@@ -77,6 +92,22 @@ function makeBootstrap(): WorkspaceBootstrap<OnboardingBootstrap> {
 }
 
 describe('onboarding page', () => {
+	it('renders the page immediately when onboarding workspace data is already resolved', () => {
+		render(Page, {
+			props: {
+				data: {
+					session: null,
+					onboarding: {
+						data: makeBootstrap()
+					}
+				}
+			}
+		});
+
+		expect(screen.queryByRole('status')).toBeNull();
+		expect(screen.getAllByTestId('visible-stub')).toHaveLength(2);
+	});
+
 	it('renders a loading shell while onboarding workspace data is still streaming', async () => {
 		const deferred = createDeferred<WorkspaceBootstrap<OnboardingBootstrap>>();
 
@@ -98,5 +129,33 @@ describe('onboarding page', () => {
 		await waitFor(() => {
 			expect(screen.queryByRole('status')).toBeNull();
 		});
+		expect(screen.getAllByTestId('visible-stub')).toHaveLength(2);
+	});
+
+	it('invokes the render error path when onboarding workspace loading fails', async () => {
+		const deferred = createDeferred<WorkspaceBootstrap<OnboardingBootstrap>>();
+
+		render(Page, {
+			props: {
+				data: {
+					session: null,
+					onboarding: {
+						data: deferred.promise
+					}
+				}
+			}
+		});
+
+		deferred.reject(new Error('onboarding failed'));
+
+		await waitFor(() => {
+			expect(throwRenderErrorMock).toHaveBeenCalledWith(
+				expect.objectContaining({ message: 'onboarding failed' }),
+				'Failed to load onboarding workspace'
+			);
+		});
+
+		expect(screen.queryByRole('status')).toBeNull();
+		expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
 	});
 });

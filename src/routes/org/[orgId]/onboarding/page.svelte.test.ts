@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
-import VisibleStub from '$features/duty-roster/components/test-stubs/VisibleStub.svelte';
+import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
 

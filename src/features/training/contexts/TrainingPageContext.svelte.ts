@@ -1,13 +1,16 @@
 import { SvelteSet } from 'svelte/reactivity';
 import { invalidate, goto } from '$app/navigation';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
+import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
 import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
+import { groupsStore } from '$lib/stores/groups.svelte';
 import type {
 	TrainingMatrixViewMode,
 	UserOrgPreferences,
@@ -19,7 +22,6 @@ import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
-import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery';
 
 // ---------------------------------------------------------------------------
 // Page data shape (from +page.server.ts + layout)
@@ -32,9 +34,6 @@ export interface TrainingPageData {
 		canViewTraining?: boolean;
 		canEditTraining?: boolean;
 	} | null;
-	training: {
-		data: TrainingBootstrap;
-	};
 }
 
 // ---------------------------------------------------------------------------
@@ -45,6 +44,7 @@ export class TrainingPageContext {
 	readonly #data: TrainingPageData;
 	readonly #modals: ModalRegistry;
 	readonly #org: OrgContext;
+	#hydratedSelectionFingerprint: string | null = null;
 
 	// ---- mutable UI state ----
 	selectedGroupId = $state<string>('');
@@ -86,15 +86,18 @@ export class TrainingPageContext {
 	}
 
 	get personnel(): Personnel[] {
-		return this.#data.training.data.personnel ?? [];
+		this.reconcileHydratedSelections();
+		return personnelStore.orgId === this.orgId ? personnelStore.items : [];
 	}
 
 	get groups(): Group[] {
-		return this.#data.training.data.groups ?? [];
+		this.reconcileHydratedSelections();
+		return groupsStore.orgId === this.orgId ? groupsStore.items : [];
 	}
 
 	get savedViewIds(): Set<string> {
-		return new Set((this.#data.training.data.trainingViews ?? []).map((view) => view.id));
+		this.reconcileHydratedSelections();
+		return new Set(trainingViewsStore.items.map((view) => view.id));
 	}
 
 	// ---- derived: roles ----
@@ -104,6 +107,7 @@ export class TrainingPageContext {
 
 	// ---- derived: filtered/sorted personnel ----
 	get basePersonnel(): Personnel[] {
+		this.reconcileHydratedSelections();
 		return this.selectedGroupId ? this.personnel.filter((p) => p.groupId === this.selectedGroupId) : this.personnel;
 	}
 
@@ -257,14 +261,63 @@ export class TrainingPageContext {
 		const trainingPrefs = preferences?.training;
 		const selectedGroupId = trainingPrefs?.selectedGroupId ?? null;
 		const selectedViewId = trainingPrefs?.selectedViewId ?? null;
+		const groupsLoaded = groupsStore.orgId === this.orgId && !groupsStore.loading;
+		const viewsLoaded = trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading;
 
-		this.selectedGroupId = selectedGroupId && this.isValidGroupId(selectedGroupId) ? selectedGroupId : '';
-		this.selectedViewId = selectedViewId && this.savedViewIds.has(selectedViewId) ? selectedViewId : null;
+		this.selectedGroupId =
+			selectedGroupId && (!groupsLoaded || this.isValidGroupId(selectedGroupId)) ? selectedGroupId : '';
+		this.selectedViewId =
+			selectedViewId && (!viewsLoaded || this.savedViewIds.has(selectedViewId)) ? selectedViewId : null;
 		this.viewMode = trainingPrefs?.matrixViewMode ?? 'by-group';
+	}
+
+	private reconcileHydratedSelections(): void {
+		const fingerprint = this.getHydratedSelectionFingerprint();
+		if (this.#hydratedSelectionFingerprint === fingerprint) {
+			return;
+		}
+
+		const groupsLoaded = groupsStore.orgId === this.orgId && !groupsStore.loading;
+		const viewsLoaded = trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading;
+
+		const patch: NonNullable<UserOrgPreferencesPatch['training']> = {};
+
+		if (groupsLoaded && this.selectedGroupId && !groupsStore.items.some((group) => group.id === this.selectedGroupId)) {
+			this.selectedGroupId = '';
+			patch.selectedGroupId = null;
+		}
+
+		if (
+			viewsLoaded &&
+			this.selectedViewId &&
+			!trainingViewsStore.items.some((view) => view.id === this.selectedViewId)
+		) {
+			this.selectedViewId = null;
+			patch.selectedViewId = null;
+		}
+
+		if (Object.keys(patch).length > 0) {
+			void this.persistPreferences({ training: patch });
+		}
+
+		this.#hydratedSelectionFingerprint = this.getHydratedSelectionFingerprint();
 	}
 
 	private isValidGroupId(groupId: string | null): boolean {
 		return !!groupId && this.groups.some((group) => group.id === groupId);
+	}
+
+	private getHydratedSelectionFingerprint(): string {
+		const groupIds =
+			groupsStore.orgId === this.orgId && !groupsStore.loading
+				? groupsStore.items.map((group) => group.id).join(',')
+				: 'pending';
+		const viewIds =
+			trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading
+				? trainingViewsStore.items.map((view) => view.id).join(',')
+				: 'pending';
+
+		return [this.orgId, this.selectedGroupId, this.selectedViewId, groupIds, viewIds].join('|');
 	}
 
 	private async persistPreferences(preferences: UserOrgPreferencesPatch): Promise<void> {

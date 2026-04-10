@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import TrainingTypesPage from '$features/training/components/TrainingTypesPage.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
@@ -11,6 +14,7 @@
 	} from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
+	const org = getOrgContext();
 	let trainingBootstrap = $state<WorkspaceBootstrap<TrainingBootstrap> | null>(null);
 	let loadError = $state<Error | null>(null);
 
@@ -46,7 +50,10 @@
 		};
 	});
 
-	const workspacePending = $derived(!!data.training?.data && trainingBootstrap === null && loadError === null);
+	const routePending = $derived(!!data.training?.data && trainingBootstrap === null && loadError === null);
+	const storesHydratedForOrg = $derived(personnelStore.orgId === org.orgId && trainingTypesStore.orgId === org.orgId);
+	const storesPending = $derived(!storesHydratedForOrg || personnelStore.loading || trainingTypesStore.loading);
+	const workspacePending = $derived(routePending || (!!trainingBootstrap && storesPending));
 	const pageData = $derived.by(() => materializeWorkspaceData(data, 'training', trainingBootstrap));
 	const renderLoadError = $derived.by(() => {
 		if (loadError) {

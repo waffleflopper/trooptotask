@@ -171,6 +171,7 @@
 	const summaryPending = $derived(!!data.summary && summaryData === null && summaryError === null);
 	const pending = $derived(workspacePending || summaryPending);
 	let ctx = $state<DashboardContext | null>(null);
+	const canLoadSupport = $derived(ctx ? shouldLoadWorkspaceSupport(ctx) : false);
 
 	// Track whether we've auto-shown What's New (must persist across re-renders)
 	const hasAutoShownWhatsNew = { value: false };
@@ -187,7 +188,7 @@
 	});
 
 	$effect(() => {
-		if (!ctx || !shouldLoadWorkspaceSupport(ctx) || ctx.hasSupportData || supportLoading || supportError) {
+		if (!ctx || !canLoadSupport || ctx.hasSupportData || supportLoading || supportError) {
 			return;
 		}
 
@@ -217,11 +218,11 @@
 	</section>
 {:else if ctx}
 	<DashboardPageView {ctx} />
-	{#if shouldLoadWorkspaceSupport(ctx) && supportLoading && !ctx.hasSupportData}
+	{#if canLoadSupport && supportLoading && !ctx.hasSupportData}
 		<section class="workspace-support-notice" aria-live="polite" role="status">
 			<p>Loading workspace support...</p>
 		</section>
-	{:else if shouldLoadWorkspaceSupport(ctx) && supportError}
+	{:else if canLoadSupport && supportError}
 		<section class="workspace-support-notice workspace-support-notice--error" aria-live="polite" role="status">
 			<p>Workspace support is temporarily unavailable.</p>
 			<button
@@ -289,9 +290,13 @@
 
 	@media (max-width: 720px) {
 		.workspace-loading__hero,
-		.workspace-loading__grid,
-		.workspace-support-notice {
+		.workspace-loading__grid {
 			grid-template-columns: 1fr;
+		}
+
+		.workspace-support-notice {
+			flex-direction: column;
+			align-items: flex-start;
 		}
 	}
 </style>

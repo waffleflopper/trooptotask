@@ -1,39 +1,13 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
+import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
 
 interface GettingStartedSupportData {
 	onboardingTemplateStepCount: number;
 	ratingSchemeEntryCount: number;
 	orgMemberCount: number;
 	gettingStartedDismissed: boolean;
-}
-
-function getNowMs(): number {
-	return typeof performance !== 'undefined' ? performance.now() : Date.now();
-}
-
-async function withDashboardSupportTiming<T>(orgId: string, run: () => Promise<T>): Promise<T> {
-	const startedAt = getNowMs();
-
-	try {
-		const result = await run();
-		console.info('[dashboard-load]', {
-			orgId,
-			phase: 'support',
-			durationMs: Math.round(getNowMs() - startedAt),
-			status: 'ok'
-		});
-		return result;
-	} catch (error) {
-		console.info('[dashboard-load]', {
-			orgId,
-			phase: 'support',
-			durationMs: Math.round(getNowMs() - startedAt),
-			status: 'error'
-		});
-		throw error;
-	}
 }
 
 async function fetchGettingStartedSupport(ctx: UseCaseContext) {
@@ -60,7 +34,7 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 
 export const _getConfig: RouteConfig<void, GettingStartedSupportData> = {
 	permission: 'privileged',
-	fn: async (ctx) => withDashboardSupportTiming(ctx.auth.orgId, () => fetchGettingStartedSupport(ctx))
+	fn: async (ctx) => withDashboardTiming(ctx.auth.orgId, 'support', () => fetchGettingStartedSupport(ctx))
 };
 
 export const GET = handle(_getConfig);

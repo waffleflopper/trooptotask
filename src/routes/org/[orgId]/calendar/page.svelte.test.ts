@@ -6,7 +6,6 @@ import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorD
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import type { CalendarBootstrap, CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
-import { formatDate } from '$lib/utils/dates';
 
 const { loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock } = vi.hoisted(() => ({
 	loadCalendarRangeMock: vi.fn(),
@@ -218,33 +217,34 @@ describe('calendar page', () => {
 		});
 	});
 
-	it('stores the client-local date as a bootstrap anchor cookie for future requests', async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-05-01T08:00:00'));
+	it('stores the viewed calendar month as a bootstrap anchor cookie for future requests', async () => {
 		document.cookie = `${CALENDAR_ANCHOR_COOKIE}=; Max-Age=0; Path=/`;
 
-		try {
-			render(Page, {
-				props: {
-					data: {
-						orgId: 'org-1',
-						orgName: 'Test Unit',
-						userId: 'user-1',
-						permissions: {
-							canViewCalendar: true,
-							canEditCalendar: true
-						},
-						calendar: {
-							data: makeBootstrap()
-						}
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					userId: 'user-1',
+					permissions: {
+						canViewCalendar: true,
+						canEditCalendar: true
+					},
+					calendar: {
+						data: makeBootstrap()
 					}
 				}
-			});
+			}
+		});
 
-			await Promise.resolve();
-			expect(document.cookie).toContain(`${CALENDAR_ANCHOR_COOKIE}=${formatDate(new Date())}`);
-		} finally {
-			vi.useRealTimers();
-		}
+		await waitFor(() => {
+			expect(document.cookie).toContain(`${CALENDAR_ANCHOR_COOKIE}=2026-04-01`);
+		});
+
+		calendarStore.goToMonth(2026, 7);
+
+		await waitFor(() => {
+			expect(document.cookie).toContain(`${CALENDAR_ANCHOR_COOKIE}=2026-08-01`);
+		});
 	});
 });

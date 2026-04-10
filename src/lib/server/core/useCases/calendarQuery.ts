@@ -21,6 +21,7 @@ import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { listDutyEventsInRange } from '$lib/server/core/useCases/dutyEventCrud';
+import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 
 export interface CalendarQueryInput {
 	rangeStart: string;
@@ -36,7 +37,18 @@ export interface CalendarData {
 	advancedDutyEvents: DutyEvent[];
 }
 
+export interface CalendarRangeData {
+	rangeStart: string;
+	rangeEnd: string;
+	availabilityEntries: AvailabilityEntry[];
+	specialDays: SpecialDay[];
+	dailyAssignments: DailyAssignment[];
+	advancedDutyEvents: DutyEvent[];
+}
+
 export interface CalendarBootstrap {
+	rangeStart: string;
+	rangeEnd: string;
 	availabilityEntries: AvailabilityEntry[] | Promise<AvailabilityEntry[]>;
 	specialDays: SpecialDay[] | Promise<SpecialDay[]>;
 	assignmentTypes: AssignmentType[];
@@ -115,6 +127,48 @@ export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInp
 	};
 }
 
+export async function fetchCalendarRangeData(ctx: QueryPorts, input: CalendarQueryInput): Promise<CalendarRangeData> {
+	ctx.auth.requireView('calendar');
+
+	const orgId = ctx.auth.orgId;
+	const { rangeStart, rangeEnd } = input;
+
+	return withCalendarTiming(orgId, 'date-ranged-query', async () => {
+		const [availabilityRows, specialDayRows, dailyAssignmentRows, advancedDutyEvents] = await Promise.all([
+			ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
+				select: AvailabilityEntryEntity.select,
+				rangeFilters: [
+					{ column: 'end_date', op: 'gte', value: rangeStart },
+					{ column: 'start_date', op: 'lte', value: rangeEnd }
+				]
+			}),
+			ctx.store.findMany<Record<string, unknown>>('special_days', orgId, undefined, {
+				rangeFilters: [
+					{ column: 'date', op: 'gte', value: rangeStart },
+					{ column: 'date', op: 'lte', value: rangeEnd }
+				],
+				orderBy: [{ column: 'date', ascending: true }]
+			}),
+			ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
+				rangeFilters: [
+					{ column: 'date', op: 'gte', value: rangeStart },
+					{ column: 'date', op: 'lte', value: rangeEnd }
+				]
+			}),
+			withCalendarTiming(orgId, 'duty-event-hydration', () => listDutyEventsInRange(ctx, { rangeStart, rangeEnd }))
+		]);
+
+		return {
+			rangeStart,
+			rangeEnd,
+			availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
+			specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
+			dailyAssignments: DailyAssignmentEntity.fromDbArray(dailyAssignmentRows),
+			advancedDutyEvents
+		};
+	});
+}
+
 export async function fetchCalendarBootstrap(
 	ctx: QueryPorts,
 	input: CalendarQueryInput
@@ -165,7 +219,7 @@ export async function fetchCalendarBootstrap(
 						}
 					)
 				: Promise.resolve([]),
-			listDutyEventsInRange(ctx, { rangeStart, rangeEnd }),
+			withCalendarTiming(orgId, 'duty-event-hydration', () => listDutyEventsInRange(ctx, { rangeStart, rangeEnd })),
 			ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
 				select: PersonnelEntity.select,
 				isNull: { archived_at: true },
@@ -180,6 +234,8 @@ export async function fetchCalendarBootstrap(
 		]);
 
 	return {
+		rangeStart,
+		rangeEnd,
 		availabilityEntries,
 		specialDays,
 		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),

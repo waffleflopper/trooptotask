@@ -37,6 +37,8 @@ describe('calendar layout server load', () => {
 			} satisfies DailyAssignment
 		]);
 		const calendarData = {
+			rangeStart: '2024-01-01',
+			rangeEnd: '2024-01-31',
 			availabilityEntries,
 			specialDays,
 			assignmentTypes: [

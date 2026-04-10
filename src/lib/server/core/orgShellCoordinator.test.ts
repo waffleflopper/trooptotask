@@ -466,7 +466,7 @@ describe('OrgShellCoordinator', () => {
 			getWorkspaceData: async () => {
 				throw new Error('streamWorkspace should not call getWorkspaceData');
 			},
-			streamWorkspaceData: () => ({ data: workspaceData })
+			streamWorkspaceData: async <T>() => ({ data: workspaceData as Promise<T> })
 		};
 		const planner = createDefaultHydrationPlanner('org-1');
 

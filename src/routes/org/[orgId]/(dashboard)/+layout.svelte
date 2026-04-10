@@ -36,7 +36,9 @@
 					isCancelled: () => cancelled
 				}
 			);
-			return;
+			return () => {
+				cancelled = true;
+			};
 		}
 
 		void observeDeferred(

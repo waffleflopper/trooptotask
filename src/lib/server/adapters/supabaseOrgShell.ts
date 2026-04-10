@@ -13,6 +13,7 @@ import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
 import { getDefaultUserOrgPreferences, normalizeUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type {
+	DeferredData,
 	OrgAccessPort,
 	OrgChromePort,
 	OrgWorkspacePort,
@@ -23,12 +24,13 @@ import type {
 	ChromeData,
 	Announcement
 } from '../core/orgShell';
+import type { UseCaseContext } from '../core/ports';
 import type { RootOrgLoadPort, RootOrgShellRequest } from '../core/orgShellCoordinator';
 import { loadWithContext, getLayoutClient } from './httpAdapter';
-import { fetchCalendarBootstrap } from '../core/useCases/calendarQuery';
+import { fetchCalendarBootstrap, type CalendarBootstrap } from '../core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '../core/useCases/onboardingCalendarQuery';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
-import { fetchDashboardBootstrap } from '../core/useCases/dashboardQuery';
+import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCases/dashboardQuery';
 import { fetchPersonnelBootstrap } from '../core/useCases/personnelWorkspaceQuery';
 import { formatDate } from '$lib/utils/dates';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
@@ -43,6 +45,7 @@ import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from './inMemoryOrgShell';
+import type { TrainingBootstrap } from '../core/useCases/trainingQuery';
 
 /**
  * Deprecated demo-only shell path kept temporarily while demo sandbox access is phased out.
@@ -411,40 +414,34 @@ export function createSupabaseCalendarWorkspacePort(
 	cookies: Cookies,
 	orgId: string
 ): StreamableOrgWorkspacePort {
-	function loadCalendarData<T>() {
+	function getCalendarData(): Promise<CalendarBootstrap>;
+	function getCalendarData(defer: true): Promise<DeferredData<CalendarBootstrap>>;
+	function getCalendarData(defer = false) {
 		const now = new Date();
 		// 3 months back (1st of the month) to 6 months forward (last day of month).
 		// month+7, day 0 resolves to the last day of month+6 via JS Date overflow.
 		const rangeStart = formatDate(new Date(now.getFullYear(), now.getMonth() - 3, 1));
 		const rangeEnd = formatDate(new Date(now.getFullYear(), now.getMonth() + 7, 0));
 
+		const fn = async (ctx: UseCaseContext) => {
+			const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
+				fetchCalendarBootstrap(ctx, { rangeStart, rangeEnd }),
+				getActiveOnboardingPersonnelIds(ctx)
+			]);
+			return { ...calendarData, activeOnboardingPersonnelIds };
+		};
+
+		if (defer) {
+			return loadWithContext(locals, cookies, orgId, {
+				permission: 'calendar',
+				defer: true,
+				fn
+			});
+		}
+
 		return loadWithContext(locals, cookies, orgId, {
 			permission: 'calendar',
-			fn: async (ctx) => {
-				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
-					fetchCalendarBootstrap(ctx, { rangeStart, rangeEnd }),
-					getActiveOnboardingPersonnelIds(ctx)
-				]);
-				return { ...calendarData, activeOnboardingPersonnelIds };
-			}
-		});
-	}
-
-	function streamCalendarData<T>() {
-		const now = new Date();
-		const rangeStart = formatDate(new Date(now.getFullYear(), now.getMonth() - 3, 1));
-		const rangeEnd = formatDate(new Date(now.getFullYear(), now.getMonth() + 7, 0));
-
-		return loadWithContext(locals, cookies, orgId, {
-			permission: 'calendar',
-			defer: true,
-			fn: async (ctx) => {
-				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
-					fetchCalendarBootstrap(ctx, { rangeStart, rangeEnd }),
-					getActiveOnboardingPersonnelIds(ctx)
-				]);
-				return { ...calendarData, activeOnboardingPersonnelIds };
-			}
+			fn
 		});
 	}
 
@@ -454,7 +451,7 @@ export function createSupabaseCalendarWorkspacePort(
 				throw new Error(`createSupabaseCalendarWorkspacePort: unsupported workspace '${workspace}'`);
 			}
 
-			const data = await loadCalendarData<T>();
+			const data = await getCalendarData();
 
 			return data as T;
 		},
@@ -463,7 +460,7 @@ export function createSupabaseCalendarWorkspacePort(
 				throw new Error(`createSupabaseCalendarWorkspacePort: unsupported workspace '${workspace}'`);
 			}
 
-			return streamCalendarData<T>() as Promise<{ data: Promise<T> }>;
+			return getCalendarData(true) as Promise<DeferredData<T>>;
 		}
 	};
 }
@@ -473,112 +470,69 @@ export function createSupabaseTrainingWorkspacePort(
 	cookies: Cookies,
 	orgId: string
 ): StreamableOrgWorkspacePort {
-	function loadTrainingData<T>() {
+	function getTrainingData(): Promise<TrainingBootstrap>;
+	function getTrainingData(defer: true): Promise<DeferredData<TrainingBootstrap>>;
+	function getTrainingData(defer = false) {
+		const fn = async (ctx: UseCaseContext) => {
+			const [personnelRows, groupRows, trainingTypeRows, trainingViewRows, pinnedGroupRows] = await Promise.all([
+				ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+					select: PersonnelEntity.select,
+					isNull: { archived_at: true },
+					orderBy: [{ column: 'last_name', ascending: true }]
+				}),
+				ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+					orderBy: [{ column: 'sort_order', ascending: true }]
+				}),
+				ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
+					orderBy: [{ column: 'sort_order', ascending: true }]
+				}),
+				ctx.store.findMany<Record<string, unknown>>('training_views', orgId, undefined, {
+					orderBy: [{ column: 'name', ascending: true }]
+				}),
+				ctx.auth.userId
+					? ctx.store.findMany<Record<string, unknown>>(
+							'user_pinned_groups',
+							orgId,
+							{ user_id: ctx.auth.userId },
+							{
+								orderBy: [{ column: 'sort_order', ascending: true }]
+							}
+						)
+					: Promise.resolve([])
+			]);
+
+			const personnelTrainings: Promise<PersonnelTraining[]> = ctx.store
+				.findMany<Record<string, unknown>>('personnel_trainings', orgId)
+				.then((rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[])
+				.catch((error) => {
+					console.error('[training-workspace] Failed to load personnel trainings', {
+						orgId,
+						error
+					});
+					throw error;
+				});
+
+			return {
+				personnel: PersonnelEntity.fromDbArray(personnelRows) as Personnel[],
+				groups: GroupEntity.fromDbArray(groupRows) as Group[],
+				pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
+				trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows) as TrainingType[],
+				trainingViews: TrainingViewEntity.fromDbArray(trainingViewRows) as TrainingView[],
+				personnelTrainings
+			};
+		};
+
+		if (defer) {
+			return loadWithContext(locals, cookies, orgId, {
+				permission: 'training',
+				defer: true,
+				fn
+			});
+		}
+
 		return loadWithContext(locals, cookies, orgId, {
 			permission: 'training',
-			fn: async (ctx) => {
-				const [personnelRows, groupRows, trainingTypeRows, trainingViewRows, pinnedGroupRows] = await Promise.all([
-					ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-						select: PersonnelEntity.select,
-						isNull: { archived_at: true },
-						orderBy: [{ column: 'last_name', ascending: true }]
-					}),
-					ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					}),
-					ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					}),
-					ctx.store.findMany<Record<string, unknown>>('training_views', orgId, undefined, {
-						orderBy: [{ column: 'name', ascending: true }]
-					}),
-					ctx.auth.userId
-						? ctx.store.findMany<Record<string, unknown>>(
-								'user_pinned_groups',
-								orgId,
-								{ user_id: ctx.auth.userId },
-								{
-									orderBy: [{ column: 'sort_order', ascending: true }]
-								}
-							)
-						: Promise.resolve([])
-				]);
-
-				const personnelTrainings: Promise<PersonnelTraining[]> = ctx.store
-					.findMany<Record<string, unknown>>('personnel_trainings', orgId)
-					.then((rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[])
-					.catch((error) => {
-						console.error('[training-workspace] Failed to load personnel trainings', {
-							orgId,
-							error
-						});
-						throw error;
-					});
-
-				return {
-					personnel: PersonnelEntity.fromDbArray(personnelRows) as Personnel[],
-					groups: GroupEntity.fromDbArray(groupRows) as Group[],
-					pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
-					trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows) as TrainingType[],
-					trainingViews: TrainingViewEntity.fromDbArray(trainingViewRows) as TrainingView[],
-					personnelTrainings
-				};
-			}
-		});
-	}
-
-	function streamTrainingData<T>() {
-		return loadWithContext(locals, cookies, orgId, {
-			permission: 'training',
-			defer: true,
-			fn: async (ctx) => {
-				const [personnelRows, groupRows, trainingTypeRows, trainingViewRows, pinnedGroupRows] = await Promise.all([
-					ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-						select: PersonnelEntity.select,
-						isNull: { archived_at: true },
-						orderBy: [{ column: 'last_name', ascending: true }]
-					}),
-					ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					}),
-					ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					}),
-					ctx.store.findMany<Record<string, unknown>>('training_views', orgId, undefined, {
-						orderBy: [{ column: 'name', ascending: true }]
-					}),
-					ctx.auth.userId
-						? ctx.store.findMany<Record<string, unknown>>(
-								'user_pinned_groups',
-								orgId,
-								{ user_id: ctx.auth.userId },
-								{
-									orderBy: [{ column: 'sort_order', ascending: true }]
-								}
-							)
-						: Promise.resolve([])
-				]);
-
-				const personnelTrainings: Promise<PersonnelTraining[]> = ctx.store
-					.findMany<Record<string, unknown>>('personnel_trainings', orgId)
-					.then((rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[])
-					.catch((error) => {
-						console.error('[training-workspace] Failed to load personnel trainings', {
-							orgId,
-							error
-						});
-						throw error;
-					});
-
-				return {
-					personnel: PersonnelEntity.fromDbArray(personnelRows) as Personnel[],
-					groups: GroupEntity.fromDbArray(groupRows) as Group[],
-					pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
-					trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows) as TrainingType[],
-					trainingViews: TrainingViewEntity.fromDbArray(trainingViewRows) as TrainingView[],
-					personnelTrainings
-				};
-			}
+			fn
 		});
 	}
 
@@ -588,7 +542,7 @@ export function createSupabaseTrainingWorkspacePort(
 				throw new Error(`createSupabaseTrainingWorkspacePort: unsupported workspace '${workspace}'`);
 			}
 
-			const data = await loadTrainingData<T>();
+			const data = await getTrainingData();
 
 			return data as T;
 		},
@@ -597,7 +551,7 @@ export function createSupabaseTrainingWorkspacePort(
 				throw new Error(`createSupabaseTrainingWorkspacePort: unsupported workspace '${workspace}'`);
 			}
 
-			return streamTrainingData<T>() as Promise<{ data: Promise<T> }>;
+			return getTrainingData(true) as Promise<DeferredData<T>>;
 		}
 	};
 }
@@ -649,18 +603,22 @@ export function createSupabaseDashboardWorkspacePort(
 	cookies: Cookies,
 	orgId: string
 ): StreamableOrgWorkspacePort {
-	function loadDashboardData<T>() {
-		return loadWithContext(locals, cookies, orgId, {
-			permission: 'none',
-			fn: async (ctx) => fetchDashboardBootstrap(ctx)
-		});
-	}
+	function getDashboardData(): Promise<DashboardBootstrap>;
+	function getDashboardData(defer: true): Promise<DeferredData<DashboardBootstrap>>;
+	function getDashboardData(defer = false) {
+		const fn = async (ctx: UseCaseContext) => fetchDashboardBootstrap(ctx);
 
-	function streamDashboardData<T>() {
+		if (defer) {
+			return loadWithContext(locals, cookies, orgId, {
+				permission: 'none',
+				defer: true,
+				fn
+			});
+		}
+
 		return loadWithContext(locals, cookies, orgId, {
 			permission: 'none',
-			defer: true,
-			fn: async (ctx) => fetchDashboardBootstrap(ctx)
+			fn
 		});
 	}
 
@@ -670,7 +628,7 @@ export function createSupabaseDashboardWorkspacePort(
 				throw new Error(`createSupabaseDashboardWorkspacePort: unsupported workspace '${workspace}'`);
 			}
 
-			const data = await loadDashboardData<T>();
+			const data = await getDashboardData();
 
 			return data as T;
 		},
@@ -679,7 +637,7 @@ export function createSupabaseDashboardWorkspacePort(
 				throw new Error(`createSupabaseDashboardWorkspacePort: unsupported workspace '${workspace}'`);
 			}
 
-			return streamDashboardData<T>() as Promise<{ data: Promise<T> }>;
+			return getDashboardData(true) as Promise<DeferredData<T>>;
 		}
 	};
 }

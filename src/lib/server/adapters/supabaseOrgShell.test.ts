@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseOrgAccessPort } from './supabaseOrgShell';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { EffectiveTier } from '$lib/types/subscription';
+import type { MembershipRow } from '$lib/server/permissionContext';
 
 type Call = { method: string; args: unknown[] };
 
@@ -84,6 +85,61 @@ describe('createSupabaseOrgAccessPort', () => {
 		await expect(port.getMembership()).rejects.toMatchObject({
 			status: 500,
 			body: { message: 'table not found' }
+		});
+	});
+
+	it('returns membership info while allowing the membership loader to be wrapped for request-scoped dedupe', async () => {
+		const membershipRow = {
+			role: 'member',
+			scoped_group_id: 'group-123',
+			can_view_calendar: true,
+			can_edit_calendar: false,
+			can_view_personnel: true,
+			can_edit_personnel: true,
+			can_view_training: false,
+			can_edit_training: false,
+			can_view_onboarding: true,
+			can_edit_onboarding: false,
+			can_view_leaders_book: false,
+			can_edit_leaders_book: false,
+			can_manage_members: false
+		} satisfies MembershipRow;
+		const { builder } = createMembershipQueryBuilder(membershipRow);
+		const userSupabase = createMockSupabase(builder);
+		const wrapMembershipLoad = vi.fn(async (loadMembershipRow: () => Promise<MembershipRow>) => loadMembershipRow());
+		const port = createSupabaseOrgAccessPort({
+			orgId: 'org-1',
+			userId: 'user-1',
+			userSupabase,
+			orgName: 'Test Org',
+			isDemoReadOnly: false,
+			isDemoSandbox: false,
+			getEffectiveTier: async () => effectiveTier,
+			wrapMembershipLoad
+		});
+
+		const result = await port.getMembership();
+
+		expect(wrapMembershipLoad).toHaveBeenCalledTimes(1);
+		expect(result).toEqual({
+			orgId: 'org-1',
+			userId: 'user-1',
+			role: 'member',
+			permissions: {
+				canViewCalendar: true,
+				canEditCalendar: false,
+				canViewPersonnel: true,
+				canEditPersonnel: true,
+				canViewTraining: false,
+				canEditTraining: false,
+				canViewOnboarding: true,
+				canEditOnboarding: false,
+				canViewLeadersBook: false,
+				canEditLeadersBook: false,
+				canManageMembers: false
+			},
+			scopedGroupId: 'group-123',
+			orgSuspended: false
 		});
 	});
 });

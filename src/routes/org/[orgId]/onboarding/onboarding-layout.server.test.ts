@@ -15,7 +15,7 @@ import type { Personnel } from '$lib/types';
 import { _createOnboardingLayoutLoad } from './+layout.server';
 
 describe('onboarding layout server load', () => {
-	it('registers onboarding dependencies and preserves the canonical onboarding workspace payload', async () => {
+	it('registers onboarding dependencies and streams the canonical onboarding workspace payload', async () => {
 		const onboardingData: OnboardingBootstrap = {
 			onboardingTemplates: [
 				{
@@ -74,37 +74,40 @@ describe('onboarding layout server load', () => {
 			cookies,
 			depends
 		} as unknown as Parameters<typeof load>[0]);
+		if (!result) {
+			throw new Error('Expected onboarding layout load to return data');
+		}
 
 		expect(depends).toHaveBeenCalledTimes(1);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data');
 		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
-		expect(result).toMatchObject({
-			onboarding: {
-				workspace: 'onboarding',
-				data: onboardingData,
-				hydration: {
-					orgId: 'org-1',
-					trainingTypes: expect.objectContaining({
-						mode: 'replace',
-						items: onboardingData.trainingTypes,
-						deferred: false,
-						snapshotKey: expect.any(String)
-					}),
-					onboardingTemplates: expect.objectContaining({
-						mode: 'replace',
-						templates: onboardingData.onboardingTemplates,
-						steps: onboardingData.onboardingTemplateSteps,
-						snapshotKey: expect.any(String)
-					}),
-					onboardings: expect.objectContaining({
-						mode: 'replace',
-						items: onboardingData.onboardings,
-						deferred: false,
-						snapshotKey: expect.any(String)
-					})
-				}
-			} satisfies WorkspaceBootstrap<OnboardingBootstrap>
-		});
+		expect(result.onboarding.data).toBeInstanceOf(Promise);
+
+		await expect(result.onboarding.data).resolves.toMatchObject({
+			workspace: 'onboarding',
+			data: onboardingData,
+			hydration: {
+				orgId: 'org-1',
+				trainingTypes: expect.objectContaining({
+					mode: 'replace',
+					items: onboardingData.trainingTypes,
+					deferred: false,
+					snapshotKey: expect.any(String)
+				}),
+				onboardingTemplates: expect.objectContaining({
+					mode: 'replace',
+					templates: onboardingData.onboardingTemplates,
+					steps: onboardingData.onboardingTemplateSteps,
+					snapshotKey: expect.any(String)
+				}),
+				onboardings: expect.objectContaining({
+					mode: 'replace',
+					items: onboardingData.onboardings,
+					deferred: false,
+					snapshotKey: expect.any(String)
+				})
+			}
+		} satisfies WorkspaceBootstrap<OnboardingBootstrap>);
 	});
 });

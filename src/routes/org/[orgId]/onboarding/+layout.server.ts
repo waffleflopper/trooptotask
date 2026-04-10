@@ -2,7 +2,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { createSupabaseOnboardingWorkspacePort } from '$lib/server/adapters/supabaseOrgShell';
 import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
-import type { HydrationPlannerPort, OrgWorkspacePort } from '$lib/server/core/orgShell';
+import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
 import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
 import type { OnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
 
@@ -14,7 +14,7 @@ interface OnboardingLayoutRequestContext {
 
 export interface OnboardingLayoutLoadDeps {
 	coordinator?: OrgShellCoordinator;
-	createWorkspacePort?: (context: OnboardingLayoutRequestContext) => OrgWorkspacePort;
+	createWorkspacePort?: (context: OnboardingLayoutRequestContext) => StreamableOrgWorkspacePort;
 	createPlannerPort?: (orgId: string) => HydrationPlannerPort;
 }
 
@@ -33,7 +33,7 @@ export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {})
 		const workspacePort = createWorkspacePort({ locals, cookies, orgId });
 		const plannerPort = createPlannerPort(orgId);
 
-		return coordinator.loadWorkspace<OnboardingBootstrap, 'onboarding'>('onboarding', {
+		return coordinator.streamWorkspace<OnboardingBootstrap, 'onboarding'>('onboarding', {
 			workspace: workspacePort,
 			planner: plannerPort
 		});

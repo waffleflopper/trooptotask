@@ -78,6 +78,25 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 }
 
 describe('dashboard page', () => {
+	it('does not load workspace support for non-privileged members', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(Page, {
+			props: {
+				data: makePageData({
+					userRole: 'member'
+				})
+			}
+		});
+
+		await Promise.resolve();
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(screen.queryByText('Loading workspace support...')).toBeNull();
+		expect(screen.queryByText('Workspace support is temporarily unavailable.')).toBeNull();
+	});
+
 	it('reloads workspace support when navigating to another org route after support data has loaded', async () => {
 		const fetchMock = vi
 			.fn()

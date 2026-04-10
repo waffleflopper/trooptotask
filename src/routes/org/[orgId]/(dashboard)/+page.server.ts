@@ -3,37 +3,11 @@ import { buildLayoutContext, loadWithContextCore } from '$lib/server/adapters/ht
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import { fetchDashboardTrainingSummary } from '$lib/server/core/useCases/trainingSummaryQuery';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
+import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
 
 export interface DashboardPageSummaryData {
 	trainingSummary: Awaited<ReturnType<typeof fetchDashboardTrainingSummary>>['trainingSummary'];
 	onboardingTrainingCompletions: string[];
-}
-
-function getNowMs(): number {
-	return typeof performance !== 'undefined' ? performance.now() : Date.now();
-}
-
-async function withDashboardTiming<T>(orgId: string, phase: 'summary', run: () => Promise<T>): Promise<T> {
-	const startedAt = getNowMs();
-
-	try {
-		const result = await run();
-		console.info('[dashboard-load]', {
-			orgId,
-			phase,
-			durationMs: Math.round(getNowMs() - startedAt),
-			status: 'ok'
-		});
-		return result;
-	} catch (error) {
-		console.info('[dashboard-load]', {
-			orgId,
-			phase,
-			durationMs: Math.round(getNowMs() - startedAt),
-			status: 'error'
-		});
-		throw error;
-	}
 }
 
 export const load = async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {

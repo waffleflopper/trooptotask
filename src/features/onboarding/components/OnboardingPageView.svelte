@@ -13,20 +13,7 @@
 	}
 
 	let { ctx }: Props = $props();
-
-	const activeOnboardingCount = $derived(ctx.filteredOnboardings.length);
-	const configuredTemplateCount = $derived(ctx.templates.length);
-	const incompleteStepCount = $derived.by(() =>
-		ctx.filteredOnboardings.reduce((total, onboarding) => {
-			const progress = ctx.getProgress(onboarding);
-			return total + Math.max(progress.total - progress.completed, 0);
-		}, 0)
-	);
 </script>
-
-<svelte:head>
-	<title>Onboarding - Troop to Task</title>
-</svelte:head>
 
 <div class="page">
 	<PageToolbar title="Onboarding" helpTopic="onboarding" overflowItems={ctx.overflowItems}>
@@ -59,28 +46,6 @@
 		</div>
 	{:else}
 		<main class="page-content">
-			<div class="overview-strip">
-				<div class="overview-card">
-					<span class="overview-label">Active</span>
-					<strong class="overview-value">{activeOnboardingCount}</strong>
-					<span class="overview-meta">Members currently moving through onboarding</span>
-				</div>
-				<div class="overview-card">
-					<span class="overview-label">Open Steps</span>
-					<strong class="overview-value">{incompleteStepCount}</strong>
-					<span class="overview-meta">Requirements still incomplete across active packets</span>
-				</div>
-				<div class="overview-card">
-					<span class="overview-label">Templates</span>
-					<strong class="overview-value">{configuredTemplateCount}</strong>
-					<span class="overview-meta">
-						{ctx.hasTemplateSteps
-							? 'Reusable onboarding templates are configured and available'
-							: 'No reusable onboarding template has been defined yet'}
-					</span>
-				</div>
-			</div>
-
 			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
 				<div class="notice-banner notice-banner--warning">
 					<div class="notice-copy">
@@ -419,24 +384,6 @@
 		pointer-events: none;
 	}
 
-	.overview-strip {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: var(--sp-2);
-		margin-bottom: var(--sp-3);
-	}
-
-	.overview-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--surface-panel) 92%, var(--surface-subtle) 8%);
-	}
-
-	.overview-label,
 	.notice-label,
 	.progress-label {
 		font-family: var(--font-mono);
@@ -445,20 +392,6 @@
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--text-tertiary);
-	}
-
-	.overview-value {
-		font-family: var(--font-display);
-		font-size: clamp(1.45rem, 1.2rem + 0.5vw, 2rem);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
-		color: var(--text-primary);
-	}
-
-	.overview-meta {
-		font-size: var(--text-sm);
-		line-height: 1.45;
-		color: var(--text-secondary);
 	}
 
 	.notice-banner {
@@ -908,10 +841,6 @@
 	}
 
 	@media (max-width: 640px) {
-		.overview-strip {
-			grid-template-columns: 1fr;
-		}
-
 		.notice-banner,
 		.card-summary,
 		.card-detail {

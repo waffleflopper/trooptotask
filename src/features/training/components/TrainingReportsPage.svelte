@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -11,6 +12,7 @@
 	import { formatTrainingCellText } from '$features/training/utils/cellDisplayText';
 	import type { Personnel } from '$lib/types';
 	import { groupsStore, type Group } from '$lib/stores/groups.svelte';
+	import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
 	import {
 		filterPersonnel,
 		computeReadinessDashboard,
@@ -23,6 +25,12 @@
 
 	const org = getOrgContext();
 	const workspaceData = $derived(data.training?.data);
+	const serverReport = $derived((data.trainingReport as TrainingReportData | undefined) ?? null);
+	let report = $state<TrainingReportData | null>(null);
+	const activeReport = $derived(report ?? serverReport);
+	let reportLoading = $state(false);
+	let reportError = $state<string | null>(null);
+	let reportRequestId = 0;
 
 	let filterGroupId = $state('');
 	let filterMos = $state('');
@@ -41,20 +49,29 @@
 					: []
 	);
 	const allGroups = $derived<Group[]>(
-		groupsStore.orgId === org.orgId
-			? groupsStore.items
-			: Array.isArray(workspaceData?.groups)
-				? workspaceData.groups
-				: Array.isArray(data.groups)
-					? data.groups
-					: []
+		activeReport?.filterOptions.groups ??
+			(groupsStore.orgId === org.orgId
+				? groupsStore.items
+				: Array.isArray(workspaceData?.groups)
+					? workspaceData.groups
+					: Array.isArray(data.groups)
+						? data.groups
+						: [])
 	);
-	const allTypes = $derived(trainingTypesStore.items);
+	const allTypes = $derived(activeReport?.trainingTypes ?? trainingTypesStore.items);
+	const localTrainingTypes = $derived(trainingTypesStore.items);
+	const availableTypeFilters = $derived(serverReport?.trainingTypes ?? allTypes);
 	const allTrainings = $derived(personnelTrainingsStore.items);
 
-	const availableMos = $derived([...new Set(allPersonnel.map((p) => p.mos))].filter(Boolean).sort());
-	const availableRoles = $derived([...new Set(allPersonnel.map((p) => p.clinicRole))].filter(Boolean).sort());
-	const availableRanks = $derived([...new Set(allPersonnel.map((p) => p.rank))].filter(Boolean).sort());
+	const availableMos = $derived(
+		activeReport?.filterOptions.mos ?? [...new Set(allPersonnel.map((p) => p.mos))].filter(Boolean).sort()
+	);
+	const availableRoles = $derived(
+		activeReport?.filterOptions.roles ?? [...new Set(allPersonnel.map((p) => p.clinicRole))].filter(Boolean).sort()
+	);
+	const availableRanks = $derived(
+		activeReport?.filterOptions.ranks ?? [...new Set(allPersonnel.map((p) => p.rank))].filter(Boolean).sort()
+	);
 
 	const filters = $derived<ReportFilters>({
 		groupId: filterGroupId || undefined,
@@ -67,10 +84,23 @@
 	const filteredTypes = $derived(
 		filterTypeIds.length > 0 ? allTypes.filter((t) => filterTypeIds.includes(t.id)) : allTypes
 	);
+	const filteredLocalTrainingTypes = $derived(
+		filterTypeIds.length > 0 ? localTrainingTypes.filter((type) => filterTypeIds.includes(type.id)) : localTrainingTypes
+	);
 
-	const dashboard = $derived(computeReadinessDashboard(filteredPersonnel, filteredTypes, allTrainings));
+	const dashboard = $derived(
+		activeReport?.dashboard ?? computeReadinessDashboard(filteredPersonnel, filteredLocalTrainingTypes, allTrainings)
+	);
+	const serverPivotRows = $derived(
+		(activeReport?.detail.rows ?? []).map((row) => ({
+			person: row.person,
+			cells: new Map(row.cells.map((cell) => [cell.trainingTypeId, cell]))
+		}))
+	);
 	const pivotRows = $derived.by(() => {
-		const rows = buildPivotTable(filteredPersonnel, filteredTypes, allTrainings);
+		if (activeReport) return serverPivotRows;
+
+		const rows = buildPivotTable(filteredPersonnel, filteredLocalTrainingTypes, allTrainings);
 		if (!filterStatus) return rows;
 		return rows.filter((row) => {
 			for (const cell of row.cells.values()) {
@@ -94,6 +124,8 @@
 	};
 
 	const sortedRows = $derived.by(() => {
+		if (activeReport) return pivotRows;
+
 		const rows = [...pivotRows];
 		rows.sort((a, b) => {
 			let cmp = 0;
@@ -127,6 +159,12 @@
 	const hasActiveFilters = $derived(
 		!!filterGroupId || !!filterMos || !!filterRole || !!filterRank || !!filterStatus || filterTypeIds.length > 0
 	);
+	const detailPersonnelCount = $derived(activeReport?.detail.totalRows ?? filteredPersonnel.length);
+	const currentPage = $derived(activeReport?.detail.page ?? 1);
+	const totalPages = $derived(activeReport?.detail.totalPages ?? 1);
+	const pageSize = $derived(activeReport?.detail.pageSize ?? 25);
+	const canPageBack = $derived(!!activeReport && currentPage > 1 && !reportLoading);
+	const canPageForward = $derived(!!activeReport && currentPage < totalPages && !reportLoading);
 
 	function toggleSort(col: string) {
 		if (sortColumn === col) {
@@ -135,6 +173,7 @@
 			sortColumn = col;
 			sortAsc = true;
 		}
+		void reloadFirstReportPage();
 	}
 
 	function sortIndicator(col: string): string {
@@ -142,9 +181,83 @@
 		return sortAsc ? ' \u25b2' : ' \u25bc';
 	}
 
+	function appendReportParam(params: string[], key: string, value: string): void {
+		params.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+	}
+
+	function buildReportQueryString(): string {
+		const params: string[] = [];
+		if (filterGroupId) appendReportParam(params, 'groupId', filterGroupId);
+		if (filterMos) appendReportParam(params, 'mos', filterMos);
+		if (filterRole) appendReportParam(params, 'role', filterRole);
+		if (filterRank) appendReportParam(params, 'rank', filterRank);
+		if (filterStatus) appendReportParam(params, 'status', filterStatus);
+		for (const typeId of filterTypeIds) {
+			appendReportParam(params, 'trainingTypeId', typeId);
+		}
+		appendReportParam(params, 'sortColumn', sortColumn);
+		appendReportParam(params, 'sortDirection', sortAsc ? 'asc' : 'desc');
+		return params.join('&');
+	}
+
+	function buildReportUrl(page: number): string {
+		const query = buildReportQueryString();
+		return `/org/${org.orgId}/api/training-reports?${query}&page=${page}&pageSize=${pageSize}`;
+	}
+
+	function buildReportExportUrl(): string {
+		return `/org/${org.orgId}/api/training-reports/export?${buildReportQueryString()}`;
+	}
+
+	async function loadReportPage(page: number): Promise<void> {
+		if (!activeReport) return;
+		const requestId = ++reportRequestId;
+		reportLoading = true;
+		reportError = null;
+		try {
+			const response = await fetch(buildReportUrl(page));
+			if (!response.ok) {
+				throw new Error('Failed to load training report page');
+			}
+			const nextReport = (await response.json()) as TrainingReportData;
+			if (requestId === reportRequestId) {
+				report = nextReport;
+			}
+		} catch (error) {
+			if (requestId === reportRequestId) {
+				reportError = error instanceof Error ? error.message : 'Failed to load training report page';
+			}
+		} finally {
+			if (requestId === reportRequestId) {
+				reportLoading = false;
+			}
+		}
+	}
+
+	async function reloadFirstReportPage(): Promise<void> {
+		if (!activeReport) return;
+		await tick();
+		await loadReportPage(1);
+	}
+
+	function getSelectValue(event: Event): string {
+		return (event.currentTarget as HTMLSelectElement).value;
+	}
+
 	function exportCSV() {
+		if (activeReport) {
+			const link = document.createElement('a');
+			link.setAttribute('href', buildReportExportUrl());
+			link.setAttribute('download', 'training-report.csv');
+			link.style.visibility = 'hidden';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			return;
+		}
+
 		const rows = pivotRows;
-		const csv = generatePivotCSV(rows, filteredTypes);
+		const csv = generatePivotCSV(rows, filteredLocalTrainingTypes);
 		const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
 		const url = URL.createObjectURL(blob);
 		const link = document.createElement('a');
@@ -164,6 +277,7 @@
 		filterRank = '';
 		filterStatus = '';
 		filterTypeIds = [];
+		void reloadFirstReportPage();
 	}
 
 	function toggleTypeFilter(typeId: string) {
@@ -172,6 +286,7 @@
 		} else {
 			filterTypeIds = [...filterTypeIds, typeId];
 		}
+		void reloadFirstReportPage();
 	}
 
 	function getReadinessColor(pct: number): string {
@@ -195,35 +310,75 @@
 	<div class="reports-page-shell">
 		<div class="report-filters">
 			<div class="filter-row">
-				<select class="input filter-select" bind:value={filterGroupId} aria-label="Filter by group">
+				<select
+					class="input filter-select"
+					bind:value={filterGroupId}
+					aria-label="Filter by group"
+					onchange={(event) => {
+						filterGroupId = getSelectValue(event);
+						void reloadFirstReportPage();
+					}}
+				>
 					<option value="">All Groups</option>
 					{#each allGroups as group (group.id)}
 						<option value={group.id}>{group.name}</option>
 					{/each}
 				</select>
 
-				<select class="input filter-select" bind:value={filterRank} aria-label="Filter by rank">
+				<select
+					class="input filter-select"
+					bind:value={filterRank}
+					aria-label="Filter by rank"
+					onchange={(event) => {
+						filterRank = getSelectValue(event);
+						void reloadFirstReportPage();
+					}}
+				>
 					<option value="">All Ranks</option>
 					{#each availableRanks as rank (rank)}
 						<option value={rank}>{rank}</option>
 					{/each}
 				</select>
 
-				<select class="input filter-select" bind:value={filterMos} aria-label="Filter by MOS">
+				<select
+					class="input filter-select"
+					bind:value={filterMos}
+					aria-label="Filter by MOS"
+					onchange={(event) => {
+						filterMos = getSelectValue(event);
+						void reloadFirstReportPage();
+					}}
+				>
 					<option value="">All MOS</option>
 					{#each availableMos as mos (mos)}
 						<option value={mos}>{mos}</option>
 					{/each}
 				</select>
 
-				<select class="input filter-select" bind:value={filterRole} aria-label="Filter by role">
+				<select
+					class="input filter-select"
+					bind:value={filterRole}
+					aria-label="Filter by role"
+					onchange={(event) => {
+						filterRole = getSelectValue(event);
+						void reloadFirstReportPage();
+					}}
+				>
 					<option value="">All Roles</option>
 					{#each availableRoles as role (role)}
 						<option value={role}>{role}</option>
 					{/each}
 				</select>
 
-				<select class="input filter-select" bind:value={filterStatus} aria-label="Filter by status">
+				<select
+					class="input filter-select"
+					bind:value={filterStatus}
+					aria-label="Filter by status"
+					onchange={(event) => {
+						filterStatus = getSelectValue(event) as TrainingStatus | '';
+						void reloadFirstReportPage();
+					}}
+				>
 					<option value="">All Statuses</option>
 					{#each statusOptions as opt (opt.value)}
 						<option value={opt.value}>{opt.label}</option>
@@ -231,17 +386,17 @@
 				</select>
 
 				<div class="filter-actions">
-					<Badge label={`${filteredPersonnel.length} personnel`} variant="outlined" />
+					<Badge label={`${detailPersonnelCount} personnel`} variant="outlined" />
 					{#if hasActiveFilters}
 						<button class="btn btn-sm" type="button" onclick={clearFilters}>Clear filters</button>
 					{/if}
 				</div>
 			</div>
 
-			{#if allTypes.length > 1}
+			{#if availableTypeFilters.length > 1}
 				<div class="type-filter-chips">
 					<span class="filter-label">Training types</span>
-					{#each allTypes as type (type.id)}
+					{#each availableTypeFilters as type (type.id)}
 						<button
 							class="type-filter-chip"
 							class:active={filterTypeIds.includes(type.id)}
@@ -253,7 +408,14 @@
 						</button>
 					{/each}
 					{#if filterTypeIds.length > 0}
-						<button class="type-filter-chip type-filter-chip-clear" type="button" onclick={() => (filterTypeIds = [])}>
+						<button
+							class="type-filter-chip type-filter-chip-clear"
+							type="button"
+							onclick={() => {
+								filterTypeIds = [];
+								void reloadFirstReportPage();
+							}}
+						>
 							Clear
 						</button>
 					{/if}
@@ -360,8 +522,16 @@
 		<div class="detail-section">
 			<div class="detail-header">
 				<h3 class="section-title">Detail Table</h3>
-				<Badge label={`${sortedRows.length} personnel`} variant="outlined" />
+				<div class="detail-header-actions">
+					{#if reportLoading}
+						<span class="detail-status">Loading page...</span>
+					{/if}
+					<Badge label={`${detailPersonnelCount} personnel`} variant="outlined" />
+				</div>
 			</div>
+			{#if reportError}
+				<div class="report-error" role="alert">{reportError}</div>
+			{/if}
 
 			{#if sortedRows.length === 0}
 				<EmptyState message="No personnel match the current filters." />
@@ -423,6 +593,29 @@
 						</tbody>
 					</table>
 				</div>
+				{#if activeReport}
+					<div class="pagination-bar">
+						<span class="pagination-summary">Page {currentPage} of {totalPages}</span>
+						<div class="pagination-actions">
+							<button
+								class="btn btn-sm"
+								type="button"
+								onclick={() => loadReportPage(currentPage - 1)}
+								disabled={!canPageBack}
+							>
+								Previous page
+							</button>
+							<button
+								class="btn btn-sm"
+								type="button"
+								onclick={() => loadReportPage(currentPage + 1)}
+								disabled={!canPageForward}
+							>
+								Next page
+							</button>
+						</div>
+					</div>
+				{/if}
 			{/if}
 		</div>
 	</div>
@@ -660,6 +853,29 @@
 		background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface-panel) 52%);
 	}
 
+	.detail-header-actions {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+	}
+
+	.detail-status,
+	.pagination-summary {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-secondary);
+	}
+
+	.report-error {
+		padding: var(--sp-3) var(--sp-6);
+		border-bottom: var(--border-thin);
+		background: color-mix(in srgb, var(--danger) 12%, var(--surface-panel));
+		color: var(--danger);
+	}
+
 	.section-title {
 		margin: 0;
 		font-family: var(--font-mono);
@@ -672,6 +888,21 @@
 
 	.table-container {
 		overflow-x: auto;
+	}
+
+	.pagination-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		padding: var(--sp-3) var(--sp-6);
+		border-top: var(--border-thin);
+		background: color-mix(in srgb, var(--surface-subtle) 36%, var(--surface-panel) 64%);
+	}
+
+	.pagination-actions {
+		display: inline-flex;
+		gap: var(--sp-2);
 	}
 
 	.report-table {

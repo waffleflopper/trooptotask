@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
-import { fetchTrainingReportsData } from './trainingReportsQuery';
+import { fetchTrainingReportPage, fetchTrainingReportsData, generateTrainingReportCsv } from './trainingReportsQuery';
 
 const ORG = 'test-org';
 
@@ -9,6 +9,282 @@ function buildCtx() {
 }
 
 describe('fetchTrainingReportsData', () => {
+	it('returns a filtered, sorted, paginated report page with server-computed cells and dashboard counts', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed('groups', [
+			{ id: 'group-1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
+			{ id: 'group-2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
+		]);
+		store.seed('personnel', [
+			{
+				id: 'p-smith',
+				organization_id: ORG,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jane',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-1',
+				archived_at: null,
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p-adams',
+				organization_id: ORG,
+				rank: 'SPC',
+				last_name: 'Adams',
+				first_name: 'John',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-1',
+				archived_at: null,
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p-bravo',
+				organization_id: ORG,
+				rank: 'PFC',
+				last_name: 'Brown',
+				first_name: 'Bailey',
+				mos: '11B',
+				clinic_role: 'Line',
+				group_id: 'group-2',
+				archived_at: null,
+				groups: { name: 'Bravo' }
+			}
+		]);
+		store.seed('training_types', [
+			{
+				id: 'type-cpr',
+				organization_id: ORG,
+				name: 'CPR',
+				description: null,
+				expiration_months: null,
+				warning_days_yellow: 60,
+				warning_days_orange: 30,
+				applies_to_roles: [],
+				applies_to_mos: [],
+				applies_to_ranks: [],
+				excluded_roles: [],
+				excluded_mos: [],
+				excluded_ranks: [],
+				color: '#22c55e',
+				sort_order: 0,
+				expiration_date_only: false,
+				can_be_exempted: false,
+				exempt_personnel_ids: [],
+				is_optional: false
+			}
+		]);
+		store.seed('personnel_trainings', [
+			{
+				id: 'pt-adams-cpr',
+				organization_id: ORG,
+				personnel_id: 'p-adams',
+				training_type_id: 'type-cpr',
+				completion_date: '2026-01-01',
+				expiration_date: null,
+				notes: null,
+				certificate_url: null
+			},
+			{
+				id: 'pt-bravo-cpr',
+				organization_id: ORG,
+				personnel_id: 'p-bravo',
+				training_type_id: 'type-cpr',
+				completion_date: '2026-01-01',
+				expiration_date: null,
+				notes: null,
+				certificate_url: null
+			}
+		]);
+
+		const result = await fetchTrainingReportPage(ctx, {
+			filters: { groupId: 'group-1' },
+			sort: { column: 'name', direction: 'asc' },
+			pagination: { page: 2, pageSize: 1 }
+		});
+
+		expect(result.detail.totalRows).toBe(2);
+		expect(result.detail.page).toBe(2);
+		expect(result.detail.pageSize).toBe(1);
+		expect(result.detail.rows).toHaveLength(1);
+		expect(result.detail.rows[0].person.id).toBe('p-smith');
+		expect(result.detail.rows[0].cells).toEqual([
+			expect.objectContaining({
+				trainingTypeId: 'type-cpr',
+				status: 'not-completed',
+				label: 'Not Done',
+				date: null
+			})
+		]);
+		expect(result.dashboard.readinessPercent).toBe(50);
+		expect(result.dashboard.statusCounts.current).toBe(1);
+		expect(result.dashboard.statusCounts.notCompleted).toBe(1);
+	});
+
+	it('limits report rows to the caller scoped group', async () => {
+		const ctx = createQueryPortsContext({ auth: { scopedGroupId: 'group-1' } });
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed('personnel', [
+			{
+				id: 'p-alpha',
+				organization_id: ORG,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Ann',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-1',
+				archived_at: null,
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p-bravo',
+				organization_id: ORG,
+				rank: 'SPC',
+				last_name: 'Bravo',
+				first_name: 'Ben',
+				mos: '11B',
+				clinic_role: 'Line',
+				group_id: 'group-2',
+				archived_at: null,
+				groups: { name: 'Bravo' }
+			}
+		]);
+		store.seed('training_types', [
+			{
+				id: 'type-cpr',
+				organization_id: ORG,
+				name: 'CPR',
+				description: null,
+				expiration_months: null,
+				warning_days_yellow: 60,
+				warning_days_orange: 30,
+				applies_to_roles: [],
+				applies_to_mos: [],
+				applies_to_ranks: [],
+				excluded_roles: [],
+				excluded_mos: [],
+				excluded_ranks: [],
+				color: '#22c55e',
+				sort_order: 0,
+				expiration_date_only: false,
+				can_be_exempted: false,
+				exempt_personnel_ids: [],
+				is_optional: false
+			}
+		]);
+		store.seed('personnel_trainings', [
+			{
+				id: 'pt-alpha-cpr',
+				organization_id: ORG,
+				personnel_id: 'p-alpha',
+				training_type_id: 'type-cpr',
+				completion_date: '2026-01-01',
+				expiration_date: null,
+				notes: null,
+				certificate_url: null
+			},
+			{
+				id: 'pt-bravo-cpr',
+				organization_id: ORG,
+				personnel_id: 'p-bravo',
+				training_type_id: 'type-cpr',
+				completion_date: '2026-01-01',
+				expiration_date: null,
+				notes: null,
+				certificate_url: null
+			}
+		]);
+
+		const result = await fetchTrainingReportPage(ctx);
+
+		expect(result.detail.totalRows).toBe(1);
+		expect(result.detail.rows[0].person.id).toBe('p-alpha');
+	});
+
+	it('generates an authorized full CSV export without applying detail pagination', async () => {
+		const ctx = createQueryPortsContext({ auth: { scopedGroupId: 'group-1' } });
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed('personnel', [
+			{
+				id: 'p-alpha',
+				organization_id: ORG,
+				rank: 'SGT',
+				last_name: 'Alpha',
+				first_name: 'Ann',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-1',
+				archived_at: null,
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p-able',
+				organization_id: ORG,
+				rank: 'SPC',
+				last_name: 'Able',
+				first_name: 'Amy',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-1',
+				archived_at: null,
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p-bravo',
+				organization_id: ORG,
+				rank: 'SPC',
+				last_name: 'Bravo',
+				first_name: 'Ben',
+				mos: '11B',
+				clinic_role: 'Line',
+				group_id: 'group-2',
+				archived_at: null,
+				groups: { name: 'Bravo' }
+			}
+		]);
+		store.seed('training_types', [
+			{
+				id: 'type-cpr',
+				organization_id: ORG,
+				name: 'CPR',
+				description: null,
+				expiration_months: null,
+				warning_days_yellow: 60,
+				warning_days_orange: 30,
+				applies_to_roles: [],
+				applies_to_mos: [],
+				applies_to_ranks: [],
+				excluded_roles: [],
+				excluded_mos: [],
+				excluded_ranks: [],
+				color: '#22c55e',
+				sort_order: 0,
+				expiration_date_only: false,
+				can_be_exempted: false,
+				exempt_personnel_ids: [],
+				is_optional: false
+			}
+		]);
+
+		const csv = await generateTrainingReportCsv(ctx, {
+			sort: { column: 'name', direction: 'asc' },
+			pagination: { page: 1, pageSize: 1 }
+		});
+
+		const lines = csv.split('\n');
+		expect(lines).toHaveLength(3);
+		expect(csv).toContain('"Able, Amy"');
+		expect(csv).toContain('"Alpha, Ann"');
+		expect(csv).not.toContain('Bravo, Ben');
+	});
+
 	it('fetches training records from the store and returns them', async () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;

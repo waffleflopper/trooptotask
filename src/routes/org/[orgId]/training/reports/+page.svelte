@@ -52,7 +52,10 @@
 		};
 	});
 
-	const routePending = $derived(!!data.training?.data && trainingBootstrap === null && loadError === null);
+	const hasServerReport = $derived(!!data.trainingReport);
+	const routePending = $derived(
+		!hasServerReport && !!data.training?.data && trainingBootstrap === null && loadError === null
+	);
 	const storesHydratedForOrg = $derived(
 		personnelStore.orgId === org.orgId &&
 			groupsStore.orgId === org.orgId &&
@@ -66,7 +69,7 @@
 			trainingTypesStore.loading ||
 			personnelTrainingsStore.loading
 	);
-	const workspacePending = $derived(routePending || (!!trainingBootstrap && storesPending));
+	const workspacePending = $derived(!hasServerReport && (routePending || (!!trainingBootstrap && storesPending)));
 	const pageData = $derived.by(() => materializeWorkspaceData(data, 'training', trainingBootstrap));
 	const renderLoadError = $derived.by(() => {
 		if (loadError) {

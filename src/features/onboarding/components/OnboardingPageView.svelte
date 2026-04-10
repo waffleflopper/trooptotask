@@ -24,10 +24,6 @@
 	);
 </script>
 
-<svelte:head>
-	<title>Onboarding - Troop to Task</title>
-</svelte:head>
-
 <div class="page">
 	<PageToolbar title="Onboarding" helpTopic="onboarding" overflowItems={ctx.overflowItems}>
 		<a href={ctx.historyUrl} class="btn btn-sm" data-quiet-button>History</a>

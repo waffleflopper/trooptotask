@@ -578,19 +578,42 @@ export function createSupabaseOnboardingWorkspacePort(
 	locals: App.Locals,
 	cookies: Cookies,
 	orgId: string
-): OrgWorkspacePort {
+): StreamableOrgWorkspacePort {
+	function getOnboardingData(): Promise<Awaited<ReturnType<typeof fetchOnboardingBootstrap>>>;
+	function getOnboardingData(defer: true): Promise<DeferredData<Awaited<ReturnType<typeof fetchOnboardingBootstrap>>>>;
+	function getOnboardingData(defer = false) {
+		const fn = async (ctx: UseCaseContext) => fetchOnboardingBootstrap(ctx);
+
+		if (defer) {
+			return loadWithContext(locals, cookies, orgId, {
+				permission: 'onboarding',
+				defer: true,
+				fn
+			});
+		}
+
+		return loadWithContext(locals, cookies, orgId, {
+			permission: 'onboarding',
+			fn
+		});
+	}
+
 	return {
 		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
 			if (workspace !== 'onboarding') {
 				throw new Error(`createSupabaseOnboardingWorkspacePort: unsupported workspace '${workspace}'`);
 			}
 
-			const data = await loadWithContext(locals, cookies, orgId, {
-				permission: 'onboarding',
-				fn: async (ctx) => fetchOnboardingBootstrap(ctx)
-			});
+			const data = await getOnboardingData();
 
 			return data as T;
+		},
+		async streamWorkspaceData<T>(workspace: WorkspaceKey) {
+			if (workspace !== 'onboarding') {
+				throw new Error(`createSupabaseOnboardingWorkspacePort: unsupported workspace '${workspace}'`);
+			}
+
+			return getOnboardingData(true) as Promise<DeferredData<T>>;
 		}
 	};
 }

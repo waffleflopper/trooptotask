@@ -31,10 +31,10 @@ import { loadWithContext, getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
 import { fetchCalendarBootstrap, type CalendarBootstrap } from '../core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '../core/useCases/onboardingCalendarQuery';
+import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
 import { fetchDashboardBootstrap, type DashboardBootstrap } from '../core/useCases/dashboardQuery';
 import { fetchPersonnelBootstrap } from '../core/useCases/personnelWorkspaceQuery';
-import { formatDate } from '$lib/utils/dates';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { GroupEntity } from '$lib/server/entities/group';
@@ -48,6 +48,7 @@ import type { PersonnelTraining, TrainingType, TrainingView } from '$features/tr
 import { createSupabaseSubscriptionAdapter } from './supabaseSubscription';
 import { createInMemoryOrgAccessPort, createInMemoryOrgChromePort } from './inMemoryOrgShell';
 import type { TrainingBootstrap } from '../core/useCases/trainingQuery';
+import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
 
 /**
  * Deprecated demo-only shell path kept temporarily while demo sandbox access is phased out.
@@ -435,19 +436,16 @@ export function createSupabaseCalendarWorkspacePort(
 	function getCalendarData(): Promise<CalendarBootstrap>;
 	function getCalendarData(defer: true): Promise<DeferredData<CalendarBootstrap>>;
 	function getCalendarData(defer = false) {
-		const now = new Date();
-		// 3 months back (1st of the month) to 6 months forward (last day of month).
-		// month+7, day 0 resolves to the last day of month+6 via JS Date overflow.
-		const rangeStart = formatDate(new Date(now.getFullYear(), now.getMonth() - 3, 1));
-		const rangeEnd = formatDate(new Date(now.getFullYear(), now.getMonth() + 7, 0));
+		const { rangeStart, rangeEnd } = createInitialCalendarBufferedRange(new Date());
 
-		const fn = async (ctx: UseCaseContext) => {
-			const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
-				fetchCalendarBootstrap(ctx, { rangeStart, rangeEnd }),
-				getActiveOnboardingPersonnelIds(ctx)
-			]);
-			return { ...calendarData, activeOnboardingPersonnelIds };
-		};
+		const fn = async (ctx: UseCaseContext) =>
+			withCalendarTiming(orgId, 'workspace-bootstrap', async () => {
+				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
+					fetchCalendarBootstrap(ctx, { rangeStart, rangeEnd }),
+					getActiveOnboardingPersonnelIds(ctx)
+				]);
+				return { ...calendarData, activeOnboardingPersonnelIds };
+			});
 
 		if (defer) {
 			return loadWithContext(locals, cookies, orgId, {

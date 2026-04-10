@@ -1,69 +1,44 @@
 import type { PageServerLoadEvent } from './$types';
-import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { buildLayoutContext, loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
-import {
-	fetchTrainingSummary,
-	fetchOnboardingTrainingCompletions
-} from '$lib/server/core/useCases/trainingSummaryQuery';
+import { fetchDashboardTrainingSummary } from '$lib/server/core/useCases/trainingSummaryQuery';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
+import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
 
 export interface DashboardPageSummaryData {
-	trainingSummary: Awaited<ReturnType<typeof fetchTrainingSummary>>;
+	trainingSummary: Awaited<ReturnType<typeof fetchDashboardTrainingSummary>>['trainingSummary'];
 	onboardingTrainingCompletions: string[];
-	onboardingTemplateStepCount: number;
-	ratingSchemeEntryCount: number;
-	orgMemberCount: number;
-	gettingStartedDismissed: boolean;
 }
 
 export const load = async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {
 	depends('app:org-core');
 	depends('app:dashboard-data');
 	const { orgId } = params;
-
-	const parentData = await parent();
-	const workspaceBootstrap = parentData.dashboard.data as Promise<WorkspaceBootstrap<DashboardBootstrap>>;
-	const { data: summary } = await loadWithContext(locals, cookies, orgId, {
+	const parentDataPromise = parent();
+	const ctx = await buildLayoutContext(locals, cookies, orgId);
+	const { data: summary } = loadWithContextCore(ctx, {
 		permission: 'none',
 		defer: true,
-		fn: async (ctx) => {
-			const workspaceData = (await workspaceBootstrap).data;
-			const [trainingSummary, onboardingTemplateStepCount, ratingSchemeEntryCount, orgMemberCount, gettingStartedRows] =
-				await Promise.all([
-					fetchTrainingSummary(ctx, {
-						personnel: workspaceData.personnel,
-						trainingTypes: workspaceData.trainingTypes,
-						options: {
-							issueLimit: 5,
-							issueStatuses: ['expired', 'warning-orange']
-						}
-					}),
-					ctx.store.findManyWithCount('onboarding_template_steps', ctx.auth.orgId),
-					ctx.store.findManyWithCount('rating_scheme_entries', ctx.auth.orgId),
-					ctx.store.findManyWithCount('organization_memberships', ctx.auth.orgId),
-					ctx.auth.userId
-						? ctx.store.findMany<Record<string, unknown>>('getting_started_progress', ctx.auth.orgId, {
-								user_id: ctx.auth.userId
-							})
-						: Promise.resolve([])
-				]);
+		fn: async () =>
+			withDashboardTiming(orgId, 'summary', async () => {
+				const parentData = await parentDataPromise;
+				const workspaceBootstrap = parentData.dashboard.data as Promise<WorkspaceBootstrap<DashboardBootstrap>>;
+				const workspaceData = (await workspaceBootstrap).data;
+				const trainingData = await fetchDashboardTrainingSummary(ctx, {
+					personnel: workspaceData.personnel,
+					trainingTypes: workspaceData.trainingTypes,
+					onboardingPersonnelIds: workspaceData.activeOnboardings.map((o) => o.personnelId),
+					options: {
+						issueLimit: 5,
+						issueStatuses: ['expired', 'warning-orange']
+					}
+				});
 
-			const onboardingPersonnelIds = workspaceData.activeOnboardings.map((o) => o.personnelId);
-			const onboardingTrainingCompletions = await fetchOnboardingTrainingCompletions(ctx, {
-				personnelIds: onboardingPersonnelIds
-			});
-
-			const gettingStartedData = gettingStartedRows.length > 0 ? gettingStartedRows[0] : null;
-
-			return {
-				trainingSummary,
-				onboardingTrainingCompletions: [...onboardingTrainingCompletions],
-				onboardingTemplateStepCount: onboardingTemplateStepCount.count ?? 0,
-				ratingSchemeEntryCount: ratingSchemeEntryCount.count ?? 0,
-				orgMemberCount: orgMemberCount.count ?? 0,
-				gettingStartedDismissed: (gettingStartedData as Record<string, unknown> | null)?.dismissed_at != null
-			} satisfies DashboardPageSummaryData;
-		}
+				return {
+					trainingSummary: trainingData.trainingSummary,
+					onboardingTrainingCompletions: [...trainingData.onboardingTrainingCompletions]
+				} satisfies DashboardPageSummaryData;
+			})
 	});
 
 	return {

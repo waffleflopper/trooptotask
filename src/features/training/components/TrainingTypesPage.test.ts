@@ -1,0 +1,104 @@
+// @vitest-environment happy-dom
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import TrainingTypesPage from './TrainingTypesPage.svelte';
+import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import type { Personnel } from '$lib/types';
+import type { TrainingType } from '$features/training/training.types';
+
+vi.mock('$lib/stores/orgContext.svelte', () => ({
+	getOrgContext: () => ({
+		orgId: 'org-1',
+		orgName: 'Test Unit',
+		userId: 'user-1',
+		role: 'owner',
+		isOwner: true,
+		isAdmin: false,
+		isPrivileged: true,
+		isFullEditor: true,
+		permissions: {
+			canViewCalendar: true,
+			canEditCalendar: true,
+			canViewPersonnel: true,
+			canEditPersonnel: true,
+			canViewTraining: true,
+			canEditTraining: true,
+			canViewOnboarding: true,
+			canEditOnboarding: true,
+			canViewLeadersBook: true,
+			canEditLeadersBook: true,
+			canManageMembers: true
+		},
+		scopedGroupId: null,
+		readOnly: false
+	})
+}));
+
+const personnel: Personnel[] = [
+	{
+		id: 'person-1',
+		rank: 'SGT',
+		lastName: 'Smith',
+		firstName: 'Jane',
+		mos: '68W',
+		clinicRole: 'Medic',
+		groupId: 'group-1',
+		groupName: 'Alpha'
+	}
+] as Personnel[];
+
+const trainingType: TrainingType = {
+	id: 'type-1',
+	name: 'CPR',
+	description: null,
+	expirationMonths: 12,
+	warningDaysYellow: 60,
+	warningDaysOrange: 30,
+	appliesToRoles: [],
+	appliesToMos: [],
+	appliesToRanks: [],
+	excludedRoles: [],
+	excludedMos: [],
+	excludedRanks: [],
+	color: '#22c55e',
+	sortOrder: 0,
+	expirationDateOnly: false,
+	canBeExempted: false,
+	exemptPersonnelIds: [],
+	isOptional: false
+};
+
+describe('TrainingTypesPage', () => {
+	beforeEach(() => {
+		personnelStore.load(personnel, 'org-1');
+		trainingTypesStore.load([trainingType], 'org-1');
+	});
+
+	afterEach(() => {
+		cleanup();
+		personnelStore.load([], 'org-test-reset');
+		trainingTypesStore.load([], 'org-test-reset');
+	});
+
+	it('uses hydrated personnel when route bootstrap omits applicability source data', async () => {
+		render(TrainingTypesPage, {
+			props: {
+				data: {
+					training: {
+						data: {
+							trainingTypes: Promise.resolve([trainingType])
+						}
+					},
+					personnel: []
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+
+		expect(screen.getByRole('button', { name: 'Medic' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: '68W' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'SGT' })).toBeTruthy();
+	});
+});

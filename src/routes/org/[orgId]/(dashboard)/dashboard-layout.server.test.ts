@@ -10,7 +10,7 @@ import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuer
 import { _createDashboardLayoutLoad } from './+layout.server';
 
 describe('dashboard layout server load', () => {
-	it('registers dashboard dependencies and preserves deferred dashboard hydration targets', async () => {
+	it('registers dashboard dependencies and streams deferred dashboard hydration targets', async () => {
 		const availabilityEntries = Promise.resolve([
 			{
 				id: 'av1',
@@ -72,31 +72,34 @@ describe('dashboard layout server load', () => {
 			cookies,
 			depends
 		} as unknown as Parameters<typeof load>[0]);
+		if (!result) {
+			throw new Error('Expected dashboard layout load to return data');
+		}
 
 		expect(depends).toHaveBeenCalledTimes(1);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:dashboard-data');
 		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
-		expect(result).toEqual({
-			dashboard: {
-				workspace: 'dashboard',
-				data: dashboardData,
-				hydration: expect.objectContaining({
-					orgId: 'org-1',
-					availabilityEntries: {
-						mode: 'replace',
-						deferred: true,
-						items: availabilityEntries,
-						snapshotKey: expect.any(String)
-					},
-					calendarAssignments: {
-						mode: 'replace',
-						deferred: true,
-						items: expect.any(Promise),
-						snapshotKey: expect.any(String)
-					}
-				})
-			} satisfies WorkspaceBootstrap<DashboardBootstrap>
-		});
+		expect(result.dashboard.data).toBeInstanceOf(Promise);
+
+		await expect(result.dashboard.data).resolves.toEqual({
+			workspace: 'dashboard',
+			data: dashboardData,
+			hydration: expect.objectContaining({
+				orgId: 'org-1',
+				availabilityEntries: {
+					mode: 'replace',
+					deferred: true,
+					items: availabilityEntries,
+					snapshotKey: expect.any(String)
+				},
+				calendarAssignments: {
+					mode: 'replace',
+					deferred: true,
+					items: expect.any(Promise),
+					snapshotKey: expect.any(String)
+				}
+			})
+		} satisfies WorkspaceBootstrap<DashboardBootstrap>);
 	});
 });

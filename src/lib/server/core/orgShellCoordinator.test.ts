@@ -410,6 +410,121 @@ describe('OrgShellCoordinator', () => {
 		expect(result.calendar.data.activeOnboardingPersonnelIds).toEqual(['p1']);
 	});
 
+	it('streams the calendar workspace payload as a deferred bootstrap promise', async () => {
+		const coordinator = createTestCoordinator();
+		const deferredAssignments = Promise.resolve([
+			{
+				id: 'da1',
+				date: '2024-01-01',
+				assignmentTypeId: 'at1',
+				assigneeId: 'p1'
+			} satisfies DailyAssignment
+		]);
+		const calendarData: CalendarBootstrap = {
+			availabilityEntries: [
+				{
+					id: 'avail1',
+					personnelId: 'p1',
+					statusTypeId: 'st1',
+					startDate: '2024-01-01',
+					endDate: '2024-01-02',
+					note: null
+				} satisfies AvailabilityEntry
+			],
+			specialDays: [
+				{
+					id: 'special1',
+					name: 'Training Holiday',
+					date: '2024-01-15',
+					type: 'org-closure'
+				} satisfies SpecialDay
+			],
+			assignmentTypes: [
+				{
+					id: 'at1',
+					name: 'Staff Duty',
+					shortName: 'SD',
+					assignTo: 'personnel',
+					color: '#111111',
+					exemptPersonnelIds: [],
+					showInDateHeader: false
+				} satisfies AssignmentType
+			],
+			dailyAssignments: deferredAssignments,
+			pinnedGroups: ['Alpha'],
+			advancedDutyEvents: [],
+			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
+			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
+			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
+			activeOnboardingPersonnelIds: ['p1']
+		};
+		let resolveCalendarData: ((value: CalendarBootstrap) => void) | undefined;
+		const workspaceData = new Promise<CalendarBootstrap>((resolve) => {
+			resolveCalendarData = resolve;
+		});
+		const workspacePort = {
+			getWorkspaceData: async () => {
+				throw new Error('streamWorkspace should not call getWorkspaceData');
+			},
+			streamWorkspaceData: async <T>() => ({ data: workspaceData as Promise<T> })
+		};
+		const planner = createDefaultHydrationPlanner('org-1');
+
+		const result = await coordinator.streamWorkspace<CalendarBootstrap, 'calendar'>('calendar', {
+			workspace: workspacePort,
+			planner
+		});
+
+		expect(result.calendar.data).toBeInstanceOf(Promise);
+
+		resolveCalendarData?.(calendarData);
+
+		await expect(result.calendar.data).resolves.toMatchObject({
+			workspace: 'calendar',
+			data: calendarData,
+			hydration: {
+				orgId: 'org-1',
+				availabilityEntries: expect.objectContaining({
+					mode: 'replace',
+					items: calendarData.availabilityEntries,
+					deferred: false,
+					snapshotKey: expect.any(String)
+				}),
+				specialDays: expect.objectContaining({
+					mode: 'replace',
+					items: calendarData.specialDays,
+					deferred: false,
+					snapshotKey: expect.any(String)
+				}),
+				calendarAssignments: expect.objectContaining({
+					mode: 'replace',
+					deferred: true,
+					snapshotKey: expect.any(String)
+				})
+			}
+		});
+	});
+
+	it('fails before exposing a deferred workspace promise when streamed setup rejects eagerly', async () => {
+		const coordinator = createTestCoordinator();
+		const planner = createDefaultHydrationPlanner('org-1');
+		const workspacePort = {
+			getWorkspaceData: async () => {
+				throw new Error('streamWorkspace should not call getWorkspaceData');
+			},
+			streamWorkspaceData: async () => {
+				throw new Error('Missing calendar access');
+			}
+		};
+
+		await expect(
+			coordinator.streamWorkspace<CalendarBootstrap, 'calendar'>('calendar', {
+				workspace: workspacePort,
+				planner
+			})
+		).rejects.toThrow('Missing calendar access');
+	});
+
 	it('returns the canonical training workspace payload with deferred personnelTrainings hydration', async () => {
 		const coordinator = createTestCoordinator();
 		const personnelTrainings = Promise.resolve([

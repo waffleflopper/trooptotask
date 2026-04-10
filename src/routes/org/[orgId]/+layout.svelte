@@ -15,7 +15,6 @@
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 	import { changelog } from '$lib/data/changelog';
 	import { browser } from '$app/environment';
-	import NavigationProgress from '$lib/components/ui/NavigationProgress.svelte';
 
 	let { children, data } = $props();
 
@@ -121,7 +120,6 @@
 		</div>
 	</div>
 {:else}
-	<NavigationProgress />
 	<BannerStack>
 		{#if demoModeStore.hasBanner}
 			{#await import('$lib/components/DemoBanner.svelte') then { default: DemoBanner }}

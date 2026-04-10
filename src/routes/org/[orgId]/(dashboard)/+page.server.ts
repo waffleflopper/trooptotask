@@ -5,6 +5,16 @@ import {
 	fetchTrainingSummary,
 	fetchOnboardingTrainingCompletions
 } from '$lib/server/core/useCases/trainingSummaryQuery';
+import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
+
+export interface DashboardPageSummaryData {
+	trainingSummary: Awaited<ReturnType<typeof fetchTrainingSummary>>;
+	onboardingTrainingCompletions: string[];
+	onboardingTemplateStepCount: number;
+	ratingSchemeEntryCount: number;
+	orgMemberCount: number;
+	gettingStartedDismissed: boolean;
+}
 
 export const load = async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {
 	depends('app:org-core');
@@ -12,11 +22,12 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 	const { orgId } = params;
 
 	const parentData = await parent();
-	const workspaceData = parentData.dashboard.data as DashboardBootstrap;
-
-	return loadWithContext(locals, cookies, orgId, {
+	const workspaceBootstrap = parentData.dashboard.data as Promise<WorkspaceBootstrap<DashboardBootstrap>>;
+	const { data: summary } = await loadWithContext(locals, cookies, orgId, {
 		permission: 'none',
+		defer: true,
 		fn: async (ctx) => {
+			const workspaceData = (await workspaceBootstrap).data;
 			const [trainingSummary, onboardingTemplateStepCount, ratingSchemeEntryCount, orgMemberCount, gettingStartedRows] =
 				await Promise.all([
 					fetchTrainingSummary(ctx, {
@@ -45,14 +56,17 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 			const gettingStartedData = gettingStartedRows.length > 0 ? gettingStartedRows[0] : null;
 
 			return {
-				orgId,
 				trainingSummary,
 				onboardingTrainingCompletions: [...onboardingTrainingCompletions],
 				onboardingTemplateStepCount: onboardingTemplateStepCount.count ?? 0,
 				ratingSchemeEntryCount: ratingSchemeEntryCount.count ?? 0,
 				orgMemberCount: orgMemberCount.count ?? 0,
 				gettingStartedDismissed: (gettingStartedData as Record<string, unknown> | null)?.dismissed_at != null
-			};
+			} satisfies DashboardPageSummaryData;
 		}
 	});
+
+	return {
+		summary
+	};
 };

@@ -10,7 +10,7 @@ import type { TrainingBootstrap } from '$lib/server/core/useCases/trainingQuery'
 import { _createTrainingLayoutLoad } from './+layout.server';
 
 describe('training layout server load', () => {
-	it('registers training dependencies and preserves the canonical training workspace payload', async () => {
+	it('registers training dependencies and streams the canonical training workspace payload', async () => {
 		const personnelTrainings = Promise.resolve([
 			{
 				id: 'pt1',
@@ -57,25 +57,28 @@ describe('training layout server load', () => {
 			cookies,
 			depends
 		} as unknown as Parameters<typeof load>[0]);
+		if (!result) {
+			throw new Error('Expected training layout load to return data');
+		}
 
 		expect(depends).toHaveBeenCalledTimes(1);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:training-data');
 		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
-		expect(result).toMatchObject({
-			training: {
-				workspace: 'training',
-				data: trainingData,
-				hydration: {
-					orgId: 'org-1',
-					personnelTrainings: expect.objectContaining({
-						mode: 'replace',
-						items: personnelTrainings,
-						deferred: true,
-						snapshotKey: expect.any(String)
-					})
-				}
-			} satisfies WorkspaceBootstrap<TrainingBootstrap>
-		});
+		expect(result.training.data).toBeInstanceOf(Promise);
+
+		await expect(result.training.data).resolves.toMatchObject({
+			workspace: 'training',
+			data: trainingData,
+			hydration: {
+				orgId: 'org-1',
+				personnelTrainings: expect.objectContaining({
+					mode: 'replace',
+					items: personnelTrainings,
+					deferred: true,
+					snapshotKey: expect.any(String)
+				})
+			}
+		} satisfies WorkspaceBootstrap<TrainingBootstrap>);
 	});
 });

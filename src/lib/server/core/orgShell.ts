@@ -129,6 +129,10 @@ export interface WorkspaceBootstrap<T> {
 	hydration?: HydrationPlan;
 }
 
+export interface DeferredData<T> {
+	data: Promise<T>;
+}
+
 // ---------------------------------------------------------------------------
 // Port input/output types
 // ---------------------------------------------------------------------------
@@ -171,6 +175,10 @@ export interface OrgChromePort {
 
 export interface OrgWorkspacePort {
 	getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T>;
+}
+
+export interface StreamableOrgWorkspacePort extends OrgWorkspacePort {
+	streamWorkspaceData<T>(workspace: WorkspaceKey): Promise<DeferredData<T>>;
 }
 
 export interface HydrationPlannerPort {

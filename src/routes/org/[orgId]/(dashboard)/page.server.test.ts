@@ -49,18 +49,6 @@ import { load } from './+page.server';
 
 const ORG_ID = '11111111-1111-1111-1111-111111111111';
 
-function createDeferred<T>() {
-	let resolve!: (value: T | PromiseLike<T>) => void;
-	let reject!: (reason?: unknown) => void;
-
-	const promise = new Promise<T>((res, rej) => {
-		resolve = res;
-		reject = rej;
-	});
-
-	return { promise, resolve, reject };
-}
-
 describe('dashboard page server load', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -73,28 +61,18 @@ describe('dashboard page server load', () => {
 		findManyMock.mockResolvedValue([{ dismissed_at: null }]);
 	});
 
-	it('streams critical summary separately from non-critical checklist metadata', async () => {
+	it('streams dashboard summary without starting non-critical support queries in the page server load', async () => {
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 		let resolveWorkspace: ((value: WorkspaceBootstrap<DashboardBootstrap>) => void) | undefined;
 		const workspaceBootstrap = new Promise<WorkspaceBootstrap<DashboardBootstrap>>((resolve) => {
 			resolveWorkspace = resolve;
 		});
-		const onboardingTemplateSteps = createDeferred<{ count: number }>();
-		const ratingEntries = createDeferred<{ count: number }>();
-		const orgMembers = createDeferred<{ count: number }>();
-		const gettingStartedRows = createDeferred<Array<{ dismissed_at: string | null }>>();
 		const depends = vi.fn();
 		const parent = vi.fn().mockResolvedValue({
 			dashboard: {
 				data: workspaceBootstrap
 			}
 		});
-
-		findManyWithCountMock
-			.mockReturnValueOnce(onboardingTemplateSteps.promise)
-			.mockReturnValueOnce(ratingEntries.promise)
-			.mockReturnValueOnce(orgMembers.promise);
-		findManyMock.mockReturnValueOnce(gettingStartedRows.promise);
 
 		const result = await load({
 			params: { orgId: ORG_ID },
@@ -107,8 +85,9 @@ describe('dashboard page server load', () => {
 		expect(depends).toHaveBeenCalledWith('app:org-core');
 		expect(depends).toHaveBeenCalledWith('app:dashboard-data');
 		expect(result.summary).toBeInstanceOf(Promise);
-		expect(result.support).toBeInstanceOf(Promise);
 		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();
+		expect(findManyWithCountMock).not.toHaveBeenCalled();
+		expect(findManyMock).not.toHaveBeenCalled();
 
 		resolveWorkspace?.({
 			workspace: 'dashboard',
@@ -150,33 +129,5 @@ describe('dashboard page server load', () => {
 				issueStatuses: ['expired', 'warning-orange']
 			}
 		});
-
-		let supportSettled = false;
-		void result.support.then(() => {
-			supportSettled = true;
-		});
-		await Promise.resolve();
-		expect(supportSettled).toBe(false);
-
-		onboardingTemplateSteps.resolve({ count: 4 });
-		ratingEntries.resolve({ count: 5 });
-		orgMembers.resolve({ count: 6 });
-		gettingStartedRows.resolve([{ dismissed_at: '2026-01-01T00:00:00Z' }]);
-
-		await expect(result.support).resolves.toEqual({
-			onboardingTemplateStepCount: 4,
-			ratingSchemeEntryCount: 5,
-			orgMemberCount: 6,
-			gettingStartedDismissed: true
-		});
-		expect(consoleInfoSpy).toHaveBeenCalledWith(
-			'[dashboard-load]',
-			expect.objectContaining({
-				orgId: ORG_ID,
-				phase: 'support',
-				status: 'ok',
-				durationMs: expect.any(Number)
-			})
-		);
 	});
 });

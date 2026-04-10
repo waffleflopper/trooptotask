@@ -18,10 +18,11 @@ import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
 import type { z } from 'zod';
 import { getApiContext } from '$lib/server/supabase';
 import {
-	createPermissionContext,
 	createPermissionContextFromMembership,
+	getMembershipRow,
 	type MembershipRow
 } from '$lib/server/permissionContext';
+import { cacheRequestMembership, getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
 import { validateUUID } from '$lib/server/validation';
 import { getRequestInfo } from '$lib/server/auditLog';
 import { createSupabaseDataStore } from './supabaseDataStore';
@@ -46,6 +47,25 @@ interface BuildContextResult {
 	isSandbox: boolean;
 }
 
+async function createRequestAuthContext(config: {
+	locals: App.Locals;
+	supabase: ReturnType<typeof getApiContext>['supabase'];
+	userId: string | null;
+	orgId: string;
+	isSandbox: boolean;
+}) {
+	if (config.isSandbox) {
+		return createSandboxAuthContext(config.orgId);
+	}
+
+	const membership = await getOrLoadRequestMembership(config.locals, config.userId, config.orgId, () =>
+		getMembershipRow(config.supabase, config.userId!, config.orgId)
+	);
+
+	const permCtx = createPermissionContextFromMembership(membership);
+	return createSupabaseAuthContextAdapter(permCtx, config.supabase, config.userId, config.orgId);
+}
+
 async function buildContextInternal(event: RequestEvent): Promise<BuildContextResult> {
 	const orgId = event.params.orgId as string;
 
@@ -60,13 +80,13 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
 	const audit = createSupabaseAuditAdapter(orgId, requestInfo);
 
-	let auth;
-	if (isSandbox) {
-		auth = createSandboxAuthContext(orgId);
-	} else {
-		const permCtx = await createPermissionContext(supabase, userId!, orgId);
-		auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
-	}
+	const auth = await createRequestAuthContext({
+		locals: event.locals,
+		supabase,
+		userId,
+		orgId,
+		isSandbox
+	});
 
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
@@ -122,13 +142,13 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
 	const readOnlyGuard = createSupabaseReadOnlyGuard(supabase, orgId);
 	const audit = { log() {} };
 
-	let auth;
-	if (isSandbox) {
-		auth = createSandboxAuthContext(orgId);
-	} else {
-		const permCtx = await createPermissionContext(supabase, userId!, orgId);
-		auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
-	}
+	const auth = await createRequestAuthContext({
+		locals,
+		supabase,
+		userId,
+		orgId,
+		isSandbox
+	});
 
 	const subscription = createSupabaseSubscriptionAdapter(supabase, orgId);
 	const notifications = createSupabaseNotificationAdapter();
@@ -174,6 +194,7 @@ export async function buildLayoutContextFromMembership(
 	if (isSandbox) {
 		auth = createSandboxAuthContext(orgId);
 	} else {
+		cacheRequestMembership(locals, userId, orgId, membership);
 		const permCtx = createPermissionContextFromMembership(membership);
 		auth = createSupabaseAuthContextAdapter(permCtx, supabase, userId, orgId);
 	}

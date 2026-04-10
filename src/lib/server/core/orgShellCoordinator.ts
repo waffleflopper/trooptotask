@@ -41,10 +41,6 @@ function isRootOrgLoadPort(request: RootOrgShellRequest | RootOrgLoadPort): requ
 	return 'resolveRequest' in request;
 }
 
-function isStreamableOrgWorkspacePort(port: OrgWorkspacePort): port is StreamableOrgWorkspacePort {
-	return 'streamWorkspaceData' in port;
-}
-
 /**
  * Orchestration boundary for org shell/workspace bootstrap data and client hydration.
  */
@@ -60,7 +56,7 @@ export interface OrgShellCoordinator {
 	streamWorkspace<T, K extends WorkspaceKey>(
 		workspace: K,
 		ports: {
-			workspace: OrgWorkspacePort;
+			workspace: StreamableOrgWorkspacePort;
 			planner: HydrationPlannerPort;
 		}
 	): Promise<Record<K, DeferredData<WorkspaceBootstrap<T>>>>;
@@ -104,14 +100,10 @@ export function createOrgShellCoordinator(deps: OrgShellCoordinatorDeps = {}): O
 		async streamWorkspace<T, K extends WorkspaceKey>(
 			workspace: K,
 			ports: {
-				workspace: OrgWorkspacePort;
+				workspace: StreamableOrgWorkspacePort;
 				planner: HydrationPlannerPort;
 			}
 		): Promise<Record<K, DeferredData<WorkspaceBootstrap<T>>>> {
-			if (!isStreamableOrgWorkspacePort(ports.workspace)) {
-				throw new Error(`OrgShellCoordinator streamWorkspace() requires a stream-capable port for '${workspace}'`);
-			}
-
 			const deferred = await ports.workspace.streamWorkspaceData<T>(workspace);
 			const bootstrap = deferred.data.then((data) => {
 				const hydration = ports.planner.createPlan(workspace, data);

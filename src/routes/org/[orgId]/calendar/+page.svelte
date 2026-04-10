@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 	import { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import type { CalendarPageData } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
@@ -209,8 +209,8 @@
 	}));
 	const ctx = new CalendarPageContext(() => pageData, org);
 
-	onMount(() => {
-		document.cookie = buildCalendarAnchorCookie(new Date());
+	$effect(() => {
+		document.cookie = buildCalendarAnchorCookie(calendarStore.currentDate);
 	});
 
 	$effect(() => {

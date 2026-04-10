@@ -1,7 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { QueryPorts } from '$lib/server/core/ports';
-import { fetchCalendarData, fetchCalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
+import {
+	fetchCalendarData,
+	fetchCalendarBootstrap,
+	fetchCalendarRangeData
+} from '$lib/server/core/useCases/calendarQuery';
 
 const ORG = 'test-org';
 
@@ -326,5 +330,63 @@ describe('fetchCalendarBootstrap', () => {
 		expect(result.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((statusType) => statusType.name)).toEqual(['Leave']);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
+	});
+});
+
+describe('fetchCalendarRangeData', () => {
+	it('returns only date-ranged calendar collections for on-demand expansion', async () => {
+		const ctx = buildCtx();
+		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+		seedCalendarData(ctx.store);
+
+		const result = await fetchCalendarRangeData(ctx, RANGE);
+
+		expect(result).toEqual({
+			rangeStart: '2026-03-01',
+			rangeEnd: '2026-03-31',
+			availabilityEntries: [
+				expect.objectContaining({
+					id: 'a1',
+					personnelId: 'p1'
+				})
+			],
+			specialDays: [
+				expect.objectContaining({
+					id: 'sd1',
+					name: 'Training Holiday'
+				})
+			],
+			dailyAssignments: [
+				expect.objectContaining({
+					id: 'da1',
+					assignmentTypeId: 'at1'
+				})
+			],
+			advancedDutyEvents: []
+		});
+		const resultRecord = result as unknown as Record<string, unknown>;
+		expect(resultRecord.assignmentTypes).toBeUndefined();
+		expect(resultRecord.pinnedGroups).toBeUndefined();
+		expect(resultRecord.personnel).toBeUndefined();
+		expect(resultRecord.groups).toBeUndefined();
+		expect(resultRecord.statusTypes).toBeUndefined();
+		expect(consoleInfoSpy).toHaveBeenCalledWith(
+			'[calendar-load]',
+			expect.objectContaining({
+				orgId: ctx.auth.orgId,
+				phase: 'duty-event-hydration',
+				status: 'ok',
+				durationMs: expect.any(Number)
+			})
+		);
+		expect(consoleInfoSpy).toHaveBeenCalledWith(
+			'[calendar-load]',
+			expect.objectContaining({
+				orgId: ctx.auth.orgId,
+				phase: 'date-ranged-query',
+				status: 'ok',
+				durationMs: expect.any(Number)
+			})
+		);
 	});
 });

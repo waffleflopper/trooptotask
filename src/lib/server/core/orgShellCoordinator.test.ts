@@ -305,6 +305,8 @@ describe('OrgShellCoordinator', () => {
 			} satisfies DailyAssignment
 		]);
 		const calendarData: CalendarBootstrap = {
+			rangeStart: '2024-01-01',
+			rangeEnd: '2024-01-31',
 			availabilityEntries: [
 				{
 					id: 'avail1',
@@ -421,6 +423,8 @@ describe('OrgShellCoordinator', () => {
 			} satisfies DailyAssignment
 		]);
 		const calendarData: CalendarBootstrap = {
+			rangeStart: '2024-01-01',
+			rangeEnd: '2024-01-31',
 			availabilityEntries: [
 				{
 					id: 'avail1',

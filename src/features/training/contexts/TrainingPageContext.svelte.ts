@@ -44,6 +44,7 @@ export class TrainingPageContext {
 	readonly #data: TrainingPageData;
 	readonly #modals: ModalRegistry;
 	readonly #org: OrgContext;
+	#hydratedSelectionFingerprint: string | null = null;
 
 	// ---- mutable UI state ----
 	selectedGroupId = $state<string>('');
@@ -271,6 +272,11 @@ export class TrainingPageContext {
 	}
 
 	private reconcileHydratedSelections(): void {
+		const fingerprint = this.getHydratedSelectionFingerprint();
+		if (this.#hydratedSelectionFingerprint === fingerprint) {
+			return;
+		}
+
 		const groupsLoaded = groupsStore.orgId === this.orgId && !groupsStore.loading;
 		const viewsLoaded = trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading;
 
@@ -293,10 +299,25 @@ export class TrainingPageContext {
 		if (Object.keys(patch).length > 0) {
 			void this.persistPreferences({ training: patch });
 		}
+
+		this.#hydratedSelectionFingerprint = this.getHydratedSelectionFingerprint();
 	}
 
 	private isValidGroupId(groupId: string | null): boolean {
 		return !!groupId && this.groups.some((group) => group.id === groupId);
+	}
+
+	private getHydratedSelectionFingerprint(): string {
+		const groupIds =
+			groupsStore.orgId === this.orgId && !groupsStore.loading
+				? groupsStore.items.map((group) => group.id).join(',')
+				: 'pending';
+		const viewIds =
+			trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading
+				? trainingViewsStore.items.map((view) => view.id).join(',')
+				: 'pending';
+
+		return [this.orgId, this.selectedGroupId, this.selectedViewId, groupIds, viewIds].join('|');
 	}
 
 	private async persistPreferences(preferences: UserOrgPreferencesPatch): Promise<void> {

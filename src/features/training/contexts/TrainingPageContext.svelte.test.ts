@@ -5,20 +5,25 @@ import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
-import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
+import type { TrainingType } from '$features/training/training.types';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 
-const { gotoMock, invalidateMock } = vi.hoisted(() => ({
+const { gotoMock, invalidateMock, queueUserPreferencesPatchMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
-	invalidateMock: vi.fn()
+	invalidateMock: vi.fn(),
+	queueUserPreferencesPatchMock: vi.fn()
 }));
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
 	invalidate: invalidateMock
+}));
+
+vi.mock('$lib/preferences/userPreferences.client', () => ({
+	queueUserPreferencesPatch: queueUserPreferencesPatchMock
 }));
 
 // ---------------------------------------------------------------------------
@@ -137,16 +142,6 @@ function makeData(overrides: Record<string, unknown> = {}) {
 		isOwner: false,
 		isAdmin: false,
 		isFullEditor: false,
-		training: {
-			data: {
-				personnel: [mockPerson, mockPerson2],
-				groups: mockGroups,
-				pinnedGroups: [],
-				trainingTypes: [] as TrainingType[],
-				trainingViews: [] as TrainingView[],
-				personnelTrainings: Promise.resolve([] as PersonnelTraining[])
-			}
-		},
 		...overrides
 	};
 }
@@ -161,6 +156,8 @@ describe('TrainingPageContext', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		modals = makeModals();
+		queueUserPreferencesPatchMock.mockReset();
+		queueUserPreferencesPatchMock.mockResolvedValue(undefined);
 		personnelStore.load([mockPerson, mockPerson2], 'org-1');
 		groupsStore.load(mockGroups, 'org-1');
 		trainingViewsStore.load([], 'org-1');
@@ -347,6 +344,46 @@ describe('TrainingPageContext', () => {
 			expect(ctx.filteredPersonnel).toHaveLength(2);
 			expect(ctx.selectedGroupId).toBe('');
 			expect(ctx.selectedViewId).toBeNull();
+		});
+
+		it('persists a reconciled selection patch only once even when multiple getters are read', () => {
+			groupsStore.load([], 'org-stale');
+			trainingViewsStore.load([], 'org-stale');
+
+			const ctx = new TrainingPageContext(
+				makeData({
+					userPreferences: {
+						...getDefaultUserOrgPreferences(),
+						training: {
+							selectedGroupId: 'missing-group',
+							selectedViewId: 'missing-view',
+							matrixViewMode: 'alphabetical'
+						}
+					}
+				}),
+				modals,
+				makeOrg()
+			);
+
+			groupsStore.load(mockGroups, 'org-1');
+			trainingViewsStore.load(
+				[{ id: 'view-1', name: 'Required', columnIds: [], createdBy: 'u1', createdAt: '', updatedAt: '' }],
+				'org-1'
+			);
+
+			void ctx.personnel;
+			void ctx.groups;
+			void ctx.savedViewIds;
+			void ctx.basePersonnel;
+			void ctx.filteredPersonnel;
+
+			expect(queueUserPreferencesPatchMock).toHaveBeenCalledTimes(1);
+			expect(queueUserPreferencesPatchMock).toHaveBeenCalledWith('org-1', {
+				training: {
+					selectedGroupId: null,
+					selectedViewId: null
+				}
+			});
 		});
 	});
 

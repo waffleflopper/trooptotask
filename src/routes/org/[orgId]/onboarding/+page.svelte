@@ -40,6 +40,8 @@
 			return;
 		}
 
+		// The layout also observes this promise to hydrate shared stores; the page separately
+		// materializes the resolved bootstrap so it can construct the local page context.
 		void observeDeferred(streamedOnboarding, {
 			fallbackMessage: 'Failed to load onboarding workspace',
 			onResolve: (onboarding) => {

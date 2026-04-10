@@ -2,7 +2,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { createSupabaseDashboardWorkspacePort } from '$lib/server/adapters/supabaseOrgShell';
 import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
-import type { HydrationPlannerPort, OrgWorkspacePort } from '$lib/server/core/orgShell';
+import type { HydrationPlannerPort, StreamableOrgWorkspacePort } from '$lib/server/core/orgShell';
 import { createOrgShellCoordinator, type OrgShellCoordinator } from '$lib/server/core/orgShellCoordinator';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 
@@ -14,7 +14,7 @@ interface DashboardLayoutRequestContext {
 
 export interface DashboardLayoutLoadDeps {
 	coordinator?: OrgShellCoordinator;
-	createWorkspacePort?: (context: DashboardLayoutRequestContext) => OrgWorkspacePort;
+	createWorkspacePort?: (context: DashboardLayoutRequestContext) => StreamableOrgWorkspacePort;
 	createPlannerPort?: (orgId: string) => HydrationPlannerPort;
 }
 
@@ -33,7 +33,7 @@ export function _createDashboardLayoutLoad(deps: DashboardLayoutLoadDeps = {}): 
 		const workspacePort = createWorkspacePort({ locals, cookies, orgId });
 		const plannerPort = createPlannerPort(orgId);
 
-		return coordinator.loadWorkspace<DashboardBootstrap, 'dashboard'>('dashboard', {
+		return coordinator.streamWorkspace<DashboardBootstrap, 'dashboard'>('dashboard', {
 			workspace: workspacePort,
 			planner: plannerPort
 		});

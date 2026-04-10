@@ -449,6 +449,40 @@ describe('DashboardContext', () => {
 		});
 	});
 
+	describe('support data', () => {
+		it('starts without support data when checklist metadata is omitted', () => {
+			const c = new DashboardContext(
+				makeData({
+					onboardingTemplateStepCount: undefined,
+					ratingSchemeEntryCount: undefined,
+					orgMemberCount: undefined,
+					gettingStartedDismissed: undefined
+				})
+			);
+
+			expect(c.hasSupportData).toBe(false);
+			expect(c.onboardingTemplateStepCount).toBe(0);
+			expect(c.ratingSchemeEntryCount).toBe(0);
+			expect(c.orgMemberCount).toBe(0);
+			expect(c.gettingStartedDismissed).toBe(false);
+		});
+
+		it('applies deferred checklist metadata without rebuilding the context', () => {
+			ctx.applySupportData({
+				onboardingTemplateStepCount: 4,
+				ratingSchemeEntryCount: 3,
+				orgMemberCount: 2,
+				gettingStartedDismissed: true
+			});
+
+			expect(ctx.hasSupportData).toBe(true);
+			expect(ctx.onboardingTemplateStepCount).toBe(4);
+			expect(ctx.ratingSchemeEntryCount).toBe(3);
+			expect(ctx.orgMemberCount).toBe(2);
+			expect(ctx.gettingStartedDismissed).toBe(true);
+		});
+	});
+
 	// -------------------------------------------------------------------------
 	// formatShortDate helper
 	// -------------------------------------------------------------------------

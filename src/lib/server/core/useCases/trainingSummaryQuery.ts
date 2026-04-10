@@ -25,6 +25,11 @@ export interface TrainingSummary {
 	issues: TrainingIssue[];
 }
 
+export interface DashboardTrainingSummary {
+	trainingSummary: TrainingSummary;
+	onboardingTrainingCompletions: Set<string>;
+}
+
 export interface TrainingSummaryInput {
 	personnel: Personnel[];
 	trainingTypes: TrainingType[];
@@ -41,6 +46,39 @@ export async function fetchTrainingSummary(ctx: QueryPorts, input: TrainingSumma
 	const { issueLimit = 5, issueStatuses = ['expired', 'warning-orange'], includeNotCompleted = false } = options;
 
 	const trainings = await fetchTrainings(ctx);
+
+	return buildTrainingSummary(trainings, personnel, trainingTypes, {
+		groupId: options.groupId,
+		issueLimit,
+		issueStatuses,
+		includeNotCompleted
+	});
+}
+
+export interface DashboardTrainingSummaryInput extends TrainingSummaryInput {
+	onboardingPersonnelIds: string[];
+}
+
+export async function fetchDashboardTrainingSummary(
+	ctx: QueryPorts,
+	input: DashboardTrainingSummaryInput
+): Promise<DashboardTrainingSummary> {
+	const { onboardingPersonnelIds, personnel, trainingTypes, options = {} } = input;
+	const trainings = await fetchTrainings(ctx);
+
+	return {
+		trainingSummary: buildTrainingSummary(trainings, personnel, trainingTypes, options),
+		onboardingTrainingCompletions: buildOnboardingTrainingCompletions(trainings, onboardingPersonnelIds)
+	};
+}
+
+function buildTrainingSummary(
+	trainings: PersonnelTraining[],
+	personnel: Personnel[],
+	trainingTypes: TrainingType[],
+	options: TrainingSummaryInput['options'] = {}
+): TrainingSummary {
+	const { issueLimit = 5, issueStatuses = ['expired', 'warning-orange'], includeNotCompleted = false } = options;
 
 	const stats = getTrainingStats(personnel, trainingTypes, trainings, options.groupId);
 
@@ -152,7 +190,13 @@ export async function fetchOnboardingTrainingCompletions(
 	});
 	const trainings = PersonnelTrainingEntity.fromDbArray(rows);
 
-	const requestedIds = new Set(input.personnelIds);
+	return buildOnboardingTrainingCompletions(trainings, input.personnelIds);
+}
+
+function buildOnboardingTrainingCompletions(trainings: PersonnelTraining[], personnelIds: string[]): Set<string> {
+	if (personnelIds.length === 0) return new Set();
+
+	const requestedIds = new Set(personnelIds);
 	return new Set(
 		trainings.filter((t) => requestedIds.has(t.personnelId)).map((t) => `${t.personnelId}-${t.trainingTypeId}`)
 	);

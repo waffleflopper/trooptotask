@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import {
 	fetchTrainingSummary,
 	fetchTrainingSummaryByGroup,
 	fetchTrainingSummaryByType,
-	fetchOnboardingTrainingCompletions
+	fetchOnboardingTrainingCompletions,
+	fetchDashboardTrainingSummary
 } from './trainingSummaryQuery';
 
 const ORG = 'test-org';
@@ -319,5 +320,54 @@ describe('fetchOnboardingTrainingCompletions', () => {
 
 		expect(result.has('p1-tt1')).toBe(true);
 		expect(result.has('p3-tt1')).toBe(false);
+	});
+});
+
+describe('fetchDashboardTrainingSummary', () => {
+	it('derives training summary and onboarding completion keys from a single training scan', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		const findManySpy = vi.spyOn(store, 'findMany');
+
+		store.seed('personnel_trainings', [
+			{
+				id: 'pt1',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				training_type_id: 'tt1',
+				completion_date: '2024-01-01',
+				expiration_date: '2025-01-01',
+				notes: null,
+				certificate_url: null
+			},
+			{
+				id: 'pt2',
+				organization_id: ORG,
+				personnel_id: 'p2',
+				training_type_id: 'tt1',
+				completion_date: '2025-06-01',
+				expiration_date: '2027-06-01',
+				notes: null,
+				certificate_url: null
+			}
+		]);
+
+		const personnel = [
+			{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' },
+			{ id: 'p2', rank: 'CPL', lastName: 'Jones', firstName: 'Jane', groupId: 'g1' }
+		];
+		const trainingTypes = [makeTrainingType('tt1')];
+
+		const result = await fetchDashboardTrainingSummary(ctx, {
+			personnel: personnel as never[],
+			trainingTypes: trainingTypes as never[],
+			onboardingPersonnelIds: ['p2']
+		});
+
+		expect(result.trainingSummary.stats.expired).toBe(1);
+		expect(result.trainingSummary.issues).toHaveLength(1);
+		expect(result.onboardingTrainingCompletions).toEqual(new Set(['p2-tt1']));
+		expect(findManySpy).toHaveBeenCalledTimes(1);
+		expect(findManySpy).toHaveBeenCalledWith('personnel_trainings', ctx.auth.orgId);
 	});
 });

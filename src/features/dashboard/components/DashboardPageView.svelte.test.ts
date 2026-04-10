@@ -24,6 +24,7 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 		userRole: 'member',
 		isDemoSandbox: false,
 		isDemoReadOnly: false,
+		hasSupportData: true,
 		gettingStartedDismissed: true,
 		statusBreakdown: new Map(),
 		trainingStats: {
@@ -131,5 +132,18 @@ describe('DashboardPageView', () => {
 		expect(screen.getByRole('heading', { level: 3, name: 'Per-group breakdown' })).toBeTruthy();
 		expect(screen.getByText('Alpha')).toBeTruthy();
 		expect(screen.getByText('75%')).toBeTruthy();
+	});
+
+	it('does not render the workspace support panel until support metadata has loaded', () => {
+		const ctx = makeCtx({
+			userRole: 'owner',
+			hasSupportData: false,
+			gettingStartedDismissed: false
+		});
+
+		render(DashboardPageView, { props: { ctx } });
+
+		expect(screen.queryByText('Workspace support')).toBeNull();
+		expect(screen.queryByText('Review checklist')).toBeNull();
 	});
 });

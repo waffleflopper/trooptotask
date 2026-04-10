@@ -7,6 +7,9 @@ import type { Personnel } from '$lib/types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from '$features/training/training.types';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
+import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { groupsStore } from '$lib/stores/groups.svelte';
+import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 
 const { gotoMock, invalidateMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
@@ -158,6 +161,9 @@ describe('TrainingPageContext', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		modals = makeModals();
+		personnelStore.load([mockPerson, mockPerson2], 'org-1');
+		groupsStore.load(mockGroups, 'org-1');
+		trainingViewsStore.load([], 'org-1');
 	});
 
 	describe('canManageConfig', () => {
@@ -194,39 +200,17 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('returns empty array when no roles', () => {
-			const data = makeData({
-				training: {
-					data: {
-						personnel: [{ ...mockPerson, clinicRole: null }],
-						groups: mockGroups,
-						pinnedGroups: [],
-						trainingTypes: [],
-						trainingViews: [],
-						personnelTrainings: Promise.resolve([])
-					}
-				}
-			});
+			personnelStore.load([{ ...mockPerson, clinicRole: null } as unknown as Personnel], 'org-1');
+			const data = makeData();
 			const ctx = new TrainingPageContext(data, modals, makeOrg());
 			expect(ctx.availableRoles).toEqual([]);
 		});
 	});
 
-	it('reads personnel from the training workspace bootstrap instead of top-level route data', () => {
+	it('reads personnel from the hydrated personnel store', () => {
 		const workspacePerson = { ...mockPerson, id: 'workspace-person', lastName: 'Workspace' };
-		const shellPerson = { ...mockPerson, id: 'shell-person', lastName: 'Shell' };
-		const data = makeData({
-			personnel: [shellPerson],
-			training: {
-				data: {
-					personnel: [workspacePerson],
-					groups: mockGroups,
-					pinnedGroups: [],
-					trainingTypes: [],
-					trainingViews: [],
-					personnelTrainings: Promise.resolve([])
-				}
-			}
-		});
+		personnelStore.load([workspacePerson], 'org-1');
+		const data = makeData();
 
 		const ctx = new TrainingPageContext(data, modals, makeOrg());
 
@@ -251,7 +235,7 @@ describe('TrainingPageContext', () => {
 	});
 
 	describe('groups', () => {
-		it('reads groups from the training workspace bootstrap', () => {
+		it('reads groups from the hydrated groups store', () => {
 			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
 
 			expect(ctx.groups).toEqual(mockGroups);
@@ -308,6 +292,10 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('hydrates persisted training preferences when available', () => {
+			trainingViewsStore.load(
+				[{ id: 'view-1', name: 'Required', columnIds: [], createdBy: 'u1', createdAt: '', updatedAt: '' }],
+				'org-1'
+			);
 			const ctx = new TrainingPageContext(
 				makeData({
 					userPreferences: {
@@ -316,18 +304,6 @@ describe('TrainingPageContext', () => {
 							selectedGroupId: 'g-1',
 							selectedViewId: 'view-1',
 							matrixViewMode: 'alphabetical'
-						}
-					},
-					training: {
-						data: {
-							personnel: [mockPerson, mockPerson2],
-							groups: mockGroups,
-							pinnedGroups: [],
-							trainingTypes: [] as TrainingType[],
-							trainingViews: [
-								{ id: 'view-1', name: 'Required', columnIds: [], createdBy: 'u1', createdAt: '', updatedAt: '' }
-							],
-							personnelTrainings: Promise.resolve([] as PersonnelTraining[])
 						}
 					}
 				}),
@@ -338,6 +314,39 @@ describe('TrainingPageContext', () => {
 			expect(ctx.selectedGroupId).toBe('g-1');
 			expect(ctx.selectedViewId).toBe('view-1');
 			expect(ctx.viewMode).toBe('alphabetical');
+		});
+
+		it('clears invalid persisted group and view selections after hydrated stores arrive', () => {
+			groupsStore.load([], 'org-stale');
+			trainingViewsStore.load([], 'org-stale');
+
+			const ctx = new TrainingPageContext(
+				makeData({
+					userPreferences: {
+						...getDefaultUserOrgPreferences(),
+						training: {
+							selectedGroupId: 'missing-group',
+							selectedViewId: 'missing-view',
+							matrixViewMode: 'alphabetical'
+						}
+					}
+				}),
+				modals,
+				makeOrg()
+			);
+
+			expect(ctx.selectedGroupId).toBe('missing-group');
+			expect(ctx.selectedViewId).toBe('missing-view');
+
+			groupsStore.load(mockGroups, 'org-1');
+			trainingViewsStore.load(
+				[{ id: 'view-1', name: 'Required', columnIds: [], createdBy: 'u1', createdAt: '', updatedAt: '' }],
+				'org-1'
+			);
+
+			expect(ctx.filteredPersonnel).toHaveLength(2);
+			expect(ctx.selectedGroupId).toBe('');
+			expect(ctx.selectedViewId).toBeNull();
 		});
 	});
 

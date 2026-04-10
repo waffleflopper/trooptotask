@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
-	import { getTrainingStatus } from '$features/training/utils/trainingStatus';
+	import { getTrainingStatus, type TrainingStatusInfo } from '$features/training/utils/trainingStatus';
 	import { getCellDisplayText } from '$features/training/utils/cellDisplayText';
 	import { TRAINING_STATUS_COLORS, type TrainingStatus } from '$features/training/training.types';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
@@ -15,6 +15,12 @@
 		onPersonClick?: (person: Personnel) => void;
 		showSearch?: boolean;
 		groupBy?: GroupDef<Personnel>;
+	}
+
+	interface TrainingCellMetadata {
+		training: PersonnelTraining | undefined;
+		statusInfo: TrainingStatusInfo;
+		displayText: string;
 	}
 
 	let {
@@ -57,14 +63,11 @@
 			return {
 				key: type.id,
 				header: type.name,
-				value: (p: Personnel) => {
-					const t = trainingLookup.get(createTrainingKey(p.id, type.id));
-					return getTrainingStatus(t, type, p).status;
-				},
+				value: (p: Personnel) => getCellMetadata(p, type).statusInfo.status,
 				compare: (a: Personnel, b: Personnel) => {
-					const aInfo = getTrainingStatus(trainingLookup.get(createTrainingKey(a.id, type.id)), type, a);
-					const bInfo = getTrainingStatus(trainingLookup.get(createTrainingKey(b.id, type.id)), type, b);
-					return statusOrder[aInfo.status] - statusOrder[bInfo.status];
+					const aStatus = getCellMetadata(a, type).statusInfo.status;
+					const bStatus = getCellMetadata(b, type).statusInfo.status;
+					return statusOrder[aStatus] - statusOrder[bStatus];
 				}
 			};
 		}
@@ -86,6 +89,37 @@
 		}
 		return map;
 	});
+
+	const cellMetadataLookup = $derived.by(() => {
+		const map = new Map<string, TrainingCellMetadata>();
+		for (const person of personnel) {
+			for (const type of trainingTypes) {
+				const key = createTrainingKey(person.id, type.id);
+				const training = trainingLookup.get(key);
+				const statusInfo = getTrainingStatus(training, type, person);
+				map.set(key, {
+					training,
+					statusInfo,
+					displayText: getCellDisplayText(statusInfo, training, type.expirationDateOnly)
+				});
+			}
+		}
+		return map;
+	});
+
+	function getCellMetadata(person: Personnel, type: TrainingType): TrainingCellMetadata {
+		const key = createTrainingKey(person.id, type.id);
+		const metadata = cellMetadataLookup.get(key);
+		if (metadata) return metadata;
+
+		const training = trainingLookup.get(key);
+		const statusInfo = getTrainingStatus(training, type, person);
+		return {
+			training,
+			statusInfo,
+			displayText: getCellDisplayText(statusInfo, training, type.expirationDateOnly)
+		};
+	}
 
 	const totalCols = $derived(trainingTypes.length + 1);
 
@@ -114,35 +148,33 @@
 			{/if}
 		</th>
 		{#each trainingTypes as type (type.id)}
-			{@const training = trainingLookup.get(createTrainingKey(person.id, type.id))}
-			{@const statusInfo = getTrainingStatus(training, type, person)}
-			{@const displayText = getCellDisplayText(statusInfo, training, type.expirationDateOnly)}
+			{@const cell = getCellMetadata(person, type)}
 			{#if onCellClick}
 				<td
 					class="heatmap-cell"
-					style="background-color: color-mix(in srgb, {statusInfo.color} 15%, transparent)"
-					data-status={statusInfo.status}
+					style="background-color: color-mix(in srgb, {cell.statusInfo.color} 15%, transparent)"
+					data-status={cell.statusInfo.status}
 					role="gridcell"
 				>
 					<button
 						class="heatmap-btn"
 						type="button"
-						aria-label="{person.lastName} {type.name}: {statusInfo.label}"
-						onclick={() => onCellClick(person, type, training)}
+						aria-label="{person.lastName} {type.name}: {cell.statusInfo.label}"
+						onclick={() => onCellClick(person, type, cell.training)}
 					>
-						<span class="cell-status-dot" style="background-color: {statusInfo.color}"></span>
-						{displayText}
+						<span class="cell-status-dot" style="background-color: {cell.statusInfo.color}"></span>
+						{cell.displayText}
 					</button>
 				</td>
 			{:else}
 				<td
 					class="heatmap-cell"
-					style="background-color: color-mix(in srgb, {statusInfo.color} 15%, transparent)"
-					data-status={statusInfo.status}
-					aria-label="{person.lastName} {type.name}: {statusInfo.label}"
+					style="background-color: color-mix(in srgb, {cell.statusInfo.color} 15%, transparent)"
+					data-status={cell.statusInfo.status}
+					aria-label="{person.lastName} {type.name}: {cell.statusInfo.label}"
 				>
-					<span class="cell-status-dot" style="background-color: {statusInfo.color}"></span>
-					<span class="heatmap-text">{displayText}</span>
+					<span class="cell-status-dot" style="background-color: {cell.statusInfo.color}"></span>
+					<span class="heatmap-text">{cell.displayText}</span>
 				</td>
 			{/if}
 		{/each}

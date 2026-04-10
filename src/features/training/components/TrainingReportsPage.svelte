@@ -3,13 +3,14 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { TRAINING_STATUS_COLORS } from '$features/training/training.types';
 	import type { TrainingStatus } from '$features/training/training.types';
 	import { formatTrainingCellText } from '$features/training/utils/cellDisplayText';
 	import type { Personnel } from '$lib/types';
-	import type { Group } from '$lib/stores/groups.svelte';
+	import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 	import {
 		filterPersonnel,
 		computeReadinessDashboard,
@@ -30,8 +31,24 @@
 	let filterStatus = $state<TrainingStatus | ''>('');
 	let filterTypeIds = $state<string[]>([]);
 
-	const allPersonnel = $derived<Personnel[]>(workspaceData?.personnel ?? data.personnel ?? []);
-	const allGroups = $derived<Group[]>(workspaceData?.groups ?? data.groups ?? []);
+	const allPersonnel = $derived<Personnel[]>(
+		personnelStore.orgId === org.orgId
+			? personnelStore.items
+			: Array.isArray(workspaceData?.personnel)
+				? workspaceData.personnel
+				: Array.isArray(data.personnel)
+					? data.personnel
+					: []
+	);
+	const allGroups = $derived<Group[]>(
+		groupsStore.orgId === org.orgId
+			? groupsStore.items
+			: Array.isArray(workspaceData?.groups)
+				? workspaceData.groups
+				: Array.isArray(data.groups)
+					? data.groups
+					: []
+	);
 	const allTypes = $derived(trainingTypesStore.items);
 	const allTrainings = $derived(personnelTrainingsStore.items);
 

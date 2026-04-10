@@ -490,52 +490,78 @@ export function createSupabaseTrainingWorkspacePort(
 ): StreamableOrgWorkspacePort {
 	function getTrainingData(): Promise<TrainingBootstrap>;
 	function getTrainingData(defer: true): Promise<DeferredData<TrainingBootstrap>>;
-	function getTrainingData(defer = false) {
+	function getTrainingData(defer: boolean = false): Promise<TrainingBootstrap | DeferredData<TrainingBootstrap>> {
 		const fn = async (ctx: UseCaseContext) => {
-			const [personnelRows, groupRows, trainingTypeRows, trainingViewRows, pinnedGroupRows] = await Promise.all([
-				ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-					select: PersonnelEntity.select,
-					isNull: { archived_at: true },
-					orderBy: [{ column: 'last_name', ascending: true }]
-				}),
-				ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				}),
-				ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				}),
-				ctx.store.findMany<Record<string, unknown>>('training_views', orgId, undefined, {
-					orderBy: [{ column: 'name', ascending: true }]
-				}),
-				ctx.auth.userId
-					? ctx.store.findMany<Record<string, unknown>>(
-							'user_pinned_groups',
-							orgId,
-							{ user_id: ctx.auth.userId },
-							{
-								orderBy: [{ column: 'sort_order', ascending: true }]
-							}
-						)
-					: Promise.resolve([])
-			]);
-
-			const personnelTrainings: Promise<PersonnelTraining[]> = ctx.store
-				.findMany<Record<string, unknown>>('personnel_trainings', orgId)
-				.then((rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[])
-				.catch((error) => {
-					console.error('[training-workspace] Failed to load personnel trainings', {
+			const loadTrainingItems = <T>(
+				label: string,
+				load: Promise<Record<string, unknown>[]>,
+				mapRows: (rows: Record<string, unknown>[]) => T
+			): Promise<T> =>
+				load.then(mapRows).catch((error) => {
+					console.error(`[training-workspace] Failed to load ${label}`, {
 						orgId,
 						error
 					});
 					throw error;
 				});
 
+			const personnel = loadTrainingItems(
+				'personnel',
+				ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+					select: PersonnelEntity.select,
+					isNull: { archived_at: true },
+					orderBy: [{ column: 'last_name', ascending: true }]
+				}),
+				(rows) => PersonnelEntity.fromDbArray(rows) as Personnel[]
+			);
+			const groups = loadTrainingItems(
+				'groups',
+				ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+					orderBy: [{ column: 'sort_order', ascending: true }]
+				}),
+				(rows) => GroupEntity.fromDbArray(rows) as Group[]
+			);
+			const trainingTypes = loadTrainingItems(
+				'training types',
+				ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
+					orderBy: [{ column: 'sort_order', ascending: true }]
+				}),
+				(rows) => TrainingTypeEntity.fromDbArray(rows) as TrainingType[]
+			);
+			const trainingViews = loadTrainingItems(
+				'training views',
+				ctx.store.findMany<Record<string, unknown>>('training_views', orgId, undefined, {
+					orderBy: [{ column: 'name', ascending: true }]
+				}),
+				(rows) => TrainingViewEntity.fromDbArray(rows) as TrainingView[]
+			);
+			const pinnedGroups = ctx.auth.userId
+				? loadTrainingItems(
+						'pinned groups',
+						ctx.store.findMany<Record<string, unknown>>(
+							'user_pinned_groups',
+							orgId,
+							{ user_id: ctx.auth.userId },
+							{
+								orderBy: [{ column: 'sort_order', ascending: true }]
+							}
+						),
+						(rows) => PinnedGroupsEntity.fromDbArray(rows)
+					)
+				: Promise.resolve([]);
+
+			const personnelTrainings = loadTrainingItems(
+				'personnel trainings',
+				ctx.store.findMany<Record<string, unknown>>('personnel_trainings', orgId),
+				(rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[]
+			);
+
 			return {
-				personnel: PersonnelEntity.fromDbArray(personnelRows) as Personnel[],
-				groups: GroupEntity.fromDbArray(groupRows) as Group[],
-				pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
-				trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows) as TrainingType[],
-				trainingViews: TrainingViewEntity.fromDbArray(trainingViewRows) as TrainingView[],
+				personnel,
+				groups,
+				pinnedGroups,
+				trainingTypes,
+				trainingViews,
 				personnelTrainings
 			};
 		};
@@ -578,19 +604,42 @@ export function createSupabaseOnboardingWorkspacePort(
 	locals: App.Locals,
 	cookies: Cookies,
 	orgId: string
-): OrgWorkspacePort {
+): StreamableOrgWorkspacePort {
+	function getOnboardingData(): Promise<Awaited<ReturnType<typeof fetchOnboardingBootstrap>>>;
+	function getOnboardingData(defer: true): Promise<DeferredData<Awaited<ReturnType<typeof fetchOnboardingBootstrap>>>>;
+	function getOnboardingData(defer = false) {
+		const fn = async (ctx: UseCaseContext) => fetchOnboardingBootstrap(ctx);
+
+		if (defer) {
+			return loadWithContext(locals, cookies, orgId, {
+				permission: 'onboarding',
+				defer: true,
+				fn
+			});
+		}
+
+		return loadWithContext(locals, cookies, orgId, {
+			permission: 'onboarding',
+			fn
+		});
+	}
+
 	return {
 		async getWorkspaceData<T>(workspace: WorkspaceKey): Promise<T> {
 			if (workspace !== 'onboarding') {
 				throw new Error(`createSupabaseOnboardingWorkspacePort: unsupported workspace '${workspace}'`);
 			}
 
-			const data = await loadWithContext(locals, cookies, orgId, {
-				permission: 'onboarding',
-				fn: async (ctx) => fetchOnboardingBootstrap(ctx)
-			});
+			const data = await getOnboardingData();
 
 			return data as T;
+		},
+		async streamWorkspaceData<T>(workspace: WorkspaceKey) {
+			if (workspace !== 'onboarding') {
+				throw new Error(`createSupabaseOnboardingWorkspacePort: unsupported workspace '${workspace}'`);
+			}
+
+			return getOnboardingData(true) as Promise<DeferredData<T>>;
 		}
 	};
 }

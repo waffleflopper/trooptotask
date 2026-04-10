@@ -5,6 +5,7 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import {
 		getExpirationMode,
@@ -52,7 +53,15 @@
 	const orderedTypes = $derived([...types].sort((a, b) => a.sortOrder - b.sortOrder));
 	const selectedType = $derived(selectedTypeId ? (types.find((t) => t.id === selectedTypeId) ?? null) : null);
 
-	const personnel = $derived(workspaceData?.personnel ?? data.personnel ?? []);
+	const personnel = $derived(
+		personnelStore.orgId === org.orgId
+			? personnelStore.items
+			: Array.isArray(workspaceData?.personnel)
+				? workspaceData.personnel
+				: Array.isArray(data.personnel)
+					? data.personnel
+					: []
+	);
 
 	const availableRoles = $derived(
 		[...new Set(personnel.map((p: { clinicRole: string }) => p.clinicRole))].filter(Boolean).sort() as string[]

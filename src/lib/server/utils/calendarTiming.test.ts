@@ -21,12 +21,21 @@ describe('withCalendarTiming', () => {
 
 	it('logs failed calendar phases and rethrows the callback error', async () => {
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const error = new Error('boom');
 
 		await expect(withCalendarTiming('org-1', 'date-ranged-query', async () => Promise.reject(error))).rejects.toThrow(
 			'boom'
 		);
-		expect(consoleInfoSpy).toHaveBeenCalledWith(
+		expect(consoleInfoSpy).not.toHaveBeenCalledWith(
+			'[calendar-load]',
+			expect.objectContaining({
+				orgId: 'org-1',
+				phase: 'date-ranged-query',
+				status: 'error'
+			})
+		);
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
 			'[calendar-load]',
 			expect.objectContaining({
 				orgId: 'org-1',

@@ -2,9 +2,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
+import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
 import type { CalendarBootstrap, CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
+import { formatDate } from '$lib/utils/dates';
 
 const { loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock } = vi.hoisted(() => ({
 	loadCalendarRangeMock: vi.fn(),
@@ -214,5 +216,35 @@ describe('calendar page', () => {
 		await waitFor(() => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(2);
 		});
+	});
+
+	it('stores the client-local date as a bootstrap anchor cookie for future requests', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-05-01T08:00:00'));
+		document.cookie = `${CALENDAR_ANCHOR_COOKIE}=; Max-Age=0; Path=/`;
+
+		try {
+			render(Page, {
+				props: {
+					data: {
+						orgId: 'org-1',
+						orgName: 'Test Unit',
+						userId: 'user-1',
+						permissions: {
+							canViewCalendar: true,
+							canEditCalendar: true
+						},
+						calendar: {
+							data: makeBootstrap()
+						}
+					}
+				}
+			});
+
+			await Promise.resolve();
+			expect(document.cookie).toContain(`${CALENDAR_ANCHOR_COOKIE}=${formatDate(new Date())}`);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

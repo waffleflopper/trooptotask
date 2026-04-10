@@ -209,7 +209,7 @@ export function createSupabaseRootOrgLoadPort(
 					isDemoReadOnly: false,
 					isDemoSandbox: false,
 					getEffectiveTier: () => effectiveTierPromise,
-					getMembershipRow: (loadMembershipRow) =>
+					wrapMembershipLoad: (loadMembershipRow) =>
 						getOrLoadRequestMembership(config.locals, config.locals.user?.id ?? null, config.orgId, loadMembershipRow)
 				}),
 				chrome: createOrgChromePortFn({
@@ -234,11 +234,11 @@ export function createSupabaseOrgAccessPort(config: {
 	isDemoSandbox: boolean;
 	/** Delegate to the existing subscription adapter — avoids re-instantiating it. */
 	getEffectiveTier: () => Promise<EffectiveTier>;
-	getMembershipRow?: (loadMembershipRow: () => Promise<MembershipRow>) => Promise<MembershipRow>;
+	wrapMembershipLoad?: (loadMembershipRow: () => Promise<MembershipRow>) => Promise<MembershipRow>;
 }): OrgAccessPort {
 	return {
 		async getMembership(): Promise<MembershipInfo> {
-			const membership = await (config.getMembershipRow?.(() => loadMembershipRow(config)) ??
+			const membership = await (config.wrapMembershipLoad?.(() => loadMembershipRow(config)) ??
 				loadMembershipRow(config));
 
 			const isOwner = membership.role === 'owner';

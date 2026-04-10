@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MembershipRow } from '$lib/server/permissionContext';
-import { cacheRequestMembership } from '$lib/server/membershipContextCache';
+import { cacheRequestMembership, getCachedRequestMembership } from '$lib/server/membershipContextCache';
 
 const { getApiContextMock } = vi.hoisted(() => ({
 	getApiContextMock: vi.fn()
@@ -14,7 +14,7 @@ vi.mock('$lib/server/supabase', async () => {
 	};
 });
 
-import { buildLayoutContext } from './httpAdapter';
+import { buildLayoutContext, buildLayoutContextFromMembership } from './httpAdapter';
 
 const ORG_ID = '11111111-1111-1111-1111-111111111111';
 const OTHER_ORG_ID = '22222222-2222-2222-2222-222222222222';
@@ -175,6 +175,74 @@ describe('buildLayoutContext', () => {
 
 		expect(supabase.from).not.toHaveBeenCalled();
 		assertAuth(ctx);
+	});
+
+	it('reuses a pre-fetched membership when buildLayoutContextFromMembership seeds the request cache', async () => {
+		const membership = {
+			role: 'member',
+			scoped_group_id: 'group-123',
+			can_view_calendar: true,
+			can_edit_calendar: false,
+			can_view_personnel: true,
+			can_edit_personnel: true,
+			can_view_training: true,
+			can_edit_training: false,
+			can_view_onboarding: false,
+			can_edit_onboarding: false,
+			can_view_leaders_book: false,
+			can_edit_leaders_book: false,
+			can_manage_members: false
+		} satisfies MembershipRow;
+		const { supabase } = createMembershipSupabase(membership);
+		getApiContextMock.mockReturnValue({
+			supabase,
+			userId: USER_ID,
+			isSandbox: false
+		});
+
+		const locals = {} as App.Locals;
+
+		const seeded = await buildLayoutContextFromMembership(locals, {} as never, ORG_ID, membership);
+		const reused = await buildLayoutContext(locals, {} as never, ORG_ID);
+
+		expect(supabase.from).not.toHaveBeenCalled();
+		expect(seeded.auth.scopedGroupId).toBe('group-123');
+		expect(reused.auth.scopedGroupId).toBe('group-123');
+		expect(() => reused.auth.requireEdit('personnel')).not.toThrow();
+		await expect(getCachedRequestMembership(locals, USER_ID, ORG_ID)!).resolves.toEqual(membership);
+	});
+
+	it('skips request-cache seeding when buildLayoutContextFromMembership runs in sandbox mode', async () => {
+		const membership = {
+			role: 'member',
+			scoped_group_id: 'group-123',
+			can_view_calendar: true,
+			can_edit_calendar: false,
+			can_view_personnel: true,
+			can_edit_personnel: false,
+			can_view_training: true,
+			can_edit_training: false,
+			can_view_onboarding: false,
+			can_edit_onboarding: false,
+			can_view_leaders_book: false,
+			can_edit_leaders_book: false,
+			can_manage_members: false
+		} satisfies MembershipRow;
+		const { supabase } = createMembershipSupabase(membership);
+		getApiContextMock.mockReturnValue({
+			supabase,
+			userId: USER_ID,
+			isSandbox: true
+		});
+
+		const locals = {} as App.Locals;
+		const ctx = await buildLayoutContextFromMembership(locals, {} as never, ORG_ID, membership);
+
+		expect(supabase.from).not.toHaveBeenCalled();
+		expect(ctx.auth.role).toBe('owner');
+		expect(ctx.auth.userId).toBeNull();
+		expect(locals.membershipContextCache).toBeUndefined();
+		expect(getCachedRequestMembership(locals, USER_ID, ORG_ID)).toBeNull();
 	});
 
 	it('stores a fetched membership row and reuses it on the next layout context build for the same request', async () => {

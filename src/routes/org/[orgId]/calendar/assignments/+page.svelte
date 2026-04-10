@@ -1,14 +1,66 @@
 <script lang="ts">
 	import AssignmentPlannerPage from '$features/calendar/components/AssignmentPlannerPage.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import type { WorkspaceBootstrap } from '$lib/server/core/orgShell';
+	import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
+	import {
+		isPromiseLike,
+		materializeWorkspaceData,
+		observeDeferred,
+		throwRenderError
+	} from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
+	let calendarBootstrap = $state<WorkspaceBootstrap<CalendarBootstrap> | null>(null);
+	let loadError = $state<Error | null>(null);
+
+	$effect(() => {
+		let cancelled = false;
+		const streamedCalendar = data.calendar?.data;
+
+		calendarBootstrap = null;
+		loadError = null;
+
+		if (!streamedCalendar) {
+			return;
+		}
+
+		if (!isPromiseLike(streamedCalendar)) {
+			calendarBootstrap = streamedCalendar as WorkspaceBootstrap<CalendarBootstrap>;
+			return;
+		}
+
+		void observeDeferred(streamedCalendar, {
+			fallbackMessage: 'Failed to load assignment planner workspace',
+			onResolve: (calendar) => {
+				calendarBootstrap = calendar;
+			},
+			onReject: (error) => {
+				loadError = error;
+			},
+			isCancelled: () => cancelled
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	const workspacePending = $derived(!!data.calendar?.data && calendarBootstrap === null && loadError === null);
+	const resolvedData = $derived.by(() => materializeWorkspaceData(data, 'calendar', calendarBootstrap));
+	const renderLoadError = $derived.by(() => {
+		if (loadError) {
+			throwRenderError(loadError, 'Failed to load assignment planner workspace');
+		}
+		return null;
+	});
 
 	const pageData = $derived.by(() => ({
-		orgId: data.orgId,
-		orgName: data.orgName,
-		calendar: data.calendar ? { data: data.calendar.data } : undefined,
-		scopedGroupId: data.scopedGroupId,
-		permissions: data.permissions
+		orgId: resolvedData.orgId,
+		orgName: resolvedData.orgName,
+		calendar: resolvedData.calendar ? { data: resolvedData.calendar.data } : undefined,
+		scopedGroupId: resolvedData.scopedGroupId,
+		permissions: resolvedData.permissions
 	}));
 </script>
 
@@ -16,4 +68,28 @@
 	<title>Assignment Planner - Troop to Task</title>
 </svelte:head>
 
-<AssignmentPlannerPage data={pageData} />
+{#if loadError}
+	{renderLoadError}
+{:else if workspacePending}
+	<section class="route-loading" aria-busy="true" aria-live="polite" role="status">
+		<Spinner color="currentColor" />
+		<p>Loading assignment planner...</p>
+	</section>
+{:else}
+	<AssignmentPlannerPage data={pageData} />
+{/if}
+
+<style>
+	.route-loading {
+		display: flex;
+		gap: var(--sp-2);
+		align-items: center;
+		justify-content: center;
+		padding: var(--sp-6);
+		color: var(--text-secondary);
+	}
+
+	.route-loading p {
+		margin: 0;
+	}
+</style>

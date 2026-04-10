@@ -102,6 +102,7 @@ describe('createRootOrgLayoutLoad', () => {
 		const coordinator = {
 			loadRoot: vi.fn().mockResolvedValue(routePayload),
 			loadWorkspace: vi.fn(),
+			streamWorkspace: vi.fn(),
 			hydrate: vi.fn()
 		};
 
@@ -185,6 +186,7 @@ describe('createRootOrgLayoutLoad', () => {
 		const coordinator = {
 			loadRoot: vi.fn().mockResolvedValue(suspendedPayload),
 			loadWorkspace: vi.fn(),
+			streamWorkspace: vi.fn(),
 			hydrate: vi.fn()
 		};
 
@@ -319,6 +321,7 @@ describe('createRootOrgLayoutLoad', () => {
 		const coordinator = {
 			loadRoot: vi.fn().mockResolvedValue(routePayload),
 			loadWorkspace: vi.fn(),
+			streamWorkspace: vi.fn(),
 			hydrate: vi.fn()
 		};
 
@@ -469,6 +472,7 @@ describe('createRootOrgLayoutLoad', () => {
 		const coordinator = {
 			loadRoot: vi.fn().mockResolvedValue(routePayload),
 			loadWorkspace: vi.fn(),
+			streamWorkspace: vi.fn(),
 			hydrate: vi.fn()
 		};
 

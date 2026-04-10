@@ -9,7 +9,7 @@ import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery'
 import { _createCalendarLayoutLoad } from './+layout.server';
 
 describe('calendar layout server load', () => {
-	it('registers calendar dependencies and preserves deferred calendar hydration targets', async () => {
+	it('registers calendar dependencies and streams the calendar workspace bootstrap', async () => {
 		const availabilityEntries = Promise.resolve([
 			{
 				id: 'av1',
@@ -76,37 +76,40 @@ describe('calendar layout server load', () => {
 			cookies,
 			depends
 		} as unknown as Parameters<typeof load>[0]);
+		if (!result) {
+			throw new Error('Expected calendar layout load to return data');
+		}
 
 		expect(depends).toHaveBeenCalledTimes(1);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:calendar-data');
 		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
-		expect(result).toEqual({
-			calendar: {
-				workspace: 'calendar',
-				data: calendarData,
-				hydration: expect.objectContaining({
-					orgId: 'org-1',
-					availabilityEntries: {
-						mode: 'replace',
-						deferred: true,
-						items: availabilityEntries,
-						snapshotKey: expect.any(String)
-					},
-					specialDays: {
-						mode: 'replace',
-						deferred: true,
-						items: specialDays,
-						snapshotKey: expect.any(String)
-					},
-					calendarAssignments: {
-						mode: 'replace',
-						deferred: true,
-						items: expect.any(Promise),
-						snapshotKey: expect.any(String)
-					}
-				})
-			} satisfies WorkspaceBootstrap<CalendarBootstrap>
-		});
+		expect(result.calendar.data).toBeInstanceOf(Promise);
+
+		await expect(result.calendar.data).resolves.toEqual({
+			workspace: 'calendar',
+			data: calendarData,
+			hydration: expect.objectContaining({
+				orgId: 'org-1',
+				availabilityEntries: {
+					mode: 'replace',
+					deferred: true,
+					items: availabilityEntries,
+					snapshotKey: expect.any(String)
+				},
+				specialDays: {
+					mode: 'replace',
+					deferred: true,
+					items: specialDays,
+					snapshotKey: expect.any(String)
+				},
+				calendarAssignments: {
+					mode: 'replace',
+					deferred: true,
+					items: expect.any(Promise),
+					snapshotKey: expect.any(String)
+				}
+			})
+		} satisfies WorkspaceBootstrap<CalendarBootstrap>);
 	});
 });

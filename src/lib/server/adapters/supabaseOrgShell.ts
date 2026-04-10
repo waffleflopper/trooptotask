@@ -11,6 +11,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { EffectiveTier } from '$lib/types/subscription';
+import type { MembershipRow } from '$lib/server/permissionContext';
 import { getDefaultUserOrgPreferences, normalizeUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type {
 	DeferredData,
@@ -27,6 +28,7 @@ import type {
 import type { UseCaseContext } from '../core/ports';
 import type { RootOrgLoadPort, RootOrgShellRequest } from '../core/orgShellCoordinator';
 import { loadWithContext, getLayoutClient } from './httpAdapter';
+import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
 import { fetchCalendarBootstrap, type CalendarBootstrap } from '../core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '../core/useCases/onboardingCalendarQuery';
 import { fetchOnboardingBootstrap } from '../core/useCases/onboardingQuery';
@@ -206,7 +208,9 @@ export function createSupabaseRootOrgLoadPort(
 					orgName: org.name,
 					isDemoReadOnly: false,
 					isDemoSandbox: false,
-					getEffectiveTier: () => effectiveTierPromise
+					getEffectiveTier: () => effectiveTierPromise,
+					getMembershipRow: (loadMembershipRow) =>
+						getOrLoadRequestMembership(config.locals, config.locals.user?.id ?? null, config.orgId, loadMembershipRow)
 				}),
 				chrome: createOrgChromePortFn({
 					orgId: config.orgId,
@@ -230,48 +234,37 @@ export function createSupabaseOrgAccessPort(config: {
 	isDemoSandbox: boolean;
 	/** Delegate to the existing subscription adapter — avoids re-instantiating it. */
 	getEffectiveTier: () => Promise<EffectiveTier>;
+	getMembershipRow?: (loadMembershipRow: () => Promise<MembershipRow>) => Promise<MembershipRow>;
 }): OrgAccessPort {
 	return {
 		async getMembership(): Promise<MembershipInfo> {
-			const { data, error: membershipError } = await config.userSupabase
-				.from('organization_memberships')
-				.select(
-					'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
-				)
-				.eq('user_id', config.userId)
-				.eq('organization_id', config.orgId)
-				.maybeSingle();
+			const membership = await (config.getMembershipRow?.(() => loadMembershipRow(config)) ??
+				loadMembershipRow(config));
 
-			if (membershipError) {
-				throw error(500, membershipError.message);
-			}
-
-			if (!data) throw error(403, 'You are not a member of this organization');
-
-			const isOwner = data.role === 'owner';
-			const isAdmin = data.role === 'admin';
+			const isOwner = membership.role === 'owner';
+			const isAdmin = membership.role === 'admin';
 			const isPrivileged = isOwner || isAdmin;
 
 			const permissions: OrganizationMemberPermissions = {
-				canViewCalendar: isPrivileged || data.can_view_calendar,
-				canEditCalendar: isPrivileged || data.can_edit_calendar,
-				canViewPersonnel: isPrivileged || data.can_view_personnel,
-				canEditPersonnel: isPrivileged || data.can_edit_personnel,
-				canViewTraining: isPrivileged || data.can_view_training,
-				canEditTraining: isPrivileged || data.can_edit_training,
-				canViewOnboarding: isPrivileged || data.can_view_onboarding,
-				canEditOnboarding: isPrivileged || data.can_edit_onboarding,
-				canViewLeadersBook: isPrivileged || data.can_view_leaders_book,
-				canEditLeadersBook: isPrivileged || data.can_edit_leaders_book,
-				canManageMembers: isPrivileged || data.can_manage_members
+				canViewCalendar: isPrivileged || membership.can_view_calendar,
+				canEditCalendar: isPrivileged || membership.can_edit_calendar,
+				canViewPersonnel: isPrivileged || membership.can_view_personnel,
+				canEditPersonnel: isPrivileged || membership.can_edit_personnel,
+				canViewTraining: isPrivileged || membership.can_view_training,
+				canEditTraining: isPrivileged || membership.can_edit_training,
+				canViewOnboarding: isPrivileged || membership.can_view_onboarding,
+				canEditOnboarding: isPrivileged || membership.can_edit_onboarding,
+				canViewLeadersBook: isPrivileged || membership.can_view_leaders_book,
+				canEditLeadersBook: isPrivileged || membership.can_edit_leaders_book,
+				canManageMembers: isPrivileged || membership.can_manage_members
 			};
 
 			return {
 				orgId: config.orgId,
 				userId: config.userId,
-				role: data.role as 'owner' | 'admin' | 'member',
+				role: membership.role,
 				permissions,
-				scopedGroupId: isPrivileged ? null : (data.scoped_group_id ?? null),
+				scopedGroupId: isPrivileged ? null : (membership.scoped_group_id ?? null),
 				// orgSuspended is checked and short-circuits before this adapter is ever
 				// instantiated, so we only reach getMembership() for non-suspended orgs.
 				orgSuspended: false
@@ -288,6 +281,31 @@ export function createSupabaseOrgAccessPort(config: {
 			};
 		}
 	};
+}
+
+async function loadMembershipRow(config: {
+	orgId: string;
+	userId: string;
+	userSupabase: SupabaseClient;
+}): Promise<MembershipRow> {
+	const { data, error: membershipError } = await config.userSupabase
+		.from('organization_memberships')
+		.select(
+			'role, can_view_calendar, can_edit_calendar, can_view_personnel, can_edit_personnel, can_view_training, can_edit_training, can_view_onboarding, can_edit_onboarding, can_view_leaders_book, can_edit_leaders_book, can_manage_members, scoped_group_id'
+		)
+		.eq('user_id', config.userId)
+		.eq('organization_id', config.orgId)
+		.maybeSingle();
+
+	if (membershipError) {
+		throw error(500, membershipError.message);
+	}
+
+	if (!data) {
+		throw error(403, 'You are not a member of this organization');
+	}
+
+	return data as MembershipRow;
 }
 
 export function createSupabaseOrgChromePort(config: {

@@ -83,6 +83,26 @@
 
 	const table = $derived(tableProp ?? internalTable!);
 	const cols = $derived(table.columns);
+	const interactiveDescendantSelector = [
+		'a[href]',
+		'button',
+		'input:not([type="hidden"])',
+		'select',
+		'textarea',
+		'summary',
+		'[contenteditable=""]',
+		'[contenteditable="true"]',
+		'[role="button"]',
+		'[role="checkbox"]',
+		'[role="combobox"]',
+		'[role="link"]',
+		'[role="menuitem"]',
+		'[role="option"]',
+		'[role="radio"]',
+		'[role="switch"]',
+		'[role="textbox"]',
+		'[tabindex]:not([tabindex="-1"])'
+	].join(',');
 
 	function isSortable(col: ColumnDef<T>): boolean {
 		return col.sortable !== false;
@@ -94,9 +114,29 @@
 		return table.sortDirection === 'asc' ? 'ascending' : 'descending';
 	}
 
+	function eventStartedInInteractiveDescendant(event: Event): boolean {
+		const currentTarget = event.currentTarget;
+		if (!(currentTarget instanceof HTMLElement)) return false;
+
+		for (const target of event.composedPath()) {
+			if (target === currentTarget) return false;
+			if (target instanceof HTMLElement && target.matches(interactiveDescendantSelector)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	function handleRowClick(event: MouseEvent, row: T) {
+		if (!onRowClick || eventStartedInInteractiveDescendant(event)) return;
+		onRowClick(row);
+	}
+
 	function handleRowKeydown(event: KeyboardEvent, row: T) {
 		if (!onRowClick) return;
 		if (event.key !== 'Enter' && event.key !== ' ') return;
+		if (eventStartedInInteractiveDescendant(event)) return;
 
 		event.preventDefault();
 		onRowClick(row);
@@ -186,7 +226,7 @@
 										class:clickable={!!onRowClick}
 										tabindex={onRowClick ? 0 : undefined}
 										aria-label={onRowClick && rowActionLabel ? rowActionLabel(row) : undefined}
-										onclick={onRowClick ? () => onRowClick(row) : undefined}
+										onclick={onRowClick ? (event) => handleRowClick(event, row) : undefined}
 										onkeydown={onRowClick ? (event) => handleRowKeydown(event, row) : undefined}
 									>
 										{#each cols as col}
@@ -210,7 +250,7 @@
 								class:clickable={!!onRowClick}
 								tabindex={onRowClick ? 0 : undefined}
 								aria-label={onRowClick && rowActionLabel ? rowActionLabel(row) : undefined}
-								onclick={onRowClick ? () => onRowClick(row) : undefined}
+								onclick={onRowClick ? (event) => handleRowClick(event, row) : undefined}
 								onkeydown={onRowClick ? (event) => handleRowKeydown(event, row) : undefined}
 							>
 								{#each cols as col}
@@ -365,10 +405,13 @@
 		cursor: pointer;
 	}
 
+	tr.clickable:focus-visible {
+		outline: none;
+		box-shadow: inset 0 0 0 2px var(--amber);
+	}
+
 	tr.clickable:focus-visible > td {
-		outline: var(--focus-outline);
-		outline-offset: -2px;
-		box-shadow: inset 0 0 0 2px rgba(196, 127, 0, 0.18);
+		background: color-mix(in srgb, var(--amber-light) 40%, var(--surface-panel) 60%);
 	}
 
 	tr.clickable:hover > td {

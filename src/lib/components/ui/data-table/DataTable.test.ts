@@ -4,6 +4,7 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/svelte';
 import DataTable from './DataTable.svelte';
 import CellSnippetWrapper from './__tests__/CellSnippetWrapper.svelte';
 import HeaderCellSnippetWrapper from './__tests__/HeaderCellSnippetWrapper.svelte';
+import InteractiveCellSnippetWrapper from './__tests__/InteractiveCellSnippetWrapper.svelte';
 import ToolbarSnippetWrapper from './__tests__/ToolbarSnippetWrapper.svelte';
 import { useDataTable } from './useDataTable.svelte';
 import type { ColumnDef } from './useDataTable.svelte';
@@ -266,6 +267,32 @@ describe('DataTable', () => {
 			expect(handler).toHaveBeenCalledTimes(2);
 			expect(handler).toHaveBeenNthCalledWith(1, testData[0]);
 			expect(handler).toHaveBeenNthCalledWith(2, testData[0]);
+		});
+
+		test('does not activate the row from nested interactive controls', async () => {
+			const rowHandler = vi.fn();
+			const buttonHandler = vi.fn();
+			const actionColumns: ColumnDef<TestRow>[] = [
+				...columns,
+				{ key: 'actions', header: 'Actions', value: () => '', searchable: false, sortable: false }
+			];
+			render(InteractiveCellSnippetWrapper, {
+				props: {
+					data: testData,
+					columns: actionColumns,
+					onRowClick: rowHandler,
+					onButtonClick: buttonHandler
+				}
+			});
+
+			const button = screen.getByRole('button', { name: 'Action Alice' });
+			await fireEvent.click(button);
+			await fireEvent.keyDown(button, { key: 'Enter' });
+			await fireEvent.keyDown(button, { key: ' ' });
+
+			expect(buttonHandler).toHaveBeenCalledOnce();
+			expect(buttonHandler).toHaveBeenCalledWith(testData[0]);
+			expect(rowHandler).not.toHaveBeenCalled();
 		});
 
 		test('rows do not have clickable class when onRowClick is not provided', () => {

@@ -35,6 +35,9 @@
 	let highlightIndex = $state(-1);
 	const listboxId = $derived(`${id}-listbox`);
 	const activeDescendant = $derived(highlightIndex >= 0 ? `${id}-option-${highlightIndex}` : undefined);
+	const dropdownGap = 4;
+	const dropdownViewportPadding = 8;
+	const dropdownMaxHeight = 240;
 
 	const selectedLabel = $derived(options.find((o) => o.value === value)?.label ?? '');
 
@@ -47,12 +50,16 @@
 	function computeDropdownPosition() {
 		if (!containerEl) return;
 		const rect = containerEl.getBoundingClientRect();
-		const spaceBelow = window.innerHeight - rect.bottom;
-		const above = spaceBelow < 264;
-		if (above) {
-			dropdownStyle = `top: unset; bottom: ${window.innerHeight - rect.top + 4}px; left: ${rect.left}px; width: ${rect.width}px;`;
+		const spaceAbove = Math.max(rect.top - dropdownViewportPadding, 0);
+		const spaceBelow = Math.max(window.innerHeight - rect.bottom - dropdownViewportPadding, 0);
+		const openAbove = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+		const availableSpace = openAbove ? spaceAbove : spaceBelow;
+		const maxHeight = Math.min(dropdownMaxHeight, availableSpace);
+
+		if (openAbove) {
+			dropdownStyle = `position:fixed;top:auto;bottom:${window.innerHeight - rect.top + dropdownGap}px;left:${rect.left}px;right:auto;width:${rect.width}px;max-height:${maxHeight}px;`;
 		} else {
-			dropdownStyle = `top: ${rect.bottom + 4}px; bottom: unset; left: ${rect.left}px; width: ${rect.width}px;`;
+			dropdownStyle = `position:fixed;top:${rect.bottom + dropdownGap}px;bottom:auto;left:${rect.left}px;right:auto;width:${rect.width}px;max-height:${maxHeight}px;`;
 		}
 	}
 
@@ -80,12 +87,23 @@
 		inputEl?.blur();
 	}
 
-	function clearSelection(e: MouseEvent) {
-		e.stopPropagation();
-		e.preventDefault();
+	function clearSelection() {
 		value = '';
 		onchange?.('');
 		query = '';
+	}
+
+	function handleClearMousedown(e: MouseEvent) {
+		e.stopPropagation();
+		e.preventDefault();
+		clearSelection();
+	}
+
+	function handleClearClick(e: MouseEvent) {
+		e.stopPropagation();
+		if (e.detail !== 0) return;
+		e.preventDefault();
+		clearSelection();
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -122,6 +140,38 @@
 		const item = listEl.children[highlightIndex] as HTMLElement | undefined;
 		item?.scrollIntoView({ block: 'nearest' });
 	}
+
+	$effect(() => {
+		if (!open) return;
+
+		computeDropdownPosition();
+	});
+
+	$effect(() => {
+		if (!open) return;
+
+		const handleViewportChange = (event?: Event) => {
+			if (event?.target instanceof Node && listEl?.contains(event.target)) return;
+			computeDropdownPosition();
+		};
+
+		window.addEventListener('resize', handleViewportChange);
+		window.addEventListener('scroll', handleViewportChange, { capture: true, passive: true });
+
+		let resizeObserver: ResizeObserver | null = null;
+		if (typeof ResizeObserver !== 'undefined' && containerEl) {
+			resizeObserver = new ResizeObserver(() => {
+				computeDropdownPosition();
+			});
+			resizeObserver.observe(containerEl);
+		}
+
+		return () => {
+			window.removeEventListener('resize', handleViewportChange);
+			window.removeEventListener('scroll', handleViewportChange, { capture: true });
+			resizeObserver?.disconnect();
+		};
+	});
 </script>
 
 <div class="search-select" class:disabled bind:this={containerEl}>
@@ -159,7 +209,6 @@
 				}}
 				{disabled}
 				type="button"
-				role="combobox"
 				aria-label={ariaLabel}
 				aria-haspopup="listbox"
 				aria-expanded={open}
@@ -171,7 +220,13 @@
 				</svg>
 			</button>
 			{#if value && !disabled && clearable}
-				<button class="clear-btn" type="button" onclick={clearSelection} aria-label="Clear selection">
+				<button
+					class="clear-btn"
+					type="button"
+					onmousedown={handleClearMousedown}
+					onclick={handleClearClick}
+					aria-label="Clear selection"
+				>
 					<span aria-hidden="true">&times;</span>
 				</button>
 			{/if}

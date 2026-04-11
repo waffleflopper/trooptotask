@@ -3,6 +3,7 @@
 	import type { Personnel } from '$lib/types';
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		onboardings: PersonnelOnboarding[];
@@ -34,11 +35,12 @@
 	};
 
 	interface StepReport {
+		key: string;
 		stepName: string;
 		stepType: string;
 		trainingTypeName: string | null;
 		totalPeople: number;
-		incomplete: { personnelId: string; detail: string }[];
+		incomplete: { key: string; personnelId: string; detail: string }[];
 	}
 
 	const filteredOnboardings = $derived.by(() => {
@@ -51,7 +53,7 @@
 	const report = $derived.by<StepReport[]>(() => {
 		if (filteredOnboardings.length === 0) return [];
 
-		const stepMap = new Map<string, StepReport>();
+		const stepMap = new SvelteMap<string, StepReport>();
 
 		for (const onboarding of filteredOnboardings) {
 			for (const step of onboarding.steps) {
@@ -59,6 +61,7 @@
 				const key = `${step.stepName}::${step.stepType}`;
 				if (!stepMap.has(key)) {
 					stepMap.set(key, {
+						key,
 						stepName: step.stepName,
 						stepType: step.stepType,
 						trainingTypeName:
@@ -80,7 +83,7 @@
 							detail = step.currentStage ?? stages[0] ?? '';
 						}
 					}
-					entry.incomplete.push({ personnelId: onboarding.personnelId, detail });
+					entry.incomplete.push({ key: `${onboarding.id}:${step.id}`, personnelId: onboarding.personnelId, detail });
 				}
 			}
 		}
@@ -137,7 +140,7 @@
 			<p class="empty-msg">No active onboardings to report on.</p>
 		{:else}
 			<div class="report-list">
-				{#each report as step}
+				{#each report as step (step.key)}
 					{@const completedCount = step.totalPeople - step.incomplete.length}
 					<div class="report-step" class:all-done={step.incomplete.length === 0}>
 						<div class="step-header">
@@ -157,7 +160,7 @@
 
 						{#if step.incomplete.length > 0}
 							<div class="incomplete-list">
-								{#each step.incomplete as person}
+								{#each step.incomplete as person (person.key)}
 									<div class="person-row">
 										<span class="person-name">{getPersonName(person.personnelId)}</span>
 										{#if person.detail}

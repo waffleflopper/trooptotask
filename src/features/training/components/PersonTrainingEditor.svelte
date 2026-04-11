@@ -5,6 +5,17 @@
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
+
+	interface TrainingEditState {
+		isComplete: boolean;
+		completionDate: string;
+		directExpirationDate: string;
+		notes: string;
+		certificateUrl: string;
+		isEditing: boolean;
+		isDirty: boolean;
+	}
 
 	interface Props {
 		person: Personnel;
@@ -20,7 +31,7 @@
 
 	// Create a map of existing trainings for this person
 	const trainingMap = $derived.by(() => {
-		const map = new Map<string, PersonnelTraining>();
+		const map = new SvelteMap<string, PersonnelTraining>();
 		for (const t of trainings) {
 			if (t.personnelId === person.id) {
 				map.set(t.trainingTypeId, t);
@@ -30,40 +41,16 @@
 	});
 
 	// Track editing state for each training type
-	let editingStates = $state<
-		Map<
-			string,
-			{
-				isComplete: boolean;
-				completionDate: string;
-				directExpirationDate: string;
-				notes: string;
-				certificateUrl: string;
-				isEditing: boolean;
-				isDirty: boolean;
-			}
-		>
-	>(new Map());
+	const editingStates = new SvelteMap<string, TrainingEditState>();
 
 	// Initialize editing states on mount
 	$effect(() => {
-		const states = new Map<
-			string,
-			{
-				isComplete: boolean;
-				completionDate: string;
-				directExpirationDate: string;
-				notes: string;
-				certificateUrl: string;
-				isEditing: boolean;
-				isDirty: boolean;
-			}
-		>();
+		editingStates.clear();
 
 		for (const type of trainingTypes) {
 			const existing = trainingMap.get(type.id);
 			const neverExpires = type.expirationMonths === null && !type.expirationDateOnly;
-			states.set(type.id, {
+			editingStates.set(type.id, {
 				isComplete: !!existing,
 				completionDate:
 					existing?.completionDate ?? (neverExpires || type.expirationDateOnly ? '' : formatDate(new Date())),
@@ -74,7 +61,6 @@
 				isDirty: false
 			});
 		}
-		editingStates = states;
 	});
 
 	// Get training status for display
@@ -125,9 +111,7 @@
 	function toggleEdit(typeId: string) {
 		const state = editingStates.get(typeId);
 		if (state) {
-			const newStates = new Map(editingStates);
-			newStates.set(typeId, { ...state, isEditing: !state.isEditing });
-			editingStates = newStates;
+			editingStates.set(typeId, { ...state, isEditing: !state.isEditing });
 		}
 	}
 
@@ -138,9 +122,7 @@
 	) {
 		const state = editingStates.get(typeId);
 		if (state) {
-			const newStates = new Map(editingStates);
-			newStates.set(typeId, { ...state, [field]: value, isDirty: true });
-			editingStates = newStates;
+			editingStates.set(typeId, { ...state, [field]: value, isDirty: true });
 		}
 	}
 
@@ -161,8 +143,7 @@
 		});
 
 		// Update local state
-		const newStates = new Map(editingStates);
-		newStates.set(typeId, {
+		editingStates.set(typeId, {
 			isComplete: true,
 			completionDate: today,
 			directExpirationDate: '',
@@ -171,7 +152,6 @@
 			isEditing: false,
 			isDirty: false
 		});
-		editingStates = newStates;
 	}
 
 	// Mark as complete without a date (for never-expires training)
@@ -189,8 +169,7 @@
 		});
 
 		// Update local state
-		const newStates = new Map(editingStates);
-		newStates.set(typeId, {
+		editingStates.set(typeId, {
 			isComplete: true,
 			completionDate: '',
 			directExpirationDate: '',
@@ -199,7 +178,6 @@
 			isEditing: false,
 			isDirty: false
 		});
-		editingStates = newStates;
 	}
 
 	async function saveTraining(typeId: string) {
@@ -232,9 +210,7 @@
 		});
 
 		// Mark as saved
-		const newStates = new Map(editingStates);
-		newStates.set(typeId, { ...state, isComplete: true, isEditing: false, isDirty: false });
-		editingStates = newStates;
+		editingStates.set(typeId, { ...state, isComplete: true, isEditing: false, isDirty: false });
 	}
 
 	let confirmRemoveTypeId = $state<string | null>(null);
@@ -258,8 +234,7 @@
 		await onRemove(existing.id);
 
 		// Reset local state
-		const newStates = new Map(editingStates);
-		newStates.set(typeId, {
+		editingStates.set(typeId, {
 			isComplete: false,
 			completionDate: neverExpires || type?.expirationDateOnly ? '' : formatDate(new Date()),
 			directExpirationDate: '',
@@ -268,7 +243,6 @@
 			isEditing: false,
 			isDirty: false
 		});
-		editingStates = newStates;
 	}
 
 	async function markAllCompletedToday() {
@@ -294,11 +268,8 @@
 			});
 		}
 
-		// Update local states for applicable types, preserve expiration-date-only states
-		const newStates = new Map(editingStates);
-
 		for (const type of applicableTypes) {
-			newStates.set(type.id, {
+			editingStates.set(type.id, {
 				isComplete: true,
 				completionDate: today,
 				directExpirationDate: '',
@@ -308,15 +279,13 @@
 				isDirty: false
 			});
 		}
-		editingStates = newStates;
 	}
 
 	function cancelEdit(typeId: string) {
 		const existing = trainingMap.get(typeId);
 		const type = trainingTypes.find((t) => t.id === typeId);
 		const neverExpires = type?.expirationMonths === null && !type?.expirationDateOnly;
-		const newStates = new Map(editingStates);
-		newStates.set(typeId, {
+		editingStates.set(typeId, {
 			isComplete: !!existing,
 			completionDate:
 				existing?.completionDate ?? (neverExpires || type?.expirationDateOnly ? '' : formatDate(new Date())),
@@ -326,7 +295,6 @@
 			isEditing: false,
 			isDirty: false
 		});
-		editingStates = newStates;
 	}
 </script>
 

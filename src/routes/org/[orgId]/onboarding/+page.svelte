@@ -14,9 +14,9 @@
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
+	const loadingSkeletonItems = [0, 1, 2];
 	let onboardingBootstrap = $state<WorkspaceBootstrap<OnboardingBootstrap> | null>(null);
 	let loadError = $state<Error | null>(null);
-	let ctx = $state<OnboardingPageContext | null>(null);
 	const renderLoadError = $derived.by(() => {
 		if (loadError) {
 			throwRenderError(loadError, 'Failed to load onboarding workspace');
@@ -59,10 +59,7 @@
 	});
 
 	const workspacePending = $derived(!!data.onboarding?.data && onboardingBootstrap === null && loadError === null);
-
-	$effect.pre(() => {
-		ctx = onboardingBootstrap ? new OnboardingPageContext(modals, org) : null;
-	});
+	const ctx = $derived(onboardingBootstrap ? new OnboardingPageContext(modals, org) : null);
 </script>
 
 <svelte:head>
@@ -78,12 +75,12 @@
 			<SkeletonLine width="96px" height="12px" />
 		</div>
 		<div class="workspace-loading__overview">
-			{#each Array(3) as _}
+			{#each loadingSkeletonItems as item (item)}
 				<SkeletonBlock height="116px" />
 			{/each}
 		</div>
 		<div class="workspace-loading__list">
-			{#each Array(3) as _}
+			{#each loadingSkeletonItems as item (item)}
 				<SkeletonBlock height="88px" />
 			{/each}
 		</div>

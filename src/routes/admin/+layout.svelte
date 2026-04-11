@@ -78,11 +78,11 @@
 		</div>
 
 		<nav class="platform-admin-nav" aria-label="Admin sections">
-			{#each data.visibleNavGroups as group}
+			{#each data.visibleNavGroups as group (group.label ?? 'dashboard')}
 				{#if group.label}
 					<p class="platform-admin-nav__label">{group.label}</p>
 				{/if}
-				{#each group.items as item}
+				{#each group.items as item (item.href)}
 					<a href={item.href} class="platform-admin-nav__item" class:active={isActive(item.href)}>
 						<span>{item.label}</span>
 					</a>

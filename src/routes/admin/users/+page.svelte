@@ -5,24 +5,21 @@
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import { ADMIN_STATUS_COLORS } from '$lib/components/admin/adminTheme';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let { data } = $props();
 	let showPlatformInvite = $state(false);
-	let searchInput = $state('');
-
-	$effect(() => {
-		searchInput = data.search;
-	});
+	let searchInput = $derived(data.search);
 
 	function applyFilters() {
-		const params = new URLSearchParams();
+		const params = new SvelteURLSearchParams();
 		if (searchInput) params.set('search', searchInput);
 		params.set('page', '1');
 		goto(`/admin/users?${params.toString()}`);
 	}
 
 	function goToPage(pageNum: number) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new SvelteURLSearchParams($page.url.searchParams);
 		params.set('page', pageNum.toString());
 		goto(`/admin/users?${params.toString()}`);
 	}

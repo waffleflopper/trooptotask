@@ -126,7 +126,7 @@
 		>
 			{#snippet toolbar(_tbl)}
 				<div class="filter-tabs">
-					{#each filters as f}
+					{#each filters as f (f.value)}
 						<button class="filter-tab" class:active={statusFilter === f.value} onclick={() => (statusFilter = f.value)}>
 							{f.label}
 						</button>

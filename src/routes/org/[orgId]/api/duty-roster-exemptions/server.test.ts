@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { handleUseCaseRequest, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 
 // Import the route config (not the HTTP handler)
 import { _putConfig } from './+server';

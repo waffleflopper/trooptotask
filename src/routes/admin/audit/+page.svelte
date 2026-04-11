@@ -4,11 +4,12 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { ADMIN_STATUS_COLORS, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let { data } = $props();
 
 	function setParam(key: string, value: string) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new SvelteURLSearchParams($page.url.searchParams);
 		if (value) params.set(key, value);
 		else params.delete(key);
 		params.set('page', '1');
@@ -16,7 +17,7 @@
 	}
 
 	function goToPage(pageNum: number) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new SvelteURLSearchParams($page.url.searchParams);
 		params.set('page', pageNum.toString());
 		goto(`/admin/audit?${params.toString()}`);
 	}
@@ -65,7 +66,7 @@
 					class="select"
 				>
 					<option value="">All actions</option>
-					{#each data.availableActions as action}
+					{#each data.availableActions as action (action)}
 						<option value={action}>{formatAdminLabel(action)}</option>
 					{/each}
 				</select>

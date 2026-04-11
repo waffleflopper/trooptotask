@@ -1,6 +1,5 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { PERMISSION_PRESETS } from '$lib/types';
 import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 

@@ -285,7 +285,7 @@
 		</div>
 
 		<div class="pricing-grid">
-			{#each tierComparison as plan}
+			{#each tierComparison as plan (plan.tier)}
 				{@const isCurrent = plan.tier === tier.tier}
 				{@const label = tierLabel(plan.tier)}
 				{@const isDowngrade = label === 'Downgrade'}

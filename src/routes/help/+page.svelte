@@ -1,20 +1,19 @@
 <script lang="ts">
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	type HelpItem =
 		| { title: string; content: string; role?: undefined }
 		| { content: string; role: 'admin' | 'team-leader' | 'viewer'; title?: undefined };
 
-	let expandedSections = $state<Set<string>>(new Set(['getting-started']));
+	const expandedSections = new SvelteSet<string>(['getting-started']);
 
 	function toggleSection(section: string) {
-		const next = new Set(expandedSections);
-		if (next.has(section)) {
-			next.delete(section);
+		if (expandedSections.has(section)) {
+			expandedSections.delete(section);
 		} else {
-			next.add(section);
+			expandedSections.add(section);
 		}
-		expandedSections = next;
 	}
 
 	const sections: { id: string; title: string; icon: string; items: HelpItem[] }[] = [
@@ -486,7 +485,7 @@
 					</button>
 					{#if expandedSections.has(section.id)}
 						<div class="section-content">
-							{#each section.items as item}
+							{#each section.items as item, itemIndex (`${section.id}:${item.title ?? item.role}:${itemIndex}`)}
 								{#if item.role}
 									<div class="role-callout role-callout--{item.role}">
 										<span class="role-callout-label">

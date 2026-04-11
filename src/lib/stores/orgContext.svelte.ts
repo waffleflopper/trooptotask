@@ -45,30 +45,55 @@ export interface CreateOrgContextInput {
 	isReadOnly: boolean;
 }
 
+type OrgContextInputAccessor = () => CreateOrgContextInput;
+
+function toInputAccessor(input: CreateOrgContextInput | OrgContextInputAccessor): OrgContextInputAccessor {
+	return typeof input === 'function' ? input : () => input;
+}
+
 /**
  * Builds an OrgContext from layout data, deriving computed fields
  * (isOwner, isAdmin, isPrivileged, isFullEditor, readOnly).
  */
-export function createOrgContext(input: CreateOrgContextInput): OrgContext {
-	const isOwner = input.userRole === 'owner';
-	const isAdmin = input.userRole === 'admin';
-	const isPrivileged = isOwner || isAdmin;
-
-	// Full editor: non-privileged, non-scoped member with all edit permissions
-	const fullEditor = !isPrivileged && !input.scopedGroupId && checkFullEditor(input.permissions);
-
+export function createOrgContext(input: CreateOrgContextInput | OrgContextInputAccessor): OrgContext {
+	const getInput = toInputAccessor(input);
 	return {
-		orgId: input.orgId,
-		orgName: input.orgName,
-		userId: input.userId,
-		role: input.userRole,
-		isOwner,
-		isAdmin,
-		isPrivileged,
-		isFullEditor: fullEditor,
-		permissions: input.permissions,
-		scopedGroupId: input.scopedGroupId,
-		readOnly: input.isReadOnly
+		get orgId() {
+			return getInput().orgId;
+		},
+		get orgName() {
+			return getInput().orgName;
+		},
+		get userId() {
+			return getInput().userId;
+		},
+		get role() {
+			return getInput().userRole;
+		},
+		get isOwner() {
+			return getInput().userRole === 'owner';
+		},
+		get isAdmin() {
+			return getInput().userRole === 'admin';
+		},
+		get isPrivileged() {
+			const role = getInput().userRole;
+			return role === 'owner' || role === 'admin';
+		},
+		get isFullEditor() {
+			const current = getInput();
+			const isPrivileged = current.userRole === 'owner' || current.userRole === 'admin';
+			return !isPrivileged && !current.scopedGroupId && checkFullEditor(current.permissions);
+		},
+		get permissions() {
+			return getInput().permissions;
+		},
+		get scopedGroupId() {
+			return getInput().scopedGroupId;
+		},
+		get readOnly() {
+			return getInput().isReadOnly;
+		}
 	};
 }
 

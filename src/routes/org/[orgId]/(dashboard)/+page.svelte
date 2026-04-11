@@ -170,18 +170,15 @@
 	const workspacePending = $derived(!!data.dashboard?.data && dashboardBootstrap === null && workspaceError === null);
 	const summaryPending = $derived(!!data.summary && summaryData === null && summaryError === null);
 	const pending = $derived(workspacePending || summaryPending);
-	let ctx = $state<DashboardContext | null>(null);
+	const ctx = $derived(
+		dashboardBootstrap && summaryData
+			? new DashboardContext(toDashboardPageData(data, dashboardBootstrap, summaryData))
+			: null
+	);
 	const canLoadSupport = $derived(ctx ? shouldLoadWorkspaceSupport(ctx) : false);
 
 	// Track whether we've auto-shown What's New (must persist across re-renders)
 	const hasAutoShownWhatsNew = { value: false };
-
-	$effect.pre(() => {
-		ctx =
-			dashboardBootstrap && summaryData
-				? new DashboardContext(toDashboardPageData(data, dashboardBootstrap, summaryData))
-				: null;
-	});
 
 	$effect(() => {
 		ctx?.autoShowWhatsNew(hasAutoShownWhatsNew);

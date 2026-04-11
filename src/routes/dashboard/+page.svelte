@@ -155,7 +155,7 @@
 
 				{#if data.organizations.length > 0}
 					<div class="org-list">
-						{#each filteredOrgs as org}
+						{#each filteredOrgs as org (org.id)}
 							<a href="/org/{org.id}" class="org-item">
 								<div class="org-copy">
 									<span class="org-name">{org.name}</span>

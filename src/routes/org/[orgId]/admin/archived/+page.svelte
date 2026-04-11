@@ -7,21 +7,19 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
+	import { addMonths } from '$lib/utils/dates';
 
 	let { data } = $props();
 	const orgId = $derived($page.params.orgId);
 
 	let restoring = $state<string | null>(null);
-	let permanentlyDeleting = $state<string | null>(null);
 	let exporting = $state<string | null>(null);
 	let confirmPermanentDelete = $state<{ id: string; name: string } | null>(null);
 
 	type ArchivedPerson = (typeof data.archivedPersonnel)[number];
 
 	function daysUntilAutoDelete(archivedAt: string, retentionMonths: number): number {
-		const archiveDate = new Date(archivedAt);
-		const deleteDate = new Date(archiveDate);
-		deleteDate.setMonth(deleteDate.getMonth() + retentionMonths);
+		const deleteDate = addMonths(new Date(archivedAt), retentionMonths);
 		return Math.max(0, Math.ceil((deleteDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
 	}
 
@@ -89,7 +87,6 @@
 	}
 
 	async function handlePermanentDelete(id: string) {
-		permanentlyDeleting = id;
 		try {
 			const res = await fetch(`/org/${orgId}/api/personnel/permanent`, {
 				method: 'DELETE',
@@ -102,8 +99,6 @@
 			await invalidateAll();
 		} catch {
 			toastStore.error('Failed to permanently delete');
-		} finally {
-			permanentlyDeleting = null;
 		}
 	}
 

@@ -156,6 +156,24 @@ describe('createOrgContext', () => {
 		expect(ctx.userId).toBe('user-xyz');
 	});
 
+	it('can reflect updated layout data through an accessor input', () => {
+		let input = makeInput({ orgId: 'org-1', orgName: 'Alpha Co', userRole: 'member', permissions: viewerPermissions });
+
+		const ctx = createOrgContext(() => input);
+
+		expect(ctx.orgId).toBe('org-1');
+		expect(ctx.orgName).toBe('Alpha Co');
+		expect(ctx.isAdmin).toBe(false);
+		expect(ctx.permissions).toEqual(viewerPermissions);
+
+		input = makeInput({ orgId: 'org-2', orgName: 'Bravo Co', userRole: 'admin', permissions: fullPermissions });
+
+		expect(ctx.orgId).toBe('org-2');
+		expect(ctx.orgName).toBe('Bravo Co');
+		expect(ctx.isAdmin).toBe(true);
+		expect(ctx.permissions).toEqual(fullPermissions);
+	});
+
 	it('handles null userId', () => {
 		const ctx = createOrgContext(makeInput({ userId: null }));
 		expect(ctx.userId).toBeNull();

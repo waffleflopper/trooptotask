@@ -276,11 +276,12 @@ Searchable single-select with keyboard navigation and clear button. Use when `<s
 />
 ```
 
-Props: `options: { value: string; label: string }[]`, `value: string` (bindable), `placeholder?: string` (default `'Search...'`), `disabled?: boolean`, `onchange?: (value: string) => void`, `id?: string`, `ariaLabel?: string`
+Props: `options: { value: string; label: string }[]`, `value: string` (bindable), `placeholder?: string` (default `'Search...'`), `disabled?: boolean`, `clearable?: boolean`, `onchange?: (value: string) => void`, `id?: string`, `ariaLabel?: string`, `compact?: boolean`
 
 - Typing filters the dropdown; keyboard arrows + Enter to navigate; Escape to close
 - Shows a × clear button when a value is selected
 - Clears to `''` when cleared
+- Use `compact` inside dense grids or tables where the default field height is too tall
 - The control reuses shared field density/focus treatment, so prefer it over custom searchable listboxes
 
 ---

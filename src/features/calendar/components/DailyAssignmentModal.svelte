@@ -3,6 +3,7 @@
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
 	import Modal from '$lib/components/Modal.svelte';
+	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 
 	interface GroupData {
 		group: string;
@@ -69,6 +70,15 @@
 
 	const assignmentsForDate = $derived(assignments.filter((a) => a.date === dateStr));
 	const dutyEventsForDate = $derived(dutyEvents.filter((e) => eventCoversDate(e, dateStr)));
+	const personnelOptions = $derived(
+		personnelByGroup.flatMap((grp) =>
+			grp.personnel.map((person) => ({
+				value: person.id,
+				label: `${person.rank} ${person.lastName}, ${person.firstName}${grp.group ? ` - ${grp.group}` : ''}`
+			}))
+		)
+	);
+	const groupOptions = $derived(groups.map((group) => ({ value: group, label: group })));
 
 	function getCurrentAssignee(typeId: string): string {
 		const assignment = assignmentsForDate.find((a) => a.assignmentTypeId === typeId);
@@ -114,36 +124,21 @@
 				</div>
 
 				{#if type.assignTo === 'personnel'}
-					<select
-						class="select"
+					<SearchSelect
+						options={personnelOptions}
 						value={getCurrentAssignee(type.id)}
-						onchange={(e) => handleAssignmentChange(type.id, e.currentTarget.value)}
-					>
-						<option value="">-- Not Assigned --</option>
-						{#each personnelByGroup as grp}
-							{#if grp.personnel.length > 0}
-								<optgroup label={grp.group}>
-									{#each grp.personnel as person}
-										<option value={person.id}>
-											{person.rank}
-											{person.lastName}, {person.firstName}
-										</option>
-									{/each}
-								</optgroup>
-							{/if}
-						{/each}
-					</select>
+						placeholder="Not assigned"
+						ariaLabel={`Set ${type.name} assignee`}
+						onchange={(value) => handleAssignmentChange(type.id, value)}
+					/>
 				{:else}
-					<select
-						class="select"
+					<SearchSelect
+						options={groupOptions}
 						value={getCurrentAssignee(type.id)}
-						onchange={(e) => handleAssignmentChange(type.id, e.currentTarget.value)}
-					>
-						<option value="">-- Not Assigned --</option>
-						{#each groups as group}
-							<option value={group}>{group}</option>
-						{/each}
-					</select>
+						placeholder="Not assigned"
+						ariaLabel={`Set ${type.name} group`}
+						onchange={(value) => handleAssignmentChange(type.id, value)}
+					/>
 				{/if}
 			</div>
 		{/each}

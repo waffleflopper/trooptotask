@@ -13,6 +13,7 @@
 		onchange?: (value: string) => void;
 		id?: string;
 		ariaLabel?: string;
+		compact?: boolean;
 	}
 
 	let {
@@ -23,7 +24,8 @@
 		clearable = true,
 		onchange,
 		id = 'ss-' + Math.random().toString(36).slice(2, 8),
-		ariaLabel
+		ariaLabel,
+		compact = false
 	}: Props = $props();
 
 	let query = $state('');
@@ -174,7 +176,7 @@
 	});
 </script>
 
-<div class="search-select" class:disabled bind:this={containerEl}>
+<div class="search-select" class:disabled class:compact bind:this={containerEl}>
 	<div class="input-wrapper" class:open>
 		{#if open}
 			<input
@@ -316,6 +318,38 @@
 		color: var(--text-tertiary);
 		font-size: var(--text-base);
 		cursor: pointer;
+	}
+
+	.input-wrapper:has(.clear-btn) .display-btn {
+		padding-right: 42px;
+	}
+
+	.search-select.compact .search-input {
+		min-height: 32px;
+		padding: 6px 32px 6px 8px;
+		font-size: var(--text-sm);
+	}
+
+	.search-select.compact .display-btn {
+		min-height: 32px;
+		padding: 6px 30px 6px 8px;
+		font-size: var(--text-sm);
+	}
+
+	.search-select.compact .input-wrapper:has(.clear-btn) .display-btn {
+		padding-right: 36px;
+	}
+
+	.search-select.compact .display-icon {
+		width: 14px;
+		height: 14px;
+	}
+
+	.search-select.compact .clear-btn {
+		right: 5px;
+		width: 22px;
+		height: 22px;
+		font-size: 14px;
 	}
 
 	.display-btn.has-value {

@@ -124,7 +124,7 @@
 				<span class="toolbar-label">Active packets</span>
 				<strong>{filteredOnboardings.length}</strong>
 			</div>
-			{#if templateOptions.length > 2}
+			{#if templateOptions.length > 1}
 				<label class="toolbar-filter">
 					<span class="label">Template</span>
 					<select class="select" bind:value={selectedTemplateId}>

@@ -100,15 +100,15 @@
 
 	// Categorize personnel
 	const personnelBreakdown = $derived.by(() => {
-		const available: { person: Personnel; assignments: string[] }[] = [];
+		const available: { person: Personnel; assignments: { typeId: string; shortName: string }[] }[] = [];
 		const unavailable: { person: Personnel; statuses: { status: StatusType; entry: AvailabilityEntry }[] }[] = [];
 
 		// Find who has assignments today
-		const personnelAssignments = new SvelteMap<string, string[]>();
+		const personnelAssignments = new SvelteMap<string, { typeId: string; shortName: string }[]>();
 		for (const info of assignmentInfo) {
 			if (info.assignment && info.type.assignTo === 'personnel') {
 				const current = personnelAssignments.get(info.assignment.assigneeId) || [];
-				current.push(info.type.shortName);
+				current.push({ typeId: info.type.id, shortName: info.type.shortName });
 				personnelAssignments.set(info.assignment.assigneeId, current);
 			}
 		}
@@ -226,8 +226,8 @@
 											<span class="chip-rank">{person.rank}</span>
 											<span class="chip-name">{person.lastName}</span>
 											{#if assignments.length > 0}
-												{#each assignments as badge (badge)}
-													<span class="assignment-badge">{badge}</span>
+												{#each assignments as badge (badge.typeId)}
+													<span class="assignment-badge">{badge.shortName}</span>
 												{/each}
 											{/if}
 										</div>

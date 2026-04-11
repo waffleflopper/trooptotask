@@ -12,7 +12,7 @@
 
 	let displayYear = $derived(year);
 	let pickerEl = $state<HTMLDivElement | null>(null);
-	let monthButtons: Array<HTMLButtonElement | null> = [];
+	let monthButtons = $state<Array<HTMLButtonElement | null>>([]);
 	let hasAutoFocused = $state(false);
 
 	$effect(() => {

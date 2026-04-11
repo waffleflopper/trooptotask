@@ -5,10 +5,11 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let { data, form } = $props();
 
-	let searchInput = $state('');
+	let searchInput = $derived(data.search);
 	let loadingId = $state<string | null>(null);
 	let giftingOrgId = $state<string | null>(null);
 	let extendingOrgId = $state<string | null>(null);
@@ -16,12 +17,8 @@
 	let giftDays = $state(30);
 	let extendDays = $state(30);
 
-	$effect(() => {
-		searchInput = data.search;
-	});
-
 	function applySearch() {
-		const params = new URLSearchParams();
+		const params = new SvelteURLSearchParams();
 		if (searchInput) params.set('search', searchInput);
 		goto(`/admin/gifting?${params.toString()}`);
 	}

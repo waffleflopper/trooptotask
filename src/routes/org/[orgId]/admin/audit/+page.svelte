@@ -4,6 +4,7 @@
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let { data } = $props();
 
@@ -28,7 +29,7 @@
 	}
 
 	function setParam(key: string, value: string) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new SvelteURLSearchParams($page.url.searchParams);
 		if (value) {
 			params.set(key, value);
 		} else {
@@ -39,7 +40,7 @@
 	}
 
 	function goToPage(pageNum: number) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new SvelteURLSearchParams($page.url.searchParams);
 		params.set('page', pageNum.toString());
 		goto(`${$page.url.pathname}?${params.toString()}`, { noScroll: true, keepFocus: true });
 	}
@@ -86,7 +87,7 @@
 				<div class="filters">
 					<select value={data.actionFilter} onchange={(e) => setParam('action', e.currentTarget.value)} class="select">
 						<option value="">All Actions</option>
-						{#each data.availableActions as action}
+						{#each data.availableActions as action (action)}
 							<option value={action}>{formatAction(action)}</option>
 						{/each}
 					</select>

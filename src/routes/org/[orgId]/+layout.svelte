@@ -15,36 +15,38 @@
 	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 	import { changelog } from '$lib/data/changelog';
 	import { browser } from '$app/environment';
+	import type { OrganizationMemberPermissions } from '$lib/types';
 
 	let { children, data } = $props();
 
+	const NO_PERMISSIONS: OrganizationMemberPermissions = {
+		canViewCalendar: false,
+		canEditCalendar: false,
+		canViewPersonnel: false,
+		canEditPersonnel: false,
+		canViewTraining: false,
+		canEditTraining: false,
+		canViewOnboarding: false,
+		canEditOnboarding: false,
+		canViewLeadersBook: false,
+		canEditLeadersBook: false,
+		canManageMembers: false
+	};
+
 	// Set OrgContext so child pages can call getOrgContext()
 	setOrgContext(
-		createOrgContext({
+		createOrgContext(() => ({
 			orgId: data.orgId ?? '',
 			orgName: data.orgName ?? '',
 			userId: data.userId ?? null,
 			userRole: data.userRole ?? 'member',
-			permissions: data.permissions ?? {
-				canViewCalendar: false,
-				canEditCalendar: false,
-				canViewPersonnel: false,
-				canEditPersonnel: false,
-				canViewTraining: false,
-				canEditTraining: false,
-				canViewOnboarding: false,
-				canEditOnboarding: false,
-				canViewLeadersBook: false,
-				canEditLeadersBook: false,
-				canManageMembers: false
-			},
+			permissions: data.permissions ?? NO_PERMISSIONS,
 			scopedGroupId: data.scopedGroupId ?? null,
 			isReadOnly: data.effectiveTier?.isReadOnly ?? false
-		})
+		}))
 	);
 
 	let showFeedback = $state(false);
-	let announcementCount = $state(0);
 
 	function closeWhatsNew() {
 		whatsNewStore.close();
@@ -128,7 +130,7 @@
 		{/if}
 		<SubscriptionBanner orgId={data.orgId} />
 		{#if data.activeAnnouncements?.length}
-			<AnnouncementBanner announcements={data.activeAnnouncements} onCountChange={(n) => (announcementCount = n)} />
+			<AnnouncementBanner announcements={data.activeAnnouncements} />
 		{/if}
 	</BannerStack>
 

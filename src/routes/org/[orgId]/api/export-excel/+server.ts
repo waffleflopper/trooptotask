@@ -90,14 +90,6 @@ export const POST = handle<ExcelExportInput, ExcelExportOutput>({
 				ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId)
 			]);
 
-			const onboardingIds = personnelOnboardings.map((o) => (o as { id: string }).id);
-			const onboardingProgress =
-				onboardingIds.length > 0
-					? await ctx.rawStore.findMany<Record<string, unknown>>('onboarding_step_progress', orgId, undefined, {
-							inFilters: { onboarding_id: onboardingIds }
-						})
-					: [];
-
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const personnelRows = personnel as any[];
 

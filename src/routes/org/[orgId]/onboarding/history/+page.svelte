@@ -15,11 +15,12 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	let { data } = $props();
 
 	let expandedOnboardingId = $state<string | null>(null);
-	let expandedNotes = $state<Set<string>>(new Set());
+	const expandedNotes = new SvelteSet<string>();
 
 	const historyOnboardings = $derived(
 		onboardingStore.items.filter((o) => o.status === 'completed' || o.status === 'cancelled')
@@ -32,10 +33,8 @@
 	}
 
 	function toggleNotes(stepId: string) {
-		const newSet = new Set(expandedNotes);
-		if (newSet.has(stepId)) newSet.delete(stepId);
-		else newSet.add(stepId);
-		expandedNotes = newSet;
+		if (expandedNotes.has(stepId)) expandedNotes.delete(stepId);
+		else expandedNotes.add(stepId);
 	}
 </script>
 
@@ -188,7 +187,7 @@
 												{#if expandedNotes.has(step.id)}
 													<div class="step-notes">
 														<div class="notes-list">
-															{#each step.notes as note}
+															{#each step.notes as note, noteIndex (`${note.timestamp}:${note.userId}:${note.text}:${noteIndex}`)}
 																<div class="note-item">
 																	<span class="note-text">{note.text}</span>
 																	<span class="note-time">{formatTimestamp(note.timestamp)}</span>

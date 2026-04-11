@@ -34,13 +34,9 @@
 		})
 	);
 
-	let ctx = $state(
+	const ctx = $derived(
 		new PersonnelPageContext(pageData, modals, org, personnelStore, ratingSchemeStore, pinnedGroupsStore)
 	);
-
-	$effect.pre(() => {
-		ctx = new PersonnelPageContext(pageData, modals, org, personnelStore, ratingSchemeStore, pinnedGroupsStore);
-	});
 
 	function setPageView(view: 'roster' | 'rating-scheme') {
 		if (view === getPageViewFromUrl()) return;

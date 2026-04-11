@@ -4,11 +4,7 @@
 
 	let { data }: { data: PageData } = $props();
 
-	let mfaEnabled = $state(false);
-
-	$effect(() => {
-		mfaEnabled = data.hasMFA;
-	});
+	let mfaEnabled = $derived(data.hasMFA);
 	let enrolling = $state(false);
 	let qrCode = $state('');
 	let factorId = $state('');

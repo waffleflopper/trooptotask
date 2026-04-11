@@ -352,6 +352,25 @@ describe('useDataTable', () => {
 		expect(table.groups.map((g) => g.key)).toEqual(['C', 'B', 'A']);
 	});
 
+	test('groups can be supplied from a reactive getter', () => {
+		let groupBy = { key: (r: TestRow) => r.group };
+		const table = useDataTable({
+			data: () => testData,
+			columns,
+			groupBy: () => groupBy
+		});
+
+		expect(table.groups.map((g) => g.key)).toEqual(['A', 'B', 'C']);
+
+		groupBy = {
+			key: (r: TestRow) => (r.age >= 30 ? '30+' : 'under-30')
+		};
+
+		expect(table.groups.map((g) => g.key)).toEqual(['30+', 'under-30']);
+		expect(table.groups[0].rows.map((r) => r.name)).toEqual(['Alice', 'Charlie', 'Eve']);
+		expect(table.groups[1].rows.map((r) => r.name)).toEqual(['Bob', 'Diana']);
+	});
+
 	test('toggleGroup collapses and expands', () => {
 		const table = useDataTable({
 			data: () => testData,

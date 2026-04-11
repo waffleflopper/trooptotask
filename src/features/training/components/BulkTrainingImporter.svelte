@@ -95,9 +95,6 @@
 			cellErrors.status = 'Date or status is required';
 		}
 
-		let resolvedStatus: 'completed' | 'exempt' | null = null;
-		let resolvedDate: string | null = null;
-
 		if (statusRaw && trainingType) {
 			const parsed = parseTrainingStatus(statusRaw);
 
@@ -109,9 +106,6 @@
 			} else if (parsed.type === 'exempt') {
 				if (!trainingType.canBeExempted) {
 					cellErrors.status = 'This training type does not allow exemptions';
-				} else {
-					resolvedStatus = 'exempt';
-					resolvedDate = null;
 				}
 			} else if (parsed.type === 'completed') {
 				// yes/true/done — completion flag without a specific date
@@ -119,13 +113,7 @@
 					cellErrors.status = `${trainingType.name} requires an expiration date, not yes/no`;
 				} else if (trainingType.expirationMonths !== null) {
 					cellErrors.status = `${trainingType.name} requires a completion date, not yes/no`;
-				} else {
-					resolvedStatus = 'completed';
-					resolvedDate = parsed.date; // today
 				}
-			} else if (parsed.type === 'date') {
-				resolvedStatus = 'completed';
-				resolvedDate = parsed.date;
 			}
 		}
 

@@ -1,13 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Personnel } from '$lib/types';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
-import {
-	computeReadinessDashboard,
-	filterPersonnel,
-	buildPivotTable,
-	generatePivotCSV,
-	type ReportFilters
-} from './reportCalculations';
+import { computeReadinessDashboard, filterPersonnel, buildPivotTable, generatePivotCSV } from './reportCalculations';
 
 function makeType(overrides: Partial<TrainingType> = {}): TrainingType {
 	return {

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
-	import type { TrainingView } from '$features/training/training.types';
 
 	interface Props {
 		selectedViewId: string | null;

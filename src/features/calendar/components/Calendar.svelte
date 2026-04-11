@@ -15,9 +15,10 @@
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 
 	const GROUP_ROW_HEIGHT = 35;
-	const PERSON_ROW_HEIGHT = 46;
+	const PERSON_ROW_HEIGHT_WITH_ROLES = 46;
+	const PERSON_ROW_HEIGHT_WITHOUT_ROLES = 36;
 	const DEFAULT_VIEWPORT_HEIGHT = 720;
-	const ROW_OVERSCAN_PX = PERSON_ROW_HEIGHT * 8;
+	const ROW_OVERSCAN_COUNT = 8;
 
 	interface GroupData {
 		group: string;
@@ -42,6 +43,7 @@
 		highlightOnboarding?: boolean;
 		canEdit?: boolean;
 		showStatusText?: boolean;
+		showPersonnelRoles?: boolean;
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;
@@ -73,6 +75,7 @@
 		highlightOnboarding = true,
 		canEdit = true,
 		showStatusText = false,
+		showPersonnelRoles = true,
 		onPrevMonth,
 		onNextMonth,
 		onGoToToday,
@@ -147,6 +150,8 @@
 	const onboardingSet = $derived(new Set(activeOnboardingPersonnelIds));
 
 	const totalPersonnel = $derived(personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0));
+	const personRowHeight = $derived(showPersonnelRoles ? PERSON_ROW_HEIGHT_WITH_ROLES : PERSON_ROW_HEIGHT_WITHOUT_ROLES);
+	const rowOverscanPx = $derived(personRowHeight * ROW_OVERSCAN_COUNT);
 
 	const rosterRows = $derived.by(() => {
 		const rows: (
@@ -169,7 +174,7 @@
 					type: 'person',
 					key: `person:${person.id}`,
 					person,
-					height: PERSON_ROW_HEIGHT
+					height: personRowHeight
 				});
 			}
 		}
@@ -180,7 +185,7 @@
 	const rosterLayout = $derived.by(() => buildVirtualRowLayout(rosterRows));
 
 	const visibleRosterRows = $derived.by(() =>
-		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, ROW_OVERSCAN_PX)
+		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, rowOverscanPx)
 	);
 
 	// Pre-index availability entries by personnel ID for O(1) lookup per person
@@ -262,7 +267,7 @@
 		style="
 			--dates-count: {dates.length};
 			--calendar-group-row-height: {GROUP_ROW_HEIGHT}px;
-			--calendar-person-row-height: {PERSON_ROW_HEIGHT}px;
+			--calendar-person-row-height: {personRowHeight}px;
 		"
 		bind:this={calendarBodyEl}
 		onscroll={handleScroll}
@@ -306,6 +311,7 @@
 									personAssignments={assignmentsByPerson.get(row.person.id) ?? []}
 									personDutyBadges={dutyBadgesByPerson.get(row.person.id) ?? new Map<string, DutyEventBadge[]>()}
 									{showStatusText}
+									{showPersonnelRoles}
 									isOnboarding={onboardingSet.has(row.person.id)}
 									{highlightOnboarding}
 									onCellClick={canEdit ? onCellClick : undefined}

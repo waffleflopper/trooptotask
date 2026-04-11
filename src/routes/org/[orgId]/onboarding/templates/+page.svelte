@@ -67,9 +67,9 @@
 
 	// --- Step type config ---
 	const STEP_TYPE_COLORS: Record<OnboardingStepType, string> = {
-		checkbox: '#6b7280',
-		paperwork: '#3b82f6',
-		training: '#22c55e'
+		checkbox: 'var(--text-secondary)',
+		paperwork: 'var(--amber-dark)',
+		training: 'var(--info)'
 	};
 
 	const STEP_TYPE_LABELS: Record<OnboardingStepType, string> = {
@@ -397,7 +397,17 @@
 										onclick={() => startRename(template)}
 										aria-label="Rename template"
 									>
-										&#9998;
+										<svg
+											viewBox="0 0 14 14"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="1.5"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											width="14"
+											height="14"
+											aria-hidden="true"><path d="M9.5 1.5l3 3-7.5 7.5H2.5V9.5L10 2z" /></svg
+										>
 									</button>
 									<button
 										class="btn-ghost btn-icon btn-icon-danger"
@@ -410,7 +420,17 @@
 											})}
 										aria-label="Delete template"
 									>
-										&#128465;
+										<svg
+											viewBox="0 0 14 14"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="1.5"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											width="14"
+											height="14"
+											aria-hidden="true"><path d="M2 3.5h10M5.5 3.5V2h3v1.5M3 3.5l1 8.5h6l1-8.5" /></svg
+										>
 									</button>
 								</div>
 							{/if}
@@ -490,7 +510,17 @@
 													onclick={() => startEditStep(step)}
 													aria-label="Edit step"
 												>
-													&#9998;
+													<svg
+														viewBox="0 0 14 14"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="1.5"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														width="14"
+														height="14"
+														aria-hidden="true"><path d="M9.5 1.5l3 3-7.5 7.5H2.5V9.5L10 2z" /></svg
+													>
 												</button>
 												<button
 													class="btn-ghost btn-icon btn-icon-danger"
@@ -503,7 +533,17 @@
 														})}
 													aria-label="Delete step"
 												>
-													&#128465;
+													<svg
+														viewBox="0 0 14 14"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="1.5"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														width="14"
+														height="14"
+														aria-hidden="true"><path d="M2 3.5h10M5.5 3.5V2h3v1.5M3 3.5l1 8.5h6l1-8.5" /></svg
+													>
 												</button>
 											</div>
 										{/if}

@@ -30,9 +30,11 @@
 
 	async function handleSubmit(personData: Omit<Personnel, 'id'>) {
 		if (editingPerson) {
-			await personnelStore.update(editingPerson.id, personData);
+			const updated = await personnelStore.update(editingPerson.id, personData);
+			if (!updated) throw new Error('Failed to update personnel');
 		} else {
-			await personnelStore.add(personData);
+			const created = await personnelStore.add(personData);
+			if (!created) throw new Error('Failed to add personnel');
 		}
 	}
 
@@ -86,9 +88,11 @@
 
 	async function handleSaveRatingEntry(entryData: Omit<RatingSchemeEntry, 'id'>) {
 		if (editingEntry) {
-			await ratingSchemeStore.update(editingEntry.id, entryData);
+			const updated = await ratingSchemeStore.update(editingEntry.id, entryData);
+			if (!updated) throw new Error('Failed to update rating entry');
 		} else {
-			await ratingSchemeStore.add(entryData);
+			const created = await ratingSchemeStore.add(entryData);
+			if (!created) throw new Error('Failed to add rating entry');
 		}
 	}
 

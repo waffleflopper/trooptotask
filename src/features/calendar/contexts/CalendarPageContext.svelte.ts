@@ -20,6 +20,16 @@ import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
+type MatchMediaFn = (query: string) => { matches: boolean };
+
+function getDefaultMatchMedia(): MatchMediaFn | null {
+	if (!browser || typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+		return null;
+	}
+
+	return window.matchMedia.bind(window);
+}
+
 // ---------------------------------------------------------------------------
 // Page data shape (subset of layout + page server data)
 // ---------------------------------------------------------------------------
@@ -68,6 +78,7 @@ export class CalendarPageContext {
 
 	// ---- display prefs -----------------------------------------------------
 	showStatusText = $state(false);
+	showPersonnelRoles = $state(true);
 	highlightOnboarding = $state(true);
 	breakdownExpanded = $state(true);
 	dutyStartDayOnly = $state(true);
@@ -148,10 +159,11 @@ export class CalendarPageContext {
 
 	syncUserPreferences(
 		preferences: UserOrgPreferences | undefined,
-		matchMediaFn: ((query: string) => { matches: boolean }) | null = browser ? window.matchMedia.bind(window) : null
+		matchMediaFn: MatchMediaFn | null = getDefaultMatchMedia()
 	): void {
 		const current = preferences ?? getDefaultUserOrgPreferences();
 		this.showStatusText = current.calendar.showStatusText;
+		this.showPersonnelRoles = current.calendar.showPersonnelRoles;
 		this.highlightOnboarding = current.calendar.highlightOnboarding;
 		this.dutyStartDayOnly = current.calendar.dutyStartDayOnly ?? true;
 		this.breakdownExpanded =
@@ -199,6 +211,15 @@ export class CalendarPageContext {
 		void this.persistPreferences({
 			calendar: {
 				showStatusText: this.showStatusText
+			}
+		});
+	}
+
+	toggleShowPersonnelRoles(): void {
+		this.showPersonnelRoles = !this.showPersonnelRoles;
+		void this.persistPreferences({
+			calendar: {
+				showPersonnelRoles: this.showPersonnelRoles
 			}
 		});
 	}

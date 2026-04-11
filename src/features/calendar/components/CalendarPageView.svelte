@@ -12,6 +12,7 @@
 	import SkeletonLine from '$lib/components/ui/SkeletonLine.svelte';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
 	import { exportMonthToCSV, printMonthCalendar } from '$features/calendar/utils/calendarExport';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -50,16 +51,19 @@
 			readOnly: ctx.readOnly,
 			breakdownExpanded: ctx.breakdownExpanded,
 			showStatusText: ctx.showStatusText,
+			showPersonnelRoles: ctx.showPersonnelRoles,
 			dutyStartDayOnly: ctx.dutyStartDayOnly,
+			viewMode: ctx.viewMode,
 			onToggleBreakdown: () => ctx.toggleBreakdown(),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
+			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
 			onToggleDutyStartDayOnly: () => ctx.toggleDutyStartDayOnly(),
 			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
 			onExportPDF: async () => {
 				try {
 					await printMonthCalendar(calendarStore.year, calendarStore.month, getExportData());
 				} catch (err) {
-					alert(err instanceof Error ? err.message : 'PDF export failed');
+					toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
 				}
 			}
 		})
@@ -72,17 +76,19 @@
 
 <div class="page">
 	<SmartToolbar title="Calendar" helpTopic="calendar" items={toolbarItems}>
-		<button
-			class="toolbar-toggle"
-			class:active={ctx.highlightOnboarding}
-			onclick={() => ctx.toggleHighlightOnboarding()}
-			title={ctx.highlightOnboarding ? 'Hide onboarding highlighting' : 'Show onboarding highlighting'}
-		>
-			<span class="toggle-dot"></span>
-			Onboarding
-		</button>
+		{#if ctx.activeOnboardingPersonnelIds.length > 0}
+			<button
+				class="toolbar-toggle"
+				class:active={ctx.highlightOnboarding}
+				onclick={() => ctx.toggleHighlightOnboarding()}
+				title={ctx.highlightOnboarding ? 'Hide onboarding highlighting' : 'Show onboarding highlighting'}
+			>
+				<span class="toggle-dot"></span>
+				Onboarding
+			</button>
+		{/if}
 		{#if ctx.readOnly}
-			<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
+			<span class="text-muted" style="font-size: var(--text-xs);">View only</span>
 		{/if}
 	</SmartToolbar>
 
@@ -163,6 +169,7 @@
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={data.permissions?.canEditCalendar ?? false}
 						showStatusText={ctx.showStatusText}
+						showPersonnelRoles={ctx.showPersonnelRoles}
 						personnelHref={`/org/${data.orgId}/personnel`}
 						onPrevMonth={() => calendarStore.prevMonth()}
 						onNextMonth={() => calendarStore.nextMonth()}

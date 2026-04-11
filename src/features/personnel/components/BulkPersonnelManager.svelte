@@ -22,7 +22,7 @@
 		groups: Group[];
 		orgId: string;
 		onImportComplete: () => void;
-		onBulkDelete: (ids: string[]) => void;
+		onBulkDelete: (ids: string[]) => void | Promise<void>;
 		onClose: () => void;
 	}
 
@@ -343,8 +343,8 @@
 		}
 	}
 
-	function doArchive() {
-		onBulkDelete([...selectedIds]);
+	async function doArchive() {
+		await onBulkDelete([...selectedIds]);
 		selectedIds.clear();
 		showArchiveConfirm = false;
 	}
@@ -362,7 +362,8 @@
 	{onClose}
 	width={modalWidth}
 	titleId="bulk-personnel-title"
-	showCloseButton={false}
+	canClose={importStep !== 'importing'}
+	showCloseButton={importStep !== 'importing'}
 >
 	<div class="bulk-content">
 		<div class="tabs">
@@ -406,7 +407,7 @@
 									class="file-input"
 									id="fileUpload"
 								/>
-								<label for="fileUpload" class="btn btn-secondary upload-btn">
+								<button class="btn btn-secondary upload-btn" type="button" onclick={() => fileInput?.click()}>
 									<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
 										<path
 											fill-rule="evenodd"
@@ -415,7 +416,7 @@
 										/>
 									</svg>
 									Choose File
-								</label>
+								</button>
 								{#if uploadedFileName}
 									<span class="file-name">{uploadedFileName}</span>
 									<button class="btn btn-secondary btn-sm" type="button" onclick={clearFile}>Clear</button>
@@ -595,28 +596,25 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 
 						{#snippet groupHeader(group)}
 							{@const selState = getArchiveGroupSelectionState(group.key)}
-							<div
-								class="archive-group-header"
-								role="button"
-								tabindex="0"
-								onclick={() => group.toggle()}
-								onkeydown={(event) => {
-									if (event.key === 'Enter' || event.key === ' ') {
-										event.preventDefault();
-										group.toggle();
-									}
-								}}
-							>
+							<div class="archive-group-header">
 								<input
 									type="checkbox"
+									aria-label={`Select ${group.label} group`}
 									checked={selState === 'all'}
 									indeterminate={selState === 'some'}
 									onchange={() => toggleArchiveGroup(group.key)}
 									onclick={(event) => event.stopPropagation()}
 								/>
-								<span class="archive-group-chevron">{group.collapsed ? '▶' : '▼'}</span>
-								<span class="archive-group-label">{group.label}</span>
-								<span class="archive-group-count">{group.count}</span>
+								<button
+									class="archive-group-toggle"
+									type="button"
+									aria-expanded={!group.collapsed}
+									onclick={group.toggle}
+								>
+									<span class="archive-group-chevron">{group.collapsed ? '▶' : '▼'}</span>
+									<span class="archive-group-label">{group.label}</span>
+									<span class="archive-group-count">{group.count}</span>
+								</button>
 							</div>
 						{/snippet}
 
@@ -684,7 +682,7 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 {#if showArchiveConfirm}
 	<ConfirmDialog
 		title="Archive Personnel"
-		message="Archive {selectedIds.size} personnel? They will be hidden from all active views."
+		message="Archive {selectedIds.size} personnel? They will leave active rosters, calendars, and reports. Records are not erased, and some archives may require approval."
 		confirmLabel="Archive"
 		variant="warning"
 		onConfirm={doArchive}
@@ -1092,8 +1090,27 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 		display: flex;
 		align-items: center;
 		gap: var(--sp-2);
-		padding: var(--sp-3) var(--sp-4);
+		padding: var(--sp-2) var(--sp-4);
+	}
+
+	.archive-group-toggle {
+		appearance: none;
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+		min-height: 32px;
+		padding: 0;
+		border: none;
+		background: transparent;
 		cursor: pointer;
+		text-align: left;
+	}
+
+	.archive-group-toggle:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+		box-shadow: var(--focus-ring);
 	}
 
 	.archive-group-chevron {

@@ -12,6 +12,8 @@
 		clearable?: boolean;
 		onchange?: (value: string) => void;
 		id?: string;
+		ariaLabel?: string;
+		compact?: boolean;
 	}
 
 	let {
@@ -21,16 +23,23 @@
 		disabled = false,
 		clearable = true,
 		onchange,
-		id = 'ss-' + Math.random().toString(36).slice(2, 8)
+		id = 'ss-' + Math.random().toString(36).slice(2, 8),
+		ariaLabel,
+		compact = false
 	}: Props = $props();
 
 	let query = $state('');
 	let open = $state(false);
 	let inputEl = $state<HTMLInputElement | null>(null);
 	let listEl = $state<HTMLUListElement | null>(null);
+	let containerEl = $state<HTMLDivElement | null>(null);
+	let dropdownStyle = $state('');
 	let highlightIndex = $state(-1);
 	const listboxId = $derived(`${id}-listbox`);
 	const activeDescendant = $derived(highlightIndex >= 0 ? `${id}-option-${highlightIndex}` : undefined);
+	const dropdownGap = 4;
+	const dropdownViewportPadding = 8;
+	const dropdownMaxHeight = 240;
 
 	const selectedLabel = $derived(options.find((o) => o.value === value)?.label ?? '');
 
@@ -40,8 +49,25 @@
 		return options.filter((o) => o.label.toLowerCase().includes(q));
 	});
 
+	function computeDropdownPosition() {
+		if (!containerEl) return;
+		const rect = containerEl.getBoundingClientRect();
+		const spaceAbove = Math.max(rect.top - dropdownViewportPadding, 0);
+		const spaceBelow = Math.max(window.innerHeight - rect.bottom - dropdownViewportPadding, 0);
+		const openAbove = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+		const availableSpace = openAbove ? spaceAbove : spaceBelow;
+		const maxHeight = Math.min(dropdownMaxHeight, availableSpace);
+
+		if (openAbove) {
+			dropdownStyle = `position:fixed;top:auto;bottom:${window.innerHeight - rect.top + dropdownGap}px;left:${rect.left}px;right:auto;width:${rect.width}px;max-height:${maxHeight}px;`;
+		} else {
+			dropdownStyle = `position:fixed;top:${rect.bottom + dropdownGap}px;bottom:auto;left:${rect.left}px;right:auto;width:${rect.width}px;max-height:${maxHeight}px;`;
+		}
+	}
+
 	function handleFocus() {
 		if (disabled) return;
+		computeDropdownPosition();
 		open = true;
 		query = '';
 		highlightIndex = -1;
@@ -63,12 +89,23 @@
 		inputEl?.blur();
 	}
 
-	function clearSelection(e: MouseEvent) {
-		e.stopPropagation();
-		e.preventDefault();
+	function clearSelection() {
 		value = '';
 		onchange?.('');
 		query = '';
+	}
+
+	function handleClearMousedown(e: MouseEvent) {
+		e.stopPropagation();
+		e.preventDefault();
+		clearSelection();
+	}
+
+	function handleClearClick(e: MouseEvent) {
+		e.stopPropagation();
+		if (e.detail !== 0) return;
+		e.preventDefault();
+		clearSelection();
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -105,9 +142,41 @@
 		const item = listEl.children[highlightIndex] as HTMLElement | undefined;
 		item?.scrollIntoView({ block: 'nearest' });
 	}
+
+	$effect(() => {
+		if (!open) return;
+
+		computeDropdownPosition();
+	});
+
+	$effect(() => {
+		if (!open) return;
+
+		const handleViewportChange = (event?: Event) => {
+			if (event?.target instanceof Node && listEl?.contains(event.target)) return;
+			computeDropdownPosition();
+		};
+
+		window.addEventListener('resize', handleViewportChange);
+		window.addEventListener('scroll', handleViewportChange, { capture: true, passive: true });
+
+		let resizeObserver: ResizeObserver | null = null;
+		if (typeof ResizeObserver !== 'undefined' && containerEl) {
+			resizeObserver = new ResizeObserver(() => {
+				computeDropdownPosition();
+			});
+			resizeObserver.observe(containerEl);
+		}
+
+		return () => {
+			window.removeEventListener('resize', handleViewportChange);
+			window.removeEventListener('scroll', handleViewportChange, { capture: true });
+			resizeObserver?.disconnect();
+		};
+	});
 </script>
 
-<div class="search-select" class:disabled>
+<div class="search-select" class:disabled class:compact bind:this={containerEl}>
 	<div class="input-wrapper" class:open>
 		{#if open}
 			<input
@@ -122,6 +191,7 @@
 				onkeydown={handleKeydown}
 				{disabled}
 				role="combobox"
+				aria-label={ariaLabel}
 				aria-expanded={open}
 				aria-controls={listboxId}
 				aria-autocomplete="list"
@@ -133,12 +203,15 @@
 				class="display-btn"
 				class:has-value={!!value}
 				onclick={() => {
-					if (!disabled) inputEl?.focus();
-					open = true;
-					setTimeout(() => inputEl?.focus(), 0);
+					if (!disabled) {
+						computeDropdownPosition();
+						open = true;
+						setTimeout(() => inputEl?.focus(), 0);
+					}
 				}}
 				{disabled}
 				type="button"
+				aria-label={ariaLabel}
 				aria-haspopup="listbox"
 				aria-expanded={open}
 				aria-controls={listboxId}
@@ -149,7 +222,13 @@
 				</svg>
 			</button>
 			{#if value && !disabled && clearable}
-				<button class="clear-btn" type="button" onmousedown={clearSelection} tabindex="-1" aria-label="Clear selection">
+				<button
+					class="clear-btn"
+					type="button"
+					onmousedown={handleClearMousedown}
+					onclick={handleClearClick}
+					aria-label="Clear selection"
+				>
 					<span aria-hidden="true">&times;</span>
 				</button>
 			{/if}
@@ -157,7 +236,7 @@
 	</div>
 
 	{#if open}
-		<ul class="dropdown" bind:this={listEl} id={listboxId} role="listbox">
+		<ul class="dropdown" style={dropdownStyle} bind:this={listEl} id={listboxId} role="listbox">
 			{#if filtered.length === 0}
 				<li class="no-results">No matches</li>
 			{:else}
@@ -241,6 +320,38 @@
 		cursor: pointer;
 	}
 
+	.input-wrapper:has(.clear-btn) .display-btn {
+		padding-right: 42px;
+	}
+
+	.search-select.compact .search-input {
+		min-height: 32px;
+		padding: 6px 32px 6px 8px;
+		font-size: var(--text-sm);
+	}
+
+	.search-select.compact .display-btn {
+		min-height: 32px;
+		padding: 6px 30px 6px 8px;
+		font-size: var(--text-sm);
+	}
+
+	.search-select.compact .input-wrapper:has(.clear-btn) .display-btn {
+		padding-right: 36px;
+	}
+
+	.search-select.compact .display-icon {
+		width: 14px;
+		height: 14px;
+	}
+
+	.search-select.compact .clear-btn {
+		right: 5px;
+		width: 22px;
+		height: 22px;
+		font-size: 14px;
+	}
+
 	.display-btn.has-value {
 		color: var(--text-primary);
 	}
@@ -286,10 +397,7 @@
 	}
 
 	.dropdown {
-		position: absolute;
-		top: calc(100% + 4px);
-		left: 0;
-		right: 0;
+		position: fixed;
 		z-index: var(--z-dropdown);
 		max-height: 240px;
 		overflow-y: auto;

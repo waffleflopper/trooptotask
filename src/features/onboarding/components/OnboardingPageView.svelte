@@ -3,7 +3,6 @@
 	import { STEP_TYPE_LABELS, MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -114,14 +113,10 @@
 									</div>
 								</div>
 								<div class="card-progress">
-									<span class="progress-label">Progress</span>
 									<div class="progress-bar">
 										<div class="progress-fill" class:progress-complete={pct === 100} style="width: {pct}%"></div>
 									</div>
 									<span class="progress-text">{progress.completed}/{progress.total} complete</span>
-								</div>
-								<div class="card-status">
-									<Badge label="In Progress" color="var(--info)" />
 								</div>
 							</button>
 
@@ -384,8 +379,7 @@
 		pointer-events: none;
 	}
 
-	.notice-label,
-	.progress-label {
+	.notice-label {
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
@@ -554,10 +548,6 @@
 		font-size: var(--text-xs);
 		color: var(--text-secondary);
 		white-space: nowrap;
-	}
-
-	.card-status {
-		flex-shrink: 0;
 	}
 
 	.card-detail {
@@ -833,10 +823,6 @@
 			align-items: flex-start;
 			width: 100%;
 			min-width: 0;
-		}
-
-		.card-status {
-			margin-left: auto;
 		}
 	}
 

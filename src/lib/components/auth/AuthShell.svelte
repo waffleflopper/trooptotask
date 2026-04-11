@@ -38,8 +38,6 @@
 </script>
 
 <div class="auth-shell">
-	<div class="auth-shell__backdrop" aria-hidden="true"></div>
-
 	<div class="auth-shell__frame">
 		<header class="auth-shell__topbar">
 			<a href="/" class="auth-shell__brand">
@@ -88,7 +86,7 @@
 		<main class="auth-shell__main">
 			<section class="auth-shell__intro" aria-labelledby="auth-shell-intro-title">
 				<p class="auth-shell__eyebrow">{eyebrow}</p>
-				<h2 id="auth-shell-intro-title" class="auth-shell__title">{title}</h2>
+				<h1 id="auth-shell-intro-title" class="auth-shell__title">{title}</h1>
 				{#if description}
 					<p class="auth-shell__description">{description}</p>
 				{/if}
@@ -119,7 +117,7 @@
 					{#if panelEyebrow}
 						<p class="auth-shell__panel-eyebrow">{panelEyebrow}</p>
 					{/if}
-					<h1 id="auth-panel-title" class="auth-shell__panel-title">{resolvedPanelTitle}</h1>
+					<h2 id="auth-panel-title" class="auth-shell__panel-title">{resolvedPanelTitle}</h2>
 					{#if panelDescription}
 						<p class="auth-shell__panel-description">{panelDescription}</p>
 					{/if}

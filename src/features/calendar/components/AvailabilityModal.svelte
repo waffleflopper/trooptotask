@@ -6,6 +6,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -81,6 +82,7 @@
 			year: 'numeric'
 		})
 	);
+	const statusOptions = $derived(statusTypes.map((status) => ({ value: status.id, label: status.name })));
 
 	const dateError = $derived.by(() => {
 		if (startDate && endDate && startDate > endDate) {
@@ -122,6 +124,7 @@
 			endDate,
 			note: note.trim() || null
 		};
+		const wasEditing = !!editingEntry;
 
 		if (editingEntry) {
 			// Remove the old entry from local state immediately
@@ -136,7 +139,17 @@
 			localEntries = [...localEntries, tempEntry];
 		}
 		onAdd(newData);
-		toastStore.success(editingEntry ? 'Status updated' : 'Status added');
+
+		const statusName = statusTypes.find((s) => s.id === newData.statusTypeId)?.name ?? 'Status';
+		const dateLabel =
+			newData.startDate === newData.endDate
+				? new Date(newData.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+				: `${new Date(newData.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–${new Date(newData.endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
+		toastStore.success(
+			wasEditing ? `${statusName} updated — ${dateLabel}` : `${statusName} added — ${dateLabel}`,
+			5000
+		);
 
 		// Reset form
 		selectedStatusId = statusTypes[0]?.id ?? '';
@@ -279,11 +292,14 @@
 		<div class="form-group">
 			<label class="label" for="statusType">Status Type <span class="required">*</span></label>
 			<div class="status-select-row">
-				<select id="statusType" class="select" bind:value={selectedStatusId}>
-					{#each statusTypes as status}
-						<option value={status.id}>{status.name}</option>
-					{/each}
-				</select>
+				<SearchSelect
+					id="statusType"
+					options={statusOptions}
+					bind:value={selectedStatusId}
+					placeholder="Select status..."
+					ariaLabel="Status type"
+					clearable={false}
+				/>
 				{#if selectedStatusId}
 					{@const selectedStatus = statusTypes.find((s) => s.id === selectedStatusId)}
 					{#if selectedStatus}
@@ -498,8 +514,9 @@
 		gap: var(--sp-2);
 	}
 
-	.status-select-row .select {
+	.status-select-row :global(.search-select) {
 		flex: 1;
+		min-width: 180px;
 	}
 
 	.date-range {

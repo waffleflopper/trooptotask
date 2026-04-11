@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/svelte';
+import { fireEvent, render, screen, cleanup } from '@testing-library/svelte';
 import AssignmentPlannerPage from './AssignmentPlannerPage.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
@@ -124,7 +124,7 @@ describe('AssignmentPlannerPage', () => {
 		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 
-	it('shows all personnel in assignment dropdowns regardless of assignment type shortName', () => {
+	it('shows all personnel in searchable assignment dropdowns regardless of assignment type shortName', async () => {
 		dailyAssignmentsStore.load([modType], [], 'org-1');
 
 		renderPage({
@@ -136,12 +136,14 @@ describe('AssignmentPlannerPage', () => {
 			permissions: { canViewCalendar: true, canEditCalendar: true }
 		});
 
-		// Both personnel should appear as options — no MOS-based filtering
-		const options = screen.getAllByRole('option');
-		const optionTexts = options.map((o) => o.textContent?.trim());
+		await fireEvent.click(screen.getByRole('button', { name: 'Select assignment type' }));
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'MOD - Manager on Duty' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Select quick-fill person' }));
 
-		expect(optionTexts).toContain('SGT Smith');
-		expect(optionTexts).toContain('CPT Taylor');
+		const optionTexts = screen.getAllByRole('option').map((o) => o.textContent?.trim());
+
+		expect(optionTexts).toContain('SGT Smith, Alex - Alpha');
+		expect(optionTexts).toContain('CPT Taylor, Jamie - Alpha');
 	});
 
 	it('does not show a MOD-specific filter hint for any assignment type', () => {

@@ -11,6 +11,13 @@
 
 	let { ctx }: { ctx: DashboardContext } = $props();
 	let workspaceSetupOpen = $state(false);
+	let refreshedAt = $state<string | null>(null);
+
+	$effect(() => {
+		if (!ctx.isHydrating && !refreshedAt) {
+			refreshedAt = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+		}
+	});
 
 	const greeting = $derived.by(() => {
 		const hour = new Date().getHours();
@@ -139,14 +146,19 @@
 								<p>Good {greeting}. Review readiness, tasking, and follow-up items before the next formation.</p>
 							</div>
 
-							<div class="briefing-date" aria-label="Current date">
+							<div class="briefing-date" aria-label="Current date and data refresh time">
 								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="date-icon">
 									<rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
 									<line x1="16" y1="2" x2="16" y2="6" />
 									<line x1="8" y1="2" x2="8" y2="6" />
 									<line x1="3" y1="10" x2="21" y2="10" />
 								</svg>
-								<span>{ctx.todayDisplay}</span>
+								<div class="briefing-date-content">
+									<span>{ctx.todayDisplay}</span>
+									{#if refreshedAt}
+										<span class="briefing-refresh-time">Updated {refreshedAt}</span>
+									{/if}
+								</div>
 							</div>
 						</div>
 					</section>
@@ -709,7 +721,7 @@
 	.dashboard-shell {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-6);
+		gap: var(--sp-8);
 		max-width: 1520px;
 		margin: 0 auto;
 		padding: clamp(var(--sp-4), 2.5vw, var(--sp-8));
@@ -754,7 +766,7 @@
 	.dashboard-loading-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-6);
+		gap: var(--sp-5);
 	}
 
 	.dashboard-loading-grid :global(.skeleton-block) {
@@ -786,7 +798,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-5);
-		padding: clamp(var(--sp-5), 2vw, var(--sp-6));
+		padding: clamp(var(--sp-6), 2.5vw, var(--sp-8));
+		min-height: 16rem;
 		background: var(--surface-panel);
 		border: var(--border-thin);
 		border-radius: var(--radius-lg);
@@ -839,7 +852,7 @@
 
 	.briefing-date {
 		display: inline-flex;
-		align-items: center;
+		align-items: flex-start;
 		gap: var(--sp-2);
 		padding: 0.7rem 0.9rem;
 		border: 1px solid var(--border-default);
@@ -847,6 +860,21 @@
 		background: color-mix(in srgb, var(--surface-panel) 84%, var(--surface-subtle) 16%);
 		color: var(--text-secondary);
 		flex-shrink: 0;
+	}
+
+	.briefing-date-content {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+
+	.briefing-refresh-time {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		color: var(--text-tertiary);
 	}
 
 	.date-icon {
@@ -877,7 +905,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-4);
-		padding-top: var(--sp-2);
+		padding-top: var(--sp-10);
 		border-top: var(--border-rule);
 	}
 
@@ -907,11 +935,10 @@
 	.dashboard-layout {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-6);
+		gap: var(--sp-10);
 	}
 
 	.dashboard-top-band {
-		--top-band-height: clamp(16rem, 30vh, 18.5rem);
 		display: grid;
 		grid-template-columns: minmax(0, 1.55fr) minmax(19rem, 0.75fr);
 		gap: var(--sp-6);
@@ -920,14 +947,6 @@
 
 	.dashboard-top-band--single {
 		grid-template-columns: minmax(0, 1fr);
-	}
-
-	.dashboard-top-band > * {
-		height: var(--top-band-height);
-	}
-
-	.dashboard-top-band .dashboard-module {
-		height: var(--top-band-height);
 	}
 
 	.dashboard-top-band .dashboard-module .module-body {
@@ -939,7 +958,7 @@
 	.dashboard-columns {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-6);
+		gap: var(--sp-5);
 		align-items: start;
 	}
 
@@ -950,7 +969,7 @@
 	.dashboard-column {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-6);
+		gap: var(--sp-5);
 	}
 
 	.dashboard-module {
@@ -1106,10 +1125,6 @@
 		.dashboard-columns {
 			grid-template-columns: 1fr;
 		}
-
-		.dashboard-top-band > * {
-			height: auto;
-		}
 	}
 
 	.strength-grid {
@@ -1163,11 +1178,16 @@
 	}
 
 	.dashboard-module--quiet {
+		--module-border: var(--ink-06);
 		box-shadow: none;
 	}
 
+	.dashboard-module--quiet .module-body {
+		background: color-mix(in srgb, var(--surface-page) 40%, var(--surface-panel));
+	}
+
 	.dashboard-module--quiet .module-action {
-		color: var(--text-tertiary);
+		color: var(--text-secondary);
 	}
 
 	.dashboard-module--feed {

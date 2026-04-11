@@ -27,6 +27,12 @@
 		return personnel.find((p) => p.id === id);
 	}
 
+	function getRatingEntryActionLabel(entry: RatingSchemeEntry): string {
+		const person = getRatedPerson(entry.ratedPersonId);
+		const label = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'unknown rated individual';
+		return `Edit rating entry for ${label}`;
+	}
+
 	function formatDueStatus(entry: RatingSchemeEntry): { label: string; color: string } {
 		const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
 		const days = getDaysUntilDue(entry.ratingPeriodEnd);
@@ -107,6 +113,7 @@
 	{columns}
 	emptyMessage="No rating scheme entries yet. Click 'Add Entry' to get started."
 	onRowClick={(entry) => onEdit(entry)}
+	rowActionLabel={getRatingEntryActionLabel}
 	compact
 	initialSortKey="thruDate"
 	initialSortDirection="asc"

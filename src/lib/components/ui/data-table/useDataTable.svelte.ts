@@ -4,9 +4,11 @@ export interface ColumnDef<T> {
 	key: string;
 	header: string;
 	value: (row: T) => unknown;
+	headerAriaLabel?: string;
 	searchValue?: (row: T) => string;
 	compare?: (a: T, b: T) => number;
 	searchable?: boolean;
+	sortable?: boolean;
 }
 
 export interface GroupDef<T> {
@@ -181,6 +183,8 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 			return sortDirection;
 		},
 		toggleSort(key: string) {
+			const col = columnMap.get(key) ?? options.resolveColumn?.(key);
+			if (col?.sortable === false) return;
 			if (sortKey === key) {
 				sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
 			} else {

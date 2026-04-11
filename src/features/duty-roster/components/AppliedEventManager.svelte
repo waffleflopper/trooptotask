@@ -49,7 +49,9 @@
 		onDeleteLegacyAdvancedGroup
 	}: Props = $props();
 
-	let appliedAdvancedEvents = $state<DutyEvent[]>([]);
+	let appliedAdvancedEvents = $derived(
+		[...advancedDutyEvents].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart))
+	);
 	let selectedAppliedEventId = $state<string | null>(null);
 	let appliedEventPreview = $state<DutyEventPreview | null>(null);
 	let appliedEventOverrides = $state<DutyEventSlotOverrideInput[]>([]);
@@ -65,10 +67,6 @@
 		selectedAppliedEventId ? (appliedAdvancedEvents.find((event) => event.id === selectedAppliedEventId) ?? null) : null
 	);
 	const appliedEventCollisionMessages = $derived(appliedEventPreview?.collisionSummary.conflicts ?? []);
-
-	$effect(() => {
-		appliedAdvancedEvents = [...advancedDutyEvents].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
-	});
 
 	function exportAppliedDutyPacket() {
 		if (!selectedAppliedEvent || !appliedEventPreview) return;

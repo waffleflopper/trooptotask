@@ -11,6 +11,7 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import FileUpload from '$lib/components/ui/FileUpload.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 
 	interface Props {
 		orgId: string;
@@ -45,8 +46,8 @@
 	let rosterDate = $state(new Date().toISOString().split('T')[0]);
 	let separateByGroup = $state(false);
 	let sortBy = $state<'alphabetical' | 'rank'>('alphabetical');
-	let selectedRanks = $state<Set<string>>(new Set(ALL_RANKS));
-	let selectedGroups = $state<Set<string>>(new Set());
+	let selectedRanks = new SvelteSet<string>(ALL_RANKS);
+	let selectedGroups = new SvelteSet<string>();
 	let saving = $state(false);
 
 	// Fetch rosters
@@ -54,7 +55,7 @@
 		if (reset) rosters = [];
 		loading = true;
 		const offset = reset ? 0 : rosters.length;
-		const params = new URLSearchParams({ limit: '20', offset: String(offset) });
+		const params = new SvelteURLSearchParams({ limit: '20', offset: String(offset) });
 		if (searchTitle) params.set('title', searchTitle);
 		if (dateFrom) params.set('from', dateFrom);
 		if (dateTo) params.set('to', dateTo);
@@ -88,33 +89,27 @@
 
 	function toggleCategory(ranks: readonly string[]) {
 		const allSelected = ranks.every((r) => selectedRanks.has(r));
-		const next = new Set(selectedRanks);
 		if (allSelected) {
-			ranks.forEach((r) => next.delete(r));
+			ranks.forEach((r) => selectedRanks.delete(r));
 		} else {
-			ranks.forEach((r) => next.add(r));
+			ranks.forEach((r) => selectedRanks.add(r));
 		}
-		selectedRanks = next;
 	}
 
 	function toggleRank(rank: string) {
-		const next = new Set(selectedRanks);
-		if (next.has(rank)) {
-			next.delete(rank);
+		if (selectedRanks.has(rank)) {
+			selectedRanks.delete(rank);
 		} else {
-			next.add(rank);
+			selectedRanks.add(rank);
 		}
-		selectedRanks = next;
 	}
 
 	function toggleGroup(groupName: string) {
-		const next = new Set(selectedGroups);
-		if (next.has(groupName)) {
-			next.delete(groupName);
+		if (selectedGroups.has(groupName)) {
+			selectedGroups.delete(groupName);
 		} else {
-			next.add(groupName);
+			selectedGroups.add(groupName);
 		}
-		selectedGroups = next;
 	}
 
 	// Filtered personnel
@@ -185,7 +180,7 @@
 		const sorted = [...config.personnelSnapshot];
 		let rosterGroups: { name: string; people: typeof sorted }[];
 		if (config.separateByGroup) {
-			const map = new Map<string, typeof sorted>();
+			const map = new SvelteMap<string, typeof sorted>();
 			for (const p of sorted) {
 				const g = p.group || 'Unassigned';
 				if (!map.has(g)) map.set(g, []);
@@ -288,8 +283,7 @@
 				rosterDate = new Date().toISOString().split('T')[0];
 				separateByGroup = false;
 				sortBy = 'alphabetical';
-				selectedRanks = new Set(ALL_RANKS);
-				selectedGroups = new Set();
+				resetCreateFilters();
 				// Switch to list
 				view = 'list';
 			}
@@ -367,8 +361,11 @@
 	}
 
 	function resetCreateFilters() {
-		selectedRanks = new Set(ALL_RANKS);
-		selectedGroups = new Set();
+		selectedRanks.clear();
+		for (const rank of ALL_RANKS) {
+			selectedRanks.add(rank);
+		}
+		selectedGroups.clear();
 	}
 </script>
 

@@ -229,4 +229,36 @@ describe('DutyRosterGenerator', () => {
 
 		expect(screen.getByText('No eligible personnel available')).toBeTruthy();
 	});
+
+	it('skips excluded holidays and org closures when generating a simple roster', async () => {
+		renderGenerator({
+			specialDays: [
+				{
+					id: 'holiday-1',
+					date: '2026-04-10',
+					name: 'Observed Holiday',
+					type: 'federal-holiday'
+				},
+				{
+					id: 'closure-1',
+					date: '2026-04-11',
+					name: 'Training Standdown',
+					type: 'org-closure'
+				}
+			]
+		});
+
+		await fireEvent.input(screen.getByLabelText('Start Date'), { target: { value: '2026-04-10' } });
+		await fireEvent.input(screen.getByLabelText('End Date'), { target: { value: '2026-04-12' } });
+		await fireEvent.click(screen.getByLabelText('Exclude federal holidays'));
+		await fireEvent.click(screen.getByLabelText('Exclude org closures'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate Roster' }));
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Apply to Calendar' })).toBeTruthy());
+
+		expect(screen.getByText('Total Duties').previousElementSibling?.textContent).toBe('1');
+		expect(screen.queryByText('Apr 10')).toBeNull();
+		expect(screen.queryByText('Apr 11')).toBeNull();
+		expect(screen.getByText('Apr 12')).toBeTruthy();
+	});
 });

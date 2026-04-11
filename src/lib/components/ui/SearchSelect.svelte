@@ -28,6 +28,8 @@
 	let open = $state(false);
 	let inputEl = $state<HTMLInputElement | null>(null);
 	let listEl = $state<HTMLUListElement | null>(null);
+	let containerEl = $state<HTMLDivElement | null>(null);
+	let dropdownStyle = $state('');
 	let highlightIndex = $state(-1);
 	const listboxId = $derived(`${id}-listbox`);
 	const activeDescendant = $derived(highlightIndex >= 0 ? `${id}-option-${highlightIndex}` : undefined);
@@ -40,8 +42,21 @@
 		return options.filter((o) => o.label.toLowerCase().includes(q));
 	});
 
+	function computeDropdownPosition() {
+		if (!containerEl) return;
+		const rect = containerEl.getBoundingClientRect();
+		const spaceBelow = window.innerHeight - rect.bottom;
+		const above = spaceBelow < 264;
+		if (above) {
+			dropdownStyle = `top: unset; bottom: ${window.innerHeight - rect.top + 4}px; left: ${rect.left}px; width: ${rect.width}px;`;
+		} else {
+			dropdownStyle = `top: ${rect.bottom + 4}px; bottom: unset; left: ${rect.left}px; width: ${rect.width}px;`;
+		}
+	}
+
 	function handleFocus() {
 		if (disabled) return;
+		computeDropdownPosition();
 		open = true;
 		query = '';
 		highlightIndex = -1;
@@ -107,7 +122,7 @@
 	}
 </script>
 
-<div class="search-select" class:disabled>
+<div class="search-select" class:disabled bind:this={containerEl}>
 	<div class="input-wrapper" class:open>
 		{#if open}
 			<input
@@ -133,9 +148,11 @@
 				class="display-btn"
 				class:has-value={!!value}
 				onclick={() => {
-					if (!disabled) inputEl?.focus();
-					open = true;
-					setTimeout(() => inputEl?.focus(), 0);
+					if (!disabled) {
+						computeDropdownPosition();
+						open = true;
+						setTimeout(() => inputEl?.focus(), 0);
+					}
 				}}
 				{disabled}
 				type="button"
@@ -157,7 +174,7 @@
 	</div>
 
 	{#if open}
-		<ul class="dropdown" bind:this={listEl} id={listboxId} role="listbox">
+		<ul class="dropdown" style={dropdownStyle} bind:this={listEl} id={listboxId} role="listbox">
 			{#if filtered.length === 0}
 				<li class="no-results">No matches</li>
 			{:else}
@@ -286,10 +303,7 @@
 	}
 
 	.dropdown {
-		position: absolute;
-		top: calc(100% + 4px);
-		left: 0;
-		right: 0;
+		position: fixed;
 		z-index: var(--z-dropdown);
 		max-height: 240px;
 		overflow-y: auto;

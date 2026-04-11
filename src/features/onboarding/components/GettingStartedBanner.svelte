@@ -51,13 +51,13 @@
 		{ label: 'Set up assignment types', complete: assignmentTypeCount > 0, link: `/org/${orgId}/calendar` },
 		{ label: 'Configure training types', complete: trainingTypeCount > 0, link: `/org/${orgId}/training` },
 		{
-			label: 'Set up your onboarding flow',
+			label: 'Configure onboarding requirements',
 			complete: onboardingTemplateStepCount > 0,
 			link: `/org/${orgId}/onboarding`
 		},
 		{ label: 'Configure your rating scheme', complete: ratingSchemeEntryCount > 0, link: `/org/${orgId}/personnel` },
 		{ label: 'Invite a team member', complete: orgMemberCount > 1, link: `/org/${orgId}/settings` },
-		{ label: 'Explore the calendar', complete: calendarVisited, link: `/org/${orgId}/calendar` }
+		{ label: 'Review the unit calendar', complete: calendarVisited, link: `/org/${orgId}/calendar` }
 	]);
 
 	const completedCount = $derived(steps.filter((s) => s.complete).length);
@@ -146,7 +146,6 @@
 					</span>
 					<div class="step-copy">
 						<span class="step-label">{step.label}</span>
-						<span class="step-state">{step.complete ? 'Complete' : 'Pending'}</span>
 					</div>
 					{#if !step.complete}
 						<a href={step.link} class="step-link">Open</a>
@@ -314,7 +313,6 @@
 		color: var(--text-secondary);
 	}
 
-	.step-state,
 	.progress-text {
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);

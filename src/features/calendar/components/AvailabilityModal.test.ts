@@ -2,10 +2,14 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import AvailabilityModal from './AvailabilityModal.svelte';
+import { toastStore } from '$lib/stores/toast.svelte';
 import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	vi.restoreAllMocks();
+});
 
 const person: Personnel = {
 	id: 'person-1',
@@ -160,5 +164,30 @@ describe('AvailabilityModal — searchable status type', () => {
 			endDate: '2026-04-07',
 			note: null
 		});
+	});
+});
+
+describe('AvailabilityModal — edit status feedback', () => {
+	const statusTypes: StatusType[] = [{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' }];
+
+	it('shows an updated toast after editing an existing status entry', async () => {
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => undefined);
+		const existingEntries: AvailabilityEntry[] = [
+			{
+				id: 'entry-1',
+				personnelId: 'person-1',
+				statusTypeId: 'leave',
+				startDate: '2026-04-07',
+				endDate: '2026-04-07',
+				note: null
+			}
+		];
+
+		renderModal(new Date(2026, 3, 7), [], undefined, { statusTypes, existingEntries });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+
+		expect(successToast).toHaveBeenCalledWith('Leave updated — Apr 7', 5000);
 	});
 });

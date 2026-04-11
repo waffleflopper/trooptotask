@@ -11,7 +11,7 @@
 		personnel?: Personnel | null;
 		groups: Group[];
 		onSubmit: (data: Omit<Personnel, 'id'>) => void | Promise<void>;
-		onRemove?: (id: string) => void;
+		onRemove?: (id: string) => void | Promise<void>;
 		onClose: () => void;
 	}
 
@@ -23,6 +23,7 @@
 	let mos = $state('');
 	let clinicRole = $state('');
 	let groupId = $state('');
+	let submitAttempted = $state(false);
 
 	$effect(() => {
 		rank = personnel?.rank ?? 'SPC';
@@ -31,10 +32,15 @@
 		mos = personnel?.mos ?? '';
 		clinicRole = personnel?.clinicRole ?? '';
 		groupId = personnel?.groupId ?? '';
+		submitAttempted = false;
 	});
 
 	const isEditing = $derived(!!personnel);
-	const isValid = $derived(firstName.trim() !== '' && lastName.trim() !== '');
+	const firstNameMissing = $derived(firstName.trim() === '');
+	const lastNameMissing = $derived(lastName.trim() === '');
+	const isValid = $derived(!firstNameMissing && !lastNameMissing);
+	const firstNameError = $derived(submitAttempted && firstNameMissing ? 'Enter a first name.' : undefined);
+	const lastNameError = $derived(submitAttempted && lastNameMissing ? 'Enter a last name.' : undefined);
 
 	const selectedGroupName = $derived(groups.find((g) => g.id === groupId)?.name ?? '');
 	let isSaving = $state(false);
@@ -82,6 +88,7 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		submitAttempted = true;
 		if (!isValid || isSaving) return;
 
 		isSaving = true;
@@ -111,23 +118,37 @@
 		showArchiveConfirm = true;
 	}
 
-	function doArchive() {
+	async function doArchive() {
 		if (personnel && onRemove) {
-			onRemove(personnel.id);
+			await onRemove(personnel.id);
 			onClose();
 		}
 	}
 </script>
 
-<Modal title={isEditing ? 'Edit Person' : 'Add Person'} {onClose} titleId="personnel-title">
+<Modal title={isEditing ? 'Edit Personnel' : 'Add Personnel'} {onClose} titleId="personnel-title" canClose={!isSaving}>
 	<form class="personnel-form" onsubmit={handleSubmit}>
 		<FormField label="Rank" id="rank">
 			<SearchSelect id="rank" options={rankOptions} bind:value={rank} placeholder="Select rank..." clearable={false} />
 		</FormField>
 
 		<div class="form-row">
-			<FormField label="Last Name" id="lastName" placeholder="Smith" required bind:value={lastName} />
-			<FormField label="First Name" id="firstName" placeholder="John" required bind:value={firstName} />
+			<FormField
+				label="Last Name"
+				id="lastName"
+				placeholder="Smith"
+				required
+				error={lastNameError}
+				bind:value={lastName}
+			/>
+			<FormField
+				label="First Name"
+				id="firstName"
+				placeholder="John"
+				required
+				error={firstNameError}
+				bind:value={firstName}
+			/>
 		</div>
 
 		<div class="form-row">
@@ -171,7 +192,13 @@
 
 	{#snippet footer()}
 		{#if isEditing && onRemove}
-			<button type="button" class="btn btn-warning archive-btn" data-testid="personnel-archive" onclick={handleArchive}>
+			<button
+				type="button"
+				class="btn btn-warning archive-btn"
+				data-testid="personnel-archive"
+				onclick={handleArchive}
+				disabled={isSaving}
+			>
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
 					<path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
 					<path
@@ -184,12 +211,12 @@
 			</button>
 		{/if}
 		<div class="spacer"></div>
-		<button type="button" class="btn btn-secondary" onclick={onClose}>Cancel</button>
+		<button type="button" class="btn btn-secondary" onclick={onClose} disabled={isSaving}>Cancel</button>
 		<button
 			type="button"
 			class="btn btn-primary"
 			data-testid="personnel-save"
-			disabled={!isValid || isSaving}
+			disabled={isSaving}
 			onclick={handleSubmit}
 		>
 			{#if isSaving}
@@ -204,7 +231,7 @@
 {#if showArchiveConfirm && personnel}
 	<ConfirmDialog
 		title="Archive Personnel"
-		message="Archive {personnel.rank} {personnel.lastName}? They will be hidden from all active views."
+		message="Archive {personnel.rank} {personnel.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
 		confirmLabel="Archive"
 		variant="warning"
 		onConfirm={doArchive}

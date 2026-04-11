@@ -12,6 +12,7 @@
 		clearable?: boolean;
 		onchange?: (value: string) => void;
 		id?: string;
+		ariaLabel?: string;
 	}
 
 	let {
@@ -21,7 +22,8 @@
 		disabled = false,
 		clearable = true,
 		onchange,
-		id = 'ss-' + Math.random().toString(36).slice(2, 8)
+		id = 'ss-' + Math.random().toString(36).slice(2, 8),
+		ariaLabel
 	}: Props = $props();
 
 	let query = $state('');
@@ -137,6 +139,7 @@
 				onkeydown={handleKeydown}
 				{disabled}
 				role="combobox"
+				aria-label={ariaLabel}
 				aria-expanded={open}
 				aria-controls={listboxId}
 				aria-autocomplete="list"
@@ -156,6 +159,8 @@
 				}}
 				{disabled}
 				type="button"
+				role="combobox"
+				aria-label={ariaLabel}
 				aria-haspopup="listbox"
 				aria-expanded={open}
 				aria-controls={listboxId}
@@ -166,7 +171,7 @@
 				</svg>
 			</button>
 			{#if value && !disabled && clearable}
-				<button class="clear-btn" type="button" onmousedown={clearSelection} tabindex="-1" aria-label="Clear selection">
+				<button class="clear-btn" type="button" onclick={clearSelection} aria-label="Clear selection">
 					<span aria-hidden="true">&times;</span>
 				</button>
 			{/if}

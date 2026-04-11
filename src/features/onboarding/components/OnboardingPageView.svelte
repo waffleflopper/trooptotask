@@ -824,7 +824,6 @@
 			width: 100%;
 			min-width: 0;
 		}
-
 	}
 
 	@media (max-width: 640px) {

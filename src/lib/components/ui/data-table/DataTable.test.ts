@@ -139,6 +139,17 @@ describe('DataTable', () => {
 				expect(h.getAttribute('aria-sort')).toBeNull();
 			});
 		});
+
+		test('renders non-sortable columns without a sort button', () => {
+			const actionColumns: ColumnDef<TestRow>[] = [
+				...columns,
+				{ key: 'actions', header: 'Actions', value: () => '', searchable: false, sortable: false }
+			];
+			render(Table, { props: { data: testData, columns: actionColumns } });
+
+			expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Sort by Actions' })).toBeNull();
+		});
 	});
 
 	describe('search bar', () => {
@@ -234,6 +245,27 @@ describe('DataTable', () => {
 
 			expect(handler).toHaveBeenCalledOnce();
 			expect(handler).toHaveBeenCalledWith(testData[1]);
+		});
+
+		test('calls onRowClick with row data when a row is activated by keyboard', async () => {
+			const handler = vi.fn();
+			render(Table, {
+				props: {
+					data: testData,
+					columns,
+					onRowClick: handler,
+					rowActionLabel: (row: TestRow) => `Open ${row.name}`
+				}
+			});
+
+			const row = screen.getByLabelText('Open Alice');
+			expect(row.getAttribute('tabindex')).toBe('0');
+			await fireEvent.keyDown(row, { key: 'Enter' });
+			await fireEvent.keyDown(row, { key: ' ' });
+
+			expect(handler).toHaveBeenCalledTimes(2);
+			expect(handler).toHaveBeenNthCalledWith(1, testData[0]);
+			expect(handler).toHaveBeenNthCalledWith(2, testData[0]);
 		});
 
 		test('rows do not have clickable class when onRowClick is not provided', () => {

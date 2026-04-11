@@ -22,9 +22,7 @@
 
 	const filteredOrgs = $derived(
 		orgFilter.trim()
-			? data.organizations.filter((org) =>
-					org.name.toLowerCase().includes(orgFilter.toLowerCase().trim())
-				)
+			? data.organizations.filter((org) => org.name.toLowerCase().includes(orgFilter.toLowerCase().trim()))
 			: data.organizations
 	);
 </script>

@@ -119,7 +119,7 @@
 						</div>
 						{#each rGroup.entries as entry (entry.id)}
 							{@const due = formatDueStatus(entry)}
-							<button class="entry-row" onclick={() => onEdit(entry)}>
+							<button class="entry-row" type="button" onclick={() => onEdit(entry)}>
 								<span class="rated-name">{getRatedPersonLabel(entry.ratedPersonId)}</span>
 								<Badge
 									label={entry.reportType ? `${entry.evalType}/${entry.reportType}` : entry.evalType}

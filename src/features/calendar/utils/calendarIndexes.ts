@@ -11,6 +11,10 @@ export interface AvailabilityStatusIndex {
 	getStatus: (personnelId: string, dateKey: string) => StatusType | undefined;
 }
 
+function nextLocalDay(date: Date) {
+	return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+}
+
 export function buildAvailabilityStatusIndex({
 	availabilityEntries,
 	statusTypes,
@@ -36,8 +40,9 @@ export function buildAvailabilityStatusIndex({
 		const endDate = entry.endDate < lastVisibleDate ? entry.endDate : lastVisibleDate;
 		if (startDate > endDate) continue;
 
-		for (const date = parseDate(startDate); formatDate(date) <= endDate; date.setDate(date.getDate() + 1)) {
+		for (let date = parseDate(startDate); ; date = nextLocalDay(date)) {
 			const dateKey = formatDate(date);
+			if (dateKey > endDate) break;
 			if (!visibleDateKeys.has(dateKey)) continue;
 			statusByPersonnelDate.set(`${entry.personnelId}:${dateKey}`, statusType);
 		}

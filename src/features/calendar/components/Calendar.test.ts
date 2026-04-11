@@ -6,7 +6,35 @@ import Calendar from './Calendar.svelte';
 import type { Personnel, StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 
-afterEach(cleanup);
+let resizeObserverCallback: ResizeObserverCallback | undefined;
+const resizeObserve = vi.fn();
+const resizeDisconnect = vi.fn();
+
+class MockResizeObserver {
+	constructor(callback: ResizeObserverCallback) {
+		resizeObserverCallback = callback;
+	}
+
+	observe = resizeObserve;
+	disconnect = resizeDisconnect;
+	unobserve = vi.fn();
+}
+
+vi.stubGlobal('ResizeObserver', MockResizeObserver);
+
+function triggerResizeObserver() {
+	if (!resizeObserverCallback) {
+		throw new Error('ResizeObserver callback was not registered');
+	}
+
+	resizeObserverCallback([], {} as ResizeObserver);
+}
+
+afterEach(() => {
+	cleanup();
+	vi.clearAllMocks();
+	resizeObserverCallback = undefined;
+});
 
 const personnel: Personnel[] = [
 	{
@@ -305,5 +333,49 @@ describe('Calendar', () => {
 		expect(container.textContent).not.toContain('Person 001');
 		expect(container.textContent).toContain('Person 120');
 		expect(container.querySelectorAll('.personnel-row').length).toBeLessThan(largeRoster.length);
+	});
+
+	it('refreshes virtual rows when the calendar body resizes without scrolling', async () => {
+		const largeRoster = makePersonnel(120);
+		const { container } = renderCalendar({
+			personnelByGroup: [{ group: 'Alpha', personnel: largeRoster }]
+		});
+
+		const calendarBody = container.querySelector('.calendar-body') as HTMLDivElement | null;
+		expect(calendarBody).toBeTruthy();
+
+		if (!calendarBody) {
+			throw new Error('Calendar body was not rendered');
+		}
+
+		Object.defineProperty(calendarBody, 'scrollTop', {
+			configurable: true,
+			writable: true,
+			value: 0
+		});
+		Object.defineProperty(calendarBody, 'scrollLeft', {
+			configurable: true,
+			writable: true,
+			value: 0
+		});
+		Object.defineProperty(calendarBody, 'clientHeight', {
+			configurable: true,
+			value: 260
+		});
+
+		triggerResizeObserver();
+		await tick();
+
+		expect(container.textContent).not.toContain('Person 040');
+
+		Object.defineProperty(calendarBody, 'clientHeight', {
+			configurable: true,
+			value: 2000
+		});
+
+		triggerResizeObserver();
+		await tick();
+
+		expect(container.textContent).toContain('Person 040');
 	});
 });

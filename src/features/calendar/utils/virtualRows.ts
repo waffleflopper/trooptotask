@@ -42,7 +42,7 @@ export function getVisibleVirtualRows<Row extends PositionedVirtualRow<SizedVirt
 	const maxScrollableTop = Math.max(0, totalHeight - visibleContentHeight);
 	const boundedScrollTop = Math.min(visibleContentTop, maxScrollableTop);
 	const windowTop = Math.max(0, boundedScrollTop - overscanPx);
-	const windowBottom = boundedScrollTop + viewportHeight + overscanPx;
+	const windowBottom = boundedScrollTop + visibleContentHeight + overscanPx;
 
 	return rows.filter((row) => row.top + row.height >= windowTop && row.top <= windowBottom);
 }

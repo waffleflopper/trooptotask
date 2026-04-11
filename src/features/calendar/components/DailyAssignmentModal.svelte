@@ -70,8 +70,6 @@
 	const assignmentsForDate = $derived(assignments.filter((a) => a.date === dateStr));
 	const dutyEventsForDate = $derived(dutyEvents.filter((e) => eventCoversDate(e, dateStr)));
 
-	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
-
 	function getCurrentAssignee(typeId: string): string {
 		const assignment = assignmentsForDate.find((a) => a.assignmentTypeId === typeId);
 		return assignment?.assigneeId ?? '';
@@ -85,13 +83,6 @@
 		}
 	}
 
-	function getPersonnelDisplay(id: string): string {
-		const person = allPersonnel.find((p) => p.id === id);
-		if (person) {
-			return `${person.rank} ${person.lastName}`;
-		}
-		return id;
-	}
 </script>
 
 <Modal title="Daily Assignments" {onClose} width="520px" titleId="daily-assign-title">
@@ -158,27 +149,6 @@
 			</div>
 		{/each}
 	</div>
-
-	{#if assignmentsForDate.length > 0}
-		<div class="current-assignments">
-			<h4>Current Assignments:</h4>
-			{#each assignmentsForDate as assignment}
-				{@const type = assignmentTypes.find((t) => t.id === assignment.assignmentTypeId)}
-				{#if type}
-					<div class="current-assignment">
-						<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
-						<span>
-							{#if type.assignTo === 'personnel'}
-								{getPersonnelDisplay(assignment.assigneeId)}
-							{:else}
-								{assignment.assigneeId}
-							{/if}
-						</span>
-					</div>
-				{/if}
-			{/each}
-		</div>
-	{/if}
 
 	{#snippet footer()}
 		<button class="btn btn-primary" onclick={onClose}>Done</button>
@@ -284,28 +254,4 @@
 		color: var(--text-secondary);
 	}
 
-	.current-assignments {
-		margin-top: var(--sp-4);
-		padding-top: var(--sp-4);
-		border-top: var(--border-thin);
-	}
-
-	.current-assignments h4 {
-		margin: 0 0 var(--sp-3);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.current-assignment {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-1) 0;
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-	}
 </style>

@@ -31,7 +31,6 @@
 		DutyEventSeriesInput,
 		DutyEventSeriesPattern,
 		DutyEventSeriesPreview,
-		DutyEventSlotOverrideInput,
 		DutyTemplate,
 		DutyTemplateWriteInput,
 		ExistingDutyEventInput,
@@ -40,7 +39,6 @@
 	import {
 		ADVANCED_STEPS,
 		addCalendarDays,
-		buildCandidatePersonnelIdsInput,
 		buildNextSeriesOverrides,
 		buildSingleEventInput,
 		buildSeriesInput,
@@ -48,7 +46,6 @@
 		formatCandidateReviewLabel,
 		formatCandidateReviewMeta,
 		formatCoverageLabel,
-		formatDisplayDate,
 		formatSeriesPatternLabel,
 		formatSlotAssignee,
 		getSlotExplanationSections,
@@ -62,6 +59,7 @@
 		weekdayOptions,
 		wrapSinglePreview
 	} from './dutyRosterWizard.helpers';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		assignmentTypes: AssignmentType[];
@@ -109,7 +107,7 @@
 	let advancedStartDate = $state('');
 	let advancedEndDate = $state('');
 	let advancedPattern = $state<DutyEventSeriesPattern>('daily');
-	let selectedWeekdays = $state<Set<number>>(new Set([1, 3, 5]));
+	let selectedWeekdays = new SvelteSet([1, 3, 5]);
 	let customDateDraft = $state('');
 	let customDateEntries = $state<string[]>([]);
 	let selectedRunCandidateIds = $state<string[] | null>(null);
@@ -121,7 +119,9 @@
 	let isPreviewingAdvancedSeries = $state(false);
 	let isRefreshingAdvancedSeriesPreview = $state(false);
 	let isApplyingAdvancedSeries = $state(false);
-	let localAdvancedDutyEvents = $state<DutyEvent[]>([]);
+	let localAdvancedDutyEvents = $derived(
+		[...props.advancedDutyEvents].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart))
+	);
 
 	const simpleTemplates = $derived(getLegacySimpleTemplates(props.assignmentTypes));
 	const selectedSimpleTemplate = $derived(
@@ -200,12 +200,6 @@
 	);
 	const showStepper = $derived(view.startsWith('advanced-'));
 
-	$effect(() => {
-		localAdvancedDutyEvents = [...props.advancedDutyEvents].sort((a, b) =>
-			b.coverageStart.localeCompare(a.coverageStart)
-		);
-	});
-
 	function onChooseSimple() {
 		view = 'simple-template-list';
 	}
@@ -226,11 +220,17 @@
 	function goToPolicyReview() {
 		view = 'advanced-policy-review';
 	}
+	function replaceSelectedWeekdays(days: Iterable<number>) {
+		selectedWeekdays.clear();
+		for (const day of days) {
+			selectedWeekdays.add(day);
+		}
+	}
 	function goToDatePattern() {
 		advancedStartDate = getTodayDate();
 		advancedEndDate = addCalendarDays(advancedStartDate, 6);
 		advancedPattern = 'daily';
-		selectedWeekdays = new Set([1, 3, 5]);
+		replaceSelectedWeekdays([1, 3, 5]);
 		customDateDraft = '';
 		customDateEntries = [];
 		selectedRunCandidateIds = null;
@@ -478,15 +478,13 @@
 				advancedSeriesOverrides = [];
 				collisionReviewConfirmed = false;
 				shortfallReviewConfirmed = false;
-				if (pattern === 'selected-weekdays') selectedWeekdays = new Set();
+				if (pattern === 'selected-weekdays') replaceSelectedWeekdays([]);
 			}}
 			onStartDateChange={(value) => (advancedStartDate = value)}
 			onEndDateChange={(value) => (advancedEndDate = value)}
 			onToggleWeekday={(day) => {
-				const next = new Set(selectedWeekdays);
-				if (next.has(day)) next.delete(day);
-				else next.add(day);
-				selectedWeekdays = next;
+				if (selectedWeekdays.has(day)) selectedWeekdays.delete(day);
+				else selectedWeekdays.add(day);
 			}}
 			onCustomDateDraftChange={(value) => (customDateDraft = value)}
 			onAddCustomDate={() => {

@@ -6,7 +6,6 @@
 	import type {
 		EditableBaseline,
 		EditableSlot,
-		GroupOption,
 		PersonnelOption,
 		SetupMode
 	} from './advancedDutyTemplateBuilder.helpers';

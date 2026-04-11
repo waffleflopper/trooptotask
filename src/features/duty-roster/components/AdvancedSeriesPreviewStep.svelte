@@ -48,7 +48,6 @@
 <SeriesPreviewPanel
 	preview={props.preview}
 	template={props.template}
-	overrides={props.overrides}
 	eyebrow={props.previewMode === 'single' ? 'One-time preview ready' : 'Series preview ready'}
 	meta={props.previewMode === 'single'
 		? props.formatCoverageLabel(props.preview.events[0])

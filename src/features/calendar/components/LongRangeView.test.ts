@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import LongRangeView from './LongRangeView.svelte';
 import type { AssignmentType, DailyAssignment, Personnel, SpecialDay, StatusType, AvailabilityEntry } from '$lib/types';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
@@ -58,6 +59,30 @@ const specialDays: SpecialDay[] = [];
 const assignmentTypes: AssignmentType[] = [];
 const assignments: DailyAssignment[] = [];
 
+let resizeObserverCallback: ResizeObserverCallback | undefined;
+const resizeObserve = vi.fn();
+const resizeDisconnect = vi.fn();
+
+class MockResizeObserver {
+	constructor(callback: ResizeObserverCallback) {
+		resizeObserverCallback = callback;
+	}
+
+	observe = resizeObserve;
+	disconnect = resizeDisconnect;
+	unobserve = vi.fn();
+}
+
+vi.stubGlobal('ResizeObserver', MockResizeObserver);
+
+function triggerResizeObserver() {
+	if (!resizeObserverCallback) {
+		throw new Error('ResizeObserver callback was not registered');
+	}
+
+	resizeObserverCallback([], {} as ResizeObserver);
+}
+
 function renderView(overrides: Partial<LongRangeViewProps> = {}) {
 	return render(LongRangeView, {
 		props: {
@@ -76,6 +101,8 @@ function renderView(overrides: Partial<LongRangeViewProps> = {}) {
 describe('LongRangeView', () => {
 	afterEach(() => {
 		cleanup();
+		vi.clearAllMocks();
+		resizeObserverCallback = undefined;
 	});
 
 	it('renders the shared view toggle in the calendar header area', () => {
@@ -286,9 +313,8 @@ describe('LongRangeView', () => {
 			configurable: true,
 			value: 900
 		});
-		Object.defineProperty(scrollArea, 'getBoundingClientRect', {
-			configurable: true,
-			value: () =>
+		const getScrollAreaRect = vi.fn(
+			() =>
 				({
 					top: 200,
 					bottom: 460,
@@ -300,10 +326,9 @@ describe('LongRangeView', () => {
 					y: 200,
 					toJSON: () => ({})
 				}) as DOMRect
-		});
-		Object.defineProperty(rosterRows, 'getBoundingClientRect', {
-			configurable: true,
-			value: () =>
+		);
+		const getRosterRect = vi.fn(
+			() =>
 				({
 					top: -236,
 					bottom: 2404,
@@ -315,6 +340,15 @@ describe('LongRangeView', () => {
 					y: -236,
 					toJSON: () => ({})
 				}) as DOMRect
+		);
+
+		Object.defineProperty(scrollArea, 'getBoundingClientRect', {
+			configurable: true,
+			value: getScrollAreaRect
+		});
+		Object.defineProperty(rosterRows, 'getBoundingClientRect', {
+			configurable: true,
+			value: getRosterRect
 		});
 		Object.defineProperty(scrollArea, 'clientHeight', {
 			configurable: true,
@@ -326,10 +360,56 @@ describe('LongRangeView', () => {
 			value: 500
 		});
 
+		triggerResizeObserver();
+		await tick();
+		getScrollAreaRect.mockClear();
+		getRosterRect.mockClear();
+
 		await fireEvent.scroll(scrollArea);
 
+		expect(getScrollAreaRect).not.toHaveBeenCalled();
+		expect(getRosterRect).not.toHaveBeenCalled();
 		expect(container.textContent).not.toContain('Person 001');
 		expect(container.textContent).toContain('Person 020');
 		expect(container.textContent).not.toContain('Person 120');
+	});
+
+	it('refreshes virtual rows when the long-range scroll area resizes without scrolling', async () => {
+		const largeRoster = makePersonnel(120);
+		const { container } = renderView({
+			personnelByGroup: [{ group: 'Alpha', personnel: largeRoster }]
+		});
+
+		const scrollArea = container.querySelector('.scroll-area') as HTMLDivElement | null;
+		expect(scrollArea).toBeTruthy();
+
+		if (!scrollArea) {
+			throw new Error('Long range scroll area was not rendered');
+		}
+
+		Object.defineProperty(scrollArea, 'scrollTop', {
+			configurable: true,
+			writable: true,
+			value: 0
+		});
+		Object.defineProperty(scrollArea, 'clientHeight', {
+			configurable: true,
+			value: 120
+		});
+
+		triggerResizeObserver();
+		await tick();
+
+		expect(container.textContent).not.toContain('Person 040');
+
+		Object.defineProperty(scrollArea, 'clientHeight', {
+			configurable: true,
+			value: 900
+		});
+
+		triggerResizeObserver();
+		await tick();
+
+		expect(container.textContent).toContain('Person 040');
 	});
 });

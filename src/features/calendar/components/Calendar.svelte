@@ -93,24 +93,45 @@
 	let viewportHeight = $state(DEFAULT_VIEWPORT_HEIGHT);
 	let calendarBodyEl: HTMLDivElement;
 
-	function handleScroll() {
-		if (calendarBodyEl) {
-			scrollLeft = calendarBodyEl.scrollLeft;
-			scrollTop = calendarBodyEl.scrollTop;
-			viewportHeight = calendarBodyEl.clientHeight || DEFAULT_VIEWPORT_HEIGHT;
-			const newScrollbarWidth = calendarBodyEl.offsetWidth - calendarBodyEl.clientWidth;
-			if (newScrollbarWidth !== scrollbarWidth) {
-				scrollbarWidth = newScrollbarWidth;
-			}
+	function updateScrollMetrics() {
+		if (!calendarBodyEl) return;
+
+		scrollLeft = calendarBodyEl.scrollLeft;
+		scrollTop = calendarBodyEl.scrollTop;
+		viewportHeight = calendarBodyEl.clientHeight || DEFAULT_VIEWPORT_HEIGHT;
+	}
+
+	function updateScrollbarWidth() {
+		if (!calendarBodyEl) return;
+
+		const newScrollbarWidth = calendarBodyEl.offsetWidth - calendarBodyEl.clientWidth;
+		if (newScrollbarWidth !== scrollbarWidth) {
+			scrollbarWidth = newScrollbarWidth;
 		}
 	}
 
-	// Initial measurement after mount
+	function updateCalendarMetrics() {
+		updateScrollMetrics();
+		updateScrollbarWidth();
+	}
+
+	function handleScroll() {
+		updateCalendarMetrics();
+	}
+
 	$effect(() => {
-		if (calendarBodyEl) {
-			scrollbarWidth = calendarBodyEl.offsetWidth - calendarBodyEl.clientWidth;
-			viewportHeight = calendarBodyEl.clientHeight || DEFAULT_VIEWPORT_HEIGHT;
-		}
+		if (!calendarBodyEl) return;
+
+		updateCalendarMetrics();
+
+		if (typeof ResizeObserver === 'undefined') return;
+
+		const observer = new ResizeObserver(() => {
+			updateCalendarMetrics();
+		});
+		observer.observe(calendarBodyEl);
+
+		return () => observer.disconnect();
 	});
 
 	function toggleGroup(group: string) {

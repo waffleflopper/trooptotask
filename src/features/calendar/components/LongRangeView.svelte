@@ -155,19 +155,36 @@
 		return rosterRowsEl.offsetTop;
 	}
 
-	function updateViewportMetrics() {
+	function updateScrollMetrics() {
 		if (!scrollAreaEl) return;
+
 		scrollTop = scrollAreaEl.scrollTop;
 		viewportHeight = scrollAreaEl.clientHeight || DEFAULT_VIEWPORT_HEIGHT;
+	}
+
+	function updateLayoutMetrics() {
+		updateScrollMetrics();
 		rosterOffsetTop = getRosterOffsetTop();
 	}
 
 	function handleScroll() {
-		updateViewportMetrics();
+		updateScrollMetrics();
 	}
 
 	$effect(() => {
-		updateViewportMetrics();
+		if (!scrollAreaEl) return;
+
+		updateLayoutMetrics();
+
+		if (typeof ResizeObserver === 'undefined') return;
+
+		const observer = new ResizeObserver(() => {
+			updateLayoutMetrics();
+		});
+		observer.observe(scrollAreaEl);
+		if (rosterRowsEl) observer.observe(rosterRowsEl);
+
+		return () => observer.disconnect();
 	});
 
 	function prevQuarter() {

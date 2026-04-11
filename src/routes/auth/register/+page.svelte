@@ -7,6 +7,8 @@
 
 	let { form, data } = $props();
 	let loading = $state(false);
+	let showPassword = $state(false);
+	let showConfirmPassword = $state(false);
 
 	const initialInviteCode = $derived(form?.inviteCode ?? data.inviteCode ?? '');
 	const initialEmail = $derived(form?.email ?? data.email ?? '');
@@ -85,20 +87,50 @@
 					label="Password"
 					id="password"
 					name="password"
-					type="password"
+					type={showPassword ? 'text' : 'password'}
 					required
 					placeholder="At least 12 characters"
 					hint="Use at least 12 characters with uppercase, lowercase, and a number."
-				/>
+				>
+					{#snippet action()}
+						<button
+							type="button"
+							class="field-action"
+							onclick={() => (showPassword = !showPassword)}
+							aria-label={showPassword ? 'Hide password' : 'Show password'}
+						>
+							{#if showPassword}
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+							{:else}
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+							{/if}
+						</button>
+					{/snippet}
+				</FormField>
 
 				<FormField
 					label="Confirm Password"
 					id="confirmPassword"
 					name="confirmPassword"
-					type="password"
+					type={showConfirmPassword ? 'text' : 'password'}
 					required
 					placeholder="Re-enter your password"
-				/>
+				>
+					{#snippet action()}
+						<button
+							type="button"
+							class="field-action"
+							onclick={() => (showConfirmPassword = !showConfirmPassword)}
+							aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+						>
+							{#if showConfirmPassword}
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+							{:else}
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+							{/if}
+						</button>
+					{/snippet}
+				</FormField>
 
 				<div class="auth-checkbox">
 					<label class="checkbox-label">

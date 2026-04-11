@@ -173,6 +173,12 @@
 		background-color: var(--surface-subtle);
 	}
 
+	.personnel-info:hover .name {
+		text-decoration: underline;
+		text-underline-offset: 2px;
+		text-decoration-color: var(--ink-35);
+	}
+
 	.personnel-info.compact {
 		padding-top: 4px;
 		padding-bottom: 4px;

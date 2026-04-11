@@ -34,6 +34,7 @@
 	let selectedIds = $state<Set<string>>(new Set());
 	let isSubmitting = $state(false);
 	let note = $state('');
+	let step = $state<'select' | 'confirm'>('select');
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 
@@ -126,6 +127,11 @@
 
 	const isValid = $derived(selectedStatusId && startDate && endDate && startDate <= endDate && selectedIds.size > 0);
 	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
+	const selectedPersonnel = $derived(
+		allPersonnel
+			.filter((p) => selectedIds.has(p.id))
+			.sort((a, b) => (a.groupName || '').localeCompare(b.groupName || '') || a.lastName.localeCompare(b.lastName))
+	);
 
 	$effect(() => {
 		if (!selectedStatusId && statusTypes.length > 0) {
@@ -144,6 +150,15 @@
 		table.toggleGroup(groupKey);
 	}
 
+	function handleReview() {
+		if (!isValid) return;
+		step = 'confirm';
+	}
+
+	function handleBack() {
+		step = 'select';
+	}
+
 	async function handleSubmit() {
 		if (!isValid || isSubmitting) return;
 		isSubmitting = true;
@@ -152,6 +167,7 @@
 			const count = selectedIds.size;
 			toastStore.success(`Applied status to ${count} ${count === 1 ? 'person' : 'people'}`);
 			selectedIds = new Set();
+			step = 'select';
 			onComplete();
 		} finally {
 			isSubmitting = false;
@@ -160,187 +176,243 @@
 </script>
 
 <div class="bulk-add-panel">
-	<div class="bulk-workspace">
-		<aside class="controls-column">
-			<section class="controls-card">
-				<div class="pane-heading">
-					<span class="pane-eyebrow">Step 1</span>
-					<h2 class="pane-title">Define the status change</h2>
-					<p class="pane-copy">Set the status and date range first, then choose who it should apply to.</p>
-				</div>
+	{#if step === 'select'}
+		<div class="bulk-workspace">
+			<aside class="controls-column">
+				<section class="controls-card">
+					<div class="pane-heading">
+						<span class="pane-eyebrow">Step 1</span>
+						<h2 class="pane-title">Define the status change</h2>
+						<p class="pane-copy">Set the status and date range first, then choose who it should apply to.</p>
+					</div>
 
-				<div class="config-grid">
-					<div class="form-group">
-						<label class="label" for="statusType">Status Type</label>
-						<select id="statusType" class="select" bind:value={selectedStatusId}>
-							{#each statusTypes as status (status.id)}
-								<option value={status.id}>{status.name}</option>
-							{/each}
-						</select>
-						{#if selectedStatus}
-							<div class="field-support">
-								<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
-								<span class="field-hint">Selected status</span>
+					<div class="config-grid">
+						<div class="form-group">
+							<label class="label" for="statusType">Status Type</label>
+							<select id="statusType" class="select" bind:value={selectedStatusId}>
+								{#each statusTypes as status (status.id)}
+									<option value={status.id}>{status.name}</option>
+								{/each}
+							</select>
+							{#if selectedStatus}
+								<div class="field-support">
+									<Badge
+										label={selectedStatus.name}
+										color={selectedStatus.color}
+										textColor={selectedStatus.textColor}
+									/>
+									<span class="field-hint">Selected status</span>
+								</div>
+							{/if}
+						</div>
+
+						<div class="date-grid">
+							<div class="form-group">
+								<label class="label" for="startDate">Start Date</label>
+								<input id="startDate" type="date" class="input" bind:value={startDate} />
 							</div>
+
+							<div class="form-group">
+								<label class="label" for="endDate">End Date</label>
+								<input
+									id="endDate"
+									type="date"
+									class="input"
+									bind:value={endDate}
+									aria-describedby={dateError ? 'date-error' : undefined}
+									aria-invalid={dateError ? true : undefined}
+								/>
+								{#if dayCount > 0}
+									<div class="field-support">
+										<span class="day-count-number">{dayCount}</span>
+										<span class="field-hint">{dayCount === 1 ? 'day selected' : 'days selected'}</span>
+									</div>
+								{/if}
+							</div>
+						</div>
+
+						{#if dateError}
+							<div id="date-error" class="date-error" role="alert">{dateError}</div>
+						{/if}
+
+						<div class="form-group">
+							<label class="label" for="bulkNote">Note</label>
+							<input
+								id="bulkNote"
+								type="text"
+								class="input"
+								bind:value={note}
+								maxlength={200}
+								placeholder="Optional note (e.g., JRTC rotation)"
+							/>
+						</div>
+					</div>
+
+					<div class="summary-card" aria-live="polite">
+						<h3 class="summary-heading">Ready to apply</h3>
+						{#if selectedIds.size > 0 && selectedStatus && !dateError}
+							<div class="summary-line">
+								<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
+								<span class="summary-copy">
+									<strong>{selectedIds.size}</strong>
+									{selectedIds.size === 1 ? 'person' : 'people'}
+									selected
+								</span>
+							</div>
+							<p class="summary-copy">
+								{#if startDate === endDate}
+									{formatDateDisplay(startDate)}
+								{:else}
+									{formatDateDisplay(startDate)} to {formatDateDisplay(endDate)}
+								{/if}
+							</p>
+						{:else if selectedIds.size === 0}
+							<p class="summary-copy muted">Choose at least one person from the list to enable the bulk update.</p>
+						{:else if dateError}
+							<p class="summary-copy error">{dateError}</p>
 						{/if}
 					</div>
 
-					<div class="date-grid">
-						<div class="form-group">
-							<label class="label" for="startDate">Start Date</label>
-							<input id="startDate" type="date" class="input" bind:value={startDate} />
-						</div>
+					<button class="btn btn-primary btn-lg apply-button" disabled={!isValid} onclick={handleReview}>
+						Review & Confirm
+					</button>
+				</section>
+			</aside>
 
-						<div class="form-group">
-							<label class="label" for="endDate">End Date</label>
-							<input
-								id="endDate"
-								type="date"
-								class="input"
-								bind:value={endDate}
-								aria-describedby={dateError ? 'date-error' : undefined}
-								aria-invalid={dateError ? true : undefined}
-							/>
-							{#if dayCount > 0}
-								<div class="field-support">
-									<span class="day-count-number">{dayCount}</span>
-									<span class="field-hint">{dayCount === 1 ? 'day selected' : 'days selected'}</span>
-								</div>
-							{/if}
-						</div>
+			<section class="selection-column">
+				<div class="selection-card">
+					<div class="pane-heading selection-heading">
+						<span class="pane-eyebrow">Step 2</span>
+						<h2 class="pane-title">Choose personnel</h2>
+						<p class="pane-copy">Search by name, select an entire group, or click individual rows.</p>
 					</div>
 
-					{#if dateError}
-						<div id="date-error" class="date-error" role="alert">{dateError}</div>
-					{/if}
-
-					<div class="form-group">
-						<label class="label" for="bulkNote">Note</label>
-						<input
-							id="bulkNote"
-							type="text"
-							class="input"
-							bind:value={note}
-							maxlength={200}
-							placeholder="Optional note (e.g., JRTC rotation)"
-						/>
-					</div>
-				</div>
-
-				<div class="summary-card" aria-live="polite">
-					<h3 class="summary-heading">Ready to apply</h3>
-					{#if selectedIds.size > 0 && selectedStatus && !dateError}
-						<div class="summary-line">
-							<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
-							<span class="summary-copy">
-								<strong>{selectedIds.size}</strong>
-								{selectedIds.size === 1 ? 'person' : 'people'}
-								selected
-							</span>
-						</div>
-						<p class="summary-copy">
-							{#if startDate === endDate}
-								{formatDateDisplay(startDate)}
-							{:else}
-								{formatDateDisplay(startDate)} to {formatDateDisplay(endDate)}
-							{/if}
-						</p>
-					{:else if selectedIds.size === 0}
-						<p class="summary-copy muted">Choose at least one person from the list to enable the bulk update.</p>
-					{:else if dateError}
-						<p class="summary-copy error">{dateError}</p>
-					{/if}
-				</div>
-
-				<button class="btn btn-primary btn-lg apply-button" disabled={!isValid || isSubmitting} onclick={handleSubmit}>
-					{#if isSubmitting}
-						<Spinner />
-						Applying...
-					{:else}
-						Apply Status
-					{/if}
-				</button>
-			</section>
-		</aside>
-
-		<section class="selection-column">
-			<div class="selection-card">
-				<div class="pane-heading selection-heading">
-					<span class="pane-eyebrow">Step 2</span>
-					<h2 class="pane-title">Choose personnel</h2>
-					<p class="pane-copy">Search by name, select an entire group, or click individual rows.</p>
-				</div>
-
-				<div class="personnel-section">
-					<DataTable
-						{columns}
-						{table}
-						compact
-						showSearch
-						searchPlaceholder="Search by name, rank, MOS, or role..."
-						emptyMessage="No personnel available"
-						onRowClick={(person) => togglePerson(person.id)}
-					>
-						{#snippet toolbar(_state)}
-							<div class="selection-toolbar">
-								<div class="selection-stats">
-									<Badge label={`${selectedIds.size} selected`} variant="outlined" />
-									<Badge label={`${table.totalRows} shown`} variant="outlined" />
+					<div class="personnel-section">
+						<DataTable
+							{columns}
+							{table}
+							compact
+							showSearch
+							searchPlaceholder="Search by name, rank, MOS, or role..."
+							emptyMessage="No personnel available"
+							onRowClick={(person) => togglePerson(person.id)}
+						>
+							{#snippet toolbar(_state)}
+								<div class="selection-toolbar">
+									<div class="selection-stats">
+										<Badge label={`${selectedIds.size} selected`} variant="outlined" />
+										<Badge label={`${table.totalRows} shown`} variant="outlined" />
+									</div>
+									<div class="selection-actions">
+										<button class="btn btn-secondary btn-sm" onclick={selectVisible}>Select shown</button>
+										<button class="btn btn-secondary btn-sm" onclick={selectNone}>Clear</button>
+									</div>
 								</div>
-								<div class="selection-actions">
-									<button class="btn btn-secondary btn-sm" onclick={selectVisible}>Select shown</button>
-									<button class="btn btn-secondary btn-sm" onclick={selectNone}>Clear</button>
-								</div>
-							</div>
-						{/snippet}
+							{/snippet}
 
-						{#snippet groupHeader(ctx)}
-							{@const selState = getGroupSelectionState(ctx.key)}
-							<div
-								class="group-header-content"
-								role="button"
-								tabindex="0"
-								onclick={() => ctx.toggle()}
-								onkeydown={(event) => handleGroupHeaderKeydown(event, ctx.key)}
-							>
-								<input
-									type="checkbox"
-									checked={selState === 'all'}
-									indeterminate={selState === 'some'}
-									onchange={() => toggleGroup(ctx.key)}
-									onclick={(e) => e.stopPropagation()}
-								/>
-								<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
-									<path
-										fill-rule="evenodd"
-										d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-										clip-rule="evenodd"
+							{#snippet groupHeader(ctx)}
+								{@const selState = getGroupSelectionState(ctx.key)}
+								<div
+									class="group-header-content"
+									role="button"
+									tabindex="0"
+									onclick={() => ctx.toggle()}
+									onkeydown={(event) => handleGroupHeaderKeydown(event, ctx.key)}
+								>
+									<input
+										type="checkbox"
+										checked={selState === 'all'}
+										indeterminate={selState === 'some'}
+										onchange={() => toggleGroup(ctx.key)}
+										onclick={(e) => e.stopPropagation()}
 									/>
-								</svg>
-								<span class="group-label">{ctx.label}</span>
-								<span class="group-count">({ctx.count})</span>
-							</div>
-						{/snippet}
+									<svg class="chevron-icon" class:collapsed={ctx.collapsed} viewBox="0 0 20 20" fill="currentColor">
+										<path
+											fill-rule="evenodd"
+											d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+											clip-rule="evenodd"
+										/>
+									</svg>
+									<span class="group-label">{ctx.label}</span>
+									<span class="group-count">({ctx.count})</span>
+								</div>
+							{/snippet}
 
-						{#snippet cell(row, col)}
-							{#if col.key === 'select'}
-								<input
-									type="checkbox"
-									checked={selectedIds.has(row.id)}
-									onchange={() => togglePerson(row.id)}
-									onclick={(e) => e.stopPropagation()}
-								/>
-							{:else if col.key === 'rank'}
-								<span class="rank-cell">{row.rank}</span>
-							{:else}
-								{String(col.value(row) ?? '')}
-							{/if}
-						{/snippet}
-					</DataTable>
+							{#snippet cell(row, col)}
+								{#if col.key === 'select'}
+									<input
+										type="checkbox"
+										checked={selectedIds.has(row.id)}
+										onchange={() => togglePerson(row.id)}
+										onclick={(e) => e.stopPropagation()}
+									/>
+								{:else if col.key === 'rank'}
+									<span class="rank-cell">{row.rank}</span>
+								{:else}
+									{String(col.value(row) ?? '')}
+								{/if}
+							{/snippet}
+						</DataTable>
+					</div>
 				</div>
-			</div>
-		</section>
-	</div>
+			</section>
+		</div>
+	{:else}
+		<div class="confirm-stage">
+			<section class="confirm-card">
+				<div class="pane-heading confirm-heading">
+					<span class="pane-eyebrow">Review</span>
+					<h2 class="pane-title">Confirm status change</h2>
+					<p class="pane-copy">
+						Review exactly who will be affected before applying. Nothing changes until you confirm.
+					</p>
+				</div>
+
+				<div class="confirm-criteria">
+					{#if selectedStatus}
+						<Badge label={selectedStatus.name} color={selectedStatus.color} textColor={selectedStatus.textColor} />
+					{/if}
+					<Badge label={`${selectedIds.size} ${selectedIds.size === 1 ? 'person' : 'people'}`} variant="outlined" />
+					<Badge
+						label={startDate === endDate
+							? formatDateDisplay(startDate)
+							: `${formatDateDisplay(startDate)} to ${formatDateDisplay(endDate)}`}
+						variant="outlined"
+					/>
+					{#if note.trim()}
+						<Badge label={`Note: ${note.trim()}`} variant="outlined" />
+					{/if}
+				</div>
+
+				<div class="confirm-content">
+					<div class="personnel-list">
+						{#each selectedPersonnel as person (person.id)}
+							<div class="personnel-item">
+								<span class="rank-cell">{person.rank}</span>
+								<span class="person-name">{person.lastName}, {person.firstName}</span>
+								{#if person.groupName}
+									<span class="person-group">{person.groupName}</span>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				</div>
+
+				<div class="confirm-footer">
+					<button class="btn btn-secondary" onclick={handleBack} disabled={isSubmitting}>Back</button>
+					<div class="spacer"></div>
+					<button class="btn btn-primary" disabled={isSubmitting} onclick={handleSubmit}>
+						{#if isSubmitting}
+							<Spinner />
+							Applying...
+						{:else}
+							Confirm Apply
+						{/if}
+					</button>
+				</div>
+			</section>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -553,6 +625,87 @@
 		color: var(--amber);
 	}
 
+	/* Confirm stage */
+	.confirm-stage {
+		padding: var(--sp-2) 0;
+	}
+
+	.confirm-card {
+		max-width: 980px;
+		margin: 0 auto;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
+		overflow: hidden;
+	}
+
+	.confirm-heading {
+		padding: var(--sp-6);
+		border-bottom: 1px solid var(--border-default);
+		background: var(--surface-subtle);
+	}
+
+	.confirm-criteria {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		padding: var(--sp-4) var(--sp-6);
+		border-bottom: 1px solid var(--border-default);
+		background: var(--surface-subtle);
+	}
+
+	.confirm-content {
+		padding: var(--sp-6);
+		min-height: 120px;
+	}
+
+	.personnel-list {
+		max-height: 320px;
+		overflow-y: auto;
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-md);
+	}
+
+	.personnel-item {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-3);
+		padding: var(--sp-2) var(--sp-4);
+		font-size: var(--text-ui-sm);
+		border-bottom: 1px solid var(--border-default);
+	}
+
+	.personnel-item:last-child {
+		border-bottom: none;
+	}
+
+	.person-name {
+		flex: 1;
+		font-weight: 500;
+	}
+
+	.person-group {
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+
+	.confirm-footer {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--sp-4) var(--sp-6);
+		border-top: 1px solid var(--border-default);
+		background: var(--surface-panel);
+	}
+
+	.spacer {
+		flex: 1;
+	}
+
 	@media (max-width: 1100px) {
 		.bulk-add-panel {
 			padding: 0;
@@ -579,6 +732,23 @@
 
 		.selection-toolbar {
 			align-items: flex-start;
+		}
+
+		.confirm-heading,
+		.confirm-content,
+		.confirm-criteria,
+		.confirm-footer {
+			padding-left: var(--sp-4);
+			padding-right: var(--sp-4);
+		}
+
+		.confirm-footer {
+			align-items: flex-start;
+		}
+
+		.personnel-item {
+			flex-wrap: wrap;
+			gap: var(--sp-1);
 		}
 	}
 </style>

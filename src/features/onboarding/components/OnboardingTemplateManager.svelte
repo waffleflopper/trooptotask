@@ -218,8 +218,19 @@
 		}
 	}
 
-	// Local sorted copy for immediate visual feedback during reordering
-	let orderedSteps = $derived<OnboardingTemplateStep[]>([...stepList]);
+	// Keep optimistic order local so store refreshes from unrelated edits do not snap the list back.
+	let manualStepOrder = $state<string[] | null>(null);
+	const orderedSteps = $derived.by<OnboardingTemplateStep[]>(() => {
+		const source = [...stepList];
+		const order = manualStepOrder;
+		if (!order) return source;
+
+		const ordered = order
+			.map((id) => source.find((step) => step.id === id))
+			.filter((step): step is OnboardingTemplateStep => step !== undefined);
+		const remaining = source.filter((step) => !order.includes(step.id));
+		return [...ordered, ...remaining];
+	});
 
 	$effect(() => {
 		if (templates.length === 0) {
@@ -227,26 +238,35 @@
 		}
 	});
 
+	$effect(() => {
+		if (!manualStepOrder) return;
+		const stepIds = stepList.map((step) => step.id);
+		if (manualStepOrder.length !== stepIds.length || manualStepOrder.some((id) => !stepIds.includes(id))) {
+			manualStepOrder = null;
+		}
+	});
+
+	function reorderStep(fromIndex: number, toIndex: number) {
+		if (fromIndex < 0 || fromIndex >= orderedSteps.length) return;
+		if (toIndex < 0 || toIndex >= orderedSteps.length) return;
+		const next = [...orderedSteps];
+		[next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+
+		const reordered = next.map((step, sortOrder) => ({ ...step, sortOrder }));
+		manualStepOrder = reordered.map((step) => step.id);
+		void persistStepOrder(reordered);
+	}
+
+	async function persistStepOrder(steps: OnboardingTemplateStep[]) {
+		await Promise.all(steps.map((step) => onboardingTemplateStore.update(step.id, { sortOrder: step.sortOrder })));
+	}
+
 	function moveUp(index: number) {
-		if (index === 0) return;
-		const next = orderedSteps.map((s, i) => ({ ...s, sortOrder: i }));
-		[next[index], next[index - 1]] = [next[index - 1], next[index]];
-		next[index - 1].sortOrder = index - 1;
-		next[index].sortOrder = index;
-		orderedSteps = next;
-		onboardingTemplateStore.update(next[index - 1].id, { sortOrder: index - 1 });
-		onboardingTemplateStore.update(next[index].id, { sortOrder: index });
+		reorderStep(index, index - 1);
 	}
 
 	function moveDown(index: number) {
-		if (index === orderedSteps.length - 1) return;
-		const next = orderedSteps.map((s, i) => ({ ...s, sortOrder: i }));
-		[next[index], next[index + 1]] = [next[index + 1], next[index]];
-		next[index].sortOrder = index;
-		next[index + 1].sortOrder = index + 1;
-		orderedSteps = next;
-		onboardingTemplateStore.update(next[index].id, { sortOrder: index });
-		onboardingTemplateStore.update(next[index + 1].id, { sortOrder: index + 1 });
+		reorderStep(index, index + 1);
 	}
 
 	function getDescriptionPreview(step: OnboardingTemplateStep): string {

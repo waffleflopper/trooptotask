@@ -2,6 +2,7 @@
 	import type { Personnel, AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
 	import Modal from '$lib/components/Modal.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface GroupData {
 		group: string;
@@ -35,9 +36,7 @@
 	);
 
 	function shiftDate(days: number) {
-		const d = new Date(selectedDate);
-		d.setDate(d.getDate() + days);
-		selectedDate = d;
+		selectedDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + days);
 	}
 
 	function handleDateInput(e: Event) {
@@ -105,7 +104,7 @@
 		const unavailable: { person: Personnel; statuses: { status: StatusType; entry: AvailabilityEntry }[] }[] = [];
 
 		// Find who has assignments today
-		const personnelAssignments = new Map<string, string[]>();
+		const personnelAssignments = new SvelteMap<string, string[]>();
 		for (const info of assignmentInfo) {
 			if (info.assignment && info.type.assignTo === 'personnel') {
 				const current = personnelAssignments.get(info.assignment.assigneeId) || [];
@@ -130,7 +129,7 @@
 
 	// Group unavailable personnel by status
 	const outByStatus = $derived.by(() => {
-		const groups = new Map<string, { status: StatusType; personnel: Personnel[] }>();
+		const groups = new SvelteMap<string, { status: StatusType; personnel: Personnel[] }>();
 
 		for (const { person, statuses } of personnelBreakdown.unavailable) {
 			for (const { status } of statuses) {
@@ -183,7 +182,7 @@
 			<section class="section assignments-section">
 				<h3>Daily Assignments</h3>
 				<div class="assignment-grid">
-					{#each assignmentInfo as info}
+					{#each assignmentInfo as info (info.type.id)}
 						<div class="assignment-card" class:not-assigned={!info.isAssigned}>
 							<div class="assignment-type">
 								<span class="assignment-short">{info.type.shortName}</span>
@@ -216,18 +215,18 @@
 				<div class="empty-message">No one is available {isToday ? 'today' : 'this day'}</div>
 			{:else}
 				<div class="personnel-groups">
-					{#each personnelByGroup as grp}
+					{#each personnelByGroup as grp (grp.group)}
 						{@const availableForGroup = personnelBreakdown.available.filter((p) => p.person.groupName === grp.group)}
 						{#if availableForGroup.length > 0}
 							<div class="group-block">
 								<div class="group-label">{grp.group}</div>
 								<div class="personnel-chips">
-									{#each availableForGroup as { person, assignments }}
+									{#each availableForGroup as { person, assignments } (person.id)}
 										<div class="person-chip" class:has-assignment={assignments.length > 0}>
 											<span class="chip-rank">{person.rank}</span>
 											<span class="chip-name">{person.lastName}</span>
 											{#if assignments.length > 0}
-												{#each assignments as badge}
+												{#each assignments as badge (badge)}
 													<span class="assignment-badge">{badge}</span>
 												{/each}
 											{/if}
@@ -252,14 +251,14 @@
 				<div class="empty-message success">Everyone is available{isToday ? ' today' : ''}!</div>
 			{:else}
 				<div class="status-groups">
-					{#each outByStatus as { status, personnel }}
+					{#each outByStatus as { status, personnel } (status.id)}
 						<div class="status-group">
 							<div class="status-header" style="background-color: {status.color}; color: {status.textColor}">
 								{status.name}
 								<span class="status-count">{personnel.length}</span>
 							</div>
 							<div class="status-personnel">
-								{#each personnel as person}
+								{#each personnel as person (person.id)}
 									<div class="person-chip out">
 										<span class="chip-rank">{person.rank}</span>
 										<span class="chip-name">{person.lastName}</span>

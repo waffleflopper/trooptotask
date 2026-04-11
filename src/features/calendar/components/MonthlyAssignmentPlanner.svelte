@@ -32,12 +32,7 @@
 	}: Props = $props();
 
 	// State for selected month
-	let viewDate = $state(new Date());
-
-	// Reset view when currentDate prop changes
-	$effect(() => {
-		viewDate = new Date(currentDate);
-	});
+	let viewDate = $derived(new Date(currentDate));
 
 	const year = $derived(viewDate.getFullYear());
 	const month = $derived(viewDate.getMonth());
@@ -240,7 +235,7 @@
 				<tr>
 					<th class="date-col">Date</th>
 					<th class="day-col">Day</th>
-					{#each assignmentTypes as type}
+					{#each assignmentTypes as type (type.id)}
 						<th class="type-col">
 							<div class="type-header">
 								<span class="type-badge" style="background-color: {type.color}">{type.shortName}</span>
@@ -259,7 +254,7 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each dates as date}
+				{#each dates as date (formatDate(date))}
 					{@const dateStr = formatDate(date)}
 					{@const weekend = isWeekend(date)}
 					{@const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })}
@@ -271,7 +266,7 @@
 						<td class="day-col">
 							<span class="day-name">{dayName}</span>
 						</td>
-						{#each assignmentTypes as type}
+						{#each assignmentTypes as type (type.id)}
 							{@const assignment = getAssignment(date, type.id)}
 							<td class="assignment-cell">
 								{#if type.assignTo === 'personnel'}

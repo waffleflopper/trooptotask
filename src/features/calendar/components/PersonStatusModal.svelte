@@ -108,7 +108,7 @@
 	<div class="form-group">
 		<label class="label" for="statusType">Status Type <span class="required">*</span></label>
 		<select id="statusType" class="select" bind:value={selectedStatusId}>
-			{#each statusTypesStore.items as status}
+			{#each statusTypesStore.items as status (status.id)}
 				<option value={status.id}>{status.name}</option>
 			{/each}
 		</select>

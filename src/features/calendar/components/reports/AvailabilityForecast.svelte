@@ -7,6 +7,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		orgId: string;
@@ -19,8 +20,7 @@
 
 	// --- Date range state ---
 	const today = new Date();
-	const thirtyDaysFromNow = new Date(today);
-	thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+	const thirtyDaysFromNow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30);
 
 	function formatDate(d: Date): string {
 		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -30,7 +30,7 @@
 	let endDate = $state(formatDate(thirtyDaysFromNow));
 
 	// --- Group filter state ---
-	let selectedGroupIds = $state<Set<string>>(new Set());
+	const selectedGroupIds = new SvelteSet<string>();
 
 	const filteredPersonnel = $derived.by(() => {
 		if (selectedGroupIds.size === 0) return personnel;
@@ -43,20 +43,16 @@
 	let errorMsg = $state('');
 
 	// --- Expandable rows ---
-	let expandedDates = $state<Set<string>>(new Set());
+	const expandedDates = new SvelteSet<string>();
 
 	function toggleExpanded(date: string) {
-		const next = new Set(expandedDates);
-		if (next.has(date)) next.delete(date);
-		else next.add(date);
-		expandedDates = next;
+		if (expandedDates.has(date)) expandedDates.delete(date);
+		else expandedDates.add(date);
 	}
 
 	function toggleGroup(groupId: string) {
-		const next = new Set(selectedGroupIds);
-		if (next.has(groupId)) next.delete(groupId);
-		else next.add(groupId);
-		selectedGroupIds = next;
+		if (selectedGroupIds.has(groupId)) selectedGroupIds.delete(groupId);
+		else selectedGroupIds.add(groupId);
 	}
 
 	async function runReport() {
@@ -70,7 +66,7 @@
 		loading = true;
 		errorMsg = '';
 		result = null;
-		expandedDates = new Set();
+		expandedDates.clear();
 
 		try {
 			const res = await fetch(

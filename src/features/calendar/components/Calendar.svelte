@@ -13,6 +13,7 @@
 	import GroupHeader from '$lib/components/GroupHeader.svelte';
 	import { buildDutyEventBadgesByPerson, type DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	const GROUP_ROW_HEIGHT = 35;
 	const PERSON_ROW_HEIGHT_WITH_ROLES = 46;
@@ -89,7 +90,7 @@
 		onToggleViewMode
 	}: Props = $props();
 
-	let collapsedGroups = $state<Set<string>>(new Set());
+	const collapsedGroups = new SvelteSet<string>();
 	let scrollLeft = $state(0);
 	let scrollTop = $state(0);
 	let scrollbarWidth = $state(0);
@@ -138,16 +139,14 @@
 	});
 
 	function toggleGroup(group: string) {
-		const newSet = new Set(collapsedGroups);
-		if (newSet.has(group)) {
-			newSet.delete(group);
+		if (collapsedGroups.has(group)) {
+			collapsedGroups.delete(group);
 		} else {
-			newSet.add(group);
+			collapsedGroups.add(group);
 		}
-		collapsedGroups = newSet;
 	}
 
-	const onboardingSet = $derived(new Set(activeOnboardingPersonnelIds));
+	const onboardingSet = $derived(new SvelteSet(activeOnboardingPersonnelIds));
 
 	const totalPersonnel = $derived(personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0));
 	const personRowHeight = $derived(showPersonnelRoles ? PERSON_ROW_HEIGHT_WITH_ROLES : PERSON_ROW_HEIGHT_WITHOUT_ROLES);
@@ -190,7 +189,7 @@
 
 	// Pre-index availability entries by personnel ID for O(1) lookup per person
 	const availabilityByPerson = $derived.by(() => {
-		const map = new Map<string, AvailabilityEntry[]>();
+		const map = new SvelteMap<string, AvailabilityEntry[]>();
 		for (const e of availabilityEntries) {
 			let list = map.get(e.personnelId);
 			if (!list) {
@@ -204,7 +203,7 @@
 
 	// Pre-index assignments by assignee ID
 	const assignmentsByPerson = $derived.by(() => {
-		const map = new Map<string, DailyAssignment[]>();
+		const map = new SvelteMap<string, DailyAssignment[]>();
 		for (const a of assignments) {
 			let list = map.get(a.assigneeId);
 			if (!list) {
@@ -222,7 +221,7 @@
 	);
 
 	const personnelById = $derived.by(() => {
-		const map = new Map<string, Personnel>();
+		const map = new SvelteMap<string, Personnel>();
 		for (const group of personnelByGroup) {
 			for (const person of group.personnel) {
 				map.set(person.id, person);
@@ -233,7 +232,7 @@
 
 	// Pre-index status types by ID for O(1) lookup
 	const statusTypeMap = $derived.by(() => {
-		const map = new Map<string, StatusType>();
+		const map = new SvelteMap<string, StatusType>();
 		for (const s of statusTypes) {
 			map.set(s.id, s);
 		}
@@ -309,7 +308,7 @@
 									{specialDays}
 									{assignmentTypes}
 									personAssignments={assignmentsByPerson.get(row.person.id) ?? []}
-									personDutyBadges={dutyBadgesByPerson.get(row.person.id) ?? new Map<string, DutyEventBadge[]>()}
+									personDutyBadges={dutyBadgesByPerson.get(row.person.id) ?? new SvelteMap<string, DutyEventBadge[]>()}
 									{showStatusText}
 									{showPersonnelRoles}
 									isOnboarding={onboardingSet.has(row.person.id)}

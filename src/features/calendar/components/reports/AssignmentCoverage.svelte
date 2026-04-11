@@ -6,6 +6,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		orgId: string;
@@ -41,7 +42,7 @@
 	let result = $state<AssignmentCoverageResult | null>(null);
 	let errorMsg = $state('');
 	let fetchedAssignmentTypes = $state<AssignmentType[]>([]);
-	let selectedTypeIds = $state<Set<string>>(new Set());
+	const selectedTypeIds = new SvelteSet<string>();
 
 	// Keep a reference to raw data so we can re-compute on filter change
 	let rawAssignments = $state<DailyAssignment[]>([]);
@@ -57,8 +58,8 @@
 	);
 
 	const averageByType = $derived.by(() => {
-		if (!result || result.rows.length === 0) return new Map<string, number>();
-		const map = new Map<string, number>();
+		if (!result || result.rows.length === 0) return new SvelteMap<string, number>();
+		const map = new SvelteMap<string, number>();
 		for (const typeId of result.activeAssignmentTypeIds) {
 			const sum = result.rows.reduce((s, r) => s + (r.assignmentCounts.get(typeId) ?? 0), 0);
 			map.set(typeId, Math.round((sum / result.rows.length) * 10) / 10);
@@ -89,7 +90,8 @@
 			rawAssignments = data.assignments ?? [];
 
 			// Default all personnel assignment types selected
-			selectedTypeIds = new Set(personnelTypes.map((t) => t.id));
+			selectedTypeIds.clear();
+			for (const type of personnelTypes) selectedTypeIds.add(type.id);
 
 			result = computeAssignmentCoverage(
 				personnel,
@@ -119,18 +121,17 @@
 	}
 
 	function toggleTypeFilter(id: string) {
-		const next = new Set(selectedTypeIds);
-		if (next.has(id)) next.delete(id);
-		else next.add(id);
-		selectedTypeIds = next;
+		if (selectedTypeIds.has(id)) selectedTypeIds.delete(id);
+		else selectedTypeIds.add(id);
 		recompute();
 	}
 
 	function toggleAllTypes() {
 		if (selectedTypeIds.size === personnelAssignmentTypes.length) {
-			selectedTypeIds = new Set();
+			selectedTypeIds.clear();
 		} else {
-			selectedTypeIds = new Set(personnelAssignmentTypes.map((t) => t.id));
+			selectedTypeIds.clear();
+			for (const type of personnelAssignmentTypes) selectedTypeIds.add(type.id);
 		}
 		recompute();
 	}
@@ -218,7 +219,7 @@
 					}}
 				>
 					<option value="">Custom</option>
-					{#each yearOptions as year}
+					{#each yearOptions as year (year)}
 						<option value={year}>{year}</option>
 					{/each}
 				</select>

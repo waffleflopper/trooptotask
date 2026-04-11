@@ -1,34 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockSave, mockText, mockSetFontSize, mockSetFillColor, mockRect, mockSetTextColor, mockJsPDF, mockAutoTable } =
-	vi.hoisted(() => {
-		const mockSave = vi.fn();
-		const mockText = vi.fn();
-		const mockSetFontSize = vi.fn();
-		const mockSetFillColor = vi.fn();
-		const mockRect = vi.fn();
-		const mockSetTextColor = vi.fn();
-		const mockJsPDF = vi.fn(function (this: Record<string, unknown>) {
-			this.internal = { pageSize: { getWidth: () => 792 } };
-			this.save = mockSave;
-			this.text = mockText;
-			this.setFontSize = mockSetFontSize;
-			this.setFillColor = mockSetFillColor;
-			this.rect = mockRect;
-			this.setTextColor = mockSetTextColor;
-		});
-		const mockAutoTable = vi.fn();
-		return {
-			mockSave,
-			mockText,
-			mockSetFontSize,
-			mockSetFillColor,
-			mockRect,
-			mockSetTextColor,
-			mockJsPDF,
-			mockAutoTable
-		};
+const { mockSave, mockText, mockJsPDF, mockAutoTable } = vi.hoisted(() => {
+	const mockSave = vi.fn();
+	const mockText = vi.fn();
+	const mockSetFontSize = vi.fn();
+	const mockSetFillColor = vi.fn();
+	const mockRect = vi.fn();
+	const mockSetTextColor = vi.fn();
+	const mockJsPDF = vi.fn(function (this: Record<string, unknown>) {
+		this.internal = { pageSize: { getWidth: () => 792 } };
+		this.save = mockSave;
+		this.text = mockText;
+		this.setFontSize = mockSetFontSize;
+		this.setFillColor = mockSetFillColor;
+		this.rect = mockRect;
+		this.setTextColor = mockSetTextColor;
 	});
+	const mockAutoTable = vi.fn();
+	return { mockSave, mockText, mockJsPDF, mockAutoTable };
+});
 
 vi.mock('jspdf', () => ({
 	jsPDF: mockJsPDF

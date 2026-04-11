@@ -99,6 +99,7 @@ export class CalendarPageContext {
 	}
 
 	get scopedPersonnelIds(): Set<string> {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- This getter returns a plain Set as public context data; it is not mutated as component state.
 		return new Set(
 			(this.#workspaceData?.personnel ?? (this.#data.personnel as Personnel[] | undefined) ?? []).map((p) => p.id)
 		);
@@ -248,6 +249,7 @@ export class CalendarPageContext {
 		if (!this.#data.permissions?.canEditCalendar) return;
 		if (this.#data.scopedGroupId && !this.scopedPersonnelIds.has(person.id)) return;
 		this.selectedPerson = person;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- selectedDate stores a replacement Date instance and is not mutated in place.
 		this.selectedDate = new Date();
 	}
 

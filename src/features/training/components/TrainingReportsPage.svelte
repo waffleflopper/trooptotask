@@ -31,6 +31,18 @@
 	let reportLoading = $state(false);
 	let reportError = $state<string | null>(null);
 	let reportRequestId = 0;
+	let lastServerReport: TrainingReportData | null = null;
+
+	$effect(() => {
+		const nextServerReport = serverReport;
+		if (nextServerReport !== lastServerReport) {
+			lastServerReport = nextServerReport;
+			report = null;
+			reportError = null;
+			reportLoading = false;
+			reportRequestId += 1;
+		}
+	});
 
 	let filterGroupId = $state('');
 	let filterMos = $state('');

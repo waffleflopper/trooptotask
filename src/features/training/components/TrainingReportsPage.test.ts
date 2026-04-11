@@ -8,6 +8,7 @@ import { personnelTrainingsStore } from '$features/training/stores/personnelTrai
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
+import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({
@@ -85,6 +86,54 @@ const trainingType: TrainingType = {
 	exemptPersonnelIds: [],
 	isOptional: false
 };
+
+function makeServerReport(
+	person: Personnel,
+	overrides: Partial<TrainingReportData['detail']> = {}
+): TrainingReportData {
+	return {
+		dashboard: {
+			readinessPercent: 50,
+			statusCounts: {
+				current: 1,
+				warningYellow: 0,
+				warningOrange: 0,
+				expired: 0,
+				notCompleted: 1
+			},
+			worstTypes: [],
+			groupComparison: []
+		},
+		detail: {
+			rows: [
+				{
+					person,
+					cells: [
+						{
+							trainingTypeId: trainingType.id,
+							status: 'current',
+							label: 'Current',
+							date: null
+						}
+					]
+				}
+			],
+			totalRows: 2,
+			page: 1,
+			pageSize: 1,
+			totalPages: 2,
+			sort: { column: 'name', direction: 'asc' },
+			...overrides
+		},
+		trainingTypes: [trainingType],
+		filterOptions: {
+			groups,
+			mos: ['11B', '68W'],
+			roles: ['Line', 'Medic'],
+			ranks: ['SGT', 'SPC']
+		}
+	};
+}
 
 describe('TrainingReportsPage', () => {
 	beforeEach(() => {
@@ -279,6 +328,34 @@ describe('TrainingReportsPage', () => {
 			expect(screen.getByText('Smith, Jane')).toBeTruthy();
 		});
 		expect(screen.queryByText('Adams, John')).toBeNull();
+	});
+
+	it('replaces a client-fetched report when fresh server report data arrives', async () => {
+		const fetchMock = vi.fn(async () => ({
+			ok: true,
+			json: async () => makeServerReport(personnel[0], { page: 2 })
+		}));
+		vi.stubGlobal('fetch', fetchMock);
+
+		const view = render(TrainingReportsPage, {
+			props: {
+				data: {
+					trainingReport: makeServerReport(personnel[1])
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+		await waitFor(() => expect(screen.getByText('Smith, Jane')).toBeTruthy());
+
+		await view.rerender({
+			data: {
+				trainingReport: makeServerReport(personnel[1], { totalRows: 1, totalPages: 1 })
+			}
+		});
+
+		await waitFor(() => expect(screen.getByText('Adams, John')).toBeTruthy());
+		expect(screen.queryByText('Smith, Jane')).toBeNull();
 	});
 
 	it('fetches a fresh server report page when filters change', async () => {

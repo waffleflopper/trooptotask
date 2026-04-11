@@ -40,8 +40,7 @@ describe('training reports page server load', () => {
 			expect.objectContaining({ permission: 'training' })
 		);
 		expect(fetchTrainingReportPage).toHaveBeenCalledWith(expect.anything(), {
-			sort: { column: 'name', direction: 'asc' },
-			pagination: { page: 1, pageSize: 25 }
+			sort: { column: 'name', direction: 'asc' }
 		});
 		expect(result.trainingReport.detail.pageSize).toBe(25);
 	});

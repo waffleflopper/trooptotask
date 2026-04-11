@@ -125,6 +125,61 @@ describe('fetchTrainingReportsData', () => {
 		expect(result.dashboard.statusCounts.notCompleted).toBe(1);
 	});
 
+	it('clamps oversized page requests to the last available report page', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed(
+			'personnel',
+			Array.from({ length: 105 }, (_, index) => ({
+				id: `p-${String(index).padStart(3, '0')}`,
+				organization_id: ORG,
+				rank: 'SPC',
+				last_name: `Person ${String(index).padStart(3, '0')}`,
+				first_name: 'Test',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: null,
+				archived_at: null,
+				groups: null
+			}))
+		);
+		store.seed('training_types', [
+			{
+				id: 'type-cpr',
+				organization_id: ORG,
+				name: 'CPR',
+				description: null,
+				expiration_months: null,
+				warning_days_yellow: 60,
+				warning_days_orange: 30,
+				applies_to_roles: [],
+				applies_to_mos: [],
+				applies_to_ranks: [],
+				excluded_roles: [],
+				excluded_mos: [],
+				excluded_ranks: [],
+				color: '#22c55e',
+				sort_order: 0,
+				expiration_date_only: false,
+				can_be_exempted: false,
+				exempt_personnel_ids: [],
+				is_optional: false
+			}
+		]);
+
+		const result = await fetchTrainingReportPage(ctx, {
+			sort: { column: 'name', direction: 'asc' },
+			pagination: { page: 999, pageSize: 999 }
+		});
+
+		expect(result.detail.pageSize).toBe(100);
+		expect(result.detail.totalRows).toBe(105);
+		expect(result.detail.totalPages).toBe(2);
+		expect(result.detail.page).toBe(2);
+		expect(result.detail.rows).toHaveLength(5);
+	});
+
 	it('limits report rows to the caller scoped group', async () => {
 		const ctx = createQueryPortsContext({ auth: { scopedGroupId: 'group-1' } });
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;

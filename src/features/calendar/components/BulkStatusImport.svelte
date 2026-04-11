@@ -6,6 +6,7 @@
 	import { STATUS_IMPORT_COLUMNS } from '$lib/utils/columnMapping';
 	import type { RowValidation } from '$lib/components/ui/BulkImportTable.svelte';
 	import type { Personnel, StatusType } from '$lib/types';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		personnel: Personnel[];
@@ -40,7 +41,7 @@
 
 	// Personnel lookup map: "lastname|firstname" -> Personnel[]
 	const personnelMap = $derived.by(() => {
-		const map = new Map<string, Personnel[]>();
+		const map = new SvelteMap<string, Personnel[]>();
 		for (const p of personnel) {
 			const key = `${p.lastName.toLowerCase()}|${p.firstName.toLowerCase()}`;
 			const existing = map.get(key) || [];
@@ -52,7 +53,7 @@
 
 	// Status type lookup map: lowercase name -> StatusType
 	const statusTypeMap = $derived.by(() => {
-		const map = new Map<string, StatusType>();
+		const map = new SvelteMap<string, StatusType>();
 		for (const st of statusTypes) {
 			map.set(st.name.toLowerCase(), st);
 		}
@@ -163,7 +164,7 @@
 		savedCheckedRows = checkedRows;
 
 		// Collect unique status names and check matches
-		const statusCounts = new Map<string, number>();
+		const statusCounts = new SvelteMap<string, number>();
 		for (const row of checkedRows) {
 			const name = (row.statusType || '').trim();
 			if (name) {
@@ -198,7 +199,7 @@
 		if (checkedRows.length === 0) return;
 
 		// Build status resolution map: lowercase csv name -> statusTypeId
-		const statusResolutionMap = new Map<string, string>();
+		const statusResolutionMap = new SvelteMap<string, string>();
 		// Add matched statuses
 		for (const [lower, st] of statusTypeMap) {
 			statusResolutionMap.set(lower, st.id);
@@ -218,7 +219,7 @@
 			endDate: string;
 			note?: string | null;
 		}[] = [];
-		const skippedStatuses = new Set(
+		const skippedStatuses = new SvelteSet(
 			unmatchedStatuses.filter((m) => m.resolvedId === '__skip__').map((m) => m.csvName.toLowerCase())
 		);
 

@@ -14,6 +14,7 @@
 	import { buildDutyEventBadgesByPerson } from '$features/calendar/utils/dutyEventBadges';
 	import { buildAvailabilityStatusIndex } from '$features/calendar/utils/calendarIndexes';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	/** Must match --long-range-col-width in CSS */
 	const COL_WIDTH = 24;
@@ -55,17 +56,12 @@
 		onToggleViewMode
 	}: Props = $props();
 
-	let viewStartDate = $state(new Date());
+	let viewStartDate = $derived(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
 	let scrollAreaEl: HTMLDivElement;
 	let rosterRowsEl: HTMLDivElement;
 	let scrollTop = $state(0);
 	let viewportHeight = $state(DEFAULT_VIEWPORT_HEIGHT);
 	let rosterOffsetTop = $state(0);
-
-	// Reset view when startDate prop changes
-	$effect(() => {
-		viewStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-	});
 
 	// Get 3 months of data
 	const months = $derived.by(() => {
@@ -85,7 +81,7 @@
 	const visibleDateKeys = $derived.by(() => months.flatMap((month) => month.dates.map((date) => formatDate(date))));
 
 	const specialDayByDate = $derived.by(() => {
-		const map = new Map<string, SpecialDay>();
+		const map = new SvelteMap<string, SpecialDay>();
 		for (const specialDay of specialDays) {
 			map.set(specialDay.date, specialDay);
 		}
@@ -257,7 +253,7 @@
 			<!-- Header Row with Months and Days -->
 			<div class="grid-header">
 				<div class="name-cell header-cell">Personnel</div>
-				{#each months as month}
+				{#each months as month (`${month.year}-${month.month}`)}
 					<div
 						class="month-header"
 						style="width: {month.dates.length * COL_WIDTH}px; min-width: {month.dates.length * COL_WIDTH}px;"
@@ -271,8 +267,8 @@
 			<!-- Day Numbers Row — clickable to jump to that month -->
 			<div class="day-row">
 				<div class="name-cell day-header-cell"></div>
-				{#each months as month}
-					{#each month.dates as date}
+				{#each months as month (`${month.year}-${month.month}`)}
+					{#each month.dates as date (formatDate(date))}
 						{@const dateKey = formatDate(date)}
 						{@const weekend = isWeekend(date)}
 						{@const today = isToday(date)}
@@ -303,8 +299,8 @@
 						{#if row.type === 'group'}
 							<div class="group-row">
 								<div class="name-cell group-name">{row.group}</div>
-								{#each months as month}
-									{#each month.dates as date}
+								{#each months as month (`${month.year}-${month.month}`)}
+									{#each month.dates as date (formatDate(date))}
 										<div class="group-cell"></div>
 									{/each}
 								{/each}
@@ -315,8 +311,8 @@
 									<span class="rank">{row.person.rank}</span>
 									<span class="name">{row.person.lastName}</span>
 								</div>
-								{#each months as month}
-									{#each month.dates as date}
+								{#each months as month (`${month.year}-${month.month}`)}
+									{#each month.dates as date (formatDate(date))}
 										{@const dateKey = formatDate(date)}
 										{@const status = statusIndex.getStatus(row.person.id, dateKey)}
 										{@const weekend = isWeekend(date)}
@@ -348,7 +344,7 @@
 	<div class="legend-bar">
 		<div class="legend">
 			<span class="legend-label">Status:</span>
-			{#each statusTypes as status}
+			{#each statusTypes as status (status.id)}
 				<span class="legend-item">
 					<span class="legend-color" style="background-color: {status.color}"></span>
 					{status.name}

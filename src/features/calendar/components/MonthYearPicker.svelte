@@ -10,14 +10,10 @@
 
 	const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-	let displayYear = $state(new Date().getFullYear());
+	let displayYear = $derived(year);
 	let pickerEl = $state<HTMLDivElement | null>(null);
 	let monthButtons: Array<HTMLButtonElement | null> = [];
 	let hasAutoFocused = $state(false);
-
-	$effect(() => {
-		displayYear = year;
-	});
 
 	$effect(() => {
 		if (!pickerEl || hasAutoFocused) return;
@@ -97,7 +93,7 @@
 	</div>
 
 	<div class="month-grid">
-		{#each MONTH_LABELS as label, i}
+		{#each MONTH_LABELS as label, i (label)}
 			<button
 				bind:this={monthButtons[i]}
 				class="month-btn"

@@ -6,6 +6,8 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		orgId: string;
@@ -14,16 +16,18 @@
 		groups: { id: string; name: string }[];
 	}
 
-	let { orgId, personnel, statusTypes, groups }: Props = $props();
+	let { orgId, personnel, groups }: Props = $props();
 
 	// --- Helpers ---
 
 	function getMonday(d: Date): Date {
-		const date = new Date(d);
-		const day = date.getDay();
-		const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-		date.setDate(diff);
-		return date;
+		const day = d.getDay();
+		const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+		return new Date(d.getFullYear(), d.getMonth(), diff);
+	}
+
+	function addDays(d: Date, days: number): Date {
+		return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
 	}
 
 	function formatDateStr(d: Date): string {
@@ -40,35 +44,31 @@
 
 	const today = new Date();
 	const monday = getMonday(today);
-	const sunday = new Date(monday);
-	sunday.setDate(sunday.getDate() + 6);
+	const sunday = addDays(monday, 6);
 
 	let startDate = $state(formatDateStr(monday));
 	let endDate = $state(formatDateStr(sunday));
 
 	function setThisWeek() {
 		const mon = getMonday(new Date());
-		const sun = new Date(mon);
-		sun.setDate(sun.getDate() + 6);
+		const sun = addDays(mon, 6);
 		startDate = formatDateStr(mon);
 		endDate = formatDateStr(sun);
 	}
 
 	function setNextWeek() {
 		const mon = getMonday(new Date());
-		mon.setDate(mon.getDate() + 7);
-		const sun = new Date(mon);
-		sun.setDate(sun.getDate() + 6);
-		startDate = formatDateStr(mon);
+		const nextMon = addDays(mon, 7);
+		const sun = addDays(nextMon, 6);
+		startDate = formatDateStr(nextMon);
 		endDate = formatDateStr(sun);
 	}
 
 	function setNext2Weeks() {
 		const mon = getMonday(new Date());
-		mon.setDate(mon.getDate() + 7);
-		const sun = new Date(mon);
-		sun.setDate(sun.getDate() + 13);
-		startDate = formatDateStr(mon);
+		const nextMon = addDays(mon, 7);
+		const sun = addDays(nextMon, 13);
+		startDate = formatDateStr(nextMon);
 		endDate = formatDateStr(sun);
 	}
 
@@ -82,20 +82,44 @@
 
 	// --- Group selection state ---
 
-	let selectedGroupIds = $state<Set<string>>(new Set(groups.map((g) => g.id)));
+	const selectedGroupIds = new SvelteSet<string>();
+	let previousGroupIds: string[] = [];
+
+	$effect(() => {
+		const currentGroupIds = groups.map((g) => g.id);
+		const currentGroupIdSet = new SvelteSet(currentGroupIds);
+
+		untrack(() => {
+			const selectedAllPrevious =
+				previousGroupIds.length > 0 && previousGroupIds.every((id) => selectedGroupIds.has(id));
+			const shouldSelectAll = (previousGroupIds.length === 0 && selectedGroupIds.size === 0) || selectedAllPrevious;
+
+			if (shouldSelectAll) {
+				selectedGroupIds.clear();
+				for (const id of currentGroupIds) selectedGroupIds.add(id);
+			} else {
+				const selectedExistingIds = [...selectedGroupIds].filter((id) => currentGroupIdSet.has(id));
+				if (selectedExistingIds.length !== selectedGroupIds.size) {
+					selectedGroupIds.clear();
+					for (const id of selectedExistingIds) selectedGroupIds.add(id);
+				}
+			}
+
+			previousGroupIds = currentGroupIds;
+		});
+	});
 
 	function toggleGroup(id: string) {
-		const next = new Set(selectedGroupIds);
-		if (next.has(id)) next.delete(id);
-		else next.add(id);
-		selectedGroupIds = next;
+		if (selectedGroupIds.has(id)) selectedGroupIds.delete(id);
+		else selectedGroupIds.add(id);
 	}
 
 	function toggleAllGroups() {
 		if (selectedGroupIds.size === groups.length) {
-			selectedGroupIds = new Set();
+			selectedGroupIds.clear();
 		} else {
-			selectedGroupIds = new Set(groups.map((g) => g.id));
+			selectedGroupIds.clear();
+			for (const group of groups) selectedGroupIds.add(group.id);
 		}
 	}
 
@@ -260,7 +284,7 @@
 					<thead>
 						<tr>
 							<th class="col-group" onclick={() => table.toggleSort('groupName')}>Group</th>
-							{#each result.dates as dateStr}
+							{#each result.dates as dateStr (dateStr)}
 								<th class="col-date">{formatShortDate(dateStr)}</th>
 							{/each}
 						</tr>
@@ -269,7 +293,7 @@
 						{#each table.rows as group (group.groupId)}
 							<tr>
 								<td class="col-group">{group.groupName}</td>
-								{#each group.cells as cell}
+								{#each group.cells as cell (cell.date)}
 									<td class="col-date" style:background={cellBackground(cell.availablePercent)}>
 										{cell.availableCount}/{cell.totalPersonnel}
 									</td>

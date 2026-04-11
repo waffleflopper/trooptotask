@@ -97,7 +97,7 @@ export class TrainingPageContext {
 
 	get savedViewIds(): Set<string> {
 		this.reconcileHydratedSelections();
-		return new Set(trainingViewsStore.items.map((view) => view.id));
+		return new SvelteSet(trainingViewsStore.items.map((view) => view.id));
 	}
 
 	// ---- derived: roles ----

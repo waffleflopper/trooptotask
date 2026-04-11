@@ -319,7 +319,7 @@
 																<p class="no-notes">No notes yet.</p>
 															{:else}
 																<div class="notes-list">
-																	{#each step.notes as note}
+																	{#each step.notes as note (note.timestamp + note.userId + note.text)}
 																		<div class="note-item">
 																			<span class="note-text">{note.text}</span>
 																			<span class="note-time">{ctx.formatTimestamp(note.timestamp)}</span>

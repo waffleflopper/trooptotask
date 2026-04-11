@@ -10,11 +10,10 @@
 
 	interface Props {
 		onClose: () => void;
-		orgId: string;
 		readOnly: boolean;
 	}
 
-	let { onClose, orgId: _orgId, readOnly }: Props = $props();
+	let { onClose, readOnly }: Props = $props();
 
 	let mode: 'list' | 'edit' = $state('list');
 	let editingView: TrainingView | null = $state(null);

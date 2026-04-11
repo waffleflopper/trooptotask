@@ -1,10 +1,5 @@
 <script lang="ts">
-	import type {
-		DutyEventSeriesPreview,
-		DutyEventSeriesEventOverrideInput,
-		DutyEventPreviewSlotInstance,
-		DutyTemplate
-	} from '../duty-roster.types';
+	import type { DutyEventSeriesPreview, DutyEventPreviewSlotInstance, DutyTemplate } from '../duty-roster.types';
 	import type { Personnel } from '$lib/types';
 	import CollisionReviewPanel from './CollisionReviewPanel.svelte';
 	import SlotPreviewItem from './SlotPreviewItem.svelte';
@@ -13,7 +8,6 @@
 	interface Props {
 		preview: DutyEventSeriesPreview;
 		template: DutyTemplate;
-		overrides: DutyEventSeriesEventOverrideInput[];
 		eyebrow?: string;
 		meta?: string;
 		applyLabel?: string;
@@ -44,7 +38,6 @@
 	let {
 		preview,
 		template,
-		overrides,
 		eyebrow = 'Series preview ready',
 		meta = `${preview.eventDates.length} event${preview.eventDates.length === 1 ? '' : 's'} · ${preview.pattern}`,
 		applyLabel = 'Apply Series',

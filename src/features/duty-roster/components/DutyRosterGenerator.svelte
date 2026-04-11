@@ -10,6 +10,7 @@
 	import WizardStepper from './WizardStepper.svelte';
 	import MultiTagSelect from './MultiTagSelect.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		initialAssignmentTypeId?: string;
@@ -68,7 +69,7 @@
 	let dutyDuration = $state<'daily' | 'weekly' | 'monthly'>('daily');
 	let startDate = $state(getMonthStart());
 	let endDate = $state(getMonthEnd());
-	let draftExemptIds = $state<Set<string>>(new Set());
+	let draftExemptIds = new SvelteSet<string>();
 	let excludeStatuses = $state<string[]>([]);
 	let excludeWeekends = $state(false);
 	let excludeHolidays = $state(false);
@@ -111,7 +112,7 @@
 
 	// Calculate duty counts from existing assignments
 	function getDutyCounts(assignmentTypeId: string): Map<string, number> {
-		const counts = new Map<string, number>();
+		const counts = new SvelteMap<string, number>();
 
 		// Initialize all eligible personnel with 0
 		eligiblePersonnel.forEach((p) => counts.set(p.id, 0));
@@ -132,7 +133,7 @@
 	// future assignments (e.g. March already generated) don't corrupt a past period
 	// (e.g. generating February retroactively).
 	function getLastDutyDates(assignmentTypeId: string, beforeDate: string): Map<string, string | null> {
-		const lastDates = new Map<string, string | null>();
+		const lastDates = new SvelteMap<string, string | null>();
 		eligiblePersonnel.forEach((p) => lastDates.set(p.id, null));
 
 		assignments
@@ -159,7 +160,7 @@
 	}
 
 	function addHours(dateTime: string, hours: number): string {
-		const value = new Date(dateTime);
+		const value = new SvelteDate(dateTime);
 		value.setHours(value.getHours() + hours);
 		return formatDateTime(value);
 	}
@@ -208,7 +209,7 @@
 
 	// Build set of excluded special day dates based on toggles
 	const excludedSpecialDays = $derived.by(() => {
-		const dates = new Set<string>();
+		const dates = new SvelteSet<string>();
 		for (const day of specialDays) {
 			if (excludeHolidays && day.type === 'federal-holiday') dates.add(day.date);
 			if (excludeOrgClosures && day.type === 'org-closure') dates.add(day.date);
@@ -222,7 +223,7 @@
 		const startD = new Date(start + 'T00:00:00');
 		const endD = new Date(end + 'T00:00:00');
 
-		let current = new Date(startD);
+		let current = new SvelteDate(startD);
 
 		while (current <= endD) {
 			const dayOfWeek = current.getDay();
@@ -261,9 +262,9 @@
 
 		// Working copies for this generation run.
 		// Pass startDate so only assignments BEFORE this period influence initial ordering.
-		const workingCounts = new Map(dutyCounts);
+		const workingCounts = new SvelteMap(dutyCounts);
 		const initialLastDutyDates = getLastDutyDates(selectedAssignmentTypeId, startDate);
-		const workingLastDutyDates = new Map(initialLastDutyDates);
+		const workingLastDutyDates = new SvelteMap(initialLastDutyDates);
 
 		// DA6 capture: build personnel list sorted alphabetically for stable row order
 		const da6Personnel = [...eligiblePersonnel]
@@ -590,6 +591,13 @@
 		}
 	}
 
+	function replaceDraftExemptIds(ids: Iterable<string>) {
+		draftExemptIds.clear();
+		for (const id of ids) {
+			draftExemptIds.add(id);
+		}
+	}
+
 	async function saveExemptions() {
 		if (!selectedAssignmentTypeId || !hasExemptionChanges || isSavingExemptions) return;
 		isSavingExemptions = true;
@@ -618,7 +626,7 @@
 			toastStore.warning('Unsaved exempt personnel changes were discarded because the duty exemptions changed.');
 		}
 
-		draftExemptIds = new Set(currentExemptIds);
+		replaceDraftExemptIds(currentExemptIds);
 		lastSyncedExemptionScope = currentScope;
 	});
 
@@ -819,7 +827,7 @@
 								<thead>
 									<tr>
 										<th class="da6-sticky-col">Name</th>
-										{#each generatedDA6.dates as d}
+										{#each generatedDA6.dates as d (d.date)}
 											{@const date = new Date(d.date + 'T00:00:00')}
 											<th class="da6-date-col"
 												>{date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}</th
@@ -828,13 +836,13 @@
 									</tr>
 								</thead>
 								<tbody>
-									{#each generatedDA6.personnel as person, i}
+									{#each generatedDA6.personnel as person, i (person.id)}
 										<tr>
 											<td class="da6-sticky-col da6-name-cell">
 												<span class="assignee-rank">{person.rank}</span>
 												{person.name}
 											</td>
-											{#each generatedDA6.dates as d}
+											{#each generatedDA6.dates as d (d.date)}
 												{@const pos = d.positions[i]}
 												{#if pos === null}
 													<td class="da6-cell da6-unavail">&mdash;</td>
@@ -863,7 +871,7 @@
 									</tr>
 								</thead>
 								<tbody>
-									{#each generatedRoster as entry}
+									{#each generatedRoster as entry (entry.date)}
 										{@const date = new Date(entry.date + 'T00:00:00')}
 										<tr class:unfilled={!entry.assignee}>
 											<td>{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
@@ -904,7 +912,7 @@
 						<label class="label" for="assignmentType">Assignment Type</label>
 						<select id="assignmentType" class="select" bind:value={selectedAssignmentTypeId}>
 							<option value="">Select duty type...</option>
-							{#each personnelAssignmentTypes as type}
+							{#each personnelAssignmentTypes as type (type.id)}
 								<option value={type.id}>{type.name} ({type.shortName})</option>
 							{/each}
 						</select>
@@ -968,7 +976,7 @@
 					</div>
 
 					<div class="chip-list">
-						{#each statusTypes as status}
+						{#each statusTypes as status (status.id)}
 							<button
 								class="chip status-chip"
 								class:selected={excludeStatuses.includes(status.id)}
@@ -1005,7 +1013,7 @@
 							value={[...draftExemptIds]}
 							placeholder="Search to add exempt personnel..."
 							ariaLabel="Exempt personnel"
-							onChange={(ids) => (draftExemptIds = new Set(ids))}
+							onChange={replaceDraftExemptIds}
 						/>
 					</section>
 				{/if}

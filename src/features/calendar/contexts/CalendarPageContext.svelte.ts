@@ -68,6 +68,7 @@ export class CalendarPageContext {
 
 	// ---- display prefs -----------------------------------------------------
 	showStatusText = $state(false);
+	showPersonnelRoles = $state(true);
 	highlightOnboarding = $state(true);
 	breakdownExpanded = $state(true);
 	dutyStartDayOnly = $state(true);
@@ -152,6 +153,7 @@ export class CalendarPageContext {
 	): void {
 		const current = preferences ?? getDefaultUserOrgPreferences();
 		this.showStatusText = current.calendar.showStatusText;
+		this.showPersonnelRoles = current.calendar.showPersonnelRoles;
 		this.highlightOnboarding = current.calendar.highlightOnboarding;
 		this.dutyStartDayOnly = current.calendar.dutyStartDayOnly ?? true;
 		this.breakdownExpanded =
@@ -199,6 +201,15 @@ export class CalendarPageContext {
 		void this.persistPreferences({
 			calendar: {
 				showStatusText: this.showStatusText
+			}
+		});
+	}
+
+	toggleShowPersonnelRoles(): void {
+		this.showPersonnelRoles = !this.showPersonnelRoles;
+		void this.persistPreferences({
+			calendar: {
+				showPersonnelRoles: this.showPersonnelRoles
 			}
 		});
 	}

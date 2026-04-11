@@ -9,9 +9,11 @@ export interface CalendarToolbarInput {
 	readOnly: boolean;
 	breakdownExpanded: boolean;
 	showStatusText: boolean;
+	showPersonnelRoles: boolean;
 	dutyStartDayOnly: boolean;
 	onToggleBreakdown: () => void;
 	onToggleStatusText: () => void;
+	onTogglePersonnelRoles: () => void;
 	onToggleDutyStartDayOnly: () => void;
 	onExportCSV: () => void;
 	onExportPDF: () => void;
@@ -64,6 +66,12 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): SmartToo
 		{ type: 'overflow', label: 'Export to Excel', onclick: input.onExportCSV },
 		{ type: 'overflow', label: 'Print / PDF', onclick: input.onExportPDF },
 		{ type: 'overflow', label: 'Show Status Text', onclick: input.onToggleStatusText, active: input.showStatusText },
+		{
+			type: 'overflow',
+			label: 'Show Personnel Roles',
+			onclick: input.onTogglePersonnelRoles,
+			active: input.showPersonnelRoles
+		},
 		{
 			type: 'overflow',
 			label: 'Duty: Start Day Only',

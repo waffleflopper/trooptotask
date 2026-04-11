@@ -21,6 +21,7 @@
 		personAssignments: DailyAssignment[];
 		personDutyBadges?: Map<string, DutyEventBadge[]>;
 		showStatusText?: boolean;
+		showPersonnelRoles?: boolean;
 		isOnboarding?: boolean;
 		highlightOnboarding?: boolean;
 		onCellClick?: (person: Personnel, date: Date) => void;
@@ -37,6 +38,7 @@
 		personAssignments,
 		personDutyBadges,
 		showStatusText = false,
+		showPersonnelRoles = true,
 		isOnboarding = false,
 		highlightOnboarding = true,
 		onCellClick,
@@ -98,7 +100,7 @@
 </script>
 
 <div class="personnel-row">
-	<button class="personnel-info" onclick={handlePersonClick}>
+	<button class="personnel-info" class:compact={!showPersonnelRoles} onclick={handlePersonClick}>
 		<span class="rank">{person.rank}</span>
 		<div class="name-block">
 			<span class="name-line">
@@ -107,7 +109,7 @@
 					<span class="onboarding-dot" title="Active onboarding"></span>
 				{/if}
 			</span>
-			{#if person.clinicRole}
+			{#if showPersonnelRoles && person.clinicRole}
 				<span class="role">{person.clinicRole}</span>
 			{/if}
 		</div>
@@ -171,6 +173,11 @@
 		background-color: var(--surface-subtle);
 	}
 
+	.personnel-info.compact {
+		padding-top: 4px;
+		padding-bottom: 4px;
+	}
+
 	.rank {
 		min-width: 42px;
 		font-family: var(--font-mono);
@@ -186,6 +193,10 @@
 		flex-direction: column;
 		overflow: hidden;
 		min-width: 0;
+	}
+
+	.personnel-info.compact .name-block {
+		justify-content: center;
 	}
 
 	.name-line {

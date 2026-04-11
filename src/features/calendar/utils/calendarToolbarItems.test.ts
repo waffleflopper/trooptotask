@@ -9,9 +9,11 @@ function makeInput(overrides: Partial<Parameters<typeof buildCalendarToolbarItem
 		readOnly: false,
 		breakdownExpanded: false,
 		showStatusText: false,
+		showPersonnelRoles: true,
 		dutyStartDayOnly: false,
 		onToggleBreakdown: () => {},
 		onToggleStatusText: () => {},
+		onTogglePersonnelRoles: () => {},
 		onToggleDutyStartDayOnly: () => {},
 		onExportCSV: () => {},
 		onExportPDF: () => {},
@@ -75,6 +77,12 @@ describe('buildCalendarToolbarItems', () => {
 		expect(overflowLabels).toContain('Print / PDF');
 		expect(overflowLabels).toContain('Show Status Text');
 		expect(overflowItems.find((i) => i.label === 'Show Status Text')?.active).toBe(true);
+	});
+
+	it('always includes an active-aware Show Personnel Roles toggle in overflow', () => {
+		const items = buildCalendarToolbarItems(makeInput({ showPersonnelRoles: false }));
+		const overflowItems = items.filter((i) => i.type === 'overflow');
+		expect(overflowItems.find((i) => i.label === 'Show Personnel Roles')?.active).toBe(false);
 	});
 
 	it('keeps edit-requiring groups visible but disabled when readOnly', () => {

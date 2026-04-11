@@ -7,6 +7,7 @@ import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
+import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
 
@@ -97,6 +98,7 @@ describe('CalendarPageContext', () => {
 		mutableSpecialDaysStore.loading = false;
 		mutableStatusTypesStore.loading = false;
 		mutableGroupsStore.loading = false;
+		vi.mocked(queueUserPreferencesPatch).mockClear();
 		ctx = new CalendarPageContext(mockData, org);
 	});
 
@@ -166,6 +168,18 @@ describe('CalendarPageContext', () => {
 			expect(ctx.breakdownExpanded).toBe(true);
 		});
 
+		it('syncUserPreferences honors a saved personnel role display preference', () => {
+			ctx.syncUserPreferences({
+				...getDefaultUserOrgPreferences(),
+				calendar: {
+					...getDefaultUserOrgPreferences().calendar,
+					showPersonnelRoles: false
+				}
+			});
+
+			expect(ctx.showPersonnelRoles).toBe(false);
+		});
+
 		it('toggleBreakdown flips breakdownExpanded', () => {
 			ctx.toggleBreakdown();
 			expect(ctx.breakdownExpanded).toBe(false);
@@ -209,6 +223,7 @@ describe('CalendarPageContext', () => {
 		it('selectedDate starts null', () => expect(ctx.selectedDate).toBeNull());
 		it('assignmentDate starts null', () => expect(ctx.assignmentDate).toBeNull());
 		it('showStatusText starts false', () => expect(ctx.showStatusText).toBe(false));
+		it('showPersonnelRoles starts true', () => expect(ctx.showPersonnelRoles).toBe(true));
 		it('highlightOnboarding starts true', () => expect(ctx.highlightOnboarding).toBe(true));
 	});
 
@@ -310,6 +325,21 @@ describe('CalendarPageContext', () => {
 			expect(ctx.showStatusText).toBe(true);
 			ctx.toggleShowStatusText();
 			expect(ctx.showStatusText).toBe(false);
+		});
+	});
+
+	describe('toggleShowPersonnelRoles', () => {
+		it('flips showPersonnelRoles and persists the preference', () => {
+			expect(ctx.showPersonnelRoles).toBe(true);
+
+			ctx.toggleShowPersonnelRoles();
+
+			expect(ctx.showPersonnelRoles).toBe(false);
+			expect(queueUserPreferencesPatch).toHaveBeenCalledWith('org1', {
+				calendar: {
+					showPersonnelRoles: false
+				}
+			});
 		});
 	});
 

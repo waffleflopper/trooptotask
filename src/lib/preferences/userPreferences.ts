@@ -7,6 +7,7 @@ export type TrainingMatrixViewMode = z.infer<typeof TrainingMatrixViewModeSchema
 export interface UserOrgPreferences {
 	calendar: {
 		showStatusText: boolean;
+		showPersonnelRoles: boolean;
 		highlightOnboarding: boolean;
 		/**
 		 * `null` means "follow the responsive default" instead of forcing open/closed.
@@ -34,6 +35,7 @@ export const UserOrgPreferencesPatchSchema = z.object({
 	calendar: z
 		.object({
 			showStatusText: z.boolean().optional(),
+			showPersonnelRoles: z.boolean().optional(),
 			highlightOnboarding: z.boolean().optional(),
 			todaySummaryExpanded: z.boolean().nullable().optional(),
 			dutyStartDayOnly: z.boolean().optional()
@@ -52,6 +54,7 @@ export function getDefaultUserOrgPreferences(): UserOrgPreferences {
 	return {
 		calendar: {
 			showStatusText: false,
+			showPersonnelRoles: true,
 			highlightOnboarding: true,
 			todaySummaryExpanded: null,
 			dutyStartDayOnly: true

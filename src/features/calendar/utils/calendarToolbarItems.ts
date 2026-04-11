@@ -11,6 +11,7 @@ export interface CalendarToolbarInput {
 	showStatusText: boolean;
 	showPersonnelRoles: boolean;
 	dutyStartDayOnly: boolean;
+	viewMode?: 'month' | '3-month';
 	onToggleBreakdown: () => void;
 	onToggleStatusText: () => void;
 	onTogglePersonnelRoles: () => void;
@@ -61,10 +62,15 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): SmartToo
 		});
 	}
 
-	// Overflow items — always available
+	// Overflow items — exports only shown in month view (3-month view has its own export buttons)
+	if (input.viewMode !== '3-month') {
+		items.push(
+			{ type: 'overflow', label: 'Export to Excel', onclick: input.onExportCSV },
+			{ type: 'overflow', label: 'Print / PDF', onclick: input.onExportPDF }
+		);
+	}
+
 	items.push(
-		{ type: 'overflow', label: 'Export to Excel', onclick: input.onExportCSV },
-		{ type: 'overflow', label: 'Print / PDF', onclick: input.onExportPDF },
 		{ type: 'overflow', label: 'Show Status Text', onclick: input.onToggleStatusText, active: input.showStatusText },
 		{
 			type: 'overflow',

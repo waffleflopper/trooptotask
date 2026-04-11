@@ -136,7 +136,17 @@
 			localEntries = [...localEntries, tempEntry];
 		}
 		onAdd(newData);
-		toastStore.success(editingEntry ? 'Status updated' : 'Status added');
+
+		const statusName = statusTypes.find((s) => s.id === newData.statusTypeId)?.name ?? 'Status';
+		const dateLabel =
+			newData.startDate === newData.endDate
+				? new Date(newData.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+				: `${new Date(newData.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–${new Date(newData.endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
+		toastStore.success(
+			editingEntry ? `${statusName} updated — ${dateLabel}` : `${statusName} added — ${dateLabel}`,
+			5000
+		);
 
 		// Reset form
 		selectedStatusId = statusTypes[0]?.id ?? '';

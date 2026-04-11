@@ -22,6 +22,17 @@
 			<div class="toast" style="--toast-color: {typeColors[toast.type]}">
 				<span class="toast-icon">{typeIcons[toast.type]}</span>
 				<span class="toast-message">{toast.message}</span>
+				{#if toast.action}
+					<button
+						class="toast-action"
+						onclick={() => {
+							toast.action?.onClick();
+							toastStore.dismiss(toast.id);
+						}}
+					>
+						{toast.action.label}
+					</button>
+				{/if}
 				<button class="toast-dismiss" onclick={() => toastStore.dismiss(toast.id)} aria-label="Dismiss">
 					&times;
 				</button>
@@ -107,6 +118,26 @@
 	.toast-dismiss:hover {
 		background: var(--surface-subtle);
 		color: var(--text-primary);
+	}
+
+	.toast-action {
+		flex-shrink: 0;
+		padding: 3px 8px;
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--toast-color);
+		color: var(--toast-color);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		cursor: pointer;
+		background: transparent;
+		transition: background var(--transition-fast);
+	}
+
+	.toast-action:hover {
+		background: color-mix(in srgb, var(--toast-color) 12%, transparent);
 	}
 
 	@media (max-width: 640px) {

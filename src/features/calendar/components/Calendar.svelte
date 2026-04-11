@@ -12,6 +12,12 @@
 	import CalendarRow from './CalendarRow.svelte';
 	import GroupHeader from '$lib/components/GroupHeader.svelte';
 	import { buildDutyEventBadgesByPerson, type DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
+	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
+
+	const GROUP_ROW_HEIGHT = 35;
+	const PERSON_ROW_HEIGHT = 46;
+	const DEFAULT_VIEWPORT_HEIGHT = 720;
+	const ROW_OVERSCAN_PX = PERSON_ROW_HEIGHT * 8;
 
 	interface GroupData {
 		group: string;
@@ -82,12 +88,16 @@
 
 	let collapsedGroups = $state<Set<string>>(new Set());
 	let scrollLeft = $state(0);
+	let scrollTop = $state(0);
 	let scrollbarWidth = $state(0);
+	let viewportHeight = $state(DEFAULT_VIEWPORT_HEIGHT);
 	let calendarBodyEl: HTMLDivElement;
 
 	function handleScroll() {
 		if (calendarBodyEl) {
 			scrollLeft = calendarBodyEl.scrollLeft;
+			scrollTop = calendarBodyEl.scrollTop;
+			viewportHeight = calendarBodyEl.clientHeight || DEFAULT_VIEWPORT_HEIGHT;
 			const newScrollbarWidth = calendarBodyEl.offsetWidth - calendarBodyEl.clientWidth;
 			if (newScrollbarWidth !== scrollbarWidth) {
 				scrollbarWidth = newScrollbarWidth;
@@ -99,6 +109,7 @@
 	$effect(() => {
 		if (calendarBodyEl) {
 			scrollbarWidth = calendarBodyEl.offsetWidth - calendarBodyEl.clientWidth;
+			viewportHeight = calendarBodyEl.clientHeight || DEFAULT_VIEWPORT_HEIGHT;
 		}
 	});
 
@@ -115,6 +126,41 @@
 	const onboardingSet = $derived(new Set(activeOnboardingPersonnelIds));
 
 	const totalPersonnel = $derived(personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0));
+
+	const rosterRows = $derived.by(() => {
+		const rows: (
+			| { type: 'group'; key: string; group: string; height: number }
+			| { type: 'person'; key: string; person: Personnel; height: number }
+		)[] = [];
+
+		for (const grp of personnelByGroup) {
+			rows.push({
+				type: 'group',
+				key: `group:${grp.group}`,
+				group: grp.group,
+				height: GROUP_ROW_HEIGHT
+			});
+
+			if (collapsedGroups.has(grp.group)) continue;
+
+			for (const person of grp.personnel) {
+				rows.push({
+					type: 'person',
+					key: `person:${person.id}`,
+					person,
+					height: PERSON_ROW_HEIGHT
+				});
+			}
+		}
+
+		return rows;
+	});
+
+	const rosterLayout = $derived.by(() => buildVirtualRowLayout(rosterRows));
+
+	const visibleRosterRows = $derived.by(() =>
+		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, ROW_OVERSCAN_PX)
+	);
 
 	// Pre-index availability entries by personnel ID for O(1) lookup per person
 	const availabilityByPerson = $derived.by(() => {
@@ -190,7 +236,16 @@
 		{onToggleViewMode}
 	/>
 
-	<div class="calendar-body" style="--dates-count: {dates.length};" bind:this={calendarBodyEl} onscroll={handleScroll}>
+	<div
+		class="calendar-body"
+		style="
+			--dates-count: {dates.length};
+			--calendar-group-row-height: {GROUP_ROW_HEIGHT}px;
+			--calendar-person-row-height: {PERSON_ROW_HEIGHT}px;
+		"
+		bind:this={calendarBodyEl}
+		onscroll={handleScroll}
+	>
 		<div class="calendar-grid">
 			{#if totalPersonnel === 0}
 				<div class="empty-state">
@@ -202,34 +257,43 @@
 					{/if}
 				</div>
 			{:else}
-				{#each personnelByGroup as grp (grp.group)}
-					<GroupHeader
-						groupName={grp.group}
-						isCollapsed={collapsedGroups.has(grp.group)}
-						isPinned={pinnedGroups.includes(grp.group)}
-						onToggle={() => toggleGroup(grp.group)}
-						onPinToggle={() => onPinToggle?.(grp.group)}
-					/>
-					{#if !collapsedGroups.has(grp.group)}
-						{#each grp.personnel as person (person.id)}
-							<CalendarRow
-								{person}
-								{dates}
-								personAvailability={availabilityByPerson.get(person.id) ?? []}
-								{statusTypeMap}
-								{specialDays}
-								{assignmentTypes}
-								personAssignments={assignmentsByPerson.get(person.id) ?? []}
-								personDutyBadges={dutyBadgesByPerson.get(person.id) ?? new Map<string, DutyEventBadge[]>()}
-								{showStatusText}
-								isOnboarding={onboardingSet.has(person.id)}
-								{highlightOnboarding}
-								onCellClick={canEdit ? onCellClick : undefined}
-								{onPersonClick}
-							/>
-						{/each}
-					{/if}
-				{/each}
+				<div class="calendar-rows" style:height={`${rosterLayout.totalHeight}px`}>
+					{#each visibleRosterRows as row (row.key)}
+						<div
+							class="virtual-row"
+							class:virtual-row--person={row.type === 'person'}
+							class:virtual-row--group={row.type === 'group'}
+							style:transform={`translateY(${row.top}px)`}
+							style:height={`${row.height}px`}
+						>
+							{#if row.type === 'group'}
+								<GroupHeader
+									groupName={row.group}
+									isCollapsed={collapsedGroups.has(row.group)}
+									isPinned={pinnedGroups.includes(row.group)}
+									onToggle={() => toggleGroup(row.group)}
+									onPinToggle={() => onPinToggle?.(row.group)}
+								/>
+							{:else}
+								<CalendarRow
+									person={row.person}
+									{dates}
+									personAvailability={availabilityByPerson.get(row.person.id) ?? []}
+									{statusTypeMap}
+									{specialDays}
+									{assignmentTypes}
+									personAssignments={assignmentsByPerson.get(row.person.id) ?? []}
+									personDutyBadges={dutyBadgesByPerson.get(row.person.id) ?? new Map<string, DutyEventBadge[]>()}
+									{showStatusText}
+									isOnboarding={onboardingSet.has(row.person.id)}
+									{highlightOnboarding}
+									onCellClick={canEdit ? onCellClick : undefined}
+									{onPersonClick}
+								/>
+							{/if}
+						</div>
+					{/each}
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -259,6 +323,40 @@
 		flex-direction: column;
 		min-width: 100%;
 		min-height: 100%;
+	}
+
+	.calendar-rows {
+		position: relative;
+		min-width: calc(var(--personnel-column-width) + (var(--cell-width) * var(--dates-count)));
+	}
+
+	.virtual-row {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+	}
+
+	.virtual-row--person {
+		border-bottom: var(--border-thin);
+	}
+
+	.calendar-rows :global(.group-header) {
+		height: var(--calendar-group-row-height);
+		min-height: var(--calendar-group-row-height);
+		overflow: hidden;
+	}
+
+	.calendar-rows :global(.personnel-row) {
+		height: var(--calendar-person-row-height);
+		min-height: var(--calendar-person-row-height);
+		overflow: hidden;
+	}
+
+	.calendar-rows :global(.personnel-info),
+	.calendar-rows :global(.date-cell) {
+		height: var(--calendar-person-row-height);
+		min-height: var(--calendar-person-row-height);
 	}
 
 	.empty-state {

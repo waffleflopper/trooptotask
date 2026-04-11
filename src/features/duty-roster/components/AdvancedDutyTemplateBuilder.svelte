@@ -1,12 +1,11 @@
 <script lang="ts">
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import WizardStepper from './WizardStepper.svelte';
 	import type { TagOption } from './MultiTagSelect.svelte';
 	import { ALL_RANKS } from '$lib/types';
 	import type { StatusType } from '$lib/types';
 	import { cloneDefaultSoftPreferences, type DutyTemplate, type DutyTemplateWriteInput } from '../duty-roster.types';
+	import { SvelteSet } from 'svelte/reactivity';
 	import TemplateStarterStep from './TemplateStarterStep.svelte';
 	import TemplateBasicsStep from './TemplateBasicsStep.svelte';
 	import TemplatePolicyStep from './TemplatePolicyStep.svelte';
@@ -67,7 +66,7 @@
 	let setupMode = $state<SetupMode>('quick');
 	let builderStep = $state<BuilderStep>('basics');
 	let showArchivedTemplates = $state(false);
-	let collapsedSlots = $state<Set<string>>(new Set());
+	let collapsedSlots = new SvelteSet<string>();
 	let pendingArchiveTemplateId = $state<string | null>(null);
 
 	let templateName = $state('');
@@ -145,6 +144,13 @@
 		isDirty = true;
 	}
 
+	function replaceCollapsedSlots(keys: Iterable<string>) {
+		collapsedSlots.clear();
+		for (const key of keys) {
+			collapsedSlots.add(key);
+		}
+	}
+
 	function loadTemplate(template: DutyTemplate) {
 		selectedTemplateId = template.id;
 		isCreatingNew = false;
@@ -197,19 +203,17 @@
 	function addSlot() {
 		markDirty();
 		const newSlot = createBlankSlot(nextSlotKey);
-		collapsedSlots = new Set(draftSlots.map((slot) => slot.key));
+		replaceCollapsedSlots(draftSlots.map((slot) => slot.key));
 		draftSlots = [...draftSlots, newSlot];
 	}
 	function removeSlot(key: string) {
 		markDirty();
-		collapsedSlots = new Set([...collapsedSlots].filter((value) => value !== key));
+		collapsedSlots.delete(key);
 		draftSlots = draftSlots.filter((slot) => slot.key !== key);
 	}
 	function toggleSlotCollapsed(key: string) {
-		const next = new Set(collapsedSlots);
-		if (next.has(key)) next.delete(key);
-		else next.add(key);
-		collapsedSlots = next;
+		if (collapsedSlots.has(key)) collapsedSlots.delete(key);
+		else collapsedSlots.add(key);
 	}
 	function updateSlot(key: string, patch: Partial<EditableSlot>) {
 		markDirty();

@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockSave, mockText, mockSetFontSize, mockJsPDF, mockAutoTable } = vi.hoisted(() => {
+const { mockSave, mockText, mockJsPDF, mockAutoTable } = vi.hoisted(() => {
 	const mockSave = vi.fn();
 	const mockText = vi.fn();
 	const mockSetFontSize = vi.fn();
@@ -17,7 +17,6 @@ const { mockSave, mockText, mockSetFontSize, mockJsPDF, mockAutoTable } = vi.hoi
 	return {
 		mockSave,
 		mockText,
-		mockSetFontSize,
 		mockJsPDF,
 		mockAutoTable
 	};
@@ -82,13 +81,19 @@ function jsonResponse(data: unknown, ok = true): Response {
 	} as unknown as Response;
 }
 
-function renderModal() {
+function renderModal(
+	overrides: {
+		personnel?: Personnel[];
+		groups?: { id: string; name: string }[];
+		canEdit?: boolean;
+	} = {}
+) {
 	return render(SignInRosterModal, {
 		props: {
 			orgId: 'org-1',
-			personnel,
-			groups,
-			canEdit: true,
+			personnel: overrides.personnel ?? personnel,
+			groups: overrides.groups ?? groups,
+			canEdit: overrides.canEdit ?? true,
 			onClose: vi.fn()
 		}
 	});
@@ -154,6 +159,62 @@ describe('SignInRosterModal', () => {
 		);
 		expect(body.personnelSnapshot).toHaveLength(1);
 		expect(body.filterConfig).toEqual(expect.objectContaining({ groups: [], ranks: expect.arrayContaining(['SGT']) }));
+	});
+
+	it('persists rank and group filters in the generated roster payload', async () => {
+		const filteredPersonnel: Personnel[] = [
+			...personnel,
+			{
+				id: 'person-2',
+				rank: 'CPT',
+				lastName: 'Baker',
+				firstName: 'Jordan',
+				mos: '70B',
+				clinicRole: '',
+				groupId: 'group-2',
+				groupName: 'Bravo'
+			}
+		];
+		const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+			if ((init?.method ?? 'GET') === 'POST') {
+				return jsonResponse({ id: 'roster-2' });
+			}
+
+			return jsonResponse({ rosters: [], total: 0 });
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		renderModal({
+			personnel: filteredPersonnel,
+			groups: [...groups, { id: 'group-2', name: 'Bravo' }]
+		});
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'New Roster' })).toBeTruthy());
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
+		await fireEvent.input(screen.getByLabelText(/Title/i), {
+			target: { value: 'Officer Call' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'All Enlisted' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Bravo' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
+
+		await waitFor(() => expect(mockJsPDF).toHaveBeenCalledTimes(1));
+
+		const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+		const body = JSON.parse(String(postCall?.[1]?.body));
+
+		expect(body.personnelSnapshot).toEqual([
+			expect.objectContaining({
+				id: 'person-2',
+				rank: 'CPT',
+				lastName: 'Baker',
+				group: 'Bravo'
+			})
+		]);
+		expect(body.filterConfig.groups).toEqual(['Bravo']);
+		expect(body.filterConfig.ranks).toContain('CPT');
+		expect(body.filterConfig.ranks).not.toContain('SGT');
 	});
 
 	it('re-prints an existing roster through the async PDF path without creating a new roster', async () => {

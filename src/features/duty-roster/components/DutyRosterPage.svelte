@@ -60,8 +60,10 @@
 	const canManageAdvancedTemplates = $derived(!org.readOnly && canAccessAdvancedDuty);
 	const workspaceData = $derived(data.calendar?.data ?? data);
 	let activeTab = $state<'wizard' | 'advanced-templates'>('wizard');
-	let advancedDutyTemplates = $state<DutyTemplate[]>([]);
-	let advancedDutyEvents = $state<DutyEvent[]>([]);
+	let advancedDutyTemplates = $derived(sortTemplates((data.advancedDutyTemplates ?? []).map(normalizeTemplate)));
+	let advancedDutyEvents = $derived(
+		[...data.advancedDutyEvents].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart))
+	);
 	const visibleAdvancedTemplateCount = $derived(
 		advancedDutyTemplates.filter((template) => template.status !== 'archived').length
 	);
@@ -85,14 +87,6 @@
 	// ---- Load roster history on mount ----
 	$effect(() => {
 		dutyRosterHistoryStore.load(data.rosterHistory);
-	});
-
-	$effect(() => {
-		advancedDutyTemplates = sortTemplates((data.advancedDutyTemplates ?? []).map(normalizeTemplate));
-	});
-
-	$effect(() => {
-		advancedDutyEvents = [...data.advancedDutyEvents].sort((a, b) => b.coverageStart.localeCompare(a.coverageStart));
 	});
 
 	// ---- Personnel data ----

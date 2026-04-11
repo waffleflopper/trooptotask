@@ -43,9 +43,7 @@
 				<AuthNotice tone="error" message={form.error} />
 			{/if}
 
-			<p class="auth-note">
-				If the account exists, you will receive a reset link at that address.
-			</p>
+			<p class="auth-note">If the account exists, you will receive a reset link at that address.</p>
 
 			<form
 				method="POST"

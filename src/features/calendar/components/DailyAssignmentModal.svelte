@@ -82,7 +82,6 @@
 			onRemoveAssignment(dateStr, typeId);
 		}
 	}
-
 </script>
 
 <Modal title="Daily Assignments" {onClose} width="520px" titleId="daily-assign-title">
@@ -253,5 +252,4 @@
 		text-transform: uppercase;
 		color: var(--text-secondary);
 	}
-
 </style>

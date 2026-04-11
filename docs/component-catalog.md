@@ -276,7 +276,7 @@ Searchable single-select with keyboard navigation and clear button. Use when `<s
 />
 ```
 
-Props: `options: { value: string; label: string }[]`, `value: string` (bindable), `placeholder?: string` (default `'Search...'`), `disabled?: boolean`, `onchange?: (value: string) => void`, `id?: string`
+Props: `options: { value: string; label: string }[]`, `value: string` (bindable), `placeholder?: string` (default `'Search...'`), `disabled?: boolean`, `onchange?: (value: string) => void`, `id?: string`, `ariaLabel?: string`
 
 - Typing filters the dropdown; keyboard arrows + Enter to navigate; Escape to close
 - Shows a × clear button when a value is selected
@@ -506,7 +506,7 @@ Visual table component with sorting, search, pagination, grouping, and custom ce
 <DataTable table={myTable} ariaLabel="Custom table" />
 ```
 
-Props: `data?: T[]`, `columns: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `onRowClick?: (row: T) => void`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`
+Props: `data?: T[]`, `columns: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`
 
 Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 
@@ -516,6 +516,7 @@ Table guidance:
 
 - Use the built-in header sort buttons instead of rolling your own sortable chrome.
 - Prefer custom `cell` snippets for semantic emphasis such as person-name columns, badges, or actions.
+- Mark action/display-only columns with `sortable: false`; provide `rowActionLabel` when rows can be opened with click or keyboard.
 - Reserve `striped` for especially dense matrix-like views; default tables now intentionally rely on rules and hover states instead.
 
 ---
@@ -545,7 +546,7 @@ const table = useDataTable({
 // table.rows, table.toggleSort('name'), table.setSearch('query')
 ```
 
-`ColumnDef<T>`: `key: string`, `header: string`, `value: (row: T) => unknown`, `searchValue?: (row: T) => string`, `compare?: (a: T, b: T) => number`, `searchable?: boolean`
+`ColumnDef<T>`: `key: string`, `header: string`, `value: (row: T) => unknown`, `headerAriaLabel?: string`, `searchValue?: (row: T) => string`, `compare?: (a: T, b: T) => number`, `searchable?: boolean`, `sortable?: boolean`
 
 `DataTableState<T>` provides: `rows`, `groups`, `totalRows`, `totalPages`, `sortKey`, `sortDirection`, `search`, `page`, `pageSize`, `toggleSort()`, `setSearch()`, `setPage()`, `toggleGroup()`, `expandAll()`, `collapseAll()`
 

@@ -26,6 +26,7 @@
 		showSearch?: boolean;
 		searchPlaceholder?: string;
 		onRowClick?: (row: T) => void;
+		rowActionLabel?: (row: T) => string;
 		compact?: boolean;
 		striped?: boolean;
 		stickyHeader?: boolean;
@@ -53,6 +54,7 @@
 		showSearch = false,
 		searchPlaceholder = 'Search...',
 		onRowClick,
+		rowActionLabel,
 		compact = false,
 		striped = false,
 		stickyHeader = true,
@@ -82,9 +84,22 @@
 	const table = $derived(tableProp ?? internalTable!);
 	const cols = $derived(table.columns);
 
+	function isSortable(col: ColumnDef<T>): boolean {
+		return col.sortable !== false;
+	}
+
 	function ariaSort(colKey: string): 'ascending' | 'descending' | undefined {
-		if (table.sortKey !== colKey) return undefined;
+		const col = cols.find((c) => c.key === colKey);
+		if (!col || !isSortable(col) || table.sortKey !== colKey) return undefined;
 		return table.sortDirection === 'asc' ? 'ascending' : 'descending';
+	}
+
+	function handleRowKeydown(event: KeyboardEvent, row: T) {
+		if (!onRowClick) return;
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+
+		event.preventDefault();
+		onRowClick(row);
 	}
 </script>
 
@@ -112,83 +127,108 @@
 		</div>
 	{/if}
 
-	<table aria-label={ariaLabel}>
-		<thead>
-			<tr>
-				{#each cols as col}
-					<th scope="col" aria-sort={ariaSort(col.key)}>
-						<button type="button" class="column-sort" onclick={() => table.toggleSort(col.key)}>
-							<span class="column-label"
-								>{#if headerCell}{@render headerCell(col)}{:else}{col.header}{/if}</span
-							>
-						</button>
-					</th>
-				{/each}
-			</tr>
-		</thead>
-		{#if table.groups.length > 0}
-			<tbody>
-				{#each table.groups as group}
-					{#if groupHeaderSnippet}
-						<tr class="group-header">
-							<td colspan={cols.length}>
-								{@render groupHeaderSnippet({
-									key: group.key,
-									label: group.label,
-									count: group.rows.length,
-									collapsed: group.collapsed,
-									toggle: () => table.toggleGroup(group.key)
-								})}
-							</td>
-						</tr>
-					{:else}
-						<tr class="group-header">
-							<td colspan={cols.length}>
-								<button type="button" class="group-toggle" onclick={() => table.toggleGroup(group.key)}>
-									<span>{group.label} <span class="group-count">({group.rows.length})</span></span>
-								</button>
-							</td>
-						</tr>
-					{/if}
-					{#if !group.collapsed}
-						{#each group.rows as row}
-							{#if rowSnippet}
-								{@render rowSnippet(row, cols)}
-							{:else}
-								<tr class:clickable={!!onRowClick} onclick={onRowClick ? () => onRowClick(row) : undefined}>
-									{#each cols as col}
-										<td
-											>{#if cell}{@render cell(row, col)}{:else}{String(col.value(row) ?? '')}{/if}</td
-										>
-									{/each}
-								</tr>
-							{/if}
-						{/each}
-					{/if}
-				{/each}
-			</tbody>
-		{:else if table.rows.length > 0}
-			<tbody>
-				{#each table.rows as row}
-					{#if rowSnippet}
-						{@render rowSnippet(row, cols)}
-					{:else}
-						<tr class:clickable={!!onRowClick} onclick={onRowClick ? () => onRowClick(row) : undefined}>
-							{#each cols as col}
-								<td
-									>{#if cell}{@render cell(row, col)}{:else}{String(col.value(row) ?? '')}{/if}</td
+	<div class="data-table-scroll">
+		<table aria-label={ariaLabel}>
+			<thead>
+				<tr>
+					{#each cols as col}
+						<th scope="col" aria-sort={ariaSort(col.key)}>
+							{#if isSortable(col)}
+								<button
+									type="button"
+									class="column-sort"
+									aria-label={col.headerAriaLabel ?? (col.header ? `Sort by ${col.header}` : undefined)}
+									onclick={() => table.toggleSort(col.key)}
 								>
+									<span class="column-label"
+										>{#if headerCell}{@render headerCell(col)}{:else}{col.header}{/if}</span
+									>
+								</button>
+							{:else}
+								<span class="column-static" aria-label={col.headerAriaLabel}>
+									{#if headerCell}{@render headerCell(col)}{:else}{col.header}{/if}
+								</span>
+							{/if}
+						</th>
+					{/each}
+				</tr>
+			</thead>
+			{#if table.groups.length > 0}
+				<tbody>
+					{#each table.groups as group}
+						{#if groupHeaderSnippet}
+							<tr class="group-header">
+								<td colspan={cols.length}>
+									{@render groupHeaderSnippet({
+										key: group.key,
+										label: group.label,
+										count: group.rows.length,
+										collapsed: group.collapsed,
+										toggle: () => table.toggleGroup(group.key)
+									})}
+								</td>
+							</tr>
+						{:else}
+							<tr class="group-header">
+								<td colspan={cols.length}>
+									<button type="button" class="group-toggle" onclick={() => table.toggleGroup(group.key)}>
+										<span>{group.label} <span class="group-count">({group.rows.length})</span></span>
+									</button>
+								</td>
+							</tr>
+						{/if}
+						{#if !group.collapsed}
+							{#each group.rows as row}
+								{#if rowSnippet}
+									{@render rowSnippet(row, cols)}
+								{:else}
+									<tr
+										class:clickable={!!onRowClick}
+										tabindex={onRowClick ? 0 : undefined}
+										aria-label={onRowClick && rowActionLabel ? rowActionLabel(row) : undefined}
+										onclick={onRowClick ? () => onRowClick(row) : undefined}
+										onkeydown={onRowClick ? (event) => handleRowKeydown(event, row) : undefined}
+									>
+										{#each cols as col}
+											<td
+												>{#if cell}{@render cell(row, col)}{:else}{String(col.value(row) ?? '')}{/if}</td
+											>
+										{/each}
+									</tr>
+								{/if}
 							{/each}
-						</tr>
-					{/if}
-				{/each}
-			</tbody>
-		{/if}
-	</table>
+						{/if}
+					{/each}
+				</tbody>
+			{:else if table.rows.length > 0}
+				<tbody>
+					{#each table.rows as row}
+						{#if rowSnippet}
+							{@render rowSnippet(row, cols)}
+						{:else}
+							<tr
+								class:clickable={!!onRowClick}
+								tabindex={onRowClick ? 0 : undefined}
+								aria-label={onRowClick && rowActionLabel ? rowActionLabel(row) : undefined}
+								onclick={onRowClick ? () => onRowClick(row) : undefined}
+								onkeydown={onRowClick ? (event) => handleRowKeydown(event, row) : undefined}
+							>
+								{#each cols as col}
+									<td
+										>{#if cell}{@render cell(row, col)}{:else}{String(col.value(row) ?? '')}{/if}</td
+									>
+								{/each}
+							</tr>
+						{/if}
+					{/each}
+				</tbody>
+			{/if}
+		</table>
 
-	{#if table.groups.length === 0 && table.rows.length === 0}
-		<EmptyState message={emptyMessage} />
-	{/if}
+		{#if table.groups.length === 0 && table.rows.length === 0}
+			<EmptyState message={emptyMessage} />
+		{/if}
+	</div>
 
 	{#if table.pageSize > 0 && table.totalPages > 1 && table.groups.length === 0}
 		<div class="data-table-pagination">
@@ -211,10 +251,19 @@
 
 <style>
 	.data-table {
-		overflow-x: auto;
+		display: flex;
+		min-height: 0;
+		flex-direction: column;
+		overflow: hidden;
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-lg);
 		background: var(--surface-panel);
+	}
+
+	.data-table-scroll {
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow: auto;
 	}
 
 	.data-table-search {
@@ -270,6 +319,21 @@
 		cursor: pointer;
 	}
 
+	.column-static {
+		width: 100%;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		padding: 10px 14px;
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		line-height: 1.2;
+		text-transform: uppercase;
+	}
+
 	.column-sort:hover {
 		color: var(--text-primary);
 	}
@@ -299,6 +363,12 @@
 
 	tr.clickable {
 		cursor: pointer;
+	}
+
+	tr.clickable:focus-visible > td {
+		outline: var(--focus-outline);
+		outline-offset: -2px;
+		box-shadow: inset 0 0 0 2px rgba(196, 127, 0, 0.18);
 	}
 
 	tr.clickable:hover > td {

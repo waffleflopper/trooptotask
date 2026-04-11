@@ -4,6 +4,7 @@
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { subscriptionStore } from '$lib/stores/subscription.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
@@ -27,6 +28,9 @@
 
 	let { ctx, personnelLookup, permissions, onPageViewChange }: Props = $props();
 
+	const ROSTER_PAGE_SIZE = 75;
+	const GROUPED_ROSTER_RENDER_LIMIT = 250;
+
 	let exportLoading = $state(false);
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 
@@ -38,6 +42,34 @@
 		}
 		return counts;
 	});
+
+	const rosterGroupCount = $derived.by(() => {
+		const groupNames = new Set<string>();
+		for (const person of personnelStore.items) {
+			const groupName = person.groupName?.trim();
+			if (groupName) groupNames.add(groupName);
+		}
+		return groupNames.size;
+	});
+
+	const unassignedCount = $derived(
+		personnelStore.items.filter((person) => !person.groupName || person.groupName.trim() === '').length
+	);
+	const dueSoonCount = $derived(ratingStats.overdue + ratingStats['due-30']);
+	const pageScopeLabel = $derived(ctx.data.scopedGroupId ? 'Scoped group roster' : 'Organization roster');
+	const editStateLabel = $derived(readOnly ? 'Read only' : permissions?.canEditPersonnel ? 'Editable' : 'View only');
+	const rosterSubtitle = $derived(`${pageScopeLabel} · ${editStateLabel}`);
+	const operationalSummary = $derived.by(() => [
+		{ label: 'Roster', value: `${personnelStore.items.length} total` },
+		{ label: 'Groups', value: `${rosterGroupCount} active` },
+		{ label: 'Unassigned', value: String(unassignedCount), alert: unassignedCount > 0 },
+		{
+			label: 'Ratings',
+			value: dueSoonCount > 0 ? `${dueSoonCount} due soon` : 'No 30d alerts',
+			alert: dueSoonCount > 0
+		},
+		{ label: 'Access', value: editStateLabel }
+	]);
 
 	const personnelOverflowItems = $derived.by<OverflowItem[]>(() => {
 		const items: OverflowItem[] = [];
@@ -69,14 +101,21 @@
 	];
 
 	if (permissions?.canEditPersonnel) {
-		personnelColumns.push({ key: 'actions', header: '', value: () => '', searchable: false });
+		personnelColumns.push({
+			key: 'actions',
+			header: 'Actions',
+			value: () => '',
+			searchable: false,
+			sortable: false
+		});
 	}
 
 	const azTable = useDataTable<Personnel>({
 		data: () => personnelStore.items,
 		columns: personnelColumns,
 		initialSortKey: 'name',
-		initialSortDirection: 'asc'
+		initialSortDirection: 'asc',
+		pageSize: ROSTER_PAGE_SIZE
 	});
 
 	const groupedTable = useDataTable<Personnel>({
@@ -96,6 +135,16 @@
 	});
 
 	let rosterSearch = $state('');
+	const activeRatingFilterCount = $derived(
+		(ctx.evalTypeFilter !== 'all' ? 1 : 0) +
+			(ctx.ratingFilter !== 'active' ? 1 : 0) +
+			(ctx.workflowFilter !== 'all' ? 1 : 0)
+	);
+	const ratingFilterSummary = $derived(activeRatingFilterCount > 0 ? `${activeRatingFilterCount} active` : 'Default');
+	const ratingShownLabel = $derived(`${ctx.filteredRatingEntries.length} of ${ratingSchemeStore.items.length} shown`);
+	const shouldGateGroupedRoster = $derived(
+		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
+	);
 
 	$effect(() => {
 		azTable.setSearch(rosterSearch);
@@ -103,6 +152,10 @@
 	});
 
 	const handleRowClick = permissions?.canEditPersonnel ? (person: Personnel) => ctx.handleEdit(person) : undefined;
+
+	function getPersonnelRowActionLabel(person: Personnel): string {
+		return `Edit ${person.rank} ${person.lastName}, ${person.firstName}`;
+	}
 </script>
 
 <svelte:head>
@@ -112,6 +165,7 @@
 <div class="page">
 	<PageToolbar
 		title="Personnel"
+		subtitle={rosterSubtitle}
 		helpTopic={ctx.pageView === 'rating-scheme' ? 'rating-scheme' : 'personnel'}
 		overflowItems={personnelOverflowItems}
 	>
@@ -132,6 +186,17 @@
 				<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
 			{/if}
 		{/if}
+
+		{#snippet below()}
+			<div class="operational-strip" aria-label="Personnel operational summary">
+				{#each operationalSummary as item (item.label)}
+					<div class="operational-item" class:alert={item.alert}>
+						<span class="operational-label">{item.label}</span>
+						<span class="operational-value">{item.value}</span>
+					</div>
+				{/each}
+			</div>
+		{/snippet}
 	</PageToolbar>
 
 	{#if !permissions?.canViewPersonnel}
@@ -141,12 +206,11 @@
 		</div>
 	{:else}
 		<div class="page-view-shell">
-			<div class="page-view-toggle" role="tablist" aria-label="Personnel page views">
+			<div class="page-view-toggle" role="group" aria-label="Personnel page views">
 				<button
 					class="page-view-btn"
 					type="button"
-					role="tab"
-					aria-selected={ctx.pageView === 'roster'}
+					aria-pressed={ctx.pageView === 'roster'}
 					class:active={ctx.pageView === 'roster'}
 					onclick={() => onPageViewChange('roster')}
 				>
@@ -155,8 +219,7 @@
 				<button
 					class="page-view-btn"
 					type="button"
-					role="tab"
-					aria-selected={ctx.pageView === 'rating-scheme'}
+					aria-pressed={ctx.pageView === 'rating-scheme'}
 					class:active={ctx.pageView === 'rating-scheme'}
 					onclick={() => onPageViewChange('rating-scheme')}
 				>
@@ -166,21 +229,45 @@
 		</div>
 
 		{#if ctx.pageView === 'roster'}
-			<main class="page-content">
+			<main class="page-content roster-content">
 				{#if ctx.totalPersonnel === 0}
 					<EmptyState
-						message="No personnel added yet."
+						message="No personnel on the active roster. Add one person, or use More -> Bulk Import when you have a roster file."
 						actionLabel={permissions?.canEditPersonnel ? 'Add Person' : undefined}
 						onAction={permissions?.canEditPersonnel ? () => ctx.handleAdd() : undefined}
 					/>
+				{:else if shouldGateGroupedRoster}
+					<div class="roster-scale-guard">
+						<div>
+							<span class="scale-kicker">Grouped roster paused</span>
+							<p>
+								{groupedTable.totalRows} personnel are loaded. Search within the roster or switch to the paged A-Z view to
+								keep this page fast.
+							</p>
+						</div>
+						<div class="scale-actions">
+							<input
+								type="search"
+								class="input scale-search"
+								aria-label="Search by name, rank, MOS, role, or group"
+								placeholder="Search roster..."
+								bind:value={rosterSearch}
+							/>
+							<button class="btn btn-primary btn-sm" type="button" onclick={() => (ctx.viewMode = 'alphabetical')}>
+								Use A-Z View
+							</button>
+						</div>
+					</div>
 				{:else}
-					{#key ctx.viewMode}
+					<div class="roster-table-region">
 						<DataTable
 							table={ctx.viewMode === 'alphabetical' ? azTable : groupedTable}
 							columns={personnelColumns}
 							onRowClick={handleRowClick}
+							rowActionLabel={permissions?.canEditPersonnel ? getPersonnelRowActionLabel : undefined}
 							ariaLabel="Personnel roster"
 							emptyMessage="No personnel match your search."
+							maxHeight="100%"
 						>
 							{#snippet toolbar(tbl)}
 								<div class="roster-toolbar">
@@ -197,7 +284,8 @@
 										type="search"
 										class="input roster-search"
 										data-testid="personnel-search"
-										placeholder="Search by name, rank, or role..."
+										aria-label="Search by name, rank, MOS, role, or group"
+										placeholder="Search name, rank, MOS, role, or group..."
 										bind:value={rosterSearch}
 									/>
 									<div class="view-toggle">
@@ -206,6 +294,7 @@
 											<button
 												class="view-btn"
 												type="button"
+												aria-pressed={ctx.viewMode === 'alphabetical'}
 												class:active={ctx.viewMode === 'alphabetical'}
 												onclick={() => (ctx.viewMode = 'alphabetical')}
 											>
@@ -214,6 +303,7 @@
 											<button
 												class="view-btn"
 												type="button"
+												aria-pressed={ctx.viewMode === 'by-group'}
 												class:active={ctx.viewMode === 'by-group'}
 												onclick={() => (ctx.viewMode = 'by-group')}
 											>
@@ -231,6 +321,7 @@
 								{:else if col.key === 'actions'}
 									<button
 										class="btn btn-sm btn-secondary"
+										type="button"
 										onclick={(e) => {
 											e.stopPropagation();
 											ctx.handleEdit(row);
@@ -261,85 +352,73 @@
 								</div>
 							{/snippet}
 						</DataTable>
-					{/key}
+					</div>
 				{/if}
 			</main>
 		{:else}
-			<div class="rating-stats-bar">
-				<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.overdue}">
+			<div class="rating-status-ledger" aria-label="Rating scheme status summary">
+				<div class="rating-ledger-item" style="--stat-color: {RATING_STATUS_COLORS.overdue}">
 					<span class="stat-count">{ratingStats.overdue}</span>
 					<span class="stat-label">Overdue</span>
 				</div>
-				<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS['due-30']}">
+				<div class="rating-ledger-item" style="--stat-color: {RATING_STATUS_COLORS['due-30']}">
 					<span class="stat-count">{ratingStats['due-30']}</span>
 					<span class="stat-label">Due 30d</span>
 				</div>
-				<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS['due-60']}">
+				<div class="rating-ledger-item" style="--stat-color: {RATING_STATUS_COLORS['due-60']}">
 					<span class="stat-count">{ratingStats['due-60']}</span>
 					<span class="stat-label">Due 60d</span>
 				</div>
-				<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.current}">
+				<div class="rating-ledger-item" style="--stat-color: {RATING_STATUS_COLORS.current}">
 					<span class="stat-count">{ratingStats.current}</span>
 					<span class="stat-label">Current</span>
 				</div>
-				<div class="rating-stat" style="--stat-color: {RATING_STATUS_COLORS.completed}">
+				<div class="rating-ledger-item" style="--stat-color: {RATING_STATUS_COLORS.completed}">
 					<span class="stat-count">{ratingStats.completed}</span>
 					<span class="stat-label">Completed</span>
 				</div>
 			</div>
 
 			<div class="rating-toolbar">
-				{#if permissions?.canEditPersonnel}
-					<button class="btn btn-sm btn-primary" onclick={() => ctx.handleAddRatingEntry()} disabled={readOnly}>
-						Add Entry
-					</button>
-					{#if readOnly}
-						<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
+				<div class="rating-action-group">
+					{#if permissions?.canEditPersonnel}
+						<button
+							class="btn btn-sm btn-primary"
+							type="button"
+							onclick={() => ctx.handleAddRatingEntry()}
+							disabled={readOnly}
+						>
+							Add Entry
+						</button>
+						{#if readOnly}
+							<span class="text-muted" style="font-size: var(--text-xs);">Upgrade to edit</span>
+						{/if}
 					{/if}
-				{/if}
-				<button
-					class="btn btn-sm btn-secondary"
-					type="button"
-					disabled={exportLoading}
-					onclick={async () => {
-						exportLoading = true;
-						try {
-							await exportRatingScheme(ctx.filteredRatingEntries, personnelStore.items);
-						} catch (err) {
-							alert(err instanceof Error ? err.message : 'Export failed');
-						} finally {
-							exportLoading = false;
-						}
-					}}
-				>
-					{exportLoading ? 'Exporting…' : 'Export'}
-				</button>
-				<div class="spacer"></div>
-				<select class="select rating-filter" bind:value={ctx.evalTypeFilter}>
-					<option value="all">All Types</option>
-					<option value="OER">OER</option>
-					<option value="NCOER">NCOER</option>
-					<option value="WOER">WOER</option>
-				</select>
-				<select class="select rating-filter" bind:value={ctx.ratingFilter}>
-					<option value="active">Active</option>
-					<option value="completed">Completed</option>
-					<option value="change-of-rater">Change of Rater</option>
-					<option value="all">All Statuses</option>
-				</select>
-				{#if ctx.hasAnyWorkflowStatus}
-					<select class="select rating-filter" bind:value={ctx.workflowFilter}>
-						<option value="all">All Workflow</option>
-						{#each WORKFLOW_STATUS_OPTIONS as opt (opt.value)}
-							<option value={opt.value}>{opt.label}</option>
-						{/each}
-					</select>
-				{/if}
+					<button
+						class="btn btn-sm btn-secondary"
+						type="button"
+						disabled={exportLoading}
+						onclick={async () => {
+							exportLoading = true;
+							try {
+								await exportRatingScheme(ctx.filteredRatingEntries, personnelStore.items);
+							} catch (err) {
+								toastStore.error(err instanceof Error ? err.message : 'Export failed');
+							} finally {
+								exportLoading = false;
+							}
+						}}
+					>
+						{exportLoading ? 'Exporting...' : 'Export'}
+					</button>
+				</div>
+				<span class="rating-shown">{ratingShownLabel}</span>
 				<div class="view-toggle">
 					<div class="view-toggle-controls" role="group" aria-label="Rating scheme view mode">
 						<button
 							class="view-btn"
 							type="button"
+							aria-pressed={ctx.ratingViewMode === 'grouped'}
 							class:active={ctx.ratingViewMode === 'grouped'}
 							onclick={() => (ctx.ratingViewMode = 'grouped')}
 						>
@@ -348,6 +427,7 @@
 						<button
 							class="view-btn"
 							type="button"
+							aria-pressed={ctx.ratingViewMode === 'table'}
 							class:active={ctx.ratingViewMode === 'table'}
 							onclick={() => (ctx.ratingViewMode = 'table')}
 						>
@@ -355,6 +435,43 @@
 						</button>
 					</div>
 				</div>
+				<details class="filter-disclosure">
+					<summary>
+						<span>Filters</span>
+						<span class="filter-summary">{ratingFilterSummary}</span>
+					</summary>
+					<div class="rating-filter-panel">
+						<label class="filter-field">
+							<span>Eval Type</span>
+							<select class="select rating-filter" bind:value={ctx.evalTypeFilter}>
+								<option value="all">All Types</option>
+								<option value="OER">OER</option>
+								<option value="NCOER">NCOER</option>
+								<option value="WOER">WOER</option>
+							</select>
+						</label>
+						<label class="filter-field">
+							<span>Status</span>
+							<select class="select rating-filter" bind:value={ctx.ratingFilter}>
+								<option value="active">Active</option>
+								<option value="completed">Completed</option>
+								<option value="change-of-rater">Change of Rater</option>
+								<option value="all">All Statuses</option>
+							</select>
+						</label>
+						{#if ctx.hasAnyWorkflowStatus}
+							<label class="filter-field">
+								<span>Workflow</span>
+								<select class="select rating-filter" bind:value={ctx.workflowFilter}>
+									<option value="all">All Workflow</option>
+									{#each WORKFLOW_STATUS_OPTIONS as opt (opt.value)}
+										<option value={opt.value}>{opt.label}</option>
+									{/each}
+								</select>
+							</label>
+						{/if}
+					</div>
+				</details>
 			</div>
 
 			<main class="page-content">
@@ -379,9 +496,18 @@
 <style>
 	.page {
 		height: 100%;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
 		background: var(--surface-page);
+	}
+
+	.page-content.roster-content {
+		display: flex;
+		min-height: 0;
+		flex-direction: column;
+		overflow: hidden;
 	}
 
 	.page-view-shell {
@@ -397,6 +523,44 @@
 		border-radius: var(--radius-md);
 		overflow: hidden;
 		background: var(--surface-panel);
+	}
+
+	.operational-strip {
+		display: flex;
+		align-items: stretch;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	.operational-item {
+		display: inline-flex;
+		align-items: baseline;
+		gap: var(--sp-2);
+		min-height: 30px;
+		padding: 5px 10px;
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
+	}
+
+	.operational-item.alert {
+		border-color: color-mix(in srgb, var(--amber) 46%, var(--border-default) 54%);
+		background: color-mix(in srgb, var(--amber-light) 72%, var(--surface-panel) 28%);
+	}
+
+	.operational-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+
+	.operational-value {
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
 	}
 
 	.btn-ghost {
@@ -450,24 +614,33 @@
 		color: var(--amber-dark);
 	}
 
-	.rating-stats-bar {
+	.rating-status-ledger {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-		gap: var(--sp-3);
+		gap: 0;
 		padding: var(--sp-4) var(--sp-6);
 		border-bottom: var(--border-thin);
 		background: color-mix(in srgb, var(--surface-panel) 94%, var(--surface-subtle) 6%);
 	}
 
-	.rating-stat {
+	.rating-ledger-item {
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
 		gap: var(--sp-1);
 		padding: var(--sp-3) var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-panel);
+		border-block: var(--border-thin);
+		border-inline-start: var(--border-thin);
+		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
+	}
+
+	.rating-ledger-item:first-child {
+		border-radius: var(--radius-md) 0 0 var(--radius-md);
+	}
+
+	.rating-ledger-item:last-child {
+		border-inline-end: var(--border-thin);
+		border-radius: 0 var(--radius-md) var(--radius-md) 0;
 	}
 
 	.stat-count {
@@ -497,6 +670,96 @@
 		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
+	.rating-action-group {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	.rating-shown {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+		margin-right: auto;
+	}
+
+	.filter-disclosure {
+		position: relative;
+	}
+
+	.filter-disclosure summary {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		min-height: 32px;
+		padding: 0 12px;
+		border: var(--border-thin);
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.filter-disclosure summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.filter-disclosure summary:hover {
+		background: var(--surface-subtle);
+		color: var(--text-primary);
+	}
+
+	.filter-disclosure summary:focus-visible {
+		outline: var(--focus-outline);
+		outline-offset: var(--focus-outline-offset);
+		box-shadow: var(--focus-ring);
+	}
+
+	.filter-summary {
+		color: var(--amber-dark);
+	}
+
+	.rating-filter-panel {
+		position: absolute;
+		top: calc(100% + var(--sp-2));
+		right: 0;
+		z-index: var(--z-dropdown);
+		display: grid;
+		grid-template-columns: minmax(150px, 1fr);
+		gap: var(--sp-3);
+		min-width: 240px;
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: var(--surface-panel);
+		box-shadow: var(--shadow-lg);
+	}
+
+	.filter-field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+	}
+
+	.filter-field span {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+	}
+
 	.rating-filter {
 		width: auto;
 		min-width: 136px;
@@ -513,12 +776,63 @@
 		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
 	}
 
+	.roster-table-region {
+		display: flex;
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	.roster-table-region :global(.data-table) {
+		width: 100%;
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
 	.roster-toolbar-copy {
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-2);
 		margin-right: auto;
 		min-width: 0;
+	}
+
+	.roster-scale-guard {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-4);
+		padding: var(--sp-5);
+		border: var(--border-thin);
+		border-radius: var(--radius-lg);
+		background: color-mix(in srgb, var(--surface-panel) 88%, var(--surface-subtle) 12%);
+	}
+
+	.roster-scale-guard p {
+		margin: var(--sp-2) 0 0;
+		color: var(--text-secondary);
+		line-height: var(--line-height-copy);
+		max-width: 68ch;
+	}
+
+	.scale-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+		flex: 0 1 420px;
+		min-width: min(100%, 300px);
+	}
+
+	.scale-search {
+		min-width: 0;
+	}
+
+	.scale-kicker {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--amber-dark);
 	}
 
 	.roster-kicker {
@@ -703,7 +1017,7 @@
 
 	.dt-pin-btn {
 		appearance: none;
-		min-height: 28px;
+		min-height: 32px;
 		padding: 0 10px;
 		border: var(--border-thin);
 		border-radius: var(--radius-sm);
@@ -735,10 +1049,31 @@
 
 	@media (max-width: 640px) {
 		.page-view-shell,
-		.rating-stats-bar,
+		.rating-status-ledger,
 		.rating-toolbar {
 			padding-left: var(--sp-4);
 			padding-right: var(--sp-4);
+		}
+
+		.operational-strip {
+			display: grid;
+			grid-template-columns: 1fr;
+		}
+
+		.operational-item {
+			justify-content: space-between;
+		}
+
+		.rating-status-ledger {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: var(--sp-2);
+		}
+
+		.rating-ledger-item,
+		.rating-ledger-item:first-child,
+		.rating-ledger-item:last-child {
+			border: var(--border-thin);
+			border-radius: var(--radius-md);
 		}
 
 		.roster-toolbar {
@@ -759,6 +1094,31 @@
 		.rating-filter {
 			min-width: unset;
 			width: 100%;
+		}
+
+		.rating-filter-panel {
+			position: static;
+			margin-top: var(--sp-2);
+			min-width: 100%;
+			box-shadow: none;
+		}
+
+		.roster-scale-guard {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.scale-actions {
+			flex-direction: column;
+			align-items: stretch;
+			flex-basis: auto;
+		}
+
+		.page-view-btn,
+		.view-btn,
+		.filter-disclosure summary,
+		.dt-pin-btn {
+			min-height: 44px;
 		}
 	}
 

@@ -50,9 +50,11 @@
 			readOnly: ctx.readOnly,
 			breakdownExpanded: ctx.breakdownExpanded,
 			showStatusText: ctx.showStatusText,
+			showPersonnelRoles: ctx.showPersonnelRoles,
 			dutyStartDayOnly: ctx.dutyStartDayOnly,
 			onToggleBreakdown: () => ctx.toggleBreakdown(),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
+			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
 			onToggleDutyStartDayOnly: () => ctx.toggleDutyStartDayOnly(),
 			onExportCSV: () => exportMonthToCSV(calendarStore.year, calendarStore.month, getExportData()),
 			onExportPDF: async () => {
@@ -163,6 +165,7 @@
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={data.permissions?.canEditCalendar ?? false}
 						showStatusText={ctx.showStatusText}
+						showPersonnelRoles={ctx.showPersonnelRoles}
 						personnelHref={`/org/${data.orgId}/personnel`}
 						onPrevMonth={() => calendarStore.prevMonth()}
 						onNextMonth={() => calendarStore.nextMonth()}

@@ -76,11 +76,44 @@ describe('training reports page', () => {
 					training: {
 						data: Promise.resolve(makeDeferredBootstrap())
 					}
-				}
+				} as never
 			}
 		});
 
 		expect(await screen.findByText('Loading training reports...')).toBeTruthy();
 		expect(screen.queryByText('No training types configured. Create training types first.')).toBeNull();
+	});
+
+	it('renders from the server report without waiting for full training store hydration', async () => {
+		render(Page, {
+			props: {
+				data: {
+					training: {
+						data: Promise.resolve(makeDeferredBootstrap())
+					},
+					trainingReport: {
+						dashboard: {
+							readinessPercent: 0,
+							statusCounts: { current: 0, warningYellow: 0, warningOrange: 0, expired: 0, notCompleted: 0 },
+							worstTypes: [],
+							groupComparison: []
+						},
+						detail: {
+							rows: [],
+							totalRows: 0,
+							page: 1,
+							pageSize: 25,
+							totalPages: 1,
+							sort: { column: 'name', direction: 'asc' }
+						},
+						trainingTypes: [],
+						filterOptions: { groups: [], mos: [], roles: [], ranks: [] }
+					}
+				}
+			}
+		});
+
+		expect(await screen.findByText('No training types configured. Create training types first.')).toBeTruthy();
+		expect(screen.queryByText('Loading training reports...')).toBeNull();
 	});
 });

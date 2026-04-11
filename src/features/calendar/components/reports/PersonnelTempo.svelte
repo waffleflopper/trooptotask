@@ -7,6 +7,8 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		orgId: string;
@@ -15,7 +17,7 @@
 		groups: { id: string; name: string }[];
 	}
 
-	let { orgId, personnel, statusTypes, groups }: Props = $props();
+	let { orgId, personnel, statusTypes }: Props = $props();
 
 	// --- Period selector state ---
 	type PeriodOption = '90' | '180' | '365' | 'custom';
@@ -27,8 +29,8 @@
 	}
 
 	function daysAgo(n: number): string {
-		const d = new Date();
-		d.setDate(d.getDate() - n);
+		const today = new Date();
+		const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - n);
 		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 	}
 
@@ -44,13 +46,40 @@
 	}
 
 	// --- "Away" status type selector ---
-	let awayStatusTypeIds = $state<Set<string>>(new Set(statusTypes.map((s) => s.id)));
+	const awayStatusTypeIds = new SvelteSet<string>();
+	let previousStatusTypeIds: string[] = [];
+
+	$effect(() => {
+		const currentStatusTypeIds = statusTypes.map((s) => s.id);
+		const currentStatusTypeIdSet = new SvelteSet(currentStatusTypeIds);
+
+		untrack(() => {
+			const selectedAllPrevious =
+				previousStatusTypeIds.length > 0 && previousStatusTypeIds.every((id) => awayStatusTypeIds.has(id));
+			const shouldSelectAll =
+				(previousStatusTypeIds.length === 0 && awayStatusTypeIds.size === 0) || selectedAllPrevious;
+
+			if (shouldSelectAll) {
+				awayStatusTypeIds.clear();
+				for (const id of currentStatusTypeIds) awayStatusTypeIds.add(id);
+			} else {
+				const selectedExistingIds = [...awayStatusTypeIds].filter((id) => currentStatusTypeIdSet.has(id));
+				if (selectedExistingIds.length !== awayStatusTypeIds.size) {
+					awayStatusTypeIds.clear();
+					for (const id of selectedExistingIds) awayStatusTypeIds.add(id);
+				}
+			}
+
+			previousStatusTypeIds = currentStatusTypeIds;
+		});
+	});
 
 	function toggleAllStatuses() {
 		if (awayStatusTypeIds.size === statusTypes.length) {
-			awayStatusTypeIds = new Set();
+			awayStatusTypeIds.clear();
 		} else {
-			awayStatusTypeIds = new Set(statusTypes.map((s) => s.id));
+			awayStatusTypeIds.clear();
+			for (const statusType of statusTypes) awayStatusTypeIds.add(statusType.id);
 		}
 	}
 
@@ -95,11 +124,9 @@
 		}
 	}
 
-	function toggleSet<T>(set: Set<T>, value: T): Set<T> {
-		const next = new Set(set);
-		if (next.has(value)) next.delete(value);
-		else next.add(value);
-		return next;
+	function toggleSet<T>(set: SvelteSet<T>, value: T): void {
+		if (set.has(value)) set.delete(value);
+		else set.add(value);
 	}
 
 	const statusTypeMap = $derived(new Map(statusTypes.map((s) => [s.id, s])));
@@ -224,7 +251,7 @@
 					class:selected={awayStatusTypeIds.has(st.id)}
 					style:--chip-color={st.color}
 					style:--chip-text={st.textColor}
-					onclick={() => (awayStatusTypeIds = toggleSet(awayStatusTypeIds, st.id))}
+					onclick={() => toggleSet(awayStatusTypeIds, st.id)}
 				>
 					{st.name}
 				</button>

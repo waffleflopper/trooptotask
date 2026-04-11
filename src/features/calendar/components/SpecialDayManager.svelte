@@ -86,7 +86,7 @@
 	<div class="filter-bar">
 		<label class="label" for="special-day-filter-year">Year:</label>
 		<select id="special-day-filter-year" class="select" bind:value={filterYear} style="width: 100px;">
-			{#each yearOptions as year}
+			{#each yearOptions as year (year)}
 				<option value={year}>{year}</option>
 			{/each}
 		</select>

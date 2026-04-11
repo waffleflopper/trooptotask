@@ -10,6 +10,7 @@
 	import type { DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 	import { isWeekend, isToday, formatDate } from '$lib/utils/dates';
 	import DateCell from '$lib/components/ui/DateCell.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		person: Personnel;
@@ -47,7 +48,7 @@
 
 	// Build date-keyed index of availability entries for this person (once per render)
 	const availabilityByDate = $derived.by(() => {
-		const map = new Map<string, AvailabilityEntry[]>();
+		const map = new SvelteMap<string, AvailabilityEntry[]>();
 		for (const entry of personAvailability) {
 			// Expand entry across its date range for the visible dates
 			for (const date of dates) {
@@ -67,7 +68,7 @@
 
 	// Build date-keyed index of assignments for this person
 	const assignmentsByDate = $derived.by(() => {
-		const map = new Map<string, { type: AssignmentType; assignment: DailyAssignment }[]>();
+		const map = new SvelteMap<string, { type: AssignmentType; assignment: DailyAssignment }[]>();
 		for (const a of personAssignments) {
 			const type = assignmentTypes.find((t) => t.id === a.assignmentTypeId && t.assignTo === 'personnel');
 			if (!type) continue;
@@ -83,7 +84,7 @@
 
 	// Build date-keyed index of special days
 	const specialDayMap = $derived.by(() => {
-		const map = new Map<string, SpecialDay>();
+		const map = new SvelteMap<string, SpecialDay>();
 		for (const d of specialDays) {
 			map.set(d.date, d);
 		}

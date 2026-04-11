@@ -6,6 +6,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface GroupData {
 		group: string;
@@ -31,7 +32,7 @@
 	let selectedStatusId = $state('');
 	let startDate = $state(todayStr);
 	let endDate = $state(todayStr);
-	let selectedIds = $state<Set<string>>(new Set());
+	const selectedIds = new SvelteSet<string>();
 	let isSubmitting = $state(false);
 	let note = $state('');
 	let step = $state<'select' | 'confirm'>('select');
@@ -71,10 +72,8 @@
 
 	// ---- Selection logic ----
 	function togglePerson(id: string) {
-		const next = new Set(selectedIds);
-		if (next.has(id)) next.delete(id);
-		else next.add(id);
-		selectedIds = next;
+		if (selectedIds.has(id)) selectedIds.delete(id);
+		else selectedIds.add(id);
 	}
 
 	function getVisiblePersonnelIds(): string[] {
@@ -83,11 +82,11 @@
 	}
 
 	function selectVisible() {
-		selectedIds = new Set([...selectedIds, ...getVisiblePersonnelIds()]);
+		for (const id of getVisiblePersonnelIds()) selectedIds.add(id);
 	}
 
 	function selectNone() {
-		selectedIds = new Set();
+		selectedIds.clear();
 	}
 
 	function getGroupSelectionState(groupKey: string): 'none' | 'some' | 'all' {
@@ -103,13 +102,11 @@
 		const group = table.groups.find((g) => g.key === groupKey);
 		if (!group) return;
 		const state = getGroupSelectionState(groupKey);
-		const next = new Set(selectedIds);
 		if (state === 'all') {
-			for (const p of group.rows) next.delete(p.id);
+			for (const p of group.rows) selectedIds.delete(p.id);
 		} else {
-			for (const p of group.rows) next.add(p.id);
+			for (const p of group.rows) selectedIds.add(p.id);
 		}
-		selectedIds = next;
 	}
 
 	// ---- Validation ----
@@ -166,7 +163,7 @@
 			await onApply([...selectedIds], selectedStatusId, startDate, endDate, note.trim() || null);
 			const count = selectedIds.size;
 			toastStore.success(`Applied status to ${count} ${count === 1 ? 'person' : 'people'}`);
-			selectedIds = new Set();
+			selectedIds.clear();
 			step = 'select';
 			onComplete();
 		} finally {

@@ -34,8 +34,23 @@ const personnel: Personnel[] = [
 const statusTypes: StatusType[] = [];
 const specialDays: SpecialDay[] = [];
 
+function makePersonnel(count: number, overrides: Partial<Personnel> = {}): Personnel[] {
+	return Array.from({ length: count }, (_, index) => ({
+		id: `person-${index + 1}`,
+		firstName: `First ${index + 1}`,
+		lastName: `Person ${String(index + 1).padStart(3, '0')}`,
+		rank: 'SGT',
+		groupId: 'group-1',
+		groupName: 'Alpha',
+		clinicRole: '',
+		mos: '11B',
+		...overrides
+	}));
+}
+
 function renderCalendar(
 	overrides: Partial<{
+		personnelByGroup: { group: string; personnel: Personnel[] }[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		dutyEvents: DutyEvent[];
@@ -48,7 +63,7 @@ function renderCalendar(
 			month: 2,
 			monthName: 'March',
 			dates: [new Date(2026, 2, 1), new Date(2026, 2, 2)],
-			personnelByGroup: [{ group: 'Alpha', personnel }],
+			personnelByGroup: overrides.personnelByGroup ?? [{ group: 'Alpha', personnel }],
 			availabilityEntries: [],
 			statusTypes,
 			specialDays,
@@ -244,5 +259,51 @@ describe('Calendar', () => {
 		expect(onNavigateToMonth).toHaveBeenCalledWith(2027, 0);
 		expect(queryByRole('dialog', { name: 'Month and year picker' })).toBeNull();
 		expect(container.querySelector('.month-picker-popover')).toBeNull();
+	});
+
+	it('mounts a scrolling window of personnel rows for large rosters', async () => {
+		const largeRoster = makePersonnel(120, { clinicRole: 'Role text that would otherwise add a second line' });
+		const { container } = renderCalendar({
+			personnelByGroup: [{ group: 'Alpha', personnel: largeRoster }]
+		});
+
+		const calendarBody = container.querySelector('.calendar-body') as HTMLDivElement | null;
+		const firstPersonVirtualRow = container.querySelector('.virtual-row:nth-child(2)') as HTMLElement | null;
+		expect(calendarBody).toBeTruthy();
+		expect(firstPersonVirtualRow?.style.height).toBe('46px');
+		expect(firstPersonVirtualRow?.classList.contains('virtual-row--person')).toBe(true);
+		expect(calendarBody?.style.getPropertyValue('--calendar-person-row-height')).toBe('46px');
+		expect(container.querySelectorAll('.personnel-row').length).toBeLessThan(largeRoster.length);
+		expect(container.textContent).toContain('Person 001');
+
+		if (!calendarBody) {
+			throw new Error('Calendar body was not rendered');
+		}
+
+		Object.defineProperty(calendarBody, 'clientHeight', {
+			configurable: true,
+			value: 260
+		});
+		Object.defineProperty(calendarBody, 'offsetWidth', {
+			configurable: true,
+			value: 800
+		});
+		Object.defineProperty(calendarBody, 'scrollTop', {
+			configurable: true,
+			writable: true,
+			value: 10_000
+		});
+		Object.defineProperty(calendarBody, 'scrollLeft', {
+			configurable: true,
+			writable: true,
+			value: 0
+		});
+
+		await fireEvent.scroll(calendarBody);
+		await tick();
+
+		expect(container.textContent).not.toContain('Person 001');
+		expect(container.textContent).toContain('Person 120');
+		expect(container.querySelectorAll('.personnel-row').length).toBeLessThan(largeRoster.length);
 	});
 });

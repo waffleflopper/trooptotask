@@ -12,9 +12,15 @@
 	import CalendarNavigation from './CalendarNavigation.svelte';
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { buildDutyEventBadgesByPerson } from '$features/calendar/utils/dutyEventBadges';
+	import { buildAvailabilityStatusIndex } from '$features/calendar/utils/calendarIndexes';
+	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 
 	/** Must match --long-range-col-width in CSS */
 	const COL_WIDTH = 24;
+	const GROUP_ROW_HEIGHT = 18;
+	const PERSON_ROW_HEIGHT = 22;
+	const DEFAULT_VIEWPORT_HEIGHT = 720;
+	const ROW_OVERSCAN_PX = PERSON_ROW_HEIGHT * 8;
 
 	interface GroupData {
 		group: string;
@@ -50,6 +56,11 @@
 	}: Props = $props();
 
 	let viewStartDate = $state(new Date());
+	let scrollAreaEl: HTMLDivElement;
+	let rosterRowsEl: HTMLDivElement;
+	let scrollTop = $state(0);
+	let viewportHeight = $state(DEFAULT_VIEWPORT_HEIGHT);
+	let rosterOffsetTop = $state(0);
 
 	// Reset view when startDate prop changes
 	$effect(() => {
@@ -73,14 +84,6 @@
 
 	const visibleDateKeys = $derived.by(() => months.flatMap((month) => month.dates.map((date) => formatDate(date))));
 
-	const statusTypeById = $derived.by(() => {
-		const map = new Map<string, StatusType>();
-		for (const statusType of statusTypes) {
-			map.set(statusType.id, statusType);
-		}
-		return map;
-	});
-
 	const specialDayByDate = $derived.by(() => {
 		const map = new Map<string, SpecialDay>();
 		for (const specialDay of specialDays) {
@@ -93,18 +96,78 @@
 		buildDutyEventBadgesByPerson(dutyEvents, { startDayOnly: dutyStartDayOnly })
 	);
 
-	const statusByPersonnelDate = $derived.by(() => {
-		const map = new Map<string, StatusType>();
-		for (const entry of availabilityEntries) {
-			const statusType = statusTypeById.get(entry.statusTypeId);
-			if (!statusType) continue;
-			for (const dateKey of visibleDateKeys) {
-				if (dateKey >= entry.startDate && dateKey <= entry.endDate) {
-					map.set(`${entry.personnelId}:${dateKey}`, statusType);
-				}
+	const statusIndex = $derived.by(() =>
+		buildAvailabilityStatusIndex({
+			availabilityEntries,
+			statusTypes,
+			dateKeys: visibleDateKeys
+		})
+	);
+
+	const rosterRows = $derived.by(() => {
+		const rows: (
+			| { type: 'group'; key: string; group: string; height: number }
+			| { type: 'person'; key: string; person: Personnel; height: number }
+		)[] = [];
+
+		for (const grp of personnelByGroup) {
+			if (grp.personnel.length === 0) continue;
+			rows.push({
+				type: 'group',
+				key: `group:${grp.group}`,
+				group: grp.group,
+				height: GROUP_ROW_HEIGHT
+			});
+
+			for (const person of grp.personnel) {
+				rows.push({
+					type: 'person',
+					key: `person:${person.id}`,
+					person,
+					height: PERSON_ROW_HEIGHT
+				});
 			}
 		}
-		return map;
+
+		return rows;
+	});
+
+	const rosterLayout = $derived.by(() => buildVirtualRowLayout(rosterRows));
+
+	const visibleRosterRows = $derived.by(() =>
+		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, ROW_OVERSCAN_PX, rosterOffsetTop)
+	);
+
+	const rosterWidth = $derived(`calc(var(--personnel-column-width) + ${visibleDateKeys.length * COL_WIDTH}px)`);
+
+	function getRosterOffsetTop() {
+		if (!scrollAreaEl || !rosterRowsEl) return 0;
+
+		const scrollAreaRect = scrollAreaEl.getBoundingClientRect();
+		const rosterRect = rosterRowsEl.getBoundingClientRect();
+		const hasBrowserGeometry =
+			scrollAreaRect.height > 0 || rosterRect.height > 0 || scrollAreaRect.top !== 0 || rosterRect.top !== 0;
+
+		if (hasBrowserGeometry) {
+			return Math.max(0, rosterRect.top - scrollAreaRect.top + scrollAreaEl.scrollTop);
+		}
+
+		return rosterRowsEl.offsetTop;
+	}
+
+	function updateViewportMetrics() {
+		if (!scrollAreaEl) return;
+		scrollTop = scrollAreaEl.scrollTop;
+		viewportHeight = scrollAreaEl.clientHeight || DEFAULT_VIEWPORT_HEIGHT;
+		rosterOffsetTop = getRosterOffsetTop();
+	}
+
+	function handleScroll() {
+		updateViewportMetrics();
+	}
+
+	$effect(() => {
+		updateViewportMetrics();
 	});
 
 	function prevQuarter() {
@@ -150,7 +213,13 @@
 	}
 </script>
 
-<div class="long-range-wrapper">
+<div
+	class="long-range-wrapper"
+	style="
+		--long-range-group-row-height: {GROUP_ROW_HEIGHT}px;
+		--long-range-person-row-height: {PERSON_ROW_HEIGHT}px;
+	"
+>
 	<CalendarNavigation
 		title={`${months[0].name} ${months[0].year} – ${months[2].name} ${months[2].year}`}
 		onPrev={prevQuarter}
@@ -166,7 +235,7 @@
 		onSelectMonthYear={goToMonth}
 	/>
 
-	<div class="scroll-area">
+	<div class="scroll-area" bind:this={scrollAreaEl} onscroll={handleScroll}>
 		<div class="calendar-grid">
 			<!-- Header Row with Months and Days -->
 			<div class="grid-header">
@@ -206,54 +275,59 @@
 			</div>
 
 			<!-- Personnel Rows (read-only) -->
-			{#each personnelByGroup as grp}
-				{#if grp.personnel.length > 0}
-					<!-- Group Header -->
-					<div class="group-row">
-						<div class="name-cell group-name">{grp.group}</div>
-						{#each months as month}
-							{#each month.dates as date}
-								<div class="group-cell"></div>
-							{/each}
-						{/each}
-					</div>
-
-					<!-- Personnel in Group -->
-					{#each grp.personnel as person}
-						<div class="person-row">
-							<div class="name-cell person-name">
-								<span class="rank">{person.rank}</span>
-								<span class="name">{person.lastName}</span>
-							</div>
-							{#each months as month}
-								{#each month.dates as date}
-									{@const dateKey = formatDate(date)}
-									{@const status = statusByPersonnelDate.get(`${person.id}:${dateKey}`)}
-									{@const weekend = isWeekend(date)}
-									{@const today = isToday(date)}
-									{@const dutyBadges = dutyBadgesByPerson.get(person.id)?.get(dateKey) ?? []}
-									<div
-										class="status-cell"
-										class:weekend
-										class:today
-										class:has-status={status}
-										class:has-duty={dutyBadges.length > 0}
-										style={status ? `background-color: ${status.color}` : ''}
-										title={[status?.name, dutyBadges.map((b) => b.title).join(', ')].filter(Boolean).join(' | ')}
-									>
-										{#if status}
-											<span class="status-dot"></span>
-										{/if}
-										{#if dutyBadges.length > 0}
-											<span class="duty-indicator" style="background-color: {dutyBadges[0].color}"></span>
-										{/if}
-									</div>
+			<div
+				class="roster-rows"
+				bind:this={rosterRowsEl}
+				style:height={`${rosterLayout.totalHeight}px`}
+				style:width={rosterWidth}
+			>
+				{#each visibleRosterRows as row (row.key)}
+					<div class="virtual-row" style:transform={`translateY(${row.top}px)`} style:height={`${row.height}px`}>
+						{#if row.type === 'group'}
+							<div class="group-row">
+								<div class="name-cell group-name">{row.group}</div>
+								{#each months as month}
+									{#each month.dates as date}
+										<div class="group-cell"></div>
+									{/each}
 								{/each}
-							{/each}
-						</div>
-					{/each}
-				{/if}
-			{/each}
+							</div>
+						{:else}
+							<div class="person-row">
+								<div class="name-cell person-name">
+									<span class="rank">{row.person.rank}</span>
+									<span class="name">{row.person.lastName}</span>
+								</div>
+								{#each months as month}
+									{#each month.dates as date}
+										{@const dateKey = formatDate(date)}
+										{@const status = statusIndex.getStatus(row.person.id, dateKey)}
+										{@const weekend = isWeekend(date)}
+										{@const today = isToday(date)}
+										{@const dutyBadges = dutyBadgesByPerson.get(row.person.id)?.get(dateKey) ?? []}
+										<div
+											class="status-cell"
+											class:weekend
+											class:today
+											class:has-status={status}
+											class:has-duty={dutyBadges.length > 0}
+											style={status ? `background-color: ${status.color}` : ''}
+											title={[status?.name, dutyBadges.map((b) => b.title).join(', ')].filter(Boolean).join(' | ')}
+										>
+											{#if status}
+												<span class="status-dot"></span>
+											{/if}
+											{#if dutyBadges.length > 0}
+												<span class="duty-indicator" style="background-color: {dutyBadges[0].color}"></span>
+											{/if}
+										</div>
+									{/each}
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
 		</div>
 	</div>
 
@@ -336,6 +410,27 @@
 	.group-row,
 	.person-row {
 		display: flex;
+	}
+
+	.group-row {
+		height: var(--long-range-group-row-height);
+		overflow: hidden;
+	}
+
+	.person-row {
+		height: var(--long-range-person-row-height);
+		overflow: hidden;
+	}
+
+	.roster-rows {
+		position: relative;
+		min-width: max-content;
+	}
+
+	.virtual-row {
+		position: absolute;
+		top: 0;
+		left: 0;
 	}
 
 	.grid-header {
@@ -465,7 +560,8 @@
 	.group-name {
 		display: flex;
 		align-items: center;
-		min-height: 18px;
+		height: var(--long-range-group-row-height);
+		min-height: var(--long-range-group-row-height);
 		padding: 0 12px;
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
@@ -481,7 +577,7 @@
 		min-width: 24px;
 		max-width: 24px;
 		flex-shrink: 0;
-		height: 18px;
+		height: var(--long-range-group-row-height);
 		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
 		border-left: var(--border-rule);
 	}
@@ -498,7 +594,8 @@
 	.person-name {
 		display: flex;
 		align-items: center;
-		min-height: 22px;
+		height: var(--long-range-person-row-height);
+		min-height: var(--long-range-person-row-height);
 		padding: 0 12px;
 		gap: var(--sp-1);
 		font-size: var(--text-sm);
@@ -525,7 +622,7 @@
 		min-width: 24px;
 		max-width: 24px;
 		flex-shrink: 0;
-		height: 22px;
+		height: var(--long-range-person-row-height);
 		border-left: var(--border-rule);
 		background: var(--surface-panel);
 		display: flex;

@@ -1,14 +1,15 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import LongRangeView from './LongRangeView.svelte';
-import type { AssignmentType, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
+import type { AssignmentType, DailyAssignment, Personnel, SpecialDay, StatusType, AvailabilityEntry } from '$lib/types';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 
 type LongRangeViewProps = {
 	startDate: Date;
 	personnelByGroup: { group: string; personnel: Personnel[] }[];
-	availabilityEntries: [];
+	availabilityEntries: AvailabilityEntry[];
 	statusTypes: StatusType[];
 	specialDays: SpecialDay[];
 	assignmentTypes: AssignmentType[];
@@ -32,6 +33,19 @@ const personnel: Personnel[] = [
 	}
 ];
 
+function makePersonnel(count: number): Personnel[] {
+	return Array.from({ length: count }, (_, index) => ({
+		id: `person-${index + 1}`,
+		firstName: `First ${index + 1}`,
+		lastName: `Person ${String(index + 1).padStart(3, '0')}`,
+		rank: 'SGT',
+		groupId: 'group-1',
+		groupName: 'Alpha',
+		clinicRole: '',
+		mos: '11B'
+	}));
+}
+
 const statusTypes: StatusType[] = [
 	{
 		id: 'leave',
@@ -44,6 +58,30 @@ const statusTypes: StatusType[] = [
 const specialDays: SpecialDay[] = [];
 const assignmentTypes: AssignmentType[] = [];
 const assignments: DailyAssignment[] = [];
+
+let resizeObserverCallback: ResizeObserverCallback | undefined;
+const resizeObserve = vi.fn();
+const resizeDisconnect = vi.fn();
+
+class MockResizeObserver {
+	constructor(callback: ResizeObserverCallback) {
+		resizeObserverCallback = callback;
+	}
+
+	observe = resizeObserve;
+	disconnect = resizeDisconnect;
+	unobserve = vi.fn();
+}
+
+vi.stubGlobal('ResizeObserver', MockResizeObserver);
+
+function triggerResizeObserver() {
+	if (!resizeObserverCallback) {
+		throw new Error('ResizeObserver callback was not registered');
+	}
+
+	resizeObserverCallback([], {} as ResizeObserver);
+}
 
 function renderView(overrides: Partial<LongRangeViewProps> = {}) {
 	return render(LongRangeView, {
@@ -63,6 +101,8 @@ function renderView(overrides: Partial<LongRangeViewProps> = {}) {
 describe('LongRangeView', () => {
 	afterEach(() => {
 		cleanup();
+		vi.clearAllMocks();
+		resizeObserverCallback = undefined;
 	});
 
 	it('renders the shared view toggle in the calendar header area', () => {
@@ -216,5 +256,160 @@ describe('LongRangeView', () => {
 		expect(screen.getByTestId('long-range-date-label').textContent).toContain('January 2027');
 		expect(screen.getByTestId('long-range-date-label').textContent).toContain('March 2027');
 		expect(screen.queryByRole('dialog', { name: 'Month and year picker' })).toBeNull();
+	});
+
+	it('mounts a scrolling window of personnel rows for large rosters', async () => {
+		const largeRoster = makePersonnel(120);
+		const { container } = renderView({
+			personnelByGroup: [{ group: 'Alpha', personnel: largeRoster }]
+		});
+
+		const scrollArea = container.querySelector('.scroll-area') as HTMLDivElement | null;
+		const wrapper = container.querySelector('.long-range-wrapper') as HTMLElement | null;
+		const firstPersonVirtualRow = container.querySelector('.virtual-row:nth-child(2)') as HTMLElement | null;
+		expect(scrollArea).toBeTruthy();
+		expect(wrapper?.style.getPropertyValue('--long-range-person-row-height')).toBe('22px');
+		expect(firstPersonVirtualRow?.style.height).toBe('22px');
+		expect(container.querySelectorAll('.person-row').length).toBeLessThan(largeRoster.length);
+		expect(container.textContent).toContain('Person 001');
+
+		if (!scrollArea) {
+			throw new Error('Long range scroll area was not rendered');
+		}
+
+		Object.defineProperty(scrollArea, 'clientHeight', {
+			configurable: true,
+			value: 260
+		});
+		Object.defineProperty(scrollArea, 'scrollTop', {
+			configurable: true,
+			writable: true,
+			value: 2600
+		});
+
+		await fireEvent.scroll(scrollArea);
+
+		expect(container.textContent).not.toContain('Person 001');
+		expect(container.textContent).toContain('Person 120');
+		expect(container.querySelectorAll('.person-row').length).toBeLessThan(largeRoster.length);
+	});
+
+	it('calculates visible roster rows from the roster position inside the scroll area', async () => {
+		const largeRoster = makePersonnel(120);
+		const { container } = renderView({
+			personnelByGroup: [{ group: 'Alpha', personnel: largeRoster }]
+		});
+
+		const scrollArea = container.querySelector('.scroll-area') as HTMLDivElement | null;
+		const rosterRows = container.querySelector('.roster-rows') as HTMLDivElement | null;
+		expect(scrollArea).toBeTruthy();
+		expect(rosterRows).toBeTruthy();
+
+		if (!scrollArea || !rosterRows) {
+			throw new Error('Long range virtual roster was not rendered');
+		}
+
+		Object.defineProperty(rosterRows, 'offsetTop', {
+			configurable: true,
+			value: 900
+		});
+		const getScrollAreaRect = vi.fn(
+			() =>
+				({
+					top: 200,
+					bottom: 460,
+					height: 260,
+					left: 0,
+					right: 1000,
+					width: 1000,
+					x: 0,
+					y: 200,
+					toJSON: () => ({})
+				}) as DOMRect
+		);
+		const getRosterRect = vi.fn(
+			() =>
+				({
+					top: -236,
+					bottom: 2404,
+					height: 2640,
+					left: 0,
+					right: 1000,
+					width: 1000,
+					x: 0,
+					y: -236,
+					toJSON: () => ({})
+				}) as DOMRect
+		);
+
+		Object.defineProperty(scrollArea, 'getBoundingClientRect', {
+			configurable: true,
+			value: getScrollAreaRect
+		});
+		Object.defineProperty(rosterRows, 'getBoundingClientRect', {
+			configurable: true,
+			value: getRosterRect
+		});
+		Object.defineProperty(scrollArea, 'clientHeight', {
+			configurable: true,
+			value: 260
+		});
+		Object.defineProperty(scrollArea, 'scrollTop', {
+			configurable: true,
+			writable: true,
+			value: 500
+		});
+
+		triggerResizeObserver();
+		await tick();
+		getScrollAreaRect.mockClear();
+		getRosterRect.mockClear();
+
+		await fireEvent.scroll(scrollArea);
+
+		expect(getScrollAreaRect).not.toHaveBeenCalled();
+		expect(getRosterRect).not.toHaveBeenCalled();
+		expect(container.textContent).not.toContain('Person 001');
+		expect(container.textContent).toContain('Person 020');
+		expect(container.textContent).not.toContain('Person 120');
+	});
+
+	it('refreshes virtual rows when the long-range scroll area resizes without scrolling', async () => {
+		const largeRoster = makePersonnel(120);
+		const { container } = renderView({
+			personnelByGroup: [{ group: 'Alpha', personnel: largeRoster }]
+		});
+
+		const scrollArea = container.querySelector('.scroll-area') as HTMLDivElement | null;
+		expect(scrollArea).toBeTruthy();
+
+		if (!scrollArea) {
+			throw new Error('Long range scroll area was not rendered');
+		}
+
+		Object.defineProperty(scrollArea, 'scrollTop', {
+			configurable: true,
+			writable: true,
+			value: 0
+		});
+		Object.defineProperty(scrollArea, 'clientHeight', {
+			configurable: true,
+			value: 120
+		});
+
+		triggerResizeObserver();
+		await tick();
+
+		expect(container.textContent).not.toContain('Person 040');
+
+		Object.defineProperty(scrollArea, 'clientHeight', {
+			configurable: true,
+			value: 900
+		});
+
+		triggerResizeObserver();
+		await tick();
+
+		expect(container.textContent).toContain('Person 040');
 	});
 });

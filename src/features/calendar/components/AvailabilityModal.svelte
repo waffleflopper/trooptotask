@@ -124,6 +124,7 @@
 			endDate,
 			note: note.trim() || null
 		};
+		const wasEditing = !!editingEntry;
 
 		if (editingEntry) {
 			// Remove the old entry from local state immediately
@@ -146,7 +147,7 @@
 				: `${new Date(newData.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–${new Date(newData.endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 
 		toastStore.success(
-			editingEntry ? `${statusName} updated — ${dateLabel}` : `${statusName} added — ${dateLabel}`,
+			wasEditing ? `${statusName} updated — ${dateLabel}` : `${statusName} added — ${dateLabel}`,
 			5000
 		);
 

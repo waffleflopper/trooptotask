@@ -331,9 +331,6 @@
 											style={status ? `background-color: ${status.color}` : ''}
 											title={[status?.name, dutyBadges.map((b) => b.title).join(', ')].filter(Boolean).join(' | ')}
 										>
-											{#if status}
-												<span class="status-dot"></span>
-											{/if}
 											{#if dutyBadges.length > 0}
 												<span class="duty-indicator" style="background-color: {dutyBadges[0].color}"></span>
 											{/if}
@@ -661,13 +658,6 @@
 
 	.status-cell.has-status {
 		border-color: transparent;
-	}
-
-	.status-dot {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: rgba(255, 255, 255, var(--opacity-heavy));
 	}
 
 	.duty-indicator {

@@ -4,6 +4,7 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/svelte';
 import DataTable from './DataTable.svelte';
 import CellSnippetWrapper from './__tests__/CellSnippetWrapper.svelte';
 import HeaderCellSnippetWrapper from './__tests__/HeaderCellSnippetWrapper.svelte';
+import InteractiveCellSnippetWrapper from './__tests__/InteractiveCellSnippetWrapper.svelte';
 import ToolbarSnippetWrapper from './__tests__/ToolbarSnippetWrapper.svelte';
 import { useDataTable } from './useDataTable.svelte';
 import type { ColumnDef } from './useDataTable.svelte';
@@ -139,6 +140,17 @@ describe('DataTable', () => {
 				expect(h.getAttribute('aria-sort')).toBeNull();
 			});
 		});
+
+		test('renders non-sortable columns without a sort button', () => {
+			const actionColumns: ColumnDef<TestRow>[] = [
+				...columns,
+				{ key: 'actions', header: 'Actions', value: () => '', searchable: false, sortable: false }
+			];
+			render(Table, { props: { data: testData, columns: actionColumns } });
+
+			expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Sort by Actions' })).toBeNull();
+		});
 	});
 
 	describe('search bar', () => {
@@ -234,6 +246,53 @@ describe('DataTable', () => {
 
 			expect(handler).toHaveBeenCalledOnce();
 			expect(handler).toHaveBeenCalledWith(testData[1]);
+		});
+
+		test('calls onRowClick with row data when a row is activated by keyboard', async () => {
+			const handler = vi.fn();
+			render(Table, {
+				props: {
+					data: testData,
+					columns,
+					onRowClick: handler,
+					rowActionLabel: (row: TestRow) => `Open ${row.name}`
+				}
+			});
+
+			const row = screen.getByLabelText('Open Alice');
+			expect(row.getAttribute('tabindex')).toBe('0');
+			await fireEvent.keyDown(row, { key: 'Enter' });
+			await fireEvent.keyDown(row, { key: ' ' });
+
+			expect(handler).toHaveBeenCalledTimes(2);
+			expect(handler).toHaveBeenNthCalledWith(1, testData[0]);
+			expect(handler).toHaveBeenNthCalledWith(2, testData[0]);
+		});
+
+		test('does not activate the row from nested interactive controls', async () => {
+			const rowHandler = vi.fn();
+			const buttonHandler = vi.fn();
+			const actionColumns: ColumnDef<TestRow>[] = [
+				...columns,
+				{ key: 'actions', header: 'Actions', value: () => '', searchable: false, sortable: false }
+			];
+			render(InteractiveCellSnippetWrapper, {
+				props: {
+					data: testData,
+					columns: actionColumns,
+					onRowClick: rowHandler,
+					onButtonClick: buttonHandler
+				}
+			});
+
+			const button = screen.getByRole('button', { name: 'Action Alice' });
+			await fireEvent.click(button);
+			await fireEvent.keyDown(button, { key: 'Enter' });
+			await fireEvent.keyDown(button, { key: ' ' });
+
+			expect(buttonHandler).toHaveBeenCalledOnce();
+			expect(buttonHandler).toHaveBeenCalledWith(testData[0]);
+			expect(rowHandler).not.toHaveBeenCalled();
 		});
 
 		test('rows do not have clickable class when onRowClick is not provided', () => {

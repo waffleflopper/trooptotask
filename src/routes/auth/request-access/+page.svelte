@@ -47,7 +47,7 @@
 <AuthShell
 	eyebrow="Beta Access"
 	title="Request access to the beta."
-	description="This form is only for getting access to the beta."
+	description="Submit your information and we'll review your request. Approved users receive an invite link by email."
 	panelEyebrow="Beta request"
 	panelTitle={submitted ? 'Request submitted' : 'Request beta access'}
 	panelDescription={submitted ? 'Your beta request is in the queue.' : 'Tell us who you are and how to reach you.'}
@@ -55,7 +55,6 @@
 	supportTitle="Beta access only."
 	supportDescription="If you already have an invite code, use Create Account instead. If you already have an account, sign in."
 	supportPoints={[
-		'This route is for beta access only.',
 		'Approved users receive a setup link after review.',
 		'That setup link expires after 24 hours for security.',
 		'Some @army.mil and @health.mil addresses can filter these emails before they reach your inbox.',

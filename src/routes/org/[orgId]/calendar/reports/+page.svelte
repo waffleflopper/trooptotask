@@ -6,7 +6,12 @@
 </script>
 
 <div class="page">
-	<PageToolbar title="Calendar Reports" />
+	<PageToolbar
+		title="Calendar Reports"
+		breadcrumbs={[{ label: 'Calendar', href: `/org/${data.orgId}/calendar` }, { label: 'Reports' }]}
+	>
+		<a href="/org/{data.orgId}/calendar" class="btn btn-sm">Back</a>
+	</PageToolbar>
 
 	<main class="page-content">
 		<CalendarReports

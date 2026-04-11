@@ -193,6 +193,12 @@
 		background: color-mix(in srgb, var(--surface-subtle) 82%, var(--surface-panel) 18%);
 	}
 
+	.date-header:hover .day-number {
+		text-decoration: underline;
+		text-underline-offset: 2px;
+		text-decoration-color: var(--ink-35);
+	}
+
 	.day-name {
 		display: block;
 		font-family: var(--font-mono);

@@ -26,9 +26,9 @@
 	supportTitle="Check your email."
 	supportDescription="If the account exists, you'll receive a password reset link at that address."
 	supportPoints={[
-		'Use the same email address you use to sign in.',
 		'Open the reset link from your email to choose a new password.',
-		'After resetting, return here and sign in normally.'
+		'After resetting, return here and sign in normally.',
+		'If nothing arrives, check your spam folder or ask your unit admin which email is on record.'
 	]}
 >
 	<div class="auth-stack">
@@ -36,15 +36,14 @@
 			<AuthNotice tone="success" title="Check your email" centered>
 				<p>We sent a password reset link to <strong>{form.email}</strong>.</p>
 				<p>Open the message and follow the link to choose a new password.</p>
+				<p>If it does not arrive within a few minutes, check your spam folder.</p>
 			</AuthNotice>
 		{:else}
 			{#if form?.error}
 				<AuthNotice tone="error" message={form.error} />
 			{/if}
 
-			<p class="auth-note">
-				Use the same email address you normally sign in with. If the account exists, you'll receive a reset link.
-			</p>
+			<p class="auth-note">If the account exists, you will receive a reset link at that address.</p>
 
 			<form
 				method="POST"

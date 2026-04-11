@@ -16,6 +16,7 @@
 		options?: { value: string; label: string }[];
 		rows?: number;
 		children?: Snippet;
+		action?: Snippet;
 	}
 
 	let {
@@ -32,7 +33,8 @@
 		disabled = false,
 		options = [],
 		rows = 3,
-		children
+		children,
+		action
 	}: Props = $props();
 
 	const errorId = $derived(`${id}-error`);
@@ -97,6 +99,9 @@
 				aria-describedby={describedBy}
 				bind:value
 			/>
+			{#if action}
+				{@render action()}
+			{/if}
 		</div>
 	{/if}
 

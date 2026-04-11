@@ -5,6 +5,26 @@
 
 	let { data, form } = $props();
 	let loading = $state<string | null>(null);
+	let successMessage = $state<string | null>(null);
+	let orgFilter = $state('');
+	let successTimer: ReturnType<typeof setTimeout>;
+
+	function showSuccess(msg: string) {
+		successMessage = msg;
+		clearTimeout(successTimer);
+		successTimer = setTimeout(() => (successMessage = null), 4000);
+	}
+
+	function formatRole(role: string): string {
+		const map: Record<string, string> = { admin: 'Administrator', member: 'Member' };
+		return map[role.toLowerCase()] ?? role.charAt(0).toUpperCase() + role.slice(1);
+	}
+
+	const filteredOrgs = $derived(
+		orgFilter.trim()
+			? data.organizations.filter((org) => org.name.toLowerCase().includes(orgFilter.toLowerCase().trim()))
+			: data.organizations
+	);
 </script>
 
 <svelte:head>
@@ -40,17 +60,6 @@
 				Move into an organization, process pending invitations, or create a new workspace before the next handoff.
 			</p>
 
-			<dl class="selector-facts">
-				<div class="selector-fact">
-					<dt>Organizations</dt>
-					<dd>{data.organizations.length}</dd>
-				</div>
-				<div class="selector-fact">
-					<dt>Pending Invitations</dt>
-					<dd>{data.pendingInvitations.length}</dd>
-				</div>
-			</dl>
-
 			<div class="selector-help">
 				<a href="/help">Need a quick refresher? Open the field guide.</a>
 			</div>
@@ -58,13 +67,15 @@
 
 		<section class="selector-panel">
 			<header class="selector-panel-header">
-				<p class="selector-panel-kicker">Troop to Task</p>
 				<h2>Available workspaces</h2>
-				<p>Select an organization to continue, or process any pending access requests first.</p>
 			</header>
 
 			{#if form?.error}
 				<div class="selector-alert" role="alert">{form.error}</div>
+			{/if}
+
+			{#if successMessage}
+				<div class="selector-alert selector-alert-success" role="status">{successMessage}</div>
 			{/if}
 
 			{#if data.pendingInvitations.length > 0}
@@ -88,8 +99,9 @@
 										action="?/acceptInvitation"
 										use:enhance={() => {
 											loading = invitation.id;
-											return async ({ update }) => {
+											return async ({ result, update }) => {
 												loading = null;
+												if (result.type === 'success') showSuccess(`Joined ${invitation.organizationName}.`);
 												await update();
 											};
 										}}
@@ -104,8 +116,9 @@
 										action="?/declineInvitation"
 										use:enhance={() => {
 											loading = invitation.id;
-											return async ({ update }) => {
+											return async ({ result, update }) => {
 												loading = null;
+												if (result.type === 'success') showSuccess('Invitation declined.');
 												await update();
 											};
 										}}
@@ -130,17 +143,30 @@
 					{/if}
 				</div>
 
+				{#if data.organizations.length > 4}
+					<input
+						type="search"
+						class="org-filter"
+						placeholder="Filter organizations…"
+						bind:value={orgFilter}
+						aria-label="Filter organizations"
+					/>
+				{/if}
+
 				{#if data.organizations.length > 0}
 					<div class="org-list">
-						{#each data.organizations as org}
+						{#each filteredOrgs as org}
 							<a href="/org/{org.id}" class="org-item">
 								<div class="org-copy">
 									<span class="org-name">{org.name}</span>
-									<span class="org-role">{org.role}</span>
+									<span class="org-role">{formatRole(org.role)}</span>
 								</div>
 								<span class="org-arrow" aria-hidden="true">Open</span>
 							</a>
 						{/each}
+						{#if filteredOrgs.length === 0}
+							<p class="org-filter-empty">No organizations match "{orgFilter}"</p>
+						{/if}
 					</div>
 				{:else}
 					<div class="selector-empty">
@@ -185,9 +211,7 @@
 	}
 
 	.selector-kicker,
-	.selector-panel-kicker,
 	.selector-section-kicker,
-	.selector-fact dt,
 	.org-role,
 	.org-arrow {
 		font-family: var(--font-mono);
@@ -197,8 +221,7 @@
 		text-transform: uppercase;
 	}
 
-	.selector-kicker,
-	.selector-panel-kicker {
+	.selector-kicker {
 		margin: 0;
 		color: var(--amber);
 	}
@@ -223,8 +246,7 @@
 		font-size: clamp(2rem, 1.6rem + 1vw, 2.8rem);
 	}
 
-	.selector-copy,
-	.selector-panel-header p {
+	.selector-copy {
 		margin: 0;
 		font-size: var(--text-base);
 		line-height: var(--line-height-copy);
@@ -232,38 +254,9 @@
 		max-width: 34rem;
 	}
 
-	.selector-facts {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--sp-4);
-		margin: 0;
-	}
-
-	.selector-fact {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		padding-top: var(--sp-4);
-		border-top: var(--border-thin);
-	}
-
-	.selector-fact dt {
-		color: var(--text-tertiary);
-	}
-
-	.selector-fact dd {
-		margin: 0;
-		font-family: var(--font-display);
-		font-size: clamp(1.8rem, 1.4rem + 0.8vw, 2.6rem);
-		font-weight: var(--font-weight-display);
-		line-height: 0.95;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
 	.selector-help a {
-		color: var(--text-secondary);
+		font-size: var(--text-sm);
+		color: var(--text-primary);
 	}
 
 	.selector-help a:hover {
@@ -284,7 +277,6 @@
 	.selector-panel-header {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-3);
 	}
 
 	.selector-alert {
@@ -294,6 +286,12 @@
 		color: var(--danger);
 		font-size: var(--text-sm);
 		line-height: 1.55;
+	}
+
+	.selector-alert-success {
+		border-left-color: var(--amber);
+		background: color-mix(in srgb, var(--amber-light) 40%, var(--surface-panel));
+		color: var(--amber-dark);
 	}
 
 	.selector-section {
@@ -325,6 +323,32 @@
 		font-weight: var(--font-weight-semibold);
 		letter-spacing: var(--letter-spacing-mono);
 		color: var(--amber-dark);
+	}
+
+	.org-filter {
+		width: 100%;
+		padding: var(--sp-2) var(--sp-3);
+		background: var(--surface-subtle);
+		border: 1px solid var(--border-default);
+		border-radius: var(--radius-sm);
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		color: var(--text-primary);
+		transition: border-color var(--transition-fast);
+	}
+
+	.org-filter:focus {
+		outline: none;
+		border-color: rgba(var(--amber-rgb), 0.5);
+	}
+
+	.org-filter-empty {
+		margin: 0;
+		padding: var(--sp-3) var(--sp-4);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: var(--letter-spacing-mono);
+		color: var(--text-tertiary);
 	}
 
 	.invitation-list,
@@ -452,10 +476,6 @@
 	@media (max-width: 640px) {
 		.selector-page {
 			padding: var(--sp-4);
-		}
-
-		.selector-facts {
-			grid-template-columns: 1fr;
 		}
 
 		.invitation-item,

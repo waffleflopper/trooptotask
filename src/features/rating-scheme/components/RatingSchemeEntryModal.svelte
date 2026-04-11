@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PersonnelLookup } from '$lib/types';
 	import type { RatingSchemeEntry, ReportType, WorkflowStatus } from '../rating-scheme.types';
-	import { WORKFLOW_STATUS_OPTIONS, WORKFLOW_STATUS_COLORS } from '../rating-scheme.types';
+	import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 	import {
 		getEvalTypeForRank,
 		getReportTypesForEvalType,
@@ -9,6 +9,7 @@
 		getExtendedAnnualWarning
 	} from '$features/rating-scheme/utils/ratingScheme';
 	import Modal from '$lib/components/Modal.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 
@@ -53,6 +54,8 @@
 	let showWorkflow = $state(false);
 	let notes = $state('');
 	let showDeleteConfirm = $state(false);
+	let saveAttempted = $state(false);
+	let isSaving = $state(false);
 
 	// Reset form state when entry changes (e.g. modal reopened with different data)
 	$effect(() => {
@@ -80,6 +83,8 @@
 		showWorkflow = !!entry?.workflowStatus;
 		notes = entry?.notes ?? '';
 		showDeleteConfirm = false;
+		saveAttempted = false;
+		isSaving = false;
 	});
 
 	const reportTypeOptions = $derived(getReportTypesForEvalType(evalType));
@@ -133,16 +138,28 @@
 		});
 	});
 
-	const canSave = $derived(
-		!!ratedPersonId &&
-			!!ratingPeriodStart &&
-			!!ratingPeriodEnd &&
-			(raterMode === 'internal' ? !!raterPersonId : !!raterName.trim()) &&
-			(srMode === 'internal' ? !!seniorRaterPersonId : !!seniorRaterName.trim())
-	);
+	const missingRequiredLabels = $derived.by(() => {
+		const missing: string[] = [];
+		if (!ratedPersonId) missing.push('rated individual');
+		if (raterMode === 'internal' ? !raterPersonId : !raterName.trim()) missing.push('rater');
+		if (srMode === 'internal' ? !seniorRaterPersonId : !seniorRaterName.trim()) missing.push('senior rater');
+		if (!ratingPeriodStart) missing.push('rating period start');
+		if (!ratingPeriodEnd) missing.push('thru date');
+		return missing;
+	});
+
+	const canSave = $derived(missingRequiredLabels.length === 0);
+
+	function getSaveErrorMessage(error: unknown): string {
+		if (error instanceof Error && error.message.trim()) return error.message;
+		return entry ? 'Failed to update rating entry' : 'Failed to add rating entry';
+	}
 
 	async function handleSave() {
-		if (!canSave) return;
+		saveAttempted = true;
+		if (!canSave || isSaving) return;
+
+		isSaving = true;
 		const saveData = {
 			ratedPersonId,
 			evalType,
@@ -161,8 +178,15 @@
 			reportType: reportType || null,
 			workflowStatus: showWorkflow && workflowStatus ? (workflowStatus as WorkflowStatus) : null
 		};
-		await onSave(saveData);
-		onClose();
+		try {
+			await onSave(saveData);
+			toastStore.success(entry ? 'Rating entry updated' : 'Rating entry added');
+			onClose();
+		} catch (error) {
+			toastStore.error(getSaveErrorMessage(error));
+		} finally {
+			isSaving = false;
+		}
 	}
 
 	async function handleDelete() {
@@ -178,7 +202,20 @@
 	}
 </script>
 
-<Modal title={entry ? 'Edit Rating Entry' : 'Add Rating Entry'} {onClose} width="550px" titleId="rating-entry-title">
+<Modal
+	title={entry ? 'Edit Rating Entry' : 'Add Rating Entry'}
+	{onClose}
+	width="550px"
+	titleId="rating-entry-title"
+	canClose={!isSaving}
+>
+	{#if saveAttempted && missingRequiredLabels.length > 0}
+		<div class="form-alert" role="alert">
+			<span>Complete required fields</span>
+			<p>Missing: {missingRequiredLabels.join(', ')}.</p>
+		</div>
+	{/if}
+
 	<div class="form-group">
 		<label class="label" for="rated-individual">Rated Individual</label>
 		<SearchSelect
@@ -227,7 +264,12 @@
 			>
 		</div>
 		{#if raterMode === 'internal'}
-			<SearchSelect options={personnelOptions} bind:value={raterPersonId} placeholder="Search rater..." />
+			<SearchSelect
+				options={personnelOptions}
+				bind:value={raterPersonId}
+				placeholder="Search rater..."
+				ariaLabel="Rater from organization"
+			/>
 		{:else}
 			<input
 				class="input"
@@ -255,7 +297,12 @@
 			>
 		</div>
 		{#if srMode === 'internal'}
-			<SearchSelect options={personnelOptions} bind:value={seniorRaterPersonId} placeholder="Search senior rater..." />
+			<SearchSelect
+				options={personnelOptions}
+				bind:value={seniorRaterPersonId}
+				placeholder="Search senior rater..."
+				ariaLabel="Senior rater from organization"
+			/>
 		{:else}
 			<input
 				class="input"
@@ -301,6 +348,7 @@
 					options={personnelOptions}
 					bind:value={intermediateRaterPersonId}
 					placeholder="Search intermediate rater..."
+					ariaLabel="Intermediate rater from organization"
 				/>
 			{:else}
 				<input class="input" type="text" bind:value={intermediateRaterName} placeholder="Rank, Name, Position" />
@@ -339,7 +387,12 @@
 				>
 			</div>
 			{#if rvMode === 'internal'}
-				<SearchSelect options={personnelOptions} bind:value={reviewerPersonId} placeholder="Search reviewer..." />
+				<SearchSelect
+					options={personnelOptions}
+					bind:value={reviewerPersonId}
+					placeholder="Search reviewer..."
+					ariaLabel="Reviewer from organization"
+				/>
 			{:else}
 				<input class="input" type="text" bind:value={reviewerName} placeholder="Rank, Name, Position" />
 			{/if}
@@ -410,8 +463,10 @@
 			{/if}
 		{/if}
 		<div class="spacer"></div>
-		<button class="btn btn-secondary" type="button" onclick={onClose}>Cancel</button>
-		<button class="btn btn-primary" type="button" disabled={!canSave} onclick={handleSave}>Save</button>
+		<button class="btn btn-secondary" type="button" onclick={onClose} disabled={isSaving}>Cancel</button>
+		<button class="btn btn-primary" type="button" disabled={isSaving} onclick={handleSave}>
+			{isSaving ? 'Saving...' : 'Save'}
+		</button>
 	{/snippet}
 </Modal>
 
@@ -421,6 +476,32 @@
 		flex-direction: column;
 		gap: var(--field-stack-gap);
 		margin-bottom: var(--sp-4);
+	}
+
+	.form-alert {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		margin-bottom: var(--sp-4);
+		padding: var(--sp-3) var(--sp-4);
+		border: 1px solid color-mix(in srgb, var(--amber) 32%, var(--border-default) 68%);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--amber-light) 72%, var(--surface-panel) 28%);
+		color: var(--amber-dark);
+	}
+
+	.form-alert span {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
+
+	.form-alert p {
+		margin: 0;
+		font-size: var(--text-sm);
+		line-height: 1.45;
 	}
 
 	.label {

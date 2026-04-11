@@ -3,6 +3,7 @@
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
 	import Modal from '$lib/components/Modal.svelte';
+	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 
 	interface GroupData {
 		group: string;
@@ -69,8 +70,15 @@
 
 	const assignmentsForDate = $derived(assignments.filter((a) => a.date === dateStr));
 	const dutyEventsForDate = $derived(dutyEvents.filter((e) => eventCoversDate(e, dateStr)));
-
-	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
+	const personnelOptions = $derived(
+		personnelByGroup.flatMap((grp) =>
+			grp.personnel.map((person) => ({
+				value: person.id,
+				label: `${person.rank} ${person.lastName}, ${person.firstName}${grp.group ? ` - ${grp.group}` : ''}`
+			}))
+		)
+	);
+	const groupOptions = $derived(groups.map((group) => ({ value: group, label: group })));
 
 	function getCurrentAssignee(typeId: string): string {
 		const assignment = assignmentsForDate.find((a) => a.assignmentTypeId === typeId);
@@ -83,14 +91,6 @@
 		} else {
 			onRemoveAssignment(dateStr, typeId);
 		}
-	}
-
-	function getPersonnelDisplay(id: string): string {
-		const person = allPersonnel.find((p) => p.id === id);
-		if (person) {
-			return `${person.rank} ${person.lastName}`;
-		}
-		return id;
 	}
 </script>
 
@@ -124,61 +124,25 @@
 				</div>
 
 				{#if type.assignTo === 'personnel'}
-					<select
-						class="select"
+					<SearchSelect
+						options={personnelOptions}
 						value={getCurrentAssignee(type.id)}
-						onchange={(e) => handleAssignmentChange(type.id, e.currentTarget.value)}
-					>
-						<option value="">-- Not Assigned --</option>
-						{#each personnelByGroup as grp}
-							{#if grp.personnel.length > 0}
-								<optgroup label={grp.group}>
-									{#each grp.personnel as person}
-										<option value={person.id}>
-											{person.rank}
-											{person.lastName}, {person.firstName}
-										</option>
-									{/each}
-								</optgroup>
-							{/if}
-						{/each}
-					</select>
+						placeholder="Not assigned"
+						ariaLabel={`Set ${type.name} assignee`}
+						onchange={(value) => handleAssignmentChange(type.id, value)}
+					/>
 				{:else}
-					<select
-						class="select"
+					<SearchSelect
+						options={groupOptions}
 						value={getCurrentAssignee(type.id)}
-						onchange={(e) => handleAssignmentChange(type.id, e.currentTarget.value)}
-					>
-						<option value="">-- Not Assigned --</option>
-						{#each groups as group}
-							<option value={group}>{group}</option>
-						{/each}
-					</select>
+						placeholder="Not assigned"
+						ariaLabel={`Set ${type.name} group`}
+						onchange={(value) => handleAssignmentChange(type.id, value)}
+					/>
 				{/if}
 			</div>
 		{/each}
 	</div>
-
-	{#if assignmentsForDate.length > 0}
-		<div class="current-assignments">
-			<h4>Current Assignments:</h4>
-			{#each assignmentsForDate as assignment}
-				{@const type = assignmentTypes.find((t) => t.id === assignment.assignmentTypeId)}
-				{#if type}
-					<div class="current-assignment">
-						<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
-						<span>
-							{#if type.assignTo === 'personnel'}
-								{getPersonnelDisplay(assignment.assigneeId)}
-							{:else}
-								{assignment.assigneeId}
-							{/if}
-						</span>
-					</div>
-				{/if}
-			{/each}
-		</div>
-	{/if}
 
 	{#snippet footer()}
 		<button class="btn btn-primary" onclick={onClose}>Done</button>
@@ -282,30 +246,5 @@
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 		color: var(--text-secondary);
-	}
-
-	.current-assignments {
-		margin-top: var(--sp-4);
-		padding-top: var(--sp-4);
-		border-top: var(--border-thin);
-	}
-
-	.current-assignments h4 {
-		margin: 0 0 var(--sp-3);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		color: var(--text-secondary);
-	}
-
-	.current-assignment {
-		display: flex;
-		align-items: center;
-		gap: var(--sp-2);
-		padding: var(--sp-1) 0;
-		font-size: var(--text-sm);
-		color: var(--text-primary);
 	}
 </style>

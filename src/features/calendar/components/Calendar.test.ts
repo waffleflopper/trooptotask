@@ -82,6 +82,7 @@ function renderCalendar(
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		dutyEvents: DutyEvent[];
+		showPersonnelRoles: boolean;
 		onNavigateToMonth: (year: number, month: number) => void;
 	}> = {}
 ) {
@@ -99,6 +100,7 @@ function renderCalendar(
 			assignmentTypes: overrides.assignmentTypes ?? [],
 			assignments: overrides.assignments ?? [],
 			dutyEvents: overrides.dutyEvents ?? [],
+			showPersonnelRoles: overrides.showPersonnelRoles ?? true,
 			onPrevMonth: () => {},
 			onNextMonth: () => {},
 			onGoToToday: () => {},
@@ -211,6 +213,14 @@ describe('Calendar', () => {
 		expect(firstRow.querySelector('.date-cells')).toBeNull();
 		expect(firstRow.children[0]).toBe(firstPersonnelCell);
 		expect(firstRow.querySelectorAll(':scope > .date-cell')).toHaveLength(2);
+	});
+
+	it('hides personnel roles and compacts virtualized rows when role display is disabled', () => {
+		const { container, queryByText } = renderCalendar({ showPersonnelRoles: false });
+		const calendarBody = container.querySelector('.calendar-body') as HTMLDivElement | null;
+
+		expect(queryByText('Medic')).toBeNull();
+		expect(calendarBody?.style.getPropertyValue('--calendar-person-row-height')).toBe('36px');
 	});
 
 	it('shows a readable personnel label in the header badge when the selected header type is person-based', () => {

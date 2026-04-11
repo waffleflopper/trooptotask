@@ -1575,7 +1575,6 @@ input[type='checkbox']:focus-visible {
 	margin-top: 0.35rem;
 	border-radius: 50%;
 	background: color-mix(in srgb, var(--amber) 78%, var(--amber-vivid) 22%);
-	box-shadow: 0 0 0 5px color-mix(in srgb, var(--amber) 12%, transparent);
 }
 
 .auth-shell__aside {
@@ -1887,6 +1886,48 @@ input[type='checkbox']:focus-visible {
 	.auth-shell__footer {
 		text-align: center;
 	}
+}
+
+/* Password visibility toggle */
+.field-action {
+	position: absolute;
+	right: var(--sp-3);
+	top: 50%;
+	transform: translateY(-50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.75rem;
+	height: 1.75rem;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: var(--text-tertiary);
+	cursor: pointer;
+	border-radius: var(--radius-sm);
+	transition:
+		color var(--transition-fast),
+		background-color var(--transition-fast);
+}
+
+.field-action:hover {
+	color: var(--text-secondary);
+	background: color-mix(in srgb, var(--ink-35) 10%, transparent);
+}
+
+.field-action:focus-visible {
+	outline: var(--focus-outline);
+	outline-offset: var(--focus-outline-offset);
+}
+
+.field-action svg {
+	width: 1rem;
+	height: 1rem;
+	flex-shrink: 0;
+}
+
+.field-control:has(.field-action) .input {
+	padding-right: 2.75rem;
 }
 
 /* Responsive table wrapper — wraps <table> for horizontal scroll on mobile */

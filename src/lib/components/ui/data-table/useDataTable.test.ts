@@ -93,6 +93,18 @@ describe('useDataTable', () => {
 		expect(table.rows.map((r) => r.age)).toEqual([25, 28, 30, 32, 35]);
 	});
 
+	test('toggleSort ignores columns marked non-sortable', () => {
+		const table = useDataTable({
+			data: () => testData,
+			columns: [...columns, { key: 'actions', header: 'Actions', value: () => '', sortable: false }]
+		});
+
+		table.toggleSort('actions');
+
+		expect(table.sortKey).toBeNull();
+		expect(table.rows).toEqual(testData);
+	});
+
 	test('sorts nulls last regardless of direction', () => {
 		interface NullRow {
 			id: string;

@@ -44,6 +44,8 @@
 	const filteredTypes = $derived(filterColumnsByView(trainingTypesStore.items, activeView));
 
 	const viewStats = $derived(getTrainingStats(ctx.filteredPersonnel, filteredTypes, personnelTrainingsStore.items));
+
+	const skeletonStatSlots = [0, 1, 2, 3, 4];
 </script>
 
 <div class="page">
@@ -66,7 +68,7 @@
 	{:else}
 		<div class="stats-bar">
 			{#if loading}
-				{#each Array(5) as _}
+				{#each skeletonStatSlots as slot (slot)}
 					<SkeletonBlock width="100px" height="52px" />
 				{/each}
 			{:else}
@@ -189,7 +191,7 @@
 </div>
 
 {#if showViewEditor}
-	<ViewEditorModal onClose={() => (showViewEditor = false)} orgId={ctx.orgId} readOnly={ctx.readOnly} />
+	<ViewEditorModal onClose={() => (showViewEditor = false)} readOnly={ctx.readOnly} />
 {/if}
 
 <style>

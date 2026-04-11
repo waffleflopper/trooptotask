@@ -4,6 +4,7 @@ import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingT
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type {
@@ -75,7 +76,7 @@ export function getPaperworkStageIndex(step: OnboardingStepProgress): number {
  * Formats an ISO timestamp string to a human-readable "Jan 15 at 2:30 PM" format.
  */
 export function formatTimestamp(isoStr: string): string {
-	const d = new Date(isoStr);
+	const d = new SvelteDate(isoStr);
 	const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 	const h = d.getHours();
 	const m = String(d.getMinutes()).padStart(2, '0');
@@ -159,7 +160,7 @@ export class OnboardingPageContext {
 	assignTemplateError = $state('');
 	removingDeprecatedStepId = $state<string | null>(null);
 	noteInputs = $state<Record<string, string>>({});
-	expandedNotes = $state<Set<string>>(new Set());
+	expandedNotes = $state<SvelteSet<string>>(new SvelteSet());
 	// Switch template state
 	switchingTemplateId = $state<string | null>(null);
 	switchTemplateSelected = $state('');
@@ -291,7 +292,7 @@ export class OnboardingPageContext {
 	}
 
 	toggleNotes(stepId: string) {
-		const newSet = new Set(this.expandedNotes);
+		const newSet = new SvelteSet(this.expandedNotes);
 		if (newSet.has(stepId)) newSet.delete(stepId);
 		else newSet.add(stepId);
 		this.expandedNotes = newSet;
@@ -420,6 +421,6 @@ export class OnboardingPageContext {
 	}
 
 	get trainingTypeNames(): Map<string, string> {
-		return new Map(trainingTypesStore.items.map((t) => [t.id, t.name]));
+		return new SvelteMap(trainingTypesStore.items.map((t) => [t.id, t.name]));
 	}
 }

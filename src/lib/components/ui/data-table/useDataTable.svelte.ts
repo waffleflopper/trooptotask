@@ -17,9 +17,11 @@ export interface GroupDef<T> {
 	compare?: (a: string, b: string) => number;
 }
 
+export type GroupByOption<T> = GroupDef<T> | (() => GroupDef<T> | undefined);
+
 /**
- * Options for useDataTable. Only `data` is reactive (via closure).
- * All other options are captured once at initialization and not tracked for changes.
+ * Options for useDataTable. `data` is reactive via closure; `groupBy` can also
+ * be supplied as a getter when grouping must track parent state.
  */
 export interface DataTableOptions<T> {
 	data: () => T[];
@@ -27,7 +29,7 @@ export interface DataTableOptions<T> {
 	initialSortKey?: string;
 	initialSortDirection?: SortDirection;
 	pageSize?: number;
-	groupBy?: GroupDef<T>;
+	groupBy?: GroupByOption<T>;
 	filterFn?: (row: T, query: string) => boolean;
 	/** Resolve dynamic columns not in the static list (e.g. for runtime-generated sort keys) */
 	resolveColumn?: (key: string) => ColumnDef<T> | undefined;
@@ -117,9 +119,9 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 	}
 
 	function getGroups(): DataTableGroup<T>[] {
-		if (!options.groupBy) return [];
+		const groupDef = typeof options.groupBy === 'function' ? options.groupBy() : options.groupBy;
+		if (!groupDef) return [];
 		const sorted = getSorted();
-		const groupDef = options.groupBy;
 		const groupMap = new Map<string, T[]>();
 
 		for (const row of sorted) {

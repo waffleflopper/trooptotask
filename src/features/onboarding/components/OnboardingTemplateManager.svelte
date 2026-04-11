@@ -13,6 +13,11 @@
 		onClose: () => void;
 	}
 
+	interface DraftStage {
+		id: string;
+		value: string;
+	}
+
 	let { trainingTypes, onClose }: Props = $props();
 
 	// Derived locals to ensure reactive tracking of store state
@@ -118,14 +123,24 @@
 	let newName = $state('');
 	let newDescription = $state('');
 	let newTrainingTypeId = $state<string | null>(null);
-	let newStages = $state<string[]>([]);
+	let newStages = $state<DraftStage[]>([]);
 
 	let editingId = $state<string | null>(null);
 	let editStepType = $state<'training' | 'paperwork' | 'checkbox'>('training');
 	let editName = $state('');
 	let editDescription = $state('');
 	let editTrainingTypeId = $state<string | null>(null);
-	let editStages = $state<string[]>([]);
+	let editStages = $state<DraftStage[]>([]);
+	let nextDraftStageId = 0;
+
+	function createDraftStage(value = ''): DraftStage {
+		nextDraftStageId += 1;
+		return { id: `draft-stage-${nextDraftStageId}`, value };
+	}
+
+	function getStageValues(stages: DraftStage[]): string[] {
+		return stages.map((stage) => stage.value.trim()).filter(Boolean);
+	}
 
 	function handleAdd() {
 		if (!newName.trim()) return;
@@ -134,7 +149,7 @@
 			description: newDescription.trim() || null,
 			stepType: newStepType,
 			trainingTypeId: newStepType === 'training' ? newTrainingTypeId : null,
-			stages: newStepType === 'paperwork' ? newStages.filter((s) => s.trim()) : null,
+			stages: newStepType === 'paperwork' ? getStageValues(newStages) : null,
 			sortOrder: stepList.length
 		});
 		resetNewForm();
@@ -149,7 +164,7 @@
 	}
 
 	function addNewStage() {
-		newStages = [...newStages, ''];
+		newStages = [...newStages, createDraftStage()];
 	}
 
 	function removeNewStage(index: number) {
@@ -157,7 +172,7 @@
 	}
 
 	function addEditStage() {
-		editStages = [...editStages, ''];
+		editStages = [...editStages, createDraftStage()];
 	}
 
 	function removeEditStage(index: number) {
@@ -170,7 +185,7 @@
 		editName = step.name;
 		editDescription = step.description ?? '';
 		editTrainingTypeId = step.trainingTypeId;
-		editStages = step.stages ? [...step.stages] : [];
+		editStages = step.stages ? step.stages.map((stage) => createDraftStage(stage)) : [];
 	}
 
 	function saveEdit() {
@@ -180,7 +195,7 @@
 				description: editDescription.trim() || null,
 				stepType: editStepType,
 				trainingTypeId: editStepType === 'training' ? editTrainingTypeId : null,
-				stages: editStepType === 'paperwork' ? editStages.filter((s) => s.trim()) : null
+				stages: editStepType === 'paperwork' ? getStageValues(editStages) : null
 			});
 		}
 		cancelEdit();
@@ -203,11 +218,18 @@
 		}
 	}
 
-	// Local sorted copy for immediate visual feedback during reordering
-	let orderedSteps = $state<OnboardingTemplateStep[]>([]);
+	// Keep optimistic order local so store refreshes from unrelated edits do not snap the list back.
+	let manualStepOrder = $state<string[] | null>(null);
+	const orderedSteps = $derived.by<OnboardingTemplateStep[]>(() => {
+		const source = [...stepList];
+		const order = manualStepOrder;
+		if (!order) return source;
 
-	$effect(() => {
-		orderedSteps = [...stepList];
+		const ordered = order
+			.map((id) => source.find((step) => step.id === id))
+			.filter((step): step is OnboardingTemplateStep => step !== undefined);
+		const remaining = source.filter((step) => !order.includes(step.id));
+		return [...ordered, ...remaining];
 	});
 
 	$effect(() => {
@@ -216,26 +238,35 @@
 		}
 	});
 
+	$effect(() => {
+		if (!manualStepOrder) return;
+		const stepIds = stepList.map((step) => step.id);
+		if (manualStepOrder.length !== stepIds.length || manualStepOrder.some((id) => !stepIds.includes(id))) {
+			manualStepOrder = null;
+		}
+	});
+
+	function reorderStep(fromIndex: number, toIndex: number) {
+		if (fromIndex < 0 || fromIndex >= orderedSteps.length) return;
+		if (toIndex < 0 || toIndex >= orderedSteps.length) return;
+		const next = [...orderedSteps];
+		[next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+
+		const reordered = next.map((step, sortOrder) => ({ ...step, sortOrder }));
+		manualStepOrder = reordered.map((step) => step.id);
+		void persistStepOrder(reordered);
+	}
+
+	async function persistStepOrder(steps: OnboardingTemplateStep[]) {
+		await Promise.all(steps.map((step) => onboardingTemplateStore.update(step.id, { sortOrder: step.sortOrder })));
+	}
+
 	function moveUp(index: number) {
-		if (index === 0) return;
-		const next = orderedSteps.map((s, i) => ({ ...s, sortOrder: i }));
-		[next[index], next[index - 1]] = [next[index - 1], next[index]];
-		next[index - 1].sortOrder = index - 1;
-		next[index].sortOrder = index;
-		orderedSteps = next;
-		onboardingTemplateStore.update(next[index - 1].id, { sortOrder: index - 1 });
-		onboardingTemplateStore.update(next[index].id, { sortOrder: index });
+		reorderStep(index, index - 1);
 	}
 
 	function moveDown(index: number) {
-		if (index === orderedSteps.length - 1) return;
-		const next = orderedSteps.map((s, i) => ({ ...s, sortOrder: i }));
-		[next[index], next[index + 1]] = [next[index + 1], next[index]];
-		next[index].sortOrder = index;
-		next[index + 1].sortOrder = index + 1;
-		orderedSteps = next;
-		onboardingTemplateStore.update(next[index].id, { sortOrder: index });
-		onboardingTemplateStore.update(next[index + 1].id, { sortOrder: index + 1 });
+		reorderStep(index, index + 1);
 	}
 
 	function getDescriptionPreview(step: OnboardingTemplateStep): string {
@@ -426,7 +457,7 @@
 					<label class="label" for="new-training-type">Training Type</label>
 					<select id="new-training-type" class="select" bind:value={newTrainingTypeId}>
 						<option value={null}>-- Select training type --</option>
-						{#each trainingTypes as tt}
+						{#each trainingTypes as tt (tt.id)}
 							<option value={tt.id}>{tt.name}</option>
 						{/each}
 					</select>
@@ -435,9 +466,9 @@
 				<div class="form-group">
 					<p class="label">Stages</p>
 					<div class="stages-list">
-						{#each newStages as stage, index}
+						{#each newStages as stage, index (stage.id)}
 							<div class="stage-row">
-								<input type="text" class="input flex-1" bind:value={newStages[index]} placeholder="Stage name..." />
+								<input type="text" class="input flex-1" bind:value={stage.value} placeholder="Stage name..." />
 								<button class="btn btn-danger btn-sm" type="button" onclick={() => removeNewStage(index)}
 									>&times;</button
 								>
@@ -495,7 +526,7 @@
 									<label class="label" for="edit-training-type">Training Type</label>
 									<select id="edit-training-type" class="select" bind:value={editTrainingTypeId}>
 										<option value={null}>-- Select training type --</option>
-										{#each trainingTypes as tt}
+										{#each trainingTypes as tt (tt.id)}
 											<option value={tt.id}>{tt.name}</option>
 										{/each}
 									</select>
@@ -504,14 +535,9 @@
 								<div class="form-group">
 									<p class="label">Stages</p>
 									<div class="stages-list">
-										{#each editStages as stage, index}
+										{#each editStages as stage, index (stage.id)}
 											<div class="stage-row">
-												<input
-													type="text"
-													class="input flex-1"
-													bind:value={editStages[index]}
-													placeholder="Stage name..."
-												/>
+												<input type="text" class="input flex-1" bind:value={stage.value} placeholder="Stage name..." />
 												<button class="btn btn-danger btn-sm" type="button" onclick={() => removeEditStage(index)}
 													>&times;</button
 												>

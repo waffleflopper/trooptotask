@@ -6,6 +6,7 @@
 	import { TRAINING_STATUS_COLORS, type TrainingStatus } from '$features/training/training.types';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		personnel: Personnel[];
@@ -56,7 +57,7 @@
 		data: () => personnel,
 		columns,
 		initialSortKey: 'name',
-		groupBy,
+		groupBy: () => groupBy,
 		resolveColumn: (key) => {
 			const type = trainingTypes.find((t) => t.id === key);
 			if (!type) return undefined;
@@ -83,7 +84,7 @@
 	}
 
 	const trainingLookup = $derived.by(() => {
-		const map = new Map<string, PersonnelTraining>();
+		const map = new SvelteMap<string, PersonnelTraining>();
 		for (const t of trainings) {
 			map.set(createTrainingKey(t.personnelId, t.trainingTypeId), t);
 		}
@@ -91,7 +92,7 @@
 	});
 
 	const cellMetadataLookup = $derived.by(() => {
-		const map = new Map<string, TrainingCellMetadata>();
+		const map = new SvelteMap<string, TrainingCellMetadata>();
 		for (const person of personnel) {
 			for (const type of trainingTypes) {
 				const key = createTrainingKey(person.id, type.id);

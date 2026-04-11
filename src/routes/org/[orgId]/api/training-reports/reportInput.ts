@@ -47,6 +47,7 @@ export function parseTrainingReportInput(url: URL): TrainingReportRouteInput {
 		role: optionalParam(url.searchParams.get('role')),
 		rank: optionalParam(url.searchParams.get('rank')),
 		status: optionalParam(url.searchParams.get('status')) as TrainingReportRouteInput['status'],
+		// URL params use repeated `trainingTypeId`; the route DTO keeps the collected plural form.
 		trainingTypeIds: url.searchParams.getAll('trainingTypeId'),
 		sortColumn: url.searchParams.get('sortColumn') ?? 'name',
 		sortDirection: (url.searchParams.get('sortDirection') ?? 'asc') as TrainingReportRouteInput['sortDirection'],

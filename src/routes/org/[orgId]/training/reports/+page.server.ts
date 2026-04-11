@@ -8,8 +8,7 @@ import {
 import type { UseCaseContext } from '$lib/server/core/ports';
 
 const INITIAL_REPORT_INPUT: TrainingReportInput = {
-	sort: { column: 'name', direction: 'asc' },
-	pagination: { page: 1, pageSize: 25 }
+	sort: { column: 'name', direction: 'asc' }
 };
 
 type LoadWithContext = typeof loadWithContext;

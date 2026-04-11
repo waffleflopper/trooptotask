@@ -51,14 +51,9 @@
 
 	// Local state for the entries list — updated immediately on add/remove to avoid
 	// reactive prop propagation timing issues (notably in Firefox)
-	let localEntries = $state<AvailabilityEntry[]>([]);
-
-	// Sync local entries when the prop changes (e.g. server replaces temp IDs)
-	$effect(() => {
-		localEntries = existingEntries.filter(
-			(e) => e.personnelId === person.id && dateStr >= e.startDate && dateStr <= e.endDate
-		);
-	});
+	let localEntries = $derived(
+		existingEntries.filter((e) => e.personnelId === person.id && dateStr >= e.startDate && dateStr <= e.endDate)
+	);
 
 	// Form state
 	let selectedStatusId = $state('');

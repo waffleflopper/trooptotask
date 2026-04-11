@@ -8,6 +8,8 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
+	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		orgId: string;
@@ -41,10 +43,10 @@
 	// --- Personnel filter state ---
 	type FilterMode = 'all' | 'name' | 'group' | 'mos' | 'role';
 	let filterMode = $state<FilterMode>('all');
-	let selectedPersonnelIds = $state<Set<string>>(new Set());
-	let selectedGroupIds = $state<Set<string>>(new Set());
-	let selectedMosCodes = $state<Set<string>>(new Set());
-	let selectedRoles = $state<Set<string>>(new Set());
+	const selectedPersonnelIds = new SvelteSet<string>();
+	const selectedGroupIds = new SvelteSet<string>();
+	const selectedMosCodes = new SvelteSet<string>();
+	const selectedRoles = new SvelteSet<string>();
 	let nameSearch = $state('');
 
 	const uniqueMosCodes = $derived([...new Set(personnel.map((p) => p.mos).filter(Boolean))].sort());
@@ -76,13 +78,40 @@
 	);
 
 	// --- Status type filter state ---
-	let selectedStatusTypeIds = $state<Set<string>>(new Set(statusTypes.map((s) => s.id)));
+	const selectedStatusTypeIds = new SvelteSet<string>();
+	let previousStatusTypeIds: string[] = [];
+
+	$effect(() => {
+		const currentStatusTypeIds = statusTypes.map((s) => s.id);
+		const currentStatusTypeIdSet = new SvelteSet(currentStatusTypeIds);
+
+		untrack(() => {
+			const selectedAllPrevious =
+				previousStatusTypeIds.length > 0 && previousStatusTypeIds.every((id) => selectedStatusTypeIds.has(id));
+			const shouldSelectAll =
+				(previousStatusTypeIds.length === 0 && selectedStatusTypeIds.size === 0) || selectedAllPrevious;
+
+			if (shouldSelectAll) {
+				selectedStatusTypeIds.clear();
+				for (const id of currentStatusTypeIds) selectedStatusTypeIds.add(id);
+			} else {
+				const selectedExistingIds = [...selectedStatusTypeIds].filter((id) => currentStatusTypeIdSet.has(id));
+				if (selectedExistingIds.length !== selectedStatusTypeIds.size) {
+					selectedStatusTypeIds.clear();
+					for (const id of selectedExistingIds) selectedStatusTypeIds.add(id);
+				}
+			}
+
+			previousStatusTypeIds = currentStatusTypeIds;
+		});
+	});
 
 	function toggleAllStatuses() {
 		if (selectedStatusTypeIds.size === statusTypes.length) {
-			selectedStatusTypeIds = new Set();
+			selectedStatusTypeIds.clear();
 		} else {
-			selectedStatusTypeIds = new Set(statusTypes.map((s) => s.id));
+			selectedStatusTypeIds.clear();
+			for (const statusType of statusTypes) selectedStatusTypeIds.add(statusType.id);
 		}
 	}
 
@@ -130,11 +159,9 @@
 		exportStatusDaysCsv(result, statusTypes, startDate, endDate);
 	}
 
-	function toggleSet<T>(set: Set<T>, value: T): Set<T> {
-		const next = new Set(set);
-		if (next.has(value)) next.delete(value);
-		else next.add(value);
-		return next;
+	function toggleSet<T>(set: SvelteSet<T>, value: T): void {
+		if (set.has(value)) set.delete(value);
+		else set.add(value);
 	}
 
 	const statusTypeMap = $derived(new Map(statusTypes.map((s) => [s.id, s])));
@@ -186,7 +213,7 @@
 					}}
 				>
 					<option value="">Custom</option>
-					{#each yearOptions as year}
+					{#each yearOptions as year (year)}
 						<option value={year}>{year}</option>
 					{/each}
 				</select>
@@ -230,7 +257,7 @@
 							<input
 								type="checkbox"
 								checked={selectedPersonnelIds.has(person.id)}
-								onchange={() => (selectedPersonnelIds = toggleSet(selectedPersonnelIds, person.id))}
+								onchange={() => toggleSet(selectedPersonnelIds, person.id)}
 							/>
 							<span>{person.rank} {person.lastName}, {person.firstName}</span>
 						</label>
@@ -245,7 +272,7 @@
 							<input
 								type="checkbox"
 								checked={selectedGroupIds.has(group.id)}
-								onchange={() => (selectedGroupIds = toggleSet(selectedGroupIds, group.id))}
+								onchange={() => toggleSet(selectedGroupIds, group.id)}
 							/>
 							<span>{group.name}</span>
 						</label>
@@ -255,12 +282,12 @@
 		{:else if filterMode === 'mos'}
 			<div class="filter-panel">
 				<div class="checkbox-list">
-					{#each uniqueMosCodes as mos}
+					{#each uniqueMosCodes as mos (mos)}
 						<label class="checkbox-item">
 							<input
 								type="checkbox"
 								checked={selectedMosCodes.has(mos)}
-								onchange={() => (selectedMosCodes = toggleSet(selectedMosCodes, mos))}
+								onchange={() => toggleSet(selectedMosCodes, mos)}
 							/>
 							<span>{mos}</span>
 						</label>
@@ -270,12 +297,12 @@
 		{:else if filterMode === 'role'}
 			<div class="filter-panel">
 				<div class="checkbox-list">
-					{#each uniqueRoles as role}
+					{#each uniqueRoles as role (role)}
 						<label class="checkbox-item">
 							<input
 								type="checkbox"
 								checked={selectedRoles.has(role)}
-								onchange={() => (selectedRoles = toggleSet(selectedRoles, role))}
+								onchange={() => toggleSet(selectedRoles, role)}
 							/>
 							<span>{role}</span>
 						</label>
@@ -306,7 +333,7 @@
 					class:selected={selectedStatusTypeIds.has(st.id)}
 					style:--chip-color={st.color}
 					style:--chip-text={st.textColor}
-					onclick={() => (selectedStatusTypeIds = toggleSet(selectedStatusTypeIds, st.id))}
+					onclick={() => toggleSet(selectedStatusTypeIds, st.id)}
 				>
 					{st.name}
 				</button>

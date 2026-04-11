@@ -56,14 +56,13 @@
 	description="Enter the current code from your authenticator app to finish signing in."
 	panelEyebrow="Two-factor authentication"
 	panelTitle="Verify your code"
-	panelDescription="Enter the 6-digit code from your authenticator app to finish sign-in."
 	supportLabel="Authenticator code"
 	supportTitle="Use the current 6-digit code."
 	supportDescription="Open your authenticator app and enter the latest code for this account."
 	supportPoints={[
 		'Codes refresh automatically after a short time.',
 		'Only a verified authenticator factor can be used here.',
-		'If you no longer have access to the authenticator, you will need support.'
+		'If you no longer have access to your authenticator, contact your unit admin to have the requirement removed.'
 	]}
 >
 	<div class="auth-stack">

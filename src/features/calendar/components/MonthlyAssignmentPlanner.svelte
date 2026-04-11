@@ -2,6 +2,7 @@
 	import type { Personnel, AssignmentType, DailyAssignment } from '$lib/types';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 
 	interface GroupData {
 		group: string;
@@ -43,21 +44,23 @@
 	const monthName = $derived(getMonthName(month));
 	const dates = $derived(getMonthDates(year, month));
 
-	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
+	const assignmentTypeOptions = $derived(
+		assignmentTypes.map((type) => ({ value: type.id, label: `${type.shortName} - ${type.name}` }))
+	);
+	const personnelOptions = $derived(
+		personnelByGroup.flatMap((grp) =>
+			grp.personnel.map((person) => ({
+				value: person.id,
+				label: `${person.rank} ${person.lastName}, ${person.firstName}${grp.group ? ` - ${grp.group}` : ''}`
+			}))
+		)
+	);
+	const groupOptions = $derived(groups.map((group) => ({ value: group, label: group })));
 
 	// Get the current assignment for a date and type
 	function getAssignment(date: Date, typeId: string): DailyAssignment | undefined {
 		const dateStr = formatDate(date);
 		return assignments.find((a) => a.date === dateStr && a.assignmentTypeId === typeId);
-	}
-
-	function getAssigneeDisplay(assignment: DailyAssignment | undefined, type: AssignmentType): string {
-		if (!assignment) return '';
-		if (type.assignTo === 'personnel') {
-			const person = allPersonnel.find((p) => p.id === assignment.assigneeId);
-			return person ? `${person.rank} ${person.lastName}` : '';
-		}
-		return assignment.assigneeId;
 	}
 
 	async function handleChange(date: Date, typeId: string, value: string) {
@@ -140,6 +143,13 @@
 	}
 
 	const selectedType = $derived(assignmentTypes.find((t) => t.id === quickFillType));
+	const quickFillAssigneeSelected = $derived(
+		selectedType?.assignTo === 'personnel'
+			? !!quickFillPerson
+			: selectedType?.assignTo === 'group'
+				? !!quickFillGroup
+				: false
+	);
 </script>
 
 <div class="planner-shell">
@@ -177,33 +187,34 @@
 	<div class="quick-fill">
 		<h4>Quick Fill</h4>
 		<div class="quick-fill-row">
-			<select class="select" aria-label="Select assignment type" bind:value={quickFillType}>
-				<option value="">Select assignment type...</option>
-				{#each assignmentTypes as type}
-					<option value={type.id}>{type.shortName} - {type.name}</option>
-				{/each}
-			</select>
+			<div class="quick-fill-control">
+				<SearchSelect
+					options={assignmentTypeOptions}
+					bind:value={quickFillType}
+					placeholder="Select assignment type..."
+					ariaLabel="Select assignment type"
+					clearable={false}
+				/>
+			</div>
 
 			{#if selectedType?.assignTo === 'personnel'}
-				<select class="select" bind:value={quickFillPerson}>
-					<option value="">Select person...</option>
-					{#each personnelByGroup as grp}
-						{#if grp.personnel.length > 0}
-							<optgroup label={grp.group}>
-								{#each grp.personnel as person}
-									<option value={person.id}>{person.rank} {person.lastName}</option>
-								{/each}
-							</optgroup>
-						{/if}
-					{/each}
-				</select>
+				<div class="quick-fill-control">
+					<SearchSelect
+						options={personnelOptions}
+						bind:value={quickFillPerson}
+						placeholder="Select person..."
+						ariaLabel="Select quick-fill person"
+					/>
+				</div>
 			{:else if selectedType?.assignTo === 'group'}
-				<select class="select" bind:value={quickFillGroup}>
-					<option value="">Select group...</option>
-					{#each groups as group}
-						<option value={group}>{group}</option>
-					{/each}
-				</select>
+				<div class="quick-fill-control">
+					<SearchSelect
+						options={groupOptions}
+						bind:value={quickFillGroup}
+						placeholder="Select group..."
+						ariaLabel="Select quick-fill group"
+					/>
+				</div>
 			{/if}
 
 			<select class="select days-select" bind:value={quickFillDays}>
@@ -215,7 +226,7 @@
 			<button
 				class="btn btn-primary btn-sm"
 				onclick={applyQuickFill}
-				disabled={!quickFillType || (!quickFillPerson && !quickFillGroup) || isApplying}
+				disabled={!quickFillType || !quickFillAssigneeSelected || isApplying}
 			>
 				{isApplying ? 'Applying...' : 'Apply'}
 			</button>
@@ -264,33 +275,23 @@
 							{@const assignment = getAssignment(date, type.id)}
 							<td class="assignment-cell">
 								{#if type.assignTo === 'personnel'}
-									<select
-										class="cell-select"
+									<SearchSelect
+										options={personnelOptions}
 										value={assignment?.assigneeId ?? ''}
-										onchange={(e) => handleChange(date, type.id, e.currentTarget.value)}
-									>
-										<option value="">-</option>
-										{#each personnelByGroup as grp}
-											{#if grp.personnel.length > 0}
-												<optgroup label={grp.group}>
-													{#each grp.personnel as person}
-														<option value={person.id}>{person.rank} {person.lastName}</option>
-													{/each}
-												</optgroup>
-											{/if}
-										{/each}
-									</select>
+										placeholder="-"
+										ariaLabel={`Select ${type.name} assignee for ${dateStr}`}
+										compact
+										onchange={(value) => handleChange(date, type.id, value)}
+									/>
 								{:else}
-									<select
-										class="cell-select"
+									<SearchSelect
+										options={groupOptions}
 										value={assignment?.assigneeId ?? ''}
-										onchange={(e) => handleChange(date, type.id, e.currentTarget.value)}
-									>
-										<option value="">-</option>
-										{#each groups as group}
-											<option value={group}>{group}</option>
-										{/each}
-									</select>
+										placeholder="-"
+										ariaLabel={`Select ${type.name} group for ${dateStr}`}
+										compact
+										onchange={(value) => handleChange(date, type.id, value)}
+									/>
 								{/if}
 							</td>
 						{/each}
@@ -392,9 +393,13 @@
 		flex-wrap: wrap;
 	}
 
-	.quick-fill-row .select {
+	.quick-fill-control {
 		flex: 1;
 		min-width: 150px;
+	}
+
+	.quick-fill-control :global(.search-select) {
+		width: 100%;
 	}
 
 	.days-select {
@@ -517,28 +522,20 @@
 		padding: 2px !important;
 	}
 
-	.cell-select {
+	.assignment-cell :global(.search-select) {
 		width: 100%;
-		padding: var(--sp-2);
-		border: 1px solid transparent;
-		border-radius: var(--radius-sm);
+		min-width: 132px;
+	}
+
+	.assignment-cell :global(.search-select .input-wrapper) {
+		border-color: transparent;
 		background: transparent;
-		font-size: var(--text-sm);
-		cursor: pointer;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast);
-		color: var(--text-primary);
+		box-shadow: none;
 	}
 
-	.cell-select:hover {
-		background: var(--surface-panel);
+	.assignment-cell :global(.search-select .input-wrapper:hover),
+	.assignment-cell :global(.search-select .input-wrapper.open) {
 		border-color: var(--border-default);
-	}
-
-	.cell-select:focus {
-		outline: none;
-		border-color: var(--amber);
 		background: var(--surface-panel);
 	}
 
@@ -573,7 +570,7 @@
 			flex-direction: column;
 		}
 
-		.quick-fill-row .select {
+		.quick-fill-control {
 			width: 100%;
 			min-width: unset;
 		}
@@ -612,9 +609,8 @@
 			font-size: 9px;
 		}
 
-		.cell-select {
-			font-size: var(--text-xs);
-			padding: 2px;
+		.assignment-cell :global(.search-select) {
+			min-width: 96px;
 		}
 	}
 

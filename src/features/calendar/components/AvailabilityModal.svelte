@@ -6,6 +6,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -81,6 +82,7 @@
 			year: 'numeric'
 		})
 	);
+	const statusOptions = $derived(statusTypes.map((status) => ({ value: status.id, label: status.name })));
 
 	const dateError = $derived.by(() => {
 		if (startDate && endDate && startDate > endDate) {
@@ -289,11 +291,14 @@
 		<div class="form-group">
 			<label class="label" for="statusType">Status Type <span class="required">*</span></label>
 			<div class="status-select-row">
-				<select id="statusType" class="select" bind:value={selectedStatusId}>
-					{#each statusTypes as status}
-						<option value={status.id}>{status.name}</option>
-					{/each}
-				</select>
+				<SearchSelect
+					id="statusType"
+					options={statusOptions}
+					bind:value={selectedStatusId}
+					placeholder="Select status..."
+					ariaLabel="Status type"
+					clearable={false}
+				/>
 				{#if selectedStatusId}
 					{@const selectedStatus = statusTypes.find((s) => s.id === selectedStatusId)}
 					{#if selectedStatus}
@@ -508,8 +513,9 @@
 		gap: var(--sp-2);
 	}
 
-	.status-select-row .select {
+	.status-select-row :global(.search-select) {
 		flex: 1;
+		min-width: 180px;
 	}
 
 	.date-range {

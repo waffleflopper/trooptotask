@@ -18,6 +18,7 @@
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { Personnel, PersonnelLookup } from '$lib/types';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -44,7 +45,7 @@
 	});
 
 	const rosterGroupCount = $derived.by(() => {
-		const groupNames = new Set<string>();
+		const groupNames = new SvelteSet<string>();
 		for (const person of personnelStore.items) {
 			const groupName = person.groupName?.trim();
 			if (groupName) groupNames.add(groupName);
@@ -87,32 +88,36 @@
 	});
 
 	// Personnel DataTable setup
-	const personnelColumns: ColumnDef<Personnel>[] = [
-		{ key: 'rank', header: 'Rank', value: (p) => p.rank },
-		{
-			key: 'name',
-			header: 'Name',
-			value: (p) => `${p.lastName}, ${p.firstName}`,
-			compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
-		},
-		{ key: 'mos', header: 'MOS', value: (p) => p.mos },
-		{ key: 'role', header: 'Role', value: (p) => p.clinicRole },
-		{ key: 'group', header: 'Group', value: (p) => p.groupName }
-	];
+	const personnelColumns = $derived.by<ColumnDef<Personnel>[]>(() => {
+		const columns: ColumnDef<Personnel>[] = [
+			{ key: 'rank', header: 'Rank', value: (p) => p.rank },
+			{
+				key: 'name',
+				header: 'Name',
+				value: (p) => `${p.lastName}, ${p.firstName}`,
+				compare: (a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
+			},
+			{ key: 'mos', header: 'MOS', value: (p) => p.mos },
+			{ key: 'role', header: 'Role', value: (p) => p.clinicRole },
+			{ key: 'group', header: 'Group', value: (p) => p.groupName }
+		];
 
-	if (permissions?.canEditPersonnel) {
-		personnelColumns.push({
-			key: 'actions',
-			header: 'Actions',
-			value: () => '',
-			searchable: false,
-			sortable: false
-		});
-	}
+		if (permissions?.canEditPersonnel) {
+			columns.push({
+				key: 'actions',
+				header: 'Actions',
+				value: () => '',
+				searchable: false,
+				sortable: false
+			});
+		}
+
+		return columns;
+	});
 
 	const azTable = useDataTable<Personnel>({
 		data: () => personnelStore.items,
-		columns: personnelColumns,
+		columns: () => personnelColumns,
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
 		pageSize: ROSTER_PAGE_SIZE
@@ -120,7 +125,7 @@
 
 	const groupedTable = useDataTable<Personnel>({
 		data: () => personnelStore.items,
-		columns: personnelColumns,
+		columns: () => personnelColumns,
 		initialSortKey: 'name',
 		initialSortDirection: 'asc',
 		groupBy: {
@@ -151,7 +156,9 @@
 		groupedTable.setSearch(rosterSearch);
 	});
 
-	const handleRowClick = permissions?.canEditPersonnel ? (person: Personnel) => ctx.handleEdit(person) : undefined;
+	const handleRowClick = $derived(
+		permissions?.canEditPersonnel ? (person: Personnel) => ctx.handleEdit(person) : undefined
+	);
 
 	function getPersonnelRowActionLabel(person: Personnel): string {
 		return `Edit ${person.rank} ${person.lastName}, ${person.firstName}`;

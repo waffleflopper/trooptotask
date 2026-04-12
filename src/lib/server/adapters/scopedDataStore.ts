@@ -63,7 +63,9 @@ export function createScopedDataStore(
 	/** Strip pagination from options so the inner query fetches all rows for in-memory filtering */
 	function stripPagination(options?: FindOptions): FindOptions | undefined {
 		if (!options) return undefined;
-		const { range, limit, ...rest } = options;
+		const rest: FindOptions = { ...options };
+		delete rest.range;
+		delete rest.limit;
 		return Object.keys(rest).length > 0 ? rest : undefined;
 	}
 

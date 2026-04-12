@@ -21,7 +21,7 @@ interface DashboardConfigResponse {
 // ---------------------------------------------------------------------------
 
 export const _getConfig: RouteConfig<void, DashboardConfigResponse> = {
-	permission: 'personnel',
+	permission: 'none',
 	fn: async (ctx: UseCaseContext) => {
 		const userId = ctx.auth.userId;
 		if (!userId) fail(401, 'Unauthorized');
@@ -40,8 +40,8 @@ export const GET = handle(_getConfig);
 // PUT — upsert user's dashboard config
 // ---------------------------------------------------------------------------
 
-export const PUT = handle<DashboardConfig, DashboardConfigResponse>({
-	permission: 'personnel',
+export const _putConfig: RouteConfig<DashboardConfig, DashboardConfigResponse> = {
+	permission: 'none',
 	mutation: true,
 	fn: async (ctx: UseCaseContext, input: DashboardConfig) => {
 		const userId = ctx.auth.userId;
@@ -64,4 +64,6 @@ export const PUT = handle<DashboardConfig, DashboardConfigResponse>({
 
 		return { config: input };
 	}
-});
+};
+
+export const PUT = handle(_putConfig);

@@ -1,17 +1,36 @@
 import { browser } from '$app/environment';
-import type { DashboardConfig, WidgetInstance, WidgetId } from '../dashboard.types';
-import { DEFAULT_DASHBOARD_CONFIG } from '../dashboard.types';
+import type { DashboardConfig, DashboardPermissions, WidgetInstance, WidgetId } from '../dashboard.types';
+import {
+	DEFAULT_DASHBOARD_CONFIG,
+	getPermissionAwareDashboardConfig,
+	isDefaultDashboardConfig
+} from '../dashboard.types';
 
 // ---------------------------------------------------------------------------
 // Debounce helper
 // ---------------------------------------------------------------------------
 
-function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number): (...args: Parameters<T>) => void {
+interface DebouncedFunction<T extends (...args: Parameters<T>) => void> {
+	(...args: Parameters<T>): void;
+	cancel: () => void;
+}
+
+function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number): DebouncedFunction<T> {
 	let timer: ReturnType<typeof setTimeout> | null = null;
-	return (...args: Parameters<T>) => {
+	const debounced = (...args: Parameters<T>) => {
 		if (timer !== null) clearTimeout(timer);
-		timer = setTimeout(() => fn(...args), ms);
+		timer = setTimeout(() => {
+			timer = null;
+			fn(...args);
+		}, ms);
 	};
+	debounced.cancel = () => {
+		if (timer !== null) {
+			clearTimeout(timer);
+			timer = null;
+		}
+	};
+	return debounced;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,6 +65,16 @@ function migrateToFlatConfig(cfg: DashboardConfig): DashboardConfig {
 	return { version: 3, widgets: flat };
 }
 
+function snapshotConfig(widgets: WidgetInstance[]): DashboardConfig {
+	return {
+		version: 3,
+		widgets: widgets.map((widget) => ({
+			...widget,
+			config: { ...widget.config }
+		}))
+	};
+}
+
 // ---------------------------------------------------------------------------
 // Dashboard layout store
 // ---------------------------------------------------------------------------
@@ -65,7 +94,7 @@ class DashboardLayoutStore {
 	// Init
 	// ---------------------------------------------------------------------------
 
-	async init(orgId: string) {
+	async init(orgId: string, permissions?: DashboardPermissions) {
 		if (!browser) return;
 		this.orgId = orgId;
 		this.loading = true;
@@ -77,15 +106,14 @@ class DashboardLayoutStore {
 			const data = (await res.json()) as { config: DashboardConfig };
 			const cfg = migrateToFlatConfig(data.config);
 
-			const isDefault =
-				cfg.widgets.length === DEFAULT_DASHBOARD_CONFIG.widgets.length &&
-				cfg.widgets.every((w, i) => w.id === DEFAULT_DASHBOARD_CONFIG.widgets[i]?.id);
-
+			const isDefault = isDefaultDashboardConfig(cfg);
 			this.isFirstRun = isDefault;
-			this.widgets = cfg.widgets;
+			this.widgets = isDefault
+				? getPermissionAwareDashboardConfig(DEFAULT_DASHBOARD_CONFIG, permissions).widgets
+				: cfg.widgets;
 		} catch {
 			this.error = 'Could not load your dashboard layout. Showing default.';
-			this.widgets = [...DEFAULT_DASHBOARD_CONFIG.widgets];
+			this.widgets = getPermissionAwareDashboardConfig(DEFAULT_DASHBOARD_CONFIG, permissions).widgets;
 			this.isFirstRun = true;
 		} finally {
 			this.loading = false;
@@ -96,13 +124,12 @@ class DashboardLayoutStore {
 	// Save (debounced, optimistic)
 	// ---------------------------------------------------------------------------
 
-	private _save = debounce(async () => {
-		if (!this.orgId || !browser) return;
+	private _save = debounce(async (orgId: string | null, config: DashboardConfig) => {
+		if (!orgId || !browser) return;
 		const version = ++this.saveVersion;
-		const config: DashboardConfig = { version: 3, widgets: this.widgets };
 
 		try {
-			const res = await fetch(`/org/${this.orgId}/api/dashboard-config`, {
+			const res = await fetch(`/org/${orgId}/api/dashboard-config`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(config)
@@ -118,7 +145,7 @@ class DashboardLayoutStore {
 	}, 800);
 
 	private save() {
-		this._save();
+		this._save(this.orgId, snapshotConfig(this.widgets));
 	}
 
 	// ---------------------------------------------------------------------------
@@ -171,8 +198,11 @@ class DashboardLayoutStore {
 		this.save();
 	}
 
-	resetToDefault() {
-		this.widgets = [...DEFAULT_DASHBOARD_CONFIG.widgets];
+	resetToDefault(permissions?: DashboardPermissions) {
+		this._save.cancel();
+		this.widgets = getPermissionAwareDashboardConfig(DEFAULT_DASHBOARD_CONFIG, permissions).widgets;
+		this.isFirstRun = true;
+		this.firstRunDismissed = false;
 		this.save();
 	}
 

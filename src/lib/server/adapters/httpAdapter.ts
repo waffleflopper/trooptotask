@@ -280,7 +280,7 @@ export function crudHandlers(config: CrudConfig): {
 // ---------------------------------------------------------------------------
 
 export interface RouteConfig<TInput = void, TOutput = unknown> {
-	permission: FeatureArea | 'manageMembers' | 'privileged' | 'owner';
+	permission: FeatureArea | 'manageMembers' | 'privileged' | 'owner' | 'none';
 	mutation?: boolean;
 	input?: z.ZodType<TInput>;
 	parseInput?: (event: RequestEvent) => TInput | Promise<TInput>;
@@ -297,6 +297,8 @@ function enforcePermission(ctx: UseCaseContext, config: RouteConfig<unknown, unk
 	const { permission, mutation } = config;
 
 	switch (permission) {
+		case 'none':
+			break;
 		case 'privileged':
 			ctx.auth.requirePrivileged();
 			break;

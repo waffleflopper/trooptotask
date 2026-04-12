@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { DashboardContext } from '../contexts/DashboardContext.svelte';
 	import type { WidgetMeta } from '../dashboard.types';
-	import { WIDGET_CATALOG } from '../dashboard.types';
+	import { isDashboardWidgetAllowed, WIDGET_CATALOG } from '../dashboard.types';
 	import { dashboardLayout } from '../stores/dashboardLayout.svelte';
 
 	interface Props {
@@ -14,12 +14,7 @@
 
 	// Filter widget catalog by user permissions
 	const allowedWidgets = $derived(
-		WIDGET_CATALOG.filter((w) => {
-			if (!w.permission) return true;
-			const perms = ctx.data.permissions;
-			if (!perms) return false;
-			return perms[w.permission] === true;
-		})
+		WIDGET_CATALOG.filter((widget) => isDashboardWidgetAllowed(widget.id, ctx.data.permissions))
 	);
 
 	const activeWidgetIds = $derived(dashboardLayout.activeWidgetIds);
@@ -97,7 +92,7 @@
 		</div>
 
 		<div class="picker-reset">
-			<button class="btn btn-secondary btn-sm" onclick={() => dashboardLayout.resetToDefault()}>
+			<button class="btn btn-secondary btn-sm" onclick={() => dashboardLayout.resetToDefault(ctx.data.permissions)}>
 				Reset to default layout
 			</button>
 		</div>

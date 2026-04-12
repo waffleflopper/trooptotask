@@ -46,7 +46,6 @@ export function parseDate(dateString: string): Date {
 
 export function getMonthDates(year: number, month: number): Date[] {
 	const dates: Date[] = [];
-	const firstDay = new Date(year, month, 1);
 	const lastDay = new Date(year, month + 1, 0);
 
 	for (let day = 1; day <= lastDay.getDate(); day++) {

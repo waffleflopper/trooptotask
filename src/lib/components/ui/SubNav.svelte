@@ -15,7 +15,7 @@
 </script>
 
 <nav class="sub-nav" aria-label="Secondary navigation">
-	{#each tabs as tab}
+	{#each tabs as tab (tab.value)}
 		<button
 			type="button"
 			class="tab"

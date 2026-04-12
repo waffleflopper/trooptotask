@@ -9,11 +9,7 @@
 	let { announcements, onCountChange }: { announcements: Announcement[]; onCountChange?: (count: number) => void } =
 		$props();
 
-	let visibleAnnouncements = $state<Announcement[]>([]);
-
-	$effect(() => {
-		visibleAnnouncements = [...announcements];
-	});
+	let visibleAnnouncements = $derived([...announcements]);
 
 	$effect(() => {
 		onCountChange?.(visibleAnnouncements.length);

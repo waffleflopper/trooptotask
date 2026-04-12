@@ -18,7 +18,7 @@
 					<span class="entry-date">{formatDisplayDate(latest.date)}</span>
 				</div>
 				<ul class="entry-items">
-					{#each latest.items as item}
+					{#each latest.items as item, index (`${latest.id}:${index}`)}
 						<li>{item}</li>
 					{/each}
 				</ul>
@@ -37,7 +37,7 @@
 							<span class="entry-date">{formatDisplayDate(entry.date)}</span>
 						</div>
 						<ul class="entry-items entry-items--compact">
-							{#each entry.items as item}
+							{#each entry.items as item, index (`${entry.id}:${index}`)}
 								<li>{item}</li>
 							{/each}
 						</ul>

@@ -65,6 +65,7 @@ export default ts.config(
 	{
 		ignores: [
 			'.svelte-kit/',
+			'.pi/',
 			'build/',
 			'node_modules/',
 			'.claude/',

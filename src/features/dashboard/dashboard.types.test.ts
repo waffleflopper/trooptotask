@@ -4,7 +4,9 @@ import {
 	filterDashboardWidgets,
 	filterQuickStatMetricIds,
 	getPermissionAwareDashboardConfig,
+	isDefaultDashboardConfig,
 	mergeVisibleWidgetOrder,
+	type DashboardConfig,
 	type DashboardPermissions,
 	type WidgetInstance
 } from './dashboard.types';
@@ -81,5 +83,25 @@ describe('dashboard permission helpers', () => {
 		});
 
 		expect(merged.map((widget) => widget.id)).toEqual(['visible-b', 'hidden', 'visible-a']);
+	});
+
+	it('only treats the full starter layout as the default dashboard config', () => {
+		expect(isDefaultDashboardConfig(DEFAULT_DASHBOARD_CONFIG)).toBe(true);
+
+		const resizedDefaultWidget: DashboardConfig = {
+			...DEFAULT_DASHBOARD_CONFIG,
+			widgets: DEFAULT_DASHBOARD_CONFIG.widgets.map((widget, index) =>
+				index === 0 ? { ...widget, colSpan: 2 } : widget
+			)
+		};
+		const reconfiguredDefaultWidget: DashboardConfig = {
+			...DEFAULT_DASHBOARD_CONFIG,
+			widgets: DEFAULT_DASHBOARD_CONFIG.widgets.map((widget) =>
+				widget.id === 'default-3' ? { ...widget, config: { ...widget.config, metrics: ['present-strength'] } } : widget
+			)
+		};
+
+		expect(isDefaultDashboardConfig(resizedDefaultWidget)).toBe(false);
+		expect(isDefaultDashboardConfig(reconfiguredDefaultWidget)).toBe(false);
 	});
 });

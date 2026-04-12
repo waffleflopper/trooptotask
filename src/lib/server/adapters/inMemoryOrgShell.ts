@@ -14,7 +14,6 @@
 import type {
 	OrgAccessPort,
 	OrgChromePort,
-	OrgWorkspacePort,
 	StreamableOrgWorkspacePort,
 	HydrationPlannerPort,
 	MembershipInfo,

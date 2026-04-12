@@ -4,7 +4,7 @@ import { getAdminClient } from './supabase';
 
 export type AdminRole = 'super_admin' | 'support' | 'billing';
 
-export async function isPlatformAdmin(supabase: SupabaseClient, userId: string): Promise<boolean> {
+export async function isPlatformAdmin(supabase: SupabaseClient, _userId: string): Promise<boolean> {
 	// Use the database function which is SECURITY DEFINER and bypasses RLS
 	const { data, error: err } = await supabase.rpc('is_platform_admin');
 

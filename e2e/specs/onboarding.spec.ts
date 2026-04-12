@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/auth';
 import { adminClient } from '../fixtures/supabase';
-import { TEST_ORG, TEST_PERSONNEL } from '../fixtures/test-data';
+import { TEST_ORG } from '../fixtures/test-data';
 import { OnboardingPage } from '../pages/OnboardingPage';
 
 const TEMPLATE_ID = '00000000-e2e0-7e57-0000-000000000040';

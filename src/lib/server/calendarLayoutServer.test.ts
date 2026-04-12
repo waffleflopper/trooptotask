@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
 	createInMemoryDataStore,
 	createTestAuthContext,
@@ -13,7 +13,6 @@ import { createInMemoryAdvancedDutyPersistenceAdapter } from '$lib/server/adapte
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { fetchCalendarData } from '$lib/server/core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '$lib/server/core/useCases/onboardingCalendarQuery';
-import { formatDate } from '$lib/utils/dates';
 
 const ORG = 'test-org';
 

@@ -7,7 +7,6 @@ import { DutyTemplateSlotEntity } from '$lib/server/entities/dutyTemplateSlot';
 import { requireAdvancedDutyAccess, requireAdvancedDutyTemplateManagement } from './advancedDutyAccess';
 import type {
 	DutyTemplate,
-	DutyTemplateRecord,
 	DutyTemplateRotationBaseline,
 	DutyTemplateRotationBaselineInput,
 	DutyTemplateSlot,

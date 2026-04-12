@@ -10,7 +10,7 @@ import { fail } from '$lib/server/core/errors';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WritePorts } from '$lib/server/core/ports';
-import { findDutyCoverageConflicts } from './dutyAvailability';
+import { findDutyCoverageConflictsBatch, type DutyCoverageConflictCheck } from './dutyAvailability';
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
@@ -98,28 +98,43 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 		});
 		const personnelById = new Map(PersonnelEntity.fromDbArray(personnelRows).map((person) => [person.id, person]));
 
-		for (const record of upserts) {
-			if (assignmentTargets.get(record.assignmentTypeId) === 'group') continue;
-			const conflicts = await findDutyCoverageConflicts(ctx, {
-				assigneeIds: [record.assigneeId],
+		const checks: DutyCoverageConflictCheck[] = upserts
+			.filter((record) => assignmentTargets.get(record.assignmentTypeId) !== 'group')
+			.map((record, index) => ({
+				key: String(index),
+				assigneeId: record.assigneeId,
 				coverageStart: `${record.date}T00:00:00`,
 				coverageEnd: `${record.date}T23:59:59`,
-				cooldownHours: 0,
-				personnelById
-			});
-			const conflictMessage = conflicts.get(record.assigneeId)?.[0];
+				cooldownHours: 0
+			}));
+		const conflictsByCheck = await findDutyCoverageConflictsBatch(ctx, {
+			checks,
+			personnelById
+		});
+		for (const check of checks) {
+			const conflictMessage = conflictsByCheck.get(check.key)?.[0];
 			if (conflictMessage) {
 				fail(409, conflictMessage);
 			}
 		}
 	}
 
-	// Clear all affected slots first
-	for (const rec of records) {
-		await ctx.store.deleteWhere(entity.table, ctx.auth.orgId, {
-			date: rec.date,
-			assignment_type_id: rec.assignmentTypeId
+	// Clear all affected slots first.
+	const affectedPairs = new Set(records.map((rec) => `${rec.date}::${rec.assignmentTypeId}`));
+	const affectedDates = [...new Set(records.map((rec) => rec.date))];
+	const affectedAssignmentTypeIds = [...new Set(records.map((rec) => rec.assignmentTypeId))];
+	if (affectedDates.length > 0 && affectedAssignmentTypeIds.length > 0) {
+		const existingRows = await ctx.store.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, undefined, {
+			inFilters: {
+				date: affectedDates,
+				assignment_type_id: affectedAssignmentTypeIds
+			},
+			select: 'id,date,assignment_type_id'
 		});
+		const affectedIds = existingRows
+			.filter((row) => affectedPairs.has(`${String(row.date)}::${String(row.assignment_type_id)}`))
+			.map((row) => String(row.id));
+		await ctx.store.deleteManyByIds(entity.table, ctx.auth.orgId, affectedIds);
 	}
 
 	// Insert all upserts

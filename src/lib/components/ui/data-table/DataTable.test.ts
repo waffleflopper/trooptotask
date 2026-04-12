@@ -76,6 +76,19 @@ describe('DataTable', () => {
 			expect(screen.getByRole('table').getAttribute('aria-label')).toBe('Test table');
 		});
 
+		test('updates rows when internal table data changes after render', async () => {
+			const view = render(Table, { props: { data: [testData[0]], columns } });
+
+			expect(screen.getByText('Alice')).toBeTruthy();
+			expect(screen.queryByText('Bob')).toBeNull();
+
+			await view.rerender({ data: testData.slice(1), columns });
+
+			expect(screen.queryByText('Alice')).toBeNull();
+			expect(screen.getByText('Bob')).toBeTruthy();
+			expect(screen.getByText('Charlie')).toBeTruthy();
+		});
+
 		test('headers have scope="col"', () => {
 			render(Table, { props: { data: testData, columns } });
 

@@ -43,6 +43,14 @@
 		openDropdown = null;
 	}
 
+	function toolbarItemKey(item: SmartToolbarItem, index: number): string {
+		return item.id ?? `${item.type}:${item.href ?? item.label}:${index}`;
+	}
+
+	function dropdownItemKey(item: DropdownItem, index: number): string {
+		return `${item.href ?? item.label}:${index}`;
+	}
+
 	function measureLayout() {
 		if (narrow) {
 			visibleCount = 0;
@@ -223,7 +231,7 @@
 			</button>
 			{#if openDropdown === (item.id ?? item.label)}
 				<div class="dropdown-menu" role="menu">
-					{#each item.items ?? [] as dropdownItem}
+					{#each item.items ?? [] as dropdownItem, index (dropdownItemKey(dropdownItem, index))}
 						{@render menuItem(dropdownItem)}
 					{/each}
 				</div>
@@ -273,7 +281,7 @@
 		</div>
 	{/if}
 	<div class="smart-toolbar" data-testid="smart-toolbar" data-narrow={narrow || undefined} bind:this={toolbarEl}>
-		{#each visibleItems as item}
+		{#each visibleItems as item, index (toolbarItemKey(item, index))}
 			{@render toolbarControl(item)}
 		{/each}
 
@@ -303,7 +311,7 @@
 				</button>
 				{#if openDropdown === OVERFLOW_KEY}
 					<div class="dropdown-menu" role="menu">
-						{#each hiddenItems as item}
+						{#each hiddenItems as item, index (toolbarItemKey(item, index))}
 							{#if item.type === 'button' || item.type === 'icon-button'}
 								{@render menuItem({
 									label: item.label,
@@ -314,7 +322,7 @@
 								})}
 							{:else if item.type === 'dropdown'}
 								<div class="group-header">{item.label}</div>
-								{#each item.items ?? [] as dropdownItem}
+								{#each item.items ?? [] as dropdownItem, dropdownIndex (dropdownItemKey(dropdownItem, dropdownIndex))}
 									{@render menuItem({
 										...dropdownItem,
 										disabled: item.disabled || dropdownItem.disabled
@@ -325,7 +333,7 @@
 						{#if hiddenItems.length > 0 && overflowItems.length > 0}
 							<div class="divider" role="separator"></div>
 						{/if}
-						{#each overflowItems as item}
+						{#each overflowItems as item, index (toolbarItemKey(item, index))}
 							{@render menuItem({
 								label: item.label,
 								href: item.href,
@@ -341,7 +349,7 @@
 	</div>
 
 	<div class="measure-strip" aria-hidden="true" bind:this={measureEl}>
-		{#each collapsibleItems as item}
+		{#each collapsibleItems as item, index (toolbarItemKey(item, index))}
 			<div data-measure-item>
 				{@render toolbarControl(item)}
 			</div>

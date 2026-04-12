@@ -61,7 +61,7 @@
 		<div class="admin-search__dropdown">
 			{#if results.users.length > 0}
 				<p class="admin-search__section">Users</p>
-				{#each results.users as user}
+				{#each results.users as user (user.id)}
 					<a href="/admin/users/{user.id}" class="admin-search__result">
 						<span class="admin-search__primary">{user.email}</span>
 						<span class="admin-search__secondary">{user.orgCount} org{user.orgCount === 1 ? '' : 's'}</span>
@@ -71,7 +71,7 @@
 
 			{#if results.organizations.length > 0}
 				<p class="admin-search__section">Organizations</p>
-				{#each results.organizations as org}
+				{#each results.organizations as org (org.id)}
 					<a href="/admin/organizations/{org.id}" class="admin-search__result">
 						<span class="admin-search__primary">{org.name}</span>
 						<span class="admin-search__meta">

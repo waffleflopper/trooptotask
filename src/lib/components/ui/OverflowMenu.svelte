@@ -35,6 +35,10 @@
 			onClose();
 		}
 	}
+
+	function itemKey(item: OverflowItem, index: number): string {
+		return `${item.href ?? item.label}:${index}`;
+	}
 </script>
 
 {#if open}
@@ -45,7 +49,7 @@
 		bind:this={menuEl}
 		role="menu"
 	>
-		{#each items as item}
+		{#each items as item, index (itemKey(item, index))}
 			{#if item.divider}
 				<div class="divider" role="separator"></div>
 			{/if}

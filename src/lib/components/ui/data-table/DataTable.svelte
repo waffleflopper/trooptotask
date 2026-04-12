@@ -14,7 +14,7 @@
 
 	interface Props {
 		data?: T[];
-		columns: ColumnDef<T>[];
+		columns?: ColumnDef<T>[];
 		table?: DataTableState<T>;
 		initialSortKey?: string;
 		initialSortDirection?: SortDirection;
@@ -68,20 +68,17 @@
 		footer
 	}: Props = $props();
 
-	const internalTable =
-		!tableProp && data
-			? useDataTable({
-					data: () => data!,
-					columns: columnsProp,
-					initialSortKey,
-					initialSortDirection,
-					pageSize,
-					groupBy,
-					filterFn
-				})
-			: undefined;
+	const internalTable = useDataTable({
+		data: () => data ?? [],
+		columns: () => columnsProp ?? [],
+		initialSortKey: () => initialSortKey,
+		initialSortDirection: () => initialSortDirection,
+		pageSize: () => pageSize,
+		groupBy: () => groupBy,
+		getFilterFn: () => filterFn
+	});
 
-	const table = $derived(tableProp ?? internalTable!);
+	const table = $derived(tableProp ?? internalTable);
 	const cols = $derived(table.columns);
 	const interactiveDescendantSelector = [
 		'a[href]',
@@ -171,7 +168,7 @@
 		<table aria-label={ariaLabel}>
 			<thead>
 				<tr>
-					{#each cols as col}
+					{#each cols as col (col.key)}
 						<th scope="col" aria-sort={ariaSort(col.key)}>
 							{#if isSortable(col)}
 								<button
@@ -195,7 +192,7 @@
 			</thead>
 			{#if table.groups.length > 0}
 				<tbody>
-					{#each table.groups as group}
+					{#each table.groups as group (group.key)}
 						{#if groupHeaderSnippet}
 							<tr class="group-header">
 								<td colspan={cols.length}>
@@ -218,7 +215,7 @@
 							</tr>
 						{/if}
 						{#if !group.collapsed}
-							{#each group.rows as row}
+							{#each group.rows as row (row)}
 								{#if rowSnippet}
 									{@render rowSnippet(row, cols)}
 								{:else}
@@ -229,7 +226,7 @@
 										onclick={onRowClick ? (event) => handleRowClick(event, row) : undefined}
 										onkeydown={onRowClick ? (event) => handleRowKeydown(event, row) : undefined}
 									>
-										{#each cols as col}
+										{#each cols as col (col.key)}
 											<td
 												>{#if cell}{@render cell(row, col)}{:else}{String(col.value(row) ?? '')}{/if}</td
 											>
@@ -242,7 +239,7 @@
 				</tbody>
 			{:else if table.rows.length > 0}
 				<tbody>
-					{#each table.rows as row}
+					{#each table.rows as row (row)}
 						{#if rowSnippet}
 							{@render rowSnippet(row, cols)}
 						{:else}
@@ -253,7 +250,7 @@
 								onclick={onRowClick ? (event) => handleRowClick(event, row) : undefined}
 								onkeydown={onRowClick ? (event) => handleRowKeydown(event, row) : undefined}
 							>
-								{#each cols as col}
+								{#each cols as col (col.key)}
 									<td
 										>{#if cell}{@render cell(row, col)}{:else}{String(col.value(row) ?? '')}{/if}</td
 									>

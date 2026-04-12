@@ -1,3 +1,4 @@
+import { SvelteMap } from 'svelte/reactivity';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
@@ -55,8 +56,8 @@ function isPromiseLike<T>(value: unknown): value is Promise<T> {
 export type OrgShellHydrationCoordinator = OrgShellHydrator;
 
 export function createOrgShellHydrationCoordinator(): OrgShellHydrationCoordinator {
-	const appliedSnapshotKeys = new Map<string, TargetSnapshotState>();
-	const pendingSnapshotKeys = new Map<string, TargetSnapshotState>();
+	const appliedSnapshotKeys = new SvelteMap<string, TargetSnapshotState>();
+	const pendingSnapshotKeys = new SvelteMap<string, TargetSnapshotState>();
 
 	async function applyTarget<T>(
 		target: HydrationTarget | undefined,

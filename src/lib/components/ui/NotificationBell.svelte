@@ -21,11 +21,7 @@
 	let notifications = $state<Notification[]>([]);
 	let loaded = $state(false);
 	let loading = $state(false);
-	let localUnreadCount = $state(0);
-
-	$effect(() => {
-		localUnreadCount = unreadCount;
-	});
+	let localUnreadCount = $derived(unreadCount);
 
 	async function loadNotifications() {
 		if (loaded || loading) return;

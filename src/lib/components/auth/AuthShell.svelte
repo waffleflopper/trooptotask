@@ -98,7 +98,7 @@
 
 					{#if supportPoints.length > 0}
 						<ul class="auth-shell__points">
-							{#each supportPoints as point}
+							{#each supportPoints as point, index (`${point}:${index}`)}
 								<li>{point}</li>
 							{/each}
 						</ul>

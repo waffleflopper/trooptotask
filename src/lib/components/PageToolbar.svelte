@@ -45,7 +45,7 @@
 <div class={toolbarClass} data-testid="page-toolbar">
 	{#if breadcrumbs && breadcrumbs.length > 0}
 		<nav class="breadcrumbs" aria-label="Breadcrumb">
-			{#each breadcrumbs as crumb, i}
+			{#each breadcrumbs as crumb, i (crumb.href ?? `${crumb.label}:${i}`)}
 				{#if i > 0}<span class="breadcrumb-sep" aria-hidden="true">/</span>{/if}
 				{#if crumb.href && i < breadcrumbs.length - 1}
 					<a href={crumb.href} class="breadcrumb-link">{crumb.label}</a>

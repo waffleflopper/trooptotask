@@ -6,7 +6,7 @@ import { SvelteMap } from 'svelte/reactivity';
  */
 export class ModalRegistry {
 	#modals = $state(new SvelteMap<string, unknown>());
-	#closers = new Map<string, () => void>();
+	#closers: Record<string, () => void> = Object.create(null);
 
 	isOpen(id: string): boolean {
 		return this.#modals.has(id);
@@ -30,10 +30,10 @@ export class ModalRegistry {
 	}
 
 	closerFor(id: string): () => void {
-		let cached = this.#closers.get(id);
+		let cached = this.#closers[id];
 		if (!cached) {
 			cached = () => this.close(id);
-			this.#closers.set(id, cached);
+			this.#closers[id] = cached;
 		}
 		return cached;
 	}

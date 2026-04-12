@@ -900,10 +900,8 @@ describe('createStore', () => {
 
 	describe('concurrent mutation regression', () => {
 		it('should preserve update B when concurrent update A fails', async () => {
-			let resolveA!: (value: TestItem) => void;
 			let rejectA!: (err: Error) => void;
-			const promiseA = new Promise<TestItem>((resolve, reject) => {
-				resolveA = resolve;
+			const promiseA = new Promise<TestItem>((_resolve, reject) => {
 				rejectA = reject;
 			});
 

@@ -18,7 +18,6 @@
 	}
 
 	let {
-		date,
 		isWeekend,
 		isToday,
 		isHoliday,
@@ -92,7 +91,7 @@
 >
 	{#if assignments.length > 0 || dutyBadges.length > 0}
 		<div class="assignment-badges">
-			{#each assignments as { type }}
+			{#each assignments as { type, assignment } (assignment.id)}
 				<span class="assignment-badge" style="background-color: {type.color}">{type.shortName}</span>
 			{/each}
 			{#each dutyBadges as badge (badge.slotId)}

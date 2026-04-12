@@ -1,3 +1,5 @@
+import { SvelteSet } from 'svelte/reactivity';
+
 export type SortDirection = 'asc' | 'desc';
 
 export interface ColumnDef<T> {
@@ -18,6 +20,8 @@ export interface GroupDef<T> {
 }
 
 export type GroupByOption<T> = GroupDef<T> | (() => GroupDef<T> | undefined);
+type FilterFn<T> = (row: T, query: string) => boolean;
+type InitialOption<T> = T | (() => T | undefined);
 
 /**
  * Options for useDataTable. `data` is reactive via closure; `groupBy` can also
@@ -25,12 +29,13 @@ export type GroupByOption<T> = GroupDef<T> | (() => GroupDef<T> | undefined);
  */
 export interface DataTableOptions<T> {
 	data: () => T[];
-	columns: ColumnDef<T>[];
-	initialSortKey?: string;
-	initialSortDirection?: SortDirection;
-	pageSize?: number;
+	columns: ColumnDef<T>[] | (() => ColumnDef<T>[]);
+	initialSortKey?: InitialOption<string>;
+	initialSortDirection?: InitialOption<SortDirection>;
+	pageSize?: InitialOption<number>;
 	groupBy?: GroupByOption<T>;
-	filterFn?: (row: T, query: string) => boolean;
+	filterFn?: FilterFn<T>;
+	getFilterFn?: () => FilterFn<T> | undefined;
 	/** Resolve dynamic columns not in the static list (e.g. for runtime-generated sort keys) */
 	resolveColumn?: (key: string) => ColumnDef<T> | undefined;
 }
@@ -63,25 +68,36 @@ export interface DataTableState<T> {
 }
 
 export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T> {
-	let sortKey = $state<string | null>(options.initialSortKey ?? null);
-	let sortDirection = $state<SortDirection>(options.initialSortDirection ?? 'asc');
+	let sortKey = $state<string | null>(resolveInitialOption(options.initialSortKey) ?? null);
+	let sortDirection = $state<SortDirection>(resolveInitialOption(options.initialSortDirection) ?? 'asc');
 	let search = $state('');
 	let page = $state(1);
-	let currentPageSize = $state(options.pageSize ?? 0);
-	let collapsedGroups = $state<Set<string>>(new Set());
+	let currentPageSize = $state(resolveInitialOption(options.pageSize) ?? 0);
+	const collapsedGroups = new SvelteSet<string>();
 
-	const columnMap = new Map(options.columns.map((c) => [c.key, c]));
+	function getColumns(): ColumnDef<T>[] {
+		return typeof options.columns === 'function' ? options.columns() : options.columns;
+	}
+
+	function getColumn(key: string): ColumnDef<T> | undefined {
+		return getColumns().find((column) => column.key === key) ?? options.resolveColumn?.(key);
+	}
+
+	function getFilterFn(): FilterFn<T> | undefined {
+		return options.getFilterFn?.() ?? options.filterFn;
+	}
 
 	function getFiltered(): T[] {
 		const data = options.data();
 		if (!search) return data;
 
-		if (options.filterFn) {
-			return data.filter((row) => options.filterFn!(row, search));
+		const filterFn = getFilterFn();
+		if (filterFn) {
+			return data.filter((row) => filterFn(row, search));
 		}
 
 		const query = search.toLowerCase();
-		const searchableCols = options.columns.filter((c) => c.searchable !== false);
+		const searchableCols = getColumns().filter((c) => c.searchable !== false);
 
 		return data.filter((row) =>
 			searchableCols.some((col) => {
@@ -94,7 +110,7 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 	function getSorted(): T[] {
 		const data = getFiltered();
 		if (!sortKey) return data;
-		const col = columnMap.get(sortKey) ?? options.resolveColumn?.(sortKey);
+		const col = getColumn(sortKey);
 		if (!col) return data;
 
 		const dir = sortDirection === 'asc' ? 1 : -1;
@@ -122,19 +138,18 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 		const groupDef = typeof options.groupBy === 'function' ? options.groupBy() : options.groupBy;
 		if (!groupDef) return [];
 		const sorted = getSorted();
-		const groupMap = new Map<string, T[]>();
+		const groupedRows: Record<string, T[]> = Object.create(null);
+		const keys: string[] = [];
 
 		for (const row of sorted) {
 			const key = groupDef.key(row);
-			const existing = groupMap.get(key);
-			if (existing) {
-				existing.push(row);
-			} else {
-				groupMap.set(key, [row]);
+			if (!Object.hasOwn(groupedRows, key)) {
+				groupedRows[key] = [];
+				keys.push(key);
 			}
+			groupedRows[key].push(row);
 		}
 
-		const keys = [...groupMap.keys()];
 		if (groupDef.compare) {
 			keys.sort(groupDef.compare);
 		}
@@ -142,7 +157,7 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 		return keys.map((key) => ({
 			key,
 			label: groupDef.label ? groupDef.label(key) : key,
-			rows: groupMap.get(key)!,
+			rows: groupedRows[key],
 			collapsed: collapsedGroups.has(key)
 		}));
 	}
@@ -164,7 +179,7 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 
 	return {
 		get columns() {
-			return options.columns;
+			return getColumns();
 		},
 		get rows() {
 			return getPaged();
@@ -185,7 +200,7 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 			return sortDirection;
 		},
 		toggleSort(key: string) {
-			const col = columnMap.get(key) ?? options.resolveColumn?.(key);
+			const col = getColumn(key);
 			if (col?.sortable === false) return;
 			if (sortKey === key) {
 				sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
@@ -215,17 +230,22 @@ export function useDataTable<T>(options: DataTableOptions<T>): DataTableState<T>
 			page = 1;
 		},
 		toggleGroup(key: string) {
-			const next = new Set(collapsedGroups);
-			if (next.has(key)) next.delete(key);
-			else next.add(key);
-			collapsedGroups = next;
+			if (collapsedGroups.has(key)) collapsedGroups.delete(key);
+			else collapsedGroups.add(key);
 		},
 		expandAll() {
-			collapsedGroups = new Set();
+			collapsedGroups.clear();
 		},
 		collapseAll() {
 			const allKeys = getGroups().map((g) => g.key);
-			collapsedGroups = new Set(allKeys);
+			collapsedGroups.clear();
+			for (const key of allKeys) {
+				collapsedGroups.add(key);
+			}
 		}
 	};
+}
+
+function resolveInitialOption<T>(option: InitialOption<T> | undefined): T | undefined {
+	return typeof option === 'function' ? (option as () => T | undefined)() : option;
 }

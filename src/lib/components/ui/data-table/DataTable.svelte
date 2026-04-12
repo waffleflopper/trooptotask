@@ -12,9 +12,11 @@
 		toggle: () => void;
 	}
 
+	type RowKey = string | number;
+
 	interface Props {
 		data?: T[];
-		columns: ColumnDef<T>[];
+		columns?: ColumnDef<T>[];
 		table?: DataTableState<T>;
 		initialSortKey?: string;
 		initialSortDirection?: SortDirection;
@@ -25,6 +27,7 @@
 		emptyMessage?: string;
 		showSearch?: boolean;
 		searchPlaceholder?: string;
+		rowKey?: (row: T, index: number) => RowKey;
 		onRowClick?: (row: T) => void;
 		rowActionLabel?: (row: T) => string;
 		compact?: boolean;
@@ -53,6 +56,7 @@
 		emptyMessage = 'No data.',
 		showSearch = false,
 		searchPlaceholder = 'Search...',
+		rowKey,
 		onRowClick,
 		rowActionLabel,
 		compact = false,
@@ -68,20 +72,17 @@
 		footer
 	}: Props = $props();
 
-	const internalTable =
-		!tableProp && data
-			? useDataTable({
-					data: () => data!,
-					columns: columnsProp,
-					initialSortKey,
-					initialSortDirection,
-					pageSize,
-					groupBy,
-					filterFn
-				})
-			: undefined;
+	const internalTable = useDataTable({
+		data: () => data ?? [],
+		columns: () => columnsProp ?? [],
+		initialSortKey: () => initialSortKey,
+		initialSortDirection: () => initialSortDirection,
+		pageSize: () => pageSize,
+		groupBy: () => groupBy,
+		getFilterFn: () => filterFn
+	});
 
-	const table = $derived(tableProp ?? internalTable!);
+	const table = $derived(tableProp ?? internalTable);
 	const cols = $derived(table.columns);
 	const interactiveDescendantSelector = [
 		'a[href]',
@@ -128,6 +129,19 @@
 		return false;
 	}
 
+	function defaultRowKey(row: T, index: number): RowKey {
+		if (row && typeof row === 'object' && 'id' in row) {
+			const id = row.id;
+			if (typeof id === 'string' || typeof id === 'number') return id;
+		}
+
+		return index;
+	}
+
+	function getRowKey(row: T, index: number): RowKey {
+		return rowKey?.(row, index) ?? defaultRowKey(row, index);
+	}
+
 	function handleRowClick(event: MouseEvent, row: T) {
 		if (!onRowClick || eventStartedInInteractiveDescendant(event)) return;
 		onRowClick(row);
@@ -171,7 +185,7 @@
 		<table aria-label={ariaLabel}>
 			<thead>
 				<tr>
-					{#each cols as col}
+					{#each cols as col (col.key)}
 						<th scope="col" aria-sort={ariaSort(col.key)}>
 							{#if isSortable(col)}
 								<button
@@ -195,7 +209,7 @@
 			</thead>
 			{#if table.groups.length > 0}
 				<tbody>
-					{#each table.groups as group}
+					{#each table.groups as group (group.key)}
 						{#if groupHeaderSnippet}
 							<tr class="group-header">
 								<td colspan={cols.length}>
@@ -218,7 +232,7 @@
 							</tr>
 						{/if}
 						{#if !group.collapsed}
-							{#each group.rows as row}
+							{#each group.rows as row, rowIndex (getRowKey(row, rowIndex))}
 								{#if rowSnippet}
 									{@render rowSnippet(row, cols)}
 								{:else}
@@ -229,7 +243,7 @@
 										onclick={onRowClick ? (event) => handleRowClick(event, row) : undefined}
 										onkeydown={onRowClick ? (event) => handleRowKeydown(event, row) : undefined}
 									>
-										{#each cols as col}
+										{#each cols as col (col.key)}
 											<td
 												>{#if cell}{@render cell(row, col)}{:else}{String(col.value(row) ?? '')}{/if}</td
 											>
@@ -242,7 +256,7 @@
 				</tbody>
 			{:else if table.rows.length > 0}
 				<tbody>
-					{#each table.rows as row}
+					{#each table.rows as row, rowIndex (getRowKey(row, rowIndex))}
 						{#if rowSnippet}
 							{@render rowSnippet(row, cols)}
 						{:else}
@@ -253,7 +267,7 @@
 								onclick={onRowClick ? (event) => handleRowClick(event, row) : undefined}
 								onkeydown={onRowClick ? (event) => handleRowKeydown(event, row) : undefined}
 							>
-								{#each cols as col}
+								{#each cols as col (col.key)}
 									<td
 										>{#if cell}{@render cell(row, col)}{:else}{String(col.value(row) ?? '')}{/if}</td
 									>

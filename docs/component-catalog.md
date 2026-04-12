@@ -507,7 +507,7 @@ Visual table component with sorting, search, pagination, grouping, and custom ce
 <DataTable table={myTable} ariaLabel="Custom table" />
 ```
 
-Props: `data?: T[]`, `columns?: ColumnDef<T>[]` (required when `data` is used; omit when `table` is provided), `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`
+Props: `data?: T[]`, `columns?: ColumnDef<T>[]` (required when `data` is used; omit when `table` is provided), `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`
 
 Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 
@@ -517,6 +517,7 @@ Table guidance:
 
 - Use the built-in header sort buttons instead of rolling your own sortable chrome.
 - Prefer custom `cell` snippets for semantic emphasis such as person-name columns, badges, or actions.
+- Provide `rowKey` when rows do not have a unique `id`, or when repeated row references need stable identity.
 - Mark action/display-only columns with `sortable: false`; provide `rowActionLabel` when rows can be opened with click or keyboard.
 - Reserve `striped` for especially dense matrix-like views; default tables now intentionally rely on rules and hover states instead.
 

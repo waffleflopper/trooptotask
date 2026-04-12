@@ -12,6 +12,8 @@
 		toggle: () => void;
 	}
 
+	type RowKey = string | number;
+
 	interface Props {
 		data?: T[];
 		columns?: ColumnDef<T>[];
@@ -25,6 +27,7 @@
 		emptyMessage?: string;
 		showSearch?: boolean;
 		searchPlaceholder?: string;
+		rowKey?: (row: T, index: number) => RowKey;
 		onRowClick?: (row: T) => void;
 		rowActionLabel?: (row: T) => string;
 		compact?: boolean;
@@ -53,6 +56,7 @@
 		emptyMessage = 'No data.',
 		showSearch = false,
 		searchPlaceholder = 'Search...',
+		rowKey,
 		onRowClick,
 		rowActionLabel,
 		compact = false,
@@ -123,6 +127,19 @@
 		}
 
 		return false;
+	}
+
+	function defaultRowKey(row: T, index: number): RowKey {
+		if (row && typeof row === 'object' && 'id' in row) {
+			const id = row.id;
+			if (typeof id === 'string' || typeof id === 'number') return id;
+		}
+
+		return index;
+	}
+
+	function getRowKey(row: T, index: number): RowKey {
+		return rowKey?.(row, index) ?? defaultRowKey(row, index);
 	}
 
 	function handleRowClick(event: MouseEvent, row: T) {
@@ -215,7 +232,7 @@
 							</tr>
 						{/if}
 						{#if !group.collapsed}
-							{#each group.rows as row (row)}
+							{#each group.rows as row, rowIndex (getRowKey(row, rowIndex))}
 								{#if rowSnippet}
 									{@render rowSnippet(row, cols)}
 								{:else}
@@ -239,7 +256,7 @@
 				</tbody>
 			{:else if table.rows.length > 0}
 				<tbody>
-					{#each table.rows as row (row)}
+					{#each table.rows as row, rowIndex (getRowKey(row, rowIndex))}
 						{#if rowSnippet}
 							{@render rowSnippet(row, cols)}
 						{:else}

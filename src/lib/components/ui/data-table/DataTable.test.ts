@@ -89,6 +89,18 @@ describe('DataTable', () => {
 			expect(screen.getByText('Charlie')).toBeTruthy();
 		});
 
+		test('renders duplicate primitive rows without duplicate row keys', () => {
+			const primitiveColumns: ColumnDef<string>[] = [{ key: 'value', header: 'Value', value: (row) => row }];
+
+			expect(() =>
+				render(Table, {
+					props: { data: ['Alpha', 'Alpha'], columns: primitiveColumns }
+				})
+			).not.toThrow();
+
+			expect(screen.getAllByText('Alpha')).toHaveLength(2);
+		});
+
 		test('headers have scope="col"', () => {
 			render(Table, { props: { data: testData, columns } });
 
@@ -356,6 +368,23 @@ describe('DataTable', () => {
 
 			expect(screen.getByText('Alice')).toBeTruthy();
 			expect(screen.getByText('Charlie')).toBeTruthy();
+		});
+
+		test('uses rowKey for duplicate row references in grouped rows', () => {
+			const repeatedRow = { id: 'shared', name: 'Repeated', age: 20, group: 'A' };
+
+			expect(() =>
+				render(Table, {
+					props: {
+						data: [repeatedRow, repeatedRow],
+						columns,
+						groupBy,
+						rowKey: (_row: TestRow, index: number) => `repeated-${index}`
+					}
+				})
+			).not.toThrow();
+
+			expect(screen.getAllByText('Repeated')).toHaveLength(2);
 		});
 	});
 

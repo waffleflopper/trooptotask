@@ -1,4 +1,3 @@
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { DeleteResult } from '$lib/utils/deletionRequests';
 import { createReactiveCollection, createReactiveValue } from './reactiveState.svelte';
 import { createMutationLog } from './mutationLog.svelte';
@@ -204,8 +203,11 @@ export function createStoreWithInternals<T extends { id: string }>(
 				} else {
 					await Promise.all(ids.map((id) => adapter.remove(id)));
 				}
-				const idSet = new SvelteSet(ids);
-				serverState.set(serverState.getSnapshot().filter((item) => !idSet.has(item.id)));
+				const idsToRemove: Record<string, true> = Object.create(null);
+				for (const id of ids) {
+					idsToRemove[id] = true;
+				}
+				serverState.set(serverState.getSnapshot().filter((item) => !Object.hasOwn(idsToRemove, item.id)));
 				log.resolve(mutationId);
 				return true;
 			} catch (e) {
@@ -218,8 +220,11 @@ export function createStoreWithInternals<T extends { id: string }>(
 		mergeBatchResults(inserted: T[], updated?: T[]) {
 			let current = serverState.getSnapshot();
 			if (updated && updated.length > 0) {
-				const updatedMap = new SvelteMap(updated.map((u) => [u.id, u]));
-				current = current.map((item) => updatedMap.get(item.id) ?? item);
+				const updatedById: Record<string, T> = Object.create(null);
+				for (const item of updated) {
+					updatedById[item.id] = item;
+				}
+				current = current.map((item) => updatedById[item.id] ?? item);
 			}
 			serverState.set([...current, ...inserted]);
 		},

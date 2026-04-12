@@ -12,6 +12,15 @@ export interface TransientDutyCoverage {
 	isBlocking?: boolean;
 }
 
+export interface DutyCoverageConflictCheck {
+	key: string;
+	assigneeId: string;
+	coverageStart: string;
+	coverageEnd: string;
+	cooldownHours: number;
+	excludeDutyEventIds?: string[];
+}
+
 const MAX_DUTY_EVENT_COOLDOWN_HOURS = 168;
 
 function formatLocalDateTime(value: Date): string {
@@ -74,14 +83,66 @@ export async function findDutyCoverageConflicts(
 		transientCoverage = [],
 		excludeDutyEventIds = []
 	} = input;
+	const checks = [...new Set(assigneeIds)].map((assigneeId) => ({
+		key: assigneeId,
+		assigneeId,
+		coverageStart,
+		coverageEnd,
+		cooldownHours,
+		excludeDutyEventIds
+	}));
+	const keyedConflicts = await findDutyCoverageConflictsBatch(ctx, {
+		checks,
+		personnelById,
+		transientCoverage
+	});
 	const conflictsByAssignee = new Map<string, string[]>();
+	for (const check of checks) {
+		const messages = keyedConflicts.get(check.key);
+		if (messages?.length) {
+			conflictsByAssignee.set(check.assigneeId, messages);
+		}
+	}
+	return conflictsByAssignee;
+}
 
-	if (assigneeIds.length === 0) {
-		return conflictsByAssignee;
+export async function findDutyCoverageConflictsBatch(
+	ctx: QueryPorts,
+	input: {
+		checks: DutyCoverageConflictCheck[];
+		personnelById: Map<string, Personnel>;
+		transientCoverage?: TransientDutyCoverage[];
+	}
+): Promise<Map<string, string[]>> {
+	const { checks, personnelById, transientCoverage = [] } = input;
+	const conflictsByKey = new Map<string, string[]>();
+	const assigneeIds = [...new Set(checks.map((check) => check.assigneeId).filter(Boolean))];
+
+	if (checks.length === 0 || assigneeIds.length === 0) {
+		return conflictsByKey;
 	}
 
-	const queryWindowStart = addHours(coverageStart, -MAX_DUTY_EVENT_COOLDOWN_HOURS);
-	const queryWindowEnd = addHours(coverageEnd, cooldownHours);
+	const checksByAssignee = new Map<string, DutyCoverageConflictCheck[]>();
+	for (const check of checks) {
+		const existing = checksByAssignee.get(check.assigneeId) ?? [];
+		existing.push(check);
+		checksByAssignee.set(check.assigneeId, existing);
+	}
+
+	function addConflict(key: string, message: string): void {
+		const existingMessages = conflictsByKey.get(key) ?? [];
+		if (!existingMessages.includes(message)) {
+			existingMessages.push(message);
+			conflictsByKey.set(key, existingMessages);
+		}
+	}
+
+	const queryWindowStart = checks
+		.map((check) => addHours(check.coverageStart, -MAX_DUTY_EVENT_COOLDOWN_HOURS))
+		.reduce((oldest, value) => (value < oldest ? value : oldest));
+	const queryWindowEnd = checks
+		.map((check) => addHours(check.coverageEnd, check.cooldownHours))
+		.reduce((latest, value) => (value > latest ? value : latest));
 	const eventRows = await ctx.store.findMany<Record<string, unknown>>('duty_events', ctx.auth.orgId, undefined, {
 		// Use the maximum allowed persisted cooldown so shorter incoming cooldowns
 		// do not hide older events whose own cooldown still overlaps this window.
@@ -90,98 +151,99 @@ export async function findDutyCoverageConflicts(
 			{ column: 'coverage_end', op: 'gt', value: queryWindowStart }
 		]
 	});
-	const excludedEventIds = new Set(excludeDutyEventIds);
-	const filteredEventRows = eventRows.filter((row) => !excludedEventIds.has(String(row.id)));
-	if (filteredEventRows.length > 0) {
-		const eventIds = filteredEventRows.map((row) => String(row.id));
+
+	if (eventRows.length > 0) {
+		const eventIds = eventRows.map((row) => String(row.id));
 		const slotRows = await ctx.store.findMany<Record<string, unknown>>('duty_event_slots', ctx.auth.orgId, undefined, {
 			inFilters: {
 				duty_event_id: eventIds,
 				assignee_id: assigneeIds
 			}
 		});
-		const eventById = new Map(filteredEventRows.map((row) => [String(row.id), row]));
-		const newCooldownEnd = addHours(coverageEnd, cooldownHours);
+		const eventById = new Map(eventRows.map((row) => [String(row.id), row]));
 
 		for (const row of slotRows) {
 			const assigneeId = String(row.assignee_id);
-			const eventRow = eventById.get(String(row.duty_event_id));
-			if (!eventRow) {
+			const eventId = String(row.duty_event_id);
+			const eventRow = eventById.get(eventId);
+			if (!eventRow || !getPersistedSlotBlocking(eventRow, row)) {
 				continue;
 			}
 
-			if (!getPersistedSlotBlocking(eventRow, row)) {
-				continue;
-			}
+			for (const check of checksByAssignee.get(assigneeId) ?? []) {
+				if (check.excludeDutyEventIds?.includes(eventId)) {
+					continue;
+				}
 
-			const existingCoverageStart = String(eventRow.coverage_start);
-			const existingCoverageEnd = String(eventRow.coverage_end);
-			const existingCooldownHours = Number(eventRow.cooldown_hours ?? 0);
-			const existingCooldownEnd = addHours(existingCoverageEnd, existingCooldownHours);
-			const overlaps = existingCoverageStart < coverageEnd && existingCoverageEnd > coverageStart;
-			const priorCooldownBlocks = existingCoverageEnd <= coverageStart && existingCooldownEnd > coverageStart;
-			const newCooldownBlocks =
-				cooldownHours > 0 && coverageEnd <= existingCoverageStart && newCooldownEnd > existingCoverageStart;
+				const existingCoverageStart = String(eventRow.coverage_start);
+				const existingCoverageEnd = String(eventRow.coverage_end);
+				const existingCooldownHours = Number(eventRow.cooldown_hours ?? 0);
+				const existingCooldownEnd = addHours(existingCoverageEnd, existingCooldownHours);
+				const newCooldownEnd = addHours(check.coverageEnd, check.cooldownHours);
+				const overlaps = existingCoverageStart < check.coverageEnd && existingCoverageEnd > check.coverageStart;
+				const priorCooldownBlocks =
+					existingCoverageEnd <= check.coverageStart && existingCooldownEnd > check.coverageStart;
+				const newCooldownBlocks =
+					check.cooldownHours > 0 &&
+					check.coverageEnd <= existingCoverageStart &&
+					newCooldownEnd > existingCoverageStart;
 
-			let message: string | null = null;
-			if (overlaps) {
-				message = `${formatPersonLabel(personnelById, assigneeId)} is already assigned to duty coverage from ${existingCoverageStart} to ${existingCoverageEnd}.`;
-			} else if (priorCooldownBlocks) {
-				message = `${formatPersonLabel(personnelById, assigneeId)} is still in cooldown until ${existingCooldownEnd}.`;
-			} else if (newCooldownBlocks) {
-				message = `${formatPersonLabel(personnelById, assigneeId)} has another duty beginning at ${existingCoverageStart}, which overlaps this duty's cooldown window ending ${newCooldownEnd}.`;
-			}
-
-			if (!message) {
-				continue;
-			}
-
-			const existingMessages = conflictsByAssignee.get(assigneeId) ?? [];
-			if (!existingMessages.includes(message)) {
-				existingMessages.push(message);
-				conflictsByAssignee.set(assigneeId, existingMessages);
+				if (overlaps) {
+					addConflict(
+						check.key,
+						`${formatPersonLabel(personnelById, assigneeId)} is already assigned to duty coverage from ${existingCoverageStart} to ${existingCoverageEnd}.`
+					);
+				} else if (priorCooldownBlocks) {
+					addConflict(
+						check.key,
+						`${formatPersonLabel(personnelById, assigneeId)} is still in cooldown until ${existingCooldownEnd}.`
+					);
+				} else if (newCooldownBlocks) {
+					addConflict(
+						check.key,
+						`${formatPersonLabel(personnelById, assigneeId)} has another duty beginning at ${existingCoverageStart}, which overlaps this duty's cooldown window ending ${newCooldownEnd}.`
+					);
+				}
 			}
 		}
 	}
 
-	const newCooldownEnd = addHours(coverageEnd, cooldownHours);
 	for (const existingCoverage of transientCoverage) {
-		if (!assigneeIds.includes(existingCoverage.assigneeId)) {
-			continue;
-		}
-
 		if (existingCoverage.isBlocking === false) {
 			continue;
 		}
 
 		const assigneeId = existingCoverage.assigneeId;
-		const existingCooldownEnd = addHours(existingCoverage.coverageEnd, existingCoverage.cooldownHours);
-		const overlaps = existingCoverage.coverageStart < coverageEnd && existingCoverage.coverageEnd > coverageStart;
-		const priorCooldownBlocks = existingCoverage.coverageEnd <= coverageStart && existingCooldownEnd > coverageStart;
-		const newCooldownBlocks =
-			cooldownHours > 0 &&
-			coverageEnd <= existingCoverage.coverageStart &&
-			newCooldownEnd > existingCoverage.coverageStart;
+		for (const check of checksByAssignee.get(assigneeId) ?? []) {
+			const existingCooldownEnd = addHours(existingCoverage.coverageEnd, existingCoverage.cooldownHours);
+			const newCooldownEnd = addHours(check.coverageEnd, check.cooldownHours);
+			const overlaps =
+				existingCoverage.coverageStart < check.coverageEnd && existingCoverage.coverageEnd > check.coverageStart;
+			const priorCooldownBlocks =
+				existingCoverage.coverageEnd <= check.coverageStart && existingCooldownEnd > check.coverageStart;
+			const newCooldownBlocks =
+				check.cooldownHours > 0 &&
+				check.coverageEnd <= existingCoverage.coverageStart &&
+				newCooldownEnd > existingCoverage.coverageStart;
 
-		let message: string | null = null;
-		if (overlaps) {
-			message = `${formatPersonLabel(personnelById, assigneeId)} is already assigned to duty coverage from ${existingCoverage.coverageStart} to ${existingCoverage.coverageEnd}.`;
-		} else if (priorCooldownBlocks) {
-			message = `${formatPersonLabel(personnelById, assigneeId)} is still in cooldown until ${existingCooldownEnd}.`;
-		} else if (newCooldownBlocks) {
-			message = `${formatPersonLabel(personnelById, assigneeId)} has another duty beginning at ${existingCoverage.coverageStart}, which overlaps this duty's cooldown window ending ${newCooldownEnd}.`;
-		}
-
-		if (!message) {
-			continue;
-		}
-
-		const existingMessages = conflictsByAssignee.get(assigneeId) ?? [];
-		if (!existingMessages.includes(message)) {
-			existingMessages.push(message);
-			conflictsByAssignee.set(assigneeId, existingMessages);
+			if (overlaps) {
+				addConflict(
+					check.key,
+					`${formatPersonLabel(personnelById, assigneeId)} is already assigned to duty coverage from ${existingCoverage.coverageStart} to ${existingCoverage.coverageEnd}.`
+				);
+			} else if (priorCooldownBlocks) {
+				addConflict(
+					check.key,
+					`${formatPersonLabel(personnelById, assigneeId)} is still in cooldown until ${existingCooldownEnd}.`
+				);
+			} else if (newCooldownBlocks) {
+				addConflict(
+					check.key,
+					`${formatPersonLabel(personnelById, assigneeId)} has another duty beginning at ${existingCoverage.coverageStart}, which overlaps this duty's cooldown window ending ${newCooldownEnd}.`
+				);
+			}
 		}
 	}
 
-	return conflictsByAssignee;
+	return conflictsByKey;
 }

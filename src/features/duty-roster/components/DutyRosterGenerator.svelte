@@ -9,6 +9,7 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import WizardStepper from './WizardStepper.svelte';
 	import MultiTagSelect from './MultiTagSelect.svelte';
+	import DutyRosterProgressModal from './DutyRosterProgressModal.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 
@@ -1031,6 +1032,9 @@
 		onConfirm={doReApplyRoster}
 		onCancel={() => (reApplyItem = null)}
 	/>
+{/if}
+{#if isApplying}
+	<DutyRosterProgressModal mode="apply" eventCount={generatedRoster.filter((entry) => entry.assignee).length} />
 {/if}
 
 <style>

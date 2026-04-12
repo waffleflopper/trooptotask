@@ -32,6 +32,14 @@ This directory contains Troop to Task-specific pi resources:
 - `/ui-pass ...` — UI consistency workflow prompt
 - `/ship-pass ...` — final review prompt without colliding with `/ship`
 
+### Subagents
+
+- `/subagents` — list the discovered Pi + Claude-compatible subagents
+- `Agent` / `Task` tools — Claude Code compatibility aliases for skills that expect subagent spawning
+- `run_in_background: true` now starts a true background subagent and automatically posts the result back into the conversation when it finishes
+- Active subagent runs are tracked in a widget below the editor while they are in flight
+- If you already have a global `subagent` tool installed, this project-local extension layers Claude compatibility on top of it rather than replacing it
+
 ### Forcing a skill explicitly
 
 Pi can auto-load these skills when the task matches, but use the commands below when you want to guarantee the workflow:
@@ -46,3 +54,4 @@ Pi can auto-load these skills when the task matches, but use the commands below 
 - The guardrails extension blocks destructive Supabase/database commands and protects sensitive paths.
 - The verify workflow mirrors the repo requirements in `AGENTS.md`.
 - The verify tool has a custom renderer and a status widget, so collapsed results should stay readable during long sessions.
+- The subagent extension discovers project-local agents from `.pi/agents/` and Claude-style agents from `.claude/agents/` when present.

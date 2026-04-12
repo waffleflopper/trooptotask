@@ -10,6 +10,17 @@
 
 - Military unit management SaaS: personnel tracking, calendar/availability, training records, daily assignments, onboarding workflows, unit management. Built on typescript and SvelteKit (Svelte 5 with runes)
 
+## Pi Workflow Shortcuts
+
+Project-local pi resources live under `.pi/`.
+
+- `/plan` — planning preset with read-only investigation tools
+- `/build` — implementation preset with coding + verification tools
+- `/ship` — final-pass preset for polish, verification, and explicit follow-ups
+- `/verify [all|format|lint|check|test] [--fail-fast]` — required repo verification workflow (`/verify help` for usage)
+- `/feature`, `/bugfix`, `/ui-pass`, `/ship-pass` — reusable prompt templates
+- `/skill:trooptotask-feature`, `/skill:safe-supabase-change`, `/skill:ui-consistency-pass` — force a specific repo workflow when needed
+
 ---
 
 ## Core Priorities

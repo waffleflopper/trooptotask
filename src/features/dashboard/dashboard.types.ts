@@ -333,10 +333,46 @@ export function getPermissionAwareDashboardConfig(
 	};
 }
 
+function widgetConfigValuesMatch(
+	actual: WidgetInstanceConfig[keyof WidgetInstanceConfig],
+	expected: WidgetInstanceConfig[keyof WidgetInstanceConfig]
+): boolean {
+	if (Array.isArray(actual) || Array.isArray(expected)) {
+		if (!Array.isArray(actual) || !Array.isArray(expected)) return false;
+		return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+	}
+
+	return actual === expected;
+}
+
+function widgetConfigsMatch(actual: WidgetInstanceConfig, expected: WidgetInstanceConfig): boolean {
+	const keys = new Set<keyof WidgetInstanceConfig>([
+		...(Object.keys(actual) as (keyof WidgetInstanceConfig)[]),
+		...(Object.keys(expected) as (keyof WidgetInstanceConfig)[])
+	]);
+
+	return [...keys].every((key) => widgetConfigValuesMatch(actual[key], expected[key]));
+}
+
+function widgetsMatch(actual: WidgetInstance, expected: WidgetInstance): boolean {
+	return (
+		actual.id === expected.id &&
+		actual.widgetId === expected.widgetId &&
+		actual.size === expected.size &&
+		actual.col === expected.col &&
+		actual.colSpan === expected.colSpan &&
+		widgetConfigsMatch(actual.config, expected.config)
+	);
+}
+
 export function isDefaultDashboardConfig(config: DashboardConfig): boolean {
 	return (
+		config.version === DEFAULT_DASHBOARD_CONFIG.version &&
 		config.widgets.length === DEFAULT_DASHBOARD_CONFIG.widgets.length &&
-		config.widgets.every((widget, index) => widget.id === DEFAULT_DASHBOARD_CONFIG.widgets[index]?.id)
+		config.widgets.every((widget, index) => {
+			const defaultWidget = DEFAULT_DASHBOARD_CONFIG.widgets[index];
+			return defaultWidget !== undefined && widgetsMatch(widget, defaultWidget);
+		})
 	);
 }
 

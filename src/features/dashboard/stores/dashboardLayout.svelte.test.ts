@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dashboardLayout } from './dashboardLayout.svelte';
-import type { WidgetInstance } from '../dashboard.types';
+import type { DashboardConfig, WidgetInstance } from '../dashboard.types';
 
 vi.mock('$app/environment', () => ({
 	browser: true
@@ -15,6 +15,17 @@ function mutableLayout(): DashboardLayoutInternals {
 	return dashboardLayout as unknown as DashboardLayoutInternals;
 }
 
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((promiseResolve, promiseReject) => {
+		resolve = promiseResolve;
+		reject = promiseReject;
+	});
+
+	return { promise, resolve, reject };
+}
+
 describe('dashboardLayout store', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -23,6 +34,8 @@ describe('dashboardLayout store', () => {
 		layout._save.cancel();
 		layout.orgId = 'org-1';
 		dashboardLayout.widgets = [];
+		dashboardLayout.loading = false;
+		dashboardLayout.error = null;
 		dashboardLayout.isFirstRun = false;
 		dashboardLayout.firstRunDismissed = false;
 	});
@@ -68,5 +81,40 @@ describe('dashboardLayout store', () => {
 			'quick-stats',
 			'non-available'
 		]);
+	});
+
+	it('ignores stale init responses after switching organizations', async () => {
+		const orgOneResponse = deferred<Response>();
+		const orgTwoResponse = deferred<Response>();
+		const orgOneConfig: DashboardConfig = {
+			version: 3,
+			widgets: [{ id: 'org-one-widget', widgetId: 'strength', config: {} }]
+		};
+		const orgTwoConfig: DashboardConfig = {
+			version: 3,
+			widgets: [{ id: 'org-two-widget', widgetId: 'duty', config: {} }]
+		};
+
+		global.fetch = vi.fn((url) => {
+			if (String(url).includes('/org/org-one/')) return orgOneResponse.promise;
+			if (String(url).includes('/org/org-two/')) return orgTwoResponse.promise;
+			throw new Error(`Unexpected url ${String(url)}`);
+		});
+
+		const orgOneInit = dashboardLayout.init('org-one');
+		const orgTwoInit = dashboardLayout.init('org-two');
+
+		orgTwoResponse.resolve(new Response(JSON.stringify({ config: orgTwoConfig })));
+		await orgTwoInit;
+
+		expect(dashboardLayout.widgets).toEqual(orgTwoConfig.widgets);
+		expect(dashboardLayout.loading).toBe(false);
+
+		orgOneResponse.resolve(new Response(JSON.stringify({ config: orgOneConfig })));
+		await orgOneInit;
+
+		expect(dashboardLayout.widgets).toEqual(orgTwoConfig.widgets);
+		expect(dashboardLayout.loading).toBe(false);
+		expect(dashboardLayout.error).toBeNull();
 	});
 });

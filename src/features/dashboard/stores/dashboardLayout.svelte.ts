@@ -88,6 +88,7 @@ class DashboardLayoutStore {
 	firstRunDismissed = $state(false);
 
 	private orgId: string | null = null;
+	private initVersion = 0;
 	private saveVersion = 0;
 
 	// ---------------------------------------------------------------------------
@@ -96,6 +97,7 @@ class DashboardLayoutStore {
 
 	async init(orgId: string, permissions?: DashboardPermissions) {
 		if (!browser) return;
+		const version = ++this.initVersion;
 		this.orgId = orgId;
 		this.loading = true;
 		this.error = null;
@@ -106,18 +108,27 @@ class DashboardLayoutStore {
 			const data = (await res.json()) as { config: DashboardConfig };
 			const cfg = migrateToFlatConfig(data.config);
 
+			if (!this.isCurrentInit(version, orgId)) return;
+
 			const isDefault = isDefaultDashboardConfig(cfg);
 			this.isFirstRun = isDefault;
 			this.widgets = isDefault
 				? getPermissionAwareDashboardConfig(DEFAULT_DASHBOARD_CONFIG, permissions).widgets
 				: cfg.widgets;
 		} catch {
+			if (!this.isCurrentInit(version, orgId)) return;
 			this.error = 'Could not load your dashboard layout. Showing default.';
 			this.widgets = getPermissionAwareDashboardConfig(DEFAULT_DASHBOARD_CONFIG, permissions).widgets;
 			this.isFirstRun = true;
 		} finally {
-			this.loading = false;
+			if (this.isCurrentInit(version, orgId)) {
+				this.loading = false;
+			}
 		}
+	}
+
+	private isCurrentInit(version: number, orgId: string): boolean {
+		return version === this.initVersion && this.orgId === orgId;
 	}
 
 	// ---------------------------------------------------------------------------

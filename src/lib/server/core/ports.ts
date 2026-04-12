@@ -59,6 +59,8 @@ export interface DataStore {
 
 	deleteWhere(table: string, orgId: string, filters: Record<string, unknown>): Promise<void>;
 
+	deleteWhereAny(table: string, orgId: string, filterGroups: Array<Record<string, unknown>>): Promise<void>;
+
 	deleteManyByIds(table: string, orgId: string, ids: string[]): Promise<number>;
 
 	insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;

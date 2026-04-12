@@ -21,6 +21,23 @@ function getOrgColumn(table: string): string {
 	}
 }
 
+function formatPostgrestFilterValue(value: unknown): string {
+	if (value === null) return 'null';
+	if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+
+	const raw = String(value);
+	if (/^[A-Za-z0-9_.:-]+$/.test(raw)) {
+		return raw;
+	}
+	return `"${raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function buildPostgrestAndFilter(filters: Record<string, unknown>): string {
+	return `and(${Object.entries(filters)
+		.map(([key, value]) => `${key}.eq.${formatPostgrestFilterValue(value)}`)
+		.join(',')})`;
+}
+
 /**
  * Applies filtering, ordering, range and limit constraints to a Supabase query builder.
  *
@@ -278,6 +295,15 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			}
 
 			const { error } = await query;
+			if (error) throw new Error(error.message);
+		},
+
+		async deleteWhereAny(table: string, orgId: string, filterGroups: Array<Record<string, unknown>>): Promise<void> {
+			if (filterGroups.length === 0) return;
+			const orgColumn = getOrgColumn(table);
+			const predicate = filterGroups.map(buildPostgrestAndFilter).join(',');
+			const { error } = await supabase.from(table).delete().eq(orgColumn, orgId).or(predicate);
+
 			if (error) throw new Error(error.message);
 		},
 

@@ -334,6 +334,16 @@ function renderWizard(overrides: Partial<ComponentProps<typeof DutyRosterWizard>
 	});
 }
 
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
 async function openAdvancedPolicyReview() {
 	await fireEvent.click(screen.getByRole('button', { name: 'Use Advanced Duty' }));
 	await fireEvent.click(screen.getByRole('button', { name: 'Use This Template' }));
@@ -591,6 +601,57 @@ describe('DutyRosterWizard', () => {
 		expect(screen.getByText('Apr 7, 2026')).toBeTruthy();
 		expect(screen.getAllByText('0800-0800 next day · 1/1 filled').length).toBeGreaterThan(0);
 		expect(screen.queryByText('2026-04-07T08:00:00 to 2026-04-08T08:00:00')).toBeNull();
+	});
+
+	it('shows progress feedback while advanced series generation is running', async () => {
+		const pendingPreview = deferred<DutyEventSeriesPreview>();
+		const previewHandler = vi.fn(() => pendingPreview.promise);
+		renderWizard({
+			onPreviewAdvancedSeries: previewHandler
+		});
+
+		await openAdvancedDatePattern();
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+
+		expect(screen.getByRole('dialog', { name: 'Generating duty roster' })).toBeTruthy();
+		expect(screen.getByText('Building the duty roster.')).toBeTruthy();
+		expect(screen.getAllByText(/Collecting eligible personnel/).length).toBeGreaterThan(0);
+
+		pendingPreview.resolve(makeSeriesPreview());
+
+		await waitFor(() => {
+			expect(screen.queryByRole('dialog', { name: 'Generating duty roster' })).toBeNull();
+			expect(screen.getByText('Series preview ready')).toBeTruthy();
+		});
+	});
+
+	it('shows progress feedback while an advanced series is being applied', async () => {
+		const pendingApply = deferred<DutyEventSeriesApplyResult>();
+		const applyHandler = vi.fn(() => pendingApply.promise);
+		renderWizard({
+			onPreviewAdvancedSeries: vi.fn(async () => makeSeriesPreview()),
+			onApplyAdvancedSeries: applyHandler
+		});
+
+		await openAdvancedDatePattern();
+		await fireEvent.click(screen.getByRole('button', { name: 'Review Candidates' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Series' }));
+		await waitFor(() => {
+			expect(screen.getByText('Series preview ready')).toBeTruthy();
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Apply Series' }));
+
+		expect(screen.getByRole('dialog', { name: 'Applying duty roster' })).toBeTruthy();
+		expect(screen.getByText('Saving 2 duty events.')).toBeTruthy();
+		expect(screen.getAllByText(/Checking coverage conflicts/).length).toBeGreaterThan(0);
+
+		pendingApply.resolve(makeSeriesApplyResult());
+
+		await waitFor(() => {
+			expect(screen.queryByRole('dialog', { name: 'Applying duty roster' })).toBeNull();
+			expect(screen.getByText('Applied advanced duty events')).toBeTruthy();
+		});
 	});
 
 	it('supports a daily recurring pattern for advanced duty series', async () => {

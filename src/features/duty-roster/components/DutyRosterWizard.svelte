@@ -9,6 +9,7 @@
 	import AdvancedDatePatternStep from './AdvancedDatePatternStep.svelte';
 	import AdvancedCandidateReviewStep from './AdvancedCandidateReviewStep.svelte';
 	import AdvancedSeriesPreviewStep from './AdvancedSeriesPreviewStep.svelte';
+	import DutyRosterProgressModal from './DutyRosterProgressModal.svelte';
 	import { getLegacySimpleTemplates } from '../legacySimpleTemplates';
 	import type {
 		Personnel,
@@ -199,6 +200,13 @@
 						: 'template'
 	);
 	const showStepper = $derived(view.startsWith('advanced-'));
+	const progressMode = $derived.by(() => {
+		if (isApplyingAdvancedSeries) return 'apply';
+		if (isRefreshingAdvancedSeriesPreview) return 'refresh';
+		if (isPreviewingAdvancedSeries) return 'preview';
+		return null;
+	});
+	const progressEventCount = $derived(advancedSeriesPreview?.eventDates.length ?? 0);
 
 	function onChooseSimple() {
 		view = 'simple-template-list';
@@ -552,6 +560,9 @@
 			onDeleteAdvancedRun={props.onDeleteAdvancedRun}
 			onDeleteLegacyAdvancedGroup={props.onDeleteLegacyAdvancedGroup}
 		/>
+	{/if}
+	{#if progressMode}
+		<DutyRosterProgressModal mode={progressMode} eventCount={progressEventCount} />
 	{/if}
 </section>
 

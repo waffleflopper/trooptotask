@@ -125,7 +125,7 @@ describe('dashboard page server load', () => {
 			trainingTypes: [],
 			onboardingPersonnelIds: ['p2'],
 			options: {
-				issueLimit: 5,
+				issueLimit: 25,
 				issueStatuses: ['expired', 'warning-orange']
 			}
 		});

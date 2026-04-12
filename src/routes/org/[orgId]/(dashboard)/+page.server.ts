@@ -29,7 +29,8 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 					trainingTypes: workspaceData.trainingTypes,
 					onboardingPersonnelIds: workspaceData.activeOnboardings.map((o) => o.personnelId),
 					options: {
-						issueLimit: 5,
+						// Fetch enough to guarantee 5 unique people after client-side deduplication
+						issueLimit: 25,
 						issueStatuses: ['expired', 'warning-orange']
 					}
 				});

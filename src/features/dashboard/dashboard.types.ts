@@ -13,7 +13,13 @@ export type WidgetId =
 	| 'upcoming-losses' // Upcoming Losses — placeholder
 	| 'ictl'; // Critical Tasks / ICTL — placeholder
 
-// Column span on a 12-column grid
+// Visual column span in the 3-column grid.
+// 1 = fills one column slot (default)
+// 2 = fills two column slots
+// 3 = full-width row (pushes all other content)
+export type ColSpan = 1 | 2 | 3;
+
+// Kept for backward-compat with persisted configs; no longer used in UI.
 export type WidgetSize = 3 | 4 | 6 | 12;
 
 // ---------------------------------------------------------------------------
@@ -77,7 +83,16 @@ export interface WidgetInstance {
 	/** Stable unique key for svelte-dnd-action tracking */
 	id: string;
 	widgetId: WidgetId;
-	size: WidgetSize;
+	/** @deprecated kept for backward compat with saved v1/v2 configs */
+	size?: WidgetSize;
+	/** @deprecated kept for backward compat with saved v1/v2 configs */
+	col?: number;
+	/**
+	 * How many of the 3 grid columns this widget occupies.
+	 * 1 (default) = one slot; 2 = two slots; 3 = full-width row.
+	 * Full-width widgets (colSpan 3) start a new row and push content below.
+	 */
+	colSpan?: ColSpan;
 	config: WidgetInstanceConfig;
 }
 
@@ -175,21 +190,24 @@ export const WIDGET_CATALOG: WidgetMeta[] = [
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
-	version: 1,
+	version: 3,
 	widgets: [
-		{ id: 'default-1', widgetId: 'strength', size: 4, config: { showGroupBreakdown: true } },
-		{ id: 'default-2', widgetId: 'duty', size: 4, config: { dayCount: 2 } },
+		// Row 1: three equal-width summary widgets
+		{ id: 'default-1', widgetId: 'strength', config: { showGroupBreakdown: true } },
+		{ id: 'default-2', widgetId: 'duty', config: { dayCount: 2 } },
 		{
 			id: 'default-3',
 			widgetId: 'quick-stats',
-			size: 4,
 			config: { metrics: ['present-strength', 'training-currency', 'evaluations-overdue'] }
 		},
-		{ id: 'default-4', widgetId: 'non-available', size: 6, config: {} },
-		{ id: 'default-5', widgetId: 'evaluations', size: 6, config: { lookaheadDays: 60 } },
-		{ id: 'default-6', widgetId: 'training', size: 12, config: { display: 'both', breakdown: 'group' } },
-		{ id: 'default-7', widgetId: 'onboarding', size: 4, config: {} },
-		{ id: 'default-8', widgetId: 'upcoming-losses', size: 4, config: {} },
-		{ id: 'default-9', widgetId: 'ictl', size: 4, config: {} }
+		// Row 2: two wider widgets
+		{ id: 'default-4', widgetId: 'non-available', colSpan: 2, config: {} },
+		{ id: 'default-5', widgetId: 'evaluations', config: { lookaheadDays: 60 } },
+		// Row 3: Training Health spans full width
+		{ id: 'default-6', widgetId: 'training', colSpan: 3, config: { display: 'both', breakdown: 'group' } },
+		// Row 4: three placeholders + onboarding
+		{ id: 'default-7', widgetId: 'onboarding', config: {} },
+		{ id: 'default-8', widgetId: 'upcoming-losses', config: {} },
+		{ id: 'default-9', widgetId: 'ictl', config: {} }
 	]
 };

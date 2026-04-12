@@ -2,7 +2,11 @@
 	import WidgetShell from './WidgetShell.svelte';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
 	import type { WidgetInstanceConfig, QuickStatMetricId } from '../../dashboard.types';
-	import { QUICK_STAT_METRICS } from '../../dashboard.types';
+	import {
+		DEFAULT_QUICK_STAT_METRICS,
+		filterQuickStatMetricIds,
+		getAllowedQuickStatMetrics
+	} from '../../dashboard.types';
 	import { dashboardLayout } from '../../stores/dashboardLayout.svelte';
 
 	interface Props {
@@ -16,8 +20,10 @@
 
 	let configOpen = $state(false);
 
-	const DEFAULT_METRICS: QuickStatMetricId[] = ['present-strength', 'training-currency', 'evaluations-overdue'];
-	const metrics = $derived<QuickStatMetricId[]>(config.metrics ?? DEFAULT_METRICS);
+	const allowedMetricCatalog = $derived(getAllowedQuickStatMetrics(ctx.data.permissions));
+	const metrics = $derived<QuickStatMetricId[]>(
+		filterQuickStatMetricIds(config.metrics ?? DEFAULT_QUICK_STAT_METRICS, ctx.data.permissions)
+	);
 
 	function toggleMetric(id: QuickStatMetricId) {
 		const current = [...metrics];
@@ -38,7 +44,7 @@
 		<div class="cfg-section">
 			<p class="cfg-note">Choose 1–4 metrics to display.</p>
 			<div class="cfg-metric-list">
-				{#each QUICK_STAT_METRICS as m (m.id)}
+				{#each allowedMetricCatalog as m (m.id)}
 					<label class="cfg-metric-row" class:cfg-metric-row--active={metrics.includes(m.id)}>
 						<input type="checkbox" checked={metrics.includes(m.id)} onchange={() => toggleMetric(m.id)} />
 						<span class="cfg-metric-name">{m.label}</span>
@@ -49,26 +55,40 @@
 		</div>
 	{/snippet}
 
-	<div class="qs-grid" style="--qs-count: {metrics.length}">
-		{#each metrics as metricId (metricId)}
-			{@const meta = QUICK_STAT_METRICS.find((m) => m.id === metricId)}
-			{@const value = ctx.quickStatValue(metricId)}
-			{@const unit = ctx.quickStatUnit(metricId)}
-			{@const isAlert =
-				(metricId === 'evaluations-overdue' && value > 0) ||
-				(metricId === 'expired-training' && value > 0) ||
-				(metricId === 'training-currency' && value < 80)}
-			<div class="qs-tile" class:qs-tile--alert={isAlert}>
-				<span class="qs-value" class:qs-value--alert={isAlert}>
-					{value}{unit}
-				</span>
-				<span class="qs-label">{meta?.label ?? metricId}</span>
-			</div>
-		{/each}
-	</div>
+	{#if metrics.length === 0}
+		<div class="widget-empty"><span>No permitted metrics selected.</span></div>
+	{:else}
+		<div class="qs-grid" style="--qs-count: {metrics.length}">
+			{#each metrics as metricId (metricId)}
+				{@const meta = allowedMetricCatalog.find((m) => m.id === metricId)}
+				{@const value = ctx.quickStatValue(metricId)}
+				{@const unit = ctx.quickStatUnit(metricId)}
+				{@const isAlert =
+					(metricId === 'evaluations-overdue' && value > 0) ||
+					(metricId === 'expired-training' && value > 0) ||
+					(metricId === 'training-currency' && value < 80)}
+				<div class="qs-tile" class:qs-tile--alert={isAlert}>
+					<span class="qs-value" class:qs-value--alert={isAlert}>
+						{value}{unit}
+					</span>
+					<span class="qs-label">{meta?.label ?? metricId}</span>
+				</div>
+			{/each}
+		</div>
+	{/if}
 </WidgetShell>
 
 <style>
+	.widget-empty {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		padding: var(--sp-4);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--ink-35);
+	}
+
 	.qs-grid {
 		display: grid;
 		grid-template-columns: repeat(var(--qs-count, 3), 1fr);

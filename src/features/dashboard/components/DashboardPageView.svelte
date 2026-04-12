@@ -17,7 +17,7 @@
 	let pickerOpen = $state(false);
 
 	onMount(() => {
-		dashboardLayout.init(ctx.data.orgId);
+		dashboardLayout.init(ctx.data.orgId, ctx.data.permissions);
 	});
 
 	function enterConfigure() {

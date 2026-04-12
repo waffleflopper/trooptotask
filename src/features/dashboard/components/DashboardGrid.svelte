@@ -2,6 +2,7 @@
 	import { dndzone, SHADOW_ITEM_MARKER_PROPERTY_NAME } from 'svelte-dnd-action';
 	import type { DashboardContext } from '../contexts/DashboardContext.svelte';
 	import type { WidgetInstance, ColSpan } from '../dashboard.types';
+	import { filterDashboardWidgets, mergeVisibleWidgetOrder } from '../dashboard.types';
 	import { dashboardLayout } from '../stores/dashboardLayout.svelte';
 
 	// Widget components
@@ -25,18 +26,18 @@
 	const widgets = $derived(dashboardLayout.widgets);
 
 	// Local copy during drag for smooth animation
-	let localWidgets = $state<WidgetInstance[]>([...dashboardLayout.widgets]);
+	let localVisibleWidgets = $state<WidgetInstance[]>([]);
 	let isDragging = $state(false);
 
 	$effect(() => {
 		if (!isDragging) {
-			localWidgets = [...widgets];
+			localVisibleWidgets = filterDashboardWidgets(widgets, ctx.data.permissions);
 		}
 	});
 
 	function handleConsider(e: CustomEvent<{ items: WidgetInstance[] }>) {
 		isDragging = true;
-		localWidgets = e.detail.items;
+		localVisibleWidgets = e.detail.items;
 	}
 
 	function handleFinalize(e: CustomEvent<{ items: WidgetInstance[] }>) {
@@ -44,7 +45,7 @@
 		const clean = e.detail.items.filter(
 			(w) => !(SHADOW_ITEM_MARKER_PROPERTY_NAME in (w as unknown as Record<string, unknown>))
 		);
-		dashboardLayout.setWidgets(clean);
+		dashboardLayout.setWidgets(mergeVisibleWidgetOrder(widgets, clean, ctx.data.permissions));
 	}
 
 	function removeWidget(id: string) {
@@ -65,94 +66,113 @@
 	Full-width (span 3) widgets use 1 / -1 so they always start a fresh row
 	and push all content below them.
 -->
-<div
-	class="widget-grid"
-	class:widget-grid--configure={configureMode}
-	use:dndzone={{
-		items: localWidgets,
-		flipDurationMs: 180,
-		dragDisabled: !configureMode,
-		dropTargetStyle: {}
-	}}
-	onconsider={handleConsider}
-	onfinalize={handleFinalize}
->
-	{#each localWidgets as widget (widget.id)}
-		{@const colSpan = (widget.colSpan ?? 1) as ColSpan}
-		<div
-			class="widget-slot"
-			class:widget-slot--configure={configureMode}
-			class:widget-slot--span2={colSpan === 2}
-			class:widget-slot--span3={colSpan === 3}
-		>
-			{#if configureMode}
-				<div class="widget-controls">
-					<!-- Drag handle -->
-					<div class="widget-drag-handle" aria-label="Drag to reorder" title="Drag to reorder">
-						<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-							<circle cx="5" cy="4" r="1.2" />
-							<circle cx="11" cy="4" r="1.2" />
-							<circle cx="5" cy="8" r="1.2" />
-							<circle cx="11" cy="8" r="1.2" />
-							<circle cx="5" cy="12" r="1.2" />
-							<circle cx="11" cy="12" r="1.2" />
-						</svg>
+{#if localVisibleWidgets.length === 0}
+	<div class="dashboard-empty">
+		<p class="empty-message">No widgets available for your current permissions.</p>
+	</div>
+{:else}
+	<div
+		class="widget-grid"
+		class:widget-grid--configure={configureMode}
+		use:dndzone={{
+			items: localVisibleWidgets,
+			flipDurationMs: 180,
+			dragDisabled: !configureMode,
+			dropTargetStyle: {}
+		}}
+		onconsider={handleConsider}
+		onfinalize={handleFinalize}
+	>
+		{#each localVisibleWidgets as widget (widget.id)}
+			{@const colSpan = (widget.colSpan ?? 1) as ColSpan}
+			<div
+				class="widget-slot"
+				class:widget-slot--configure={configureMode}
+				class:widget-slot--span2={colSpan === 2}
+				class:widget-slot--span3={colSpan === 3}
+			>
+				{#if configureMode}
+					<div class="widget-controls">
+						<!-- Drag handle -->
+						<div class="widget-drag-handle" aria-label="Drag to reorder" title="Drag to reorder">
+							<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+								<circle cx="5" cy="4" r="1.2" />
+								<circle cx="11" cy="4" r="1.2" />
+								<circle cx="5" cy="8" r="1.2" />
+								<circle cx="11" cy="8" r="1.2" />
+								<circle cx="5" cy="12" r="1.2" />
+								<circle cx="11" cy="12" r="1.2" />
+							</svg>
+						</div>
+
+						<!-- Span controls -->
+						<div class="widget-span-picker" role="group" aria-label="Column span">
+							{#each [1, 2, 3] as ColSpan[] as span (span)}
+								<button
+									class="span-btn"
+									class:span-btn--active={colSpan === span}
+									onclick={() => setColSpan(widget.id, span)}
+									aria-pressed={colSpan === span}
+									title={SPAN_LABELS[span]}
+								>
+									{SPAN_LABELS[span]}
+								</button>
+							{/each}
+						</div>
+
+						<!-- Remove -->
+						<button
+							class="widget-remove-btn"
+							onclick={() => removeWidget(widget.id)}
+							aria-label="Remove widget"
+							title="Remove"
+						>
+							<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+								<path d="M12 4L4 12M4 4l8 8" stroke-linecap="round" />
+							</svg>
+						</button>
 					</div>
+				{/if}
 
-					<!-- Span controls -->
-					<div class="widget-span-picker" role="group" aria-label="Column span">
-						{#each [1, 2, 3] as ColSpan[] as span (span)}
-							<button
-								class="span-btn"
-								class:span-btn--active={colSpan === span}
-								onclick={() => setColSpan(widget.id, span)}
-								aria-pressed={colSpan === span}
-								title={SPAN_LABELS[span]}
-							>
-								{SPAN_LABELS[span]}
-							</button>
-						{/each}
-					</div>
-
-					<!-- Remove -->
-					<button
-						class="widget-remove-btn"
-						onclick={() => removeWidget(widget.id)}
-						aria-label="Remove widget"
-						title="Remove"
-					>
-						<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-							<path d="M12 4L4 12M4 4l8 8" stroke-linecap="round" />
-						</svg>
-					</button>
-				</div>
-			{/if}
-
-			<!-- Widget content -->
-			{#if widget.widgetId === 'strength'}
-				<StrengthWidget {ctx} widgetId={widget.id} config={widget.config} {configureMode} />
-			{:else if widget.widgetId === 'non-available'}
-				<NonAvailableWidget {ctx} config={widget.config} {configureMode} />
-			{:else if widget.widgetId === 'duty'}
-				<DutyRosterWidget {ctx} widgetId={widget.id} config={widget.config} {configureMode} />
-			{:else if widget.widgetId === 'evaluations'}
-				<EvaluationPipelineWidget {ctx} widgetId={widget.id} config={widget.config} {configureMode} />
-			{:else if widget.widgetId === 'training'}
-				<TrainingHealthWidget {ctx} widgetId={widget.id} config={widget.config} {configureMode} />
-			{:else if widget.widgetId === 'onboarding'}
-				<OnboardingStatusWidget {ctx} {configureMode} />
-			{:else if widget.widgetId === 'quick-stats'}
-				<QuickStatsWidget {ctx} widgetId={widget.id} config={widget.config} {configureMode} />
-			{:else if widget.widgetId === 'upcoming-losses'}
-				<UpcomingLossesWidget {configureMode} />
-			{:else if widget.widgetId === 'ictl'}
-				<IctlWidget {configureMode} />
-			{/if}
-		</div>
-	{/each}
-</div>
+				<!-- Widget content -->
+				{#if widget.widgetId === 'strength'}
+					<StrengthWidget {ctx} widgetId={widget.id} config={widget.config} {configureMode} />
+				{:else if widget.widgetId === 'non-available'}
+					<NonAvailableWidget {ctx} config={widget.config} {configureMode} />
+				{:else if widget.widgetId === 'duty'}
+					<DutyRosterWidget {ctx} widgetId={widget.id} config={widget.config} {configureMode} />
+				{:else if widget.widgetId === 'evaluations'}
+					<EvaluationPipelineWidget {ctx} widgetId={widget.id} config={widget.config} {configureMode} />
+				{:else if widget.widgetId === 'training'}
+					<TrainingHealthWidget {ctx} widgetId={widget.id} config={widget.config} {configureMode} />
+				{:else if widget.widgetId === 'onboarding'}
+					<OnboardingStatusWidget {ctx} {configureMode} />
+				{:else if widget.widgetId === 'quick-stats'}
+					<QuickStatsWidget {ctx} widgetId={widget.id} config={widget.config} {configureMode} />
+				{:else if widget.widgetId === 'upcoming-losses'}
+					<UpcomingLossesWidget {configureMode} />
+				{:else if widget.widgetId === 'ictl'}
+					<IctlWidget {configureMode} />
+				{/if}
+			</div>
+		{/each}
+	</div>
+{/if}
 
 <style>
+	.dashboard-empty {
+		display: flex;
+		justify-content: center;
+		padding: var(--sp-6) var(--sp-4);
+	}
+
+	.empty-message {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		color: var(--ink-35);
+		margin: 0;
+	}
+
 	/* ------------------------------------------------------------------ */
 	/* Flat 3-column grid.                                                  */
 	/* Items fill left → right, then wrap to next row.                     */

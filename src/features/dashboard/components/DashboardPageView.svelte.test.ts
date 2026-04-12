@@ -1,11 +1,16 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import DashboardPageView from './DashboardPageView.svelte';
 import type { DashboardContext } from '../contexts/DashboardContext.svelte';
 
+beforeEach(() => {
+	global.fetch = vi.fn(async () => new Response(JSON.stringify({ config: { version: 3, widgets: [] } })));
+});
+
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
 });
 
 function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {

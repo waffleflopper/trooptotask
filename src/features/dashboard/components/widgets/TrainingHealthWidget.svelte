@@ -3,6 +3,7 @@
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
 	import type { WidgetInstanceConfig } from '../../dashboard.types';
 	import { dashboardLayout } from '../../stores/dashboardLayout.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		ctx: DashboardContext;
@@ -32,7 +33,7 @@
 	// Comma-join their training names; pick the most severe label (expired > warning,
 	// then within expired pick the one with the most days elapsed).
 	const groupedIssues = $derived.by(() => {
-		const byPerson = new Map<string, typeof issues>();
+		const byPerson = new SvelteMap<string, typeof issues>();
 		for (const issue of issues) {
 			const existing = byPerson.get(issue.personName) ?? [];
 			existing.push(issue);
@@ -137,6 +138,7 @@
 					<!-- Group bar chart -->
 					{#if breakdown === 'group' && topDelinquencies.length > 0}
 						<div class="group-bars" role="list" aria-label="Training delinquencies by group">
+							<div class="gbar-note">Estimated by group size</div>
 							{#each topDelinquencies as g (g.groupName)}
 								<div class="gbar-row" role="listitem">
 									<span class="gbar-name">{g.groupName}</span>
@@ -147,7 +149,7 @@
 											style="width: {Math.max((g.count / maxGroupCount) * 100, 4)}%"
 										></div>
 									</div>
-									<span class="gbar-count">{g.count}</span>
+									<span class="gbar-count">~{g.count}</span>
 								</div>
 							{/each}
 						</div>
@@ -266,6 +268,14 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
+	}
+
+	.gbar-note {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--ink-35);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
 	}
 
 	.gbar-row {

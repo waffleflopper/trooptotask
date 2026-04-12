@@ -22,6 +22,15 @@ export type ColSpan = 1 | 2 | 3;
 // Kept for backward-compat with persisted configs; no longer used in UI.
 export type WidgetSize = 3 | 4 | 6 | 12;
 
+export type DashboardPermission =
+	| 'canViewCalendar'
+	| 'canViewTraining'
+	| 'canViewLeadersBook'
+	| 'canViewOnboarding'
+	| 'canViewPersonnel';
+
+export type DashboardPermissions = Partial<Record<DashboardPermission, boolean>> | null | undefined;
+
 // ---------------------------------------------------------------------------
 // Quick Stats metric catalog
 // ---------------------------------------------------------------------------
@@ -41,18 +50,65 @@ export interface QuickStatMetric {
 	id: QuickStatMetricId;
 	label: string;
 	description: string;
+	permission?: DashboardPermission;
 }
 
 export const QUICK_STAT_METRICS: QuickStatMetric[] = [
-	{ id: 'present-strength', label: 'Present Strength', description: 'Personnel available today' },
-	{ id: 'total-strength', label: 'Total Strength', description: 'All active personnel' },
-	{ id: 'non-available-today', label: 'Non-Available', description: 'Personnel unavailable today' },
-	{ id: 'on-leave', label: 'On Leave', description: 'Personnel on leave today' },
-	{ id: 'training-currency', label: 'Training Currency', description: '% with all training current' },
-	{ id: 'expired-training', label: 'Expired Training', description: 'Total expired training records' },
-	{ id: 'onboardings-in-progress', label: 'Onboardings Active', description: 'In-progress onboardings' },
-	{ id: 'evaluations-overdue', label: 'Evals Overdue', description: 'Overdue evaluations' },
-	{ id: 'evaluations-due-30', label: 'Evals Due (30d)', description: 'Evaluations due within 30 days' }
+	{
+		id: 'present-strength',
+		label: 'Present Strength',
+		description: 'Personnel available today',
+		permission: 'canViewCalendar'
+	},
+	{
+		id: 'total-strength',
+		label: 'Total Strength',
+		description: 'All active personnel',
+		permission: 'canViewPersonnel'
+	},
+	{
+		id: 'non-available-today',
+		label: 'Non-Available',
+		description: 'Personnel unavailable today',
+		permission: 'canViewCalendar'
+	},
+	{ id: 'on-leave', label: 'On Leave', description: 'Personnel on leave today', permission: 'canViewCalendar' },
+	{
+		id: 'training-currency',
+		label: 'Training Currency',
+		description: '% with all training current',
+		permission: 'canViewTraining'
+	},
+	{
+		id: 'expired-training',
+		label: 'Expired Training',
+		description: 'Total expired training records',
+		permission: 'canViewTraining'
+	},
+	{
+		id: 'onboardings-in-progress',
+		label: 'Onboardings Active',
+		description: 'In-progress onboardings',
+		permission: 'canViewOnboarding'
+	},
+	{
+		id: 'evaluations-overdue',
+		label: 'Evals Overdue',
+		description: 'Overdue evaluations',
+		permission: 'canViewLeadersBook'
+	},
+	{
+		id: 'evaluations-due-30',
+		label: 'Evals Due (30d)',
+		description: 'Evaluations due within 30 days',
+		permission: 'canViewLeadersBook'
+	}
+];
+
+export const DEFAULT_QUICK_STAT_METRICS: QuickStatMetricId[] = [
+	'present-strength',
+	'training-currency',
+	'evaluations-overdue'
 ];
 
 // ---------------------------------------------------------------------------
@@ -115,7 +171,7 @@ export interface WidgetMeta {
 	description: string;
 	defaultSize: WidgetSize;
 	placeholder?: boolean; // not yet implemented
-	permission?: 'canViewCalendar' | 'canViewTraining' | 'canViewLeadersBook' | 'canViewOnboarding' | 'canViewPersonnel';
+	permission?: DashboardPermission;
 }
 
 export const WIDGET_CATALOG: WidgetMeta[] = [
@@ -211,3 +267,87 @@ export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
 		{ id: 'default-9', widgetId: 'ictl', config: {} }
 	]
 };
+
+export function hasDashboardPermission(permissions: DashboardPermissions, permission?: DashboardPermission): boolean {
+	if (!permission) return true;
+	return permissions?.[permission] === true;
+}
+
+export function getAllowedQuickStatMetrics(permissions: DashboardPermissions): QuickStatMetric[] {
+	return QUICK_STAT_METRICS.filter((metric) => hasDashboardPermission(permissions, metric.permission));
+}
+
+export function filterQuickStatMetricIds(
+	metricIds: QuickStatMetricId[],
+	permissions: DashboardPermissions
+): QuickStatMetricId[] {
+	const allowedIds = new Set(getAllowedQuickStatMetrics(permissions).map((metric) => metric.id));
+	return metricIds.filter((metricId) => allowedIds.has(metricId));
+}
+
+export function isDashboardWidgetAllowed(widgetId: WidgetId, permissions: DashboardPermissions): boolean {
+	const meta = WIDGET_CATALOG.find((widget) => widget.id === widgetId);
+	if (!meta) return false;
+	if (!hasDashboardPermission(permissions, meta.permission)) return false;
+	if (widgetId === 'quick-stats') {
+		return getAllowedQuickStatMetrics(permissions).length > 0;
+	}
+	return true;
+}
+
+export function filterDashboardWidgets(
+	widgets: WidgetInstance[],
+	permissions: DashboardPermissions,
+	options: { pruneEmptyQuickStats?: boolean } = {}
+): WidgetInstance[] {
+	const pruneEmptyQuickStats = options.pruneEmptyQuickStats ?? false;
+
+	return widgets
+		.filter((widget) => isDashboardWidgetAllowed(widget.widgetId, permissions))
+		.map((widget) => {
+			if (widget.widgetId !== 'quick-stats') return widget;
+
+			const requestedMetrics = widget.config.metrics ?? DEFAULT_QUICK_STAT_METRICS;
+			const metrics = filterQuickStatMetricIds(requestedMetrics, permissions);
+			return {
+				...widget,
+				config: {
+					...widget.config,
+					metrics
+				}
+			};
+		})
+		.filter((widget) => {
+			if (!pruneEmptyQuickStats || widget.widgetId !== 'quick-stats') return true;
+			return (widget.config.metrics?.length ?? 0) > 0;
+		});
+}
+
+export function getPermissionAwareDashboardConfig(
+	config: DashboardConfig,
+	permissions: DashboardPermissions
+): DashboardConfig {
+	return {
+		...config,
+		widgets: filterDashboardWidgets(config.widgets, permissions, { pruneEmptyQuickStats: true })
+	};
+}
+
+export function isDefaultDashboardConfig(config: DashboardConfig): boolean {
+	return (
+		config.widgets.length === DEFAULT_DASHBOARD_CONFIG.widgets.length &&
+		config.widgets.every((widget, index) => widget.id === DEFAULT_DASHBOARD_CONFIG.widgets[index]?.id)
+	);
+}
+
+export function mergeVisibleWidgetOrder(
+	allWidgets: WidgetInstance[],
+	visibleWidgets: WidgetInstance[],
+	permissions: DashboardPermissions
+): WidgetInstance[] {
+	const nextVisibleWidgets = [...visibleWidgets];
+	return allWidgets.map((widget) => {
+		if (!isDashboardWidgetAllowed(widget.widgetId, permissions)) return widget;
+		return nextVisibleWidgets.shift() ?? widget;
+	});
+}

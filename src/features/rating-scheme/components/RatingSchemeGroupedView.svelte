@@ -5,6 +5,7 @@
 	import { getRatingDueStatus, getDaysUntilDue } from '$features/rating-scheme/utils/ratingScheme';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		entries: RatingSchemeEntry[];
@@ -31,19 +32,21 @@
 	}
 
 	interface GroupedScheme {
+		seniorRaterKey: string;
 		seniorRaterLabel: string;
 		raterGroups: {
+			raterKey: string;
 			raterLabel: string;
 			entries: RatingSchemeEntry[];
 		}[];
 	}
 
 	const grouped = $derived.by<GroupedScheme[]>(() => {
-		const srMap = new Map<string, Map<string, RatingSchemeEntry[]>>();
+		const srMap = new SvelteMap<string, SvelteMap<string, RatingSchemeEntry[]>>();
 
 		for (const entry of entries) {
 			const srKey = getSeniorRaterKey(entry);
-			if (!srMap.has(srKey)) srMap.set(srKey, new Map());
+			if (!srMap.has(srKey)) srMap.set(srKey, new SvelteMap());
 			const raterMap = srMap.get(srKey)!;
 			const rKey = getRaterKey(entry);
 			if (!raterMap.has(rKey)) raterMap.set(rKey, []);
@@ -51,19 +54,20 @@
 		}
 
 		const result: GroupedScheme[] = [];
-		for (const [srKey, raterMap] of srMap) {
+		for (const [seniorRaterKey, raterMap] of srMap) {
 			const firstEntry = [...raterMap.values()][0][0];
 			const seniorRaterLabel = getPersonDisplay(firstEntry.seniorRaterPersonId, firstEntry.seniorRaterName);
 
 			const raterGroups: GroupedScheme['raterGroups'] = [];
-			for (const [, raterEntries] of raterMap) {
+			for (const [raterKey, raterEntries] of raterMap) {
 				const firstRaterEntry = raterEntries[0];
 				raterGroups.push({
+					raterKey,
 					raterLabel: getPersonDisplay(firstRaterEntry.raterPersonId, firstRaterEntry.raterName),
 					entries: raterEntries.sort((a, b) => a.ratingPeriodEnd.localeCompare(b.ratingPeriodEnd))
 				});
 			}
-			result.push({ seniorRaterLabel, raterGroups });
+			result.push({ seniorRaterKey, seniorRaterLabel, raterGroups });
 		}
 		return result;
 	});
@@ -105,13 +109,13 @@
 	<EmptyState message="No rating scheme entries yet. Click 'Add Entry' to get started." />
 {:else}
 	<div class="grouped-view">
-		{#each grouped as srGroup}
+		{#each grouped as srGroup (srGroup.seniorRaterKey)}
 			<div class="sr-group">
 				<div class="sr-header">
 					<span class="sr-label">SR:</span>
 					{srGroup.seniorRaterLabel}
 				</div>
-				{#each srGroup.raterGroups as rGroup}
+				{#each srGroup.raterGroups as rGroup (rGroup.raterKey)}
 					<div class="rater-group">
 						<div class="rater-header">
 							<span class="rater-label">Rater:</span>

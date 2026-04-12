@@ -4,8 +4,8 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import type { OrganizationMember, OrganizationMemberPermissions, PermissionPreset } from '$lib/types';
-	import { PERMISSION_PRESETS, getPermissionPreset } from '$lib/types';
+	import type { OrganizationMember, PermissionPreset } from '$lib/types';
+	import { getPermissionPreset } from '$lib/types';
 	import { sortMembers } from '$features/groups/utils/sortMembers';
 
 	interface Invitation {
@@ -50,7 +50,7 @@
 		};
 	}
 
-	let { orgId, members, invitations, isOwner, isAdmin, canManageMembers, groups, form }: Props = $props();
+	let { members, invitations, isOwner, canManageMembers, groups, form }: Props = $props();
 
 	const sortedMembers = $derived(sortMembers(members));
 
@@ -216,7 +216,7 @@
 											}
 										}}
 									>
-										{#each availablePresetOptions as option}
+										{#each availablePresetOptions as option (option.value)}
 											<option value={option.value}>{option.label}</option>
 										{/each}
 										{#if preset === 'custom'}
@@ -233,7 +233,7 @@
 											}}
 										>
 											<option value="">Select group...</option>
-											{#each groups as group}
+											{#each groups as group (group.id)}
 												<option value={group.id}>{group.name}</option>
 											{/each}
 										</select>
@@ -459,14 +459,14 @@
 						required
 					/>
 					<select name="preset" class="preset-select" bind:value={invitePreset}>
-						{#each availablePresetOptions as option}
+						{#each availablePresetOptions as option (option.value)}
 							<option value={option.value}>{option.label}</option>
 						{/each}
 					</select>
 					{#if invitePreset === 'team-leader'}
 						<select name="scopedGroupId" class="preset-select" bind:value={inviteScopedGroupId}>
 							<option value="">Select group...</option>
-							{#each groups as group}
+							{#each groups as group (group.id)}
 								<option value={group.id}>{group.name}</option>
 							{/each}
 						</select>
@@ -482,7 +482,7 @@
 			<div class="section">
 				<h2>Pending Invitations</h2>
 				<div class="invitation-list">
-					{#each invitations as invite}
+					{#each invitations as invite (invite.id)}
 						{@const invitePreset = getInvitePreset(invite)}
 						<div class="invitation-item">
 							<div class="invite-info">

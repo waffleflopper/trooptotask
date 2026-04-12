@@ -12,6 +12,7 @@ import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 import { deriveShortName, deriveBadgeColor } from '$features/calendar/utils/dutyEventBadges';
 import { getVisibleDashboardCards } from '$lib/utils/dashboardCards';
 import { formatDate, parseDate } from '$lib/utils/dates';
+import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
@@ -84,7 +85,7 @@ export class DashboardContext {
 
 	constructor(data: DashboardPageData) {
 		this.data = data;
-		this.today = formatDate(new Date());
+		this.today = formatDate(new SvelteDate());
 
 		if (
 			typeof data.onboardingTemplateStepCount === 'number' &&
@@ -210,7 +211,7 @@ export class DashboardContext {
 	// Derived: personnelIds (scoped)
 	// ---------------------------------------------------------------------------
 	get personnelIds(): Set<string> {
-		return new Set(personnelStore.items.map((p) => p.id));
+		return new SvelteSet(personnelStore.items.map((p) => p.id));
 	}
 
 	// ---------------------------------------------------------------------------
@@ -226,7 +227,7 @@ export class DashboardContext {
 	// Derived: unavailablePersonnelIds
 	// ---------------------------------------------------------------------------
 	get unavailablePersonnelIds(): Set<string> {
-		return new Set(this.todayEntries.map((e) => e.personnelId));
+		return new SvelteSet(this.todayEntries.map((e) => e.personnelId));
 	}
 
 	// ---------------------------------------------------------------------------
@@ -244,7 +245,7 @@ export class DashboardContext {
 	// Derived: statusBreakdown
 	// ---------------------------------------------------------------------------
 	get statusBreakdown(): Map<string, { name: string; color: string; textColor: string; count: number }> {
-		const map = new Map<string, { name: string; color: string; textColor: string; count: number }>();
+		const map = new SvelteMap<string, { name: string; color: string; textColor: string; count: number }>();
 		for (const entry of this.todayEntries) {
 			const st = statusTypesStore.items.find((s) => s.id === entry.statusTypeId);
 			if (!st) continue;
@@ -348,7 +349,7 @@ export class DashboardContext {
 		statusColor: string;
 		direction: 'departing' | 'returning';
 	}[] {
-		const sevenDaysOut = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+		const sevenDaysOut = new SvelteDate(Date.now() + 7 * 24 * 60 * 60 * 1000);
 		const twoWeeksStr = `${sevenDaysOut.getFullYear()}-${String(sevenDaysOut.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysOut.getDate()).padStart(2, '0')}`;
 
 		const changes: {
@@ -397,7 +398,7 @@ export class DashboardContext {
 	// Derived: upcomingByDate (grouped)
 	// ---------------------------------------------------------------------------
 	get upcomingByDate(): Map<string, typeof this.upcomingChanges> {
-		const map = new Map<string, typeof this.upcomingChanges>();
+		const map = new SvelteMap<string, typeof this.upcomingChanges>();
 		for (const change of this.upcomingChanges) {
 			const existing = map.get(change.date);
 			if (existing) existing.push(change);
@@ -418,7 +419,7 @@ export class DashboardContext {
 		pct: number;
 	}[] {
 		const onboardings = this.data.dashboard.data.activeOnboardings.filter((o) => this.personnelIds.has(o.personnelId));
-		const completionSet = new Set(this.data.onboardingTrainingCompletions ?? []);
+		const completionSet = new SvelteSet(this.data.onboardingTrainingCompletions ?? []);
 
 		return onboardings.map((o) => {
 			const person = personnelStore.items.find((p) => p.id === o.personnelId);
@@ -460,7 +461,7 @@ export class DashboardContext {
 		statusCounts: Map<string, number>;
 		isPinned: boolean;
 	}[] {
-		const pinnedSet = new Set(pinnedGroupsStore.list);
+		const pinnedSet = new SvelteSet(pinnedGroupsStore.list);
 		const sorted = [...groupsStore.items].sort((a, b) => {
 			const aPinned = pinnedSet.has(a.name);
 			const bPinned = pinnedSet.has(b.name);
@@ -476,7 +477,7 @@ export class DashboardContext {
 			const available = total - unavailable;
 			const pct = total > 0 ? Math.round((available / total) * 100) : 100;
 
-			const statusCounts = new Map<string, number>();
+			const statusCounts = new SvelteMap<string, number>();
 			for (const person of groupPersonnel) {
 				const entry = this.todayEntries.find((e) => e.personnelId === person.id);
 				if (entry) {

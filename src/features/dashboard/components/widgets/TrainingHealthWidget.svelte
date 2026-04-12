@@ -22,6 +22,44 @@
 	const delinquencies = $derived(ctx.trainingGroupDelinquencies);
 	const totalIssues = $derived(stats ? stats.expired + stats.warningOrange + stats.warningYellow : 0);
 	const hasSignal = $derived(totalIssues > 0);
+
+	// Bar chart: normalize against the worst group so bars are relative, not absolute
+	// Bar chart: top 5 worst groups only, normalized so the worst group = full bar
+	const topDelinquencies = $derived(delinquencies.slice(0, 5));
+	const maxGroupCount = $derived(topDelinquencies.length > 0 ? Math.max(...topDelinquencies.map((g) => g.count)) : 1);
+
+	// Group issues by person — show up to 5 unique people.
+	// Comma-join their training names; pick the most severe label (expired > warning,
+	// then within expired pick the one with the most days elapsed).
+	const groupedIssues = $derived.by(() => {
+		const byPerson = new Map<string, typeof issues>();
+		for (const issue of issues) {
+			const existing = byPerson.get(issue.personName) ?? [];
+			existing.push(issue);
+			byPerson.set(issue.personName, existing);
+		}
+
+		return [...byPerson.values()].slice(0, 5).map((personIssues) => {
+			// Sort each person's issues: expired first, then by days elapsed desc
+			const sorted = [...personIssues].sort((a, b) => {
+				if (a.status === 'expired' && b.status !== 'expired') return -1;
+				if (b.status === 'expired' && a.status !== 'expired') return 1;
+				// Parse days from label e.g. "EXPIRED 245D AGO" or "Expiring in 12d"
+				const daysA = parseInt(a.label?.match(/\d+/)?.[0] ?? '0');
+				const daysB = parseInt(b.label?.match(/\d+/)?.[0] ?? '0');
+				// For expired: more days ago = worse; for warning: fewer days = more urgent
+				return a.status === 'expired' ? daysB - daysA : daysA - daysB;
+			});
+
+			return {
+				personName: sorted[0].personName,
+				typeNames: sorted.map((i) => i.typeName).join(', '),
+				status: sorted[0].status,
+				label: sorted[0].label || sorted[0].status,
+				isExpired: sorted[0].status === 'expired'
+			};
+		});
+	});
 </script>
 
 <WidgetShell
@@ -97,16 +135,16 @@
 					</div>
 
 					<!-- Group bar chart -->
-					{#if breakdown === 'group' && delinquencies.length > 0}
+					{#if breakdown === 'group' && topDelinquencies.length > 0}
 						<div class="group-bars" role="list" aria-label="Training delinquencies by group">
-							{#each delinquencies as g (g.groupName)}
+							{#each topDelinquencies as g (g.groupName)}
 								<div class="gbar-row" role="listitem">
 									<span class="gbar-name">{g.groupName}</span>
 									<div class="gbar-track">
 										<div
 											class="gbar-fill"
-											class:gbar-fill--high={g.pct >= 30}
-											style="width: {Math.min(g.pct * 2.5, 100)}%"
+											class:gbar-fill--high={g.count >= maxGroupCount * 0.5}
+											style="width: {Math.max((g.count / maxGroupCount) * 100, 4)}%"
 										></div>
 									</div>
 									<span class="gbar-count">{g.count}</span>
@@ -120,21 +158,21 @@
 			{#if display === 'list' || display === 'both'}
 				<div class="training-issues" class:training-issues--standalone={display === 'list'}>
 					<div class="issues-header">Top issues</div>
-					{#if issues.length === 0}
+					{#if groupedIssues.length === 0}
 						<div class="widget-empty" style="padding: var(--sp-3)"><span>No issue data.</span></div>
 					{:else}
 						<div class="issues-list" role="list">
-							{#each issues as issue (issue.personName + issue.typeName)}
+							{#each groupedIssues as issue (issue.personName)}
 								<div class="issue-row" role="listitem">
 									<span
 										class="issue-dot"
-										class:issue-dot--expired={issue.status === 'expired'}
-										class:issue-dot--warn={issue.status !== 'expired'}
+										class:issue-dot--expired={issue.isExpired}
+										class:issue-dot--warn={!issue.isExpired}
 									></span>
 									<span class="issue-name">{issue.personName}</span>
-									<span class="issue-type">{issue.typeName}</span>
-									<span class="issue-label" class:issue-label--expired={issue.status === 'expired'}>
-										{issue.label || issue.status}
+									<span class="issue-type">{issue.typeNames}</span>
+									<span class="issue-label" class:issue-label--expired={issue.isExpired}>
+										{issue.label}
 									</span>
 								</div>
 							{/each}

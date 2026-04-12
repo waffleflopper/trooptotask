@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { dndzone, SHADOW_ITEM_MARKER_PROPERTY_NAME } from 'svelte-dnd-action';
 	import type { DashboardContext } from '../contexts/DashboardContext.svelte';
-	import type { WidgetInstance, WidgetSize } from '../dashboard.types';
+	import type { WidgetInstance, ColSpan } from '../dashboard.types';
 	import { dashboardLayout } from '../stores/dashboardLayout.svelte';
 
 	// Widget components
@@ -24,40 +24,70 @@
 	const configureMode = $derived(dashboardLayout.configureMode);
 	const widgets = $derived(dashboardLayout.widgets);
 
-	const SIZES: WidgetSize[] = [3, 4, 6, 12];
-	const SIZE_LABELS: Record<WidgetSize, string> = { 3: 'Narrow', 4: 'Standard', 6: 'Wide', 12: 'Full' };
+	// Local copy during drag for smooth animation
+	let localWidgets = $state<WidgetInstance[]>([...dashboardLayout.widgets]);
+	let isDragging = $state(false);
+
+	$effect(() => {
+		if (!isDragging) {
+			localWidgets = [...widgets];
+		}
+	});
 
 	function handleConsider(e: CustomEvent<{ items: WidgetInstance[] }>) {
-		dashboardLayout.widgets = e.detail.items;
+		isDragging = true;
+		localWidgets = e.detail.items;
 	}
 
 	function handleFinalize(e: CustomEvent<{ items: WidgetInstance[] }>) {
-		dashboardLayout.setWidgets(
-			e.detail.items.filter((w) => !w[SHADOW_ITEM_MARKER_PROPERTY_NAME as keyof WidgetInstance])
+		isDragging = false;
+		const clean = e.detail.items.filter(
+			(w) => !(SHADOW_ITEM_MARKER_PROPERTY_NAME in (w as unknown as Record<string, unknown>))
 		);
+		dashboardLayout.setWidgets(clean);
 	}
 
 	function removeWidget(id: string) {
 		dashboardLayout.removeWidget(id);
 	}
 
-	function setSize(id: string, size: WidgetSize) {
-		dashboardLayout.updateWidgetSize(id, size);
+	function setColSpan(id: string, span: ColSpan) {
+		dashboardLayout.updateWidgetColSpan(id, span);
 	}
+
+	const SPAN_LABELS: Record<ColSpan, string> = { 1: '1 col', 2: '2 col', 3: 'Full width' };
 </script>
 
+<!--
+	Single flat DnD zone. CSS grid places items left-to-right, top-to-bottom.
+	grid-column: span N ensures widgets ACTUALLY occupy N columns so adjacent
+	widgets flow around them correctly — no overlap, no visual trickery.
+	Full-width (span 3) widgets use 1 / -1 so they always start a fresh row
+	and push all content below them.
+-->
 <div
 	class="widget-grid"
 	class:widget-grid--configure={configureMode}
-	use:dndzone={{ items: widgets, flipDurationMs: 180, dragDisabled: !configureMode, dropTargetStyle: {} }}
+	use:dndzone={{
+		items: localWidgets,
+		flipDurationMs: 180,
+		dragDisabled: !configureMode,
+		dropTargetStyle: {}
+	}}
 	onconsider={handleConsider}
 	onfinalize={handleFinalize}
 >
-	{#each widgets as widget (widget.id)}
-		<div class="widget-slot" class:widget-slot--configure={configureMode} style="--widget-cols: {widget.size}">
+	{#each localWidgets as widget (widget.id)}
+		{@const colSpan = (widget.colSpan ?? 1) as ColSpan}
+		<div
+			class="widget-slot"
+			class:widget-slot--configure={configureMode}
+			class:widget-slot--span2={colSpan === 2}
+			class:widget-slot--span3={colSpan === 3}
+		>
 			{#if configureMode}
-				<!-- Configure-mode overlay controls -->
-				<div class="widget-controls" aria-label="Widget controls">
+				<div class="widget-controls">
+					<!-- Drag handle -->
 					<div class="widget-drag-handle" aria-label="Drag to reorder" title="Drag to reorder">
 						<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
 							<circle cx="5" cy="4" r="1.2" />
@@ -69,21 +99,22 @@
 						</svg>
 					</div>
 
-					<div class="widget-size-picker" role="group" aria-label="Widget size">
-						{#each SIZES as size (size)}
+					<!-- Span controls -->
+					<div class="widget-span-picker" role="group" aria-label="Column span">
+						{#each [1, 2, 3] as ColSpan[] as span (span)}
 							<button
-								class="size-btn"
-								class:size-btn--active={widget.size === size}
-								onclick={() => setSize(widget.id, size)}
-								title={SIZE_LABELS[size]}
-								aria-pressed={widget.size === size}
-								aria-label="{SIZE_LABELS[size]} width"
+								class="span-btn"
+								class:span-btn--active={colSpan === span}
+								onclick={() => setColSpan(widget.id, span)}
+								aria-pressed={colSpan === span}
+								title={SPAN_LABELS[span]}
 							>
-								{SIZE_LABELS[size]}
+								{SPAN_LABELS[span]}
 							</button>
 						{/each}
 					</div>
 
+					<!-- Remove -->
 					<button
 						class="widget-remove-btn"
 						onclick={() => removeWidget(widget.id)}
@@ -122,24 +153,41 @@
 </div>
 
 <style>
+	/* ------------------------------------------------------------------ */
+	/* Flat 3-column grid.                                                  */
+	/* Items fill left → right, then wrap to next row.                     */
+	/* grid-column: span N means the widget ACTUALLY takes up N columns,   */
+	/* so every other widget correctly flows around it.                     */
+	/* Full-width (1 / -1) always starts and ends on a row boundary.       */
+	/* ------------------------------------------------------------------ */
+
 	.widget-grid {
 		display: grid;
-		grid-template-columns: repeat(12, 1fr);
+		grid-template-columns: repeat(3, 1fr);
+		grid-auto-flow: row;
 		gap: var(--sp-3);
 		align-items: start;
-		/* Prevent layout shift from dnd ghost */
-		padding: 1px;
 	}
 
+	/* Default: 1 column wide */
 	.widget-slot {
-		grid-column: span var(--widget-cols, 4);
+		grid-column: span 1;
 		display: flex;
 		flex-direction: column;
-		position: relative;
 		min-width: 0;
+		min-height: 120px;
 	}
 
-	/* Configure mode: show controls above the widget */
+	/* 2-column span */
+	.widget-slot--span2 {
+		grid-column: span 2;
+	}
+
+	/* Full-width: always occupies an entire row, pushes content below */
+	.widget-slot--span3 {
+		grid-column: 1 / -1;
+	}
+
 	.widget-slot--configure {
 		cursor: grab;
 	}
@@ -155,7 +203,6 @@
 		gap: var(--sp-2);
 		padding: var(--sp-1) var(--sp-2);
 		background: var(--color-chrome);
-		margin-bottom: 0;
 		flex-shrink: 0;
 	}
 
@@ -179,13 +226,13 @@
 		height: 14px;
 	}
 
-	.widget-size-picker {
+	.widget-span-picker {
 		display: flex;
 		gap: 2px;
 		flex: 1;
 	}
 
-	.size-btn {
+	.span-btn {
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		text-transform: uppercase;
@@ -203,18 +250,18 @@
 		white-space: nowrap;
 	}
 
-	.size-btn:hover {
+	.span-btn:hover {
 		background: rgba(255, 255, 255, 0.08);
 		color: var(--color-chrome-text);
 	}
 
-	.size-btn--active {
+	.span-btn--active {
 		background: var(--amber);
 		border-color: var(--amber);
 		color: var(--accent-contrast);
 	}
 
-	.size-btn:focus-visible {
+	.span-btn:focus-visible {
 		outline: var(--focus-outline);
 		outline-offset: 1px;
 	}
@@ -252,15 +299,15 @@
 		height: 14px;
 	}
 
-	/* Tablet: collapse to 6-column grid, narrow widgets go full-width */
+	/* Tablet: 2 columns; span-3 still goes full-width */
 	@media (max-width: 900px) {
 		.widget-grid {
-			grid-template-columns: repeat(6, 1fr);
+			grid-template-columns: repeat(2, 1fr);
 		}
 
-		.widget-slot {
-			/* Map 12-col spans to 6-col equivalents */
-			grid-column: span min(var(--widget-cols, 4), 6);
+		.widget-slot--span2,
+		.widget-slot--span3 {
+			grid-column: 1 / -1;
 		}
 	}
 
@@ -270,12 +317,10 @@
 			grid-template-columns: 1fr;
 		}
 
-		.widget-slot {
+		.widget-slot,
+		.widget-slot--span2,
+		.widget-slot--span3 {
 			grid-column: span 1;
-		}
-
-		.widget-size-picker {
-			display: none;
 		}
 	}
 </style>

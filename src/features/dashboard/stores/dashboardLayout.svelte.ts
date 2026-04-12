@@ -15,33 +15,54 @@ function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number)
 }
 
 // ---------------------------------------------------------------------------
+// Migrate old per-column configs (v1/v2) to flat v3 ordering.
+// Interleaves widgets by col: col0[0], col1[0], col2[0], col0[1], ...
+// ---------------------------------------------------------------------------
+
+function migrateToFlatConfig(cfg: DashboardConfig): DashboardConfig {
+	if (cfg.version >= 3) return cfg;
+
+	const byCol: Record<number, WidgetInstance[]> = {};
+	for (const w of cfg.widgets) {
+		const c = w.col ?? 0;
+		(byCol[c] ??= []).push(w);
+	}
+
+	const numCols = Math.max(...Object.keys(byCol).map(Number), 0) + 1;
+	const maxLen = Math.max(...Object.values(byCol).map((a) => a.length), 0);
+	const flat: WidgetInstance[] = [];
+
+	for (let row = 0; row < maxLen; row++) {
+		for (let col = 0; col < numCols; col++) {
+			const w = byCol[col]?.[row];
+			if (w) {
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
+				const { col: _col, size: _size, ...rest } = w;
+				flat.push(rest);
+			}
+		}
+	}
+
+	return { version: 3, widgets: flat };
+}
+
+// ---------------------------------------------------------------------------
 // Dashboard layout store
-// Loads from Supabase on mount, saves back on change (debounced).
-// Falls back to DEFAULT_DASHBOARD_CONFIG if no saved config found.
 // ---------------------------------------------------------------------------
 
 class DashboardLayoutStore {
-	// Current widget list (the layout)
 	widgets = $state<WidgetInstance[]>(DEFAULT_DASHBOARD_CONFIG.widgets);
-
-	// Loading / error state
 	loading = $state(true);
 	error = $state<string | null>(null);
-
-	// Whether we're in configure mode
 	configureMode = $state(false);
-
-	// Track first-run (no Supabase config found)
 	isFirstRun = $state(false);
-
-	// First-run callout dismissed
 	firstRunDismissed = $state(false);
 
 	private orgId: string | null = null;
 	private saveVersion = 0;
 
 	// ---------------------------------------------------------------------------
-	// Init: fetch config from API (call once on dashboard mount with orgId)
+	// Init
 	// ---------------------------------------------------------------------------
 
 	async init(orgId: string) {
@@ -54,14 +75,8 @@ class DashboardLayoutStore {
 			const res = await fetch(`/org/${orgId}/api/dashboard-config`);
 			if (!res.ok) throw new Error('Failed to load dashboard config');
 			const data = (await res.json()) as { config: DashboardConfig };
-			const cfg = data.config;
+			const cfg = migrateToFlatConfig(data.config);
 
-			// Detect first-run: config is the default (no user has saved yet)
-			// We treat "no saved config" as first-run by checking if config equals
-			// the default. The API returns default when no row found.
-			// The API returns the actual row config when found, so we can't easily
-			// distinguish. Instead we use a simple heuristic: if widget ids match
-			// the default exactly, it's likely first-run.
 			const isDefault =
 				cfg.widgets.length === DEFAULT_DASHBOARD_CONFIG.widgets.length &&
 				cfg.widgets.every((w, i) => w.id === DEFAULT_DASHBOARD_CONFIG.widgets[i]?.id);
@@ -78,16 +93,13 @@ class DashboardLayoutStore {
 	}
 
 	// ---------------------------------------------------------------------------
-	// Save (debounced, optimistic — UI already updated)
+	// Save (debounced, optimistic)
 	// ---------------------------------------------------------------------------
 
 	private _save = debounce(async () => {
 		if (!this.orgId || !browser) return;
 		const version = ++this.saveVersion;
-		const config: DashboardConfig = {
-			version: 1,
-			widgets: this.widgets
-		};
+		const config: DashboardConfig = { version: 3, widgets: this.widgets };
 
 		try {
 			const res = await fetch(`/org/${this.orgId}/api/dashboard-config`, {
@@ -110,7 +122,7 @@ class DashboardLayoutStore {
 	}
 
 	// ---------------------------------------------------------------------------
-	// Configure mode toggle
+	// Configure mode
 	// ---------------------------------------------------------------------------
 
 	enterConfigureMode() {
@@ -121,16 +133,12 @@ class DashboardLayoutStore {
 		this.configureMode = false;
 	}
 
-	// ---------------------------------------------------------------------------
-	// First-run callout dismiss
-	// ---------------------------------------------------------------------------
-
 	dismissFirstRun() {
 		this.firstRunDismissed = true;
 	}
 
 	// ---------------------------------------------------------------------------
-	// Widget operations (all optimistic)
+	// Widget operations (optimistic)
 	// ---------------------------------------------------------------------------
 
 	setWidgets(widgets: WidgetInstance[]) {
@@ -138,12 +146,10 @@ class DashboardLayoutStore {
 		this.save();
 	}
 
-	addWidget(widgetId: WidgetId, size: number, config: Record<string, unknown> = {}) {
+	addWidget(widgetId: WidgetId, _size: number, config: Record<string, unknown> = {}) {
 		const newWidget: WidgetInstance = {
 			id: `w-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
 			widgetId,
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			size: size as any,
 			config
 		};
 		this.widgets = [...this.widgets, newWidget];
@@ -155,8 +161,8 @@ class DashboardLayoutStore {
 		this.save();
 	}
 
-	updateWidgetSize(id: string, size: WidgetInstance['size']) {
-		this.widgets = this.widgets.map((w) => (w.id === id ? { ...w, size } : w));
+	updateWidgetColSpan(id: string, colSpan: 1 | 2 | 3) {
+		this.widgets = this.widgets.map((w) => (w.id === id ? { ...w, colSpan } : w));
 		this.save();
 	}
 
@@ -169,10 +175,6 @@ class DashboardLayoutStore {
 		this.widgets = [...DEFAULT_DASHBOARD_CONFIG.widgets];
 		this.save();
 	}
-
-	// ---------------------------------------------------------------------------
-	// Derived: active widget IDs (for picker "already added" state)
-	// ---------------------------------------------------------------------------
 
 	get activeWidgetIds(): Set<WidgetId> {
 		return new Set(this.widgets.map((w) => w.widgetId));

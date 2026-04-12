@@ -14,21 +14,6 @@ function buildCtx() {
 	return createQueryPortsContext();
 }
 
-function makePersonnel(id: string, groupId = 'g1') {
-	return {
-		id,
-		organization_id: ORG,
-		rank: 'SGT',
-		last_name: 'Smith',
-		first_name: 'John',
-		mos: '11B',
-		clinic_role: '',
-		group_id: groupId,
-		groups: { name: 'Alpha' },
-		archived_at: null
-	};
-}
-
 function makeTrainingType(id: string, name = 'CPR') {
 	return {
 		id,

@@ -84,7 +84,11 @@ describe('loadWithAdminContextCore', () => {
 	it('passes AdminContext to fn and returns result', async () => {
 		const ctx = makeCtx();
 		const config: AdminLoadConfig<{ count: number }> = {
-			fn: async (c) => ({ count: 42 })
+			fn: async (c, event) => {
+				expect(c).toBe(ctx);
+				expect(event).toBe(mockEvent);
+				return { count: 42 };
+			}
 		};
 
 		const result = await loadWithAdminContextCore(ctx, config, mockEvent);

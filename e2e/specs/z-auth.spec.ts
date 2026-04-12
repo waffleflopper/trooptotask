@@ -10,17 +10,17 @@ test.describe('Authentication', () => {
 		await loginPage.goto();
 	});
 
-	test('login with valid credentials redirects to dashboard', async ({ page }) => {
+	test('login with valid credentials redirects to dashboard', async () => {
 		await loginPage.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
 		await loginPage.expectRedirectToDashboard();
 	});
 
-	test('login with invalid password shows error', async ({ page }) => {
+	test('login with invalid password shows error', async () => {
 		await loginPage.login(TEST_USERS.owner.email, 'WrongPassword123!');
 		await loginPage.expectError();
 	});
 
-	test('login with empty fields shows validation error', async ({ page }) => {
+	test('login with empty fields shows validation error', async () => {
 		await loginPage.submitButton.click();
 		// Browser native validation prevents form submission — email field should show validity error
 		const emailInput = loginPage.emailInput;

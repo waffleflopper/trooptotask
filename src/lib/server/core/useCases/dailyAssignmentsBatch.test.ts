@@ -126,17 +126,17 @@ describe('batchDailyAssignments', () => {
 		expect((remaining[0] as Record<string, unknown>).assignee_id).toBe('person-1');
 	});
 
-	it('checks duty coverage and clears existing assignment slots in bulk', async () => {
+	it('checks duty coverage in bulk and clears affected assignment slots with one predicate delete', async () => {
 		const ctx = buildContext();
 		const findManyCalls: string[] = [];
 		const originalFindMany = ctx.store.findMany.bind(ctx.store);
-		const originalDeleteManyByIds = ctx.store.deleteManyByIds.bind(ctx.store);
 		ctx.store.findMany = (async (...args) => {
 			findManyCalls.push(String(args[0]));
 			return originalFindMany(...args);
 		}) as typeof ctx.store.findMany;
 		ctx.store.deleteWhere = vi.fn(ctx.store.deleteWhere.bind(ctx.store)) as typeof ctx.store.deleteWhere;
-		ctx.store.deleteManyByIds = vi.fn(originalDeleteManyByIds) as typeof ctx.store.deleteManyByIds;
+		ctx.store.deleteWhereAny = vi.fn(ctx.store.deleteWhereAny.bind(ctx.store)) as typeof ctx.store.deleteWhereAny;
+		ctx.store.deleteManyByIds = vi.fn(ctx.store.deleteManyByIds.bind(ctx.store)) as typeof ctx.store.deleteManyByIds;
 
 		ctx.store.seed('personnel', [
 			{
@@ -225,11 +225,11 @@ describe('batchDailyAssignments', () => {
 		expect(findManyCalls.filter((table) => table === 'duty_events')).toHaveLength(1);
 		expect(findManyCalls.filter((table) => table === 'duty_event_slots')).toHaveLength(1);
 		expect(ctx.store.deleteWhere).not.toHaveBeenCalled();
-		expect(ctx.store.deleteManyByIds).toHaveBeenCalledWith(
-			'daily_assignments',
-			'test-org',
-			expect.arrayContaining(['existing-1', 'existing-2'])
-		);
+		expect(ctx.store.deleteManyByIds).not.toHaveBeenCalled();
+		expect(ctx.store.deleteWhereAny).toHaveBeenCalledWith('daily_assignments', 'test-org', [
+			{ date: '2026-04-10', assignment_type_id: 'type-a' },
+			{ date: '2026-04-11', assignment_type_id: 'type-a' }
+		]);
 	});
 
 	it('rejects the batch when a record overlaps duty coverage and leaves existing assignments untouched', async () => {

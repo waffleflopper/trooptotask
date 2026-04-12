@@ -120,22 +120,15 @@ export async function batchDailyAssignments(ctx: WritePorts, input: BatchInput):
 	}
 
 	// Clear all affected slots first.
-	const affectedPairs = new Set(records.map((rec) => `${rec.date}::${rec.assignmentTypeId}`));
-	const affectedDates = [...new Set(records.map((rec) => rec.date))];
-	const affectedAssignmentTypeIds = [...new Set(records.map((rec) => rec.assignmentTypeId))];
-	if (affectedDates.length > 0 && affectedAssignmentTypeIds.length > 0) {
-		const existingRows = await ctx.store.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, undefined, {
-			inFilters: {
-				date: affectedDates,
-				assignment_type_id: affectedAssignmentTypeIds
-			},
-			select: 'id,date,assignment_type_id'
-		});
-		const affectedIds = existingRows
-			.filter((row) => affectedPairs.has(`${String(row.date)}::${String(row.assignment_type_id)}`))
-			.map((row) => String(row.id));
-		await ctx.store.deleteManyByIds(entity.table, ctx.auth.orgId, affectedIds);
-	}
+	const affectedSlotFilters = [
+		...new Map(
+			records.map((rec) => [
+				`${rec.date}::${rec.assignmentTypeId}`,
+				{ date: rec.date, assignment_type_id: rec.assignmentTypeId }
+			])
+		).values()
+	];
+	await ctx.store.deleteWhereAny(entity.table, ctx.auth.orgId, affectedSlotFilters);
 
 	// Insert all upserts
 	let inserted: unknown[] = [];

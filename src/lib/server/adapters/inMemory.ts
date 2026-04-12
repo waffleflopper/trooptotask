@@ -259,6 +259,16 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 			}
 		},
 
+		async deleteWhereAny(table: string, orgId: string, filterGroups: Array<Record<string, unknown>>): Promise<void> {
+			if (filterGroups.length === 0) return;
+			const rows = getRows(table);
+			for (let i = rows.length - 1; i >= 0; i--) {
+				if (filterGroups.some((filters) => matchesFilters(table, rows[i], orgId, filters))) {
+					rows.splice(i, 1);
+				}
+			}
+		},
+
 		async insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[]): Promise<T[]> {
 			const tableRows = getRows(table);
 			const inserted: Row[] = [];

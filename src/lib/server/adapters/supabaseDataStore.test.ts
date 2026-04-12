@@ -17,6 +17,7 @@ function createMockQueryBuilder(returnData: unknown = null, returnError: unknown
 	const builder: Record<string, unknown> = {
 		select: track('select'),
 		eq: track('eq'),
+		or: track('or'),
 		in: track('in'),
 		order: track('order'),
 		range: track('range'),
@@ -347,6 +348,41 @@ describe('SupabaseDataStore', () => {
 			const eqCalls = calls.filter((c) => c.method === 'eq');
 			expect(eqCalls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
 			expect(eqCalls).toContainEqual({ method: 'eq', args: ['type_id', 'tt-1'] });
+		});
+	});
+
+	describe('deleteWhereAny', () => {
+		it('deletes with org scoping and exact OR filter groups', async () => {
+			const { builder, calls } = createMockQueryBuilder(null);
+			const supabase = createMockSupabase(builder);
+			const store = createSupabaseDataStore(supabase);
+
+			await store.deleteWhereAny('daily_assignments', 'org-1', [
+				{ date: '2026-04-10', assignment_type_id: 'type-a' },
+				{ date: '2026-04-11', assignment_type_id: 'type-b' }
+			]);
+
+			const deleteCalls = calls.filter((c) => c.method === 'delete');
+			expect(deleteCalls).toHaveLength(1);
+
+			const eqCalls = calls.filter((c) => c.method === 'eq');
+			expect(eqCalls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
+			expect(calls).toContainEqual({
+				method: 'or',
+				args: [
+					'and(date.eq.2026-04-10,assignment_type_id.eq.type-a),and(date.eq.2026-04-11,assignment_type_id.eq.type-b)'
+				]
+			});
+		});
+
+		it('does not issue a query for empty filter groups', async () => {
+			const { builder } = createMockQueryBuilder(null);
+			const supabase = createMockSupabase(builder);
+			const store = createSupabaseDataStore(supabase);
+
+			await store.deleteWhereAny('daily_assignments', 'org-1', []);
+
+			expect(supabase.from as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
 		});
 	});
 

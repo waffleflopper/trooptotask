@@ -267,6 +267,36 @@ describe('InMemoryDataStore', () => {
 		});
 	});
 
+	describe('deleteWhereAny', () => {
+		it('removes records matching any exact filter group', async () => {
+			const store = createInMemoryDataStore();
+			await store.insert('records', 'org-1', { id: 'r-1', date: '2026-04-10', type_id: 'tt-1' });
+			await store.insert('records', 'org-1', { id: 'r-2', date: '2026-04-10', type_id: 'tt-2' });
+			await store.insert('records', 'org-1', { id: 'r-3', date: '2026-04-11', type_id: 'tt-1' });
+			await store.insert('records', 'org-1', { id: 'r-4', date: '2026-04-11', type_id: 'tt-2' });
+
+			await store.deleteWhereAny('records', 'org-1', [
+				{ date: '2026-04-10', type_id: 'tt-1' },
+				{ date: '2026-04-11', type_id: 'tt-2' }
+			]);
+
+			const remaining = await store.findMany('records', 'org-1');
+			expect(remaining).toHaveLength(2);
+			expect(remaining).toEqual([expect.objectContaining({ id: 'r-2' }), expect.objectContaining({ id: 'r-3' })]);
+		});
+
+		it('does not affect records in other orgs', async () => {
+			const store = createInMemoryDataStore();
+			await store.insert('records', 'org-1', { id: 'r-1', type_id: 'tt-1' });
+			await store.insert('records', 'org-2', { id: 'r-2', type_id: 'tt-1' });
+
+			await store.deleteWhereAny('records', 'org-1', [{ type_id: 'tt-1' }]);
+
+			const org2Records = await store.findMany('records', 'org-2');
+			expect(org2Records).toHaveLength(1);
+		});
+	});
+
 	describe('insertMany', () => {
 		it('auto-generates UUIDs for each inserted record', async () => {
 			const store = createInMemoryDataStore();

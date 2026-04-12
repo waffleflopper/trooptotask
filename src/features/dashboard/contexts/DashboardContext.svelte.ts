@@ -560,6 +560,228 @@ export class DashboardContext {
 	}
 
 	// ---------------------------------------------------------------------------
+	// Derived: nonAvailablePersonnel — enriched list of who's out today
+	// ---------------------------------------------------------------------------
+	get nonAvailablePersonnel(): {
+		id: string;
+		personnelId: string;
+		personName: string;
+		rank: string;
+		statusName: string;
+		statusColor: string;
+		startDate: string;
+		endDate: string;
+		statusTypeId: string;
+	}[] {
+		return this.todayEntries
+			.map((e) => {
+				const person = personnelStore.items.find((p) => p.id === e.personnelId);
+				const st = statusTypesStore.items.find((s) => s.id === e.statusTypeId);
+				if (!person || !st) return null;
+				return {
+					id: e.id,
+					personnelId: e.personnelId,
+					personName: `${person.rank} ${person.lastName}, ${person.firstName}`,
+					rank: person.rank ?? '',
+					statusName: st.name,
+					statusColor: st.color,
+					startDate: e.startDate,
+					endDate: e.endDate,
+					statusTypeId: e.statusTypeId
+				};
+			})
+			.filter((x): x is NonNullable<typeof x> => x !== null)
+			.sort((a, b) => a.personName.localeCompare(b.personName));
+	}
+
+	// ---------------------------------------------------------------------------
+	// Derived: dutyForDays — duty assignments for today + N upcoming days
+	// ---------------------------------------------------------------------------
+	dutyForDays(count: number): {
+		date: string;
+		isToday: boolean;
+		assignments: {
+			id: string;
+			typeName: string;
+			shortName: string;
+			color: string;
+			textColor: string;
+			assigneeName: string;
+		}[];
+	}[] {
+		const days: {
+			date: string;
+			isToday: boolean;
+			assignments: {
+				id: string;
+				typeName: string;
+				shortName: string;
+				color: string;
+				textColor: string;
+				assigneeName: string;
+			}[];
+		}[] = [];
+		for (let i = 0; i < count; i++) {
+			const d = new SvelteDate();
+			d.setDate(d.getDate() + i);
+			const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+			const assignments = dailyAssignmentsStore.assignments
+				.filter((a) => a.date === dateStr)
+				.map((a) => {
+					const type = dailyAssignmentsStore.types.find((t) => t.id === a.assignmentTypeId);
+					let assigneeName = '';
+					if (type?.assignTo === 'personnel') {
+						const person = personnelStore.items.find((p) => p.id === a.assigneeId);
+						if (person) assigneeName = `${person.rank} ${person.lastName}`;
+					} else {
+						assigneeName = a.assigneeId;
+					}
+					const color = type?.color ?? '#9e9e9e';
+					return {
+						id: a.id,
+						typeName: type?.name ?? 'Unknown',
+						shortName: type?.shortName ?? '',
+						color,
+						textColor: hexToTextColor(color),
+						assigneeName
+					};
+				});
+			days.push({ date: dateStr, isToday: i === 0, assignments });
+		}
+		return days;
+	}
+
+	// ---------------------------------------------------------------------------
+	// Derived: trainingCurrencyPct — % of personnel with all training current
+	// ---------------------------------------------------------------------------
+	get trainingCurrencyPct(): number {
+		const stats = this.trainingStats;
+		if (!stats || this.totalPersonnel === 0) return 100;
+		// Personnel with at least one issue
+		const withIssues = new SvelteSet<string>();
+		for (const issue of this.topTrainingIssues) {
+			if (issue.personName) withIssues.add(issue.personName);
+		}
+		// Approximate: use overall expired+warning counts against total
+		const totalIssues = stats.expired + stats.warningOrange + stats.warningYellow;
+		if (totalIssues === 0) return 100;
+		const pct = Math.max(
+			0,
+			Math.round(((this.totalPersonnel - Math.min(totalIssues, this.totalPersonnel)) / this.totalPersonnel) * 100)
+		);
+		return pct;
+	}
+
+	// ---------------------------------------------------------------------------
+	// Derived: onLeaveCount — personnel specifically on leave today
+	// ---------------------------------------------------------------------------
+	get onLeaveCount(): number {
+		return this.todayEntries.filter((e) => {
+			const st = statusTypesStore.items.find((s) => s.id === e.statusTypeId);
+			return st?.name?.toLowerCase().includes('leave') ?? false;
+		}).length;
+	}
+
+	// ---------------------------------------------------------------------------
+	// Derived: quickStatValue — resolve a metric to its numeric value
+	// ---------------------------------------------------------------------------
+	quickStatValue(metricId: string): number {
+		switch (metricId) {
+			case 'present-strength':
+				return this.availableCount;
+			case 'total-strength':
+				return this.totalPersonnel;
+			case 'non-available-today':
+				return this.unavailablePersonnelIds.size;
+			case 'on-leave':
+				return this.onLeaveCount;
+			case 'training-currency':
+				return this.trainingCurrencyPct;
+			case 'expired-training':
+				return this.trainingStats?.expired ?? 0;
+			case 'onboardings-in-progress':
+				return this.activeOnboardings.length;
+			case 'evaluations-overdue':
+				return this.ratingStats.overdue;
+			case 'evaluations-due-30':
+				return this.ratingStats['due-30'];
+			default:
+				return 0;
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// Derived: quickStatUnit — optional unit suffix for a metric
+	// ---------------------------------------------------------------------------
+	quickStatUnit(metricId: string): string {
+		if (metricId === 'training-currency') return '%';
+		return '';
+	}
+
+	// ---------------------------------------------------------------------------
+	// Derived: trainingGroupDelinquencies — groups sorted by issue count desc
+	// ---------------------------------------------------------------------------
+	get trainingGroupDelinquencies(): { groupName: string; count: number; pct: number }[] {
+		const stats = this.trainingStats;
+		if (!stats) return [];
+
+		return this.groupBreakdown
+			.map((g) => {
+				const groupPersonnel = personnelStore.items.filter((p) => p.groupId === g.id);
+				const total = groupPersonnel.length;
+				// Approximate: proportion of overall issues attributed to group by size
+				const overallTotal = this.totalPersonnel;
+				const estimated =
+					overallTotal > 0 ? Math.round(((stats.expired + stats.warningOrange) * total) / overallTotal) : 0;
+				return {
+					groupName: g.name,
+					count: estimated,
+					pct: total > 0 ? Math.round((estimated / total) * 100) : 0
+				};
+			})
+			.filter((g) => g.count > 0)
+			.sort((a, b) => b.count - a.count);
+	}
+
+	// ---------------------------------------------------------------------------
+	// Derived: ratingsDueSoon — entries due within N days, sorted soonest first
+	// ---------------------------------------------------------------------------
+	ratingsDueSoon(lookaheadDays: number): {
+		id: string;
+		personName: string;
+		ratingPeriodEnd: string;
+		status: 'overdue' | 'due-30' | 'due-60' | 'current';
+		daysUntil: number;
+		evalType: string;
+	}[] {
+		const entries = this.data.dashboard.data.ratingSchemeEntries;
+		const today = new SvelteDate();
+		const results: ReturnType<typeof this.ratingsDueSoon> = [];
+
+		for (const entry of entries) {
+			const status = getRatingDueStatus(entry.ratingPeriodEnd, entry.status);
+			if (status === 'completed' || status === 'current') continue;
+			const end = new SvelteDate(entry.ratingPeriodEnd + 'T00:00:00');
+			const diffMs = end.getTime() - today.getTime();
+			const daysUntil = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+			if (daysUntil > lookaheadDays) continue;
+
+			const person = personnelStore.items.find((p) => p.id === entry.ratedPersonId);
+			const personName = person ? `${person.rank} ${person.lastName}` : (entry.ratedPersonId ?? 'Unknown');
+			results.push({
+				id: entry.id,
+				personName,
+				ratingPeriodEnd: entry.ratingPeriodEnd,
+				status: status as 'overdue' | 'due-30' | 'due-60',
+				daysUntil,
+				evalType: entry.evalType ?? ''
+			});
+		}
+
+		return results.sort((a, b) => a.daysUntil - b.daysUntil);
+	}
+
+	// ---------------------------------------------------------------------------
 	// Helper: formatShortDate (used in template)
 	// ---------------------------------------------------------------------------
 	formatShortDate(dateStr: string): string {

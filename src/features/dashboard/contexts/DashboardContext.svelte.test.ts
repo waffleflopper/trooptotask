@@ -186,6 +186,30 @@ describe('DashboardContext', () => {
 		it('returns an empty Map when no availability entries exist', () => {
 			expect(ctx.statusBreakdown.size).toBe(0);
 		});
+
+		it('reflects streamed store data and ignores availability outside the loaded personnel scope', () => {
+			mutablePersonnelStore.items = [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }];
+			mutableStatusTypesStore.items = [{ id: 'st1', name: 'Leave', color: '#111111', textColor: '#ffffff' }];
+			mutableAvailabilityStore.items = [
+				{
+					id: 'a1',
+					personnelId: 'p1',
+					statusTypeId: 'st1',
+					startDate: ctx.today,
+					endDate: ctx.today
+				},
+				{
+					id: 'a2',
+					personnelId: 'outside-scope',
+					statusTypeId: 'st1',
+					startDate: ctx.today,
+					endDate: ctx.today
+				}
+			];
+
+			expect(ctx.todayEntries).toHaveLength(1);
+			expect(ctx.statusBreakdown.get('st1')?.count).toBe(1);
+		});
 	});
 
 	describe('statusTypeCount', () => {

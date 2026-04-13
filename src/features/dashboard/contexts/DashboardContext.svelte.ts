@@ -338,6 +338,8 @@ export class DashboardContext {
 		statusName: string;
 		statusColor: string;
 		direction: 'departing' | 'returning';
+		groupId: string | null;
+		groupName: string;
 	}[] {
 		const sevenDaysOut = new SvelteDate(Date.now() + 7 * 24 * 60 * 60 * 1000);
 		const twoWeeksStr = `${sevenDaysOut.getFullYear()}-${String(sevenDaysOut.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysOut.getDate()).padStart(2, '0')}`;
@@ -349,12 +351,18 @@ export class DashboardContext {
 			statusName: string;
 			statusColor: string;
 			direction: 'departing' | 'returning';
+			groupId: string | null;
+			groupName: string;
 		}[] = [];
 
 		for (const entry of availabilityStore.items) {
 			const person = personnelStore.items.find((p) => p.id === entry.personnelId);
 			const st = statusTypesStore.items.find((s) => s.id === entry.statusTypeId);
 			if (!person || !st) continue;
+
+			const groupId = person.groupId ?? null;
+			const group = groupId ? groupsStore.items.find((g) => g.id === groupId) : null;
+			const groupName = group?.name ?? 'Unassigned';
 
 			// Starting soon (departing)
 			if (entry.startDate > this.today && entry.startDate <= twoWeeksStr) {
@@ -364,7 +372,9 @@ export class DashboardContext {
 					personName: `${person.rank} ${person.lastName}`,
 					statusName: st.name,
 					statusColor: st.color,
-					direction: 'departing'
+					direction: 'departing',
+					groupId,
+					groupName
 				});
 			}
 
@@ -376,7 +386,9 @@ export class DashboardContext {
 					personName: `${person.rank} ${person.lastName}`,
 					statusName: st.name,
 					statusColor: st.color,
-					direction: 'returning'
+					direction: 'returning',
+					groupId,
+					groupName
 				});
 			}
 		}
@@ -527,12 +539,16 @@ export class DashboardContext {
 		startDate: string;
 		endDate: string;
 		statusTypeId: string;
+		groupId: string | null;
+		groupName: string;
 	}[] {
 		return this.todayEntries
 			.map((e) => {
 				const person = personnelStore.items.find((p) => p.id === e.personnelId);
 				const st = statusTypesStore.items.find((s) => s.id === e.statusTypeId);
 				if (!person || !st) return null;
+				const groupId = person.groupId ?? null;
+				const group = groupId ? groupsStore.items.find((g) => g.id === groupId) : null;
 				return {
 					id: e.id,
 					personnelId: e.personnelId,
@@ -542,7 +558,9 @@ export class DashboardContext {
 					statusColor: st.color,
 					startDate: e.startDate,
 					endDate: e.endDate,
-					statusTypeId: e.statusTypeId
+					statusTypeId: e.statusTypeId,
+					groupId,
+					groupName: group?.name ?? 'Unassigned'
 				};
 			})
 			.filter((x): x is NonNullable<typeof x> => x !== null)

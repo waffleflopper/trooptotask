@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
 
 	interface Props {
@@ -10,6 +11,86 @@
 	const dutyDays = $derived(ctx.dutyForDays(2));
 	const today = $derived(dutyDays[0]);
 	const tomorrow = $derived(dutyDays[1]);
+
+	// ── Out Today grouping toggle ───────────────────────────
+	const OUT_TODAY_KEY = 'dashboard-out-today-group-by';
+	type OutTodayGroupBy = 'status' | 'group';
+
+	let outTodayGroupBy = $state<OutTodayGroupBy>('status');
+
+	$effect(() => {
+		if (browser) {
+			const saved = localStorage.getItem(OUT_TODAY_KEY);
+			if (saved === 'status' || saved === 'group') outTodayGroupBy = saved;
+		}
+	});
+
+	function setOutTodayGroupBy(value: OutTodayGroupBy) {
+		outTodayGroupBy = value;
+		if (browser) localStorage.setItem(OUT_TODAY_KEY, value);
+	}
+
+	const outTodayByStatus = $derived.by(() => {
+		const map = new Map<string, typeof ctx.nonAvailablePersonnel>();
+		for (const person of ctx.nonAvailablePersonnel) {
+			const existing = map.get(person.statusName);
+			if (existing) existing.push(person);
+			else map.set(person.statusName, [person]);
+		}
+		return new Map([...map.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+	});
+
+	const outTodayByGroup = $derived.by(() => {
+		const map = new Map<string, typeof ctx.nonAvailablePersonnel>();
+		for (const person of ctx.nonAvailablePersonnel) {
+			const key = person.groupName;
+			const existing = map.get(key);
+			if (existing) existing.push(person);
+			else map.set(key, [person]);
+		}
+		return new Map(
+			[...map.entries()].sort((a, b) => {
+				if (a[0] === 'Unassigned') return 1;
+				if (b[0] === 'Unassigned') return -1;
+				return a[0].localeCompare(b[0]);
+			})
+		);
+	});
+
+	// ── Upcoming Changes grouping toggle ───────────────────
+	const UPCOMING_KEY = 'dashboard-upcoming-group-by';
+	type UpcomingGroupBy = 'date' | 'group';
+
+	let upcomingGroupBy = $state<UpcomingGroupBy>('date');
+
+	$effect(() => {
+		if (browser) {
+			const saved = localStorage.getItem(UPCOMING_KEY);
+			if (saved === 'date' || saved === 'group') upcomingGroupBy = saved;
+		}
+	});
+
+	function setUpcomingGroupBy(value: UpcomingGroupBy) {
+		upcomingGroupBy = value;
+		if (browser) localStorage.setItem(UPCOMING_KEY, value);
+	}
+
+	const upcomingByGroup = $derived.by(() => {
+		const map = new Map<string, typeof ctx.upcomingChanges>();
+		for (const change of ctx.upcomingChanges) {
+			const key = change.groupName;
+			const existing = map.get(key);
+			if (existing) existing.push(change);
+			else map.set(key, [change]);
+		}
+		return new Map(
+			[...map.entries()].sort((a, b) => {
+				if (a[0] === 'Unassigned') return 1;
+				if (b[0] === 'Unassigned') return -1;
+				return a[0].localeCompare(b[0]);
+			})
+		);
+	});
 </script>
 
 <section class="tab-panel">
@@ -22,24 +103,60 @@
 				{#if ctx.nonAvailablePersonnel.length > 0}
 					<span class="section-count">{ctx.nonAvailablePersonnel.length}</span>
 				{/if}
+				{#if ctx.nonAvailablePersonnel.length > 0}
+					<div class="view-toggle">
+						<button
+							class="toggle-btn"
+							class:active={outTodayGroupBy === 'status'}
+							onclick={() => setOutTodayGroupBy('status')}
+						>Status</button>
+						<button
+							class="toggle-btn"
+							class:active={outTodayGroupBy === 'group'}
+							onclick={() => setOutTodayGroupBy('group')}
+						>Group</button>
+					</div>
+				{/if}
 			</div>
 
 			{#if ctx.nonAvailablePersonnel.length === 0}
 				<p class="empty-mono">All personnel accounted for.</p>
+			{:else if outTodayGroupBy === 'status'}
+				<div class="out-list">
+					{#each [...outTodayByStatus.entries()] as [statusName, people], i (statusName)}
+						<div
+							class="group-header"
+							class:group-header--first={i === 0}
+							style="color: {people[0].statusColor}"
+						>
+							{statusName}
+						</div>
+						{#each people as person (person.id)}
+							<div class="out-row">
+								<div class="person-identity">
+									<span class="person-rank">{person.rank}</span>
+									<span class="person-name">{person.personName.replace(/^[A-Z0-9]+ /, '')}</span>
+								</div>
+							</div>
+						{/each}
+					{/each}
+				</div>
 			{:else}
 				<div class="out-list">
-					{#each ctx.nonAvailablePersonnel as person (person.id)}
-						<div class="out-row">
-							<div class="person-identity">
-								<span class="person-rank">{person.rank}</span>
-								<span class="person-name">{person.personName.replace(/^[A-Z0-9]+ /, '')}</span>
+					{#each [...outTodayByGroup.entries()] as [groupName, people], i (groupName)}
+						<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
+						{#each people as person (person.id)}
+							<div class="out-row">
+								<div class="person-identity">
+									<span class="person-rank">{person.rank}</span>
+									<span class="person-name">{person.personName.replace(/^[A-Z0-9]+ /, '')}</span>
+								</div>
+								<span
+									class="status-label"
+									style="background: color-mix(in srgb, {person.statusColor} 15%, transparent); color: {person.statusColor}"
+								>{person.statusName}</span>
 							</div>
-							<span
-								class="status-label"
-								style="background: color-mix(in srgb, {person.statusColor} 15%, transparent); color: {person.statusColor}"
-								>{person.statusName}</span
-							>
-						</div>
+						{/each}
 					{/each}
 				</div>
 			{/if}
@@ -134,17 +251,42 @@
 				{#if ctx.upcomingChanges.length > 0}
 					<span class="section-count">{ctx.upcomingChanges.length}</span>
 				{/if}
+				{#if ctx.upcomingChanges.length > 0}
+					<div class="view-toggle">
+						<button
+							class="toggle-btn"
+							class:active={upcomingGroupBy === 'date'}
+							onclick={() => setUpcomingGroupBy('date')}
+						>Date</button>
+						<button
+							class="toggle-btn"
+							class:active={upcomingGroupBy === 'group'}
+							onclick={() => setUpcomingGroupBy('group')}
+						>Group</button>
+					</div>
+				{/if}
 			</div>
 
 			{#if ctx.upcomingChanges.length === 0}
 				<p class="empty-mono">No changes in the next 7 days.</p>
-			{:else}
+			{:else if upcomingGroupBy === 'date'}
 				{#each ctx.upcomingChanges as change (change.key)}
 					<div class="upcoming-row">
 						<span class="upcoming-name">{change.personName}</span>
 						<span class="upcoming-meta">{ctx.formatShortDate(change.date)}</span>
 						<span class="upcoming-reason">{change.direction === 'departing' ? change.statusName : 'Returning'}</span>
 					</div>
+				{/each}
+			{:else}
+				{#each [...upcomingByGroup.entries()] as [groupName, changes], i (groupName)}
+					<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
+					{#each changes as change (change.key)}
+						<div class="upcoming-row">
+							<span class="upcoming-name">{change.personName}</span>
+							<span class="upcoming-meta">{ctx.formatShortDate(change.date)}</span>
+							<span class="upcoming-reason">{change.direction === 'departing' ? change.statusName : 'Returning'}</span>
+						</div>
+					{/each}
 				{/each}
 			{/if}
 		</div>
@@ -187,6 +329,60 @@
 		font-weight: var(--font-weight-semibold);
 		border-radius: var(--radius-sm);
 		line-height: 1;
+	}
+
+	/* ── Grouping view toggle ─────────────────────────────── */
+	.view-toggle {
+		margin-left: auto;
+		display: flex;
+		background: var(--ink-06);
+		border-radius: var(--radius-sm);
+		padding: 2px;
+		gap: 1px;
+	}
+
+	.toggle-btn {
+		font-family: var(--font-mono);
+		font-size: 9px;
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-mono);
+		color: var(--text-tertiary);
+		background: transparent;
+		border: none;
+		padding: 2px 7px;
+		border-radius: calc(var(--radius-sm) - 1px);
+		cursor: pointer;
+		line-height: 1.5;
+		white-space: nowrap;
+		transition:
+			background 0.1s ease,
+			color 0.1s ease;
+	}
+
+	.toggle-btn.active {
+		background: var(--surface-panel);
+		color: var(--text-primary);
+		box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 8%, transparent);
+	}
+
+	.toggle-btn:hover:not(.active) {
+		color: var(--text-secondary);
+	}
+
+	/* ── Group section headers ────────────────────────────── */
+	.group-header {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-mono);
+		color: var(--text-tertiary);
+		padding: var(--sp-3) 0 var(--sp-1);
+		border-top: 1px solid var(--ink-06);
+	}
+
+	.group-header--first {
+		padding-top: 0;
+		border-top: none;
 	}
 
 	/* ── Primary split ────────────────────────────────────── */

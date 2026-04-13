@@ -108,13 +108,13 @@
 						<button
 							class="toggle-btn"
 							class:active={outTodayGroupBy === 'status'}
-							onclick={() => setOutTodayGroupBy('status')}
-						>Status</button>
+							onclick={() => setOutTodayGroupBy('status')}>Status</button
+						>
 						<button
 							class="toggle-btn"
 							class:active={outTodayGroupBy === 'group'}
-							onclick={() => setOutTodayGroupBy('group')}
-						>Group</button>
+							onclick={() => setOutTodayGroupBy('group')}>Group</button
+						>
 					</div>
 				{/if}
 			</div>
@@ -124,11 +124,7 @@
 			{:else if outTodayGroupBy === 'status'}
 				<div class="out-list">
 					{#each [...outTodayByStatus.entries()] as [statusName, people], i (statusName)}
-						<div
-							class="group-header"
-							class:group-header--first={i === 0}
-							style="color: {people[0].statusColor}"
-						>
+						<div class="group-header" class:group-header--first={i === 0} style="color: {people[0].statusColor}">
 							{statusName}
 						</div>
 						{#each people as person (person.id)}
@@ -154,7 +150,8 @@
 								<span
 									class="status-label"
 									style="background: color-mix(in srgb, {person.statusColor} 15%, transparent); color: {person.statusColor}"
-								>{person.statusName}</span>
+									>{person.statusName}</span
+								>
 							</div>
 						{/each}
 					{/each}
@@ -256,13 +253,13 @@
 						<button
 							class="toggle-btn"
 							class:active={upcomingGroupBy === 'date'}
-							onclick={() => setUpcomingGroupBy('date')}
-						>Date</button>
+							onclick={() => setUpcomingGroupBy('date')}>Date</button
+						>
 						<button
 							class="toggle-btn"
 							class:active={upcomingGroupBy === 'group'}
-							onclick={() => setUpcomingGroupBy('group')}
-						>Group</button>
+							onclick={() => setUpcomingGroupBy('group')}>Group</button
+						>
 					</div>
 				{/if}
 			</div>

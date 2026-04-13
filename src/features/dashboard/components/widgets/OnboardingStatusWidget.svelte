@@ -3,10 +3,10 @@
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
 	interface Props {
 		ctx: DashboardContext;
-		configureMode: boolean;
+		configureMode?: boolean;
 	}
 
-	let { ctx, configureMode }: Props = $props();
+	let { ctx, configureMode = false }: Props = $props();
 
 	const onboardings = $derived(ctx.activeOnboardings);
 	const sorted = $derived([...onboardings].sort((a, b) => a.pct - b.pct || a.personName.localeCompare(b.personName)));

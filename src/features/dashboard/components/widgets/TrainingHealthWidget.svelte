@@ -9,10 +9,10 @@
 		ctx: DashboardContext;
 		widgetId: string;
 		config: WidgetInstanceConfig;
-		configureMode: boolean;
+		configureMode?: boolean;
 	}
 
-	let { ctx, widgetId, config, configureMode }: Props = $props();
+	let { ctx, widgetId, config, configureMode = false }: Props = $props();
 
 	let configOpen = $state(false);
 	const display = $derived(config.display ?? 'both');

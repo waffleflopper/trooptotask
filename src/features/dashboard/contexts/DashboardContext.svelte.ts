@@ -107,7 +107,17 @@ export class DashboardContext {
 	// ---------------------------------------------------------------------------
 	autoShowWhatsNew(hasShown: { value: boolean }) {
 		if (browser && !hasShown.value && changelog.length > 0 && this.data.userId) {
-			const lastSeen = localStorage.getItem(`changelog-last-seen-${this.data.userId}`);
+			if (typeof globalThis.localStorage?.getItem !== 'function') {
+				return;
+			}
+
+			let lastSeen: string | null = null;
+			try {
+				lastSeen = globalThis.localStorage.getItem(`changelog-last-seen-${this.data.userId}`);
+			} catch {
+				return;
+			}
+
 			if (lastSeen !== changelog[0].id) {
 				hasShown.value = true;
 				whatsNewStore.show();
@@ -657,19 +667,22 @@ export class DashboardContext {
 	get trainingCurrencyPct(): number {
 		const stats = this.trainingStats;
 		if (!stats || this.totalPersonnel === 0) return 100;
-		// Personnel with at least one issue
+
+		// Count distinct personnel with at least one expired or expiring record.
+		// topTrainingIssues is one row per (person, training type) — deduplicate by name
+		// so we don't divide by record count instead of person count.
 		const withIssues = new SvelteSet<string>();
 		for (const issue of this.topTrainingIssues) {
 			if (issue.personName) withIssues.add(issue.personName);
 		}
-		// Approximate: use overall expired+warning counts against total
-		const totalIssues = stats.expired + stats.warningOrange + stats.warningYellow;
-		if (totalIssues === 0) return 100;
-		const pct = Math.max(
-			0,
-			Math.round(((this.totalPersonnel - Math.min(totalIssues, this.totalPersonnel)) / this.totalPersonnel) * 100)
-		);
-		return pct;
+
+		// If the issues list is empty but stats show issues exist, fall back to
+		// treating everyone as non-current (safe undercount rather than 100% false positive).
+		const totalRecordIssues = stats.expired + stats.warningOrange + stats.warningYellow;
+		if (totalRecordIssues === 0) return 100;
+		if (withIssues.size === 0) return 0;
+
+		return Math.max(0, Math.round(((this.totalPersonnel - withIssues.size) / this.totalPersonnel) * 100));
 	}
 
 	// ---------------------------------------------------------------------------

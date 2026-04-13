@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DashboardContext, HALF_SIZE_CARDS } from './DashboardContext.svelte';
-import type { CardId } from '$lib/stores/dashboardPrefs.svelte';
+import { DashboardContext } from './DashboardContext.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -46,23 +45,11 @@ vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
 vi.mock('$lib/stores/groups.svelte', () => ({
 	groupsStore: { items: [], loading: false }
 }));
-vi.mock('$lib/stores/dashboardPrefs.svelte', () => ({
-	dashboardPrefsStore: {
-		visibleCards: ['strength', 'duty', 'training', 'upcoming', 'ratings', 'onboardings', 'groups'],
-		cardOrder: ['strength', 'duty', 'training', 'upcoming', 'ratings', 'onboardings', 'groups'],
-		hiddenCards: []
-	}
-}));
 vi.mock('$features/rating-scheme/utils/ratingScheme', () => ({
 	getRatingDueStatus: vi.fn((_end: string, status: string) => {
 		if (status === 'completed') return 'completed';
 		return 'current';
 	})
-}));
-vi.mock('$lib/utils/dashboardCards', () => ({
-	getVisibleDashboardCards: vi.fn(
-		() => ['strength', 'duty', 'training', 'upcoming', 'ratings', 'onboardings', 'groups'] as CardId[]
-	)
 }));
 
 // ---------------------------------------------------------------------------
@@ -118,16 +105,6 @@ function makeData(overrides: Record<string, unknown> = {}, workspaceOverrides: R
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-
-describe('HALF_SIZE_CARDS constant', () => {
-	it('includes the expected card IDs', () => {
-		expect(HALF_SIZE_CARDS).toContain('strength');
-		expect(HALF_SIZE_CARDS).toContain('duty');
-		expect(HALF_SIZE_CARDS).toContain('training');
-		expect(HALF_SIZE_CARDS).toContain('upcoming');
-		expect(HALF_SIZE_CARDS).toContain('ratings');
-	});
-});
 
 describe('DashboardContext', () => {
 	let ctx: DashboardContext;
@@ -402,60 +379,6 @@ describe('DashboardContext', () => {
 	describe('groupBreakdown', () => {
 		it('returns an empty array when no groups', () => {
 			expect(ctx.groupBreakdown).toHaveLength(0);
-		});
-	});
-
-	// -------------------------------------------------------------------------
-	// allowedCards / cardRows
-	// -------------------------------------------------------------------------
-	describe('allowedCards', () => {
-		it('returns all cards when permissions object is present', () => {
-			expect(ctx.allowedCards.length).toBeGreaterThan(0);
-		});
-
-		it('returns empty array when no permissions', () => {
-			const c = new DashboardContext(makeData({ permissions: null }));
-			expect(c.allowedCards).toHaveLength(0);
-		});
-	});
-
-	describe('cardRows', () => {
-		it('returns an array of arrays', () => {
-			expect(Array.isArray(ctx.cardRows)).toBe(true);
-			ctx.cardRows.forEach((row) => expect(Array.isArray(row)).toBe(true));
-		});
-
-		it('pairs consecutive half-size cards into a single row', () => {
-			// strength and duty are both half-size — they should appear in same row
-			const flatCards = ctx.cardRows.flat();
-			const strengthIdx = flatCards.indexOf('strength');
-			const dutyIdx = flatCards.indexOf('duty');
-			expect(strengthIdx).toBeGreaterThanOrEqual(0);
-			expect(dutyIdx).toBeGreaterThanOrEqual(0);
-
-			// Find the row containing strength
-			const strengthRow = ctx.cardRows.find((row) => row.includes('strength'));
-			expect(strengthRow).toContain('duty');
-		});
-	});
-
-	// -------------------------------------------------------------------------
-	// Modal state
-	// -------------------------------------------------------------------------
-	describe('showCustomizeModal', () => {
-		it('starts false', () => {
-			expect(ctx.showCustomizeModal).toBe(false);
-		});
-
-		it('openCustomizeModal sets it true', () => {
-			ctx.openCustomizeModal();
-			expect(ctx.showCustomizeModal).toBe(true);
-		});
-
-		it('closeCustomizeModal sets it false', () => {
-			ctx.openCustomizeModal();
-			ctx.closeCustomizeModal();
-			expect(ctx.showCustomizeModal).toBe(false);
 		});
 	});
 

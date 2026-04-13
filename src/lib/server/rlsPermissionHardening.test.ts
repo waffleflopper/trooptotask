@@ -15,9 +15,11 @@ function escapeRegex(value: string): string {
 
 function getPolicyBlock(table: string, action: string | null, expectedPredicate: string): string {
 	const actionPattern = action ? ` FOR ${action}` : '(?: FOR [A-Z]+)?';
+	const tablePattern = `(?:"public"\\."${table}"|public\\.${table})`;
 	const match = sql.match(
 		new RegExp(
-			`CREATE POLICY "[^"]+" ON "public"\\."${table}"${actionPattern}[\\s\\S]*?${escapeRegex(expectedPredicate)}[\\s\\S]*?;`
+			`CREATE POLICY "[^"]+"\\s+ON\\s+${tablePattern}${actionPattern}[\\s\\S]*?${escapeRegex(expectedPredicate)}[\\s\\S]*?;`,
+			'i'
 		)
 	);
 
@@ -132,5 +134,11 @@ describe('core RLS permission hardening migration', () => {
 		expectPolicyUses('status_types', null, '"public"."can_manage_calendar_configuration"("organization_id")');
 		expectPolicyUses('training_types', 'SELECT', '"public"."can_view_training"("organization_id")');
 		expectPolicyUses('training_types', null, '"public"."can_manage_training_configuration"("organization_id")');
+	});
+
+	it('restricts dashboard configs to the owning user', () => {
+		expectPolicyUses('dashboard_configs', 'SELECT', 'auth.uid() = user_id');
+		expectPolicyUses('dashboard_configs', 'INSERT', 'auth.uid() = user_id');
+		expectPolicyUses('dashboard_configs', 'UPDATE', 'auth.uid() = user_id');
 	});
 });

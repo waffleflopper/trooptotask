@@ -43,6 +43,9 @@
 	const activeActions = $derived(
 		quickActions[dashboardTabStore.activeTab].filter((a) => hasDashboardPermission(permissions, a.permission))
 	);
+	const activeTabLabel = $derived(
+		TABS.find((tab) => tab.id === dashboardTabStore.activeTab)?.label ?? 'dashboard view'
+	);
 </script>
 
 <!-- Desktop tab bar (rendered in PageToolbar's below slot) -->
@@ -64,6 +67,7 @@
 			<button
 				type="button"
 				class="set-default-btn"
+				aria-label="Set {activeTabLabel} as default dashboard view"
 				disabled={dashboardTabStore.saving}
 				onclick={() => dashboardTabStore.setDefaultTab(orgId)}
 			>
@@ -71,6 +75,10 @@
 			</button>
 		{/if}
 	</nav>
+
+	{#if dashboardTabStore.error}
+		<p class="tab-error" role="status">{dashboardTabStore.error}</p>
+	{/if}
 
 	{#if activeActions.length > 0}
 		<div class="quick-actions" aria-label="Quick actions">
@@ -186,6 +194,13 @@
 	.set-default-btn:disabled {
 		opacity: 0.5;
 		cursor: default;
+	}
+
+	.tab-error {
+		margin: var(--sp-2) 0 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--danger);
 	}
 
 	/* Quick actions strip (desktop) */

@@ -44,11 +44,11 @@ Sections are separated by `1px solid var(--ink-15)` horizontal rules and spacing
 
 ### What stays
 
-The entire data layer is untouched. `DashboardContext`, all Supabase queries, permission-aware filtering utilities, and the `/api/dashboard-config` endpoint are kept as-is. The `DashboardConfig` type gains one optional field (`defaultTab`). All nine existing widget components are kept as data display building blocks but are called directly from tab panels rather than through `WidgetShell` or the grid system.
+The workspace query layer is untouched. `DashboardContext`, all Supabase queries, and the `/api/dashboard-config` endpoint remain the data source. The `DashboardConfig` type gains one optional field (`defaultTab`) while preserving the legacy `widgets` field for persisted config compatibility.
 
 ### What goes
 
-The drag-and-drop infrastructure is removed entirely: `DashboardGrid.svelte`, `DashboardWidgetPicker.svelte`, `dashboardLayout.svelte.ts`, and `DashboardCustomizeModal.svelte`. The `svelte-dnd-action` package dependency can be removed from `package.json` once these files are deleted.
+The dashboard drag-and-drop infrastructure is removed entirely: `DashboardGrid.svelte`, `DashboardWidgetPicker.svelte`, `dashboardLayout.svelte.ts`, widget-shell components, and `DashboardCustomizeModal.svelte`. The shared `svelte-dnd-action` package remains available for planned ordering work outside the dashboard.
 
 ### What is built
 
@@ -73,7 +73,7 @@ export type DashboardTabId = 'unit-readiness' | 'people-duty' | 'training-evals'
 defaultTab?: DashboardTabId; // undefined = 'unit-readiness'
 ```
 
-`isDefaultDashboardConfig()` is unaffected — it only checks `version` and `widgets`. No version bump needed since `defaultTab` is optional.
+Existing saved `widgets` data remains in the config shape for backward compatibility, but the redesigned dashboard no longer reads widget layout data.
 
 ---
 
@@ -1051,7 +1051,7 @@ INDIVIDUALS
 }
 ```
 
-Uses existing `EvaluationPipelineWidget` internals rendered without its `WidgetShell` chrome. The widget must receive `configureMode={false}`.
+Uses the same evaluation pipeline data already exposed by `DashboardContext`, rendered directly in the tab panel without widget shell chrome.
 
 #### Section 4 — ICTL Placeholder
 
@@ -1125,16 +1125,14 @@ Rendered below the tab bar (or pill switcher on mobile) in `DashboardTabs.svelte
 2. **Tab panel components** — build `UnitReadinessTab`, `PeopleDutyTab`, `TrainingEvalsTab` wired to existing context data
 3. **DashboardTabs chrome** — tab bar, pill switcher, quick actions strip, responsive styles
 4. **Rebuild DashboardPageView** — wire new components, remove old imports and configure-mode logic
-5. **Cleanup** — update `DashboardModals.svelte` to remove `DashboardCustomizeModal` reference; delete `DashboardGrid.svelte`, `DashboardWidgetPicker.svelte`, `dashboardLayout.svelte.ts`; add `configureMode = false` default to each widget that declares it as required (`StrengthWidget`, `NonAvailableWidget`, `DutyRosterWidget`, `EvaluationPipelineWidget`, `TrainingHealthWidget`, `OnboardingStatusWidget`, `QuickStatsWidget`); remove `svelte-dnd-action` from `package.json`
+5. **Cleanup** — remove `DashboardModals.svelte`; delete `DashboardGrid.svelte`, `DashboardWidgetPicker.svelte`, `dashboardLayout.svelte.ts`, widget-shell components, and `DashboardCustomizeModal.svelte`; keep `svelte-dnd-action` installed for planned ordering work outside the dashboard
 
 ---
 
 ## Gotchas
 
-- **`DashboardModals.svelte`** imports `DashboardCustomizeModal` — update it simultaneously with deletion or the build will break immediately.
-- **`configureMode` prop** — seven widget components declare it as a required boolean with no default. Add `= false` to each before calling them from tab panels without the prop.
 - **`setDefaultTab` save** — must PUT `{ ...cachedConfig, defaultTab: tab }` not just `{ defaultTab: tab }`, or the `widgets` field gets wiped for users who still have a v1/v2 config.
-- **`ctx.trainingStats` is async** — comes from a deferred stream; `TrainingEvalsTab` must handle `null` gracefully with skeleton placeholders. Reference the `{#if !stats}` guard pattern in `TrainingHealthWidget.svelte`.
+- **`ctx.trainingStats` is async** — comes from a deferred stream; `TrainingEvalsTab` must handle `null` gracefully with skeleton placeholders.
 - **`index.ts` barrel** — grep for all imports of `dashboardLayout` outside the dashboard feature before deleting the store file.
 - **No colored side-border accents** — text color, thin horizontal fill bars, and background tints carry all status signaling. The only `border-left` present in the new code is the 1px neutral `var(--ink-15)` structural divider between Training summary metric cells (documented in that section). All other `border-left`/`border-right` on content elements should be flagged and rejected.
 
@@ -1142,10 +1140,10 @@ Rendered below the tab bar (or pill switcher on mobile) in `DashboardTabs.svelte
 
 ## Verification
 
-1. `npm run test` — `DashboardContext.svelte.test.ts` and `dashboard.types.test.ts` pass unchanged (data layer untouched)
+1. `npm run test` — dashboard context, tab store, and dashboard types tests pass
 2. Dev server — all three tabs render with correct data, no console errors
 3. Tab switching — active tab indicator updates; quick actions change per tab; restricted actions are hidden for users without permissions
 4. "Set as default" affordance — visible only when `activeTab !== defaultTab`; clicking it persists the preference; reload starts on the correct tab
 5. Mobile (≤ 720px) — pill switcher renders with `var(--accent-contrast)` text on active amber pill; bottom nav is intact and unaffected; quick actions scroll horizontally if needed
-6. `svelte-dnd-action` absent from `package.json` after cleanup
+6. Dashboard-specific drag-and-drop code absent after cleanup; `svelte-dnd-action` remains in `package.json` for planned non-dashboard ordering work
 7. Visual audit — grep new component files for `border-left` and `border-right`; only the 1px neutral structural divider in the Training summary should appear

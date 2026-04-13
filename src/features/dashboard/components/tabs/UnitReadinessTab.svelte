@@ -138,13 +138,13 @@
 					<button
 						class="toggle-btn"
 						class:active={upcomingGroupBy === 'date'}
-						onclick={() => setUpcomingGroupBy('date')}
-					>Date</button>
+						onclick={() => setUpcomingGroupBy('date')}>Date</button
+					>
 					<button
 						class="toggle-btn"
 						class:active={upcomingGroupBy === 'group'}
-						onclick={() => setUpcomingGroupBy('group')}
-					>Group</button>
+						onclick={() => setUpcomingGroupBy('group')}>Group</button
+					>
 				</div>
 			</div>
 			{#if upcomingGroupBy === 'date'}
@@ -163,7 +163,9 @@
 						<div class="upcoming-row">
 							<span class="upcoming-name">{change.personName}</span>
 							<span class="upcoming-meta">
-								{ctx.formatShortDate(change.date)} — {change.direction === 'departing' ? change.statusName : 'Returning'}
+								{ctx.formatShortDate(change.date)} — {change.direction === 'departing'
+									? change.statusName
+									: 'Returning'}
 							</span>
 						</div>
 					{/each}

@@ -13,7 +13,7 @@ export const changelog: ChangelogEntry[] = [
 		items: [
 			'A new home screen gives you a live readiness picture the moment you log in — no hunting across pages to piece together where your unit stands',
 			'Unit Readiness tab shows your strength count and availability percentage for the day, a status breakdown across all absence types, per-group readiness bars, and a 7-day look-ahead of who is coming and going',
-			'People & Duty tab puts personnel status and the duty roster side by side: see everyone out today with their reason, today and tomorrow\'s duty assignments, active onboarding pipelines with completion progress, and upcoming availability changes all in one view',
+			"People & Duty tab puts personnel status and the duty roster side by side: see everyone out today with their reason, today and tomorrow's duty assignments, active onboarding pipelines with completion progress, and upcoming availability changes all in one view",
 			'Training & Evals tab surfaces training currency percentage, expiring and expired records by person, a group-by-group delinquency comparison, and your full evaluation pipeline showing overdue and upcoming ratings — color-coded by urgency',
 			'Your preferred tab is remembered so the dashboard always opens where you left it'
 		]

@@ -6,10 +6,10 @@
 	interface Props {
 		ctx: DashboardContext;
 		config: WidgetInstanceConfig;
-		configureMode: boolean;
+		configureMode?: boolean;
 	}
 
-	let { ctx, config, configureMode }: Props = $props();
+	let { ctx, config, configureMode = false }: Props = $props();
 
 	const personnel = $derived(ctx.nonAvailablePersonnel);
 	const hasFilter = $derived((config.statusTypeFilter?.length ?? 0) > 0);

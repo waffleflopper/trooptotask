@@ -88,12 +88,15 @@ describe('DashboardPageView', () => {
 		expect(screen.getByText('Thursday, Apr 2 2026')).toBeTruthy();
 	});
 
-	it('renders a Customize button when not in configure mode', () => {
+	it('renders the three dashboard tab buttons', () => {
 		const ctx = makeCtx();
 
 		render(DashboardPageView, { props: { ctx } });
 
-		expect(screen.getByRole('button', { name: /customize/i })).toBeTruthy();
+		// Each label appears in both desktop tab bar and mobile pill switcher
+		expect(screen.getAllByRole('button', { name: /unit readiness/i }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('button', { name: /people & duty/i }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('button', { name: /training & evals/i }).length).toBeGreaterThan(0);
 	});
 
 	it('renders skeleton blocks while data is hydrating', () => {

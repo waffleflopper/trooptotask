@@ -33,7 +33,7 @@ describe('security posture docs and config', () => {
 		expect(CONTROL_MAPPING).toContain('## Partial');
 		expect(CONTROL_MAPPING).toContain('## Planned');
 		expect(CONTROL_MAPPING).toContain('HttpOnly');
-		expect(CONTROL_MAPPING).toContain('20260403_core_rls_permission_hardening.sql');
-		expect(CONTROL_MAPPING).toContain('20260403_sensitive_file_storage_policies.sql');
+		expect(CONTROL_MAPPING).toContain('consolidated Supabase migrations');
+		expect(CONTROL_MAPPING).toContain('rlsPermissionHardening.test.ts');
 	});
 });

@@ -1,10 +1,7 @@
 <script lang="ts">
-	import DashboardCustomizeModal from '$lib/components/DashboardCustomizeModal.svelte';
 	import type { DashboardContext } from '../contexts/DashboardContext.svelte';
 
-	let { ctx }: { ctx: DashboardContext } = $props();
+	// ctx retained for call-site compatibility; no modals currently active
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const { ctx } = $props<{ ctx: DashboardContext }>();
 </script>
-
-{#if ctx.showCustomizeModal}
-	<DashboardCustomizeModal onClose={() => ctx.closeCustomizeModal()} />
-{/if}

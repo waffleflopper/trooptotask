@@ -1,10 +1,10 @@
 <script lang="ts">
 	import WidgetShell from './WidgetShell.svelte';
 	interface Props {
-		configureMode: boolean;
+		configureMode?: boolean;
 	}
 
-	let { configureMode }: Props = $props();
+	let { configureMode = false }: Props = $props();
 </script>
 
 <WidgetShell label="Upcoming Losses" {configureMode}>

@@ -1,4 +1,10 @@
 // ---------------------------------------------------------------------------
+// Dashboard tab identity
+// ---------------------------------------------------------------------------
+
+export type DashboardTabId = 'unit-readiness' | 'people-duty' | 'training-evals';
+
+// ---------------------------------------------------------------------------
 // Widget identity
 // ---------------------------------------------------------------------------
 
@@ -159,6 +165,7 @@ export interface WidgetInstance {
 export interface DashboardConfig {
 	widgets: WidgetInstance[];
 	version: number;
+	defaultTab?: DashboardTabId;
 }
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/publi
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthCookieOptions } from '$lib/server/authCookies';
-import { buildTrustedUserFromClaims, getSupabaseAuthStorageKey, hasSupabaseAuthCookie } from '$lib/server/authSession';
+import { getSupabaseAuthStorageKey, hasSupabaseAuthCookie } from '$lib/server/authSession';
 import { isPublicRoute } from '$lib/server/publicRoutes';
 import {
 	getAuthenticatedRedirectPath,
@@ -81,22 +81,23 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 
 		const {
+			data: { user },
+			error: userError
+		} = await event.locals.supabase.auth.getUser();
+		if (userError || !user) {
+			cachedSession = { session: null, user: null };
+			return cachedSession;
+		}
+
+		const {
 			data: { session },
 			error: sessionError
 		} = await event.locals.supabase.auth.getSession();
-
-		if (sessionError || !session?.access_token) {
+		if (sessionError || !session) {
 			cachedSession = { session: null, user: null };
 			return cachedSession;
 		}
 
-		const { data: claimsData, error: claimsError } = await event.locals.supabase.auth.getClaims(session.access_token);
-		if (claimsError || !claimsData?.claims) {
-			cachedSession = { session: null, user: null };
-			return cachedSession;
-		}
-
-		const user = buildTrustedUserFromClaims(claimsData.claims, session.user);
 		cachedSession = { session: { ...session, user }, user };
 		return cachedSession;
 	};

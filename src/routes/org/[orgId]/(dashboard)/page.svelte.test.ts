@@ -7,8 +7,7 @@ vi.mock('$features/dashboard', async () => {
 	const actual = await vi.importActual<typeof import('$features/dashboard')>('$features/dashboard');
 	return {
 		...actual,
-		DashboardPageView: PassiveStub,
-		DashboardModals: PassiveStub
+		DashboardPageView: PassiveStub
 	};
 });
 

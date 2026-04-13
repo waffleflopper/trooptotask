@@ -7,18 +7,14 @@ import { availabilityStore } from '$features/calendar/stores/availability.svelte
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
-import { dashboardPrefsStore, type CardId } from '$lib/stores/dashboardPrefs.svelte';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 import { deriveShortName, deriveBadgeColor } from '$features/calendar/utils/dutyEventBadges';
-import { getVisibleDashboardCards } from '$lib/utils/dashboardCards';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { TrainingStats } from '$features/training/utils/trainingStatus';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import type { HydrationPlan } from '$lib/server/core/orgShell';
-
-export const HALF_SIZE_CARDS: CardId[] = ['strength', 'duty', 'training', 'upcoming', 'ratings'];
 
 export interface TrainingIssue {
 	personName: string;
@@ -66,11 +62,6 @@ export class DashboardContext {
 	// Raw page data (injected from route)
 	// ---------------------------------------------------------------------------
 	readonly data: DashboardPageData;
-
-	// ---------------------------------------------------------------------------
-	// Modal state
-	// ---------------------------------------------------------------------------
-	showCustomizeModal = $state(false);
 
 	// ---------------------------------------------------------------------------
 	// Banner state
@@ -181,17 +172,6 @@ export class DashboardContext {
 			dailyAssignmentsStore.loading ||
 			groupsStore.loading
 		);
-	}
-
-	// ---------------------------------------------------------------------------
-	// Modal helpers
-	// ---------------------------------------------------------------------------
-	openCustomizeModal() {
-		this.showCustomizeModal = true;
-	}
-
-	closeCustomizeModal() {
-		this.showCustomizeModal = false;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -532,41 +512,6 @@ export class DashboardContext {
 		return (
 			this.ratingStats.overdue + this.ratingStats['due-30'] + this.ratingStats['due-60'] + this.ratingStats.current
 		);
-	}
-
-	// ---------------------------------------------------------------------------
-	// Derived: allowedCards (permission-gated)
-	// ---------------------------------------------------------------------------
-	get allowedCards(): CardId[] {
-		return this.data.permissions ? (getVisibleDashboardCards(this.data.permissions) as CardId[]) : [];
-	}
-
-	// ---------------------------------------------------------------------------
-	// Derived: cardRows (layout algorithm)
-	// ---------------------------------------------------------------------------
-	get cardRows(): CardId[][] {
-		const visible = dashboardPrefsStore.visibleCards.filter((id) => this.allowedCards.includes(id));
-		const rows: CardId[][] = [];
-		let pending: CardId | null = null;
-
-		for (const id of visible) {
-			if (HALF_SIZE_CARDS.includes(id)) {
-				if (pending) {
-					rows.push([pending, id]);
-					pending = null;
-				} else {
-					pending = id;
-				}
-			} else {
-				if (pending) {
-					rows.push([pending]);
-					pending = null;
-				}
-				rows.push([id]);
-			}
-		}
-		if (pending) rows.push([pending]);
-		return rows;
 	}
 
 	// ---------------------------------------------------------------------------

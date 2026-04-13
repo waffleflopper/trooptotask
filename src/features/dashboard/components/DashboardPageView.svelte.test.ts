@@ -64,7 +64,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 		trainingTypeCount: 0,
 		assignmentTypeCount: 0,
 		todayDisplay: 'Thursday, Apr 2 2026',
-		openCustomizeModal: () => {},
 		dismissGettingStarted: () => {}
 	};
 

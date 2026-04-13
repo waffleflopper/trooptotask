@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
 
 	interface Props {
@@ -17,6 +18,41 @@
 	const availColor = $derived(availabilityColor(availPct));
 	const trainingColor = $derived(availabilityColor(ctx.trainingCurrencyPct));
 	const statusEntries = $derived([...ctx.statusBreakdown.entries()]);
+
+	// ── Upcoming Changes grouping toggle ───────────────────
+	const UPCOMING_KEY = 'dashboard-upcoming-group-by';
+	type UpcomingGroupBy = 'date' | 'group';
+
+	let upcomingGroupBy = $state<UpcomingGroupBy>('date');
+
+	$effect(() => {
+		if (browser) {
+			const saved = localStorage.getItem(UPCOMING_KEY);
+			if (saved === 'date' || saved === 'group') upcomingGroupBy = saved;
+		}
+	});
+
+	function setUpcomingGroupBy(value: UpcomingGroupBy) {
+		upcomingGroupBy = value;
+		if (browser) localStorage.setItem(UPCOMING_KEY, value);
+	}
+
+	const upcomingByGroup = $derived.by(() => {
+		const map = new Map<string, typeof ctx.upcomingChanges>();
+		for (const change of ctx.upcomingChanges) {
+			const key = change.groupName;
+			const existing = map.get(key);
+			if (existing) existing.push(change);
+			else map.set(key, [change]);
+		}
+		return new Map(
+			[...map.entries()].sort((a, b) => {
+				if (a[0] === 'Unassigned') return 1;
+				if (b[0] === 'Unassigned') return -1;
+				return a[0].localeCompare(b[0]);
+			})
+		);
+	});
 </script>
 
 <section class="tab-panel">
@@ -96,15 +132,43 @@
 	<!-- Upcoming Changes (conditional) -->
 	{#if ctx.upcomingChanges.length > 0}
 		<div class="upcoming-section">
-			<div class="section-kicker">Upcoming Changes</div>
-			{#each ctx.upcomingChanges as change (change.key)}
-				<div class="upcoming-row">
-					<span class="upcoming-name">{change.personName}</span>
-					<span class="upcoming-meta">
-						{ctx.formatShortDate(change.date)} — {change.direction === 'departing' ? change.statusName : 'Returning'}
-					</span>
+			<div class="upcoming-header">
+				<div class="section-kicker">Upcoming Changes</div>
+				<div class="view-toggle">
+					<button
+						class="toggle-btn"
+						class:active={upcomingGroupBy === 'date'}
+						onclick={() => setUpcomingGroupBy('date')}
+					>Date</button>
+					<button
+						class="toggle-btn"
+						class:active={upcomingGroupBy === 'group'}
+						onclick={() => setUpcomingGroupBy('group')}
+					>Group</button>
 				</div>
-			{/each}
+			</div>
+			{#if upcomingGroupBy === 'date'}
+				{#each ctx.upcomingChanges as change (change.key)}
+					<div class="upcoming-row">
+						<span class="upcoming-name">{change.personName}</span>
+						<span class="upcoming-meta">
+							{ctx.formatShortDate(change.date)} — {change.direction === 'departing' ? change.statusName : 'Returning'}
+						</span>
+					</div>
+				{/each}
+			{:else}
+				{#each [...upcomingByGroup.entries()] as [groupName, changes], i (groupName)}
+					<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
+					{#each changes as change (change.key)}
+						<div class="upcoming-row">
+							<span class="upcoming-name">{change.personName}</span>
+							<span class="upcoming-meta">
+								{ctx.formatShortDate(change.date)} — {change.direction === 'departing' ? change.statusName : 'Returning'}
+							</span>
+						</div>
+					{/each}
+				{/each}
+			{/if}
 		</div>
 	{/if}
 </section>
@@ -328,6 +392,17 @@
 		border-top: 1px solid var(--ink-15);
 	}
 
+	.upcoming-header {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-3);
+		margin-bottom: var(--sp-3);
+	}
+
+	.upcoming-header .section-kicker {
+		margin-bottom: 0;
+	}
+
 	.upcoming-row {
 		display: grid;
 		grid-template-columns: 1fr auto;
@@ -354,6 +429,60 @@
 		letter-spacing: var(--letter-spacing-mono);
 		color: var(--text-tertiary);
 		white-space: nowrap;
+	}
+
+	/* ── Grouping view toggle ─────────────────────────────── */
+	.view-toggle {
+		margin-left: auto;
+		display: flex;
+		background: var(--ink-06);
+		border-radius: var(--radius-sm);
+		padding: 2px;
+		gap: 1px;
+	}
+
+	.toggle-btn {
+		font-family: var(--font-mono);
+		font-size: 9px;
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-mono);
+		color: var(--text-tertiary);
+		background: transparent;
+		border: none;
+		padding: 2px 7px;
+		border-radius: calc(var(--radius-sm) - 1px);
+		cursor: pointer;
+		line-height: 1.5;
+		white-space: nowrap;
+		transition:
+			background 0.1s ease,
+			color 0.1s ease;
+	}
+
+	.toggle-btn.active {
+		background: var(--surface-panel);
+		color: var(--text-primary);
+		box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 8%, transparent);
+	}
+
+	.toggle-btn:hover:not(.active) {
+		color: var(--text-secondary);
+	}
+
+	/* ── Group section headers ────────────────────────────── */
+	.group-header {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-mono);
+		color: var(--text-tertiary);
+		padding: var(--sp-3) 0 var(--sp-1);
+		border-top: 1px solid var(--ink-06);
+	}
+
+	.group-header--first {
+		padding-top: 0;
+		border-top: none;
 	}
 
 	/* ── Responsive ───────────────────────────────────────── */

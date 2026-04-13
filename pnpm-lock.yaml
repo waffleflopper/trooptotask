@@ -49,6 +49,9 @@ importers:
       stripe:
         specifier: ^20.3.1
         version: 20.4.1(@types/node@25.5.0)
+      svelte-dnd-action:
+        specifier: ^0.9.69
+        version: 0.9.69(svelte@5.55.1)
       xlsx:
         specifier: ^0.18.5
         version: 0.18.5
@@ -2603,6 +2606,12 @@ packages:
       svelte: ^4.0.0 || ^5.0.0-next.0
       typescript: '>=5.0.0'
 
+  svelte-dnd-action@0.9.69:
+    resolution:
+      { integrity: sha512-NAmSOH7htJoYraTQvr+q5whlIuVoq88vEuHr4NcFgscDRUxfWPPxgie2OoxepBCQCikrXZV4pqV86aun60wVyw== }
+    peerDependencies:
+      svelte: '>=3.23.0 || ^5.0.0-next.0'
+
   svelte-eslint-parser@1.6.0:
     resolution:
       { integrity: sha512-qoB1ehychT6OxEtQAqc/guSqLS20SlA53Uijl7x375s8nlUT0lb9ol/gzraEEatQwsyPTJo87s2CmKL9Xab+Uw== }
@@ -4841,6 +4850,10 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - picomatch
+
+  svelte-dnd-action@0.9.69(svelte@5.55.1):
+    dependencies:
+      svelte: 5.55.1
 
   svelte-eslint-parser@1.6.0(svelte@5.55.1):
     dependencies:

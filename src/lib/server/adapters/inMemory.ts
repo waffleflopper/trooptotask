@@ -48,6 +48,7 @@ function getOrgColumn(table: string): string {
 	switch (table) {
 		case 'audit_logs':
 		case 'data_exports':
+		case 'dashboard_configs':
 			return 'org_id';
 		default:
 			return 'organization_id';

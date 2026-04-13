@@ -59,6 +59,16 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
+CREATE TYPE "public"."announcement_type" AS ENUM (
+    'info',
+    'warning',
+    'maintenance'
+);
+
+
+ALTER TYPE "public"."announcement_type" OWNER TO "postgres";
+
+
 CREATE TYPE "public"."invitation_status" AS ENUM (
     'pending',
     'accepted',
@@ -79,6 +89,33 @@ CREATE TYPE "public"."organization_role" AS ENUM (
 ALTER TYPE "public"."organization_role" OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."can_edit_availability_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    JOIN "public"."personnel"
+      ON "personnel"."id" = "p_personnel_id"
+     AND "personnel"."organization_id" = "p_organization_id"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_edit_calendar" = true
+      )
+      AND (
+        ("organization_memberships"."scoped_group_id" IS NULL)
+        OR ("personnel"."group_id" IS NULL)
+        OR ("organization_memberships"."scoped_group_id" = "personnel"."group_id")
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_edit_availability_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."can_edit_calendar"("p_organization_id" "uuid") RETURNS boolean
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     AS $$
@@ -94,6 +131,69 @@ $$;
 
 
 ALTER FUNCTION "public"."can_edit_calendar"("p_organization_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_edit_daily_assignment_record"("p_organization_id" "uuid", "p_assignee_id" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    JOIN "public"."personnel"
+      ON ("personnel"."id")::text = "p_assignee_id"
+     AND "personnel"."organization_id" = "p_organization_id"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_edit_calendar" = true
+      )
+      AND (
+        ("organization_memberships"."scoped_group_id" IS NULL)
+        OR ("personnel"."group_id" IS NULL)
+        OR ("organization_memberships"."scoped_group_id" = "personnel"."group_id")
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_edit_daily_assignment_record"("p_organization_id" "uuid", "p_assignee_id" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_edit_daily_assignment_record"("p_organization_id" "uuid", "p_assignment_type_id" "uuid", "p_assignee_id" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    JOIN "public"."assignment_types"
+      ON "assignment_types"."id" = "p_assignment_type_id"
+     AND "assignment_types"."organization_id" = "p_organization_id"
+    LEFT JOIN "public"."personnel"
+      ON "assignment_types"."assign_to" = 'personnel'
+     AND ("personnel"."id")::text = "p_assignee_id"
+     AND "personnel"."organization_id" = "p_organization_id"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_edit_calendar" = true
+      )
+      AND (
+        "assignment_types"."assign_to" = 'group'
+        OR "personnel"."id" IS NOT NULL
+      )
+      AND (
+        "assignment_types"."assign_to" = 'group'
+        OR "organization_memberships"."scoped_group_id" IS NULL
+        OR "personnel"."group_id" IS NULL
+        OR "organization_memberships"."scoped_group_id" = "personnel"."group_id"
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_edit_daily_assignment_record"("p_organization_id" "uuid", "p_assignment_type_id" "uuid", "p_assignee_id" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."can_edit_leaders_book"("p_organization_id" "uuid") RETURNS boolean
@@ -147,6 +247,89 @@ $$;
 ALTER FUNCTION "public"."can_edit_personnel"("p_organization_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."can_edit_personnel_record"("p_organization_id" "uuid", "p_group_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_edit_personnel" = true
+      )
+      AND (
+        ("organization_memberships"."scoped_group_id" IS NULL)
+        OR ("p_group_id" IS NULL)
+        OR ("organization_memberships"."scoped_group_id" = "p_group_id")
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_edit_personnel_record"("p_organization_id" "uuid", "p_group_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_edit_personnel_training_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    JOIN "public"."personnel"
+      ON "personnel"."id" = "p_personnel_id"
+     AND "personnel"."organization_id" = "p_organization_id"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_edit_training" = true
+      )
+      AND (
+        ("organization_memberships"."scoped_group_id" IS NULL)
+        OR ("personnel"."group_id" IS NULL)
+        OR ("organization_memberships"."scoped_group_id" = "personnel"."group_id")
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_edit_personnel_training_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_edit_sensitive_file_object"("bucket_name" "text", "object_name" "text") RETURNS boolean
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'storage'
+    AS $$
+DECLARE
+  org_id uuid;
+  object_scope text;
+BEGIN
+  IF NOT public.is_valid_sensitive_file_path(bucket_name, object_name) THEN
+    RETURN FALSE;
+  END IF;
+
+  org_id := public.storage_object_org_id(object_name);
+  object_scope := public.storage_object_scope(object_name);
+
+  CASE object_scope
+    WHEN 'sign-in-rosters' THEN
+      RETURN public.can_edit_personnel(org_id);
+    WHEN 'counseling-records' THEN
+      RETURN public.can_edit_leaders_book(org_id);
+    WHEN 'counseling-templates' THEN
+      RETURN public.can_edit_leaders_book(org_id);
+    ELSE
+      RETURN FALSE;
+  END CASE;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."can_edit_sensitive_file_object"("bucket_name" "text", "object_name" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."can_edit_training"("p_organization_id" "uuid") RETURNS boolean
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     AS $$
@@ -162,6 +345,44 @@ $$;
 
 
 ALTER FUNCTION "public"."can_edit_training"("p_organization_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_manage_calendar_configuration"("p_organization_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "public"."is_full_editor_for_org"("p_organization_id")
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_manage_calendar_configuration"("p_organization_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_manage_groups"("p_organization_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_edit_personnel" = true
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_manage_groups"("p_organization_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."can_manage_org_members"("p_organization_id" "uuid") RETURNS boolean
@@ -181,6 +402,52 @@ $$;
 ALTER FUNCTION "public"."can_manage_org_members"("p_organization_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."can_manage_training_configuration"("p_organization_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "public"."is_full_editor_for_org"("p_organization_id")
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_manage_training_configuration"("p_organization_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_view_availability_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    JOIN "public"."personnel"
+      ON "personnel"."id" = "p_personnel_id"
+     AND "personnel"."organization_id" = "p_organization_id"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_view_calendar" = true
+      )
+      AND (
+        ("organization_memberships"."scoped_group_id" IS NULL)
+        OR ("personnel"."group_id" IS NULL)
+        OR ("organization_memberships"."scoped_group_id" = "personnel"."group_id")
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_view_availability_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."can_view_calendar"("p_organization_id" "uuid") RETURNS boolean
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     AS $$
@@ -196,6 +463,98 @@ $$;
 
 
 ALTER FUNCTION "public"."can_view_calendar"("p_organization_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_view_daily_assignment_record"("p_organization_id" "uuid", "p_assignee_id" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    JOIN "public"."personnel"
+      ON ("personnel"."id")::text = "p_assignee_id"
+     AND "personnel"."organization_id" = "p_organization_id"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_view_calendar" = true
+      )
+      AND (
+        ("organization_memberships"."scoped_group_id" IS NULL)
+        OR ("personnel"."group_id" IS NULL)
+        OR ("organization_memberships"."scoped_group_id" = "personnel"."group_id")
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_view_daily_assignment_record"("p_organization_id" "uuid", "p_assignee_id" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_view_daily_assignment_record"("p_organization_id" "uuid", "p_assignment_type_id" "uuid", "p_assignee_id" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    JOIN "public"."assignment_types"
+      ON "assignment_types"."id" = "p_assignment_type_id"
+     AND "assignment_types"."organization_id" = "p_organization_id"
+    LEFT JOIN "public"."personnel"
+      ON "assignment_types"."assign_to" = 'personnel'
+     AND ("personnel"."id")::text = "p_assignee_id"
+     AND "personnel"."organization_id" = "p_organization_id"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_view_calendar" = true
+      )
+      AND (
+        "assignment_types"."assign_to" = 'group'
+        OR "personnel"."id" IS NOT NULL
+      )
+      AND (
+        "assignment_types"."assign_to" = 'group'
+        OR "organization_memberships"."scoped_group_id" IS NULL
+        OR "personnel"."group_id" IS NULL
+        OR "organization_memberships"."scoped_group_id" = "personnel"."group_id"
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_view_daily_assignment_record"("p_organization_id" "uuid", "p_assignment_type_id" "uuid", "p_assignee_id" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_view_groups"("p_organization_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_manage_members" = true
+        OR "organization_memberships"."can_view_calendar" = true
+        OR "organization_memberships"."can_edit_calendar" = true
+        OR "organization_memberships"."can_view_personnel" = true
+        OR "organization_memberships"."can_edit_personnel" = true
+        OR "organization_memberships"."can_view_training" = true
+        OR "organization_memberships"."can_edit_training" = true
+        OR "organization_memberships"."can_view_onboarding" = true
+        OR "organization_memberships"."can_edit_onboarding" = true
+        OR "organization_memberships"."can_view_leaders_book" = true
+        OR "organization_memberships"."can_edit_leaders_book" = true
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_view_groups"("p_organization_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."can_view_leaders_book"("p_organization_id" "uuid") RETURNS boolean
@@ -247,6 +606,89 @@ $$;
 
 
 ALTER FUNCTION "public"."can_view_personnel"("p_organization_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_view_personnel_record"("p_organization_id" "uuid", "p_group_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_view_personnel" = true
+      )
+      AND (
+        ("organization_memberships"."scoped_group_id" IS NULL)
+        OR ("p_group_id" IS NULL)
+        OR ("organization_memberships"."scoped_group_id" = "p_group_id")
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_view_personnel_record"("p_organization_id" "uuid", "p_group_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_view_personnel_training_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    JOIN "public"."personnel"
+      ON "personnel"."id" = "p_personnel_id"
+     AND "personnel"."organization_id" = "p_organization_id"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND (
+        "organization_memberships"."role" IN ('owner', 'admin')
+        OR "organization_memberships"."can_view_training" = true
+      )
+      AND (
+        ("organization_memberships"."scoped_group_id" IS NULL)
+        OR ("personnel"."group_id" IS NULL)
+        OR ("organization_memberships"."scoped_group_id" = "personnel"."group_id")
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_view_personnel_training_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_view_sensitive_file_object"("bucket_name" "text", "object_name" "text") RETURNS boolean
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public', 'storage'
+    AS $$
+DECLARE
+  org_id uuid;
+  object_scope text;
+BEGIN
+  IF NOT public.is_valid_sensitive_file_path(bucket_name, object_name) THEN
+    RETURN FALSE;
+  END IF;
+
+  org_id := public.storage_object_org_id(object_name);
+  object_scope := public.storage_object_scope(object_name);
+
+  CASE object_scope
+    WHEN 'sign-in-rosters' THEN
+      RETURN public.can_view_personnel(org_id);
+    WHEN 'counseling-records' THEN
+      RETURN public.can_view_leaders_book(org_id);
+    WHEN 'counseling-templates' THEN
+      RETURN public.can_view_leaders_book(org_id);
+    ELSE
+      RETURN FALSE;
+  END CASE;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."can_view_sensitive_file_object"("bucket_name" "text", "object_name" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."can_view_training"("p_organization_id" "uuid") RETURNS boolean
@@ -336,14 +778,37 @@ ALTER FUNCTION "public"."cleanup_old_webhook_events"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."count_org_personnel"("p_org_id" "uuid") RETURNS integer
-    LANGUAGE "sql" SECURITY DEFINER
+    LANGUAGE "sql" STABLE SECURITY DEFINER
     AS $$
-  SELECT COUNT(*)::integer FROM public.personnel
-  WHERE organization_id = p_org_id AND archived_at IS NULL;
+  SELECT COUNT(*)::integer
+  FROM public.personnel
+  WHERE organization_id = p_org_id
+    AND archived_at IS NULL;
 $$;
 
 
 ALTER FUNCTION "public"."count_org_personnel"("p_org_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."count_platform_users"() RETURNS json
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT json_build_object(
+    'total', (SELECT count(*) FROM auth.users),
+    'last_30_days', (
+      SELECT count(*) FROM auth.users
+      WHERE created_at >= now() - interval '30 days'
+    ),
+    'previous_30_days', (
+      SELECT count(*) FROM auth.users
+      WHERE created_at >= now() - interval '60 days'
+      AND created_at < now() - interval '30 days'
+    )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."count_platform_users"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."create_clinic_with_owner"("p_name" "text") RETURNS "uuid"
@@ -666,6 +1131,25 @@ $$;
 ALTER FUNCTION "public"."create_org_with_owner"("p_name" "text") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."daily_signups_last_30_days"() RETURNS json
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT json_agg(row_to_json(d))
+  FROM (
+    SELECT
+      date_trunc('day', created_at)::date AS date,
+      count(*) AS count
+    FROM auth.users
+    WHERE created_at >= now() - interval '30 days'
+    GROUP BY date_trunc('day', created_at)::date
+    ORDER BY date
+  ) d;
+$$;
+
+
+ALTER FUNCTION "public"."daily_signups_last_30_days"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -712,9 +1196,11 @@ BEGIN
     v_source := 'default';
   END IF;
 
-  -- Get personnel count
+  -- Get personnel count (exclude archived)
   SELECT count(*) INTO v_personnel_count
-  FROM personnel WHERE organization_id = p_org_id;
+  FROM personnel
+  WHERE organization_id = p_org_id
+    AND archived_at IS NULL;
 
   -- Determine cap
   v_cap := CASE v_tier
@@ -740,6 +1226,33 @@ $$;
 
 
 ALTER FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."is_full_editor_for_org"("p_organization_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM "public"."organization_memberships"
+    WHERE "organization_memberships"."organization_id" = "p_organization_id"
+      AND "organization_memberships"."user_id" = "auth"."uid"()
+      AND "organization_memberships"."role" NOT IN ('owner', 'admin')
+      AND "organization_memberships"."scoped_group_id" IS NULL
+      AND "organization_memberships"."can_view_calendar" = true
+      AND "organization_memberships"."can_edit_calendar" = true
+      AND "organization_memberships"."can_view_personnel" = true
+      AND "organization_memberships"."can_edit_personnel" = true
+      AND "organization_memberships"."can_view_training" = true
+      AND "organization_memberships"."can_edit_training" = true
+      AND "organization_memberships"."can_view_onboarding" = true
+      AND "organization_memberships"."can_edit_onboarding" = true
+      AND "organization_memberships"."can_view_leaders_book" = true
+      AND "organization_memberships"."can_edit_leaders_book" = true
+  );
+$$;
+
+
+ALTER FUNCTION "public"."is_full_editor_for_org"("p_organization_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."is_org_member"("p_organization_id" "uuid") RETURNS boolean
@@ -768,6 +1281,21 @@ $$;
 ALTER FUNCTION "public"."is_org_owner"("p_organization_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."is_org_privileged"("p_organization_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.organization_memberships
+    WHERE organization_id = p_organization_id
+      AND user_id = auth.uid()
+      AND role IN ('owner', 'admin')
+  );
+$$;
+
+
+ALTER FUNCTION "public"."is_org_privileged"("p_organization_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."is_platform_admin"() RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     AS $$
@@ -792,6 +1320,97 @@ $$;
 
 
 ALTER FUNCTION "public"."is_super_admin"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."is_user_suspended"("check_user_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM user_suspensions WHERE user_id = check_user_id
+  );
+$$;
+
+
+ALTER FUNCTION "public"."is_user_suspended"("check_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."is_valid_sensitive_file_path"("bucket_name" "text", "object_name" "text") RETURNS boolean
+    LANGUAGE "sql" IMMUTABLE
+    AS $$
+  SELECT
+    bucket_name = 'counseling-files'
+    AND public.storage_object_org_id(object_name) IS NOT NULL
+    AND public.storage_object_scope(object_name) = ANY (ARRAY['sign-in-rosters', 'counseling-records', 'counseling-templates'])
+    AND COALESCE(storage.extension(object_name), '') = 'pdf'
+$$;
+
+
+ALTER FUNCTION "public"."is_valid_sensitive_file_path"("bucket_name" "text", "object_name" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."search_users_by_email"("search_query" "text", "max_results" integer DEFAULT 5) RETURNS json
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(json_agg(row_to_json(u)), '[]'::json)
+  FROM (
+    SELECT id, email, created_at, last_sign_in_at
+    FROM auth.users
+    WHERE email ILIKE '%' || search_query || '%'
+    ORDER BY created_at DESC
+    LIMIT max_results
+  ) u;
+$$;
+
+
+ALTER FUNCTION "public"."search_users_by_email"("search_query" "text", "max_results" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."storage_object_org_id"("object_name" "text") RETURNS "uuid"
+    LANGUAGE "plpgsql" IMMUTABLE
+    AS $$
+DECLARE
+  folder_parts text[];
+BEGIN
+  folder_parts := storage.foldername(object_name);
+
+  IF array_length(folder_parts, 1) IS NULL OR array_length(folder_parts, 1) < 1 THEN
+    RETURN NULL;
+  END IF;
+
+  BEGIN
+    RETURN folder_parts[1]::uuid;
+  EXCEPTION
+    WHEN others THEN
+      RETURN NULL;
+  END;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."storage_object_org_id"("object_name" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."storage_object_scope"("object_name" "text") RETURNS "text"
+    LANGUAGE "sql" IMMUTABLE
+    AS $$
+  SELECT (storage.foldername(object_name))[2]
+$$;
+
+
+ALTER FUNCTION "public"."storage_object_scope"("object_name" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."training_views_set_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."training_views_set_updated_at"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."transfer_org_ownership"("p_organization_id" "uuid", "p_new_owner_id" "uuid") RETURNS "void"
@@ -843,6 +1462,259 @@ $$;
 ALTER FUNCTION "public"."transfer_org_ownership"("p_organization_id" "uuid", "p_new_owner_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."update_advanced_duty_event_aggregate"("p_org_id" "uuid", "p_duty_event_id" "uuid", "p_event_data" "jsonb", "p_slot_rows" "jsonb" DEFAULT '[]'::"jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_event_row public.duty_events%ROWTYPE;
+  v_result jsonb;
+BEGIN
+  UPDATE public.duty_events
+  SET
+    template_id = event_data.template_id,
+    template_name = event_data.template_name,
+    event_date = event_data.event_date,
+    coverage_mode = event_data.coverage_mode,
+    coverage_start = event_data.coverage_start,
+    coverage_end = event_data.coverage_end,
+    is_blocking = event_data.is_blocking,
+    cooldown_hours = event_data.cooldown_hours,
+    rules_snapshot = event_data.rules_snapshot,
+    fill_summary = event_data.fill_summary,
+    collision_summary = event_data.collision_summary,
+    original_proposal = event_data.original_proposal,
+    updated_at = event_data.updated_at
+  FROM jsonb_to_record(p_event_data) AS event_data(
+    template_id uuid,
+    template_name text,
+    event_date date,
+    coverage_mode text,
+    coverage_start text,
+    coverage_end text,
+    is_blocking boolean,
+    cooldown_hours integer,
+    rules_snapshot jsonb,
+    fill_summary jsonb,
+    collision_summary jsonb,
+    original_proposal jsonb,
+    updated_at timestamptz
+  )
+  WHERE duty_events.id = p_duty_event_id
+    AND duty_events.organization_id = p_org_id
+  RETURNING duty_events.* INTO v_event_row;
+
+  IF v_event_row.id IS NULL THEN
+    RAISE EXCEPTION 'Duty event not found: %', p_duty_event_id USING ERRCODE = 'P0002';
+  END IF;
+
+  DELETE FROM public.duty_event_slots
+  WHERE organization_id = p_org_id
+    AND duty_event_id = p_duty_event_id;
+
+  WITH inserted_slots AS (
+    INSERT INTO public.duty_event_slots (
+      organization_id,
+      duty_event_id,
+      template_slot_id,
+      role_label,
+      slot_index,
+      assignee_id,
+      assignment_source,
+      warning_state,
+      fairness_confidence,
+      selection_reason,
+      unfilled_reason,
+      sort_order,
+      created_at
+    )
+    SELECT
+      p_org_id,
+      p_duty_event_id,
+      slot_rows.template_slot_id,
+      slot_rows.role_label,
+      slot_rows.slot_index,
+      slot_rows.assignee_id,
+      slot_rows.assignment_source,
+      slot_rows.warning_state,
+      slot_rows.fairness_confidence,
+      slot_rows.selection_reason,
+      slot_rows.unfilled_reason,
+      slot_rows.sort_order,
+      slot_rows.created_at
+    FROM jsonb_to_recordset(COALESCE(p_slot_rows, '[]'::jsonb)) AS slot_rows(
+      template_slot_id uuid,
+      role_label text,
+      slot_index integer,
+      assignee_id uuid,
+      assignment_source text,
+      warning_state text,
+      fairness_confidence text,
+      selection_reason text,
+      unfilled_reason text,
+      sort_order integer,
+      created_at timestamptz
+    )
+    RETURNING *
+  )
+  SELECT jsonb_build_object(
+    'eventRow',
+    to_jsonb(v_event_row),
+    'slotRows',
+    COALESCE((SELECT jsonb_agg(to_jsonb(inserted_slots)) FROM inserted_slots), '[]'::jsonb)
+  )
+  INTO v_result;
+
+  RETURN v_result;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_advanced_duty_event_aggregate"("p_org_id" "uuid", "p_duty_event_id" "uuid", "p_event_data" "jsonb", "p_slot_rows" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."update_advanced_duty_template_aggregate"("p_org_id" "uuid", "p_template_id" "uuid", "p_template_data" "jsonb", "p_slot_rows" "jsonb" DEFAULT '[]'::"jsonb", "p_rotation_baseline_rows" "jsonb" DEFAULT '[]'::"jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_template_row public.duty_templates%ROWTYPE;
+  v_result jsonb;
+BEGIN
+  UPDATE public.duty_templates
+  SET
+    status = template_data.status,
+    name = template_data.name,
+    description = template_data.description,
+    scope_type = template_data.scope_type,
+    scope_group_ids = template_data.scope_group_ids,
+    exempt_personnel_ids = template_data.exempt_personnel_ids,
+    exempt_status_type_ids = template_data.exempt_status_type_ids,
+    coverage_mode = template_data.coverage_mode,
+    start_time = template_data.start_time,
+    end_time = template_data.end_time,
+    spans_midnight = template_data.spans_midnight,
+    is_blocking = template_data.is_blocking,
+    cooldown_hours = template_data.cooldown_hours,
+    soft_preferences = template_data.soft_preferences,
+    updated_at = template_data.updated_at
+  FROM jsonb_to_record(p_template_data) AS template_data(
+    status text,
+    name text,
+    description text,
+    scope_type text,
+    scope_group_ids uuid[],
+    exempt_personnel_ids uuid[],
+    exempt_status_type_ids uuid[],
+    coverage_mode text,
+    start_time text,
+    end_time text,
+    spans_midnight boolean,
+    is_blocking boolean,
+    cooldown_hours integer,
+    soft_preferences jsonb,
+    updated_at timestamptz
+  )
+  WHERE duty_templates.id = p_template_id
+    AND duty_templates.organization_id = p_org_id
+  RETURNING duty_templates.* INTO v_template_row;
+
+  IF v_template_row.id IS NULL THEN
+    RAISE EXCEPTION 'Duty template not found: %', p_template_id USING ERRCODE = 'P0002';
+  END IF;
+
+  DELETE FROM public.duty_template_slots
+  WHERE organization_id = p_org_id
+    AND template_id = p_template_id;
+
+  DELETE FROM public.duty_template_rotation_baselines
+  WHERE organization_id = p_org_id
+    AND template_id = p_template_id;
+
+  WITH inserted_slots AS (
+    INSERT INTO public.duty_template_slots (
+      organization_id,
+      template_id,
+      role_label,
+      quantity,
+      allowed_ranks,
+      allowed_group_ids,
+      preferred_group_ids,
+      allowed_mos_values,
+      allowed_role_values,
+      rotation_pool_key,
+      blocking_mode,
+      sort_order
+    )
+    SELECT
+      p_org_id,
+      p_template_id,
+      slot_rows.role_label,
+      slot_rows.quantity,
+      slot_rows.allowed_ranks,
+      slot_rows.allowed_group_ids,
+      slot_rows.preferred_group_ids,
+      slot_rows.allowed_mos_values,
+      slot_rows.allowed_role_values,
+      slot_rows.rotation_pool_key,
+      slot_rows.blocking_mode,
+      slot_rows.sort_order
+    FROM jsonb_to_recordset(COALESCE(p_slot_rows, '[]'::jsonb)) AS slot_rows(
+      role_label text,
+      quantity integer,
+      allowed_ranks text[],
+      allowed_group_ids uuid[],
+      preferred_group_ids uuid[],
+      allowed_mos_values text[],
+      allowed_role_values text[],
+      rotation_pool_key text,
+      blocking_mode text,
+      sort_order integer
+    )
+    RETURNING *
+  ),
+  inserted_baselines AS (
+    INSERT INTO public.duty_template_rotation_baselines (
+      organization_id,
+      template_id,
+      rotation_pool_key,
+      person_id,
+      last_served_date,
+      created_at
+    )
+    SELECT
+      p_org_id,
+      p_template_id,
+      baseline_rows.rotation_pool_key,
+      baseline_rows.person_id,
+      baseline_rows.last_served_date,
+      baseline_rows.created_at
+    FROM jsonb_to_recordset(COALESCE(p_rotation_baseline_rows, '[]'::jsonb)) AS baseline_rows(
+      rotation_pool_key text,
+      person_id uuid,
+      last_served_date date,
+      created_at timestamptz
+    )
+    RETURNING *
+  )
+  SELECT jsonb_build_object(
+    'templateRow',
+    to_jsonb(v_template_row),
+    'slotRows',
+    COALESCE((SELECT jsonb_agg(to_jsonb(inserted_slots)) FROM inserted_slots), '[]'::jsonb),
+    'rotationBaselineRows',
+    COALESCE((SELECT jsonb_agg(to_jsonb(inserted_baselines)) FROM inserted_baselines), '[]'::jsonb)
+  )
+  INTO v_result;
+
+  RETURN v_result;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."update_advanced_duty_template_aggregate"("p_org_id" "uuid", "p_template_id" "uuid", "p_template_data" "jsonb", "p_slot_rows" "jsonb", "p_rotation_baseline_rows" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."update_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -868,6 +1740,19 @@ $$;
 
 ALTER FUNCTION "public"."update_updated_at_column"() OWNER TO "postgres";
 
+
+CREATE OR REPLACE FUNCTION "public"."user_org_preferences_set_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."user_org_preferences_set_updated_at"() OWNER TO "postgres";
+
 SET default_tablespace = '';
 
 SET default_table_access_method = "heap";
@@ -890,6 +1775,16 @@ CREATE TABLE IF NOT EXISTS "public"."access_requests" (
 ALTER TABLE "public"."access_requests" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."announcement_dismissals" (
+    "announcement_id" "uuid" NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "dismissed_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."announcement_dismissals" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."assignment_types" (
     "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
     "organization_id" "uuid" NOT NULL,
@@ -900,6 +1795,7 @@ CREATE TABLE IF NOT EXISTS "public"."assignment_types" (
     "sort_order" integer DEFAULT 0 NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "exempt_personnel_ids" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "show_in_date_header" boolean DEFAULT false NOT NULL,
     CONSTRAINT "assignment_types_assign_to_check" CHECK (("assign_to" = ANY (ARRAY['personnel'::"text", 'group'::"text"])))
 );
 
@@ -956,6 +1852,9 @@ CREATE TABLE IF NOT EXISTS "public"."beta_feedback" (
     "admin_notes" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "github_issue_number" integer,
+    "github_issue_url" "text",
+    "page_section" "text",
     CONSTRAINT "beta_feedback_category_check" CHECK (("category" = ANY (ARRAY['bug'::"text", 'feature'::"text", 'general'::"text"]))),
     CONSTRAINT "beta_feedback_status_check" CHECK (("status" = ANY (ARRAY['new'::"text", 'reviewed'::"text", 'resolved'::"text"])))
 );
@@ -1081,6 +1980,79 @@ CREATE TABLE IF NOT EXISTS "public"."development_goals" (
 ALTER TABLE "public"."development_goals" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."duty_event_runs" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "template_id" "uuid",
+    "template_name" "text" NOT NULL,
+    "pattern" "text" DEFAULT 'single'::"text" NOT NULL,
+    "start_date" "date" NOT NULL,
+    "end_date" "date" NOT NULL,
+    "event_count" integer DEFAULT 0 NOT NULL,
+    "is_legacy" boolean DEFAULT false NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "duty_event_runs_date_order_check" CHECK (("start_date" <= "end_date")),
+    CONSTRAINT "duty_event_runs_event_count_check" CHECK (("event_count" >= 0)),
+    CONSTRAINT "duty_event_runs_pattern_check" CHECK (("pattern" = ANY (ARRAY['single'::"text", 'daily'::"text", 'weekday-only'::"text", 'weekend-only'::"text", 'selected-weekdays'::"text", 'holiday-closure-only'::"text", 'custom-dates'::"text"])))
+);
+
+
+ALTER TABLE "public"."duty_event_runs" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."duty_event_slots" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "duty_event_id" "uuid" NOT NULL,
+    "template_slot_id" "uuid",
+    "role_label" "text" NOT NULL,
+    "slot_index" integer DEFAULT 0 NOT NULL,
+    "assignee_id" "uuid",
+    "assignment_source" "text" DEFAULT 'generated'::"text" NOT NULL,
+    "warning_state" "text" DEFAULT 'none'::"text" NOT NULL,
+    "unfilled_reason" "text",
+    "sort_order" integer DEFAULT 0 NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "fairness_confidence" "text" DEFAULT 'low'::"text" NOT NULL,
+    "selection_reason" "text",
+    CONSTRAINT "duty_event_slots_assignment_source_check" CHECK (("assignment_source" = ANY (ARRAY['generated'::"text", 'manual'::"text", 'locked'::"text"]))),
+    CONSTRAINT "duty_event_slots_fairness_confidence_check" CHECK (("fairness_confidence" = ANY (ARRAY['high'::"text", 'low'::"text"]))),
+    CONSTRAINT "duty_event_slots_slot_index_check" CHECK (("slot_index" >= 0)),
+    CONSTRAINT "duty_event_slots_sort_order_check" CHECK (("sort_order" >= 0)),
+    CONSTRAINT "duty_event_slots_warning_state_check" CHECK (("warning_state" = ANY (ARRAY['none'::"text", 'warning'::"text", 'conflict'::"text"])))
+);
+
+
+ALTER TABLE "public"."duty_event_slots" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."duty_events" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "template_id" "uuid" NOT NULL,
+    "template_name" "text" NOT NULL,
+    "event_date" "date" NOT NULL,
+    "coverage_mode" "text" DEFAULT 'timed'::"text" NOT NULL,
+    "coverage_start" "text" NOT NULL,
+    "coverage_end" "text" NOT NULL,
+    "is_blocking" boolean DEFAULT false NOT NULL,
+    "cooldown_hours" integer DEFAULT 0 NOT NULL,
+    "rules_snapshot" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "fill_summary" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "collision_summary" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "original_proposal" "jsonb",
+    "run_id" "uuid",
+    CONSTRAINT "duty_events_cooldown_hours_check" CHECK (("cooldown_hours" >= 0)),
+    CONSTRAINT "duty_events_coverage_mode_check" CHECK (("coverage_mode" = ANY (ARRAY['all-day'::"text", 'timed'::"text"])))
+);
+
+
+ALTER TABLE "public"."duty_events" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."duty_roster_history" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "organization_id" "uuid" NOT NULL,
@@ -1096,6 +2068,75 @@ CREATE TABLE IF NOT EXISTS "public"."duty_roster_history" (
 
 
 ALTER TABLE "public"."duty_roster_history" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."duty_template_rotation_baselines" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "template_id" "uuid" NOT NULL,
+    "rotation_pool_key" "text" NOT NULL,
+    "person_id" "uuid" NOT NULL,
+    "last_served_date" "date" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."duty_template_rotation_baselines" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."duty_template_slots" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "template_id" "uuid" NOT NULL,
+    "role_label" "text" NOT NULL,
+    "quantity" integer DEFAULT 1 NOT NULL,
+    "allowed_ranks" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "allowed_group_ids" "uuid"[] DEFAULT '{}'::"uuid"[] NOT NULL,
+    "allowed_mos_values" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "allowed_role_values" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "sort_order" integer DEFAULT 0 NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "preferred_group_ids" "uuid"[] DEFAULT '{}'::"uuid"[] NOT NULL,
+    "rotation_pool_key" "text" NOT NULL,
+    "blocking_mode" "text" DEFAULT 'inherit'::"text" NOT NULL,
+    CONSTRAINT "duty_template_slots_blocking_mode_check" CHECK (("blocking_mode" = ANY (ARRAY['inherit'::"text", 'blocking'::"text", 'non-blocking'::"text"]))),
+    CONSTRAINT "duty_template_slots_quantity_check" CHECK (("quantity" >= 1)),
+    CONSTRAINT "duty_template_slots_sort_order_check" CHECK (("sort_order" >= 0))
+);
+
+
+ALTER TABLE "public"."duty_template_slots" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."duty_templates" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "mode" "text" DEFAULT 'advanced'::"text" NOT NULL,
+    "status" "text" DEFAULT 'draft'::"text" NOT NULL,
+    "name" "text" NOT NULL,
+    "description" "text",
+    "scope_type" "text" DEFAULT 'organization'::"text" NOT NULL,
+    "scope_group_ids" "uuid"[] DEFAULT '{}'::"uuid"[] NOT NULL,
+    "coverage_mode" "text" DEFAULT 'all-day'::"text" NOT NULL,
+    "start_time" "text",
+    "end_time" "text",
+    "is_blocking" boolean DEFAULT false NOT NULL,
+    "cooldown_hours" integer DEFAULT 0 NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "exempt_personnel_ids" "uuid"[] DEFAULT '{}'::"uuid"[] NOT NULL,
+    "exempt_status_type_ids" "uuid"[] DEFAULT '{}'::"uuid"[] NOT NULL,
+    "soft_preferences" "jsonb" DEFAULT '[{"type": "longest-break", "enabled": true}, {"type": "holiday-closure", "enabled": true}, {"type": "weekend", "enabled": true}, {"type": "preferred-group", "enabled": true}]'::"jsonb" NOT NULL,
+    "spans_midnight" boolean DEFAULT false NOT NULL,
+    CONSTRAINT "duty_templates_cooldown_hours_check" CHECK (("cooldown_hours" >= 0)),
+    CONSTRAINT "duty_templates_coverage_mode_check" CHECK (("coverage_mode" = ANY (ARRAY['all-day'::"text", 'timed'::"text"]))),
+    CONSTRAINT "duty_templates_mode_check" CHECK (("mode" = ANY (ARRAY['simple'::"text", 'advanced'::"text"]))),
+    CONSTRAINT "duty_templates_scope_type_check" CHECK (("scope_type" = ANY (ARRAY['organization'::"text", 'groups'::"text"]))),
+    CONSTRAINT "duty_templates_status_check" CHECK (("status" = ANY (ARRAY['draft'::"text", 'active'::"text", 'archived'::"text"])))
+);
+
+
+ALTER TABLE "public"."duty_templates" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."getting_started_progress" (
@@ -1150,6 +2191,9 @@ CREATE TABLE IF NOT EXISTS "public"."onboarding_step_progress" (
     "current_stage" "text",
     "notes" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "template_step_id" "uuid",
+    "active" boolean DEFAULT true NOT NULL,
+    "organization_id" "uuid" NOT NULL,
     CONSTRAINT "onboarding_step_progress_step_type_check" CHECK (("step_type" = ANY (ARRAY['training'::"text", 'paperwork'::"text", 'checkbox'::"text"])))
 );
 
@@ -1167,11 +2211,24 @@ CREATE TABLE IF NOT EXISTS "public"."onboarding_template_steps" (
     "stages" "jsonb",
     "sort_order" integer DEFAULT 0 NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "template_id" "uuid" NOT NULL,
     CONSTRAINT "onboarding_template_steps_step_type_check" CHECK (("step_type" = ANY (ARRAY['training'::"text", 'paperwork'::"text", 'checkbox'::"text"])))
 );
 
 
 ALTER TABLE "public"."onboarding_template_steps" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."onboarding_templates" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "name" "text" NOT NULL,
+    "description" "text",
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."onboarding_templates" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."organization_invitations" (
@@ -1241,6 +2298,7 @@ CREATE TABLE IF NOT EXISTS "public"."organizations" (
     "gift_expires_at" timestamp with time zone,
     "gifted_by" "uuid",
     "archive_retention_months" integer DEFAULT 36,
+    "suspended_at" timestamp with time zone,
     CONSTRAINT "organizations_demo_type_check" CHECK (("demo_type" = ANY (ARRAY['showcase'::"text", 'sandbox'::"text"]))),
     CONSTRAINT "organizations_gift_tier_check" CHECK ((("gift_tier" IS NULL) OR ("gift_tier" = ANY (ARRAY['team'::"text", 'unit'::"text"])))),
     CONSTRAINT "organizations_subscription_status_check" CHECK (("subscription_status" = ANY (ARRAY['active'::"text", 'canceled'::"text", 'past_due'::"text", 'paused'::"text"]))),
@@ -1303,6 +2361,8 @@ CREATE TABLE IF NOT EXISTS "public"."personnel_onboardings" (
     "completed_at" "date",
     "status" "text" DEFAULT 'in_progress'::"text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "template_id" "uuid",
+    "cancelled_at" timestamp with time zone,
     CONSTRAINT "personnel_onboardings_status_check" CHECK (("status" = ANY (ARRAY['in_progress'::"text", 'completed'::"text", 'cancelled'::"text"])))
 );
 
@@ -1342,6 +2402,23 @@ CREATE TABLE IF NOT EXISTS "public"."platform_admins" (
 
 
 ALTER TABLE "public"."platform_admins" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."platform_announcements" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "title" "text" NOT NULL,
+    "message" "text" NOT NULL,
+    "type" "public"."announcement_type" DEFAULT 'info'::"public"."announcement_type" NOT NULL,
+    "is_active" boolean DEFAULT true NOT NULL,
+    "expires_at" timestamp with time zone,
+    "created_by" "uuid" NOT NULL,
+    "updated_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."platform_announcements" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."rating_scheme_entries" (
@@ -1459,17 +2536,50 @@ CREATE TABLE IF NOT EXISTS "public"."training_types" (
     "expiration_months" integer,
     "warning_days_yellow" integer DEFAULT 60 NOT NULL,
     "warning_days_orange" integer DEFAULT 30 NOT NULL,
-    "required_for_roles" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "applies_to_roles" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
     "color" "text" DEFAULT '#6b7280'::"text" NOT NULL,
     "sort_order" integer DEFAULT 0 NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "expiration_date_only" boolean DEFAULT false NOT NULL,
     "can_be_exempted" boolean DEFAULT false NOT NULL,
-    "exempt_personnel_ids" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL
+    "exempt_personnel_ids" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "applies_to_mos" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "applies_to_ranks" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "excluded_roles" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "excluded_mos" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "excluded_ranks" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "is_optional" boolean DEFAULT false NOT NULL
 );
 
 
 ALTER TABLE "public"."training_types" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."training_views" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "name" "text" NOT NULL,
+    "column_ids" "uuid"[] DEFAULT '{}'::"uuid"[] NOT NULL,
+    "created_by" "uuid" DEFAULT "auth"."uid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."training_views" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."user_org_preferences" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "organization_id" "uuid" NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "preferences" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."user_org_preferences" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."user_pinned_groups" (
@@ -1485,8 +2595,24 @@ CREATE TABLE IF NOT EXISTS "public"."user_pinned_groups" (
 ALTER TABLE "public"."user_pinned_groups" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."user_suspensions" (
+    "user_id" "uuid" NOT NULL,
+    "suspended_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "suspended_by" "uuid" NOT NULL,
+    "reason" "text"
+);
+
+
+ALTER TABLE "public"."user_suspensions" OWNER TO "postgres";
+
+
 ALTER TABLE ONLY "public"."access_requests"
     ADD CONSTRAINT "access_requests_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."announcement_dismissals"
+    ADD CONSTRAINT "announcement_dismissals_pkey" PRIMARY KEY ("announcement_id", "user_id");
 
 
 
@@ -1570,8 +2696,38 @@ ALTER TABLE ONLY "public"."development_goals"
 
 
 
+ALTER TABLE ONLY "public"."duty_event_runs"
+    ADD CONSTRAINT "duty_event_runs_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."duty_event_slots"
+    ADD CONSTRAINT "duty_event_slots_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."duty_events"
+    ADD CONSTRAINT "duty_events_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."duty_roster_history"
     ADD CONSTRAINT "duty_roster_history_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."duty_template_rotation_baselines"
+    ADD CONSTRAINT "duty_template_rotation_baselines_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."duty_template_slots"
+    ADD CONSTRAINT "duty_template_slots_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."duty_templates"
+    ADD CONSTRAINT "duty_templates_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1607,6 +2763,16 @@ ALTER TABLE ONLY "public"."onboarding_step_progress"
 
 ALTER TABLE ONLY "public"."onboarding_template_steps"
     ADD CONSTRAINT "onboarding_template_steps_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."onboarding_templates"
+    ADD CONSTRAINT "onboarding_templates_org_name_unique" UNIQUE ("organization_id", "name");
+
+
+
+ALTER TABLE ONLY "public"."onboarding_templates"
+    ADD CONSTRAINT "onboarding_templates_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1647,6 +2813,11 @@ ALTER TABLE ONLY "public"."platform_admins"
 
 ALTER TABLE ONLY "public"."platform_admins"
     ADD CONSTRAINT "platform_admins_user_id_key" UNIQUE ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."platform_announcements"
+    ADD CONSTRAINT "platform_announcements_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1695,6 +2866,21 @@ ALTER TABLE ONLY "public"."training_types"
 
 
 
+ALTER TABLE ONLY "public"."training_views"
+    ADD CONSTRAINT "training_views_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."user_org_preferences"
+    ADD CONSTRAINT "user_org_preferences_org_user_key" UNIQUE ("organization_id", "user_id");
+
+
+
+ALTER TABLE ONLY "public"."user_org_preferences"
+    ADD CONSTRAINT "user_org_preferences_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."user_pinned_groups"
     ADD CONSTRAINT "user_pinned_groups_pkey" PRIMARY KEY ("id");
 
@@ -1705,7 +2891,84 @@ ALTER TABLE ONLY "public"."user_pinned_groups"
 
 
 
+ALTER TABLE ONLY "public"."user_suspensions"
+    ADD CONSTRAINT "user_suspensions_pkey" PRIMARY KEY ("user_id");
+
+
+
 CREATE UNIQUE INDEX "access_requests_pending_email_idx" ON "public"."access_requests" USING "btree" ("lower"("email")) WHERE ("status" = 'pending'::"text");
+
+
+
+CREATE UNIQUE INDEX "assignment_types_one_header_per_org" ON "public"."assignment_types" USING "btree" ("organization_id") WHERE ("show_in_date_header" = true);
+
+
+
+CREATE INDEX "duty_event_runs_legacy_idx" ON "public"."duty_event_runs" USING "btree" ("organization_id", "is_legacy");
+
+
+
+CREATE INDEX "duty_event_runs_org_idx" ON "public"."duty_event_runs" USING "btree" ("organization_id", "created_at" DESC);
+
+
+
+CREATE INDEX "duty_event_runs_template_idx" ON "public"."duty_event_runs" USING "btree" ("template_id");
+
+
+
+CREATE INDEX "duty_event_slots_assignee_idx" ON "public"."duty_event_slots" USING "btree" ("assignee_id");
+
+
+
+CREATE INDEX "duty_event_slots_event_idx" ON "public"."duty_event_slots" USING "btree" ("duty_event_id", "sort_order");
+
+
+
+CREATE INDEX "duty_event_slots_org_idx" ON "public"."duty_event_slots" USING "btree" ("organization_id");
+
+
+
+CREATE INDEX "duty_events_org_idx" ON "public"."duty_events" USING "btree" ("organization_id");
+
+
+
+CREATE INDEX "duty_events_org_start_idx" ON "public"."duty_events" USING "btree" ("organization_id", "coverage_start" DESC);
+
+
+
+CREATE INDEX "duty_events_run_idx" ON "public"."duty_events" USING "btree" ("run_id", "event_date");
+
+
+
+CREATE INDEX "duty_events_template_idx" ON "public"."duty_events" USING "btree" ("template_id");
+
+
+
+CREATE INDEX "duty_template_rotation_baselines_org_idx" ON "public"."duty_template_rotation_baselines" USING "btree" ("organization_id");
+
+
+
+CREATE INDEX "duty_template_rotation_baselines_template_pool_idx" ON "public"."duty_template_rotation_baselines" USING "btree" ("template_id", "rotation_pool_key", "last_served_date" DESC);
+
+
+
+CREATE UNIQUE INDEX "duty_template_rotation_baselines_template_pool_person_uidx" ON "public"."duty_template_rotation_baselines" USING "btree" ("template_id", "rotation_pool_key", "person_id");
+
+
+
+CREATE INDEX "duty_template_slots_org_idx" ON "public"."duty_template_slots" USING "btree" ("organization_id");
+
+
+
+CREATE INDEX "duty_template_slots_template_idx" ON "public"."duty_template_slots" USING "btree" ("template_id", "sort_order");
+
+
+
+CREATE INDEX "duty_templates_org_idx" ON "public"."duty_templates" USING "btree" ("organization_id");
+
+
+
+CREATE INDEX "duty_templates_org_mode_idx" ON "public"."duty_templates" USING "btree" ("organization_id", "mode");
 
 
 
@@ -1833,6 +3096,10 @@ CREATE INDEX "idx_organizations_demo_expires" ON "public"."organizations" USING 
 
 
 
+CREATE INDEX "idx_organizations_suspended" ON "public"."organizations" USING "btree" ("suspended_at") WHERE ("suspended_at" IS NOT NULL);
+
+
+
 CREATE INDEX "idx_personnel_archived" ON "public"."personnel" USING "btree" ("organization_id", "archived_at");
 
 
@@ -1873,6 +3140,10 @@ CREATE INDEX "idx_platform_admins_user_id" ON "public"."platform_admins" USING "
 
 
 
+CREATE INDEX "idx_platform_announcements_active" ON "public"."platform_announcements" USING "btree" ("is_active", "expires_at") WHERE ("is_active" = true);
+
+
+
 CREATE INDEX "idx_registration_invites_code" ON "public"."registration_invites" USING "btree" ("code");
 
 
@@ -1905,6 +3176,10 @@ CREATE INDEX "onboarding_template_steps_org_idx" ON "public"."onboarding_templat
 
 
 
+CREATE INDEX "onboarding_templates_org_idx" ON "public"."onboarding_templates" USING "btree" ("organization_id");
+
+
+
 CREATE UNIQUE INDEX "personnel_onboardings_active_idx" ON "public"."personnel_onboardings" USING "btree" ("organization_id", "personnel_id") WHERE ("status" = 'in_progress'::"text");
 
 
@@ -1921,7 +3196,23 @@ CREATE INDEX "rating_scheme_entries_rated_idx" ON "public"."rating_scheme_entrie
 
 
 
+CREATE INDEX "training_views_organization_id_idx" ON "public"."training_views" USING "btree" ("organization_id");
+
+
+
+CREATE INDEX "user_org_preferences_user_org_idx" ON "public"."user_org_preferences" USING "btree" ("user_id", "organization_id");
+
+
+
 CREATE OR REPLACE TRIGGER "set_beta_feedback_updated_at" BEFORE UPDATE ON "public"."beta_feedback" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
+
+
+
+CREATE OR REPLACE TRIGGER "set_training_views_updated_at" BEFORE UPDATE ON "public"."training_views" FOR EACH ROW EXECUTE FUNCTION "public"."training_views_set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "set_user_org_preferences_updated_at" BEFORE UPDATE ON "public"."user_org_preferences" FOR EACH ROW EXECUTE FUNCTION "public"."user_org_preferences_set_updated_at"();
 
 
 
@@ -1952,6 +3243,16 @@ ALTER TABLE ONLY "public"."access_requests"
 
 ALTER TABLE ONLY "public"."access_requests"
     ADD CONSTRAINT "access_requests_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."announcement_dismissals"
+    ADD CONSTRAINT "announcement_dismissals_announcement_id_fkey" FOREIGN KEY ("announcement_id") REFERENCES "public"."platform_announcements"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."announcement_dismissals"
+    ADD CONSTRAINT "announcement_dismissals_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -2090,6 +3391,51 @@ ALTER TABLE ONLY "public"."development_goals"
 
 
 
+ALTER TABLE ONLY "public"."duty_event_runs"
+    ADD CONSTRAINT "duty_event_runs_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."duty_event_runs"
+    ADD CONSTRAINT "duty_event_runs_template_id_fkey" FOREIGN KEY ("template_id") REFERENCES "public"."duty_templates"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."duty_event_slots"
+    ADD CONSTRAINT "duty_event_slots_assignee_id_fkey" FOREIGN KEY ("assignee_id") REFERENCES "public"."personnel"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."duty_event_slots"
+    ADD CONSTRAINT "duty_event_slots_duty_event_id_fkey" FOREIGN KEY ("duty_event_id") REFERENCES "public"."duty_events"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."duty_event_slots"
+    ADD CONSTRAINT "duty_event_slots_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."duty_event_slots"
+    ADD CONSTRAINT "duty_event_slots_template_slot_id_fkey" FOREIGN KEY ("template_slot_id") REFERENCES "public"."duty_template_slots"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."duty_events"
+    ADD CONSTRAINT "duty_events_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."duty_events"
+    ADD CONSTRAINT "duty_events_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "public"."duty_event_runs"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."duty_events"
+    ADD CONSTRAINT "duty_events_template_id_fkey" FOREIGN KEY ("template_id") REFERENCES "public"."duty_templates"("id") ON DELETE RESTRICT;
+
+
+
 ALTER TABLE ONLY "public"."duty_roster_history"
     ADD CONSTRAINT "duty_roster_history_assignment_type_id_fkey" FOREIGN KEY ("assignment_type_id") REFERENCES "public"."assignment_types"("id") ON DELETE CASCADE;
 
@@ -2102,6 +3448,36 @@ ALTER TABLE ONLY "public"."duty_roster_history"
 
 ALTER TABLE ONLY "public"."duty_roster_history"
     ADD CONSTRAINT "duty_roster_history_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."duty_template_rotation_baselines"
+    ADD CONSTRAINT "duty_template_rotation_baselines_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."duty_template_rotation_baselines"
+    ADD CONSTRAINT "duty_template_rotation_baselines_person_id_fkey" FOREIGN KEY ("person_id") REFERENCES "public"."personnel"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."duty_template_rotation_baselines"
+    ADD CONSTRAINT "duty_template_rotation_baselines_template_id_fkey" FOREIGN KEY ("template_id") REFERENCES "public"."duty_templates"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."duty_template_slots"
+    ADD CONSTRAINT "duty_template_slots_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."duty_template_slots"
+    ADD CONSTRAINT "duty_template_slots_template_id_fkey" FOREIGN KEY ("template_id") REFERENCES "public"."duty_templates"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."duty_templates"
+    ADD CONSTRAINT "duty_templates_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -2136,6 +3512,16 @@ ALTER TABLE ONLY "public"."onboarding_step_progress"
 
 
 ALTER TABLE ONLY "public"."onboarding_step_progress"
+    ADD CONSTRAINT "onboarding_step_progress_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."onboarding_step_progress"
+    ADD CONSTRAINT "onboarding_step_progress_template_step_id_fkey" FOREIGN KEY ("template_step_id") REFERENCES "public"."onboarding_template_steps"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."onboarding_step_progress"
     ADD CONSTRAINT "onboarding_step_progress_training_type_id_fkey" FOREIGN KEY ("training_type_id") REFERENCES "public"."training_types"("id") ON DELETE SET NULL;
 
 
@@ -2146,7 +3532,17 @@ ALTER TABLE ONLY "public"."onboarding_template_steps"
 
 
 ALTER TABLE ONLY "public"."onboarding_template_steps"
+    ADD CONSTRAINT "onboarding_template_steps_template_id_fkey" FOREIGN KEY ("template_id") REFERENCES "public"."onboarding_templates"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."onboarding_template_steps"
     ADD CONSTRAINT "onboarding_template_steps_training_type_id_fkey" FOREIGN KEY ("training_type_id") REFERENCES "public"."training_types"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."onboarding_templates"
+    ADD CONSTRAINT "onboarding_templates_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -2195,6 +3591,11 @@ ALTER TABLE ONLY "public"."personnel_onboardings"
 
 
 
+ALTER TABLE ONLY "public"."personnel_onboardings"
+    ADD CONSTRAINT "personnel_onboardings_template_id_fkey" FOREIGN KEY ("template_id") REFERENCES "public"."onboarding_templates"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."personnel_trainings"
     ADD CONSTRAINT "personnel_trainings_clinic_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
@@ -2212,6 +3613,16 @@ ALTER TABLE ONLY "public"."personnel_trainings"
 
 ALTER TABLE ONLY "public"."platform_admins"
     ADD CONSTRAINT "platform_admins_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."platform_announcements"
+    ADD CONSTRAINT "platform_announcements_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."platform_announcements"
+    ADD CONSTRAINT "platform_announcements_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -2280,6 +3691,26 @@ ALTER TABLE ONLY "public"."training_types"
 
 
 
+ALTER TABLE ONLY "public"."training_views"
+    ADD CONSTRAINT "training_views_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."training_views"
+    ADD CONSTRAINT "training_views_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."user_org_preferences"
+    ADD CONSTRAINT "user_org_preferences_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."user_org_preferences"
+    ADD CONSTRAINT "user_org_preferences_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."user_pinned_groups"
     ADD CONSTRAINT "user_pinned_groups_clinic_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
@@ -2287,6 +3718,16 @@ ALTER TABLE ONLY "public"."user_pinned_groups"
 
 ALTER TABLE ONLY "public"."user_pinned_groups"
     ADD CONSTRAINT "user_pinned_groups_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."user_suspensions"
+    ADD CONSTRAINT "user_suspensions_suspended_by_fkey" FOREIGN KEY ("suspended_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."user_suspensions"
+    ADD CONSTRAINT "user_suspensions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -2334,6 +3775,10 @@ CREATE POLICY "Authenticated users can create organizations" ON "public"."organi
 
 
 
+CREATE POLICY "Authenticated users can read announcements" ON "public"."platform_announcements" FOR SELECT USING (("auth"."uid"() IS NOT NULL));
+
+
+
 CREATE POLICY "Creators and owners can insert memberships" ON "public"."organization_memberships" FOR INSERT WITH CHECK (((( SELECT "auth"."uid"() AS "uid") IS NOT NULL) AND ("public"."is_org_owner"("organization_id") OR (("user_id" = ( SELECT "auth"."uid"() AS "uid")) AND (EXISTS ( SELECT 1
    FROM "public"."organizations"
   WHERE (("organizations"."id" = "organization_memberships"."organization_id") AND ("organizations"."created_by" = ( SELECT "auth"."uid"() AS "uid")))))))));
@@ -2346,140 +3791,6 @@ CREATE POLICY "Invited users can insert themselves as members" ON "public"."orga
 
 
 
-CREATE POLICY "Members and creators can insert assignment types" ON "public"."assignment_types" FOR INSERT WITH CHECK (("public"."is_org_member"("organization_id") OR (EXISTS ( SELECT 1
-   FROM "public"."organizations"
-  WHERE (("organizations"."id" = "assignment_types"."organization_id") AND ("organizations"."created_by" = ( SELECT "auth"."uid"() AS "uid")))))));
-
-
-
-CREATE POLICY "Members and creators can insert groups" ON "public"."groups" FOR INSERT WITH CHECK (("public"."is_org_member"("organization_id") OR (EXISTS ( SELECT 1
-   FROM "public"."organizations"
-  WHERE (("organizations"."id" = "groups"."organization_id") AND ("organizations"."created_by" = ( SELECT "auth"."uid"() AS "uid")))))));
-
-
-
-CREATE POLICY "Members and creators can insert special days" ON "public"."special_days" FOR INSERT WITH CHECK (("public"."is_org_member"("organization_id") OR (EXISTS ( SELECT 1
-   FROM "public"."organizations"
-  WHERE (("organizations"."id" = "special_days"."organization_id") AND ("organizations"."created_by" = ( SELECT "auth"."uid"() AS "uid")))))));
-
-
-
-CREATE POLICY "Members and creators can insert status types" ON "public"."status_types" FOR INSERT WITH CHECK (("public"."is_org_member"("organization_id") OR (EXISTS ( SELECT 1
-   FROM "public"."organizations"
-  WHERE (("organizations"."id" = "status_types"."organization_id") AND ("organizations"."created_by" = ( SELECT "auth"."uid"() AS "uid")))))));
-
-
-
-CREATE POLICY "Members and creators can insert training types" ON "public"."training_types" FOR INSERT WITH CHECK (("public"."is_org_member"("organization_id") OR (EXISTS ( SELECT 1
-   FROM "public"."organizations"
-  WHERE (("organizations"."id" = "training_types"."organization_id") AND ("organizations"."created_by" = ( SELECT "auth"."uid"() AS "uid")))))));
-
-
-
-CREATE POLICY "Members can delete assignment types" ON "public"."assignment_types" FOR DELETE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can delete availability" ON "public"."availability_entries" FOR DELETE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can delete daily assignments" ON "public"."daily_assignments" FOR DELETE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can delete groups" ON "public"."groups" FOR DELETE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can delete personnel" ON "public"."personnel" FOR DELETE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can delete personnel trainings" ON "public"."personnel_trainings" FOR DELETE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can delete special days" ON "public"."special_days" FOR DELETE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can delete status types" ON "public"."status_types" FOR DELETE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can delete training types" ON "public"."training_types" FOR DELETE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can insert availability" ON "public"."availability_entries" FOR INSERT WITH CHECK ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can insert daily assignments" ON "public"."daily_assignments" FOR INSERT WITH CHECK ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can insert personnel" ON "public"."personnel" FOR INSERT WITH CHECK ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can insert personnel trainings" ON "public"."personnel_trainings" FOR INSERT WITH CHECK ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can update assignment types" ON "public"."assignment_types" FOR UPDATE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can update availability" ON "public"."availability_entries" FOR UPDATE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can update daily assignments" ON "public"."daily_assignments" FOR UPDATE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can update groups" ON "public"."groups" FOR UPDATE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can update personnel" ON "public"."personnel" FOR UPDATE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can update personnel trainings" ON "public"."personnel_trainings" FOR UPDATE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can update special days" ON "public"."special_days" FOR UPDATE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can update status types" ON "public"."status_types" FOR UPDATE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can update training types" ON "public"."training_types" FOR UPDATE USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can view assignment types" ON "public"."assignment_types" FOR SELECT USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can view availability" ON "public"."availability_entries" FOR SELECT USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can view daily assignments" ON "public"."daily_assignments" FOR SELECT USING ("public"."is_org_member"("organization_id"));
-
-
-
-CREATE POLICY "Members can view groups" ON "public"."groups" FOR SELECT USING ("public"."is_org_member"("organization_id"));
-
-
-
 CREATE POLICY "Members can view invitations for their organizations" ON "public"."organization_invitations" FOR SELECT USING ("public"."is_org_member"("organization_id"));
 
 
@@ -2488,23 +3799,51 @@ CREATE POLICY "Members can view memberships of their organizations" ON "public".
 
 
 
-CREATE POLICY "Members can view personnel" ON "public"."personnel" FOR SELECT USING ("public"."is_org_member"("organization_id"));
+CREATE POLICY "Org admins can manage duty event runs" ON "public"."duty_event_runs" USING ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_event_runs"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"])))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_event_runs"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"]))))));
 
 
 
-CREATE POLICY "Members can view personnel trainings" ON "public"."personnel_trainings" FOR SELECT USING ("public"."is_org_member"("organization_id"));
+CREATE POLICY "Org admins can manage duty event slots" ON "public"."duty_event_slots" USING ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_event_slots"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"])))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_event_slots"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"]))))));
 
 
 
-CREATE POLICY "Members can view special days" ON "public"."special_days" FOR SELECT USING ("public"."is_org_member"("organization_id"));
+CREATE POLICY "Org admins can manage duty events" ON "public"."duty_events" USING ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_events"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"])))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_events"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"]))))));
 
 
 
-CREATE POLICY "Members can view status types" ON "public"."status_types" FOR SELECT USING ("public"."is_org_member"("organization_id"));
+CREATE POLICY "Org admins can manage duty template rotation baselines" ON "public"."duty_template_rotation_baselines" USING ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_template_rotation_baselines"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"])))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_template_rotation_baselines"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"]))))));
 
 
 
-CREATE POLICY "Members can view training types" ON "public"."training_types" FOR SELECT USING ("public"."is_org_member"("organization_id"));
+CREATE POLICY "Org admins can manage duty template slots" ON "public"."duty_template_slots" USING ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_template_slots"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"])))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_template_slots"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"]))))));
+
+
+
+CREATE POLICY "Org admins can manage duty templates" ON "public"."duty_templates" USING ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_templates"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"])))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."organization_memberships"
+  WHERE (("organization_memberships"."organization_id" = "duty_templates"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND ("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"]))))));
 
 
 
@@ -2564,7 +3903,15 @@ CREATE POLICY "Organization owners can delete their organizations" ON "public"."
 
 
 
-CREATE POLICY "Organization owners can update their organizations" ON "public"."organizations" FOR UPDATE USING ("public"."is_org_owner"("id"));
+CREATE POLICY "Platform admins can delete announcements" ON "public"."platform_announcements" FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM "public"."platform_admins"
+  WHERE (("platform_admins"."user_id" = "auth"."uid"()) AND ("platform_admins"."is_active" = true)))));
+
+
+
+CREATE POLICY "Platform admins can insert announcements" ON "public"."platform_announcements" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."platform_admins"
+  WHERE (("platform_admins"."user_id" = "auth"."uid"()) AND ("platform_admins"."is_active" = true)))));
 
 
 
@@ -2572,17 +3919,51 @@ CREATE POLICY "Platform admins can manage access requests" ON "public"."access_r
 
 
 
+CREATE POLICY "Platform admins can manage suspensions" ON "public"."user_suspensions" USING ((EXISTS ( SELECT 1
+   FROM "public"."platform_admins"
+  WHERE (("platform_admins"."user_id" = "auth"."uid"()) AND ("platform_admins"."is_active" = true)))));
+
+
+
+CREATE POLICY "Platform admins can update announcements" ON "public"."platform_announcements" FOR UPDATE USING ((EXISTS ( SELECT 1
+   FROM "public"."platform_admins"
+  WHERE (("platform_admins"."user_id" = "auth"."uid"()) AND ("platform_admins"."is_active" = true)))));
+
+
+
+CREATE POLICY "Privileged members can update their organizations" ON "public"."organizations" FOR UPDATE USING ("public"."is_org_privileged"("id"));
+
+
+
 CREATE POLICY "Service role only for webhooks" ON "public"."stripe_webhook_events" USING (false);
 
 
 
-CREATE POLICY "Super admins can manage platform_admins" ON "public"."platform_admins" USING ((EXISTS ( SELECT 1
-   FROM "public"."platform_admins" "pa"
-  WHERE (("pa"."user_id" = ( SELECT "auth"."uid"() AS "uid")) AND ("pa"."is_active" = true) AND ("pa"."role" = 'super_admin'::"text")))));
+CREATE POLICY "Super admins can manage platform_admins" ON "public"."platform_admins" USING ("public"."is_super_admin"()) WITH CHECK ("public"."is_super_admin"());
+
+
+
+CREATE POLICY "Training editors can create views" ON "public"."training_views" FOR INSERT WITH CHECK ("public"."can_edit_training"("organization_id"));
+
+
+
+CREATE POLICY "Training editors can delete views" ON "public"."training_views" FOR DELETE USING ("public"."can_edit_training"("organization_id"));
+
+
+
+CREATE POLICY "Training editors can update views" ON "public"."training_views" FOR UPDATE USING ("public"."can_edit_training"("organization_id"));
+
+
+
+CREATE POLICY "Training viewers can read views" ON "public"."training_views" FOR SELECT USING ("public"."can_view_training"("organization_id"));
 
 
 
 CREATE POLICY "Users can check own admin status" ON "public"."platform_admins" FOR SELECT USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+
+
+
+CREATE POLICY "Users can delete availability if allowed by scoped calendar acc" ON "public"."availability_entries" FOR DELETE USING ("public"."can_edit_availability_record"("organization_id", "personnel_id"));
 
 
 
@@ -2591,6 +3972,10 @@ CREATE POLICY "Users can delete counseling records if can edit personnel" ON "pu
 
 
 CREATE POLICY "Users can delete counseling types if can edit personnel" ON "public"."counseling_types" FOR DELETE USING ("public"."can_edit_personnel"("organization_id"));
+
+
+
+CREATE POLICY "Users can delete daily assignments if allowed by scoped calenda" ON "public"."daily_assignments" FOR DELETE USING ("public"."can_edit_daily_assignment_record"("organization_id", "assignment_type_id", "assignee_id"));
 
 
 
@@ -2606,11 +3991,27 @@ CREATE POLICY "Users can delete invitations addressed to them" ON "public"."orga
 
 
 
+CREATE POLICY "Users can delete personnel if allowed by scoped personnel acces" ON "public"."personnel" FOR DELETE USING ("public"."can_edit_personnel_record"("organization_id", "group_id"));
+
+
+
+CREATE POLICY "Users can delete personnel trainings if allowed by scoped train" ON "public"."personnel_trainings" FOR DELETE USING ("public"."can_edit_personnel_training_record"("organization_id", "personnel_id"));
+
+
+
 CREATE POLICY "Users can delete their own invites" ON "public"."registration_invites" FOR DELETE USING (((( SELECT "auth"."uid"() AS "uid") = "created_by") AND ("used_by" IS NULL)));
 
 
 
+CREATE POLICY "Users can delete their own org preferences" ON "public"."user_org_preferences" FOR DELETE USING (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_org_member"("organization_id")));
+
+
+
 CREATE POLICY "Users can delete their own pinned groups" ON "public"."user_pinned_groups" FOR DELETE USING (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_org_member"("organization_id")));
+
+
+
+CREATE POLICY "Users can insert availability if allowed by scoped calendar acc" ON "public"."availability_entries" FOR INSERT WITH CHECK ("public"."can_edit_availability_record"("organization_id", "personnel_id"));
 
 
 
@@ -2619,6 +4020,10 @@ CREATE POLICY "Users can insert counseling records if can edit personnel" ON "pu
 
 
 CREATE POLICY "Users can insert counseling types if can edit personnel" ON "public"."counseling_types" FOR INSERT WITH CHECK ("public"."can_edit_personnel"("organization_id"));
+
+
+
+CREATE POLICY "Users can insert daily assignments if allowed by scoped calenda" ON "public"."daily_assignments" FOR INSERT WITH CHECK ("public"."can_edit_daily_assignment_record"("organization_id", "assignment_type_id", "assignee_id"));
 
 
 
@@ -2634,11 +4039,51 @@ CREATE POLICY "Users can insert own feedback" ON "public"."beta_feedback" FOR IN
 
 
 
+CREATE POLICY "Users can insert personnel if allowed by scoped personnel acces" ON "public"."personnel" FOR INSERT WITH CHECK ("public"."can_edit_personnel_record"("organization_id", "group_id"));
+
+
+
+CREATE POLICY "Users can insert personnel trainings if allowed by scoped train" ON "public"."personnel_trainings" FOR INSERT WITH CHECK ("public"."can_edit_personnel_training_record"("organization_id", "personnel_id"));
+
+
+
+CREATE POLICY "Users can insert their own org preferences" ON "public"."user_org_preferences" FOR INSERT WITH CHECK (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_org_member"("organization_id")));
+
+
+
 CREATE POLICY "Users can insert their own pinned groups" ON "public"."user_pinned_groups" FOR INSERT WITH CHECK (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_org_member"("organization_id")));
 
 
 
+CREATE POLICY "Users can manage assignment types if they are full editors" ON "public"."assignment_types" USING ("public"."can_manage_calendar_configuration"("organization_id")) WITH CHECK ("public"."can_manage_calendar_configuration"("organization_id"));
+
+
+
+CREATE POLICY "Users can manage groups if they can edit personnel" ON "public"."groups" USING ("public"."can_manage_groups"("organization_id")) WITH CHECK ("public"."can_manage_groups"("organization_id"));
+
+
+
+CREATE POLICY "Users can manage own dismissals" ON "public"."announcement_dismissals" USING (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Users can manage special days if they can edit calendar data" ON "public"."special_days" USING ("public"."can_edit_calendar"("organization_id")) WITH CHECK ("public"."can_edit_calendar"("organization_id"));
+
+
+
+CREATE POLICY "Users can manage status types if they are full editors" ON "public"."status_types" USING ("public"."can_manage_calendar_configuration"("organization_id")) WITH CHECK ("public"."can_manage_calendar_configuration"("organization_id"));
+
+
+
 CREATE POLICY "Users can manage their own getting started progress" ON "public"."getting_started_progress" USING (("auth"."uid"() = "user_id"));
+
+
+
+CREATE POLICY "Users can manage training types if they are full editors" ON "public"."training_types" USING ("public"."can_manage_training_configuration"("organization_id")) WITH CHECK ("public"."can_manage_training_configuration"("organization_id"));
+
+
+
+CREATE POLICY "Users can update availability if allowed by scoped calendar acc" ON "public"."availability_entries" FOR UPDATE USING ("public"."can_edit_availability_record"("organization_id", "personnel_id")) WITH CHECK ("public"."can_edit_availability_record"("organization_id", "personnel_id"));
 
 
 
@@ -2650,6 +4095,10 @@ CREATE POLICY "Users can update counseling types if can edit personnel" ON "publ
 
 
 
+CREATE POLICY "Users can update daily assignments if allowed by scoped calenda" ON "public"."daily_assignments" FOR UPDATE USING ("public"."can_edit_daily_assignment_record"("organization_id", "assignment_type_id", "assignee_id")) WITH CHECK ("public"."can_edit_daily_assignment_record"("organization_id", "assignment_type_id", "assignee_id"));
+
+
+
 CREATE POLICY "Users can update development goals if can edit personnel" ON "public"."development_goals" FOR UPDATE USING ("public"."can_edit_personnel"("organization_id")) WITH CHECK ("public"."can_edit_personnel"("organization_id"));
 
 
@@ -2658,7 +4107,27 @@ CREATE POLICY "Users can update extended info if can edit personnel" ON "public"
 
 
 
+CREATE POLICY "Users can update personnel if allowed by scoped personnel acces" ON "public"."personnel" FOR UPDATE USING ("public"."can_edit_personnel_record"("organization_id", "group_id")) WITH CHECK ("public"."can_edit_personnel_record"("organization_id", "group_id"));
+
+
+
+CREATE POLICY "Users can update personnel trainings if allowed by scoped train" ON "public"."personnel_trainings" FOR UPDATE USING ("public"."can_edit_personnel_training_record"("organization_id", "personnel_id")) WITH CHECK ("public"."can_edit_personnel_training_record"("organization_id", "personnel_id"));
+
+
+
+CREATE POLICY "Users can update their own org preferences" ON "public"."user_org_preferences" FOR UPDATE USING (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_org_member"("organization_id")));
+
+
+
 CREATE POLICY "Users can update their own pinned groups" ON "public"."user_pinned_groups" FOR UPDATE USING (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_org_member"("organization_id")));
+
+
+
+CREATE POLICY "Users can view assignment types if they can view calendar data" ON "public"."assignment_types" FOR SELECT USING ("public"."can_view_calendar"("organization_id"));
+
+
+
+CREATE POLICY "Users can view availability if allowed by scoped calendar acces" ON "public"."availability_entries" FOR SELECT USING ("public"."can_view_availability_record"("organization_id", "personnel_id"));
 
 
 
@@ -2670,11 +4139,43 @@ CREATE POLICY "Users can view counseling types if can view personnel" ON "public
 
 
 
+CREATE POLICY "Users can view daily assignments if allowed by scoped calendar " ON "public"."daily_assignments" FOR SELECT USING ("public"."can_view_daily_assignment_record"("organization_id", "assignment_type_id", "assignee_id"));
+
+
+
 CREATE POLICY "Users can view development goals if can view personnel" ON "public"."development_goals" FOR SELECT USING ("public"."can_view_personnel"("organization_id"));
 
 
 
+CREATE POLICY "Users can view duty event runs if they can view calendar data" ON "public"."duty_event_runs" FOR SELECT USING ("public"."can_view_calendar"("organization_id"));
+
+
+
+CREATE POLICY "Users can view duty event slots if they can view calendar data" ON "public"."duty_event_slots" FOR SELECT USING ("public"."can_view_calendar"("organization_id"));
+
+
+
+CREATE POLICY "Users can view duty events if they can view calendar data" ON "public"."duty_events" FOR SELECT USING ("public"."can_view_calendar"("organization_id"));
+
+
+
+CREATE POLICY "Users can view duty template rotation baselines if they can vie" ON "public"."duty_template_rotation_baselines" FOR SELECT USING ("public"."can_view_calendar"("organization_id"));
+
+
+
+CREATE POLICY "Users can view duty template slots if they can view calendar da" ON "public"."duty_template_slots" FOR SELECT USING ("public"."can_view_calendar"("organization_id"));
+
+
+
+CREATE POLICY "Users can view duty templates if they can view calendar data" ON "public"."duty_templates" FOR SELECT USING ("public"."can_view_calendar"("organization_id"));
+
+
+
 CREATE POLICY "Users can view extended info if can view personnel" ON "public"."personnel_extended_info" FOR SELECT USING ("public"."can_view_personnel"("organization_id"));
+
+
+
+CREATE POLICY "Users can view groups if they can access related workspaces" ON "public"."groups" FOR SELECT USING ("public"."can_view_groups"("organization_id"));
 
 
 
@@ -2696,11 +4197,38 @@ CREATE POLICY "Users can view own feedback" ON "public"."beta_feedback" FOR SELE
 
 
 
+CREATE POLICY "Users can view personnel if allowed by scoped personnel access" ON "public"."personnel" FOR SELECT USING ("public"."can_view_personnel_record"("organization_id", "group_id"));
+
+
+
+CREATE POLICY "Users can view personnel trainings if allowed by scoped trainin" ON "public"."personnel_trainings" FOR SELECT USING ("public"."can_view_personnel_training_record"("organization_id", "personnel_id"));
+
+
+
+CREATE POLICY "Users can view special days if they can view calendar data" ON "public"."special_days" FOR SELECT USING ("public"."can_view_calendar"("organization_id"));
+
+
+
+CREATE POLICY "Users can view status types if they can view calendar data" ON "public"."status_types" FOR SELECT USING ("public"."can_view_calendar"("organization_id"));
+
+
+
+CREATE POLICY "Users can view their own org preferences" ON "public"."user_org_preferences" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_org_member"("organization_id")));
+
+
+
 CREATE POLICY "Users can view their own pinned groups" ON "public"."user_pinned_groups" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_org_member"("organization_id")));
 
 
 
+CREATE POLICY "Users can view training types if they can view training data" ON "public"."training_types" FOR SELECT USING ("public"."can_view_training"("organization_id"));
+
+
+
 ALTER TABLE "public"."access_requests" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."announcement_dismissals" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."assignment_types" ENABLE ROW LEVEL SECURITY;
@@ -2757,7 +4285,25 @@ CREATE POLICY "deletion_requests_update_admin" ON "public"."deletion_requests" F
 ALTER TABLE "public"."development_goals" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."duty_event_runs" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."duty_event_slots" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."duty_events" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."duty_roster_history" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."duty_template_rotation_baselines" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."duty_template_slots" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."duty_templates" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."getting_started_progress" ENABLE ROW LEVEL SECURITY;
@@ -2785,6 +4331,17 @@ ALTER TABLE "public"."onboarding_step_progress" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."onboarding_template_steps" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."onboarding_templates" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "org editors can manage onboarding templates" ON "public"."onboarding_templates" USING ("public"."can_edit_personnel"("organization_id")) WITH CHECK ("public"."can_edit_personnel"("organization_id"));
+
+
+
+CREATE POLICY "org members can view onboarding templates" ON "public"."onboarding_templates" FOR SELECT USING ("public"."can_view_personnel"("organization_id"));
+
 
 
 CREATE POLICY "org_editors_can_delete_roster_history" ON "public"."duty_roster_history" FOR DELETE USING ((EXISTS ( SELECT 1
@@ -2829,6 +4386,9 @@ ALTER TABLE "public"."personnel_trainings" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."platform_admins" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."platform_announcements" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."rating_scheme_entries" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2844,9 +4404,7 @@ CREATE POLICY "sign_in_rosters_delete" ON "public"."sign_in_rosters" FOR DELETE 
 
 
 
-CREATE POLICY "sign_in_rosters_insert" ON "public"."sign_in_rosters" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
-   FROM "public"."organization_memberships"
-  WHERE (("organization_memberships"."organization_id" = "sign_in_rosters"."organization_id") AND ("organization_memberships"."user_id" = "auth"."uid"()) AND (("organization_memberships"."role" = ANY (ARRAY['owner'::"public"."organization_role", 'admin'::"public"."organization_role"])) OR ("organization_memberships"."can_view_training" = true))))));
+CREATE POLICY "sign_in_rosters_insert" ON "public"."sign_in_rosters" FOR INSERT WITH CHECK ("public"."can_edit_training"("organization_id"));
 
 
 
@@ -2874,7 +4432,16 @@ ALTER TABLE "public"."stripe_webhook_events" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."training_types" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."training_views" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."user_org_preferences" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."user_pinned_groups" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."user_suspensions" ENABLE ROW LEVEL SECURITY;
 
 
 
@@ -3063,9 +4630,27 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."can_edit_availability_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_edit_availability_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_edit_availability_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."can_edit_calendar"("p_organization_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."can_edit_calendar"("p_organization_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can_edit_calendar"("p_organization_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_edit_daily_assignment_record"("p_organization_id" "uuid", "p_assignee_id" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_edit_daily_assignment_record"("p_organization_id" "uuid", "p_assignee_id" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_edit_daily_assignment_record"("p_organization_id" "uuid", "p_assignee_id" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_edit_daily_assignment_record"("p_organization_id" "uuid", "p_assignment_type_id" "uuid", "p_assignee_id" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_edit_daily_assignment_record"("p_organization_id" "uuid", "p_assignment_type_id" "uuid", "p_assignee_id" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_edit_daily_assignment_record"("p_organization_id" "uuid", "p_assignment_type_id" "uuid", "p_assignee_id" "text") TO "service_role";
 
 
 
@@ -3087,9 +4672,39 @@ GRANT ALL ON FUNCTION "public"."can_edit_personnel"("p_organization_id" "uuid") 
 
 
 
+GRANT ALL ON FUNCTION "public"."can_edit_personnel_record"("p_organization_id" "uuid", "p_group_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_edit_personnel_record"("p_organization_id" "uuid", "p_group_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_edit_personnel_record"("p_organization_id" "uuid", "p_group_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_edit_personnel_training_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_edit_personnel_training_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_edit_personnel_training_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_edit_sensitive_file_object"("bucket_name" "text", "object_name" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_edit_sensitive_file_object"("bucket_name" "text", "object_name" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_edit_sensitive_file_object"("bucket_name" "text", "object_name" "text") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."can_edit_training"("p_organization_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."can_edit_training"("p_organization_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can_edit_training"("p_organization_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_manage_calendar_configuration"("p_organization_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_manage_calendar_configuration"("p_organization_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_manage_calendar_configuration"("p_organization_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_manage_groups"("p_organization_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_manage_groups"("p_organization_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_manage_groups"("p_organization_id" "uuid") TO "service_role";
 
 
 
@@ -3099,9 +4714,39 @@ GRANT ALL ON FUNCTION "public"."can_manage_org_members"("p_organization_id" "uui
 
 
 
+GRANT ALL ON FUNCTION "public"."can_manage_training_configuration"("p_organization_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_manage_training_configuration"("p_organization_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_manage_training_configuration"("p_organization_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_view_availability_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_view_availability_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_view_availability_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."can_view_calendar"("p_organization_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."can_view_calendar"("p_organization_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can_view_calendar"("p_organization_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_view_daily_assignment_record"("p_organization_id" "uuid", "p_assignee_id" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_view_daily_assignment_record"("p_organization_id" "uuid", "p_assignee_id" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_view_daily_assignment_record"("p_organization_id" "uuid", "p_assignee_id" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_view_daily_assignment_record"("p_organization_id" "uuid", "p_assignment_type_id" "uuid", "p_assignee_id" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_view_daily_assignment_record"("p_organization_id" "uuid", "p_assignment_type_id" "uuid", "p_assignee_id" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_view_daily_assignment_record"("p_organization_id" "uuid", "p_assignment_type_id" "uuid", "p_assignee_id" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_view_groups"("p_organization_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_view_groups"("p_organization_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_view_groups"("p_organization_id" "uuid") TO "service_role";
 
 
 
@@ -3120,6 +4765,24 @@ GRANT ALL ON FUNCTION "public"."can_view_onboarding"("p_organization_id" "uuid")
 GRANT ALL ON FUNCTION "public"."can_view_personnel"("p_organization_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."can_view_personnel"("p_organization_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can_view_personnel"("p_organization_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_view_personnel_record"("p_organization_id" "uuid", "p_group_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_view_personnel_record"("p_organization_id" "uuid", "p_group_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_view_personnel_record"("p_organization_id" "uuid", "p_group_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_view_personnel_training_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_view_personnel_training_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_view_personnel_training_record"("p_organization_id" "uuid", "p_personnel_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_view_sensitive_file_object"("bucket_name" "text", "object_name" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_view_sensitive_file_object"("bucket_name" "text", "object_name" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_view_sensitive_file_object"("bucket_name" "text", "object_name" "text") TO "service_role";
 
 
 
@@ -3153,6 +4816,12 @@ GRANT ALL ON FUNCTION "public"."count_org_personnel"("p_org_id" "uuid") TO "serv
 
 
 
+GRANT ALL ON FUNCTION "public"."count_platform_users"() TO "anon";
+GRANT ALL ON FUNCTION "public"."count_platform_users"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."count_platform_users"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."create_clinic_with_owner"("p_name" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."create_clinic_with_owner"("p_name" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."create_clinic_with_owner"("p_name" "text") TO "service_role";
@@ -3171,9 +4840,21 @@ GRANT ALL ON FUNCTION "public"."create_org_with_owner"("p_name" "text") TO "serv
 
 
 
+GRANT ALL ON FUNCTION "public"."daily_signups_last_30_days"() TO "anon";
+GRANT ALL ON FUNCTION "public"."daily_signups_last_30_days"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."daily_signups_last_30_days"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_effective_tier"("p_org_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."is_full_editor_for_org"("p_organization_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."is_full_editor_for_org"("p_organization_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_full_editor_for_org"("p_organization_id" "uuid") TO "service_role";
 
 
 
@@ -3189,6 +4870,12 @@ GRANT ALL ON FUNCTION "public"."is_org_owner"("p_organization_id" "uuid") TO "se
 
 
 
+GRANT ALL ON FUNCTION "public"."is_org_privileged"("p_organization_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."is_org_privileged"("p_organization_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_org_privileged"("p_organization_id" "uuid") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."is_platform_admin"() TO "anon";
 GRANT ALL ON FUNCTION "public"."is_platform_admin"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."is_platform_admin"() TO "service_role";
@@ -3201,9 +4888,57 @@ GRANT ALL ON FUNCTION "public"."is_super_admin"() TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."is_user_suspended"("check_user_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."is_user_suspended"("check_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_user_suspended"("check_user_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."is_valid_sensitive_file_path"("bucket_name" "text", "object_name" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."is_valid_sensitive_file_path"("bucket_name" "text", "object_name" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_valid_sensitive_file_path"("bucket_name" "text", "object_name" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."search_users_by_email"("search_query" "text", "max_results" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."search_users_by_email"("search_query" "text", "max_results" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."search_users_by_email"("search_query" "text", "max_results" integer) TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."storage_object_org_id"("object_name" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."storage_object_org_id"("object_name" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."storage_object_org_id"("object_name" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."storage_object_scope"("object_name" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."storage_object_scope"("object_name" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."storage_object_scope"("object_name" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."training_views_set_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."training_views_set_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."training_views_set_updated_at"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."transfer_org_ownership"("p_organization_id" "uuid", "p_new_owner_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."transfer_org_ownership"("p_organization_id" "uuid", "p_new_owner_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."transfer_org_ownership"("p_organization_id" "uuid", "p_new_owner_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_advanced_duty_event_aggregate"("p_org_id" "uuid", "p_duty_event_id" "uuid", "p_event_data" "jsonb", "p_slot_rows" "jsonb") TO "anon";
+GRANT ALL ON FUNCTION "public"."update_advanced_duty_event_aggregate"("p_org_id" "uuid", "p_duty_event_id" "uuid", "p_event_data" "jsonb", "p_slot_rows" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_advanced_duty_event_aggregate"("p_org_id" "uuid", "p_duty_event_id" "uuid", "p_event_data" "jsonb", "p_slot_rows" "jsonb") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."update_advanced_duty_template_aggregate"("p_org_id" "uuid", "p_template_id" "uuid", "p_template_data" "jsonb", "p_slot_rows" "jsonb", "p_rotation_baseline_rows" "jsonb") TO "anon";
+GRANT ALL ON FUNCTION "public"."update_advanced_duty_template_aggregate"("p_org_id" "uuid", "p_template_id" "uuid", "p_template_data" "jsonb", "p_slot_rows" "jsonb", "p_rotation_baseline_rows" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."update_advanced_duty_template_aggregate"("p_org_id" "uuid", "p_template_id" "uuid", "p_template_data" "jsonb", "p_slot_rows" "jsonb", "p_rotation_baseline_rows" "jsonb") TO "service_role";
 
 
 
@@ -3216,6 +4951,12 @@ GRANT ALL ON FUNCTION "public"."update_updated_at"() TO "service_role";
 GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "anon";
 GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."user_org_preferences_set_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."user_org_preferences_set_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."user_org_preferences_set_updated_at"() TO "service_role";
 
 
 
@@ -3243,6 +4984,12 @@ GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "service_role";
 GRANT ALL ON TABLE "public"."access_requests" TO "anon";
 GRANT ALL ON TABLE "public"."access_requests" TO "authenticated";
 GRANT ALL ON TABLE "public"."access_requests" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."announcement_dismissals" TO "anon";
+GRANT ALL ON TABLE "public"."announcement_dismissals" TO "authenticated";
+GRANT ALL ON TABLE "public"."announcement_dismissals" TO "service_role";
 
 
 
@@ -3306,9 +5053,45 @@ GRANT ALL ON TABLE "public"."development_goals" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."duty_event_runs" TO "anon";
+GRANT ALL ON TABLE "public"."duty_event_runs" TO "authenticated";
+GRANT ALL ON TABLE "public"."duty_event_runs" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."duty_event_slots" TO "anon";
+GRANT ALL ON TABLE "public"."duty_event_slots" TO "authenticated";
+GRANT ALL ON TABLE "public"."duty_event_slots" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."duty_events" TO "anon";
+GRANT ALL ON TABLE "public"."duty_events" TO "authenticated";
+GRANT ALL ON TABLE "public"."duty_events" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."duty_roster_history" TO "anon";
 GRANT ALL ON TABLE "public"."duty_roster_history" TO "authenticated";
 GRANT ALL ON TABLE "public"."duty_roster_history" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."duty_template_rotation_baselines" TO "anon";
+GRANT ALL ON TABLE "public"."duty_template_rotation_baselines" TO "authenticated";
+GRANT ALL ON TABLE "public"."duty_template_rotation_baselines" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."duty_template_slots" TO "anon";
+GRANT ALL ON TABLE "public"."duty_template_slots" TO "authenticated";
+GRANT ALL ON TABLE "public"."duty_template_slots" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."duty_templates" TO "anon";
+GRANT ALL ON TABLE "public"."duty_templates" TO "authenticated";
+GRANT ALL ON TABLE "public"."duty_templates" TO "service_role";
 
 
 
@@ -3339,6 +5122,12 @@ GRANT ALL ON TABLE "public"."onboarding_step_progress" TO "service_role";
 GRANT ALL ON TABLE "public"."onboarding_template_steps" TO "anon";
 GRANT ALL ON TABLE "public"."onboarding_template_steps" TO "authenticated";
 GRANT ALL ON TABLE "public"."onboarding_template_steps" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."onboarding_templates" TO "anon";
+GRANT ALL ON TABLE "public"."onboarding_templates" TO "authenticated";
+GRANT ALL ON TABLE "public"."onboarding_templates" TO "service_role";
 
 
 
@@ -3390,6 +5179,12 @@ GRANT ALL ON TABLE "public"."platform_admins" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."platform_announcements" TO "anon";
+GRANT ALL ON TABLE "public"."platform_announcements" TO "authenticated";
+GRANT ALL ON TABLE "public"."platform_announcements" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."rating_scheme_entries" TO "anon";
 GRANT ALL ON TABLE "public"."rating_scheme_entries" TO "authenticated";
 GRANT ALL ON TABLE "public"."rating_scheme_entries" TO "service_role";
@@ -3432,9 +5227,27 @@ GRANT ALL ON TABLE "public"."training_types" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."training_views" TO "anon";
+GRANT ALL ON TABLE "public"."training_views" TO "authenticated";
+GRANT ALL ON TABLE "public"."training_views" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."user_org_preferences" TO "anon";
+GRANT ALL ON TABLE "public"."user_org_preferences" TO "authenticated";
+GRANT ALL ON TABLE "public"."user_org_preferences" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."user_pinned_groups" TO "anon";
 GRANT ALL ON TABLE "public"."user_pinned_groups" TO "authenticated";
 GRANT ALL ON TABLE "public"."user_pinned_groups" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."user_suspensions" TO "anon";
+GRANT ALL ON TABLE "public"."user_suspensions" TO "authenticated";
+GRANT ALL ON TABLE "public"."user_suspensions" TO "service_role";
 
 
 
@@ -3496,6 +5309,119 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 
 
+
+
+
+drop extension if exists "pg_net";
+
+
+  create policy "Org members can read counseling files"
+  on "storage"."objects"
+  as permissive
+  for select
+  to public
+using (((bucket_id = 'counseling-files'::text) AND public.is_org_member(((storage.foldername(name))[1])::uuid)));
+
+
+
+  create policy "Personnel editors can delete counseling files"
+  on "storage"."objects"
+  as permissive
+  for delete
+  to public
+using (((bucket_id = 'counseling-files'::text) AND public.can_edit_personnel(((storage.foldername(name))[1])::uuid)));
+
+
+
+  create policy "Personnel editors can update counseling files"
+  on "storage"."objects"
+  as permissive
+  for update
+  to public
+using (((bucket_id = 'counseling-files'::text) AND public.can_edit_personnel(((storage.foldername(name))[1])::uuid)));
+
+
+
+  create policy "Personnel editors can upload counseling files"
+  on "storage"."objects"
+  as permissive
+  for insert
+  to public
+with check (((bucket_id = 'counseling-files'::text) AND public.can_edit_personnel(((storage.foldername(name))[1])::uuid)));
+
+
+
+  create policy "Sensitive files are deletable by authorized editors"
+  on "storage"."objects"
+  as permissive
+  for delete
+  to authenticated
+using (public.can_edit_sensitive_file_object(bucket_id, name));
+
+
+
+  create policy "Sensitive files are insertable by authorized editors"
+  on "storage"."objects"
+  as permissive
+  for insert
+  to authenticated
+with check (public.can_edit_sensitive_file_object(bucket_id, name));
+
+
+
+  create policy "Sensitive files are readable by authorized members"
+  on "storage"."objects"
+  as permissive
+  for select
+  to authenticated
+using (public.can_view_sensitive_file_object(bucket_id, name));
+
+
+
+  create policy "Sensitive files are updatable by authorized editors"
+  on "storage"."objects"
+  as permissive
+  for update
+  to authenticated
+using (public.can_edit_sensitive_file_object(bucket_id, name))
+with check (public.can_edit_sensitive_file_object(bucket_id, name));
+
+
+
+  create policy "Users can delete counseling files if can edit personnel"
+  on "storage"."objects"
+  as permissive
+  for delete
+  to public
+using (((bucket_id = 'counseling-files'::text) AND public.can_edit_personnel(((storage.foldername(name))[1])::uuid)));
+
+
+
+  create policy "Users can update counseling files if can edit personnel"
+  on "storage"."objects"
+  as permissive
+  for update
+  to public
+using (((bucket_id = 'counseling-files'::text) AND public.can_edit_personnel(((storage.foldername(name))[1])::uuid)))
+with check (((bucket_id = 'counseling-files'::text) AND public.can_edit_personnel(((storage.foldername(name))[1])::uuid)));
+
+
+
+  create policy "Users can upload counseling files if can edit personnel"
+  on "storage"."objects"
+  as permissive
+  for insert
+  to public
+with check (((bucket_id = 'counseling-files'::text) AND public.can_edit_personnel(((storage.foldername(name))[1])::uuid)));
+
+
+
+  create policy "Users can view counseling files if can view personnel"
+  on "storage"."objects"
+  as permissive
+  for select
+  to public
+using (((bucket_id = 'counseling-files'::text) AND public.can_view_personnel(((storage.foldername(name))[1])::uuid)));
 
 
 

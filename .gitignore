@@ -51,3 +51,4 @@ test-data/
 
 # Docs artifacts
 docs/pr74_full_diff.txt
+.env*.local

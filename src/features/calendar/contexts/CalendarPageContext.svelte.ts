@@ -173,8 +173,12 @@ export class CalendarPageContext {
 
 	/** Mark calendar as explored for Getting Started checklist. */
 	markCalendarVisited(): void {
-		if (browser) {
-			localStorage.setItem(`gettingStarted_calendarVisited_${this.#data.orgId}`, 'true');
+		if (browser && typeof globalThis.localStorage?.setItem === 'function') {
+			try {
+				globalThis.localStorage.setItem(`gettingStarted_calendarVisited_${this.#data.orgId}`, 'true');
+			} catch {
+				// Non-critical getting-started persistence should not block the calendar.
+			}
 		}
 	}
 

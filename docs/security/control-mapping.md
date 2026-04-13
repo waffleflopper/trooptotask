@@ -9,11 +9,11 @@ This document is the repo-facing summary of where the current security remediati
 - **Absolute session limit**
   The app enforces a 24-hour absolute session window in `src/hooks.server.ts`, and the local Supabase config mirrors that baseline in `supabase/config.toml`.
 - **Least-privilege RLS for core data**
-  Core personnel, calendar, and training tables are tightened by `supabase/migrations/20260403_core_rls_permission_hardening.sql`, with regression coverage in `src/lib/server/rlsPermissionHardening.test.ts`.
+  Core personnel, calendar, and training tables are tightened in the consolidated Supabase migrations, with regression coverage in `src/lib/server/rlsPermissionHardening.test.ts`.
 - **Scoped personnel bootstrap hardening**
   Scoped users no longer receive a full-org personnel dataset through the workspace bootstrap path; they now get a narrower `personnelLookup` projection.
 - **Sensitive storage authorization**
-  Sensitive file access is mediated through app endpoints and versioned storage policies in `supabase/migrations/20260403_sensitive_file_storage_policies.sql`.
+  Sensitive file access is mediated through app endpoints and versioned storage policies in the consolidated Supabase migrations.
 - **Audit-log minimization**
   Audit writes are centrally sanitized in `src/lib/server/auditLog.ts`, and higher-value callers now emit normalized subject/reviewer fields.
 - **Public and internal security copy alignment**

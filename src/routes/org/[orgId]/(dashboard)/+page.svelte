@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { DashboardContext, DashboardPageView, DashboardModals } from '$features/dashboard';
+	import { DashboardContext, DashboardPageView } from '$features/dashboard';
 	import type { DashboardPageData, DashboardSupportData } from '$features/dashboard/contexts/DashboardContext.svelte';
 	import type { PageData } from './$types';
 	import type { DashboardPageSummaryData } from './+page.server';
@@ -234,7 +234,6 @@
 			</button>
 		</section>
 	{/if}
-	<DashboardModals {ctx} />
 {/if}
 
 <style>

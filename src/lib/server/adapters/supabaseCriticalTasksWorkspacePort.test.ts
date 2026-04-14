@@ -85,7 +85,10 @@ describe('createSupabaseCriticalTasksWorkspacePort', () => {
 			undefined,
 			expect.objectContaining({
 				isNull: { archived_at: true },
-				orderBy: [{ column: 'task_code', ascending: true }]
+				orderBy: [
+					{ column: 'sort_order', ascending: true },
+					{ column: 'task_code', ascending: true }
+				]
 			})
 		);
 	});

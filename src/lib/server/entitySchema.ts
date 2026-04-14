@@ -55,6 +55,7 @@ export interface EntityConfig<T = unknown> {
 	customTransform?: (row: Record<string, unknown>) => T;
 	permission?: FeatureArea;
 	requireFullEditor?: boolean;
+	requirePrivileged?: boolean;
 	audit?: string | { resourceType: string; action?: string; detailFields?: string[] };
 	select?: string;
 	methods?: EntityMethod[];
@@ -77,6 +78,7 @@ export interface EntityDefinition<T = unknown> {
 	select: string;
 	permission?: FeatureArea;
 	requireFullEditor?: boolean;
+	requirePrivileged?: boolean;
 	audit?: string | { resourceType: string; action?: string; detailFields?: string[] };
 	orderBy?: Array<{ column: string; ascending?: boolean }>;
 }
@@ -213,6 +215,7 @@ export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefini
 		select,
 		permission: config.permission,
 		requireFullEditor: config.requireFullEditor,
+		requirePrivileged: config.requirePrivileged,
 		audit: config.audit,
 		orderBy: config.orderBy
 	};

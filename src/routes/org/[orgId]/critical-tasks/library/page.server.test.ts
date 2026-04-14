@@ -1,0 +1,25 @@
+import { describe, expect, it, vi } from 'vitest';
+import { _createCriticalTasksLibraryPageLoad } from './+page.server';
+
+describe('critical tasks library page server load', () => {
+	it('guards task-library management behind the privileged owner/admin boundary', async () => {
+		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn({} as never));
+		const load = _createCriticalTasksLibraryPageLoad({ loadWithContext });
+		const depends = vi.fn();
+
+		await load({
+			params: { orgId: 'org-1' },
+			locals: {} as App.Locals,
+			cookies: {} as never,
+			depends
+		} as never);
+
+		expect(depends).toHaveBeenCalledWith('app:critical-tasks-library');
+		expect(loadWithContext).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.anything(),
+			'org-1',
+			expect.objectContaining({ permission: 'privileged' })
+		);
+	});
+});

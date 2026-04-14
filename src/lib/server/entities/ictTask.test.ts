@@ -8,8 +8,10 @@ describe('IctTaskEntity', () => {
 			id: 'task-1',
 			task_code: '181-105-1001',
 			title: 'Perform tactical combat casualty care',
+			description: 'CLS task',
 			mos: ['68W', '18D'],
 			expiration_months: 12,
+			sort_order: 4,
 			archived_at: null,
 			created_at: '2026-04-01T12:00:00Z'
 		}) as IctTask;
@@ -18,8 +20,10 @@ describe('IctTaskEntity', () => {
 			id: 'task-1',
 			taskCode: '181-105-1001',
 			title: 'Perform tactical combat casualty care',
+			description: 'CLS task',
 			mos: ['68W', '18D'],
 			expirationMonths: 12,
+			sortOrder: 4,
 			archivedAt: null,
 			createdAt: '2026-04-01T12:00:00Z'
 		});
@@ -30,14 +34,18 @@ describe('IctTaskEntity', () => {
 			id: 'task-2',
 			task_code: '181-105-1002',
 			title: 'Document treatment',
+			description: null,
 			mos: null,
 			expiration_months: null,
+			sort_order: 0,
 			archived_at: '2026-04-02T12:00:00Z',
 			created_at: '2026-04-01T12:00:00Z'
 		}) as IctTask;
 
+		expect(result.description).toBeNull();
 		expect(result.mos).toEqual([]);
 		expect(result.expirationMonths).toBeNull();
+		expect(result.sortOrder).toBe(0);
 		expect(result.archivedAt).toBe('2026-04-02T12:00:00Z');
 	});
 
@@ -46,7 +54,9 @@ describe('IctTaskEntity', () => {
 			{
 				taskCode: '181-105-1001',
 				title: 'Perform tactical combat casualty care',
-				mos: ['68W']
+				description: 'Aid under fire',
+				mos: ['68W'],
+				sortOrder: 2
 			},
 			'org-1'
 		);
@@ -55,8 +65,28 @@ describe('IctTaskEntity', () => {
 			organization_id: 'org-1',
 			task_code: '181-105-1001',
 			title: 'Perform tactical combat casualty care',
+			description: 'Aid under fire',
 			mos: ['68W'],
 			expiration_months: null,
+			sort_order: 2,
+			archived_at: null
+		});
+	});
+
+	it('defaults optional library metadata on create', () => {
+		const result = IctTaskEntity.toDbInsert(
+			{
+				taskCode: '181-105-1001',
+				title: 'Perform tactical combat casualty care'
+			},
+			'org-1'
+		);
+
+		expect(result).toMatchObject({
+			description: null,
+			mos: [],
+			expiration_months: null,
+			sort_order: 0,
 			archived_at: null
 		});
 	});
@@ -65,23 +95,32 @@ describe('IctTaskEntity', () => {
 		const result = IctTaskEntity.toDbUpdate({
 			id: 'task-1',
 			title: 'Updated task',
+			description: 'Updated description',
 			expirationMonths: 24,
+			sortOrder: 8,
 			archivedAt: '2026-04-02T12:00:00Z',
 			createdAt: '2026-04-01T12:00:00Z'
 		});
 
 		expect(result).toEqual({
 			title: 'Updated task',
+			description: 'Updated description',
 			expiration_months: 24,
+			sort_order: 8,
 			archived_at: '2026-04-02T12:00:00Z'
 		});
 	});
 
-	it('uses the existing training privileged configuration boundary', () => {
+	it('uses an owner/admin-only task-library boundary', () => {
 		expect(IctTaskEntity.table).toBe('ict_tasks');
 		expect(IctTaskEntity.permission).toBe('training');
-		expect(IctTaskEntity.requireFullEditor).toBe(true);
+		expect(IctTaskEntity.requirePrivileged).toBe(true);
+		expect(IctTaskEntity.requireFullEditor).toBeUndefined();
 		expect(IctTaskEntity.methods).toEqual(['POST', 'PUT']);
+		expect(IctTaskEntity.orderBy).toEqual([
+			{ column: 'sort_order', ascending: true },
+			{ column: 'task_code', ascending: true }
+		]);
 		expect(IctTaskEntity.audit).toEqual({
 			resourceType: 'ict_task',
 			detailFields: ['taskCode', 'title']

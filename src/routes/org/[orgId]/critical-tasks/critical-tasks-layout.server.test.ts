@@ -31,8 +31,10 @@ describe('critical tasks layout server load', () => {
 					id: 'task1',
 					taskCode: '181-105-1001',
 					title: 'Perform tactical combat casualty care',
+					description: null,
 					mos: ['68W'],
 					expirationMonths: 12,
+					sortOrder: 0,
 					archivedAt: null,
 					createdAt: '2026-04-01T12:00:00Z'
 				} satisfies IctTask

@@ -25,6 +25,7 @@ export interface CrudConfig<C extends WritePorts = WritePorts> {
 	permission: FeatureArea;
 	auditResource: string;
 	requireFullEditor?: boolean;
+	requirePrivileged?: boolean;
 	beforeDelete?: (ctx: C, id: string) => Promise<void>;
 	afterDelete?: (ctx: C, id: string) => Promise<void>;
 }
@@ -48,7 +49,9 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 
 	return {
 		async create(ctx, data) {
-			if (config.requireFullEditor) {
+			if (config.requirePrivileged) {
+				ctx.auth.requirePrivileged();
+			} else if (config.requireFullEditor) {
 				ctx.auth.requireFullEditor();
 			}
 			ctx.auth.requireEdit(permission);
@@ -81,7 +84,9 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async update(ctx, data) {
-			if (config.requireFullEditor) {
+			if (config.requirePrivileged) {
+				ctx.auth.requirePrivileged();
+			} else if (config.requireFullEditor) {
 				ctx.auth.requireFullEditor();
 			}
 			ctx.auth.requireEdit(permission);
@@ -119,7 +124,9 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 		},
 
 		async remove(ctx, id) {
-			if (config.requireFullEditor) {
+			if (config.requirePrivileged) {
+				ctx.auth.requirePrivileged();
+			} else if (config.requireFullEditor) {
 				ctx.auth.requireFullEditor();
 			}
 			ctx.auth.requireEdit(permission);

@@ -41,6 +41,8 @@
 					/><path d="M16 3.13a4 4 0 0 1 0 7.75" />
 				{:else if tab.icon === 'training'}
 					<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+				{:else if tab.icon === 'critical-tasks'}
+					<path d="M9 11l2 2 4-4" /><path d="M9 17l2 2 4-4" /><path d="M5 4h14v17H5z" /><path d="M8 4V2h8v2" />
 				{:else if tab.icon === 'onboarding'}
 					<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect
 						x="8"

@@ -6,6 +6,7 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelTraining } from '$features/training/training.types';
+import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from '$lib/types';
 
 const deferredSnapshotKeys = new WeakMap<object, string>();
@@ -127,6 +128,8 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 			const hasTrainingTypes = isHydratableItems(d.trainingTypes);
 			const hasTrainingViews = isHydratableItems(d.trainingViews);
 			const hasPersonnelTrainings = isHydratableItems(d.personnelTrainings);
+			const hasIctTasks = isHydratableItems(d.ictTasks);
+			const hasPersonnelIctCompletions = isHydratableItems(d.personnelIctCompletions);
 			const hasPinnedGroups = isHydratableItems(d.pinnedGroups);
 			// Dashboard rating-scheme data is a summary-shaped subset, not the canonical store dataset.
 			const hasRatingSchemeEntries = workspace !== 'dashboard' && isHydratableItems(d.ratingSchemeEntries);
@@ -146,6 +149,8 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 				!hasTrainingTypes &&
 				!hasTrainingViews &&
 				!hasPersonnelTrainings &&
+				!hasIctTasks &&
+				!hasPersonnelIctCompletions &&
 				!hasPinnedGroups &&
 				!hasRatingSchemeEntries &&
 				!hasOnboardingTemplates &&
@@ -202,6 +207,16 @@ export function createDefaultHydrationPlanner(orgId: string): HydrationPlannerPo
 
 			if (hasPersonnelTrainings) {
 				plan.personnelTrainings = createHydrationTarget(d.personnelTrainings as HydrationItems<PersonnelTraining>);
+			}
+
+			if (hasIctTasks) {
+				plan.ictTasks = createHydrationTarget(d.ictTasks as HydrationItems<IctTask>);
+			}
+
+			if (hasPersonnelIctCompletions) {
+				plan.personnelIctCompletions = createHydrationTarget(
+					d.personnelIctCompletions as HydrationItems<PersonnelIctCompletion>
+				);
 			}
 
 			if (hasPinnedGroups) {

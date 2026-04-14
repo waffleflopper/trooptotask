@@ -13,6 +13,16 @@
 	const org = getOrgContext();
 	const orgId = $derived(data.orgId ?? org.orgId);
 	const permissions = $derived(data.permissions ?? org.permissions);
+	const overflowItems = $derived(
+		org.isPrivileged
+			? [
+					{
+						label: 'Task Library',
+						href: `/org/${orgId}/critical-tasks/library`
+					}
+				]
+			: []
+	);
 
 	const storesHydratedForOrg = $derived(
 		personnelStore.orgId === orgId &&
@@ -35,7 +45,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Critical Tasks" subtitle="ICTL readiness" />
+	<PageToolbar title="Critical Tasks" subtitle="ICTL readiness" {overflowItems} />
 
 	{#if !permissions.canViewTraining}
 		<section class="page-message" aria-labelledby="critical-tasks-restricted-title">

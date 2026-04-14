@@ -648,7 +648,10 @@ export function createSupabaseCriticalTasksWorkspacePort(
 				'ICT tasks',
 				ctx.store.findMany<Record<string, unknown>>('ict_tasks', orgId, undefined, {
 					isNull: { archived_at: true },
-					orderBy: [{ column: 'task_code', ascending: true }]
+					orderBy: [
+						{ column: 'sort_order', ascending: true },
+						{ column: 'task_code', ascending: true }
+					]
 				}),
 				(rows) => IctTaskEntity.fromDbArray(rows) as IctTask[]
 			);

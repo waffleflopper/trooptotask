@@ -509,6 +509,7 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		permission: entity.permission,
 		auditResource: getEntityAuditResource(entity),
 		requireFullEditor: entity.requireFullEditor,
+		requirePrivileged: entity.requirePrivileged,
 		beforeDelete: hooks?.beforeDelete ? async (ctx, id) => hooks.beforeDelete!(ctx as UseCaseContext, id) : undefined,
 		afterDelete: hooks?.afterDelete ? async (ctx, id) => hooks.afterDelete!(ctx as UseCaseContext, id) : undefined
 	};

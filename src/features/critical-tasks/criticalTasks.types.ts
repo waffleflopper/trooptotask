@@ -16,8 +16,10 @@ export interface IctTask {
 	id: string;
 	taskCode: string;
 	title: string;
+	description: string | null;
 	mos: string[];
 	expirationMonths: number | null;
+	sortOrder: number;
 	archivedAt: string | null;
 	createdAt: string;
 }

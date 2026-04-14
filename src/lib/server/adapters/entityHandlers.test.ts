@@ -6,7 +6,11 @@ import { handleUseCaseRequest } from './httpAdapter';
 import { entityHandlers } from './httpAdapter';
 
 // A simple test entity with full metadata
-function createTestEntity(overrides?: { methods?: ('POST' | 'PUT' | 'DELETE')[] }) {
+function createTestEntity(overrides?: {
+	methods?: ('POST' | 'PUT' | 'DELETE')[];
+	requireFullEditor?: boolean;
+	requirePrivileged?: boolean;
+}) {
 	return defineEntity({
 		table: 'widgets',
 		groupScope: 'none',
@@ -16,7 +20,8 @@ function createTestEntity(overrides?: { methods?: ('POST' | 'PUT' | 'DELETE')[] 
 			color: field(z.string(), { insertDefault: 'blue' })
 		},
 		permission: 'training',
-		requireFullEditor: true,
+		requireFullEditor: overrides?.requireFullEditor ?? true,
+		requirePrivileged: overrides?.requirePrivileged,
 		audit: 'widget',
 		methods: overrides?.methods ?? ['POST', 'PUT', 'DELETE']
 	});
@@ -187,6 +192,22 @@ describe('entityHandlers()', () => {
 				auth: {
 					requireEdit() {
 						throw { status: 403, body: { message: 'Forbidden' } };
+					}
+				}
+			});
+
+			await expect(handleUseCaseRequest(handlers._configs.POST!, ctx, { name: 'Denied' })).rejects.toMatchObject({
+				status: 403
+			});
+		});
+
+		it('passes an entity privileged requirement into generated CRUD use cases', async () => {
+			const entity = createTestEntity({ requireFullEditor: false, requirePrivileged: true });
+			const handlers = entityHandlers(entity);
+			const ctx = createTestContext({
+				auth: {
+					requirePrivileged() {
+						throw { status: 403, body: { message: 'Requires owner or admin' } };
 					}
 				}
 			});

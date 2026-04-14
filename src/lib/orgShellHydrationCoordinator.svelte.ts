@@ -4,6 +4,8 @@ import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
+import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
+import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
@@ -38,6 +40,8 @@ const defaultStores: HydrationStores = {
 	trainingTypesStore,
 	trainingViewsStore,
 	personnelTrainingsStore,
+	ictTasksStore,
+	personnelIctCompletionsStore,
 	pinnedGroupsStore,
 	ratingSchemeStore,
 	onboardingTemplateStore,
@@ -187,6 +191,13 @@ export function createOrgShellHydrationCoordinator(): OrgShellHydrationCoordinat
 				applyTarget(plan.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
 				applyTarget(plan.trainingViews, stores.trainingViewsStore, orgId, 'trainingViews'),
 				applyTarget(plan.personnelTrainings, stores.personnelTrainingsStore, orgId, 'personnelTrainings'),
+				applyTarget(plan.ictTasks, stores.ictTasksStore, orgId, 'ictTasks'),
+				applyTarget(
+					plan.personnelIctCompletions,
+					stores.personnelIctCompletionsStore,
+					orgId,
+					'personnelIctCompletions'
+				),
 				applyTarget(plan.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups'),
 				applyTarget(plan.ratingSchemeEntries, stores.ratingSchemeStore, orgId, 'ratingSchemeEntries'),
 				Promise.resolve(

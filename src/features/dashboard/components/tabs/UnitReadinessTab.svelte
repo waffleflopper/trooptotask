@@ -26,7 +26,7 @@
 	let upcomingGroupBy = $state<UpcomingGroupBy>('date');
 
 	$effect(() => {
-		if (browser) {
+		if (browser && typeof localStorage.getItem === 'function') {
 			const saved = localStorage.getItem(UPCOMING_KEY);
 			if (saved === 'date' || saved === 'group') upcomingGroupBy = saved;
 		}
@@ -34,7 +34,7 @@
 
 	function setUpcomingGroupBy(value: UpcomingGroupBy) {
 		upcomingGroupBy = value;
-		if (browser) localStorage.setItem(UPCOMING_KEY, value);
+		if (browser && typeof localStorage.setItem === 'function') localStorage.setItem(UPCOMING_KEY, value);
 	}
 
 	const upcomingByGroup = $derived.by(() => {

@@ -1,6 +1,13 @@
 import type { OrganizationMemberPermissions } from '$lib/types';
 
-export type OrgNavIcon = 'dashboard' | 'calendar' | 'personnel' | 'training' | 'onboarding' | 'leaders-book';
+export type OrgNavIcon =
+	| 'dashboard'
+	| 'calendar'
+	| 'personnel'
+	| 'training'
+	| 'critical-tasks'
+	| 'onboarding'
+	| 'leaders-book';
 
 export interface OrgNavItem {
 	id: string;
@@ -44,6 +51,15 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 			href: `/org/${orgId}/training`,
 			label: 'Training',
 			icon: 'training',
+			visible: permissions.canViewTraining,
+			exactMatch: false
+		},
+		{
+			id: 'critical-tasks',
+			href: `/org/${orgId}/critical-tasks`,
+			label: 'Critical Tasks',
+			compactLabel: 'ICTLs',
+			icon: 'critical-tasks',
 			visible: permissions.canViewTraining,
 			exactMatch: false
 		},

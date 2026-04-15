@@ -10,6 +10,18 @@ afterEach(() => {
 });
 
 describe('PersonnelModal', () => {
+	it('does not render the redundant roster preview card', () => {
+		render(PersonnelModal, {
+			props: {
+				groups: [],
+				onSubmit: vi.fn(),
+				onClose: vi.fn()
+			}
+		});
+
+		expect(screen.queryByText('Roster Preview')).toBeNull();
+	});
+
 	it('keeps the modal open when async submit fails', async () => {
 		const onClose = vi.fn();
 		const onSubmit = vi.fn().mockRejectedValue(new Error('insert blocked by policy'));

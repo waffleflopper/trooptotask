@@ -170,6 +170,7 @@
 						canEdit={data.permissions?.canEditCalendar ?? false}
 						showStatusText={ctx.showStatusText}
 						showPersonnelRoles={ctx.showPersonnelRoles}
+						upcomingLossMap={ctx.upcomingLossMap}
 						personnelHref={`/org/${data.orgId}/personnel`}
 						onPrevMonth={() => calendarStore.prevMonth()}
 						onNextMonth={() => calendarStore.nextMonth()}

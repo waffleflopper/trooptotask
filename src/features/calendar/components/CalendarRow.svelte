@@ -8,6 +8,7 @@
 		DailyAssignment
 	} from '$lib/types';
 	import type { DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
+	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 	import { isWeekend, isToday, formatDate } from '$lib/utils/dates';
 	import DateCell from '$lib/components/ui/DateCell.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -25,6 +26,8 @@
 		showPersonnelRoles?: boolean;
 		isOnboarding?: boolean;
 		highlightOnboarding?: boolean;
+		/** Upcoming-loss record for this person, if they are approaching ETS or PCS/DEROS. */
+		upcomingLossRecord?: UpcomingLossRecord;
 		onCellClick?: (person: Personnel, date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
 	}
@@ -42,6 +45,7 @@
 		showPersonnelRoles = true,
 		isOnboarding = false,
 		highlightOnboarding = true,
+		upcomingLossRecord,
 		onCellClick,
 		onPersonClick
 	}: Props = $props();
@@ -108,6 +112,17 @@
 				<span class="name">{person.lastName}, {person.firstName}</span>
 				{#if isOnboarding}
 					<span class="onboarding-dot" title="Active onboarding"></span>
+				{/if}
+				{#if upcomingLossRecord}
+					<span
+						class="loss-chip"
+						class:loss-chip--ets={upcomingLossRecord.triggerType === 'ETS'}
+						data-testid="loss-indicator-{person.id}"
+						title="{upcomingLossRecord.triggerType} in {upcomingLossRecord.daysRemaining} day{upcomingLossRecord.daysRemaining ===
+						1
+							? ''
+							: 's'}">{upcomingLossRecord.triggerType === 'ETS' ? 'ETS' : 'PCS'}</span
+					>
 				{/if}
 			</span>
 			{#if showPersonnelRoles && person.clinicRole}
@@ -228,6 +243,36 @@
 		border-radius: 1px;
 		background: var(--amber);
 		flex-shrink: 0;
+	}
+
+	/* ── Upcoming-loss chip ──────────────────────────────────────────────────
+	   Lightweight row-header signal for personnel approaching ETS or PCS/DEROS.
+	   Mirrors the trigger-chip styling from UpcomingLossesWidget and
+	   PersonnelPageView for cross-surface consistency.  Kept intentionally
+	   small so the calendar row header stays scannable.
+	──────────────────────────────────────────────────────────────────────── */
+	.loss-chip {
+		display: inline-flex;
+		align-items: center;
+		flex-shrink: 0;
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: var(--font-weight-semibold);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-mono);
+		padding: 1px 4px;
+		border-radius: var(--radius-sm);
+		white-space: nowrap;
+		line-height: 1.4;
+		/* PCS / DEROS default: neutral tint */
+		background: var(--ink-06);
+		color: var(--text-secondary);
+	}
+
+	/* ETS: amber-tinted to flag impending separation */
+	.loss-chip--ets {
+		background: color-mix(in srgb, var(--amber-light) 80%, var(--surface-panel) 20%);
+		color: var(--amber-dark);
 	}
 
 	.role {

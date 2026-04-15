@@ -334,7 +334,7 @@
 												data-testid="loss-indicator-{row.id}"
 												title="{lossRecord.triggerType} in {lossRecord.daysRemaining} day{lossRecord.daysRemaining === 1
 													? ''
-													: 's'}">{lossRecord.triggerType}</span
+													: 's'}">{lossRecord.triggerType === 'ETS' ? 'ETS' : 'PCS'}</span
 											>
 										{/if}
 									</span>

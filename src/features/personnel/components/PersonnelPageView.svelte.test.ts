@@ -124,7 +124,7 @@ describe('PersonnelPageView', () => {
 			expect(screen.getByTestId('loss-indicator-person-1').textContent).toBe('ETS');
 		});
 
-		it('shows the correct trigger type label for a PCS / DEROS indicator', () => {
+		it('shows PCS label for a PCS / DEROS indicator', () => {
 			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'PCS / DEROS' })]]);
 			const ctx = makeCtx(vi.fn(), lossMap);
 
@@ -132,7 +132,7 @@ describe('PersonnelPageView', () => {
 				props: { ctx, personnelLookup: [], permissions: viewOnlyPermissions, onPageViewChange: vi.fn() }
 			});
 
-			expect(screen.getByTestId('loss-indicator-person-1').textContent).toBe('PCS / DEROS');
+			expect(screen.getByTestId('loss-indicator-person-1').textContent).toBe('PCS');
 		});
 
 		it('does not show a loss indicator for personnel not in the upcoming-loss map', () => {

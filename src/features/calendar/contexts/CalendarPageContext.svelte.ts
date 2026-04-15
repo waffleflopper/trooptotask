@@ -19,6 +19,8 @@ import { toastStore } from '$lib/stores/toast.svelte';
 import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
+import { SvelteDate, SvelteMap } from 'svelte/reactivity';
+import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 
 type MatchMediaFn = (query: string) => { matches: boolean };
 
@@ -150,10 +152,44 @@ export class CalendarPageContext {
 		return this.scopedPBG.flatMap((g) => g.personnel);
 	}
 
+	// ---- reference date (for upcoming-loss evaluation) --------------------
+	/**
+	 * Calendar date used as "today" when evaluating upcoming losses.
+	 * Injectable via the third constructor argument so tests can pin the date
+	 * without real-time dependencies.
+	 */
+	readonly #today: string;
+
+	// ---- derived: upcoming losses ------------------------------------------
+
+	/**
+	 * Map of personId → UpcomingLossRecord for personnel inside the org's
+	 * configured loss warning window.  Consumed by CalendarRow to render
+	 * per-row indicators without duplicating date-threshold arithmetic.
+	 *
+	 * Reuses the same evaluation path as the dashboard widget so the calendar
+	 * and dashboard always agree on who is approaching a loss event.
+	 */
+	get upcomingLossMap(): SvelteMap<string, UpcomingLossRecord> {
+		const warningWindowDays = this.#workspaceData?.lossWarningWindowDays ?? 180;
+		const losses = evaluateUpcomingLosses(this.calendarPersonnel, warningWindowDays, this.#today);
+		const map = new SvelteMap<string, UpcomingLossRecord>();
+		for (const record of losses) {
+			map.set(record.personId, record);
+		}
+		return map;
+	}
+
 	// ---- constructor -------------------------------------------------------
-	constructor(getData: CalendarPageData | (() => CalendarPageData), org: OrgContext) {
+	constructor(getData: CalendarPageData | (() => CalendarPageData), org: OrgContext, today?: string) {
 		this.#getData = typeof getData === 'function' ? getData : () => getData;
 		this.#org = org;
+
+		// Pin to the provided date or fall back to the local calendar date
+		const now = new SvelteDate();
+		this.#today =
+			today ??
+			`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 	}
 
 	// ---- lifecycle methods (called from route $effect) ---------------------

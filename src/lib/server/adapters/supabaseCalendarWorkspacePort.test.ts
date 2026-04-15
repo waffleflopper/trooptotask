@@ -54,7 +54,8 @@ describe('createSupabaseCalendarWorkspacePort', () => {
 		advancedDutyEvents: [],
 		personnel: [],
 		groups: [],
-		statusTypes: []
+		statusTypes: [],
+		lossWarningWindowDays: 180
 	};
 
 	beforeEach(() => {

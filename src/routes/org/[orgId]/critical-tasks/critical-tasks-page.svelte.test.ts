@@ -86,6 +86,24 @@ function completion(overrides: Partial<PersonnelIctCompletion>): PersonnelIctCom
 const alphaGroup: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0 };
 const bravoGroup: Group = { id: 'group-bravo', name: 'Bravo', sortOrder: 1 };
 
+function mockJsonResponse(body: unknown, status = 200): Response {
+	return {
+		ok: status >= 200 && status < 300,
+		status,
+		json: () => Promise.resolve(body)
+	} as Response;
+}
+
+function createDeferredResponse() {
+	let resolve!: (value: Response) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<Response>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
 describe('critical tasks page', () => {
 	beforeEach(() => {
 		mockOrgContext.role = 'owner';
@@ -101,6 +119,7 @@ describe('critical tasks page', () => {
 
 	afterEach(() => {
 		cleanup();
+		vi.restoreAllMocks();
 		personnelStore.load([], 'org-test-reset');
 		groupsStore.load([], 'org-test-reset');
 		ictTasksStore.load([], 'org-test-reset');
@@ -249,6 +268,105 @@ describe('critical tasks page', () => {
 			expect(screen.queryByRole('columnheader', { name: /181-105-1001 TCCC/ })).toBeNull();
 			expect(screen.getByRole('columnheader', { name: /181-105-1002 Airway management/ })).toBeTruthy();
 			expect(screen.getByRole('button', { name: /Smith 181-105-1002: not recorded/ })).toBeTruthy();
+		});
+	});
+
+	it('lets training editors log a completion from a matrix cell and updates the matrix without a reload', async () => {
+		const deferred = createDeferredResponse();
+		const fetchMock = vi.fn().mockReturnValue(deferred.promise);
+		vi.stubGlobal('fetch', fetchMock);
+
+		personnelStore.load([person({ id: 'smith', lastName: 'Smith' })], 'org-1');
+		groupsStore.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					session: {
+						access_token: 'access-token',
+						refresh_token: 'refresh-token',
+						expires_in: 3600,
+						token_type: 'bearer',
+						user: {
+							id: 'user-1',
+							app_metadata: {},
+							aud: 'authenticated',
+							created_at: '2026-04-01T00:00:00.000Z',
+							user_metadata: {
+								rank: 'SFC',
+								full_name: 'Taylor Example'
+							}
+						}
+					},
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: true
+					},
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /Smith 181-105-1001: not recorded/ }));
+
+		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
+
+		await fireEvent.input(screen.getByLabelText(/Completion Date/i), { target: { value: '2098-01-01' } });
+		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
+			target: { value: 'Practical Exercise' }
+		});
+		await fireEvent.change(screen.getByLabelText('I am the validator'), { target: { checked: true } });
+		await waitFor(() => {
+			expect((screen.getByLabelText(/Validated By/i) as HTMLInputElement).value).toBe('SFC Taylor Example');
+		});
+		await fireEvent.input(screen.getByLabelText(/Notes \(optional\)/i), {
+			target: { value: 'Lane validation' }
+		});
+
+		await fireEvent.click(screen.getByTestId('ict-completion-save'));
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+		});
+
+		expect(fetchMock.mock.calls[0]?.[0]).toBe('/org/org-1/api/personnel-ict-completions');
+		expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'POST' });
+		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+			personnelId: 'smith',
+			ictTaskId: 'task-1',
+			completedAt: '2098-01-01',
+			validationMethod: 'Practical Exercise',
+			validatedBy: 'SFC Taylor Example',
+			notes: 'Lane validation'
+		});
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: /Smith 181-105-1001: current/ })).toBeTruthy();
+		});
+
+		deferred.resolve(
+			mockJsonResponse(
+				completion({
+					id: 'server-completion',
+					personnelId: 'smith',
+					ictTaskId: 'task-1',
+					completedAt: '2098-01-01',
+					validationMethod: 'Practical Exercise',
+					validatedBy: 'SFC Taylor Example',
+					notes: 'Lane validation'
+				})
+			)
+		);
+
+		await waitFor(() => {
+			expect(screen.queryByRole('dialog', { name: 'Log ICT Completion' })).toBeNull();
 		});
 	});
 });

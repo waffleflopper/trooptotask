@@ -6,10 +6,13 @@
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import IctMatrix from '$features/critical-tasks/components/IctMatrix.svelte';
+	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
+	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+	import type { Personnel } from '$lib/types';
 
 	let { data } = $props();
 
@@ -47,6 +50,15 @@
 
 	const activeTasks = $derived(getActiveIctTasksForLibrary(ictTasksStore.items));
 	const criticalTasksSettings = $derived(normalizeCriticalTasksSettings(data.criticalTasksSettings));
+	const canEditTraining = $derived(permissions.canEditTraining && !org.readOnly);
+
+	interface ActiveCompletionCell {
+		person: Personnel;
+		task: IctTask;
+		completion: PersonnelIctCompletion | undefined;
+	}
+
+	let activeCompletionCell = $state<ActiveCompletionCell | null>(null);
 
 	$effect(() => {
 		if (selectedGroupId && !groupsStore.items.some((group) => group.id === selectedGroupId)) {
@@ -54,12 +66,59 @@
 		}
 	});
 
+	function readMetadataString(record: unknown, key: string): string | null {
+		if (!record || typeof record !== 'object') return null;
+		const value = (record as Record<string, unknown>)[key];
+		return typeof value === 'string' && value.trim() ? value.trim() : null;
+	}
+
+	function getCurrentUserDisplayName(): string | null {
+		const userMetadata = data.session?.user?.user_metadata;
+		const rank = readMetadataString(userMetadata, 'rank');
+		const fullName =
+			readMetadataString(userMetadata, 'full_name') ??
+			readMetadataString(userMetadata, 'name') ??
+			[readMetadataString(userMetadata, 'first_name'), readMetadataString(userMetadata, 'last_name')]
+				.filter((value): value is string => !!value)
+				.join(' ')
+				.trim() ??
+			null;
+
+		if (!fullName) return null;
+		return [rank, fullName].filter(Boolean).join(' ');
+	}
+
+	const currentUserDisplayName = $derived(getCurrentUserDisplayName());
+
 	function handleGroupFilterChange(event: Event): void {
 		selectedGroupId = (event.currentTarget as HTMLSelectElement).value;
 	}
 
 	function handleGapsOnlyChange(event: Event): void {
 		gapsOnly = (event.currentTarget as HTMLInputElement).checked;
+	}
+
+	function handleMatrixCellSelection(selection: ActiveCompletionCell): void {
+		if (!canEditTraining) return;
+		activeCompletionCell = selection;
+	}
+
+	async function handleCompletionSave(
+		saveData: Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>,
+		existingId?: string
+	): Promise<void> {
+		if (existingId) {
+			const updated = await personnelIctCompletionsStore.update(existingId, saveData);
+			if (!updated) {
+				throw new Error('Failed to update ICT completion');
+			}
+			return;
+		}
+
+		const created = await personnelIctCompletionsStore.add(saveData);
+		if (!created) {
+			throw new Error('Failed to save ICT completion');
+		}
 	}
 </script>
 
@@ -119,6 +178,8 @@
 				completions={personnelIctCompletionsStore.items}
 				groups={groupsStore.items}
 				settings={criticalTasksSettings}
+				canEdit={canEditTraining}
+				onSelectCell={handleMatrixCellSelection}
 				{selectedGroupId}
 				{gapsOnly}
 				{orgName}
@@ -126,6 +187,18 @@
 		</section>
 	{/if}
 </div>
+
+{#if activeCompletionCell}
+	<IctCompletionModal
+		person={activeCompletionCell.person}
+		task={activeCompletionCell.task}
+		existingCompletion={activeCompletionCell.completion}
+		settings={criticalTasksSettings}
+		{currentUserDisplayName}
+		onSave={handleCompletionSave}
+		onClose={() => (activeCompletionCell = null)}
+	/>
+{/if}
 
 <style>
 	.page {

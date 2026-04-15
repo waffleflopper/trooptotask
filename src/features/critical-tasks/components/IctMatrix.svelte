@@ -22,6 +22,12 @@
 		gapsOnly?: boolean;
 		asOf?: string | Date;
 		orgName?: string;
+		canEdit?: boolean;
+		onSelectCell?: (selection: {
+			person: Personnel;
+			task: IctTask;
+			completion: PersonnelIctCompletion | undefined;
+		}) => void;
 	}
 
 	let {
@@ -33,7 +39,9 @@
 		selectedGroupId = '',
 		gapsOnly = false,
 		asOf,
-		orgName = 'Unassigned'
+		orgName = 'Unassigned',
+		canEdit = false,
+		onSelectCell
 	}: Props = $props();
 
 	const matrix = $derived(
@@ -76,6 +84,15 @@
 		}
 
 		return `${person.lastName} ${cell.task.taskCode}: ${statusLabels[cell.statusInfo.status]}. ${cell.detailLabel}`;
+	}
+
+	function handleCellClick(person: Personnel, cell: CriticalTasksMatrixCell): void {
+		if (!canEdit) return;
+		onSelectCell?.({
+			person,
+			task: cell.task,
+			completion: cell.completion
+		});
 	}
 </script>
 
@@ -125,9 +142,12 @@
 										<td class="status-cell" data-status={cell.statusInfo.status}>
 											<button
 												type="button"
+												class:editable={canEdit}
 												class="status-button"
 												data-status={cell.statusInfo.status}
 												aria-label={cellAriaLabel(row.person, cell)}
+												aria-haspopup={canEdit ? 'dialog' : undefined}
+												onclick={() => handleCellClick(row.person, cell)}
 											>
 												<span class="status-symbol">{statusSymbols[cell.statusInfo.status]}</span>
 												<span class="status-text">{statusLabels[cell.statusInfo.status]}</span>
@@ -353,6 +373,10 @@
 		background: transparent;
 		color: var(--text-primary);
 		cursor: default;
+	}
+
+	.status-button.editable {
+		cursor: pointer;
 	}
 
 	.status-button:focus-visible {

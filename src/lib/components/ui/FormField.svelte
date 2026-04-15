@@ -64,6 +64,9 @@
 				aria-invalid={error ? true : undefined}
 				aria-describedby={describedBy}
 				bind:value
+				onchange={(event) => {
+					value = (event.currentTarget as HTMLSelectElement).value;
+				}}
 			>
 				{#each options as opt (opt.value)}
 					<option value={opt.value}>{opt.label}</option>

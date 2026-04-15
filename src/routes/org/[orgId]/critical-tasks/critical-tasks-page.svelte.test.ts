@@ -1,12 +1,14 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
-import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
+import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import type { Group } from '$lib/stores/groups.svelte';
+import type { Personnel } from '$lib/types';
 
 const { mockOrgContext } = vi.hoisted(() => ({
 	mockOrgContext: {
@@ -51,6 +53,38 @@ const ictTask: IctTask = {
 	archivedAt: null,
 	createdAt: '2026-04-01T12:00:00Z'
 };
+
+function person(overrides: Partial<Personnel>): Personnel {
+	return {
+		id: 'person-1',
+		rank: 'SGT',
+		lastName: 'Smith',
+		firstName: 'Jane',
+		mos: '68W',
+		clinicRole: 'Medic',
+		groupId: 'group-alpha',
+		groupName: 'Alpha',
+		...overrides
+	};
+}
+
+function completion(overrides: Partial<PersonnelIctCompletion>): PersonnelIctCompletion {
+	return {
+		id: 'completion-1',
+		personnelId: 'person-1',
+		ictTaskId: 'task-1',
+		completedAt: '2098-01-01',
+		validationMethod: 'Demonstration',
+		validatedBy: 'SFC Observer',
+		notes: null,
+		loggedBy: 'user-1',
+		createdAt: '2098-01-01T12:00:00Z',
+		...overrides
+	};
+}
+
+const alphaGroup: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0 };
+const bravoGroup: Group = { id: 'group-bravo', name: 'Bravo', sortOrder: 1 };
 
 describe('critical tasks page', () => {
 	beforeEach(() => {
@@ -143,5 +177,78 @@ describe('critical tasks page', () => {
 
 		expect(screen.queryByRole('button', { name: /more/i })).toBeNull();
 		expect(screen.queryByRole('menuitem', { name: 'Task Library' })).toBeNull();
+	});
+
+	it('renders the matrix with group and readiness gap filters', async () => {
+		const currentTask: IctTask = {
+			...ictTask,
+			id: 'current-task',
+			taskCode: '181-105-1001',
+			title: 'TCCC',
+			sortOrder: 0
+		};
+		const gapTask: IctTask = {
+			...ictTask,
+			id: 'gap-task',
+			taskCode: '181-105-1002',
+			title: 'Airway management',
+			sortOrder: 1
+		};
+		personnelStore.load(
+			[
+				person({ id: 'smith', lastName: 'Smith', groupId: alphaGroup.id, groupName: alphaGroup.name }),
+				person({ id: 'jones', lastName: 'Jones', groupId: bravoGroup.id, groupName: bravoGroup.name })
+			],
+			'org-1'
+		);
+		groupsStore.load([alphaGroup, bravoGroup], 'org-1');
+		ictTasksStore.load([currentTask, gapTask], 'org-1');
+		personnelIctCompletionsStore.load(
+			[
+				completion({ id: 'smith-current', personnelId: 'smith', ictTaskId: currentTask.id }),
+				completion({ id: 'jones-current', personnelId: 'jones', ictTaskId: currentTask.id }),
+				completion({ id: 'jones-gap', personnelId: 'jones', ictTaskId: gapTask.id })
+			],
+			'org-1'
+		);
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: true
+					},
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
+				}
+			}
+		});
+
+		expect(screen.getByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeTruthy();
+		expect(screen.getByText('Smith, Jane')).toBeTruthy();
+		expect(screen.getByText('Jones, Jane')).toBeTruthy();
+
+		await fireEvent.change(screen.getByLabelText('Group'), { target: { value: 'group-bravo' } });
+
+		await waitFor(() => {
+			expect(screen.queryByText('Smith, Jane')).toBeNull();
+			expect(screen.getByText('Jones, Jane')).toBeTruthy();
+		});
+
+		await fireEvent.change(screen.getByLabelText('Group'), { target: { value: '' } });
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Show readiness gaps only' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('Smith, Jane')).toBeTruthy();
+			expect(screen.queryByText('Jones, Jane')).toBeNull();
+			expect(screen.queryByRole('columnheader', { name: /181-105-1001 TCCC/ })).toBeNull();
+			expect(screen.getByRole('columnheader', { name: /181-105-1002 Airway management/ })).toBeTruthy();
+			expect(screen.getByRole('button', { name: /Smith 181-105-1002: not recorded/ })).toBeTruthy();
+		});
 	});
 });

@@ -102,7 +102,8 @@ describe('dashboard page server load', () => {
 				personnel: [],
 				groups: [],
 				statusTypes: [],
-				trainingTypes: []
+				trainingTypes: [],
+				lossWarningWindowDays: 180
 			} as unknown as DashboardBootstrap
 		});
 

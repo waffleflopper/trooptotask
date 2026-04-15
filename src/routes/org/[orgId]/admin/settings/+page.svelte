@@ -8,18 +8,24 @@
 	let { data } = $props();
 	const orgId = $derived($page.params.orgId);
 	const serverRetention = $derived(data.retentionMonths);
+	const serverWarningWindow = $derived(data.lossWarningWindowDays);
 	const serverCriticalTasksSettings = $derived(data.criticalTasksSettings as CriticalTasksSettings);
 
 	let retentionMonths = $state(0);
 	let savedRetentionMonths = $state(0);
+	let warningWindowDays = $state(0);
+	let savedWarningWindowDays = $state(0);
 	let criticalTasksDefaultExpirationMonths = $state(0);
 	let savedCriticalTasksDefaultExpirationMonths = $state(0);
 	let criticalTasksExpiringSoonWarningDays = $state(0);
 	let savedCriticalTasksExpiringSoonWarningDays = $state(0);
 	let savingRetention = $state(false);
+	let savingWarningWindow = $state(false);
 	let savingCriticalTasks = $state(false);
 	const hasRetentionChanges = $derived(retentionMonths !== savedRetentionMonths);
 	const isRetentionValid = $derived(retentionMonths >= 1 && retentionMonths <= 120);
+	const hasLossWarningChanges = $derived(warningWindowDays !== savedWarningWindowDays);
+	const isLossWarningValid = $derived(warningWindowDays >= 1 && warningWindowDays <= 365);
 	const hasCriticalTasksChanges = $derived(
 		criticalTasksDefaultExpirationMonths !== savedCriticalTasksDefaultExpirationMonths ||
 			criticalTasksExpiringSoonWarningDays !== savedCriticalTasksExpiringSoonWarningDays
@@ -30,18 +36,20 @@
 			criticalTasksExpiringSoonWarningDays >= 1 &&
 			criticalTasksExpiringSoonWarningDays <= 365
 	);
-	const hasPendingChanges = $derived(hasRetentionChanges || hasCriticalTasksChanges);
+	const hasPendingChanges = $derived(hasRetentionChanges || hasLossWarningChanges || hasCriticalTasksChanges);
 
 	$effect.pre(() => {
 		retentionMonths = serverRetention;
 		savedRetentionMonths = serverRetention;
+		warningWindowDays = serverWarningWindow;
+		savedWarningWindowDays = serverWarningWindow;
 		criticalTasksDefaultExpirationMonths = serverCriticalTasksSettings.defaultExpirationMonths;
 		savedCriticalTasksDefaultExpirationMonths = serverCriticalTasksSettings.defaultExpirationMonths;
 		criticalTasksExpiringSoonWarningDays = serverCriticalTasksSettings.expiringSoonWarningDays;
 		savedCriticalTasksExpiringSoonWarningDays = serverCriticalTasksSettings.expiringSoonWarningDays;
 	});
 
-	async function saveSettings(body: Record<string, number>) {
+	async function saveSettings(body: Record<string, number | null>) {
 		const res = await fetch(`/org/${orgId}/api/organization/settings`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -61,6 +69,20 @@
 			toastStore.error('Failed to save settings');
 		} finally {
 			savingRetention = false;
+		}
+	}
+
+	async function handleLossWarningSave() {
+		if (!hasLossWarningChanges || !isLossWarningValid || savingWarningWindow) return;
+		savingWarningWindow = true;
+		try {
+			await saveSettings({ lossWarningWindowDays: warningWindowDays });
+			savedWarningWindowDays = warningWindowDays;
+			toastStore.success('Settings saved');
+		} catch {
+			toastStore.error('Failed to save settings');
+		} finally {
+			savingWarningWindow = false;
 		}
 	}
 
@@ -92,6 +114,11 @@
 				<span class="overview-label">Retention</span>
 				<strong class="overview-value">{savedRetentionMonths} mo</strong>
 				<span class="overview-meta">Current archive retention window before permanent cleanup</span>
+			</div>
+			<div class="overview-card">
+				<span class="overview-label">Warning Window</span>
+				<strong class="overview-value">{savedWarningWindowDays} d</strong>
+				<span class="overview-meta">Current loss warning window before ETS or PCS / DEROS follow-up</span>
 			</div>
 			<div class="overview-card">
 				<span class="overview-label">ICT Default</span>
@@ -140,6 +167,43 @@
 					</div>
 					{#if !isRetentionValid}
 						<p class="text-error validation-hint">Must be between 1 and 120 months.</p>
+					{/if}
+				</div>
+			</div>
+		</section>
+
+		<section class="settings-section">
+			<div class="section-heading">
+				<p class="section-label">Operational Tracking</p>
+				<h2>Loss Warning Window</h2>
+			</div>
+			<p class="section-description">
+				Set the follow-up window used to flag personnel approaching ETS or PCS / DEROS timelines.
+			</p>
+
+			<div class="form-panel">
+				<div class="form-group">
+					<label class="label" for="loss-warning-window">Loss warning window (days)</label>
+					<div class="input-row">
+						<input
+							id="loss-warning-window"
+							class="input"
+							type="number"
+							min="1"
+							max="365"
+							bind:value={warningWindowDays}
+						/>
+						<button
+							class="btn btn-primary"
+							disabled={!hasLossWarningChanges || !isLossWarningValid || savingWarningWindow}
+							onclick={handleLossWarningSave}
+						>
+							{#if savingWarningWindow}<Spinner />{/if}
+							{savingWarningWindow ? 'Saving...' : 'Save Warning Window'}
+						</button>
+					</div>
+					{#if !isLossWarningValid}
+						<p class="text-error validation-hint">Must be between 1 and 365 days.</p>
 					{/if}
 				</div>
 			</div>

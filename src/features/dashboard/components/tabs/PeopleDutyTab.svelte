@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
+	import UpcomingLossesWidget from '../UpcomingLossesWidget.svelte';
 
 	interface Props {
 		ctx: DashboardContext;
@@ -12,49 +13,75 @@
 	const today = $derived(dutyDays[0]);
 	const tomorrow = $derived(dutyDays[1]);
 
+	type OutTodayPerson = (typeof ctx.nonAvailablePersonnel)[number];
+	type UpcomingChange = (typeof ctx.upcomingChanges)[number];
+	type GroupedEntries<T> = Array<[string, T[]]>;
+
+	function sortGroupName(a: string, b: string): number {
+		if (a === 'Unassigned') return 1;
+		if (b === 'Unassigned') return -1;
+		return a.localeCompare(b);
+	}
+
+	function groupEntries<T>(
+		items: T[],
+		getKey: (item: T) => string,
+		sort: (a: string, b: string) => number
+	): GroupedEntries<T> {
+		const grouped: Record<string, T[]> = {};
+		for (const item of items) {
+			const key = getKey(item);
+			(grouped[key] ??= []).push(item);
+		}
+		return Object.entries(grouped).sort(([a], [b]) => sort(a, b));
+	}
+
 	// ── Out Today grouping toggle ───────────────────────────
 	const OUT_TODAY_KEY = 'dashboard-out-today-group-by';
 	type OutTodayGroupBy = 'status' | 'group';
 
 	let outTodayGroupBy = $state<OutTodayGroupBy>('status');
 
-	$effect(() => {
-		if (browser) {
-			const saved = localStorage.getItem(OUT_TODAY_KEY);
-			if (saved === 'status' || saved === 'group') outTodayGroupBy = saved;
+	function readStorageValue(key: string): string | null {
+		if (!browser || typeof globalThis.localStorage?.getItem !== 'function') return null;
+
+		try {
+			return globalThis.localStorage.getItem(key);
+		} catch {
+			return null;
 		}
+	}
+
+	function writeStorageValue(key: string, value: string) {
+		if (!browser || typeof globalThis.localStorage?.setItem !== 'function') return;
+
+		try {
+			globalThis.localStorage.setItem(key, value);
+		} catch {
+			// Preference persistence is best-effort; the UI state has already updated.
+		}
+	}
+
+	$effect(() => {
+		const saved = readStorageValue(OUT_TODAY_KEY);
+		if (saved === 'status' || saved === 'group') outTodayGroupBy = saved;
 	});
 
 	function setOutTodayGroupBy(value: OutTodayGroupBy) {
 		outTodayGroupBy = value;
-		if (browser) localStorage.setItem(OUT_TODAY_KEY, value);
+		writeStorageValue(OUT_TODAY_KEY, value);
 	}
 
 	const outTodayByStatus = $derived.by(() => {
-		const map = new Map<string, typeof ctx.nonAvailablePersonnel>();
-		for (const person of ctx.nonAvailablePersonnel) {
-			const existing = map.get(person.statusName);
-			if (existing) existing.push(person);
-			else map.set(person.statusName, [person]);
-		}
-		return new Map([...map.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+		return groupEntries<OutTodayPerson>(
+			ctx.nonAvailablePersonnel,
+			(person) => person.statusName,
+			(a, b) => a.localeCompare(b)
+		);
 	});
 
 	const outTodayByGroup = $derived.by(() => {
-		const map = new Map<string, typeof ctx.nonAvailablePersonnel>();
-		for (const person of ctx.nonAvailablePersonnel) {
-			const key = person.groupName;
-			const existing = map.get(key);
-			if (existing) existing.push(person);
-			else map.set(key, [person]);
-		}
-		return new Map(
-			[...map.entries()].sort((a, b) => {
-				if (a[0] === 'Unassigned') return 1;
-				if (b[0] === 'Unassigned') return -1;
-				return a[0].localeCompare(b[0]);
-			})
-		);
+		return groupEntries<OutTodayPerson>(ctx.nonAvailablePersonnel, (person) => person.groupName, sortGroupName);
 	});
 
 	// ── Upcoming Changes grouping toggle ───────────────────
@@ -64,32 +91,17 @@
 	let upcomingGroupBy = $state<UpcomingGroupBy>('date');
 
 	$effect(() => {
-		if (browser) {
-			const saved = localStorage.getItem(UPCOMING_KEY);
-			if (saved === 'date' || saved === 'group') upcomingGroupBy = saved;
-		}
+		const saved = readStorageValue(UPCOMING_KEY);
+		if (saved === 'date' || saved === 'group') upcomingGroupBy = saved;
 	});
 
 	function setUpcomingGroupBy(value: UpcomingGroupBy) {
 		upcomingGroupBy = value;
-		if (browser) localStorage.setItem(UPCOMING_KEY, value);
+		writeStorageValue(UPCOMING_KEY, value);
 	}
 
 	const upcomingByGroup = $derived.by(() => {
-		const map = new Map<string, typeof ctx.upcomingChanges>();
-		for (const change of ctx.upcomingChanges) {
-			const key = change.groupName;
-			const existing = map.get(key);
-			if (existing) existing.push(change);
-			else map.set(key, [change]);
-		}
-		return new Map(
-			[...map.entries()].sort((a, b) => {
-				if (a[0] === 'Unassigned') return 1;
-				if (b[0] === 'Unassigned') return -1;
-				return a[0].localeCompare(b[0]);
-			})
-		);
+		return groupEntries<UpcomingChange>(ctx.upcomingChanges, (change) => change.groupName, sortGroupName);
 	});
 </script>
 
@@ -123,7 +135,7 @@
 				<p class="empty-mono">All personnel accounted for.</p>
 			{:else if outTodayGroupBy === 'status'}
 				<div class="out-list">
-					{#each [...outTodayByStatus.entries()] as [statusName, people], i (statusName)}
+					{#each outTodayByStatus as [statusName, people], i (statusName)}
 						<div class="group-header" class:group-header--first={i === 0} style="color: {people[0].statusColor}">
 							{statusName}
 						</div>
@@ -139,7 +151,7 @@
 				</div>
 			{:else}
 				<div class="out-list">
-					{#each [...outTodayByGroup.entries()] as [groupName, people], i (groupName)}
+					{#each outTodayByGroup as [groupName, people], i (groupName)}
 						<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
 						{#each people as person (person.id)}
 							<div class="out-row">
@@ -212,6 +224,13 @@
 		</div>
 	</div>
 
+	<!-- Upcoming Losses — primary operational widget for medium-range departure planning.
+	     Positioned between the daily operational view and the secondary housekeeping row
+	     to reflect its status as a first-class concern, not a calendar footnote. -->
+	<div class="losses-section">
+		<UpcomingLossesWidget losses={ctx.upcomingLosses} formatDate={(d) => ctx.formatShortDate(d)} />
+	</div>
+
 	<!-- Secondary row: Onboarding + Upcoming Changes -->
 	<div class="secondary-split">
 		<!-- Onboarding Pipeline -->
@@ -275,7 +294,7 @@
 					</div>
 				{/each}
 			{:else}
-				{#each [...upcomingByGroup.entries()] as [groupName, changes], i (groupName)}
+				{#each upcomingByGroup as [groupName, changes], i (groupName)}
 					<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
 					{#each changes as change (change.key)}
 						<div class="upcoming-row">
@@ -494,6 +513,17 @@
 		font-family: var(--font-body);
 		font-size: var(--text-sm);
 		color: var(--text-primary);
+	}
+
+	/* ── Upcoming Losses section ──────────────────────────────── */
+	/*
+	  Full-width strip between the daily-ops primary split and the
+	  housekeeping secondary split. The top hairline marks the
+	  transition from "today" data to "forward-looking" data.
+	*/
+	.losses-section {
+		padding: var(--sp-6) 0 var(--sp-2);
+		border-top: 1px solid var(--ink-15);
 	}
 
 	/* ── Secondary split ──────────────────────────────────── */

@@ -1,10 +1,11 @@
-import { SvelteSet } from 'svelte/reactivity';
+import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel, OrganizationMemberPermissions } from '$lib/types';
 import type { RatingSchemeEntry, WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
 import { groupAndSortPersonnel } from '$features/personnel/utils/personnelGrouping';
 import type { PersonnelGroup } from '$features/personnel/utils/personnelGrouping';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 
 // ---------------------------------------------------------------------------
 // Data shape expected from the page server / layout
@@ -18,6 +19,10 @@ export interface PersonnelPageData {
 	permissions?: OrganizationMemberPermissions | null;
 	scopedGroupId?: string | null;
 	initialPageView?: 'roster' | 'rating-scheme';
+	/** Org-configured loss warning window in days (default: 180). */
+	lossWarningWindowDays?: number;
+	/** Personnel IDs whose award tracking has been acknowledged. */
+	awardTrackingAcknowledgedPersonnelIds?: string[];
 	[key: string]: unknown;
 }
 
@@ -58,6 +63,12 @@ export class PersonnelPageContext {
 	readonly #personnelStore: PersonnelStoreAccessor;
 	readonly #ratingStore: RatingStoreAccessor;
 	readonly #pinnedGroupsStore: PinnedGroupsAccessor;
+	/**
+	 * Reference date for upcoming-loss evaluation.
+	 * Injectable so tests can pin the date without real-time dependencies.
+	 * Defaults to today's local date in production.
+	 */
+	readonly #today: string;
 
 	constructor(
 		data: PersonnelPageData,
@@ -65,11 +76,18 @@ export class PersonnelPageContext {
 		org: OrgContext,
 		personnelStore: PersonnelStoreAccessor | Personnel[] = [],
 		ratingStore: RatingStoreAccessor | RatingSchemeEntry[] = [],
-		pinnedGroupsStore: PinnedGroupsAccessor | string[] = []
+		pinnedGroupsStore: PinnedGroupsAccessor | string[] = [],
+		today?: string
 	) {
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
+
+		// Pin to the provided date or fall back to the local calendar date
+		const now = new SvelteDate();
+		this.#today =
+			today ??
+			`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
 		// Allow plain arrays (for tests) or store objects (for the real app)
 		this.#personnelStore = Array.isArray(personnelStore)
@@ -147,6 +165,28 @@ export class PersonnelPageContext {
 			return this.personnelByGroup.reduce((sum, g) => sum + g.personnel.length, 0);
 		}
 		return this.alphabeticalPersonnel.length;
+	}
+
+	// ---- Derived: upcoming losses ----
+
+	/**
+	 * Map of personId → UpcomingLossRecord for personnel inside the configured
+	 * warning window.  Used by the roster to render per-row loss indicators
+	 * without duplicating date-threshold logic.
+	 *
+	 * Reuses the same shared evaluation path as the dashboard widget so the
+	 * roster and dashboard always agree on who is "approaching loss."
+	 */
+	get upcomingLossMap(): SvelteMap<string, UpcomingLossRecord> {
+		const warningWindowDays = this.#data.lossWarningWindowDays ?? 180;
+		const losses = evaluateUpcomingLosses(this.#personnelStore.items, warningWindowDays, this.#today, {
+			awardTrackingAcknowledgedPersonnelIds: this.#data.awardTrackingAcknowledgedPersonnelIds ?? []
+		});
+		const map = new SvelteMap<string, UpcomingLossRecord>();
+		for (const record of losses) {
+			map.set(record.personId, record);
+		}
+		return map;
 	}
 
 	// ---- Derived: rating scheme ----

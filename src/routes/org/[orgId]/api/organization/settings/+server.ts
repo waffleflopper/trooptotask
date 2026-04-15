@@ -4,39 +4,59 @@ import type { UseCaseContext } from '$lib/server/core/ports';
 
 interface OrganizationSettingsInput {
 	archiveRetentionMonths?: number;
+	lossWarningWindowDays?: number;
 	criticalTasksDefaultExpirationMonths?: number | null;
 	criticalTasksExpiringSoonWarningDays?: number | null;
 }
 
+function parseWholeNumber(
+	value: unknown,
+	errorMessage: string,
+	range: { min: number; max: number }
+): number | undefined {
+	if (value === undefined) return undefined;
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		fail(400, errorMessage);
+	}
+	const rounded = Math.round(value);
+	if (rounded < range.min || rounded > range.max) {
+		fail(400, errorMessage);
+	}
+	return rounded;
+}
+
 function parseNullableWholeNumber(
-	value: number | null | undefined,
-	label: string,
+	value: unknown,
+	errorMessage: string,
 	range: { min: number; max: number }
 ): number | null | undefined {
 	if (value === undefined) return undefined;
 	if (value === null) return null;
-	if (!Number.isFinite(value) || value < range.min || value > range.max) {
-		fail(400, `${label} must be between ${range.min} and ${range.max}`);
-	}
-	return Math.round(value);
+	return parseWholeNumber(value, errorMessage, range);
 }
 
 export const _postConfig: RouteConfig<OrganizationSettingsInput, { success: true }> = {
 	permission: 'privileged',
 	mutation: true,
 	fn: async (ctx: UseCaseContext, input: OrganizationSettingsInput) => {
-		const archiveRetentionMonths = parseNullableWholeNumber(input.archiveRetentionMonths, 'Retention months', {
-			min: 1,
-			max: 120
-		});
+		const archiveRetentionMonths = parseWholeNumber(
+			input.archiveRetentionMonths,
+			'Retention months must be between 1 and 120',
+			{ min: 1, max: 120 }
+		);
+		const lossWarningWindowDays = parseWholeNumber(
+			input.lossWarningWindowDays,
+			'Warning window must be between 1 and 365 days',
+			{ min: 1, max: 365 }
+		);
 		const criticalTasksDefaultExpirationMonths = parseNullableWholeNumber(
 			input.criticalTasksDefaultExpirationMonths,
-			'Critical Tasks default expiration months',
+			'Critical Tasks default expiration months must be between 1 and 120',
 			{ min: 1, max: 120 }
 		);
 		const criticalTasksExpiringSoonWarningDays = parseNullableWholeNumber(
 			input.criticalTasksExpiringSoonWarningDays,
-			'Critical Tasks expiring-soon warning days',
+			'Critical Tasks expiring-soon warning days must be between 1 and 365',
 			{ min: 1, max: 365 }
 		);
 
@@ -44,6 +64,9 @@ export const _postConfig: RouteConfig<OrganizationSettingsInput, { success: true
 
 		if (archiveRetentionMonths !== undefined) {
 			updates.archive_retention_months = archiveRetentionMonths;
+		}
+		if (lossWarningWindowDays !== undefined) {
+			updates.loss_warning_window_days = lossWarningWindowDays;
 		}
 		if (criticalTasksDefaultExpirationMonths !== undefined) {
 			updates.critical_tasks_default_expiration_months = criticalTasksDefaultExpirationMonths;

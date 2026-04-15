@@ -1,9 +1,14 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import ExcelJS from 'exceljs';
 
-export const GET = handle<{ personnelId: string }, unknown>({
+interface PersonnelExportOutput {
+	_buffer: ArrayBuffer;
+	_filename: string;
+}
+
+export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelExportOutput> = {
 	permission: 'privileged',
 	parseInput: (event: RequestEvent) => ({ personnelId: event.params.id as string }),
 	fn: async (ctx, input) => {
@@ -68,6 +73,8 @@ export const GET = handle<{ personnelId: string }, unknown>({
 			{ field: 'MOS', value: (person.mos as string) ?? '' },
 			{ field: 'Role', value: (person.clinic_role as string) ?? '' },
 			{ field: 'Group', value: person.group_id ? (groupMap.get(person.group_id as string) ?? '') : '' },
+			{ field: 'ETS', value: (person.ets as string) ?? '' },
+			{ field: 'PCS / DEROS', value: (person.deros as string) ?? '' },
 			{ field: 'Archived At', value: (person.archived_at as string) ?? '' }
 		];
 		if (ext) {
@@ -195,15 +202,16 @@ export const GET = handle<{ personnelId: string }, unknown>({
 		return { _buffer: buffer, _filename: `${personName}-export-${dateStr}.xlsx` };
 	},
 	formatOutput: (result) => {
-		const r = result as Record<string, unknown>;
-		return new Response(r._buffer as ArrayBuffer, {
+		return new Response(result._buffer, {
 			headers: {
 				'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-				'Content-Disposition': `attachment; filename="${r._filename}"`
+				'Content-Disposition': `attachment; filename="${result._filename}"`
 			}
 		});
 	}
-});
+};
+
+export const GET = handle(_getConfig);
 
 function styleHeaderRow(sheet: ExcelJS.Worksheet) {
 	const headerRow = sheet.getRow(1);

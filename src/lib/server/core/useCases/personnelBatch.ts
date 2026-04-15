@@ -18,14 +18,17 @@ const AUDIT_RESOURCE = 'personnel';
 const MAX_BATCH_SIZE = 500;
 
 const ALL_RANKS_LOWER = ALL_RANKS.map((r) => r.toLowerCase());
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 interface BatchRecord {
 	rank: string;
 	lastName: string;
 	firstName: string;
-	mos?: string;
-	clinicRole?: string;
-	groupName?: string;
+	mos?: string | null;
+	clinicRole?: string | null;
+	groupName?: string | null;
+	ets?: string | null;
+	deros?: string | null;
 }
 
 interface BatchInput {
@@ -40,6 +43,37 @@ interface BatchError {
 interface BatchResult {
 	inserted: unknown[];
 	errors: BatchError[];
+}
+
+function isValidIsoDate(value: string): boolean {
+	if (!ISO_DATE_REGEX.test(value)) return false;
+
+	const [year, month, day] = value.split('-').map((part) => Number(part));
+	const utcDate = new Date(Date.UTC(year, month - 1, day));
+
+	return utcDate.getUTCFullYear() === year && utcDate.getUTCMonth() === month - 1 && utcDate.getUTCDate() === day;
+}
+
+function validateBatchDateFields(ets: string | null | undefined, deros: string | null | undefined): string | null {
+	const invalidFields: string[] = [];
+	const sanitizedEts = sanitizeString(ets);
+	const sanitizedDeros = sanitizeString(deros);
+
+	if (sanitizedEts && !isValidIsoDate(sanitizedEts)) {
+		invalidFields.push('ETS');
+	}
+
+	if (sanitizedDeros && !isValidIsoDate(sanitizedDeros)) {
+		invalidFields.push('DEROS');
+	}
+
+	if (invalidFields.length === 0) return null;
+
+	if (invalidFields.length === 1) {
+		return `${invalidFields[0]} must be a valid YYYY-MM-DD date`;
+	}
+
+	return `${invalidFields.join(' and ')} must be valid YYYY-MM-DD dates`;
 }
 
 export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, input: BatchInput): Promise<BatchResult> {
@@ -85,6 +119,12 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 			continue;
 		}
 
+		const dateValidationError = validateBatchDateFields(rec.ets, rec.deros);
+		if (dateValidationError) {
+			errors.push({ index: i, message: dateValidationError });
+			continue;
+		}
+
 		const groupName = sanitizeString(rec.groupName);
 		let groupId: string | null = null;
 		if (groupName) {
@@ -105,6 +145,8 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 				first_name: firstName,
 				mos: sanitizeString(rec.mos) || '',
 				clinic_role: sanitizeString(rec.clinicRole) || '',
+				ets: sanitizeString(rec.ets) || null,
+				deros: sanitizeString(rec.deros) || null,
 				group_id: groupId
 			}
 		});

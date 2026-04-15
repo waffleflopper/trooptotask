@@ -69,6 +69,8 @@ function makeWorkspaceData(overrides: Record<string, unknown> = {}) {
 		groups: [],
 		statusTypes: [],
 		trainingTypes: [],
+		lossWarningWindowDays: 180,
+		awardTrackingAcknowledgedPersonnelIds: [],
 		...overrides
 	};
 }
@@ -437,6 +439,93 @@ describe('DashboardContext', () => {
 		it('formats a YYYY-MM-DD date as "Mon DD"', () => {
 			const result = ctx.formatShortDate('2026-03-15');
 			expect(result).toMatch(/Mar 15/);
+		});
+	});
+
+	// -------------------------------------------------------------------------
+	// upcomingLosses (derived from personnelStore + lossWarningWindowDays)
+	// -------------------------------------------------------------------------
+	describe('upcomingLosses', () => {
+		/** Builds a personnel item with enough fields to satisfy the Personnel type */
+		function makePerson(id: string, ets: string | null = null, deros: string | null = null) {
+			return {
+				id,
+				rank: 'SGT',
+				lastName: 'Doe',
+				firstName: 'Jane',
+				mos: '',
+				clinicRole: '',
+				ets,
+				deros,
+				groupId: null,
+				archivedAt: null
+			};
+		}
+
+		/** Returns a date string N days from ctx.today */
+		function daysOut(ctx: DashboardContext, n: number): string {
+			const d = new Date(ctx.today + 'T00:00:00');
+			d.setDate(d.getDate() + n);
+			return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+		}
+
+		it('returns an empty array when no personnel have tracked dates', () => {
+			mutablePersonnelStore.items = [makePerson('p1')];
+			ctx = new DashboardContext(makeData());
+			expect(ctx.upcomingLosses).toEqual([]);
+		});
+
+		it('returns a record for personnel whose ETS is within the warning window', () => {
+			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 60))];
+			expect(ctx.upcomingLosses).toHaveLength(1);
+			expect(ctx.upcomingLosses[0].triggerType).toBe('ETS');
+		});
+
+		it('returns a record for personnel whose DEROS is within the warning window', () => {
+			mutablePersonnelStore.items = [makePerson('p1', null, daysOut(ctx, 45))];
+			expect(ctx.upcomingLosses).toHaveLength(1);
+			expect(ctx.upcomingLosses[0].triggerType).toBe('PCS / DEROS');
+		});
+
+		it('respects the configured lossWarningWindowDays from the workspace data', () => {
+			// Window = 30 days; person at 60 days should be excluded
+			ctx = new DashboardContext(makeData({}, { lossWarningWindowDays: 30 }));
+			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 60))];
+			expect(ctx.upcomingLosses).toHaveLength(0);
+		});
+
+		it('only includes personnel that appear in the scoped personnelStore', () => {
+			// Two personnel in store, one with an in-window ETS
+			mutablePersonnelStore.items = [
+				makePerson('p1', daysOut(ctx, 30)),
+				makePerson('p2') // no dates
+			];
+			expect(ctx.upcomingLosses).toHaveLength(1);
+			expect(ctx.upcomingLosses[0].personId).toBe('p1');
+		});
+
+		it('orders results nearest first', () => {
+			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 90)), makePerson('p2', daysOut(ctx, 30))];
+			const result = ctx.upcomingLosses;
+			expect(result[0].personId).toBe('p2');
+			expect(result[1].personId).toBe('p1');
+		});
+
+		it('marks awardDueSoon true for every entry', () => {
+			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 45))];
+			expect(ctx.upcomingLosses[0].awardDueSoon).toBe(true);
+		});
+
+		it('keeps the loss entry but suppresses the award badge when award tracking is acknowledged', () => {
+			ctx = new DashboardContext(
+				makeData({}, { awardTrackingAcknowledgedPersonnelIds: ['p1'], lossWarningWindowDays: 180 })
+			);
+			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 45))];
+
+			expect(ctx.upcomingLosses).toHaveLength(1);
+			expect(ctx.upcomingLosses[0].personId).toBe('p1');
+			expect(ctx.upcomingLosses[0].awardDueSoon).toBe(false);
+			expect(ctx.upcomingLosses[0].awardTrackingAcknowledged).toBe(true);
 		});
 	});
 });

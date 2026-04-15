@@ -14,11 +14,12 @@
 	import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 	import { exportRatingScheme } from '$features/rating-scheme/utils/ratingSchemeExport';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
+	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { Personnel, PersonnelLookup } from '$lib/types';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -33,6 +34,8 @@
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
 
 	let exportLoading = $state(false);
+	const awardTrackingOverrides = new SvelteMap<string, boolean>();
+	const savingAwardTrackingByPersonId = new SvelteMap<string, boolean>();
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 
 	const ratingStats = $derived.by(() => {
@@ -57,6 +60,7 @@
 		personnelStore.items.filter((person) => !person.groupName || person.groupName.trim() === '').length
 	);
 	const dueSoonCount = $derived(ratingStats.overdue + ratingStats['due-30']);
+	const upcomingLossMap = $derived(ctx.upcomingLossMap);
 	const pageScopeLabel = $derived(ctx.data.scopedGroupId ? 'Scoped group roster' : 'Organization roster');
 	const editStateLabel = $derived(readOnly ? 'Read only' : permissions?.canEditPersonnel ? 'Editable' : 'View only');
 	const rosterSubtitle = $derived(`${pageScopeLabel} · ${editStateLabel}`);
@@ -162,6 +166,38 @@
 
 	function getPersonnelRowActionLabel(person: Personnel): string {
 		return `Edit ${person.rank} ${person.lastName}, ${person.firstName}`;
+	}
+
+	function isAwardTrackingAcknowledged(personId: string, lossRecord: UpcomingLossRecord): boolean {
+		return awardTrackingOverrides.has(personId)
+			? Boolean(awardTrackingOverrides.get(personId))
+			: lossRecord.awardTrackingAcknowledged;
+	}
+
+	function getAwardTrackingActionLabel(acknowledged: boolean): string {
+		return acknowledged ? 'Clear ack' : 'Ack award';
+	}
+
+	async function setAwardTrackingAcknowledged(personId: string, acknowledged: boolean) {
+		if (savingAwardTrackingByPersonId.get(personId) === true) return;
+
+		savingAwardTrackingByPersonId.set(personId, true);
+		try {
+			const response = await fetch(`/org/${ctx.orgId}/api/personnel/${personId}/award-tracking`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ acknowledged })
+			});
+			if (!response.ok) {
+				throw new Error(`Failed to update award acknowledgement for ${personId}`);
+			}
+
+			awardTrackingOverrides.set(personId, acknowledged);
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to update award acknowledgement');
+		} finally {
+			savingAwardTrackingByPersonId.delete(personId);
+		}
 	}
 </script>
 
@@ -321,21 +357,54 @@
 								</div>
 							{/snippet}
 							{#snippet cell(row, col)}
+								{@const lossRecord = upcomingLossMap.get(row.id)}
 								{#if col.key === 'rank'}
 									<span class="cell-rank">{row.rank}</span>
 								{:else if col.key === 'name'}
-									<span class="cell-name">{row.lastName}, {row.firstName}</span>
+									<span class="cell-name-group">
+										<span class="cell-name">{row.lastName}, {row.firstName}</span>
+										{#if lossRecord}
+											<span
+												class="loss-chip"
+												class:loss-chip--ets={lossRecord.triggerType === 'ETS'}
+												data-testid="loss-indicator-{row.id}"
+												title="{lossRecord.triggerType} in {lossRecord.daysRemaining} day{lossRecord.daysRemaining === 1
+													? ''
+													: 's'}">{lossRecord.triggerType === 'ETS' ? 'ETS' : 'PCS'}</span
+											>
+										{/if}
+									</span>
 								{:else if col.key === 'actions'}
-									<button
-										class="btn btn-sm btn-secondary"
-										type="button"
-										onclick={(e) => {
-											e.stopPropagation();
-											ctx.handleEdit(row);
-										}}
-									>
-										Edit
-									</button>
+									<div class="row-actions">
+										{#if lossRecord}
+											{@const awardTrackingAcknowledged = isAwardTrackingAcknowledged(row.id, lossRecord)}
+											<button
+												class="btn btn-sm btn-secondary"
+												type="button"
+												title={awardTrackingAcknowledged
+													? 'Remove the award acknowledgement'
+													: 'Acknowledge that the award requirement is being tracked'}
+												disabled={readOnly || savingAwardTrackingByPersonId.get(row.id) === true}
+												data-testid="award-ack-action-{row.id}"
+												onclick={(e) => {
+													e.stopPropagation();
+													void setAwardTrackingAcknowledged(row.id, !awardTrackingAcknowledged);
+												}}
+											>
+												{getAwardTrackingActionLabel(awardTrackingAcknowledged)}
+											</button>
+										{/if}
+										<button
+											class="btn btn-sm btn-secondary"
+											type="button"
+											onclick={(e) => {
+												e.stopPropagation();
+												ctx.handleEdit(row);
+											}}
+										>
+											Edit
+										</button>
+									</div>
 								{:else}
 									{String(col.value(row) ?? '')}
 								{/if}
@@ -969,6 +1038,49 @@
 		font-size: var(--text-sm);
 		font-weight: var(--font-weight-semibold);
 		color: var(--text-primary);
+	}
+
+	/* ── Loss indicator chip ─────────────────────────────────────────────────
+	   Lightweight row-level signal for personnel approaching ETS or PCS/DEROS.
+	   Mirrors the trigger-chip styling in UpcomingLossesWidget for consistency;
+	   kept intentionally small so the roster remains readable at a glance.
+	──────────────────────────────────────────────────────────────────────── */
+	.cell-name-group {
+		display: inline-flex;
+		align-items: baseline;
+		gap: var(--sp-2);
+		min-width: 0;
+	}
+
+	.row-actions {
+		display: flex;
+		justify-content: flex-end;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	.loss-chip {
+		display: inline-flex;
+		align-items: center;
+		flex-shrink: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-mono);
+		padding: 1px 5px;
+		border-radius: var(--radius-sm);
+		white-space: nowrap;
+		line-height: 1.4;
+		/* PCS / DEROS default: neutral tint — matches UpcomingLossesWidget */
+		background: var(--ink-06);
+		color: var(--text-secondary);
+	}
+
+	/* ETS: amber-tinted to flag impending separation */
+	.loss-chip--ets {
+		background: color-mix(in srgb, var(--amber-light) 80%, var(--surface-panel) 20%);
+		color: var(--amber-dark);
 	}
 
 	.dt-group-header {

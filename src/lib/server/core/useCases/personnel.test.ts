@@ -40,6 +40,23 @@ describe('Personnel — create', () => {
 		});
 	});
 
+	it('persists ETS and DEROS on create', async () => {
+		const ctx = buildContext();
+		const { create } = createPersonnelUseCases();
+
+		await create(ctx, {
+			...validInput,
+			ets: '2027-05-01',
+			deros: '2026-11-30'
+		});
+
+		const stored = (await ctx.store.findMany('personnel', 'test-org')) as Record<string, unknown>[];
+		expect(stored[0]).toMatchObject({
+			ets: '2027-05-01',
+			deros: '2026-11-30'
+		});
+	});
+
 	it('rejects create when subscription cap exceeded', async () => {
 		const ctx = buildContext({ subscriptionAllowed: false, subscriptionMessage: 'Personnel limit reached (15)' });
 		const { create } = createPersonnelUseCases();
@@ -99,6 +116,18 @@ describe('Personnel — update', () => {
 			action: 'personnel.updated',
 			resourceId: 'p-1'
 		});
+	});
+
+	it('updates ETS and DEROS on update', async () => {
+		const ctx = buildContext();
+		const { update } = createPersonnelUseCases();
+		seedPersonnel(ctx);
+
+		await update(ctx, { id: 'p-1', ets: '2027-05-01', deros: null });
+
+		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
+		expect(stored.ets).toBe('2027-05-01');
+		expect(stored.deros).toBeNull();
 	});
 
 	it('coerces empty groupId to null on update', async () => {

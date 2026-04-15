@@ -13,5 +13,6 @@ export const defaultScopeRules = new Map<string, GroupScopeRule>([
 	['counseling_records', { type: 'personnel', personnelColumn: 'personnel_id' }],
 	['development_goals', { type: 'personnel', personnelColumn: 'personnel_id' }],
 	['personnel_trainings', { type: 'personnel', personnelColumn: 'personnel_id' }],
+	['personnel_ict_completions', { type: 'personnel', personnelColumn: 'personnel_id' }],
 	['rating_scheme_entries', { type: 'personnel', personnelColumn: 'rated_person_id' }]
 ]);

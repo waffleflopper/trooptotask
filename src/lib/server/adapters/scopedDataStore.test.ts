@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createInMemoryDataStore } from './inMemory';
 import { createScopedDataStore } from './scopedDataStore';
+import { defaultScopeRules } from './scopeRules';
 import type { GroupScopeRule } from '$lib/server/core/ports';
 
 const ORG = 'org-1';
@@ -98,6 +99,24 @@ describe('ScopedDataStore', () => {
 				const tr2 = await scoped.findOne<{ id: string }>('training_records', ORG, { id: 'tr-2' });
 				expect(tr2).toBeNull();
 			});
+		});
+
+		it('uses the default scope rules to filter personnel ICT completions by group', async () => {
+			const inner = createInMemoryDataStore();
+			inner.seed('personnel', [
+				{ id: 'p-1', organization_id: ORG, first_name: 'Alice', last_name: 'Alpha', group_id: GROUP_A },
+				{ id: 'p-2', organization_id: ORG, first_name: 'Bob', last_name: 'Bravo', group_id: GROUP_B }
+			]);
+			inner.seed('personnel_ict_completions', [
+				{ id: 'ict-1', organization_id: ORG, personnel_id: 'p-1', ict_task_id: 'task-1' },
+				{ id: 'ict-2', organization_id: ORG, personnel_id: 'p-2', ict_task_id: 'task-1' }
+			]);
+
+			const scoped = createScopedDataStore(inner, GROUP_A, defaultScopeRules);
+
+			const results = await scoped.findMany<{ id: string }>('personnel_ict_completions', ORG);
+
+			expect(results.map((row) => row.id)).toEqual(['ict-1']);
 		});
 
 		describe('table with no scope rule', () => {

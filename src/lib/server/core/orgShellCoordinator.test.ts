@@ -720,7 +720,8 @@ describe('OrgShellCoordinator', () => {
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' }],
 			pinnedGroups: ['Alpha'],
-			ratingSchemeEntries: []
+			ratingSchemeEntries: [],
+			lossWarningWindowDays: 180
 		};
 		const workspacePort = createInMemoryOrgWorkspacePort(
 			new Map<WorkspaceKey, unknown>([['personnel', personnelData]])

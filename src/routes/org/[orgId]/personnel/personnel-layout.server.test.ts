@@ -42,7 +42,8 @@ describe('personnel layout server load', () => {
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
 			pinnedGroups: ['Alpha'],
 			ratingSchemeEntries,
-			lossWarningWindowDays: 180
+			lossWarningWindowDays: 180,
+			awardTrackingAcknowledgedPersonnelIds: []
 		};
 		const depends = vi.fn();
 		const workspacePort = createInMemoryOrgWorkspacePort(

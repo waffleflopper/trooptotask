@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PersonnelPageView from './PersonnelPageView.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -55,6 +55,7 @@ function makeUpcomingLossRecord(overrides: Partial<UpcomingLossRecord> = {}): Up
 		targetDate: '2026-07-01',
 		daysRemaining: 78,
 		awardDueSoon: true,
+		awardTrackingAcknowledged: false,
 		groupId: 'group-1',
 		...overrides
 	};
@@ -65,7 +66,8 @@ function makeCtx(
 	upcomingLossMap: Map<string, UpcomingLossRecord> = new Map()
 ): PersonnelPageContext {
 	return {
-		data: { scopedGroupId: null },
+		data: { orgId: 'org-1', scopedGroupId: null },
+		orgId: 'org-1',
 		canAddPersonnel: false,
 		pageView: 'roster',
 		viewMode: 'alphabetical',
@@ -90,6 +92,7 @@ describe('PersonnelPageView', () => {
 		ratingSchemeStore.load([], 'org-1');
 		pinnedGroupsStore.load([], 'org-1');
 		subscriptionStore.clear();
+		vi.stubGlobal('fetch', vi.fn());
 	});
 
 	afterEach(() => {
@@ -98,6 +101,7 @@ describe('PersonnelPageView', () => {
 		ratingSchemeStore.load([], 'org-test-reset');
 		pinnedGroupsStore.load([], 'org-test-reset');
 		subscriptionStore.clear();
+		vi.unstubAllGlobals();
 	});
 
 	describe('upcoming-loss indicators', () => {
@@ -144,6 +148,54 @@ describe('PersonnelPageView', () => {
 			});
 
 			expect(screen.queryByTestId('loss-indicator-person-1')).toBeNull();
+		});
+
+		it('shows an award acknowledgement action in the row actions when the loss indicator is present', () => {
+			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
+			const ctx = makeCtx(vi.fn(), lossMap);
+
+			render(PersonnelPageView, {
+				props: { ctx, personnelLookup: [], permissions: editablePermissions, onPageViewChange: vi.fn() }
+			});
+
+			expect(screen.getByTestId('award-ack-action-person-1').textContent).toBe('Ack award');
+		});
+
+		it('does not show an award acknowledgement action for personnel outside the upcoming-loss window', () => {
+			const ctx = makeCtx(vi.fn(), new Map());
+
+			render(PersonnelPageView, {
+				props: { ctx, personnelLookup: [], permissions: editablePermissions, onPageViewChange: vi.fn() }
+			});
+
+			expect(screen.queryByTestId('award-ack-action-person-1')).toBeNull();
+		});
+
+		it('posts award acknowledgement changes from the row actions column', async () => {
+			vi.mocked(globalThis.fetch).mockResolvedValue({
+				ok: true,
+				json: async () => ({ personnelId: 'person-1', awardTrackingAcknowledged: true })
+			} as Response);
+			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
+			const ctx = makeCtx(vi.fn(), lossMap);
+
+			render(PersonnelPageView, {
+				props: { ctx, personnelLookup: [], permissions: editablePermissions, onPageViewChange: vi.fn() }
+			});
+
+			await fireEvent.click(screen.getByTestId('award-ack-action-person-1'));
+
+			await waitFor(() => {
+				expect(globalThis.fetch).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/award-tracking', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ acknowledged: true })
+				});
+			});
+
+			await waitFor(() => {
+				expect(screen.getByTestId('award-ack-action-person-1').textContent).toBe('Clear ack');
+			});
 		});
 	});
 

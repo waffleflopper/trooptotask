@@ -14,6 +14,7 @@ function makeLoss(overrides: Partial<UpcomingLossRecord> = {}): UpcomingLossReco
 		targetDate: '2026-05-01',
 		daysRemaining: 17,
 		awardDueSoon: true,
+		awardTrackingAcknowledged: false,
 		groupId: null,
 		...overrides
 	};
@@ -87,5 +88,18 @@ describe('UpcomingLossesWidget', () => {
 		});
 
 		expect(screen.queryByText('AWD')).toBeNull();
+	});
+
+	it('does not render a replacement tracking badge once award tracking is acknowledged', () => {
+		render(UpcomingLossesWidget, {
+			props: {
+				losses: [makeLoss({ awardDueSoon: false, awardTrackingAcknowledged: true })],
+				formatDate: (date) => date
+			}
+		});
+
+		expect(screen.queryByText('AWD')).toBeNull();
+		expect(screen.queryByText('Tracking')).toBeNull();
+		expect(screen.queryByRole('button')).toBeNull();
 	});
 });

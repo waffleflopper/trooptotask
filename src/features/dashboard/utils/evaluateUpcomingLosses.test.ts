@@ -218,6 +218,18 @@ describe('evaluateUpcomingLosses', () => {
 		expect(result.every((r) => r.awardDueSoon === true)).toBe(true);
 	});
 
+	it('keeps the upcoming-loss entry but suppresses the award badge when tracking is acknowledged', () => {
+		const people = [makePerson({ id: 'p1', ets: addDays(TODAY, 45) })];
+		const [entry] = evaluateUpcomingLosses(people, WINDOW, TODAY, {
+			awardTrackingAcknowledgedPersonnelIds: ['p1']
+		});
+
+		expect(entry.personId).toBe('p1');
+		expect(entry.triggerType).toBe('ETS');
+		expect(entry.awardDueSoon).toBe(false);
+		expect(entry.awardTrackingAcknowledged).toBe(true);
+	});
+
 	// -------------------------------------------------------------------------
 	// Result shape
 	// -------------------------------------------------------------------------

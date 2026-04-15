@@ -8,6 +8,9 @@
 
 	let { ctx }: Props = $props();
 
+	type UpcomingChange = (typeof ctx.upcomingChanges)[number];
+	type GroupedEntries<T> = Array<[string, T[]]>;
+
 	function availabilityColor(pct: number): string {
 		if (pct >= 90) return 'var(--success)';
 		if (pct >= 75) return 'var(--amber)';
@@ -56,20 +59,16 @@
 	}
 
 	const upcomingByGroup = $derived.by(() => {
-		const map = new Map<string, typeof ctx.upcomingChanges>();
+		const grouped: Record<string, UpcomingChange[]> = {};
 		for (const change of ctx.upcomingChanges) {
 			const key = change.groupName;
-			const existing = map.get(key);
-			if (existing) existing.push(change);
-			else map.set(key, [change]);
+			(grouped[key] ??= []).push(change);
 		}
-		return new Map(
-			[...map.entries()].sort((a, b) => {
-				if (a[0] === 'Unassigned') return 1;
-				if (b[0] === 'Unassigned') return -1;
-				return a[0].localeCompare(b[0]);
-			})
-		);
+		return Object.entries(grouped).sort(([a], [b]) => {
+			if (a === 'Unassigned') return 1;
+			if (b === 'Unassigned') return -1;
+			return a.localeCompare(b);
+		}) satisfies GroupedEntries<UpcomingChange>;
 	});
 </script>
 
@@ -175,7 +174,7 @@
 					</div>
 				{/each}
 			{:else}
-				{#each [...upcomingByGroup.entries()] as [groupName, changes], i (groupName)}
+				{#each upcomingByGroup as [groupName, changes], i (groupName)}
 					<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
 					{#each changes as change (change.key)}
 						<div class="upcoming-row">

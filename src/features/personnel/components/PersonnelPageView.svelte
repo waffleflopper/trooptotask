@@ -14,11 +14,12 @@
 	import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 	import { exportRatingScheme } from '$features/rating-scheme/utils/ratingSchemeExport';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
+	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 	import DataTable from '$lib/components/ui/data-table/DataTable.svelte';
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { Personnel, PersonnelLookup } from '$lib/types';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -33,6 +34,8 @@
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
 
 	let exportLoading = $state(false);
+	const awardTrackingOverrides = new SvelteMap<string, boolean>();
+	const savingAwardTrackingByPersonId = new SvelteMap<string, boolean>();
 	const readOnly = $derived(subscriptionStore.billingEnabled && subscriptionStore.isReadOnly);
 
 	const ratingStats = $derived.by(() => {
@@ -162,6 +165,38 @@
 
 	function getPersonnelRowActionLabel(person: Personnel): string {
 		return `Edit ${person.rank} ${person.lastName}, ${person.firstName}`;
+	}
+
+	function isAwardTrackingAcknowledged(personId: string, lossRecord: UpcomingLossRecord): boolean {
+		return awardTrackingOverrides.has(personId)
+			? Boolean(awardTrackingOverrides.get(personId))
+			: lossRecord.awardTrackingAcknowledged;
+	}
+
+	function getAwardTrackingActionLabel(acknowledged: boolean): string {
+		return acknowledged ? 'Clear ack' : 'Ack award';
+	}
+
+	async function setAwardTrackingAcknowledged(personId: string, acknowledged: boolean) {
+		if (savingAwardTrackingByPersonId.get(personId) === true) return;
+
+		savingAwardTrackingByPersonId.set(personId, true);
+		try {
+			const response = await fetch(`/org/${ctx.orgId}/api/personnel/${personId}/award-tracking`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ acknowledged })
+			});
+			if (!response.ok) {
+				throw new Error(`Failed to update award acknowledgement for ${personId}`);
+			}
+
+			awardTrackingOverrides.set(personId, acknowledged);
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Failed to update award acknowledgement');
+		} finally {
+			savingAwardTrackingByPersonId.delete(personId);
+		}
 	}
 </script>
 
@@ -339,16 +374,36 @@
 										{/if}
 									</span>
 								{:else if col.key === 'actions'}
-									<button
-										class="btn btn-sm btn-secondary"
-										type="button"
-										onclick={(e) => {
-											e.stopPropagation();
-											ctx.handleEdit(row);
-										}}
-									>
-										Edit
-									</button>
+									<div class="row-actions">
+										{#if lossRecord}
+											{@const awardTrackingAcknowledged = isAwardTrackingAcknowledged(row.id, lossRecord)}
+											<button
+												class="btn btn-sm btn-secondary"
+												type="button"
+												title={awardTrackingAcknowledged
+													? 'Remove the award acknowledgement'
+													: 'Acknowledge that the award requirement is being tracked'}
+												disabled={readOnly || savingAwardTrackingByPersonId.get(row.id) === true}
+												data-testid="award-ack-action-{row.id}"
+												onclick={(e) => {
+													e.stopPropagation();
+													void setAwardTrackingAcknowledged(row.id, !awardTrackingAcknowledged);
+												}}
+											>
+												{getAwardTrackingActionLabel(awardTrackingAcknowledged)}
+											</button>
+										{/if}
+										<button
+											class="btn btn-sm btn-secondary"
+											type="button"
+											onclick={(e) => {
+												e.stopPropagation();
+												ctx.handleEdit(row);
+											}}
+										>
+											Edit
+										</button>
+									</div>
 								{:else}
 									{String(col.value(row) ?? '')}
 								{/if}
@@ -994,6 +1049,13 @@
 		align-items: baseline;
 		gap: var(--sp-2);
 		min-width: 0;
+	}
+
+	.row-actions {
+		display: flex;
+		justify-content: flex-end;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
 	}
 
 	.loss-chip {

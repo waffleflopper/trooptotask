@@ -723,7 +723,8 @@ describe('OrgShellCoordinator', () => {
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' }],
 			pinnedGroups: ['Alpha'],
 			ratingSchemeEntries: [],
-			lossWarningWindowDays: 180
+			lossWarningWindowDays: 180,
+			awardTrackingAcknowledgedPersonnelIds: []
 		};
 		const workspacePort = createInMemoryOrgWorkspacePort(
 			new Map<WorkspaceKey, unknown>([['personnel', personnelData]])
@@ -844,7 +845,8 @@ describe('OrgShellCoordinator', () => {
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
 			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType],
-			lossWarningWindowDays: 180
+			lossWarningWindowDays: 180,
+			awardTrackingAcknowledgedPersonnelIds: []
 		};
 		const workspacePort = createInMemoryOrgWorkspacePort(
 			new Map<WorkspaceKey, unknown>([['dashboard', dashboardData]])

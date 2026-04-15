@@ -70,6 +70,7 @@ function makeWorkspaceData(overrides: Record<string, unknown> = {}) {
 		statusTypes: [],
 		trainingTypes: [],
 		lossWarningWindowDays: 180,
+		awardTrackingAcknowledgedPersonnelIds: [],
 		...overrides
 	};
 }
@@ -513,6 +514,18 @@ describe('DashboardContext', () => {
 		it('marks awardDueSoon true for every entry', () => {
 			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 45))];
 			expect(ctx.upcomingLosses[0].awardDueSoon).toBe(true);
+		});
+
+		it('keeps the loss entry but suppresses the award badge when award tracking is acknowledged', () => {
+			ctx = new DashboardContext(
+				makeData({}, { awardTrackingAcknowledgedPersonnelIds: ['p1'], lossWarningWindowDays: 180 })
+			);
+			mutablePersonnelStore.items = [makePerson('p1', daysOut(ctx, 45))];
+
+			expect(ctx.upcomingLosses).toHaveLength(1);
+			expect(ctx.upcomingLosses[0].personId).toBe('p1');
+			expect(ctx.upcomingLosses[0].awardDueSoon).toBe(false);
+			expect(ctx.upcomingLosses[0].awardTrackingAcknowledged).toBe(true);
 		});
 	});
 });

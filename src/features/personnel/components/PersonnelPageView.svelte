@@ -60,6 +60,7 @@
 		personnelStore.items.filter((person) => !person.groupName || person.groupName.trim() === '').length
 	);
 	const dueSoonCount = $derived(ratingStats.overdue + ratingStats['due-30']);
+	const upcomingLossMap = $derived(ctx.upcomingLossMap);
 	const pageScopeLabel = $derived(ctx.data.scopedGroupId ? 'Scoped group roster' : 'Organization roster');
 	const editStateLabel = $derived(readOnly ? 'Read only' : permissions?.canEditPersonnel ? 'Editable' : 'View only');
 	const rosterSubtitle = $derived(`${pageScopeLabel} · ${editStateLabel}`);
@@ -356,7 +357,7 @@
 								</div>
 							{/snippet}
 							{#snippet cell(row, col)}
-								{@const lossRecord = ctx.upcomingLossMap.get(row.id)}
+								{@const lossRecord = upcomingLossMap.get(row.id)}
 								{#if col.key === 'rank'}
 									<span class="cell-rank">{row.rank}</span>
 								{:else if col.key === 'name'}

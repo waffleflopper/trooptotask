@@ -30,6 +30,41 @@
 		errors: MergeMessage[];
 	}
 
+	function extractErrorMessage(payload: unknown, fallback: string): string {
+		if (typeof payload === 'string') {
+			return payload.trim() || fallback;
+		}
+
+		if (!payload || typeof payload !== 'object') {
+			return fallback;
+		}
+
+		const record = payload as Record<string, unknown>;
+		for (const key of ['message', 'error', 'detail', 'title']) {
+			const value = record[key];
+			if (typeof value === 'string' && value.trim()) {
+				return value;
+			}
+			if (value && typeof value === 'object') {
+				const nestedMessage = extractErrorMessage(value, '');
+				if (nestedMessage) return nestedMessage;
+			}
+		}
+
+		const errors = record.errors;
+		if (typeof errors === 'string' && errors.trim()) {
+			return errors;
+		}
+		if (Array.isArray(errors)) {
+			for (const entry of errors) {
+				const nestedMessage = extractErrorMessage(entry, '');
+				if (nestedMessage) return nestedMessage;
+			}
+		}
+
+		return fallback;
+	}
+
 	let mergeStep = $state<MergeState>('input');
 	let importText = $state('');
 	let fileRows = $state<string[][]>([]);
@@ -188,13 +223,35 @@ SSG,Jones,Pat,,2026-11-30`;
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ records: checkedRows })
 			});
-			const data = (await response.json()) as MergeResult;
+			let data: MergeResult | null = null;
+			try {
+				data = (await response.json()) as MergeResult;
+			} catch {
+				data = null;
+			}
+
+			if (!response.ok) {
+				const message = extractErrorMessage(
+					data,
+					`Merge failed (${response.status}${response.statusText ? ` ${response.statusText}` : ''})`
+				);
+				mergeResult = {
+					matched: [],
+					updated: [],
+					skipped: [],
+					ambiguous: [],
+					errors: [{ index: -1, message }]
+				};
+				mergeStep = 'results';
+				return;
+			}
+
 			mergeResult = {
-				matched: data.matched ?? [],
-				updated: data.updated ?? [],
-				skipped: data.skipped ?? [],
-				ambiguous: data.ambiguous ?? [],
-				errors: data.errors ?? []
+				matched: data?.matched ?? [],
+				updated: data?.updated ?? [],
+				skipped: data?.skipped ?? [],
+				ambiguous: data?.ambiguous ?? [],
+				errors: data?.errors ?? []
 			};
 			mergeStep = 'results';
 		} catch (err) {
@@ -308,9 +365,10 @@ SSG,Jones,Pat,,2026-11-30`;
 {:else if mergeStep === 'results' && mergeResult}
 	<div class="results-section">
 		<h3>Merge Results</h3>
+		<p class="hint">Found rows can be higher than changed rows when values are already current.</p>
 		<div class="summary-grid">
-			<div class="summary-card"><strong>{mergeResult.matched.length}</strong><span>matched</span></div>
-			<div class="summary-card"><strong>{mergeResult.updated.length}</strong><span>updated</span></div>
+			<div class="summary-card"><strong>{mergeResult.matched.length}</strong><span>person rows found</span></div>
+			<div class="summary-card"><strong>{mergeResult.updated.length}</strong><span>values changed</span></div>
 			<div class="summary-card"><strong>{mergeResult.skipped.length}</strong><span>skipped</span></div>
 			<div class="summary-card"><strong>{mergeResult.ambiguous.length}</strong><span>ambiguous</span></div>
 			<div class="summary-card"><strong>{mergeResult.errors.length}</strong><span>failed</span></div>

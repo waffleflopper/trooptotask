@@ -96,6 +96,19 @@
 						<p class="text-error validation-hint">Must be between 1 and 120 months.</p>
 					{/if}
 				</div>
+			</div>
+		</section>
+
+		<section class="settings-section">
+			<div class="section-heading">
+				<p class="section-label">Operational Tracking</p>
+				<h2>Loss Warning Window</h2>
+			</div>
+			<p class="section-description">
+				Set the follow-up window used to flag personnel approaching ETS or PCS / DEROS timelines.
+			</p>
+
+			<div class="form-panel">
 				<div class="form-group">
 					<label class="label" for="loss-warning-window">Loss warning window (days)</label>
 					<div class="input-row">
@@ -108,19 +121,19 @@
 							bind:value={warningWindowDays}
 						/>
 					</div>
-					<p class="section-description form-hint">
-						People within this window are flagged for ETS or PCS / DEROS follow-up.
-					</p>
 					{#if !warningWindowIsValid}
 						<p class="text-error validation-hint">Must be between 1 and 365 days.</p>
 					{/if}
 				</div>
-				<button class="btn btn-primary" disabled={!hasChanges || !isValid || saving} onclick={handleSave}>
-					{#if saving}<Spinner />{/if}
-					{saving ? 'Saving...' : 'Save'}
-				</button>
 			</div>
 		</section>
+
+		<div class="actions-row">
+			<button class="btn btn-primary" disabled={!hasChanges || !isValid || saving} onclick={handleSave}>
+				{#if saving}<Spinner />{/if}
+				{saving ? 'Saving...' : 'Save'}
+			</button>
+		</div>
 	</main>
 </div>
 
@@ -227,6 +240,11 @@
 		border: var(--border-thin);
 		border-radius: var(--radius-md);
 		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
+	}
+
+	.actions-row {
+		display: flex;
+		justify-content: flex-end;
 	}
 
 	.input-row {

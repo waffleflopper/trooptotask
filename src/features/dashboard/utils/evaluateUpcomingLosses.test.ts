@@ -238,8 +238,10 @@ describe('evaluateUpcomingLosses', () => {
 		const person = makePerson({ id: 'abc', rank: 'CPT', lastName: 'Jones', ets: addDays(TODAY, 15) });
 		const [entry] = evaluateUpcomingLosses([person], WINDOW, TODAY);
 
+		expect(entry.id).toBe('abc');
 		expect(entry.personId).toBe('abc');
 		expect(entry.rank).toBe('CPT');
+		expect(entry.lastName).toBe('Jones');
 		expect(entry.personName).toBe('CPT Jones');
 	});
 

@@ -43,7 +43,8 @@ describe('admin settings page', () => {
 			}
 		});
 
-		expect(screen.getByText('Loss warning window (days)')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Loss Warning Window' })).toBeTruthy();
+		expect(screen.getByText('Operational Tracking')).toBeTruthy();
 		const warningInput = screen.getByLabelText('Loss warning window (days)');
 		expect((warningInput as HTMLInputElement).value).toBe('180');
 

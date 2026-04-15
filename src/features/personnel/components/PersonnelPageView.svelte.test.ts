@@ -51,6 +51,7 @@ function makeUpcomingLossRecord(overrides: Partial<UpcomingLossRecord> = {}): Up
 		personId: 'person-1',
 		personName: 'SGT Smith',
 		rank: 'SGT',
+		lastName: 'Smith',
 		triggerType: 'ETS',
 		targetDate: '2026-07-01',
 		daysRemaining: 78,

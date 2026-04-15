@@ -18,6 +18,7 @@ const AUDIT_RESOURCE = 'personnel';
 const MAX_BATCH_SIZE = 500;
 
 const ALL_RANKS_LOWER = ALL_RANKS.map((r) => r.toLowerCase());
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 interface BatchRecord {
 	rank: string;
@@ -42,6 +43,37 @@ interface BatchError {
 interface BatchResult {
 	inserted: unknown[];
 	errors: BatchError[];
+}
+
+function isValidIsoDate(value: string): boolean {
+	if (!ISO_DATE_REGEX.test(value)) return false;
+
+	const [year, month, day] = value.split('-').map((part) => Number(part));
+	const utcDate = new Date(Date.UTC(year, month - 1, day));
+
+	return utcDate.getUTCFullYear() === year && utcDate.getUTCMonth() === month - 1 && utcDate.getUTCDate() === day;
+}
+
+function validateBatchDateFields(ets: string | null | undefined, deros: string | null | undefined): string | null {
+	const invalidFields: string[] = [];
+	const sanitizedEts = sanitizeString(ets);
+	const sanitizedDeros = sanitizeString(deros);
+
+	if (sanitizedEts && !isValidIsoDate(sanitizedEts)) {
+		invalidFields.push('ETS');
+	}
+
+	if (sanitizedDeros && !isValidIsoDate(sanitizedDeros)) {
+		invalidFields.push('DEROS');
+	}
+
+	if (invalidFields.length === 0) return null;
+
+	if (invalidFields.length === 1) {
+		return `${invalidFields[0]} must be a valid YYYY-MM-DD date`;
+	}
+
+	return `${invalidFields.join(' and ')} must be valid YYYY-MM-DD dates`;
 }
 
 export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, input: BatchInput): Promise<BatchResult> {
@@ -84,6 +116,12 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 		const rankIdx = ALL_RANKS_LOWER.indexOf(rank.toLowerCase());
 		if (rankIdx === -1) {
 			errors.push({ index: i, message: `Invalid rank "${rank}"` });
+			continue;
+		}
+
+		const dateValidationError = validateBatchDateFields(rec.ets, rec.deros);
+		if (dateValidationError) {
+			errors.push({ index: i, message: dateValidationError });
 			continue;
 		}
 

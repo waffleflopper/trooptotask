@@ -7,16 +7,23 @@
 	let { data } = $props();
 	const orgId = $derived($page.params.orgId);
 	const serverRetention = $derived(data.retentionMonths);
+	const serverWarningWindow = $derived(data.lossWarningWindowDays);
 
 	let retentionMonths = $state(0);
 	let savedValue = $state(0);
+	let warningWindowDays = $state(0);
+	let savedWarningWindowDays = $state(0);
 	let saving = $state(false);
-	const hasChanges = $derived(retentionMonths !== savedValue);
-	const isValid = $derived(retentionMonths >= 1 && retentionMonths <= 120);
+	const hasChanges = $derived(retentionMonths !== savedValue || warningWindowDays !== savedWarningWindowDays);
+	const retentionIsValid = $derived(retentionMonths >= 1 && retentionMonths <= 120);
+	const warningWindowIsValid = $derived(warningWindowDays >= 1 && warningWindowDays <= 365);
+	const isValid = $derived(retentionIsValid && warningWindowIsValid);
 
 	$effect.pre(() => {
 		retentionMonths = serverRetention;
 		savedValue = serverRetention;
+		warningWindowDays = serverWarningWindow;
+		savedWarningWindowDays = serverWarningWindow;
 	});
 
 	async function handleSave() {
@@ -26,10 +33,14 @@
 			const res = await fetch(`/org/${orgId}/api/organization/settings`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ archiveRetentionMonths: retentionMonths })
+				body: JSON.stringify({
+					archiveRetentionMonths: retentionMonths,
+					lossWarningWindowDays: warningWindowDays
+				})
 			});
 			if (!res.ok) throw new Error();
 			savedValue = retentionMonths;
+			savedWarningWindowDays = warningWindowDays;
 			toastStore.success('Settings saved');
 		} catch {
 			toastStore.error('Failed to save settings');
@@ -50,12 +61,17 @@
 				<span class="overview-meta">Current archive retention window before permanent cleanup</span>
 			</div>
 			<div class="overview-card">
+				<span class="overview-label">Warning Window</span>
+				<strong class="overview-value">{savedWarningWindowDays} d</strong>
+				<span class="overview-meta">Current loss warning window before ETS or PCS / DEROS follow-up</span>
+			</div>
+			<div class="overview-card">
 				<span class="overview-label">Change State</span>
 				<strong class="overview-value">{hasChanges ? 'Pending' : 'Saved'}</strong>
 				<span class="overview-meta"
 					>{hasChanges
-						? 'You have unsaved archive-retention changes'
-						: 'The current retention setting matches what is saved'}</span
+						? 'You have unsaved organization-settings changes'
+						: 'The current settings match what is saved'}</span
 				>
 			</div>
 		</div>
@@ -75,15 +91,34 @@
 					<label class="label" for="retention-months">Retention period (months)</label>
 					<div class="input-row">
 						<input id="retention-months" class="input" type="number" min="1" max="120" bind:value={retentionMonths} />
-						<button class="btn btn-primary" disabled={!hasChanges || !isValid || saving} onclick={handleSave}>
-							{#if saving}<Spinner />{/if}
-							{saving ? 'Saving...' : 'Save'}
-						</button>
 					</div>
-					{#if !isValid}
+					{#if !retentionIsValid}
 						<p class="text-error validation-hint">Must be between 1 and 120 months.</p>
 					{/if}
 				</div>
+				<div class="form-group">
+					<label class="label" for="loss-warning-window">Loss warning window (days)</label>
+					<div class="input-row">
+						<input
+							id="loss-warning-window"
+							class="input"
+							type="number"
+							min="1"
+							max="365"
+							bind:value={warningWindowDays}
+						/>
+					</div>
+					<p class="section-description form-hint">
+						People within this window are flagged for ETS or PCS / DEROS follow-up.
+					</p>
+					{#if !warningWindowIsValid}
+						<p class="text-error validation-hint">Must be between 1 and 365 days.</p>
+					{/if}
+				</div>
+				<button class="btn btn-primary" disabled={!hasChanges || !isValid || saving} onclick={handleSave}>
+					{#if saving}<Spinner />{/if}
+					{saving ? 'Saving...' : 'Save'}
+				</button>
 			</div>
 		</section>
 	</main>

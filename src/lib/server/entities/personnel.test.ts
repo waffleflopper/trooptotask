@@ -11,6 +11,8 @@ describe('PersonnelEntity', () => {
 			first_name: 'John',
 			mos: '68W',
 			clinic_role: 'Medic',
+			ets: '2027-05-01',
+			deros: null,
 			group_id: 'g-1',
 			groups: { name: 'Alpha' },
 			archived_at: null
@@ -24,6 +26,8 @@ describe('PersonnelEntity', () => {
 			firstName: 'John',
 			mos: '68W',
 			clinicRole: 'Medic',
+			ets: '2027-05-01',
+			deros: null,
 			groupId: 'g-1',
 			groupName: 'Alpha',
 			archivedAt: null
@@ -107,6 +111,8 @@ describe('PersonnelEntity', () => {
 				firstName: 'John',
 				mos: '68W',
 				clinicRole: 'Medic',
+				ets: '2027-05-01',
+				deros: null,
 				groupId: 'g-1'
 			},
 			'org-1'
@@ -119,6 +125,8 @@ describe('PersonnelEntity', () => {
 			first_name: 'John',
 			mos: '68W',
 			clinic_role: 'Medic',
+			ets: '2027-05-01',
+			deros: null,
 			group_id: 'g-1'
 		});
 		// groupName is derived from join, not a column
@@ -152,6 +160,8 @@ describe('PersonnelEntity', () => {
 		expect(shape).toHaveProperty('lastName');
 		expect(shape).toHaveProperty('firstName');
 		expect(shape).toHaveProperty('clinicRole');
+		expect(shape).toHaveProperty('ets');
+		expect(shape).toHaveProperty('deros');
 	});
 
 	it('createSchema validates correctly', () => {

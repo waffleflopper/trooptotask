@@ -7,6 +7,7 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
+import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 
 export interface PersonnelBootstrap {
 	personnel: Personnel[];
@@ -15,6 +16,10 @@ export interface PersonnelBootstrap {
 	statusTypes: StatusType[];
 	pinnedGroups: string[];
 	ratingSchemeEntries: RatingSchemeEntry[];
+	/** Org-configured loss warning window in days (default: 180). */
+	lossWarningWindowDays: number;
+	/** Personnel IDs whose award tracking has been acknowledged. */
+	awardTrackingAcknowledgedPersonnelIds: string[];
 }
 
 function toPersonnelLookup(rows: Personnel[]): PersonnelLookup[] {
@@ -35,32 +40,45 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		isNull: { archived_at: true }
 	};
 
-	const [personnelRows, allPersonnelRows, groupRows, statusTypeRows, pinnedGroupRows, ratingSchemeRows] =
-		await Promise.all([
-			ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, findOptions),
-			ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, findOptions),
-			ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			userId
-				? ctx.store.findMany<Record<string, unknown>>(
-						'user_pinned_groups',
-						orgId,
-						{ user_id: userId },
-						{
-							orderBy: [{ column: 'sort_order', ascending: true }]
-						}
-					)
-				: Promise.resolve([]),
-			ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
-				orderBy: [{ column: 'rating_period_end', ascending: true }]
-			})
-		]);
+	const [
+		personnelRows,
+		allPersonnelRows,
+		groupRows,
+		statusTypeRows,
+		pinnedGroupRows,
+		ratingSchemeRows,
+		orgSettingsRow,
+		awardTrackingAcknowledgedPersonnelIds
+	] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, findOptions),
+		ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, findOptions),
+		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		userId
+			? ctx.store.findMany<Record<string, unknown>>(
+					'user_pinned_groups',
+					orgId,
+					{ user_id: userId },
+					{
+						orderBy: [{ column: 'sort_order', ascending: true }]
+					}
+				)
+			: Promise.resolve([]),
+		ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
+			orderBy: [{ column: 'rating_period_end', ascending: true }]
+		}),
+		ctx.store
+			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
+			.catch(() => null),
+		listAwardTrackingAcknowledgedPersonnelIds(ctx.store, orgId)
+	]);
 
 	const scopedAllPersonnelRows = ctx.auth.scopedGroupId ? personnelRows : allPersonnelRows;
+	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 
 	return {
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
@@ -68,6 +86,8 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
-		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows)
+		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
+		lossWarningWindowDays,
+		awardTrackingAcknowledgedPersonnelIds
 	};
 }

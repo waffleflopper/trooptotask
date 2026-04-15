@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PersonnelPageView from './PersonnelPageView.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
@@ -8,6 +8,7 @@ import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.s
 import { subscriptionStore } from '$lib/stores/subscription.svelte';
 import type { OrganizationMemberPermissions, Personnel } from '$lib/types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
+import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 
 const editablePermissions: OrganizationMemberPermissions = {
 	canViewCalendar: true,
@@ -38,13 +39,36 @@ const personnel: Personnel[] = [
 		clinicRole: 'Medic',
 		groupId: 'group-1',
 		groupName: 'Alpha',
-		archivedAt: null
+		archivedAt: null,
+		ets: null,
+		deros: null
 	}
 ];
 
-function makeCtx(handleEdit = vi.fn()): PersonnelPageContext {
+function makeUpcomingLossRecord(overrides: Partial<UpcomingLossRecord> = {}): UpcomingLossRecord {
 	return {
-		data: { scopedGroupId: null },
+		id: 'person-1',
+		personId: 'person-1',
+		personName: 'SGT Smith',
+		rank: 'SGT',
+		lastName: 'Smith',
+		triggerType: 'ETS',
+		targetDate: '2026-07-01',
+		daysRemaining: 78,
+		awardDueSoon: true,
+		awardTrackingAcknowledged: false,
+		groupId: 'group-1',
+		...overrides
+	};
+}
+
+function makeCtx(
+	handleEdit = vi.fn(),
+	upcomingLossMap: Map<string, UpcomingLossRecord> = new Map()
+): PersonnelPageContext {
+	return {
+		data: { orgId: 'org-1', scopedGroupId: null },
+		orgId: 'org-1',
 		canAddPersonnel: false,
 		pageView: 'roster',
 		viewMode: 'alphabetical',
@@ -53,6 +77,7 @@ function makeCtx(handleEdit = vi.fn()): PersonnelPageContext {
 		workflowFilter: 'all',
 		filteredRatingEntries: [],
 		totalPersonnel: personnel.length,
+		upcomingLossMap,
 		handleEdit,
 		handleAdd: vi.fn(),
 		openGroupManager: vi.fn(),
@@ -68,6 +93,7 @@ describe('PersonnelPageView', () => {
 		ratingSchemeStore.load([], 'org-1');
 		pinnedGroupsStore.load([], 'org-1');
 		subscriptionStore.clear();
+		vi.stubGlobal('fetch', vi.fn());
 	});
 
 	afterEach(() => {
@@ -76,6 +102,102 @@ describe('PersonnelPageView', () => {
 		ratingSchemeStore.load([], 'org-test-reset');
 		pinnedGroupsStore.load([], 'org-test-reset');
 		subscriptionStore.clear();
+		vi.unstubAllGlobals();
+	});
+
+	describe('upcoming-loss indicators', () => {
+		it('shows a loss indicator chip for personnel in the upcoming-loss map', () => {
+			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
+			const ctx = makeCtx(vi.fn(), lossMap);
+
+			render(PersonnelPageView, {
+				props: { ctx, personnelLookup: [], permissions: viewOnlyPermissions, onPageViewChange: vi.fn() }
+			});
+
+			// The ETS chip should appear in the roster row
+			expect(screen.getByTestId('loss-indicator-person-1')).toBeTruthy();
+		});
+
+		it('shows the correct trigger type label for an ETS indicator', () => {
+			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
+			const ctx = makeCtx(vi.fn(), lossMap);
+
+			render(PersonnelPageView, {
+				props: { ctx, personnelLookup: [], permissions: viewOnlyPermissions, onPageViewChange: vi.fn() }
+			});
+
+			expect(screen.getByTestId('loss-indicator-person-1').textContent).toBe('ETS');
+		});
+
+		it('shows PCS label for a PCS / DEROS indicator', () => {
+			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'PCS / DEROS' })]]);
+			const ctx = makeCtx(vi.fn(), lossMap);
+
+			render(PersonnelPageView, {
+				props: { ctx, personnelLookup: [], permissions: viewOnlyPermissions, onPageViewChange: vi.fn() }
+			});
+
+			expect(screen.getByTestId('loss-indicator-person-1').textContent).toBe('PCS');
+		});
+
+		it('does not show a loss indicator for personnel not in the upcoming-loss map', () => {
+			// Empty map — person-1 is not approaching any loss
+			const ctx = makeCtx(vi.fn(), new Map());
+
+			render(PersonnelPageView, {
+				props: { ctx, personnelLookup: [], permissions: viewOnlyPermissions, onPageViewChange: vi.fn() }
+			});
+
+			expect(screen.queryByTestId('loss-indicator-person-1')).toBeNull();
+		});
+
+		it('shows an award acknowledgement action in the row actions when the loss indicator is present', () => {
+			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
+			const ctx = makeCtx(vi.fn(), lossMap);
+
+			render(PersonnelPageView, {
+				props: { ctx, personnelLookup: [], permissions: editablePermissions, onPageViewChange: vi.fn() }
+			});
+
+			expect(screen.getByTestId('award-ack-action-person-1').textContent).toBe('Ack award');
+		});
+
+		it('does not show an award acknowledgement action for personnel outside the upcoming-loss window', () => {
+			const ctx = makeCtx(vi.fn(), new Map());
+
+			render(PersonnelPageView, {
+				props: { ctx, personnelLookup: [], permissions: editablePermissions, onPageViewChange: vi.fn() }
+			});
+
+			expect(screen.queryByTestId('award-ack-action-person-1')).toBeNull();
+		});
+
+		it('posts award acknowledgement changes from the row actions column', async () => {
+			vi.mocked(globalThis.fetch).mockResolvedValue({
+				ok: true,
+				json: async () => ({ personnelId: 'person-1', awardTrackingAcknowledged: true })
+			} as Response);
+			const lossMap = new Map([['person-1', makeUpcomingLossRecord({ triggerType: 'ETS' })]]);
+			const ctx = makeCtx(vi.fn(), lossMap);
+
+			render(PersonnelPageView, {
+				props: { ctx, personnelLookup: [], permissions: editablePermissions, onPageViewChange: vi.fn() }
+			});
+
+			await fireEvent.click(screen.getByTestId('award-ack-action-person-1'));
+
+			await waitFor(() => {
+				expect(globalThis.fetch).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/award-tracking', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ acknowledged: true })
+				});
+			});
+
+			await waitFor(() => {
+				expect(screen.getByTestId('award-ack-action-person-1').textContent).toBe('Clear ack');
+			});
+		});
 	});
 
 	it('updates personnel row edit affordances when permissions change after render', async () => {

@@ -27,6 +27,7 @@ import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { formatDate } from '$lib/utils/dates';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 import { listDutyEventsInRange } from './dutyEventCrud';
+import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 
 export interface DashboardData {
 	availabilityEntries: AvailabilityEntry[];
@@ -57,6 +58,10 @@ export interface DashboardBootstrap {
 	groups: Group[];
 	statusTypes: StatusType[];
 	trainingTypes: TrainingType[];
+	/** Org-configured loss warning window in days (default: 180). */
+	lossWarningWindowDays: number;
+	/** Personnel IDs whose award tracking has been acknowledged. */
+	awardTrackingAcknowledgedPersonnelIds: string[];
 }
 
 export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<DashboardBootstrap> {
@@ -93,7 +98,9 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		personnelRows,
 		groupRows,
 		statusTypeRows,
-		trainingTypeRows
+		trainingTypeRows,
+		orgSettingsRow,
+		awardTrackingAcknowledgedPersonnelIds
 	] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
@@ -129,10 +136,15 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		}),
 		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
-		})
+		}),
+		ctx.store
+			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
+			.catch(() => null),
+		listAwardTrackingAcknowledgedPersonnelIds(ctx.store, orgId)
 	]);
 	const allOnboardings = PersonnelOnboardingEntity.fromDbArray(onboardingRows);
 	const activeOnboardings = allOnboardings.filter((o) => o.status === 'in_progress');
+	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 
 	return {
 		availabilityEntries,
@@ -145,7 +157,9 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
-		trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows)
+		trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows),
+		lossWarningWindowDays,
+		awardTrackingAcknowledgedPersonnelIds
 	};
 }
 

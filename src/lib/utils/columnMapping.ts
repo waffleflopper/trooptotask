@@ -110,6 +110,18 @@ export const PERSONNEL_COLUMNS: ColumnDef[] = [
 		label: 'Group',
 		required: false,
 		aliases: ['group', 'unit', 'section', 'team', 'platoon', 'squad']
+	},
+	{
+		key: 'ets',
+		label: 'ETS',
+		required: false,
+		aliases: ['ets']
+	},
+	{
+		key: 'deros',
+		label: 'PCS / DEROS',
+		required: false,
+		aliases: ['deros', 'pcs / deros', 'pcs/deros', 'pcs deros']
 	}
 ];
 

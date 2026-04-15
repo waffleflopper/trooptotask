@@ -149,6 +149,8 @@ describe('Handler → Entity schema compatibility', () => {
 				first_name: 'John',
 				mos: '68W',
 				clinic_role: 'Medic',
+				ets: null,
+				deros: null,
 				group_id: 'g-1'
 			});
 		});
@@ -173,6 +175,8 @@ describe('Handler → Entity schema compatibility', () => {
 				first_name: 'John',
 				mos: '68W',
 				clinic_role: 'Medic',
+				ets: null,
+				deros: null,
 				group_id: 'g-1',
 				groups: { name: 'Alpha' },
 				archived_at: null
@@ -185,6 +189,8 @@ describe('Handler → Entity schema compatibility', () => {
 				firstName: 'John',
 				mos: '68W',
 				clinicRole: 'Medic',
+				ets: null,
+				deros: null,
 				groupId: 'g-1',
 				groupName: 'Alpha',
 				archivedAt: null

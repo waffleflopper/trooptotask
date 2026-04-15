@@ -10,9 +10,11 @@ export const POST = handle<Record<string, unknown>, unknown>({
 				rank: string;
 				lastName: string;
 				firstName: string;
-				mos?: string;
-				clinicRole?: string;
-				groupName?: string;
+				mos?: string | null;
+				clinicRole?: string | null;
+				groupName?: string | null;
+				ets?: string | null;
+				deros?: string | null;
 			}>
 		})
 });

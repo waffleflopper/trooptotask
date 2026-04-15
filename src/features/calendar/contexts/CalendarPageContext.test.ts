@@ -439,4 +439,93 @@ describe('CalendarPageContext', () => {
 			expect((ctx as unknown as Record<string, unknown>)['handleExportPDF']).toBeUndefined();
 		});
 	});
+
+	// ---- upcomingLossMap -------------------------------------------------------
+
+	describe('upcomingLossMap', () => {
+		const TODAY = '2026-04-14';
+		// 48 days from TODAY — well within the 180-day default window
+		const IN_WINDOW = '2026-06-01';
+		// 382 days from TODAY — beyond any reasonable window
+		const OUT_OF_WINDOW = '2027-05-01';
+
+		function makePersonWithEts(id: string, ets: string): (typeof mockPersonnel)[0] {
+			return { ...mockPersonnel[0], id, ets } as (typeof mockPersonnel)[0];
+		}
+
+		function makePersonWithDeros(id: string, deros: string): (typeof mockPersonnel)[0] {
+			return { ...mockPersonnel[0], id, deros } as (typeof mockPersonnel)[0];
+		}
+
+		it('returns an empty map when no personnel have tracked dates', () => {
+			const ctxLoss = new CalendarPageContext(mockData, org, TODAY);
+			expect(ctxLoss.upcomingLossMap.size).toBe(0);
+		});
+
+		it('includes a person whose ETS falls within the warning window', () => {
+			const personnel = [makePersonWithEts('p1', IN_WINDOW)];
+			const ctxLoss = new CalendarPageContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
+			const record = ctxLoss.upcomingLossMap.get('p1');
+			expect(record).toBeDefined();
+			expect(record?.triggerType).toBe('ETS');
+		});
+
+		it('includes a person whose DEROS falls within the warning window', () => {
+			const personnel = [makePersonWithDeros('p1', IN_WINDOW)];
+			const ctxLoss = new CalendarPageContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
+			const record = ctxLoss.upcomingLossMap.get('p1');
+			expect(record).toBeDefined();
+			expect(record?.triggerType).toBe('PCS / DEROS');
+		});
+
+		it('excludes a person whose ETS falls outside the warning window', () => {
+			const personnel = [makePersonWithEts('p1', OUT_OF_WINDOW)];
+			const ctxLoss = new CalendarPageContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
+			expect(ctxLoss.upcomingLossMap.has('p1')).toBe(false);
+		});
+
+		it('returns an empty map when the personnel list is empty', () => {
+			const ctxLoss = new CalendarPageContext({ ...mockData, personnel: [], allPersonnel: [] }, org, TODAY);
+			expect(ctxLoss.upcomingLossMap.size).toBe(0);
+		});
+
+		it('respects a custom lossWarningWindowDays from workspace data (too narrow)', () => {
+			// ETS 17 days from today — inside 180d default but outside a 10-day window
+			const personnel = [makePersonWithEts('p1', '2026-05-01')];
+			const ctxLoss = new CalendarPageContext(
+				{
+					...mockData,
+					personnel,
+					allPersonnel: personnel,
+					calendar: { data: { personnel, lossWarningWindowDays: 10 } }
+				},
+				org,
+				TODAY
+			);
+			expect(ctxLoss.upcomingLossMap.has('p1')).toBe(false);
+		});
+
+		it('respects a custom lossWarningWindowDays from workspace data (wide enough)', () => {
+			// ETS 17 days from today — inside a 30-day window
+			const personnel = [makePersonWithEts('p1', '2026-05-01')];
+			const ctxLoss = new CalendarPageContext(
+				{
+					...mockData,
+					personnel,
+					allPersonnel: personnel,
+					calendar: { data: { personnel, lossWarningWindowDays: 30 } }
+				},
+				org,
+				TODAY
+			);
+			expect(ctxLoss.upcomingLossMap.has('p1')).toBe(true);
+		});
+
+		it('defaults to a 180-day window when lossWarningWindowDays is absent', () => {
+			// ETS 120 days from today — inside the 180-day default
+			const personnel = [makePersonWithEts('p1', '2026-08-12')];
+			const ctxLoss = new CalendarPageContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
+			expect(ctxLoss.upcomingLossMap.has('p1')).toBe(true);
+		});
+	});
 });

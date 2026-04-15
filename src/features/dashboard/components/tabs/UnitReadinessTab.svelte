@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
+	import UpcomingLossesWidget from '../UpcomingLossesWidget.svelte';
 
 	interface Props {
 		ctx: DashboardContext;
 	}
 
 	let { ctx }: Props = $props();
+
+	type UpcomingChange = (typeof ctx.upcomingChanges)[number];
+	type GroupedEntries<T> = Array<[string, T[]]>;
 
 	function availabilityColor(pct: number): string {
 		if (pct >= 90) return 'var(--success)';
@@ -25,33 +29,47 @@
 
 	let upcomingGroupBy = $state<UpcomingGroupBy>('date');
 
-	$effect(() => {
-		if (browser) {
-			const saved = localStorage.getItem(UPCOMING_KEY);
-			if (saved === 'date' || saved === 'group') upcomingGroupBy = saved;
+	function readStorageValue(key: string): string | null {
+		if (!browser || typeof globalThis.localStorage?.getItem !== 'function') return null;
+
+		try {
+			return globalThis.localStorage.getItem(key);
+		} catch {
+			return null;
 		}
+	}
+
+	function writeStorageValue(key: string, value: string) {
+		if (!browser || typeof globalThis.localStorage?.setItem !== 'function') return;
+
+		try {
+			globalThis.localStorage.setItem(key, value);
+		} catch {
+			// Preference persistence is best-effort; the UI state has already updated.
+		}
+	}
+
+	$effect(() => {
+		const saved = readStorageValue(UPCOMING_KEY);
+		if (saved === 'date' || saved === 'group') upcomingGroupBy = saved;
 	});
 
 	function setUpcomingGroupBy(value: UpcomingGroupBy) {
 		upcomingGroupBy = value;
-		if (browser) localStorage.setItem(UPCOMING_KEY, value);
+		writeStorageValue(UPCOMING_KEY, value);
 	}
 
 	const upcomingByGroup = $derived.by(() => {
-		const map = new Map<string, typeof ctx.upcomingChanges>();
+		const grouped: Record<string, UpcomingChange[]> = {};
 		for (const change of ctx.upcomingChanges) {
 			const key = change.groupName;
-			const existing = map.get(key);
-			if (existing) existing.push(change);
-			else map.set(key, [change]);
+			(grouped[key] ??= []).push(change);
 		}
-		return new Map(
-			[...map.entries()].sort((a, b) => {
-				if (a[0] === 'Unassigned') return 1;
-				if (b[0] === 'Unassigned') return -1;
-				return a[0].localeCompare(b[0]);
-			})
-		);
+		return Object.entries(grouped).sort(([a], [b]) => {
+			if (a === 'Unassigned') return 1;
+			if (b === 'Unassigned') return -1;
+			return a.localeCompare(b);
+		}) satisfies GroupedEntries<UpcomingChange>;
 	});
 </script>
 
@@ -129,37 +147,31 @@
 		</div>
 	</div>
 
-	<!-- Upcoming Changes (conditional) -->
-	{#if ctx.upcomingChanges.length > 0}
-		<div class="upcoming-section">
-			<div class="upcoming-header">
-				<div class="section-kicker">Upcoming Changes</div>
-				<div class="view-toggle">
-					<button
-						class="toggle-btn"
-						class:active={upcomingGroupBy === 'date'}
-						onclick={() => setUpcomingGroupBy('date')}>Date</button
-					>
-					<button
-						class="toggle-btn"
-						class:active={upcomingGroupBy === 'group'}
-						onclick={() => setUpcomingGroupBy('group')}>Group</button
-					>
+	<!-- Forward-looking row: short-range calendar changes beside medium-range loss tracking. -->
+	{#if ctx.upcomingChanges.length > 0 || ctx.upcomingLosses.length > 0}
+		<div class="forward-looking-grid">
+			<div class="upcoming-section">
+				<div class="upcoming-header">
+					<div class="section-kicker">Upcoming Changes</div>
+					{#if ctx.upcomingChanges.length > 0}
+						<div class="view-toggle">
+							<button
+								class="toggle-btn"
+								class:active={upcomingGroupBy === 'date'}
+								onclick={() => setUpcomingGroupBy('date')}>Date</button
+							>
+							<button
+								class="toggle-btn"
+								class:active={upcomingGroupBy === 'group'}
+								onclick={() => setUpcomingGroupBy('group')}>Group</button
+							>
+						</div>
+					{/if}
 				</div>
-			</div>
-			{#if upcomingGroupBy === 'date'}
-				{#each ctx.upcomingChanges as change (change.key)}
-					<div class="upcoming-row">
-						<span class="upcoming-name">{change.personName}</span>
-						<span class="upcoming-meta">
-							{ctx.formatShortDate(change.date)} — {change.direction === 'departing' ? change.statusName : 'Returning'}
-						</span>
-					</div>
-				{/each}
-			{:else}
-				{#each [...upcomingByGroup.entries()] as [groupName, changes], i (groupName)}
-					<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
-					{#each changes as change (change.key)}
+				{#if ctx.upcomingChanges.length === 0}
+					<p class="empty-mono">No changes in the next 7 days.</p>
+				{:else if upcomingGroupBy === 'date'}
+					{#each ctx.upcomingChanges as change (change.key)}
 						<div class="upcoming-row">
 							<span class="upcoming-name">{change.personName}</span>
 							<span class="upcoming-meta">
@@ -169,8 +181,25 @@
 							</span>
 						</div>
 					{/each}
-				{/each}
-			{/if}
+				{:else}
+					{#each upcomingByGroup as [groupName, changes], i (groupName)}
+						<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
+						{#each changes as change (change.key)}
+							<div class="upcoming-row">
+								<span class="upcoming-name">{change.personName}</span>
+								<span class="upcoming-meta">
+									{ctx.formatShortDate(change.date)} — {change.direction === 'departing'
+										? change.statusName
+										: 'Returning'}
+								</span>
+							</div>
+						{/each}
+					{/each}
+				{/if}
+			</div>
+			<div class="losses-section">
+				<UpcomingLossesWidget losses={ctx.upcomingLosses} formatDate={(d) => ctx.formatShortDate(d)} />
+			</div>
 		</div>
 	{/if}
 </section>
@@ -388,12 +417,22 @@
 		text-align: right;
 	}
 
-	/* ── Upcoming Changes ─────────────────────────────────── */
-	.upcoming-section {
+	/* ── Forward-looking row ──────────────────────────────── */
+	.forward-looking-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--sp-8);
 		padding: var(--sp-6) 0;
 		border-top: 1px solid var(--ink-15);
+		align-items: start;
 	}
 
+	.upcoming-section,
+	.losses-section {
+		min-width: 0;
+	}
+
+	/* ── Upcoming Changes ─────────────────────────────────── */
 	.upcoming-header {
 		display: flex;
 		align-items: center;
@@ -431,6 +470,16 @@
 		letter-spacing: var(--letter-spacing-mono);
 		color: var(--text-tertiary);
 		white-space: nowrap;
+	}
+
+	.empty-mono {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-mono);
+		color: var(--text-tertiary);
+		padding: var(--sp-4) 0;
+		margin: 0;
 	}
 
 	/* ── Grouping view toggle ─────────────────────────────── */
@@ -492,10 +541,16 @@
 		.supporting-grid {
 			grid-template-columns: 1fr 1fr;
 		}
+
+		.forward-looking-grid {
+			grid-template-columns: 1fr;
+			gap: var(--sp-6);
+		}
 	}
 
 	@media (max-width: 480px) {
-		.supporting-grid {
+		.supporting-grid,
+		.forward-looking-grid {
 			grid-template-columns: 1fr;
 		}
 	}

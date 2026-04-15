@@ -50,6 +50,8 @@ function getOrgColumn(table: string): string {
 		case 'data_exports':
 		case 'dashboard_configs':
 			return 'org_id';
+		case 'organizations':
+			return 'id';
 		default:
 			return 'organization_id';
 	}

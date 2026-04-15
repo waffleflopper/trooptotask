@@ -25,16 +25,34 @@
 
 	let upcomingGroupBy = $state<UpcomingGroupBy>('date');
 
-	$effect(() => {
-		if (browser) {
-			const saved = localStorage.getItem(UPCOMING_KEY);
-			if (saved === 'date' || saved === 'group') upcomingGroupBy = saved;
+	function readStorageValue(key: string): string | null {
+		if (!browser || typeof globalThis.localStorage?.getItem !== 'function') return null;
+
+		try {
+			return globalThis.localStorage.getItem(key);
+		} catch {
+			return null;
 		}
+	}
+
+	function writeStorageValue(key: string, value: string) {
+		if (!browser || typeof globalThis.localStorage?.setItem !== 'function') return;
+
+		try {
+			globalThis.localStorage.setItem(key, value);
+		} catch {
+			// Preference persistence is best-effort; the UI state has already updated.
+		}
+	}
+
+	$effect(() => {
+		const saved = readStorageValue(UPCOMING_KEY);
+		if (saved === 'date' || saved === 'group') upcomingGroupBy = saved;
 	});
 
 	function setUpcomingGroupBy(value: UpcomingGroupBy) {
 		upcomingGroupBy = value;
-		if (browser) localStorage.setItem(UPCOMING_KEY, value);
+		writeStorageValue(UPCOMING_KEY, value);
 	}
 
 	const upcomingByGroup = $derived.by(() => {

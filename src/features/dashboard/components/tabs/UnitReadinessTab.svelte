@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
+	import UpcomingLossesWidget from '../UpcomingLossesWidget.svelte';
 
 	interface Props {
 		ctx: DashboardContext;
@@ -146,37 +147,31 @@
 		</div>
 	</div>
 
-	<!-- Upcoming Changes (conditional) -->
-	{#if ctx.upcomingChanges.length > 0}
-		<div class="upcoming-section">
-			<div class="upcoming-header">
-				<div class="section-kicker">Upcoming Changes</div>
-				<div class="view-toggle">
-					<button
-						class="toggle-btn"
-						class:active={upcomingGroupBy === 'date'}
-						onclick={() => setUpcomingGroupBy('date')}>Date</button
-					>
-					<button
-						class="toggle-btn"
-						class:active={upcomingGroupBy === 'group'}
-						onclick={() => setUpcomingGroupBy('group')}>Group</button
-					>
+	<!-- Forward-looking row: short-range calendar changes beside medium-range loss tracking. -->
+	{#if ctx.upcomingChanges.length > 0 || ctx.upcomingLosses.length > 0}
+		<div class="forward-looking-grid">
+			<div class="upcoming-section">
+				<div class="upcoming-header">
+					<div class="section-kicker">Upcoming Changes</div>
+					{#if ctx.upcomingChanges.length > 0}
+						<div class="view-toggle">
+							<button
+								class="toggle-btn"
+								class:active={upcomingGroupBy === 'date'}
+								onclick={() => setUpcomingGroupBy('date')}>Date</button
+							>
+							<button
+								class="toggle-btn"
+								class:active={upcomingGroupBy === 'group'}
+								onclick={() => setUpcomingGroupBy('group')}>Group</button
+							>
+						</div>
+					{/if}
 				</div>
-			</div>
-			{#if upcomingGroupBy === 'date'}
-				{#each ctx.upcomingChanges as change (change.key)}
-					<div class="upcoming-row">
-						<span class="upcoming-name">{change.personName}</span>
-						<span class="upcoming-meta">
-							{ctx.formatShortDate(change.date)} — {change.direction === 'departing' ? change.statusName : 'Returning'}
-						</span>
-					</div>
-				{/each}
-			{:else}
-				{#each upcomingByGroup as [groupName, changes], i (groupName)}
-					<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
-					{#each changes as change (change.key)}
+				{#if ctx.upcomingChanges.length === 0}
+					<p class="empty-mono">No changes in the next 7 days.</p>
+				{:else if upcomingGroupBy === 'date'}
+					{#each ctx.upcomingChanges as change (change.key)}
 						<div class="upcoming-row">
 							<span class="upcoming-name">{change.personName}</span>
 							<span class="upcoming-meta">
@@ -186,8 +181,25 @@
 							</span>
 						</div>
 					{/each}
-				{/each}
-			{/if}
+				{:else}
+					{#each upcomingByGroup as [groupName, changes], i (groupName)}
+						<div class="group-header" class:group-header--first={i === 0}>{groupName}</div>
+						{#each changes as change (change.key)}
+							<div class="upcoming-row">
+								<span class="upcoming-name">{change.personName}</span>
+								<span class="upcoming-meta">
+									{ctx.formatShortDate(change.date)} — {change.direction === 'departing'
+										? change.statusName
+										: 'Returning'}
+								</span>
+							</div>
+						{/each}
+					{/each}
+				{/if}
+			</div>
+			<div class="losses-section">
+				<UpcomingLossesWidget losses={ctx.upcomingLosses} formatDate={(d) => ctx.formatShortDate(d)} />
+			</div>
 		</div>
 	{/if}
 </section>
@@ -405,12 +417,22 @@
 		text-align: right;
 	}
 
-	/* ── Upcoming Changes ─────────────────────────────────── */
-	.upcoming-section {
+	/* ── Forward-looking row ──────────────────────────────── */
+	.forward-looking-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--sp-8);
 		padding: var(--sp-6) 0;
 		border-top: 1px solid var(--ink-15);
+		align-items: start;
 	}
 
+	.upcoming-section,
+	.losses-section {
+		min-width: 0;
+	}
+
+	/* ── Upcoming Changes ─────────────────────────────────── */
 	.upcoming-header {
 		display: flex;
 		align-items: center;
@@ -448,6 +470,16 @@
 		letter-spacing: var(--letter-spacing-mono);
 		color: var(--text-tertiary);
 		white-space: nowrap;
+	}
+
+	.empty-mono {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-mono);
+		color: var(--text-tertiary);
+		padding: var(--sp-4) 0;
+		margin: 0;
 	}
 
 	/* ── Grouping view toggle ─────────────────────────────── */
@@ -509,10 +541,16 @@
 		.supporting-grid {
 			grid-template-columns: 1fr 1fr;
 		}
+
+		.forward-looking-grid {
+			grid-template-columns: 1fr;
+			gap: var(--sp-6);
+		}
 	}
 
 	@media (max-width: 480px) {
-		.supporting-grid {
+		.supporting-grid,
+		.forward-looking-grid {
 			grid-template-columns: 1fr;
 		}
 	}

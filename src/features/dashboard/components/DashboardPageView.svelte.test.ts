@@ -52,6 +52,7 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 		ratingTotal: 0,
 		activeOnboardings: [],
 		upcomingChanges: [],
+		upcomingLosses: [],
 		upcomingByDate: new Map(),
 		dutyAssignments: [],
 		dutyStrengthPct: 100,
@@ -64,6 +65,7 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardContext {
 		trainingTypeCount: 0,
 		assignmentTypeCount: 0,
 		todayDisplay: 'Thursday, Apr 2 2026',
+		formatShortDate: (date: string) => date,
 		dismissGettingStarted: () => {}
 	};
 

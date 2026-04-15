@@ -5,6 +5,7 @@ import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
 import type { Personnel, StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
+import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 
 let resizeObserverCallback: ResizeObserverCallback | undefined;
 const resizeObserve = vi.fn();
@@ -84,6 +85,7 @@ function renderCalendar(
 		dutyEvents: DutyEvent[];
 		showPersonnelRoles: boolean;
 		onNavigateToMonth: (year: number, month: number) => void;
+		upcomingLossMap: Map<string, UpcomingLossRecord>;
 	}> = {}
 ) {
 	return render(Calendar, {
@@ -104,9 +106,24 @@ function renderCalendar(
 			onPrevMonth: () => {},
 			onNextMonth: () => {},
 			onGoToToday: () => {},
-			onNavigateToMonth: overrides.onNavigateToMonth
+			onNavigateToMonth: overrides.onNavigateToMonth,
+			upcomingLossMap: overrides.upcomingLossMap
 		}
 	});
+}
+
+function makeLossRecord(personId: string, triggerType: UpcomingLossRecord['triggerType']): UpcomingLossRecord {
+	return {
+		id: personId,
+		personId,
+		personName: `SGT Smith`,
+		rank: 'SGT',
+		triggerType,
+		targetDate: '2026-07-01',
+		daysRemaining: 78,
+		awardDueSoon: true,
+		groupId: 'group-1'
+	};
 }
 
 function makeDutyEvent(eventDate: string, assigneeId: string, templateName = 'Battalion Staff Duty'): DutyEvent {
@@ -387,5 +404,72 @@ describe('Calendar', () => {
 		await tick();
 
 		expect(container.textContent).toContain('Person 040');
+	});
+
+	// ---- Upcoming-loss indicators ------------------------------------------
+
+	describe('upcoming-loss indicators', () => {
+		it('renders a loss indicator chip in the row header for a person in the loss map', () => {
+			const lossMap = new Map([['person-1', makeLossRecord('person-1', 'ETS')]]);
+			const { container } = renderCalendar({ upcomingLossMap: lossMap });
+
+			// Chip must exist for person-1
+			const chip = container.querySelector('[data-testid="loss-indicator-person-1"]');
+			expect(chip).toBeTruthy();
+		});
+
+		it('shows the correct trigger type text in the chip', () => {
+			const lossMap = new Map([['person-1', makeLossRecord('person-1', 'ETS')]]);
+			const { container } = renderCalendar({ upcomingLossMap: lossMap });
+
+			const chip = container.querySelector('[data-testid="loss-indicator-person-1"]') as HTMLElement | null;
+			expect(chip?.textContent?.trim()).toBe('ETS');
+		});
+
+		it('shows PCS label for a DEROS-triggered record', () => {
+			const lossMap = new Map([['person-1', makeLossRecord('person-1', 'PCS / DEROS')]]);
+			const { container } = renderCalendar({ upcomingLossMap: lossMap });
+
+			const chip = container.querySelector('[data-testid="loss-indicator-person-1"]') as HTMLElement | null;
+			expect(chip?.textContent?.trim()).toBe('PCS');
+		});
+
+		it('does not render a chip for a person not in the loss map', () => {
+			// Empty map — neither person has an upcoming loss
+			const { container } = renderCalendar({ upcomingLossMap: new Map() });
+
+			expect(container.querySelector('[data-testid="loss-indicator-person-1"]')).toBeNull();
+			expect(container.querySelector('[data-testid="loss-indicator-person-2"]')).toBeNull();
+		});
+
+		it('does not render a chip at all when no loss map is provided', () => {
+			// No upcomingLossMap prop at all
+			const { container } = renderCalendar();
+
+			expect(container.querySelector('[data-testid^="loss-indicator-"]')).toBeNull();
+		});
+
+		it('places the chip inside the personnel-info header, not inside a date cell', () => {
+			const lossMap = new Map([['person-1', makeLossRecord('person-1', 'ETS')]]);
+			const { container } = renderCalendar({ upcomingLossMap: lossMap });
+
+			const chip = container.querySelector('[data-testid="loss-indicator-person-1"]') as HTMLElement | null;
+			expect(chip).toBeTruthy();
+
+			// Must be a descendant of .personnel-info (the sticky row header)
+			expect(chip?.closest('.personnel-info')).toBeTruthy();
+
+			// Must NOT be inside any .date-cell element
+			expect(chip?.closest('.date-cell')).toBeNull();
+		});
+
+		it('only shows chips for personnel that have a loss record, leaving others clean', () => {
+			// Only person-1 is in the map; person-2 must not get a chip
+			const lossMap = new Map([['person-1', makeLossRecord('person-1', 'ETS')]]);
+			const { container } = renderCalendar({ upcomingLossMap: lossMap });
+
+			expect(container.querySelector('[data-testid="loss-indicator-person-1"]')).toBeTruthy();
+			expect(container.querySelector('[data-testid="loss-indicator-person-2"]')).toBeNull();
+		});
 	});
 });

@@ -59,6 +59,8 @@ export interface CalendarBootstrap {
 	groups: Group[];
 	statusTypes: StatusType[];
 	activeOnboardingPersonnelIds: string[];
+	/** Org-configured loss warning window in days (default: 180). */
+	lossWarningWindowDays: number;
 }
 
 export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInput): Promise<CalendarData> {
@@ -204,34 +206,46 @@ export async function fetchCalendarBootstrap(
 		})
 		.then((rows) => DailyAssignmentEntity.fromDbArray(rows));
 
-	const [assignmentTypeRows, pinnedGroupRows, advancedDutyEvents, personnelRows, groupRows, statusTypeRows] =
-		await Promise.all([
-			ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.auth.userId
-				? ctx.store.findMany<Record<string, unknown>>(
-						'user_pinned_groups',
-						orgId,
-						{ user_id: ctx.auth.userId },
-						{
-							orderBy: [{ column: 'sort_order', ascending: true }]
-						}
-					)
-				: Promise.resolve([]),
-			withCalendarTiming(orgId, 'duty-event-hydration', () => listDutyEventsInRange(ctx, { rangeStart, rangeEnd })),
-			ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
-				select: PersonnelEntity.select,
-				isNull: { archived_at: true },
-				orderBy: [{ column: 'last_name', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			})
-		]);
+	const [
+		assignmentTypeRows,
+		pinnedGroupRows,
+		advancedDutyEvents,
+		personnelRows,
+		groupRows,
+		statusTypeRows,
+		orgSettingsRow
+	] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.auth.userId
+			? ctx.store.findMany<Record<string, unknown>>(
+					'user_pinned_groups',
+					orgId,
+					{ user_id: ctx.auth.userId },
+					{
+						orderBy: [{ column: 'sort_order', ascending: true }]
+					}
+				)
+			: Promise.resolve([]),
+		withCalendarTiming(orgId, 'duty-event-hydration', () => listDutyEventsInRange(ctx, { rangeStart, rangeEnd })),
+		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+			select: PersonnelEntity.select,
+			isNull: { archived_at: true },
+			orderBy: [{ column: 'last_name', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store
+			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
+			.catch(() => null)
+	]);
+
+	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 
 	return {
 		rangeStart,
@@ -244,6 +258,7 @@ export async function fetchCalendarBootstrap(
 		advancedDutyEvents,
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
 		groups: GroupEntity.fromDbArray(groupRows),
-		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows)
+		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
+		lossWarningWindowDays
 	};
 }

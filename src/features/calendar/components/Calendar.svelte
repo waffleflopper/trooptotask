@@ -8,6 +8,7 @@
 		DailyAssignment
 	} from '$lib/types';
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
+	import type { UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 	import CalendarHeader from './CalendarHeader.svelte';
 	import CalendarRow from './CalendarRow.svelte';
 	import GroupHeader from '$lib/components/GroupHeader.svelte';
@@ -45,6 +46,8 @@
 		canEdit?: boolean;
 		showStatusText?: boolean;
 		showPersonnelRoles?: boolean;
+		/** Map of personId → UpcomingLossRecord for per-row loss indicators. */
+		upcomingLossMap?: Map<string, UpcomingLossRecord>;
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;
@@ -77,6 +80,7 @@
 		canEdit = true,
 		showStatusText = false,
 		showPersonnelRoles = true,
+		upcomingLossMap,
 		onPrevMonth,
 		onNextMonth,
 		onGoToToday,
@@ -313,6 +317,7 @@
 									{showPersonnelRoles}
 									isOnboarding={onboardingSet.has(row.person.id)}
 									{highlightOnboarding}
+									upcomingLossRecord={upcomingLossMap?.get(row.person.id)}
 									onCellClick={canEdit ? onCellClick : undefined}
 									{onPersonClick}
 								/>

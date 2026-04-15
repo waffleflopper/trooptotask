@@ -331,6 +331,25 @@ describe('fetchCalendarBootstrap', () => {
 		expect(result.statusTypes.map((statusType) => statusType.name)).toEqual(['Leave']);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 	});
+
+	it('returns the configured loss warning window from the organizations row', async () => {
+		const ctx = buildCtx();
+		seedCalendarData(ctx.store);
+		ctx.store.seed('organizations', [{ id: ORG, loss_warning_window_days: 90 }]);
+
+		const result = await fetchCalendarBootstrap(ctx, RANGE);
+
+		expect(result.lossWarningWindowDays).toBe(90);
+	});
+
+	it('defaults the loss warning window to 180 when the organizations row is missing the value', async () => {
+		const ctx = buildCtx();
+		seedCalendarData(ctx.store);
+
+		const result = await fetchCalendarBootstrap(ctx, RANGE);
+
+		expect(result.lossWarningWindowDays).toBe(180);
+	});
 });
 
 describe('fetchCalendarRangeData', () => {

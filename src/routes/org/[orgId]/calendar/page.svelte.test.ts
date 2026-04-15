@@ -66,7 +66,8 @@ function makeBootstrap(): WorkspaceBootstrap<CalendarBootstrap> {
 			personnel: [],
 			groups: [],
 			statusTypes: [],
-			activeOnboardingPersonnelIds: []
+			activeOnboardingPersonnelIds: [],
+			lossWarningWindowDays: 180
 		}
 	};
 }

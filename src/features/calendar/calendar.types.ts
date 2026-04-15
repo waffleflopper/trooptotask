@@ -8,4 +8,6 @@ export interface CalendarWorkspaceData {
 	allPersonnel?: Personnel[];
 	activeOnboardingPersonnelIds?: string[];
 	advancedDutyEvents?: DutyEvent[];
+	/** Org-configured loss warning window in days (default: 180). */
+	lossWarningWindowDays?: number;
 }

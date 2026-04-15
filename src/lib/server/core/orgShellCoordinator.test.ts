@@ -840,7 +840,8 @@ describe('OrgShellCoordinator', () => {
 			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
-			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType]
+			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType],
+			lossWarningWindowDays: 180
 		};
 		const workspacePort = createInMemoryOrgWorkspacePort(
 			new Map<WorkspaceKey, unknown>([['dashboard', dashboardData]])

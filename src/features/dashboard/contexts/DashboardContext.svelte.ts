@@ -15,6 +15,7 @@ import type { TrainingStats } from '$features/training/utils/trainingStatus';
 import type { OrganizationMemberPermissions } from '$lib/types';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import type { HydrationPlan } from '$lib/server/core/orgShell';
+import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/dashboard/utils/evaluateUpcomingLosses';
 
 export interface TrainingIssue {
 	personName: string;
@@ -764,5 +765,22 @@ export class DashboardContext {
 		const d = parseDate(dateStr);
 		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 		return `${months[d.getMonth()]} ${d.getDate()}`;
+	}
+
+	// ---------------------------------------------------------------------------
+	// Derived: upcomingLosses — personnel approaching ETS or PCS / DEROS
+	// ---------------------------------------------------------------------------
+	/**
+	 * Ordered list of personnel whose ETS or DEROS falls within the configured
+	 * warning window. Nearest departure appears first.
+	 *
+	 * Backed by the shared `evaluateUpcomingLosses` calculation so the dashboard,
+	 * personnel, and calendar surfaces all use the same evaluation logic.
+	 * Automatically respects group scoping because `personnelStore.items` only
+	 * contains personnel visible to the current user.
+	 */
+	get upcomingLosses(): UpcomingLossRecord[] {
+		const warningWindowDays = this.data.dashboard.data.lossWarningWindowDays ?? 180;
+		return evaluateUpcomingLosses(personnelStore.items, warningWindowDays, this.today);
 	}
 }

@@ -57,6 +57,8 @@ export interface DashboardBootstrap {
 	groups: Group[];
 	statusTypes: StatusType[];
 	trainingTypes: TrainingType[];
+	/** Org-configured loss warning window in days (default: 180). */
+	lossWarningWindowDays: number;
 }
 
 export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<DashboardBootstrap> {
@@ -93,7 +95,8 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		personnelRows,
 		groupRows,
 		statusTypeRows,
-		trainingTypeRows
+		trainingTypeRows,
+		orgSettingsRow
 	] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
@@ -129,10 +132,14 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		}),
 		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
-		})
+		}),
+		ctx.store
+			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
+			.catch(() => null)
 	]);
 	const allOnboardings = PersonnelOnboardingEntity.fromDbArray(onboardingRows);
 	const activeOnboardings = allOnboardings.filter((o) => o.status === 'in_progress');
+	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 
 	return {
 		availabilityEntries,
@@ -145,7 +152,8 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
-		trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows)
+		trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows),
+		lossWarningWindowDays
 	};
 }
 

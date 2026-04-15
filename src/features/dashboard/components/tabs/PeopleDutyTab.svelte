@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import type { DashboardContext } from '../../contexts/DashboardContext.svelte';
+	import UpcomingLossesWidget from '../UpcomingLossesWidget.svelte';
 
 	interface Props {
 		ctx: DashboardContext;
@@ -226,6 +227,13 @@
 				{/each}
 			{/if}
 		</div>
+	</div>
+
+	<!-- Upcoming Losses — primary operational widget for medium-range departure planning.
+	     Positioned between the daily operational view and the secondary housekeeping row
+	     to reflect its status as a first-class concern, not a calendar footnote. -->
+	<div class="losses-section">
+		<UpcomingLossesWidget losses={ctx.upcomingLosses} formatDate={(d) => ctx.formatShortDate(d)} />
 	</div>
 
 	<!-- Secondary row: Onboarding + Upcoming Changes -->
@@ -510,6 +518,17 @@
 		font-family: var(--font-body);
 		font-size: var(--text-sm);
 		color: var(--text-primary);
+	}
+
+	/* ── Upcoming Losses section ──────────────────────────────── */
+	/*
+	  Full-width strip between the daily-ops primary split and the
+	  housekeeping secondary split. The top hairline marks the
+	  transition from "today" data to "forward-looking" data.
+	*/
+	.losses-section {
+		padding: var(--sp-6) 0 var(--sp-2);
+		border-top: 1px solid var(--ink-15);
 	}
 
 	/* ── Secondary split ──────────────────────────────────── */

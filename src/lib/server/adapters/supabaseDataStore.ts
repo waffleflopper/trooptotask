@@ -17,6 +17,9 @@ function getOrgColumn(table: string): string {
 		case 'data_exports':
 		case 'dashboard_configs':
 			return 'org_id';
+		// The organizations table's row IS the org — its primary key (id) equals the orgId.
+		case 'organizations':
+			return 'id';
 		default:
 			return 'organization_id';
 	}

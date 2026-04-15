@@ -3,7 +3,11 @@ import type { Cookies } from '@sveltejs/kit';
 import { createInMemoryOrgWorkspacePort } from '$lib/server/adapters/inMemoryOrgShell';
 import { createDefaultHydrationPlanner } from '$lib/server/core/hydrationPlanner';
 import type { Group } from '$lib/stores/groups.svelte';
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import type {
+	CriticalTasksSettings,
+	IctTask,
+	PersonnelIctCompletion
+} from '$features/critical-tasks/criticalTasks.types';
 import type { Personnel } from '$lib/types';
 import type { WorkspaceBootstrap, WorkspaceKey } from '$lib/server/core/orgShell';
 import type { CriticalTasksBootstrap } from '$lib/server/core/useCases/criticalTasksQuery';
@@ -47,11 +51,17 @@ describe('critical tasks layout server load', () => {
 			new Map<WorkspaceKey, unknown>([['critical-tasks', criticalTasksData]])
 		);
 		const plannerPort = createDefaultHydrationPlanner('org-1');
+		const criticalTasksSettings: CriticalTasksSettings = {
+			defaultExpirationMonths: 18,
+			expiringSoonWarningDays: 45
+		};
 		const createWorkspacePort = vi.fn().mockReturnValue(workspacePort);
 		const createPlannerPort = vi.fn().mockReturnValue(plannerPort);
+		const loadCriticalTasksSettings = vi.fn().mockResolvedValue(criticalTasksSettings);
 		const load = _createCriticalTasksLayoutLoad({
 			createWorkspacePort,
-			createPlannerPort
+			createPlannerPort,
+			loadCriticalTasksSettings
 		});
 		const locals = {} as App.Locals;
 		const cookies = {} as Cookies;
@@ -70,6 +80,8 @@ describe('critical tasks layout server load', () => {
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:critical-tasks-data');
 		expect(createWorkspacePort).toHaveBeenCalledWith({ locals, cookies, orgId: 'org-1' });
 		expect(createPlannerPort).toHaveBeenCalledWith('org-1');
+		expect(loadCriticalTasksSettings).toHaveBeenCalledWith({ locals, orgId: 'org-1' });
+		expect(result.criticalTasksSettings).toEqual(criticalTasksSettings);
 		expect(result.criticalTasks.data).toBeInstanceOf(Promise);
 
 		await expect(result.criticalTasks.data).resolves.toMatchObject({

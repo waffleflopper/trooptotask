@@ -21,6 +21,8 @@ export interface PersonnelPageData {
 	initialPageView?: 'roster' | 'rating-scheme';
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays?: number;
+	/** Personnel IDs whose award tracking has been acknowledged. */
+	awardTrackingAcknowledgedPersonnelIds?: string[];
 	[key: string]: unknown;
 }
 
@@ -177,7 +179,9 @@ export class PersonnelPageContext {
 	 */
 	get upcomingLossMap(): SvelteMap<string, UpcomingLossRecord> {
 		const warningWindowDays = this.#data.lossWarningWindowDays ?? 180;
-		const losses = evaluateUpcomingLosses(this.#personnelStore.items, warningWindowDays, this.#today);
+		const losses = evaluateUpcomingLosses(this.#personnelStore.items, warningWindowDays, this.#today, {
+			awardTrackingAcknowledgedPersonnelIds: this.#data.awardTrackingAcknowledgedPersonnelIds ?? []
+		});
 		const map = new SvelteMap<string, UpcomingLossRecord>();
 		for (const record of losses) {
 			map.set(record.personId, record);

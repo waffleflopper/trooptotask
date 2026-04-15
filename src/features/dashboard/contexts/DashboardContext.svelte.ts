@@ -781,6 +781,8 @@ export class DashboardContext {
 	 */
 	get upcomingLosses(): UpcomingLossRecord[] {
 		const warningWindowDays = this.data.dashboard.data.lossWarningWindowDays ?? 180;
-		return evaluateUpcomingLosses(personnelStore.items, warningWindowDays, this.today);
+		return evaluateUpcomingLosses(personnelStore.items, warningWindowDays, this.today, {
+			awardTrackingAcknowledgedPersonnelIds: this.data.dashboard.data.awardTrackingAcknowledgedPersonnelIds ?? []
+		});
 	}
 }

@@ -68,6 +68,7 @@ function makeData(overrides: Record<string, unknown> = {}) {
 			canManageMembers: true
 		},
 		scopedGroupId: null as string | null,
+		awardTrackingAcknowledgedPersonnelIds: [] as string[],
 		...overrides
 	};
 }
@@ -493,6 +494,23 @@ describe('PersonnelPageContext', () => {
 			const people = [makePerson({ id: 'p1', ets: '2026-08-12' })];
 			const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg(), people, [], [], TODAY);
 			expect(ctx.upcomingLossMap.has('p1')).toBe(true);
+		});
+
+		it('keeps the upcoming-loss row but marks the award state acknowledged when the person is in the acknowledged list', () => {
+			const people = [makePerson({ id: 'p1', ets: IN_WINDOW })];
+			const ctx = new PersonnelPageContext(
+				makeData({ awardTrackingAcknowledgedPersonnelIds: ['p1'] }),
+				makeModals(),
+				makeOrg(),
+				people,
+				[],
+				[],
+				TODAY
+			);
+			const record = ctx.upcomingLossMap.get('p1');
+			expect(record).toBeDefined();
+			expect(record?.awardDueSoon).toBe(false);
+			expect(record?.awardTrackingAcknowledged).toBe(true);
 		});
 	});
 });

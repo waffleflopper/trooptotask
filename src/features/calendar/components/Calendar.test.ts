@@ -122,6 +122,7 @@ function makeLossRecord(personId: string, triggerType: UpcomingLossRecord['trigg
 		targetDate: '2026-07-01',
 		daysRemaining: 78,
 		awardDueSoon: true,
+		awardTrackingAcknowledged: false,
 		groupId: 'group-1'
 	};
 }

@@ -38,6 +38,8 @@ export interface UpcomingLossRecord {
 	 * this signal without touching call sites.
 	 */
 	awardDueSoon: boolean;
+	/** True when the leader has acknowledged award tracking for this person. */
+	awardTrackingAcknowledged: boolean;
 	groupId: string | null;
 }
 
@@ -73,9 +75,13 @@ function calendarDaysBetween(from: string, to: string): number {
 export function evaluateUpcomingLosses(
 	personnel: Personnel[],
 	warningWindowDays: number,
-	today: string
+	today: string,
+	options?: {
+		awardTrackingAcknowledgedPersonnelIds?: Iterable<string>;
+	}
 ): UpcomingLossRecord[] {
 	const results: UpcomingLossRecord[] = [];
+	const acknowledgedPersonnelIds = new Set(options?.awardTrackingAcknowledgedPersonnelIds ?? []);
 
 	for (const person of personnel) {
 		// Collect candidate dates that fall within the warning window
@@ -100,6 +106,7 @@ export function evaluateUpcomingLosses(
 		// When multiple dates are in-window, take the nearest one to reduce clutter
 		candidates.sort((a, b) => a.days - b.days);
 		const nearest = candidates[0];
+		const awardTrackingAcknowledged = acknowledgedPersonnelIds.has(person.id);
 
 		results.push({
 			id: person.id,
@@ -109,7 +116,8 @@ export function evaluateUpcomingLosses(
 			triggerType: nearest.triggerType,
 			targetDate: nearest.date,
 			daysRemaining: nearest.days,
-			awardDueSoon: true,
+			awardDueSoon: !awardTrackingAcknowledged,
+			awardTrackingAcknowledged,
 			groupId: person.groupId ?? null
 		});
 	}

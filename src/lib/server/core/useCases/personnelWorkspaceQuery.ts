@@ -7,6 +7,7 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
+import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 
 export interface PersonnelBootstrap {
 	personnel: Personnel[];
@@ -17,6 +18,8 @@ export interface PersonnelBootstrap {
 	ratingSchemeEntries: RatingSchemeEntry[];
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays: number;
+	/** Personnel IDs whose award tracking has been acknowledged. */
+	awardTrackingAcknowledgedPersonnelIds: string[];
 }
 
 function toPersonnelLookup(rows: Personnel[]): PersonnelLookup[] {
@@ -44,7 +47,8 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		statusTypeRows,
 		pinnedGroupRows,
 		ratingSchemeRows,
-		orgSettingsRow
+		orgSettingsRow,
+		awardTrackingAcknowledgedPersonnelIds
 	] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, findOptions),
 		ctx.rawStore.findMany<Record<string, unknown>>('personnel', orgId, undefined, findOptions),
@@ -69,7 +73,8 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		}),
 		ctx.store
 			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
-			.catch(() => null)
+			.catch(() => null),
+		listAwardTrackingAcknowledgedPersonnelIds(ctx.store, orgId)
 	]);
 
 	const scopedAllPersonnelRows = ctx.auth.scopedGroupId ? personnelRows : allPersonnelRows;
@@ -82,6 +87,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
 		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
-		lossWarningWindowDays
+		lossWarningWindowDays,
+		awardTrackingAcknowledgedPersonnelIds
 	};
 }

@@ -31,7 +31,8 @@
 			permissions: data.permissions,
 			scopedGroupId: data.scopedGroupId,
 			initialPageView: getPageViewFromUrl(),
-			lossWarningWindowDays: workspaceData.lossWarningWindowDays
+			lossWarningWindowDays: workspaceData.lossWarningWindowDays,
+			awardTrackingAcknowledgedPersonnelIds: workspaceData.awardTrackingAcknowledgedPersonnelIds
 		})
 	);
 

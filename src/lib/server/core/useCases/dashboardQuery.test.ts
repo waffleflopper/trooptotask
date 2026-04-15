@@ -162,4 +162,28 @@ describe('fetchDashboardBootstrap', () => {
 
 		expect(result.lossWarningWindowDays).toBe(180);
 	});
+
+	it('returns personnel IDs whose award tracking has been acknowledged', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed('personnel_extended_info', [
+			{
+				id: 'ext-1',
+				organization_id: ORG,
+				personnel_id: 'p-1',
+				award_tracking_acknowledged_at: '2026-04-14T12:00:00.000Z'
+			},
+			{
+				id: 'ext-2',
+				organization_id: ORG,
+				personnel_id: 'p-2',
+				award_tracking_acknowledged_at: null
+			}
+		]);
+
+		const result = await fetchDashboardBootstrap(ctx);
+
+		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual(['p-1']);
+	});
 });

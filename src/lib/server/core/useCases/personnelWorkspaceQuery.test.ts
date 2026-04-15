@@ -185,3 +185,22 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result.ratingSchemeEntries).toHaveLength(1);
 	});
 });
+
+describe('fetchPersonnelBootstrap — loss warning window', () => {
+	it('returns the configured loss warning window from the organizations row', async () => {
+		const ctx = createQueryWithRawStorePortsContext();
+		ctx.store.seed('organizations', [{ id: 'test-org', loss_warning_window_days: 90 }]);
+
+		const result = await fetchPersonnelBootstrap(ctx);
+
+		expect(result.lossWarningWindowDays).toBe(90);
+	});
+
+	it('defaults the loss warning window to 180 when the organizations row is missing the value', async () => {
+		const ctx = createQueryWithRawStorePortsContext();
+
+		const result = await fetchPersonnelBootstrap(ctx);
+
+		expect(result.lossWarningWindowDays).toBe(180);
+	});
+});

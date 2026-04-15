@@ -321,10 +321,23 @@
 								</div>
 							{/snippet}
 							{#snippet cell(row, col)}
+								{@const lossRecord = ctx.upcomingLossMap.get(row.id)}
 								{#if col.key === 'rank'}
 									<span class="cell-rank">{row.rank}</span>
 								{:else if col.key === 'name'}
-									<span class="cell-name">{row.lastName}, {row.firstName}</span>
+									<span class="cell-name-group">
+										<span class="cell-name">{row.lastName}, {row.firstName}</span>
+										{#if lossRecord}
+											<span
+												class="loss-chip"
+												class:loss-chip--ets={lossRecord.triggerType === 'ETS'}
+												data-testid="loss-indicator-{row.id}"
+												title="{lossRecord.triggerType} in {lossRecord.daysRemaining} day{lossRecord.daysRemaining === 1
+													? ''
+													: 's'}">{lossRecord.triggerType}</span
+											>
+										{/if}
+									</span>
 								{:else if col.key === 'actions'}
 									<button
 										class="btn btn-sm btn-secondary"
@@ -969,6 +982,42 @@
 		font-size: var(--text-sm);
 		font-weight: var(--font-weight-semibold);
 		color: var(--text-primary);
+	}
+
+	/* ── Loss indicator chip ─────────────────────────────────────────────────
+	   Lightweight row-level signal for personnel approaching ETS or PCS/DEROS.
+	   Mirrors the trigger-chip styling in UpcomingLossesWidget for consistency;
+	   kept intentionally small so the roster remains readable at a glance.
+	──────────────────────────────────────────────────────────────────────── */
+	.cell-name-group {
+		display: inline-flex;
+		align-items: baseline;
+		gap: var(--sp-2);
+		min-width: 0;
+	}
+
+	.loss-chip {
+		display: inline-flex;
+		align-items: center;
+		flex-shrink: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		text-transform: uppercase;
+		letter-spacing: var(--letter-spacing-mono);
+		padding: 1px 5px;
+		border-radius: var(--radius-sm);
+		white-space: nowrap;
+		line-height: 1.4;
+		/* PCS / DEROS default: neutral tint — matches UpcomingLossesWidget */
+		background: var(--ink-06);
+		color: var(--text-secondary);
+	}
+
+	/* ETS: amber-tinted to flag impending separation */
+	.loss-chip--ets {
+		background: color-mix(in srgb, var(--amber-light) 80%, var(--surface-panel) 20%);
+		color: var(--amber-dark);
 	}
 
 	.dt-group-header {

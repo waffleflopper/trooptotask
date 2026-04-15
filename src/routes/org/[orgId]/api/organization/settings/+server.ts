@@ -1,27 +1,72 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
+import type { UseCaseContext } from '$lib/server/core/ports';
 
-export const POST = handle<Record<string, unknown>, unknown>({
+interface OrganizationSettingsInput {
+	archiveRetentionMonths?: number;
+	criticalTasksDefaultExpirationMonths?: number | null;
+	criticalTasksExpiringSoonWarningDays?: number | null;
+}
+
+function parseNullableWholeNumber(
+	value: number | null | undefined,
+	label: string,
+	range: { min: number; max: number }
+): number | null | undefined {
+	if (value === undefined) return undefined;
+	if (value === null) return null;
+	if (!Number.isFinite(value) || value < range.min || value > range.max) {
+		fail(400, `${label} must be between ${range.min} and ${range.max}`);
+	}
+	return Math.round(value);
+}
+
+export const _postConfig: RouteConfig<OrganizationSettingsInput, { success: true }> = {
 	permission: 'privileged',
 	mutation: true,
-	fn: async (ctx, input) => {
-		const { archiveRetentionMonths } = input;
+	fn: async (ctx: UseCaseContext, input: OrganizationSettingsInput) => {
+		const archiveRetentionMonths = parseNullableWholeNumber(input.archiveRetentionMonths, 'Retention months', {
+			min: 1,
+			max: 120
+		});
+		const criticalTasksDefaultExpirationMonths = parseNullableWholeNumber(
+			input.criticalTasksDefaultExpirationMonths,
+			'Critical Tasks default expiration months',
+			{ min: 1, max: 120 }
+		);
+		const criticalTasksExpiringSoonWarningDays = parseNullableWholeNumber(
+			input.criticalTasksExpiringSoonWarningDays,
+			'Critical Tasks expiring-soon warning days',
+			{ min: 1, max: 365 }
+		);
 
-		if (typeof archiveRetentionMonths !== 'number' || archiveRetentionMonths < 1 || archiveRetentionMonths > 120) {
-			fail(400, 'Retention months must be between 1 and 120');
+		const updates: Record<string, number | null> = {};
+
+		if (archiveRetentionMonths !== undefined) {
+			updates.archive_retention_months = archiveRetentionMonths;
+		}
+		if (criticalTasksDefaultExpirationMonths !== undefined) {
+			updates.critical_tasks_default_expiration_months = criticalTasksDefaultExpirationMonths;
+		}
+		if (criticalTasksExpiringSoonWarningDays !== undefined) {
+			updates.critical_tasks_expiring_soon_warning_days = criticalTasksExpiringSoonWarningDays;
 		}
 
-		await ctx.rawStore.updateById('organizations', ctx.auth.orgId, {
-			archive_retention_months: Math.round(archiveRetentionMonths as number)
-		});
+		if (Object.keys(updates).length === 0) {
+			fail(400, 'At least one organization setting must be provided');
+		}
+
+		await ctx.rawStore.updateById('organizations', ctx.auth.orgId, updates);
 
 		ctx.audit.log({
 			action: 'organization.settings_updated',
 			resourceType: 'organization',
 			resourceId: ctx.auth.orgId,
-			details: { archive_retention_months: archiveRetentionMonths }
+			details: updates
 		});
 
 		return { success: true };
 	}
-});
+};
+
+export const POST = handle(_postConfig);

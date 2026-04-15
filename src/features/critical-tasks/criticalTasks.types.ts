@@ -38,6 +38,24 @@ export interface PersonnelIctCompletion {
 	createdAt: string;
 }
 
+export interface CriticalTasksSettings {
+	defaultExpirationMonths: number;
+	expiringSoonWarningDays: number;
+}
+
+export interface CriticalTasksSettingsInput {
+	defaultExpirationMonths?: number | null;
+	expiringSoonWarningDays?: number | null;
+}
+
+export type IctStatus = 'current' | 'expiring-soon' | 'expired' | 'not-recorded';
+
+export interface IctStatusInfo {
+	status: IctStatus;
+	expirationDate: string | null;
+	daysUntilExpiration: number | null;
+}
+
 export interface CriticalTasksPersonnelHistoryRow {
 	completion: PersonnelIctCompletion;
 	task: IctTask | null;

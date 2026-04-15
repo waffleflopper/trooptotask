@@ -1,3 +1,5 @@
+import type { Personnel } from '$lib/types';
+
 export const ICT_VALIDATION_METHODS = [
 	'Lecture',
 	'Demonstration',
@@ -34,4 +36,17 @@ export interface PersonnelIctCompletion {
 	notes: string | null;
 	loggedBy: string | null;
 	createdAt: string;
+}
+
+export interface CriticalTasksPersonnelHistoryRow {
+	completion: PersonnelIctCompletion;
+	task: IctTask | null;
+	taskCode: string;
+	taskTitle: string;
+	taskArchivedAt: string | null;
+}
+
+export interface CriticalTasksPersonnelHistoryData {
+	personnel: Personnel;
+	rows: CriticalTasksPersonnelHistoryRow[];
 }

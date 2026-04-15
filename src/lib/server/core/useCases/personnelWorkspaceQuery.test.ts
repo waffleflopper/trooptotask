@@ -82,6 +82,7 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 		expect(result.ratingSchemeEntries).toHaveLength(1);
+		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
 	});
 
 	it('excludes archived personnel from both arrays', async () => {
@@ -183,5 +184,47 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 		expect(result.ratingSchemeEntries).toHaveLength(1);
+		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
+	});
+});
+
+describe('fetchPersonnelBootstrap — loss warning window', () => {
+	it('returns the configured loss warning window from the organizations row', async () => {
+		const ctx = createQueryWithRawStorePortsContext();
+		ctx.store.seed('organizations', [{ id: 'test-org', loss_warning_window_days: 90 }]);
+
+		const result = await fetchPersonnelBootstrap(ctx);
+
+		expect(result.lossWarningWindowDays).toBe(90);
+	});
+
+	it('defaults the loss warning window to 180 when the organizations row is missing the value', async () => {
+		const ctx = createQueryWithRawStorePortsContext();
+
+		const result = await fetchPersonnelBootstrap(ctx);
+
+		expect(result.lossWarningWindowDays).toBe(180);
+	});
+
+	it('returns personnel IDs with acknowledged award tracking from personnel_extended_info', async () => {
+		const ctx = createQueryWithRawStorePortsContext();
+		ctx.store.seed('personnel_extended_info', [
+			{
+				id: 'pei-1',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				award_tracking_acknowledged_at: '2026-04-14T00:00:00Z'
+			},
+			{
+				id: 'pei-2',
+				organization_id: ORG,
+				personnel_id: 'p2',
+				award_tracking_acknowledged_at: null
+			}
+		]);
+
+		const result = await fetchPersonnelBootstrap(ctx);
+
+		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual(['p1']);
 	});
 });

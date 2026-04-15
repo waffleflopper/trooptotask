@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-04-15-upcoming-losses',
+		date: '2026-04-15',
+		title: 'Upcoming Loss Tracking',
+		items: [
+			'Personnel records now support ETS and PCS / DEROS dates, so upcoming losses can be tracked directly in TroopToTask',
+			'People & Duty now includes upcoming losses on the dashboard, making it easier to keep an eye on who is approaching ETS or PCS / DEROS',
+			'Personnel approaching a loss date get a small badge next to their name on the personnel page, with an Ack Award button to clear the award reminder once it is being tracked',
+			'The goal is simple: catch upcoming losses early and avoid forgetting to start awards before people leave'
+		]
+	},
+	{
 		id: '2026-04-12-readiness-dashboard',
 		date: '2026-04-12',
 		title: 'Readiness Dashboard',

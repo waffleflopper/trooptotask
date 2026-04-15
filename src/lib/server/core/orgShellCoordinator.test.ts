@@ -342,7 +342,8 @@ describe('OrgShellCoordinator', () => {
 			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
-			activeOnboardingPersonnelIds: ['p1']
+			activeOnboardingPersonnelIds: ['p1'],
+			lossWarningWindowDays: 180
 		};
 		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['calendar', calendarData]]));
 		const planner = createDefaultHydrationPlanner('org-1');
@@ -460,7 +461,8 @@ describe('OrgShellCoordinator', () => {
 			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
-			activeOnboardingPersonnelIds: ['p1']
+			activeOnboardingPersonnelIds: ['p1'],
+			lossWarningWindowDays: 180
 		};
 		let resolveCalendarData: ((value: CalendarBootstrap) => void) | undefined;
 		const workspaceData = new Promise<CalendarBootstrap>((resolve) => {
@@ -720,7 +722,9 @@ describe('OrgShellCoordinator', () => {
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' }],
 			pinnedGroups: ['Alpha'],
-			ratingSchemeEntries: []
+			ratingSchemeEntries: [],
+			lossWarningWindowDays: 180,
+			awardTrackingAcknowledgedPersonnelIds: []
 		};
 		const workspacePort = createInMemoryOrgWorkspacePort(
 			new Map<WorkspaceKey, unknown>([['personnel', personnelData]])
@@ -840,7 +844,9 @@ describe('OrgShellCoordinator', () => {
 			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
-			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType]
+			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType],
+			lossWarningWindowDays: 180,
+			awardTrackingAcknowledgedPersonnelIds: []
 		};
 		const workspacePort = createInMemoryOrgWorkspacePort(
 			new Map<WorkspaceKey, unknown>([['dashboard', dashboardData]])

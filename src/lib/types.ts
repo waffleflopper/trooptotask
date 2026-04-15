@@ -5,6 +5,8 @@ export interface Personnel {
 	firstName: string;
 	mos: string;
 	clinicRole: string;
+	ets?: string | null;
+	deros?: string | null;
 	groupId: string | null;
 	groupName: string;
 	archivedAt?: string | null;

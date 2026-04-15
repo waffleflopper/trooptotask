@@ -21,6 +21,8 @@ export const PersonnelEntity = defineEntity<Personnel>({
 		firstName: field(z.string(), { column: 'first_name' }),
 		mos: field(z.string().optional(), { insertDefault: '' }),
 		clinicRole: field(z.string(), { column: 'clinic_role' }),
+		ets: field(z.string().nullable().optional(), { insertDefault: null }),
+		deros: field(z.string().nullable().optional(), { insertDefault: null }),
 		groupId: field(z.string().nullable().optional(), { column: 'group_id', insertDefault: null }),
 		archivedAt: field(z.string().nullable().optional(), { column: 'archived_at', readOnly: true })
 	},
@@ -31,7 +33,9 @@ export const PersonnelEntity = defineEntity<Personnel>({
 		firstName: row.first_name as string,
 		mos: (row.mos as string) ?? '',
 		clinicRole: row.clinic_role as string,
-		groupId: row.group_id as string,
+		ets: (row.ets as string | null) ?? null,
+		deros: (row.deros as string | null) ?? null,
+		groupId: (row.group_id as string | null) ?? null,
 		groupName: ((row.groups as Record<string, unknown>)?.name as string) ?? '',
 		archivedAt: (row.archived_at as string) ?? null
 	})

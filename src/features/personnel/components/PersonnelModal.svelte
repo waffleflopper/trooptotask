@@ -22,6 +22,8 @@
 	let lastName = $state('');
 	let mos = $state('');
 	let clinicRole = $state('');
+	let ets = $state('');
+	let deros = $state('');
 	let groupId = $state('');
 	let submitAttempted = $state(false);
 
@@ -31,6 +33,8 @@
 		lastName = personnel?.lastName ?? '';
 		mos = personnel?.mos ?? '';
 		clinicRole = personnel?.clinicRole ?? '';
+		ets = personnel?.ets ?? '';
+		deros = personnel?.deros ?? '';
 		groupId = personnel?.groupId ?? '';
 		submitAttempted = false;
 	});
@@ -100,6 +104,8 @@
 				lastName: lastName.trim(),
 				mos: mos.trim(),
 				clinicRole: clinicRole.trim(),
+				ets: ets.trim() || null,
+				deros: deros.trim() || null,
 				groupId: groupId || null,
 				groupName: selectedGroupName
 			});
@@ -156,6 +162,11 @@
 			<FormField label="Role" id="clinicRole" placeholder="e.g., Medic, Physician" bind:value={clinicRole} />
 		</div>
 
+		<div class="form-row">
+			<FormField label="ETS" id="ets" type="date" bind:value={ets} />
+			<FormField label="PCS / DEROS" id="deros" type="date" bind:value={deros} />
+		</div>
+
 		<FormField label="Group" id="group">
 			<SearchSelect id="group" options={groupOptions} bind:value={groupId} placeholder="No Group Assigned" />
 		</FormField>
@@ -178,6 +189,18 @@
 					<span class="preview-detail">
 						<span class="preview-detail-label">Role</span>
 						<span>{clinicRole}</span>
+					</span>
+				{/if}
+				{#if ets}
+					<span class="preview-detail">
+						<span class="preview-detail-label">ETS</span>
+						<span>{ets}</span>
+					</span>
+				{/if}
+				{#if deros}
+					<span class="preview-detail">
+						<span class="preview-detail-label">PCS / DEROS</span>
+						<span>{deros}</span>
 					</span>
 				{/if}
 				{#if selectedGroupName}

@@ -106,6 +106,65 @@ describe('importPersonnelBatch', () => {
 		expect(ctx.subscription.tierCacheInvalidated).toBe(true);
 	});
 
+	it('preserves ETS and DEROS values from bulk import records', async () => {
+		const ctx = buildContext();
+
+		const result = await importPersonnelBatch(ctx, {
+			records: [
+				{
+					rank: 'SGT',
+					lastName: 'Smith',
+					firstName: 'John',
+					ets: '2027-05-01',
+					deros: '2026-11-30'
+				}
+			]
+		});
+
+		expect(result.errors).toHaveLength(0);
+		expect(result.inserted).toHaveLength(1);
+		expect(result.inserted[0]).toMatchObject({
+			ets: '2027-05-01',
+			deros: '2026-11-30'
+		});
+
+		const personnel = await ctx.store.findMany('personnel', 'test-org');
+		expect(personnel[0]).toMatchObject({
+			ets: '2027-05-01',
+			deros: '2026-11-30'
+		});
+	});
+
+	it('rejects malformed ETS and DEROS date strings during bulk import', async () => {
+		const ctx = buildContext();
+
+		const result = await importPersonnelBatch(ctx, {
+			records: [
+				{
+					rank: 'SGT',
+					lastName: 'Smith',
+					firstName: 'John',
+					ets: '12/25/2026'
+				},
+				{
+					rank: 'PFC',
+					lastName: 'Doe',
+					firstName: 'Jane',
+					deros: '2026-02-30'
+				}
+			]
+		});
+
+		expect(result.inserted).toHaveLength(0);
+		expect(result.errors).toEqual([
+			{ index: 0, message: 'ETS must be a valid YYYY-MM-DD date' },
+			{ index: 1, message: 'DEROS must be a valid YYYY-MM-DD date' }
+		]);
+
+		const personnel = await ctx.store.findMany('personnel', 'test-org');
+		expect(personnel).toHaveLength(0);
+	});
+
 	it('logs audit event with count', async () => {
 		const ctx = buildContext();
 		await importPersonnelBatch(ctx, {

@@ -1,6 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
@@ -19,7 +19,7 @@ interface ExcelExportOutput {
 	_filename?: string;
 }
 
-export const POST = handle<ExcelExportInput, ExcelExportOutput>({
+export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 	permission: 'manageMembers',
 	mutation: true,
 	parseInput: (event: RequestEvent) => ({
@@ -122,6 +122,8 @@ export const POST = handle<ExcelExportInput, ExcelExportOutput>({
 				{ header: 'MOS', key: 'mos', width: 12 },
 				{ header: 'Role', key: 'clinic_role', width: 12 },
 				{ header: 'Group', key: 'group', width: 20 },
+				{ header: 'ETS', key: 'ets', width: 14 },
+				{ header: 'PCS / DEROS', key: 'deros', width: 14 },
 				{ header: 'Emergency Contact', key: 'emergency_contact', width: 25 },
 				{ header: 'Emergency Phone', key: 'emergency_phone', width: 18 },
 				{ header: 'Phone', key: 'phone', width: 18 },
@@ -138,6 +140,8 @@ export const POST = handle<ExcelExportInput, ExcelExportOutput>({
 					mos: p.mos,
 					clinic_role: p.clinic_role,
 					group: groupMap.get(p.group_id) ?? '',
+					ets: p.ets ?? '',
+					deros: p.deros ?? '',
 					emergency_contact: ext?.emergency_contact_name ?? '',
 					emergency_phone: ext?.emergency_contact_phone ?? '',
 					phone: ext?.personal_phone ?? '',
@@ -410,7 +414,9 @@ export const POST = handle<ExcelExportInput, ExcelExportOutput>({
 			}
 		});
 	}
-});
+};
+
+export const POST = handle(_postConfig);
 
 function styleHeaderRow(sheet: ExcelJS.Worksheet) {
 	const headerRow = sheet.getRow(1);

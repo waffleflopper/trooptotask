@@ -58,7 +58,8 @@ describe('calendar layout server load', () => {
 			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
 			statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
-			activeOnboardingPersonnelIds: ['p1']
+			activeOnboardingPersonnelIds: ['p1'],
+			lossWarningWindowDays: 180
 		} as CalendarBootstrap;
 		const depends = vi.fn();
 		const workspacePort = createInMemoryOrgWorkspacePort(new Map<WorkspaceKey, unknown>([['calendar', calendarData]]));

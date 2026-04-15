@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { QueryPorts } from '$lib/server/core/ports';
-import { fetchDashboardData } from './dashboardQuery';
+import { fetchDashboardBootstrap, fetchDashboardData } from './dashboardQuery';
 
 const ORG = 'test-org';
 const USER = 'user-1';
@@ -140,5 +140,50 @@ describe('fetchDashboardData', () => {
 		const result = await fetchDashboardData(ctx);
 
 		expect(result.pinnedGroups).toEqual([]);
+	});
+});
+
+describe('fetchDashboardBootstrap', () => {
+	it('returns the configured loss warning window from the organizations row', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed('organizations', [{ id: ORG, loss_warning_window_days: 90 }]);
+
+		const result = await fetchDashboardBootstrap(ctx);
+
+		expect(result.lossWarningWindowDays).toBe(90);
+	});
+
+	it('defaults the loss warning window to 180 when the organizations row is missing the value', async () => {
+		const ctx = buildCtx();
+
+		const result = await fetchDashboardBootstrap(ctx);
+
+		expect(result.lossWarningWindowDays).toBe(180);
+	});
+
+	it('returns personnel IDs whose award tracking has been acknowledged', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+
+		store.seed('personnel_extended_info', [
+			{
+				id: 'ext-1',
+				organization_id: ORG,
+				personnel_id: 'p-1',
+				award_tracking_acknowledged_at: '2026-04-14T12:00:00.000Z'
+			},
+			{
+				id: 'ext-2',
+				organization_id: ORG,
+				personnel_id: 'p-2',
+				award_tracking_acknowledged_at: null
+			}
+		]);
+
+		const result = await fetchDashboardBootstrap(ctx);
+
+		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual(['p-1']);
 	});
 });

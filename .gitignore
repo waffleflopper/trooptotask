@@ -48,6 +48,7 @@ e2e/.auth/
 
 # Test data
 test-data/
+tmp/
 
 # Docs artifacts
 docs/pr74_full_diff.txt

@@ -22,6 +22,8 @@
 	let lastName = $state('');
 	let mos = $state('');
 	let clinicRole = $state('');
+	let ets = $state('');
+	let deros = $state('');
 	let groupId = $state('');
 	let submitAttempted = $state(false);
 
@@ -31,6 +33,8 @@
 		lastName = personnel?.lastName ?? '';
 		mos = personnel?.mos ?? '';
 		clinicRole = personnel?.clinicRole ?? '';
+		ets = personnel?.ets ?? '';
+		deros = personnel?.deros ?? '';
 		groupId = personnel?.groupId ?? '';
 		submitAttempted = false;
 	});
@@ -100,6 +104,8 @@
 				lastName: lastName.trim(),
 				mos: mos.trim(),
 				clinicRole: clinicRole.trim(),
+				ets: ets.trim() || null,
+				deros: deros.trim() || null,
 				groupId: groupId || null,
 				groupName: selectedGroupName
 			});
@@ -156,38 +162,14 @@
 			<FormField label="Role" id="clinicRole" placeholder="e.g., Medic, Physician" bind:value={clinicRole} />
 		</div>
 
+		<div class="form-row">
+			<FormField label="ETS" id="ets" type="date" bind:value={ets} />
+			<FormField label="PCS / DEROS" id="deros" type="date" bind:value={deros} />
+		</div>
+
 		<FormField label="Group" id="group">
 			<SearchSelect id="group" options={groupOptions} bind:value={groupId} placeholder="No Group Assigned" />
 		</FormField>
-
-		<!-- Preview -->
-		<div class="preview">
-			<span class="preview-label">Roster Preview</span>
-			<div class="preview-main">
-				<span class="preview-rank">{rank}</span>
-				<span class="preview-name">{lastName || 'Last'}, {firstName || 'First'}</span>
-			</div>
-			<div class="preview-meta">
-				{#if mos}
-					<span class="preview-detail">
-						<span class="preview-detail-label">MOS</span>
-						<span>{mos}</span>
-					</span>
-				{/if}
-				{#if clinicRole}
-					<span class="preview-detail">
-						<span class="preview-detail-label">Role</span>
-						<span>{clinicRole}</span>
-					</span>
-				{/if}
-				{#if selectedGroupName}
-					<span class="preview-detail">
-						<span class="preview-detail-label">Group</span>
-						<span>{selectedGroupName}</span>
-					</span>
-				{/if}
-			</div>
-		</div>
 	</form>
 
 	{#snippet footer()}
@@ -250,79 +232,6 @@
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: var(--sp-4);
-	}
-
-	.preview {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: var(--sp-3);
-		padding: var(--sp-4);
-		background: color-mix(in srgb, var(--surface-subtle) 70%, var(--surface-panel) 30%);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		font-size: var(--text-sm);
-	}
-
-	.preview-label {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.preview-main {
-		display: flex;
-		align-items: baseline;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.preview-rank {
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--amber-dark);
-	}
-
-	.preview-name {
-		font-family: var(--font-display);
-		font-size: clamp(1.2rem, 1rem + 0.3vw, 1.5rem);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--text-primary);
-	}
-
-	.preview-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-	}
-
-	.preview-detail {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-		min-height: 24px;
-		padding: 3px 8px;
-		background: var(--surface-panel);
-		border: var(--border-thin);
-		border-radius: var(--radius-sm);
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-	}
-
-	.preview-detail-label {
-		font-family: var(--font-mono);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
 	}
 
 	.archive-btn {

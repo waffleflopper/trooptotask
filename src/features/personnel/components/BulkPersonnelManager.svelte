@@ -11,6 +11,7 @@
 	import { useDataTable } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import type { ColumnDef } from '$lib/components/ui/data-table/useDataTable.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import BulkPersonnelMerge from './BulkPersonnelMerge.svelte';
 
 	interface GroupData {
 		group: string;
@@ -28,7 +29,7 @@
 
 	let { personnelByGroup, groups, orgId, onImportComplete, onBulkDelete, onClose }: Props = $props();
 
-	type TabType = 'import' | 'delete';
+	type TabType = 'import' | 'merge' | 'delete';
 	let activeTab = $state<TabType>('import');
 	let archiveSearch = $state('');
 
@@ -351,7 +352,11 @@
 
 	// Width is wider during preview to accommodate the table
 	const modalWidth = $derived(
-		activeTab === 'delete' || importStep === 'preview' || importStep === 'importing' || importStep === 'results'
+		activeTab === 'delete' ||
+			activeTab === 'merge' ||
+			importStep === 'preview' ||
+			importStep === 'importing' ||
+			importStep === 'results'
 			? '800px'
 			: '600px'
 	);
@@ -376,6 +381,16 @@
 					/>
 				</svg>
 				Import
+			</button>
+			<button class="tab" type="button" class:active={activeTab === 'merge'} onclick={() => (activeTab = 'merge')}>
+				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+					<path
+						fill-rule="evenodd"
+						d="M4 4a1 1 0 011-1h4a1 1 0 010 2H6v9h3a1 1 0 110 2H5a1 1 0 01-1-1V4zm7.293 2.293a1 1 0 011.414 0L16 9.586V8a1 1 0 112 0v4a1 1 0 01-1 1h-4a1 1 0 110-2h1.586l-3-3a1 1 0 010-1.414z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+				Backfill ETS/DEROS
 			</button>
 			<button class="tab" type="button" class:active={activeTab === 'delete'} onclick={() => (activeTab = 'delete')}>
 				<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
@@ -541,8 +556,8 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 						{/if}
 					</div>
 				{/if}
-
-				<!-- ARCHIVE tab (unchanged) -->
+			{:else if activeTab === 'merge'}
+				<BulkPersonnelMerge {orgId} personnel={allPersonnel} {groups} onComplete={handleDone} />
 			{:else}
 				<div class="delete-section">
 					<div class="delete-controls">
@@ -670,6 +685,8 @@ CIV, Brown, Sarah, RN, Receptionist, Support</pre>
 			{:else if importStep === 'results'}
 				<button class="btn btn-primary" type="button" onclick={handleDone}>Done</button>
 			{/if}
+		{:else if activeTab === 'merge'}
+			<!-- Merge workflow manages its own action buttons -->
 		{:else}
 			<button class="btn btn-secondary" type="button" onclick={onClose}>Cancel</button>
 			<button class="btn btn-warning" type="button" onclick={handleArchive} disabled={selectedIds.size === 0}>

@@ -1,6 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { handle } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { isBillingEnabled } from '$lib/config/billing';
 import { TIER_CONFIG } from '$lib/types/subscription';
@@ -18,7 +18,7 @@ interface ExportOutput {
 	_orgId?: string;
 }
 
-export const POST = handle<ExportInput, ExportOutput>({
+export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 	permission: 'manageMembers',
 	mutation: true,
 	parseInput: (event: RequestEvent) => ({
@@ -164,4 +164,6 @@ export const POST = handle<ExportInput, ExportOutput>({
 			}
 		});
 	}
-});
+};
+
+export const POST = handle(_postConfig);

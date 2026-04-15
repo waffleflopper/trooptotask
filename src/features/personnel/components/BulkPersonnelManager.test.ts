@@ -113,4 +113,13 @@ describe('BulkPersonnelManager', () => {
 		expect(screen.getByText('Smith, Jamie')).toBeTruthy();
 		expect(screen.getByText('Medic')).toBeTruthy();
 	});
+
+	it('shows a dedicated merge workflow tab for ETS and PCS / DEROS backfills', async () => {
+		renderManager();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS' }));
+
+		expect(screen.getByText('Bulk Update Existing Personnel')).toBeTruthy();
+		expect(screen.getByText(/Matching uses exact Rank \+ Last Name \+ First Name/i)).toBeTruthy();
+	});
 });

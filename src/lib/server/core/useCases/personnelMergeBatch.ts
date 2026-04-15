@@ -1,0 +1,150 @@
+import { fail } from '$lib/server/core/errors';
+import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { sanitizeString } from '$lib/server/validation';
+import type { WritePorts } from '$lib/server/core/ports';
+
+const entity = PersonnelEntity;
+const MAX_BATCH_SIZE = 500;
+
+interface MergeBatchRecord {
+	rank: string;
+	lastName: string;
+	firstName: string;
+	groupName?: string | null;
+	ets?: string | null;
+	deros?: string | null;
+}
+
+interface MergeBatchInput {
+	records: MergeBatchRecord[];
+}
+
+interface BatchMessage {
+	index: number;
+	message: string;
+}
+
+interface MergeBatchResult {
+	matched: Array<{ index: number; personnelId: string }>;
+	updated: unknown[];
+	skipped: BatchMessage[];
+	ambiguous: BatchMessage[];
+	errors: BatchMessage[];
+}
+
+function normalize(value: string | null | undefined): string {
+	return (value ?? '').trim().toLowerCase();
+}
+
+export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInput): Promise<MergeBatchResult> {
+	ctx.auth.requireEdit('personnel');
+
+	const isReadOnly = await ctx.readOnlyGuard.check();
+	if (isReadOnly) fail(403, 'Organization is in read-only mode');
+
+	if (!Array.isArray(input.records) || input.records.length === 0) {
+		fail(400, 'records array is required');
+	}
+
+	if (input.records.length > MAX_BATCH_SIZE) {
+		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
+	}
+
+	const [people, groups] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
+			isNull: { archived_at: true }
+		}),
+		ctx.store.findMany<{ id: string; name: string }>('groups', ctx.auth.orgId)
+	]);
+
+	const groupNameById = new Map(groups.map((group) => [group.id, group.name]));
+	const matched: Array<{ index: number; personnelId: string }> = [];
+	const updated: Record<string, unknown>[] = [];
+	const skipped: BatchMessage[] = [];
+	const ambiguous: BatchMessage[] = [];
+	const errors: BatchMessage[] = [];
+
+	for (let index = 0; index < input.records.length; index++) {
+		const record = input.records[index];
+		const rank = sanitizeString(record.rank);
+		const lastName = sanitizeString(record.lastName);
+		const firstName = sanitizeString(record.firstName);
+
+		if (!rank || !lastName || !firstName) {
+			errors.push({ index, message: 'Rank, Last Name, and First Name are required' });
+			continue;
+		}
+
+		const desiredEts = sanitizeString(record.ets);
+		const desiredDeros = sanitizeString(record.deros);
+		if (!desiredEts && !desiredDeros) {
+			skipped.push({ index, message: 'No ETS or DEROS value provided for update' });
+			continue;
+		}
+
+		const desiredGroupName = sanitizeString(record.groupName);
+		const candidates = people.filter((person) => {
+			if (normalize(person.rank as string) !== rank.toLowerCase()) return false;
+			if (normalize(person.last_name as string) !== lastName.toLowerCase()) return false;
+			if (normalize(person.first_name as string) !== firstName.toLowerCase()) return false;
+			if (!desiredGroupName) return true;
+
+			const groupId = (person.group_id as string | null) ?? null;
+			return normalize(groupId ? groupNameById.get(groupId) : null) === desiredGroupName.toLowerCase();
+		});
+
+		if (candidates.length === 0) {
+			errors.push({ index, message: 'No active personnel row matched this record' });
+			continue;
+		}
+
+		if (candidates.length > 1) {
+			ambiguous.push({ index, message: 'Multiple personnel rows matched this record' });
+			continue;
+		}
+
+		const person = candidates[0];
+		matched.push({ index, personnelId: person.id as string });
+
+		const patch: Record<string, unknown> = {};
+		if (desiredEts && desiredEts !== ((person.ets as string | null) ?? null)) {
+			patch.ets = desiredEts;
+		}
+		if (desiredDeros && desiredDeros !== ((person.deros as string | null) ?? null)) {
+			patch.deros = desiredDeros;
+		}
+
+		if (Object.keys(patch).length === 0) {
+			skipped.push({ index, message: 'Matched personnel already has the requested values' });
+			continue;
+		}
+
+		const result = await ctx.store.update<Record<string, unknown>>(
+			entity.table,
+			ctx.auth.orgId,
+			person.id as string,
+			patch
+		);
+		updated.push(result);
+	}
+
+	ctx.audit.log({
+		action: 'personnel.bulk_merged',
+		resourceType: 'personnel',
+		details: {
+			matched: matched.length,
+			updated: updated.length,
+			skipped: skipped.length,
+			ambiguous: ambiguous.length,
+			errors: errors.length
+		}
+	});
+
+	return {
+		matched,
+		updated: updated.map((row) => entity.fromDb(row)),
+		skipped,
+		ambiguous,
+		errors
+	};
+}

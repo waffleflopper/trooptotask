@@ -5,14 +5,20 @@
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
+	import IctMatrix from '$features/critical-tasks/components/IctMatrix.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
+	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
+	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 
 	let { data } = $props();
 
 	const org = getOrgContext();
 	const orgId = $derived(data.orgId ?? org.orgId);
+	const orgName = $derived(data.orgName ?? org.orgName);
 	const permissions = $derived(data.permissions ?? org.permissions);
+	let selectedGroupId = $state('');
+	let gapsOnly = $state(false);
 	const overflowItems = $derived(
 		org.isPrivileged
 			? [
@@ -38,6 +44,23 @@
 			ictTasksStore.loading ||
 			personnelIctCompletionsStore.loading
 	);
+
+	const activeTasks = $derived(getActiveIctTasksForLibrary(ictTasksStore.items));
+	const criticalTasksSettings = $derived(normalizeCriticalTasksSettings(data.criticalTasksSettings));
+
+	$effect(() => {
+		if (selectedGroupId && !groupsStore.items.some((group) => group.id === selectedGroupId)) {
+			selectedGroupId = '';
+		}
+	});
+
+	function handleGroupFilterChange(event: Event): void {
+		selectedGroupId = (event.currentTarget as HTMLSelectElement).value;
+	}
+
+	function handleGapsOnlyChange(event: Event): void {
+		gapsOnly = (event.currentTarget as HTMLInputElement).checked;
+	}
 </script>
 
 <svelte:head>
@@ -56,28 +79,50 @@
 		<section class="workspace-state" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
 			<SkeletonGrid rows={6} columns={4} />
 		</section>
-	{:else if ictTasksStore.items.length === 0}
+	{:else if activeTasks.length === 0}
 		<section class="workspace-state">
 			<EmptyState message="No critical tasks yet. Add ICTL tasks to begin tracking annual proficiency." />
 		</section>
 	{:else}
-		<section class="workspace-state" aria-labelledby="critical-tasks-ready-title">
-			<div class="summary-strip">
-				<div>
-					<span class="summary-value">{personnelStore.items.length}</span>
-					<span class="summary-label">Personnel</span>
+		<section class="matrix-workspace" aria-label="Critical Tasks matrix workspace">
+			<div class="matrix-controls">
+				<div class="filter-field">
+					<label for="critical-tasks-group-filter">Group</label>
+					<select
+						id="critical-tasks-group-filter"
+						class="input"
+						value={selectedGroupId}
+						onchange={handleGroupFilterChange}
+					>
+						<option value="">All groups</option>
+						{#each groupsStore.items as group (group.id)}
+							<option value={group.id}>{group.name}</option>
+						{/each}
+					</select>
 				</div>
-				<div>
-					<span class="summary-value">{ictTasksStore.items.length}</span>
-					<span class="summary-label">Tasks</span>
-				</div>
-				<div>
-					<span class="summary-value">{personnelIctCompletionsStore.items.length}</span>
-					<span class="summary-label">Validations</span>
+
+				<label class="gap-toggle">
+					<input type="checkbox" checked={gapsOnly} onchange={handleGapsOnlyChange} />
+					<span>Show readiness gaps only</span>
+				</label>
+
+				<div class="matrix-counts" aria-label="Critical Tasks matrix totals">
+					<span>{personnelStore.items.length} personnel</span>
+					<span>{activeTasks.length} active tasks</span>
+					<span>{personnelIctCompletionsStore.items.length} validations</span>
 				</div>
 			</div>
-			<h2 id="critical-tasks-ready-title">Workspace Ready</h2>
-			<p>Task matrix and readiness reports will build from this workspace data.</p>
+
+			<IctMatrix
+				personnel={personnelStore.items}
+				tasks={ictTasksStore.items}
+				completions={personnelIctCompletionsStore.items}
+				groups={groupsStore.items}
+				settings={criticalTasksSettings}
+				{selectedGroupId}
+				{gapsOnly}
+				{orgName}
+			/>
 		</section>
 	{/if}
 </div>
@@ -92,12 +137,19 @@
 		padding: var(--sp-6);
 	}
 
+	.matrix-workspace {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-4);
+		min-height: 0;
+		padding: var(--sp-6);
+	}
+
 	.page-message {
 		max-width: 52rem;
 	}
 
-	.page-message h2,
-	.workspace-state h2 {
+	.page-message h2 {
 		margin: 0 0 var(--sp-2);
 		color: var(--text-primary);
 		font-family: var(--font-display);
@@ -106,42 +158,75 @@
 		text-transform: uppercase;
 	}
 
-	.page-message p,
-	.workspace-state p {
+	.page-message p {
 		margin: 0;
 		color: var(--text-secondary);
 	}
 
-	.summary-strip {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-		gap: var(--sp-3);
-		margin-bottom: var(--sp-6);
-	}
-
-	.summary-strip > div {
+	.matrix-controls {
 		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		padding: var(--sp-4);
+		flex-wrap: wrap;
+		align-items: end;
+		gap: var(--sp-4);
+		padding: var(--sp-3);
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
 		background: var(--surface-panel);
 	}
 
-	.summary-value {
-		color: var(--text-primary);
-		font-family: var(--font-display);
-		font-size: var(--text-3xl);
-		font-weight: var(--font-weight-display);
-		line-height: 1;
+	.filter-field {
+		display: flex;
+		min-width: 12rem;
+		flex-direction: column;
+		gap: var(--sp-1);
 	}
 
-	.summary-label {
+	.filter-field label,
+	.gap-toggle,
+	.matrix-counts {
 		color: var(--text-secondary);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		letter-spacing: var(--letter-spacing-mono);
 		text-transform: uppercase;
+	}
+
+	.gap-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		min-height: 2.5rem;
+		cursor: pointer;
+	}
+
+	.gap-toggle input {
+		width: 1rem;
+		height: 1rem;
+	}
+
+	.matrix-counts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-3);
+		margin-left: auto;
+	}
+
+	@media (max-width: 720px) {
+		.matrix-workspace {
+			padding: var(--sp-3);
+		}
+
+		.matrix-controls {
+			align-items: stretch;
+		}
+
+		.filter-field,
+		.matrix-counts {
+			width: 100%;
+		}
+
+		.matrix-counts {
+			margin-left: 0;
+		}
 	}
 </style>

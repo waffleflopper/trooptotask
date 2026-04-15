@@ -118,6 +118,7 @@ function makeLossRecord(personId: string, triggerType: UpcomingLossRecord['trigg
 		personId,
 		personName: `SGT Smith`,
 		rank: 'SGT',
+		lastName: 'Smith',
 		triggerType,
 		targetDate: '2026-07-01',
 		daysRemaining: 78,

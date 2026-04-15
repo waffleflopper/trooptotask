@@ -19,12 +19,19 @@ import type { Personnel } from '$lib/types';
 export type LossTriggerType = 'ETS' | 'PCS / DEROS';
 
 export interface UpcomingLossRecord {
-	/** Personnel ID (unique per entry — at most one entry per person) */
+	/**
+	 * Stable identifiers for the same person.
+	 * `id` is retained for legacy keyed-list call sites.
+	 * `personId` stays explicit for code that maps back to personnel records.
+	 * Both fields intentionally carry the same value.
+	 */
 	id: string;
 	personId: string;
 	/** Display name: "<rank> <lastName>" */
 	personName: string;
 	rank: string;
+	/** Last name rendered directly by widgets. */
+	lastName: string;
 	/** Which date triggered the warning */
 	triggerType: LossTriggerType;
 	/** The relevant departure date (YYYY-MM-DD) */
@@ -32,10 +39,8 @@ export interface UpcomingLossRecord {
 	/** Calendar days from today to targetDate (0 = today) */
 	daysRemaining: number;
 	/**
-	 * True whenever the person is inside the warning window.
-	 * V1: always true for every entry in the list.
-	 * Designed as a first-class field so a future awards workflow can refine
-	 * this signal without touching call sites.
+	 * True when award tracking has not been acknowledged for this person.
+	 * This is the inverse of `awardTrackingAcknowledged`.
 	 */
 	awardDueSoon: boolean;
 	/** True when the leader has acknowledged award tracking for this person. */
@@ -113,6 +118,7 @@ export function evaluateUpcomingLosses(
 			personId: person.id,
 			personName: `${person.rank} ${person.lastName}`,
 			rank: person.rank,
+			lastName: person.lastName,
 			triggerType: nearest.triggerType,
 			targetDate: nearest.date,
 			daysRemaining: nearest.days,

@@ -46,7 +46,7 @@
 					<!-- Person identity -->
 					<div class="person-col">
 						<span class="person-rank">{entry.rank}</span>
-						<span class="person-name">{entry.personName.replace(/^[A-Z0-9]+ /, '')}</span>
+						<span class="person-name">{entry.lastName}</span>
 					</div>
 
 					<!-- Trigger type label -->

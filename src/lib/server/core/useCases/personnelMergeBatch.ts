@@ -5,6 +5,7 @@ import type { WritePorts } from '$lib/server/core/ports';
 
 const entity = PersonnelEntity;
 const MAX_BATCH_SIZE = 500;
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 interface MergeBatchRecord {
 	rank: string;
@@ -34,6 +35,37 @@ interface MergeBatchResult {
 
 function normalize(value: string | null | undefined): string {
 	return (value ?? '').trim().toLowerCase();
+}
+
+function isValidIsoDate(value: string): boolean {
+	if (!ISO_DATE_REGEX.test(value)) return false;
+
+	const [year, month, day] = value.split('-').map((part) => Number(part));
+	const utcDate = new Date(Date.UTC(year, month - 1, day));
+
+	return utcDate.getUTCFullYear() === year && utcDate.getUTCMonth() === month - 1 && utcDate.getUTCDate() === day;
+}
+
+function validateBatchDateFields(ets: string | null | undefined, deros: string | null | undefined): string | null {
+	const invalidFields: string[] = [];
+	const sanitizedEts = sanitizeString(ets);
+	const sanitizedDeros = sanitizeString(deros);
+
+	if (sanitizedEts && !isValidIsoDate(sanitizedEts)) {
+		invalidFields.push('ETS');
+	}
+
+	if (sanitizedDeros && !isValidIsoDate(sanitizedDeros)) {
+		invalidFields.push('DEROS');
+	}
+
+	if (invalidFields.length === 0) return null;
+
+	if (invalidFields.length === 1) {
+		return `${invalidFields[0]} must be a valid YYYY-MM-DD date`;
+	}
+
+	return `${invalidFields.join(' and ')} must be valid YYYY-MM-DD dates`;
 }
 
 export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInput): Promise<MergeBatchResult> {
@@ -77,6 +109,11 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 
 		const desiredEts = sanitizeString(record.ets);
 		const desiredDeros = sanitizeString(record.deros);
+		const dateValidationError = validateBatchDateFields(record.ets, record.deros);
+		if (dateValidationError) {
+			errors.push({ index, message: dateValidationError });
+			continue;
+		}
 		if (!desiredEts && !desiredDeros) {
 			skipped.push({ index, message: 'No ETS or DEROS value provided for update' });
 			continue;
@@ -87,10 +124,7 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 			if (normalize(person.rank as string) !== rank.toLowerCase()) return false;
 			if (normalize(person.last_name as string) !== lastName.toLowerCase()) return false;
 			if (normalize(person.first_name as string) !== firstName.toLowerCase()) return false;
-			if (!desiredGroupName) return true;
-
-			const groupId = (person.group_id as string | null) ?? null;
-			return normalize(groupId ? groupNameById.get(groupId) : null) === desiredGroupName.toLowerCase();
+			return true;
 		});
 
 		if (candidates.length === 0) {
@@ -98,12 +132,33 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 			continue;
 		}
 
-		if (candidates.length > 1) {
+		let person: (typeof candidates)[number] | null = null;
+		if (candidates.length === 1) {
+			person = candidates[0];
+		} else if (desiredGroupName) {
+			const groupMatches = candidates.filter((candidate) => {
+				const groupId = (candidate.group_id as string | null) ?? null;
+				return normalize(groupId ? groupNameById.get(groupId) : null) === desiredGroupName.toLowerCase();
+			});
+
+			if (groupMatches.length === 1) {
+				person = groupMatches[0];
+			} else if (groupMatches.length === 0) {
+				errors.push({ index, message: 'No active personnel row matched this record' });
+				continue;
+			} else {
+				ambiguous.push({ index, message: 'Multiple personnel rows matched this record' });
+				continue;
+			}
+		} else {
 			ambiguous.push({ index, message: 'Multiple personnel rows matched this record' });
 			continue;
 		}
 
-		const person = candidates[0];
+		if (!person) {
+			errors.push({ index, message: 'No active personnel row matched this record' });
+			continue;
+		}
 		matched.push({ index, personnelId: person.id as string });
 
 		const patch: Record<string, unknown> = {};

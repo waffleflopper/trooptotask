@@ -10,6 +10,7 @@ function makeLoss(overrides: Partial<UpcomingLossRecord> = {}): UpcomingLossReco
 		personId: 'p1',
 		personName: 'SGT Taylor',
 		rank: 'SGT',
+		lastName: 'Taylor',
 		triggerType: 'ETS',
 		targetDate: '2026-05-01',
 		daysRemaining: 17,
@@ -38,15 +39,16 @@ describe('UpcomingLossesWidget', () => {
 		expect(screen.queryByRole('list')).toBeNull();
 	});
 
-	it('renders labels, formatted dates, ordering, and award signals for provided loss entries', () => {
+	it('renders last names directly, formatted dates, ordering, and award signals for provided loss entries', () => {
 		render(UpcomingLossesWidget, {
 			props: {
 				losses: [
 					makeLoss({
 						id: 'loss-1',
 						personId: 'p1',
-						personName: 'SSG Taylor',
+						personName: 'SSG ShouldNotRender',
 						rank: 'SSG',
+						lastName: 'Taylor',
 						triggerType: 'PCS / DEROS',
 						targetDate: '2026-04-20',
 						daysRemaining: 6
@@ -56,6 +58,7 @@ describe('UpcomingLossesWidget', () => {
 						personId: 'p2',
 						personName: 'SGT Jordan',
 						rank: 'SGT',
+						lastName: 'Jordan',
 						triggerType: 'ETS',
 						targetDate: '2026-05-01',
 						daysRemaining: 17
@@ -68,10 +71,13 @@ describe('UpcomingLossesWidget', () => {
 		const rows = screen.getAllByRole('listitem');
 
 		expect(rows).toHaveLength(2);
+		expect(rows[0].textContent).toContain('SSG');
 		expect(rows[0].textContent).toContain('Taylor');
+		expect(rows[0].textContent).not.toContain('ShouldNotRender');
 		expect(rows[0].textContent).toContain('PCS / DEROS');
 		expect(rows[0].textContent).toContain('Fmt 2026-04-20');
 		expect(rows[0].textContent).toContain('6 days');
+		expect(rows[1].textContent).toContain('SGT');
 		expect(rows[1].textContent).toContain('Jordan');
 		expect(rows[1].textContent).toContain('ETS');
 		expect(rows[1].textContent).toContain('Fmt 2026-05-01');

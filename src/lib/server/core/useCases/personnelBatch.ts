@@ -23,9 +23,11 @@ interface BatchRecord {
 	rank: string;
 	lastName: string;
 	firstName: string;
-	mos?: string;
-	clinicRole?: string;
-	groupName?: string;
+	mos?: string | null;
+	clinicRole?: string | null;
+	groupName?: string | null;
+	ets?: string | null;
+	deros?: string | null;
 }
 
 interface BatchInput {
@@ -105,6 +107,8 @@ export async function importPersonnelBatch(ctx: WriteWithSubscriptionPorts, inpu
 				first_name: firstName,
 				mos: sanitizeString(rec.mos) || '',
 				clinic_role: sanitizeString(rec.clinicRole) || '',
+				ets: sanitizeString(rec.ets) || null,
+				deros: sanitizeString(rec.deros) || null,
 				group_id: groupId
 			}
 		});

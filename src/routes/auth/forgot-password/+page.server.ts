@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
+import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.session) {
@@ -18,7 +19,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Email is required', email });
 		}
 
-		const redirectTo = `${url.origin}/auth/reset-password`;
+		const redirectTo = getAuthConfirmRedirectTo(url.origin, 'recovery');
 
 		const { error } = await locals.supabase.auth.resetPasswordForEmail(email, {
 			redirectTo

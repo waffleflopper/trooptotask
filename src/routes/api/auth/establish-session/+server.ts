@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getPendingAuthFlowCookieName, sanitizePendingAuthFlow } from '$lib/server/mfaGate';
+import { sanitizePendingAuthFlow, setPendingAuthFlowCookie } from '$lib/server/mfaGate';
 
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 	const { accessToken, refreshToken, flow } = (await request.json()) as {
@@ -34,13 +34,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 
 	const authFlow = sanitizePendingAuthFlow(flow);
 	if (authFlow) {
-		cookies.set(getPendingAuthFlowCookieName(), authFlow, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: !import.meta.env.DEV,
-			maxAge: 60 * 60
-		});
+		setPendingAuthFlowCookie(cookies, authFlow);
 	}
 
 	return json({ ok: true });

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { appBaseUrl } from '../fixtures/app';
+import { buildAuthConfirmRedirectTo, continueFromAuthConfirm, expectAuthConfirmLink } from '../fixtures/auth-confirm';
 import { adminClient } from '../fixtures/supabase';
 import { clearMailbox, extractFirstLink, waitForMessage } from '../fixtures/mailpit';
 
@@ -30,6 +30,8 @@ async function expectPasswordLogin(email: string, password: string, timeoutMs: n
 }
 
 test.describe('Auth email flows', () => {
+	test.setTimeout(60_000);
+
 	test('invite email lands on accept-invite and produces a usable password login', async ({ page }) => {
 		const email = `invite-${Date.now()}@example.test`;
 		const password = 'InvitePassword123';
@@ -39,19 +41,17 @@ test.describe('Auth email flows', () => {
 			await clearMailbox();
 
 			const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-				redirectTo: `${appBaseUrl}/auth/accept-invite`
+				redirectTo: buildAuthConfirmRedirectTo('invite')
 			});
 
 			expect(error).toBeNull();
 			userId = data.user?.id ?? null;
 
-			const inviteEmail = await waitForMessage(email, 'invited');
+			const inviteEmail = await waitForMessage(email, ['invited', 'trooptotask invite is ready']);
 			const inviteLink = extractFirstLink(inviteEmail);
 
-			expect(decodeURIComponent(inviteLink)).toContain(`redirect_to=${appBaseUrl}/auth/accept-invite`);
-
-			await page.goto(inviteLink);
-			await expect(page).toHaveURL(/\/auth\/accept-invite/);
+			expectAuthConfirmLink(inviteLink, 'invite');
+			await continueFromAuthConfirm(page, inviteLink, 'invite');
 
 			await page.locator('input#password').fill(password);
 			await page.locator('input#confirmPassword').fill(password);
@@ -91,10 +91,8 @@ test.describe('Auth email flows', () => {
 			const recoveryEmail = await waitForMessage(email, 'reset');
 			const recoveryLink = extractFirstLink(recoveryEmail);
 
-			expect(decodeURIComponent(recoveryLink)).toContain(`redirect_to=${appBaseUrl}/auth/reset-password`);
-
-			await page.goto(recoveryLink);
-			await expect(page).toHaveURL(/\/auth\/reset-password/);
+			expectAuthConfirmLink(recoveryLink, 'recovery');
+			await continueFromAuthConfirm(page, recoveryLink, 'recovery');
 
 			await page.locator('input#password').fill(newPassword);
 			await page.locator('input#confirmPassword').fill(newPassword);
@@ -120,13 +118,13 @@ test.describe('Auth email flows', () => {
 			await clearMailbox();
 
 			const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-				redirectTo: `${appBaseUrl}/auth/accept-invite`
+				redirectTo: buildAuthConfirmRedirectTo('invite')
 			});
 
 			expect(error).toBeNull();
 			userId = data.user?.id ?? null;
 
-			const inviteEmail = await waitForMessage(email, 'invited');
+			const inviteEmail = await waitForMessage(email, ['invited', 'trooptotask invite is ready']);
 			const inviteLink = extractFirstLink(inviteEmail);
 
 			await page.route('**/api/auth/finalize-invite', async (route) => {
@@ -140,8 +138,8 @@ test.describe('Auth email flows', () => {
 				});
 			});
 
-			await page.goto(inviteLink);
-			await expect(page).toHaveURL(/\/auth\/accept-invite/);
+			expectAuthConfirmLink(inviteLink, 'invite');
+			await continueFromAuthConfirm(page, inviteLink, 'invite');
 
 			await page.locator('input#password').fill(password);
 			await page.locator('input#confirmPassword').fill(password);

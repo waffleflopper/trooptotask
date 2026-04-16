@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { appBaseUrl, appHost } from '../fixtures/app';
+import { appHost } from '../fixtures/app';
+import { continueFromAuthConfirm, expectAuthConfirmLink } from '../fixtures/auth-confirm';
 import { adminClient } from '../fixtures/supabase';
 import { clearMailbox, extractFirstLink, waitForMessage } from '../fixtures/mailpit';
 
@@ -75,6 +76,8 @@ async function expectPasswordLogin(email: string, password: string, timeoutMs: n
 }
 
 test.describe('Access request auth hardening', () => {
+	test.setTimeout(60_000);
+
 	test('approved users can self-serve a fresh invite from the renew page', async ({ browser, page }) => {
 		const adminEmail = `platform-admin-${Date.now()}-renew@example.test`;
 		const requesterEmail = `requester-renew-${Date.now()}@example.test`;
@@ -129,7 +132,7 @@ test.describe('Access request auth hardening', () => {
 
 			const inviteEmail = await waitForMessage(requesterEmail, ['invited', 'trooptotask invite is ready']);
 			const inviteLink = extractFirstLink(inviteEmail);
-			expect(decodeURIComponent(inviteLink)).toContain(`redirect_to=${appBaseUrl}/auth/accept-invite`);
+			expectAuthConfirmLink(inviteLink, 'invite');
 
 			await adminContext.close();
 		} finally {
@@ -194,13 +197,13 @@ test.describe('Access request auth hardening', () => {
 			await expect(reviewedCard).toBeVisible();
 			await expect(reviewedCard.getByRole('button', { name: 'Resend Invite' })).toBeVisible();
 
-			const inviteEmail = await waitForMessage(requesterEmail, 'invited');
+			const inviteEmail = await waitForMessage(requesterEmail, ['invited', 'trooptotask invite is ready']);
 			const inviteLink = extractFirstLink(inviteEmail);
-			expect(decodeURIComponent(inviteLink)).toContain(`redirect_to=${appBaseUrl}/auth/accept-invite`);
+			expectAuthConfirmLink(inviteLink, 'invite');
 
 			const requesterContext = await browser.newContext();
 			const requesterPage = await requesterContext.newPage();
-			await requesterPage.goto(inviteLink);
+			await continueFromAuthConfirm(requesterPage, inviteLink, 'invite');
 			await requesterPage.locator('input#password').fill(requesterPassword);
 			await requesterPage.locator('input#confirmPassword').fill(requesterPassword);
 			await requesterPage.getByRole('button', { name: 'Set Password' }).click();
@@ -285,22 +288,20 @@ test.describe('Access request auth hardening', () => {
 			await reviewedCard.getByRole('button', { name: 'Resend Invite' }).click();
 			await expect(adminPage.locator('.admin-alert--error')).toHaveCount(0);
 
-			const setupEmail = await waitForMessage(requesterEmail, ['reset', 'invited']);
+			const setupEmail = await waitForMessage(requesterEmail, ['reset', 'invited', 'trooptotask invite is ready']);
 			const setupLink = extractFirstLink(setupEmail);
 			const isRecoveryEmail = setupEmail.Subject.toLowerCase().includes('reset');
 
 			const requesterContext = await browser.newContext();
 			const requesterPage = await requesterContext.newPage();
-			await requesterPage.goto(setupLink);
+			expectAuthConfirmLink(setupLink, isRecoveryEmail ? 'recovery' : 'invite');
+			await continueFromAuthConfirm(requesterPage, setupLink, isRecoveryEmail ? 'recovery' : 'invite');
 			await requesterPage.locator('input#password').fill(requesterPassword);
 			await requesterPage.locator('input#confirmPassword').fill(requesterPassword);
 			await requesterPage.getByRole('button', { name: isRecoveryEmail ? 'Update Password' : 'Set Password' }).click();
 
 			if (isRecoveryEmail) {
-				expect(decodeURIComponent(setupLink)).toContain(`redirect_to=${appBaseUrl}/auth/reset-password`);
 				await expect(requesterPage.getByRole('heading', { name: 'Password updated' })).toBeVisible();
-			} else {
-				expect(decodeURIComponent(setupLink)).toContain(`redirect_to=${appBaseUrl}/auth/accept-invite`);
 			}
 
 			await expectPasswordLogin(requesterEmail, requesterPassword);

@@ -240,6 +240,10 @@ otp_expiry = 3600
 subject = "Your TroopToTask invite is ready"
 content_path = "./supabase/templates/invite.html"
 
+[auth.email.template.recovery]
+subject = "Reset your TroopToTask password"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

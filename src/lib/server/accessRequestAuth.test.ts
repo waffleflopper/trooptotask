@@ -21,7 +21,7 @@ describe('sendAccessRequestSetupEmail', () => {
 
 		expect(result).toEqual({ deliveryMethod: 'invite' });
 		expect(inviteUserByEmail).toHaveBeenCalledWith('test@example.com', {
-			redirectTo: 'http://localhost:5173/auth/accept-invite'
+			redirectTo: 'http://localhost:5173/auth/confirm?type=invite&next=%2Fauth%2Faccept-invite'
 		});
 		expect(resetPasswordForEmail).not.toHaveBeenCalled();
 	});
@@ -42,7 +42,7 @@ describe('sendAccessRequestSetupEmail', () => {
 
 		expect(result).toEqual({ deliveryMethod: 'recovery' });
 		expect(resetPasswordForEmail).toHaveBeenCalledWith('test@example.com', {
-			redirectTo: 'http://localhost:5173/auth/reset-password'
+			redirectTo: 'http://localhost:5173/auth/confirm?type=recovery&next=%2Fauth%2Freset-password'
 		});
 	});
 
@@ -179,7 +179,7 @@ describe('renewApprovedAccessRequestInvite', () => {
 
 		expect(result).toEqual({ attempted: true, deliveryMethod: 'invite' });
 		expect(inviteUserByEmail).toHaveBeenCalledWith('test@example.com', {
-			redirectTo: 'http://localhost:5173/auth/accept-invite'
+			redirectTo: 'http://localhost:5173/auth/confirm?type=invite&next=%2Fauth%2Faccept-invite'
 		});
 	});
 

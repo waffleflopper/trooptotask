@@ -1,6 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
+import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 
 export const load: PageServerLoad = loadWithAdminContext({
@@ -108,9 +109,8 @@ export const actions: Actions = {
 				return fail(404, { error: 'User not found' });
 			}
 
-			const { error: linkError } = await adminClient.auth.admin.generateLink({
-				type: 'recovery',
-				email: authUser.user.email
+			const { error: linkError } = await adminClient.auth.resetPasswordForEmail(authUser.user.email, {
+				redirectTo: getAuthConfirmRedirectTo(event.url.origin, 'recovery')
 			});
 
 			if (linkError) {
@@ -140,7 +140,9 @@ export const actions: Actions = {
 				return fail(404, { error: 'User not found' });
 			}
 
-			const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(authUser.user.email);
+			const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(authUser.user.email, {
+				redirectTo: getAuthConfirmRedirectTo(event.url.origin, 'invite')
+			});
 
 			if (inviteError) {
 				return fail(500, { error: 'Failed to resend invite' });

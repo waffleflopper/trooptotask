@@ -45,24 +45,30 @@ function summarizeVerify(model: SliceWidgetModel): string | undefined {
 	return model.latestVerify.failedStep ? `checks failed:${model.latestVerify.failedStep}` : 'checks failed';
 }
 
-function buildIssueBadge(model: SliceWidgetModel, issue: SliceIssue): string | undefined {
+function buildIssueBadges(
+	model: SliceWidgetModel,
+	issue: SliceIssue
+): Array<{ text: string; tone: 'accent' | 'success' | 'warning' }> {
+	const badges: Array<{ text: string; tone: 'accent' | 'success' | 'warning' }> = [];
+	if (issue.isBlocked) {
+		badges.push({ text: 'blocked', tone: 'warning' });
+	}
+
 	if (issue.number !== model.activeIssueNumber) {
-		return undefined;
-	}
-
-	if (model.latestVerify?.ok) {
-		return 'verify passed';
-	}
-
-	if (model.latestVerify?.failedStep) {
-		return `verify failed:${model.latestVerify.failedStep}`;
+		return badges;
 	}
 
 	if (model.activeWorkflow) {
-		return model.activeWorkflow;
+		badges.push({ text: model.activeWorkflow, tone: 'accent' });
 	}
 
-	return undefined;
+	if (model.latestVerify?.ok) {
+		badges.push({ text: 'verify passed', tone: 'success' });
+	} else if (model.latestVerify?.failedStep) {
+		badges.push({ text: `verify failed:${model.latestVerify.failedStep}`, tone: 'warning' });
+	}
+
+	return badges;
 }
 
 export function createSlicesWidget(model: SliceWidgetModel) {
@@ -111,10 +117,20 @@ export function createSlicesWidget(model: SliceWidgetModel) {
 				const marker = isActive ? theme.fg('accent', '▶') : theme.fg('dim', ' ');
 				const number = isActive ? theme.fg('accent', `#${issue.number}`) : theme.fg('muted', `#${issue.number}`);
 				const state = issue.state === 'CLOSED' ? theme.fg('success', 'closed') : theme.fg('dim', 'open');
-				const badge = buildIssueBadge(model, issue);
-				const badgeText = badge
-					? `${theme.fg('dim', '·')} ${badge.startsWith('verify failed') ? theme.fg('warning', badge) : badge.startsWith('verify passed') ? theme.fg('success', badge) : theme.fg('accent', badge)}`
-					: '';
+				const badges = buildIssueBadges(model, issue)
+					.map((badge) => {
+						if (badge.tone === 'success') {
+							return theme.fg('success', badge.text);
+						}
+
+						if (badge.tone === 'warning') {
+							return theme.fg('warning', badge.text);
+						}
+
+						return theme.fg('accent', badge.text);
+					})
+					.join(`${theme.fg('dim', ' · ')} `);
+				const badgeText = badges ? `${theme.fg('dim', '·')} ${badges}` : '';
 				const row = `${marker} ${number} ${issue.title} ${theme.fg('dim', '·')} ${state}${badgeText}`;
 				lines.push(truncateToWidth(row, width));
 			}
@@ -123,7 +139,9 @@ export function createSlicesWidget(model: SliceWidgetModel) {
 				lines.push(truncateToWidth(theme.fg('dim', `  ↓ ${hiddenBelow} later`), width));
 			}
 
-			lines.push(truncateToWidth(theme.fg('dim', '/slices pick · /slice-next · /slice-refresh'), width));
+			lines.push(
+				truncateToWidth(theme.fg('dim', '/slices pick · /slice-next · /verify-slice <n> · /tdd-slice <n>'), width)
+			);
 			return lines;
 		}
 	});

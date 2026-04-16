@@ -8,11 +8,21 @@ export async function showSlicesPicker(ctx: ExtensionContext, issues: PickerSlic
 		return undefined;
 	}
 
-	const items: SelectItem[] = issues.map((issue) => ({
-		value: String(issue.number),
-		label: issue.isActive ? `#${issue.number} ${issue.title} (active)` : `#${issue.number} ${issue.title}`,
-		description: issue.state.toLowerCase()
-	}));
+	const items: SelectItem[] = issues.map((issue) => {
+		const tags = [issue.state.toLowerCase()];
+		if (issue.isBlocked) {
+			tags.push('blocked');
+		}
+		if (issue.isActive) {
+			tags.push('active');
+		}
+
+		return {
+			value: String(issue.number),
+			label: `#${issue.number} ${issue.title}`,
+			description: tags.join(' · ')
+		};
+	});
 
 	const result = await ctx.ui.custom<number | undefined>((tui, theme, _kb, done) => {
 		const container = new Container();
@@ -29,7 +39,9 @@ export async function showSlicesPicker(ctx: ExtensionContext, issues: PickerSlic
 		selectList.onSelect = (item) => done(Number.parseInt(item.value, 10));
 		selectList.onCancel = () => done(undefined);
 		container.addChild(selectList);
-		container.addChild(new Text(theme.fg('dim', '↑↓ navigate • enter focus • esc cancel'), 1, 0));
+		container.addChild(
+			new Text(theme.fg('dim', '↑↓ navigate • enter focus • esc cancel • /slice-next for sequential flow'), 1, 0)
+		);
 		container.addChild(new DynamicBorder((text: string) => theme.fg('accent', text)));
 
 		return {

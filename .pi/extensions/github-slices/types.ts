@@ -16,6 +16,8 @@ export interface SliceIssue {
 	url: string;
 	labels: string[];
 	body: string;
+	blockedBy: number[];
+	isBlocked: boolean;
 }
 
 export type WorkflowMode = 'manual' | 'tdd' | 'verify-work';
@@ -52,4 +54,5 @@ export interface PickerSliceItem {
 	title: string;
 	state: string;
 	isActive: boolean;
+	isBlocked: boolean;
 }

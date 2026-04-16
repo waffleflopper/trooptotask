@@ -27,13 +27,17 @@ export function isIctTaskApplicableToMos(task: Pick<IctTask, 'mos'>, personnelMo
 }
 
 export function getActiveIctTasksForLibrary(tasks: IctTask[]): IctTask[] {
-	return [...tasks]
-		.filter((task) => !task.archivedAt)
-		.sort((a, b) => {
-			const sortOrderCompare = a.sortOrder - b.sortOrder;
-			if (sortOrderCompare !== 0) return sortOrderCompare;
-			return a.taskCode.localeCompare(b.taskCode);
-		});
+	return [...tasks].filter((task) => !task.archivedAt).sort(sortIctTasksForLibrary);
+}
+
+export function getArchivedIctTasksForLibrary(tasks: IctTask[]): IctTask[] {
+	return [...tasks].filter((task) => Boolean(task.archivedAt)).sort(sortIctTasksForLibrary);
+}
+
+function sortIctTasksForLibrary(a: IctTask, b: IctTask): number {
+	const sortOrderCompare = a.sortOrder - b.sortOrder;
+	if (sortOrderCompare !== 0) return sortOrderCompare;
+	return a.taskCode.localeCompare(b.taskCode);
 }
 
 export function countCompletionRecordsForTask(completions: PersonnelIctCompletion[], taskId: string): number {

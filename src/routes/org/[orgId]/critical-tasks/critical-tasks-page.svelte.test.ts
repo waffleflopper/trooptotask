@@ -252,7 +252,9 @@ describe('critical tasks page', () => {
 			}
 		});
 
-		expect(screen.getByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeTruthy();
+		const matrixPanel = screen.getByTestId('critical-tasks-matrix-panel');
+		expect(matrixPanel).toBeTruthy();
+		expect(within(matrixPanel).getByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeTruthy();
 		expect(screen.getByText('Smith, Jane')).toBeTruthy();
 		expect(screen.getByText('Jones, Jane')).toBeTruthy();
 

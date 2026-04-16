@@ -1,11 +1,5 @@
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
-import {
-	applyMapping,
-	autoMapColumns,
-	detectHeaderRow,
-	type ColumnDef,
-	type ColumnMapping
-} from '$lib/utils/columnMapping';
+import { applyMapping, autoMapColumns, detectHeaderRow, type ColumnDef } from '$lib/utils/columnMapping';
 import { parseMosApplicabilityInput } from './ictTaskLibrary';
 
 export type IctTaskImportMode = 'create-only' | 'upsert';
@@ -16,6 +10,7 @@ export type IctTaskImportPayload = Omit<IctTask, 'id' | 'createdAt'>;
 export interface IctTaskImportValidRow {
 	rowNumber: number;
 	action: IctTaskImportAction;
+	restoresArchivedTask: boolean;
 	taskId: string | null;
 	task: IctTaskImportPayload;
 }
@@ -35,6 +30,11 @@ export interface ReviewIctTaskImportOptions {
 	existingTasks: IctTask[];
 	mode: IctTaskImportMode;
 	nextSortOrder: number;
+}
+
+export interface IctTaskImportMappedRow {
+	rowNumber: number;
+	values: Record<string, string>;
 }
 
 export const ICT_TASK_IMPORT_COLUMNS: ColumnDef[] = [
@@ -60,7 +60,16 @@ export const ICT_TASK_IMPORT_COLUMNS: ColumnDef[] = [
 		key: 'mos',
 		label: 'MOS',
 		required: false,
-		aliases: ['mos', 'mos applicability', 'mos_applicability', 'applicability', 'applies to mos', 'applies_to_mos']
+		aliases: [
+			'mos',
+			"mos's",
+			'moss',
+			'mos applicability',
+			'mos_applicability',
+			'applicability',
+			'applies to mos',
+			'applies_to_mos'
+		]
 	},
 	{
 		key: 'expirationMonths',
@@ -111,49 +120,83 @@ function existingTaskForCode(tasks: IctTask[], taskCode: string): IctTask | unde
 	return tasks.find((task) => normalizeTaskCode(task.taskCode) === normalized);
 }
 
-function getDuplicateTaskCodes(dataRows: string[][], mappings: ReturnType<typeof autoMapColumns>): Set<string> {
-	const counts = new Map<string, number>();
-	for (const rawRow of dataRows) {
-		const values = applyMapping(rawRow, mappings);
-		const taskCode = normalizeTaskCode(values.taskCode ?? '');
-		if (!taskCode) continue;
-		counts.set(taskCode, (counts.get(taskCode) ?? 0) + 1);
+function buildExistingTaskCodeError(existingTask: IctTask | undefined): string {
+	if (!existingTask) return '';
+	if (existingTask.archivedAt) {
+		return 'Task code exists on an archived task. Switch import behavior to create, update, or restore by task code.';
 	}
 
-	return new Set([...counts.entries()].filter(([, count]) => count > 1).map(([taskCode]) => taskCode));
+	return 'Task code already exists';
 }
 
-function getMappedFields(mappings: ColumnMapping[]): Set<string> {
-	return new Set(mappings.map((mapping) => mapping.fieldKey).filter((key): key is string => Boolean(key)));
+interface DuplicateImportRow {
+	rowNumber: number;
+	taskCode: string;
+	title: string;
 }
 
-export function reviewIctTaskImportRows(rawRows: string[][], options: ReviewIctTaskImportOptions): IctTaskImportReview {
-	if (rawRows.length === 0) {
+function getDuplicateTaskCodeRowsForMappedRows(rows: IctTaskImportMappedRow[]): Map<string, DuplicateImportRow[]> {
+	const rowsByTaskCode = new Map<string, DuplicateImportRow[]>();
+	for (const row of rows) {
+		const values = row.values;
+		const taskCode = normalizeTaskCode(values.taskCode ?? '');
+		if (!taskCode) continue;
+
+		const rows = rowsByTaskCode.get(taskCode) ?? [];
+		rows.push({
+			rowNumber: row.rowNumber,
+			taskCode,
+			title: (values.title ?? '').trim()
+		});
+		rowsByTaskCode.set(taskCode, rows);
+	}
+
+	return new Map([...rowsByTaskCode.entries()].filter(([, rows]) => rows.length > 1));
+}
+
+function buildDuplicateTaskCodeError(
+	rowNumber: number,
+	taskCode: string,
+	duplicates: Map<string, DuplicateImportRow[]>
+): string {
+	const conflicts = duplicates.get(taskCode) ?? [];
+	const otherRow = conflicts.find((row) => row.rowNumber !== rowNumber);
+	if (!otherRow) {
+		return `Duplicate task code "${taskCode}" in import`;
+	}
+
+	const titleSuffix = otherRow.title ? ` ("${otherRow.title}")` : '';
+	return `Duplicate task code "${taskCode}" also appears on row ${otherRow.rowNumber}${titleSuffix}`;
+}
+
+export function reviewMappedIctTaskImportRows(
+	rows: IctTaskImportMappedRow[],
+	options: ReviewIctTaskImportOptions
+): IctTaskImportReview {
+	if (rows.length === 0) {
 		return { validRows: [], invalidRows: [] };
 	}
 
-	const hasHeaders = detectHeaderRow(rawRows[0], ICT_TASK_IMPORT_COLUMNS);
-	const mappings = autoMapColumns(rawRows[0], ICT_TASK_IMPORT_COLUMNS, hasHeaders);
-	const mappedFields = getMappedFields(mappings);
-	const dataRows = hasHeaders ? rawRows.slice(1) : rawRows;
-	const rowNumberOffset = hasHeaders ? 2 : 1;
 	const validRows: IctTaskImportValidRow[] = [];
 	const invalidRows: IctTaskImportInvalidRow[] = [];
-	const duplicateTaskCodes = getDuplicateTaskCodes(dataRows, mappings);
+	const duplicateTaskCodeRows = getDuplicateTaskCodeRowsForMappedRows(rows);
 
-	for (const [index, rawRow] of dataRows.entries()) {
-		const values = applyMapping(rawRow, mappings);
-		const rowNumber = index + rowNumberOffset;
+	for (const row of rows) {
+		const values = row.values;
+		const rowNumber = row.rowNumber;
 		const taskCode = normalizeTaskCode(values.taskCode ?? '');
 		const title = (values.title ?? '').trim();
 		const existingTask = existingTaskForCode(options.existingTasks, taskCode);
 		const expirationMonths = parseOptionalPositiveInteger(values.expirationMonths ?? '');
 		const mos = parseMosImportValue(values.mos ?? '');
+		const mappedFields = new Set(Object.keys(values));
 		const errors = [
 			!taskCode ? 'Task code is required' : '',
 			!title ? 'Title is required' : '',
-			duplicateTaskCodes.has(taskCode) ? 'Duplicate task code in import' : '',
-			options.mode === 'create-only' && existingTask ? 'Task code already exists' : '',
+			duplicateTaskCodeRows.has(taskCode)
+				? buildDuplicateTaskCodeError(rowNumber, taskCode, duplicateTaskCodeRows)
+				: '',
+			options.mode === 'create-only' ? buildExistingTaskCodeError(existingTask) : '',
 			expirationMonths.error ?? '',
 			...mos.errors
 		].filter(Boolean);
@@ -170,6 +213,7 @@ export function reviewIctTaskImportRows(rawRows: string[][], options: ReviewIctT
 		validRows.push({
 			rowNumber,
 			action: options.mode === 'upsert' && existingTask ? 'update' : 'create',
+			restoresArchivedTask: Boolean(existingTask?.archivedAt),
 			taskId: existingTask?.id ?? null,
 			task: {
 				taskCode,
@@ -190,4 +234,21 @@ export function reviewIctTaskImportRows(rawRows: string[][], options: ReviewIctT
 	}
 
 	return { validRows, invalidRows };
+}
+
+export function reviewIctTaskImportRows(rawRows: string[][], options: ReviewIctTaskImportOptions): IctTaskImportReview {
+	if (rawRows.length === 0) {
+		return { validRows: [], invalidRows: [] };
+	}
+
+	const hasHeaders = detectHeaderRow(rawRows[0], ICT_TASK_IMPORT_COLUMNS);
+	const mappings = autoMapColumns(rawRows[0], ICT_TASK_IMPORT_COLUMNS, hasHeaders);
+	const dataRows = hasHeaders ? rawRows.slice(1) : rawRows;
+	const rowNumberOffset = hasHeaders ? 2 : 1;
+	const mappedRows = dataRows.map((rawRow, index) => ({
+		rowNumber: index + rowNumberOffset,
+		values: applyMapping(rawRow, mappings)
+	}));
+
+	return reviewMappedIctTaskImportRows(mappedRows, options);
 }

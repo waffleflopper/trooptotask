@@ -13,6 +13,7 @@
 	} from '$features/critical-tasks/utils/criticalTasksMatrix';
 
 	interface Props {
+		orgId?: string;
 		personnel: Personnel[];
 		tasks: IctTask[];
 		completions: PersonnelIctCompletion[];
@@ -31,6 +32,7 @@
 	}
 
 	let {
+		orgId = '',
 		personnel,
 		tasks,
 		completions,
@@ -76,6 +78,10 @@
 
 	function personName(person: Personnel): string {
 		return `${person.lastName}, ${person.firstName}`;
+	}
+
+	function personDetailHref(person: Personnel): string {
+		return `/org/${orgId}/critical-tasks/${person.id}`;
 	}
 
 	function cellAriaLabel(person: Personnel, cell: CriticalTasksMatrixCell): string {
@@ -133,9 +139,23 @@
 						{#each group.rows as row (row.person.id)}
 							<tr>
 								<th scope="row" class="person-cell">
-									<span class="person-rank">{row.person.rank}</span>
-									<span>{personName(row.person)}</span>
-									<span class="person-mos">{row.person.mos || 'No MOS'}</span>
+									{#if orgId}
+										<a href={personDetailHref(row.person)} class="person-link">
+											<span class="person-primary">
+												<span class="person-rank">{row.person.rank}</span>
+												<span class="person-name">{personName(row.person)}</span>
+											</span>
+											<span class="person-mos">{row.person.mos || 'No MOS'}</span>
+										</a>
+									{:else}
+										<div class="person-summary">
+											<span class="person-primary">
+												<span class="person-rank">{row.person.rank}</span>
+												<span class="person-name">{personName(row.person)}</span>
+											</span>
+											<span class="person-mos">{row.person.mos || 'No MOS'}</span>
+										</div>
+									{/if}
 								</th>
 								{#each row.cells as cell (cell.task.id)}
 									{#if cell.applicable}
@@ -268,15 +288,55 @@
 	}
 
 	.person-cell {
-		padding: var(--sp-2) var(--sp-3);
+		padding: 0;
 		color: var(--text-primary);
 		white-space: nowrap;
+	}
+
+	.person-link,
+	.person-summary {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		width: 100%;
+		height: 100%;
+		padding: var(--sp-2) var(--sp-3);
+		box-sizing: border-box;
+	}
+
+	.person-link {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.person-link:hover,
+	.person-link:focus-visible {
+		background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface-panel) 28%);
+		color: inherit;
+	}
+
+	.person-link:focus-visible {
+		outline: 2px solid var(--amber-dark);
+		outline-offset: -2px;
+	}
+
+	.person-primary {
+		display: flex;
+		align-items: baseline;
+		gap: var(--sp-2);
+		min-width: 0;
+	}
+
+	.person-name {
+		min-width: 0;
+		font-weight: var(--font-weight-semibold);
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.person-rank {
 		display: inline-block;
 		min-width: 2.5rem;
-		margin-right: var(--sp-2);
 		color: var(--amber-dark);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);

@@ -171,8 +171,8 @@
 		<span class="legend-item" data-status="not-recorded"><span class="legend-mark">—</span> Not Recorded</span>
 	</div>
 
-	<div class="matrix-scroll">
-		<table class="ict-matrix" aria-label="Critical Tasks readiness matrix">
+	<div class="matrix-scroll" data-testid="critical-tasks-matrix-scroll">
+		<table class="ict-matrix" data-testid="critical-tasks-matrix-table" aria-label="Critical Tasks readiness matrix">
 			<thead>
 				<tr>
 					<th scope="col" class="person-header">Soldier</th>

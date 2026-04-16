@@ -27,6 +27,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
 }
 
+function parseBlockedIssueNumbers(body: string): number[] {
+	const blockedSectionMatch = body.match(/##\s+Blocked by([\s\S]*?)(?:\n##\s+|$)/i);
+	if (!blockedSectionMatch) {
+		return [];
+	}
+
+	const numbers = new Set<number>();
+	for (const match of blockedSectionMatch[1].matchAll(/#(\d+)/g)) {
+		numbers.add(Number.parseInt(match[1], 10));
+	}
+
+	return [...numbers];
+}
+
 function parseIssueResponse(value: unknown): SliceIssue {
 	if (
 		!isRecord(value) ||
@@ -45,13 +59,16 @@ function parseIssueResponse(value: unknown): SliceIssue {
 				.filter(Boolean)
 		: [];
 
+	const body = typeof value.body === 'string' ? value.body : '';
 	return {
 		number: value.number,
 		title: value.title,
 		state: value.state,
 		url: value.url,
 		labels,
-		body: typeof value.body === 'string' ? value.body : ''
+		body,
+		blockedBy: parseBlockedIssueNumbers(body),
+		isBlocked: false
 	};
 }
 
@@ -109,5 +126,30 @@ export async function fetchIssues(
 		issues.push(await fetchIssue(pi, repo, number, signal));
 	}
 
-	return issues;
+	const blockerNumbers = new Set<number>();
+	for (const issue of issues) {
+		for (const blocker of issue.blockedBy) {
+			if (blocker !== issue.number) {
+				blockerNumbers.add(blocker);
+			}
+		}
+	}
+
+	const blockerIssueMap = new Map<number, SliceIssue>();
+	for (const blockerNumber of blockerNumbers) {
+		if (numbers.includes(blockerNumber)) {
+			const existing = issues.find((issue) => issue.number === blockerNumber);
+			if (existing) {
+				blockerIssueMap.set(blockerNumber, existing);
+			}
+			continue;
+		}
+
+		blockerIssueMap.set(blockerNumber, await fetchIssue(pi, repo, blockerNumber, signal));
+	}
+
+	return issues.map((issue) => ({
+		...issue,
+		isBlocked: issue.blockedBy.some((blockerNumber) => blockerIssueMap.get(blockerNumber)?.state !== 'CLOSED')
+	}));
 }

@@ -53,6 +53,14 @@ Iterate until the user approves the breakdown.
 
 For each approved slice, create a GitHub issue using `gh issue create`. Use the issue body template below.
 
+Before creating slice issues, ensure the `vertical-slice` label exists. Use an idempotent flow, for example:
+
+```bash
+gh label create vertical-slice --color 1D76DB --description "Tracer-bullet vertical slice work item" || true
+```
+
+Then create every slice issue with the `vertical-slice` label attached.
+
 Create issues in dependency order (blockers first) so you can reference real issue numbers in the "Blocked by" field.
 
 <issue-template>
@@ -84,5 +92,7 @@ Reference by number from the parent PRD:
 - User story 7
 
 </issue-template>
+
+When creating the issues, include `--label vertical-slice` on every `gh issue create` call.
 
 Do NOT close or modify the parent PRD issue.

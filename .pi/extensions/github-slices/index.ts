@@ -26,7 +26,8 @@ export default function githubSlicesExtension(pi: ExtensionAPI) {
 			number: issue.number,
 			title: issue.title,
 			state: issue.state,
-			isActive: issue.number === sessionState.activeIssueNumber
+			isActive: issue.number === sessionState.activeIssueNumber,
+			isBlocked: issue.isBlocked
 		}));
 	}
 

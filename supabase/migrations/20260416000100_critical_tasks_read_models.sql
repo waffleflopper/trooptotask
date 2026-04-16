@@ -69,6 +69,14 @@ AS $$
   WHERE "pic"."organization_id" = "p_organization_id"
     AND ("p_personnel_ids" IS NULL OR "pic"."personnel_id" = ANY("p_personnel_ids"))
     AND ("p_ict_task_ids" IS NULL OR "pic"."ict_task_id" = ANY("p_ict_task_ids"))
+    AND (
+      COALESCE(array_length("t"."mos", 1), 0) = 0
+      OR EXISTS (
+        SELECT 1
+        FROM unnest("t"."mos") AS "task_mos"("value")
+        WHERE upper(btrim("task_mos"."value")) = upper(btrim(COALESCE("p"."mos", '')))
+      )
+    )
   GROUP BY 1
   ORDER BY 1;
 $$;

@@ -27,5 +27,7 @@ describe('Critical Tasks read-model migration', () => {
 		expect(normalized).toContain('returns table("month" "text", "completions" integer)');
 		expect(normalized).toContain('"p"."archived_at" is null');
 		expect(normalized).toContain('"t"."archived_at" is null');
+		expect(normalized).toContain('coalesce(array_length("t"."mos", 1), 0) = 0');
+		expect(normalized).toContain('from unnest("t"."mos") as "task_mos"("value")');
 	});
 });

@@ -4,15 +4,18 @@ import type {
 	CriticalTasksReadModelPort,
 	DataStore
 } from '../core/ports';
+import { isIctTaskApplicableToMos } from '$features/critical-tasks/utils/ictTaskLibrary';
 
 interface PersonnelRow {
 	id: string;
 	archived_at: string | null;
+	mos: string | null;
 }
 
 interface IctTaskRow {
 	id: string;
 	archived_at: string | null;
+	mos: string[] | null;
 }
 
 interface PersonnelIctCompletionRow extends Record<string, unknown> {
@@ -45,7 +48,12 @@ async function loadActiveScope(
 	store: DataStore,
 	orgId: string,
 	filters: CriticalTasksReadModelFilters
-): Promise<{ personnelIds: Set<string>; taskIds: Set<string> }> {
+): Promise<{
+	personnelById: Map<string, PersonnelRow>;
+	taskById: Map<string, IctTaskRow>;
+	personnelIds: Set<string>;
+	taskIds: Set<string>;
+}> {
 	const personnelIdFilter = normalizeIds(filters.personnelIds);
 	const taskIdFilter = normalizeIds(filters.taskIds);
 
@@ -60,9 +68,14 @@ async function loadActiveScope(
 		})
 	]);
 
+	const personnelById = new Map(personnelRows.map((row) => [row.id, row]));
+	const taskById = new Map(taskRows.map((row) => [row.id, row]));
+
 	return {
-		personnelIds: new Set(personnelRows.map((row) => row.id)),
-		taskIds: new Set(taskRows.map((row) => row.id))
+		personnelById,
+		taskById,
+		personnelIds: new Set(personnelById.keys()),
+		taskIds: new Set(taskById.keys())
 	};
 }
 
@@ -110,7 +123,7 @@ export function createInMemoryCriticalTasksReadModelAdapter(store: DataStore): C
 				return [];
 			}
 
-			const { personnelIds, taskIds } = await loadActiveScope(store, orgId, filters);
+			const { personnelById, taskById, personnelIds, taskIds } = await loadActiveScope(store, orgId, filters);
 			if (personnelIds.size === 0 || taskIds.size === 0) {
 				return [];
 			}
@@ -129,6 +142,12 @@ export function createInMemoryCriticalTasksReadModelAdapter(store: DataStore): C
 
 			const counts = new Map<string, number>();
 			for (const completion of completionRows) {
+				const person = personnelById.get(completion.personnel_id);
+				const task = taskById.get(completion.ict_task_id);
+				if (!person || !task || !isIctTaskApplicableToMos({ mos: task.mos ?? [] }, person.mos)) {
+					continue;
+				}
+
 				const month = completion.completed_at.slice(0, 7);
 				counts.set(month, (counts.get(month) ?? 0) + 1);
 			}

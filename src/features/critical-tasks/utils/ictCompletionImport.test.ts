@@ -49,6 +49,14 @@ const airwayTask: IctTask = {
 	title: 'Open an airway'
 };
 
+const archivedTask: IctTask = {
+	...tcccTask,
+	id: 'task-archived',
+	taskCode: '181-105-1999',
+	title: 'Archived task',
+	archivedAt: '2026-04-14T12:00:00Z'
+};
+
 function existingCompletion(overrides: Partial<PersonnelIctCompletion> = {}): PersonnelIctCompletion {
 	return {
 		id: 'completion-existing',
@@ -209,19 +217,20 @@ describe('ICT completion import review', () => {
 				['Last Name', 'First Name', 'Task Code', 'Completion Date', 'Validation Method'],
 				['Smith', 'Jane', '', '2026-04-14', 'Lecture'],
 				['Smith', 'Jane', 'UNKNOWN-001', '2026-04-14', 'Lecture'],
+				['Smith', 'Jane', '181-105-1999', '2026-04-14', 'Lecture'],
 				['Smith', 'Jane', '181-105-1001', 'not-a-date', 'Lecture'],
 				['Smith', 'Jane', '181-105-1001', '2026-04-14', 'Bad Method']
 			],
 			{
 				personnel: [alphaMedic],
-				tasks: [tcccTask],
+				tasks: [tcccTask, archivedTask],
 				existingCompletions: []
 			}
 		);
 
 		expect(expectReviewRows(review)).toEqual({
 			valid: [],
-			invalid: [2, 3, 4, 5],
+			invalid: [2, 3, 4, 5, 6],
 			ambiguous: []
 		});
 		expect(review.invalidRows).toEqual([
@@ -235,10 +244,14 @@ describe('ICT completion import review', () => {
 			}),
 			expect.objectContaining({
 				rowNumber: 4,
-				errors: ['Completion date must be a valid date']
+				errors: ['Task code "181-105-1999" is archived and cannot receive new completion imports']
 			}),
 			expect.objectContaining({
 				rowNumber: 5,
+				errors: ['Completion date must be a valid date']
+			}),
+			expect.objectContaining({
+				rowNumber: 6,
 				errors: ['Validation method must match one of the supported ICT validation methods']
 			})
 		]);

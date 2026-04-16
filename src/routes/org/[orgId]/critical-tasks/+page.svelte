@@ -7,6 +7,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import IctMatrix from '$features/critical-tasks/components/IctMatrix.svelte';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
+	import IctCompletionBulkImport from '$features/critical-tasks/components/IctCompletionBulkImport.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import { matchesCriticalTasksPersonnelSearch } from '$features/critical-tasks/utils/criticalTasksMatrix';
@@ -26,6 +27,7 @@
 	let personnelSearch = $state('');
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	let showTaskInputModal = $state(false);
+	let showCompletionImportModal = $state(false);
 	const overflowItems = $derived(
 		org.isPrivileged
 			? [
@@ -58,6 +60,9 @@
 	const canInputTask = $derived(permissions.canViewTraining && canEditTraining);
 	const activePersonnel = $derived(personnelStore.items.filter((person) => !person.archivedAt));
 	const canOpenTaskInput = $derived(canInputTask && activePersonnel.length > 0 && activeTasks.length > 0);
+	const canOpenCompletionImport = $derived(
+		canInputTask && personnelStore.items.length > 0 && ictTasksStore.items.length > 0
+	);
 	const filteredPersonnel = $derived(
 		activePersonnel.filter((person) => matchesCriticalTasksPersonnelSearch(person, personnelSearch))
 	);
@@ -122,6 +127,13 @@
 		showTaskInputModal = true;
 	}
 
+	function handleCompletionImportOpen(): void {
+		if (!canOpenCompletionImport) return;
+		activeCompletionCell = null;
+		showTaskInputModal = false;
+		showCompletionImportModal = true;
+	}
+
 	async function handleCompletionSave(
 		saveData: Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>,
 		existingId?: string
@@ -148,6 +160,14 @@
 <div class="page">
 	<PageToolbar title="Critical Tasks" subtitle="ICTL readiness" {overflowItems}>
 		{#if canInputTask}
+			<button
+				class="btn btn-secondary"
+				type="button"
+				onclick={handleCompletionImportOpen}
+				disabled={!canOpenCompletionImport}
+			>
+				Import Completions
+			</button>
 			<button class="btn btn-primary" type="button" onclick={handleToolbarTaskInput} disabled={!canOpenTaskInput}>
 				Input Task
 			</button>
@@ -307,6 +327,16 @@
 		{currentUserDisplayName}
 		onSave={handleCompletionSave}
 		onClose={() => (showTaskInputModal = false)}
+	/>
+{/if}
+
+{#if showCompletionImportModal}
+	<IctCompletionBulkImport
+		personnel={personnelStore.items}
+		tasks={ictTasksStore.items}
+		completions={personnelIctCompletionsStore.items}
+		onCancel={() => (showCompletionImportModal = false)}
+		onDone={() => (showCompletionImportModal = false)}
 	/>
 {/if}
 

@@ -24,9 +24,10 @@
 			rows: Array<{ rowIndex: number; sourceRowNumber: number; values: Record<string, string> }>
 		) => RowValidation[];
 		onMappingChange?: (mappings: ColumnMapping[]) => void;
+		onRowsChange?: (rows: Array<{ rowIndex: number; sourceRowNumber: number; values: Record<string, string> }>) => void;
 	}
 
-	let { rawRows, columnDefs, validateRow, validateRows, onMappingChange }: Props = $props();
+	let { rawRows, columnDefs, validateRow, validateRows, onMappingChange, onRowsChange }: Props = $props();
 
 	// Detect headers and auto-map columns as derived values
 	const hasHeaders = $derived(rawRows.length > 0 ? detectHeaderRow(rawRows[0], columnDefs) : false);
@@ -120,6 +121,10 @@
 				cellWarnings
 			};
 		});
+	});
+
+	$effect(() => {
+		onRowsChange?.(mappedRows);
 	});
 
 	// Track previous validations for incremental checkbox updates

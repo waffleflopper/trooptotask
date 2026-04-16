@@ -388,6 +388,11 @@ async function runVerification(
 	};
 
 	pi.appendEntry('verify-state', state);
+	pi.events.emit('verify:updated', {
+		ok: state.ok,
+		failedStep: state.results.find((result) => !result.ok)?.key,
+		completedAt: state.completedAt
+	});
 	return state;
 }
 
@@ -500,6 +505,14 @@ export default function verifyWorkflow(pi: ExtensionAPI) {
 	});
 
 	pi.on('session_start', async (_event, ctx) => {
-		updateVerifyUi(ctx, readLatestVerifyState(ctx));
+		const state = readLatestVerifyState(ctx);
+		updateVerifyUi(ctx, state);
+		if (state) {
+			pi.events.emit('verify:updated', {
+				ok: state.ok,
+				failedStep: state.results.find((result) => !result.ok)?.key,
+				completedAt: state.completedAt
+			});
+		}
 	});
 }

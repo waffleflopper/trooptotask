@@ -33,9 +33,11 @@ Use local Supabase plus Mailpit to test invite acceptance and password recovery 
 ## Local email inbox
 
 - Supabase local auth emails are captured by Mailpit at [http://127.0.0.1:54324](http://127.0.0.1:54324).
-- Invite and recovery links should now redirect back to `localhost:5173` or `127.0.0.1:5173` instead of the old `127.0.0.1:3000` fallback.
+- Invite and recovery templates now build app-owned confirmation links with `{{ .RedirectTo }}` and `{{ .TokenHash }}`.
+- The visible email link should start with the active app origin, land on `/auth/confirm`, include `token_hash=`, and never expose `/auth/v1/verify`.
+- After opening the email link, the browser should stop on the confirmation page until you press the button to continue into invite setup or password reset.
 - The Playwright auth suites use their own isolated app server on `127.0.0.1:4173` so they do not inherit whatever state or rate-limiting conditions your normal dev server might already have.
-- If you change `supabase/config.toml`, restart Supabase so GoTrue reloads the auth config.
+- If you change `supabase/config.toml` or `supabase/templates/*.html`, restart Supabase so GoTrue reloads the auth config.
 
 ## Run the full auth smoke test
 
@@ -66,5 +68,15 @@ These two focused suites are more reliable than a single giant auth run because 
 ## What this does and does not validate
 
 - This validates your app logic, redirect handling, password policy, and Supabase local email links end to end.
+- This validates that invite and recovery emails now round-trip through the app-owned `/auth/confirm` page before the token is verified.
 - This does not validate real-world deliverability to `@army.mil` or `@health.mil`.
 - Hosted Supabase's built-in email sender is still limited to 2 emails per hour project-wide. Local Mailpit avoids that limitation for development, but production will still need a delivery strategy that those domains actually accept.
+
+## Manual Mailpit check
+
+After restarting local Supabase and sending one invite plus one recovery email:
+
+- confirm the visible link starts with your active app origin (`localhost:5173`, `127.0.0.1:5173`, or the Playwright host on `127.0.0.1:4173`)
+- confirm the link path is `/auth/confirm`
+- confirm the link includes `token_hash=`
+- confirm the link does not expose `supabase.co` or `/auth/v1/verify`

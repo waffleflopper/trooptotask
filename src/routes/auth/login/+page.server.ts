@@ -11,6 +11,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		return { demoError: 'Demo is not available. Please try again later.' };
 	}
 
+	if (demoError === 'auth_link_invalid') {
+		return {
+			authLinkError:
+				'This email link is invalid or has expired. Request a fresh invite or password reset email and try again.'
+		};
+	}
+
 	if (locals.session) {
 		redirect(303, getAuthenticatedRedirectPath(locals.authFlow, locals.mfaPending));
 	}

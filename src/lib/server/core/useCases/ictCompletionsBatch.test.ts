@@ -175,6 +175,18 @@ describe('importIctCompletionsBatch', () => {
 				sort_order: 1,
 				archived_at: null,
 				created_at: '2026-04-01T00:00:00Z'
+			},
+			{
+				id: 'task-archived',
+				organization_id: 'test-org',
+				task_code: '181-105-1999',
+				title: 'Archived task',
+				description: null,
+				mos: ['68W'],
+				expiration_months: 12,
+				sort_order: 2,
+				archived_at: '2026-04-14T12:00:00Z',
+				created_at: '2026-04-01T00:00:00Z'
 			}
 		]);
 
@@ -198,6 +210,16 @@ describe('importIctCompletionsBatch', () => {
 						taskCode: 'BAD-TASK',
 						completedAt: '2026-04-15'
 					}
+				},
+				{
+					rowNumber: 4,
+					values: {
+						rank: 'SGT',
+						lastName: 'Smith',
+						firstName: 'Jane',
+						taskCode: '181-105-1999',
+						completedAt: '2026-04-15'
+					}
 				}
 			]
 		});
@@ -216,6 +238,12 @@ describe('importIctCompletionsBatch', () => {
 				personnelName: 'SGT Jane Smith',
 				taskCode: 'BAD-TASK',
 				message: 'Task code "BAD-TASK" does not match an existing critical task'
+			},
+			{
+				rowNumber: 4,
+				personnelName: 'SGT Jane Smith',
+				taskCode: '181-105-1999',
+				message: 'Task code "181-105-1999" is archived and cannot receive new completion imports'
 			}
 		]);
 

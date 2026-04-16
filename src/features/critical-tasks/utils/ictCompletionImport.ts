@@ -206,6 +206,7 @@ export function reviewMappedIctCompletionImportRows(
 			!firstName ? 'First name is required' : '',
 			!taskCode ? 'Task code is required' : '',
 			taskCode && !task ? `Task code "${taskCode}" does not match an existing critical task` : '',
+			task?.archivedAt ? `Task code "${taskCode}" is archived and cannot receive new completion imports` : '',
 			!completedAt ? 'Completion date must be a valid date' : '',
 			validationMethod.error ?? ''
 		].filter(Boolean);

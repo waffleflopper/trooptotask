@@ -148,19 +148,12 @@ function findExistingCompletion(
 	ictTaskId: string,
 	completedAt: string
 ): PersonnelIctCompletion | undefined {
-	return existingCompletions
-		.filter(
-			(completion) =>
-				completion.personnelId === personnelId &&
-				completion.ictTaskId === ictTaskId &&
-				completion.completedAt === completedAt
-		)
-		.sort((a, b) => {
-			if (a.completedAt === b.completedAt) {
-				return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
-			}
-			return b.completedAt.localeCompare(a.completedAt);
-		})[0];
+	return existingCompletions.find(
+		(completion) =>
+			completion.personnelId === personnelId &&
+			completion.ictTaskId === ictTaskId &&
+			completion.completedAt === completedAt
+	);
 }
 
 function findPersonnelMatches(personnel: Personnel[], values: Record<string, string>): Personnel[] {

@@ -549,22 +549,22 @@ describe('createTestContext', () => {
 });
 
 describe('Port bundle context builders', () => {
-	it('createWritePortsContext returns exactly store, auth, audit, readOnlyGuard', () => {
+	it('createWritePortsContext returns the write bundle plus the critical tasks read model', () => {
 		const ctx = createWritePortsContext();
 		const keys = Object.keys(ctx).sort();
-		expect(keys).toEqual(['audit', 'auth', 'readOnlyGuard', 'store']);
+		expect(keys).toEqual(['audit', 'auth', 'criticalTasksReadModel', 'readOnlyGuard', 'store']);
 	});
 
 	it('createWriteWithNotificationsPortsContext returns WritePorts + notifications', () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		const keys = Object.keys(ctx).sort();
-		expect(keys).toEqual(['audit', 'auth', 'notifications', 'readOnlyGuard', 'store']);
+		expect(keys).toEqual(['audit', 'auth', 'criticalTasksReadModel', 'notifications', 'readOnlyGuard', 'store']);
 	});
 
 	it('createWriteWithSubscriptionPortsContext returns WritePorts + subscription', () => {
 		const ctx = createWriteWithSubscriptionPortsContext();
 		const keys = Object.keys(ctx).sort();
-		expect(keys).toEqual(['audit', 'auth', 'readOnlyGuard', 'store', 'subscription']);
+		expect(keys).toEqual(['audit', 'auth', 'criticalTasksReadModel', 'readOnlyGuard', 'store', 'subscription']);
 	});
 
 	it('createUserWritePortsContext returns exactly store, auth, audit', () => {
@@ -573,16 +573,16 @@ describe('Port bundle context builders', () => {
 		expect(keys).toEqual(['audit', 'auth', 'store']);
 	});
 
-	it('createQueryPortsContext returns exactly store, auth', () => {
+	it('createQueryPortsContext returns store, auth, and the critical tasks read model', () => {
 		const ctx = createQueryPortsContext();
 		const keys = Object.keys(ctx).sort();
-		expect(keys).toEqual(['auth', 'store']);
+		expect(keys).toEqual(['auth', 'criticalTasksReadModel', 'store']);
 	});
 
-	it('createQueryWithRawStorePortsContext returns store, auth, rawStore', () => {
+	it('createQueryWithRawStorePortsContext returns store, auth, rawStore, and the critical tasks read model', () => {
 		const ctx = createQueryWithRawStorePortsContext();
 		const keys = Object.keys(ctx).sort();
-		expect(keys).toEqual(['auth', 'rawStore', 'store']);
+		expect(keys).toEqual(['auth', 'criticalTasksReadModel', 'rawStore', 'store']);
 	});
 
 	it('scopes createWritePortsContext reads when auth has a scoped group', async () => {

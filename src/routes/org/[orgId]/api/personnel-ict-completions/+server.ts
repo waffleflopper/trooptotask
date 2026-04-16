@@ -55,29 +55,38 @@ async function requireActiveIctTask(ctx: UseCaseContext, taskId: string) {
 	}
 }
 
-async function requireWritableCompletionTargets(ctx: UseCaseContext, input: Record<string, unknown>) {
-	if (typeof input.personnelId === 'string') {
-		await requireActivePersonnel(ctx, input.personnelId);
-	}
-	if (typeof input.ictTaskId === 'string') {
-		await requireActiveIctTask(ctx, input.ictTaskId);
-	}
-	if (typeof input.personnelId === 'string' || typeof input.ictTaskId === 'string') {
-		return;
-	}
-
-	const id = input.id;
-	if (typeof id !== 'string') return;
-
-	const existing = await findExistingCompletion(ctx, id);
-	if (!existing) return;
+async function requireEditableCompletionHistory(
+	ctx: UseCaseContext,
+	completionId: string
+): Promise<PersonnelIctCompletionRow | null> {
+	const existing = await findExistingCompletion(ctx, completionId);
+	if (!existing) return null;
 
 	const person = await ctx.store.findOne<PersonnelRow>('personnel', ctx.auth.orgId, { id: existing.personnel_id });
 	if (person?.archived_at) {
 		fail(400, 'Archived personnel completion history cannot be edited');
 	}
 
-	await requireActiveIctTask(ctx, existing.ict_task_id);
+	const task = await ctx.store.findOne<IctTaskRow>('ict_tasks', ctx.auth.orgId, { id: existing.ict_task_id });
+	if (task?.archived_at) {
+		fail(400, 'Archived critical task history cannot be edited');
+	}
+
+	return existing;
+}
+
+async function requireWritableCompletionTargets(ctx: UseCaseContext, input: Record<string, unknown>) {
+	const id = input.id;
+	if (typeof id === 'string') {
+		await requireEditableCompletionHistory(ctx, id);
+	}
+
+	if (typeof input.personnelId === 'string') {
+		await requireActivePersonnel(ctx, input.personnelId);
+	}
+	if (typeof input.ictTaskId === 'string') {
+		await requireActiveIctTask(ctx, input.ictTaskId);
+	}
 }
 
 async function requireDeletableCompletionHistory(ctx: UseCaseContext, completionId: string) {

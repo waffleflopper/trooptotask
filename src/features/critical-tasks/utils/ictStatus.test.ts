@@ -47,6 +47,7 @@ describe('ICT status utilities', () => {
 
 		expect(calculateIctExpirationDate('2026-04-14', task({ expirationMonths: null }), settings)).toBe('2027-04-14');
 		expect(calculateIctExpirationDate('2026-04-14', task({ expirationMonths: 3 }), settings)).toBe('2026-07-14');
+		expect(calculateIctExpirationDate('2026-01-31', task({ expirationMonths: 1 }), settings)).toBe('2026-02-28');
 	});
 
 	it('returns not-recorded, expiring-soon, current, and expired based on the configured warning window', () => {
@@ -55,6 +56,7 @@ describe('ICT status utilities', () => {
 
 		expect(getIctStatus(null, task({ expirationMonths: null }), settings, asOf).status).toBe('not-recorded');
 		expect(getIctStatus('2025-04-01', task({ expirationMonths: 12 }), settings, asOf).status).toBe('expired');
+		expect(getIctStatus('2025-06-13', task({ expirationMonths: 12 }), settings, asOf).status).toBe('expiring-soon');
 		expect(getIctStatus('2025-06-01', task({ expirationMonths: 12 }), settings, asOf).status).toBe('expiring-soon');
 		expect(getIctStatus('2025-09-01', task({ expirationMonths: 12 }), settings, asOf).status).toBe('current');
 	});

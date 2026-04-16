@@ -4,7 +4,7 @@ import type {
 	IctStatusInfo,
 	IctTask
 } from '$features/critical-tasks/criticalTasks.types';
-import { addMonths, formatDate, parseDate } from '$lib/utils/dates';
+import { addMonthsClamped, formatDate, parseDate } from '$lib/utils/dates';
 
 export const DEFAULT_CRITICAL_TASKS_EXPIRATION_MONTHS = 12;
 export const DEFAULT_CRITICAL_TASKS_WARNING_DAYS = 60;
@@ -50,7 +50,7 @@ export function calculateIctExpirationDate(
 	settings?: CriticalTasksSettingsInput | null
 ): string | null {
 	if (!completionDate) return null;
-	return formatDate(addMonths(parseDate(completionDate), resolveIctExpirationMonths(task, settings)));
+	return formatDate(addMonthsClamped(parseDate(completionDate), resolveIctExpirationMonths(task, settings)));
 }
 
 export function getIctStatus(
@@ -90,7 +90,7 @@ export function getIctStatus(
 		};
 	}
 
-	if (daysUntilExpiration < normalizedSettings.expiringSoonWarningDays) {
+	if (daysUntilExpiration <= normalizedSettings.expiringSoonWarningDays) {
 		return {
 			status: 'expiring-soon',
 			expirationDate,

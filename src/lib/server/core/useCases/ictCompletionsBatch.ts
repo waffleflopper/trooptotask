@@ -8,6 +8,7 @@ import type { WritePorts } from '$lib/server/core/ports';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
+import { stripOrganizationId } from './stripOrganizationId';
 
 const MAX_BATCH_SIZE = 500;
 
@@ -26,12 +27,6 @@ export interface IctCompletionBatchImportResult {
 	inserted: PersonnelIctCompletion[];
 	updated: PersonnelIctCompletion[];
 	errors: IctCompletionBatchImportError[];
-}
-
-function stripOrganizationId(row: Record<string, unknown>): Record<string, unknown> {
-	const rest = { ...row };
-	delete rest.organization_id;
-	return rest;
 }
 
 function errorMessage(error: unknown): string {
@@ -89,6 +84,8 @@ export async function importIctCompletionsBatch(
 	const personnel = PersonnelEntity.fromDbArray(personnelRows);
 	const tasks = IctTaskEntity.fromDbArray(taskRows);
 
+	// First pass resolves only valid personnel/task references so we can scope access checks
+	// and the existing-completion lookup without loading unrelated completion history.
 	const preliminaryReview = reviewMappedIctCompletionImportRows(input.records, {
 		personnel,
 		tasks,

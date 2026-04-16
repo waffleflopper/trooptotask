@@ -1,64 +1,50 @@
 <script lang="ts">
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import type { Group } from '$lib/stores/groups.svelte';
 	import type { Personnel } from '$lib/types';
-	import type {
-		CriticalTasksSettingsInput,
-		IctTask,
-		PersonnelIctCompletion
-	} from '$features/critical-tasks/criticalTasks.types';
-	import {
-		buildIctReportSummary,
-		filterIctReportPersonnel,
-		type IctReportFilters
-	} from '$features/critical-tasks/utils/ictReports';
+	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
+	import type { IctReportSummary } from '$features/critical-tasks/utils/ictReports';
 
 	interface Props {
 		orgId: string;
 		personnel: Personnel[];
 		groups: Group[];
 		tasks: IctTask[];
-		completions: PersonnelIctCompletion[];
-		settings?: CriticalTasksSettingsInput | null;
-		asOf?: string | Date;
+		initialSummary: IctReportSummary;
 	}
 
-	let { orgId, personnel, groups, tasks, completions, settings = null, asOf }: Props = $props();
+	let { orgId, personnel, groups, tasks, initialSummary }: Props = $props();
 
 	let filterGroupId = $state('');
 	let filterMos = $state('');
 	let filterRole = $state('');
 	let filterRank = $state('');
+	let fetchedSummary = $state<IctReportSummary | null>(null);
+	let summaryLoading = $state(false);
+	let summaryError = $state<string | null>(null);
+	const summary = $derived(fetchedSummary ?? initialSummary);
 
-	const filters = $derived<IctReportFilters>({
-		groupId: filterGroupId || undefined,
-		mos: filterMos || undefined,
-		role: filterRole || undefined,
-		rank: filterRank || undefined
-	});
-	const filteredPersonnel = $derived(filterIctReportPersonnel(personnel, filters));
-	const summary = $derived(
-		buildIctReportSummary({
-			personnel: filteredPersonnel,
-			tasks,
-			completions,
-			settings,
-			asOf
-		})
-	);
 	const availableMos = $derived([...new Set(personnel.map((person) => person.mos).filter(Boolean))].sort());
 	const availableRoles = $derived([...new Set(personnel.map((person) => person.clinicRole).filter(Boolean))].sort());
 	const availableRanks = $derived([...new Set(personnel.map((person) => person.rank).filter(Boolean))].sort());
 	const hasActiveFilters = $derived(!!filterGroupId || !!filterMos || !!filterRole || !!filterRank);
-	const exportHref = $derived.by(() => {
-		const params = new URLSearchParams();
+	const reportQuery = $derived.by(() => {
+		const params = new SvelteURLSearchParams();
 		if (filterGroupId) params.set('groupId', filterGroupId);
 		if (filterMos) params.set('mos', filterMos);
 		if (filterRole) params.set('role', filterRole);
 		if (filterRank) params.set('rank', filterRank);
-		const query = params.toString();
+		return params.toString();
+	});
+	const exportHref = $derived.by(() => {
+		const query = reportQuery;
 		return `/org/${orgId}/api/critical-tasks/reports/export${query ? `?${query}` : ''}`;
+	});
+	const summaryHref = $derived.by(() => {
+		const query = reportQuery;
+		return `/org/${orgId}/api/critical-tasks/reports/summary${query ? `?${query}` : ''}`;
 	});
 
 	function monthLabel(month: string): string {
@@ -81,6 +67,47 @@
 		filterRole = '';
 		filterRank = '';
 	}
+
+	$effect(() => {
+		const href = summaryHref;
+		if (href === `/org/${orgId}/api/critical-tasks/reports/summary`) {
+			fetchedSummary = null;
+			summaryLoading = false;
+			summaryError = null;
+			return;
+		}
+
+		const controller = new AbortController();
+		summaryLoading = true;
+		summaryError = null;
+
+		void fetch(href, { signal: controller.signal })
+			.then(async (response) => {
+				if (!response.ok) {
+					throw new Error('Failed to update critical task reports');
+				}
+				return (await response.json()) as IctReportSummary;
+			})
+			.then((nextSummary) => {
+				if (!controller.signal.aborted) {
+					fetchedSummary = nextSummary;
+				}
+			})
+			.catch((error) => {
+				if (!controller.signal.aborted) {
+					summaryError = error instanceof Error ? error.message : 'Failed to update critical task reports';
+				}
+			})
+			.finally(() => {
+				if (!controller.signal.aborted) {
+					summaryLoading = false;
+				}
+			});
+
+		return () => {
+			controller.abort();
+		};
+	});
 </script>
 
 <PageToolbar
@@ -149,6 +176,9 @@
 					<button class="btn btn-secondary btn-sm" type="button" onclick={clearFilters}>Clear filters</button>
 				{/if}
 			</div>
+			{#if summaryError}
+				<p class="report-error" role="status">{summaryError}</p>
+			{/if}
 		</div>
 
 		<div class="dashboard-grid">
@@ -184,6 +214,9 @@
 			<section class="report-panel">
 				<div class="panel-header">
 					<h2>Readiness by MOS</h2>
+					{#if summaryLoading}
+						<span class="panel-status">Updating...</span>
+					{/if}
 				</div>
 				{#if summary.readinessByMos.length === 0}
 					<p class="empty-copy">No applicable task data for the current filters.</p>
@@ -213,6 +246,9 @@
 			<section class="report-panel">
 				<div class="panel-header">
 					<h2>Completion Trend</h2>
+					{#if summaryLoading}
+						<span class="panel-status">Updating...</span>
+					{/if}
 				</div>
 				{#if summary.completionTrend.length === 0}
 					<p class="empty-copy">No completion history for the current filters.</p>
@@ -261,6 +297,11 @@
 	.filter-select {
 		min-width: 9rem;
 		max-width: 12rem;
+	}
+
+	.report-error {
+		margin: var(--sp-2) 0 0;
+		color: var(--danger);
 	}
 
 	.dashboard-grid {
@@ -324,6 +365,10 @@
 	}
 
 	.panel-header {
+		display: flex;
+		gap: var(--sp-2);
+		align-items: center;
+		justify-content: space-between;
 		margin-bottom: var(--sp-3);
 	}
 
@@ -334,6 +379,11 @@
 		font-weight: var(--font-weight-bold);
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
+	}
+
+	.panel-status {
+		color: var(--text-secondary);
+		font-size: var(--text-sm);
 	}
 
 	.report-list,

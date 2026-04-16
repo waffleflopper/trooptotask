@@ -197,7 +197,7 @@ describe('personnel ICT completions API', () => {
 			})
 		).rejects.toMatchObject({
 			status: 400,
-			message: 'Archived critical tasks cannot receive new completion entries'
+			message: 'Archived critical task history cannot be edited'
 		});
 
 		const stored = await ctx.store.findOne<{ notes: string }>('personnel_ict_completions', ctx.auth.orgId, {
@@ -264,6 +264,118 @@ describe('personnel ICT completions API', () => {
 			id: 'completion-archived-person'
 		});
 		expect(stored?.notes).toBe('Original note');
+	});
+
+	it('rejects updating archived task history even when the payload includes an active personnel id', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-active',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jane',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-alpha',
+				archived_at: null
+			}
+		]);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'task-archived',
+				organization_id: ctx.auth.orgId,
+				task_code: '181-105-1999',
+				title: 'Archived task',
+				description: null,
+				mos: ['68W'],
+				expiration_months: 12,
+				sort_order: 0,
+				archived_at: '2026-04-14T12:00:00Z',
+				created_at: '2026-04-01T00:00:00Z'
+			}
+		]);
+		ctx.store.seed('personnel_ict_completions', [
+			{
+				id: 'completion-archived-task',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-active',
+				ict_task_id: 'task-archived',
+				completed_at: '2026-04-10',
+				validation_method: 'Lecture',
+				validated_by: null,
+				notes: 'Original note',
+				logged_by: 'user-1',
+				created_at: '2026-04-10T00:00:00Z'
+			}
+		]);
+
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, {
+				id: 'completion-archived-task',
+				personnelId: 'person-active',
+				notes: 'Updated note'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Archived critical task history cannot be edited'
+		});
+	});
+
+	it('rejects updating archived personnel history even when the payload includes an active task id', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-archived',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jane',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-alpha',
+				archived_at: '2026-04-14T12:00:00Z'
+			}
+		]);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'task-active',
+				organization_id: ctx.auth.orgId,
+				task_code: '181-105-1001',
+				title: 'Active task',
+				description: null,
+				mos: ['68W'],
+				expiration_months: 12,
+				sort_order: 0,
+				archived_at: null,
+				created_at: '2026-04-01T00:00:00Z'
+			}
+		]);
+		ctx.store.seed('personnel_ict_completions', [
+			{
+				id: 'completion-archived-person',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-archived',
+				ict_task_id: 'task-active',
+				completed_at: '2026-04-10',
+				validation_method: 'Lecture',
+				validated_by: null,
+				notes: 'Original note',
+				logged_by: 'user-1',
+				created_at: '2026-04-10T00:00:00Z'
+			}
+		]);
+
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, {
+				id: 'completion-archived-person',
+				ictTaskId: 'task-active',
+				notes: 'Updated note'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Archived personnel completion history cannot be edited'
+		});
 	});
 
 	it('rejects deleting a completion when its ICT task has been archived to preserve history', async () => {

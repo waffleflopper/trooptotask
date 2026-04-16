@@ -1,11 +1,9 @@
 import { defineStore } from '$lib/stores/core';
-import type { Store } from '$lib/stores/core';
+import type { Store, StoreInternals } from '$lib/stores/core';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 import type { IctTaskImportMappedRow, IctTaskImportMode } from '$features/critical-tasks/utils/ictTaskImport';
 
 const MAX_BATCH_SIZE = 500;
-
-let orgIdRef = '';
 
 interface IctTaskImportBatchError {
 	rowNumber: number;
@@ -47,10 +45,9 @@ async function readResponseErrorMessage(response: Response, fallback: string): P
 	return fallback;
 }
 
-function enhance(base: Store<IctTask>): IctTasksExtensions {
+function enhance(base: Store<IctTask>, internals: StoreInternals<IctTask>): IctTasksExtensions {
 	return {
 		load(items: IctTask[], orgId: string) {
-			orgIdRef = orgId;
 			base.load(items, orgId);
 		},
 
@@ -62,7 +59,7 @@ function enhance(base: Store<IctTask>): IctTasksExtensions {
 
 			for (let index = 0; index < input.records.length; index += MAX_BATCH_SIZE) {
 				const chunk = input.records.slice(index, index + MAX_BATCH_SIZE);
-				const response = await fetch(`/org/${orgIdRef}/api/ict-tasks/batch`, {
+				const response = await fetch(`/org/${internals.orgId()}/api/ict-tasks/batch`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({

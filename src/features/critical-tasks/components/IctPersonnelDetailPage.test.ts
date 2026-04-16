@@ -349,6 +349,92 @@ describe('IctPersonnelDetailPage', () => {
 		});
 	});
 
+	it('lets training editors input a task from the personnel toolbar with an MOS-scoped task search', async () => {
+		const deferred = createDeferredResponse();
+		const fetchMock = vi.fn().mockReturnValue(deferred.promise);
+		vi.stubGlobal('fetch', fetchMock);
+		ictTasksStore.load([secondaryActiveTask, nonApplicableTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(IctPersonnelDetailPage, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: true
+					},
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					},
+					criticalTasksPersonnelHistory: {
+						...history,
+						rows: []
+					}
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Input Task' }));
+
+		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Person' })).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Critical Task' }));
+
+		let taskList = screen.getByRole('listbox');
+		expect(within(taskList).getByText('181-105-1003 Airway management')).toBeTruthy();
+		expect(within(taskList).queryByText('181-105-2001 Infantry lane rehearsal')).toBeNull();
+
+		await fireEvent.input(screen.getByRole('combobox', { name: 'Critical Task' }), {
+			target: { value: 'airway' }
+		});
+		taskList = screen.getByRole('listbox');
+		await fireEvent.mouseDown(within(taskList).getByText('181-105-1003 Airway management'));
+
+		await fireEvent.input(screen.getByLabelText(/Completion Date/i), {
+			target: { value: '2098-03-01' }
+		});
+		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
+			target: { value: 'Demonstration' }
+		});
+
+		await fireEvent.click(screen.getByTestId('ict-completion-save'));
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+		});
+
+		expect(fetchMock.mock.calls[0]?.[0]).toBe('/org/org-1/api/personnel-ict-completions');
+		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+			personnelId: 'p-1',
+			ictTaskId: 'task-secondary',
+			completedAt: '2098-03-01',
+			validationMethod: 'Demonstration',
+			validatedBy: null,
+			notes: null
+		});
+
+		deferred.resolve(
+			mockJsonResponse({
+				id: 'completion-secondary',
+				personnelId: 'p-1',
+				ictTaskId: 'task-secondary',
+				completedAt: '2098-03-01',
+				validationMethod: 'Demonstration',
+				validatedBy: null,
+				notes: null,
+				loggedBy: 'user-1',
+				createdAt: '2098-03-01T12:00:00Z'
+			})
+		);
+
+		await waitFor(() => {
+			expect(screen.queryByRole('dialog', { name: 'Log ICT Completion' })).toBeNull();
+		});
+	});
+
 	it('lets training editors edit an existing completion from the detail page', async () => {
 		const deferred = createDeferredResponse();
 		const fetchMock = vi.fn().mockReturnValue(deferred.promise);

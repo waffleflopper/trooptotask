@@ -58,6 +58,7 @@
 	const permissions = $derived(data.permissions ?? org.permissions);
 	const canEditTraining = $derived(permissions.canEditTraining && !org.readOnly);
 	let activeEditorRow = $state<ActiveTaskRow | null>(null);
+	let showTaskInputModal = $state(false);
 
 	function compareCompletionRecency(a: PersonnelIctCompletion, b: PersonnelIctCompletion): number {
 		const completedAtDiff = a.completedAt.localeCompare(b.completedAt);
@@ -116,6 +117,8 @@
 
 	const archivedHistoryRows = $derived(history.rows.filter((row) => row.taskArchivedAt !== null || row.task === null));
 	const currentUserDisplayName = $derived(getCurrentUserDisplayName());
+	const applicableTaskOptions = $derived(activeRows.map((row) => row.task));
+	const canInputTask = $derived(canEditTraining && applicableTaskOptions.length > 0);
 
 	const statusLabels = {
 		current: 'Current',
@@ -238,6 +241,12 @@
 			throw new Error('Failed to save ICT completion');
 		}
 	}
+
+	function handleTaskInput(): void {
+		if (!canInputTask) return;
+		activeEditorRow = null;
+		showTaskInputModal = true;
+	}
 </script>
 
 <svelte:head>
@@ -252,6 +261,11 @@
 		{ label: history.personnel.lastName }
 	]}
 >
+	{#if canEditTraining}
+		<button class="btn btn-primary btn-sm" type="button" onclick={handleTaskInput} disabled={!canInputTask}>
+			Input Task
+		</button>
+	{/if}
 	<a href={`/org/${data.orgId}/critical-tasks`} class="btn btn-sm">Back</a>
 </PageToolbar>
 
@@ -352,6 +366,16 @@
 		{currentUserDisplayName}
 		onSave={handleCompletionSave}
 		onClose={() => (activeEditorRow = null)}
+	/>
+{:else if showTaskInputModal}
+	<IctCompletionModal
+		person={history.personnel}
+		taskOptions={applicableTaskOptions}
+		completions={personnelIctCompletionsStore.items}
+		settings={data.criticalTasksSettings ?? null}
+		{currentUserDisplayName}
+		onSave={handleCompletionSave}
+		onClose={() => (showTaskInputModal = false)}
 	/>
 {/if}
 

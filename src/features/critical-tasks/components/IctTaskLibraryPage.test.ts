@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctTaskLibraryPage from './IctTaskLibraryPage.svelte';
 import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
@@ -54,6 +54,28 @@ const archivedTask: IctTask = {
 	archivedAt: '2026-04-02T12:00:00Z'
 };
 
+const infantryTask: IctTask = {
+	...activeTask,
+	id: 'task-infantry',
+	taskCode: '071-COM-1001',
+	title: 'React to contact',
+	description: null,
+	mos: ['11B'],
+	expirationMonths: null,
+	sortOrder: 1
+};
+
+const allMosTask: IctTask = {
+	...activeTask,
+	id: 'task-all-mos',
+	taskCode: '071-COM-2001',
+	title: 'Submit readiness report',
+	description: null,
+	mos: [],
+	expirationMonths: null,
+	sortOrder: 3
+};
+
 const completions = [
 	{ id: 'c1', ictTaskId: 'task-1' },
 	{ id: 'c2', ictTaskId: 'task-1' }
@@ -77,6 +99,43 @@ describe('IctTaskLibraryPage', () => {
 
 		expect(screen.getByText('181-105-1001')).toBeTruthy();
 		expect(screen.queryByText('181-105-9999')).toBeNull();
+	});
+
+	it('filters active tasks by task search text and MOS applicability', async () => {
+		ictTasksStore.load([activeTask, infantryTask, allMosTask, archivedTask], 'org-1');
+
+		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
+
+		const taskList = () => screen.getByRole('list', { name: 'ICT task library' });
+
+		expect(within(taskList()).getByText('Perform tactical combat casualty care')).toBeTruthy();
+		expect(within(taskList()).getByText('React to contact')).toBeTruthy();
+		expect(within(taskList()).getByText('Submit readiness report')).toBeTruthy();
+
+		await fireEvent.input(screen.getByLabelText('Search'), {
+			target: { value: 'contact' }
+		});
+
+		expect(within(taskList()).getByText('React to contact')).toBeTruthy();
+		expect(within(taskList()).queryByText('Perform tactical combat casualty care')).toBeNull();
+
+		await fireEvent.input(screen.getByLabelText('Search'), {
+			target: { value: '' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'MOS' }));
+		await fireEvent.mouseDown(within(screen.getByRole('listbox')).getByText('68W'));
+
+		expect(within(taskList()).getByText('Perform tactical combat casualty care')).toBeTruthy();
+		expect(within(taskList()).getByText('Submit readiness report')).toBeTruthy();
+		expect(within(taskList()).queryByText('React to contact')).toBeNull();
+		expect(screen.getByText('2 of 3 shown')).toBeTruthy();
+
+		await fireEvent.input(screen.getByLabelText('Search'), {
+			target: { value: '181 care' }
+		});
+
+		expect(within(taskList()).getByText('Perform tactical combat casualty care')).toBeTruthy();
+		expect(within(taskList()).queryByText('Submit readiness report')).toBeNull();
 	});
 
 	it('creates task metadata with normalized MOS applicability and optional expiration override', async () => {

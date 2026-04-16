@@ -1,6 +1,7 @@
 <script lang="ts">
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -11,6 +12,7 @@
 		countCompletionRecordsForTask,
 		formatMosApplicability,
 		getActiveIctTasksForLibrary,
+		isIctTaskApplicableToMos,
 		parseMosApplicabilityInput
 	} from '$features/critical-tasks/utils/ictTaskLibrary';
 
@@ -35,6 +37,8 @@
 	let editing = $state(false);
 	let saving = $state(false);
 	let confirmArchive = $state<IctTask | null>(null);
+	let taskSearch = $state('');
+	let selectedMos = $state('');
 
 	let formTaskCode = $state('');
 	let formTitle = $state('');
@@ -47,6 +51,53 @@
 	const selectedTask = $derived(
 		selectedTaskId ? (activeTasks.find((task) => task.id === selectedTaskId) ?? null) : null
 	);
+	const mosFilterOptions = $derived.by(() => {
+		const mosValues: string[] = [];
+		for (const task of activeTasks) {
+			for (const mos of task.mos) {
+				const normalized = mos.trim().toUpperCase();
+				if (normalized && !mosValues.includes(normalized)) {
+					mosValues.push(normalized);
+				}
+			}
+		}
+
+		return mosValues
+			.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+			.map((mos) => ({ value: mos, label: mos }));
+	});
+	const filtersActive = $derived(Boolean(taskSearch.trim() || selectedMos));
+	const filteredTasks = $derived(
+		activeTasks.filter((task) => matchesTaskSearch(task, taskSearch) && matchesSelectedMos(task))
+	);
+	const taskListMeta = $derived(
+		filtersActive ? `${filteredTasks.length} of ${activeTasks.length} shown` : `${activeTasks.length} configured`
+	);
+	const canReorderTasks = $derived(canManage && !editing && !creating && !filtersActive);
+
+	$effect(() => {
+		if (selectedMos && !mosFilterOptions.some((option) => option.value === selectedMos)) {
+			selectedMos = '';
+		}
+	});
+
+	function matchesTaskSearch(task: Pick<IctTask, 'taskCode' | 'title'>, query: string): boolean {
+		const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+		if (terms.length === 0) return true;
+
+		const searchable = `${task.taskCode} ${task.title}`.toLowerCase();
+		return terms.every((term) => searchable.includes(term));
+	}
+
+	function matchesSelectedMos(task: Pick<IctTask, 'mos'>): boolean {
+		if (!selectedMos) return true;
+		return isIctTaskApplicableToMos(task, selectedMos);
+	}
+
+	function clearTaskFilters() {
+		taskSearch = '';
+		selectedMos = '';
+	}
 
 	function selectTask(taskId: string) {
 		if (creating || editing) return;
@@ -199,7 +250,7 @@
 			<div class="panel-header">
 				<div class="panel-header-copy">
 					<h3 id="task-library-title" class="panel-title">Active Tasks</h3>
-					<span class="panel-meta">{activeTasks.length} configured</span>
+					<span class="panel-meta">{taskListMeta}</span>
 				</div>
 				{#if canManage}
 					<button class="btn btn-primary btn-sm" type="button" onclick={startCreate} disabled={creating || editing}>
@@ -208,15 +259,52 @@
 				{/if}
 			</div>
 
+			{#if activeTasks.length > 0}
+				<div class="task-filters" aria-label="Filter ICT task library">
+					<div class="filter-field filter-field-search">
+						<label for="ict-library-task-search">Search</label>
+						<input
+							id="ict-library-task-search"
+							class="input task-search-input"
+							type="search"
+							placeholder="Search task number or title..."
+							bind:value={taskSearch}
+						/>
+					</div>
+
+					<div class="filter-field">
+						<label for="ict-library-mos-filter">MOS</label>
+						<SearchSelect
+							id="ict-library-mos-filter"
+							options={mosFilterOptions}
+							bind:value={selectedMos}
+							placeholder="All MOSs"
+							ariaLabel="MOS"
+							compact
+						/>
+					</div>
+
+					{#if filtersActive}
+						<button class="btn btn-sm" type="button" onclick={clearTaskFilters}>Clear filters</button>
+					{/if}
+				</div>
+			{/if}
+
 			{#if activeTasks.length === 0 && !creating}
 				<EmptyState
 					message="No active ICT tasks. Add task definitions to begin tracking ICTL readiness."
 					actionLabel={canManage ? 'New Task' : undefined}
 					onAction={canManage ? startCreate : undefined}
 				/>
+			{:else if activeTasks.length > 0 && filteredTasks.length === 0}
+				<EmptyState
+					message="No ICT tasks match the current filters."
+					actionLabel="Clear filters"
+					onAction={clearTaskFilters}
+				/>
 			{:else}
 				<ul class="task-list" aria-label="ICT task library">
-					{#each activeTasks as task, index (task.id)}
+					{#each filteredTasks as task, index (task.id)}
 						<li class="task-item" class:selected={selectedTaskId === task.id && !creating}>
 							<button
 								class="task-select"
@@ -228,7 +316,7 @@
 								<span class="task-title">{task.title}</span>
 								<span class="task-meta">{formatMosApplicability(task.mos)}</span>
 							</button>
-							{#if canManage && !editing && !creating}
+							{#if canReorderTasks}
 								<div class="task-reorder" aria-label="Reorder {task.taskCode}">
 									<button
 										class="btn-move"
@@ -442,6 +530,39 @@
 	.panel-header {
 		padding-bottom: var(--sp-4);
 		border-bottom: var(--border-thin);
+	}
+
+	.task-filters {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
+		align-items: stretch;
+	}
+
+	.filter-field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+		min-width: 0;
+	}
+
+	.filter-field label {
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+	}
+
+	.task-search-input {
+		min-height: 32px;
+		padding: 6px 8px;
+		font-size: var(--text-sm);
+	}
+
+	.task-filters > .btn {
+		align-self: flex-start;
 	}
 
 	.panel-header-copy {

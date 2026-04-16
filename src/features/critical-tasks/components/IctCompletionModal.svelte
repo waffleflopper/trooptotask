@@ -59,10 +59,12 @@
 		...ICT_VALIDATION_METHODS.map((method) => ({ value: method, label: method }))
 	];
 
-	const selectorMode = $derived(!person || !task);
 	const selectedPerson = $derived(
 		person ?? personnelOptions.find((option) => option.id === selectedPersonnelId) ?? null
 	);
+	const showPersonnelSelect = $derived(!person);
+	const showTaskSelect = $derived(!task);
+	const selectorMode = $derived(showPersonnelSelect || showTaskSelect);
 	const taskCandidates = $derived(
 		selectedPerson ? taskOptions.filter((option) => isIctTaskApplicableToMos(option, selectedPerson.mos)) : taskOptions
 	);
@@ -227,28 +229,40 @@
 
 <Modal title={modalTitle} {onClose} canClose={!isSaving} width="520px" titleId="ict-completion-title">
 	{#if selectorMode}
-		<div class="selector-grid">
-			<FormField label="Person" id="ict-person-select" required error={personError}>
-				<SearchSelect
-					id="ict-person-select"
-					options={personnelSelectOptions}
-					bind:value={selectedPersonnelId}
-					placeholder="Search personnel..."
-					ariaLabel="Person"
-					clearable={false}
-				/>
-			</FormField>
+		{#if selectedPerson && !showPersonnelSelect}
+			<div class="completion-subject">
+				<span class="subject-rank">{selectedPerson.rank}</span>
+				<span class="subject-name">{selectedPerson.lastName}, {selectedPerson.firstName}</span>
+				<span class="subject-task">{selectedPerson.mos || 'No MOS'}</span>
+			</div>
+		{/if}
 
-			<FormField label="Critical Task" id="ict-task-select" required error={taskError} hint={selectionHint}>
-				<SearchSelect
-					id="ict-task-select"
-					options={taskSelectOptions}
-					bind:value={selectedTaskId}
-					placeholder="Search task or title..."
-					ariaLabel="Critical Task"
-					clearable={false}
-				/>
-			</FormField>
+		<div class="selector-grid">
+			{#if showPersonnelSelect}
+				<FormField label="Person" id="ict-person-select" required error={personError}>
+					<SearchSelect
+						id="ict-person-select"
+						options={personnelSelectOptions}
+						bind:value={selectedPersonnelId}
+						placeholder="Search personnel..."
+						ariaLabel="Person"
+						clearable={false}
+					/>
+				</FormField>
+			{/if}
+
+			{#if showTaskSelect}
+				<FormField label="Critical Task" id="ict-task-select" required error={taskError} hint={selectionHint}>
+					<SearchSelect
+						id="ict-task-select"
+						options={taskSelectOptions}
+						bind:value={selectedTaskId}
+						placeholder="Search task or title..."
+						ariaLabel="Critical Task"
+						clearable={false}
+					/>
+				</FormField>
+			{/if}
 		</div>
 	{:else if selectedPerson && selectedTask}
 		<div class="completion-subject">

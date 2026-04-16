@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createInMemoryDataStore, createQueryPortsContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { QueryPorts } from '$lib/server/core/ports';
 import { fetchDashboardBootstrap, fetchDashboardData } from './dashboardQuery';
 
@@ -13,12 +13,9 @@ function todayStr(): string {
 }
 
 function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): QueryPorts & {
-	store: ReturnType<typeof createInMemoryDataStore>;
+	store: ReturnType<typeof createQueryPortsContext>['store'];
 } {
-	return {
-		store: createInMemoryDataStore(),
-		auth: createTestAuthContext({ orgId: ORG, userId: USER, ...overrides?.auth })
-	};
+	return createQueryPortsContext({ auth: { orgId: ORG, userId: USER, ...overrides?.auth } });
 }
 
 describe('fetchDashboardData', () => {

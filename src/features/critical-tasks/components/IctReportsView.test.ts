@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctReportsView from './IctReportsView.svelte';
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
+import type { IctReportSummary } from '$features/critical-tasks/utils/ictReports';
 
 const alpha: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0 };
 const bravo: Group = { id: 'group-bravo', name: 'Bravo', sortOrder: 1 };
@@ -52,24 +53,43 @@ const commonTask: IctTask = {
 	mos: []
 };
 
-function completion(overrides: Partial<PersonnelIctCompletion>): PersonnelIctCompletion {
-	return {
-		id: 'completion-1',
-		personnelId: medic.id,
-		ictTaskId: medicTask.id,
-		completedAt: '2026-01-15',
-		validationMethod: 'Demonstration',
-		validatedBy: null,
-		notes: null,
-		loggedBy: 'user-1',
-		createdAt: '2026-01-15T00:00:00Z',
-		...overrides
-	};
-}
+const initialSummary: IctReportSummary = {
+	overallReadinessPercent: 67,
+	readinessByMos: [
+		{ mos: '11B', readinessPercent: 0, applicableCount: 1, readyCount: 0 },
+		{ mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 }
+	],
+	bestPerformingMos: { mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 },
+	worstPerformingMos: { mos: '11B', readinessPercent: 0, applicableCount: 1, readyCount: 0 },
+	completionTrend: [
+		{ month: '2025-11', completions: 1 },
+		{ month: '2026-01', completions: 2 }
+	]
+};
+
+const filteredSummary: IctReportSummary = {
+	overallReadinessPercent: 100,
+	readinessByMos: [{ mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 }],
+	bestPerformingMos: { mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 },
+	worstPerformingMos: { mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 },
+	completionTrend: [{ month: '2026-01', completions: 1 }]
+};
 
 describe('IctReportsView', () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({
+				ok: true,
+				json: async () => filteredSummary
+			}))
+		);
+	});
+
 	afterEach(() => {
 		cleanup();
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
 	});
 
 	it('renders report summaries and updates the export context when filters change', async () => {
@@ -79,26 +99,7 @@ describe('IctReportsView', () => {
 				personnel: [medic, infantry],
 				groups: [alpha, bravo],
 				tasks: [medicTask, commonTask],
-				completions: [
-					completion({ personnelId: medic.id, ictTaskId: medicTask.id, completedAt: '2026-01-15' }),
-					completion({
-						id: 'completion-2',
-						personnelId: medic.id,
-						ictTaskId: commonTask.id,
-						completedAt: '2025-12-20'
-					}),
-					completion({
-						id: 'completion-3',
-						personnelId: infantry.id,
-						ictTaskId: commonTask.id,
-						completedAt: '2024-01-01'
-					})
-				],
-				settings: {
-					defaultExpirationMonths: 12,
-					expiringSoonWarningDays: 60
-				},
-				asOf: '2026-01-31'
+				initialSummary
 			}
 		});
 
@@ -122,9 +123,14 @@ describe('IctReportsView', () => {
 		await fireEvent.change(groupFilter);
 
 		await waitFor(() => {
+			expect(fetch).toHaveBeenCalledWith(
+				`/org/org-1/api/critical-tasks/reports/summary?groupId=${alpha.id}`,
+				expect.objectContaining({ signal: expect.any(AbortSignal) })
+			);
 			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
 				`/org/org-1/api/critical-tasks/reports/export?groupId=${alpha.id}`
 			);
+			expect(screen.getByText('100%')).toBeTruthy();
 		});
 	});
 });

@@ -1,32 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from './inMemory';
-import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
+import { createTestContext, createInMemoryDataStore, createTestAuthContext } from './inMemory';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadWithContextCore } from './httpAdapter';
 
 function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): UseCaseContext {
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		advancedDutyPersistence: createInMemoryAdvancedDutyPersistenceAdapter(store),
-		auth: createTestAuthContext(overrides?.auth),
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+	return createTestContext({ auth: overrides?.auth });
 }
 
 describe('loadWithContextCore', () => {

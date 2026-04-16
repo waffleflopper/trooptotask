@@ -15,6 +15,7 @@
  * the data store is wrapped in `createScopedDataStore` using the production scope rules.
  */
 import type {
+	CriticalTasksReadModelPort,
 	DataStore,
 	FindOptions,
 	FindResult,
@@ -39,6 +40,7 @@ import type { EffectiveTier } from '$lib/types/subscription';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
+import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalTasksReadModel';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
@@ -393,6 +395,7 @@ export function createTestContext(overrides?: {
 	const billingPort = createTestBillingPort();
 	const storagePort = createTestStoragePort();
 	const advancedDutyPersistence = createInMemoryAdvancedDutyPersistenceAdapter(rawStore);
+	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
 		rawStore,
@@ -407,7 +410,8 @@ export function createTestContext(overrides?: {
 		billing: billingPort,
 		billingPort,
 		storage: storagePort,
-		storagePort
+		storagePort,
+		criticalTasksReadModel
 	};
 }
 
@@ -513,14 +517,17 @@ export function createWritePortsContext(options?: {
 }): WritePorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	audit: ReturnType<typeof createTestAuditPort>;
+	criticalTasksReadModel: CriticalTasksReadModelPort;
 } {
 	const auth = createTestAuthContext(options?.auth);
-	const { store } = createScopedTestStores(auth);
+	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
 		auth,
 		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false)
+		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
+		criticalTasksReadModel
 	};
 }
 
@@ -531,15 +538,18 @@ export function createWriteWithNotificationsPortsContext(options?: {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	audit: ReturnType<typeof createTestAuditPort>;
 	notifications: ReturnType<typeof createTestNotificationPort>;
+	criticalTasksReadModel: CriticalTasksReadModelPort;
 } {
 	const auth = createTestAuthContext(options?.auth);
-	const { store } = createScopedTestStores(auth);
+	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
 		auth,
 		audit: createTestAuditPort(),
 		readOnlyGuard: createTestReadOnlyGuard(options?.readOnly ?? false),
-		notifications: createTestNotificationPort()
+		notifications: createTestNotificationPort(),
+		criticalTasksReadModel
 	};
 }
 
@@ -553,9 +563,11 @@ export function createWriteWithSubscriptionPortsContext(options?: {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	audit: ReturnType<typeof createTestAuditPort>;
 	subscription: ReturnType<typeof createTestSubscriptionPort>;
+	criticalTasksReadModel: CriticalTasksReadModelPort;
 } {
 	const auth = createTestAuthContext(options?.auth);
-	const { store } = createScopedTestStores(auth);
+	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
 		auth,
@@ -565,7 +577,8 @@ export function createWriteWithSubscriptionPortsContext(options?: {
 			options?.subscriptionAllowed ?? true,
 			options?.subscriptionMessage,
 			options?.availableSlots ?? null
-		)
+		),
+		criticalTasksReadModel
 	};
 }
 
@@ -588,12 +601,15 @@ export function createQueryPortsContext(options?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
 }): QueryPorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
+	criticalTasksReadModel: CriticalTasksReadModelPort;
 } {
 	const auth = createTestAuthContext(options?.auth);
-	const { store } = createScopedTestStores(auth);
+	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
-		auth
+		auth,
+		criticalTasksReadModel
 	};
 }
 
@@ -602,12 +618,15 @@ export function createQueryWithRawStorePortsContext(options?: {
 }): QueryWithRawStorePorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
+	criticalTasksReadModel: CriticalTasksReadModelPort;
 } {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
 	return {
 		store,
 		auth,
-		rawStore
+		rawStore,
+		criticalTasksReadModel
 	};
 }

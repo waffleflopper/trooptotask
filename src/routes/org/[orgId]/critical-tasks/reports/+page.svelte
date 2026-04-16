@@ -4,24 +4,16 @@
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
-	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import IctReportsView from '$features/critical-tasks/components/IctReportsView.svelte';
 
 	let { data } = $props();
 	const org = getOrgContext();
 
 	const storesHydratedForOrg = $derived(
-		personnelStore.orgId === org.orgId &&
-			groupsStore.orgId === org.orgId &&
-			ictTasksStore.orgId === org.orgId &&
-			personnelIctCompletionsStore.orgId === org.orgId
+		personnelStore.orgId === org.orgId && groupsStore.orgId === org.orgId && ictTasksStore.orgId === org.orgId
 	);
 	const loading = $derived(
-		!storesHydratedForOrg ||
-			personnelStore.loading ||
-			groupsStore.loading ||
-			ictTasksStore.loading ||
-			personnelIctCompletionsStore.loading
+		!storesHydratedForOrg || personnelStore.loading || groupsStore.loading || ictTasksStore.loading
 	);
 </script>
 
@@ -40,8 +32,7 @@
 		personnel={personnelStore.items}
 		groups={groupsStore.items}
 		tasks={ictTasksStore.items}
-		completions={personnelIctCompletionsStore.items}
-		settings={data.criticalTasksSettings}
+		initialSummary={data.initialSummary}
 	/>
 {/if}
 

@@ -108,6 +108,18 @@ export function addMonths(date: Date, months: number): Date {
 	return result;
 }
 
+export function addMonthsClamped(date: Date, months: number): Date {
+	const year = date.getFullYear();
+	const month = date.getMonth();
+	const day = date.getDate();
+	const targetMonthIndex = month + months;
+	const targetYear = year + Math.floor(targetMonthIndex / 12);
+	const normalizedMonth = ((targetMonthIndex % 12) + 12) % 12;
+	const lastDayOfTargetMonth = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+
+	return new Date(targetYear, normalizedMonth, Math.min(day, lastDayOfTargetMonth));
+}
+
 export function startOfMonth(date: Date): Date {
 	return new Date(date.getFullYear(), date.getMonth(), 1);
 }

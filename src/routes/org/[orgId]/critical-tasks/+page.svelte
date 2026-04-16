@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import PageToolbar from '$lib/components/PageToolbar.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import SkeletonGrid from '$lib/components/ui/SkeletonGrid.svelte';
@@ -131,7 +132,7 @@
 	}
 
 	const matrixExportHref = $derived.by(() => {
-		const params = new URLSearchParams();
+		const params = new SvelteURLSearchParams();
 		if (selectedGroupId) {
 			params.set('groupId', selectedGroupId);
 		}

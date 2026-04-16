@@ -1,7 +1,6 @@
 import type { QueryPorts } from '$lib/server/core/ports';
 import type {
 	CriticalTasksSettings,
-	CriticalTasksSettingsInput,
 	IctTask,
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
@@ -39,7 +38,6 @@ interface CriticalTasksReportSource {
 	personnel: Personnel[];
 	groups: Group[];
 	tasks: IctTask[];
-	completions: PersonnelIctCompletion[];
 	settings: CriticalTasksSettings;
 }
 
@@ -71,7 +69,7 @@ function renderCell(completion: PersonnelIctCompletion | undefined, status: stri
 
 async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
 	const orgId = ctx.auth.orgId;
-	const [personnelRows, groupRows, taskRows, completionRows, settingsRow] = await Promise.all([
+	const [personnelRows, groupRows, taskRows, settingsRow] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
 			select: PersonnelEntity.select,
 			isNull: { archived_at: true },
@@ -81,12 +79,12 @@ async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalT
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
 		ctx.store.findMany<Record<string, unknown>>('ict_tasks', orgId, undefined, {
+			isNull: { archived_at: true },
 			orderBy: [
 				{ column: 'sort_order', ascending: true },
 				{ column: 'task_code', ascending: true }
 			]
 		}),
-		ctx.store.findMany<Record<string, unknown>>('personnel_ict_completions', orgId),
 		ctx.store.findOne<OrgSettingsRow>('organizations', orgId, { id: orgId })
 	]);
 
@@ -94,12 +92,28 @@ async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalT
 		personnel: PersonnelEntity.fromDbArray(personnelRows),
 		groups: GroupEntity.fromDbArray(groupRows),
 		tasks: IctTaskEntity.fromDbArray(taskRows),
-		completions: PersonnelIctCompletionEntity.fromDbArray(completionRows),
 		settings: normalizeCriticalTasksSettings({
 			defaultExpirationMonths: settingsRow?.critical_tasks_default_expiration_months ?? null,
 			expiringSoonWarningDays: settingsRow?.critical_tasks_expiring_soon_warning_days ?? null
 		})
 	};
+}
+
+async function loadLatestCompletions(
+	ctx: QueryPorts,
+	personnelIds: string[],
+	taskIds: string[]
+): Promise<PersonnelIctCompletion[]> {
+	if (personnelIds.length === 0 || taskIds.length === 0) {
+		return [];
+	}
+
+	const completionRows = await ctx.criticalTasksReadModel.findLatestCompletions(ctx.auth.orgId, {
+		personnelIds,
+		taskIds
+	});
+
+	return PersonnelIctCompletionEntity.fromDbArray(completionRows);
 }
 
 export async function fetchCriticalTasksReportSummary(
@@ -108,10 +122,20 @@ export async function fetchCriticalTasksReportSummary(
 ): Promise<IctReportSummary> {
 	const source = await loadCriticalTasksReportSource(ctx);
 	const filteredPersonnel = filterIctReportPersonnel(source.personnel, input.filters ?? {});
+	const personnelIds = filteredPersonnel.map((person) => person.id);
+	const taskIds = source.tasks.map((task) => task.id);
+	const [completions, completionTrend] = await Promise.all([
+		loadLatestCompletions(ctx, personnelIds, taskIds),
+		ctx.criticalTasksReadModel.findCompletionTrend(ctx.auth.orgId, {
+			personnelIds,
+			taskIds
+		})
+	]);
 	return buildIctReportSummary({
 		personnel: filteredPersonnel,
 		tasks: source.tasks,
-		completions: source.completions,
+		completions,
+		completionTrend,
 		settings: source.settings,
 		asOf: input.asOf
 	});
@@ -153,10 +177,15 @@ export async function generateCriticalTasksMatrixCsv(
 	const filteredPersonnel = search
 		? source.personnel.filter((person) => matchesCriticalTasksPersonnelSearch(person, search))
 		: source.personnel;
+	const completions = await loadLatestCompletions(
+		ctx,
+		filteredPersonnel.map((person) => person.id),
+		source.tasks.map((task) => task.id)
+	);
 	const matrix = buildCriticalTasksMatrix({
 		personnel: filteredPersonnel,
 		tasks: source.tasks,
-		completions: source.completions,
+		completions,
 		groups: source.groups,
 		settings: source.settings,
 		selectedGroupId: input.selectedGroupId ?? '',

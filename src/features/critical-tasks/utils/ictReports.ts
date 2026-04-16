@@ -18,6 +18,7 @@ export interface BuildIctReportSummaryInput {
 	personnel: Personnel[];
 	tasks: IctTask[];
 	completions: PersonnelIctCompletion[];
+	completionTrend?: IctCompletionTrendPoint[];
 	settings?: CriticalTasksSettingsInput | null;
 	asOf?: string | Date;
 }
@@ -81,6 +82,9 @@ function buildCompletionTrend(
 	tasks: IctTask[],
 	completions: PersonnelIctCompletion[]
 ): IctCompletionTrendPoint[] {
+	// The report trend intentionally counts logged completion events, not just the latest
+	// status per person-task pair. Personnel with repeated recertifications should appear
+	// multiple times in the month they were logged.
 	const personnelById = new Map(personnel.map((person) => [person.id, person]));
 	const tasksById = new Map(tasks.map((task) => [task.id, task]));
 	const monthCounts = new Map<string, number>();
@@ -120,6 +124,7 @@ export function buildIctReportSummary({
 	personnel,
 	tasks,
 	completions,
+	completionTrend,
 	settings = null,
 	asOf
 }: BuildIctReportSummaryInput): IctReportSummary {
@@ -179,6 +184,6 @@ export function buildIctReportSummary({
 		readinessByMos,
 		bestPerformingMos: byBest[0],
 		worstPerformingMos: byWorst[0],
-		completionTrend: buildCompletionTrend(personnel, activeTasks, completions)
+		completionTrend: completionTrend ?? buildCompletionTrend(personnel, activeTasks, completions)
 	};
 }

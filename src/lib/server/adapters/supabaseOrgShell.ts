@@ -655,11 +655,21 @@ export function createSupabaseCriticalTasksWorkspacePort(
 				}),
 				(rows) => IctTaskEntity.fromDbArray(rows) as IctTask[]
 			);
-			const personnelIctCompletions = loadCriticalTasksItems(
-				'personnel ICT completions',
-				ctx.store.findMany<Record<string, unknown>>('personnel_ict_completions', orgId),
-				(rows) => PersonnelIctCompletionEntity.fromDbArray(rows) as PersonnelIctCompletion[]
-			);
+			const personnelIctCompletions = Promise.all([personnel, ictTasks])
+				.then(([loadedPersonnel, loadedTasks]) =>
+					ctx.criticalTasksReadModel.findLatestCompletions(orgId, {
+						personnelIds: loadedPersonnel.map((person) => person.id),
+						taskIds: loadedTasks.map((task) => task.id)
+					})
+				)
+				.then((rows) => PersonnelIctCompletionEntity.fromDbArray(rows) as PersonnelIctCompletion[])
+				.catch((error) => {
+					console.error('[critical-tasks-workspace] Failed to load personnel ICT completions', {
+						orgId,
+						error
+					});
+					throw error;
+				});
 
 			return {
 				personnel,

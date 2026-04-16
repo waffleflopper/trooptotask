@@ -27,6 +27,24 @@ export interface FindResult<T> {
 	count: number | null;
 }
 
+export interface CriticalTasksReadModelFilters {
+	personnelIds?: string[];
+	taskIds?: string[];
+}
+
+export interface CriticalTasksCompletionTrendPoint {
+	month: string;
+	completions: number;
+}
+
+export interface CriticalTasksReadModelPort {
+	findLatestCompletions(orgId: string, filters?: CriticalTasksReadModelFilters): Promise<Record<string, unknown>[]>;
+	findCompletionTrend(
+		orgId: string,
+		filters?: CriticalTasksReadModelFilters
+	): Promise<CriticalTasksCompletionTrendPoint[]>;
+}
+
 export interface PersistedDutyTemplateAggregate {
 	templateRow: Record<string, unknown>;
 	slotRows: Record<string, unknown>[];
@@ -176,6 +194,7 @@ export interface WritePorts {
 	auth: AuthContext;
 	audit: AuditPort;
 	readOnlyGuard: ReadOnlyGuard;
+	criticalTasksReadModel: CriticalTasksReadModelPort;
 }
 
 /** Write + notifications (e.g., assignment type deletion, rating scheme approval) */
@@ -199,6 +218,7 @@ export interface UserWritePorts {
 export interface QueryPorts {
 	store: DataStore;
 	auth: AuthContext;
+	criticalTasksReadModel: CriticalTasksReadModelPort;
 }
 
 /** Query operations needing unscoped access (e.g., shared data) */
@@ -217,6 +237,7 @@ export interface UseCaseContext {
 	notifications: NotificationPort;
 	billing: BillingPort;
 	storage: StoragePort;
+	criticalTasksReadModel: CriticalTasksReadModelPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;
 }

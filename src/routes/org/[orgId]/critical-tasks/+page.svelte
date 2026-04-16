@@ -28,16 +28,25 @@
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	let showTaskInputModal = $state(false);
 	let showCompletionImportModal = $state(false);
-	const overflowItems = $derived(
-		org.isPrivileged
+	const overflowItems = $derived.by(() => {
+		const items = permissions.canViewTraining
 			? [
 					{
-						label: 'Task Library',
-						href: `/org/${orgId}/critical-tasks/library`
+						label: 'Reports',
+						href: `/org/${orgId}/critical-tasks/reports`
 					}
 				]
-			: []
-	);
+			: [];
+
+		if (org.isPrivileged) {
+			items.push({
+				label: 'Task Library',
+				href: `/org/${orgId}/critical-tasks/library`
+			});
+		}
+
+		return items;
+	});
 
 	const storesHydratedForOrg = $derived(
 		personnelStore.orgId === orgId &&
@@ -121,6 +130,21 @@
 		activeCompletionCell = selection;
 	}
 
+	const matrixExportHref = $derived.by(() => {
+		const params = new URLSearchParams();
+		if (selectedGroupId) {
+			params.set('groupId', selectedGroupId);
+		}
+		if (gapsOnly) {
+			params.set('gapsOnly', 'true');
+		}
+		if (personnelSearch.trim()) {
+			params.set('search', personnelSearch.trim());
+		}
+		const query = params.toString();
+		return `/org/${orgId}/api/critical-tasks/matrix/export${query ? `?${query}` : ''}`;
+	});
+
 	function handleToolbarTaskInput(): void {
 		if (!canOpenTaskInput) return;
 		activeCompletionCell = null;
@@ -159,6 +183,7 @@
 
 <div class="page">
 	<PageToolbar title="Critical Tasks" subtitle="ICTL readiness" {overflowItems}>
+		<a class="btn btn-secondary" href={matrixExportHref}>Export CSV</a>
 		{#if canInputTask}
 			<button
 				class="btn btn-secondary"

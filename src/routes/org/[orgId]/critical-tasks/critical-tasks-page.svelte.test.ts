@@ -163,7 +163,7 @@ describe('critical tasks page', () => {
 		expect(screen.getByTestId('critical-tasks-loading')).toBeTruthy();
 	});
 
-	it('shows the task library affordance to owners and admins', async () => {
+	it('shows the reports and task library affordances to owners and admins', async () => {
 		personnelStore.load([], 'org-1');
 		groupsStore.load([], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
@@ -183,8 +183,10 @@ describe('critical tasks page', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: /more/i }));
 
-		const link = screen.getByRole('menuitem', { name: 'Task Library' });
-		expect(link.getAttribute('href')).toBe('/org/org-1/critical-tasks/library');
+		const reportsLink = screen.getByRole('menuitem', { name: 'Reports' });
+		expect(reportsLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/reports');
+		const libraryLink = screen.getByRole('menuitem', { name: 'Task Library' });
+		expect(libraryLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/library');
 	});
 
 	it('opens the completion import modal from the page toolbar', async () => {
@@ -209,6 +211,74 @@ describe('critical tasks page', () => {
 
 		expect(await screen.findByRole('dialog', { name: 'Import ICT Completions' })).toBeTruthy();
 		expect(screen.getByLabelText('Upload file')).toBeTruthy();
+	});
+
+	it('keeps the matrix export link in sync with group and gaps-only filters', async () => {
+		const currentTask: IctTask = {
+			...ictTask,
+			id: 'current-task',
+			taskCode: '181-105-1001',
+			title: 'TCCC',
+			sortOrder: 0
+		};
+		const gapTask: IctTask = {
+			...ictTask,
+			id: 'gap-task',
+			taskCode: '181-105-1002',
+			title: 'Airway management',
+			sortOrder: 1
+		};
+		personnelStore.load(
+			[
+				person({ id: 'smith', lastName: 'Smith', groupId: alphaGroup.id, groupName: alphaGroup.name }),
+				person({ id: 'jones', lastName: 'Jones', groupId: bravoGroup.id, groupName: bravoGroup.name })
+			],
+			'org-1'
+		);
+		groupsStore.load([alphaGroup, bravoGroup], 'org-1');
+		ictTasksStore.load([currentTask, gapTask], 'org-1');
+		personnelIctCompletionsStore.load(
+			[
+				completion({ id: 'smith-current', personnelId: 'smith', ictTaskId: currentTask.id }),
+				completion({ id: 'jones-current', personnelId: 'jones', ictTaskId: currentTask.id }),
+				completion({ id: 'jones-gap', personnelId: 'jones', ictTaskId: gapTask.id })
+			],
+			'org-1'
+		);
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: true
+					},
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
+				}
+			}
+		});
+
+		const exportLink = screen.getByRole('link', { name: 'Export CSV' });
+		expect(exportLink.getAttribute('href')).toBe('/org/org-1/api/critical-tasks/matrix/export');
+
+		await fireEvent.change(screen.getByLabelText('Group'), { target: { value: 'group-bravo' } });
+		await waitFor(() => {
+			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
+				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo'
+			);
+		});
+
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Show readiness gaps only' }));
+		await waitFor(() => {
+			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
+				'/org/org-1/api/critical-tasks/matrix/export?groupId=group-bravo&gapsOnly=true'
+			);
+		});
 	});
 
 	it('updates the matrix status after importing a completion row', async () => {
@@ -305,7 +375,7 @@ describe('critical tasks page', () => {
 		expect(screen.getByRole('button', { name: /Smith 181-105-1001: current/i })).toBeTruthy();
 	});
 
-	it('omits the task library affordance for non-admin training editors', () => {
+	it('shows reports but omits the task library affordance for non-admin training editors', async () => {
 		mockOrgContext.role = 'member';
 		mockOrgContext.isOwner = false;
 		mockOrgContext.isPrivileged = false;
@@ -327,7 +397,10 @@ describe('critical tasks page', () => {
 			}
 		});
 
-		expect(screen.queryByRole('button', { name: /more/i })).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: /more/i }));
+		expect(screen.getByRole('menuitem', { name: 'Reports' }).getAttribute('href')).toBe(
+			'/org/org-1/critical-tasks/reports'
+		);
 		expect(screen.queryByRole('menuitem', { name: 'Task Library' })).toBeNull();
 	});
 

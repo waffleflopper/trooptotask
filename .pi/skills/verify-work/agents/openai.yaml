@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Verify Work'
+  short_description: 'Audit PRD issue slices before shipping'
+  default_prompt: 'Use $verify-work 123 to audit the implemented issue against its parent PRD.'

@@ -10,7 +10,7 @@ import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/c
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
 
-const { mockOrgContext } = vi.hoisted(() => ({
+const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 	mockOrgContext: {
 		orgId: 'org-1',
 		orgName: 'Test Unit',
@@ -35,12 +35,21 @@ const { mockOrgContext } = vi.hoisted(() => ({
 		},
 		scopedGroupId: null,
 		readOnly: false
-	}
+	},
+	parseFileMock: vi.fn()
 }));
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => mockOrgContext
 }));
+
+vi.mock('$lib/utils/csvParser', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/utils/csvParser')>();
+	return {
+		...actual,
+		parseFile: parseFileMock
+	};
+});
 
 const ictTask: IctTask = {
 	id: 'task-1',
@@ -54,7 +63,7 @@ const ictTask: IctTask = {
 	createdAt: '2026-04-01T12:00:00Z'
 };
 
-function person(overrides: Partial<Personnel>): Personnel {
+function person(overrides: Partial<Personnel> = {}): Personnel {
 	return {
 		id: 'person-1',
 		rank: 'SGT',
@@ -110,6 +119,7 @@ function expectBefore(a: Node, b: Node): void {
 
 describe('critical tasks page', () => {
 	beforeEach(() => {
+		parseFileMock.mockReset();
 		mockOrgContext.role = 'owner';
 		mockOrgContext.isOwner = true;
 		mockOrgContext.isAdmin = false;
@@ -124,6 +134,7 @@ describe('critical tasks page', () => {
 	afterEach(() => {
 		cleanup();
 		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
 		personnelStore.load([], 'org-test-reset');
 		groupsStore.load([], 'org-test-reset');
 		ictTasksStore.load([], 'org-test-reset');
@@ -174,6 +185,124 @@ describe('critical tasks page', () => {
 
 		const link = screen.getByRole('menuitem', { name: 'Task Library' });
 		expect(link.getAttribute('href')).toBe('/org/org-1/critical-tasks/library');
+	});
+
+	it('opens the completion import modal from the page toolbar', async () => {
+		personnelStore.load([person()], 'org-1');
+		groupsStore.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: true
+					}
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Import Completions' }));
+
+		expect(await screen.findByRole('dialog', { name: 'Import ICT Completions' })).toBeTruthy();
+		expect(screen.getByLabelText('Upload file')).toBeTruthy();
+	});
+
+	it('updates the matrix status after importing a completion row', async () => {
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'Task Code', 'Completion Date', 'Validation Method'],
+			['SGT', 'Smith', 'Jane', '181-105-1001', '2098-01-01', 'Simulation']
+		]);
+		const fetchMock = vi.fn().mockResolvedValue(
+			mockJsonResponse({
+				inserted: [
+					completion({
+						id: 'completion-imported',
+						personnelId: 'person-1',
+						ictTaskId: 'task-1',
+						completedAt: '2098-01-01',
+						validationMethod: 'Simulation',
+						validatedBy: null,
+						notes: null
+					})
+				],
+				updated: [],
+				errors: []
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		personnelStore.load([person()], 'org-1');
+		groupsStore.load([alphaGroup], 'org-1');
+		ictTasksStore.load([{ ...ictTask, expirationMonths: 12 }], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: true
+					},
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
+				}
+			}
+		});
+
+		expect(screen.getByRole('button', { name: /Smith 181-105-1001: not recorded/i })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Import Completions' }));
+		await fireEvent.change(screen.getByLabelText('Upload file'), {
+			target: {
+				files: [new File(['fake'], 'ict-completions.csv', { type: 'text/csv' })]
+			}
+		});
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Import Checked Rows' })).toBeTruthy();
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Import Checked Rows' }));
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+		});
+
+		expect(fetchMock.mock.calls[0]?.[0]).toBe('/org/org-1/api/personnel-ict-completions/batch');
+		expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'POST' });
+		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+			records: [
+				{
+					rowNumber: 2,
+					values: {
+						rank: 'SGT',
+						lastName: 'Smith',
+						firstName: 'Jane',
+						taskCode: '181-105-1001',
+						completedAt: '2098-01-01',
+						validationMethod: 'Simulation'
+					}
+				}
+			]
+		});
+
+		expect(await screen.findByText('Import Finished')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+		await waitFor(() => {
+			expect(screen.queryByRole('dialog', { name: 'Import ICT Completions' })).toBeNull();
+		});
+
+		expect(screen.getByRole('button', { name: /Smith 181-105-1001: current/i })).toBeTruthy();
 	});
 
 	it('omits the task library affordance for non-admin training editors', () => {

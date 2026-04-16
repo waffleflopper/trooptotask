@@ -35,6 +35,7 @@ export interface CriticalTasksMatrixGroup {
 export interface CriticalTasksMatrix {
 	tasks: IctTask[];
 	rows: CriticalTasksMatrixRow[];
+	alphabeticalRows: CriticalTasksMatrixRow[];
 	groups: CriticalTasksMatrixGroup[];
 }
 
@@ -104,6 +105,33 @@ function buildDetailLabel(
 	return parts.join(' ');
 }
 
+function comparePersonnelAlphabetically(a: Personnel, b: Personnel): number {
+	return a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName);
+}
+
+function normalizeSearchTerm(value: string): string {
+	return value.trim().toLowerCase();
+}
+
+export function matchesCriticalTasksPersonnelSearch(
+	person: Pick<Personnel, 'rank' | 'lastName' | 'firstName' | 'mos'>,
+	query: string
+): boolean {
+	const normalizedQuery = normalizeSearchTerm(query);
+	if (!normalizedQuery) return true;
+
+	return [
+		person.rank,
+		person.mos,
+		person.lastName,
+		person.firstName,
+		`${person.lastName}, ${person.firstName}`,
+		`${person.firstName} ${person.lastName}`
+	]
+		.map((value) => normalizeSearchTerm(value))
+		.some((value) => value.includes(normalizedQuery));
+}
+
 export function buildCriticalTasksMatrix({
 	personnel,
 	tasks,
@@ -165,6 +193,8 @@ export function buildCriticalTasksMatrix({
 			};
 		})
 		.filter((group) => group.rows.length > 0);
+	const allRows = allGroups.flatMap((group) => group.rows);
+	const alphabeticalRows = [...allRows].sort((a, b) => comparePersonnelAlphabetically(a.person, b.person));
 
 	if (gapsOnly) {
 		const gapTaskIds = new Set<string>();
@@ -192,17 +222,20 @@ export function buildCriticalTasksMatrix({
 					}))
 			}))
 			.filter((group) => group.rows.length > 0);
+		const gapRows = gapGroups.flatMap((group) => group.rows);
 
 		return {
 			tasks: activeTasks.filter((task) => gapTaskIds.has(task.id)),
-			rows: gapGroups.flatMap((group) => group.rows),
+			rows: gapRows,
+			alphabeticalRows: [...gapRows].sort((a, b) => comparePersonnelAlphabetically(a.person, b.person)),
 			groups: gapGroups
 		};
 	}
 
 	return {
 		tasks: activeTasks,
-		rows: allGroups.flatMap((group) => group.rows),
+		rows: allRows,
+		alphabeticalRows,
 		groups: allGroups
 	};
 }

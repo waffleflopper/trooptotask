@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
@@ -102,6 +102,10 @@ function createDeferredResponse() {
 		reject = rej;
 	});
 	return { promise, resolve, reject };
+}
+
+function expectBefore(a: Node, b: Node): void {
+	expect(Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
 }
 
 describe('critical tasks page', () => {
@@ -268,6 +272,85 @@ describe('critical tasks page', () => {
 			expect(screen.queryByRole('columnheader', { name: /181-105-1001 TCCC/ })).toBeNull();
 			expect(screen.getByRole('columnheader', { name: /181-105-1002 Airway management/ })).toBeTruthy();
 			expect(screen.getByRole('button', { name: /Smith 181-105-1002: not recorded/ })).toBeTruthy();
+		});
+	});
+
+	it('filters personnel by search text and toggles between grouped and alphabetical views', async () => {
+		personnelStore.load(
+			[
+				person({
+					id: 'smith',
+					lastName: 'Smith',
+					rank: 'SGT',
+					mos: '68W',
+					groupId: alphaGroup.id,
+					groupName: alphaGroup.name
+				}),
+				person({
+					id: 'jones',
+					lastName: 'Jones',
+					rank: 'CPT',
+					mos: '11B',
+					groupId: bravoGroup.id,
+					groupName: bravoGroup.name
+				})
+			],
+			'org-1'
+		);
+		groupsStore.load([alphaGroup, bravoGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: true
+					},
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
+				}
+			}
+		});
+
+		const groupedTable = screen.getByRole('table', { name: 'Critical Tasks readiness matrix' });
+		expect(within(groupedTable).getByText('Alpha')).toBeTruthy();
+		expect(within(groupedTable).getByText('Bravo')).toBeTruthy();
+		expectBefore(screen.getByRole('link', { name: /Smith, Jane/ }), screen.getByRole('link', { name: /Jones, Jane/ }));
+
+		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: '11b' } });
+		await waitFor(() => {
+			expect(screen.queryByRole('link', { name: /Smith, Jane/ })).toBeNull();
+			expect(screen.getByRole('link', { name: /Jones, Jane/ })).toBeTruthy();
+		});
+
+		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: 'sgt' } });
+		await waitFor(() => {
+			expect(screen.getByRole('link', { name: /Smith, Jane/ })).toBeTruthy();
+			expect(screen.queryByRole('link', { name: /Jones, Jane/ })).toBeNull();
+		});
+
+		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: 'smith' } });
+		await waitFor(() => {
+			expect(screen.getByRole('link', { name: /Smith, Jane/ })).toBeTruthy();
+		});
+
+		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: '' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'A-Z' }));
+
+		await waitFor(() => {
+			const alphabeticalTable = screen.getByRole('table', { name: 'Critical Tasks readiness matrix' });
+			expect(within(alphabeticalTable).queryByText('Alpha')).toBeNull();
+			expect(within(alphabeticalTable).queryByText('Bravo')).toBeNull();
+			expectBefore(
+				screen.getByRole('link', { name: /Jones, Jane/ }),
+				screen.getByRole('link', { name: /Smith, Jane/ })
+			);
 		});
 	});
 

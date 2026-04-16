@@ -251,6 +251,66 @@ describe('importIctCompletionsBatch', () => {
 		expect(stored).toEqual([]);
 	});
 
+	it('returns archived personnel rows as import errors without writing them', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-archived',
+				organization_id: 'test-org',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jane',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-alpha',
+				archived_at: '2026-04-14T12:00:00Z'
+			}
+		]);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'task-tccc',
+				organization_id: 'test-org',
+				task_code: '181-105-1001',
+				title: 'Perform tactical combat casualty care',
+				description: null,
+				mos: ['68W'],
+				expiration_months: 12,
+				sort_order: 1,
+				archived_at: null,
+				created_at: '2026-04-01T00:00:00Z'
+			}
+		]);
+
+		const result = await importIctCompletionsBatch(ctx, {
+			records: [
+				{
+					rowNumber: 2,
+					values: {
+						rank: 'SGT',
+						lastName: 'Smith',
+						firstName: 'Jane',
+						taskCode: '181-105-1001',
+						completedAt: '2026-04-15'
+					}
+				}
+			]
+		});
+
+		expect(result.inserted).toEqual([]);
+		expect(result.updated).toEqual([]);
+		expect(result.errors).toEqual([
+			{
+				rowNumber: 2,
+				personnelName: 'SGT Jane Smith',
+				taskCode: '181-105-1001',
+				message: 'Personnel record is archived and cannot receive new completion imports.'
+			}
+		]);
+
+		const stored = await ctx.store.findMany<{ id: string }>('personnel_ict_completions', 'test-org');
+		expect(stored).toEqual([]);
+	});
+
 	it('enforces scoped group access before writing matched completion rows', async () => {
 		const requireGroupAccessBatch = vi.fn(async () => {
 			throw new Error('Access denied');

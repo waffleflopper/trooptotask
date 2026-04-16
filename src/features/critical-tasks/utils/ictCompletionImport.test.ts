@@ -23,6 +23,12 @@ const bravoMedic: Personnel = {
 	groupName: 'Bravo'
 };
 
+const archivedMedic: Personnel = {
+	...alphaMedic,
+	id: 'person-archived-medic',
+	archivedAt: '2026-04-14T12:00:00Z'
+};
+
 const smithLeader: Personnel = {
 	...alphaMedic,
 	id: 'person-smith-leader',
@@ -253,6 +259,32 @@ describe('ICT completion import review', () => {
 			expect.objectContaining({
 				rowNumber: 6,
 				errors: ['Validation method must match one of the supported ICT validation methods']
+			})
+		]);
+	});
+
+	it('flags archived personnel rows before commit so imports only target active records', () => {
+		const review = reviewIctCompletionImportRows(
+			[
+				['Rank', 'Last Name', 'First Name', 'Task Code', 'Completion Date'],
+				['SGT', 'Smith', 'Jane', '181-105-1001', '2026-04-14']
+			],
+			{
+				personnel: [archivedMedic],
+				tasks: [tcccTask],
+				existingCompletions: []
+			}
+		);
+
+		expect(expectReviewRows(review)).toEqual({
+			valid: [],
+			invalid: [2],
+			ambiguous: []
+		});
+		expect(review.invalidRows).toEqual([
+			expect.objectContaining({
+				rowNumber: 2,
+				errors: ['Personnel record is archived and cannot receive new completion imports.']
 			})
 		]);
 	});

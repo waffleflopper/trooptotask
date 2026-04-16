@@ -1,9 +1,14 @@
-import { handle } from '$lib/server/adapters/httpAdapter';
-import { importIctCompletionsBatch } from '$lib/server/core/useCases/ictCompletionsBatch';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import {
+	importIctCompletionsBatch,
+	type IctCompletionBatchImportInput,
+	type IctCompletionBatchImportResult
+} from '$lib/server/core/useCases/ictCompletionsBatch';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const POST = handle<any, unknown>({
+export const _postConfig: RouteConfig<IctCompletionBatchImportInput, IctCompletionBatchImportResult> = {
 	permission: 'training',
 	mutation: true,
 	fn: (ctx, input) => importIctCompletionsBatch(ctx, input)
-});
+};
+
+export const POST = handle(_postConfig);

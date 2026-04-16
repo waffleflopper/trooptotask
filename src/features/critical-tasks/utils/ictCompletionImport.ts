@@ -221,7 +221,17 @@ export function reviewMappedIctCompletionImportRows(
 		}
 
 		const personnelMatches = findPersonnelMatches(options.personnel, values);
-		if (personnelMatches.length === 0) {
+		const activePersonnelMatches = personnelMatches.filter((person) => !person.archivedAt);
+		if (personnelMatches.length > 0 && activePersonnelMatches.length === 0) {
+			invalidRows.push({
+				rowNumber: row.rowNumber,
+				values,
+				errors: ['Personnel record is archived and cannot receive new completion imports.']
+			});
+			continue;
+		}
+
+		if (activePersonnelMatches.length === 0) {
 			invalidRows.push({
 				rowNumber: row.rowNumber,
 				values,
@@ -230,12 +240,12 @@ export function reviewMappedIctCompletionImportRows(
 			continue;
 		}
 
-		if (personnelMatches.length > 1) {
+		if (activePersonnelMatches.length > 1) {
 			ambiguousRows.push({
 				rowNumber: row.rowNumber,
 				values,
 				errors: ['Multiple personnel records match this row. Add rank or correct the name values.'],
-				matches: personnelMatches
+				matches: activePersonnelMatches
 					.map((person) => ({
 						personnelId: person.id,
 						displayName: displayName(person)
@@ -245,7 +255,7 @@ export function reviewMappedIctCompletionImportRows(
 			continue;
 		}
 
-		const person = personnelMatches[0];
+		const person = activePersonnelMatches[0];
 		const existingCompletion = findExistingCompletion(options.existingCompletions, person.id, task!.id, completedAt!);
 
 		validRows.push({

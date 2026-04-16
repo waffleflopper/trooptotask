@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import IctMatrix from './IctMatrix.svelte';
 import type {
@@ -141,5 +141,51 @@ describe('IctMatrix', () => {
 
 		const missingCell = screen.getByRole('button', { name: /Smith 999-000-0001: not recorded/ });
 		expect(missingCell.getAttribute('data-status')).toBe('not-recorded');
+	});
+
+	it('wraps dense matrices in a horizontal scroll container for large personnel and task counts', () => {
+		const densePersonnel = Array.from({ length: 24 }, (_, index) =>
+			person({
+				id: `person-${index + 1}`,
+				lastName: `Soldier-${String(index + 1).padStart(2, '0')}`,
+				firstName: 'Jordan',
+				groupId: 'group-alpha',
+				groupName: 'Alpha'
+			})
+		);
+		const denseTasks = Array.from({ length: 18 }, (_, index) =>
+			task({
+				id: `task-${index + 1}`,
+				taskCode: `181-105-${String(index + 1).padStart(4, '0')}`,
+				title: `Task ${index + 1}`,
+				sortOrder: index,
+				mos: []
+			})
+		);
+
+		const { container } = render(IctMatrix, {
+			props: {
+				orgId: 'org-1',
+				personnel: densePersonnel,
+				tasks: denseTasks,
+				completions: [],
+				groups,
+				settings,
+				orgName: 'Test Unit'
+			}
+		});
+
+		const scrollContainer = screen.getByTestId('critical-tasks-matrix-scroll');
+		const table = screen.getByTestId('critical-tasks-matrix-table');
+		const rowgroups = within(table).getAllByRole('rowgroup');
+		const bodyRows = within(rowgroups[1]!).getAllByRole('row');
+
+		expect(scrollContainer).toBeTruthy();
+		expect(table).toBeTruthy();
+		expect(within(table).getAllByRole('columnheader')).toHaveLength(denseTasks.length + 1);
+		expect(screen.getByRole('columnheader', { name: /181-105-0001 Task 1/ })).toBeTruthy();
+		expect(screen.getByRole('columnheader', { name: /181-105-0018 Task 18/ })).toBeTruthy();
+		expect(bodyRows).toHaveLength(densePersonnel.length + 1);
+		expect(container.querySelector('.matrix-scroll')).toBe(scrollContainer);
 	});
 });

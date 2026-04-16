@@ -8,14 +8,42 @@ interface IctTaskRow {
 	archived_at: string | null;
 }
 
+interface PersonnelRow {
+	id: string;
+	archived_at: string | null;
+}
+
 interface PersonnelIctCompletionRow {
 	id: string;
 	ict_task_id: string;
+	personnel_id: string;
+}
+
+async function findExistingCompletion(
+	ctx: UseCaseContext,
+	completionId: string
+): Promise<PersonnelIctCompletionRow | null> {
+	return (
+		(await ctx.store.findOne<PersonnelIctCompletionRow>('personnel_ict_completions', ctx.auth.orgId, {
+			id: completionId
+		})) ?? null
+	);
 }
 
 const handlers = entityHandlers(PersonnelIctCompletionEntity);
 const createConfig = handlers._configs.POST!;
 const updateConfig = handlers._configs.PUT!;
+const deleteConfig = handlers._configs.DELETE!;
+
+async function requireActivePersonnel(ctx: UseCaseContext, personnelId: string) {
+	const person = await ctx.store.findOne<PersonnelRow>('personnel', ctx.auth.orgId, { id: personnelId });
+	if (!person) {
+		fail(400, 'Personnel record not found');
+	}
+	if (person.archived_at) {
+		fail(400, 'Archived personnel cannot receive new completion entries');
+	}
+}
 
 async function requireActiveIctTask(ctx: UseCaseContext, taskId: string) {
 	const task = await ctx.store.findOne<IctTaskRow>('ict_tasks', ctx.auth.orgId, { id: taskId });
@@ -27,30 +55,58 @@ async function requireActiveIctTask(ctx: UseCaseContext, taskId: string) {
 	}
 }
 
-async function requireWritableIctTaskForUpdate(ctx: UseCaseContext, input: Record<string, unknown>) {
+async function requireWritableCompletionTargets(ctx: UseCaseContext, input: Record<string, unknown>) {
+	if (typeof input.personnelId === 'string') {
+		await requireActivePersonnel(ctx, input.personnelId);
+	}
 	if (typeof input.ictTaskId === 'string') {
 		await requireActiveIctTask(ctx, input.ictTaskId);
+	}
+	if (typeof input.personnelId === 'string' || typeof input.ictTaskId === 'string') {
 		return;
 	}
 
 	const id = input.id;
 	if (typeof id !== 'string') return;
 
-	const existing = await ctx.store.findOne<PersonnelIctCompletionRow>('personnel_ict_completions', ctx.auth.orgId, {
-		id
-	});
+	const existing = await findExistingCompletion(ctx, id);
 	if (!existing) return;
 
+	const person = await ctx.store.findOne<PersonnelRow>('personnel', ctx.auth.orgId, { id: existing.personnel_id });
+	if (person?.archived_at) {
+		fail(400, 'Archived personnel completion history cannot be edited');
+	}
+
 	await requireActiveIctTask(ctx, existing.ict_task_id);
+}
+
+async function requireDeletableCompletionHistory(ctx: UseCaseContext, completionId: string) {
+	const existing = await findExistingCompletion(ctx, completionId);
+	if (!existing) return;
+
+	const person = await ctx.store.findOne<PersonnelRow>('personnel', ctx.auth.orgId, { id: existing.personnel_id });
+	if (person?.archived_at) {
+		fail(400, 'Archived personnel completion history cannot be deleted');
+	}
+
+	const task = await ctx.store.findOne<IctTaskRow>('ict_tasks', ctx.auth.orgId, { id: existing.ict_task_id });
+	if (task?.archived_at) {
+		fail(400, 'Archived critical task history cannot be deleted');
+	}
 }
 
 export const _postConfig = {
 	...createConfig,
 	fn: async (ctx: UseCaseContext, input: Record<string, unknown>) => {
+		const personnelId = input.personnelId;
+		if (typeof personnelId !== 'string') {
+			fail(400, 'personnelId is required');
+		}
 		const ictTaskId = input.ictTaskId;
 		if (typeof ictTaskId !== 'string') {
 			fail(400, 'ictTaskId is required');
 		}
+		await requireActivePersonnel(ctx, personnelId);
 		await requireActiveIctTask(ctx, ictTaskId);
 		return createConfig.fn(ctx, input);
 	}
@@ -59,11 +115,22 @@ export const _postConfig = {
 export const _putConfig = {
 	...updateConfig,
 	fn: async (ctx: UseCaseContext, input: Record<string, unknown>) => {
-		await requireWritableIctTaskForUpdate(ctx, input);
+		await requireWritableCompletionTargets(ctx, input);
 		return updateConfig.fn(ctx, input);
+	}
+};
+
+export const _deleteConfig = {
+	...deleteConfig,
+	fn: async (ctx: UseCaseContext, input: Record<string, unknown>) => {
+		const id = input.id;
+		if (typeof id === 'string') {
+			await requireDeletableCompletionHistory(ctx, id);
+		}
+		return deleteConfig.fn(ctx, input);
 	}
 };
 
 export const POST = handle(_postConfig);
 export const PUT = handle(_putConfig);
-export const DELETE = handlers.DELETE;
+export const DELETE = handle(_deleteConfig);

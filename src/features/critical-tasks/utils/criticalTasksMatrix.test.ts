@@ -6,7 +6,7 @@ import type {
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
-import { buildCriticalTasksMatrix } from './criticalTasksMatrix';
+import { buildCriticalTasksMatrix, matchesCriticalTasksPersonnelSearch } from './criticalTasksMatrix';
 
 function person(overrides: Partial<Personnel>): Personnel {
 	return {
@@ -101,6 +101,7 @@ describe('buildCriticalTasksMatrix', () => {
 		expect(matrix.tasks.map((item) => item.id)).toEqual(['medic', 'universal', 'infantry']);
 		expect(matrix.groups.map((group) => group.label)).toEqual(['Alpha', 'Bravo']);
 		expect(matrix.rows.map((row) => row.person.id)).toEqual(['smith', 'jones']);
+		expect(matrix.alphabeticalRows.map((row) => row.person.id)).toEqual(['jones', 'smith']);
 
 		const smith = matrix.rows.find((row) => row.person.id === 'smith');
 		expect(smith?.cells.map((cell) => [cell.task.id, cell.applicable, cell.statusInfo.status])).toEqual([
@@ -199,5 +200,22 @@ describe('buildCriticalTasksMatrix', () => {
 
 		expect(bravoOnly.groups.map((group) => group.label)).toEqual(['Bravo']);
 		expect(bravoOnly.rows.map((row) => row.person.id)).toEqual(['jones']);
+		expect(bravoOnly.alphabeticalRows.map((row) => row.person.id)).toEqual(['jones']);
+	});
+
+	it('matches personnel search against name, rank, and MOS fields', () => {
+		const subject = person({
+			rank: 'SSG',
+			firstName: 'Jordan',
+			lastName: 'Baker',
+			mos: '68W'
+		});
+
+		expect(matchesCriticalTasksPersonnelSearch(subject, '')).toBe(true);
+		expect(matchesCriticalTasksPersonnelSearch(subject, 'baker')).toBe(true);
+		expect(matchesCriticalTasksPersonnelSearch(subject, 'Jordan Baker')).toBe(true);
+		expect(matchesCriticalTasksPersonnelSearch(subject, 'SSG')).toBe(true);
+		expect(matchesCriticalTasksPersonnelSearch(subject, '68w')).toBe(true);
+		expect(matchesCriticalTasksPersonnelSearch(subject, '11B')).toBe(false);
 	});
 });

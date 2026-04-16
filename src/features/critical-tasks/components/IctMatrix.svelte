@@ -9,8 +9,11 @@
 	import type { Personnel } from '$lib/types';
 	import {
 		buildCriticalTasksMatrix,
-		type CriticalTasksMatrixCell
+		type CriticalTasksMatrixCell,
+		type CriticalTasksMatrixRow
 	} from '$features/critical-tasks/utils/criticalTasksMatrix';
+
+	type IctMatrixViewMode = 'alphabetical' | 'by-group';
 
 	interface Props {
 		orgId?: string;
@@ -21,6 +24,7 @@
 		settings?: CriticalTasksSettingsInput | null;
 		selectedGroupId?: string;
 		gapsOnly?: boolean;
+		viewMode?: IctMatrixViewMode;
 		asOf?: string | Date;
 		orgName?: string;
 		canEdit?: boolean;
@@ -40,6 +44,7 @@
 		settings = null,
 		selectedGroupId = '',
 		gapsOnly = false,
+		viewMode = 'by-group',
 		asOf,
 		orgName = 'Unassigned',
 		canEdit = false,
@@ -75,6 +80,7 @@
 	};
 
 	const totalColumns = $derived(matrix.tasks.length + 1);
+	const visibleRows = $derived(viewMode === 'alphabetical' ? matrix.alphabeticalRows : matrix.rows);
 
 	function personName(person: Personnel): string {
 		return `${person.lastName}, ${person.firstName}`;
@@ -102,6 +108,61 @@
 	}
 </script>
 
+{#snippet matrixRow(row: CriticalTasksMatrixRow)}
+	<tr>
+		<th scope="row" class="person-cell">
+			{#if orgId}
+				<a href={personDetailHref(row.person)} class="person-link">
+					<span class="person-primary">
+						<span class="person-rank">{row.person.rank}</span>
+						<span class="person-name">{personName(row.person)}</span>
+					</span>
+					<span class="person-mos">{row.person.mos || 'No MOS'}</span>
+				</a>
+			{:else}
+				<div class="person-summary">
+					<span class="person-primary">
+						<span class="person-rank">{row.person.rank}</span>
+						<span class="person-name">{personName(row.person)}</span>
+					</span>
+					<span class="person-mos">{row.person.mos || 'No MOS'}</span>
+				</div>
+			{/if}
+		</th>
+		{#each row.cells as cell (cell.task.id)}
+			{#if cell.applicable}
+				<td class="status-cell" data-status={cell.statusInfo.status}>
+					<button
+						type="button"
+						class:editable={canEdit}
+						class="status-button"
+						data-status={cell.statusInfo.status}
+						aria-label={cellAriaLabel(row.person, cell)}
+						aria-haspopup={canEdit ? 'dialog' : undefined}
+						onclick={() => handleCellClick(row.person, cell)}
+					>
+						<span class="status-symbol">{statusSymbols[cell.statusInfo.status]}</span>
+						<span class="status-text">{statusLabels[cell.statusInfo.status]}</span>
+						<span class="cell-details" aria-hidden="true">
+							{#if cell.completion}
+								<span>Completed {cell.completion.completedAt}</span>
+								{#if cell.statusInfo.expirationDate}
+									<span>Expires {cell.statusInfo.expirationDate}</span>
+								{/if}
+								<span>{cell.completion.validatedBy ?? 'Validator not recorded'}</span>
+							{:else}
+								<span>No completion recorded</span>
+							{/if}
+						</span>
+					</button>
+				</td>
+			{:else}
+				<td class="status-cell not-applicable" aria-label={cellAriaLabel(row.person, cell)}></td>
+			{/if}
+		{/each}
+	</tr>
+{/snippet}
+
 <div class="ict-matrix-shell">
 	<div class="matrix-legend" aria-label="Critical Tasks status legend">
 		<span class="legend-item" data-status="current"><span class="legend-mark">✓</span> Current</span>
@@ -116,18 +177,21 @@
 				<tr>
 					<th scope="col" class="person-header">Soldier</th>
 					{#each matrix.tasks as task (task.id)}
-						<th scope="col" class="task-header" aria-label="{task.taskCode} {task.title}">
+						<th scope="col" class="task-header" aria-label="{task.taskCode} {task.title}" title="{task.title}">
 							<span class="task-code">{task.taskCode}</span>
-							<span class="task-title">{task.title}</span>
 						</th>
 					{/each}
 				</tr>
 			</thead>
 			<tbody>
-				{#if matrix.groups.length === 0}
+				{#if visibleRows.length === 0}
 					<tr>
 						<td class="empty-row" colspan={totalColumns}>No personnel match the current Critical Tasks filters.</td>
 					</tr>
+				{:else if viewMode === 'alphabetical'}
+					{#each matrix.alphabeticalRows as row (row.person.id)}
+						{@render matrixRow(row)}
+					{/each}
 				{:else}
 					{#each matrix.groups as group (group.key)}
 						<tr class="group-row">
@@ -137,58 +201,7 @@
 							</th>
 						</tr>
 						{#each group.rows as row (row.person.id)}
-							<tr>
-								<th scope="row" class="person-cell">
-									{#if orgId}
-										<a href={personDetailHref(row.person)} class="person-link">
-											<span class="person-primary">
-												<span class="person-rank">{row.person.rank}</span>
-												<span class="person-name">{personName(row.person)}</span>
-											</span>
-											<span class="person-mos">{row.person.mos || 'No MOS'}</span>
-										</a>
-									{:else}
-										<div class="person-summary">
-											<span class="person-primary">
-												<span class="person-rank">{row.person.rank}</span>
-												<span class="person-name">{personName(row.person)}</span>
-											</span>
-											<span class="person-mos">{row.person.mos || 'No MOS'}</span>
-										</div>
-									{/if}
-								</th>
-								{#each row.cells as cell (cell.task.id)}
-									{#if cell.applicable}
-										<td class="status-cell" data-status={cell.statusInfo.status}>
-											<button
-												type="button"
-												class:editable={canEdit}
-												class="status-button"
-												data-status={cell.statusInfo.status}
-												aria-label={cellAriaLabel(row.person, cell)}
-												aria-haspopup={canEdit ? 'dialog' : undefined}
-												onclick={() => handleCellClick(row.person, cell)}
-											>
-												<span class="status-symbol">{statusSymbols[cell.statusInfo.status]}</span>
-												<span class="status-text">{statusLabels[cell.statusInfo.status]}</span>
-												<span class="cell-details" aria-hidden="true">
-													{#if cell.completion}
-														<span>Completed {cell.completion.completedAt}</span>
-														{#if cell.statusInfo.expirationDate}
-															<span>Expires {cell.statusInfo.expirationDate}</span>
-														{/if}
-														<span>{cell.completion.validatedBy ?? 'Validator not recorded'}</span>
-													{:else}
-														<span>No completion recorded</span>
-													{/if}
-												</span>
-											</button>
-										</td>
-									{:else}
-										<td class="status-cell not-applicable" aria-label={cellAriaLabel(row.person, cell)}></td>
-									{/if}
-								{/each}
-							</tr>
+							{@render matrixRow(row)}
 						{/each}
 					{/each}
 				{/if}
@@ -358,38 +371,25 @@
 		width: 5.5rem;
 		min-width: 5.5rem;
 		max-width: 5.5rem;
-		height: 10rem;
+		height: 6rem;
 		padding: var(--sp-2);
 		vertical-align: bottom;
 		border-left: var(--border-rule);
 		color: var(--text-secondary);
+		cursor: default;
 	}
 
-	.task-code,
-	.task-title {
+	.task-code {
 		display: block;
 		writing-mode: vertical-rl;
 		transform: rotate(180deg);
 		white-space: nowrap;
-	}
-
-	.task-code {
+		overflow: hidden;
 		color: var(--text-primary);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
 		letter-spacing: 0.08em;
-	}
-
-	.task-title {
-		max-height: 7rem;
-		margin-top: var(--sp-1);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		font-family: var(--font-display);
-		font-size: var(--text-sm);
-		line-height: 1;
-		text-transform: uppercase;
 	}
 
 	.group-row th {
@@ -546,7 +546,7 @@
 		}
 
 		.task-header {
-			height: 8rem;
+			height: 5rem;
 		}
 	}
 </style>

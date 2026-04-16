@@ -9,6 +9,7 @@
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
+	import { matchesCriticalTasksPersonnelSearch } from '$features/critical-tasks/utils/criticalTasksMatrix';
 	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
@@ -22,6 +23,8 @@
 	const permissions = $derived(data.permissions ?? org.permissions);
 	let selectedGroupId = $state('');
 	let gapsOnly = $state(false);
+	let personnelSearch = $state('');
+	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
 	const overflowItems = $derived(
 		org.isPrivileged
 			? [
@@ -51,6 +54,13 @@
 	const activeTasks = $derived(getActiveIctTasksForLibrary(ictTasksStore.items));
 	const criticalTasksSettings = $derived(normalizeCriticalTasksSettings(data.criticalTasksSettings));
 	const canEditTraining = $derived(permissions.canEditTraining && !org.readOnly);
+	const activePersonnel = $derived(personnelStore.items.filter((person) => !person.archivedAt));
+	const filteredPersonnel = $derived(
+		activePersonnel.filter((person) => matchesCriticalTasksPersonnelSearch(person, personnelSearch))
+	);
+	const groupScopedPersonnel = $derived(
+		selectedGroupId ? filteredPersonnel.filter((person) => person.groupId === selectedGroupId) : filteredPersonnel
+	);
 
 	interface ActiveCompletionCell {
 		person: Personnel;
@@ -145,36 +155,103 @@
 	{:else}
 		<section class="matrix-workspace" aria-label="Critical Tasks matrix workspace">
 			<div class="matrix-controls">
-				<div class="filter-field">
-					<label for="critical-tasks-group-filter">Group</label>
-					<select
-						id="critical-tasks-group-filter"
-						class="input"
-						value={selectedGroupId}
-						onchange={handleGroupFilterChange}
-					>
-						<option value="">All groups</option>
-						{#each groupsStore.items as group (group.id)}
-							<option value={group.id}>{group.name}</option>
-						{/each}
-					</select>
+				<div class="controls-row">
+					<div class="matrix-filter-controls">
+						<div class="filter-field">
+							<label for="critical-tasks-search">Search</label>
+							<input
+								id="critical-tasks-search"
+								type="search"
+								class="input"
+								data-testid="critical-tasks-search"
+								aria-label="Search by name, rank, or MOS"
+								placeholder="Search name, rank, or MOS..."
+								bind:value={personnelSearch}
+							/>
+						</div>
+
+						<div class="filter-field">
+							<label for="critical-tasks-group-filter">Group</label>
+							<select
+								id="critical-tasks-group-filter"
+								class="input"
+								value={selectedGroupId}
+								onchange={handleGroupFilterChange}
+							>
+								<option value="">All groups</option>
+								{#each groupsStore.items as group (group.id)}
+									<option value={group.id}>{group.name}</option>
+								{/each}
+							</select>
+						</div>
+					</div>
+
+					<div class="controls-actions">
+						<label class="gap-toggle">
+							<span>Show readiness gaps only</span>
+							<input type="checkbox" checked={gapsOnly} onchange={handleGapsOnlyChange} />
+						</label>
+
+						<div class="view-toggle">
+							<span class="view-label">View:</span>
+							<div class="view-toggle-controls" role="group" aria-label="Critical Tasks matrix view mode">
+								<button
+									class="view-btn"
+									type="button"
+									aria-pressed={viewMode === 'alphabetical'}
+									class:active={viewMode === 'alphabetical'}
+									onclick={() => (viewMode = 'alphabetical')}
+								>
+									A-Z
+								</button>
+								<button
+									class="view-btn"
+									type="button"
+									aria-pressed={viewMode === 'by-group'}
+									class:active={viewMode === 'by-group'}
+									onclick={() => (viewMode = 'by-group')}
+								>
+									By Group
+								</button>
+							</div>
+						</div>
+					</div>
 				</div>
 
-				<label class="gap-toggle">
-					<input type="checkbox" checked={gapsOnly} onchange={handleGapsOnlyChange} />
-					<span>Show readiness gaps only</span>
-				</label>
-
-				<div class="matrix-counts" aria-label="Critical Tasks matrix totals">
-					<span>{personnelStore.items.length} personnel</span>
-					<span>{activeTasks.length} active tasks</span>
-					<span>{personnelIctCompletionsStore.items.length} validations</span>
+				<div class="controls-footer">
+					<div class="matrix-counts" aria-label="Critical Tasks matrix totals">
+						{#if personnelSearch.trim() || selectedGroupId}
+							<div class="stat-item">
+								<span class="stat-value">{groupScopedPersonnel.length}</span>
+								<span class="stat-label">matching personnel</span>
+							</div>
+						{:else}
+							<div class="stat-item">
+								<span class="stat-value">{activePersonnel.length}</span>
+								<span class="stat-label">personnel</span>
+							</div>
+						{/if}
+						{#if groupScopedPersonnel.length !== activePersonnel.length}
+							<div class="stat-item">
+								<span class="stat-value">{activePersonnel.length}</span>
+								<span class="stat-label">total</span>
+							</div>
+						{/if}
+						<div class="stat-item">
+							<span class="stat-value">{activeTasks.length}</span>
+							<span class="stat-label">active tasks</span>
+						</div>
+						<div class="stat-item">
+							<span class="stat-value">{personnelIctCompletionsStore.items.length}</span>
+							<span class="stat-label">validations</span>
+						</div>
+					</div>
 				</div>
 			</div>
 
 			<IctMatrix
 				{orgId}
-				personnel={personnelStore.items}
+				personnel={filteredPersonnel}
 				tasks={ictTasksStore.items}
 				completions={personnelIctCompletionsStore.items}
 				groups={groupsStore.items}
@@ -183,6 +260,7 @@
 				onSelectCell={handleMatrixCellSelection}
 				{selectedGroupId}
 				{gapsOnly}
+				{viewMode}
 				{orgName}
 			/>
 		</section>
@@ -237,15 +315,32 @@
 		color: var(--text-secondary);
 	}
 
+	/* ── Matrix Controls ───────────────────────────────────── */
+
 	.matrix-controls {
 		display: flex;
-		flex-wrap: wrap;
-		align-items: end;
-		gap: var(--sp-4);
-		padding: var(--sp-3);
+		flex-direction: column;
 		border: 1px solid var(--border-default);
 		border-radius: var(--radius-md);
 		background: var(--surface-panel);
+		overflow: hidden;
+	}
+
+	/* Main controls row: filters left, display options right */
+	.controls-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: var(--sp-4);
+		padding: var(--sp-3) var(--sp-4);
+	}
+
+	.matrix-filter-controls {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: var(--sp-4);
+		min-width: 0;
 	}
 
 	.filter-field {
@@ -255,52 +350,188 @@
 		gap: var(--sp-1);
 	}
 
-	.filter-field label,
-	.gap-toggle,
-	.matrix-counts {
-		color: var(--text-secondary);
+	.filter-field label {
+		color: var(--text-tertiary);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		letter-spacing: var(--letter-spacing-mono);
 		text-transform: uppercase;
 	}
 
+	/* Display options: view toggle + gaps checkbox, pushed right */
+	.controls-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: var(--sp-4);
+		margin-left: auto;
+	}
+
+	.view-toggle {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+	}
+
+	.view-label {
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+
+	.view-toggle-controls {
+		display: inline-flex;
+		align-items: stretch;
+	}
+
+	.view-toggle-controls .view-btn + .view-btn {
+		margin-left: -1px;
+	}
+
+	.view-btn {
+		appearance: none;
+		min-height: 32px;
+		padding: 0 12px;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		border: var(--border-thin);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
+		cursor: pointer;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
+	}
+
+	.view-btn:first-of-type {
+		border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+	}
+
+	.view-btn:last-of-type {
+		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+	}
+
+	.view-btn:hover {
+		background: var(--surface-subtle);
+		color: var(--text-primary);
+	}
+
+	.view-btn.active {
+		background: color-mix(in srgb, var(--amber-light) 86%, var(--surface-panel) 14%);
+		border-color: var(--amber);
+		color: var(--amber-dark);
+	}
+
 	.gap-toggle {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--sp-2);
-		min-height: 2.5rem;
+		min-height: 2rem;
 		cursor: pointer;
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		white-space: nowrap;
 	}
 
 	.gap-toggle input {
 		width: 1rem;
 		height: 1rem;
+		flex-shrink: 0;
+		accent-color: var(--amber);
+	}
+
+	/* ── Stats footer strip ─────────────────────────────────── */
+
+	.controls-footer {
+		border-top: 1px solid var(--ink-15);
+		background: var(--surface-subtle);
+		padding: var(--sp-2) var(--sp-4);
 	}
 
 	.matrix-counts {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--sp-3);
-		margin-left: auto;
+		align-items: center;
+		gap: 0;
 	}
+
+	.stat-item {
+		display: flex;
+		align-items: baseline;
+		gap: var(--sp-1);
+		padding: 0 var(--sp-3);
+	}
+
+	.stat-item:first-child {
+		padding-left: 0;
+	}
+
+	.stat-item + .stat-item {
+		border-left: 1px solid var(--ink-15);
+	}
+
+	.stat-value {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--text-primary);
+		letter-spacing: 0;
+	}
+
+	.stat-label {
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--text-tertiary);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+	}
+
+	/* ── Responsive ─────────────────────────────────────────── */
 
 	@media (max-width: 720px) {
 		.matrix-workspace {
 			padding: var(--sp-3);
 		}
 
-		.matrix-controls {
+		.controls-row {
+			flex-direction: column;
 			align-items: stretch;
+			gap: var(--sp-3);
 		}
 
-		.filter-field,
-		.matrix-counts {
+		.matrix-filter-controls {
 			width: 100%;
 		}
 
-		.matrix-counts {
+		.filter-field {
+			flex: 1;
+			min-width: 0;
+		}
+
+		.controls-actions {
 			margin-left: 0;
+			width: 100%;
+			flex-direction: column;
+			align-items: flex-start;
+			gap: var(--sp-3);
+		}
+
+		.gap-toggle {
+			white-space: normal;
+		}
+
+		.controls-footer {
+			overflow-x: auto;
 		}
 	}
 </style>

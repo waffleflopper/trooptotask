@@ -25,6 +25,7 @@
 	let gapsOnly = $state(false);
 	let personnelSearch = $state('');
 	let viewMode = $state<'alphabetical' | 'by-group'>('by-group');
+	let showTaskInputModal = $state(false);
 	const overflowItems = $derived(
 		org.isPrivileged
 			? [
@@ -54,7 +55,9 @@
 	const activeTasks = $derived(getActiveIctTasksForLibrary(ictTasksStore.items));
 	const criticalTasksSettings = $derived(normalizeCriticalTasksSettings(data.criticalTasksSettings));
 	const canEditTraining = $derived(permissions.canEditTraining && !org.readOnly);
+	const canInputTask = $derived(permissions.canViewTraining && canEditTraining);
 	const activePersonnel = $derived(personnelStore.items.filter((person) => !person.archivedAt));
+	const canOpenTaskInput = $derived(canInputTask && activePersonnel.length > 0 && activeTasks.length > 0);
 	const filteredPersonnel = $derived(
 		activePersonnel.filter((person) => matchesCriticalTasksPersonnelSearch(person, personnelSearch))
 	);
@@ -113,6 +116,12 @@
 		activeCompletionCell = selection;
 	}
 
+	function handleToolbarTaskInput(): void {
+		if (!canOpenTaskInput) return;
+		activeCompletionCell = null;
+		showTaskInputModal = true;
+	}
+
 	async function handleCompletionSave(
 		saveData: Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>,
 		existingId?: string
@@ -137,7 +146,13 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Critical Tasks" subtitle="ICTL readiness" {overflowItems} />
+	<PageToolbar title="Critical Tasks" subtitle="ICTL readiness" {overflowItems}>
+		{#if canInputTask}
+			<button class="btn btn-primary" type="button" onclick={handleToolbarTaskInput} disabled={!canOpenTaskInput}>
+				Input Task
+			</button>
+		{/if}
+	</PageToolbar>
 
 	{#if !permissions.canViewTraining}
 		<section class="page-message" aria-labelledby="critical-tasks-restricted-title">
@@ -276,6 +291,16 @@
 		{currentUserDisplayName}
 		onSave={handleCompletionSave}
 		onClose={() => (activeCompletionCell = null)}
+	/>
+{:else if showTaskInputModal}
+	<IctCompletionModal
+		personnelOptions={activePersonnel}
+		taskOptions={activeTasks}
+		completions={personnelIctCompletionsStore.items}
+		settings={criticalTasksSettings}
+		{currentUserDisplayName}
+		onSave={handleCompletionSave}
+		onClose={() => (showTaskInputModal = false)}
 	/>
 {/if}
 

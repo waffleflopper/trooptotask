@@ -1,21 +1,16 @@
-import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
+import { setPendingAuthFlowCookie } from '$lib/server/mfaGate';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url, cookies }) => {
-	// Exchange PKCE code for session if present
+	// TODO: remove this legacy PKCE code exchange after production email templates
+	// are fully rolled over to the app-owned /auth/confirm flow.
 	const code = url.searchParams.get('code');
 	if (code) {
 		const { error: exchangeError } = await locals.supabase.auth.exchangeCodeForSession(code);
 		if (exchangeError) {
 			console.error('Accept-invite code exchange failed:', exchangeError.message);
 		} else {
-			cookies.set(getPendingAuthFlowCookieName(), 'invite', {
-				path: '/',
-				httpOnly: true,
-				sameSite: 'lax',
-				secure: !import.meta.env.DEV,
-				maxAge: 60 * 60
-			});
+			setPendingAuthFlowCookie(cookies, 'invite');
 		}
 	}
 

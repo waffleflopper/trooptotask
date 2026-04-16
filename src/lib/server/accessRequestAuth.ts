@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getAuthConfirmRedirectTo } from './authConfirm';
 import { selectAllSupabaseRows } from './supabasePagination';
 
 export type AccessRequestDeliveryMethod = 'invite' | 'recovery';
@@ -35,7 +36,7 @@ export async function sendAccessRequestSetupEmail(
 	origin: string
 ): Promise<{ deliveryMethod: AccessRequestDeliveryMethod }> {
 	const normalizedEmail = normalizeEmail(email);
-	const inviteRedirectTo = `${origin}/auth/accept-invite`;
+	const inviteRedirectTo = getAuthConfirmRedirectTo(origin, 'invite');
 
 	const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(normalizedEmail, {
 		redirectTo: inviteRedirectTo
@@ -49,7 +50,7 @@ export async function sendAccessRequestSetupEmail(
 		throw inviteError;
 	}
 
-	const recoveryRedirectTo = `${origin}/auth/reset-password`;
+	const recoveryRedirectTo = getAuthConfirmRedirectTo(origin, 'recovery');
 	const { error: recoveryError } = await adminClient.auth.resetPasswordForEmail(normalizedEmail, {
 		redirectTo: recoveryRedirectTo
 	});

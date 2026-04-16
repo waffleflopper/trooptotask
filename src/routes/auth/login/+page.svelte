@@ -30,6 +30,10 @@
 	]}
 >
 	<div class="auth-stack">
+		{#if data.authLinkError}
+			<AuthNotice tone="error" message={data.authLinkError} />
+		{/if}
+
 		{#if form?.error}
 			<AuthNotice tone="error" message={form.error} />
 		{/if}

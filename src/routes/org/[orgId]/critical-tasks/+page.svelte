@@ -173,6 +173,7 @@
 			</div>
 
 			<IctMatrix
+				{orgId}
 				personnel={personnelStore.items}
 				tasks={ictTasksStore.items}
 				completions={personnelIctCompletionsStore.items}

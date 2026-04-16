@@ -1,7 +1,7 @@
 <script lang="ts">
-	import IctPersonnelHistoryPage from '$features/critical-tasks/components/IctPersonnelHistoryPage.svelte';
+	import IctPersonnelDetailPage from '$features/critical-tasks/components/IctPersonnelDetailPage.svelte';
 
 	let { data } = $props();
 </script>
 
-<IctPersonnelHistoryPage {data} />
+<IctPersonnelDetailPage {data} />

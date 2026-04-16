@@ -271,6 +271,36 @@ describe('critical tasks page', () => {
 		});
 	});
 
+	it('links soldier names to the per-person detail page for training viewers', () => {
+		personnelStore.load([person({ id: 'smith', lastName: 'Smith' })], 'org-1');
+		groupsStore.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: false
+					},
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
+				}
+			}
+		});
+
+		const personLink = screen.getByRole('link', { name: /Smith, Jane/ });
+		expect(personLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/smith');
+		expect(personLink.textContent).toContain('SGT');
+		expect(personLink.textContent).toContain('68W');
+		expect(screen.queryByRole('dialog', { name: 'Log ICT Completion' })).toBeNull();
+	});
+
 	it('lets training editors log a completion from a matrix cell and updates the matrix without a reload', async () => {
 		const deferred = createDeferredResponse();
 		const fetchMock = vi.fn().mockReturnValue(deferred.promise);

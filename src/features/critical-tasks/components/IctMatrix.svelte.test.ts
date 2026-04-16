@@ -69,6 +69,7 @@ describe('IctMatrix', () => {
 	it('renders applicable status cells with keyboard-focusable completion details and neutral non-applicable cells', () => {
 		render(IctMatrix, {
 			props: {
+				orgId: 'org-1',
 				personnel: [person({ id: 'smith' })],
 				tasks: [
 					task({ id: 'tccc', taskCode: '181-105-1001', title: 'TCCC', mos: ['68W'], sortOrder: 0 }),
@@ -107,6 +108,11 @@ describe('IctMatrix', () => {
 
 		expect(screen.getByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeTruthy();
 		expect(screen.getByRole('columnheader', { name: /181-105-1001 TCCC/ })).toBeTruthy();
+		const personLink = screen.getByRole('link', { name: /Smith, Jane/ });
+		expect(personLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/smith');
+		expect(personLink.textContent).toContain('SGT');
+		expect(personLink.textContent).toContain('Smith, Jane');
+		expect(personLink.textContent).toContain('68W');
 
 		const currentCell = screen.getByRole('button', {
 			name: /Smith 181-105-1001: current. TCCC: current. Completed 2026-04-01. Expires 2027-04-01./

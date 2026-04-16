@@ -112,6 +112,7 @@
 
 <PageToolbar
 	title="Critical Task Reports"
+	titleBadge="Beta"
 	breadcrumbs={[{ label: 'Critical Tasks', href: `/org/${orgId}/critical-tasks` }, { label: 'Reports' }]}
 >
 	<a class="btn btn-sm" href={exportHref}>Export CSV</a>

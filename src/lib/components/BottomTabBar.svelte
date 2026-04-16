@@ -58,7 +58,12 @@
 					/>
 				{/if}
 			</svg>
-			<span class="tab-label">{tab.compactLabel ?? tab.label}</span>
+			<span class="tab-copy">
+				<span class="tab-label">{tab.compactLabel ?? tab.label}</span>
+				{#if tab.badgeLabel}
+					<span class="tab-badge">{tab.badgeLabel}</span>
+				{/if}
+			</span>
 		</a>
 	{/each}
 </nav>
@@ -111,6 +116,33 @@
 			text-transform: uppercase;
 			letter-spacing: 0.12em;
 			line-height: 1;
+		}
+
+		.tab-copy {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 4px;
+			min-width: 0;
+		}
+
+		.tab-badge {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 14px;
+			padding: 1px 4px;
+			border: 1px solid rgba(var(--amber-rgb), 0.28);
+			border-radius: 4px;
+			background: rgba(var(--amber-rgb), 0.14);
+			color: var(--color-chrome-active);
+			font-family: var(--font-mono);
+			font-size: 8px;
+			font-weight: var(--font-weight-semibold);
+			letter-spacing: 0.08em;
+			line-height: 1;
+			text-transform: uppercase;
+			white-space: nowrap;
 		}
 
 		.tab::before {

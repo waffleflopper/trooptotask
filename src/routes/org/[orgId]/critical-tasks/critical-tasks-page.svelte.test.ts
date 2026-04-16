@@ -159,6 +159,7 @@ describe('critical tasks page', () => {
 		});
 
 		expect(screen.getByText('Critical Tasks')).toBeTruthy();
+		expect(screen.getByText('Beta')).toBeTruthy();
 		expect(screen.getByText('ICTL readiness')).toBeTruthy();
 		expect(screen.getByTestId('critical-tasks-loading')).toBeTruthy();
 	});

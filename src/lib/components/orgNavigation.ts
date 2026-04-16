@@ -14,6 +14,7 @@ export interface OrgNavItem {
 	href: string;
 	label: string;
 	compactLabel?: string;
+	badgeLabel?: string;
 	icon: OrgNavIcon;
 	visible: boolean;
 	exactMatch: boolean;
@@ -59,6 +60,7 @@ export function getOrgNavigation(orgId: string, permissions: OrganizationMemberP
 			href: `/org/${orgId}/critical-tasks`,
 			label: 'Critical Tasks',
 			compactLabel: 'ICTLs',
+			badgeLabel: 'Beta',
 			icon: 'critical-tasks',
 			visible: permissions.canViewTraining,
 			exactMatch: false

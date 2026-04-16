@@ -274,6 +274,7 @@
 
 <PageToolbar
 	title="ICT Task Library"
+	titleBadge="Beta"
 	subtitle="Owner and admin task definitions"
 	breadcrumbs={[{ label: 'Critical Tasks', href: `/org/${orgId}/critical-tasks` }, { label: 'Library' }]}
 >

@@ -31,6 +31,7 @@ describe('getOrgNavigation', () => {
 					href: '/org/org-1/critical-tasks',
 					label: 'Critical Tasks',
 					compactLabel: 'ICTLs',
+					badgeLabel: 'Beta',
 					visible: true
 				})
 			])

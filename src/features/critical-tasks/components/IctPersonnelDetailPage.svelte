@@ -255,6 +255,7 @@
 
 <PageToolbar
 	title="Critical Tasks Record"
+	titleBadge="Beta"
 	subtitle={personnelName}
 	breadcrumbs={[
 		{ label: 'Critical Tasks', href: `/org/${data.orgId}/critical-tasks` },

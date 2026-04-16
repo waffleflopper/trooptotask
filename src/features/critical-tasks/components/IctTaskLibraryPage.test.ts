@@ -6,8 +6,21 @@ import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
+const orgContextMock = vi.hoisted(() => {
+	const permissions = {
+		canViewCalendar: true,
+		canEditCalendar: true,
+		canViewPersonnel: true,
+		canEditPersonnel: true,
+		canViewTraining: true,
+		canEditTraining: true,
+		canViewOnboarding: true,
+		canEditOnboarding: true,
+		canViewLeadersBook: true,
+		canEditLeadersBook: true,
+		canManageMembers: true
+	};
+	const ownerContext = () => ({
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
@@ -16,22 +29,19 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		isAdmin: false,
 		isPrivileged: true,
 		isFullEditor: true,
-		permissions: {
-			canViewCalendar: true,
-			canEditCalendar: true,
-			canViewPersonnel: true,
-			canEditPersonnel: true,
-			canViewTraining: true,
-			canEditTraining: true,
-			canViewOnboarding: true,
-			canEditOnboarding: true,
-			canViewLeadersBook: true,
-			canEditLeadersBook: true,
-			canManageMembers: true
-		},
+		permissions: { ...permissions },
 		scopedGroupId: null,
 		readOnly: false
-	})
+	});
+
+	return {
+		current: ownerContext(),
+		ownerContext
+	};
+});
+
+vi.mock('$lib/stores/orgContext.svelte', () => ({
+	getOrgContext: () => orgContextMock.current
 }));
 
 const activeTask: IctTask = {
@@ -83,6 +93,7 @@ const completions = [
 
 describe('IctTaskLibraryPage', () => {
 	beforeEach(() => {
+		orgContextMock.current = orgContextMock.ownerContext();
 		ictTasksStore.load([activeTask, archivedTask], 'org-1');
 		personnelIctCompletionsStore.load(completions, 'org-1');
 	});
@@ -99,6 +110,18 @@ describe('IctTaskLibraryPage', () => {
 
 		expect(screen.getByText('181-105-1001')).toBeTruthy();
 		expect(screen.queryByText('181-105-9999')).toBeNull();
+	});
+
+	it('hides import and edit actions for read-only users', () => {
+		orgContextMock.current = {
+			...orgContextMock.ownerContext(),
+			readOnly: true
+		};
+
+		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
+
+		expect(screen.queryByRole('button', { name: 'Import CSV' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'New Task' })).toBeNull();
 	});
 
 	it('filters active tasks by task search text and MOS applicability', async () => {
@@ -136,6 +159,88 @@ describe('IctTaskLibraryPage', () => {
 
 		expect(within(taskList()).getByText('Perform tactical combat casualty care')).toBeTruthy();
 		expect(within(taskList()).queryByText('Submit readiness report')).toBeNull();
+	});
+
+	it('reviews pasted CSV task imports before saving valid rows', async () => {
+		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
+		expect(screen.getByText(/Optional columns: Description, MOS, Expiration Months, Sort Order/)).toBeTruthy();
+		expect(screen.getByText(/181-105-2000,Evacuate casualty,68W,12/)).toBeTruthy();
+		await fireEvent.input(screen.getByLabelText('CSV data'), {
+			target: {
+				value: [
+					'Task Code,Title,MOS,Expiration Months',
+					'181-105-2000,Evacuate casualty,68W,12',
+					',Missing task code,68W,12'
+				].join('\n')
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Import' }));
+
+		await waitFor(() => {
+			expect(screen.getByText('Ready to import')).toBeTruthy();
+		});
+
+		const readySection = screen.getByRole('region', { name: 'Ready to import' });
+		const invalidSection = screen.getByRole('region', { name: 'Needs fixes' });
+
+		expect(within(readySection).getByText('181-105-2000')).toBeTruthy();
+		expect(within(readySection).getByText('Evacuate casualty')).toBeTruthy();
+		expect(within(invalidSection).getByText('Row 3')).toBeTruthy();
+		expect(within(invalidSection).getByText('Task code is required')).toBeTruthy();
+	});
+
+	it('commits valid CSV import rows without creating completion records', async () => {
+		const add = vi.spyOn(ictTasksStore, 'add').mockResolvedValue({
+			...activeTask,
+			id: 'task-imported',
+			taskCode: '181-105-2000',
+			title: 'Evacuate casualty',
+			sortOrder: 3
+		});
+		const update = vi.spyOn(ictTasksStore, 'update').mockResolvedValue(true);
+
+		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
+		await fireEvent.change(screen.getByLabelText('Import behavior'), {
+			target: { value: 'upsert' }
+		});
+		await fireEvent.input(screen.getByLabelText('CSV data'), {
+			target: {
+				value: [
+					'Task Code,Title,MOS,Expiration Months',
+					'181-105-1001,Updated TCCC task,68W,18',
+					'181-105-2000,Evacuate casualty,68W,12'
+				].join('\n')
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Preview Import' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Import Valid Rows' }));
+
+		await waitFor(() => {
+			expect(update).toHaveBeenCalledWith(
+				'task-1',
+				expect.objectContaining({
+					taskCode: '181-105-1001',
+					title: 'Updated TCCC task',
+					mos: ['68W'],
+					expirationMonths: 18
+				})
+			);
+			expect(add).toHaveBeenCalledWith(
+				expect.objectContaining({
+					taskCode: '181-105-2000',
+					title: 'Evacuate casualty',
+					mos: ['68W'],
+					expirationMonths: 12,
+					archivedAt: null
+				})
+			);
+		});
+		expect(personnelIctCompletionsStore.items).toHaveLength(2);
+		expect(await screen.findByText('Import complete')).toBeTruthy();
 	});
 
 	it('creates task metadata with normalized MOS applicability and optional expiration override', async () => {

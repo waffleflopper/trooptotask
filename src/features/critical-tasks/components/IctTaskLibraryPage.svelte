@@ -4,10 +4,16 @@
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { parseCSVText, parseFile } from '$lib/utils/csvParser';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
+	import {
+		reviewIctTaskImportRows,
+		type IctTaskImportMode,
+		type IctTaskImportReview
+	} from '$features/critical-tasks/utils/ictTaskImport';
 	import {
 		countCompletionRecordsForTask,
 		formatMosApplicability,
@@ -36,6 +42,15 @@
 	let creating = $state(false);
 	let editing = $state(false);
 	let saving = $state(false);
+	let importingTasks = $state(false);
+	let importText = $state('');
+	let importMode = $state<IctTaskImportMode>('create-only');
+	let importReview = $state<IctTaskImportReview | null>(null);
+	let importRawRows = $state<string[][]>([]);
+	let importError = $state('');
+	let importResult = $state<{ created: number; updated: number } | null>(null);
+	let isImporting = $state(false);
+	let uploadedFileName = $state('');
 	let confirmArchive = $state<IctTask | null>(null);
 	let taskSearch = $state('');
 	let selectedMos = $state('');
@@ -73,7 +88,7 @@
 	const taskListMeta = $derived(
 		filtersActive ? `${filteredTasks.length} of ${activeTasks.length} shown` : `${activeTasks.length} configured`
 	);
-	const canReorderTasks = $derived(canManage && !editing && !creating && !filtersActive);
+	const canReorderTasks = $derived(canManage && !editing && !creating && !importingTasks && !filtersActive);
 
 	$effect(() => {
 		if (selectedMos && !mosFilterOptions.some((option) => option.value === selectedMos)) {
@@ -100,7 +115,7 @@
 	}
 
 	function selectTask(taskId: string) {
-		if (creating || editing) return;
+		if (creating || editing || importingTasks) return;
 		selectedTaskId = taskId;
 	}
 
@@ -124,6 +139,7 @@
 		resetForm();
 		creating = true;
 		editing = false;
+		importingTasks = false;
 	}
 
 	function startEdit() {
@@ -131,12 +147,131 @@
 		resetForm(selectedTask);
 		editing = true;
 		creating = false;
+		importingTasks = false;
 	}
 
 	function cancelEdit() {
 		creating = false;
 		editing = false;
 		saving = false;
+	}
+
+	function startImport() {
+		if (!canManage) return;
+		selectedTaskId = null;
+		creating = false;
+		editing = false;
+		importingTasks = true;
+		importText = '';
+		importMode = 'create-only';
+		importReview = null;
+		importRawRows = [];
+		importError = '';
+		importResult = null;
+		uploadedFileName = '';
+	}
+
+	function cancelImport() {
+		importingTasks = false;
+		importText = '';
+		importReview = null;
+		importRawRows = [];
+		importError = '';
+		importResult = null;
+		isImporting = false;
+		uploadedFileName = '';
+	}
+
+	function reviewImportRows(rawRows: string[][]) {
+		importRawRows = rawRows;
+		importReview = reviewIctTaskImportRows(rawRows, {
+			existingTasks: activeTasks,
+			mode: importMode,
+			nextSortOrder: nextSortOrder()
+		});
+		importResult = null;
+	}
+
+	function handleImportModeChange(event: Event) {
+		importMode = (event.currentTarget as HTMLSelectElement).value as IctTaskImportMode;
+		if (importReview && importRawRows.length > 0) {
+			reviewImportRows(importRawRows);
+		}
+	}
+
+	async function previewImportText() {
+		const trimmed = importText.trim();
+		if (!trimmed) {
+			importError = 'Paste CSV data or upload a file before previewing.';
+			return;
+		}
+
+		try {
+			importError = '';
+			const rawRows = await parseCSVText(trimmed);
+			reviewImportRows(rawRows);
+		} catch {
+			importReview = null;
+			importError = 'Unable to parse CSV data. Check the file format and try again.';
+		}
+	}
+
+	async function handleImportFileChange(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		try {
+			importError = '';
+			uploadedFileName = file.name;
+			const rawRows = await parseFile(file);
+			importText = '';
+			reviewImportRows(rawRows);
+		} catch {
+			importReview = null;
+			importError = 'Unable to parse that file. Upload a CSV or spreadsheet and try again.';
+		} finally {
+			input.value = '';
+		}
+	}
+
+	function reviseImport() {
+		importReview = null;
+		importResult = null;
+		importError = '';
+	}
+
+	async function commitValidImportRows() {
+		if (!canManage || !importReview || importReview.validRows.length === 0 || isImporting) return;
+
+		isImporting = true;
+		importError = '';
+		let created = 0;
+		let updated = 0;
+
+		try {
+			for (const row of importReview.validRows) {
+				if (row.action === 'update' && row.taskId) {
+					await ictTasksStore.update(row.taskId, row.task);
+					updated += 1;
+				} else {
+					const createdTask = await ictTasksStore.add(row.task as Omit<IctTask, 'id'>);
+					if (createdTask) selectedTaskId = createdTask.id;
+					created += 1;
+				}
+			}
+
+			importResult = { created, updated };
+			importReview = null;
+			importRawRows = [];
+			importText = '';
+			uploadedFileName = '';
+		} catch {
+			importError =
+				'Unable to finish importing valid rows. Some task changes may have saved; no completion records changed.';
+		} finally {
+			isImporting = false;
+		}
 	}
 
 	function parsePositiveInteger(value: string): number | null {
@@ -253,9 +388,24 @@
 					<span class="panel-meta">{taskListMeta}</span>
 				</div>
 				{#if canManage}
-					<button class="btn btn-primary btn-sm" type="button" onclick={startCreate} disabled={creating || editing}>
-						New Task
-					</button>
+					<div class="panel-actions">
+						<button
+							class="btn btn-sm"
+							type="button"
+							onclick={startImport}
+							disabled={creating || editing || importingTasks}
+						>
+							Import CSV
+						</button>
+						<button
+							class="btn btn-primary btn-sm"
+							type="button"
+							onclick={startCreate}
+							disabled={creating || editing || importingTasks}
+						>
+							New Task
+						</button>
+					</div>
 				{/if}
 			</div>
 
@@ -341,7 +491,160 @@
 		</section>
 
 		<section class="panel detail-panel" aria-label="ICT task details">
-			{#if creating || editing}
+			{#if importingTasks}
+				<div class="importer">
+					<div>
+						<h3 class="panel-title">Import ICT Tasks</h3>
+						<p class="import-copy">
+							Paste CSV data or upload a CSV/spreadsheet to review task definitions before saving.
+						</p>
+					</div>
+
+					{#if importResult}
+						<div class="import-result" role="status">
+							<strong>Import complete</strong>
+							<span>{importResult.created} created, {importResult.updated} updated.</span>
+						</div>
+
+						<div class="editor-actions">
+							<button class="btn btn-sm" type="button" onclick={cancelImport}>Done</button>
+							<button class="btn btn-primary btn-sm" type="button" onclick={startImport}>Import Another File</button>
+						</div>
+					{:else if importReview}
+						<div class="import-summary" aria-live="polite">
+							<span>{importReview.validRows.length} ready</span>
+							<span>{importReview.invalidRows.length} need fixes</span>
+						</div>
+
+						<section class="import-review-section" aria-label="Ready to import">
+							<div class="review-heading">
+								<h4>Ready to import</h4>
+								<span>{importReview.validRows.length} rows</span>
+							</div>
+
+							{#if importReview.validRows.length === 0}
+								<p class="empty-copy">No valid rows found.</p>
+							{:else}
+								<ul class="review-list">
+									{#each importReview.validRows as row (row.rowNumber)}
+										<li class="review-row">
+											<div>
+												<span class="task-code">{row.task.taskCode}</span>
+												<span class="task-title">{row.task.title}</span>
+												<span class="task-meta">
+													{row.action === 'update' ? 'Update' : 'Create'} - {formatMosApplicability(row.task.mos)}
+												</span>
+											</div>
+											<span class="row-number">Row {row.rowNumber}</span>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</section>
+
+						<section class="import-review-section" aria-label="Needs fixes">
+							<div class="review-heading">
+								<h4>Needs fixes</h4>
+								<span>{importReview.invalidRows.length} rows</span>
+							</div>
+
+							{#if importReview.invalidRows.length === 0}
+								<p class="empty-copy">No invalid rows found.</p>
+							{:else}
+								<ul class="review-list">
+									{#each importReview.invalidRows as row (row.rowNumber)}
+										<li class="review-row invalid">
+											<div>
+												<span class="row-number">Row {row.rowNumber}</span>
+												<ul class="review-errors">
+													{#each row.errors as error (error)}
+														<li>{error}</li>
+													{/each}
+												</ul>
+											</div>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</section>
+
+						{#if importError}
+							<p class="text-error" role="alert">{importError}</p>
+						{/if}
+
+						<div class="editor-actions">
+							<button class="btn btn-sm" type="button" onclick={reviseImport} disabled={isImporting}>Back</button>
+							<button class="btn btn-sm" type="button" onclick={cancelImport} disabled={isImporting}>Cancel</button>
+							<button
+								class="btn btn-primary btn-sm"
+								type="button"
+								onclick={commitValidImportRows}
+								disabled={importReview.validRows.length === 0 || isImporting}
+							>
+								{#if isImporting}<Spinner size={12} />{/if}
+								Import Valid Rows
+							</button>
+						</div>
+					{:else}
+						<div class="form-grid">
+							<div class="form-field">
+								<label class="form-label" for="ict-task-import-mode">Import behavior</label>
+								<select id="ict-task-import-mode" class="input" value={importMode} onchange={handleImportModeChange}>
+									<option value="create-only">Create new tasks only</option>
+									<option value="upsert">Create or update by task code</option>
+								</select>
+							</div>
+
+							<div class="form-field">
+								<label class="form-label" for="ict-task-import-file">Upload file</label>
+								<input
+									id="ict-task-import-file"
+									class="input"
+									type="file"
+									accept=".csv,.xls,.xlsx"
+									onchange={handleImportFileChange}
+								/>
+								<p class="field-hint">{uploadedFileName || 'CSV, XLS, or XLSX files are accepted.'}</p>
+							</div>
+
+							<div class="form-field full">
+								<label class="form-label" for="ict-task-import-text">CSV data</label>
+								<div class="csv-format-help">
+									<p>
+										Use one row per task. Required columns: <strong>Task Code</strong> and <strong>Title</strong>.
+										Optional columns: Description, MOS, Expiration Months, Sort Order. Leave MOS blank for all MOSs.
+									</p>
+									<pre>Task Code,Title,MOS,Expiration Months
+181-105-2000,Evacuate casualty,68W,12</pre>
+								</div>
+								<textarea
+									id="ict-task-import-text"
+									class="input import-textarea"
+									rows="8"
+									bind:value={importText}
+									placeholder="Paste CSV rows here"
+								></textarea>
+							</div>
+						</div>
+
+						{#if importError}
+							<p class="text-error" role="alert">{importError}</p>
+						{/if}
+
+						<div class="editor-actions">
+							<button class="btn btn-sm" type="button" onclick={cancelImport}>Cancel</button>
+							<button
+								class="btn btn-primary btn-sm"
+								type="button"
+								onclick={previewImportText}
+								disabled={!importText.trim()}
+							>
+								Preview Import
+							</button>
+						</div>
+					{/if}
+				</div>
+			{:else if creating || editing}
 				<form class="editor" onsubmit={saveTask}>
 					<h3 class="panel-title">{creating ? 'New ICT Task' : 'Edit ICT Task'}</h3>
 
@@ -512,7 +815,8 @@
 	.task-list-panel,
 	.detail-panel,
 	.editor,
-	.detail-view {
+	.detail-view,
+	.importer {
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-4);
@@ -530,6 +834,13 @@
 	.panel-header {
 		padding-bottom: var(--sp-4);
 		border-bottom: var(--border-thin);
+	}
+
+	.panel-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		justify-content: flex-end;
 	}
 
 	.task-filters {
@@ -593,6 +904,8 @@
 	.panel-meta,
 	.field-hint,
 	.detail-description,
+	.import-copy,
+	.empty-copy,
 	.panel-placeholder p,
 	.page-message p,
 	.route-loading p {
@@ -737,6 +1050,134 @@
 	.detail-actions {
 		padding-top: var(--sp-4);
 		border-top: var(--border-thin);
+	}
+
+	.import-summary,
+	.import-result {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		align-items: center;
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
+		font-size: var(--text-sm);
+	}
+
+	.import-summary span {
+		padding: 2px 8px;
+		border-radius: var(--radius-sm);
+		background: var(--surface-panel);
+		color: var(--text-secondary);
+	}
+
+	.import-result {
+		justify-content: space-between;
+	}
+
+	.import-review-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-3);
+		padding: var(--sp-4);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+	}
+
+	.review-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-3);
+	}
+
+	.review-heading h4 {
+		margin: 0;
+		color: var(--text-primary);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		text-transform: uppercase;
+	}
+
+	.review-heading span,
+	.row-number {
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+	}
+
+	.review-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+		padding: 0;
+		margin: 0;
+		list-style: none;
+	}
+
+	.review-row {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		padding: var(--sp-3);
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: var(--surface-subtle);
+	}
+
+	.review-row > div {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		min-width: 0;
+	}
+
+	.review-row.invalid {
+		background: color-mix(in srgb, var(--red-light) 35%, var(--surface-subtle) 65%);
+	}
+
+	.review-errors {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+		padding-left: var(--sp-4);
+		margin: var(--sp-1) 0 0;
+		color: var(--red);
+		font-size: var(--text-sm);
+	}
+
+	.csv-format-help {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
+		color: var(--text-secondary);
+		font-size: var(--text-sm);
+	}
+
+	.csv-format-help p {
+		max-width: 72ch;
+		margin: 0;
+	}
+
+	.csv-format-help pre {
+		overflow-x: auto;
+		padding: var(--sp-3);
+		margin: 0;
+		border: var(--border-thin);
+		border-radius: var(--radius-md);
+		background: var(--surface-subtle);
+		color: var(--text-primary);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		line-height: 1.5;
+	}
+
+	.import-textarea {
+		min-height: 11rem;
+		resize: vertical;
 	}
 
 	@media (max-width: 820px) {

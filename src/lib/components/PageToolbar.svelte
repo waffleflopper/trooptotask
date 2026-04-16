@@ -11,6 +11,7 @@
 
 	interface Props {
 		title: string;
+		titleBadge?: string;
 		helpTopic?: string;
 		overflowItems?: OverflowItem[];
 		variant?: 'default' | 'compact';
@@ -24,6 +25,7 @@
 
 	let {
 		title,
+		titleBadge,
 		helpTopic,
 		overflowItems = [],
 		variant = 'default',
@@ -66,7 +68,11 @@
 		{:else}
 			<div class="toolbar-title-area">
 				<h2 class="toolbar-title">
-					{title}{#if helpTopic}<HelpButton topic={helpTopic} />{/if}
+					{title}
+					{#if titleBadge}
+						<span class="toolbar-title-badge">{titleBadge}</span>
+					{/if}
+					{#if helpTopic}<HelpButton topic={helpTopic} />{/if}
 				</h2>
 				{#if subtitle}
 					<span class="toolbar-subtitle">{subtitle}</span>
@@ -184,6 +190,25 @@
 		font-size: var(--text-sm);
 		line-height: 1.5;
 		color: var(--text-secondary);
+	}
+
+	.toolbar-title-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 20px;
+		padding: 2px 8px;
+		border: 1px solid rgba(var(--amber-rgb), 0.35);
+		border-radius: var(--radius-sm);
+		background: rgba(var(--amber-rgb), 0.12);
+		color: var(--amber);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.1em;
+		line-height: 1;
+		text-transform: uppercase;
+		white-space: nowrap;
 	}
 
 	.breadcrumbs {

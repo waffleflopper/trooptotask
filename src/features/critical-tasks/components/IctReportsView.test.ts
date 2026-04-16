@@ -104,6 +104,7 @@ describe('IctReportsView', () => {
 		});
 
 		expect(screen.getByText('Critical Task Reports')).toBeTruthy();
+		expect(screen.getByText('Beta')).toBeTruthy();
 		expect(screen.getByText('67%')).toBeTruthy();
 		const bestCard = screen.getByText('Best Performing MOS').closest('section');
 		const worstCard = screen.getByText('Worst Performing MOS').closest('section');

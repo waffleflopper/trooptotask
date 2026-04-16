@@ -183,7 +183,7 @@
 </svelte:head>
 
 <div class="page">
-	<PageToolbar title="Critical Tasks" subtitle="ICTL readiness" {overflowItems}>
+	<PageToolbar title="Critical Tasks" titleBadge="Beta" subtitle="ICTL readiness" {overflowItems}>
 		<a class="btn btn-secondary" href={matrixExportHref}>Export CSV</a>
 		{#if canInputTask}
 			<button

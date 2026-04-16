@@ -64,6 +64,13 @@ describe('PageToolbar', () => {
 		});
 	});
 
+	describe('title badge', () => {
+		it('should render a title badge when provided', () => {
+			renderToolbar({ titleBadge: 'Beta' });
+			expect(screen.getByText('Beta')).toBeTruthy();
+		});
+	});
+
 	describe('leading snippet', () => {
 		it('should render leading content instead of title', () => {
 			renderToolbar({ useLeading: true });

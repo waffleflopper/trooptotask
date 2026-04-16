@@ -66,7 +66,10 @@
 					class:active={isOrgNavItemActive(pathname, item)}
 					aria-current={isOrgNavItemActive(pathname, item) ? 'page' : undefined}
 				>
-					{item.label}
+					<span class="nav-tab-label">{item.label}</span>
+					{#if item.badgeLabel}
+						<span class="nav-tab-badge">{item.badgeLabel}</span>
+					{/if}
 				</a>
 			{/each}
 		</nav>
@@ -205,6 +208,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		gap: 6px;
 		height: 2.5rem;
 		padding: 0 0.875rem;
 		font-family: var(--font-mono);
@@ -222,6 +226,29 @@
 			border-color var(--transition-fast),
 			background var(--transition-fast);
 		white-space: nowrap;
+	}
+
+	.nav-tab-label {
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.nav-tab-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 18px;
+		padding: 1px 6px;
+		border: 1px solid rgba(var(--amber-rgb), 0.3);
+		border-radius: var(--radius-sm);
+		background: rgba(var(--amber-rgb), 0.12);
+		color: var(--color-chrome-active);
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: 0.08em;
+		line-height: 1;
+		text-transform: uppercase;
 	}
 
 	.nav-tab:hover {

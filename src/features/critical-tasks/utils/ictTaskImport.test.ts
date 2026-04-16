@@ -14,6 +14,12 @@ const existingTask: IctTask = {
 	createdAt: '2026-04-01T12:00:00Z'
 };
 
+const archivedTask: IctTask = {
+	...existingTask,
+	id: 'task-archived',
+	archivedAt: '2026-04-14T12:00:00Z'
+};
+
 describe('ICT task library import review', () => {
 	it('maps a valid CSV row to a normalized create payload', () => {
 		const review = reviewIctTaskImportRows(
@@ -33,6 +39,7 @@ describe('ICT task library import review', () => {
 			{
 				rowNumber: 2,
 				action: 'create',
+				restoresArchivedTask: false,
 				taskId: null,
 				task: {
 					taskCode: '181-105-1001',
@@ -44,6 +51,32 @@ describe('ICT task library import review', () => {
 					archivedAt: null
 				}
 			}
+		]);
+	});
+
+	it("maps MOS values from common spreadsheet headers like MOS's", () => {
+		const review = reviewIctTaskImportRows(
+			[
+				['Task Code', 'Title', "MOS's"],
+				['181-105-1006', 'Treat casualties', '68W, 18D']
+			],
+			{
+				existingTasks: [],
+				mode: 'create-only',
+				nextSortOrder: 0
+			}
+		);
+
+		expect(review.invalidRows).toEqual([]);
+		expect(review.validRows).toEqual([
+			expect.objectContaining({
+				rowNumber: 2,
+				task: expect.objectContaining({
+					taskCode: '181-105-1006',
+					title: 'Treat casualties',
+					mos: ['68W', '18D']
+				})
+			})
 		]);
 	});
 
@@ -85,11 +118,19 @@ describe('ICT task library import review', () => {
 			}),
 			expect.objectContaining({
 				rowNumber: 6,
-				errors: ['Duplicate task code in import']
+				values: expect.objectContaining({
+					taskCode: '181-105-1005',
+					title: 'Duplicate one'
+				}),
+				errors: ['Duplicate task code "181-105-1005" also appears on row 7 ("Duplicate two")']
 			}),
 			expect.objectContaining({
 				rowNumber: 7,
-				errors: ['Duplicate task code in import']
+				values: expect.objectContaining({
+					taskCode: '181-105-1005',
+					title: 'Duplicate two'
+				}),
+				errors: ['Duplicate task code "181-105-1005" also appears on row 6 ("Duplicate one")']
 			})
 		]);
 	});
@@ -123,6 +164,7 @@ describe('ICT task library import review', () => {
 			expect.objectContaining({
 				rowNumber: 2,
 				action: 'update',
+				restoresArchivedTask: false,
 				taskId: 'task-existing',
 				task: expect.objectContaining({
 					taskCode: '181-105-1001',
@@ -150,6 +192,7 @@ describe('ICT task library import review', () => {
 		expect(review.validRows).toEqual([
 			expect.objectContaining({
 				action: 'update',
+				restoresArchivedTask: false,
 				taskId: 'task-existing',
 				task: expect.objectContaining({
 					title: 'Updated task title',
@@ -157,6 +200,49 @@ describe('ICT task library import review', () => {
 					mos: ['68W'],
 					expirationMonths: 12,
 					sortOrder: 8
+				})
+			})
+		]);
+	});
+
+	it('flags archived task-code conflicts in create-only mode and marks restores in upsert mode', () => {
+		const rows = [
+			['Task Code', 'Title', 'MOS'],
+			['181-105-1001', 'Restored title', '18D']
+		];
+
+		expect(
+			reviewIctTaskImportRows(rows, {
+				existingTasks: [archivedTask],
+				mode: 'create-only',
+				nextSortOrder: 0
+			}).invalidRows
+		).toEqual([
+			expect.objectContaining({
+				rowNumber: 2,
+				errors: [
+					'Task code exists on an archived task. Switch import behavior to create, update, or restore by task code.'
+				]
+			})
+		]);
+
+		expect(
+			reviewIctTaskImportRows(rows, {
+				existingTasks: [archivedTask],
+				mode: 'upsert',
+				nextSortOrder: 0
+			}).validRows
+		).toEqual([
+			expect.objectContaining({
+				rowNumber: 2,
+				action: 'update',
+				restoresArchivedTask: true,
+				taskId: 'task-archived',
+				task: expect.objectContaining({
+					taskCode: '181-105-1001',
+					title: 'Restored title',
+					mos: ['18D'],
+					archivedAt: null
 				})
 			})
 		]);

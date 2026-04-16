@@ -161,86 +161,14 @@ describe('IctTaskLibraryPage', () => {
 		expect(within(taskList()).queryByText('Submit readiness report')).toBeNull();
 	});
 
-	it('reviews pasted CSV task imports before saving valid rows', async () => {
+	it('opens the dedicated import workspace instead of the old pasted CSV side panel', async () => {
 		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
-		expect(screen.getByText(/Optional columns: Description, MOS, Expiration Months, Sort Order/)).toBeTruthy();
-		expect(screen.getByText(/181-105-2000,Evacuate casualty,68W,12/)).toBeTruthy();
-		await fireEvent.input(screen.getByLabelText('CSV data'), {
-			target: {
-				value: [
-					'Task Code,Title,MOS,Expiration Months',
-					'181-105-2000,Evacuate casualty,68W,12',
-					',Missing task code,68W,12'
-				].join('\n')
-			}
-		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Import' }));
 
-		await waitFor(() => {
-			expect(screen.getByText('Ready to import')).toBeTruthy();
-		});
-
-		const readySection = screen.getByRole('region', { name: 'Ready to import' });
-		const invalidSection = screen.getByRole('region', { name: 'Needs fixes' });
-
-		expect(within(readySection).getByText('181-105-2000')).toBeTruthy();
-		expect(within(readySection).getByText('Evacuate casualty')).toBeTruthy();
-		expect(within(invalidSection).getByText('Row 3')).toBeTruthy();
-		expect(within(invalidSection).getByText('Task code is required')).toBeTruthy();
-	});
-
-	it('commits valid CSV import rows without creating completion records', async () => {
-		const add = vi.spyOn(ictTasksStore, 'add').mockResolvedValue({
-			...activeTask,
-			id: 'task-imported',
-			taskCode: '181-105-2000',
-			title: 'Evacuate casualty',
-			sortOrder: 3
-		});
-		const update = vi.spyOn(ictTasksStore, 'update').mockResolvedValue(true);
-
-		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
-		await fireEvent.change(screen.getByLabelText('Import behavior'), {
-			target: { value: 'upsert' }
-		});
-		await fireEvent.input(screen.getByLabelText('CSV data'), {
-			target: {
-				value: [
-					'Task Code,Title,MOS,Expiration Months',
-					'181-105-1001,Updated TCCC task,68W,18',
-					'181-105-2000,Evacuate casualty,68W,12'
-				].join('\n')
-			}
-		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Preview Import' }));
-		await fireEvent.click(await screen.findByRole('button', { name: 'Import Valid Rows' }));
-
-		await waitFor(() => {
-			expect(update).toHaveBeenCalledWith(
-				'task-1',
-				expect.objectContaining({
-					taskCode: '181-105-1001',
-					title: 'Updated TCCC task',
-					mos: ['68W'],
-					expirationMonths: 18
-				})
-			);
-			expect(add).toHaveBeenCalledWith(
-				expect.objectContaining({
-					taskCode: '181-105-2000',
-					title: 'Evacuate casualty',
-					mos: ['68W'],
-					expirationMonths: 12,
-					archivedAt: null
-				})
-			);
-		});
-		expect(personnelIctCompletionsStore.items).toHaveLength(2);
-		expect(await screen.findByText('Import complete')).toBeTruthy();
+		expect(await screen.findByRole('heading', { name: 'Import ICT Tasks' })).toBeTruthy();
+		expect(screen.getByRole('region', { name: 'ICT task import workspace' })).toBeTruthy();
+		expect(screen.queryByLabelText(/CSV data/i)).toBeNull();
 	});
 
 	it('creates task metadata with normalized MOS applicability and optional expiration override', async () => {
@@ -317,5 +245,29 @@ describe('IctTaskLibraryPage', () => {
 			);
 		});
 		expect(personnelIctCompletionsStore.items).toHaveLength(2);
+	});
+
+	it('shows archived tasks in a separate view and restores them back to active status', async () => {
+		const update = vi.spyOn(ictTasksStore, 'update').mockResolvedValue(true);
+
+		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archived' }));
+		await fireEvent.click(screen.getByRole('button', { name: /Archived task/ }));
+
+		expect(screen.getByRole('button', { name: 'Restore Task' })).toBeTruthy();
+		expect(screen.getByText('Apr 2, 2026')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Restore Task' }));
+
+		await waitFor(() => {
+			expect(update).toHaveBeenCalledWith(
+				'task-archived',
+				expect.objectContaining({
+					archivedAt: null
+				})
+			);
+		});
+		expect(screen.getByRole('button', { name: 'Active' }).getAttribute('aria-pressed')).toBe('true');
 	});
 });

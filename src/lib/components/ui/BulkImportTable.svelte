@@ -10,14 +10,23 @@
 		cellWarnings: Record<string, string>;
 	}
 
+	export interface CheckedRowEntry {
+		rowIndex: number;
+		sourceRowNumber: number;
+		values: Record<string, string>;
+	}
+
 	interface Props {
 		rawRows: string[][];
 		columnDefs: ColumnDef[];
 		validateRow: (row: Record<string, string>) => RowValidation;
+		validateRows?: (
+			rows: Array<{ rowIndex: number; sourceRowNumber: number; values: Record<string, string> }>
+		) => RowValidation[];
 		onMappingChange?: (mappings: ColumnMapping[]) => void;
 	}
 
-	let { rawRows, columnDefs, validateRow, onMappingChange }: Props = $props();
+	let { rawRows, columnDefs, validateRow, validateRows, onMappingChange }: Props = $props();
 
 	// Detect headers and auto-map columns as derived values
 	const hasHeaders = $derived(rawRows.length > 0 ? detectHeaderRow(rawRows[0], columnDefs) : false);
@@ -51,6 +60,7 @@
 	});
 
 	const dataRows = $derived(hasHeaders ? rawRows.slice(1) : rawRows);
+	const sourceRowNumbers = $derived(dataRows.map((_, index) => index + (hasHeaders ? 2 : 1)));
 	const missingRequired = $derived(getMissingRequired(mappings, columnDefs));
 
 	// editableRows starts as a copy of dataRows; user edits mutate it directly
@@ -70,15 +80,45 @@
 		dataGeneration++;
 	});
 
-	const rowValidations = $derived.by(() => {
-		return editableRows.map((row) => {
-			const mapped: Record<string, string> = {};
+	const mappedRows = $derived.by(() => {
+		return editableRows.map((row, rowIndex) => {
+			const values: Record<string, string> = {};
 			for (const m of mappings) {
 				if (m.fieldKey && m.columnIndex < row.length) {
-					mapped[m.fieldKey] = (row[m.columnIndex] ?? '').trim();
+					values[m.fieldKey] = (row[m.columnIndex] ?? '').trim();
 				}
 			}
-			return validateRow(mapped);
+
+			return {
+				rowIndex,
+				sourceRowNumber: sourceRowNumbers[rowIndex] ?? rowIndex + 1,
+				values
+			};
+		});
+	});
+
+	const rowValidations = $derived.by(() => {
+		const baseValidations = mappedRows.map((row) => validateRow(row.values));
+		const multiRowValidations = validateRows?.(mappedRows) ?? [];
+
+		return baseValidations.map((baseValidation, index) => {
+			const multiRowValidation = multiRowValidations[index];
+			if (!multiRowValidation) return baseValidation;
+
+			const cellErrors = {
+				...baseValidation.cellErrors,
+				...multiRowValidation.cellErrors
+			};
+			const cellWarnings = {
+				...baseValidation.cellWarnings,
+				...multiRowValidation.cellWarnings
+			};
+
+			return {
+				valid: Object.keys(cellErrors).length === 0,
+				cellErrors,
+				cellWarnings
+			};
 		});
 	});
 
@@ -151,17 +191,20 @@
 	}
 
 	export function getCheckedRows(): Record<string, string>[] {
-		const results: Record<string, string>[] = [];
+		return getCheckedRowEntries().map((entry) => entry.values);
+	}
+
+	export function getCheckedRowEntries(): CheckedRowEntry[] {
+		const results: CheckedRowEntry[] = [];
 		editableRows.forEach((row, i) => {
 			if (!checkedRows.has(i)) return;
 			if (!rowValidations[i]?.valid) return;
-			const mapped: Record<string, string> = {};
-			for (const m of mappings) {
-				if (m.fieldKey && m.columnIndex < row.length) {
-					mapped[m.fieldKey] = (row[m.columnIndex] ?? '').trim();
-				}
-			}
-			results.push(mapped);
+			const mapped = mappedRows[i]?.values ?? {};
+			results.push({
+				rowIndex: i,
+				sourceRowNumber: sourceRowNumbers[i] ?? i + 1,
+				values: mapped
+			});
 		});
 		return results;
 	}
@@ -253,11 +296,12 @@
 				{#each sortedIndices as rowIdx (rowIdx)}
 					{@const validation = rowValidations[rowIdx]}
 					{@const checked = checkedRows.has(rowIdx)}
+					{@const warningMessages = Object.values(validation?.cellWarnings ?? {})}
 					<tr class:row-error={!validation?.valid} class:row-unchecked={!checked && validation?.valid}>
 						<td class="col-check">
 							<input type="checkbox" {checked} onchange={() => toggleRow(rowIdx)} />
 						</td>
-						<td class="col-row">{rowIdx + 1}</td>
+						<td class="col-row">{sourceRowNumbers[rowIdx] ?? rowIdx + 1}</td>
 						{#each mappings as mapping (mapping.columnIndex)}
 							{#if mapping.fieldKey}
 								{@const cellError = validation?.cellErrors[mapping.fieldKey]}
@@ -284,7 +328,9 @@
 							{/if}
 						{/each}
 						<td class="col-status">
-							{#if validation?.valid}
+							{#if validation?.valid && warningMessages.length > 0}
+								<span class="status-warning" title={warningMessages.join('; ')}>{warningMessages[0]}</span>
+							{:else if validation?.valid}
 								<span class="status-ok" title="Valid">&#10003;</span>
 							{:else}
 								<span class="status-err" title={Object.values(validation?.cellErrors ?? {}).join('; ')}>&#10007;</span>
@@ -396,8 +442,8 @@
 		color: var(--text-tertiary);
 	}
 	.col-status {
-		width: 30px;
-		text-align: center;
+		min-width: 11rem;
+		text-align: right;
 	}
 
 	.cell {
@@ -435,5 +481,18 @@
 	.status-err {
 		color: var(--danger);
 		font-weight: bold;
+	}
+	.status-warning {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 2px 8px;
+		border: 1px solid var(--color-warning, #f59e0b);
+		border-radius: var(--radius-sm);
+		background: #fff3cd;
+		color: #8a5a00;
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		white-space: nowrap;
 	}
 </style>

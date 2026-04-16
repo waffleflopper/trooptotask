@@ -159,126 +159,132 @@
 			<h2 id="critical-tasks-restricted-title">Access Restricted</h2>
 			<p>Contact your organization admin for training access.</p>
 		</section>
-	{:else if loading}
-		<section class="workspace-state" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
-			<SkeletonGrid rows={6} columns={4} />
-		</section>
-	{:else if activeTasks.length === 0}
-		<section class="workspace-state">
-			<EmptyState message="No critical tasks yet. Add ICTL tasks to begin tracking annual proficiency." />
-		</section>
 	{:else}
-		<section class="matrix-workspace" aria-label="Critical Tasks matrix workspace">
-			<div class="matrix-controls">
-				<div class="controls-row">
-					<div class="matrix-filter-controls">
-						<div class="filter-field">
-							<label for="critical-tasks-search">Search</label>
-							<input
-								id="critical-tasks-search"
-								type="search"
-								class="input"
-								data-testid="critical-tasks-search"
-								aria-label="Search by name, rank, or MOS"
-								placeholder="Search name, rank, or MOS..."
-								bind:value={personnelSearch}
-							/>
+		<main class="page-content">
+			{#if loading}
+				<section class="workspace-state" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
+					<SkeletonGrid rows={6} columns={4} />
+				</section>
+			{:else if activeTasks.length === 0}
+				<section class="workspace-state">
+					<EmptyState message="No critical tasks yet. Add ICTL tasks to begin tracking annual proficiency." />
+				</section>
+			{:else}
+				<section class="matrix-workspace" aria-label="Critical Tasks matrix workspace">
+					<div class="matrix-controls">
+						<div class="controls-row">
+							<div class="matrix-filter-controls">
+								<div class="filter-field">
+									<label for="critical-tasks-search">Search</label>
+									<input
+										id="critical-tasks-search"
+										type="search"
+										class="input"
+										data-testid="critical-tasks-search"
+										aria-label="Search by name, rank, or MOS"
+										placeholder="Search name, rank, or MOS..."
+										bind:value={personnelSearch}
+									/>
+								</div>
+
+								<div class="filter-field">
+									<label for="critical-tasks-group-filter">Group</label>
+									<select
+										id="critical-tasks-group-filter"
+										class="input"
+										value={selectedGroupId}
+										onchange={handleGroupFilterChange}
+									>
+										<option value="">All groups</option>
+										{#each groupsStore.items as group (group.id)}
+											<option value={group.id}>{group.name}</option>
+										{/each}
+									</select>
+								</div>
+							</div>
+
+							<div class="controls-actions">
+								<label class="gap-toggle">
+									<span>Show readiness gaps only</span>
+									<input type="checkbox" checked={gapsOnly} onchange={handleGapsOnlyChange} />
+								</label>
+
+								<div class="view-toggle">
+									<span class="view-label">View:</span>
+									<div class="view-toggle-controls" role="group" aria-label="Critical Tasks matrix view mode">
+										<button
+											class="view-btn"
+											type="button"
+											aria-pressed={viewMode === 'alphabetical'}
+											class:active={viewMode === 'alphabetical'}
+											onclick={() => (viewMode = 'alphabetical')}
+										>
+											A-Z
+										</button>
+										<button
+											class="view-btn"
+											type="button"
+											aria-pressed={viewMode === 'by-group'}
+											class:active={viewMode === 'by-group'}
+											onclick={() => (viewMode = 'by-group')}
+										>
+											By Group
+										</button>
+									</div>
+								</div>
+							</div>
 						</div>
 
-						<div class="filter-field">
-							<label for="critical-tasks-group-filter">Group</label>
-							<select
-								id="critical-tasks-group-filter"
-								class="input"
-								value={selectedGroupId}
-								onchange={handleGroupFilterChange}
-							>
-								<option value="">All groups</option>
-								{#each groupsStore.items as group (group.id)}
-									<option value={group.id}>{group.name}</option>
-								{/each}
-							</select>
-						</div>
-					</div>
-
-					<div class="controls-actions">
-						<label class="gap-toggle">
-							<span>Show readiness gaps only</span>
-							<input type="checkbox" checked={gapsOnly} onchange={handleGapsOnlyChange} />
-						</label>
-
-						<div class="view-toggle">
-							<span class="view-label">View:</span>
-							<div class="view-toggle-controls" role="group" aria-label="Critical Tasks matrix view mode">
-								<button
-									class="view-btn"
-									type="button"
-									aria-pressed={viewMode === 'alphabetical'}
-									class:active={viewMode === 'alphabetical'}
-									onclick={() => (viewMode = 'alphabetical')}
-								>
-									A-Z
-								</button>
-								<button
-									class="view-btn"
-									type="button"
-									aria-pressed={viewMode === 'by-group'}
-									class:active={viewMode === 'by-group'}
-									onclick={() => (viewMode = 'by-group')}
-								>
-									By Group
-								</button>
+						<div class="controls-footer">
+							<div class="matrix-counts" aria-label="Critical Tasks matrix totals">
+								{#if personnelSearch.trim() || selectedGroupId}
+									<div class="stat-item">
+										<span class="stat-value">{groupScopedPersonnel.length}</span>
+										<span class="stat-label">matching personnel</span>
+									</div>
+								{:else}
+									<div class="stat-item">
+										<span class="stat-value">{activePersonnel.length}</span>
+										<span class="stat-label">personnel</span>
+									</div>
+								{/if}
+								{#if groupScopedPersonnel.length !== activePersonnel.length}
+									<div class="stat-item">
+										<span class="stat-value">{activePersonnel.length}</span>
+										<span class="stat-label">total</span>
+									</div>
+								{/if}
+								<div class="stat-item">
+									<span class="stat-value">{activeTasks.length}</span>
+									<span class="stat-label">active tasks</span>
+								</div>
+								<div class="stat-item">
+									<span class="stat-value">{personnelIctCompletionsStore.items.length}</span>
+									<span class="stat-label">validations</span>
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
 
-				<div class="controls-footer">
-					<div class="matrix-counts" aria-label="Critical Tasks matrix totals">
-						{#if personnelSearch.trim() || selectedGroupId}
-							<div class="stat-item">
-								<span class="stat-value">{groupScopedPersonnel.length}</span>
-								<span class="stat-label">matching personnel</span>
-							</div>
-						{:else}
-							<div class="stat-item">
-								<span class="stat-value">{activePersonnel.length}</span>
-								<span class="stat-label">personnel</span>
-							</div>
-						{/if}
-						{#if groupScopedPersonnel.length !== activePersonnel.length}
-							<div class="stat-item">
-								<span class="stat-value">{activePersonnel.length}</span>
-								<span class="stat-label">total</span>
-							</div>
-						{/if}
-						<div class="stat-item">
-							<span class="stat-value">{activeTasks.length}</span>
-							<span class="stat-label">active tasks</span>
-						</div>
-						<div class="stat-item">
-							<span class="stat-value">{personnelIctCompletionsStore.items.length}</span>
-							<span class="stat-label">validations</span>
-						</div>
+					<div class="matrix-panel" data-testid="critical-tasks-matrix-panel">
+						<IctMatrix
+							{orgId}
+							personnel={filteredPersonnel}
+							tasks={ictTasksStore.items}
+							completions={personnelIctCompletionsStore.items}
+							groups={groupsStore.items}
+							settings={criticalTasksSettings}
+							canEdit={canEditTraining}
+							onSelectCell={handleMatrixCellSelection}
+							{selectedGroupId}
+							{gapsOnly}
+							{viewMode}
+							{orgName}
+						/>
 					</div>
-				</div>
-			</div>
-
-			<IctMatrix
-				{orgId}
-				personnel={filteredPersonnel}
-				tasks={ictTasksStore.items}
-				completions={personnelIctCompletionsStore.items}
-				groups={groupsStore.items}
-				settings={criticalTasksSettings}
-				canEdit={canEditTraining}
-				onSelectCell={handleMatrixCellSelection}
-				{selectedGroupId}
-				{gapsOnly}
-				{viewMode}
-				{orgName}
-			/>
-		</section>
+				</section>
+			{/if}
+		</main>
 	{/if}
 </div>
 
@@ -306,20 +312,41 @@
 
 <style>
 	.page {
-		min-height: 100%;
+		height: calc(100dvh - var(--header-height, 56px) - var(--banner-height, 0px));
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		background: var(--surface-page);
+	}
+
+	.page-content {
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+		padding: var(--sp-6);
 	}
 
 	.workspace-state,
 	.page-message {
-		padding: var(--sp-6);
+		padding: 0;
+		height: 100%;
+		overflow: auto;
 	}
 
 	.matrix-workspace {
 		display: flex;
 		flex-direction: column;
+		height: 100%;
+		flex: 1;
 		gap: var(--sp-4);
 		min-height: 0;
-		padding: var(--sp-6);
+	}
+
+	.matrix-panel {
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
 	}
 
 	.page-message {
@@ -524,8 +551,12 @@
 	/* ── Responsive ─────────────────────────────────────────── */
 
 	@media (max-width: 720px) {
-		.matrix-workspace {
+		.page-content {
 			padding: var(--sp-3);
+		}
+
+		.matrix-workspace {
+			gap: var(--sp-3);
 		}
 
 		.controls-row {

@@ -214,6 +214,7 @@
 	.ict-matrix-shell {
 		display: flex;
 		flex-direction: column;
+		height: 100%;
 		min-height: 0;
 		border: var(--border-thin);
 		border-radius: var(--radius-lg);
@@ -253,6 +254,7 @@
 	}
 
 	.matrix-scroll {
+		flex: 1;
 		overflow: auto;
 		min-height: 0;
 	}

@@ -4,20 +4,16 @@
 	import SearchSelect from '$lib/components/ui/SearchSelect.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import { parseCSVText, parseFile } from '$lib/utils/csvParser';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
-	import {
-		reviewIctTaskImportRows,
-		type IctTaskImportMode,
-		type IctTaskImportReview
-	} from '$features/critical-tasks/utils/ictTaskImport';
+	import IctTaskBulkImport from '$features/critical-tasks/components/IctTaskBulkImport.svelte';
 	import {
 		countCompletionRecordsForTask,
 		formatMosApplicability,
 		getActiveIctTasksForLibrary,
+		getArchivedIctTasksForLibrary,
 		isIctTaskApplicableToMos,
 		parseMosApplicabilityInput
 	} from '$features/critical-tasks/utils/ictTaskLibrary';
@@ -43,15 +39,8 @@
 	let editing = $state(false);
 	let saving = $state(false);
 	let importingTasks = $state(false);
-	let importText = $state('');
-	let importMode = $state<IctTaskImportMode>('create-only');
-	let importReview = $state<IctTaskImportReview | null>(null);
-	let importRawRows = $state<string[][]>([]);
-	let importError = $state('');
-	let importResult = $state<{ created: number; updated: number } | null>(null);
-	let isImporting = $state(false);
-	let uploadedFileName = $state('');
 	let confirmArchive = $state<IctTask | null>(null);
+	let taskStatusFilter = $state<'active' | 'archived'>('active');
 	let taskSearch = $state('');
 	let selectedMos = $state('');
 
@@ -63,12 +52,14 @@
 	let formSortOrder = $state('0');
 
 	const activeTasks = $derived(getActiveIctTasksForLibrary(ictTasksStore.items));
+	const archivedTasks = $derived(getArchivedIctTasksForLibrary(ictTasksStore.items));
+	const visibleTasks = $derived(taskStatusFilter === 'active' ? activeTasks : archivedTasks);
 	const selectedTask = $derived(
-		selectedTaskId ? (activeTasks.find((task) => task.id === selectedTaskId) ?? null) : null
+		selectedTaskId ? (visibleTasks.find((task) => task.id === selectedTaskId) ?? null) : null
 	);
 	const mosFilterOptions = $derived.by(() => {
 		const mosValues: string[] = [];
-		for (const task of activeTasks) {
+		for (const task of visibleTasks) {
 			for (const mos of task.mos) {
 				const normalized = mos.trim().toUpperCase();
 				if (normalized && !mosValues.includes(normalized)) {
@@ -83,16 +74,26 @@
 	});
 	const filtersActive = $derived(Boolean(taskSearch.trim() || selectedMos));
 	const filteredTasks = $derived(
-		activeTasks.filter((task) => matchesTaskSearch(task, taskSearch) && matchesSelectedMos(task))
+		visibleTasks.filter((task) => matchesTaskSearch(task, taskSearch) && matchesSelectedMos(task))
 	);
 	const taskListMeta = $derived(
-		filtersActive ? `${filteredTasks.length} of ${activeTasks.length} shown` : `${activeTasks.length} configured`
+		filtersActive
+			? `${filteredTasks.length} of ${visibleTasks.length} shown`
+			: `${visibleTasks.length} ${taskStatusFilter === 'active' ? 'configured' : 'archived'}`
 	);
-	const canReorderTasks = $derived(canManage && !editing && !creating && !importingTasks && !filtersActive);
+	const canReorderTasks = $derived(
+		canManage && taskStatusFilter === 'active' && !editing && !creating && !importingTasks && !filtersActive
+	);
 
 	$effect(() => {
 		if (selectedMos && !mosFilterOptions.some((option) => option.value === selectedMos)) {
 			selectedMos = '';
+		}
+	});
+
+	$effect(() => {
+		if (selectedTaskId && !visibleTasks.some((task) => task.id === selectedTaskId)) {
+			selectedTaskId = null;
 		}
 	});
 
@@ -135,6 +136,7 @@
 
 	function startCreate() {
 		if (!canManage) return;
+		taskStatusFilter = 'active';
 		selectedTaskId = null;
 		resetForm();
 		creating = true;
@@ -143,7 +145,7 @@
 	}
 
 	function startEdit() {
-		if (!selectedTask || !canManage) return;
+		if (!selectedTask || !canManage || selectedTask.archivedAt) return;
 		resetForm(selectedTask);
 		editing = true;
 		creating = false;
@@ -158,120 +160,15 @@
 
 	function startImport() {
 		if (!canManage) return;
+		taskStatusFilter = 'active';
 		selectedTaskId = null;
 		creating = false;
 		editing = false;
 		importingTasks = true;
-		importText = '';
-		importMode = 'create-only';
-		importReview = null;
-		importRawRows = [];
-		importError = '';
-		importResult = null;
-		uploadedFileName = '';
 	}
 
 	function cancelImport() {
 		importingTasks = false;
-		importText = '';
-		importReview = null;
-		importRawRows = [];
-		importError = '';
-		importResult = null;
-		isImporting = false;
-		uploadedFileName = '';
-	}
-
-	function reviewImportRows(rawRows: string[][]) {
-		importRawRows = rawRows;
-		importReview = reviewIctTaskImportRows(rawRows, {
-			existingTasks: activeTasks,
-			mode: importMode,
-			nextSortOrder: nextSortOrder()
-		});
-		importResult = null;
-	}
-
-	function handleImportModeChange(event: Event) {
-		importMode = (event.currentTarget as HTMLSelectElement).value as IctTaskImportMode;
-		if (importReview && importRawRows.length > 0) {
-			reviewImportRows(importRawRows);
-		}
-	}
-
-	async function previewImportText() {
-		const trimmed = importText.trim();
-		if (!trimmed) {
-			importError = 'Paste CSV data or upload a file before previewing.';
-			return;
-		}
-
-		try {
-			importError = '';
-			const rawRows = await parseCSVText(trimmed);
-			reviewImportRows(rawRows);
-		} catch {
-			importReview = null;
-			importError = 'Unable to parse CSV data. Check the file format and try again.';
-		}
-	}
-
-	async function handleImportFileChange(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		const file = input.files?.[0];
-		if (!file) return;
-
-		try {
-			importError = '';
-			uploadedFileName = file.name;
-			const rawRows = await parseFile(file);
-			importText = '';
-			reviewImportRows(rawRows);
-		} catch {
-			importReview = null;
-			importError = 'Unable to parse that file. Upload a CSV or spreadsheet and try again.';
-		} finally {
-			input.value = '';
-		}
-	}
-
-	function reviseImport() {
-		importReview = null;
-		importResult = null;
-		importError = '';
-	}
-
-	async function commitValidImportRows() {
-		if (!canManage || !importReview || importReview.validRows.length === 0 || isImporting) return;
-
-		isImporting = true;
-		importError = '';
-		let created = 0;
-		let updated = 0;
-
-		try {
-			for (const row of importReview.validRows) {
-				if (row.action === 'update' && row.taskId) {
-					await ictTasksStore.update(row.taskId, row.task);
-					updated += 1;
-				} else {
-					const createdTask = await ictTasksStore.add(row.task as Omit<IctTask, 'id'>);
-					if (createdTask) selectedTaskId = createdTask.id;
-					created += 1;
-				}
-			}
-
-			importResult = { created, updated };
-			importReview = null;
-			importRawRows = [];
-			importText = '';
-			uploadedFileName = '';
-		} catch {
-			importError =
-				'Unable to finish importing valid rows. Some task changes may have saved; no completion records changed.';
-		} finally {
-			isImporting = false;
-		}
 	}
 
 	function parsePositiveInteger(value: string): number | null {
@@ -330,6 +227,13 @@
 		confirmArchive = null;
 	}
 
+	async function restoreTask(taskId: string) {
+		if (!canManage) return;
+		await ictTasksStore.update(taskId, { archivedAt: null });
+		taskStatusFilter = 'active';
+		selectedTaskId = taskId;
+	}
+
 	async function moveTask(index: number, direction: -1 | 1) {
 		const current = activeTasks[index];
 		const target = activeTasks[index + direction];
@@ -349,6 +253,13 @@
 		const count = completionCount(task.id);
 		const label = count === 1 ? 'personnel completion record is' : 'personnel completion records are';
 		return `${count} ${label} tied to this task. Archiving hides it from the active library, matrix, and new logging flows without deleting history.`;
+	}
+
+	function formatArchivedAt(value: string | null): string {
+		if (!value) return 'Not archived';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return value;
+		return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(date);
 	}
 
 	function confirmArchiveTask() {
@@ -379,12 +290,18 @@
 		<Spinner color="currentColor" />
 		<p>Loading ICT task library...</p>
 	</section>
+{:else if importingTasks}
+	<section class="import-route-workspace" aria-label="ICT task import workspace">
+		<IctTaskBulkImport tasks={ictTasksStore.items} onCancel={cancelImport} onDone={cancelImport} />
+	</section>
 {:else}
 	<div class="library-layout">
 		<section class="panel task-list-panel" aria-labelledby="task-library-title">
 			<div class="panel-header">
 				<div class="panel-header-copy">
-					<h3 id="task-library-title" class="panel-title">Active Tasks</h3>
+					<h3 id="task-library-title" class="panel-title">
+						{taskStatusFilter === 'active' ? 'Active Tasks' : 'Archived Tasks'}
+					</h3>
 					<span class="panel-meta">{taskListMeta}</span>
 				</div>
 				{#if canManage}
@@ -409,7 +326,28 @@
 				{/if}
 			</div>
 
-			{#if activeTasks.length > 0}
+			<div class="status-toggle" aria-label="Filter ICT tasks by status">
+				<button
+					class="btn btn-sm"
+					class:is-selected={taskStatusFilter === 'active'}
+					type="button"
+					aria-pressed={taskStatusFilter === 'active'}
+					onclick={() => (taskStatusFilter = 'active')}
+				>
+					Active
+				</button>
+				<button
+					class="btn btn-sm"
+					class:is-selected={taskStatusFilter === 'archived'}
+					type="button"
+					aria-pressed={taskStatusFilter === 'archived'}
+					onclick={() => (taskStatusFilter = 'archived')}
+				>
+					Archived
+				</button>
+			</div>
+
+			{#if visibleTasks.length > 0}
 				<div class="task-filters" aria-label="Filter ICT task library">
 					<div class="filter-field filter-field-search">
 						<label for="ict-library-task-search">Search</label>
@@ -440,13 +378,15 @@
 				</div>
 			{/if}
 
-			{#if activeTasks.length === 0 && !creating}
+			{#if visibleTasks.length === 0 && !creating}
 				<EmptyState
-					message="No active ICT tasks. Add task definitions to begin tracking ICTL readiness."
+					message={taskStatusFilter === 'active'
+						? 'No active ICT tasks. Add task definitions to begin tracking ICTL readiness.'
+						: 'No archived ICT tasks. Restore a task after archiving when you need it back in the active library.'}
 					actionLabel={canManage ? 'New Task' : undefined}
 					onAction={canManage ? startCreate : undefined}
 				/>
-			{:else if activeTasks.length > 0 && filteredTasks.length === 0}
+			{:else if visibleTasks.length > 0 && filteredTasks.length === 0}
 				<EmptyState
 					message="No ICT tasks match the current filters."
 					actionLabel="Clear filters"
@@ -491,160 +431,7 @@
 		</section>
 
 		<section class="panel detail-panel" aria-label="ICT task details">
-			{#if importingTasks}
-				<div class="importer">
-					<div>
-						<h3 class="panel-title">Import ICT Tasks</h3>
-						<p class="import-copy">
-							Paste CSV data or upload a CSV/spreadsheet to review task definitions before saving.
-						</p>
-					</div>
-
-					{#if importResult}
-						<div class="import-result" role="status">
-							<strong>Import complete</strong>
-							<span>{importResult.created} created, {importResult.updated} updated.</span>
-						</div>
-
-						<div class="editor-actions">
-							<button class="btn btn-sm" type="button" onclick={cancelImport}>Done</button>
-							<button class="btn btn-primary btn-sm" type="button" onclick={startImport}>Import Another File</button>
-						</div>
-					{:else if importReview}
-						<div class="import-summary" aria-live="polite">
-							<span>{importReview.validRows.length} ready</span>
-							<span>{importReview.invalidRows.length} need fixes</span>
-						</div>
-
-						<section class="import-review-section" aria-label="Ready to import">
-							<div class="review-heading">
-								<h4>Ready to import</h4>
-								<span>{importReview.validRows.length} rows</span>
-							</div>
-
-							{#if importReview.validRows.length === 0}
-								<p class="empty-copy">No valid rows found.</p>
-							{:else}
-								<ul class="review-list">
-									{#each importReview.validRows as row (row.rowNumber)}
-										<li class="review-row">
-											<div>
-												<span class="task-code">{row.task.taskCode}</span>
-												<span class="task-title">{row.task.title}</span>
-												<span class="task-meta">
-													{row.action === 'update' ? 'Update' : 'Create'} - {formatMosApplicability(row.task.mos)}
-												</span>
-											</div>
-											<span class="row-number">Row {row.rowNumber}</span>
-										</li>
-									{/each}
-								</ul>
-							{/if}
-						</section>
-
-						<section class="import-review-section" aria-label="Needs fixes">
-							<div class="review-heading">
-								<h4>Needs fixes</h4>
-								<span>{importReview.invalidRows.length} rows</span>
-							</div>
-
-							{#if importReview.invalidRows.length === 0}
-								<p class="empty-copy">No invalid rows found.</p>
-							{:else}
-								<ul class="review-list">
-									{#each importReview.invalidRows as row (row.rowNumber)}
-										<li class="review-row invalid">
-											<div>
-												<span class="row-number">Row {row.rowNumber}</span>
-												<ul class="review-errors">
-													{#each row.errors as error (error)}
-														<li>{error}</li>
-													{/each}
-												</ul>
-											</div>
-										</li>
-									{/each}
-								</ul>
-							{/if}
-						</section>
-
-						{#if importError}
-							<p class="text-error" role="alert">{importError}</p>
-						{/if}
-
-						<div class="editor-actions">
-							<button class="btn btn-sm" type="button" onclick={reviseImport} disabled={isImporting}>Back</button>
-							<button class="btn btn-sm" type="button" onclick={cancelImport} disabled={isImporting}>Cancel</button>
-							<button
-								class="btn btn-primary btn-sm"
-								type="button"
-								onclick={commitValidImportRows}
-								disabled={importReview.validRows.length === 0 || isImporting}
-							>
-								{#if isImporting}<Spinner size={12} />{/if}
-								Import Valid Rows
-							</button>
-						</div>
-					{:else}
-						<div class="form-grid">
-							<div class="form-field">
-								<label class="form-label" for="ict-task-import-mode">Import behavior</label>
-								<select id="ict-task-import-mode" class="input" value={importMode} onchange={handleImportModeChange}>
-									<option value="create-only">Create new tasks only</option>
-									<option value="upsert">Create or update by task code</option>
-								</select>
-							</div>
-
-							<div class="form-field">
-								<label class="form-label" for="ict-task-import-file">Upload file</label>
-								<input
-									id="ict-task-import-file"
-									class="input"
-									type="file"
-									accept=".csv,.xls,.xlsx"
-									onchange={handleImportFileChange}
-								/>
-								<p class="field-hint">{uploadedFileName || 'CSV, XLS, or XLSX files are accepted.'}</p>
-							</div>
-
-							<div class="form-field full">
-								<label class="form-label" for="ict-task-import-text">CSV data</label>
-								<div class="csv-format-help">
-									<p>
-										Use one row per task. Required columns: <strong>Task Code</strong> and <strong>Title</strong>.
-										Optional columns: Description, MOS, Expiration Months, Sort Order. Leave MOS blank for all MOSs.
-									</p>
-									<pre>Task Code,Title,MOS,Expiration Months
-181-105-2000,Evacuate casualty,68W,12</pre>
-								</div>
-								<textarea
-									id="ict-task-import-text"
-									class="input import-textarea"
-									rows="8"
-									bind:value={importText}
-									placeholder="Paste CSV rows here"
-								></textarea>
-							</div>
-						</div>
-
-						{#if importError}
-							<p class="text-error" role="alert">{importError}</p>
-						{/if}
-
-						<div class="editor-actions">
-							<button class="btn btn-sm" type="button" onclick={cancelImport}>Cancel</button>
-							<button
-								class="btn btn-primary btn-sm"
-								type="button"
-								onclick={previewImportText}
-								disabled={!importText.trim()}
-							>
-								Preview Import
-							</button>
-						</div>
-					{/if}
-				</div>
-			{:else if creating || editing}
+			{#if creating || editing}
 				<form class="editor" onsubmit={saveTask}>
 					<h3 class="panel-title">{creating ? 'New ICT Task' : 'Edit ICT Task'}</h3>
 
@@ -727,7 +514,7 @@
 							<span class="task-code">{selectedTask.taskCode}</span>
 							<h3 class="detail-title">{selectedTask.title}</h3>
 						</div>
-						{#if canManage}
+						{#if canManage && !selectedTask.archivedAt}
 							<button class="btn btn-sm" type="button" onclick={startEdit}>Edit</button>
 						{/if}
 					</div>
@@ -753,13 +540,25 @@
 							<dt>Completion history</dt>
 							<dd>{completionCount(selectedTask.id)} records</dd>
 						</div>
+						{#if selectedTask.archivedAt}
+							<div>
+								<dt>Archived</dt>
+								<dd>{formatArchivedAt(selectedTask.archivedAt)}</dd>
+							</div>
+						{/if}
 					</dl>
 
 					{#if canManage}
 						<div class="detail-actions">
-							<button class="btn btn-warning btn-sm" type="button" onclick={() => (confirmArchive = selectedTask)}>
-								Archive Task
-							</button>
+							{#if selectedTask.archivedAt}
+								<button class="btn btn-sm" type="button" onclick={() => restoreTask(selectedTask.id)}>
+									Restore Task
+								</button>
+							{:else}
+								<button class="btn btn-warning btn-sm" type="button" onclick={() => (confirmArchive = selectedTask)}>
+									Archive Task
+								</button>
+							{/if}
 						</div>
 					{/if}
 				</div>
@@ -797,6 +596,10 @@
 		color: var(--text-secondary);
 	}
 
+	.import-route-workspace {
+		padding: var(--sp-5);
+	}
+
 	.library-layout {
 		display: grid;
 		grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
@@ -815,8 +618,7 @@
 	.task-list-panel,
 	.detail-panel,
 	.editor,
-	.detail-view,
-	.importer {
+	.detail-view {
 		display: flex;
 		flex-direction: column;
 		gap: var(--sp-4);
@@ -841,6 +643,18 @@
 		flex-wrap: wrap;
 		gap: var(--sp-2);
 		justify-content: flex-end;
+	}
+
+	.status-toggle {
+		display: flex;
+		gap: var(--sp-2);
+		flex-wrap: wrap;
+	}
+
+	.status-toggle .btn.is-selected {
+		border-color: color-mix(in srgb, var(--amber) 35%, var(--border-default));
+		background: color-mix(in srgb, var(--amber-light) 70%, var(--surface-panel) 30%);
+		color: var(--text-primary);
 	}
 
 	.task-filters {
@@ -904,8 +718,6 @@
 	.panel-meta,
 	.field-hint,
 	.detail-description,
-	.import-copy,
-	.empty-copy,
 	.panel-placeholder p,
 	.page-message p,
 	.route-loading p {
@@ -1052,135 +864,8 @@
 		border-top: var(--border-thin);
 	}
 
-	.import-summary,
-	.import-result {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--sp-2);
-		align-items: center;
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-subtle);
-		color: var(--text-primary);
-		font-size: var(--text-sm);
-	}
-
-	.import-summary span {
-		padding: 2px 8px;
-		border-radius: var(--radius-sm);
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-	}
-
-	.import-result {
-		justify-content: space-between;
-	}
-
-	.import-review-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-3);
-		padding: var(--sp-4);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-	}
-
-	.review-heading {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-	}
-
-	.review-heading h4 {
-		margin: 0;
-		color: var(--text-primary);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		text-transform: uppercase;
-	}
-
-	.review-heading span,
-	.row-number {
-		color: var(--text-secondary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-	}
-
-	.review-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		padding: 0;
-		margin: 0;
-		list-style: none;
-	}
-
-	.review-row {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding: var(--sp-3);
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-subtle);
-	}
-
-	.review-row > div {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		min-width: 0;
-	}
-
-	.review-row.invalid {
-		background: color-mix(in srgb, var(--red-light) 35%, var(--surface-subtle) 65%);
-	}
-
-	.review-errors {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-1);
-		padding-left: var(--sp-4);
-		margin: var(--sp-1) 0 0;
-		color: var(--red);
-		font-size: var(--text-sm);
-	}
-
-	.csv-format-help {
-		display: flex;
-		flex-direction: column;
-		gap: var(--sp-2);
-		color: var(--text-secondary);
-		font-size: var(--text-sm);
-	}
-
-	.csv-format-help p {
-		max-width: 72ch;
-		margin: 0;
-	}
-
-	.csv-format-help pre {
-		overflow-x: auto;
-		padding: var(--sp-3);
-		margin: 0;
-		border: var(--border-thin);
-		border-radius: var(--radius-md);
-		background: var(--surface-subtle);
-		color: var(--text-primary);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		line-height: 1.5;
-	}
-
-	.import-textarea {
-		min-height: 11rem;
-		resize: vertical;
-	}
-
 	@media (max-width: 820px) {
+		.import-route-workspace,
 		.library-layout {
 			grid-template-columns: 1fr;
 			padding: var(--sp-4);

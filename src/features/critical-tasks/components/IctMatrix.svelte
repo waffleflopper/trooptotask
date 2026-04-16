@@ -177,7 +177,7 @@
 				<tr>
 					<th scope="col" class="person-header">Soldier</th>
 					{#each matrix.tasks as task (task.id)}
-						<th scope="col" class="task-header" aria-label="{task.taskCode} {task.title}" title="{task.title}">
+						<th scope="col" class="task-header" aria-label="{task.taskCode} {task.title}" title={task.title}>
 							<span class="task-code">{task.taskCode}</span>
 						</th>
 					{/each}

@@ -482,4 +482,112 @@ describe('critical tasks page', () => {
 			expect(screen.queryByRole('dialog', { name: 'Log ICT Completion' })).toBeNull();
 		});
 	});
+
+	it('lets training editors input a task from the toolbar with searchable person and task selectors', async () => {
+		const airwayTask: IctTask = {
+			...ictTask,
+			id: 'task-2',
+			taskCode: '181-105-1002',
+			title: 'Airway management',
+			mos: ['68W'],
+			sortOrder: 1
+		};
+		const fetchMock = vi.fn().mockResolvedValue(
+			mockJsonResponse(
+				completion({
+					id: 'server-completion',
+					personnelId: 'smith',
+					ictTaskId: airwayTask.id,
+					completedAt: '2098-02-02',
+					validationMethod: 'Simulation',
+					validatedBy: 'SFC Taylor Example',
+					notes: 'Toolbar entry'
+				})
+			)
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		personnelStore.load([person({ id: 'smith', lastName: 'Smith', mos: '68W' })], 'org-1');
+		groupsStore.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask, airwayTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					session: {
+						access_token: 'access-token',
+						refresh_token: 'refresh-token',
+						expires_in: 3600,
+						token_type: 'bearer',
+						user: {
+							id: 'user-1',
+							app_metadata: {},
+							aud: 'authenticated',
+							created_at: '2026-04-01T00:00:00.000Z',
+							user_metadata: {
+								rank: 'SFC',
+								full_name: 'Taylor Example'
+							}
+						}
+					},
+					permissions: {
+						canViewTraining: true,
+						canEditTraining: true
+					},
+					criticalTasksSettings: {
+						defaultExpirationMonths: 12,
+						expiringSoonWarningDays: 60
+					}
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Input Task' }));
+
+		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
+		const personCombo = await screen.findByRole('combobox', { name: 'Person' });
+		await fireEvent.input(personCombo, { target: { value: 'smith' } });
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'SGT Smith, Jane - 68W' }));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Critical Task' }));
+		const taskCombo = await screen.findByRole('combobox', { name: 'Critical Task' });
+		await fireEvent.input(taskCombo, { target: { value: 'airway' } });
+		expect(screen.getByRole('option', { name: '181-105-1002 Airway management' })).toBeTruthy();
+		await fireEvent.input(taskCombo, { target: { value: '1002' } });
+		await fireEvent.mouseDown(screen.getByRole('option', { name: '181-105-1002 Airway management' }));
+
+		await fireEvent.input(screen.getByLabelText(/Completion Date/i), { target: { value: '2098-02-02' } });
+		await fireEvent.change(screen.getByLabelText(/Validation Method/i), {
+			target: { value: 'Simulation' }
+		});
+		await fireEvent.click(screen.getByLabelText('I am the validator'));
+		await waitFor(() => {
+			expect((screen.getByLabelText(/Validated By/i) as HTMLInputElement).value).toBe('SFC Taylor Example');
+		});
+		await fireEvent.input(screen.getByLabelText(/Notes \(optional\)/i), {
+			target: { value: 'Toolbar entry' }
+		});
+
+		await fireEvent.click(screen.getByTestId('ict-completion-save'));
+
+		await waitFor(() => {
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+		});
+
+		expect(fetchMock.mock.calls[0]?.[0]).toBe('/org/org-1/api/personnel-ict-completions');
+		expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'POST' });
+		expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+			personnelId: 'smith',
+			ictTaskId: 'task-2',
+			completedAt: '2098-02-02',
+			validationMethod: 'Simulation',
+			validatedBy: 'SFC Taylor Example',
+			notes: 'Toolbar entry'
+		});
+	});
 });

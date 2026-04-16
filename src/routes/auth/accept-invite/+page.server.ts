@@ -1,4 +1,4 @@
-import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
+import { setPendingAuthFlowCookie } from '$lib/server/mfaGate';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url, cookies }) => {
@@ -9,13 +9,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 		if (exchangeError) {
 			console.error('Accept-invite code exchange failed:', exchangeError.message);
 		} else {
-			cookies.set(getPendingAuthFlowCookieName(), 'invite', {
-				path: '/',
-				httpOnly: true,
-				sameSite: 'lax',
-				secure: !import.meta.env.DEV,
-				maxAge: 60 * 60
-			});
+			setPendingAuthFlowCookie(cookies, 'invite');
 		}
 	}
 

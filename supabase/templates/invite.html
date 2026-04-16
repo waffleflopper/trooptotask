@@ -54,7 +54,7 @@
 								</p>
 								<p style="margin: 0 0 28px">
 									<a
-										href="{{ .ConfirmationURL }}"
+										href="{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}"
 										style="
 											display: inline-block;
 											padding: 14px 22px;
@@ -102,7 +102,7 @@
 										If the button above does not work, copy and paste this link into your browser:
 									</p>
 									<p style="margin: 12px 0 0; font-size: 13px; line-height: 1.7; word-break: break-all; color: #1f2937">
-										{{ .ConfirmationURL }}
+										{{ .RedirectTo }}&token_hash={{ .TokenHash }}
 									</p>
 								</div>
 							</td>

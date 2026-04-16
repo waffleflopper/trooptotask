@@ -1,4 +1,5 @@
 import { isPublicRoute } from './publicRoutes';
+import type { Cookies } from '@sveltejs/kit';
 
 type AssuranceLevelState = {
 	currentLevel?: string | null;
@@ -34,6 +35,19 @@ export function isMfaStepUpRequired(assurance: AssuranceLevelState | null | unde
 
 export function getPendingAuthFlowCookieName(): string {
 	return AUTH_FLOW_COOKIE;
+}
+
+export function setPendingAuthFlowCookie(
+	cookies: Pick<Cookies, 'set'>,
+	authFlow: Exclude<PendingAuthFlow, null>
+): void {
+	cookies.set(AUTH_FLOW_COOKIE, authFlow, {
+		path: '/',
+		httpOnly: true,
+		sameSite: 'lax',
+		secure: !import.meta.env.DEV,
+		maxAge: 60 * 60
+	});
 }
 
 export function sanitizePendingAuthFlow(value: string | null | undefined): PendingAuthFlow {

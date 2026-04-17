@@ -17,10 +17,11 @@
 		allOrgs?: OrgInfo[];
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
+		onFeedback?: () => void;
 		onWhatsNew?: () => void;
 	}
 
-	let { orgId, orgName, userRole, allOrgs = [], onToggleTheme, isDarkTheme, onWhatsNew }: Props = $props();
+	let { orgId, orgName, userRole, allOrgs = [], onToggleTheme, isDarkTheme, onFeedback, onWhatsNew }: Props = $props();
 
 	let menuOpen = $state(false);
 
@@ -85,13 +86,18 @@
 			result.push({ label: "What's New", onclick: onWhatsNew });
 		}
 
-		// 10. Help
+		// 10. Feedback
+		if (onFeedback) {
+			result.push({ label: 'Send Feedback', onclick: onFeedback });
+		}
+
+		// 11. Help
 		result.push({ label: 'Help', href: '/help' });
 
-		// 11. Divider
+		// 12. Divider
 		result.push({ label: '', divider: true });
 
-		// 12. Sign Out
+		// 13. Sign Out
 		result.push({ label: 'Sign Out', href: '/auth/logout', danger: true });
 
 		return result;

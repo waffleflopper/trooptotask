@@ -49,6 +49,7 @@ const activeTask: IctTask = {
 	taskCode: '181-105-1001',
 	title: 'Perform tactical combat casualty care',
 	description: 'Aid under fire',
+	category: 'Casualty Care',
 	mos: ['68W'],
 	expirationMonths: 12,
 	sortOrder: 2,
@@ -109,6 +110,9 @@ describe('IctTaskLibraryPage', () => {
 		render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
 
 		expect(screen.getByText('181-105-1001')).toBeTruthy();
+		expect(
+			within(screen.getByRole('list', { name: 'ICT task library' })).getByText('Casualty Care / 68W')
+		).toBeTruthy();
 		expect(screen.queryByText('181-105-9999')).toBeNull();
 	});
 
@@ -187,6 +191,7 @@ describe('IctTaskLibraryPage', () => {
 		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: '181-105-2000' } });
 		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Evacuate casualty' } });
 		await fireEvent.input(screen.getByLabelText('Description'), { target: { value: 'Move under fire' } });
+		await fireEvent.input(screen.getByLabelText('Category'), { target: { value: ' Casualty Care ' } });
 		await fireEvent.input(screen.getByLabelText('MOS applicability'), { target: { value: '68w, 18D, 68W' } });
 		await fireEvent.input(screen.getByLabelText('Expiration override'), { target: { value: '18' } });
 		await fireEvent.input(screen.getByLabelText('Sort order'), { target: { value: '3' } });
@@ -197,6 +202,7 @@ describe('IctTaskLibraryPage', () => {
 				taskCode: '181-105-2000',
 				title: 'Evacuate casualty',
 				description: 'Move under fire',
+				category: 'Casualty Care',
 				mos: ['68W', '18D'],
 				expirationMonths: 18,
 				sortOrder: 3,
@@ -213,12 +219,14 @@ describe('IctTaskLibraryPage', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /Perform tactical combat casualty care/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Updated title' } });
+		await fireEvent.input(screen.getByLabelText('Category'), { target: { value: '' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
 		expect(update).toHaveBeenCalledWith(
 			'task-1',
 			expect.objectContaining({
-				title: 'Updated title'
+				title: 'Updated title',
+				category: null
 			})
 		);
 		expect(personnelIctCompletionsStore.items).toHaveLength(2);

@@ -7,6 +7,7 @@ const existingTask: IctTask = {
 	taskCode: '181-105-1001',
 	title: 'Old task title',
 	description: 'Old description',
+	category: 'Legacy Medicine',
 	mos: ['68W'],
 	expirationMonths: 12,
 	sortOrder: 8,
@@ -24,8 +25,16 @@ describe('ICT task library import review', () => {
 	it('maps a valid CSV row to a normalized create payload', () => {
 		const review = reviewIctTaskImportRows(
 			[
-				['Task Code', 'Title', 'Description', 'MOS', 'Expiration Months', 'Sort Order'],
-				[' 181-105-1001 ', ' Perform tactical combat casualty care ', ' Aid under fire ', '68w, 18D', '12', '4']
+				['Task Code', 'Title', 'Description', 'Category', 'MOS', 'Expiration Months', 'Sort Order'],
+				[
+					' 181-105-1001 ',
+					' Perform tactical combat casualty care ',
+					' Aid under fire ',
+					' Casualty Care ',
+					'68w, 18D',
+					'12',
+					'4'
+				]
 			],
 			{
 				existingTasks: [],
@@ -45,6 +54,7 @@ describe('ICT task library import review', () => {
 					taskCode: '181-105-1001',
 					title: 'Perform tactical combat casualty care',
 					description: 'Aid under fire',
+					category: 'Casualty Care',
 					mos: ['68W', '18D'],
 					expirationMonths: 12,
 					sortOrder: 4,
@@ -197,6 +207,7 @@ describe('ICT task library import review', () => {
 				task: expect.objectContaining({
 					title: 'Updated task title',
 					description: 'Old description',
+					category: 'Legacy Medicine',
 					mos: ['68W'],
 					expirationMonths: 12,
 					sortOrder: 8
@@ -243,6 +254,31 @@ describe('ICT task library import review', () => {
 					title: 'Restored title',
 					mos: ['18D'],
 					archivedAt: null
+				})
+			})
+		]);
+	});
+
+	it('clears an existing category when an upsert provides a blank category value', () => {
+		const review = reviewIctTaskImportRows(
+			[
+				['Task Code', 'Title', 'Category'],
+				['181-105-1001', 'Updated task title', '   ']
+			],
+			{
+				existingTasks: [existingTask],
+				mode: 'upsert',
+				nextSortOrder: 0
+			}
+		);
+
+		expect(review.validRows).toEqual([
+			expect.objectContaining({
+				action: 'update',
+				taskId: 'task-existing',
+				task: expect.objectContaining({
+					title: 'Updated task title',
+					category: null
 				})
 			})
 		]);

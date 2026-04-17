@@ -286,6 +286,29 @@ Props: `options: { value: string; label: string }[]`, `value: string` (bindable)
 
 ---
 
+## `ui/MultiTagSelect.svelte`
+
+Searchable multi-select that renders selected values as removable badges inside the input area. Use this instead of native `multiple` selects when users need to pick several items from a long list.
+
+```svelte
+<MultiTagSelect
+    options={mosValues.map((mos) => ({ value: mos, label: mos }))}
+    value={selectedMos}
+    placeholder="All MOS"
+    ariaLabel="Filter by MOS"
+    onChange={(values) => (selectedMos = values)}
+/>
+```
+
+Props: `options: { value: string; label: string }[]`, `value: string[]`, `placeholder?: string` (default `'Select...'`), `ariaLabel?: string`, `disabled?: boolean`, `onChange: (values: string[]) => void`
+
+- Typing filters the dropdown; keyboard arrows + Enter toggle the highlighted option; Backspace removes the last selected value when the input is empty
+- Selected values render as mono badges with remove buttons
+- The dropdown stays open while selecting multiple options and repositions on scroll/resize
+- Prefer concise `ariaLabel` text that describes the field, such as `"Filter by MOS"` or `"Template scope groups"`
+
+---
+
 ## `ui/SubNav.svelte`
 
 Secondary tab navigation with badge counts. Styling is underline-driven and product-dense so sub-page mode switches do not drift back into pill-heavy treatment.

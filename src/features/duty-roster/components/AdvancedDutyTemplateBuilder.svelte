@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import type { TagOption } from '$lib/components/ui/MultiTagSelect.svelte';
 	import WizardStepper from './WizardStepper.svelte';
-	import type { TagOption } from './MultiTagSelect.svelte';
 	import { ALL_RANKS } from '$lib/types';
 	import type { StatusType } from '$lib/types';
 	import { cloneDefaultSoftPreferences, type DutyTemplate, type DutyTemplateWriteInput } from '../duty-roster.types';

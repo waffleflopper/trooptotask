@@ -7,8 +7,8 @@
 	import type { RosterHistoryItem, RosterHistoryEntry, DA6Data } from '../stores/dutyRosterHistory.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import MultiTagSelect from '$lib/components/ui/MultiTagSelect.svelte';
 	import WizardStepper from './WizardStepper.svelte';
-	import MultiTagSelect from './MultiTagSelect.svelte';
 	import DutyRosterProgressModal from './DutyRosterProgressModal.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';

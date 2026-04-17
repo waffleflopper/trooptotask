@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { Personnel } from '$lib/types';
-import { buildIctReportSummary } from './ictReports';
+import { buildIctReportDashboard, buildIctReportSummary } from './ictReports';
 
 const medic: Personnel = {
 	id: 'person-medic',
@@ -61,6 +61,71 @@ function completion(overrides: Partial<PersonnelIctCompletion>): PersonnelIctCom
 }
 
 describe('ictReports', () => {
+	it('builds action KPI metrics from readiness snapshots and expiration risk', () => {
+		const infantryReady: Personnel = {
+			...infantry,
+			id: 'person-infantry-ready',
+			lastName: 'Ready'
+		};
+		const infantryRisk: Personnel = {
+			...infantry,
+			id: 'person-infantry-risk',
+			lastName: 'Risk'
+		};
+
+		const dashboard = buildIctReportDashboard({
+			personnel: [medic, infantryReady, infantryRisk],
+			tasks: [medicTask, commonTask],
+			completions: [
+				completion({ personnelId: medic.id, ictTaskId: medicTask.id, completedAt: '2026-01-15' }),
+				completion({
+					id: 'completion-old-common',
+					personnelId: medic.id,
+					ictTaskId: commonTask.id,
+					completedAt: '2024-01-01'
+				}),
+				completion({
+					id: 'completion-current-common',
+					personnelId: medic.id,
+					ictTaskId: commonTask.id,
+					completedAt: '2026-02-10'
+				}),
+				completion({
+					id: 'completion-expiring-common',
+					personnelId: infantryReady.id,
+					ictTaskId: commonTask.id,
+					completedAt: '2025-03-01'
+				})
+			],
+			settings: {
+				defaultExpirationMonths: 12,
+				expiringSoonWarningDays: 60
+			},
+			asOf: '2026-02-15'
+		});
+
+		expect(dashboard.kpis.overallReadiness).toEqual({
+			percent: 75,
+			deltaPercent: 25,
+			readyCount: 3,
+			applicableCount: 4
+		});
+		expect(dashboard.kpis.soldiersBelow70).toEqual({
+			count: 1,
+			totalAssigned: 3,
+			thresholdPercent: 70
+		});
+		expect(dashboard.kpis.tasksExpiringSoon).toEqual({
+			count: 1,
+			affectedSoldiers: 1,
+			windowDays: 30
+		});
+		expect(dashboard.kpis.tasksBelowThreshold).toEqual({
+			count: 1,
+			thresholdPercent: 70
+		});
+	});
+
 	it('computes readiness from applicable tasks only, counting current and expiring-soon tasks as ready', () => {
 		const summary = buildIctReportSummary({
 			personnel: [medic, infantry],

@@ -300,7 +300,7 @@
 		align-items: center;
 		gap: 4px;
 		padding: 2px 4px 2px 8px;
-		border-radius: 999px;
+		border-radius: var(--radius-sm);
 		background: color-mix(in srgb, var(--amber-light) 75%, var(--surface-panel) 25%);
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
@@ -322,7 +322,7 @@
 		height: 16px;
 		padding: 0;
 		border: none;
-		border-radius: 999px;
+		border-radius: var(--radius-sm);
 		background: transparent;
 		color: var(--amber-dark);
 		cursor: pointer;

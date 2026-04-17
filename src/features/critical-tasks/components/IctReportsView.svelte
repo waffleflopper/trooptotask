@@ -9,6 +9,7 @@
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 	import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 	import IctReportKpiStrip from './IctReportKpiStrip.svelte';
+	import IctTasksBelowThresholdTable from './IctTasksBelowThresholdTable.svelte';
 
 	interface Props {
 		orgId: string;
@@ -181,6 +182,11 @@
 		<EmptyState message="No critical tasks configured yet." />
 	{:else}
 		<IctReportKpiStrip {dashboard} loading={dashboardLoading} />
+		<IctTasksBelowThresholdTable
+			rows={dashboard.tasksBelowThreshold.rows}
+			thresholdPercent={dashboard.tasksBelowThreshold.thresholdPercent}
+			loading={dashboardLoading}
+		/>
 	{/if}
 </div>
 

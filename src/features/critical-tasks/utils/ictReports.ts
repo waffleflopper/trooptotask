@@ -39,6 +39,16 @@ export interface IctCompletionTrendPoint {
 	completions: number;
 }
 
+export interface IctTaskBelowThresholdRow {
+	taskId: string;
+	taskCode: string;
+	taskName: string;
+	percentComplete: number;
+	soldierGapCount: number;
+	applicableCount: number;
+	completeCount: number;
+}
+
 export interface IctReportSummary {
 	overallReadinessPercent: number;
 	readinessByMos: IctMosReadinessSummary[];
@@ -70,6 +80,10 @@ export interface IctReportDashboard {
 			thresholdPercent: number;
 		};
 	};
+	tasksBelowThreshold: {
+		thresholdPercent: number;
+		rows: IctTaskBelowThresholdRow[];
+	};
 }
 
 interface ReadinessSnapshot {
@@ -77,8 +91,14 @@ interface ReadinessSnapshot {
 	readyCount: number;
 	applicableCount: number;
 	soldiersBelowThresholdCount: number;
-	tasksBelowThresholdCount: number;
+	tasksBelowThresholdRows: IctTaskBelowThresholdRow[];
 	latestCompletions: Map<string, PersonnelIctCompletion>;
+}
+
+interface TaskReadinessSummary {
+	task: IctTask;
+	applicableCount: number;
+	readyCount: number;
 }
 
 function completionKey(personnelId: string, ictTaskId: string): string {
@@ -146,6 +166,16 @@ function computeReadinessPercent(readyCount: number, applicableCount: number): n
 	return Math.round((readyCount / applicableCount) * 100);
 }
 
+function compareBelowThresholdTaskRows(left: IctTaskBelowThresholdRow, right: IctTaskBelowThresholdRow): number {
+	return (
+		left.percentComplete - right.percentComplete ||
+		right.soldierGapCount - left.soldierGapCount ||
+		left.taskCode.localeCompare(right.taskCode) ||
+		left.taskName.localeCompare(right.taskName) ||
+		left.taskId.localeCompare(right.taskId)
+	);
+}
+
 function buildReadinessSnapshot(input: {
 	personnel: Personnel[];
 	activeTasks: IctTask[];
@@ -154,7 +184,7 @@ function buildReadinessSnapshot(input: {
 	asOf?: string | Date;
 }): ReadinessSnapshot {
 	const latestCompletions = buildLatestCompletionLookup(input.completions, input.asOf);
-	const taskSummaries = new Map<string, { applicableCount: number; readyCount: number }>();
+	const taskSummaries = new Map<string, TaskReadinessSummary>();
 	let applicableCount = 0;
 	let readyCount = 0;
 	let soldiersBelowThresholdCount = 0;
@@ -173,7 +203,7 @@ function buildReadinessSnapshot(input: {
 
 			applicableCount += 1;
 			soldierApplicableCount += 1;
-			const taskSummary = taskSummaries.get(task.id) ?? { applicableCount: 0, readyCount: 0 };
+			const taskSummary = taskSummaries.get(task.id) ?? { task, applicableCount: 0, readyCount: 0 };
 			taskSummary.applicableCount += 1;
 
 			const completion = latestCompletions.get(completionKey(person.id, task.id));
@@ -195,22 +225,29 @@ function buildReadinessSnapshot(input: {
 		}
 	}
 
-	let tasksBelowThresholdCount = 0;
+	const tasksBelowThresholdRows: IctTaskBelowThresholdRow[] = [];
 	for (const counts of taskSummaries.values()) {
-		if (
-			counts.applicableCount > 0 &&
-			computeReadinessPercent(counts.readyCount, counts.applicableCount) < READINESS_THRESHOLD_PERCENT
-		) {
-			tasksBelowThresholdCount += 1;
+		const percentComplete = computeReadinessPercent(counts.readyCount, counts.applicableCount);
+		if (counts.applicableCount > 0 && percentComplete < READINESS_THRESHOLD_PERCENT) {
+			tasksBelowThresholdRows.push({
+				taskId: counts.task.id,
+				taskCode: counts.task.taskCode,
+				taskName: counts.task.title,
+				percentComplete,
+				soldierGapCount: counts.applicableCount - counts.readyCount,
+				applicableCount: counts.applicableCount,
+				completeCount: counts.readyCount
+			});
 		}
 	}
+	tasksBelowThresholdRows.sort(compareBelowThresholdTaskRows);
 
 	return {
 		percent: computeReadinessPercent(readyCount, applicableCount),
 		readyCount,
 		applicableCount,
 		soldiersBelowThresholdCount,
-		tasksBelowThresholdCount,
+		tasksBelowThresholdRows,
 		latestCompletions
 	};
 }
@@ -347,9 +384,13 @@ export function buildIctReportDashboard({
 				windowDays: EXPIRING_SOON_WINDOW_DAYS
 			},
 			tasksBelowThreshold: {
-				count: currentSnapshot.tasksBelowThresholdCount,
+				count: currentSnapshot.tasksBelowThresholdRows.length,
 				thresholdPercent: READINESS_THRESHOLD_PERCENT
 			}
+		},
+		tasksBelowThreshold: {
+			thresholdPercent: READINESS_THRESHOLD_PERCENT,
+			rows: currentSnapshot.tasksBelowThresholdRows
 		}
 	};
 }

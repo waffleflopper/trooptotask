@@ -231,6 +231,18 @@ export async function generateCriticalTasksReportCsv(
 			.map(escapeCsv)
 			.join(',')
 	);
+	for (const row of dashboard.tasksBelowThreshold.rows) {
+		lines.push(
+			[
+				'Tasks Below Unit Threshold',
+				`${row.taskCode} ${row.taskName}`,
+				`${row.percentComplete}%`,
+				`${row.soldierGapCount} Soldiers need it`
+			]
+				.map(escapeCsv)
+				.join(',')
+		);
+	}
 
 	return lines.join('\n');
 }

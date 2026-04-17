@@ -229,4 +229,130 @@ describe('fetchCriticalTasksReportSummary', () => {
 
 		expect(summary.completionTrend).toEqual([{ month: '2026-04', completions: 1 }]);
 	});
+
+	it('builds expiration cliff buckets after scoped access and report filters are applied', async () => {
+		const ctx = createTestContext({ auth: { scopedGroupId: 'group-alpha' } });
+		ctx.store.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				critical_tasks_default_expiration_months: 3,
+				critical_tasks_expiring_soon_warning_days: 60
+			}
+		]);
+		ctx.store.seed('groups', [
+			{ id: 'group-alpha', organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 },
+			{ id: 'group-bravo', organization_id: ctx.auth.orgId, name: 'Bravo', sort_order: 1 }
+		]);
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-alpha-medic',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Medic',
+				first_name: 'Maya',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-alpha',
+				archived_at: null,
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p-alpha-rifle',
+				organization_id: ctx.auth.orgId,
+				rank: 'CPL',
+				last_name: 'Rifle',
+				first_name: 'Ryan',
+				mos: '11B',
+				clinic_role: 'Rifleman',
+				group_id: 'group-alpha',
+				archived_at: null,
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p-bravo-medic',
+				organization_id: ctx.auth.orgId,
+				rank: 'SPC',
+				last_name: 'Outside',
+				first_name: 'Owen',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-bravo',
+				archived_at: null,
+				groups: { name: 'Bravo' }
+			}
+		]);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'task-common',
+				organization_id: ctx.auth.orgId,
+				task_code: '081-833-0010',
+				title: 'Open airway',
+				description: null,
+				mos: [],
+				expiration_months: null,
+				sort_order: 0,
+				archived_at: null,
+				created_at: '2026-04-01T00:00:00Z'
+			}
+		]);
+		ctx.store.seed('personnel_ict_completions', [
+			{
+				id: 'completion-alpha-medic',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-alpha-medic',
+				ict_task_id: 'task-common',
+				completed_at: '2026-02-20',
+				validation_method: 'Demonstration',
+				validated_by: null,
+				notes: null,
+				logged_by: 'user-1',
+				created_at: '2026-02-20T00:00:00Z'
+			},
+			{
+				id: 'completion-alpha-rifle',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-alpha-rifle',
+				ict_task_id: 'task-common',
+				completed_at: '2026-02-20',
+				validation_method: 'Demonstration',
+				validated_by: null,
+				notes: null,
+				logged_by: 'user-1',
+				created_at: '2026-02-20T00:00:00Z'
+			},
+			{
+				id: 'completion-bravo-medic',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-bravo-medic',
+				ict_task_id: 'task-common',
+				completed_at: '2026-02-20',
+				validation_method: 'Demonstration',
+				validated_by: null,
+				notes: null,
+				logged_by: 'user-1',
+				created_at: '2026-02-20T00:00:00Z'
+			}
+		]);
+
+		const dashboard = await fetchCriticalTasksReportDashboard(ctx, {
+			filters: { mos: ['68W'] },
+			asOf: '2026-04-15'
+		});
+
+		expect(dashboard.expirationCliff.mosSeries).toEqual(['68W']);
+		expect(dashboard.expirationCliff.months.map((month) => [month.month, month.totalExpiringCount])).toEqual([
+			['2026-04', 0],
+			['2026-05', 1],
+			['2026-06', 0],
+			['2026-07', 0],
+			['2026-08', 0],
+			['2026-09', 0]
+		]);
+		expect(dashboard.expirationCliff.projectedReadinessAtMonth6).toMatchObject({
+			month: '2026-09',
+			readinessPercent: 0,
+			readyCount: 0,
+			applicableCount: 1
+		});
+	});
 });

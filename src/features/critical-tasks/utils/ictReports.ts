@@ -86,6 +86,30 @@ export interface IctReadinessTrend {
 	months: IctReadinessTrendMonth[];
 }
 
+export interface IctExpirationCliffMosSegment {
+	mos: string;
+	expiringCount: number;
+}
+
+export interface IctExpirationCliffMonth {
+	month: string;
+	label: string;
+	totalExpiringCount: number;
+	mosSegments: IctExpirationCliffMosSegment[];
+}
+
+export interface IctExpirationCliff {
+	mosSeries: string[];
+	months: IctExpirationCliffMonth[];
+	projectedReadinessAtMonth6: {
+		month: string;
+		label: string;
+		readinessPercent: number;
+		readyCount: number;
+		applicableCount: number;
+	};
+}
+
 export interface IctReportSummary {
 	overallReadinessPercent: number;
 	readinessByMos: IctMosReadinessSummary[];
@@ -125,6 +149,7 @@ export interface IctReportDashboard {
 		rows: IctAtRiskSoldierRow[];
 	};
 	readinessTrend: IctReadinessTrend;
+	expirationCliff: IctExpirationCliff;
 }
 
 interface ReadinessSnapshot {
@@ -576,6 +601,94 @@ function buildReadinessTrend(input: {
 	};
 }
 
+function buildExpirationCliff(input: {
+	personnel: Personnel[];
+	activeTasks: IctTask[];
+	completions: PersonnelIctCompletion[];
+	settings?: CriticalTasksSettingsInput | null;
+	asOf?: string | Date;
+}): IctExpirationCliff {
+	const asOfDate = resolveAsOfDate(input.asOf);
+	const asOfText = formatDate(asOfDate);
+	const currentMonthStart = new Date(asOfDate.getFullYear(), asOfDate.getMonth(), 1);
+	const monthStarts = Array.from({ length: 6 }, (_, index) => addMonths(currentMonthStart, index));
+	const projectionMonthStart = monthStarts.at(-1) ?? currentMonthStart;
+	const projectionAsOf = endOfMonth(projectionMonthStart);
+	const projectionEndText = formatDate(projectionAsOf);
+	const latestCompletions = buildLatestCompletionLookup(input.completions, asOfDate);
+	const monthMosCounts = new Map<string, Map<string, number>>(
+		monthStarts.map((monthStart) => [formatMonthKey(monthStart), new Map<string, number>()])
+	);
+	const mosTotals = new Map<string, number>();
+
+	for (const person of input.personnel) {
+		if (person.archivedAt) {
+			continue;
+		}
+
+		const mos = normalizeMosName(person.mos);
+		for (const task of input.activeTasks) {
+			if (!isIctTaskApplicableToMos(task, person.mos)) {
+				continue;
+			}
+
+			const completion = latestCompletions.get(completionKey(person.id, task.id));
+			const expirationDate = calculateIctExpirationDate(completion?.completedAt ?? null, task, input.settings);
+			if (!expirationDate || expirationDate < asOfText || expirationDate > projectionEndText) {
+				continue;
+			}
+
+			const monthKey = expirationDate.slice(0, 7);
+			const mosCounts = monthMosCounts.get(monthKey);
+			if (!mosCounts) {
+				continue;
+			}
+
+			mosCounts.set(mos, (mosCounts.get(mos) ?? 0) + 1);
+			mosTotals.set(mos, (mosTotals.get(mos) ?? 0) + 1);
+		}
+	}
+
+	const mosSeries = [...mosTotals.entries()]
+		.sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+		.map(([mos]) => mos);
+	const months = monthStarts.map((monthStart) => {
+		const month = formatMonthKey(monthStart);
+		const mosCounts = monthMosCounts.get(month) ?? new Map<string, number>();
+		const mosSegments = mosSeries.map((mos) => ({
+			mos,
+			expiringCount: mosCounts.get(mos) ?? 0
+		}));
+
+		return {
+			month,
+			label: formatMonthLabel(monthStart),
+			totalExpiringCount: mosSegments.reduce((total, segment) => total + segment.expiringCount, 0),
+			mosSegments
+		};
+	});
+	const currentCompletions = input.completions.filter((completion) => completion.completedAt <= asOfText);
+	const projectedReadiness = buildReadinessCounts({
+		personnel: input.personnel,
+		activeTasks: input.activeTasks,
+		completions: currentCompletions,
+		settings: input.settings,
+		asOf: projectionAsOf
+	});
+
+	return {
+		mosSeries,
+		months,
+		projectedReadinessAtMonth6: {
+			month: formatMonthKey(projectionMonthStart),
+			label: formatMonthLabel(projectionMonthStart),
+			readinessPercent: projectedReadiness.overall.percent,
+			readyCount: projectedReadiness.overall.readyCount,
+			applicableCount: projectedReadiness.overall.applicableCount
+		}
+	};
+}
+
 function buildCompletionTrend(
 	personnel: Personnel[],
 	tasks: IctTask[],
@@ -682,6 +795,13 @@ export function buildIctReportDashboard({
 			rows: currentSnapshot.atRiskSoldierRows
 		},
 		readinessTrend: buildReadinessTrend({
+			personnel,
+			activeTasks,
+			completions,
+			settings,
+			asOf: currentAsOfDate
+		}),
+		expirationCliff: buildExpirationCliff({
 			personnel,
 			activeTasks,
 			completions,

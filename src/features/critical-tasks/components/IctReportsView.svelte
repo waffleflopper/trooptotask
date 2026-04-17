@@ -9,6 +9,7 @@
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 	import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
+	import IctExpirationCliffChart from './IctExpirationCliffChart.svelte';
 	import IctReportKpiStrip from './IctReportKpiStrip.svelte';
 	import IctReadinessTrendChart from './IctReadinessTrendChart.svelte';
 	import IctTasksBelowThresholdTable from './IctTasksBelowThresholdTable.svelte';
@@ -192,7 +193,10 @@
 				loading={dashboardLoading}
 			/>
 		</div>
-		<IctAtRiskSoldiersTable rows={dashboard.atRiskSoldiers.rows} loading={dashboardLoading} />
+		<div class="report-followup-grid">
+			<IctExpirationCliffChart cliff={dashboard.expirationCliff} loading={dashboardLoading} />
+			<IctAtRiskSoldiersTable rows={dashboard.atRiskSoldiers.rows} loading={dashboardLoading} />
+		</div>
 	{/if}
 </div>
 
@@ -207,6 +211,13 @@
 	.report-visual-grid {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: var(--sp-4);
+		align-items: start;
+	}
+
+	.report-followup-grid {
+		display: grid;
+		grid-template-columns: minmax(20rem, 0.85fr) minmax(0, 1.15fr);
 		gap: var(--sp-4);
 		align-items: start;
 	}
@@ -261,7 +272,8 @@
 	}
 
 	@media (max-width: 1024px) {
-		.report-visual-grid {
+		.report-visual-grid,
+		.report-followup-grid {
 			grid-template-columns: 1fr;
 		}
 	}

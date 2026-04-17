@@ -20,6 +20,17 @@ describe('critical tasks reports page server load', () => {
 			readinessTrend: {
 				comparisonMos: [],
 				months: []
+			},
+			expirationCliff: {
+				mosSeries: [],
+				months: [],
+				projectedReadinessAtMonth6: {
+					month: '2026-09',
+					label: 'Sep 2026',
+					readinessPercent: 67,
+					readyCount: 2,
+					applicableCount: 3
+				}
 			}
 		};
 		const fetchDashboard = vi.fn(async () => initialDashboard);

@@ -143,6 +143,7 @@
 		onToggleTheme={() => themeStore.toggle()}
 		isDarkTheme={themeStore.isDark}
 		unreadNotificationCount={data.unreadNotificationCount ?? 0}
+		onFeedback={!demoModeStore.hasBanner ? () => (showFeedback = true) : undefined}
 		onWhatsNew={() => whatsNewStore.show()}
 	/>
 
@@ -151,23 +152,6 @@
 	</main>
 
 	<BottomTabBar orgId={data.orgId} permissions={data.permissions!} />
-
-	{#if !demoModeStore.hasBanner}
-		<button class="feedback-pill" onclick={() => (showFeedback = true)} aria-label="Send feedback">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="14"
-				height="14"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-			</svg>
-			Feedback
-		</button>
-	{/if}
 
 	{#if showFeedback}
 		{#await import('$lib/components/FeedbackModal.svelte') then { default: FeedbackModal }}
@@ -237,41 +221,5 @@
 		.app-content {
 			padding-bottom: calc(64px + env(safe-area-inset-bottom));
 		}
-
-		.feedback-pill {
-			bottom: calc(76px + env(safe-area-inset-bottom));
-		}
-	}
-
-	.feedback-pill {
-		position: fixed;
-		bottom: var(--sp-6);
-		right: var(--sp-6);
-		display: flex;
-		align-items: center;
-		gap: var(--sp-1);
-		padding: 0.55rem 0.8rem;
-		background: var(--surface-panel);
-		color: var(--text-secondary);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		font-weight: var(--font-weight-medium);
-		letter-spacing: var(--letter-spacing-mono);
-		text-transform: uppercase;
-		cursor: pointer;
-		z-index: 50;
-		transition:
-			border-color var(--transition-fast),
-			color var(--transition-fast),
-			box-shadow var(--transition-fast);
-		box-shadow: var(--shadow-sm);
-	}
-
-	.feedback-pill:hover {
-		color: var(--text-primary);
-		border-color: rgba(var(--amber-rgb), 0.4);
-		box-shadow: var(--shadow-md);
 	}
 </style>

@@ -7,18 +7,29 @@
 		loading?: boolean;
 	}
 
+	const VISIBLE_ROW_LIMIT = 10;
 	type SortKey = 'soldier' | 'rank' | 'mos' | 'group' | 'readiness' | 'expiring' | 'lastUpdate';
 	type SortDirection = 'asc' | 'desc';
 
 	let { rows, loading = false }: Props = $props();
+	let expanded = $state(false);
 	let sortKey = $state<SortKey | null>(null);
 	let sortDirection = $state<SortDirection>('asc');
 
+	const hasOverflow = $derived(rows.length > VISIBLE_ROW_LIMIT);
 	const sortedRows = $derived.by(() => {
 		const activeSortKey = sortKey;
 		if (!activeSortKey) return rows;
 		return [...rows].sort((left, right) => compareRows(left, right, activeSortKey, sortDirection));
 	});
+	const visibleRows = $derived(expanded || !hasOverflow ? sortedRows : sortedRows.slice(0, VISIBLE_ROW_LIMIT));
+	const toggleLabel = $derived(
+		expanded ? `Show top ${VISIBLE_ROW_LIMIT} at-risk Soldiers` : `Show all ${rows.length} at-risk Soldiers`
+	);
+
+	function toggleExpanded() {
+		expanded = !expanded;
+	}
 
 	function compareText(left: string, right: string, direction: SortDirection): number {
 		const result = left.localeCompare(right);
@@ -164,7 +175,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each sortedRows as row (row.personnelId)}
+					{#each visibleRows as row (row.personnelId)}
 						<tr>
 							<th scope="row" class="soldier-cell">{row.soldierName}</th>
 							<td>{row.mos}</td>
@@ -178,6 +189,19 @@
 				</tbody>
 			</table>
 		</div>
+
+		{#if hasOverflow}
+			<div class="table-actions">
+				<button
+					class="btn btn-secondary btn-sm"
+					type="button"
+					aria-expanded={expanded ? 'true' : 'false'}
+					onclick={toggleExpanded}
+				>
+					{toggleLabel}
+				</button>
+			</div>
+		{/if}
 	{/if}
 </section>
 
@@ -307,10 +331,24 @@
 		background: var(--surface-panel);
 	}
 
+	.table-actions {
+		display: flex;
+		justify-content: flex-end;
+	}
+
 	@media (max-width: 640px) {
 		.section-header {
 			align-items: flex-start;
 			flex-direction: column;
+		}
+
+		.table-actions {
+			justify-content: stretch;
+		}
+
+		.table-actions :global(.btn) {
+			width: 100%;
+			justify-content: center;
 		}
 	}
 </style>

@@ -46,6 +46,22 @@ const rows: IctAtRiskSoldierRow[] = [
 	}
 ];
 
+function row(index: number): IctAtRiskSoldierRow {
+	return {
+		personnelId: `person-${index}`,
+		soldierName: `Soldier, ${String(index).padStart(2, '0')}`,
+		mos: '11B',
+		rank: 'SPC',
+		groupName: 'Alpha',
+		readinessPercent: index,
+		applicableCount: 20,
+		readyCount: index,
+		tasksExpiringSoonCount: 20 - index,
+		daysSinceLastIctUpdate: index,
+		lastIctUpdateAt: '2026-03-20T00:00:00Z'
+	};
+}
+
 function soldierNames(region: HTMLElement): string[] {
 	return within(region)
 		.getAllByRole('rowheader')
@@ -55,6 +71,31 @@ function soldierNames(region: HTMLElement): string[] {
 describe('IctAtRiskSoldiersTable', () => {
 	afterEach(() => {
 		cleanup();
+	});
+
+	it('defaults to the top 10 at-risk Soldiers and exposes an accessible expand/collapse control', async () => {
+		render(IctAtRiskSoldiersTable, {
+			props: {
+				rows: Array.from({ length: 12 }, (_, index) => row(index + 1))
+			}
+		});
+
+		const region = screen.getByRole('region', { name: 'At-Risk Soldiers' });
+		expect(within(region).getByText('Soldier, 01')).toBeTruthy();
+		expect(within(region).getByText('Soldier, 10')).toBeTruthy();
+		expect(within(region).queryByText('Soldier, 11')).toBeNull();
+
+		const expandButton = within(region).getByRole('button', { name: 'Show all 12 at-risk Soldiers' });
+		expect(expandButton.getAttribute('aria-expanded')).toBe('false');
+		await fireEvent.click(expandButton);
+
+		expect(within(region).getByText('Soldier, 11')).toBeTruthy();
+		expect(within(region).getByText('Soldier, 12')).toBeTruthy();
+		const collapseButton = within(region).getByRole('button', { name: 'Show top 10 at-risk Soldiers' });
+		expect(collapseButton.getAttribute('aria-expanded')).toBe('true');
+		await fireEvent.click(collapseButton);
+
+		expect(within(region).queryByText('Soldier, 11')).toBeNull();
 	});
 
 	it('renders the at-risk call list with no-update labels and sortable operational columns', async () => {

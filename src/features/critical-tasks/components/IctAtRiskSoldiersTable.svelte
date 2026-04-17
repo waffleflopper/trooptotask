@@ -209,7 +209,12 @@
 	.at-risk-section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--sp-3);
+		gap: var(--sp-4);
+		width: 100%;
+		border: 0.5px solid var(--border-default);
+		border-radius: var(--radius-lg);
+		background: var(--surface-panel);
+		padding: var(--sp-5) var(--sp-6) var(--sp-4);
 	}
 
 	.section-header {
@@ -248,9 +253,6 @@
 
 	.table-scroll {
 		overflow-x: auto;
-		border: 0.5px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
 	}
 
 	table {
@@ -326,9 +328,7 @@
 	}
 
 	.empty-state {
-		border: 0.5px solid var(--border-default);
-		border-radius: var(--radius-lg);
-		background: var(--surface-panel);
+		border: 0;
 	}
 
 	.table-actions {
@@ -337,6 +337,10 @@
 	}
 
 	@media (max-width: 640px) {
+		.at-risk-section {
+			padding: var(--sp-4);
+		}
+
 		.section-header {
 			align-items: flex-start;
 			flex-direction: column;

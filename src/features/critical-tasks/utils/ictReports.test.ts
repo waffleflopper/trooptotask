@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { Personnel } from '$lib/types';
-import { buildIctReportDashboard, buildIctReportSummary } from './ictReports';
+import { buildIctReportDashboard, buildIctReportSummary, filterIctReportPersonnel } from './ictReports';
 
 const medic: Personnel = {
 	id: 'person-medic',
@@ -124,6 +124,106 @@ describe('ictReports', () => {
 			count: 1,
 			thresholdPercent: 70
 		});
+	});
+
+	it('exposes 12 monthly readiness snapshots for the filtered report population', () => {
+		const dashboard = buildIctReportDashboard({
+			personnel: [medic, infantry],
+			tasks: [medicTask, commonTask],
+			completions: [
+				completion({ personnelId: medic.id, ictTaskId: medicTask.id, completedAt: '2026-01-15' }),
+				completion({
+					id: 'completion-medic-common',
+					personnelId: medic.id,
+					ictTaskId: commonTask.id,
+					completedAt: '2026-02-01'
+				}),
+				completion({
+					id: 'completion-infantry-common',
+					personnelId: infantry.id,
+					ictTaskId: commonTask.id,
+					completedAt: '2026-03-01'
+				})
+			],
+			settings: {
+				defaultExpirationMonths: 12,
+				expiringSoonWarningDays: 60
+			},
+			asOf: '2026-04-15'
+		});
+
+		expect(dashboard.readinessTrend.months).toHaveLength(12);
+		expect(dashboard.readinessTrend.months[0]).toMatchObject({
+			month: '2025-05',
+			overallReadinessPercent: 0,
+			overallReadyCount: 0,
+			overallApplicableCount: 3
+		});
+		expect(dashboard.readinessTrend.months.at(-1)).toMatchObject({
+			month: '2026-04',
+			overallReadinessPercent: 100,
+			overallReadyCount: 3,
+			overallApplicableCount: 3
+		});
+	});
+
+	it('selects the top four MOS by filtered headcount for readiness trend comparisons', () => {
+		const people: Personnel[] = [
+			{ ...infantry, id: '11b-1', mos: '11B', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...infantry, id: '11b-2', mos: '11B', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...infantry, id: '11b-3', mos: '11B', groupId: 'group-bravo', groupName: 'Bravo' },
+			{ ...medic, id: '68w-1', mos: '68W', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...medic, id: '68w-2', mos: '68W', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...infantry, id: '25b-1', mos: '25B', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...infantry, id: '25b-2', mos: '25B', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...infantry, id: '12n-1', mos: '12N', groupId: 'group-alpha', groupName: 'Alpha' },
+			{ ...infantry, id: '88m-1', mos: '88M', groupId: 'group-alpha', groupName: 'Alpha' }
+		];
+		const filteredPersonnel = filterIctReportPersonnel(people, { groupId: 'group-alpha' });
+
+		const dashboard = buildIctReportDashboard({
+			personnel: filteredPersonnel,
+			tasks: [commonTask],
+			completions: [
+				completion({
+					id: 'completion-11b-1',
+					personnelId: '11b-1',
+					ictTaskId: commonTask.id,
+					completedAt: '2026-03-01'
+				}),
+				completion({
+					id: 'completion-68w-1',
+					personnelId: '68w-1',
+					ictTaskId: commonTask.id,
+					completedAt: '2026-03-01'
+				}),
+				completion({
+					id: 'completion-68w-2',
+					personnelId: '68w-2',
+					ictTaskId: commonTask.id,
+					completedAt: '2026-03-01'
+				}),
+				completion({
+					id: 'completion-25b-1',
+					personnelId: '25b-1',
+					ictTaskId: commonTask.id,
+					completedAt: '2026-03-01'
+				})
+			],
+			settings: {
+				defaultExpirationMonths: 12,
+				expiringSoonWarningDays: 60
+			},
+			asOf: '2026-04-15'
+		});
+
+		expect(dashboard.readinessTrend.comparisonMos).toEqual(['11B', '25B', '68W', '12N']);
+		expect(dashboard.readinessTrend.months.at(-1)?.mosReadiness).toEqual([
+			{ mos: '11B', personnelCount: 2, readinessPercent: 50, readyCount: 1, applicableCount: 2 },
+			{ mos: '25B', personnelCount: 2, readinessPercent: 50, readyCount: 1, applicableCount: 2 },
+			{ mos: '68W', personnelCount: 2, readinessPercent: 100, readyCount: 2, applicableCount: 2 },
+			{ mos: '12N', personnelCount: 1, readinessPercent: 0, readyCount: 0, applicableCount: 1 }
+		]);
 	});
 
 	it('includes below-threshold task rows sorted worst-first for the shared dashboard payload', () => {

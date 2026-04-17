@@ -20,6 +20,7 @@
 		onToggleTheme: () => void;
 		isDarkTheme: boolean;
 		unreadNotificationCount?: number;
+		onFeedback?: () => void;
 		onWhatsNew?: () => void;
 	}
 
@@ -32,6 +33,7 @@
 		onToggleTheme,
 		isDarkTheme,
 		unreadNotificationCount = 0,
+		onFeedback,
 		onWhatsNew
 	}: Props = $props();
 
@@ -75,8 +77,13 @@
 		</nav>
 
 		<div class="header-right">
+			{#if onFeedback}
+				<button class="header-feedback-button" type="button" onclick={onFeedback} aria-label="Send feedback">
+					Feedback
+				</button>
+			{/if}
 			<NotificationBell {orgId} unreadCount={unreadNotificationCount} />
-			<AvatarMenu {orgId} {orgName} {userRole} {allOrgs} {onToggleTheme} {isDarkTheme} {onWhatsNew} />
+			<AvatarMenu {orgId} {orgName} {userRole} {allOrgs} {onToggleTheme} {isDarkTheme} {onFeedback} {onWhatsNew} />
 		</div>
 	</div>
 </header>
@@ -270,6 +277,34 @@
 		justify-self: end;
 	}
 
+	.header-feedback-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		height: 2.25rem;
+		padding: 0 0.85rem;
+		border: 1px solid var(--color-chrome-border);
+		border-radius: var(--radius-md);
+		background: rgba(240, 239, 233, 0.03);
+		color: var(--color-chrome-text-muted);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-medium);
+		letter-spacing: var(--letter-spacing-mono);
+		text-transform: uppercase;
+		cursor: pointer;
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast),
+			background var(--transition-fast);
+	}
+
+	.header-feedback-button:hover {
+		color: var(--color-chrome-text);
+		border-color: rgba(240, 239, 233, 0.16);
+		background: rgba(240, 239, 233, 0.06);
+	}
+
 	.skip-link {
 		position: absolute;
 		top: -100%;
@@ -343,6 +378,10 @@
 
 		.header-right {
 			gap: var(--sp-1);
+		}
+
+		.header-feedback-button {
+			display: none;
 		}
 	}
 

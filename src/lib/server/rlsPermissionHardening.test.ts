@@ -14,7 +14,7 @@ function escapeRegex(value: string): string {
 }
 
 function getPolicyBlock(table: string, action: string | null, expectedPredicate: string): string {
-	const actionPattern = action ? ` FOR ${action}` : '(?: FOR [A-Z]+)?';
+	const actionPattern = action ? `(?:\\s+FOR ${action})` : '(?:\\s+FOR [A-Z]+)?';
 	const tablePattern = `(?:"public"\\."${table}"|public\\.${table})`;
 	const match = sql.match(
 		new RegExp(
@@ -134,6 +134,37 @@ describe('core RLS permission hardening migration', () => {
 		expectPolicyUses('status_types', null, '"public"."can_manage_calendar_configuration"("organization_id")');
 		expectPolicyUses('training_types', 'SELECT', '"public"."can_view_training"("organization_id")');
 		expectPolicyUses('training_types', null, '"public"."can_manage_training_configuration"("organization_id")');
+	});
+
+	it('requires training-view reads for ICT tasks and scoped completion reads', () => {
+		expectPolicyUses('ict_tasks', 'SELECT', '"public"."can_view_training"("organization_id")');
+		expectPolicyUses(
+			'personnel_ict_completions',
+			'SELECT',
+			'"public"."can_view_personnel_ict_completion_record"("organization_id", "personnel_id")'
+		);
+	});
+
+	it('requires owner/admin task-library writes and scoped training-edit completion writes', () => {
+		expect(sql).toContain('CREATE OR REPLACE FUNCTION "public"."can_manage_ict_task_library"');
+		expectPolicyUses('ict_tasks', 'INSERT', '"public"."can_manage_ict_task_library"("organization_id")');
+		expectPolicyUses('ict_tasks', 'UPDATE', '"public"."can_manage_ict_task_library"("organization_id")');
+		expect(getPolicyBlock('ict_tasks', 'DELETE', '"public"."can_manage_ict_task_library"("organization_id")')).toBe('');
+		expectPolicyUses(
+			'personnel_ict_completions',
+			'INSERT',
+			'"public"."can_edit_personnel_ict_completion_record"("organization_id", "personnel_id")'
+		);
+		expectPolicyUses(
+			'personnel_ict_completions',
+			'UPDATE',
+			'"public"."can_edit_personnel_ict_completion_record"("organization_id", "personnel_id")'
+		);
+		expectPolicyUses(
+			'personnel_ict_completions',
+			'DELETE',
+			'"public"."can_edit_personnel_ict_completion_record"("organization_id", "personnel_id")'
+		);
 	});
 
 	it('restricts dashboard configs to the owning user', () => {

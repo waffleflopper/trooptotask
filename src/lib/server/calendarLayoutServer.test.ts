@@ -1,15 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
-} from '$lib/server/adapters/inMemory';
-import { createInMemoryAdvancedDutyPersistenceAdapter } from '$lib/server/adapters/advancedDutyPersistence';
+import { createInMemoryDataStore, createTestContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { fetchCalendarData } from '$lib/server/core/useCases/calendarQuery';
 import { getActiveOnboardingPersonnelIds } from '$lib/server/core/useCases/onboardingCalendarQuery';
@@ -17,19 +7,9 @@ import { getActiveOnboardingPersonnelIds } from '$lib/server/core/useCases/onboa
 const ORG = 'test-org';
 
 function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
-	const store = createInMemoryDataStore();
-	return {
-		store,
-		rawStore: store,
-		advancedDutyPersistence: createInMemoryAdvancedDutyPersistenceAdapter(store),
-		auth: createTestAuthContext({ orgId: ORG, ...overrides?.auth }),
-		audit: createTestAuditPort(),
-		readOnlyGuard: createTestReadOnlyGuard(),
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
-	};
+	return createTestContext({
+		auth: { orgId: ORG, ...overrides?.auth }
+	});
 }
 
 function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {

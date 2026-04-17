@@ -3,49 +3,104 @@
 	import { page } from '$app/stores';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
 
 	let { data } = $props();
 	const orgId = $derived($page.params.orgId);
 	const serverRetention = $derived(data.retentionMonths);
 	const serverWarningWindow = $derived(data.lossWarningWindowDays);
+	const serverCriticalTasksSettings = $derived(data.criticalTasksSettings as CriticalTasksSettings);
 
 	let retentionMonths = $state(0);
-	let savedValue = $state(0);
+	let savedRetentionMonths = $state(0);
 	let warningWindowDays = $state(0);
 	let savedWarningWindowDays = $state(0);
-	let saving = $state(false);
-	const hasChanges = $derived(retentionMonths !== savedValue || warningWindowDays !== savedWarningWindowDays);
-	const retentionIsValid = $derived(retentionMonths >= 1 && retentionMonths <= 120);
-	const warningWindowIsValid = $derived(warningWindowDays >= 1 && warningWindowDays <= 365);
-	const isValid = $derived(retentionIsValid && warningWindowIsValid);
+	let criticalTasksDefaultExpirationMonths = $state(0);
+	let savedCriticalTasksDefaultExpirationMonths = $state(0);
+	let criticalTasksExpiringSoonWarningDays = $state(0);
+	let savedCriticalTasksExpiringSoonWarningDays = $state(0);
+	let savingRetention = $state(false);
+	let savingWarningWindow = $state(false);
+	let savingCriticalTasks = $state(false);
+	const hasRetentionChanges = $derived(retentionMonths !== savedRetentionMonths);
+	const isRetentionValid = $derived(retentionMonths >= 1 && retentionMonths <= 120);
+	const hasLossWarningChanges = $derived(warningWindowDays !== savedWarningWindowDays);
+	const isLossWarningValid = $derived(warningWindowDays >= 1 && warningWindowDays <= 365);
+	const hasCriticalTasksChanges = $derived(
+		criticalTasksDefaultExpirationMonths !== savedCriticalTasksDefaultExpirationMonths ||
+			criticalTasksExpiringSoonWarningDays !== savedCriticalTasksExpiringSoonWarningDays
+	);
+	const isCriticalTasksValid = $derived(
+		criticalTasksDefaultExpirationMonths >= 1 &&
+			criticalTasksDefaultExpirationMonths <= 120 &&
+			criticalTasksExpiringSoonWarningDays >= 1 &&
+			criticalTasksExpiringSoonWarningDays <= 365
+	);
+	const hasPendingChanges = $derived(hasRetentionChanges || hasLossWarningChanges || hasCriticalTasksChanges);
 
 	$effect.pre(() => {
 		retentionMonths = serverRetention;
-		savedValue = serverRetention;
+		savedRetentionMonths = serverRetention;
 		warningWindowDays = serverWarningWindow;
 		savedWarningWindowDays = serverWarningWindow;
+		criticalTasksDefaultExpirationMonths = serverCriticalTasksSettings.defaultExpirationMonths;
+		savedCriticalTasksDefaultExpirationMonths = serverCriticalTasksSettings.defaultExpirationMonths;
+		criticalTasksExpiringSoonWarningDays = serverCriticalTasksSettings.expiringSoonWarningDays;
+		savedCriticalTasksExpiringSoonWarningDays = serverCriticalTasksSettings.expiringSoonWarningDays;
 	});
 
-	async function handleSave() {
-		if (!hasChanges || !isValid || saving) return;
-		saving = true;
+	async function saveSettings(body: Record<string, number | null>) {
+		const res = await fetch(`/org/${orgId}/api/organization/settings`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		if (!res.ok) throw new Error();
+	}
+
+	async function handleRetentionSave() {
+		if (!hasRetentionChanges || !isRetentionValid || savingRetention) return;
+		savingRetention = true;
 		try {
-			const res = await fetch(`/org/${orgId}/api/organization/settings`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					archiveRetentionMonths: retentionMonths,
-					lossWarningWindowDays: warningWindowDays
-				})
-			});
-			if (!res.ok) throw new Error();
-			savedValue = retentionMonths;
+			await saveSettings({ archiveRetentionMonths: retentionMonths });
+			savedRetentionMonths = retentionMonths;
+			toastStore.success('Settings saved');
+		} catch {
+			toastStore.error('Failed to save settings');
+		} finally {
+			savingRetention = false;
+		}
+	}
+
+	async function handleLossWarningSave() {
+		if (!hasLossWarningChanges || !isLossWarningValid || savingWarningWindow) return;
+		savingWarningWindow = true;
+		try {
+			await saveSettings({ lossWarningWindowDays: warningWindowDays });
 			savedWarningWindowDays = warningWindowDays;
 			toastStore.success('Settings saved');
 		} catch {
 			toastStore.error('Failed to save settings');
 		} finally {
-			saving = false;
+			savingWarningWindow = false;
+		}
+	}
+
+	async function handleCriticalTasksSave() {
+		if (!hasCriticalTasksChanges || !isCriticalTasksValid || savingCriticalTasks) return;
+		savingCriticalTasks = true;
+		try {
+			await saveSettings({
+				criticalTasksDefaultExpirationMonths,
+				criticalTasksExpiringSoonWarningDays
+			});
+			savedCriticalTasksDefaultExpirationMonths = criticalTasksDefaultExpirationMonths;
+			savedCriticalTasksExpiringSoonWarningDays = criticalTasksExpiringSoonWarningDays;
+			toastStore.success('Settings saved');
+		} catch {
+			toastStore.error('Failed to save settings');
+		} finally {
+			savingCriticalTasks = false;
 		}
 	}
 </script>
@@ -57,7 +112,7 @@
 		<div class="overview-strip">
 			<div class="overview-card">
 				<span class="overview-label">Retention</span>
-				<strong class="overview-value">{savedValue} mo</strong>
+				<strong class="overview-value">{savedRetentionMonths} mo</strong>
 				<span class="overview-meta">Current archive retention window before permanent cleanup</span>
 			</div>
 			<div class="overview-card">
@@ -66,12 +121,22 @@
 				<span class="overview-meta">Current loss warning window before ETS or PCS / DEROS follow-up</span>
 			</div>
 			<div class="overview-card">
+				<span class="overview-label">ICT Default</span>
+				<strong class="overview-value">{savedCriticalTasksDefaultExpirationMonths} mo</strong>
+				<span class="overview-meta">Default expiration window for tasks without per-task overrides</span>
+			</div>
+			<div class="overview-card">
+				<span class="overview-label">ICT Warning</span>
+				<strong class="overview-value">{savedCriticalTasksExpiringSoonWarningDays} d</strong>
+				<span class="overview-meta">Expiring-soon warning window used by Critical Tasks status calculation</span>
+			</div>
+			<div class="overview-card">
 				<span class="overview-label">Change State</span>
-				<strong class="overview-value">{hasChanges ? 'Pending' : 'Saved'}</strong>
+				<strong class="overview-value">{hasPendingChanges ? 'Pending' : 'Saved'}</strong>
 				<span class="overview-meta"
-					>{hasChanges
-						? 'You have unsaved organization-settings changes'
-						: 'The current settings match what is saved'}</span
+					>{hasPendingChanges
+						? 'You have unsaved organization setting changes'
+						: 'The current organization settings match what is saved'}</span
 				>
 			</div>
 		</div>
@@ -91,8 +156,16 @@
 					<label class="label" for="retention-months">Retention period (months)</label>
 					<div class="input-row">
 						<input id="retention-months" class="input" type="number" min="1" max="120" bind:value={retentionMonths} />
+						<button
+							class="btn btn-primary"
+							disabled={!hasRetentionChanges || !isRetentionValid || savingRetention}
+							onclick={handleRetentionSave}
+						>
+							{#if savingRetention}<Spinner />{/if}
+							{savingRetention ? 'Saving...' : 'Save Retention'}
+						</button>
 					</div>
-					{#if !retentionIsValid}
+					{#if !isRetentionValid}
 						<p class="text-error validation-hint">Must be between 1 and 120 months.</p>
 					{/if}
 				</div>
@@ -120,20 +193,74 @@
 							max="365"
 							bind:value={warningWindowDays}
 						/>
+						<button
+							class="btn btn-primary"
+							disabled={!hasLossWarningChanges || !isLossWarningValid || savingWarningWindow}
+							onclick={handleLossWarningSave}
+						>
+							{#if savingWarningWindow}<Spinner />{/if}
+							{savingWarningWindow ? 'Saving...' : 'Save Warning Window'}
+						</button>
 					</div>
-					{#if !warningWindowIsValid}
+					{#if !isLossWarningValid}
 						<p class="text-error validation-hint">Must be between 1 and 365 days.</p>
 					{/if}
 				</div>
 			</div>
 		</section>
 
-		<div class="actions-row">
-			<button class="btn btn-primary" disabled={!hasChanges || !isValid || saving} onclick={handleSave}>
-				{#if saving}<Spinner />{/if}
-				{saving ? 'Saving...' : 'Save'}
-			</button>
-		</div>
+		<section class="settings-section">
+			<div class="section-heading">
+				<p class="section-label">Critical Tasks</p>
+				<h2>Critical Tasks</h2>
+			</div>
+			<p class="section-description">
+				Set the organization defaults used when ICT tasks do not define their own expiration override. These values feed
+				the shared Critical Tasks status calculation for current, expiring-soon, and expired readiness.
+			</p>
+
+			<div class="form-panel">
+				<div class="form-grid">
+					<div class="form-group">
+						<label class="label" for="critical-tasks-default-expiration">Default expiration (months)</label>
+						<input
+							id="critical-tasks-default-expiration"
+							class="input"
+							type="number"
+							min="1"
+							max="120"
+							bind:value={criticalTasksDefaultExpirationMonths}
+						/>
+					</div>
+					<div class="form-group">
+						<label class="label" for="critical-tasks-warning-days">Expiring soon window (days)</label>
+						<input
+							id="critical-tasks-warning-days"
+							class="input"
+							type="number"
+							min="1"
+							max="365"
+							bind:value={criticalTasksExpiringSoonWarningDays}
+						/>
+					</div>
+				</div>
+				<div class="section-actions">
+					<button
+						class="btn btn-primary"
+						disabled={!hasCriticalTasksChanges || !isCriticalTasksValid || savingCriticalTasks}
+						onclick={handleCriticalTasksSave}
+					>
+						{#if savingCriticalTasks}<Spinner />{/if}
+						{savingCriticalTasks ? 'Saving...' : 'Save Critical Tasks'}
+					</button>
+				</div>
+				{#if !isCriticalTasksValid}
+					<p class="text-error validation-hint">
+						Default expiration must be between 1 and 120 months. Warning window must be between 1 and 365 days.
+					</p>
+				{/if}
+			</div>
+		</section>
 	</main>
 </div>
 
@@ -242,9 +369,10 @@
 		background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-panel) 32%);
 	}
 
-	.actions-row {
-		display: flex;
-		justify-content: flex-end;
+	.form-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: var(--sp-3);
 	}
 
 	.input-row {
@@ -256,6 +384,12 @@
 
 	.input-row .input {
 		width: 120px;
+	}
+
+	.section-actions {
+		margin-top: var(--sp-4);
+		display: flex;
+		justify-content: flex-start;
 	}
 
 	.validation-hint {

@@ -300,6 +300,52 @@ describe('createCrudUseCases', () => {
 		});
 	});
 
+	describe('requirePrivileged', () => {
+		const privilegedConfig = {
+			...crudConfig,
+			requirePrivileged: true
+		};
+
+		it('calls requirePrivileged on create when configured', async () => {
+			const ctx = buildContext({
+				auth: {
+					requirePrivileged() {
+						throw new Error('Requires owner or admin');
+					}
+				}
+			});
+			const { create } = createCrudUseCases(privilegedConfig);
+
+			await expect(create(ctx, { personnelId: 'p-1' })).rejects.toThrow('Requires owner or admin');
+		});
+
+		it('calls requirePrivileged on update when configured', async () => {
+			const ctx = buildContext({
+				auth: {
+					requirePrivileged() {
+						throw new Error('Requires owner or admin');
+					}
+				}
+			});
+			const { update } = createCrudUseCases(privilegedConfig);
+
+			await expect(update(ctx, { id: 'tr-1', notes: 'x' })).rejects.toThrow('Requires owner or admin');
+		});
+
+		it('calls requirePrivileged on remove when configured', async () => {
+			const ctx = buildContext({
+				auth: {
+					requirePrivileged() {
+						throw new Error('Requires owner or admin');
+					}
+				}
+			});
+			const { remove } = createCrudUseCases(privilegedConfig);
+
+			await expect(remove(ctx, 'tr-1')).rejects.toThrow('Requires owner or admin');
+		});
+	});
+
 	describe('beforeDelete hook', () => {
 		it('calls beforeDelete before deleting the record', async () => {
 			const callOrder: string[] = [];

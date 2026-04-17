@@ -1,16 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import {
+	createTestContext,
 	createInMemoryDataStore,
 	createTestAuthContext,
 	createTestAuditPort,
-	createTestReadOnlyGuard,
-	createTestSubscriptionPort,
-	createTestNotificationPort,
-	createTestBillingPort,
-	createTestStoragePort
+	createTestReadOnlyGuard
 } from './inMemory';
-import { createInMemoryAdvancedDutyPersistenceAdapter } from './advancedDutyPersistence';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { handleUseCaseRequest, type RouteConfig } from './httpAdapter';
 
@@ -19,6 +15,7 @@ type TestContext = {
 	auth: ReturnType<typeof createTestAuthContext>;
 	auditPort: ReturnType<typeof createTestAuditPort>;
 	readOnlyGuard: ReturnType<typeof createTestReadOnlyGuard>;
+	readOnly: boolean;
 };
 
 function buildTestCtx(overrides?: {
@@ -28,22 +25,39 @@ function buildTestCtx(overrides?: {
 	const store = createInMemoryDataStore();
 	const auth = createTestAuthContext(overrides?.auth);
 	const auditPort = createTestAuditPort();
-	const readOnlyGuard = createTestReadOnlyGuard(overrides?.readOnly ?? false);
-	return { store, auth, auditPort, readOnlyGuard };
+	const readOnly = overrides?.readOnly ?? false;
+	const readOnlyGuard = createTestReadOnlyGuard(readOnly);
+	return { store, auth, auditPort, readOnlyGuard, readOnly };
 }
 
 function toUseCaseCtx(t: TestContext): UseCaseContext {
+	const ctx = createTestContext({
+		auth: {
+			orgId: t.auth.orgId,
+			userId: t.auth.userId,
+			role: t.auth.role,
+			scopedGroupId: t.auth.scopedGroupId,
+			isPrivileged: t.auth.isPrivileged,
+			isFullEditor: t.auth.isFullEditor,
+			requireView: t.auth.requireView,
+			requireEdit: t.auth.requireEdit,
+			requirePrivileged: t.auth.requirePrivileged,
+			requireOwner: t.auth.requireOwner,
+			requireFullEditor: t.auth.requireFullEditor,
+			requireManageMembers: t.auth.requireManageMembers,
+			requireGroupAccess: t.auth.requireGroupAccess,
+			requireGroupAccessBatch: t.auth.requireGroupAccessBatch,
+			requireGroupAccessByRecord: t.auth.requireGroupAccessByRecord
+		},
+		readOnly: t.readOnly
+	});
 	return {
+		...ctx,
 		store: t.store,
 		rawStore: t.store,
-		advancedDutyPersistence: createInMemoryAdvancedDutyPersistenceAdapter(t.store),
 		auth: t.auth,
 		audit: t.auditPort,
-		readOnlyGuard: t.readOnlyGuard,
-		subscription: createTestSubscriptionPort(),
-		notifications: createTestNotificationPort(),
-		billing: createTestBillingPort(),
-		storage: createTestStoragePort()
+		readOnlyGuard: t.readOnlyGuard
 	};
 }
 

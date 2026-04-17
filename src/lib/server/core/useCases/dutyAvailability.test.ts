@@ -1,16 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import type { QueryPorts } from '$lib/server/core/ports';
 import { findDutyCoverageConflicts, resolveSlotBlockingMode } from './dutyAvailability';
 import type { Personnel } from '$lib/types';
 
 const ORG = 'test-org';
 
-function buildCtx(): QueryPorts & { store: ReturnType<typeof createInMemoryDataStore> } {
-	return {
-		store: createInMemoryDataStore(),
-		auth: createTestAuthContext({ orgId: ORG })
-	};
+function buildCtx(): QueryPorts & { store: ReturnType<typeof createQueryPortsContext>['store'] } {
+	return createQueryPortsContext({ auth: { orgId: ORG } });
 }
 
 const PERSON: Personnel = {

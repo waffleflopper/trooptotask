@@ -75,6 +75,12 @@ function formatDelta(delta: number): string {
 	return '0 pts vs 30d';
 }
 
+function formatDaysSinceLastIctUpdate(days: number | null): string {
+	if (days === null) return 'No ICT update';
+	if (days === 1) return '1 day since update';
+	return `${days} days since update`;
+}
+
 async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
 	const orgId = ctx.auth.orgId;
 	const [personnelRows, groupRows, taskRows, settingsRow] = await Promise.all([
@@ -201,6 +207,18 @@ export async function generateCriticalTasksReportCsv(
 	const dashboard = await fetchCriticalTasksReportDashboard(ctx, input);
 	const { overallReadiness, soldiersBelow70, tasksExpiringSoon, tasksBelowThreshold } = dashboard.kpis;
 	const lines = ['Section,Metric,Value,Subtitle'];
+	for (const row of dashboard.atRiskSoldiers.rows) {
+		lines.push(
+			[
+				'At-Risk Soldiers',
+				row.soldierName,
+				`${row.readinessPercent}%`,
+				`${row.rank} ${row.mos}; ${row.groupName}; ${row.tasksExpiringSoonCount} expiring <=30d; ${formatDaysSinceLastIctUpdate(row.daysSinceLastIctUpdate)}`
+			]
+				.map(escapeCsv)
+				.join(',')
+		);
+	}
 	lines.push(
 		['Summary', 'Overall Readiness', `${overallReadiness.percent}%`, formatDelta(overallReadiness.deltaPercent)]
 			.map(escapeCsv)

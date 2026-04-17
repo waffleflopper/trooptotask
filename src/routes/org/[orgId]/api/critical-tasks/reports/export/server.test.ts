@@ -4,6 +4,75 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
 
 describe('GET /api/critical-tasks/reports/export', () => {
+	it('places the filtered at-risk Soldiers call list before summary rows', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('organizations', [
+			{
+				id: ctx.auth.orgId,
+				critical_tasks_default_expiration_months: 12,
+				critical_tasks_expiring_soon_warning_days: 60
+			}
+		]);
+		ctx.store.seed('groups', [
+			{ id: 'group-alpha', organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 },
+			{ id: 'group-bravo', organization_id: ctx.auth.orgId, name: 'Bravo', sort_order: 1 }
+		]);
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-nora',
+				organization_id: ctx.auth.orgId,
+				rank: 'SPC',
+				last_name: 'NoUpdate',
+				first_name: 'Nora',
+				mos: '11B',
+				clinic_role: 'Rifleman',
+				group_id: 'group-alpha',
+				archived_at: null,
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p-outside',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Outside',
+				first_name: 'Olivia',
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-bravo',
+				archived_at: null,
+				groups: { name: 'Bravo' }
+			}
+		]);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'task-common',
+				organization_id: ctx.auth.orgId,
+				task_code: '071-000-0001',
+				title: 'Maintain communications',
+				description: null,
+				mos: [],
+				expiration_months: 12,
+				sort_order: 0,
+				archived_at: null,
+				created_at: '2026-04-01T00:00:00Z'
+			}
+		]);
+
+		const result = await handleUseCaseRequest(_getConfig, ctx, {
+			groupId: 'group-alpha',
+			mos: undefined,
+			role: undefined,
+			rank: undefined
+		});
+		const lines = result.split('\n');
+
+		expect(lines[0]).toBe('Section,Metric,Value,Subtitle');
+		expect(lines[1]).toBe('At-Risk Soldiers,"NoUpdate, Nora",0%,SPC 11B; Alpha; 0 expiring <=30d; No ICT update');
+		expect(lines[2]).toContain('Summary,Overall Readiness,0%');
+		expect(result).not.toContain('Outside, Olivia');
+		expect(result).not.toContain('Bravo');
+	});
+
 	it('uses training read permission and returns a report-context CSV download', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('organizations', [

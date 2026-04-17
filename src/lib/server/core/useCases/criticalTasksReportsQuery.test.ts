@@ -120,6 +120,34 @@ describe('fetchCriticalTasksReportSummary', () => {
 				completeCount: 1
 			}
 		]);
+		expect(dashboard.atRiskSoldiers.rows).toEqual([
+			{
+				personnelId: 'p-rifle',
+				soldierName: 'Rifle, Ryan',
+				mos: '11B',
+				rank: 'CPL',
+				groupName: 'Alpha',
+				readinessPercent: 0,
+				applicableCount: 1,
+				readyCount: 0,
+				tasksExpiringSoonCount: 0,
+				daysSinceLastIctUpdate: null,
+				lastIctUpdateAt: null
+			},
+			{
+				personnelId: 'p-medic',
+				soldierName: 'Medic, Maya',
+				mos: '68W',
+				rank: 'SGT',
+				groupName: 'Alpha',
+				readinessPercent: 100,
+				applicableCount: 1,
+				readyCount: 1,
+				tasksExpiringSoonCount: 0,
+				daysSinceLastIctUpdate: 17,
+				lastIctUpdateAt: '2026-01-15T00:00:00Z'
+			}
+		]);
 	});
 
 	it('counts only MOS-applicable completion events in the report trend', async () => {

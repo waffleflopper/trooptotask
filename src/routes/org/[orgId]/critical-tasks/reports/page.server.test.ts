@@ -13,6 +13,9 @@ describe('critical tasks reports page server load', () => {
 			tasksBelowThreshold: {
 				thresholdPercent: 70,
 				rows: []
+			},
+			atRiskSoldiers: {
+				rows: []
 			}
 		};
 		const fetchDashboard = vi.fn(async () => initialDashboard);

@@ -1,6 +1,6 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fetchCriticalTasksReportSummary } from '$lib/server/core/useCases/criticalTasksReportsQuery';
-import type { IctReportSummary } from '$features/critical-tasks/utils/ictReports';
+import { fetchCriticalTasksReportDashboard } from '$lib/server/core/useCases/criticalTasksReportsQuery';
+import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 import {
 	criticalTasksReportInput,
 	parseCriticalTasksReportInput,
@@ -8,11 +8,11 @@ import {
 	type CriticalTasksReportRouteInput
 } from '../../reportInput';
 
-export const _getConfig: RouteConfig<CriticalTasksReportRouteInput, IctReportSummary> = {
+export const _getConfig: RouteConfig<CriticalTasksReportRouteInput, IctReportDashboard> = {
 	permission: 'training',
 	input: criticalTasksReportInput,
 	parseInput: (event) => parseCriticalTasksReportInput(event.url),
-	fn: async (ctx, input) => fetchCriticalTasksReportSummary(ctx, toCriticalTasksReportInput(input))
+	fn: async (ctx, input) => fetchCriticalTasksReportDashboard(ctx, toCriticalTasksReportInput(input))
 };
 
 export const GET = handle(_getConfig);

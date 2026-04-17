@@ -5,7 +5,7 @@ import IctReportsView from './IctReportsView.svelte';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
-import type { IctReportSummary } from '$features/critical-tasks/utils/ictReports';
+import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 
 const alpha: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0 };
 const bravo: Group = { id: 'group-bravo', name: 'Bravo', sortOrder: 1 };
@@ -53,26 +53,54 @@ const commonTask: IctTask = {
 	mos: []
 };
 
-const initialSummary: IctReportSummary = {
-	overallReadinessPercent: 67,
-	readinessByMos: [
-		{ mos: '11B', readinessPercent: 0, applicableCount: 1, readyCount: 0 },
-		{ mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 }
-	],
-	bestPerformingMos: { mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 },
-	worstPerformingMos: { mos: '11B', readinessPercent: 0, applicableCount: 1, readyCount: 0 },
-	completionTrend: [
-		{ month: '2025-11', completions: 1 },
-		{ month: '2026-01', completions: 2 }
-	]
+const initialDashboard: IctReportDashboard = {
+	kpis: {
+		overallReadiness: {
+			percent: 67,
+			deltaPercent: -4,
+			readyCount: 2,
+			applicableCount: 3
+		},
+		soldiersBelow70: {
+			count: 1,
+			totalAssigned: 2,
+			thresholdPercent: 70
+		},
+		tasksExpiringSoon: {
+			count: 1,
+			affectedSoldiers: 1,
+			windowDays: 30
+		},
+		tasksBelowThreshold: {
+			count: 1,
+			thresholdPercent: 70
+		}
+	}
 };
 
-const filteredSummary: IctReportSummary = {
-	overallReadinessPercent: 100,
-	readinessByMos: [{ mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 }],
-	bestPerformingMos: { mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 },
-	worstPerformingMos: { mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 },
-	completionTrend: [{ month: '2026-01', completions: 1 }]
+const filteredDashboard: IctReportDashboard = {
+	kpis: {
+		overallReadiness: {
+			percent: 100,
+			deltaPercent: 12,
+			readyCount: 2,
+			applicableCount: 2
+		},
+		soldiersBelow70: {
+			count: 0,
+			totalAssigned: 1,
+			thresholdPercent: 70
+		},
+		tasksExpiringSoon: {
+			count: 0,
+			affectedSoldiers: 0,
+			windowDays: 30
+		},
+		tasksBelowThreshold: {
+			count: 0,
+			thresholdPercent: 70
+		}
+	}
 };
 
 describe('IctReportsView', () => {
@@ -81,7 +109,7 @@ describe('IctReportsView', () => {
 			'fetch',
 			vi.fn(async () => ({
 				ok: true,
-				json: async () => filteredSummary
+				json: async () => filteredDashboard
 			}))
 		);
 	});
@@ -92,46 +120,104 @@ describe('IctReportsView', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('renders report summaries and updates the export context when filters change', async () => {
+	it('renders action KPI cards and updates the shared report context when filters change', async () => {
 		render(IctReportsView, {
 			props: {
 				orgId: 'org-1',
 				personnel: [medic, infantry],
 				groups: [alpha, bravo],
 				tasks: [medicTask, commonTask],
-				initialSummary
+				initialDashboard
 			}
 		});
 
 		expect(screen.getByText('Critical Task Reports')).toBeTruthy();
 		expect(screen.getByText('Beta')).toBeTruthy();
 		expect(screen.getByText('67%')).toBeTruthy();
-		const bestCard = screen.getByText('Best Performing MOS').closest('section');
-		const worstCard = screen.getByText('Worst Performing MOS').closest('section');
-		const trendPanel = screen.getByText('Completion Trend').closest('section');
-		expect(bestCard).toBeTruthy();
-		expect(worstCard).toBeTruthy();
-		expect(trendPanel).toBeTruthy();
-		expect(within(bestCard!).getByText('68W')).toBeTruthy();
-		expect(within(worstCard!).getByText('11B')).toBeTruthy();
-		expect(within(trendPanel!).getByText('2026-01')).toBeTruthy();
+		const kpiStrip = screen.getByRole('region', { name: 'Action KPIs' });
+		expect(within(kpiStrip).getByRole('article', { name: 'Overall Readiness' })).toBeTruthy();
+		expect(within(kpiStrip).getByRole('article', { name: 'Soldiers Below 70%' })).toBeTruthy();
+		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤30d' })).toBeTruthy();
+		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Below Threshold' })).toBeTruthy();
+		expect(screen.queryByText('Completion Trend')).toBeNull();
+		expect(screen.queryByText('Readiness by MOS')).toBeNull();
 
 		const exportLink = screen.getByRole('link', { name: 'Export CSV' });
 		expect(exportLink.getAttribute('href')).toBe('/org/org-1/api/critical-tasks/reports/export');
 
-		const groupFilter = screen.getByLabelText('Filter by group') as HTMLSelectElement;
-		groupFilter.value = alpha.id;
-		await fireEvent.change(groupFilter);
+		const mosFilter = screen.getByRole('combobox', { name: 'Filter by MOS' });
+		await fireEvent.focus(mosFilter);
+		const mosList = screen.getByRole('listbox', { name: 'Filter by MOS' });
+		await fireEvent.mouseDown(within(mosList).getByRole('option', { name: '68W' }));
+		await fireEvent.mouseDown(within(mosList).getByRole('option', { name: '11B' }));
+
+		expect(screen.getByRole('button', { name: 'Remove 68W' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Remove 11B' })).toBeTruthy();
 
 		await waitFor(() => {
 			expect(fetch).toHaveBeenCalledWith(
-				`/org/org-1/api/critical-tasks/reports/summary?groupId=${alpha.id}`,
+				'/org/org-1/api/critical-tasks/reports/summary?mos=11B&mos=68W',
 				expect.objectContaining({ signal: expect.any(AbortSignal) })
 			);
 			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
-				`/org/org-1/api/critical-tasks/reports/export?groupId=${alpha.id}`
+				'/org/org-1/api/critical-tasks/reports/export?mos=11B&mos=68W'
 			);
 			expect(screen.getByText('100%')).toBeTruthy();
+		});
+	});
+
+	it('keeps toolbar actions and filters visible for the empty task-library state', () => {
+		render(IctReportsView, {
+			props: {
+				orgId: 'org-1',
+				personnel: [medic],
+				groups: [alpha],
+				tasks: [],
+				initialDashboard
+			}
+		});
+
+		expect(screen.getByRole('link', { name: 'Export CSV' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Back' })).toBeTruthy();
+		expect(screen.getByLabelText('Filter by group')).toBeTruthy();
+		expect(screen.getByLabelText('Filter by MOS')).toBeTruthy();
+		expect(screen.getByText('No critical tasks configured yet.')).toBeTruthy();
+	});
+
+	it('uses searchable single-select controls for group, rank, and role filters', async () => {
+		render(IctReportsView, {
+			props: {
+				orgId: 'org-1',
+				personnel: [medic, infantry],
+				groups: [alpha, bravo],
+				tasks: [medicTask, commonTask],
+				initialDashboard
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Filter by group' }));
+		const groupFilter = screen.getByRole('combobox', { name: 'Filter by group' });
+		await fireEvent.input(groupFilter, { target: { value: 'Bra' } });
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'Bravo' }));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Filter by rank' }));
+		const rankFilter = screen.getByRole('combobox', { name: 'Filter by rank' });
+		await fireEvent.input(rankFilter, { target: { value: 'SG' } });
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'SGT' }));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Filter by role' }));
+		const roleFilter = screen.getByRole('combobox', { name: 'Filter by role' });
+		await fireEvent.input(roleFilter, { target: { value: 'Rifle' } });
+		await fireEvent.mouseDown(screen.getByRole('option', { name: 'Rifleman' }));
+
+		await waitFor(() => {
+			expect(fetch).toHaveBeenCalledWith(
+				'/org/org-1/api/critical-tasks/reports/summary?groupId=group-bravo&role=Rifleman&rank=SGT',
+				expect.objectContaining({ signal: expect.any(AbortSignal) })
+			);
+			expect(screen.getByRole('link', { name: 'Export CSV' }).getAttribute('href')).toBe(
+				'/org/org-1/api/critical-tasks/reports/export?groupId=group-bravo&role=Rifleman&rank=SGT'
+			);
 		});
 	});
 });

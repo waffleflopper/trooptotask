@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import MultiTagSelect from './MultiTagSelect.svelte';
 
 interface TagOption {
@@ -14,13 +14,17 @@ const options: TagOption[] = [
 	{ value: 'charlie', label: 'Charlie' }
 ];
 
-function renderSelect(value: string[] = []) {
+function renderSelect(
+	value: string[] = [],
+	overrides: Partial<{ ariaLabel: string; onChange: (values: string[]) => void }> = {}
+) {
 	return render(MultiTagSelect, {
 		props: {
 			options,
 			value,
 			placeholder: 'Select...',
-			onChange: () => {}
+			onChange: () => {},
+			...overrides
 		}
 	});
 }
@@ -28,6 +32,7 @@ function renderSelect(value: string[] = []) {
 describe('MultiTagSelect', () => {
 	afterEach(() => {
 		cleanup();
+		vi.restoreAllMocks();
 	});
 
 	it('opens the dropdown when the input receives focus', async () => {
@@ -37,6 +42,25 @@ describe('MultiTagSelect', () => {
 		await fireEvent.focus(input);
 
 		expect(container.querySelector('.mts-dropdown')).toBeTruthy();
+	});
+
+	it('uses combobox/listbox semantics and keeps the dropdown open while selecting', async () => {
+		const onChange = vi.fn();
+		renderSelect([], { ariaLabel: 'MOS filter', onChange });
+
+		await fireEvent.focus(screen.getByRole('combobox', { name: 'MOS filter' }));
+		const listbox = screen.getByRole('listbox', { name: 'MOS filter' });
+
+		await fireEvent.mouseDown(within(listbox).getByRole('option', { name: 'Alpha' }));
+
+		expect(onChange).toHaveBeenCalledWith(['alpha']);
+		expect(screen.getByRole('listbox', { name: 'MOS filter' })).toBeTruthy();
+	});
+
+	it('renders selected values as removable badges', () => {
+		renderSelect(['alpha'], { ariaLabel: 'MOS filter' });
+
+		expect(screen.getByRole('button', { name: 'Remove Alpha' })).toBeTruthy();
 	});
 
 	it('closes the dropdown when focus moves outside the component', async () => {

@@ -118,10 +118,11 @@ describe('GET /api/critical-tasks/reports/export', () => {
 		});
 		const response = _getConfig.formatOutput?.(result);
 
-		expect(result).toContain('Section,Label,Value,Auxiliary 1,Auxiliary 2');
+		expect(result).toContain('Section,Metric,Value,Subtitle');
 		expect(result).toContain('Summary,Overall Readiness,100%');
-		expect(result).toContain('Best MOS,68W,100%,2,2');
-		expect(result).not.toContain('Worst MOS,11B');
+		expect(result).toContain('Summary,Soldiers Below 70%,0,1 assigned');
+		expect(result).toContain('Summary,Tasks Expiring <=30d,0,0 Soldiers affected');
+		expect(result).not.toContain('11B');
 		expect(response?.headers.get('Content-Type')).toBe('text/csv;charset=utf-8');
 		expect(response?.headers.get('Content-Disposition')).toMatch(/attachment; filename="critical-task-report-/);
 		expect(response?.headers.get('Cache-Control')).toBe('private, no-store');
@@ -216,7 +217,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 		});
 
 		expect(result).toContain('Summary,Overall Readiness,100%');
-		expect(result).toContain('Best MOS,68W,100%,1,1');
+		expect(result).toContain('Summary,Soldiers Below 70%,0,1 assigned');
 		expect(result).not.toContain('11B');
 	});
 });

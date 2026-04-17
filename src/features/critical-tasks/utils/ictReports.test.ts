@@ -126,6 +126,168 @@ describe('ictReports', () => {
 		});
 	});
 
+	it('includes below-threshold task rows sorted worst-first for the shared dashboard payload', () => {
+		const medicReady: Personnel = {
+			...medic,
+			id: 'person-medic-ready',
+			lastName: 'Able'
+		};
+		const medicGap: Personnel = {
+			...medic,
+			id: 'person-medic-gap',
+			lastName: 'Baker'
+		};
+		const infantryReady: Personnel = {
+			...infantry,
+			id: 'person-infantry-ready',
+			lastName: 'Charlie'
+		};
+		const infantryGap: Personnel = {
+			...infantry,
+			id: 'person-infantry-gap',
+			lastName: 'Delta'
+		};
+		const allHandsWorst: IctTask = {
+			...commonTask,
+			id: 'task-all-hands-worst',
+			taskCode: '081-000-0001',
+			title: 'React to contact'
+		};
+		const allHandsTieAlpha: IctTask = {
+			...commonTask,
+			id: 'task-all-hands-alpha',
+			taskCode: '071-000-0002',
+			title: 'Maintain communications'
+		};
+		const allHandsTieBravo: IctTask = {
+			...commonTask,
+			id: 'task-all-hands-bravo',
+			taskCode: '081-000-0002',
+			title: 'Move under direct fire'
+		};
+		const medicOnlyTie: IctTask = {
+			...medicTask,
+			id: 'task-medic-only-tie',
+			taskCode: '081-68W-0003',
+			title: 'Treat hemorrhage'
+		};
+		const allHandsReady: IctTask = {
+			...commonTask,
+			id: 'task-all-hands-ready',
+			taskCode: '081-000-0004',
+			title: 'Conduct PCC and PCI'
+		};
+
+		const dashboard = buildIctReportDashboard({
+			personnel: [medicReady, medicGap, infantryReady, infantryGap],
+			tasks: [allHandsWorst, allHandsTieBravo, allHandsTieAlpha, medicOnlyTie, allHandsReady],
+			completions: [
+				completion({
+					id: 'completion-worst',
+					personnelId: medicReady.id,
+					ictTaskId: allHandsWorst.id,
+					completedAt: '2026-01-15'
+				}),
+				completion({
+					id: 'completion-alpha-1',
+					personnelId: medicReady.id,
+					ictTaskId: allHandsTieAlpha.id,
+					completedAt: '2026-01-15'
+				}),
+				completion({
+					id: 'completion-alpha-2',
+					personnelId: infantryReady.id,
+					ictTaskId: allHandsTieAlpha.id,
+					completedAt: '2026-01-15'
+				}),
+				completion({
+					id: 'completion-bravo-1',
+					personnelId: medicReady.id,
+					ictTaskId: allHandsTieBravo.id,
+					completedAt: '2026-01-15'
+				}),
+				completion({
+					id: 'completion-bravo-2',
+					personnelId: infantryReady.id,
+					ictTaskId: allHandsTieBravo.id,
+					completedAt: '2026-01-15'
+				}),
+				completion({
+					id: 'completion-medic-only',
+					personnelId: medicReady.id,
+					ictTaskId: medicOnlyTie.id,
+					completedAt: '2026-01-15'
+				}),
+				completion({
+					id: 'completion-ready-1',
+					personnelId: medicReady.id,
+					ictTaskId: allHandsReady.id,
+					completedAt: '2026-01-15'
+				}),
+				completion({
+					id: 'completion-ready-2',
+					personnelId: medicGap.id,
+					ictTaskId: allHandsReady.id,
+					completedAt: '2026-01-15'
+				}),
+				completion({
+					id: 'completion-ready-3',
+					personnelId: infantryReady.id,
+					ictTaskId: allHandsReady.id,
+					completedAt: '2026-01-15'
+				})
+			],
+			settings: {
+				defaultExpirationMonths: 12,
+				expiringSoonWarningDays: 60
+			},
+			asOf: '2026-02-15'
+		});
+
+		expect(dashboard.kpis.tasksBelowThreshold.count).toBe(4);
+		expect(dashboard.tasksBelowThreshold).toEqual({
+			thresholdPercent: 70,
+			rows: [
+				{
+					taskId: 'task-all-hands-worst',
+					taskCode: '081-000-0001',
+					taskName: 'React to contact',
+					percentComplete: 25,
+					soldierGapCount: 3,
+					applicableCount: 4,
+					completeCount: 1
+				},
+				{
+					taskId: 'task-all-hands-alpha',
+					taskCode: '071-000-0002',
+					taskName: 'Maintain communications',
+					percentComplete: 50,
+					soldierGapCount: 2,
+					applicableCount: 4,
+					completeCount: 2
+				},
+				{
+					taskId: 'task-all-hands-bravo',
+					taskCode: '081-000-0002',
+					taskName: 'Move under direct fire',
+					percentComplete: 50,
+					soldierGapCount: 2,
+					applicableCount: 4,
+					completeCount: 2
+				},
+				{
+					taskId: 'task-medic-only-tie',
+					taskCode: '081-68W-0003',
+					taskName: 'Treat hemorrhage',
+					percentComplete: 50,
+					soldierGapCount: 1,
+					applicableCount: 2,
+					completeCount: 1
+				}
+			]
+		});
+	});
+
 	it('computes readiness from applicable tasks only, counting current and expiring-soon tasks as ready', () => {
 		const summary = buildIctReportSummary({
 			personnel: [medic, infantry],

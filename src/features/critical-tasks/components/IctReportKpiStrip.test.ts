@@ -26,6 +26,10 @@ const dashboard: IctReportDashboard = {
 			count: 1,
 			thresholdPercent: 70
 		}
+	},
+	tasksBelowThreshold: {
+		thresholdPercent: 70,
+		rows: []
 	}
 };
 

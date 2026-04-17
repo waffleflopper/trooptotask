@@ -109,6 +109,17 @@ describe('fetchCriticalTasksReportSummary', () => {
 			count: 1,
 			totalAssigned: 2
 		});
+		expect(dashboard.tasksBelowThreshold.rows).toEqual([
+			{
+				taskId: 'task-common',
+				taskCode: '081-833-0010',
+				taskName: 'Open airway',
+				percentComplete: 50,
+				soldierGapCount: 1,
+				applicableCount: 2,
+				completeCount: 1
+			}
+		]);
 	});
 
 	it('counts only MOS-applicable completion events in the report trend', async () => {

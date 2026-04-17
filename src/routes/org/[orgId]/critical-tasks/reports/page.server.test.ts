@@ -9,6 +9,10 @@ describe('critical tasks reports page server load', () => {
 				soldiersBelow70: { count: 1, totalAssigned: 2, thresholdPercent: 70 },
 				tasksExpiringSoon: { count: 1, affectedSoldiers: 1, windowDays: 30 },
 				tasksBelowThreshold: { count: 1, thresholdPercent: 70 }
+			},
+			tasksBelowThreshold: {
+				thresholdPercent: 70,
+				rows: []
 			}
 		};
 		const fetchDashboard = vi.fn(async () => initialDashboard);

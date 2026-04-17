@@ -75,6 +75,20 @@ const initialDashboard: IctReportDashboard = {
 			count: 1,
 			thresholdPercent: 70
 		}
+	},
+	tasksBelowThreshold: {
+		thresholdPercent: 70,
+		rows: [
+			{
+				taskId: 'task-common',
+				taskCode: '081-833-0010',
+				taskName: 'Open airway',
+				percentComplete: 50,
+				soldierGapCount: 1,
+				applicableCount: 2,
+				completeCount: 1
+			}
+		]
 	}
 };
 
@@ -100,6 +114,10 @@ const filteredDashboard: IctReportDashboard = {
 			count: 0,
 			thresholdPercent: 70
 		}
+	},
+	tasksBelowThreshold: {
+		thresholdPercent: 70,
+		rows: []
 	}
 };
 
@@ -139,6 +157,9 @@ describe('IctReportsView', () => {
 		expect(within(kpiStrip).getByRole('article', { name: 'Soldiers Below 70%' })).toBeTruthy();
 		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Expiring ≤30d' })).toBeTruthy();
 		expect(within(kpiStrip).getByRole('article', { name: 'Tasks Below Threshold' })).toBeTruthy();
+		const belowThresholdSection = screen.getByRole('region', { name: 'Tasks Below Unit Threshold' });
+		expect(within(belowThresholdSection).getByText('081-833-0010')).toBeTruthy();
+		expect(within(belowThresholdSection).getByText('Open airway')).toBeTruthy();
 		expect(screen.queryByText('Completion Trend')).toBeNull();
 		expect(screen.queryByText('Readiness by MOS')).toBeNull();
 
@@ -163,6 +184,7 @@ describe('IctReportsView', () => {
 				'/org/org-1/api/critical-tasks/reports/export?mos=11B&mos=68W'
 			);
 			expect(screen.getByText('100%')).toBeTruthy();
+			expect(screen.getByText('No tasks are below 70% for the active filters.')).toBeTruthy();
 		});
 	});
 

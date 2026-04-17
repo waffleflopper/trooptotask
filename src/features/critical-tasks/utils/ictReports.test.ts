@@ -226,6 +226,123 @@ describe('ictReports', () => {
 		]);
 	});
 
+	it('groups the next six months of latest completion expirations by MOS and projects month-6 readiness', () => {
+		const longCommonTask: IctTask = {
+			...commonTask,
+			id: 'task-long-common',
+			taskCode: '081-000-0009',
+			title: 'Sustain equipment',
+			expirationMonths: 12
+		};
+
+		const dashboard = buildIctReportDashboard({
+			personnel: [medic, infantry],
+			tasks: [{ ...commonTask, expirationMonths: null }, { ...medicTask, expirationMonths: 4 }, longCommonTask],
+			completions: [
+				completion({
+					id: 'completion-medic-common',
+					personnelId: medic.id,
+					ictTaskId: commonTask.id,
+					completedAt: '2026-02-20'
+				}),
+				completion({
+					id: 'completion-medic-task',
+					personnelId: medic.id,
+					ictTaskId: medicTask.id,
+					completedAt: '2026-02-01'
+				}),
+				completion({
+					id: 'completion-medic-long',
+					personnelId: medic.id,
+					ictTaskId: longCommonTask.id,
+					completedAt: '2026-01-01'
+				}),
+				completion({
+					id: 'completion-infantry-common-old',
+					personnelId: infantry.id,
+					ictTaskId: commonTask.id,
+					completedAt: '2026-01-15'
+				}),
+				completion({
+					id: 'completion-infantry-common-latest',
+					personnelId: infantry.id,
+					ictTaskId: commonTask.id,
+					completedAt: '2026-04-01'
+				})
+			],
+			settings: {
+				defaultExpirationMonths: 3,
+				expiringSoonWarningDays: 60
+			},
+			asOf: '2026-04-15'
+		});
+
+		expect(dashboard.expirationCliff.mosSeries).toEqual(['68W', '11B']);
+		expect(dashboard.expirationCliff.months).toEqual([
+			{
+				month: '2026-04',
+				label: 'Apr 2026',
+				totalExpiringCount: 0,
+				mosSegments: [
+					{ mos: '68W', expiringCount: 0 },
+					{ mos: '11B', expiringCount: 0 }
+				]
+			},
+			{
+				month: '2026-05',
+				label: 'May 2026',
+				totalExpiringCount: 1,
+				mosSegments: [
+					{ mos: '68W', expiringCount: 1 },
+					{ mos: '11B', expiringCount: 0 }
+				]
+			},
+			{
+				month: '2026-06',
+				label: 'Jun 2026',
+				totalExpiringCount: 1,
+				mosSegments: [
+					{ mos: '68W', expiringCount: 1 },
+					{ mos: '11B', expiringCount: 0 }
+				]
+			},
+			{
+				month: '2026-07',
+				label: 'Jul 2026',
+				totalExpiringCount: 1,
+				mosSegments: [
+					{ mos: '68W', expiringCount: 0 },
+					{ mos: '11B', expiringCount: 1 }
+				]
+			},
+			{
+				month: '2026-08',
+				label: 'Aug 2026',
+				totalExpiringCount: 0,
+				mosSegments: [
+					{ mos: '68W', expiringCount: 0 },
+					{ mos: '11B', expiringCount: 0 }
+				]
+			},
+			{
+				month: '2026-09',
+				label: 'Sep 2026',
+				totalExpiringCount: 0,
+				mosSegments: [
+					{ mos: '68W', expiringCount: 0 },
+					{ mos: '11B', expiringCount: 0 }
+				]
+			}
+		]);
+		expect(dashboard.expirationCliff.projectedReadinessAtMonth6).toEqual({
+			month: '2026-09',
+			label: 'Sep 2026',
+			readinessPercent: 20,
+			readyCount: 1,
+			applicableCount: 5
+		});
+	});
+
 	it('includes below-threshold task rows sorted worst-first for the shared dashboard payload', () => {
 		const medicReady: Personnel = {
 			...medic,

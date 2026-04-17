@@ -86,9 +86,10 @@ describe('IctReadinessTrendChart', () => {
 		expect(within(legend).getByText('68W')).toBeTruthy();
 		expect(within(region).getByRole('img', { name: '12-month readiness trend chart' })).toBeTruthy();
 		expect(within(region).getByTestId('layerchart-readiness-trend')).toBeTruthy();
-		const yAxis = region.querySelector('.chart-axis-y');
+		const yAxis = region.querySelector('.trend-y-axis');
 		expect(yAxis).toBeTruthy();
-		expect(yAxis?.querySelector('.chart-axis-rule')).toBeTruthy();
+		expect(yAxis?.getAttribute('aria-hidden')).toBe('true');
+		expect(yAxis?.querySelector('.trend-y-axis-rule')).toBeTruthy();
 		expect(yAxis?.textContent).toContain('50%');
 		expect(yAxis?.textContent).toContain('100%');
 
@@ -123,14 +124,18 @@ describe('IctReadinessTrendChart', () => {
 
 		expect(region.querySelector('.trend-tooltip')).toBeTruthy();
 		const tooltip = region.querySelector('.trend-tooltip');
-		expect(tooltip?.textContent).toContain('MAR');
+		expect(tooltip?.textContent).toContain('Mar 2026');
 		expect(tooltip?.textContent).toContain('Unit');
 		expect(tooltip?.textContent).toContain('11B');
 		expect(tooltip?.textContent).toContain('68W');
 		expect(tooltip?.textContent).toContain('75%');
 		expect(tooltip?.textContent).toContain('50%');
 		expect(tooltip?.textContent).toContain('100%');
-		expect(tooltip?.querySelectorAll('.trend-tooltip-list > .contents')).toHaveLength(3);
+		expect(tooltip?.textContent).toContain('3/4 current');
+		expect(tooltip?.textContent).toContain('1/2 current');
+		expect(tooltip?.textContent).toContain('2/2 current');
+		expect(tooltip?.querySelectorAll('.trend-tooltip-row')).toHaveLength(3);
+		expect(tooltip?.querySelectorAll('.contents')).toHaveLength(0);
 		expect(region.querySelectorAll('circle.trend-hover-point').length).toBeGreaterThan(0);
 	});
 

@@ -5,7 +5,11 @@ import IctReportsView from './IctReportsView.svelte';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$lib/stores/groups.svelte';
 import type { Personnel } from '$lib/types';
-import type { IctReadinessTrend, IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
+import type {
+	IctExpirationCliff,
+	IctReadinessTrend,
+	IctReportDashboard
+} from '$features/critical-tasks/utils/ictReports';
 
 const alpha: Group = { id: 'group-alpha', name: 'Alpha', sortOrder: 0 };
 const bravo: Group = { id: 'group-bravo', name: 'Bravo', sortOrder: 1 };
@@ -77,6 +81,57 @@ function readinessTrend(percent: number, mos = '11B'): IctReadinessTrend {
 	};
 }
 
+function expirationCliff(percent: number, mos = '11B'): IctExpirationCliff {
+	return {
+		mosSeries: [mos],
+		months: [
+			{
+				month: '2026-04',
+				label: 'Apr 2026',
+				totalExpiringCount: 0,
+				mosSegments: [{ mos, expiringCount: 0 }]
+			},
+			{
+				month: '2026-05',
+				label: 'May 2026',
+				totalExpiringCount: 1,
+				mosSegments: [{ mos, expiringCount: 1 }]
+			},
+			{
+				month: '2026-06',
+				label: 'Jun 2026',
+				totalExpiringCount: 0,
+				mosSegments: [{ mos, expiringCount: 0 }]
+			},
+			{
+				month: '2026-07',
+				label: 'Jul 2026',
+				totalExpiringCount: 0,
+				mosSegments: [{ mos, expiringCount: 0 }]
+			},
+			{
+				month: '2026-08',
+				label: 'Aug 2026',
+				totalExpiringCount: 0,
+				mosSegments: [{ mos, expiringCount: 0 }]
+			},
+			{
+				month: '2026-09',
+				label: 'Sep 2026',
+				totalExpiringCount: 0,
+				mosSegments: [{ mos, expiringCount: 0 }]
+			}
+		],
+		projectedReadinessAtMonth6: {
+			month: '2026-09',
+			label: 'Sep 2026',
+			readinessPercent: percent,
+			readyCount: percent,
+			applicableCount: 100
+		}
+	};
+}
+
 const initialDashboard: IctReportDashboard = {
 	kpis: {
 		overallReadiness: {
@@ -131,7 +186,8 @@ const initialDashboard: IctReportDashboard = {
 			}
 		]
 	},
-	readinessTrend: readinessTrend(67)
+	readinessTrend: readinessTrend(67),
+	expirationCliff: expirationCliff(58)
 };
 
 const filteredDashboard: IctReportDashboard = {
@@ -178,7 +234,8 @@ const filteredDashboard: IctReportDashboard = {
 			}
 		]
 	},
-	readinessTrend: readinessTrend(100, '68W')
+	readinessTrend: readinessTrend(100, '68W'),
+	expirationCliff: expirationCliff(100, '68W')
 };
 
 describe('IctReportsView', () => {
@@ -238,6 +295,15 @@ describe('IctReportsView', () => {
 		const readinessTrendSection = screen.getByRole('region', { name: 'Readiness Trend - 12 Months' });
 		expect(within(readinessTrendSection).getByRole('img', { name: '12-month readiness trend chart' })).toBeTruthy();
 		expect(within(readinessTrendSection).getByRole('table', { name: '12-month readiness trend data' })).toBeTruthy();
+		const expirationCliffSection = screen.getByRole('region', { name: 'Expiration Cliff - 6 Months' });
+		expect(within(expirationCliffSection).getByRole('img', { name: '6-month expiration cliff chart' })).toBeTruthy();
+		expect(within(expirationCliffSection).getByRole('table', { name: '6-month expiration cliff data' })).toBeTruthy();
+		expect(within(expirationCliffSection).getByText('58%')).toBeTruthy();
+		expect(expirationCliffSection.parentElement).toBe(atRiskSection.parentElement);
+		expect(expirationCliffSection.parentElement?.classList.contains('report-followup-grid')).toBe(true);
+		expect(
+			Boolean(expirationCliffSection.compareDocumentPosition(atRiskSection) & Node.DOCUMENT_POSITION_FOLLOWING)
+		).toBe(true);
 		expect(screen.queryByText('Completion Trend')).toBeNull();
 		expect(screen.queryByText('Readiness by MOS')).toBeNull();
 
@@ -263,6 +329,8 @@ describe('IctReportsView', () => {
 			);
 			expect(within(kpiStrip).getByText('100%')).toBeTruthy();
 			expect(within(readinessTrendSection).getByRole('columnheader', { name: '68W readiness' })).toBeTruthy();
+			expect(within(expirationCliffSection).getByRole('columnheader', { name: '68W expiring' })).toBeTruthy();
+			expect(within(expirationCliffSection).getByText('Projected readiness at Sep 2026')).toBeTruthy();
 			expect(screen.getByText('No tasks are below 70% for the active filters.')).toBeTruthy();
 			expect(screen.getByText('Smith, Jane')).toBeTruthy();
 		});

@@ -34,9 +34,20 @@
 		patternLabel: string;
 	}
 
+	interface TooltipEntry {
+		key: string;
+		label: string;
+		color: string;
+		lineClass: string;
+		percent: string;
+		countText: string;
+	}
+
 	const TITLE_ID = 'ict-readiness-trend-title';
 	const DESCRIPTION_ID = 'ict-readiness-trend-description';
 	const DEFAULT_Y_DOMAIN: [number, number] = [50, 100];
+	const TOOLTIP_WIDTH_PX = 240;
+	const TOOLTIP_MARGIN_PX = 12;
 
 	let { trend, loading = false }: Props = $props();
 
@@ -95,14 +106,7 @@
 		return String(value);
 	}
 
-	function formatTooltipMonth(value: unknown): string {
-		if (value instanceof Date) {
-			return value.toLocaleString('en-US', { month: 'short' }).toUpperCase();
-		}
-		return String(value);
-	}
-
-	function formatTooltipPercent(value: unknown): string {
+	function formatTooltipPercentValue(value: unknown): string {
 		if (value === null || value === undefined || value === '') return '';
 		const numericValue = Number(value);
 		return Number.isFinite(numericValue) ? `${Math.round(numericValue)}%` : '';
@@ -129,6 +133,59 @@
 		}
 
 		return Array.from({ length: 11 }, (_, index) => 50 + index * 5);
+	}
+
+	function yTickTop(tick: number): number {
+		const [min, max] = effectiveYDomain;
+		if (max === min) return 0;
+		return ((max - tick) / (max - min)) * 100;
+	}
+
+	function tooltipTrendDatum(value: unknown): TrendDatum | null {
+		if (!value || typeof value !== 'object') return null;
+		const datum = value as Partial<TrendDatum>;
+		return datum.date instanceof Date ? (datum as TrendDatum) : null;
+	}
+
+	function tooltipMonthLabel(datum: TrendDatum): string {
+		return datum.label;
+	}
+
+	function tooltipEntries(tooltipDatum: TrendDatum): TooltipEntry[] {
+		return chartSeries.map((series) => {
+			const datum = relatedTrendDatum(series, tooltipDatum);
+			return {
+				key: series.key,
+				label: series.label,
+				color: series.color,
+				lineClass: series.props.class,
+				percent: formatTooltipPercentValue(datum?.value ?? 0),
+				countText: `${datum?.readyCount ?? 0}/${datum?.applicableCount ?? 0} current`
+			};
+		});
+	}
+
+	function numericTooltipCoordinate(value: unknown): number {
+		const numericValue = Number(value);
+		return Number.isFinite(numericValue) ? numericValue : 0;
+	}
+
+	function tooltipLeft(value: unknown, containerWidth: number): number {
+		const x = numericTooltipCoordinate(value);
+		const min = TOOLTIP_WIDTH_PX / 2 + TOOLTIP_MARGIN_PX;
+		const max = Math.max(min, containerWidth - TOOLTIP_WIDTH_PX / 2 - TOOLTIP_MARGIN_PX);
+		return Math.min(Math.max(x, min), max);
+	}
+
+	function tooltipTop(value: unknown, containerHeight: number): number {
+		const y = numericTooltipCoordinate(value);
+		const min = TOOLTIP_MARGIN_PX;
+		const max = Math.max(min, containerHeight - TOOLTIP_MARGIN_PX);
+		return Math.min(Math.max(y, min), max);
+	}
+
+	function tooltipPlacement(value: unknown): 'above' | 'below' {
+		return numericTooltipCoordinate(value) < 120 ? 'below' : 'above';
 	}
 
 	function toDatum(
@@ -218,6 +275,15 @@
 	{:else}
 		<div class="chart-canvas" role="img" aria-label="12-month readiness trend chart" aria-describedby={DESCRIPTION_ID}>
 			<div class="trend-layer-chart" data-testid="layerchart-readiness-trend">
+				<div class="trend-y-axis" aria-hidden="true">
+					<span class="trend-y-axis-rule"></span>
+					{#each yTicks as tick (tick)}
+						<span class="trend-y-axis-tick" style:top={`${yTickTop(tick)}%`}>
+							<span class="trend-y-axis-tick-line"></span>
+							<span class="trend-y-axis-label">{formatPercent(tick)}</span>
+						</span>
+					{/each}
+				</div>
 				<LineChart
 					data={chartData}
 					flatData={chartData}
@@ -226,7 +292,7 @@
 					yDomain={effectiveYDomain}
 					yNice={false}
 					series={chartSeries}
-					axis={true}
+					axis="x"
 					grid={{
 						x: false,
 						y: { class: 'chart-grid-line' },
@@ -246,39 +312,6 @@
 						spline: {
 							fill: 'none',
 							class: 'trend-line'
-						},
-						tooltip: {
-							root: {
-								x: 'data',
-								y: 'data',
-								anchor: 'bottom',
-								xOffset: 0,
-								yOffset: 16,
-								variant: 'none',
-								motion: false,
-								classes: {
-									root: 'trend-tooltip-root',
-									container: 'trend-tooltip'
-								}
-							},
-							header: {
-								format: formatTooltipMonth,
-								classes: {
-									root: 'trend-tooltip-header'
-								}
-							},
-							list: {
-								class: 'trend-tooltip-list'
-							},
-							item: {
-								format: formatTooltipPercent,
-								valueAlign: 'right',
-								classes: {
-									label: 'trend-tooltip-label',
-									value: 'trend-tooltip-value',
-									color: 'trend-tooltip-color'
-								}
-							}
 						},
 						xAxis: {
 							ticks: xTicks,
@@ -346,6 +379,46 @@
 								}}
 							/>
 						{/each}
+					</svelte:fragment>
+					<svelte:fragment slot="tooltip" let:tooltip let:containerWidth let:containerHeight>
+						{#if tooltip?.data}
+							{@const tooltipDatum = tooltipTrendDatum(tooltip.data)}
+							{#if tooltipDatum}
+								<div
+									class="trend-tooltip-root"
+									data-placement={tooltipPlacement(tooltip.y)}
+									style:left={`${tooltipLeft(tooltip.x, containerWidth)}px`}
+									style:top={`${tooltipTop(tooltip.y, containerHeight)}px`}
+								>
+									<div class="trend-tooltip" role="status" aria-live="polite">
+										<div class="trend-tooltip-header">{tooltipMonthLabel(tooltipDatum)}</div>
+										<div class="trend-tooltip-list">
+											{#each tooltipEntries(tooltipDatum) as entry (entry.key)}
+												<div class="trend-tooltip-row">
+													<span class="trend-tooltip-label">
+														<svg class="trend-tooltip-series-line" viewBox="0 0 28 8" aria-hidden="true">
+															<line
+																class={entry.lineClass}
+																x1="0"
+																x2="28"
+																y1="4"
+																y2="4"
+																stroke={entry.color}
+																stroke-width="2.5"
+																vector-effect="non-scaling-stroke"
+															/>
+														</svg>
+														{entry.label}
+													</span>
+													<strong class="trend-tooltip-value">{entry.percent}</strong>
+													<span class="trend-tooltip-count">{entry.countText}</span>
+												</div>
+											{/each}
+										</div>
+									</div>
+								</div>
+							{/if}
+						{/if}
 					</svelte:fragment>
 				</LineChart>
 			</div>
@@ -562,9 +635,61 @@
 	}
 
 	.trend-layer-chart {
+		--trend-chart-padding-top: 16px;
+		--trend-chart-padding-right: 30px;
+		--trend-chart-padding-bottom: 76px;
+		--trend-chart-padding-left: 110px;
+
 		position: relative;
 		height: 23rem;
 		min-height: 18rem;
+	}
+
+	.trend-y-axis {
+		position: absolute;
+		top: var(--trend-chart-padding-top);
+		bottom: var(--trend-chart-padding-bottom);
+		left: 0;
+		z-index: 2;
+		width: var(--trend-chart-padding-left);
+		pointer-events: none;
+	}
+
+	.trend-y-axis-rule {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: 1px;
+		background: color-mix(in srgb, var(--text-secondary) 62%, transparent);
+	}
+
+	.trend-y-axis-tick {
+		position: absolute;
+		right: 0;
+		left: 0;
+		height: 1px;
+		transform: translateY(-0.5px);
+	}
+
+	.trend-y-axis-tick-line {
+		position: absolute;
+		top: 0;
+		right: 0;
+		width: 6px;
+		border-top: 1px solid color-mix(in srgb, var(--border-default) 78%, transparent);
+	}
+
+	.trend-y-axis-label {
+		position: absolute;
+		top: 50%;
+		right: 12px;
+		transform: translateY(-50%);
+		font-family: var(--font-body);
+		font-size: 17px;
+		letter-spacing: 0;
+		color: var(--text-secondary);
+		white-space: nowrap;
 	}
 
 	.trend-layer-chart :global(.layercake-container) {
@@ -655,11 +780,19 @@
 		user-select: none;
 	}
 
+	.trend-layer-chart :global(.trend-tooltip-root[data-placement='above']) {
+		transform: translate(-50%, calc(-100% - 0.75rem));
+	}
+
+	.trend-layer-chart :global(.trend-tooltip-root[data-placement='below']) {
+		transform: translate(-50%, 0.75rem);
+	}
+
 	.trend-layer-chart :global(.trend-tooltip) {
 		position: relative;
-		width: max-content;
-		min-width: 8.5rem;
-		max-width: min(18rem, calc(100vw - 2rem));
+		box-sizing: border-box;
+		width: 15rem;
+		max-width: min(15rem, calc(100vw - 2rem));
 		border: 0;
 		border-radius: var(--radius-md);
 		background: #141412;
@@ -675,11 +808,18 @@
 		content: '';
 		position: absolute;
 		left: 50%;
-		bottom: -0.3125rem;
 		width: 0.625rem;
 		height: 0.625rem;
 		background: #141412;
 		transform: translateX(-50%) rotate(45deg);
+	}
+
+	.trend-layer-chart :global(.trend-tooltip-root[data-placement='above'] .trend-tooltip)::after {
+		bottom: -0.3125rem;
+	}
+
+	.trend-layer-chart :global(.trend-tooltip-root[data-placement='below'] .trend-tooltip)::after {
+		top: -0.3125rem;
 	}
 
 	.trend-layer-chart :global(.trend-tooltip-header) {
@@ -692,35 +832,46 @@
 	}
 
 	.trend-layer-chart :global(.trend-tooltip-list) {
-		display: grid;
-		grid-template-columns: auto auto;
-		gap: var(--sp-1) var(--sp-2);
-		align-items: center;
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-2);
 	}
 
-	.trend-layer-chart :global(.trend-tooltip-list > .contents) {
-		display: contents;
+	.trend-layer-chart :global(.trend-tooltip-row) {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto auto;
+		gap: var(--sp-2);
+		align-items: center;
 	}
 
 	.trend-layer-chart :global(.trend-tooltip-label) {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--sp-2);
+		min-width: 0;
 		color: #f8f7f2;
 		white-space: nowrap;
 	}
 
-	.trend-layer-chart :global(.trend-tooltip-color) {
-		display: inline-block;
-		width: 0.75rem;
-		height: 0.75rem;
-		border-radius: 1px;
-		background: var(--color);
+	.trend-layer-chart :global(.trend-tooltip-series-line) {
+		display: block;
+		flex: 0 0 auto;
+		width: 1.5rem;
+		height: 0.5rem;
+		overflow: visible;
 	}
 
 	.trend-layer-chart :global(.trend-tooltip-value) {
 		color: #f8f7f2;
 		font-weight: var(--font-weight-semibold);
+		font-variant-numeric: tabular-nums;
+		text-align: right;
+		white-space: nowrap;
+	}
+
+	.trend-layer-chart :global(.trend-tooltip-count) {
+		color: color-mix(in srgb, #f8f7f2 72%, transparent);
+		font-size: 0.68rem;
 		font-variant-numeric: tabular-nums;
 		text-align: right;
 		white-space: nowrap;
